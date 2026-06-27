@@ -1224,22 +1224,29 @@ function renderProducts(){
       </div></td>
     </tr>`).join('');
 }
+function _setProductQty(p,q){
+  if(q>0)p.savedQty=q; // lembra a última quantidade marcada, mesmo depois de desmarcar
+  p.qty=q;
+}
 function setQty(id,val){
   const p=state.products.find(x=>x.id===id);if(!p)return;
-  let q=parseInt(val);if(isNaN(q)||q<0)q=0;p.qty=q;
+  let q=parseInt(val);if(isNaN(q)||q<0)q=0;
+  _setProductQty(p,q);
   save(state);renderProducts();updateCounts();
 }
 function toggleRow(id,checked){
   const p=state.products.find(x=>x.id===id);if(!p)return;
-  p.qty=checked?(p.qty>0?p.qty:1):0;
+  _setProductQty(p,checked?(p.savedQty>0?p.savedQty:(p.qty>0?p.qty:1)):0);
   save(state);renderProducts();updateCounts();
 }
 function toggleMaster(cb){
-  filtered().forEach(p=>{p.qty=cb.checked?(p.qty>0?p.qty:1):0;});
+  filtered().forEach(p=>{
+    _setProductQty(p,cb.checked?(p.savedQty>0?p.savedQty:(p.qty>0?p.qty:1)):0);
+  });
   save(state);renderProducts();updateCounts();
 }
 function selectAllVisible(){
-  filtered().forEach(p=>{if(!p.qty)p.qty=1;});
+  filtered().forEach(p=>{if(!p.qty)_setProductQty(p,p.savedQty>0?p.savedQty:1);});
   save(state);renderProducts();updateCounts();toast('Peças marcadas');
 }
 function goPrintFromSelection(){
