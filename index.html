@@ -54,7 +54,7 @@ html,body{margin:0;padding:0}
 body{
   font-family:var(--sans);
   color:var(--ink);
-  background:var(--ivory);
+  background:#15100F;
   -webkit-font-smoothing:antialiased;
   font-size:14.5px;
   line-height:1.45;
@@ -62,12 +62,18 @@ body{
   padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   min-height:100vh;min-height:100dvh;
 }
-/* Fundo ambiente: campanha da marca visível só no topo, desvanecendo para o blush */
+/* Fundo: blush claro no topo (cabeçalho legível) descendo para o preto — joia em ouro como brilho ambiente */
 body::before{
-  content:"";position:fixed;top:120px;left:0;right:0;bottom:0;z-index:-1;pointer-events:none;
-  background:linear-gradient(180deg,rgba(251,246,244,.66) 0%,rgba(251,246,244,.92) 34%,rgba(251,246,244,.99) 60%),
-             url('brand/slide.webp') center top/cover no-repeat;
-  filter:saturate(.9);
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-color:#15100F;
+  background-image:linear-gradient(180deg,
+      rgba(251,246,244,.97) 0%,
+      rgba(251,246,244,.90) 18%,
+      rgba(251,246,244,.58) 32%,
+      rgba(24,18,17,.34) 47%,
+      rgba(24,18,17,.68) 67%,
+      rgba(18,13,12,.88) 100%),
+    url('brand/bg.jpg');
+  background-repeat:no-repeat;background-position:center top,center;background-size:cover,cover;
 }
 button{font-family:inherit;cursor:pointer}
 input,select{font-family:inherit;font-size:14px}
@@ -210,10 +216,6 @@ tbody tr:hover{background:var(--ivory)}
 td.sku{font-family:var(--mono);font-weight:600;color:var(--bordo-soft);letter-spacing:.02em}
 td.price{font-weight:700;color:var(--ink);white-space:nowrap}
 td.desc{max-width:300px}
-td.cat span{
-  font-size:11px;background:var(--gold-tint);color:#8a6d1c;padding:2px 9px;border-radius:10px;
-  font-weight:600;white-space:nowrap;
-}
 .qtybox{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
 .qtybox button{width:26px;height:30px;border:none;background:var(--ivory);color:var(--bordo);font-size:15px;font-weight:600}
 .qtybox button:hover{background:var(--bordo-tint)}
@@ -429,8 +431,8 @@ td.cat span{
   td.rowchk-cell{position:absolute;top:14px;right:14px;width:auto;padding:0}
   td.rowchk-cell .chk{width:21px;height:21px}
   td.desc{font-family:var(--serif);font-size:15px;color:var(--bordo);font-weight:600;margin-bottom:8px;padding-right:6px}
-  td.sku,td.price,td.cat{width:auto;margin:0 14px 8px 0;font-size:12.5px}
-  td.sku::before,td.price::before,td.cat::before{
+  td.sku,td.price{width:auto;margin:0 14px 8px 0;font-size:12.5px}
+  td.sku::before,td.price::before{
     content:attr(data-label) ": ";font-weight:600;color:var(--muted);
     text-transform:uppercase;font-size:9.5px;letter-spacing:.05em;margin-right:3px;
   }
@@ -490,17 +492,10 @@ td.cat span{
                 <div class="help">Só o valor</div>
               </div>
             </div>
-            <div class="two">
-              <div class="field">
-                <label>Categoria</label>
-                <input id="f-cat" list="catlist" maxlength="24" placeholder="Ex.: Brincos (opcional)">
-                <datalist id="catlist"></datalist>
-              </div>
-              <div class="field">
-                <label>Qtd. etiquetas</label>
-                <input id="f-qty" type="number" min="0" placeholder="0">
-                <div class="help">Já entra na fila</div>
-              </div>
+            <div class="field">
+              <label>Qtd. etiquetas</label>
+              <input id="f-qty" type="number" min="0" placeholder="0">
+              <div class="help">Já entra na fila de impressão</div>
             </div>
             <button type="submit" class="btn btn-gold btn-block" id="saveBtn">Cadastrar peça</button>
             <button type="button" class="btn btn-ghost btn-block" id="cancelEdit" style="display:none;margin-top:8px" onclick="resetForm()">Cancelar edição</button>
@@ -518,7 +513,7 @@ td.cat span{
           <div class="toolbar">
             <div class="search">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-              <input id="searchInput" placeholder="Buscar por descrição, SKU ou categoria…" oninput="renderProducts()">
+              <input id="searchInput" placeholder="Buscar por descrição ou SKU…" oninput="renderProducts()">
             </div>
             <button class="btn btn-ghost btn-sm" onclick="selectAllVisible()">Marcar todas</button>
             <button class="btn btn-ghost btn-sm" onclick="openImport()">
@@ -535,7 +530,6 @@ td.cat span{
                   <th>Descrição</th>
                   <th>SKU</th>
                   <th>Preço</th>
-                  <th>Categoria</th>
                   <th style="width:120px">Qtd. etiq.</th>
                   <th style="width:90px"></th>
                 </tr>
@@ -621,7 +615,6 @@ td.cat span{
         <div class="mapfield"><label>Descrição <span class="req">*</span></label><select id="map-desc" onchange="renderPreview()"></select></div>
         <div class="mapfield"><label>SKU <span class="req">*</span></label><select id="map-sku" onchange="renderPreview()"></select></div>
         <div class="mapfield"><label>Preço <span class="req">*</span></label><select id="map-price" onchange="renderPreview()"></select></div>
-        <div class="mapfield"><label>Categoria</label><select id="map-cat" onchange="renderPreview()"></select></div>
         <div class="mapfield"><label>Qtd. de etiquetas</label><select id="map-qty" onchange="renderPreview()"></select></div>
       </div>
       <div class="maphint">A <b>Qtd. de etiquetas</b> é opcional. Se você indicar essa coluna, cada peça já entra na fila de impressão com a quantidade certa.</div>
@@ -1182,7 +1175,6 @@ form.addEventListener('submit',e=>{
   const desc=document.getElementById('f-desc').value.trim();
   const sku=document.getElementById('f-sku').value.trim();
   const priceRaw=document.getElementById('f-price').value.trim();
-  const cat=document.getElementById('f-cat').value.trim();
   const qtyRaw=document.getElementById('f-qty').value;
   let qty=parseInt(qtyRaw);if(isNaN(qty)||qty<0)qty=0;
   const price=parsePrice(priceRaw);
@@ -1191,13 +1183,13 @@ form.addEventListener('submit',e=>{
   const editId=document.getElementById('editId').value;
   if(editId){
     const p=state.products.find(x=>x.id==editId);
-    if(p){p.desc=desc;p.sku=sku;p.price=price;p.cat=cat;p.qty=qty;}
+    if(p){p.desc=desc;p.sku=sku;p.price=price;p.qty=qty;}
     toast('Peça atualizada');
   }else{
     if(state.products.some(x=>x.sku.toLowerCase()===sku.toLowerCase())){
       if(!confirm('Já existe uma peça com o SKU "'+sku+'". Cadastrar mesmo assim?')) return;
     }
-    state.products.unshift({id:state.seq++, desc, sku, price, cat, qty});
+    state.products.unshift({id:state.seq++, desc, sku, price, qty});
     toast('Peça cadastrada');
   }
   save(state);resetForm();renderAll();
@@ -1217,7 +1209,6 @@ function editProduct(id){
   document.getElementById('f-desc').value=p.desc;
   document.getElementById('f-sku').value=p.sku;
   document.getElementById('f-price').value=p.price.toFixed(2).replace('.',',');
-  document.getElementById('f-cat').value=p.cat||'';
   document.getElementById('f-qty').value=p.qty||0;
   document.getElementById('formTitle').textContent='Editar peça';
   document.getElementById('saveBtn').textContent='Salvar alterações';
@@ -1237,23 +1228,22 @@ function filtered(){
   const q=document.getElementById('searchInput').value.trim().toLowerCase();
   if(!q)return state.products;
   return state.products.filter(p=>
-    p.desc.toLowerCase().includes(q)||p.sku.toLowerCase().includes(q)||(p.cat||'').toLowerCase().includes(q));
+    p.desc.toLowerCase().includes(q)||p.sku.toLowerCase().includes(q));
 }
 function renderProducts(){
   const body=document.getElementById('prodBody');
   const list=filtered();
   if(state.products.length===0){
-    body.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="gem">${gemSVG(50,'var(--gold)',true)}</div><h3>Comece cadastrando uma peça</h3><p>Use o formulário ao lado. Descrição, SKU e preço — do jeitinho que aparece na etiqueta.</p></div></td></tr>`;
+    body.innerHTML=`<tr><td colspan="6"><div class="empty"><div class="gem">${gemSVG(50,'var(--gold)',true)}</div><h3>Comece cadastrando uma peça</h3><p>Use o formulário ao lado. Descrição, SKU e preço — do jeitinho que aparece na etiqueta.</p></div></td></tr>`;
     return;
   }
-  if(list.length===0){body.innerHTML=`<tr><td colspan="7"><div class="empty"><h3>Nada encontrado</h3><p>Tente outro termo de busca.</p></div></td></tr>`;return;}
+  if(list.length===0){body.innerHTML=`<tr><td colspan="6"><div class="empty"><h3>Nada encontrado</h3><p>Tente outro termo de busca.</p></div></td></tr>`;return;}
   body.innerHTML=list.map(p=>`
     <tr>
       <td class="rowchk-cell"><input type="checkbox" class="chk rowchk" data-id="${p.id}" ${p.qty>0?'checked':''} onchange="toggleRow(${p.id},this.checked)"></td>
       <td class="desc" data-label="Descrição">${esc(p.desc)}</td>
       <td class="sku" data-label="SKU">${esc(p.sku)}</td>
       <td class="price" data-label="Preço">${money(p.price)}</td>
-      <td class="cat" data-label="Categoria">${p.cat?`<span>${esc(p.cat)}</span>`:'<span style="background:#f0eae6;color:#b3a59f">—</span>'}</td>
       <td class="qty" data-label="Qtd. etiq.">
         <div class="qtybox">
           <button onclick="setQty(${p.id},${(p.qty||0)-1})">−</button>
@@ -1307,9 +1297,6 @@ function updateCounts(){
   document.getElementById('selLabels').textContent=totalLabels;
   document.getElementById('sheetUsage').textContent=Math.min(totalLabels,126);
   document.getElementById('sheetTotal').textContent=Math.max(1,Math.ceil(totalLabels/126))||0;
-  // rebuild catlist
-  const cats=[...new Set(state.products.map(p=>p.cat).filter(Boolean))];
-  document.getElementById('catlist').innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join('');
 }
 
 /* =================== Tabs =================== */
@@ -1600,7 +1587,6 @@ function autoDetect(){
     desc:find(['descri','nome','produto','peça','peca','item']),
     sku:find(['sku','barra','código','codigo','cod','refer']),
     price:find(['preço','preco','valor','r$','price']),
-    cat:find(['categ','tipo','grupo','linha']),
     qty:find(['quantidade','qtde','qtd','quant','etiqueta','unidade','qty'])
   };
 }
@@ -1615,7 +1601,6 @@ function renderMapping(){
   document.getElementById('map-desc').innerHTML=opt('desc',det.desc);
   document.getElementById('map-sku').innerHTML=opt('sku',det.sku);
   document.getElementById('map-price').innerHTML=opt('price',det.price);
-  document.getElementById('map-cat').innerHTML=opt('cat',det.cat);
   document.getElementById('map-qty').innerHTML=opt('qty',det.qty);
   renderPreview();
 }
@@ -1628,7 +1613,6 @@ function getMap(){
     desc:+document.getElementById('map-desc').value,
     sku:+document.getElementById('map-sku').value,
     price:+document.getElementById('map-price').value,
-    cat:+document.getElementById('map-cat').value,
     qty:+document.getElementById('map-qty').value
   };
 }
@@ -1638,7 +1622,6 @@ function buildImportList(){
     const desc=m.desc>=0?String(r[m.desc]??'').trim():'';
     const sku=m.sku>=0?String(r[m.sku]??'').trim():'';
     const price=m.price>=0?parsePrice(r[m.price]):null;
-    const cat=m.cat>=0?String(r[m.cat]??'').trim():'';
     let qty=0;
     if(m.qty>=0){
       const qraw=String(r[m.qty]??'').replace(/[^\d]/g,'');
@@ -1646,7 +1629,7 @@ function buildImportList(){
       if(isNaN(qty)||qty<0)qty=0;
     }
     const valid=desc&&sku&&price!==null;
-    out.push({desc,sku,price,cat,qty,valid});
+    out.push({desc,sku,price,qty,valid});
   });
   return out;
 }
@@ -1655,12 +1638,11 @@ function renderPreview(){
   const head=document.getElementById('prevHead');
   const body=document.getElementById('prevBody');
   const hasQty=getMap().qty>=0;
-  head.innerHTML='<tr><th>Descrição</th><th>SKU</th><th>Preço</th><th>Categoria</th>'+(hasQty?'<th>Qtd.</th>':'')+'</tr>';
+  head.innerHTML='<tr><th>Descrição</th><th>SKU</th><th>Preço</th>'+(hasQty?'<th>Qtd.</th>':'')+'</tr>';
   body.innerHTML=list.slice(0,6).map(p=>`<tr>
     <td class="${p.desc?'':'bad'}">${p.desc?esc(p.desc):'(vazio)'}</td>
     <td class="${p.sku?'':'bad'}">${p.sku?esc(p.sku):'(vazio)'}</td>
-    <td class="${p.price!==null?'':'bad'}">${p.price!==null?money(p.price):'(inválido)'}</td>
-    <td>${p.cat?esc(p.cat):'—'}</td>${hasQty?`<td>${p.qty||0}</td>`:''}</tr>`).join('');
+    <td class="${p.price!==null?'':'bad'}">${p.price!==null?money(p.price):'(inválido)'}</td>${hasQty?`<td>${p.qty||0}</td>`:''}</tr>`).join('');
   const validList=list.filter(p=>p.valid);
   const valid=validList.length;
   const invalid=list.length-valid;
@@ -1680,7 +1662,7 @@ function doImport(){
   list.forEach(p=>{
     if(dup==='skip' && existing.has(p.sku.toLowerCase())){skipped++;return;}
     const q=p.qty||0;
-    state.products.unshift({id:state.seq++,desc:p.desc,sku:p.sku,price:p.price,cat:p.cat,qty:q});
+    state.products.unshift({id:state.seq++,desc:p.desc,sku:p.sku,price:p.price,qty:q});
     existing.add(p.sku.toLowerCase());added++;labels+=q;
   });
   save(state);renderAll();closeImport();
@@ -1690,12 +1672,12 @@ function doImport(){
   toast(msg);
 }
 function downloadTemplate(){
-  const data=[['Descrição','SKU','Preço','Categoria','Quantidade'],
-    ['PING MENINO VERDE','222908','89,00','Brincos',6],
-    ['PING MENINA PINK','533018','89,00','Brincos',5],
-    ['CL TERÇO','432665','129,00','Colares',1]];
+  const data=[['Descrição','SKU','Preço','Quantidade'],
+    ['PING MENINO VERDE','222908','89,00',6],
+    ['PING MENINA PINK','533018','89,00',5],
+    ['CL TERÇO','432665','129,00',1]];
   const ws=XLSX.utils.aoa_to_sheet(data);
-  ws['!cols']=[{wch:24},{wch:12},{wch:10},{wch:14},{wch:12}];
+  ws['!cols']=[{wch:24},{wch:12},{wch:10},{wch:12}];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Peças');
   XLSX.writeFile(wb,'modelo-etiquetas-marquesa.xlsx');

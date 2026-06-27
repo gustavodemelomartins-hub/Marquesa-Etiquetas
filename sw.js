@@ -1,4 +1,4 @@
-const CACHE = 'marquesa-etiquetas-v3';
+const CACHE = 'marquesa-etiquetas-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -7,7 +7,7 @@ const ASSETS = [
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
   './brand/logo.webp',
-  './brand/slide.webp',
+  './brand/bg.jpg',
   './brand/fonts/cormorant.woff2',
   './brand/fonts/jost.woff2'
 ];
