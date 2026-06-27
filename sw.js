@@ -1,11 +1,15 @@
-const CACHE = 'marquesa-etiquetas-v2';
+const CACHE = 'marquesa-etiquetas-v3';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/apple-touch-icon.png'
+  './icons/apple-touch-icon.png',
+  './brand/logo.webp',
+  './brand/slide.webp',
+  './brand/fonts/cormorant.woff2',
+  './brand/fonts/jost.woff2'
 ];
 
 self.addEventListener('install', e => {
