@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Marquesa · Etiquetas</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#FBF6F4">
+<meta name="theme-color" content="#16100F">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Marquesa">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon-192.png">
@@ -33,9 +33,14 @@
   --rose:#D88399;         /* rosé assinatura da marca */
   --rose-soft:#EAAFAB;
   --rose-tint:#F6E3E2;
-  --gold:#B8923F;         /* ouro refinado, eco das peças */
-  --gold-light:#DCC07A;
-  --gold-tint:#F6EFDD;
+  /* v3.1: o antigo ouro foi aposentado — acento único agora é o rosé da marca */
+  --gold:#D88399;
+  --gold-light:#EAAFAB;
+  --gold-tint:#F6E3E2;
+  --darkbg:#16100F;       /* preto quente: fundo do app inteiro */
+  --hair:rgba(251,246,244,.16); /* linha fina sobre o escuro */
+  --ondark:#F4EBE9;       /* texto claro sobre o escuro */
+  --ondark-soft:rgba(244,235,233,.62);
   --ink:#2C2428;
   --muted:#9E8A90;
   --line:#EFE0E2;
@@ -53,8 +58,8 @@
 html,body{margin:0;padding:0}
 body{
   font-family:var(--sans);
-  color:var(--ink);
-  background:#15100F;
+  color:var(--ondark);
+  background:var(--darkbg);
   -webkit-font-smoothing:antialiased;
   font-size:14.5px;
   line-height:1.45;
@@ -62,18 +67,15 @@ body{
   padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   min-height:100vh;min-height:100dvh;
 }
-/* Fundo: blush claro no topo (cabeçalho legível) descendo para o preto — joia em ouro como brilho ambiente */
+/* Fundo escuro uniforme (sem corte branco) — a joia em ouro fica só como um brilho discreto e parelho */
 body::before{
-  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-color:#15100F;
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-color:var(--darkbg);
   background-image:linear-gradient(180deg,
-      rgba(251,246,244,.97) 0%,
-      rgba(251,246,244,.90) 18%,
-      rgba(251,246,244,.58) 32%,
-      rgba(24,18,17,.34) 47%,
-      rgba(24,18,17,.68) 67%,
-      rgba(18,13,12,.88) 100%),
+      rgba(22,16,15,.62) 0%,
+      rgba(22,16,15,.80) 46%,
+      rgba(18,13,12,.95) 100%),
     url('brand/bg.jpg');
-  background-repeat:no-repeat;background-position:center top,center;background-size:cover,cover;
+  background-repeat:no-repeat;background-position:center,center;background-size:cover,cover;
 }
 button{font-family:inherit;cursor:pointer}
 input,select{font-family:inherit;font-size:14px}
@@ -83,7 +85,7 @@ input,select{font-family:inherit;font-size:14px}
 
 header.top{
   display:flex;align-items:center;justify-content:space-between;
-  padding:22px 0 18px;border-bottom:1.5px solid #141312;
+  padding:22px 0 18px;border-bottom:1px solid var(--hair);
   margin-bottom:0;
 }
 .brand{display:flex;align-items:center;gap:16px}
@@ -106,34 +108,34 @@ header.top{
 .brand .logo{height:34px;width:auto;display:block}
 .brand .tooltag{
   font-size:10px;letter-spacing:.34em;text-transform:uppercase;
-  color:#141312;font-weight:700;padding-left:16px;
-  border-left:1.5px solid #141312;align-self:stretch;
+  color:var(--ondark);font-weight:600;padding-left:16px;
+  border-left:1px solid var(--hair);align-self:stretch;
   display:flex;align-items:center;
 }
-.top .meta{text-align:right;font-size:11.5px;color:#141312;line-height:1.5}
-.top .meta b{color:#141312;font-weight:700}
+.top .meta{text-align:right;font-size:11.5px;color:var(--ondark-soft);line-height:1.5}
+.top .meta b{color:var(--ondark);font-weight:600}
 .top .meta .gearbtn{
-  margin-top:6px;background:none;border:1.5px solid #141312;
-  color:#141312;border-radius:7px;padding:5px 11px;font-size:11.5px;
+  margin-top:6px;background:rgba(251,246,244,.04);border:1px solid var(--hair);
+  color:var(--ondark);border-radius:7px;padding:5px 11px;font-size:11.5px;
   display:inline-flex;align-items:center;gap:6px;transition:.15s;
 }
-.top .meta .gearbtn:hover{border-color:#141312;color:#141312;background:var(--bordo-tint)}
+.top .meta .gearbtn:hover{border-color:var(--rose);color:var(--rose);background:rgba(216,131,153,.1)}
 
 /* ---------- Tabs ---------- */
-.tabs{display:flex;gap:4px;margin:22px 0 26px;border-bottom:1.5px solid #141312}
+.tabs{display:flex;gap:4px;margin:22px 0 26px;border-bottom:1px solid var(--hair)}
 .tab{
   background:none;border:none;padding:11px 20px 13px;font-size:14.5px;
-  color:var(--ink);position:relative;font-weight:500;letter-spacing:.01em;
+  color:var(--ondark-soft);position:relative;font-weight:500;letter-spacing:.01em;
   border-radius:8px 8px 0 0;transition:color .15s;
 }
-.tab:hover{color:#141312}
-.tab.active{color:#141312;font-weight:700}
+.tab:hover{color:var(--ondark)}
+.tab.active{color:var(--ondark);font-weight:700}
 .tab.active::after{
   content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:2.5px;
-  background:linear-gradient(90deg,var(--gold),var(--gold-light));border-radius:2px;
+  background:var(--rose);border-radius:2px;
 }
 .tab .count{
-  display:inline-block;margin-left:7px;background:var(--bordo-tint);color:var(--bordo);
+  display:inline-block;margin-left:7px;background:rgba(216,131,153,.2);color:var(--rose-soft);
   font-size:11px;font-weight:600;padding:1px 8px;border-radius:10px;vertical-align:1px;
 }
 
@@ -149,14 +151,16 @@ header.top{
   box-shadow:var(--shadow);overflow:hidden;
 }
 .panel .head{
-  padding:16px 20px 14px;border-bottom:1px solid var(--line-soft);
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:20px 20px 16px;border-bottom:1px solid var(--line-soft);
+  display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;
 }
 .panel .head h2{
-  margin:0;font-family:var(--serif);font-weight:400;font-size:18px;color:var(--bordo);
-  letter-spacing:.01em;display:flex;align-items:center;gap:9px;
+  margin:0;font-family:var(--serif);font-weight:700;font-size:24px;color:var(--bordo);
+  letter-spacing:.02em;line-height:1.04;
+  display:flex;flex-direction:column;align-items:center;gap:7px;
 }
-.panel .head .hint{font-size:11.5px;color:var(--muted)}
+.panel .head h2::after{content:"";display:block;width:40px;height:2px;border-radius:2px;background:var(--rose)}
+.panel .head .hint{font-size:11.5px;color:var(--muted);max-width:42ch}
 .panel .body{padding:20px}
 
 /* ---------- Form ---------- */
@@ -190,7 +194,7 @@ header.top{
 .btn-ghost:hover{border-color:var(--gold);color:var(--bordo)}
 .btn-block{width:100%}
 .btn-sm{padding:7px 13px;font-size:12.5px;border-radius:8px}
-.btn-print{background:linear-gradient(135deg,var(--gold),#9c7c26);color:#fff;font-size:15px;padding:13px 24px}
+.btn-print{background:linear-gradient(135deg,var(--bordo),var(--rose));color:#fff;font-size:15px;padding:13px 24px}
 .btn-print:hover{filter:brightness(1.05)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .btn-danger{background:var(--danger-tint);color:var(--danger)}
@@ -238,11 +242,11 @@ td.desc{max-width:300px}
 /* ---------- Print tab ---------- */
 .selbar{
   display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-  background:var(--gold-tint);border:1px solid #ecdcae;border-radius:11px;
+  background:var(--bordo-tint);border:1px solid var(--rose-tint);border-radius:11px;
   padding:13px 16px;margin-bottom:16px;
 }
-.selbar .stat{font-size:13px;color:#6e5616}
-.selbar .stat b{font-family:var(--serif);font-size:18px;color:var(--bordo);font-weight:400;margin-right:3px}
+.selbar .stat{font-size:13px;color:var(--bordo-soft)}
+.selbar .stat b{font-family:var(--serif);font-size:19px;color:var(--bordo);font-weight:700;margin-right:3px}
 .selbar .spacer{flex:1}
 .sheetcount{font-size:12px;color:var(--muted)}
 .sheetcount b{color:var(--bordo)}
@@ -300,10 +304,10 @@ td.desc{max-width:300px}
 .mhead h2{margin:0;font-family:var(--serif);font-weight:400;color:var(--bordo);font-size:21px;display:flex;align-items:center;gap:10px}
 .mbody{padding:22px}
 .dropzone{
-  border:2px dashed var(--gold-light);border-radius:14px;background:var(--gold-tint);
+  border:2px dashed var(--rose-soft);border-radius:14px;background:var(--rose-tint);
   padding:34px 20px;text-align:center;cursor:pointer;transition:.18s;
 }
-.dropzone:hover,.dropzone.drag{background:#f9f1da;border-color:var(--gold)}
+.dropzone:hover,.dropzone.drag{background:#FBEEF0;border-color:var(--rose)}
 .dropzone svg{margin-bottom:12px}
 .dz-main{margin:0 0 5px;font-size:15px;color:var(--bordo-soft);line-height:1.4}
 .dz-main b{color:var(--bordo)}
@@ -316,8 +320,8 @@ td.desc{max-width:300px}
 .hdrchk{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);white-space:nowrap}
 .hdrchk input{accent-color:var(--bordo);width:15px;height:15px}
 .maps{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
-.maphint{font-size:12px;color:var(--muted);line-height:1.5;background:var(--gold-tint);border:1px solid #ecdcae;border-radius:9px;padding:9px 12px;margin-bottom:18px}
-.maphint b{color:#8a6d1c}
+.maphint{font-size:12px;color:var(--muted);line-height:1.5;background:var(--rose-tint);border:1px solid var(--rose-soft);border-radius:9px;padding:9px 12px;margin-bottom:18px}
+.maphint b{color:var(--bordo)}
 .mapfield label{display:block;font-size:11px;font-weight:600;color:var(--bordo-soft);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
 .mapfield .req{color:var(--gold)}
 .mapfield select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
@@ -1123,7 +1127,7 @@ function gemSVG(size, color, glow){
   return `<svg width="${w}" height="${h}" viewBox="0 0 100 62" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block">
     <path d="M50 2 C72 14, 92 24, 98 31 C92 38, 72 48, 50 60 C28 48, 8 38, 2 31 C8 24, 28 14, 50 2 Z" fill="${glow?'url(#gemg)':'none'}" stroke="${color}" stroke-width="2.4" stroke-linejoin="round"/>
     <path d="M2 31 H98 M50 2 V60 M26 17 L26 45 M74 17 L74 45 M26 17 Q50 26 74 17 M26 45 Q50 36 74 45" stroke="${color}" stroke-width="1.1" opacity=".55" stroke-linejoin="round"/>
-    ${glow?'<defs><linearGradient id="gemg" x1="0" y1="0" x2="100" y2="62" gradientUnits="userSpaceOnUse"><stop stop-color="#F6EFDD"/><stop offset="1" stop-color="#EBD9A6"/></linearGradient></defs>':''}
+    ${glow?'<defs><linearGradient id="gemg" x1="0" y1="0" x2="100" y2="62" gradientUnits="userSpaceOnUse"><stop stop-color="#F6E3E2"/><stop offset="1" stop-color="#EAAFAB"/></linearGradient></defs>':''}
   </svg>`;
 }
 /* logo real definida no HTML: brand/logo.webp (sem sobrescrever com gema) */
