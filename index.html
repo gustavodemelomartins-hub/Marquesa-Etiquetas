@@ -130,16 +130,16 @@ header.top{
 .top .meta .gearbtn:hover{border-color:var(--bordo);color:var(--bordo);background:var(--bordo-tint)}
 
 /* ---------- Tabs ---------- */
-.tabs{display:flex;gap:4px;margin:22px 0 26px;border-bottom:1.5px solid #141312}
+.tabs{display:flex;gap:4px;margin:10px 0 26px;border-bottom:1.5px solid #141312}
 .tab{
-  background:none;border:none;padding:11px 20px 13px;font-size:14.5px;
+  background:none;border:none;padding:9px 20px 18px;font-size:14.5px;
   color:var(--ink);position:relative;font-weight:500;letter-spacing:.01em;
   border-radius:8px 8px 0 0;transition:color .15s;
 }
 .tab:hover{color:#141312}
 .tab.active{color:#141312;font-weight:700}
 .tab.active::after{
-  content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:2.5px;
+  content:"";position:absolute;left:14px;right:14px;bottom:6px;height:2.5px;
   background:var(--rose);border-radius:2px;
 }
 .tab .count{
@@ -155,7 +155,7 @@ header.top{
 .row{display:grid;gap:22px}
 .row.split{grid-template-columns:340px 1fr}
 .panel{
-  background:var(--paper);border:1px solid var(--line);border-radius:14px;
+  background:var(--paper);border:1.5px solid #141312;border-radius:14px;
   box-shadow:var(--shadow);overflow:hidden;
 }
 .panel .head{
@@ -402,9 +402,9 @@ td.desc{max-width:300px}
   .brand .logo{height:38px}
   .top .meta{flex:1 1 100%;text-align:left}
   .top .meta .gearbtn{margin-top:8px}
-  .tabs{overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;margin:18px 0 20px}
+  .tabs{overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;margin:2px 0 22px}
   .tabs::-webkit-scrollbar{display:none}
-  .tab{padding:10px 14px 12px;white-space:nowrap;flex:none}
+  .tab{padding:9px 14px 17px;white-space:nowrap;flex:none}
 
   .row.split{grid-template-columns:1fr}
   .panel .body{padding:16px}
@@ -578,7 +578,6 @@ td.desc{max-width:300px}
           </button>
         </div>
         <div id="printEmpty" class="empty" style="display:none">
-          <div class="gem" id="emptyGem2"></div>
           <h3>Nenhuma etiqueta na fila</h3>
           <p>Volte em <b>Produtos</b>, marque as peças e defina quantas etiquetas de cada uma você quer imprimir.</p>
         </div>
@@ -1139,8 +1138,7 @@ function gemSVG(size, color, glow){
   </svg>`;
 }
 /* logo real definida no HTML: brand/logo.webp (sem sobrescrever com gema) */
-/* gema do título removida — não combinava com o título centralizado */
-document.getElementById('emptyGem2').innerHTML = gemSVG(54,'var(--rose)',true);
+/* gemas decorativas removidas a pedido (título e estados vazios) */
 
 /* =================== Storage (resilient) =================== */
 const KEY='marquesa_etiquetas_v1';
@@ -1246,7 +1244,7 @@ function renderProducts(){
   const body=document.getElementById('prodBody');
   const list=filtered();
   if(state.products.length===0){
-    body.innerHTML=`<tr><td colspan="6"><div class="empty"><div class="gem">${gemSVG(50,'var(--gold)',true)}</div><h3>Comece cadastrando uma peça</h3><p>Use o formulário ao lado. Descrição, SKU e preço — do jeitinho que aparece na etiqueta.</p></div></td></tr>`;
+    body.innerHTML=`<tr><td colspan="6"><div class="empty"><h3>Comece cadastrando uma peça</h3><p>Use o formulário ao lado. Descrição, SKU e preço — do jeitinho que aparece na etiqueta.</p></div></td></tr>`;
     return;
   }
   if(list.length===0){body.innerHTML=`<tr><td colspan="6"><div class="empty"><h3>Nada encontrado</h3><p>Tente outro termo de busca.</p></div></td></tr>`;return;}

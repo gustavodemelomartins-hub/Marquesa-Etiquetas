@@ -1,4 +1,4 @@
-const CACHE = 'marquesa-etiquetas-v6';
+const CACHE = 'marquesa-etiquetas-v7';
 const ASSETS = [
   './',
   './index.html',
