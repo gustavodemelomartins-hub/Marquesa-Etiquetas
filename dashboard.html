@@ -1005,6 +1005,7 @@ function defaultState(){
                    como prazo. O Anexo I traz justamente essa data. */
     maletas:[],
     seqRev:1, seqMal:1,
+    loja:null,         /* retrato do último export da Nuvemshop lido */
     config:{
       prazoDias:45,
       prataPct:10,
@@ -1038,6 +1039,7 @@ function migrate(s){
   const d=defaultState();
   s=Object.assign({},d,s);
   s.config=Object.assign({},d.config,s.config||{});
+  if(!s.loja) s.loja=null;
   if(!Array.isArray(s.config.faixas)||!s.config.faixas.length) s.config.faixas=d.config.faixas;
   /* preserva campos extras (urlLoja, estoqueLoja, visivel) em vez de recriar o objeto */
   s.produtos=(s.produtos||[]).map(p=>Object.assign({},p,{
@@ -1675,8 +1677,19 @@ function panoramaLoja(){
   const naLoja=state.produtos.filter(p=>p.urlLoja);
   const fora=state.produtos.filter(p=>!p.urlLoja);
   const certo=p=>Math.max(0,casa[p.sku]||0);
+  /* Um PRODUTO da Nuvemshop é um Identificador URL. Ele pode carregar
+     várias variações, cada uma com o seu SKU — por isso o número de
+     produtos da loja é menor que o de códigos casados. É esse o número
+     que aparece no painel da Nuvemshop. */
+  const L=state.loja||{};
+  const produtos=L.produtosCasados||new Set(naLoja.map(p=>p.urlLoja)).size;
   return {
     casa, naLoja, fora, certo,
+    produtos,
+    produtosNaLoja: L.produtosNaLoja||produtos,
+    soNaLoja: L.soNaLoja||0,
+    variacoes: Math.max(0,naLoja.length-produtos),
+    duplicados: L.duplicados||[],
     faltaSubir: fora.filter(p=>certo(p)>0),
     desatualizados: naLoja.filter(p=>(p.estoqueLoja||0)!==certo(p)),
     ocultos: naLoja.filter(p=>p.visivel===false),
@@ -1720,8 +1733,8 @@ function renderLoja(){
     <div class="kpis">
       <div class="kpi">
         <div class="k-lbl">Produtos na loja</div>
-        <div class="k-num">${L.naLoja.length}</div>
-        <div class="k-sub">${L.pecasPublicadas} peças publicadas · ${money(L.valorPublicado)}</div>
+        <div class="k-num">${L.produtosNaLoja}</div>
+        <div class="k-sub">${L.naLoja.length} códigos meus entre eles${L.soNaLoja?` · ${L.soNaLoja} não conheço`:''} · ${money(L.valorPublicado)}</div>
       </div>
       <div class="kpi k-rev">
         <div class="k-lbl">Estoque errado no site</div>
@@ -1747,6 +1760,12 @@ function renderLoja(){
       <div class="w-act"><button class="btn btn-gold btn-sm" onclick="exportLoja()">↓ Gerar atualização de estoque</button></div></div>
     </div>`:''}
 
+    ${L.duplicados.length?`<div class="warn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+      <div><b>${L.duplicados.length} ${plural(L.duplicados.length,'código está cadastrado','códigos estão cadastrados')} em mais de um produto na loja</b>
+      (${esc(L.duplicados.slice(0,4).join(', '))}). O estoque fica dividido entre eles e a conta nunca fecha — vale unificar na Nuvemshop.</div>
+    </div>`:''}
+
     ${L.faltaSubir.length?`<div class="warn info">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" transform="rotate(180 12 12)"/></svg>
       <div><b>${L.faltaSubir.length} códigos com peça em casa não existem na loja</b> —
@@ -1758,7 +1777,7 @@ function renderLoja(){
       <div class="head">
         <h2>${({publicados:'Produtos no site',desatualizados:'Estoque errado no site',ocultos:'Ocultos no site',falta:'Falta subir para o site'})[filtroVitrine]}</h2>
         <span class="hint">${({
-          publicados:'O que está cadastrado na Nuvemshop hoje',
+          publicados:`${L.produtosNaLoja} produtos na loja · ${L.naLoja.length} códigos meus${L.variacoes?`, sendo ${L.variacoes} variações de um produto já contado`:''}`,
           desatualizados:'A loja mostra um número, o real é outro',
           ocultos:reativar.length?`${reativar.length} ${plural(reativar.length,'tem peça em casa e podia estar vendendo','têm peça em casa e podiam estar vendendo')}`
                                  :'Cadastrados, mas invisíveis para o cliente',
@@ -1767,7 +1786,7 @@ function renderLoja(){
       </div>
       <div class="body">
         <div class="subtabs">
-          <button class="pill ${filtroVitrine==='publicados'?'on':''}" onclick="setFiltroVitrine('publicados')">No site (${L.naLoja.length})</button>
+          <button class="pill ${filtroVitrine==='publicados'?'on':''}" onclick="setFiltroVitrine('publicados')">No site (${L.produtosNaLoja})</button>
           <button class="pill ${filtroVitrine==='desatualizados'?'on':''}" onclick="setFiltroVitrine('desatualizados')">Estoque errado (${L.desatualizados.length})</button>
           <button class="pill ${filtroVitrine==='ocultos'?'on':''}" onclick="setFiltroVitrine('ocultos')">Ocultos (${L.ocultos.length}${reativar.length?' · '+reativar.length+' com peça':''})</button>
           <button class="pill ${filtroVitrine==='falta'?'on':''}" onclick="setFiltroVitrine('falta')">Falta subir (${L.faltaSubir.length})</button>
@@ -2595,10 +2614,15 @@ function importarLoja(d,notas){
 
   const idx=prodIndex();
   const porSku=new Map();
+  const urlsDoArquivo=new Set();   /* todo produto da loja, tenha par aqui ou não */
+  const urlsPorSku=new Map();      /* para achar código cadastrado em dois produtos */
   d.linhas.slice(d.hi+1).forEach(l=>{
     const sku=baseSku(l[cSku]);
     const url=String(l[cUrl]==null?'':l[cUrl]).trim();
+    if(url) urlsDoArquivo.add(url);
     if(!sku||!url) return;
+    if(!urlsPorSku.has(sku)) urlsPorSku.set(sku,new Set());
+    urlsPorSku.get(sku).add(url);
     const est=cEst>=0?int(l[cEst]):0;
     /* A visibilidade só vem preenchida na primeira linha de um produto com
        variações; nas linhas seguintes o campo vem vazio. Vazio é "não sei",
@@ -2617,11 +2641,23 @@ function importarLoja(d,notas){
   });
 
   let casados=0, novos=0;
+  const urlsCasadas=new Set();
   porSku.forEach((v,sku)=>{
     const p=idx.get(sku);
-    if(p){ Object.assign(p,v); casados++; }
+    if(p){ Object.assign(p,v); casados++; urlsPorSku.get(sku).forEach(u=>urlsCasadas.add(u)); }
     else novos++;
   });
+
+  /* Retrato da loja, medido no arquivo e não deduzido depois: é o que
+     responde "por que o painel da Nuvemshop mostra outro número". */
+  state.loja={
+    lidoEm:hoje(),
+    produtosNaLoja:urlsDoArquivo.size,
+    produtosCasados:urlsCasadas.size,
+    soNaLoja:urlsDoArquivo.size-urlsCasadas.size,
+    codigosCasados:casados,
+    duplicados:[...urlsPorSku.entries()].filter(([sku,u])=>u.size>1&&idx.has(sku)).map(([sku])=>sku)
+  };
   /* limpa a marca de quem saiu da loja desde o último export */
   state.produtos.forEach(p=>{ if(!porSku.has(p.sku)) { delete p.urlLoja; delete p.estoqueLoja; delete p.visivel; } });
 
