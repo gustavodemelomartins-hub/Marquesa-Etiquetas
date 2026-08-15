@@ -527,6 +527,15 @@ td.desc{max-width:300px}
 #dtip .t-nm{font-weight:700;margin-bottom:2px}
 #dtip .t-vl{color:rgba(255,255,255,.72)}
 
+/* ---------- Painel do mix da maleta ---------- */
+.painel-mix{background:var(--ivory);border:1px solid var(--line);border-radius:13px;padding:16px}
+.painel-mix .mix-t{
+  font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--bordo-soft);
+  font-weight:700;margin-bottom:14px;text-align:center;
+}
+.painel-mix .donutbox{max-width:230px}
+.painel-mix .legend{grid-template-columns:1fr 1fr;font-size:11.5px}
+
 /* ---------- Cartões de revendedora ---------- */
 .revgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
 .revcard{
@@ -870,8 +879,16 @@ td.num.neg{color:var(--danger)}
       <div class="grp">
         <h3>Dados</h3>
         <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px" onclick="openImport()">↑ Importar planilha</button>
-        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px" onclick="exportNuvemshop()">↓ Planilha para a Nuvemshop</button>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px" onclick="exportLoja()">↓ Atualização de estoque da loja (.csv)</button>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px" onclick="exportSemCadastro()">↓ Peças que faltam cadastrar na loja</button>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px" onclick="exportNuvemshop()">↓ Planilha da sincronização antiga</button>
         <button class="btn btn-ghost btn-sm btn-block" onclick="exportEtiquetas()">↓ Planilha para o app de etiquetas</button>
+        <div class="tip" style="margin-top:12px">
+          O arquivo de atualização leva apenas <b>Identificador URL</b>, <b>SKU</b> e
+          <b>Estoque</b>, e só os produtos que estão diferentes. Preço, descrição e SEO
+          ficam de fora para não sobrescrever a loja. Na primeira vez, suba um arquivo
+          com poucas linhas e confira antes de mandar tudo.
+        </div>
       </div>
 
       <div class="grp">
@@ -1002,7 +1019,11 @@ function migrate(s){
   s=Object.assign({},d,s);
   s.config=Object.assign({},d.config,s.config||{});
   if(!Array.isArray(s.config.faixas)||!s.config.faixas.length) s.config.faixas=d.config.faixas;
-  s.produtos=(s.produtos||[]).map(p=>({sku:String(p.sku), desc:p.desc||'', cat:p.cat||catOf(p.desc||''), preco:+p.preco||0, qtd:+p.qtd||0}));
+  /* preserva campos extras (urlLoja, estoqueLoja, visivel) em vez de recriar o objeto */
+  s.produtos=(s.produtos||[]).map(p=>Object.assign({},p,{
+    sku:String(p.sku), desc:p.desc||'', cat:p.cat||catOf(p.desc||''),
+    preco:+p.preco||0, qtd:+p.qtd||0
+  }));
   s.maletas=(s.maletas||[]).map(m=>Object.assign({itens:{},status:'aberta'},m));
   return s;
 }
@@ -1336,6 +1357,17 @@ function dadosCategoria(){
   });
   return CATS.map(c=>({cat:c,qtd:acc[c]||0,cor:CAT_COR[c]})).filter(d=>d.qtd>0);
 }
+/* Mesma leitura, mas para o conteúdo de uma maleta. */
+function dadosDeItens(itens){
+  const idx=prodIndex(), acc={};
+  Object.entries(itens||{}).forEach(([sku,q])=>{
+    if(!(q>0)) return;
+    const p=idx.get(sku);
+    const c=(p&&p.cat)||'Outros';
+    acc[c]=(acc[c]||0)+q;
+  });
+  return CATS.map(c=>({cat:c,qtd:acc[c]||0,cor:CAT_COR[c]})).filter(d=>d.qtd>0);
+}
 
 /* "0%" para uma categoria que tem peças é mentira; abaixo de 1% mostra "<1%". */
 function pctTexto(q,total){
@@ -1354,12 +1386,20 @@ function arcoRosca(cx,cy,rOut,rIn,a0,a1){
 function renderDonut(){
   const wrap=document.getElementById('chartWrap');
   if(!wrap) return;
-  const dados=dadosCategoria();
+  const nomeEscopo={total:'no total',casa:'em casa',fora:'na rua'}[escopoGrafico];
+  const vazio=escopoGrafico==='fora'?'Nenhuma peça está com revendedoras no momento.':'Sem peças para mostrar.';
+  desenharRosca(wrap,dadosCategoria(),nomeEscopo,vazio);
+}
+
+/* Desenha a rosca em qualquer container: usada na Visão geral e também
+   dentro da maleta de cada revendedora. */
+function desenharRosca(wrap,dados,legendaCentro,textoVazio){
+  if(!wrap) return;
   const total=dados.reduce((s,d)=>s+d.qtd,0);
 
   if(!total){
-    wrap.innerHTML=`<div class="empty" style="padding:30px 10px"><h3>Nada nesta visão</h3>
-      <p>${escopoGrafico==='fora'?'Nenhuma peça está com revendedoras no momento.':'Sem peças para mostrar.'}</p></div>`;
+    wrap.innerHTML=`<div class="empty" style="padding:30px 10px"><h3>Nada para mostrar</h3>
+      <p>${esc(textoVazio||'Sem peças nesta visão.')}</p></div>`;
     return;
   }
 
@@ -1385,13 +1425,12 @@ function renderDonut(){
     }
   });
 
-  const nomeEscopo={total:'no total',casa:'em casa',fora:'na rua'}[escopoGrafico];
   wrap.innerHTML=`
-    <div class="donutbox" id="donutBox">
+    <div class="donutbox">
       <svg viewBox="0 0 ${S} ${S}" role="img" aria-label="Peças por categoria">
         <g>${paths}</g><g>${labels}</g>
       </svg>
-      <div class="dcenter"><div class="dc-num">${total}</div><div class="dc-lbl">peças ${nomeEscopo}</div></div>
+      <div class="dcenter"><div class="dc-num">${total}</div><div class="dc-lbl">peças ${esc(legendaCentro||'')}</div></div>
     </div>
     <div class="legend">${dados.map((d,i)=>`
       <div class="lgd" data-i="${i}">
@@ -1401,7 +1440,7 @@ function renderDonut(){
       </div>`).join('')}</div>`;
 
   /* camada de hover: destaca a fatia e mostra o valor exato */
-  const box=document.getElementById('donutBox');
+  const box=wrap.querySelector('.donutbox');
   const tip=document.getElementById('dtip');
   function acender(i,ev){
     box.classList.add('hasHover');
@@ -1433,9 +1472,12 @@ function renderDonut(){
 }
 
 /* =================== Meu estoque =================== */
-let filtroCat='', buscaEstoque='', filtroInc=false;
-function setFiltroCat(c){filtroCat=c;filtroInc=false;renderEstoque();}
-function setFiltroInc(v){filtroInc=v;filtroCat='';buscaEstoque='';renderEstoque();}
+let filtroCat='', buscaEstoque='', filtroInc=false, filtroLoja='';
+function setFiltroCat(c){filtroCat=c;filtroInc=false;filtroLoja='';renderEstoque();}
+function setFiltroInc(v){filtroInc=v;filtroCat='';filtroLoja='';buscaEstoque='';renderEstoque();}
+function setFiltroLoja(v){filtroLoja=v;filtroCat='';filtroInc=false;renderEstoque();}
+/* Há dados da loja carregados? Só então as colunas de loja fazem sentido. */
+function temLoja(){return state.produtos.some(p=>p.urlLoja);}
 /* Ajuste manual do estoque total de um código — é assim que se conserta
    uma inconsistência ou se dá entrada em mercadoria nova. */
 function setQtdProduto(sku,val){
@@ -1451,8 +1493,11 @@ function renderEstoque(){
   const q=buscaEstoque.trim().toLowerCase();
   const incSet=new Set(inconsistencias().map(i=>i.sku));
 
+  const comLoja=temLoja();
   let lista=state.produtos.slice();
   if(filtroInc) lista=lista.filter(p=>incSet.has(p.sku));
+  if(filtroLoja==='fora') lista=lista.filter(p=>!p.urlLoja);
+  if(filtroLoja==='diverge') lista=lista.filter(p=>p.urlLoja&&(p.estoqueLoja||0)!==Math.max(0,(p.qtd||0)-(rev[p.sku]||0)));
   if(filtroCat) lista=lista.filter(p=>p.cat===filtroCat);
   if(q) lista=lista.filter(p=>p.desc.toLowerCase().includes(q)||p.sku.toLowerCase().includes(q));
   lista.sort((a,b)=>a.desc.localeCompare(b.desc,'pt'));
@@ -1486,6 +1531,9 @@ function renderEstoque(){
           <button class="pill ${filtroCat===''&&!filtroInc?'on':''}" onclick="setFiltroCat('')">Todas</button>
           ${catsUsadas.map(c=>`<button class="pill ${filtroCat===c?'on':''}" onclick="setFiltroCat('${c}')">${c}</button>`).join('')}
           ${incSet.size?`<button class="pill ${filtroInc?'on':''}" style="border-color:var(--danger);color:${filtroInc?'#fff':'var(--danger)'};${filtroInc?'background:var(--danger);':''}" onclick="setFiltroInc(${!filtroInc})">A conferir (${incSet.size})</button>`:''}
+          ${comLoja?`
+            <button class="pill ${filtroLoja==='fora'?'on':''}" onclick="setFiltroLoja('${filtroLoja==='fora'?'':'fora'}')">Fora da loja (${state.produtos.filter(p=>!p.urlLoja).length})</button>
+            <button class="pill ${filtroLoja==='diverge'?'on':''}" onclick="setFiltroLoja('${filtroLoja==='diverge'?'':'diverge'}')">Loja desatualizada (${state.produtos.filter(p=>p.urlLoja&&(p.estoqueLoja||0)!==Math.max(0,(p.qtd||0)-(rev[p.sku]||0))).length})</button>`:''}
         </div>
 
         ${lista.length?`
@@ -1495,6 +1543,7 @@ function renderEstoque(){
               <th>Descrição</th><th style="width:88px">Código</th><th style="width:110px">Categoria</th>
               <th style="width:82px">Preço</th><th style="width:74px">Total</th>
               <th style="width:64px">Na rua</th><th style="width:70px">Em casa</th>
+              ${comLoja?`<th style="width:78px">Na loja</th>`:''}
             </tr></thead>
             <tbody>${lista.map(p=>{
               const fora=rev[p.sku]||0, casa=(p.qtd||0)-fora;
@@ -1507,6 +1556,9 @@ function renderEstoque(){
                   onchange="setQtdProduto('${esc(p.sku)}',this.value)" title="Estoque total desta peça"></td>
                 <td class="num ${fora?'':'zero'}">${fora}</td>
                 <td class="num ${casa<0?'neg':(casa?'':'zero')}">${casa}</td>
+                ${comLoja?(p.urlLoja
+                  ? `<td class="num ${(p.estoqueLoja||0)!==Math.max(0,casa)?'neg':''}" title="${(p.estoqueLoja||0)!==Math.max(0,casa)?'A loja está desatualizada':'Loja em dia'}">${p.estoqueLoja||0}</td>`
+                  : `<td class="num zero" title="Este código não existe na loja">sem cadastro</td>`):''}
               </tr>`;}).join('')}</tbody>
           </table>
         </div>
@@ -1586,6 +1638,16 @@ function renderRev(id){
             <span>· prazo até ${fmtData(addDias(m.abertaEm,state.config.prazoDias))}</span>
             ${m.abertaEm>hoje()?`<span class="badge vencida">data no futuro</span>`:''}
           </div>
+          <div class="row chart" style="margin-bottom:18px">
+            <div class="painel-mix">
+              <div class="mix-t">O que ela está levando</div>
+              <div class="chartwrap" id="chartMaleta"></div>
+            </div>
+            <div class="painel-mix">
+              <div class="mix-t">Resumo da maleta</div>
+              ${resumoMaleta(m)}
+            </div>
+          </div>
           ${itensHtml}
         `:`
           <div class="empty">
@@ -1624,6 +1686,33 @@ function renderRev(id){
         <button class="btn btn-danger btn-sm" onclick="delRevendedora(${r.id})">Remover revendedora</button>
       </div>
     </div>`;
+
+  if(m) desenharRosca(document.getElementById('chartMaleta'), dadosDeItens(m.itens),
+                      'na maleta', 'Maleta ainda vazia — bipe as peças para montar.');
+}
+/* Números que ajudam a decidir se a maleta está bem montada. */
+function resumoMaleta(m){
+  const idx=prodIndex();
+  const linhas=Object.entries(m.itens||{}).filter(([,q])=>q>0);
+  const pecas=linhas.reduce((s,[,q])=>s+q,0);
+  const valor=valMaleta(m);
+  let prataQ=0, prataV=0, maisCara=null;
+  linhas.forEach(([sku,q])=>{
+    const p=idx.get(sku); if(!p) return;
+    if(isPrata(p.desc)){ prataQ+=q; prataV+=p.preco*q; }
+    if(!maisCara||p.preco>maisCara.preco) maisCara=p;
+  });
+  const cats=dadosDeItens(m.itens);
+  const topo=cats.slice().sort((a,b)=>b.qtd-a.qtd)[0];
+  return `<div class="resumo" style="background:#fff">
+    <div class="rs-row"><span>Peças</span><b>${pecas}</b></div>
+    <div class="rs-row"><span>Códigos diferentes</span><b>${linhas.length}</b></div>
+    <div class="rs-row"><span>Categoria mais forte</span><b>${topo?esc(topo.cat)+' · '+topo.qtd:'—'}</b></div>
+    <div class="rs-row"><span>Peça de maior valor</span><b>${maisCara?money(maisCara.preco):'—'}</b></div>
+    <div class="rs-row"><span>Valor médio por peça</span><b>${pecas?money(valor/pecas):'—'}</b></div>
+    ${prataQ?`<div class="rs-row"><span>Prata 925 (comissão própria)</span><b>${prataQ} · ${money(prataV)}</b></div>`:''}
+    <div class="rs-row total"><span>Valor na maleta</span><b>${money(valor)}</b></div>
+  </div>`;
 }
 function setDataMaleta(id,v){
   const m=state.maletas.find(x=>x.id===id);
@@ -2052,7 +2141,17 @@ function lerArquivo(file){
   const fr=new FileReader();
   fr.onload=ev=>{
     try{
-      impWb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+      const buf=new Uint8Array(ev.target.result);
+      if(/\.csv$/i.test(file.name)){
+        /* O export da Nuvemshop vem em latin-1 e separado por ponto e vírgula.
+           Se decodificar como UTF-8 os acentos viram "�" — então detecta e volta. */
+        let txt=new TextDecoder('utf-8').decode(buf);
+        if(txt.indexOf('�')>=0) txt=new TextDecoder('iso-8859-1').decode(buf);
+        const sep=(txt.split('\n')[0].match(/;/g)||[]).length >= (txt.split('\n')[0].match(/,/g)||[]).length ? ';' : ',';
+        impWb=XLSX.read(txt,{type:'string',FS:sep,raw:true});
+      }else{
+        impWb=XLSX.read(buf,{type:'array'});
+      }
       detectar();
     }catch(err){toast('Não consegui ler esse arquivo');}
   };
@@ -2074,6 +2173,7 @@ function detectar(){
       <div class="sr-nm">${esc(d.nome)}<small>${esc(d.resumo)}</small></div>
       <select id="impAlvo${i}">
         <option value="ignorar" ${d.tipo==='desconhecida'?'selected':''}>Ignorar esta aba</option>
+        <option value="loja" ${d.tipo==='loja'?'selected':''}>Dados da loja (Identificador URL e estoque publicado)</option>
         <option value="catalogo" ${d.tipo==='catalogo'?'selected':''}>Catálogo e estoque total</option>
         ${d.tipo==='maleta'||d.tipo==='revendedoras'?
           `<option value="nova" selected>Criar maleta de ${esc(d.nomeRev||'nova revendedora')}</option>`:
@@ -2096,6 +2196,15 @@ function detectar(){
 function classificar(nome,linhas){
   if(!linhas.length) return {tipo:'vazia',resumo:''};
   const txt=linhas.slice(0,6).map(l=>l.map(c=>String(c==null?'':c)).join(' ')).join(' ').toLowerCase();
+
+  /* Export da própria Nuvemshop: reconhecido pela coluna que a loja usa
+     como chave na importação em massa. */
+  const hLoja=linhas.findIndex(l=>l.some(c=>/identificador url/i.test(String(c||''))));
+  if(hLoja>=0){
+    const n=linhas.slice(hLoja+1).filter(l=>l.some(c=>c!=null&&String(c).trim()!=='')).length;
+    return {tipo:'loja', formato:'loja', hi:hLoja,
+            resumo:`Export da Nuvemshop · ${n} linhas · traz o Identificador URL de cada produto`};
+  }
 
   /* Anexo I: cabeçalho "Código | Descrição | Valor", uma linha por unidade */
   if(txt.includes('anexo i')){
@@ -2135,13 +2244,14 @@ function colDe(head,...nomes){
 }
 
 function doImport(){
-  let nProd=0, nMaletas=0, notas=[];
+  let nProd=0, nMaletas=0, nLoja=0, notas=[];
 
   impDetect.forEach((d,i)=>{
     const alvo=document.getElementById('impAlvo'+i).value;
     if(alvo==='ignorar') return;
 
-    if(alvo==='catalogo'){ nProd+=importarCatalogo(d); return; }
+    if(alvo==='catalogo'){ nProd+=importarCatalogo(d,notas); return; }
+    if(alvo==='loja'){ nLoja+=importarLoja(d,notas); return; }
 
     /* maleta: alvo é 'nova' ou 'rev:<id>' */
     let revId;
@@ -2163,41 +2273,119 @@ function doImport(){
   save();
   closeImport();
   renderAll();
-  const msg=[nProd?`${nProd} códigos no catálogo`:'',nMaletas?`${nMaletas} ${plural(nMaletas,'maleta','maletas')}`:'']
+  const msg=[nProd?`${nProd} códigos no catálogo`:'',
+             nLoja?`${nLoja} produtos da loja`:'',
+             nMaletas?`${nMaletas} ${plural(nMaletas,'maleta','maletas')}`:'']
     .filter(Boolean).join(' · ');
   toast(msg?'Importado: '+msg:'Nada foi importado');
   if(notas.length) setTimeout(()=>alert('Observações da importação:\n\n• '+notas.join('\n• ')),400);
 }
 
-function importarCatalogo(d){
+function importarCatalogo(d,notas){
   const head=d.linhas[d.hi];
   const cSku=colDe(head,'id produto marquesa','id produto','sku','código','codigo');
   const cDesc=colDe(head,'nome produto','descrição','descricao','nome');
-  const cQtd=colDe(head,'estoque','quantidade','qtd');
+  const cQtd=colDe(head,'estoque atual','estoque','quantidade','qtd');
   const cPreco=colDe(head,'valor de venda','valor','preço','preco');
   if(cSku<0) return 0;
 
+  /* Primeiro passo: consolidar os sufixos. Na planilha da Marquesa, "120029-2"
+     é a MESMA peça de "120029" — o sufixo só marca que aquela unidade foi
+     comprada depois. Para estoque, as quantidades somam no código base. */
+  const linhas=[];
+  d.linhas.slice(d.hi+1).forEach(l=>{
+    const bruto=normSku(l[cSku]);
+    if(!bruto) return;
+    linhas.push({
+      bruto, sku:baseSku(bruto),
+      desc:cDesc>=0?String(l[cDesc]||'').trim():'',
+      qtd:cQtd>=0?int(l[cQtd]):0,
+      preco:cPreco>=0?num(l[cPreco]):0
+    });
+  });
+
+  const juntos=new Map();
+  const conflitos=[], somados=[];
+  linhas.forEach(l=>{
+    const ex=juntos.get(l.sku);
+    if(!ex){ juntos.set(l.sku,Object.assign({},l)); return; }
+    /* só junta com segurança quando a descrição é a mesma */
+    const a=(ex.desc||'').trim().toLowerCase(), b=(l.desc||'').trim().toLowerCase();
+    if(a&&b&&a!==b) conflitos.push({sku:l.sku, a:ex.desc, b:l.desc, bruto:l.bruto});
+    ex.qtd+=l.qtd;
+    if(!ex.preco&&l.preco) ex.preco=l.preco;
+    if(l.bruto!==l.sku) somados.push(l.bruto);
+  });
+
+  if(somados.length)
+    notas&&notas.push(`${somados.length} ${plural(somados.length,'código com sufixo foi somado','códigos com sufixo foram somados')} `
+      +`no código base (${somados.slice(0,4).join(', ')}${somados.length>4?'…':''}), porque é a mesma peça comprada depois.`);
+  if(conflitos.length)
+    notas&&notas.push(`ATENÇÃO: ${conflitos.length} ${plural(conflitos.length,'código com sufixo tem','códigos com sufixo têm')} `
+      +`descrição diferente da base (${conflitos.slice(0,3).map(c=>c.bruto).join(', ')}). Foram somados assim mesmo — confira se são a mesma peça.`);
+
   const idx=prodIndex();
   let n=0;
-  d.linhas.slice(d.hi+1).forEach(l=>{
-    const sku=normSku(l[cSku]);
-    if(!sku) return;
-    const desc=cDesc>=0?String(l[cDesc]||'').trim():'';
-    const qtd=cQtd>=0?int(l[cQtd]):0;
-    const preco=cPreco>=0?num(l[cPreco]):0;
-    const ex=idx.get(sku);
+  juntos.forEach(l=>{
+    const ex=idx.get(l.sku);
     if(ex){
-      if(desc) ex.desc=desc;
-      if(preco) ex.preco=preco;
-      ex.qtd=qtd;
+      if(l.desc) ex.desc=l.desc;
+      if(l.preco) ex.preco=l.preco;
+      ex.qtd=l.qtd;
       ex.cat=catOf(ex.desc);
     }else{
-      const novo={sku, desc:desc||sku, cat:catOf(desc), preco, qtd};
-      state.produtos.push(novo);idx.set(sku,novo);
+      const novo={sku:l.sku, desc:l.desc||l.sku, cat:catOf(l.desc), preco:l.preco, qtd:l.qtd};
+      state.produtos.push(novo);idx.set(l.sku,novo);
     }
     n++;
   });
   return n;
+}
+
+/* Lê o export da Nuvemshop e guarda, por SKU, a chave que a loja usa na
+   importação em massa (Identificador URL), além do estoque publicado e da
+   visibilidade. Não mexe no estoque do dashboard: a loja é o espelho, não a
+   fonte da verdade. */
+function importarLoja(d,notas){
+  const head=d.linhas[d.hi];
+  const cUrl=colDe(head,'identificador url');
+  const cSku=colDe(head,'sku');
+  const cEst=colDe(head,'estoque');
+  const cVis=colDe(head,'visibilidade');
+  const cNome=colDe(head,'nome');
+  if(cUrl<0||cSku<0) return 0;
+
+  const idx=prodIndex();
+  const porSku=new Map();
+  d.linhas.slice(d.hi+1).forEach(l=>{
+    const sku=baseSku(l[cSku]);
+    const url=String(l[cUrl]==null?'':l[cUrl]).trim();
+    if(!sku||!url) return;
+    const est=cEst>=0?int(l[cEst]):0;
+    const ex=porSku.get(sku);
+    /* produto com variações aparece em várias linhas: soma o estoque */
+    if(ex){ ex.estoqueLoja+=est; if(!ex.urlLoja) ex.urlLoja=url; }
+    else porSku.set(sku,{urlLoja:url, estoqueLoja:est,
+      visivel:cVis>=0?/vis/i.test(String(l[cVis]||'')):null,
+      nomeLoja:cNome>=0?String(l[cNome]||'').trim():''});
+  });
+
+  let casados=0, novos=0;
+  porSku.forEach((v,sku)=>{
+    const p=idx.get(sku);
+    if(p){ Object.assign(p,v); casados++; }
+    else novos++;
+  });
+  /* limpa a marca de quem saiu da loja desde o último export */
+  state.produtos.forEach(p=>{ if(!porSku.has(p.sku)) { delete p.urlLoja; delete p.estoqueLoja; delete p.visivel; } });
+
+  const semCadastro=state.produtos.filter(p=>!p.urlLoja);
+  const pecasSem=semCadastro.reduce((s,p)=>s+Math.max(0,(p.qtd||0)-(comRevMap()[p.sku]||0)),0);
+  notas&&notas.push(`${casados} dos seus códigos foram casados com a loja.`);
+  if(novos) notas&&notas.push(`${novos} produtos existem na loja mas não no seu catálogo — não foram criados aqui.`);
+  if(semCadastro.length)
+    notas&&notas.push(`${semCadastro.length} códigos seus NÃO têm cadastro na loja (${pecasSem} peças em casa que não podem vender). Veja o filtro "Fora da loja" em Meu estoque.`);
+  return casados;
 }
 
 /* Monta a maleta e, quando possível, tira as peças do bolo "A identificar"
@@ -2209,7 +2397,7 @@ function importarMaleta(d,revId,notas){
     const head=d.linhas[d.hi];
     const cCod=colDe(head,'código','codigo'), cDesc=colDe(head,'descrição','descricao'), cVal=colDe(head,'valor');
     d.linhas.slice(d.hi+1).forEach(l=>{
-      const sku=normSku(l[cCod]);
+      const sku=baseSku(l[cCod]);   /* "486476-2" e "486476" são a mesma peça */
       if(!sku) return;
       itens[sku]=(itens[sku]||0)+1;                    /* 1 linha = 1 unidade */
       const val=cVal>=0?num(l[cVal]):0;
@@ -2227,7 +2415,7 @@ function importarMaleta(d,revId,notas){
     const cVal=colDe(head,'valor','preço','preco');
     if(cSku<0) return false;
     d.linhas.slice(d.hi+1).forEach(l=>{
-      const sku=normSku(l[cSku]);
+      const sku=baseSku(l[cSku]);
       if(!sku) return;
       const q=cQtd>=0?int(l[cQtd]):1;
       if(q<=0) return;
@@ -2308,6 +2496,42 @@ function baixar(blob,nome){
   const a=document.createElement('a');
   a.href=url;a.download=nome;document.body.appendChild(a);a.click();
   setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},400);
+}
+/* Arquivo de atualização da própria Nuvemshop.
+   Leva SÓ identificação e estoque: preço, descrição, fotos e SEO ficam de
+   fora de propósito, para uma importação não sobrescrever o que já está lá.
+   Só entram os códigos cujo estoque publicado está diferente do real. */
+function exportLoja(){
+  if(!temLoja()){toast('Importe antes o export da Nuvemshop');return;}
+  const casa=emCasaMap();
+  const mudar=state.produtos.filter(p=>p.urlLoja&&(p.estoqueLoja||0)!==Math.max(0,casa[p.sku]||0));
+  if(!mudar.length){toast('A loja já está em dia — nada a atualizar');return;}
+  const linhas=[['Identificador URL','SKU','Estoque']];
+  mudar.sort((a,b)=>a.sku.localeCompare(b.sku))
+       .forEach(p=>linhas.push([p.urlLoja,p.sku,Math.max(0,casa[p.sku]||0)]));
+  /* ponto e vírgula e BOM, como o arquivo que a loja exporta */
+  const csv='﻿'+linhas.map(l=>l.map(c=>{
+    const s=String(c);
+    return /[;"\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+  }).join(';')).join('\r\n');
+  baixar(new Blob([csv],{type:'text/csv;charset=utf-8'}),`Nuvemshop estoque ${hoje()}.csv`);
+  toast(`${mudar.length} produtos para atualizar na loja`);
+  closeSettings();
+}
+/* Lista das peças que não podem vender porque não existem na loja. */
+function exportSemCadastro(){
+  const casa=emCasaMap();
+  const faltam=state.produtos.filter(p=>!p.urlLoja&&Math.max(0,casa[p.sku]||0)>0);
+  if(!faltam.length){toast('Todos os códigos com peça em casa estão na loja');return;}
+  const dados=[['SKU','Descrição','Categoria','Preço','Em casa','Valor parado']];
+  faltam.sort((a,b)=>b.preco*(casa[b.sku]||0)-a.preco*(casa[a.sku]||0))
+        .forEach(p=>dados.push([p.sku,p.desc,p.cat,p.preco,casa[p.sku],p.preco*casa[p.sku]]));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(dados),'Sem cadastro');
+  const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  baixar(new Blob([out],{type:'application/octet-stream'}),`Peças sem cadastro na loja ${hoje()}.xlsx`);
+  toast(`${faltam.length} códigos para cadastrar`);
+  closeSettings();
 }
 /* Mesmo formato da aba "Estoque Atual" que a sincronização já consome. */
 function exportNuvemshop(){
