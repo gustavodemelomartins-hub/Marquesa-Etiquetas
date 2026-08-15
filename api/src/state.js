@@ -1,6 +1,6 @@
-/** Monta o "state" inteiro no mesmo formato que o dashboard já conhece —
- *  para o front-end trocar localStorage por fetch() sem reescrever as
- *  telas, só a camada que lê e grava. */
+/** Monta o "state" no formato que o dashboard já conhece, agora incluindo
+ *  os três saldos do §5.2 (total, consignado, disponível) calculados no
+ *  servidor — em vez de cada aparelho fazer a própria conta. */
 
 const FAIXAS_PADRAO = [
   { limite: 800, pct: 0 },
@@ -12,23 +12,37 @@ const FAIXAS_PADRAO = [
 ];
 
 export async function montarState(db) {
-  const [produtosR, revR, maletasR, itensR, configR, lojaR] = await Promise.all([
+  const [produtosR, revR, maletasR, itensR, configR, lojaR, catR] = await Promise.all([
     db.prepare('SELECT * FROM produtos ORDER BY desc').all(),
     db.prepare('SELECT * FROM revendedoras ORDER BY id').all(),
     db.prepare('SELECT * FROM maletas ORDER BY id').all(),
     db.prepare('SELECT * FROM maleta_itens').all(),
     db.prepare('SELECT * FROM config').all(),
     db.prepare('SELECT * FROM loja_snapshot WHERE id = 1').all(),
+    db.prepare('SELECT * FROM categorias ORDER BY ordem, nome').all(),
   ]);
 
+  // consignado por SKU: só maletas que ainda não encerraram
+  const abertas = new Set(maletasR.results
+    .filter(m => m.status === 'aberta' || m.status === 'em_acerto').map(m => m.id));
+  const consignado = {};
   const itensPorMaleta = new Map();
   for (const it of itensR.results) {
     if (!itensPorMaleta.has(it.maleta_id)) itensPorMaleta.set(it.maleta_id, {});
     itensPorMaleta.get(it.maleta_id)[it.sku] = it.qtd;
+    if (abertas.has(it.maleta_id)) {
+      consignado[it.sku] = (consignado[it.sku] || 0) + (it.qtd - (it.devolvida || 0));
+    }
   }
 
   const produtos = produtosR.results.map(p => ({
-    sku: p.sku, desc: p.desc, cat: p.cat, preco: p.preco, qtd: p.qtd,
+    sku: p.sku, desc: p.desc, cat: p.cat,
+    preco: p.preco,                       // §24: null = sem preço; o front mostra "Sem preço"
+    semPreco: p.preco === null,
+    qtd: p.qtd,
+    consignado: consignado[p.sku] || 0,
+    disponivel: p.qtd - (consignado[p.sku] || 0),
+    status: p.status,
     urlLoja: p.url_loja || undefined,
     estoqueLoja: p.estoque_loja == null ? undefined : p.estoque_loja,
     visivel: p.visivel == null ? null : !!p.visivel,
@@ -36,36 +50,40 @@ export async function montarState(db) {
   }));
 
   const revendedoras = revR.results.map(r => ({
-    id: r.id, nome: r.nome, tel: r.tel || '', cidade: r.cidade || '',
-    cpf: r.cpf || '', criadaEm: r.criada_em,
+    id: r.id, nome: r.nome, tel: r.tel || '', cidade: r.cidade || '', cpf: r.cpf || '',
+    endereco: r.endereco || '', obs: r.obs || '', status: r.status, criadaEm: r.criada_em,
   }));
 
+  const precos = new Map(itensR.results.map(i => [`${i.maleta_id}|${i.sku}`, i.preco_envio]));
   const maletas = maletasR.results.map(m => ({
     id: m.id, revId: m.rev_id, status: m.status,
     abertaEm: m.aberta_em || null, acertoEm: m.acerto_em || null,
-    fechadaEm: m.fechada_em || null, obs: m.obs || undefined,
+    encerradaEm: m.encerrada_em || null, obs: m.obs || undefined,
     itens: itensPorMaleta.get(m.id) || {},
+    // §6.1: o preço congelado viaja junto, para a tela somar pelo valor do envio
+    precos: Object.fromEntries(Object.keys(itensPorMaleta.get(m.id) || {})
+      .map(sku => [sku, precos.get(`${m.id}|${sku}`)])),
     acerto: m.acerto_json ? JSON.parse(m.acerto_json) : undefined,
   }));
 
-  const configRows = Object.fromEntries(configR.results.map(c => [c.chave, JSON.parse(c.valor)]));
+  const c = Object.fromEntries(configR.results.map(x => [x.chave, JSON.parse(x.valor)]));
   const config = {
-    prazoDias: configRows.prazoDias ?? 45,
-    prataPct: configRows.prataPct ?? 10,
-    faixas: configRows.faixas ?? FAIXAS_PADRAO,
+    prazoDias: c.prazoDias ?? 45,
+    prataPct: c.prataPct ?? 10,
+    faixas: c.faixas ?? FAIXAS_PADRAO,
   };
 
-  const lojaRow = lojaR.results[0];
-  const loja = lojaRow ? {
-    lidoEm: lojaRow.lido_em,
-    produtosNaLoja: lojaRow.produtos_na_loja,
-    produtosCasados: lojaRow.produtos_casados,
-    soNaLoja: lojaRow.so_na_loja,
-    codigosCasados: lojaRow.codigos_casados,
-    duplicados: JSON.parse(lojaRow.duplicados_json || '[]'),
+  const l = lojaR.results[0];
+  const loja = l ? {
+    lidoEm: l.lido_em, produtosNaLoja: l.produtos_na_loja, produtosCasados: l.produtos_casados,
+    soNaLoja: l.so_na_loja, codigosCasados: l.codigos_casados,
+    duplicados: JSON.parse(l.duplicados_json || '[]'),
   } : null;
 
-  return { v: 1, produtos, revendedoras, maletas, config, loja };
+  return {
+    v: 2, produtos, revendedoras, maletas, config, loja,
+    categorias: catR.results.map(x => ({ nome: x.nome, ordem: x.ordem, cor: x.cor })),
+  };
 }
 
 export { FAIXAS_PADRAO };
