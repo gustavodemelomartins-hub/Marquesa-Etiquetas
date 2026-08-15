@@ -9,4 +9,4 @@ compatibility_date = "2026-08-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "marquesa-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "089153a9-cee5-4887-b789-a23b1cf419f5"
