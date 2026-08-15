@@ -892,7 +892,7 @@ td.num.neg{color:var(--danger)}
       </div>
 
       <div class="grp">
-        <h3>Prazo de acerto</h3>
+        <h3>Prazo padrão de acerto</h3>
         <div class="adjrow">
           <label>Dias após a retirada</label>
           <div class="ctrl">
@@ -902,7 +902,9 @@ td.num.neg{color:var(--danger)}
           </div>
         </div>
         <p style="font-size:11.5px;color:var(--muted);margin:2px 0 0;line-height:1.5">
-          A maleta fica marcada como vencida depois desse prazo.
+          Usado para sugerir a data do acerto ao abrir uma maleta nova, e como
+          prazo quando nenhuma data foi combinada. Quando existe data marcada,
+          é ela que manda.
         </p>
       </div>
 
@@ -983,7 +985,11 @@ function defaultState(){
     v:1,
     produtos:[],       /* {sku, desc, cat, preco, qtd}  — qtd = TOTAL, inclui o que está fora */
     revendedoras:[],   /* {id, nome, tel, cidade, cpf, criadaEm} */
-    maletas:[],        /* {id, revId, status:'aberta'|'fechada', abertaEm, fechadaEm, itens:{sku:qtd}, acerto:{}} */
+    /* maleta: {id, revId, status:'aberta'|'fechada', abertaEm, acertoEm, fechadaEm, itens:{sku:qtd}, acerto:{}}
+       abertaEm  = quando a maleta saiu (pode ser desconhecida)
+       acertoEm  = o dia combinado de ela voltar para acertar — é o que vale
+                   como prazo. O Anexo I traz justamente essa data. */
+    maletas:[],
     seqRev:1, seqMal:1,
     config:{
       prazoDias:45,
@@ -1024,7 +1030,17 @@ function migrate(s){
     sku:String(p.sku), desc:p.desc||'', cat:p.cat||catOf(p.desc||''),
     preco:+p.preco||0, qtd:+p.qtd||0
   }));
-  s.maletas=(s.maletas||[]).map(m=>Object.assign({itens:{},status:'aberta'},m));
+  s.maletas=(s.maletas||[]).map(m=>{
+    m=Object.assign({itens:{},status:'aberta',acertoEm:null},m);
+    /* Antes de existir o campo próprio, a data do Anexo era guardada como
+       data de saída. Mas ela é o dia combinado do acerto — por isso vinha
+       sempre no futuro. Move para o lugar certo e admite não saber a saída. */
+    if(!m.acertoEm&&m.abertaEm&&m.status!=='fechada'&&m.abertaEm>hoje()){
+      m.acertoEm=m.abertaEm;
+      m.abertaEm=null;
+    }
+    return m;
+  });
   return s;
 }
 let state=load();
@@ -1112,6 +1128,29 @@ function findProd(code){
   return null;
 }
 function maletasAbertas(){return state.maletas.filter(m=>m.status!=='fechada');}
+
+/* O prazo de uma maleta é o dia combinado do acerto. Só quando ele não
+   foi marcado é que vale a regra dos N dias a partir da saída. */
+function prazoDe(m){
+  if(m.acertoEm) return m.acertoEm;
+  if(m.abertaEm) return addDias(m.abertaEm,state.config.prazoDias);
+  return null;
+}
+/* Quantos dias faltam (negativo = atrasado). null quando não há prazo. */
+function diasAteAcerto(m){
+  const p=prazoDe(m);
+  if(!p) return null;
+  const hj=new Date(hoje()+'T12:00:00'), dt=new Date(p+'T12:00:00');
+  return Math.round((dt-hj)/86400000);
+}
+function situacaoMaleta(m){
+  const d=diasAteAcerto(m);
+  if(d===null) return {classe:'aberta', texto:'sem data marcada', atrasada:false};
+  if(d<0)  return {classe:'vencida', texto:`atrasada ${-d} ${plural(-d,'dia','dias')}`, atrasada:true};
+  if(d===0) return {classe:'prazo', texto:'acerto é hoje', atrasada:false};
+  if(d<=7) return {classe:'prazo', texto:`acerto em ${d} ${plural(d,'dia','dias')}`, atrasada:false};
+  return {classe:'aberta', texto:`acerto em ${d} dias`, atrasada:false};
+}
 /* Quanto de cada SKU está fora, somando todas as maletas abertas. */
 function comRevMap(){
   const m={};
@@ -1241,7 +1280,9 @@ function renderGeral(){
   }
 
   const abertas=maletasAbertas();
-  const vencidas=abertas.filter(m=>diasDesde(m.abertaEm)>state.config.prazoDias);
+  const vencidas=abertas.filter(m=>situacaoMaleta(m).atrasada);
+  const proximas=abertas.filter(m=>{const d=diasAteAcerto(m);return d!==null&&d>=0;})
+                        .sort((a,b)=>String(prazoDe(a)).localeCompare(String(prazoDe(b))));
   const inc=inconsistencias();
 
   v.innerHTML=`
@@ -1270,8 +1311,24 @@ function renderGeral(){
 
     ${vencidas.length?`<div class="warn">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
-      <div><b>${vencidas.length} ${plural(vencidas.length,'maleta passou','maletas passaram')} do prazo de ${state.config.prazoDias} dias:</b>
-      ${vencidas.map(m=>esc(revNome(m.revId))+' ('+diasDesde(m.abertaEm)+' dias)').join(', ')}.</div>
+      <div><b>${vencidas.length} ${plural(vencidas.length,'acerto passou','acertos passaram')} da data combinada:</b>
+      ${vencidas.map(m=>esc(revNome(m.revId))+' ('+situacaoMaleta(m).texto+')').join(', ')}.</div>
+    </div>`:''}
+
+    ${proximas.length?`<div class="panel" style="margin-bottom:22px">
+      <div class="head"><h2>Agenda de acertos</h2><span class="hint">Quem vem, quando, e com quanto na mão</span></div>
+      <div class="body" style="padding-top:14px">
+        ${proximas.map(m=>{
+          const s=situacaoMaleta(m), d=diasAteAcerto(m);
+          return `<div class="histrow" style="cursor:pointer" onclick="switchTab('rev:${m.revId}')">
+            <div class="h-dt"><b>${fmtData(prazoDe(m))}</b>${esc(revNome(m.revId))}</div>
+            <div class="h-st">Peças<b>${qtdMaleta(m)}</b></div>
+            <div class="h-st">Valor<b style="font-size:15px">${money(valMaleta(m))}</b></div>
+            <div class="spacer"></div>
+            <span class="badge ${s.classe}">${d===0?'hoje':esc(s.texto)}</span>
+          </div>`;
+        }).join('')}
+      </div>
     </div>`:''}
 
     ${inc.length?`<div class="warn">
@@ -1321,18 +1378,17 @@ function cardRev(r){
   const m=maletaAbertaDe(r.id);
   const q=m?qtdMaleta(m):0;
   const val=m?valMaleta(m):0;
-  const dias=m?diasDesde(m.abertaEm):0;
-  const venc=m&&dias>state.config.prazoDias;
+  const s=m?situacaoMaleta(m):null;
   const fechadas=state.maletas.filter(x=>x.revId===r.id&&x.status==='fechada').length;
   return `<div class="revcard" onclick="switchTab('rev:${r.id}')">
     <div class="rc-nm">${esc(r.nome)}</div>
-    <div class="rc-meta">${m?`Maleta aberta há ${dias} ${plural(dias,'dia','dias')}`:
+    <div class="rc-meta">${m?(prazoDe(m)?`Acerto marcado para ${fmtData(prazoDe(m))}`:'Maleta aberta, sem data marcada'):
        (fechadas?`${fechadas} ${plural(fechadas,'maleta fechada','maletas fechadas')}`:'Sem maleta aberta')}</div>
     ${m?`<div class="rc-row">
       <div class="rc-st">Peças<b>${q}</b></div>
       <div class="rc-st">Valor<b style="font-size:16px">${money(val)}</b></div>
     </div>
-    <div style="margin-top:11px"><span class="badge ${venc?'vencida':'aberta'}">${venc?'Prazo vencido':'Aberta'}</span></div>`
+    <div style="margin-top:11px"><span class="badge ${s.classe}">${esc(s.texto)}</span></div>`
     :`<div style="margin-top:12px"><span class="badge fechada">Sem maleta</span></div>`}
   </div>`;
 }
@@ -1589,8 +1645,7 @@ function renderRev(id){
   const idx=prodIndex();
   const fechadas=state.maletas.filter(x=>x.revId===id&&x.status==='fechada')
     .sort((a,b)=>String(b.fechadaEm).localeCompare(String(a.fechadaEm)));
-  const dias=m?diasDesde(m.abertaEm):0;
-  const venc=m&&dias>state.config.prazoDias;
+  const sit=m?situacaoMaleta(m):null;
 
   let itensHtml='';
   if(m){
@@ -1625,18 +1680,21 @@ function renderRev(id){
             <div class="stat"><b>${qtdMaleta(m)}</b> peças</div>
             <div class="stat"><b>${Object.values(m.itens).filter(q=>q>0).length}</b> códigos</div>
             <div class="stat">${money(valMaleta(m))}</div>
-            <div class="stat"><span class="badge ${venc?'vencida':'aberta'}">${venc?`vencida · ${dias} dias`:`aberta há ${dias} ${plural(dias,'dia','dias')}`}</span></div>
+            <div class="stat"><span class="badge ${sit.classe}">${esc(sit.texto)}</span></div>
             <div class="spacer"></div>
             <button class="btn btn-ghost btn-sm" onclick="printAnexo(${m.id})">Imprimir Anexo I</button>
             <button class="btn btn-ghost btn-sm" onclick="openScan('add',${m.id})">+ Bipar peças</button>
             <button class="btn btn-print btn-sm" onclick="openAcerto(${m.id})">Fazer acerto</button>
           </div>
-          <div style="font-size:11.5px;color:var(--muted);margin:-6px 0 14px;display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+          <div style="font-size:11.5px;color:var(--muted);margin:-6px 0 14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+            <span>Acerto marcado para</span>
+            <input type="date" value="${esc(String(m.acertoEm||'').slice(0,10))}" onchange="setDataMaleta(${m.id},'acertoEm',this.value)"
+              style="padding:4px 7px;border:1px solid var(--rose-soft);border-radius:7px;background:#fff;font-size:11.5px;color:var(--ink);font-weight:600">
+            <span style="opacity:.5">|</span>
             <span>Saiu em</span>
-            <input type="date" value="${esc(String(m.abertaEm).slice(0,10))}" onchange="setDataMaleta(${m.id},this.value)"
+            <input type="date" value="${esc(String(m.abertaEm||'').slice(0,10))}" onchange="setDataMaleta(${m.id},'abertaEm',this.value)"
               style="padding:4px 7px;border:1px solid var(--line);border-radius:7px;background:#fff;font-size:11.5px;color:var(--ink)">
-            <span>· prazo até ${fmtData(addDias(m.abertaEm,state.config.prazoDias))}</span>
-            ${m.abertaEm>hoje()?`<span class="badge vencida">data no futuro</span>`:''}
+            ${!m.abertaEm?`<span style="font-style:italic">saída não informada</span>`:''}
           </div>
           <div class="row chart" style="margin-bottom:18px">
             <div class="painel-mix">
@@ -1666,7 +1724,7 @@ function renderRev(id){
         ${fechadas.map(h=>{
           const a=h.acerto||{};
           return `<div class="histrow">
-            <div class="h-dt"><b>${fmtData(h.abertaEm)} → ${fmtData(h.fechadaEm)}</b>${a.dias!=null?a.dias+' dias':''}</div>
+            <div class="h-dt"><b>${fmtData(h.abertaEm||h.acertoEm)} → ${fmtData(h.fechadaEm)}</b>${a.dias!=null?a.dias+' dias':''}</div>
             <div class="h-st">Levou<b>${a.enviadas||0}</b></div>
             <div class="h-st">Vendeu<b>${a.vendidas||0}</b></div>
             <div class="h-st">Voltou<b>${a.devolvidas||0}</b></div>
@@ -1714,10 +1772,13 @@ function resumoMaleta(m){
     <div class="rs-row total"><span>Valor na maleta</span><b>${money(valor)}</b></div>
   </div>`;
 }
-function setDataMaleta(id,v){
+function setDataMaleta(id,campo,v){
   const m=state.maletas.find(x=>x.id===id);
-  if(!m||!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
-  m.abertaEm=v;save();renderRev(m.revId);renderTabs();
+  if(!m) return;
+  if(v===''){ m[campo]=null; }
+  else if(/^\d{4}-\d{2}-\d{2}$/.test(v)){ m[campo]=v; }
+  else return;
+  save();renderRev(m.revId);renderTabs();
 }
 function addDias(iso,d){
   if(!iso) return '';
@@ -1769,7 +1830,7 @@ function delRevendedora(id){
   save();switchTab('geral');toast('Revendedora removida');
 }
 function novaMaleta(revId){
-  const m={id:state.seqMal++, revId, status:'aberta', abertaEm:hoje(), itens:{}};
+  const m={id:state.seqMal++, revId, status:'aberta', abertaEm:hoje(), acertoEm:addDias(hoje(),state.config.prazoDias), itens:{}};
   state.maletas.push(m);save();
   openScan('add',m.id,true);   /* true = recém-criada; se cancelar, some */
 }
@@ -2095,15 +2156,16 @@ function confirmarAcerto(){
     pct:c.pct,
     comissao:c.comissao,
     liquido:c.liquido,
-    dias:diasDesde(m.abertaEm),
+    dias:m.abertaEm?diasDesde(m.abertaEm):null,
     detalhe:acerto.faltas.map(f=>({sku:f.sku,linhas:f.linhas.filter(l=>l.qtd>0)}))
   };
 
   /* o que ela continua com: nasce uma maleta nova, já aberta */
   const revId=m.revId;
   if(Object.keys(ficam).length){
-    state.maletas.push({id:state.seqMal++, revId, status:'aberta', abertaEm:hoje(), itens:ficam,
-      obs:'Continuação da maleta de '+fmtData(m.abertaEm)});
+    state.maletas.push({id:state.seqMal++, revId, status:'aberta', abertaEm:hoje(),
+      acertoEm:addDias(hoje(),state.config.prazoDias), itens:ficam,
+      obs:'Continuação da maleta de '+fmtData(m.abertaEm||m.acertoEm)});
   }
 
   save();
@@ -2462,10 +2524,10 @@ function importarMaleta(d,revId,notas){
   if(existente){
     Object.entries(itens).forEach(([sku,q])=>{existente.itens[sku]=(existente.itens[sku]||0)+q;});
   }else{
+    /* A data que o Anexo I traz é o dia combinado do acerto, não a saída. */
     const dt=dataDoAnexo(d);
-    if(dt&&dt>hoje())
-      notas.push(`A data do documento (${fmtData(dt)}) está no futuro. Foi importada assim mesmo — corrija na aba de ${revNome(revId)} para o prazo de acerto valer.`);
-    state.maletas.push({id:state.seqMal++, revId, status:'aberta', abertaEm:dt||hoje(), itens});
+    if(dt) notas.push(`Acerto de ${revNome(revId)} marcado para ${fmtData(dt)}, conforme o documento.`);
+    state.maletas.push({id:state.seqMal++, revId, status:'aberta', abertaEm:null, acertoEm:dt||null, itens});
   }
   return true;
 }
@@ -2604,7 +2666,7 @@ function printAnexo(maletaId){
     <div class="ax-h">
       <div class="ax-t">Anexo I do contrato</div>
       <div class="ax-s">${esc(r.nome)}${r.cpf?' · CPF '+esc(r.cpf):''}</div>
-      <div class="ax-s">Data: ${fmtData(m.abertaEm)} · Prazo de acerto: ${fmtData(addDias(m.abertaEm,state.config.prazoDias))}</div>
+      <div class="ax-s">Acerto combinado: <b>${fmtData(prazoDe(m))}</b>${m.abertaEm?` · Retirada: ${fmtData(m.abertaEm)}`:''}</div>
     </div>
     <table>
       <thead><tr><th style="width:34px">#</th><th style="width:80px">Código</th><th>Descrição</th><th style="width:70px">Valor</th></tr></thead>
