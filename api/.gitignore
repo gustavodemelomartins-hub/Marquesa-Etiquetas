@@ -1,3 +1,8 @@
 node_modules/
 .wrangler/
 .dev.vars
+
+# Dados reais gerados por gerar-seed.py — nomes de clientes/revendedoras,
+# estoque e preços. Este repositório é público; o gerador (código) fica
+# versionado, o resultado (dado) nunca.
+seed.sql
