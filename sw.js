@@ -1,7 +1,8 @@
-const CACHE = 'marquesa-etiquetas-v9';
+const CACHE = 'marquesa-etiquetas-v10';
 const ASSETS = [
   './',
   './index.html',
+  './dashboard.html',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
