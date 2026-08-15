@@ -75,21 +75,27 @@ Devem aparecer: `categorias`, `clientes`, `config`, `loja_snapshot`,
 > *Deployments* — o retry aplica a configuração salva na hora, não a de
 > quando o build original rodou.
 
-### 5. Definir os segredos
+### 5. Definir a chave de acesso
 
-No Worker criado → **Settings → Variables and Secrets**:
+No Worker criado → **Settings → Variables and Secrets**, adicione **apenas**:
 
 | Nome | Tipo | Valor |
 |---|---|---|
 | `API_KEY` | **Secret** | uma senha longa, só sua |
-| `ORIGENS_PERMITIDAS` | Text | `https://gustavodemelomartins-hub.github.io` |
 
 Para gerar a `API_KEY`, use um gerenciador de senhas ou qualquer senha
 aleatória de 30+ caracteres. **Não reaproveite uma senha que você já usa** —
 quem tiver essa chave lê e escreve todo o seu estoque.
 
-`ORIGENS_PERMITIDAS` faz a API recusar chamadas de qualquer site que não seja
-o seu painel.
+> ⚠️ **Não crie variáveis de texto (Text) pelo painel.** O `wrangler deploy`
+> trata o `wrangler.toml` como fonte da verdade e **apaga** as variáveis de
+> texto criadas pelo painel que não estejam declaradas no arquivo — no
+> próximo build elas somem sem aviso. Só os **Secrets** sobrevivem.
+>
+> Por isso `ORIGENS_PERMITIDAS` fica no `wrangler.toml`, versionada: ela não
+> é segredo, é o endereço público do painel. Para mudar, edite o arquivo.
+>
+> Referência: [workers-sdk#4453](https://github.com/cloudflare/workers-sdk/issues/4453)
 
 ### 6. Conferir
 
@@ -123,12 +129,8 @@ npx wrangler secret put API_KEY          # cola a senha quando pedir
 npx wrangler deploy
 ```
 
-Para `ORIGENS_PERMITIDAS`, adicione ao `wrangler.toml`:
-
-```toml
-[vars]
-ORIGENS_PERMITIDAS = "https://gustavodemelomartins-hub.github.io"
-```
+`ORIGENS_PERMITIDAS` já está declarada no `wrangler.toml` — basta editar o
+arquivo se o endereço do painel mudar.
 
 ---
 

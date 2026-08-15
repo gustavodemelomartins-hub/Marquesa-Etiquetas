@@ -10,3 +10,12 @@ compatibility_date = "2026-08-01"
 binding = "DB"
 database_name = "marquesa-db"
 database_id = "089153a9-cee5-4887-b789-a23b1cf419f5"
+
+# Quais endereços podem chamar a API pelo navegador. Não é segredo — é o
+# endereço público do painel — então mora aqui, versionado, e não no painel
+# da Cloudflare: o `wrangler deploy` trata este arquivo como a fonte da
+# verdade e APAGA as variáveis de texto criadas pelo painel que não estejam
+# declaradas aqui. (Segredos, como a API_KEY, não são afetados.)
+# Para liberar mais de um endereço, separe por vírgula.
+[vars]
+ORIGENS_PERMITIDAS = "https://gustavodemelomartins-hub.github.io"
