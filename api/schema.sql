@@ -8,7 +8,8 @@
 --   §28  não apagar histórico — arquivar e cancelar, nunca excluir
 --   §4   categorias configuráveis
 
-PRAGMA foreign_keys = ON;
+-- Nota: o D1 já força as chaves estrangeiras em toda query, e não aceita
+-- `PRAGMA foreign_keys` — por isso ele não aparece aqui.
 
 -- ---------------------------------------------------------------- categorias
 -- §4: configuráveis. A derivação pela descrição continua sendo o palpite
