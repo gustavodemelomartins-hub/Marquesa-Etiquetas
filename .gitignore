@@ -1,0 +1,6 @@
+# Skills instaladas por `npx skills add` — ficam fora do repositório.
+# São ~39 MB, quase tudo imagens, e este repositório é servido pelo GitHub
+# Pages: tudo que entra aqui é baixado por quem clona e publicado na web.
+.agents/
+.claude/
+skills-lock.json
