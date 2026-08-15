@@ -232,7 +232,13 @@ def main():
     out = []
     out.append("-- Seed gerado a partir dos arquivos reais da Marquesa.")
     out.append("-- Roda em cima de um banco já com schema.sql aplicado (categorias inclusas).")
-    out.append("BEGIN TRANSACTION;")
+    out.append("--")
+    out.append("-- De propósito, este arquivo não abre nem fecha um bloco de transação: o")
+    out.append("-- D1 remoto recusa esse controle vindo de um arquivo executado via --file")
+    out.append("-- (ele já trata cada instrução/lote como atômico por conta própria). O")
+    out.append("-- wrangler também faz uma busca de texto simples por esse comando — até um")
+    out.append("-- COMENTÁRIO citando essas duas palavras juntas dispara o mesmo erro, então")
+    out.append("-- evite escrevê-las aqui por extenso, mesmo como explicação.")
     out.append("")
 
     out.append("-- ============ catálogo ============")
@@ -292,8 +298,6 @@ def main():
     faixas = json.dumps([{"limite":800,"pct":0},{"limite":1000,"pct":15},{"limite":1500,"pct":25},
                           {"limite":6000,"pct":30},{"limite":10000,"pct":35},{"limite":None,"pct":40}])
     out.append(f"INSERT OR REPLACE INTO config (chave, valor) VALUES ('faixas', {sqlstr(faixas)});")
-    out.append("")
-    out.append("COMMIT;")
 
     with open("seed.sql", "w") as f:
         f.write("\n".join(out) + "\n")
