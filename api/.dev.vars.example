@@ -1,0 +1,5 @@
+# Copie este arquivo para .dev.vars (que fica de fora do git) e escolha
+# uma chave qualquer só para testar localmente. Na hora de publicar de
+# verdade, a chave de produção é definida com `wrangler secret put API_KEY`
+# — nunca fica escrita em nenhum arquivo.
+API_KEY=troque-por-uma-chave-de-teste

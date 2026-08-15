@@ -1,0 +1,12 @@
+name = "marquesa-api"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# Depois de rodar `npx wrangler d1 create marquesa-db`, troque database_id
+# pelo valor que o comando devolver. Para desenvolvimento local (wrangler dev
+# sem --remote) o valor abaixo nunca é usado de verdade — o wrangler cria um
+# banco SQLite local sozinho, identificado pelo database_name.
+[[d1_databases]]
+binding = "DB"
+database_name = "marquesa-db"
+database_id = "00000000-0000-0000-0000-000000000000"
