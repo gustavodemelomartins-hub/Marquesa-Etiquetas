@@ -1,6 +1,6 @@
 /** Prova, contra o Worker local, cada regra que o documento de contexto
  *  exige. Cada teste cita a seção correspondente. */
-const API = 'http://localhost:8787';
+const API = process.env.API_URL || 'http://localhost:8787';
 const KEY = process.env.API_KEY || 'troque-por-uma-chave-de-teste';
 
 let falhas = 0;

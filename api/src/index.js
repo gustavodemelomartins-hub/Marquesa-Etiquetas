@@ -1,4 +1,4 @@
-import { checarChave, respostaNaoAutorizada, json, corsPreflight } from './auth.js';
+import { checarChave, respostaNaoAutorizada, json, comCors } from './auth.js';
 import { montarState, FAIXAS_PADRAO } from './state.js';
 import { calcComissao } from './comissao.js';
 import { movimentar, consignadoDoSku, saldosDoSku, conferirEstoque } from './estoque.js';
@@ -7,8 +7,16 @@ const hoje = () => new Date().toISOString().slice(0, 10);
 const int = v => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
 
 export default {
+  /** O CORS é aplicado uma única vez, na saída — assim nenhuma rota nova
+   *  pode esquecer de devolvê-lo. */
   async fetch(request, env) {
-    if (request.method === 'OPTIONS') return corsPreflight();
+    if (request.method === 'OPTIONS') return comCors(new Response(null, { status: 204 }), request, env);
+    return comCors(await rotear(request, env), request, env);
+  },
+};
+
+async function rotear(request, env) {
+  {
     const url = new URL(request.url);
     const path = url.pathname;
     const met = request.method;
@@ -167,8 +175,8 @@ export default {
     } catch (e) {
       return json({ erro: 'Falha interna', detalhe: String((e && e.message) || e) }, 500);
     }
-  },
-};
+  }
+}
 
 const rev = r => ({
   id: r.id, nome: r.nome, tel: r.tel || '', cidade: r.cidade || '', cpf: r.cpf || '',
