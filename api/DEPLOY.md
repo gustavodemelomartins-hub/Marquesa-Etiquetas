@@ -55,13 +55,25 @@ Devem aparecer: `categorias`, `clientes`, `config`, `loja_snapshot`,
 - Repositório: `Marquesa-Etiquetas`
 - **Nome do Worker: `marquesa-api`** — precisa ser igual ao `name` do
   `wrangler.toml`, senão o build falha
-- **Root directory: `api`**
+- **Root directory: `api`** ⚠️ **é o campo que mais se esquece de preencher**
 - **Build command:** deixe vazio (não há build)
 - **Deploy command:** `npx wrangler deploy`
 - Branch de produção: `main`
 
 > Só a branch `main` publica de verdade. Outras branches geram apenas uma
 > versão de pré-visualização.
+
+> ⚠️ **Se o Root directory ficar vazio**, a Cloudflare escaneia a raiz do
+> repositório, encontra `index.html` e `dashboard.html` lá, e conclui que é
+> um site estático — cria um Worker que só serve arquivos, sem rodar o
+> código de `api/src/index.js`. O sintoma aparece depois, no passo 5: a aba
+> *Variables and Secrets* recusa qualquer variável com a mensagem
+> `Variables cannot be added to a Worker that only has static assets`.
+>
+> Para corrigir sem recriar o projeto: **Settings → Build**, ajuste o
+> **Root directory** para `api`, salve, e use **Retry deployment** na aba
+> *Deployments* — o retry aplica a configuração salva na hora, não a de
+> quando o build original rodou.
 
 ### 5. Definir os segredos
 
