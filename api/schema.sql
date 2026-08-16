@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS movimentos (
   sku            TEXT NOT NULL REFERENCES produtos(sku),
   tipo           TEXT NOT NULL,   -- entrada|ajuste|consignacao|devolucao|venda|perda|quebra|dano|furto|brinde|troca|nota_credito|venda_conjunto|cancelamento
   qtd            INTEGER NOT NULL,
-  origem         TEXT,            -- importacao | manual | maleta | acerto | venda | cancelamento
+  origem         TEXT,            -- importacao | manual | maleta | acerto | venda | inventario | cancelamento
   maleta_id      INTEGER,
   revendedora_id INTEGER,
   venda_id       INTEGER,
@@ -159,6 +159,38 @@ CREATE TABLE IF NOT EXISTS venda_itens (
   motivo    TEXT                                    -- §8: venda|perda|quebra|brinde|troca|...
 );
 
+-- ------------------------------------------------------------- inventário
+-- A conferência física do que está em casa. Fica aberta enquanto ela bipa:
+-- é estado de verdade no banco, e não só uma tela aberta, para poder começar
+-- no celular no meio da sala e terminar no computador — mesma escolha já
+-- feita para a maleta "em_acerto".
+--
+-- Códigos bipados que não existem no catálogo não entram em inventario_itens
+-- (a chave estrangeira os recusaria, e com razão: a razão de estoque não pode
+-- citar peça que não existe). Ficam em desconhecidos_json para a tela poder
+-- mostrá-los — §22, sinalizar em vez de engolir.
+CREATE TABLE IF NOT EXISTS inventarios (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  status             TEXT NOT NULL DEFAULT 'aberto',   -- aberto | concluido | cancelado
+  iniciado_em        TEXT NOT NULL DEFAULT (datetime('now')),
+  concluido_em       TEXT,
+  desconhecidos_json TEXT,
+  obs                TEXT
+);
+
+-- `esperado` é congelado no fechamento, do mesmo jeito que maleta_itens
+-- congela o preço do envio (§6.1). Sem isso, abrir um inventário de três
+-- meses atrás mostraria a diferença contra o estoque de HOJE — e um
+-- inventário que muda de resultado depois de fechado não serve para nada.
+CREATE TABLE IF NOT EXISTS inventario_itens (
+  inventario_id INTEGER NOT NULL REFERENCES inventarios(id),
+  sku           TEXT NOT NULL REFERENCES produtos(sku),
+  contado       INTEGER NOT NULL DEFAULT 0,
+  esperado      INTEGER,                            -- NULL enquanto aberto
+  ajustado      INTEGER NOT NULL DEFAULT 0,         -- 1 = já virou movimento
+  PRIMARY KEY (inventario_id, sku)
+);
+
 CREATE INDEX IF NOT EXISTS idx_mov_sku        ON movimentos(sku);
 CREATE INDEX IF NOT EXISTS idx_mov_maleta     ON movimentos(maleta_id);
 CREATE INDEX IF NOT EXISTS idx_mov_criado     ON movimentos(criado_em);
@@ -168,3 +200,5 @@ CREATE INDEX IF NOT EXISTS idx_vendas_data    ON vendas(data);
 CREATE INDEX IF NOT EXISTS idx_vendas_origem  ON vendas(origem);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_v  ON venda_itens(venda_id);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_s  ON venda_itens(sku);
+CREATE INDEX IF NOT EXISTS idx_inv_status     ON inventarios(status);
+CREATE INDEX IF NOT EXISTS idx_inv_itens      ON inventario_itens(inventario_id);

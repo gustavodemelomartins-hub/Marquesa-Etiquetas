@@ -625,6 +625,40 @@ body{font-variant-numeric:lining-nums tabular-nums}
   min-width:34px;text-align:center;
 }
 .scanrow .s-val{font-size:12.5px;font-weight:700;color:var(--ink);white-space:nowrap}
+/* no inventário a linha mostra a comparação, não o dinheiro */
+.scanrow .s-cmp{font-size:11.5px;font-weight:700;white-space:nowrap;color:var(--muted)}
+.scanrow .s-cmp.ok{color:var(--ok)}
+.scanrow .s-cmp.mais{color:var(--gold-deep,#8A6A1F)}
+.scanrow.fora .s-qtd{color:var(--danger)}
+
+/* ---------- Câmera ---------- */
+.camwrap{display:none;margin-top:12px;border-radius:12px;overflow:hidden;background:#000;position:relative}
+.camwrap.on{display:block}
+.camwrap video{width:100%;max-height:230px;object-fit:cover;display:block}
+.camwrap .cam-alvo{
+  position:absolute;left:12%;right:12%;top:32%;bottom:32%;
+  border:2px solid rgba(255,255,255,.85);border-radius:8px;pointer-events:none;
+  box-shadow:0 0 0 2000px rgba(0,0,0,.28);
+}
+.sb-tools{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+
+/* ---------- Resultado do inventário ---------- */
+.invsum{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
+.invsum .is{border:1px solid var(--line);border-radius:11px;background:#fff;padding:11px 13px}
+.invsum .is b{display:block;font-family:var(--serif);font-size:23px;line-height:1.15;color:var(--ink)}
+.invsum .is span{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700}
+.invsum .is.falta b{color:var(--danger)}
+.invsum .is.sobra b{color:#8A6A1F}
+.invsum .is.ok b{color:var(--ok)}
+
+.invrow{display:flex;align-items:center;gap:11px;padding:11px 13px;border-top:1px solid var(--line-soft)}
+.invrow:first-child{border-top:none}
+.invrow .i-desc{flex:1;min-width:0}
+.invrow .i-desc .d1{font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.invrow .i-desc .d2{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px}
+.invrow .i-num{font-size:11.5px;color:var(--muted);white-space:nowrap;text-align:right;line-height:1.5}
+.invrow .i-num b{color:var(--ink);font-size:13px}
+.invrow.feito{opacity:.5}
 
 /* ---------- Acerto ---------- */
 .acgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
@@ -770,6 +804,9 @@ td.num.neg{color:var(--danger)}
   <!-- ============ NUVEMSHOP ============ -->
   <section class="view" id="view-loja"></section>
 
+  <!-- ============ VENDAS ============ -->
+  <section class="view" id="view-vendas"></section>
+
   <!-- ============ REVENDEDORA (uma por vez) ============ -->
   <section class="view" id="view-rev"></section>
 </div>
@@ -787,6 +824,13 @@ td.num.neg{color:var(--danger)}
         <input id="scanInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="—">
         <div class="sb-fb" id="scanFb"></div>
         <div class="sb-hint" id="scanHint">O leitor digita o código e dá Enter sozinho. Você também pode digitar o código e apertar Enter.</div>
+        <div class="sb-tools">
+          <button class="btn btn-ghost btn-sm" id="camBtn" onclick="toggleCamera()">📷 Usar a câmera</button>
+        </div>
+        <div class="camwrap" id="camWrap">
+          <video id="camVideo" playsinline muted></video>
+          <div class="cam-alvo"></div>
+        </div>
       </div>
       <div class="actbar">
         <div class="stat"><b id="scanQtd">0</b> peças</div>
@@ -802,6 +846,28 @@ td.num.neg{color:var(--danger)}
         <button class="btn btn-gold" id="scanConfirm" onclick="scanFinish()">Concluir</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ============ RESULTADO DO INVENTÁRIO ============ -->
+<div class="overlay center" id="invOverlay" onclick="if(event.target===this)closeInv()">
+  <div class="modal">
+    <div class="mhead">
+      <h2>Resultado do inventário</h2>
+      <button class="closebtn" onclick="closeInv()">×</button>
+    </div>
+    <div class="mbody" id="invBody"></div>
+  </div>
+</div>
+
+<!-- ============ FECHAR VENDA ============ -->
+<div class="overlay center" id="vendaOverlay" onclick="if(event.target===this)closeVenda()">
+  <div class="modal" style="max-width:520px">
+    <div class="mhead">
+      <h2>Fechar venda</h2>
+      <button class="closebtn" onclick="closeVenda()">×</button>
+    </div>
+    <div class="mbody" id="vendaBody"></div>
   </div>
 </div>
 
@@ -923,6 +989,22 @@ td.num.neg{color:var(--danger)}
       </div>
 
       <div class="grp">
+        <h3>Inventário</h3>
+        <div class="adjrow">
+          <label>Refazer a cada quantos dias</label>
+          <div class="ctrl">
+            <button onclick="nudgeInv(-15)">−</button>
+            <input id="setInv" value="30" onchange="setInvDias(this.value)">
+            <button onclick="nudgeInv(15)">+</button>
+          </div>
+        </div>
+        <p style="font-size:11.5px;color:var(--muted);margin:2px 0 0;line-height:1.5">
+          Passado esse prazo desde a última contagem, aparece um aviso na Visão
+          geral. É só um lembrete — nada trava e nada muda de saldo sozinho.
+        </p>
+      </div>
+
+      <div class="grp">
         <h3>Comissão</h3>
         <p style="font-size:11.5px;color:var(--muted);margin:0 0 12px;line-height:1.5">
           Faixas aplicadas sobre o total vendido na maleta. Peças de <b>Prata 925</b>
@@ -1030,9 +1112,11 @@ function defaultState(){
     revendedoras:[],
     maletas:[],
     loja:null,
+    inventario:null,
     config:{
       prazoDias:45,
       prataPct:10,
+      inventarioDias:30,
       /* limite = teto da faixa (o último é null = sem teto) */
       faixas:[
         {limite:800,   pct:0},
@@ -1344,6 +1428,11 @@ function switchTab(name){
   if(name==='geral'){ document.getElementById('view-geral').classList.add('active'); renderGeral(); }
   else if(name==='estoque'){ document.getElementById('view-estoque').classList.add('active'); renderEstoque(); }
   else if(name==='loja'){ document.getElementById('view-loja').classList.add('active'); renderLoja(); }
+  else if(name==='vendas'){
+    document.getElementById('view-vendas').classList.add('active');
+    renderVendas();
+    carregarVendas(vendasData).then(renderVendas);
+  }
   else { document.getElementById('view-rev').classList.add('active'); renderRev(+name.split(':')[1]); }
   window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -1354,6 +1443,7 @@ function renderTabs(){
   let html=`
     <button class="tab ${tabAtual==='geral'?'active':''}" onclick="switchTab('geral')">Visão geral</button>
     <button class="tab ${tabAtual==='estoque'?'active':''}" onclick="switchTab('estoque')">Meu estoque</button>
+    <button class="tab ${tabAtual==='vendas'?'active':''}" onclick="switchTab('vendas')">Vendas</button>
     <button class="tab ${tabAtual==='loja'?'active':''}" onclick="switchTab('loja')">Nuvemshop${
       temLoja()&&faltaSubir?`<span class="count">${faltaSubir}</span>`:''}</button>`;
   state.revendedoras.forEach(r=>{
@@ -1450,6 +1540,8 @@ function renderGeral(){
       <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="switchTab('estoque');setTimeout(()=>setFiltroInc(true),60)">Ver esses códigos</button></div></div>
     </div>`:''}
 
+    ${painelInventario()}
+
     <div class="row chart">
       <div class="panel">
         <div class="head">
@@ -1483,6 +1575,53 @@ function renderGeral(){
     </div>`;
 
   renderDonut();
+}
+
+/* O estado do inventário em uma frase, no lugar onde ela já olha todo dia.
+   Sem número piscando e sem contagem regressiva: é um lembrete, não uma
+   cobrança — nada trava se o prazo passar. */
+function painelInventario(){
+  const i=state.inventario;
+  if(!i) return '';
+
+  if(i.abertoId){
+    return `<div class="warn info">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <div><b>Você tem uma contagem em andamento.</b> O que já foi bipado está guardado.
+      <div class="w-act">
+        <button class="btn btn-gold btn-sm" onclick="iniciarInventario()">Continuar contagem</button>
+        <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="descartarInventario()">Descartar</button>
+      </div></div>
+    </div>`;
+  }
+
+  const nunca=!i.ultimoEm;
+  const texto=nunca
+    ? 'Você ainda não fez nenhum inventário.'
+    : `Último inventário em <b>${fmtData(i.ultimoEm)}</b>` +
+      (i.diasDesde===0?' — hoje.':` — faz ${i.diasDesde} ${plural(i.diasDesde,'dia','dias')}.`);
+  const chamada=i.vencido
+    ? (nunca ? 'Contar uma vez dá ao sistema um ponto de partida conferido.'
+             : `O combinado é refazer a cada ${i.prazoDias} dias.`)
+    : `Está em dia — o próximo cai em ${i.prazoDias-i.diasDesde} ${plural(i.prazoDias-i.diasDesde,'dia','dias')}.`;
+
+  return `<div class="warn ${i.vencido?'':'info'}">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    <div>${texto} ${chamada}
+    <div class="w-act"><button class="btn ${i.vencido?'btn-gold':'btn-ghost'} btn-sm" onclick="iniciarInventario()">
+      ${nunca?'Fazer o primeiro inventário':'Fazer inventário'}</button></div></div>
+  </div>`;
+}
+
+async function descartarInventario(){
+  const id=state.inventario&&state.inventario.abertoId;
+  if(!id) return;
+  if(!confirm('Descartar a contagem em andamento?\n\nO que já foi bipado se perde. O inventário fica registrado como cancelado — o estoque não muda.')) return;
+  try{
+    await api('POST',`/api/inventarios/${id}/cancelar`);
+    await sincronizar();
+    toast('Contagem descartada');
+  }catch(e){ toast(e.message); }
 }
 
 function cardRev(r){
@@ -2138,8 +2277,20 @@ async function novaMaleta(revId){
   }catch(e){ toast(e.message); }
 }
 
-/* =================== Bipagem =================== */
-let scan=null;  /* {modo:'add'|'acerto', maletaId, itens:{sku:qtd}, hist:[sku], audio} */
+/* =================== Bipagem ===================
+   Quatro modos usam a MESMA tela, porque o gesto é sempre o mesmo: passar o
+   leitor na etiqueta. O que muda é só a pergunta que cada modo faz.
+
+     add        — "esta peça vai na maleta?"        limite: o que há em casa
+     acerto     — "esta peça voltou?"               limite: o que saiu na maleta
+     inventario — "esta peça existe aqui?"          SEM limite: contar é contar
+     venda      — "esta peça está sendo vendida?"   limite: o que há em casa
+
+   O inventário não ter limite é a diferença que importa. Se o app recusasse
+   a peça que "não deveria" existir, ele estaria mandando a contagem obedecer
+   ao sistema — que é exatamente o contrário de conferir. Peça a mais vira
+   sobra no relatório; código de fora do catálogo vira aviso. */
+let scan=null;  /* {modo, maletaId, itens:{sku:qtd}, hist:[sku], audio, invId, fora:Set} */
 
 function beep(ok){
   try{
@@ -2154,19 +2305,46 @@ function beep(ok){
   }catch(e){/* som é enfeite; se o navegador bloquear, segue sem */}
 }
 
+const TEXTOS_SCAN={
+  add:{
+    titulo:m=>'Montar maleta · '+revNome(m.revId),
+    lbl:'Bipe a etiqueta da peça que vai na maleta',
+    hint:'O leitor digita o código e dá Enter sozinho. Peça sem estoque em casa não entra.',
+    botao:'Concluir maleta', valor:true,
+  },
+  acerto:{
+    titulo:m=>'Conferir devolução · '+revNome(m.revId),
+    lbl:'Bipe cada peça que a revendedora devolveu',
+    hint:'Só entram peças que estão nesta maleta. No fim, o que não for bipado conta como faltante.',
+    botao:'Ver o que faltou', valor:false,
+  },
+  inventario:{
+    titulo:()=>'Inventário',
+    lbl:'Bipe cada peça que estiver aí',
+    hint:'Bipe tudo o que encontrar, sem se preocupar com a ordem. Pode fechar e voltar depois: a contagem fica guardada.',
+    botao:'Terminar contagem', valor:false,
+  },
+  venda:{
+    titulo:()=>'Nova venda',
+    lbl:'Bipe a etiqueta da peça vendida',
+    hint:'Só entra peça que está em casa. No fim você escolhe a cliente.',
+    botao:'Fechar venda', valor:true,
+  },
+};
+
 function openScan(modo,maletaId,novaVazia){
-  const m=state.maletas.find(x=>x.id===maletaId);
-  if(!m) return;
-  scan={modo, maletaId, itens:{}, hist:[], audio:null, novaVazia:!!novaVazia};
-  document.getElementById('scanTitle').textContent =
-    modo==='add' ? 'Montar maleta · '+revNome(m.revId) : 'Conferir devolução · '+revNome(m.revId);
-  document.getElementById('scanLbl').textContent =
-    modo==='add' ? 'Bipe a etiqueta da peça que vai na maleta' : 'Bipe cada peça que a revendedora devolveu';
-  document.getElementById('scanHint').textContent =
-    modo==='add' ? 'O leitor digita o código e dá Enter sozinho. Peça sem estoque em casa não entra.'
-                 : 'Só entram peças que estão nesta maleta. No fim, o que não for bipado conta como faltante.';
-  document.getElementById('scanValWrap').style.display = modo==='add'?'':'none';
-  document.getElementById('scanConfirm').textContent = modo==='add'?'Concluir maleta':'Ver o que faltou';
+  const m=maletaId?state.maletas.find(x=>x.id===maletaId):null;
+  if((modo==='add'||modo==='acerto')&&!m) return;
+  const t=TEXTOS_SCAN[modo];
+  scan={modo, maletaId, itens:{}, hist:[], audio:null, novaVazia:!!novaVazia,
+        invId:null, fora:new Set()};
+  document.getElementById('scanTitle').textContent=t.titulo(m);
+  document.getElementById('scanLbl').textContent=t.lbl;
+  document.getElementById('scanHint').textContent=t.hint;
+  document.getElementById('scanValWrap').style.display=t.valor?'':'none';
+  document.getElementById('scanConfirm').textContent=t.botao;
+  /* o botão da câmera só aparece onde o navegador sabe ler código de barras */
+  document.getElementById('camBtn').style.display=temCamera()?'':'none';
   document.getElementById('scanOverlay').classList.add('show');
   renderScan();
   focoScan();
@@ -2177,7 +2355,20 @@ function focoScan(){
   setTimeout(()=>i.focus(),60);
 }
 async function closeScan(){
-  if(scan&&Object.keys(scan.itens).length&&!confirm('Sair agora descarta o que você bipou. Continuar?')) return;
+  /* no inventário nada se perde ao sair: a contagem já está guardada no
+     servidor, e é para poder parar no meio que ela existe */
+  if(scan&&scan.modo!=='inventario'&&Object.keys(scan.itens).length
+     &&!confirm('Sair agora descarta o que você bipou. Continuar?')) return;
+  pararCamera();
+  if(scan&&scan.modo==='inventario'){
+    await salvarContagem(true);
+    document.getElementById('scanOverlay').classList.remove('show');
+    const tinha=Object.keys(scan.itens).length;
+    scan=null;
+    await sincronizar();
+    if(tinha) toast('Contagem guardada — dá para continuar depois');
+    return;
+  }
   /* maleta aberta pelo botão "Montar maleta" e abandonada vazia não deve ficar de lembrança */
   const novaVazia=scan&&scan.novaVazia, maletaId=scan&&scan.maletaId;
   document.getElementById('scanOverlay').classList.remove('show');
@@ -2205,13 +2396,42 @@ function handleScan(code){
   const c=normSku(code);
   if(!c) return;
   const p=findProd(c);
-  if(!p){fbScan(false,`Código ${c} não está no catálogo`);return;}
 
-  if(scan.modo==='add'){
+  if(!p){
+    /* No inventário um código desconhecido é achado, não erro: existe uma
+       peça de verdade na mão dela. Fica anotado para aparecer no relatório
+       em vez de sumir (§22). Nos outros modos continua sendo recusa. */
+    if(scan.modo==='inventario'){
+      scan.fora.add(c);
+      scan.hist.push('!'+c);
+      fbScan(true,`${c} não está no catálogo — anotado`);
+      renderScan();
+      agendarSalvarContagem();
+      return;
+    }
+    fbScan(false,`Código ${c} não está no catálogo`);return;
+  }
+
+  if(scan.modo==='inventario'){
+    scan.itens[p.sku]=(scan.itens[p.sku]||0)+1;
+    scan.hist.push(p.sku);
+    const esp=emCasaMap()[p.sku]||0, tem=scan.itens[p.sku];
+    fbScan(true, tem>esp ? `${p.desc} — ${tem}ª, o sistema esperava ${esp}`
+                         : `${p.desc} ✓ (${tem} de ${esp})`);
+    renderScan(p.sku);
+    agendarSalvarContagem();
+    return;
+  }
+
+  if(scan.modo==='add'||scan.modo==='venda'){
     const casa=emCasaMap()[p.sku]||0;
     const jaBipado=scan.itens[p.sku]||0;
     if(jaBipado>=casa){
       fbScan(false,`${p.desc} — só tem ${casa} em casa`);
+      return;
+    }
+    if(scan.modo==='venda'&&p.preco==null){
+      fbScan(false,`${p.desc} está sem preço — cadastre o preço antes de vender`);
       return;
     }
     scan.itens[p.sku]=jaBipado+1;
@@ -2230,9 +2450,14 @@ function handleScan(code){
 function scanUndo(){
   if(!scan||!scan.hist.length){toast('Nada para desfazer');return;}
   const sku=scan.hist.pop();
-  scan.itens[sku]=(scan.itens[sku]||1)-1;
-  if(scan.itens[sku]<=0) delete scan.itens[sku];
+  if(sku[0]==='!'){            /* era um código de fora do catálogo */
+    scan.fora.delete(sku.slice(1));
+  }else{
+    scan.itens[sku]=(scan.itens[sku]||1)-1;
+    if(scan.itens[sku]<=0) delete scan.itens[sku];
+  }
   renderScan();
+  if(scan.modo==='inventario') agendarSalvarContagem();
   focoScan();
 }
 function renderScan(destaque){
@@ -2247,22 +2472,41 @@ function renderScan(destaque){
 
   const qtd=linhas.reduce((s,l)=>s+l.q,0);
   const val=linhas.reduce((s,l)=>s+l.q*l.preco,0);
+  const fora=scan.fora?[...scan.fora]:[];
   document.getElementById('scanQtd').textContent=qtd;
-  document.getElementById('scanSkus').textContent=linhas.length;
+  document.getElementById('scanSkus').textContent=linhas.length+fora.length;
   document.getElementById('scanVal').textContent=val.toFixed(2).replace('.',',');
 
   const list=document.getElementById('scanList');
-  if(!linhas.length){
+  if(!linhas.length&&!fora.length){
     list.innerHTML=`<div class="empty" style="padding:34px 16px"><h3>Nada bipado ainda</h3>
       <p>Passe o leitor na etiqueta da primeira peça.</p></div>`;
     return;
   }
-  list.innerHTML=linhas.map(l=>`
-    <div class="scanrow ${l.sku===destaque?'flash':''}">
-      <div class="s-qtd">${l.q}</div>
-      <div class="s-desc"><div class="d1">${esc(l.desc)}</div><div class="d2">${esc(l.sku)}</div></div>
-      <div class="s-val">${money(l.preco*l.q)}</div>
-    </div>`).join('');
+
+  /* No inventário o que interessa em cada linha não é o preço, é se a
+     contagem bate com o que o sistema achava que tinha. */
+  const casa=scan.modo==='inventario'?emCasaMap():null;
+  list.innerHTML=
+    fora.map(c=>`
+      <div class="scanrow fora">
+        <div class="s-qtd">?</div>
+        <div class="s-desc"><div class="d1">Código fora do catálogo</div><div class="d2">${esc(c)}</div></div>
+        <div class="s-cmp">anotado</div>
+      </div>`).join('')
+    +linhas.map(l=>{
+      let dir=`<div class="s-val">${money(l.preco*l.q)}</div>`;
+      if(casa){
+        const esp=casa[l.sku]||0, d=l.q-esp;
+        const cls=d===0?'ok':(d>0?'mais':'');
+        dir=`<div class="s-cmp ${cls}">${d===0?'confere':(d>0?`+${d}`:`faltam ${-d}`)} · de ${esp}</div>`;
+      }
+      return `<div class="scanrow ${l.sku===destaque?'flash':''}">
+        <div class="s-qtd">${l.q}</div>
+        <div class="s-desc"><div class="d1">${esc(l.desc)}</div><div class="d2">${esc(l.sku)}</div></div>
+        ${dir}
+      </div>`;
+    }).join('');
   if(destaque){
     const el=list.querySelector('.flash');
     if(el) el.scrollIntoView({block:'nearest'});
@@ -2270,11 +2514,21 @@ function renderScan(destaque){
 }
 async function scanFinish(){
   if(!scan) return;
+
+  if(scan.modo==='inventario'){ await terminarInventario(); return; }
+  if(scan.modo==='venda'){
+    if(!Object.keys(scan.itens).length){toast('Você não bipou nenhuma peça');return;}
+    pararCamera();
+    abrirFecharVenda();
+    return;
+  }
+
   if(!Object.keys(scan.itens).length){
     /* no acerto, voltar de mãos vazias é um resultado válido: vendeu tudo */
     if(scan.modo==='add'){toast('Você não bipou nenhuma peça');return;}
     if(!confirm('Nenhuma peça foi bipada. Isso quer dizer que nada voltou — a maleta inteira conta como faltante. Continuar?')) return;
   }
+  pararCamera();
   const m=state.maletas.find(x=>x.id===scan.maletaId);
   if(scan.modo==='add'){
     const itens=Object.assign({},scan.itens), maletaId=scan.maletaId, revId=m.revId;
@@ -2298,6 +2552,389 @@ async function scanFinish(){
     const mid=scan.maletaId;scan=null;
     abrirResumoAcerto(mid,devolvidas);
   }
+}
+
+/* =================== Inventário ===================
+   A contagem física do que está em casa.
+
+   Regra que manda aqui, e que vale a pena repetir porque é contra-intuitiva:
+   **o inventário não corrige nada sozinho.** Ele conta, compara e mostra a
+   diferença. Virar saldo é um segundo ato, explícito, um código de cada vez.
+
+   O motivo é prático. Uma peça "faltando" quase nunca sumiu: está na bolsa,
+   foi para a maleta sem lançar, ou a etiqueta não leu. Se o app zerasse o
+   saldo por conta própria, o erro de contagem viraria a nova verdade e
+   ninguém saberia disso depois. */
+let invResultado=null;   /* o que voltou do /concluir, esperando confirmação */
+
+async function iniciarInventario(){
+  const aberto=state.inventario&&state.inventario.abertoId;
+  try{
+    let id=aberto;
+    if(!id){ id=(await api('POST','/api/inventarios')).id; }
+    openScan('inventario');
+    scan.invId=id;
+    if(aberto){
+      /* retomando uma contagem parada no meio: traz o que já foi bipado */
+      const d=await api('GET',`/api/inventarios/${id}`);
+      d.itens.forEach(i=>{ if(i.contado>0) scan.itens[i.sku]=i.contado; });
+      (d.desconhecidos||[]).forEach(c=>scan.fora.add(c));
+      renderScan();
+      toast('Continuando a contagem de onde parou');
+    }
+    await sincronizar();
+  }catch(e){ toast(e.message); }
+}
+
+/* Guarda a contagem no servidor enquanto ela bipa, para nada se perder se a
+   bateria acabar ou o navegador fechar. Espera um respiro entre bipadas para
+   não mandar uma requisição por peça. */
+let salvarTimer=null;
+function agendarSalvarContagem(){
+  clearTimeout(salvarTimer);
+  salvarTimer=setTimeout(()=>salvarContagem(),1500);
+}
+async function salvarContagem(agora){
+  clearTimeout(salvarTimer);
+  if(!scan||scan.modo!=='inventario'||!scan.invId) return;
+  const corpo={contados:Object.assign({},scan.itens), desconhecidos:[...scan.fora]};
+  try{ await api('PUT',`/api/inventarios/${scan.invId}/contagem`,corpo); }
+  catch(e){ if(agora) toast('Não consegui guardar a contagem: '+e.message); }
+}
+
+async function terminarInventario(){
+  const id=scan.invId;
+  const nada=!Object.keys(scan.itens).length&&!scan.fora.size;
+  if(nada&&!confirm('Você não bipou nenhuma peça. Terminar assim vai listar o estoque inteiro como faltante. Continuar?')) return;
+  try{
+    await salvarContagem(true);
+    const r=await api('POST',`/api/inventarios/${id}/concluir`);
+    pararCamera();
+    document.getElementById('scanOverlay').classList.remove('show');
+    scan=null;
+    invResultado=r;
+    await sincronizar();
+    renderInvResultado();
+    document.getElementById('invOverlay').classList.add('show');
+  }catch(e){ toast(e.message); }
+}
+
+function closeInv(){
+  document.getElementById('invOverlay').classList.remove('show');
+  invResultado=null;
+  sincronizar();
+}
+
+function renderInvResultado(){
+  const r=invResultado;
+  if(!r) return;
+  const pendentes=[...r.faltando,...r.sobrando].filter(l=>!l.feito);
+  const linha=l=>`
+    <div class="invrow ${l.feito?'feito':''}">
+      <div class="i-desc">
+        <div class="d1">${esc(l.desc)}</div>
+        <div class="d2">${esc(l.sku)}</div>
+      </div>
+      <div class="i-num">contei <b>${l.contado}</b><br>sistema dizia <b>${l.esperado}</b></div>
+      ${l.feito
+        ? `<span class="badge fechada">ajustado</span>`
+        : `<button class="btn btn-ghost btn-sm" onclick="aplicarAjuste('${esc(l.sku)}',${l.sugestao})">
+             Corrigir para ${l.contado}</button>`}
+    </div>`;
+
+  document.getElementById('invBody').innerHTML=`
+    <div class="invsum">
+      <div class="is ok"><b>${r.conferidos}</b><span>bateram certo</span></div>
+      <div class="is falta"><b>${r.faltando.length}</b><span>faltando</span></div>
+      <div class="is sobra"><b>${r.sobrando.length}</b><span>sobrando</span></div>
+      <div class="is"><b>${r.pecasContadas}</b><span>peças contadas</span></div>
+    </div>
+
+    ${(r.faltando.length||r.sobrando.length)?`<div class="warn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+      <div><b>Nada foi corrigido ainda.</b> Peça faltando quase nunca sumiu — costuma
+      estar na bolsa, ter ido para a maleta sem lançar, ou a etiqueta não leu.
+      Confira uma a uma e corrija só o que você tem certeza.</div>
+    </div>`:`<div class="warn info">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+      <div><b>Contagem fechada sem nenhuma diferença.</b> O estoque do sistema
+      está igual ao que existe na prateleira.</div>
+    </div>`}
+
+    ${r.faltando.length?`<div class="panel" style="margin-bottom:14px">
+      <div class="head"><h2>Faltando</h2><span class="hint">o sistema esperava mais do que você achou</span></div>
+      <div class="body" style="padding:0">${r.faltando.map(linha).join('')}</div>
+    </div>`:''}
+
+    ${r.sobrando.length?`<div class="panel" style="margin-bottom:14px">
+      <div class="head"><h2>Sobrando</h2><span class="hint">você achou mais do que o sistema esperava</span></div>
+      <div class="body" style="padding:0">${r.sobrando.map(linha).join('')}</div>
+    </div>`:''}
+
+    ${r.desconhecidos.length?`<div class="warn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+      <div><b>${r.desconhecidos.length} ${plural(r.desconhecidos.length,'código bipado não existe','códigos bipados não existem')} no catálogo</b>
+      (${esc(r.desconhecidos.slice(0,6).join(', '))}${r.desconhecidos.length>6?'…':''}).
+      Essas peças existem de verdade na sua mão — precisam ser cadastradas antes de entrar na conta.</div>
+    </div>`:''}
+
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeInv()">Fechar</button>
+      <div class="spacer"></div>
+      ${pendentes.length>1?`<button class="btn btn-gold" onclick="aplicarTodosAjustes()">
+        Corrigir ${pendentes.length} de uma vez</button>`:''}
+    </div>`;
+}
+
+async function aplicarAjuste(sku,qtd){
+  try{
+    await api('POST',`/api/inventarios/${invResultado.id}/ajustar`,{itens:[{sku,qtd}]});
+    marcarFeito([sku]);
+    toast('Estoque corrigido — o motivo ficou no histórico da peça');
+  }catch(e){ toast(e.message); }
+}
+
+async function aplicarTodosAjustes(){
+  const itens=[...invResultado.faltando,...invResultado.sobrando]
+    .filter(l=>!l.feito).map(l=>({sku:l.sku,qtd:l.sugestao}));
+  if(!itens.length) return;
+  if(!confirm(`Corrigir ${itens.length} ${plural(itens.length,'código','códigos')} de uma vez?\n\nCada um vira uma movimentação de ajuste no histórico, com a data e o motivo.`)) return;
+  try{
+    await api('POST',`/api/inventarios/${invResultado.id}/ajustar`,{itens});
+    marcarFeito(itens.map(i=>i.sku));
+    toast(`${itens.length} ${plural(itens.length,'código corrigido','códigos corrigidos')}`);
+  }catch(e){ toast(e.message); }
+}
+
+function marcarFeito(skus){
+  const s=new Set(skus);
+  [...invResultado.faltando,...invResultado.sobrando].forEach(l=>{ if(s.has(l.sku)) l.feito=true; });
+  renderInvResultado();
+  sincronizar();
+}
+
+/* =================== Venda de balcão ===================
+   §9 e §8: a venda de balcão e a venda que nasce do acerto de maleta moram
+   na mesma tabela do servidor, separadas só pela origem. É o que permite
+   pedir "as vendas do dia" e receber tudo, não metade. */
+let vendas=[];        /* as do dia, recarregadas ao abrir a aba */
+
+function novaVenda(){
+  if(!state.produtos.length){toast('Importe seu catálogo antes de vender');return;}
+  openScan('venda');
+}
+
+function abrirFecharVenda(){
+  const idx=prodIndex();
+  const linhas=Object.entries(scan.itens).map(([sku,q])=>{
+    const p=idx.get(sku);
+    return {sku,q,desc:p?p.desc:sku,preco:(p&&p.preco!=null)?p.preco:0};
+  }).sort((a,b)=>a.desc.localeCompare(b.desc,'pt'));
+  const total=linhas.reduce((s,l)=>s+l.q*l.preco,0);
+
+  document.getElementById('vendaBody').innerHTML=`
+    <div class="scanlist" style="margin-bottom:16px">
+      ${linhas.map(l=>`<div class="scanrow">
+        <div class="s-qtd">${l.q}</div>
+        <div class="s-desc"><div class="d1">${esc(l.desc)}</div><div class="d2">${esc(l.sku)}</div></div>
+        <div class="s-val">${money(l.preco*l.q)}</div>
+      </div>`).join('')}
+    </div>
+    <div class="actbar" style="margin-bottom:16px">
+      <div class="stat"><b>${linhas.reduce((s,l)=>s+l.q,0)}</b> peças</div>
+      <div class="spacer"></div>
+      <div class="stat" style="font-size:15px">Total <b>${money(total)}</b></div>
+    </div>
+    <div class="field">
+      <label>Cliente <span class="req">*</span></label>
+      <input id="vd-cliente" list="vd-clientes" autocomplete="off" placeholder="Nome de quem levou" maxlength="60">
+      <datalist id="vd-clientes"></datalist>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeVenda()">Voltar</button>
+      <div class="spacer"></div>
+      <button class="btn btn-gold" id="vdConfirm" onclick="confirmarVenda()">Registrar venda</button>
+    </div>`;
+
+  document.getElementById('vendaOverlay').classList.add('show');
+  setTimeout(()=>document.getElementById('vd-cliente').focus(),80);
+
+  /* a lista de clientes é conveniência: se o nome for novo, o servidor cria */
+  api('GET','/api/clientes').then(cs=>{
+    const dl=document.getElementById('vd-clientes');
+    if(dl) dl.innerHTML=(cs||[]).map(c=>`<option value="${esc(c.nome)}">`).join('');
+  }).catch(()=>{});
+}
+
+function closeVenda(){
+  document.getElementById('vendaOverlay').classList.remove('show');
+  /* volta para a bipagem com o carrinho intacto — ela pode ter esquecido uma peça */
+  if(scan&&scan.modo==='venda') focoScan();
+}
+
+async function confirmarVenda(){
+  const inp=document.getElementById('vd-cliente');
+  const nome=inp.value.trim();
+  if(!nome){ toast('Diga quem levou as peças'); inp.focus(); return; }
+  const btn=document.getElementById('vdConfirm');
+  btn.disabled=true;
+  const itens=Object.entries(scan.itens).map(([sku,qtd])=>({sku,qtd}));
+  try{
+    const r=await api('POST','/api/vendas',{clienteNome:nome, itens});
+    document.getElementById('vendaOverlay').classList.remove('show');
+    document.getElementById('scanOverlay').classList.remove('show');
+    scan=null;
+    await sincronizar();
+    switchTab('vendas');
+    toast(`Venda registrada · ${money(r.total)}`);
+  }catch(e){
+    btn.disabled=false;
+    toast(e.message);
+  }
+}
+
+async function carregarVendas(data){
+  try{ vendas=await api('GET','/api/vendas?data='+(data||hoje())); }
+  catch(e){ vendas=[]; toast(e.message); }
+}
+
+async function cancelarVenda(id){
+  if(!confirm('Cancelar esta venda?\n\nAs peças voltam para o estoque e a venda fica registrada como cancelada — o histórico não se perde.')) return;
+  try{
+    await api('POST',`/api/vendas/${id}/cancelar`);
+    await carregarVendas(vendasData);
+    await sincronizar();
+    toast('Venda cancelada e peças devolvidas ao estoque');
+  }catch(e){ toast(e.message); }
+}
+
+let vendasData=hoje();
+function setVendasData(d){ vendasData=d||hoje(); carregarVendas(vendasData).then(renderVendas); }
+
+function renderVendas(){
+  const v=document.getElementById('view-vendas');
+  const vivas=vendas.filter(x=>!x.cancelada);
+  const total=vivas.reduce((s,x)=>s+x.total,0);
+  const pecas=vivas.reduce((s,x)=>s+x.itens.reduce((a,i)=>a+i.qtd,0),0);
+  const balcao=vivas.filter(x=>x.origem==='balcao');
+
+  v.innerHTML=`
+    <div class="kpis">
+      <div class="kpi k-val">
+        <div class="k-lbl">Vendido no dia</div>
+        <div class="k-num small">${money(total)}</div>
+        <div class="k-sub">${pecas} ${plural(pecas,'peça','peças')} em ${vivas.length} ${plural(vivas.length,'venda','vendas')}</div>
+      </div>
+      <div class="kpi k-casa">
+        <div class="k-lbl">Vendas no balcão</div>
+        <div class="k-num">${balcao.length}</div>
+        <div class="k-sub">${money(balcao.reduce((s,x)=>s+x.total,0))}</div>
+      </div>
+      <div class="kpi k-rev">
+        <div class="k-lbl">Vindas de acerto</div>
+        <div class="k-num">${vivas.length-balcao.length}</div>
+        <div class="k-sub">Peças que a revendedora não devolveu</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="head">
+        <h2>${vendasData===hoje()?'Vendas de hoje':'Vendas de '+fmtData(vendasData)}</h2>
+        <span class="hint">Balcão e acerto de maleta na mesma lista</span>
+      </div>
+      <div class="body" style="padding:14px 20px">
+        <div class="actbar" style="margin:0">
+          <input type="date" value="${vendasData}" onchange="setVendasData(this.value)"
+                 style="padding:8px 11px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;font-family:inherit">
+          <div class="spacer"></div>
+          <button class="btn btn-gold btn-sm" onclick="novaVenda()">+ Nova venda</button>
+        </div>
+      </div>
+      <div class="body" style="padding:0;border-top:1px solid var(--line-soft)">
+        ${vendas.length?vendas.map(x=>`
+          <div class="invrow ${x.cancelada?'feito':''}">
+            <div class="i-desc">
+              <div class="d1">${esc(x.clienteNome||revNome(x.revendedoraId)||'—')}
+                ${x.origem==='acerto'?'<span class="badge fechada" style="margin-left:6px">acerto</span>':''}
+                ${x.cancelada?'<span class="badge vencida" style="margin-left:6px">cancelada</span>':''}</div>
+              <div class="d2">${x.itens.map(i=>`${i.qtd}× ${esc(i.desc)}`).join(' · ')}</div>
+            </div>
+            <div class="i-num"><b>${money(x.total)}</b></div>
+            ${(!x.cancelada&&x.origem==='balcao')?`<button class="btn btn-ghost btn-sm" onclick="cancelarVenda(${x.id})">Cancelar</button>`:''}
+          </div>`).join('')
+        :`<div class="empty" style="padding:40px 16px">
+            <h3>Nenhuma venda ${vendasData===hoje()?'hoje':'nesta data'}</h3>
+            <p>Bipe as etiquetas das peças e escolha a cliente — o estoque baixa sozinho.</p>
+            <button class="btn btn-gold" style="margin-top:14px" onclick="novaVenda()">+ Nova venda</button>
+          </div>`}
+      </div>
+    </div>`;
+}
+
+/* =================== Câmera ===================
+   Lê o código de barras da etiqueta pela câmera, para quem está com o
+   celular na mão e sem o leitor USB.
+
+   Usa o BarcodeDetector do próprio navegador em vez de embutir uma
+   biblioteca: são zero bytes a mais no app e a leitura é a nativa do
+   sistema. O preço é que nem todo navegador tem — o Safari do iPhone,
+   em particular, não tem. Por isso o botão só aparece onde funciona, e
+   digitar o código continua valendo em qualquer aparelho. */
+let cam=null;   /* {stream, detector, timer} */
+
+function temCamera(){
+  return 'BarcodeDetector' in window
+    && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+}
+
+async function toggleCamera(){
+  if(cam){ pararCamera(); return; }
+  const wrap=document.getElementById('camWrap');
+  const btn=document.getElementById('camBtn');
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'environment'}, audio:false
+    });
+    const v=document.getElementById('camVideo');
+    v.srcObject=stream; await v.play();
+    /* CODE128 é o que o app de etiquetas imprime (JsBarcode, no index.html) */
+    const detector=new BarcodeDetector({formats:['code_128','ean_13','qr_code']});
+    cam={stream, detector, timer:null, ultimo:'', quando:0};
+    wrap.classList.add('on');
+    btn.textContent='✕ Desligar a câmera';
+    lerDaCamera();
+  }catch(e){
+    toast('Não consegui abrir a câmera. Verifique a permissão do navegador.');
+  }
+}
+
+function pararCamera(){
+  if(!cam) return;
+  clearTimeout(cam.timer);
+  cam.stream.getTracks().forEach(t=>t.stop());
+  cam=null;
+  const wrap=document.getElementById('camWrap');
+  if(wrap) wrap.classList.remove('on');
+  const btn=document.getElementById('camBtn');
+  if(btn) btn.textContent='📷 Usar a câmera';
+}
+
+async function lerDaCamera(){
+  if(!cam) return;
+  try{
+    const codes=await cam.detector.detect(document.getElementById('camVideo'));
+    if(codes.length){
+      const v=String(codes[0].rawValue||'').trim();
+      /* a câmera enxerga o mesmo código 30 vezes por segundo: só conta de
+         novo depois de um intervalo, senão uma peça vira dez */
+      const agora=Date.now();
+      if(v&&(v!==cam.ultimo||agora-cam.quando>1800)){
+        cam.ultimo=v; cam.quando=agora;
+        handleScan(v);
+      }
+    }
+  }catch(e){/* quadro ruim é normal; tenta o próximo */}
+  if(cam) cam.timer=setTimeout(lerDaCamera,220);
 }
 
 /* =================== Acerto =================== */
@@ -2997,6 +3634,12 @@ async function setPrazo(v){
   renderFaixas();
 }
 function nudgePrazo(d){setPrazo(state.config.prazoDias+d);}
+async function setInvDias(v){
+  const n=Math.max(1,int(v)||30);
+  try{ await api('PUT','/api/config',{inventarioDias:n}); await sincronizar(); }
+  catch(e){ toast(e.message); }
+}
+function nudgeInv(d){setInvDias((state.config.inventarioDias||30)+d);}
 async function setPrata(v){
   const n=Math.min(100,Math.max(0,int(v)));
   try{ await api('PUT','/api/config',{prataPct:n}); await sincronizar(); }
@@ -3026,6 +3669,7 @@ function renderFaixas(){
     </div>`;}).join('');
   document.getElementById('setPrazo').value=state.config.prazoDias;
   document.getElementById('setPrata').value=state.config.prataPct;
+  document.getElementById('setInv').value=state.config.inventarioDias||30;
 }
 
 /* =================== Teclado global =================== */
@@ -3051,6 +3695,7 @@ function renderAll(){
   if(tabAtual==='geral') renderGeral();
   else if(tabAtual==='estoque') renderEstoque();
   else if(tabAtual==='loja') renderLoja();
+  else if(tabAtual==='vendas') renderVendas();
   else{
     const id=+tabAtual.split(':')[1];
     if(state.revendedoras.some(r=>r.id===id)) renderRev(id);

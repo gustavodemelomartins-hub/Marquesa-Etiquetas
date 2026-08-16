@@ -2,6 +2,10 @@ import { checarChave, respostaNaoAutorizada, json, comCors } from './auth.js';
 import { montarState, FAIXAS_PADRAO } from './state.js';
 import { calcComissao } from './comissao.js';
 import { movimentar, consignadoDoSku, saldosDoSku, conferirEstoque } from './estoque.js';
+import {
+  abrirInventario, salvarContagem, concluirInventario, ajustarInventario,
+  cancelarInventario, detalheInventario, listarInventarios,
+} from './inventario.js';
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 const int = v => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
@@ -137,7 +141,7 @@ async function rotear(request, env) {
       if (path === '/api/config' && met === 'PUT') {
         const b = await request.json();
         const stmts = [];
-        for (const chave of ['prazoDias', 'prataPct', 'faixas']) {
+        for (const chave of ['prazoDias', 'prataPct', 'inventarioDias', 'faixas']) {
           if (b[chave] !== undefined) {
             stmts.push(db.prepare(
               `INSERT INTO config (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`
@@ -161,6 +165,25 @@ async function rotear(request, env) {
         const r = await db.prepare(`INSERT INTO clientes (nome, tel) VALUES (?, ?) RETURNING *`)
           .bind(nome.trim(), tel || '').first();
         return json({ id: r.id, nome: r.nome, tel: r.tel || '' }, 201);
+      }
+
+      // ------------------------------------------------------- inventário
+      if (path === '/api/inventarios' && met === 'GET') return await listarInventarios(db);
+      if (path === '/api/inventarios' && met === 'POST') return await abrirInventario(db);
+      if ((m = path.match(/^\/api\/inventarios\/(\d+)$/)) && met === 'GET') {
+        return await detalheInventario(db, +m[1]);
+      }
+      if ((m = path.match(/^\/api\/inventarios\/(\d+)\/contagem$/)) && met === 'PUT') {
+        return await salvarContagem(db, +m[1], await request.json());
+      }
+      if ((m = path.match(/^\/api\/inventarios\/(\d+)\/concluir$/)) && met === 'POST') {
+        return await concluirInventario(db, +m[1]);
+      }
+      if ((m = path.match(/^\/api\/inventarios\/(\d+)\/ajustar$/)) && met === 'POST') {
+        return await ajustarInventario(db, +m[1], await request.json());
+      }
+      if ((m = path.match(/^\/api\/inventarios\/(\d+)\/cancelar$/)) && met === 'POST') {
+        return await cancelarInventario(db, +m[1]);
       }
 
       if (path === '/api/vendas' && met === 'POST') return await registrarVenda(db, await request.json());

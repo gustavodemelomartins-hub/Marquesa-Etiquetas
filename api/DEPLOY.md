@@ -134,6 +134,30 @@ arquivo se o endereço do painel mudar.
 
 ---
 
+## Atualizar um banco que já está no ar
+
+Quando uma versão nova cria tabelas, o banco existente precisa recebê-las —
+os dados que já estão lá **não** são tocados.
+
+Para o inventário (tabelas `inventarios` e `inventario_itens`), abra o banco
+no painel → aba **Console**, cole o conteúdo de `api/migracao-inventario.sql`
+e execute. Ou, pelo terminal:
+
+```bash
+npx wrangler d1 execute marquesa-db --remote --file=migracao-inventario.sql
+```
+
+É seguro rodar duas vezes: todo comando é `CREATE TABLE IF NOT EXISTS`.
+
+Sem esse passo, o dashboard carrega normalmente, mas o botão de inventário
+responde com erro de tabela inexistente.
+
+Para conferir depois:
+
+```sql
+SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'inventario%';
+```
+
 ## Testar com dados de verdade
 
 Com a URL e a chave em mãos:

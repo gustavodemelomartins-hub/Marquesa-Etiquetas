@@ -161,6 +161,106 @@ const vendas = await fetch(URL_API + '/api/vendas?data=' + new Date().toISOStrin
 }).then(r => r.json());
 eq('o acerto virou venda de verdade', vendas.filter(v => v.origem === 'acerto').length, 1);
 
+console.log('\n=== venda de balcão ===');
+/* estoque depois do acerto: 900001 tem 12, 900002 tem 9, 900003 tem 9 */
+await page.evaluate(() => switchTab('vendas'));
+await page.waitForTimeout(900);
+await page.evaluate(() => novaVenda());
+await page.waitForTimeout(400);
+eq('a bipagem abriu em modo venda', await page.textContent('#scanTitle'), 'Nova venda');
+
+await page.fill('#scanInput', '900004');   // peça sem preço
+await page.press('#scanInput', 'Enter');
+await page.waitForTimeout(250);
+eq('peça sem preço é barrada na bipagem, não na hora de salvar',
+  await page.textContent('#scanQtd'), '0');
+
+for (const code of ['900001', '900001', '900003']) {
+  await page.fill('#scanInput', code);
+  await page.press('#scanInput', 'Enter');
+  await page.waitForTimeout(120);
+}
+eq('carrinho com 3 peças', await page.textContent('#scanQtd'), '3');
+eq('e o valor somado', await page.textContent('#scanVal'), '1200,00');
+
+await page.click('#scanConfirm');
+await page.waitForTimeout(500);
+eq('pede a cliente antes de gravar',
+  await page.locator('#vendaOverlay').evaluate(e => e.classList.contains('show')), 'true');
+await page.fill('#vd-cliente', 'Cliente Teste');
+await page.click('#vdConfirm');
+await page.waitForTimeout(2000);
+
+s = await st();
+eq('a venda tirou as 3 peças do estoque (35 − 3)', await page.textContent('#hdPecas'), '32');
+const vs = await fetch(URL_API + '/api/vendas?data=' + new Date().toISOString().slice(0, 10), {
+  headers: { Authorization: 'Bearer ' + KEY },
+}).then(r => r.json());
+const balcao = vs.find(v => v.origem === 'balcao');
+eq('a venda de balcão foi registrada', balcao.clienteNome, 'Cliente Teste');
+eq('com o total certo', balcao.total, 1200);
+
+console.log('\n=== inventário ===');
+await page.evaluate(() => switchTab('geral'));
+await page.waitForTimeout(500);
+await page.evaluate(() => iniciarInventario());
+await page.waitForTimeout(1500);
+eq('a bipagem abriu em modo inventário', await page.textContent('#scanTitle'), 'Inventário');
+
+/* em casa agora: 900001 tem 10, 900002 tem 9, 900003 tem 8, 900004 tem 5.
+   Conto 900001 certo, 900002 a menos, 900003 a mais, e bipo um código de fora. */
+const contagem = [
+  ...Array(10).fill('900001'),
+  ...Array(7).fill('900002'),
+  ...Array(9).fill('900003'),
+  '777777',
+];
+for (const code of contagem) {
+  await page.fill('#scanInput', code);
+  await page.press('#scanInput', 'Enter');
+  await page.waitForTimeout(60);
+}
+eq('contou 26 peças', await page.textContent('#scanQtd'), '26');
+
+await page.click('#scanConfirm');
+await page.waitForTimeout(2500);
+eq('abriu o resultado',
+  await page.locator('#invOverlay').evaluate(e => e.classList.contains('show')), 'true');
+
+const res = await page.evaluate(() => ({
+  conferidos: invResultado.conferidos,
+  faltando: invResultado.faltando.map(l => [l.sku, l.contado, l.esperado, l.sugestao]),
+  sobrando: invResultado.sobrando.map(l => [l.sku, l.contado, l.esperado, l.sugestao]),
+  desconhecidos: invResultado.desconhecidos,
+}));
+eq('900001 bateu certo', res.conferidos, 1);
+eq('900002 e 900004 aparecem como faltando', res.faltando.length, 2);
+eq('900002: contou 7, sistema dizia 9', JSON.stringify(res.faltando.find(f => f[0] === '900002')), '["900002",7,9,-2]');
+eq('900003 aparece como sobrando', JSON.stringify(res.sobrando), '[["900003",9,8,1]]');
+eq('o código de fora do catálogo foi anotado, não descartado',
+  JSON.stringify(res.desconhecidos), '["777777"]');
+
+eq('concluir NÃO mexeu no estoque', await page.textContent('#hdPecas'), '32');
+
+await page.evaluate(() => aplicarAjuste('900002', -2));
+await page.waitForTimeout(1800);
+eq('só o ajuste confirmado entrou (32 − 2)', await page.textContent('#hdPecas'), '30');
+s = await st();
+eq('900003 continua intocado, porque não foi confirmado',
+  s.produtos.find(p => p.sku === '900003').qtd, 8);
+
+const hist = await fetch(URL_API + '/api/estoque/900002/movimentos', {
+  headers: { Authorization: 'Bearer ' + KEY },
+}).then(r => r.json());
+const aj = hist.movimentos.find(m => m.tipo === 'ajuste');
+eq('o ajuste virou movimentação com origem inventário', aj.origem, 'inventario');
+ok('e o motivo ficou escrito', aj.obs);
+
+const conf2 = await fetch(URL_API + '/api/estoque/conferir', {
+  headers: { Authorization: 'Bearer ' + KEY },
+}).then(r => r.json());
+eq('a razão continua fechando depois do ajuste', conf2.divergentes.length, 0);
+
 console.log('\n=== erros de console ===');
 if (erros.length) { erros.forEach(e => console.log('  ! ' + e)); bad(`${erros.length} erro(s) no console`); }
 else ok('nenhum erro no console do navegador');

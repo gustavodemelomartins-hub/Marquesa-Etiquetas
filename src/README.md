@@ -34,3 +34,12 @@ Nada disso toca a nuvem: o `--local` do wrangler usa um SQLite dentro de
 `api/.wrangler`, e a chave de teste sai do `api/.dev.vars`.
 
 Precisa de `playwright` e `xlsx` instalados (`npm install` dentro de `src/`).
+
+Para conferir o visual, com o servidor de teste já rodando:
+
+```bash
+node src/shot.mjs /onde/salvar
+```
+
+Tira fotos da Visão geral, das Vendas, e das telas de inventário e venda em
+tamanho de celular.

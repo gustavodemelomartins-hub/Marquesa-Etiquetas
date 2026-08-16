@@ -24,6 +24,11 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §22 | Importação sinaliza, não corrige em silêncio | `importarProdutos` devolve `avisos[]` |
 | §24 | Produto sem preço não vira R$ 0 | `produtos.preco` é `NULL`; venda é bloqueada |
 | §28 | Não apagar histórico | revendedora arquiva, maleta cancela, venda estorna |
+| §19 | Inventário não corrige em silêncio | `concluir` só compara; `ajustar` exige confirmação por código |
+| §5.2 | Inventário cobra só o que está em casa | `inventario.js › SQL_ESPERADO` desconta o consignado |
+| §6.1 | Esperado congelado no fechamento | `inventario_itens.esperado` |
+| §22 | Código bipado fora do catálogo é anunciado | `inventarios.desconhecidos_json` |
+| §8 §9 | Venda de balcão e de acerto na mesma tabela | `vendas.origem = 'balcao' \| 'acerto'` |
 
 ## Duas divergências conscientes
 
@@ -63,6 +68,23 @@ mais preciso disponível: deixa **5 peças em 1.459** na categoria "Outros",
 contra **162** se usar o campo `Categorias` do export da Nuvemshop, onde se
 misturam coleção ("Coleções > Promessas"), material e público-alvo, e 89
 produtos vêm em branco.
+
+### 3. Inventário sugere, mas não aplica — §19
+
+O §19 diz que o saldo resulta das movimentações, nunca de digitação. Um
+inventário que sobrescrevesse o saldo com o número contado violaria isso
+mesmo estando "certo": o número passaria a valer por autoridade, não por
+uma razão registrada.
+
+Por isso a contagem e a correção são dois atos separados. `concluir` só
+compara e devolve a diferença; `ajustar` grava um movimento `ajuste` com
+origem `inventario` e a frase do motivo ("contado 7, sistema dizia 9"),
+um código por vez, e recusa ajustar duas vezes o mesmo código.
+
+A razão prática é mais forte que a formal: peça faltando quase nunca sumiu.
+Está na bolsa, foi para a maleta sem lançar, ou a etiqueta não leu. Se o
+sistema corrigisse sozinho, o erro de contagem viraria a nova verdade sem
+deixar rastro.
 
 ## Regra que precisa de confirmação no contrato
 
