@@ -1,0 +1,15 @@
+{
+  "name": "marquesa-dashboard-src",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fonte do dashboard e o teste ponta a ponta que roda num navegador de verdade.",
+  "scripts": {
+    "build": "python3 build.py",
+    "test": "./reset-e-testar.sh"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "playwright": "^1.62.1",
+    "xlsx": "^0.18.5"
+  }
+}

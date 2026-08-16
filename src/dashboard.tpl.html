@@ -1,0 +1,2621 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Marquesa · Revendedoras</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#FBF6F4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Marquesa">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+/*__BASE_CSS__*/
+
+/* ==========================================================================
+   Números
+   --------------------------------------------------------------------------
+   O Cormorant Garamond desenha algarismos antigos por padrão: o 3, 5, 7 e 9
+   descem abaixo da linha e o 6 sobe acima da altura-x, então "1459" parecia
+   torto, como se fosse texto em minúsculas. A fonte traz os algarismos
+   alinhados na feature lnum — é só ligar. O tnum deixa todos com a mesma
+   largura, que é o que faz coluna de número parar de dançar.
+   ========================================================================== */
+body{font-variant-numeric:lining-nums tabular-nums}
+
+/* ==========================================================================
+   Dashboard das revendedoras — estilos próprios, sobre a mesma base
+   ========================================================================== */
+
+/* O app de etiquetas esconde .app na impressão para imprimir só a folha.
+   Aqui a impressão é o Anexo I, então a regra é redefinida. */
+@media print{
+  @page{size:A4 portrait;margin:14mm}
+  html,body{background:#fff !important}
+  body::before{display:none !important}
+  .app{display:none !important}
+  .overlay,#toast{display:none !important}
+  #anexoRoot{display:block !important;position:static !important}
+}
+@media screen{ #anexoRoot{display:none} }
+
+/* ---------- KPIs ---------- */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.kpi{
+  background:var(--paper);border:1.5px solid #141312;border-radius:14px;
+  padding:15px 17px;box-shadow:var(--shadow);position:relative;overflow:hidden;
+}
+.kpi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--rose)}
+.kpi.k-casa::after{background:#0D9382}
+.kpi.k-rev::after{background:#C4802A}
+.kpi.k-val::after{background:var(--bordo)}
+.kpi .k-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--bordo-soft);font-weight:700}
+.kpi .k-num{font-family:var(--serif);font-size:31px;font-weight:700;color:var(--bordo);line-height:1.05;margin-top:5px;letter-spacing:.01em}
+.kpi .k-num.small{font-size:23px}
+.kpi .k-sub{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.35}
+
+/* ---------- Grade de duas colunas ---------- */
+.row.chart{grid-template-columns:1fr 1fr}
+.row.wide{grid-template-columns:1fr}
+
+/* ---------- Segmented control ---------- */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}
+.seg button{
+  border:none;background:#fff;padding:7px 13px;font-size:12px;font-weight:600;
+  color:var(--muted);border-right:1px solid var(--line);transition:.15s;white-space:nowrap;
+}
+.seg button:last-child{border-right:none}
+.seg button.on{background:var(--bordo-tint);color:var(--bordo)}
+.seg button:hover:not(.on){background:var(--ivory);color:var(--bordo-soft)}
+
+/* ---------- Donut ---------- */
+.chartwrap{display:flex;flex-direction:column;align-items:center;gap:16px}
+.donutbox{position:relative;width:100%;max-width:290px}
+.donutbox svg{display:block;width:100%;height:auto;overflow:visible}
+.donutbox .slice{cursor:pointer;transition:opacity .12s}
+.donutbox.hasHover .slice{opacity:.35}
+.donutbox.hasHover .slice.hot{opacity:1}
+.dcenter{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;pointer-events:none;text-align:center;
+}
+.dcenter .dc-num{font-family:var(--serif);font-size:30px;font-weight:700;color:var(--bordo);line-height:1}
+.dcenter .dc-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-top:3px}
+.dlabel{font-family:var(--sans);font-size:8.6px;font-weight:700;fill:var(--ink)}
+.dlabel .pct{fill:var(--muted);font-weight:600}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:5px 16px;width:100%}
+.lgd{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 0;cursor:pointer;border-radius:6px}
+.lgd:hover{background:var(--ivory)}
+.lgd .dot{width:10px;height:10px;border-radius:3px;flex:none}
+.lgd .nm{color:var(--ink);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lgd .vl{color:var(--muted);font-variant-numeric:tabular-nums;font-size:11.5px}
+.lgd .vl b{color:var(--bordo);font-weight:700}
+#dtip{
+  position:fixed;z-index:90;pointer-events:none;opacity:0;transition:opacity .12s;
+  background:#141312;color:#fff;border-radius:8px;padding:8px 11px;font-size:12px;
+  box-shadow:0 8px 24px rgba(0,0,0,.28);line-height:1.4;white-space:nowrap;
+}
+#dtip.show{opacity:1}
+#dtip .t-nm{font-weight:700;margin-bottom:2px}
+#dtip .t-vl{color:rgba(255,255,255,.72)}
+
+/* ---------- Painel do mix da maleta ---------- */
+.painel-mix{background:var(--ivory);border:1px solid var(--line);border-radius:13px;padding:16px}
+.painel-mix .mix-t{
+  font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--bordo-soft);
+  font-weight:700;margin-bottom:14px;text-align:center;
+}
+.painel-mix .donutbox{max-width:230px}
+.painel-mix .legend{grid-template-columns:1fr 1fr;font-size:11.5px}
+
+/* ---------- Cartões de revendedora ---------- */
+.revgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.revcard{
+  background:#fff;border:1px solid var(--line);border-radius:13px;padding:16px;
+  cursor:pointer;transition:.15s;text-align:left;
+}
+.revcard:hover{border-color:var(--rose);box-shadow:var(--shadow)}
+.revcard .rc-nm{font-family:var(--serif);font-size:19px;font-weight:700;color:var(--bordo);line-height:1.15}
+.revcard .rc-meta{font-size:11.5px;color:var(--muted);margin-top:2px}
+.revcard .rc-row{display:flex;gap:16px;margin-top:12px;padding-top:11px;border-top:1px solid var(--line-soft)}
+.revcard .rc-st{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.revcard .rc-st b{display:block;font-family:var(--serif);font-size:20px;color:var(--ink);letter-spacing:0;text-transform:none}
+
+/* ---------- Selos ---------- */
+.badge{
+  display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;padding:3px 9px;border-radius:20px;
+}
+.badge.aberta{background:var(--ok-tint);color:var(--ok)}
+.badge.prazo{background:#FFF4E0;color:#9A6B12}
+.badge.vencida{background:var(--danger-tint);color:var(--danger)}
+.badge.fechada{background:var(--line-soft);color:var(--muted)}
+.badge.identificar{background:var(--bordo-tint);color:var(--bordo)}
+
+/* ---------- Barra de ação ---------- */
+.actbar{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--bordo-tint);border:1px solid var(--rose-tint);border-radius:11px;
+  padding:13px 16px;margin-bottom:16px;
+}
+.actbar .stat{font-size:12.5px;color:var(--bordo-soft)}
+.actbar .stat b{font-family:var(--serif);font-size:19px;color:var(--bordo);font-weight:700;margin-right:3px}
+.actbar .spacer{flex:1}
+
+/* ---------- Aviso ---------- */
+.warn{
+  display:flex;gap:11px;align-items:flex-start;background:#FFF4E0;border:1px solid #F0D9A8;
+  border-radius:11px;padding:12px 14px;font-size:12.5px;color:#7A5410;line-height:1.5;margin-bottom:16px;
+}
+.warn.info{background:var(--rose-tint);border-color:var(--rose-soft);color:var(--bordo)}
+.warn svg{flex:none;margin-top:1px}
+.warn b{font-weight:700}
+.warn .w-act{margin-top:8px}
+
+/* ---------- Bipagem ---------- */
+.scanbox{
+  border:2px solid var(--bordo);border-radius:14px;background:var(--paper);
+  padding:18px;text-align:center;margin-bottom:16px;transition:.15s;
+}
+.scanbox.ok{border-color:var(--ok);background:var(--ok-tint)}
+.scanbox.bad{border-color:var(--danger);background:var(--danger-tint)}
+.scanbox .sb-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--bordo-soft);font-weight:700;margin-bottom:9px}
+.scanbox input{
+  width:100%;padding:14px 16px;border:1px solid var(--line);border-radius:10px;
+  background:#fff;font-family:var(--mono);font-size:20px;font-weight:700;text-align:center;
+  letter-spacing:.08em;color:var(--ink);
+}
+.scanbox input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-tint)}
+.scanbox .sb-fb{margin-top:10px;font-size:13px;min-height:20px;font-weight:600}
+.scanbox .sb-fb.ok{color:var(--ok)}
+.scanbox .sb-fb.bad{color:var(--danger)}
+.scanbox .sb-hint{margin-top:8px;font-size:11.5px;color:var(--muted);line-height:1.45}
+
+.scanlist{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+.scanrow{
+  display:flex;align-items:center;gap:12px;padding:10px 13px;border-top:1px solid var(--line-soft);
+}
+.scanrow:first-child{border-top:none}
+.scanrow.flash{animation:flashrow .7s ease}
+@keyframes flashrow{from{background:var(--ok-tint)}to{background:transparent}}
+.scanrow .s-desc{flex:1;min-width:0}
+.scanrow .s-desc .d1{font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scanrow .s-desc .d2{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px}
+.scanrow .s-qtd{
+  font-family:var(--serif);font-size:17px;font-weight:700;color:var(--bordo);
+  min-width:34px;text-align:center;
+}
+.scanrow .s-val{font-size:12.5px;font-weight:700;color:var(--ink);white-space:nowrap}
+
+/* ---------- Acerto ---------- */
+.acgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.acbox{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
+.acbox .ab-h{
+  padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.acbox.volta .ab-h{background:var(--ok-tint);color:var(--ok)}
+.acbox.falta .ab-h{background:var(--danger-tint);color:var(--danger)}
+.acbox .ab-h b{font-family:var(--serif);font-size:17px;letter-spacing:0}
+.acbox .ab-b{max-height:260px;overflow:auto}
+.destrow{display:flex;align-items:center;gap:9px;padding:9px 13px;border-top:1px solid var(--line-soft);flex-wrap:wrap}
+.destrow:first-child{border-top:none}
+.destrow .dr-desc{flex:1;min-width:120px;font-size:12.5px;color:var(--ink)}
+.destrow .dr-desc small{display:block;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.destrow select{padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:#fff;font-size:12px;color:var(--ink)}
+.destrow select:focus{outline:none;border-color:var(--gold)}
+.destrow .dr-q{width:48px;padding:6px;border:1px solid var(--line);border-radius:7px;text-align:center;font-weight:700;font-size:12.5px}
+.destrow .dr-q:focus{outline:none;border-color:var(--gold)}
+.splitbtn{border:1px dashed var(--line);background:#fff;color:var(--muted);border-radius:7px;padding:5px 9px;font-size:11px;font-weight:600}
+.splitbtn:hover{border-color:var(--gold);color:var(--bordo)}
+
+.resumo{background:var(--ivory);border:1px solid var(--line);border-radius:12px;padding:16px}
+.resumo .rs-row{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;font-size:13px;color:var(--bordo-soft)}
+.resumo .rs-row+.rs-row{border-top:1px solid var(--line-soft)}
+.resumo .rs-row b{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.resumo .rs-row.total{border-top:1.5px solid var(--bordo);margin-top:5px;padding-top:11px}
+.resumo .rs-row.total span{font-weight:700;color:var(--bordo)}
+.resumo .rs-row.total b{font-family:var(--serif);font-size:23px;color:var(--bordo)}
+
+/* ---------- Histórico ---------- */
+.histrow{
+  display:flex;align-items:center;gap:14px;padding:13px 15px;background:#fff;
+  border:1px solid var(--line);border-radius:11px;margin-bottom:9px;flex-wrap:wrap;
+}
+.histrow .h-dt{font-size:12px;color:var(--muted);min-width:130px}
+.histrow .h-dt b{display:block;color:var(--ink);font-size:13px;font-weight:600}
+.histrow .h-st{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.histrow .h-st b{display:block;font-family:var(--serif);font-size:17px;color:var(--ink);text-transform:none;letter-spacing:0}
+.histrow .spacer{flex:1}
+
+/* ---------- Importação ---------- */
+.sheetrow{
+  display:flex;align-items:center;gap:11px;padding:12px 14px;background:#fff;
+  border:1px solid var(--line);border-radius:11px;margin-bottom:9px;flex-wrap:wrap;
+}
+.sheetrow .sr-nm{flex:1;min-width:140px;font-size:13px;font-weight:600;color:var(--ink)}
+.sheetrow .sr-nm small{display:block;font-weight:400;color:var(--muted);font-size:11.5px;margin-top:2px}
+.sheetrow select{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12.5px}
+.sheetrow select:focus{outline:none;border-color:var(--gold)}
+
+/* ---------- Anexo para impressão ---------- */
+#anexoRoot{font-family:var(--sans);color:#000;background:#fff}
+#anexoRoot .ax-h{text-align:center;margin-bottom:18px}
+#anexoRoot .ax-h .ax-t{font-family:var(--serif);font-size:22px;font-weight:700;margin-bottom:3px}
+#anexoRoot .ax-h .ax-s{font-size:13px}
+#anexoRoot table{width:100%;border-collapse:collapse;font-size:11px}
+#anexoRoot th{background:#f0e6e8;text-align:left;padding:6px 8px;border:1px solid #999;font-size:10px;text-transform:uppercase}
+#anexoRoot td{padding:5px 8px;border:1px solid #ccc}
+#anexoRoot tfoot td{font-weight:700;background:#f7f2f3}
+#anexoRoot .ax-sign{margin-top:40px;display:flex;gap:50px;font-size:11px}
+#anexoRoot .ax-sign div{flex:1;border-top:1px solid #000;padding-top:5px;text-align:center}
+
+/* ---------- Ajustes finos ---------- */
+.subtabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.pill{
+  border:1px solid var(--line);background:#fff;border-radius:20px;padding:6px 14px;
+  font-size:12.5px;font-weight:600;color:var(--muted);transition:.15s;
+}
+.pill:hover{border-color:var(--rose);color:var(--bordo)}
+.pill.on{background:var(--bordo);border-color:var(--bordo);color:#fff}
+.tab.addtab{color:var(--bordo-soft);font-weight:600}
+.tab.addtab:hover{color:var(--bordo)}
+td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+td.num.zero{color:#C9BCC0;font-weight:400}
+td.num.neg{color:var(--danger)}
+.catchip{
+  display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;
+  color:#fff;letter-spacing:.02em;white-space:nowrap;
+}
+.linkrow{display:flex;gap:9px;flex-wrap:wrap;margin-top:10px}
+
+@media (max-width:900px){
+  .kpis{grid-template-columns:1fr 1fr}
+  .row.chart{grid-template-columns:1fr}
+  .acgrid{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  .legend{grid-template-columns:1fr}
+  .kpi .k-num{font-size:26px}
+  /* A base transforma tabelas em cartões no celular; aqui o dashboard
+     mantém a tabela de estoque rolável, que é mais legível para números. */
+  .tablewrap.keeptable{border:1px solid var(--line);background:#fff;overflow:auto;border-radius:12px;-webkit-overflow-scrolling:touch}
+  /* deixa a tabela rolar de lado em vez de espremer a descrição em uma palavra por linha */
+  .tablewrap.keeptable table{min-width:660px}
+  .tablewrap.keeptable thead{display:table-header-group}
+  .tablewrap.keeptable tbody{display:table-row-group}
+  .tablewrap.keeptable tbody tr{display:table-row;border:none;border-radius:0;padding:0;margin:0;background:#fff}
+  .tablewrap.keeptable tbody td{display:table-cell;width:auto;padding:9px 11px;border-top:1px solid var(--line-soft);margin:0}
+  .tablewrap.keeptable td.desc{font-family:var(--sans);font-size:12.5px;color:var(--ink);font-weight:400;margin:0;padding-right:11px}
+  .tablewrap.keeptable td.sku::before,.tablewrap.keeptable td.price::before{content:none}
+  .actbar{padding:12px 14px}
+  .actbar .btn{width:100%}
+  .destrow{gap:7px}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <span class="brandtag">
+        <img class="logo" src="brand/logo.webp" alt="Marquesa Semijóias">
+      </span>
+      <span class="tooltag">Revendedoras</span>
+    </div>
+    <div class="meta">
+      <div><b id="hdPecas">0</b> peças · <b id="hdSkus">0</b> códigos</div>
+      <div id="hdSub">Estoque total da operação</div>
+      <div class="linkrow">
+        <a class="gearbtn" href="index.html" style="text-decoration:none">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
+          Etiquetas
+        </a>
+        <button class="gearbtn" onclick="openSettings()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Ajustes
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabsNav"></nav>
+
+  <!-- ============ VISÃO GERAL ============ -->
+  <section class="view active" id="view-geral"></section>
+
+  <!-- ============ MEU ESTOQUE ============ -->
+  <section class="view" id="view-estoque"></section>
+
+  <!-- ============ NUVEMSHOP ============ -->
+  <section class="view" id="view-loja"></section>
+
+  <!-- ============ REVENDEDORA (uma por vez) ============ -->
+  <section class="view" id="view-rev"></section>
+</div>
+
+<!-- ============ BIPAGEM ============ -->
+<div class="overlay center" id="scanOverlay" onclick="if(event.target===this)closeScan()">
+  <div class="modal">
+    <div class="mhead">
+      <h2 id="scanTitle">Montar maleta</h2>
+      <button class="closebtn" onclick="closeScan()">×</button>
+    </div>
+    <div class="mbody">
+      <div class="scanbox" id="scanBox">
+        <div class="sb-lbl" id="scanLbl">Bipe a etiqueta da peça</div>
+        <input id="scanInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="—">
+        <div class="sb-fb" id="scanFb"></div>
+        <div class="sb-hint" id="scanHint">O leitor digita o código e dá Enter sozinho. Você também pode digitar o código e apertar Enter.</div>
+      </div>
+      <div class="actbar">
+        <div class="stat"><b id="scanQtd">0</b> peças</div>
+        <div class="stat"><b id="scanSkus">0</b> códigos</div>
+        <div class="stat" id="scanValWrap">R$ <b id="scanVal">0</b></div>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" onclick="scanUndo()">↶ Desfazer último</button>
+      </div>
+      <div class="scanlist" id="scanList"></div>
+      <div class="mfoot">
+        <button class="btn btn-ghost" onclick="closeScan()">Cancelar</button>
+        <div class="spacer"></div>
+        <button class="btn btn-gold" id="scanConfirm" onclick="scanFinish()">Concluir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ACERTO ============ -->
+<div class="overlay center" id="acOverlay" onclick="if(event.target===this)closeAcerto()">
+  <div class="modal">
+    <div class="mhead">
+      <h2 id="acTitle">Acerto da maleta</h2>
+      <button class="closebtn" onclick="closeAcerto()">×</button>
+    </div>
+    <div class="mbody" id="acBody"></div>
+  </div>
+</div>
+
+<!-- ============ NOVA REVENDEDORA ============ -->
+<div class="overlay center" id="revOverlay" onclick="if(event.target===this)closeRevForm()">
+  <div class="modal" style="width:460px">
+    <div class="mhead">
+      <h2 id="revFormTitle">Nova revendedora</h2>
+      <button class="closebtn" onclick="closeRevForm()">×</button>
+    </div>
+    <div class="mbody">
+      <input type="hidden" id="revEditId">
+      <div class="field">
+        <label>Nome <span class="req">*</span></label>
+        <input id="rf-nome" placeholder="Nome e sobrenome" maxlength="60">
+      </div>
+      <div class="two">
+        <div class="field"><label>Telefone</label><input id="rf-tel" placeholder="(00) 00000-0000" maxlength="24"></div>
+        <div class="field"><label>Cidade</label><input id="rf-cidade" placeholder="Opcional" maxlength="40"></div>
+      </div>
+      <div class="field">
+        <label>CPF</label>
+        <input id="rf-cpf" placeholder="Opcional — aparece no Anexo I" maxlength="18">
+      </div>
+      <div class="mfoot">
+        <button class="btn btn-ghost" onclick="closeRevForm()">Cancelar</button>
+        <div class="spacer"></div>
+        <button class="btn btn-gold" onclick="saveRevendedora()">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ IMPORTAR ============ -->
+<div class="overlay center" id="impOverlay" onclick="if(event.target===this)closeImport()">
+  <div class="modal">
+    <div class="mhead">
+      <h2>Importar planilha</h2>
+      <button class="closebtn" onclick="closeImport()">×</button>
+    </div>
+    <div class="mbody" id="impStep1">
+      <div class="dropzone" id="dropzone">
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        <p class="dz-main">Arraste a planilha aqui<br>ou <b>clique para escolher</b></p>
+        <p class="dz-sub">Excel (.xlsx) ou CSV (.csv)</p>
+        <input type="file" id="impFile" accept=".xlsx,.xls,.csv" style="display:none">
+      </div>
+      <div class="warn info" style="margin-top:18px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <div>
+          O dashboard reconhece sozinho os formatos que você já usa:
+          a aba <b>Estoque</b> (catálogo e quantidade total), a aba <b>Revendedoras</b>
+          (peças que estão fora) e o <b>Anexo I do contrato</b> (a maleta de uma pessoa).
+        </div>
+      </div>
+    </div>
+    <div class="mbody" id="impStep2" style="display:none">
+      <div class="prevlabel">O que encontrei no arquivo</div>
+      <div id="impSheets"></div>
+      <div class="warn" id="impWarn" style="display:none"></div>
+      <div class="mfoot">
+        <button class="btn btn-ghost" onclick="backToUpload()">← Trocar arquivo</button>
+        <div class="spacer"></div>
+        <button class="btn btn-gold" onclick="doImport()">Importar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AJUSTES ============ -->
+<div class="overlay" id="setOverlay" onclick="if(event.target===this)closeSettings()">
+  <div class="drawer">
+    <div class="dhead">
+      <h2>Ajustes</h2>
+      <button class="closebtn" onclick="closeSettings()">×</button>
+    </div>
+    <div class="dbody">
+      <div class="grp">
+        <h3>Dados</h3>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px" onclick="openImport()">↑ Importar planilha</button>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px" onclick="exportLoja()">↓ Atualização de estoque da loja (.csv)</button>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px" onclick="exportSemCadastro()">↓ Peças que faltam cadastrar na loja</button>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px" onclick="exportNuvemshop()">↓ Planilha da sincronização antiga</button>
+        <button class="btn btn-ghost btn-sm btn-block" onclick="exportEtiquetas()">↓ Planilha para o app de etiquetas</button>
+        <div class="tip" style="margin-top:12px">
+          O arquivo de atualização leva apenas <b>Identificador URL</b>, <b>SKU</b> e
+          <b>Estoque</b>, e só os produtos que estão diferentes. Preço, descrição e SEO
+          ficam de fora para não sobrescrever a loja. Na primeira vez, suba um arquivo
+          com poucas linhas e confira antes de mandar tudo.
+        </div>
+      </div>
+
+      <div class="grp">
+        <h3>Prazo padrão de acerto</h3>
+        <div class="adjrow">
+          <label>Dias após a retirada</label>
+          <div class="ctrl">
+            <button onclick="nudgePrazo(-5)">−</button>
+            <input id="setPrazo" value="45" onchange="setPrazo(this.value)">
+            <button onclick="nudgePrazo(5)">+</button>
+          </div>
+        </div>
+        <p style="font-size:11.5px;color:var(--muted);margin:2px 0 0;line-height:1.5">
+          Usado para sugerir a data do acerto ao abrir uma maleta nova, e como
+          prazo quando nenhuma data foi combinada. Quando existe data marcada,
+          é ela que manda.
+        </p>
+      </div>
+
+      <div class="grp">
+        <h3>Comissão</h3>
+        <p style="font-size:11.5px;color:var(--muted);margin:0 0 12px;line-height:1.5">
+          Faixas aplicadas sobre o total vendido na maleta. Peças de <b>Prata 925</b>
+          usam um percentual fixo próprio.
+        </p>
+        <div id="faixasBox"></div>
+        <div class="adjrow" style="margin-top:10px">
+          <label>Prata 925</label>
+          <div class="ctrl">
+            <button onclick="nudgePrata(-1)">−</button>
+            <input id="setPrata" value="10" onchange="setPrata(this.value)">
+            <span class="u">%</span>
+            <button onclick="nudgePrata(1)">+</button>
+          </div>
+        </div>
+        <div class="tip" style="margin-top:12px">
+          Confira estes números com o contrato antes de usar o valor do acerto
+          para cobrar. Eles vieram de uma regra que ainda não foi confirmada.
+        </div>
+      </div>
+
+      <div class="grp">
+        <h3>Backup</h3>
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;line-height:1.5">
+          Tudo fica salvo só neste aparelho. Baixe um backup de vez em quando —
+          e sempre que fechar um acerto.
+        </p>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px" onclick="exportData()">↓ Baixar backup (.json)</button>
+        <label class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px">
+          ↑ Restaurar backup
+          <input type="file" accept=".json" style="display:none" onchange="importData(this)">
+        </label>
+        <button class="btn btn-danger btn-sm btn-block" onclick="wipeAll()">Apagar tudo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CONEXÃO ============ -->
+<div class="overlay center" id="conexaoOverlay">
+  <div class="modal" style="width:440px">
+    <div class="mhead">
+      <h2>Conectar</h2>
+    </div>
+    <div class="mbody">
+      <p style="font-size:12.5px;color:var(--muted);line-height:1.5;margin:0 0 16px">
+        O dashboard agora guarda os dados na nuvem, para você abrir no celular e
+        no computador e ver sempre a mesma coisa. Cole o endereço e a chave uma
+        vez — ficam salvos só neste navegador.
+      </p>
+      <div class="field">
+        <label>Endereço da API <span class="req">*</span></label>
+        <input id="cf-url" placeholder="https://marquesa-api.....workers.dev">
+      </div>
+      <div class="field">
+        <label>Chave de acesso <span class="req">*</span></label>
+        <input id="cf-key" type="password" placeholder="A senha que você definiu na Cloudflare">
+      </div>
+      <div class="sb-fb" id="cf-fb" style="min-height:20px;font-size:13px;font-weight:600"></div>
+      <button class="btn btn-gold btn-block" style="margin-top:6px" onclick="salvarConexao()">Conectar</button>
+    </div>
+  </div>
+</div>
+
+<div id="dtip"></div>
+<div id="toast"></div>
+<div id="anexoRoot"></div>
+
+<script>
+<!--__SHEETJS__-->
+</script>
+
+<script>
+/* ==========================================================================
+   Marquesa · Dashboard das revendedoras
+   --------------------------------------------------------------------------
+   Regra central, a mesma da planilha de sincronização:
+
+       Estoque total − com revendedoras = estoque que pode ir para a Nuvemshop
+
+   A diferença é que aqui ela não é digitada, é calculada. "Com revendedoras"
+   é a soma das maletas abertas, então as três contas nunca podem discordar.
+   ========================================================================== */
+
+/* Estado agora mora no Worker + D1 — o dashboard só guarda, neste navegador,
+   o endereço e a chave para falar com ele. */
+const CONN_KEY='marquesa_conexao_v1';
+let conn=null;   /* {url, key} */
+
+function defaultState(){
+  /* forma vazia, só usada antes de conectar */
+  return {
+    v:2,
+    produtos:[],
+    revendedoras:[],
+    maletas:[],
+    loja:null,
+    config:{
+      prazoDias:45,
+      prataPct:10,
+      /* limite = teto da faixa (o último é null = sem teto) */
+      faixas:[
+        {limite:800,   pct:0},
+        {limite:1000,  pct:15},
+        {limite:1500,  pct:25},
+        {limite:6000,  pct:30},
+        {limite:10000, pct:35},
+        {limite:null,  pct:40}
+      ]
+    },
+    categorias:[]
+  };
+}
+let state=defaultState();
+
+function carregarConexao(){
+  try{ const r=localStorage.getItem(CONN_KEY); return r?JSON.parse(r):null; }
+  catch(e){ return null; }
+}
+function gravarConexao(c){
+  try{ localStorage.setItem(CONN_KEY,JSON.stringify(c)); }catch(e){}
+}
+
+/* Chamador central da API — todo mutation passa por aqui. Em erro, lança
+   Error com a mensagem do servidor (json.erro) e guarda o corpo em .data,
+   para casos como o 409 de acerto sem preço, que precisa dos detalhes. */
+async function api(method,path,body){
+  const opts={method, headers:{'Authorization':'Bearer '+conn.key}};
+  if(body!==undefined){ opts.headers['Content-Type']='application/json'; opts.body=JSON.stringify(body); }
+  const res=await fetch(conn.url+path,opts);
+  let json=null;
+  try{ json=await res.json(); }catch(e){}
+  if(!res.ok){
+    const err=new Error((json&&json.erro)||res.statusText||'Erro na conexão com o servidor');
+    err.data=json; err.status=res.status;
+    throw err;
+  }
+  return json;
+}
+async function carregarEstado(){ state=await api('GET','/api/state'); }
+async function sincronizar(){ await carregarEstado(); renderAll(); }
+
+async function salvarConexao(){
+  const fb=document.getElementById('cf-fb');
+  const btn=document.querySelector('#conexaoOverlay .btn-gold');
+  const url=document.getElementById('cf-url').value.trim().replace(/\/+$/,'');
+  const key=document.getElementById('cf-key').value.trim();
+  fb.classList.remove('bad');
+  if(!url||!key){ fb.textContent='Preencha o endereço e a chave.'; fb.classList.add('bad'); return; }
+  btn.disabled=true; fb.textContent='Conectando…';
+  try{
+    const h=await fetch(url+'/api/health').then(r=>r.ok?r.json():null).catch(()=>null);
+    if(!h||!h.ok) throw new Error('Não encontrei a API neste endereço.');
+    conn={url,key};
+    await carregarEstado();
+    gravarConexao(conn);
+    fb.textContent='';
+    document.getElementById('conexaoOverlay').classList.remove('show');
+    renderAll();
+  }catch(e){
+    conn=null;
+    fb.textContent=(e.status===401)?'Chave incorreta.':(e.message||'Não consegui conectar.');
+    fb.classList.add('bad');
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+async function boot(){
+  conn=carregarConexao();
+  if(!conn){ document.getElementById('conexaoOverlay').classList.add('show'); return; }
+  try{
+    toast('Carregando dados…');
+    await carregarEstado();
+    renderAll();
+  }catch(e){
+    conn=null;
+    toast('Não consegui carregar os dados: '+e.message);
+    document.getElementById('conexaoOverlay').classList.add('show');
+  }
+}
+
+/* =================== Categorias =================== */
+/* A categoria sai da primeira palavra da descrição. Foi conferida contra as 791
+   peças da planilha: cobre tudo, com alguns erros de digitação a normalizar. */
+const CATS=['Colar','Brinco','Pulseira','Berloque','Anel','Argola','Pingente','Conjunto','Outros'];
+const CAT_COR={
+  'Colar':'#C2426B','Brinco':'#C4802A','Pulseira':'#0D9382','Berloque':'#6A54B5',
+  'Anel':'#D8646B','Argola':'#3D77C4','Pingente':'#5C8A34','Conjunto':'#A15BA0','Outros':'#9E8A90'
+};
+const CAT_MAP={
+  colar:'Colar', colares:'Colar', corrente:'Colar', cordão:'Colar', cordao:'Colar', choker:'Colar',
+  gargantilha:'Colar', escapulário:'Colar', escapulario:'Colar',
+  brinco:'Brinco', brincos:'Brinco', binco:'Brinco', bincos:'Brinco', trio:'Brinco', duo:'Brinco',
+  dupla:'Brinco', piercing:'Brinco', piecing:'Brinco',
+  argola:'Argola', argolas:'Argola',
+  pulseira:'Pulseira', pulseiras:'Pulseira', bracelete:'Pulseira', tornozeleira:'Pulseira',
+  berloque:'Berloque', separador:'Berloque',
+  anel:'Anel', aneis:'Anel', anéis:'Anel', aparador:'Anel',
+  pingente:'Pingente',
+  conjunto:'Conjunto', conjuntos:'Conjunto'
+};
+function catOf(desc){
+  const w=String(desc||'').trim().toLowerCase().split(/[\s,\-]+/)[0]
+    .replace(/[^a-zà-ú]/gi,'');
+  return CAT_MAP[w]||'Outros';
+}
+function isPrata(desc){ return /prata\s*925/i.test(String(desc||'')); }
+/* A lista de categorias vem do servidor (pode crescer por lá); CATS/CAT_COR
+   seguem só como o palpite padrão de classificação e a cor de reserva. */
+function catList(){
+  if(state.categorias&&state.categorias.length)
+    return state.categorias.slice().sort((a,b)=>(a.ordem||0)-(b.ordem||0)).map(c=>c.nome);
+  return CATS;
+}
+function catColor(nome){
+  if(state.categorias&&state.categorias.length){
+    const c=state.categorias.find(x=>x.nome===nome);
+    if(c&&c.cor) return c.cor;
+  }
+  return CAT_COR[nome]||CAT_COR.Outros;
+}
+
+/* =================== Helpers =================== */
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.innerHTML='<span>'+esc(msg)+'</span>';
+  t.classList.add('show');clearTimeout(t._t);
+  t._t=setTimeout(()=>t.classList.remove('show'),2400);
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+/* Centavo que é sempre zero é ruído: "R$ 135.407,00" vira "R$ 135.407".
+   Quando existe centavo de verdade ele aparece, então nada se perde. */
+function money(v){
+  const n=isFinite(+v)?+v:0;
+  const [i,d]=n.toFixed(2).split('.');
+  const inteiro=i.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  /* espaço inquebrável: no celular "R$ 85.461" não parte em duas linhas */
+  return 'R$ '+inteiro+(d==='00'?'':','+d);
+}
+function num(v){const n=parseFloat(String(v==null?'':v).replace(/\./g,'').replace(',','.'));return isNaN(n)?0:n;}
+function int(v){const n=parseInt(String(v==null?'':v).replace(/[^\d-]/g,''),10);return isNaN(n)?0:n;}
+function normSku(s){return String(s==null?'':s).trim().replace(/\s+/g,'').toUpperCase();}
+function baseSku(s){return normSku(s).replace(/-\d+$/,'');}
+function hoje(){return new Date().toISOString().slice(0,10);}
+function fmtData(iso){
+  if(!iso) return '—';
+  const p=String(iso).slice(0,10).split('-');
+  return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:iso;
+}
+function diasDesde(iso){
+  if(!iso) return 0;
+  const d=new Date(String(iso).slice(0,10)+'T12:00:00');
+  return Math.max(0,Math.floor((Date.now()-d.getTime())/86400000));
+}
+function plural(n,s,p){return n===1?s:p;}
+/* Nome curto para a aba: só o primeiro nome, mas sem virar uma letra solta
+   quando a primeira palavra é curta ("A identificar" → "A identificar"). */
+function nomeCurto(nome){
+  const partes=String(nome||'').trim().split(/\s+/);
+  let curto=partes[0]||'';
+  if(curto.length<=3&&partes[1]) curto+=' '+partes[1];
+  return curto.length>16?curto.slice(0,15)+'…':curto;
+}
+
+/* =================== Índices e cálculo =================== */
+function prodIndex(){
+  const m=new Map();
+  state.produtos.forEach(p=>m.set(p.sku,p));
+  return m;
+}
+function findProd(code){
+  const idx=prodIndex();
+  const c=normSku(code);
+  if(idx.has(c)) return idx.get(c);
+  const b=baseSku(c);
+  if(idx.has(b)) return idx.get(b);
+  /* algumas etiquetas antigas trazem zeros à esquerda */
+  const semZero=c.replace(/^0+/,'');
+  if(idx.has(semZero)) return idx.get(semZero);
+  return null;
+}
+/* status agora tem 4 valores: 'aberta'|'em_acerto'|'encerrada'|'cancelada'.
+   Cancelada não aparece em lugar nenhum das telas normais — é como se não existisse. */
+function maletaAberta(m){return m.status==='aberta'||m.status==='em_acerto';}
+function maletaEncerrada(m){return m.status==='encerrada';}
+function maletasAbertas(){return state.maletas.filter(maletaAberta);}
+/* Preço válido para peças de uma maleta é o preço CONGELADO no envio
+   (m.precos), não o preço atual do catálogo — é o que o servidor usa
+   para calcular a comissão no acerto (§6.1). */
+function precoEnvio(m,sku){
+  if(m&&m.precos&&m.precos[sku]!=null) return m.precos[sku];
+  const p=prodIndex().get(sku);
+  return p&&p.preco!=null?p.preco:null;
+}
+/* Rótulo de preço para colunas de tabela: "Sem preço" em vez de "R$ 0". */
+function precoTxt(p){
+  return (p.semPreco||p.preco==null)
+    ? '<span style="color:var(--muted);font-style:italic">Sem preço</span>'
+    : money(p.preco);
+}
+
+/* O prazo de uma maleta é o dia combinado do acerto. Só quando ele não
+   foi marcado é que vale a regra dos N dias a partir da saída. */
+function prazoDe(m){
+  if(m.acertoEm) return m.acertoEm;
+  if(m.abertaEm) return addDias(m.abertaEm,state.config.prazoDias);
+  return null;
+}
+/* Quantos dias faltam (negativo = atrasado). null quando não há prazo. */
+function diasAteAcerto(m){
+  const p=prazoDe(m);
+  if(!p) return null;
+  const hj=new Date(hoje()+'T12:00:00'), dt=new Date(p+'T12:00:00');
+  return Math.round((dt-hj)/86400000);
+}
+function situacaoMaleta(m){
+  const d=diasAteAcerto(m);
+  if(d===null) return {classe:'aberta', texto:'sem data marcada', atrasada:false};
+  if(d<0)  return {classe:'vencida', texto:`atrasada ${-d} ${plural(-d,'dia','dias')}`, atrasada:true};
+  if(d===0) return {classe:'prazo', texto:'acerto é hoje', atrasada:false};
+  if(d<=7) return {classe:'prazo', texto:`acerto em ${d} ${plural(d,'dia','dias')}`, atrasada:false};
+  return {classe:'aberta', texto:`acerto em ${d} dias`, atrasada:false};
+}
+/* Quanto de cada SKU está fora, somando todas as maletas abertas. */
+function comRevMap(){
+  const m={};
+  maletasAbertas().forEach(mal=>{
+    Object.entries(mal.itens||{}).forEach(([sku,q])=>{ m[sku]=(m[sku]||0)+(+q||0); });
+  });
+  return m;
+}
+function emCasaMap(){
+  const rev=comRevMap(), out={};
+  state.produtos.forEach(p=>{ out[p.sku]=(p.qtd||0)-(rev[p.sku]||0); });
+  return out;
+}
+function totais(){
+  const rev=comRevMap();
+  let total=0,fora=0,valTotal=0,valFora=0;
+  const vistos=new Set();
+  state.produtos.forEach(p=>{
+    const f=rev[p.sku]||0;
+    /* uma peça que está na mão de alguém existe, mesmo que o cadastro diga que não.
+       Sem este max(), o total ficaria menor que a soma das maletas. */
+    const q=Math.max(p.qtd||0,f);
+    vistos.add(p.sku);
+    total+=q; fora+=f;
+    valTotal+=q*(p.preco||0); valFora+=f*(p.preco||0);
+  });
+  /* peças que estão numa maleta mas sumiram do catálogo não podem ser ignoradas */
+  Object.entries(rev).forEach(([sku,q])=>{ if(!vistos.has(sku)){ total+=q; fora+=q; } });
+  return {total, fora, casa:total-fora, valTotal, valFora, valCasa:valTotal-valFora};
+}
+/* Códigos em que há mais peças na rua do que o cadastro reconhece.
+   Nos arquivos da Marquesa isso acontece com os SKUs de sufixo (120029-2 e
+   companhia), cujo código-base nunca entrou na aba Estoque. */
+function inconsistencias(){
+  const rev=comRevMap(), idx=prodIndex(), out=[];
+  Object.entries(rev).forEach(([sku,fora])=>{
+    const p=idx.get(sku);
+    const cad=p?(p.qtd||0):0;
+    if(fora>cad) out.push({sku, desc:p?p.desc:'(fora do catálogo)', fora, cad});
+  });
+  return out;
+}
+function revNome(id){
+  const r=state.revendedoras.find(x=>x.id===id);
+  return r?r.nome:'Revendedora removida';
+}
+function maletaAbertaDe(revId){ return state.maletas.find(m=>m.revId===revId && maletaAberta(m))||null; }
+function qtdMaleta(m){ return Object.values(m.itens||{}).reduce((s,q)=>s+(+q||0),0); }
+function valMaleta(m){
+  return Object.entries(m.itens||{}).reduce((s,[sku,q])=>s+(precoEnvio(m,sku)||0)*q,0);
+}
+
+/* =================== Comissão =================== */
+/* Mesma regra do servidor (api/src/comissao.js): a FAIXA é escolhida só
+   pelo total vendido em peças BANHADAS. Prata 925 tem percentual fixo
+   próprio e não entra nessa conta — nem no valor que define a faixa,
+   nem no percentual aplicado. */
+function pctDaFaixa(valorBanhadas){
+  const fx=state.config.faixas;
+  for(const f of fx){ if(f.limite===null||valorBanhadas<=f.limite) return f.pct; }
+  return fx[fx.length-1].pct;
+}
+function calcComissao(vendidos,m){
+  const idx=prodIndex();
+  let baseBanhada=0, basePrata=0;
+  vendidos.forEach(({sku,qtd})=>{
+    const p=idx.get(sku); if(!p) return;
+    const v=(precoEnvio(m,sku)||0)*qtd;
+    if(isPrata(p.desc)) basePrata+=v; else baseBanhada+=v;
+  });
+  const pct=pctDaFaixa(baseBanhada);
+  const comissaoBanhada=baseBanhada*(pct/100);
+  const comissaoPrata=basePrata*(state.config.prataPct/100);
+  const totalVendido=baseBanhada+basePrata;
+  const comissao=comissaoBanhada+comissaoPrata;
+  return {totalVendido, pct, basePrata, baseBanhada, comissao, liquido:totalVendido-comissao};
+}
+
+/* =================== Abas =================== */
+let tabAtual='geral';      /* 'geral' | 'estoque' | 'rev:<id>' */
+function switchTab(name){
+  tabAtual=name;
+  renderTabs();
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  if(name==='geral'){ document.getElementById('view-geral').classList.add('active'); renderGeral(); }
+  else if(name==='estoque'){ document.getElementById('view-estoque').classList.add('active'); renderEstoque(); }
+  else if(name==='loja'){ document.getElementById('view-loja').classList.add('active'); renderLoja(); }
+  else { document.getElementById('view-rev').classList.add('active'); renderRev(+name.split(':')[1]); }
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function renderTabs(){
+  const rev=comRevMap();
+  const nav=document.getElementById('tabsNav');
+  const faltaSubir=state.produtos.filter(p=>!p.urlLoja&&(emCasaMap()[p.sku]||0)>0).length;
+  let html=`
+    <button class="tab ${tabAtual==='geral'?'active':''}" onclick="switchTab('geral')">Visão geral</button>
+    <button class="tab ${tabAtual==='estoque'?'active':''}" onclick="switchTab('estoque')">Meu estoque</button>
+    <button class="tab ${tabAtual==='loja'?'active':''}" onclick="switchTab('loja')">Nuvemshop${
+      temLoja()&&faltaSubir?`<span class="count">${faltaSubir}</span>`:''}</button>`;
+  state.revendedoras.forEach(r=>{
+    const m=maletaAbertaDe(r.id);
+    const q=m?qtdMaleta(m):0;
+    html+=`<button class="tab ${tabAtual==='rev:'+r.id?'active':''}" onclick="switchTab('rev:${r.id}')">
+      ${esc(nomeCurto(r.nome))}${q?`<span class="count">${q}</span>`:''}</button>`;
+  });
+  html+=`<button class="tab addtab" onclick="openRevForm()">+ Nova</button>`;
+  nav.innerHTML=html;
+
+  const t=totais();
+  document.getElementById('hdPecas').textContent=t.total;
+  document.getElementById('hdSkus').textContent=state.produtos.length;
+  document.getElementById('hdSub').textContent=
+    t.total? `${t.casa} em casa · ${t.fora} com revendedoras` : 'Importe sua planilha para começar';
+}
+
+/* =================== Visão geral =================== */
+let escopoGrafico='total';   /* total | casa | fora */
+function setEscopo(e){escopoGrafico=e;renderGeral();}
+
+function renderGeral(){
+  const t=totais();
+  const v=document.getElementById('view-geral');
+
+  if(!state.produtos.length){
+    v.innerHTML=`<div class="panel"><div class="body"><div class="empty">
+      <h3>Comece pelo seu estoque</h3>
+      <p>Importe a planilha <b>Atualização Nuvemshop</b> para carregar as peças,
+      e depois o <b>Anexo I</b> de cada revendedora para montar as maletas.</p>
+      <button class="btn btn-gold" style="margin-top:16px" onclick="openImport()">Importar planilha</button>
+    </div></div></div>`;
+    return;
+  }
+
+  const abertas=maletasAbertas();
+  const vencidas=abertas.filter(m=>situacaoMaleta(m).atrasada);
+  const proximas=abertas.filter(m=>{const d=diasAteAcerto(m);return d!==null&&d>=0;})
+                        .sort((a,b)=>String(prazoDe(a)).localeCompare(String(prazoDe(b))));
+  const inc=inconsistencias();
+
+  v.innerHTML=`
+    <div class="kpis">
+      <div class="kpi">
+        <div class="k-lbl">Estoque total</div>
+        <div class="k-num">${t.total}</div>
+        <div class="k-sub">${state.produtos.length} códigos · ${money(t.valTotal)}</div>
+      </div>
+      <div class="kpi k-casa">
+        <div class="k-lbl">Em posse minha</div>
+        <div class="k-num">${t.casa}</div>
+        <div class="k-sub">É isto que pode estar na Nuvemshop</div>
+      </div>
+      <div class="kpi k-rev">
+        <div class="k-lbl">Com revendedoras</div>
+        <div class="k-num">${t.fora}</div>
+        <div class="k-sub">${abertas.length} ${plural(abertas.length,'maleta aberta','maletas abertas')}</div>
+      </div>
+      <div class="kpi k-val">
+        <div class="k-lbl">Valor na rua</div>
+        <div class="k-num small">${money(t.valFora)}</div>
+        <div class="k-sub">Preço de venda das peças que estão fora</div>
+      </div>
+    </div>
+
+    ${vencidas.length?`<div class="warn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+      <div><b>${vencidas.length} ${plural(vencidas.length,'acerto passou','acertos passaram')} da data combinada:</b>
+      ${vencidas.map(m=>esc(revNome(m.revId))+' ('+situacaoMaleta(m).texto+')').join(', ')}.</div>
+    </div>`:''}
+
+    ${proximas.length?`<div class="panel" style="margin-bottom:22px">
+      <div class="head"><h2>Agenda de acertos</h2><span class="hint">Quem vem, quando, e com quanto na mão</span></div>
+      <div class="body" style="padding-top:14px">
+        ${proximas.map(m=>{
+          const s=situacaoMaleta(m), d=diasAteAcerto(m);
+          return `<div class="histrow" style="cursor:pointer" onclick="switchTab('rev:${m.revId}')">
+            <div class="h-dt"><b>${fmtData(prazoDe(m))}</b>${esc(revNome(m.revId))}</div>
+            <div class="h-st">Peças<b>${qtdMaleta(m)}</b></div>
+            <div class="h-st">Valor<b style="font-size:15px">${money(valMaleta(m))}</b></div>
+            <div class="spacer"></div>
+            <span class="badge ${s.classe}">${d===0?'hoje':esc(s.texto)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`:''}
+
+    ${inc.length?`<div class="warn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+      <div><b>${inc.length} ${plural(inc.length,'código tem','códigos têm')} mais peças na rua do que no cadastro.</b>
+      Costuma ser o caso dos códigos com sufixo (${esc(inc.slice(0,3).map(i=>i.sku).join(', '))}${inc.length>3?'…':''}),
+      que saíram na maleta pelo código-base. Corrija a coluna <b>Total</b> em Meu estoque.
+      <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="switchTab('estoque');setTimeout(()=>setFiltroInc(true),60)">Ver esses códigos</button></div></div>
+    </div>`:''}
+
+    <div class="row chart">
+      <div class="panel">
+        <div class="head">
+          <h2>Por categoria</h2>
+          <span class="hint">Quanto de cada tipo de peça você tem</span>
+        </div>
+        <div class="body">
+          <div style="display:flex;justify-content:center;margin-bottom:18px">
+            <div class="seg">
+              <button class="${escopoGrafico==='total'?'on':''}" onclick="setEscopo('total')">Estoque total</button>
+              <button class="${escopoGrafico==='casa'?'on':''}" onclick="setEscopo('casa')">Em casa</button>
+              <button class="${escopoGrafico==='fora'?'on':''}" onclick="setEscopo('fora')">Com revendedoras</button>
+            </div>
+          </div>
+          <div class="chartwrap" id="chartWrap"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="head">
+          <h2>Revendedoras</h2>
+          <span class="hint">Toque em uma para abrir a maleta dela</span>
+        </div>
+        <div class="body">
+          ${state.revendedoras.length?`<div class="revgrid">${state.revendedoras.map(r=>cardRev(r)).join('')}</div>`:
+            `<div class="empty"><h3>Nenhuma revendedora ainda</h3>
+             <p>Crie uma aba para cada pessoa que leva maleta.</p>
+             <button class="btn btn-gold" style="margin-top:14px" onclick="openRevForm()">+ Nova revendedora</button></div>`}
+        </div>
+      </div>
+    </div>`;
+
+  renderDonut();
+}
+
+function cardRev(r){
+  const m=maletaAbertaDe(r.id);
+  const q=m?qtdMaleta(m):0;
+  const val=m?valMaleta(m):0;
+  const s=m?situacaoMaleta(m):null;
+  const fechadas=state.maletas.filter(x=>x.revId===r.id&&maletaEncerrada(x)).length;
+  return `<div class="revcard" onclick="switchTab('rev:${r.id}')">
+    <div class="rc-nm">${esc(r.nome)}</div>
+    <div class="rc-meta">${m?(prazoDe(m)?`Acerto marcado para ${fmtData(prazoDe(m))}`:'Maleta aberta, sem data marcada'):
+       (fechadas?`${fechadas} ${plural(fechadas,'maleta fechada','maletas fechadas')}`:'Sem maleta aberta')}</div>
+    ${m?`<div class="rc-row">
+      <div class="rc-st">Peças<b>${q}</b></div>
+      <div class="rc-st">Valor<b style="font-size:16px">${money(val)}</b></div>
+    </div>
+    <div style="margin-top:11px"><span class="badge ${s.classe}">${esc(s.texto)}</span></div>`
+    :`<div style="margin-top:12px"><span class="badge fechada">Sem maleta</span></div>`}
+  </div>`;
+}
+
+/* =================== Gráfico de pizza (rosca) =================== */
+/* SVG puro: nada externo carrega, funciona offline igual ao resto do app.
+   Paleta validada para daltonismo — ver comentário no topo do arquivo. */
+function dadosCategoria(){
+  const rev=comRevMap();
+  const acc={};
+  state.produtos.forEach(p=>{
+    const fora=rev[p.sku]||0;
+    /* mesma regra do KPI: quem está na rua conta no total, doa ou não o cadastro.
+       Sem isso o gráfico e os números do topo discordariam. */
+    const tot=Math.max(p.qtd||0,fora);
+    let q;
+    if(escopoGrafico==='total') q=tot;
+    else if(escopoGrafico==='casa') q=tot-fora;
+    else q=fora;
+    if(q>0){ const c=p.cat||'Outros'; acc[c]=(acc[c]||0)+q; }
+  });
+  const nomes=[...new Set([...catList(), ...Object.keys(acc)])];
+  return nomes.map(c=>({cat:c,qtd:acc[c]||0,cor:catColor(c)})).filter(d=>d.qtd>0);
+}
+/* Mesma leitura, mas para o conteúdo de uma maleta. */
+function dadosDeItens(itens){
+  const idx=prodIndex(), acc={};
+  Object.entries(itens||{}).forEach(([sku,q])=>{
+    if(!(q>0)) return;
+    const p=idx.get(sku);
+    const c=(p&&p.cat)||'Outros';
+    acc[c]=(acc[c]||0)+q;
+  });
+  const nomes=[...new Set([...catList(), ...Object.keys(acc)])];
+  return nomes.map(c=>({cat:c,qtd:acc[c]||0,cor:catColor(c)})).filter(d=>d.qtd>0);
+}
+
+/* "0%" para uma categoria que tem peças é mentira; abaixo de 1% mostra "<1%". */
+function pctTexto(q,total){
+  if(!total) return '0%';
+  const p=q/total*100;
+  return p>0&&p<1?'<1%':Math.round(p)+'%';
+}
+function arcoRosca(cx,cy,rOut,rIn,a0,a1){
+  const p=(r,a)=>[cx+r*Math.cos(a), cy+r*Math.sin(a)];
+  const grande=(a1-a0)>Math.PI?1:0;
+  const [x1,y1]=p(rOut,a0), [x2,y2]=p(rOut,a1);
+  const [x3,y3]=p(rIn,a1),  [x4,y4]=p(rIn,a0);
+  return `M${x1} ${y1}A${rOut} ${rOut} 0 ${grande} 1 ${x2} ${y2}L${x3} ${y3}A${rIn} ${rIn} 0 ${grande} 0 ${x4} ${y4}Z`;
+}
+
+function renderDonut(){
+  const wrap=document.getElementById('chartWrap');
+  if(!wrap) return;
+  const nomeEscopo={total:'no total',casa:'em casa',fora:'na rua'}[escopoGrafico];
+  const vazio=escopoGrafico==='fora'?'Nenhuma peça está com revendedoras no momento.':'Sem peças para mostrar.';
+  desenharRosca(wrap,dadosCategoria(),nomeEscopo,vazio);
+}
+
+/* Desenha a rosca em qualquer container: usada na Visão geral e também
+   dentro da maleta de cada revendedora. */
+function desenharRosca(wrap,dados,legendaCentro,textoVazio){
+  if(!wrap) return;
+  const total=dados.reduce((s,d)=>s+d.qtd,0);
+
+  if(!total){
+    wrap.innerHTML=`<div class="empty" style="padding:30px 10px"><h3>Nada para mostrar</h3>
+      <p>${esc(textoVazio||'Sem peças nesta visão.')}</p></div>`;
+    return;
+  }
+
+  const S=230, cx=S/2, cy=S/2, rOut=S/2-26, rIn=rOut*0.58;
+  /* 2px de respiro entre fatias, como exige a especificação de marcas */
+  const pad=(2/rOut)/2;
+  let ang=-Math.PI/2, paths='', labels='';
+
+  dados.forEach((d,i)=>{
+    const frac=d.qtd/total;
+    const a0=ang, a1=ang+frac*Math.PI*2;
+    ang=a1;
+    const ap0=Math.min(a0+pad,a1), ap1=Math.max(a1-pad,a0);
+    paths+=`<path class="slice" data-i="${i}" d="${arcoRosca(cx,cy,rOut,rIn,ap0,ap1)}" fill="${d.cor}"></path>`;
+    /* rótulo direto só nas fatias largas o bastante para o texto caber dentro:
+       abaixo disso o nome vaza para fora da rosca e a legenda resolve melhor */
+    if(frac>=0.12){
+      const am=(a0+a1)/2, rl=(rOut+rIn)/2;
+      const lx=cx+rl*Math.cos(am), ly=cy+rl*Math.sin(am);
+      labels+=`<text class="dlabel" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" fill="#fff">
+        <tspan x="${lx.toFixed(1)}" dy="-1">${esc(d.cat)}</tspan>
+        <tspan x="${lx.toFixed(1)}" dy="11" fill="rgba(255,255,255,.82)">${Math.round(frac*100)}%</tspan></text>`;
+    }
+  });
+
+  wrap.innerHTML=`
+    <div class="donutbox">
+      <svg viewBox="0 0 ${S} ${S}" role="img" aria-label="Peças por categoria">
+        <g>${paths}</g><g>${labels}</g>
+      </svg>
+      <div class="dcenter"><div class="dc-num">${total}</div><div class="dc-lbl">peças ${esc(legendaCentro||'')}</div></div>
+    </div>
+    <div class="legend">${dados.map((d,i)=>`
+      <div class="lgd" data-i="${i}">
+        <span class="dot" style="background:${d.cor}"></span>
+        <span class="nm">${esc(d.cat)}</span>
+        <span class="vl"><b>${d.qtd}</b> · ${pctTexto(d.qtd,total)}</span>
+      </div>`).join('')}</div>`;
+
+  /* camada de hover: destaca a fatia e mostra o valor exato */
+  const box=wrap.querySelector('.donutbox');
+  const tip=document.getElementById('dtip');
+  function acender(i,ev){
+    box.classList.add('hasHover');
+    box.querySelectorAll('.slice').forEach(s=>s.classList.toggle('hot',+s.dataset.i===i));
+    const d=dados[i];
+    tip.innerHTML=`<div class="t-nm">${esc(d.cat)}</div>
+      <div class="t-vl">${d.qtd} ${plural(d.qtd,'peça','peças')} · ${(d.qtd/total*100).toFixed(1)}%</div>`;
+    tip.classList.add('show');
+    if(ev){
+      const x=Math.min(ev.clientX+14, innerWidth-tip.offsetWidth-10);
+      tip.style.left=x+'px';
+      tip.style.top=Math.max(8,ev.clientY-tip.offsetHeight-10)+'px';
+    }
+  }
+  function apagar(){
+    box.classList.remove('hasHover');
+    box.querySelectorAll('.slice').forEach(s=>s.classList.remove('hot'));
+    tip.classList.remove('show');
+  }
+  wrap.querySelectorAll('.slice').forEach(s=>{
+    s.addEventListener('mousemove',e=>acender(+s.dataset.i,e));
+    s.addEventListener('mouseleave',apagar);
+    s.addEventListener('touchstart',e=>{acender(+s.dataset.i,e.touches[0]);},{passive:true});
+  });
+  wrap.querySelectorAll('.lgd').forEach(l=>{
+    l.addEventListener('mousemove',e=>acender(+l.dataset.i,e));
+    l.addEventListener('mouseleave',apagar);
+  });
+}
+
+/* =================== Meu estoque =================== */
+let filtroCat='', buscaEstoque='', filtroInc=false, filtroLoja='';
+function setFiltroCat(c){filtroCat=c;filtroInc=false;renderEstoque();}
+function setFiltroInc(v){filtroInc=v;filtroCat='';filtroLoja='';buscaEstoque='';renderEstoque();}
+function setFiltroLoja(v){filtroLoja=v;filtroInc=false;renderEstoque();}
+/* Há dados da loja carregados? Só então as colunas de loja fazem sentido. */
+function temLoja(){return state.produtos.some(p=>p.urlLoja);}
+/* Ajuste manual do estoque total de um código — é assim que se conserta
+   uma inconsistência ou se dá entrada em mercadoria nova. O servidor não
+   aceita qtd direto (§19: o saldo vem de movimentos), então isto vira um
+   movimento de ajuste do tamanho da diferença. */
+async function setQtdProduto(sku,val){
+  const p=state.produtos.find(x=>x.sku===sku);
+  if(!p) return;
+  const novo=Math.max(0,int(val));
+  const delta=novo-(p.qtd||0);
+  if(!delta){ renderEstoque(); return; }
+  try{
+    await api('POST',`/api/produtos/${encodeURIComponent(sku)}/movimento`,{tipo:'ajuste',quantidade:delta});
+    await sincronizar();
+  }catch(e){ toast(e.message); renderEstoque(); }
+}
+
+function renderEstoque(){
+  const v=document.getElementById('view-estoque');
+  const rev=comRevMap(), t=totais();
+  const q=buscaEstoque.trim().toLowerCase();
+  const incSet=new Set(inconsistencias().map(i=>i.sku));
+
+  const comLoja=temLoja();
+  let lista=state.produtos.slice();
+  if(filtroInc) lista=lista.filter(p=>incSet.has(p.sku));
+  /* "falta subir" = sem cadastro na loja E com peça aqui em casa para vender */
+  if(filtroLoja==='fora') lista=lista.filter(p=>!p.urlLoja&&(p.qtd||0)-(rev[p.sku]||0)>0);
+  if(filtroLoja==='na')   lista=lista.filter(p=>p.urlLoja);
+  if(filtroCat) lista=lista.filter(p=>p.cat===filtroCat);
+  if(q) lista=lista.filter(p=>p.desc.toLowerCase().includes(q)||p.sku.toLowerCase().includes(q));
+  lista.sort((a,b)=>a.desc.localeCompare(b.desc,'pt'));
+
+  const catsUsadas=catList().filter(c=>state.produtos.some(p=>p.cat===c));
+  const semCadastro=lista.filter(p=>(p.qtd||0)-(rev[p.sku]||0)>0).length;
+
+  v.innerHTML=`
+    <div class="panel">
+      <div class="head">
+        <h2>Meu estoque</h2>
+        <span class="hint">Total é tudo que existe. Em casa é o que pode estar à venda na Nuvemshop.</span>
+      </div>
+      <div class="body">
+        <div class="actbar">
+          <div class="stat"><b>${t.total}</b> no total</div>
+          <div class="stat"><b>${t.casa}</b> em casa</div>
+          <div class="stat"><b>${t.fora}</b> na rua</div>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost btn-sm" onclick="exportNuvemshop()">↓ Planilha p/ Nuvemshop</button>
+          <button class="btn btn-ghost btn-sm" onclick="openImport()">↑ Importar</button>
+        </div>
+
+        ${comLoja?`
+        <div style="display:flex;justify-content:center;margin-bottom:16px">
+          <div class="seg">
+            <button class="${filtroLoja===''?'on':''}" onclick="setFiltroLoja('')">Tudo (${state.produtos.length})</button>
+            <button class="${filtroLoja==='na'?'on':''}" onclick="setFiltroLoja('na')">Já no site (${state.produtos.filter(p=>p.urlLoja).length})</button>
+            <button class="${filtroLoja==='fora'?'on':''}" onclick="setFiltroLoja('fora')">Falta subir (${state.produtos.filter(p=>!p.urlLoja&&(p.qtd||0)-(rev[p.sku]||0)>0).length})</button>
+          </div>
+        </div>`:''}
+
+        <div class="toolbar">
+          <div class="search">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="buscaEstoque" placeholder="Buscar por descrição ou código…" value="${esc(buscaEstoque)}">
+          </div>
+        </div>
+        <div class="subtabs">
+          <button class="pill ${filtroCat===''&&!filtroInc?'on':''}" onclick="setFiltroCat('')">Todas</button>
+          ${catsUsadas.map(c=>`<button class="pill ${filtroCat===c?'on':''}" onclick="setFiltroCat('${c}')">${c}</button>`).join('')}
+          ${incSet.size?`<button class="pill ${filtroInc?'on':''}" style="border-color:var(--danger);color:${filtroInc?'#fff':'var(--danger)'};${filtroInc?'background:var(--danger);':''}" onclick="setFiltroInc(${!filtroInc})">A conferir (${incSet.size})</button>`:''}
+        </div>
+
+        ${lista.length?`
+        <div class="tablewrap keeptable">
+          <table>
+            <thead><tr>
+              <th>Descrição</th><th style="width:88px">Código</th><th style="width:110px">Categoria</th>
+              <th style="width:82px">Preço</th><th style="width:74px">Total</th>
+              <th style="width:64px">Na rua</th><th style="width:70px">Em casa</th>
+              ${comLoja?`<th style="width:78px">Na loja</th>`:''}
+            </tr></thead>
+            <tbody>${lista.map(p=>{
+              const fora=rev[p.sku]||0, casa=(p.qtd||0)-fora;
+              return `<tr>
+                <td class="desc">${esc(p.desc)}</td>
+                <td class="sku">${esc(p.sku)}</td>
+                <td><span class="catchip" style="background:${catColor(p.cat)}">${esc(p.cat)}</span></td>
+                <td class="price">${precoTxt(p)}</td>
+                <td class="num"><input class="dr-q" style="width:52px" type="number" min="0" value="${p.qtd||0}"
+                  onchange="setQtdProduto('${esc(p.sku)}',this.value)" title="Estoque total desta peça"></td>
+                <td class="num ${fora?'':'zero'}">${fora}</td>
+                <td class="num ${casa<0?'neg':(casa?'':'zero')}">${casa}</td>
+                ${comLoja?(p.urlLoja
+                  ? `<td class="num ${(p.estoqueLoja||0)!==Math.max(0,casa)?'neg':''}" title="${(p.estoqueLoja||0)!==Math.max(0,casa)?'A loja está desatualizada':'Loja em dia'}">${p.estoqueLoja||0}</td>`
+                  : `<td class="num zero" title="Este código não existe na loja">sem cadastro</td>`):''}
+              </tr>`;}).join('')}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;font-size:11.5px;color:var(--muted)">
+          Mostrando ${lista.length} de ${state.produtos.length} códigos${filtroCat?' · categoria '+filtroCat:''}${
+            filtroLoja==='fora'?' · só o que falta subir para o site':(filtroLoja==='na'?' · só o que já está no site':'')}.
+          ${semCadastro?`<b>${semCadastro}</b> com peça disponível em casa.`:''}
+        </div>`
+        :`<div class="empty"><h3>Nada encontrado</h3><p>Tente outro termo ou limpe o filtro de categoria.</p></div>`}
+      </div>
+    </div>`;
+
+  const b=document.getElementById('buscaEstoque');
+  b.addEventListener('input',e=>{
+    buscaEstoque=e.target.value;
+    clearTimeout(b._t);
+    b._t=setTimeout(()=>{const pos=e.target.selectionStart;renderEstoque();
+      const n=document.getElementById('buscaEstoque');n.focus();n.setSelectionRange(pos,pos);},220);
+  });
+}
+
+/* =================== Nuvemshop =================== */
+let filtroVitrine='publicados';   /* publicados | desatualizados | ocultos | falta */
+function setFiltroVitrine(v){filtroVitrine=v;renderLoja();}
+
+/* Uma leitura só da loja, usada pela aba inteira. */
+function panoramaLoja(){
+  const casa=emCasaMap();
+  const naLoja=state.produtos.filter(p=>p.urlLoja);
+  const fora=state.produtos.filter(p=>!p.urlLoja);
+  const certo=p=>Math.max(0,casa[p.sku]||0);
+  /* Um PRODUTO da Nuvemshop é um Identificador URL. Ele pode carregar
+     várias variações, cada uma com o seu SKU — por isso o número de
+     produtos da loja é menor que o de códigos casados. É esse o número
+     que aparece no painel da Nuvemshop. */
+  const L=state.loja||{};
+  const produtos=L.produtosCasados||new Set(naLoja.map(p=>p.urlLoja)).size;
+  return {
+    casa, naLoja, fora, certo,
+    produtos,
+    produtosNaLoja: L.produtosNaLoja||produtos,
+    soNaLoja: L.soNaLoja||0,
+    variacoes: Math.max(0,naLoja.length-produtos),
+    duplicados: L.duplicados||[],
+    faltaSubir: fora.filter(p=>certo(p)>0),
+    desatualizados: naLoja.filter(p=>(p.estoqueLoja||0)!==certo(p)),
+    ocultos: naLoja.filter(p=>p.visivel===false),
+    pecasPublicadas: naLoja.reduce((s,p)=>s+(p.estoqueLoja||0),0),
+    valorPublicado: naLoja.reduce((s,p)=>s+(p.estoqueLoja||0)*p.preco,0)
+  };
+}
+
+function renderLoja(){
+  const v=document.getElementById('view-loja');
+
+  if(!temLoja()){
+    v.innerHTML=`<div class="panel"><div class="body"><div class="empty">
+      <h3>Ainda não conheço sua loja</h3>
+      <p>Exporte seus produtos na Nuvemshop e importe o arquivo aqui. A partir dele
+      eu mostro o que está publicado, o que está com estoque errado e o que falta subir.</p>
+      <button class="btn btn-gold" style="margin-top:16px" onclick="openImport()">Importar export da Nuvemshop</button>
+    </div></div></div>`;
+    return;
+  }
+
+  const L=panoramaLoja();
+  const listas={
+    publicados:L.naLoja,
+    desatualizados:L.desatualizados,
+    ocultos:L.ocultos,
+    falta:L.faltaSubir
+  };
+  const lista=(listas[filtroVitrine]||L.naLoja).slice()
+    .sort((a,b)=>{
+      /* nas duas listas de ação, o que vale mais dinheiro aparece primeiro */
+      if(filtroVitrine==='falta') return L.certo(b)*b.preco-L.certo(a)*a.preco;
+      if(filtroVitrine==='ocultos') return L.certo(b)*b.preco-L.certo(a)*a.preco
+        || a.desc.localeCompare(b.desc,'pt');
+      return a.desc.localeCompare(b.desc,'pt');
+    });
+  /* oculto com peça em casa é venda perdida por um clique — merece destaque */
+  const reativar=L.ocultos.filter(p=>L.certo(p)>0);
+
+  v.innerHTML=`
+    <div class="kpis">
+      <div class="kpi">
+        <div class="k-lbl">Produtos na loja</div>
+        <div class="k-num">${L.produtosNaLoja}</div>
+        <div class="k-sub">${L.naLoja.length} códigos meus entre eles${L.soNaLoja?` · ${L.soNaLoja} não conheço`:''} · ${money(L.valorPublicado)}</div>
+      </div>
+      <div class="kpi k-rev">
+        <div class="k-lbl">Estoque errado no site</div>
+        <div class="k-num">${L.desatualizados.length}</div>
+        <div class="k-sub">${L.desatualizados.length?'A loja mostra número diferente do real':'A loja está em dia'}</div>
+      </div>
+      <div class="kpi k-casa">
+        <div class="k-lbl">Falta subir</div>
+        <div class="k-num">${L.faltaSubir.length}</div>
+        <div class="k-sub">${L.faltaSubir.reduce((s,p)=>s+L.certo(p),0)} peças sem cadastro</div>
+      </div>
+      <div class="kpi k-val">
+        <div class="k-lbl">Parado por falta de cadastro</div>
+        <div class="k-num small">${money(L.faltaSubir.reduce((s,p)=>s+L.certo(p)*p.preco,0))}</div>
+        <div class="k-sub">Não pode vender enquanto não subir</div>
+      </div>
+    </div>
+
+    ${L.desatualizados.length?`<div class="warn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+      <div><b>${L.desatualizados.length} ${plural(L.desatualizados.length,'produto está','produtos estão')} com estoque errado na loja.</b>
+      Gere o arquivo de atualização e suba na Nuvemshop.
+      <div class="w-act"><button class="btn btn-gold btn-sm" onclick="exportLoja()">↓ Gerar atualização de estoque</button></div></div>
+    </div>`:''}
+
+    ${L.duplicados.length?`<div class="warn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+      <div><b>${L.duplicados.length} ${plural(L.duplicados.length,'código está cadastrado','códigos estão cadastrados')} em mais de um produto na loja</b>
+      (${esc(L.duplicados.slice(0,4).join(', '))}). O estoque fica dividido entre eles e a conta nunca fecha — vale unificar na Nuvemshop.</div>
+    </div>`:''}
+
+    ${L.faltaSubir.length?`<div class="warn info">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" transform="rotate(180 12 12)"/></svg>
+      <div><b>${L.faltaSubir.length} códigos com peça em casa não existem na loja</b> —
+      ${L.faltaSubir.reduce((s,p)=>s+L.certo(p),0)} peças, ${money(L.faltaSubir.reduce((s,p)=>s+L.certo(p)*p.preco,0))} que não podem vender.
+      <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="exportSemCadastro()">↓ Baixar lista para cadastrar</button></div></div>
+    </div>`:''}
+
+    <div class="panel">
+      <div class="head">
+        <h2>${({publicados:'Produtos no site',desatualizados:'Estoque errado no site',ocultos:'Ocultos no site',falta:'Falta subir para o site'})[filtroVitrine]}</h2>
+        <span class="hint">${({
+          publicados:`${L.produtosNaLoja} produtos na loja · ${L.naLoja.length} códigos meus${L.variacoes?`, sendo ${L.variacoes} variações de um produto já contado`:''}`,
+          desatualizados:'A loja mostra um número, o real é outro',
+          ocultos:reativar.length?`${reativar.length} ${plural(reativar.length,'tem peça em casa e podia estar vendendo','têm peça em casa e podiam estar vendendo')}`
+                                 :'Cadastrados, mas invisíveis para o cliente',
+          falta:'Peça em casa sem cadastro na loja, do mais caro para o mais barato'
+        })[filtroVitrine]}</span>
+      </div>
+      <div class="body">
+        <div class="subtabs">
+          <button class="pill ${filtroVitrine==='publicados'?'on':''}" onclick="setFiltroVitrine('publicados')">No site (${L.produtosNaLoja})</button>
+          <button class="pill ${filtroVitrine==='desatualizados'?'on':''}" onclick="setFiltroVitrine('desatualizados')">Estoque errado (${L.desatualizados.length})</button>
+          <button class="pill ${filtroVitrine==='ocultos'?'on':''}" onclick="setFiltroVitrine('ocultos')">Ocultos (${L.ocultos.length}${reativar.length?' · '+reativar.length+' com peça':''})</button>
+          <button class="pill ${filtroVitrine==='falta'?'on':''}" onclick="setFiltroVitrine('falta')">Falta subir (${L.faltaSubir.length})</button>
+        </div>
+
+        ${lista.length?`
+        <div class="tablewrap keeptable">
+          <table>
+            <thead><tr>
+              <th>Descrição</th><th style="width:88px">Código</th><th style="width:104px">Categoria</th>
+              <th style="width:78px">Preço</th>
+              ${filtroVitrine==='falta'
+                ? `<th style="width:70px">Em casa</th><th style="width:96px">Valor parado</th>`
+                : `<th style="width:74px">No site</th><th style="width:74px">Correto</th><th style="width:88px">Situação</th>`}
+            </tr></thead>
+            <tbody>${lista.map(p=>{
+              const certo=L.certo(p);
+              return `<tr>
+                <td class="desc">${esc(p.desc)}</td>
+                <td class="sku">${esc(p.sku)}</td>
+                <td><span class="catchip" style="background:${catColor(p.cat)}">${esc(p.cat)}</span></td>
+                <td class="price">${precoTxt(p)}</td>
+                ${filtroVitrine==='falta'
+                  ? `<td class="num">${certo}</td><td class="price">${money(certo*p.preco)}</td>`
+                  : `<td class="num ${(p.estoqueLoja||0)!==certo?'neg':''}">${p.estoqueLoja||0}</td>
+                     <td class="num ${certo?'':'zero'}">${certo}</td>
+                     <td>${p.visivel===false
+                        ?(certo>0?'<span class="badge prazo">reativar</span>':'<span class="badge fechada">oculto</span>')
+                        :((p.estoqueLoja||0)!==certo?'<span class="badge vencida">corrigir</span>'
+                        :'<span class="badge aberta">em dia</span>')}</td>`}
+              </tr>`;}).join('')}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;font-size:11.5px;color:var(--muted)">Mostrando ${lista.length} ${plural(lista.length,'produto','produtos')}.</div>`
+        :`<div class="empty"><h3>Nada aqui</h3><p>${
+            filtroVitrine==='desatualizados'?'A loja está em dia com o seu estoque.':
+            filtroVitrine==='ocultos'?'Nenhum produto está oculto.':
+            filtroVitrine==='falta'?'Tudo que você tem em casa já está cadastrado na loja.':
+            'Nenhum produto encontrado.'}</p></div>`}
+      </div>
+    </div>`;
+}
+
+/* =================== Aba da revendedora =================== */
+function renderRev(id){
+  const r=state.revendedoras.find(x=>x.id===id);
+  const v=document.getElementById('view-rev');
+  if(!r){v.innerHTML='<div class="panel"><div class="body"><div class="empty"><h3>Revendedora não encontrada</h3></div></div></div>';return;}
+
+  const m=maletaAbertaDe(id);
+  const idx=prodIndex();
+  const fechadas=state.maletas.filter(x=>x.revId===id&&maletaEncerrada(x))
+    .sort((a,b)=>String(b.encerradaEm).localeCompare(String(a.encerradaEm)));
+  const sit=m?situacaoMaleta(m):null;
+
+  let itensHtml='';
+  if(m){
+    const linhas=Object.entries(m.itens).filter(([,q])=>q>0)
+      .map(([sku,q])=>{const p=idx.get(sku);return{sku,q,desc:p?p.desc:'(fora do catálogo)',preco:precoEnvio(m,sku)||0,cat:p?p.cat:'Outros'};})
+      .sort((a,b)=>a.desc.localeCompare(b.desc,'pt'));
+    itensHtml=linhas.length?`
+      <div class="tablewrap keeptable">
+        <table>
+          <thead><tr><th>Descrição</th><th style="width:88px">Código</th><th style="width:110px">Categoria</th>
+            <th style="width:58px">Qtd</th><th style="width:90px">Valor</th></tr></thead>
+          <tbody>${linhas.map(l=>`<tr>
+            <td class="desc">${esc(l.desc)}</td>
+            <td class="sku">${esc(l.sku)}</td>
+            <td><span class="catchip" style="background:${catColor(l.cat)}">${esc(l.cat)}</span></td>
+            <td class="num">${l.q}</td>
+            <td class="price">${money(l.preco*l.q)}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>`:`<div class="empty"><h3>Maleta vazia</h3><p>Bipe as peças para montar a maleta.</p></div>`;
+  }
+
+  v.innerHTML=`
+    <div class="panel">
+      <div class="head">
+        <h2>${esc(r.nome)}</h2>
+        <span class="hint">${[r.cidade,r.tel].filter(Boolean).map(esc).join(' · ')||'Sem dados de contato'}</span>
+      </div>
+      <div class="body">
+        ${m?`
+          <div class="actbar">
+            <div class="stat"><b>${qtdMaleta(m)}</b> peças</div>
+            <div class="stat"><b>${Object.values(m.itens).filter(q=>q>0).length}</b> códigos</div>
+            <div class="stat">${money(valMaleta(m))}</div>
+            <div class="stat"><span class="badge ${sit.classe}">${esc(sit.texto)}</span></div>
+            <div class="spacer"></div>
+            <button class="btn btn-ghost btn-sm" onclick="printAnexo(${m.id})">Imprimir Anexo I</button>
+            <button class="btn btn-ghost btn-sm" onclick="openScan('add',${m.id})">+ Bipar peças</button>
+            <button class="btn btn-print btn-sm" onclick="openAcerto(${m.id})">Fazer acerto</button>
+          </div>
+          <div style="font-size:11.5px;color:var(--muted);margin:-6px 0 14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+            <span>Acerto marcado para</span>
+            <input type="date" value="${esc(String(m.acertoEm||'').slice(0,10))}" onchange="setDataMaleta(${m.id},'acertoEm',this.value)"
+              style="padding:4px 7px;border:1px solid var(--rose-soft);border-radius:7px;background:#fff;font-size:11.5px;color:var(--ink);font-weight:600">
+            <span style="opacity:.5">|</span>
+            <span>Saiu em</span>
+            <input type="date" value="${esc(String(m.abertaEm||'').slice(0,10))}" onchange="setDataMaleta(${m.id},'abertaEm',this.value)"
+              style="padding:4px 7px;border:1px solid var(--line);border-radius:7px;background:#fff;font-size:11.5px;color:var(--ink)">
+            ${!m.abertaEm?`<span style="font-style:italic">saída não informada</span>`:''}
+          </div>
+          <div class="row chart" style="margin-bottom:18px">
+            <div class="painel-mix">
+              <div class="mix-t">O que ela está levando</div>
+              <div class="chartwrap" id="chartMaleta"></div>
+            </div>
+            <div class="painel-mix">
+              <div class="mix-t">Resumo da maleta</div>
+              ${resumoMaleta(m)}
+            </div>
+          </div>
+          ${itensHtml}
+        `:`
+          <div class="empty">
+            <h3>Sem maleta aberta</h3>
+            <p>Monte a maleta bipando as etiquetas das peças, uma a uma.</p>
+            <button class="btn btn-gold" style="margin-top:16px" onclick="novaMaleta(${r.id})">Montar maleta</button>
+          </div>
+        `}
+      </div>
+    </div>
+
+    ${fechadas.length?`
+    <div class="panel" style="margin-top:22px">
+      <div class="head"><h2>Histórico</h2><span class="hint">Maletas já acertadas</span></div>
+      <div class="body">
+        ${fechadas.map(h=>{
+          const a=h.acerto||{};
+          return `<div class="histrow">
+            <div class="h-dt"><b>${fmtData(h.abertaEm||h.acertoEm)} → ${fmtData(h.fechadaEm)}</b>${a.dias!=null?a.dias+' dias':''}</div>
+            <div class="h-st">Levou<b>${a.enviadas||0}</b></div>
+            <div class="h-st">Vendeu<b>${a.vendidas||0}</b></div>
+            <div class="h-st">Voltou<b>${a.devolvidas||0}</b></div>
+            ${a.perdas?`<div class="h-st">Perdas<b style="color:var(--danger)">${a.perdas}</b></div>`:''}
+            <div class="spacer"></div>
+            <div class="h-st" style="text-align:right">Vendido<b style="color:var(--bordo)">${money(a.totalVendido||0)}</b></div>
+            <div class="h-st" style="text-align:right">Comissão ${a.pct!=null?a.pct+'%':''}<b>${money(a.comissao||0)}</b></div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`:''}
+
+    <div class="panel" style="margin-top:22px">
+      <div class="body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-ghost btn-sm" onclick="openRevForm(${r.id})">Editar dados</button>
+        <div class="spacer" style="flex:1"></div>
+        <button class="btn btn-danger btn-sm" onclick="delRevendedora(${r.id})">Arquivar revendedora</button>
+      </div>
+    </div>`;
+
+  if(m) desenharRosca(document.getElementById('chartMaleta'), dadosDeItens(m.itens),
+                      'na maleta', 'Maleta ainda vazia — bipe as peças para montar.');
+}
+/* Números que ajudam a decidir se a maleta está bem montada. */
+function resumoMaleta(m){
+  const idx=prodIndex();
+  const linhas=Object.entries(m.itens||{}).filter(([,q])=>q>0);
+  const pecas=linhas.reduce((s,[,q])=>s+q,0);
+  const valor=valMaleta(m);
+  let prataQ=0, prataV=0, maisCara=null;
+  linhas.forEach(([sku,q])=>{
+    const p=idx.get(sku); if(!p) return;
+    const preco=precoEnvio(m,sku)||0;
+    if(isPrata(p.desc)){ prataQ+=q; prataV+=preco*q; }
+    if(!maisCara||preco>maisCara.preco) maisCara={preco};
+  });
+  const cats=dadosDeItens(m.itens);
+  const topo=cats.slice().sort((a,b)=>b.qtd-a.qtd)[0];
+  return `<div class="resumo" style="background:#fff">
+    <div class="rs-row"><span>Peças</span><b>${pecas}</b></div>
+    <div class="rs-row"><span>Códigos diferentes</span><b>${linhas.length}</b></div>
+    <div class="rs-row"><span>Categoria mais forte</span><b>${topo?esc(topo.cat)+' · '+topo.qtd:'—'}</b></div>
+    <div class="rs-row"><span>Peça de maior valor</span><b>${maisCara?money(maisCara.preco):'—'}</b></div>
+    <div class="rs-row"><span>Valor médio por peça</span><b>${pecas?money(valor/pecas):'—'}</b></div>
+    ${prataQ?`<div class="rs-row"><span>Prata 925 (comissão própria)</span><b>${prataQ} · ${money(prataV)}</b></div>`:''}
+    <div class="rs-row total"><span>Valor na maleta</span><b>${money(valor)}</b></div>
+  </div>`;
+}
+async function setDataMaleta(id,campo,v){
+  const m=state.maletas.find(x=>x.id===id);
+  if(!m) return;
+  let val;
+  if(v===''){ val=null; }
+  else if(/^\d{4}-\d{2}-\d{2}$/.test(v)){ val=v; }
+  else return;
+  try{
+    await api('PATCH',`/api/maletas/${id}`,{[campo]:val});
+    await sincronizar();
+  }catch(e){ toast(e.message); }
+}
+function addDias(iso,d){
+  if(!iso) return '';
+  const dt=new Date(String(iso).slice(0,10)+'T12:00:00');
+  dt.setDate(dt.getDate()+d);
+  return dt.toISOString().slice(0,10);
+}
+
+/* =================== Revendedoras (CRUD) =================== */
+function openRevForm(id){
+  const r=id?state.revendedoras.find(x=>x.id===id):null;
+  document.getElementById('revEditId').value=r?r.id:'';
+  document.getElementById('revFormTitle').textContent=r?'Editar revendedora':'Nova revendedora';
+  document.getElementById('rf-nome').value=r?r.nome:'';
+  document.getElementById('rf-tel').value=r?(r.tel||''):'';
+  document.getElementById('rf-cidade').value=r?(r.cidade||''):'';
+  document.getElementById('rf-cpf').value=r?(r.cpf||''):'';
+  document.getElementById('revOverlay').classList.add('show');
+  setTimeout(()=>document.getElementById('rf-nome').focus(),80);
+}
+function closeRevForm(){document.getElementById('revOverlay').classList.remove('show');}
+async function saveRevendedora(){
+  const nome=document.getElementById('rf-nome').value.trim();
+  if(!nome){toast('Coloque o nome');return;}
+  const id=document.getElementById('revEditId').value;
+  const dados={nome, tel:document.getElementById('rf-tel').value.trim(),
+    cidade:document.getElementById('rf-cidade').value.trim(),
+    cpf:document.getElementById('rf-cpf').value.trim()};
+  try{
+    if(id){
+      await api('PATCH',`/api/revendedoras/${id}`,dados);
+      closeRevForm();
+      await sincronizar();
+      toast('Dados atualizados');
+    }else{
+      const novo=await api('POST','/api/revendedoras',dados);
+      closeRevForm();
+      await sincronizar();
+      switchTab('rev:'+novo.id);
+      toast('Revendedora criada');
+    }
+  }catch(e){ toast(e.message); }
+}
+/* Arquivar, não apagar (§28) — o histórico da revendedora continua guardado.
+   O servidor recusa arquivar quem tem maleta aberta (409). */
+async function delRevendedora(id){
+  const r=state.revendedoras.find(x=>x.id===id);
+  if(!r) return;
+  if(!confirm(`Arquivar ${r.nome}?\n\nEla some das abas ativas, mas o histórico dela continua guardado. Não é possível arquivar com maleta aberta.`)) return;
+  try{
+    await api('POST',`/api/revendedoras/${id}/arquivar`);
+    switchTab('geral');
+    await sincronizar();
+    toast('Revendedora arquivada');
+  }catch(e){ toast(e.message); }
+}
+async function novaMaleta(revId){
+  try{
+    const m=await api('POST','/api/maletas',{revId, acertoEm:addDias(hoje(),state.config.prazoDias)});
+    await carregarEstado();   /* só recarrega — quem renderiza é o overlay de bipagem */
+    openScan('add',m.id,true);   /* true = recém-criada; se cancelar, cancela na API */
+  }catch(e){ toast(e.message); }
+}
+
+/* =================== Bipagem =================== */
+let scan=null;  /* {modo:'add'|'acerto', maletaId, itens:{sku:qtd}, hist:[sku], audio} */
+
+function beep(ok){
+  try{
+    scan.audio=scan.audio||new (window.AudioContext||window.webkitAudioContext)();
+    const ctx=scan.audio, o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.frequency.value=ok?880:220;
+    o.type=ok?'sine':'square';
+    g.gain.setValueAtTime(.09,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+(ok?.09:.22));
+    o.start();o.stop(ctx.currentTime+(ok?.1:.24));
+  }catch(e){/* som é enfeite; se o navegador bloquear, segue sem */}
+}
+
+function openScan(modo,maletaId,novaVazia){
+  const m=state.maletas.find(x=>x.id===maletaId);
+  if(!m) return;
+  scan={modo, maletaId, itens:{}, hist:[], audio:null, novaVazia:!!novaVazia};
+  document.getElementById('scanTitle').textContent =
+    modo==='add' ? 'Montar maleta · '+revNome(m.revId) : 'Conferir devolução · '+revNome(m.revId);
+  document.getElementById('scanLbl').textContent =
+    modo==='add' ? 'Bipe a etiqueta da peça que vai na maleta' : 'Bipe cada peça que a revendedora devolveu';
+  document.getElementById('scanHint').textContent =
+    modo==='add' ? 'O leitor digita o código e dá Enter sozinho. Peça sem estoque em casa não entra.'
+                 : 'Só entram peças que estão nesta maleta. No fim, o que não for bipado conta como faltante.';
+  document.getElementById('scanValWrap').style.display = modo==='add'?'':'none';
+  document.getElementById('scanConfirm').textContent = modo==='add'?'Concluir maleta':'Ver o que faltou';
+  document.getElementById('scanOverlay').classList.add('show');
+  renderScan();
+  focoScan();
+}
+function focoScan(){
+  const i=document.getElementById('scanInput');
+  i.value='';
+  setTimeout(()=>i.focus(),60);
+}
+async function closeScan(){
+  if(scan&&Object.keys(scan.itens).length&&!confirm('Sair agora descarta o que você bipou. Continuar?')) return;
+  /* maleta aberta pelo botão "Montar maleta" e abandonada vazia não deve ficar de lembrança */
+  const novaVazia=scan&&scan.novaVazia, maletaId=scan&&scan.maletaId;
+  document.getElementById('scanOverlay').classList.remove('show');
+  scan=null;
+  if(novaVazia){
+    const m=state.maletas.find(x=>x.id===maletaId);
+    if(m&&!qtdMaleta(m)){
+      try{ await api('POST',`/api/maletas/${maletaId}/cancelar`,{motivo:'maleta vazia abandonada'}); }
+      catch(e){ /* se falhar, o próximo /state ainda vai mostrá-la — nada crítico */ }
+    }
+  }
+  await sincronizar();
+}
+function fbScan(ok,msg){
+  const box=document.getElementById('scanBox'), fb=document.getElementById('scanFb');
+  box.classList.remove('ok','bad');fb.classList.remove('ok','bad');
+  box.classList.add(ok?'ok':'bad');fb.classList.add(ok?'ok':'bad');
+  fb.textContent=msg;
+  beep(ok);
+  clearTimeout(box._t);
+  box._t=setTimeout(()=>{box.classList.remove('ok','bad');},900);
+}
+function handleScan(code){
+  if(!scan) return;
+  const c=normSku(code);
+  if(!c) return;
+  const p=findProd(c);
+  if(!p){fbScan(false,`Código ${c} não está no catálogo`);return;}
+
+  if(scan.modo==='add'){
+    const casa=emCasaMap()[p.sku]||0;
+    const jaBipado=scan.itens[p.sku]||0;
+    if(jaBipado>=casa){
+      fbScan(false,`${p.desc} — só tem ${casa} em casa`);
+      return;
+    }
+    scan.itens[p.sku]=jaBipado+1;
+  }else{
+    const m=state.maletas.find(x=>x.id===scan.maletaId);
+    const naMaleta=(m.itens[p.sku]||0);
+    const jaBipado=scan.itens[p.sku]||0;
+    if(!naMaleta){fbScan(false,`${p.desc} não saiu nesta maleta`);return;}
+    if(jaBipado>=naMaleta){fbScan(false,`${p.desc} — já conferiu ${naMaleta}`);return;}
+    scan.itens[p.sku]=jaBipado+1;
+  }
+  scan.hist.push(p.sku);
+  fbScan(true,`${p.desc} ✓`);
+  renderScan(p.sku);
+}
+function scanUndo(){
+  if(!scan||!scan.hist.length){toast('Nada para desfazer');return;}
+  const sku=scan.hist.pop();
+  scan.itens[sku]=(scan.itens[sku]||1)-1;
+  if(scan.itens[sku]<=0) delete scan.itens[sku];
+  renderScan();
+  focoScan();
+}
+function renderScan(destaque){
+  const idx=prodIndex();
+  /* No acerto o preço que vale é o congelado no envio, não o atual do catálogo */
+  const m=scan.modo==='acerto'?state.maletas.find(x=>x.id===scan.maletaId):null;
+  const linhas=Object.entries(scan.itens).map(([sku,q])=>{
+    const p=idx.get(sku);
+    const preco=m?(precoEnvio(m,sku)||0):(p&&p.preco!=null?p.preco:0);
+    return {sku,q,desc:p?p.desc:sku,preco};
+  }).sort((a,b)=>a.desc.localeCompare(b.desc,'pt'));
+
+  const qtd=linhas.reduce((s,l)=>s+l.q,0);
+  const val=linhas.reduce((s,l)=>s+l.q*l.preco,0);
+  document.getElementById('scanQtd').textContent=qtd;
+  document.getElementById('scanSkus').textContent=linhas.length;
+  document.getElementById('scanVal').textContent=val.toFixed(2).replace('.',',');
+
+  const list=document.getElementById('scanList');
+  if(!linhas.length){
+    list.innerHTML=`<div class="empty" style="padding:34px 16px"><h3>Nada bipado ainda</h3>
+      <p>Passe o leitor na etiqueta da primeira peça.</p></div>`;
+    return;
+  }
+  list.innerHTML=linhas.map(l=>`
+    <div class="scanrow ${l.sku===destaque?'flash':''}">
+      <div class="s-qtd">${l.q}</div>
+      <div class="s-desc"><div class="d1">${esc(l.desc)}</div><div class="d2">${esc(l.sku)}</div></div>
+      <div class="s-val">${money(l.preco*l.q)}</div>
+    </div>`).join('');
+  if(destaque){
+    const el=list.querySelector('.flash');
+    if(el) el.scrollIntoView({block:'nearest'});
+  }
+}
+async function scanFinish(){
+  if(!scan) return;
+  if(!Object.keys(scan.itens).length){
+    /* no acerto, voltar de mãos vazias é um resultado válido: vendeu tudo */
+    if(scan.modo==='add'){toast('Você não bipou nenhuma peça');return;}
+    if(!confirm('Nenhuma peça foi bipada. Isso quer dizer que nada voltou — a maleta inteira conta como faltante. Continuar?')) return;
+  }
+  const m=state.maletas.find(x=>x.id===scan.maletaId);
+  if(scan.modo==='add'){
+    const itens=Object.assign({},scan.itens), maletaId=scan.maletaId, revId=m.revId;
+    const total=Object.values(itens).reduce((s,q)=>s+q,0);
+    try{
+      const r=await api('POST',`/api/maletas/${maletaId}/itens`,{itens});
+      document.getElementById('scanOverlay').classList.remove('show');
+      scan=null;
+      await sincronizar();
+      switchTab('rev:'+revId);
+      if(r.recusados&&r.recusados.length){
+        toast(`${r.adicionados} ${plural(r.adicionados,'peça adicionada','peças adicionadas')} · ${r.recusados.length} recusadas`);
+        setTimeout(()=>alert('Peças recusadas:\n\n• '+r.recusados.map(x=>`${x.sku}${x.desc?' — '+x.desc:''}: ${x.motivo}`).join('\n• ')),400);
+      }else{
+        toast(`${total} ${plural(total,'peça adicionada','peças adicionadas')} à maleta`);
+      }
+    }catch(e){ toast(e.message); }
+  }else{
+    const devolvidas=Object.assign({},scan.itens);
+    document.getElementById('scanOverlay').classList.remove('show');
+    const mid=scan.maletaId;scan=null;
+    abrirResumoAcerto(mid,devolvidas);
+  }
+}
+
+/* =================== Acerto =================== */
+let acerto=null; /* {maletaId, devolvidas:{}, faltas:[{sku,linhas:[{qtd,destino}]}]} */
+
+/* Valores batem com o enum aceito pelo servidor em POST /maletas/:id/acerto. */
+const DESTINOS=[
+  {v:'vendida',   t:'Vendida'},
+  {v:'perdida',   t:'Perdida'},
+  {v:'quebra',    t:'Quebrada'},
+  {v:'dano',      t:'Danificada'},
+  {v:'brinde',    t:'Brinde'},
+  {v:'troca',     t:'Troca'},
+  {v:'ficou',     t:'Ficou com ela'}
+];
+
+function openAcerto(maletaId){
+  const m=state.maletas.find(x=>x.id===maletaId);
+  if(!m||!qtdMaleta(m)){toast('Esta maleta está vazia');return;}
+  openScan('acerto',maletaId);
+}
+
+function abrirResumoAcerto(maletaId,devolvidas){
+  const m=state.maletas.find(x=>x.id===maletaId);
+  const faltas=[];
+  Object.entries(m.itens).forEach(([sku,q])=>{
+    const falta=q-(devolvidas[sku]||0);
+    if(falta>0) faltas.push({sku, linhas:[{qtd:falta, destino:'vendida'}]});
+  });
+  acerto={maletaId, devolvidas, faltas};
+  document.getElementById('acTitle').textContent='Acerto · '+revNome(m.revId);
+  document.getElementById('acOverlay').classList.add('show');
+  renderAcerto();
+}
+function closeAcerto(){
+  if(acerto&&!confirm('Sair agora descarta a conferência que você acabou de fazer. Continuar?')) return;
+  document.getElementById('acOverlay').classList.remove('show');
+  acerto=null;
+}
+function acSetDestino(i,j,val){acerto.faltas[i].linhas[j].destino=val;renderAcerto();}
+function acSetQtd(i,j,val){
+  const f=acerto.faltas[i];
+  const m=state.maletas.find(x=>x.id===acerto.maletaId);
+  const maxTotal=(m.itens[f.sku]||0)-(acerto.devolvidas[f.sku]||0);
+  let q=Math.max(0,int(val));
+  const outros=f.linhas.reduce((s,l,k)=>k===j?s:s+l.qtd,0);
+  if(q+outros>maxTotal) q=Math.max(0,maxTotal-outros);
+  f.linhas[j].qtd=q;
+  renderAcerto();
+}
+function acDividir(i){
+  const f=acerto.faltas[i];
+  const usados=f.linhas.reduce((s,l)=>s+l.qtd,0);
+  const m=state.maletas.find(x=>x.id===acerto.maletaId);
+  const maxTotal=(m.itens[f.sku]||0)-(acerto.devolvidas[f.sku]||0);
+  if(usados>=maxTotal&&f.linhas.length>=maxTotal){toast('Não dá para dividir mais');return;}
+  if(f.linhas[0].qtd>1){f.linhas[0].qtd--;f.linhas.push({qtd:1,destino:'perdida'});}
+  else f.linhas.push({qtd:0,destino:'perdida'});
+  renderAcerto();
+}
+function acRemoverLinha(i,j){
+  const f=acerto.faltas[i];
+  if(f.linhas.length<=1) return;
+  const q=f.linhas[j].qtd;
+  f.linhas.splice(j,1);
+  f.linhas[0].qtd+=q;
+  renderAcerto();
+}
+
+function renderAcerto(){
+  const m=state.maletas.find(x=>x.id===acerto.maletaId);
+  const idx=prodIndex();
+  const totDev=Object.values(acerto.devolvidas).reduce((s,q)=>s+q,0);
+  const totFalta=acerto.faltas.reduce((s,f)=>s+f.linhas.reduce((a,l)=>a+l.qtd,0),0);
+
+  /* o que conta como venda de verdade */
+  const vendidos=[];
+  acerto.faltas.forEach(f=>f.linhas.forEach(l=>{
+    if(l.destino==='vendida'&&l.qtd>0) vendidos.push({sku:f.sku,qtd:l.qtd});
+  }));
+  const c=calcComissao(vendidos,m);
+  const perdas=acerto.faltas.reduce((s,f)=>s+f.linhas.filter(l=>['perdida','quebra','dano'].includes(l.destino)).reduce((a,l)=>a+l.qtd,0),0);
+  const ficam=acerto.faltas.reduce((s,f)=>s+f.linhas.filter(l=>l.destino==='ficou').reduce((a,l)=>a+l.qtd,0),0);
+
+  const devLinhas=Object.entries(acerto.devolvidas).filter(([,q])=>q>0)
+    .map(([sku,q])=>({sku,q,desc:(idx.get(sku)||{}).desc||sku}))
+    .sort((a,b)=>a.desc.localeCompare(b.desc,'pt'));
+
+  document.getElementById('acBody').innerHTML=`
+    <div class="acgrid">
+      <div class="acbox volta">
+        <div class="ab-h"><span>Voltaram</span><b>${totDev}</b></div>
+        <div class="ab-b">${devLinhas.length?devLinhas.map(l=>`
+          <div class="destrow"><div class="dr-desc">${esc(l.desc)}<small>${esc(l.sku)}</small></div>
+          <div class="s-qtd">${l.q}</div></div>`).join('')
+          :`<div class="empty" style="padding:24px 12px"><p>Nenhuma peça foi devolvida.</p></div>`}
+        </div>
+      </div>
+      <div class="acbox falta">
+        <div class="ab-h"><span>Não voltaram</span><b>${totFalta}</b></div>
+        <div class="ab-b">${acerto.faltas.length?acerto.faltas.map((f,i)=>{
+          const p=idx.get(f.sku)||{};
+          return f.linhas.map((l,j)=>`
+            <div class="destrow">
+              ${j===0?`<div class="dr-desc">${esc(p.desc||f.sku)}<small>${esc(f.sku)} · ${money(precoEnvio(m,f.sku)||0)}</small></div>`
+                     :`<div class="dr-desc" style="padding-left:14px;color:var(--muted)">↳ parte desta peça</div>`}
+              <input class="dr-q" type="number" min="0" value="${l.qtd}" onchange="acSetQtd(${i},${j},this.value)">
+              <select onchange="acSetDestino(${i},${j},this.value)">
+                ${DESTINOS.map(d=>`<option value="${d.v}" ${l.destino===d.v?'selected':''}>${d.t}</option>`).join('')}
+              </select>
+              ${j===0?`<button class="splitbtn" onclick="acDividir(${i})" title="Separar em destinos diferentes">dividir</button>`
+                     :`<button class="splitbtn" onclick="acRemoverLinha(${i},${j})">remover</button>`}
+            </div>`).join('');
+        }).join('')
+        :`<div class="empty" style="padding:24px 12px"><p>Voltou tudo. Nada a acertar.</p></div>`}
+        </div>
+      </div>
+    </div>
+
+    <div class="resumo">
+      <div class="rs-row"><span>Peças que saíram</span><b>${qtdMaleta(m)}</b></div>
+      <div class="rs-row"><span>Devolvidas</span><b>${totDev}</b></div>
+      <div class="rs-row"><span>Vendidas</span><b>${vendidos.reduce((s,v)=>s+v.qtd,0)}</b></div>
+      ${perdas?`<div class="rs-row"><span>Perdidas ou danificadas</span><b style="color:var(--danger)">${perdas}</b></div>`:''}
+      ${ficam?`<div class="rs-row"><span>Ficam para a próxima maleta</span><b>${ficam}</b></div>`:''}
+      <div class="rs-row"><span>Total vendido</span><b>${money(c.totalVendido)}</b></div>
+      <div class="rs-row"><span>Comissão · faixa de ${c.pct}%${c.basePrata?` + prata ${state.config.prataPct}%`:''}</span><b>− ${money(c.comissao)}</b></div>
+      <div class="rs-row total"><span>Ela te repassa</span><b>${money(c.liquido)}</b></div>
+    </div>
+
+    <div class="warn" style="margin-top:16px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+      <div>Ao confirmar: as devolvidas voltam para o seu estoque, as vendidas e perdidas saem
+      do estoque total${ficam?', e as que ficaram com ela vão para uma maleta nova':''}.
+      <b>Isso não pode ser desfeito.</b></div>
+    </div>
+
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeAcerto()">Cancelar</button>
+      <div class="spacer"></div>
+      <button class="btn btn-gold" onclick="confirmarAcerto()">Confirmar acerto</button>
+    </div>`;
+}
+
+/* O servidor recalcula tudo (§9, §11, §12) e devolve o acerto oficial —
+   o preview acima é só para conferência antes de mandar. */
+async function confirmarAcerto(){
+  const m=state.maletas.find(x=>x.id===acerto.maletaId);
+  const revId=m.revId;
+  const faltas=acerto.faltas
+    .map(f=>({sku:f.sku, linhas:f.linhas.filter(l=>l.qtd>0).map(l=>({qtd:l.qtd,destino:l.destino}))}))
+    .filter(f=>f.linhas.length);
+  const btn=document.querySelector('#acBody .btn-gold');
+  if(btn) btn.disabled=true;
+  try{
+    const r=await api('POST',`/api/maletas/${acerto.maletaId}/acerto`,{devolvidas:acerto.devolvidas, faltas});
+    document.getElementById('acOverlay').classList.remove('show');
+    acerto=null;
+    await sincronizar();
+    switchTab('rev:'+revId);
+    toast(`Acerto fechado · ${money(r.acerto.liquido)} a receber`);
+  }catch(e){
+    if(e.data&&e.data.semPreco&&e.data.semPreco.length){
+      toast('Há peça sem preço — não dá para fechar o acerto');
+      alert('Defina o preço destas peças em Meu estoque antes de fechar o acerto:\n\n• '
+        +e.data.semPreco.map(x=>`${x.sku}${x.desc?' — '+x.desc:''}`).join('\n• '));
+    }else{
+      toast(e.message);
+    }
+    if(btn) btn.disabled=false;
+  }
+}
+
+/* =================== Importação =================== */
+let impWb=null, impDetect=[];
+
+function openImport(){
+  document.getElementById('impStep1').style.display='';
+  document.getElementById('impStep2').style.display='none';
+  document.getElementById('impOverlay').classList.add('show');
+  closeSettings();
+}
+function closeImport(){document.getElementById('impOverlay').classList.remove('show');impWb=null;impDetect=[];}
+function backToUpload(){
+  document.getElementById('impStep1').style.display='';
+  document.getElementById('impStep2').style.display='none';
+}
+
+document.getElementById('dropzone').addEventListener('click',()=>document.getElementById('impFile').click());
+document.getElementById('impFile').addEventListener('change',e=>{if(e.target.files[0])lerArquivo(e.target.files[0]);});
+['dragenter','dragover'].forEach(ev=>document.getElementById('dropzone').addEventListener(ev,e=>{
+  e.preventDefault();document.getElementById('dropzone').classList.add('drag');}));
+['dragleave','drop'].forEach(ev=>document.getElementById('dropzone').addEventListener(ev,e=>{
+  e.preventDefault();document.getElementById('dropzone').classList.remove('drag');}));
+document.getElementById('dropzone').addEventListener('drop',e=>{
+  if(e.dataTransfer.files[0])lerArquivo(e.dataTransfer.files[0]);});
+
+function lerArquivo(file){
+  const fr=new FileReader();
+  fr.onload=ev=>{
+    try{
+      const buf=new Uint8Array(ev.target.result);
+      if(/\.csv$/i.test(file.name)){
+        /* O export da Nuvemshop vem em latin-1 e separado por ponto e vírgula.
+           Se decodificar como UTF-8 os acentos viram "�" — então detecta e volta. */
+        let txt=new TextDecoder('utf-8').decode(buf);
+        if(txt.indexOf('�')>=0) txt=new TextDecoder('iso-8859-1').decode(buf);
+        const sep=(txt.split('\n')[0].match(/;/g)||[]).length >= (txt.split('\n')[0].match(/,/g)||[]).length ? ';' : ',';
+        impWb=XLSX.read(txt,{type:'string',FS:sep,raw:true});
+      }else{
+        impWb=XLSX.read(buf,{type:'array'});
+      }
+      detectar();
+    }catch(err){toast('Não consegui ler esse arquivo');}
+  };
+  fr.readAsArrayBuffer(file);
+}
+
+/* Reconhece os três formatos que a operação já usa hoje. */
+function detectar(){
+  impDetect=impWb.SheetNames.map(nome=>{
+    const linhas=XLSX.utils.sheet_to_json(impWb.Sheets[nome],{header:1,defval:null,blankrows:false});
+    return Object.assign({nome, linhas}, classificar(nome,linhas));
+  }).filter(d=>d.tipo!=='vazia');
+
+  const box=document.getElementById('impSheets');
+  /* só revendedoras ativas recebem maleta nova */
+  const opcoesRev=()=>state.revendedoras.filter(r=>r.status!=='inativa')
+    .map(r=>`<option value="rev:${r.id}">Maleta de ${esc(r.nome)}</option>`).join('');
+
+  box.innerHTML=impDetect.map((d,i)=>`
+    <div class="sheetrow">
+      <div class="sr-nm">${esc(d.nome)}<small>${esc(d.resumo)}</small></div>
+      <select id="impAlvo${i}">
+        <option value="ignorar" ${d.tipo==='desconhecida'?'selected':''}>Ignorar esta aba</option>
+        <option value="loja" ${d.tipo==='loja'?'selected':''}>Dados da loja (Identificador URL e estoque publicado)</option>
+        <option value="catalogo" ${d.tipo==='catalogo'?'selected':''}>Catálogo e estoque total</option>
+        ${d.tipo==='maleta'||d.tipo==='revendedoras'?
+          `<option value="nova" selected>Criar maleta de ${esc(d.nomeRev||'nova revendedora')}</option>`:
+          `<option value="nova">Criar maleta de uma nova revendedora</option>`}
+        ${opcoesRev()}
+      </select>
+    </div>`).join('');
+
+  const avisos=[];
+  if(!impDetect.some(d=>d.tipo==='catalogo')&&!state.produtos.length)
+    avisos.push('Nenhuma aba parece ser o catálogo. Importe primeiro a planilha com a aba <b>Estoque</b>, senão as maletas não terão descrição nem preço.');
+  const w=document.getElementById('impWarn');
+  if(avisos.length){w.style.display='';w.innerHTML='<div>'+avisos.join('<br>')+'</div>';}
+  else w.style.display='none';
+
+  document.getElementById('impStep1').style.display='none';
+  document.getElementById('impStep2').style.display='';
+}
+
+function classificar(nome,linhas){
+  if(!linhas.length) return {tipo:'vazia',resumo:''};
+  const txt=linhas.slice(0,6).map(l=>l.map(c=>String(c==null?'':c)).join(' ')).join(' ').toLowerCase();
+
+  /* Export da própria Nuvemshop: reconhecido pela coluna que a loja usa
+     como chave na importação em massa. */
+  const hLoja=linhas.findIndex(l=>l.some(c=>/identificador url/i.test(String(c||''))));
+  if(hLoja>=0){
+    const n=linhas.slice(hLoja+1).filter(l=>l.some(c=>c!=null&&String(c).trim()!=='')).length;
+    return {tipo:'loja', formato:'loja', hi:hLoja,
+            resumo:`Export da Nuvemshop · ${n} linhas · traz o Identificador URL de cada produto`};
+  }
+
+  /* Anexo I: cabeçalho "Código | Descrição | Valor", uma linha por unidade */
+  if(txt.includes('anexo i')){
+    const hi=linhas.findIndex(l=>l.some(c=>String(c||'').trim().toLowerCase()==='código'));
+    const nomeRev=(linhas[1]&&linhas[1].filter(Boolean)[0])||'';
+    const itens=hi>=0?linhas.slice(hi+1).filter(l=>l[colDe(linhas[hi],'código')]!=null).length:0;
+    return {tipo:'maleta', formato:'anexo', hi, nomeRev:String(nomeRev).trim(),
+            resumo:`Anexo I · ${itens} ${plural(itens,'peça','peças')} · cada linha vale 1 unidade`};
+  }
+
+  const hi=linhas.findIndex(l=>l.some(c=>/id produto|^sku$|^c[oó]digo$/i.test(String(c||'').trim())));
+  if(hi<0) return {tipo:'desconhecida',resumo:'Não reconheci o formato desta aba'};
+  const head=linhas[hi].map(c=>String(c==null?'':c).trim().toLowerCase());
+  const temPreco=head.some(h=>/valor|pre[cç]o/.test(h));
+  const n=linhas.slice(hi+1).filter(l=>l.some(c=>c!=null)).length;
+
+  if(/revendedor/i.test(nome))
+    return {tipo:'revendedoras', formato:'tabela', hi, nomeRev:'A identificar',
+            resumo:`${n} códigos · peças que estão fora`};
+  if(/estoque atual/i.test(nome))
+    return {tipo:'desconhecida', formato:'tabela', hi,
+            resumo:`${n} códigos · o dashboard calcula isto sozinho, não precisa importar`};
+  return {tipo:'catalogo', formato:'tabela', hi,
+          resumo:`${n} códigos${temPreco?' · com preço':' · sem coluna de preço'}`};
+}
+function colDe(head,...nomes){
+  const h=head.map(c=>String(c==null?'':c).trim().toLowerCase());
+  for(const n of nomes){
+    const i=h.findIndex(x=>x===n);
+    if(i>=0) return i;
+  }
+  for(const n of nomes){
+    const i=h.findIndex(x=>x.includes(n));
+    if(i>=0) return i;
+  }
+  return -1;
+}
+
+/* Importação vira uma sequência de chamadas: catálogo primeiro (os passos
+   seguintes precisam de preço/descrição atualizados), depois loja, depois
+   maletas. sincronizar() entre cada etapa para o estado local refletir o
+   que o servidor já gravou antes do próximo passo ler. */
+async function doImport(){
+  const btn=document.querySelector('#impStep2 .btn-gold');
+  if(btn) btn.disabled=true;
+  let nProd=0, nMaletas=0, nLoja=0; const notas=[];
+  try{
+    for(let i=0;i<impDetect.length;i++){
+      if(document.getElementById('impAlvo'+i).value==='catalogo')
+        nProd+=await importarCatalogo(impDetect[i],notas);
+    }
+    if(nProd) await sincronizar();
+
+    for(let i=0;i<impDetect.length;i++){
+      if(document.getElementById('impAlvo'+i).value==='loja')
+        nLoja+=await importarLoja(impDetect[i],notas);
+    }
+    if(nLoja) await sincronizar();
+
+    for(let i=0;i<impDetect.length;i++){
+      const d=impDetect[i], alvo=document.getElementById('impAlvo'+i).value;
+      if(alvo==='ignorar'||alvo==='catalogo'||alvo==='loja') continue;
+
+      /* maleta: alvo é 'nova' ou 'rev:<id>' */
+      let revId;
+      if(alvo==='nova'){
+        const nome=(d.nomeRev||'').trim()||prompt('Nome da revendedora desta maleta:','')||'';
+        if(!nome.trim()){notas.push(`A aba "${d.nome}" foi pulada: sem nome de revendedora.`);continue;}
+        const existe=state.revendedoras.find(r=>r.nome.toLowerCase()===nome.trim().toLowerCase());
+        if(existe) revId=existe.id;
+        else{
+          const novo=await api('POST','/api/revendedoras',{nome:nome.trim()});
+          revId=novo.id;
+          await sincronizar();
+        }
+      }else revId=+alvo.split(':')[1];
+
+      if(await importarMaleta(d,revId,notas)) nMaletas++;
+    }
+    await sincronizar();
+  }catch(e){
+    toast('Erro na importação: '+e.message);
+  }finally{
+    if(btn) btn.disabled=false;
+  }
+
+  closeImport();
+  renderAll();
+  const msg=[nProd?`${nProd} códigos no catálogo`:'',
+             nLoja?`${nLoja} produtos da loja`:'',
+             nMaletas?`${nMaletas} ${plural(nMaletas,'maleta','maletas')}`:'']
+    .filter(Boolean).join(' · ');
+  toast(msg?'Importado: '+msg:'Nada foi importado');
+  if(notas.length) setTimeout(()=>alert('Observações da importação:\n\n• '+notas.join('\n• ')),400);
+}
+
+async function importarCatalogo(d,notas){
+  const head=d.linhas[d.hi];
+  const cSku=colDe(head,'id produto marquesa','id produto','sku','código','codigo');
+  const cDesc=colDe(head,'nome produto','descrição','descricao','nome');
+  const cQtd=colDe(head,'estoque atual','estoque','quantidade','qtd');
+  const cPreco=colDe(head,'valor de venda','valor','preço','preco');
+  if(cSku<0) return 0;
+
+  /* Primeiro passo: consolidar os sufixos. Na planilha da Marquesa, "120029-2"
+     é a MESMA peça de "120029" — o sufixo só marca que aquela unidade foi
+     comprada depois. Para estoque, as quantidades somam no código base. */
+  const linhas=[];
+  d.linhas.slice(d.hi+1).forEach(l=>{
+    const bruto=normSku(l[cSku]);
+    if(!bruto) return;
+    linhas.push({
+      bruto, sku:baseSku(bruto),
+      desc:cDesc>=0?String(l[cDesc]||'').trim():'',
+      qtd:cQtd>=0?int(l[cQtd]):0,
+      preco:cPreco>=0?num(l[cPreco]):0
+    });
+  });
+
+  const juntos=new Map();
+  const conflitos=[], somados=[];
+  linhas.forEach(l=>{
+    const ex=juntos.get(l.sku);
+    if(!ex){ juntos.set(l.sku,Object.assign({},l)); return; }
+    /* só junta com segurança quando a descrição é a mesma */
+    const a=(ex.desc||'').trim().toLowerCase(), b=(l.desc||'').trim().toLowerCase();
+    if(a&&b&&a!==b) conflitos.push({sku:l.sku, a:ex.desc, b:l.desc, bruto:l.bruto});
+    ex.qtd+=l.qtd;
+    if(!ex.preco&&l.preco) ex.preco=l.preco;
+    if(l.bruto!==l.sku) somados.push(l.bruto);
+  });
+
+  if(somados.length)
+    notas.push(`${somados.length} ${plural(somados.length,'código com sufixo foi somado','códigos com sufixo foram somados')} `
+      +`no código base (${somados.slice(0,4).join(', ')}${somados.length>4?'…':''}), porque é a mesma peça comprada depois.`);
+  if(conflitos.length)
+    notas.push(`ATENÇÃO: ${conflitos.length} ${plural(conflitos.length,'código com sufixo tem','códigos com sufixo têm')} `
+      +`descrição diferente da base (${conflitos.slice(0,3).map(c=>c.bruto).join(', ')}). Foram somados assim mesmo — confira se são a mesma peça.`);
+
+  const produtos=[...juntos.values()].map(l=>({sku:l.sku, desc:l.desc||l.sku, cat:catOf(l.desc), preco:l.preco, qtd:l.qtd}));
+  if(!produtos.length) return 0;
+  const r=await api('POST','/api/produtos/importar',{produtos});
+  (r.avisos||[]).forEach(a=>{
+    if(a.tipo==='sem_preco') notas.push(`${a.sku||''} ficou sem preço — ${a.detalhe||'confira o valor na planilha.'}`);
+    else if(a.tipo==='sku_vazio') notas.push('Uma linha sem código foi ignorada.');
+    else if(a.tipo==='categoria_desconhecida') notas.push(`${a.sku||''}: categoria "${a.detalhe}" não existe — foi classificado como Outros.`);
+    else if(a.detalhe) notas.push(a.detalhe);
+  });
+  return produtos.length;
+}
+
+/* Lê o export da Nuvemshop e envia o retrato da loja + os pares SKU↔produto
+   ao servidor. Não mexe no estoque do dashboard: a loja é o espelho, não a
+   fonte da verdade. */
+async function importarLoja(d,notas){
+  const head=d.linhas[d.hi];
+  const cUrl=colDe(head,'identificador url');
+  const cSku=colDe(head,'sku');
+  const cEst=colDe(head,'estoque');
+  const cVis=colDe(head,'visibilidade');
+  const cNome=colDe(head,'nome');
+  if(cUrl<0||cSku<0) return 0;
+
+  const idx=prodIndex();
+  const porSku=new Map();
+  const urlsDoArquivo=new Set();   /* todo produto da loja, tenha par aqui ou não */
+  const urlsPorSku=new Map();      /* para achar código cadastrado em dois produtos */
+  d.linhas.slice(d.hi+1).forEach(l=>{
+    const sku=baseSku(l[cSku]);
+    const url=String(l[cUrl]==null?'':l[cUrl]).trim();
+    if(url) urlsDoArquivo.add(url);
+    if(!sku||!url) return;
+    if(!urlsPorSku.has(sku)) urlsPorSku.set(sku,new Set());
+    urlsPorSku.get(sku).add(url);
+    const est=cEst>=0?int(l[cEst]):0;
+    /* A visibilidade só vem preenchida na primeira linha de um produto com
+       variações; nas linhas seguintes o campo vem vazio. Vazio é "não sei",
+       não "oculto" — senão 82 linhas de continuação viram produtos ocultos. */
+    const visTxt=cVis>=0?String(l[cVis]==null?'':l[cVis]).trim():'';
+    const vis=visTxt?/vis/i.test(visTxt):null;
+    const ex=porSku.get(sku);
+    /* produto com variações aparece em várias linhas: soma o estoque */
+    if(ex){
+      ex.estoqueLoja+=est;
+      if(!ex.urlLoja) ex.urlLoja=url;
+      if(ex.visivel===null&&vis!==null) ex.visivel=vis;
+    }
+    else porSku.set(sku,{urlLoja:url, estoqueLoja:est, visivel:vis,
+      nomeLoja:cNome>=0?String(l[cNome]||'').trim():''});
+  });
+
+  let casados=0, novos=0;
+  const urlsCasadas=new Set();
+  const produtos=[];
+  porSku.forEach((v,sku)=>{
+    const p=idx.get(sku);
+    if(p){
+      casados++; urlsPorSku.get(sku).forEach(u=>urlsCasadas.add(u));
+      produtos.push({sku, urlLoja:v.urlLoja, estoqueLoja:v.estoqueLoja, visivel:v.visivel, nomeLoja:v.nomeLoja});
+    }else novos++;
+  });
+
+  /* Retrato da loja, medido no arquivo e não deduzido depois: é o que
+     responde "por que o painel da Nuvemshop mostra outro número". */
+  const snapshot={
+    lidoEm:hoje(),
+    produtosNaLoja:urlsDoArquivo.size,
+    produtosCasados:urlsCasadas.size,
+    soNaLoja:urlsDoArquivo.size-urlsCasadas.size,
+    codigosCasados:casados,
+    duplicados:[...urlsPorSku.entries()].filter(([sku,u])=>u.size>1&&idx.has(sku)).map(([sku])=>sku)
+  };
+
+  const r=await api('POST','/api/loja/importar',{snapshot,produtos});
+
+  const semCadastro=state.produtos.filter(p=>!porSku.has(p.sku));
+  const pecasSem=semCadastro.reduce((s,p)=>s+Math.max(0,(p.qtd||0)-(comRevMap()[p.sku]||0)),0);
+  notas.push(`${casados} dos seus códigos foram casados com a loja.`);
+  if(novos) notas.push(`${novos} produtos existem na loja mas não no seu catálogo — não foram criados aqui.`);
+  if(semCadastro.length)
+    notas.push(`${semCadastro.length} códigos seus NÃO têm cadastro na loja (${pecasSem} peças em casa que não podem vender). Veja o filtro "Fora da loja" em Meu estoque.`);
+  return r.n!=null?r.n:casados;
+}
+
+/* Monta a maleta. Códigos do documento que ainda não existem no catálogo
+   são criados com 0 em estoque antes de bipar — o servidor só consigna o
+   que existe e está disponível (§19), então essas linhas podem voltar
+   como recusadas até o estoque real ser ajustado. */
+async function importarMaleta(d,revId,notas){
+  const itens={};
+  const brigaPreco=[];
+  const novosProdutos=new Map();
+  function marcarNovo(sku,desc,preco){
+    if(prodIndex().has(sku)||novosProdutos.has(sku)) return;
+    const dsc=String(desc||'').trim();
+    novosProdutos.set(sku,{sku, desc:dsc||sku, cat:catOf(dsc), preco:preco||0, qtd:0});
+  }
+
+  if(d.formato==='anexo'){
+    const head=d.linhas[d.hi];
+    const cCod=colDe(head,'código','codigo'), cDesc=colDe(head,'descrição','descricao'), cVal=colDe(head,'valor');
+    d.linhas.slice(d.hi+1).forEach(l=>{
+      const sku=baseSku(l[cCod]);   /* "486476-2" e "486476" são a mesma peça */
+      if(!sku) return;
+      itens[sku]=(itens[sku]||0)+1;                    /* 1 linha = 1 unidade */
+      const val=cVal>=0?num(l[cVal]):0;
+      marcarNovo(sku, cDesc>=0?l[cDesc]:'', val);
+      /* preço do documento brigando com o do catálogo: nunca resolve sozinho, avisa */
+      const p=prodIndex().get(sku);
+      if(p&&val&&p.preco&&Math.abs(p.preco-val)>0.005&&!brigaPreco.some(b=>b.sku===sku))
+        brigaPreco.push({sku, doc:val, cat:p.preco});
+    });
+  }else{
+    const head=d.linhas[d.hi];
+    const cSku=colDe(head,'id produto marquesa','id produto','sku','código','codigo');
+    const cDesc=colDe(head,'nome produto','descrição','descricao','nome');
+    const cQtd=colDe(head,'estoque','quantidade','qtd');
+    const cVal=colDe(head,'valor','preço','preco');
+    if(cSku<0) return false;
+    d.linhas.slice(d.hi+1).forEach(l=>{
+      const sku=baseSku(l[cSku]);
+      if(!sku) return;
+      const q=cQtd>=0?int(l[cQtd]):1;
+      if(q<=0) return;
+      itens[sku]=(itens[sku]||0)+q;
+      marcarNovo(sku, cDesc>=0?l[cDesc]:'', cVal>=0?num(l[cVal]):0);
+    });
+  }
+  if(!Object.keys(itens).length) return false;
+
+  if(novosProdutos.size){
+    await api('POST','/api/produtos/importar',{produtos:[...novosProdutos.values()]});
+    await sincronizar();
+    notas.push(`${novosProdutos.size} códigos do documento não estavam no catálogo e foram criados com 0 em estoque — ajuste a quantidade em Meu estoque se o acerto recusar alguma peça.`);
+  }
+
+  if(brigaPreco.length)
+    notas.push(`${brigaPreco.length} ${plural(brigaPreco.length,'peça tem preço diferente','peças têm preço diferente')} no documento e no catálogo `
+      +`(${brigaPreco.slice(0,3).map(b=>`${b.sku}: R$ ${b.doc} no documento, R$ ${b.cat} no catálogo`).join('; ')}). `
+      +`O dashboard usa sempre o preço do catálogo — corrija lá se o certo for o outro.`);
+
+  let m=maletaAbertaDe(revId);
+  if(!m){
+    /* A data que o Anexo I traz é o dia combinado do acerto, não a saída. */
+    const dt=d.formato==='anexo'?dataDoAnexo(d):null;
+    if(dt) notas.push(`Acerto de ${revNome(revId)} marcado para ${fmtData(dt)}, conforme o documento.`);
+    m=await api('POST','/api/maletas',{revId, acertoEm:dt||addDias(hoje(),state.config.prazoDias)});
+  }
+  const r=await api('POST',`/api/maletas/${m.id}/itens`,{itens});
+  if(r.recusados&&r.recusados.length)
+    notas.push(`${r.recusados.length} ${plural(r.recusados.length,'peça foi recusada','peças foram recusadas')} na maleta de ${revNome(revId)}: `
+      +r.recusados.slice(0,4).map(x=>`${x.sku} (${x.motivo})`).join(', ')+(r.recusados.length>4?'…':''));
+  await sincronizar();
+  return true;
+}
+function dataDoAnexo(d){
+  for(const l of d.linhas.slice(0,6)){
+    for(const c of l){
+      const m=String(c==null?'':c).match(/(\d{2})\/(\d{2})\/(\d{4})/);
+      if(m) return `${m[3]}-${m[2]}-${m[1]}`;
+    }
+  }
+  return null;
+}
+
+/* =================== Exportações =================== */
+function baixar(blob,nome){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=nome;document.body.appendChild(a);a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},400);
+}
+/* Arquivo de atualização da própria Nuvemshop.
+   Leva SÓ identificação e estoque: preço, descrição, fotos e SEO ficam de
+   fora de propósito, para uma importação não sobrescrever o que já está lá.
+   Só entram os códigos cujo estoque publicado está diferente do real. */
+function exportLoja(){
+  if(!temLoja()){toast('Importe antes o export da Nuvemshop');return;}
+  const casa=emCasaMap();
+  const mudar=state.produtos.filter(p=>p.urlLoja&&(p.estoqueLoja||0)!==Math.max(0,casa[p.sku]||0));
+  if(!mudar.length){toast('A loja já está em dia — nada a atualizar');return;}
+  const linhas=[['Identificador URL','SKU','Estoque']];
+  mudar.sort((a,b)=>a.sku.localeCompare(b.sku))
+       .forEach(p=>linhas.push([p.urlLoja,p.sku,Math.max(0,casa[p.sku]||0)]));
+  /* ponto e vírgula e BOM, como o arquivo que a loja exporta */
+  const csv='﻿'+linhas.map(l=>l.map(c=>{
+    const s=String(c);
+    return /[;"\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+  }).join(';')).join('\r\n');
+  baixar(new Blob([csv],{type:'text/csv;charset=utf-8'}),`Nuvemshop estoque ${hoje()}.csv`);
+  toast(`${mudar.length} produtos para atualizar na loja`);
+  closeSettings();
+}
+/* Lista das peças que não podem vender porque não existem na loja. */
+function exportSemCadastro(){
+  const casa=emCasaMap();
+  const faltam=state.produtos.filter(p=>!p.urlLoja&&Math.max(0,casa[p.sku]||0)>0);
+  if(!faltam.length){toast('Todos os códigos com peça em casa estão na loja');return;}
+  const dados=[['SKU','Descrição','Categoria','Preço','Em casa','Valor parado']];
+  faltam.sort((a,b)=>b.preco*(casa[b.sku]||0)-a.preco*(casa[a.sku]||0))
+        .forEach(p=>dados.push([p.sku,p.desc,p.cat,p.preco,casa[p.sku],p.preco*casa[p.sku]]));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(dados),'Sem cadastro');
+  const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  baixar(new Blob([out],{type:'application/octet-stream'}),`Peças sem cadastro na loja ${hoje()}.xlsx`);
+  toast(`${faltam.length} códigos para cadastrar`);
+  closeSettings();
+}
+/* Mesmo formato da aba "Estoque Atual" que a sincronização já consome. */
+function exportNuvemshop(){
+  if(!state.produtos.length){toast('Sem estoque para exportar');return;}
+  const casa=emCasaMap();
+  const dados=[['ID Produto Marquesa','Nome Produto','Estoque Atual']];
+  state.produtos.slice()
+    .sort((a,b)=>a.sku.localeCompare(b.sku))
+    .forEach(p=>dados.push([p.sku,p.desc,Math.max(0,casa[p.sku]||0)]));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(dados),'Estoque Atual');
+  const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  baixar(new Blob([out],{type:'application/octet-stream'}),`Estoque Atual ${hoje()}.xlsx`);
+  toast('Planilha gerada com o estoque em casa');
+  closeSettings();
+}
+function exportEtiquetas(){
+  if(!state.produtos.length){toast('Sem peças para exportar');return;}
+  const casa=emCasaMap();
+  const dados=[['Descrição','SKU','Preço','Qtd. de etiquetas']];
+  state.produtos.slice()
+    .sort((a,b)=>a.desc.localeCompare(b.desc,'pt'))
+    .forEach(p=>dados.push([p.desc,p.sku,p.preco,Math.max(0,casa[p.sku]||0)]));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(dados),'Peças');
+  const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  baixar(new Blob([out],{type:'application/octet-stream'}),`Etiquetas ${hoje()}.xlsx`);
+  toast('Planilha pronta para o app de etiquetas');
+  closeSettings();
+}
+function exportData(){
+  baixar(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),`Marquesa revendedoras ${hoje()}.json`);
+  toast('Backup baixado');
+}
+/* Os dados agora moram no servidor — restaurar um arquivo antigo por cima
+   ou apagar tudo daqui não existe mais como operação (não há rota para
+   isso na API, de propósito: §28 não apaga histórico). */
+function importData(inp){
+  inp.value='';
+  toast('Os dados agora vivem na nuvem — não há como restaurar um backup por aqui.');
+}
+function wipeAll(){
+  toast('Os dados agora vivem na nuvem — apagar tudo não está disponível por aqui.');
+}
+
+/* =================== Anexo I para impressão =================== */
+function printAnexo(maletaId){
+  const m=state.maletas.find(x=>x.id===maletaId);
+  if(!m) return;
+  const r=state.revendedoras.find(x=>x.id===m.revId)||{nome:'—'};
+  const idx=prodIndex();
+  const linhas=[];
+  Object.entries(m.itens).forEach(([sku,q])=>{
+    const p=idx.get(sku)||{desc:sku};
+    const preco=precoEnvio(m,sku)||0;
+    for(let i=0;i<q;i++) linhas.push({sku,desc:p.desc,preco});
+  });
+  linhas.sort((a,b)=>a.desc.localeCompare(b.desc,'pt'));
+  const total=linhas.reduce((s,l)=>s+l.preco,0);
+
+  document.getElementById('anexoRoot').innerHTML=`
+    <div class="ax-h">
+      <div class="ax-t">Anexo I do contrato</div>
+      <div class="ax-s">${esc(r.nome)}${r.cpf?' · CPF '+esc(r.cpf):''}</div>
+      <div class="ax-s">Acerto combinado: <b>${fmtData(prazoDe(m))}</b>${m.abertaEm?` · Retirada: ${fmtData(m.abertaEm)}`:''}</div>
+    </div>
+    <table>
+      <thead><tr><th style="width:34px">#</th><th style="width:80px">Código</th><th>Descrição</th><th style="width:70px">Valor</th></tr></thead>
+      <tbody>${linhas.map((l,i)=>`<tr><td>${i+1}</td><td>${esc(l.sku)}</td><td>${esc(l.desc)}</td><td>${money(l.preco)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="3">${linhas.length} ${plural(linhas.length,'peça','peças')}</td><td>${money(total)}</td></tr></tfoot>
+    </table>
+    <div class="ax-sign"><div>Marquesa Semijóias</div><div>${esc(r.nome)}</div></div>`;
+  setTimeout(()=>window.print(),120);
+}
+
+/* =================== Ajustes =================== */
+function openSettings(){document.getElementById('setOverlay').classList.add('show');renderFaixas();}
+function closeSettings(){document.getElementById('setOverlay').classList.remove('show');}
+async function setPrazo(v){
+  const n=Math.max(1,int(v)||45);
+  try{ await api('PUT','/api/config',{prazoDias:n}); await sincronizar(); }
+  catch(e){ toast(e.message); }
+  renderFaixas();
+}
+function nudgePrazo(d){setPrazo(state.config.prazoDias+d);}
+async function setPrata(v){
+  const n=Math.min(100,Math.max(0,int(v)));
+  try{ await api('PUT','/api/config',{prataPct:n}); await sincronizar(); }
+  catch(e){ toast(e.message); }
+  renderFaixas();
+}
+function nudgePrata(d){setPrata(state.config.prataPct+d);}
+async function setFaixa(i,v){
+  const faixas=state.config.faixas.map((f,idx)=>idx===i?Object.assign({},f,{pct:Math.min(100,Math.max(0,int(v)))}):f);
+  try{ await api('PUT','/api/config',{faixas}); await sincronizar(); }
+  catch(e){ toast(e.message); }
+  renderFaixas();
+}
+function renderFaixas(){
+  const box=document.getElementById('faixasBox');
+  if(!box) return;
+  const fx=state.config.faixas;
+  box.innerHTML=fx.map((f,i)=>{
+    const ant=i===0?0:fx[i-1].limite;
+    const rot=f.limite===null?`acima de ${money(ant)}`:(i===0?`até ${money(f.limite)}`:`${money(ant)} a ${money(f.limite)}`);
+    return `<div class="adjrow">
+      <label style="font-size:12px">${rot}</label>
+      <div class="ctrl">
+        <input value="${f.pct}" onchange="setFaixa(${i},this.value)" style="width:44px">
+        <span class="u">%</span>
+      </div>
+    </div>`;}).join('');
+  document.getElementById('setPrazo').value=state.config.prazoDias;
+  document.getElementById('setPrata').value=state.config.prataPct;
+}
+
+/* =================== Teclado global =================== */
+document.getElementById('scanInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();handleScan(e.target.value);e.target.value='';}
+});
+/* O leitor USB "digita" muito rápido; se o foco escapar, ele volta sozinho. */
+document.getElementById('scanOverlay').addEventListener('click',e=>{
+  if(scan&&!e.target.closest('button')&&!e.target.closest('input')) focoScan();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  if(document.getElementById('scanOverlay').classList.contains('show')) closeScan();
+  else if(document.getElementById('acOverlay').classList.contains('show')) closeAcerto();
+  else if(document.getElementById('impOverlay').classList.contains('show')) closeImport();
+  else if(document.getElementById('revOverlay').classList.contains('show')) closeRevForm();
+  else if(document.getElementById('setOverlay').classList.contains('show')) closeSettings();
+});
+
+/* =================== Boot =================== */
+function renderAll(){
+  renderTabs();
+  if(tabAtual==='geral') renderGeral();
+  else if(tabAtual==='estoque') renderEstoque();
+  else if(tabAtual==='loja') renderLoja();
+  else{
+    const id=+tabAtual.split(':')[1];
+    if(state.revendedoras.some(r=>r.id===id)) renderRev(id);
+    else switchTab('geral');
+  }
+}
+boot();
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>

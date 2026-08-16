@@ -4,3 +4,6 @@
 .agents/
 .claude/
 skills-lock.json
+
+# dependências dos testes do dashboard
+src/node_modules/
