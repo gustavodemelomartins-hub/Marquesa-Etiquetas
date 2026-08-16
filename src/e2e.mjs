@@ -283,14 +283,45 @@ const leitura = await page.evaluate(async png => {
   const ler = await montarLeitor();
   const img = new Image();
   await new Promise(r => { img.onload = r; img.src = png; });
-  const cv = document.createElement('canvas');
-  cv.width = img.width; cv.height = img.height;
-  cv.getContext('2d').drawImage(img, 0, 0);
-  return { lido: await ler(cv), zxing: !!window.ZXing };
+
+  /* Monta um quadro como a câmera entrega: a etiqueta pequena no meio de
+     uma cena grande, e não a imagem do código ocupando a tela inteira.
+     Testar com a imagem crua esconde justamente o que quebrava na mão dela. */
+  const quadro = (rot = 0, escala = 1.2) => {
+    const cv = document.createElement('canvas');
+    cv.width = 1920; cv.height = 1080;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#cfc9c4'; c.fillRect(0, 0, 1920, 1080);
+    const w = img.width * escala, h = img.height * escala;
+    c.save(); c.translate(960, 540);
+    if (rot) c.rotate(rot * Math.PI / 180);
+    c.fillStyle = '#fff'; c.fillRect(-w / 2 - 8, -h / 2 - 8, w + 16, h + 16);
+    c.drawImage(img, -w / 2, -h / 2, w, h);
+    c.restore();
+    return cv;
+  };
+
+  const cru = document.createElement('canvas');
+  cru.width = img.width; cru.height = img.height;
+  cru.getContext('2d').drawImage(img, 0, 0);
+
+  return {
+    zxing: !!window.ZXing,
+    cru: await ler(cru),
+    reta: await ler(quadro(0)),
+    emPe: await ler(quadro(90)),
+    deCabecaParaBaixo: await ler(quadro(180)),
+    longe: await ler(quadro(0, 0.55)),
+  };
 }, etiquetaReal);
 
 eq('o ZXing foi baixado do arquivo separado', leitura.zxing, 'true');
-eq('e leu a etiqueta impressa pelo app', leitura.lido, '900001');
+eq('leu a etiqueta impressa pelo app', leitura.cru, '900001');
+eq('leu num quadro de câmera, com a etiqueta pequena no meio', leitura.reta, '900001');
+/* etiqueta de bijuteria quase sempre cai deitada no quadro com o celular em pé */
+eq('leu a etiqueta em pé (90°)', leitura.emPe, '900001');
+eq('leu de cabeça para baixo', leitura.deCabecaParaBaixo, '900001');
+eq('leu com a peça mais longe', leitura.longe, '900001');
 
 const semCodigo = await page.evaluate(async () => {
   const ler = await montarLeitor();
@@ -298,9 +329,30 @@ const semCodigo = await page.evaluate(async () => {
   cv.width = 300; cv.height = 200;
   const c = cv.getContext('2d');
   c.fillStyle = '#fff'; c.fillRect(0, 0, 300, 200);
-  return await ler(cv);
+  /* três vezes: a mira só é tentada em quadros alternados, então uma
+     chamada só não passaria por todos os caminhos do leitor */
+  return JSON.stringify([await ler(cv), await ler(cv), await ler(cv)]);
 });
-eq('imagem sem código nenhum devolve nada, em vez de inventar', semCodigo, 'null');
+eq('imagem sem código nenhum devolve nada, em vez de inventar',
+  semCodigo, '[null,null,null]');
+
+/* O ZXing tentava TODOS os formatos porque as configurações eram apagadas a
+   cada decode — ver o comentário em montarLeitor. Sem restrição ele gasta
+   tempo com QR, Aztec e PDF417 e perde o TRY_HARDER que lê a etiqueta
+   girada. Esta é a prova de que a restrição está valendo. */
+const formatos = await page.evaluate(async () => {
+  const Z = window.ZXing;
+  const hints = new Map();
+  hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.CODE_128]);
+  const r = new Z.MultiFormatReader();
+  r.setHints(hints);
+  const antes = r.readers.length;
+  try { r.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(
+    new Z.HTMLCanvasElementLuminanceSource(document.createElement('canvas'))))); } catch (e) {}
+  return { antes, depois: r.readers.length };
+});
+eq('decode sem hints REDEFINE os formatos (por isso eles vão em toda chamada)',
+  formatos.depois > formatos.antes, 'true');
 
 console.log('\n=== erros de console ===');
 if (erros.length) { erros.forEach(e => console.log('  ! ' + e)); bad(`${erros.length} erro(s) no console`); }

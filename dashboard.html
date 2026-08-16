@@ -3017,15 +3017,80 @@ async function montarLeitor(){
   hints.set(Z.DecodeHintType.POSSIBLE_FORMATS,[Z.BarcodeFormat.CODE_128,Z.BarcodeFormat.EAN_13]);
   hints.set(Z.DecodeHintType.TRY_HARDER,true);
   const leitor=new Z.MultiFormatReader();
-  leitor.setHints(hints);
-  return async canvas=>{
+
+  /* As `hints` vão em TODA chamada, e não uma vez por `setHints`, porque o
+     `decode` do ZXing é assim por dentro:
+
+         decode(imagem, hints){ this.hints!==hints && this.setHints(hints); ... }
+
+     Chamar `decode(imagem)` sem o segundo argumento passa `undefined` e
+     REDEFINE as configurações para o padrão. Era o que acontecia aqui: o
+     leitor voltava a tentar QR, Aztec, PDF417 e Data Matrix a cada quadro,
+     e perdia o TRY_HARDER — que é o que manda tentar a etiqueta girada. */
+  const decodificar=canvas=>{
     try{
       const fonte=new Z.HTMLCanvasElementLuminanceSource(canvas);
       const mapa=new Z.BinaryBitmap(new Z.HybridBinarizer(fonte));
-      const r=leitor.decode(mapa);
+      const r=leitor.decode(mapa,hints);
       return r?String(r.getText()||'').trim():null;
     }catch(e){ return null; }   /* quadro sem código é o caso normal */
     finally{ leitor.reset(); }
+  };
+
+  /* Duas tentativas por quadro, e cada uma também de lado.
+   *
+   *  A primeira é o RECORTE DA MIRA, ampliado: é onde a etiqueta está
+   *  quando ela aponta, e ampliar dá ao leitor mais pixels por barra —
+   *  é o que faz diferença quando a peça está um pouco longe.
+   *
+   *  A segunda é o quadro inteiro, para quem não mirou direito.
+   *
+   *  O giro de 90° existe porque etiqueta de bijuteria quase sempre acaba
+   *  deitada no quadro quando o celular está em pé, e o ZXing lê código de
+   *  barras na horizontal.
+   *
+   *  Os canvas são reaproveitados entre quadros: isto roda cinco vezes por
+   *  segundo e criar canvas novo a cada vez enche a memória do celular. */
+  const cMira=document.createElement('canvas');
+  const cGiro=document.createElement('canvas');
+
+  const girar=origem=>{
+    cGiro.width=origem.height; cGiro.height=origem.width;
+    const g=cGiro.getContext('2d',{willReadFrequently:true});
+    g.setTransform(0,1,-1,0,cGiro.width,0);
+    g.drawImage(origem,0,0);
+    g.setTransform(1,0,0,1,0,0);
+    return cGiro;
+  };
+
+  /* Mesma proporção da mira desenhada na tela (.cam-alvo): 76% da largura
+     e 36% da altura, no centro. Se a mira mudar de tamanho no CSS, estes
+     números mudam junto. */
+  const mirar=origem=>{
+    const w=origem.width*0.76, h=origem.height*0.36, amp=2;
+    cMira.width=w*amp; cMira.height=h*amp;
+    const g=cMira.getContext('2d',{willReadFrequently:true});
+    g.imageSmoothingQuality='high';
+    g.drawImage(origem,(origem.width-w)/2,(origem.height-h)/2,w,h,0,0,cMira.width,cMira.height);
+    return cMira;
+  };
+
+  /* O quadro INTEIRO vem primeiro, e a mira é o reforço — não o contrário.
+     Recortar antes parece esperto e quebra o caso mais comum de todos: com
+     a peça perto do celular a etiqueta preenche o quadro, e aí o recorte
+     corta o começo e o fim do código de barras, que é onde ficam as marcas
+     que dizem onde ele começa e termina. Some o código inteiro.
+
+     A mira só ajuda quando a peça está longe e o código ficou pequeno; por
+     isso entra em quadros alternados. Assim o caminho comum responde em
+     ~100ms e a câmera não parece travada, sem perder o caso difícil. */
+  let volta=0;
+  return async canvas=>{
+    const inteiro=decodificar(canvas) || decodificar(girar(canvas));
+    if(inteiro) return inteiro;
+    if(++volta % 2) return null;
+    const mira=mirar(canvas);
+    return decodificar(mira) || decodificar(girar(mira));
   };
 }
 
@@ -3036,8 +3101,20 @@ async function toggleCamera(){
   btn.disabled=true; btn.textContent='Abrindo…';
   try{
     const ler=await montarLeitor();
+    /* Pedir resolução explicitamente é o que mais importa aqui. Sem pedir,
+       o navegador costuma entregar 640x480, e nessa resolução a etiqueta de
+       bijuteria ocupa poucos pixels — o código de barras simplesmente não
+       tem barras suficientes para ser lido. `ideal` em vez de `exact` para
+       nunca falhar em aparelho que não alcance: ele entrega o que puder.
+       O foco contínuo evita a imagem borrada de perto, que é a distância
+       em que ela vai usar. */
     const stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'}}, audio:false
+      video:{
+        facingMode:{ideal:'environment'},
+        width:{ideal:1920}, height:{ideal:1080},
+        focusMode:{ideal:'continuous'},
+      },
+      audio:false
     });
     const v=document.getElementById('camVideo');
     v.srcObject=stream; await v.play();
