@@ -33,6 +33,15 @@ export function subirLojaFalsa(porta = 8799) {
       return responder(401, { message: 'sem token' });
     }
 
+    // permite ao teste simular um token sem a permissão de pedidos, que foi
+    // o primeiro erro real que a integração encontrou em produção
+    if (estado.negarEscopo && recurso.startsWith(estado.negarEscopo.recurso)) {
+      return responder(403, {
+        code: 403, message: 'Forbidden',
+        description: `Missing required scope: ${estado.negarEscopo.escopo}`,
+      });
+    }
+
     const pagina = +(url.searchParams.get('page') || 1);
     const porPagina = +(url.searchParams.get('per_page') || 200);
     const fatia = lista => lista.slice((pagina - 1) * porPagina, pagina * porPagina);

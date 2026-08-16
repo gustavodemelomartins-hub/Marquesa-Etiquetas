@@ -1520,6 +1520,18 @@ function painelSync(){
     </div>`;
   }
 
+  if(s.erro){
+    /* Rodada que falhou não pode parecer rodada que deu certo. E como o
+       erro mais provável é de permissão do token, a mensagem do servidor
+       já vem dizendo o que fazer — então ela aparece inteira. */
+    return `<div class="warn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+      <div><b>A última sincronização falhou e nada foi alterado na loja.</b>
+      <br>${esc(s.erro)}
+      <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="rodarSync(false)">Tentar de novo</button></div></div>
+    </div>`;
+  }
+
   const quando=s.ultimaEm?fmtDataHora(s.ultimaEm):null;
   return `<div class="warn info">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6"/></svg>

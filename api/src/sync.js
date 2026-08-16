@@ -241,12 +241,15 @@ export async function resumoSync(db, env) {
   const loja = new Nuvemshop(env);
   const ultima = await db.prepare(
     `SELECT * FROM sync_execucoes ORDER BY id DESC LIMIT 1`).first();
+  const detalhe = ultima && ultima.detalhe_json ? JSON.parse(ultima.detalhe_json) : {};
   return {
     conectada: loja.configurada(),
     ultimaEm: ultima ? (ultima.terminado_em || ultima.iniciado_em) : null,
     ultimoStatus: ultima ? ultima.status : null,
-    pausada: ultima && ultima.status === 'pausado'
-      ? JSON.parse(ultima.detalhe_json || '{}').pausado : null,
+    pausada: ultima && ultima.status === 'pausado' ? detalhe.pausado : null,
+    // uma rodada que falhou não pode se parecer com uma que deu certo:
+    // a mensagem sobe para a tela poder dizer o que houve
+    erro: ultima && ultima.status === 'erro' ? (detalhe.erro || 'Falhou sem dizer o motivo.') : null,
     ultimaId: ultima ? ultima.id : null,
   };
 }

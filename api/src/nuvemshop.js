@@ -21,6 +21,40 @@ const USER_AGENT = 'Marquesa Semijoias (contato via github.com/gustavodemelomart
  *  É menos esperto e erra menos. */
 const INTERVALO_MS = 550;
 
+/** Traduz o erro da API para uma frase que diz o que FAZER.
+ *
+ *  Vale o esforço porque os dois erros mais prováveis são de configuração,
+ *  não de código, e acontecem com quem está montando a integração pela
+ *  primeira vez. "403 Forbidden: Missing required scope: read_orders" está
+ *  tecnicamente perfeito e não diz a ninguém que a solução é refazer o app
+ *  na Nuvemshop marcando a permissão de pedidos. */
+const PERMISSOES = {
+  read_orders: 'ler pedidos',
+  write_orders: 'escrever pedidos',
+  read_products: 'ler produtos',
+  write_products: 'escrever produtos',
+};
+
+export function explicarErro(status, corpo, caminho) {
+  const escopo = /Missing required scope:\s*([a-z_]+)/i.exec(corpo || '');
+  if (escopo) {
+    const chave = escopo[1];
+    const legivel = PERMISSOES[chave] || chave;
+    return `O token da Nuvemshop não tem a permissão de ${legivel} (${chave}). `
+         + 'Na loja, em Aplicativos → Aplicativos sob medida, marque essa permissão '
+         + 'e gere um token novo — o token guarda as permissões de quando foi criado, '
+         + 'então mudar o app sem gerar outro token não adianta.';
+  }
+  if (status === 401) {
+    return 'A Nuvemshop recusou o token. Confira se NUVEMSHOP_TOKEN foi colado inteiro '
+         + 'e se NUVEMSHOP_STORE_ID é o número certo da loja.';
+  }
+  if (status === 404) {
+    return `A Nuvemshop não encontrou ${caminho}. Normalmente é o NUVEMSHOP_STORE_ID errado.`;
+  }
+  return `Nuvemshop respondeu ${status} em ${caminho}: ${String(corpo || '').slice(0, 300)}`;
+}
+
 export class Nuvemshop {
   constructor(env) {
     this.loja = String(env.NUVEMSHOP_STORE_ID || '').trim();
@@ -60,8 +94,9 @@ export class Nuvemshop {
 
     if (!resp.ok) {
       const corpo = await resp.text().catch(() => '');
-      const e = new Error(`Nuvemshop ${resp.status} em ${caminho}: ${corpo.slice(0, 300)}`);
+      const e = new Error(explicarErro(resp.status, corpo, caminho));
       e.status = resp.status;
+      e.corpo = corpo;
       throw e;
     }
     if (resp.status === 204) return null;

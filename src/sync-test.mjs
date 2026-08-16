@@ -123,7 +123,24 @@ r = await api('POST', '/api/sync', { forcar: true });
 eq('agora foi', !!r.pausado, 'false');
 eq('a loja recebeu o zero', b1.inventory_levels[0].stock, 0);
 
-console.log('\n=== 9. a razão fecha depois de tudo (§19) ===');
+console.log('\n=== 9. token sem permissão de pedidos (o erro real de produção) ===');
+/* Foi o primeiro erro que a integração deu na loja de verdade. O que não
+   pode acontecer NUNCA: falhar em ler os pedidos e mesmo assim empurrar
+   estoque — seria escrever na loja sem saber o que já foi vendido. */
+const antesDoErro = b1.inventory_levels[0].stock;
+loja.estado.negarEscopo = { recurso: 'orders', escopo: 'read_orders' };
+r = await api('POST', '/api/sync', {});
+eq('a rodada falhou', r.ok, 'false');
+eq('e explicou o que fazer, em vez de repetir o código do erro',
+  /permissão de ler pedidos/.test(r.erro) && /gere um token novo/.test(r.erro), 'true');
+eq('NÃO empurrou estoque sem conseguir ler as vendas', b1.inventory_levels[0].stock, antesDoErro);
+
+const est = await api('GET', '/api/state');
+eq('e a tela mostra o erro em vez de dizer que sincronizou', !!est.sync.erro, 'true');
+eq('sem se declarar em dia', est.sync.ultimoStatus, 'erro');
+loja.estado.negarEscopo = null;
+
+console.log('\n=== 10. a razão fecha depois de tudo (§19) ===');
 const conf = await api('GET', '/api/estoque/conferir');
 eq('saldo bate com a soma dos movimentos', conf.divergentes.length, 0);
 
