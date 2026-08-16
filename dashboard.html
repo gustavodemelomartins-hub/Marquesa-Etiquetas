@@ -827,7 +827,7 @@ td.num.neg{color:var(--danger)}
       <input type="hidden" id="revEditId">
       <div class="field">
         <label>Nome <span class="req">*</span></label>
-        <input id="rf-nome" placeholder="Ex.: Graciele Muniz" maxlength="60">
+        <input id="rf-nome" placeholder="Nome e sobrenome" maxlength="60">
       </div>
       <div class="two">
         <div class="field"><label>Telefone</label><input id="rf-tel" placeholder="(00) 00000-0000" maxlength="24"></div>
@@ -961,6 +961,32 @@ td.num.neg{color:var(--danger)}
   </div>
 </div>
 
+<!-- ============ CONEXÃO ============ -->
+<div class="overlay center" id="conexaoOverlay">
+  <div class="modal" style="width:440px">
+    <div class="mhead">
+      <h2>Conectar</h2>
+    </div>
+    <div class="mbody">
+      <p style="font-size:12.5px;color:var(--muted);line-height:1.5;margin:0 0 16px">
+        O dashboard agora guarda os dados na nuvem, para você abrir no celular e
+        no computador e ver sempre a mesma coisa. Cole o endereço e a chave uma
+        vez — ficam salvos só neste navegador.
+      </p>
+      <div class="field">
+        <label>Endereço da API <span class="req">*</span></label>
+        <input id="cf-url" placeholder="https://marquesa-api.....workers.dev">
+      </div>
+      <div class="field">
+        <label>Chave de acesso <span class="req">*</span></label>
+        <input id="cf-key" type="password" placeholder="A senha que você definiu na Cloudflare">
+      </div>
+      <div class="sb-fb" id="cf-fb" style="min-height:20px;font-size:13px;font-weight:600"></div>
+      <button class="btn btn-gold btn-block" style="margin-top:6px" onclick="salvarConexao()">Conectar</button>
+    </div>
+  </div>
+</div>
+
 <div id="dtip"></div>
 <div id="toast"></div>
 <div id="anexoRoot"></div>
@@ -991,21 +1017,19 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
    é a soma das maletas abertas, então as três contas nunca podem discordar.
    ========================================================================== */
 
-const KEY='marquesa_dashboard_v1';
-let mem=null;
+/* Estado agora mora no Worker + D1 — o dashboard só guarda, neste navegador,
+   o endereço e a chave para falar com ele. */
+const CONN_KEY='marquesa_conexao_v1';
+let conn=null;   /* {url, key} */
 
 function defaultState(){
+  /* forma vazia, só usada antes de conectar */
   return {
-    v:1,
-    produtos:[],       /* {sku, desc, cat, preco, qtd}  — qtd = TOTAL, inclui o que está fora */
-    revendedoras:[],   /* {id, nome, tel, cidade, cpf, criadaEm} */
-    /* maleta: {id, revId, status:'aberta'|'fechada', abertaEm, acertoEm, fechadaEm, itens:{sku:qtd}, acerto:{}}
-       abertaEm  = quando a maleta saiu (pode ser desconhecida)
-       acertoEm  = o dia combinado de ela voltar para acertar — é o que vale
-                   como prazo. O Anexo I traz justamente essa data. */
+    v:2,
+    produtos:[],
+    revendedoras:[],
     maletas:[],
-    seqRev:1, seqMal:1,
-    loja:null,         /* retrato do último export da Nuvemshop lido */
+    loja:null,
     config:{
       prazoDias:45,
       prataPct:10,
@@ -1018,48 +1042,78 @@ function defaultState(){
         {limite:10000, pct:35},
         {limite:null,  pct:40}
       ]
-    }
+    },
+    categorias:[]
   };
 }
+let state=defaultState();
 
-function load(){
+function carregarConexao(){
+  try{ const r=localStorage.getItem(CONN_KEY); return r?JSON.parse(r):null; }
+  catch(e){ return null; }
+}
+function gravarConexao(c){
+  try{ localStorage.setItem(CONN_KEY,JSON.stringify(c)); }catch(e){}
+}
+
+/* Chamador central da API — todo mutation passa por aqui. Em erro, lança
+   Error com a mensagem do servidor (json.erro) e guarda o corpo em .data,
+   para casos como o 409 de acerto sem preço, que precisa dos detalhes. */
+async function api(method,path,body){
+  const opts={method, headers:{'Authorization':'Bearer '+conn.key}};
+  if(body!==undefined){ opts.headers['Content-Type']='application/json'; opts.body=JSON.stringify(body); }
+  const res=await fetch(conn.url+path,opts);
+  let json=null;
+  try{ json=await res.json(); }catch(e){}
+  if(!res.ok){
+    const err=new Error((json&&json.erro)||res.statusText||'Erro na conexão com o servidor');
+    err.data=json; err.status=res.status;
+    throw err;
+  }
+  return json;
+}
+async function carregarEstado(){ state=await api('GET','/api/state'); }
+async function sincronizar(){ await carregarEstado(); renderAll(); }
+
+async function salvarConexao(){
+  const fb=document.getElementById('cf-fb');
+  const btn=document.querySelector('#conexaoOverlay .btn-gold');
+  const url=document.getElementById('cf-url').value.trim().replace(/\/+$/,'');
+  const key=document.getElementById('cf-key').value.trim();
+  fb.classList.remove('bad');
+  if(!url||!key){ fb.textContent='Preencha o endereço e a chave.'; fb.classList.add('bad'); return; }
+  btn.disabled=true; fb.textContent='Conectando…';
   try{
-    const r=localStorage.getItem(KEY);
-    if(!r) return defaultState();
-    return migrate(JSON.parse(r));
+    const h=await fetch(url+'/api/health').then(r=>r.ok?r.json():null).catch(()=>null);
+    if(!h||!h.ok) throw new Error('Não encontrei a API neste endereço.');
+    conn={url,key};
+    await carregarEstado();
+    gravarConexao(conn);
+    fb.textContent='';
+    document.getElementById('conexaoOverlay').classList.remove('show');
+    renderAll();
   }catch(e){
-    return mem?migrate(JSON.parse(JSON.stringify(mem))):defaultState();
+    conn=null;
+    fb.textContent=(e.status===401)?'Chave incorreta.':(e.message||'Não consegui conectar.');
+    fb.classList.add('bad');
+  }finally{
+    btn.disabled=false;
   }
 }
-function save(){
-  try{localStorage.setItem(KEY,JSON.stringify(state));}
-  catch(e){mem=JSON.parse(JSON.stringify(state));toast('Sem espaço para salvar — baixe um backup');}
+
+async function boot(){
+  conn=carregarConexao();
+  if(!conn){ document.getElementById('conexaoOverlay').classList.add('show'); return; }
+  try{
+    toast('Carregando dados…');
+    await carregarEstado();
+    renderAll();
+  }catch(e){
+    conn=null;
+    toast('Não consegui carregar os dados: '+e.message);
+    document.getElementById('conexaoOverlay').classList.add('show');
+  }
 }
-function migrate(s){
-  const d=defaultState();
-  s=Object.assign({},d,s);
-  s.config=Object.assign({},d.config,s.config||{});
-  if(!s.loja) s.loja=null;
-  if(!Array.isArray(s.config.faixas)||!s.config.faixas.length) s.config.faixas=d.config.faixas;
-  /* preserva campos extras (urlLoja, estoqueLoja, visivel) em vez de recriar o objeto */
-  s.produtos=(s.produtos||[]).map(p=>Object.assign({},p,{
-    sku:String(p.sku), desc:p.desc||'', cat:p.cat||catOf(p.desc||''),
-    preco:+p.preco||0, qtd:+p.qtd||0
-  }));
-  s.maletas=(s.maletas||[]).map(m=>{
-    m=Object.assign({itens:{},status:'aberta',acertoEm:null},m);
-    /* Antes de existir o campo próprio, a data do Anexo era guardada como
-       data de saída. Mas ela é o dia combinado do acerto — por isso vinha
-       sempre no futuro. Move para o lugar certo e admite não saber a saída. */
-    if(!m.acertoEm&&m.abertaEm&&m.status!=='fechada'&&m.abertaEm>hoje()){
-      m.acertoEm=m.abertaEm;
-      m.abertaEm=null;
-    }
-    return m;
-  });
-  return s;
-}
-let state=load();
 
 /* =================== Categorias =================== */
 /* A categoria sai da primeira palavra da descrição. Foi conferida contra as 791
@@ -1087,6 +1141,20 @@ function catOf(desc){
   return CAT_MAP[w]||'Outros';
 }
 function isPrata(desc){ return /prata\s*925/i.test(String(desc||'')); }
+/* A lista de categorias vem do servidor (pode crescer por lá); CATS/CAT_COR
+   seguem só como o palpite padrão de classificação e a cor de reserva. */
+function catList(){
+  if(state.categorias&&state.categorias.length)
+    return state.categorias.slice().sort((a,b)=>(a.ordem||0)-(b.ordem||0)).map(c=>c.nome);
+  return CATS;
+}
+function catColor(nome){
+  if(state.categorias&&state.categorias.length){
+    const c=state.categorias.find(x=>x.nome===nome);
+    if(c&&c.cor) return c.cor;
+  }
+  return CAT_COR[nome]||CAT_COR.Outros;
+}
 
 /* =================== Helpers =================== */
 function toast(msg){
@@ -1147,7 +1215,25 @@ function findProd(code){
   if(idx.has(semZero)) return idx.get(semZero);
   return null;
 }
-function maletasAbertas(){return state.maletas.filter(m=>m.status!=='fechada');}
+/* status agora tem 4 valores: 'aberta'|'em_acerto'|'encerrada'|'cancelada'.
+   Cancelada não aparece em lugar nenhum das telas normais — é como se não existisse. */
+function maletaAberta(m){return m.status==='aberta'||m.status==='em_acerto';}
+function maletaEncerrada(m){return m.status==='encerrada';}
+function maletasAbertas(){return state.maletas.filter(maletaAberta);}
+/* Preço válido para peças de uma maleta é o preço CONGELADO no envio
+   (m.precos), não o preço atual do catálogo — é o que o servidor usa
+   para calcular a comissão no acerto (§6.1). */
+function precoEnvio(m,sku){
+  if(m&&m.precos&&m.precos[sku]!=null) return m.precos[sku];
+  const p=prodIndex().get(sku);
+  return p&&p.preco!=null?p.preco:null;
+}
+/* Rótulo de preço para colunas de tabela: "Sem preço" em vez de "R$ 0". */
+function precoTxt(p){
+  return (p.semPreco||p.preco==null)
+    ? '<span style="color:var(--muted);font-style:italic">Sem preço</span>'
+    : money(p.preco);
+}
 
 /* O prazo de uma maleta é o dia combinado do acerto. Só quando ele não
    foi marcado é que vale a regra dos N dias a partir da saída. */
@@ -1217,35 +1303,36 @@ function revNome(id){
   const r=state.revendedoras.find(x=>x.id===id);
   return r?r.nome:'Revendedora removida';
 }
-function maletaAbertaDe(revId){ return state.maletas.find(m=>m.revId===revId && m.status!=='fechada')||null; }
+function maletaAbertaDe(revId){ return state.maletas.find(m=>m.revId===revId && maletaAberta(m))||null; }
 function qtdMaleta(m){ return Object.values(m.itens||{}).reduce((s,q)=>s+(+q||0),0); }
 function valMaleta(m){
-  const idx=prodIndex();
-  return Object.entries(m.itens||{}).reduce((s,[sku,q])=>{
-    const p=idx.get(sku); return s+(p?p.preco*q:0);
-  },0);
+  return Object.entries(m.itens||{}).reduce((s,[sku,q])=>s+(precoEnvio(m,sku)||0)*q,0);
 }
 
 /* =================== Comissão =================== */
-function pctDaFaixa(valor){
+/* Mesma regra do servidor (api/src/comissao.js): a FAIXA é escolhida só
+   pelo total vendido em peças BANHADAS. Prata 925 tem percentual fixo
+   próprio e não entra nessa conta — nem no valor que define a faixa,
+   nem no percentual aplicado. */
+function pctDaFaixa(valorBanhadas){
   const fx=state.config.faixas;
-  for(const f of fx){ if(f.limite===null||valor<=f.limite) return f.pct; }
+  for(const f of fx){ if(f.limite===null||valorBanhadas<=f.limite) return f.pct; }
   return fx[fx.length-1].pct;
 }
-/* Regra combinada: a faixa é definida pelo total vendido; peças de Prata 925
-   usam o percentual fixo e não seguem a faixa. */
-function calcComissao(vendidos){
+function calcComissao(vendidos,m){
   const idx=prodIndex();
-  let totalVendido=0, basePrata=0, baseNormal=0;
+  let baseBanhada=0, basePrata=0;
   vendidos.forEach(({sku,qtd})=>{
     const p=idx.get(sku); if(!p) return;
-    const v=p.preco*qtd; totalVendido+=v;
-    if(isPrata(p.desc)) basePrata+=v; else baseNormal+=v;
+    const v=(precoEnvio(m,sku)||0)*qtd;
+    if(isPrata(p.desc)) basePrata+=v; else baseBanhada+=v;
   });
-  const pct=pctDaFaixa(totalVendido);
-  const cPrata=basePrata*(state.config.prataPct/100);
-  const cNormal=baseNormal*(pct/100);
-  return {totalVendido, pct, basePrata, baseNormal, comissao:cPrata+cNormal, liquido:totalVendido-(cPrata+cNormal)};
+  const pct=pctDaFaixa(baseBanhada);
+  const comissaoBanhada=baseBanhada*(pct/100);
+  const comissaoPrata=basePrata*(state.config.prataPct/100);
+  const totalVendido=baseBanhada+basePrata;
+  const comissao=comissaoBanhada+comissaoPrata;
+  return {totalVendido, pct, basePrata, baseBanhada, comissao, liquido:totalVendido-comissao};
 }
 
 /* =================== Abas =================== */
@@ -1403,7 +1490,7 @@ function cardRev(r){
   const q=m?qtdMaleta(m):0;
   const val=m?valMaleta(m):0;
   const s=m?situacaoMaleta(m):null;
-  const fechadas=state.maletas.filter(x=>x.revId===r.id&&x.status==='fechada').length;
+  const fechadas=state.maletas.filter(x=>x.revId===r.id&&maletaEncerrada(x)).length;
   return `<div class="revcard" onclick="switchTab('rev:${r.id}')">
     <div class="rc-nm">${esc(r.nome)}</div>
     <div class="rc-meta">${m?(prazoDe(m)?`Acerto marcado para ${fmtData(prazoDe(m))}`:'Maleta aberta, sem data marcada'):
@@ -1421,9 +1508,8 @@ function cardRev(r){
 /* SVG puro: nada externo carrega, funciona offline igual ao resto do app.
    Paleta validada para daltonismo — ver comentário no topo do arquivo. */
 function dadosCategoria(){
-  const rev=comRevMap(), idx=prodIndex();
+  const rev=comRevMap();
   const acc={};
-  CATS.forEach(c=>acc[c]=0);
   state.produtos.forEach(p=>{
     const fora=rev[p.sku]||0;
     /* mesma regra do KPI: quem está na rua conta no total, doa ou não o cadastro.
@@ -1433,9 +1519,10 @@ function dadosCategoria(){
     if(escopoGrafico==='total') q=tot;
     else if(escopoGrafico==='casa') q=tot-fora;
     else q=fora;
-    if(q>0) acc[p.cat||'Outros']=(acc[p.cat||'Outros']||0)+q;
+    if(q>0){ const c=p.cat||'Outros'; acc[c]=(acc[c]||0)+q; }
   });
-  return CATS.map(c=>({cat:c,qtd:acc[c]||0,cor:CAT_COR[c]})).filter(d=>d.qtd>0);
+  const nomes=[...new Set([...catList(), ...Object.keys(acc)])];
+  return nomes.map(c=>({cat:c,qtd:acc[c]||0,cor:catColor(c)})).filter(d=>d.qtd>0);
 }
 /* Mesma leitura, mas para o conteúdo de uma maleta. */
 function dadosDeItens(itens){
@@ -1446,7 +1533,8 @@ function dadosDeItens(itens){
     const c=(p&&p.cat)||'Outros';
     acc[c]=(acc[c]||0)+q;
   });
-  return CATS.map(c=>({cat:c,qtd:acc[c]||0,cor:CAT_COR[c]})).filter(d=>d.qtd>0);
+  const nomes=[...new Set([...catList(), ...Object.keys(acc)])];
+  return nomes.map(c=>({cat:c,qtd:acc[c]||0,cor:catColor(c)})).filter(d=>d.qtd>0);
 }
 
 /* "0%" para uma categoria que tem peças é mentira; abaixo de 1% mostra "<1%". */
@@ -1559,12 +1647,19 @@ function setFiltroLoja(v){filtroLoja=v;filtroInc=false;renderEstoque();}
 /* Há dados da loja carregados? Só então as colunas de loja fazem sentido. */
 function temLoja(){return state.produtos.some(p=>p.urlLoja);}
 /* Ajuste manual do estoque total de um código — é assim que se conserta
-   uma inconsistência ou se dá entrada em mercadoria nova. */
-function setQtdProduto(sku,val){
+   uma inconsistência ou se dá entrada em mercadoria nova. O servidor não
+   aceita qtd direto (§19: o saldo vem de movimentos), então isto vira um
+   movimento de ajuste do tamanho da diferença. */
+async function setQtdProduto(sku,val){
   const p=state.produtos.find(x=>x.sku===sku);
   if(!p) return;
-  p.qtd=Math.max(0,int(val));
-  save();renderEstoque();renderTabs();
+  const novo=Math.max(0,int(val));
+  const delta=novo-(p.qtd||0);
+  if(!delta){ renderEstoque(); return; }
+  try{
+    await api('POST',`/api/produtos/${encodeURIComponent(sku)}/movimento`,{tipo:'ajuste',quantidade:delta});
+    await sincronizar();
+  }catch(e){ toast(e.message); renderEstoque(); }
 }
 
 function renderEstoque(){
@@ -1583,7 +1678,7 @@ function renderEstoque(){
   if(q) lista=lista.filter(p=>p.desc.toLowerCase().includes(q)||p.sku.toLowerCase().includes(q));
   lista.sort((a,b)=>a.desc.localeCompare(b.desc,'pt'));
 
-  const catsUsadas=CATS.filter(c=>state.produtos.some(p=>p.cat===c));
+  const catsUsadas=catList().filter(c=>state.produtos.some(p=>p.cat===c));
   const semCadastro=lista.filter(p=>(p.qtd||0)-(rev[p.sku]||0)>0).length;
 
   v.innerHTML=`
@@ -1637,8 +1732,8 @@ function renderEstoque(){
               return `<tr>
                 <td class="desc">${esc(p.desc)}</td>
                 <td class="sku">${esc(p.sku)}</td>
-                <td><span class="catchip" style="background:${CAT_COR[p.cat]||CAT_COR.Outros}">${esc(p.cat)}</span></td>
-                <td class="price">${money(p.preco)}</td>
+                <td><span class="catchip" style="background:${catColor(p.cat)}">${esc(p.cat)}</span></td>
+                <td class="price">${precoTxt(p)}</td>
                 <td class="num"><input class="dr-q" style="width:52px" type="number" min="0" value="${p.qtd||0}"
                   onchange="setQtdProduto('${esc(p.sku)}',this.value)" title="Estoque total desta peça"></td>
                 <td class="num ${fora?'':'zero'}">${fora}</td>
@@ -1807,8 +1902,8 @@ function renderLoja(){
               return `<tr>
                 <td class="desc">${esc(p.desc)}</td>
                 <td class="sku">${esc(p.sku)}</td>
-                <td><span class="catchip" style="background:${CAT_COR[p.cat]||CAT_COR.Outros}">${esc(p.cat)}</span></td>
-                <td class="price">${money(p.preco)}</td>
+                <td><span class="catchip" style="background:${catColor(p.cat)}">${esc(p.cat)}</span></td>
+                <td class="price">${precoTxt(p)}</td>
                 ${filtroVitrine==='falta'
                   ? `<td class="num">${certo}</td><td class="price">${money(certo*p.preco)}</td>`
                   : `<td class="num ${(p.estoqueLoja||0)!==certo?'neg':''}">${p.estoqueLoja||0}</td>
@@ -1838,14 +1933,14 @@ function renderRev(id){
 
   const m=maletaAbertaDe(id);
   const idx=prodIndex();
-  const fechadas=state.maletas.filter(x=>x.revId===id&&x.status==='fechada')
-    .sort((a,b)=>String(b.fechadaEm).localeCompare(String(a.fechadaEm)));
+  const fechadas=state.maletas.filter(x=>x.revId===id&&maletaEncerrada(x))
+    .sort((a,b)=>String(b.encerradaEm).localeCompare(String(a.encerradaEm)));
   const sit=m?situacaoMaleta(m):null;
 
   let itensHtml='';
   if(m){
     const linhas=Object.entries(m.itens).filter(([,q])=>q>0)
-      .map(([sku,q])=>{const p=idx.get(sku);return{sku,q,desc:p?p.desc:'(fora do catálogo)',preco:p?p.preco:0,cat:p?p.cat:'Outros'};})
+      .map(([sku,q])=>{const p=idx.get(sku);return{sku,q,desc:p?p.desc:'(fora do catálogo)',preco:precoEnvio(m,sku)||0,cat:p?p.cat:'Outros'};})
       .sort((a,b)=>a.desc.localeCompare(b.desc,'pt'));
     itensHtml=linhas.length?`
       <div class="tablewrap keeptable">
@@ -1855,7 +1950,7 @@ function renderRev(id){
           <tbody>${linhas.map(l=>`<tr>
             <td class="desc">${esc(l.desc)}</td>
             <td class="sku">${esc(l.sku)}</td>
-            <td><span class="catchip" style="background:${CAT_COR[l.cat]||CAT_COR.Outros}">${esc(l.cat)}</span></td>
+            <td><span class="catchip" style="background:${catColor(l.cat)}">${esc(l.cat)}</span></td>
             <td class="num">${l.q}</td>
             <td class="price">${money(l.preco*l.q)}</td>
           </tr>`).join('')}</tbody>
@@ -1936,7 +2031,7 @@ function renderRev(id){
       <div class="body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-ghost btn-sm" onclick="openRevForm(${r.id})">Editar dados</button>
         <div class="spacer" style="flex:1"></div>
-        <button class="btn btn-danger btn-sm" onclick="delRevendedora(${r.id})">Remover revendedora</button>
+        <button class="btn btn-danger btn-sm" onclick="delRevendedora(${r.id})">Arquivar revendedora</button>
       </div>
     </div>`;
 
@@ -1952,8 +2047,9 @@ function resumoMaleta(m){
   let prataQ=0, prataV=0, maisCara=null;
   linhas.forEach(([sku,q])=>{
     const p=idx.get(sku); if(!p) return;
-    if(isPrata(p.desc)){ prataQ+=q; prataV+=p.preco*q; }
-    if(!maisCara||p.preco>maisCara.preco) maisCara=p;
+    const preco=precoEnvio(m,sku)||0;
+    if(isPrata(p.desc)){ prataQ+=q; prataV+=preco*q; }
+    if(!maisCara||preco>maisCara.preco) maisCara={preco};
   });
   const cats=dadosDeItens(m.itens);
   const topo=cats.slice().sort((a,b)=>b.qtd-a.qtd)[0];
@@ -1967,13 +2063,17 @@ function resumoMaleta(m){
     <div class="rs-row total"><span>Valor na maleta</span><b>${money(valor)}</b></div>
   </div>`;
 }
-function setDataMaleta(id,campo,v){
+async function setDataMaleta(id,campo,v){
   const m=state.maletas.find(x=>x.id===id);
   if(!m) return;
-  if(v===''){ m[campo]=null; }
-  else if(/^\d{4}-\d{2}-\d{2}$/.test(v)){ m[campo]=v; }
+  let val;
+  if(v===''){ val=null; }
+  else if(/^\d{4}-\d{2}-\d{2}$/.test(v)){ val=v; }
   else return;
-  save();renderRev(m.revId);renderTabs();
+  try{
+    await api('PATCH',`/api/maletas/${id}`,{[campo]:val});
+    await sincronizar();
+  }catch(e){ toast(e.message); }
 }
 function addDias(iso,d){
   if(!iso) return '';
@@ -1995,39 +2095,47 @@ function openRevForm(id){
   setTimeout(()=>document.getElementById('rf-nome').focus(),80);
 }
 function closeRevForm(){document.getElementById('revOverlay').classList.remove('show');}
-function saveRevendedora(){
+async function saveRevendedora(){
   const nome=document.getElementById('rf-nome').value.trim();
   if(!nome){toast('Coloque o nome');return;}
   const id=document.getElementById('revEditId').value;
   const dados={nome, tel:document.getElementById('rf-tel').value.trim(),
     cidade:document.getElementById('rf-cidade').value.trim(),
     cpf:document.getElementById('rf-cpf').value.trim()};
-  if(id){
-    Object.assign(state.revendedoras.find(x=>x.id==id),dados);
-    toast('Dados atualizados');
-  }else{
-    const novo=Object.assign({id:state.seqRev++,criadaEm:hoje()},dados);
-    state.revendedoras.push(novo);
-    save();closeRevForm();switchTab('rev:'+novo.id);toast('Revendedora criada');
-    return;
-  }
-  save();closeRevForm();renderAll();
+  try{
+    if(id){
+      await api('PATCH',`/api/revendedoras/${id}`,dados);
+      closeRevForm();
+      await sincronizar();
+      toast('Dados atualizados');
+    }else{
+      const novo=await api('POST','/api/revendedoras',dados);
+      closeRevForm();
+      await sincronizar();
+      switchTab('rev:'+novo.id);
+      toast('Revendedora criada');
+    }
+  }catch(e){ toast(e.message); }
 }
-function delRevendedora(id){
+/* Arquivar, não apagar (§28) — o histórico da revendedora continua guardado.
+   O servidor recusa arquivar quem tem maleta aberta (409). */
+async function delRevendedora(id){
   const r=state.revendedoras.find(x=>x.id===id);
-  const abertas=state.maletas.filter(m=>m.revId===id&&m.status!=='fechada');
-  if(abertas.length){
-    const q=abertas.reduce((s,m)=>s+qtdMaleta(m),0);
-    if(!confirm(`${r.nome} tem uma maleta aberta com ${q} peças.\n\nRemover devolve essas peças ao seu estoque e apaga o histórico dela. Continuar?`)) return;
-  }else if(!confirm(`Remover ${r.nome} e todo o histórico dela?`)) return;
-  state.maletas=state.maletas.filter(m=>m.revId!==id);
-  state.revendedoras=state.revendedoras.filter(x=>x.id!==id);
-  save();switchTab('geral');toast('Revendedora removida');
+  if(!r) return;
+  if(!confirm(`Arquivar ${r.nome}?\n\nEla some das abas ativas, mas o histórico dela continua guardado. Não é possível arquivar com maleta aberta.`)) return;
+  try{
+    await api('POST',`/api/revendedoras/${id}/arquivar`);
+    switchTab('geral');
+    await sincronizar();
+    toast('Revendedora arquivada');
+  }catch(e){ toast(e.message); }
 }
-function novaMaleta(revId){
-  const m={id:state.seqMal++, revId, status:'aberta', abertaEm:hoje(), acertoEm:addDias(hoje(),state.config.prazoDias), itens:{}};
-  state.maletas.push(m);save();
-  openScan('add',m.id,true);   /* true = recém-criada; se cancelar, some */
+async function novaMaleta(revId){
+  try{
+    const m=await api('POST','/api/maletas',{revId, acertoEm:addDias(hoje(),state.config.prazoDias)});
+    await carregarEstado();   /* só recarrega — quem renderiza é o overlay de bipagem */
+    openScan('add',m.id,true);   /* true = recém-criada; se cancelar, cancela na API */
+  }catch(e){ toast(e.message); }
 }
 
 /* =================== Bipagem =================== */
@@ -2068,16 +2176,20 @@ function focoScan(){
   i.value='';
   setTimeout(()=>i.focus(),60);
 }
-function closeScan(){
+async function closeScan(){
   if(scan&&Object.keys(scan.itens).length&&!confirm('Sair agora descarta o que você bipou. Continuar?')) return;
   /* maleta aberta pelo botão "Montar maleta" e abandonada vazia não deve ficar de lembrança */
-  if(scan&&scan.novaVazia){
-    const m=state.maletas.find(x=>x.id===scan.maletaId);
-    if(m&&!qtdMaleta(m)){ state.maletas=state.maletas.filter(x=>x.id!==m.id); save(); }
-  }
+  const novaVazia=scan&&scan.novaVazia, maletaId=scan&&scan.maletaId;
   document.getElementById('scanOverlay').classList.remove('show');
   scan=null;
-  renderAll();
+  if(novaVazia){
+    const m=state.maletas.find(x=>x.id===maletaId);
+    if(m&&!qtdMaleta(m)){
+      try{ await api('POST',`/api/maletas/${maletaId}/cancelar`,{motivo:'maleta vazia abandonada'}); }
+      catch(e){ /* se falhar, o próximo /state ainda vai mostrá-la — nada crítico */ }
+    }
+  }
+  await sincronizar();
 }
 function fbScan(ok,msg){
   const box=document.getElementById('scanBox'), fb=document.getElementById('scanFb');
@@ -2125,9 +2237,12 @@ function scanUndo(){
 }
 function renderScan(destaque){
   const idx=prodIndex();
+  /* No acerto o preço que vale é o congelado no envio, não o atual do catálogo */
+  const m=scan.modo==='acerto'?state.maletas.find(x=>x.id===scan.maletaId):null;
   const linhas=Object.entries(scan.itens).map(([sku,q])=>{
     const p=idx.get(sku);
-    return {sku,q,desc:p?p.desc:sku,preco:p?p.preco:0};
+    const preco=m?(precoEnvio(m,sku)||0):(p&&p.preco!=null?p.preco:0);
+    return {sku,q,desc:p?p.desc:sku,preco};
   }).sort((a,b)=>a.desc.localeCompare(b.desc,'pt'));
 
   const qtd=linhas.reduce((s,l)=>s+l.q,0);
@@ -2153,7 +2268,7 @@ function renderScan(destaque){
     if(el) el.scrollIntoView({block:'nearest'});
   }
 }
-function scanFinish(){
+async function scanFinish(){
   if(!scan) return;
   if(!Object.keys(scan.itens).length){
     /* no acerto, voltar de mãos vazias é um resultado válido: vendeu tudo */
@@ -2162,13 +2277,21 @@ function scanFinish(){
   }
   const m=state.maletas.find(x=>x.id===scan.maletaId);
   if(scan.modo==='add'){
-    Object.entries(scan.itens).forEach(([sku,q])=>{ m.itens[sku]=(m.itens[sku]||0)+q; });
-    save();
-    const total=Object.values(scan.itens).reduce((s,q)=>s+q,0);
-    document.getElementById('scanOverlay').classList.remove('show');
-    const rev=m.revId;scan=null;
-    switchTab('rev:'+rev);
-    toast(`${total} ${plural(total,'peça adicionada','peças adicionadas')} à maleta`);
+    const itens=Object.assign({},scan.itens), maletaId=scan.maletaId, revId=m.revId;
+    const total=Object.values(itens).reduce((s,q)=>s+q,0);
+    try{
+      const r=await api('POST',`/api/maletas/${maletaId}/itens`,{itens});
+      document.getElementById('scanOverlay').classList.remove('show');
+      scan=null;
+      await sincronizar();
+      switchTab('rev:'+revId);
+      if(r.recusados&&r.recusados.length){
+        toast(`${r.adicionados} ${plural(r.adicionados,'peça adicionada','peças adicionadas')} · ${r.recusados.length} recusadas`);
+        setTimeout(()=>alert('Peças recusadas:\n\n• '+r.recusados.map(x=>`${x.sku}${x.desc?' — '+x.desc:''}: ${x.motivo}`).join('\n• ')),400);
+      }else{
+        toast(`${total} ${plural(total,'peça adicionada','peças adicionadas')} à maleta`);
+      }
+    }catch(e){ toast(e.message); }
   }else{
     const devolvidas=Object.assign({},scan.itens);
     document.getElementById('scanOverlay').classList.remove('show');
@@ -2180,10 +2303,12 @@ function scanFinish(){
 /* =================== Acerto =================== */
 let acerto=null; /* {maletaId, devolvidas:{}, faltas:[{sku,linhas:[{qtd,destino}]}]} */
 
+/* Valores batem com o enum aceito pelo servidor em POST /maletas/:id/acerto. */
 const DESTINOS=[
   {v:'vendida',   t:'Vendida'},
   {v:'perdida',   t:'Perdida'},
-  {v:'danificada',t:'Danificada'},
+  {v:'quebra',    t:'Quebrada'},
+  {v:'dano',      t:'Danificada'},
   {v:'brinde',    t:'Brinde'},
   {v:'troca',     t:'Troca'},
   {v:'ficou',     t:'Ficou com ela'}
@@ -2253,8 +2378,8 @@ function renderAcerto(){
   acerto.faltas.forEach(f=>f.linhas.forEach(l=>{
     if(l.destino==='vendida'&&l.qtd>0) vendidos.push({sku:f.sku,qtd:l.qtd});
   }));
-  const c=calcComissao(vendidos);
-  const perdas=acerto.faltas.reduce((s,f)=>s+f.linhas.filter(l=>['perdida','danificada'].includes(l.destino)).reduce((a,l)=>a+l.qtd,0),0);
+  const c=calcComissao(vendidos,m);
+  const perdas=acerto.faltas.reduce((s,f)=>s+f.linhas.filter(l=>['perdida','quebra','dano'].includes(l.destino)).reduce((a,l)=>a+l.qtd,0),0);
   const ficam=acerto.faltas.reduce((s,f)=>s+f.linhas.filter(l=>l.destino==='ficou').reduce((a,l)=>a+l.qtd,0),0);
 
   const devLinhas=Object.entries(acerto.devolvidas).filter(([,q])=>q>0)
@@ -2277,7 +2402,7 @@ function renderAcerto(){
           const p=idx.get(f.sku)||{};
           return f.linhas.map((l,j)=>`
             <div class="destrow">
-              ${j===0?`<div class="dr-desc">${esc(p.desc||f.sku)}<small>${esc(f.sku)} · ${money(p.preco||0)}</small></div>`
+              ${j===0?`<div class="dr-desc">${esc(p.desc||f.sku)}<small>${esc(f.sku)} · ${money(precoEnvio(m,f.sku)||0)}</small></div>`
                      :`<div class="dr-desc" style="padding-left:14px;color:var(--muted)">↳ parte desta peça</div>`}
               <input class="dr-q" type="number" min="0" value="${l.qtd}" onchange="acSetQtd(${i},${j},this.value)">
               <select onchange="acSetDestino(${i},${j},this.value)">
@@ -2307,7 +2432,7 @@ function renderAcerto(){
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
       <div>Ao confirmar: as devolvidas voltam para o seu estoque, as vendidas e perdidas saem
       do estoque total${ficam?', e as que ficaram com ela vão para uma maleta nova':''}.
-      <b>Isso não pode ser desfeito</b> — baixe um backup antes se quiser garantia.</div>
+      <b>Isso não pode ser desfeito.</b></div>
     </div>
 
     <div class="mfoot">
@@ -2317,57 +2442,33 @@ function renderAcerto(){
     </div>`;
 }
 
-function confirmarAcerto(){
+/* O servidor recalcula tudo (§9, §11, §12) e devolve o acerto oficial —
+   o preview acima é só para conferência antes de mandar. */
+async function confirmarAcerto(){
   const m=state.maletas.find(x=>x.id===acerto.maletaId);
-  const idx=prodIndex();
-
-  const vendidos=[];
-  let baixas=0, perdas=0;
-  const ficam={};
-
-  acerto.faltas.forEach(f=>f.linhas.forEach(l=>{
-    if(l.qtd<=0) return;
-    if(l.destino==='ficou'){ ficam[f.sku]=(ficam[f.sku]||0)+l.qtd; return; }
-    /* vendida, perdida, danificada, brinde e troca saem do estoque total */
-    const p=idx.get(f.sku);
-    if(p) p.qtd=Math.max(0,(p.qtd||0)-l.qtd);
-    baixas+=l.qtd;
-    if(l.destino==='vendida') vendidos.push({sku:f.sku,qtd:l.qtd});
-    if(l.destino==='perdida'||l.destino==='danificada') perdas+=l.qtd;
-  }));
-
-  const c=calcComissao(vendidos);
-  const totDev=Object.values(acerto.devolvidas).reduce((s,q)=>s+q,0);
-
-  m.status='fechada';
-  m.fechadaEm=hoje();
-  m.acerto={
-    enviadas:qtdMaleta(m),
-    devolvidas:totDev,
-    vendidas:vendidos.reduce((s,v)=>s+v.qtd,0),
-    perdas,
-    baixas,
-    totalVendido:c.totalVendido,
-    pct:c.pct,
-    comissao:c.comissao,
-    liquido:c.liquido,
-    dias:m.abertaEm?diasDesde(m.abertaEm):null,
-    detalhe:acerto.faltas.map(f=>({sku:f.sku,linhas:f.linhas.filter(l=>l.qtd>0)}))
-  };
-
-  /* o que ela continua com: nasce uma maleta nova, já aberta */
   const revId=m.revId;
-  if(Object.keys(ficam).length){
-    state.maletas.push({id:state.seqMal++, revId, status:'aberta', abertaEm:hoje(),
-      acertoEm:addDias(hoje(),state.config.prazoDias), itens:ficam,
-      obs:'Continuação da maleta de '+fmtData(m.abertaEm||m.acertoEm)});
+  const faltas=acerto.faltas
+    .map(f=>({sku:f.sku, linhas:f.linhas.filter(l=>l.qtd>0).map(l=>({qtd:l.qtd,destino:l.destino}))}))
+    .filter(f=>f.linhas.length);
+  const btn=document.querySelector('#acBody .btn-gold');
+  if(btn) btn.disabled=true;
+  try{
+    const r=await api('POST',`/api/maletas/${acerto.maletaId}/acerto`,{devolvidas:acerto.devolvidas, faltas});
+    document.getElementById('acOverlay').classList.remove('show');
+    acerto=null;
+    await sincronizar();
+    switchTab('rev:'+revId);
+    toast(`Acerto fechado · ${money(r.acerto.liquido)} a receber`);
+  }catch(e){
+    if(e.data&&e.data.semPreco&&e.data.semPreco.length){
+      toast('Há peça sem preço — não dá para fechar o acerto');
+      alert('Defina o preço destas peças em Meu estoque antes de fechar o acerto:\n\n• '
+        +e.data.semPreco.map(x=>`${x.sku}${x.desc?' — '+x.desc:''}`).join('\n• '));
+    }else{
+      toast(e.message);
+    }
+    if(btn) btn.disabled=false;
   }
-
-  save();
-  document.getElementById('acOverlay').classList.remove('show');
-  acerto=null;
-  switchTab('rev:'+revId);
-  toast(`Acerto fechado · ${money(c.liquido)} a receber`);
 }
 
 /* =================== Importação =================== */
@@ -2423,7 +2524,9 @@ function detectar(){
   }).filter(d=>d.tipo!=='vazia');
 
   const box=document.getElementById('impSheets');
-  const opcoesRev=()=>state.revendedoras.map(r=>`<option value="rev:${r.id}">Maleta de ${esc(r.nome)}</option>`).join('');
+  /* só revendedoras ativas recebem maleta nova */
+  const opcoesRev=()=>state.revendedoras.filter(r=>r.status!=='inativa')
+    .map(r=>`<option value="rev:${r.id}">Maleta de ${esc(r.nome)}</option>`).join('');
 
   box.innerHTML=impDetect.map((d,i)=>`
     <div class="sheetrow">
@@ -2500,34 +2603,54 @@ function colDe(head,...nomes){
   return -1;
 }
 
-function doImport(){
-  let nProd=0, nMaletas=0, nLoja=0, notas=[];
+/* Importação vira uma sequência de chamadas: catálogo primeiro (os passos
+   seguintes precisam de preço/descrição atualizados), depois loja, depois
+   maletas. sincronizar() entre cada etapa para o estado local refletir o
+   que o servidor já gravou antes do próximo passo ler. */
+async function doImport(){
+  const btn=document.querySelector('#impStep2 .btn-gold');
+  if(btn) btn.disabled=true;
+  let nProd=0, nMaletas=0, nLoja=0; const notas=[];
+  try{
+    for(let i=0;i<impDetect.length;i++){
+      if(document.getElementById('impAlvo'+i).value==='catalogo')
+        nProd+=await importarCatalogo(impDetect[i],notas);
+    }
+    if(nProd) await sincronizar();
 
-  impDetect.forEach((d,i)=>{
-    const alvo=document.getElementById('impAlvo'+i).value;
-    if(alvo==='ignorar') return;
+    for(let i=0;i<impDetect.length;i++){
+      if(document.getElementById('impAlvo'+i).value==='loja')
+        nLoja+=await importarLoja(impDetect[i],notas);
+    }
+    if(nLoja) await sincronizar();
 
-    if(alvo==='catalogo'){ nProd+=importarCatalogo(d,notas); return; }
-    if(alvo==='loja'){ nLoja+=importarLoja(d,notas); return; }
+    for(let i=0;i<impDetect.length;i++){
+      const d=impDetect[i], alvo=document.getElementById('impAlvo'+i).value;
+      if(alvo==='ignorar'||alvo==='catalogo'||alvo==='loja') continue;
 
-    /* maleta: alvo é 'nova' ou 'rev:<id>' */
-    let revId;
-    if(alvo==='nova'){
-      const nome=(d.nomeRev||'').trim()||prompt('Nome da revendedora desta maleta:','')||'';
-      if(!nome.trim()){notas.push(`A aba "${d.nome}" foi pulada: sem nome de revendedora.`);return;}
-      const existe=state.revendedoras.find(r=>r.nome.toLowerCase()===nome.trim().toLowerCase());
-      if(existe) revId=existe.id;
-      else{
-        const novo={id:state.seqRev++,nome:nome.trim(),criadaEm:hoje()};
-        state.revendedoras.push(novo);revId=novo.id;
-      }
-    }else revId=+alvo.split(':')[1];
+      /* maleta: alvo é 'nova' ou 'rev:<id>' */
+      let revId;
+      if(alvo==='nova'){
+        const nome=(d.nomeRev||'').trim()||prompt('Nome da revendedora desta maleta:','')||'';
+        if(!nome.trim()){notas.push(`A aba "${d.nome}" foi pulada: sem nome de revendedora.`);continue;}
+        const existe=state.revendedoras.find(r=>r.nome.toLowerCase()===nome.trim().toLowerCase());
+        if(existe) revId=existe.id;
+        else{
+          const novo=await api('POST','/api/revendedoras',{nome:nome.trim()});
+          revId=novo.id;
+          await sincronizar();
+        }
+      }else revId=+alvo.split(':')[1];
 
-    const r=importarMaleta(d,revId,notas);
-    if(r) nMaletas++;
-  });
+      if(await importarMaleta(d,revId,notas)) nMaletas++;
+    }
+    await sincronizar();
+  }catch(e){
+    toast('Erro na importação: '+e.message);
+  }finally{
+    if(btn) btn.disabled=false;
+  }
 
-  save();
   closeImport();
   renderAll();
   const msg=[nProd?`${nProd} códigos no catálogo`:'',
@@ -2538,7 +2661,7 @@ function doImport(){
   if(notas.length) setTimeout(()=>alert('Observações da importação:\n\n• '+notas.join('\n• ')),400);
 }
 
-function importarCatalogo(d,notas){
+async function importarCatalogo(d,notas){
   const head=d.linhas[d.hi];
   const cSku=colDe(head,'id produto marquesa','id produto','sku','código','codigo');
   const cDesc=colDe(head,'nome produto','descrição','descricao','nome');
@@ -2575,35 +2698,28 @@ function importarCatalogo(d,notas){
   });
 
   if(somados.length)
-    notas&&notas.push(`${somados.length} ${plural(somados.length,'código com sufixo foi somado','códigos com sufixo foram somados')} `
+    notas.push(`${somados.length} ${plural(somados.length,'código com sufixo foi somado','códigos com sufixo foram somados')} `
       +`no código base (${somados.slice(0,4).join(', ')}${somados.length>4?'…':''}), porque é a mesma peça comprada depois.`);
   if(conflitos.length)
-    notas&&notas.push(`ATENÇÃO: ${conflitos.length} ${plural(conflitos.length,'código com sufixo tem','códigos com sufixo têm')} `
+    notas.push(`ATENÇÃO: ${conflitos.length} ${plural(conflitos.length,'código com sufixo tem','códigos com sufixo têm')} `
       +`descrição diferente da base (${conflitos.slice(0,3).map(c=>c.bruto).join(', ')}). Foram somados assim mesmo — confira se são a mesma peça.`);
 
-  const idx=prodIndex();
-  let n=0;
-  juntos.forEach(l=>{
-    const ex=idx.get(l.sku);
-    if(ex){
-      if(l.desc) ex.desc=l.desc;
-      if(l.preco) ex.preco=l.preco;
-      ex.qtd=l.qtd;
-      ex.cat=catOf(ex.desc);
-    }else{
-      const novo={sku:l.sku, desc:l.desc||l.sku, cat:catOf(l.desc), preco:l.preco, qtd:l.qtd};
-      state.produtos.push(novo);idx.set(l.sku,novo);
-    }
-    n++;
+  const produtos=[...juntos.values()].map(l=>({sku:l.sku, desc:l.desc||l.sku, cat:catOf(l.desc), preco:l.preco, qtd:l.qtd}));
+  if(!produtos.length) return 0;
+  const r=await api('POST','/api/produtos/importar',{produtos});
+  (r.avisos||[]).forEach(a=>{
+    if(a.tipo==='sem_preco') notas.push(`${a.sku||''} ficou sem preço — ${a.detalhe||'confira o valor na planilha.'}`);
+    else if(a.tipo==='sku_vazio') notas.push('Uma linha sem código foi ignorada.');
+    else if(a.tipo==='categoria_desconhecida') notas.push(`${a.sku||''}: categoria "${a.detalhe}" não existe — foi classificado como Outros.`);
+    else if(a.detalhe) notas.push(a.detalhe);
   });
-  return n;
+  return produtos.length;
 }
 
-/* Lê o export da Nuvemshop e guarda, por SKU, a chave que a loja usa na
-   importação em massa (Identificador URL), além do estoque publicado e da
-   visibilidade. Não mexe no estoque do dashboard: a loja é o espelho, não a
+/* Lê o export da Nuvemshop e envia o retrato da loja + os pares SKU↔produto
+   ao servidor. Não mexe no estoque do dashboard: a loja é o espelho, não a
    fonte da verdade. */
-function importarLoja(d,notas){
+async function importarLoja(d,notas){
   const head=d.linhas[d.hi];
   const cUrl=colDe(head,'identificador url');
   const cSku=colDe(head,'sku');
@@ -2642,15 +2758,18 @@ function importarLoja(d,notas){
 
   let casados=0, novos=0;
   const urlsCasadas=new Set();
+  const produtos=[];
   porSku.forEach((v,sku)=>{
     const p=idx.get(sku);
-    if(p){ Object.assign(p,v); casados++; urlsPorSku.get(sku).forEach(u=>urlsCasadas.add(u)); }
-    else novos++;
+    if(p){
+      casados++; urlsPorSku.get(sku).forEach(u=>urlsCasadas.add(u));
+      produtos.push({sku, urlLoja:v.urlLoja, estoqueLoja:v.estoqueLoja, visivel:v.visivel, nomeLoja:v.nomeLoja});
+    }else novos++;
   });
 
   /* Retrato da loja, medido no arquivo e não deduzido depois: é o que
      responde "por que o painel da Nuvemshop mostra outro número". */
-  state.loja={
+  const snapshot={
     lidoEm:hoje(),
     produtosNaLoja:urlsDoArquivo.size,
     produtosCasados:urlsCasadas.size,
@@ -2658,23 +2777,32 @@ function importarLoja(d,notas){
     codigosCasados:casados,
     duplicados:[...urlsPorSku.entries()].filter(([sku,u])=>u.size>1&&idx.has(sku)).map(([sku])=>sku)
   };
-  /* limpa a marca de quem saiu da loja desde o último export */
-  state.produtos.forEach(p=>{ if(!porSku.has(p.sku)) { delete p.urlLoja; delete p.estoqueLoja; delete p.visivel; } });
 
-  const semCadastro=state.produtos.filter(p=>!p.urlLoja);
+  const r=await api('POST','/api/loja/importar',{snapshot,produtos});
+
+  const semCadastro=state.produtos.filter(p=>!porSku.has(p.sku));
   const pecasSem=semCadastro.reduce((s,p)=>s+Math.max(0,(p.qtd||0)-(comRevMap()[p.sku]||0)),0);
-  notas&&notas.push(`${casados} dos seus códigos foram casados com a loja.`);
-  if(novos) notas&&notas.push(`${novos} produtos existem na loja mas não no seu catálogo — não foram criados aqui.`);
+  notas.push(`${casados} dos seus códigos foram casados com a loja.`);
+  if(novos) notas.push(`${novos} produtos existem na loja mas não no seu catálogo — não foram criados aqui.`);
   if(semCadastro.length)
-    notas&&notas.push(`${semCadastro.length} códigos seus NÃO têm cadastro na loja (${pecasSem} peças em casa que não podem vender). Veja o filtro "Fora da loja" em Meu estoque.`);
-  return casados;
+    notas.push(`${semCadastro.length} códigos seus NÃO têm cadastro na loja (${pecasSem} peças em casa que não podem vender). Veja o filtro "Fora da loja" em Meu estoque.`);
+  return r.n!=null?r.n:casados;
 }
 
-/* Monta a maleta e, quando possível, tira as peças do bolo "A identificar"
-   em vez do estoque de casa — assim nada é contado duas vezes. */
-function importarMaleta(d,revId,notas){
+/* Monta a maleta. Códigos do documento que ainda não existem no catálogo
+   são criados com 0 em estoque antes de bipar — o servidor só consigna o
+   que existe e está disponível (§19), então essas linhas podem voltar
+   como recusadas até o estoque real ser ajustado. */
+async function importarMaleta(d,revId,notas){
   const itens={};
   const brigaPreco=[];
+  const novosProdutos=new Map();
+  function marcarNovo(sku,desc,preco){
+    if(prodIndex().has(sku)||novosProdutos.has(sku)) return;
+    const dsc=String(desc||'').trim();
+    novosProdutos.set(sku,{sku, desc:dsc||sku, cat:catOf(dsc), preco:preco||0, qtd:0});
+  }
+
   if(d.formato==='anexo'){
     const head=d.linhas[d.hi];
     const cCod=colDe(head,'código','codigo'), cDesc=colDe(head,'descrição','descricao'), cVal=colDe(head,'valor');
@@ -2683,7 +2811,7 @@ function importarMaleta(d,revId,notas){
       if(!sku) return;
       itens[sku]=(itens[sku]||0)+1;                    /* 1 linha = 1 unidade */
       const val=cVal>=0?num(l[cVal]):0;
-      garantirProduto(sku, cDesc>=0?l[cDesc]:'', val);
+      marcarNovo(sku, cDesc>=0?l[cDesc]:'', val);
       /* preço do documento brigando com o do catálogo: nunca resolve sozinho, avisa */
       const p=prodIndex().get(sku);
       if(p&&val&&p.preco&&Math.abs(p.preco-val)>0.005&&!brigaPreco.some(b=>b.sku===sku))
@@ -2702,53 +2830,34 @@ function importarMaleta(d,revId,notas){
       const q=cQtd>=0?int(l[cQtd]):1;
       if(q<=0) return;
       itens[sku]=(itens[sku]||0)+q;
-      garantirProduto(sku, cDesc>=0?l[cDesc]:'', cVal>=0?num(l[cVal]):0);
+      marcarNovo(sku, cDesc>=0?l[cDesc]:'', cVal>=0?num(l[cVal]):0);
     });
   }
   if(!Object.keys(itens).length) return false;
 
-  /* transfere do "A identificar", se houver */
-  const naoIdent=state.revendedoras.find(r=>/a identificar/i.test(r.nome));
-  let transferidas=0;
-  if(naoIdent&&naoIdent.id!==revId){
-    const mal=maletaAbertaDe(naoIdent.id);
-    if(mal){
-      Object.entries(itens).forEach(([sku,q])=>{
-        const disp=mal.itens[sku]||0;
-        const mover=Math.min(disp,q);
-        if(mover>0){
-          mal.itens[sku]-=mover;
-          if(mal.itens[sku]<=0) delete mal.itens[sku];
-          transferidas+=mover;
-        }
-      });
-      if(!qtdMaleta(mal)) state.maletas=state.maletas.filter(x=>x.id!==mal.id);
-    }
+  if(novosProdutos.size){
+    await api('POST','/api/produtos/importar',{produtos:[...novosProdutos.values()]});
+    await sincronizar();
+    notas.push(`${novosProdutos.size} códigos do documento não estavam no catálogo e foram criados com 0 em estoque — ajuste a quantidade em Meu estoque se o acerto recusar alguma peça.`);
   }
-  if(transferidas) notas.push(`${transferidas} peças saíram de "A identificar" para ${revNome(revId)} — nada foi contado em dobro.`);
 
   if(brigaPreco.length)
     notas.push(`${brigaPreco.length} ${plural(brigaPreco.length,'peça tem preço diferente','peças têm preço diferente')} no documento e no catálogo `
       +`(${brigaPreco.slice(0,3).map(b=>`${b.sku}: R$ ${b.doc} no documento, R$ ${b.cat} no catálogo`).join('; ')}). `
       +`O dashboard usa sempre o preço do catálogo — corrija lá se o certo for o outro.`);
 
-  /* estoque insuficiente é aviso, não bloqueio: a planilha é a verdade do que saiu */
-  const casa=emCasaMap();
-  const estouro=Object.entries(itens).filter(([sku,q])=>(casa[sku]||0)<q);
-  if(estouro.length)
-    notas.push(`${estouro.length} ${plural(estouro.length,'código ficou','códigos ficaram')} com mais peças na rua do que no cadastro `
-      +`(${estouro.slice(0,3).map(e=>e[0]).join(', ')}${estouro.length>3?'…':''}). `
-      +`${plural(estouro.length,'Confira a quantidade total dele','Confira a quantidade total deles')} em Meu estoque.`);
-
-  const existente=maletaAbertaDe(revId);
-  if(existente){
-    Object.entries(itens).forEach(([sku,q])=>{existente.itens[sku]=(existente.itens[sku]||0)+q;});
-  }else{
+  let m=maletaAbertaDe(revId);
+  if(!m){
     /* A data que o Anexo I traz é o dia combinado do acerto, não a saída. */
-    const dt=dataDoAnexo(d);
+    const dt=d.formato==='anexo'?dataDoAnexo(d):null;
     if(dt) notas.push(`Acerto de ${revNome(revId)} marcado para ${fmtData(dt)}, conforme o documento.`);
-    state.maletas.push({id:state.seqMal++, revId, status:'aberta', abertaEm:null, acertoEm:dt||null, itens});
+    m=await api('POST','/api/maletas',{revId, acertoEm:dt||addDias(hoje(),state.config.prazoDias)});
   }
+  const r=await api('POST',`/api/maletas/${m.id}/itens`,{itens});
+  if(r.recusados&&r.recusados.length)
+    notas.push(`${r.recusados.length} ${plural(r.recusados.length,'peça foi recusada','peças foram recusadas')} na maleta de ${revNome(revId)}: `
+      +r.recusados.slice(0,4).map(x=>`${x.sku} (${x.motivo})`).join(', ')+(r.recusados.length>4?'…':''));
+  await sincronizar();
   return true;
 }
 function dataDoAnexo(d){
@@ -2759,17 +2868,6 @@ function dataDoAnexo(d){
     }
   }
   return null;
-}
-function garantirProduto(sku,desc,preco){
-  const idx=prodIndex();
-  if(idx.has(sku)){
-    const p=idx.get(sku);
-    if(!p.desc&&desc) {p.desc=String(desc).trim();p.cat=catOf(p.desc);}
-    if(!p.preco&&preco) p.preco=preco;
-    return;
-  }
-  const d=String(desc||'').trim();
-  state.produtos.push({sku, desc:d||sku, cat:catOf(d), preco:preco||0, qtd:0});
 }
 
 /* =================== Exportações =================== */
@@ -2848,24 +2946,15 @@ function exportData(){
   baixar(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),`Marquesa revendedoras ${hoje()}.json`);
   toast('Backup baixado');
 }
+/* Os dados agora moram no servidor — restaurar um arquivo antigo por cima
+   ou apagar tudo daqui não existe mais como operação (não há rota para
+   isso na API, de propósito: §28 não apaga histórico). */
 function importData(inp){
-  const f=inp.files[0];if(!f)return;
-  const fr=new FileReader();
-  fr.onload=e=>{
-    try{
-      const s=JSON.parse(e.target.result);
-      if(!s||!Array.isArray(s.produtos)) throw 0;
-      if(!confirm('Restaurar o backup substitui tudo que está aqui agora. Continuar?')) return;
-      state=migrate(s);save();renderAll();closeSettings();toast('Backup restaurado');
-    }catch(err){toast('Arquivo de backup inválido');}
-  };
-  fr.readAsText(f);
   inp.value='';
+  toast('Os dados agora vivem na nuvem — não há como restaurar um backup por aqui.');
 }
 function wipeAll(){
-  if(!confirm('Apagar estoque, revendedoras e histórico deste aparelho?')) return;
-  if(!confirm('Tem certeza mesmo? Isso não volta.')) return;
-  state=defaultState();save();switchTab('geral');toast('Tudo apagado');
+  toast('Os dados agora vivem na nuvem — apagar tudo não está disponível por aqui.');
 }
 
 /* =================== Anexo I para impressão =================== */
@@ -2876,8 +2965,9 @@ function printAnexo(maletaId){
   const idx=prodIndex();
   const linhas=[];
   Object.entries(m.itens).forEach(([sku,q])=>{
-    const p=idx.get(sku)||{desc:sku,preco:0};
-    for(let i=0;i<q;i++) linhas.push({sku,desc:p.desc,preco:p.preco});
+    const p=idx.get(sku)||{desc:sku};
+    const preco=precoEnvio(m,sku)||0;
+    for(let i=0;i<q;i++) linhas.push({sku,desc:p.desc,preco});
   });
   linhas.sort((a,b)=>a.desc.localeCompare(b.desc,'pt'));
   const total=linhas.reduce((s,l)=>s+l.preco,0);
@@ -2900,19 +2990,25 @@ function printAnexo(maletaId){
 /* =================== Ajustes =================== */
 function openSettings(){document.getElementById('setOverlay').classList.add('show');renderFaixas();}
 function closeSettings(){document.getElementById('setOverlay').classList.remove('show');}
-function setPrazo(v){
+async function setPrazo(v){
   const n=Math.max(1,int(v)||45);
-  state.config.prazoDias=n;document.getElementById('setPrazo').value=n;save();renderAll();
+  try{ await api('PUT','/api/config',{prazoDias:n}); await sincronizar(); }
+  catch(e){ toast(e.message); }
+  renderFaixas();
 }
 function nudgePrazo(d){setPrazo(state.config.prazoDias+d);}
-function setPrata(v){
+async function setPrata(v){
   const n=Math.min(100,Math.max(0,int(v)));
-  state.config.prataPct=n;document.getElementById('setPrata').value=n;save();
+  try{ await api('PUT','/api/config',{prataPct:n}); await sincronizar(); }
+  catch(e){ toast(e.message); }
+  renderFaixas();
 }
 function nudgePrata(d){setPrata(state.config.prataPct+d);}
-function setFaixa(i,v){
-  state.config.faixas[i].pct=Math.min(100,Math.max(0,int(v)));
-  save();renderFaixas();
+async function setFaixa(i,v){
+  const faixas=state.config.faixas.map((f,idx)=>idx===i?Object.assign({},f,{pct:Math.min(100,Math.max(0,int(v)))}):f);
+  try{ await api('PUT','/api/config',{faixas}); await sincronizar(); }
+  catch(e){ toast(e.message); }
+  renderFaixas();
 }
 function renderFaixas(){
   const box=document.getElementById('faixasBox');
@@ -2961,7 +3057,7 @@ function renderAll(){
     else switchTab('geral');
   }
 }
-renderAll();
+boot();
 
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
