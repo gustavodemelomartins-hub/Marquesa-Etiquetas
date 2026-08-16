@@ -1932,11 +1932,85 @@ function panoramaLoja(){
   };
 }
 
+/* Estado da ligação automática com a Nuvemshop.
+   Três situações, e cada uma pede uma frase diferente: desligada (falta o
+   token), pausada (o freio segurou uma rodada e alguém precisa olhar), e
+   em dia. */
+function painelSync(){
+  const s=state.sync;
+  if(!s) return '';
+
+  if(!s.conectada){
+    return `<div class="warn info">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+      <div><b>A loja ainda não está ligada direto.</b> Hoje a atualização é por
+      arquivo: você gera o CSV aqui e sobe na Nuvemshop. Ligando o acesso, isso
+      passa a acontecer sozinho duas vezes por dia — e as vendas do site entram
+      aqui na hora, sem digitar nada.
+      <div class="w-act"><span class="hint">Falta cadastrar o token da loja nos ajustes do servidor.</span></div></div>
+    </div>`;
+  }
+
+  if(s.pausada){
+    return `<div class="warn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+      <div><b>A sincronização parou sozinha e não mexeu na loja.</b>
+      ${esc(s.pausada.motivo)}
+      <br>Mudança grande assim quase sempre é dado nosso torto — uma importação
+      que entrou errada, uma maleta lançada em dobro — e não a loja inteira
+      tendo esgotado. Confira os números antes de aplicar.
+      <div class="w-act">
+        <button class="btn btn-ghost btn-sm" onclick="rodarSync(false)">Conferir de novo</button>
+        <button class="btn btn-gold btn-sm" style="margin-left:8px" onclick="rodarSync(true)">Aplicar mesmo assim</button>
+      </div></div>
+    </div>`;
+  }
+
+  const quando=s.ultimaEm?fmtDataHora(s.ultimaEm):null;
+  return `<div class="warn info">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6"/></svg>
+    <div><b>Loja ligada direto.</b> ${quando?`Última sincronização em ${esc(quando)}.`:'Ainda não rodou nenhuma vez.'}
+    Roda sozinha às 6h e às 18h.
+    <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="rodarSync(false)">Sincronizar agora</button></div></div>
+  </div>`;
+}
+
+function fmtDataHora(iso){
+  const s=String(iso||'').replace(' ','T');
+  const d=new Date(/Z|[+-]\d\d:?\d\d$/.test(s)?s:s+'Z');
+  if(isNaN(d)) return fmtData(iso);
+  return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+
+async function rodarSync(forcar){
+  toast(forcar?'Aplicando na loja…':'Conversando com a Nuvemshop…');
+  try{
+    const r=await api('POST','/api/sync',{forcar:!!forcar});
+    await sincronizar();
+    if(!r.ok){ toast('Não deu certo: '+r.erro); return; }
+    if(r.pausado){ toast('Parei antes de mexer na loja — veja o aviso'); return; }
+    const partes=[];
+    if(r.vendasCriadas) partes.push(`${r.vendasCriadas} ${plural(r.vendasCriadas,'venda nova do site','vendas novas do site')}`);
+    if(r.produtosEnviados) partes.push(`${r.produtosEnviados} ${plural(r.produtosEnviados,'produto atualizado','produtos atualizados')}`);
+    toast(partes.length?partes.join(' · '):'Já estava tudo em dia');
+    if(r.itensIgnorados&&r.itensIgnorados.length){
+      setTimeout(()=>alert('Itens de pedido que não achei no catálogo:\n\n• '
+        +r.itensIgnorados.map(i=>`${i.sku} — ${i.nome||''} (pedido ${i.pedido})`).join('\n• ')
+        +'\n\nEsses não baixaram estoque. Cadastre o código e sincronize de novo.'),400);
+    }
+  }catch(e){ toast(e.message); }
+}
+
 function renderLoja(){
   const v=document.getElementById('view-loja');
 
+  /* O estado da ligação automática aparece mesmo antes de conhecer a loja:
+     é justamente aí que ele é mais útil, porque ligar o acesso direto
+     dispensa a importação de arquivo que a tela vazia está pedindo. */
+  const sincronia=painelSync();
+
   if(!temLoja()){
-    v.innerHTML=`<div class="panel"><div class="body"><div class="empty">
+    v.innerHTML=sincronia+`<div class="panel"><div class="body"><div class="empty">
       <h3>Ainda não conheço sua loja</h3>
       <p>Exporte seus produtos na Nuvemshop e importe o arquivo aqui. A partir dele
       eu mostro o que está publicado, o que está com estoque errado e o que falta subir.</p>
@@ -1964,6 +2038,7 @@ function renderLoja(){
   const reativar=L.ocultos.filter(p=>L.certo(p)>0);
 
   v.innerHTML=`
+    ${sincronia}
     <div class="kpis">
       <div class="kpi">
         <div class="k-lbl">Produtos na loja</div>

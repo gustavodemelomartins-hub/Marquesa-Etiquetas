@@ -19,3 +19,15 @@ database_id = "089153a9-cee5-4887-b789-a23b1cf419f5"
 # Para liberar mais de um endereço, separe por vírgula.
 [vars]
 ORIGENS_PERMITIDAS = "https://gustavodemelomartins-hub.github.io"
+
+# Sincronização automática com a Nuvemshop. 06:00 e 18:00 no horário de
+# Brasília (o cron da Cloudflare é sempre UTC, que está 3 horas à frente).
+#
+# Duas vezes por dia, e não de hora em hora, de propósito: cada rodada lê a
+# loja inteira, e o ganho de rodar mais vezes não paga o gasto. Quando ela
+# quiser o número na hora, o botão "sincronizar agora" no painel resolve.
+#
+# Não faz nada enquanto NUVEMSHOP_TOKEN e NUVEMSHOP_STORE_ID não existirem
+# como Secrets — a rodada termina avisando que a loja não está conectada.
+[triggers]
+crons = ["0 9,21 * * *"]

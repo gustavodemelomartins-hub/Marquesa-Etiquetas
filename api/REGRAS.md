@@ -28,7 +28,10 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §5.2 | Inventário cobra só o que está em casa | `inventario.js › SQL_ESPERADO` desconta o consignado |
 | §6.1 | Esperado congelado no fechamento | `inventario_itens.esperado` |
 | §22 | Código bipado fora do catálogo é anunciado | `inventarios.desconhecidos_json` |
-| §8 §9 | Venda de balcão e de acerto na mesma tabela | `vendas.origem = 'balcao' \| 'acerto'` |
+| §8 §9 | Venda de balcão, acerto e site na mesma tabela | `vendas.origem = 'balcao' \| 'acerto' \| 'site'` |
+| §5.1 | Puxar pedidos antes de empurrar estoque | `sync.js › sincronizar` |
+| §19 | Rodar o cron duas vezes não duplica venda | índice único `vendas.externo_id` |
+| §22 | Produto que só existe na loja não é tocado | `empurrarEstoque` ignora SKU fora do catálogo |
 
 ## Duas divergências conscientes
 
@@ -85,6 +88,25 @@ A razão prática é mais forte que a formal: peça faltando quase nunca sumiu.
 Está na bolsa, foi para a maleta sem lançar, ou a etiqueta não leu. Se o
 sistema corrigisse sozinho, o erro de contagem viraria a nova verdade sem
 deixar rastro.
+
+### 4. A sincronização tem duas mãos, nesta ordem — §5.1
+
+Puxar os pedidos do site **antes** de empurrar o estoque não é preferência
+de organização: inverter quebra o sistema.
+
+A Nuvemshop baixa o estoque dela sozinha quando alguém compra. Nós não
+ficamos sabendo. Se o empurrão viesse primeiro, ele mandaria o nosso número
+antigo — sem a venda — de volta para a loja, recolocando à venda uma peça
+que já saiu. Toda venda online seria desfeita na sincronização seguinte.
+
+Por isso `sync.js` faz `puxarPedidos()` e só então `empurrarEstoque()`, e o
+teste em `src/sync-test.mjs` prova a ordem: vende no site, sincroniza, e
+confere que a loja recebeu o número **novo**, não o anterior.
+
+O mesmo motivo torna a idempotência obrigatória: um cron pode rodar duas
+vezes, e a janela de leitura de pedidos olha 6 horas para trás de propósito
+para não perder pedido atrasado. A trava contra cobrar a mesma venda duas
+vezes é o índice único em `vendas.externo_id` — do banco, não da lógica.
 
 ## Regra que precisa de confirmação no contrato
 

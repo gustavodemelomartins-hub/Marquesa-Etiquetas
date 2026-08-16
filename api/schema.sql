@@ -143,11 +143,28 @@ CREATE TABLE IF NOT EXISTS vendas (
   cliente_nome   TEXT,                              -- vazio quando a origem é acerto
   revendedora_id INTEGER REFERENCES revendedoras(id),
   maleta_id      INTEGER REFERENCES maletas(id),
-  origem         TEXT NOT NULL DEFAULT 'balcao',    -- balcao | acerto
+  origem         TEXT NOT NULL DEFAULT 'balcao',    -- balcao | acerto | site
   data           TEXT NOT NULL,
   total          REAL NOT NULL,
   cancelada      INTEGER NOT NULL DEFAULT 0,        -- §28: cancela, não apaga
+  -- Identidade do pedido lá fora ("nuvemshop:1234"). O índice único abaixo
+  -- é o que impede uma rodada repetida da sincronização de cobrar a mesma
+  -- venda duas vezes — a trava é do banco, não da lógica que pode falhar.
+  externo_id     TEXT,
   criada_em      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Cada rodada da sincronização com a loja, para poder responder "o que o
+-- robô fez de madrugada?" sem depender de log de servidor.
+CREATE TABLE IF NOT EXISTS sync_execucoes (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  iniciado_em       TEXT,
+  terminado_em      TEXT,
+  status            TEXT,          -- rodando | ok | pausado | erro
+  pedidos_lidos     INTEGER,
+  vendas_criadas    INTEGER,
+  produtos_enviados INTEGER,
+  detalhe_json      TEXT
 );
 
 CREATE TABLE IF NOT EXISTS venda_itens (
@@ -202,3 +219,4 @@ CREATE INDEX IF NOT EXISTS idx_venda_itens_v  ON venda_itens(venda_id);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_s  ON venda_itens(sku);
 CREATE INDEX IF NOT EXISTS idx_inv_status     ON inventarios(status);
 CREATE INDEX IF NOT EXISTS idx_inv_itens      ON inventario_itens(inventario_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_vendas_externo ON vendas(externo_id) WHERE externo_id IS NOT NULL;

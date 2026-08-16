@@ -53,6 +53,32 @@ Nada disso toca a nuvem: o `--local` do wrangler usa um SQLite dentro de
 
 Precisa de `playwright` e `xlsx` instalados (`npm install` dentro de `src/`).
 
+### Sincronização com a Nuvemshop
+
+```bash
+node src/sync-test.mjs
+```
+
+Roda contra `loja-falsa.mjs`, uma Nuvemshop de mentira que sobe no próprio
+computador — nenhuma chamada sai para a loja de verdade e nenhum token é
+preciso. Ela imita o que importa do comportamento real, inclusive exigir o
+`User-Agent` que a API verdadeira exige (sem ele a resposta é 400, e o erro
+não se parece nada com o que é).
+
+Precisa do Worker local no ar com estes valores no `.dev.vars`:
+
+```
+NUVEMSHOP_STORE_ID=999999
+NUVEMSHOP_TOKEN=token-de-mentira
+NUVEMSHOP_BASE=http://localhost:8799
+```
+
+`NUVEMSHOP_BASE` existe só para isso; fora do teste ninguém define e vale o
+endereço real.
+
+O banco precisa estar limpo (`reset-e-testar.sh` deixa dados do outro teste,
+que mudam as contagens).
+
 Para conferir o visual, com o servidor de teste já rodando:
 
 ```bash

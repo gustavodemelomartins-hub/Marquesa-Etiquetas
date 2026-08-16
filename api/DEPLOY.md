@@ -158,6 +158,68 @@ Para conferir depois:
 SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'inventario%';
 ```
 
+## Ligar a sincronização com a Nuvemshop
+
+Enquanto os dois segredos abaixo não existirem, o Worker funciona igual e a
+sincronização apenas responde que a loja não está conectada. Nada quebra.
+
+### 1. Migrar o banco
+
+`api/migracao-sync.sql` no console do D1 (ou `--file=migracao-sync.sql` pelo
+terminal). ⚠️ Diferente das outras, esta **não pode ser rodada duas vezes**:
+o `ALTER TABLE` falha se a coluna já existir. Se isso acontecer, é sinal de
+que já foi aplicada — pode ignorar o erro.
+
+### 2. Gerar o token na Nuvemshop
+
+Painel da loja → **Aplicativos → Aplicativos sob medida** → criar. Marque
+permissão de **leitura e escrita em produtos** e **leitura de pedidos**.
+
+> Disponível apenas nos planos **Escala** e **Next**. Em planos menores o
+> caminho é o portal de parceiros, com o fluxo OAuth completo — o código
+> daqui não muda, só o jeito de obter o token.
+
+O token **aparece uma única vez**. Copie na hora.
+
+O ID da loja é o número que aparece na URL do painel, e também vem junto com
+o token como `user_id`.
+
+### 3. Guardar os dois como Secrets
+
+No Worker → **Settings → Variables and Secrets**, como **Secret** (nunca
+como Text — variável de texto criada pelo painel é apagada no próximo
+deploy):
+
+| Nome | Valor |
+|---|---|
+| `NUVEMSHOP_TOKEN` | o token copiado |
+| `NUVEMSHOP_STORE_ID` | o número da loja |
+
+Ou pelo terminal:
+
+```bash
+npx wrangler secret put NUVEMSHOP_TOKEN
+npx wrangler secret put NUVEMSHOP_STORE_ID
+```
+
+### 4. Conferir antes de deixar solto
+
+Na aba **Nuvemshop** do painel, o aviso passa a dizer "Loja ligada direto".
+Clique em **Sincronizar agora** e confira o que ele relata antes de esperar
+o cron. O agendamento (`crons` no `wrangler.toml`) roda às 6h e 18h de
+Brasília.
+
+### O freio de segurança
+
+Uma rodada que mudaria mais de 40 produtos, ou zeraria mais de 15, **para
+sozinha sem tocar na loja** e fica registrada como pausada. Mudança em massa
+quase sempre é dado nosso quebrado, não venda de verdade — e empurrar um
+zero errado tira a peça do ar.
+
+Os dois limites são ajustáveis por `PUT /api/config` (`syncLimiteMudancas` e
+`syncLimiteZerar`). Para liberar uma rodada específica, o botão **Aplicar
+mesmo assim** no painel.
+
 ## Testar com dados de verdade
 
 Com a URL e a chave em mãos:

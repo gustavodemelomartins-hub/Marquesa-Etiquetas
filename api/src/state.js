@@ -12,8 +12,9 @@ const FAIXAS_PADRAO = [
 ];
 
 import { resumoInventario } from './inventario.js';
+import { resumoSync } from './sync.js';
 
-export async function montarState(db) {
+export async function montarState(db, env) {
   const [produtosR, revR, maletasR, itensR, configR, lojaR, catR] = await Promise.all([
     db.prepare('SELECT * FROM produtos ORDER BY desc').all(),
     db.prepare('SELECT * FROM revendedoras ORDER BY id').all(),
@@ -77,6 +78,7 @@ export async function montarState(db) {
   };
 
   const inventario = await resumoInventario(db, config.inventarioDias);
+  const sync = await resumoSync(db, env || {});
 
   const l = lojaR.results[0];
   const loja = l ? {
@@ -86,7 +88,7 @@ export async function montarState(db) {
   } : null;
 
   return {
-    v: 2, produtos, revendedoras, maletas, config, loja, inventario,
+    v: 2, produtos, revendedoras, maletas, config, loja, inventario, sync,
     categorias: catR.results.map(x => ({ nome: x.nome, ordem: x.ordem, cor: x.cor })),
   };
 }

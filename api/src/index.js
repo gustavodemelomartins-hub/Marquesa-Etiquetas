@@ -6,6 +6,7 @@ import {
   abrirInventario, salvarContagem, concluirInventario, ajustarInventario,
   cancelarInventario, detalheInventario, listarInventarios,
 } from './inventario.js';
+import { sincronizar, historicoSync } from './sync.js';
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 const int = v => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
@@ -16,6 +17,19 @@ export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return comCors(new Response(null, { status: 204 }), request, env);
     return comCors(await rotear(request, env), request, env);
+  },
+
+  /** Cron da Cloudflare. Roda mesmo sem ninguém com o app aberto — é o que
+   *  faz a loja ficar em dia sozinha.
+   *
+   *  Nunca força: se a rodada bater no freio de segurança, ela para e fica
+   *  registrada como pausada, esperando alguém olhar. Um robô que roda de
+   *  madrugada é o pior lugar possível para atropelar uma dúvida. */
+  async scheduled(evento, env, ctx) {
+    ctx.waitUntil(sincronizar(env.DB, env).then(r => {
+      if (!r.ok) console.error('sync falhou:', r.erro);
+      else if (r.pausado) console.warn('sync pausada:', r.pausado.motivo);
+    }));
   },
 };
 
@@ -31,7 +45,7 @@ async function rotear(request, env) {
     const db = env.DB;
     let m;
     try {
-      if (path === '/api/state' && met === 'GET') return json(await montarState(db));
+      if (path === '/api/state' && met === 'GET') return json(await montarState(db, env));
 
       // §19 — prova de que o saldo bate com a razão
       if (path === '/api/estoque/conferir' && met === 'GET') {
@@ -141,7 +155,12 @@ async function rotear(request, env) {
       if (path === '/api/config' && met === 'PUT') {
         const b = await request.json();
         const stmts = [];
-        for (const chave of ['prazoDias', 'prataPct', 'inventarioDias', 'faixas']) {
+        /* Lista fechada de propósito: o `config` também guarda estado interno
+           da sincronização (`syncUltimoPedido`), e deixar a tela escrever
+           nele por engano faria o robô reler ou pular pedidos. Só os dois
+           limites do freio são ajustáveis daqui. */
+        for (const chave of ['prazoDias', 'prataPct', 'inventarioDias', 'faixas',
+                             'syncLimiteMudancas', 'syncLimiteZerar']) {
           if (b[chave] !== undefined) {
             stmts.push(db.prepare(
               `INSERT INTO config (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`
@@ -166,6 +185,13 @@ async function rotear(request, env) {
           .bind(nome.trim(), tel || '').first();
         return json({ id: r.id, nome: r.nome, tel: r.tel || '' }, 201);
       }
+
+      // -------------------------------------------- sincronização da loja
+      if (path === '/api/sync' && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        return json(await sincronizar(db, env, { forcar: !!b.forcar, seco: !!b.seco }));
+      }
+      if (path === '/api/sync' && met === 'GET') return json(await historicoSync(db));
 
       // ------------------------------------------------------- inventário
       if (path === '/api/inventarios' && met === 'GET') return await listarInventarios(db);
