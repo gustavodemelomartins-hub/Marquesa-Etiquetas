@@ -140,7 +140,27 @@ eq('e a tela mostra o erro em vez de dizer que sincronizou', !!est.sync.erro, 't
 eq('sem se declarar em dia', est.sync.ultimoStatus, 'erro');
 loja.estado.negarEscopo = null;
 
-console.log('\n=== 10. a razão fecha depois de tudo (§19) ===');
+console.log('\n=== 10. troca do código pelo token (caminho do app de parceiro) ===');
+/* Este é o passo que a Marquesa realmente usou: ela criou um app de
+   parceiro (App ID + Client Secret), não um "aplicativo sob medida" — então
+   o token não vem pronto, precisa ser trocado por um código de autorização.
+   A rota é pública (sem Bearer) de propósito: quem chama é o navegador dela
+   vindo da Nuvemshop, não o dashboard. */
+loja.estado.codigoValido = 'codigo-de-teste-abc';
+
+let resp = await fetch(API + '/api/nuvemshop/callback?code=codigo-errado');
+let corpo = await resp.text();
+eq('código errado mostra o motivo, não trava sem explicação',
+  /recusou a troca/.test(corpo), 'true');
+
+resp = await fetch(API + '/api/nuvemshop/callback?code=codigo-de-teste-abc');
+corpo = await resp.text();
+eq('respondeu 200', resp.status, 200);
+eq('a página mostra o token para copiar', /token-trocado-codigo-de-teste-abc/.test(corpo), 'true');
+eq('e o id da loja', /555444/.test(corpo), 'true');
+eq('sem pedir Bearer nenhum (a página abre no navegador dela, sem chave)', resp.status !== 401, 'true');
+
+console.log('\n=== 11. a razão fecha depois de tudo (§19) ===');
 const conf = await api('GET', '/api/estoque/conferir');
 eq('saldo bate com a soma dos movimentos', conf.divergentes.length, 0);
 

@@ -14,6 +14,8 @@ export function subirLojaFalsa(porta = 8799) {
     pedidos: [],
     escritas: [],          // tudo que chegou no PATCH, na ordem
     semUserAgent: 0,
+    trocasOAuth: [],
+    codigoValido: null,
   };
 
   const servidor = http.createServer(async (req, res) => {
@@ -24,6 +26,24 @@ export function subirLojaFalsa(porta = 8799) {
       res.writeHead(código, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(corpo));
     };
+
+    // A troca do código de autorização por token (POST /apps/authorize/token)
+    // fica ANTES das checagens abaixo: na API real esse endereço não pede
+    // Bearer — é o próprio corpo (client_id + client_secret) que autentica,
+    // porque ainda não existe token nenhum nesse momento do fluxo.
+    if (partes[0] === 'apps' && partes[1] === 'authorize' && partes[2] === 'token' && req.method === 'POST') {
+      let corpo = '';
+      for await (const p of req) corpo += p;
+      const b = JSON.parse(corpo || '{}');
+      estado.trocasOAuth.push(b);
+      if (b.code !== estado.codigoValido) {
+        return responder(400, { error: 'invalid_grant', error_description: 'código inválido ou expirado' });
+      }
+      return responder(200, {
+        access_token: 'token-trocado-' + b.code, token_type: 'bearer',
+        scope: 'read_orders,read_products,write_products', user_id: '555444',
+      });
+    }
 
     if (!req.headers['user-agent']) {
       estado.semUserAgent++;

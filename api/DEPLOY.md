@@ -172,19 +172,38 @@ que já foi aplicada — pode ignorar o erro.
 
 ### 2. Gerar o token na Nuvemshop
 
-Painel da loja → **Aplicativos → Aplicativos sob medida** → criar. Marque
-permissão de **leitura e escrita em produtos** e **leitura de pedidos**.
+Existem dois caminhos. Use o que aparecer disponível — o resto do sistema
+não muda dependendo de qual foi usado.
 
-> Disponível apenas nos planos **Escala** e **Next**. Em planos menores o
-> caminho é o portal de parceiros, com o fluxo OAuth completo — o código
-> daqui não muda, só o jeito de obter o token.
+**Caminho A — Aplicativo sob medida** (mais simples, planos **Escala** e
+**Next**): painel da loja → **Aplicativos → Aplicativos sob medida** → criar.
+Marque **leitura e escrita em produtos** e **leitura de pedidos**. O token
+**aparece uma única vez** — copie na hora. O ID da loja é o número na URL do
+painel, e também vem junto com o token como `user_id`. Pule direto para o
+passo 3.
 
-O token **aparece uma única vez**. Copie na hora.
+**Caminho B — Aplicativo de parceiro** (planos menores, ou se o A não
+aparecer): [painel de parceiros](https://partners.tiendanube.com) → criar um
+app. Ele não entrega o token direto — entrega um **App ID** e um **Client
+Secret** (aba "Chaves de acesso"), e o token só sai depois que a loja
+autoriza o app. Passo a passo:
 
-O ID da loja é o número que aparece na URL do painel, e também vem junto com
-o token como `user_id`.
+1. Guarde `App ID` como `NUVEMSHOP_CLIENT_ID` e `Client Secret` como
+   `NUVEMSHOP_CLIENT_SECRET` nos Secrets do Worker (passo 3, mais os dois de
+   sempre) e publique (`npx wrangler deploy`) — o endereço de callback só
+   existe depois de publicado.
+2. Na aba **Configuração** do app, campo **URL de redirecionamento**, cole:
+   `https://marquesa-api.SEU-SUBDOMINIO.workers.dev/api/nuvemshop/callback`
+3. Marque as permissões (produtos leitura/escrita, pedidos leitura) e salve.
+4. Logada na loja, abra:
+   `https://www.tiendanube.com/apps/SEU-APP-ID/authorize`
+   (o `App ID` do passo 1 — no exemplo do print, seria `38392`)
+5. Aprove a instalação. O navegador cai numa página do próprio Worker
+   mostrando o `NUVEMSHOP_TOKEN` e o `NUVEMSHOP_STORE_ID` prontos para
+   copiar. O código de autorização vale só 5 minutos — se demorar, é só
+   abrir o link de novo.
 
-### 3. Guardar os dois como Secrets
+### 3. Guardar como Secrets
 
 No Worker → **Settings → Variables and Secrets**, como **Secret** (nunca
 como Text — variável de texto criada pelo painel é apagada no próximo
@@ -192,8 +211,10 @@ deploy):
 
 | Nome | Valor |
 |---|---|
-| `NUVEMSHOP_TOKEN` | o token copiado |
-| `NUVEMSHOP_STORE_ID` | o número da loja |
+| `NUVEMSHOP_TOKEN` | o token (caminho A: copiado direto; caminho B: veio da página do callback) |
+| `NUVEMSHOP_STORE_ID` | o ID da loja (mesma origem) |
+| `NUVEMSHOP_CLIENT_ID` | só no caminho B — o App ID |
+| `NUVEMSHOP_CLIENT_SECRET` | só no caminho B — o Client Secret |
 
 Ou pelo terminal:
 

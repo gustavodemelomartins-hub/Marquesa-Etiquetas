@@ -7,6 +7,7 @@ import {
   cancelarInventario, detalheInventario, listarInventarios,
 } from './inventario.js';
 import { sincronizar, historicoSync } from './sync.js';
+import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 const int = v => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
@@ -40,6 +41,14 @@ async function rotear(request, env) {
     const met = request.method;
 
     if (path === '/api/health') return json({ ok: true, hoje: hoje() });
+
+    // Chamado pelo navegador dela vindo da Nuvemshop, não pelo dashboard —
+    // não carrega (e não pode exigir) o Bearer da API_KEY. Quem prova que
+    // foi ela mesma que autorizou é o `code` de uso único, não a chave.
+    if (path === '/api/nuvemshop/callback' && met === 'GET') {
+      return trocarCodigoPorToken(env, url.searchParams.get('code'));
+    }
+
     if (!checarChave(request, env)) return respostaNaoAutorizada();
 
     const db = env.DB;
