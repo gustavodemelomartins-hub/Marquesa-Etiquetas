@@ -15,7 +15,7 @@ import { resumoInventario } from './inventario.js';
 import { resumoSync } from './sync.js';
 
 export async function montarState(db, env) {
-  const [produtosR, revR, maletasR, itensR, configR, lojaR, catR] = await Promise.all([
+  const [produtosR, revR, maletasR, itensR, configR, lojaR, catR, kitsR] = await Promise.all([
     db.prepare('SELECT * FROM produtos ORDER BY desc').all(),
     db.prepare('SELECT * FROM revendedoras ORDER BY id').all(),
     db.prepare('SELECT * FROM maletas ORDER BY id').all(),
@@ -23,6 +23,8 @@ export async function montarState(db, env) {
     db.prepare('SELECT * FROM config').all(),
     db.prepare('SELECT * FROM loja_snapshot WHERE id = 1').all(),
     db.prepare('SELECT * FROM categorias ORDER BY ordem, nome').all(),
+    db.prepare(`SELECT kc.kit_sku, kc.componente_sku, kc.qtd, p.desc
+                  FROM kit_componentes kc JOIN produtos p ON p.sku = kc.componente_sku`).all(),
   ]);
 
   // consignado por SKU: só maletas que ainda não encerraram
@@ -38,19 +40,39 @@ export async function montarState(db, env) {
     }
   }
 
-  const produtos = produtosR.results.map(p => ({
-    sku: p.sku, desc: p.desc, cat: p.cat,
-    preco: p.preco,                       // §24: null = sem preço; o front mostra "Sem preço"
-    semPreco: p.preco === null,
-    qtd: p.qtd,
-    consignado: consignado[p.sku] || 0,
-    disponivel: p.qtd - (consignado[p.sku] || 0),
-    status: p.status,
-    urlLoja: p.url_loja || undefined,
-    estoqueLoja: p.estoque_loja == null ? undefined : p.estoque_loja,
-    visivel: p.visivel == null ? null : !!p.visivel,
-    nomeLoja: p.nome_loja || undefined,
-  }));
+  // Kit: agrupa os componentes por kit_sku. O disponível dele não é
+  // p.qtd − consignado (isso daria sempre 0, porque um kit nunca tem saldo
+  // próprio) — é o mínimo, entre os componentes, de quanto cada um permite
+  // montar. Dois kits que compartilham um componente disputam o mesmo
+  // número: é o que impede publicar os dois anúncios como "disponível"
+  // ao mesmo tempo quando só existe peça física para um.
+  const componentesPorKit = new Map();
+  for (const k of kitsR.results) {
+    if (!componentesPorKit.has(k.kit_sku)) componentesPorKit.set(k.kit_sku, []);
+    componentesPorKit.get(k.kit_sku).push({ sku: k.componente_sku, qtd: k.qtd, desc: k.desc });
+  }
+  const dispBase = new Map(produtosR.results.map(p => [p.sku, p.qtd - (consignado[p.sku] || 0)]));
+
+  const produtos = produtosR.results.map(p => {
+    const componentes = componentesPorKit.get(p.sku);
+    const disponivel = componentes
+      ? Math.min(...componentes.map(c => Math.floor((dispBase.get(c.sku) ?? 0) / c.qtd)))
+      : dispBase.get(p.sku);
+    return {
+      sku: p.sku, desc: p.desc, cat: p.cat,
+      preco: p.preco,                       // §24: null = sem preço; o front mostra "Sem preço"
+      semPreco: p.preco === null,
+      qtd: p.qtd,
+      consignado: consignado[p.sku] || 0,
+      disponivel,
+      status: p.status,
+      urlLoja: p.url_loja || undefined,
+      estoqueLoja: p.estoque_loja == null ? undefined : p.estoque_loja,
+      visivel: p.visivel == null ? null : !!p.visivel,
+      nomeLoja: p.nome_loja || undefined,
+      componentes: componentes || undefined,   // presença = "isto é um kit"
+    };
+  });
 
   const revendedoras = revR.results.map(r => ({
     id: r.id, nome: r.nome, tel: r.tel || '', cidade: r.cidade || '', cpf: r.cpf || '',

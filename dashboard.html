@@ -741,6 +741,19 @@ td.num.neg{color:var(--danger)}
   color:#fff;letter-spacing:.02em;white-space:nowrap;
 }
 .linkrow{display:flex;gap:9px;flex-wrap:wrap;margin-top:10px}
+.kitchip{
+  display:inline-block;margin-left:8px;font-size:10px;font-weight:700;padding:2px 7px;
+  border-radius:20px;cursor:pointer;white-space:nowrap;vertical-align:1px;
+  background:var(--gold-tint);color:var(--gold-deep,#8A6A1F);border:1px solid var(--gold);
+}
+.kitchip:hover{filter:brightness(0.97)}
+.kitchip-add{background:#fff;color:var(--muted);border-color:var(--line)}
+.kitchip-add:hover{color:var(--bordo);border-color:var(--rose)}
+.kitrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line-soft)}
+.kitrow:last-child{border-bottom:none}
+.kitrow .kr-desc{flex:1;min-width:0;font-size:13px}
+.kitrow .kr-desc small{display:block;color:var(--muted);font-family:var(--mono);font-size:11px}
+.kitrow input{width:56px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;text-align:center}
 
 @media (max-width:900px){
   .kpis{grid-template-columns:1fr 1fr}
@@ -846,6 +859,17 @@ td.num.neg{color:var(--danger)}
         <button class="btn btn-gold" id="scanConfirm" onclick="scanFinish()">Concluir</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ============ MONTAR KIT ============ -->
+<div class="overlay center" id="kitOverlay" onclick="if(event.target===this)closeKit()">
+  <div class="modal" style="width:520px">
+    <div class="mhead">
+      <h2 id="kitTitle">Montar kit</h2>
+      <button class="closebtn" onclick="closeKit()">×</button>
+    </div>
+    <div class="mbody" id="kitBody"></div>
   </div>
 </div>
 
@@ -1349,9 +1373,13 @@ function comRevMap(){
   });
   return m;
 }
+/* O servidor já manda `disponivel` pronto pra cada produto — inclusive kit,
+   cujo disponível vem dos componentes, não de qtd (que nele é sempre 0).
+   Recalcular aqui do zero era exatamente o que deixava a bipagem de venda
+   recusar um kit com peça de sobra: (p.qtd||0) de um kit é sempre 0. */
 function emCasaMap(){
-  const rev=comRevMap(), out={};
-  state.produtos.forEach(p=>{ out[p.sku]=(p.qtd||0)-(rev[p.sku]||0); });
+  const out={};
+  state.produtos.forEach(p=>{ out[p.sku]=p.disponivel; });
   return out;
 }
 function totais(){
@@ -1867,16 +1895,24 @@ function renderEstoque(){
               ${comLoja?`<th style="width:78px">Na loja</th>`:''}
             </tr></thead>
             <tbody>${lista.map(p=>{
-              const fora=rev[p.sku]||0, casa=(p.qtd||0)-fora;
+              const kit=!!p.componentes;
+              /* Kit não tem "na rua"/"em casa" de verdade — o número que
+                 importa é só o disponível calculado, e o total editável não
+                 existe (qtd de kit é sempre 0, fixado pelo servidor). */
+              const fora=kit?0:(rev[p.sku]||0), casa=kit?p.disponivel:(p.qtd||0)-fora;
               return `<tr>
-                <td class="desc">${esc(p.desc)}</td>
+                <td class="desc">${esc(p.desc)}${kit
+                  ?`<span class="kitchip" title="Montado a partir de outras peças" onclick="abrirKit('${esc(p.sku)}')">🧩 kit</span>`
+                  :`<span class="kitchip kitchip-add" title="Transformar em kit" onclick="abrirKit('${esc(p.sku)}')">+ kit</span>`}</td>
                 <td class="sku">${esc(p.sku)}</td>
                 <td><span class="catchip" style="background:${catColor(p.cat)}">${esc(p.cat)}</span></td>
                 <td class="price">${precoTxt(p)}</td>
-                <td class="num"><input class="dr-q" style="width:52px" type="number" min="0" value="${p.qtd||0}"
-                  onchange="setQtdProduto('${esc(p.sku)}',this.value)" title="Estoque total desta peça"></td>
+                ${kit
+                  ?`<td class="num" title="Kit não tem saldo próprio — é sempre o que os componentes permitem montar">calc.</td>`
+                  :`<td class="num"><input class="dr-q" style="width:52px" type="number" min="0" value="${p.qtd||0}"
+                     onchange="setQtdProduto('${esc(p.sku)}',this.value)" title="Estoque total desta peça"></td>`}
                 <td class="num ${fora?'':'zero'}">${fora}</td>
-                <td class="num ${casa<0?'neg':(casa?'':'zero')}">${casa}</td>
+                <td class="num ${casa<0?'neg':(casa?'':'zero')}" title="${kit?'Quanto dá para montar com o que existe agora':''}">${casa}</td>
                 ${comLoja?(p.urlLoja
                   ? `<td class="num ${(p.estoqueLoja||0)!==Math.max(0,casa)?'neg':''}" title="${(p.estoqueLoja||0)!==Math.max(0,casa)?'A loja está desatualizada':'Loja em dia'}">${p.estoqueLoja||0}</td>`
                   : `<td class="num zero" title="Este código não existe na loja">sem cadastro</td>`):''}
@@ -1899,6 +1935,100 @@ function renderEstoque(){
     b._t=setTimeout(()=>{const pos=e.target.selectionStart;renderEstoque();
       const n=document.getElementById('buscaEstoque');n.focus();n.setSelectionRange(pos,pos);},220);
   });
+}
+
+/* =================== Kits ===================
+   Peça publicada como mais de um anúncio porque pode ser vendida inteira ou
+   desmontada — corrente + pingente menino + pingente menina, também vendido
+   como corrente + um pingente só. O kit nunca tem saldo próprio: o servidor
+   calcula o disponível pelos componentes, e é por isso que os dois anúncios
+   nunca vendem a mesma peça física duas vezes. */
+let kitEdit=null;   /* {sku, itens:[{sku,qtd,desc}]} */
+
+function abrirKit(sku){
+  const p=state.produtos.find(x=>x.sku===sku);
+  if(!p) return;
+  kitEdit={sku, itens:(p.componentes||[]).map(c=>({sku:c.sku,qtd:c.qtd,desc:c.desc}))};
+  document.getElementById('kitTitle').textContent=(p.componentes?'Editar kit · ':'Montar kit · ')+p.desc;
+  document.getElementById('kitOverlay').classList.add('show');
+  renderKit();
+}
+function closeKit(){
+  document.getElementById('kitOverlay').classList.remove('show');
+  kitEdit=null;
+}
+function renderKit(){
+  const idx=prodIndex();
+  const p=state.produtos.find(x=>x.sku===kitEdit.sku);
+  const dl=state.produtos.filter(x=>x.sku!==kitEdit.sku&&!x.componentes)
+    .map(x=>`<option value="${esc(x.sku)}">${esc(x.desc)}</option>`).join('');
+
+  document.getElementById('kitBody').innerHTML=`
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">
+      Escolha de quais peças este código é montado. O disponível dele passa a ser
+      calculado pelo que essas peças permitem — e qualquer outro kit que use a
+      mesma peça disputa o mesmo estoque automaticamente.
+    </p>
+    <div id="kitLista">${kitEdit.itens.length?kitEdit.itens.map((c,i)=>{
+      const cp=idx.get(c.sku);
+      return `<div class="kitrow">
+        <div class="kr-desc">${esc(cp?cp.desc:c.sku)}<small>${esc(c.sku)}</small></div>
+        <input type="number" min="1" value="${c.qtd}" onchange="kitSetQtd(${i},this.value)">
+        <button class="btn btn-ghost btn-sm" onclick="kitRemover(${i})">Remover</button>
+      </div>`;}).join(''):'<p class="hint" style="padding:10px 0">Nenhum componente ainda.</p>'}</div>
+
+    <div class="field" style="margin-top:14px">
+      <label>Adicionar componente</label>
+      <div style="display:flex;gap:8px">
+        <input id="kitAddSku" list="kitDL" placeholder="Código ou descrição" style="flex:1">
+        <datalist id="kitDL">${dl}</datalist>
+        <input id="kitAddQtd" type="number" min="1" value="1" style="width:64px">
+        <button class="btn btn-ghost btn-sm" onclick="kitAdicionar()">+ Add</button>
+      </div>
+    </div>
+
+    ${p&&p.componentes?`<div style="margin-top:16px">
+      <button class="btn btn-ghost btn-sm" onclick="kitDesfazer()">Desfazer kit — voltar a ser um produto normal</button>
+    </div>`:''}
+
+    <div class="mfoot" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeKit()">Cancelar</button>
+      <div class="spacer"></div>
+      <button class="btn btn-gold" onclick="kitSalvar()">Salvar</button>
+    </div>`;
+}
+function kitAdicionar(){
+  const skuInp=document.getElementById('kitAddSku');
+  const c=normSku(skuInp.value);
+  const p=findProd(c);
+  if(!p){ toast('Código não encontrado — escolha da lista'); return; }
+  if(p.componentes){ toast('Um kit não pode ser componente de outro kit'); return; }
+  const qtd=Math.max(1,int(document.getElementById('kitAddQtd').value)||1);
+  const ex=kitEdit.itens.find(x=>x.sku===p.sku);
+  if(ex) ex.qtd+=qtd; else kitEdit.itens.push({sku:p.sku,qtd,desc:p.desc});
+  skuInp.value='';
+  renderKit();
+}
+function kitSetQtd(i,v){ kitEdit.itens[i].qtd=Math.max(1,int(v)||1); }
+function kitRemover(i){ kitEdit.itens.splice(i,1); renderKit(); }
+async function kitSalvar(){
+  if(!kitEdit.itens.length){ toast('Adicione ao menos um componente'); return; }
+  try{
+    const r=await api('PUT',`/api/produtos/${encodeURIComponent(kitEdit.sku)}/componentes`,
+      {componentes:kitEdit.itens.map(c=>({sku:c.sku,qtd:c.qtd}))});
+    closeKit();
+    await sincronizar();
+    toast('Kit salvo');
+  }catch(e){ toast(e.message); }
+}
+async function kitDesfazer(){
+  if(!confirm('Desfazer o kit? O código volta a ser um produto normal, com saldo próprio começando em 0.')) return;
+  try{
+    await api('PUT',`/api/produtos/${encodeURIComponent(kitEdit.sku)}/componentes`,{componentes:[]});
+    closeKit();
+    await sincronizar();
+    toast('Kit desfeito');
+  }catch(e){ toast(e.message); }
 }
 
 /* =================== Nuvemshop =================== */
@@ -2510,6 +2640,13 @@ function handleScan(code){
     return;
   }
 
+  if(scan.modo==='add'&&p.componentes){
+    /* kit não reserva os componentes na maleta (ver adicionarItens no
+       servidor) — recusar já na bipagem é mais claro do que deixar ela
+       montar a maleta inteira e só descobrir isso no fim */
+    fbScan(false,`${p.desc} é uma peça montada — venda direto, ainda não vai para maleta`);
+    return;
+  }
   if(scan.modo==='add'||scan.modo==='venda'){
     const casa=emCasaMap()[p.sku]||0;
     const jaBipado=scan.itens[p.sku]||0;

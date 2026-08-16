@@ -79,6 +79,19 @@ endereço real.
 O banco precisa estar limpo (`reset-e-testar.sh` deixa dados do outro teste,
 que mudam as contagens).
 
+### Kits (peça vendida inteira ou desmontada)
+
+```bash
+node src/kits-test.mjs
+```
+
+Reproduz o caso real: um colar montado de corrente + dois pingentes,
+publicado também como "só um pingente", os dois anúncios disputando o mesmo
+estoque. Prova que vender um derruba o outro na mesma hora, que cancelar
+devolve aos componentes, e que um carrinho com os dois kits ao mesmo tempo é
+recusado quando só existe peça física para um. Também precisa do banco
+limpo, com o Worker local no ar.
+
 Para conferir o visual, com o servidor de teste já rodando:
 
 ```bash

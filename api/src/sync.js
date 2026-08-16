@@ -14,7 +14,7 @@
  *  morrer no meio, e nada pode duplicar venda nem estoque por causa disso.
  */
 import { Nuvemshop, mapearSkus } from './nuvemshop.js';
-import { movimentar } from './estoque.js';
+import { movimentar, saldosDoSku } from './estoque.js';
 
 const agoraISO = () => new Date().toISOString();
 
@@ -156,15 +156,31 @@ async function puxarPedidos(db, loja, relato, seco) {
  *  nós não conhecemos fica intocado: não saber de um produto não é o mesmo
  *  que saber que ele tem zero. */
 async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
-  const nossos = (await db.prepare(`
+  const normais = (await db.prepare(`
     SELECT p.sku, p.desc,
            p.qtd - COALESCE((
              SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
                JOIN maletas m ON m.id = mi.maleta_id
               WHERE mi.sku = p.sku AND m.status IN ('aberta','em_acerto')
            ), 0) AS casa
-      FROM produtos p WHERE p.status = 'ativo'`).all()).results;
+      FROM produtos p
+     WHERE p.status = 'ativo' AND p.sku NOT IN (SELECT kit_sku FROM kit_componentes)`).all()).results;
 
+  // Kit fica de fora da conta acima: p.qtd dele é sempre 0, então a mesma
+  // fórmula diria "casa = 0" mesmo com peça de sobra. O disponível de um
+  // kit só existe calculado a partir dos componentes (saldosDoSku já faz
+  // isso sozinho), então cada um é resolvido à parte.
+  const kitsAtivos = (await db.prepare(`
+    SELECT DISTINCT p.sku, p.desc FROM produtos p
+      JOIN kit_componentes kc ON kc.kit_sku = p.sku
+     WHERE p.status = 'ativo'`).all()).results;
+  const kits = [];
+  for (const k of kitsAtivos) {
+    const s = await saldosDoSku(db, k.sku);
+    kits.push({ sku: k.sku, desc: k.desc, casa: s.disponivel });
+  }
+
+  const nossos = [...normais, ...kits];
   for (const p of nossos) {
     const naLoja = mapa.get(p.sku);
     if (!naLoja) continue;

@@ -66,12 +66,71 @@ export async function consignadoDoSku(db, sku) {
   return r.fora;
 }
 
-/** total, consignado e disponível de um SKU — os três saldos do §5.2. */
+/** total, consignado e disponível de um SKU — os três saldos do §5.2.
+ *  Kit passa por aqui igual a qualquer produto: quem chama não precisa
+ *  saber que é um kit, só ler o `disponivel` que volta. */
 export async function saldosDoSku(db, sku) {
   const p = await db.prepare(`SELECT sku, desc, preco, qtd FROM produtos WHERE sku = ?`).bind(sku).first();
   if (!p) return null;
+  const kit = await saldosDoKit(db, sku, p);
+  if (kit) return kit;
   const consignado = await consignadoDoSku(db, sku);
   return { ...p, consignado, disponivel: p.qtd - consignado };
+}
+
+/** ------------------------------------------------------------------ kits
+ *  Um kit é um SKU montado a partir de outros. Ele nunca tem saldo próprio:
+ *  o disponível dele é sempre CALCULADO, nunca lido de produtos.qtd.
+ *
+ *  disponivel(kit) = mínimo, entre os componentes, de
+ *                     floor(disponível do componente / qtd necessária)
+ *
+ *  É esse mínimo compartilhado que impede vender dois anúncios que usam a
+ *  mesma peça física: se o componente comum acaba, os dois caem juntos.
+ */
+
+export async function componentesDoKit(db, kitSku) {
+  const r = await db.prepare(
+    `SELECT kc.componente_sku AS sku, kc.qtd, p.desc, p.preco
+       FROM kit_componentes kc JOIN produtos p ON p.sku = kc.componente_sku
+      WHERE kc.kit_sku = ?`
+  ).bind(kitSku).all();
+  return r.results;
+}
+
+export async function ehKit(db, sku) {
+  const r = await db.prepare(`SELECT 1 FROM kit_componentes WHERE kit_sku = ? LIMIT 1`).bind(sku).first();
+  return !!r;
+}
+
+/** total/consignado não fazem sentido para um kit — só o disponível, que é
+ *  o que decide se dá para vender. Kit não vai para maleta (ver §28 do
+ *  REGRAS.md), então não existe "consignado" dele. */
+export async function saldosDoKit(db, sku, produto) {
+  const componentes = await componentesDoKit(db, sku);
+  if (!componentes.length) return null;
+  let disponivel = Infinity;
+  for (const c of componentes) {
+    const sc = await saldosDoSku(db, c.sku);
+    const dc = sc ? Math.floor(sc.disponivel / c.qtd) : 0;
+    disponivel = Math.min(disponivel, dc);
+  }
+  return { sku, desc: produto.desc, preco: produto.preco, qtd: 0, consignado: 0, disponivel, componentes };
+}
+
+/** Kit vendido vira movimento nos COMPONENTES, não nele mesmo — ele não tem
+ *  saldo para mexer. `obs` carrega o SKU do kit para o histórico do
+ *  componente explicar de onde veio a baixa (§18). */
+export async function movimentarKit(db, { kitSku, tipo, quantidade, origem, vendaId, obs }) {
+  const componentes = await componentesDoKit(db, kitSku);
+  const stmts = [];
+  for (const c of componentes) {
+    stmts.push(...movimentar(db, {
+      sku: c.sku, tipo, quantidade: quantidade * c.qtd, origem: origem || 'kit',
+      vendaId, obs: `${obs || ''} (kit ${kitSku})`.trim(),
+    }));
+  }
+  return stmts;
 }
 
 /** §19 na prática: confere se o saldo materializado bate com a razão. */

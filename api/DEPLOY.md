@@ -241,6 +241,15 @@ Os dois limites são ajustáveis por `PUT /api/config` (`syncLimiteMudancas` e
 `syncLimiteZerar`). Para liberar uma rodada específica, o botão **Aplicar
 mesmo assim** no painel.
 
+## Ligar os kits (peça vendida inteira ou desmontada)
+
+Migração `api/migracao-kits.sql` — uma tabela nova (`kit_componentes`), sem
+`ALTER TABLE`, então é seguro rodar mesmo se não tiver certeza se já rodou.
+
+Depois disso, em **Meu estoque**, cada produto tem um selo "+ kit" — clique
+para escolher de quais outras peças ele é montado. Um produto só pode virar
+kit com o saldo próprio zerado (o sistema explica e recusa se não estiver).
+
 ## Testar com dados de verdade
 
 Com a URL e a chave em mãos:

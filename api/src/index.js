@@ -1,7 +1,7 @@
 import { checarChave, respostaNaoAutorizada, json, comCors } from './auth.js';
 import { montarState, FAIXAS_PADRAO } from './state.js';
 import { calcComissao } from './comissao.js';
-import { movimentar, consignadoDoSku, saldosDoSku, conferirEstoque } from './estoque.js';
+import { movimentar, consignadoDoSku, saldosDoSku, conferirEstoque, movimentarKit, componentesDoKit, ehKit } from './estoque.js';
 import {
   abrirInventario, salvarContagem, concluirInventario, ajustarInventario,
   cancelarInventario, detalheInventario, listarInventarios,
@@ -94,6 +94,14 @@ async function rotear(request, env) {
       // §19: entrada de mercadoria e ajuste são MOVIMENTOS, não digitação de saldo
       if ((m = path.match(/^\/api\/produtos\/([^/]+)\/movimento$/)) && met === 'POST') {
         return await lancarMovimento(db, decodeURIComponent(m[1]), await request.json());
+      }
+
+      // ---------------------------------------------------------------- kits
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/componentes$/)) && met === 'GET') {
+        return json(await componentesDoKit(db, decodeURIComponent(m[1])));
+      }
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/componentes$/)) && met === 'PUT') {
+        return await definirKit(db, decodeURIComponent(m[1]), await request.json());
       }
 
       if (path === '/api/revendedoras' && met === 'POST') {
@@ -318,6 +326,55 @@ async function editarProduto(db, sku, b) {
   return json({ ok: true });
 }
 
+/** Define (ou remove) os componentes de um kit — ver kit_componentes no
+ *  schema. `componentes: []` remove o kit e o produto volta a ser normal.
+ *
+ *  Recusa transformar em kit um produto que ainda tem saldo próprio: virar
+ *  kit muda o SIGNIFICADO do saldo (de "quanto existe" para "sempre 0,
+ *  calculado pelos componentes"), e zerar isso sozinho seria inventar um
+ *  ajuste que ninguém pediu (§19, §22). Ela lança um ajuste explícito
+ *  primeiro — o histórico mostra o motivo — e só depois monta o kit. */
+async function definirKit(db, kitSku, { componentes }) {
+  const kit = await db.prepare(`SELECT sku, qtd, desc FROM produtos WHERE sku = ?`).bind(kitSku).first();
+  if (!kit) return json({ erro: `Código ${kitSku} não está no catálogo` }, 404);
+
+  const lista = Array.isArray(componentes) ? componentes.filter(c => c && c.sku && c.qtd > 0) : [];
+
+  if (!lista.length) {
+    await db.prepare(`DELETE FROM kit_componentes WHERE kit_sku = ?`).bind(kitSku).run();
+    return json({ ok: true, kit: kitSku, componentes: [] });
+  }
+
+  if (kit.qtd !== 0) {
+    return json({
+      erro: `${kit.desc} tem ${kit.qtd} no saldo próprio. Zere com um ajuste antes de virar kit — `
+          + 'transformar em kit sem isso apagaria esse número em silêncio.',
+    }, 409);
+  }
+  const consignado = await consignadoDoSku(db, kitSku);
+  if (consignado > 0) {
+    return json({ erro: `${kit.desc} tem ${consignado} peça(s) em maleta. Kit não pode estar consignado.` }, 409);
+  }
+
+  for (const c of lista) {
+    if (c.sku === kitSku) return json({ erro: 'Um kit não pode ser componente de si mesmo' }, 400);
+    const comp = await db.prepare(`SELECT sku FROM produtos WHERE sku = ?`).bind(c.sku).first();
+    if (!comp) return json({ erro: `Componente ${c.sku} não está no catálogo` }, 400);
+    if (await ehKit(db, c.sku)) {
+      return json({ erro: `${c.sku} também é um kit — kit dentro de kit não é suportado` }, 400);
+    }
+  }
+
+  const stmts = [db.prepare(`DELETE FROM kit_componentes WHERE kit_sku = ?`).bind(kitSku)];
+  for (const c of lista) {
+    stmts.push(db.prepare(
+      `INSERT INTO kit_componentes (kit_sku, componente_sku, qtd) VALUES (?, ?, ?)`
+    ).bind(kitSku, c.sku, int(c.qtd)));
+  }
+  await db.batch(stmts);
+  return json({ ok: true, kit: kitSku, componentes: lista });
+}
+
 async function lancarMovimento(db, sku, { tipo, quantidade, obs }) {
   const p = await db.prepare(`SELECT sku FROM produtos WHERE sku = ?`).bind(sku).first();
   if (!p) return json({ erro: `Código ${sku} não está no catálogo` }, 404);
@@ -369,6 +426,14 @@ async function adicionarItens(db, maletaId, { itens }) {
   for (const [sku, qtd] of entradas) {
     const s = await saldosDoSku(db, sku);
     if (!s) { recusados.push({ sku, motivo: 'não está no catálogo' }); continue; }
+    // Kit não reserva os componentes ao entrar na maleta (a consignação tem
+    // efeito 0 no saldo, e o disponível do kit vem só dos componentes) —
+    // deixar entrar deixaria o mesmo componente "disponível" duas vezes.
+    // Melhor recusar com uma explicação do que consignar errado em silêncio.
+    if (s.componentes) {
+      recusados.push({ sku, desc: s.desc, motivo: 'é uma peça montada (kit) — venda direto, ainda não vai para maleta' });
+      continue;
+    }
     if (qtd > s.disponivel) {
       recusados.push({ sku, desc: s.desc, motivo: `só tem ${s.disponivel} disponível` });
       continue;
@@ -540,16 +605,41 @@ async function registrarVenda(db, { clienteId, clienteNome, itens }) {
   if (!clienteNome || !clienteNome.trim()) return json({ erro: 'Nome da cliente é obrigatório' }, 400);
 
   const linhas = [];
+  // Quanto de cada SKU-base este carrinho já reservou até aqui. Existe por
+  // causa dos kits: dois anúncios que usam o mesmo componente (o pingente
+  // que é comum a "Colar Casal" e "Colar Filho(a)") não podem ser validados
+  // cada um contra o disponível do BANCO — o banco só muda depois, no
+  // db.batch() lá embaixo. Sem isto, vender os dois no mesmo carrinho
+  // aprovaria os dois contra a mesma peça física.
+  const reservado = new Map();
+  const disponivelReal = (sku, disponivelNoBanco) => disponivelNoBanco - (reservado.get(sku) || 0);
+  const reservar = (sku, qtd) => reservado.set(sku, (reservado.get(sku) || 0) + qtd);
+
   for (const { sku, qtd } of entradas) {
     const s = await saldosDoSku(db, sku);
     if (!s) return json({ erro: `Código ${sku} não está no catálogo`, sku }, 400);
     if (s.preco === null || s.preco === undefined) {
       return json({ erro: `${s.desc} está sem preço cadastrado. Defina o preço antes de vender.`, sku }, 409);
     }
-    if (qtd > s.disponivel) {
-      return json({ erro: `${s.desc}: só tem ${s.disponivel} disponível`, sku }, 409);
+
+    let disp;
+    if (s.componentes) {
+      // disponível do kit descontando o que OUTRAS linhas deste mesmo
+      // carrinho já reservaram dos componentes em comum — não o disponível
+      // "puro" do banco, que ainda não sabe de nada até o batch lá embaixo
+      disp = Math.min(...await Promise.all(s.componentes.map(async c => {
+        const sc = await saldosDoSku(db, c.sku);
+        return Math.floor(disponivelReal(c.sku, sc.disponivel) / c.qtd);
+      })));
+    } else {
+      disp = disponivelReal(sku, s.disponivel);
     }
-    linhas.push({ sku, qtd, preco: s.preco, desc: s.desc });
+    if (qtd > disp) {
+      return json({ erro: `${s.desc}: só tem ${disp} disponível`, sku }, 409);
+    }
+    if (s.componentes) { for (const c of s.componentes) reservar(c.sku, qtd * c.qtd); }
+    else { reservar(sku, qtd); }
+    linhas.push({ sku, qtd, preco: s.preco, desc: s.desc, componentes: s.componentes || null });
   }
 
   const total = linhas.reduce((s, l) => s + l.preco * l.qtd, 0);
@@ -563,10 +653,20 @@ async function registrarVenda(db, { clienteId, clienteNome, itens }) {
     stmts.push(db.prepare(
       `INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, motivo) VALUES (?, ?, ?, ?, ?, 'venda')`
     ).bind(venda.id, l.sku, l.desc, l.qtd, l.preco));
-    stmts.push(...movimentar(db, {
-      sku: l.sku, tipo: 'venda', quantidade: l.qtd, origem: 'venda',
-      vendaId: venda.id, obs: `Venda ${venda.id} · ${clienteNome.trim()}`,
-    }));
+    // Kit: a baixa vai nos componentes, não no kit — ele não tem saldo
+    // próprio. O recibo (venda_itens acima) continua mostrando o kit
+    // inteiro, porque é assim que ela pensa na venda.
+    if (l.componentes) {
+      stmts.push(...await movimentarKit(db, {
+        kitSku: l.sku, tipo: 'venda', quantidade: l.qtd, origem: 'venda',
+        vendaId: venda.id, obs: `Venda ${venda.id} · ${clienteNome.trim()}`,
+      }));
+    } else {
+      stmts.push(...movimentar(db, {
+        sku: l.sku, tipo: 'venda', quantidade: l.qtd, origem: 'venda',
+        vendaId: venda.id, obs: `Venda ${venda.id} · ${clienteNome.trim()}`,
+      }));
+    }
   }
   await db.batch(stmts);
   return json({ ok: true, id: venda.id, data, total, itens: linhas }, 201);
@@ -579,10 +679,22 @@ async function cancelarVenda(db, vendaId) {
   if (v.cancelada) return json({ erro: 'Venda já está cancelada' }, 409);
 
   const itens = (await db.prepare(`SELECT * FROM venda_itens WHERE venda_id = ?`).bind(vendaId).all()).results;
-  const stmts = itens.map(i => movimentar(db, {
-    sku: i.sku, tipo: 'cancelamento', quantidade: +i.qtd, origem: 'cancelamento',
-    vendaId, obs: `Estorno da venda ${vendaId}`,
-  })).flat();
+  const stmts = [];
+  for (const i of itens) {
+    // se o sku vendido era um kit, o estorno também precisa ir para os
+    // componentes — é lá que a baixa original aconteceu
+    if (await ehKit(db, i.sku)) {
+      stmts.push(...await movimentarKit(db, {
+        kitSku: i.sku, tipo: 'cancelamento', quantidade: +i.qtd, origem: 'cancelamento',
+        vendaId, obs: `Estorno da venda ${vendaId}`,
+      }));
+    } else {
+      stmts.push(...movimentar(db, {
+        sku: i.sku, tipo: 'cancelamento', quantidade: +i.qtd, origem: 'cancelamento',
+        vendaId, obs: `Estorno da venda ${vendaId}`,
+      }));
+    }
+  }
   stmts.push(db.prepare(`UPDATE vendas SET cancelada = 1 WHERE id = ?`).bind(vendaId));
   await db.batch(stmts);
   return json({ ok: true });

@@ -16,6 +16,10 @@ import { movimentar } from './estoque.js';
 /** O que se espera encontrar em casa: total menos o que está com as
  *  revendedoras. É o mesmo "disponível" do §5.2 — peça consignada não
  *  está em casa e não pode ser cobrada da contagem. */
+/** Kit fica de fora: ele nunca tem produtos.qtd próprio (é sempre 0, sem
+ *  movimento nenhum), então "contar" um kit não diz nada sobre estoque —
+ *  quem tem saldo de verdade para bipar são os componentes dele, que já
+ *  aparecem aqui normalmente como qualquer outro produto. */
 const SQL_ESPERADO = `
   SELECT p.sku, p.desc, p.cat, p.preco,
          p.qtd - COALESCE((
@@ -23,7 +27,8 @@ const SQL_ESPERADO = `
              JOIN maletas m ON m.id = mi.maleta_id
             WHERE mi.sku = p.sku AND m.status IN ('aberta', 'em_acerto')
          ), 0) AS esperado
-    FROM produtos p`;
+    FROM produtos p
+   WHERE p.sku NOT IN (SELECT kit_sku FROM kit_componentes)`;
 
 export async function abrirInventario(db) {
   const aberto = await db.prepare(

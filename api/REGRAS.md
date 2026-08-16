@@ -32,6 +32,9 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §5.1 | Puxar pedidos antes de empurrar estoque | `sync.js › sincronizar` |
 | §19 | Rodar o cron duas vezes não duplica venda | índice único `vendas.externo_id` |
 | §22 | Produto que só existe na loja não é tocado | `empurrarEstoque` ignora SKU fora do catálogo |
+| §5.2 | Kit: disponível = mínimo entre componentes | `estoque.js › saldosDoKit` |
+| §19 | Venda de kit vira movimento nos componentes | `estoque.js › movimentarKit` |
+| §22 | Kit exige zerar o saldo antes de virar kit | `index.js › definirKit` recusa com o motivo |
 
 ## Duas divergências conscientes
 
@@ -88,6 +91,34 @@ A razão prática é mais forte que a formal: peça faltando quase nunca sumiu.
 Está na bolsa, foi para a maleta sem lançar, ou a etiqueta não leu. Se o
 sistema corrigisse sozinho, o erro de contagem viraria a nova verdade sem
 deixar rastro.
+
+### 5. Kit não tem saldo próprio — o disponível vem sempre dos componentes
+
+Peça publicada como mais de um anúncio porque pode ser vendida inteira ou
+desmontada: o caso real é o "Colar Casal de Filhos" (corrente + pingente
+menino + pingente menina) que também vende como "Colar Filho(a)" avulso.
+
+Um SKU com linha em `kit_componentes` é um kit. Ele nunca recebe movimento
+próprio — `produtos.qtd` dele fica sempre 0. O disponível é calculado na
+hora: o mínimo, entre os componentes, de quanto cada um permite montar.
+
+É esse mínimo COMPARTILHADO que resolve o problema de verdade: dois kits
+que usam o mesmo componente disputam o mesmo número. Vender um derruba o
+outro na mesma hora, sem ninguém lembrar de atualizar o segundo anúncio —
+testado em `src/kits-test.mjs`, que prova que vender o casal zera também o
+"só o menino", mesmo os dois tendo sido publicados com disponível 1.
+
+Vender um kit vira movimento nos COMPONENTES (`estoque.js › movimentarKit`),
+não nele. O carrinho de uma venda de balcão precisa validar isso considerando
+o que OUTRAS linhas do mesmo carrinho já reservaram — validar cada linha só
+contra o banco deixaria vender o mesmo componente duas vezes num carrinho
+com dois kits que o compartilham, porque o banco só muda depois, no batch.
+
+Dois limites de escopo, deliberados: kit não entra em maleta (a consignação
+tem efeito 0 no saldo, e reservar um componente sem mexer no saldo dele
+exigiria um mecanismo à parte que ainda não existe) e kit fica de fora do
+inventário (ele não é coisa para bipar — quem tem saldo real para contar são
+os componentes).
 
 ### 4. A sincronização tem duas mãos, nesta ordem — §5.1
 

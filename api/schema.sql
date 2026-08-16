@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS movimentos (
   sku            TEXT NOT NULL REFERENCES produtos(sku),
   tipo           TEXT NOT NULL,   -- entrada|ajuste|consignacao|devolucao|venda|perda|quebra|dano|furto|brinde|troca|nota_credito|venda_conjunto|cancelamento
   qtd            INTEGER NOT NULL,
-  origem         TEXT,            -- importacao | manual | maleta | acerto | venda | inventario | cancelamento
+  origem         TEXT,            -- importacao | manual | maleta | acerto | venda | inventario | cancelamento | kit
   maleta_id      INTEGER,
   revendedora_id INTEGER,
   venda_id       INTEGER,
@@ -123,6 +123,25 @@ CREATE TABLE IF NOT EXISTS loja_snapshot (
   so_na_loja         INTEGER,
   codigos_casados    INTEGER,
   duplicados_json    TEXT
+);
+
+-- ------------------------------------------------------------------- kits
+-- Peça publicada como mais de um anúncio porque pode ser vendida inteira ou
+-- desmontada — o caso real: "Colar Casal de Filhos" (corrente + pingente
+-- menino + pingente menina) também vira "Colar Filho(a)" avulso quando a
+-- cliente quer só um lado.
+--
+-- Um SKU com linha aqui é um kit: ele NUNCA tem saldo próprio em
+-- produtos.qtd (fica sempre 0, sem movimento nenhum). O disponível dele é
+-- CALCULADO na hora — o mínimo, entre os componentes, de quanto cada um
+-- permite montar. Dois kits que usam o mesmo componente automaticamente
+-- disputam o mesmo estoque: vender um derruba o outro na mesma hora, sem
+-- ninguém ter que lembrar de atualizar o outro anúncio.
+CREATE TABLE IF NOT EXISTS kit_componentes (
+  kit_sku         TEXT NOT NULL REFERENCES produtos(sku),
+  componente_sku  TEXT NOT NULL REFERENCES produtos(sku),
+  qtd             INTEGER NOT NULL DEFAULT 1,   -- quantas unidades do componente por kit
+  PRIMARY KEY (kit_sku, componente_sku)
 );
 
 -- ---------------------------------------------------------------- clientes
@@ -224,3 +243,4 @@ CREATE INDEX IF NOT EXISTS idx_inv_itens      ON inventario_itens(inventario_id)
 -- todas as vendas normais e recusa só o mesmo pedido do site duas vezes.
 -- Índice parcial faria o mesmo com mais sintaxe para dar errado.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_vendas_externo ON vendas(externo_id);
+CREATE INDEX IF NOT EXISTS idx_kit_componentes ON kit_componentes(kit_sku);
