@@ -50,4 +50,4 @@ CREATE INDEX IF NOT EXISTS idx_inv_status ON inventarios(status);
 
 CREATE INDEX IF NOT EXISTS idx_inv_itens ON inventario_itens(inventario_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_vendas_externo ON vendas(externo_id) WHERE externo_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_vendas_externo ON vendas(externo_id);

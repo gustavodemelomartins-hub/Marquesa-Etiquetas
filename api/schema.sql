@@ -219,4 +219,8 @@ CREATE INDEX IF NOT EXISTS idx_venda_itens_v  ON venda_itens(venda_id);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_s  ON venda_itens(sku);
 CREATE INDEX IF NOT EXISTS idx_inv_status     ON inventarios(status);
 CREATE INDEX IF NOT EXISTS idx_inv_itens      ON inventario_itens(inventario_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_vendas_externo ON vendas(externo_id) WHERE externo_id IS NOT NULL;
+-- Sem cláusula WHERE de propósito: no SQLite vários NULL convivem num índice
+-- único (NULL nunca é igual a NULL), então um índice simples já deixa passar
+-- todas as vendas normais e recusa só o mesmo pedido do site duas vezes.
+-- Índice parcial faria o mesmo com mais sintaxe para dar errado.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_vendas_externo ON vendas(externo_id);
