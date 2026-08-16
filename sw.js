@@ -1,9 +1,14 @@
-const CACHE = 'marquesa-etiquetas-v10';
+const CACHE = 'marquesa-etiquetas-v11';
 const ASSETS = [
   './',
   './index.html',
   './dashboard.html',
   './manifest.json',
+  // Leitor de código de barras para a câmera. Fica fora do dashboard.html
+  // de propósito: aquele arquivo é rebaixado a cada abertura (ver o fetch
+  // mais abaixo), e este aqui, sendo separado, é baixado uma vez só e
+  // servido do cache daí em diante — inclusive sem internet.
+  './vendor/zxing.min.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',

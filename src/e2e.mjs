@@ -261,6 +261,47 @@ const conf2 = await fetch(URL_API + '/api/estoque/conferir', {
 }).then(r => r.json());
 eq('a razão continua fechando depois do ajuste', conf2.divergentes.length, 0);
 
+console.log('\n=== leitor de código de barras (o caminho do iPhone) ===');
+/* Gera uma etiqueta igual à que o app de etiquetas imprime e manda o leitor
+   decodificar. Sem isto, "funciona no iPhone" seria só uma esperança: o
+   Safari não tem BarcodeDetector, então quem lê lá é o ZXing — e é
+   exatamente esse caminho que o teste força, apagando o leitor nativo. */
+await page.goto('http://localhost:8000/index.html');
+await page.waitForTimeout(400);
+const etiquetaReal = await page.evaluate(() => {
+  const cv = document.createElement('canvas');
+  JsBarcode(cv, '900001', { format: 'CODE128', width: 3, height: 90, displayValue: false, margin: 18 });
+  return cv.toDataURL('image/png');
+});
+eq('o app de etiquetas gerou a imagem do código', etiquetaReal.startsWith('data:image/png'), 'true');
+
+await page.goto(URL_APP);
+await page.waitForTimeout(1500);
+
+const leitura = await page.evaluate(async png => {
+  delete window.BarcodeDetector;          // força o caminho do iPhone
+  const ler = await montarLeitor();
+  const img = new Image();
+  await new Promise(r => { img.onload = r; img.src = png; });
+  const cv = document.createElement('canvas');
+  cv.width = img.width; cv.height = img.height;
+  cv.getContext('2d').drawImage(img, 0, 0);
+  return { lido: await ler(cv), zxing: !!window.ZXing };
+}, etiquetaReal);
+
+eq('o ZXing foi baixado do arquivo separado', leitura.zxing, 'true');
+eq('e leu a etiqueta impressa pelo app', leitura.lido, '900001');
+
+const semCodigo = await page.evaluate(async () => {
+  const ler = await montarLeitor();
+  const cv = document.createElement('canvas');
+  cv.width = 300; cv.height = 200;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#fff'; c.fillRect(0, 0, 300, 200);
+  return await ler(cv);
+});
+eq('imagem sem código nenhum devolve nada, em vez de inventar', semCodigo, 'null');
+
 console.log('\n=== erros de console ===');
 if (erros.length) { erros.forEach(e => console.log('  ! ' + e)); bad(`${erros.length} erro(s) no console`); }
 else ok('nenhum erro no console do navegador');

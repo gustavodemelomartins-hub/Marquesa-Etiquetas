@@ -19,6 +19,24 @@ As fronteiras dos blocos são achadas por conteúdo, não por número de linha, 
 o script confere o tamanho do que extraiu — então mexer no `index.html` não
 quebra a montagem em silêncio.
 
+## O leitor de código de barras da câmera
+
+`vendor/zxing.min.js` é o build UMD oficial do
+[ZXing for JS](https://github.com/zxing-js/library), sem alteração. Ele lê a
+etiqueta pela câmera nos aparelhos cujo navegador não sabe fazer isso sozinho
+— **o Safari do iPhone**, principalmente, que não tem `BarcodeDetector`.
+
+Ele mora num arquivo separado, e não embutido como o SheetJS, por causa do
+service worker: o `dashboard.html` é rebaixado da rede a cada abertura, e os
+demais arquivos vêm do cache. Embutir os 356 KB ali dentro cobraria esse
+download toda vez que ela abrisse o app no celular.
+
+O app só o carrega quando ela toca em "usar a câmera". Onde o navegador tem
+leitor próprio (Chrome do Android), o arquivo nem chega a ser baixado.
+
+Para atualizar a versão, troque o arquivo mantendo o cabeçalho de origem e
+licença, e suba o número do `CACHE` no `sw.js`.
+
 ## Testar
 
 ```bash

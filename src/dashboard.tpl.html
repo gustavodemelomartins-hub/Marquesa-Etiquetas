@@ -2429,37 +2429,96 @@ function renderVendas(){
    Lê o código de barras da etiqueta pela câmera, para quem está com o
    celular na mão e sem o leitor USB.
 
-   Usa o BarcodeDetector do próprio navegador em vez de embutir uma
-   biblioteca: são zero bytes a mais no app e a leitura é a nativa do
-   sistema. O preço é que nem todo navegador tem — o Safari do iPhone,
-   em particular, não tem. Por isso o botão só aparece onde funciona, e
-   digitar o código continua valendo em qualquer aparelho. */
-let cam=null;   /* {stream, detector, timer} */
+   São dois leitores, e o motivo é o iPhone. O Chrome do Android já traz
+   um leitor pronto (BarcodeDetector), que é o mais rápido e não custa
+   nada. O Safari do iPhone não tem — e é o aparelho que ela usa. Então
+   o app carrega o ZXing (vendor/zxing.min.js) quando precisa.
 
+   O ZXing mora num arquivo à parte, e não embutido como o SheetJS, por
+   causa do service worker: o dashboard.html é rebaixado da rede a cada
+   abertura, enquanto os outros arquivos vêm do cache. Embutir os 356 KB
+   ali dentro faria ela pagar esse download toda vez que abrisse o app no
+   celular. Separado, ele desce uma vez e fica.
+
+   O que a câmera lê é sempre conferido contra o catálogo antes de contar,
+   e o CODE128 tem dígito verificador próprio — ler errado e cair numa peça
+   diferente por acaso é praticamente impossível. Ainda assim, cada bipada
+   mostra a descrição da peça na tela, que é a confirmação que vale. */
+let cam=null;      /* {stream, timer, ler, ultimo, quando} */
+let zxingP=null;   /* promessa do carregamento, para não baixar duas vezes */
+
+/* A câmera existe em qualquer navegador moderno servido por HTTPS; o que
+   varia é só QUEM decodifica. Por isso não há mais aparelho sem o botão. */
 function temCamera(){
-  return 'BarcodeDetector' in window
-    && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+}
+
+function carregarZXing(){
+  if(window.ZXing) return Promise.resolve(window.ZXing);
+  if(zxingP) return zxingP;
+  zxingP=new Promise((ok,erro)=>{
+    const s=document.createElement('script');
+    s.src='vendor/zxing.min.js';
+    s.onload=()=>window.ZXing?ok(window.ZXing):erro(new Error('leitor não carregou'));
+    s.onerror=()=>{ zxingP=null; erro(new Error('não consegui baixar o leitor')); };
+    document.head.appendChild(s);
+  });
+  return zxingP;
+}
+
+/* Devolve uma função que recebe o <canvas> de um quadro e responde com o
+   código lido, ou null. Fica isolada assim para o teste poder decodificar
+   uma etiqueta de verdade sem precisar de câmera. */
+async function montarLeitor(){
+  if('BarcodeDetector' in window){
+    try{
+      const d=new BarcodeDetector({formats:['code_128','ean_13']});
+      return async canvas=>{
+        const r=await d.detect(canvas);
+        return r.length?String(r[0].rawValue||'').trim():null;
+      };
+    }catch(e){/* formato não suportado: cai para o ZXing */}
+  }
+  const Z=await carregarZXing();
+  const hints=new Map();
+  hints.set(Z.DecodeHintType.POSSIBLE_FORMATS,[Z.BarcodeFormat.CODE_128,Z.BarcodeFormat.EAN_13]);
+  hints.set(Z.DecodeHintType.TRY_HARDER,true);
+  const leitor=new Z.MultiFormatReader();
+  leitor.setHints(hints);
+  return async canvas=>{
+    try{
+      const fonte=new Z.HTMLCanvasElementLuminanceSource(canvas);
+      const mapa=new Z.BinaryBitmap(new Z.HybridBinarizer(fonte));
+      const r=leitor.decode(mapa);
+      return r?String(r.getText()||'').trim():null;
+    }catch(e){ return null; }   /* quadro sem código é o caso normal */
+    finally{ leitor.reset(); }
+  };
 }
 
 async function toggleCamera(){
   if(cam){ pararCamera(); return; }
-  const wrap=document.getElementById('camWrap');
   const btn=document.getElementById('camBtn');
+  const textoOriginal=btn.textContent;
+  btn.disabled=true; btn.textContent='Abrindo…';
   try{
+    const ler=await montarLeitor();
     const stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'environment'}, audio:false
+      video:{facingMode:{ideal:'environment'}}, audio:false
     });
     const v=document.getElementById('camVideo');
     v.srcObject=stream; await v.play();
-    /* CODE128 é o que o app de etiquetas imprime (JsBarcode, no index.html) */
-    const detector=new BarcodeDetector({formats:['code_128','ean_13','qr_code']});
-    cam={stream, detector, timer:null, ultimo:'', quando:0};
-    wrap.classList.add('on');
+    cam={stream, ler, timer:null, ultimo:'', quando:0,
+         canvas:document.createElement('canvas')};
+    document.getElementById('camWrap').classList.add('on');
     btn.textContent='✕ Desligar a câmera';
     lerDaCamera();
   }catch(e){
-    toast('Não consegui abrir a câmera. Verifique a permissão do navegador.');
-  }
+    btn.textContent=textoOriginal;
+    toast(e.name==='NotAllowedError'
+      ? 'Preciso da permissão da câmera. Libere nos ajustes do navegador.'
+      : (e.message||'Não consegui abrir a câmera.'));
+  }finally{ btn.disabled=false; }
 }
 
 function pararCamera(){
@@ -2475,20 +2534,23 @@ function pararCamera(){
 
 async function lerDaCamera(){
   if(!cam) return;
+  const v=document.getElementById('camVideo');
   try{
-    const codes=await cam.detector.detect(document.getElementById('camVideo'));
-    if(codes.length){
-      const v=String(codes[0].rawValue||'').trim();
-      /* a câmera enxerga o mesmo código 30 vezes por segundo: só conta de
-         novo depois de um intervalo, senão uma peça vira dez */
+    if(v.videoWidth){
+      const c=cam.canvas;
+      c.width=v.videoWidth; c.height=v.videoHeight;
+      c.getContext('2d',{willReadFrequently:true}).drawImage(v,0,0);
+      const código=await cam.ler(c);
+      /* a câmera enxerga o mesmo código dezenas de vezes por segundo: só
+         conta de novo depois de um intervalo, senão uma peça vira dez */
       const agora=Date.now();
-      if(v&&(v!==cam.ultimo||agora-cam.quando>1800)){
-        cam.ultimo=v; cam.quando=agora;
-        handleScan(v);
+      if(código&&(código!==cam.ultimo||agora-cam.quando>1800)){
+        cam.ultimo=código; cam.quando=agora;
+        handleScan(código);
       }
     }
   }catch(e){/* quadro ruim é normal; tenta o próximo */}
-  if(cam) cam.timer=setTimeout(lerDaCamera,220);
+  if(cam) cam.timer=setTimeout(lerDaCamera,200);
 }
 
 /* =================== Acerto =================== */
