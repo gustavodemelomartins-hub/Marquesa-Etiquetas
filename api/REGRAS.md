@@ -30,6 +30,7 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §22 | Código bipado fora do catálogo é anunciado | `inventarios.desconhecidos_json` |
 | §8 §9 | Venda de balcão, acerto e site na mesma tabela | `vendas.origem = 'balcao' \| 'acerto' \| 'site'` |
 | §5.1 | Puxar pedidos antes de empurrar estoque | `sync.js › sincronizar` |
+| §22 | O retrato da loja vem da última rodada, não do último CSV | `sync.js › gravarRetratoDaLoja` |
 | §19 | Rodar o cron duas vezes não duplica venda | índice único `vendas.externo_id` |
 | §22 | Produto que só existe na loja não é tocado | `empurrarEstoque` ignora SKU fora do catálogo |
 | §5.2 | Kit: disponível = mínimo entre componentes | `estoque.js › saldosDoKit` |
@@ -119,6 +120,40 @@ tem efeito 0 no saldo, e reservar um componente sem mexer no saldo dele
 exigiria um mecanismo à parte que ainda não existe) e kit fica de fora do
 inventário (ele não é coisa para bipar — quem tem saldo real para contar são
 os componentes).
+
+### 6. Quem lê a loja é quem grava o retrato dela — §22
+
+A aba Loja descreve a loja: quantos produtos existem, quais códigos estão
+publicados, quanto cada um mostra de estoque, o que está oculto. Esses
+números vinham todos de `importarLoja` — o CSV exportado da Nuvemshop e
+subido à mão.
+
+Enquanto a atualização era por arquivo, isso fechava: importar o CSV era o
+mesmo ato de olhar a loja. Com a sincronização automática deixou de fechar.
+A rodada lê a loja inteira (`loja.produtos()`), empurra o estoque e
+**descartava** o que tinha lido. O retrato continuava congelado no dia da
+última importação.
+
+O efeito não era cosmético. A tela seguia acusando "estoque errado no site"
+em produtos que a própria rodada das 6h já tinha acertado, e oferecia como
+solução gerar um CSV — o fluxo manual, agora capaz de subir números velhos
+por cima dos certos. O mesmo valia para "falta subir": peça cadastrada na
+Nuvemshop depois do último CSV continuava contada como ausente.
+
+Agora `gravarRetratoDaLoja` grava o que a rodada leu: `url_loja`,
+`estoque_loja`, `visivel`, `nome_loja` e a `loja_snapshot` inteira. Onde
+houve empurrão, vale o número empurrado, não o que foi lido antes dele —
+senão o retrato nasceria velho por uma rodada.
+
+Rodada pausada pelo freio e rodada seca também gravam. Elas não escreveram
+na loja, mas leram a loja de verdade, e é justamente aí que ver o retrato
+certo mais importa: é a tela em que ela vai decidir se manda aplicar.
+
+Uma coisa a sincronização continua não resolvendo, e a tela agora diz isso
+com todas as letras: ela **não cria produto** na Nuvemshop. Código sem
+anúncio lá permanece em "falta subir" para sempre, porque `empurrarEstoque`
+só toca em quem existe nos dois lados (§22). Cadastrar é um passo manual, e
+some da lista sozinho na rodada seguinte.
 
 ### 4. A sincronização tem duas mãos, nesta ordem — §5.1
 

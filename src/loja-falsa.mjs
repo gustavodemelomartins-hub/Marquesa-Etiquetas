@@ -105,11 +105,17 @@ export function subirLojaFalsa(porta = 8799) {
   });
 }
 
-/** Monta um produto no formato que a API devolve. */
-export function produtoFalso(id, variantes) {
+/** Monta um produto no formato que a API devolve.
+ *
+ *  `handle` e `name` vêm como objeto por idioma, e `published` diz se o
+ *  produto está visível na loja — são os três campos que a sincronização
+ *  guarda para a aba Loja poder se descrever sem depender de CSV. */
+export function produtoFalso(id, variantes, { publicado = true } = {}) {
   return {
     id,
     name: { pt: 'Produto ' + id },
+    handle: { pt: 'produto-' + id },
+    published: publicado,
     variants: variantes.map(v => ({
       id: v.id, sku: v.sku,
       inventory_levels: [{ location_id: 'LOC1', stock: v.estoque }],

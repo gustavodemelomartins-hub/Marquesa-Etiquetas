@@ -163,10 +163,24 @@ export function mapearSkus(produtos) {
         // da loja dela já ter acontecido.
         estoque: somaEstoque(v),
         locais: (v.inventory_levels || []).map(n => n.location_id),
+        // Os três campos abaixo não servem para empurrar estoque: servem para
+        // a aba Loja poder descrever a loja a partir do que a sincronização
+        // acabou de ler, em vez de um CSV importado à mão semanas atrás.
+        url: texto(p.handle),
+        nome: texto(p.name),
+        visivel: p.published == null ? null : !!p.published,
       });
     }
   }
   return { mapa, duplicados };
+}
+
+/** Campo traduzível da Nuvemshop: vem como {pt: "...", es: "..."} nas lojas
+ *  com mais de um idioma e como string simples nas demais. */
+function texto(v) {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  return String(v.pt || v.pt_BR || Object.values(v)[0] || '');
 }
 
 function somaEstoque(v) {

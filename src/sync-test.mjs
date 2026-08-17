@@ -169,6 +169,47 @@ eq('cada rodada ficou registrada', hist.length >= 7, 'true');
 eq('a pausada aparece como pausada no histórico',
   hist.some(h => h.status === 'pausado'), 'true');
 
+console.log('\n=== 12. a sincronização guarda o retrato da loja que ela leu ===');
+/* O bug que isto trava: `estoque_loja`, `url_loja`, `visivel` e
+   `loja_snapshot` só eram escritos pela importação manual do CSV. A
+   sincronização lia a loja inteira, empurrava o estoque e jogava fora o que
+   aprendeu — então a aba Loja continuava acusando "estoque errado no site" e
+   mandando gerar CSV para consertar o que a própria rodada já tinha
+   consertado. Repare que NENHUM CSV foi importado neste teste. */
+loja.estado.produtos.push(produtoFalso(4, [{ id: 44, sku: 'B4', estoque: 3 }], { publicado: false }));
+await api('POST', '/api/produtos/importar', {
+  produtos: [{ sku: 'B4', desc: 'Anel B4', cat: 'Anel', preco: 70, qtd: 3 }],
+});
+
+r = await api('POST', '/api/sync', { forcar: true });
+eq('a rodada terminou bem', r.ok, 'true');
+
+const est12 = await api('GET', '/api/state');
+const pb4 = est12.produtos.find(p => p.sku === 'B4');
+eq('o código casado ficou marcado como publicado, sem CSV nenhum', !!pb4.urlLoja, 'true');
+eq('com o identificador de URL que a loja informou', pb4.urlLoja, 'produto-4');
+eq('e com o estoque que a loja tem agora', pb4.estoqueLoja, 3);
+eq('produto oculto na loja chega como oculto', pb4.visivel, 'false');
+
+/* O ponto central: depois de sincronizar, "estoque errado no site" tem de
+   ser zero — porque a loja acabou de receber os números e o retrato foi
+   atualizado junto. Antes deste conserto, esta contagem só caía com uma
+   importação manual de CSV. */
+const errados = est12.produtos.filter(p => p.urlLoja && (p.estoqueLoja || 0) !== Math.max(0, p.qtd - p.consignado));
+eq('nada aparece como "estoque errado" logo após sincronizar', errados.length, 0);
+
+eq('o retrato sabe quantos produtos a loja tem', est12.loja.produtosNaLoja, 4);
+eq('e quantos códigos são meus', est12.loja.codigosCasados, 3);
+eq('B3 continua contado como só-da-loja', est12.loja.soNaLoja, 1);
+eq('o retrato tem data de leitura', !!est12.loja.lidoEm, 'true');
+
+console.log('\n=== 13. produto tirado do ar deixa de constar como publicado ===');
+loja.estado.produtos = loja.estado.produtos.filter(p => p.id !== 4);
+r = await api('POST', '/api/sync', { forcar: true });
+const pb4Depois = (await api('GET', '/api/state')).produtos.find(p => p.sku === 'B4');
+eq('sumiu da loja, sumiu daqui também', !!pb4Depois.urlLoja, 'false');
+eq('e volta a contar como "falta subir"', pb4Depois.estoqueLoja, 'undefined');
+
 await loja.fechar();
 console.log(falhas ? `\n✗ ${falhas} FALHA(S)\n` : '\n✓ TUDO PASSOU\n');
 process.exit(falhas ? 1 : 0);

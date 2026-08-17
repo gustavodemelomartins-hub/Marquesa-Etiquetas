@@ -591,6 +591,15 @@ body{font-variant-numeric:lining-nums tabular-nums}
 .warn b{font-weight:700}
 .warn .w-act{margin-top:8px}
 
+/* Estado normal da ligação com a loja: presente, conferível, sem gritar. */
+.syncline{
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  margin-top:14px;padding-top:12px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--muted);
+}
+.syncline svg{flex:none;opacity:.7}
+.syncline button{margin-left:auto}
+
 /* ---------- Bipagem ---------- */
 .scanbox{
   border:2px solid var(--bordo);border-radius:14px;background:var(--paper);
@@ -1580,8 +1589,6 @@ function renderGeral(){
       <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="switchTab('estoque');setTimeout(()=>setFiltroInc(true),60)">Ver esses códigos</button></div></div>
     </div>`:''}
 
-    ${painelInventario()}
-
     <div class="row chart">
       <div class="panel">
         <div class="head">
@@ -1617,7 +1624,9 @@ function renderGeral(){
   renderDonut();
 }
 
-/* O estado do inventário em uma frase, no lugar onde ela já olha todo dia.
+/* O estado do inventário em uma frase, no topo de Meu estoque — que é a
+   tela que o inventário conserta, e portanto onde a contagem faz sentido
+   como próximo passo, e não como recado solto na visão geral.
    Sem número piscando e sem contagem regressiva: é um lembrete, não uma
    cobrança — nada trava se o prazo passar. */
 function painelInventario(){
@@ -1861,6 +1870,7 @@ function renderEstoque(){
   const semCadastro=lista.filter(p=>(p.qtd||0)-(rev[p.sku]||0)>0).length;
 
   v.innerHTML=`
+    ${painelInventario()}
     <div class="panel">
       <div class="head">
         <h2>Meu estoque</h2>
@@ -2064,6 +2074,7 @@ function panoramaLoja(){
     produtos,
     produtosNaLoja: L.produtosNaLoja||produtos,
     soNaLoja: L.soNaLoja||0,
+    lidoEm: L.lidoEm||null,
     variacoes: Math.max(0,naLoja.length-produtos),
     duplicados: L.duplicados||[],
     faltaSubir: fora.filter(p=>certo(p)>0),
@@ -2120,12 +2131,22 @@ function painelSync(){
     </div>`;
   }
 
+  /* Ligada e sem novidade não é notícia: vira a linha discreta do rodapé
+     (rodapeSync). Faixa no topo se gasta — quando tudo que aparece ali é
+     "está tudo bem", a faixa que um dia disser "parei antes de mexer na
+     loja" já vai ter virado paisagem. */
+  return '';
+}
+
+/** O estado normal da ligação, no rodapé da aba e sem alarme nenhum. */
+function rodapeSync(){
+  const s=state.sync;
+  if(!s||!s.conectada||s.pausada||s.erro) return '';
   const quando=s.ultimaEm?fmtDataHora(s.ultimaEm):null;
-  return `<div class="warn info">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6"/></svg>
-    <div><b>Loja ligada direto.</b> ${quando?`Última sincronização em ${esc(quando)}.`:'Ainda não rodou nenhuma vez.'}
-    Roda sozinha às 6h e às 18h.
-    <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="rodarSync(false)">Sincronizar agora</button></div></div>
+  return `<div class="syncline">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6"/></svg>
+    <span>Loja ligada direto · ${quando?`última sincronização ${esc(quando)}`:'ainda não rodou'} · roda sozinha às 6h e às 18h</span>
+    <button class="btn btn-ghost btn-sm" onclick="rodarSync(false)">Sincronizar agora</button>
   </div>`;
 }
 
@@ -2160,8 +2181,11 @@ function renderLoja(){
 
   /* O estado da ligação automática aparece mesmo antes de conhecer a loja:
      é justamente aí que ele é mais útil, porque ligar o acesso direto
-     dispensa a importação de arquivo que a tela vazia está pedindo. */
+     dispensa a importação de arquivo que a tela vazia está pedindo.
+     Só que agora painelSync() só fala quando há o que resolver — ligada e
+     em dia é assunto do rodapé. */
   const sincronia=painelSync();
+  const ligada=!!(state.sync&&state.sync.conectada);
 
   if(!temLoja()){
     v.innerHTML=sincronia+`<div class="panel"><div class="body"><div class="empty">
@@ -2216,12 +2240,18 @@ function renderLoja(){
       </div>
     </div>
 
-    ${L.desatualizados.length?`<div class="warn">
+    ${L.desatualizados.length?(ligada?`<div class="warn info">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10"/></svg>
+      <div><b>${L.desatualizados.length} ${plural(L.desatualizados.length,'produto mudou','produtos mudaram')} depois da última sincronização.</b>
+      Não é erro: é venda de balcão, maleta ou acerto que aconteceu desde então.
+      A loja recebe esses números sozinha na próxima rodada, às 6h ou às 18h.
+      <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="rodarSync(false)">Sincronizar agora</button></div></div>
+    </div>`:`<div class="warn">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
       <div><b>${L.desatualizados.length} ${plural(L.desatualizados.length,'produto está','produtos estão')} com estoque errado na loja.</b>
       Gere o arquivo de atualização e suba na Nuvemshop.
       <div class="w-act"><button class="btn btn-gold btn-sm" onclick="exportLoja()">↓ Gerar atualização de estoque</button></div></div>
-    </div>`:''}
+    </div>`):''}
 
     ${L.duplicados.length?`<div class="warn">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
@@ -2231,8 +2261,11 @@ function renderLoja(){
 
     ${L.faltaSubir.length?`<div class="warn info">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" transform="rotate(180 12 12)"/></svg>
-      <div><b>${L.faltaSubir.length} códigos com peça em casa não existem na loja</b> —
-      ${L.faltaSubir.reduce((s,p)=>s+L.certo(p),0)} peças, ${money(L.faltaSubir.reduce((s,p)=>s+L.certo(p)*p.preco,0))} que não podem vender.
+      <div><b>${L.faltaSubir.length} ${plural(L.faltaSubir.length,'código com peça em casa não existe','códigos com peça em casa não existem')} na loja</b> —
+      ${(x=>`${x} ${plural(x,'peça','peças')}`)(L.faltaSubir.reduce((s,p)=>s+L.certo(p),0))}, ${money(L.faltaSubir.reduce((s,p)=>s+L.certo(p)*p.preco,0))} que não ${plural(L.faltaSubir.reduce((s,p)=>s+L.certo(p),0),'pode','podem')} vender.
+      ${ligada?`<br>Este é o único que a sincronização não resolve sozinha: ela acerta o estoque
+      de quem já está cadastrado, mas não cria produto na Nuvemshop. Peça nova precisa ser
+      cadastrada lá uma vez — depois disso o estoque dela passa a andar sozinho.`:''}
       <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="exportSemCadastro()">↓ Baixar lista para cadastrar</button></div></div>
     </div>`:''}
 
@@ -2240,7 +2273,7 @@ function renderLoja(){
       <div class="head">
         <h2>${({publicados:'Produtos no site',desatualizados:'Estoque errado no site',ocultos:'Ocultos no site',falta:'Falta subir para o site'})[filtroVitrine]}</h2>
         <span class="hint">${({
-          publicados:`${L.produtosNaLoja} produtos na loja · ${L.naLoja.length} códigos meus${L.variacoes?`, sendo ${L.variacoes} variações de um produto já contado`:''}`,
+          publicados:`${L.produtosNaLoja} produtos na loja · ${L.naLoja.length} códigos meus${L.variacoes?`, sendo ${L.variacoes} variações de um produto já contado`:''}${L.lidoEm?` · retrato de ${esc(fmtDataHora(L.lidoEm))}`:''}`,
           desatualizados:'A loja mostra um número, o real é outro',
           ocultos:reativar.length?`${reativar.length} ${plural(reativar.length,'tem peça em casa e podia estar vendendo','têm peça em casa e podiam estar vendendo')}`
                                  :'Cadastrados, mas invisíveis para o cliente',
@@ -2289,6 +2322,7 @@ function renderLoja(){
             filtroVitrine==='ocultos'?'Nenhum produto está oculto.':
             filtroVitrine==='falta'?'Tudo que você tem em casa já está cadastrado na loja.':
             'Nenhum produto encontrado.'}</p></div>`}
+        ${rodapeSync()}
       </div>
     </div>`;
 }

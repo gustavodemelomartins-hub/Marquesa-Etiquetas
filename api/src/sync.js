@@ -55,6 +55,9 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
 
     await puxarPedidos(db, loja, relato, seco);
     await empurrarEstoque(db, loja, mapa, relato, { forcar, seco });
+    /* Depois de empurrar, e não antes: assim o retrato já nasce com os
+       números que a loja passou a ter nesta rodada. */
+    await gravarRetratoDaLoja(db, produtosLoja, mapa, relato);
 
     await db.prepare(
       `UPDATE sync_execucoes SET terminado_em = datetime('now'), status = ?,
@@ -237,7 +240,73 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
     await loja.atualizarEstoque(todos.slice(i, i + 25));
   }
   relato.produtosEnviados = todos.length;
+  relato.aplicado = true;   // as mudanças acima já estão na loja
   await gravarConfig(db, 'syncUltimoEstoque', agoraISO());
+}
+
+/* ------------------------------------------- 3. gravar o retrato da loja */
+
+/** A sincronização já leu a loja inteira para fazer o seu trabalho. Esta
+ *  função guarda o que ela leu.
+ *
+ *  Sem isto a aba Loja do dashboard fica mentindo: as colunas `url_loja`,
+ *  `estoque_loja` e `visivel` e a tabela `loja_snapshot` só eram escritas
+ *  pela importação manual do CSV, então a tela continuava acusando "estoque
+ *  errado no site" e "falta subir" com base num arquivo de semanas atrás —
+ *  inclusive para produtos que a própria sincronização tinha acabado de
+ *  acertar, e mandando gerar CSV para consertar o que já estava consertado.
+ *
+ *  Guardar o que foi lido é o suficiente: o retrato passa a valer da última
+ *  rodada, não da última importação. Rodada que parou no freio ou rodada
+ *  seca também gravam — elas não empurraram nada, mas leram a loja de
+ *  verdade, e esse retrato é tão válido quanto o outro. */
+async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
+  /* Onde empurramos, a loja já está com o número novo — `mapa` guarda o
+     valor de ANTES do PATCH e ficaria velho por uma rodada inteira. */
+  const empurrado = new Map();
+  if (relato.aplicado) for (const m of relato.mudancas) empurrado.set(m.sku, m.para);
+
+  const nossos = new Set(
+    (await db.prepare(`SELECT sku FROM produtos`).all()).results.map(p => p.sku)
+  );
+
+  const stmts = [
+    /* Produto tirado do ar na Nuvemshop precisa deixar de constar como
+       publicado aqui — por isso limpa antes de reescrever, igual à
+       importação por arquivo faz. */
+    db.prepare(`UPDATE produtos SET url_loja = NULL, estoque_loja = NULL, visivel = NULL`),
+  ];
+
+  let casados = 0, soNaLoja = 0;
+  const produtosCasados = new Set();
+  for (const [sku, v] of mapa) {
+    if (!nossos.has(sku)) { soNaLoja++; continue; }
+    casados++;
+    produtosCasados.add(v.produtoId);
+    stmts.push(db.prepare(
+      `UPDATE produtos SET url_loja = ?, estoque_loja = ?, visivel = ?, nome_loja = ? WHERE sku = ?`
+    ).bind(
+      v.url || String(v.produtoId),
+      empurrado.has(sku) ? empurrado.get(sku) : v.estoque,
+      v.visivel === null ? null : (v.visivel ? 1 : 0),
+      v.nome || null,
+      sku,
+    ));
+  }
+
+  stmts.push(db.prepare(
+    `INSERT INTO loja_snapshot (id, lido_em, produtos_na_loja, produtos_casados, so_na_loja, codigos_casados, duplicados_json)
+     VALUES (1, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET lido_em=excluded.lido_em, produtos_na_loja=excluded.produtos_na_loja,
+       produtos_casados=excluded.produtos_casados, so_na_loja=excluded.so_na_loja,
+       codigos_casados=excluded.codigos_casados, duplicados_json=excluded.duplicados_json`
+  ).bind(
+    agoraISO(), produtosLoja.length, produtosCasados.size, soNaLoja, casados,
+    JSON.stringify(relato.duplicadosNaLoja || []),
+  ));
+
+  await db.batch(stmts);
+  relato.retrato = { produtosNaLoja: produtosLoja.length, casados, soNaLoja };
 }
 
 /* ------------------------------------------------------------ histórico */
