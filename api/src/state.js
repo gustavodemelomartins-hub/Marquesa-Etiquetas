@@ -107,6 +107,9 @@ export async function montarState(db, env) {
     lidoEm: l.lido_em, produtosNaLoja: l.produtos_na_loja, produtosCasados: l.produtos_casados,
     soNaLoja: l.so_na_loja, codigosCasados: l.codigos_casados,
     duplicados: JSON.parse(l.duplicados_json || '[]'),
+    // códigos que na loja são mais de uma variação (tamanho/cor): a
+    // sincronização não mexe no estoque deles e a tela precisa dizer isso
+    variacoes: c.lojaVariacoes ?? [],
   } : null;
 
   return {

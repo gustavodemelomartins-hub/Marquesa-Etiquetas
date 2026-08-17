@@ -2069,6 +2069,12 @@ function panoramaLoja(){
      que aparece no painel da Nuvemshop. */
   const L=state.loja||{};
   const produtos=L.produtosCasados||new Set(naLoja.map(p=>p.urlLoja)).size;
+  /* Códigos que na loja são mais de uma variação. A sincronização não mexe
+     no estoque deles de propósito, então cobrá-los na lista de "estoque
+     errado" seria pedir uma correção que não existe botão para fazer: eles
+     têm o aviso próprio, que explica o que está acontecendo. */
+  const semEmpurrar=L.variacoes||[];
+  const skusVariacao=new Set(semEmpurrar.map(v=>v.sku));
   return {
     casa, naLoja, fora, certo,
     produtos,
@@ -2077,8 +2083,9 @@ function panoramaLoja(){
     lidoEm: L.lidoEm||null,
     variacoes: Math.max(0,naLoja.length-produtos),
     duplicados: L.duplicados||[],
+    comVariacao: semEmpurrar,
     faltaSubir: fora.filter(p=>certo(p)>0),
-    desatualizados: naLoja.filter(p=>(p.estoqueLoja||0)!==certo(p)),
+    desatualizados: naLoja.filter(p=>!skusVariacao.has(p.sku)&&(p.estoqueLoja||0)!==certo(p)),
     ocultos: naLoja.filter(p=>p.visivel===false),
     pecasPublicadas: naLoja.reduce((s,p)=>s+(p.estoqueLoja||0),0),
     valorPublicado: naLoja.reduce((s,p)=>s+(p.estoqueLoja||0)*p.preco,0)
@@ -2204,7 +2211,10 @@ function renderLoja(){
     ocultos:L.ocultos,
     falta:L.faltaSubir
   };
-  const lista=(listas[filtroVitrine]||L.naLoja).slice()
+  /* A lista das variações tem forma própria — vem da sincronização, com o
+     detalhe de cada tamanho — então ela é montada à parte, não aqui. */
+  const eVariacao=filtroVitrine==='variacao';
+  const lista=eVariacao?[]:(listas[filtroVitrine]||L.naLoja).slice()
     .sort((a,b)=>{
       /* nas duas listas de ação, o que vale mais dinheiro aparece primeiro */
       if(filtroVitrine==='falta') return L.certo(b)*b.preco-L.certo(a)*a.preco;
@@ -2212,6 +2222,7 @@ function renderLoja(){
         || a.desc.localeCompare(b.desc,'pt');
       return a.desc.localeCompare(b.desc,'pt');
     });
+  const listaVar=L.comVariacao.slice().sort((a,b)=>a.desc.localeCompare(b.desc,'pt'));
   /* oculto com peça em casa é venda perdida por um clique — merece destaque */
   const reativar=L.ocultos.filter(p=>L.certo(p)>0);
 
@@ -2255,8 +2266,21 @@ function renderLoja(){
 
     ${L.duplicados.length?`<div class="warn">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-      <div><b>${L.duplicados.length} ${plural(L.duplicados.length,'código está cadastrado','códigos estão cadastrados')} em mais de um produto na loja</b>
-      (${esc(L.duplicados.slice(0,4).join(', '))}). O estoque fica dividido entre eles e a conta nunca fecha — vale unificar na Nuvemshop.</div>
+      <div><b>${L.duplicados.length} ${plural(L.duplicados.length,'código está cadastrado','códigos estão cadastrados')} em dois produtos diferentes da loja</b>
+      (${esc(L.duplicados.slice(0,4).join(', '))}). Isso é diferente de tamanho e cor: são dois anúncios separados
+      com o mesmo código, o estoque fica dividido entre eles e a conta nunca fecha — vale unificar na Nuvemshop.</div>
+    </div>`:''}
+
+    ${L.comVariacao.length?`<div class="warn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <div><b>${L.comVariacao.length} ${plural(L.comVariacao.length,'código tem','códigos têm')} mais de uma variação no site</b> — tamanho de anel, cor do banho.
+      A sincronização <b>não mexe no estoque desses</b>, de propósito: aqui cada código tem um número só,
+      e lá cada tamanho tem a caixinha dele. Não dá para adivinhar quanto vai em cada uma, e chutar
+      significa vender peça que não existe.
+      <div class="w-act">
+        <button class="btn btn-ghost btn-sm" onclick="setFiltroVitrine('variacao')">Ver quais são</button>
+        <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="exportVariacoes()">↓ Baixar lista</button>
+      </div></div>
     </div>`:''}
 
     ${L.faltaSubir.length?`<div class="warn info">
@@ -2271,13 +2295,14 @@ function renderLoja(){
 
     <div class="panel">
       <div class="head">
-        <h2>${({publicados:'Produtos no site',desatualizados:'Estoque errado no site',ocultos:'Ocultos no site',falta:'Falta subir para o site'})[filtroVitrine]}</h2>
+        <h2>${({publicados:'Produtos no site',desatualizados:'Estoque errado no site',ocultos:'Ocultos no site',falta:'Falta subir para o site',variacao:'Códigos com tamanho ou cor'})[filtroVitrine]}</h2>
         <span class="hint">${({
           publicados:`${L.produtosNaLoja} produtos na loja · ${L.naLoja.length} códigos meus${L.variacoes?`, sendo ${L.variacoes} variações de um produto já contado`:''}${L.lidoEm?` · retrato de ${esc(fmtDataHora(L.lidoEm))}`:''}`,
           desatualizados:'A loja mostra um número, o real é outro',
           ocultos:reativar.length?`${reativar.length} ${plural(reativar.length,'tem peça em casa e podia estar vendendo','têm peça em casa e podiam estar vendendo')}`
                                  :'Cadastrados, mas invisíveis para o cliente',
-          falta:'Peça em casa sem cadastro na loja, do mais caro para o mais barato'
+          falta:'Peça em casa sem cadastro na loja, do mais caro para o mais barato',
+          variacao:'O que a loja tem em cada tamanho, e o número único que existe aqui'
         })[filtroVitrine]}</span>
       </div>
       <div class="body">
@@ -2286,7 +2311,34 @@ function renderLoja(){
           <button class="pill ${filtroVitrine==='desatualizados'?'on':''}" onclick="setFiltroVitrine('desatualizados')">Estoque errado (${L.desatualizados.length})</button>
           <button class="pill ${filtroVitrine==='ocultos'?'on':''}" onclick="setFiltroVitrine('ocultos')">Ocultos (${L.ocultos.length}${reativar.length?' · '+reativar.length+' com peça':''})</button>
           <button class="pill ${filtroVitrine==='falta'?'on':''}" onclick="setFiltroVitrine('falta')">Falta subir (${L.faltaSubir.length})</button>
+          ${L.comVariacao.length?`<button class="pill ${eVariacao?'on':''}" onclick="setFiltroVitrine('variacao')">Tamanho/cor (${L.comVariacao.length})</button>`:''}
         </div>
+
+        ${eVariacao?(listaVar.length?`
+        <div class="tablewrap keeptable">
+          <table>
+            <thead><tr>
+              <th>Descrição</th><th style="width:88px">Código</th>
+              <th>Variações no site</th>
+              <th style="width:78px">Soma no site</th><th style="width:70px">Aqui</th>
+            </tr></thead>
+            <tbody>${listaVar.map(x=>`<tr>
+              <td class="desc">${esc(x.desc)}${x.motivo==='duplicado'?' <span class="badge vencida">2 anúncios</span>':''}</td>
+              <td class="sku">${esc(x.sku)}</td>
+              <td style="font-size:11.5px;color:var(--muted)">${x.variacoes.map(vv=>
+                `${esc(vv.nome||'sem nome')}: <b style="color:var(--ink)">${vv.estoque}</b>`).join(' &nbsp;·&nbsp; ')}</td>
+              <td class="num">${x.naLoja}</td>
+              <td class="num ${x.casa?'':'zero'}">${x.casa}</td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;font-size:11.5px;color:var(--muted)">
+          A coluna <b>Aqui</b> é um número só porque hoje o sistema guarda um estoque por código.
+          Enquanto cada tamanho não tiver o seu, a sincronização não escreve nada nesses ${listaVar.length}.
+        </div>`
+        :`<div class="empty"><h3>Nenhum código com variação</h3>
+           <p>Cada código da sua loja tem uma variação só.</p></div>`)
+        :`
 
         ${lista.length?`
         <div class="tablewrap keeptable">
@@ -2321,7 +2373,7 @@ function renderLoja(){
             filtroVitrine==='desatualizados'?'A loja está em dia com o seu estoque.':
             filtroVitrine==='ocultos'?'Nenhum produto está oculto.':
             filtroVitrine==='falta'?'Tudo que você tem em casa já está cadastrado na loja.':
-            'Nenhum produto encontrado.'}</p></div>`}
+            'Nenhum produto encontrado.'}</p></div>`}`}
         ${rodapeSync()}
       </div>
     </div>`;
@@ -4007,6 +4059,23 @@ function exportSemCadastro(){
   const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
   baixar(new Blob([out],{type:'application/octet-stream'}),`Peças sem cadastro na loja ${hoje()}.xlsx`);
   toast(`${faltam.length} códigos para cadastrar`);
+  closeSettings();
+}
+/* Os códigos que a sincronização não empurra, com o detalhe de cada tamanho.
+   Uma linha por VARIAÇÃO, porque é nesse nível que ela vai ter de decidir
+   quanto tem de cada uma. */
+function exportVariacoes(){
+  const lista=(state.loja&&state.loja.variacoes)||[];
+  if(!lista.length){toast('Nenhum código com variação');return;}
+  const dados=[['SKU','Descrição','Variação','Estoque no site','Soma no site','Total aqui']];
+  lista.slice().sort((a,b)=>a.desc.localeCompare(b.desc,'pt')).forEach(x=>{
+    x.variacoes.forEach(v=>dados.push([x.sku,x.desc,v.nome||'',v.estoque,x.naLoja,x.casa]));
+  });
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(dados),'Variações');
+  const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  baixar(new Blob([out],{type:'application/octet-stream'}),`Códigos com variação ${hoje()}.xlsx`);
+  toast(`${lista.length} códigos com tamanho ou cor`);
   closeSettings();
 }
 /* Mesmo formato da aba "Estoque Atual" que a sincronização já consome. */

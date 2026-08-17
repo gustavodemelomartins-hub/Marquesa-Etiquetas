@@ -137,25 +137,53 @@ export class Nuvemshop {
   }
 }
 
-/** Mapa SKU → {produtoId, varianteId} a partir da lista de produtos.
+/** Mapa SKU → tudo que a loja tem sob aquele código.
  *
- *  Um produto da Nuvemshop pode ter várias variações, cada uma com o seu
- *  SKU — é por isso que a loja tem 614 produtos e 630 códigos nossos entre
- *  eles. A sincronização trabalha na variação, que é onde o estoque mora.
+ *  Um produto da Nuvemshop tem uma ou mais variações, e o estoque mora na
+ *  VARIAÇÃO, não no produto. O mesmo código pode aparecer em mais de uma
+ *  variação, e os dois motivos possíveis não têm nada a ver um com o outro:
  *
- *  O SKU é normalizado do mesmo jeito que no resto do sistema (maiúsculas,
- *  sem espaço em volta), mas o sufixo NÃO é removido aqui: quem decide
- *  consolidar é a importação, e na loja cada variação é uma linha de
- *  estoque própria que precisa ser endereçada como ela é. */
+ *   - variações do MESMO produto — tamanho de anel, cor do banho. É o normal
+ *     nesta loja, não é erro nenhum, e não há o que unificar.
+ *   - o mesmo código em produtos DIFERENTES — aí sim é cadastro duplicado: o
+ *     estoque fica dividido entre dois anúncios e a conta nunca fecha.
+ *
+ *  Só o segundo caso vira `duplicados`. Confundir os dois é o que fazia a
+ *  tela acusar 56 duplicatas numa loja que tem 2.
+ *
+ *  Todas as variações ficam guardadas em `variantes`. A versão anterior
+ *  descartava da segunda em diante, e o efeito era silencioso e ruim: a
+ *  sincronização só escrevia estoque numa das variações e deixava os outros
+ *  tamanhos com o número velho para sempre.
+ *
+ *  O SKU é normalizado como no resto do sistema (maiúsculas, sem espaço em
+ *  volta), mas o sufixo NÃO é removido aqui: quem decide consolidar é a
+ *  importação, e na loja cada variação é uma linha de estoque própria que
+ *  precisa ser endereçada como ela é. */
 export function mapearSkus(produtos) {
   const mapa = new Map();
-  const duplicados = [];
   for (const p of produtos || []) {
     for (const v of p.variants || []) {
       const sku = String(v.sku || '').trim().toUpperCase();
       if (!sku) continue;
-      if (mapa.has(sku)) { duplicados.push(sku); continue; }
-      mapa.set(sku, {
+      if (!mapa.has(sku)) {
+        mapa.set(sku, {
+          produtoId: p.id,
+          varianteId: v.id,
+          locais: (v.inventory_levels || []).map(n => n.location_id),
+          // Os três campos abaixo não servem para empurrar estoque: servem para
+          // a aba Loja poder descrever a loja a partir do que a sincronização
+          // acabou de ler, em vez de um CSV importado à mão semanas atrás.
+          url: texto(p.handle),
+          nome: texto(p.name),
+          visivel: p.published == null ? null : !!p.published,
+          variantes: [],
+          produtos: new Set(),
+        });
+      }
+      const e = mapa.get(sku);
+      e.produtos.add(p.id);
+      e.variantes.push({
         produtoId: p.id,
         varianteId: v.id,
         // inventory_levels substituiu o campo `stock`, que segue existindo
@@ -163,16 +191,23 @@ export function mapearSkus(produtos) {
         // da loja dela já ter acontecido.
         estoque: somaEstoque(v),
         locais: (v.inventory_levels || []).map(n => n.location_id),
-        // Os três campos abaixo não servem para empurrar estoque: servem para
-        // a aba Loja poder descrever a loja a partir do que a sincronização
-        // acabou de ler, em vez de um CSV importado à mão semanas atrás.
-        url: texto(p.handle),
-        nome: texto(p.name),
-        visivel: p.published == null ? null : !!p.published,
+        // "16", "Dourado" — o que diferencia esta variação das irmãs. A loja
+        // já sabe disso, então ninguém precisa digitar de novo.
+        nome: (v.values || []).map(texto).filter(Boolean).join(' · '),
       });
     }
   }
-  return { mapa, duplicados };
+
+  const duplicados = [], multiVariacao = [];
+  for (const [sku, e] of mapa) {
+    /* O estoque do CÓDIGO é a soma das suas variações: é assim que a
+       importação por arquivo sempre contou, e é o único número comparável
+       com o nosso, que é um só por código. */
+    e.estoque = e.variantes.reduce((s, v) => s + v.estoque, 0);
+    if (e.produtos.size > 1) duplicados.push(sku);
+    else if (e.variantes.length > 1) multiVariacao.push(sku);
+  }
+  return { mapa, duplicados, multiVariacao };
 }
 
 /** Campo traduzível da Nuvemshop: vem como {pt: "...", es: "..."} nas lojas

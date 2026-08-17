@@ -210,6 +210,57 @@ const pb4Depois = (await api('GET', '/api/state')).produtos.find(p => p.sku === 
 eq('sumiu da loja, sumiu daqui também', !!pb4Depois.urlLoja, 'false');
 eq('e volta a contar como "falta subir"', pb4Depois.estoqueLoja, 'undefined');
 
+console.log('\n=== 14. tamanho e cor não são cadastro duplicado ===');
+/* O caso real: 56 códigos apareceram como "duplicados" numa loja que tem 2.
+   Eram tamanhos de anel e cores de banho — variações do MESMO produto, que
+   é o normal. Duplicado é o mesmo código em produtos DIFERENTES. */
+await api('POST', '/api/produtos/importar', {
+  produtos: [
+    { sku: 'ANEL-T', desc: 'Anel com tamanhos', cat: 'Anel', preco: 90, qtd: 6 },
+    { sku: 'DUPLO', desc: 'Código em dois anúncios', cat: 'Colar', preco: 120, qtd: 4 },
+  ],
+});
+loja.estado.produtos = [
+  /* um produto, três tamanhos, todos com o mesmo código */
+  { id: 70, name: { pt: 'Anel com tamanhos' }, handle: { pt: 'anel-tamanhos' }, published: true,
+    variants: [
+      { id: 701, sku: 'ANEL-T', values: [{ pt: '16' }], inventory_levels: [{ location_id: 'L1', stock: 2 }] },
+      { id: 702, sku: 'ANEL-T', values: [{ pt: '18' }], inventory_levels: [{ location_id: 'L1', stock: 3 }] },
+      { id: 703, sku: 'ANEL-T', values: [{ pt: '20' }], inventory_levels: [{ location_id: 'L1', stock: 1 }] },
+    ] },
+  /* MESMO código em dois produtos diferentes: esse sim é duplicado */
+  produtoFalso(71, [{ id: 711, sku: 'DUPLO', estoque: 2 }]),
+  produtoFalso(72, [{ id: 722, sku: 'DUPLO', estoque: 2 }]),
+];
+
+r = await api('POST', '/api/sync', { forcar: true });
+eq('a rodada terminou bem', r.ok, 'true');
+eq('só o código em dois anúncios conta como duplicado', r.duplicadosNaLoja.join(','), 'DUPLO');
+eq('o anel com 3 tamanhos NÃO é chamado de duplicado',
+  r.duplicadosNaLoja.includes('ANEL-T'), 'false');
+
+const naoEmpurrou = (r.semEmpurrar || []).reduce((m, x) => (m[x.sku] = x, m), {});
+eq('o anel com tamanhos ficou de fora do empurrão', !!naoEmpurrou['ANEL-T'], 'true');
+eq('classificado como variação, não como duplicata', naoEmpurrou['ANEL-T'].motivo, 'variacoes');
+eq('com os três tamanhos e o estoque de cada um',
+  naoEmpurrou['ANEL-T'].variacoes.map(v => `${v.nome}:${v.estoque}`).join(' '), '16:2 18:3 20:1');
+eq('a soma do site é 2+3+1', naoEmpurrou['ANEL-T'].naLoja, 6);
+
+/* O ponto que motivou tudo: a versão anterior guardava só a primeira
+   variação e escrevia o total inteiro nela — anunciando todo o estoque num
+   tamanho só. Agora nenhum dos três é tocado. */
+const tam = loja.estado.produtos.find(p => p.id === 70).variants;
+eq('tamanho 16 continua com o número da loja', tam[0].inventory_levels[0].stock, 2);
+eq('tamanho 18 idem', tam[1].inventory_levels[0].stock, 3);
+eq('tamanho 20 idem', tam[2].inventory_levels[0].stock, 1);
+
+const est14 = await api('GET', '/api/state');
+eq('a tela recebe a lista para poder explicar',
+  (est14.loja.variacoes || []).some(x => x.sku === 'ANEL-T'), 'true');
+const pAnel = est14.produtos.find(p => p.sku === 'ANEL-T');
+eq('e o estoque publicado do código é a soma das variações, não a primeira',
+  pAnel.estoqueLoja, 6);
+
 await loja.fechar();
 console.log(falhas ? `\n✗ ${falhas} FALHA(S)\n` : '\n✓ TUDO PASSOU\n');
 process.exit(falhas ? 1 : 0);

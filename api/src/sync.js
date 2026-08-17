@@ -45,7 +45,7 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
 
   const relato = {
     id: exec.id, pedidosLidos: 0, vendasCriadas: 0, itensIgnorados: [],
-    produtosEnviados: 0, mudancas: [], pausado: null, seco,
+    produtosEnviados: 0, mudancas: [], semEmpurrar: [], pausado: null, seco,
   };
 
   try {
@@ -187,6 +187,29 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
   for (const p of nossos) {
     const naLoja = mapa.get(p.sku);
     if (!naLoja) continue;
+
+    /* Código que na loja é mais de uma variação (tamanho de anel, cor do
+       banho) fica de fora, e isso é deliberado.
+
+       Aqui temos UM número por código; lá cada variação tem a caixinha de
+       estoque dela. Não dá para saber quanto vai em cada uma. A versão
+       anterior escondia o problema: guardava só a primeira variação e
+       escrevia o total inteiro nela, deixando os outros tamanhos com o
+       número velho — ou seja, anunciava o estoque todo num tamanho só.
+
+       Enquanto a variação não existir como coisa de verdade deste lado, o
+       certo é não escrever nada e dizer quais são. Palpite aqui vira peça
+       vendida que não existe. */
+    if (naLoja.variantes.length > 1) {
+      relato.semEmpurrar.push({
+        sku: p.sku, desc: p.desc, casa: Math.max(0, p.casa),
+        naLoja: naLoja.estoque,
+        motivo: naLoja.produtos.size > 1 ? 'duplicado' : 'variacoes',
+        variacoes: naLoja.variantes.map(v => ({ nome: v.nome, estoque: v.estoque })),
+      });
+      continue;
+    }
+
     const certo = Math.max(0, p.casa);
     if (certo === naLoja.estoque) continue;
     relato.mudancas.push({
@@ -307,6 +330,12 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
 
   await db.batch(stmts);
   relato.retrato = { produtosNaLoja: produtosLoja.length, casados, soNaLoja };
+
+  /* Os códigos que a rodada decidiu não empurrar precisam chegar à tela: um
+     código que a sincronização não atualiza e não anuncia é pior do que um
+     que ela erra, porque ninguém fica sabendo. Vai no `config` em vez de uma
+     coluna nova só para não exigir migração no banco que já está no ar. */
+  await gravarConfig(db, 'lojaVariacoes', relato.semEmpurrar || []);
 }
 
 /* ------------------------------------------------------------ histórico */
