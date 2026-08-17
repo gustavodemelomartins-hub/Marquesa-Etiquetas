@@ -527,6 +527,18 @@ td.num.neg{color:var(--danger)}
       <div class="prevlabel">O que encontrei no arquivo</div>
       <div id="impSheets"></div>
       <div class="warn" id="impWarn" style="display:none"></div>
+      <div id="impModoCasa" style="display:none;margin-top:14px" class="field">
+        <label>Os números de estoque desta planilha são</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-bottom:8px;cursor:pointer">
+          <input type="radio" name="impModo" value="total" checked style="margin-top:3px">
+          <span><b>O total</b>, incluindo o que está com revendedoras — é o padrão do sistema.</span>
+        </label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;cursor:pointer">
+          <input type="radio" name="impModo" value="casa" style="margin-top:3px">
+          <span><b>Só o que está fisicamente em casa agora</b> — o sistema soma de volta o que já
+          está em maleta aberta antes de comparar, pra não descontar peça que só mudou de lugar.</span>
+        </label>
+      </div>
       <div class="mfoot">
         <button class="btn btn-ghost" onclick="backToUpload()">← Trocar arquivo</button>
         <div class="spacer"></div>
@@ -3085,7 +3097,7 @@ function detectar(){
   box.innerHTML=impDetect.map((d,i)=>`
     <div class="sheetrow">
       <div class="sr-nm">${esc(d.nome)}<small>${esc(d.resumo)}</small></div>
-      <select id="impAlvo${i}">
+      <select id="impAlvo${i}" onchange="atualizarModoCasa()">
         <option value="ignorar" ${d.tipo==='desconhecida'?'selected':''}>Ignorar esta aba</option>
         <option value="loja" ${d.tipo==='loja'?'selected':''}>Dados da loja (Identificador URL e estoque publicado)</option>
         <option value="catalogo" ${d.tipo==='catalogo'?'selected':''}>Catálogo e estoque total</option>
@@ -3105,6 +3117,17 @@ function detectar(){
 
   document.getElementById('impStep1').style.display='none';
   document.getElementById('impStep2').style.display='';
+  atualizarModoCasa();
+}
+
+/* Mostra a pergunta "total ou só em casa" só quando alguma aba está indo
+   pro catálogo — nas outras abas (loja, maleta) ela não faz sentido. */
+function atualizarModoCasa(){
+  const temCatalogo=impDetect.some((d,i)=>{
+    const el=document.getElementById('impAlvo'+i);
+    return el&&el.value==='catalogo';
+  });
+  document.getElementById('impModoCasa').style.display=temCatalogo?'':'none';
 }
 
 function classificar(nome,linhas){
@@ -3260,6 +3283,45 @@ async function importarCatalogo(d,notas){
 
   const produtos=[...juntos.values()].map(l=>({sku:l.sku, desc:l.desc||l.sku, cat:catOf(l.desc), preco:l.preco, qtd:l.qtd}));
   if(!produtos.length) return 0;
+
+  /* "Total" (padrão) é o que o resto do sistema sempre assumiu que a
+     planilha de Estoque significa. "Só em casa" existe para quando a
+     planilha foi gerada olhando só a prateleira, sem contar quem está com
+     revendedora — nesse caso, comparar direto zeraria peça que só mudou de
+     lugar. Somar o consignado de volta antes de comparar resolve isso sem
+     inventar um número: a peça continua contada, só que como "fora". */
+  const modoEl=document.querySelector('input[name="impModo"]:checked');
+  const emCasa=modoEl&&modoEl.value==='casa';
+  const idx=prodIndex();
+  let ajustadosPeloConsignado=0;
+  if(emCasa){
+    produtos.forEach(p=>{
+      const ex=idx.get(p.sku);
+      const fora=ex?(ex.consignado||0):0;
+      if(fora){ p.qtd+=fora; ajustadosPeloConsignado++; }
+    });
+  }
+
+  /* Confirmação antes de aplicar de verdade: uma planilha de centenas de
+     linhas pode ter vindo com o número errado, e isso mexe em saldo de
+     verdade (§19 — cada diferença vira um ajuste registrado, não é
+     cosmético). Ela vê o tamanho da mudança antes de acontecer. */
+  const comparacao=produtos.map(p=>{
+    const ex=idx.get(p.sku);
+    return {sku:p.sku, desc:p.desc, delta:p.qtd-(ex?ex.qtd:0), novo:!ex};
+  }).filter(c=>c.delta!==0);
+  const novos=comparacao.filter(c=>c.novo).length;
+  const mudam=comparacao.filter(c=>!c.novo);
+  if(mudam.length){
+    const maiores=mudam.slice().sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,8);
+    const linhas=maiores.map(c=>`  ${c.delta>0?'+':''}${c.delta}  ${c.sku} — ${c.desc}`).join('\n');
+    const resumo=`Esta planilha vai criar ${novos} código(s) novo(s) e mudar a quantidade de `
+      +`${mudam.length} código(s) que já existem${emCasa?` (${ajustadosPeloConsignado} deles somando de volta o que está em maleta)`:''}.\n\n`
+      +`Maiores mudanças:\n${linhas}${mudam.length>8?`\n  … e mais ${mudam.length-8}`:''}\n\n`
+      +'Confirma a importação?';
+    if(!confirm(resumo)){ notas.push('Importação do catálogo cancelada antes de aplicar — nada foi alterado.'); return 0; }
+  }
+
   const r=await api('POST','/api/produtos/importar',{produtos});
   (r.avisos||[]).forEach(a=>{
     if(a.tipo==='sem_preco') notas.push(`${a.sku||''} ficou sem preço — ${a.detalhe||'confira o valor na planilha.'}`);
