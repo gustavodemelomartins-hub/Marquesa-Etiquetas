@@ -210,24 +210,34 @@ const pb4Depois = (await api('GET', '/api/state')).produtos.find(p => p.sku === 
 eq('sumiu da loja, sumiu daqui também', !!pb4Depois.urlLoja, 'false');
 eq('e volta a contar como "falta subir"', pb4Depois.estoqueLoja, 'undefined');
 
-console.log('\n=== 14. tamanho e cor não são cadastro duplicado ===');
+console.log('\n=== 14. variação não é cadastro duplicado ===');
 /* O caso real: 56 códigos apareceram como "duplicados" numa loja que tem 2.
-   Eram tamanhos de anel e cores de banho — variações do MESMO produto, que
-   é o normal. Duplicado é o mesmo código em produtos DIFERENTES. */
+   Eram variações do MESMO produto, que é o normal. Duplicado é o mesmo
+   código em produtos DIFERENTES.
+
+   O que varia NÃO é uma lista fixa de tamanho e cor: quem nomeia é a loja,
+   produto a produto. Por isso o teste usa "Comprimento", que não é nenhum
+   dos dois — se o código presumisse as dimensões, quebraria aqui. */
 await api('POST', '/api/produtos/importar', {
   produtos: [
     { sku: 'ANEL-T', desc: 'Anel com tamanhos', cat: 'Anel', preco: 90, qtd: 6 },
+    { sku: 'GARG-C', desc: 'Gargantilha em três comprimentos', cat: 'Colar', preco: 130, qtd: 5 },
     { sku: 'DUPLO', desc: 'Código em dois anúncios', cat: 'Colar', preco: 120, qtd: 4 },
   ],
 });
+const comVariacoes = (id, sku, nome, atributo, vals) => ({
+  id, name: { pt: nome }, handle: { pt: 'p-' + id }, published: true,
+  attributes: [{ pt: atributo }],
+  variants: vals.map((v, i) => ({
+    id: id * 10 + i, sku, values: [{ pt: v.nome }],
+    inventory_levels: [{ location_id: 'L1', stock: v.qtd }],
+  })),
+});
 loja.estado.produtos = [
-  /* um produto, três tamanhos, todos com o mesmo código */
-  { id: 70, name: { pt: 'Anel com tamanhos' }, handle: { pt: 'anel-tamanhos' }, published: true,
-    variants: [
-      { id: 701, sku: 'ANEL-T', values: [{ pt: '16' }], inventory_levels: [{ location_id: 'L1', stock: 2 }] },
-      { id: 702, sku: 'ANEL-T', values: [{ pt: '18' }], inventory_levels: [{ location_id: 'L1', stock: 3 }] },
-      { id: 703, sku: 'ANEL-T', values: [{ pt: '20' }], inventory_levels: [{ location_id: 'L1', stock: 1 }] },
-    ] },
+  comVariacoes(70, 'ANEL-T', 'Anel com tamanhos', 'Tamanho',
+    [{ nome: '16', qtd: 2 }, { nome: '18', qtd: 3 }, { nome: '20', qtd: 1 }]),
+  comVariacoes(73, 'GARG-C', 'Gargantilha em três comprimentos', 'Comprimento',
+    [{ nome: '40cm', qtd: 1 }, { nome: '45cm', qtd: 2 }]),
   /* MESMO código em dois produtos diferentes: esse sim é duplicado */
   produtoFalso(71, [{ id: 711, sku: 'DUPLO', estoque: 2 }]),
   produtoFalso(72, [{ id: 722, sku: 'DUPLO', estoque: 2 }]),
@@ -260,6 +270,18 @@ eq('a tela recebe a lista para poder explicar',
 const pAnel = est14.produtos.find(p => p.sku === 'ANEL-T');
 eq('e o estoque publicado do código é a soma das variações, não a primeira',
   pAnel.estoqueLoja, 6);
+
+/* O nome do que varia sai da loja, não de uma lista nossa: um atributo que
+   não é tamanho nem cor tem de atravessar inteiro até a tela. */
+eq('o atributo do anel veio da loja', naoEmpurrou['ANEL-T'].atributos.join(','), 'Tamanho');
+eq('e o da gargantilha também, sem ser tamanho nem cor',
+  naoEmpurrou['GARG-C'].atributos.join(','), 'Comprimento');
+eq('com os comprimentos que a loja informou',
+  naoEmpurrou['GARG-C'].variacoes.map(v => v.nome).join(' '), '40cm 45cm');
+eq('a gargantilha também ficou fora do empurrão', naoEmpurrou['GARG-C'].motivo, 'variacoes');
+const garg = loja.estado.produtos.find(p => p.id === 73).variants;
+eq('e nenhum comprimento foi tocado',
+  garg.map(v => v.inventory_levels[0].stock).join(','), '1,2');
 
 await loja.fechar();
 console.log(falhas ? `\n✗ ${falhas} FALHA(S)\n` : '\n✓ TUDO PASSOU\n');

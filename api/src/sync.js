@@ -188,8 +188,9 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
     const naLoja = mapa.get(p.sku);
     if (!naLoja) continue;
 
-    /* Código que na loja é mais de uma variação (tamanho de anel, cor do
-       banho) fica de fora, e isso é deliberado.
+    /* Código que na loja é mais de uma variação fica de fora, e isso é
+       deliberado. Qual dimensão varia não importa aqui — tamanho, cor,
+       comprimento, material: a loja é quem diz, e o raciocínio é o mesmo.
 
        Aqui temos UM número por código; lá cada variação tem a caixinha de
        estoque dela. Não dá para saber quanto vai em cada uma. A versão
@@ -205,6 +206,8 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
         sku: p.sku, desc: p.desc, casa: Math.max(0, p.casa),
         naLoja: naLoja.estoque,
         motivo: naLoja.produtos.size > 1 ? 'duplicado' : 'variacoes',
+        // o que varia neste produto, no vocabulário da própria loja
+        atributos: naLoja.atributos || [],
         variacoes: naLoja.variantes.map(v => ({ nome: v.nome, estoque: v.estoque })),
       });
       continue;

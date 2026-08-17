@@ -31,7 +31,7 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §8 §9 | Venda de balcão, acerto e site na mesma tabela | `vendas.origem = 'balcao' \| 'acerto' \| 'site'` |
 | §5.1 | Puxar pedidos antes de empurrar estoque | `sync.js › sincronizar` |
 | §22 | O retrato da loja vem da última rodada, não do último CSV | `sync.js › gravarRetratoDaLoja` |
-| §22 | Tamanho/cor ≠ duplicata; código com variação não é empurrado | `nuvemshop.js › mapearSkus`, `sync.js › empurrarEstoque` |
+| §22 | Variação ≠ duplicata; código com variação não é empurrado | `nuvemshop.js › mapearSkus`, `sync.js › empurrarEstoque` |
 | §19 | Rodar o cron duas vezes não duplica venda | índice único `vendas.externo_id` |
 | §22 | Produto que só existe na loja não é tocado | `empurrarEstoque` ignora SKU fora do catálogo |
 | §5.2 | Kit: disponível = mínimo entre componentes | `estoque.js › saldosDoKit` |
@@ -156,13 +156,18 @@ anúncio lá permanece em "falta subir" para sempre, porque `empurrarEstoque`
 só toca em quem existe nos dois lados (§22). Cadastrar é um passo manual, e
 some da lista sozinho na rodada seguinte.
 
-### 7. Tamanho e cor não são cadastro duplicado — §22
+### 7. Variação não é cadastro duplicado — §22
 
 O mesmo código pode aparecer em mais de uma variação da loja por dois
 motivos que não têm nada a ver um com o outro:
 
-- **variações do MESMO produto** — tamanho de anel, cor do banho. É o normal
-  nesta loja: 56 dos códigos são assim. Não há o que unificar.
+- **variações do MESMO produto** — tamanho, cor, comprimento, material. É o
+  normal nesta loja: 56 dos códigos são assim. Não há o que unificar.
+
+  Qual dimensão varia **não é lista fixa nossa**: cada produto da Nuvemshop
+  declara os seus atributos, e é esse nome que a tela mostra. Presumir
+  "tamanho ou cor" quebraria no primeiro produto vendido por comprimento —
+  o teste usa justamente um desses.
 - **o mesmo código em produtos DIFERENTES** — aí sim é cadastro duplicado: o
   estoque fica dividido entre dois anúncios e a conta nunca fecha. São 2.
 
@@ -177,19 +182,20 @@ Agora as duas coisas são separadas, e todas as variações ficam guardadas.
 
 **A sincronização não empurra estoque de código com mais de uma variação, e
 isso é deliberado.** Aqui existe um número por código; lá existe uma caixinha
-por tamanho. Não dá para saber quanto vai em cada uma, e chutar é anunciar
-peça que não existe. Esses códigos ficam listados na aba (filtro
-"Tamanho/cor", com o estoque de cada variação) e fora da lista de "estoque
-errado" — cobrar correção sem oferecer botão seria só barulho.
+por variação. Não dá para saber quanto vai em cada uma, e chutar é anunciar
+peça que não existe. Esses códigos ficam listados na aba (filtro "Variações",
+com o estoque de cada uma e o nome do atributo que a loja usa) e fora da
+lista de "estoque errado" — cobrar correção sem oferecer botão seria só
+barulho.
 
 O `estoque_loja` desses códigos é a **soma** das variações, que é o único
 número comparável com o nosso e é como a importação por arquivo sempre
 contou.
 
 Isto é um degrau, não o destino. A operação confirmou que o estoque é
-separado por tamanho de verdade, e o certo é a variação existir deste lado
-também — com escolha de tamanho/cor na hora da venda e da bipagem. Enquanto
-isso não existe, não escrever nada é a única opção que não inventa dado.
+separado por variação de verdade, e o certo é a variação existir deste lado
+também — com escolha na hora da venda e da bipagem. Enquanto isso não
+existe, não escrever nada é a única opção que não inventa dado.
 
 ### 4. A sincronização tem duas mãos, nesta ordem — §5.1
 

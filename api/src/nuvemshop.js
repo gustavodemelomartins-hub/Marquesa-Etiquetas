@@ -177,6 +177,10 @@ export function mapearSkus(produtos) {
           url: texto(p.handle),
           nome: texto(p.name),
           visivel: p.published == null ? null : !!p.published,
+          // Como a loja CHAMA a dimensão que varia: "Tamanho", "Cor",
+          // "Comprimento", "Aro". Não presumimos quais existem — cada
+          // produto declara os seus, e é esse nome que a tela mostra.
+          atributos: (p.attributes || []).map(texto).filter(Boolean),
           variantes: [],
           produtos: new Set(),
         });
