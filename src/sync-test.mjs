@@ -250,38 +250,38 @@ eq('o anel com 3 tamanhos NÃO é chamado de duplicado',
   r.duplicadosNaLoja.includes('ANEL-T'), 'false');
 
 const naoEmpurrou = (r.semEmpurrar || []).reduce((m, x) => (m[x.sku] = x, m), {});
-eq('o anel com tamanhos ficou de fora do empurrão', !!naoEmpurrou['ANEL-T'], 'true');
-eq('classificado como variação, não como duplicata', naoEmpurrou['ANEL-T'].motivo, 'variacoes');
-eq('com os três tamanhos e o estoque de cada um',
-  naoEmpurrou['ANEL-T'].variacoes.map(v => `${v.nome}:${v.estoque}`).join(' '), '16:2 18:3 20:1');
-eq('a soma do site é 2+3+1', naoEmpurrou['ANEL-T'].naLoja, 6);
-
-/* O ponto que motivou tudo: a versão anterior guardava só a primeira
-   variação e escrevia o total inteiro nela — anunciando todo o estoque num
-   tamanho só. Agora nenhum dos três é tocado. */
-const tam = loja.estado.produtos.find(p => p.id === 70).variants;
-eq('tamanho 16 continua com o número da loja', tam[0].inventory_levels[0].stock, 2);
-eq('tamanho 18 idem', tam[1].inventory_levels[0].stock, 3);
-eq('tamanho 20 idem', tam[2].inventory_levels[0].stock, 1);
+eq('o código em dois anúncios continua fora do empurrão', !!naoEmpurrou['DUPLO'], 'true');
+eq('e o motivo é ser duplicata, não variação', naoEmpurrou['DUPLO'].motivo, 'duplicado');
+eq('o anel com tamanhos NÃO fica mais de fora — cada aro tem o seu',
+  !!naoEmpurrou['ANEL-T'], 'false');
 
 const est14 = await api('GET', '/api/state');
-eq('a tela recebe a lista para poder explicar',
-  (est14.loja.variacoes || []).some(x => x.sku === 'ANEL-T'), 'true');
 const pAnel = est14.produtos.find(p => p.sku === 'ANEL-T');
-eq('e o estoque publicado do código é a soma das variações, não a primeira',
-  pAnel.estoqueLoja, 6);
+eq('as variações do anel vieram da loja', pAnel.variacoes.map(v => v.nome).join(','), '16,18,20');
+eq('e o nome do atributo também', pAnel.variacoes[0].atributo, 'Tamanho');
+eq('o estoque foi repartido sozinho, sem ninguém confirmar',
+  pAnel.variacoes.map(v => `${v.nome}:${v.qtd}`).join(' '), '16:2 18:3 20:1');
+eq('o total do código não mudou por causa da repartição', pAnel.qtd, 6);
+
+/* O bug que motivou tudo: a versão anterior escrevia o total inteiro do
+   código numa variação só. A trava vale para sempre. */
+const tam = loja.estado.produtos.find(p => p.id === 70).variants;
+eq('nenhum tamanho recebeu o total do código',
+  tam.some(v => v.inventory_levels[0].stock === pAnel.qtd), 'false');
+eq('cada tamanho ficou com o número dele', tam.map(v => v.inventory_levels[0].stock).join(','), '2,3,1');
 
 /* O nome do que varia sai da loja, não de uma lista nossa: um atributo que
    não é tamanho nem cor tem de atravessar inteiro até a tela. */
-eq('o atributo do anel veio da loja', naoEmpurrou['ANEL-T'].atributos.join(','), 'Tamanho');
-eq('e o da gargantilha também, sem ser tamanho nem cor',
-  naoEmpurrou['GARG-C'].atributos.join(','), 'Comprimento');
+const pGarg = est14.produtos.find(p => p.sku === 'GARG-C');
+eq('a gargantilha varia por comprimento, e isso atravessou',
+  pGarg.variacoes[0].atributo, 'Comprimento');
 eq('com os comprimentos que a loja informou',
-  naoEmpurrou['GARG-C'].variacoes.map(v => v.nome).join(' '), '40cm 45cm');
-eq('a gargantilha também ficou fora do empurrão', naoEmpurrou['GARG-C'].motivo, 'variacoes');
-const garg = loja.estado.produtos.find(p => p.id === 73).variants;
-eq('e nenhum comprimento foi tocado',
-  garg.map(v => v.inventory_levels[0].stock).join(','), '1,2');
+  pGarg.variacoes.map(v => v.nome).join(' '), '40cm 45cm');
+/* A loja só sabia de 3 das 5 gargantilhas: o resto fica "sem variação" em
+   vez de ser chutado dentro de um comprimento qualquer. */
+eq('a loja repartiu 1 e 2', pGarg.variacoes.map(v => v.qtd).join(','), '1,2');
+eq('e as 2 que a loja não soube dizer ficaram sem variação', pGarg.semVariacao, 2);
+eq('sem inventar peça: o total continua 5', pGarg.qtd, 5);
 
 await loja.fechar();
 console.log(falhas ? `\n✗ ${falhas} FALHA(S)\n` : '\n✓ TUDO PASSOU\n');

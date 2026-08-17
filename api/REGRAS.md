@@ -31,7 +31,10 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §8 §9 | Venda de balcão, acerto e site na mesma tabela | `vendas.origem = 'balcao' \| 'acerto' \| 'site'` |
 | §5.1 | Puxar pedidos antes de empurrar estoque | `sync.js › sincronizar` |
 | §22 | O retrato da loja vem da última rodada, não do último CSV | `sync.js › gravarRetratoDaLoja` |
-| §22 | Variação ≠ duplicata; código com variação não é empurrado | `nuvemshop.js › mapearSkus`, `sync.js › empurrarEstoque` |
+| §22 | Variação ≠ duplicata | `nuvemshop.js › mapearSkus` |
+| §22 | Repartição inicial vem da loja, e só em código virgem | `sync.js › semearVariacoes` |
+| §19 | Repartir não muda o total; recusa quando a soma não bate | `index.js › repartirVariacoes` |
+| §5.2 | Cada variação vai para a caixinha dela na loja | `sync.js › empurrarEstoque` |
 | §19 | Rodar o cron duas vezes não duplica venda | índice único `vendas.externo_id` |
 | §22 | Produto que só existe na loja não é tocado | `empurrarEstoque` ignora SKU fora do catálogo |
 | §5.2 | Kit: disponível = mínimo entre componentes | `estoque.js › saldosDoKit` |
@@ -192,10 +195,51 @@ O `estoque_loja` desses códigos é a **soma** das variações, que é o único
 número comparável com o nosso e é como a importação por arquivo sempre
 contou.
 
-Isto é um degrau, não o destino. A operação confirmou que o estoque é
-separado por variação de verdade, e o certo é a variação existir deste lado
-também — com escolha na hora da venda e da bipagem. Enquanto isso não
-existe, não escrever nada é a única opção que não inventa dado.
+Isto valeu enquanto a variação não existia deste lado. Agora existe — ver a
+regra 8 — e o empurrão voltou para esses códigos, cada variação na caixinha
+dela. Continuam de fora só duas situações: cadastro duplicado (não há como
+dividir entre dois anúncios) e código com peça em maleta (a maleta ainda não
+sabe qual variação saiu, e descontar da errada tiraria do ar uma peça que
+está aqui).
+
+### 8. Repartir entre variações é automático, mas só uma vez — §19 §22
+
+A operação confirmou que o estoque é separado por variação de verdade, que a
+ETIQUETA é a mesma nas duas (bipar não distingue), e pediu duas coisas: que
+o sistema pergunte a variação **só nos códigos que têm**, e que a repartição
+inicial venha pronta da Nuvemshop, sem ninguém confirmar nada.
+
+A variação entrou como COLUNA em `movimentos`, não como tabela paralela de
+saldo. Assim `produtos.qtd == SUM(movimentos.qtd)` continua valendo sem
+exceção, e o saldo de uma variação é a mesma soma com um filtro a mais. Não
+há segunda contabilidade para desencontrar da primeira.
+
+`sync.js › semearVariacoes` reparte sozinho, lendo a caixinha de estoque que
+a loja já mantém por variação. Duas regras seguram o que ele pode fazer:
+
+- **Só semeia código virgem.** Se qualquer peça daquele código já foi
+  atribuída — por repartição, venda ou contagem — a rodada não encosta nele.
+  Sem isso, a sincronização da madrugada desfaria a correção feita à mão na
+  véspera: o pior tipo de bug, o que apaga trabalho de alguém enquanto
+  ninguém olha.
+- **Nunca inventa peça.** O total continua sendo o nosso — a loja é destino
+  do estoque, não fonte. A repartição é servida na ordem até o total acabar;
+  o que a loja disser a mais é ignorado, e o que sobrar continua "sem
+  variação", que é honesto: existe e ainda não se sabe de qual é.
+
+Peça "sem variação" **não é anunciada** em variação nenhuma. Deixar de
+vender uma é melhor que vender um aro que não existe, e ela volta ao ar
+sozinha assim que for atribuída.
+
+`POST /api/produtos/:sku/repartir` é o ajuste à mão. Ele recusa quando a
+soma não bate com o estoque e mostra os dois números, em vez de escolher
+sozinho quem está certo — repartir e corrigir o total são atos diferentes,
+como no inventário. Cada remanejo vira dois movimentos que se anulam no
+total: sai de "sem variação", entra na variação.
+
+Código COM variação passa a exigir que se diga qual, inclusive pela API.
+Código sem variação não muda em nada: bipa e entra, como sempre. É
+exatamente o que foi pedido, e o teste trava os dois lados.
 
 ### 4. A sincronização tem duas mãos, nesta ordem — §5.1
 

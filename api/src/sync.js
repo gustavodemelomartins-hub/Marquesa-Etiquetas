@@ -45,7 +45,7 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
 
   const relato = {
     id: exec.id, pedidosLidos: 0, vendasCriadas: 0, itensIgnorados: [],
-    produtosEnviados: 0, mudancas: [], semEmpurrar: [], pausado: null, seco,
+    produtosEnviados: 0, mudancas: [], semEmpurrar: [], semeados: [], pausado: null, seco,
   };
 
   try {
@@ -54,6 +54,10 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
     relato.duplicadosNaLoja = duplicados;
 
     await puxarPedidos(db, loja, relato, seco);
+    /* Semear antes de empurrar: um código recém-repartido já sai desta
+       mesma rodada com o estoque de cada variação no ar, em vez de esperar
+       a próxima. */
+    await semearVariacoes(db, mapa, relato, seco);
     await empurrarEstoque(db, loja, mapa, relato, { forcar, seco });
     /* Depois de empurrar, e não antes: assim o retrato já nasce com os
        números que a loja passou a ter nesta rodada. */
@@ -153,6 +157,81 @@ async function puxarPedidos(db, loja, relato, seco) {
 
 /* --------------------------------------------------- 2. empurrar estoque */
 
+/* --------------------------------------------- 1b. semear as variações */
+
+/** Reparte sozinho, a partir do que a Nuvemshop já tem, o estoque dos
+ *  códigos vendidos em mais de uma opção.
+ *
+ *  Sem isto, ligar as variações criaria trabalho manual: o sistema saberia
+ *  que existem 6 anéis e três aros, mas não quantos são de cada — e alguém
+ *  teria de contar 56 códigos à mão. A loja já responde isso: ela tem uma
+ *  caixinha de estoque por variação, alimentada pelas próprias vendas.
+ *
+ *  Duas regras seguram o que essa automação pode fazer:
+ *
+ *  1. **Só semeia código virgem.** Se qualquer peça daquele código já foi
+ *     atribuída a uma variação — por repartição, venda ou contagem — a
+ *     rodada não encosta nele. Sem isso, toda sincronização desfaria a
+ *     correção feita à mão na véspera, que é o pior tipo de bug: o que
+ *     acontece de madrugada e desfaz o trabalho de alguém.
+ *
+ *  2. **Nunca inventa peça.** O total do código continua sendo o nosso
+ *     (§19) — a loja é destino do estoque, não fonte. A repartição vai
+ *     sendo servida na ordem das variações até o total acabar; o que a
+ *     loja disser a mais é ignorado e fica anotado no relatório. O que
+ *     sobrar continua "sem variação", que é honesto: existe e ainda não se
+ *     sabe de qual é. */
+async function semearVariacoes(db, mapa, relato, seco) {
+  /* Quem diz quais códigos têm variação é o `mapa` — a leitura da loja
+     feita nesta mesma rodada — e não a tabela `produto_variacoes`, que só é
+     gravada no fim. Depender dela adiaria a primeira repartição para a
+     rodada seguinte, sem motivo. */
+  const comVariacao = (await db.prepare(`
+    SELECT p.sku, p.qtd,
+           (SELECT COUNT(*) FROM movimentos mv
+             WHERE mv.sku = p.sku AND mv.variacao IS NOT NULL) AS jaTocado
+      FROM produtos p
+     WHERE p.status = 'ativo'`).all()).results;
+
+  const stmts = [];
+  for (const p of comVariacao) {
+    if (p.jaTocado > 0) continue;          // regra 1: código já tem dono
+    if (p.qtd <= 0) continue;
+    const naLoja = mapa.get(p.sku);
+    if (!naLoja || naLoja.variantes.length < 2) continue;
+
+    let restante = p.qtd, sobrou = 0;
+    const feito = [];
+    for (const v of naLoja.variantes) {
+      const querido = Math.max(0, v.estoque);
+      const cabe = Math.min(querido, restante);   // regra 2: não inventa
+      sobrou += querido - cabe;
+      if (cabe > 0) {
+        restante -= cabe;
+        feito.push({ nome: v.nome, qtd: cabe });
+        stmts.push(...movimentar(db, {
+          sku: p.sku, variacao: v.nome, tipo: 'ajuste', quantidade: cabe,
+          origem: 'variacao',
+          obs: `Repartido pela Nuvemshop: "${v.nome}" com ${cabe}`,
+        }));
+        stmts.push(...movimentar(db, {
+          sku: p.sku, tipo: 'ajuste', quantidade: -cabe, origem: 'variacao',
+          obs: `Repartido pela Nuvemshop: contrapartida de "${v.nome}"`,
+        }));
+      }
+    }
+    if (!feito.length) continue;
+    relato.semeados.push({
+      sku: p.sku, total: p.qtd, variacoes: feito,
+      semVariacao: restante,      // o que a loja não soube dizer de qual é
+      ignorado: sobrou,           // o que a loja dizia a mais do que existe
+    });
+  }
+
+  if (seco || !stmts.length) return;
+  await db.batch(stmts);
+}
+
 /** Manda para a loja o que temos em casa (total menos consignado).
  *
  *  Só toca em código que existe nos DOIS lados. Produto que a loja tem e
@@ -160,7 +239,7 @@ async function puxarPedidos(db, loja, relato, seco) {
  *  que saber que ele tem zero. */
 async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
   const normais = (await db.prepare(`
-    SELECT p.sku, p.desc,
+    SELECT p.sku, p.desc, p.qtd,
            p.qtd - COALESCE((
              SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
                JOIN maletas m ON m.id = mi.maleta_id
@@ -180,7 +259,20 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
   const kits = [];
   for (const k of kitsAtivos) {
     const s = await saldosDoSku(db, k.sku);
-    kits.push({ sku: k.sku, desc: k.desc, casa: s.disponivel });
+    // `qtd` igual a `casa` de propósito: o consignado de um kit já está
+    // embutido no disponível dos componentes, e a subtração lá embaixo
+    // ("qtd − casa") precisa dar zero em vez de um número sem sentido.
+    kits.push({ sku: k.sku, desc: k.desc, qtd: s.disponivel, casa: s.disponivel });
+  }
+
+  /* Saldo de cada variação — a mesma soma que dá o total do código, só
+     agrupada mais fino. */
+  const saldoPorVariacao = new Map();
+  for (const r of (await db.prepare(
+    `SELECT sku, variacao, SUM(qtd) AS saldo FROM movimentos
+      WHERE variacao IS NOT NULL GROUP BY sku, variacao`).all()).results) {
+    if (!saldoPorVariacao.has(r.sku)) saldoPorVariacao.set(r.sku, new Map());
+    saldoPorVariacao.get(r.sku).set(r.variacao, r.saldo);
   }
 
   const nossos = [...normais, ...kits];
@@ -188,28 +280,42 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
     const naLoja = mapa.get(p.sku);
     if (!naLoja) continue;
 
-    /* Código que na loja é mais de uma variação fica de fora, e isso é
-       deliberado. Qual dimensão varia não importa aqui — tamanho, cor,
-       comprimento, material: a loja é quem diz, e o raciocínio é o mesmo.
+    /* Código vendido em mais de uma opção agora TEM saldo por variação, e
+       cada uma vai para a caixinha dela na loja. Duas situações ainda saem
+       de fora, e as duas por não ter como acertar:
 
-       Aqui temos UM número por código; lá cada variação tem a caixinha de
-       estoque dela. Não dá para saber quanto vai em cada uma. A versão
-       anterior escondia o problema: guardava só a primeira variação e
-       escrevia o total inteiro nela, deixando os outros tamanhos com o
-       número velho — ou seja, anunciava o estoque todo num tamanho só.
-
-       Enquanto a variação não existir como coisa de verdade deste lado, o
-       certo é não escrever nada e dizer quais são. Palpite aqui vira peça
-       vendida que não existe. */
+       - o mesmo código em dois PRODUTOS diferentes: não é variação, é
+         cadastro duplicado, e não há como dividir entre dois anúncios;
+       - código com peça em maleta: "em casa" por variação exigiria a maleta
+         saber qual variação saiu, e ela ainda não sabe. Descontar do aro
+         errado tiraria do ar uma peça que está aqui. */
     if (naLoja.variantes.length > 1) {
-      relato.semEmpurrar.push({
-        sku: p.sku, desc: p.desc, casa: Math.max(0, p.casa),
-        naLoja: naLoja.estoque,
-        motivo: naLoja.produtos.size > 1 ? 'duplicado' : 'variacoes',
-        // o que varia neste produto, no vocabulário da própria loja
-        atributos: naLoja.atributos || [],
-        variacoes: naLoja.variantes.map(v => ({ nome: v.nome, estoque: v.estoque })),
-      });
+      const consignado = p.qtd - p.casa;
+      const porVariacao = saldoPorVariacao.get(p.sku) || new Map();
+      const impedimento = naLoja.produtos.size > 1 ? 'duplicado'
+        : consignado > 0 ? 'maleta'
+        : porVariacao.size ? null : 'sem_reparticao';
+
+      if (impedimento) {
+        relato.semEmpurrar.push({
+          sku: p.sku, desc: p.desc, casa: Math.max(0, p.casa),
+          naLoja: naLoja.estoque, motivo: impedimento,
+          // o que varia neste produto, no vocabulário da própria loja
+          atributos: naLoja.atributos || [],
+          variacoes: naLoja.variantes.map(v => ({ nome: v.nome, estoque: v.estoque })),
+        });
+        continue;
+      }
+
+      for (const v of naLoja.variantes) {
+        const certoV = Math.max(0, porVariacao.get(v.nome) || 0);
+        if (certoV === v.estoque) continue;
+        relato.mudancas.push({
+          sku: p.sku, desc: `${p.desc} · ${v.nome}`, de: v.estoque, para: certoV,
+          zera: certoV === 0 && v.estoque > 0,
+          varianteId: v.varianteId, produtoId: v.produtoId, locais: v.locais,
+        });
+      }
       continue;
     }
 
@@ -250,7 +356,11 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
      produto, que é como a API espera receber. */
   const porProduto = new Map();
   for (const m of relato.mudancas) {
-    const alvo = mapa.get(m.sku);
+    /* Mudança de variação já sabe exatamente qual caixinha endereçar; a de
+       código simples usa a única que existe. */
+    const alvo = m.varianteId
+      ? { produtoId: m.produtoId, varianteId: m.varianteId, locais: m.locais || [] }
+      : mapa.get(m.sku);
     if (!porProduto.has(alvo.produtoId)) porProduto.set(alvo.produtoId, { id: alvo.produtoId, variants: [] });
     const variante = { id: alvo.varianteId };
     if (alvo.locais.length) {
@@ -288,9 +398,29 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
  *  verdade, e esse retrato é tão válido quanto o outro. */
 async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
   /* Onde empurramos, a loja já está com o número novo — `mapa` guarda o
-     valor de ANTES do PATCH e ficaria velho por uma rodada inteira. */
+     valor de ANTES do PATCH e ficaria velho por uma rodada inteira.
+
+     Código com variação recebe uma mudança POR variação, então o estoque
+     publicado dele é a soma das caixinhas: as que mudaram valem pelo número
+     novo, as que não mudaram seguem valendo o que a loja já tinha. */
   const empurrado = new Map();
-  if (relato.aplicado) for (const m of relato.mudancas) empurrado.set(m.sku, m.para);
+  const porVariante = new Map();
+  if (relato.aplicado) {
+    for (const m of relato.mudancas) {
+      if (m.varianteId) porVariante.set(String(m.varianteId), m.para);
+      else empurrado.set(m.sku, m.para);
+    }
+    if (porVariante.size) {
+      for (const [sku, v] of mapa) {
+        if (v.variantes.length < 2) continue;
+        if (!v.variantes.some(va => porVariante.has(String(va.varianteId)))) continue;
+        empurrado.set(sku, v.variantes.reduce((s, va) => {
+          const novo = porVariante.get(String(va.varianteId));
+          return s + (novo === undefined ? va.estoque : novo);
+        }, 0));
+      }
+    }
+  }
 
   const nossos = new Set(
     (await db.prepare(`SELECT sku FROM produtos`).all()).results.map(p => p.sku)
@@ -327,7 +457,9 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
              ordem=excluded.ordem`
         ).bind(
           sku, va.nome || `opção ${i + 1}`, (v.atributos || []).join(' · ') || null,
-          String(va.varianteId), String(va.produtoId), va.estoque, i,
+          String(va.varianteId), String(va.produtoId),
+          porVariante.has(String(va.varianteId)) ? porVariante.get(String(va.varianteId)) : va.estoque,
+          i,
         ));
       });
     }

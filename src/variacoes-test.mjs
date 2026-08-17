@@ -46,24 +46,36 @@ loja.estado.produtos = [
   produtoFalso(81, [{ id: 811, sku: 'COLAR', estoque: 4 }]),
 ];
 
-console.log('\n=== 1. a sincronização descobre as variações sozinha ===');
-await api('POST', '/api/sync', { forcar: true });
+console.log('\n=== 1. a sincronização descobre e REPARTE sozinha ===');
+/* Ninguém confirma nada: a loja já tem uma caixinha de estoque por
+   variação, e é dela que sai a repartição inicial. */
+let r = await api('POST', '/api/sync', { forcar: true });
 const anel = await prod('ANEL');
 eq('o anel passou a ter variações', (anel.variacoes || []).length, 3);
 eq('com os nomes que a loja informou', anel.variacoes.map(v => v.nome).join(','), '16,18,20');
 eq('e o nome do atributo', anel.variacoes[0].atributo, 'Aro');
 eq('o colar continua sem variação nenhuma', (await prod('COLAR')).variacoes, 'undefined');
 
-console.log('\n=== 2. antes de repartir, tudo está "sem aro" ===');
-eq('o total do anel continua 6', anel.qtd, 6);
-eq('e as 6 peças ainda não têm aro', anel.semVariacao, 6);
-eq('nenhum aro tem saldo ainda', anel.variacoes.map(v => v.qtd).join(','), '0,0,0');
+eq('o estoque foi repartido sem ninguém digitar',
+  anel.variacoes.map(v => `${v.nome}:${v.qtd}`).join(' '), '16:2 18:3 20:1');
+eq('não sobrou peça sem aro', anel.semVariacao, 0);
+eq('e o total do código não mudou', anel.qtd, 6);
+eq('a rodada relatou o que repartiu', (r.semeados || []).length, 1);
+
+console.log('\n=== 2. semear NÃO desfaz o que já foi mexido ===');
+/* O pior bug possível aqui seria a rodada da madrugada desfazer a correção
+   feita à mão na véspera. */
+await api('POST', '/api/produtos/ANEL/repartir', { distribuicao: { '16': 4, '18': 1, '20': 1 } });
+r = await api('POST', '/api/sync', { forcar: true });
+const anelB = await prod('ANEL');
+eq('a correção à mão sobreviveu à sincronização',
+  anelB.variacoes.map(v => `${v.nome}:${v.qtd}`).join(' '), '16:4 18:1 20:1');
+eq('e a rodada não semeou de novo', (r.semeados || []).length, 0);
 
 console.log('\n=== 3. a soma tem de bater com o estoque ===');
-let r = await api('POST', '/api/produtos/ANEL/repartir', { distribuicao: { '16': 2, '18': 2, '20': 1 } });
+r = await api('POST', '/api/produtos/ANEL/repartir', { distribuicao: { '16': 2, '18': 2, '20': 1 } });
 eq('5 não fecha com 6: recusou', !!r.erro, 'true');
 eq('e explicou os dois números', /dá 5.*é 6/.test(r.erro), 'true');
-eq('sem ter mexido em nada', (await prod('ANEL')).semVariacao, 6);
 
 console.log('\n=== 4. repartir não muda o total (§19) ===');
 r = await api('POST', '/api/produtos/ANEL/repartir', { distribuicao: { '16': 2, '18': 3, '20': 1 } });
@@ -112,6 +124,41 @@ eq('o total do código não mudou por causa disso', anel4.qtd, 5);
 /* A peça do aro 20 não sumiu do estoque — ela volta a ser "sem aro", que é
    honesto: existe, e agora não se sabe de que aro é. */
 eq('a peça do aro que saiu volta a ficar sem aro', anel4.semVariacao, 1);
+
+console.log('\n=== 10. cada variação volta para a caixinha dela na loja ===');
+/* O ciclo fechado: vendeu o aro 18 aqui, a loja recebe menos NO ARO 18, e
+   os outros aros ficam intactos. É o oposto do bug antigo, que escrevia o
+   total do código inteiro numa variação só. */
+/* Neste ponto sobraram dois aros na loja (o 20 saiu no bloco 9), o total do
+   código é 5 e uma peça está "sem aro" — a que era do aro removido. */
+const vAnel = loja.estado.produtos.find(p => p.id === 80).variants;
+const estoqueDe = nome => vAnel.find(v => v.values[0].pt === nome).inventory_levels[0].stock;
+
+r = await api('POST', '/api/sync', { forcar: true });
+eq('a rodada terminou bem', r.ok, 'true');
+const anelF = await prod('ANEL');
+eq('o aro 16 na loja bate com o nosso', estoqueDe('16'), anelF.variacoes.find(v => v.nome === '16').qtd);
+eq('o aro 18 na loja bate com o nosso', estoqueDe('18'), anelF.variacoes.find(v => v.nome === '18').qtd);
+eq('nenhuma variação recebeu o total do código',
+  vAnel.some(v => v.inventory_levels[0].stock === anelF.qtd), 'false');
+/* A peça sem aro não é anunciada: melhor deixar de vender uma do que
+   vender um aro que não existe. Ela volta ao ar assim que for atribuída. */
+eq('a peça sem aro não foi anunciada em aro nenhum',
+  vAnel.reduce((s, v) => s + v.inventory_levels[0].stock, 0), anelF.qtd - anelF.semVariacao);
+
+console.log('\n=== 11. peça em maleta ainda segura o empurrão ===');
+/* "Em casa" por aro dependeria de a maleta saber qual aro saiu. Enquanto
+   ela não sabe, descontar do aro errado tiraria do ar uma peça que existe. */
+const rev = await api('POST', '/api/revendedoras', { nome: 'Teste Variação' });
+const mal = await api('POST', '/api/maletas', { revId: rev.id });
+await api('POST', `/api/maletas/${mal.id}/itens`, { itens: { ANEL: 1 } });
+
+r = await api('POST', '/api/sync', { forcar: true });
+eq('a rodada terminou bem', r.ok, 'true');
+if (!r.ok) console.log('    erro da rodada:', r.erro);
+const segurado = (r.semEmpurrar || []).find(x => x.sku === 'ANEL');
+eq('o anel saiu do empurrão enquanto tem peça na rua', !!segurado, 'true');
+eq('e o motivo é a maleta, não a variação', segurado && segurado.motivo, 'maleta');
 
 await loja.fechar();
 console.log(falhas ? `\n✗ ${falhas} FALHA(S)\n` : '\n✓ TUDO PASSOU\n');
