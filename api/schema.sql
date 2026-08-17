@@ -59,6 +59,13 @@ CREATE TABLE IF NOT EXISTS produtos (
 CREATE TABLE IF NOT EXISTS movimentos (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
   sku            TEXT NOT NULL REFERENCES produtos(sku),
+  -- Qual variação do código (o aro do anel, o comprimento da corrente).
+  -- NULL na imensa maioria: código sem variação se comporta exatamente como
+  -- sempre se comportou. Por isso a variação entrou como COLUNA e não como
+  -- tabela paralela — assim `produtos.qtd == SUM(movimentos.qtd)` continua
+  -- valendo sem exceção, e o saldo de uma variação é a mesma soma com um
+  -- filtro a mais. Não existe segunda contabilidade para desencontrar.
+  variacao       TEXT,
   tipo           TEXT NOT NULL,   -- entrada|ajuste|consignacao|devolucao|venda|perda|quebra|dano|furto|brinde|troca|nota_credito|venda_conjunto|cancelamento
   qtd            INTEGER NOT NULL,
   origem         TEXT,            -- importacao | manual | maleta | acerto | venda | inventario | cancelamento | kit
@@ -124,6 +131,31 @@ CREATE TABLE IF NOT EXISTS loja_snapshot (
   codigos_casados    INTEGER,
   duplicados_json    TEXT
 );
+
+-- -------------------------------------------------------------- variações
+-- O mesmo código vendido em mais de uma opção: aro do anel, comprimento da
+-- corrente. A peça é fisicamente diferente e o estoque é separado de
+-- verdade, mas a ETIQUETA é a mesma — bipar não distingue, então quem
+-- distingue é ela, na hora, e só nestes códigos.
+--
+-- Ninguém digita esta tabela: quem preenche é a sincronização, lendo as
+-- variações que a própria Nuvemshop declara. Se um aro deixar de existir
+-- lá, some daqui na rodada seguinte.
+--
+-- Um código COM linhas aqui não perde o saldo próprio (diferente do kit):
+-- `produtos.qtd` continua sendo o total do código. O que passa a existir é
+-- a repartição desse total entre as variações, que precisa somar de volta.
+CREATE TABLE IF NOT EXISTS produto_variacoes (
+  sku          TEXT NOT NULL REFERENCES produtos(sku),
+  nome         TEXT NOT NULL,      -- "16", "45cm", "Ródio"
+  atributo     TEXT,               -- como a loja chama: "Tamanho", "Comprimento"
+  variante_id  TEXT,               -- id da variação na Nuvemshop, para empurrar estoque
+  produto_id   TEXT,
+  estoque_loja INTEGER,            -- quanto a loja mostra nesta variação
+  ordem        INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (sku, nome)
+);
+CREATE INDEX IF NOT EXISTS idx_variacoes_sku ON produto_variacoes(sku);
 
 -- ------------------------------------------------------------------- kits
 -- Peça publicada como mais de um anúncio porque pode ser vendida inteira ou

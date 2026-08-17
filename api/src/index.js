@@ -95,6 +95,10 @@ async function rotear(request, env) {
       if ((m = path.match(/^\/api\/produtos\/([^/]+)\/movimento$/)) && met === 'POST') {
         return await lancarMovimento(db, decodeURIComponent(m[1]), await request.json());
       }
+      // repartir o estoque de um código entre as opções em que ele é vendido
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/repartir$/)) && met === 'POST') {
+        return await repartirVariacoes(db, decodeURIComponent(m[1]), await request.json());
+      }
 
       // ---------------------------------------------------------------- kits
       if ((m = path.match(/^\/api\/produtos\/([^/]+)\/componentes$/)) && met === 'GET') {
@@ -375,18 +379,99 @@ async function definirKit(db, kitSku, { componentes }) {
   return json({ ok: true, kit: kitSku, componentes: lista });
 }
 
-async function lancarMovimento(db, sku, { tipo, quantidade, obs }) {
+async function lancarMovimento(db, sku, { tipo, quantidade, obs, variacao }) {
   const p = await db.prepare(`SELECT sku FROM produtos WHERE sku = ?`).bind(sku).first();
   if (!p) return json({ erro: `Código ${sku} não está no catálogo` }, 404);
   if (!tipo) return json({ erro: 'Informe o tipo do movimento' }, 400);
   const q = int(quantidade);
   if (q === 0) return json({ erro: 'Quantidade não pode ser zero' }, 400);
+
+  /* Código vendido em mais de uma opção precisa dizer QUAL — senão a peça
+     entra no total sem entrar em aro nenhum, e a repartição fica devendo
+     sem ninguém perceber. */
+  const temVar = await db.prepare(
+    `SELECT COUNT(*) AS n FROM produto_variacoes WHERE sku = ?`).bind(sku).first();
+  if (temVar.n > 0 && !variacao) {
+    return json({ erro: `${sku} é vendido em mais de uma opção. Diga qual (variacao).` }, 400);
+  }
+  if (variacao) {
+    const existe = await db.prepare(
+      `SELECT 1 FROM produto_variacoes WHERE sku = ? AND nome = ?`).bind(sku, variacao).first();
+    if (!existe) return json({ erro: `${sku} não tem a opção "${variacao}"` }, 400);
+  }
+
   try {
-    await db.batch(movimentar(db, { sku, tipo, quantidade: q, origem: 'manual', obs }));
+    await db.batch(movimentar(db, { sku, tipo, quantidade: q, origem: 'manual', obs, variacao: variacao || null }));
   } catch (e) {
     return json({ erro: String(e.message || e) }, 400);
   }
   return json({ ok: true, saldos: await saldosDoSku(db, sku) });
+}
+
+/** Reparte entre as variações um estoque que hoje é um número só.
+ *
+ *  É o passo que falta para os códigos com aro: o sistema sabe que existem 6
+ *  anéis, mas não quantos são de cada aro. Repartir NÃO é corrigir o total —
+ *  são dois atos diferentes, como no inventário (§19). Por isso a soma
+ *  precisa bater com o que já existe, e a rota recusa quando não bate, em
+ *  vez de escolher sozinha quem está certo.
+ *
+ *  Cada remanejo vira DOIS movimentos que se anulam no total: sai de "sem
+ *  aro", entra no aro. Assim `produtos.qtd == SUM(movimentos.qtd)` continua
+ *  valendo, e o histórico mostra a repartição em vez de um número que mudou
+ *  sozinho. */
+async function repartirVariacoes(db, sku, { distribuicao, obs }) {
+  const p = await db.prepare(`SELECT sku, qtd FROM produtos WHERE sku = ?`).bind(sku).first();
+  if (!p) return json({ erro: `Código ${sku} não está no catálogo` }, 404);
+
+  const vars = (await db.prepare(
+    `SELECT nome FROM produto_variacoes WHERE sku = ? ORDER BY ordem, nome`).bind(sku).all()).results;
+  if (!vars.length) return json({ erro: `${sku} não tem variações para repartir` }, 400);
+
+  const nomes = new Set(vars.map(v => v.nome));
+  const alvo = {};
+  for (const [nome, q] of Object.entries(distribuicao || {})) {
+    if (!nomes.has(nome)) return json({ erro: `${sku} não tem a opção "${nome}"` }, 400);
+    const n = int(q);
+    if (n < 0) return json({ erro: `Quantidade negativa em "${nome}"` }, 400);
+    alvo[nome] = n;
+  }
+
+  const soma = Object.values(alvo).reduce((s, n) => s + n, 0);
+  if (soma !== p.qtd) {
+    return json({
+      erro: `A soma das opções dá ${soma}, e o estoque de ${sku} é ${p.qtd}. ` +
+            `Repartir não muda o total — se o total é que está errado, ajuste primeiro e reparta depois.`,
+    }, 409);
+  }
+
+  const atual = new Map((await db.prepare(
+    `SELECT variacao, SUM(qtd) AS saldo FROM movimentos
+      WHERE sku = ? AND variacao IS NOT NULL GROUP BY variacao`).bind(sku).all())
+    .results.map(r => [r.variacao, r.saldo]));
+
+  const stmts = [];
+  let movidas = 0;
+  for (const nome of nomes) {
+    const delta = (alvo[nome] ?? 0) - (atual.get(nome) || 0);
+    if (!delta) continue;
+    movidas += Math.abs(delta);
+    const razao = obs || `Repartição do estoque de ${sku}`;
+    // entra (ou sai) do aro...
+    stmts.push(...movimentar(db, {
+      sku, variacao: nome, tipo: 'ajuste', quantidade: delta,
+      origem: 'variacao', obs: `${razao}: "${nome}" passa a ter ${alvo[nome] ?? 0}`,
+    }));
+    // ...e sai (ou entra) de "sem aro", para o total não se mexer
+    stmts.push(...movimentar(db, {
+      sku, tipo: 'ajuste', quantidade: -delta,
+      origem: 'variacao', obs: `${razao}: contrapartida de "${nome}"`,
+    }));
+  }
+
+  if (!stmts.length) return json({ ok: true, movidas: 0, jaEstava: true });
+  await db.batch(stmts);
+  return json({ ok: true, movidas, saldos: await saldosDoSku(db, sku) });
 }
 
 async function importarLoja(db, { snapshot, produtos }) {

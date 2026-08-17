@@ -303,12 +303,34 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
     db.prepare(`UPDATE produtos SET url_loja = NULL, estoque_loja = NULL, visivel = NULL`),
   ];
 
+  /* As variações são reescritas do zero a cada rodada: a loja é a fonte da
+     verdade sobre quais existem, e aro que sumiu de lá não pode continuar
+     aparecendo na hora da venda. O saldo não mora aqui — mora nos
+     movimentos — então apagar e regravar não perde histórico nenhum. */
+  stmts.push(db.prepare(`DELETE FROM produto_variacoes`));
+
   let casados = 0, soNaLoja = 0;
   const produtosCasados = new Set();
   for (const [sku, v] of mapa) {
     if (!nossos.has(sku)) { soNaLoja++; continue; }
     casados++;
     produtosCasados.add(v.produtoId);
+
+    if (v.variantes.length > 1) {
+      v.variantes.forEach((va, i) => {
+        stmts.push(db.prepare(
+          `INSERT INTO produto_variacoes (sku, nome, atributo, variante_id, produto_id, estoque_loja, ordem)
+           VALUES (?,?,?,?,?,?,?)
+           ON CONFLICT(sku, nome) DO UPDATE SET
+             atributo=excluded.atributo, variante_id=excluded.variante_id,
+             produto_id=excluded.produto_id, estoque_loja=excluded.estoque_loja,
+             ordem=excluded.ordem`
+        ).bind(
+          sku, va.nome || `opção ${i + 1}`, (v.atributos || []).join(' · ') || null,
+          String(va.varianteId), String(va.produtoId), va.estoque, i,
+        ));
+      });
+    }
     stmts.push(db.prepare(
       `UPDATE produtos SET url_loja = ?, estoque_loja = ?, visivel = ?, nome_loja = ? WHERE sku = ?`
     ).bind(

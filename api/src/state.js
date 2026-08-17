@@ -15,7 +15,8 @@ import { resumoInventario } from './inventario.js';
 import { resumoSync } from './sync.js';
 
 export async function montarState(db, env) {
-  const [produtosR, revR, maletasR, itensR, configR, lojaR, catR, kitsR] = await Promise.all([
+  const [produtosR, revR, maletasR, itensR, configR, lojaR, catR, kitsR,
+         variacoesR, saldoVarR] = await Promise.all([
     db.prepare('SELECT * FROM produtos ORDER BY desc').all(),
     db.prepare('SELECT * FROM revendedoras ORDER BY id').all(),
     db.prepare('SELECT * FROM maletas ORDER BY id').all(),
@@ -25,6 +26,12 @@ export async function montarState(db, env) {
     db.prepare('SELECT * FROM categorias ORDER BY ordem, nome').all(),
     db.prepare(`SELECT kc.kit_sku, kc.componente_sku, kc.qtd, p.desc
                   FROM kit_componentes kc JOIN produtos p ON p.sku = kc.componente_sku`).all(),
+    db.prepare('SELECT * FROM produto_variacoes ORDER BY sku, ordem, nome').all(),
+    /* Saldo por variação: a MESMA soma que dá o total do código, só que
+       agrupada. Não é um segundo estoque guardado em outro lugar — é um
+       recorte do mesmo, então não tem como os dois se desencontrarem. */
+    db.prepare(`SELECT sku, variacao, SUM(qtd) AS saldo FROM movimentos
+                 WHERE variacao IS NOT NULL GROUP BY sku, variacao`).all(),
   ]);
 
   // consignado por SKU: só maletas que ainda não encerraram
@@ -53,6 +60,17 @@ export async function montarState(db, env) {
   }
   const dispBase = new Map(produtosR.results.map(p => [p.sku, p.qtd - (consignado[p.sku] || 0)]));
 
+  const saldoVar = new Map(saldoVarR.results.map(r => [`${r.sku}|${r.variacao}`, r.saldo]));
+  const variacoesPorSku = new Map();
+  for (const v of variacoesR.results) {
+    if (!variacoesPorSku.has(v.sku)) variacoesPorSku.set(v.sku, []);
+    variacoesPorSku.get(v.sku).push({
+      nome: v.nome, atributo: v.atributo || null,
+      varianteId: v.variante_id, estoqueLoja: v.estoque_loja,
+      qtd: saldoVar.get(`${v.sku}|${v.nome}`) || 0,
+    });
+  }
+
   const produtos = produtosR.results.map(p => {
     const componentes = componentesPorKit.get(p.sku);
     const disponivel = componentes
@@ -71,6 +89,15 @@ export async function montarState(db, env) {
       visivel: p.visivel == null ? null : !!p.visivel,
       nomeLoja: p.nome_loja || undefined,
       componentes: componentes || undefined,   // presença = "isto é um kit"
+      // presença = "este código é vendido em mais de uma opção, e a bipagem
+      // precisa perguntar qual". Ausência = comporta-se como sempre.
+      variacoes: variacoesPorSku.get(p.sku) || undefined,
+      /* Quanto do total ainda não foi atribuído a nenhuma variação. Começa
+         valendo o estoque inteiro — é o tamanho da contagem que falta
+         fazer — e cai para zero quando cada peça tiver um aro. */
+      semVariacao: variacoesPorSku.has(p.sku)
+        ? p.qtd - variacoesPorSku.get(p.sku).reduce((s, v) => s + v.qtd, 0)
+        : undefined,
     };
   });
 

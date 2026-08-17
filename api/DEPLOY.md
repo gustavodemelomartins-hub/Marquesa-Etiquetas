@@ -241,6 +241,28 @@ Os dois limites são ajustáveis por `PUT /api/config` (`syncLimiteMudancas` e
 `syncLimiteZerar`). Para liberar uma rodada específica, o botão **Aplicar
 mesmo assim** no painel.
 
+## Ligar as variações (mesmo código vendido em mais de uma opção)
+
+⚠️ **Esta migração precisa rodar ANTES do código novo subir.** Diferente das
+outras, aqui a ordem importa: o `/api/state` passa a ler a tabela
+`produto_variacoes`, e sem ela **o dashboard inteiro para de carregar**, não
+só a parte nova.
+
+`api/migracao-variacoes.sql` no console do D1 (ou `--file=migracao-variacoes.sql`
+pelo terminal). A criação da tabela é segura de repetir; o `ALTER TABLE
+movimentos ADD COLUMN variacao` no fim **não** é — se falhar dizendo que a
+coluna já existe, é sinal de que já foi aplicada e pode ignorar.
+
+Para conferir antes de liberar o deploy:
+
+```sql
+SELECT name FROM sqlite_master WHERE type='table' AND name='produto_variacoes';
+SELECT variacao FROM movimentos LIMIT 1;
+```
+
+Depois disso, a sincronização preenche as variações sozinha na primeira
+rodada, lendo o que a Nuvemshop declara. Ninguém digita aro nem cor.
+
 ## Ligar os kits (peça vendida inteira ou desmontada)
 
 Migração `api/migracao-kits.sql` — uma tabela nova (`kit_componentes`), sem
