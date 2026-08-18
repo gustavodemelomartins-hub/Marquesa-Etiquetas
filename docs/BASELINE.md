@@ -11,14 +11,14 @@ comportamento.
 
 ## Data
 
-**2026-08-18**, 06:40 (horário local, UTC−3).
+**2026-08-18**, 07:35 (horário local, UTC−3).
 
 ## Commit / checkpoint
 
 | | |
 |---|---|
-| Commit medido | `29d95eb` (bootstrap) + as correções de ambiente do E2E |
-| Tag local | `checkpoint/pre-bootstrap-claude` → `f3f08cb` |
+| Commit medido | `3c849a0` + a migração do frontend para React/TS/Vite |
+| Tags locais | `checkpoint/pre-bootstrap-claude` → `f3f08cb` · `checkpoint/pre-frontend-react` → `3c849a0` |
 | Branch | `main` |
 | Remote | `origin` → github.com/gustavodemelomartins-hub/Marquesa-Etiquetas |
 | Backup do D1 | `backups/d1/2026-08-18_06-22/` — conferido, razão fecha |
@@ -35,6 +35,8 @@ comportamento.
 | Wrangler | 4.123.0, autenticado |
 | Playwright | instalado em `src/node_modules` |
 | Chromium | Chrome Headless Shell 151.0.7922.34 (`npx playwright install chromium`) |
+| Vite | 7.3.6 |
+| React | 19 |
 | Git | 2.54.0.windows.1 |
 
 ---
@@ -66,13 +68,29 @@ Cada teste rodou com **banco zerado e Worker local recém-subido**.
 
 | Teste | Resultado | Asserções | Falhas | Duração |
 |---|---|---|---|---|
-| `src/sync-test.mjs` | **passou** | 67 | 0 | 9 s |
+| `src/sync-test.mjs` | **passou** | 67 | 0 | 10 s |
 | `src/variacoes-test.mjs` | **passou** | 48 | 0 | 6 s |
-| `src/kits-test.mjs` | **passou** | 20 | 0 | 2 s |
-| `src/e2e.mjs` | **passou** | 66 | 0 | 36 s |
-| `src/import-casa-test.mjs` | **passou** | 8 | 0 | 10 s |
+| `src/kits-test.mjs` | **passou** | 20 | 0 | 1 s |
+| `src/e2e.mjs` | **passou** | 66 | 0 | 37 s |
+| `src/import-casa-test.mjs` | **passou** | 8 | 0 | 11 s |
+| `src/frontend-e2e.mjs` | **passou** | 23 | 0 | 3 s |
 
-### Total: **209 asserções, 0 falhas, 5 de 5 testes.**
+### Total: **232 asserções, 0 falhas, 6 de 6 testes.**
+
+### Frontend novo, sem navegador
+
+```bash
+cd frontend
+npm run typecheck   # tsc --noEmit          → 0 erros
+npm test            # vitest                → 47 testes, 0 falhas
+npm run build       # tsc --noEmit + vite   → dist/ em ~1,6 s
+```
+
+| | |
+|---|---|
+| Testes unitários | **47 passaram, 0 falharam** (4 arquivos) |
+| TypeScript `strict` | 0 erros |
+| Build | 221 kB de JS (69 kB gzip) + 11 kB de CSS + as duas fontes |
 
 Sequência por teste:
 
@@ -99,11 +117,15 @@ node src/<teste>.mjs
 | Data | Testes | Asserções | Nota |
 |---|---|---|---|
 | 2026-08-18 00:45 | 3 de 5 | 135 | Testes de navegador não rodavam: `executablePath` fixo em `/opt/pw-browsers/chromium` |
-| **2026-08-18 06:40** | **5 de 5** | **209** | Ambiente do E2E corrigido |
+| 2026-08-18 06:40 | 5 de 5 | 209 | Ambiente do E2E corrigido |
+| **2026-08-18 07:35** | **6 de 6** | **232** | + `frontend-e2e` (painel React), + 47 testes unitários do frontend |
 
-O salto de 135 para 209 é **cobertura recuperada**, não comportamento novo:
+O salto de 135 para 209 foi **cobertura recuperada**, não comportamento novo:
 os dois testes de navegador sempre existiram e sempre passaram na máquina de
-origem. O que mudou foi o ambiente parar de impedi-los aqui.
+origem. De 209 para 232 é cobertura **nova**: o painel React não existia.
+
+Nenhum dos 209 mudou de valor, e é isso que prova que a migração do frontend
+não mexeu em nada do que já funcionava.
 
 ---
 
@@ -150,13 +172,19 @@ ambiente, que vão acontecer de novo com quem montar a máquina do zero:
    testada foi contra `src/loja-falsa.mjs` em `localhost:8799`.
 
 4. **Nenhum dado de produção foi alterado.** O único acesso remoto foi o
-   `d1 export`, que é somente leitura.
+   `d1 export` e duas contagens de tabela, todos somente leitura.
 
-5. O `e2e` é o teste mais valioso da suíte e o mais caro: 36 s, navegador de
-   verdade, 12 seções, e é o único que prova que interface e API conversam.
-   Termina conferindo que **nenhum erro de console apareceu**.
+5. **O painel novo não escreve na Nuvemshop.** O `frontend-e2e` confere que
+   a loja falsa registra **zero** escritas depois de a análise inteira rodar
+   — e um teste unitário trava que `services/sync.ts` só sabe mandar
+   `{seco: true}`, nunca `forcar`.
 
-6. `src/shot.mjs` não é teste — tira fotos das telas. `api/test-api.mjs` é
+6. O `e2e` é o teste mais valioso da suíte e o mais caro: 37 s, navegador de
+   verdade, 12 seções, e é o único que prova que a interface legada e a API
+   conversam. Termina conferindo que **nenhum erro de console apareceu** — e
+   o `frontend-e2e` faz a mesma checagem para o painel novo.
+
+7. `src/shot.mjs` não é teste — tira fotos das telas. `api/test-api.mjs` é
    script auxiliar.
 
 ---
@@ -165,7 +193,8 @@ ambiente, que vão acontecer de novo com quem montar a máquina do zero:
 
 ```bash
 python src/build.py && git diff --ignore-cr-at-eol --stat -- dashboard.html
-# depois, a sequência de 4 passos acima, para cada um dos 5 testes
+cd frontend && npm run build && npm test && cd ..
+# depois, a sequência de 4 passos acima, para cada um dos 6 testes
 ```
 
 Queda em relação a esta tabela é regressão.

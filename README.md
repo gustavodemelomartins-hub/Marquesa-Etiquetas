@@ -19,6 +19,12 @@ cd api && npx wrangler dev --local --port 8787
 python -m http.server 8000     # na raiz: http://localhost:8000/dashboard.html
 ```
 
+Painel novo (React + TypeScript + Vite):
+
+```bash
+cd frontend && npm install && npm run dev   # http://localhost:5173
+```
+
 Passo a passo completo, incluindo o `.dev.vars`:
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
@@ -26,9 +32,10 @@ Passo a passo completo, incluindo o `.dev.vars`:
 
 ```
 index.html              app de etiquetas · fonte única do CSS e do SheetJS
-dashboard.html          painel — GERADO, nunca editar à mão
-src/dashboard.tpl.html  a fonte do painel
+dashboard.html          painel legado — GERADO, nunca editar à mão
+src/dashboard.tpl.html  a fonte do painel legado
 src/build.py            monta o dashboard.html
+frontend/               painel novo: React + TypeScript + Vite
 src/*-test.mjs          testes
 api/src/                o Worker
 api/schema.sql          as 16 tabelas
@@ -43,6 +50,7 @@ CLAUDE.md               roteador de contexto para trabalhar com Claude Code
 |---|---|
 | **Regras de negócio** | [api/REGRAS.md](api/REGRAS.md) |
 | Arquitetura | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| Frontend React/TS/Vite | [docs/FRONTEND_ARCHITECTURE.md](docs/FRONTEND_ARCHITECTURE.md) |
 | Banco de dados | [docs/DATA_MODEL.md](docs/DATA_MODEL.md) |
 | Nuvemshop | [docs/NUVEMSHOP_INTEGRATION.md](docs/NUVEMSHOP_INTEGRATION.md) |
 | Sincronização | [docs/SYNC_ENGINE.md](docs/SYNC_ENGINE.md) |

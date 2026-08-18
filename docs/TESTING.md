@@ -122,6 +122,48 @@ Não é teste: tira fotos da Visão geral, das Vendas e das telas de inventário
 e venda em tamanho de celular, para conferir o visual depois de mexer no
 front. Roda depois do `e2e`, que deixa o banco com dados de exemplo.
 
+### `src/frontend-e2e.mjs` — o painel novo num navegador de verdade
+**23 asserções · ~3 s · Playwright + servidor HTTP + build do frontend**
+
+Prova o painel React/TypeScript sobre o mesmo backend:
+
+1. o app abre **já conectado** — a conexão do painel legado é reaproveitada
+   (mesma chave de `localStorage`, mesmo formato);
+2. a tela Nuvemshop lê o estado real e mostra os números certos;
+3. **divergência de estoque NÃO aparece como pendência** — a rodada seguinte
+   conserta sozinha, e listar isso como tarefa de alguém é o que faz o painel
+   parecer sempre em chamas;
+4. o que precisa de gente aparece em Pendências, com o motivo;
+5. *Analisar sincronização* roda a rodada seca e mostra o diff classificado
+   por risco;
+6. **e não escreve nada na Nuvemshop** — a loja falsa registra tudo que
+   recebe, e a contagem de escritas continua zero depois da análise inteira;
+7. a aba Reconciliação recebe a mesma análise e diz que aprovar e aplicar
+   ainda não existem;
+8. o rodapé continua apontando para o painel legado;
+9. nenhum erro de console.
+
+Precisa do build pronto: `cd frontend && npm run build`.
+
+### Testes unitários do frontend
+**47 testes · Vitest · sem navegador**
+
+```bash
+cd frontend && npm test
+```
+
+Cobrem lógica pura e a camada de API, não aparência:
+
+| Arquivo | O que prova |
+|---|---|
+| `src/features/nuvemshop/panorama.test.ts` | O porte de `panoramaLoja()` é fiel: divergência, falta cadastrar, oculto com peça, estoque negativo virando zero, produto sem preço não inventando R$ 0, e códigos que a rodada não empurra ficando fora de "estoque errado" |
+| `src/features/reconciliacao/classificar.test.ts` | A classificação de risco, inclusive a assimetria deliberada (tirar do ar é pior que colocar à venda), a ordenação por atenção e a extração do nome da variação |
+| `src/services/client.test.ts` | Bearer em toda chamada, mensagem de erro vinda do servidor, 401 marcado, falha de rede virando status 0, abortar não sendo erro, conexão no formato do painel legado |
+| `src/services/sync.test.ts` | **`analisar` sempre manda `seco:true` e nunca manda `forcar`** — este frontend não escreve na loja |
+
+Sem `jsdom` e sem `@testing-library` de propósito: aparência se prova no
+navegador de verdade, não em DOM simulado.
+
 ### `api/test-api.mjs`
 Script auxiliar de chamada à API. Não faz parte da suíte.
 
@@ -134,6 +176,9 @@ src/reset-e-testar.sh          # zera o banco, sobe tudo e roda o e2e
 node src/sync-test.mjs         # com banco limpo e Worker no ar
 node src/variacoes-test.mjs
 node src/kits-test.mjs
+node src/frontend-e2e.mjs      # precisa de `cd frontend && npm run build` antes
+
+cd frontend && npm test        # os 47 testes unitários, sem navegador
 ```
 
 ### Windows

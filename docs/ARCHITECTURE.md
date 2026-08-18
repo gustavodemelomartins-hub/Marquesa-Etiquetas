@@ -19,6 +19,18 @@ Semijoias. Três peças, sem framework em nenhuma delas.
 
 ## Frontend
 
+**Dois painéis convivem**, sobre o mesmo backend e a mesma autenticação:
+
+| | Legado | Novo |
+|---|---|---|
+| Onde | `src/dashboard.tpl.html` → `dashboard.html` | `frontend/` |
+| Stack | HTML/CSS/JS vanilla | React + TypeScript + Vite |
+| Cobre | Tudo | Nuvemshop + fundação da reconciliação |
+| Situação | **Em produção** | Em construção, não publicado |
+
+Detalhes do novo em [FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md).
+O resto desta seção descreve o legado, que continua sendo o painel principal.
+
 HTML + CSS + JavaScript vanilla. Nenhum build de bundler, nenhum framework.
 
 | Arquivo | O que é |

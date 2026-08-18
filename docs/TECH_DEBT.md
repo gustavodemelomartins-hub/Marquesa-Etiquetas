@@ -51,14 +51,13 @@ câmera, tudo no mesmo arquivo.
   desenho (o que mostrar como "estoque errado no site", quando oferecer o
   botão de aplicar). Mudar a regra exige mexer na tela e vice-versa.
 
-**O que NÃO fazer:** quebrar em componentes agora, introduzir framework,
-redesenhar. O arquivo é grande, não é ruim — ele é comentado, coerente e
-funciona.
+**O caminho escolhido foi outro, e melhor:** em vez de quebrar este arquivo,
+um painel novo nasceu ao lado, em React + TypeScript + Vite (`frontend/`), e
+as áreas migram uma por vez. O legado continua inteiro e funcionando enquanto
+isso — ver [FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md).
 
-**Caminho incremental, quando fizer sentido:** extrair primeiro o que é
-puro e testável (formatação, cálculos de exibição, montagem de tabela) para
-um módulo separado que o `build.py` injeta, mantendo o resto no lugar. O
-build já sabe injetar blocos por marcador.
+A primeira área migrada foi a Nuvemshop. Cada área que sair daqui reduz este
+item; ele só fecha quando a última sair.
 
 ---
 
@@ -182,6 +181,11 @@ gerar no próprio build.
   margem — a loja tem ~600 produtos.
 - `api/package.json` tem `"test": "echo Error: no test specified && exit 1"`.
 - Não há `LICENSE` no repositório, que é público.
+- O painel novo ainda **não é publicado**: onde e sob qual endereço é decisão
+  a tomar. Enquanto isso ele só existe localmente.
+- `frontend/src/features/reconciliacao/exemplo.ts` é dado de mentira que
+  vive no código de produção. Ele some quando a tela de revisão de verdade
+  existir; até lá, a faixa listrada avisa o usuário em voz alta.
 - `api/gerar-seed.py` gera dado real e o `.gitignore` protege a saída
   (`seed.sql`) — correto, e vale manter no radar em qualquer mudança do
   `.gitignore`.
