@@ -17,7 +17,13 @@ if (st.inventario && st.inventario.abertoId) {
     { method: 'POST', headers: { Authorization: 'Bearer ' + KEY } });
 }
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+/* O navegador vem de PW_CHROMIUM quando essa variável existe (é como a
+   máquina de origem apontava para /opt/pw-browsers/chromium); sem ela, vale
+   o Chromium que o próprio Playwright instalou — o caminho normal no
+   Windows e no macOS. Caminho fixo no código deixava o teste rodando num
+   sistema operacional só. */
+const browser = await chromium.launch(
+  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 
 async function foto(nome, largura, altura, acao) {
   const page = await browser.newPage({ viewport: { width: largura, height: altura } });

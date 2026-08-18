@@ -14,7 +14,13 @@ const ok = (t, extra = '') => console.log(`  ok   ${t}${extra ? '  → ' + extra
 const bad = (t, extra = '') => { falhas++; console.log(`  FALHA ${t}${extra ? '  → ' + extra : ''}`); };
 const eq = (t, a, b) => (String(a) === String(b) ? ok(t, a) : bad(t, `esperava ${b}, veio ${a}`));
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+/* O navegador vem de PW_CHROMIUM quando essa variável existe (é como a
+   máquina de origem apontava para /opt/pw-browsers/chromium); sem ela, vale
+   o Chromium que o próprio Playwright instalou — o caminho normal no
+   Windows e no macOS. Caminho fixo no código deixava o teste rodando num
+   sistema operacional só. */
+const browser = await chromium.launch(
+  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const page = await browser.newPage();
 
 const erros = [];

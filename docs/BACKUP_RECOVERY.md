@@ -1,17 +1,21 @@
 # Backup e recuperação
 
-> **BACKUP DE PRODUÇÃO PENDENTE — credenciais/acesso remoto indisponíveis
-> neste ambiente.**
+> **BACKUP DE PRODUÇÃO FEITO E CONFERIDO — 2026-08-18 06:22.**
 >
-> Verificado em 2026-08-18: não há `CLOUDFLARE_API_TOKEN` nem
-> `CLOUDFLARE_ACCOUNT_ID` no ambiente, e não existe sessão autenticada do
-> Wrangler (`~/.wrangler` ausente). Nenhum export do D1 remoto foi feito
-> nesta etapa. **O primeiro `wrangler d1 export --remote` ainda precisa ser
-> rodado por uma pessoa autenticada.**
+> `backups/d1/2026-08-18_06-22/marquesa-db.sql` · 720.922 bytes · 16 tabelas
+> · 2.583 `INSERT`. Restaurado num banco limpo local e validado: **a razão
+> contábil fecha (0 divergências)**, zero registros órfãos, idempotência dos
+> pedidos intacta. Detalhes e contagens no `MANIFESTO.txt` ao lado do
+> arquivo.
 
 Ambiente conferido: Wrangler **4.123.0**, Node v24.19.0, Windows 10.
-Todos os comandos abaixo foram verificados contra o `--help` desta versão.
-Nenhum comando aqui é inventado.
+Todos os comandos abaixo foram verificados contra o `--help` desta versão e
+**executados de verdade**. Nenhum comando aqui é inventado.
+
+> **Onde ficam as credenciais do Wrangler nesta máquina:**
+> `%APPDATA%\xdg.config\.wrangler\config\default.toml` — **não** em
+> `~/.wrangler`. Procurar no lugar errado faz parecer que não há sessão
+> autenticada quando há. Confira sempre com `npx wrangler whoami`.
 
 ## O que estamos protegendo
 
@@ -36,7 +40,18 @@ npx wrangler d1 export marquesa-db --remote \
   --output ../backups/d1/2026-08-18_06-00/marquesa-db.sql
 ```
 
-Só leitura. Não altera nada no banco.
+Só leitura. Não altera nada no banco. Três coisas aprendidas rodando isto
+de verdade:
+
+- o comando avisa que o banco fica **indisponível para consultas** enquanto
+  exporta. Com 639 kB levou segundos, mas prefira fora do horário de venda;
+- em contexto **não interativo** o wrangler responde "yes" sozinho à
+  confirmação. Inofensivo no export — e a razão de restore e escrita remota
+  estarem no `deny` do `.claude/settings.json`, onde o mesmo comportamento
+  seria destrutivo;
+- ele imprime um **link temporário do R2** (1 hora de validade) que dá
+  acesso ao dump inteiro sem autenticação. Não cole a saída do comando em
+  lugar nenhum.
 
 Opções úteis desta versão:
 
@@ -96,8 +111,15 @@ Zero linhas = o backup preserva `produtos.qtd == SUM(movimentos.qtd)`.
 É a mesma prova que `GET /api/estoque/conferir` faz no ar.
 
 **Registre no `MANIFESTO.txt`**: data, versão do Wrangler, tamanho do
-arquivo, contagem de `CREATE TABLE` e de `INSERT`, e o resultado da
-checagem (c).
+arquivo, contagem de `CREATE TABLE` e de `INSERT`, o bookmark de Time Travel
+e o resultado da checagem (c). Use
+`backups/d1/2026-08-18_06-22/MANIFESTO.txt` como modelo — ele é de um backup
+real, já conferido.
+
+Vale acrescentar duas checagens baratas que pegaram valor no primeiro
+backup: registros órfãos (`movimentos`, `venda_itens`, `maleta_itens` sem
+pai) e `COUNT(externo_id) == COUNT(DISTINCT externo_id)` nas vendas do site,
+que prova a idempotência dos pedidos no dado real.
 
 ## 4. Frequência recomendada
 
@@ -139,7 +161,9 @@ Guarde o **bookmark** que ele devolve antes de qualquer operação de risco:
 > um agente. Nunca é executado sem uma pessoa dizendo, naquele momento, que
 > quer restaurar aquele banco a partir daquele arquivo.
 >
-> Nenhum restore foi executado na etapa que produziu este documento.
+> Nenhum restore em **produção** foi executado na etapa que produziu este
+> documento. Houve um restore **local**, para validar o backup — é o caminho
+> normal, descrito logo abaixo.
 
 ## Antes de qualquer restore
 
@@ -154,6 +178,11 @@ Guarde o **bookmark** que ele devolve antes de qualquer operação de risco:
 
 Sempre valide o arquivo aqui antes de pensar em produção. Nada disto toca a
 nuvem: `--local` usa um SQLite dentro de `api/.wrangler`.
+
+> **Depois de validar, zere o banco local** (`rm -rf api/.wrangler/state`).
+> O backup traz nomes de clientes e revendedoras, preços e estoque reais, e
+> não há motivo para esse dado ficar morando no ambiente de desenvolvimento.
+> Os testes também precisam do banco limpo.
 
 ```bash
 cd api

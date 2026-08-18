@@ -51,7 +51,13 @@ bipando, fazer o acerto, conferir que a razão fecha (§19).
 Nada disso toca a nuvem: o `--local` do wrangler usa um SQLite dentro de
 `api/.wrangler`, e a chave de teste sai do `api/.dev.vars`.
 
-Precisa de `playwright` e `xlsx` instalados (`npm install` dentro de `src/`).
+Precisa de `playwright` e `xlsx` instalados (`npm install` dentro de `src/`)
+e do navegador baixado (`npx playwright install chromium`). O binário sai do
+próprio Playwright; para apontar para outro, defina `PW_CHROMIUM`.
+
+> **O script só roda em Linux e macOS** — ele usa `setsid` e um `pkill` que
+> não alcançam o Wrangler no Windows. Lá o ciclo é feito à mão, e está
+> escrito passo a passo em [docs/TESTING.md](../docs/TESTING.md).
 
 ### Sincronização com a Nuvemshop
 
@@ -71,10 +77,25 @@ Precisa do Worker local no ar com estes valores no `.dev.vars`:
 NUVEMSHOP_STORE_ID=999999
 NUVEMSHOP_TOKEN=token-de-mentira
 NUVEMSHOP_BASE=http://localhost:8799
+NUVEMSHOP_CLIENT_ID=app-de-mentira
+NUVEMSHOP_CLIENT_SECRET=segredo-de-mentira
+NUVEMSHOP_AUTH_BASE=http://localhost:8799
+ORIGENS_PERMITIDAS=http://localhost:8000
 ```
 
-`NUVEMSHOP_BASE` existe só para isso; fora do teste ninguém define e vale o
-endereço real.
+`NUVEMSHOP_BASE` e `NUVEMSHOP_AUTH_BASE` existem só para isso; fora do teste
+ninguém define e vale o endereço real.
+
+As três últimas são fáceis de esquecer e falham de um jeito que não parece o
+que é:
+
+- sem `NUVEMSHOP_CLIENT_ID` e `NUVEMSHOP_CLIENT_SECRET`, a seção 10 do
+  `sync-test` (a troca do código pelo token) falha 3 asserções;
+- sem `ORIGENS_PERMITIDAS=http://localhost:8000`, o Worker responde com o
+  endereço de produção no `Access-Control-Allow-Origin`, o navegador bloqueia
+  a chamada, e o `e2e` para na tela de conexão dizendo *"Não encontrei a API
+  neste endereço"* — que parece erro de rede e é CORS. O `.dev.vars`
+  sobrescreve o `[vars]` do `wrangler.toml` durante o `wrangler dev`.
 
 O banco precisa estar limpo (`reset-e-testar.sh` deixa dados do outro teste,
 que mudam as contagens).

@@ -39,13 +39,15 @@ Banco limpo e Worker local recém-subido, **um teste por vez**:
 node src/sync-test.mjs        # esperado: 67 ok, 0 falhas
 node src/variacoes-test.mjs   # esperado: 48 ok, 0 falhas
 node src/kits-test.mjs        # esperado: 20 ok, 0 falhas
+node src/e2e.mjs              # esperado: 66 ok, 0 falhas
+node src/import-casa-test.mjs # esperado:  8 ok, 0 falhas
 ```
 
-- [ ] Os três passam.
+- [ ] Os cinco passam: **209 asserções, 0 falhas**.
 - [ ] O resultado bate com [docs/BASELINE.md](../../../docs/BASELINE.md).
       Queda em relação ao baseline é regressão.
-- [ ] `e2e.mjs` rodado, **se** o ambiente suportar Playwright. Hoje o
-      Windows não suporta — ver [docs/TESTING.md](../../../docs/TESTING.md).
+- [ ] O `e2e` rodou de verdade. É o único teste que prova que interface e
+      API conversam — pular por pressa é publicar sem essa prova.
 
 ## 3. Build
 
@@ -152,7 +154,7 @@ curl https://<worker>/api/health          # {"ok":true,...}
 
 ```
 O que muda:        <uma frase>
-Testes:            67/48/20 ok, 0 falhas · e2e não rodado (Windows)
+Testes:            209 asserções, 0 falhas (67/48/20/66/8)
 Build:             dashboard.html regerado / não foi preciso
 Migration:         nenhuma / <arquivo>, testada nas duas direções
 Backup:            <caminho>  ·  bookmark <valor>

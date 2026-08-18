@@ -73,7 +73,14 @@ NUVEMSHOP_BASE=http://localhost:8799
 NUVEMSHOP_CLIENT_ID=app-de-mentira
 NUVEMSHOP_CLIENT_SECRET=segredo-de-mentira
 NUVEMSHOP_AUTH_BASE=http://localhost:8799
+ORIGENS_PERMITIDAS=http://localhost:8000
 ```
+
+`ORIGENS_PERMITIDAS` aqui **sobrescreve** o `[vars]` do `wrangler.toml`
+durante o `wrangler dev`. Sem ela, o Worker responde com o endereço de
+produção no `Access-Control-Allow-Origin`, o navegador bloqueia a chamada, e
+a tela diz *"Não encontrei a API neste endereço"* — que parece erro de rede
+e é CORS.
 
 `NUVEMSHOP_BASE` e `NUVEMSHOP_AUTH_BASE` existem só para o teste apontar
 para a loja falsa; fora do teste ninguém define e vale o endereço real.
@@ -116,13 +123,17 @@ operacional e o baseline atual.
 Resumo:
 
 ```bash
-node src/sync-test.mjs        # sincronização com a Nuvemshop
-node src/variacoes-test.mjs   # aro do anel, comprimento da corrente
-node src/kits-test.mjs        # peça vendida inteira ou desmontada
+node src/sync-test.mjs        # sincronização com a Nuvemshop        67 asserções
+node src/variacoes-test.mjs   # aro do anel, comprimento da corrente  48
+node src/kits-test.mjs        # peça vendida inteira ou desmontada    20
+node src/e2e.mjs              # o caminho inteiro num navegador       66
+node src/import-casa-test.mjs # "total ou só em casa?"                 8
 ```
 
 Cada um precisa do Worker local no ar **e de banco limpo** — as contagens
-mudam se sobrar dado do teste anterior.
+mudam se sobrar dado do teste anterior. Os dois últimos também precisam do
+dashboard servido em `localhost:8000` e do Chromium do Playwright
+(`npx playwright install chromium`, dentro de `src/`).
 
 ## Ciclo de trabalho
 

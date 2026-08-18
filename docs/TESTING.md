@@ -12,8 +12,12 @@ introduzir um runner.
 
 1. Worker local no ar (`npx wrangler dev --local --port 8787`);
 2. **banco limpo** — as contagens mudam se sobrar dado de outro teste;
-3. `api/.dev.vars` completo, incluindo as variáveis de OAuth. Ver
-   [DEVELOPMENT.md](DEVELOPMENT.md).
+3. `api/.dev.vars` completo: as variáveis de OAuth **e**
+   `ORIGENS_PERMITIDAS=http://localhost:8000`. Ver
+   [DEVELOPMENT.md](DEVELOPMENT.md);
+4. para os testes de navegador, também: `npm install` dentro de `src/`,
+   `npx playwright install chromium`, e o dashboard servido por HTTP em
+   `localhost:8000`.
 
 > Faltar `NUVEMSHOP_CLIENT_ID`, `NUVEMSHOP_CLIENT_SECRET` e
 > `NUVEMSHOP_AUTH_BASE` no `.dev.vars` derruba exatamente 3 asserções da
@@ -85,7 +89,7 @@ mesmo estoque físico.
 9. a razão fecha no fim de tudo (§19).
 
 ### `src/e2e.mjs` — o caminho inteiro num navegador de verdade
-**Playwright · não roda no Windows como está** (ver limitações)
+**66 asserções · ~36 s · Playwright + servidor HTTP em `localhost:8000`**
 
 12 seções, do portal de conexão ao fim: conectar, importar catálogo de uma
 planilha fictícia, cadastrar revendedora pela tela, montar maleta bipando,
@@ -97,7 +101,7 @@ console apareceu**.
 É o único teste que prova que a interface e a API conversam.
 
 ### `src/import-casa-test.mjs` — "total ou só em casa?"
-**Playwright · não roda no Windows como está**
+**8 asserções · ~10 s · Playwright + servidor HTTP**
 
 Prova o botão da importação que pergunta se os números da planilha são o
 total ou só o que está em casa. O risco que ele evita: uma planilha que
@@ -112,7 +116,7 @@ responde 400 sem ele), pagina como a real, guarda tudo que chega no `PATCH`
 e implementa a troca OAuth.
 
 ### `src/shot.mjs` — fotos das telas
-**Playwright · não roda no Windows como está**
+**Playwright. Não é teste.**
 
 Não é teste: tira fotos da Visão geral, das Vendas e das telas de inventário
 e venda em tamanho de celular, para conferir o visual depois de mexer no
@@ -157,15 +161,16 @@ Repita os passos 1–4 para cada teste: banco limpo é requisito, não capricho.
 
 ## Limitações conhecidas do ambiente
 
-| Limitação | Efeito | Onde consertar |
+| Limitação | Efeito | Situação |
 |---|---|---|
-| `executablePath: '/opt/pw-browsers/chromium'` fixo em `e2e.mjs`, `import-casa-test.mjs`, `shot.mjs` | Os três só rodam onde esse caminho existe (Linux) | [TECH_DEBT.md](TECH_DEBT.md) |
-| `reset-e-testar.sh` usa `setsid` e `pkill` | Não roda no Windows | idem |
-| `npm run build` chama `python3` | Falha no Windows, onde o comando é `python` | idem |
-| Cada teste exige reset manual do banco | Não dá para rodar a suíte inteira de uma vez | idem |
+| `executablePath` fixo em `/opt/pw-browsers/chromium` | Os testes de navegador só rodavam no Linux | **Resolvido**: os três honram `PW_CHROMIUM` e, sem ela, usam o Chromium do Playwright |
+| CORS derruba o `e2e` na tela de conexão | O navegador vem de `localhost:8000`, e o `wrangler.toml` libera só o endereço de produção | **Resolvido pelo ambiente**: `ORIGENS_PERMITIDAS=http://localhost:8000` no `.dev.vars` |
+| `reset-e-testar.sh` usa `setsid` e `pkill` | Não roda no Windows | **Aberto** — [TECH_DEBT.md](TECH_DEBT.md) item 4 |
+| `npm run build` chama `python3` | Falha no Windows, onde o comando é `python` | **Aberto** — item 6 |
+| Cada teste exige reset manual do banco | Não dá para rodar a suíte inteira num comando | **Aberto** — item 4 |
 
-Nenhuma delas foi corrigida nesta etapa — são mudanças de código, e a etapa
-era de organização.
+O `wrangler dev` segura o arquivo do SQLite: derrube o processo **antes** de
+apagar `.wrangler/state`, ou o `rm` falha com `Device or resource busy`.
 
 ## O que a suíte **não** cobre
 

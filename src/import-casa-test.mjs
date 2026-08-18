@@ -51,7 +51,13 @@ const rev = (await api('GET', '/api/state')).revendedoras.find(r => r.nome === '
 const mal = await api('POST', '/api/maletas', { revId: rev.id });
 await api('POST', `/api/maletas/${mal.id}/itens`, { itens: { C1: 3 } });
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+/* O navegador vem de PW_CHROMIUM quando essa variável existe (é como a
+   máquina de origem apontava para /opt/pw-browsers/chromium); sem ela, vale
+   o Chromium que o próprio Playwright instalou — o caminho normal no
+   Windows e no macOS. Caminho fixo no código deixava o teste rodando num
+   sistema operacional só. */
+const browser = await chromium.launch(
+  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const page = await browser.newPage();
 let confirmText = '';
 page.on('dialog', d => { confirmText = d.message(); d.accept(); });

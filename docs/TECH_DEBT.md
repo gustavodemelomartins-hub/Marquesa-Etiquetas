@@ -62,27 +62,23 @@ build já sabe injetar blocos por marcador.
 
 ---
 
-## 3. Testes de navegador com caminho de binário fixo
+## 3. ~~Testes de navegador com caminho de binário fixo~~ — RESOLVIDO
 
-**Onde:** `src/e2e.mjs:17`, `src/import-casa-test.mjs:54`, `src/shot.mjs:20`
+`src/e2e.mjs`, `src/import-casa-test.mjs` e `src/shot.mjs` traziam
+`executablePath: '/opt/pw-browsers/chromium'` escrito no código, e por isso
+só rodavam num Linux com esse caminho exato.
 
-```js
-chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
-```
+Agora os três honram `PW_CHROMIUM` quando ela existe e, sem ela, usam o
+Chromium que o próprio Playwright instala. O `e2e` — o único teste que prova
+que interface e API conversam — voltou a rodar, e o baseline subiu de 135
+para 209 asserções.
 
-**Custo:** os três testes só rodam num Linux com esse caminho exato. Numa
-máquina Windows — a do desenvolvimento atual — o `e2e`, que é o único teste
-que prova que interface e API conversam, **não roda**.
-
-**Correção futura:** honrar uma variável de ambiente e cair no Chromium que
-o próprio Playwright instala:
-
-```js
-chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {})
-```
-
-Mudança de três linhas, em código de teste. Ficou de fora desta etapa por
-ser alteração de código.
+Junto veio uma segunda descoberta, resolvida **sem tocar em código**: o
+`e2e` também falhava por CORS, porque o navegador do teste vem de
+`localhost:8000` e o `wrangler.toml` libera só o endereço de produção. A
+correção é `ORIGENS_PERMITIDAS=http://localhost:8000` no `.dev.vars`. O
+sintoma na tela — *"Não encontrei a API neste endereço"* — parece erro de
+rede e não é.
 
 ---
 
@@ -92,6 +88,11 @@ Usa `setsid` (ausente no Git Bash) e um `pkill` que não alcança o processo
 do Wrangler no Windows. O resultado é que **não existe um comando único**
 para rodar a suíte na máquina de desenvolvimento atual — o ciclo
 derrubar/zerar/subir/rodar é feito à mão, teste a teste.
+
+Agora que os cinco testes passam aqui, este virou o item de maior retorno da
+lista: um runner portátil transformaria cinco sequências manuais em um
+comando. A forma de derrubar o Wrangler que funciona no Windows está em
+[BASELINE.md](BASELINE.md) e serviria de base.
 
 Ver o passo a passo em [TESTING.md](TESTING.md).
 
