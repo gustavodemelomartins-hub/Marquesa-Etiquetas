@@ -99,6 +99,10 @@ async function rotear(request, env) {
       if ((m = path.match(/^\/api\/produtos\/([^/]+)\/repartir$/)) && met === 'POST') {
         return await repartirVariacoes(db, decodeURIComponent(m[1]), await request.json());
       }
+      // desfazer a repartição que a sincronização fez sozinha
+      if (path === '/api/variacoes/desfazer-semeadura' && met === 'POST') {
+        return await desfazerSemeadura(db);
+      }
 
       // ---------------------------------------------------------------- kits
       if ((m = path.match(/^\/api\/produtos\/([^/]+)\/componentes$/)) && met === 'GET') {
@@ -406,6 +410,56 @@ async function lancarMovimento(db, sku, { tipo, quantidade, obs, variacao }) {
     return json({ erro: String(e.message || e) }, 400);
   }
   return json({ ok: true, saldos: await saldosDoSku(db, sku) });
+}
+
+/** Desfaz uma repartição automática que não devia ter acontecido.
+ *
+ *  A primeira versão de `semearVariacoes` servia as variações na ordem até o
+ *  total acabar. Com a loja carregando a herança do bug antigo — o total do
+ *  código inteiro dentro da primeira variação — isso entupia a primeira e
+ *  zerava as demais. O freio da rodada barrou o empurrão, mas a repartição
+ *  já tinha sido gravada aqui.
+ *
+ *  Não apaga movimento (§28): lança a contrapartida. O histórico continua
+ *  mostrando que a repartição aconteceu e que foi desfeita, com o motivo.
+ *
+ *  Só mexe em código cuja repartição veio TODA da semeadura automática. Se
+ *  alguém corrigiu qualquer coisa à mão, aquele código fica como está —
+ *  desfazer trabalho de gente é justamente o que não pode acontecer. */
+async function desfazerSemeadura(db) {
+  const auto = new Set((await db.prepare(
+    `SELECT DISTINCT sku FROM movimentos
+      WHERE origem = 'variacao' AND obs LIKE 'Repartido pela Nuvemshop%'`).all())
+    .results.map(r => r.sku));
+  if (!auto.size) return json({ ok: true, desfeitos: 0, motivo: 'nada foi semeado automaticamente' });
+
+  const tocadoAMao = new Set((await db.prepare(
+    `SELECT DISTINCT sku FROM movimentos
+      WHERE variacao IS NOT NULL
+        AND NOT (origem = 'variacao' AND obs LIKE 'Repartido pela Nuvemshop%')`).all())
+    .results.map(r => r.sku));
+
+  const saldos = (await db.prepare(
+    `SELECT sku, variacao, SUM(qtd) AS saldo FROM movimentos
+      WHERE variacao IS NOT NULL GROUP BY sku, variacao`).all()).results;
+
+  const stmts = [], desfeitos = new Set(), preservados = [...tocadoAMao].filter(s => auto.has(s));
+  for (const r of saldos) {
+    if (!auto.has(r.sku) || tocadoAMao.has(r.sku) || !r.saldo) continue;
+    desfeitos.add(r.sku);
+    stmts.push(...movimentar(db, {
+      sku: r.sku, variacao: r.variacao, tipo: 'ajuste', quantidade: -r.saldo,
+      origem: 'variacao',
+      obs: `Repartição automática desfeita: a loja não sabia dizer quanto tem de "${r.variacao}"`,
+    }));
+    stmts.push(...movimentar(db, {
+      sku: r.sku, tipo: 'ajuste', quantidade: r.saldo, origem: 'variacao',
+      obs: `Repartição automática desfeita: "${r.variacao}" volta a ficar sem variação`,
+    }));
+  }
+
+  if (stmts.length) await db.batch(stmts);
+  return json({ ok: true, desfeitos: desfeitos.size, preservados });
 }
 
 /** Reparte entre as variações um estoque que hoje é um número só.

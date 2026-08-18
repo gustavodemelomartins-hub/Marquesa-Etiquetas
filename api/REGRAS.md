@@ -222,10 +222,25 @@ a loja já mantém por variação. Duas regras seguram o que ele pode fazer:
   Sem isso, a sincronização da madrugada desfaria a correção feita à mão na
   véspera: o pior tipo de bug, o que apaga trabalho de alguém enquanto
   ninguém olha.
-- **Nunca inventa peça.** O total continua sendo o nosso — a loja é destino
-  do estoque, não fonte. A repartição é servida na ordem até o total acabar;
-  o que a loja disser a mais é ignorado, e o que sobrar continua "sem
-  variação", que é honesto: existe e ainda não se sabe de qual é.
+- **A soma da loja é o atestado.** Bateu com o nosso total, a repartição
+  dela é confiável e entra inteira. Não bateu, **não se reparte nada**.
+
+  A primeira versão servia as variações na ordem até o total acabar. Parece
+  razoável e é péssimo: a loja carrega a herança do bug anterior, que
+  escrevia o total do código inteiro dentro da primeira variação. Servir na
+  ordem daria tudo para a primeira e **zero** para as outras — reproduzindo
+  o bug e ainda levando o zero de volta para a loja, tirando os outros
+  tamanhos do ar.
+
+  Não foi hipótese: o freio da rodada barrou o cenário real, com 16 produtos
+  que seriam zerados. O desencontro entre as duas somas não diz onde está o
+  erro, então a única resposta honesta é não dividir e mostrar os dois
+  números.
+
+- **Repartição pela metade não empurra.** Se sobram peças sem variação, as
+  caixinhas da loja somadas dariam menos do que existe aqui, e a diferença
+  sairia do ar como se a peça não existisse. O código só volta para a
+  sincronização quando estiver inteiramente repartido.
 
 Peça "sem variação" **não é anunciada** em variação nenhuma. Deixar de
 vender uma é melhor que vender um aro que não existe, e ela volta ao ar

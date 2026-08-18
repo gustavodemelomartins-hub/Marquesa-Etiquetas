@@ -160,6 +160,53 @@ const segurado = (r.semEmpurrar || []).find(x => x.sku === 'ANEL');
 eq('o anel saiu do empurrão enquanto tem peça na rua', !!segurado, 'true');
 eq('e o motivo é a maleta, não a variação', segurado && segurado.motivo, 'maleta');
 
+console.log('\n=== 12. soma da loja que não bate NÃO é repartida ===');
+/* O cenário real que o freio pegou: a loja carrega a herança do bug antigo,
+   com o total do código inteiro dentro da primeira variação. Repartir na
+   ordem entupiria a primeira e zeraria as outras — reproduzindo o bug e
+   ainda apagando os outros tamanhos na loja. */
+await api('POST', '/api/produtos/importar', {
+  produtos: [{ sku: 'HERANCA', desc: 'Anel com a herança do bug', cat: 'Anel', preco: 70, qtd: 6 }],
+});
+loja.estado.produtos.push({
+  id: 90, name: { pt: 'Anel com a herança do bug' }, handle: { pt: 'heranca' }, published: true,
+  attributes: [{ pt: 'Aro' }],
+  variants: [
+    // 6 = o total do código inteiro, escrito aqui pelo bug antigo
+    { id: 901, sku: 'HERANCA', values: [{ pt: '16' }], inventory_levels: [{ location_id: 'L1', stock: 6 }] },
+    { id: 902, sku: 'HERANCA', values: [{ pt: '18' }], inventory_levels: [{ location_id: 'L1', stock: 2 }] },
+    { id: 903, sku: 'HERANCA', values: [{ pt: '20' }], inventory_levels: [{ location_id: 'L1', stock: 1 }] },
+  ],
+});
+
+r = await api('POST', '/api/sync', { forcar: true });
+const her = await prod('HERANCA');
+eq('a loja soma 9 e nós temos 6: não repartiu nada',
+  her.variacoes.map(v => v.qtd).join(','), '0,0,0');
+eq('as 6 peças continuam sem variação', her.semVariacao, 6);
+eq('e a rodada disse por que não repartiu',
+  (r.naoSemeados || []).some(x => x.sku === 'HERANCA' && x.somaLoja === 9 && x.total === 6), 'true');
+
+/* E o mais importante: sem repartição, nada é empurrado — nenhum aro é
+   zerado na loja. Era isso que o freio tinha barrado. */
+const vHer = loja.estado.produtos.find(p => p.id === 90).variants;
+eq('nenhum aro foi zerado na loja', vHer.map(v => v.inventory_levels[0].stock).join(','), '6,2,1');
+const barrado = (r.semEmpurrar || []).find(x => x.sku === 'HERANCA');
+eq('e o código ficou fora do empurrão', !!barrado, 'true');
+eq('com o motivo certo', barrado.motivo, 'sem_reparticao');
+
+console.log('\n=== 13. desfazer a repartição automática que não devia ter havido ===');
+/* Repartição pela metade também não empurra: se sobram peças sem variação,
+   as caixinhas somadas dariam menos do que existe, e a diferença sairia do
+   ar como se a peça não existisse. */
+await api('POST', '/api/produtos/HERANCA/repartir', { distribuicao: { '16': 3, '18': 2, '20': 1 } });
+eq('repartido à mão, agora fecha', (await prod('HERANCA')).semVariacao, 0);
+
+const desf = await api('POST', '/api/variacoes/desfazer-semeadura');
+eq('o desfazer rodou', desf.ok, 'true');
+/* HERANCA foi repartido à MÃO, então não pode ser desfeito por engano. */
+eq('código corrigido à mão é preservado', (await prod('HERANCA')).semVariacao, 0);
+
 await loja.fechar();
 console.log(falhas ? `\n✗ ${falhas} FALHA(S)\n` : '\n✓ TUDO PASSOU\n');
 process.exit(falhas ? 1 : 0);

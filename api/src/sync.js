@@ -45,7 +45,8 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
 
   const relato = {
     id: exec.id, pedidosLidos: 0, vendasCriadas: 0, itensIgnorados: [],
-    produtosEnviados: 0, mudancas: [], semEmpurrar: [], semeados: [], pausado: null, seco,
+    produtosEnviados: 0, mudancas: [], semEmpurrar: [], semeados: [], naoSemeados: [],
+    pausado: null, seco,
   };
 
   try {
@@ -200,32 +201,43 @@ async function semearVariacoes(db, mapa, relato, seco) {
     const naLoja = mapa.get(p.sku);
     if (!naLoja || naLoja.variantes.length < 2) continue;
 
-    let restante = p.qtd, sobrou = 0;
+    /* Regra 2: a soma da loja é o ATESTADO de que ela sabe do que fala.
+       Bateu com o nosso total, a repartição dela é confiável e entra
+       inteira. Não bateu, não se reparte NADA — porque o desencontro não
+       diz onde está o erro, e servir na ordem até o total acabar seria
+       entupir as primeiras variações e zerar as últimas.
+
+       Isso não é hipótese: o bug anterior escrevia o total do código na
+       primeira variação, então a loja está com `[total, resto, resto]` em
+       muitos desses códigos. Repartir na ordem reproduziria o bug e ainda
+       levaria zero para os outros tamanhos. O freio da rodada pegou
+       exatamente esse cenário — 16 produtos que seriam zerados. */
+    const somaLoja = naLoja.variantes.reduce((s, v) => s + Math.max(0, v.estoque), 0);
+    if (somaLoja !== p.qtd) {
+      relato.naoSemeados.push({
+        sku: p.sku, total: p.qtd, somaLoja,
+        variacoes: naLoja.variantes.map(v => ({ nome: v.nome, estoque: v.estoque })),
+      });
+      continue;
+    }
+
     const feito = [];
     for (const v of naLoja.variantes) {
-      const querido = Math.max(0, v.estoque);
-      const cabe = Math.min(querido, restante);   // regra 2: não inventa
-      sobrou += querido - cabe;
-      if (cabe > 0) {
-        restante -= cabe;
-        feito.push({ nome: v.nome, qtd: cabe });
-        stmts.push(...movimentar(db, {
-          sku: p.sku, variacao: v.nome, tipo: 'ajuste', quantidade: cabe,
-          origem: 'variacao',
-          obs: `Repartido pela Nuvemshop: "${v.nome}" com ${cabe}`,
-        }));
-        stmts.push(...movimentar(db, {
-          sku: p.sku, tipo: 'ajuste', quantidade: -cabe, origem: 'variacao',
-          obs: `Repartido pela Nuvemshop: contrapartida de "${v.nome}"`,
-        }));
-      }
+      const qtd = Math.max(0, v.estoque);
+      if (!qtd) continue;
+      feito.push({ nome: v.nome, qtd });
+      stmts.push(...movimentar(db, {
+        sku: p.sku, variacao: v.nome, tipo: 'ajuste', quantidade: qtd,
+        origem: 'variacao',
+        obs: `Repartido pela Nuvemshop: "${v.nome}" com ${qtd}`,
+      }));
+      stmts.push(...movimentar(db, {
+        sku: p.sku, tipo: 'ajuste', quantidade: -qtd, origem: 'variacao',
+        obs: `Repartido pela Nuvemshop: contrapartida de "${v.nome}"`,
+      }));
     }
     if (!feito.length) continue;
-    relato.semeados.push({
-      sku: p.sku, total: p.qtd, variacoes: feito,
-      semVariacao: restante,      // o que a loja não soube dizer de qual é
-      ignorado: sobrou,           // o que a loja dizia a mais do que existe
-    });
+    relato.semeados.push({ sku: p.sku, total: p.qtd, variacoes: feito });
   }
 
   if (seco || !stmts.length) return;
@@ -292,9 +304,15 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
     if (naLoja.variantes.length > 1) {
       const consignado = p.qtd - p.casa;
       const porVariacao = saldoPorVariacao.get(p.sku) || new Map();
+      /* Repartição PELA METADE não serve para empurrar. Se sobram peças sem
+         variação, as caixinhas da loja somadas dariam menos do que existe
+         aqui — e a diferença sairia do ar como se a peça não existisse.
+         Enquanto não estiver tudo atribuído, é melhor não escrever nada. */
+      const atribuido = [...porVariacao.values()].reduce((s, n) => s + n, 0);
       const impedimento = naLoja.produtos.size > 1 ? 'duplicado'
         : consignado > 0 ? 'maleta'
-        : porVariacao.size ? null : 'sem_reparticao';
+        : atribuido === p.qtd && p.qtd > 0 ? null
+        : 'sem_reparticao';
 
       if (impedimento) {
         relato.semEmpurrar.push({

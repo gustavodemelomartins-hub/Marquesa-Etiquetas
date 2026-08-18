@@ -277,11 +277,19 @@ eq('a gargantilha varia por comprimento, e isso atravessou',
   pGarg.variacoes[0].atributo, 'Comprimento');
 eq('com os comprimentos que a loja informou',
   pGarg.variacoes.map(v => v.nome).join(' '), '40cm 45cm');
-/* A loja só sabia de 3 das 5 gargantilhas: o resto fica "sem variação" em
-   vez de ser chutado dentro de um comprimento qualquer. */
-eq('a loja repartiu 1 e 2', pGarg.variacoes.map(v => v.qtd).join(','), '1,2');
-eq('e as 2 que a loja não soube dizer ficaram sem variação', pGarg.semVariacao, 2);
+/* A loja soma 3 (1+2) e nós temos 5. Quando a soma não bate, a loja não
+   está sabendo do que fala sobre esse código — e o desencontro não diz onde
+   está o erro. Então não se reparte NADA, em vez de chutar quem fica com o
+   quê: repartir na ordem entupiria o primeiro comprimento e zeraria o
+   outro na loja. */
+eq('soma da loja não bate: não repartiu nada', pGarg.variacoes.map(v => v.qtd).join(','), '0,0');
+eq('as 5 peças continuam sem variação', pGarg.semVariacao, 5);
 eq('sem inventar peça: o total continua 5', pGarg.qtd, 5);
+eq('e a rodada explicou por que não repartiu',
+  (r.naoSemeados || []).some(x => x.sku === 'GARG-C' && x.somaLoja === 3 && x.total === 5), 'true');
+/* Sem repartição não há empurrão: nenhum comprimento é zerado na loja. */
+const garg = loja.estado.produtos.find(p => p.id === 73).variants;
+eq('nenhum comprimento foi zerado', garg.map(v => v.inventory_levels[0].stock).join(','), '1,2');
 
 await loja.fechar();
 console.log(falhas ? `\n✗ ${falhas} FALHA(S)\n` : '\n✓ TUDO PASSOU\n');
