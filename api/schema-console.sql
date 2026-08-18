@@ -4,7 +4,7 @@ INSERT OR IGNORE INTO categorias (nome, ordem, cor) VALUES ('Colar', 1, '#C2426B
 
 CREATE TABLE IF NOT EXISTS produtos ( sku TEXT PRIMARY KEY, desc TEXT NOT NULL, cat TEXT NOT NULL REFERENCES categorias(nome), preco REAL, qtd INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'ativo', url_loja TEXT, estoque_loja INTEGER, visivel INTEGER, nome_loja TEXT, atualizado_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
-CREATE TABLE IF NOT EXISTS movimentos ( id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT NOT NULL REFERENCES produtos(sku), tipo TEXT NOT NULL, qtd INTEGER NOT NULL, origem TEXT, maleta_id INTEGER, revendedora_id INTEGER, venda_id INTEGER, obs TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')) );
+CREATE TABLE IF NOT EXISTS movimentos ( id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT, tipo TEXT NOT NULL, qtd INTEGER NOT NULL, origem TEXT, maleta_id INTEGER, revendedora_id INTEGER, venda_id INTEGER, obs TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
 CREATE TABLE IF NOT EXISTS revendedoras ( id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, tel TEXT, cidade TEXT, cpf TEXT, endereco TEXT, obs TEXT, status TEXT NOT NULL DEFAULT 'ativa', criada_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
@@ -15,6 +15,10 @@ CREATE TABLE IF NOT EXISTS maleta_itens ( maleta_id INTEGER NOT NULL REFERENCES 
 CREATE TABLE IF NOT EXISTS config ( chave TEXT PRIMARY KEY, valor TEXT NOT NULL );
 
 CREATE TABLE IF NOT EXISTS loja_snapshot ( id INTEGER PRIMARY KEY CHECK (id = 1), lido_em TEXT, produtos_na_loja INTEGER, produtos_casados INTEGER, so_na_loja INTEGER, codigos_casados INTEGER, duplicados_json TEXT );
+
+CREATE TABLE IF NOT EXISTS produto_variacoes ( sku TEXT NOT NULL REFERENCES produtos(sku), nome TEXT NOT NULL, atributo TEXT, variante_id TEXT, produto_id TEXT, estoque_loja INTEGER, ordem INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (sku, nome) );
+
+CREATE INDEX IF NOT EXISTS idx_variacoes_sku ON produto_variacoes(sku);
 
 CREATE TABLE IF NOT EXISTS kit_componentes ( kit_sku TEXT NOT NULL REFERENCES produtos(sku), componente_sku TEXT NOT NULL REFERENCES produtos(sku), qtd INTEGER NOT NULL DEFAULT 1, PRIMARY KEY (kit_sku, componente_sku) );
 
@@ -29,6 +33,10 @@ CREATE TABLE IF NOT EXISTS venda_itens ( venda_id INTEGER NOT NULL REFERENCES ve
 CREATE TABLE IF NOT EXISTS inventarios ( id INTEGER PRIMARY KEY AUTOINCREMENT, status TEXT NOT NULL DEFAULT 'aberto', iniciado_em TEXT NOT NULL DEFAULT (datetime('now')), concluido_em TEXT, desconhecidos_json TEXT, obs TEXT );
 
 CREATE TABLE IF NOT EXISTS inventario_itens ( inventario_id INTEGER NOT NULL REFERENCES inventarios(id), sku TEXT NOT NULL REFERENCES produtos(sku), contado INTEGER NOT NULL DEFAULT 0, esperado INTEGER, ajustado INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (inventario_id, sku) );
+
+CREATE TABLE IF NOT EXISTS reconciliacao_sessoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, origem TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'revisao', criada_em TEXT NOT NULL DEFAULT (datetime('now')), decidida_em TEXT, aplicada_em TEXT, resumo_json TEXT, relato_json TEXT, erro TEXT );
+
+CREATE TABLE IF NOT EXISTS reconciliacao_itens ( id INTEGER PRIMARY KEY AUTOINCREMENT, sessao_id INTEGER NOT NULL REFERENCES reconciliacao_sessoes(id), sku TEXT NOT NULL, variacao TEXT, descricao TEXT, tipo TEXT NOT NULL, de TEXT, para TEXT, risco TEXT NOT NULL, motivo TEXT, decisao TEXT NOT NULL DEFAULT 'pendente', aplicado INTEGER NOT NULL DEFAULT 0, erro TEXT, dados_json TEXT );
 
 CREATE INDEX IF NOT EXISTS idx_mov_sku ON movimentos(sku);
 
@@ -55,3 +63,9 @@ CREATE INDEX IF NOT EXISTS idx_inv_itens ON inventario_itens(inventario_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_vendas_externo ON vendas(externo_id);
 
 CREATE INDEX IF NOT EXISTS idx_kit_componentes ON kit_componentes(kit_sku);
+
+CREATE INDEX IF NOT EXISTS idx_rec_itens_sessao ON reconciliacao_itens(sessao_id);
+
+CREATE INDEX IF NOT EXISTS idx_rec_itens_decisao ON reconciliacao_itens(sessao_id, decisao);
+
+CREATE INDEX IF NOT EXISTS idx_rec_sessoes_status ON reconciliacao_sessoes(status);

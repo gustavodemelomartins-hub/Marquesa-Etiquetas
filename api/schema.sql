@@ -259,6 +259,53 @@ CREATE TABLE IF NOT EXISTS inventario_itens (
   PRIMARY KEY (inventario_id, sku)
 );
 
+-- ------------------------------------------------------- reconciliação
+-- Prévia, revisão humana e aplicação do aprovado. A sessão é o lugar onde a
+-- decisão mora entre "descobri o que mudaria" e "mudei" — sem ela, a
+-- sincronização e a importação decidem e aplicam no mesmo ato, e a única
+-- proteção é um freio que conta quantos produtos mudariam.
+--
+-- Nada aqui guarda saldo. A razão continua sendo `movimentos`, e a
+-- aplicação passa por `estoque.js › movimentar` como todo o resto.
+CREATE TABLE IF NOT EXISTS reconciliacao_sessoes (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  origem       TEXT NOT NULL,                        -- sync | importacao
+  status       TEXT NOT NULL DEFAULT 'revisao',      -- revisao | aplicada | cancelada | erro
+  criada_em    TEXT NOT NULL DEFAULT (datetime('now')),
+  decidida_em  TEXT,
+  aplicada_em  TEXT,
+  resumo_json  TEXT,        -- o relato da análise: contagens, o que não foi empurrado, avisos
+  relato_json  TEXT,        -- o que a aplicação fez: aplicados, pulados, erros
+  erro         TEXT
+);
+
+-- Uma linha por mudança proposta. `de` e `para` são TEXT porque o mesmo
+-- motor carrega número (estoque), texto (descrição) e nulo (sem preço); quem
+-- lê converte, olhando o `tipo`.
+--
+-- (sku, variacao, tipo) é a identidade: é por ela que a aplicação reconfere
+-- se o mundo continua igual ao que a pessoa aprovou. Mudou no meio do
+-- caminho, o item é pulado com o motivo — nunca aplicado por aproximação.
+CREATE TABLE IF NOT EXISTS reconciliacao_itens (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  sessao_id   INTEGER NOT NULL REFERENCES reconciliacao_sessoes(id),
+  sku         TEXT NOT NULL,
+  variacao    TEXT,                                  -- NULL = o código inteiro
+  descricao   TEXT,
+  tipo        TEXT NOT NULL,                         -- estoque_loja | produto_novo | ajuste_qtd | campo
+  de          TEXT,
+  para        TEXT,
+  -- trivial: aplica sem drama · confere: grande, mas explicável
+  -- perigoso: pode tirar peça do ar, ou mexe em preço
+  -- desconhecido: o sistema NÃO sabe o que é certo. Nunca aprovado em bloco.
+  risco       TEXT NOT NULL,
+  motivo      TEXT,
+  decisao     TEXT NOT NULL DEFAULT 'pendente',      -- pendente | aprovado | recusado
+  aplicado    INTEGER NOT NULL DEFAULT 0,
+  erro        TEXT,
+  dados_json  TEXT          -- varianteId/produtoId/locais, ou cat/preco/desc da planilha
+);
+
 CREATE INDEX IF NOT EXISTS idx_mov_sku        ON movimentos(sku);
 CREATE INDEX IF NOT EXISTS idx_mov_maleta     ON movimentos(maleta_id);
 CREATE INDEX IF NOT EXISTS idx_mov_criado     ON movimentos(criado_em);
@@ -276,3 +323,6 @@ CREATE INDEX IF NOT EXISTS idx_inv_itens      ON inventario_itens(inventario_id)
 -- Índice parcial faria o mesmo com mais sintaxe para dar errado.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_vendas_externo ON vendas(externo_id);
 CREATE INDEX IF NOT EXISTS idx_kit_componentes ON kit_componentes(kit_sku);
+CREATE INDEX IF NOT EXISTS idx_rec_itens_sessao   ON reconciliacao_itens(sessao_id);
+CREATE INDEX IF NOT EXISTS idx_rec_itens_decisao  ON reconciliacao_itens(sessao_id, decisao);
+CREATE INDEX IF NOT EXISTS idx_rec_sessoes_status ON reconciliacao_sessoes(status);
