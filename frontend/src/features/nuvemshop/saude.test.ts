@@ -24,6 +24,7 @@ function resumo(over: Partial<SyncSummary> = {}): SyncSummary {
     pausada: null,
     erro: null,
     ultimaId: 7,
+    ultimaAnaliseEm: null,
     ...over,
   };
 }

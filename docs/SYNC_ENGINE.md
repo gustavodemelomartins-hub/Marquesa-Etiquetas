@@ -186,24 +186,33 @@ acha que fez.
 | `produto_variacoes` | **Sim** | Apagada e regravada do zero: a loja é a fonte da verdade sobre quais variações existem. O saldo não mora aqui, mora em `movimentos` |
 | `config.lojaVariacoes` | **Sim** | A lista do que a rodada decidiu não empurrar. Existe para a tela poder anunciar (§9) |
 | `loja_snapshot` | **Sim** | O retrato da leitura: quantos produtos, quantos casaram, quais duplicados |
-| `sync_execucoes` | **Sim** | Uma linha por rodada, inclusive seca. `detalhe_json.seco` diz qual foi |
+| `sync_execucoes` | **Sim** | Uma linha por rodada, inclusive seca. A coluna `seco` diz qual foi |
 
 O critério que separa as duas metades: **a coluna representa peça física ou
 representa o que acabou de ser lido da loja?** Espelho de leitura pode ser
 atualizado por quem leu. Saldo, não.
 
-### A consequência que o motor precisa tratar
+### `sync_execucoes.seco` — a análise não é a sincronização
 
-`resumoSync` devolve `ultimaEm` e `ultimoStatus` a partir da última linha de
-`sync_execucoes` — **sem olhar se ela foi seca**. Uma rodada real que falhou
-no PATCH, seguida de um dry-run que passou, deixa o resumo dizendo `ok`.
+`resumoSync` responde a saúde operacional (`ultimaEm`, `ultimoStatus`,
+`pausada`, `erro`) olhando **só as execuções com `seco = 0`**:
 
-Ninguém depende disso hoje da forma perigosa: o painel novo usa esse resumo
-para decidir se a divergência é informação ou pendência, e o caminho que
-esconde a falha exige que alguém rode a análise justamente depois de uma
-rodada quebrada. Mas é uma falha engolida em vez de anunciada, e isso
-contraria a regra 9. Está anotado em
-[TECH_DEBT.md](TECH_DEBT.md), item 12, com a correção proposta.
+```sql
+SELECT * FROM sync_execucoes WHERE seco = 0 ORDER BY id DESC LIMIT 1
+```
+
+Sem esse filtro, uma rodada real que falhasse no PATCH, seguida de um
+dry-run que passasse, deixaria o resumo dizendo "tudo bem" — uma falha real
+escondida atrás de uma leitura, contrariando a regra 9 do `CLAUDE.md`.
+Corrigido em 2026-08-18 ([TECH_DEBT.md](TECH_DEBT.md) item 12, RESOLVIDO):
+`seco` é gravado no **INSERT**, não derivado do relato no fim, então o
+filtro funciona mesmo enquanto a linha ainda está `'rodando'`.
+
+Uma análise continua gravada e auditável — `ultimaAnaliseEm` expõe quando a
+última rodou, **separado** de propósito da saúde operacional. Ver
+`diagnosticarSync` em `frontend/src/features/nuvemshop/saude.ts` e
+[FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md). Provado por
+`src/saude-sync-test.mjs`.
 
 ## Invariantes que qualquer mudança precisa preservar
 

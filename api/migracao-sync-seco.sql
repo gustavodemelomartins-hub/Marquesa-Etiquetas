@@ -1,0 +1,13 @@
+-- TECH_DEBT.md item 12: uma rodada seca gravava em sync_execucoes igual à
+-- real, e resumoSync lia sempre a última linha — uma análise bem-sucedida
+-- podia esconder uma falha real de sincronização.
+--
+-- A coluna diz, sem depender de JSON nem de status transitório, se ESTA
+-- linha é análise ou sincronização de verdade. Marcada no INSERT, não
+-- derivada do relato no fim — funciona mesmo enquanto a execução ainda
+-- está 'rodando'.
+--
+-- O ALTER TABLE NÃO é idempotente: ele falha se a coluna já existir, e esse
+-- erro significa "já foi aplicada" — pode ignorar. Mesmo padrão de
+-- api/migracao-variacoes.sql.
+ALTER TABLE sync_execucoes ADD COLUMN seco INTEGER NOT NULL DEFAULT 0;

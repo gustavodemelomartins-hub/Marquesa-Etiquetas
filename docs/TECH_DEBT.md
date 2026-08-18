@@ -174,23 +174,15 @@ gerar no próprio build.
 
 ---
 
-## 12. Uma rodada seca apaga o rastro de uma rodada real que falhou
+## 12. ~~Uma rodada seca apagava o rastro de uma rodada real que falhou~~ — RESOLVIDO
 
-**Descoberto em 2026-08-18**, ao provar formalmente o comportamento do
-dry-run. Nada foi corrigido: é comportamento funcional, e mudá-lo exige
-decisão humana.
+**Descoberto em 2026-08-18** ao provar formalmente o comportamento do
+dry-run; **corrigido no mesmo dia**, ao fechar o contrato de schema do motor
+de reconciliação (a validação exigia decidir isto antes de construir o Apply
+em cima).
 
-`resumoSync` (api/src/sync.js) monta o resumo a partir da **última linha** de
-`sync_execucoes`:
-
-```js
-const ultima = await db.prepare(
-  `SELECT * FROM sync_execucoes ORDER BY id DESC LIMIT 1`).first();
-```
-
-E a rodada seca grava uma linha ali igual à real — o `INSERT ... 'rodando'`
-acontece antes de qualquer checagem de `seco`, e o `UPDATE ... 'ok'` no fim
-também. Então:
+`resumoSync` (api/src/sync.js) montava o resumo a partir da **última linha**
+de `sync_execucoes`, sem olhar se ela era seca:
 
 ```
 rodada real  → o PATCH falha        → sync_execucoes: erro
@@ -200,31 +192,26 @@ alguém clica em "Analisar"          → rodada seca, que não faz PATCH nenhum
 o painel recarrega                  → "Sincronizando normalmente" (errado)
 ```
 
-O caminho exige que a falha seja **no PATCH**: um erro de leitura derrubaria
-a rodada seca também, e o estado continuaria honesto. Mas o PATCH é
-justamente a metade que a rodada seca não exercita.
+Contrariava a regra 9 do `CLAUDE.md` — o que o sistema não fez tem de ser
+anunciado, e aqui deixava de ser por conta de uma leitura.
 
-Isso contraria a regra 9 do `CLAUDE.md` — o que o sistema não fez tem de ser
-anunciado. Aqui ele deixa de ser anunciado por conta de uma leitura.
+**A correção:** `sync_execucoes` ganhou a coluna `seco` (migration
+`api/migracao-sync-seco.sql`), marcada no **INSERT**, não derivada do
+relato no fim — funciona mesmo enquanto a linha ainda está `'rodando'`, o
+que uma checagem via `detalhe_json` (só existe depois que a rodada termina)
+não conseguiria. `resumoSync` agora filtra `WHERE seco = 0` para responder
+`ultimoStatus`/`ultimaEm`/`pausada`/`erro` — sempre a última execução REAL.
 
-**Correção proposta, na ordem de menos para mais invasiva:**
+Uma análise continua gravada e auditável (nada foi escondido do histórico);
+só deixou de contar para a saúde operacional. Quem quiser saber "quando foi
+a última vez que alguém clicou em Analisar" tem `ultimaAnaliseEm`, um campo
+**separado** de propósito — misturar os dois de novo seria reintroduzir o
+mesmo bug com um nome diferente.
 
-1. `resumoSync` passa a ignorar rodadas secas ao responder `ultimoStatus` /
-   `erro` / `pausada`, buscando a última linha **não seca**. A informação já
-   está no banco (`detalhe_json.seco`); nenhuma coluna nova, nenhuma
-   migration. Custa uma condição no `SELECT`.
-2. Ou: a rodada seca deixa de gravar em `sync_execucoes`. Mais simples de
-   entender, mas perde o histórico de análises — que o motor de
-   reconciliação vai querer ter.
-
-A (1) é a recomendada: preserva o histórico e conserta a leitura.
-
-**Enquanto não for corrigido**, `diagnosticarSync` no painel novo
-(`frontend/src/features/nuvemshop/saude.ts`) pode ser enganado nesse caso
-específico, e com ele a classificação de "estoque divergente". Os outros
-estados — desconectada, pausada, travada, atrasada, nunca rodou — não têm
-esse problema: a rodada seca também pausa no freio, e também não conecta
-uma loja desconectada.
+Provado por `src/saude-sync-test.mjs` (25 asserções): sync real falha + seca
+passa → saúde continua erro; sync real ok + seca ok → sem mudança; sync real
+pausada + seca passa → saúde continua pausada; e o caso simétrico — uma
+ANÁLISE que falha não pode contaminar uma sincronização real saudável.
 
 ## 11. Detalhes menores, anotados para não se perderem
 
@@ -238,11 +225,10 @@ uma loja desconectada.
 - `frontend/src/features/reconciliacao/exemplo.ts` é dado de mentira que
   vive no código de produção. Ele some quando a tela de revisão de verdade
   existir; até lá, a faixa listrada avisa o usuário em voz alta.
-- `reconciliacao_itens` (no branch `feature/motor-reconciliacao`) não tem
-  UNIQUE em `(sessao_id, sku, variacao, tipo)`, embora o comentário chame
-  isso de identidade. Para `estoque_loja` a duplicata seria inofensiva (o
-  PATCH manda valor absoluto); para `ajuste_qtd` seria um movimento contado
-  duas vezes. Ver [ROADMAP_RECONCILIATION.md](ROADMAP_RECONCILIATION.md).
+- ~~`reconciliacao_itens` sem UNIQUE em `(sessao_id, sku, variacao, tipo)`~~
+  — RESOLVIDO em 2026-08-18: `idx_rec_itens_unico`, sobre uma coluna gerada
+  (`variacao_chave`) para o caso `variacao IS NULL` também ser pego. Ver
+  [RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md).
 - `api/gerar-seed.py` gera dado real e o `.gitignore` protege a saída
   (`seed.sql`) — correto, e vale manter no radar em qualquer mudança do
   `.gitignore`.

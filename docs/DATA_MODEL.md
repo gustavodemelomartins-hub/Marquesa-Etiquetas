@@ -162,6 +162,29 @@ Histórico de cada rodada: `status` (`rodando` | `ok` | `pausado` | `erro`),
 contadores e o relato inteiro em `detalhe_json`. É o que responde "o que o
 robô fez de madrugada?" sem depender de log de servidor.
 
+`seco` (INTEGER, 1 = rodada seca) é gravado no INSERT, não derivado do
+relato — funciona mesmo enquanto a linha ainda é `'rodando'`. `resumoSync`
+filtra por `seco = 0` para responder a saúde operacional: uma análise
+bem-sucedida não pode fazer uma falha real desaparecer da tela
+([TECH_DEBT.md](TECH_DEBT.md) item 12).
+
+### `reconciliacao_sessoes` / `reconciliacao_itens`
+
+**Ainda não aplicadas em banco nenhum** — nem local, nem produção. O schema
+existe e está fechado (migration em
+[api/migracao-reconciliacao.sql](../api/migracao-reconciliacao.sql)), mas a
+aplicação (Apply) que vai escrever nelas de verdade ainda não foi
+construída. Explicação completa, com a máquina de estados das duas tabelas
+e o que cada campo guarda, em
+[RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md) — não repetida aqui
+para as duas versões não desencontrarem.
+
+Resumo: `reconciliacao_sessoes` é uma rodada de análise; `reconciliacao_itens`
+é uma linha por mudança proposta, com `de` (valor observado no destino),
+`para` (valor proposto) e `base_json` (o estado interno que produziu
+`para` — a peça que faltava para detectar uma prévia ficando obsoleta pelos
+dois lados, não só um).
+
 ## Índices que importam
 
 | Índice | Por quê |
@@ -169,6 +192,8 @@ robô fez de madrugada?" sem depender de log de servidor.
 | `idx_vendas_externo` (**UNIQUE**) | Idempotência dos pedidos do site. Remover isto quebra a integração |
 | `idx_mov_sku`, `idx_mov_criado` | Histórico de um SKU e leitura por período |
 | `idx_variacoes_sku`, `idx_kit_componentes` | Montagem do state |
+| `idx_rec_sessoes_revisao_unica` (**UNIQUE**, parcial) | No máximo uma sessão `revisao` por origem |
+| `idx_rec_itens_unico` (**UNIQUE**) | Identidade de um item dentro da sessão — inclusive com `variacao IS NULL` |
 
 ## Diagrama de referências
 
@@ -179,7 +204,8 @@ categorias ──< produtos ──< movimentos
                   │  ├──< inventario_itens >── inventarios
                   │  ├──< produto_variacoes
                   │  └──< kit_componentes (kit_sku e componente_sku)
-config          (avulsa)
-loja_snapshot   (avulsa, 1 linha)
-sync_execucoes  (avulsa)
+config                    (avulsa)
+loja_snapshot             (avulsa, 1 linha)
+sync_execucoes            (avulsa)
+reconciliacao_sessoes ──< reconciliacao_itens     (schema pronto, não aplicado)
 ```

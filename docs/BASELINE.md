@@ -11,15 +11,15 @@ comportamento.
 
 ## Data
 
-**2026-08-18**, 11:05 (horário local, UTC−3).
+**2026-08-18**, 14:40 (horário local, UTC−3).
 
 ## Commit / checkpoint
 
 | | |
 |---|---|
-| Commit medido | `ed55b77` + a etapa de validação e hardening |
+| Commit medido | `PLACEHOLDER_COMMIT` — schema do motor de reconciliação + correção do TECH_DEBT 12 |
 | Tags locais | `checkpoint/pre-bootstrap-claude` → `f3f08cb` · `checkpoint/pre-frontend-react` → `3c849a0` |
-| Branch | `main` |
+| Branch | `feature/motor-reconciliacao` (com `main` mesclado dentro) |
 | Remote | `origin` → github.com/gustavodemelomartins-hub/Marquesa-Etiquetas |
 | Backup do D1 | `backups/d1/2026-08-18_06-22/` — conferido, razão fecha |
 | Snapshot físico | `../Marquesa-Etiquetas-backups/pre-bootstrap-claude_2026-08-18_00-21.tar.gz` |
@@ -73,10 +73,19 @@ Cada teste rodou com **banco zerado e Worker local recém-subido**.
 | `src/kits-test.mjs` | **passou** | 20 | 0 | 1 s |
 | `src/e2e.mjs` | **passou** | 66 | 0 | 37 s |
 | `src/import-casa-test.mjs` | **passou** | 8 | 0 | 11 s |
-| `src/frontend-e2e.mjs` | **passou** | 31 | 0 | 5 s |
+| `src/frontend-e2e.mjs` | **passou** | 33 | 0 | 5 s |
 | `src/dry-run-test.mjs` | **passou** | 49 | 0 | 15 s |
+| `src/saude-sync-test.mjs` | **passou** | 25 | 0 | 10 s |
 
-### Total: **289 asserções, 0 falhas, 7 de 7 testes.**
+### Total: **316 asserções, 0 falhas, 8 de 8 testes.**
+
+### Schema do motor de reconciliação — sem Worker
+
+`src/reconciliacao-schema-test.mjs` fala com o D1 local direto
+(`wrangler d1 execute --persist-to <pasta descartável>`), sem subir o
+Worker. **65 asserções, 0 falhas, ~40 s.** Não entra no total acima porque
+segue um protocolo diferente (não precisa do ciclo banco-limpo-e-Worker-no-ar
+dos outros oito) — ver [TESTING.md](TESTING.md).
 
 ### Frontend novo, sem navegador
 
@@ -92,6 +101,9 @@ npm run build       # tsc --noEmit + vite   → dist/ em ~1,6 s
 | Testes unitários | **73 passaram, 0 falharam** (5 arquivos) |
 | TypeScript `strict` | 0 erros |
 | Build | 224 kB de JS (71 kB gzip) + 11 kB de CSS + as duas fontes |
+
+Os 73 testes unitários não mudaram nesta medição — a mudança desta fase foi
+toda em schema e backend.
 
 Sequência por teste:
 
@@ -120,18 +132,19 @@ node src/<teste>.mjs
 | 2026-08-18 00:45 | 3 de 5 | 135 | Testes de navegador não rodavam: `executablePath` fixo em `/opt/pw-browsers/chromium` |
 | 2026-08-18 06:40 | 5 de 5 | 209 | Ambiente do E2E corrigido |
 | 2026-08-18 07:35 | 6 de 6 | 232 | + `frontend-e2e` (painel React), + 47 testes unitários do frontend |
-| **2026-08-18 11:05** | **7 de 7** | **289** | + `dry-run-test` (49), + 8 no `frontend-e2e`, + 26 unitários |
+| 2026-08-18 11:05 | 7 de 7 | 289 | + `dry-run-test` (49), + 8 no `frontend-e2e`, + 26 unitários |
+| **2026-08-18 14:40** | **8 de 8** | **316** | + `saude-sync-test` (25), + 2 no `frontend-e2e` (33). Fora do total: `reconciliacao-schema-test` (65, sem Worker) |
 
 O salto de 135 para 209 foi **cobertura recuperada**, não comportamento novo:
 os dois testes de navegador sempre existiram e sempre passaram na máquina de
 origem. De 209 em diante é cobertura **nova**.
 
 Os 209 originais nunca mudaram de valor em nenhuma das medições — é isso que
-prova que nem a migração do frontend nem esta etapa mexeram no que já
-funcionava. As 8 asserções novas do `frontend-e2e` são acréscimo; a única
-alterada foi o rótulo do selo de estado, que passou de "Conectada" para
-"Sincronizando normalmente" por decisão deliberada (o selo passou a dizer o
-que está acontecendo, não só que existe token).
+prova que nem a migração do frontend, nem a validação de saúde, nem esta
+etapa mexeram no que já funcionava. As 10 asserções novas do `frontend-e2e`
+(2 nesta medição, 8 na anterior) são acréscimo; a única alterada segue sendo
+o rótulo do selo de estado, de "Conectada" para "Sincronizando normalmente" —
+decisão deliberada, e ainda a mesma da medição anterior.
 
 ---
 
@@ -202,8 +215,21 @@ ambiente, que vão acontecer de novo com quem montar a máquina do zero:
    conversam. Termina conferindo que **nenhum erro de console apareceu** — e
    o `frontend-e2e` faz a mesma checagem para o painel novo.
 
-9. `src/shot.mjs` não é teste — tira fotos das telas. `api/test-api.mjs` é
-   script auxiliar.
+9. **O TECH_DEBT.md item 12 está corrigido e provado**: uma rodada seca não
+   consegue mais fazer uma falha real de sincronização desaparecer da tela.
+   `src/saude-sync-test.mjs` cobre os quatro cenários — inclusive o caso
+   simétrico (uma análise que falha não pode contaminar uma sincronização
+   real saudável).
+
+10. **O schema do motor de reconciliação está fechado, e nunca foi aplicado
+    em banco nenhum** — nem local, nem produção.
+    `src/reconciliacao-schema-test.mjs` aplica a migration sobre o schema
+    real de ANTES desta fase (`git show f3f08cb:api/schema.sql`) e prova a
+    unicidade, os `CHECK`, a idempotência e que nada anterior se perdeu.
+    Detalhe completo em [RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md).
+
+11. `src/shot.mjs` não é teste — tira fotos das telas. `api/test-api.mjs` é
+    script auxiliar.
 
 ---
 
@@ -212,7 +238,8 @@ ambiente, que vão acontecer de novo com quem montar a máquina do zero:
 ```bash
 python src/build.py && git diff --ignore-cr-at-eol --stat -- dashboard.html
 cd frontend && npm run build && npm test && cd ..
-# depois, a sequência de 4 passos acima, para cada um dos 7 testes
+# depois, a sequência de 4 passos acima, para cada um dos 8 testes
+node src/reconciliacao-schema-test.mjs   # este não precisa do Worker
 ```
 
 Queda em relação a esta tabela é regressão.

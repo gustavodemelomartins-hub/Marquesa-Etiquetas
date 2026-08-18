@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS clientes ( id INTEGER PRIMARY KEY AUTOINCREMENT, nome
 
 CREATE TABLE IF NOT EXISTS vendas ( id INTEGER PRIMARY KEY AUTOINCREMENT, cliente_id INTEGER REFERENCES clientes(id), cliente_nome TEXT, revendedora_id INTEGER REFERENCES revendedoras(id), maleta_id INTEGER REFERENCES maletas(id), origem TEXT NOT NULL DEFAULT 'balcao', data TEXT NOT NULL, total REAL NOT NULL, cancelada INTEGER NOT NULL DEFAULT 0, externo_id TEXT, criada_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
-CREATE TABLE IF NOT EXISTS sync_execucoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, iniciado_em TEXT, terminado_em TEXT, status TEXT, pedidos_lidos INTEGER, vendas_criadas INTEGER, produtos_enviados INTEGER, detalhe_json TEXT );
+CREATE TABLE IF NOT EXISTS sync_execucoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, iniciado_em TEXT, terminado_em TEXT, status TEXT, pedidos_lidos INTEGER, vendas_criadas INTEGER, produtos_enviados INTEGER, detalhe_json TEXT, seco INTEGER NOT NULL DEFAULT 0 );
 
 CREATE TABLE IF NOT EXISTS venda_itens ( venda_id INTEGER NOT NULL REFERENCES vendas(id), sku TEXT NOT NULL REFERENCES produtos(sku), desc TEXT NOT NULL, qtd INTEGER NOT NULL, preco REAL NOT NULL, motivo TEXT );
 
@@ -34,9 +34,11 @@ CREATE TABLE IF NOT EXISTS inventarios ( id INTEGER PRIMARY KEY AUTOINCREMENT, s
 
 CREATE TABLE IF NOT EXISTS inventario_itens ( inventario_id INTEGER NOT NULL REFERENCES inventarios(id), sku TEXT NOT NULL REFERENCES produtos(sku), contado INTEGER NOT NULL DEFAULT 0, esperado INTEGER, ajustado INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (inventario_id, sku) );
 
-CREATE TABLE IF NOT EXISTS reconciliacao_sessoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, origem TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'revisao', criada_em TEXT NOT NULL DEFAULT (datetime('now')), decidida_em TEXT, aplicada_em TEXT, resumo_json TEXT, relato_json TEXT, erro TEXT );
+CREATE TABLE IF NOT EXISTS reconciliacao_sessoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, origem TEXT NOT NULL CHECK (origem IN ('sync', 'importacao')), status TEXT NOT NULL DEFAULT 'revisao' CHECK (status IN ( 'revisao', 'aplicando', 'aplicada', 'aplicada_parcial', 'cancelada', 'superada', 'erro' )), criada_em TEXT NOT NULL DEFAULT (datetime('now')), decidida_em TEXT, aplicada_em TEXT, resumo_json TEXT, relato_json TEXT, erro TEXT );
 
-CREATE TABLE IF NOT EXISTS reconciliacao_itens ( id INTEGER PRIMARY KEY AUTOINCREMENT, sessao_id INTEGER NOT NULL REFERENCES reconciliacao_sessoes(id), sku TEXT NOT NULL, variacao TEXT, descricao TEXT, tipo TEXT NOT NULL, de TEXT, para TEXT, risco TEXT NOT NULL, motivo TEXT, decisao TEXT NOT NULL DEFAULT 'pendente', aplicado INTEGER NOT NULL DEFAULT 0, erro TEXT, dados_json TEXT );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rec_sessoes_revisao_unica ON reconciliacao_sessoes(origem) WHERE status = 'revisao';
+
+CREATE TABLE IF NOT EXISTS reconciliacao_itens ( id INTEGER PRIMARY KEY AUTOINCREMENT, sessao_id INTEGER NOT NULL REFERENCES reconciliacao_sessoes(id), sku TEXT NOT NULL, variacao TEXT, variacao_chave TEXT GENERATED ALWAYS AS (COALESCE(variacao, '')) STORED, descricao TEXT, tipo TEXT NOT NULL CHECK (tipo IN ( 'estoque_loja', 'produto_novo', 'ajuste_qtd', 'campo' )), de TEXT, para TEXT, base_json TEXT, risco TEXT NOT NULL CHECK (risco IN ( 'trivial', 'confere', 'perigoso', 'desconhecido' )), motivo TEXT, status TEXT NOT NULL DEFAULT 'pendente' CHECK (status IN ( 'pendente', 'aprovado', 'rejeitado', 'aplicado', 'obsoleto', 'erro' )), erro TEXT, dados_json TEXT );
 
 CREATE INDEX IF NOT EXISTS idx_mov_sku ON movimentos(sku);
 
@@ -66,6 +68,8 @@ CREATE INDEX IF NOT EXISTS idx_kit_componentes ON kit_componentes(kit_sku);
 
 CREATE INDEX IF NOT EXISTS idx_rec_itens_sessao ON reconciliacao_itens(sessao_id);
 
-CREATE INDEX IF NOT EXISTS idx_rec_itens_decisao ON reconciliacao_itens(sessao_id, decisao);
+CREATE INDEX IF NOT EXISTS idx_rec_itens_status ON reconciliacao_itens(sessao_id, status);
 
 CREATE INDEX IF NOT EXISTS idx_rec_sessoes_status ON reconciliacao_sessoes(status);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rec_itens_unico ON reconciliacao_itens(sessao_id, sku, variacao_chave, tipo);

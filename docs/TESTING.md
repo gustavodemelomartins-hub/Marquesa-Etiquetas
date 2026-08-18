@@ -123,30 +123,37 @@ e venda em tamanho de celular, para conferir o visual depois de mexer no
 front. Roda depois do `e2e`, que deixa o banco com dados de exemplo.
 
 ### `src/frontend-e2e.mjs` — o painel novo num navegador de verdade
-**23 asserções · ~3 s · Playwright + servidor HTTP + build do frontend**
+**33 asserções · ~5 s · Playwright + servidor HTTP + build do frontend**
 
 Prova o painel React/TypeScript sobre o mesmo backend:
 
 1. o app abre **já conectado** — a conexão do painel legado é reaproveitada
    (mesma chave de `localStorage`, mesmo formato);
 2. a tela Nuvemshop lê o estado real e mostra os números certos;
-3. **divergência de estoque NÃO aparece como pendência** — a rodada seguinte
-   conserta sozinha, e listar isso como tarefa de alguém é o que faz o painel
-   parecer sempre em chamas;
-4. o que precisa de gente aparece em Pendências, com o motivo;
-5. *Analisar sincronização* roda a rodada seca e mostra o diff classificado
+3. com a sincronização de pé, o estado diz "Sincronizando normalmente";
+4. **divergência de estoque NÃO aparece como pendência** enquanto a
+   sincronização estiver de pé — a rodada seguinte conserta sozinha, e
+   listar isso como tarefa de alguém é o que faz o painel parecer sempre em
+   chamas;
+5. o que precisa de gente aparece em Pendências, com o motivo;
+6. *Analisar sincronização* roda a rodada seca e mostra o diff classificado
    por risco;
-6. **e não escreve nada na Nuvemshop** — a loja falsa registra tudo que
+7. **e não escreve nada na Nuvemshop** — a loja falsa registra tudo que
    recebe, e a contagem de escritas continua zero depois da análise inteira;
-7. a aba Reconciliação recebe a mesma análise e diz que aprovar e aplicar
+8. a aba Reconciliação recebe a mesma análise e diz que aprovar e aplicar
    ainda não existem;
-8. o rodapé continua apontando para o painel legado;
-9. nenhum erro de console.
+9. **com a sincronização QUEBRADA (a loja falsa forçada a responder 500), a
+   MESMA divergência vira a pendência mais séria da tela**, em primeiro
+   lugar, carregando a mensagem que o servidor deu — não um texto genérico.
+   É o teste de ponta a ponta do diagnóstico descrito em
+   [FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md);
+10. o rodapé continua apontando para o painel legado;
+11. nenhum erro de console.
 
 Precisa do build pronto: `cd frontend && npm run build`.
 
 ### Testes unitários do frontend
-**47 testes · Vitest · sem navegador**
+**73 testes · Vitest · sem navegador**
 
 ```bash
 cd frontend && npm test
@@ -199,6 +206,54 @@ A tabela do que muda e do que não muda está em
 > Ele lê `api/.wrangler/state/.../*.sqlite` em modo somente-leitura, com o
 > Worker no ar. SQLite aceita vários leitores; nada aqui escreve.
 
+### `src/saude-sync-test.mjs` — uma análise nunca esconde uma falha real
+**25 asserções · ~10 s · precisa da loja falsa (ele mesmo a sobe)**
+
+Prova a correção do TECH_DEBT.md item 12: `resumoSync` responde a saúde
+operacional a partir da última execução REAL, nunca de uma seca.
+
+Quatro cenários, usando `loja.estado.falhar = true` (a loja falsa responde
+500 em tudo) para forçar uma falha de verdade:
+
+1. sync real falha → dry-run passa → a saúde **continua** `erro`;
+2. sync real ok → dry-run ok → a saúde continua `ok`, sem mudança;
+3. sync real pausada pelo freio → dry-run também pausa → a saúde **continua**
+   `pausado`;
+4. o caso simétrico: uma ANÁLISE que falha não pode contaminar uma
+   sincronização real saudável.
+
+Cada cenário confere `ultimaId` continua apontando para a execução real, não
+para a seca — e `ultimaAnaliseEm` (quando a última análise rodou) fica
+separado de `ultimaEm` (quando a última sincronização real terminou).
+
+### `src/reconciliacao-schema-test.mjs` — o schema do motor de reconciliação
+**65 asserções · ~40 s · roda `wrangler d1 execute` direto, SEM subir o
+Worker, num banco descartável (`--persist-to` numa pasta temporária)**
+
+O único teste da suíte que fala com o D1 local sem passar pelo Worker. Prova,
+nessa ordem:
+
+1. a migration aplica sobre o schema de **produção antes desta fase**
+   (`git show f3f08cb:api/schema.sql` — reproduzível por qualquer clone, ao
+   contrário de um dump de backup);
+2. as duas tabelas, todas as colunas (inclusive a gerada,
+   `variacao_chave` — que `pragma_table_info` omite; precisa de
+   `pragma_table_xinfo`) e os cinco índices nascem certos;
+3. nenhuma das 16 tabelas antigas some, e um produto+movimento inseridos
+   ANTES da migration continuam intactos depois;
+4. a unicidade `(sessao_id, sku, variacao_chave, tipo)` rejeita duplicata —
+   inclusive com `variacao IS NULL` nos dois lados, e aceita variações
+   diferentes do mesmo código;
+5. no máximo uma sessão `revisao` por origem;
+6. os `CHECK` de status/tipo/risco/origem aceitam o válido e recusam o
+   inventado;
+7. `migracao-reconciliacao.sql` roda duas vezes sem erro (tudo
+   `IF NOT EXISTS`); `migracao-sync-seco.sql` roda uma segunda vez e
+   **falha**, e isso é o esperado — mesmo padrão de `migracao-variacoes.sql`.
+
+Detalhe completo do schema em
+[RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md).
+
 ### `api/test-api.mjs`
 Script auxiliar de chamada à API. Não faz parte da suíte.
 
@@ -213,8 +268,12 @@ node src/variacoes-test.mjs
 node src/kits-test.mjs
 node src/frontend-e2e.mjs      # precisa de `cd frontend && npm run build` antes
 node src/dry-run-test.mjs      # a prova formal do dry-run
+node src/saude-sync-test.mjs   # análise nunca esconde falha real
 
 cd frontend && npm test        # os 73 testes unitários, sem navegador
+
+# este não precisa do Worker no ar — fala com o D1 local direto
+node src/reconciliacao-schema-test.mjs
 ```
 
 ### Windows
@@ -262,9 +321,10 @@ apagar `.wrangler/state`, ou o `rm` falha com `Device or resource busy`.
 - comportamento contra a Nuvemshop **de verdade** (por definição: a loja
   falsa imita o que se sabe que ela faz);
 - concorrência: duas rodadas de sincronização ao mesmo tempo;
-- o caminho em que uma rodada seca apaga o rastro de uma rodada real que
-  falhou no PATCH — comportamento conhecido e ainda não corrigido, descrito
-  em [TECH_DEBT.md](TECH_DEBT.md) item 12.
+- o Apply do motor de reconciliação, porque ele não existe ainda — só o
+  schema (`src/reconciliacao-schema-test.mjs`) e a correção de saúde de que
+  ele depende (`src/saude-sync-test.mjs`). Ver
+  [RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md).
 
 ## Baseline atual
 

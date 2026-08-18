@@ -59,15 +59,28 @@ await api('POST', '/api/produtos/importar', {
 });
 
 loja.estado.produtos = [
-  produtoFalso(1, [{ id: 11, sku: 'B1', estoque: 2 }]),   // loja diz 2, temos 10
+  produtoFalso(1, [{ id: 11, sku: 'B1', estoque: 10 }]),  // igual, por enquanto
   produtoFalso(2, [{ id: 22, sku: 'B2', estoque: 4 }]),   // igual
   produtoFalso(3, [{ id: 33, sku: 'B3', estoque: 7 }]),   // só lá
   produtoFalso(5, [{ id: 55, sku: 'B5', estoque: 2 }], { publicado: false }),
 ];
 
-/* Uma rodada seca primeiro: é ela que grava o retrato da loja, e sem
-   retrato a tela não teria o que descrever. Seca de propósito — o teste
-   confere adiante que a loja continua sem NENHUMA escrita. */
+/* Uma sincronização REAL primeiro, sem nada para mudar (a loja já está com
+   os números certos). É o que estabelece "última execução real: ok" antes
+   do cenário começar — sem isso, a tela não teria como dizer
+   "sincronizando normalmente" com honestidade: uma rodada SECA não conta
+   mais como saúde operacional (TECH_DEBT.md item 12). */
+const primeira = await api('POST', '/api/sync', {});
+eq('a sincronização real inicial terminou bem', primeira.ok, 'true');
+eq('e não escreveu nada — a loja já estava certa', loja.estado.escritas.length, 0);
+
+/* Agora simula a divergência que apareceu DEPOIS dessa sincronização —
+   alguém mudou o número lá na loja. */
+loja.estado.produtos[0].variants[0].inventory_levels[0].stock = 2;   // B1: loja diz 2, temos 10
+
+/* E uma rodada seca para descobrir essa divergência sem escrever nada. É
+   ela que grava o retrato da loja — o teste confere adiante que ela
+   continua sem NENHUMA escrita própria. */
 const previa = await api('POST', '/api/sync', { seco: true });
 eq('a rodada seca terminou bem', previa.ok, 'true');
 eq('e não escreveu na loja', loja.estado.escritas.length, 0);

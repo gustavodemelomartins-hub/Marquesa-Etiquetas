@@ -5,10 +5,14 @@ description: Carregue quando a tarefa envolver divergência entre o estoque inte
 
 # Reconciliação
 
-> **O motor de reconciliação não existe.** Esta skill diz como investigar
-> divergências com o que existe hoje, e registra a direção combinada. Não
-> construa o motor sem que alguém peça —
-> [docs/ROADMAP_RECONCILIATION.md](../../../docs/ROADMAP_RECONCILIATION.md).
+> **O motor de reconciliação não existe — só o schema.** As tabelas
+> (`reconciliacao_sessoes`, `reconciliacao_itens`) estão desenhadas e
+> testadas, mas nunca foram aplicadas em banco nenhum, e não há rota nem
+> Apply. Esta skill diz como investigar divergências com o que existe hoje,
+> e registra a direção combinada. Não construa o Apply sem que alguém peça —
+> [docs/RECONCILIATION_ENGINE.md](../../../docs/RECONCILIATION_ENGINE.md)
+> tem o fluxo completo; [docs/ROADMAP_RECONCILIATION.md](../../../docs/ROADMAP_RECONCILIATION.md)
+> tem o histórico da decisão.
 
 ## Princípio
 
@@ -83,14 +87,22 @@ e a repartição gera dois movimentos que se anulam no total.
 
 ## Para onde isto vai
 
-O fluxo combinado, ainda não implementado:
+O fluxo combinado, com schema pronto mas **Apply ainda não implementado**:
 
 ```
-ANALISAR → GERAR DIFF → CLASSIFICAR → SESSÃO DE REVISÃO
-        → USUÁRIO APROVAR → APLICAR → VALIDAR → AUDITAR
+ANALISAR → SESSÃO CONGELADA → REVISÃO → APROVAÇÃO
+        → PRECONDITION DESTINO + PRECONDITION ORIGEM → APLICAR → VALIDAR → AUDITAR
 ```
 
-Os sete problemas já identificados que ele resolve estão em
+As duas preconditions (destino: o valor lá fora ainda é o que a análise
+viu? origem: o estado daqui que gerou a proposta ainda é o mesmo?) são o que
+impede uma prévia velha de escrever sobre uma peça que já mudou de mão. Item
+que não passa nas duas **não aplica** — vira `status = 'obsoleto'`, nunca
+uma escrita por aproximação.
+
+Detalhe completo do schema, das duas máquinas de estado e da idempotência em
+[docs/RECONCILIATION_ENGINE.md](../../../docs/RECONCILIATION_ENGINE.md). Os
+problemas que motivaram o desenho, e o histórico da decisão, em
 [docs/ROADMAP_RECONCILIATION.md](../../../docs/ROADMAP_RECONCILIATION.md).
 Se você for mexer em qualquer coisa desta área, leia antes: várias mudanças
 "óbvias" andam na direção contrária.

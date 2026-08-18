@@ -39,9 +39,13 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
     return { ok: false, erro: 'A loja não está conectada. Falta o token da Nuvemshop.' };
   }
 
+  /* `seco` grava no INSERT, não é derivado do relato no fim — assim ele
+     está certo mesmo enquanto a linha ainda é 'rodando'. É o que permite
+     `resumoSync` ignorar rodadas secas sem depender de JSON (TECH_DEBT.md
+     item 12). */
   const exec = await db.prepare(
-    `INSERT INTO sync_execucoes (iniciado_em, status) VALUES (datetime('now'), 'rodando') RETURNING id`
-  ).first();
+    `INSERT INTO sync_execucoes (iniciado_em, status, seco) VALUES (datetime('now'), 'rodando', ?) RETURNING id`
+  ).bind(seco ? 1 : 0).first();
 
   const relato = {
     id: exec.id, pedidosLidos: 0, vendasCriadas: 0, itensIgnorados: [],
@@ -521,24 +525,39 @@ export async function historicoSync(db, limite = 20) {
   return r.results.map(e => ({
     id: e.id, iniciadoEm: e.iniciado_em, terminadoEm: e.terminado_em, status: e.status,
     pedidosLidos: e.pedidos_lidos, vendasCriadas: e.vendas_criadas,
-    produtosEnviados: e.produtos_enviados,
+    produtosEnviados: e.produtos_enviados, seco: !!e.seco,
     detalhe: e.detalhe_json ? JSON.parse(e.detalhe_json) : null,
   }));
 }
 
+/** A saúde operacional da sincronização vem SEMPRE da última execução REAL
+ *  — nunca de uma rodada seca. Uma análise (`{"seco": true}`) bem-sucedida
+ *  não pode fazer uma falha real desaparecer da tela: ver TECH_DEBT.md
+ *  item 12. `seco` é gravado no INSERT (sync.js › sincronizar), então o
+ *  filtro funciona mesmo para uma execução ainda 'rodando' — nenhuma
+ *  dependência de `detalhe_json`, que só existe depois que a rodada termina. */
 export async function resumoSync(db, env) {
   const loja = new Nuvemshop(env);
-  const ultima = await db.prepare(
-    `SELECT * FROM sync_execucoes ORDER BY id DESC LIMIT 1`).first();
-  const detalhe = ultima && ultima.detalhe_json ? JSON.parse(ultima.detalhe_json) : {};
+  const ultimaReal = await db.prepare(
+    `SELECT * FROM sync_execucoes WHERE seco = 0 ORDER BY id DESC LIMIT 1`).first();
+  const detalhe = ultimaReal && ultimaReal.detalhe_json ? JSON.parse(ultimaReal.detalhe_json) : {};
+
+  // Separado de propósito: "última análise" e "última sincronização real"
+  // são perguntas diferentes, e misturá-las foi exatamente o bug. Uma
+  // rodada seca continua sendo gravada e auditável — só não conta para a
+  // saúde operacional.
+  const ultimaAnalise = await db.prepare(
+    `SELECT iniciado_em, terminado_em FROM sync_execucoes WHERE seco = 1 ORDER BY id DESC LIMIT 1`).first();
+
   return {
     conectada: loja.configurada(),
-    ultimaEm: ultima ? (ultima.terminado_em || ultima.iniciado_em) : null,
-    ultimoStatus: ultima ? ultima.status : null,
-    pausada: ultima && ultima.status === 'pausado' ? detalhe.pausado : null,
+    ultimaEm: ultimaReal ? (ultimaReal.terminado_em || ultimaReal.iniciado_em) : null,
+    ultimoStatus: ultimaReal ? ultimaReal.status : null,
+    pausada: ultimaReal && ultimaReal.status === 'pausado' ? detalhe.pausado : null,
     // uma rodada que falhou não pode se parecer com uma que deu certo:
     // a mensagem sobe para a tela poder dizer o que houve
-    erro: ultima && ultima.status === 'erro' ? (detalhe.erro || 'Falhou sem dizer o motivo.') : null,
-    ultimaId: ultima ? ultima.id : null,
+    erro: ultimaReal && ultimaReal.status === 'erro' ? (detalhe.erro || 'Falhou sem dizer o motivo.') : null,
+    ultimaId: ultimaReal ? ultimaReal.id : null,
+    ultimaAnaliseEm: ultimaAnalise ? (ultimaAnalise.terminado_em || ultimaAnalise.iniciado_em) : null,
   };
 }

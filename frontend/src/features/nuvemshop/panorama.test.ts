@@ -48,6 +48,7 @@ function estado(produtos: Product[], loja?: AppState['loja']): AppState {
       pausada: null,
       erro: null,
       ultimaId: 1,
+      ultimaAnaliseEm: null,
     },
     categorias: [],
   };

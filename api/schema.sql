@@ -215,7 +215,13 @@ CREATE TABLE IF NOT EXISTS sync_execucoes (
   pedidos_lidos     INTEGER,
   vendas_criadas    INTEGER,
   produtos_enviados INTEGER,
-  detalhe_json      TEXT
+  detalhe_json      TEXT,
+  -- 1 = rodada seca ({"seco": true}). Marcada no INSERT, não derivada do
+  -- relato no fim — continua correta enquanto a linha ainda está 'rodando'.
+  -- A saúde operacional (resumoSync) ignora as linhas com seco=1: uma
+  -- análise não pode fazer uma falha real desaparecer da tela.
+  -- TECH_DEBT.md item 12.
+  seco              INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS venda_itens (
@@ -260,49 +266,74 @@ CREATE TABLE IF NOT EXISTS inventario_itens (
 );
 
 -- ------------------------------------------------------- reconciliação
--- Prévia, revisão humana e aplicação do aprovado. A sessão é o lugar onde a
--- decisão mora entre "descobri o que mudaria" e "mudei" — sem ela, a
--- sincronização e a importação decidem e aplicam no mesmo ato, e a única
--- proteção é um freio que conta quantos produtos mudariam.
+-- Prévia, revisão humana e aplicação do aprovado — ver
+-- docs/RECONCILIATION_ENGINE.md para o fluxo completo e
+-- api/migracao-reconciliacao.sql para as notas por coluna (os dois
+-- precisam continuar idênticos).
 --
 -- Nada aqui guarda saldo. A razão continua sendo `movimentos`, e a
--- aplicação passa por `estoque.js › movimentar` como todo o resto.
+-- aplicação (quando existir) passa por `estoque.js › movimentar` como todo
+-- o resto — nenhuma exceção para reconciliação.
 CREATE TABLE IF NOT EXISTS reconciliacao_sessoes (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  origem       TEXT NOT NULL,                        -- sync | importacao
-  status       TEXT NOT NULL DEFAULT 'revisao',      -- revisao | aplicada | cancelada | erro
+  origem       TEXT NOT NULL CHECK (origem IN ('sync', 'importacao')),
+  -- revisao | aplicando | aplicada | aplicada_parcial | cancelada |
+  -- superada | erro — ver o comentário da migration para as transições
+  status       TEXT NOT NULL DEFAULT 'revisao' CHECK (status IN (
+                 'revisao', 'aplicando', 'aplicada', 'aplicada_parcial',
+                 'cancelada', 'superada', 'erro'
+               )),
   criada_em    TEXT NOT NULL DEFAULT (datetime('now')),
-  decidida_em  TEXT,
+  decidida_em  TEXT,        -- quando a revisão terminou, não quando aplicou
   aplicada_em  TEXT,
   resumo_json  TEXT,        -- o relato da análise: contagens, o que não foi empurrado, avisos
-  relato_json  TEXT,        -- o que a aplicação fez: aplicados, pulados, erros
-  erro         TEXT
+  relato_json  TEXT,        -- o que a aplicação fez: aplicados, obsoletos, erros
+  erro         TEXT         -- falha catastrófica da sessão, não de um item
 );
 
+-- No máximo UMA sessão em revisão por origem — o banco garante, não o
+-- código. Ver api/migracao-reconciliacao.sql para o raciocínio completo.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rec_sessoes_revisao_unica
+  ON reconciliacao_sessoes(origem) WHERE status = 'revisao';
+
 -- Uma linha por mudança proposta. `de` e `para` são TEXT porque o mesmo
--- motor carrega número (estoque), texto (descrição) e nulo (sem preço); quem
--- lê converte, olhando o `tipo`.
+-- motor carrega número (estoque), texto (descrição) e nulo (sem preço, §24);
+-- quem lê converte, olhando o `tipo`.
 --
--- (sku, variacao, tipo) é a identidade: é por ela que a aplicação reconfere
--- se o mundo continua igual ao que a pessoa aprovou. Mudou no meio do
--- caminho, o item é pulado com o motivo — nunca aplicado por aproximação.
+-- `de` é o valor OBSERVADO NO DESTINO na análise. `base_json` é o estado
+-- interno mínimo que produziu `para` — só existe quando esse estado pode
+-- mudar sozinho (estoque_loja); para os tipos vindos de planilha a origem é
+-- `dados_json`, congelada, e por isso `base_json` fica NULL de propósito.
+-- Documentado por tipo em docs/RECONCILIATION_ENGINE.md.
 CREATE TABLE IF NOT EXISTS reconciliacao_itens (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   sessao_id   INTEGER NOT NULL REFERENCES reconciliacao_sessoes(id),
   sku         TEXT NOT NULL,
   variacao    TEXT,                                  -- NULL = o código inteiro
+  -- Só para a unicidade abaixo: SQLite nunca considera dois NULL iguais num
+  -- índice único. `variacao` continua NULL de verdade.
+  variacao_chave TEXT GENERATED ALWAYS AS (COALESCE(variacao, '')) STORED,
   descricao   TEXT,
-  tipo        TEXT NOT NULL,                         -- estoque_loja | produto_novo | ajuste_qtd | campo
+  tipo        TEXT NOT NULL CHECK (tipo IN (
+                'estoque_loja', 'produto_novo', 'ajuste_qtd', 'campo'
+              )),
   de          TEXT,
   para        TEXT,
+  base_json   TEXT,
   -- trivial: aplica sem drama · confere: grande, mas explicável
   -- perigoso: pode tirar peça do ar, ou mexe em preço
-  -- desconhecido: o sistema NÃO sabe o que é certo. Nunca aprovado em bloco.
-  risco       TEXT NOT NULL,
+  -- desconhecido: o sistema NÃO sabe o que é certo. Nunca em bloco.
+  risco       TEXT NOT NULL CHECK (risco IN (
+                'trivial', 'confere', 'perigoso', 'desconhecido'
+              )),
   motivo      TEXT,
-  decisao     TEXT NOT NULL DEFAULT 'pendente',      -- pendente | aprovado | recusado
-  aplicado    INTEGER NOT NULL DEFAULT 0,
-  erro        TEXT,
+  -- pendente | aprovado | rejeitado | aplicado | obsoleto | erro — ver o
+  -- comentário da migration para as transições e a distinção
+  -- obsoleto (concorrência) × erro (falha técnica)
+  status      TEXT NOT NULL DEFAULT 'pendente' CHECK (status IN (
+                'pendente', 'aprovado', 'rejeitado', 'aplicado', 'obsoleto', 'erro'
+              )),
+  erro        TEXT,                                  -- a frase que explica 'obsoleto' ou 'erro'
   dados_json  TEXT          -- varianteId/produtoId/locais, ou cat/preco/desc da planilha
 );
 
@@ -324,5 +355,9 @@ CREATE INDEX IF NOT EXISTS idx_inv_itens      ON inventario_itens(inventario_id)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_vendas_externo ON vendas(externo_id);
 CREATE INDEX IF NOT EXISTS idx_kit_componentes ON kit_componentes(kit_sku);
 CREATE INDEX IF NOT EXISTS idx_rec_itens_sessao   ON reconciliacao_itens(sessao_id);
-CREATE INDEX IF NOT EXISTS idx_rec_itens_decisao  ON reconciliacao_itens(sessao_id, decisao);
+CREATE INDEX IF NOT EXISTS idx_rec_itens_status   ON reconciliacao_itens(sessao_id, status);
 CREATE INDEX IF NOT EXISTS idx_rec_sessoes_status ON reconciliacao_sessoes(status);
+-- A identidade real de um item DENTRO de uma sessão — impede a mesma
+-- proposta duas vezes (razão contábil em risco no caso de ajuste_qtd).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rec_itens_unico
+  ON reconciliacao_itens(sessao_id, sku, variacao_chave, tipo);

@@ -155,12 +155,19 @@ export interface SyncPause {
 
 /** `resumoSync` — o que `GET /api/state` traz sobre a sincronização. */
 export interface SyncSummary {
+  /** Estes seis campos são sempre sobre a última execução REAL — uma
+   *  análise (`{"seco": true}`) nunca entra aqui. TECH_DEBT.md item 12. */
   conectada: boolean;
   ultimaEm: string | null;
   ultimoStatus: 'rodando' | 'ok' | 'pausado' | 'erro' | null;
   pausada: SyncPause | null;
   erro: string | null;
   ultimaId: number | null;
+  /** Quando a última ANÁLISE terminou — pode ser mais recente que
+   *  `ultimaEm` sem que isso diga nada sobre a saúde da sincronização.
+   *  Campo solto de propósito, para nunca virar a mesma pergunta que
+   *  `ultimaEm` responde. */
+  ultimaAnaliseEm: string | null;
 }
 
 /* ------------------------------------------------------------ config */
