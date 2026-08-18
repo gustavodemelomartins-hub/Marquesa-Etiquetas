@@ -1,0 +1,352 @@
+@import './fonts.css';
+@import './tokens.css';
+
+/* ------------------------------------------------------------- base */
+
+* { box-sizing: border-box; }
+
+html, body, #root { margin: 0; padding: 0; min-height: 100%; }
+
+body {
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink);
+  /* Marfim, e não o gradiente longo até o preto do app legado.
+     O gradiente é bonito e funciona lá porque o conteúdo é curto; aqui a
+     página é longa, e um fundo que escurece conforme se rola deixa o texto
+     secundário ilegível na metade de baixo. A marca continua no marfim, no
+     bordô dos títulos e no rosé dos acentos — não no degradê. */
+  background: var(--ivory);
+  -webkit-font-smoothing: antialiased;
+  /* O Cormorant Garamond desenha algarismos ANTIGOS por padrão: o 1 sai
+     parecendo um i, o 0 parecendo um o, e o 3, 5, 7 e 9 descem abaixo da
+     linha — um "10" vira texto em minúsculas em vez de número. A fonte traz
+     os alinhados na feature lnum; tnum deixa todos com a mesma largura, que
+     é o que faz coluna de número parar de dançar entre uma rodada e outra.
+     Mesma regra do app legado, e pelo mesmo motivo. */
+  font-variant-numeric: lining-nums tabular-nums;
+  /* iOS instalado como app: respeita o recorte da tela. */
+  padding:
+    env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Um brilho blush no alto, que morre antes de chegar ao conteúdo.
+   É o calor da marca sem custar legibilidade. */
+body::before {
+  content: '';
+  position: fixed; inset: 0 0 auto 0; height: 340px;
+  background: linear-gradient(180deg, var(--rose-tint) 0%, rgba(246,227,226,0) 100%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+h1, h2, h3 { font-family: var(--serif); font-weight: 500; margin: 0; letter-spacing: .01em; }
+h1 { font-size: 30px; color: var(--bordo); line-height: 1.15; }
+h2 { font-size: 21px; color: var(--bordo); }
+h3 { font-size: 17px; color: var(--bordo); }
+p { margin: 0; }
+
+a { color: var(--bordo); }
+
+:focus-visible {
+  outline: 2px solid var(--bordo);
+  outline-offset: 2px;
+  border-radius: var(--r1);
+}
+
+/* Quem pediu menos movimento, recebe menos movimento. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* --------------------------------------------------------- estrutura */
+
+.shell { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+
+.shell-topo {
+  display: flex; align-items: baseline; gap: var(--r4);
+  flex-wrap: wrap;
+  padding: var(--r5) var(--r5) var(--r3);
+  max-width: 1180px; width: 100%; margin: 0 auto;
+}
+.marca { font-family: var(--serif); font-size: 26px; color: var(--bordo); letter-spacing: .02em; }
+.marca span { color: var(--rose); }
+.shell-topo .espaco { margin-left: auto; }
+
+.nav {
+  display: flex; gap: var(--r1); flex-wrap: wrap;
+  padding: 0 var(--r5);
+  max-width: 1180px; width: 100%; margin: 0 auto;
+  border-bottom: 1px solid var(--line);
+}
+.nav-item {
+  appearance: none; border: 0; background: transparent;
+  font: inherit; font-size: 14px; color: var(--muted);
+  padding: var(--r2) var(--r3) var(--r3);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.nav-item:hover { color: var(--bordo); }
+.nav-item[aria-current='page'] { color: var(--bordo); border-bottom-color: var(--rose); }
+.nav-item .conta {
+  display: inline-block; margin-left: var(--r2);
+  background: var(--bordo-tint); color: var(--bordo);
+  border-radius: 999px; font-size: 11px; padding: 1px 7px;
+}
+
+.conteudo {
+  flex: 1;
+  padding: var(--r5);
+  max-width: 1180px; width: 100%; margin: 0 auto;
+}
+
+/* O preto quente da marca vive aqui, e só aqui: uma faixa com texto claro
+   por cima dela, em vez de um degradê por baixo do conteúdo inteiro. */
+.rodape-faixa { background: var(--darkbg); margin-top: var(--r6); }
+.rodape {
+  padding: var(--r5);
+  max-width: 1180px; width: 100%; margin: 0 auto;
+  color: var(--ondark-soft); font-size: 12.5px;
+}
+.rodape a { color: var(--ondark); }
+
+/* ------------------------------------------------------- cabeçalho */
+
+.page-header { margin-bottom: var(--r5); }
+.page-header .kicker {
+  font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--rose); margin-bottom: var(--r1);
+}
+.page-header .sub { color: var(--muted); font-size: 14px; margin-top: var(--r2); max-width: 68ch; }
+.page-header .linha { display: flex; align-items: flex-start; gap: var(--r4); flex-wrap: wrap; }
+.page-header .acoes { margin-left: auto; display: flex; gap: var(--r2); align-items: center; }
+
+/* ---------------------------------------------------------- blocos */
+
+.secao { margin-bottom: var(--r6); }
+.secao-titulo {
+  font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: var(--r3);
+}
+
+.cartao {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--raio);
+  box-shadow: var(--shadow-sm);
+}
+
+.grade {
+  display: grid; gap: var(--r3);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+/* ------------------------------------------------------- indicador */
+
+.metric {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--raio);
+  padding: var(--r4);
+  box-shadow: var(--shadow-sm);
+}
+.metric .rotulo { font-size: 12.5px; color: var(--muted); }
+.metric .valor {
+  font-family: var(--serif); font-size: 32px; line-height: 1.1;
+  color: var(--bordo); margin-top: var(--r1);
+  /* Os números mudam a cada rodada; sem tabular eles dançam. E sem
+     lining o Cormorant os desenha como minúsculas — ver o body. */
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.metric .nota { font-size: 12.5px; color: var(--muted); margin-top: var(--r1); }
+.metric[data-tom='atencao'] .valor { color: var(--tom-atencao); }
+.metric[data-tom='critico'] .valor { color: var(--tom-critico); }
+.metric[data-tom='positivo'] .valor { color: var(--tom-positivo); }
+
+/* ---------------------------------------------------------- selos */
+
+.selo {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; padding: 3px 10px; border-radius: 999px;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.selo .ponto { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.selo[data-tom='neutro']   { color: var(--tom-neutro);   background: var(--tom-neutro-bg); }
+.selo[data-tom='positivo'] { color: var(--tom-positivo); background: var(--tom-positivo-bg); }
+.selo[data-tom='atencao']  { color: var(--tom-atencao);  background: var(--tom-atencao-bg); }
+.selo[data-tom='critico']  { color: var(--tom-critico);  background: var(--tom-critico-bg); }
+
+/* --------------------------------------------------------- botões
+ *
+ * A linguagem visual separa o que a ação FAZ, não o quanto ela é
+ * importante:
+ *   .btn-leitura   navega, filtra, abre. Neutro.
+ *   .btn-analise   lê muita coisa e mostra. Destacado, e seguro.
+ *   .btn-escrita   muda dado nosso. (ainda não usado)
+ *   .btn-critico   muda dado de terceiro, ou é difícil de desfazer.
+ *                  Nunca com aparência casual.
+ */
+
+.btn {
+  appearance: none; font: inherit; font-size: 14px;
+  border-radius: var(--raio-sm); padding: 9px 16px;
+  cursor: pointer; border: 1px solid transparent;
+  display: inline-flex; align-items: center; gap: var(--r2);
+  transition: background .12s, border-color .12s, color .12s;
+}
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.btn-leitura { background: var(--paper); border-color: var(--line); color: var(--bordo); }
+.btn-leitura:hover:not(:disabled) { border-color: var(--rose-soft); }
+
+.btn-analise { background: var(--bordo); border-color: var(--bordo); color: #fff; }
+.btn-analise:hover:not(:disabled) { background: var(--bordo-soft); }
+
+.btn-escrita { background: var(--rose); border-color: var(--rose); color: #4A2230; }
+.btn-escrita:hover:not(:disabled) { background: var(--rose-soft); }
+
+.btn-critico { background: var(--paper); border-color: var(--danger); color: var(--danger); }
+.btn-critico:hover:not(:disabled) { background: var(--danger-tint); }
+
+.btn-sm { padding: 5px 11px; font-size: 13px; }
+
+/* ---------------------------------------------------------- filtros */
+
+.filtros { display: flex; gap: var(--r2); flex-wrap: wrap; margin-bottom: var(--r3); }
+.pill {
+  appearance: none; font: inherit; font-size: 13px; cursor: pointer;
+  background: var(--paper); border: 1px solid var(--line);
+  color: var(--ink); border-radius: 999px; padding: 5px 13px;
+}
+.pill:hover { border-color: var(--rose-soft); }
+.pill[aria-pressed='true'] { background: var(--bordo); border-color: var(--bordo); color: #fff; }
+
+/* ---------------------------------------------------------- tabela */
+
+.tabela-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--raio);
+  background: var(--paper);
+}
+table.tabela { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.tabela th, table.tabela td {
+  text-align: left; padding: 10px var(--r3);
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: top;
+}
+table.tabela th {
+  font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); font-weight: 400; white-space: nowrap;
+}
+table.tabela tbody tr:last-child td { border-bottom: 0; }
+table.tabela tbody tr:hover { background: var(--line-soft); }
+table.tabela td.num { text-align: right; font-variant-numeric: lining-nums tabular-nums; }
+.sku { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+
+/* ------------------------------------------------------------ diff */
+
+.diff { display: inline-flex; align-items: center; gap: var(--r2); font-variant-numeric: lining-nums tabular-nums; }
+.diff .de { color: var(--muted); text-decoration: line-through; }
+.diff .seta { color: var(--rose); }
+.diff .para { font-weight: 500; }
+.diff[data-sentido='sobe'] .para { color: var(--ok); }
+.diff[data-sentido='desce'] .para { color: var(--danger); }
+.diff .delta { font-size: 12px; color: var(--muted); }
+
+.diff-linhas { display: grid; grid-template-columns: auto 1fr; gap: 2px var(--r3); font-size: 13.5px; }
+.diff-linhas dt { color: var(--muted); }
+.diff-linhas dd { margin: 0; font-variant-numeric: lining-nums tabular-nums; }
+
+/* --------------------------------------------------------- estados */
+
+.estado {
+  text-align: center; padding: var(--r7) var(--r5);
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: var(--raio);
+  background: var(--paper);
+}
+.estado h3 { margin-bottom: var(--r2); }
+.estado p { max-width: 52ch; margin: 0 auto; font-size: 14px; }
+.estado .acoes { margin-top: var(--r4); display: flex; gap: var(--r2); justify-content: center; }
+.estado[data-tom='critico'] { border-color: var(--danger); border-style: solid; background: var(--danger-tint); }
+.estado[data-tom='critico'] h3 { color: var(--danger); }
+
+.carregando { display: inline-flex; align-items: center; gap: var(--r2); color: var(--muted); font-size: 14px; }
+.carregando::before {
+  content: ''; width: 13px; height: 13px; border-radius: 50%;
+  border: 2px solid var(--line); border-top-color: var(--rose);
+  animation: girar .7s linear infinite;
+}
+@keyframes girar { to { transform: rotate(360deg); } }
+
+/* -------------------------------------------------------- pendência */
+
+.pendencia { border-top: 1px solid var(--line-soft); padding: var(--r4); }
+.pendencia:first-child { border-top: 0; }
+.pendencia .cabeca { display: flex; align-items: center; gap: var(--r3); flex-wrap: wrap; }
+.pendencia .titulo { font-weight: 500; color: var(--ink); }
+.pendencia .descricao { color: var(--muted); font-size: 13.5px; margin-top: var(--r2); max-width: 78ch; }
+.pendencia .skus { margin-top: var(--r2); display: flex; gap: 6px; flex-wrap: wrap; }
+.pendencia .skus code {
+  font-family: var(--mono); font-size: 12px;
+  background: var(--line-soft); border-radius: var(--r1); padding: 1px 6px;
+}
+
+/* ------------------------------------------------------------ aviso */
+
+.aviso {
+  border: 1px solid var(--line); border-left-width: 3px;
+  border-radius: var(--raio-sm); background: var(--paper);
+  padding: var(--r3) var(--r4); font-size: 14px;
+}
+.aviso[data-tom='atencao'] { border-left-color: var(--tom-atencao); }
+.aviso[data-tom='critico'] { border-left-color: var(--tom-critico); }
+.aviso[data-tom='neutro']  { border-left-color: var(--rose); }
+.aviso b { color: var(--bordo); }
+.aviso .corpo { color: var(--muted); margin-top: var(--r1); }
+
+/* Faixa de simulação: quando a tela mostra dado de exemplo, ela precisa
+   gritar isso. Interface bonita que esconde a origem do dado é pior que
+   interface feia. */
+.faixa-simulado {
+  background: repeating-linear-gradient(
+    45deg, var(--atencao-tint), var(--atencao-tint) 10px,
+    #F6E9CE 10px, #F6E9CE 20px
+  );
+  border: 1px solid var(--atencao);
+  border-radius: var(--raio-sm);
+  padding: var(--r3) var(--r4);
+  font-size: 13.5px; color: #6B4A0C;
+  margin-bottom: var(--r4);
+}
+
+/* ---------------------------------------------------------- conexão */
+
+.conexao { max-width: 420px; margin: var(--r8) auto; }
+.campo { margin-bottom: var(--r3); }
+.campo label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: var(--r1); }
+.campo input {
+  width: 100%; font: inherit; font-size: 14px;
+  padding: 9px var(--r3);
+  border: 1px solid var(--line); border-radius: var(--raio-sm);
+  background: var(--paper); color: var(--ink);
+}
+.campo input:focus { border-color: var(--rose); outline: none; }
+.erro-form { color: var(--danger); font-size: 13px; min-height: 1.2em; }
+
+/* ------------------------------------------------------------ telas estreitas */
+
+@media (max-width: 640px) {
+  .shell-topo, .nav, .conteudo, .rodape { padding-left: var(--r4); padding-right: var(--r4); }
+  h1 { font-size: 25px; }
+  .metric .valor { font-size: 27px; }
+  .conteudo { padding-top: var(--r4); }
+}

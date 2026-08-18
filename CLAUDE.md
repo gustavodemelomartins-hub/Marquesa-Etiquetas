@@ -6,8 +6,10 @@ Nuvemshop**. Controla estoque físico e vendas reais.
 > Confiabilidade vale mais que velocidade de implementação.
 > Nunca adivinhe quando um conflito de dados puder representar peça física.
 
-Stack: HTML/CSS/JS vanilla (PWA) · Cloudflare Worker · D1/SQLite ·
-API da Nuvemshop. Zero dependências de runtime.
+Stack: Cloudflare Worker · D1/SQLite · API da Nuvemshop. **Dois painéis**
+sobre o mesmo backend: o legado em HTML/CSS/JS vanilla (`src/dashboard.tpl.html`,
+em produção) e o novo em React + TypeScript + Vite (`frontend/`, em
+construção). O backend não tem dependência de runtime.
 
 ---
 
@@ -40,6 +42,7 @@ API da Nuvemshop. Zero dependências de runtime.
 ```
 Regras de negócio  → api/REGRAS.md
 Arquitetura        → docs/ARCHITECTURE.md
+Frontend React/TS  → docs/FRONTEND_ARCHITECTURE.md
 Banco              → docs/DATA_MODEL.md
 Nuvemshop          → docs/NUVEMSHOP_INTEGRATION.md
 Sincronização      → docs/SYNC_ENGINE.md
@@ -60,6 +63,8 @@ o resto é token gasto sem retorno.
 
 - **Nunca** abra `dashboard.html` nem `index.html`: são gerados e embutem o
   SheetJS. A fonte do painel é `src/dashboard.tpl.html`.
+- Tarefa no painel **novo** (React/TS/Vite) mora em `frontend/` e não precisa
+  do `dashboard.tpl.html` — os dois convivem e o backend é o mesmo.
 - **Nunca** abra `src/dashboard.tpl.html` inteiro (3.802 linhas). Ache com
   `grep -n`, leia a faixa com `sed -n`.
 - Use o subagente `repo-explorer` para "onde acontece X?" — ele responde em
@@ -97,9 +102,10 @@ quando alguém pedir, e `push --force` **nunca**.
 
 ```
 1. leia a regra    → api/REGRAS.md + o documento de docs/ do assunto
-2. edite           → api/src/*.js  ou  src/dashboard.tpl.html
-3. build           → python src/build.py      (só se mexeu no front)
-4. teste           → banco limpo + Worker local + os três testes de API
+2. edite           → api/src/*.js · src/dashboard.tpl.html · frontend/src/
+3. build           → python src/build.py        (se mexeu no painel legado)
+                     cd frontend && npm run build (se mexeu no novo)
+4. teste           → banco limpo + Worker local + a suíte
 5. confira a razão → GET /api/estoque/conferir  tem que voltar vazio
 6. diff            → git diff   (--ignore-cr-at-eol para o dashboard.html)
 ```

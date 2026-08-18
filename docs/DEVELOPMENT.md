@@ -15,8 +15,10 @@ que sobe no próprio computador.
 | Git | 2.54 | Checkpoints |
 
 ```bash
-cd api && npm install     # wrangler
-cd ../src && npm install  # playwright + xlsx (só para os testes de navegador)
+cd api && npm install       # wrangler
+cd ../src && npm install    # playwright + xlsx (testes de navegador)
+npx playwright install chromium
+cd ../frontend && npm install   # React, TypeScript, Vite, vitest
 ```
 
 > **Windows:** o comando é `python`, não `python3`. O script
@@ -85,6 +87,30 @@ e é CORS.
 `NUVEMSHOP_BASE` e `NUVEMSHOP_AUTH_BASE` existem só para o teste apontar
 para a loja falsa; fora do teste ninguém define e vale o endereço real.
 `.dev.vars` é ignorado pelo Git.
+
+## Rodar o painel novo (React + TypeScript + Vite)
+
+```bash
+cd frontend
+npm run dev          # http://localhost:5173
+```
+
+Ele conversa com o mesmo Worker em `localhost:8787` e reaproveita a conexão
+guardada pelo painel legado — mesma chave de `localStorage`, mesmo formato.
+
+```bash
+npm run build        # tsc --noEmit && vite build → frontend/dist/
+npm run typecheck
+npm test             # vitest
+```
+
+O build sai com caminhos relativos, então `frontend/dist/index.html` funciona
+servido de qualquer subdiretório — inclusive por baixo do
+`python -m http.server 8000` da seção seguinte, em
+`http://localhost:8000/frontend/dist/index.html`.
+
+Arquitetura, tipos e decisões em
+[FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md).
 
 ## Servir o dashboard
 
@@ -175,3 +201,4 @@ nunca é executado por um agente.
 | Publicar a API pela primeira vez | [api/DEPLOY.md](../api/DEPLOY.md) |
 | Backup e restore | [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md) |
 | Como montar o dashboard | [src/README.md](../src/README.md) |
+| Frontend React/TS/Vite | [FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md) |

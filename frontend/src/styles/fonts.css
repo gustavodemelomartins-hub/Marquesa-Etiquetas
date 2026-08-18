@@ -1,0 +1,19 @@
+/* As fontes da marca moram em `brand/`, na raiz do repositório — o app
+   legado já as carrega de lá, e duplicá-las faria duas cópias divergirem.
+   Referenciadas a partir do CSS (e não do index.html) de propósito: assim o
+   Vite as resolve, copia para o build com hash, e elas funcionam tanto em
+   `npm run dev` quanto no build. */
+@font-face {
+  font-family: 'Cormorant Garamond';
+  src: url('../../../brand/fonts/cormorant.woff2') format('woff2');
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Jost';
+  src: url('../../../brand/fonts/jost.woff2') format('woff2');
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}

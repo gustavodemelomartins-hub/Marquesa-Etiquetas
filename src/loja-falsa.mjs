@@ -14,6 +14,10 @@ export function subirLojaFalsa(porta = 8799) {
     pedidos: [],
     escritas: [],          // tudo que chegou no PATCH, na ordem
     semUserAgent: 0,
+    /* Liga a loja para responder 500 em tudo. Serve para provar o que o
+       sistema faz quando a Nuvemshop cai — e a resposta certa nunca é
+       "seguir em frente com o número velho". */
+    falhar: false,
     trocasOAuth: [],
     codigoValido: null,
   };
@@ -26,6 +30,10 @@ export function subirLojaFalsa(porta = 8799) {
       res.writeHead(código, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(corpo));
     };
+
+    if (estado.falhar) {
+      return responder(500, { message: 'loja de mentira: falha proposital' });
+    }
 
     // A troca do código de autorização por token (POST /apps/authorize/token)
     // fica ANTES das checagens abaixo: na API real esse endereço não pede

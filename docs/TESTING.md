@@ -122,6 +122,83 @@ Não é teste: tira fotos da Visão geral, das Vendas e das telas de inventário
 e venda em tamanho de celular, para conferir o visual depois de mexer no
 front. Roda depois do `e2e`, que deixa o banco com dados de exemplo.
 
+### `src/frontend-e2e.mjs` — o painel novo num navegador de verdade
+**23 asserções · ~3 s · Playwright + servidor HTTP + build do frontend**
+
+Prova o painel React/TypeScript sobre o mesmo backend:
+
+1. o app abre **já conectado** — a conexão do painel legado é reaproveitada
+   (mesma chave de `localStorage`, mesmo formato);
+2. a tela Nuvemshop lê o estado real e mostra os números certos;
+3. **divergência de estoque NÃO aparece como pendência** — a rodada seguinte
+   conserta sozinha, e listar isso como tarefa de alguém é o que faz o painel
+   parecer sempre em chamas;
+4. o que precisa de gente aparece em Pendências, com o motivo;
+5. *Analisar sincronização* roda a rodada seca e mostra o diff classificado
+   por risco;
+6. **e não escreve nada na Nuvemshop** — a loja falsa registra tudo que
+   recebe, e a contagem de escritas continua zero depois da análise inteira;
+7. a aba Reconciliação recebe a mesma análise e diz que aprovar e aplicar
+   ainda não existem;
+8. o rodapé continua apontando para o painel legado;
+9. nenhum erro de console.
+
+Precisa do build pronto: `cd frontend && npm run build`.
+
+### Testes unitários do frontend
+**47 testes · Vitest · sem navegador**
+
+```bash
+cd frontend && npm test
+```
+
+Cobrem lógica pura e a camada de API, não aparência:
+
+| Arquivo | O que prova |
+|---|---|
+| `src/features/nuvemshop/panorama.test.ts` | O porte de `panoramaLoja()` é fiel: divergência, falta cadastrar, oculto com peça, estoque negativo virando zero, produto sem preço não inventando R$ 0, e códigos que a rodada não empurra ficando fora de "estoque errado". E os **dois sentidos** da regra de divergência: o mesmo panorama conta 0 ou 2 pendências conforme a sincronização esteja de pé ou não |
+| `src/features/nuvemshop/saude.test.ts` | O diagnóstico da sincronização: os sete estados, as bordas exatas dos dois limites (26 h de atraso, 1 h travada), a precedência entre eles, o timestamp do SQLite lido como UTC e não como hora local, e data ilegível **não** virando atraso silencioso |
+| `src/features/reconciliacao/classificar.test.ts` | A classificação de risco, inclusive a assimetria deliberada (tirar do ar é pior que colocar à venda), a ordenação por atenção e a extração do nome da variação |
+| `src/services/client.test.ts` | Bearer em toda chamada, mensagem de erro vinda do servidor, 401 marcado, falha de rede virando status 0, abortar não sendo erro, conexão no formato do painel legado |
+| `src/services/sync.test.ts` | **`analisar` sempre manda `seco:true` e nunca manda `forcar`** — este frontend não escreve na loja |
+
+Sem `jsdom` e sem `@testing-library` de propósito: aparência se prova no
+navegador de verdade, não em DOM simulado.
+
+### `src/dry-run-test.mjs` — o que a rodada seca escreve e o que não escreve
+**49 asserções · ~15 s · precisa da loja falsa (ele mesmo a sobe)**
+
+O teste mais paranoico da suíte, e o único que **lê o SQLite direto** em vez
+de perguntar à API. Ele fotografa oito tabelas linha por linha antes e depois
+de `POST /api/sync {"seco": true}`, e compara:
+
+`produtos` · `movimentos` · `vendas` · `venda_itens` · `produto_variacoes` ·
+`config` · `loja_snapshot` · `sync_execucoes` — mais o contador de escritas
+da loja falsa.
+
+Quatro seções:
+
+0. **uma rodada real primeiro.** Foto de banco vazio não prova nada: "não
+   mudou" seria verdade por falta de conteúdo.
+1. **a rodada seca com trabalho de verdade esperando** — um pedido novo e
+   estoque mexido na loja. Ela CONTA a venda e CALCULA as mudanças (provado),
+   e mesmo assim não toca em saldo, razão, vendas nem na Nuvemshop.
+   As colunas-espelho e o registro da execução, essas sim, mudam — e cada uma
+   está afirmada explicitamente.
+2. **rodar seco duas vezes é inofensivo**, inclusive `produto_variacoes`,
+   que é apagada e regravada com o mesmo conteúdo.
+3. **o freio pausa a rodada seca igual à real** — a checagem vem antes do
+   `if (seco) return`, e é o que permite descobrir que a rodada travaria sem
+   arriscar a loja.
+4. **a rodada REAL, essa sim, escreve.** O contraste que fecha a prova: sem
+   este bloco, todos os "não mudou" acima poderiam ser verdade por acidente.
+
+A tabela do que muda e do que não muda está em
+[SYNC_ENGINE.md](SYNC_ENGINE.md).
+
+> Ele lê `api/.wrangler/state/.../*.sqlite` em modo somente-leitura, com o
+> Worker no ar. SQLite aceita vários leitores; nada aqui escreve.
+
 ### `api/test-api.mjs`
 Script auxiliar de chamada à API. Não faz parte da suíte.
 
@@ -134,6 +211,10 @@ src/reset-e-testar.sh          # zera o banco, sobe tudo e roda o e2e
 node src/sync-test.mjs         # com banco limpo e Worker no ar
 node src/variacoes-test.mjs
 node src/kits-test.mjs
+node src/frontend-e2e.mjs      # precisa de `cd frontend && npm run build` antes
+node src/dry-run-test.mjs      # a prova formal do dry-run
+
+cd frontend && npm test        # os 73 testes unitários, sem navegador
 ```
 
 ### Windows
@@ -180,7 +261,10 @@ apagar `.wrangler/state`, ou o `rm` falha com `Device or resource busy`.
 - rotas de revendedora, cliente e categoria fora do caminho do `e2e`;
 - comportamento contra a Nuvemshop **de verdade** (por definição: a loja
   falsa imita o que se sabe que ela faz);
-- concorrência: duas rodadas de sincronização ao mesmo tempo.
+- concorrência: duas rodadas de sincronização ao mesmo tempo;
+- o caminho em que uma rodada seca apaga o rastro de uma rodada real que
+  falhou no PATCH — comportamento conhecido e ainda não corrigido, descrito
+  em [TECH_DEBT.md](TECH_DEBT.md) item 12.
 
 ## Baseline atual
 

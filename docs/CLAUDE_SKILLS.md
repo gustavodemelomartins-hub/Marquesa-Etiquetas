@@ -50,17 +50,17 @@ o que adicionar para Workers, D1 e Wrangler.
 | `durable-objects`, `agents-sdk`, `sandbox-*`, `cloudflare-one*`, `cloudflare-email-service`, `turnstile-spin` | Cloudflare (oficial) | Produtos que este projeto não usa | **Nenhuma** | — | 9 descrições em toda sessão | **REMOVER** de `~/.claude/skills/` (economia direta e permanente) |
 | `claude-security` | **Anthropic** | Varredura profunda de vulnerabilidade no próprio código, com cada achado contestado antes de virar relatório | **Alta** — API pública, senha única, repositório público | Roda dentro da sessão; não manda código para fora | Médio, só quando invocada | **INSTALAR** |
 | `security-guidance` | **Anthropic** | Aviso por padrão em edição + revisão do diff no Stop + revisor de commit | **Alta** — pega segredo e injeção antes do commit | **Usa hooks** — executa em toda edição. Ler `hooks/` antes de ativar | Médio (hook roda sempre) | **AVALIAR** — instalar depois de ler os hooks |
-| `claude-md-management` | **Anthropic** | Audita a qualidade do `CLAUDE.md` e mantém a memória do projeto em dia | **Alta** — o `CLAUDE.md` é o roteador e não pode inchar | Leitura + edição de arquivo de memória | Baixo | **INSTALAR** |
+| `claude-md-management` | **Anthropic** | Audita a qualidade do `CLAUDE.md` e mantém a memória do projeto em dia | **Alta** — o `CLAUDE.md` é o roteador e não pode inchar | Leitura + edição de arquivo de memória | Baixo | **INSTALADA em 2026-08-18** |
 | `skill-creator` | **Anthropic** | Criar, melhorar e medir skills | **Média** — as seis skills locais vão evoluir | Leitura/escrita em `.claude/skills/` | Baixo | **AVALIAR** — só quando for mexer nas skills |
-| `code-review` | **Anthropic** | Revisão de PR com múltiplos agentes e filtro de falso positivo | **Média-alta** | Só leitura | Alto **por execução** (multi-agente) | **AVALIAR** — o `/code-review` embutido já cobre o dia a dia |
-| `code-simplifier` | **Anthropic** | Simplifica preservando comportamento | **Baixa agora** — refactor está fora de escopo | Edita código | Médio | **NÃO NECESSÁRIA** nesta fase |
-| `frontend-design` | **Anthropic** | Interfaces de alta qualidade visual | **Baixa** — o design existe, é coerente, e redesenho está proibido | Gera código | Médio | **NÃO NECESSÁRIA** |
+| `code-review` | **Anthropic** | Revisão de PR com múltiplos agentes e filtro de falso positivo | **Alta agora** — TypeScript pega tipo, não pega regra de negócio portada errada | Só leitura | Alto **por execução** (multi-agente) | **AVALIAR** — vale nas migrações de área, não no dia a dia |
+| `code-simplifier` | **Anthropic** | Simplifica preservando comportamento | **Baixa** — o código novo nasce pequeno; simplificar o legado sem migrar não paga | Edita código | Médio | **NÃO NECESSÁRIA** |
+| `frontend-design` | **Anthropic** | Interfaces de alta qualidade visual, evitando o visual genérico de IA | **Alta agora** — o painel novo é React e vai ganhar tela nova a cada área migrada | Só Markdown: nenhum hook, nenhum MCP, nenhum script | Médio | **INSTALADA em 2026-08-18** |
 | `feature-dev` | **Anthropic** | Fluxo de feature com agentes de exploração e arquitetura | **Média** — útil no motor de reconciliação | Multi-agente | Alto por execução | **AVALIAR** na próxima fase |
 | `commit-commands` | **Anthropic** | `commit`, `push`, criação de PR | **Baixa** — e `push` é justamente o que este repositório **não** deve fazer sem reconciliar histórico | Executa Git | Baixo | **NÃO NECESSÁRIA** — conflita com `BACKUP_RECOVERY.md` |
 | `code-modernization` | **Anthropic** | Modernizar legado (COBOL, monolito) | **Nenhuma** | — | — | **NÃO NECESSÁRIA** |
-| `playwright` | **Microsoft** (oficial) | MCP de automação de navegador | **Média** — o projeto já usa Playwright direto | MCP com browser real; acessa rede e páginas | Médio | **NÃO NECESSÁRIA** — o `e2e.mjs` já faz isso; o problema é o `executablePath` fixo, não a falta de ferramenta |
-| `chrome-devtools-mcp` | **Google Chrome** (oficial) | Inspeciona Chrome ao vivo, trace de performance, rede, console | **Média** — pareado com `web-perf` audita o PWA | MCP controla um navegador; roda local | Médio | **AVALIAR** — útil quando o assunto for desempenho do dashboard |
-| `modern-web-guidance` | **Google Chrome** (oficial) | Boas práticas atuais de web | **Média** — stack vanilla se beneficia | Consulta docs | Baixo | **AVALIAR** |
+| `playwright` | **Microsoft** (oficial) | MCP de automação de navegador | **Baixa** — o projeto usa Playwright direto, e o `executablePath` fixo já foi resolvido | MCP com browser real; acessa rede e páginas | Médio | **NÃO NECESSÁRIA** — três testes de navegador já rodam, incluindo o do painel novo |
+| `chrome-devtools-mcp` | **Google Chrome** (oficial) | Inspeciona Chrome ao vivo, trace de performance, rede, console, acessibilidade | **Alta** — 224 kB de JS novo, e nenhuma auditoria de acessibilidade automatizada existe | **Não está no marketplace oficial da Anthropic.** É servidor MCP separado: exige entrada de MCP nova, baixa e controla um Chrome, que navega para onde for mandado | Médio | **RECOMENDADA, NÃO INSTALADA** — ver adiante |
+| `modern-web-guidance` | **Google Chrome** (oficial) | Boas práticas atuais de web | **Média** — vale mais para o app de etiquetas, que segue vanilla | Consulta docs | Baixo | **AVALIAR** |
 | `semgrep` | Semgrep (fornecedor) | SAST em tempo real | **Média** | Motor externo; conferir se o código sai da máquina | Médio | **AVALIAR — confiança insuficiente** sem ler a configuração de envio |
 | `42crunch-api-security-testing` | 42Crunch (fornecedor) | Auditoria OWASP API a partir de OpenAPI | **Nenhuma** — não existe spec OpenAPI aqui | — | — | **NÃO NECESSÁRIA** |
 | `aikido`, `ai-plugins` (Endor Labs), `coderabbit`, `jfrog` | Fornecedores de segurança | SAST, secret scanning, supply chain, revisão externa | **Baixa** — o repositório tem **zero dependências de runtime**; o risco de supply chain é quase nulo | Todos mandam código ou metadado para serviço externo | Médio | **NÃO NECESSÁRIA** — reavaliar se algum dia entrar dependência |
@@ -69,6 +69,7 @@ o que adicionar para Workers, D1 e Wrangler.
 | `sentry`, `datadog`, `honeycomb` | Fornecedores | Observabilidade | **Baixa hoje** — o Worker loga em `console` e grava `sync_execucoes` | Precisa de credencial de serviço | Médio | **NÃO NECESSÁRIA** — `sync_execucoes` já responde "o que o robô fez" |
 | `caveman` | Comunidade (`JuliusBrussee/caveman`) | Estilo de resposta comprimido | Preferência pessoal, já em uso | **Tem hooks que rodam PowerShell em toda sessão** | Baixo | **JÁ INSTALADA** — decisão do usuário, registrada aqui por transparência |
 | `canva` | Canva (oficial) | Design no Canva | **Nenhuma** para este projeto | MCP com OAuth pendente | Baixo | **JÁ INSTALADA** — sem relação com este repositório |
+| Acessibilidade automatizada | — | Verificar contraste, foco, rótulos e leitura por leitor de tela | **Alta** — o painel é usado no celular, e a correção de contraste desta fase foi achada no olho, não por ferramenta | — | — | **CRIAR INTERNAMENTE** ou usar `chrome-devtools-mcp`: o catálogo oficial não tem skill de a11y independente de framework |
 | Skills de SQLite / migrations de terceiros | Comunidade | Migrations, índices, backup | **Média** na necessidade, **baixa** na oferta: o que existe é para Postgres, MySQL, ClickHouse, DuckDB. **Não há skill de D1/SQLite** no catálogo oficial | — | — | **CRIAR INTERNAMENTE** → foi o que originou `safe-d1-change` |
 | Conhecimento da Nuvemshop | — | Matching de SKU, variantes, freios | **Alta** | — | — | **CRIAR INTERNAMENTE** → `marquesa-sync`, `marquesa-reconciliation` |
 | Regras de negócio da Marquesa | — | Razão contábil, maleta, kit, comissão | **Alta** | — | — | **CRIAR INTERNAMENTE** → `marquesa-context` |
@@ -77,17 +78,23 @@ o que adicionar para Workers, D1 e Wrangler.
 
 ## Resumo das decisões
 
-**INSTALAR (2)**
-- `claude-security` — Anthropic. Varredura de vulnerabilidade no próprio
-  código, sem mandar nada para fora.
+**INSTALADAS (2)** — em 2026-08-18, auditadas antes
+- `frontend-design` — Anthropic. O painel React ganha uma tela a cada área
+  migrada, e a alternativa é cada uma sair com um visual um pouco diferente
+  da anterior.
 - `claude-md-management` — Anthropic. Impede o `CLAUDE.md` de virar
   enciclopédia, que é o principal risco da estratégia de contexto adotada.
 
-**AVALIAR (6)** — instalar só depois de ler o que executam
+**A INSTALAR quando fizer sentido (1)**
+- `claude-security` — Anthropic. Varredura de vulnerabilidade no próprio
+  código, sem mandar nada para fora. Continua recomendada; não entrou nesta
+  rodada porque a instrução foi instalar só as duas acima.
+
+**AVALIAR (5)** — instalar só depois de ler o que executam
 - `security-guidance` (hooks em toda edição)
 - `skill-creator` (quando for evoluir as skills locais)
-- `code-review` (custo alto por execução)
-- `chrome-devtools-mcp` + `modern-web-guidance` (quando o assunto for o PWA)
+- `code-review` (custo alto por execução; vale nas migrações de área)
+- `modern-web-guidance` (mais útil para o app de etiquetas, que segue vanilla)
 - `feature-dev` (na fase do motor de reconciliação)
 - `semgrep` — **confiança insuficiente** sem confirmar se o código sai da
   máquina
@@ -137,3 +144,68 @@ seguro de mudar um banco que guarda estoque real. É exatamente o vão que
    instala.
 7. Revisar esta tabela quando a stack mudar — entrou dependência de runtime,
    entrou framework, entrou segundo usuário no painel.
+
+## Instalação de 2026-08-18 — o que foi auditado antes
+
+Duas skills entraram, via `enabledPlugins` em `.claude/settings.json`
+(escopo de projeto, versionado: quem clonar o repositório recebe as mesmas).
+
+| | `frontend-design` | `claude-md-management` |
+|---|---|---|
+| Origem | `anthropics/claude-plugins-official` | idem |
+| Autor declarado | Anthropic (support@anthropic.com) | idem |
+| Hooks | nenhum | nenhum |
+| Servidor MCP | nenhum | nenhum |
+| Script executável embutido | nenhum | nenhum |
+| Ferramentas declaradas | nenhuma — é só Markdown | `Read, Glob, Grep, Bash, Edit` |
+| Rede | não acessa | não acessa |
+
+O único ponto que mereceu leitura foi o `Bash` do `claude-md-improver`. Ele
+não traz executável nenhum: o `Bash` fica disponível para a skill usar, e
+continua passando pelas regras de `.claude/settings.json` — que negam
+`wrangler deploy`, `d1 execute --remote`, `d1 time-travel restore`,
+`secret put`, `git reset --hard`, `git clean` e `push --force`. A skill
+edita `CLAUDE.md`, que é justamente o arquivo cuja revisão humana já é
+obrigatória.
+
+As permissões do projeto foram conferidas depois da edição: 26 regras em
+`allow`, 21 em `ask`, 33 em `deny` — as mesmas de antes. Só a chave
+`enabledPlugins` foi acrescentada.
+
+### `chrome-devtools-mcp` — recomendada, e não instalada
+
+A verificação pedida mudou a decisão anterior. O que se apurou:
+
+1. **Não está no marketplace oficial da Anthropic.** O catálogo
+   `claude-plugins-official` tem 39 plugins e nenhum deles é este.
+2. É um **servidor MCP** publicado pelo time do Chrome, distribuído via npm.
+   Instalá-lo significa acrescentar uma entrada de servidor MCP e deixar que
+   ele **baixe e controle uma instância do Chrome**.
+3. Esse navegador navega para onde for instruído. Não é acesso "à máquina",
+   mas é acesso amplo à rede a partir dela — categoria diferente de uma skill
+   que é um arquivo de texto.
+
+Os três pontos caem exatamente na cláusula "se exigir instalação ou
+configuração adicional, ou acesso amplo, apenas documente". Então: fica
+**documentada e recomendada**, para uma decisão explícita quando o assunto
+for auditoria de acessibilidade e desempenho do painel novo.
+
+O que ela resolveria continua real: a correção de contraste de 2,9:1 no texto
+secundário foi achada **olhando uma captura de tela**. Uma ferramenta teria
+achado antes, e vai achar a próxima.
+
+## Revisão de 2026-08-18 — entrada de React + TypeScript + Vite
+
+A regra 7 foi acionada: o frontend deixou de ser só vanilla. O que mudou:
+
+| Skill | Antes | Agora | Por quê |
+|---|---|---|---|
+| `frontend-design` | NÃO NECESSÁRIA | **INSTALAR** | Havia um design pronto e redesenho proibido. Agora nasce tela nova a cada área migrada |
+| `chrome-devtools-mcp` | AVALIAR | **RECOMENDADA, não instalada** | O valor é real, mas é servidor MCP de fora do catálogo oficial, que baixa e controla um Chrome |
+| `code-review` | AVALIAR (dia a dia) | AVALIAR (migrações) | TypeScript pega tipo; não pega regra de negócio portada errada |
+| `playwright` | NÃO NECESSÁRIA | NÃO NECESSÁRIA | Reforçado: o `executablePath` fixo foi resolvido, e três testes de navegador rodam |
+
+O que **não** mudou: nada de React/Next/Redux/Tailwind entrou, então nenhuma
+skill dessas ferramentas passou a fazer sentido. As sete dependências do
+`frontend/` são a stack alvo e mais nada — ver
+[FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md).

@@ -1,0 +1,77 @@
+/* Identidade da Marquesa.
+ *
+ * Os valores saem do CSS do app legado (index.html, bloco `:root`) — não de
+ * uma paleta nova. Os dois frontends precisam parecer o mesmo produto
+ * enquanto conviverem, e a marca não muda porque a stack mudou.
+ *
+ * O que NÃO veio junto: a hierarquia visual. No app legado quase tudo é um
+ * aviso, e avisos com a mesma severidade deixam de ser avisos. Aqui a
+ * severidade é escassa de propósito — ver --tom-*. */
+
+:root {
+  /* ---------------------------------------------------------- marca */
+  --ivory: #FBF6F4;          /* fundo blush-claro */
+  --paper: #FFFFFF;
+  --bordo: #8E4A5E;          /* mauve profundo: títulos e texto-marca */
+  --bordo-soft: #A85F74;
+  --bordo-tint: #F8E7EB;
+  --rose: #D88399;           /* rosé assinatura */
+  --rose-soft: #EAAFAB;
+  --rose-tint: #F6E3E2;
+  --darkbg: #16100F;         /* preto quente: fundo do app inteiro */
+  --ondark: #F4EBE9;
+  --ondark-soft: rgba(244, 235, 233, .62);
+  --hair: rgba(251, 246, 244, .16);
+
+  --ink: #2C2428;
+  /* Escurecido em relação ao app legado, de propósito: #9E8A90 sobre o
+     marfim dá 2,9:1 de contraste, e este tom dá 4,7:1 — acima do mínimo
+     para texto pequeno. A cor decorativa continua disponível abaixo. */
+  --muted: #755C64;
+  --muted-claro: #9E8A90;
+  --line: #EFE0E2;
+  --line-soft: #F7EEEF;
+
+  --ok: #2F7D5B;
+  --ok-tint: #E6F1EB;
+  --danger: #C0566A;
+  --danger-tint: #F8E9EB;
+  --atencao: #A8791F;
+  --atencao-tint: #FBF1DC;
+
+  --shadow: 0 1px 2px rgba(142, 74, 94, .05), 0 8px 26px rgba(142, 74, 94, .08);
+  --shadow-sm: 0 1px 2px rgba(142, 74, 94, .06);
+
+  --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --sans: 'Jost', 'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  --mono: 'Consolas', 'SF Mono', Menlo, monospace;
+
+  /* --------------------------------------------------------- ritmo */
+  --r1: 4px;  --r2: 8px;  --r3: 12px; --r4: 16px;
+  --r5: 24px; --r6: 32px; --r7: 48px; --r8: 64px;
+
+  --raio: 12px;
+  --raio-sm: 8px;
+  --raio-lg: 18px;
+
+  /* ------------------------------------------------------ severidade
+   * Quatro tons, e só quatro. A regra que o app legado não tem: um
+   * tom mais forte só entra quando a consequência é mais forte.
+   *
+   *   neutro   informação. A maior parte da tela.
+   *   positivo está como deveria.
+   *   atencao  precisa de uma pessoa, mas nada quebra hoje.
+   *   critico  alguém pode perder venda ou dinheiro. Escasso. */
+  --tom-neutro: var(--muted);
+  --tom-neutro-bg: var(--line-soft);
+  --tom-positivo: var(--ok);
+  --tom-positivo-bg: var(--ok-tint);
+  --tom-atencao: var(--atencao);
+  --tom-atencao-bg: var(--atencao-tint);
+  --tom-critico: var(--danger);
+  --tom-critico-bg: var(--danger-tint);
+
+  /* ------------------------------------------------------- camadas */
+  --z-topo: 10;
+  --z-dialogo: 100;
+}
