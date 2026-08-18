@@ -17,7 +17,7 @@ comportamento.
 
 | | |
 |---|---|
-| Commit medido | `PLACEHOLDER_COMMIT` — schema do motor de reconciliação + correção do TECH_DEBT 12 |
+| Commit medido | `0e7bcd1` — schema do motor de reconciliação + correção do TECH_DEBT 12 |
 | Tags locais | `checkpoint/pre-bootstrap-claude` → `f3f08cb` · `checkpoint/pre-frontend-react` → `3c849a0` |
 | Branch | `feature/motor-reconciliacao` (com `main` mesclado dentro) |
 | Remote | `origin` → github.com/gustavodemelomartins-hub/Marquesa-Etiquetas |
