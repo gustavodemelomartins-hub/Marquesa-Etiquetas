@@ -1,22 +1,22 @@
 import type { SyncSummary } from '../../types/api';
+import type { DiagnosticoSync, EstadoSync } from './saude';
+import { parseDataBackend } from '../../services/datas';
 import { StatusBadge, type Tom } from '../../components/StatusBadge';
 
 interface Props {
   sync: SyncSummary;
   lidoEm: string | null;
+  /** O MESMO diagnóstico que decide as pendências. Uma segunda cópia da
+   *  regra aqui em cima é como a tela passa a dizer "Conectada" enquanto a
+   *  lista abaixo diz que ninguém vai consertar nada. */
+  diagnostico: DiagnosticoSync;
 }
 
 /** Data e hora no fuso de quem está olhando, sem inventar precisão. */
 export function fmtDataHora(iso: string | null): string {
   if (!iso) return '—';
-  /* O backend grava `datetime('now')` do SQLite, que é UTC sem sufixo. Sem
-     o "Z" o navegador leria como hora local e a última sincronização
-     apareceria três horas no futuro. */
-  const normalizado = /\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(iso)
-    ? iso.replace(' ', 'T') + 'Z'
-    : iso;
-  const d = new Date(normalizado);
-  if (Number.isNaN(d.getTime())) return iso;
+  const d = parseDataBackend(iso);
+  if (!d) return iso;
   return d.toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -34,29 +34,29 @@ export function proximaRodada(agora: Date): string {
   return 'amanhã às 06:00';
 }
 
+/** Que gravidade visual cada estado merece. `desconectada` é `neutro` de
+ *  propósito: nunca ter ligado a loja é uma decisão, não uma falha — quem
+ *  atualiza por arquivo não precisa ver vermelho todo dia. */
+const TOM_POR_ESTADO: Record<EstadoSync, Tom> = {
+  saudavel: 'positivo',
+  desconectada: 'neutro',
+  nunca_rodou: 'atencao',
+  atrasada: 'atencao',
+  pausada: 'atencao',
+  travada: 'critico',
+  erro: 'critico',
+};
+
 /** O ESTADO da integração. Uma linha, um tom, sem banner.
  *
  *  No painel legado isto ocupa três avisos empilhados com a mesma
  *  severidade visual — e aviso que está sempre lá deixa de ser aviso. */
-export function SyncStatus({ sync, lidoEm }: Props) {
-  let tom: Tom = 'positivo';
-  let rotulo = 'Conectada';
-  let detalhe: string | null = null;
-
-  if (!sync.conectada) {
-    tom = 'neutro';
-    rotulo = 'Não conectada';
-    detalhe =
-      'Falta cadastrar o token da loja nos Secrets do Worker. Enquanto isso, a atualização continua sendo por arquivo.';
-  } else if (sync.erro) {
-    tom = 'critico';
-    rotulo = 'Última rodada falhou';
-    detalhe = sync.erro;
-  } else if (sync.pausada) {
-    tom = 'atencao';
-    rotulo = 'Pausada pelo freio';
-    detalhe = `${sync.pausada.motivo} A rodada não mexeu na loja.`;
-  }
+export function SyncStatus({ sync, lidoEm, diagnostico }: Props) {
+  const tom: Tom = TOM_POR_ESTADO[diagnostico.estado];
+  const rotulo = diagnostico.rotulo;
+  /* Estado saudável não precisa de parágrafo: "Sincronizando normalmente"
+     já disse tudo, e explicar o normal é o que enche a tela de ruído. */
+  const detalhe = diagnostico.estado === 'saudavel' ? null : diagnostico.motivo;
 
   return (
     <section className="secao">

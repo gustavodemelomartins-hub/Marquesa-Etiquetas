@@ -163,6 +163,48 @@ A escrita agrupa as mudanças por produto e manda em lotes de 25 via
 Duas vezes por dia, e não de hora em hora, de propósito: cada rodada lê a
 loja inteira, e o ganho de rodar mais vezes não paga o gasto.
 
+## O que o dry-run escreve, e o que não escreve
+
+`POST /api/sync {"seco": true}` **não** é "zero escrita absoluta", e tratá-lo
+como se fosse é o erro que o motor de reconciliação herdaria. Ele não escreve
+nada que represente peça física; escreve metadado de leitura.
+
+Cada linha desta tabela é provada por `src/dry-run-test.mjs`, que fotografa
+as tabelas direto do SQLite antes e depois — não pergunta à API o que ela
+acha que fez.
+
+| Recurso | Dry-run altera? | Motivo |
+|---|---|---|
+| `produtos.qtd` | **Não** | `movimentar` nunca é chamado. É a invariante do §19 |
+| `movimentos` | **Não** | A razão contábil não recebe uma linha sequer |
+| `vendas` | **Não** | `puxarPedidos` conta a venda no relato e sai antes do INSERT |
+| `venda_itens` | **Não** | Idem — o INSERT está depois do mesmo `if (seco)` |
+| `config.syncUltimoPedido` | **Não** | Avançar faria a rodada REAL seguinte pular pedidos nunca lidos: venda perdida em silêncio |
+| `config.syncUltimoEstoque` | **Não** | Fica depois do `return` do empurrão |
+| **Nuvemshop (PATCH)** | **Não** | `if (seco) return` vem antes de `atualizarEstoque` |
+| `produtos.estoque_loja`, `url_loja`, `visivel`, `nome_loja` | **Sim** | Colunas-espelho: são o retrato do que a LOJA tem, relido a cada rodada. Nenhuma delas é saldo |
+| `produto_variacoes` | **Sim** | Apagada e regravada do zero: a loja é a fonte da verdade sobre quais variações existem. O saldo não mora aqui, mora em `movimentos` |
+| `config.lojaVariacoes` | **Sim** | A lista do que a rodada decidiu não empurrar. Existe para a tela poder anunciar (§9) |
+| `loja_snapshot` | **Sim** | O retrato da leitura: quantos produtos, quantos casaram, quais duplicados |
+| `sync_execucoes` | **Sim** | Uma linha por rodada, inclusive seca. `detalhe_json.seco` diz qual foi |
+
+O critério que separa as duas metades: **a coluna representa peça física ou
+representa o que acabou de ser lido da loja?** Espelho de leitura pode ser
+atualizado por quem leu. Saldo, não.
+
+### A consequência que o motor precisa tratar
+
+`resumoSync` devolve `ultimaEm` e `ultimoStatus` a partir da última linha de
+`sync_execucoes` — **sem olhar se ela foi seca**. Uma rodada real que falhou
+no PATCH, seguida de um dry-run que passou, deixa o resumo dizendo `ok`.
+
+Ninguém depende disso hoje da forma perigosa: o painel novo usa esse resumo
+para decidir se a divergência é informação ou pendência, e o caminho que
+esconde a falha exige que alguém rode a análise justamente depois de uma
+rodada quebrada. Mas é uma falha engolida em vez de anunciada, e isso
+contraria a regra 9. Está anotado em
+[TECH_DEBT.md](TECH_DEBT.md), item 12, com a correção proposta.
+
 ## Invariantes que qualquer mudança precisa preservar
 
 1. Puxar **antes** de empurrar.
@@ -171,3 +213,5 @@ loja inteira, e o ganho de rodar mais vezes não paga o gasto.
 4. Nenhum caminho escreve `produtos.qtd` fora de `movimentar`.
 5. O freio existe e o cron não o ignora.
 6. O que a rodada decidiu não fazer é **anunciado**, não engolido.
+7. A rodada seca não toca em estoque, razão contábil, vendas nem na loja —
+   a tabela acima é a fronteira, e `src/dry-run-test.mjs` a defende.

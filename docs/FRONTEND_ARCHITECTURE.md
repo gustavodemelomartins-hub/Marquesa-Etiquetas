@@ -132,13 +132,15 @@ Detalhes que só existem porque foram lidos no código, não presumidos:
 
 ## Regra de negócio no frontend
 
-Duas funções puras, e as duas são **porte fiel** do que o painel legado já
-faz — modernizar a interface não pode mudar o que os números significam:
+Três funções puras. Duas são **porte fiel** do que o painel legado já faz —
+modernizar a interface não pode mudar o que os números significam:
 
 - `features/nuvemshop/panorama.ts` — porte de `panoramaLoja()`. Quem está na
   loja, quem diverge, quem falta cadastrar, quem está oculto com peça.
 - `features/reconciliacao/classificar.ts` — **novo**, e só classifica o que
   o backend já calculou. Não decide, não grava, não aplica.
+- `features/nuvemshop/saude.ts` — **novo**. Responde uma pergunta só: dá
+  para confiar que a próxima rodada conserta a divergência sozinha?
 
 Puras de propósito: sem React, sem rede, sem relógio (a data entra por
 parâmetro). É o que permite testá-las sem navegador.
@@ -187,9 +189,74 @@ rodada e outra. Mesma regra do painel legado, pelo mesmo motivo.
 Hierarquia: **ESTADO → VISÃO GERAL → PENDÊNCIAS → ANÁLISE**.
 
 A decisão que mais muda a tela em relação à antiga: **"estoque divergente"
-não é pendência**. A rodada seguinte conserta sozinha. Pendência é só o que
-uma pessoa precisa resolver — cadastro duplicado, variação pela metade,
-código sem anúncio, produto oculto com peça. Um teste trava essa separação.
+não é pendência — enquanto houver uma próxima rodada.**
+
+### A condição escondida
+
+"A rodada seguinte conserta sozinha" parece uma afirmação sobre o dado. Não
+é: é uma afirmação sobre o **mecanismo**. E o mecanismo pode estar parado.
+Com ele parado, a mesma divergência deixa de ser informação e vira a
+pendência mais séria da tela — a loja anuncia número errado e ninguém está a
+caminho de consertar.
+
+`saude.ts › diagnosticarSync(sync, agora)` decide isso, a partir do que
+`resumoSync` já entrega em `GET /api/state`. **Nenhum campo novo foi
+inventado no backend.**
+
+| Estado | Corrige sozinha? | Vem de |
+|---|---|---|
+| `saudavel` | sim | rodada recente terminada em `ok`, ou uma em andamento agora |
+| `desconectada` | **não** | `conectada: false` — sem token não há rodada nenhuma |
+| `erro` | **não** | `ultimoStatus: 'erro'` |
+| `pausada` | **não** | `ultimoStatus: 'pausado'` — e o cron **nunca força**, então ela para no mesmo ponto amanhã |
+| `nunca_rodou` | **não** | conectada, mas nenhuma rodada registrada |
+| `travada` | **não** | `rodando` há mais de 1 h. Uma rodada leva segundos; esta morreu antes de gravar o fim |
+| `atrasada` | **não** | última rodada `ok` há mais de 26 h. São duas por dia (06:00 e 18:00): a essa altura duas foram perdidas |
+
+Os dois limites, e por que esses números:
+
+- **26 h** é um ciclo inteiro perdido (12 h) mais outro, mais duas horas de
+  folga. Às 17h59 a última rodada legítima é a das 06:00 e faz quase doze
+  horas — abaixo do limite, atrasar não prova nada.
+- **1 h** para `travada`: o status `rodando` é gravado **antes** do trabalho
+  e só vira `ok`/`erro` no fim. Worker derrubado no meio deixa a linha
+  `rodando` para sempre.
+
+A ordem de avaliação vai do mais específico para o mais genérico: pausada há
+três dias é `pausada`, não `atrasada` — o motivo verdadeiro é o freio, e é
+ele que a pessoa precisa resolver.
+
+### Onde isso aparece
+
+1. O selo de estado troca de rótulo e de tom (`SyncStatus`) — **o mesmo**
+   diagnóstico, não uma segunda cópia da regra; era assim que a tela passaria
+   a dizer "Conectada" enquanto a lista abaixo diz que ninguém vai consertar
+   nada.
+2. O cartão "Estoque divergente" troca a nota "A próxima rodada acerta
+   sozinha" por "Ninguém vai acertar: veja as pendências", e o tom vira
+   crítico.
+3. A pendência entra **em primeiro lugar** na lista, e carrega o motivo que
+   o servidor deu — não um texto genérico. Vem primeiro porque é o único
+   item cujo motivo está fora da própria lista.
+
+### `vendendoDemais`
+
+A divergência não é simétrica. A loja mostrando **a menos**: deixamos de
+vender. Mostrando **a mais**: a loja aceita um pedido de uma peça que já
+saiu, e isso vira compromisso com um cliente. Só o segundo caso torna a
+pendência crítica.
+
+`contarPendencias(panorama, diagnostico)` exige o diagnóstico — parâmetro
+obrigatório de propósito. Um opcional teria de assumir algo quando ausente,
+e a única suposição barata ("está saudável") é justamente a que esconde o
+problema.
+
+Pendência é, além disso, o que uma pessoa precisa resolver: cadastro
+duplicado, variação pela metade, código sem anúncio, produto oculto com peça.
+Testes travam as duas metades da regra — `saude.test.ts` (18 casos, incluindo
+as bordas dos dois limites e a precedência entre estados), `panorama.test.ts`
+(o mesmo panorama contando 0 ou 2 conforme o diagnóstico) e o `frontend-e2e`,
+que quebra a sincronização de verdade e confere que a tela muda de ideia.
 
 O único botão que fala com a Nuvemshop é *Analisar sincronização*, e ele usa
 a rodada seca que o backend já tem. O `frontend-e2e.mjs` confere que a loja

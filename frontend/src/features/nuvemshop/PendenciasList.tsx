@@ -1,4 +1,5 @@
 import type { Panorama } from './panorama';
+import type { DiagnosticoSync } from './saude';
 import { StatusBadge, type Tom } from '../../components/StatusBadge';
 import { EmptyState } from '../../components/EmptyState';
 
@@ -13,11 +14,36 @@ interface Pendencia {
 
 /** O que precisa de uma PESSOA — e só isso.
  *
- *  "Estoque errado no site" fica de fora de propósito: a sincronização
- *  resolve sozinha na próxima rodada. Listar como pendência o que o robô já
- *  vai consertar é o que faz o painel legado parecer sempre em chamas. */
-export function montarPendencias(p: Panorama): Pendencia[] {
+ *  "Estoque errado no site" normalmente fica de fora: a sincronização
+ *  resolve sozinha na próxima rodada, e listar como pendência o que o robô
+ *  já vai consertar é o que faz o painel legado parecer sempre em chamas.
+ *
+ *  Normalmente. A frase "a próxima rodada resolve" tem uma condição
+ *  escondida — existir próxima rodada. Quando o diagnóstico diz que não
+ *  existe, a mesma divergência deixa de ser informação e vira a pendência
+ *  mais séria da tela: a loja está anunciando número errado e ninguém está
+ *  a caminho de consertar. */
+export function montarPendencias(p: Panorama, diag: DiagnosticoSync): Pendencia[] {
   const lista: Pendencia[] = [];
+
+  if (!diag.autoCorrige && p.desatualizados.length) {
+    /* Vem primeiro porque é o único item da lista cujo motivo está fora
+       dela: não é o dado que está errado, é o mecanismo que o conserta que
+       parou. Explicar isso depois de cinco outros avisos não funciona. */
+    const demais = p.vendendoDemais.length;
+    lista.push({
+      chave: 'divergencia_sem_conserto',
+      titulo: 'Estoque divergente, e a sincronização não vai corrigir',
+      quantidade: p.desatualizados.length,
+      tom: demais > 0 ? 'critico' : 'atencao',
+      descricao:
+        `${diag.motivo} Enquanto isso, ${frase(p.desatualizados.length)} com número diferente do que existe em casa.` +
+        (demais > 0
+          ? ` ${frase(demais)} anunciando MAIS do que temos — a loja aceita pedido de peça que já saiu.`
+          : ' Todos anunciam menos do que temos: deixamos de vender, mas nenhum pedido chega sem peça.'),
+      skus: p.desatualizados.map((x) => x.sku),
+    });
+  }
 
   if (p.duplicados.length) {
     lista.push({
@@ -88,14 +114,29 @@ export function montarPendencias(p: Panorama): Pendencia[] {
   return lista;
 }
 
-export function PendenciasList({ panorama }: { panorama: Panorama }) {
-  const pendencias = montarPendencias(panorama);
+/** "1 produto está" / "7 produtos estão" — concordância, não "1 produto(s)". */
+function frase(n: number): string {
+  return n === 1 ? '1 produto está' : `${n} produtos estão`;
+}
+
+export function PendenciasList({
+  panorama,
+  diagnostico,
+}: {
+  panorama: Panorama;
+  diagnostico: DiagnosticoSync;
+}) {
+  const pendencias = montarPendencias(panorama, diagnostico);
 
   if (!pendencias.length) {
     return (
       <EmptyState
         titulo="Nada esperando por você"
-        descricao="Nenhum cadastro duplicado, nenhuma variação pela metade e nenhum código sem anúncio. A sincronização dá conta do resto sozinha."
+        descricao={
+          diagnostico.autoCorrige
+            ? 'Nenhum cadastro duplicado, nenhuma variação pela metade e nenhum código sem anúncio. A sincronização dá conta do resto sozinha.'
+            : 'Nenhum cadastro duplicado, nenhuma variação pela metade e nenhum código sem anúncio — e a loja está com os mesmos números daqui, então a sincronização parada ainda não custou nada.'
+        }
       />
     );
   }

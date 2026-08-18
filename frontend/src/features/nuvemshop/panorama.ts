@@ -8,6 +8,7 @@
  *  sem data. É o que permite testá-la sem navegador.
  */
 import type { AppState, Product, UnpushedCode } from '../../types/api';
+import type { DiagnosticoSync } from './saude';
 
 export interface Panorama {
   /** SKU → quanto está em casa (total − consignado). */
@@ -41,6 +42,11 @@ export interface Panorama {
   faltaSubir: Product[];
   /** A loja mostra número diferente do que existe em casa. */
   desatualizados: Product[];
+  /** Dos desatualizados, os que a loja mostra a MAIS do que existe aqui.
+   *  A diferença não é simétrica: mostrando a menos, deixamos de vender;
+   *  mostrando a mais, a loja aceita um pedido de uma peça que já saiu. Só
+   *  este lado vira compromisso com um cliente. */
+  vendendoDemais: Product[];
   /** Publicados mas fora do ar. */
   ocultos: Product[];
   /** Dos ocultos, os que têm peça em casa e podiam estar vendendo. */
@@ -77,6 +83,9 @@ export function montarPanorama(state: AppState): Panorama {
   const skusSemEmpurrar = new Set(semEmpurrar.map((v) => v.sku));
 
   const ocultos = naLoja.filter((p) => p.visivel === false);
+  const desatualizados = naLoja.filter(
+    (p) => !skusSemEmpurrar.has(p.sku) && (p.estoqueLoja ?? 0) !== certo(p),
+  );
 
   return {
     casa,
@@ -93,9 +102,8 @@ export function montarPanorama(state: AppState): Panorama {
       (a, b) => a.localeCompare(b, 'pt'),
     ),
     faltaSubir: fora.filter((p) => certo(p) > 0),
-    desatualizados: naLoja.filter(
-      (p) => !skusSemEmpurrar.has(p.sku) && (p.estoqueLoja ?? 0) !== certo(p),
-    ),
+    desatualizados,
+    vendendoDemais: desatualizados.filter((p) => (p.estoqueLoja ?? 0) > certo(p)),
     ocultos,
     ocultosComPeca: ocultos.filter((p) => certo(p) > 0),
     pecasPublicadas: naLoja.reduce((s, p) => s + (p.estoqueLoja ?? 0), 0),
@@ -108,14 +116,22 @@ export function montarPanorama(state: AppState): Panorama {
   };
 }
 
-/** Quantos casos precisam de uma pessoa. É o número que a tela mostra em
- *  "Pendências" — e ele NÃO inclui "estoque errado", que a sincronização
- *  resolve sozinha. */
-export function contarPendencias(p: Panorama): number {
+/** Quantos casos precisam de uma pessoa.
+ *
+ *  "Estoque divergente" entra ou não conforme o diagnóstico: enquanto a
+ *  sincronização estiver de pé, ela conserta sozinha e cobrar seria só
+ *  barulho; quando não estiver, ninguém conserta e a divergência passa a
+ *  ser trabalho de gente. Ver `saude.ts › diagnosticarSync`.
+ *
+ *  O diagnóstico é obrigatório de propósito. Um parâmetro opcional teria
+ *  de assumir algo quando ausente, e a única suposição barata — "está
+ *  saudável" — é justamente a que esconde o problema. */
+export function contarPendencias(p: Panorama, diag: DiagnosticoSync): number {
   return (
     p.duplicados.length +
     p.comVariacao.length +
     p.faltaSubir.length +
-    p.ocultosComPeca.length
+    p.ocultosComPeca.length +
+    (diag.autoCorrige ? 0 : p.desatualizados.length)
   );
 }

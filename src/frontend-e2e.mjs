@@ -4,8 +4,9 @@
  *
  *   1. o app carrega e reaproveita a conexão do painel legado
  *   2. a tela Nuvemshop lê o estado de verdade e mostra os números certos
- *   3. a divergência de estoque aparece como INFORMAÇÃO, não como pendência
- *      (a rodada seguinte conserta sozinha)
+ *   3. a divergência de estoque aparece como INFORMAÇÃO enquanto a
+ *      sincronização estiver de pé — e vira PENDÊNCIA quando ela não
+ *      estiver, porque aí ninguém vai consertar
  *   4. o que precisa de gente aparece em Pendências, com o motivo
  *   5. "Analisar sincronização" roda a rodada SECA e mostra o diff
  *      classificado por risco
@@ -99,7 +100,10 @@ contem('tem a aba Reconciliação', abas.join('|'), 'Reconciliação');
 console.log('\n=== 2. estado da integração ===');
 await page.waitForSelector('.selo', { timeout: 15000 });
 const estado = await page.textContent('.selo');
-eq('a loja aparece como conectada', estado.trim(), 'Conectada');
+/* O rótulo diz o que está ACONTECENDO, não só que existe token. "Conectada"
+   com a última rodada em erro seria a tela dando um recado tranquilizador
+   sobre uma integração parada. */
+eq('a loja aparece sincronizando normalmente', estado.trim(), 'Sincronizando normalmente');
 
 console.log('\n=== 3. visão geral com os números reais ===');
 await page.waitForSelector('.metric', { timeout: 15000 });
@@ -113,7 +117,7 @@ eq('produtos publicados: os 3 que casaram', metrica('Produtos publicados'), 3);
 eq('estoque divergente: só o B1', metrica('Estoque divergente'), 1);
 eq('aguardando cadastro: só o B4', metrica('Aguardando cadastro'), 1);
 
-console.log('\n=== 4. divergência NÃO vira pendência ===');
+console.log('\n=== 4. divergência NÃO vira pendência (com a rodada de pé) ===');
 /* A regra que a tela nova precisa honrar: o que a próxima rodada conserta
    sozinha é informação, não tarefa de ninguém. */
 const pendencias = await page.$$eval('.pendencia .titulo', ns => ns.map(n => n.textContent.trim()));
@@ -151,11 +155,50 @@ contem('diz que aprovar e aplicar ainda não existem', corpoRec, 'ainda não exi
 const linhasRec = await page.$$eval('table.tabela tbody tr', ns => ns.length);
 eq('a tabela do diff está lá também', linhasRec, 1);
 
-console.log('\n=== 8. o painel legado continua alcançável ===');
+console.log('\n=== 8. com a sincronização quebrada, a MESMA divergência vira pendência ===');
+/* A regra da seção 4 tinha uma condição escondida: "a próxima rodada
+   conserta" só vale se houver próxima rodada. Aqui a loja passa a responder
+   500, a rodada falha de verdade, e a tela precisa mudar de ideia sobre
+   exatamente o mesmo número. */
+loja.estado.falhar = true;
+const quebrada = await api('POST', '/api/sync', {});
+eq('a rodada falhou de verdade', quebrada.ok, 'false');
+loja.estado.falhar = false;
+
+await page.goto(URL_APP);
+await page.waitForSelector('.pendencia .titulo', { timeout: 15000 });
+
+const estado2 = await page.textContent('.selo');
+eq('o estado deixou de dizer que está normal', estado2.trim(), 'Última rodada falhou');
+
+const pend2 = await page.$$eval('.pendencia .titulo', ns => ns.map(n => n.textContent.trim()));
+eq('agora "estoque divergente" ESTÁ nas pendências',
+   pend2.some(x => x.toLowerCase().includes('divergente')), 'true');
+eq('e vem primeiro: o motivo dela está fora da própria lista',
+   pend2[0].toLowerCase().includes('divergente'), 'true');
+
+const corpoPend = await page.textContent('.pendencia .descricao');
+/* A pendência tem de carregar o motivo REAL que o servidor deu — não um
+   texto genérico escrito na tela. É a diferença entre "algo deu errado" e
+   uma frase que diz o que fazer a respeito. */
+contem('a pendência carrega a mensagem que o servidor deu',
+  corpoPend, 'loja de mentira: falha proposital');
+contem('e diz o que isso custa enquanto durar', corpoPend, 'número diferente');
+
+const notaDiv = await page.$$eval('.metric', ns => {
+  const m = ns.find(n => n.querySelector('.rotulo').textContent.trim() === 'Estoque divergente');
+  return m ? m.textContent : '';
+});
+contem('e o cartão parou de prometer que a próxima rodada acerta',
+  notaDiv, 'Ninguém vai acertar');
+
+eq('nada disso escreveu na loja', loja.estado.escritas.length, 0);
+
+console.log('\n=== 9. o painel legado continua alcançável ===');
 const rodape = await page.textContent('.rodape');
 contem('o rodapé aponta para o dashboard.html', rodape, 'dashboard.html');
 
-console.log('\n=== 9. erros de console ===');
+console.log('\n=== 10. erros de console ===');
 eq('nenhum erro no console do navegador', erros.length, 0);
 if (erros.length) erros.slice(0, 5).forEach(e => console.log('    ' + e));
 

@@ -11,13 +11,13 @@ comportamento.
 
 ## Data
 
-**2026-08-18**, 07:35 (horário local, UTC−3).
+**2026-08-18**, 11:05 (horário local, UTC−3).
 
 ## Commit / checkpoint
 
 | | |
 |---|---|
-| Commit medido | `3c849a0` + a migração do frontend para React/TS/Vite |
+| Commit medido | `ed55b77` + a etapa de validação e hardening |
 | Tags locais | `checkpoint/pre-bootstrap-claude` → `f3f08cb` · `checkpoint/pre-frontend-react` → `3c849a0` |
 | Branch | `main` |
 | Remote | `origin` → github.com/gustavodemelomartins-hub/Marquesa-Etiquetas |
@@ -73,24 +73,25 @@ Cada teste rodou com **banco zerado e Worker local recém-subido**.
 | `src/kits-test.mjs` | **passou** | 20 | 0 | 1 s |
 | `src/e2e.mjs` | **passou** | 66 | 0 | 37 s |
 | `src/import-casa-test.mjs` | **passou** | 8 | 0 | 11 s |
-| `src/frontend-e2e.mjs` | **passou** | 23 | 0 | 3 s |
+| `src/frontend-e2e.mjs` | **passou** | 31 | 0 | 5 s |
+| `src/dry-run-test.mjs` | **passou** | 49 | 0 | 15 s |
 
-### Total: **232 asserções, 0 falhas, 6 de 6 testes.**
+### Total: **289 asserções, 0 falhas, 7 de 7 testes.**
 
 ### Frontend novo, sem navegador
 
 ```bash
 cd frontend
 npm run typecheck   # tsc --noEmit          → 0 erros
-npm test            # vitest                → 47 testes, 0 falhas
+npm test            # vitest                → 73 testes, 0 falhas
 npm run build       # tsc --noEmit + vite   → dist/ em ~1,6 s
 ```
 
 | | |
 |---|---|
-| Testes unitários | **47 passaram, 0 falharam** (4 arquivos) |
+| Testes unitários | **73 passaram, 0 falharam** (5 arquivos) |
 | TypeScript `strict` | 0 erros |
-| Build | 221 kB de JS (69 kB gzip) + 11 kB de CSS + as duas fontes |
+| Build | 224 kB de JS (71 kB gzip) + 11 kB de CSS + as duas fontes |
 
 Sequência por teste:
 
@@ -118,14 +119,19 @@ node src/<teste>.mjs
 |---|---|---|---|
 | 2026-08-18 00:45 | 3 de 5 | 135 | Testes de navegador não rodavam: `executablePath` fixo em `/opt/pw-browsers/chromium` |
 | 2026-08-18 06:40 | 5 de 5 | 209 | Ambiente do E2E corrigido |
-| **2026-08-18 07:35** | **6 de 6** | **232** | + `frontend-e2e` (painel React), + 47 testes unitários do frontend |
+| 2026-08-18 07:35 | 6 de 6 | 232 | + `frontend-e2e` (painel React), + 47 testes unitários do frontend |
+| **2026-08-18 11:05** | **7 de 7** | **289** | + `dry-run-test` (49), + 8 no `frontend-e2e`, + 26 unitários |
 
 O salto de 135 para 209 foi **cobertura recuperada**, não comportamento novo:
 os dois testes de navegador sempre existiram e sempre passaram na máquina de
-origem. De 209 para 232 é cobertura **nova**: o painel React não existia.
+origem. De 209 em diante é cobertura **nova**.
 
-Nenhum dos 209 mudou de valor, e é isso que prova que a migração do frontend
-não mexeu em nada do que já funcionava.
+Os 209 originais nunca mudaram de valor em nenhuma das medições — é isso que
+prova que nem a migração do frontend nem esta etapa mexeram no que já
+funcionava. As 8 asserções novas do `frontend-e2e` são acréscimo; a única
+alterada foi o rótulo do selo de estado, que passou de "Conectada" para
+"Sincronizando normalmente" por decisão deliberada (o selo passou a dizer o
+que está acontecendo, não só que existe token).
 
 ---
 
@@ -179,12 +185,24 @@ ambiente, que vão acontecer de novo com quem montar a máquina do zero:
    — e um teste unitário trava que `services/sync.ts` só sabe mandar
    `{seco: true}`, nunca `forcar`.
 
-6. O `e2e` é o teste mais valioso da suíte e o mais caro: 37 s, navegador de
+6. **O dry-run não escreve estoque, razão, venda nem na loja**, agora com
+   prova formal em vez de leitura de código: `src/dry-run-test.mjs` compara
+   oito tabelas linha por linha, lidas direto do SQLite. Ele **também**
+   documenta os quatro recursos que a rodada seca SIM atualiza — todos
+   metadado de leitura. Tabela completa em [SYNC_ENGINE.md](SYNC_ENGINE.md).
+
+7. **O backup de produção foi reconferido nesta medição**, carregando o dump
+   de 06:22 num banco limpo: 16 tabelas, 782 produtos, 1.278 movimentos,
+   **0 divergências na razão**, nenhum `externo_id` repetido, e nenhuma
+   tabela `reconciliacao_*` — confirmando que a migration do branch nunca
+   foi aplicada.
+
+8. O `e2e` é o teste mais valioso da suíte e o mais caro: 37 s, navegador de
    verdade, 12 seções, e é o único que prova que a interface legada e a API
    conversam. Termina conferindo que **nenhum erro de console apareceu** — e
    o `frontend-e2e` faz a mesma checagem para o painel novo.
 
-7. `src/shot.mjs` não é teste — tira fotos das telas. `api/test-api.mjs` é
+9. `src/shot.mjs` não é teste — tira fotos das telas. `api/test-api.mjs` é
    script auxiliar.
 
 ---
@@ -194,7 +212,7 @@ ambiente, que vão acontecer de novo com quem montar a máquina do zero:
 ```bash
 python src/build.py && git diff --ignore-cr-at-eol --stat -- dashboard.html
 cd frontend && npm run build && npm test && cd ..
-# depois, a sequência de 4 passos acima, para cada um dos 6 testes
+# depois, a sequência de 4 passos acima, para cada um dos 7 testes
 ```
 
 Queda em relação a esta tabela é regressão.

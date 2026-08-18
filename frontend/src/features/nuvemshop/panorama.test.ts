@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { montarPanorama, contarPendencias, mapaEmCasa } from './panorama';
+import { montarPendencias } from './PendenciasList';
+import type { DiagnosticoSync } from './saude';
 import type { AppState, Product } from '../../types/api';
+
+/** Os dois lados da regra do §1, sem precisar montar um `SyncSummary`
+ *  inteiro: `saude.test.ts` cuida de COMO se chega a cada um. */
+const SAUDAVEL: DiagnosticoSync = {
+  estado: 'saudavel', autoCorrige: true,
+  rotulo: 'Sincronizando normalmente', motivo: 'ok',
+};
+const PARADA: DiagnosticoSync = {
+  estado: 'erro', autoCorrige: false,
+  rotulo: 'Última rodada falhou', motivo: 'A Nuvemshop devolveu 401.',
+};
 
 /** Um produto com o mínimo preenchido. Os testes sobrescrevem só o que
  *  importa para o caso. */
@@ -215,6 +228,94 @@ describe('contarPendencias', () => {
     );
     expect(p.desatualizados).toHaveLength(1);
     /* 1 duplicado + 0 semEmpurrar + 1 faltaSubir + 1 ocultoComPeca */
-    expect(contarPendencias(p)).toBe(3);
+    expect(contarPendencias(p, SAUDAVEL)).toBe(3);
+  });
+
+  /* ------------------------------------------------------------------
+     A regra vale nos DOIS sentidos: o mesmo panorama conta diferente
+     conforme exista ou não uma próxima rodada. É a mesma divergência —
+     o que muda é quem vai consertá-la.
+     ------------------------------------------------------------------ */
+
+  it('com a sincronização parada, a MESMA divergência passa a contar', () => {
+    const p = montarPanorama(
+      estado([
+        produto({ sku: 'DIV1', urlLoja: 'u', estoqueLoja: 1, disponivel: 9 }),
+        produto({ sku: 'DIV2', urlLoja: 'u2', estoqueLoja: 4, disponivel: 0 }),
+      ]),
+    );
+    expect(p.desatualizados).toHaveLength(2);
+    expect(contarPendencias(p, SAUDAVEL)).toBe(0);
+    expect(contarPendencias(p, PARADA)).toBe(2);
+  });
+
+  it('sem divergência nenhuma, sincronização parada não inventa pendência', () => {
+    const p = montarPanorama(
+      estado([produto({ sku: 'OK', urlLoja: 'u', estoqueLoja: 3, disponivel: 3 })]),
+    );
+    expect(contarPendencias(p, PARADA)).toBe(0);
+  });
+});
+
+describe('vendendoDemais', () => {
+  it('separa quem anuncia a mais de quem anuncia a menos', () => {
+    const p = montarPanorama(
+      estado([
+        /* a loja mostra 5, existem 2: aceita pedido de peça que já saiu */
+        produto({ sku: 'DEMAIS', urlLoja: 'u', estoqueLoja: 5, disponivel: 2 }),
+        /* a loja mostra 1, existem 8: só deixamos de vender */
+        produto({ sku: 'MENOS', urlLoja: 'u2', estoqueLoja: 1, disponivel: 8 }),
+      ]),
+    );
+    expect(p.desatualizados.map((x) => x.sku)).toEqual(['DEMAIS', 'MENOS']);
+    expect(p.vendendoDemais.map((x) => x.sku)).toEqual(['DEMAIS']);
+  });
+
+  it('disponível negativo conta como zero, igual ao que se empurra para a loja', () => {
+    /* `certo` é Math.max(0, …): nunca se manda estoque negativo para a
+       Nuvemshop, então a comparação tem de usar o mesmo número. */
+    const p = montarPanorama(
+      estado([produto({ sku: 'NEG', urlLoja: 'u', estoqueLoja: 3, disponivel: -4 })]),
+    );
+    expect(p.vendendoDemais.map((x) => x.sku)).toEqual(['NEG']);
+  });
+});
+
+describe('montarPendencias e o diagnóstico', () => {
+  const comDivergencia = () =>
+    montarPanorama(
+      estado([
+        produto({ sku: 'DEMAIS', urlLoja: 'u', estoqueLoja: 5, disponivel: 2 }),
+        produto({ sku: 'MENOS', urlLoja: 'u2', estoqueLoja: 1, disponivel: 8 }),
+      ]),
+    );
+
+  it('sincronização saudável: divergência não aparece na lista', () => {
+    const lista = montarPendencias(comDivergencia(), SAUDAVEL);
+    expect(lista.map((x) => x.chave)).not.toContain('divergencia_sem_conserto');
+  });
+
+  it('sincronização parada: divergência aparece PRIMEIRO, e crítica', () => {
+    const lista = montarPendencias(comDivergencia(), PARADA);
+    expect(lista[0]?.chave).toBe('divergencia_sem_conserto');
+    /* Crítica porque um dos dois anuncia a mais: existe cliente que pode
+       comprar uma peça que não está aqui. */
+    expect(lista[0]?.tom).toBe('critico');
+    expect(lista[0]?.quantidade).toBe(2);
+    expect(lista[0]?.skus).toEqual(['DEMAIS', 'MENOS']);
+  });
+
+  it('a pendência carrega o motivo do diagnóstico, não um texto genérico', () => {
+    const lista = montarPendencias(comDivergencia(), PARADA);
+    expect(lista[0]?.descricao).toContain('401');
+  });
+
+  it('divergindo só para menos, é atenção e não crítico', () => {
+    const p = montarPanorama(
+      estado([produto({ sku: 'MENOS', urlLoja: 'u', estoqueLoja: 1, disponivel: 8 })]),
+    );
+    const lista = montarPendencias(p, PARADA);
+    expect(lista[0]?.tom).toBe('atencao');
+    expect(lista[0]?.descricao).toContain('deixamos de vender');
   });
 });

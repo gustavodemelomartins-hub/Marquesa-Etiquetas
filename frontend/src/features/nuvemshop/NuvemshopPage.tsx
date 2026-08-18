@@ -10,6 +10,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { SyncStatus } from './SyncStatus';
 import { PendenciasList } from './PendenciasList';
 import { montarPanorama } from './panorama';
+import { diagnosticarSync } from './saude';
 import { analisarRelato } from '../reconciliacao/classificar';
 import { ReconciliationSummary } from '../reconciliacao/ReconciliationSummary';
 import { ReconciliationTable } from '../reconciliacao/ReconciliationTable';
@@ -46,6 +47,14 @@ export function NuvemshopPage({ conexao, aoAnalisar }: Props) {
     [estado.dados],
   );
 
+  /* O "agora" entra como valor, não é lido lá dentro: assim o diagnóstico
+     continua sendo função pura e testável sem congelar relógio. Recalcula
+     quando o estado chega — que é quando a resposta pode mudar. */
+  const diagnostico = useMemo(
+    () => (estado.dados ? diagnosticarSync(estado.dados.sync, new Date()) : null),
+    [estado.dados],
+  );
+
   if (estado.carregando && !estado.dados) {
     return (
       <>
@@ -64,7 +73,7 @@ export function NuvemshopPage({ conexao, aoAnalisar }: Props) {
     );
   }
 
-  if (!estado.dados || !panorama) return null;
+  if (!estado.dados || !panorama || !diagnostico) return null;
 
   const { sync } = estado.dados;
 
@@ -92,7 +101,7 @@ export function NuvemshopPage({ conexao, aoAnalisar }: Props) {
       />
 
       {/* --------------------------------------------------- ESTADO */}
-      <SyncStatus sync={sync} lidoEm={panorama.lidoEm} />
+      <SyncStatus sync={sync} lidoEm={panorama.lidoEm} diagnostico={diagnostico} />
 
       {/* --------------------------------------------- VISÃO GERAL */}
       <section className="secao">
@@ -110,11 +119,22 @@ export function NuvemshopPage({ conexao, aoAnalisar }: Props) {
           <MetricCard
             rotulo="Estoque divergente"
             valor={panorama.desatualizados.length}
-            tom={panorama.desatualizados.length ? 'atencao' : 'positivo'}
+            /* O mesmo número muda de gravidade conforme exista ou não uma
+               próxima rodada para acertá-lo. Anunciar "a próxima rodada
+               acerta" com a sincronização parada seria a tela mentindo. */
+            tom={
+              !panorama.desatualizados.length
+                ? 'positivo'
+                : !diagnostico.autoCorrige
+                  ? 'critico'
+                  : 'atencao'
+            }
             nota={
-              panorama.desatualizados.length
-                ? 'A próxima rodada acerta sozinha'
-                : 'A loja está em dia'
+              !panorama.desatualizados.length
+                ? 'A loja está em dia'
+                : diagnostico.autoCorrige
+                  ? 'A próxima rodada acerta sozinha'
+                  : 'Ninguém vai acertar: veja as pendências'
             }
           />
           <MetricCard
@@ -134,7 +154,7 @@ export function NuvemshopPage({ conexao, aoAnalisar }: Props) {
       {/* ----------------------------------------------- PENDÊNCIAS */}
       <section className="secao">
         <h2 className="secao-titulo">Pendências</h2>
-        <PendenciasList panorama={panorama} />
+        <PendenciasList panorama={panorama} diagnostico={diagnostico} />
       </section>
 
       {/* ------------------------------------------- ANÁLISE (leitura) */}

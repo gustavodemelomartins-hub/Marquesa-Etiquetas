@@ -174,6 +174,58 @@ gerar no próprio build.
 
 ---
 
+## 12. Uma rodada seca apaga o rastro de uma rodada real que falhou
+
+**Descoberto em 2026-08-18**, ao provar formalmente o comportamento do
+dry-run. Nada foi corrigido: é comportamento funcional, e mudá-lo exige
+decisão humana.
+
+`resumoSync` (api/src/sync.js) monta o resumo a partir da **última linha** de
+`sync_execucoes`:
+
+```js
+const ultima = await db.prepare(
+  `SELECT * FROM sync_execucoes ORDER BY id DESC LIMIT 1`).first();
+```
+
+E a rodada seca grava uma linha ali igual à real — o `INSERT ... 'rodando'`
+acontece antes de qualquer checagem de `seco`, e o `UPDATE ... 'ok'` no fim
+também. Então:
+
+```
+rodada real  → o PATCH falha        → sync_execucoes: erro
+alguém abre o painel                → "Última rodada falhou" (certo)
+alguém clica em "Analisar"          → rodada seca, que não faz PATCH nenhum
+                                    → sync_execucoes: ok
+o painel recarrega                  → "Sincronizando normalmente" (errado)
+```
+
+O caminho exige que a falha seja **no PATCH**: um erro de leitura derrubaria
+a rodada seca também, e o estado continuaria honesto. Mas o PATCH é
+justamente a metade que a rodada seca não exercita.
+
+Isso contraria a regra 9 do `CLAUDE.md` — o que o sistema não fez tem de ser
+anunciado. Aqui ele deixa de ser anunciado por conta de uma leitura.
+
+**Correção proposta, na ordem de menos para mais invasiva:**
+
+1. `resumoSync` passa a ignorar rodadas secas ao responder `ultimoStatus` /
+   `erro` / `pausada`, buscando a última linha **não seca**. A informação já
+   está no banco (`detalhe_json.seco`); nenhuma coluna nova, nenhuma
+   migration. Custa uma condição no `SELECT`.
+2. Ou: a rodada seca deixa de gravar em `sync_execucoes`. Mais simples de
+   entender, mas perde o histórico de análises — que o motor de
+   reconciliação vai querer ter.
+
+A (1) é a recomendada: preserva o histórico e conserta a leitura.
+
+**Enquanto não for corrigido**, `diagnosticarSync` no painel novo
+(`frontend/src/features/nuvemshop/saude.ts`) pode ser enganado nesse caso
+específico, e com ele a classificação de "estoque divergente". Os outros
+estados — desconectada, pausada, travada, atrasada, nunca rodou — não têm
+esse problema: a rodada seca também pausa no freio, e também não conecta
+uma loja desconectada.
+
 ## 11. Detalhes menores, anotados para não se perderem
 
 - `listarTudo` da Nuvemshop tem teto de **40 páginas** (8.000 registros).
@@ -186,6 +238,11 @@ gerar no próprio build.
 - `frontend/src/features/reconciliacao/exemplo.ts` é dado de mentira que
   vive no código de produção. Ele some quando a tela de revisão de verdade
   existir; até lá, a faixa listrada avisa o usuário em voz alta.
+- `reconciliacao_itens` (no branch `feature/motor-reconciliacao`) não tem
+  UNIQUE em `(sessao_id, sku, variacao, tipo)`, embora o comentário chame
+  isso de identidade. Para `estoque_loja` a duplicata seria inofensiva (o
+  PATCH manda valor absoluto); para `ajuste_qtd` seria um movimento contado
+  duas vezes. Ver [ROADMAP_RECONCILIATION.md](ROADMAP_RECONCILIATION.md).
 - `api/gerar-seed.py` gera dado real e o `.gitignore` protege a saída
   (`seed.sql`) — correto, e vale manter no radar em qualquer mudança do
   `.gitignore`.
