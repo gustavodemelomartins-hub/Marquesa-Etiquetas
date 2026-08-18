@@ -1,9 +1,50 @@
-# Skills instaladas por `npx skills add` — ficam fora do repositório.
-# São ~39 MB, quase tudo imagens, e este repositório é servido pelo GitHub
-# Pages: tudo que entra aqui é baixado por quem clona e publicado na web.
-.agents/
-.claude/
-skills-lock.json
+# ---------------------------------------------------------------- segredos
+# Nada com valor real de credencial entra aqui. Este repositório é PÚBLICO e
+# servido pelo GitHub Pages: o que for versionado é baixado por quem clona e
+# publicado na web. Os nomes das variáveis moram em .env.example.
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+*.pem
+*.key
+!vendor/**/*.key
 
-# dependências dos testes do dashboard
+# --------------------------------------------------------------- backups
+# Cópias do D1 e snapshots do repositório contêm dados reais (nomes de
+# clientes, revendedoras, estoque, preços). Ficam locais, nunca versionados.
+backups/
+*.sqlite
+*.sqlite3
+*.db
+
+# -------------------------------------------------- dependências e build
+node_modules/
 src/node_modules/
+api/node_modules/
+.wrangler/
+*.log
+
+# ------------------------------------------------------- Claude Code
+# As skills instaladas por `npx skills add` ficam FORA do repositório: são
+# ~39 MB, quase tudo imagens. A configuração PRÓPRIA do projeto
+# (.claude/settings.json, agents/ e skills/) é pequena, é parte do
+# repositório e fica versionada — é o que faz o próximo desenvolvedor
+# receber as mesmas regras de segurança.
+.agents/
+skills-lock.json
+.claude/*
+!.claude/README.md
+!.claude/settings.json
+!.claude/agents/
+!.claude/skills/
+.claude/settings.local.json
+.claude/plugins/
+.claude/cache/
+
+# ------------------------------------------------------------ sistema
+Thumbs.db
+.DS_Store
+desktop.ini
