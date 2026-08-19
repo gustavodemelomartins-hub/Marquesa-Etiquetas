@@ -15,6 +15,9 @@ on:
     paths:
       - 'frontend/**'
       - '.github/workflows/deploy-dev.yml'
+  # Permite reexecutar sem precisar de um commit que toque frontend/ —
+  # útil depois de corrigir secrets, por exemplo.
+  workflow_dispatch: {}
 
 # Evita dois deploys concorrentes pisando um no outro se dois pushes
 # chegarem em sequência rápida.
