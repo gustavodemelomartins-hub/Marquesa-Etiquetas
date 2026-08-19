@@ -300,6 +300,37 @@ table.tabela td.num { text-align: right; font-variant-numeric: lining-nums tabul
   background: var(--line-soft); border-radius: var(--r1); padding: 1px 6px;
 }
 
+/* --------------------------------------------------- escolha de modo */
+
+.grade-escolha {
+  display: grid; gap: var(--r4);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-bottom: var(--r5);
+}
+.cartao-escolha {
+  appearance: none; text-align: left; font: inherit; cursor: pointer;
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--raio-lg); box-shadow: var(--shadow-sm);
+  padding: var(--r5); transition: border-color .12s, box-shadow .12s;
+}
+.cartao-escolha:hover { border-color: var(--rose-soft); box-shadow: var(--shadow); }
+.cartao-escolha h3 { margin-bottom: var(--r2); }
+.cartao-escolha p { color: var(--muted); font-size: 13.5px; }
+
+/* ------------------------------------------------------- upload */
+
+.dropzone-upload {
+  border: 1px dashed var(--line); border-radius: var(--raio);
+  padding: var(--r7) var(--r5); text-align: center; cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.dropzone-upload:hover { border-color: var(--rose-soft); background: var(--line-soft); }
+
+/* Conflito de consignação: nunca deve parecer uma alteração comum — borda
+   sólida na linha inteira, não só o selo. */
+table.tabela tbody tr[data-conflito] { background: var(--danger-tint); }
+table.tabela tbody tr[data-conflito]:hover { background: var(--danger-tint); }
+
 /* ------------------------------------------------------------ aviso */
 
 .aviso {

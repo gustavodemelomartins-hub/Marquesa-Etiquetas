@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-export type Rota = 'nuvemshop' | 'reconciliacao';
+export type Rota = 'nuvemshop' | 'reconciliacao' | 'estoque-total';
 
 interface ItemNav {
   rota: Rota;

@@ -5,6 +5,7 @@ import { AppShell, type Rota } from './AppShell';
 import { ConnectionForm } from './ConnectionForm';
 import { NuvemshopPage } from '../features/nuvemshop/NuvemshopPage';
 import { ReconciliacaoPage } from '../features/reconciliacao/ReconciliacaoPage';
+import { EstoqueTotalPage } from '../features/estoque-total/EstoqueTotalPage';
 
 export function App() {
   const { conexao, conectar, desconectar } = useConnection();
@@ -44,13 +45,14 @@ export function App() {
           rotulo: 'Reconciliação',
           ...(analise ? { contagem: analise.itens.length } : {}),
         },
+        { rota: 'estoque-total', rotulo: 'Estoque Total' },
       ]}
     >
-      {rota === 'nuvemshop' ? (
-        <NuvemshopPage conexao={conexao} aoAnalisar={setAnalise} />
-      ) : (
+      {rota === 'nuvemshop' && <NuvemshopPage conexao={conexao} aoAnalisar={setAnalise} />}
+      {rota === 'reconciliacao' && (
         <ReconciliacaoPage analise={analise} aoIrParaNuvemshop={() => setRota('nuvemshop')} />
       )}
+      {rota === 'estoque-total' && <EstoqueTotalPage conexao={conexao} />}
     </AppShell>
   );
 }

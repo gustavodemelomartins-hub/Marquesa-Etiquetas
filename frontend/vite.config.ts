@@ -29,10 +29,16 @@ export default defineConfig({
   },
 
   test: {
-    /* Sem jsdom de propósito: o que se testa aqui é lógica pura e a camada
-       de API. O comportamento da interface é provado num navegador de
-       verdade, pelo teste ponta a ponta — ver docs/TESTING.md. */
+    /* Ambiente padrão continua 'node' de propósito: a maior parte do que
+       se testa aqui é lógica pura e a camada de API, e o comportamento
+       real da interface é provado num navegador de verdade, pelo teste
+       ponta a ponta — ver docs/TESTING.md. O fluxo de reconciliação por
+       planilha (Estoque Total) é a exceção: é um assistente de várias
+       etapas (escolha → upload → revisão → confirmação → resultado) onde
+       vale a pena provar a ORQUESTRAÇÃO de estado com Testing Library,
+       além do E2E. Esses arquivos declaram `// @vitest-environment jsdom`
+       no topo — o padrão 'node' abaixo não muda para o resto da suíte. */
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
   },
 });
