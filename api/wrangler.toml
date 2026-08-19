@@ -31,3 +31,26 @@ ORIGENS_PERMITIDAS = "https://gustavodemelomartins-hub.github.io"
 # como Secrets — a rodada termina avisando que a loja não está conectada.
 [triggers]
 crons = ["0 9,21 * * *"]
+
+# ------------------------------------------------------------- ambiente DEV
+# Worker separado, D1 separado, sem cron, sem credencial da Nuvemshop real.
+# `wrangler deploy --env staging` publica em marquesa-api-staging — nunca em
+# marquesa-api (produção). Rodar sem `--env` continua publicando produção,
+# exatamente como hoje.
+[env.staging]
+name = "marquesa-api-staging"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "marquesa-db-dev"
+database_id = "dcc36f65-daaa-42a4-9fbd-15e6f27e4d4b"
+
+[env.staging.vars]
+ORIGENS_PERMITIDAS = "https://marquesa-dev.pages.dev"
+
+# Sem NUVEMSHOP_TOKEN/NUVEMSHOP_STORE_ID como secret neste ambiente: sem eles
+# `Nuvemshop.configurada()` volta false e toda chamada de sync termina em
+# "loja não conectada" — nunca sai um PATCH de verdade daqui. Documentado em
+# docs/DEVELOPMENT.md § Ambiente DEV.
+[env.staging.triggers]
+crons = []

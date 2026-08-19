@@ -182,6 +182,16 @@ a { color: var(--bordo); }
 .selo[data-tom='atencao']  { color: var(--tom-atencao);  background: var(--tom-atencao-bg); }
 .selo[data-tom='critico']  { color: var(--tom-critico);  background: var(--tom-critico-bg); }
 
+/* Selo do ambiente DEV — discreto de propósito, nunca aparece em produção
+   (ver frontend/src/app/DevBadge.tsx). */
+.selo-dev {
+  display: inline-flex; align-items: center;
+  font-size: 11px; letter-spacing: .04em; padding: 2px 8px;
+  border-radius: 999px; margin-left: var(--r2);
+  color: var(--tom-atencao); background: var(--tom-atencao-bg);
+  border: 1px solid var(--tom-atencao);
+}
+
 /* --------------------------------------------------------- botões
  *
  * A linguagem visual separa o que a ação FAZ, não o quanto ela é

@@ -15,7 +15,10 @@ interface Props {
  *  Duas checagens separadas, de propósito — a diferença entre elas é a
  *  diferença entre "o endereço está errado" e "a chave está errada", e
  *  juntar as duas produz a mensagem inútil que o app legado dá hoje. */
-export function ConnectionForm({ aoConectar, urlInicial = '' }: Props) {
+export function ConnectionForm({
+  aoConectar,
+  urlInicial = import.meta.env.VITE_API_URL ?? '',
+}: Props) {
   const [url, setUrl] = useState(urlInicial);
   const [chave, setChave] = useState('');
   const [erro, setErro] = useState('');

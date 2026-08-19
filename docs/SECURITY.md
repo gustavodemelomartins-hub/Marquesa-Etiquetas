@@ -70,6 +70,41 @@ wrangler secret delete
 Autorização para uma operação **não se estende** à próxima nem ao próximo
 dia. "Pode aplicar a migration" autoriza aquela migration, não a seguinte.
 
+## DEV é descartável. PROD é Classe C sempre.
+
+Desde 2026-08-18 existe um ambiente de desenvolvimento na nuvem, separado
+de produção em toda camada (ver [DEVELOPMENT.md § Ambiente DEV na
+nuvem](DEVELOPMENT.md)):
+
+| Recurso | Produção | DEV |
+|---|---|---|
+| Worker | `marquesa-api` | `marquesa-api-staging` |
+| D1 | `marquesa-db` | `marquesa-db-dev` |
+| Frontend | GitHub Pages (`main`) | Cloudflare Pages `marquesa-dev.pages.dev` (`develop`) |
+| Nuvemshop | real | nunca configurada — sync sempre recusa por segurança |
+
+Isso muda a régua **só para os recursos DEV**:
+
+- `wrangler d1 execute marquesa-db-dev --remote` com schema/seed: **Classe B**
+  (reversível — é descartável, dá para recriar do zero a qualquer momento).
+  `marquesa-db` (produção) continua Classe C sempre.
+- `wrangler secret put` no Worker `marquesa-api-staging`: **Classe B**.
+  Qualquer secret em `marquesa-api` (produção) continua Classe C.
+- Push em `develop` depois de testes verdes: **autorizado por padrão**,
+  disparando o deploy automático DEV — ver § Fluxo padrão em
+  DEVELOPMENT.md.
+
+O que **não muda**, nem para DEV:
+
+- `wrangler deploy` (com ou sem `--env`) nunca é executado por um agente —
+  é bloqueio de infraestrutura da sessão, não só política deste documento.
+  A primeira publicação de cada ambiente (Worker e Pages) é sempre um
+  comando que a pessoa roda, ou a conexão Git nativa da Cloudflare, nunca
+  o agente diretamente.
+- Merge em `main`, deploy de produção, migration em `marquesa-db`
+  (produção) e qualquer escrita na Nuvemshop real continuam Classe C,
+  exigindo autorização humana explícita a cada vez.
+
 ## Auditoria de segredos — resultado (2026-08-18)
 
 Varredura de todo o repositório atrás de chaves, tokens, senhas, credenciais

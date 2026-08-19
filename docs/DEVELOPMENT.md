@@ -161,6 +161,94 @@ mudam se sobrar dado do teste anterior. Os dois últimos também precisam do
 dashboard servido em `localhost:8000` e do Chromium do Playwright
 (`npx playwright install chromium`, dentro de `src/`).
 
+## Ambiente DEV na nuvem
+
+Separado de produção em toda camada, para poder quebrar à vontade:
+
+```
+develop  →  frontend DEV (Cloudflare Pages)  →  API DEV (Worker)  →  D1 DEV
+```
+
+| Camada | Produção | DEV |
+|---|---|---|
+| Branch | `main` | `develop` |
+| Frontend | GitHub Pages, `main` | Cloudflare Pages, `develop` |
+| URL do frontend | `https://gustavodemelomartins-hub.github.io/Marquesa-Etiquetas/` | **`https://marquesa-dev.pages.dev`** (fixo) |
+| Worker | `marquesa-api` | `marquesa-api-staging` |
+| URL da API | `https://marquesa-api.marquesaasemijoias.workers.dev` | `https://marquesa-api-staging.marquesaasemijoias.workers.dev` |
+| D1 | `marquesa-db` | `marquesa-db-dev` |
+| Nuvemshop | conectada de verdade | **nunca conectada** — sem `NUVEMSHOP_TOKEN`/`NUVEMSHOP_STORE_ID` como secret em `marquesa-api-staging`, `Nuvemshop.configurada()` volta `false` e qualquer sync termina em "loja não conectada". Nenhum PATCH sai daqui, estruturalmente |
+
+`marquesa-dev.pages.dev` é fixo porque `develop` foi declarado a
+**branch de produção do projeto Pages** (`--production-branch develop`
+na criação) — não é um preview por commit, que muda de link a cada push.
+Preview por commit também existe (Cloudflare gera um para cada deploy),
+mas serve só para comparar uma versão específica; o link que vai para os
+favoritos é sempre o fixo.
+
+### Publicar pela primeira vez (feito uma única vez, manual)
+
+`wrangler deploy` não é executado por um agente em ambiente nenhum — ver
+[SECURITY.md](SECURITY.md). O primeiro deploy do Worker DEV é:
+
+```bash
+cd api
+npx wrangler deploy --env staging
+```
+
+Depois disso, a conexão Git nativa da Cloudflare (Pages já configurado
+para builds automáticos; Workers Builds configurável no painel) assume os
+próximos deploys — ninguém mais roda esse comando à mão para DEV.
+
+### Deploy automático
+
+Todo push em `develop` dispara, via a integração Git da Cloudflare:
+
+1. **Pages** builda `frontend/` (`npm run build`) e publica em
+   `marquesa-dev.pages.dev` — o mesmo link, versão nova.
+2. **Workers Builds** (quando conectado) builda e publica
+   `marquesa-api-staging` a partir de `api/`.
+
+Nada disso toca `main`, `marquesa-api` ou `marquesa-db`.
+
+### Seed de dados sintéticos
+
+`marquesa-db-dev` não recebe cópia de dado real — nunca. Semeado com
+catálogo, revendedora, maleta com consignação e uma venda, todos com
+prefixo `DEV-`, via chamadas normais da API (não `INSERT` direto: passa
+pelo mesmo `movimentar()` que produção, a razão contábil fecha). Script em
+`api/scripts/` não versionado (é só demonstração, refeito a qualquer
+momento) — refazer:
+
+```bash
+cd api
+npx wrangler dev --env staging --remote --port 8788   # API DEV local, banco DEV remoto
+# noutro terminal, com o Worker acima no ar:
+node caminho/para/seed_dev.mjs
+# Ctrl+C no wrangler dev quando terminar
+```
+
+### Rollback
+
+```bash
+git revert <commit>
+git push origin develop
+```
+
+Nunca `push --force` em `develop`. O Cloudflare Pages mantém histórico de
+deployments por commit (painel → Pages → marquesa-dev → Deployments); dá
+para promover manualmente um deployment antigo para o alias fixo ali sem
+precisar reverter Git, se for só para conferir algo rápido.
+
+### Observabilidade
+
+Status de cada deploy: painel da Cloudflare → Workers & Pages →
+`marquesa-dev` (Pages) ou `marquesa-api-staging` (Workers) → aba
+Deployments. Falha de build aparece lá, com o log completo. GitHub não
+mostra status check automático a menos que a integração Git peça
+explicitamente (não configurado nesta etapa — ver observação no relatório
+de entrega).
+
 ## Ciclo de trabalho
 
 ```
@@ -170,6 +258,8 @@ dashboard servido em `localhost:8000` e do Chromium do Playwright
 4. teste           → banco limpo + Worker local + os três testes de API
 5. confira a razão → GET /api/estoque/conferir  deve voltar vazio
 6. diff            → git diff  (e --ignore-cr-at-eol para dashboard.html)
+7. commit + push develop → se os testes estiverem verdes. Preview DEV
+   atualiza sozinho. Se algum teste falhar: NÃO faz push.
 ```
 
 ## Validar antes de pensar em deploy

@@ -28,6 +28,15 @@ export default defineConfig({
     chunkSizeWarningLimit: 700,
   },
 
+  /* O Cloudflare Pages injeta CF_PAGES_COMMIT_SHA (e outras) como variável
+     de ambiente real do build, sem prefixo VITE_ — o Vite só expõe pra
+     `import.meta.env` o que começa com VITE_. Isto traduz uma pra outra,
+     só o SHA (não é segredo, é só rótulo de versão). Fora da Cloudflare
+     Pages (build local, CI de outro tipo) vira string vazia. */
+  define: {
+    'import.meta.env.VITE_COMMIT_SHA': JSON.stringify(process.env.CF_PAGES_COMMIT_SHA || ''),
+  },
+
   test: {
     /* Ambiente padrão continua 'node' de propósito: a maior parte do que
        se testa aqui é lógica pura e a camada de API, e o comportamento

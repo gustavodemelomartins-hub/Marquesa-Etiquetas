@@ -7,8 +7,10 @@ set -e
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API="$REPO/api"
 
-pkill -x workerd 2>/dev/null || true; pkill -f "wrangler dev --local" 2>/dev/null || true
-sleep 4
+# Encerra só quem está na porta 8787 deste projeto — nunca "todo wrangler"
+# ou "todo workerd" da máquina. Ver api/scripts/encerrar-porta.ps1.
+powershell.exe -NoProfile -NonInteractive -File "$API/scripts/encerrar-porta.ps1" -Porta 8787
+sleep 1
 
 # o dashboard precisa ser servido por HTTP: aberto como file:// o navegador
 # bloqueia a chamada à API por causa do CORS

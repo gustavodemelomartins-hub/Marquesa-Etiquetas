@@ -84,20 +84,42 @@ Estratégia completa: [docs/CLAUDE_CONTEXT_STRATEGY.md](docs/CLAUDE_CONTEXT_STRA
 | `safe-d1-change` | schema, migration, índice, qualquer mudança no D1 |
 | `pre-deploy-check` | antes de qualquer deploy |
 
+## DEV é livre. PROD exige autorização a cada vez.
+
+Existe um ambiente de desenvolvimento na nuvem — `develop` → Worker
+`marquesa-api-staging` → D1 `marquesa-db-dev` → Cloudflare Pages
+`marquesa-dev.pages.dev`. Descartável de propósito: quebrar, importar
+planilha errada ou testar reconciliação ali nunca afeta produção. Detalhe
+completo em [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
+- **Push em `develop` depois de testes verdes → permitido sem pedir.**
+  Dispara o deploy automático DEV.
+- **Merge em `main` → exige autorização humana explícita.**
+- **Deploy de produção (`wrangler deploy` sem `--env`, ou a conexão Git de
+  produção) → exige autorização humana explícita.**
+- **Migration no D1 de produção (`marquesa-db`) → exige autorização humana
+  explícita + backup recente confirmado.**
+
 ## Nunca execute sem instrução humana explícita
 
 ```
 git reset --hard · git clean -fd · git push --force
 DROP TABLE · DROP DATABASE · DELETE ou UPDATE em massa sem filtro validado
-wrangler deploy
-wrangler d1 execute --remote  (com qualquer escrita)
+wrangler deploy                              (qualquer ambiente — ver acima)
+wrangler d1 execute --remote  (com qualquer escrita em marquesa-db, produção)
 wrangler d1 time-travel restore · wrangler d1 delete
 POST /api/sync {"forcar": true}  contra produção
+merge de develop/feature/* em main
 ```
 
+`marquesa-db-dev` é isento da regra de `wrangler d1 execute --remote`
+acima — é descartável, existe só para isso. `marquesa-db` (produção)
+continua exigindo autorização a cada vez, sem exceção.
+
 Este é o clone real de `gustavodemelomartins-hub/Marquesa-Etiquetas`, com o
-histórico completo e `origin` configurado. Justamente por isso: `push` só
-quando alguém pedir, e `push --force` **nunca**.
+histórico completo e `origin` configurado. `push` em `develop` é rotina;
+`push` em `main` e `push --force` em qualquer branch só quando alguém
+pedir explicitamente, e `--force` **nunca**.
 
 ## Ciclo de trabalho
 

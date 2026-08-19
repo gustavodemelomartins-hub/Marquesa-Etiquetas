@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { DevBadge } from './DevBadge';
 
 /** As quatro áreas principais do sistema — como a usuária pensa no negócio,
  *  não como o código foi implementado. Nuvemshop, reconciliação,
@@ -32,6 +33,7 @@ export function AppShell({ area, aoNavegar, itens, aoDesconectar, children }: Pr
         <div className="marca">
           Marquesa <span>·</span> Painel
         </div>
+        <DevBadge />
         <div className="espaco" />
         {aoDesconectar && (
           <button type="button" className="btn btn-leitura btn-sm" onClick={aoDesconectar}>
