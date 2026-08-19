@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EstoqueTotalPage } from './EstoqueTotalPage';
 import type { Connection } from '../../services/client';
+import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
 import type { ResultadoParse } from './parsePlanilha';
 import type { RespostaAplicar, ResumoEstoqueTotal, ResumoProdutosNovos, SessaoReconciliacao } from './tipos';
 
@@ -21,6 +22,30 @@ afterEach(() => {
 });
 
 const conexao: Connection = { url: 'http://api.local', key: 'chave' };
+
+/* O painel do topo depende de `GET /api/state`. Estes testes provam o
+   FLUXO de importação, então entram com `estado: null` — a página então
+   mostra só as ações, que é exatamente o que eles exercitam. O painel tem
+   os testes dele em domain/. */
+const planejamento: UsoPlanejamento = {
+  config: { modo: 'equilibrado', tamanhoAlvo: 40, tamanhoAlvoConfirmado: false },
+  origemAlvo: { valor: 40, origem: 'padrao', amostra: 0 },
+  definirModo: () => {},
+  definirTamanhoAlvo: () => {},
+  restaurarPadrao: () => {},
+};
+
+function renderPagina() {
+  return render(
+    <EstoqueTotalPage
+      conexao={conexao}
+      estado={null}
+      planejamento={planejamento}
+      aoVerPlanejamento={() => {}}
+      aoMudarEstoque={() => {}}
+    />,
+  );
+}
 
 function resultadoParseFalso(overrides: Partial<ResultadoParse> = {}): ResultadoParse {
   return {
@@ -88,7 +113,7 @@ describe('EstoqueTotalPage — Atualizar Estoque Total', () => {
     };
     vi.mocked(api.analisarEstoqueTotal).mockResolvedValue(sessao);
 
-    render(<EstoqueTotalPage conexao={conexao} />);
+    renderPagina();
 
     fireEvent.click(screen.getByRole('button', { name: /Atualizar Estoque Total/ }));
     await selecionarArquivo();
@@ -147,7 +172,7 @@ describe('EstoqueTotalPage — Atualizar Estoque Total', () => {
     vi.mocked(api.aprovarItem).mockResolvedValue({ ok: true });
     vi.mocked(api.obterSessao).mockResolvedValue(sessaoAprovada);
 
-    render(<EstoqueTotalPage conexao={conexao} />);
+    renderPagina();
     fireEvent.click(screen.getByRole('button', { name: /Atualizar Estoque Total/ }));
     await selecionarArquivo();
     await screen.findByText('Estoque Agosto.xlsx', { exact: false });
@@ -198,7 +223,7 @@ describe('EstoqueTotalPage — Atualizar Estoque Total', () => {
     };
     vi.mocked(api.analisarEstoqueTotal).mockResolvedValue(sessao);
 
-    render(<EstoqueTotalPage conexao={conexao} />);
+    renderPagina();
     fireEvent.click(screen.getByRole('button', { name: /Atualizar Estoque Total/ }));
     await selecionarArquivo();
     await screen.findByText('Estoque Agosto.xlsx', { exact: false });
@@ -237,7 +262,7 @@ describe('EstoqueTotalPage — Atualizar Estoque Total', () => {
     vi.mocked(api.aplicarSessao).mockResolvedValue(resposta);
     vi.mocked(api.obterSessao).mockResolvedValue({ ...sessao, status: 'aplicada_parcial', relato: resposta });
 
-    render(<EstoqueTotalPage conexao={conexao} />);
+    renderPagina();
     fireEvent.click(screen.getByRole('button', { name: /Atualizar Estoque Total/ }));
     await selecionarArquivo();
     await screen.findByText('Estoque Agosto.xlsx', { exact: false });
@@ -288,7 +313,7 @@ describe('EstoqueTotalPage — Adicionar Peças Novas', () => {
     };
     vi.mocked(api.analisarProdutosNovos).mockResolvedValue(sessao);
 
-    render(<EstoqueTotalPage conexao={conexao} />);
+    renderPagina();
     fireEvent.click(screen.getByRole('button', { name: /^Adicionar Peças Novas/ }));
     await selecionarArquivo();
     await screen.findByText('Estoque Agosto.xlsx', { exact: false });

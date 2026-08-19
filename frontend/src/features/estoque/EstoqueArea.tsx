@@ -1,15 +1,22 @@
 import { useState } from 'react';
 import type { Connection } from '../../services/client';
+import type { AppState } from '../../types/api';
 import type { ReconciliationAnalysis } from '../../types/reconciliation';
-import { EmptyState } from '../../components/EmptyState';
 import { NuvemshopPage } from '../nuvemshop/NuvemshopPage';
 import { ReconciliacaoPage } from '../reconciliacao/ReconciliacaoPage';
 import { EstoqueTotalPage } from '../estoque-total/EstoqueTotalPage';
+import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
 
-export type SubRotaEstoque = 'visao-geral' | 'estoque-total' | 'nuvemshop' | 'pendencias';
+/** Três telas, e Estoque Total é a porta.
+ *
+ *  "Visão Geral" deixou de ser uma subaba: ela era um lugar separado para
+ *  ler números sobre a mesma coisa que Estoque Total já governa. Agora o
+ *  painel abre EM CIMA de Estoque Total — quem chega vê o estado do
+ *  estoque e as ações que o mudam na mesma tela, sem escolher entre olhar e
+ *  agir. */
+export type SubRotaEstoque = 'estoque-total' | 'nuvemshop' | 'pendencias';
 
 const ABAS: { rota: SubRotaEstoque; rotulo: string }[] = [
-  { rota: 'visao-geral', rotulo: 'Visão Geral' },
   { rota: 'estoque-total', rotulo: 'Estoque Total' },
   { rota: 'nuvemshop', rotulo: 'Nuvemshop' },
   { rota: 'pendencias', rotulo: 'Pendências' },
@@ -21,16 +28,30 @@ interface Props {
   aoNavegarSub: (r: SubRotaEstoque) => void;
   analise: ReconciliationAnalysis | null;
   aoAnalisar: (a: ReconciliationAnalysis) => void;
+  estado: AppState | null;
+  planejamento: UsoPlanejamento;
+  aoVerPlanejamento: () => void;
+  aoMudarEstoque: () => void;
 }
 
-/** A área "Estoque" — contêiner das telas que hoje mexem em quantidade
- *  física: visão geral, importação por planilha (Estoque Total), a
- *  sincronização com a Nuvemshop, e o que está pendente de revisão.
+/** A área "Estoque" — as telas que hoje mexem em quantidade física: a
+ *  importação por planilha, a sincronização com a Nuvemshop, e o que está
+ *  pendente de revisão.
  *
- *  Nuvemshop e Pendências (reconciliação) deixaram de ser abas principais
- *  do sistema — a usuária pensa em "Estoque", não nos nomes internos das
+ *  Nuvemshop e Pendências (reconciliação) não são abas principais do
+ *  sistema — a usuária pensa em "Estoque", não nos nomes internos das
  *  peças que o resolvem por baixo. */
-export function EstoqueArea({ conexao, sub, aoNavegarSub, analise, aoAnalisar }: Props) {
+export function EstoqueArea({
+  conexao,
+  sub,
+  aoNavegarSub,
+  analise,
+  aoAnalisar,
+  estado,
+  planejamento,
+  aoVerPlanejamento,
+  aoMudarEstoque,
+}: Props) {
   const [contagemPendencias] = useState<number | undefined>(
     analise ? analise.itens.length : undefined,
   );
@@ -53,14 +74,15 @@ export function EstoqueArea({ conexao, sub, aoNavegarSub, analise, aoAnalisar }:
         ))}
       </div>
 
-      {sub === 'visao-geral' && (
-        <EmptyState
-          titulo="Visão geral do estoque"
-          descricao="Um resumo consolidado de tudo isto ainda não existe nesta tela nova. Por enquanto, use Estoque Total para atualizar quantidades por planilha, ou Nuvemshop para conferir a loja."
+      {sub === 'estoque-total' && (
+        <EstoqueTotalPage
+          conexao={conexao}
+          estado={estado}
+          planejamento={planejamento}
+          aoVerPlanejamento={aoVerPlanejamento}
+          aoMudarEstoque={aoMudarEstoque}
         />
       )}
-
-      {sub === 'estoque-total' && <EstoqueTotalPage conexao={conexao} />}
 
       {sub === 'nuvemshop' && <NuvemshopPage conexao={conexao} aoAnalisar={aoAnalisar} />}
 

@@ -232,3 +232,74 @@ ANÁLISE que falha não pode contaminar uma sincronização real saudável.
 - `api/gerar-seed.py` gera dado real e o `.gitignore` protege a saída
   (`seed.sql`) — correto, e vale manter no radar em qualquer mudança do
   `.gitignore`.
+
+## 12. Planejamento de maletas — duas lacunas declaradas
+
+Abertas em 2026-08-19, junto com a tela "Capacidade para novas maletas"
+(Revendedoras › Visão Geral no painel React).
+
+### 12.1 Não existe regra de negócio para tamanho de maleta nem reserva
+
+`api/REGRAS.md` não define **tamanho mínimo ou alvo de uma maleta** nem
+**reserva mínima em casa**. O backend só garante o piso absoluto: a
+consignação recusa `qtd > disponivel` (`adicionarItens`) e recusa kit em
+maleta (§28).
+
+A tela precisa dos dois números para responder "quantas maletas dá para
+montar?". Como a decisão de negócio não foi tomada, ela **não inventou uma
+regra**:
+
+- `tamanhoAlvo` tem por padrão a **mediana das maletas já montadas** — dado
+  real, lido de `state.maletas`. Sem histórico nenhum, cai num valor de
+  partida e a interface diz, com todas as letras, que aquilo não é regra da
+  Marquesa.
+- `reservaPct` (quanto de **cada código** fica em casa) é escolha humana. Os
+  três modos de planejamento — Conservador 50%, Equilibrado 30%, Agressivo
+  15% — são três valores do mesmo parâmetro, e nada mais: não há heurística,
+  modelo nem inferência atrás deles.
+
+Os dois vivem no **navegador** (`localStorage`, chave
+`marquesa_planejamento_v1`), não em `/api/config`. Gravar no banco os
+transformaria em regra do sistema sem que ninguém tivesse decidido isso.
+
+**O que falta decidir:** a reserva mínima em casa é percentual por código,
+absoluta por código, ou por categoria? O tamanho alvo é um número só, ou
+varia por revendedora? Quando houver resposta, o caminho é: escrever em
+`api/REGRAS.md`, acrescentar as chaves à lista fechada de `PUT /api/config`
+(`api/src/index.js`), e `frontend/src/features/maletas/planejamento.ts` vira
+só um cache.
+
+### 12.2 Criar maleta com peças são duas chamadas, não uma
+
+Não existe endpoint que crie a maleta **já com os itens**. O fluxo é:
+
+```
+POST /api/maletas            → maleta vazia
+POST /api/maletas/:id/itens  → consigna, validando SKU por SKU
+```
+
+Se a segunda recusar peça, a maleta já existe. Isso **não corrompe nada** —
+maleta vazia é legítima, `POST /api/maletas/:id/cancelar` a desfaz (§28), e
+o que não entrou não gerou movimento —, mas obriga a tela a contar o que
+aconteceu em vez de dizer "criada" e ficar quieta. O fluxo "Criar maleta"
+faz isso: mostra o id criado, quantos códigos entraram e a lista de
+recusados com o motivo do servidor.
+
+Um `POST /api/maletas {itens}` atômico resolveria. Não foi feito aqui:
+mexer no contrato de escrita de estoque é decisão humana, e o caminho
+existente já é seguro.
+
+### 12.3 Giro de venda por peça não é legível pelo frontend
+
+A sugestão "Giro rápido" gostaria de ordenar por **venda**. Não dá:
+`maletas.acerto_json` guarda só os totais do acerto (`vendidas`,
+`totalVendido`), sem quebra por SKU, e `GET /api/vendas` responde **um dia
+por vez**. O que existe agregado e legível de `GET /api/state` é o histórico
+de **consignação** — o que já foi para maleta, por categoria —, e é isso que
+a estratégia usa, dizendo na própria proposta qual é a base.
+
+Um endpoint de vendas agregadas por SKU/categoria num intervalo trocaria a
+base sem reescrever a tela: `gerarSugestoes` já recebe os pesos por
+parâmetro (`pesosPorCategoria`), que é também o ponto de entrada da
+personalização por revendedora.
+

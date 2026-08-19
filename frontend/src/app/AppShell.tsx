@@ -63,9 +63,9 @@ export function AppShell({ area, aoNavegar, itens, aoDesconectar, children }: Pr
 
       <div className="rodape-faixa">
       <footer className="rodape">
-        Painel novo, em construção. O painel completo continua em{' '}
-        <a href="../../dashboard.html">dashboard.html</a> — estoque, maletas,
-        revendedoras, vendas e inventário seguem lá.
+        Painel novo, em construção. Etiquetas, vendas, inventário, acerto de
+        maleta e o cadastro completo de produtos seguem em{' '}
+        <a href="../../dashboard.html">dashboard.html</a>.
       </footer>
       </div>
     </div>

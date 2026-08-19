@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Connection } from '../../services/client';
+import type { AppState } from '../../types/api';
 import { PageHeader } from '../../components/PageHeader';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
@@ -9,15 +10,27 @@ import { ResumoSessao } from './ResumoSessao';
 import { TabelaItensSessao } from './TabelaItensSessao';
 import { ConfirmarAplicar } from './ConfirmarAplicar';
 import { ResultadoAplicacao } from './ResultadoAplicacao';
+import { PainelEstoque } from './PainelEstoque';
 import { useSessaoPlanilha } from './useSessaoPlanilha';
 import { itensAprovados, itensPendentes } from './itens';
 import type { ModoPlanilha } from './tipos';
 import type { ResultadoParse } from './parsePlanilha';
+import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
 
 type Etapa = 'escolha' | 'upload' | 'revisao' | 'confirmando' | 'resultado';
 
 interface Props {
   conexao: Connection;
+  /** `GET /api/state`, buscado uma vez no `App` e compartilhado. `null`
+   *  enquanto carrega ou quando a leitura falhou — o painel some, e o
+   *  fluxo de importação abaixo continua funcionando sem ele. */
+  estado: AppState | null;
+  planejamento: UsoPlanejamento;
+  /** Leva para Revendedoras › Visão Geral. */
+  aoVerPlanejamento: () => void;
+  /** Aplicar estoque muda produtos — o estado compartilhado precisa ser
+   *  relido, senão o painel do topo passa a mentir. */
+  aoMudarEstoque: () => void;
 }
 
 /** A tela "Estoque Total": duas importações independentes, o mesmo motor
@@ -27,7 +40,13 @@ interface Props {
  *  qual é a referência atual, e o sistema mostra o que seria diferente
  *  antes de tocar em qualquer estoque. Nada escreve antes da etapa
  *  "confirmando". */
-export function EstoqueTotalPage({ conexao }: Props) {
+export function EstoqueTotalPage({
+  conexao,
+  estado,
+  planejamento,
+  aoVerPlanejamento,
+  aoMudarEstoque,
+}: Props) {
   const [etapa, setEtapa] = useState<Etapa>('escolha');
   const [modo, setModo] = useState<ModoPlanilha>('estoque-total');
   const [decidindoId, setDecidindoId] = useState<number | null>(null);
@@ -65,7 +84,10 @@ export function EstoqueTotalPage({ conexao }: Props) {
 
   async function aoConfirmarAplicar() {
     const r = await aplicar();
-    if (r) setEtapa('resultado');
+    if (r) {
+      setEtapa('resultado');
+      aoMudarEstoque();
+    }
   }
 
   const aprovados = sessao ? itensAprovados(sessao.itens) : [];
@@ -79,7 +101,20 @@ export function EstoqueTotalPage({ conexao }: Props) {
         sub="A planilha de referência da Stéfane, comparada com o que o sistema tem hoje. Nada muda até você aprovar e aplicar."
       />
 
-      {etapa === 'escolha' && <EscolhaModo aoEscolher={escolher} />}
+      {etapa === 'escolha' && estado && (
+        <PainelEstoque
+          estado={estado}
+          planejamento={planejamento}
+          aoVerPlanejamento={aoVerPlanejamento}
+        />
+      )}
+
+      {etapa === 'escolha' && (
+        <section className="secao">
+          <h2 className="secao-titulo">O que você quer atualizar</h2>
+          <EscolhaModo aoEscolher={escolher} />
+        </section>
+      )}
 
       {etapa === 'upload' && (
         <UploadPlanilha modo={modo} aoAnalisar={aoAnalisar} analisando={carregando} aoVoltar={irParaEscolha} />
