@@ -211,6 +211,31 @@ Todo push em `develop` dispara, via a integração Git da Cloudflare:
 
 Nada disso toca `main`, `marquesa-api` ou `marquesa-db`.
 
+**Confira que a integração está de fato ligada antes de contar com ela.**
+Em 2026-08-19 um push em `develop` com testes verdes não gerou deployment
+nenhum, e o motivo era este:
+
+```bash
+npx wrangler pages project list
+# │ Project Name │ Project Domains        │ Git Provider │
+# │ marquesa-dev │ marquesa-dev.pages.dev │ No           │   ← desconectado
+```
+
+`Git Provider: No` significa que **não existe build automático** — o link
+fixo continua servindo o último upload manual, silenciosamente, por quantos
+pushes forem. Com a integração ligada, essa coluna nomeia o provedor.
+
+Para ver o que está publicado agora e em qual commit:
+
+```bash
+npx wrangler pages deployment list --project-name marquesa-dev
+```
+
+A coluna `Source` traz o SHA. Se ele não é o `HEAD` de `develop`, o que está
+no ar não é o que você acabou de mandar — reconectar a integração no painel
+(Workers & Pages → marquesa-dev → Settings → Builds & deployments, branch de
+produção `develop`) resolve para os próximos pushes.
+
 ### Seed de dados sintéticos
 
 `marquesa-db-dev` não recebe cópia de dado real — nunca. Semeado com
