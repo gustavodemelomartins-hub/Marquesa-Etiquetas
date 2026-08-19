@@ -4,7 +4,9 @@ INSERT OR IGNORE INTO categorias (nome, ordem, cor) VALUES ('Colar', 1, '#C2426B
 
 CREATE TABLE IF NOT EXISTS produtos ( sku TEXT PRIMARY KEY, desc TEXT NOT NULL, cat TEXT NOT NULL REFERENCES categorias(nome), preco REAL, qtd INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'ativo', url_loja TEXT, estoque_loja INTEGER, visivel INTEGER, nome_loja TEXT, atualizado_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
-CREATE TABLE IF NOT EXISTS movimentos ( id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT, tipo TEXT NOT NULL, qtd INTEGER NOT NULL, origem TEXT, maleta_id INTEGER, revendedora_id INTEGER, venda_id INTEGER, obs TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')) );
+CREATE TABLE IF NOT EXISTS movimentos ( id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT, tipo TEXT NOT NULL, qtd INTEGER NOT NULL, origem TEXT, maleta_id INTEGER, revendedora_id INTEGER, venda_id INTEGER, obs TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')), reconciliacao_item_id INTEGER REFERENCES reconciliacao_itens(id) );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_movimentos_reconciliacao_item ON movimentos(reconciliacao_item_id);
 
 CREATE TABLE IF NOT EXISTS revendedoras ( id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, tel TEXT, cidade TEXT, cpf TEXT, endereco TEXT, obs TEXT, status TEXT NOT NULL DEFAULT 'ativa', criada_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
@@ -34,7 +36,7 @@ CREATE TABLE IF NOT EXISTS inventarios ( id INTEGER PRIMARY KEY AUTOINCREMENT, s
 
 CREATE TABLE IF NOT EXISTS inventario_itens ( inventario_id INTEGER NOT NULL REFERENCES inventarios(id), sku TEXT NOT NULL REFERENCES produtos(sku), contado INTEGER NOT NULL DEFAULT 0, esperado INTEGER, ajustado INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (inventario_id, sku) );
 
-CREATE TABLE IF NOT EXISTS reconciliacao_sessoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, origem TEXT NOT NULL CHECK (origem IN ('sync', 'importacao')), status TEXT NOT NULL DEFAULT 'revisao' CHECK (status IN ( 'revisao', 'aplicando', 'aplicada', 'aplicada_parcial', 'cancelada', 'superada', 'erro' )), criada_em TEXT NOT NULL DEFAULT (datetime('now')), decidida_em TEXT, aplicada_em TEXT, resumo_json TEXT, relato_json TEXT, erro TEXT );
+CREATE TABLE IF NOT EXISTS reconciliacao_sessoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, origem TEXT NOT NULL CHECK (origem IN ('nuvemshop', 'planilha_estoque_total', 'planilha_produtos_novos')), status TEXT NOT NULL DEFAULT 'revisao' CHECK (status IN ( 'revisao', 'aplicando', 'aplicada', 'aplicada_parcial', 'cancelada', 'superada', 'erro' )), criada_em TEXT NOT NULL DEFAULT (datetime('now')), decidida_em TEXT, aplicada_em TEXT, resumo_json TEXT, relato_json TEXT, erro TEXT );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_rec_sessoes_revisao_unica ON reconciliacao_sessoes(origem) WHERE status = 'revisao';
 

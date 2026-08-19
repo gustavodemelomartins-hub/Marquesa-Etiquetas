@@ -46,7 +46,7 @@ Frontend React/TS  → docs/FRONTEND_ARCHITECTURE.md
 Banco              → docs/DATA_MODEL.md
 Nuvemshop          → docs/NUVEMSHOP_INTEGRATION.md
 Sincronização      → docs/SYNC_ENGINE.md
-Reconciliação      → docs/RECONCILIATION_ENGINE.md   (schema fechado, Apply não existe)
+Reconciliação      → docs/RECONCILIATION_ENGINE.md   (backend do Apply existe, tela ainda não)
 Segurança          → docs/SECURITY.md
 Backup / restore   → docs/BACKUP_RECOVERY.md
 Testes             → docs/TESTING.md   (baseline em docs/BASELINE.md)

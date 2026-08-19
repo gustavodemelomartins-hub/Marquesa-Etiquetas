@@ -18,6 +18,12 @@ export function subirLojaFalsa(porta = 8799) {
        sistema faz quando a Nuvemshop cai — e a resposta certa nunca é
        "seguir em frente com o número velho". */
     falhar: false,
+    /* Igual a `falhar`, mas só para a escrita de estoque — serve para
+       provar o comportamento do Apply do motor de reconciliação quando SÓ
+       o PATCH falha (a leitura de precondition continua funcionando).
+       `null` = nunca falha; um Set de produto_id = falha só o PATCH que
+       tocar aquele produto; `true` = falha QUALQUER PATCH. */
+    falharPatchParaProduto: null,
     trocasOAuth: [],
     codigoValido: null,
   };
@@ -88,6 +94,11 @@ export function subirLojaFalsa(porta = 8799) {
       let corpo = '';
       for await (const p of req) corpo += p;
       const itens = JSON.parse(corpo || '[]');
+      const alvo = estado.falharPatchParaProduto;
+      const deveFalhar = alvo === true || (alvo && itens.some(it => alvo.has(it.id)));
+      if (deveFalhar) {
+        return responder(500, { message: 'loja de mentira: PATCH falhou de propósito' });
+      }
       estado.escritas.push(...itens);
       // reflete a escrita no estoque, como a loja real faria
       for (const it of itens) {

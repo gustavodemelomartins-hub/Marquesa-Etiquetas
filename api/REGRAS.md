@@ -287,3 +287,44 @@ banhadas é de **R$ 295** na comissão.
 
 Vale conferir contra o contrato assinado antes de usar o valor do acerto
 para cobrar.
+
+## Regra de negócio recém-formalizada — fonte da verdade do físico
+
+Formalizada em 2026-08-18, ainda sem número de seção no documento de
+contexto original (*Marquesa_Sistema_Contexto_Cloud_Code.md*) — por isso
+fora da tabela de referência cruzada do topo deste arquivo. Confira contra
+esse documento quando ele for atualizado, e mova para a tabela com o §
+certo nessa hora.
+
+**Enquanto o inventário interno não for controlado com confiança
+suficiente pelo sistema, a planilha de Estoque Total da Stéfane é a fonte
+máxima da verdade para a quantidade FÍSICA TOTAL de cada SKU** — casa mais
+o que está com revendedoras. Corresponde a `produtos.qtd`, nunca ao
+disponível para a Nuvemshop (que continua sendo `total − consignado`,
+calculado pelo sistema).
+
+Duas consequências que o motor de reconciliação (`origem =
+'planilha_estoque_total'`) já aplica:
+
+1. A planilha nunca autoriza mexer em maleta. Se o total que ela informa é
+   menor do que já está registrado com revendedoras, é uma contradição de
+   dados — o sistema genuinamente não sabe qual dos dois números confiar
+   — e vira conflito explícito (`total_menor_que_consignado`), nunca um
+   ajuste automático de consignação.
+2. SKU do catálogo ausente da planilha **não é apagado nem zerado**
+   (mesma regra já valia para `importarProdutos`, "Duas divergências
+   conscientes" nº 1 acima) — só anunciado. A planilha pode legitimamente
+   não cobrir todo código (kit, item técnico, linha descontinuada pela
+   própria Stéfane), e tratar ausência como "zero" destruiria essa
+   diferença.
+
+Regra irmã, objetivo oposto: `origem = 'planilha_produtos_novos'` só cria
+SKU que ainda não existe — SKU já cadastrado é ignorado por completo,
+estruturalmente, mesmo que quantidade/descrição/preço da planilha
+divirjam do catálogo. Detalhe completo em
+[docs/RECONCILIATION_ENGINE.md](../docs/RECONCILIATION_ENGINE.md).
+
+Esta prioridade da planilha sobre o sistema é **temporária por
+definição**: quando o inventário interno passar a ser controlado com
+confiança suficiente, ele poderá substituir a planilha como fonte da
+verdade física. Não é regra eterna.

@@ -179,7 +179,7 @@ eq('o movimento seedado antes da migration continua lá', preMov.length, 1);
 
 console.log('\n=== 4. unicidade (sessao_id, sku, variacao_chave, tipo) ===');
 
-aplicar(arquivoSql(`INSERT INTO reconciliacao_sessoes (id, origem) VALUES (1, 'sync');`),
+aplicar(arquivoSql(`INSERT INTO reconciliacao_sessoes (id, origem) VALUES (1, 'nuvemshop');`),
   { rotulo: 'sessão 1 criada' });
 
 aplicar(arquivoSql(`
@@ -217,26 +217,26 @@ eq('4 itens sobreviveram (2 recusados não entraram)', itensSessao1[0].n, 4);
 
 console.log('\n=== 5. no máximo uma sessão "revisao" por origem ===');
 
-aplicar(arquivoSql(`INSERT INTO reconciliacao_sessoes (id, origem, status) VALUES (2, 'sync', 'revisao');`),
-  { esperaFalha: /UNIQUE constraint failed/i, rotulo: 'segunda sessão sync em revisão: banco recusa' });
+aplicar(arquivoSql(`INSERT INTO reconciliacao_sessoes (id, origem, status) VALUES (2, 'nuvemshop', 'revisao');`),
+  { esperaFalha: /UNIQUE constraint failed/i, rotulo: 'segunda sessão nuvemshop em revisão: banco recusa' });
 
-aplicar(arquivoSql(`INSERT INTO reconciliacao_sessoes (id, origem, status) VALUES (3, 'importacao', 'revisao');`),
-  { rotulo: 'sessão de origem DIFERENTE (importacao) em revisão: aceita' });
+aplicar(arquivoSql(`INSERT INTO reconciliacao_sessoes (id, origem, status) VALUES (3, 'planilha_estoque_total', 'revisao');`),
+  { rotulo: 'sessão de origem DIFERENTE (planilha_estoque_total) em revisão: aceita' });
 
 aplicar(arquivoSql(`UPDATE reconciliacao_sessoes SET status = 'superada' WHERE id = 1;`),
   { rotulo: 'sessão 1 marcada superada' });
 
-aplicar(arquivoSql(`INSERT INTO reconciliacao_sessoes (id, origem, status) VALUES (4, 'sync', 'revisao');`),
-  { rotulo: 'agora uma sessão sync nova em revisão: aceita (a 1 não conta mais)' });
+aplicar(arquivoSql(`INSERT INTO reconciliacao_sessoes (id, origem, status) VALUES (4, 'nuvemshop', 'revisao');`),
+  { rotulo: 'agora uma sessão nuvemshop nova em revisão: aceita (a 1 não conta mais)' });
 
 console.log('\n=== 6. CHECK — estados/tipos/riscos válidos passam, o resto é recusado ===');
 
-aplicar(arquivoSql(`INSERT INTO reconciliacao_sessoes (id, origem, status) VALUES (5, 'sync', 'aplicada_parcial');`),
+aplicar(arquivoSql(`INSERT INTO reconciliacao_sessoes (id, origem, status) VALUES (5, 'nuvemshop', 'aplicada_parcial');`),
   { rotulo: 'status de sessão válido (aplicada_parcial): aceita' });
-aplicar(arquivoSql(`INSERT INTO reconciliacao_sessoes (id, origem, status) VALUES (6, 'sync', 'concluida');`),
+aplicar(arquivoSql(`INSERT INTO reconciliacao_sessoes (id, origem, status) VALUES (6, 'nuvemshop', 'concluida');`),
   { esperaFalha: /CHECK constraint failed/i, rotulo: 'status de sessão INVENTADO (concluida): banco recusa' });
 aplicar(arquivoSql(`INSERT INTO reconciliacao_sessoes (id, origem) VALUES (7, 'planilha_manual');`),
-  { esperaFalha: /CHECK constraint failed/i, rotulo: 'origem fora de sync|importacao: banco recusa' });
+  { esperaFalha: /CHECK constraint failed/i, rotulo: 'origem fora do enum válido (nuvemshop|planilha_estoque_total|planilha_produtos_novos): banco recusa' });
 
 aplicar(arquivoSql(`
   INSERT INTO reconciliacao_itens (sessao_id, sku, tipo, risco, status)

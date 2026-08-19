@@ -73,8 +73,22 @@ CREATE TABLE IF NOT EXISTS movimentos (
   revendedora_id INTEGER,
   venda_id       INTEGER,
   obs            TEXT,
-  criado_em      TEXT NOT NULL DEFAULT (datetime('now'))
+  criado_em      TEXT NOT NULL DEFAULT (datetime('now')),
+  -- NULL na imensa maioria — só existe quando o movimento veio do Apply do
+  -- motor de reconciliação (tipo ajuste_qtd). O índice único abaixo garante
+  -- que o MESMO item de reconciliação nunca gera dois movimentos, mesmo sob
+  -- crash-e-retry ou duas execuções concorrentes: ver RECONCILIATION_ENGINE.md.
+  reconciliacao_item_id INTEGER REFERENCES reconciliacao_itens(id)
 );
+
+-- Índice único: no máximo UM movimento por item de reconciliação. SQLite
+-- trata cada NULL como distinto de todo outro NULL num índice único — os
+-- movimentos que não vêm da reconciliação (a imensa maioria, com a coluna
+-- NULL) nunca colidem entre si; só dois movimentos com o MESMO
+-- reconciliacao_item_id não-nulo seriam recusados, que é exatamente a
+-- proteção que falta.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_movimentos_reconciliacao_item
+  ON movimentos(reconciliacao_item_id);
 
 -- --------------------------------------------------------- revendedoras
 -- §28: nunca excluída. Sai de circulação virando status='inativa'.
@@ -276,7 +290,7 @@ CREATE TABLE IF NOT EXISTS inventario_itens (
 -- o resto — nenhuma exceção para reconciliação.
 CREATE TABLE IF NOT EXISTS reconciliacao_sessoes (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  origem       TEXT NOT NULL CHECK (origem IN ('sync', 'importacao')),
+  origem       TEXT NOT NULL CHECK (origem IN ('nuvemshop', 'planilha_estoque_total', 'planilha_produtos_novos')),
   -- revisao | aplicando | aplicada | aplicada_parcial | cancelada |
   -- superada | erro — ver o comentário da migration para as transições
   status       TEXT NOT NULL DEFAULT 'revisao' CHECK (status IN (

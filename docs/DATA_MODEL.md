@@ -20,6 +20,33 @@ Consequência prática: **nunca escreva `produtos.qtd` diretamente.** Todo
 caminho passa por `estoque.js › movimentar`, que grava o movimento e ajusta
 o saldo no mesmo `db.batch()`.
 
+## Fonte da verdade do físico — TEMPORÁRIA
+
+Enquanto o inventário interno não for controlado definitivamente pelo
+sistema (ver [ROADMAP_RECONCILIATION.md](ROADMAP_RECONCILIATION.md)), a
+planilha de Estoque Total mantida pela Stéfane é a fonte máxima da verdade
+para a **quantidade física total** de cada SKU — não para o resto:
+
+| Pergunta | Responde | Onde |
+|---|---|---|
+| Quanto existe no total (casa + maletas) de um SKU? | **A planilha da Stéfane**, enquanto isso for verdade | `produtos.qtd`, reconciliado via `planilha_estoque_total` |
+| Quanto está em casa × com qual revendedora? | O sistema | `maletas` / `maleta_itens` |
+| O que mudou e por quê? | O sistema | `movimentos` (sempre a razão) |
+| Quanto está disponível para a Nuvemshop? | O sistema, **derivado** | `total − consignado`, nunca lido direto da planilha |
+| Cadastro e variações da loja | A Nuvemshop | `sync.js`, `produto_variacoes` |
+
+A planilha nunca autoriza mexer em maleta: se o total que ela informa é
+menor do que já está registrado com revendedoras, isso é uma contradição de
+dados (`total_menor_que_consignado`), não uma instrução para redistribuir
+ou apagar consignação em silêncio — ver
+[RECONCILIATION_ENGINE.md § Fonte da verdade](RECONCILIATION_ENGINE.md).
+
+Esta prioridade é temporária por definição: quando o inventário interno
+(hoje já existe como conferência — `inventarios`/`inventario_itens` — mas
+não é aplicado automaticamente, §3 de `api/REGRAS.md`) passar a ser
+controlado com confiança suficiente, ele poderá substituir a planilha como
+fonte da verdade física. Não é uma regra eterna, é o que vale **hoje**.
+
 ## Tabelas
 
 ### `categorias`

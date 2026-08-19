@@ -254,6 +254,89 @@ nessa ordem:
 Detalhe completo do schema em
 [RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md).
 
+### `src/reconciliacao-test.mjs` — o Apply do motor de reconciliação
+**143 asserções · ~35 s · precisa da loja falsa (ele mesmo a sobe) e do
+Worker no ar**
+
+Prova o backend do fluxo Review → Apply (`api/src/reconciliacao.js`) para
+as três origens — `nuvemshop`, `planilha_estoque_total`,
+`planilha_produtos_novos` — tudo por HTTP contra o Worker local:
+
+1. fluxo feliz sem variação e com variação (endereça só a variante certa,
+   a irmã não é tocada);
+2. Precondition A (destino): a loja muda por fora entre a análise e o
+   apply → item `obsoleto`, **nenhum PATCH** é enviado;
+3. Precondition B (origem): uma venda interna muda o nosso saldo entre a
+   análise e o apply, a loja NÃO muda → a precondition A sozinha passaria,
+   mas a B pega → `obsoleto`, sem escrita;
+4. **recuperação de PATCH** (4b/4c): destino já é `para` e a origem
+   continua batendo com `base_json` → confirma `aplicado` **sem reenviar o
+   PATCH** (simula "o PATCH de uma tentativa anterior chegou, mas o Worker
+   morreu antes de gravar o status"); destino já é `para` MAS a origem
+   mudou → não conclui aplicado por coincidência, vira `obsoleto`;
+5. dupla aplicação: a segunda chamada numa sessão já TERMINADA é sempre
+   recusada (409), zero efeito colateral;
+6. duas chamadas simultâneas (6/6b/6c): desde a retomada de sessão (item
+   10 abaixo), a rota aceita reentrar numa sessão `aplicando` — então duas
+   chamadas concorrentes não são mais "uma vence, a outra 409 sempre"; o
+   que o teste prova é o que importa de verdade, que nenhuma quebra (nunca
+   500) e o efeito final nunca duplica: em `estoque_loja` porque o PATCH é
+   absoluto (mais de um PATCH pode sair, mas todos concordam no mesmo
+   valor), em `ajuste_qtd` porque o índice único em
+   `movimentos.reconciliacao_item_id` barra fisicamente um segundo
+   movimento — e 6c prova isso direto no D1 local, sem depender de duas
+   chamadas conseguirem se entrelaçar de verdade (o `wrangler dev --local`
+   roda num processo só, e nem sempre entrelaça);
+7. falha técnica do PATCH (`loja.estado.falharPatchParaProduto`) → item
+   `erro`, sessão `aplicada_parcial` (nunca `erro` de sessão — o Apply
+   terminou de contabilizar);
+8. mistura: um item aplica, um fica obsoleto, um dá erro, tudo na mesma
+   sessão → `aplicada_parcial`;
+9. item rejeitado nunca é tocado; item pendente (nunca decidido) fica de
+   fora do apply sem precisar de decisão implícita;
+10. `ajuste_qtd`: um único movimento por aplicação, mesmo pedindo apply
+    duas vezes — a razão continua fechando depois;
+11. o código do módulo nunca usa `forcar` fora de comentário (checagem
+    estática do próprio arquivo);
+12. sessão nova supera a antiga da mesma origem ainda em revisão; aplicar
+    sem item aprovado é recusado; cancelar uma sessão em revisão funciona e
+    ela para de aceitar decisão ou apply;
+13. **retomada de sessão presa em `aplicando`** (cenário 16): uma sessão é
+    inserida direto no D1 já com status `aplicando` — um item já
+    `aplicado` (simulando uma execução anterior que morreu DEPOIS de
+    aplicar esse item mas ANTES de fechar a sessão) e outro ainda
+    `aprovado`. Chamar `/aplicar` de novo ignora o primeiro (nenhum PATCH
+    novo para ele) e processa o segundo — a sessão fecha `aplicada`
+    corretamente;
+14. **planilha Estoque Total** (17–21): igual não vira item; aumentar e
+    diminuir viram `ajuste_qtd` com `de`/`para` corretos; SKU da planilha
+    ausente do catálogo não cria produto, só conta em `resumo.novos`;
+    preview obsoleto (estoque mudou depois da análise) → `obsoleto`; total
+    proposto menor que o consignado com revendedoras → conflito
+    (`risco: 'desconhecido'`, `dados.conflito: 'total_menor_que_consignado'`)
+    que o Apply recusa MESMO SE aprovado; concorrência real no mesmo item
+    nunca duplica movimento;
+15. **planilha Produtos Novos** (22–25): SKU novo vira item e é criado; SKU
+    existente é ignorado por completo — mesmo com descrição/categoria/
+    preço/quantidade diferentes na planilha, o produto sai byte a byte
+    igual; mistura de 10 linhas com 3 novas gera exatamente 3 candidatos;
+    SKU criado por outro caminho entre a análise e o apply não é
+    sobrescrito (`obsoleto`); retry/concorrência nunca cria duas vezes;
+16. a razão (`produtos.qtd == SUM(movimentos.qtd)`) fecha depois de todos
+    os fluxos acima rodarem na mesma sessão de teste.
+
+Os cenários de concorrência para `ajuste_qtd` (6b, 6c) e o de retomada
+(16) inserem sessão/item **direto** no mesmo SQLite que o Worker já está
+usando (`wrangler d1 execute --local`, sem `--persist-to`, no diretório
+`api/`) para isolar a corrida do resto do fluxo — a partir da aprovação, é
+tudo API, igual a qualquer outro item. A sessão de retomada nasce
+`aplicando` direto no banco porque não existe (nem deveria existir) uma
+rota HTTP para "travar" uma sessão no meio — isso só acontece de verdade
+quando o Worker morre.
+
+Detalhe do fluxo completo, das preconditions e da idempotência em
+[RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md).
+
 ### `api/test-api.mjs`
 Script auxiliar de chamada à API. Não faz parte da suíte.
 
@@ -269,6 +352,7 @@ node src/kits-test.mjs
 node src/frontend-e2e.mjs      # precisa de `cd frontend && npm run build` antes
 node src/dry-run-test.mjs      # a prova formal do dry-run
 node src/saude-sync-test.mjs   # análise nunca esconde falha real
+node src/reconciliacao-test.mjs # o Apply do motor de reconciliação
 
 cd frontend && npm test        # os 73 testes unitários, sem navegador
 
@@ -321,10 +405,14 @@ apagar `.wrangler/state`, ou o `rm` falha com `Device or resource busy`.
 - comportamento contra a Nuvemshop **de verdade** (por definição: a loja
   falsa imita o que se sabe que ela faz);
 - concorrência: duas rodadas de sincronização ao mesmo tempo;
-- o Apply do motor de reconciliação, porque ele não existe ainda — só o
-  schema (`src/reconciliacao-schema-test.mjs`) e a correção de saúde de que
-  ele depende (`src/saude-sync-test.mjs`). Ver
-  [RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md).
+- o tipo `campo` do motor de reconciliação — nenhuma origem o gera ainda,
+  e o Apply não sabe executá-lo; um item desse tipo vira `erro`
+  explicitamente (nunca aplica por aproximação). `estoque_loja`,
+  `ajuste_qtd` e `produto_novo` já têm gerador e execução. Ver
+  [RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md);
+- a tela de revisão/aprovação do motor de reconciliação — o backend
+  (`api/src/reconciliacao.js`, `src/reconciliacao-test.mjs`) existe; a
+  integração com o painel React ainda não.
 
 ## Baseline atual
 

@@ -8,6 +8,10 @@ import {
 } from './inventario.js';
 import { sincronizar, historicoSync } from './sync.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
+import {
+  abrirSessao, detalheSessao, aprovarItem, rejeitarItem, cancelarSessao, aplicarSessao,
+  analisarPlanilhaEstoqueTotal, analisarPlanilhaProdutosNovos,
+} from './reconciliacao.js';
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 const int = v => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
@@ -217,6 +221,41 @@ async function rotear(request, env) {
         return json(await sincronizar(db, env, { forcar: !!b.forcar, seco: !!b.seco }));
       }
       if (path === '/api/sync' && met === 'GET') return json(await historicoSync(db));
+
+      // ------------------------------------------------------ reconciliação
+      if (path === '/api/reconciliacao' && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        return await abrirSessao(db, env, b.origem || 'nuvemshop');
+      }
+      // Planilha da Stéfane — Estoque Total: compara com produtos.qtd,
+      // nunca escreve direto (docs/RECONCILIATION_ENGINE.md § Fonte da
+      // verdade). `produtos` chega no mesmo formato que
+      // POST /api/produtos/importar sempre aceitou.
+      if (path === '/api/reconciliacao/planilha/estoque-total/analisar' && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        return await analisarPlanilhaEstoqueTotal(db, b.produtos);
+      }
+      // Planilha da Stéfane — Produtos Novos: só cria SKU inexistente,
+      // nunca toca em SKU que já existe.
+      if (path === '/api/reconciliacao/planilha/produtos-novos/analisar' && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        return await analisarPlanilhaProdutosNovos(db, b.produtos);
+      }
+      if ((m = path.match(/^\/api\/reconciliacao\/(\d+)$/)) && met === 'GET') {
+        return await detalheSessao(db, +m[1]);
+      }
+      if ((m = path.match(/^\/api\/reconciliacao\/(\d+)\/itens\/(\d+)\/aprovar$/)) && met === 'POST') {
+        return await aprovarItem(db, +m[1], +m[2]);
+      }
+      if ((m = path.match(/^\/api\/reconciliacao\/(\d+)\/itens\/(\d+)\/rejeitar$/)) && met === 'POST') {
+        return await rejeitarItem(db, +m[1], +m[2]);
+      }
+      if ((m = path.match(/^\/api\/reconciliacao\/(\d+)\/cancelar$/)) && met === 'POST') {
+        return await cancelarSessao(db, +m[1]);
+      }
+      if ((m = path.match(/^\/api\/reconciliacao\/(\d+)\/aplicar$/)) && met === 'POST') {
+        return await aplicarSessao(db, env, +m[1]);
+      }
 
       // ------------------------------------------------------- inventário
       if (path === '/api/inventarios' && met === 'GET') return await listarInventarios(db);

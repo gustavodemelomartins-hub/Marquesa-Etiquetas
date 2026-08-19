@@ -40,7 +40,10 @@
 --   (aplicada, aplicada_parcial, cancelada, superada, erro são terminais)
 CREATE TABLE IF NOT EXISTS reconciliacao_sessoes (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  origem       TEXT NOT NULL CHECK (origem IN ('sync', 'importacao')),
+  -- nuvemshop: preview do POST /api/sync {"seco":true} · planilha_estoque_total:
+  -- retrato completo da Stéfane (produtos.qtd) · planilha_produtos_novos: só
+  -- cria SKU que ainda não existe, nunca mexe no que já existe.
+  origem       TEXT NOT NULL CHECK (origem IN ('nuvemshop', 'planilha_estoque_total', 'planilha_produtos_novos')),
   status       TEXT NOT NULL DEFAULT 'revisao' CHECK (status IN (
                  'revisao', 'aplicando', 'aplicada', 'aplicada_parcial',
                  'cancelada', 'superada', 'erro'

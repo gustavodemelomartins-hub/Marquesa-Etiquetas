@@ -38,13 +38,13 @@ export function efeitoDe(tipo, quantidade) {
 
 /** Monta os statements de um movimento. Não executa — quem chama junta
  *  tudo num db.batch() para a gravação ser atômica. */
-export function movimentar(db, { sku, tipo, quantidade, origem, maletaId, revendedoraId, vendaId, obs, variacao }) {
+export function movimentar(db, { sku, tipo, quantidade, origem, maletaId, revendedoraId, vendaId, obs, variacao, reconciliacaoItemId }) {
   const efeito = efeitoDe(tipo, quantidade);
   const stmts = [
     db.prepare(
-      `INSERT INTO movimentos (sku, variacao, tipo, qtd, origem, maleta_id, revendedora_id, venda_id, obs)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(sku, variacao || null, tipo, efeito, origem || null, maletaId || null, revendedoraId || null, vendaId || null, obs || null),
+      `INSERT INTO movimentos (sku, variacao, tipo, qtd, origem, maleta_id, revendedora_id, venda_id, obs, reconciliacao_item_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(sku, variacao || null, tipo, efeito, origem || null, maletaId || null, revendedoraId || null, vendaId || null, obs || null, reconciliacaoItemId || null),
   ];
   if (efeito !== 0) {
     stmts.push(db.prepare(

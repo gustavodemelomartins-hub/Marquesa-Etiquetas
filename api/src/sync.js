@@ -334,7 +334,7 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
         if (certoV === v.estoque) continue;
         relato.mudancas.push({
           sku: p.sku, desc: `${p.desc} · ${v.nome}`, de: v.estoque, para: certoV,
-          zera: certoV === 0 && v.estoque > 0,
+          zera: certoV === 0 && v.estoque > 0, variacao: v.nome,
           varianteId: v.varianteId, produtoId: v.produtoId, locais: v.locais,
         });
       }
