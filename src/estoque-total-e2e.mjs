@@ -98,7 +98,8 @@ await page.goto(URL_APP);
 await page.waitForSelector('.nav-item', { timeout: 15000 });
 
 console.log('\n=== 1. navegar até Estoque Total ===');
-await page.click('.nav-item:has-text("Estoque Total")');
+await page.click('.nav-item:has-text("Estoque")');
+await page.click('.pill:has-text("Estoque Total")');
 await page.waitForSelector('.cartao-escolha', { timeout: 15000 });
 ok('a escolha entre os dois modos apareceu');
 

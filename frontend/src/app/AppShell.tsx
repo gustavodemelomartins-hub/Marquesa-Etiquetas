@@ -1,16 +1,20 @@
 import type { ReactNode } from 'react';
 
-export type Rota = 'nuvemshop' | 'reconciliacao' | 'estoque-total';
+/** As quatro áreas principais do sistema — como a usuária pensa no negócio,
+ *  não como o código foi implementado. Nuvemshop, reconciliação,
+ *  importações, maletas e acertos são funcionalidades DENTRO destas
+ *  áreas, nunca abas de primeiro nível. */
+export type AreaPrincipal = 'etiqueta' | 'estoque' | 'revendedoras' | 'vendas';
 
 interface ItemNav {
-  rota: Rota;
+  area: AreaPrincipal;
   rotulo: string;
   contagem?: number;
 }
 
 interface Props {
-  rota: Rota;
-  aoNavegar: (r: Rota) => void;
+  area: AreaPrincipal;
+  aoNavegar: (a: AreaPrincipal) => void;
   itens: ItemNav[];
   aoDesconectar?: () => void;
   children: ReactNode;
@@ -21,7 +25,7 @@ interface Props {
  *  Sem biblioteca de rotas: são duas telas, e a URL não precisa mudar
  *  enquanto o app legado ainda for o painel principal. Trocar isso por um
  *  router é barato depois — trocar um router por outro, não. */
-export function AppShell({ rota, aoNavegar, itens, aoDesconectar, children }: Props) {
+export function AppShell({ area, aoNavegar, itens, aoDesconectar, children }: Props) {
   return (
     <div className="shell">
       <div className="shell-topo">
@@ -36,14 +40,14 @@ export function AppShell({ rota, aoNavegar, itens, aoDesconectar, children }: Pr
         )}
       </div>
 
-      <nav className="nav" aria-label="Seções">
+      <nav className="nav" aria-label="Áreas principais">
         {itens.map((i) => (
           <button
-            key={i.rota}
+            key={i.area}
             type="button"
             className="nav-item"
-            aria-current={rota === i.rota ? 'page' : undefined}
-            onClick={() => aoNavegar(i.rota)}
+            aria-current={area === i.area ? 'page' : undefined}
+            onClick={() => aoNavegar(i.area)}
           >
             {i.rotulo}
             {i.contagem !== undefined && i.contagem > 0 && (

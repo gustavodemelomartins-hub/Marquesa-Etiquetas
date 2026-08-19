@@ -107,8 +107,15 @@ await page.waitForSelector('.nav-item', { timeout: 15000 });
 console.log('\n=== 1. o app abre já conectado ===');
 ok('a navegação apareceu — a conexão do painel legado foi reaproveitada');
 const abas = await page.$$eval('.nav-item', ns => ns.map(n => n.textContent.trim()));
-contem('tem a aba Nuvemshop', abas.join('|'), 'Nuvemshop');
-contem('tem a aba Reconciliação', abas.join('|'), 'Reconciliação');
+contem('as quatro áreas principais são Etiqueta/Estoque/Revendedoras/Vendas',
+  abas.join('|'), 'Etiqueta|Estoque|Revendedoras|Vendas');
+if (abas.some((a) => a === 'Nuvemshop' || a === 'Reconciliação')) {
+  bad('Nuvemshop/Reconciliação não deveriam mais ser abas principais', abas.join('|'));
+}
+
+/* Nuvemshop agora mora dentro de Estoque, não é mais aba principal. */
+await page.click('.nav-item:has-text("Estoque")');
+await page.click('.pill:has-text("Nuvemshop")');
 
 console.log('\n=== 2. estado da integração ===');
 await page.waitForSelector('.selo', { timeout: 15000 });
@@ -160,8 +167,8 @@ eq('nenhuma escrita nova chegou à Nuvemshop falsa',
    loja.estado.escritas.length, escritasAntes);
 eq('e continua zero desde o começo', loja.estado.escritas.length, 0);
 
-console.log('\n=== 7. a aba Reconciliação recebe a mesma análise ===');
-await page.click('.nav-item:has-text("Reconciliação")');
+console.log('\n=== 7. a aba Pendências (Estoque → Pendências) recebe a mesma análise ===');
+await page.click('.pill:has-text("Pendências")');
 await page.waitForSelector('table.tabela', { timeout: 15000 });
 const corpoRec = await page.textContent('.conteudo');
 contem('diz que aprovar e aplicar ainda não existem', corpoRec, 'ainda não existem');
@@ -179,6 +186,9 @@ eq('a rodada falhou de verdade', quebrada.ok, 'false');
 loja.estado.falhar = false;
 
 await page.goto(URL_APP);
+await page.waitForSelector('.nav-item', { timeout: 15000 });
+await page.click('.nav-item:has-text("Estoque")');
+await page.click('.pill:has-text("Nuvemshop")');
 await page.waitForSelector('.pendencia .titulo', { timeout: 15000 });
 
 const estado2 = await page.textContent('.selo');

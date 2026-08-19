@@ -72,7 +72,8 @@ await page.goto(URL_APP);
 await page.waitForSelector('.nav-item', { timeout: 15000 });
 
 console.log('\n=== 1. escolher Adicionar Peças Novas, selecionar o arquivo ===');
-await page.click('.nav-item:has-text("Estoque Total")');
+await page.click('.nav-item:has-text("Estoque")');
+await page.click('.pill:has-text("Estoque Total")');
 await page.waitForSelector('.cartao-escolha', { timeout: 15000 });
 await page.click('.cartao-escolha:has-text("Adicionar Peças Novas")');
 await page.setInputFiles('input[type="file"]', arquivo);
@@ -134,7 +135,8 @@ eq('a razão contábil fecha (o PN2 nasceu com um movimento de entrada, não um 
 
 console.log('\n=== 6. retry: reabrir a mesma planilha não duplica o PN2 ===');
 await page.goto(URL_APP);
-await page.click('.nav-item:has-text("Estoque Total")');
+await page.click('.nav-item:has-text("Estoque")');
+await page.click('.pill:has-text("Estoque Total")');
 await page.click('.cartao-escolha:has-text("Adicionar Peças Novas")');
 await page.setInputFiles('input[type="file"]', arquivo);
 await page.waitForSelector('text=Pecas Novas Fixture.xlsx', { timeout: 15000 });
