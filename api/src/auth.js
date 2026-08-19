@@ -1,10 +1,21 @@
 /** Chave única compartilhada — não é um sistema de contas, é uma senha de
  *  acesso ao painel. Proporcional a uma ferramenta interna de uma pessoa só;
  *  não confundir com autenticação de verdade se este projeto crescer. */
+/** Remove um BOM (U+FEFF) do início, se houver. `wrangler secret put`
+ *  rodado no Windows às vezes grava o segredo com esse caractere na
+ *  frente — artefato de como o Wrangler lê o stdin nesse ambiente, não do
+ *  valor que a pessoa digitou. Sem isto, um secret gravado assim nunca
+ *  bate com a chave que a pessoa cola no painel, e o erro parece "chave
+ *  errada" quando na verdade é "byte invisível a mais". */
+function semBom(s) {
+  return s && s.charCodeAt(0) === 0xfeff ? s.slice(1) : s;
+}
+
 export function checarChave(req, env) {
   const auth = req.headers.get('Authorization') || '';
   const chave = auth.replace(/^Bearer\s+/i, '').trim();
-  return chave && env.API_KEY && chave === env.API_KEY;
+  const apiKey = semBom(String(env.API_KEY || ''));
+  return chave && apiKey && chave === apiKey;
 }
 
 export function respostaNaoAutorizada() {

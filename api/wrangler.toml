@@ -39,6 +39,7 @@ crons = ["0 9,21 * * *"]
 # exatamente como hoje.
 [env.staging]
 name = "marquesa-api-staging"
+workers_dev = true
 
 [[env.staging.d1_databases]]
 binding = "DB"
