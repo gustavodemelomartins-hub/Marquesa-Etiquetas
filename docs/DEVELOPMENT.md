@@ -196,34 +196,32 @@ cd api
 npx wrangler deploy --env staging
 ```
 
-Depois disso, a conexão Git nativa da Cloudflare (Pages já configurado
-para builds automáticos; Workers Builds configurável no painel) assume os
-próximos deploys — ninguém mais roda esse comando à mão para DEV.
+Depois disso, o Worker DEV é republicado só por este comando à mão (ou
+por uma pipeline de CI que vier a existir para `api/` — hoje não há uma).
 
-### Deploy automático
+### Deploy automático do frontend — GitHub Actions, não Git Integration
 
-Todo push em `develop` dispara, via a integração Git da Cloudflare:
+`marquesa-dev` é um projeto Cloudflare Pages **Direct Upload**, criado
+assim desde o início. Direct Upload não tem, e não pode ganhar depois, a
+integração Git nativa da Cloudflare — um projeto assim não é convertido
+para Git Integration sem recriar o projeto, o que trocaria o link fixo.
+Por isso o deploy automático do frontend não usa Git Integration.
 
-1. **Pages** builda `frontend/` (`npm run build`) e publica em
-   `marquesa-dev.pages.dev` — o mesmo link, versão nova.
-2. **Workers Builds** (quando conectado) builda e publica
-   `marquesa-api-staging` a partir de `api/`.
-
-Nada disso toca `main`, `marquesa-api` ou `marquesa-db`.
-
-**Confira que a integração está de fato ligada antes de contar com ela.**
-Em 2026-08-19 um push em `develop` com testes verdes não gerou deployment
-nenhum, e o motivo era este:
+O deploy automático é **`.github/workflows/deploy-dev.yml`**: todo push
+em `develop` que toca `frontend/` roda testes, builda e publica com
 
 ```bash
-npx wrangler pages project list
-# │ Project Name │ Project Domains        │ Git Provider │
-# │ marquesa-dev │ marquesa-dev.pages.dev │ No           │   ← desconectado
+wrangler pages deploy frontend/dist --project-name marquesa-dev --branch develop
 ```
 
-`Git Provider: No` significa que **não existe build automático** — o link
-fixo continua servindo o último upload manual, silenciosamente, por quantos
-pushes forem. Com a integração ligada, essa coluna nomeia o provedor.
+via `cloudflare/wrangler-action`. As credenciais vêm dos secrets do
+repositório GitHub — `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID` —
+nunca em texto no workflow.
+
+`marquesa-api-staging` (Worker DEV) **não** faz parte deste workflow — é
+publicado à parte, hoje só manual (comando da seção acima).
+
+Nada neste fluxo toca `main`, `marquesa-api` ou `marquesa-db`.
 
 Para ver o que está publicado agora e em qual commit:
 
@@ -231,10 +229,9 @@ Para ver o que está publicado agora e em qual commit:
 npx wrangler pages deployment list --project-name marquesa-dev
 ```
 
-A coluna `Source` traz o SHA. Se ele não é o `HEAD` de `develop`, o que está
-no ar não é o que você acabou de mandar — reconectar a integração no painel
-(Workers & Pages → marquesa-dev → Settings → Builds & deployments, branch de
-produção `develop`) resolve para os próximos pushes.
+A coluna `Source` traz o SHA. Se ele não é o `HEAD` de `develop`, ou a
+GitHub Action mais recente falhou, ou ainda não rodou — conferir na aba
+Actions do repositório.
 
 ### Seed de dados sintéticos
 
@@ -267,12 +264,11 @@ precisar reverter Git, se for só para conferir algo rápido.
 
 ### Observabilidade
 
-Status de cada deploy: painel da Cloudflare → Workers & Pages →
-`marquesa-dev` (Pages) ou `marquesa-api-staging` (Workers) → aba
-Deployments. Falha de build aparece lá, com o log completo. GitHub não
-mostra status check automático a menos que a integração Git peça
-explicitamente (não configurado nesta etapa — ver observação no relatório
-de entrega).
+Status de cada deploy do frontend: aba **Actions** do repositório no
+GitHub (workflow `deploy-dev.yml`) — log completo de teste, build e
+publicação. Status do Worker DEV: painel da Cloudflare → Workers & Pages
+→ `marquesa-api-staging` → aba Deployments (publicado manual, ver seção
+acima).
 
 ## Ciclo de trabalho
 

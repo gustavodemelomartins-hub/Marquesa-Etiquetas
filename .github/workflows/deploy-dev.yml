@@ -1,0 +1,67 @@
+name: Deploy DEV frontend (Cloudflare Pages)
+
+# marquesa-dev é um projeto Pages Direct Upload — não tem Git Integration
+# nativa da Cloudflare, e não pode ganhar uma depois de criado. Este
+# workflow É o mecanismo de deploy: builda frontend/ e publica com
+# `wrangler pages deploy`, mantendo o link fixo marquesa-dev.pages.dev.
+#
+# Só roda em push para develop. Nunca mexe em main, marquesa-api ou
+# marquesa-db — o Worker staging (marquesa-api-staging) é publicado por
+# outro caminho, à parte deste arquivo.
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-dev.yml'
+
+# Evita dois deploys concorrentes pisando um no outro se dois pushes
+# chegarem em sequência rápida.
+concurrency:
+  group: deploy-dev-frontend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Testar, buildar e publicar em marquesa-dev.pages.dev
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node 22 com cache do npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Testes
+        run: npm test
+
+      - name: Build (inclui tsc --noEmit)
+        run: npm run build
+
+      - name: Publicar no Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: frontend
+          command: pages deploy dist --project-name marquesa-dev --branch develop
+
+      - name: Confirmar o deployment publicado
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler pages deployment list --project-name marquesa-dev
