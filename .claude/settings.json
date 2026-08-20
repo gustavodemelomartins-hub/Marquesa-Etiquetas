@@ -10,6 +10,7 @@
       "Task",
       "Edit(api/src/**)",
       "Edit(src/dashboard.tpl.html)",
+      "Edit(index.html)",
       "Edit(src/*.mjs)",
       "Edit(src/build.py)",
       "Edit(frontend/src/**)",
@@ -120,7 +121,6 @@
       "Read(./api/seed.sql)",
       "Read(./backups/**)",
       "Read(./dashboard.html)",
-      "Read(./index.html)",
       "Read(./vendor/**)",
 
       "Bash(git reset --hard:*)",
@@ -158,7 +158,6 @@
       "Edit(./.env)",
       "Edit(./api/seed.sql)",
       "Edit(dashboard.html)",
-      "Edit(index.html)",
       "Write(dashboard.html)",
       "Write(index.html)"
     ]
