@@ -21,21 +21,28 @@
  *  Silêncio = liberado.
  */
 import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 const PROD_DB = /marquesa-db(?!-dev)/;
 const PROD_R2 = /marquesa-fotos(?!-dev)/;
 const PROD_WORKER = /marquesa-api(?!-staging)/;
 
-function negar(motivo) {
+function decidir(decisao, motivo) {
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
-      permissionDecision: 'deny',
+      permissionDecision: decisao,
       permissionDecisionReason: motivo,
     },
   }));
   process.exit(0);
 }
+
+const negar = (motivo) => decidir('deny', motivo);
+/** Devolve a decisão para uma pessoa. Usado quando o hook NÃO consegue
+ *  provar que a operação é segura — fail closed sem virar bloqueio. */
+const perguntar = (motivo) => decidir('ask', motivo);
 
 function ramoAtual() {
   try {
@@ -85,6 +92,100 @@ function segmentos(cmd) {
     });
 }
 
+/* --------------------------------------------------------------------------
+ *  --file=<arquivo.sql>: validar o CONTEÚDO, não só o comando
+ *
+ *  Sem isto, o alvo estar certo (`marquesa-db-dev`) bastava para rodar um
+ *  arquivo com `DROP TABLE` dentro. Não é parser de SQL — é heurística
+ *  conservadora, e o que ela não consegue provar seguro vira `ask`.
+ * ----------------------------------------------------------------------- */
+
+function raizDoRepositorio() {
+  try {
+    return execSync('git rev-parse --show-toplevel', {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim() || process.cwd();
+  } catch { return process.cwd(); }
+}
+
+/** Extrai os valores de --file, nas duas sintaxes e com aspas. */
+function arquivosSql(seg) {
+  const achados = [];
+  const re = /--file(?:=|\s+)(?:"([^"]*)"|'([^']*)'|([^\s;&|]+))/g;
+  let m = re.exec(seg);
+  while (m !== null) {
+    achados.push(m[1] ?? m[2] ?? m[3] ?? '');
+    m = re.exec(seg);
+  }
+  return achados;
+}
+
+/** Tira comentário e literal de texto: `-- DROP TABLE` num comentário não é
+ *  uma statement, e um DROP dentro de aspas nunca é executado. */
+function limparSql(sql) {
+  return sql
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/--[^\n]*/g, ' ')
+    .replace(/'(?:''|[^'])*'/g, "''");
+}
+
+const DESTRUTIVO = [
+  [/\bdrop\s+(table|database|index|view|trigger)\b/i, 'DROP'],
+  [/\bdrop\s+column\b/i, 'ALTER TABLE … DROP COLUMN'],
+  [/\btruncate\b/i, 'TRUNCATE'],
+];
+const DUVIDOSO = [
+  [/\bdelete\s+from\b/i, 'DELETE'],
+  [/\bupdate\s+[`"[\]\w.]+\s+set\b/i, 'UPDATE'],
+  [/\breplace\s+into\b/i, 'REPLACE INTO'],
+  [/\binsert\s+or\s+replace\b/i, 'INSERT OR REPLACE'],
+  [/\balter\s+table\b[^;]*\brename\b/i, 'ALTER TABLE … RENAME'],
+];
+
+/** Decide sobre um `--file`, e nunca devolve "pode rodar" por omissão. */
+function conferirArquivo(bruto_, base, raiz) {
+  if (!bruto_) {
+    perguntar('`--file` sem valor legível. O hook não conseguiu conferir o SQL — '
+      + 'confirme à mão o que este arquivo executa.');
+  }
+  const alvo = path.resolve(base, bruto_);
+  /* `git rev-parse` devolve `c:/…` e `path.resolve` devolve `C:\…`. Comparar
+   * os dois crus reprovaria todo caminho legítimo no Windows. */
+  const normal = (p) => (process.platform === 'win32'
+    ? path.resolve(p).toLowerCase()
+    : path.resolve(p));
+  const a = normal(alvo);
+  const r = normal(raiz);
+  const dentro = a === r || a.startsWith(r.endsWith(path.sep) ? r : r + path.sep);
+  if (!dentro) {
+    negar(`O arquivo \`${bruto_}\` está FORA da raiz do repositório. Executar SQL vindo `
+      + 'de fora do projeto (dump, backup, pasta temporária) não acontece automaticamente.');
+  }
+
+  let texto;
+  try {
+    texto = readFileSync(alvo, 'utf8');
+  } catch {
+    perguntar(`Não consegui ler \`${bruto_}\` para conferir o SQL antes de executá-lo. `
+      + 'Sem leitura não há prova de que é seguro — confirme à mão.');
+  }
+
+  const limpo = limparSql(texto);
+  for (const [re, nome] of DESTRUTIVO) {
+    if (re.test(limpo)) {
+      negar(`\`${bruto_}\` contém ${nome}. Operação destrutiva não é executada `
+        + 'automaticamente em ambiente nenhum, nem no DEV. Carregue `safe-d1-change`, '
+        + 'e deixe a aplicação para uma pessoa.');
+    }
+  }
+  for (const [re, nome] of DUVIDOSO) {
+    if (re.test(limpo)) {
+      perguntar(`\`${bruto_}\` contém ${nome} — o hook não consegue provar que é seguro. `
+        + 'Leia o arquivo e confirme antes de aplicar. Estoque aqui representa peça física.');
+    }
+  }
+}
+
 let bruto = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (p) => { bruto += p; });
@@ -96,8 +197,19 @@ process.stdin.on('end', () => {
   const cru = String(evento.tool_input?.command ?? '');
   if (!cru.trim()) process.exit(0);
 
+  const raiz = raizDoRepositorio();
+  let base = process.cwd();
+
   for (const [nome, seg] of segmentos(semEnvelope(semHeredoc(cru)))) {
     const seco = /--dry-run\b/.test(seg);
+
+    /* `cd api && wrangler d1 execute … --file=schema.sql` é rotina: o caminho
+     * do arquivo é relativo ao cd, não ao diretório da sessão. */
+    if (nome === 'cd') {
+      const destino = (seg.match(/\bcd\s+(?:"([^"]*)"|'([^']*)'|([^\s;&|]+))/) ?? []);
+      const valor = destino[1] ?? destino[2] ?? destino[3];
+      if (valor) base = path.resolve(base, valor);
+    }
 
     /* -------------------------------------------------------- Cloudflare */
     if (nome === 'wrangler') {
@@ -140,6 +252,8 @@ process.stdin.on('end', () => {
           negar('DELETE ou UPDATE em massa sem `WHERE` validado. Bloqueado em qualquer '
             + 'ambiente — estoque aqui representa peça física.');
         }
+        /* O alvo estar certo não prova nada sobre o que está dentro do arquivo. */
+        for (const arquivo of arquivosSql(seg)) conferirArquivo(arquivo, base, raiz);
       }
     }
 

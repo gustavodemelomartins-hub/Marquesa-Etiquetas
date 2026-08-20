@@ -42,6 +42,8 @@ skills-lock.json
 !.claude/skills/
 !.claude/rules/
 !.claude/hooks/
+# fixturas do teste do hook: criadas e apagadas por ele, nunca versionadas
+.claude/hooks/__fixturas__/
 .claude/settings.local.json
 .claude/plugins/
 .claude/cache/
