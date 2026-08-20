@@ -63,7 +63,7 @@ binding = "FOTOS"
 bucket_name = "marquesa-fotos-dev"
 
 [env.staging.vars]
-ORIGENS_PERMITIDAS = "https://marquesa-dev.pages.dev"
+ORIGENS_PERMITIDAS = "https://marquesa-dev.pages.dev,https://marquesa-dev-legado.pages.dev"
 
 # Sem NUVEMSHOP_TOKEN/NUVEMSHOP_STORE_ID como secret neste ambiente: sem eles
 # `Nuvemshop.configurada()` volta false e toda chamada de sync termina em
