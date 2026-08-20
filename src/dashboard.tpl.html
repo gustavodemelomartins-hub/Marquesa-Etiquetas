@@ -1839,6 +1839,8 @@ function renderLoja(){
       <div class="w-act">
         <button class="btn btn-ghost btn-sm" onclick="setFiltroVitrine('variacao')">Ver quais são</button>
         <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="exportVariacoes()">↓ Baixar lista</button>
+        <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="desfazerSemeadura()"
+          title="Limpa uma repartição automática que aconteceu antes deste conserto existir">Corrigir repartição antiga</button>
       </div></div>
     </div>`:''}
 
@@ -3639,6 +3641,12 @@ function exportVariacoes(){
   baixar(new Blob([out],{type:'application/octet-stream'}),`Códigos com variação ${hoje()}.xlsx`);
   toast(`${lista.length} códigos com tamanho ou cor`);
   closeSettings();
+}
+async function desfazerSemeadura(){
+  if(!confirm('Desfazer repartições automáticas anteriores a este conserto?')) return;
+  const resp=await fetch('/api/variacoes/desfazer-semeadura',{method:'POST',headers:{Authorization:`Bearer ${state.chave}`}}).then(r=>r.json());
+  if(resp.ok){toast('Repartições antigas foram desfeitas');await atualizarEstado();closeSettings();}
+  else toast('Erro: '+(resp.erro||'operação falhou'));
 }
 /* Mesmo formato da aba "Estoque Atual" que a sincronização já consome. */
 function exportNuvemshop(){
