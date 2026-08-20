@@ -228,7 +228,7 @@ serve o sistema inteiro:
 |---|---|
 | `/` | redireciona para o painel (`_redirects` na raiz) |
 | `/dashboard.html` | **o painel** — Etiqueta · Estoque · Revendedoras · Vendas |
-| `/index.html` | o app de etiquetas autônomo, mantido como referência e como fonte do CSS/bibliotecas que o `build.py` extrai. **Não é destino de navegação.** |
+| `/index.html` | o Pages normaliza este caminho para `/`, então o app de etiquetas autônomo **não fica acessível pelo DEV** — ele segue no repositório como app independente e como fonte do CSS e das bibliotecas que o `build.py` extrai |
 | `/painel-novo/` | o frontend React, em construção, no mesmo domínio |
 
 A tela de Etiquetas vive **dentro** do painel desde que a navegação global
