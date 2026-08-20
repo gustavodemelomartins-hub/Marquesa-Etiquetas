@@ -436,13 +436,17 @@ tr.filtros input:focus,tr.filtros select:focus{outline:none;border-color:var(--g
 .listabox{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
 
 /* ==========================================================================
-   Refino visual — Estoque > Visão Geral
+   Visão Geral — a referência visual do sistema
    --------------------------------------------------------------------------
-   Esta tela é a referência do sistema: o que muda aqui é TOKEN (fundo,
-   cartão, navegação, indicador), não layout de uma página só. Por isso as
-   regras vivem no seletor compartilhado (.panel, .kpi, #tabsNav) e não numa
-   classe exclusiva da Visão Geral — Revendedoras e Vendas herdam a mesma
-   pele sem terem o conteúdo mexido.
+   O alvo é a composição aprovada NO CELULAR: cabeçalho enxuto, quatro botões
+   leves de navegação, gráfico primeiro, indicadores compactos, leituras no
+   rodapé. Densidade é requisito, não gosto — a tela inteira precisa caber em
+   pouco scroll no telefone, que é onde ela é usada.
+
+   As regras vivem nos seletores compartilhados (.panel, .kpi, #tabsNav)
+   porque isto é sistema, não maquiagem de uma página: Revendedoras e Vendas
+   herdam a mesma pele sem terem o conteúdo mexido. O desktop adapta no fim
+   do arquivo — mesma ordem, mesma hierarquia, mais respiro.
    ========================================================================== */
 
 /* Fundo: creme liso com um brilho blush no alto.
@@ -455,111 +459,244 @@ body::before{
   background-color:var(--ivory);
   background-image:linear-gradient(180deg, rgba(246,227,226,.9) 0%, rgba(246,227,226,0) 380px);
 }
+.app{padding-bottom:40px}
 
-/* Cartão: borda fina e sombra macia no lugar do contorno preto de 1,5 px */
+/* ---------- Cabeçalho: logo · área · Ajustes, e nada mais ----------
+   As contagens que moravam aqui foram para os indicadores, onde já estavam
+   de qualquer jeito. No celular elas custavam uma tela inteira de altura
+   antes de qualquer informação nova aparecer. */
+header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex-wrap:nowrap}
+/* A base empilha marca e ações abaixo de 760px, porque lá o bloco da
+   direita tinha três linhas de contagem. Sem elas sobra só o botão, e ele
+   cabe ao lado — o que devolve uma tela inteira de altura no celular. */
+.top .brand{flex:0 1 auto;min-width:0}
+.top .meta{flex:0 0 auto;text-align:right}
+.brandtag{border-width:1px;padding:9px 17px 9px 27px;box-shadow:0 1px 3px rgba(20,19,18,.10)}
+.brand .logo{height:29px}
+.brand{gap:13px}
+.brand .tooltag{border-left-width:1px;padding-left:13px;font-size:9.5px;letter-spacing:.3em}
+.top .meta .gearbtn{margin-top:0;border-width:1px;border-radius:10px;padding:8px 14px;font-size:12.5px}
+
+/* ---------- Navegação principal ----------
+   Mesmo conceito do botão Ajustes: fundo claro, borda fina escura, ícone e
+   texto em vinho. Leve. A navegação orienta; quem tem peso é o conteúdo.
+   O ativo se marca com o fundo vinho-claro e a borda cheia — indicação
+   discreta, não um bloco preenchido competindo com os cartões. */
+#tabsNav{display:flex;gap:6px;margin:14px 0 0;border-bottom:none;flex-wrap:nowrap}
+#tabsNav .tab{
+  flex:1 1 auto;min-width:0;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  padding:11px 6px;border-radius:11px;
+  border:1px solid #2A2024;background:var(--paper);color:var(--bordo);
+  /* O corpo acompanha a largura da tela: "Revendedoras" é a palavra que
+     decide se os quatro cabem numa linha só. Medido em 390px — abaixo de
+     360px a faixa passa a rolar (ver o fim do arquivo). */
+  font-size:clamp(9.5px, 2.5vw, 13px);font-weight:600;letter-spacing:0;
+  line-height:1.15;white-space:nowrap;box-shadow:none;transition:.15s;
+}
+#tabsNav .tab::after{display:none}
+#tabsNav .tab svg{flex:none;width:13px;height:13px}
+#tabsNav .tab span{overflow:hidden;text-overflow:ellipsis}
+#tabsNav .tab:hover{background:var(--rose-tint);border-color:var(--bordo)}
+#tabsNav .tab.active{background:var(--bordo-tint);border-color:var(--bordo);color:var(--bordo);font-weight:700}
+
+/* ---------- Subnavegação ----------
+   O respiro acima e abaixo é deliberado: colada, a subaba parecia parte dos
+   botões de cima, e o sublinhado do ativo encostava na linha divisória. */
+#tabsSubNav{margin:20px 0 16px;border-bottom:1px solid var(--line);gap:0}
+#tabsSubNav .tab{padding:8px 8px 13px;font-size:11.5px;color:var(--muted);font-weight:500}
+#tabsSubNav .tab:first-child{padding-left:0}
+#tabsSubNav .tab.active{color:var(--ink);font-weight:700}
+#tabsSubNav .tab.active::after{left:8px;right:8px;bottom:0;height:2.5px;background:var(--bordo)}
+#tabsSubNav .tab:first-child.active::after{left:0;right:8px}
+#tabsSubNav .tab .count{font-size:10px;padding:0 6px;margin-left:5px}
+
+/* ---------- Cartão ---------- */
 .panel{
   border:1px solid var(--line);border-radius:16px;
-  box-shadow:0 1px 2px rgba(142,74,94,.05), 0 8px 26px rgba(142,74,94,.07);
+  box-shadow:0 1px 2px rgba(142,74,94,.05), 0 6px 20px rgba(142,74,94,.06);
 }
-.panel .head{align-items:flex-start;text-align:left;gap:4px;padding:16px 20px 13px}
+.panel .head{align-items:flex-start;text-align:left;gap:3px;padding:14px 15px 0;border-bottom:none}
 .panel .head h2{align-items:flex-start;font-size:20px;font-weight:600}
 .panel .head .hint{max-width:64ch}
-/* Cabeçalho com ação à direita (o filtro do gráfico mora aqui) */
-.panel .head.linha{
-  flex-direction:row;align-items:center;justify-content:space-between;
-  flex-wrap:wrap;gap:10px;
-}
-.panel .head.linha .tit{display:flex;flex-direction:column;gap:3px}
-header.top{border-bottom:1px solid var(--line);padding:16px 0 13px}
+.panel .body{padding:14px 15px}
 
-/* Navegação global: ~12% menor que antes, e mais perto do conteúdo.
-   Ela orienta, não compete com o que está embaixo. */
-#tabsNav{gap:12px;margin:16px 0 4px}
-#tabsNav .tab{
-  padding:11px 24px;font-size:13.5px;border-radius:11px;
-  box-shadow:0 1px 2px rgba(142,74,94,.06);
-}
-#tabsSubNav{margin-bottom:16px}
+/* Cartão do gráfico: título em sans, do tamanho de um título de seção —
+   a serif grande aqui roubava a atenção dos números, que é o que importa. */
+.panel.cat .head h2{font-family:var(--sans);font-size:15px;font-weight:600;color:var(--ink);letter-spacing:0}
+.panel.cat .body{padding:11px 15px 15px}
 
-/* Indicador (KPI): ícone em disco, número grande, nota curta */
-.kpis{gap:12px;margin-bottom:16px}
+/* ---------- Segmented control ---------- */
+.seg{display:flex;width:100%;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+.seg button{
+  flex:1 1 auto;min-width:0;border:none;border-right:1px solid var(--line);
+  background:#fff;padding:9px 5px;font-size:11px;font-weight:600;
+  color:var(--muted);transition:.15s;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.seg button:last-child{border-right:none}
+.seg button.on{background:var(--bordo);color:#fff}
+.seg button:hover:not(.on){background:var(--ivory);color:var(--bordo-soft)}
+
+/* ---------- Gráfico + resumo, lado a lado ----------
+   Duas colunas mesmo no celular. Empilhados, o resumo empurrava os
+   indicadores para fora da tela; lado a lado, o cartão inteiro cabe. */
+.catgrid{display:grid;grid-template-columns:minmax(0,37%) minmax(0,1fr);gap:14px;margin-top:12px;align-items:start}
+.chartwrap{display:block}
+.donutbox{position:relative;width:100%;max-width:125px;margin:0 auto}
+.dcenter .dc-num{font-size:19px}
+.dcenter .dc-lbl{font-size:9px;letter-spacing:.05em;text-transform:none;margin-top:1px}
+.legend{display:grid;grid-template-columns:1fr;gap:0;width:100%;margin-top:11px}
+.lgd{display:flex;align-items:center;gap:6px;font-size:11px;padding:2.5px 0;border-radius:5px}
+.lgd .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.lgd .nm{color:var(--ink);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lgd .vl{color:var(--muted);font-size:10.5px;white-space:nowrap}
+.lgd .vl b{color:var(--ink);font-weight:600}
+
+/* ---------- Resumo por categoria ----------
+   Uma linha por categoria: nome, quantidade, percentual e a barra por baixo.
+   Cada categoria em seu próprio cartão custava cinco telas de scroll e não
+   deixava comparar nada — que é justamente para o que este bloco serve. */
+.resumotit{font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:10px}
+.rcat{margin-bottom:9px}
+.rcat:last-child{margin-bottom:0}
+.rcat .l{display:flex;align-items:baseline;gap:8px;font-size:11.5px;line-height:1.2}
+.rcat .nm{flex:1;min-width:0;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rcat .q{color:var(--ink);font-variant-numeric:tabular-nums}
+.rcat .p{color:var(--muted);min-width:30px;text-align:right;font-variant-numeric:tabular-nums}
+.rcat .barra{height:4px;border-radius:99px;background:var(--line-soft);margin-top:5px;overflow:hidden}
+.rcat .barra i{display:block;height:100%;border-radius:99px}
+
+/* ---------- Indicadores ----------
+   Quatro colunas compactas, na mesma faixa. Em 2x2 eles comiam meia tela
+   para dizer quatro números. */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0 0}
 .kpi{
-  border:1px solid var(--line);border-radius:16px;padding:14px 16px;
-  box-shadow:0 1px 2px rgba(142,74,94,.05), 0 8px 26px rgba(142,74,94,.06);
-  display:flex;gap:13px;align-items:flex-start;
+  display:block;padding:11px 8px 12px;border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 1px 2px rgba(142,74,94,.05), 0 6px 20px rgba(142,74,94,.05);
+  overflow:hidden;
 }
 .kpi::after{display:none}
-.kpi.destaque{border-left:3px solid var(--bordo)}
+/* Ícone em cima, rótulo embaixo. Lado a lado, num cartão de 85px divididos
+   por quatro, "REVENDEDORAS" não cabe em nenhum corpo legível e o navegador
+   corta a palavra no meio. Empilhado, o rótulo usa a largura inteira. */
+.kpi .k-topo{display:block;margin-bottom:6px}
+.kpi .k-ico{margin-bottom:6px}
 .kpi .k-ico{
-  width:38px;height:38px;border-radius:50%;flex:none;
+  width:24px;height:24px;border-radius:50%;flex:none;
   background:var(--rose-tint);color:var(--bordo);
   display:flex;align-items:center;justify-content:center;
 }
-.kpi .k-txt{min-width:0;flex:1}
-.kpi .k-num{font-size:29px;margin-top:2px}
+/* Sem entrelinhamento e a 8px: "REVENDEDORAS" é a palavra mais longa que um
+   quarto de tela precisa aguentar inteira. Um décimo a mais e o navegador
+   corta a palavra no meio, que é pior que qualquer economia de espaço. */
+.kpi .k-lbl{display:block;font-size:8px;line-height:1.25;letter-spacing:0;min-width:0}
+.kpi .k-num{font-size:22px;margin-top:0;line-height:1}
+.kpi .k-sub{font-size:9.5px;margin-top:5px;line-height:1.4}
 
-/* Rosca e legenda lado a lado */
-.chartwrap.lado{flex-direction:row;align-items:center;gap:22px}
-.chartwrap.lado .donutbox{max-width:240px;flex:none}
-.chartwrap.lado .legend{grid-template-columns:1fr;gap:2px}
-.chartwrap.lado .lgd .vl{white-space:nowrap}
-
-/* Resumo por categoria — a mesma verdade da rosca, em linha */
-.resumocat{width:100%;border-collapse:collapse;font-size:12.5px}
-.resumocat th{
-  font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);
-  font-weight:700;text-align:left;padding:0 8px 9px;border-bottom:1px solid var(--line-soft);
+/* ---------- Leituras do rodapé ----------
+   Três cartões próprios, não três colunas de um cartão só: cada um termina
+   no botão da tela que resolve o que ele aponta, e um botão precisa de uma
+   borda para parecer o fim de alguma coisa. */
+.insights{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.insight{
+  background:var(--paper);border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 1px 2px rgba(142,74,94,.05), 0 6px 20px rgba(142,74,94,.05);
+  padding:12px 11px;display:flex;flex-direction:column;
 }
-.resumocat th.n,.resumocat td.n{text-align:right;font-variant-numeric:tabular-nums}
-.resumocat td{padding:9px 8px;border-bottom:1px solid var(--line-soft);color:var(--ink)}
-.resumocat tr:last-child td{border-bottom:none}
-.resumocat td.nome{white-space:nowrap}
-.resumocat td.b{width:45%;min-width:90px}
-.resumocat .barra{height:7px;border-radius:99px;background:var(--line-soft)}
-.resumocat .barra i{display:block;height:100%;border-radius:99px}
-
-/* Leituras do rodapé: o que a tela conclui, com o próximo passo junto */
-.insights{display:grid;grid-template-columns:repeat(3,1fr)}
-.insight{display:flex;gap:13px;padding:16px 18px;border-left:1px solid var(--line-soft)}
-.insight:first-child{border-left:none}
+.insight .i-topo{display:block;margin-bottom:8px}
 .insight .i-ico{
-  width:38px;height:38px;border-radius:50%;flex:none;
+  width:24px;height:24px;border-radius:50%;flex:none;margin-bottom:6px;
   background:var(--rose-tint);color:var(--bordo);
   display:flex;align-items:center;justify-content:center;
 }
-.insight .i-t{font-family:var(--serif);font-size:16px;font-weight:700;color:var(--bordo);line-height:1.1}
-.insight .i-d{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.45}
-.insight .i-d b{color:var(--ink)}
-.insight .i-a{margin-top:9px}
+.insight .i-t{
+  display:block;font-size:8.5px;line-height:1.25;letter-spacing:0;text-transform:uppercase;
+  font-weight:700;color:var(--bordo);min-width:0;
+}
+.insight .i-d{font-size:11px;color:var(--muted);line-height:1.5}
+.insight .i-d b{color:var(--bordo);font-weight:700;font-family:var(--serif);font-size:14px}
+.insight .i-d .ln{display:block}
+.insight .i-a{margin-top:auto;padding-top:11px}
+.insight .i-a .btn{
+  width:100%;justify-content:space-between;font-size:10.5px;
+  padding:7px 9px;border-radius:9px;gap:4px;
+  /* o rótulo quebra em vez de esticar o cartão: "Abrir Nuvemshop" numa
+     linha só empurrava a página inteira de lado num iPhone SE */
+  white-space:normal;text-align:left;
+}
 .insight[data-tom="atencao"] .i-ico{background:#FBF1DC;color:#A8791F}
 .insight[data-tom="critico"] .i-ico{background:var(--danger-tint);color:var(--danger)}
 
+/* ==========================================================================
+   Telas largas — mesma ordem, mesma hierarquia, mais respiro
+   --------------------------------------------------------------------------
+   O celular é a base deste arquivo, e não o contrário: o desktop não muda a
+   composição, só deixa de espremer. Quem programa mobile-first por engano
+   acaba com um desktop esticado; aqui a densidade do celular é o requisito,
+   e a folga é o que se ganha quando há espaço.
+   ========================================================================== */
+@media (min-width:900px){
+  header.top{padding:20px 0 16px}
+  .brand .logo{height:34px}
+  .brand .tooltag{font-size:10px;letter-spacing:.34em;padding-left:16px}
+  .top .meta .gearbtn{font-size:13px;padding:9px 16px}
+
+  /* Os botões passam a caber no próprio tamanho, centralizados: esticados
+     de ponta a ponta numa tela de 1120px eles viravam faixas. */
+  #tabsNav{justify-content:center;gap:10px;margin:18px 0 0}
+  #tabsNav .tab{flex:0 0 auto;padding:10px 22px;font-size:13.5px;gap:8px}
+  #tabsSubNav{margin:24px 0 20px}
+  #tabsSubNav .tab{font-size:14.5px;padding:7px 16px 13px}
+  #tabsSubNav .tab.active::after{left:16px;right:16px}
+  #tabsSubNav .tab:first-child.active::after{left:0;right:16px}
+
+  .panel .head{padding:17px 20px 0}
+  .panel .body{padding:16px 20px 18px}
+  .panel.cat .head h2{font-size:17px}
+  /* No celular o controle ocupa a largura toda porque é alvo de toque; na
+     tela grande ele encolhe para o próprio tamanho — esticado até a borda
+     do cartão, o terceiro botão ficava com meio metro de vazio à direita. */
+  .seg{display:inline-flex;width:auto}
+  .seg button{flex:0 0 auto;padding:8px 18px;font-size:12.5px}
+
+  .catgrid{grid-template-columns:minmax(0,270px) minmax(0,1fr);gap:34px;margin-top:16px}
+  .donutbox{max-width:210px}
+  .dcenter .dc-num{font-size:29px}
+  .dcenter .dc-lbl{font-size:10.5px}
+  .legend{gap:1px;margin-top:16px}
+  .lgd{font-size:12.5px;padding:4px 0}
+  .lgd .vl{font-size:12px}
+  .lgd:hover{background:var(--ivory)}
+  .resumotit{font-size:14px;margin-bottom:14px}
+  .rcat{margin-bottom:13px}
+  .rcat .l{font-size:13px}
+  .rcat .barra{height:5px;margin-top:6px}
+
+  .kpis{gap:14px;margin-top:16px}
+  .kpi{padding:15px 16px 16px}
+  .kpi .k-topo{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .kpi .k-ico{width:34px;height:34px;margin-bottom:0}
+  .kpi .k-lbl{font-size:10px}
+  .kpi .k-num{font-size:31px}
+  .kpi .k-sub{font-size:11.5px;margin-top:6px}
+
+  .insights{gap:14px;margin-top:16px}
+  .insight{padding:16px 17px}
+  .insight .i-topo{display:flex;align-items:center;gap:10px}
+  .insight .i-ico{width:34px;height:34px;margin-bottom:0}
+  .insight .i-t{font-size:10px}
+  .insight .i-d{font-size:12.5px}
+  .insight .i-d b{font-size:16px}
+  .insight .i-a .btn{font-size:12px;padding:8px 12px}
+
+  .row.chart{grid-template-columns:1fr 1fr}
+}
 @media (max-width:900px){
-  .kpis{grid-template-columns:1fr 1fr}
   .row.chart{grid-template-columns:1fr}
-  .row.geral{grid-template-columns:1fr}
   .acgrid{grid-template-columns:1fr}
-  .insights{grid-template-columns:1fr}
-  .insight{border-left:none;border-top:1px solid var(--line-soft)}
-  .insight:first-child{border-top:none}
 }
 @media (max-width:760px){
-  .legend{grid-template-columns:1fr}
-  /* No celular a rosca e a legenda voltam a empilhar: lado a lado, a rosca
-     encolhe até o rótulo de dentro virar borrão. */
-  .chartwrap.lado{flex-direction:column;align-items:center;gap:14px}
-  .chartwrap.lado .donutbox{max-width:250px}
-  /* No celular a navegação global vira 2×2: os quatro botões ficam do
-     mesmo tamanho e no alcance do polegar, em vez de três em cima e um
-     órfão embaixo. */
-  #tabsNav{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 4px}
-  #tabsNav .tab{padding:11px 8px;font-size:13px;text-align:center}
-  /* Topo mais curto: o cabeçalho informa, os indicadores é que contam. */
-  header.top{padding:12px 0 10px;gap:8px}
-  .top .meta .gearbtn{margin-top:6px}
-  .kpi{padding:12px 13px;gap:10px}
-  .kpi .k-ico{width:32px;height:32px}
-  .kpi .k-num{font-size:26px}
   /* A base transforma tabelas em cartões no celular; aqui o dashboard
      mantém a tabela de estoque rolável, que é mais legível para números. */
   .tablewrap.keeptable{border:1px solid var(--line);background:#fff;overflow:auto;border-radius:12px;-webkit-overflow-scrolling:touch}
@@ -582,6 +719,25 @@ header.top{border-bottom:1px solid var(--line);padding:16px 0 13px}
   .fotogrid{grid-template-columns:1fr}
   .pager{justify-content:center}
 }
+/* Abaixo de 380px, um quarto de tela não comporta "REVENDEDORAS" inteira
+   nem a 8px — e cortar a palavra no meio é pior que qualquer economia de
+   espaço. Duas colunas é a degradação honesta: continua compacto, e nada
+   fica ilegível. O aparelho da referência (393px) mantém as quatro. */
+@media (max-width:379px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .insights{grid-template-columns:1fr}
+  .insight{flex-direction:row;align-items:flex-start;gap:11px}
+  .insight .i-topo{flex:0 0 84px;margin-bottom:0}
+  .insight .i-a{margin-top:9px;padding-top:0}
+}
+/* Mais estreito ainda: "Revendedoras" também não cabe ao lado dos outros
+   três botões. Em vez de cortar a palavra, a faixa rola de lado — o mesmo
+   que a subnavegação já faz. */
+@media (max-width:359px){
+  #tabsNav{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  #tabsNav::-webkit-scrollbar{display:none}
+  #tabsNav .tab{flex:0 0 auto;font-size:11.5px}
+}
 </style>
 </head>
 <body>
@@ -595,8 +751,10 @@ header.top{border-bottom:1px solid var(--line);padding:16px 0 13px}
       <span class="tooltag" id="hdArea">Estoque</span>
     </div>
     <div class="meta">
-      <div><b id="hdPecas">0</b> <span id="hdRot1">peças</span> · <b id="hdSkus">0</b> <span id="hdRot2">códigos</span></div>
-      <div id="hdSub">Estoque total da operação</div>
+      <!-- As contagens saíram daqui: os indicadores logo abaixo dizem a mesma
+           coisa, com mais precisão, e no cabeçalho só custavam altura de tela
+           no celular. O cabeçalho identifica onde você está; quem conta é o
+           conteúdo. -->
       <div class="linkrow">
         <button class="gearbtn" onclick="openSettings()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -1510,11 +1668,18 @@ function renderTabs(){
 
   const naFila=(window.Etq&&Etq.naFila())||0;
 
-  navMain.innerHTML=`
-    <button class="tab ${mt==='etiqueta'?'active':''}" onclick="switchTab('etiquetas')">Etiqueta</button>
-    <button class="tab ${mt==='estoque'?'active':''}" onclick="switchTab('geral')">Estoque</button>
-    <button class="tab ${mt==='revendedoras'?'active':''}" onclick="switchTab('revlist')">Revendedoras</button>
-    <button class="tab ${mt==='vendas'?'active':''}" onclick="switchTab('vendas')">Vendas</button>`;
+  /* Ordem: Estoque · Revendedoras · Vendas · Etiquetas. É a ordem do dia de
+     trabalho — o estoque governa tudo, a etiqueta é o último passo, depois
+     que a peça já existe. */
+  navMain.innerHTML=[
+    ['estoque',      'geral',     'Estoque',      ICO.caixa],
+    ['revendedoras', 'revlist',   'Revendedoras', ICO.pessoas],
+    ['vendas',       'vendas',    'Vendas',       ICO.grafico],
+    ['etiqueta',     'etiquetas', 'Etiquetas',    ICO.etiqueta],
+  ].map(([area,destino,rotulo,ico])=>
+    `<button class="tab ${mt===area?'active':''}" onclick="switchTab('${destino}')"
+       ${mt===area?'aria-current="page"':''}>${svgIco(ico,15)}<span>${rotulo}</span></button>`
+  ).join('');
 
   if(mt==='etiqueta'){
     navSub.style.display='';
@@ -1552,26 +1717,6 @@ function renderTabs(){
   const hdArea=document.getElementById('hdArea');
   if(hdArea) hdArea.textContent=areaTxt;
 
-  if(mt==='etiqueta'){
-    /* Na Etiqueta o cabeçalho fala da FILA DE IMPRESSÃO, não do estoque:
-       são coisas diferentes, e mostrar peças em casa aqui só confundiria. */
-    const etq=(window.Etq&&Etq.resumo())||{pecas:0,fila:0,etiquetas:0};
-    document.getElementById('hdPecas').textContent=etq.pecas;
-    document.getElementById('hdSkus').textContent=etq.fila;
-    document.getElementById('hdRot1').textContent=plural(etq.pecas,'peça na lista','peças na lista');
-    document.getElementById('hdRot2').textContent='na fila';
-    document.getElementById('hdSub').textContent=
-      etq.etiquetas? `${etq.etiquetas} ${plural(etq.etiquetas,'etiqueta','etiquetas')} para imprimir`
-                   : 'Cadastre ou importe peças para imprimir';
-  }else{
-    const t=totais();
-    document.getElementById('hdPecas').textContent=t.total;
-    document.getElementById('hdSkus').textContent=state.produtos.length;
-    document.getElementById('hdRot1').textContent=plural(t.total,'peça','peças');
-    document.getElementById('hdRot2').textContent=plural(state.produtos.length,'código','códigos');
-    document.getElementById('hdSub').textContent=
-      t.total? `${t.casa} em casa · ${t.fora} com revendedoras` : 'Importe sua planilha para começar';
-  }
 }
 
 /* =================== Visão geral =================== */
@@ -1591,31 +1736,41 @@ const ICO={
   nuvem:'<path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.1 10.6 3.7 3.7 0 0 0 6.5 19z"/>',
   escudo:'<path d="M12 3l7.5 3v5c0 4.6-3.1 8.8-7.5 10-4.4-1.2-7.5-5.4-7.5-10V6z"/><path d="m9 12 2 2 4-4"/>',
   grafico:'<path d="M3 3v18h18"/><path d="m18.7 8-5.7 5.7-3-3L6 15"/>',
-  brilho:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/>'
+  brilho:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/>',
+  etiqueta:'<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7.2-7.2A2 2 0 0 1 2.8 12V4.8A2 2 0 0 1 4.8 2.8H12a2 2 0 0 1 1.4.6l7.2 7.2a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.3"/>'
 };
 function svgIco(d,tam){
   return `<svg width="${tam||18}" height="${tam||18}" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 }
-function cartaoKpi({destaque,ico,rot,num,sub}){
-  return `<div class="kpi${destaque?' destaque':''}">
-    <span class="k-ico">${svgIco(ico,19)}</span>
-    <div class="k-txt">
-      <div class="k-lbl">${esc(rot)}</div>
-      <div class="k-num">${esc(String(num))}</div>
-      <div class="k-sub">${sub}</div>
+/** Ícone e rótulo no topo, número embaixo, notas no pé. Compacto de
+ *  propósito: são quatro na mesma faixa, inclusive no celular. `sub` chega
+ *  como lista de linhas, uma por informação — no telefone elas quebrariam
+ *  em lugar errado se viessem numa frase só. */
+function cartaoKpi({ico,rot,num,sub}){
+  return `<div class="kpi">
+    <div class="k-topo">
+      <span class="k-ico">${svgIco(ico,15)}</span>
+      <span class="k-lbl">${esc(rot)}</span>
     </div>
+    <div class="k-num">${esc(String(num))}</div>
+    <div class="k-sub">${(sub||[]).map(l=>`<div>${l}</div>`).join('')}</div>
   </div>`;
 }
 function cartaoInsight({tom,ico,titulo,corpo,acao}){
   return `<div class="insight"${tom?` data-tom="${tom}"`:''}>
-    <span class="i-ico">${svgIco(ico,19)}</span>
-    <div>
-      <div class="i-t">${esc(titulo)}</div>
-      <div class="i-d">${corpo}</div>
-      ${acao?`<div class="i-a">${acao}</div>`:''}
+    <div class="i-topo">
+      <span class="i-ico">${svgIco(ico,15)}</span>
+      <span class="i-t">${esc(titulo)}</span>
     </div>
+    <div class="i-d">${corpo}</div>
+    ${acao?`<div class="i-a">${acao}</div>`:''}
   </div>`;
+}
+/** O botão que termina cada leitura. Leva para a tela que resolve o que a
+ *  leitura aponta — diagnóstico sem próximo passo vira paisagem. */
+function botaoInsight(rotulo,acao){
+  return `<button class="btn btn-ghost btn-sm" onclick="${acao}">${esc(rotulo)}<span aria-hidden="true">›</span></button>`;
 }
 
 /* As três leituras do rodapé. Cada frase sai de um número que o painel já
@@ -1628,47 +1783,49 @@ function insights(){
   const semFoto=state.produtos.filter(p=>fotoDe(p)==='sem_foto').length;
   const inc=inconsistencias();
   const c=state.catalogo||{};
-  const pendentes=c.pendentes||0;
+  /* Mesma conta do selo da subaba Pendências — dois números diferentes para
+     a mesma coisa, na mesma tela, é como se perde a confiança no painel. */
+  const aEsperar=(c.pendentes||0)+(c.fotosOrfas||0)+inc.length;
 
   /* ---- 1. Saúde do estoque ---- */
-  const problemas=[];
-  if(inc.length) problemas.push(`<b>${inc.length}</b> ${plural(inc.length,'código com mais peça na rua do que no cadastro','códigos com mais peça na rua do que no cadastro')}`);
-  if(semPreco) problemas.push(`<b>${semPreco}</b> sem preço`);
-  if(semFoto) problemas.push(`<b>${semFoto}</b> sem foto`);
-  if(pendentes) problemas.push(`<b>${pendentes}</b> ${plural(pendentes,'peça nova esperando cadastro','peças novas esperando cadastro')}`);
-  const saude=problemas.length
-    ? {tom:inc.length?'critico':'atencao',
-       corpo:problemas.join(' · ')+'.',
-       acao:inc.length
-         ?`<button class="btn btn-ghost btn-sm" onclick="setFiltroInc(true)">Ver os códigos</button>`
-         :(pendentes?`<button class="btn btn-ghost btn-sm" onclick="switchTab('cadastro')">Ir para o cadastro</button>`:'')}
-    : {tom:'', corpo:`Nenhum código sem preço, sem foto ou com peça a mais na rua. <b>${state.produtos.length}</b> ${plural(state.produtos.length,'código conferido','códigos conferidos')}.`, acao:''};
+  const ln=[];
+  if(semFoto)  ln.push(`<span class="ln"><b>${semFoto}</b> sem foto</span>`);
+  if(semPreco) ln.push(`<span class="ln"><b>${semPreco}</b> sem preço</span>`);
+  if(aEsperar) ln.push(`<span class="ln"><b>${aEsperar}</b> ${plural(aEsperar,'pendência','pendências')}</span>`);
+  const saude = ln.length
+    ? {tom:inc.length?'critico':'atencao', corpo:ln.join(''),
+       acao:botaoInsight('Ver detalhes', inc.length ? 'setFiltroInc(true)'
+              : (aEsperar ? "switchTab('pendencias')"
+                          : "document.getElementById('view-estoque').scrollIntoView({behavior:'smooth'})"))}
+    : {tom:'', corpo:`Nada pendente. <b>${state.produtos.length}</b> ${plural(state.produtos.length,'código conferido','códigos conferidos')}, ${plural(state.produtos.length,'com foto e preço','todos com foto e preço')}.`, acao:''};
 
   /* ---- 2. Concentração por categoria ---- */
-  const dados=dadosCategoria().slice().sort((a,b)=>b.qtd-a.qtd);
+  const dados=dadosCategoria();
   const totalCat=dados.reduce((s,d)=>s+d.qtd,0);
   const top=dados.slice(0,3);
   const somaTop=top.reduce((s,d)=>s+d.qtd,0);
-  const escopoTxt={total:'do estoque total',casa:'do que está em casa',fora:'do que está na rua'}[escopoGrafico];
-  const volume=totalCat
-    ? `${top.map(d=>`<b>${esc(d.cat)}</b> (${pctTexto(d.qtd,totalCat)})`).join(', ')} ${plural(top.length,'representa','representam')} ${pctTexto(somaTop,totalCat)} ${escopoTxt}.`
+  const escopoTxt={total:'do seu estoque total',casa:'do que está em casa',fora:'do que está na rua'}[escopoGrafico];
+  const volume = totalCat
+    ? `${top.map(d=>esc(d.cat)).join(', ')} ${plural(top.length,'representa','representam')} <b>${pctTexto(somaTop,totalCat)}</b> ${escopoTxt}.`
     : 'Sem peças nesta visão para comparar.';
+  const acaoVolume = totalCat
+    ? botaoInsight('Ver categorias', `setFiltroCat('${esc(top[0].cat)}')`)
+    : '';
 
   /* ---- 3. Oportunidade ---- */
-  const linhas=linhasEstoque();
-  const foraDaLoja=linhas.filter(l=>!l.p.urlLoja&&l.casa>0);
+  const foraDaLoja=linhasEstoque().filter(l=>!l.p.urlLoja&&l.casa>0);
   const pecasFora=foraDaLoja.reduce((s,l)=>s+l.casa,0);
-  const oportunidade=!temLoja()
-    ? {corpo:`A loja ainda não está conectada neste ambiente — nenhum código tem link da Nuvemshop. Enquanto isso, o painel não consegue dizer o que já está publicado.`,
-       acao:`<button class="btn btn-ghost btn-sm" onclick="switchTab('loja')">Abrir Nuvemshop</button>`}
+  const oportunidade = !temLoja()
+    ? {corpo:`Loja não conectada aqui: nenhum código tem link da Nuvemshop, e o painel não sabe o que já está publicado.`,
+       acao:botaoInsight('Abrir Nuvemshop', "switchTab('loja')")}
     : (foraDaLoja.length
-      ? {corpo:`<b>${pecasFora}</b> ${plural(pecasFora,'peça em casa ainda não tem','peças em casa ainda não têm')} cadastro na loja, em <b>${foraDaLoja.length}</b> ${plural(foraDaLoja.length,'código','códigos')}. ${plural(pecasFora,'Ela não pode','Elas não podem')} ser ${plural(pecasFora,'vendida','vendidas')} pelo site.`,
-         acao:`<button class="btn btn-ghost btn-sm" onclick="setFiltroLoja('fora')">Ver esses códigos</button>`}
+      ? {corpo:`<b>${pecasFora}</b> ${plural(pecasFora,'peça em casa ainda não cadastrada','peças em casa ainda não cadastradas')} na Nuvemshop.`,
+         acao:botaoInsight('Ver oportunidades', "setFiltroLoja('fora')")}
       : {corpo:`Tudo que está em casa já tem cadastro na loja. <b>${t.casa}</b> ${plural(t.casa,'peça pronta','peças prontas')} para vender pelo site.`, acao:''});
 
   return `<div class="insights">
     ${cartaoInsight({tom:saude.tom, ico:ICO.escudo, titulo:'Saúde do estoque', corpo:saude.corpo, acao:saude.acao})}
-    ${cartaoInsight({ico:ICO.grafico, titulo:'Categorias com maior volume', corpo:volume})}
+    ${cartaoInsight({ico:ICO.grafico, titulo:'Categorias com maior volume', corpo:volume, acao:acaoVolume})}
     ${cartaoInsight({ico:ICO.brilho, titulo:'Oportunidade', corpo:oportunidade.corpo, acao:oportunidade.acao})}
   </div>`;
 }
@@ -1703,54 +1860,50 @@ function renderGeral(){
 
   const lojaConectada=temLoja();
 
+  /* ORDEM: gráfico → indicadores → leituras.
+     O gráfico primeiro porque é a pergunta que se faz ao abrir a tela — "o
+     que eu tenho?". Os indicadores respondem "quanto", e são quatro números
+     que o gráfico já contextualizou. Antes eles vinham primeiro e empurravam
+     o gráfico para fora da tela no celular. */
   v.innerHTML=`
+    <div class="panel cat">
+      <div class="head"><h2>Distribuição por categoria</h2></div>
+      <div class="body">
+        <div class="seg" role="group" aria-label="O que o gráfico mostra">
+          <button class="${escopoGrafico==='total'?'on':''}" onclick="setEscopo('total')" ${escopoGrafico==='total'?'aria-pressed="true"':''}>Estoque total</button>
+          <button class="${escopoGrafico==='casa'?'on':''}" onclick="setEscopo('casa')" ${escopoGrafico==='casa'?'aria-pressed="true"':''}>Em casa</button>
+          <button class="${escopoGrafico==='fora'?'on':''}" onclick="setEscopo('fora')" ${escopoGrafico==='fora'?'aria-pressed="true"':''}>Com revendedoras</button>
+        </div>
+        <div class="catgrid">
+          <div class="chartwrap" id="chartWrap"></div>
+          <div>
+            <div class="resumotit">Resumo por categoria</div>
+            <div id="resumoCat"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="kpis">
-      ${cartaoKpi({destaque:true, ico:ICO.caixa, rot:'Estoque total', num:t.total,
-        sub:`${state.produtos.length} ${plural(state.produtos.length,'código','códigos')} · ${money(t.valTotal)}`})}
+      ${cartaoKpi({ico:ICO.caixa, rot:'Estoque total', num:t.total,
+        sub:[`${state.produtos.length} ${plural(state.produtos.length,'código','códigos')}`, money(t.valTotal)]})}
       ${cartaoKpi({ico:ICO.casa, rot:'Em casa', num:t.casa,
-        sub:`Peças fisicamente aqui · ${money(t.valCasa)}`})}
+        sub:['Peças fisicamente aqui', money(t.valCasa)]})}
       ${cartaoKpi({ico:ICO.pessoas, rot:'Com revendedoras', num:t.fora,
-        sub:`${abertas.length} ${plural(abertas.length,'maleta aberta','maletas abertas')} · ${money(t.valFora)}`})}
+        sub:[`${abertas.length} ${plural(abertas.length,'maleta aberta','maletas abertas')}`, money(t.valFora)]})}
       ${cartaoKpi(lojaConectada
-        ? {ico:ICO.nuvem, rot:'Disponível para Nuvemshop', num:disponivelNuvem,
+        ? {ico:ICO.nuvem, rot:'Nuvemshop', num:disponivelNuvem,
            sub:faltaSubirKpi.length
-             ? `${pecasFaltaSubirKpi} ${plural(pecasFaltaSubirKpi,'peça em casa ainda sem cadastro','peças em casa ainda sem cadastro')} na loja`
-             : 'Tudo que está em casa já tem cadastro na loja'}
-        /* Sem NENHUM código com link da loja, "0 disponível" seria uma
-           informação falsa: não é que nada possa ser vendido, é que este
-           ambiente não sabe o que a loja tem. Um traço diz isso; um zero
-           mentiria ao lado do subtítulo que fala em milhares de peças. */
+             ? ['Disponíveis para a loja', `${pecasFaltaSubirKpi} ainda sem cadastro`]
+             : ['Disponíveis para a loja', 'Tudo em casa já cadastrado']}
+        /* Sem NENHUM código com link da loja, "0 disponível" seria falso: não
+           é que nada possa ser vendido, é que este ambiente não sabe o que a
+           loja tem. Um traço diz isso; um zero mentiria. */
         : {ico:ICO.nuvem, rot:'Nuvemshop', num:'—',
-           sub:`Nenhum código tem link da loja aqui. Enquanto ela não estiver conectada, ${t.casa} ${plural(t.casa,'peça em casa fica','peças em casa ficam')} sem poder ser ${plural(t.casa,'publicada','publicadas')}.`})}
+           sub:['Loja não conectada aqui', `${t.casa} ${plural(t.casa,'peça em casa','peças em casa')} sem publicar`]})}
     </div>
 
-    <div class="row geral">
-      <div class="panel">
-        <div class="head linha">
-          <div class="tit">
-            <h2>Por categoria</h2>
-            <span class="hint">Quanto de cada tipo de peça você tem</span>
-          </div>
-          <div class="seg">
-            <button class="${escopoGrafico==='total'?'on':''}" onclick="setEscopo('total')">Estoque total</button>
-            <button class="${escopoGrafico==='casa'?'on':''}" onclick="setEscopo('casa')">Em casa</button>
-            <button class="${escopoGrafico==='fora'?'on':''}" onclick="setEscopo('fora')">Com revendedoras</button>
-          </div>
-        </div>
-        <div class="body">
-          <div class="chartwrap lado" id="chartWrap"></div>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="head">
-          <h2>Resumo por categoria</h2>
-          <span class="hint">A mesma leitura da rosca, em números — segue o filtro ao lado</span>
-        </div>
-        <div class="body" id="resumoCat"></div>
-      </div>
-    </div>
-
-    <div class="panel" style="margin-bottom:22px">${insights()}</div>
+    ${insights()}
 
     ${painelInventario()}
 
@@ -1981,7 +2134,16 @@ function dadosCategoria(){
     if(q>0){ const c=p.cat||'Outros'; acc[c]=(acc[c]||0)+q; }
   });
   const nomes=[...new Set([...catList(), ...Object.keys(acc)])];
-  return nomes.map(c=>({cat:c,qtd:acc[c]||0,cor:catColor(c)})).filter(d=>d.qtd>0);
+  /* Maior primeiro, e "Outros" sempre por último: ele é a sobra da
+     classificação, não uma categoria — no meio da lista sugeriria que a
+     Marquesa vende uma linha chamada "Outros". */
+  return nomes.map(c=>({cat:c,qtd:acc[c]||0,cor:catColor(c)}))
+    .filter(d=>d.qtd>0)
+    .sort((a,b)=>{
+      if(a.cat==='Outros') return 1;
+      if(b.cat==='Outros') return -1;
+      return b.qtd-a.qtd;
+    });
 }
 /* Mesma leitura, mas para o conteúdo de uma maleta. */
 function dadosDeItens(itens){
@@ -2013,10 +2175,16 @@ function arcoRosca(cx,cy,rOut,rIn,a0,a1){
 function renderDonut(){
   const wrap=document.getElementById('chartWrap');
   if(!wrap) return;
-  const nomeEscopo={total:'no total',casa:'em casa',fora:'na rua'}[escopoGrafico];
+  /* No "Estoque total" o segmented control logo acima já diz o escopo;
+     repetir "no total" dentro da rosca é ruído. Nos outros dois a palavra
+     muda o sentido do número, então fica. */
+  const nomeEscopo={total:'',casa:'em casa',fora:'na rua'}[escopoGrafico];
   const vazio=escopoGrafico==='fora'?'Nenhuma peça está com revendedoras no momento.':'Sem peças para mostrar.';
   const dados=dadosCategoria();
-  desenharRosca(wrap,dados,nomeEscopo,vazio);
+  /* Sem rótulo dentro da fatia: nesta rosca, do tamanho que ela tem no
+     celular, o nome da categoria não cabe legível — e a legenda logo abaixo
+     já nomeia todas. Na maleta a rosca é maior e mantém os rótulos. */
+  desenharRosca(wrap,dados,nomeEscopo,vazio,false);
   renderResumoCat(dados);
 }
 
@@ -2028,25 +2196,28 @@ function renderResumoCat(dados){
   if(!box) return;
   const total=dados.reduce((s,d)=>s+d.qtd,0);
   if(!total){
-    box.innerHTML=`<div class="empty" style="padding:26px 10px"><h3>Nada para resumir</h3>
-      <p>Nenhuma peça nesta visão.</p></div>`;
+    box.innerHTML=`<div style="font-size:11.5px;color:var(--muted);line-height:1.5">Nenhuma peça nesta visão.</div>`;
     return;
   }
+  /* A barra é proporcional à MAIOR categoria, não ao total: com oito
+     categorias nenhuma passa de 30% do total, e todas as barras ficariam
+     curtas e parecidas — o oposto de comparar. O percentual ao lado
+     continua sendo sobre o total, que é a pergunta que se faz. */
   const maior=Math.max(...dados.map(d=>d.qtd));
-  box.innerHTML=`<table class="resumocat">
-    <thead><tr><th>Categoria</th><th></th><th class="n">Peças</th><th class="n">% do total</th></tr></thead>
-    <tbody>${dados.map(d=>`<tr>
-      <td class="nome">${esc(d.cat)}</td>
-      <td class="b"><div class="barra"><i style="width:${(d.qtd/maior*100).toFixed(1)}%;background:${d.cor}"></i></div></td>
-      <td class="n">${d.qtd}</td>
-      <td class="n">${pctTexto(d.qtd,total)}</td>
-    </tr>`).join('')}</tbody>
-  </table>`;
+  box.innerHTML=dados.map(d=>`<div class="rcat">
+    <div class="l">
+      <span class="nm">${esc(d.cat)}</span>
+      <span class="q">${d.qtd}</span>
+      <span class="p">${pctTexto(d.qtd,total)}</span>
+    </div>
+    <div class="barra"><i style="width:${(d.qtd/maior*100).toFixed(1)}%;background:${d.cor}"></i></div>
+  </div>`).join('');
 }
 
 /* Desenha a rosca em qualquer container: usada na Visão geral e também
    dentro da maleta de cada revendedora. */
-function desenharRosca(wrap,dados,legendaCentro,textoVazio){
+function desenharRosca(wrap,dados,legendaCentro,textoVazio,comRotulos){
+  if(comRotulos===undefined) comRotulos=true;
   if(!wrap) return;
   const total=dados.reduce((s,d)=>s+d.qtd,0);
 
@@ -2069,7 +2240,7 @@ function desenharRosca(wrap,dados,legendaCentro,textoVazio){
     paths+=`<path class="slice" data-i="${i}" d="${arcoRosca(cx,cy,rOut,rIn,ap0,ap1)}" fill="${d.cor}"></path>`;
     /* rótulo direto só nas fatias largas o bastante para o texto caber dentro:
        abaixo disso o nome vaza para fora da rosca e a legenda resolve melhor */
-    if(frac>=0.12){
+    if(comRotulos && frac>=0.12){
       const am=(a0+a1)/2, rl=(rOut+rIn)/2;
       const lx=cx+rl*Math.cos(am), ly=cy+rl*Math.sin(am);
       labels+=`<text class="dlabel" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" fill="#fff">
@@ -2083,13 +2254,13 @@ function desenharRosca(wrap,dados,legendaCentro,textoVazio){
       <svg viewBox="0 0 ${S} ${S}" role="img" aria-label="Peças por categoria">
         <g>${paths}</g><g>${labels}</g>
       </svg>
-      <div class="dcenter"><div class="dc-num">${total}</div><div class="dc-lbl">peças ${esc(legendaCentro||'')}</div></div>
+      <div class="dcenter"><div class="dc-num">${total}</div><div class="dc-lbl">peças${legendaCentro?' '+esc(legendaCentro):''}</div></div>
     </div>
     <div class="legend">${dados.map((d,i)=>`
       <div class="lgd" data-i="${i}">
         <span class="dot" style="background:${d.cor}"></span>
         <span class="nm">${esc(d.cat)}</span>
-        <span class="vl"><b>${d.qtd}</b> · ${pctTexto(d.qtd,total)}</span>
+        <span class="vl"><b>${d.qtd}</b> (${pctTexto(d.qtd,total)})</span>
       </div>`).join('')}</div>`;
 
   /* camada de hover: destaca a fatia e mostra o valor exato */

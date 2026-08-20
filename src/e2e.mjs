@@ -91,7 +91,20 @@ eq('900001 ficou com 13 peças (10 + 3 do sufixo)',
   s.produtos.find(p => p.sku === '900001').qtd, 13);
 eq('900004 entrou sem preço, não com R$ 0',
   s.produtos.find(p => p.sku === '900004').preco, 'null');
-eq('cabeçalho mostra o total', await page.textContent('#hdPecas'), '38');
+/* O total de peças saiu do cabeçalho e passou a ser o primeiro indicador da
+   Visão Geral — o cabeçalho agora só identifica onde você está. A leitura
+   troca de aba, lê e volta para onde estava, para não mexer no passo
+   seguinte do roteiro. */
+async function totalNaTela() {
+  const antes = await page.evaluate(() => tabAtual);
+  await page.evaluate(() => switchTab('geral'));
+  await page.waitForSelector('#view-geral.active .kpis .k-num');
+  const v = (await page.textContent('#view-geral .kpis .kpi .k-num')).trim();
+  if (antes !== 'geral') await page.evaluate(t => switchTab(t), antes);
+  return v;
+}
+
+eq('a Visão Geral mostra o total', await totalNaTela(), '38');
 
 console.log('\n=== revendedora pela tela ===');
 await page.evaluate(() => openRevForm());
@@ -129,7 +142,7 @@ const mal = s.maletas.find(m => m.revId === revId && (m.status === 'aberta' || m
 eq('a maleta guardou 6 peças',
   Object.values(mal.itens).reduce((a, b) => a + b, 0), 6);
 eq('o preço do envio ficou congelado', mal.precos['900001'], 500);
-eq('consignar não muda o total da operação', await page.textContent('#hdPecas'), '38');
+eq('consignar não muda o total da operação', await totalNaTela(), '38');
 eq('900001: 13 no total, 2 fora',
   s.produtos.find(p => p.sku === '900001').consignado, 2);
 
@@ -164,7 +177,7 @@ const enc = s.maletas.find(m => m.id === mal.id);
 eq('a maleta foi encerrada', enc.status, 'encerrada');
 eq('o servidor concorda com a prévia da comissão', enc.acerto.comissao, 155);
 eq('e com o líquido', enc.acerto.liquido, 945);
-eq('as vendidas saíram do estoque total (38 − 3)', await page.textContent('#hdPecas'), '35');
+eq('as vendidas saíram do estoque total (38 − 3)', await totalNaTela(), '35');
 eq('as devolvidas voltaram: nada mais consignado',
   s.produtos.reduce((a, p) => a + p.consignado, 0), 0);
 
@@ -178,7 +191,7 @@ eq('os produtos continuam lá', s.produtos.length, 4);
 eq('a revendedora continua lá', s.revendedoras.length, 1);
 eq('o acerto continua registrado',
   s.maletas.find(m => m.id === mal.id).acerto.comissao, 155);
-eq('o total bate com o de antes de recarregar', await page.textContent('#hdPecas'), '35');
+eq('o total bate com o de antes de recarregar', await totalNaTela(), '35');
 
 console.log('\n=== a razão fecha (§19) ===');
 const conf = await fetch(URL_API + '/api/estoque/conferir', {
@@ -222,7 +235,7 @@ await page.click('#vdConfirm');
 await page.waitForTimeout(2000);
 
 s = await st();
-eq('a venda tirou as 3 peças do estoque (35 − 3)', await page.textContent('#hdPecas'), '32');
+eq('a venda tirou as 3 peças do estoque (35 − 3)', await totalNaTela(), '32');
 const vs = await fetch(URL_API + '/api/vendas?data=' + new Date().toISOString().slice(0, 10), {
   headers: { Authorization: 'Bearer ' + KEY },
 }).then(r => r.json());
@@ -270,11 +283,11 @@ eq('900003 aparece como sobrando', JSON.stringify(res.sobrando), '[["900003",9,8
 eq('o código de fora do catálogo foi anotado, não descartado',
   JSON.stringify(res.desconhecidos), '["777777"]');
 
-eq('concluir NÃO mexeu no estoque', await page.textContent('#hdPecas'), '32');
+eq('concluir NÃO mexeu no estoque', await totalNaTela(), '32');
 
 await page.evaluate(() => aplicarAjuste('900002', -2));
 await page.waitForTimeout(1800);
-eq('só o ajuste confirmado entrou (32 − 2)', await page.textContent('#hdPecas'), '30');
+eq('só o ajuste confirmado entrou (32 − 2)', await totalNaTela(), '30');
 s = await st();
 eq('900003 continua intocado, porque não foi confirmado',
   s.produtos.find(p => p.sku === '900003').qtd, 8);
