@@ -46,7 +46,45 @@ CREATE TABLE IF NOT EXISTS produtos (
   estoque_loja   INTEGER,
   visivel        INTEGER,
   nome_loja      TEXT,
+  -- Foto em duas versões: a original que a Sthefany tirou e a tratada com
+  -- fundo branco, que é a que vai para a loja. Guardar só uma das duas
+  -- apagaria a fonte ou obrigaria a refazer o tratamento toda vez.
+  foto_original  TEXT,
+  foto_tratada   TEXT,
+  foto_status    TEXT,                           -- sem_foto | original | fundo_pendente | fundo_gerado | erro
+  foto_erro      TEXT,
+  foto_origem    TEXT,                           -- nuvemshop | upload
+  foto_em        TEXT,
   atualizado_em  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ------------------------------------------------- peças novas na fila
+-- A importação de estoque total encontra códigos que ainda não existem
+-- aqui. Ela NÃO os cria — isso é trabalho do fluxo "Adicionar peças
+-- novas" — mas jogar fora o que encontrou obrigaria a reimportar o mesmo
+-- arquivo. Então eles esperam nesta fila até alguém aprovar o lote.
+CREATE TABLE IF NOT EXISTS produtos_pendentes (
+  sku         TEXT PRIMARY KEY,
+  desc        TEXT,
+  cat         TEXT,
+  preco       REAL,
+  qtd         INTEGER NOT NULL DEFAULT 0,
+  origem      TEXT,
+  motivo      TEXT,
+  criado_em   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- --------------------------------------------- fotos sem correspondência
+-- Imagem que veio da loja e cujo código não bateu com nenhum daqui. Chutar
+-- a peça certa é pior que não ter foto: a loja passa a anunciar uma peça
+-- mostrando outra. Fica na fila para alguém decidir.
+CREATE TABLE IF NOT EXISTS fotos_orfas (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  url         TEXT NOT NULL,
+  sku_loja    TEXT,
+  nome_loja   TEXT,
+  produto_id  TEXT,
+  visto_em    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- ------------------------------------------------------------- movimentos
@@ -375,3 +413,5 @@ CREATE INDEX IF NOT EXISTS idx_rec_sessoes_status ON reconciliacao_sessoes(statu
 -- proposta duas vezes (razão contábil em risco no caso de ajuste_qtd).
 CREATE UNIQUE INDEX IF NOT EXISTS idx_rec_itens_unico
   ON reconciliacao_itens(sessao_id, sku, variacao_chave, tipo);
+CREATE INDEX IF NOT EXISTS idx_fotos_orfas_sku ON fotos_orfas(sku_loja);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fotos_orfas_url ON fotos_orfas(url);

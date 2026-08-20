@@ -129,14 +129,18 @@ export function subirLojaFalsa(porta = 8799) {
  *  `handle` e `name` vêm como objeto por idioma, e `published` diz se o
  *  produto está visível na loja — são os três campos que a sincronização
  *  guarda para a aba Loja poder se descrever sem depender de CSV. */
-export function produtoFalso(id, variantes, { publicado = true } = {}) {
+export function produtoFalso(id, variantes, { publicado = true, imagens = [] } = {}) {
   return {
     id,
     name: { pt: 'Produto ' + id },
     handle: { pt: 'produto-' + id },
     published: publicado,
+    // A imagem mora no PRODUTO; a variação aponta para uma delas por
+    // `image_id` quando tem foto própria (o anel dourado e o prateado).
+    images: imagens.map((src, i) => ({ id: id * 100 + i, src, position: i + 1 })),
     variants: variantes.map(v => ({
       id: v.id, sku: v.sku,
+      ...(v.imagemIdx === undefined ? {} : { image_id: id * 100 + v.imagemIdx }),
       inventory_levels: [{ location_id: 'LOC1', stock: v.estoque }],
     })),
   };
