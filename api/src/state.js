@@ -13,6 +13,7 @@ const FAIXAS_PADRAO = [
 
 import { resumoInventario } from './inventario.js';
 import { resumoSync } from './sync.js';
+import { assinarFoto } from './assinatura.js';
 
 export async function montarState(db, env) {
   const [produtosR, revR, maletasR, itensR, configR, lojaR, catR, kitsR,
@@ -71,7 +72,17 @@ export async function montarState(db, env) {
     });
   }
 
-  const produtos = produtosR.results.map(p => {
+  /* Link assinado para o navegador poder exibir a foto num <img src>: o
+     bytes moram no R2, atrás de uma rota que não pede o Bearer da API (uma
+     tag <img> não manda cabeçalho nenhum). Só é montado para quem TEM
+     chave gravada — sem isso, a assinatura seria um link morto. */
+  async function linkFoto(sku, chave, versao) {
+    if (!chave) return undefined;
+    const { exp, sig } = await assinarFoto(env || {}, sku, versao);
+    return `/api/produtos/${encodeURIComponent(sku)}/foto/${versao}?exp=${exp}&sig=${sig}`;
+  }
+
+  const produtos = await Promise.all(produtosR.results.map(async p => {
     const componentes = componentesPorKit.get(p.sku);
     const disponivel = componentes
       ? Math.min(...componentes.map(c => Math.floor((dispBase.get(c.sku) ?? 0) / c.qtd)))
@@ -88,13 +99,14 @@ export async function montarState(db, env) {
       estoqueLoja: p.estoque_loja == null ? undefined : p.estoque_loja,
       visivel: p.visivel == null ? null : !!p.visivel,
       nomeLoja: p.nome_loja || undefined,
-      /* Foto: os quatro campos viajam juntos porque a tela mostra o estado,
-         não só a imagem — "sem foto", "falta o fundo branco" e "pronta"
-         levam a ações diferentes. Vêm undefined em banco que ainda não
+      /* Foto: os bytes ficam no R2 — aqui só o estado e um link assinado
+         para exibir. "Sem foto", "falta o fundo branco" e "pronta" levam
+         a ações diferentes na tela. Vêm undefined em banco que ainda não
          rodou a migração do catálogo, e a tela trata isso como "sem foto". */
-      fotoStatus: p.foto_status || (p.foto_tratada ? 'fundo_gerado' : (p.foto_original ? 'original' : 'sem_foto')),
-      fotoOriginal: p.foto_original || undefined,
-      fotoTratada: p.foto_tratada || undefined,
+      fotoStatus: p.foto_status
+        || (p.foto_tratada_key ? 'fundo_gerado' : (p.foto_original_key ? 'original' : 'sem_foto')),
+      fotoOriginalUrl: await linkFoto(p.sku, p.foto_original_key, 'original'),
+      fotoTratadaUrl: await linkFoto(p.sku, p.foto_tratada_key, 'tratada'),
       fotoErro: p.foto_erro || undefined,
       componentes: componentes || undefined,   // presença = "isto é um kit"
       // presença = "este código é vendido em mais de uma opção, e a bipagem
@@ -107,7 +119,7 @@ export async function montarState(db, env) {
         ? p.qtd - variacoesPorSku.get(p.sku).reduce((s, v) => s + v.qtd, 0)
         : undefined,
     };
-  });
+  }));
 
   const revendedoras = revR.results.map(r => ({
     id: r.id, nome: r.nome, tel: r.tel || '', cidade: r.cidade || '', cpf: r.cpf || '',

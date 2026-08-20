@@ -59,6 +59,18 @@ export function subirLojaFalsa(porta = 8799) {
       });
     }
 
+    // Imagem servida como um CDN público serviria: sem Bearer, sem
+    // User-Agent obrigatório. Existe para o teste da importação de fotos
+    // poder BAIXAR bytes de verdade (importarFotosDaLoja copia para o R2),
+    // e não só guardar uma URL que nunca respondeu nada.
+    if (partes[0] === 'imagens' && req.method === 'GET') {
+      const pixel = Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+        'base64');
+      res.writeHead(200, { 'Content-Type': 'image/png' });
+      return res.end(pixel);
+    }
+
     if (!req.headers['user-agent']) {
       estado.semUserAgent++;
       return responder(400, { message: 'User-Agent é obrigatório' });

@@ -12,9 +12,10 @@ import {
   enfileirarPendentes, listarPendentes, limparPendentes,
 } from './catalogo.js';
 import {
-  importarFotosDaLoja, listarFotosOrfas, adotarFotoOrfa, definirFoto,
-  gerarFundoBranco, pendenciasDePublicacao,
+  importarFotosDaLoja, listarFotosOrfas, adotarFotoOrfa, salvarFotoUpload,
+  lerFotoParaServir, removerFotos, gerarFundoBranco, pendenciasDePublicacao,
 } from './fotos.js';
+import { conferirAssinaturaFoto } from './assinatura.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
 import {
   abrirSessao, detalheSessao, aprovarItem, rejeitarItem, cancelarSessao, aplicarSessao,
@@ -51,6 +52,11 @@ async function rotear(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
     const met = request.method;
+    // Declarado aqui em cima porque as rotas de foto (mais abaixo, fora do
+    // checarChave) já precisam dele — um `let` mais para baixo deixaria
+    // essas duas em zona morta temporal e o Worker responderia 500 a
+    // qualquer chamada de imagem, mesmo assinada certinho.
+    let m;
 
     if (path === '/api/health') return json({ ok: true, hoje: hoje() });
 
@@ -61,10 +67,26 @@ async function rotear(request, env) {
       return trocarCodigoPorToken(env, url.searchParams.get('code'));
     }
 
+    // Leitura da foto: chamada por um <img src>, que não manda o Bearer.
+    // Em vez da chave, o link carrega uma assinatura HMAC com prazo curto
+    // (assinatura.js) — o mesmo raciocínio do callback acima: outra forma
+    // de provar autorização, não a ausência dela.
+    if ((m = path.match(/^\/api\/produtos\/([^/]+)\/foto\/(original|tratada)$/)) && met === 'GET') {
+      const [, skuBruto, versao] = m;
+      const ok = await conferirAssinaturaFoto(
+        env, decodeURIComponent(skuBruto), versao,
+        url.searchParams.get('exp'), url.searchParams.get('sig'));
+      if (!ok) return respostaNaoAutorizada();
+      const foto = await lerFotoParaServir(env.DB, decodeURIComponent(skuBruto), versao, env);
+      if (!foto) return new Response('Foto não encontrada', { status: 404 });
+      return new Response(foto.corpo, {
+        headers: { 'Content-Type': foto.tipo, 'Cache-Control': 'private, max-age=21600' },
+      });
+    }
+
     if (!checarChave(request, env)) return respostaNaoAutorizada();
 
     const db = env.DB;
-    let m;
     try {
       if (path === '/api/state' && met === 'GET') return json(await montarState(db, env));
 
@@ -127,16 +149,27 @@ async function rotear(request, env) {
       }
 
       // ------------------------------------------------------------- fotos
+      // A leitura (GET original/tratada) fica lá em cima, fora do Bearer —
+      // ver o comentário perto do callback da Nuvemshop.
       if (path === '/api/fotos/importar-da-loja' && met === 'POST') {
         const b = await request.json().catch(() => ({}));
         return json(await importarFotosDaLoja(db, env, { seco: !!b.seco, refazer: !!b.refazer }));
       }
       if (path === '/api/fotos/orfas' && met === 'GET') return json(await listarFotosOrfas(db));
       if (path === '/api/fotos/orfas/adotar' && met === 'POST') {
-        return json(await adotarFotoOrfa(db, await request.json()));
+        return json(await adotarFotoOrfa(db, env, await request.json()));
       }
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/foto$/)) && met === 'PUT') {
-        return json(await definirFoto(db, decodeURIComponent(m[1]), await request.json()));
+      // Upload dos bytes: o corpo da requisição É a imagem — sem envelope
+      // JSON, porque não há razão para base64 inflar 33% um arquivo que já
+      // vai carimbado com o Content-Type certo pelo próprio navegador.
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/foto\/(original|tratada)$/)) && met === 'PUT') {
+        const [, skuBruto, versao] = m;
+        const tipo = (request.headers.get('Content-Type') || '').split(';')[0].trim();
+        const bytes = await request.arrayBuffer();
+        return json(await salvarFotoUpload(db, env, decodeURIComponent(skuBruto), versao, bytes, tipo));
+      }
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/foto$/)) && met === 'DELETE') {
+        return json(await removerFotos(db, env, decodeURIComponent(m[1])));
       }
       if ((m = path.match(/^\/api\/produtos\/([^/]+)\/foto\/fundo-branco$/)) && met === 'POST') {
         return json(await gerarFundoBranco(db, env, decodeURIComponent(m[1])));

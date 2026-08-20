@@ -895,6 +895,23 @@ async function api(method,path,body){
   }
   return json;
 }
+/* Upload de bytes: o corpo da requisição É o arquivo, sem envelope JSON —
+   assim o servidor recebe exatamente o que o navegador leu do disco, sem
+   inflar 33% em base64 à toa. */
+async function apiArquivo(method,path,arquivo){
+  const res=await fetch(conn.url+path,{
+    method, headers:{'Authorization':'Bearer '+conn.key,'Content-Type':arquivo.type||'application/octet-stream'},
+    body:arquivo,
+  });
+  let json=null;
+  try{ json=await res.json(); }catch(e){}
+  if(!res.ok){
+    const err=new Error((json&&json.erro)||res.statusText||'Erro na conexão com o servidor');
+    err.data=json; err.status=res.status;
+    throw err;
+  }
+  return json;
+}
 async function carregarEstado(){ state=await api('GET','/api/state'); }
 async function sincronizar(){ await carregarEstado(); renderAll(); }
 
@@ -1809,7 +1826,10 @@ const FOTO_TXT={
   sem_foto:'sem foto', original:'falta fundo branco', fundo_pendente:'fundo na fila',
   fundo_gerado:'fundo pronto', erro:'erro na foto',
 };
-function fotoDe(p){ return p.fotoStatus || (p.fotoTratada?'fundo_gerado':(p.fotoOriginal?'original':'sem_foto')); }
+/* O servidor já manda fotoStatus pronto (calculado a partir da chave que
+   existe no R2, não de um campo local) — este helper só cobre o caso raro
+   de um state antigo em cache sem o campo. */
+function fotoDe(p){ return p.fotoStatus || 'sem_foto'; }
 function fotoChip(p){
   const s=fotoDe(p);
   return `<span class="fotochip ${s}" onclick="abrirFoto('${esc(p.sku)}')"
@@ -2007,47 +2027,55 @@ function renderFoto(){
     <div class="fotogrid">
       <div>
         <div class="k-lbl" style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--bordo-soft);font-weight:700;margin-bottom:6px">Foto original</div>
-        ${p.fotoOriginal
-          ?`<img class="fotoprev" src="${esc(p.fotoOriginal)}" alt="Foto original de ${esc(p.desc)}">`
+        ${p.fotoOriginalUrl
+          ?`<img class="fotoprev" src="${esc(p.fotoOriginalUrl)}" alt="Foto original de ${esc(p.desc)}">`
           :`<div class="fotoprev" style="height:150px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">sem foto</div>`}
-        <div class="field" style="margin-bottom:0">
-          <label>Endereço da foto</label>
-          <input id="fotoUrl" placeholder="https://…" value="${esc(p.fotoOriginal||'')}">
-          <div class="help">Cole o endereço da imagem. O arquivo em si ainda não é guardado aqui.</div>
-        </div>
+        <label class="btn btn-ghost btn-sm btn-block" style="margin-top:8px">
+          ${p.fotoOriginalUrl?'Trocar foto…':'Enviar foto…'}
+          <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none"
+            onchange="enviarFoto('${esc(p.sku)}','original',this)">
+        </label>
+        <div class="help">JPEG, PNG ou WebP, até 8 MB. Fica guardada no sistema — a loja é abastecida a partir daqui.</div>
       </div>
       <div>
         <div class="k-lbl" style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--bordo-soft);font-weight:700;margin-bottom:6px">Foto com fundo branco</div>
-        ${p.fotoTratada
-          ?`<img class="fotoprev" src="${esc(p.fotoTratada)}" alt="Foto tratada de ${esc(p.desc)}">`
+        ${p.fotoTratadaUrl
+          ?`<img class="fotoprev" src="${esc(p.fotoTratadaUrl)}" alt="Foto tratada de ${esc(p.desc)}">`
           :`<div class="fotoprev" style="height:150px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">ainda não gerada</div>`}
         <div style="margin-bottom:10px"><span class="fotochip ${s}">${esc(FOTO_TXT[s]||s)}</span></div>
         ${p.fotoErro?`<div class="warn" style="margin-bottom:10px"><div>${esc(p.fotoErro)}</div></div>`:''}
-        <button class="btn btn-gold btn-block" ${p.fotoOriginal?'':'disabled'} onclick="gerarFundoBranco('${esc(p.sku)}')">
+        <button class="btn btn-gold btn-block" ${p.fotoOriginalUrl?'':'disabled'} onclick="gerarFundoBranco('${esc(p.sku)}')">
           Gerar fundo branco</button>
-        ${p.fotoOriginal?'':'<div class="help" style="margin-top:6px">Adicione a foto original primeiro.</div>'}
+        ${p.fotoOriginalUrl?'':'<div class="help" style="margin-top:6px">Adicione a foto original primeiro.</div>'}
+        <label class="btn btn-ghost btn-sm btn-block" style="margin-top:8px">
+          Já tenho a foto tratada — enviar direto
+          <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none"
+            onchange="enviarFoto('${esc(p.sku)}','tratada',this)">
+        </label>
       </div>
     </div>
     <div class="mfoot">
-      ${p.fotoOriginal?`<button class="btn btn-danger btn-sm" onclick="limparFoto('${esc(p.sku)}')">Remover fotos</button>`:''}
+      ${p.fotoOriginalUrl?`<button class="btn btn-danger btn-sm" onclick="limparFoto('${esc(p.sku)}')">Remover fotos</button>`:''}
       <div class="spacer"></div>
       <button class="btn btn-ghost" onclick="closeFoto()">Fechar</button>
-      <button class="btn btn-gold" onclick="salvarFoto('${esc(p.sku)}')">Salvar</button>
     </div>`;
 }
-async function salvarFoto(sku){
-  const url=document.getElementById('fotoUrl').value.trim();
+async function enviarFoto(sku,versao,input){
+  const arquivo=input.files&&input.files[0];
+  if(!arquivo) return;
+  toast('Enviando…');
   try{
-    await api('PUT',`/api/produtos/${encodeURIComponent(sku)}/foto`,{original:url||null});
+    await apiArquivo('PUT',`/api/produtos/${encodeURIComponent(sku)}/foto/${versao}`,arquivo);
     await sincronizar();
     renderFoto();
     toast('Foto salva');
   }catch(e){ toast(e.message); }
+  finally{ input.value=''; }
 }
 async function limparFoto(sku){
   if(!confirm('Remover a foto original e a tratada desta peça?\n\nO cadastro e o estoque não mudam.')) return;
   try{
-    await api('PUT',`/api/produtos/${encodeURIComponent(sku)}/foto`,{limpar:true});
+    await api('DELETE',`/api/produtos/${encodeURIComponent(sku)}/foto`);
     await sincronizar(); renderFoto(); toast('Fotos removidas');
   }catch(e){ toast(e.message); }
 }

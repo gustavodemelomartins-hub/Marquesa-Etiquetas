@@ -592,7 +592,7 @@ export async function analisarSincronizacao(db, env) {
 
   const nossos = (await db.prepare(`
     SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja,
-           p.foto_original, p.foto_tratada, p.foto_status,
+           p.foto_original_key, p.foto_tratada_key, p.foto_status,
            p.qtd - COALESCE((
              SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
                JOIN maletas m ON m.id = mi.maleta_id
@@ -603,7 +603,12 @@ export async function analisarSincronizacao(db, env) {
   const mudandoSku = new Set(relato.mudancas.map(m => m.sku));
   const revisaoSku = new Set(relato.semEmpurrar.map(m => m.sku));
 
-  const iguais = [], criarNaLoja = [], semFoto = [], semDescricao = [], semCategoria = [], semPreco = [];
+  /* §24 na análise da loja: peça sem preço NUNCA entra em "criar na loja"
+     — publicar sem preço não é uma opção que só falta confirmar, é um
+     estado bloqueado. Ela fica em `bloqueadosSemPreco`, separada, para não
+     ser contada como candidata pronta nem escondida da pessoa. */
+  const iguais = [], criarNaLoja = [], bloqueadosSemPreco = [];
+  const semFoto = [], semDescricao = [], semCategoria = [];
   for (const p of nossos) {
     const naLoja = mapa.get(p.sku);
     if (!naLoja) {
@@ -612,11 +617,11 @@ export async function analisarSincronizacao(db, env) {
       if ((p.casa || 0) > 0) {
         const item = { sku: p.sku, desc: p.desc, cat: p.cat, preco: p.preco, casa: p.casa,
                        fotoStatus: p.foto_status || 'sem_foto' };
+        if (p.preco == null) { bloqueadosSemPreco.push(item); continue; }
         criarNaLoja.push(item);
-        if (!p.foto_original && !p.foto_tratada) semFoto.push(item);
+        if (!p.foto_original_key && !p.foto_tratada_key) semFoto.push(item);
         if (!p.desc || p.desc.trim() === p.sku) semDescricao.push(item);
         if (!p.cat || p.cat === 'Outros') semCategoria.push(item);
-        if (p.preco == null) semPreco.push(item);
       }
       continue;
     }
@@ -646,11 +651,11 @@ export async function analisarSincronizacao(db, env) {
       estoqueDiferente: mudancas.length,
       zerariam: mudancas.filter(m => m.zera).length,
       criarNaLoja: criarNaLoja.length,
+      bloqueadosSemPreco: bloqueadosSemPreco.length,
       soNaLoja: soNaLoja.length,
       semFoto: semFoto.length,
       semDescricao: semDescricao.length,
       semCategoria: semCategoria.length,
-      semPreco: semPreco.length,
       duplicados: duplicados.length,
       revisao: relato.semEmpurrar.length,
     },
@@ -659,11 +664,11 @@ export async function analisarSincronizacao(db, env) {
     freio: relato.pausado,
     estoqueDiferente: teto(mudancas),
     criarNaLoja: teto(criarNaLoja),
+    bloqueadosSemPreco: teto(bloqueadosSemPreco),
     soNaLoja: teto(soNaLoja),
     semFoto: teto(semFoto),
     semDescricao: teto(semDescricao),
     semCategoria: teto(semCategoria),
-    semPreco: teto(semPreco),
     duplicados,
     revisao: teto(relato.semEmpurrar),
   };

@@ -10,8 +10,15 @@
 --   tratada   — a mesma peça com fundo branco, que é a que vai para a loja
 -- Guardar só a tratada apagaria a fonte; guardar só a original obrigaria a
 -- refazer o tratamento toda vez.
-ALTER TABLE produtos ADD COLUMN foto_original TEXT;
-ALTER TABLE produtos ADD COLUMN foto_tratada  TEXT;
+--
+-- Os bytes ficam no bucket R2 (binding FOTOS no wrangler.toml). Aqui só a
+-- referência: a chave do objeto, o tipo, o tamanho e o estado.
+ALTER TABLE produtos ADD COLUMN foto_original_key  TEXT;
+ALTER TABLE produtos ADD COLUMN foto_original_tipo TEXT;
+ALTER TABLE produtos ADD COLUMN foto_original_tam  INTEGER;
+ALTER TABLE produtos ADD COLUMN foto_tratada_key   TEXT;
+ALTER TABLE produtos ADD COLUMN foto_tratada_tipo  TEXT;
+ALTER TABLE produtos ADD COLUMN foto_tratada_tam   INTEGER;
 -- sem_foto | original | fundo_pendente | fundo_gerado | erro
 ALTER TABLE produtos ADD COLUMN foto_status   TEXT;
 ALTER TABLE produtos ADD COLUMN foto_erro     TEXT;

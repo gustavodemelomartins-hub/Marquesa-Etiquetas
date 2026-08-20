@@ -134,6 +134,85 @@ arquivo se o endereço do painel mudar.
 
 ---
 
+## Ambiente de DEV (Worker + D1 + R2 + Pages, tudo separado da produção)
+
+Este ambiente existe para testar o trabalho do catálogo/fotos/R2 antes de
+ele chegar em produção, sem risco nenhum de tocar no que já está no ar. O
+`wrangler.toml` já declara um `[env.dev]` inteiro à parte — outro nome de
+Worker, outro banco, outro bucket. Nenhum comando abaixo é capaz de alcançar
+o recurso de produção, mesmo digitado errado, porque o NOME do recurso já é
+outro.
+
+Precisa de acesso à conta Cloudflare (`npx wrangler login`, ou um
+`CLOUDFLARE_API_TOKEN` com permissão de D1, R2, Workers e Pages) — nenhum
+destes passos funciona sem isso.
+
+### 1. Criar o banco e o bucket do DEV
+
+```bash
+cd api
+npx wrangler d1 create marquesa-db-dev
+```
+
+Copie o `database_id` que o comando devolver e cole em `wrangler.toml`, na
+linha `database_id = "COLE_AQUI_O_ID_DE_marquesa-db-dev"` dentro do bloco
+`[[env.dev.d1_databases]]`.
+
+```bash
+npx wrangler d1 execute marquesa-db-dev --env dev --remote --file=schema.sql
+npx wrangler r2 bucket create marquesa-fotos-dev
+```
+
+### 2. Publicar o Worker do DEV
+
+```bash
+npx wrangler secret put API_KEY --env dev      # uma chave só do DEV, diferente da de produção
+npx wrangler deploy --env dev
+```
+
+Isso publica um Worker com nome **`marquesa-api-dev`** — separado do
+`marquesa-api` de produção — em
+`https://marquesa-api-dev.SEU-SUBDOMINIO.workers.dev`.
+
+Se a loja de teste precisar de sincronização de verdade (não obrigatório):
+`npx wrangler secret put NUVEMSHOP_TOKEN --env dev` e
+`NUVEMSHOP_STORE_ID --env dev`. Sem eles, a aba Nuvemshop só informa que a
+loja não está conectada — nada quebra.
+
+### 3. Publicar o painel em marquesa-dev.pages.dev
+
+O painel (`index.html` e `dashboard.html`, mais as pastas `brand/`,
+`icons/`, `vendor/`, `manifest.json`, `sw.js`) é estático — o mesmo tipo de
+site que já roda hoje no GitHub Pages, só que aqui vai para o **Cloudflare
+Pages**, que é quem dá o endereço `.pages.dev`.
+
+No painel da Cloudflare: **Workers & Pages → Create → Pages → Upload
+assets** (ou **Connect to Git**, apontando para este repositório e branch).
+Nomeie o projeto **`marquesa-dev`** — o nome do projeto Pages é o que vira o
+subdomínio: `marquesa-dev.pages.dev`.
+
+> ⚠️ Se conectar por Git, configure **Build output directory: `/`** (raiz do
+> repositório) e nenhum comando de build — são arquivos estáticos, não há o
+> que compilar.
+
+Depois de publicado, abra `https://marquesa-dev.pages.dev/dashboard.html` e
+conecte com:
+
+- **Endereço da API:** `https://marquesa-api-dev.SEU-SUBDOMINIO.workers.dev`
+- **Chave de acesso:** a `API_KEY` do passo 2
+
+`ORIGENS_PERMITIDAS` do `[env.dev.vars]` já está preparado para
+`https://marquesa-dev.pages.dev` — se o projeto Pages ganhar um nome
+diferente, ajuste essa linha antes do deploy.
+
+### Testar sem nada disso
+
+Todo este ambiente pode ser testado **inteiramente no seu computador**, sem
+conta Cloudflare nenhuma: `npx wrangler dev --env dev --local` simula o
+Worker, o D1 e o R2 do DEV em arquivos locais — é o que `api/dev-local.sh
+--env dev` faz. Só o deploy de verdade (os três comandos acima) exige
+acesso à conta.
+
 ## Fotos com fundo branco (opcional)
 
 O botão *Gerar fundo branco* manda a foto original para um serviço de fora e
@@ -144,13 +223,29 @@ npx wrangler secret put FOTO_FUNDO_URL      # para onde mandar a foto
 npx wrangler secret put FOTO_FUNDO_TOKEN    # só se o serviço pedir chave
 ```
 
-Ele recebe `{sku, descricao, imagem, fundo:"branco"}` e deve responder
-`{url: "<endereço da imagem tratada>"}`.
+A foto original mora no R2, atrás da chave da API — o serviço não consegue
+simplesmente baixar uma URL nossa. Por isso os bytes viajam em base64 nos
+dois sentidos: ele recebe
 
-**Enquanto não existir**, o sistema continua funcionando: a peça é marcada
-como `fundo_pendente` e a tela diz o que falta. Nenhuma imagem é inventada —
-uma foto que o sistema diz ter e não tem é pior que uma faltando, porque a
-publicação em lote confiaria nela.
+```json
+{"sku":"...", "descricao":"...", "fundo":"branco",
+ "imagemBase64":"<bytes em base64>", "tipoImagem":"image/jpeg"}
+```
+
+e deve responder
+
+```json
+{"imagemBase64":"<bytes em base64>", "tipo":"image/jpeg"}
+```
+
+(`tipo` é opcional — se faltar, usa o mesmo tipo da imagem enviada.)
+
+**Enquanto `FOTO_FUNDO_URL` não existir**, o sistema continua funcionando: a
+peça é marcada como `fundo_pendente` e a tela diz o que falta. Nenhuma
+imagem é inventada — uma foto que o sistema diz ter e não tem é pior que uma
+faltando, porque a publicação em lote confiaria nela. `src/fundo-branco-
+test.mjs` prova o caminho inteiro (sucesso e erro) contra um serviço de
+mentira, sem nunca configurar isto de verdade em lugar nenhum.
 
 ## Atualizar um banco que já está no ar
 
@@ -176,24 +271,45 @@ Para conferir depois:
 SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'inventario%';
 ```
 
-### Catálogo: fotos e as filas de pendências
+### Catálogo: fotos (no R2) e as filas de pendências
 
-`api/migracao-catalogo.sql` cria as colunas de foto em `produtos` e as
+`api/migracao-catalogo.sql` cria em `produtos` as colunas de **referência**
+à foto — a chave do objeto no R2, o tipo, o tamanho, o estado — e as
 tabelas `produtos_pendentes` (peça nova esperando cadastro em lote) e
 `fotos_orfas` (foto da loja cujo código não bate com nenhum daqui).
 
+**Os bytes da foto NÃO ficam no D1.** Eles moram num bucket R2 (binding
+`FOTOS` no `wrangler.toml`), que precisa existir antes do primeiro upload:
+
 ```bash
+# produção — só quando este trabalho for aprovado para produção
+npx wrangler r2 bucket create marquesa-fotos
+
+# DEV — é este que interessa enquanto o trabalho está em revisão
+npx wrangler r2 bucket create marquesa-fotos-dev --env dev
+```
+
+E a migração do banco, no ambiente certo:
+
+```bash
+# DEV — banco marquesa-db-dev, isolado do de produção
+npx wrangler d1 execute marquesa-db-dev --env dev --remote --file=migracao-catalogo.sql
+
+# produção — só depois de aprovado; NÃO rode isto enquanto o recurso
+# ainda estiver em revisão no DEV
 npx wrangler d1 execute marquesa-db --remote --file=migracao-catalogo.sql
 ```
 
 ⚠️ Como a de sincronização e a de variações, esta **não pode ser rodada duas
-vezes**: os `ALTER TABLE` falham se a coluna já existir, e esse erro
-significa "já foi aplicada" — pode ignorar. As tabelas em si são seguras.
+vezes** no mesmo banco: os `ALTER TABLE` falham se a coluna já existir, e
+esse erro significa "já foi aplicada" — pode ignorar. As tabelas em si são
+seguras.
 
 Sem esse passo o painel abre normalmente e o estoque funciona igual: a aba
 Pendências mostra as filas zeradas e o estado da foto sai como "sem foto"
-para todo mundo. O que responde com erro de tabela inexistente é gravar
-numa das filas — importar produtos novos ou trazer fotos da loja.
+para todo mundo. As rotas que dependem da migração (importar produtos
+novos, trazer fotos da loja, publicação) respondem com um erro 503 que já
+explica o que falta rodar — não um erro de banco cru.
 
 Para conferir depois:
 

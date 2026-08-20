@@ -46,13 +46,21 @@ src/reset-e-testar.sh
 Para subir só a API local, sem rodar teste nenhum:
 
 ```bash
-api/dev-local.sh            # zera o banco de teste e sobe
-api/dev-local.sh --manter   # sobe sem zerar
+api/dev-local.sh                 # zera o banco de teste e sobe (config padrão)
+api/dev-local.sh --manter        # sobe sem zerar
+api/dev-local.sh --env staging   # usa o ambiente [env.staging] do wrangler.toml —
+                                  # Worker, D1 e R2 com nome de DEV, ainda
+                                  # 100% local (o --local nunca olha para os
+                                  # IDs de verdade da Cloudflare)
 ```
 
 Ele derruba o que estiver de pé antes. Matar só o runtime não resolve: o
 wrangler que ficou vivo sobe outro na hora, e o novo encontra a porta
 ocupada pelo antigo.
+
+A maioria dos testes roda igual nos dois modos — a diferença só importa
+para quem está mexendo especificamente no isolamento do ambiente `dev` ou
+no bucket R2 do catálogo.
 
 Todos os testes abaixo **precisam do banco limpo** — rode `api/dev-local.sh`
 antes de cada um. Rodar dois seguidos sem zerar faz o segundo falhar em
@@ -93,6 +101,31 @@ fundo branco sem serviço configurado fica pendente em vez de fingir pronto.
 
 Roda contra a `loja-falsa.mjs`, então também precisa do `NUVEMSHOP_BASE`
 apontando para `localhost:8799`.
+
+### Foto: upload de verdade, R2 e o link assinado
+
+```bash
+node src/foto-modal-test.mjs
+```
+
+Abre o modal de foto num navegador de verdade e sobe um arquivo pelo
+`<input type=file>` — não existe mais campo de "endereço da foto" para
+digitar. Prova que o upload chega como bytes ao servidor, que o `<img>`
+exibe através do link assinado (sem mandar o `Authorization: Bearer`, que
+uma tag `<img>` não consegue mandar), e que remover apaga de verdade.
+
+```bash
+node src/fundo-branco-test.mjs
+```
+
+Não precisa do Worker no ar — chama `gerarFundoBranco` direto, com um D1 e
+um R2 simulados em memória só deste arquivo. Prova as duas metades do
+fluxo: sucesso (o serviço devolve a imagem tratada, e é ela que fica salva,
+não a original de novo) e erro (o serviço falha, o estado vira `erro`, e
+nada é inventado). `FOTO_FUNDO_URL` nunca é definido em `.dev.vars` — o
+serviço de mentira deste teste sobe e desce só dentro dele, então os outros
+testes continuam vendo o fluxo como "não configurado", que é o estado real
+do projeto até hoje.
 
 ### Sincronização com a Nuvemshop
 
