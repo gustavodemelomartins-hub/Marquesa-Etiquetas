@@ -6,7 +6,15 @@ import {
   abrirInventario, salvarContagem, concluirInventario, ajustarInventario,
   cancelarInventario, detalheInventario, listarInventarios,
 } from './inventario.js';
-import { sincronizar, historicoSync } from './sync.js';
+import { sincronizar, historicoSync, analisarSincronizacao } from './sync.js';
+import {
+  analisarEstoqueTotal, aplicarEstoqueTotal, analisarNovos, cadastrarNovos,
+  enfileirarPendentes, listarPendentes, limparPendentes,
+} from './catalogo.js';
+import {
+  importarFotosDaLoja, listarFotosOrfas, adotarFotoOrfa, definirFoto,
+  gerarFundoBranco, pendenciasDePublicacao,
+} from './fotos.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
 import {
   abrirSessao, detalheSessao, aprovarItem, rejeitarItem, cancelarSessao, aplicarSessao,
@@ -91,6 +99,52 @@ async function rotear(request, env) {
 
       if (path === '/api/produtos/importar' && met === 'POST') return await importarProdutos(db, await request.json());
       if (path === '/api/loja/importar' && met === 'POST') return await importarLoja(db, await request.json());
+
+      /* ----------------------------------------- estoque total e peças novas
+         Dois fluxos separados de propósito. O primeiro ajusta quantidade de
+         quem já existe e NUNCA cria; o segundo cria quem não existe e NUNCA
+         altera. Cada um analisa antes de aplicar, e a análise não escreve. */
+      if (path === '/api/estoque-total/analisar' && met === 'POST') {
+        return json(await analisarEstoqueTotal(db, await request.json()));
+      }
+      if (path === '/api/estoque-total/aplicar' && met === 'POST') {
+        return json(await aplicarEstoqueTotal(db, await request.json()));
+      }
+      if (path === '/api/produtos/novos/analisar' && met === 'POST') {
+        return json(await analisarNovos(db, await request.json()));
+      }
+      if (path === '/api/produtos/novos/cadastrar' && met === 'POST') {
+        return json(await cadastrarNovos(db, await request.json()));
+      }
+      // fila que liga um fluxo ao outro, para não reimportar o mesmo arquivo
+      if (path === '/api/produtos/pendentes' && met === 'GET') return json(await listarPendentes(db));
+      if (path === '/api/produtos/pendentes' && met === 'POST') {
+        return json(await enfileirarPendentes(db, await request.json()));
+      }
+      if (path === '/api/produtos/pendentes' && met === 'DELETE') {
+        const b = await request.json().catch(() => ({}));
+        return json(await limparPendentes(db, b.skus));
+      }
+
+      // ------------------------------------------------------------- fotos
+      if (path === '/api/fotos/importar-da-loja' && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        return json(await importarFotosDaLoja(db, env, { seco: !!b.seco, refazer: !!b.refazer }));
+      }
+      if (path === '/api/fotos/orfas' && met === 'GET') return json(await listarFotosOrfas(db));
+      if (path === '/api/fotos/orfas/adotar' && met === 'POST') {
+        return json(await adotarFotoOrfa(db, await request.json()));
+      }
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/foto$/)) && met === 'PUT') {
+        return json(await definirFoto(db, decodeURIComponent(m[1]), await request.json()));
+      }
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/foto\/fundo-branco$/)) && met === 'POST') {
+        return json(await gerarFundoBranco(db, env, decodeURIComponent(m[1])));
+      }
+      // o que o agente de catálogo enxerga: pronto para publicar × o que falta
+      if (path === '/api/catalogo/publicacao' && met === 'GET') {
+        return json(await pendenciasDePublicacao(db));
+      }
 
       if ((m = path.match(/^\/api\/produtos\/([^/]+)$/)) && met === 'PATCH') {
         return await editarProduto(db, decodeURIComponent(m[1]), await request.json());
@@ -221,6 +275,12 @@ async function rotear(request, env) {
         return json(await sincronizar(db, env, { forcar: !!b.forcar, seco: !!b.seco }));
       }
       if (path === '/api/sync' && met === 'GET') return json(await historicoSync(db));
+      /* Dry-run de leitura pura: não abre execução, não puxa pedido, não
+         grava retrato e não escreve na loja. É o que a tela mostra antes de
+         pedir a confirmação. */
+      if (path === '/api/sync/analisar' && met === 'POST') {
+        return json(await analisarSincronizacao(db, env));
+      }
 
       // ------------------------------------------------------ reconciliação
       if (path === '/api/reconciliacao' && met === 'POST') {

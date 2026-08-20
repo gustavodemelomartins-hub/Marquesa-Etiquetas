@@ -561,3 +561,110 @@ export async function resumoSync(db, env) {
     ultimaAnaliseEm: ultimaAnalise ? (ultimaAnalise.terminado_em || ultimaAnalise.iniciado_em) : null,
   };
 }
+
+/* ============================================================ análise seca */
+
+/** "O que aconteceria se eu sincronizasse agora?" — sem escrever nada.
+ *
+ *  Diferente do `seco` de `sincronizar()`, que abre uma execução, puxa
+ *  pedidos e grava o retrato da loja, esta função é uma LEITURA pura: ela
+ *  abre a loja, compara com o catálogo e devolve o laudo. Nenhuma linha do
+ *  banco muda, nenhum pedido é importado, nenhum PATCH sai.
+ *
+ *  É o que sustenta a confirmação obrigatória da tela: a pessoa vê o
+ *  tamanho exato da mudança antes de autorizar, e o botão que autoriza é
+ *  outro (`POST /api/sync`).
+ */
+export async function analisarSincronizacao(db, env) {
+  const loja = new Nuvemshop(env);
+  if (!loja.configurada()) {
+    return { ok: false, erro: 'A loja não está conectada. Falta o token da Nuvemshop.' };
+  }
+
+  const produtosLoja = await loja.produtos();
+  const { mapa, duplicados } = mapearSkus(produtosLoja);
+
+  /* O mesmo cálculo que a sincronização de verdade faz. Chamado com
+     `seco`, ele monta `mudancas` e `semEmpurrar` e volta antes de escrever
+     — inclusive passando pelo freio, cujo veredito também interessa aqui. */
+  const relato = { mudancas: [], semEmpurrar: [], pausado: null };
+  await empurrarEstoque(db, loja, mapa, relato, { forcar: false, seco: true });
+
+  const nossos = (await db.prepare(`
+    SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja,
+           p.foto_original, p.foto_tratada, p.foto_status,
+           p.qtd - COALESCE((
+             SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
+               JOIN maletas m ON m.id = mi.maleta_id
+              WHERE mi.sku = p.sku AND m.status IN ('aberta','em_acerto')
+           ), 0) AS casa
+      FROM produtos p WHERE p.status = 'ativo'`).all()).results;
+
+  const mudandoSku = new Set(relato.mudancas.map(m => m.sku));
+  const revisaoSku = new Set(relato.semEmpurrar.map(m => m.sku));
+
+  const iguais = [], criarNaLoja = [], semFoto = [], semDescricao = [], semCategoria = [], semPreco = [];
+  for (const p of nossos) {
+    const naLoja = mapa.get(p.sku);
+    if (!naLoja) {
+      /* Só entra em "criar na loja" quem tem peça em casa: cadastrar o que
+         não dá para vender é trabalho sem venda do outro lado. */
+      if ((p.casa || 0) > 0) {
+        const item = { sku: p.sku, desc: p.desc, cat: p.cat, preco: p.preco, casa: p.casa,
+                       fotoStatus: p.foto_status || 'sem_foto' };
+        criarNaLoja.push(item);
+        if (!p.foto_original && !p.foto_tratada) semFoto.push(item);
+        if (!p.desc || p.desc.trim() === p.sku) semDescricao.push(item);
+        if (!p.cat || p.cat === 'Outros') semCategoria.push(item);
+        if (p.preco == null) semPreco.push(item);
+      }
+      continue;
+    }
+    if (!mudandoSku.has(p.sku) && !revisaoSku.has(p.sku)) iguais.push({ sku: p.sku, desc: p.desc });
+  }
+
+  /* Código que a loja tem e o catálogo não conhece. Não é para criar aqui
+     sozinho: pode ser produto aposentado, pode ser código digitado errado
+     lá — as duas coisas pedem gente olhando. */
+  const nossosSku = new Set(nossos.map(p => p.sku));
+  const soNaLoja = [];
+  for (const [sku, e] of mapa) {
+    if (nossosSku.has(sku)) continue;
+    soNaLoja.push({ sku, nome: e.nome, estoqueLoja: e.estoque, url: e.url });
+  }
+
+  const mudancas = relato.mudancas;
+  const teto = (l) => l.slice(0, 300);
+
+  return {
+    ok: true,
+    lidoEm: new Date().toISOString(),
+    resumo: {
+      analisados: nossos.length,
+      produtosNaLoja: produtosLoja.length,
+      sincronizados: iguais.length,
+      estoqueDiferente: mudancas.length,
+      zerariam: mudancas.filter(m => m.zera).length,
+      criarNaLoja: criarNaLoja.length,
+      soNaLoja: soNaLoja.length,
+      semFoto: semFoto.length,
+      semDescricao: semDescricao.length,
+      semCategoria: semCategoria.length,
+      semPreco: semPreco.length,
+      duplicados: duplicados.length,
+      revisao: relato.semEmpurrar.length,
+    },
+    /* O freio já se pronunciou: se a rodada de verdade seria segurada, a
+       tela precisa dizer isso ANTES do clique, não depois. */
+    freio: relato.pausado,
+    estoqueDiferente: teto(mudancas),
+    criarNaLoja: teto(criarNaLoja),
+    soNaLoja: teto(soNaLoja),
+    semFoto: teto(semFoto),
+    semDescricao: teto(semDescricao),
+    semCategoria: teto(semCategoria),
+    semPreco: teto(semPreco),
+    duplicados,
+    revisao: teto(relato.semEmpurrar),
+  };
+}

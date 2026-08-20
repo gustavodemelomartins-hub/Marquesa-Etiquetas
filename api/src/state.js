@@ -88,6 +88,14 @@ export async function montarState(db, env) {
       estoqueLoja: p.estoque_loja == null ? undefined : p.estoque_loja,
       visivel: p.visivel == null ? null : !!p.visivel,
       nomeLoja: p.nome_loja || undefined,
+      /* Foto: os quatro campos viajam juntos porque a tela mostra o estado,
+         não só a imagem — "sem foto", "falta o fundo branco" e "pronta"
+         levam a ações diferentes. Vêm undefined em banco que ainda não
+         rodou a migração do catálogo, e a tela trata isso como "sem foto". */
+      fotoStatus: p.foto_status || (p.foto_tratada ? 'fundo_gerado' : (p.foto_original ? 'original' : 'sem_foto')),
+      fotoOriginal: p.foto_original || undefined,
+      fotoTratada: p.foto_tratada || undefined,
+      fotoErro: p.foto_erro || undefined,
       componentes: componentes || undefined,   // presença = "isto é um kit"
       // presença = "este código é vendido em mais de uma opção, e a bipagem
       // precisa perguntar qual". Ausência = comporta-se como sempre.
@@ -128,6 +136,7 @@ export async function montarState(db, env) {
 
   const inventario = await resumoInventario(db, config.inventarioDias);
   const sync = await resumoSync(db, env || {});
+  const catalogo = await resumoCatalogo(db);
 
   const l = lojaR.results[0];
   const loja = l ? {
@@ -140,9 +149,30 @@ export async function montarState(db, env) {
   } : null;
 
   return {
-    v: 2, produtos, revendedoras, maletas, config, loja, inventario, sync,
+    v: 2, produtos, revendedoras, maletas, config, loja, inventario, sync, catalogo,
     categorias: catR.results.map(x => ({ nome: x.nome, ordem: x.ordem, cor: x.cor })),
   };
+}
+
+/** Duas filas que a aba Pendências mostra e que o resto do estado não
+ *  carrega: peças novas esperando cadastro em lote e fotos que vieram da
+ *  loja sem dono.
+ *
+ *  Envolvido em try/catch de propósito: as tabelas nascem na
+ *  `migracao-catalogo.sql`, e um banco que ainda não rodou a migração
+ *  precisa continuar abrindo o painel inteiro em vez de morrer numa
+ *  contagem que é acessório. */
+async function resumoCatalogo(db) {
+  try {
+    const [pend, orfas] = await Promise.all([
+      db.prepare(`SELECT COUNT(*) AS n FROM produtos_pendentes p
+                   WHERE NOT EXISTS (SELECT 1 FROM produtos x WHERE x.sku = p.sku)`).first(),
+      db.prepare(`SELECT COUNT(*) AS n FROM fotos_orfas`).first(),
+    ]);
+    return { pendentes: pend.n || 0, fotosOrfas: orfas.n || 0, migrado: true };
+  } catch {
+    return { pendentes: 0, fotosOrfas: 0, migrado: false };
+  }
 }
 
 export { FAIXAS_PADRAO };
