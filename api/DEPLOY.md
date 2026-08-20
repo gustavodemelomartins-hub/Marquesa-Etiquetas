@@ -134,6 +134,24 @@ arquivo se o endereço do painel mudar.
 
 ---
 
+## Fotos com fundo branco (opcional)
+
+O botão *Gerar fundo branco* manda a foto original para um serviço de fora e
+guarda a versão tratada. O endereço desse serviço é um Secret:
+
+```bash
+npx wrangler secret put FOTO_FUNDO_URL      # para onde mandar a foto
+npx wrangler secret put FOTO_FUNDO_TOKEN    # só se o serviço pedir chave
+```
+
+Ele recebe `{sku, descricao, imagem, fundo:"branco"}` e deve responder
+`{url: "<endereço da imagem tratada>"}`.
+
+**Enquanto não existir**, o sistema continua funcionando: a peça é marcada
+como `fundo_pendente` e a tela diz o que falta. Nenhuma imagem é inventada —
+uma foto que o sistema diz ter e não tem é pior que uma faltando, porque a
+publicação em lote confiaria nela.
+
 ## Atualizar um banco que já está no ar
 
 Quando uma versão nova cria tabelas, o banco existente precisa recebê-las —
@@ -156,6 +174,32 @@ Para conferir depois:
 
 ```sql
 SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'inventario%';
+```
+
+### Catálogo: fotos e as filas de pendências
+
+`api/migracao-catalogo.sql` cria as colunas de foto em `produtos` e as
+tabelas `produtos_pendentes` (peça nova esperando cadastro em lote) e
+`fotos_orfas` (foto da loja cujo código não bate com nenhum daqui).
+
+```bash
+npx wrangler d1 execute marquesa-db --remote --file=migracao-catalogo.sql
+```
+
+⚠️ Como a de sincronização e a de variações, esta **não pode ser rodada duas
+vezes**: os `ALTER TABLE` falham se a coluna já existir, e esse erro
+significa "já foi aplicada" — pode ignorar. As tabelas em si são seguras.
+
+Sem esse passo o painel abre normalmente e o estoque funciona igual: a aba
+Pendências mostra as filas zeradas e o estado da foto sai como "sem foto"
+para todo mundo. O que responde com erro de tabela inexistente é gravar
+numa das filas — importar produtos novos ou trazer fotos da loja.
+
+Para conferir depois:
+
+```sql
+SELECT name FROM sqlite_master WHERE type='table'
+   AND name IN ('produtos_pendentes','fotos_orfas');
 ```
 
 ## Ligar a sincronização com a Nuvemshop
