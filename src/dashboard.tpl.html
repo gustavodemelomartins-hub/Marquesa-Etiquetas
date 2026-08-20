@@ -461,16 +461,12 @@ tr.filtros input:focus,tr.filtros select:focus{outline:none;border-color:var(--g
       <span class="brandtag">
         <img class="logo" src="brand/logo.webp" alt="Marquesa Semijóias">
       </span>
-      <span class="tooltag">Revendedoras</span>
+      <span class="tooltag" id="hdArea">Estoque</span>
     </div>
     <div class="meta">
       <div><b id="hdPecas">0</b> peças · <b id="hdSkus">0</b> códigos</div>
       <div id="hdSub">Estoque total da operação</div>
       <div class="linkrow">
-        <a class="gearbtn" href="index.html" style="text-decoration:none">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
-          Etiquetas
-        </a>
         <button class="gearbtn" onclick="openSettings()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           Ajustes
@@ -480,12 +476,16 @@ tr.filtros input:focus,tr.filtros select:focus{outline:none;border-color:var(--g
   </header>
 
   <nav class="tabs" id="tabsNav"></nav>
+  <nav class="tabs" id="tabsSubNav"></nav>
 
-  <!-- ============ VISÃO GERAL ============ -->
+  <!-- ============ VISÃO GERAL (Estoque) ============ -->
   <section class="view active" id="view-geral"></section>
 
-  <!-- ============ MEU ESTOQUE ============ -->
-  <section class="view" id="view-estoque"></section>
+  <!-- ============ MEU ESTOQUE (planilha, parte da Visão Geral) ============ -->
+  <section class="view active" id="view-estoque"></section>
+
+  <!-- ============ CADASTRO DE PRODUTOS ============ -->
+  <section class="view" id="view-cadastro"></section>
 
   <!-- ============ NUVEMSHOP ============ -->
   <section class="view" id="view-loja"></section>
@@ -495,6 +495,9 @@ tr.filtros input:focus,tr.filtros select:focus{outline:none;border-color:var(--g
 
   <!-- ============ VENDAS ============ -->
   <section class="view" id="view-vendas"></section>
+
+  <!-- ============ REVENDEDORAS (lista) ============ -->
+  <section class="view" id="view-revlist"></section>
 
   <!-- ============ REVENDEDORA (uma por vez) ============ -->
   <section class="view" id="view-rev"></section>
@@ -1180,13 +1183,28 @@ function calcComissao(vendidos,m){
 }
 
 /* =================== Abas =================== */
-let tabAtual='geral';      /* 'geral' | 'estoque' | 'rev:<id>' */
+/* Duas camadas: abas principais (Etiqueta/Estoque/Revendedoras/Vendas) e,
+   só dentro de Estoque e Revendedoras, uma segunda linha de subabas. tabAtual
+   guarda o valor granular de sempre; mainTabOf() deriva a aba principal a
+   partir dele para não duplicar estado. */
+let tabAtual='geral';      /* 'geral' | 'cadastro' | 'loja' | 'pendencias' | 'vendas' | 'revlist' | 'rev:<id>' */
+function mainTabOf(name){
+  if(name==='vendas') return 'vendas';
+  if(name==='revlist'||name.indexOf('rev:')===0) return 'revendedoras';
+  return 'estoque';
+}
 function switchTab(name){
   tabAtual=name;
   renderTabs();
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  if(name==='geral'){ document.getElementById('view-geral').classList.add('active'); renderGeral(); }
-  else if(name==='estoque'){ document.getElementById('view-estoque').classList.add('active'); renderEstoque(); }
+  if(name==='geral'){
+    /* A planilha operacional (view-estoque) é a tabela da própria Visão
+       Geral do Estoque — as duas seções sobem juntas nesta subaba. */
+    document.getElementById('view-geral').classList.add('active');
+    document.getElementById('view-estoque').classList.add('active');
+    renderGeral(); renderEstoque();
+  }
+  else if(name==='cadastro'){ document.getElementById('view-cadastro').classList.add('active'); renderCadastro(); }
   else if(name==='loja'){ document.getElementById('view-loja').classList.add('active'); renderLoja(); }
   else if(name==='pendencias'){
     document.getElementById('view-pendencias').classList.add('active');
@@ -1198,12 +1216,14 @@ function switchTab(name){
     renderVendas();
     carregarVendas(vendasData).then(renderVendas);
   }
+  else if(name==='revlist'){ document.getElementById('view-revlist').classList.add('active'); renderRevLista(); }
   else { document.getElementById('view-rev').classList.add('active'); renderRev(+name.split(':')[1]); }
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function renderTabs(){
-  const rev=comRevMap();
-  const nav=document.getElementById('tabsNav');
+  const navMain=document.getElementById('tabsNav');
+  const navSub=document.getElementById('tabsSubNav');
+  const mt=mainTabOf(tabAtual);
   const faltaSubir=state.produtos.filter(p=>!p.urlLoja&&(emCasaMap()[p.sku]||0)>0).length;
   /* O selo da aba conta o que só sai do lugar com alguém decidindo: peça
      nova esperando cadastro, foto sem dono e código com mais peça na rua do
@@ -1211,22 +1231,42 @@ function renderTabs(){
      e o número viraria paisagem. */
   const c=state.catalogo||{};
   const aEsperar=(c.pendentes||0)+(c.fotosOrfas||0)+inconsistencias().length;
-  let html=`
-    <button class="tab ${tabAtual==='geral'?'active':''}" onclick="switchTab('geral')">Visão geral</button>
-    <button class="tab ${tabAtual==='estoque'?'active':''}" onclick="switchTab('estoque')">Estoque total</button>
-    <button class="tab ${tabAtual==='vendas'?'active':''}" onclick="switchTab('vendas')">Vendas</button>
-    <button class="tab ${tabAtual==='loja'?'active':''}" onclick="switchTab('loja')">Nuvemshop${
-      temLoja()&&faltaSubir?`<span class="count">${faltaSubir}</span>`:''}</button>
-    <button class="tab ${tabAtual==='pendencias'?'active':''}" onclick="switchTab('pendencias')">Pendências${
-      aEsperar?`<span class="count">${aEsperar}</span>`:''}</button>`;
-  state.revendedoras.forEach(r=>{
-    const m=maletaAbertaDe(r.id);
-    const q=m?qtdMaleta(m):0;
-    html+=`<button class="tab ${tabAtual==='rev:'+r.id?'active':''}" onclick="switchTab('rev:${r.id}')">
-      ${esc(nomeCurto(r.nome))}${q?`<span class="count">${q}</span>`:''}</button>`;
-  });
-  html+=`<button class="tab addtab" onclick="openRevForm()">+ Nova</button>`;
-  nav.innerHTML=html;
+
+  navMain.innerHTML=`
+    <a class="tab" href="index.html">Etiqueta</a>
+    <button class="tab ${mt==='estoque'?'active':''}" onclick="switchTab('geral')">Estoque</button>
+    <button class="tab ${mt==='revendedoras'?'active':''}" onclick="switchTab('revlist')">Revendedoras</button>
+    <button class="tab ${mt==='vendas'?'active':''}" onclick="switchTab('vendas')">Vendas</button>`;
+
+  if(mt==='estoque'){
+    navSub.style.display='';
+    navSub.innerHTML=`
+      <button class="tab ${tabAtual==='geral'?'active':''}" onclick="switchTab('geral')">Visão Geral</button>
+      <button class="tab ${tabAtual==='cadastro'?'active':''}" onclick="switchTab('cadastro')">Cadastro de Produtos${
+        (c.pendentes||0)?`<span class="count">${c.pendentes}</span>`:''}</button>
+      <button class="tab ${tabAtual==='loja'?'active':''}" onclick="switchTab('loja')">Nuvemshop${
+        temLoja()&&faltaSubir?`<span class="count">${faltaSubir}</span>`:''}</button>
+      <button class="tab ${tabAtual==='pendencias'?'active':''}" onclick="switchTab('pendencias')">Pendências${
+        aEsperar?`<span class="count">${aEsperar}</span>`:''}</button>`;
+  } else if(mt==='revendedoras'){
+    navSub.style.display='';
+    let html=`<button class="tab ${tabAtual==='revlist'?'active':''}" onclick="switchTab('revlist')">Todas</button>`;
+    state.revendedoras.forEach(r=>{
+      const m=maletaAbertaDe(r.id);
+      const q=m?qtdMaleta(m):0;
+      html+=`<button class="tab ${tabAtual==='rev:'+r.id?'active':''}" onclick="switchTab('rev:${r.id}')">
+        ${esc(nomeCurto(r.nome))}${q?`<span class="count">${q}</span>`:''}</button>`;
+    });
+    html+=`<button class="tab addtab" onclick="openRevForm()">+ Nova</button>`;
+    navSub.innerHTML=html;
+  } else {
+    navSub.style.display='none';
+    navSub.innerHTML='';
+  }
+
+  const areaTxt={estoque:'Estoque',revendedoras:'Revendedoras',vendas:'Vendas'}[mt];
+  const hdArea=document.getElementById('hdArea');
+  if(hdArea) hdArea.textContent=areaTxt;
 
   const t=totais();
   document.getElementById('hdPecas').textContent=t.total;
@@ -1310,10 +1350,10 @@ function renderGeral(){
       <div><b>${inc.length} ${plural(inc.length,'código tem','códigos têm')} mais peças na rua do que no cadastro.</b>
       Costuma ser o caso dos códigos com sufixo (${esc(inc.slice(0,3).map(i=>i.sku).join(', '))}${inc.length>3?'…':''}),
       que saíram na maleta pelo código-base. Corrija a coluna <b>Total</b> em Estoque total.
-      <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="switchTab('estoque');setTimeout(()=>setFiltroInc(true),60)">Ver esses códigos</button></div></div>
+      <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="switchTab('geral');setTimeout(()=>setFiltroInc(true),60)">Ver esses códigos</button></div></div>
     </div>`:''}
 
-    <div class="row chart">
+    <div class="row wide">
       <div class="panel">
         <div class="head">
           <h2>Por categoria</h2>
@@ -1330,22 +1370,59 @@ function renderGeral(){
           <div class="chartwrap" id="chartWrap"></div>
         </div>
       </div>
-
-      <div class="panel">
-        <div class="head">
-          <h2>Revendedoras</h2>
-          <span class="hint">Toque em uma para abrir a maleta dela</span>
-        </div>
-        <div class="body">
-          ${state.revendedoras.length?`<div class="revgrid">${state.revendedoras.map(r=>cardRev(r)).join('')}</div>`:
-            `<div class="empty"><h3>Nenhuma revendedora ainda</h3>
-             <p>Crie uma aba para cada pessoa que leva maleta.</p>
-             <button class="btn btn-gold" style="margin-top:14px" onclick="openRevForm()">+ Nova revendedora</button></div>`}
-        </div>
-      </div>
     </div>`;
 
   renderDonut();
+}
+
+/* =================== Revendedoras (lista) =================== */
+/* Era o painel "Revendedoras" dentro da Visão geral; agora é a aba
+   principal própria, com o mesmo grid e o mesmo cardRev(). */
+function renderRevLista(){
+  const v=document.getElementById('view-revlist');
+  v.innerHTML=`
+    <div class="panel">
+      <div class="head">
+        <h2>Revendedoras</h2>
+        <span class="hint">Toque em uma para abrir a maleta dela</span>
+      </div>
+      <div class="body">
+        ${state.revendedoras.length?`<div class="revgrid">${state.revendedoras.map(r=>cardRev(r)).join('')}</div>`:
+          `<div class="empty"><h3>Nenhuma revendedora ainda</h3>
+           <p>Crie uma aba para cada pessoa que leva maleta.</p>
+           <button class="btn btn-gold" style="margin-top:14px" onclick="openRevForm()">+ Nova revendedora</button></div>`}
+      </div>
+    </div>`;
+}
+
+/* =================== Cadastro de Produtos =================== */
+/* Ponto de entrada dedicado para os dois fluxos que já existiam: aprovar em
+   lote a fila de peças novas encontrada numa sincronização, e importar uma
+   planilha de peças novas na mão. O fluxo em si continua no overlay
+   'novasOverlay' (abrirNovas) — esta aba só reúne os atalhos num lugar
+   próprio, sem duplicar lógica. */
+function renderCadastro(){
+  const v=document.getElementById('view-cadastro');
+  const pendentes=(state.catalogo&&state.catalogo.pendentes)||0;
+  v.innerHTML=`
+    <div class="panel">
+      <div class="head">
+        <h2>Cadastro de Produtos</h2>
+        <span class="hint">Aprove peças novas em lote ou importe uma planilha</span>
+      </div>
+      <div class="body">
+        ${pendentes?`<div class="warn info">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          <div><b>${pendentes} ${plural(pendentes,'peça nova encontrada','peças novas encontradas')} numa planilha e ainda não ${plural(pendentes,'cadastrada','cadastradas')}.</b>
+          Elas não entram pelo estoque total — o cadastro é o outro fluxo, e ele aprova em lote.
+          <div class="w-act"><button class="btn btn-gold btn-sm" onclick="abrirNovas('fila')">Revisar produtos novos</button></div></div>
+        </div>`:''}
+        <div class="actbar">
+          <div class="spacer"></div>
+          <button class="btn btn-gold btn-sm" onclick="abrirNovas('arquivo')">+ Adicionar peças novas</button>
+        </div>
+      </div>
+    </div>`;
 }
 
 /* O estado do inventário em uma frase, no topo do Estoque total — que é a
@@ -1885,6 +1962,8 @@ function renderEstoque(){
   const pendentes=(state.catalogo&&state.catalogo.pendentes)||0;
 
   const colunas=[
+    {k:'foto', rot:'Foto', tipo:'texto', larg:'106px', filtro:'select', busca:false,
+     cel:l=>fotoChip(l.p)},
     {k:'sku', rot:'Código', tipo:'sku', larg:'86px', filtro:'texto'},
     {k:'desc', rot:'Produto', tipo:'texto', filtro:'texto', cls:'desc',
      cel:l=>`${esc(l.desc)}${l.kit
@@ -1914,8 +1993,6 @@ function renderEstoque(){
     {k:'valor', rot:'Valor total', tipo:'money', larg:'96px', cls:'price',
      titulo:'Valor unitário × estoque total',
      cel:l=>l.preco==null?'<span class="zero">—</span>':money(l.valor)},
-    {k:'foto', rot:'Foto', tipo:'texto', larg:'106px', filtro:'select', busca:false,
-     cel:l=>fotoChip(l.p)},
   ];
 
   v.innerHTML=`
@@ -2900,7 +2977,7 @@ function renderPendencias(){
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
       <div><b>${inc.length} ${plural(inc.length,'código tem','códigos têm')} mais peças na rua do que no cadastro.</b>
       Costuma ser código com sufixo que saiu na maleta pelo código-base.
-      <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="switchTab('estoque');setTimeout(()=>setFiltroInc(true),60)">Ver esses códigos</button></div></div>
+      <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="switchTab('geral');setTimeout(()=>setFiltroInc(true),60)">Ver esses códigos</button></div></div>
     </div>`:''}
 
     <div class="panel" style="margin-bottom:22px">
@@ -5226,11 +5303,12 @@ document.addEventListener('keydown',e=>{
 /* =================== Boot =================== */
 function renderAll(){
   renderTabs();
-  if(tabAtual==='geral') renderGeral();
-  else if(tabAtual==='estoque') renderEstoque();
+  if(tabAtual==='geral'){ renderGeral(); renderEstoque(); }
+  else if(tabAtual==='cadastro') renderCadastro();
   else if(tabAtual==='loja') renderLoja();
   else if(tabAtual==='pendencias') renderPendencias();
   else if(tabAtual==='vendas') renderVendas();
+  else if(tabAtual==='revlist') renderRevLista();
   else{
     const id=+tabAtual.split(':')[1];
     if(state.revendedoras.some(r=>r.id===id)) renderRev(id);
