@@ -57,6 +57,19 @@ body{font-variant-numeric:lining-nums tabular-nums}
 .kpi .k-num.small{font-size:23px}
 .kpi .k-sub{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.35}
 
+/* ---------- Navegação global (Etiqueta · Estoque · Revendedoras · Vendas) ----------
+   Camada distinta da subnavegação: botão grande, espaçado, centralizado — a
+   subaba (#tabsSubNav) continua no tamanho pequeno de sempre. */
+#tabsNav{display:flex;justify-content:center;align-items:center;gap:16px;flex-wrap:wrap;margin:24px 0 8px}
+#tabsNav .tab{
+  padding:13px 28px;font-size:14.5px;font-weight:700;border-radius:12px;
+  border:1.5px solid var(--line);background:var(--paper);color:var(--bordo-soft);
+  box-shadow:var(--shadow);transition:.15s;letter-spacing:.01em;
+}
+#tabsNav .tab:hover{border-color:var(--rose);color:var(--bordo)}
+#tabsNav .tab.active{background:var(--bordo);border-color:var(--bordo);color:#fff;box-shadow:none}
+#tabsSubNav{margin-bottom:22px}
+
 /* ---------- Grade de duas colunas ---------- */
 .row.chart{grid-template-columns:1fr 1fr}
 .row.wide{grid-template-columns:1fr}
@@ -1277,6 +1290,7 @@ function renderTabs(){
 
 /* =================== Visão geral =================== */
 let escopoGrafico='total';   /* total | casa | fora */
+let modoCadastro='manual';   /* manual | total | novas — os três jeitos de entrar produto */
 function setEscopo(e){escopoGrafico=e;renderGeral();}
 
 function renderGeral(){
@@ -1299,6 +1313,14 @@ function renderGeral(){
                         .sort((a,b)=>String(prazoDe(a)).localeCompare(String(prazoDe(b))));
   const inc=inconsistencias();
 
+  /* Disponível para Nuvemshop precisa do mesmo cruzamento casa×cadastro que
+     a tabela de Estoque total usa — reaproveita linhasEstoque() em vez de
+     recalcular, para o card nunca divergir do que a tabela mostra. */
+  const todasKpi=linhasEstoque();
+  const disponivelNuvem=todasKpi.reduce((s,l)=>s+l.nuvem,0);
+  const faltaSubirKpi=todasKpi.filter(l=>!l.p.urlLoja&&l.casa>0);
+  const pecasFaltaSubirKpi=faltaSubirKpi.reduce((s,l)=>s+l.casa,0);
+
   v.innerHTML=`
     <div class="kpis">
       <div class="kpi">
@@ -1307,21 +1329,44 @@ function renderGeral(){
         <div class="k-sub">${state.produtos.length} códigos · ${money(t.valTotal)}</div>
       </div>
       <div class="kpi k-casa">
-        <div class="k-lbl">Em posse minha</div>
+        <div class="k-lbl">Em casa</div>
         <div class="k-num">${t.casa}</div>
-        <div class="k-sub">É isto que pode estar na Nuvemshop</div>
+        <div class="k-sub">Peças fisicamente aqui · ${money(t.valCasa)}</div>
       </div>
       <div class="kpi k-rev">
         <div class="k-lbl">Com revendedoras</div>
         <div class="k-num">${t.fora}</div>
-        <div class="k-sub">${abertas.length} ${plural(abertas.length,'maleta aberta','maletas abertas')}</div>
+        <div class="k-sub">${abertas.length} ${plural(abertas.length,'maleta aberta','maletas abertas')} · ${money(t.valFora)}</div>
       </div>
       <div class="kpi k-val">
-        <div class="k-lbl">Valor na rua</div>
-        <div class="k-num small">${money(t.valFora)}</div>
-        <div class="k-sub">Preço de venda das peças que estão fora</div>
+        <div class="k-lbl">Disponível para Nuvemshop</div>
+        <div class="k-num">${disponivelNuvem}</div>
+        <div class="k-sub">${faltaSubirKpi.length
+          ?`${pecasFaltaSubirKpi} ${plural(pecasFaltaSubirKpi,'peça em casa ainda sem cadastro','peças em casa ainda sem cadastro')} na loja`
+          :'Tudo que está em casa já tem cadastro na loja'}</div>
       </div>
     </div>
+
+    <div class="row wide">
+      <div class="panel">
+        <div class="head">
+          <h2>Por categoria</h2>
+          <span class="hint">Quanto de cada tipo de peça você tem</span>
+        </div>
+        <div class="body">
+          <div style="display:flex;justify-content:center;margin-bottom:18px">
+            <div class="seg">
+              <button class="${escopoGrafico==='total'?'on':''}" onclick="setEscopo('total')">Estoque total</button>
+              <button class="${escopoGrafico==='casa'?'on':''}" onclick="setEscopo('casa')">Em casa</button>
+              <button class="${escopoGrafico==='fora'?'on':''}" onclick="setEscopo('fora')">Com revendedoras</button>
+            </div>
+          </div>
+          <div class="chartwrap" id="chartWrap"></div>
+        </div>
+      </div>
+    </div>
+
+    ${painelInventario()}
 
     ${vencidas.length?`<div class="warn">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
@@ -1351,26 +1396,7 @@ function renderGeral(){
       Costuma ser o caso dos códigos com sufixo (${esc(inc.slice(0,3).map(i=>i.sku).join(', '))}${inc.length>3?'…':''}),
       que saíram na maleta pelo código-base. Corrija a coluna <b>Total</b> em Estoque total.
       <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="switchTab('geral');setTimeout(()=>setFiltroInc(true),60)">Ver esses códigos</button></div></div>
-    </div>`:''}
-
-    <div class="row wide">
-      <div class="panel">
-        <div class="head">
-          <h2>Por categoria</h2>
-          <span class="hint">Quanto de cada tipo de peça você tem</span>
-        </div>
-        <div class="body">
-          <div style="display:flex;justify-content:center;margin-bottom:18px">
-            <div class="seg">
-              <button class="${escopoGrafico==='total'?'on':''}" onclick="setEscopo('total')">Estoque total</button>
-              <button class="${escopoGrafico==='casa'?'on':''}" onclick="setEscopo('casa')">Em casa</button>
-              <button class="${escopoGrafico==='fora'?'on':''}" onclick="setEscopo('fora')">Com revendedoras</button>
-            </div>
-          </div>
-          <div class="chartwrap" id="chartWrap"></div>
-        </div>
-      </div>
-    </div>`;
+    </div>`:''}`;
 
   renderDonut();
 }
@@ -1401,14 +1427,37 @@ function renderRevLista(){
    planilha de peças novas na mão. O fluxo em si continua no overlay
    'novasOverlay' (abrirNovas) — esta aba só reúne os atalhos num lugar
    próprio, sem duplicar lógica. */
+function setModoCadastro(m){ modoCadastro=m; renderCadastro(); }
+
+/** Cadastro manual reaproveita o MESMO laudo/endpoint da importação de peças
+    novas (§ novos/analisar → novos/cadastrar) — uma peça digitada na mão é,
+    pro sistema, uma peça nova como outra qualquer: só muda de onde a linha
+    veio. Nenhum caminho novo de escrita. */
+function cadastrarManual(){
+  const sku=document.getElementById('cm-sku').value.trim().toUpperCase();
+  const desc=document.getElementById('cm-desc').value.trim();
+  const cat=document.getElementById('cm-cat').value;
+  const precoTxt=document.getElementById('cm-preco').value.trim();
+  const qtdTxt=document.getElementById('cm-qtd').value.trim();
+  if(!sku||!desc){ toast('Preencha código e descrição'); return; }
+  const preco=precoTxt===''?null:num(precoTxt);
+  const qtd=qtdTxt===''?0:int(qtdTxt);
+  novasOrigem='manual';
+  novasLinhas=[{sku, desc, cat, preco, qtd, brutoQtd:String(qtd), brutoPreco:precoTxt}];
+  novasSel=new Set(); novasCorr={};
+  document.getElementById('novasOverlay').classList.add('show');
+  analisarNovas();
+}
+
 function renderCadastro(){
   const v=document.getElementById('view-cadastro');
   const pendentes=(state.catalogo&&state.catalogo.pendentes)||0;
+  const cats=catList();
   v.innerHTML=`
     <div class="panel">
       <div class="head">
         <h2>Cadastro de Produtos</h2>
-        <span class="hint">Aprove peças novas em lote ou importe uma planilha</span>
+        <span class="hint">Três jeitos de entrar produto — todos passam pela mesma conferência</span>
       </div>
       <div class="body">
         ${pendentes?`<div class="warn info">
@@ -1417,10 +1466,45 @@ function renderCadastro(){
           Elas não entram pelo estoque total — o cadastro é o outro fluxo, e ele aprova em lote.
           <div class="w-act"><button class="btn btn-gold btn-sm" onclick="abrirNovas('fila')">Revisar produtos novos</button></div></div>
         </div>`:''}
-        <div class="actbar">
-          <div class="spacer"></div>
-          <button class="btn btn-gold btn-sm" onclick="abrirNovas('arquivo')">+ Adicionar peças novas</button>
+
+        <div class="subtabs">
+          <button class="pill ${modoCadastro==='manual'?'on':''}" onclick="setModoCadastro('manual')">Cadastro manual</button>
+          <button class="pill ${modoCadastro==='total'?'on':''}" onclick="setModoCadastro('total')">Importar estoque total</button>
+          <button class="pill ${modoCadastro==='novas'?'on':''}" onclick="setModoCadastro('novas')">Importar peças novas</button>
         </div>
+
+        ${modoCadastro==='manual'?`
+        <div style="max-width:420px">
+          <div class="field"><label>Código (SKU) <span class="req">*</span></label>
+            <input id="cm-sku" placeholder="Ex.: BR1234" maxlength="40"></div>
+          <div class="field"><label>Descrição <span class="req">*</span></label>
+            <input id="cm-desc" placeholder="Ex.: Brinco argola dourada" maxlength="120"></div>
+          <div class="two">
+            <div class="field"><label>Categoria</label>
+              <select id="cm-cat">${cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div>
+            <div class="field"><label>Quantidade inicial</label>
+              <input id="cm-qtd" type="number" min="0" placeholder="0"></div>
+          </div>
+          <div class="field"><label>Preço</label>
+            <input id="cm-preco" type="number" min="0" step="0.01" placeholder="Deixe em branco se ainda não tem preço"></div>
+          <button class="btn btn-gold" style="margin-top:6px" onclick="cadastrarManual()">Cadastrar peça</button>
+        </div>`:''}
+
+        ${modoCadastro==='total'?`
+        <div class="empty">
+          <h3>Importar estoque total</h3>
+          <p>A planilha de Estoque Total continua sendo a fonte máxima de verdade do físico —
+          o mesmo fluxo de sempre: prévia, diferença por código, nada aplicado sem confirmar.</p>
+          <button class="btn btn-gold" style="margin-top:14px" onclick="openImport()">Importar estoque total</button>
+        </div>`:''}
+
+        ${modoCadastro==='novas'?`
+        <div class="empty">
+          <h3>Importar peças novas</h3>
+          <p>Só cria código que ainda não existe. Código já cadastrado é listado, mas
+          nome, preço e estoque dele não mudam por aqui.</p>
+          <button class="btn btn-gold" style="margin-top:14px" onclick="abrirNovas('arquivo')">Importar peças novas</button>
+        </div>`:''}
       </div>
     </div>`;
 }
@@ -1943,10 +2027,8 @@ function linhasEstoque(){
 
 function renderEstoque(){
   const v=document.getElementById('view-estoque');
-  const t=totais();
   const incSet=new Set(inconsistencias().map(i=>i.sku));
   const comLoja=temLoja();
-  const abertas=maletasAbertas();
 
   const todas=linhasEstoque();
   let linhas=todas;
@@ -1956,10 +2038,7 @@ function renderEstoque(){
   if(filtroCat) linhas=linhas.filter(l=>l.cat===filtroCat);
 
   const catsUsadas=catList().filter(c=>state.produtos.some(p=>p.cat===c));
-  const disponivelNuvem=todas.reduce((s,l)=>s+l.nuvem,0);
   const faltaSubir=todas.filter(l=>!l.p.urlLoja&&l.casa>0);
-  const pecasFaltaSubir=faltaSubir.reduce((s,l)=>s+l.casa,0);
-  const pendentes=(state.catalogo&&state.catalogo.pendentes)||0;
 
   const colunas=[
     {k:'foto', rot:'Foto', tipo:'texto', larg:'106px', filtro:'select', busca:false,
@@ -1967,8 +2046,7 @@ function renderEstoque(){
     {k:'sku', rot:'Código', tipo:'sku', larg:'86px', filtro:'texto'},
     {k:'desc', rot:'Produto', tipo:'texto', filtro:'texto', cls:'desc',
      cel:l=>`${esc(l.desc)}${l.kit
-       ?`<span class="kitchip" title="Montado a partir de outras peças" onclick="abrirKit('${esc(l.sku)}')">🧩 kit</span>`
-       :`<span class="kitchip kitchip-add" title="Transformar em kit" onclick="abrirKit('${esc(l.sku)}')">+ kit</span>`}`},
+       ?`<span class="kitchip" title="Montado a partir de outras peças">🧩 kit</span>`:''}`},
     {k:'cat', rot:'Categoria', tipo:'texto', larg:'98px', filtro:'select',
      cel:l=>`<span class="catchip" style="background:${catColor(l.cat)}">${esc(l.cat)}</span>`},
     {k:'total', rot:'Estoque total', tipo:'num', larg:'94px', filtro:'num',
@@ -1996,55 +2074,12 @@ function renderEstoque(){
   ];
 
   v.innerHTML=`
-    <div class="kpis">
-      <div class="kpi">
-        <div class="k-lbl">Estoque total</div>
-        <div class="k-num">${t.total}</div>
-        <div class="k-sub">${state.produtos.length} códigos · ${money(t.valTotal)}</div>
-      </div>
-      <div class="kpi k-casa">
-        <div class="k-lbl">Em casa</div>
-        <div class="k-num">${t.casa}</div>
-        <div class="k-sub">Peças fisicamente aqui · ${money(t.valCasa)}</div>
-      </div>
-      <div class="kpi k-rev">
-        <div class="k-lbl">Com revendedoras</div>
-        <div class="k-num">${t.fora}</div>
-        <div class="k-sub">${abertas.length} ${plural(abertas.length,'maleta aberta','maletas abertas')} · ${money(t.valFora)}</div>
-      </div>
-      <div class="kpi k-val">
-        <div class="k-lbl">Disponível para Nuvemshop</div>
-        <div class="k-num">${disponivelNuvem}</div>
-        <div class="k-sub">${faltaSubir.length
-          ?`${pecasFaltaSubir} ${plural(pecasFaltaSubir,'peça em casa ainda sem cadastro','peças em casa ainda sem cadastro')} na loja`
-          :'Tudo que está em casa já tem cadastro na loja'}</div>
-      </div>
-    </div>
-
-    ${painelInventario()}
-
-    ${pendentes?`<div class="warn info">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-      <div><b>${pendentes} ${plural(pendentes,'peça nova encontrada','peças novas encontradas')} numa planilha e ainda não ${plural(pendentes,'cadastrada','cadastradas')}.</b>
-      Elas não entram pelo estoque total — o cadastro é o outro fluxo, e ele aprova em lote.
-      <div class="w-act"><button class="btn btn-gold btn-sm" onclick="abrirNovas('fila')">Revisar produtos novos</button></div></div>
-    </div>`:''}
-
     <div class="panel">
       <div class="head">
         <h2>Peças cadastradas</h2>
         <span class="hint">Total é tudo que existe. Em casa é o que pode estar à venda na Nuvemshop.</span>
       </div>
       <div class="body">
-        <div class="actbar">
-          <div class="stat"><b>${state.produtos.length}</b> códigos</div>
-          <div class="stat"><b>${t.total}</b> peças</div>
-          <div class="spacer"></div>
-          <button class="btn btn-ghost btn-sm" onclick="openImport()">↑ Importar estoque total</button>
-          <button class="btn btn-ghost btn-sm" onclick="abrirNovas('arquivo')">+ Adicionar peças novas</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportNuvemshop()">↓ Planilha p/ Nuvemshop</button>
-        </div>
-
         ${comLoja?`
         <div style="display:flex;justify-content:center;margin-bottom:16px">
           <div class="seg">
@@ -2691,6 +2726,7 @@ function renderLoja(){
       <div class="spacer"></div>
       <button class="btn btn-ghost btn-sm" onclick="abrirNovas('fila')">+ Peças novas${
         (state.catalogo&&state.catalogo.pendentes)?` (${state.catalogo.pendentes})`:''}</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportNuvemshop()">↓ Planilha p/ Nuvemshop</button>
       <button class="btn ${analiseSync?'btn-ghost':'btn-gold'} btn-sm" onclick="analisarSync()">
         ${analiseSync?'Analisar de novo':'Analisar sincronização'}</button>
     </div>
