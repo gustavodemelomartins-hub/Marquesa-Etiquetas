@@ -18,9 +18,9 @@
 
 import { movimentar } from './estoque.js';
 
-/* Quanto detalhe volta de cada grupo. O total sempre é o de verdade — o
-   corte é só do que a tela desenha, para uma planilha de 5.000 linhas não
-   virar uma resposta de megabytes. */
+/* Quanto detalhe volta dos grupos que a tela só EXIBE. O total sempre é o
+   de verdade — o corte é só do que ela desenha, para uma planilha de 5.000
+   linhas não virar uma resposta de megabytes. */
 const TETO_DETALHE = 500;
 
 const texto = (v) => String(v == null ? '' : v).trim();
@@ -54,6 +54,14 @@ const SKU_LIMPO = /^[A-Z0-9][A-Z0-9._\-/]*$/;
 
 function corta(lista) {
   return { total: lista.length, itens: lista.slice(0, TETO_DETALHE) };
+}
+
+/** Grupo que a tela não só mostra: ela AGE sobre ele — é esta lista que
+ *  volta no "aplicar" e no "cadastrar todos". Cortar aqui perderia trabalho
+ *  em silêncio: com 782 linhas certas, 282 sumiriam sem ninguém saber, e a
+ *  tela ainda diria que deu tudo certo. Vai inteira. */
+function inteira(lista) {
+  return { total: lista.length, itens: lista };
 }
 
 /** Leitura do banco que as duas análises precisam. */
@@ -177,8 +185,8 @@ export async function analisarEstoqueTotal(db, { produtos, modo = 'total' } = {}
     linhas,
     existentes: iguais.length + mudam.length,
     iguais: corta(iguais),
-    mudam: corta(mudamOrdenados),
-    novos: corta(novos),
+    mudam: inteira(mudamOrdenados),   // vira o "aplicar"
+    novos: inteira(novos),            // vira a fila de peças novas
     ausentes: corta(ausentes),
     revisao: corta(revisao),
     /* O saldo da conta em uma linha, que é o que a tela mostra primeiro. */
@@ -319,7 +327,7 @@ export async function analisarNovos(db, { produtos } = {}) {
 
   return {
     linhas,
-    prontos: corta(prontos),
+    prontos: inteira(prontos),        // vira o "cadastrar todos os válidos"
     jaExistem: corta(jaExistem),
     revisao: corta(revisao),
     resumo: {
