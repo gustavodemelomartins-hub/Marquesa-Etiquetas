@@ -959,7 +959,8 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
 
 /* Cartão do gráfico: título em sans, do tamanho de um título de seção —
    a serif grande aqui roubava a atenção dos números, que é o que importa. */
-.panel.cat .head h2{font-family:var(--sans);font-size:15px;font-weight:600;color:var(--ink);letter-spacing:0}
+.panel.cat .head h2,
+.panel.sec .head h2{font-family:var(--sans);font-size:15px;font-weight:600;color:var(--ink);letter-spacing:0}
 .panel.cat .body{padding:11px 15px 15px}
 
 /* ---------- Segmented control ---------- */
@@ -1030,6 +1031,25 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
 .kpi .k-num{font-size:22px;margin-top:0;line-height:1}
 .kpi .k-sub{font-size:9.5px;margin-top:5px;line-height:1.4}
 
+/* ---------- Cabeçalho de tela ----------
+   Mesma tipografia do título de cartão, um nível acima dele: identifica a
+   página quando ela não começa por um cartão. */
+.cab-tela{margin:0 0 12px}
+.cab-tela h2{font-family:var(--sans);font-size:15px;font-weight:600;color:var(--ink);letter-spacing:0}
+.cab-tela .hint{display:block;font-size:11.5px;color:var(--muted);margin-top:3px;max-width:64ch;line-height:1.5}
+
+/* ---------- Formulário ----------
+   As classes .field e .two já vêm da base, e a base já empilha .two no
+   celular. O que falta é só o ritmo: dentro de .two o último campo perde a
+   margem de baixo pela regra :last-child da base, e as duas colunas
+   terminavam em alturas diferentes. */
+/* Um formulário de cinco campos não se lê melhor com 1.100px de largura —
+   só ganha um vazio à direita. O cartão acompanha o formulário. */
+.panel.sec{max-width:760px}
+.form-cadastro{max-width:640px}
+.form-cadastro .two > .field{margin-bottom:15px}
+.form-cadastro > *:last-child{margin-bottom:0}
+
 /* ---------- Leituras do rodapé ----------
    Três cartões próprios, não três colunas de um cartão só: cada um termina
    no botão da tela que resolve o que ele aponta, e um botão precisa de uma
@@ -1064,6 +1084,27 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
 .insight[data-tom="atencao"] .i-ico{background:#FBF1DC;color:#A8791F}
 .insight[data-tom="critico"] .i-ico{background:var(--danger-tint);color:var(--danger)}
 
+/* O mesmo cartão, quando ele inteiro é o botão (ver cartaoAcao). Só o
+   estado de toque é novo — borda, raio, sombra, ritmo e tipografia vêm
+   todos das regras acima. */
+.insights.duas{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:16px}
+.insight.acao{
+  width:100%;text-align:left;font:inherit;cursor:pointer;
+  transition:border-color .15s, box-shadow .15s, transform .15s;
+}
+.insight.acao:hover{
+  border-color:var(--rose-soft);
+  box-shadow:0 1px 2px rgba(142,74,94,.06), 0 10px 26px rgba(142,74,94,.10);
+}
+/* No cartão de leitura a chamada ocupa a largura toda porque a coluna é
+   estreita. Aqui o cartão é largo, e uma barra de ponta a ponta viraria o
+   elemento mais pesado da tela — justamente o contrário da hierarquia. */
+.insight.acao .i-a .btn{width:auto;min-width:172px;font-size:11.5px;padding:8px 12px}
+.insight.acao .i-t{font-size:11px;letter-spacing:.04em}
+.insight.acao .i-d{max-width:52ch}
+.insight.acao:hover .i-a .btn{border-color:var(--rose-soft);color:var(--bordo)}
+.insight.acao:active{transform:translateY(1px)}
+
 /* ==========================================================================
    Telas largas — mesma ordem, mesma hierarquia, mais respiro
    --------------------------------------------------------------------------
@@ -1089,7 +1130,8 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
 
   .panel .head{padding:17px 20px 0}
   .panel .body{padding:16px 20px 18px}
-  .panel.cat .head h2{font-size:17px}
+  .panel.cat .head h2,
+  .panel.sec .head h2{font-size:17px}
   /* No celular o controle ocupa a largura toda porque é alvo de toque; na
      tela grande ele encolhe para o próprio tamanho — esticado até a borda
      do cartão, o terceiro botão ficava com meio metro de vazio à direita. */
@@ -1118,6 +1160,7 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
   .kpi .k-sub{font-size:11.5px;margin-top:6px}
 
   .insights{gap:14px;margin-top:16px}
+  .insights.duas{margin-bottom:20px}
   .insight{padding:16px 17px}
   .insight .i-topo{display:flex;align-items:center;gap:10px}
   .insight .i-ico{width:34px;height:34px;margin-bottom:0}
@@ -1159,12 +1202,19 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
    nem a 8px — e cortar a palavra no meio é pior que qualquer economia de
    espaço. Duas colunas é a degradação honesta: continua compacto, e nada
    fica ilegível. O aparelho da referência (393px) mantém as quatro. */
+@media (max-width:599px){
+  /* Os cartões de leitura são três frases curtas e cabem lado a lado; os de
+     ação têm título, descrição e chamada, e espremidos em meia tela de
+     celular viram uma coluna de palavras soltas. */
+  .insights.duas{grid-template-columns:minmax(0,1fr);gap:10px}
+}
 @media (max-width:379px){
   .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .insights{grid-template-columns:1fr}
-  .insight{flex-direction:row;align-items:flex-start;gap:11px}
-  .insight .i-topo{flex:0 0 84px;margin-bottom:0}
-  .insight .i-a{margin-top:9px;padding-top:0}
+  .insights{grid-template-columns:minmax(0,1fr)}
+  .insight:not(.acao){flex-direction:row;align-items:flex-start;gap:11px}
+  .insight:not(.acao) .i-topo{flex:0 0 84px;margin-bottom:0}
+  .insight:not(.acao) .i-a{margin-top:9px;padding-top:0}
+  .insight.acao .i-a .btn{min-width:0;width:100%}
 }
 /* Mais estreito ainda: "Revendedoras" também não cabe ao lado dos outros
    três botões. Em vez de cortar a palavra, a faixa rola de lado — o mesmo
@@ -2167,7 +2217,6 @@ function renderTabs(){
 
 /* =================== Visão geral =================== */
 let escopoGrafico='total';   /* total | casa | fora */
-let modoCadastro='manual';   /* manual | total | novas — os três jeitos de entrar produto */
 function setEscopo(e){escopoGrafico=e;renderGeral();}
 
 /* ---------- Peças da Visão Geral ----------
@@ -2183,7 +2232,9 @@ const ICO={
   escudo:'<path d="M12 3l7.5 3v5c0 4.6-3.1 8.8-7.5 10-4.4-1.2-7.5-5.4-7.5-10V6z"/><path d="m9 12 2 2 4-4"/>',
   grafico:'<path d="M3 3v18h18"/><path d="m18.7 8-5.7 5.7-3-3L6 15"/>',
   brilho:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/>',
-  etiqueta:'<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7.2-7.2A2 2 0 0 1 2.8 12V4.8A2 2 0 0 1 4.8 2.8H12a2 2 0 0 1 1.4.6l7.2 7.2a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.3"/>'
+  etiqueta:'<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7.2-7.2A2 2 0 0 1 2.8 12V4.8A2 2 0 0 1 4.8 2.8H12a2 2 0 0 1 1.4.6l7.2 7.2a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
+  planilha:'<path d="M4 3h16v18H4z"/><path d="M4 9h16M4 15h16M10 3v18"/>',
+  caixaMais:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 11.5v6M9 14.5h6"/>'
 };
 function svgIco(d,tam){
   return `<svg width="${tam||18}" height="${tam||18}" viewBox="0 0 24 24" fill="none"
@@ -2217,6 +2268,25 @@ function cartaoInsight({tom,ico,titulo,corpo,acao}){
  *  leitura aponta — diagnóstico sem próximo passo vira paisagem. */
 function botaoInsight(rotulo,acao){
   return `<button class="btn btn-ghost btn-sm" onclick="${acao}">${esc(rotulo)}<span aria-hidden="true">›</span></button>`;
+}
+
+/** O mesmo cartão, quando ele INTEIRO é o botão — a área de toque passa a
+ *  ser o cartão todo, e não só o rótulo do pé. Por isso o elemento é um
+ *  <button> e a chamada para ação vira um <span> com cara de botão: botão
+ *  dentro de botão é HTML inválido, e o navegador desmonta a marcação.
+ *
+ *  As classes são as MESMAS dos cartões de leitura (.insight e filhas).
+ *  Uma família visual, uma folha de estilo — o que muda é o estado de
+ *  toque, que é o único CSS novo. */
+function cartaoAcao({ico,titulo,descricao,cta,acao}){
+  return `<button type="button" class="insight acao" onclick="${acao}">
+    <div class="i-topo">
+      <span class="i-ico">${svgIco(ico,15)}</span>
+      <span class="i-t">${esc(titulo)}</span>
+    </div>
+    <div class="i-d">${esc(descricao)}</div>
+    <div class="i-a"><span class="btn btn-ghost btn-sm">${esc(cta)}<span aria-hidden="true">›</span></span></div>
+  </button>`;
 }
 
 /* As três leituras do rodapé. Cada frase sai de um número que o painel já
@@ -2407,12 +2477,13 @@ function renderRevLista(){
 }
 
 /* =================== Cadastro de Produtos =================== */
-/* Ponto de entrada dedicado para os dois fluxos que já existiam: aprovar em
-   lote a fila de peças novas encontrada numa sincronização, e importar uma
-   planilha de peças novas na mão. O fluxo em si continua no overlay
-   'novasOverlay' (abrirNovas) — esta aba só reúne os atalhos num lugar
-   próprio, sem duplicar lógica. */
-function setModoCadastro(m){ modoCadastro=m; renderCadastro(); }
+/* Uma página só, sem abas. As três abas escondiam duas delas por vez e
+   cobravam um clique para descobrir que existiam — sendo que "importar
+   estoque total" e "adicionar peças novas" abrem overlays, não conteúdo
+   de página nenhum. Viraram dois cartões de ação, e o cadastro manual,
+   que é o único que de fato mora aqui, ficou visível o tempo todo.
+   Nenhum dos dois fluxos mudou: os cartões chamam openImport() e
+   abrirNovas('arquivo'), exatamente como as abas chamavam. */
 
 /** Cadastro manual reaproveita o MESMO laudo/endpoint da importação de peças
     novas (§ novos/analisar → novos/cadastrar) — uma peça digitada na mão é,
@@ -2439,57 +2510,50 @@ function renderCadastro(){
   const pendentes=(state.catalogo&&state.catalogo.pendentes)||0;
   const cats=catList();
   v.innerHTML=`
-    <div class="panel">
+    <div class="cab-tela">
+      <h2>Cadastro de Produtos</h2>
+      <span class="hint">Cadastre novas peças ou atualize seu estoque através de planilhas.</span>
+    </div>
+
+    ${pendentes?`<div class="warn info">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      <div><b>${pendentes} ${plural(pendentes,'peça nova encontrada','peças novas encontradas')} numa planilha e ainda não ${plural(pendentes,'cadastrada','cadastradas')}.</b>
+      Elas não entram pelo estoque total — o cadastro é o outro fluxo, e ele aprova em lote.
+      <div class="w-act"><button class="btn btn-gold btn-sm" onclick="abrirNovas('fila')">Revisar produtos novos</button></div></div>
+    </div>`:''}
+
+    <div class="insights duas">
+      ${cartaoAcao({ico:ICO.planilha, titulo:'Importar estoque total',
+        descricao:'Atualize o estoque físico usando a planilha de Estoque Total.',
+        cta:'Importar estoque', acao:'openImport()'})}
+      ${cartaoAcao({ico:ICO.caixaMais, titulo:'Adicionar peças novas',
+        descricao:'Cadastre em lote apenas peças que ainda não existem no estoque.',
+        cta:'Adicionar peças', acao:"abrirNovas('arquivo')"})}
+    </div>
+
+    <div class="panel sec">
       <div class="head">
-        <h2>Cadastro de Produtos</h2>
-        <span class="hint">Três jeitos de entrar produto — todos passam pela mesma conferência</span>
+        <h2>Cadastro manual</h2>
+        <span class="hint">Uma peça de cada vez, com a mesma conferência da importação em lote</span>
       </div>
       <div class="body">
-        ${pendentes?`<div class="warn info">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-          <div><b>${pendentes} ${plural(pendentes,'peça nova encontrada','peças novas encontradas')} numa planilha e ainda não ${plural(pendentes,'cadastrada','cadastradas')}.</b>
-          Elas não entram pelo estoque total — o cadastro é o outro fluxo, e ele aprova em lote.
-          <div class="w-act"><button class="btn btn-gold btn-sm" onclick="abrirNovas('fila')">Revisar produtos novos</button></div></div>
-        </div>`:''}
-
-        <div class="subtabs">
-          <button class="pill ${modoCadastro==='manual'?'on':''}" onclick="setModoCadastro('manual')">Cadastro manual</button>
-          <button class="pill ${modoCadastro==='total'?'on':''}" onclick="setModoCadastro('total')">Importar estoque total</button>
-          <button class="pill ${modoCadastro==='novas'?'on':''}" onclick="setModoCadastro('novas')">Importar peças novas</button>
-        </div>
-
-        ${modoCadastro==='manual'?`
-        <div style="max-width:420px">
-          <div class="field"><label>Código (SKU) <span class="req">*</span></label>
-            <input id="cm-sku" placeholder="Ex.: BR1234" maxlength="40"></div>
+        <div class="form-cadastro">
+          <div class="two">
+            <div class="field"><label>Código (SKU) <span class="req">*</span></label>
+              <input id="cm-sku" placeholder="Ex.: BR1234" maxlength="40"></div>
+            <div class="field"><label>Categoria</label>
+              <select id="cm-cat">${cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div>
+          </div>
           <div class="field"><label>Descrição <span class="req">*</span></label>
             <input id="cm-desc" placeholder="Ex.: Brinco argola dourada" maxlength="120"></div>
           <div class="two">
-            <div class="field"><label>Categoria</label>
-              <select id="cm-cat">${cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div>
             <div class="field"><label>Quantidade inicial</label>
               <input id="cm-qtd" type="number" min="0" placeholder="0"></div>
+            <div class="field"><label>Preço</label>
+              <input id="cm-preco" type="number" min="0" step="0.01" placeholder="Em branco se ainda não tem preço"></div>
           </div>
-          <div class="field"><label>Preço</label>
-            <input id="cm-preco" type="number" min="0" step="0.01" placeholder="Deixe em branco se ainda não tem preço"></div>
-          <button class="btn btn-gold" style="margin-top:6px" onclick="cadastrarManual()">Cadastrar peça</button>
-        </div>`:''}
-
-        ${modoCadastro==='total'?`
-        <div class="empty">
-          <h3>Importar estoque total</h3>
-          <p>A planilha de Estoque Total continua sendo a fonte máxima de verdade do físico —
-          o mesmo fluxo de sempre: prévia, diferença por código, nada aplicado sem confirmar.</p>
-          <button class="btn btn-gold" style="margin-top:14px" onclick="openImport()">Importar estoque total</button>
-        </div>`:''}
-
-        ${modoCadastro==='novas'?`
-        <div class="empty">
-          <h3>Importar peças novas</h3>
-          <p>Só cria código que ainda não existe. Código já cadastrado é listado, mas
-          nome, preço e estoque dele não mudam por aqui.</p>
-          <button class="btn btn-gold" style="margin-top:14px" onclick="abrirNovas('arquivo')">Importar peças novas</button>
-        </div>`:''}
+          <button class="btn btn-gold" onclick="cadastrarManual()">Cadastrar peça</button>
+        </div>
       </div>
     </div>`;
 }
