@@ -3191,6 +3191,9 @@ const LISTAS_PUB={
 function setFiltroPend(v){ filtroPend=v; renderPendencias(); }
 
 async function carregarPendencias(){
+  /* Banco sem a migração do catálogo: não adianta pedir. A tela explica o
+     que falta, e o resto do painel segue funcionando. */
+  if(state.catalogo&&state.catalogo.migrado===false){ renderPendencias(); return; }
   carregandoPend=true;
   try{
     const [pub,orf]=await Promise.all([
@@ -3248,6 +3251,19 @@ function renderPendencias(){
   const pendentes=(state.catalogo&&state.catalogo.pendentes)||0;
   const inc=inconsistencias();
   const p=publicacao;
+
+  if(state.catalogo&&state.catalogo.migrado===false){
+    v.innerHTML=`<div class="warn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+      <div><b>Esta aba precisa de um passo no banco que ainda não foi dado.</b>
+      Rode <code>api/migracao-catalogo.sql</code> no D1 — o passo a passo está no
+      <b>api/DEPLOY.md</b>. Ele cria as colunas de foto e as duas filas desta tela,
+      e não encosta em nada que já existe.
+      <br>O resto do painel funciona normalmente sem ela: estoque, maletas, vendas
+      e sincronização não dependem deste passo.</div>
+    </div>`;
+    return;
+  }
 
   if(carregandoPend&&!p){
     v.innerHTML=`<div class="panel"><div class="body"><div class="empty">

@@ -40,6 +40,14 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §5.2 | Kit: disponível = mínimo entre componentes | `estoque.js › saldosDoKit` |
 | §19 | Venda de kit vira movimento nos componentes | `estoque.js › movimentarKit` |
 | §22 | Kit exige zerar o saldo antes de virar kit | `index.js › definirKit` recusa com o motivo |
+| §22 | Planilha é analisada antes de aplicar; nada em silêncio | `catalogo.js › analisarEstoqueTotal` |
+| §22 | Produto novo não é criado pela planilha de estoque | grupo C fica em `produtos_pendentes` |
+| §19 | O que se aplica é o alvo, e o delta é recalculado na hora | `catalogo.js › aplicarEstoqueTotal` |
+| §22 | Cadastro de peças novas nunca altera cadastro existente | `catalogo.js › cadastrarNovos` devolve `ignorados` |
+| §24 | "Sem preço" entra no lote marcado, não vira exceção | `analisarNovos` põe em `alertas`, não em `motivos` |
+| §5.1 | Ensaio da sincronização não escreve nada | `sync.js › analisarSincronizacao` |
+| §22 | Foto da loja só casa com SKU exato; o resto vai para a fila | `fotos.js › importarFotosDaLoja` → `fotos_orfas` |
+| §22 | Fundo branco sem serviço configurado fica pendente | `fotos.js › gerarFundoBranco` não inventa imagem |
 
 ## Duas divergências conscientes
 
@@ -328,3 +336,88 @@ Esta prioridade da planilha sobre o sistema é **temporária por
 definição**: quando o inventário interno passar a ser controlado com
 confiança suficiente, ele poderá substituir a planilha como fonte da
 verdade física. Não é regra eterna.
+
+### 9. Importar é analisar e depois aplicar — §19 §22
+
+A importação de estoque total parava inteira quando a planilha trazia um
+código que não existe aqui. Numa planilha de 700 linhas, dez códigos novos
+não podem impedir que as outras 690 quantidades entrem.
+
+Agora ela é lida, **classificada** e só então aplicada, com a lista que a
+análise aprovou. Cada linha cai em um de cinco grupos:
+
+| | | o que acontece |
+|---|---|---|
+| A | existe e está igual | nada |
+| B | existe e a quantidade mudou | pronto para aplicar |
+| C | não existe aqui | **não é criado**; espera em `produtos_pendentes` |
+| D | existe aqui e não veio na planilha | aviso, e só |
+| E | problema de verdade | sai da conta sozinho |
+
+O grupo E é o ponto todo: um item problemático **não derruba nenhum outro**.
+Quantidade escrita como "a definir", código repetido com descrições
+diferentes, total menor do que já está com revendedora — cada um sai da
+lista e os demais seguem.
+
+O grupo D não zera nada. Sumir da planilha não é prova de que a peça acabou,
+e apagar estoque por omissão é o tipo de erro que ninguém percebe até faltar
+peça na maleta.
+
+O grupo C é a separação que faltava: **planilha de estoque ajusta
+quantidade, não cria peça.** Criar é o outro fluxo, que aprova em lote. Os
+códigos novos ficam na fila com os dados que a planilha trouxe, para não
+obrigar a reimportar o mesmo arquivo só por causa deles.
+
+**O que a tela manda para aplicar é o alvo, nunca o delta.** Entre a análise
+e o clique pode ter entrado uma venda de balcão; um delta calculado lá atrás
+cobraria essa venda duas vezes. O alvo é estável, o delta não —
+`src/catalogo-test.mjs` força exatamente esse cenário.
+
+### 10. Revisão por exceção, nunca por item — §22 §24
+
+Se 782 linhas estão certas, elas entram de uma vez. Só vai para revisão o
+que é exceção de verdade: código vazio ou com caracteres estranhos, código
+repetido com dados conflitantes, quantidade ou preço escritos como texto,
+descrição ausente, categoria que não existe.
+
+**Peça sem preço não é exceção.** O §24 já trata "sem preço" como um estado
+legítimo e conhecido — diferente de R$ 0 — e a venda dela já fica bloqueada
+por isso. Mandá-la para revisão seria cobrar um clique por peça justamente
+no fluxo que existe para acabar com isso. Ela entra marcada, e a tela diz
+quantas são.
+
+### 11. Nenhuma sincronização sem confirmação — §5.1
+
+`POST /api/sync/analisar` é o ensaio: abre a loja, compara com o catálogo e
+**não escreve nada** — não abre execução, não puxa pedido, não grava retrato
+e não manda PATCH. Ele passa pelo mesmo `empurrarEstoque` da rodada real, e
+não por uma segunda regra que pode divergir da primeira.
+
+Todos os caminhos da tela que antes sincronizavam direto passam agora pela
+confirmação, que diz quantos estoques mudam, quantos sairiam do ar e quantos
+não mudam por precisarem de revisão. O veredito do freio aparece **antes** do
+clique, não depois.
+
+### 12. O sistema não adivinha de quem é a foto — §22
+
+A carga inicial de fotos vem da Nuvemshop casando por SKU exato. O que não
+bate vai para `fotos_orfas` e espera alguém dizer de quem é.
+
+Chutar seria pior que não ter foto: a loja passaria a anunciar uma peça
+mostrando outra, e ninguém percebe isso olhando o painel. Pelo mesmo motivo,
+a importação não sobrescreve foto que já existe aqui — a de cá é a mais nova
+das duas, e substituí-la desfaria trabalho de gente.
+
+O fundo branco é uma chamada HTTP a um serviço de fora (`FOTO_FUNDO_URL`).
+Sem ele configurado, a peça fica `fundo_pendente` e **nenhuma imagem é
+inventada**: uma foto que o sistema diz ter e não tem é pior que uma
+faltando, porque a publicação em lote confiaria nela.
+
+### 13. O agente prepara; quem publica é a tela — §22
+
+`GET /api/catalogo/publicacao` é a leitura que o agente de catálogo usa: o
+que está pronto para subir e, em quem não está, o que exatamente falta —
+foto, fundo branco, descrição, categoria, preço.
+
+É uma leitura de propósito. O agente pode preparar tudo, mas a publicação e
+a sincronização continuam passando pela aprovação explícita no painel.

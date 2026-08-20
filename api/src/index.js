@@ -346,7 +346,20 @@ async function rotear(request, env) {
 
       return json({ erro: 'Rota não encontrada' }, 404);
     } catch (e) {
-      return json({ erro: 'Falha interna', detalhe: String((e && e.message) || e) }, 500);
+      const msg = String((e && e.message) || e);
+      /* Banco que ainda não recebeu a migracao-catalogo.sql responde
+         "no such column: p.foto_original", que não diz a ninguém o que
+         fazer. Aqui esse erro vira a instrução — o mesmo tratamento que os
+         erros da Nuvemshop já recebem. */
+      if (/no such (table|column)/i.test(msg) && /foto|produtos_pendentes|fotos_orfas/i.test(msg)) {
+        return json({
+          erro: 'Esta parte precisa da migração do catálogo, que este banco ainda não recebeu.',
+          detalhe: 'Rode api/migracao-catalogo.sql no D1 — o passo está no api/DEPLOY.md. '
+                 + 'O resto do painel funciona normalmente sem ela.',
+          migracao: 'catalogo',
+        }, 503);
+      }
+      return json({ erro: 'Falha interna', detalhe: msg }, 500);
     }
   }
 }

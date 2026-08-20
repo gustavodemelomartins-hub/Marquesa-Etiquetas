@@ -43,6 +43,22 @@ licença, e suba o número do `CACHE` no `sw.js`.
 src/reset-e-testar.sh
 ```
 
+Para subir só a API local, sem rodar teste nenhum:
+
+```bash
+api/dev-local.sh            # zera o banco de teste e sobe
+api/dev-local.sh --manter   # sobe sem zerar
+```
+
+Ele derruba o que estiver de pé antes. Matar só o runtime não resolve: o
+wrangler que ficou vivo sobe outro na hora, e o novo encontra a porta
+ocupada pelo antigo.
+
+Todos os testes abaixo **precisam do banco limpo** — rode `api/dev-local.sh`
+antes de cada um. Rodar dois seguidos sem zerar faz o segundo falhar em
+contagens que dependem do estado inicial, e a falha não se parece nada com o
+que é.
+
 Zera o banco local, sobe o Worker em `localhost:8787`, serve o dashboard em
 `localhost:8000` e roda o `e2e.mjs` — que abre um navegador de verdade e
 percorre o caminho inteiro: conectar, importar catálogo, montar maleta
@@ -53,11 +69,30 @@ Nada disso toca a nuvem: o `--local` do wrangler usa um SQLite dentro de
 
 Precisa de `playwright` e `xlsx` instalados (`npm install` dentro de `src/`)
 e do navegador baixado (`npx playwright install chromium`). O binário sai do
-próprio Playwright; para apontar para outro, defina `PW_CHROMIUM`.
+próprio Playwright; para apontar para outro, defina `PW_CHROMIUM`. Precisa
+também de `ORIGENS_PERMITIDAS=http://localhost:8000` no `api/.dev.vars` —
+sem essa linha o navegador é barrado pelo CORS e o painel diz *"não
+encontrei a API neste endereço"*, que parece erro de digitação no endereço
+e não é. O `.dev.vars.example` já traz a linha pronta.
 
 > **O script só roda em Linux e macOS** — ele usa `setsid` e um `pkill` que
 > não alcançam o Wrangler no Windows. Lá o ciclo é feito à mão, e está
 > escrito passo a passo em [docs/TESTING.md](../docs/TESTING.md).
+
+### Catálogo: importar em lote sem travar
+
+```bash
+node src/catalogo-test.mjs
+```
+
+Prova o que a importação passou a garantir: planilha com produto novo não
+derruba as outras linhas, a análise não escreve nada, o que se aplica é o
+alvo (recalculado na hora, não o delta da análise), o cadastro de peças
+novas nunca altera cadastro existente, foto da loja só casa com SKU exato, e
+fundo branco sem serviço configurado fica pendente em vez de fingir pronto.
+
+Roda contra a `loja-falsa.mjs`, então também precisa do `NUVEMSHOP_BASE`
+apontando para `localhost:8799`.
 
 ### Sincronização com a Nuvemshop
 
