@@ -55,6 +55,8 @@ Dívida técnica     → docs/TECH_DEBT.md
 Próxima fase       → docs/ROADMAP_RECONCILIATION.md
 Publicar a API     → api/DEPLOY.md
 Montar o dashboard → src/README.md
+Camada agentic     → .claude/README.md   (permissões, hooks, modelos)
+WSL2 / sandbox     → docs/WSL2_MIGRATION.md
 ```
 
 ## Regra de contexto
@@ -75,14 +77,44 @@ Estratégia completa: [docs/CLAUDE_CONTEXT_STRATEGY.md](docs/CLAUDE_CONTEXT_STRA
 
 ## Skills deste projeto
 
+Carregue **sob demanda**, uma de cada vez. Skill carregada "por precaução" é
+token gasto sem retorno.
+
 | Skill | Quando |
 |---|---|
 | `marquesa-context` | precisa entender uma regra de negócio |
+| `inventory` | estoque, cadastro, peças novas, quantidade, foto, planilha |
+| `marquesa-safe-import` | o mecanismo do importador — CSV, XLSX, catálogo |
 | `marquesa-sync` | Nuvemshop, pedidos, SKU, variantes, `sync.js` |
-| `marquesa-safe-import` | CSV, planilha, catálogo, importação |
 | `marquesa-reconciliation` | divergência, duplicado, conflito, revisão humana |
-| `safe-d1-change` | schema, migration, índice, qualquer mudança no D1 |
+| `safe-d1-change` | desenhar schema, migration, índice |
+| `database-dev` | **executar** comando no D1 — prova que o alvo é DEV |
+| `deploy-dev` | publicar e verificar `marquesa-dev` / `marquesa-api-staging` |
+| `ui-verification` | provar que a tela funciona (Playwright), sem inspeção humana |
 | `pre-deploy-check` | antes de qualquer deploy |
+
+## Regras por caminho e travas automáticas
+
+`.claude/rules/` entra sozinho no contexto conforme o arquivo que você toca —
+`frontend.md`, `api.md`, `database.md`, `business-rules.md`. Não os leia por
+conta própria; eles chegam quando são úteis.
+
+Duas travas rodam antes de você: `PreToolUse` bloqueia deploy, escrita em
+`marquesa-db`/`marquesa-fotos`, force push, push em `main`, secret e SQL
+destrutivo — em qualquer ambiente. `Stop` cobra a verificação uma vez por
+sessão. Ver [.claude/README.md](.claude/README.md).
+
+## Subagentes
+
+| Agente | Quando | Modelo |
+|---|---|---|
+| `repo-explorer` | "onde acontece X?" — exploração barata, somente leitura | haiku |
+| `verifier` | provar que a mudança funciona; caçar regressão | sonnet |
+| `database-guardian` | schema, integridade, contagens, antes/depois no D1 | sonnet |
+| `architect` | mudança que atravessa frontend + API + banco | opus |
+
+Use subagente quando a investigação geraria muita saída. Tarefa trivial não
+merece Opus nem subagente.
 
 ## DEV é livre. PROD exige autorização a cada vez.
 
@@ -135,6 +167,22 @@ pedir explicitamente, e `--force` **nunca**.
 
 Comandos, variáveis do `.dev.vars` e as particularidades de Windows estão em
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
+## Definição de pronto
+
+"Editei o arquivo" **não** é pronto. Pronto é verificação executada,
+proporcional à mudança — direcionada, nunca a suíte inteira por reflexo:
+
+| Mudou | Prova |
+|---|---|
+| `api/src/**` | o teste do assunto (`docs/TESTING.md`) + `GET /api/estoque/conferir` vazio |
+| `src/dashboard.tpl.html` | `python src/build.py` e depois `node src/e2e.mjs` |
+| `frontend/src/**` | `cd frontend && npm test && npm run build` |
+| schema ou migration | contagens antes/depois, cada delta explicado, razão fechando |
+| publicado no DEV | smoke test do endereço publicado |
+
+Não deu para rodar? Diga **isso**, em vez de chamar a mudança de pronta. E
+diga sempre o que ficou de fora.
 
 ## Ponto de retorno
 

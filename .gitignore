@@ -40,6 +40,8 @@ skills-lock.json
 !.claude/settings.json
 !.claude/agents/
 !.claude/skills/
+!.claude/rules/
+!.claude/hooks/
 .claude/settings.local.json
 .claude/plugins/
 .claude/cache/
