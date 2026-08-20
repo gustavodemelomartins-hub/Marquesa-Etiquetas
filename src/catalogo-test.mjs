@@ -44,18 +44,28 @@ let r = await api('POST', '/api/produtos/novos/analisar', {
     { sku: 'C3', desc: 'Anel C3', cat: 'Anel', qtd: 2, preco: 80 },
     { sku: '', desc: 'linha sem código' },                       // exceção
     { sku: 'C4', desc: '', cat: 'Colar', qtd: 1, preco: 10 },     // exceção
-    { sku: 'C5', desc: 'Sem preço', cat: 'Colar', qtd: 1 },       // exceção
+    { sku: 'C5', desc: 'Sem preço', cat: 'Colar', qtd: 1 },       // NÃO é exceção (§24)
     { sku: 'C6', desc: 'Qtd torta', cat: 'Colar', preco: 10, brutoQtd: 'várias' }, // exceção
     { sku: 'C7', desc: 'Categoria que não existe', cat: 'Tiara', qtd: 1, preco: 10 }, // exceção
     { sku: 'C1', desc: 'Colar C1 de novo', cat: 'Colar', qtd: 9, preco: 100 },     // exceção
   ],
 });
 eq('9 linhas lidas', r.resumo.linhas, 9);
-eq('3 prontas para cadastrar sem perguntar nada', r.resumo.prontos, 3);
-eq('6 exceções separadas', r.resumo.revisao, 6);
+eq('4 prontas para cadastrar sem perguntar nada', r.resumo.prontos, 4);
+eq('5 exceções separadas', r.resumo.revisao, 5);
 eq('e nenhuma delas é "já existe"', r.resumo.jaExistem, 0);
 eq('a linha repetida foi apontada como conflito',
   r.revisao.itens.find(x => x.sku === 'C1').motivos[0], 'dados_conflitantes');
+
+/* Peça sem preço NÃO é exceção. §24 trata "sem preço" como um estado
+   legítimo — diferente de R$ 0 — e a venda dela já fica bloqueada por
+   isso. Mandar para revisão seria cobrar um clique por peça justamente
+   no fluxo que existe para acabar com isso. Ela entra marcada. */
+eq('sem preço entra no lote, não na revisão',
+  r.prontos.itens.some(x => x.sku === 'C5'), 'true');
+eq('com preço nulo, e não R$ 0 (§24)',
+  r.prontos.itens.find(x => x.sku === 'C5').preco, 'null');
+eq('e marcada, para a tela poder avisar', r.resumo.semPreco, 1);
 
 r = await api('POST', '/api/produtos/novos/cadastrar', {
   produtos: [

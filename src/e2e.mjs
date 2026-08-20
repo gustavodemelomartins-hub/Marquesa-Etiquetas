@@ -53,12 +53,36 @@ eq('chave certa conecta',
 vigiando = true;
 
 console.log('\n=== importar catálogo (planilha fictícia) ===');
+/* O caminho passou a ter dois atos. A planilha de estoque total NÃO cria
+   peça — num sistema vazio, os 4 códigos dela caem inteiros no grupo
+   "produtos novos", e o cadastro é o outro fluxo, em lote. */
 await page.evaluate(() => openImport());
 await page.setInputFiles('#impFile', path.join(AQUI, 'catalogo-fake.xlsx'));
 await page.waitForTimeout(900);
 eq('a aba Estoque foi reconhecida como catálogo',
   await page.locator('#impAlvo0').inputValue(), 'catalogo');
-await page.click('#impStep2 .btn-gold');
+await page.click('#impStep2 .btn-gold');           // Analisar planilha
+await page.waitForTimeout(1500);
+
+eq('a análise apareceu sem aplicar nada',
+  await page.locator('#impStep3').isVisible(), 'true');
+eq('e ela não criou produto nenhum', (await st()).produtos.length, 0);
+const analise = await page.evaluate(() => impAnalise.resumo);
+eq('os 4 códigos entraram como produtos novos', analise.novos, 4);
+eq('nenhuma quantidade a mudar num sistema vazio', analise.vaoMudar, 0);
+eq('e nada foi para revisão', analise.revisao, 0);
+
+/* "Revisar produtos novos" guarda os códigos na fila e abre o cadastro em
+   lote já com eles — sem reimportar o arquivo. */
+await page.click('#impStep3 .w-act .btn');
+await page.waitForTimeout(1500);
+eq('o cadastro em lote abriu',
+  await page.locator('#novasOverlay').evaluate(e => e.classList.contains('show')), 'true');
+const lote = await page.evaluate(() => novasAnalise.resumo);
+eq('os 4 estão prontos para cadastrar de uma vez', lote.prontos, 4);
+eq('e um deles entra sem preço, sem virar exceção', lote.semPreco, 1);
+
+await page.click('#novasBody .mfoot .btn-gold');   // Cadastrar todos os válidos
 await page.waitForTimeout(2000);
 
 let s = await st();

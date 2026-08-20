@@ -297,7 +297,6 @@ export async function analisarNovos(db, { produtos } = {}) {
 
     const preco = precoOuNulo(bruto.brutoPreco, bruto.preco);
     if (preco === undefined) motivos.push('preco_invalido');
-    else if (preco === null) motivos.push('sem_preco');
 
     const cat = texto(bruto.cat);
     if (cat && !categorias.has(cat)) motivos.push('categoria_inexistente');
@@ -308,7 +307,13 @@ export async function analisarNovos(db, { produtos } = {}) {
         qtd: qtd === null ? 0 : qtd, valorPreco: texto(bruto.brutoPreco), valorQtd: texto(bruto.brutoQtd),
       });
     } else {
-      prontos.push({ sku, desc, cat: cat || 'Outros', preco, qtd });
+      /* Peça sem preço NÃO é exceção: §24 trata "sem preço" como um estado
+         legítimo e conhecido, diferente de R$ 0, e a venda dela já é
+         bloqueada por isso lá na frente. Mandar para revisão seria trocar um
+         estado que o sistema sabe tratar por um clique a mais em cada peça —
+         justamente o que este fluxo existe para acabar. Ela entra marcada. */
+      prontos.push({ sku, desc, cat: cat || 'Outros', preco, qtd,
+                     alertas: preco === null ? ['sem_preco'] : [] });
     }
   }
 
@@ -320,6 +325,7 @@ export async function analisarNovos(db, { produtos } = {}) {
     resumo: {
       linhas, prontos: prontos.length, jaExistem: jaExistem.length, revisao: revisao.length,
       pecas: prontos.reduce((s, p) => s + p.qtd, 0),
+      semPreco: prontos.filter(p => p.preco === null).length,
     },
   };
 }

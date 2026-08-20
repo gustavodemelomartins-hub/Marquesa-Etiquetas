@@ -3,3 +3,18 @@
 # verdade, a chave de produção é definida com `wrangler secret put API_KEY`
 # — nunca fica escrita em nenhum arquivo.
 API_KEY=troque-por-uma-chave-de-teste
+
+# Só para rodar os testes na sua máquina: o dashboard é servido em
+# localhost:8000 e o Worker em 8787, então o navegador trata os dois como
+# origens diferentes. Sem esta linha o CORS recusa, e o painel diz "não
+# encontrei a API neste endereço" — que parece erro de digitação no
+# endereço, e não é. Em produção vale a lista do wrangler.toml.
+ORIGENS_PERMITIDAS=http://localhost:8000
+
+# A loja de mentira do sync-test.mjs e do catalogo-test.mjs. Fora do teste
+# ninguém define NUVEMSHOP_BASE, e vale o endereço real da Nuvemshop.
+NUVEMSHOP_STORE_ID=999999
+NUVEMSHOP_TOKEN=token-de-mentira
+NUVEMSHOP_BASE=http://localhost:8799
+NUVEMSHOP_CLIENT_ID=1234
+NUVEMSHOP_CLIENT_SECRET=segredo
