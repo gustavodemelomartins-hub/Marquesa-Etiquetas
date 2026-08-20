@@ -41,6 +41,17 @@ async function foto(nome, largura, altura, acao) {
 }
 
 await foto('tela-geral', 1180, 900);
+/* A planilha operacional: é a tela onde o design antigo precisa aparecer
+   inteiro — mesma tabela, mesmo cabeçalho, agora com ordenar e filtrar. */
+await foto('tela-estoque', 1180, 1100, p => p.evaluate(() => switchTab('estoque')));
+await foto('tela-estoque-filtros', 1180, 1100, async p => {
+  await p.evaluate(() => switchTab('estoque'));
+  await p.waitForTimeout(400);
+  await p.evaluate(() => planFiltrar('estoque'));
+});
+/* No celular ela continua planilha: rola de lado, cabeçalho preso. */
+await foto('tela-estoque-mob', 420, 900, p => p.evaluate(() => switchTab('estoque')));
+await foto('tela-pendencias', 1180, 1100, p => p.evaluate(() => switchTab('pendencias')));
 await foto('tela-vendas', 1180, 900, p => p.evaluate(() => switchTab('vendas')));
 await foto('tela-inventario-mob', 420, 900, async p => {
   await p.evaluate(() => iniciarInventario());

@@ -59,8 +59,7 @@ await api('POST', `/api/maletas/${mal.id}/itens`, { itens: { C1: 3 } });
 const browser = await chromium.launch(
   process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const page = await browser.newPage();
-let confirmText = '';
-page.on('dialog', d => { confirmText = d.message(); d.accept(); });
+page.on('dialog', d => d.accept());
 
 await page.goto(URL_APP);
 await page.waitForTimeout(600);
@@ -69,20 +68,36 @@ await page.fill('#cf-key', KEY);
 await page.click('#conexaoOverlay .btn-gold');
 await page.waitForTimeout(1200);
 
+/* A importação passou a ter dois atos: analisar e, só então, aplicar.
+   Onde antes o teste lia o texto de um `confirm()`, agora ele lê a própria
+   análise — que é a mesma informação, só que na tela e conferível, em vez
+   de numa caixa do navegador que some. */
 async function importar(arquivo, modo) {
-  confirmText = '';
   await page.evaluate(() => openImport());
   await page.waitForTimeout(150);
   await page.setInputFiles('#impFile', arquivo);
   await page.waitForTimeout(700);
   if (modo) await page.click(`#impModoCasa input[value="${modo}"]`);
-  await page.click('#impStep2 .btn-gold');
+  await page.click('#impStep2 .btn-gold');          // Analisar planilha
   await page.waitForTimeout(1200);
+  const laudo = await page.evaluate(() => ({
+    resumo: impAnalise.resumo,
+    mudam: impAnalise.mudam.itens,
+  }));
+  await page.click('#impStep3 .mfoot .btn-gold');   // Aplicar / Concluir
+  await page.waitForTimeout(1200);
+  return laudo;
 }
+/* O ajuste que a análise anunciou para um código, ou 0 quando ela não
+   anunciou nenhum. */
+const deltaDe = (laudo, sku) => {
+  const m = laudo.mudam.find(x => x.sku === sku);
+  return m ? m.delta : 0;
+};
 
 console.log('\n=== 1. modo "total" (padrão) contra uma planilha que só contou a prateleira ===');
-await importar(planilhaCom(7), 'total');
-eq('avisou a mudança de -3 antes de aplicar', /-3\s+C1|C1.*-3/.test(confirmText), 'true');
+let laudo = await importar(planilhaCom(7), 'total');
+eq('a análise anunciou -3 antes de aplicar', deltaDe(laudo, 'C1'), -3);
 eq('e cortou a peça que só estava na maleta — é o risco que o modo existe para evitar',
   await saldo('C1'), 7);
 
@@ -96,13 +111,15 @@ await page.evaluate(() => sincronizar());
 await page.waitForTimeout(300);
 
 console.log('\n=== 2. modo "em casa": mesma planilha (7), mas a realidade já bate ===');
-await importar(planilhaCom(7), 'casa');
-eq('7 em casa + 3 na maleta = 10 → nada mudou, sem nem perguntar', confirmText, '');
+laudo = await importar(planilhaCom(7), 'casa');
+eq('7 em casa + 3 na maleta = 10 → nada a mudar', laudo.resumo.vaoMudar, 0);
+eq('e a tela não trata isso como falha: o código aparece como já de acordo',
+  laudo.resumo.semMudanca, 1);
 eq('C1 continua 10 — a peça na maleta não foi descontada', await saldo('C1'), 10);
 
 console.log('\n=== 3. modo "em casa" com falta real: a planilha agora diz 6, não 7 ===');
-await importar(planilhaCom(6), 'casa');
-eq('avisou -1, não -4 — a diferença é só a peça que falta de verdade', /-1\s+C1|C1.*-1/.test(confirmText), 'true');
+laudo = await importar(planilhaCom(6), 'casa');
+eq('anunciou -1, não -4 — a diferença é só a peça que falta de verdade', deltaDe(laudo, 'C1'), -1);
 eq('C1 foi para 9 (6 em casa + 3 na maleta)', await saldo('C1'), 9);
 
 console.log('\n=== a razão fecha no final (§19) ===');
