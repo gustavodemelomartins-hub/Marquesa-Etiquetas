@@ -3,6 +3,7 @@ paths:
   - "frontend/**"
   - "src/dashboard.tpl.html"
   - "src/build.py"
+  - "index.html"
 ---
 
 # Regras de frontend
@@ -12,13 +13,18 @@ de editar.
 
 | Painel | Fonte | Build | Saída |
 |---|---|---|---|
-| Legado (produção) | `src/dashboard.tpl.html` | `python src/build.py` | `dashboard.html`, `index.html` |
+| Etiquetas (produção) | `index.html` | edição direta | — é a própria fonte |
+| Dashboard (produção) | `src/dashboard.tpl.html` | `python src/build.py` (lê CSS/SheetJS de dentro de `index.html`) | `dashboard.html` |
 | Novo (React/TS) | `frontend/src/**` | `cd frontend && npm run build` | `frontend/dist/` |
 
 ## Proibições
 
-- **Nunca edite `dashboard.html` nem `index.html`.** São gerados e embutem o
-  SheetJS. Editar ali é perder o trabalho no próximo build. Estão em `deny`.
+- **Nunca edite `dashboard.html`.** É gerado e embute o SheetJS. Editar ali
+  é perder o trabalho no próximo build. Está em `deny`.
+- `index.html` é a fonte real da tela de Etiquetas — editável (`Edit`
+  liberado, `Write` continua bloqueado). É módulo legado estável: mudança
+  ali deve ser pontual (ex.: um botão do cabeçalho), sem refatorar
+  impressão/cadastro/CSS/JS existentes sem pedido explícito.
 - **Nunca abra `src/dashboard.tpl.html` inteiro** (3.802 linhas). `grep -n`
   para achar, `sed -n 'a,bp'` para ler a faixa.
 - Mexeu no legado sem rodar `python src/build.py` = mudança que não chega

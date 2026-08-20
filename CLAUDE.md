@@ -64,8 +64,10 @@ WSL2 / sandbox     → docs/WSL2_MIGRATION.md
 **Não leia todos os documentos em toda tarefa.** Carregue só o necessário —
 o resto é token gasto sem retorno.
 
-- **Nunca** abra `dashboard.html` nem `index.html`: são gerados e embutem o
-  SheetJS. A fonte do painel é `src/dashboard.tpl.html`.
+- **Nunca** abra `dashboard.html`: é gerado e embute o SheetJS. A fonte do
+  painel é `src/dashboard.tpl.html`. `index.html` é a fonte real da tela de
+  Etiquetas (editável, com cuidado — é módulo legado estável) — `build.py`
+  só lê CSS e SheetJS de dentro dele, não o escreve.
 - Tarefa no painel **novo** (React/TS/Vite) mora em `frontend/` e não precisa
   do `dashboard.tpl.html` — os dois convivem e o backend é o mesmo.
 - **Nunca** abra `src/dashboard.tpl.html` inteiro (3.802 linhas). Ache com

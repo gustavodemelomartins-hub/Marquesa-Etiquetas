@@ -13,7 +13,7 @@ janela de contexto.
 |---|---|---|
 | `src/dashboard.tpl.html` | 3.802 | ~50k tokens |
 | `dashboard.html` (gerado) | ~9.000 | **nunca leia** — é build, com SheetJS embutido |
-| `index.html` (gerado) | grande | **nunca leia inteiro** — CSS + SheetJS embutidos |
+| `index.html` (fonte da tela de Etiquetas) | grande | **nunca leia inteiro** — CSS + SheetJS embutidos, `grep`/`sed -n` como no template |
 | `api/src/index.js` | 856 | ~11k tokens |
 | `api/src/sync.js` | 544 | ~8k tokens |
 | `api/REGRAS.md` | 289 | ~5k tokens |
@@ -105,9 +105,10 @@ lista de rotas sai com uma linha:
 grep -nE "path === '|path.match" api/src/index.js
 ```
 
-E **nunca** leia `dashboard.html` ou `index.html`: o primeiro é gerado, e os
-dois carregam o SheetJS embutido (250 KB de biblioteca minificada). A fonte
-é `src/dashboard.tpl.html`.
+E **nunca** leia `dashboard.html` inteiro: é gerado e carrega o SheetJS
+embutido (250 KB de biblioteca minificada). A fonte é `src/dashboard.tpl.html`.
+`index.html` (fonte da tela de Etiquetas) carrega o mesmo SheetJS — também
+não leia inteiro, mas é editável com `grep`/`sed -n` como o template.
 
 ## 6. Uma regra, uma fonte
 
@@ -157,7 +158,8 @@ Ponto de partida sugerido. Carregue mais só quando faltar.
 
 ## Antipadrões
 
-- Ler `dashboard.html` ou `index.html` — são gerados e enormes.
+- Ler `dashboard.html` inteiro (gerado) ou `index.html` inteiro (fonte, mas
+  enorme) — os dois carregam o SheetJS embutido.
 - Ler `api/REGRAS.md` inteiro para uma tarefa de CSS.
 - Copiar o `REGRAS.md` para dentro do `CLAUDE.md` "para o agente não
   esquecer". Ele passa a pagar por isso em toda tarefa, e esquece assim
