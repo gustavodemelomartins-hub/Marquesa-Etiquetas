@@ -1,6 +1,9 @@
-const CACHE = 'marquesa-etiquetas-v11';
+const CACHE = 'marquesa-etiquetas-v12';
 const ASSETS = [
-  './',
+  // A raiz NÃO entra nesta lista: no Cloudflare Pages ela redireciona para
+  // ./dashboard.html (ver _redirects), e a Cache API recusa guardar uma
+  // resposta que veio de redirecionamento — `addAll` rejeita e a instalação
+  // inteira do service worker falha junto, levando o offline embora.
   './index.html',
   './dashboard.html',
   './manifest.json',
@@ -9,6 +12,12 @@ const ASSETS = [
   // mais abaixo), e este aqui, sendo separado, é baixado uma vez só e
   // servido do cache daí em diante — inclusive sem internet.
   './vendor/zxing.min.js',
+  // Gerador de código de barras e de PDF da tela de Etiquetas. Ficam fora do
+  // dashboard.html pelo mesmo motivo do zxing: aquele arquivo é rebaixado da
+  // rede a cada abertura, e estes 430 KB seriam pagos toda vez, inclusive por
+  // quem só quer ver o estoque. Aqui descem uma vez e ficam.
+  './vendor/jsbarcode.min.js',
+  './vendor/jspdf.min.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',

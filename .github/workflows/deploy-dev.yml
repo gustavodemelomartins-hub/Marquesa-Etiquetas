@@ -1,22 +1,38 @@
-name: Deploy DEV frontend (Cloudflare Pages)
+name: Deploy DEV (Cloudflare Pages)
 
 # marquesa-dev é um projeto Pages Direct Upload — não tem Git Integration
 # nativa da Cloudflare, e não pode ganhar uma depois de criado. Este
-# workflow É o mecanismo de deploy: builda frontend/ e publica com
-# `wrangler pages deploy`, mantendo o link fixo marquesa-dev.pages.dev.
+# workflow É o mecanismo de deploy, e publica o AMBIENTE DEV INTEIRO num
+# endereço só: marquesa-dev.pages.dev.
 #
-# Só roda em push para develop. Nunca mexe em main, marquesa-api ou
-# marquesa-db — o Worker staging (marquesa-api-staging) é publicado por
-# outro caminho, à parte deste arquivo.
+# O que vai no ar:
+#   /                  → redireciona para o painel (ver _redirects)
+#   /dashboard.html    → o painel: Etiqueta · Estoque · Revendedoras · Vendas
+#   /index.html        → o app de etiquetas autônomo, mantido como
+#                        referência; não é mais destino de navegação
+#   /painel-novo/      → o frontend React, em construção, no mesmo domínio
+#
+# Um DEV só. Nada aqui toca main, marquesa-api ou marquesa-db — o Worker
+# staging (marquesa-api-staging) é publicado por outro caminho, à parte
+# deste arquivo.
 
 on:
   push:
     branches: [develop]
     paths:
       - 'frontend/**'
+      - 'src/dashboard.tpl.html'
+      - 'src/build.py'
+      - 'index.html'
+      - 'dashboard.html'
+      - 'sw.js'
+      - 'manifest.json'
+      - '_redirects'
+      - 'brand/**'
+      - 'icons/**'
+      - 'vendor/**'
       - '.github/workflows/deploy-dev.yml'
-  # Permite reexecutar sem precisar de um commit que toque frontend/ —
-  # útil depois de corrigir secrets, por exemplo.
+  # Permite reexecutar sem precisar de um commit que toque os caminhos acima.
   workflow_dispatch: {}
 
 # Evita dois deploys concorrentes pisando um no outro se dois pushes
@@ -27,13 +43,10 @@ concurrency:
 
 jobs:
   deploy:
-    name: Testar, buildar e publicar em marquesa-dev.pages.dev
+    name: Testar, montar e publicar em marquesa-dev.pages.dev
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    defaults:
-      run:
-        working-directory: frontend
 
     steps:
       - name: Checkout
@@ -46,22 +59,40 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Instalar dependências
+      - name: Instalar dependências do painel novo
+        working-directory: frontend
         run: npm ci
 
-      - name: Testes
+      - name: Testes do painel novo
+        working-directory: frontend
         run: npm test
 
-      - name: Build (inclui tsc --noEmit)
+      - name: Build do painel novo (inclui tsc --noEmit)
+        working-directory: frontend
         run: npm run build
+
+      # dashboard.html é MONTADO a partir de src/dashboard.tpl.html. Rodar o
+      # build aqui é o que garante que o painel publicado seja o do template
+      # — nunca uma versão parada que alguém esqueceu de regerar.
+      - name: Montar o painel a partir do template
+        run: python3 src/build.py
+
+      - name: Juntar o site do DEV num diretório só
+        run: |
+          set -e
+          mkdir -p publicar/painel-novo
+          cp index.html dashboard.html manifest.json sw.js _redirects publicar/
+          cp -r brand icons vendor publicar/
+          cp -r frontend/dist/. publicar/painel-novo/
+          echo "--- o que vai ao ar ---"
+          find publicar -maxdepth 2 -type f | sort
 
       - name: Publicar no Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: frontend
-          command: pages deploy dist --project-name marquesa-dev --branch develop
+          command: pages deploy publicar --project-name marquesa-dev --branch develop
 
       - name: Confirmar o deployment publicado
         env:

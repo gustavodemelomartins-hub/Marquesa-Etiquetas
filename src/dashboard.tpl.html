@@ -73,6 +73,7 @@ body{font-variant-numeric:lining-nums tabular-nums}
 /* ---------- Grade de duas colunas ---------- */
 .row.chart{grid-template-columns:1fr 1fr}
 .row.wide{grid-template-columns:1fr}
+.row.geral{grid-template-columns:1fr 1fr}
 
 /* ---------- Segmented control ---------- */
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}
@@ -434,13 +435,130 @@ tr.filtros input:focus,tr.filtros select:focus{outline:none;border-color:var(--g
 .revrow input:focus,.revrow select:focus{outline:none;border-color:var(--gold)}
 .listabox{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
 
+/* ==========================================================================
+   Refino visual — Estoque > Visão Geral
+   --------------------------------------------------------------------------
+   Esta tela é a referência do sistema: o que muda aqui é TOKEN (fundo,
+   cartão, navegação, indicador), não layout de uma página só. Por isso as
+   regras vivem no seletor compartilhado (.panel, .kpi, #tabsNav) e não numa
+   classe exclusiva da Visão Geral — Revendedoras e Vendas herdam a mesma
+   pele sem terem o conteúdo mexido.
+   ========================================================================== */
+
+/* Fundo: creme liso com um brilho blush no alto.
+   A foto de joia desbotando até o preto é bonita numa tela curta. Esta rola
+   por muito tempo, e da metade para baixo o texto secundário caía sobre o
+   escuro e sumia. O calor da marca continua — no blush do topo, no bordô
+   dos títulos, no rosé dos acentos. */
+body{background:var(--ivory)}
+body::before{
+  background-color:var(--ivory);
+  background-image:linear-gradient(180deg, rgba(246,227,226,.9) 0%, rgba(246,227,226,0) 380px);
+}
+
+/* Cartão: borda fina e sombra macia no lugar do contorno preto de 1,5 px */
+.panel{
+  border:1px solid var(--line);border-radius:16px;
+  box-shadow:0 1px 2px rgba(142,74,94,.05), 0 8px 26px rgba(142,74,94,.07);
+}
+.panel .head{align-items:flex-start;text-align:left;gap:4px;padding:16px 20px 13px}
+.panel .head h2{align-items:flex-start;font-size:20px;font-weight:600}
+.panel .head .hint{max-width:64ch}
+/* Cabeçalho com ação à direita (o filtro do gráfico mora aqui) */
+.panel .head.linha{
+  flex-direction:row;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:10px;
+}
+.panel .head.linha .tit{display:flex;flex-direction:column;gap:3px}
+header.top{border-bottom:1px solid var(--line);padding:16px 0 13px}
+
+/* Navegação global: ~12% menor que antes, e mais perto do conteúdo.
+   Ela orienta, não compete com o que está embaixo. */
+#tabsNav{gap:12px;margin:16px 0 4px}
+#tabsNav .tab{
+  padding:11px 24px;font-size:13.5px;border-radius:11px;
+  box-shadow:0 1px 2px rgba(142,74,94,.06);
+}
+#tabsSubNav{margin-bottom:16px}
+
+/* Indicador (KPI): ícone em disco, número grande, nota curta */
+.kpis{gap:12px;margin-bottom:16px}
+.kpi{
+  border:1px solid var(--line);border-radius:16px;padding:14px 16px;
+  box-shadow:0 1px 2px rgba(142,74,94,.05), 0 8px 26px rgba(142,74,94,.06);
+  display:flex;gap:13px;align-items:flex-start;
+}
+.kpi::after{display:none}
+.kpi.destaque{border-left:3px solid var(--bordo)}
+.kpi .k-ico{
+  width:38px;height:38px;border-radius:50%;flex:none;
+  background:var(--rose-tint);color:var(--bordo);
+  display:flex;align-items:center;justify-content:center;
+}
+.kpi .k-txt{min-width:0;flex:1}
+.kpi .k-num{font-size:29px;margin-top:2px}
+
+/* Rosca e legenda lado a lado */
+.chartwrap.lado{flex-direction:row;align-items:center;gap:22px}
+.chartwrap.lado .donutbox{max-width:240px;flex:none}
+.chartwrap.lado .legend{grid-template-columns:1fr;gap:2px}
+.chartwrap.lado .lgd .vl{white-space:nowrap}
+
+/* Resumo por categoria — a mesma verdade da rosca, em linha */
+.resumocat{width:100%;border-collapse:collapse;font-size:12.5px}
+.resumocat th{
+  font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);
+  font-weight:700;text-align:left;padding:0 8px 9px;border-bottom:1px solid var(--line-soft);
+}
+.resumocat th.n,.resumocat td.n{text-align:right;font-variant-numeric:tabular-nums}
+.resumocat td{padding:9px 8px;border-bottom:1px solid var(--line-soft);color:var(--ink)}
+.resumocat tr:last-child td{border-bottom:none}
+.resumocat td.nome{white-space:nowrap}
+.resumocat td.b{width:45%;min-width:90px}
+.resumocat .barra{height:7px;border-radius:99px;background:var(--line-soft)}
+.resumocat .barra i{display:block;height:100%;border-radius:99px}
+
+/* Leituras do rodapé: o que a tela conclui, com o próximo passo junto */
+.insights{display:grid;grid-template-columns:repeat(3,1fr)}
+.insight{display:flex;gap:13px;padding:16px 18px;border-left:1px solid var(--line-soft)}
+.insight:first-child{border-left:none}
+.insight .i-ico{
+  width:38px;height:38px;border-radius:50%;flex:none;
+  background:var(--rose-tint);color:var(--bordo);
+  display:flex;align-items:center;justify-content:center;
+}
+.insight .i-t{font-family:var(--serif);font-size:16px;font-weight:700;color:var(--bordo);line-height:1.1}
+.insight .i-d{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.45}
+.insight .i-d b{color:var(--ink)}
+.insight .i-a{margin-top:9px}
+.insight[data-tom="atencao"] .i-ico{background:#FBF1DC;color:#A8791F}
+.insight[data-tom="critico"] .i-ico{background:var(--danger-tint);color:var(--danger)}
+
 @media (max-width:900px){
   .kpis{grid-template-columns:1fr 1fr}
   .row.chart{grid-template-columns:1fr}
+  .row.geral{grid-template-columns:1fr}
   .acgrid{grid-template-columns:1fr}
+  .insights{grid-template-columns:1fr}
+  .insight{border-left:none;border-top:1px solid var(--line-soft)}
+  .insight:first-child{border-top:none}
 }
 @media (max-width:760px){
   .legend{grid-template-columns:1fr}
+  /* No celular a rosca e a legenda voltam a empilhar: lado a lado, a rosca
+     encolhe até o rótulo de dentro virar borrão. */
+  .chartwrap.lado{flex-direction:column;align-items:center;gap:14px}
+  .chartwrap.lado .donutbox{max-width:250px}
+  /* No celular a navegação global vira 2×2: os quatro botões ficam do
+     mesmo tamanho e no alcance do polegar, em vez de três em cima e um
+     órfão embaixo. */
+  #tabsNav{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 4px}
+  #tabsNav .tab{padding:11px 8px;font-size:13px;text-align:center}
+  /* Topo mais curto: o cabeçalho informa, os indicadores é que contam. */
+  header.top{padding:12px 0 10px;gap:8px}
+  .top .meta .gearbtn{margin-top:6px}
+  .kpi{padding:12px 13px;gap:10px}
+  .kpi .k-ico{width:32px;height:32px}
   .kpi .k-num{font-size:26px}
   /* A base transforma tabelas em cartões no celular; aqui o dashboard
      mantém a tabela de estoque rolável, que é mais legível para números. */
@@ -477,7 +595,7 @@ tr.filtros input:focus,tr.filtros select:focus{outline:none;border-color:var(--g
       <span class="tooltag" id="hdArea">Estoque</span>
     </div>
     <div class="meta">
-      <div><b id="hdPecas">0</b> peças · <b id="hdSkus">0</b> códigos</div>
+      <div><b id="hdPecas">0</b> <span id="hdRot1">peças</span> · <b id="hdSkus">0</b> <span id="hdRot2">códigos</span></div>
       <div id="hdSub">Estoque total da operação</div>
       <div class="linkrow">
         <button class="gearbtn" onclick="openSettings()">
@@ -490,6 +608,12 @@ tr.filtros input:focus,tr.filtros select:focus{outline:none;border-color:var(--g
 
   <nav class="tabs" id="tabsNav"></nav>
   <nav class="tabs" id="tabsSubNav"></nav>
+
+  <!-- ============ ETIQUETA · peças ============ -->
+  <section class="view" id="view-etiquetas"></section>
+
+  <!-- ============ ETIQUETA · impressão ============ -->
+  <section class="view" id="view-etq-print"></section>
 
   <!-- ============ VISÃO GERAL (Estoque) ============ -->
   <section class="view active" id="view-geral"></section>
@@ -809,6 +933,124 @@ tr.filtros input:focus,tr.filtros select:focus{outline:none;border-color:var(--g
 </div>
 
 <!-- ============ CONEXÃO ============ -->
+
+<!-- ============ ETIQUETA · importar planilha ============ -->
+<div class="overlay center" id="etqImpOverlay" onclick="if(event.target===this)Etq.fecharImport()">
+  <div class="modal">
+    <div class="mhead">
+      <h2>Importar planilha</h2>
+      <button class="closebtn" onclick="Etq.fecharImport()">×</button>
+    </div>
+
+    <div class="mbody" id="etq-impPasso1">
+      <label class="dropzone" for="etq-impArquivo"
+             ondragover="event.preventDefault();this.classList.add('drag')"
+             ondragleave="this.classList.remove('drag')"
+             ondrop="event.preventDefault();this.classList.remove('drag');if(event.dataTransfer.files[0])Etq.lerArquivo(event.dataTransfer.files[0])">
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        <p class="dz-main">Arraste a planilha aqui<br>ou <b>clique para escolher</b></p>
+        <p class="dz-sub">Excel (.xlsx) ou CSV (.csv)</p>
+        <input type="file" id="etq-impArquivo" accept=".xlsx,.xls,.csv" style="display:none"
+               onchange="if(this.files[0])Etq.lerArquivo(this.files[0])">
+      </label>
+      <div class="tmpl">
+        <div>
+          <div class="tmpl-t">Não tem planilha pronta?</div>
+          <div class="tmpl-s">Baixe o modelo, preencha e suba de volta.</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="Etq.baixarModelo()">↓ Baixar modelo</button>
+      </div>
+    </div>
+
+    <div class="mbody" id="etq-impPasso2" style="display:none">
+      <div class="maprow-head">
+        <span>Diga qual coluna da sua planilha é cada campo:</span>
+        <label class="hdrchk"><input type="checkbox" id="etq-temCabecalho" checked onchange="Etq.renderMapeamento()"> 1ª linha é cabeçalho</label>
+      </div>
+      <div class="maps">
+        <div class="mapfield"><label>Descrição <span class="req">*</span></label><select id="etq-mapDesc" onchange="Etq.renderPrevia()"></select></div>
+        <div class="mapfield"><label>SKU <span class="req">*</span></label><select id="etq-mapSku" onchange="Etq.renderPrevia()"></select></div>
+        <div class="mapfield"><label>Preço <span class="req">*</span></label><select id="etq-mapPreco" onchange="Etq.renderPrevia()"></select></div>
+        <div class="mapfield"><label>Qtd. de etiquetas</label><select id="etq-mapQtd" onchange="Etq.renderPrevia()"></select></div>
+      </div>
+      <div class="maphint">A <b>Qtd. de etiquetas</b> é opcional. Se você indicar essa coluna, cada peça já entra na fila de impressão com a quantidade certa.</div>
+      <div class="prevlabel">Prévia das primeiras peças:</div>
+      <div class="tablewrap keeptable" style="max-height:230px"><table><thead id="etq-prevHead"></thead><tbody id="etq-prevBody"></tbody></table></div>
+      <div class="dupopt">
+        <span>Se um SKU já estiver cadastrado:</span>
+        <label><input type="radio" name="etq-dup" value="skip" checked> Pular</label>
+        <label><input type="radio" name="etq-dup" value="add"> Importar mesmo assim</label>
+      </div>
+      <div class="mfoot">
+        <button class="btn btn-ghost" onclick="Etq.voltarUpload()">← Trocar arquivo</button>
+        <div class="spacer"></div>
+        <span id="etq-impResumo" class="impsum"></span>
+        <button class="btn btn-gold" id="etq-impConfirmar" onclick="Etq.importar()">Importar peças</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ETIQUETA · ajustes ============ -->
+<div class="overlay" id="etqSetOverlay" onclick="if(event.target===this)Etq.fecharAjustes()">
+  <div class="drawer">
+    <div class="dhead">
+      <h2>Ajustes da etiqueta</h2>
+      <button class="closebtn" onclick="Etq.fecharAjustes()">×</button>
+    </div>
+    <div class="dbody">
+      <div class="grp">
+        <h3>Calibrar impressão</h3>
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.5">Se as etiquetas saírem levemente fora do lugar no papel, empurre a grade até alinhar. Cada passo move 0,5 mm.</p>
+        <div class="adjrow">
+          <label>Horizontal →</label>
+          <div class="ctrl">
+            <button onclick="Etq.empurrar('offX',-0.5)">−</button>
+            <input id="etq-offX" value="0" onchange="Etq.setAjuste('offX',this.value)">
+            <span class="u">mm</span>
+            <button onclick="Etq.empurrar('offX',0.5)">+</button>
+          </div>
+        </div>
+        <div class="adjrow">
+          <label>Vertical ↓</label>
+          <div class="ctrl">
+            <button onclick="Etq.empurrar('offY',-0.5)">−</button>
+            <input id="etq-offY" value="0" onchange="Etq.setAjuste('offY',this.value)">
+            <span class="u">mm</span>
+            <button onclick="Etq.empurrar('offY',0.5)">+</button>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-top:6px" onclick="Etq.zerarAjuste()">Zerar calibração</button>
+      </div>
+
+      <div class="grp">
+        <h3>Na hora de imprimir</h3>
+        <div class="tip">
+          Na janela de impressão do Chrome, confira:<br>
+          • Papel: <b>A4</b><br>
+          • Margens: <b>Nenhuma</b><br>
+          • Escala: <b>100%</b> (nunca "Ajustar à página")<br>
+          • Desmarque <b>Cabeçalhos e rodapés</b>
+        </div>
+      </div>
+
+      <div class="grp">
+        <h3>Suas peças de etiqueta</h3>
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;line-height:1.5">
+          Esta lista é a fila de impressão e fica salva <b>neste navegador</b> — ela não é o
+          estoque, que mora na nuvem. Faça um backup de vez em quando para não perder nada.
+        </p>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px" onclick="Etq.exportar()">↓ Baixar backup (.json)</button>
+        <label class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px">
+          ↑ Restaurar backup
+          <input type="file" accept=".json" style="display:none" onchange="Etq.restaurar(this)">
+        </label>
+        <button class="btn btn-danger btn-sm btn-block" onclick="Etq.apagarTudo()">Apagar tudo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="overlay center" id="conexaoOverlay">
   <div class="modal" style="width:440px">
     <div class="mhead">
@@ -830,6 +1072,10 @@ tr.filtros input:focus,tr.filtros select:focus{outline:none;border-color:var(--g
       </div>
       <div class="sb-fb" id="cf-fb" style="min-height:20px;font-size:13px;font-weight:600"></div>
       <button class="btn btn-gold btn-block" style="margin-top:6px" onclick="salvarConexao()">Conectar</button>
+      <button class="btn btn-ghost btn-block" style="margin-top:8px"
+              onclick="document.getElementById('conexaoOverlay').classList.remove('show');switchTab('etiquetas')">
+        Só quero imprimir etiquetas
+      </button>
     </div>
   </div>
 </div>
@@ -959,6 +1205,10 @@ async function salvarConexao(){
 
 async function boot(){
   conn=carregarConexao();
+  /* A navegação é desenhada ANTES de qualquer chamada de rede. Sem isto,
+     quem ainda não conectou fica preso no formulário de conexão sem
+     conseguir chegar na Etiqueta — que não precisa de API nenhuma. */
+  renderTabs();
   if(!conn){ document.getElementById('conexaoOverlay').classList.add('show'); return; }
   try{
     toast('Carregando dados…');
@@ -1202,6 +1452,7 @@ function calcComissao(vendidos,m){
    partir dele para não duplicar estado. */
 let tabAtual='geral';      /* 'geral' | 'cadastro' | 'loja' | 'pendencias' | 'vendas' | 'revlist' | 'rev:<id>' */
 function mainTabOf(name){
+  if(name==='etiquetas'||name==='etq-print') return 'etiqueta';
   if(name==='vendas') return 'vendas';
   if(name==='revlist'||name.indexOf('rev:')===0) return 'revendedoras';
   return 'estoque';
@@ -1210,6 +1461,18 @@ function switchTab(name){
   tabAtual=name;
   renderTabs();
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  /* Etiqueta é a única área que não depende da API: a fila de impressão
+     mora neste navegador. Ela abre com ou sem conexão — as outras cobram a
+     conexão de volta, em vez de mostrar tela vazia. */
+  if(name==='etiquetas'||name==='etq-print'){
+    document.getElementById(name==='etiquetas'?'view-etiquetas':'view-etq-print').classList.add('active');
+    Etq.entrar(name);
+    window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+  if(!conn){
+    document.getElementById('conexaoOverlay').classList.add('show');
+  }
   if(name==='geral'){
     /* A planilha operacional (view-estoque) é a tabela da própria Visão
        Geral do Estoque — as duas seções sobem juntas nesta subaba. */
@@ -1245,13 +1508,21 @@ function renderTabs(){
   const c=state.catalogo||{};
   const aEsperar=(c.pendentes||0)+(c.fotosOrfas||0)+inconsistencias().length;
 
+  const naFila=(window.Etq&&Etq.naFila())||0;
+
   navMain.innerHTML=`
-    <a class="tab" href="index.html">Etiqueta</a>
+    <button class="tab ${mt==='etiqueta'?'active':''}" onclick="switchTab('etiquetas')">Etiqueta</button>
     <button class="tab ${mt==='estoque'?'active':''}" onclick="switchTab('geral')">Estoque</button>
     <button class="tab ${mt==='revendedoras'?'active':''}" onclick="switchTab('revlist')">Revendedoras</button>
     <button class="tab ${mt==='vendas'?'active':''}" onclick="switchTab('vendas')">Vendas</button>`;
 
-  if(mt==='estoque'){
+  if(mt==='etiqueta'){
+    navSub.style.display='';
+    navSub.innerHTML=`
+      <button class="tab ${tabAtual==='etiquetas'?'active':''}" onclick="switchTab('etiquetas')">Peças</button>
+      <button class="tab ${tabAtual==='etq-print'?'active':''}" onclick="switchTab('etq-print')">Impressão${
+        naFila?`<span class="count">${naFila}</span>`:''}</button>`;
+  } else if(mt==='estoque'){
     navSub.style.display='';
     navSub.innerHTML=`
       <button class="tab ${tabAtual==='geral'?'active':''}" onclick="switchTab('geral')">Visão Geral</button>
@@ -1277,21 +1548,130 @@ function renderTabs(){
     navSub.innerHTML='';
   }
 
-  const areaTxt={estoque:'Estoque',revendedoras:'Revendedoras',vendas:'Vendas'}[mt];
+  const areaTxt={etiqueta:'Etiquetas',estoque:'Estoque',revendedoras:'Revendedoras',vendas:'Vendas'}[mt];
   const hdArea=document.getElementById('hdArea');
   if(hdArea) hdArea.textContent=areaTxt;
 
-  const t=totais();
-  document.getElementById('hdPecas').textContent=t.total;
-  document.getElementById('hdSkus').textContent=state.produtos.length;
-  document.getElementById('hdSub').textContent=
-    t.total? `${t.casa} em casa · ${t.fora} com revendedoras` : 'Importe sua planilha para começar';
+  if(mt==='etiqueta'){
+    /* Na Etiqueta o cabeçalho fala da FILA DE IMPRESSÃO, não do estoque:
+       são coisas diferentes, e mostrar peças em casa aqui só confundiria. */
+    const etq=(window.Etq&&Etq.resumo())||{pecas:0,fila:0,etiquetas:0};
+    document.getElementById('hdPecas').textContent=etq.pecas;
+    document.getElementById('hdSkus').textContent=etq.fila;
+    document.getElementById('hdRot1').textContent=plural(etq.pecas,'peça na lista','peças na lista');
+    document.getElementById('hdRot2').textContent='na fila';
+    document.getElementById('hdSub').textContent=
+      etq.etiquetas? `${etq.etiquetas} ${plural(etq.etiquetas,'etiqueta','etiquetas')} para imprimir`
+                   : 'Cadastre ou importe peças para imprimir';
+  }else{
+    const t=totais();
+    document.getElementById('hdPecas').textContent=t.total;
+    document.getElementById('hdSkus').textContent=state.produtos.length;
+    document.getElementById('hdRot1').textContent=plural(t.total,'peça','peças');
+    document.getElementById('hdRot2').textContent=plural(state.produtos.length,'código','códigos');
+    document.getElementById('hdSub').textContent=
+      t.total? `${t.casa} em casa · ${t.fora} com revendedoras` : 'Importe sua planilha para começar';
+  }
 }
 
 /* =================== Visão geral =================== */
 let escopoGrafico='total';   /* total | casa | fora */
 let modoCadastro='manual';   /* manual | total | novas — os três jeitos de entrar produto */
 function setEscopo(e){escopoGrafico=e;renderGeral();}
+
+/* ---------- Peças da Visão Geral ----------
+   Ícone, indicador e leitura: três componentes compartilhados. Estão aqui,
+   e não soltos dentro do innerHTML de cada tela, porque a Visão Geral é a
+   referência visual do sistema — quando Revendedoras e Vendas forem
+   redesenhadas, elas montam os mesmos cartões chamando estas funções. */
+const ICO={
+  caixa:'<path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
+  casa:'<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  pessoas:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/>',
+  nuvem:'<path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.1 10.6 3.7 3.7 0 0 0 6.5 19z"/>',
+  escudo:'<path d="M12 3l7.5 3v5c0 4.6-3.1 8.8-7.5 10-4.4-1.2-7.5-5.4-7.5-10V6z"/><path d="m9 12 2 2 4-4"/>',
+  grafico:'<path d="M3 3v18h18"/><path d="m18.7 8-5.7 5.7-3-3L6 15"/>',
+  brilho:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/>'
+};
+function svgIco(d,tam){
+  return `<svg width="${tam||18}" height="${tam||18}" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+}
+function cartaoKpi({destaque,ico,rot,num,sub}){
+  return `<div class="kpi${destaque?' destaque':''}">
+    <span class="k-ico">${svgIco(ico,19)}</span>
+    <div class="k-txt">
+      <div class="k-lbl">${esc(rot)}</div>
+      <div class="k-num">${esc(String(num))}</div>
+      <div class="k-sub">${sub}</div>
+    </div>
+  </div>`;
+}
+function cartaoInsight({tom,ico,titulo,corpo,acao}){
+  return `<div class="insight"${tom?` data-tom="${tom}"`:''}>
+    <span class="i-ico">${svgIco(ico,19)}</span>
+    <div>
+      <div class="i-t">${esc(titulo)}</div>
+      <div class="i-d">${corpo}</div>
+      ${acao?`<div class="i-a">${acao}</div>`:''}
+    </div>
+  </div>`;
+}
+
+/* As três leituras do rodapé. Cada frase sai de um número que o painel já
+   tem — nada é estimado, e o que não dá para afirmar não é dito. Quando
+   existe uma tela que resolve o que a frase aponta, o botão vai junto:
+   diagnóstico sem próximo passo vira paisagem. */
+function insights(){
+  const t=totais();
+  const semPreco=state.produtos.filter(p=>p.semPreco||p.preco==null).length;
+  const semFoto=state.produtos.filter(p=>fotoDe(p)==='sem_foto').length;
+  const inc=inconsistencias();
+  const c=state.catalogo||{};
+  const pendentes=c.pendentes||0;
+
+  /* ---- 1. Saúde do estoque ---- */
+  const problemas=[];
+  if(inc.length) problemas.push(`<b>${inc.length}</b> ${plural(inc.length,'código com mais peça na rua do que no cadastro','códigos com mais peça na rua do que no cadastro')}`);
+  if(semPreco) problemas.push(`<b>${semPreco}</b> sem preço`);
+  if(semFoto) problemas.push(`<b>${semFoto}</b> sem foto`);
+  if(pendentes) problemas.push(`<b>${pendentes}</b> ${plural(pendentes,'peça nova esperando cadastro','peças novas esperando cadastro')}`);
+  const saude=problemas.length
+    ? {tom:inc.length?'critico':'atencao',
+       corpo:problemas.join(' · ')+'.',
+       acao:inc.length
+         ?`<button class="btn btn-ghost btn-sm" onclick="setFiltroInc(true)">Ver os códigos</button>`
+         :(pendentes?`<button class="btn btn-ghost btn-sm" onclick="switchTab('cadastro')">Ir para o cadastro</button>`:'')}
+    : {tom:'', corpo:`Nenhum código sem preço, sem foto ou com peça a mais na rua. <b>${state.produtos.length}</b> ${plural(state.produtos.length,'código conferido','códigos conferidos')}.`, acao:''};
+
+  /* ---- 2. Concentração por categoria ---- */
+  const dados=dadosCategoria().slice().sort((a,b)=>b.qtd-a.qtd);
+  const totalCat=dados.reduce((s,d)=>s+d.qtd,0);
+  const top=dados.slice(0,3);
+  const somaTop=top.reduce((s,d)=>s+d.qtd,0);
+  const escopoTxt={total:'do estoque total',casa:'do que está em casa',fora:'do que está na rua'}[escopoGrafico];
+  const volume=totalCat
+    ? `${top.map(d=>`<b>${esc(d.cat)}</b> (${pctTexto(d.qtd,totalCat)})`).join(', ')} ${plural(top.length,'representa','representam')} ${pctTexto(somaTop,totalCat)} ${escopoTxt}.`
+    : 'Sem peças nesta visão para comparar.';
+
+  /* ---- 3. Oportunidade ---- */
+  const linhas=linhasEstoque();
+  const foraDaLoja=linhas.filter(l=>!l.p.urlLoja&&l.casa>0);
+  const pecasFora=foraDaLoja.reduce((s,l)=>s+l.casa,0);
+  const oportunidade=!temLoja()
+    ? {corpo:`A loja ainda não está conectada neste ambiente — nenhum código tem link da Nuvemshop. Enquanto isso, o painel não consegue dizer o que já está publicado.`,
+       acao:`<button class="btn btn-ghost btn-sm" onclick="switchTab('loja')">Abrir Nuvemshop</button>`}
+    : (foraDaLoja.length
+      ? {corpo:`<b>${pecasFora}</b> ${plural(pecasFora,'peça em casa ainda não tem','peças em casa ainda não têm')} cadastro na loja, em <b>${foraDaLoja.length}</b> ${plural(foraDaLoja.length,'código','códigos')}. ${plural(pecasFora,'Ela não pode','Elas não podem')} ser ${plural(pecasFora,'vendida','vendidas')} pelo site.`,
+         acao:`<button class="btn btn-ghost btn-sm" onclick="setFiltroLoja('fora')">Ver esses códigos</button>`}
+      : {corpo:`Tudo que está em casa já tem cadastro na loja. <b>${t.casa}</b> ${plural(t.casa,'peça pronta','peças prontas')} para vender pelo site.`, acao:''});
+
+  return `<div class="insights">
+    ${cartaoInsight({tom:saude.tom, ico:ICO.escudo, titulo:'Saúde do estoque', corpo:saude.corpo, acao:saude.acao})}
+    ${cartaoInsight({ico:ICO.grafico, titulo:'Categorias com maior volume', corpo:volume})}
+    ${cartaoInsight({ico:ICO.brilho, titulo:'Oportunidade', corpo:oportunidade.corpo, acao:oportunidade.acao})}
+  </div>`;
+}
 
 function renderGeral(){
   const t=totais();
@@ -1321,50 +1701,56 @@ function renderGeral(){
   const faltaSubirKpi=todasKpi.filter(l=>!l.p.urlLoja&&l.casa>0);
   const pecasFaltaSubirKpi=faltaSubirKpi.reduce((s,l)=>s+l.casa,0);
 
+  const lojaConectada=temLoja();
+
   v.innerHTML=`
     <div class="kpis">
-      <div class="kpi">
-        <div class="k-lbl">Estoque total</div>
-        <div class="k-num">${t.total}</div>
-        <div class="k-sub">${state.produtos.length} códigos · ${money(t.valTotal)}</div>
+      ${cartaoKpi({destaque:true, ico:ICO.caixa, rot:'Estoque total', num:t.total,
+        sub:`${state.produtos.length} ${plural(state.produtos.length,'código','códigos')} · ${money(t.valTotal)}`})}
+      ${cartaoKpi({ico:ICO.casa, rot:'Em casa', num:t.casa,
+        sub:`Peças fisicamente aqui · ${money(t.valCasa)}`})}
+      ${cartaoKpi({ico:ICO.pessoas, rot:'Com revendedoras', num:t.fora,
+        sub:`${abertas.length} ${plural(abertas.length,'maleta aberta','maletas abertas')} · ${money(t.valFora)}`})}
+      ${cartaoKpi(lojaConectada
+        ? {ico:ICO.nuvem, rot:'Disponível para Nuvemshop', num:disponivelNuvem,
+           sub:faltaSubirKpi.length
+             ? `${pecasFaltaSubirKpi} ${plural(pecasFaltaSubirKpi,'peça em casa ainda sem cadastro','peças em casa ainda sem cadastro')} na loja`
+             : 'Tudo que está em casa já tem cadastro na loja'}
+        /* Sem NENHUM código com link da loja, "0 disponível" seria uma
+           informação falsa: não é que nada possa ser vendido, é que este
+           ambiente não sabe o que a loja tem. Um traço diz isso; um zero
+           mentiria ao lado do subtítulo que fala em milhares de peças. */
+        : {ico:ICO.nuvem, rot:'Nuvemshop', num:'—',
+           sub:`Nenhum código tem link da loja aqui. Enquanto ela não estiver conectada, ${t.casa} ${plural(t.casa,'peça em casa fica','peças em casa ficam')} sem poder ser ${plural(t.casa,'publicada','publicadas')}.`})}
+    </div>
+
+    <div class="row geral">
+      <div class="panel">
+        <div class="head linha">
+          <div class="tit">
+            <h2>Por categoria</h2>
+            <span class="hint">Quanto de cada tipo de peça você tem</span>
+          </div>
+          <div class="seg">
+            <button class="${escopoGrafico==='total'?'on':''}" onclick="setEscopo('total')">Estoque total</button>
+            <button class="${escopoGrafico==='casa'?'on':''}" onclick="setEscopo('casa')">Em casa</button>
+            <button class="${escopoGrafico==='fora'?'on':''}" onclick="setEscopo('fora')">Com revendedoras</button>
+          </div>
+        </div>
+        <div class="body">
+          <div class="chartwrap lado" id="chartWrap"></div>
+        </div>
       </div>
-      <div class="kpi k-casa">
-        <div class="k-lbl">Em casa</div>
-        <div class="k-num">${t.casa}</div>
-        <div class="k-sub">Peças fisicamente aqui · ${money(t.valCasa)}</div>
-      </div>
-      <div class="kpi k-rev">
-        <div class="k-lbl">Com revendedoras</div>
-        <div class="k-num">${t.fora}</div>
-        <div class="k-sub">${abertas.length} ${plural(abertas.length,'maleta aberta','maletas abertas')} · ${money(t.valFora)}</div>
-      </div>
-      <div class="kpi k-val">
-        <div class="k-lbl">Disponível para Nuvemshop</div>
-        <div class="k-num">${disponivelNuvem}</div>
-        <div class="k-sub">${faltaSubirKpi.length
-          ?`${pecasFaltaSubirKpi} ${plural(pecasFaltaSubirKpi,'peça em casa ainda sem cadastro','peças em casa ainda sem cadastro')} na loja`
-          :'Tudo que está em casa já tem cadastro na loja'}</div>
+      <div class="panel">
+        <div class="head">
+          <h2>Resumo por categoria</h2>
+          <span class="hint">A mesma leitura da rosca, em números — segue o filtro ao lado</span>
+        </div>
+        <div class="body" id="resumoCat"></div>
       </div>
     </div>
 
-    <div class="row wide">
-      <div class="panel">
-        <div class="head">
-          <h2>Por categoria</h2>
-          <span class="hint">Quanto de cada tipo de peça você tem</span>
-        </div>
-        <div class="body">
-          <div style="display:flex;justify-content:center;margin-bottom:18px">
-            <div class="seg">
-              <button class="${escopoGrafico==='total'?'on':''}" onclick="setEscopo('total')">Estoque total</button>
-              <button class="${escopoGrafico==='casa'?'on':''}" onclick="setEscopo('casa')">Em casa</button>
-              <button class="${escopoGrafico==='fora'?'on':''}" onclick="setEscopo('fora')">Com revendedoras</button>
-            </div>
-          </div>
-          <div class="chartwrap" id="chartWrap"></div>
-        </div>
-      </div>
-    </div>
+    <div class="panel" style="margin-bottom:22px">${insights()}</div>
 
     ${painelInventario()}
 
@@ -1629,7 +2015,33 @@ function renderDonut(){
   if(!wrap) return;
   const nomeEscopo={total:'no total',casa:'em casa',fora:'na rua'}[escopoGrafico];
   const vazio=escopoGrafico==='fora'?'Nenhuma peça está com revendedoras no momento.':'Sem peças para mostrar.';
-  desenharRosca(wrap,dadosCategoria(),nomeEscopo,vazio);
+  const dados=dadosCategoria();
+  desenharRosca(wrap,dados,nomeEscopo,vazio);
+  renderResumoCat(dados);
+}
+
+/* O resumo é a MESMA lista da rosca — recebe os dados já calculados em vez
+   de chamar dadosCategoria() de novo, senão os dois poderiam discordar se
+   alguém mexesse no filtro no meio do desenho. */
+function renderResumoCat(dados){
+  const box=document.getElementById('resumoCat');
+  if(!box) return;
+  const total=dados.reduce((s,d)=>s+d.qtd,0);
+  if(!total){
+    box.innerHTML=`<div class="empty" style="padding:26px 10px"><h3>Nada para resumir</h3>
+      <p>Nenhuma peça nesta visão.</p></div>`;
+    return;
+  }
+  const maior=Math.max(...dados.map(d=>d.qtd));
+  box.innerHTML=`<table class="resumocat">
+    <thead><tr><th>Categoria</th><th></th><th class="n">Peças</th><th class="n">% do total</th></tr></thead>
+    <tbody>${dados.map(d=>`<tr>
+      <td class="nome">${esc(d.cat)}</td>
+      <td class="b"><div class="barra"><i style="width:${(d.qtd/maior*100).toFixed(1)}%;background:${d.cor}"></i></div></td>
+      <td class="n">${d.qtd}</td>
+      <td class="n">${pctTexto(d.qtd,total)}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
 }
 
 /* Desenha a rosca em qualquer container: usada na Visão geral e também
@@ -5337,9 +5749,749 @@ document.addEventListener('keydown',e=>{
 });
 
 /* =================== Boot =================== */
+
+/* =================== Etiqueta ===================
+   Porte da tela de Etiquetas para dentro do painel. Antes ela era outro
+   arquivo (index.html) e outro endereço: clicar em "Etiqueta" jogava a
+   usuária para fora do sistema, sem caminho de volta pela navegação.
+
+   A REGRA DE NEGÓCIO NÃO MUDOU. Cadastro, busca, marcação, quantidade por
+   peça, importação de planilha com mapeamento de coluna, folha Pimaco
+   A4349 (7 × 18 = 126 por folha), calibração em passos de 0,5 mm, geração
+   de PDF e backup vieram do original linha a linha. O que mudou é só onde
+   o código mora e de quem ele pega o `toast`.
+
+   Duas coisas merecem atenção:
+
+   1. A CHAVE do localStorage é a MESMA de antes (`marquesa_etiquetas_v1`).
+      Quem já tinha peças cadastradas no navegador continua com elas — a
+      migração não pede recadastro. É por isso que a chave não foi
+      "melhorada".
+   2. As peças da Etiqueta NÃO são o estoque. O estoque mora no D1, atrás
+      da API; a etiqueta é uma lista de impressão que vive neste navegador,
+      exatamente como vivia. Juntar as duas é decisão de negócio, não de
+      migração — ver docs/TECH_DEBT.md.
+
+   Tudo fica dentro deste módulo porque os nomes do original (state, save,
+   toast, money, switchTab, openImport…) colidem com os do painel. O
+   original ficou intacto; aqui ele é privado. */
+window.Etq=(function(){
+  const KEY='marquesa_etiquetas_v1';   /* mesma chave do app antigo */
+  const PER_SHEET=126;                 /* Pimaco A4349: 7 colunas × 18 linhas */
+
+  let mem=null;                        /* reserva quando o localStorage é bloqueado */
+  let busca='';
+  let impRows=[];                      /* linhas cruas da planilha em importação */
+  let libs=null;                       /* promessa das bibliotecas sob demanda */
+  let recolhido=null;                  /* onde a folha estava antes de ir pro <body> */
+
+  function estadoVazio(){ return {products:[], adj:{offX:0,offY:0}, seq:1}; }
+  function carregar(){
+    try{ const r=localStorage.getItem(KEY); return r?JSON.parse(r):estadoVazio(); }
+    catch(e){ return mem?JSON.parse(JSON.stringify(mem)):estadoVazio(); }
+  }
+  function gravar(){
+    try{ localStorage.setItem(KEY,JSON.stringify(st)); }
+    catch(e){ mem=JSON.parse(JSON.stringify(st)); }
+  }
+
+  let st=carregar();
+  if(!st.adj) st.adj={offX:0,offY:0};
+  if(!st.seq) st.seq=1;
+  if(!Array.isArray(st.products)) st.products=[];
+
+  /* ---------- helpers próprios ----------
+     `moeda` NÃO é o money() do painel: aquele esconde o centavo zerado
+     ("R$ 89") porque em tabela de estoque o ",00" é ruído. Na etiqueta o
+     preço é o que a cliente lê na loja, e ele sempre tem centavo. */
+  function moeda(v){
+    let n=typeof v==='number'?v:parseFloat(String(v).replace(/\./g,'').replace(',','.'));
+    if(isNaN(n)) n=0;
+    return 'R$ '+n.toFixed(2).replace('.',',');
+  }
+  function parsePreco(str){
+    let s=String(str).trim().replace(/[^\d,.]/g,'');
+    if(s.indexOf(',')>-1){ s=s.replace(/\./g,'').replace(',','.'); }
+    const n=parseFloat(s); return isNaN(n)?null:n;
+  }
+  function $(id){ return document.getElementById(id); }
+
+  /* ---------- bibliotecas sob demanda ----------
+     JsBarcode (66 KB) e jsPDF (357 KB) só descem quando alguém abre a
+     Etiqueta. Embutidos no dashboard.html eles seriam pagos em TODA
+     abertura do painel, no 4G, por quem só quer ver o estoque — o arquivo
+     é rebaixado da rede a cada visita (ver sw.js). */
+  function script(src){
+    return new Promise((ok,falha)=>{
+      const s=document.createElement('script');
+      s.src=src; s.onload=ok; s.onerror=()=>falha(new Error('não consegui carregar '+src));
+      document.head.appendChild(s);
+    });
+  }
+  function carregarLibs(){
+    if(libs) return libs;
+    const falta=[];
+    if(typeof JsBarcode==='undefined') falta.push(script('vendor/jsbarcode.min.js'));
+    if(!window.jspdf) falta.push(script('vendor/jspdf.min.js'));
+    libs=Promise.all(falta);
+    return libs;
+  }
+
+  /* =================== Cadastro =================== */
+  function salvarPeca(ev){
+    if(ev) ev.preventDefault();
+    const desc=$('etq-desc').value.trim();
+    const sku=$('etq-sku').value.trim();
+    const priceRaw=$('etq-preco').value.trim();
+    let qty=parseInt($('etq-qtd').value); if(isNaN(qty)||qty<0) qty=0;
+    const price=parsePreco(priceRaw);
+    if(!desc||!sku){ toast('Preencha descrição e SKU'); return; }
+    if(price===null){ toast('Preço inválido'); return; }
+    const editId=$('etq-editId').value;
+    if(editId){
+      const p=st.products.find(x=>x.id==editId);
+      if(p){ p.desc=desc; p.sku=sku; p.price=price; p.qty=qty; }
+      toast('Peça atualizada');
+    }else{
+      if(st.products.some(x=>String(x.sku).toLowerCase()===sku.toLowerCase())){
+        if(!confirm('Já existe uma peça com o SKU "'+sku+'". Cadastrar mesmo assim?')) return;
+      }
+      st.products.unshift({id:st.seq++, desc, sku, price, qty});
+      toast('Peça cadastrada');
+    }
+    gravar(); limparForm(); renderTudo();
+  }
+
+  function limparForm(){
+    const f=$('etq-form'); if(f) f.reset();
+    $('etq-editId').value='';
+    $('etq-formTitulo').textContent='Nova peça';
+    $('etq-salvar').textContent='Cadastrar peça';
+    $('etq-cancelar').style.display='none';
+    $('etq-desc').focus();
+  }
+  function editar(id){
+    const p=st.products.find(x=>x.id===id); if(!p) return;
+    $('etq-editId').value=p.id;
+    $('etq-desc').value=p.desc;
+    $('etq-sku').value=p.sku;
+    $('etq-preco').value=Number(p.price).toFixed(2).replace('.',',');
+    $('etq-qtd').value=p.qty||0;
+    $('etq-formTitulo').textContent='Editar peça';
+    $('etq-salvar').textContent='Salvar alterações';
+    $('etq-cancelar').style.display='block';
+    $('etq-desc').focus();
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  function apagar(id){
+    const p=st.products.find(x=>x.id===id);
+    if(!confirm('Apagar "'+(p?p.desc:'')+'"?')) return;
+    st.products=st.products.filter(x=>x.id!==id);
+    gravar(); renderTudo(); toast('Peça removida');
+  }
+
+  /* =================== Lista =================== */
+  function filtradas(){
+    const q=busca.trim().toLowerCase();
+    if(!q) return st.products;
+    return st.products.filter(p=>
+      String(p.desc).toLowerCase().includes(q)||String(p.sku).toLowerCase().includes(q));
+  }
+  function buscar(v){ busca=v; renderLista(); }
+
+  function renderLista(){
+    const body=$('etq-lista'); if(!body) return;
+    const list=filtradas();
+    if(st.products.length===0){
+      body.innerHTML=`<tr><td colspan="6"><div class="empty"><h3>Comece cadastrando uma peça</h3>
+        <p>Use o formulário ao lado. Descrição, SKU e preço — do jeitinho que aparece na etiqueta.</p></div></td></tr>`;
+      return;
+    }
+    if(list.length===0){
+      body.innerHTML=`<tr><td colspan="6"><div class="empty"><h3>Nada encontrado</h3>
+        <p>Tente outro termo de busca.</p></div></td></tr>`;
+      return;
+    }
+    body.innerHTML=list.map(p=>`
+      <tr>
+        <td class="rowchk-cell"><input type="checkbox" class="chk rowchk" ${p.qty>0?'checked':''} onchange="Etq.marcar(${p.id},this.checked)"></td>
+        <td class="desc" data-label="Descrição">${esc(p.desc)}</td>
+        <td class="sku" data-label="SKU">${esc(p.sku)}</td>
+        <td class="price" data-label="Preço">${moeda(p.price)}</td>
+        <td class="qty" data-label="Qtd. etiq.">
+          <div class="qtybox">
+            <button onclick="Etq.setQtd(${p.id},${(p.qty||0)-1})" aria-label="Menos uma etiqueta">−</button>
+            <input type="number" min="0" value="${p.qty||0}" onchange="Etq.setQtd(${p.id},this.value)" aria-label="Quantidade de etiquetas">
+            <button onclick="Etq.setQtd(${p.id},${(p.qty||0)+1})" aria-label="Mais uma etiqueta">+</button>
+          </div>
+        </td>
+        <td class="actcell"><div class="actions">
+          <button class="iconbtn" title="Editar" onclick="Etq.editar(${p.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
+          <button class="iconbtn del" title="Apagar" onclick="Etq.apagar(${p.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+        </div></td>
+      </tr>`).join('');
+  }
+
+  /* Lembra a última quantidade marcada, mesmo depois de desmarcar — quem
+     desmarca sem querer não perde o número que digitou. */
+  function porQtd(p,q){ if(q>0) p.savedQty=q; p.qty=q; }
+  function setQtd(id,val){
+    const p=st.products.find(x=>x.id===id); if(!p) return;
+    let q=parseInt(val); if(isNaN(q)||q<0) q=0;
+    porQtd(p,q); gravar(); renderLista(); contar();
+  }
+  function marcar(id,marcado){
+    const p=st.products.find(x=>x.id===id); if(!p) return;
+    porQtd(p,marcado?(p.savedQty>0?p.savedQty:(p.qty>0?p.qty:1)):0);
+    gravar(); renderLista(); contar();
+  }
+  function marcarTodasCb(cb){
+    filtradas().forEach(p=>porQtd(p,cb.checked?(p.savedQty>0?p.savedQty:(p.qty>0?p.qty:1)):0));
+    gravar(); renderLista(); contar();
+  }
+  function marcarVisiveis(){
+    filtradas().forEach(p=>{ if(!p.qty) porQtd(p,p.savedQty>0?p.savedQty:1); });
+    gravar(); renderLista(); contar();
+    const m=$('etq-master'); if(m) m.checked=true;
+    toast('Peças marcadas');
+  }
+  function irParaImpressao(){
+    if(!st.products.some(p=>p.qty>0)){ toast('Marque ao menos uma peça'); return; }
+    switchTab('etq-print');
+  }
+
+  /* =================== Contagens =================== */
+  function naFila(){ return st.products.filter(p=>p.qty>0); }
+  function totalEtiquetas(){ return naFila().reduce((s,p)=>s+p.qty,0); }
+  function contar(){
+    const inq=naFila(), total=totalEtiquetas();
+    const set=(id,v)=>{ const e=$(id); if(e) e.textContent=v; };
+    set('etq-contaPecas',st.products.length);
+    set('etq-selPecas',inq.length);
+    set('etq-selEtiquetas',total);
+    set('etq-usoFolha',Math.min(total,PER_SHEET));
+    set('etq-folhas',Math.max(1,Math.ceil(total/PER_SHEET))||0);
+    renderTabs();   /* o selo da subaba Impressão conta a fila */
+  }
+
+  /* =================== Folha =================== */
+  function expandirFila(){
+    const labels=[];
+    naFila().forEach(p=>{ for(let i=0;i<p.qty;i++) labels.push(p); });
+    return labels;
+  }
+
+  function construirFolhas(){
+    const root=$('printRoot'), vazioEl=$('etq-vazio'), wrap=$('etq-previewWrap');
+    if(!root) return;
+    const labels=expandirFila();
+    const btnP=$('etq-btnPrint'), btnPdf=$('etq-btnPdf');
+    if(labels.length===0){
+      root.innerHTML=''; if(vazioEl) vazioEl.style.display='block'; if(wrap) wrap.style.display='none';
+      if(btnP) btnP.disabled=true; if(btnPdf) btnPdf.disabled=true;
+      return;
+    }
+    if(vazioEl) vazioEl.style.display='none'; if(wrap) wrap.style.display='block';
+    if(btnP) btnP.disabled=false; if(btnPdf) btnPdf.disabled=false;
+
+    const folhas=Math.ceil(labels.length/PER_SHEET);
+    let html='';
+    for(let s=0;s<folhas;s++){
+      const fatia=labels.slice(s*PER_SHEET,(s+1)*PER_SHEET);
+      html+=`<div class="sheet" style="--offX:${st.adj.offX}mm;--offY:${st.adj.offY}mm"><div class="lblgrid">`;
+      fatia.forEach(p=>{
+        html+=`<div class="lbl">
+          <div class="l-desc">${esc(p.desc)}</div>
+          <div class="l-price">${moeda(p.price)}</div>
+          <div class="l-bc" data-code="${esc(p.sku)}"></div>
+          <div class="l-sku">${esc(p.sku)}</div>
+        </div>`;
+      });
+      html+='</div></div>';
+    }
+    root.innerHTML=html;
+
+    carregarLibs().then(()=>{
+      root.querySelectorAll('.l-bc').forEach(el=>{
+        if(el.firstChild) return;
+        const code=el.getAttribute('data-code');
+        const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+        el.appendChild(svg);
+        try{
+          JsBarcode(svg,code,{format:'CODE128',displayValue:false,margin:0,height:40,width:2});
+          svg.setAttribute('preserveAspectRatio','none');
+        }catch(e){ el.innerHTML='<span style="font-size:5pt">'+esc(code)+'</span>'; }
+      });
+    }).catch(()=>toast('Não consegui carregar o gerador de código de barras'));
+
+    ajustarPreview();
+  }
+
+  function ajustarPreview(){
+    const wrap=$('etq-previewWrap'), caixa=$('etq-previewScale'), inner=$('printRoot');
+    if(!wrap||!caixa||!inner) return;
+    const folhaPx=210/25.4*96;              /* 210 mm em px ≈ 793,7 */
+    const disp=wrap.clientWidth-40;
+    let sc=disp/folhaPx; if(sc>1) sc=1;
+    /* escala pelo canto superior esquerdo e dimensiona a caixa pelo
+       resultado já escalado, que então centraliza com margin:auto */
+    inner.style.width=folhaPx+'px';
+    inner.style.transform='scale('+sc+')';
+    const folhas=inner.querySelectorAll('.sheet').length;
+    const altReal=(297/25.4*96+18)*folhas;
+    caixa.style.width=(folhaPx*sc)+'px';
+    caixa.style.height=(altReal*sc)+'px';
+  }
+  window.addEventListener('resize',()=>{
+    if(document.getElementById('view-etq-print').classList.contains('active')) ajustarPreview();
+  });
+
+  /* =================== Imprimir =================== */
+  /* A folha sai de dentro de .app antes de imprimir (o painel esconde .app
+     na impressão, que é o que faz o Anexo I sair sozinho na página) e volta
+     depois. Vale para o botão e para o Ctrl+P. */
+  function levantarFolha(){
+    const root=$('printRoot'); if(!root) return;
+    if(root.parentNode!==document.body){
+      recolhido=root.parentNode;
+      document.body.appendChild(root);
+    }
+    /* A margem da página do painel é 14 mm (Anexo I). A folha Pimaco exige
+       margem zero, senão a grade inteira anda no papel. @page não aceita
+       classe, então a regra entra por último e sai depois. */
+    if(!$('etq-pagina')){
+      const s=document.createElement('style');
+      s.id='etq-pagina';
+      s.textContent='@page{size:A4 portrait;margin:0}#anexoRoot{display:none !important}';
+      document.head.appendChild(s);
+    }
+  }
+  function recolherFolha(){
+    const root=$('printRoot');
+    if(root&&recolhido){ recolhido.appendChild(root); recolhido=null; }
+    const s=$('etq-pagina'); if(s) s.remove();
+  }
+  function imprimir(){
+    const b=$('etq-btnPrint'); if(b&&b.disabled) return;
+    carregarLibs().then(()=>{ levantarFolha(); window.print(); recolherFolha(); });
+  }
+
+  /* =================== PDF =================== */
+  function barcodeDataURL(code){
+    try{
+      const canvas=document.createElement('canvas');
+      JsBarcode(canvas,code,{format:'CODE128',displayValue:false,margin:0,height:120,width:3});
+      return canvas.toDataURL('image/png');
+    }catch(e){ return null; }
+  }
+  function caberTexto(doc,texto,maxW){
+    if(doc.getTextWidth(texto)<=maxW) return texto;
+    let t=texto;
+    while(t.length>1 && doc.getTextWidth(t+'…')>maxW) t=t.slice(0,-1);
+    return t.length<=1?texto:t+'…';
+  }
+  function desenharEtiqueta(doc,p,x,y,w){
+    const cx=x+w/2;
+    doc.setTextColor(0,0,0);
+    doc.setFont('helvetica','bold'); doc.setFontSize(4.6);
+    doc.text(caberTexto(doc,String(p.desc||'').toUpperCase(),w-2.4),cx,y+2.3,{align:'center'});
+    doc.setFontSize(7.6);
+    doc.text(moeda(p.price),cx,y+5.7,{align:'center'});
+    const bc=barcodeDataURL(p.sku||'');
+    if(bc) doc.addImage(bc,'PNG',x+1.5,y+6.5,w-3,4.3);
+    doc.setFont('courier','normal'); doc.setFontSize(5);
+    doc.text(String(p.sku||''),cx,y+12.7,{align:'center'});
+  }
+  function gerarPDF(){
+    const b=$('etq-btnPdf'); if(b&&b.disabled){ toast('Marque ao menos uma peça'); return; }
+    const labels=expandirFila();
+    if(labels.length===0){ toast('Marque ao menos uma peça'); return; }
+    toast('Gerando o PDF…');
+    carregarLibs().then(()=>{
+      const { jsPDF }=window.jspdf;
+      const doc=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+      const cols=7,linhas=18,cellW=26,cellH=15,colGap=2;
+      const padEsq=7+st.adj.offX, padTopo=13+st.adj.offY;
+      const porFolha=cols*linhas;
+      const folhas=Math.ceil(labels.length/porFolha);
+      for(let s=0;s<folhas;s++){
+        if(s>0) doc.addPage('a4','portrait');
+        labels.slice(s*porFolha,(s+1)*porFolha).forEach((p,i)=>{
+          const col=i%cols, lin=Math.floor(i/cols);
+          desenharEtiqueta(doc,p,padEsq+col*(cellW+colGap),padTopo+lin*cellH,cellW);
+        });
+      }
+      doc.save('marquesa-etiquetas-'+new Date().toISOString().slice(0,10)+'.pdf');
+      toast('PDF gerado — abra e imprima direto, sem passar pelo "Imprimir página"');
+    }).catch(()=>toast('Não consegui carregar o gerador de PDF'));
+  }
+
+  /* =================== Ajustes e backup =================== */
+  function abrirAjustes(){
+    $('etq-offX').value=st.adj.offX;
+    $('etq-offY').value=st.adj.offY;
+    $('etqSetOverlay').classList.add('show');
+  }
+  function fecharAjustes(){ $('etqSetOverlay').classList.remove('show'); }
+  function empurrar(k,d){ setAjuste(k,st.adj[k]+d); }
+  function setAjuste(k,v){
+    let n=parseFloat(String(v).replace(',','.')); if(isNaN(n)) n=0;
+    n=Math.round(n*2)/2;                       /* passos de 0,5 mm */
+    st.adj[k]=n; $(k==='offX'?'etq-offX':'etq-offY').value=n;
+    gravar();
+    if(document.getElementById('view-etq-print').classList.contains('active')) construirFolhas();
+  }
+  function zerarAjuste(){
+    st.adj={offX:0,offY:0}; gravar(); abrirAjustes(); toast('Calibração zerada');
+    if(document.getElementById('view-etq-print').classList.contains('active')) construirFolhas();
+  }
+  function exportar(){
+    const blob=new Blob([JSON.stringify(st,null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='marquesa-etiquetas-backup-'+new Date().toISOString().slice(0,10)+'.json';
+    a.click(); toast('Backup baixado');
+  }
+  function restaurar(input){
+    const file=input.files[0]; if(!file) return;
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const d=JSON.parse(r.result);
+        if(!d.products||!Array.isArray(d.products)) throw 0;
+        if(!confirm('Restaurar '+d.products.length+' peça(s)? Isso substitui os dados atuais.')) return;
+        st=d;
+        if(!st.adj) st.adj={offX:0,offY:0};
+        if(!st.seq) st.seq=(Math.max(0,...st.products.map(p=>p.id))+1);
+        gravar(); renderTudo(); fecharAjustes(); toast('Backup restaurado');
+      }catch(e){ toast('Arquivo inválido'); }
+    };
+    r.readAsText(file); input.value='';
+  }
+  function apagarTudo(){
+    if(!confirm('Apagar TODAS as peças cadastradas? Não dá pra desfazer.')) return;
+    if(!confirm('Tem certeza mesmo? Faça um backup antes se precisar.')) return;
+    st=estadoVazio(); gravar(); renderTudo(); fecharAjustes(); toast('Tudo apagado');
+  }
+
+  /* =================== Importar planilha =================== */
+  function abrirImport(){ voltarUpload(); $('etqImpOverlay').classList.add('show'); }
+  function fecharImport(){ $('etqImpOverlay').classList.remove('show'); }
+  function voltarUpload(){
+    impRows=[];
+    $('etq-impPasso1').style.display='block';
+    $('etq-impPasso2').style.display='none';
+    $('etq-impArquivo').value='';
+  }
+  function lerArquivo(file){
+    const nome=(file.name||'').toLowerCase();
+    const isCSV=nome.endsWith('.csv')||nome.endsWith('.txt');
+    const r=new FileReader();
+    r.onload=e=>{
+      try{
+        if(isCSV){
+          impRows=parseCSV(e.target.result);
+        }else{
+          const wb=XLSX.read(e.target.result,{type:'array'});
+          const ws=wb.Sheets[wb.SheetNames[0]];
+          /* raw:false devolve o texto formatado — é o que preserva o zero à
+             esquerda de SKU formatado como texto */
+          impRows=XLSX.utils.sheet_to_json(ws,{header:1,blankrows:false,defval:'',raw:false});
+          impRows=impRows.map(row=>row.map(c=>c==null?'':String(c)));
+        }
+        impRows=impRows.filter(row=>row.some(c=>String(c).trim()!==''));
+        if(impRows.length===0){ toast('Planilha vazia'); return; }
+        $('etq-impPasso1').style.display='none';
+        $('etq-impPasso2').style.display='block';
+        renderMapeamento();
+      }catch(err){ toast('Não consegui ler o arquivo'); console.error(err); }
+    };
+    if(isCSV) r.readAsText(file,'UTF-8'); else r.readAsArrayBuffer(file);
+  }
+  /* Leitor de CSV simples e resistente: descobre o separador e mantém toda
+     célula como texto */
+  function parseCSV(text){
+    text=text.replace(/^\uFEFF/,'');
+    const primeira=(text.split(/\r?\n/).find(l=>l.trim())||'');
+    const contas={';':(primeira.match(/;/g)||[]).length,',':(primeira.match(/,/g)||[]).length,'\t':(primeira.match(/\t/g)||[]).length};
+    let delim=';', melhor=-1;
+    for(const d in contas){ if(contas[d]>melhor){ melhor=contas[d]; delim=d; } }
+    if(melhor===0) delim=',';
+    const rows=[]; let cur=[]; let campo=''; let q=false;
+    for(let i=0;i<text.length;i++){
+      const ch=text[i];
+      if(q){
+        if(ch==='"'){ if(text[i+1]==='"'){ campo+='"'; i++; } else q=false; }
+        else campo+=ch;
+      }else{
+        if(ch==='"') q=true;
+        else if(ch===delim){ cur.push(campo); campo=''; }
+        else if(ch==='\n'){ cur.push(campo); rows.push(cur); cur=[]; campo=''; }
+        else if(ch==='\r'){ /* ignora */ }
+        else campo+=ch;
+      }
+    }
+    if(campo!==''||cur.length){ cur.push(campo); rows.push(cur); }
+    return rows.map(r=>r.map(c=>c.trim()));
+  }
+  function qtdColunas(){ return Math.max(...impRows.map(r=>r.length)); }
+  function nomesColuna(){
+    const temCab=$('etq-temCabecalho').checked;
+    const n=qtdColunas(); const out=[];
+    for(let i=0;i<n;i++){
+      if(temCab && impRows[0] && String(impRows[0][i]).trim()) out.push(String(impRows[0][i]).trim());
+      else out.push('Coluna '+(i+1));
+    }
+    return out;
+  }
+  function adivinhar(){
+    const temCab=$('etq-temCabecalho').checked;
+    const hdr=(temCab&&impRows[0])?impRows[0].map(x=>String(x).toLowerCase()):[];
+    const ache=(chaves)=>{ for(let i=0;i<hdr.length;i++){ if(chaves.some(k=>hdr[i].includes(k))) return i; } return -1; };
+    return {
+      desc:ache(['descri','nome','produto','peça','peca','item']),
+      sku:ache(['sku','barra','código','codigo','cod','refer']),
+      price:ache(['preço','preco','valor','r$','price']),
+      qty:ache(['quantidade','qtde','qtd','quant','etiqueta','unidade','qty'])
+    };
+  }
+  function renderMapeamento(){
+    const nomes=nomesColuna();
+    const opcoes=(sel)=>{
+      let h='<option value="-1">— nenhuma —</option>';
+      nomes.forEach((nm,i)=>{ h+=`<option value="${i}" ${i===sel?'selected':''}>${esc(nm)}</option>`; });
+      return h;
+    };
+    const det=adivinhar();
+    $('etq-mapDesc').innerHTML=opcoes(det.desc);
+    $('etq-mapSku').innerHTML=opcoes(det.sku);
+    $('etq-mapPreco').innerHTML=opcoes(det.price);
+    $('etq-mapQtd').innerHTML=opcoes(det.qty);
+    renderPrevia();
+  }
+  function linhasDados(){ return $('etq-temCabecalho').checked?impRows.slice(1):impRows; }
+  function mapa(){
+    return {
+      desc:+$('etq-mapDesc').value, sku:+$('etq-mapSku').value,
+      price:+$('etq-mapPreco').value, qty:+$('etq-mapQtd').value
+    };
+  }
+  function listaImport(){
+    const m=mapa(); const out=[];
+    linhasDados().forEach(r=>{
+      const desc=m.desc>=0?String(r[m.desc]??'').trim():'';
+      const sku=m.sku>=0?String(r[m.sku]??'').trim():'';
+      const price=m.price>=0?parsePreco(r[m.price]):null;
+      let qty=0;
+      if(m.qty>=0){
+        const bruto=String(r[m.qty]??'').replace(/[^\d]/g,'');
+        qty=bruto?parseInt(bruto):0;
+        if(isNaN(qty)||qty<0) qty=0;
+      }
+      out.push({desc,sku,price,qty,valid:!!(desc&&sku&&price!==null)});
+    });
+    return out;
+  }
+  function renderPrevia(){
+    const list=listaImport();
+    const temQtd=mapa().qty>=0;
+    $('etq-prevHead').innerHTML='<tr><th>Descrição</th><th>SKU</th><th>Preço</th>'+(temQtd?'<th>Qtd.</th>':'')+'</tr>';
+    $('etq-prevBody').innerHTML=list.slice(0,6).map(p=>`<tr>
+      <td class="${p.desc?'':'bad'}">${p.desc?esc(p.desc):'(vazio)'}</td>
+      <td class="${p.sku?'':'bad'}">${p.sku?esc(p.sku):'(vazio)'}</td>
+      <td class="${p.price!==null?'':'bad'}">${p.price!==null?moeda(p.price):'(inválido)'}</td>${temQtd?`<td>${p.qty||0}</td>`:''}</tr>`).join('');
+    const validas=list.filter(p=>p.valid);
+    const invalidas=list.length-validas.length;
+    const totalEtq=validas.reduce((s,p)=>s+(p.qty||0),0);
+    let sum=`<b>${validas.length}</b> peça(s) válida(s)`;
+    if(temQtd&&totalEtq>0) sum+=` · <b>${totalEtq}</b> etiqueta(s)`;
+    if(invalidas>0) sum+=` · ${invalidas} ignorada(s)`;
+    $('etq-impResumo').innerHTML=sum;
+    $('etq-impConfirmar').disabled=validas.length===0;
+    $('etq-impConfirmar').textContent='Importar '+validas.length+' peça(s)';
+  }
+  function importar(){
+    const list=listaImport().filter(p=>p.valid);
+    const dup=document.querySelector('input[name="etq-dup"]:checked').value;
+    const existentes=new Set(st.products.map(p=>String(p.sku).toLowerCase()));
+    let add=0,pulou=0,etiquetas=0;
+    list.forEach(p=>{
+      if(dup==='skip' && existentes.has(p.sku.toLowerCase())){ pulou++; return; }
+      const q=p.qty||0;
+      st.products.unshift({id:st.seq++,desc:p.desc,sku:p.sku,price:p.price,qty:q});
+      existentes.add(p.sku.toLowerCase()); add++; etiquetas+=q;
+    });
+    gravar(); renderTudo(); fecharImport();
+    let msg=add+' peça(s) importada(s)';
+    if(etiquetas>0) msg+=' · '+etiquetas+' etiqueta(s) na fila';
+    if(pulou>0) msg+=' · '+pulou+' já existia(m)';
+    toast(msg);
+  }
+  function baixarModelo(){
+    const dados=[['Descrição','SKU','Preço','Quantidade'],
+      ['PING MENINO VERDE','222908','89,00',6],
+      ['PING MENINA PINK','533018','89,00',5],
+      ['CL TERÇO','432665','129,00',1]];
+    const ws=XLSX.utils.aoa_to_sheet(dados);
+    ws['!cols']=[{wch:24},{wch:12},{wch:10},{wch:12}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'Peças');
+    XLSX.writeFile(wb,'modelo-etiquetas-marquesa.xlsx');
+    toast('Modelo baixado');
+  }
+
+  /* =================== Montagem das telas =================== */
+  function montarPecas(){
+    const v=$('view-etiquetas');
+    if(v.dataset.pronto) return;
+    v.innerHTML=`
+      <div class="row split">
+        <div class="panel" style="align-self:start">
+          <div class="head"><h2><span id="etq-formTitulo">Nova peça</span></h2>
+            <span class="hint">Folha Pimaco A4349 · 26×15 mm</span></div>
+          <div class="body">
+            <form id="etq-form" autocomplete="off" onsubmit="Etq.salvarPeca(event)">
+              <input type="hidden" id="etq-editId">
+              <div class="field">
+                <label>Descrição <span class="req">*</span></label>
+                <input id="etq-desc" maxlength="40" placeholder="Ex.: PING MENINO VERDE" required>
+                <div class="help">Aparece no topo da etiqueta · até 40 caracteres</div>
+              </div>
+              <div class="two">
+                <div class="field">
+                  <label>SKU / Código <span class="req">*</span></label>
+                  <input id="etq-sku" maxlength="20" placeholder="Ex.: 222908" required>
+                  <div class="help">Vira o código de barras</div>
+                </div>
+                <div class="field">
+                  <label>Preço <span class="req">*</span></label>
+                  <input id="etq-preco" inputmode="decimal" placeholder="89,00" required>
+                  <div class="help">Só o valor</div>
+                </div>
+              </div>
+              <div class="field">
+                <label>Qtd. etiquetas</label>
+                <input id="etq-qtd" type="number" min="0" placeholder="0">
+                <div class="help">Já entra na fila de impressão</div>
+              </div>
+              <button type="submit" class="btn btn-gold btn-block" id="etq-salvar">Cadastrar peça</button>
+              <button type="button" class="btn btn-ghost btn-block" id="etq-cancelar" style="display:none;margin-top:8px" onclick="Etq.limparForm()">Cancelar edição</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="head">
+            <h2>Peças cadastradas</h2>
+            <span class="hint"><b id="etq-contaPecas">0</b> cadastradas · marque e ajuste a quantidade para imprimir</span>
+          </div>
+          <div class="body">
+            <div class="toolbar">
+              <div class="search">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input id="etq-busca" placeholder="Buscar por descrição ou SKU…" oninput="Etq.buscar(this.value)">
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="Etq.marcarVisiveis()">Marcar todas</button>
+              <button class="btn btn-ghost btn-sm" onclick="Etq.abrirImport()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:-2px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Importar planilha
+              </button>
+              <button class="btn btn-ghost btn-sm" onclick="Etq.abrirAjustes()">Ajustes da etiqueta</button>
+              <button class="btn btn-ghost btn-sm" onclick="Etq.irParaImpressao()">Ir para impressão →</button>
+            </div>
+            <div class="tablewrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:34px"><input type="checkbox" class="chk" id="etq-master" onchange="Etq.marcarTodasCb(this)" aria-label="Marcar todas"></th>
+                    <th>Descrição</th><th>SKU</th><th>Preço</th>
+                    <th style="width:120px">Qtd. etiq.</th><th style="width:90px"></th>
+                  </tr>
+                </thead>
+                <tbody id="etq-lista"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    v.dataset.pronto='1';
+  }
+
+  function montarImpressao(){
+    const v=$('view-etq-print');
+    if(v.dataset.pronto) return;
+    v.innerHTML=`
+      <div class="panel">
+        <div class="head">
+          <h2>Folha de impressão</h2>
+          <span class="hint">Pré-visualização real da folha Pimaco A4349 (126 etiquetas)</span>
+        </div>
+        <div class="body">
+          <div class="selbar">
+            <div class="stat"><b id="etq-selPecas">0</b> peças selecionadas</div>
+            <div class="stat"><b id="etq-selEtiquetas">0</b> etiquetas no total</div>
+            <div class="sheetcount">Ocupa <b id="etq-usoFolha">0</b> de 126 na 1ª folha · <b id="etq-folhas">0</b> folha(s)</div>
+            <div class="spacer"></div>
+            <button class="btn btn-ghost btn-sm" onclick="switchTab('etiquetas')">← Escolher peças</button>
+            <button class="btn btn-ghost" id="etq-btnPdf" onclick="Etq.gerarPDF()" title="Gera um PDF exato da folha Pimaco — ideal para imprimir pelo celular">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+              Baixar PDF
+            </button>
+            <button class="btn btn-print" id="etq-btnPrint" onclick="Etq.imprimir()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
+              Imprimir etiquetas
+            </button>
+          </div>
+          <div id="etq-vazio" class="empty" style="display:none">
+            <h3>Nenhuma etiqueta na fila</h3>
+            <p>Volte em <b>Peças</b>, marque as peças e defina quantas etiquetas de cada uma você quer imprimir.</p>
+          </div>
+          <div class="previewwrap" id="etq-previewWrap">
+            <div class="preview-scale" id="etq-previewScale">
+              <div id="printRoot"></div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    v.dataset.pronto='1';
+  }
+
+  function renderTudo(){
+    montarPecas(); renderLista(); contar();
+    if(document.getElementById('view-etq-print').classList.contains('active')) construirFolhas();
+  }
+
+  /* Chamada pelo switchTab: monta a tela pedida e desenha. */
+  function entrar(qual){
+    if(qual==='etq-print'){
+      montarImpressao(); montarPecas(); renderLista(); contar(); construirFolhas();
+    }else{
+      montarPecas(); renderLista(); contar();
+      const b=$('etq-busca'); if(b) b.value=busca;
+    }
+  }
+
+  window.addEventListener('beforeprint',()=>{
+    if(document.getElementById('view-etq-print').classList.contains('active')) levantarFolha();
+  });
+  window.addEventListener('afterprint',recolherFolha);
+
+  return {
+    entrar, salvarPeca, limparForm, editar, apagar, buscar, setQtd, marcar,
+    marcarTodasCb, marcarVisiveis, irParaImpressao, imprimir, gerarPDF,
+    abrirImport, fecharImport, voltarUpload, lerArquivo, renderMapeamento,
+    renderPrevia, importar, baixarModelo,
+    abrirAjustes, fecharAjustes, empurrar, setAjuste, zerarAjuste,
+    exportar, restaurar, apagarTudo,
+    naFila:()=>naFila().length,
+    resumo:()=>({pecas:st.products.length, fila:naFila().length, etiquetas:totalEtiquetas()})
+  };
+})();
+
 function renderAll(){
   renderTabs();
-  if(tabAtual==='geral'){ renderGeral(); renderEstoque(); }
+  if(tabAtual==='etiquetas'||tabAtual==='etq-print'){ Etq.entrar(tabAtual); }
+  else if(tabAtual==='geral'){ renderGeral(); renderEstoque(); }
   else if(tabAtual==='cadastro') renderCadastro();
   else if(tabAtual==='loja') renderLoja();
   else if(tabAtual==='pendencias') renderPendencias();

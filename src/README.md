@@ -15,6 +15,19 @@ e injeta no template, nos lugares marcados por `/*__BASE_CSS__*/` e
 `<!--__SHEETJS__-->`. É por isso que os dois apps têm exatamente a mesma cara:
 existe uma folha de estilo só, e ela mora no `index.html`.
 
+Ele também **extrai** o JsBarcode e o jsPDF do `index.html` para
+`vendor/jsbarcode.min.js` e `vendor/jspdf.min.js`. A tela de Etiquetas
+passou a morar dentro do painel e precisa das duas; embutidas no
+`dashboard.html` elas custariam ~430 KB em toda abertura do painel (o
+arquivo é rebaixado da rede a cada visita — ver `sw.js`), inclusive para
+quem só vai olhar o estoque. Em arquivo separado descem sob demanda, na
+primeira vez que alguém abre a Etiqueta, e vêm do cache depois.
+
+Os dois arquivos de `vendor/` são **gerados** — não os edite. Para atualizar
+a versão de uma das bibliotecas, troque o bloco correspondente dentro do
+`index.html` (mantendo o cabeçalho de licença, que é como o build a
+encontra) e rode o build de novo.
+
 As fronteiras dos blocos são achadas por conteúdo, não por número de linha, e
 o script confere o tamanho do que extraiu — então mexer no `index.html` não
 quebra a montagem em silêncio.

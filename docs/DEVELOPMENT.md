@@ -172,7 +172,7 @@ develop  →  frontend DEV (Cloudflare Pages)  →  API DEV (Worker)  →  D1 DE
 | Camada | Produção | DEV |
 |---|---|---|
 | Branch | `main` | `develop` |
-| Frontend | GitHub Pages, `main` | Cloudflare Pages, `develop` |
+| Frontend | GitHub Pages, `main` | Cloudflare Pages `marquesa-dev`, `develop` |
 | URL do frontend | `https://gustavodemelomartins-hub.github.io/Marquesa-Etiquetas/` | **`https://marquesa-dev.pages.dev`** (fixo) |
 | Worker | `marquesa-api` | `marquesa-api-staging` |
 | URL da API | `https://marquesa-api.marquesaasemijoias.workers.dev` | `https://marquesa-api-staging.marquesaasemijoias.workers.dev` |
@@ -208,15 +208,39 @@ para Git Integration sem recriar o projeto, o que trocaria o link fixo.
 Por isso o deploy automático do frontend não usa Git Integration.
 
 O deploy automático é **`.github/workflows/deploy-dev.yml`**: todo push
-em `develop` que toca `frontend/` roda testes, builda e publica com
+em `develop` que toca o painel, o app de etiquetas ou o `frontend/` roda os
+testes, monta tudo num diretório só e publica com
 
 ```bash
-wrangler pages deploy frontend/dist --project-name marquesa-dev --branch develop
+wrangler pages deploy publicar --project-name marquesa-dev --branch develop
 ```
 
 via `cloudflare/wrangler-action`. As credenciais vêm dos secrets do
 repositório GitHub — `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID` —
 nunca em texto no workflow.
+
+### Um DEV só, um endereço só
+
+O ambiente de testes é **`marquesa-dev.pages.dev`, e mais nenhum**. Ele
+serve o sistema inteiro:
+
+| Caminho | O que é |
+|---|---|
+| `/` | redireciona para o painel (`_redirects` na raiz) |
+| `/dashboard.html` | **o painel** — Etiqueta · Estoque · Revendedoras · Vendas |
+| `/index.html` | o app de etiquetas autônomo, mantido como referência e como fonte do CSS/bibliotecas que o `build.py` extrai. **Não é destino de navegação.** |
+| `/painel-novo/` | o frontend React, em construção, no mesmo domínio |
+
+A tela de Etiquetas vive **dentro** do painel desde que a navegação global
+existe: a aba "Etiqueta" troca de seção, não de endereço. Antes ela era um
+link para `index.html`, e quem clicava caía num app isolado, sem
+navegação e sem caminho de volta.
+
+`marquesa-dev-legado.pages.dev` continua de pé por enquanto, servindo a
+mesma raiz do `develop` por outro caminho. Ele é **referência temporária**,
+não ambiente de teste: ninguém precisa abri-lo para usar o sistema. Quando
+for aposentado, é só apagar o projeto Pages — nada no repositório aponta
+para ele, exceto a lista de `ORIGENS_PERMITIDAS` do Worker staging.
 
 `marquesa-api-staging` (Worker DEV) **não** faz parte deste workflow — é
 publicado à parte, hoje só manual (comando da seção acima).

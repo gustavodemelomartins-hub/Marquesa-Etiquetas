@@ -1,0 +1,11 @@
+# Cloudflare Pages — o endereço curto abre o PAINEL, não o app de etiquetas.
+#
+# Desde que a tela de Etiquetas passou a viver DENTRO do painel (aba
+# "Etiqueta"), o index.html da raiz deixou de ser um destino de navegação:
+# ele continua existindo como o app antigo, autônomo, e como a fonte do CSS
+# e das bibliotecas que o build.py extrai — não como a porta de entrada.
+#
+# Sem esta linha, https://marquesa-dev.pages.dev/ cairia no app de
+# etiquetas isolado, que é exatamente o beco sem saída que a integração
+# veio resolver.
+/    /dashboard.html    302

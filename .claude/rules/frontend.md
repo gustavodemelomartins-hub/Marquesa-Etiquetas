@@ -13,7 +13,7 @@ de editar.
 
 | Painel | Fonte | Build | Saída |
 |---|---|---|---|
-| Etiquetas (produção) | `index.html` | edição direta | — é a própria fonte |
+| Etiquetas (app autônomo) | `index.html` | edição direta | — é a própria fonte |
 | Dashboard (produção) | `src/dashboard.tpl.html` | `python src/build.py` (lê CSS/SheetJS de dentro de `index.html`) | `dashboard.html` |
 | Novo (React/TS) | `frontend/src/**` | `cd frontend && npm run build` | `frontend/dist/` |
 
@@ -21,10 +21,17 @@ de editar.
 
 - **Nunca edite `dashboard.html`.** É gerado e embute o SheetJS. Editar ali
   é perder o trabalho no próximo build. Está em `deny`.
-- `index.html` é a fonte real da tela de Etiquetas — editável (`Edit`
-  liberado, `Write` continua bloqueado). É módulo legado estável: mudança
-  ali deve ser pontual (ex.: um botão do cabeçalho), sem refatorar
-  impressão/cadastro/CSS/JS existentes sem pedido explícito.
+- `index.html` é a fonte real do app de Etiquetas autônomo, e a fonte do CSS
+  e das bibliotecas (SheetJS, JsBarcode, jsPDF) que o `build.py` extrai —
+  editável (`Edit` liberado, `Write` continua bloqueado). É módulo legado
+  estável: mudança ali deve ser pontual, sem refatorar impressão/cadastro/
+  CSS/JS existentes sem pedido explícito.
+- **A tela de Etiquetas que a usuária vê é a do painel** (`window.Etq` em
+  `src/dashboard.tpl.html`), não o `index.html`. Ela é um porte fiel: a
+  regra de negócio — folha Pimaco 7×18, calibração de 0,5 mm, mapeamento de
+  coluna na importação, chave `marquesa_etiquetas_v1` no localStorage — veio
+  linha a linha do original. Mexer numa e não na outra faz as duas
+  divergirem em silêncio.
 - **Nunca abra `src/dashboard.tpl.html` inteiro** (3.802 linhas). `grep -n`
   para achar, `sed -n 'a,bp'` para ler a faixa.
 - Mexeu no legado sem rodar `python src/build.py` = mudança que não chega
