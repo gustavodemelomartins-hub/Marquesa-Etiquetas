@@ -2297,14 +2297,14 @@ function renderEstoque(){
   const comLoja=temLoja();
   const abertas=maletasAbertas();
 
-  let linhas=linhasEstoque();
+  const todas=linhasEstoque();
+  let linhas=todas;
   if(filtroInc) linhas=linhas.filter(l=>incSet.has(l.sku));
   if(filtroLoja==='fora') linhas=linhas.filter(l=>!l.p.urlLoja&&l.casa>0);
   if(filtroLoja==='na')   linhas=linhas.filter(l=>l.p.urlLoja);
   if(filtroCat) linhas=linhas.filter(l=>l.cat===filtroCat);
 
   const catsUsadas=catList().filter(c=>state.produtos.some(p=>p.cat===c));
-  const todas=linhasEstoque();
   const disponivelNuvem=todas.reduce((s,l)=>s+l.nuvem,0);
   const faltaSubir=todas.filter(l=>!l.p.urlLoja&&l.casa>0);
   const pecasFaltaSubir=faltaSubir.reduce((s,l)=>s+l.casa,0);
@@ -5297,6 +5297,11 @@ function renderNovas(){
   const a=novasAnalise, r=a.resumo;
   const prontos=a.prontos.itens||[], revisao=a.revisao.itens||[], jaExistem=a.jaExistem.itens||[];
   const marcados=prontos.filter(p=>novasSel.has(p.sku)).length;
+  /* A lista de prontos vem inteira, porque é ela que o botão cadastra. A
+     TELA desenha as primeiras 200: ninguém confere 782 linhas rolando, e
+     desenhar todas trava o celular. Os botões seguem valendo pelo total. */
+  const TETO_TELA=200;
+  const mostrados=prontos.slice(0,TETO_TELA);
 
   box.innerHTML=`
     <div class="grupos">
@@ -5320,7 +5325,7 @@ function renderNovas(){
           <th style="width:34px"></th><th>Descrição</th><th style="width:88px">Código</th>
           <th style="width:104px">Categoria</th><th style="width:80px">Preço</th><th style="width:56px">Qtd</th>
         </tr></thead>
-        <tbody>${prontos.map(p=>`<tr>
+        <tbody>${mostrados.map(p=>`<tr>
           <td><input type="checkbox" class="chk" ${novasSel.has(p.sku)?'checked':''}
             onchange="novasMarcar('${esc(p.sku)}',this.checked)"></td>
           <td class="desc">${esc(p.desc)}</td>
@@ -5332,7 +5337,10 @@ function renderNovas(){
           <td class="num">${p.qtd}</td>
         </tr>`).join('')}</tbody>
       </table>
-    </div>`:`<div class="warn info">
+    </div>
+    ${prontos.length>TETO_TELA?`<div style="margin:-8px 0 16px;font-size:11.5px;color:var(--muted)">
+      Mostrando as primeiras ${TETO_TELA} de <b>${prontos.length}</b> — os botões abaixo valem
+      para todas.</div>`:''}`:`<div class="warn info">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
       <div>Nenhuma linha está pronta para cadastrar do jeito que veio.
       ${r.revisao?'Conserte abaixo o que estiver faltando e clique em <b>Conferir de novo</b>.':''}</div>

@@ -201,10 +201,48 @@ r = await api('POST', '/api/produtos/NOVO/foto/fundo-branco');
 eq('peça sem foto original recusa com explicação',
   /não tem foto original/.test(r.erro || ''), 'true');
 
-console.log('\n=== 11. o que o agente de catálogo enxerga ===');
+console.log('\n=== 11. lote grande: nada pode sumir no caminho ===');
+/* O cenário do pedido, com o número dele: 782 linhas certas. A resposta da
+   análise corta as listas que a tela só EXIBE, e é fácil cortar por engano
+   as que ela USA — aí 282 peças somem em silêncio e a tela ainda diz que
+   deu tudo certo. Este bloco existe para esse corte não voltar. */
+const lote = [];
+for (let i = 0; i < 782; i++) {
+  lote.push({ sku: 'L' + String(i).padStart(4, '0'), desc: 'Peça de lote ' + i,
+              cat: 'Colar', preco: 50 + (i % 30), qtd: 1 });
+}
+r = await api('POST', '/api/produtos/novos/analisar', { produtos: lote });
+eq('as 782 estão prontas', r.resumo.prontos, 782);
+eq('e as 782 voltam inteiras, não cortadas', r.prontos.itens.length, 782);
+
+r = await api('POST', '/api/produtos/novos/cadastrar', { produtos: r.prontos.itens });
+eq('as 782 foram cadastradas de uma vez', r.criados, 782);
+const total = (await estado()).produtos.filter(p => p.sku.startsWith('L')).length;
+eq('e as 782 estão mesmo no catálogo', total, 782);
+
+/* O mesmo risco do outro lado: aplicar estoque de um lote grande. */
+const planilhaGrande = lote.map(p => ({ ...p, qtd: 5, brutoQtd: '5' }));
+r = await api('POST', '/api/estoque-total/analisar', { modo: 'total', produtos: planilhaGrande });
+eq('a análise vê as 782 quantidades mudando', r.resumo.vaoMudar, 782);
+eq('e devolve as 782 para aplicar', r.mudam.itens.length, 782);
+
+r = await api('POST', '/api/estoque-total/aplicar',
+  { itens: r.mudam.itens.map(m => ({ sku: m.sku, para: m.para })) });
+eq('todas as 782 foram aplicadas', r.aplicados, 782);
+eq('sem sobrar código com o saldo velho',
+  (await estado()).produtos.filter(p => p.sku.startsWith('L') && p.qtd !== 5).length, 0);
+
+r = await api('GET', '/api/estoque/conferir');
+eq('e a razão fecha depois do lote grande (§19)', (r.divergentes || []).length, 0);
+
+console.log('\n=== 12. o que o agente de catálogo enxerga ===');
 r = await api('GET', '/api/catalogo/publicacao');
-eq('nada está pronto para publicar ainda', r.resumo.prontos, 0);
-eq('porque falta foto em 2', r.resumo.semFoto, 2);
+eq('nada está pronto para publicar', r.resumo.prontos, 0);
+/* 782 do lote + C3 e NOVO: nenhuma delas passou pela loja, então nenhuma
+   tem foto. É por isso que a fila de "prontos para subir" está vazia. */
+eq('porque nenhuma das que faltam subir tem foto', r.resumo.semFoto, 784);
+eq('e o que está pronto nunca aparece também como pendente',
+  r.prontos.some(x => r.semFoto.some(y => y.sku === x.sku)), 'false');
 
 await loja.fechar();
 console.log(falhas ? `\n${falhas} FALHA(S)\n` : '\nTudo certo.\n');
