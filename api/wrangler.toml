@@ -11,6 +11,16 @@ binding = "DB"
 database_name = "marquesa-db"
 database_id = "089153a9-cee5-4887-b789-a23b1cf419f5"
 
+# Fotos das peças: os bytes ficam aqui, o D1 guarda só a chave do objeto
+# (migracao-catalogo.sql). O bucket de PRODUÇÃO ainda não foi criado — ele
+# só passa a existir com `wrangler r2 bucket create marquesa-fotos`, e até
+# lá um `wrangler deploy` (sem --env) nesta configuração falha nesse passo.
+# Isso é intencional: não criamos o bucket de produção como efeito colateral
+# de mexer no DEV.
+[[r2_buckets]]
+binding = "FOTOS"
+bucket_name = "marquesa-fotos"
+
 # Quais endereços podem chamar a API pelo navegador. Não é segredo — é o
 # endereço público do painel — então mora aqui, versionado, e não no painel
 # da Cloudflare: o `wrangler deploy` trata este arquivo como a fonte da
@@ -33,10 +43,10 @@ ORIGENS_PERMITIDAS = "https://gustavodemelomartins-hub.github.io"
 crons = ["0 9,21 * * *"]
 
 # ------------------------------------------------------------- ambiente DEV
-# Worker separado, D1 separado, sem cron, sem credencial da Nuvemshop real.
-# `wrangler deploy --env staging` publica em marquesa-api-staging — nunca em
-# marquesa-api (produção). Rodar sem `--env` continua publicando produção,
-# exatamente como hoje.
+# Worker separado, D1 separado, R2 separado, sem cron, sem credencial da
+# Nuvemshop real. `wrangler deploy --env staging` publica em
+# marquesa-api-staging — nunca em marquesa-api (produção). Rodar sem
+# `--env` continua publicando produção, exatamente como hoje.
 [env.staging]
 name = "marquesa-api-staging"
 workers_dev = true
@@ -46,6 +56,12 @@ binding = "DB"
 database_name = "marquesa-db-dev"
 database_id = "dcc36f65-daaa-42a4-9fbd-15e6f27e4d4b"
 
+# Fotos do ambiente DEV: bucket próprio, nunca o de produção
+# (marquesa-fotos). Criado à parte — ver docs/DEVELOPMENT.md § Ambiente DEV.
+[[env.staging.r2_buckets]]
+binding = "FOTOS"
+bucket_name = "marquesa-fotos-dev"
+
 [env.staging.vars]
 ORIGENS_PERMITIDAS = "https://marquesa-dev.pages.dev"
 
@@ -53,5 +69,9 @@ ORIGENS_PERMITIDAS = "https://marquesa-dev.pages.dev"
 # `Nuvemshop.configurada()` volta false e toda chamada de sync termina em
 # "loja não conectada" — nunca sai um PATCH de verdade daqui. Documentado em
 # docs/DEVELOPMENT.md § Ambiente DEV.
+#
+# Sem cron nenhum no DEV. Uma sincronização automática de madrugada, num
+# ambiente de teste, é exatamente o tipo de coisa que ninguém está olhando
+# quando dá errado — e o DEV não deveria escrever em loja nenhuma sozinho.
 [env.staging.triggers]
 crons = []

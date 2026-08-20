@@ -49,12 +49,21 @@ CREATE TABLE IF NOT EXISTS produtos (
   -- Foto em duas versões: a original que a Sthefany tirou e a tratada com
   -- fundo branco, que é a que vai para a loja. Guardar só uma das duas
   -- apagaria a fonte ou obrigaria a refazer o tratamento toda vez.
-  foto_original  TEXT,
-  foto_tratada   TEXT,
-  foto_status    TEXT,                           -- sem_foto | original | fundo_pendente | fundo_gerado | erro
-  foto_erro      TEXT,
-  foto_origem    TEXT,                           -- nuvemshop | upload
-  foto_em        TEXT,
+  --
+  -- Os bytes NÃO ficam aqui: moram no bucket R2. Esta tabela guarda só a
+  -- referência (a chave do objeto), o tipo, o tamanho e o estado — nunca a
+  -- imagem em si. É a chave que muda quando a foto é trocada; o histórico
+  -- de quem trocou fica nos logs do R2, não é responsabilidade do D1.
+  foto_original_key   TEXT,                      -- chave do objeto no R2
+  foto_original_tipo  TEXT,                      -- content-type, ex. image/jpeg
+  foto_original_tam   INTEGER,                   -- bytes
+  foto_tratada_key    TEXT,
+  foto_tratada_tipo   TEXT,
+  foto_tratada_tam    INTEGER,
+  foto_status         TEXT,                      -- sem_foto | original | fundo_pendente | fundo_gerado | erro
+  foto_erro           TEXT,
+  foto_origem         TEXT,                      -- nuvemshop | upload
+  foto_em             TEXT,
   atualizado_em  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

@@ -150,10 +150,13 @@ eq('cadastrar tira da fila sozinho', (await estado()).catalogo.pendentes, 0);
 /* ------------------------------------------------------------------ */
 console.log('\n=== 8. análise da sincronização: leitura pura ===');
 const loja = await subirLojaFalsa();
+/* As imagens precisam apontar para algo que responda bytes de verdade: a
+   importação agora BAIXA a foto e copia para o R2, não guarda mais a URL
+   crua — então a loja falsa também serve imagem, não só JSON. */
 loja.estado.produtos = [
-  produtoFalso(1, [{ id: 11, sku: 'C1', estoque: 5 }], { imagens: ['https://loja/c1.jpg'] }),
-  produtoFalso(2, [{ id: 22, sku: 'C2', estoque: 1 }], { imagens: ['https://loja/c2.jpg'] }),
-  produtoFalso(3, [{ id: 33, sku: 'SO-DA-LOJA', estoque: 7 }], { imagens: ['https://loja/x.jpg'] }),
+  produtoFalso(1, [{ id: 11, sku: 'C1', estoque: 5 }], { imagens: [`${loja.url}/imagens/c1.jpg`] }),
+  produtoFalso(2, [{ id: 22, sku: 'C2', estoque: 1 }], { imagens: [`${loja.url}/imagens/c2.jpg`] }),
+  produtoFalso(3, [{ id: 33, sku: 'SO-DA-LOJA', estoque: 7 }], { imagens: [`${loja.url}/imagens/x.jpg`] }),
 ];
 
 const antes = await estado();
@@ -180,8 +183,16 @@ eq('prévia não grava nada', (await estado()).catalogo.fotosOrfas, 0);
 r = await api('POST', '/api/fotos/importar-da-loja', {});
 eq('a importação de verdade casa as 2', r.resumo.casadas, 2);
 const c1f = (await estado()).produtos.find(p => p.sku === 'C1');
-eq('C1 ficou com a foto original', c1f.fotoOriginal, 'https://loja/c1.jpg');
+eq('C1 ficou com um link de foto (não mais a URL externa crua)',
+  /^\/api\/produtos\/C1\/foto\/original\?/.test(c1f.fotoOriginalUrl || ''), 'true');
 eq('e com o estado certo: falta o fundo branco', c1f.fotoStatus, 'original');
+/* Prova que o link não é decorativo: os bytes por trás dele são os mesmos
+   que a loja falsa serviu — a foto foi realmente copiada para o R2, não
+   só anotada. */
+const bytesFoto = await fetch(API + c1f.fotoOriginalUrl).then(r => r.arrayBuffer());
+eq('os bytes da foto batem com o que a loja falsa serviu',
+  Buffer.from(bytesFoto).toString('base64'),
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
 r = await api('GET', '/api/fotos/orfas');
 eq('a foto sem dono foi para a fila, sem chute', r.fotos.length, 1);
 eq('guardando o código que a loja usava', r.fotos[0].skuLoja, 'SO-DA-LOJA');
@@ -194,7 +205,7 @@ console.log('\n=== 10. fundo branco sem serviço configurado ===');
 r = await api('POST', '/api/produtos/C1/foto/fundo-branco');
 eq('a peça entra na fila', r.status, 'fundo_pendente');
 const c1p = (await estado()).produtos.find(p => p.sku === 'C1');
-eq('e NÃO ganha uma imagem tratada inventada', c1p.fotoTratada, 'undefined');
+eq('e NÃO ganha uma imagem tratada inventada', c1p.fotoTratadaUrl, 'undefined');
 
 /* NOVO nunca esteve na loja, então não recebeu foto nenhuma na carga. */
 r = await api('POST', '/api/produtos/NOVO/foto/fundo-branco');
@@ -239,8 +250,11 @@ console.log('\n=== 12. o que o agente de catálogo enxerga ===');
 r = await api('GET', '/api/catalogo/publicacao');
 eq('nada está pronto para publicar', r.resumo.prontos, 0);
 /* 782 do lote + C3 e NOVO: nenhuma delas passou pela loja, então nenhuma
-   tem foto. É por isso que a fila de "prontos para subir" está vazia. */
+   tem foto. C1 e C2 SAEM desta lista — o bloco 9 baixou a foto delas de
+   verdade — e entram na de baixo, porque a tratada ainda falta. */
 eq('porque nenhuma das que faltam subir tem foto', r.resumo.semFoto, 784);
+eq('C1 e C2 têm original mas falta o fundo branco', r.resumo.semFundoBranco, 2);
+eq('e são exatamente elas', r.semFundoBranco.map(x => x.sku).sort().join(','), 'C1,C2');
 eq('e o que está pronto nunca aparece também como pendente',
   r.prontos.some(x => r.semFoto.some(y => y.sku === x.sku)), 'false');
 

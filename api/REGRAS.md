@@ -48,6 +48,10 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §5.1 | Ensaio da sincronização não escreve nada | `sync.js › analisarSincronizacao` |
 | §22 | Foto da loja só casa com SKU exato; o resto vai para a fila | `fotos.js › importarFotosDaLoja` → `fotos_orfas` |
 | §22 | Fundo branco sem serviço configurado fica pendente | `fotos.js › gerarFundoBranco` não inventa imagem |
+| — | Foto: bytes no R2, D1 guarda só chave/tipo/tamanho/estado | `fotos-storage.js`, `migracao-catalogo.sql` |
+| — | Link de foto assinado (HMAC), não o Bearer da API | `assinatura.js`, rota GET fora do `checarChave` |
+| §24 | Peça sem preço nunca entra em "criar na loja" | `sync.js › analisarSincronizacao` → `bloqueadosSemPreco` |
+| §24 | Peça sem preço nunca aparece como "pronta para publicar" | `fotos.js › pendenciasDePublicacao` |
 
 ## Duas divergências conscientes
 
@@ -421,3 +425,62 @@ foto, fundo branco, descrição, categoria, preço.
 
 É uma leitura de propósito. O agente pode preparar tudo, mas a publicação e
 a sincronização continuam passando pela aprovação explícita no painel.
+
+### 14. Bytes no R2, referência no D1 — arquitetura
+
+O D1 nunca guarda a imagem em si. `produtos` tem `foto_original_key` e
+`foto_tratada_key` — a chave de um objeto no bucket R2 (binding `FOTOS`) —
+mais tipo, tamanho e estado. Quem lê e escreve o bucket é só
+`fotos-storage.js`; o resto do sistema não sabe como o R2 funciona, só que
+existe uma chave ou não existe.
+
+A chave é determinística por SKU e versão (`produtos/<sku>/original` ou
+`.../tratada`, sem timestamp): trocar a foto sobrescreve o mesmo objeto, em
+vez de acumular lixo órfão a cada re-upload. Trocar a ORIGINAL apaga a
+tratada — do R2 e do D1 — pelo mesmo motivo de sempre: o fundo branco é
+daquela foto, não da nova, e uma tratada desencontrada mandaria a peça
+errada para a loja sem ninguém perceber.
+
+A importação de fotos da Nuvemshop e a adoção de uma foto órfã não gravam
+mais a URL externa como se fosse a foto: elas BAIXAM os bytes e copiam para
+o R2 na hora. A partir daí a peça é dona da própria imagem — a Nuvemshop
+pode reorganizar o catálogo dela sem que uma foto nossa suma. Uma imagem
+que não baixa não trava as outras 400 do mesmo lote (`falhas` no retorno
+diz quais).
+
+### 15. O navegador não manda a chave da API — link assinado
+
+Uma tag `<img src>` não consegue mandar `Authorization: Bearer`. As duas
+rotas de leitura de foto (`GET /api/produtos/:sku/foto/original|tratada`)
+por isso não passam pelo `checarChave` comum — igual o callback de OAuth da
+Nuvemshop já não passa, e pelo mesmo motivo: quem chama não é o painel
+autenticado, é outra coisa que precisa de outra prova.
+
+A prova aqui é uma assinatura HMAC com prazo curto (`assinatura.js`),
+calculada com a própria `API_KEY` e embutida no link que `montarState`
+gera. Sem a chave não dá para forjar um link; um link que vazou expira
+sozinho; e como o `state` é recarregado com frequência, o link se renova
+sem ninguém perceber que existia um prazo.
+
+### 16. Peça sem preço pode ser cadastrada — nunca publicada — §24
+
+O §24 já bloqueava a *venda* de peça sem preço. Cadastrar continua livre —
+uma peça pode entrar no catálogo sem preço definido, e o aviso
+`sem_preco` avisa sem impedir (`catalogo.js › cadastrarNovos`,
+`analisarNovos`).
+
+Publicação é outra história, e agora é bloqueada nos dois lugares que
+decidem o que subir:
+
+- `pendenciasDePublicacao` nunca põe peça sem preço em `prontos` — mesmo
+  com foto, fundo branco, descrição e categoria perfeitos, ela cai em
+  `semPreco` e fica lá.
+- `analisarSincronizacao` nunca põe peça sem preço em `criarNaLoja` — ela
+  vai para `bloqueadosSemPreco`, separada, e não é contada como candidata
+  pronta nem escondida da pessoa.
+
+Faltar preço não é uma pendência igual às outras (foto, descrição,
+categoria): é a única que bloqueia de verdade, porque publicar sem preço
+não é uma opção que só falta confirmar — Nuvemshop nenhuma vende peça sem
+preço, e fingir que está pronta seria mentir sobre o que aconteceria ao
+confirmar.

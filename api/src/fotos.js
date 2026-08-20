@@ -5,7 +5,14 @@
  *  peça é cadastrada aqui, a foto é adicionada aqui, e a loja é abastecida
  *  a partir daqui. Este arquivo serve aos dois momentos.
  *
- *  Duas coisas que ele não faz, de propósito:
+ *  Os bytes da imagem vivem no R2 (ver `fotos-storage.js`); o D1 guarda só
+ *  a referência — chave, tipo, tamanho e estado (`migracao-catalogo.sql`).
+ *  Nenhuma função aqui grava um endereço de fora como se fosse a foto: uma
+ *  URL da Nuvemshop é lida uma vez, os bytes são copiados para o bucket, e
+ *  dali em diante a peça é dona da própria imagem — a loja pode reorganizar
+ *  o catálogo dela sem que uma foto nossa suma.
+ *
+ *  Duas coisas que este arquivo não faz, de propósito:
  *
  *   - não adivinha de quem é a foto. Código que não bate exatamente vai
  *     para `fotos_orfas`. Uma foto no produto errado é pior que nenhuma:
@@ -16,6 +23,7 @@
  */
 
 import { Nuvemshop } from './nuvemshop.js';
+import { salvarFoto, lerFoto, apagarFoto, tipoValido } from './fotos-storage.js';
 
 /* Os cinco estados da foto, que é o que a tela mostra na peça. */
 export const FOTO = {
@@ -33,15 +41,31 @@ const texto = (v) => {
 };
 const normSku = (v) => String(v == null ? '' : v).trim().toUpperCase();
 
+/** Busca os bytes de uma URL de fora (Nuvemshop) para copiar ao R2.
+ *  Devolve `null` em vez de lançar — uma foto que não baixou não pode
+ *  travar as outras 400 do mesmo lote. */
+async function baixar(url) {
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const tipo = (resp.headers.get('content-type') || '').split(';')[0].trim();
+    const bytes = await resp.arrayBuffer();
+    if (!tipoValido(tipo) || !bytes.byteLength) return null;
+    return { bytes, tipo };
+  } catch {
+    return null;
+  }
+}
+
 /* ==================================================================== */
 /* 1. Carga inicial: puxar as fotos que já estão na Nuvemshop            */
 /* ==================================================================== */
 
-/** Lê a loja, casa imagem com produto pelo SKU e grava o vínculo.
+/** Lê a loja, casa imagem com produto pelo SKU e copia os bytes para o R2.
  *
- *  `seco: true` faz a mesma leitura e a mesma conta sem gravar nada — é o
- *  que a tela usa para dizer "vou trazer 412 fotos e 37 ficam sem dono"
- *  antes de qualquer escrita.
+ *  `seco: true` faz a mesma leitura e a mesma conta sem baixar nem gravar
+ *  nada — é o que a tela usa para dizer "vou trazer 412 fotos e 37 ficam
+ *  sem dono" antes de qualquer escrita.
  *
  *  Só preenche quem está sem foto. Foto que alguém já colocou aqui é a
  *  mais nova das duas, e sobrescrever seria desfazer trabalho de gente.
@@ -53,7 +77,7 @@ export async function importarFotosDaLoja(db, env, { seco = false, refazer = fal
   }
 
   const nossos = new Map((await db.prepare(
-    `SELECT sku, desc, foto_original, foto_tratada, foto_status FROM produtos`
+    `SELECT sku, desc, foto_original_key, foto_tratada_key, foto_status FROM produtos`
   ).all()).results.map(p => [p.sku, p]));
 
   const produtosLoja = await loja.produtos();
@@ -82,8 +106,8 @@ export async function importarFotosDaLoja(db, env, { seco = false, refazer = fal
         }
         continue;
       }
-      if (nosso.foto_original && !refazer) { jaTinham.push({ sku, desc: nosso.desc }); continue; }
-      casadas.push({ sku, desc: nosso.desc, url: src });
+      if (nosso.foto_original_key && !refazer) { jaTinham.push({ sku, desc: nosso.desc }); continue; }
+      casadas.push({ sku, desc: nosso.desc, url: src, temTratada: !!nosso.foto_tratada_key });
     }
   }
 
@@ -96,13 +120,19 @@ export async function importarFotosDaLoja(db, env, { seco = false, refazer = fal
   }
 
   const stmts = [];
+  const falhasDownload = [];
   for (const c of casadas) {
+    const baixada = await baixar(c.url);
+    if (!baixada) { falhasDownload.push({ sku: c.sku, url: c.url }); continue; }
+    const gravado = await salvarFoto(env, c.sku, 'original', baixada.bytes, baixada.tipo);
+    if (gravado.erro) { falhasDownload.push({ sku: c.sku, url: c.url, motivo: gravado.erro }); continue; }
     stmts.push(db.prepare(
-      `UPDATE produtos SET foto_original = ?, foto_origem = 'nuvemshop',
-              foto_status = CASE WHEN foto_tratada IS NOT NULL THEN ? ELSE ? END,
+      `UPDATE produtos SET foto_original_key = ?, foto_original_tipo = ?, foto_original_tam = ?,
+              foto_origem = 'nuvemshop',
+              foto_status = CASE WHEN foto_tratada_key IS NOT NULL THEN ? ELSE ? END,
               foto_erro = NULL, foto_em = datetime('now')
         WHERE sku = ?`
-    ).bind(c.url, FOTO.PRONTA, FOTO.ORIGINAL, c.sku));
+    ).bind(gravado.key, gravado.tipo, gravado.tamanho, FOTO.PRONTA, FOTO.ORIGINAL, c.sku));
   }
   for (const o of orfas) {
     stmts.push(db.prepare(
@@ -114,8 +144,13 @@ export async function importarFotosDaLoja(db, env, { seco = false, refazer = fal
 
   return {
     ok: true,
-    resumo: { casadas: casadas.length, orfas: orfas.length, jaTinham: jaTinham.length },
+    resumo: {
+      casadas: casadas.length - falhasDownload.length,
+      orfas: orfas.length, jaTinham: jaTinham.length,
+      falharam: falhasDownload.length,
+    },
     casadas: casadas.slice(0, 200), orfas: orfas.slice(0, 200),
+    falhas: falhasDownload.slice(0, 50),
   };
 }
 
@@ -131,51 +166,95 @@ export async function listarFotosOrfas(db) {
 }
 
 /** Resolve uma foto órfã à mão: a pessoa diz de quem ela é. É a única
- *  forma de sair da fila — o sistema nunca decide isso sozinho. */
-export async function adotarFotoOrfa(db, { id, sku }) {
+ *  forma de sair da fila — o sistema nunca decide isso sozinho.
+ *
+ *  Adotar também copia os bytes para o R2, pelo mesmo motivo da carga
+ *  inicial: a partir daqui a peça é dona da própria imagem. */
+export async function adotarFotoOrfa(db, env, { id, sku }) {
   const foto = await db.prepare(`SELECT * FROM fotos_orfas WHERE id = ?`).bind(+id).first();
   if (!foto) return { erro: 'Foto não encontrada' };
   const p = await db.prepare(`SELECT sku FROM produtos WHERE sku = ?`).bind(normSku(sku)).first();
   if (!p) return { erro: `O código ${normSku(sku)} não existe no catálogo` };
+
+  const baixada = await baixar(foto.url);
+  if (!baixada) return { erro: 'Não consegui baixar esta imagem agora. Tente de novo em instantes.' };
+  const gravado = await salvarFoto(env, p.sku, 'original', baixada.bytes, baixada.tipo);
+  if (gravado.erro) return { erro: gravado.erro };
+
   await db.batch([
-    db.prepare(`UPDATE produtos SET foto_original = ?, foto_origem = 'nuvemshop',
-                       foto_status = ?, foto_erro = NULL, foto_em = datetime('now') WHERE sku = ?`)
-      .bind(foto.url, FOTO.ORIGINAL, p.sku),
+    db.prepare(`UPDATE produtos SET foto_original_key=?, foto_original_tipo=?, foto_original_tam=?,
+                       foto_origem='nuvemshop', foto_status=?, foto_erro=NULL, foto_em=datetime('now')
+                 WHERE sku = ?`)
+      .bind(gravado.key, gravado.tipo, gravado.tamanho, FOTO.ORIGINAL, p.sku),
     db.prepare(`DELETE FROM fotos_orfas WHERE id = ?`).bind(+id),
   ]);
   return { ok: true, sku: p.sku };
 }
 
 /* ==================================================================== */
-/* 2. Foto adicionada aqui                                              */
+/* 2. Foto adicionada aqui — upload direto de bytes                     */
 /* ==================================================================== */
 
-export async function definirFoto(db, sku, { original, tratada, limpar } = {}) {
-  const p = await db.prepare(`SELECT sku, foto_original, foto_tratada FROM produtos WHERE sku = ?`)
-    .bind(normSku(sku)).first();
+/** Grava os bytes enviados pelo navegador como a foto original ou a
+ *  tratada de um SKU. É o caminho de quando a Sthefany fotografa a peça e
+ *  sobe direto no sistema (ou corrige uma foto tratada à mão).
+ *
+ *  Trocar a ORIGINAL invalida a tratada existente: o fundo branco é daquela
+ *  foto, não da nova. Deixar a antiga ali mandaria a peça errada para a
+ *  loja e ninguém notaria — o mesmo cuidado que já existia antes do R2. */
+export async function salvarFotoUpload(db, env, sku, versao, bytes, tipo) {
+  const p = await db.prepare(
+    `SELECT sku, foto_tratada_key FROM produtos WHERE sku = ?`
+  ).bind(normSku(sku)).first();
   if (!p) return { erro: 'Produto não encontrado' };
+  if (versao !== 'original' && versao !== 'tratada') return { erro: 'Versão inválida' };
 
-  if (limpar) {
+  const gravado = await salvarFoto(env, p.sku, versao, bytes, tipo);
+  if (gravado.erro) return { erro: gravado.erro };
+
+  if (versao === 'original') {
+    if (p.foto_tratada_key) await apagarFoto(env, p.foto_tratada_key);
     await db.prepare(
-      `UPDATE produtos SET foto_original=NULL, foto_tratada=NULL, foto_erro=NULL,
-              foto_status=?, foto_em=datetime('now') WHERE sku = ?`).bind(FOTO.SEM, p.sku).run();
-    return { ok: true, status: FOTO.SEM };
+      `UPDATE produtos SET foto_original_key=?, foto_original_tipo=?, foto_original_tam=?,
+              foto_tratada_key=NULL, foto_tratada_tipo=NULL, foto_tratada_tam=NULL,
+              foto_status=?, foto_erro=NULL,
+              foto_origem=COALESCE(foto_origem,'upload'), foto_em=datetime('now')
+        WHERE sku = ?`
+    ).bind(gravado.key, gravado.tipo, gravado.tamanho, FOTO.ORIGINAL, p.sku).run();
+    return { ok: true, status: FOTO.ORIGINAL };
   }
 
-  const nova = original === undefined ? p.foto_original : (original || null);
-  const trat = tratada === undefined ? p.foto_tratada : (tratada || null);
-  /* Trocar a foto original invalida a tratada: o fundo branco é daquela
-     foto, não desta. Deixar a antiga ali mandaria a peça errada para a
-     loja e ninguém notaria. */
-  const trocouOriginal = original !== undefined && original !== p.foto_original;
-  const tratFinal = trocouOriginal && tratada === undefined ? null : trat;
-
-  const status = tratFinal ? FOTO.PRONTA : (nova ? FOTO.ORIGINAL : FOTO.SEM);
   await db.prepare(
-    `UPDATE produtos SET foto_original=?, foto_tratada=?, foto_status=?, foto_erro=NULL,
-            foto_origem=COALESCE(foto_origem,'upload'), foto_em=datetime('now') WHERE sku = ?`
-  ).bind(nova, tratFinal, status, p.sku).run();
-  return { ok: true, status };
+    `UPDATE produtos SET foto_tratada_key=?, foto_tratada_tipo=?, foto_tratada_tam=?,
+            foto_status=?, foto_erro=NULL, foto_em=datetime('now') WHERE sku = ?`
+  ).bind(gravado.key, gravado.tipo, gravado.tamanho, FOTO.PRONTA, p.sku).run();
+  return { ok: true, status: FOTO.PRONTA };
+}
+
+/** Os bytes para a rota que o `<img>` do navegador consulta. */
+export async function lerFotoParaServir(db, sku, versao, env) {
+  const campo = versao === 'tratada' ? 'foto_tratada_key' : 'foto_original_key';
+  const p = await db.prepare(`SELECT ${campo} AS chave FROM produtos WHERE sku = ?`)
+    .bind(normSku(sku)).first();
+  if (!p || !p.chave) return null;
+  return lerFoto(env, p.chave);
+}
+
+/** Remove as duas versões — do R2 e do D1. Usado quando a peça mudou de
+ *  aparência de verdade e as fotos antigas não servem mais para nada. */
+export async function removerFotos(db, env, sku) {
+  const p = await db.prepare(
+    `SELECT sku, foto_original_key, foto_tratada_key FROM produtos WHERE sku = ?`
+  ).bind(normSku(sku)).first();
+  if (!p) return { erro: 'Produto não encontrado' };
+
+  await Promise.all([apagarFoto(env, p.foto_original_key), apagarFoto(env, p.foto_tratada_key)]);
+  await db.prepare(
+    `UPDATE produtos SET foto_original_key=NULL, foto_original_tipo=NULL, foto_original_tam=NULL,
+            foto_tratada_key=NULL, foto_tratada_tipo=NULL, foto_tratada_tam=NULL,
+            foto_status=?, foto_erro=NULL, foto_em=datetime('now') WHERE sku = ?`
+  ).bind(FOTO.SEM, p.sku).run();
+  return { ok: true, status: FOTO.SEM };
 }
 
 /* ==================================================================== */
@@ -188,7 +267,14 @@ export async function definirFoto(db, sku, { original, tratada, limpar } = {}) {
  *  fundo branco). Ele é chamado por HTTP e configurado por variável de
  *  ambiente — `FOTO_FUNDO_URL`, e `FOTO_FUNDO_TOKEN` se ele pedir chave.
  *
- *  Enquanto esse endereço não existir, a peça é marcada como
+ *  A foto original não é pública — mora no R2, atrás da chave da API —
+ *  então o serviço não consegue simplesmente baixar uma URL nossa. Em vez
+ *  disso os bytes viajam no corpo da chamada (base64) e voltam do mesmo
+ *  jeito. Isso também é o que permite testar o fluxo inteiro sem depender
+ *  de rede nenhuma: um servidor de mentira no lugar do serviço de verdade
+ *  já prova a ida e a volta.
+ *
+ *  Enquanto `FOTO_FUNDO_URL` não existir, a peça é marcada como
  *  `fundo_pendente` e a resposta diz exatamente o que falta. Ela NÃO é
  *  marcada como pronta, e nenhuma imagem é inventada: uma foto que o
  *  sistema diz ter e não tem é pior que uma foto faltando, porque a
@@ -196,10 +282,10 @@ export async function definirFoto(db, sku, { original, tratada, limpar } = {}) {
  */
 export async function gerarFundoBranco(db, env, sku) {
   const p = await db.prepare(
-    `SELECT sku, desc, foto_original, foto_tratada FROM produtos WHERE sku = ?`
+    `SELECT sku, desc, foto_original_key, foto_original_tipo FROM produtos WHERE sku = ?`
   ).bind(normSku(sku)).first();
   if (!p) return { erro: 'Produto não encontrado' };
-  if (!p.foto_original) return { erro: 'Esta peça ainda não tem foto original para tratar' };
+  if (!p.foto_original_key) return { erro: 'Esta peça ainda não tem foto original para tratar' };
 
   const endereco = String(env.FOTO_FUNDO_URL || '').trim();
   if (!endereco) {
@@ -214,23 +300,37 @@ export async function gerarFundoBranco(db, env, sku) {
   }
 
   try {
+    const original = await lerFoto(env, p.foto_original_key);
+    if (!original) throw new Error('a foto original não foi encontrada no armazenamento');
+    const bytesOriginais = await new Response(original.corpo).arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(bytesOriginais)));
+
     const resp = await fetch(endereco, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(env.FOTO_FUNDO_TOKEN ? { Authorization: `Bearer ${env.FOTO_FUNDO_TOKEN}` } : {}),
       },
-      body: JSON.stringify({ sku: p.sku, descricao: p.desc, imagem: p.foto_original, fundo: 'branco' }),
+      body: JSON.stringify({
+        sku: p.sku, descricao: p.desc, fundo: 'branco',
+        imagemBase64: base64, tipoImagem: original.tipo,
+      }),
     });
     if (!resp.ok) throw new Error(`o serviço respondeu ${resp.status}`);
     const corpo = await resp.json();
-    const url = String(corpo.url || corpo.imagem || '').trim();
-    if (!url) throw new Error('o serviço não devolveu o endereço da imagem tratada');
+    const saida = String(corpo.imagemBase64 || '').trim();
+    if (!saida) throw new Error('o serviço não devolveu a imagem tratada');
+    const tipoSaida = String(corpo.tipo || original.tipo || 'image/jpeg');
+
+    const bytesTratados = Uint8Array.from(atob(saida), c => c.charCodeAt(0)).buffer;
+    const gravado = await salvarFoto(env, p.sku, 'tratada', bytesTratados, tipoSaida);
+    if (gravado.erro) throw new Error(gravado.erro);
 
     await db.prepare(
-      `UPDATE produtos SET foto_tratada=?, foto_status=?, foto_erro=NULL, foto_em=datetime('now') WHERE sku=?`
-    ).bind(url, FOTO.PRONTA, p.sku).run();
-    return { ok: true, status: FOTO.PRONTA, url };
+      `UPDATE produtos SET foto_tratada_key=?, foto_tratada_tipo=?, foto_tratada_tam=?,
+              foto_status=?, foto_erro=NULL, foto_em=datetime('now') WHERE sku=?`
+    ).bind(gravado.key, gravado.tipo, gravado.tamanho, FOTO.PRONTA, p.sku).run();
+    return { ok: true, status: FOTO.PRONTA };
   } catch (e) {
     const msg = String(e && e.message || e);
     await db.prepare(
@@ -249,11 +349,16 @@ export async function gerarFundoBranco(db, env, sku) {
  *  Esta é a leitura que o agente/CEO da Marquesa usa para trabalhar, e é
  *  de propósito uma LEITURA: ele pode preparar tudo, mas quem publica é a
  *  sincronização, depois de alguém confirmar na tela.
+ *
+ *  §24: peça sem preço nunca aparece em `prontos` — ela fica bloqueada
+ *  para publicação até alguém definir o preço, mesmo com foto e descrição
+ *  perfeitas. `semPreco` existe justamente para deixar isso visível, não
+ *  para ser um detalhe menor entre os outros.
  */
 export async function pendenciasDePublicacao(db) {
   const r = await db.prepare(`
     SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja,
-           p.foto_original, p.foto_tratada, p.foto_status,
+           p.foto_original_key, p.foto_tratada_key, p.foto_status,
            p.qtd - COALESCE((
              SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
                JOIN maletas m ON m.id = mi.maleta_id
@@ -273,12 +378,13 @@ export async function pendenciasDePublicacao(db) {
       fotoStatus: p.foto_status || FOTO.SEM,
     };
     const falta = [];
-    if (!p.foto_original) { falta.push('foto'); semFoto.push(item); }
-    else if (!p.foto_tratada) { falta.push('fundo_branco'); semFundoBranco.push(item); }
+    if (!p.foto_original_key) { falta.push('foto'); semFoto.push(item); }
+    else if (!p.foto_tratada_key) { falta.push('fundo_branco'); semFundoBranco.push(item); }
     /* "Descrição" aqui é a descrição comercial. A da etiqueta é curta por
        natureza — quando ela é só o próprio código, não há texto nenhum. */
     if (!p.desc || p.desc.trim() === p.sku) { falta.push('descricao'); semDescricao.push(item); }
     if (!p.cat || p.cat === 'Outros') { falta.push('categoria'); semCategoria.push(item); }
+    // §24: sem preço NUNCA é "pronto", ponto — não é uma pendência opcional
     if (p.preco == null) { falta.push('preco'); semPreco.push(item); }
 
     if (!falta.length) prontos.push(item);
