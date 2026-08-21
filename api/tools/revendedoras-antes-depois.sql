@@ -1,6 +1,9 @@
--- Prova de que as revendedoras não foram tocadas: contagem, soma de ids e
--- uma impressão digital do conteúdo cadastral. Rodar ANTES e DEPOIS do
--- reset e comparar as três linhas — têm que bater exatamente.
+-- Prova de que as revendedoras não foram tocadas.
+--
+-- Não é só a contagem: a soma dos ids pega uma troca de linha que mantivesse
+-- o total, e a impressão digital pega uma edição de cadastro que mantivesse
+-- contagem e ids. Rodar ANTES e DEPOIS do reset; as três colunas têm que
+-- bater exatamente.
 SELECT COUNT(*)                                  AS revendedoras,
        COALESCE(SUM(id), 0)                      AS soma_ids,
        COALESCE(SUM(LENGTH(COALESCE(nome,'')
