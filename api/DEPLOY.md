@@ -305,6 +305,42 @@ vezes** no mesmo banco: os `ALTER TABLE` falham se a coluna já existir, e
 esse erro significa "já foi aplicada" — pode ignorar. As tabelas em si são
 seguras.
 
+### Foto da loja por referência
+
+`api/migracao-foto-url.sql` acrescenta duas colunas a `produtos`:
+`foto_url` e `foto_url_em`. Elas guardam **onde a imagem está na Nuvemshop**
+— não os bytes, que continuam sendo assunto do R2.
+
+Existem porque as duas coisas custam muito diferente. Copiar 800 imagens
+para o bucket exige uma requisição de download por peça; casar código com
+imagem e anotar o endereço custa uma leitura do catálogo inteiro. Com as
+colunas, a tabela de estoque para de dizer "sem foto" para peça que tem
+foto — na loja — no mesmo minuto, e a cópia para o R2 vira um passo
+seguinte, sem pressa e sem reescrever nada: quando a chave do R2 existir,
+é ela que vale.
+
+`foto_status` **não é tocado** por esta migração. Ele responde "temos os
+bytes?", e a resposta continua sendo a mesma.
+
+```bash
+# DEV — banco marquesa-db-dev, isolado do de produção
+npx wrangler d1 execute marquesa-db-dev --env dev --remote --file=migracao-foto-url.sql
+
+# produção — só depois de aprovado no DEV
+npx wrangler d1 execute marquesa-db --remote --file=migracao-foto-url.sql
+```
+
+⚠️ Aditiva e não idempotente, como as outras: `duplicate column name:
+foto_url` significa "já foi aplicada", pode ignorar. Enquanto ela não
+roda, o painel inteiro funciona — só o botão **Vincular fotos da loja**
+responde dizendo qual arquivo falta.
+
+Depois de aplicada, a primeira carga é pela tela: **Estoque → Pendências →
+Fotos → Vincular fotos da loja**. O botão mostra o ensaio antes de gravar,
+com quantos códigos foram olhados, quantas fotos casaram, quantos códigos a
+loja não ilustra, quantos ela não conhece e quantas imagens dela não têm
+dono aqui.
+
 Sem esse passo o painel abre normalmente e o estoque funciona igual: a aba
 Pendências mostra as filas zeradas e o estado da foto sai como "sem foto"
 para todo mundo. As rotas que dependem da migração (importar produtos

@@ -107,6 +107,10 @@ export async function montarState(db, env) {
         || (p.foto_tratada_key ? 'fundo_gerado' : (p.foto_original_key ? 'original' : 'sem_foto')),
       fotoOriginalUrl: await linkFoto(p.sku, p.foto_original_key, 'original'),
       fotoTratadaUrl: await linkFoto(p.sku, p.foto_tratada_key, 'tratada'),
+      /* Endereço da imagem NA LOJA. Só serve quando os bytes ainda não são
+         nossos: existindo chave no R2, é o link assinado acima que a tela
+         usa. Vem cru — o tamanho da miniatura é decisão de quem exibe. */
+      fotoUrl: p.foto_url || undefined,
       fotoErro: p.foto_erro || undefined,
       componentes: componentes || undefined,   // presença = "isto é um kit"
       // presença = "este código é vendido em mais de uma opção, e a bipagem

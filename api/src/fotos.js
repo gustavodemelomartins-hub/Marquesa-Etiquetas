@@ -70,45 +70,205 @@ async function baixar(url) {
  *  Só preenche quem está sem foto. Foto que alguém já colocou aqui é a
  *  mais nova das duas, e sobrescrever seria desfazer trabalho de gente.
  */
-export async function importarFotosDaLoja(db, env, { seco = false, refazer = false } = {}) {
-  const loja = new Nuvemshop(env);
-  if (!loja.configurada()) {
-    return { ok: false, erro: 'A loja não está conectada. Falta o token da Nuvemshop.' };
-  }
-
+/** Lê a loja inteira UMA vez e casa código com imagem.
+ *
+ *  Os dois caminhos que usam isto — copiar os bytes para o R2 e apenas
+ *  anotar o endereço — precisam exatamente do mesmo casamento. Escrever a
+ *  regra duas vezes é como as duas se separam em silêncio: um dia o
+ *  importador prefere a imagem da variação e o vinculador prefere a do
+ *  produto, e ninguém percebe olhando a tela.
+ *
+ *  Separa em quatro grupos, porque "não tem foto" tem causas diferentes e
+ *  o relatório precisa distinguir:
+ *
+ *    pares          o código existe aqui e a loja tem imagem para ele
+ *    semImagem      o código existe aqui e na loja, mas a loja não tem imagem
+ *    naoEncontrados o código existe aqui e a loja não conhece
+ *    orfas          a loja tem imagem de um código que não existe aqui
+ */
+async function lerFotosDaLoja(db, env) {
   const nossos = new Map((await db.prepare(
-    `SELECT sku, desc, foto_original_key, foto_tratada_key, foto_status FROM produtos`
+    `SELECT sku, desc, foto_original_key, foto_tratada_key, foto_status, foto_url FROM produtos`
   ).all()).results.map(p => [p.sku, p]));
 
-  const produtosLoja = await loja.produtos();
+  const produtosLoja = await new Nuvemshop(env).produtos();
 
-  const casadas = [], orfas = [], jaTinham = [];
-  const vistos = new Set();
+  const pares = new Map();          // sku → { sku, desc, url, nosso }
+  const semImagem = new Map();      // sku → { sku, desc }
+  const orfas = [];
+  const vistosNaLoja = new Set();
+  const urlsOrfas = new Set();
 
   for (const p of produtosLoja) {
+    /* `position` é o que a loja chama de ordem das fotos; a primeira é a
+       principal, que é a que aparece na vitrine. */
     const imagens = (p.images || []).slice().sort((a, b) => (a.position || 0) - (b.position || 0));
-    if (!imagens.length) continue;
     const porId = new Map(imagens.map(i => [String(i.id), i.src]));
 
     for (const v of p.variants || []) {
       const sku = normSku(v.sku);
       if (!sku) continue;
+      vistosNaLoja.add(sku);
+
       /* A variação pode ter imagem própria (o anel dourado e o prateado);
-         quando não tem, vale a primeira do produto. */
-      const src = (v.image_id && porId.get(String(v.image_id))) || imagens[0].src;
-      if (!src) continue;
+         quando não tem, vale a principal do produto. */
+      const src = (v.image_id && porId.get(String(v.image_id))) || (imagens[0] && imagens[0].src) || null;
 
       const nosso = nossos.get(sku);
       if (!nosso) {
-        if (!vistos.has(src)) {
-          vistos.add(src);
+        if (src && !urlsOrfas.has(src)) {
+          urlsOrfas.add(src);
           orfas.push({ url: src, skuLoja: sku, nomeLoja: texto(p.name), produtoId: String(p.id) });
         }
         continue;
       }
-      if (nosso.foto_original_key && !refazer) { jaTinham.push({ sku, desc: nosso.desc }); continue; }
-      casadas.push({ sku, desc: nosso.desc, url: src, temTratada: !!nosso.foto_tratada_key });
+      if (!src) { if (!pares.has(sku)) semImagem.set(sku, { sku, desc: nosso.desc }); continue; }
+      /* O mesmo código pode aparecer em mais de uma variação. A primeira
+         imagem encontrada vale — escolher a "melhor" entre duas exigiria um
+         critério que ninguém definiu, e chutar é o que esta camada não faz. */
+      if (!pares.has(sku)) { pares.set(sku, { sku, desc: nosso.desc, url: src, nosso }); semImagem.delete(sku); }
     }
+  }
+
+  const naoEncontrados = [...nossos.values()]
+    .filter(n => !vistosNaLoja.has(n.sku))
+    .map(n => ({ sku: n.sku, desc: n.desc }));
+
+  return {
+    nossos,
+    pares: [...pares.values()],
+    semImagem: [...semImagem.values()],
+    naoEncontrados,
+    orfas,
+  };
+}
+
+/** A mesma recusa nos dois caminhos: sem token, nenhum dos dois tem o que
+ *  fazer, e dizer isso é melhor que devolver "nenhuma foto encontrada". */
+function lojaDesconectada(env) {
+  return new Nuvemshop(env).configurada()
+    ? null : 'A loja não está conectada. Falta o token da Nuvemshop.';
+}
+
+/** Registra na fila "sem correspondência" as imagens cujo código não bate
+ *  com nenhum daqui. Os dois caminhos alimentam a mesma fila. */
+function stmtsOrfas(db, orfas) {
+  return orfas.map(o => db.prepare(
+    `INSERT INTO fotos_orfas (url, sku_loja, nome_loja, produto_id) VALUES (?, ?, ?, ?)
+     ON CONFLICT(url) DO UPDATE SET sku_loja=excluded.sku_loja, nome_loja=excluded.nome_loja`
+  ).bind(o.url, o.skuLoja, o.nomeLoja, o.produtoId));
+}
+
+/* ==================================================================== */
+/* 1a. Vincular: anotar ONDE a foto está, sem trazer os bytes            */
+/* ==================================================================== */
+
+/** Casa código com imagem e grava só o endereço.
+ *
+ *  É o caminho barato: uma leitura da loja resolve o catálogo inteiro, sem
+ *  um download por peça. A miniatura aparece na mesma hora, servida pela
+ *  CDN da própria Nuvemshop, e a tabela de estoque para de dizer "sem foto"
+ *  para peça que tem foto — na loja.
+ *
+ *  O que ele NÃO faz, e é de propósito: não mexe em `foto_status`. Aquele
+ *  campo responde "temos os bytes?", e a resposta continua sendo não. Quem
+ *  passa a ter os bytes é `importarFotosDaLoja`, e quando isso acontecer a
+ *  chave do R2 vence a URL sem que nenhuma linha precise ser reescrita.
+ */
+export async function vincularFotosDaLoja(db, env, { seco = false, refazer = false } = {}) {
+  const semLoja = lojaDesconectada(env);
+  if (semLoja) return { ok: false, erro: semLoja };
+
+  let lido;
+  try {
+    lido = await lerFotosDaLoja(db, env);
+  } catch (e) {
+    /* Coluna que falta é migração pendente, não loja fora do ar. Sobe para
+       o tratador do index.js, que sabe dizer qual arquivo rodar — engolir
+       aqui transformaria "falta a migração" em "a loja não respondeu". */
+    if (/no such (table|column)/i.test(String((e && e.message) || e))) throw e;
+    /* Timeout, 401, 5xx da loja: o relatório diz o que houve em vez de
+       deixar a tela achando que o catálogo não tem foto nenhuma. */
+    return { ok: false, erro: e.message || 'A loja não respondeu.' };
+  }
+  const { nossos, pares, semImagem, naoEncontrados, orfas } = lido;
+
+  const aVincular = pares.filter(p => refazer || !p.nosso.foto_url);
+  const jaTinham = pares.length - aVincular.length;
+
+  const resumo = {
+    analisados: nossos.size,
+    encontradas: aVincular.length,
+    jaTinham,
+    semImagem: semImagem.length,
+    naoEncontrados: naoEncontrados.length,
+    orfas: orfas.length,
+  };
+
+  if (seco) {
+    return {
+      ok: true, seco: true, resumo,
+      amostra: aVincular.slice(0, 200).map(p => ({ sku: p.sku, desc: p.desc, url: p.url })),
+      semImagem: semImagem.slice(0, 100),
+      naoEncontrados: naoEncontrados.slice(0, 100),
+    };
+  }
+
+  /* As órfãs são CONTADAS aqui e enfileiradas só pela importação. Vincular
+     é uma passada de leitura que grava um endereço por peça; encher a fila
+     de revisão humana como efeito colateral disso seria escrita que ninguém
+     pediu, e a fila é uma lista de decisões pendentes, não de avistamentos. */
+  const stmts = aVincular.map(p => db.prepare(
+    /* COALESCE: quem já subiu foto pela tela é 'upload' e continua sendo.
+       A origem diz de onde veio a IMAGEM que vale, não a última que passou. */
+    `UPDATE produtos SET foto_url = ?, foto_url_em = datetime('now'),
+            foto_origem = COALESCE(foto_origem, 'nuvemshop')
+      WHERE sku = ?`
+  ).bind(p.url, p.sku));
+
+  for (let i = 0; i < stmts.length; i += 100) await db.batch(stmts.slice(i, i + 100));
+
+  return {
+    ok: true, resumo,
+    amostra: aVincular.slice(0, 200).map(p => ({ sku: p.sku, desc: p.desc, url: p.url })),
+    semImagem: semImagem.slice(0, 100),
+    naoEncontrados: naoEncontrados.slice(0, 100),
+  };
+}
+
+/* ==================================================================== */
+/* 1b. Carga completa: copiar os bytes para o R2                         */
+/* ==================================================================== */
+
+/** Lê a loja, casa imagem com produto pelo SKU e copia os bytes para o R2.
+ *
+ *  `seco: true` faz a mesma leitura e a mesma conta sem baixar nem gravar
+ *  nada — é o que a tela usa para dizer "vou trazer 412 fotos e 37 ficam
+ *  sem dono" antes de qualquer escrita.
+ *
+ *  Só preenche quem está sem foto. Foto que alguém já colocou aqui é a
+ *  mais nova das duas, e sobrescrever seria desfazer trabalho de gente.
+ */
+export async function importarFotosDaLoja(db, env, { seco = false, refazer = false } = {}) {
+  const semLoja = lojaDesconectada(env);
+  if (semLoja) return { ok: false, erro: semLoja };
+
+  let lido;
+  try {
+    lido = await lerFotosDaLoja(db, env);
+  } catch (e) {
+    /* Coluna que falta é migração pendente, não loja fora do ar. Sobe para
+       o tratador do index.js, que sabe dizer qual arquivo rodar — engolir
+       aqui transformaria "falta a migração" em "a loja não respondeu". */
+    if (/no such (table|column)/i.test(String((e && e.message) || e))) throw e;
+    return { ok: false, erro: e.message || 'A loja não respondeu.' };
+  }
+  const { pares, orfas } = lido;
+
+  const casadas = [], jaTinham = [];
+  for (const p of pares) {
+    if (p.nosso.foto_original_key && !refazer) { jaTinham.push({ sku: p.sku, desc: p.desc }); continue; }
+    casadas.push({ sku: p.sku, desc: p.desc, url: p.url, temTratada: !!p.nosso.foto_tratada_key });
   }
 
   if (seco) {
@@ -127,19 +287,16 @@ export async function importarFotosDaLoja(db, env, { seco = false, refazer = fal
     const gravado = await salvarFoto(env, c.sku, 'original', baixada.bytes, baixada.tipo);
     if (gravado.erro) { falhasDownload.push({ sku: c.sku, url: c.url, motivo: gravado.erro }); continue; }
     stmts.push(db.prepare(
+      /* A URL vai junto: quando os bytes já são nossos ela deixa de ser o
+         que a tela mostra e passa a ser a procedência da imagem. */
       `UPDATE produtos SET foto_original_key = ?, foto_original_tipo = ?, foto_original_tam = ?,
-              foto_origem = 'nuvemshop',
+              foto_origem = 'nuvemshop', foto_url = ?, foto_url_em = datetime('now'),
               foto_status = CASE WHEN foto_tratada_key IS NOT NULL THEN ? ELSE ? END,
               foto_erro = NULL, foto_em = datetime('now')
         WHERE sku = ?`
-    ).bind(gravado.key, gravado.tipo, gravado.tamanho, FOTO.PRONTA, FOTO.ORIGINAL, c.sku));
+    ).bind(gravado.key, gravado.tipo, gravado.tamanho, c.url, FOTO.PRONTA, FOTO.ORIGINAL, c.sku));
   }
-  for (const o of orfas) {
-    stmts.push(db.prepare(
-      `INSERT INTO fotos_orfas (url, sku_loja, nome_loja, produto_id) VALUES (?, ?, ?, ?)
-       ON CONFLICT(url) DO UPDATE SET sku_loja=excluded.sku_loja, nome_loja=excluded.nome_loja`
-    ).bind(o.url, o.skuLoja, o.nomeLoja, o.produtoId));
-  }
+  stmts.push(...stmtsOrfas(db, orfas));
   for (let i = 0; i < stmts.length; i += 100) await db.batch(stmts.slice(i, i + 100));
 
   return {

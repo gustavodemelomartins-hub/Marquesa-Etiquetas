@@ -18,3 +18,8 @@ NUVEMSHOP_TOKEN=token-de-mentira
 NUVEMSHOP_BASE=http://localhost:8799
 NUVEMSHOP_CLIENT_ID=1234
 NUVEMSHOP_CLIENT_SECRET=segredo
+# Faltava aqui, e a ausência não se parece com o que é: sem esta linha o
+# callback do OAuth chama a Nuvemshop DE VERDADE no meio do sync-test, e as
+# asserções da troca do código por token falham como se o código estivesse
+# errado. O src/README.md já a exigia.
+NUVEMSHOP_AUTH_BASE=http://localhost:8799

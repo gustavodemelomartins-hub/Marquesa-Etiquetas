@@ -841,6 +841,22 @@ tr.filtros input:focus,tr.filtros select:focus{outline:none;border-color:var(--g
 .fotochip.fundo_pendente{background:var(--rose-tint);color:var(--bordo)}
 .fotochip.fundo_gerado{background:var(--ok-tint);color:var(--ok)}
 .fotochip.erro{background:var(--danger-tint);color:var(--danger)}
+.fotochip.da_loja{background:var(--bordo-tint);color:var(--bordo)}
+/* Miniatura da peça. Quadrada e do mesmo tamanho em toda linha: foto com
+   proporção livre faz a altura da linha dançar, e uma tabela de mil linhas
+   com alturas diferentes é impossível de percorrer com o olho. */
+.fotocel{position:relative;display:inline-flex;align-items:center;cursor:pointer}
+.fotomini{
+  width:42px;height:42px;object-fit:cover;display:block;
+  border-radius:8px;border:1px solid var(--line);background:var(--ivory);
+}
+.fotocel:hover .fotomini{border-color:var(--rose)}
+/* O ponto diz que a imagem é emprestada da loja — os bytes ainda não são
+   nossos. Sem texto: numa coluna de 60px, texto é ruído. */
+.fotocel .daloja{
+  position:absolute;right:-3px;bottom:-3px;width:9px;height:9px;border-radius:50%;
+  background:var(--bordo);border:1.5px solid var(--paper);
+}
 .fotoprev{
   width:100%;max-width:240px;border-radius:10px;border:1px solid var(--line);
   background:var(--ivory);display:block;margin-bottom:8px;
@@ -3077,17 +3093,58 @@ async function setQtdProduto(sku,val){
 
 /* Os cinco estados da foto, ditos como se diz para gente. */
 const FOTO_TXT={
-  sem_foto:'sem foto', original:'falta fundo branco', fundo_pendente:'fundo na fila',
-  fundo_gerado:'fundo pronto', erro:'erro na foto',
+  sem_foto:'sem foto', da_loja:'foto da loja', original:'falta fundo branco',
+  fundo_pendente:'fundo na fila', fundo_gerado:'fundo pronto', erro:'erro na foto',
 };
 /* O servidor já manda fotoStatus pronto (calculado a partir da chave que
    existe no R2, não de um campo local) — este helper só cobre o caso raro
    de um state antigo em cache sem o campo. */
-function fotoDe(p){ return p.fotoStatus || 'sem_foto'; }
+function fotoDe(p){
+  /* "da_loja" não existe no banco, e não deve existir: lá o estado responde
+     "temos os bytes?", e a resposta é não. Aqui a pergunta é outra — "tem o
+     que mostrar?" — e mostrar "sem foto" ao lado de uma miniatura seria o
+     painel se contradizendo na mesma linha. */
+  const s=p.fotoStatus||'sem_foto';
+  return (s==='sem_foto' && p.fotoUrl) ? 'da_loja' : s;
+}
+
+/* A imagem que a tela usa, em ordem de posse: a tratada é a que vai para a
+   loja, a original é nossa, e a da loja é emprestada. */
+function fotoUrlDe(p){ return p.fotoTratadaUrl || p.fotoOriginalUrl || p.fotoUrl || ''; }
+
+/** Miniatura da CDN da Nuvemshop: o mesmo endereço com o tamanho antes da
+ *  extensão. Baixar 800 imagens de 1500px para mostrá-las com 42px é o que
+ *  faz uma tabela de mil linhas travar no 4G.
+ *
+ *  Se o tamanho pedido não existir na CDN, o onerror volta para o endereço
+ *  cru — por isso o que fica GRAVADO é sempre a URL original. */
+function fotoMiniUrl(url){
+  if(!/tiendanube\.com|nuvemshop\.com/.test(url)) return url;
+  return url.replace(/(\.[a-z]{3,4})(\?.*)?$/i, '-240-0$1$2');
+}
+/* Primeiro erro: tenta o endereço cru. Segundo: desiste e mostra o selo,
+   em vez de deixar o ícone de imagem quebrada na tabela. */
+function fotoFalhou(img){
+  const cheia=img.getAttribute('data-cheia');
+  if(cheia && img.src!==cheia){ img.src=cheia; return; }
+  img.closest('.fotocel').innerHTML=`<span class="fotochip sem_foto">sem foto</span>`;
+}
+/** A coluna Foto do estoque: miniatura quando existe imagem, selo quando
+ *  não existe. O selo continua sendo o único conteúdo possível para quem
+ *  não tem foto nenhuma — e é ele que diz o que falta fazer. */
 function fotoChip(p){
   const s=fotoDe(p);
-  return `<span class="fotochip ${s}" onclick="abrirFoto('${esc(p.sku)}')"
-    title="Ver e tratar a foto desta peça">${esc(FOTO_TXT[s]||s)}</span>`;
+  const url=fotoUrlDe(p);
+  if(!url){
+    return `<span class="fotocel"><span class="fotochip ${s}" onclick="abrirFoto('${esc(p.sku)}')"
+      title="Ver e tratar a foto desta peça">${esc(FOTO_TXT[s]||s)}</span></span>`;
+  }
+  return `<span class="fotocel" onclick="abrirFoto('${esc(p.sku)}')" title="Ver a foto de ${esc(p.desc)}">
+    <img class="fotomini" loading="lazy" decoding="async"
+      src="${esc(fotoMiniUrl(url))}" data-cheia="${esc(url)}"
+      alt="Foto de ${esc(p.desc)}" onerror="fotoFalhou(this)">
+    ${s==='da_loja'?'<i class="daloja" title="A imagem é da loja; os bytes ainda não são nossos"></i>':''}
+  </span>`;
 }
 
 /** As linhas da planilha, já com os números que ela mostra em coluna.
@@ -3134,7 +3191,7 @@ function renderEstoque(){
   const faltaSubir=todas.filter(l=>!l.p.urlLoja&&l.casa>0);
 
   const colunas=[
-    {k:'foto', rot:'Foto', tipo:'texto', larg:'106px', filtro:'select', busca:false,
+    {k:'foto', rot:'Foto', tipo:'texto', larg:'64px', filtro:'select', busca:false,
      cel:l=>fotoChip(l.p)},
     {k:'sku', rot:'Código', tipo:'sku', larg:'86px', filtro:'texto'},
     {k:'desc', rot:'Produto', tipo:'texto', filtro:'texto', cls:'desc',
@@ -3234,7 +3291,13 @@ function renderFoto(){
         <div class="k-lbl" style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--bordo-soft);font-weight:700;margin-bottom:6px">Foto original</div>
         ${p.fotoOriginalUrl
           ?`<img class="fotoprev" src="${esc(p.fotoOriginalUrl)}" alt="Foto original de ${esc(p.desc)}">`
-          :`<div class="fotoprev" style="height:150px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">sem foto</div>`}
+          :(p.fotoUrl
+            /* A imagem da loja aparece ampliada aqui, mas em caixa própria:
+               ela não é nossa, e o botão de baixo continua sendo o jeito de
+               a peça passar a ter foto de verdade. */
+            ?`<img class="fotoprev" src="${esc(p.fotoUrl)}" alt="Foto de ${esc(p.desc)} na loja">
+              <div class="help" style="margin-top:6px">Esta imagem vem da Nuvemshop. Enquanto os bytes não forem copiados para cá, ela depende da loja continuar publicando.</div>`
+            :`<div class="fotoprev" style="height:150px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">sem foto</div>`)}
         <label class="btn btn-ghost btn-sm btn-block" style="margin-top:8px">
           ${p.fotoOriginalUrl?'Trocar foto…':'Enviar foto…'}
           <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none"
@@ -4000,6 +4063,42 @@ async function carregarPendencias(){
   if(tabAtual==='pendencias') renderPendencias();
 }
 
+/** Vincular: uma leitura da loja, e a miniatura aparece na tabela.
+ *
+ *  Mostra o ensaio antes de gravar, com as cinco contas separadas — quantos
+ *  códigos foram olhados, quantas fotos casaram, quantos códigos a loja
+ *  conhece mas não ilustra, quantos ela nem conhece, e quantas imagens dela
+ *  não têm dono aqui. Um número só ("412 fotos") esconderia justamente o que
+ *  precisa de decisão. */
+async function vincularFotosDaLoja(seco){
+  toast(seco?'Conferindo as fotos da loja…':'Vinculando as fotos…');
+  try{
+    const r=await api('POST','/api/fotos/vincular-da-loja',{seco:!!seco});
+    if(!r.ok){ toast('Não deu certo: '+r.erro); return; }
+    const q=r.resumo;
+    if(seco){
+      const linhas=[
+        `${q.analisados} ${plural(q.analisados,'código analisado','códigos analisados')} aqui.`,
+        ``,
+        `${q.encontradas} ${plural(q.encontradas,'foto encontrada','fotos encontradas')} na loja e ${plural(q.encontradas,'pronta','prontas')} para vincular.`,
+      ];
+      if(q.jaTinham) linhas.push(`${q.jaTinham} ${plural(q.jaTinham,'já tinha vínculo e não será tocada','já têm vínculo e não serão tocadas')}.`);
+      if(q.semImagem) linhas.push(`${q.semImagem} ${plural(q.semImagem,'código existe na loja mas ela não tem imagem dele','códigos existem na loja mas ela não tem imagem deles')}.`);
+      if(q.naoEncontrados) linhas.push(`${q.naoEncontrados} ${plural(q.naoEncontrados,'código daqui a loja não conhece','códigos daqui a loja não conhece')}.`);
+      if(q.orfas) linhas.push(`${q.orfas} ${plural(q.orfas,'imagem da loja fica','imagens da loja ficam')} sem dono — o código delas não bate com nenhum daqui.`);
+      linhas.push(``,`Isto só anota o endereço da imagem: nenhum arquivo é baixado e nenhuma foto sua é sobrescrita. Vincular agora?`);
+      if(!confirm(linhas.join('\n'))) return;
+      return vincularFotosDaLoja(false);
+    }
+    await sincronizar();
+    await carregarPendencias();
+    renderAll();
+    toast(`${q.encontradas} ${plural(q.encontradas,'foto vinculada','fotos vinculadas')}`
+      +(q.naoEncontrados?` · ${q.naoEncontrados} sem correspondência na loja`:'')
+      +(q.orfas?` · ${q.orfas} sem dono`:''));
+  }catch(e){ toast(e.message); }
+}
+
 async function importarFotosDaLoja(seco){
   toast(seco?'Conferindo as fotos da loja…':'Trazendo as fotos…');
   try{
@@ -4155,7 +4254,12 @@ function renderPendencias(){
         <div class="actbar">
           <div class="stat"><b>${fotosOrfas.length}</b> sem correspondência</div>
           <div class="spacer"></div>
-          <button class="btn btn-ghost btn-sm" onclick="importarFotosDaLoja(true)">↓ Trazer fotos da Nuvemshop</button>
+          <button class="btn btn-gold btn-sm" onclick="vincularFotosDaLoja(true)"
+                  title="Uma leitura da loja resolve o catálogo inteiro: a miniatura aparece na tabela de estoque na mesma hora">
+            Vincular fotos da loja</button>
+          <button class="btn btn-ghost btn-sm" onclick="importarFotosDaLoja(true)"
+                  title="Copia os bytes para o nosso bucket, uma peça por vez — a peça passa a ser dona da imagem">
+            ↓ Trazer fotos para cá</button>
         </div>
         ${fotosOrfas.length?`
         <div class="listabox">

@@ -174,6 +174,55 @@ eq('e nada mudou aqui também',
   JSON.stringify(antes.produtos.map(p => [p.sku, p.qtd])));
 
 /* ------------------------------------------------------------------ */
+console.log('\n=== 8b. vincular fotos da loja: só o endereço, sem baixar ===');
+/* A loja ganha um cenário com os quatro casos que importam ao mesmo tempo:
+   imagem principal, imagem própria da variação, código sem imagem nenhuma e
+   imagem de código que não existe aqui. Depois volta ao que era, porque a
+   seção 9 conta com o cenário original. */
+const produtosOriginais = loja.estado.produtos;
+loja.estado.produtos = [
+  produtoFalso(1, [{ id: 11, sku: 'C1', estoque: 5 }], { imagens: [`${loja.url}/imagens/c1.jpg`] }),
+  /* C2 tem duas imagens e a variação aponta para a SEGUNDA — é o caso que
+     separa "imagem da variação" de "imagem principal do produto". */
+  produtoFalso(2, [{ id: 22, sku: 'C2', estoque: 1, imagemIdx: 1 }],
+    { imagens: [`${loja.url}/imagens/c2-principal.jpg`, `${loja.url}/imagens/c2-variacao.jpg`] }),
+  produtoFalso(4, [{ id: 44, sku: 'NOVO', estoque: 2 }], { imagens: [] }),
+  produtoFalso(3, [{ id: 33, sku: 'SO-DA-LOJA', estoque: 7 }], { imagens: [`${loja.url}/imagens/x.jpg`] }),
+];
+
+r = await api('POST', '/api/fotos/vincular-da-loja', { seco: true });
+eq('o ensaio olha todos os códigos daqui', r.resumo.analisados, 4);
+eq('acha 2 fotos para vincular', r.resumo.encontradas, 2);
+eq('1 código a loja conhece e não ilustra', r.resumo.semImagem, 1);
+eq('1 código daqui a loja não conhece', r.resumo.naoEncontrados, 1);
+eq('1 imagem da loja não tem dono aqui', r.resumo.orfas, 1);
+eq('e o ensaio não gravou nada',
+  (await estado()).produtos.filter(p => p.fotoUrl).length, 0);
+
+r = await api('POST', '/api/fotos/vincular-da-loja', {});
+eq('a vinculação de verdade grava as 2', r.resumo.encontradas, 2);
+const st8b = await estado();
+const c1v = st8b.produtos.find(p => p.sku === 'C1');
+const c2v = st8b.produtos.find(p => p.sku === 'C2');
+eq('C1 aponta para a imagem principal', c1v.fotoUrl, `${loja.url}/imagens/c1.jpg`);
+eq('C2 prefere a imagem PRÓPRIA da variação', c2v.fotoUrl, `${loja.url}/imagens/c2-variacao.jpg`);
+eq('vincular não inventa que os bytes são nossos', c1v.fotoOriginalUrl, 'undefined');
+eq('e não mexe no estado da foto, que continua respondendo "temos os bytes?"',
+  c1v.fotoStatus, 'sem_foto');
+eq('o código que a loja não ilustra segue sem endereço',
+  st8b.produtos.find(p => p.sku === 'NOVO').fotoUrl, 'undefined');
+eq('o código que a loja não conhece também',
+  st8b.produtos.find(p => p.sku === 'C3').fotoUrl, 'undefined');
+eq('vincular não enfileira órfã: isso é decisão humana, e quem enfileira é a importação',
+  (await estado()).catalogo.fotosOrfas, 0);
+
+r = await api('POST', '/api/fotos/vincular-da-loja', {});
+eq('rodar de novo não revincula', r.resumo.encontradas, 0);
+eq('e as 2 aparecem como já vinculadas', r.resumo.jaTinham, 2);
+
+loja.estado.produtos = produtosOriginais;
+
+/* ------------------------------------------------------------------ */
 console.log('\n=== 9. fotos da loja ===');
 r = await api('POST', '/api/fotos/importar-da-loja', { seco: true });
 eq('a prévia acha 2 fotos com dono', r.resumo.casadas, 2);
@@ -193,6 +242,9 @@ const bytesFoto = await fetch(API + c1f.fotoOriginalUrl).then(r => r.arrayBuffer
 eq('os bytes da foto batem com o que a loja falsa serviu',
   Buffer.from(bytesFoto).toString('base64'),
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
+eq('e a importação também anota de onde a imagem veio',
+  c1f.fotoUrl, `${loja.url}/imagens/c1.jpg`);
+
 r = await api('GET', '/api/fotos/orfas');
 eq('a foto sem dono foi para a fila, sem chute', r.fotos.length, 1);
 eq('guardando o código que a loja usava', r.fotos[0].skuLoja, 'SO-DA-LOJA');

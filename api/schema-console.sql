@@ -2,7 +2,11 @@ CREATE TABLE IF NOT EXISTS categorias ( nome TEXT PRIMARY KEY, ordem INTEGER NOT
 
 INSERT OR IGNORE INTO categorias (nome, ordem, cor) VALUES ('Colar', 1, '#C2426B'), ('Brinco', 2, '#C4802A'), ('Pulseira', 3, '#0D9382'), ('Berloque', 4, '#6A54B5'), ('Anel', 5, '#D8646B'), ('Argola', 6, '#3D77C4'), ('Pingente', 7, '#5C8A34'), ('Conjunto', 8, '#A15BA0'), ('Outros', 9, '#9E8A90');
 
-CREATE TABLE IF NOT EXISTS produtos ( sku TEXT PRIMARY KEY, desc TEXT NOT NULL, cat TEXT NOT NULL REFERENCES categorias(nome), preco REAL, qtd INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'ativo', url_loja TEXT, estoque_loja INTEGER, visivel INTEGER, nome_loja TEXT, atualizado_em TEXT NOT NULL DEFAULT (datetime('now')) );
+CREATE TABLE IF NOT EXISTS produtos ( sku TEXT PRIMARY KEY, desc TEXT NOT NULL, cat TEXT NOT NULL REFERENCES categorias(nome), preco REAL, qtd INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'ativo', url_loja TEXT, estoque_loja INTEGER, visivel INTEGER, nome_loja TEXT, foto_original_key TEXT, foto_original_tipo TEXT, foto_original_tam INTEGER, foto_tratada_key TEXT, foto_tratada_tipo TEXT, foto_tratada_tam INTEGER, foto_status TEXT, foto_erro TEXT, foto_origem TEXT, foto_em TEXT, foto_url TEXT, foto_url_em TEXT, atualizado_em TEXT NOT NULL DEFAULT (datetime('now')) );
+
+CREATE TABLE IF NOT EXISTS produtos_pendentes ( sku TEXT PRIMARY KEY, desc TEXT, cat TEXT, preco REAL, qtd INTEGER NOT NULL DEFAULT 0, origem TEXT, motivo TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')) );
+
+CREATE TABLE IF NOT EXISTS fotos_orfas ( id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT NOT NULL, sku_loja TEXT, nome_loja TEXT, produto_id TEXT, visto_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
 CREATE TABLE IF NOT EXISTS movimentos ( id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT, tipo TEXT NOT NULL, qtd INTEGER NOT NULL, origem TEXT, maleta_id INTEGER, revendedora_id INTEGER, venda_id INTEGER, obs TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')), reconciliacao_item_id INTEGER REFERENCES reconciliacao_itens(id) );
 
@@ -75,3 +79,7 @@ CREATE INDEX IF NOT EXISTS idx_rec_itens_status ON reconciliacao_itens(sessao_id
 CREATE INDEX IF NOT EXISTS idx_rec_sessoes_status ON reconciliacao_sessoes(status);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_rec_itens_unico ON reconciliacao_itens(sessao_id, sku, variacao_chave, tipo);
+
+CREATE INDEX IF NOT EXISTS idx_fotos_orfas_sku ON fotos_orfas(sku_loja);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fotos_orfas_url ON fotos_orfas(url);

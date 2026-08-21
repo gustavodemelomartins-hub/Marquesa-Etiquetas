@@ -64,6 +64,12 @@ CREATE TABLE IF NOT EXISTS produtos (
   foto_erro           TEXT,
   foto_origem         TEXT,                      -- nuvemshop | upload
   foto_em             TEXT,
+  -- Endereço da imagem NA LOJA, quando ela existe lá e os bytes ainda não
+  -- foram copiados para cá. É referência, não posse: serve para a miniatura
+  -- aparecer hoje, e para saber de onde copiar depois. Quando a chave do R2
+  -- existir, ela é que vale — ver migracao-foto-url.sql.
+  foto_url            TEXT,
+  foto_url_em         TEXT,
   atualizado_em  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

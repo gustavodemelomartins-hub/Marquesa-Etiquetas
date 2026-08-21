@@ -1,0 +1,32 @@
+-- Foto da loja por referência: guardar ONDE a imagem está, antes de trazer
+-- os bytes.
+--
+-- O sistema já sabia copiar a foto da Nuvemshop para o R2 (ver
+-- migracao-catalogo.sql e src/fotos.js). Isso continua sendo o destino: a
+-- peça precisa ser dona da própria imagem, senão a loja reorganiza o
+-- catálogo dela e uma foto nossa some.
+--
+-- Só que copiar 800 imagens exige uma requisição de download por peça, e
+-- até isso acontecer a tabela de estoque mostra "sem foto" para peças que
+-- TÊM foto — na loja. Estas duas colunas fecham essa lacuna: uma passada de
+-- leitura casa código com imagem e anota o endereço. A miniatura aparece na
+-- mesma hora, servida pela CDN da própria Nuvemshop.
+--
+-- Elas NÃO substituem as colunas do R2, e nem se confundem com elas:
+--
+--   foto_original_key / foto_tratada_key  → os bytes são NOSSOS, estão no R2
+--   foto_url                              → os bytes são DA LOJA, sabemos o endereço
+--
+-- Quando os bytes chegarem ao R2, a chave passa a valer e a URL vira só
+-- histórico de onde a imagem veio — nenhuma linha precisa ser reescrita, e
+-- é por isso que o estado da foto (foto_status) NÃO é tocado aqui: ele
+-- continua respondendo "temos os bytes?", que é outra pergunta.
+--
+-- Aditiva e reversível: duas colunas novas, nulas em toda linha existente.
+-- Nenhum índice, nenhuma chave estrangeira, nenhum dado reescrito.
+--
+-- `ALTER TABLE ADD COLUMN` não é idempotente: se der
+-- "duplicate column name", esta migration JÁ FOI APLICADA — pode ignorar.
+
+ALTER TABLE produtos ADD COLUMN foto_url    TEXT;
+ALTER TABLE produtos ADD COLUMN foto_url_em TEXT;

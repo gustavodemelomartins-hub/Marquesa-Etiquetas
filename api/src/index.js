@@ -12,7 +12,7 @@ import {
   enfileirarPendentes, listarPendentes, limparPendentes,
 } from './catalogo.js';
 import {
-  importarFotosDaLoja, listarFotosOrfas, adotarFotoOrfa, salvarFotoUpload,
+  importarFotosDaLoja, vincularFotosDaLoja, listarFotosOrfas, adotarFotoOrfa, salvarFotoUpload,
   lerFotoParaServir, removerFotos, gerarFundoBranco, pendenciasDePublicacao,
 } from './fotos.js';
 import { conferirAssinaturaFoto } from './assinatura.js';
@@ -151,6 +151,13 @@ async function rotear(request, env) {
       // ------------------------------------------------------------- fotos
       // A leitura (GET original/tratada) fica lá em cima, fora do Bearer —
       // ver o comentário perto do callback da Nuvemshop.
+      // Vincular: anota o endereço da imagem na loja, sem baixar os bytes.
+      // Uma leitura resolve o catálogo inteiro; importar-da-loja é o passo
+      // seguinte, que traz os bytes para o R2 peça por peça.
+      if (path === '/api/fotos/vincular-da-loja' && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        return json(await vincularFotosDaLoja(db, env, { seco: !!b.seco, refazer: !!b.refazer }));
+      }
       if (path === '/api/fotos/importar-da-loja' && met === 'POST') {
         const b = await request.json().catch(() => ({}));
         return json(await importarFotosDaLoja(db, env, { seco: !!b.seco, refazer: !!b.refazer }));
@@ -385,11 +392,17 @@ async function rotear(request, env) {
          fazer. Aqui esse erro vira a instrução — o mesmo tratamento que os
          erros da Nuvemshop já recebem. */
       if (/no such (table|column)/i.test(msg) && /foto|produtos_pendentes|fotos_orfas/i.test(msg)) {
+        /* Duas migrações mexem em foto, e mandar rodar a errada faz a pessoa
+           perder a tarde: `foto_url` é a de vincular, o resto é a do
+           catálogo. O nome da coluna que faltou é quem decide. */
+        const url = /foto_url/i.test(msg);
         return json({
-          erro: 'Esta parte precisa da migração do catálogo, que este banco ainda não recebeu.',
-          detalhe: 'Rode api/migracao-catalogo.sql no D1 — o passo está no api/DEPLOY.md. '
-                 + 'O resto do painel funciona normalmente sem ela.',
-          migracao: 'catalogo',
+          erro: url
+            ? 'Vincular fotos da loja precisa de uma migração que este banco ainda não recebeu.'
+            : 'Esta parte precisa da migração do catálogo, que este banco ainda não recebeu.',
+          detalhe: `Rode api/${url ? 'migracao-foto-url.sql' : 'migracao-catalogo.sql'} no D1 — `
+                 + 'o passo está no api/DEPLOY.md. O resto do painel funciona normalmente sem ela.',
+          migracao: url ? 'foto-url' : 'catalogo',
         }, 503);
       }
       return json({ erro: 'Falha interna', detalhe: msg }, 500);
