@@ -119,6 +119,15 @@ CREATE TABLE IF NOT EXISTS movimentos (
   -- valendo sem exceção, e o saldo de uma variação é a mesma soma com um
   -- filtro a mais. Não existe segunda contabilidade para desencontrar.
   variacao       TEXT,
+  -- O id da variante na Nuvemshop correspondente, quando o movimento sabe
+  -- dele. NULL em tudo que é histórico e em todo código sem variação — e
+  -- isso é honesto: o movimento antigo realmente não sabe qual caixinha da
+  -- loja ele era. Quando não sabe, a sincronização NÃO adivinha: ela
+  -- bloqueia a escrita daquele código e manda para revisão humana.
+  --
+  -- Quem fecha a invariante continua sendo `qtd`; esta coluna não entra em
+  -- conta nenhuma, só no casamento com a loja.
+  variante_id    TEXT,
   tipo           TEXT NOT NULL,   -- entrada|ajuste|consignacao|devolucao|venda|perda|quebra|dano|furto|brinde|troca|nota_credito|venda_conjunto|cancelamento
   qtd            INTEGER NOT NULL,
   origem         TEXT,            -- importacao | manual | maleta | acerto | venda | inventario | cancelamento | kit
@@ -220,9 +229,26 @@ CREATE TABLE IF NOT EXISTS produto_variacoes (
   produto_id   TEXT,
   estoque_loja INTEGER,            -- quanto a loja mostra nesta variação
   ordem        INTEGER NOT NULL DEFAULT 0,
+  -- Os atributos já resolvidos em pares, em JSON, porque quantos e quais
+  -- existem muda de produto para produto e presumir "cor e tamanho"
+  -- quebraria no primeiro anel vendido por aro:
+  --   [{"atributo":"Tamanho","valor":"16"},{"atributo":"Banho","valor":"Ródio"}]
+  -- A coluna `atributo` acima continua existindo com os nomes concatenados,
+  -- que é o que a tela legada lê.
+  valores_json TEXT,
+  variante_sku TEXT,               -- o SKU que a loja carrega NA variante
+  preco        REAL,
+  promocional  REAL,
+  imagem_url   TEXT,               -- imagem própria da variante, quando tem
   PRIMARY KEY (sku, nome)
 );
 CREATE INDEX IF NOT EXISTS idx_variacoes_sku ON produto_variacoes(sku);
+-- O casamento com a loja é por `variante_id`, não por nome: nome é dado
+-- dela e pode mudar sozinho. Este índice faz o BANCO garantir que duas
+-- linhas nunca apontem para a mesma caixinha. NULL não colide com NULL num
+-- índice único do SQLite, então linhas sem id convivem em paz.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_variacoes_variante
+  ON produto_variacoes(variante_id);
 
 -- ------------------------------------------------------------------- kits
 -- Peça publicada como mais de um anúncio porque pode ser vendida inteira ou
@@ -404,6 +430,62 @@ CREATE TABLE IF NOT EXISTS reconciliacao_itens (
   dados_json  TEXT          -- varianteId/produtoId/locais, ou cat/preco/desc da planilha
 );
 
+-- ------------------------------------------------- espelho da loja inteira
+-- Retrato COMPLETO do catálogo real da Nuvemshop: uma linha por variante,
+-- inclusive as de produto que não existe aqui. É leitura pura — nada nesta
+-- tabela manda em estoque, preço ou cadastro. Ela existe para o sistema
+-- saber o que a loja tem ANTES de decidir qualquer coisa, e para a revisão
+-- humana poder olhar o que não casou.
+--
+-- Não confundir com `produto_variacoes`: lá mora a REPARTIÇÃO do nosso
+-- estoque entre as variações de um código nosso — decisão nossa. Aqui mora
+-- o que a loja declara — fato de lá. Misturar as duas foi o que fez a
+-- sincronização escrever número chutado na loja.
+--
+-- Sem FK para `produtos` de propósito: variante cujo SKU não é nosso
+-- precisa caber aqui, porque é justamente o caso que interessa ver.
+CREATE TABLE IF NOT EXISTS loja_variantes (
+  variante_id   TEXT PRIMARY KEY,   -- id da variante na Nuvemshop: a identidade estável
+  produto_id    TEXT NOT NULL,
+  sku           TEXT,               -- o SKU que a loja carrega NA VARIANTE (lá pode ser NULL)
+  sku_norm      TEXT,               -- o mesmo, na forma canônica daqui (maiúsculas, sem espaço)
+  -- Atributos DINÂMICOS, não lista fixa de "cor" e "tamanho". A Nuvemshop
+  -- entrega `product.attributes` e `variant.values` como duas listas
+  -- paralelas — attributes[i] é o nome, values[i] é o valor desta variante.
+  -- Guardamos o par já resolvido, porque quantos e quais existem muda de
+  -- produto para produto:
+  --   [{"atributo":"Tamanho","valor":"16"},{"atributo":"Banho","valor":"Ródio"}]
+  valores_json  TEXT NOT NULL DEFAULT '[]',
+  nome          TEXT,               -- os valores juntos ("16", "Dourado · 16"), para gente ler
+  estoque       INTEGER,
+  preco         REAL,
+  promocional   REAL,
+  imagem_url    TEXT,               -- imagem PRÓPRIA da variante, quando ela tem
+  locais_json   TEXT,               -- location_ids do multi-estoque, quando a loja usa
+  produto_nome  TEXT,
+  produto_url   TEXT,
+  produto_visivel INTEGER,
+  posicao       INTEGER NOT NULL DEFAULT 0,
+  lido_em       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ------------------------------------------------------ reserva de SKU
+-- "Gerar SKU" precisa devolver um código GARANTIDAMENTE disponível, e duas
+-- pessoas clicando ao mesmo tempo não podem receber o mesmo. Sem uma marca
+-- no banco isso é impossível: as duas chamadas leriam o mesmo "maior código
+-- atual" e devolveriam o mesmo número.
+--
+-- A reserva é a marca. Quem gera INSERE aqui, e a chave primária decide o
+-- empate — o perdedor tenta o próximo. A reserva morre sozinha (`expira_em`)
+-- para um código gerado e nunca usado não ficar preso, e some quando o
+-- produto é criado de verdade.
+CREATE TABLE IF NOT EXISTS sku_reservas (
+  sku        TEXT PRIMARY KEY,
+  criado_em  TEXT NOT NULL DEFAULT (datetime('now')),
+  expira_em  TEXT NOT NULL,
+  origem     TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_mov_sku        ON movimentos(sku);
 CREATE INDEX IF NOT EXISTS idx_mov_maleta     ON movimentos(maleta_id);
 CREATE INDEX IF NOT EXISTS idx_mov_criado     ON movimentos(criado_em);
@@ -430,3 +512,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_rec_itens_unico
   ON reconciliacao_itens(sessao_id, sku, variacao_chave, tipo);
 CREATE INDEX IF NOT EXISTS idx_fotos_orfas_sku ON fotos_orfas(sku_loja);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_fotos_orfas_url ON fotos_orfas(url);
+CREATE INDEX IF NOT EXISTS idx_mov_variante  ON movimentos(variante_id);
+CREATE INDEX IF NOT EXISTS idx_loja_var_sku     ON loja_variantes(sku_norm);
+CREATE INDEX IF NOT EXISTS idx_loja_var_produto ON loja_variantes(produto_id);
+CREATE INDEX IF NOT EXISTS idx_sku_reservas_exp ON sku_reservas(expira_em);
+-- SKU único DE FATO. `produtos.sku` já é PRIMARY KEY, então "BR1234" duas
+-- vezes nunca passou; o que passava era "br1234" ao lado de "BR1234", ou
+-- " BR1234" — o importador de planilha só fazia `.trim()`, enquanto o resto
+-- do sistema compara em maiúsculas e sem espaço. Duas linhas, dois estoques,
+-- e só uma casando com a loja. O índice abaixo faz o banco recusar isso.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_produtos_sku_norm
+  ON produtos(UPPER(REPLACE(REPLACE(REPLACE(sku, ' ', ''), CHAR(9), ''), CHAR(160), '')));

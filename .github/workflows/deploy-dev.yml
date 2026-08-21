@@ -51,6 +51,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # histórico inteiro: o teste de migration compara o schema atual
+          # com o de antes dela, e busca esse "antes" no próprio Git
+          fetch-depth: 0
 
       - name: Node 22 com cache do npm
         uses: actions/setup-node@v4
@@ -70,6 +74,17 @@ jobs:
       - name: Build do painel novo (inclui tsc --noEmit)
         working-directory: frontend
         run: npm run build
+
+      # O único teste de backend que cabe no CI: não precisa de Worker, de D1
+      # nem de rede — roda contra dois SQLite temporários com o `node:sqlite`
+      # do runtime. Ele prova que `api/schema.sql` e as migrations continuam
+      # dizendo a mesma coisa; divergirem em silêncio só quebraria no dia de
+      # criar o banco do zero, que é o pior dia para descobrir.
+      #
+      # `fetch-depth: 0` é necessário: o teste pega o schema ANTERIOR do
+      # histórico do Git, e um clone raso não o teria.
+      - name: Schema e migration continuam dizendo a mesma coisa
+        run: node src/migracao-variantes-test.mjs
 
       # dashboard.html é MONTADO a partir de src/dashboard.tpl.html. Rodar o
       # build aqui é o que garante que o painel publicado seja o do template

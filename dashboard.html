@@ -1065,6 +1065,22 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
 .form-cadastro{max-width:640px}
 .form-cadastro .two > .field{margin-bottom:15px}
 .form-cadastro > *:last-child{margin-bottom:0}
+/* Campo com botão colado do lado. `min-width:0` no input é o que impede o
+   flex de estourar a largura do formulário no celular — sem ele o input
+   herda a largura mínima do conteúdo e empurra o botão para fora da tela. */
+.campo-com-botao{display:flex;gap:8px;align-items:stretch}
+.campo-com-botao input{flex:1;min-width:0}
+.campo-com-botao .btn{white-space:nowrap;flex-shrink:0}
+/* O recado do SKU ocupa o lugar dele mesmo vazio, para o formulário não
+   pular quando a resposta chega. */
+.sku-recado{min-height:18px;margin-top:6px;font-size:12px;line-height:1.4}
+/* Cores da paleta do app (index.html), não valores soltos. Não há um
+   "--aviso" no tema: o âmbar é literal e só aqui, onde a mensagem não é
+   erro nem confirmação — é "existe na loja, e isso é esperado". */
+.sku-recado.livre{color:var(--ok)}
+.sku-recado.ocupado{color:var(--danger)}
+.sku-recado.aviso{color:#9A6B1F}
+.sku-recado.checando{color:var(--muted)}
 
 /* ---------- Leituras do rodapé ----------
    Três cartões próprios, não três colunas de um cartão só: cada um termina
@@ -2521,6 +2537,100 @@ function cadastrarManual(){
   analisarNovas();
 }
 
+/* ---------------------------------------------------------------- SKU
+   Três camadas checam o mesmo código, e não é redundância: aqui é
+   conveniência (a pessoa descobre antes de terminar de preencher), no
+   backend é recusa, e no banco é o índice único — o único que pega dois
+   cadastros no mesmo instante. Esta camada pode falhar sem estragar nada. */
+
+let skuChecagem = 0;      // descarta resposta de digitação já superada
+let skuTimer = null;
+
+/** Diz, enquanto digita, se o código está livre — e, quando não está, ONDE
+    ele já é usado. Bloquear sem dizer onde obriga a caçar o duplicado à mão
+    no meio de centenas de peças. */
+function checarSkuDigitado(){
+  clearTimeout(skuTimer);
+  const bruto=document.getElementById('cm-sku').value;
+  const alvo=document.getElementById('cm-sku-recado');
+  if(!alvo) return;
+  if(!bruto.trim()){ alvo.className='sku-recado'; alvo.textContent=''; return; }
+  alvo.className='sku-recado checando'; alvo.textContent='Conferindo…';
+  /* Espera a pessoa parar de digitar. Sem isso seria uma requisição por
+     tecla, e a resposta da penúltima chegaria depois da última. */
+  skuTimer=setTimeout(async()=>{
+    const meu=++skuChecagem;
+    try{
+      const r=await api('GET','/api/produtos/sku/checar?sku='+encodeURIComponent(bruto));
+      if(meu!==skuChecagem) return;              // já digitaram outra coisa
+      pintarRecadoSku(r);
+    }catch(e){
+      if(meu!==skuChecagem) return;
+      // Falha de rede não pode virar "código livre": some o recado e deixa
+      // o backend decidir, que é quem realmente decide.
+      alvo.className='sku-recado'; alvo.textContent='';
+    }
+  },350);
+}
+
+function pintarRecadoSku(r){
+  const alvo=document.getElementById('cm-sku-recado');
+  if(!alvo||!r) return;
+  if(!r.valido){
+    alvo.className='sku-recado ocupado';
+    alvo.textContent=r.motivo==='formato_invalido'
+      ? 'Código com caracteres que não valem. Use letras, números, ponto, hífen ou barra.'
+      : r.motivo==='longo_demais' ? `Código longo demais (o limite é ${r.limite}).`
+      : 'Código inválido.';
+    return;
+  }
+  const bloqueio=(r.bloqueiam||[])[0];
+  if(bloqueio){
+    alvo.className='sku-recado ocupado';
+    alvo.textContent=`"${r.sku}" já é a peça ${bloqueio.sku} — ${bloqueio.desc||'sem descrição'}`
+      +(bloqueio.status==='inativo'?' (inativa)':'')+'.';
+    return;
+  }
+  /* Estar na loja NÃO impede cadastrar — é o contrário: é assim que os dois
+     lados se casam. Vira aviso, com o produto nomeado. */
+  const aviso=(r.avisos||[]).find(u=>u.onde==='loja_variantes');
+  if(aviso){
+    alvo.className='sku-recado aviso';
+    alvo.textContent=`"${r.sku}" já existe na Nuvemshop`
+      +(aviso.produto?` como "${aviso.produto}"`:'')
+      +(aviso.variacao?` (${aviso.variacao})`:'')
+      +'. Cadastrar aqui vai casar os dois.';
+    return;
+  }
+  const naFila=(r.avisos||[]).find(u=>u.onde==='produtos_pendentes');
+  if(naFila){
+    alvo.className='sku-recado aviso';
+    alvo.textContent=`"${r.sku}" está na fila de peças novas, esperando o lote.`;
+    return;
+  }
+  alvo.className='sku-recado livre';
+  alvo.textContent=`"${r.sku}" está livre.`;
+}
+
+/** Pede um código ao backend. É ele que gera — e ele RESERVA antes de
+    responder, senão duas pessoas clicando ao mesmo tempo receberiam o
+    mesmo número, cada uma achando que era só dela. */
+async function gerarSku(botao){
+  const antes=botao.textContent;
+  botao.disabled=true; botao.textContent='Gerando…';
+  try{
+    const r=await api('POST','/api/produtos/sku/gerar',{origem:'cadastro-manual'});
+    if(!r||!r.ok){ toast((r&&r.erro)||'Não foi possível gerar um código'); return; }
+    document.getElementById('cm-sku').value=r.sku;
+    clearTimeout(skuTimer); skuChecagem++;
+    pintarRecadoSku({valido:true, sku:r.sku, bloqueiam:[], avisos:[]});
+  }catch(e){
+    toast(e.message||'Não foi possível gerar um código');
+  }finally{
+    botao.disabled=false; botao.textContent=antes;
+  }
+}
+
 function renderCadastro(){
   const v=document.getElementById('view-cadastro');
   const pendentes=(state.catalogo&&state.catalogo.pendentes)||0;
@@ -2556,7 +2666,12 @@ function renderCadastro(){
         <div class="form-cadastro">
           <div class="two">
             <div class="field"><label>Código (SKU) <span class="req">*</span></label>
-              <input id="cm-sku" placeholder="Ex.: BR1234" maxlength="40"></div>
+              <div class="campo-com-botao">
+                <input id="cm-sku" placeholder="Ex.: BR1234" maxlength="40"
+                       oninput="checarSkuDigitado()" autocomplete="off">
+                <button class="btn btn-ghost" type="button" onclick="gerarSku(this)">Gerar SKU</button>
+              </div>
+              <div id="cm-sku-recado" class="sku-recado"></div></div>
             <div class="field"><label>Categoria</label>
               <select id="cm-cat">${cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div>
           </div>

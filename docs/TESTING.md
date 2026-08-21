@@ -84,10 +84,55 @@ Chama `Nuvemshop` (`api/src/nuvemshop.js`) direto, sem subir
 7. vender um aro baixa o aro **e** o total;
 8. a razão fecha (§19);
 9. aro que sumiu da loja some daqui na rodada seguinte;
-10. cada variação volta para a caixinha dela na loja;
+10. saldo preso numa variante que a loja não tem mais TRAVA o empurrão —
+    e repartir de novo devolve o órfão e destrava;
 11. peça em maleta ainda segura o empurrão;
 12. soma da loja que não bate não é repartida;
 13. dá para desfazer uma repartição automática que não devia ter havido.
+
+### `src/variantes-fase1-test.mjs` — casamento por variant_id e SKU único
+**76 asserções · ~8 s · precisa da loja falsa**
+
+16 seções. O cenário tem quatro casos lado a lado de propósito: produto sem
+variação, produto de variante ÚNICA na loja, produto de três variantes que
+varia por "Banho" e "Pedra" (nem cor nem tamanho — o ponto é que não existe
+lista fixa nossa), e um código que só existe na loja.
+
+1. a leitura importa o catálogo INTEIRO, inclusive variante de produto que
+   não é nosso e produto de variante única;
+2. os atributos chegam com o nome que a loja usa, em pares atributo/valor;
+3. preço e imagem própria da variante vêm junto;
+4. produto sem variação e produto de variante única são empurrados normal;
+5. produto com várias variantes é repartido e cada uma vai para a sua;
+6. **o mesmo total repartido de outro jeito manda números diferentes** — o
+   teste que falharia se o sistema voltasse a escrever o total do código;
+7. **variante renomeada/trocada na loja TRAVA a escrita inteira**, e a loja
+   não é tocada — o bug que fechava a conta e zerava as caixinhas;
+8. o produto travado aparece em `GET /api/variacoes/revisao` com os dois
+   números;
+9. SKU repetido é recusado e a recusa diz ONDE; minúscula com espaço é o
+   mesmo código;
+10. estar na loja é aviso, não recusa;
+11. dez gerações simultâneas devolvem dez códigos diferentes;
+12. a razão fecha (§19).
+
+### `src/migracao-variantes-test.mjs` — a migration nas duas direções
+**35 asserções · ~2 s · não precisa do Worker nem da rede**
+
+Roda contra dois SQLite temporários com o `node:sqlite` do runtime. Pega o
+`schema.sql` anterior direto do Git (`git show HEAD:api/schema.sql`).
+
+1. o schema novo cria o banco do zero;
+2. o schema antigo + a migration chegam ao MESMO banco — mesmas tabelas,
+   mesmas colunas, mesmos índices. É o que pega schema e migration
+   divergindo em silêncio, que só quebraria no dia de criar o banco do zero;
+3. nada se perde na migration, e as colunas novas entram NULAS;
+4. a razão continua fechando depois dela;
+5. o índice único recusa `br1234` ao lado de `BR1234`;
+6. duas linhas não podem apontar para a mesma variante — mas duas SEM id
+   convivem;
+7. rodar duas vezes só reclama de `duplicate column name`, que significa
+   "já foi aplicada".
 
 ### `src/kits-test.mjs` — peça vendida inteira ou desmontada
 **20 asserções · ~1 s · não precisa da loja falsa**

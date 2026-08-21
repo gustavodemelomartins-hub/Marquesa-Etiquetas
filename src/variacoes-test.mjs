@@ -125,26 +125,59 @@ eq('o total do código não mudou por causa disso', anel4.qtd, 5);
    honesto: existe, e agora não se sabe de que aro é. */
 eq('a peça do aro que saiu volta a ficar sem aro', anel4.semVariacao, 1);
 
-console.log('\n=== 10. cada variação volta para a caixinha dela na loja ===');
-/* O ciclo fechado: vendeu o aro 18 aqui, a loja recebe menos NO ARO 18, e
-   os outros aros ficam intactos. É o oposto do bug antigo, que escrevia o
-   total do código inteiro numa variação só. */
+console.log('\n=== 10. saldo preso num aro que a loja não tem mais TRAVA o empurrão ===');
 /* Neste ponto sobraram dois aros na loja (o 20 saiu no bloco 9), o total do
-   código é 5 e uma peça está "sem aro" — a que era do aro removido. */
+   código é 5 e uma peça continua contada no aro 20, que não existe mais lá.
+
+   A regra nova: o casamento é por `variant_id`, e peça cujo variant_id não
+   existe na loja é peça que o sistema NÃO sabe endereçar. Antes isso passava
+   batido porque bastava a soma total fechar — e ela fechava, já que o balde
+   do aro morto continuava contando. O produto era empurrado com uma caixinha
+   a menos e ninguém via.
+
+   Agora ele para inteiro e vai para a revisão. Deixar a loja com o número
+   velho é ruim; escrever número que não se sabe conferir é pior, e foi isso
+   que já bagunçou o estoque de verdade uma vez. */
 const vAnel = loja.estado.produtos.find(p => p.id === 80).variants;
 const estoqueDe = nome => vAnel.find(v => v.values[0].pt === nome).inventory_levels[0].stock;
+const lojaAntes = vAnel.map(v => v.inventory_levels[0].stock).join(',');
 
 r = await api('POST', '/api/sync', { forcar: true });
 eq('a rodada terminou bem', r.ok, 'true');
+let travado = (r.semEmpurrar || []).find(x => x.sku === 'ANEL');
+eq('o anel ficou fora do empurrão', !!travado, 'true');
+eq('e o motivo é a variação não mapeada', travado && travado.motivo, 'variacao_nao_mapeada');
+eq('a loja não foi tocada', vAnel.map(v => v.inventory_levels[0].stock).join(','), lojaAntes);
+/* A chave do órfão é o variante_id (803), não o nome: a repartição
+   automática gravou o id junto, e é por ele que o casamento tenta — e
+   falha, porque esse id não existe mais na loja. */
+eq('o aro órfão aparece na revisão com o saldo dele',
+  !!(travado && travado.detalhe.variacoes.some(v => v.saldo === 1)), 'true');
+eq('e ele é apontado pelo id da variante que sumiu',
+  travado && travado.detalhe.variacoes[0].por, 'variante_id');
+
+console.log('\n=== 10b. repartir de novo devolve o órfão e destrava ===');
+/* O que tira o código da revisão. Sem isto o bloqueio seria um beco sem
+   saída: repartir só enxergava os aros que ainda existem, e a peça do aro
+   morto ficaria presa para sempre — "precisa de revisão" sem botão que
+   resolvesse. */
+r = await api('POST', '/api/produtos/ANEL/repartir', { distribuicao: { '16': 3, '18': 2 } });
+eq('a repartição foi aceita', r.ok, 'true');
+eq('e o aro que sumiu foi devolvido para "sem variação"',
+  (r.orfaosDevolvidos || []).map(o => `${o.nome}:${o.saldo}`).join(','), '20:1');
+
+r = await api('POST', '/api/sync', { forcar: true });
+eq('a rodada terminou bem', r.ok, 'true');
+travado = (r.semEmpurrar || []).find(x => x.sku === 'ANEL');
+eq('o anel voltou para o empurrão', !!travado, 'false');
 const anelF = await prod('ANEL');
 eq('o aro 16 na loja bate com o nosso', estoqueDe('16'), anelF.variacoes.find(v => v.nome === '16').qtd);
 eq('o aro 18 na loja bate com o nosso', estoqueDe('18'), anelF.variacoes.find(v => v.nome === '18').qtd);
 eq('nenhuma variação recebeu o total do código',
   vAnel.some(v => v.inventory_levels[0].stock === anelF.qtd), 'false');
-/* A peça sem aro não é anunciada: melhor deixar de vender uma do que
-   vender um aro que não existe. Ela volta ao ar assim que for atribuída. */
-eq('a peça sem aro não foi anunciada em aro nenhum',
-  vAnel.reduce((s, v) => s + v.inventory_levels[0].stock, 0), anelF.qtd - anelF.semVariacao);
+eq('nada ficou sem aro depois de repartir', anelF.semVariacao, 0);
+eq('e a soma das caixinhas é o total do código',
+  vAnel.reduce((s, v) => s + v.inventory_levels[0].stock, 0), anelF.qtd);
 
 console.log('\n=== 11. peça em maleta ainda segura o empurrão ===');
 /* "Em casa" por aro dependeria de a maleta saber qual aro saiu. Enquanto

@@ -15,6 +15,7 @@
  */
 import { Nuvemshop, mapearSkus } from './nuvemshop.js';
 import { movimentar, saldosDoSku } from './estoque.js';
+import { resolverVariantes, saldosDeVariacao } from './variantes.js';
 
 const agoraISO = () => new Date().toISOString();
 
@@ -231,8 +232,8 @@ async function semearVariacoes(db, mapa, relato, seco) {
       if (!qtd) continue;
       feito.push({ nome: v.nome, qtd });
       stmts.push(...movimentar(db, {
-        sku: p.sku, variacao: v.nome, tipo: 'ajuste', quantidade: qtd,
-        origem: 'variacao',
+        sku: p.sku, variacao: v.nome, varianteId: v.varianteId,
+        tipo: 'ajuste', quantidade: qtd, origem: 'variacao',
         obs: `Repartido pela Nuvemshop: "${v.nome}" com ${qtd}`,
       }));
       stmts.push(...movimentar(db, {
@@ -282,60 +283,52 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
   }
 
   /* Saldo de cada variação — a mesma soma que dá o total do código, só
-     agrupada mais fino. */
-  const saldoPorVariacao = new Map();
-  for (const r of (await db.prepare(
-    `SELECT sku, variacao, SUM(qtd) AS saldo FROM movimentos
-      WHERE variacao IS NOT NULL GROUP BY sku, variacao`).all()).results) {
-    if (!saldoPorVariacao.has(r.sku)) saldoPorVariacao.set(r.sku, new Map());
-    saldoPorVariacao.get(r.sku).set(r.variacao, r.saldo);
-  }
+     agrupada mais fino, e agora agrupada pelas DUAS chaves possíveis: o
+     nome (histórico) e o variante_id (o que passa a valer). */
+  const saldos = await saldosDeVariacao(db);
 
   const nossos = [...normais, ...kits];
   for (const p of nossos) {
     const naLoja = mapa.get(p.sku);
     if (!naLoja) continue;
 
-    /* Código vendido em mais de uma opção agora TEM saldo por variação, e
-       cada uma vai para a caixinha dela na loja. Duas situações ainda saem
-       de fora, e as duas por não ter como acertar:
+    /* Código vendido em mais de uma opção: quem decide se dá para empurrar
+       é `resolverVariantes`, e a resposta dele é sim ou não — nunca "mais
+       ou menos". O casamento é por `variante_id`, e o que não casar por id
+       NÃO é chutado por nome, por posição nem pela primeira variante: o
+       código inteiro sai da rodada e entra na revisão.
 
-       - o mesmo código em dois PRODUTOS diferentes: não é variação, é
-         cadastro duplicado, e não há como dividir entre dois anúncios;
-       - código com peça em maleta: "em casa" por variação exigiria a maleta
-         saber qual variação saiu, e ela ainda não sabe. Descontar do aro
-         errado tiraria do ar uma peça que está aqui. */
+       Isso não é excesso de zelo. Casar por nome já falhou em produção do
+       pior jeito que existe: a conta do total continuava fechando, então
+       nenhum freio disparava, cada variante recebia zero, e a peça saía do
+       ar sem ninguém ver. Ver docs/SYNC_ENGINE.md § variações. */
     if (naLoja.variantes.length > 1) {
-      const consignado = p.qtd - p.casa;
-      const porVariacao = saldoPorVariacao.get(p.sku) || new Map();
-      /* Repartição PELA METADE não serve para empurrar. Se sobram peças sem
-         variação, as caixinhas da loja somadas dariam menos do que existe
-         aqui — e a diferença sairia do ar como se a peça não existisse.
-         Enquanto não estiver tudo atribuído, é melhor não escrever nada. */
-      const atribuido = [...porVariacao.values()].reduce((s, n) => s + n, 0);
-      const impedimento = naLoja.produtos.size > 1 ? 'duplicado'
-        : consignado > 0 ? 'maleta'
-        : atribuido === p.qtd && p.qtd > 0 ? null
-        : 'sem_reparticao';
+      const r = resolverVariantes(p, naLoja, {
+        saldoPorNome: saldos.porNome(p.sku),
+        saldoPorVariante: saldos.porVariante(p.sku),
+        persistido: saldos.persistido(p.sku),
+      });
 
-      if (impedimento) {
+      if (!r.ok) {
         relato.semEmpurrar.push({
           sku: p.sku, desc: p.desc, casa: Math.max(0, p.casa),
-          naLoja: naLoja.estoque, motivo: impedimento,
+          naLoja: naLoja.estoque, motivo: r.motivo,
+          explicacao: r.explicacao, detalhe: r.detalhe,
           // o que varia neste produto, no vocabulário da própria loja
           atributos: naLoja.atributos || [],
-          variacoes: naLoja.variantes.map(v => ({ nome: v.nome, estoque: v.estoque })),
+          variacoes: naLoja.variantes.map(v => ({
+            nome: v.nome, estoque: v.estoque, varianteId: String(v.varianteId),
+          })),
         });
         continue;
       }
 
-      for (const v of naLoja.variantes) {
-        const certoV = Math.max(0, porVariacao.get(v.nome) || 0);
-        if (certoV === v.estoque) continue;
+      for (const a of r.alvos) {
+        if (a.para === a.de) continue;
         relato.mudancas.push({
-          sku: p.sku, desc: `${p.desc} · ${v.nome}`, de: v.estoque, para: certoV,
-          zera: certoV === 0 && v.estoque > 0, variacao: v.nome,
-          varianteId: v.varianteId, produtoId: v.produtoId, locais: v.locais,
+          sku: p.sku, desc: `${p.desc} · ${a.nome}`, de: a.de, para: a.para,
+          zera: a.para === 0 && a.de > 0, variacao: a.nome,
+          varianteId: a.varianteId, produtoId: a.produtoId, locais: a.locais,
         });
       }
       continue;
@@ -372,17 +365,48 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
 
   if (seco) return;
 
+  /* Última trava, à queima-roupa, no ponto exato onde a escrita sai.
+
+     As checagens lá em cima já deveriam ter impedido qualquer mudança sem
+     endereço. Esta existe porque "deveriam" não é garantia, e porque o
+     preço de um bug aqui não é uma tela errada: é estoque errado numa loja
+     que vende de verdade, e ninguém percebe até a peça sumir do ar.
+
+     Um código que a loja publica em mais de uma variante e que chegou até
+     aqui sem `varianteId` É o bug antigo, inteiro: o PATCH cairia na
+     PRIMEIRA variante levando o total do código. A mudança é DESCARTADA —
+     não adiada, não "aplicada com ressalva" — e o código vai para a
+     revisão. `relato.mudancas` é reescrito sem ela, para `aplicado: true`
+     continuar significando exatamente "isto está na loja". */
+  const enderecadas = [], recusadas = [];
+  for (const m of relato.mudancas) {
+    const alvo = m.varianteId
+      ? { produtoId: m.produtoId, varianteId: m.varianteId, locais: m.locais || [] }
+      : mapa.get(m.sku);
+    const publicado = mapa.get(m.sku);
+    const multi = !!publicado && publicado.variantes.length > 1;
+    if (!alvo || alvo.produtoId == null || (multi && !m.varianteId)) recusadas.push(m);
+    else enderecadas.push({ m, alvo });
+  }
+
+  for (const m of recusadas) {
+    relato.semEmpurrar.push({
+      sku: m.sku, desc: m.desc, casa: m.para, naLoja: m.de,
+      motivo: 'variacao_nao_mapeada',
+      explicacao: 'A mudança chegou à escrita sem dizer qual variante da loja ela endereça. Nada foi escrito.',
+      detalhe: { de: m.de, para: m.para },
+    });
+  }
+  relato.mudancas = enderecadas.map(e => e.m);
+  relato.recusadasNaEscrita = recusadas.length;
+  if (!relato.mudancas.length) return;
+
   /* A escrita vai em lotes: um PATCH resolve muitos produtos de uma vez, e
      com 2 requisições por segundo isso é a diferença entre segundos e
      minutos. Produtos com variação repetida são agrupados pelo id do
      produto, que é como a API espera receber. */
   const porProduto = new Map();
-  for (const m of relato.mudancas) {
-    /* Mudança de variação já sabe exatamente qual caixinha endereçar; a de
-       código simples usa a única que existe. */
-    const alvo = m.varianteId
-      ? { produtoId: m.produtoId, varianteId: m.varianteId, locais: m.locais || [] }
-      : mapa.get(m.sku);
+  for (const { m, alvo } of enderecadas) {
     if (!porProduto.has(alvo.produtoId)) porProduto.set(alvo.produtoId, { id: alvo.produtoId, variants: [] });
     const variante = { id: alvo.varianteId };
     if (alvo.locais.length) {
@@ -471,17 +495,30 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
     if (v.variantes.length > 1) {
       v.variantes.forEach((va, i) => {
         stmts.push(db.prepare(
-          `INSERT INTO produto_variacoes (sku, nome, atributo, variante_id, produto_id, estoque_loja, ordem)
-           VALUES (?,?,?,?,?,?,?)
+          `INSERT INTO produto_variacoes
+             (sku, nome, atributo, variante_id, produto_id, estoque_loja, ordem,
+              valores_json, variante_sku, preco, promocional, imagem_url)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
            ON CONFLICT(sku, nome) DO UPDATE SET
              atributo=excluded.atributo, variante_id=excluded.variante_id,
              produto_id=excluded.produto_id, estoque_loja=excluded.estoque_loja,
-             ordem=excluded.ordem`
+             ordem=excluded.ordem, valores_json=excluded.valores_json,
+             variante_sku=excluded.variante_sku, preco=excluded.preco,
+             promocional=excluded.promocional, imagem_url=excluded.imagem_url`
         ).bind(
           sku, va.nome || `opção ${i + 1}`, (v.atributos || []).join(' · ') || null,
           String(va.varianteId), String(va.produtoId),
           porVariante.has(String(va.varianteId)) ? porVariante.get(String(va.varianteId)) : va.estoque,
           i,
+          /* Os atributos em pares, dinâmicos. `atributo` acima continua com
+             os nomes concatenados porque é o que a tela legada lê; esta
+             coluna é a que sabe QUAL valor é de QUAL atributo, e é a única
+             que não quebra num produto que varia por "Banho" e "Pedra". */
+          JSON.stringify(va.valores || []),
+          va.sku || null,
+          va.preco == null ? null : va.preco,
+          va.promocional == null ? null : va.promocional,
+          va.imagemUrl || null,
         ));
       });
     }

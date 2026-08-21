@@ -16,6 +16,9 @@ import {
   lerFotoParaServir, removerFotos, gerarFundoBranco, pendenciasDePublicacao,
 } from './fotos.js';
 import { conferirAssinaturaFoto } from './assinatura.js';
+import { importarVariantesDaLoja, variacoesParaRevisao, variantesDoSku } from './variantes.js';
+import { checarSku, gerarSku } from './sku.js';
+import { Nuvemshop } from './nuvemshop.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
 import {
   abrirSessao, detalheSessao, aprovarItem, rejeitarItem, cancelarSessao, aplicarSessao,
@@ -200,6 +203,37 @@ async function rotear(request, env) {
       // desfazer a repartição que a sincronização fez sozinha
       if (path === '/api/variacoes/desfazer-semeadura' && met === 'POST') {
         return await desfazerSemeadura(db);
+      }
+
+      /* ------------------------------------------------- estrutura da loja
+         Leitura pura do catálogo REAL da Nuvemshop: uma linha por variante,
+         com product_id, variant_id, SKU, atributos e valores, estoque,
+         preço e imagem. Não escreve estoque, preço nem cadastro em lugar
+         nenhum — nem aqui, nem lá. Saber o que a loja tem e decidir o que
+         fazer com isso são atos separados de propósito. */
+      if (path === '/api/loja/variantes/importar' && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        return json(await importarVariantesDaLoja(db, new Nuvemshop(env), { seco: !!b.seco }));
+      }
+      if ((m = path.match(/^\/api\/loja\/variantes\/([^/]+)$/)) && met === 'GET') {
+        return json(await variantesDoSku(db, decodeURIComponent(m[1])));
+      }
+      // "Precisa de revisão — variações não mapeadas": o que a sincronização
+      // decidiu NÃO escrever, com os dois números lado a lado.
+      if (path === '/api/variacoes/revisao' && met === 'GET') {
+        return json(await variacoesParaRevisao(db));
+      }
+
+      /* ------------------------------------------------------------- SKU
+         Checar e gerar são duas rotas e não uma: checar é de leitura e pode
+         ser chamada a cada tecla; gerar RESERVA um código no banco e por
+         isso é POST, mesmo "só devolvendo um texto". */
+      if (path === '/api/produtos/sku/checar' && met === 'GET') {
+        return json(await checarSku(db, url.searchParams.get('sku')));
+      }
+      if (path === '/api/produtos/sku/gerar' && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        return json(await gerarSku(db, { origem: b.origem || 'cadastro' }));
       }
 
       // ---------------------------------------------------------------- kits
@@ -597,17 +631,22 @@ async function desfazerSemeadura(db) {
         AND NOT (origem = 'variacao' AND obs LIKE 'Repartido pela Nuvemshop%')`).all())
     .results.map(r => r.sku));
 
+  /* Agrupa pela MESMA chave que a razão usa hoje — nome E variante_id — e
+     reverte com ela inteira. Reverter só pelo nome deixaria a soma do
+     variante_id positiva e a do nome negativa: o total voltaria a zero, mas
+     o casamento com a loja veria dois baldes que não fecham e travaria o
+     código para sempre. */
   const saldos = (await db.prepare(
-    `SELECT sku, variacao, SUM(qtd) AS saldo FROM movimentos
-      WHERE variacao IS NOT NULL GROUP BY sku, variacao`).all()).results;
+    `SELECT sku, variacao, variante_id, SUM(qtd) AS saldo FROM movimentos
+      WHERE variacao IS NOT NULL GROUP BY sku, variacao, variante_id`).all()).results;
 
   const stmts = [], desfeitos = new Set(), preservados = [...tocadoAMao].filter(s => auto.has(s));
   for (const r of saldos) {
     if (!auto.has(r.sku) || tocadoAMao.has(r.sku) || !r.saldo) continue;
     desfeitos.add(r.sku);
     stmts.push(...movimentar(db, {
-      sku: r.sku, variacao: r.variacao, tipo: 'ajuste', quantidade: -r.saldo,
-      origem: 'variacao',
+      sku: r.sku, variacao: r.variacao, varianteId: r.variante_id,
+      tipo: 'ajuste', quantidade: -r.saldo, origem: 'variacao',
       obs: `Repartição automática desfeita: a loja não sabia dizer quanto tem de "${r.variacao}"`,
     }));
     stmts.push(...movimentar(db, {
@@ -637,10 +676,18 @@ async function repartirVariacoes(db, sku, { distribuicao, obs }) {
   if (!p) return json({ erro: `Código ${sku} não está no catálogo` }, 404);
 
   const vars = (await db.prepare(
-    `SELECT nome FROM produto_variacoes WHERE sku = ? ORDER BY ordem, nome`).bind(sku).all()).results;
+    `SELECT nome, variante_id FROM produto_variacoes WHERE sku = ? ORDER BY ordem, nome`).bind(sku).all()).results;
   if (!vars.length) return json({ erro: `${sku} não tem variações para repartir` }, 400);
 
   const nomes = new Set(vars.map(v => v.nome));
+  /* O id da variante viaja junto com o remanejo. Sem ele o movimento
+     saberia "16" e nada mais, e "16" é nome que a loja pode renomear — o
+     casamento na sincronização deixaria de encontrar a caixinha e o código
+     travaria. Com o id, renomear lá não quebra nada aqui. */
+  const idDe = new Map(vars.map(v => [v.nome, v.variante_id || null]));
+  const idsValidos = new Set(vars.filter(v => v.variante_id).map(v => String(v.variante_id)));
+  const nomeDoId = new Map(vars.filter(v => v.variante_id).map(v => [String(v.variante_id), v.nome]));
+
   const alvo = {};
   for (const [nome, q] of Object.entries(distribuicao || {})) {
     if (!nomes.has(nome)) return json({ erro: `${sku} não tem a opção "${nome}"` }, 400);
@@ -657,21 +704,46 @@ async function repartirVariacoes(db, sku, { distribuicao, obs }) {
     }, 409);
   }
 
-  const atual = new Map((await db.prepare(
-    `SELECT variacao, SUM(qtd) AS saldo FROM movimentos
-      WHERE sku = ? AND variacao IS NOT NULL GROUP BY variacao`).bind(sku).all())
-    .results.map(r => [r.variacao, r.saldo]));
+  /* Os saldos saem agrupados pelas DUAS chaves — nome e variante_id —
+     porque é assim que a razão os guarda e é assim que a sincronização os
+     lê. Agrupar só por nome faria a devolução de um saldo órfão sair por
+     uma chave e o saldo original ficar na outra: os dois se anulariam no
+     total e nenhum deles se anularia no casamento, deixando o código
+     travado para sempre. */
+  const baldes = (await db.prepare(
+    `SELECT variacao, variante_id, SUM(qtd) AS saldo FROM movimentos
+      WHERE sku = ? AND variacao IS NOT NULL GROUP BY variacao, variante_id`).bind(sku).all()).results;
+
+  /* Órfão é o balde que a sincronização também não conseguiria casar: id
+     que não existe mais na loja, ou — quando o movimento nem id tem — nome
+     que sumiu de lá. A regra é a mesma dos dois lados de propósito; se
+     divergirem, esta rota "resolveria" algo que a sincronização continuaria
+     recusando. */
+  const ehOrfao = (b) => (b.variante_id
+    ? !idsValidos.has(String(b.variante_id))
+    : !nomes.has(b.variacao));
+
+  const atual = new Map();
+  const orfaos = [];
+  for (const b of baldes) {
+    if (ehOrfao(b)) { if (b.saldo) orfaos.push(b); continue; }
+    // Quem tem id vale pelo nome ATUAL daquele id, não pelo nome que o
+    // movimento gravou: renomear na loja não pode desalinhar a conta.
+    const chave = b.variante_id ? nomeDoId.get(String(b.variante_id)) : b.variacao;
+    atual.set(chave, (atual.get(chave) || 0) + b.saldo);
+  }
 
   const stmts = [];
+  const razao = obs || `Repartição do estoque de ${sku}`;
   let movidas = 0;
   for (const nome of nomes) {
     const delta = (alvo[nome] ?? 0) - (atual.get(nome) || 0);
     if (!delta) continue;
     movidas += Math.abs(delta);
-    const razao = obs || `Repartição do estoque de ${sku}`;
     // entra (ou sai) do aro...
     stmts.push(...movimentar(db, {
-      sku, variacao: nome, tipo: 'ajuste', quantidade: delta,
+      sku, variacao: nome, varianteId: idDe.get(nome),
+      tipo: 'ajuste', quantidade: delta,
       origem: 'variacao', obs: `${razao}: "${nome}" passa a ter ${alvo[nome] ?? 0}`,
     }));
     // ...e sai (ou entra) de "sem aro", para o total não se mexer
@@ -681,9 +753,34 @@ async function repartirVariacoes(db, sku, { distribuicao, obs }) {
     }));
   }
 
+  /* Saldo preso numa variação que a loja NÃO tem mais volta para "sem
+     variação" na mesma operação, e volta pela MESMA chave em que estava.
+
+     Sem isto o produto viraria um beco sem saída: o aro sai do ar na loja,
+     a peça continua contada nele, o casamento por variante_id não acha
+     caixinha nenhuma para ela, a sincronização bloqueia o código — e não
+     haveria como desbloquear, porque repartir só enxergava as variações que
+     ainda existem. A pessoa veria "precisa de revisão" para sempre, sem
+     botão que resolvesse. */
+  for (const b of orfaos) {
+    stmts.push(...movimentar(db, {
+      sku, variacao: b.variacao, varianteId: b.variante_id,
+      tipo: 'ajuste', quantidade: -b.saldo, origem: 'variacao',
+      obs: `${razao}: "${b.variacao}" não existe mais na loja e volta a ficar sem variação`,
+    }));
+    stmts.push(...movimentar(db, {
+      sku, tipo: 'ajuste', quantidade: b.saldo, origem: 'variacao',
+      obs: `${razao}: contrapartida de "${b.variacao}", que saiu da loja`,
+    }));
+  }
+
   if (!stmts.length) return json({ ok: true, movidas: 0, jaEstava: true });
   await db.batch(stmts);
-  return json({ ok: true, movidas, saldos: await saldosDoSku(db, sku) });
+  return json({
+    ok: true, movidas,
+    orfaosDevolvidos: orfaos.map(b => ({ nome: b.variacao, varianteId: b.variante_id, saldo: b.saldo })),
+    saldos: await saldosDoSku(db, sku),
+  });
 }
 
 async function importarLoja(db, { snapshot, produtos }) {

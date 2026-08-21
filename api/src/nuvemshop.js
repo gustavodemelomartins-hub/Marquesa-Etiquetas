@@ -215,18 +215,7 @@ export function mapearSkus(produtos) {
       }
       const e = mapa.get(sku);
       e.produtos.add(p.id);
-      e.variantes.push({
-        produtoId: p.id,
-        varianteId: v.id,
-        // inventory_levels substituiu o campo `stock`, que segue existindo
-        // por compatibilidade; lemos os dois para não depender da migração
-        // da loja dela já ter acontecido.
-        estoque: somaEstoque(v),
-        locais: (v.inventory_levels || []).map(n => n.location_id),
-        // "16", "Dourado" — o que diferencia esta variação das irmãs. A loja
-        // já sabe disso, então ninguém precisa digitar de novo.
-        nome: (v.values || []).map(texto).filter(Boolean).join(' · '),
-      });
+      e.variantes.push(descreverVariante(p, v));
     }
   }
 
@@ -255,4 +244,82 @@ function somaEstoque(v) {
     return v.inventory_levels.reduce((s, n) => s + (n.stock == null ? 0 : +n.stock), 0);
   }
   return v.stock == null ? 0 : +v.stock;
+}
+
+/** Uma variante da loja, descrita do jeito que o resto do sistema precisa.
+ *
+ *  O ponto importante é `valores`: a Nuvemshop entrega os atributos em
+ *  DUAS listas paralelas — `product.attributes` tem os nomes ("Tamanho",
+ *  "Banho") e `variant.values` tem os valores DESTA variante, na mesma
+ *  ordem. Quantos e quais existem muda de produto para produto, e é por
+ *  isso que aqui não há nenhuma lista fixa de "cor e tamanho": o par é
+ *  montado pela posição, com o nome que o próprio produto declara, e o que
+ *  não tiver nome fica como "Opção 2" em vez de sumir.
+ *
+ *  `nome` continua sendo os valores concatenados — é o que a tela mostra e
+ *  o que `movimentos.variacao` guarda desde sempre. Ele NÃO é identidade:
+ *  identidade é `varianteId`. Nome muda quando a loja renomeia um valor;
+ *  id, não. */
+export function descreverVariante(p, v) {
+  const nomes = (p.attributes || []).map(texto);
+  const valores = (v.values || []).map((val, i) => ({
+    atributo: (nomes[i] || '').trim() || `Opção ${i + 1}`,
+    valor: texto(val).trim(),
+  })).filter(x => x.valor);
+
+  const imagens = (p.images || []).slice().sort((a, b) => (a.position || 0) - (b.position || 0));
+  const propria = v.image_id != null
+    ? imagens.find(im => String(im.id) === String(v.image_id))
+    : null;
+
+  return {
+    produtoId: p.id,
+    varianteId: v.id,
+    // O SKU que a loja carrega NA VARIANTE. Normalmente é o mesmo do
+    // código, mas a loja permite um por variante — e quando ela usa isso,
+    // ignorar seria perder a única pista de qual peça é qual.
+    sku: String(v.sku || '').trim(),
+    // inventory_levels substituiu o campo `stock`, que segue existindo
+    // por compatibilidade; lemos os dois para não depender da migração
+    // da loja dela já ter acontecido.
+    estoque: somaEstoque(v),
+    locais: (v.inventory_levels || []).map(n => n.location_id),
+    valores,
+    // "16", "Dourado · 16" — o que diferencia esta variação das irmãs. A
+    // loja já sabe disso, então ninguém precisa digitar de novo.
+    nome: valores.map(x => x.valor).join(' · '),
+    preco: v.price == null || v.price === '' ? null : +v.price,
+    promocional: v.promotional_price == null || v.promotional_price === '' ? null : +v.promotional_price,
+    // Imagem PRÓPRIA da variante quando ela aponta para uma; senão a
+    // primeira do produto, que é o que a loja mostra na prática.
+    imagemUrl: (propria && propria.src) || (imagens[0] && imagens[0].src) || null,
+    posicao: v.position == null ? 0 : +v.position,
+  };
+}
+
+/** O catálogo INTEIRO, achatado em uma linha por variante — inclusive as de
+ *  produto cujo SKU não é nosso, e inclusive produto de variante única.
+ *
+ *  `mapearSkus` responde outra pergunta ("o que a loja tem sob o código X?")
+ *  e por isso descarta variante sem SKU e agrupa por código. Esta responde
+ *  "o que existe lá, ponto" — que é o que a importação de estrutura precisa
+ *  para nunca mais ter de adivinhar de qual variante um número era. */
+export function catalogoDeVariantes(produtos) {
+  const linhas = [];
+  for (const p of produtos || []) {
+    const url = texto(p.handle);
+    const nome = texto(p.name);
+    const visivel = p.published == null ? null : !!p.published;
+    (p.variants || []).forEach((v, i) => {
+      const d = descreverVariante(p, v);
+      linhas.push({
+        ...d,
+        posicao: d.posicao || i,
+        produtoNome: nome || null,
+        produtoUrl: url || null,
+        produtoVisivel: visivel,
+      });
+    });
+  }
+  return linhas;
 }

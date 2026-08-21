@@ -97,11 +97,51 @@ Kits saem dessa fórmula: `qtd` de um kit é sempre 0, então ela diria
 "casa = 0" mesmo com peça de sobra. Cada kit é resolvido por `saldosDoSku`,
 que calcula o mínimo entre os componentes.
 
-Para código com mais de uma variação, o alvo é o saldo **por variação** —
-`SUM(qtd) GROUP BY sku, variacao`, a mesma soma do total, só mais fina.
+Para código com mais de uma variação, quem decide é
+`variantes.js › resolverVariantes`, e a resposta dele é **sim ou não, nunca
+"mais ou menos"**:
 
-Os três impedimentos (`duplicado`, `maleta`, `sem_reparticao`) estão em
-[NUVEMSHOP_INTEGRATION.md](NUVEMSHOP_INTEGRATION.md).
+> Se a loja tem mais de uma variante e o sistema não sabe exatamente quanto
+> pertence a cada `variant_id`, não se escreve nada. O código inteiro sai da
+> rodada e entra na revisão.
+
+Não se divide, não se duplica, não se joga tudo na primeira, não se casa por
+posição. O casamento é por `variante_id`, nesta ordem de confiança:
+
+1. `movimentos.variante_id` — o movimento diz de qual caixinha ele era. É
+   fato, não interpretação.
+2. `produto_variacoes.variante_id` para aquele nome — o id que a rodada
+   anterior persistiu ao ler a loja.
+3. nada. E "nada" vira bloqueio, não palpite.
+
+**Por que não por nome.** "16", "Dourado · Zircônia" é dado da loja: ela
+renomeia um valor, troca a ordem dos atributos, e o nome muda sozinho de
+madrugada. Casar por nome parecia funcionar e falhava do pior jeito possível
+— a soma do total continuava fechando, então **nenhum freio disparava**,
+cada variante recebia zero, e a peça saía do ar sem ninguém ver. É o cenário
+travado por `src/variantes-fase1-test.mjs` § 8.
+
+Os impedimentos, todos anunciados em `relato.semEmpurrar` com explicação em
+português e os dois números lado a lado:
+
+| Motivo | Quando |
+|---|---|
+| `duplicado` | o mesmo código em dois produtos da loja — não há como dividir entre dois anúncios |
+| `maleta` | há peça em maleta aberta, e a maleta ainda não sabe qual variação saiu |
+| `sem_reparticao` | sobram peças sem variação: as caixinhas somadas dariam menos do que existe aqui |
+| `variacao_nao_mapeada` | há saldo numa variação que não corresponde a variante nenhuma da loja |
+| `sem_variante_id` | a loja não informou o id de alguma variante |
+
+Uma última trava roda **no ponto exato onde a escrita sai**: mudança de um
+código com 2+ variantes que chegue lá sem `varianteId` é descartada e
+anunciada, e `relato.mudancas` é reescrito sem ela — para `aplicado: true`
+continuar significando exatamente "isto está na loja". As checagens de cima
+já deveriam ter impedido isso; ela existe porque "deveriam" não é garantia.
+
+O que destrava um código: `POST /api/produtos/:sku/repartir`. Ele devolve
+para "sem variação" o saldo preso numa variante que não existe mais, pela
+mesma chave em que ele estava. Sem isso o bloqueio seria um beco sem saída —
+"precisa de revisão" para sempre, sem botão que resolvesse.
 
 ## 4. Freios de segurança
 

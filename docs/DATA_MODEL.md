@@ -126,12 +126,53 @@ preenche é a sincronização, lendo o que a Nuvemshop declara — e ela é
 verdade sobre quais variações existem. Nenhum histórico se perde nisso: o
 saldo mora em `movimentos`.
 
-PK `(sku, nome)`. `variante_id` e `produto_id` são os ids da Nuvemshop,
-necessários para endereçar a caixinha certa no empurrão de estoque.
+PK `(sku, nome)`, mas a IDENTIDADE é `variante_id`, garantida pelo índice
+único `idx_variacoes_variante`. A diferença importa: `nome` ("16",
+"Dourado · Zircônia") é dado da loja e muda quando ela renomeia um valor ou
+troca a ordem dos atributos. O id não muda. Casar por nome fechava a conta
+do total e escrevia zero em cada caixinha — ver
+[SYNC_ENGINE.md](SYNC_ENGINE.md) § 3.
+
+`valores_json` guarda os atributos **já resolvidos em pares**, e é o que
+permite atributo dinâmico:
+
+```json
+[{"atributo":"Banho","valor":"Ródio"},{"atributo":"Pedra","valor":"Zircônia"}]
+```
+
+A coluna `atributo` continua existindo com os nomes concatenados porque é o
+que a tela legada lê. `preco`, `promocional`, `variante_sku` e `imagem_url`
+são o resto do que a loja declara por variante.
 
 Diferente do kit, um código com variações **mantém saldo próprio**:
 `produtos.qtd` continua sendo o total do código, e as variações repartem
 esse total.
+
+### `loja_variantes`
+O espelho COMPLETO do catálogo da Nuvemshop: uma linha por variante,
+inclusive as de produto que não existe aqui e inclusive produto de variante
+única. Preenchida por `POST /api/loja/variantes/importar`, que só faz GET na
+loja e só escreve nesta tabela.
+
+Não confundir com `produto_variacoes`. São camadas diferentes de propósito:
+
+| | `loja_variantes` | `produto_variacoes` |
+|---|---|---|
+| o que é | fato da loja | decisão nossa |
+| chave | `variante_id` | `(sku, nome)` + único em `variante_id` |
+| FK para `produtos` | **não tem** — precisa caber o que não é nosso | tem |
+| cobre | catálogo inteiro | só código nosso com 2+ variações |
+
+Sem FK de propósito: variante cujo SKU não é nosso é justamente o que a
+revisão humana precisa enxergar. A tabela não é esvaziada antes de recarregar
+— cada linha leva o carimbo `lido_em` da rodada e some no fim o que não foi
+visto, para o espelho nunca ficar vazio no meio do caminho.
+
+### `sku_reservas`
+Um código gerado por `POST /api/produtos/sku/gerar` fica reservado aqui até
+virar produto ou até `expira_em` passar. É a chave primária desta tabela que
+decide o empate quando duas pessoas geram ao mesmo tempo: sem ela as duas
+chamadas leriam o mesmo "maior código atual" e devolveriam o mesmo número.
 
 ### `kit_componentes`
 Peça publicada como mais de um anúncio: "Colar Casal de Filhos"
@@ -219,6 +260,8 @@ dois lados, não só um).
 | `idx_vendas_externo` (**UNIQUE**) | Idempotência dos pedidos do site. Remover isto quebra a integração |
 | `idx_mov_sku`, `idx_mov_criado` | Histórico de um SKU e leitura por período |
 | `idx_variacoes_sku`, `idx_kit_componentes` | Montagem do state |
+| `idx_variacoes_variante` (**UNIQUE**) | Uma variante da loja tem no máximo um dono aqui. É o que torna o casamento por `variant_id` garantia do banco, e não boa intenção do código |
+| `idx_produtos_sku_norm` (**UNIQUE**, expressão) | SKU único **de fato**: `produtos.sku` já era PK, mas `br1234` entrava ao lado de `BR1234`. A expressão do índice tem de ser repetida caractere por caractere na consulta (`sku.js › SQL_NORM`), senão o SQLite não o usa |
 | `idx_rec_sessoes_revisao_unica` (**UNIQUE**, parcial) | No máximo uma sessão `revisao` por origem |
 | `idx_rec_itens_unico` (**UNIQUE**) | Identidade de um item dentro da sessão — inclusive com `variacao IS NULL` |
 
@@ -233,6 +276,8 @@ categorias ──< produtos ──< movimentos
                   │  └──< kit_componentes (kit_sku e componente_sku)
 config                    (avulsa)
 loja_snapshot             (avulsa, 1 linha)
+loja_variantes            (avulsa — espelho da loja, SEM FK de propósito)
+sku_reservas              (avulsa)
 sync_execucoes            (avulsa)
 reconciliacao_sessoes ──< reconciliacao_itens     (schema pronto, não aplicado)
 ```

@@ -38,13 +38,19 @@ export function efeitoDe(tipo, quantidade) {
 
 /** Monta os statements de um movimento. Não executa — quem chama junta
  *  tudo num db.batch() para a gravação ser atômica. */
-export function movimentar(db, { sku, tipo, quantidade, origem, maletaId, revendedoraId, vendaId, obs, variacao, reconciliacaoItemId }) {
+export function movimentar(db, { sku, tipo, quantidade, origem, maletaId, revendedoraId, vendaId, obs, variacao, varianteId, reconciliacaoItemId }) {
   const efeito = efeitoDe(tipo, quantidade);
   const stmts = [
     db.prepare(
-      `INSERT INTO movimentos (sku, variacao, tipo, qtd, origem, maleta_id, revendedora_id, venda_id, obs, reconciliacao_item_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(sku, variacao || null, tipo, efeito, origem || null, maletaId || null, revendedoraId || null, vendaId || null, obs || null, reconciliacaoItemId || null),
+      /* `variante_id` anda ao lado de `variacao`, não no lugar dela: o NOME
+         continua sendo o que fecha a invariante e o que a tela mostra; o id
+         é o que casa com a caixinha da loja quando a loja renomeia o valor.
+         Quem não sabe o id grava NULL, e NULL aqui significa exatamente
+         "não sei" — a sincronização lê isso como motivo para NÃO escrever
+         naquele código, nunca como permissão para escolher uma variante. */
+      `INSERT INTO movimentos (sku, variacao, variante_id, tipo, qtd, origem, maleta_id, revendedora_id, venda_id, obs, reconciliacao_item_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(sku, variacao || null, varianteId == null || varianteId === '' ? null : String(varianteId), tipo, efeito, origem || null, maletaId || null, revendedoraId || null, vendaId || null, obs || null, reconciliacaoItemId || null),
   ];
   if (efeito !== 0) {
     stmts.push(db.prepare(

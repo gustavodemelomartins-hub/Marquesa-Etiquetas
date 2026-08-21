@@ -63,6 +63,15 @@ e, quando a própria API avisa que encheu (`429`), obedece o header
 | `produtos()` | `GET /products` | Todas as páginas |
 | `pedidos(desdeISO)` | `GET /orders?status=any&created_at_min=…` | Todas as páginas |
 
+Duas funções leem o mesmo `GET /products` e respondem perguntas diferentes:
+
+- `mapearSkus(produtos)` — "o que a loja tem sob o código X?". Agrupa por
+  SKU e descarta variante sem SKU. É o que a sincronização usa.
+- `catalogoDeVariantes(produtos)` — "o que existe lá, ponto". Uma linha por
+  variante, **inclusive** as sem SKU, as de produto que não é nosso e as de
+  produto de variante única. É o que
+  `POST /api/loja/variantes/importar` grava em `loja_variantes`.
+
 `listarTudo` pagina com `per_page=200` (o máximo) e para quando o lote vem
 menor que 200 — com teto de **40 páginas** (8.000 registros). Uma loja que
 passe disso teria o excedente silenciosamente ignorado.
@@ -130,6 +139,15 @@ Registrado em `relato.semEmpurrar` e exposto na aba Loja:
 | `duplicado` | Mesmo código em dois anúncios: não há como dividir |
 | `maleta` | Peça consignada: a maleta ainda não sabe qual variação saiu, e descontar da errada tiraria do ar peça que está aqui |
 | `sem_reparticao` | Repartição pela metade: as caixinhas somadas dariam menos que o total, e a diferença sairia do ar |
+| `variacao_nao_mapeada` | Há saldo numa variação que não corresponde a `variant_id` nenhum da loja — valor renomeado, variante trocada, aro que saiu do ar |
+| `sem_variante_id` | A loja não informou o id de alguma variante do produto |
+
+Todos vêm com `explicacao` em português e `detalhe` com os dois números lado
+a lado, e o conjunto sai também em `GET /api/variacoes/revisao`.
+
+**A regra que manda em tudo isto:** se a loja tem mais de uma variante e o
+sistema não sabe exatamente quanto pertence a cada `variant_id`, não se
+escreve nada — nem parte. Ver [../api/REGRAS.md](../api/REGRAS.md) § 8b.
 
 Além desses, produto que só existe na loja **nunca é tocado**: não conhecer
 um produto não é o mesmo que saber que ele tem zero.

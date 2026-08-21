@@ -268,6 +268,100 @@ Código COM variação passa a exigir que se diga qual, inclusive pela API.
 Código sem variação não muda em nada: bipa e entra, como sempre. É
 exatamente o que foi pedido, e o teste trava os dois lados.
 
+### 8b. O casamento com a loja é por `variant_id`, nunca por nome — §5.2 §22
+
+A regra, sem rodeio:
+
+> Se a Nuvemshop tem mais de uma variante e o sistema não sabe exatamente
+> quanto pertence a cada `variant_id`, **não se escreve nada**. O produto
+> entra em "precisa de revisão — variações não mapeadas".
+
+Nunca dividir automaticamente, nunca duplicar, nunca atribuir tudo à
+primeira, nunca casar por posição, nunca adivinhar.
+
+**Por que o nome não serve.** A versão anterior casava saldo com caixinha
+pelo NOME da variação ("16", "Dourado · Zircônia"). Nome é dado da loja: ela
+renomeia um valor, troca a ordem dos atributos, e o nome muda sozinho de
+madrugada. Quando isso acontecia, o saldo local deixava de encontrar
+qualquer variante — e o modo da falha era o pior possível:
+
+- a soma do total continuava fechando, então **nenhum freio disparava**;
+- cada variante recebia zero;
+- a peça saía do ar, e ninguém ficava sabendo.
+
+Agora o id viaja com o movimento (`movimentos.variante_id`, NULL em tudo que
+é histórico, e NULL significa "não sei") e fica persistido em
+`produto_variacoes.variante_id`, com índice único. O que não casar por id
+não é chutado: bloqueia o código inteiro e aparece na revisão com os dois
+números lado a lado.
+
+**O que muda na prática, e é uma mudança de comportamento consciente:** um
+código com saldo preso numa variação que a loja não tem mais deixa de ser
+empurrado. Antes ele passava — o balde da variação morta continuava contando
+para o total e a conta "fechava" por acidente, empurrando o produto com uma
+caixinha a menos. Deixar a loja com o número velho é ruim; escrever número
+que não se sabe conferir é pior, e foi isso que já bagunçou o estoque de
+verdade uma vez.
+
+`POST /api/produtos/:sku/repartir` é o que destrava: ele devolve para "sem
+variação" o saldo preso numa variante que sumiu, pela mesma chave em que ele
+estava. Sem isso o bloqueio seria um beco sem saída.
+
+### 8c. A estrutura da loja é importada inteira, e é só leitura
+
+`POST /api/loja/variantes/importar` percorre o catálogo REAL da Nuvemshop e
+guarda, por variante: `product_id`, `variant_id`, SKU, atributos **e seus
+valores**, estoque, preço, imagem própria e o produto pai. Vai para
+`loja_variantes`, que é espelho — não manda em estoque, preço nem cadastro.
+
+Saber o que a loja tem e decidir o que fazer com isso são atos separados de
+propósito. Juntá-los é como o estoque foi bagunçado da outra vez.
+
+**Os atributos são dinâmicos.** A Nuvemshop entrega `product.attributes` e
+`variant.values` como duas listas paralelas, e o par é montado pela posição
+com o nome que o próprio produto declara. Não existe lista fixa de "cor e
+tamanho" em lugar nenhum do sistema: a loja real varia por Aro,
+Comprimento, Banho, Pedra, Material, Numeração e o que mais ela inventar.
+Presumir duas dimensões quebraria no primeiro produto vendido por outra.
+
+### 17. SKU é único de fato, e o gerado é reconhecível — §3 §22
+
+`produtos.sku` sempre foi PRIMARY KEY, então o mesmo código idêntico duas
+vezes nunca passou. O que passava era o quase-igual: `br1234` ao lado de
+`BR1234`, ou ` BR1234 ` com espaço. O importador de planilha só fazia
+`.trim()`, enquanto o resto do sistema compara em maiúsculas e sem espaço —
+duas linhas, dois estoques, e só uma delas casando com a loja.
+
+Três camadas, de propósito:
+
+1. **tela** — avisa enquanto a pessoa digita (`GET /api/produtos/sku/checar`);
+2. **backend** — recusa de novo, porque frontend é conveniência, não trava;
+3. **banco** — `idx_produtos_sku_norm`, índice único sobre a forma
+   normalizada. É ele que pega dois requests no mesmo instante.
+
+A recusa diz **onde** o código já está sendo usado. Bloquear sem explicar
+obriga a caçar o duplicado à mão no meio de centenas de peças.
+
+**Estar na loja NÃO impede cadastrar.** É o contrário: cadastrar aqui o
+código que a Nuvemshop já tem é exatamente como os dois lados se casam, e
+bloquear isso travaria a importação inteira do catálogo. Vira aviso, com o
+produto e a variante nomeados. O mesmo vale para a fila de peças novas, que
+existe justamente para virar produto. Só `produtos` bloqueia.
+
+**O gerado.** `POST /api/produtos/sku/gerar` devolve `MQ` + 5 dígitos,
+sequencial. Os 773 códigos reais da operação são todos numéricos, quase
+todos de 6 dígitos, espalhados por toda a faixa sem sequência nenhuma — são
+códigos do fornecedor, não nossos. Gerar "o próximo número" ali seria
+escolher um código que o fornecedor ainda pode usar amanhã, e a colisão
+apareceria meses depois, numa etiqueta. O prefixo evita isso, cabe na
+etiqueta (CODE128 imprime letra e número igual) e diz na cara que a peça foi
+cadastrada aqui.
+
+A geração **reserva** o código em `sku_reservas` antes de responder. Sem a
+reserva, duas pessoas clicando ao mesmo tempo receberiam o mesmo número —
+as duas chamadas leriam o mesmo "maior código atual". Quem decide o empate é
+a chave primária da tabela; o perdedor tenta o próximo.
+
 ### 4. A sincronização tem duas mãos, nesta ordem — §5.1
 
 Puxar os pedidos do site **antes** de empurrar o estoque não é preferência
