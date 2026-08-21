@@ -32,6 +32,13 @@ on:
       - 'icons/**'
       - 'vendor/**'
       - '.github/workflows/deploy-dev.yml'
+      # O schema e as migrations não publicam nada no Pages, mas o passo
+      # "Schema e migration continuam dizendo a mesma coisa" mora aqui — e um
+      # teste que só roda quando alguém por acaso mexe no painel é um teste
+      # que não roda. Mudança de banco tem de acordar este workflow.
+      - 'api/schema.sql'
+      - 'api/migracao-*.sql'
+      - 'src/migracao-*-test.mjs'
   # Permite reexecutar sem precisar de um commit que toque os caminhos acima.
   workflow_dispatch: {}
 
