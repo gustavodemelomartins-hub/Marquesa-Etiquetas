@@ -81,7 +81,39 @@ nuvem](DEVELOPMENT.md)):
 | Worker | `marquesa-api` | `marquesa-api-staging` |
 | D1 | `marquesa-db` | `marquesa-db-dev` |
 | Frontend | GitHub Pages (`main`) | Cloudflare Pages `marquesa-dev.pages.dev` (`develop`) |
-| Nuvemshop | real | nunca configurada — sync sempre recusa por segurança |
+| Nuvemshop | real, leitura e escrita | pode receber credencial real de **leitura** — escrita continua barrada estruturalmente, ver abaixo |
+
+### Staging pode ler a loja real. Nunca pode escrever nela.
+
+Desde 2026-08-21, `marquesa-api-staging` pode receber
+`NUVEMSHOP_TOKEN`/`NUVEMSHOP_STORE_ID` de verdade como Secret — para
+analisar catálogo, produtos, variações e imagens reais sem depender de
+`marquesa-db`/produção. A trava não é mais "a credencial não existe": é
+estrutural, dentro do cliente (`api/src/nuvemshop.js › Nuvemshop.chamar`).
+
+- `NUVEMSHOP_WRITES_ENABLED` decide, por ambiente. **Fail-closed**: ausente,
+  `"false"` ou qualquer outro valor → bloqueia. Só a string exata `"true"`
+  libera. Não é segredo (não autoriza nada sozinha, só destrava o método
+  HTTP) — mora em `[vars]`/`[env.staging.vars]` no `wrangler.toml`.
+- Todo `POST`/`PUT`/`PATCH`/`DELETE` para a Nuvemshop passa por `chamar()`
+  antes do `fetch` sair do Worker. `GET`/`HEAD` nunca são afetados. Vale
+  para rota direta, bug de frontend, sync automático ou uma tela nova que
+  reuse o cliente — não é uma checagem de interface, é o único ponto por
+  onde toda chamada externa passa.
+- Erro de escrita bloqueada: `NUVEMSHOP_WRITE_DISABLED` — mensagem humana,
+  nunca imprime token nem credencial.
+- Staging vem com `NUVEMSHOP_WRITES_ENABLED = "false"` no `wrangler.toml`
+  (linha versionada, não secret). Mudar para `"true"` em staging é decisão
+  consciente que muda a postura de segurança do ambiente — documente o
+  motivo se fizer isso, não troque "de passagem".
+- Produção precisa de `NUVEMSHOP_WRITES_ENABLED = "true"` explícito no
+  `[vars]` raiz — sem essa linha, o padrão fail-closed do código pararia de
+  empurrar estoque de verdade para a loja no próximo deploy,
+  silenciosamente. Já está lá; se um dia essa linha sumir do
+  `wrangler.toml`, é bug, não intenção.
+- Secrets (`NUVEMSHOP_TOKEN`, `NUVEMSHOP_STORE_ID`, `NUVEMSHOP_CLIENT_ID`,
+  `NUVEMSHOP_CLIENT_SECRET`) continuam fora do Git em qualquer ambiente,
+  sempre via `wrangler secret put`.
 
 Isso muda a régua **só para os recursos DEV**:
 

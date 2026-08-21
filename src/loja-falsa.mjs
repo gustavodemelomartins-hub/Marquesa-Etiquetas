@@ -26,9 +26,11 @@ export function subirLojaFalsa(porta = 8799) {
     falharPatchParaProduto: null,
     trocasOAuth: [],
     codigoValido: null,
+    totalRequisicoes: 0,   // qualquer request que chegou aqui, de qualquer rota — prova que a trava de escrita barrou ANTES de sair do Worker, não só que o PATCH específico não apareceu
   };
 
   const servidor = http.createServer(async (req, res) => {
+    estado.totalRequisicoes++;
     const url = new URL(req.url, 'http://x');
     const partes = url.pathname.split('/').filter(Boolean);   // [versão, loja, recurso...]
     const recurso = partes.slice(2).join('/');

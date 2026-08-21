@@ -55,6 +55,22 @@ export function explicarErro(status, corpo, caminho) {
   return `Nuvemshop respondeu ${status} em ${caminho}: ${String(corpo || '').slice(0, 300)}`;
 }
 
+const METODOS_ESCRITA = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/** Erro específico para a escrita bloqueada — não um Error genérico — para
+ *  quem chama (sync.js, reconciliacao.js, um endpoint novo) poder distinguir
+ *  "ambiente não autorizado a escrever" de "a Nuvemshop recusou o pedido".
+ *  `.codigo` é o contrato estável; a mensagem é só para gente ler. */
+export class NuvemshopEscritaDesativada extends Error {
+  constructor(caminho, metodo) {
+    super('Operações de escrita na Nuvemshop estão desativadas neste ambiente.');
+    this.name = 'NuvemshopEscritaDesativada';
+    this.codigo = 'NUVEMSHOP_WRITE_DISABLED';
+    this.caminho = caminho;
+    this.metodo = metodo;
+  }
+}
+
 export class Nuvemshop {
   constructor(env) {
     this.loja = String(env.NUVEMSHOP_STORE_ID || '').trim();
@@ -65,6 +81,10 @@ export class Nuvemshop {
     const raiz = String(env.NUVEMSHOP_BASE || 'https://api.nuvemshop.com.br').replace(/\/+$/, '');
     this.base = `${raiz}/${VERSAO_API}/${this.loja}`;
     this.ultimaChamada = 0;
+    // Fail-closed de propósito (não fail-open): qualquer coisa que não seja
+    // exatamente a string "true" — ausente, "false", "1", "TRUE" — mantém a
+    // escrita desligada. Só um "true" exato liga. Ver docs/SECURITY.md.
+    this.escritaHabilitada = String(env.NUVEMSHOP_WRITES_ENABLED || '').trim() === 'true';
   }
 
   configurada() { return !!(this.loja && this.token); }
@@ -72,6 +92,14 @@ export class Nuvemshop {
   async espera(ms) { if (ms > 0) await new Promise(r => setTimeout(r, ms)); }
 
   async chamar(caminho, opcoes = {}, tentativa = 0) {
+    // Trava central: recusa ANTES do fetch, então nenhuma escrita sai do
+    // Worker enquanto a flag não disser "true" — vale para rota direta, bug
+    // de frontend, sync automático ou uma tela nova que reuse este cliente.
+    const metodo = String(opcoes.method || 'GET').toUpperCase();
+    if (METODOS_ESCRITA.has(metodo) && !this.escritaHabilitada) {
+      throw new NuvemshopEscritaDesativada(caminho, metodo);
+    }
+
     await this.espera(INTERVALO_MS - (Date.now() - this.ultimaChamada));
     this.ultimaChamada = Date.now();
 

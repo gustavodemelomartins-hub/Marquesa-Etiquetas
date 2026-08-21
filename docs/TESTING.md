@@ -51,6 +51,25 @@ introduzir um runner.
 14. variação não é cadastro duplicado — e o código com variação volta a ser
     empurrado, cada aro na caixinha dele.
 
+### `src/nuvemshop-writes-test.mjs` — staging pode ler, nunca escrever
+**24 asserções · ~1 s · precisa da loja falsa, não precisa do Worker**
+
+Chama `Nuvemshop` (`api/src/nuvemshop.js`) direto, sem subir
+`wrangler dev` — a classe não depende de D1/R2/bindings. Prova a trava de
+`NUVEMSHOP_WRITES_ENABLED`:
+
+1. GET nunca é bloqueado, com a flag ausente ou `"false"`;
+2. POST/PUT/PATCH/DELETE bloqueiam com a flag ausente;
+3. e com a flag `"false"` explícita;
+4. valores que não são exatamente `"true"` continuam bloqueando —
+   fail-closed, não fail-open;
+5. quando bloqueada, **nenhum request chega à loja** (a trava aponta para
+   um endereço sem nada escutando: se o `fetch` saísse mesmo assim, o erro
+   capturado seria de conexão recusada, não `NUVEMSHOP_WRITE_DISABLED` —
+   e a loja falsa, à parte, confirma `escritas` vazio);
+6. `"true"` libera de verdade, e a loja falsa registra a escrita;
+7. espaço em volta de `"true"` é tolerado (resto de copiar/colar num secret).
+
 ### `src/variacoes-test.mjs` — aro do anel, comprimento da corrente
 **48 asserções · ~6 s · precisa da loja falsa**
 

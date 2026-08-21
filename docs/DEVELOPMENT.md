@@ -177,7 +177,30 @@ develop  →  frontend DEV (Cloudflare Pages)  →  API DEV (Worker)  →  D1 DE
 | Worker | `marquesa-api` | `marquesa-api-staging` |
 | URL da API | `https://marquesa-api.marquesaasemijoias.workers.dev` | `https://marquesa-api-staging.marquesaasemijoias.workers.dev` |
 | D1 | `marquesa-db` | `marquesa-db-dev` |
-| Nuvemshop | conectada de verdade | **nunca conectada** — sem `NUVEMSHOP_TOKEN`/`NUVEMSHOP_STORE_ID` como secret em `marquesa-api-staging`, `Nuvemshop.configurada()` volta `false` e qualquer sync termina em "loja não conectada". Nenhum PATCH sai daqui, estruturalmente |
+| Nuvemshop | conectada, leitura e escrita | pode receber `NUVEMSHOP_TOKEN`/`NUVEMSHOP_STORE_ID` reais (leitura de catálogo/produtos/variações/imagens) — **escrita fica sempre barrada**, ver abaixo |
+
+### Staging lê a loja real. Nunca escreve nela.
+
+`NUVEMSHOP_WRITES_ENABLED` (`wrangler.toml`, não é segredo) decide, por
+ambiente, se `POST`/`PUT`/`PATCH`/`DELETE` para a Nuvemshop saem do Worker.
+Fail-closed: ausente ou `"false"` bloqueia; só `"true"` libera. A trava é
+estrutural, dentro do cliente (`api/src/nuvemshop.js › Nuvemshop.chamar`,
+ver [SECURITY.md](SECURITY.md)) — vale para qualquer rota, não só para a
+tela de sync.
+
+- `marquesa-api-staging` vem com `NUVEMSHOP_WRITES_ENABLED = "false"`. Ligar
+  o token real de leitura não muda isso: um `POST /api/sync {"forcar":
+  true}` em staging continua recusando escrever, e retorna
+  `NUVEMSHOP_WRITE_DISABLED` em vez de tentar.
+- `marquesa-api` (produção) precisa de `NUVEMSHOP_WRITES_ENABLED = "true"`
+  explícito — está no `wrangler.toml` desde que a trava existe. Sem essa
+  linha, produção pararia de empurrar estoque para a loja.
+- Cadastrar as credenciais: `cd api && npx wrangler secret put
+  NUVEMSHOP_TOKEN --env staging` e o mesmo para `NUVEMSHOP_STORE_ID`.
+  Nunca em texto no `wrangler.toml` — isso é Secret em qualquer ambiente.
+- Conferir sem imprimir valor nenhum: `npx wrangler secret list --env
+  staging` (lista só nomes) e `GET /api/state` em staging deve trazer
+  `sync.conectada: true`.
 
 `marquesa-dev.pages.dev` é fixo porque `develop` foi declarado a
 **branch de produção do projeto Pages** (`--production-branch develop`

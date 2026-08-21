@@ -23,3 +23,10 @@ NUVEMSHOP_CLIENT_SECRET=segredo
 # asserções da troca do código por token falham como se o código estivesse
 # errado. O src/README.md já a exigia.
 NUVEMSHOP_AUTH_BASE=http://localhost:8799
+
+# api/src/nuvemshop.js › chamar bloqueia POST/PUT/PATCH/DELETE por padrão
+# (fail-closed). sync-test.mjs e reconciliacao-test.mjs escrevem estoque de
+# verdade na loja falsa e esperam que funcione — sem esta linha em "true"
+# eles passam a falhar com NUVEMSHOP_WRITE_DISABLED, não porque o código
+# quebrou, mas porque o ambiente de teste também precisa optar por escrever.
+NUVEMSHOP_WRITES_ENABLED=true

@@ -30,6 +30,15 @@ bucket_name = "marquesa-fotos"
 [vars]
 ORIGENS_PERMITIDAS = "https://gustavodemelomartins-hub.github.io"
 
+# Trava central de escrita na Nuvemshop (api/src/nuvemshop.js › chamar).
+# Produção precisa desta linha em "true": sem ela, o padrão seguro do
+# código (ausente = bloqueado) pararia de empurrar estoque de verdade para
+# a loja no próximo deploy — silenciosamente, porque o resto da
+# sincronização continuaria "funcionando", só sem escrever nada. Mudar
+# para "false" aqui é decisão consciente, não acidente de config ausente.
+# Não é segredo — não autoriza nada sozinha, só destrava o método HTTP.
+NUVEMSHOP_WRITES_ENABLED = "true"
+
 # Sincronização automática com a Nuvemshop. 06:00 e 18:00 no horário de
 # Brasília (o cron da Cloudflare é sempre UTC, que está 3 horas à frente).
 #
@@ -65,10 +74,15 @@ bucket_name = "marquesa-fotos-dev"
 [env.staging.vars]
 ORIGENS_PERMITIDAS = "https://marquesa-dev.pages.dev,https://marquesa-dev-legado.pages.dev"
 
-# Sem NUVEMSHOP_TOKEN/NUVEMSHOP_STORE_ID como secret neste ambiente: sem eles
-# `Nuvemshop.configurada()` volta false e toda chamada de sync termina em
-# "loja não conectada" — nunca sai um PATCH de verdade daqui. Documentado em
-# docs/DEVELOPMENT.md § Ambiente DEV.
+# Staging PODE receber NUVEMSHOP_TOKEN/NUVEMSHOP_STORE_ID reais como secret
+# (para ler catálogo/produtos/variações/imagens de verdade). A trava contra
+# escrita não depende mais só da ausência de credencial — é estrutural, em
+# api/src/nuvemshop.js › chamar: com a linha abaixo em "false", qualquer
+# POST/PUT/PATCH/DELETE para a Nuvemshop é recusado ANTES do fetch sair do
+# Worker, não importa a rota, o token ou quem chamou. Mudar para "true" é
+# decisão consciente — não é segredo, mas muda a postura de segurança do
+# ambiente, então documente por que se mudar. Ver docs/SECURITY.md.
+NUVEMSHOP_WRITES_ENABLED = "false"
 #
 # Sem cron nenhum no DEV. Uma sincronização automática de madrugada, num
 # ambiente de teste, é exatamente o tipo de coisa que ninguém está olhando
