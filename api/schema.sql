@@ -41,7 +41,12 @@ CREATE TABLE IF NOT EXISTS produtos (
   cat            TEXT NOT NULL REFERENCES categorias(nome),
   preco          REAL,                          -- §24: NULL = sem preço. Nunca 0 por omissão.
   qtd            INTEGER NOT NULL DEFAULT 0,    -- estoque TOTAL (inclui o consignado)
-  status         TEXT NOT NULL DEFAULT 'ativo', -- ativo | inativo
+  -- ativo | inativo | arquivado
+  -- 'arquivado' é o destino de quem tem histórico e por isso não pode ser
+  -- excluído (§28). Não precisou de tratamento especial em lugar nenhum: as
+  -- consultas que importam já filtram `status = 'ativo'`, então o arquivado
+  -- sai sozinho da sincronização, da fila de fotos e do empurrão de estoque.
+  status         TEXT NOT NULL DEFAULT 'ativo',
   url_loja       TEXT,
   estoque_loja   INTEGER,
   visivel        INTEGER,
@@ -64,6 +69,10 @@ CREATE TABLE IF NOT EXISTS produtos (
   foto_erro           TEXT,
   foto_origem         TEXT,                      -- nuvemshop | upload
   foto_em             TEXT,
+  -- Quando e por que saiu de circulação. Sem isto, "por que esta peça sumiu
+  -- da lista?" vira arqueologia nos movimentos.
+  arquivado_em        TEXT,
+  arquivado_motivo    TEXT,
   -- Endereço da imagem NA LOJA, quando ela existe lá e os bytes ainda não
   -- foram copiados para cá. É referência, não posse: serve para a miniatura
   -- aparecer hoje, e para saber de onde copiar depois. Quando a chave do R2
@@ -240,6 +249,13 @@ CREATE TABLE IF NOT EXISTS produto_variacoes (
   preco        REAL,
   promocional  REAL,
   imagem_url   TEXT,               -- imagem própria da variante, quando tem
+  -- De onde veio esta linha, e quem pode apagá-la:
+  --   'loja'  — leu da Nuvemshop. A rodada seguinte reescreve e pode apagar.
+  --   'local' — alguém criou aqui, num produto que ainda não está na loja.
+  --             A sincronização NÃO encosta.
+  -- Sem esta distinção, a rodada da madrugada apagaria a estrutura que
+  -- alguém acabou de digitar, e a peça amanheceria sem variação.
+  origem       TEXT,
   PRIMARY KEY (sku, nome)
 );
 CREATE INDEX IF NOT EXISTS idx_variacoes_sku ON produto_variacoes(sku);

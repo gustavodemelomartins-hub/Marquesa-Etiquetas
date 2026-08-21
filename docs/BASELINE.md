@@ -72,7 +72,8 @@ Cada teste rodou com **banco zerado e Worker local recém-subido**.
 | `src/variacoes-test.mjs` | **passou** | 48 | 0 | 6 s |
 | `src/kits-test.mjs` | **passou** | 20 | 0 | 1 s |
 | `src/e2e.mjs` | **passou** | 66 | 0 | 37 s |
-| `src/import-casa-test.mjs` | **passou** | 8 | 0 | 11 s |
+| ~~`src/import-casa-test.mjs`~~ | aposentado na FASE 2 | — | — | — |
+| `src/import-total-test.mjs` | (substituto) | 14 | 0 | ~14 s |
 | `src/frontend-e2e.mjs` | **passou** | 33 | 0 | 5 s |
 | `src/dry-run-test.mjs` | **passou** | 49 | 0 | 15 s |
 | `src/saude-sync-test.mjs` | **passou** | 25 | 0 | 10 s |

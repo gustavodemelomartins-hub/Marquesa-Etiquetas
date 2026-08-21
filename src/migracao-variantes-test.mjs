@@ -40,11 +40,25 @@ const git = (...args) => execFileSync('git', args, {
  *  o pai dele é, por definição, o banco de antes. Antes do commit existir, a
  *  busca vem vazia e `HEAD` é a resposta certa. */
 function schemaAnterior() {
-  const criou = git('log', '--diff-filter=A', '--format=%H', '--', 'api/migracao-variantes.sql')
+  const criou = git('log', '--diff-filter=A', '--format=%H', '--', MIGRACOES[0])
     .split('\n').filter(Boolean).pop();
   const base = criou ? `${criou}^` : 'HEAD';
   return { sql: git('show', `${base}:api/schema.sql`), base };
 }
+
+/** As migrations desta linha do tempo, NA ORDEM em que produção as recebe.
+ *
+ *  A ordem não é decoração: `migracao-variacoes-locais.sql` acrescenta uma
+ *  coluna a uma tabela em que `migracao-variantes.sql` acabou de acrescentar
+ *  outras. Fora de ordem falha, e falha parecendo bug do schema.
+ *
+ *  Migration nova entra AQUI, no fim. Esquecer disso faz o teste comparar o
+ *  schema novo com um banco migrado pela metade — e ele acusa a diferença,
+ *  que é exatamente o serviço dele. */
+const MIGRACOES = [
+  'api/migracao-variantes.sql',
+  'api/migracao-variacoes-locais.sql',
+];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com
  *  transação implícita em arquivo grande — vai em bloco só, como o D1. */
@@ -96,8 +110,10 @@ const antesProdutos = velho.prepare(`SELECT COUNT(*) n FROM produtos`).get().n;
 const antesMovimentos = velho.prepare(`SELECT COUNT(*) n FROM movimentos`).get().n;
 const antesVariacoes = velho.prepare(`SELECT COUNT(*) n FROM produto_variacoes`).get().n;
 
-aplicar(velho, readFileSync(join(raiz, 'api/migracao-variantes.sql'), 'utf8'));
-ok('a migration roda contra o banco antigo sem erro');
+for (const arq of MIGRACOES) {
+  aplicar(velho, readFileSync(join(raiz, arq), 'utf8'));
+  ok('roda contra o banco antigo sem erro', arq.replace('api/', ''));
+}
 
 eq('nenhum produto se perdeu', velho.prepare(`SELECT COUNT(*) n FROM produtos`).get().n, antesProdutos);
 eq('nenhum movimento se perdeu', velho.prepare(`SELECT COUNT(*) n FROM movimentos`).get().n, antesMovimentos);
@@ -170,7 +186,7 @@ console.log('\n=== 8. rodar a migration duas vezes é inofensivo (com uma ressal
 /* `ALTER TABLE ADD COLUMN` não é idempotente e falha com "duplicate column
    name" — e esse erro significa exatamente "já foi aplicada". Está escrito
    no comentário do arquivo; aqui fica provado que é só isso que acontece. */
-const erro = aplicar(velho, readFileSync(join(raiz, 'api/migracao-variantes.sql'), 'utf8'),
+const erro = aplicar(velho, readFileSync(join(raiz, MIGRACOES[0]), 'utf8'),
   { tolerarColunaDuplicada: true });
 eq('a segunda rodada só reclama de coluna duplicada', /duplicate column name/i.test(erro || ''), 'true');
 eq('e o banco continua íntegro', velho.prepare(`SELECT COUNT(*) n FROM produtos`).get().n, antesProdutos);

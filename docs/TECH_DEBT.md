@@ -63,7 +63,7 @@ item; ele só fecha quando a última sair.
 
 ## 3. ~~Testes de navegador com caminho de binário fixo~~ — RESOLVIDO
 
-`src/e2e.mjs`, `src/import-casa-test.mjs` e `src/shot.mjs` traziam
+`src/e2e.mjs`, `src/import-total-test.mjs` e `src/shot.mjs` traziam
 `executablePath: '/opt/pw-browsers/chromium'` escrito no código, e por isso
 só rodavam num Linux com esse caminho exato.
 

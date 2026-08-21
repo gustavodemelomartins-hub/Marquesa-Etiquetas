@@ -57,7 +57,7 @@ mais: é o que separa "sinalizar" de "sinalizar tarde demais".
 | Sem preço | sim | aviso `sem_preco`, `preco = NULL` (§24) |
 | Categoria desconhecida | sim | aviso `categoria_desconhecida`, cai em "Outros" |
 | SKU com sufixo (`486476-2`) | sim, na consolidação | soma no código-base **e anuncia**; recusa juntar quando as descrições divergem |
-| Números são total ou só o que está em casa? | sim, pela tela | é o que `src/import-casa-test.mjs` prova |
+| ~~Números são total ou só o que está em casa?~~ | **não se pergunta mais** | a planilha desta tela é SEMPRE o estoque total (casa + revendedoras); `src/import-total-test.mjs` prova que a pergunta sumiu |
 | Ajuste grande de quantidade | **não** | hoje entra direto, só vira aviso depois |
 | Planilha que zera muitos códigos | **não** | não existe freio na importação, diferente da sincronização |
 | Produto que sumiu da planilha | **não** | não é tocado — e isso está certo |
@@ -76,7 +76,7 @@ As três lacunas são o motivo de a sequência acima existir.
    não é informação.
 5. **Se a planilha contou só a prateleira**, comparar contra o total corta a
    peça que está em maleta. A tela pergunta qual dos dois é — e o teste
-   `import-casa-test.mjs` existe exatamente para isso.
+   `import-total-test.mjs` existe exatamente para isso.
 6. **A razão fecha no fim.** `GET /api/estoque/conferir` vazio.
 
 ## Antes de mexer no importador
@@ -84,7 +84,7 @@ As três lacunas são o motivo de a sequência acima existir.
 1. Leia a regra 1 do [api/REGRAS.md](../../../api/REGRAS.md) — SKU com
    sufixo. É a decisão mais sutil desta área.
 2. Leia `index.js › importarProdutos` inteira (é curta).
-3. Rode `src/import-casa-test.mjs` se estiver num ambiente que suporta
+3. Rode `src/import-total-test.mjs` se estiver num ambiente que suporta
    Playwright — hoje o Windows não suporta, ver
    [docs/TESTING.md](../../../docs/TESTING.md).
 4. Se for construir a prévia: o formato de diff da sincronização

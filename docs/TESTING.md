@@ -164,15 +164,34 @@ console apareceu**.
 
 É o único teste que prova que a interface e a API conversam.
 
-### `src/import-casa-test.mjs` — "total ou só em casa?"
-**8 asserções · ~10 s · Playwright + servidor HTTP**
+### `src/import-total-test.mjs` — a planilha é o estoque TOTAL, sempre
+**14 asserções · ~14 s · Playwright + servidor HTTP**
 
-Prova o botão da importação que pergunta se os números da planilha são o
-total ou só o que está em casa. O risco que ele evita: uma planilha que
-contou só a prateleira, comparada direto contra o total do sistema, corta a
-peça que está numa maleta aberta — ela não sumiu, só mudou de lugar.
+Substituiu o `import-casa-test.mjs`, e por uma decisão de negócio, não por
+manutenção: a tela **deixou de perguntar** se os números são o total ou só o
+que está em casa.
 
-Cenário: C1 tem 10 no total, 3 numa maleta aberta, 7 deveriam estar em casa.
+A pergunta existia por um risco real — planilha que contou só a prateleira,
+comparada contra o total, corta a peça que está numa maleta aberta. O
+problema é que as duas respostas parecem certas na hora de responder, e a
+errada estraga estoque em silêncio. Uma regra fixa, que se aprende uma vez,
+vale mais que uma pergunta que precisa ser acertada toda vez.
+
+Mesmo cenário do teste antigo (C1 com 10 no total, 3 numa maleta aberta), de
+propósito: é nele que a diferença aparecia.
+
+1. o seletor "total × só em casa" não existe mais na tela;
+2. nem o seletor de destino da aba — nada de "Catálogo e estoque total" nem
+   de criar maleta de revendedora por aqui;
+3. a tela diz, em palavras, que a planilha inclui as peças com revendedoras;
+4. a planilha é lida como TOTAL, sem ninguém escolher;
+5. a análise vem ANTES de aplicar, e não escreve nada;
+6. aplicar é o segundo ato, e é ele que escreve;
+7. a razão fecha (§19);
+8. a aba Loja, que usa a mesma janela para importar o export da Nuvemshop,
+   continua funcionando — foi por isso que `openImport` ganhou contexto em
+   vez de perder o seletor de vez;
+9. nenhum erro de console.
 
 ### `src/loja-falsa.mjs` — infraestrutura, não teste
 Nuvemshop de mentira em `localhost:8799`. Exige `User-Agent` (a real

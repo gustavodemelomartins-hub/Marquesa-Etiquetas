@@ -52,3 +52,7 @@ skills-lock.json
 Thumbs.db
 .DS_Store
 desktop.ini
+
+# Planilhas que os testes de navegador geram e apagam. Aparecem no git
+# status quando um teste morre no meio — não são fonte de nada.
+src/planilha-*.xlsx

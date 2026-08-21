@@ -40,7 +40,7 @@ node src/sync-test.mjs        # esperado: 67 ok, 0 falhas
 node src/variacoes-test.mjs   # esperado: 48 ok, 0 falhas
 node src/kits-test.mjs        # esperado: 20 ok, 0 falhas
 node src/e2e.mjs              # esperado: 66 ok, 0 falhas
-node src/import-casa-test.mjs # esperado:  8 ok, 0 falhas
+node src/import-total-test.mjs # esperado: 14 ok, 0 falhas
 ```
 
 - [ ] Os cinco passam: **209 asserções, 0 falhas**.

@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS categorias ( nome TEXT PRIMARY KEY, ordem INTEGER NOT
 
 INSERT OR IGNORE INTO categorias (nome, ordem, cor) VALUES ('Colar', 1, '#C2426B'), ('Brinco', 2, '#C4802A'), ('Pulseira', 3, '#0D9382'), ('Berloque', 4, '#6A54B5'), ('Anel', 5, '#D8646B'), ('Argola', 6, '#3D77C4'), ('Pingente', 7, '#5C8A34'), ('Conjunto', 8, '#A15BA0'), ('Outros', 9, '#9E8A90');
 
-CREATE TABLE IF NOT EXISTS produtos ( sku TEXT PRIMARY KEY, desc TEXT NOT NULL, cat TEXT NOT NULL REFERENCES categorias(nome), preco REAL, qtd INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'ativo', url_loja TEXT, estoque_loja INTEGER, visivel INTEGER, nome_loja TEXT, foto_original_key TEXT, foto_original_tipo TEXT, foto_original_tam INTEGER, foto_tratada_key TEXT, foto_tratada_tipo TEXT, foto_tratada_tam INTEGER, foto_status TEXT, foto_erro TEXT, foto_origem TEXT, foto_em TEXT, foto_url TEXT, foto_url_em TEXT, atualizado_em TEXT NOT NULL DEFAULT (datetime('now')) );
+CREATE TABLE IF NOT EXISTS produtos ( sku TEXT PRIMARY KEY, desc TEXT NOT NULL, cat TEXT NOT NULL REFERENCES categorias(nome), preco REAL, qtd INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'ativo', url_loja TEXT, estoque_loja INTEGER, visivel INTEGER, nome_loja TEXT, foto_original_key TEXT, foto_original_tipo TEXT, foto_original_tam INTEGER, foto_tratada_key TEXT, foto_tratada_tipo TEXT, foto_tratada_tam INTEGER, foto_status TEXT, foto_erro TEXT, foto_origem TEXT, foto_em TEXT, arquivado_em TEXT, arquivado_motivo TEXT, foto_url TEXT, foto_url_em TEXT, atualizado_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
 CREATE TABLE IF NOT EXISTS produtos_pendentes ( sku TEXT PRIMARY KEY, desc TEXT, cat TEXT, preco REAL, qtd INTEGER NOT NULL DEFAULT 0, origem TEXT, motivo TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS config ( chave TEXT PRIMARY KEY, valor TEXT NOT NULL 
 
 CREATE TABLE IF NOT EXISTS loja_snapshot ( id INTEGER PRIMARY KEY CHECK (id = 1), lido_em TEXT, produtos_na_loja INTEGER, produtos_casados INTEGER, so_na_loja INTEGER, codigos_casados INTEGER, duplicados_json TEXT );
 
-CREATE TABLE IF NOT EXISTS produto_variacoes ( sku TEXT NOT NULL REFERENCES produtos(sku), nome TEXT NOT NULL, atributo TEXT, variante_id TEXT, produto_id TEXT, estoque_loja INTEGER, ordem INTEGER NOT NULL DEFAULT 0, valores_json TEXT, variante_sku TEXT, preco REAL, promocional REAL, imagem_url TEXT, PRIMARY KEY (sku, nome) );
+CREATE TABLE IF NOT EXISTS produto_variacoes ( sku TEXT NOT NULL REFERENCES produtos(sku), nome TEXT NOT NULL, atributo TEXT, variante_id TEXT, produto_id TEXT, estoque_loja INTEGER, ordem INTEGER NOT NULL DEFAULT 0, valores_json TEXT, variante_sku TEXT, preco REAL, promocional REAL, imagem_url TEXT, origem TEXT, PRIMARY KEY (sku, nome) );
 
 CREATE INDEX IF NOT EXISTS idx_variacoes_sku ON produto_variacoes(sku);
 

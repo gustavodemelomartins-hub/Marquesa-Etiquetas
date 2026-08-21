@@ -153,7 +153,7 @@ node src/sync-test.mjs        # sincronização com a Nuvemshop        67 asser�
 node src/variacoes-test.mjs   # aro do anel, comprimento da corrente  48
 node src/kits-test.mjs        # peça vendida inteira ou desmontada    20
 node src/e2e.mjs              # o caminho inteiro num navegador       66
-node src/import-casa-test.mjs # "total ou só em casa?"                 8
+node src/import-total-test.mjs # a planilha é sempre o estoque TOTAL   14
 ```
 
 Cada um precisa do Worker local no ar **e de banco limpo** — as contagens

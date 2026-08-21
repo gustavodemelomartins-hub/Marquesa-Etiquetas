@@ -1062,6 +1062,12 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
 /* Um formulário de cinco campos não se lê melhor com 1.100px de largura —
    só ganha um vazio à direita. O cartão acompanha o formulário. */
 .panel.sec{max-width:760px}
+/* O papel de cada aba na importação de estoque, no lugar onde antes havia
+   um seletor. É rótulo, não escolha: a planilha desta tela sempre significa
+   a mesma coisa. */
+.sr-papel{font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:10px;white-space:nowrap}
+.sr-papel.entra{background:var(--ok-tint);color:var(--ok)}
+.sr-papel.fora{background:var(--line-soft);color:var(--muted)}
 .form-cadastro{max-width:640px}
 .form-cadastro .two > .field{margin-bottom:15px}
 .form-cadastro > *:last-child{margin-bottom:0}
@@ -1491,18 +1497,6 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
       <div class="prevlabel">O que encontrei no arquivo</div>
       <div id="impSheets"></div>
       <div class="warn" id="impWarn" style="display:none"></div>
-      <div id="impModoCasa" style="display:none;margin-top:14px" class="field">
-        <label>Os números de estoque desta planilha são</label>
-        <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-bottom:8px;cursor:pointer">
-          <input type="radio" name="impModo" value="total" checked style="margin-top:3px">
-          <span><b>O total</b>, incluindo o que está com revendedoras — é o padrão do sistema.</span>
-        </label>
-        <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;cursor:pointer">
-          <input type="radio" name="impModo" value="casa" style="margin-top:3px">
-          <span><b>Só o que está fisicamente em casa agora</b> — o sistema soma de volta o que já
-          está em maleta aberta antes de comparar, pra não descontar peça que só mudou de lugar.</span>
-        </label>
-      </div>
       <div class="mfoot">
         <button class="btn btn-ghost" onclick="backToUpload()">← Trocar arquivo</button>
         <div class="spacer"></div>
@@ -3940,7 +3934,7 @@ function renderLoja(){
       <p>${ligada
         ?'A loja está ligada direto: toque em <b>Analisar sincronização</b> e eu leio o catálogo dela agora, sem escrever nada. O arquivo abaixo é só para quem prefere conferir fora.'
         :'Exporte seus produtos na Nuvemshop e importe o arquivo aqui. A partir dele eu mostro o que está publicado, o que está com estoque errado e o que falta subir.'}</p>
-      <button class="btn ${ligada?'btn-ghost':'btn-gold'}" style="margin-top:16px" onclick="openImport()">Importar export da Nuvemshop</button>
+      <button class="btn ${ligada?'btn-ghost':'btn-gold'}" style="margin-top:16px" onclick="openImport('loja')">Importar export da Nuvemshop</button>
     </div></div></div>`);
     return;
   }
@@ -5588,7 +5582,23 @@ async function confirmarAcerto(){
 /* =================== Importação =================== */
 let impWb=null, impDetect=[];
 
-function openImport(){
+/* Em que papel esta janela foi aberta.
+
+   'estoque' — o caminho da Sthefany, e agora o único com escolha nenhuma:
+     a planilha SEMPRE significa o estoque total da Marquesa, casa mais
+     revendedoras. Perguntar "total ou só em casa?" era um jeito de errar:
+     as duas respostas parecem certas na hora, e a errada corta do sistema
+     as peças que estão numa maleta aberta.
+   'loja'    — o export da própria Nuvemshop, aberto pela aba Loja. Continua
+     como era, porque ali a planilha é outra coisa mesmo.
+
+   A importação de maleta por planilha some deste caminho, como pedido. O
+   código dela continua aqui, intocado, para a área de Revendedoras
+   reaproveitá-lo na FASE 4 em vez de ser reescrito. */
+let impContexto='estoque';
+
+function openImport(contexto){
+  impContexto = contexto === 'loja' ? 'loja' : 'estoque';
   document.getElementById('impStep1').style.display='';
   document.getElementById('impStep2').style.display='none';
   document.getElementById('impStep3').style.display='none';
@@ -5647,7 +5657,31 @@ function detectar(){
   const opcoesRev=()=>state.revendedoras.filter(r=>r.status!=='inativa')
     .map(r=>`<option value="rev:${r.id}">Maleta de ${esc(r.nome)}</option>`).join('');
 
-  box.innerHTML=impDetect.map((d,i)=>`
+  /* No caminho do ESTOQUE não há o que escolher, e é essa a mudança: a
+     planilha desta tela SEMPRE é o estoque total da Marquesa. O `<select>`
+     continua no DOM, escondido, com o valor já resolvido — assim `doImport`
+     não precisa saber que a tela mudou, e o dia em que a área de
+     Revendedoras precisar do seletor de volta ele está inteiro.
+
+     O que a pessoa vê no lugar é o papel de cada aba, escrito. */
+  const soEstoque = impContexto !== 'loja';
+
+  box.innerHTML=impDetect.map((d,i)=>{
+    if(soEstoque){
+      const vaiEntrar = d.tipo==='catalogo';
+      return `
+      <div class="sheetrow">
+        <div class="sr-nm">${esc(d.nome)}<small>${esc(d.resumo)}</small></div>
+        <div class="sr-papel ${vaiEntrar?'entra':'fora'}">
+          ${vaiEntrar?'Estoque total da Marquesa':'Não vai ser usada'}
+        </div>
+        <select id="impAlvo${i}" style="display:none">
+          <option value="catalogo" ${vaiEntrar?'selected':''}>catalogo</option>
+          <option value="ignorar" ${vaiEntrar?'':'selected'}>ignorar</option>
+        </select>
+      </div>`;
+    }
+    return `
     <div class="sheetrow">
       <div class="sr-nm">${esc(d.nome)}<small>${esc(d.resumo)}</small></div>
       <select id="impAlvo${i}" onchange="atualizarModoCasa()">
@@ -5659,7 +5693,17 @@ function detectar(){
           `<option value="nova">Criar maleta de uma nova revendedora</option>`}
         ${opcoesRev()}
       </select>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+
+  if(soEstoque){
+    box.insertAdjacentHTML('afterbegin', `
+      <div class="warn info" style="margin-bottom:14px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <div>Use a planilha completa de <b>estoque total</b>. Ela representa todas as peças
+        da Marquesa, incluindo peças em casa <b>e com revendedoras</b>.</div>
+      </div>`);
+  }
 
   const avisos=[];
   if(!impDetect.some(d=>d.tipo==='catalogo')&&!state.produtos.length)
@@ -5674,15 +5718,12 @@ function detectar(){
   atualizarModoCasa();
 }
 
-/* Mostra a pergunta "total ou só em casa" só quando alguma aba está indo
-   pro catálogo — nas outras abas (loja, maleta) ela não faz sentido. */
-function atualizarModoCasa(){
-  const temCatalogo=impDetect.some((d,i)=>{
-    const el=document.getElementById('impAlvo'+i);
-    return el&&el.value==='catalogo';
-  });
-  document.getElementById('impModoCasa').style.display=temCatalogo?'':'none';
-}
+/* A pergunta "total ou só em casa?" deixou de existir: a planilha desta
+   tela SEMPRE significa o estoque total da Marquesa — casa mais
+   revendedoras. A função fica como no-op porque o `onchange` do seletor de
+   abas ainda a chama; tirar a chamada e a função no mesmo passo é como um
+   dos dois acaba esquecido. */
+function atualizarModoCasa(){}
 
 function classificar(nome,linhas){
   if(!linhas.length) return {tipo:'vazia',resumo:''};
@@ -5760,8 +5801,9 @@ async function doImport(){
     }
 
     if(catalogos.length){
-      const modoEl=document.querySelector('input[name="impModo"]:checked');
-      impModo=modoEl&&modoEl.value==='casa'?'casa':'total';
+      /* Fixo em 'total', e não mais uma escolha. A planilha desta tela é o
+         estoque total da Marquesa — casa mais revendedoras. */
+      impModo='total';
       const produtos=[];
       catalogos.forEach(c=>produtos.push(...lerCatalogo(c.d,notas)));
       if(!produtos.length){
@@ -5923,7 +5965,7 @@ function renderAnaliseEstoque(){
       <div><b>${r.vaoMudar} ${plural(r.vaoMudar,'código muda','códigos mudam')} de quantidade</b>${
         r.pecasAMais?`, <b>+${r.pecasAMais}</b> ${plural(r.pecasAMais,'peça','peças')} entrando`:''}${
         r.pecasAMenos?` e <b>${r.pecasAMenos}</b> saindo`:''}.
-      ${impModo==='casa'?'<br>A planilha foi lida como <b>só o que está em casa</b>: o que está em maleta aberta foi somado de volta antes de comparar.':''}
+
       Cada diferença vira um ajuste registrado — dá para ver depois de onde veio.</div>
     </div>`}
 

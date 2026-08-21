@@ -36,7 +36,7 @@ Suíte direcionada, nunca tudo por reflexo:
 | `sync.js`, `nuvemshop.js` | `node src/sync-test.mjs` |
 | variações | `node src/variacoes-test.mjs` |
 | kits | `node src/kits-test.mjs` |
-| importação/estoque total | `node src/import-casa-test.mjs`, `node src/estoque-total-e2e.mjs` |
+| importação/estoque total | `node src/import-total-test.mjs`, `node src/estoque-total-e2e.mjs` |
 | reconciliação | `node src/reconciliacao-test.mjs` |
 
 Regras de negócio: [api/REGRAS.md](../../api/REGRAS.md). Motor:

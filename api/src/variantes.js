@@ -25,6 +25,7 @@
  *  saía do ar.
  */
 import { catalogoDeVariantes } from './nuvemshop.js';
+import { movimentar } from './estoque.js';
 
 export const normSku = (v) => String(v == null ? '' : v).trim().replace(/\s+/g, '').toUpperCase();
 
@@ -406,5 +407,195 @@ export async function variantesDoSku(db, sku) {
       preco: r.preco, promocional: r.promocional, imagemUrl: r.imagem_url,
       valores: parseJson(r.valores_json, []), posicao: r.posicao,
     })),
+  };
+}
+
+/* ==================================================================== */
+/* 5. DISTRIBUIR O ESTOQUE ENTRE AS VARIANTES — por variant_id          */
+/* ==================================================================== */
+
+/** A operação que tira um produto de `sem_reparticao`.
+ *
+ *  Recebe quanto vai em cada `variant_id` e grava. Três coisas a separam do
+ *  `repartir` antigo, e as três importam:
+ *
+ *  1. **A chave é o `variant_id`, não o nome.** A tela mostra "Cristal",
+ *     "n° 17" — nome é para gente ler. O que viaja e o que fica gravado é o
+ *     id. A loja pode renomear "Cristal" amanhã e nada aqui quebra.
+ *  2. **A soma tem de fechar EXATAMENTE com o estoque do produto.** Não é
+ *     preferência: repartir e corrigir o total são atos diferentes (§19).
+ *     Sobrar ou faltar peça significa que alguém está tentando consertar o
+ *     total por dentro da repartição, e a resposta certa é recusar e mostrar
+ *     os dois números — nunca escolher sozinho quem está certo.
+ *  3. **Nada é inferido.** Não existe "distribuir igualmente" nem "usar a
+ *     loja" aqui dentro. A tela tem um botão que PREENCHE o formulário com
+ *     os números da loja, e ele não chega a esta função: o que chega é o
+ *     que a pessoa confirmou.
+ *
+ *  Cada remanejo vira DOIS movimentos que se anulam no total — sai de "sem
+ *  variação", entra na variação. Assim `produtos.qtd == SUM(movimentos.qtd)`
+ *  continua valendo e o histórico mostra a repartição, em vez de um número
+ *  que mudou sozinho.
+ */
+export async function distribuirVariantes(db, sku, { distribuicao, obs } = {}) {
+  const k = normSku(sku);
+  const p = await db.prepare(
+    `SELECT sku, desc, qtd FROM produtos WHERE sku = ?`).bind(k).first();
+  if (!p) return { erro: `Código ${sku} não está no catálogo`, status: 404 };
+
+  if (!Array.isArray(distribuicao) || !distribuicao.length) {
+    return { erro: 'Nada para distribuir', status: 400 };
+  }
+
+  /* Contra QUEM a distribuição é conferida. Duas fontes, nesta ordem:
+
+     1. `loja_variantes` — o que a Nuvemshop tem hoje. É a fonte quando o
+        produto está publicado, e é ela que faz mandar um id inexistente
+        virar erro em vez de virar linha órfã.
+     2. `produto_variacoes` com origem 'local' — o produto ainda não está na
+        loja, e as variações foram criadas aqui. Elas têm id também
+        (`local:…`), porque nome não é identidade nem quando é o único
+        nome que existe: alguém corrige "Dourdo" para "Dourado" e o saldo
+        não pode ir junto para o lixo. */
+  let naLoja = (await db.prepare(
+    `SELECT variante_id, nome, estoque, valores_json
+       FROM loja_variantes WHERE sku_norm = ? ORDER BY posicao`).bind(k).all()).results;
+  let fonte = 'loja';
+
+  if (naLoja.length < 2) {
+    const locais = (await db.prepare(
+      `SELECT variante_id, nome, NULL AS estoque, valores_json
+         FROM produto_variacoes WHERE sku = ? AND variante_id IS NOT NULL
+         ORDER BY ordem, nome`).bind(k).all()).results;
+    if (locais.length >= 2) { naLoja = locais; fonte = 'local'; }
+  }
+
+  if (naLoja.length < 2) {
+    return {
+      erro: `${sku} não tem variações para distribuir. ` +
+            `Se ele existe na Nuvemshop, importe a estrutura antes; se é peça só daqui, ` +
+            `defina as variações primeiro.`,
+      status: 400,
+    };
+  }
+  const porId = new Map(naLoja.map(v => [String(v.variante_id), v]));
+
+  const alvo = new Map();
+  for (const item of distribuicao) {
+    const vid = String(item.varianteId ?? item.variante_id ?? '');
+    if (!vid || !porId.has(vid)) {
+      return { erro: `A variante ${vid || '(vazia)'} não existe na loja para ${sku}.`, status: 400 };
+    }
+    if (alvo.has(vid)) {
+      return { erro: `A variante ${vid} veio duas vezes na distribuição.`, status: 400 };
+    }
+    const n = Math.trunc(Number(item.qtd));
+    if (!Number.isFinite(n) || n < 0) {
+      return { erro: `Quantidade inválida em "${porId.get(vid).nome}".`, status: 400 };
+    }
+    alvo.set(vid, n);
+  }
+
+  /* Variante da loja que a tela não mandou vale ZERO — e isso é explícito,
+     não omissão: quem confirmou o formulário viu todas as linhas. Deixar
+     "não mandou" significar "mantém como estava" faria a soma fechar na
+     tela e não fechar no banco. */
+  for (const v of naLoja) if (!alvo.has(String(v.variante_id))) alvo.set(String(v.variante_id), 0);
+
+  const soma = [...alvo.values()].reduce((s, n) => s + n, 0);
+  if (soma !== p.qtd) {
+    return {
+      status: 409,
+      erro: `A soma das variações dá ${soma}, e o estoque de ${sku} é ${p.qtd}. ` +
+            `Distribuir não muda o total — se o total é que está errado, ajuste primeiro e distribua depois.`,
+      soma, total: p.qtd, diferenca: soma - p.qtd,
+    };
+  }
+
+  /* O saldo de HOJE, pelas duas chaves, para calcular o delta de cada
+     variante. Mesma leitura que a sincronização faz — se divergisse, esta
+     rota "resolveria" algo que ela continuaria recusando. */
+  const baldes = (await db.prepare(
+    `SELECT variacao, variante_id, SUM(qtd) AS saldo FROM movimentos
+      WHERE sku = ? AND (variacao IS NOT NULL OR variante_id IS NOT NULL)
+      GROUP BY variacao, variante_id`).bind(k).all()).results;
+
+  const persistido = new Map((await db.prepare(
+    `SELECT nome, variante_id FROM produto_variacoes WHERE sku = ? AND variante_id IS NOT NULL`)
+    .bind(k).all()).results.map(r => [r.nome, String(r.variante_id)]));
+
+  const atual = new Map();      // varianteId → saldo de hoje
+  const orfaos = [];            // saldo que não casa com variante nenhuma
+  for (const b of baldes) {
+    if (!b.saldo) continue;
+    const vid = b.variante_id ? String(b.variante_id) : persistido.get(b.variacao);
+    if (vid && porId.has(vid)) atual.set(vid, (atual.get(vid) || 0) + b.saldo);
+    else orfaos.push(b);
+  }
+
+  const stmts = [];
+  const razao = obs || `Distribuição confirmada na tela para ${sku}`;
+  const feito = [];
+
+  /* Saldo preso numa variante que não existe mais volta para "sem variação"
+     ANTES de servir as novas — senão o delta partiria de um número que
+     inclui peça que ninguém vai reencontrar. */
+  for (const b of orfaos) {
+    const rotulo = b.variacao || b.variante_id;
+    stmts.push(...movimentar(db, {
+      sku: k, variacao: b.variacao, varianteId: b.variante_id,
+      tipo: 'ajuste', quantidade: -b.saldo, origem: 'variacao',
+      obs: `${razao}: "${rotulo}" não existe mais na loja e volta a ficar sem variação`,
+    }));
+    stmts.push(...movimentar(db, {
+      sku: k, tipo: 'ajuste', quantidade: b.saldo, origem: 'variacao',
+      obs: `${razao}: contrapartida de "${rotulo}"`,
+    }));
+  }
+
+  for (const v of naLoja) {
+    const vid = String(v.variante_id);
+    const delta = (alvo.get(vid) || 0) - (atual.get(vid) || 0);
+    if (!delta) continue;
+    feito.push({ varianteId: vid, nome: v.nome, de: atual.get(vid) || 0, para: alvo.get(vid) || 0 });
+    // entra (ou sai) da variante...
+    stmts.push(...movimentar(db, {
+      sku: k, variacao: v.nome, varianteId: vid,
+      tipo: 'ajuste', quantidade: delta, origem: 'variacao',
+      obs: `${razao}: "${v.nome}" passa a ter ${alvo.get(vid) || 0}`,
+    }));
+    // ...e sai (ou entra) de "sem variação", para o total não se mexer
+    stmts.push(...movimentar(db, {
+      sku: k, tipo: 'ajuste', quantidade: -delta, origem: 'variacao',
+      obs: `${razao}: contrapartida de "${v.nome}"`,
+    }));
+  }
+
+  /* Quando a fonte é a loja, a confirmação também é quem passa a mandar em
+     quais variações este código tem. Sem isto, um código cuja estrutura
+     nunca foi gravada em `produto_variacoes` continuaria invisível para a
+     sincronização mesmo depois de distribuído.
+
+     Quando a fonte é local, as linhas já são as de `produto_variacoes` —
+     reescrevê-las aqui só arriscaria trocar a origem por engano. */
+  if (fonte === 'loja') {
+    for (const [i, v] of naLoja.entries()) {
+      stmts.push(db.prepare(
+        `INSERT INTO produto_variacoes (sku, nome, variante_id, estoque_loja, ordem, valores_json, origem)
+         VALUES (?,?,?,?,?,?,'loja')
+         ON CONFLICT(sku, nome) DO UPDATE SET
+           variante_id=excluded.variante_id, estoque_loja=excluded.estoque_loja,
+           ordem=excluded.ordem, valores_json=excluded.valores_json, origem='loja'`
+      ).bind(k, v.nome, String(v.variante_id), v.estoque, i, v.valores_json || '[]'));
+    }
+  }
+
+  if (stmts.length) await db.batch(stmts);
+
+  return {
+    ok: true, sku: p.sku, total: p.qtd,
+    mudou: feito,
+    orfaosDevolvidos: orfaos.map(b => ({ nome: b.variacao, saldo: b.saldo })),
+    jaEstava: feito.length === 0 && orfaos.length === 0,
   };
 }

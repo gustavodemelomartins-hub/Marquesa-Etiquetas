@@ -479,11 +479,18 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
     db.prepare(`UPDATE produtos SET url_loja = NULL, estoque_loja = NULL, visivel = NULL`),
   ];
 
-  /* As variações são reescritas do zero a cada rodada: a loja é a fonte da
-     verdade sobre quais existem, e aro que sumiu de lá não pode continuar
-     aparecendo na hora da venda. O saldo não mora aqui — mora nos
-     movimentos — então apagar e regravar não perde histórico nenhum. */
-  stmts.push(db.prepare(`DELETE FROM produto_variacoes`));
+  /* As variações vindas da loja são reescritas do zero a cada rodada: ela é
+     a fonte da verdade sobre quais existem, e aro que sumiu de lá não pode
+     continuar aparecendo na hora da venda. O saldo não mora aqui — mora nos
+     movimentos — então apagar e regravar não perde histórico nenhum.
+
+     As criadas AQUI (origem 'local') ficam. Elas são de produto que ainda
+     não está na Nuvemshop: a loja não tem opinião sobre elas, e apagá-las
+     seria a rodada da madrugada desfazendo o cadastro que alguém acabou de
+     digitar — o pior tipo de bug, o que acontece enquanto ninguém olha.
+     Se um dia a loja passar a ter a mesma variação, o ON CONFLICT abaixo a
+     promove para 'loja' e ela volta a ser reescrita normalmente. */
+  stmts.push(db.prepare(`DELETE FROM produto_variacoes WHERE origem IS NULL OR origem <> 'local'`));
 
   let casados = 0, soNaLoja = 0;
   const produtosCasados = new Set();
@@ -497,14 +504,15 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
         stmts.push(db.prepare(
           `INSERT INTO produto_variacoes
              (sku, nome, atributo, variante_id, produto_id, estoque_loja, ordem,
-              valores_json, variante_sku, preco, promocional, imagem_url)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+              valores_json, variante_sku, preco, promocional, imagem_url, origem)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'loja')
            ON CONFLICT(sku, nome) DO UPDATE SET
              atributo=excluded.atributo, variante_id=excluded.variante_id,
              produto_id=excluded.produto_id, estoque_loja=excluded.estoque_loja,
              ordem=excluded.ordem, valores_json=excluded.valores_json,
              variante_sku=excluded.variante_sku, preco=excluded.preco,
-             promocional=excluded.promocional, imagem_url=excluded.imagem_url`
+             promocional=excluded.promocional, imagem_url=excluded.imagem_url,
+             origem='loja'`
         ).bind(
           sku, va.nome || `opção ${i + 1}`, (v.atributos || []).join(' · ') || null,
           String(va.varianteId), String(va.produtoId),

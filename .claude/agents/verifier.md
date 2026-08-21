@@ -19,7 +19,7 @@ Suíte inteira por reflexo é desperdício. Escolha pelo que mudou:
 | `api/src/sync.js`, `nuvemshop.js` | `node src/sync-test.mjs` |
 | variações | `node src/variacoes-test.mjs` |
 | kits | `node src/kits-test.mjs` |
-| importação / estoque total | `node src/import-casa-test.mjs` · `node src/estoque-total-e2e.mjs` |
+| importação / estoque total | `node src/import-total-test.mjs` · `node src/estoque-total-e2e.mjs` |
 | peças novas | `node src/produtos-novos-e2e.mjs` |
 | reconciliação | `node src/reconciliacao-test.mjs` |
 | `frontend/src/**` | `cd frontend && npm test && npm run build` |

@@ -16,7 +16,12 @@ import {
   lerFotoParaServir, removerFotos, gerarFundoBranco, pendenciasDePublicacao,
 } from './fotos.js';
 import { conferirAssinaturaFoto } from './assinatura.js';
-import { importarVariantesDaLoja, variacoesParaRevisao, variantesDoSku } from './variantes.js';
+import {
+  importarVariantesDaLoja, variacoesParaRevisao, variantesDoSku, distribuirVariantes,
+} from './variantes.js';
+import {
+  dependenciasDoProduto, excluirProduto, arquivarProduto, desarquivarProduto, definirVariacoes,
+} from './produtos.js';
 import { checarSku, gerarSku } from './sku.js';
 import { Nuvemshop } from './nuvemshop.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
@@ -222,6 +227,48 @@ async function rotear(request, env) {
       // decidiu NÃO escrever, com os dois números lado a lado.
       if (path === '/api/variacoes/revisao' && met === 'GET') {
         return json(await variacoesParaRevisao(db));
+      }
+
+      /* A confirmação humana que tira um produto de `sem_reparticao`.
+         A chave de cada quantidade é o `variant_id`, nunca o nome — ver
+         api/REGRAS.md § 8b. A soma tem de fechar exatamente com o estoque
+         do produto, e a rota recusa em vez de escolher sozinha quem está
+         certo (§19: repartir e corrigir o total são atos diferentes). */
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/variacoes\/distribuir$/)) && met === 'POST') {
+        const r = await distribuirVariantes(db, decodeURIComponent(m[1]), await request.json());
+        return json(r, r.status || (r.erro ? 400 : 200));
+      }
+      // Estrutura (atributos e valores). NÃO mexe em estoque: quantidade é
+      // o outro ato, e passa pela rota acima.
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/variacoes$/)) && met === 'PUT') {
+        const r = await definirVariacoes(db, decodeURIComponent(m[1]), await request.json());
+        return json(r, r.status || (r.erro ? 400 : 200));
+      }
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/variacoes$/)) && met === 'GET') {
+        return json(await variantesDoSku(db, decodeURIComponent(m[1])));
+      }
+
+      /* ------------------------------------------- ciclo de vida da peça
+         §28: quem tem histórico é arquivado, nunca apagado. Quem não tem
+         (a peça de teste que entulha a lista) some de vez. Quem decide não
+         é preferência: é a pergunta que `dependenciasDoProduto` faz ao
+         banco. Nenhuma destas rotas encosta na Nuvemshop. */
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/dependencias$/)) && met === 'GET') {
+        const r = await dependenciasDoProduto(db, decodeURIComponent(m[1]));
+        return json(r, r.status || 200);
+      }
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)$/)) && met === 'DELETE') {
+        const r = await excluirProduto(db, decodeURIComponent(m[1]));
+        return json(r, r.status || (r.erro ? 400 : 200));
+      }
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/arquivar$/)) && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        const r = await arquivarProduto(db, decodeURIComponent(m[1]), b);
+        return json(r, r.status || (r.erro ? 400 : 200));
+      }
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/desarquivar$/)) && met === 'POST') {
+        const r = await desarquivarProduto(db, decodeURIComponent(m[1]));
+        return json(r, r.status || (r.erro ? 400 : 200));
       }
 
       /* ------------------------------------------------------------- SKU
