@@ -72,6 +72,17 @@ Duas funções leem o mesmo `GET /products` e respondem perguntas diferentes:
   produto de variante única. É o que
   `POST /api/loja/variantes/importar` grava em `loja_variantes`.
 
+Para rodar essa importação contra o DEV e ver o relatório inteiro (ensaio
+seco, gravação, revisão e o que uma rodada faria hoje):
+
+```bash
+cd api
+API_URL=https://marquesa-api-staging.marquesaasemijoias.workers.dev API_KEY=<a chave do staging> node tools/importar-variantes-dev.mjs        # --seco para só do ensaio
+```
+
+Ela recusa qualquer URL que não seja staging ou localhost, e as duas rotas
+que usa só fazem `GET` na Nuvemshop.
+
 `listarTudo` pagina com `per_page=200` (o máximo) e para quando o lote vem
 menor que 200 — com teto de **40 páginas** (8.000 registros). Uma loja que
 passe disso teria o excedente silenciosamente ignorado.
