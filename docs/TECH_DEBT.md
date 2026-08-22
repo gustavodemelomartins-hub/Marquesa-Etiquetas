@@ -217,6 +217,33 @@ passa → saúde continua erro; sync real ok + seca ok → sem mudança; sync re
 pausada + seca passa → saúde continua pausada; e o caso simétrico — uma
 ANÁLISE que falha não pode contaminar uma sincronização real saudável.
 
+## 15. Anexo I: exportar depende de um arquivo modelo que não está no repositório
+
+**Pedido (BLOCO D, D2):** gerar o Anexo I de uma maleta em arquivo,
+seguindo o **modelo operacional original** — layout, cabeçalhos, colunas,
+ordem, largura, estrutura e formatação.
+
+**Estado: BLOQUEADO, e de propósito.** O repositório não tem o arquivo
+modelo. `find . -iname "*anexo*"` não devolve nada, e `gerar-seed.py` lê os
+Anexos reais de uma pasta fora do versionamento
+(`MARQUESA_DADOS`) — justamente porque eles contêm nome e CPF de gente.
+
+Fabricar "um modelo parecido" seria pior que não entregar: o Anexo I é
+documento de consignação, ele circula assinado, e um layout inventado que
+se pareça com o certo é exatamente o tipo de coisa que ninguém confere
+antes de imprimir.
+
+O que **existe hoje e continua funcionando**: `printAnexo()` no painel
+monta o Anexo I para IMPRESSÃO, no formato que já estava em uso. Ele não
+foi tocado.
+
+**Para desbloquear:** colocar um Anexo I real (pode ser com dados fictícios,
+desde que a ESTRUTURA seja a verdadeira) em `docs/modelos/anexo-i.xlsx`. Com
+o arquivo, o caminho é ler o modelo com SheetJS, preencher as linhas e
+reescrever — preservando estilos —, não recriar a planilha do zero.
+
+---
+
 ## 13. `saude-sync-test` depende do relógio de segundo do SQLite
 
 A asserção `ultimaAnaliseEm !== ultimaEm` compara dois `datetime('now')`, que
@@ -277,7 +304,35 @@ arquivo de lock, ou matar só o PID que ele mesmo iniciou em vez de todo
 Abertas em 2026-08-19, junto com a tela "Capacidade para novas maletas"
 (Revendedoras › Visão Geral no painel React).
 
-### 12.1 Não existe regra de negócio para tamanho de maleta nem reserva
+### 12.1 ~~Não existe regra de negócio para tamanho de maleta nem reserva~~ — DECIDIDO EM PARTE
+
+**2026-08-22.** A decisão de negócio veio, e no formato mais simples dos que
+estavam em aberto: **absoluto, global, em peças**.
+
+- `maletaAlvoPecas` — quantas peças uma maleta costuma levar (padrão 100);
+- `reservaMinima` — quantas peças ficam em casa, no total (padrão 300).
+
+As duas entraram na lista fechada de `PUT /api/config`
+(`api/src/index.js`) e viajam em `state.config`, exatamente como o caminho
+descrito abaixo previa. A conta que a tela mostra é declarada nela mesma:
+`em casa − reserva = utilizável`, `utilizável ÷ alvo = maletas`.
+
+O que **continua em aberto**, e por isso este item não está fechado:
+
+- a reserva é global, não por código nem por categoria. Uma reserva de 300
+  peças concentrada num código só e nenhuma nos outros satisfaz a conta e
+  não satisfaz a operação;
+- o alvo é um número só para todas as revendedoras;
+- **o painel React não foi migrado**: ele continua com
+  `tamanhoAlvo`/`reservaPct` em `localStorage`
+  (`frontend/src/features/maletas/planejamento.ts`), com semântica
+  diferente (percentual por código). Os dois painéis convivem e, hoje,
+  discordam. Migrar o React para `state.config` é o passo que fecha isto.
+
+O texto original do item fica abaixo, porque ele explica por que os dois
+números não estavam no banco.
+
+### 12.1-a O registro de quando não existia regra
 
 `api/REGRAS.md` não define **tamanho mínimo ou alvo de uma maleta** nem
 **reserva mínima em casa**. O backend só garante o piso absoluto: a

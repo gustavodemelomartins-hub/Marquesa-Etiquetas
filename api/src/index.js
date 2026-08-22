@@ -14,6 +14,7 @@ import {
 import {
   importarFotosDaLoja, vincularFotosDaLoja, listarFotosOrfas, adotarFotoOrfa, salvarFotoUpload,
   lerFotoParaServir, removerFotos, gerarFundoBranco, pendenciasDePublicacao,
+  sincronizarFotosDaLoja, fotosDoSku,
 } from './fotos.js';
 import { conferirAssinaturaFoto } from './assinatura.js';
 import {
@@ -23,7 +24,7 @@ import {
   dependenciasDoProduto, excluirProduto, arquivarProduto, desarquivarProduto, definirVariacoes,
   estruturaDoProduto,
 } from './produtos.js';
-import { checarSku, gerarSku } from './sku.js';
+import { checarSku, gerarSku, auditarSkus } from './sku.js';
 import { Nuvemshop } from './nuvemshop.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
 import {
@@ -163,6 +164,14 @@ async function rotear(request, env) {
       // Vincular: anota o endereço da imagem na loja, sem baixar os bytes.
       // Uma leitura resolve o catálogo inteiro; importar-da-loja é o passo
       // seguinte, que traz os bytes para o R2 peça por peça.
+      /* Ingestão do catálogo INTEIRO de imagens da loja. A rodada de
+         sincronização já faz isto sozinha, com o catálogo que ela leu —
+         esta rota existe para contingência e para conferir antes
+         (`{"seco": true}` lê tudo e não grava nada). */
+      if (path === '/api/fotos/sincronizar' && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        return json(await sincronizarFotosDaLoja(db, env, { seco: !!b.seco }));
+      }
       if (path === '/api/fotos/vincular-da-loja' && met === 'POST') {
         const b = await request.json().catch(() => ({}));
         return json(await vincularFotosDaLoja(db, env, { seco: !!b.seco, refazer: !!b.refazer }));
@@ -170,6 +179,12 @@ async function rotear(request, env) {
       if (path === '/api/fotos/importar-da-loja' && met === 'POST') {
         const b = await request.json().catch(() => ({}));
         return json(await importarFotosDaLoja(db, env, { seco: !!b.seco, refazer: !!b.refazer }));
+      }
+      /* A galeria de um código, na ordem da loja e com a principal na
+         frente. Preserva as múltiplas imagens: a tela operacional mostra a
+         principal, e quem precisar das outras não abre a Nuvemshop. */
+      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/fotos$/)) && met === 'GET') {
+        return json(await fotosDoSku(db, decodeURIComponent(m[1])));
       }
       if (path === '/api/fotos/orfas' && met === 'GET') return json(await listarFotosOrfas(db));
       if (path === '/api/fotos/orfas/adotar' && met === 'POST') {
@@ -286,7 +301,32 @@ async function rotear(request, env) {
       }
       if (path === '/api/produtos/sku/gerar' && met === 'POST') {
         const b = await request.json().catch(() => ({}));
-        return json(await gerarSku(db, { origem: b.origem || 'cadastro' }));
+        const r = await gerarSku(db, { origem: b.origem || 'cadastro' });
+        /* O código sai acompanhado do veredito da auditoria. Enquanto não
+           existir regra inequívoca medida no catálogo real, o formato
+           gerado é PROVISÓRIO — e a tela diz isso em vez de apresentar um
+           código inventado como se fosse o padrão da casa. Ver
+           api/REGRAS.md § 17 e GET /api/produtos/sku/auditoria. */
+        if (r.ok) {
+          const a = await auditarSkus(db);
+          r.padrao = {
+            regraInequivoca: a.conclusao.regraInequivoca,
+            motivo: a.conclusao.motivo,
+            exemploReal: a.conclusao.exemploReal,
+            provisorio: !a.conclusao.regraInequivoca,
+          };
+        }
+        return json(r);
+      }
+      /* O padrão REAL dos códigos, medido no catálogo inteiro — produtos,
+         fila de peças novas e o que a loja carrega nas variantes. Leitura
+         pura: não muda gerador, não renumera, não decide. Existe porque
+         "qual código o sistema deve gerar?" é pergunta de dado, não de
+         opinião, e a resposta errada só aparece meses depois numa etiqueta. */
+      if (path === '/api/produtos/sku/auditoria' && met === 'GET') {
+        return json(await auditarSkus(db, {
+          amostra: Math.min(200, Math.max(1, Number(url.searchParams.get('amostra')) || 25)),
+        }));
       }
 
       // ---------------------------------------------------------------- kits
@@ -370,7 +410,13 @@ async function rotear(request, env) {
            nele por engano faria o robô reler ou pular pedidos. Só os dois
            limites do freio são ajustáveis daqui. */
         for (const chave of ['prazoDias', 'prataPct', 'inventarioDias', 'faixas',
-                             'syncLimiteMudancas', 'syncLimiteZerar']) {
+                             'syncLimiteMudancas', 'syncLimiteZerar',
+                             /* Planejamento de maletas: quantas peças uma maleta
+                                costuma levar e quanto tem de sobrar em casa. São
+                                parâmetros do NEGÓCIO, não do robô — uma maleta de
+                                60 peças e outra de 150 são operações diferentes, e
+                                o número certo é o que a Sthefany usa. */
+                             'maletaAlvoPecas', 'reservaMinima']) {
           if (b[chave] !== undefined) {
             stmts.push(db.prepare(
               `INSERT INTO config (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`

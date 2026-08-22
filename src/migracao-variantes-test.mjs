@@ -58,6 +58,7 @@ function schemaAnterior() {
 const MIGRACOES = [
   'api/migracao-variantes.sql',
   'api/migracao-variacoes-locais.sql',
+  'api/migracao-fotos-loja.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com

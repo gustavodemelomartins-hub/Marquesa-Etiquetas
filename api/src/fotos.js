@@ -524,15 +524,36 @@ export async function pendenciasDePublicacao(db) {
       FROM produtos p
      WHERE p.status = 'ativo'`).all();
 
+  /* As variações que a peça já tem definidas aqui. Elas viajam junto porque
+     publicar um produto com variação e publicar um produto simples são dois
+     atos diferentes na Nuvemshop, e quem prepara precisa ver isso ANTES —
+     descobrir na hora da publicação que a estrutura não existe é descobrir
+     tarde.
+     
+     O que a tela mostra é o NOME ("Cristal", "n° 17"); o `variante_id` fica
+     aqui dentro porque é identidade, não informação de tela. */
+  const variacoesPorSku = new Map();
+  try {
+    for (const v of (await db.prepare(
+      `SELECT sku, nome, variante_id FROM produto_variacoes ORDER BY sku, ordem, nome`).all()).results) {
+      if (!variacoesPorSku.has(v.sku)) variacoesPorSku.set(v.sku, []);
+      variacoesPorSku.get(v.sku).push({ nome: v.nome, temId: !!v.variante_id });
+    }
+  } catch (e) { /* banco sem a tabela: a lista segue sem a coluna de variações */ }
+
   const prontos = [], semFoto = [], semFundoBranco = [], semDescricao = [], semCategoria = [], semPreco = [];
 
   for (const p of r.results) {
     if (p.url_loja) continue;             // já está na loja: não é assunto daqui
     if ((p.casa || 0) <= 0) continue;     // sem peça em casa não há o que anunciar
 
+    const vars = variacoesPorSku.get(p.sku) || [];
     const item = {
       sku: p.sku, desc: p.desc, cat: p.cat, preco: p.preco, casa: p.casa,
+      qtd: p.qtd,
       fotoStatus: p.foto_status || FOTO.SEM,
+      variacoes: vars.map(v => v.nome),
+      temVariacao: vars.length > 1,
     };
     const falta = [];
     if (!p.foto_original_key) { falta.push('foto'); semFoto.push(item); }
@@ -544,6 +565,12 @@ export async function pendenciasDePublicacao(db) {
     // §24: sem preço NUNCA é "pronto", ponto — não é uma pendência opcional
     if (p.preco == null) { falta.push('preco'); semPreco.push(item); }
 
+    /* `falta` vai DENTRO do item, e não só implícito na lista em que ele
+       caiu: uma peça sem foto e sem preço aparece em duas listas, e em
+       qualquer uma delas a pergunta seguinte é "o que mais falta?". Sem
+       isto a tela respondia com um clique noutra aba. */
+    item.falta = falta;
+    item.pronto = falta.length === 0;
     if (!falta.length) prontos.push(item);
   }
 
@@ -568,5 +595,162 @@ export async function pendenciasDePublicacao(db) {
     semDescricao: ordena(semDescricao).slice(0, 500),
     semCategoria: ordena(semCategoria).slice(0, 500),
     semPreco: ordena(semPreco).slice(0, 500),
+  };
+}
+
+/* ==================================================================== */
+/* 0. O CATÁLOGO DE IMAGENS DA LOJA — lido inteiro, guardado inteiro     */
+/* ==================================================================== */
+
+/** Todas as imagens de um catálogo da Nuvemshop, já com a amarração que dá
+ *  para provar — e só com ela.
+ *
+ *  Uma imagem pertence a um código quando:
+ *
+ *   - a VARIANTE declara `image_id` apontando para ela → a imagem é daquela
+ *     variante, e o código é o SKU dela. É o caso do anel dourado e do
+ *     prateado, e a amarração é por id, nunca por posição;
+ *   - ou o produto inteiro carrega UM código só nas variantes → todas as
+ *     imagens dele são daquele código.
+ *
+ *  Fora desses dois casos, `sku_norm` fica NULL. Não é lacuna: é a recusa
+ *  de adivinhar. Um produto da loja que junta dois códigos nossos e tem
+ *  três fotos soltas não diz de quem é cada foto, e chutar aqui faria a
+ *  vitrine anunciar uma peça mostrando outra.
+ */
+export function galeriaDoCatalogo(produtosLoja) {
+  const linhas = [];
+  for (const p of produtosLoja || []) {
+    const imagens = (p.images || []).slice()
+      .sort((a, b) => (a.position || 0) - (b.position || 0));
+    if (!imagens.length) continue;
+
+    const varPorImagem = new Map();          // image_id → variante
+    const skus = new Set();
+    for (const v of p.variants || []) {
+      const sku = normSku(v.sku);
+      if (sku) skus.add(sku);
+      if (v.image_id != null && !varPorImagem.has(String(v.image_id))) {
+        varPorImagem.set(String(v.image_id), v);
+      }
+    }
+    const skuUnico = skus.size === 1 ? [...skus][0] : null;
+
+    imagens.forEach((img, i) => {
+      const daVariante = varPorImagem.get(String(img.id));
+      const sku = daVariante ? normSku(daVariante.sku) : skuUnico;
+      linhas.push({
+        imagemId: String(img.id),
+        produtoId: String(p.id),
+        url: img.src,
+        posicao: img.position == null ? i + 1 : img.position,
+        /* A principal é a de menor posição — a que a vitrine mostra. Vem
+           gravada porque "a primeira da lista" depende de como a lista foi
+           lida, e quem exibe não deveria ter de saber disso. */
+        principal: i === 0 ? 1 : 0,
+        skuNorm: sku || null,
+        varianteId: daVariante ? String(daVariante.id) : null,
+        produtoNome: texto(p.name),
+      });
+    });
+  }
+  return linhas;
+}
+
+/** Guarda a galeria lida, e devolve o que mudou.
+ *
+ *  Reescreve por PRODUTO, não por imagem: assim uma foto apagada na loja
+ *  some daqui na mesma rodada, em vez de ficar sendo mostrada para sempre
+ *  porque ninguém mandou apagar. É o mesmo contrato de `loja_variantes` —
+ *  esta tabela é espelho de lá, e espelho que só cresce mente.
+ *
+ *  Nada aqui encosta em `produtos`, no R2 ou em `foto_status`. A pergunta
+ *  "temos os bytes?" continua sendo outra, e a resposta dela continua
+ *  vindo das chaves do R2.
+ */
+export async function guardarGaleria(db, linhas, { seco = false } = {}) {
+  const produtos = [...new Set(linhas.map(l => l.produtoId))];
+  const resumo = {
+    imagens: linhas.length,
+    produtos: produtos.length,
+    comCodigo: linhas.filter(l => l.skuNorm).length,
+    semCodigo: linhas.filter(l => !l.skuNorm).length,
+    deVariante: linhas.filter(l => l.varianteId).length,
+  };
+  if (seco || !linhas.length) return { ...resumo, gravadas: 0 };
+
+  const stmts = [];
+  for (const id of produtos) {
+    stmts.push(db.prepare(`DELETE FROM loja_fotos WHERE produto_id = ?`).bind(id));
+  }
+  for (const l of linhas) {
+    stmts.push(db.prepare(
+      `INSERT INTO loja_fotos (imagem_id, produto_id, url, posicao, principal, sku_norm, variante_id, lido_em)
+       VALUES (?,?,?,?,?,?,?, datetime('now'))
+       ON CONFLICT(imagem_id) DO UPDATE SET
+         produto_id=excluded.produto_id, url=excluded.url, posicao=excluded.posicao,
+         principal=excluded.principal, sku_norm=excluded.sku_norm,
+         variante_id=excluded.variante_id, lido_em=excluded.lido_em`
+    ).bind(l.imagemId, l.produtoId, l.url, l.posicao, l.principal, l.skuNorm, l.varianteId));
+  }
+  for (let i = 0; i < stmts.length; i += 100) await db.batch(stmts.slice(i, i + 100));
+  return { ...resumo, gravadas: linhas.length };
+}
+
+/** O passo que a rodada de sincronização executa, com o catálogo que ela
+ *  JÁ leu — nenhuma segunda chamada à loja.
+ *
+ *  Nunca derruba a rodada: uma tabela que falta ou uma imagem estranha não
+ *  podem impedir o estoque de subir. O que der errado vira linha no relato,
+ *  que é como o resto deste sistema anuncia o que decidiu não fazer. */
+export async function ingerirFotosDoCatalogo(db, produtosLoja, { seco = false } = {}) {
+  try {
+    return { ok: true, ...(await guardarGaleria(db, galeriaDoCatalogo(produtosLoja), { seco })) };
+  } catch (e) {
+    return { ok: false, erro: String((e && e.message) || e) };
+  }
+}
+
+/** A mesma ingestão, disparada sozinha — a ferramenta administrativa.
+ *  A rodada normal já faz isto; esta rota existe para contingência e para
+ *  quem quiser conferir antes (`seco: true`). */
+export async function sincronizarFotosDaLoja(db, env, { seco = false } = {}) {
+  const semLoja = lojaDesconectada(env);
+  if (semLoja) return { ok: false, erro: semLoja };
+  let produtosLoja;
+  try {
+    produtosLoja = await new Nuvemshop(env).produtos();
+  } catch (e) {
+    return { ok: false, erro: (e && e.message) || 'A loja não respondeu.' };
+  }
+  const linhas = galeriaDoCatalogo(produtosLoja);
+  const r = await guardarGaleria(db, linhas, { seco });
+  return {
+    ok: true, seco,
+    resumo: r,
+    amostra: linhas.slice(0, 50).map(l => ({
+      sku: l.skuNorm, produtoId: l.produtoId, varianteId: l.varianteId,
+      posicao: l.posicao, principal: !!l.principal, url: l.url,
+    })),
+  };
+}
+
+/** A galeria de UM código, na ordem da loja. A principal primeiro.
+ *  Preserva as múltiplas imagens: a tela operacional mostra a principal,
+ *  e quem precisar das outras não tem de abrir a Nuvemshop. */
+export async function fotosDoSku(db, sku) {
+  const k = normSku(sku);
+  const r = await db.prepare(
+    `SELECT imagem_id, produto_id, url, posicao, principal, variante_id, lido_em
+       FROM loja_fotos WHERE sku_norm = ? ORDER BY principal DESC, posicao`).bind(k).all();
+  return {
+    sku: k,
+    total: r.results.length,
+    fotos: r.results.map(f => ({
+      imagemId: String(f.imagem_id), produtoId: String(f.produto_id), url: f.url,
+      posicao: f.posicao, principal: !!f.principal,
+      varianteId: f.variante_id ? String(f.variante_id) : null,
+      lidoEm: f.lido_em,
+    })),
   };
 }

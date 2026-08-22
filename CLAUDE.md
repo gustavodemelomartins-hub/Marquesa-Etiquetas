@@ -179,6 +179,9 @@ proporcional à mudança — direcionada, nunca a suíte inteira por reflexo:
 |---|---|
 | `api/src/**` | o teste do assunto (`docs/TESTING.md`) + `GET /api/estoque/conferir` vazio |
 | `src/dashboard.tpl.html` | `python src/build.py` e depois `node src/e2e.mjs` |
+| foto, variação, SKU | `src/editar-peca-test.mjs` · `src/editar-peca-ui-test.mjs` · `src/fotos-catalogo-test.mjs` · `src/sku-auditoria-test.mjs` |
+| Pendências / Nuvemshop | `src/pendencias-nuvemshop-test.mjs` |
+| Revendedoras / Anexo I | `src/revendedoras-test.mjs` |
 | `frontend/src/**` | `cd frontend && npm test && npm run build` |
 | schema ou migration | contagens antes/depois, cada delta explicado, razão fechando |
 | publicado no DEV | smoke test do endereço publicado |

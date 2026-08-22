@@ -311,7 +311,16 @@ body{font-variant-numeric:lining-nums tabular-nums}
 #anexoRoot .ax-sign div{flex:1;border-top:1px solid #000;padding-top:5px;text-align:center}
 
 /* ---------- Ajustes finos ---------- */
-.subtabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.subtabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+/* Empurra as ações da lista para a direita. No celular o `flex-wrap` já
+   quebrou a linha antes de chegar aqui, e o espaçador vira zero sozinho —
+   nada de botão encostado na borda. */
+.subtabs .spacer{flex:1;min-width:0}
+/* KPI que leva a algum lugar. O mesmo tratamento dos grupos da análise:
+   cursor e borda no hover, para o clicável parecer clicável sem precisar de
+   mais um botão dentro do cartão. */
+.kpi.clicavel{cursor:pointer}
+.kpi.clicavel:hover{border-color:var(--rose);box-shadow:var(--shadow)}
 .pill{
   border:1px solid var(--line);background:#fff;border-radius:20px;padding:6px 14px;
   font-size:12.5px;font-weight:600;color:var(--muted);transition:.15s;
@@ -755,6 +764,28 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
   background:var(--danger-tint);color:var(--danger);
 }
 .deplista li.leva{background:var(--line-soft);color:var(--muted)}
+/* Topo da ficha da revendedora: nome de um lado, como falar com ela do
+   outro. No celular as duas metades empilham e os botões continuam com
+   respiro — contato encostado na borda é contato que não se acerta com o
+   polegar. */
+.revtopo{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.revtopo .rt-id{flex:1;min-width:190px}
+.revtopo .rt-id h2{font-family:var(--serif);font-size:22px;color:var(--bordo);margin:0 0 4px;line-height:1.2}
+.revtopo .rt-meta{font-size:12px;color:var(--muted);line-height:1.45}
+.revtopo .rt-contatos{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.revtopo .rt-contatos .btn{text-decoration:none}
+@media (max-width:560px){
+  .revtopo .rt-contatos{width:100%}
+  .revtopo .rt-contatos .btn{flex:1;min-width:120px;justify-content:center}
+}
+/* O que falta em cada peça, como selos e não como frase: a pessoa varre a
+   coluna com o olho e vê o padrão ("quase todas só precisam de preço"),
+   que é a informação que decide o que fazer primeiro. */
+.faltas{display:flex;gap:4px;flex-wrap:wrap}
+.faltachip{
+  display:inline-flex;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;
+  background:var(--rose-tint);color:var(--bordo);white-space:nowrap;
+}
 /* A linha que trouxe a pessoa até aqui. Sem isto, "Ir para Pendências"
    despeja a tela inteira e ela tem de reencontrar a peça no meio de
    centenas. O destaque some no próximo clique — destaque que fica vira
@@ -990,6 +1021,9 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
   <section class="view" id="view-vendas"></section>
 
   <!-- ============ REVENDEDORAS (lista) ============ -->
+  <!-- ============ REVENDEDORAS · VISÃO GERAL ============ -->
+  <section class="view" id="view-revgeral"></section>
+
   <section class="view" id="view-revlist"></section>
 
   <!-- ============ REVENDEDORA (uma por vez) ============ -->
@@ -1194,6 +1228,14 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
     </div>
     <div class="mbody" id="impStep3" style="display:none">
       <div id="impAnaliseBody"></div>
+    </div>
+    <!-- Preview da maleta (Anexo I). Existe porque a importação de maleta
+         era o único caminho que ainda APLICAVA direto: lia o arquivo,
+         criava os códigos que faltavam e movimentava as peças, tudo no
+         mesmo clique. Uma planilha errada virava consignação errada, e
+         desfazer consignação é movimento contra movimento. -->
+    <div class="mbody" id="impStep4" style="display:none">
+      <div id="impMaletaBody"></div>
     </div>
     <div class="mbody" id="impStep2" style="display:none">
       <div class="prevlabel">O que encontrei no arquivo</div>
@@ -1785,6 +1827,15 @@ function revNome(id){
   const r=state.revendedoras.find(x=>x.id===id);
   return r?r.nome:'Revendedora removida';
 }
+/** O telefone no formato que o wa.me entende: só dígitos, com o 55 na
+    frente quando o número é claramente brasileiro e veio sem ele. Não
+    inventa DDI para número estrangeiro nem para número curto demais —
+    abrir uma conversa com o número errado é pior que não abrir. */
+function numeroWhats(tel){
+  const d=String(tel||'').replace(/\D/g,'');
+  if(d.length===10||d.length===11) return '55'+d;      // (11) 91234-5678
+  return d;
+}
 function maletaAbertaDe(revId){ return state.maletas.find(m=>m.revId===revId && maletaAberta(m))||null; }
 function qtdMaleta(m){ return Object.values(m.itens||{}).reduce((s,q)=>s+(+q||0),0); }
 function valMaleta(m){
@@ -1826,7 +1877,7 @@ let tabAtual='geral';      /* 'geral' | 'cadastro' | 'loja' | 'pendencias' | 've
 function mainTabOf(name){
   if(name==='etiquetas'||name==='etq-print') return 'etiqueta';
   if(name==='vendas') return 'vendas';
-  if(name==='revlist'||name.indexOf('rev:')===0) return 'revendedoras';
+  if(name==='revgeral'||name==='revlist'||name.indexOf('rev:')===0) return 'revendedoras';
   return 'estoque';
 }
 function switchTab(name){
@@ -1864,6 +1915,7 @@ function switchTab(name){
     renderVendas();
     carregarVendas(vendasData).then(renderVendas);
   }
+  else if(name==='revgeral'){ document.getElementById('view-revgeral').classList.add('active'); renderRevGeral(); }
   else if(name==='revlist'){ document.getElementById('view-revlist').classList.add('active'); renderRevLista(); }
   else { document.getElementById('view-rev').classList.add('active'); renderRev(+name.split(':')[1]); }
   window.scrollTo({top:0,behavior:'smooth'});
@@ -1892,7 +1944,7 @@ function renderTabs(){
      que a peça já existe. */
   navMain.innerHTML=[
     ['estoque',      'geral',     'Estoque',      ICO.caixa],
-    ['revendedoras', 'revlist',   'Revendedoras', ICO.pessoas],
+    ['revendedoras', 'revgeral',  'Revendedoras', ICO.pessoas],
     ['vendas',       'vendas',    'Vendas',       ICO.grafico],
     ['etiqueta',     'etiquetas', 'Etiquetas',    ICO.etiqueta],
   ].map(([area,destino,rotulo,ico])=>
@@ -1918,7 +1970,13 @@ function renderTabs(){
         aEsperar?`<span class="count">${aEsperar}</span>`:''}</button>`;
   } else if(mt==='revendedoras'){
     navSub.style.display='';
-    let html=`<button class="tab ${tabAtual==='revlist'?'active':''}" onclick="switchTab('revlist')">Todas</button>`;
+    /* "Todas" era a primeira aba e a porta de entrada da área — abrir em
+       Revendedoras era cair num grid de cartões, sem nenhuma leitura da
+       operação. A Visão Geral assume esse lugar; a lista completa continua
+       existindo, com o nome do que ela é. */
+    let html=`<button class="tab ${tabAtual==='revgeral'?'active':''}" onclick="switchTab('revgeral')">Visão Geral</button>`
+      +`<button class="tab ${tabAtual==='revlist'?'active':''}" onclick="switchTab('revlist')">Todas as revendedoras${
+        state.revendedoras.length?`<span class="count">${state.revendedoras.length}</span>`:''}</button>`;
     state.revendedoras.forEach(r=>{
       const m=maletaAbertaDe(r.id);
       const q=m?qtdMaleta(m):0;
@@ -2152,21 +2210,13 @@ function renderGeral(){
       ${vencidas.map(m=>esc(revNome(m.revId))+' ('+situacaoMaleta(m).texto+')').join(', ')}.</div>
     </div>`:''}
 
-    ${proximas.length?`<div class="panel" style="margin-bottom:22px">
-      <div class="head"><h2>Agenda de acertos</h2><span class="hint">Quem vem, quando, e com quanto na mão</span></div>
-      <div class="body" style="padding-top:14px">
-        ${proximas.map(m=>{
-          const s=situacaoMaleta(m), d=diasAteAcerto(m);
-          return `<div class="histrow" style="cursor:pointer" onclick="switchTab('rev:${m.revId}')">
-            <div class="h-dt"><b>${fmtData(prazoDe(m))}</b>${esc(revNome(m.revId))}</div>
-            <div class="h-st">Peças<b>${qtdMaleta(m)}</b></div>
-            <div class="h-st">Valor<b style="font-size:15px">${money(valMaleta(m))}</b></div>
-            <div class="spacer"></div>
-            <span class="badge ${s.classe}">${d===0?'hoje':esc(s.texto)}</span>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`:''}
+    ${/* A Agenda de acertos MUDOU DE LUGAR: ela é operação de revendedora,
+          não de estoque, e agora mora em Revendedoras › Visão Geral, ao lado
+          das outras leituras da mesma operação (quem está com o quê, quem
+          vende, quantas maletas ainda cabem). Aqui ela era um bloco alto no
+          meio do estoque que obrigava a rolar para chegar na planilha.
+          O aviso de acerto VENCIDO continua acima: prazo estourado é coisa
+          que precisa ser vista de qualquer tela. */''}
 
     ${inc.length?`<div class="warn">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
@@ -2177,6 +2227,233 @@ function renderGeral(){
     </div>`:''}`;
 
   renderDonut();
+}
+
+
+/* =================== Revendedoras · Visão Geral ===================
+   A porta de entrada da área. Antes ela caía direto num grid de cartões —
+   informação nenhuma sobre a operação, só uma lista. Aqui ficam as quatro
+   leituras que decidem o dia: quanto está na rua, quem vem quando, quem
+   vende de verdade, e quantas maletas ainda dá para montar.
+
+   A lista completa continua existindo, na aba ao lado. */
+
+/** Os ciclos FECHADOS de uma revendedora — uma linha por maleta encerrada,
+ *  com o acerto que a fechou.
+ *
+ *  O acerto já era gravado inteiro em `maletas.acerto_json` (enviadas,
+ *  devolvidas, vendidas, total vendido, comissão, líquido, dias). Ele nunca
+ *  tinha sido lido de volta: o painel mostrava a maleta ABERTA e mais nada.
+ *  É este histórico — e não o valor da maleta de hoje — que responde "quem
+ *  vende". */
+function ciclosDe(revId){
+  return state.maletas
+    .filter(m=>m.revId===revId&&m.status==='encerrada'&&m.acerto)
+    .sort((a,b)=>String(b.encerradaEm||'').localeCompare(String(a.encerradaEm||'')));
+}
+
+/** Desempenho a partir do histórico real. Sem histórico, devolve
+ *  `semDados` — e a tela DIZ isso, em vez de ranquear pelo valor da maleta
+ *  atual. Quem está com a maleta mais cara pode ser simplesmente quem
+ *  recebeu a maleta mais cara. */
+function desempenhoDe(revId){
+  const ciclos=ciclosDe(revId);
+  const r={revId, ciclos:ciclos.length, vendido:0, qtdVendida:0, enviadas:0,
+           devolvidas:0, comissao:0, giro:null, ticket:null, diasMedios:null,
+           ultimoAcerto:ciclos.length?ciclos[0].encerradaEm:null, semDados:!ciclos.length};
+  if(r.semDados) return r;
+  let dias=0, comDias=0;
+  for(const c of ciclos){
+    const a=c.acerto||{};
+    r.vendido+=+a.totalVendido||0;
+    r.qtdVendida+=+a.vendidas||0;
+    r.enviadas+=+a.enviadas||0;
+    r.devolvidas+=+a.devolvidas||0;
+    r.comissao+=+a.comissao||0;
+    if(a.dias!=null){ dias+=+a.dias; comDias++; }
+  }
+  /* Giro = das peças que saíram, quantas venderam. É a medida que compara
+     revendedoras de tamanhos diferentes sem premiar quem só leva mais. */
+  if(r.enviadas) r.giro=r.qtdVendida/r.enviadas;
+  if(r.qtdVendida) r.ticket=r.vendido/r.qtdVendida;
+  if(comDias) r.diasMedios=dias/comDias;
+  return r;
+}
+
+/** Quantas maletas novas ainda dá para montar com o que está fisicamente
+ *  em casa.
+ *
+ *  A conta é declarada na tela, e não escondida:
+ *
+ *      em casa − reserva mínima = utilizável
+ *      utilizável ÷ peças por maleta = maletas
+ *
+ *  A reserva existe para o algoritmo não zerar a casa. Uma loja sem peça em
+ *  casa não vende no balcão, não repõe maleta que voltou furada e não
+ *  atende a cliente que aparece — "dá para montar 11 maletas" com a casa
+ *  vazia é uma conta certa e uma decisão errada.
+ *
+ *  Os dois parâmetros são configuráveis porque o número certo é o da
+ *  operação, não o do código. */
+function capacidadeMaletas(){
+  const cfg=state.config||{};
+  const alvo=Math.max(1,int(cfg.maletaAlvoPecas||100));
+  const reserva=Math.max(0,int(cfg.reservaMinima||0));
+  /* `disponivel` já vem do servidor com o consignado descontado — é peça
+     que está AQUI, não peça que existe em algum lugar. */
+  const emCasa=state.produtos.reduce((s,p)=>s+Math.max(0,+p.disponivel||0),0);
+  const utilizavel=Math.max(0,emCasa-reserva);
+  return {alvo, reserva, emCasa, utilizavel, maletas:Math.floor(utilizavel/alvo)};
+}
+
+async function salvarPlanejamento(){
+  const alvo=int(document.getElementById('cap-alvo').value);
+  const reserva=int(document.getElementById('cap-reserva').value);
+  if(alvo<1){ toast('Uma maleta precisa de pelo menos 1 peça'); return; }
+  if(reserva<0){ toast('A reserva não pode ser negativa'); return; }
+  try{
+    await api('PUT','/api/config',{maletaAlvoPecas:alvo, reservaMinima:reserva});
+    await sincronizar();
+    toast('Planejamento salvo');
+  }catch(e){ toast(e.message); }
+}
+
+function renderRevGeral(){
+  const v=document.getElementById('view-revgeral');
+  const abertas=state.maletas.filter(m=>maletaAberta(m));
+  const vencidas=abertas.filter(m=>situacaoMaleta(m).atrasada);
+  const proximas=abertas.filter(m=>{const d=diasAteAcerto(m);return d!==null&&d>=0;})
+    .sort((a,b)=>String(prazoDe(a)).localeCompare(String(prazoDe(b))));
+  const pecasFora=abertas.reduce((s,m)=>s+qtdMaleta(m),0);
+  const valorFora=abertas.reduce((s,m)=>s+valMaleta(m),0);
+  const cap=capacidadeMaletas();
+  const proxima=proximas.length?prazoDe(proximas[0]):null;
+
+  /* Top revendedoras, do histórico. Só entram quem TEM ciclo fechado —
+     ordenar por valor vendido quem nunca acertou seria ordenar zeros. */
+  const desempenhos=state.revendedoras.map(r=>({rev:r, d:desempenhoDe(r.id)}));
+  const comHistorico=desempenhos.filter(x=>!x.d.semDados)
+    .sort((a,b)=>b.d.vendido-a.d.vendido);
+  const semHistorico=desempenhos.length-comHistorico.length;
+
+  v.innerHTML=`
+    <div class="actbar" style="margin-bottom:16px">
+      <div class="stat"><b>${state.revendedoras.length}</b> ${plural(state.revendedoras.length,'revendedora','revendedoras')}</div>
+      <div class="stat"><b>${abertas.length}</b> ${plural(abertas.length,'maleta aberta','maletas abertas')}</div>
+      <div class="spacer"></div>
+      <button class="btn btn-gold btn-sm" onclick="openRevForm()">+ Nova revendedora</button>
+    </div>
+
+    <div class="kpis">
+      ${cartaoKpi({ico:ICO.pessoas, rot:'Peças com revendedoras', num:pecasFora,
+        sub:[`${abertas.length} ${plural(abertas.length,'maleta aberta','maletas abertas')}`]})}
+      ${cartaoKpi({ico:ICO.grafico, rot:'Valor consignado', num:money(valorFora),
+        sub:['Pelo preço congelado no envio']})}
+      ${cartaoKpi({ico:ICO.brilho, rot:'Próximo acerto',
+        num:proxima?fmtData(proxima):'—',
+        sub:[proxima?esc(revNome(proximas[0].revId)):'Nenhuma data marcada']})}
+      ${cartaoKpi({ico:ICO.caixa, rot:'Cabem mais', num:cap.maletas,
+        sub:[`${plural(cap.maletas,'maleta','maletas')} de ${cap.alvo} peças`]})}
+    </div>
+
+    ${vencidas.length?`<div class="warn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+      <div><b>${vencidas.length} ${plural(vencidas.length,'acerto passou','acertos passaram')} da data combinada:</b>
+      ${vencidas.map(m=>esc(revNome(m.revId))+' ('+situacaoMaleta(m).texto+')').join(', ')}.</div>
+    </div>`:''}
+
+    <div class="panel" style="margin-bottom:22px">
+      <div class="head"><h2>Agenda de acertos</h2><span class="hint">Quem vem, quando, e com quanto na mão</span></div>
+      <div class="body" style="padding-top:14px">
+        ${proximas.length?proximas.map(m=>{
+          const s=situacaoMaleta(m), d=diasAteAcerto(m);
+          return `<div class="histrow" style="cursor:pointer" onclick="switchTab('rev:${m.revId}')">
+            <div class="h-dt"><b>${fmtData(prazoDe(m))}</b>${esc(revNome(m.revId))}</div>
+            <div class="h-st">Peças<b>${qtdMaleta(m)}</b></div>
+            <div class="h-st">Valor<b style="font-size:15px">${money(valMaleta(m))}</b></div>
+            <div class="spacer"></div>
+            <span class="badge ${s.classe}">${d===0?'hoje':esc(s.texto)}</span>
+          </div>`;
+        }).join(''):`<div class="empty"><h3>Nenhum acerto marcado</h3>
+          <p>${abertas.length?'As maletas abertas não têm data combinada.':'Nenhuma maleta aberta no momento.'}</p></div>`}
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:22px">
+      <div class="head">
+        <h2>Top revendedoras</h2>
+        <span class="hint">Pelo que já foi vendido de verdade, não pelo tamanho da maleta de hoje</span>
+      </div>
+      <div class="body">
+        ${comHistorico.length?`
+        <div class="tablewrap keeptable">
+          <table>
+            <thead><tr>
+              <th>Revendedora</th>
+              <th style="width:104px">Vendido</th>
+              <th style="width:82px">Peças</th>
+              <th style="width:78px">Giro</th>
+              <th style="width:92px">Ticket</th>
+              <th style="width:74px">Ciclos</th>
+              <th style="width:104px">Último acerto</th>
+            </tr></thead>
+            <tbody>${comHistorico.map(({rev,d})=>`<tr style="cursor:pointer" onclick="switchTab('rev:${rev.id}')">
+              <td class="desc">${esc(rev.nome)}</td>
+              <td class="price">${money(d.vendido)}</td>
+              <td class="num">${d.qtdVendida}</td>
+              <td class="num" title="Das peças que saíram, quantas venderam">${d.giro==null?'—':Math.round(d.giro*100)+'%'}</td>
+              <td class="price">${d.ticket==null?'—':money(d.ticket)}</td>
+              <td class="num">${d.ciclos}</td>
+              <td>${d.ultimoAcerto?fmtData(d.ultimoAcerto):'—'}</td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>
+        ${semHistorico?`<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">
+          ${semHistorico} ${plural(semHistorico,'revendedora ainda não tem','revendedoras ainda não têm')} acerto fechado
+          e por isso ${plural(semHistorico,'não aparece','não aparecem')} aqui — sem ciclo encerrado não há desempenho
+          para medir, e ordenar pelo valor da maleta atual mediria só quem recebeu a maleta maior.
+        </div>`:''}`
+        :`<div class="empty"><h3>Ainda não há acerto fechado</h3>
+          <p>O desempenho sai do histórico de acertos: valor vendido, quantidade, giro e ticket.
+          Enquanto nenhuma maleta tiver sido encerrada, não existe número real para comparar —
+          e o valor da maleta de hoje não serve: ele diz quem levou mais, não quem vendeu mais.</p></div>`}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="head">
+        <h2>Cabem quantas maletas</h2>
+        <span class="hint">Pelo que está fisicamente em casa, guardando a reserva</span>
+      </div>
+      <div class="body">
+        <p style="font-size:14px;color:var(--ink);margin-bottom:14px">
+          Você consegue montar aproximadamente <b>${cap.maletas}</b>
+          ${plural(cap.maletas,'nova maleta','novas maletas')} de <b>${cap.alvo}</b> peças
+          mantendo uma reserva de <b>${cap.reserva}</b>.
+        </p>
+        <div class="dc-nums">
+          <div class="dc-num"><b>${cap.emCasa}</b>peças em casa</div>
+          <div class="dc-num"><b>${cap.reserva}</b>reserva mínima</div>
+          <div class="dc-num"><b>${cap.utilizavel}</b>utilizáveis</div>
+          <div class="dc-num"><b>${cap.maletas}</b>maletas</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;max-width:420px">
+          <div class="field"><label>Peças por maleta</label>
+            <input id="cap-alvo" type="number" min="1" step="1" value="${cap.alvo}"></div>
+          <div class="field"><label>Reserva mínima em casa</label>
+            <input id="cap-reserva" type="number" min="0" step="1" value="${cap.reserva}"></div>
+        </div>
+        <div class="actbar" style="margin-top:12px">
+          <div class="spacer"></div>
+          <button class="btn btn-ghost btn-sm" onclick="salvarPlanejamento()">Salvar planejamento</button>
+        </div>
+        <div style="margin-top:10px;font-size:11.5px;color:var(--muted)">
+          A reserva não é detalhe: sem peça em casa não há venda de balcão, nem reposição de
+          maleta que voltou furada. É estimativa por quantidade — montar a maleta continua sendo
+          escolha de peça, na aba da revendedora.
+        </div>
+      </div>
+    </div>`;
 }
 
 /* =================== Revendedoras (lista) =================== */
@@ -2252,6 +2529,24 @@ function cadastrarManual(){
 
 let skuChecagem = 0;      // descarta resposta de digitação já superada
 let skuTimer = null;
+
+/* O padrão REAL dos códigos, medido no catálogo — não um exemplo inventado.
+   "Ex.: BR1234" ensinava um formato que a Marquesa não usa: os códigos
+   reais vêm do fornecedor e têm outra cara. Um exemplo errado na tela é uma
+   instrução errada, e ela vira código errado cadastrado à mão.
+
+   Carregado sob demanda, uma vez por sessão: é uma varredura do catálogo, e
+   a tela de cadastro é a única que precisa dela. */
+let auditoriaSku=null;
+async function carregarAuditoriaSku(){
+  if(auditoriaSku) return auditoriaSku;
+  try{ auditoriaSku=await api('GET','/api/produtos/sku/auditoria'); }
+  catch(e){ auditoriaSku={erro:e.message}; }
+  const campo=document.getElementById('cm-sku');
+  const exemplo=auditoriaSku&&auditoriaSku.conclusao&&auditoriaSku.conclusao.exemploReal;
+  if(campo&&exemplo) campo.placeholder='Ex.: '+exemplo;
+  return auditoriaSku;
+}
 
 /** Diz, enquanto digita, se o código está livre — e, quando não está, ONDE
     ele já é usado. Bloquear sem dizer onde obriga a caçar o duplicado à mão
@@ -2331,6 +2626,19 @@ async function gerarSku(botao){
     document.getElementById('cm-sku').value=r.sku;
     clearTimeout(skuTimer); skuChecagem++;
     pintarRecadoSku({valido:true, sku:r.sku, bloqueiam:[], avisos:[]});
+    /* O gerador não tem um padrão real para continuar: os códigos da
+       operação vêm do fornecedor e não formam sequência. Enquanto a
+       auditoria não devolver uma regra inequívoca, o formato gerado é
+       PROVISÓRIO — e a tela diz isso, em vez de apresentar um código
+       inventado como se fosse o padrão da casa. */
+    if(r.padrao&&r.padrao.provisorio){
+      const alvo=document.getElementById('cm-sku-recado');
+      if(alvo){
+        alvo.className='sku-recado aviso';
+        alvo.textContent=`"${r.sku}" está livre — formato provisório. `
+          +'O padrão definitivo dos códigos ainda não foi definido.';
+      }
+    }
   }catch(e){
     toast(e.message||'Não foi possível gerar um código');
   }finally{
@@ -2485,10 +2793,18 @@ async function aplicarVariacoesDoCadastro(){
   }
 }
 
+/** O exemplo que a tela mostra. Vem do catálogo real; enquanto a auditoria
+    não respondeu, a tela não inventa nenhum. */
+function exemploSku(){
+  const e=auditoriaSku&&auditoriaSku.conclusao&&auditoriaSku.conclusao.exemploReal;
+  return e?('Ex.: '+e):'';
+}
+
 function renderCadastro(){
   const v=document.getElementById('view-cadastro');
   const pendentes=(state.catalogo&&state.catalogo.pendentes)||0;
   const cats=catList();
+  carregarAuditoriaSku();
   v.innerHTML=`
     <div class="cab-tela">
       <h2>Cadastro de Produtos</h2>
@@ -2521,7 +2837,7 @@ function renderCadastro(){
           <div class="two">
             <div class="field"><label>Código (SKU) <span class="req">*</span></label>
               <div class="campo-com-botao">
-                <input id="cm-sku" placeholder="Ex.: BR1234" maxlength="40"
+                <input id="cm-sku" placeholder="${esc(exemploSku()||'Código da peça')}" maxlength="40"
                        oninput="checarSkuDigitado()" autocomplete="off">
                 <button class="btn btn-ghost" type="button" onclick="gerarSku(this)">Gerar SKU</button>
               </div>
@@ -3081,7 +3397,7 @@ function fotoDe(p){
      que mostrar?" — e mostrar "sem foto" ao lado de uma miniatura seria o
      painel se contradizendo na mesma linha. */
   const s=p.fotoStatus||'sem_foto';
-  return (s==='sem_foto' && p.fotoUrl) ? 'da_loja' : s;
+  return (s==='sem_foto' && (p.fotoUrl||p.fotoLojaUrl)) ? 'da_loja' : s;
 }
 
 /* ================== O RESOLVEDOR ÚNICO DE FOTO ==================
@@ -3124,7 +3440,7 @@ function fotoAbs(url){
 
 /** Só a URL, na ordem de posse. Mantida com o nome antigo porque meia dúzia
     de lugares só precisam saber "tem ou não tem". */
-function fotoUrlDe(p){ return fotoAbs((p&&(p.fotoTratadaUrl||p.fotoOriginalUrl||p.fotoUrl))||''); }
+function fotoUrlDe(p){ return fotoAbs((p&&(p.fotoTratadaUrl||p.fotoOriginalUrl||p.fotoUrl||p.fotoLojaUrl))||''); }
 
 /** A resposta completa: a URL e DE ONDE ela veio. A procedência não é
     curiosidade — é o que decide se a tela pode dizer "foto tratada", e o
@@ -3133,6 +3449,12 @@ function resolveFotoPrincipal(p, alternativas){
   if(p&&p.fotoTratadaUrl)  return {url:fotoAbs(p.fotoTratadaUrl),  fonte:'tratada'};
   if(p&&p.fotoOriginalUrl) return {url:fotoAbs(p.fotoOriginalUrl), fonte:'original'};
   if(p&&p.fotoUrl)         return {url:fotoAbs(p.fotoUrl),         fonte:'loja'};
+  /* Último degrau: o que a VITRINE publica hoje, lido do catálogo pela
+     rodada de sincronização (`loja_fotos`). Chega aqui sem ninguém ter
+     apertado botão nenhum — é o que faz a peça que a loja ilustra parar de
+     aparecer vazia no painel. Emprestada, como a de cima: os bytes ainda
+     não são nossos. */
+  if(p&&p.fotoLojaUrl)     return {url:fotoAbs(p.fotoLojaUrl),     fonte:'vitrine'};
   for(const u of (alternativas||[])) if(u) return {url:fotoAbs(u), fonte:'variante'};
   return {url:'', fonte:'nenhuma'};
 }
@@ -3359,7 +3681,8 @@ function closeFoto(){
  */
 function fotoDupla(p,{upload=false, compacta=false}={}){
   const s=fotoDe(p);
-  const soDaLoja=!p.fotoOriginalUrl&&!!p.fotoUrl;
+  const daVitrine=p.fotoUrl||p.fotoLojaUrl;
+  const soDaLoja=!p.fotoOriginalUrl&&!!daVitrine;
   return `<div class="fotogrid${compacta?' compacta':''}">
     <div>
       <div class="fotoslot">Foto original</div>
@@ -3370,7 +3693,7 @@ function fotoDupla(p,{upload=false, compacta=false}={}){
           /* A imagem da loja aparece aqui, mas dita como o que é: emprestada.
              Enquanto os bytes não forem copiados, ela depende de a loja
              continuar publicando — e chamá-la de "nossa" esconderia isso. */
-          ?`<img class="fotoprev" src="${esc(fotoAbs(p.fotoUrl))}" data-vazio="sem foto"
+          ?`<img class="fotoprev" src="${esc(fotoAbs(daVitrine))}" data-vazio="sem foto"
                 alt="Foto de ${esc(p.desc)} na loja" onerror="fotoFalhou(this)">
             <div class="help" style="margin-top:6px">Imagem da Nuvemshop. Enquanto os bytes não forem copiados para cá, ela depende de a loja continuar publicando.</div>`
           :`<div class="fotoprev vazia">sem foto</div>`)}
@@ -3412,8 +3735,7 @@ function irTratarFoto(sku){
      aparece faria a tela parecer que não há nada a fazer justamente por
      causa do clique que pediu para fazer. */
   filtroPend=(p&&p.fotoOriginalUrl)?'semFundoBranco':'semFoto';
-  pendFoco=sku;
-  switchTab('pendencias');
+  irPublicar(sku);
 }
 
 function renderFoto(){
@@ -3771,10 +4093,22 @@ function prodSomar(){
   for(const c of campos) soma+=Math.max(0,int(c.el.value));
   const p=state.produtos.find(x=>x.sku===prodEdit.sku);
   const total=p?int(p.qtd):0;
-  barra.innerHTML=`<span>Total das variações: <b>${soma}</b></span>`
-    +(soma===total
-      ? `<em>&nbsp;— é o estoque total da peça.</em>`
-      : `<em>&nbsp;— ao salvar, o estoque total de ${esc(prodEdit.sku)} passa de ${total} para ${soma}, com um ajuste registrado no histórico.</em>`);
+  const solto=int((prodEdit.estrutura&&prodEdit.estrutura.saldoSemVariacao)||0);
+  let recado;
+  if(soma===total){
+    recado=`<em>&nbsp;— é o estoque total da peça.</em>`;
+  }else if(solto>0&&soma===total-solto){
+    /* Estado de ABERTURA de um código que nunca foi repartido: as peças
+       existem, só não têm variação ainda. Dizer "o total vai cair de 7 para
+       0" aqui assustaria por um número que ninguém digitou — o que está
+       acontecendo é o contrário, ainda falta dizer onde as 7 estão. */
+    recado=`<em>&nbsp;— ${solto} ${plural(solto,'peça ainda sem variação','peças ainda sem variação')}. `
+      +`Diga quantas de cada e o total continua ${total}.</em>`;
+  }else{
+    recado=`<em>&nbsp;— ao salvar, o estoque total de ${esc(prodEdit.sku)} passa de ${total} para ${soma}, `
+      +`com um ajuste registrado no histórico.</em>`;
+  }
+  barra.innerHTML=`<span>Total das variações: <b>${soma}</b></span>${recado}`;
 }
 
 /** Salvar a peça é UM ato para quem usa e dois atos para a razão contábil:
@@ -4407,7 +4741,7 @@ function renderLoja(){
         <div class="k-num">${L.desatualizados.length}</div>
         <div class="k-sub">${L.desatualizados.length?'A loja mostra número diferente do real':'A loja está em dia'}</div>
       </div>
-      <div class="kpi k-casa">
+      <div class="kpi k-casa clicavel" onclick="irPublicar()" title="Ver e preparar essas peças em Pendências">
         <div class="k-lbl">Falta subir</div>
         <div class="k-num">${L.faltaSubir.length}</div>
         <div class="k-sub">${L.faltaSubir.reduce((s,p)=>s+L.certo(p),0)} peças sem cadastro</div>
@@ -4451,28 +4785,15 @@ function renderLoja(){
       com o mesmo código, o estoque fica dividido entre eles e a conta nunca fecha — vale unificar na Nuvemshop.</div>
     </div>`:''}
 
-    ${L.comVariacao.length?`<div class="warn">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-      <div><b>${L.comVariacao.length} ${plural(L.comVariacao.length,'código tem','códigos têm')} mais de uma variação no site</b>${
-        L.atributos.length?` — ${esc(L.atributos.join(', '))}`:''}.
-      A sincronização só empurra o estoque de um desses depois que <b>cada variação tiver o número dela</b>
-      aqui. Enquanto o código for um número só, ela não escreve nada: chutar quanto vai em cada
-      variação significa vender peça que não existe, ou tirar do ar peça que existe.
-      <div class="w-act">
-        <button class="btn btn-ghost btn-sm" onclick="setFiltroVitrine('variacao')">Ver quais são</button>
-        <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="exportVariacoes()">↓ Baixar lista</button>
-      </div></div>
-    </div>`:''}
-
-    ${L.faltaSubir.length?`<div class="warn info">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" transform="rotate(180 12 12)"/></svg>
-      <div><b>${L.faltaSubir.length} ${plural(L.faltaSubir.length,'código com peça em casa não existe','códigos com peça em casa não existem')} na loja</b> —
-      ${(x=>`${x} ${plural(x,'peça','peças')}`)(L.faltaSubir.reduce((s,p)=>s+L.certo(p),0))}, ${money(L.faltaSubir.reduce((s,p)=>s+L.certo(p)*p.preco,0))} que não ${plural(L.faltaSubir.reduce((s,p)=>s+L.certo(p),0),'pode','podem')} vender.
-      ${ligada?`<br>Este é o único que a sincronização não resolve sozinha: ela acerta o estoque
-      de quem já está cadastrado, mas não cria produto na Nuvemshop. Peça nova precisa ser
-      cadastrada lá uma vez — depois disso o estoque dela passa a andar sozinho.`:''}
-      <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="exportSemCadastro()">↓ Baixar lista para cadastrar</button></div></div>
-    </div>`:''}
+    <!-- Os dois banners grandes que ficavam aqui — "27 códigos têm mais de uma
+         variação no site" e "124 códigos com peça em casa não existem na loja" —
+         saíram. Não porque os números deixaram de importar: eles continuam nos
+         KPIs acima e nas abas de filtro abaixo, e as duas listas continuam
+         exportáveis. Saíram porque descreviam TRABALHO, e trabalho tem um lugar
+         só: Pendências. Dois avisos gigantes repetindo, na aba errada, o que a
+         outra tela existe para resolver empurravam para baixo o que esta aba
+         tem de próprio — saúde da integração, catálogo publicado, estoque
+         divergente. Ver BLOCO B, B1/B2. -->
 
     <div class="panel">
       <div class="head">
@@ -4493,6 +4814,17 @@ function renderLoja(){
           <button class="pill ${filtroVitrine==='ocultos'?'on':''}" onclick="setFiltroVitrine('ocultos')">Ocultos (${L.ocultos.length}${reativar.length?' · '+reativar.length+' com peça':''})</button>
           <button class="pill ${filtroVitrine==='falta'?'on':''}" onclick="setFiltroVitrine('falta')">Falta subir (${L.faltaSubir.length})</button>
           ${L.comVariacao.length?`<button class="pill ${eVariacao?'on':''}" onclick="setFiltroVitrine('variacao')">Variações (${L.comVariacao.length})</button>`:''}
+          <div class="spacer"></div>
+          ${/* As ações dos dois banners removidos continuam aqui, discretas e
+                dentro da lista a que pertencem — o que saiu foi o aviso
+                gigante, não a capacidade de baixar a lista ou de ir resolver.
+                E "resolver" leva para Pendências, que é onde o trabalho mora. */''}
+          ${eVariacao?`
+            <button class="btn btn-ghost btn-sm" onclick="exportVariacoes()">↓ Baixar lista</button>
+            <button class="btn btn-ghost btn-sm" onclick="switchTab('pendencias')">Repartir em Pendências</button>`
+          :(filtroVitrine==='falta'?`
+            <button class="btn btn-ghost btn-sm" onclick="exportSemCadastro()">↓ Baixar lista para cadastrar</button>
+            <button class="btn btn-ghost btn-sm" onclick="irPublicar()">Preparar para publicar</button>`:'')}
         </div>
 
         ${eVariacao?(listaVar.length?`
@@ -4576,6 +4908,30 @@ let publicacao=null, fotosOrfas=[], carregandoPend=false, filtroPend='prontos';
    destaque no meio de centenas — e some depois de um render, porque
    destaque que não some vira ruído na próxima visita. */
 let pendFoco=null;
+/* Pendências passa a ter TRÊS seções nomeadas, e não uma pilha de avisos.
+   Não é organização por estética: cada seção é um tipo de decisão diferente,
+   com um fluxo diferente, e misturá-las fazia a tela mais longa parecer a
+   mais importante.
+
+     variacoes — "quantas de cada?" O que a sincronização se recusa a chutar.
+     publicar  — a peça existe aqui e não existe na loja. Preparação.
+     outras    — o que sobra e É acionável: peça nova esperando cadastro,
+                 foto sem dono, código com mais peça na rua que no cadastro.
+
+   Três, e não trinta. Categoria que ninguém resolve não é pendência: é
+   ruído com selo de urgência. */
+let secaoPend=null;   /* null = ainda não escolhida; abre na que tem trabalho */
+function setSecaoPend(v){ secaoPend=v; pendFoco=null; renderPendencias(); }
+
+/** Leva para a preparação de publicação, de onde quer que a pessoa esteja.
+    Existe porque a aba Nuvemshop deixou de ter os banners que faziam esse
+    papel — e mandar embora sem levar a lugar nenhum seria pior que o
+    banner. */
+function irPublicar(sku){
+  secaoPend='publicar';
+  if(sku) pendFoco=sku;
+  switchTab('pendencias');
+}
 /* O que a sincronização decidiu NÃO escrever, e por quê. Vem de
    GET /api/variacoes/revisao — leitura pura, não conserta nada. */
 let revisaoVar=null;
@@ -4601,20 +4957,33 @@ function setFiltroPend(v){ filtroPend=v; pendFoco=null; renderPendencias(); }
  *
  *  A foto vem do resolvedor único, igual à tabela de Estoque — nenhuma
  *  tela monta URL de imagem por conta própria. */
+/* O que cada pendência quer dizer para quem lê — e o que resolve. */
+const FALTA_TXT={
+  foto:'foto', fundo_branco:'fundo branco', descricao:'descrição',
+  categoria:'categoria', preco:'preço',
+};
+
 function pubLinha(x){
   const p=prodIndex().get(normSku(x.sku))||{sku:x.sku, desc:x.desc, fotoStatus:x.fotoStatus};
   const temOriginal=!!p.fotoOriginalUrl;
   const temTratada=!!p.fotoTratadaUrl;
   const foco=pendFoco&&normSku(pendFoco)===normSku(x.sku);
+  const falta=x.falta||[];
+  const vars=x.variacoes||[];
   return `<tr${foco?' class="foco"':''}>
     <td><span class="fotocel" onclick="abrirFoto('${esc(x.sku)}')" title="Ver as fotos de ${esc(x.desc)}">
       ${fotoImg(p,{classe:'fotomini', alt:'Foto de '+x.desc})}</span></td>
-    <td class="desc">${esc(x.desc)}</td>
+    <td class="desc">${esc(x.desc)}
+      ${/* Nome da variação, nunca o variant_id: "Cristal", "n° 17". O id é
+           identidade e fica no banco. */''}
+      ${vars.length>1?`<small>${vars.length} ${plural(vars.length,'variação','variações')}: ${esc(vars.slice(0,4).join(' · '))}${vars.length>4?'…':''}</small>`:''}</td>
     <td class="sku">${esc(x.sku)}</td>
     <td><span class="catchip" style="background:${catColor(x.cat)}">${esc(x.cat||'Outros')}</span></td>
     <td class="price">${x.preco==null?'<span class="zero">sem preço</span>':money(x.preco)}</td>
     <td class="num">${x.casa}</td>
-    <td class="price">${money(x.casa*(x.preco||0))}</td>
+    <td>${x.pronto
+      ?`<span class="fotochip fundo_gerado">pronta para subir</span>`
+      :`<span class="faltas">${falta.map(f=>`<span class="faltachip">${esc(FALTA_TXT[f]||f)}</span>`).join('')}</span>`}</td>
     <td>${temTratada
       ?`<span class="fotochip fundo_gerado">fundo pronto</span>`
       :(temOriginal
@@ -4983,6 +5352,23 @@ function renderPendencias(){
         .flatMap(k=>(p[k]||[]).map(x=>x.sku))).size
     : 0;
 
+  /* Quantas decisões esperam em cada seção. O número vai no rótulo da aba:
+     seção vazia continua existindo (o lugar é o mesmo todo dia), mas diz que
+     está vazia em vez de fingir trabalho. */
+  const nVariacoes=(revisaoVar&&revisaoVar.total)||0;
+  const nPublicar=p?new Set(Object.keys(LISTAS_PUB).flatMap(k=>(p[k]||[]).map(x=>x.sku))).size:0;
+  const nOutras=pendentes+fotosOrfas.length+inc.length;
+  /* Abre na primeira seção que tem trabalho. Cair numa seção vazia faz a
+     tela parecer que não há nada a fazer justamente quando há. */
+  if(!secaoPend){
+    secaoPend=nVariacoes?'variacoes':(nPublicar?'publicar':(nOutras?'outras':'variacoes'));
+  }
+  const SECOES=[
+    ['variacoes','Variações',nVariacoes],
+    ['publicar','Publicar na Nuvemshop',nPublicar],
+    ['outras','Outras pendências',nOutras],
+  ];
+
   v.innerHTML=`
     <div class="kpis">
       <div class="kpi k-casa">
@@ -5007,23 +5393,39 @@ function renderPendencias(){
       </div>
     </div>
 
-    ${pendentes?`<div class="warn info">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-      <div><b>${pendentes} ${plural(pendentes,'peça nova esperando cadastro','peças novas esperando cadastro')}.</b>
-      Elas foram encontradas numa planilha de estoque total, que não cria peça. O cadastro é em lote:
-      o que estiver certo entra de uma vez, e só a exceção pede revisão.
-      <div class="w-act"><button class="btn btn-gold btn-sm" onclick="abrirNovas('fila')">Revisar produtos novos</button></div></div>
-    </div>`:''}
+    <div class="subtabs" style="margin-top:4px">
+      ${SECOES.map(([k,rot,n])=>`<button class="pill ${secaoPend===k?'on':''}" onclick="setSecaoPend('${k}')">${rot}${n?` (${n})`:''}</button>`).join('')}
+    </div>
 
-    ${painelRevisaoVariacoes()}
+    ${secaoPend==='variacoes'?(painelRevisaoVariacoes()||`
+      <div class="panel"><div class="body"><div class="empty">
+        <h3>Nenhuma variação esperando</h3>
+        <p>Todo código com mais de uma variação na loja já tem o número de cada uma.
+        A quantidade de cada variação também se edita direto em <b>Estoque › Editar peça</b>.</p>
+      </div></div></div>`):''}
 
-    ${inc.length?`<div class="warn">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
-      <div><b>${inc.length} ${plural(inc.length,'código tem','códigos têm')} mais peças na rua do que no cadastro.</b>
-      Costuma ser código com sufixo que saiu na maleta pelo código-base.
-      <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="switchTab('geral');setTimeout(()=>setFiltroInc(true),60)">Ver esses códigos</button></div></div>
-    </div>`:''}
+    ${secaoPend==='outras'?`
+      ${pendentes?`<div class="warn info">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        <div><b>${pendentes} ${plural(pendentes,'peça nova esperando cadastro','peças novas esperando cadastro')}.</b>
+        Elas foram encontradas numa planilha de estoque total, que não cria peça. O cadastro é em lote:
+        o que estiver certo entra de uma vez, e só a exceção pede revisão.
+        <div class="w-act"><button class="btn btn-gold btn-sm" onclick="abrirNovas('fila')">Revisar produtos novos</button></div></div>
+      </div>`:''}
 
+      ${inc.length?`<div class="warn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <div><b>${inc.length} ${plural(inc.length,'código tem','códigos têm')} mais peças na rua do que no cadastro.</b>
+        Costuma ser código com sufixo que saiu na maleta pelo código-base.
+        <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="switchTab('geral');setTimeout(()=>setFiltroInc(true),60)">Ver esses códigos</button></div></div>
+      </div>`:''}
+      ${nOutras?'':`<div class="panel"><div class="body"><div class="empty">
+        <h3>Nada pendente por aqui</h3>
+        <p>Nenhuma peça nova esperando cadastro, nenhuma foto sem dono e nenhum código
+        com mais peça na rua do que no cadastro.</p></div></div></div>`}
+    `:''}
+
+    ${secaoPend!=='publicar'?'':`
     <div class="panel" style="margin-bottom:22px">
       <div class="head">
         <h2>Peças em casa que ainda não estão no site</h2>
@@ -5041,29 +5443,37 @@ function renderPendencias(){
           <table>
             <thead><tr><th style="width:56px">Foto</th><th>Descrição</th><th style="width:88px">Código</th><th style="width:104px">Categoria</th>
               <th style="width:82px">Preço</th><th style="width:70px">Em casa</th>
-              <th style="width:96px">Valor parado</th><th style="width:186px">Preparar</th></tr></thead>
+              <th style="width:150px">Falta</th><th style="width:186px">Preparar</th></tr></thead>
             <tbody>${lista.map(x=>pubLinha(x)).join('')}</tbody>
           </table>
         </div>
         <div style="margin-top:12px;font-size:11.5px;color:var(--muted)">
-          A publicação em si não sai daqui: o sistema prepara e mostra, e quem manda para a
-          Nuvemshop é a sincronização, com confirmação.
+          Aqui a peça é <b>preparada</b>: foto anexada, fundo branco tratado, preço, categoria e
+          descrição conferidos, variações verificadas. A publicação em si não sai desta tela —
+          criar o produto na Nuvemshop é escrita na loja, e escrita passa por confirmação
+          explícita. Neste ambiente ela está desligada de propósito.
         </div>`
         :`<div class="empty"><h3>Nada aqui</h3><p>${esc(cfg.vazio)}</p></div>`}
       </div>
-    </div>
+    </div>`}
 
+    ${secaoPend!=='outras'?'':`
     <div class="panel">
       <div class="head">
-        <h2>Fotos</h2>
-        <span class="hint">Trazer da loja uma vez; daqui para frente a foto nasce aqui</span>
+        <h2>Fotos sem dono</h2>
+        <span class="hint">As imagens da loja já chegam sozinhas; aqui ficam só as que não bateram com nenhum código</span>
       </div>
       <div class="body">
+        <p class="hint" style="margin-bottom:10px">
+          As fotos do catálogo da Nuvemshop são lidas e guardadas a cada sincronização —
+          não é preciso apertar nada para a miniatura aparecer nas telas.
+          Os botões abaixo são contingência.
+        </p>
         <div class="actbar">
           <div class="stat"><b>${fotosOrfas.length}</b> sem correspondência</div>
           <div class="spacer"></div>
-          <button class="btn btn-gold btn-sm" onclick="vincularFotosDaLoja(true)"
-                  title="Uma leitura da loja resolve o catálogo inteiro: a miniatura aparece na tabela de estoque na mesma hora">
+          <button class="btn btn-ghost btn-sm" onclick="vincularFotosDaLoja(true)"
+                  title="Grava na peça o endereço da imagem da loja. A leitura automática já mostra a foto; isto a torna o endereço oficial da peça">
             Vincular fotos da loja</button>
           <button class="btn btn-ghost btn-sm" onclick="importarFotosDaLoja(true)"
                   title="Copia os bytes para o nosso bucket, uma peça por vez — a peça passa a ser dona da imagem">
@@ -5085,7 +5495,7 @@ function renderPendencias(){
         :`<div class="empty"><h3>Nenhuma foto órfã</h3>
           <p>Toda foto trazida da loja encontrou o código dela aqui.</p></div>`}
       </div>
-    </div>`;
+    </div>`}`;
 }
 
 /* =================== Aba da revendedora =================== */
@@ -5122,10 +5532,31 @@ function renderRev(id){
   }
 
   v.innerHTML=`
+    ${/* Contato e "Editar dados" no TOPO, perto do nome. Estavam no rodapé
+         da página, abaixo da tabela e do histórico: para ligar para a
+         revendedora era preciso rolar a página inteira. Telefone é a
+         primeira coisa que se procura numa ficha de pessoa. */''}
+    <div class="panel" style="margin-bottom:16px">
+      <div class="body revtopo">
+        <div class="rt-id">
+          <h2>${esc(r.nome)}</h2>
+          <div class="rt-meta">${[r.cidade,r.cpf?'CPF '+r.cpf:'',r.endereco].filter(Boolean).map(esc).join(' · ')||'Sem endereço cadastrado'}</div>
+        </div>
+        <div class="rt-contatos">
+          ${r.tel?`<a class="btn btn-ghost btn-sm" href="tel:${esc(String(r.tel).replace(/[^\d+]/g,''))}">${esc(r.tel)}</a>
+            <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener"
+               href="https://wa.me/${esc(numeroWhats(r.tel))}"
+               title="Abrir conversa no WhatsApp">WhatsApp</a>`
+            :`<span class="hint">Sem telefone cadastrado</span>`}
+          <button class="btn btn-ghost btn-sm" onclick="openRevForm(${r.id})">Editar dados</button>
+        </div>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="head">
-        <h2>${esc(r.nome)}</h2>
-        <span class="hint">${[r.cidade,r.tel].filter(Boolean).map(esc).join(' · ')||'Sem dados de contato'}</span>
+        <h2>${m?'Maleta aberta':'Sem maleta aberta'}</h2>
+        <span class="hint">${m?(prazoDe(m)?`Acerto marcado para ${fmtData(prazoDe(m))}`:'Sem data de acerto combinada'):'Monte a maleta bipando ou importando o Anexo I'}</span>
       </div>
       <div class="body">
         ${m?`
@@ -5135,11 +5566,11 @@ function renderRev(id){
             <div class="stat">${money(valMaleta(m))}</div>
             <div class="stat"><span class="badge ${sit.classe}">${esc(sit.texto)}</span></div>
             <div class="spacer"></div>
-            <button class="btn btn-ghost btn-sm" onclick="printAnexo(${m.id})">Imprimir Anexo I</button>
-            <button class="btn btn-ghost btn-sm" onclick="openScan('add',${m.id})">+ Bipar peças</button>
             <button class="btn btn-ghost btn-sm" onclick="openImport('rev:${r.id}')"
                     title="Lê um Anexo I ou tabela de peças e joga na maleta desta revendedora">
-              Importar planilha</button>
+              Importar Anexo I</button>
+            <button class="btn btn-ghost btn-sm" onclick="openScan('add',${m.id})">+ Bipar peças</button>
+            <button class="btn btn-ghost btn-sm" onclick="printAnexo(${m.id})">Imprimir Anexo I</button>
             <button class="btn btn-print btn-sm" onclick="openAcerto(${m.id})">Fazer acerto</button>
           </div>
           <div style="font-size:11.5px;color:var(--muted);margin:-6px 0 14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
@@ -5179,14 +5610,35 @@ function renderRev(id){
       </div>
     </div>
 
+    ${/* HISTÓRICO POR REVENDEDORA (D3). O acerto já gravava tudo isto em
+          `maletas.acerto_json` — enviadas, devolvidas, vendidas, total
+          vendido, comissão, líquido, dias — e o painel lia menos da metade.
+          Nada de schema novo: o que faltava era ler.
+          
+          É este histórico, e não a maleta de hoje, que alimenta o Top
+          Revendedoras da Visão Geral. */''}
     ${fechadas.length?`
     <div class="panel" style="margin-top:22px">
-      <div class="head"><h2>Histórico</h2><span class="hint">Maletas já acertadas</span></div>
+      <div class="head">
+        <h2>Histórico</h2>
+        <span class="hint">${fechadas.length} ${plural(fechadas.length,'ciclo encerrado','ciclos encerrados')} · do mais recente para o mais antigo</span>
+      </div>
       <div class="body">
+        ${(()=>{const d=desempenhoDe(r.id);return d.semDados?'':`
+        <div class="dc-nums" style="margin-bottom:14px">
+          <div class="dc-num"><b>${money(d.vendido)}</b>vendido no total</div>
+          <div class="dc-num"><b>${d.qtdVendida}</b>peças vendidas</div>
+          <div class="dc-num"><b>${d.giro==null?'—':Math.round(d.giro*100)+'%'}</b>giro médio</div>
+          <div class="dc-num"><b>${d.ticket==null?'—':money(d.ticket)}</b>ticket médio</div>
+          <div class="dc-num"><b>${d.diasMedios==null?'—':Math.round(d.diasMedios)}</b>dias por ciclo</div>
+        </div>`;})()}
         ${fechadas.map(h=>{
           const a=h.acerto||{};
+          /* `encerradaEm`, não `fechadaEm`: o campo nunca se chamou assim, e
+             a data de fim aparecia vazia desde sempre. */
+          const fim=h.encerradaEm;
           return `<div class="histrow">
-            <div class="h-dt"><b>${fmtData(h.abertaEm||h.acertoEm)} → ${fmtData(h.fechadaEm)}</b>${a.dias!=null?a.dias+' dias':''}</div>
+            <div class="h-dt"><b>${fmtData(h.abertaEm||h.acertoEm)} → ${fim?fmtData(fim):'—'}</b>${a.dias!=null?a.dias+' dias':'maleta '+h.id}</div>
             <div class="h-st">Levou<b>${a.enviadas||0}</b></div>
             <div class="h-st">Vendeu<b>${a.vendidas||0}</b></div>
             <div class="h-st">Voltou<b>${a.devolvidas||0}</b></div>
@@ -5194,14 +5646,20 @@ function renderRev(id){
             <div class="spacer"></div>
             <div class="h-st" style="text-align:right">Vendido<b style="color:var(--bordo)">${money(a.totalVendido||0)}</b></div>
             <div class="h-st" style="text-align:right">Comissão ${a.pct!=null?a.pct+'%':''}<b>${money(a.comissao||0)}</b></div>
+            <div class="h-st" style="text-align:right">Recebido<b>${money(a.liquido||0)}</b></div>
           </div>`;
         }).join('')}
       </div>
-    </div>`:''}
+    </div>`:`
+    <div class="panel" style="margin-top:22px">
+      <div class="head"><h2>Histórico</h2><span class="hint">Ciclos e acertos desta revendedora</span></div>
+      <div class="body"><div class="empty"><h3>Nenhum ciclo encerrado ainda</h3>
+        <p>Quando a primeira maleta for acertada, o ciclo entra aqui com o que saiu, o que
+        voltou, o que vendeu, a comissão e o recebido.</p></div></div>
+    </div>`}
 
     <div class="panel" style="margin-top:22px">
       <div class="body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-        <button class="btn btn-ghost btn-sm" onclick="openRevForm(${r.id})">Editar dados</button>
         <div class="spacer" style="flex:1"></div>
         <button class="btn btn-danger btn-sm" onclick="delRevendedora(${r.id})">Arquivar revendedora</button>
       </div>
@@ -6322,21 +6780,23 @@ let impContexto='estoque';
 function openImport(contexto){
   impContexto = (contexto === 'loja' || /^rev:\d+$/.test(String(contexto||'')))
     ? contexto : 'estoque';
-  document.getElementById('impStep1').style.display='';
-  document.getElementById('impStep2').style.display='none';
-  document.getElementById('impStep3').style.display='none';
+  passos(1);
   document.getElementById('impOverlay').classList.add('show');
   closeSettings();
 }
+/** Um passo de cada vez. Antes cada função escondia e mostrava os `div`s
+    na mão, e bastava esquecer um para dois passos aparecerem juntos. */
+function passos(n){
+  [1,2,3,4].forEach(i=>{
+    const el=document.getElementById('impStep'+i);
+    if(el) el.style.display=(i===n?'':'none');
+  });
+}
 function closeImport(){
   document.getElementById('impOverlay').classList.remove('show');
-  impWb=null;impDetect=[];impAnalise=null;impNovos=[];impResto=[];
+  impWb=null;impDetect=[];impAnalise=null;impNovos=[];impResto=[];impMaletas=null;
 }
-function backToUpload(){
-  document.getElementById('impStep1').style.display='';
-  document.getElementById('impStep2').style.display='none';
-  document.getElementById('impStep3').style.display='none';
-}
+function backToUpload(){ passos(1); }
 
 document.getElementById('dropzone').addEventListener('click',()=>document.getElementById('impFile').click());
 document.getElementById('impFile').addEventListener('change',e=>{if(e.target.files[0])lerArquivo(e.target.files[0]);});
@@ -6467,9 +6927,7 @@ function detectar(){
   if(avisos.length){w.style.display='';w.innerHTML='<div>'+avisos.join('<br>')+'</div>';}
   else w.style.display='none';
 
-  document.getElementById('impStep1').style.display='none';
-  document.getElementById('impStep3').style.display='none';
-  document.getElementById('impStep2').style.display='';
+  passos(2);
   atualizarModoCasa();
 }
 
@@ -6569,15 +7027,15 @@ async function doImport(){
       impAnalise=await api('POST','/api/estoque-total/analisar',{modo:impModo,produtos});
       impAnalise.notasDaLeitura=notas;
       impNovos=(impAnalise.novos&&impAnalise.novos.itens)||[];
-      document.getElementById('impStep2').style.display='none';
-      document.getElementById('impStep3').style.display='';
+      passos(3);
       renderAnaliseEstoque();
       return;
     }
 
-    /* Sem catálogo no arquivo: nada a analisar, o caminho é o de sempre. */
-    await processarOutrasAbas(outras,notas);
-    fecharImportacao(notas);
+    /* Sem catálogo no arquivo: só maletas e/ou loja. As maletas abrem o
+       preview e a janela FICA — fechar aqui engoliria a confirmação. */
+    const r=await processarOutrasAbas(outras,notas);
+    if(!r.precisaConfirmar) fecharImportacao(notas);
   }catch(e){
     toast('Erro na importação: '+e.message);
   }finally{
@@ -6585,14 +7043,20 @@ async function doImport(){
   }
 }
 
-/** Loja e maletas, na ordem de sempre. */
+/* O laudo das maletas do arquivo, esperando confirmação. */
+let impMaletas=null;
+
+/** Loja e maletas. A loja continua sendo aplicada direto (ela só grava
+ *  `url_loja` e visibilidade, não movimenta peça nenhuma). As MALETAS
+ *  passam pelo preview: elas movimentam estoque físico. */
 async function processarOutrasAbas(outras,notas){
-  let nLoja=0,nMaletas=0;
+  let nLoja=0;
   for(const o of outras){
     if(o.alvo==='loja') nLoja+=await importarLoja(o.d,notas);
   }
   if(nLoja) await sincronizar();
 
+  const laudos=[];
   for(const o of outras){
     if(o.alvo==='loja') continue;
     let revId;
@@ -6607,10 +7071,92 @@ async function processarOutrasAbas(outras,notas){
         await sincronizar();
       }
     }else revId=+o.alvo.split(':')[1];
-    if(await importarMaleta(o.d,revId,notas)) nMaletas++;
+    const laudo=lerMaleta(o.d,revId);
+    if(laudo.ok) laudos.push(laudo);
+    else notas.push(`A aba "${o.d.nome}" não trouxe nenhuma peça reconhecível.`);
   }
-  await sincronizar();
-  return {nLoja,nMaletas};
+
+  if(!laudos.length) return {nLoja, nMaletas:0, precisaConfirmar:false};
+  impMaletas={laudos, notas};
+  renderPreviaMaleta();
+  passos(4);
+  return {nLoja, nMaletas:0, precisaConfirmar:true};
+}
+
+/** O preview obrigatório do Anexo I.
+ *
+ *  Mostra, ANTES de qualquer escrita: quantas peças e quantos códigos, para
+ *  quem, se vai para a maleta aberta ou cria uma nova, quais códigos o
+ *  catálogo não conhece e onde o preço do documento briga com o nosso.
+ *  Nada disso é resolvido sozinho — a tela diz o que vai acontecer com cada
+ *  caso e quem confirma é gente. */
+function renderPreviaMaleta(){
+  const box=document.getElementById('impMaletaBody');
+  if(!impMaletas){ box.innerHTML=''; return; }
+  const {laudos}=impMaletas;
+  box.innerHTML=`
+    <div class="prevlabel">Confira antes de aplicar</div>
+    ${laudos.map((L,i)=>`
+      <div class="distcard">
+        <div class="dc-topo">
+          <div class="dc-id">
+            <b>${esc(L.revNome)}</b>
+            <small>${L.maletaId?`maleta ${L.maletaId}, já aberta — as peças entram nela`
+                               :'sem maleta aberta — uma nova será criada'}</small>
+          </div>
+        </div>
+        <div class="dc-nums">
+          <div class="dc-num"><b>${L.total}</b>${plural(L.total,'peça','peças')}</div>
+          <div class="dc-num"><b>${L.codigos}</b>${plural(L.codigos,'código','códigos')}</div>
+          <div class="dc-num"><b>${money(L.valor)}</b>pelo preço do catálogo</div>
+          <div class="dc-num"><b>${L.dataAnexo?fmtData(L.dataAnexo):'—'}</b>acerto no documento</div>
+        </div>
+
+        ${L.desconhecidos.length?`<div class="warn" style="margin-bottom:0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+          <div><b>${L.desconhecidos.length} ${plural(L.desconhecidos.length,'código não existe','códigos não existem')} no catálogo.</b>
+          ${plural(L.desconhecidos.length,'Ele será criado','Eles serão criados')} com 0 em estoque, e a peça vai
+          para a maleta como saída de um saldo que ainda não existe — ajuste a quantidade em
+          Estoque total depois, ou cancele e corrija a planilha.
+          <div style="margin-top:8px;font-family:var(--mono);font-size:11px">
+            ${L.desconhecidos.slice(0,12).map(x=>esc(x.sku)).join(' · ')}${L.desconhecidos.length>12?' …':''}
+          </div></div>
+        </div>`:''}
+
+        ${L.divergencias.length?`<div class="warn info" style="margin-bottom:0;margin-top:10px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10"/></svg>
+          <div><b>${L.divergencias.length} ${plural(L.divergencias.length,'preço diverge','preços divergem')} do catálogo.</b>
+          Vale sempre o preço do catálogo — o documento não muda cadastro.
+          <div style="margin-top:8px;font-size:11.5px">
+            ${L.divergencias.slice(0,6).map(b=>`${esc(b.sku)}: ${money(b.doc)} no documento, <b>${money(b.cat)}</b> aqui`).join('<br>')}
+            ${L.divergencias.length>6?'<br>…':''}
+          </div></div>
+        </div>`:''}
+
+        ${!L.desconhecidos.length&&!L.divergencias.length?`<div style="font-size:12.5px;color:var(--ok)">
+          Todos os códigos existem no catálogo e nenhum preço diverge.</div>`:''}
+      </div>`).join('')}
+
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="backToUpload()">← Trocar arquivo</button>
+      <div class="spacer"></div>
+      <button class="btn btn-gold" onclick="confirmarPreviaMaleta(this)">Confirmar e montar a maleta</button>
+    </div>`;
+}
+
+async function confirmarPreviaMaleta(botao){
+  if(!impMaletas) return;
+  const antes=botao.textContent;
+  botao.disabled=true; botao.textContent='Aplicando…';
+  const {laudos, notas}=impMaletas;
+  try{
+    for(const L of laudos) await aplicarMaleta(L,notas);
+    impMaletas=null;
+    fecharImportacao(notas);
+  }catch(e){
+    toast('Erro ao montar a maleta: '+e.message);
+    botao.disabled=false; botao.textContent=antes;
+  }
 }
 
 function fecharImportacao(notas){
@@ -6812,13 +7358,18 @@ async function aplicarAnalise(){
       await api('POST','/api/produtos/pendentes',{origem:'planilha',produtos:impNovos});
       notas.push(`${impNovos.length} ${plural(impNovos.length,'produto novo ficou guardado','produtos novos ficaram guardados')} em "Adicionar peças novas".`);
     }
-    await processarOutrasAbas(impResto,notas);
+    var rOutras=await processarOutrasAbas(impResto,notas);
   }catch(e){
     toast('Erro ao aplicar: '+e.message);
     if(btn) btn.disabled=false;
     return;
   }
   impAnalise=null; impNovos=[]; impResto=[];
+  /* Quando o arquivo também trazia maleta, o preview dela ABRIU e a janela
+     precisa continuar de pé: o catálogo já foi aplicado, a maleta ainda
+     não. Fechar aqui aplicaria o catálogo e jogaria a maleta fora sem
+     ninguém saber. */
+  if(rOutras&&rOutras.precisaConfirmar){ toast('Catálogo aplicado. Confira a maleta antes de montar.'); return; }
   fecharImportacao(notas);
   toast('Importação concluída');
 }
@@ -6900,12 +7451,24 @@ async function importarLoja(d,notas){
    são criados com 0 em estoque antes de bipar — o servidor só consigna o
    que existe e está disponível (§19), então essas linhas podem voltar
    como recusadas até o estoque real ser ajustado. */
-async function importarMaleta(d,revId,notas){
+/** LER a maleta do documento — e só ler.
+ *
+ *  Separada de `importarMaleta` de propósito. Antes as duas coisas eram uma
+ *  função só: o arquivo era lido e aplicado no mesmo clique, criando código
+ *  que faltava e movimentando peça para a maleta. Uma planilha errada virava
+ *  consignação errada, e desfazer consignação é movimento contra movimento
+ *  — trabalho de arqueologia por causa de um arquivo trocado.
+ *
+ *  Devolve o laudo: o que casou, o que o catálogo não conhece, onde o preço
+ *  do documento briga com o nosso, e a data que o Anexo declara. Nada é
+ *  gravado aqui. */
+function lerMaleta(d,revId){
   const itens={};
   const brigaPreco=[];
   const novosProdutos=new Map();
+  const idx=prodIndex();
   function marcarNovo(sku,desc,preco){
-    if(prodIndex().has(sku)||novosProdutos.has(sku)) return;
+    if(idx.has(sku)||novosProdutos.has(sku)) return;
     const dsc=String(desc||'').trim();
     novosProdutos.set(sku,{sku, desc:dsc||sku, cat:catOf(dsc), preco:preco||0, qtd:0});
   }
@@ -6940,23 +7503,50 @@ async function importarMaleta(d,revId,notas){
       marcarNovo(sku, cDesc>=0?l[cDesc]:'', cVal>=0?num(l[cVal]):0);
     });
   }
-  if(!Object.keys(itens).length) return false;
+  const skus=Object.keys(itens);
+  const conhecidos=skus.filter(s=>idx.has(s));
+  const maletaAtual=maletaAbertaDe(revId);
+  return {
+    ok: skus.length>0,
+    d, revId, revNome: revNome(revId),
+    itens,
+    total: Object.values(itens).reduce((s,q)=>s+q,0),
+    codigos: skus.length,
+    conhecidos: conhecidos.length,
+    desconhecidos: [...novosProdutos.values()],
+    divergencias: brigaPreco,
+    /* O que o documento diz que é a data do acerto. Sem ela, vale o prazo
+       padrão — e a tela mostra qual dos dois vai valer. */
+    dataAnexo: d.formato==='anexo'?dataDoAnexo(d):null,
+    /* Vai para maleta existente ou cria uma? A pessoa precisa saber ANTES:
+       são duas operações bem diferentes. */
+    maletaId: maletaAtual?maletaAtual.id:null,
+    valor: skus.reduce((s,sku)=>{
+      const p=idx.get(sku);
+      return s + (p&&p.preco?p.preco:0)*itens[sku];
+    },0),
+  };
+}
 
-  if(novosProdutos.size){
-    await api('POST','/api/produtos/importar',{produtos:[...novosProdutos.values()]});
+/** APLICAR o que a pessoa confirmou. Recebe o laudo, não o arquivo — o que
+ *  entra é exatamente o que ela viu na tela. */
+async function aplicarMaleta(laudo,notas){
+  const {d, revId, itens} = laudo;
+  if(laudo.desconhecidos.length){
+    await api('POST','/api/produtos/importar',{produtos:laudo.desconhecidos});
     await sincronizar();
-    notas.push(`${novosProdutos.size} códigos do documento não estavam no catálogo e foram criados com 0 em estoque — ajuste a quantidade em Estoque total se o acerto recusar alguma peça.`);
+    notas.push(`${laudo.desconhecidos.length} códigos do documento não estavam no catálogo e foram criados com 0 em estoque — ajuste a quantidade em Estoque total se o acerto recusar alguma peça.`);
   }
 
-  if(brigaPreco.length)
-    notas.push(`${brigaPreco.length} ${plural(brigaPreco.length,'peça tem preço diferente','peças têm preço diferente')} no documento e no catálogo `
-      +`(${brigaPreco.slice(0,3).map(b=>`${b.sku}: R$ ${b.doc} no documento, R$ ${b.cat} no catálogo`).join('; ')}). `
+  if(laudo.divergencias.length)
+    notas.push(`${laudo.divergencias.length} ${plural(laudo.divergencias.length,'peça tem preço diferente','peças têm preço diferente')} no documento e no catálogo `
+      +`(${laudo.divergencias.slice(0,3).map(b=>`${b.sku}: R$ ${b.doc} no documento, R$ ${b.cat} no catálogo`).join('; ')}). `
       +`O dashboard usa sempre o preço do catálogo — corrija lá se o certo for o outro.`);
 
   let m=maletaAbertaDe(revId);
   if(!m){
     /* A data que o Anexo I traz é o dia combinado do acerto, não a saída. */
-    const dt=d.formato==='anexo'?dataDoAnexo(d):null;
+    const dt=laudo.dataAnexo;
     if(dt) notas.push(`Acerto de ${revNome(revId)} marcado para ${fmtData(dt)}, conforme o documento.`);
     m=await api('POST','/api/maletas',{revId, acertoEm:dt||addDias(hoje(),state.config.prazoDias)});
   }
@@ -8235,6 +8825,7 @@ function renderAll(){
   else if(tabAtual==='loja') renderLoja();
   else if(tabAtual==='pendencias') renderPendencias();
   else if(tabAtual==='vendas') renderVendas();
+  else if(tabAtual==='revgeral') renderRevGeral();
   else if(tabAtual==='revlist') renderRevLista();
   else{
     const id=+tabAtual.split(':')[1];

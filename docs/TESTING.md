@@ -229,6 +229,75 @@ de verdade), `PULSEIRA` sem variação, `DESCARTE` cadastrada e nunca usada,
 A contagem de requisições de escrita que chegam à loja falsa é, ela mesma,
 uma asserção: nenhuma sai.
 
+### `src/editar-peca-test.mjs` — quantidade por variação em "Editar peça"
+
+A janela da peça passou a aceitar a quantidade de cada variação, e o total
+do código virou a SOMA delas. O teste prova que isso NÃO é saldo
+sobrescrito: a diferença vira um movimento de `ajuste` com obs dizendo de
+quanto para quanto. Prova também o que continua valendo — sem
+`ajustarTotal`, o 409 de Pendências é o mesmo; negativo é recusado; o
+vínculo é por `variante_id` e sobrevive à loja renomear a variação;
+`sem_reparticao` continua bloqueando a escrita de quem não foi repartido.
+
+    node src/editar-peca-test.mjs
+
+### `src/editar-peca-ui-test.mjs` — a mesma coisa no navegador
+
+Campos editáveis com o `variant_id` no `data-`, a soma ao vivo, o aviso de
+que o total vai mudar, as duas fotos como espaço fixo do produto, a ausência
+de "Gerar fundo branco" no Estoque — e o teste obrigatório do BLOCO A: a
+MESMA foto na tabela de Estoque e no cartão de Pendências, com URL que falha
+virando espaço vazio em vez do ícone quebrado do navegador.
+
+    node src/editar-peca-ui-test.mjs
+
+### `src/sku-auditoria-test.mjs` — o padrão de SKU é medido, não suposto
+
+Monta catálogos com respostas conhecidas e cobra que a auditoria diga
+exatamente aquilo — inclusive "não sei". O ponto central: número crescente
+não é sequência, e quem decide é a densidade da faixa. Prova também que o
+gerador não mudou às escondidas e que o código gerado sai marcado como
+provisório enquanto não houver regra inequívoca.
+
+    node src/sku-auditoria-test.mjs
+
+### `src/fotos-catalogo-test.mjs` — as fotos do catálogo chegam sozinhas
+
+A rodada de sincronização guarda o espelho das imagens da loja
+(`loja_fotos`) com o catálogo que ela já leu. Prova a amarração por
+`image_id` (nunca por posição), a recusa de chutar dono quando o produto da
+loja junta dois códigos, a galeria completa preservada, a foto tratada nossa
+que não é sobrescrita, e a foto apagada na loja que some daqui.
+
+    node src/fotos-catalogo-test.mjs
+
+### `src/pendencias-nuvemshop-test.mjs` — quem responde o quê
+
+Os dois banners gigantes saíram da aba Nuvemshop sem levar junto os números
+nem as ações. Pendências passou a ter três seções nomeadas. O teste cobre as
+duas pontas e termina provando que nenhuma escrita saiu para a loja.
+
+    node src/pendencias-nuvemshop-test.mjs
+
+### `src/revendedoras-test.mjs` — a área de Revendedoras vira operação
+
+A aba inicial passou a ser Visão Geral (a lista completa continua ao lado),
+a Agenda de acertos saiu do Estoque, e o Top Revendedoras sai do HISTÓRICO
+real — o teste prova que, sem acerto fechado, a tela diz isso em vez de
+ranquear pelo tamanho da maleta de hoje. Cobre também a capacidade de novas
+maletas (com a reserva que impede zerar a casa), o contato no topo da ficha
+e, sobretudo, o preview obrigatório do Anexo I: desconhecidos, divergências
+e a prova de que NADA é gravado antes da confirmação.
+
+    node src/revendedoras-test.mjs
+
+### `src/shot-pos-fase2.mjs` — fotos das telas dos BLOCOS A–D
+
+Não é teste: monta um cenário próprio e fotografa cada tela mudada, no
+computador e no celular.
+
+    node src/shot-pos-fase2.mjs /caminho/da/pasta
+
 ### `src/fase2-telas-fotos.mjs` — fotos das telas da FASE 2
 **Playwright. Não é teste.**
 

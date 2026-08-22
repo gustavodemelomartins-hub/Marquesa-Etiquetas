@@ -227,3 +227,196 @@ function horasAdiante(h) {
 export function liberarReserva(db, sku) {
   return db.prepare(`DELETE FROM sku_reservas WHERE sku = ?`).bind(normSku(sku));
 }
+
+/* ==================================================================== */
+/* 3. AUDITAR O PADRÃO REAL                                             */
+/* ==================================================================== */
+
+/** Qual é, de fato, o padrão dos códigos da Marquesa — medido no catálogo
+ *  inteiro, não suposto a partir de uma amostra que alguém olhou.
+ *
+ *  Existe porque a pergunta "qual código o sistema deve gerar?" não tem
+ *  resposta de escritório. Ela depende de fatos que só o catálogo real
+ *  responde: quantos formatos convivem, se existe sequência de verdade (e
+ *  não só números crescentes), se há prefixo, e o tamanho de cada coisa.
+ *  Chutar aqui não dá erro na hora — dá colisão meses depois, numa
+ *  etiqueta impressa.
+ *
+ *  Olha os TRÊS lugares onde um código existe, porque um catálogo lido só
+ *  de `produtos` mente: a loja carrega códigos na variante que ainda não
+ *  foram cadastrados aqui, e a fila de peças novas carrega os que estão a
+ *  caminho.
+ *
+ *  Somente leitura. Não decide, não muda o gerador, não renumera nada —
+ *  devolve o retrato e deixa a decisão para quem manda no negócio.
+ */
+
+/** A "forma" de um código: dígito vira 9, letra vira A, separador fica.
+ *  `122809` → `999999`;  `MQ00001` → `AA99999`;  `BR-12/3` → `AA-99/9`.
+ *  É o que permite contar quantos formatos DIFERENTES convivem sem listar
+ *  os 773 códigos um a um. */
+export function formaDoSku(sku) {
+  return String(sku || '').replace(/[0-9]/g, '9').replace(/[A-Za-z]/g, 'A');
+}
+
+/** A mesma forma, dita curto: `999999` → `9×6`, `AA99999` → `A×2 9×5`. */
+function formaCurta(forma) {
+  const partes = [];
+  let atual = '', n = 0;
+  for (const c of forma) {
+    if (c === atual) { n++; continue; }
+    if (atual) partes.push(n > 1 ? `${atual}×${n}` : atual);
+    atual = c; n = 1;
+  }
+  if (atual) partes.push(n > 1 ? `${atual}×${n}` : atual);
+  return partes.join(' ');
+}
+
+const contar = (lista) => {
+  const m = new Map();
+  for (const v of lista) m.set(v, (m.get(v) || 0) + 1);
+  return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([valor, n]) => ({ valor, n }));
+};
+
+export async function auditarSkus(db, { amostra = 25 } = {}) {
+  const lerColuna = async (sql) =>
+    (await db.prepare(sql).all()).results.map(r => Object.values(r)[0]).filter(v => v != null && String(v).trim() !== '');
+
+  const fontes = {
+    produtos: await lerColuna(`SELECT sku FROM produtos`),
+    produtos_pendentes: await lerColuna(`SELECT sku FROM produtos_pendentes`),
+    loja_variantes: await lerColuna(`SELECT DISTINCT sku FROM loja_variantes WHERE sku IS NOT NULL`),
+  };
+
+  /* Um código pode estar nos três lugares. O universo é o conjunto das
+     formas NORMALIZADAS distintas — contar três vezes o mesmo código
+     inflaria o total e distorceria a proporção de cada formato. */
+  const brutoPorNorm = new Map();          // norm → Set(forma crua)
+  const ondePorNorm = new Map();           // norm → Set(fonte)
+  for (const [fonte, lista] of Object.entries(fontes)) {
+    for (const bruto of lista) {
+      const n = normSku(bruto);
+      if (!n) continue;
+      if (!brutoPorNorm.has(n)) { brutoPorNorm.set(n, new Set()); ondePorNorm.set(n, new Set()); }
+      brutoPorNorm.get(n).add(String(bruto));
+      ondePorNorm.get(n).add(fonte);
+    }
+  }
+  const codigos = [...brutoPorNorm.keys()].sort();
+
+  /* Colisão normalizada: o MESMO código escrito de dois jeitos. É o que o
+     índice `idx_produtos_sku_norm` passou a impedir dentro de `produtos`,
+     mas que continua possível ENTRE fontes — e é exatamente o caso em que
+     uma peça daqui deixa de casar com a variante da loja. */
+  const colisoes = codigos
+    .filter(n => brutoPorNorm.get(n).size > 1)
+    .map(n => ({ sku: n, escritoComo: [...brutoPorNorm.get(n)], onde: [...ondePorNorm.get(n)] }));
+
+  const formas = contar(codigos.map(formaDoSku))
+    .map(f => ({
+      forma: f.valor, curta: formaCurta(f.valor), n: f.n,
+      pct: codigos.length ? Math.round((f.n / codigos.length) * 1000) / 10 : 0,
+      exemplos: codigos.filter(c => formaDoSku(c) === f.valor).slice(0, 3),
+    }));
+  const predominante = formas[0] || null;
+
+  const tamanhos = contar(codigos.map(c => c.length))
+    .map(t => ({ caracteres: t.valor, n: t.n }))
+    .sort((a, b) => a.caracteres - b.caracteres);
+
+  /* Prefixo = a corrida de letras no começo. Sem letra nenhuma o prefixo é
+     vazio, e "vazio" é uma resposta — a mais comum num catálogo de códigos
+     de fornecedor. */
+  const prefixos = contar(codigos.map(c => (c.match(/^[A-Z]+/) || [''])[0]))
+    .map(p => ({ prefixo: p.valor || '(nenhum)', n: p.n }));
+  const sufixos = contar(codigos.map(c => (c.match(/-\d+$/) || [''])[0]))
+    .map(p => ({ sufixo: p.valor || '(nenhum)', n: p.n }));
+
+  /* SEQUÊNCIA — a pergunta que decide tudo, e a que é fácil errar.
+     
+     Números crescentes NÃO são sequência. Sequência é ocupar a faixa: se
+     existem 773 códigos entre 100000 e 997620, a faixa tem 897.621 lugares
+     e 772 mil e poucos estão VAZIOS. `max + 1` ali não é "o próximo": é um
+     número que o fornecedor ainda pode usar amanhã.
+     
+     A densidade mede isso. Perto de 1 = sequência de verdade (os códigos
+     nasceram aqui, um depois do outro). Perto de 0 = catálogo de terceiro. */
+  const analisarFaixa = (lista) => {
+    const nums = lista.map(Number).filter(n => Number.isFinite(n));
+    if (!nums.length) return null;
+    const min = Math.min(...nums), max = Math.max(...nums);
+    const amplitude = max - min + 1;
+    const densidade = Math.round((nums.length / amplitude) * 1000) / 1000;
+    return {
+      quantidade: nums.length, menor: min, maior: max, amplitude,
+      lacunas: amplitude - nums.length, densidade,
+      veredito: densidade >= 0.9 ? 'sequencial'
+        : densidade >= 0.2 ? 'parcialmente sequencial' : 'esparso',
+    };
+  };
+
+  const soNumeros = codigos.filter(c => /^\d+$/.test(c));
+  const sequencia = {
+    numericos: soNumeros.length,
+    naoNumericos: codigos.length - soNumeros.length,
+    geral: analisarFaixa(soNumeros),
+    porPrefixo: prefixos
+      .filter(p => p.prefixo !== '(nenhum)')
+      .map(p => {
+        const corpo = codigos
+          .filter(c => c.startsWith(p.prefixo) && /^\d+$/.test(c.slice(p.prefixo.length)))
+          .map(c => c.slice(p.prefixo.length));
+        return { prefixo: p.prefixo, n: p.n, faixa: analisarFaixa(corpo) };
+      }),
+  };
+
+  const foraDoPadrao = predominante
+    ? codigos.filter(c => formaDoSku(c) !== predominante.forma)
+    : [];
+
+  /* O veredito, e ele tem PERMISSÃO de dizer "não sei".
+     
+     Um gerador só pode continuar uma numeração quando existe numeração
+     para continuar. Sem isso, "o próximo código" é uma invenção com cara
+     de regra — e inventar aqui é o que este arquivo existe para não
+     fazer. */
+  const dominaFolgado = !!predominante && predominante.pct >= 95;
+  const temSequencia = !!(sequencia.geral && sequencia.geral.densidade >= 0.9)
+    || sequencia.porPrefixo.some(p => p.faixa && p.faixa.densidade >= 0.9 && p.n >= 5);
+
+  const conclusao = {
+    regraInequivoca: dominaFolgado && temSequencia,
+    motivo: !codigos.length
+      ? 'Não há código nenhum para auditar neste banco.'
+      : !dominaFolgado
+        ? `Convivem ${formas.length} formatos diferentes, e o mais comum cobre só ${predominante.pct}% do catálogo. `
+          + 'Não existe um padrão único do qual derivar "o próximo código".'
+        : !temSequencia
+          ? `O formato ${predominante.curta} domina (${predominante.pct}%), mas os códigos NÃO formam sequência `
+            + `(densidade ${sequencia.geral ? sequencia.geral.densidade : '—'} na faixa). `
+            + 'Continuar a numeração seria escolher um código que a fonte original ainda pode usar.'
+          : null,
+    /* O exemplo que a TELA deve mostrar. Vem do catálogo real, nunca de um
+       código inventado no comentário de um arquivo. */
+    exemploReal: predominante ? predominante.exemplos[0] || null : null,
+  };
+
+  return {
+    total: codigos.length,
+    porFonte: Object.fromEntries(Object.entries(fontes).map(([k, v]) => [k, v.length])),
+    formas,
+    predominante,
+    tamanhos,
+    menor: codigos.length ? codigos.reduce((a, b) => (a.length !== b.length ? (a.length < b.length ? a : b) : (a < b ? a : b))) : null,
+    maior: codigos.length ? codigos.reduce((a, b) => (a.length !== b.length ? (a.length > b.length ? a : b) : (a > b ? a : b))) : null,
+    prefixos,
+    sufixos,
+    sequencia,
+    colisoes: { total: colisoes.length, itens: colisoes.slice(0, amostra) },
+    foraDoPadrao: { total: foraDoPadrao.length, itens: foraDoPadrao.slice(0, amostra) },
+    /* O que o gerador está fazendo HOJE, para a auditoria e a decisão
+       aparecerem lado a lado em vez de em duas telas diferentes. */
+    geradorAtual: { prefixo: PREFIXO, digitos: DIGITOS, exemplo: PREFIXO + '1'.padStart(DIGITOS, '0') },
+    conclusao,
+  };
+}

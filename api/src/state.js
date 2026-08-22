@@ -61,6 +61,31 @@ export async function montarState(db, env) {
   }
   const dispBase = new Map(produtosR.results.map(p => [p.sku, p.qtd - (consignado[p.sku] || 0)]));
 
+  /* A foto que a loja publica HOJE, lida do espelho `loja_fotos`.
+     
+     Não é a mesma coisa que `produtos.foto_url`, e por isso viaja num campo
+     próprio. Aquela coluna é o endereço que ALGUÉM gravou na peça — um ato
+     nosso, com origem e data. Esta é fato da vitrine, atualizado sozinho a
+     cada rodada de sincronização. Misturar as duas faria "vincular fotos da
+     loja" parecer já ter rodado em todo produto, e a diferença entre
+     "a loja tem uma foto" e "nós anotamos o endereço dela" sumiria.
+     
+     A tela usa uma ou outra pelo mesmo resolvedor único, nesta ordem:
+     tratada nossa → original nossa → endereço gravado → foto da loja.
+     
+     `loja_fotos` pode não existir num banco que ainda não recebeu
+     migracao-fotos-loja.sql, e isso não pode derrubar o painel inteiro:
+     sem a tabela, as peças simplesmente seguem sem a foto da vitrine. */
+  const fotoLojaPorSku = new Map();
+  try {
+    for (const f of (await db.prepare(
+      `SELECT sku_norm, url FROM loja_fotos
+        WHERE sku_norm IS NOT NULL AND principal = 1`).all()).results) {
+      if (!fotoLojaPorSku.has(f.sku_norm)) fotoLojaPorSku.set(f.sku_norm, f.url);
+    }
+  } catch (e) { /* migração pendente: segue sem a foto da vitrine */ }
+  const chaveFoto = (sku) => String(sku == null ? '' : sku).trim().toUpperCase();
+
   const saldoVar = new Map(saldoVarR.results.map(r => [`${r.sku}|${r.variacao}`, r.saldo]));
   const variacoesPorSku = new Map();
   for (const v of variacoesR.results) {
@@ -111,6 +136,11 @@ export async function montarState(db, env) {
          nossos: existindo chave no R2, é o link assinado acima que a tela
          usa. Vem cru — o tamanho da miniatura é decisão de quem exibe. */
       fotoUrl: p.foto_url || undefined,
+      /* O endereço na vitrine, quando existe. A tela só chega até aqui
+         quando não temos nem os bytes nem um endereço gravado — é o último
+         recurso antes do "sem foto", e é o que faz a peça que a loja
+         ilustra parar de aparecer vazia no painel. */
+      fotoLojaUrl: fotoLojaPorSku.get(chaveFoto(p.sku)) || undefined,
       fotoErro: p.foto_erro || undefined,
       componentes: componentes || undefined,   // presença = "isto é um kit"
       // presença = "este código é vendido em mais de uma opção, e a bipagem
@@ -148,6 +178,13 @@ export async function montarState(db, env) {
     prataPct: c.prataPct ?? 10,
     inventarioDias: c.inventarioDias ?? 30,
     faixas: c.faixas ?? FAIXAS_PADRAO,
+    /* Quantas peças uma maleta costuma levar, e quanto precisa sobrar em
+       casa depois de montar as próximas. Os dois padrões são chute
+       declarado, não medida — existem para a conta ter um ponto de partida,
+       e a tela deixa mudar. Zerar a casa para montar maleta é o erro que a
+       reserva existe para impedir. */
+    maletaAlvoPecas: c.maletaAlvoPecas ?? 100,
+    reservaMinima: c.reservaMinima ?? 300,
   };
 
   const inventario = await resumoInventario(db, config.inventarioDias);

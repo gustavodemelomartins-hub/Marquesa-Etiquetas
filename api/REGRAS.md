@@ -389,14 +389,32 @@ bloquear isso travaria a importação inteira do catálogo. Vira aviso, com o
 produto e a variante nomeados. O mesmo vale para a fila de peças novas, que
 existe justamente para virar produto. Só `produtos` bloqueia.
 
-**O gerado.** `POST /api/produtos/sku/gerar` devolve `MQ` + 5 dígitos,
-sequencial. Os 773 códigos reais da operação são todos numéricos, quase
-todos de 6 dígitos, espalhados por toda a faixa sem sequência nenhuma — são
-códigos do fornecedor, não nossos. Gerar "o próximo número" ali seria
-escolher um código que o fornecedor ainda pode usar amanhã, e a colisão
-apareceria meses depois, numa etiqueta. O prefixo evita isso, cabe na
-etiqueta (CODE128 imprime letra e número igual) e diz na cara que a peça foi
-cadastrada aqui.
+**O gerado — e por que ele ainda é PROVISÓRIO.**
+`POST /api/produtos/sku/gerar` devolve hoje `MQ` + 5 dígitos, sequencial.
+Esse formato **não foi aprovado pelo negócio**: ele foi uma escolha técnica
+para não gerar código que colidisse com os do fornecedor, e continua no ar
+porque tirá-lo sem substituto deixaria "Gerar SKU" sem resposta.
+
+A decisão sobre o padrão definitivo depende de um fato, não de opinião — e
+o fato agora é MEDIDO, não suposto. `GET /api/produtos/sku/auditoria` lê os
+três lugares onde um código existe (catálogo, fila de peças novas e o que a
+loja carrega nas variantes) e devolve: quantos formatos convivem e a
+proporção de cada um, tamanhos, prefixos, sufixos, menor e maior código,
+colisões normalizadas, quem foge do padrão predominante e — o que decide
+tudo — se existe **sequência**.
+
+Número crescente não é sequência. O que a auditoria mede é a DENSIDADE:
+quantos códigos existem dividido pelo tamanho da faixa que eles ocupam.
+Perto de 1, os códigos nasceram aqui, um depois do outro, e "o próximo" tem
+sentido. Perto de 0, são códigos de terceiro espalhados numa faixa enorme, e
+`max + 1` é escolher um número que o fornecedor ainda pode usar amanhã — a
+colisão apareceria meses depois, numa etiqueta impressa.
+
+Enquanto `conclusao.regraInequivoca` for `false`, o gerador **não muda** e a
+tela **anuncia** que o código é provisório, em vez de apresentá-lo como o
+padrão da casa. O exemplo do campo de cadastro também sai da auditoria: um
+"Ex.: BR1234" inventado é uma instrução errada, e instrução errada vira
+código errado cadastrado à mão.
 
 A geração **reserva** o código em `sku_reservas` antes de responder. Sem a
 reserva, duas pessoas clicando ao mesmo tempo receberiam o mesmo número —
@@ -626,6 +644,51 @@ Sem ele configurado, a peça fica `fundo_pendente` e **nenhuma imagem é
 inventada**: uma foto que o sistema diz ter e não tem é pior que uma
 faltando, porque a publicação em lote confiaria nela.
 
+### 12b. A foto do catálogo chega sozinha, e existe UM resolvedor
+
+**Ingestão.** As imagens da Nuvemshop são lidas e guardadas a cada rodada de
+sincronização, com o mesmo catálogo que ela já leu — nenhuma segunda chamada
+à loja, nenhum botão para apertar. O espelho é `loja_fotos`, e ele guarda o
+que a coluna única `produtos.foto_url` perdia: `product_id`, `variant_id`,
+SKU, posição, URL e qual é a **principal**.
+
+A amarração de uma imagem a um código é por identidade, nunca por posição:
+a variante declara `image_id`, e é isso que casa (é como o anel dourado e o
+prateado ficam cada um com a foto certa). Quando o produto da loja junta
+mais de um código nosso e a imagem não está amarrada a variante nenhuma,
+`sku_norm` fica **NULL** — a recusa de adivinhar, § 12 acima.
+
+O espelho é reescrito por produto: foto apagada na loja some daqui na rodada
+seguinte. Espelho que só cresce mente.
+
+`loja_fotos` **não** substitui o R2 nem `produtos.foto_url`. São três coisas
+diferentes e o state as entrega separadas: `fotoTratadaUrl`/`fotoOriginalUrl`
+(bytes nossos), `fotoUrl` (endereço que alguém gravou na peça, com origem e
+data) e `fotoLojaUrl` (o que a vitrine publica hoje). Misturá-las apagaria a
+diferença entre "a loja tem foto" e "nós anotamos qual é".
+
+**Resolução.** Uma pergunta — "qual imagem representa esta peça?" — com um
+lugar só para respondê-la (`resolveFotoPrincipal` / `fotoImg`), nesta ordem:
+
+1. foto tratada (fundo branco) nossa;
+2. foto original nossa;
+3. endereço gravado na peça;
+4. foto da vitrine, lida do catálogo;
+5. placeholder — **nunca** o ícone de imagem quebrada do navegador.
+
+Tabela de Estoque, Editar peça e os cartões de Pendências pedem ao mesmo
+lugar. Cada tela montando a sua foi o que fez a mesma peça aparecer num
+lugar e quebrar no outro.
+
+O link do R2 vem do servidor como caminho relativo e é resolvido contra o
+endereço da API antes de virar `src`: o painel (Pages) não mora na origem da
+API (Worker), e caminho relativo ali resolve contra a página — toda foto
+nossa virava imagem quebrada enquanto a da loja aparecia.
+
+**Tratamento não mora no Estoque.** Estoque cadastra, organiza, associa e
+edita dados da peça. Gerar o fundo branco é preparação para publicar, e fica
+em Pendências, ao lado de preço, categoria e descrição.
+
 ### 13. O agente prepara; quem publica é a tela — §22
 
 `GET /api/catalogo/publicacao` é a leitura que o agente de catálogo usa: o
@@ -693,3 +756,75 @@ categoria): é a única que bloqueia de verdade, porque publicar sem preço
 não é uma opção que só falta confirmar — Nuvemshop nenhuma vende peça sem
 preço, e fingir que está pronta seria mentir sobre o que aconteceria ao
 confirmar.
+
+### 18. Quantas maletas cabem — a conta e os dois números que a decidem
+
+Duas chaves em `config`, ambas em PEÇAS, absolutas e globais:
+
+- `maletaAlvoPecas` — quantas peças uma maleta costuma levar (padrão 100);
+- `reservaMinima` — quantas peças ficam em casa, no total (padrão 300).
+
+A conta é declarada na própria tela, e não escondida:
+
+```
+em casa − reserva mínima = utilizável
+utilizável ÷ peças por maleta = maletas que cabem
+```
+
+"Em casa" é `disponivel` — o total menos o que já está consignado. Não é o
+estoque do catálogo: peça que está com revendedora não pode ser montada
+de novo em outra maleta.
+
+**A reserva não é enfeite.** Sem peça em casa não há venda de balcão, não há
+reposição de maleta que voltou furada e não há atendimento para a cliente
+que aparece. Um algoritmo que responde "dá para montar 11 maletas" zerando a
+casa está com a conta certa e a decisão errada — a reserva é o que separa as
+duas coisas.
+
+É estimativa por QUANTIDADE. Montar a maleta continua sendo escolha de peça,
+na aba da revendedora — a conta diz se cabe, não o que vai dentro.
+
+### 19. Desempenho de revendedora sai do histórico, nunca da maleta de hoje
+
+`maletas.acerto_json` já guardava o acerto inteiro — enviadas, devolvidas,
+vendidas, total vendido, comissão, líquido, dias. O painel lia menos da
+metade disso, e não existia nenhuma leitura de desempenho.
+
+O Top Revendedoras agrega os ciclos ENCERRADOS de cada pessoa:
+
+- **vendido** — soma de `totalVendido`;
+- **peças vendidas** — soma de `vendidas`;
+- **giro** — vendidas ÷ enviadas. É a medida que compara pessoas de
+  tamanhos diferentes sem premiar quem simplesmente leva mais;
+- **ticket** — vendido ÷ peças vendidas;
+- **ciclos** e **último acerto**.
+
+Quem não tem ciclo encerrado **não entra no ranking**, e a tela diz isso com
+todas as letras. Ordenar pelo valor da maleta atual mediria quem recebeu a
+maleta maior, não quem vende — e um ranking assim é pior que nenhum, porque
+parece informação.
+
+### 20. Importar Anexo I é analisar e depois confirmar — §19 §22
+
+A importação de maleta era o último caminho que ainda aplicava direto: lia o
+arquivo, criava os códigos que faltavam e movimentava as peças no mesmo
+clique. Uma planilha errada virava consignação errada, e desfazer
+consignação é movimento contra movimento.
+
+Agora são dois atos, como a importação de estoque total já era:
+
+1. **ler** (`lerMaleta`) — devolve o laudo: quantas peças, quantos códigos,
+   para quem, se vai para a maleta aberta ou cria uma nova, quais códigos o
+   catálogo não conhece, onde o preço do documento briga com o nosso, e a
+   data que o Anexo declara. **Nada é gravado.**
+2. **aplicar** (`aplicarMaleta`) — recebe o laudo, não o arquivo. O que
+   entra é exatamente o que a pessoa viu na tela.
+
+Nenhuma das duas resolve divergência sozinha: o preço do catálogo continua
+mandando (o documento não muda cadastro), e o código desconhecido é criado
+com 0 — a tela avisa que a peça vai sair de um saldo que ainda não existe,
+e oferece cancelar.
+
+**Exportar o Anexo I em arquivo está BLOQUEADO** enquanto o modelo
+operacional original não estiver no repositório. Ver `docs/TECH_DEBT.md`
+item 15. `printAnexo()` (impressão) continua como estava.

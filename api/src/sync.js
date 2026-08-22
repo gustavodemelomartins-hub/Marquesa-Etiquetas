@@ -14,6 +14,7 @@
  *  morrer no meio, e nada pode duplicar venda nem estoque por causa disso.
  */
 import { Nuvemshop, mapearSkus } from './nuvemshop.js';
+import { ingerirFotosDoCatalogo } from './fotos.js';
 import { movimentar, saldosDoSku } from './estoque.js';
 import { resolverVariantes, saldosDeVariacao } from './variantes.js';
 
@@ -68,6 +69,18 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
     /* Depois de empurrar, e não antes: assim o retrato já nasce com os
        números que a loja passou a ter nesta rodada. */
     await gravarRetratoDaLoja(db, produtosLoja, mapa, relato);
+
+    /* As fotos do catálogo inteiro, com o mesmo `produtosLoja` que esta
+       rodada já leu — nenhuma segunda chamada à loja.
+       
+       Fica aqui, e não num botão, porque foto de catálogo não é operação
+       diária: é dado que muda quando a loja muda, e quem sabe disso é a
+       rodada. Apertar "vincular fotos" toda semana era trabalho que o
+       sistema estava terceirizando para a Sthefany.
+       
+       Nunca derruba a rodada: o retorno diz o que houve e o estoque segue
+       subindo do mesmo jeito. */
+    relato.fotos = await ingerirFotosDoCatalogo(db, produtosLoja, { seco });
 
     await db.prepare(
       `UPDATE sync_execucoes SET terminado_em = datetime('now'), status = ?,
