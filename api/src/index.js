@@ -525,17 +525,26 @@ async function rotear(request, env) {
          fazer. Aqui esse erro vira a instrução — o mesmo tratamento que os
          erros da Nuvemshop já recebem. */
       if (/no such (table|column)/i.test(msg) && /foto|produtos_pendentes|fotos_orfas/i.test(msg)) {
-        /* Duas migrações mexem em foto, e mandar rodar a errada faz a pessoa
-           perder a tarde: `foto_url` é a de vincular, o resto é a do
-           catálogo. O nome da coluna que faltou é quem decide. */
-        const url = /foto_url/i.test(msg);
+        /* TRÊS migrações mexem em foto, e mandar rodar a errada faz a pessoa
+           perder a tarde. O que faltou é quem decide, e a ordem do teste
+           importa: `loja_fotos` contém "foto_" e casaria com a regra de
+           `foto_url` se viesse depois.
+
+             loja_fotos  → a galeria do catálogo da loja
+             foto_url    → o endereço da imagem na peça (vincular)
+             o resto     → as colunas de foto do catálogo */
+        const galeria = /loja_fotos/i.test(msg);
+        const url = !galeria && /foto_url/i.test(msg);
+        const qual = galeria ? 'fotos-loja' : (url ? 'foto-url' : 'catalogo');
         return json({
-          erro: url
-            ? 'Vincular fotos da loja precisa de uma migração que este banco ainda não recebeu.'
-            : 'Esta parte precisa da migração do catálogo, que este banco ainda não recebeu.',
-          detalhe: `Rode api/${url ? 'migracao-foto-url.sql' : 'migracao-catalogo.sql'} no D1 — `
+          erro: galeria
+            ? 'As fotos do catálogo da loja precisam de uma migração que este banco ainda não recebeu.'
+            : url
+              ? 'Vincular fotos da loja precisa de uma migração que este banco ainda não recebeu.'
+              : 'Esta parte precisa da migração do catálogo, que este banco ainda não recebeu.',
+          detalhe: `Rode api/migracao-${qual}.sql no D1 — `
                  + 'o passo está no api/DEPLOY.md. O resto do painel funciona normalmente sem ela.',
-          migracao: url ? 'foto-url' : 'catalogo',
+          migracao: qual,
         }, 503);
       }
       return json({ erro: 'Falha interna', detalhe: msg }, 500);
