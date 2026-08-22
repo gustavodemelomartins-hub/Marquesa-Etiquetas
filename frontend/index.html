@@ -5,7 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#16100F">
   <title>Marquesa · Painel</title>
+  <!-- Sem esta linha o navegador pede /favicon.ico por conta própria, leva
+       404 e registra um erro de console — que os testes de navegador contam,
+       e com razão: um 404 silencioso é o disfarce de todo recurso que
+       faltou de verdade.
 
+       O caminho é ABSOLUTO, e é a exceção ao `base: './'` do vite.config.ts.
+       Aquele `base` existe porque os assets do BUNDLE vivem ao lado do
+       index.html, num diretório que muda de nome (`/frontend/dist/` no
+       servidor de teste, `/painel-novo/` no DEV). O ícone não é do bundle:
+       ele é do SITE, mora na raiz junto com o painel legado
+       (deploy-dev.yml copia `icons/` para a raiz de `publicar/`), e é o
+       mesmo arquivo que o dashboard.html já usa. Relativo aqui apontaria
+       para `/painel-novo/icons/`, que não existe. -->
+  <link rel="icon" href="/icons/icon-192.png">
 </head>
 <body>
   <div id="root"></div>
