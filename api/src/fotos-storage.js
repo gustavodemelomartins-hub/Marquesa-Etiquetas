@@ -33,27 +33,42 @@ export function validarBytes(bytes, tipo) {
   return null;
 }
 
-/** Grava e devolve o que o D1 precisa guardar como referência. */
+/** Mensagem de recusa quando a conta Cloudflare não tem R2 habilitado
+ *  (erro 10042) e o binding `FOTOS` foi removido do `wrangler.toml` de
+ *  produção por causa disso. Controlada — nunca deixa a chamada virar
+ *  exceção não tratada nem sucesso falso. */
+const SEM_R2 = 'Upload e edição de foto exigem R2, que não está habilitado '
+             + 'nesta conta Cloudflare ainda. Fotos existentes por URL '
+             + 'externa continuam funcionando normalmente.';
+
+/** Grava e devolve o que o D1 precisa guardar como referência.
+ *  Sem o binding `FOTOS` (conta sem R2 habilitado), recusa de forma
+ *  explícita em vez de lançar `TypeError` ou fingir que gravou. */
 export async function salvarFoto(env, sku, versao, bytes, tipo) {
   const erro = validarBytes(bytes, tipo);
   if (erro) return { erro };
+  if (!env.FOTOS) return { erro: SEM_R2 };
   const key = chaveFoto(sku, versao);
   await env.FOTOS.put(key, bytes, { httpMetadata: { contentType: tipo } });
   return { key, tipo, tamanho: bytes.byteLength };
 }
 
 /** Lê os bytes para a rota de exibição servir ao navegador. `null` quando
- *  o objeto não existe (chave errada, ou já foi apagado). */
+ *  o objeto não existe (chave errada, já foi apagado, ou — sem o binding
+ *  `FOTOS` — quando o ambiente não tem R2 habilitado). Tratado igual a
+ *  "não encontrada": a peça continua com a URL externa como retrato, e
+ *  nenhuma rota que só lê quebra por falta do bucket. */
 export async function lerFoto(env, key) {
-  if (!key) return null;
+  if (!key || !env.FOTOS) return null;
   const obj = await env.FOTOS.get(key);
   if (!obj) return null;
   return { corpo: obj.body, tipo: obj.httpMetadata?.contentType || 'application/octet-stream', tamanho: obj.size };
 }
 
 /** Apaga sem reclamar se já não existir — apagar o que não existe não é
- *  erro aqui, é o estado final que se queria de qualquer forma. */
+ *  erro aqui, é o estado final que se queria de qualquer forma. Sem o
+ *  binding `FOTOS`, mesma lógica: não há bytes para apagar. */
 export async function apagarFoto(env, key) {
-  if (!key) return;
+  if (!key || !env.FOTOS) return;
   await env.FOTOS.delete(key);
 }
