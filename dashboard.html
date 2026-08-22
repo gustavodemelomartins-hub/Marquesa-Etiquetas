@@ -2945,6 +2945,15 @@ function cadastrarManual(){
   const campoQtd=document.getElementById('cm-qtd');
   const qtdTxt=campoQtd?campoQtd.value.trim():'';
   if(!sku||!desc){ toast('Preencha código e descrição'); return; }
+  /* Seis dígitos é a regra do código digitado à mão — medida no catálogo
+     real, não escolhida aqui (api/REGRAS.md §17). A trava de verdade é o
+     backend; isto é a conveniência de descobrir antes de abrir a prévia. */
+  if(!SEIS_NUMEROS.test(sku)){
+    toast('O código deve ter 6 números.');
+    const alvo=document.getElementById('cm-sku-recado');
+    if(alvo){ alvo.className='sku-recado ocupado'; alvo.textContent='O código deve ter 6 números.'; }
+    return;
+  }
   const preco=precoTxt===''?null:num(precoTxt);
   /* Com variações, a quantidade é a soma delas — nunca as duas coisas ao
      mesmo tempo. Ver o comentário de `cadVar`. */
@@ -2973,26 +2982,20 @@ function cadastrarManual(){
    backend é recusa, e no banco é o índice único — o único que pega dois
    cadastros no mesmo instante. Esta camada pode falhar sem estragar nada. */
 
+/** Seis dígitos, o primeiro diferente de zero. É a MESMA expressão do
+    `SKU_SEIS` do backend, e ela existe duas vezes de propósito: aqui para a
+    pessoa saber antes de terminar de digitar, lá porque tela não é trava. */
+const SEIS_NUMEROS = /^[1-9][0-9]{5}$/;
+
 let skuChecagem = 0;      // descarta resposta de digitação já superada
 let skuTimer = null;
 
-/* O padrão REAL dos códigos, medido no catálogo — não um exemplo inventado.
-   "Ex.: BR1234" ensinava um formato que a Marquesa não usa: os códigos
-   reais vêm do fornecedor e têm outra cara. Um exemplo errado na tela é uma
-   instrução errada, e ela vira código errado cadastrado à mão.
-
-   Carregado sob demanda, uma vez por sessão: é uma varredura do catálogo, e
-   a tela de cadastro é a única que precisa dela. */
-let auditoriaSku=null;
-async function carregarAuditoriaSku(){
-  if(auditoriaSku) return auditoriaSku;
-  try{ auditoriaSku=await api('GET','/api/produtos/sku/auditoria'); }
-  catch(e){ auditoriaSku={erro:e.message}; }
-  const campo=document.getElementById('cm-sku');
-  const exemplo=auditoriaSku&&auditoriaSku.conclusao&&auditoriaSku.conclusao.exemploReal;
-  if(campo&&exemplo) campo.placeholder='Ex.: '+exemplo;
-  return auditoriaSku;
-}
+/* A varredura do catálogo que ficava aqui saiu: ela existia para descobrir
+   o formato dos códigos, e o formato foi decidido — seis dígitos, medidos
+   nos 776 códigos reais (api/REGRAS.md §17). A rota
+   `GET /api/produtos/sku/auditoria` continua existindo para auditar; o que
+   sumiu foi a tela perguntar de novo, uma vez por sessão, uma coisa que já
+   tem resposta. */
 
 /** Diz, enquanto digita, se o código está livre — e, quando não está, ONDE
     ele já é usado. Bloquear sem dizer onde obriga a caçar o duplicado à mão
@@ -3032,11 +3035,20 @@ function pintarRecadoSku(r){
       : 'Código inválido.';
     return;
   }
+  /* O duplicado vem ANTES do formato, e a ordem é a informação: se o código
+     já é uma peça, dizer QUAL peça resolve o problema; dizer "tem de ter 6
+     números" mandaria a pessoa consertar o formato de um código que ia
+     esbarrar no duplicado do mesmo jeito. */
   const bloqueio=(r.bloqueiam||[])[0];
   if(bloqueio){
     alvo.className='sku-recado ocupado';
     alvo.textContent=`"${r.sku}" já é a peça ${bloqueio.sku} — ${bloqueio.desc||'sem descrição'}`
       +(bloqueio.status==='inativo'?' (inativa)':'')+'.';
+    return;
+  }
+  if(r.formato&&!r.formato.ok){
+    alvo.className='sku-recado ocupado';
+    alvo.textContent=r.formato.recado||'O código deve ter 6 números.';
     return;
   }
   /* Estar na loja NÃO impede cadastrar — é o contrário: é assim que os dois
@@ -3071,20 +3083,10 @@ async function gerarSku(botao){
     if(!r||!r.ok){ toast((r&&r.erro)||'Não foi possível gerar um código'); return; }
     document.getElementById('cm-sku').value=r.sku;
     clearTimeout(skuTimer); skuChecagem++;
-    pintarRecadoSku({valido:true, sku:r.sku, bloqueiam:[], avisos:[]});
-    /* O gerador não tem um padrão real para continuar: os códigos da
-       operação vêm do fornecedor e não formam sequência. Enquanto a
-       auditoria não devolver uma regra inequívoca, o formato gerado é
-       PROVISÓRIO — e a tela diz isso, em vez de apresentar um código
-       inventado como se fosse o padrão da casa. */
-    if(r.padrao&&r.padrao.provisorio){
-      const alvo=document.getElementById('cm-sku-recado');
-      if(alvo){
-        alvo.className='sku-recado aviso';
-        alvo.textContent=`"${r.sku}" está livre — formato provisório. `
-          +'O padrão definitivo dos códigos ainda não foi definido.';
-      }
-    }
+    /* O código que chega aqui é DEFINITIVO e já está reservado no banco —
+       nada de "formato provisório" para a pessoa relativizar. Ver §17. */
+    pintarRecadoSku({valido:true, sku:r.sku, bloqueiam:[], avisos:[],
+                     formato:{ok:true}});
   }catch(e){
     toast(e.message||'Não foi possível gerar um código');
   }finally{
@@ -3239,18 +3241,15 @@ async function aplicarVariacoesDoCadastro(){
   }
 }
 
-/** O exemplo que a tela mostra. Vem do catálogo real; enquanto a auditoria
-    não respondeu, a tela não inventa nenhum. */
-function exemploSku(){
-  const e=auditoriaSku&&auditoriaSku.conclusao&&auditoriaSku.conclusao.exemploReal;
-  return e?('Ex.: '+e):'';
-}
+/** O exemplo que a tela mostra. Não é mais uma pergunta ao catálogo: o
+    formato ficou decidido (seis dígitos), e um exemplo GENÉRICO é melhor que
+    um código real — mostrar `122809` no campo convida a digitar `122809`. */
+function exemploSku(){ return 'Ex.: 123456'; }
 
 function renderCadastro(){
   const v=document.getElementById('view-cadastro');
   const pendentes=(state.catalogo&&state.catalogo.pendentes)||0;
   const cats=catList();
-  carregarAuditoriaSku();
   v.innerHTML=`
     <div class="cab-tela">
       <h2>Cadastro de Produtos</h2>
@@ -3283,8 +3282,8 @@ function renderCadastro(){
           <div class="two">
             <div class="field"><label>Código (SKU) <span class="req">*</span></label>
               <div class="campo-com-botao">
-                <input id="cm-sku" placeholder="${esc(exemploSku()||'Código da peça')}" maxlength="40"
-                       oninput="checarSkuDigitado()" autocomplete="off">
+                <input id="cm-sku" placeholder="${esc(exemploSku())}" maxlength="6"
+                       inputmode="numeric" oninput="checarSkuDigitado()" autocomplete="off">
                 <button class="btn btn-ghost" type="button" onclick="gerarSku(this)">Gerar SKU</button>
               </div>
               <div id="cm-sku-recado" class="sku-recado"></div></div>
@@ -7685,6 +7684,7 @@ const MOTIVO_TXT={
   sem_preco:'sem preço',
   categoria_inexistente:'categoria que não existe no sistema',
   dados_conflitantes:'o mesmo código com dados diferentes na mesma planilha',
+  codigo_fora_do_formato:'o código deve ter 6 números',
 };
 
 function renderAnaliseEstoque(){
@@ -8092,7 +8092,8 @@ function linhasCorrigidas(){
 
 async function analisarNovas(){
   try{
-    novasAnalise=await api('POST','/api/produtos/novos/analisar',{produtos:linhasCorrigidas()});
+    novasAnalise=await api('POST','/api/produtos/novos/analisar',
+      {produtos:linhasCorrigidas(), origem:novasOrigem});
     /* Tudo que está pronto vem marcado: o padrão é cadastrar, não escolher
        um por um. Desmarcar é a exceção. */
     novasSel=new Set((novasAnalise.prontos.itens||[]).map(p=>p.sku));
@@ -8242,7 +8243,7 @@ async function cadastrarNovas(soSelecionados){
   if(!confirm(`Cadastrar ${lista.length} ${plural(lista.length,'peça nova','peças novas')}?\n\n`
     +`Elas entram com o estoque informado na planilha. Nenhum cadastro existente é alterado.`)) return;
   try{
-    const r=await api('POST','/api/produtos/novos/cadastrar',{produtos:lista});
+    const r=await api('POST','/api/produtos/novos/cadastrar',{produtos:lista, origem:novasOrigem});
     /* Cadastro manual com variações: a estrutura e a divisão são aplicadas
        sobre o código que acabou de existir, pelas mesmas rotas da tela de
        Pendências. Antes de `sincronizar`, para o painel já abrir com a

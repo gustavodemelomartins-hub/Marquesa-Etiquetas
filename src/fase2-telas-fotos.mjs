@@ -121,7 +121,7 @@ async function sessao(largura, altura, sufixo) {
   // 5. Cadastro com variações
   await page.evaluate(() => switchTab('cadastro'));
   await page.waitForTimeout(800);
-  await page.fill('#cm-sku', 'MQ00042');
+  await page.fill('#cm-sku', '234042');
   await page.fill('#cm-desc', 'Anel solitário');
   await page.fill('#cm-preco', '95');
   await page.click('#cm-temvar');
@@ -142,7 +142,7 @@ async function sessao(largura, altura, sufixo) {
   await page.evaluate(() => {
     localStorage.setItem('marquesa_etiquetas_v1', JSON.stringify({
       products: [
-        { id: 1, desc: 'ANEL ROSA N17', sku: 'MQ00042', price: 95, qty: 3 },
+        { id: 1, desc: 'ANEL ROSA N17', sku: '234042', price: 95, qty: 3 },
         { id: 2, desc: 'PULSEIRA LISA', sku: 'PULSEIRA', price: 60, qty: 0 },
         { id: 3, desc: 'COLAR PINGENTE', sku: 'C1', price: 120, qty: 2 },
       ], adj: { offX: 0, offY: 0 }, seq: 4,

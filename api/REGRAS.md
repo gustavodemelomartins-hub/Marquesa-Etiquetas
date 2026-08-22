@@ -365,7 +365,7 @@ tamanho" em lugar nenhum do sistema: a loja real varia por Aro,
 Comprimento, Banho, Pedra, Material, Numeração e o que mais ela inventar.
 Presumir duas dimensões quebraria no primeiro produto vendido por outra.
 
-### 17. SKU é único de fato, e o gerado é reconhecível — §3 §22
+### 17. SKU é único de fato, e o gerado tem a cara do catálogo — §3 §22
 
 `produtos.sku` sempre foi PRIMARY KEY, então o mesmo código idêntico duas
 vezes nunca passou. O que passava era o quase-igual: `br1234` ao lado de
@@ -389,37 +389,61 @@ bloquear isso travaria a importação inteira do catálogo. Vira aviso, com o
 produto e a variante nomeados. O mesmo vale para a fila de peças novas, que
 existe justamente para virar produto. Só `produtos` bloqueia.
 
-**O gerado — e por que ele ainda é PROVISÓRIO.**
-`POST /api/produtos/sku/gerar` devolve hoje `MQ` + 5 dígitos, sequencial.
-Esse formato **não foi aprovado pelo negócio**: ele foi uma escolha técnica
-para não gerar código que colidisse com os do fornecedor, e continua no ar
-porque tirá-lo sem substituto deixaria "Gerar SKU" sem resposta.
+**O código gerado: seis dígitos sorteados. Decidido pela auditoria.**
 
-A decisão sobre o padrão definitivo depende de um fato, não de opinião — e
-o fato agora é MEDIDO, não suposto. `GET /api/produtos/sku/auditoria` lê os
-três lugares onde um código existe (catálogo, fila de peças novas e o que a
-loja carrega nas variantes) e devolve: quantos formatos convivem e a
-proporção de cada um, tamanhos, prefixos, sufixos, menor e maior código,
-colisões normalizadas, quem foge do padrão predominante e — o que decide
-tudo — se existe **sequência**.
+A pergunta "qual código o sistema deve gerar?" não tinha resposta de
+escritório, e por um tempo o gerador devolveu `MQ` + 5 dígitos anunciando-se
+como provisório. `GET /api/produtos/sku/auditoria` rodou contra o catálogo
+real e mediu: **776 códigos, 776 deles com exatamente seis dígitos**, forma
+`9×6` em 100%, nenhum prefixo, nenhum sufixo, zero colisões, zero fora do
+padrão, de `100633` a `997620` — e **densidade 0,001** na faixa.
 
-Número crescente não é sequência. O que a auditoria mede é a DENSIDADE:
-quantos códigos existem dividido pelo tamanho da faixa que eles ocupam.
-Perto de 1, os códigos nasceram aqui, um depois do outro, e "o próximo" tem
-sentido. Perto de 0, são códigos de terceiro espalhados numa faixa enorme, e
-`max + 1` é escolher um número que o fornecedor ainda pode usar amanhã — a
-colisão apareceria meses depois, numa etiqueta impressa.
+Os dois números decidem coisas diferentes, e é a distinção que importa:
 
-Enquanto `conclusao.regraInequivoca` for `false`, o gerador **não muda** e a
-tela **anuncia** que o código é provisório, em vez de apresentá-lo como o
-padrão da casa. O exemplo do campo de cadastro também sai da auditoria: um
-"Ex.: BR1234" inventado é uma instrução errada, e instrução errada vira
-código errado cadastrado à mão.
+- **o formato é inequívoco** → o gerado tem de ter a cara dos outros: seis
+  números, sem letra. `MQ00001` inventava um segundo formato num catálogo
+  que só tem um, e um código com letra é um código que a operação lê como
+  estranho;
+- **a sequência não existe** → nada de `max + 1`. Número crescente não é
+  sequência: o que a auditoria mede é a DENSIDADE, quantos códigos existem
+  dividido pelo tamanho da faixa que ocupam. Perto de 1, os códigos
+  nasceram aqui, um depois do outro. 0,001 são 776 códigos espalhados por
+  897 mil lugares — códigos do fornecedor. `max + 1` ali escolheria um
+  número que o fornecedor ainda pode usar amanhã, e a colisão só apareceria
+  meses depois, numa etiqueta impressa.
+
+Daí a regra em vigor: **sortear** entre `100000` e `999999`, com a fonte
+aleatória do runtime (`crypto.getRandomValues`), e **provar no banco** que o
+sorteado está livre antes de a tela ver o número. O sorteio que cai em cima
+de um código já usado — em `produtos`, na fila, na loja ou numa reserva de
+outra pessoa — é descartado, e ele sorteia outro. Esgotadas as tentativas, a
+resposta **diz** que não conseguiu, em vez de devolver um código não
+conferido.
 
 A geração **reserva** o código em `sku_reservas` antes de responder. Sem a
-reserva, duas pessoas clicando ao mesmo tempo receberiam o mesmo número —
-as duas chamadas leriam o mesmo "maior código atual". Quem decide o empate é
-a chave primária da tabela; o perdedor tenta o próximo.
+reserva, duas pessoas clicando ao mesmo tempo poderiam sortear o mesmo
+número e só a segunda descobriria, no fim do formulário. Quem decide o
+empate é a chave primária da tabela; o perdedor sorteia outro.
+
+O código que sai de `POST /api/produtos/sku/gerar` é **definitivo**. O aviso
+de "formato provisório" saiu da tela junto com o motivo dele.
+
+**O código digitado à mão** segue a mesma regra: seis números, entre
+`100000` e `999999`, único no mesmo universo do gerador. Recusa com recado
+de gente — "O código deve ter 6 números." — e a trava é do backend
+(`origem: 'manual'` nas rotas de peças novas), não da tela.
+
+Essa regra vale para o que se digita **aqui**. Planilha e catálogo da loja
+continuam entrando com o código que o fornecedor escreveu: cobrar formato na
+importação derrubaria o arquivo inteiro, e o código de lá não é nosso para
+recusar.
+
+**Nenhum código existente é alterado por nada disso.** A regra vale para o
+que nasce daqui para a frente.
+
+A auditoria continua existindo e continua medindo — inclusive
+`conclusao.regraInequivoca`, que segue `false` porque sequência realmente
+não há. A decisão não contradiz a medida: ela nasce dela.
 
 ### 18. Peça se apaga ou se arquiva — quem decide é o banco — §28
 

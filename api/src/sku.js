@@ -44,21 +44,53 @@ export const SKU_LIMPO = /^[A-Z0-9][A-Z0-9._\-/]*$/;
 
 const TAMANHO_MAX = 40;
 
-/** Prefixo dos códigos criados AQUI.
+/** O FORMATO dos códigos da Marquesa — medido, não suposto.
  *
- *  Os 773 códigos reais da operação são todos numéricos, quase todos de 6
- *  dígitos, e espalhados por toda a faixa de 100000 a 997620 sem nenhuma
- *  sequência — são códigos do fornecedor, não nossos. Gerar "o próximo
- *  número" nessa faixa seria escolher um código que o fornecedor ainda pode
- *  usar amanhã, e a colisão apareceria meses depois, numa etiqueta.
+ *  A auditoria rodou contra o catálogo real (`GET /api/produtos/sku/auditoria`)
+ *  e devolveu números que não deixam margem: 776 códigos, 776 deles com
+ *  exatamente seis dígitos, 100% na forma `9×6`, nenhum prefixo, nenhum
+ *  sufixo, zero colisões, zero fora do padrão, de 100633 a 997620.
  *
- *  Por isso o gerado é reconhecível: `MQ` + 5 dígitos. Curto (7 caracteres,
- *  cabe na etiqueta), sequencial (nada de código aleatório enorme), nunca
- *  colide com um código numérico do fornecedor, e quem olha sabe na hora
- *  que aquela peça foi cadastrada aqui. CODE128 — o formato das etiquetas —
- *  imprime letra e número sem diferença. */
-const PREFIXO = 'MQ';
-const DIGITOS = 5;
+ *  Dois fatos saem daí, e eles puxam para lados diferentes:
+ *
+ *   - o formato é INEQUÍVOCO. Seis dígitos, sempre. Gerar `MQ00001` era
+ *     inventar um segundo formato num catálogo que só tem um — e um código
+ *     com letra é um código que a operação lê como "estranho";
+ *   - a sequência NÃO EXISTE. Densidade 0,001: 776 códigos espalhados por
+ *     897 mil lugares. Isso é catálogo de fornecedor, não contagem nossa.
+ *     `max + 1` ali escolheria um número que o fornecedor ainda pode usar
+ *     amanhã, e a colisão só apareceria meses depois, numa etiqueta.
+ *
+ *  Logo o gerado é SORTEADO dentro da faixa, e a unicidade é provada no
+ *  banco antes de a tela ver o número. É o único jeito de respeitar o
+ *  formato real sem fingir uma sequência que não existe.
+ *
+ *  Códigos ANTIGOS não são tocados por nada disto. A regra vale para o que
+ *  nasce daqui para a frente. */
+const SKU_MIN = 100000;
+const SKU_MAX = 999999;
+
+/** Seis dígitos, e o primeiro não é zero — `012345` tem seis caracteres e
+ *  está fora da faixa, que é a mesma coisa dita de dois jeitos. */
+export const SKU_SEIS = /^[1-9][0-9]{5}$/;
+
+/** O veredito de formato para um código DIGITADO À MÃO. Separado de
+ *  `checarSku` de propósito: aquilo responde "este código já é de alguém?",
+ *  isto responde "este código tem a cara dos nossos?". Misturar as duas
+ *  perguntas quebraria a importação de planilha, que convive com o que a
+ *  loja tiver escrito e não pode recusar um catálogo inteiro por formato. */
+export function formatoManual(bruto) {
+  const sku = normSku(bruto);
+  if (!sku) return { ok: false, motivo: 'vazio', recado: 'Escreva o código da peça.' };
+  if (!SKU_SEIS.test(sku)) {
+    return {
+      ok: false, motivo: 'nao_sao_seis_numeros',
+      recado: 'O código deve ter 6 números.',
+      min: SKU_MIN, max: SKU_MAX,
+    };
+  }
+  return { ok: true, motivo: null, recado: null };
+}
 
 /** Quanto tempo um código gerado fica preso sem ninguém usar. Duas horas é
  *  folgado para preencher um formulário e curto o bastante para não vazar
@@ -75,12 +107,19 @@ const RESERVA_HORAS = 2;
 export async function checarSku(db, bruto) {
   const sku = normSku(bruto);
 
-  if (!sku) return { sku: '', digitado: String(bruto ?? ''), valido: false, disponivel: false, motivo: 'vazio' };
+  /* O formato do cadastro manual viaja JUNTO, como um campo à parte, e não
+     como recusa. São duas perguntas diferentes e quem pergunta é diferente:
+     a tela de cadastro manual precisa das duas, a importação de planilha
+     precisa só da unicidade — ela convive com o que a loja escreveu, e
+     recusar por formato ali derrubaria o catálogo inteiro. */
+  const formato = formatoManual(sku);
+
+  if (!sku) return { sku: '', digitado: String(bruto ?? ''), valido: false, disponivel: false, motivo: 'vazio', formato };
   if (sku.length > TAMANHO_MAX) {
-    return { sku, digitado: String(bruto ?? ''), valido: false, disponivel: false, motivo: 'longo_demais', limite: TAMANHO_MAX };
+    return { sku, digitado: String(bruto ?? ''), valido: false, disponivel: false, motivo: 'longo_demais', limite: TAMANHO_MAX, formato };
   }
   if (!SKU_LIMPO.test(sku)) {
-    return { sku, digitado: String(bruto ?? ''), valido: false, disponivel: false, motivo: 'formato_invalido' };
+    return { sku, digitado: String(bruto ?? ''), valido: false, disponivel: false, motivo: 'formato_invalido', formato };
   }
 
   const usos = [];
@@ -133,6 +172,7 @@ export async function checarSku(db, bruto) {
   return {
     sku, digitado: String(bruto ?? ''),
     valido: true,
+    formato,
     disponivel: bloqueiam.length === 0,
     motivo: bloqueiam.length ? 'em_uso' : null,
     usos,
@@ -145,31 +185,57 @@ export async function checarSku(db, bruto) {
 /* 2. GERAR                                                             */
 /* ==================================================================== */
 
+/** Um número da faixa, sorteado com a fonte aleatória do runtime.
+ *
+ *  `crypto.getRandomValues` existe no Worker e é o que se usa. `Math.random`
+ *  fica como rede de segurança para um ambiente estranho — deixar o
+ *  cadastro parado porque o runtime não tem `crypto` seria pior que gerar
+ *  um número menos aleatório num sorteio de 900 mil.
+ *
+ *  A rejeição no lugar de `% faixa` não é preciosismo gratuito: o resto
+ *  puro faz os primeiros `2^32 % 900000` números saírem um tico mais que os
+ *  outros. Não viraria colisão visível aqui — mas um viés que ninguém
+ *  documenta é um viés que ninguém revisa depois. A chance de rejeitar é
+ *  0,02% por tentativa, então o laço acaba na primeira volta quase sempre. */
+function sortear() {
+  const faixa = SKU_MAX - SKU_MIN + 1;              // 900.000 códigos possíveis
+  const c = globalThis.crypto;
+  if (c && typeof c.getRandomValues === 'function') {
+    const teto = Math.floor(0x100000000 / faixa) * faixa;
+    const buf = new Uint32Array(1);
+    for (let i = 0; i < 20; i++) {
+      c.getRandomValues(buf);
+      if (buf[0] < teto) return SKU_MIN + (buf[0] % faixa);
+    }
+  }
+  return SKU_MIN + Math.floor(Math.random() * faixa);
+}
+
+/** Quantas vezes tentar antes de desistir e DIZER que desistiu.
+ *
+ *  Com ~800 códigos ocupados em 900 mil, a chance de um sorteio bater em
+ *  algo já usado é de 0,09%. Vinte sorteios seguidos falharem tem chance
+ *  perto de zero — se acontecer, o certo é a resposta dizer isso em vez de
+ *  girar para sempre ou devolver um código que não foi conferido. */
+const TENTATIVAS = 20;
+
 /** Devolve um código GARANTIDAMENTE disponível — e o prova reservando-o no
  *  banco antes de responder.
  *
- *  Sem a reserva isto seria impossível de acertar: duas pessoas clicando
- *  ao mesmo tempo leriam o mesmo "maior código atual" e receberiam o mesmo
- *  número, cada uma acreditando que era só dela. Uma cadastraria, a outra
- *  levaria um erro no fim do formulário.
+ *  Sem a reserva isto seria impossível de acertar: duas pessoas clicando ao
+ *  mesmo tempo poderiam sortear o mesmo número, cada uma acreditando que
+ *  era só dela. Uma cadastraria, a outra levaria um erro no fim do
+ *  formulário.
  *
  *  Quem decide o empate é a chave primária de `sku_reservas`: o
  *  `INSERT OR IGNORE` que não mudou nada perdeu a corrida, e o perdedor
- *  tenta o próximo número em vez de devolver conflito para a tela. */
-export async function gerarSku(db, { origem = 'cadastro', prefixo = PREFIXO } = {}) {
-  const pre = normSku(prefixo) || PREFIXO;
-
+ *  sorteia outro em vez de devolver conflito para a tela. */
+export async function gerarSku(db, { origem = 'cadastro' } = {}) {
   // Reserva vencida não segura número de ninguém.
   await db.prepare(`DELETE FROM sku_reservas WHERE expira_em <= datetime('now')`).run();
 
-  const maior = await maiorNumero(db, pre);
-
-  /* 50 tentativas cobrem qualquer concorrência real desta operação (uma
-     loja, duas pessoas) com folga enorme. Passar disso é sinal de que algo
-     está errado de outro jeito, e aí a resposta certa é dizer isso em vez
-     de girar para sempre. */
-  for (let i = 1; i <= 50; i++) {
-    const sku = pre + String(maior + i).padStart(DIGITOS, '0');
+  for (let i = 1; i <= TENTATIVAS; i++) {
+    const sku = String(sortear());
     const r = await db.prepare(
       `INSERT OR IGNORE INTO sku_reservas (sku, expira_em, origem)
        VALUES (?, datetime('now', '+${RESERVA_HORAS} hours'), ?)`
@@ -179,7 +245,8 @@ export async function gerarSku(db, { origem = 'cadastro', prefixo = PREFIXO } = 
 
     /* A reserva entrou, mas ela só protege contra outra GERAÇÃO. Falta
        conferir que o código não existe já como produto, pendência ou
-       variante da loja — alguém pode ter cadastrado "MQ00007" na mão. */
+       variante da loja — o sorteio pode cair em cima de um código do
+       fornecedor que ainda nem foi cadastrado aqui. */
     const check = await checarSku(db, sku);
     /* Aqui o critério é o mais duro possível — `usos` inteiro, não só o que
        impede cadastro. Um código gerado tem de estar livre em TODOS os
@@ -187,33 +254,17 @@ export async function gerarSku(db, { origem = 'cadastro', prefixo = PREFIXO } = 
        de fábrica a colisão que este arquivo existe para evitar. */
     const soAReserva = check.usos.length === 1 && check.usos[0].onde === 'reserva';
     if (check.valido && soAReserva) {
-      return { ok: true, sku, expiraEm: horasAdiante(RESERVA_HORAS), origem };
+      return { ok: true, sku, expiraEm: horasAdiante(RESERVA_HORAS), origem, tentativas: i };
     }
     await db.prepare(`DELETE FROM sku_reservas WHERE sku = ?`).bind(sku).run();
   }
 
-  return { ok: false, erro: 'Não foi possível gerar um código livre depois de 50 tentativas.' };
-}
-
-/** O maior número já usado com este prefixo, olhando os TRÊS lugares onde
- *  um código pode estar: cadastrado, na fila e reservado. Olhar só
- *  `produtos` reemitiria um código que está no meio de um cadastro. */
-async function maiorNumero(db, pre) {
-  const padrao = pre + '%';
-  const r = await db.prepare(`
-    SELECT MAX(n) AS maior FROM (
-      SELECT CAST(SUBSTR(sku, ?) AS INTEGER) AS n FROM produtos           WHERE sku LIKE ?
-      UNION ALL
-      SELECT CAST(SUBSTR(sku, ?) AS INTEGER)      FROM produtos_pendentes WHERE sku LIKE ?
-      UNION ALL
-      SELECT CAST(SUBSTR(sku, ?) AS INTEGER)      FROM sku_reservas       WHERE sku LIKE ?
-      UNION ALL
-      SELECT CAST(SUBSTR(sku_norm, ?) AS INTEGER) FROM loja_variantes     WHERE sku_norm LIKE ?
-    )`).bind(
-    pre.length + 1, padrao, pre.length + 1, padrao,
-    pre.length + 1, padrao, pre.length + 1, padrao,
-  ).first();
-  return r && r.maior ? r.maior : 0;
+  return {
+    ok: false,
+    erro: `Não foi possível sortear um código livre em ${TENTATIVAS} tentativas. `
+      + 'Isso não deveria acontecer com o catálogo deste tamanho — vale conferir '
+      + 'se a tabela de reservas não ficou entupida.',
+  };
 }
 
 function horasAdiante(h) {
@@ -252,7 +303,7 @@ export function liberarReserva(db, sku) {
  */
 
 /** A "forma" de um código: dígito vira 9, letra vira A, separador fica.
- *  `122809` → `999999`;  `MQ00001` → `AA99999`;  `BR-12/3` → `AA-99/9`.
+ *  `122809` → `999999`;  `AB00001` → `AA99999`;  `BR-12/3` → `AA-99/9`.
  *  É o que permite contar quantos formatos DIFERENTES convivem sem listar
  *  os 773 códigos um a um. */
 export function formaDoSku(sku) {
@@ -399,6 +450,13 @@ export async function auditarSkus(db, { amostra = 25 } = {}) {
     /* O exemplo que a TELA deve mostrar. Vem do catálogo real, nunca de um
        código inventado no comentário de um arquivo. */
     exemploReal: predominante ? predominante.exemplos[0] || null : null,
+    /* `regraInequivoca` responde "existe sequência a continuar?", e a
+       resposta segue sendo NÃO. A decisão de negócio não contradiz isso —
+       ela nasce disso: como não há sequência, o gerador sorteia dentro do
+       formato em vez de continuar uma contagem que não existe. Os dois
+       campos convivem porque um é medida e o outro é escolha. */
+    regraEmVigor: `Código novo é sorteado entre ${SKU_MIN} e ${SKU_MAX}, `
+      + 'seis dígitos, e conferido contra catálogo, fila, loja e reservas antes de sair.',
   };
 
   return {
@@ -416,7 +474,11 @@ export async function auditarSkus(db, { amostra = 25 } = {}) {
     foraDoPadrao: { total: foraDoPadrao.length, itens: foraDoPadrao.slice(0, amostra) },
     /* O que o gerador está fazendo HOJE, para a auditoria e a decisão
        aparecerem lado a lado em vez de em duas telas diferentes. */
-    geradorAtual: { prefixo: PREFIXO, digitos: DIGITOS, exemplo: PREFIXO + '1'.padStart(DIGITOS, '0') },
+    geradorAtual: {
+      modo: 'sorteio', digitos: 6, forma: '9×6',
+      min: SKU_MIN, max: SKU_MAX, prefixo: '(nenhum)',
+      exemplo: '123456',
+    },
     conclusao,
   };
 }

@@ -17,7 +17,7 @@
  */
 
 import { movimentar } from './estoque.js';
-import { liberarReserva } from './sku.js';
+import { liberarReserva, formatoManual } from './sku.js';
 
 /* Quanto detalhe volta dos grupos que a tela só EXIBE. O total sempre é o
    de verdade — o corte é só do que ela desenha, para uma planilha de 5.000
@@ -306,8 +306,14 @@ export async function aplicarEstoqueTotal(db, { itens } = {}) {
  *  A regra de ouro: se 782 linhas estão certas, ninguém deveria clicar 782
  *  vezes. A revisão é por exceção, não por item.
  */
-export async function analisarNovos(db, { produtos } = {}) {
+export async function analisarNovos(db, { produtos, origem } = {}) {
   if (!Array.isArray(produtos)) return { erro: 'Nada para analisar' };
+  /* O formato de seis dígitos vale para o que é DIGITADO aqui, não para o
+     que vem de fora. Uma planilha do fornecedor ou um catálogo da loja
+     carrega o código que eles escreveram, e recusar por formato ali
+     derrubaria a importação inteira — que é o oposto do que este fluxo
+     existe para fazer. Ver api/REGRAS.md §17. */
+  const manual = origem === 'manual';
   const r = await retrato(db);
   const { categorias } = r;
 
@@ -325,6 +331,7 @@ export async function analisarNovos(db, { produtos } = {}) {
 
     if (!sku) { paraRevisar('', desc, ['codigo_vazio']); continue; }
     if (!SKU_LIMPO.test(sku)) motivos.push('codigo_suspeito');
+    if (manual && !formatoManual(sku).ok) motivos.push('codigo_fora_do_formato');
 
     if (vistos.has(sku)) {
       const antes = vistos.get(sku);
@@ -409,8 +416,10 @@ export async function analisarNovos(db, { produtos } = {}) {
  *  §19: o saldo inicial entra como movimento de entrada, não como número
  *       digitado na coluna qtd.
  */
-export async function cadastrarNovos(db, { produtos } = {}) {
+export async function cadastrarNovos(db, { produtos, origem } = {}) {
   if (!Array.isArray(produtos) || !produtos.length) return { erro: 'Nada para cadastrar' };
+  // Mesma distinção da análise: seis dígitos é regra do que se digita aqui.
+  const manual = origem === 'manual';
   const r = await retrato(db);
   const { categorias } = r;
 
@@ -432,6 +441,13 @@ export async function cadastrarNovos(db, { produtos } = {}) {
        cadastra lotes de centenas de peças, e quatro consultas por linha
        viraria alguns milhares de idas ao banco por planilha. */
     if (!SKU_LIMPO.test(sku)) { ignorados.push({ sku, motivo: 'codigo_suspeito' }); continue; }
+    /* A trava do formato manual é AQUI, e não só na tela: a tela pode ser
+       pulada mandando direto para a rota, e foi assim que o código repetido
+       já tentou entrar antes. */
+    if (manual && !formatoManual(sku).ok) {
+      ignorados.push({ sku, motivo: 'codigo_fora_do_formato', detalhe: formatoManual(sku).recado });
+      continue;
+    }
     const usos = ondeEstaEmUso(sku, r);
     const noCatalogo = usos.find(u => u.onde === 'produtos');
     if (noCatalogo) { ignorados.push({ sku, motivo: 'ja_existe', usos: [noCatalogo] }); continue; }

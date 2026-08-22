@@ -142,6 +142,9 @@ async function rotear(request, env) {
       if (path === '/api/estoque-total/aplicar' && met === 'POST') {
         return json(await aplicarEstoqueTotal(db, await request.json()));
       }
+      /* `origem: 'manual'` muda uma coisa só: liga a regra de formato do
+         código digitado à mão (seis dígitos). Planilha e fila continuam
+         aceitando o código que o fornecedor ou a loja escreveu. */
       if (path === '/api/produtos/novos/analisar' && met === 'POST') {
         return json(await analisarNovos(db, await request.json()));
       }
@@ -301,22 +304,12 @@ async function rotear(request, env) {
       }
       if (path === '/api/produtos/sku/gerar' && met === 'POST') {
         const b = await request.json().catch(() => ({}));
-        const r = await gerarSku(db, { origem: b.origem || 'cadastro' });
-        /* O código sai acompanhado do veredito da auditoria. Enquanto não
-           existir regra inequívoca medida no catálogo real, o formato
-           gerado é PROVISÓRIO — e a tela diz isso em vez de apresentar um
-           código inventado como se fosse o padrão da casa. Ver
-           api/REGRAS.md § 17 e GET /api/produtos/sku/auditoria. */
-        if (r.ok) {
-          const a = await auditarSkus(db);
-          r.padrao = {
-            regraInequivoca: a.conclusao.regraInequivoca,
-            motivo: a.conclusao.motivo,
-            exemploReal: a.conclusao.exemploReal,
-            provisorio: !a.conclusao.regraInequivoca,
-          };
-        }
-        return json(r);
+        /* O código que sai daqui é DEFINITIVO e já está reservado. Ele foi
+           provisório enquanto a auditoria não tinha rodado contra o catálogo
+           real; rodou, o formato ficou decidido — seis dígitos sorteados —
+           e a tela não tem mais nada para relativizar. Ver api/REGRAS.md §17
+           e GET /api/produtos/sku/auditoria. */
+        return json(await gerarSku(db, { origem: b.origem || 'cadastro' }));
       }
       /* O padrão REAL dos códigos, medido no catálogo inteiro — produtos,
          fila de peças novas e o que a loja carrega nas variantes. Leitura

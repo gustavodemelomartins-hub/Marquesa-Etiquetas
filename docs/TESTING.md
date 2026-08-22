@@ -255,11 +255,33 @@ virando espaço vazio em vez do ícone quebrado do navegador.
 
 Monta catálogos com respostas conhecidas e cobra que a auditoria diga
 exatamente aquilo — inclusive "não sei". O ponto central: número crescente
-não é sequência, e quem decide é a densidade da faixa. Prova também que o
-gerador não mudou às escondidas e que o código gerado sai marcado como
-provisório enquanto não houver regra inequívoca.
+não é sequência, e quem decide é a densidade da faixa. Prova também que a
+auditoria conta qual formato o gerador está usando, em vez de deixar a
+decisão escondida no meio do código.
 
     node src/sku-auditoria-test.mjs
+
+### `src/sku-gerador-test.mjs` — o código gerado, depois da decisão
+
+A auditoria rodou contra o catálogo real: 776 códigos, todos de seis
+dígitos, sem prefixo, com densidade 0,001 na faixa. Formato inequívoco,
+sequência inexistente — e este teste guarda as duas conclusões.
+
+Prova que o gerado é sempre seis dígitos dentro de `100000–999999`, que o
+formato antigo (`MQ` + 5) não sai mais, que chamadas simultâneas nunca
+recebem o mesmo código, e — com um banco falso e o sorteio forçado — que o
+sorteio caindo em cima de um código já usado é **descartado** nos quatro
+lugares que impedem, sem deixar reserva órfã para trás e sem apagar a
+reserva de outra pessoa. Prova ainda que o código digitado à mão é conferido
+pelo BACKEND (letra, cinco ou sete dígitos, duplicado), que a planilha
+continua aceitando o código do fornecedor, e que nenhum código existente é
+alterado.
+
+Roda contra o Worker local e, na parte do sorteio forçado, importa
+`api/src/sku.js` direto — é o único jeito de provar o descarte sem depender
+de uma colisão que acontece uma vez em mil.
+
+    node src/sku-gerador-test.mjs
 
 ### `src/fotos-catalogo-test.mjs` — as fotos do catálogo chegam sozinhas
 

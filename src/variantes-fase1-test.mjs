@@ -240,23 +240,31 @@ eq('com o motivo certo', r.ignorados[0].motivo, 'ja_existe');
 eq('a pulseira original ficou intacta', (await prod('PULSEIRA')).desc, 'Pulseira lisa');
 
 console.log('\n=== 13. gerar SKU devolve um código livre, e curto ===');
+/* O padrão mudou aqui, e de propósito: até a auditoria rodar, o gerado era
+   `MQ` + 5 dígitos — um formato escolhido no escritório para não fingir uma
+   sequência que ninguém tinha medido. A auditoria rodou contra o catálogo
+   real (776 códigos, 100% com seis dígitos, sem prefixo) e o formato
+   passou a ser esse. O teste do formato novo, com a decisão inteira, é
+   `src/sku-gerador-test.mjs`; aqui fica só o que esta fase provava. */
 r = await api('POST', '/api/produtos/sku/gerar', {});
 eq('gerou', r.ok, 'true');
-eq('no padrão MQ + 5 dígitos', /^MQ\d{5}$/.test(r.sku || ''), 'true');
-eq('e o código é curto o bastante para a etiqueta', (r.sku || '').length, 7);
+eq('no padrão do catálogo real: seis dígitos', /^\d{6}$/.test(r.sku || ''), 'true');
+eq('e o código é curto o bastante para a etiqueta', (r.sku || '').length, 6);
 c = await api('GET', '/api/produtos/sku/checar?sku=' + r.sku);
 eq('o código gerado está reservado, não solto', c.usos.length, 1);
 eq('e a reserva é o único uso dele', c.usos[0].onde, 'reserva');
 
 console.log('\n=== 14. geração concorrente nunca repete ===');
-/* Sem a reserva no banco isto falharia sempre: as dez chamadas leriam o
-   mesmo "maior código atual" e devolveriam o mesmo número. */
+/* Sem a reserva no banco isto falharia de vez em quando — e "de vez em
+   quando" é o pior jeito de falhar: duas pessoas sorteando ao mesmo tempo
+   podem cair no mesmo número, e quem descobre é a segunda, no fim do
+   formulário. */
 const lote = await Promise.all(
   Array.from({ length: 10 }, () => api('POST', '/api/produtos/sku/gerar', {})));
 eq('as dez geraram', lote.filter(x => x.ok).length, 10);
 const distintos = new Set(lote.map(x => x.sku));
 eq('e todas devolveram códigos DIFERENTES', distintos.size, 10);
-eq('todos no padrão', [...distintos].every(s => /^MQ\d{5}$/.test(s)), 'true');
+eq('todos no padrão', [...distintos].every(s => /^\d{6}$/.test(s)), 'true');
 
 console.log('\n=== 15. o código gerado cadastra, e a reserva some ===');
 const novo = lote[0].sku;

@@ -247,13 +247,17 @@ eq('e o produto NÃO voltou para a fila de revisão', await naRevisao('ANELB'), 
 
 /* ==================================================================== */
 console.log('\n=== 8. cadastro de peça nova SEM variação ===');
+/* Os códigos digitados aqui passaram a ser numéricos de seis dígitos porque
+   é isso que o cadastro manual aceita desde a auditoria do catálogo real —
+   `SIMPLES1` era um código que a Marquesa nunca teria. O que este bloco
+   prova continua sendo o cadastro em si. Ver src/sku-gerador-test.mjs. */
 await page.evaluate(() => switchTab('cadastro'));
 await page.waitForTimeout(500);
 eq('a seção de variações existe e começa desligada',
   await page.locator('#cm-temvar').isChecked(), 'false');
 eq('e a quantidade inicial é um campo comum', await page.locator('#cm-qtd').count(), 1);
 
-await page.fill('#cm-sku', 'SIMPLES1');
+await page.fill('#cm-sku', '311001');
 await page.fill('#cm-desc', 'Brinco simples');
 await page.fill('#cm-qtd', '7');
 await page.fill('#cm-preco', '35');
@@ -262,15 +266,15 @@ await page.click('button[onclick="cadastrarManual()"]');
 await page.waitForTimeout(1400);
 await page.click('#novasOverlay .btn-gold');
 await page.waitForTimeout(1800);
-eq('a peça nasceu com 7', (await prod('SIMPLES1')).qtd, 7);
+eq('a peça nasceu com 7', (await prod('311001')).qtd, 7);
 eq('e sem variação nenhuma',
-  (await corpo('GET', '/api/produtos/SIMPLES1/variacoes')).variacoes.length, 0);
+  (await corpo('GET', '/api/produtos/311001/variacoes')).variacoes.length, 0);
 
 /* ==================================================================== */
 console.log('\n=== 9. cadastro de peça nova com UM atributo ===');
 await page.evaluate(() => switchTab('cadastro'));
 await page.waitForTimeout(500);
-await page.fill('#cm-sku', 'UMATR');
+await page.fill('#cm-sku', '311002');
 await page.fill('#cm-desc', 'Anel de aro');
 await page.fill('#cm-preco', '80');
 await page.click('#cm-temvar');
@@ -294,8 +298,8 @@ await page.click('button[onclick="cadastrarManual()"]');
 await page.waitForTimeout(1400);
 await page.click('#novasOverlay .btn-gold');
 await page.waitForTimeout(2200);
-eq('a peça nasceu com o total da soma', (await prod('UMATR')).qtd, 6);
-const umAtr = await corpo('GET', '/api/produtos/UMATR/variacoes');
+eq('a peça nasceu com o total da soma', (await prod('311002')).qtd, 6);
+const umAtr = await corpo('GET', '/api/produtos/311002/variacoes');
 eq('com três variações', umAtr.variacoes.length, 3);
 eq('e o estoque já distribuído', umAtr.variacoes.map(v => v.saldo).sort().join(','), '1,2,3');
 eq('cada uma com identidade própria, mesmo sem loja',
@@ -306,7 +310,7 @@ eq('a razão continua fechando', (await corpo('GET', '/api/estoque/conferir')).d
 console.log('\n=== 10. cadastro de peça nova com DOIS atributos ===');
 await page.evaluate(() => switchTab('cadastro'));
 await page.waitForTimeout(500);
-await page.fill('#cm-sku', 'DOISATR');
+await page.fill('#cm-sku', '311003');
 await page.fill('#cm-desc', 'Colar com pingente');
 await page.fill('#cm-preco', '150');
 await page.click('#cm-temvar');
@@ -331,8 +335,8 @@ await page.click('button[onclick="cadastrarManual()"]');
 await page.waitForTimeout(1400);
 await page.click('#novasOverlay .btn-gold');
 await page.waitForTimeout(2200);
-eq('a peça nasceu com 10', (await prod('DOISATR')).qtd, 10);
-const dois = await corpo('GET', '/api/produtos/DOISATR/variacoes');
+eq('a peça nasceu com 10', (await prod('311003')).qtd, 10);
+const dois = await corpo('GET', '/api/produtos/311003/variacoes');
 eq('quatro variações', dois.variacoes.length, 4);
 eq('os atributos são os que a pessoa inventou, não uma lista nossa',
   dois.atributos.map(a => a.nome).join(','), 'Cor,Cristal');
@@ -361,11 +365,26 @@ await page.fill('#cm-sku', '');
 await page.click('button[onclick="gerarSku(this)"]');
 await page.waitForTimeout(1200);
 const gerado = await page.inputValue('#cm-sku');
-eq('veio um código no padrão MQ+5', /^MQ\d{5}$/.test(gerado), 'true');
+/* Era `MQ` + 5 enquanto o padrão real não tinha sido medido. Foi medido:
+   seis dígitos, sem prefixo. Ver src/sku-gerador-test.mjs. */
+eq('veio um código de seis dígitos', /^\d{6}$/.test(gerado), 'true');
 eq('e a tela já diz que está livre',
   /está livre/.test(await page.locator('#cm-sku-recado').innerText()), 'true');
 const g2 = await corpo('POST', '/api/produtos/sku/gerar', { origem: 'teste' });
 eq('o próximo gerado é diferente', g2.sku === gerado, 'false');
+/* O código que chega na tela é DEFINITIVO: nada de "formato provisório"
+   pedindo para a pessoa desconfiar do que acabou de receber. */
+eq('e a tela não relativiza o código que entregou',
+  /provis[óo]rio/i.test(await page.locator('#cm-sku-recado').innerText()), 'false');
+
+/* O campo ensina o formato certo — e ensinar errado é instrução errada que
+   vira código errado cadastrado à mão. */
+eq('o campo mostra um exemplo de seis dígitos',
+  await page.getAttribute('#cm-sku', 'placeholder'), 'Ex.: 123456');
+await page.fill('#cm-sku', '12345');
+await page.waitForTimeout(1200);
+eq('e digitar cinco números é recusado na hora, com o recado da operação',
+  (await page.locator('#cm-sku-recado').innerText()).trim(), 'O código deve ter 6 números.');
 
 /* ==================================================================== */
 console.log('\n=== 13. exclusão de peça SEM histórico ===');

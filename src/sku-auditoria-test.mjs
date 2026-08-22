@@ -15,8 +15,11 @@
  *   4. catálogo esparso ⇒ `regraInequivoca: false`, com o motivo escrito;
  *   5. catálogo realmente sequencial ⇒ `regraInequivoca: true`;
  *   6. colisão normalizada (`br1234` ao lado de `BR1234`) aparece;
- *   7. o gerador NÃO foi alterado às escondidas — ele continua dizendo qual
- *      formato está usando, e o `gerar` avisa quando ele é provisório.
+ *   7. o gerador não decide escondido — a auditoria conta qual formato ele
+ *      está usando, ao lado da medida que levou a ele.
+ *
+ *  A decisão que saiu desta auditoria (sortear seis dígitos, sem sequência)
+ *  é provada em `src/sku-gerador-test.mjs`. Aqui fica só a MEDIDA.
  */
 import { subirLojaFalsa, produtoFalso } from './loja-falsa.mjs';
 
@@ -69,13 +72,29 @@ eq('e quase toda vazia', a.sequencia.geral.veredito, 'esparso');
 eq('logo NÃO existe regra inequívoca', a.conclusao.regraInequivoca, 'false');
 eq('e o motivo está escrito', /N[ÃA]O formam sequ[êe]ncia/i.test(a.conclusao.motivo), 'true');
 
-console.log('\n=== 3. o gerador não mudou às escondidas ===');
-eq('ele diz qual formato está usando', a.geradorAtual.exemplo, 'MQ00001');
+console.log('\n=== 3. o gerador diz o que está fazendo ===');
+/* APOSENTADO aqui, e trocado de propósito: este bloco cobrava que o código
+   gerado viesse marcado como PROVISÓRIO (`padrao.provisorio`) e que o
+   gerador se apresentasse como `MQ00001`. Os dois existiam pela mesma razão
+   — a auditoria ainda não tinha rodado contra o catálogo real, e inventar
+   um formato definitivo sem medir seria exatamente o que este arquivo
+   existe para impedir.
+   
+   A auditoria rodou: 776 códigos, 776 com seis dígitos, forma única, sem
+   prefixo. O formato deixou de ser suposição, o aviso de "provisório" saiu
+   da tela e o campo `padrao` saiu da resposta. A regra nova, inteira e com
+   as travas dela, é provada em `src/sku-gerador-test.mjs`.
+   
+   O que continua sendo verdade — e é o que este bloco guarda agora — é que
+   a auditoria conta o que o gerador está fazendo, em vez de deixar a
+   decisão escondida no meio do código. */
+eq('ele diz que sorteia', a.geradorAtual.modo, 'sorteio');
+eq('com seis dígitos', a.geradorAtual.digitos, 6);
+eq('e sem prefixo', a.geradorAtual.prefixo, '(nenhum)');
 const g = await api('POST', '/api/produtos/sku/gerar', { origem: 'teste' });
 eq('gerou um código', g.ok, 'true');
-eq('e ele vem marcado como PROVISÓRIO', g.padrao.provisorio, 'true');
-eq('com o motivo junto', !!g.padrao.motivo, 'true');
-eq('e com o exemplo real ao lado', g.padrao.exemploReal, '122809');
+eq('no formato do catálogo real', /^\d{6}$/.test(g.sku || ''), 'true');
+eq('e ele NÃO vem mais relativizado como provisório', g.padrao === undefined, 'true');
 
 console.log('\n=== 4. formatos que convivem são contados ===');
 await api('POST', '/api/produtos/importar', {
