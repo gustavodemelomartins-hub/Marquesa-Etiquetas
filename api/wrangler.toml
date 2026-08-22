@@ -2,24 +2,27 @@ name = "marquesa-api"
 main = "src/index.js"
 compatibility_date = "2026-08-01"
 
-# Depois de rodar `npx wrangler d1 create marquesa-db`, troque database_id
-# pelo valor que o comando devolver. Para desenvolvimento local (wrangler dev
-# sem --remote) o valor abaixo nunca é usado de verdade — o wrangler cria um
-# banco SQLite local sozinho, identificado pelo database_name.
+# go-live 2026-08-22: banco novo, carregado a partir do DEV congelado
+# (772 produtos, 1.171 movimentos, 10 vendas, 4 maletas abertas/382 peças —
+# ver docs/PLANO-MESTRE-MARQUESA.md § go-live). `marquesa-db` antigo
+# (089153a9-cee5-4887-b789-a23b1cf419f5) fica intacto como rollback; não é
+# mais o alvo do binding raiz.
 [[d1_databases]]
 binding = "DB"
-database_name = "marquesa-db"
-database_id = "089153a9-cee5-4887-b789-a23b1cf419f5"
+database_name = "marquesa-db-prod"
+database_id = "51dd629b-52dc-46d0-a1af-fa37f0a79533"
 
-# Fotos das peças: os bytes ficam aqui, o D1 guarda só a chave do objeto
-# (migracao-catalogo.sql). O bucket de PRODUÇÃO ainda não foi criado — ele
-# só passa a existir com `wrangler r2 bucket create marquesa-fotos`, e até
-# lá um `wrangler deploy` (sem --env) nesta configuração falha nesse passo.
-# Isso é intencional: não criamos o bucket de produção como efeito colateral
-# de mexer no DEV.
-[[r2_buckets]]
-binding = "FOTOS"
-bucket_name = "marquesa-fotos"
+# Fotos das peças: os bytes ficariam aqui, o D1 guarda só a chave do objeto
+# (migracao-catalogo.sql). Removido do go-live 2026-08-22: a conta
+# Cloudflare de produção responde erro 10042 (R2 não habilitado), e o bucket
+# `marquesa-fotos` nunca chegou a ser criado — um `wrangler deploy` (sem
+# --env) com este binding falha antes de publicar. `env.FOTOS` é opcional em
+# `fotos-storage.js`: leitura por URL externa (`foto_url`, os 629 códigos já
+# vinculados) continua funcionando sem R2; upload/edição que precise dos
+# bytes recusa com mensagem clara, nunca 500 nem sucesso falso. Não habilitar
+# R2 nem recriar este bloco sem decisão humana explícita — reabilitar é
+# reintroduzir `[[r2_buckets]] binding = "FOTOS" bucket_name = "marquesa-fotos"`
+# aqui, depois de `wrangler r2 bucket create marquesa-fotos`.
 
 # Quais endereços podem chamar a API pelo navegador. Não é segredo — é o
 # endereço público do painel — então mora aqui, versionado, e não no painel
