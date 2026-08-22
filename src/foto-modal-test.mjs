@@ -66,8 +66,20 @@ await page.waitForTimeout(1200);
 
 eq('a prévia da foto original apareceu', await page.locator('#fotoBody img.fotoprev').count() >= 1, 'true');
 const srcOriginal = await page.locator('#fotoBody img.fotoprev').first().getAttribute('src');
-eq('o src é o link assinado da API, não um blob local nem URL externa',
-  /^\/api\/produtos\/MODAL1\/foto\/original\?exp=\d+&sig=[0-9a-f]+$/.test(srcOriginal || ''), 'true');
+/* APOSENTADA a versão anterior desta asserção, que exigia o caminho
+   RELATIVO `/api/produtos/…`. Ela provava um comportamento que estava
+   errado e que este teste não conseguia ver: caminho relativo resolve
+   contra a origem da PÁGINA, e o painel (Pages) não mora na origem da API
+   (Worker). Em staging e em produção toda foto do R2 era imagem quebrada,
+   enquanto a foto vinda da Nuvemshop — que é URL absoluta — aparecia. Era o
+   "foto num lugar, quebrada no outro" relatado.
+
+   A regra nova: o endereço é o link assinado da API RESOLVIDO contra o
+   endereço configurado da API. Continua sendo o link assinado, e continua
+   não sendo blob local nem URL externa. */
+eq('o src é o link assinado da API, resolvido contra o endereço da API',
+  new RegExp('^' + URL_API.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    + '/api/produtos/MODAL1/foto/original\\?exp=\\d+&sig=[0-9a-f]+$').test(srcOriginal || ''), 'true');
 
 const statusChip = (await page.locator('#fotoBody .fotochip').first().textContent()).trim();
 eq('o estado mostrado é "falta fundo branco"', statusChip, 'falta fundo branco');

@@ -436,8 +436,25 @@ export async function variantesDoSku(db, sku) {
  *  variação", entra na variação. Assim `produtos.qtd == SUM(movimentos.qtd)`
  *  continua valendo e o histórico mostra a repartição, em vez de um número
  *  que mudou sozinho.
+ *
+ *  ------------------------------------------------------------------
+ *  `ajustarTotal: true` — a exceção pedida por "Editar peça"
+ *
+ *  Pendências continua estrito: lá a pergunta é "como se reparte ESTE
+ *  total?", e sobrar ou faltar peça é sinal de que o total está errado.
+ *  Em "Editar peça" a pergunta é outra — "quantas de cada eu tenho?" — e
+ *  o total do código é CONSEQUÊNCIA da soma, não um número digitado antes.
+ *
+ *  Quando quem chama passa `ajustarTotal: true`, a diferença não é engolida
+ *  nem sobrescrita: ela vira um movimento de `ajuste` explícito em "sem
+ *  variação", com obs dizendo de quanto para quanto e por quê, ANTES da
+ *  repartição. Depois dele o total já é a soma, e a repartição segue exata,
+ *  igual ao caminho de sempre. §19 continua valendo caractere por caractere:
+ *  nenhum saldo foi digitado, todo número tem um movimento que o explica.
+ *
+ *  Sem a flag, o comportamento é o de antes — 409 com os dois números.
  */
-export async function distribuirVariantes(db, sku, { distribuicao, obs } = {}) {
+export async function distribuirVariantes(db, sku, { distribuicao, obs, ajustarTotal = false, motivo } = {}) {
   const k = normSku(sku);
   const p = await db.prepare(
     `SELECT sku, desc, qtd FROM produtos WHERE sku = ?`).bind(k).first();
@@ -503,12 +520,13 @@ export async function distribuirVariantes(db, sku, { distribuicao, obs } = {}) {
   for (const v of naLoja) if (!alvo.has(String(v.variante_id))) alvo.set(String(v.variante_id), 0);
 
   const soma = [...alvo.values()].reduce((s, n) => s + n, 0);
-  if (soma !== p.qtd) {
+  const deltaTotal = soma - p.qtd;
+  if (deltaTotal !== 0 && !ajustarTotal) {
     return {
       status: 409,
       erro: `A soma das variações dá ${soma}, e o estoque de ${sku} é ${p.qtd}. ` +
             `Distribuir não muda o total — se o total é que está errado, ajuste primeiro e distribua depois.`,
-      soma, total: p.qtd, diferenca: soma - p.qtd,
+      soma, total: p.qtd, diferenca: deltaTotal,
     };
   }
 
@@ -524,6 +542,14 @@ export async function distribuirVariantes(db, sku, { distribuicao, obs } = {}) {
     `SELECT nome, variante_id FROM produto_variacoes WHERE sku = ? AND variante_id IS NOT NULL`)
     .bind(k).all()).results.map(r => [r.nome, String(r.variante_id)]));
 
+  /* id da variante → o nome que ELA tem AQUI. A loja pode estar mostrando
+     outro: nome é dado dela e muda sozinho, id é identidade. Tudo o que
+     esta função grava — movimento e estrutura — usa o nome daqui, para o
+     saldo antigo (que casa por nome quando o movimento não tem id) não se
+     desligar do balde dele por causa de uma edição na vitrine. */
+  const nomeLocalPorId = new Map();
+  for (const [nome, vid] of persistido) nomeLocalPorId.set(String(vid), nome);
+
   const atual = new Map();      // varianteId → saldo de hoje
   const orfaos = [];            // saldo que não casa com variante nenhuma
   for (const b of baldes) {
@@ -536,6 +562,23 @@ export async function distribuirVariantes(db, sku, { distribuicao, obs } = {}) {
   const stmts = [];
   const razao = obs || `Distribuição confirmada na tela para ${sku}`;
   const feito = [];
+
+  /* O total passa a ser a soma — e passa por MOVIMENTO, nunca por UPDATE
+     no saldo. O ajuste entra em "sem variação" (variacao e variante_id
+     nulos) porque é dali que a repartição logo abaixo vai tirar as peças
+     para servir cada variante. Fazer o contrário — ajustar dentro de uma
+     variante — esconderia a correção do total dentro da divisão, que é
+     exatamente a mistura que §19 proíbe. */
+  let totalAjustado = null;
+  if (deltaTotal !== 0) {
+    totalAjustado = { de: p.qtd, para: soma, delta: deltaTotal };
+    stmts.push(...movimentar(db, {
+      sku: k, tipo: 'ajuste', quantidade: deltaTotal, origem: 'variacao',
+      obs: motivo
+        || `${razao}: o total de ${sku} passa de ${p.qtd} para ${soma}, `
+           + `porque é a soma das quantidades confirmadas por variação`,
+    }));
+  }
 
   /* Saldo preso numa variante que não existe mais volta para "sem variação"
      ANTES de servir as novas — senão o delta partiria de um número que
@@ -557,17 +600,18 @@ export async function distribuirVariantes(db, sku, { distribuicao, obs } = {}) {
     const vid = String(v.variante_id);
     const delta = (alvo.get(vid) || 0) - (atual.get(vid) || 0);
     if (!delta) continue;
-    feito.push({ varianteId: vid, nome: v.nome, de: atual.get(vid) || 0, para: alvo.get(vid) || 0 });
+    const nome = nomeLocalPorId.get(vid) || v.nome;
+    feito.push({ varianteId: vid, nome, de: atual.get(vid) || 0, para: alvo.get(vid) || 0 });
     // entra (ou sai) da variante...
     stmts.push(...movimentar(db, {
-      sku: k, variacao: v.nome, varianteId: vid,
+      sku: k, variacao: nome, varianteId: vid,
       tipo: 'ajuste', quantidade: delta, origem: 'variacao',
-      obs: `${razao}: "${v.nome}" passa a ter ${alvo.get(vid) || 0}`,
+      obs: `${razao}: "${nome}" passa a ter ${alvo.get(vid) || 0}`,
     }));
     // ...e sai (ou entra) de "sem variação", para o total não se mexer
     stmts.push(...movimentar(db, {
       sku: k, tipo: 'ajuste', quantidade: -delta, origem: 'variacao',
-      obs: `${razao}: contrapartida de "${v.nome}"`,
+      obs: `${razao}: contrapartida de "${nome}"`,
     }));
   }
 
@@ -579,23 +623,41 @@ export async function distribuirVariantes(db, sku, { distribuicao, obs } = {}) {
      Quando a fonte é local, as linhas já são as de `produto_variacoes` —
      reescrevê-las aqui só arriscaria trocar a origem por engano. */
   if (fonte === 'loja') {
+    /* O NOME gravado é o que JÁ existe aqui para aquele `variante_id`, não
+       o que a loja mostra hoje.
+       
+       Sem isto, a loja renomear "Verde" para "Verde Água" fazia esta rotina
+       tentar INSERIR uma segunda linha com o mesmo `variante_id` — e o
+       índice único `idx_variacoes_variante` recusava com erro 500, ou seja:
+       a peça ficava impossível de repartir porque alguém mexeu no nome do
+       outro lado. (O `ON CONFLICT(sku, nome)` não pega esse caso: o
+       conflito é no id, não no par sku+nome.)
+       
+       Manter o nome daqui não é teimosia. `movimentos.variacao` guarda o
+       nome que valia na hora do movimento, e a leitura de saldo casa por
+       nome quando o movimento antigo não tem id. Renomear a linha em
+       silêncio desligaria esses movimentos do balde deles — peça física
+       sumindo do lugar certo por causa de uma edição na vitrine. */
     for (const [i, v] of naLoja.entries()) {
+      const vid = String(v.variante_id);
+      const nome = nomeLocalPorId.get(vid) || v.nome;
       stmts.push(db.prepare(
         `INSERT INTO produto_variacoes (sku, nome, variante_id, estoque_loja, ordem, valores_json, origem)
          VALUES (?,?,?,?,?,?,'loja')
          ON CONFLICT(sku, nome) DO UPDATE SET
            variante_id=excluded.variante_id, estoque_loja=excluded.estoque_loja,
            ordem=excluded.ordem, valores_json=excluded.valores_json, origem='loja'`
-      ).bind(k, v.nome, String(v.variante_id), v.estoque, i, v.valores_json || '[]'));
+      ).bind(k, nome, vid, v.estoque, i, v.valores_json || '[]'));
     }
   }
 
   if (stmts.length) await db.batch(stmts);
 
   return {
-    ok: true, sku: p.sku, total: p.qtd,
+    ok: true, sku: p.sku, total: soma, totalAnterior: p.qtd,
+    totalAjustado,
     mudou: feito,
     orfaosDevolvidos: orfaos.map(b => ({ nome: b.variacao, saldo: b.saldo })),
-    jaEstava: feito.length === 0 && orfaos.length === 0,
+    jaEstava: feito.length === 0 && orfaos.length === 0 && !totalAjustado,
   };
 }

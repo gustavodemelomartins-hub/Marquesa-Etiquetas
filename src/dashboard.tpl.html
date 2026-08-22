@@ -426,6 +426,18 @@ tr.filtros input:focus,tr.filtros select:focus{outline:none;border-color:var(--g
   background:var(--ivory);display:block;margin-bottom:8px;
 }
 .fotogrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+/* O rótulo de cada um dos DOIS espaços da foto. Eles existem sempre, com ou
+   sem imagem dentro: "original" e "fundo branco" são o que uma peça TEM,
+   não uma seção que aparece quando alguém já fez o trabalho. Um espaço
+   vazio nomeado diz o que falta; a ausência do espaço não diz nada. */
+.fotoslot{font-size:10px;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--bordo-soft);font-weight:700;margin-bottom:6px}
+.fotoprev.vazia{height:150px;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:12px;text-align:center;padding:8px}
+/* Na janela de editar a peça as duas fotos são referência, não o assunto —
+   menores, para a estrutura e as quantidades continuarem sendo o centro. */
+.fotogrid.compacta .fotoprev{max-width:150px}
+.fotogrid.compacta .fotoprev.vazia{height:104px}
 
 /* ---------- Grupos de uma análise ---------- */
 /* Mesma caixinha do resultado do inventário: o número grande, o rótulo
@@ -701,6 +713,12 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
 }
 .dc-soma.fecha{background:var(--ok-tint);color:var(--ok)}
 .dc-soma.naofecha{background:var(--danger-tint);color:var(--danger)}
+/* Em "Editar peça" a soma nunca "não fecha": o total da peça é o resultado
+   dela, não um número anterior que ela tem de acertar. Verde ali seria
+   comemorar o óbvio, e vermelho seria mentira — então a mesma barra existe
+   num tom neutro, para informar em vez de julgar. */
+.dc-soma.neutro{background:var(--ivory);color:var(--ink);border:1px solid var(--line-soft)}
+.dc-soma.neutro em{font-style:normal;color:var(--muted)}
 .dc-soma b{font-family:var(--serif);font-size:15px}
 .dc-soma .spacer{flex:1}
 /* Atributos e valores no cadastro: um bloco por atributo, valores como
@@ -737,6 +755,12 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
   background:var(--danger-tint);color:var(--danger);
 }
 .deplista li.leva{background:var(--line-soft);color:var(--muted)}
+/* A linha que trouxe a pessoa até aqui. Sem isto, "Ir para Pendências"
+   despeja a tela inteira e ela tem de reencontrar a peça no meio de
+   centenas. O destaque some no próximo clique — destaque que fica vira
+   ruído na visita seguinte. */
+tr.foco>td{background:var(--rose-tint)}
+tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 
 /* ---------- Leituras do rodapé ----------
    Três cartões próprios, não três colunas de um cartão só: cada um termina
@@ -3060,9 +3084,72 @@ function fotoDe(p){
   return (s==='sem_foto' && p.fotoUrl) ? 'da_loja' : s;
 }
 
-/* A imagem que a tela usa, em ordem de posse: a tratada é a que vai para a
-   loja, a original é nossa, e a da loja é emprestada. */
-function fotoUrlDe(p){ return p.fotoTratadaUrl || p.fotoOriginalUrl || p.fotoUrl || ''; }
+/* ================== O RESOLVEDOR ÚNICO DE FOTO ==================
+   Uma pergunta — "qual imagem representa esta peça?" — com UMA resposta e
+   UM lugar onde ela é dada.
+
+   Antes cada tela montava a sua. A tabela de Estoque usava `fotoUrlDe` com
+   `data-cheia` e um `onerror` que trocava para a URL crua; o cartão de
+   Pendências montava a miniatura sozinho, SEM `data-cheia`, e chamava o
+   mesmo `onerror`, que procurava um `.fotocel` que não existe naquele
+   cartão e estourava. Resultado observado no SKU 122809: a MESMA peça
+   aparecia na tabela e virava ícone de imagem quebrada em Pendências.
+
+   A correção é na origem: quem quiser mostrar a foto de uma peça chama
+   `fotoImg()`, e ninguém mais monta `<img>` de produto na mão.
+
+   Ordem de prioridade (a mesma em toda tela):
+     1. foto tratada (fundo branco) nossa — é a que vai para a loja;
+     2. foto original nossa;
+     3. imagem persistida/vinculada da Nuvemshop;
+     4. imagem própria de uma variante, quando a peça não tem nenhuma;
+     5. placeholder. Nunca o ícone quebrado do navegador. */
+
+/** O endereço da foto, RESOLVIDO contra a API.
+ *
+ *  As fotos que são nossas (as do R2) vêm do servidor como caminho
+ *  assinado — `/api/produtos/X/foto/original?exp=…&sig=…`. Caminho relativo
+ *  resolve contra a origem da PÁGINA, e o painel não mora na mesma origem
+ *  da API: o painel é Pages, a API é Worker. Resultado: a foto da loja (URL
+ *  absoluta da CDN) aparecia e a foto NOSSA virava imagem quebrada — a
+ *  mesma tela, duas peças, comportamentos diferentes, sem nada na tela
+ *  explicando por quê.
+ *
+ *  Aqui é o único lugar que sabe disso. Quem chama recebe endereço que
+ *  funciona, venha ele do R2 ou da Nuvemshop. */
+function fotoAbs(url){
+  if(!url) return '';
+  return /^\//.test(url) ? (conn.url||'')+url : url;
+}
+
+/** Só a URL, na ordem de posse. Mantida com o nome antigo porque meia dúzia
+    de lugares só precisam saber "tem ou não tem". */
+function fotoUrlDe(p){ return fotoAbs((p&&(p.fotoTratadaUrl||p.fotoOriginalUrl||p.fotoUrl))||''); }
+
+/** A resposta completa: a URL e DE ONDE ela veio. A procedência não é
+    curiosidade — é o que decide se a tela pode dizer "foto tratada", e o
+    que impede chamar de nossa uma imagem que ainda é da loja. */
+function resolveFotoPrincipal(p, alternativas){
+  if(p&&p.fotoTratadaUrl)  return {url:fotoAbs(p.fotoTratadaUrl),  fonte:'tratada'};
+  if(p&&p.fotoOriginalUrl) return {url:fotoAbs(p.fotoOriginalUrl), fonte:'original'};
+  if(p&&p.fotoUrl)         return {url:fotoAbs(p.fotoUrl),         fonte:'loja'};
+  for(const u of (alternativas||[])) if(u) return {url:fotoAbs(u), fonte:'variante'};
+  return {url:'', fonte:'nenhuma'};
+}
+
+/** O `<img>` — ou o placeholder — de uma peça. Único lugar do painel que
+    monta imagem de produto. `classe` é a da tela que chama (`fotomini`,
+    `dc-foto`, `fotoprev`), porque o tamanho é decisão de quem exibe; o
+    resto (miniatura da CDN, endereço de reserva, o que fazer quando falha)
+    é decisão daqui e é igual em todo lugar. */
+function fotoImg(p, {classe='fotomini', alt='', alternativas=null, vazio='sem foto'}={}){
+  const r=resolveFotoPrincipal(p, alternativas);
+  if(!r.url) return `<div class="${esc(classe)} vazia">${esc(vazio)}</div>`;
+  return `<img class="${esc(classe)}" loading="lazy" decoding="async"
+    src="${esc(fotoMiniUrl(r.url))}" data-cheia="${esc(r.url)}"
+    data-vazio="${esc(vazio)}"
+    alt="${esc(alt||('Foto de '+((p&&p.desc)||'')))}" onerror="fotoFalhou(this)">`;
+}
 
 /** Miniatura da CDN da Nuvemshop: o mesmo endereço com o tamanho antes da
  *  extensão. Baixar 800 imagens de 1500px para mostrá-las com 42px é o que
@@ -3074,12 +3161,25 @@ function fotoMiniUrl(url){
   if(!/tiendanube\.com|nuvemshop\.com/.test(url)) return url;
   return url.replace(/(\.[a-z]{3,4})(\?.*)?$/i, '-240-0$1$2');
 }
-/* Primeiro erro: tenta o endereço cru. Segundo: desiste e mostra o selo,
-   em vez de deixar o ícone de imagem quebrada na tabela. */
+/* Primeiro erro: tenta o endereço cru (a miniatura `-240-0` pode não existir
+   na CDN). Segundo: desiste e mostra um espaço vazio, nunca o ícone de
+   imagem quebrada do navegador.
+
+   O `.fotocel` é a célula da TABELA de estoque, e existe só lá. Depender
+   dela era o bug: em Pendências o `closest` devolvia null e o `innerHTML`
+   estourava — a imagem quebrada ficava na tela porque o tratamento do erro
+   é que tinha morrido. Aqui cada caso tem o seu caminho, e o último deles
+   funciona em qualquer container. */
 function fotoFalhou(img){
   const cheia=img.getAttribute('data-cheia');
   if(cheia && img.src!==cheia){ img.src=cheia; return; }
-  img.closest('.fotocel').innerHTML=`<span class="fotochip sem_foto">sem foto</span>`;
+  const cel=img.closest('.fotocel');
+  if(cel){ cel.innerHTML=`<span class="fotochip sem_foto">sem foto</span>`; return; }
+  const vazio=document.createElement('div');
+  vazio.className=img.className+' vazia';
+  vazio.textContent=img.getAttribute('data-vazio')||'sem foto';
+  vazio.setAttribute('style',img.getAttribute('style')||'');
+  img.replaceWith(vazio);
 }
 /** A coluna Foto do estoque: miniatura quando existe imagem, selo quando
  *  não existe. O selo continua sendo o único conteúdo possível para quem
@@ -3092,9 +3192,7 @@ function fotoChip(p){
       title="Ver e tratar a foto desta peça">${esc(FOTO_TXT[s]||s)}</span></span>`;
   }
   return `<span class="fotocel" onclick="abrirFoto('${esc(p.sku)}')" title="Ver a foto de ${esc(p.desc)}">
-    <img class="fotomini" loading="lazy" decoding="async"
-      src="${esc(fotoMiniUrl(url))}" data-cheia="${esc(url)}"
-      alt="Foto de ${esc(p.desc)}" onerror="fotoFalhou(this)">
+    ${fotoImg(p,{classe:'fotomini', alt:'Foto de '+p.desc})}
     ${s==='da_loja'?'<i class="daloja" title="A imagem é da loja; os bytes ainda não são nossos"></i>':''}
   </span>`;
 }
@@ -3245,55 +3343,100 @@ function closeFoto(){
   fotoAberta=null;
   document.getElementById('fotoOverlay').classList.remove('show');
 }
+/** Os DOIS espaços da foto de uma peça, num lugar só.
+ *
+ *  Foto original e foto com fundo branco são dado fixo do produto, não uma
+ *  seção administrativa: os dois espaços existem sempre, e um espaço vazio
+ *  com nome diz o que falta. Vazio nunca é preenchido com a outra imagem —
+ *  mostrar a original no lugar da tratada faria a tela afirmar um
+ *  tratamento que ninguém fez, e é a partir da tratada que a loja é
+ *  abastecida.
+ *
+ *  `upload` liga os campos de arquivo (associar imagem é cadastro, e cabe
+ *  no Estoque). O TRATAMENTO não mora aqui em tela nenhuma do Estoque —
+ *  ele acontece em Pendências › Publicar na Nuvemshop, que é onde a peça
+ *  está sendo preparada para subir.
+ */
+function fotoDupla(p,{upload=false, compacta=false}={}){
+  const s=fotoDe(p);
+  const soDaLoja=!p.fotoOriginalUrl&&!!p.fotoUrl;
+  return `<div class="fotogrid${compacta?' compacta':''}">
+    <div>
+      <div class="fotoslot">Foto original</div>
+      ${p.fotoOriginalUrl
+        ?`<img class="fotoprev" src="${esc(fotoAbs(p.fotoOriginalUrl))}" data-vazio="sem foto"
+              alt="Foto original de ${esc(p.desc)}" onerror="fotoFalhou(this)">`
+        :(soDaLoja
+          /* A imagem da loja aparece aqui, mas dita como o que é: emprestada.
+             Enquanto os bytes não forem copiados, ela depende de a loja
+             continuar publicando — e chamá-la de "nossa" esconderia isso. */
+          ?`<img class="fotoprev" src="${esc(fotoAbs(p.fotoUrl))}" data-vazio="sem foto"
+                alt="Foto de ${esc(p.desc)} na loja" onerror="fotoFalhou(this)">
+            <div class="help" style="margin-top:6px">Imagem da Nuvemshop. Enquanto os bytes não forem copiados para cá, ela depende de a loja continuar publicando.</div>`
+          :`<div class="fotoprev vazia">sem foto</div>`)}
+      ${upload?`<label class="btn btn-ghost btn-sm btn-block" style="margin-top:8px">
+        ${p.fotoOriginalUrl?'Trocar foto…':'Enviar foto…'}
+        <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none"
+          onchange="enviarFoto('${esc(p.sku)}','original',this)">
+      </label>
+      <div class="help">JPEG, PNG ou WebP, até 8 MB. Fica guardada no sistema — a loja é abastecida a partir daqui.</div>`:''}
+    </div>
+    <div>
+      <div class="fotoslot">Foto com fundo branco</div>
+      ${p.fotoTratadaUrl
+        ?`<img class="fotoprev" src="${esc(fotoAbs(p.fotoTratadaUrl))}" data-vazio="ainda não gerada"
+              alt="Foto tratada de ${esc(p.desc)}" onerror="fotoFalhou(this)">`
+        :`<div class="fotoprev vazia">ainda não gerada</div>`}
+      <div style="margin-bottom:10px"><span class="fotochip ${s}">${esc(FOTO_TXT[s]||s)}</span></div>
+      ${p.fotoErro?`<div class="warn" style="margin-bottom:10px"><div>${esc(p.fotoErro)}</div></div>`:''}
+      ${p.fotoTratadaUrl?'':`<div class="help">O tratamento não acontece no Estoque. Ele fica em
+        <b>Pendências › Publicar na Nuvemshop</b>, junto com o resto da preparação da peça.
+        <div style="margin-top:6px"><button class="btn btn-ghost btn-sm" onclick="irTratarFoto('${esc(p.sku)}')">Ir para Pendências</button></div></div>`}
+      ${upload?`<label class="btn btn-ghost btn-sm btn-block" style="margin-top:8px">
+        Já tenho a foto tratada — enviar direto
+        <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none"
+          onchange="enviarFoto('${esc(p.sku)}','tratada',this)">
+      </label>`:''}
+    </div>
+  </div>`;
+}
+
+/** Estoque não trata imagem — ele leva até onde se trata. Um botão que
+    muda de aba é honesto; um que trata a foto aqui seria o Estoque fazendo
+    o trabalho de Pendências. */
+function irTratarFoto(sku){
+  const p=state.produtos.find(x=>x.sku===sku);
+  closeFoto(); closeProduto();
+  /* Cai na lista onde ESTA peça está: quem já tem original espera
+     tratamento, quem não tem espera foto. Abrir numa lista onde ela não
+     aparece faria a tela parecer que não há nada a fazer justamente por
+     causa do clique que pediu para fazer. */
+  filtroPend=(p&&p.fotoOriginalUrl)?'semFundoBranco':'semFoto';
+  pendFoco=sku;
+  switchTab('pendencias');
+}
+
 function renderFoto(){
+  if(!fotoAberta) return;
   const p=state.produtos.find(x=>x.sku===fotoAberta);
   const box=document.getElementById('fotoBody');
   if(!p){ box.innerHTML='<div class="empty"><h3>Peça não encontrada</h3></div>'; return; }
-  const s=fotoDe(p);
   document.getElementById('fotoTitulo').textContent=p.desc;
 
   box.innerHTML=`
-    <div class="fotogrid">
-      <div>
-        <div class="k-lbl" style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--bordo-soft);font-weight:700;margin-bottom:6px">Foto original</div>
-        ${p.fotoOriginalUrl
-          ?`<img class="fotoprev" src="${esc(p.fotoOriginalUrl)}" alt="Foto original de ${esc(p.desc)}">`
-          :(p.fotoUrl
-            /* A imagem da loja aparece ampliada aqui, mas em caixa própria:
-               ela não é nossa, e o botão de baixo continua sendo o jeito de
-               a peça passar a ter foto de verdade. */
-            ?`<img class="fotoprev" src="${esc(p.fotoUrl)}" alt="Foto de ${esc(p.desc)} na loja">
-              <div class="help" style="margin-top:6px">Esta imagem vem da Nuvemshop. Enquanto os bytes não forem copiados para cá, ela depende da loja continuar publicando.</div>`
-            :`<div class="fotoprev" style="height:150px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">sem foto</div>`)}
-        <label class="btn btn-ghost btn-sm btn-block" style="margin-top:8px">
-          ${p.fotoOriginalUrl?'Trocar foto…':'Enviar foto…'}
-          <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none"
-            onchange="enviarFoto('${esc(p.sku)}','original',this)">
-        </label>
-        <div class="help">JPEG, PNG ou WebP, até 8 MB. Fica guardada no sistema — a loja é abastecida a partir daqui.</div>
-      </div>
-      <div>
-        <div class="k-lbl" style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--bordo-soft);font-weight:700;margin-bottom:6px">Foto com fundo branco</div>
-        ${p.fotoTratadaUrl
-          ?`<img class="fotoprev" src="${esc(p.fotoTratadaUrl)}" alt="Foto tratada de ${esc(p.desc)}">`
-          :`<div class="fotoprev" style="height:150px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">ainda não gerada</div>`}
-        <div style="margin-bottom:10px"><span class="fotochip ${s}">${esc(FOTO_TXT[s]||s)}</span></div>
-        ${p.fotoErro?`<div class="warn" style="margin-bottom:10px"><div>${esc(p.fotoErro)}</div></div>`:''}
-        <button class="btn btn-gold btn-block" ${p.fotoOriginalUrl?'':'disabled'} onclick="gerarFundoBranco('${esc(p.sku)}')">
-          Gerar fundo branco</button>
-        ${p.fotoOriginalUrl?'':'<div class="help" style="margin-top:6px">Adicione a foto original primeiro.</div>'}
-        <label class="btn btn-ghost btn-sm btn-block" style="margin-top:8px">
-          Já tenho a foto tratada — enviar direto
-          <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none"
-            onchange="enviarFoto('${esc(p.sku)}','tratada',this)">
-        </label>
-      </div>
-    </div>
+    ${fotoDupla(p,{upload:true})}
     <div class="mfoot">
       ${p.fotoOriginalUrl?`<button class="btn btn-danger btn-sm" onclick="limparFoto('${esc(p.sku)}')">Remover fotos</button>`:''}
       <div class="spacer"></div>
       <button class="btn btn-ghost" onclick="closeFoto()">Fechar</button>
     </div>`;
+}
+/** A foto agora aparece em duas janelas — a de foto e a de editar a peça —
+    e o upload pode partir de qualquer uma. Redesenhar só a de foto deixava
+    a de editar mostrando a imagem antiga até alguém fechar e abrir de novo. */
+function redesenharFotoOnde(){
+  if(fotoAberta) renderFoto();
+  if(prodEdit) redesenharProduto();
 }
 async function enviarFoto(sku,versao,input){
   const arquivo=input.files&&input.files[0];
@@ -3302,7 +3445,7 @@ async function enviarFoto(sku,versao,input){
   try{
     await apiArquivo('PUT',`/api/produtos/${encodeURIComponent(sku)}/foto/${versao}`,arquivo);
     await sincronizar();
-    renderFoto();
+    redesenharFotoOnde();
     toast('Foto salva');
   }catch(e){ toast(e.message); }
   finally{ input.value=''; }
@@ -3311,14 +3454,14 @@ async function limparFoto(sku){
   if(!confirm('Remover a foto original e a tratada desta peça?\n\nO cadastro e o estoque não mudam.')) return;
   try{
     await api('DELETE',`/api/produtos/${encodeURIComponent(sku)}/foto`);
-    await sincronizar(); renderFoto(); toast('Fotos removidas');
+    await sincronizar(); redesenharFotoOnde(); toast('Fotos removidas');
   }catch(e){ toast(e.message); }
 }
 async function gerarFundoBranco(sku){
   toast('Mandando para tratamento…');
   try{
     const r=await api('POST',`/api/produtos/${encodeURIComponent(sku)}/foto/fundo-branco`);
-    await sincronizar(); renderFoto();
+    await sincronizar(); redesenharFotoOnde(); if(tabAtual==='pendencias') await carregarPendencias();
     if(r.pendente) alert(r.detalhe);
     else if(r.ok) toast('Fundo branco gerado');
     else toast('Não deu certo: '+(r.erro||''));
@@ -3498,7 +3641,7 @@ function renderPreviaCombinacoes(){
           <span class="vl-loja">${atuais.has(c.nome)?'já existe':'nova'}</span>
         </div>`).join('')}</div>
        <p class="hint" style="margin-top:8px">${combinacoes.length} ${plural(combinacoes.length,'combinação','combinações')}.
-       Quantidade não se define aqui — depois de salvar a estrutura, a divisão é feita em Pendências.</p>`
+       Defina a quantidade de cada variação. O total da peça é calculado automaticamente.</p>`
     : `<p class="hint" style="margin-top:8px">Preencha um atributo e ao menos um valor para ver as combinações.</p>`;
 }
 
@@ -3515,6 +3658,8 @@ function renderProduto(){
   }
   const vars=e.variacoes||[];
   corpo.innerHTML=`
+    ${fotoDupla(p,{upload:true, compacta:true})}
+    <hr style="border:none;border-top:1px solid var(--line-soft);margin:16px 0">
     <div class="field"><label>Descrição</label>
       <input id="pe-desc" maxlength="120" value="${esc(p.desc||'')}"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
@@ -3525,8 +3670,10 @@ function renderProduto(){
                placeholder="Em branco se ainda não tem preço"></div>
     </div>
     <p class="hint" style="margin-top:10px">
-      O código (${esc(p.sku)}) e a quantidade (${p.qtd}) não se editam aqui: código é identidade,
-      e quantidade é movimento.
+      O código (${esc(p.sku)}) não se edita: é a identidade da peça.
+      ${vars.length&&prodEdit.aberto
+        ?`A quantidade total (${p.qtd}) vem da soma das variações, logo abaixo.`
+        :`A quantidade total (${p.qtd}) muda por movimento — entrada, venda, ajuste — na tabela de estoque.`}
     </p>
 
     <hr style="border:none;border-top:1px solid var(--line-soft);margin:18px 0">
@@ -3540,13 +3687,19 @@ function renderProduto(){
     ${prodEdit.aberto?`
       ${vars.length?`
         <div class="listabox" style="margin-bottom:14px">
-          ${vars.map(v=>`<div class="varlinha" style="padding:9px 12px">
+          ${vars.map((v,i)=>`<div class="varlinha" style="padding:9px 12px">
             <div class="vl-nm">${esc(v.nome)}${v.valores&&v.valores.length
               ?`<small>${v.valores.map(x=>esc(x.atributo)+': '+esc(x.valor)).join(' · ')}</small>`:''}</div>
-            <div class="vl-loja">aqui: ${v.saldo}${v.estoqueLoja==null?'':' · loja: '+v.estoqueLoja}</div>
+            ${v.estoqueLoja==null?'':`<span class="vl-loja">loja: ${v.estoqueLoja}</span>`}
+            ${v.varianteId
+              ?`<input id="pe-q-${i}" type="number" min="0" step="1" inputmode="numeric"
+                       value="${int(v.saldo)}" data-vid="${esc(v.varianteId)}"
+                       aria-label="Quantidade de ${esc(v.nome)}" oninput="prodSomar()">`
+              :`<span class="vl-loja" style="color:var(--danger)" title="Sem o id da variação na loja não dá para gravar quantidade nesta linha sem arriscar escrever na caixinha errada">aqui: ${int(v.saldo)} · sem identidade da loja</span>`}
             ${v.daLoja?'':'<span class="vl-loja" style="color:var(--danger)">sem par na loja</span>'}
           </div>`).join('')}
         </div>
+        <div class="dc-soma neutro" id="pe-soma" style="margin-top:0;margin-bottom:14px"></div>
         ${e.fonte==='loja'?`<p class="hint" style="margin-bottom:14px">
           Estrutura lida da Nuvemshop. Mudar os atributos abaixo pode desfazer o vínculo de
           alguma variação — se isso acontecer, o sistema avisa antes e pede confirmação.</p>`:''}`
@@ -3576,22 +3729,94 @@ function renderProduto(){
       <div class="spacer"></div>
       <button class="btn btn-gold" onclick="prodSalvarDados(this)">Salvar dados da peça</button>
     </div>`;
-  if(prodEdit.aberto) renderPreviaCombinacoes();
+  if(prodEdit.aberto){ renderPreviaCombinacoes(); prodSomar(); }
 }
 
+/* =========== Quantidade por variação, dentro de "Editar peça" ===========
+   A pergunta desta janela é "quantas de cada eu tenho?", e a resposta é a
+   peça inteira: o total do código é a SOMA, não um número digitado antes
+   que a divisão tenha de acertar. Pendências continua existindo e continua
+   estrita — lá a pergunta é a outra, "como se reparte ESTE total?".
+
+   O que viaja em cada linha é o `variante_id` gravado (`data-vid`), nunca o
+   nome nem a posição. A loja pode renomear "Cristal" amanhã que o saldo
+   continua na caixinha certa. Linha sem id não vira campo: gravar
+   quantidade sem identidade é como o estoque vai parar na variante errada. */
+
+/** As linhas editáveis da janela, na ordem em que aparecem. Uma função só,
+    porque somar e salvar têm de olhar exatamente o mesmo conjunto — se
+    divergissem, a tela mostraria um total e o banco receberia outro. */
+function prodCamposQtd(){
+  if(!prodEdit||!prodEdit.aberto) return [];
+  const vars=(prodEdit.estrutura&&prodEdit.estrutura.variacoes)||[];
+  const campos=[];
+  vars.forEach((v,i)=>{
+    const el=document.getElementById('pe-q-'+i);
+    if(el&&el.dataset.vid) campos.push({el, varianteId:el.dataset.vid, nome:v.nome});
+  });
+  return campos;
+}
+
+/** A soma ao vivo. Ela não julga — informa. E quando o total da peça vai
+    mudar por causa dela, diz isso ANTES de salvar, com os dois números:
+    saldo que muda sem a pessoa ter visto o número mudar é o que §19 existe
+    para impedir. */
+function prodSomar(){
+  const barra=document.getElementById('pe-soma');
+  if(!barra||!prodEdit) return;
+  const campos=prodCamposQtd();
+  if(!campos.length){ barra.style.display='none'; return; }
+  barra.style.display='';
+  let soma=0;
+  for(const c of campos) soma+=Math.max(0,int(c.el.value));
+  const p=state.produtos.find(x=>x.sku===prodEdit.sku);
+  const total=p?int(p.qtd):0;
+  barra.innerHTML=`<span>Total das variações: <b>${soma}</b></span>`
+    +(soma===total
+      ? `<em>&nbsp;— é o estoque total da peça.</em>`
+      : `<em>&nbsp;— ao salvar, o estoque total de ${esc(prodEdit.sku)} passa de ${total} para ${soma}, com um ajuste registrado no histórico.</em>`);
+}
+
+/** Salvar a peça é UM ato para quem usa e dois atos para a razão contábil:
+    os dados descritivos por PATCH, a repartição por movimento. A ordem
+    importa — descrição e preço nunca dependem do estoque, então salvá-los
+    primeiro garante que uma recusa da repartição não perca o que a pessoa
+    digitou em cima.
+
+    `ajustarTotal: true` é o que separa esta chamada da de Pendências: aqui
+    o total é consequência da soma. O backend transforma a diferença num
+    movimento de `ajuste` explícito, com obs — nunca num UPDATE de saldo. */
 async function prodSalvarDados(botao){
   const desc=document.getElementById('pe-desc').value.trim();
   const cat=document.getElementById('pe-cat').value;
   const precoTxt=document.getElementById('pe-preco').value.trim();
   if(!desc){ toast('A descrição não pode ficar vazia'); return; }
+  const campos=prodCamposQtd();
+  for(const c of campos){
+    const n=int(c.el.value);
+    if(!(n>=0)||String(c.el.value).trim()===''){
+      toast(`Quantidade inválida em "${c.nome}" — use um número inteiro de 0 para cima.`);
+      c.el.focus(); return;
+    }
+  }
   const antes=botao.textContent; botao.disabled=true; botao.textContent='Salvando…';
   const sku=prodEdit.sku;
   try{
     await api('PATCH','/api/produtos/'+encodeURIComponent(sku),
       {desc, cat, preco:precoTxt===''?null:num(precoTxt)});
+    let r=null;
+    if(campos.length){
+      r=await api('POST','/api/produtos/'+encodeURIComponent(sku)+'/variacoes/distribuir',{
+        distribuicao:campos.map(c=>({varianteId:c.varianteId, qtd:int(c.el.value)})),
+        ajustarTotal:true,
+        obs:`Quantidades por variação salvas em "Editar peça" (${sku})`,
+      });
+    }
     closeProduto();
     await sincronizar();
-    toast('Peça salva');
+    toast(r&&r.totalAjustado
+      ? `Peça salva — estoque total agora ${r.totalAjustado.para}`
+      : 'Peça salva');
   }catch(err){
     toast(err.message||'Não deu certo');
     botao.disabled=false; botao.textContent=antes;
@@ -4347,6 +4572,10 @@ function renderLoja(){
    É também a lista de trabalho do agente de catálogo: o que está pronto
    para publicar, e o que exatamente falta em quem não está. */
 let publicacao=null, fotosOrfas=[], carregandoPend=false, filtroPend='prontos';
+/* O código que trouxe a pessoa até aqui. Serve para a linha dele nascer em
+   destaque no meio de centenas — e some depois de um render, porque
+   destaque que não some vira ruído na próxima visita. */
+let pendFoco=null;
 /* O que a sincronização decidiu NÃO escrever, e por quê. Vem de
    GET /api/variacoes/revisao — leitura pura, não conserta nada. */
 let revisaoVar=null;
@@ -4359,7 +4588,42 @@ const LISTAS_PUB={
   semCategoria:{rot:'Sem categoria', vazio:'Todas estão categorizadas.'},
   semPreco:{rot:'Sem preço', vazio:'Todas têm preço.'},
 };
-function setFiltroPend(v){ filtroPend=v; renderPendencias(); }
+function setFiltroPend(v){ filtroPend=v; pendFoco=null; renderPendencias(); }
+
+/** Uma linha da lista de publicação — e é AQUI que o tratamento de imagem
+ *  mora agora.
+ *
+ *  Ele saiu do Estoque de propósito: lá a peça está sendo cadastrada,
+ *  organizada, contada. Aqui ela está sendo PREPARADA para subir, e "gerar
+ *  o fundo branco" é um passo dessa preparação, ao lado de ter preço,
+ *  categoria e descrição. Ter o botão nos dois lugares fazia a mesma
+ *  decisão parecer duas.
+ *
+ *  A foto vem do resolvedor único, igual à tabela de Estoque — nenhuma
+ *  tela monta URL de imagem por conta própria. */
+function pubLinha(x){
+  const p=prodIndex().get(normSku(x.sku))||{sku:x.sku, desc:x.desc, fotoStatus:x.fotoStatus};
+  const temOriginal=!!p.fotoOriginalUrl;
+  const temTratada=!!p.fotoTratadaUrl;
+  const foco=pendFoco&&normSku(pendFoco)===normSku(x.sku);
+  return `<tr${foco?' class="foco"':''}>
+    <td><span class="fotocel" onclick="abrirFoto('${esc(x.sku)}')" title="Ver as fotos de ${esc(x.desc)}">
+      ${fotoImg(p,{classe:'fotomini', alt:'Foto de '+x.desc})}</span></td>
+    <td class="desc">${esc(x.desc)}</td>
+    <td class="sku">${esc(x.sku)}</td>
+    <td><span class="catchip" style="background:${catColor(x.cat)}">${esc(x.cat||'Outros')}</span></td>
+    <td class="price">${x.preco==null?'<span class="zero">sem preço</span>':money(x.preco)}</td>
+    <td class="num">${x.casa}</td>
+    <td class="price">${money(x.casa*(x.preco||0))}</td>
+    <td>${temTratada
+      ?`<span class="fotochip fundo_gerado">fundo pronto</span>`
+      :(temOriginal
+        ?`<button class="btn btn-gold btn-sm" onclick="gerarFundoBranco('${esc(x.sku)}')"
+            title="Trata a foto original desta peça e guarda a versão com fundo branco">Gerar fundo branco</button>`
+        :`<button class="btn btn-ghost btn-sm" onclick="abrirFoto('${esc(x.sku)}')"
+            title="Sem a foto original não há o que tratar">Anexar foto…</button>`)}</td>
+  </tr>`;
+}
 
 async function carregarPendencias(){
   /* Banco sem a migração do catálogo: não adianta pedir. A tela explica o
@@ -4378,7 +4642,7 @@ async function carregarPendencias(){
     publicacao=pub; fotosOrfas=orf.fotos||[]; revisaoVar=rev;
     /* Abre na primeira lista que tem alguma coisa. Cair numa lista vazia
        faz a tela parecer que não há nada a fazer justamente quando há. */
-    if(!(publicacao[filtroPend]||[]).length){
+    if(!pendFoco&&!(publicacao[filtroPend]||[]).length){
       const cheia=Object.keys(LISTAS_PUB).find(k=>(publicacao[k]||[]).length);
       if(cheia) filtroPend=cheia;
     }
@@ -4489,12 +4753,16 @@ const MOTIVO_VAR={
   sem_variante_id:'Variação sem identidade da loja',
 };
 
+/* A mesma peça, a mesma foto: este cartão e a tabela de Estoque pedem a
+   imagem ao MESMO resolvedor. Montar a URL aqui de novo foi o que fez a
+   tabela mostrar a foto e este cartão mostrar imagem quebrada. */
 function distFoto(item){
   const p=prodIndex().get(normSku(item.sku));
-  const url=(p&&fotoUrlDe(p))||(item.variantes.find(v=>v.imagemUrl)||{}).imagemUrl||'';
-  return url
-    ? `<img class="dc-foto" src="${esc(fotoMiniUrl(url))}" alt="" onerror="fotoFalhou(this)">`
-    : `<div class="dc-foto vazia">sem foto</div>`;
+  return fotoImg(p,{
+    classe:'dc-foto',
+    alt:'Foto de '+((p&&p.desc)||item.sku),
+    alternativas:(item.variantes||[]).map(v=>v.imagemUrl),
+  });
 }
 
 /** "Cor: Rosa · Tamanho: n° 17" — os atributos reais da loja, com o nome
@@ -4771,18 +5039,10 @@ function renderPendencias(){
         ${lista.length?`
         <div class="tablewrap keeptable">
           <table>
-            <thead><tr><th>Descrição</th><th style="width:88px">Código</th><th style="width:104px">Categoria</th>
+            <thead><tr><th style="width:56px">Foto</th><th>Descrição</th><th style="width:88px">Código</th><th style="width:104px">Categoria</th>
               <th style="width:82px">Preço</th><th style="width:70px">Em casa</th>
-              <th style="width:96px">Valor parado</th><th style="width:118px">Foto</th></tr></thead>
-            <tbody>${lista.map(x=>`<tr>
-              <td class="desc">${esc(x.desc)}</td>
-              <td class="sku">${esc(x.sku)}</td>
-              <td><span class="catchip" style="background:${catColor(x.cat)}">${esc(x.cat||'Outros')}</span></td>
-              <td class="price">${x.preco==null?'<span class="zero">sem preço</span>':money(x.preco)}</td>
-              <td class="num">${x.casa}</td>
-              <td class="price">${money(x.casa*(x.preco||0))}</td>
-              <td><span class="fotochip ${esc(x.fotoStatus||'sem_foto')}" onclick="abrirFoto('${esc(x.sku)}')">${esc(FOTO_TXT[x.fotoStatus]||'sem foto')}</span></td>
-            </tr>`).join('')}</tbody>
+              <th style="width:96px">Valor parado</th><th style="width:186px">Preparar</th></tr></thead>
+            <tbody>${lista.map(x=>pubLinha(x)).join('')}</tbody>
           </table>
         </div>
         <div style="margin-top:12px;font-size:11.5px;color:var(--muted)">
