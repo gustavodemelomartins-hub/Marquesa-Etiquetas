@@ -40,6 +40,7 @@ construção). O backend não tem dependência de runtime.
 ## Onde procurar informação
 
 ```
+Plano mestre       → docs/PLANO-MESTRE-MARQUESA.md   (estado, go-live, backlog)
 Regras de negócio  → api/REGRAS.md
 Arquitetura        → docs/ARCHITECTURE.md
 Frontend React/TS  → docs/FRONTEND_ARCHITECTURE.md
