@@ -62,7 +62,53 @@ a tradução de fim de linha do `pathlib.write_text` no Windows —
 
 ---
 
-## Testes
+## Medição de 2026-08-22 — encerramento da FASE 2
+
+Suíte inteira, cada teste com **banco zerado e Worker local recém-subido**.
+`GET /api/estoque/conferir` voltou vazio depois de cada um.
+
+| Teste | Resultado | Asserções | Falhas |
+|---|---|---|---|
+| `src/migracao-variantes-test.mjs` | **passou** | 36 | 0 |
+| `src/reconciliacao-schema-test.mjs` | **passou** | 65 | 0 |
+| `src/sync-test.mjs` | **passou** | 67 | 0 |
+| `src/variacoes-test.mjs` | **passou** | 58 | 0 |
+| `src/kits-test.mjs` | **passou** | 20 | 0 |
+| `src/variantes-fase1-test.mjs` | **passou** | 76 | 0 |
+| `src/catalogo-test.mjs` | **passou** | 85 | 0 |
+| `src/dry-run-test.mjs` | **passou** | 49 | 0 |
+| `src/reconciliacao-test.mjs` | **passou** | 143 | 0 |
+| `src/saude-sync-test.mjs` | **passou** (ver nota) | 25 | 0 |
+| `src/nuvemshop-writes-test.mjs` | **passou** | 24 | 0 |
+| `src/e2e.mjs` | **passou** | 74 | 0 |
+| `src/frontend-e2e.mjs` | **passou** | 32 | 0 |
+| `src/import-total-test.mjs` | **passou** | 13 | 0 |
+| `src/estoque-total-e2e.mjs` | **passou** | 21 | 0 |
+| `src/produtos-novos-e2e.mjs` | **passou** | 20 | 0 |
+| `src/foto-modal-test.mjs` | **passou** | 9 | 0 |
+| `src/fundo-branco-test.mjs` | **passou** | 8 | 0 |
+| `src/fase2-telas-test.mjs` | **passou** | 100 | 0 |
+
+### Total: **925 asserções, 0 falhas, 19 de 19 testes.**
+
+Frontend novo, sem navegador: `cd frontend && npm test` → **187 testes,
+15 arquivos, 0 falhas**. `npm run build` (com `tsc --noEmit`) passa.
+
+**Nota sobre `saude-sync-test`.** Ele falhou UMA vez, na asserção
+`ultimaAnaliseEm !== ultimaEm`, e passou sozinho na repetição. Os dois campos
+são `datetime('now')` do SQLite, com resolução de **segundo**: quando a
+rodada real e a seca caem no mesmo segundo, os textos são iguais e a
+asserção quebra. É oscilação do relógio, não regressão — nada da FASE 2
+toca `sync.js`. Registrado em [TECH_DEBT.md](TECH_DEBT.md).
+
+**`foto-modal-test` voltou a rodar no Windows.** Ele tinha
+`executablePath: '/opt/pw-browsers/chromium'` fixo no código e só rodava no
+Linux. Passou a honrar `PW_CHROMIUM`, como os outros oito testes de
+navegador já faziam.
+
+---
+
+## Testes — medição anterior (2026-08-18)
 
 Cada teste rodou com **banco zerado e Worker local recém-subido**.
 

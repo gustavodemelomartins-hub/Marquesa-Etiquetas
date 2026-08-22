@@ -307,6 +307,47 @@ verdade uma vez.
 variação" o saldo preso numa variante que sumiu, pela mesma chave em que ele
 estava. Sem isso o bloqueio seria um beco sem saída.
 
+### 8d. Quem divide o estoque entre as variações é uma pessoa — §19 §22
+
+A regra 8b diz que o sistema **para** quando não sabe quanto pertence a cada
+`variant_id`. Parar sem oferecer saída, porém, é dívida disfarçada de
+segurança: a FASE 1 deixou 27 códigos travados em produção, e nenhuma tela
+sabia destravá-los.
+
+`Estoque › Pendências` passou a ter a tela que destrava, e ela é desenhada
+em torno de uma recusa:
+
+- **Ela não propõe número nenhum.** Mostra os dois totais lado a lado (o
+  nosso e o da loja), uma linha por variante REAL, e espera.
+- **A soma tem de fechar EXATAMENTE** com `produtos.qtd`. Faltando ou
+  sobrando peça, o botão não libera e a rota recusa com 409 dizendo os dois
+  números. Repartir e corrigir o total são atos diferentes (§19): quem tenta
+  consertar o total por dentro da divisão está prestes a apagar peça de
+  verdade.
+- **A chave de cada quantidade é o `variant_id`.** A tela escreve "Rosa ·
+  n° 17" porque é isso que se lê numa peça; o id viaja no `data-` e não
+  aparece em lugar nenhum da interface. A loja pode renomear o valor amanhã
+  sem quebrar nada — e isso é testado.
+- **"Usar quantidades atuais da loja" só PREENCHE o formulário.** Não grava,
+  e a tela diz isso na hora. O botão existe porque redigitar dez números que
+  já estão certos convida ao erro de digitação, não porque a loja seja fonte
+  da verdade do físico (regra 4 do CLAUDE.md).
+
+Cada remanejo vira **dois movimentos que se anulam no total** — sai de "sem
+variação", entra na variação — para `produtos.qtd == SUM(movimentos.qtd)`
+continuar valendo e o histórico mostrar a repartição em vez de um número que
+mudou sozinho.
+
+Rota: `POST /api/produtos/:sku/variacoes/distribuir`. Saldo preso numa
+variante que a loja não tem mais volta para "sem variação" **antes** de as
+novas serem servidas, e a resposta anuncia isso — senão o delta partiria de
+um número que inclui peça que ninguém vai reencontrar.
+
+Os outros motivos de bloqueio (`maleta`, `duplicado`,
+`variacao_nao_mapeada`) aparecem na mesma tela **sem formulário**, com a
+explicação do que os trava. Oferecer um campo que não resolve o problema
+seria pior que não oferecer nada.
+
 ### 8c. A estrutura da loja é importada inteira, e é só leitura
 
 `POST /api/loja/variantes/importar` percorre o catálogo REAL da Nuvemshop e
@@ -361,6 +402,80 @@ A geração **reserva** o código em `sku_reservas` antes de responder. Sem a
 reserva, duas pessoas clicando ao mesmo tempo receberiam o mesmo número —
 as duas chamadas leriam o mesmo "maior código atual". Quem decide o empate é
 a chave primária da tabela; o perdedor tenta o próximo.
+
+### 18. Peça se apaga ou se arquiva — quem decide é o banco — §28
+
+A lixeira no fim da linha, em `Estoque › Peças cadastradas`, não apaga nada
+direto. Ela abre uma janela que primeiro **pergunta ao banco**
+(`GET /api/produtos/:sku/dependencias`): existe alguma linha em outro lugar
+que só faz sentido por causa desta peça?
+
+- **Não existe** → apaga de vez, e a janela lista o que vai junto
+  (movimentos, variações, linha na fila de peças novas). É o caso da peça de
+  teste que entulha a lista: apagá-la não perde informação de coisa alguma.
+- **Existe** → recusa, nomeia o que impede (venda, saída em maleta, contagem
+  de inventário, kit, item de reconciliação) e oferece **Arquivar produto**.
+  Arquivar tira a peça de circulação e da sincronização, e preserva tudo
+  (§28).
+
+`movimentos` **não** entra nos bloqueios, e é a decisão mais delicada daqui:
+todo produto tem ao menos um movimento (a entrada do saldo inicial), então
+contá-los como histórico tornaria a exclusão impossível para qualquer peça —
+inclusive a que este fluxo existe para limpar. O movimento de uma peça só
+descreve o estoque DELA; apagando os dois juntos, §19 continua fechando.
+
+Duas coisas que a janela diz em voz alta:
+
+1. **Arquivar não dá baixa.** Se a peça ainda tem saldo, ele continua
+   existindo — só sai de circulação. Zerar por conta própria seria inventar
+   um ajuste que ninguém pediu.
+2. **Nada disso encosta na Nuvemshop.** São dois catálogos. Sumir com o
+   anúncio de alguém como efeito colateral de uma faxina local é o tipo de
+   estrago que só aparece quando uma cliente reclama.
+
+Rotas: `DELETE /api/produtos/:sku`, `POST /api/produtos/:sku/arquivar`,
+`POST /api/produtos/:sku/desarquivar`.
+
+**Etiquetas é outra coisa, e a tela não confunde as duas.** A exclusão
+múltipla em `Etiquetas › Peças cadastradas` reusa a MESMA marcação da
+impressão (uma caixinha só, não duas), e apaga apenas o cadastro de etiqueta
+— que vive no `localStorage` do navegador, não no D1. A confirmação diz o
+número, lista as peças e afirma o que ela não faz: estoque, vendas e maletas
+não são tocados.
+
+### 19. Variação criada aqui sobrevive à sincronização — §22
+
+`produto_variacoes` era reescrita inteira a cada rodada, porque a loja é a
+fonte da verdade sobre quais variações EXISTEM. Isso estava certo enquanto
+ninguém digitava a tabela.
+
+A partir do cadastro com variações, alguém digita: uma peça criada aqui, que
+ainda não está na Nuvemshop, tem cor e tamanho sem `variant_id` nenhum. Sem
+distinguir a origem, a sincronização da madrugada apagaria essa estrutura e a
+peça amanheceria sem variação — o pior tipo de bug, o que desfaz trabalho de
+alguém enquanto ninguém olha.
+
+`produto_variacoes.origem` resolve:
+
+- `'loja'` — veio da Nuvemshop. A rodada seguinte pode reescrever e apagar.
+- `'local'` — foi criada aqui. A sincronização **não** encosta.
+
+Uma variação local que depois aparece na loja com o mesmo nome passa a
+`'loja'` pelo `ON CONFLICT`, e isso é o certo: ela deixou de ser só nossa.
+
+**Variação local também tem id.** `local:<uuid>`, porque nome não é
+identidade nem quando é o único nome que existe — alguém corrige "Dourdo"
+para "Dourado" e o saldo não pode ir junto para o lixo. O id de quem já
+existia é preservado em toda edição (`PUT /api/produtos/:sku/variacoes`), e
+uma mudança que desfaria o vínculo de variação que existe na loja é recusada
+com 409 + `precisaConfirmar: 'desvincular'` — a pessoa lê quais perderiam o
+vínculo e decide.
+
+**No cadastro, quantidade e variação não são dois campos.** Com variações
+ligadas, a "Quantidade inicial" deixa de ser digitável e passa a ser a soma
+das combinações. Os dois ao mesmo tempo produziriam a pergunta que ninguém
+sabe responder — "quantidade inicial 6, soma 4, qual vale?" — e a resposta
+errada some com duas peças de verdade.
 
 ### 4. A sincronização tem duas mãos, nesta ordem — §5.1
 

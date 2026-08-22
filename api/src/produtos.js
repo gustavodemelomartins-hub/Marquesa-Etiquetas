@@ -76,6 +76,10 @@ export async function dependenciasDoProduto(db, sku) {
   if (compoeKit) bloqueios.push({ tipo: 'componente', quantas: compoeKit, frase: `é componente de ${compoeKit} ${compoeKit === 1 ? 'kit' : 'kits'}` });
   if (reconciliacao) bloqueios.push({ tipo: 'reconciliacao', quantas: reconciliacao, frase: `${reconciliacao} ${reconciliacao === 1 ? 'item de reconciliação' : 'itens de reconciliação'}` });
 
+  /* `status` aqui é o do PRODUTO ('ativo' | 'inativo' | 'arquivado'), não um
+     código HTTP — a rota só usa `status` como HTTP quando há `erro`. Trocar
+     essa regra devolve "Responses may only be constructed with status codes
+     in the range 200 to 599". */
   return {
     sku: p.sku, desc: p.desc, cat: p.cat, qtd: p.qtd, status: p.status,
     arquivadoEm: p.arquivado_em || null, arquivadoMotivo: p.arquivado_motivo || null,
@@ -289,11 +293,18 @@ export async function definirVariacoes(db, sku, { atributos, desvincular = false
   }
 
   const idPorNome = new Map(atuais.map(v => [v.nome, v.variante_id]));
+  /* O id que REALMENTE foi gravado em cada combinação, incluindo o gerado
+     agora. Sem isto a resposta devolvia `varianteId: null` para todo produto
+     novo, e quem chamasse em seguida para distribuir o estoque não teria
+     como endereçar as quantidades — a tela de cadastro precisa exatamente
+     disso, na mesma sequência. */
+  const idsUsados = new Map();
   for (const [i, c] of combinacoes.entries()) {
     /* O id de quem já existia é PRESERVADO. Regerar um id local a cada
        salvamento faria o saldo se desencontrar da estrutura toda vez que
        alguém corrigisse a ordem dos valores. */
     const id = idPorNome.get(c.nome) || idLocal();
+    idsUsados.set(c.nome, String(id));
     const daLojaAqui = daLoja.some(v => v.nome === c.nome);
     stmts.push(db.prepare(
       `INSERT INTO produto_variacoes (sku, nome, atributo, variante_id, ordem, valores_json, origem)
@@ -312,9 +323,116 @@ export async function definirVariacoes(db, sku, { atributos, desvincular = false
     ok: true, sku: p.sku,
     atributos: limpos,
     combinacoes: combinacoes.map((c, i) => ({
-      ...c, varianteId: idPorNome.get(c.nome) || null, ordem: i,
+      ...c, varianteId: idsUsados.get(c.nome) || null, ordem: i,
     })),
     saldoDevolvido: devolvidos,
     total: p.qtd,
   };
+}
+
+/* ==================================================================== */
+/* 5. A ESTRUTURA COMO A TELA DE EDIÇÃO PRECISA VER                     */
+/* ==================================================================== */
+
+/** As variações de um código juntando as três coisas que a tela de edição
+ *  precisa mostrar na mesma linha, e que moram em tabelas diferentes:
+ *
+ *   - `loja_variantes`   — o que a Nuvemshop tem HOJE (fato dela);
+ *   - `produto_variacoes` — o que decidimos aqui, com o `variante_id`
+ *     persistido que amarra os dois lados;
+ *   - `movimentos`        — quantas peças estão em cada variação AQUI.
+ *
+ *  Existe separada de `variantesDoSku` porque as perguntas são diferentes:
+ *  aquela lê a loja e só a loja (é a fonte de "importe a estrutura de lá"),
+ *  esta responde "o que este produto tem, venha de onde vier" — inclusive
+ *  quando o produto só existe aqui e as variações foram criadas na mão.
+ *
+ *  Somente leitura. Não cria, não casa, não conserta: uma variação nossa sem
+ *  par na loja aparece marcada como sem par, e não vira vínculo por
+ *  semelhança de nome. Adivinhar aqui seria o mesmo erro que a FASE 1
+ *  arrancou do motor de sincronização.
+ */
+export async function estruturaDoProduto(db, sku) {
+  const k = normSku(sku);
+  const p = await db.prepare(
+    `SELECT sku, desc, cat, qtd, preco, status FROM produtos WHERE sku = ?`).bind(k).first();
+  if (!p) return { erro: `Código ${sku} não está no catálogo`, status: 404 };
+
+  const naLoja = (await db.prepare(
+    `SELECT variante_id, nome, estoque, valores_json, posicao
+       FROM loja_variantes WHERE sku_norm = ? ORDER BY posicao`).bind(k).all()).results;
+
+  const nossas = (await db.prepare(
+    `SELECT nome, variante_id, valores_json, origem, ordem
+       FROM produto_variacoes WHERE sku = ? ORDER BY ordem, nome`).bind(k).all()).results;
+
+  /* O saldo por variação pelas DUAS chaves, igual ao motor de sincronização.
+     Ler só por `variante_id` perderia o saldo das vendas antigas, que
+     gravavam apenas o nome. */
+  const baldes = (await db.prepare(
+    `SELECT variacao, variante_id, SUM(qtd) AS saldo FROM movimentos
+      WHERE sku = ? AND (variacao IS NOT NULL OR variante_id IS NOT NULL)
+      GROUP BY variacao, variante_id`).bind(k).all()).results;
+
+  const idPorNome = new Map(nossas.filter(v => v.variante_id).map(v => [v.nome, String(v.variante_id)]));
+  const saldoPorId = new Map();
+  let saldoSemVariacao = 0;
+  for (const b of baldes) {
+    if (!b.saldo) continue;
+    const vid = b.variante_id ? String(b.variante_id) : idPorNome.get(b.variacao);
+    if (vid) saldoPorId.set(vid, (saldoPorId.get(vid) || 0) + b.saldo);
+    else saldoSemVariacao += b.saldo;
+  }
+
+  const linhas = [];
+  const vistos = new Set();
+  for (const v of naLoja) {
+    const vid = String(v.variante_id);
+    vistos.add(vid);
+    const nossa = nossas.find(x => String(x.variante_id) === vid);
+    linhas.push({
+      varianteId: vid, nome: nossa ? nossa.nome : v.nome,
+      valores: parseJson(v.valores_json, []),
+      estoqueLoja: v.estoque == null ? null : v.estoque,
+      saldo: saldoPorId.get(vid) || 0,
+      daLoja: true, mapeada: !!nossa,
+    });
+  }
+  for (const v of nossas) {
+    const vid = v.variante_id ? String(v.variante_id) : null;
+    if (vid && vistos.has(vid)) continue;
+    linhas.push({
+      varianteId: vid, nome: v.nome,
+      valores: parseJson(v.valores_json, []),
+      estoqueLoja: null, saldo: vid ? (saldoPorId.get(vid) || 0) : 0,
+      daLoja: false, mapeada: false,
+    });
+  }
+
+  /* Os atributos saem dos valores lidos, na ordem em que aparecem. Lista fixa
+     não serve: quem vende por "Banho" e "Pedra" precisa ver "Banho" e
+     "Pedra", não "Cor" e "Tamanho". */
+  const atributos = [];
+  for (const l of linhas) {
+    for (const v of l.valores) {
+      let a = atributos.find(x => x.nome === v.atributo);
+      if (!a) { a = { nome: v.atributo, valores: [] }; atributos.push(a); }
+      if (!a.valores.includes(v.valor)) a.valores.push(v.valor);
+    }
+  }
+
+  /* `status` = o do produto, não HTTP — ver a nota em dependenciasDoProduto. */
+  return {
+    sku: p.sku, desc: p.desc, cat: p.cat, qtd: p.qtd,
+    preco: p.preco == null ? null : p.preco, status: p.status,
+    fonte: naLoja.length ? 'loja' : (nossas.length ? 'local' : 'nenhuma'),
+    temVariacao: linhas.length > 1,
+    atributos, variacoes: linhas,
+    saldoSemVariacao,
+    somaLoja: naLoja.reduce((s, v) => s + (v.estoque || 0), 0),
+  };
+}
+
+function parseJson(txt, padrao) {
+  try { const v = JSON.parse(txt); return v == null ? padrao : v; } catch (e) { return padrao; }
 }

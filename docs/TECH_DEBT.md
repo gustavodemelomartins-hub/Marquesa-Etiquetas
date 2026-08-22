@@ -72,6 +72,10 @@ Chromium que o próprio Playwright instala. O `e2e` — o único teste que prova
 que interface e API conversam — voltou a rodar, e o baseline subiu de 135
 para 209 asserções.
 
+Faltou um: `src/foto-modal-test.mjs` ficou com o caminho fixo até a
+FASE 2, e por isso não rodava aqui. Agora honra `PW_CHROMIUM` como os
+outros.
+
 Junto veio uma segunda descoberta, resolvida **sem tocar em código**: o
 `e2e` também falhava por CORS, porque o navegador do teste vem de
 `localhost:8000` e o `wrangler.toml` libera só o endereço de produção. A
@@ -212,6 +216,41 @@ Provado por `src/saude-sync-test.mjs` (25 asserções): sync real falha + seca
 passa → saúde continua erro; sync real ok + seca ok → sem mudança; sync real
 pausada + seca passa → saúde continua pausada; e o caso simétrico — uma
 ANÁLISE que falha não pode contaminar uma sincronização real saudável.
+
+## 13. `saude-sync-test` depende do relógio de segundo do SQLite
+
+A asserção `ultimaAnaliseEm !== ultimaEm` compara dois `datetime('now')`, que
+o SQLite grava com resolução de **segundo**. Quando a rodada real e a seca
+caem dentro do mesmo segundo — e caem, num banco local vazio — os textos são
+idênticos e o teste quebra.
+
+Aconteceu uma vez na medição de 2026-08-22 e não se repetiu na repetição
+imediata. Não é regressão: nada muda em `sync.js` entre as duas execuções.
+
+A correção honesta não é dormir um segundo no teste (isso esconde o
+problema): é o `sync` gravar um carimbo com precisão de milissegundo, ou o
+teste comparar o **id** da execução em vez do horário — que é o que ele já
+faz na asserção anterior. Enquanto isso não acontece, uma falha isolada
+nessa linha específica pode ser tratada como oscilação, e só nessa linha.
+
+---
+
+## 14. Ainda não existe um runner de suíte versionado
+
+O item 4 continua aberto, e a medição da FASE 2 mostrou por quê. Um runner
+foi escrito para produzir o baseline (derruba `workerd`/`node`, recria o
+banco, sobe o Worker, roda um teste, mede) e **não foi versionado** por um
+motivo concreto: no Git Bash, um script de suíte rodando em segundo plano
+sobrevive ao shell que o iniciou e vira órfão — e como o próprio script
+chama `taskkill //F //IM node.exe` entre um teste e outro, o órfão começa a
+matar o Worker das execuções seguintes. O sintoma é cruel: testes que
+passam sozinhos falham em lote, sem imprimir nada.
+
+Um runner versionado precisa resolver isso antes de existir — trap de saída,
+arquivo de lock, ou matar só o PID que ele mesmo iniciou em vez de todo
+`node.exe` da máquina.
+
+---
 
 ## 11. Detalhes menores, anotados para não se perderem
 

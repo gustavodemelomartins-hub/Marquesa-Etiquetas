@@ -165,7 +165,7 @@ console apareceu**.
 É o único teste que prova que a interface e a API conversam.
 
 ### `src/import-total-test.mjs` — a planilha é o estoque TOTAL, sempre
-**14 asserções · ~14 s · Playwright + servidor HTTP**
+**13 asserções · ~14 s · Playwright + servidor HTTP**
 
 Substituiu o `import-casa-test.mjs`, e por uma decisão de negócio, não por
 manutenção: a tela **deixou de perguntar** se os números são o total ou só o
@@ -192,6 +192,49 @@ propósito: é nele que a diferença aparecia.
    continua funcionando — foi por isso que `openImport` ganhou contexto em
    vez de perder o seletor de vez;
 9. nenhum erro de console.
+
+### `src/fase2-telas-test.mjs` — as telas que destravam a decisão humana
+**100 asserções · ~2 min · Playwright + loja falsa + servidor HTTP**
+
+A FASE 1 ensinou o motor a **parar** quando não sabe a qual `variant_id`
+pertence cada peça. O efeito colateral foi uma fila: 27 códigos travados em
+produção, e nenhuma tela que soubesse destravá-los. Este teste prova as
+telas dessa fase, na ordem dos 18 itens obrigatórios da FASE 2.
+
+Cenário: `ANELB` com 3 variantes na loja e 6 peças aqui (o `sem_reparticao`
+de verdade), `PULSEIRA` sem variação, `DESCARTE` cadastrada e nunca usada,
+`VENDIDA` com uma venda registrada.
+
+| # | O que fica provado |
+|---|---|
+| 1 | o código aparece com formulário, os dois totais lado a lado, uma linha por variante, e o `variant_id` **não** aparece na tela |
+| 2 | soma menor que o total: botão travado **e** rota recusando com 409 e os dois números |
+| 3 | soma maior: idem, e o total não se move |
+| 4 | soma exata salva, com números diferentes dos da loja — vale o que a pessoa confirmou |
+| 5 | "usar quantidades da loja" preenche o formulário e **não grava** — a fila do servidor não muda |
+| 6 | depois de salvar, o produto sai da revisão e a razão (§19) fecha |
+| 7 | a loja renomeia dois valores; o saldo continua na mesma variante e o produto **não** volta para a fila |
+| 8 | cadastro sem variação: quantidade digitada, nenhuma variação criada |
+| 9 | cadastro com 1 atributo: 3 combinações, total = soma, id `local:` em cada uma |
+| 10 | cadastro com 2 atributos: 4 combinações, atributos com o nome que a pessoa inventou |
+| 11 | SKU duplicado: aviso enquanto digita **e** recusa do backend, normalizada |
+| 12 | SKU gerado no padrão `MQ`+5, e o seguinte é diferente |
+| 13 | peça sem histórico: a janela lista o que vai junto e apaga de vez |
+| 14 | peça com venda: sem botão de apagar, `DELETE` direto devolve 409 com `alternativa: 'arquivar'`, e arquivar preserva saldo e motivo |
+| 15 | etiquetas: uma caixinha só, "Excluir selecionadas (N)" com confirmação, e o estoque intocado |
+| 16 | Importar Estoque Total sem os seletores antigos; o fluxo de maleta agora mora dentro da revendedora |
+| 17 | as mesmas telas em 390×844, sem rolagem horizontal |
+| 18 | regressão: código não repartido continua segurado e **nada** é escrito na loja |
+
+A contagem de requisições de escrita que chegam à loja falsa é, ela mesma,
+uma asserção: nenhuma sai.
+
+### `src/fase2-telas-fotos.mjs` — fotos das telas da FASE 2
+**Playwright. Não é teste.**
+
+Monta o mesmo cenário e tira 11 retratos de cada tela nova, em desktop
+(1400×950) e celular (390×844). Recebe a pasta de saída como argumento:
+`node src/fase2-telas-fotos.mjs fotos-fase2`.
 
 ### `src/loja-falsa.mjs` — infraestrutura, não teste
 Nuvemshop de mentira em `localhost:8799`. Exige `User-Agent` (a real

@@ -21,6 +21,7 @@ import {
 } from './variantes.js';
 import {
   dependenciasDoProduto, excluirProduto, arquivarProduto, desarquivarProduto, definirVariacoes,
+  estruturaDoProduto,
 } from './produtos.js';
 import { checarSku, gerarSku } from './sku.js';
 import { Nuvemshop } from './nuvemshop.js';
@@ -244,8 +245,13 @@ async function rotear(request, env) {
         const r = await definirVariacoes(db, decodeURIComponent(m[1]), await request.json());
         return json(r, r.status || (r.erro ? 400 : 200));
       }
+      /* A estrutura como a tela de edição precisa dela: a loja, a nossa
+         decisão e o saldo de cada variação na MESMA linha. `variantesDoSku`
+         continua existindo em /api/loja/variantes/:sku, e é outra pergunta —
+         ela lê a loja e só a loja. */
       if ((m = path.match(/^\/api\/produtos\/([^/]+)\/variacoes$/)) && met === 'GET') {
-        return json(await variantesDoSku(db, decodeURIComponent(m[1])));
+        const r = await estruturaDoProduto(db, decodeURIComponent(m[1]));
+        return json(r, r.erro ? (r.status || 400) : 200);
       }
 
       /* ------------------------------------------- ciclo de vida da peça
@@ -255,7 +261,7 @@ async function rotear(request, env) {
          banco. Nenhuma destas rotas encosta na Nuvemshop. */
       if ((m = path.match(/^\/api\/produtos\/([^/]+)\/dependencias$/)) && met === 'GET') {
         const r = await dependenciasDoProduto(db, decodeURIComponent(m[1]));
-        return json(r, r.status || 200);
+        return json(r, r.erro ? (r.status || 400) : 200);
       }
       if ((m = path.match(/^\/api\/produtos\/([^/]+)$/)) && met === 'DELETE') {
         const r = await excluirProduto(db, decodeURIComponent(m[1]));

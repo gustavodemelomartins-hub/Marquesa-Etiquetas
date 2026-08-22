@@ -36,7 +36,11 @@ await api('POST', '/api/produtos/novos/cadastrar', {
   produtos: [{ sku: 'MODAL1', desc: 'Peça do teste de modal', cat: 'Colar', preco: 90, qtd: 2 }],
 });
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+/* Mesmo padrão dos outros testes de navegador: honra PW_CHROMIUM e, sem
+   ela, usa o Chromium do próprio Playwright. O caminho fixo
+   `/opt/pw-browsers/chromium` deixava este teste rodando só no Linux. */
+const browser = await chromium.launch(
+  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const page = await browser.newPage();
 const erros = [];
 page.on('pageerror', e => erros.push(String(e.message)));

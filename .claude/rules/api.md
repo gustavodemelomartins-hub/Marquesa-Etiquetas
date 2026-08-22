@@ -37,6 +37,7 @@ Suíte direcionada, nunca tudo por reflexo:
 | variações | `node src/variacoes-test.mjs` |
 | kits | `node src/kits-test.mjs` |
 | importação/estoque total | `node src/import-total-test.mjs`, `node src/estoque-total-e2e.mjs` |
+| `produtos.js`, distribuir variação, ciclo de vida da peça | `node src/fase2-telas-test.mjs` |
 | reconciliação | `node src/reconciliacao-test.mjs` |
 
 Regras de negócio: [api/REGRAS.md](../../api/REGRAS.md). Motor:

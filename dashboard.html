@@ -1088,6 +1088,92 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
 .sku-recado.aviso{color:#9A6B1F}
 .sku-recado.checando{color:var(--muted)}
 
+/* ---------- Distribuir as variações (Pendências) ----------
+   Um cartão por código, e dentro dele uma linha por variação real da loja.
+   O `variant_id` não aparece: ele é a identidade que viaja, não informação
+   que a Sthefany precisa ler. O que ela lê é "Rosa · n° 17". */
+.distcard{
+  background:var(--paper);border:1px solid var(--line);border-radius:14px;
+  padding:14px;margin-bottom:14px;
+  box-shadow:0 1px 2px rgba(142,74,94,.05), 0 6px 20px rgba(142,74,94,.05);
+}
+.distcard .dc-topo{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+.distcard .dc-foto{
+  width:56px;height:56px;flex:none;object-fit:cover;border-radius:10px;
+  border:1px solid var(--line);background:var(--ivory);
+}
+.distcard .dc-foto.vazia{display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:var(--muted);text-align:center;line-height:1.2}
+.distcard .dc-id{flex:1;min-width:0}
+.distcard .dc-id b{display:block;font-size:13.5px;color:var(--ink);line-height:1.35}
+.distcard .dc-id small{font-family:var(--mono);font-size:11px;color:var(--muted)}
+/* Os dois totais lado a lado, sempre — é a leitura que a tela existe para
+   dar. Escondê-los atrás de um "ver detalhes" transformaria a decisão num
+   chute. */
+.dc-nums{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.dc-num{
+  background:var(--ivory);border:1px solid var(--line-soft);border-radius:10px;
+  padding:7px 11px;font-size:11px;color:var(--muted);line-height:1.3;
+}
+.dc-num b{display:block;font-family:var(--serif);font-size:17px;color:var(--bordo)}
+.varlinha{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:9px 0;border-top:1px solid var(--line-soft);
+}
+.varlinha:first-child{border-top:none}
+.varlinha .vl-nm{flex:1;min-width:130px;font-size:12.5px;color:var(--ink)}
+.varlinha .vl-nm small{display:block;color:var(--muted);font-size:11px}
+.varlinha .vl-loja{font-size:11px;color:var(--muted);white-space:nowrap}
+.varlinha input{
+  width:64px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;
+  text-align:center;font-size:13px;background:#fff;
+}
+.varlinha input:focus{outline:none;border-color:var(--gold)}
+/* A soma ao vivo. Ela é a única coisa entre a pessoa e o botão de salvar:
+   enquanto não fecha, o botão não existe como opção. */
+.dc-soma{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin-top:12px;padding:10px 12px;border-radius:10px;font-size:12.5px;
+}
+.dc-soma.fecha{background:var(--ok-tint);color:var(--ok)}
+.dc-soma.naofecha{background:var(--danger-tint);color:var(--danger)}
+.dc-soma b{font-family:var(--serif);font-size:15px}
+.dc-soma .spacer{flex:1}
+/* Atributos e valores no cadastro: um bloco por atributo, valores como
+   texto separado por vírgula. É o menor formulário que ainda deixa a
+   pessoa inventar "Cristal" sem pedir para ninguém. */
+.atrbox{border:1px solid var(--line-soft);border-radius:10px;padding:10px;margin-bottom:9px}
+.atrbox .ab-topo{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+/* Os campos do bloco de atributo não estão dentro de `.field`, então não
+   herdam nada do formulário. Repetem aqui a mesma caixa — mesma borda,
+   mesmo raio, mesmo respiro — para o bloco não parecer de outro app. */
+.atrbox input{
+  width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;
+  background:var(--ivory);color:var(--ink);
+}
+.atrbox input:focus{outline:none;border-color:var(--gold);background:#fff}
+.atrbox .ab-topo input{flex:1;min-width:0}
+/* Linha de caixinha + rótulo. Existe porque `.field input{width:100%}` vence
+   `.chk` na especificidade e engolia a linha inteira: a caixinha ficava do
+   tamanho do campo e o rótulo era empurrado para a direita da tela. */
+.chkrow{display:flex;align-items:center;gap:9px}
+.chkrow input[type="checkbox"]{width:17px;height:17px;flex:none;margin:0;padding:0;
+  accent-color:var(--bordo);cursor:pointer;background:none;border-radius:0}
+.chkrow label{margin:0;cursor:pointer}
+.combolista{border:1px solid var(--line-soft);border-radius:10px;margin-top:10px}
+.combolinha{display:flex;align-items:center;gap:10px;padding:8px 11px;border-top:1px solid var(--line-soft)}
+.combolinha:first-child{border-top:none}
+.combolinha .cl-nm{flex:1;min-width:0;font-size:12.5px}
+.combolinha input{width:64px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;text-align:center}
+/* O que a exclusão vai levar junto, e o que a impede. Lista, não parágrafo:
+   cada bloqueio é um fato separado. */
+.deplista{margin:12px 0;padding:0;list-style:none}
+.deplista li{
+  padding:8px 11px;border-radius:9px;margin-bottom:6px;font-size:12.5px;
+  background:var(--danger-tint);color:var(--danger);
+}
+.deplista li.leva{background:var(--line-soft);color:var(--muted)}
+
 /* ---------- Leituras do rodapé ----------
    Três cartões próprios, não três colunas de um cartão só: cada um termina
    no botão da tela que resolve o que ele aponta, e um botão precisa de uma
@@ -1368,6 +1454,34 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
       <button class="closebtn" onclick="closeKit()">×</button>
     </div>
     <div class="mbody" id="kitBody"></div>
+  </div>
+</div>
+
+<!-- ============ EDITAR A PEÇA ============
+     Dados da peça e a estrutura de variações na mesma janela, porque é a
+     mesma pergunta ("o que é esta peça?"). O que NÃO entra aqui é
+     quantidade: mexer em saldo é movimento (§19), e tem lugar próprio. -->
+<div class="overlay center" id="prodOverlay" onclick="if(event.target===this)closeProduto()">
+  <div class="modal" style="width:640px">
+    <div class="mhead">
+      <h2 id="prodTitulo">Editar peça</h2>
+      <button class="closebtn" onclick="closeProduto()">×</button>
+    </div>
+    <div class="mbody" id="prodBody"></div>
+  </div>
+</div>
+
+<!-- ============ EXCLUIR OU ARQUIVAR ============
+     A janela não pergunta "tem certeza?" e pronto: ela mostra o que o banco
+     respondeu sobre esta peça. Sem histórico, apaga. Com histórico, o botão
+     que aparece é "Arquivar", e o texto diz por quê (§28). -->
+<div class="overlay center" id="delOverlay" onclick="if(event.target===this)closeExcluir()">
+  <div class="modal" style="width:560px">
+    <div class="mhead">
+      <h2 id="delTitulo">Excluir peça</h2>
+      <button class="closebtn" onclick="closeExcluir()">×</button>
+    </div>
+    <div class="mbody" id="delBody"></div>
   </div>
 </div>
 
@@ -2186,7 +2300,12 @@ function renderTabs(){
      que no cadastro. Peça sem foto não entra: ela é trabalho, não decisão,
      e o número viraria paisagem. */
   const c=state.catalogo||{};
-  const aEsperar=(c.pendentes||0)+(c.fotosOrfas||0)+inconsistencias().length;
+  /* A revisão de variações entra no selo assim que a tela de Pendências for
+     carregada uma vez. Antes disso `revisaoVar` é null e o selo simplesmente
+     não a conta — melhor um selo menor que um selo que trava a navegação
+     esperando uma requisição. */
+  const aEsperar=(c.pendentes||0)+(c.fotosOrfas||0)+inconsistencias().length
+    +((revisaoVar&&revisaoVar.total)||0);
 
   const naFila=(window.Etq&&Etq.naFila())||0;
 
@@ -2520,10 +2639,26 @@ function cadastrarManual(){
   const desc=document.getElementById('cm-desc').value.trim();
   const cat=document.getElementById('cm-cat').value;
   const precoTxt=document.getElementById('cm-preco').value.trim();
-  const qtdTxt=document.getElementById('cm-qtd').value.trim();
+  /* Com variações ligadas o campo de quantidade nem existe na tela — quem
+     manda é a soma das combinações. */
+  const campoQtd=document.getElementById('cm-qtd');
+  const qtdTxt=campoQtd?campoQtd.value.trim():'';
   if(!sku||!desc){ toast('Preencha código e descrição'); return; }
   const preco=precoTxt===''?null:num(precoTxt);
-  const qtd=qtdTxt===''?0:int(qtdTxt);
+  /* Com variações, a quantidade é a soma delas — nunca as duas coisas ao
+     mesmo tempo. Ver o comentário de `cadVar`. */
+  let qtd=qtdTxt===''?0:int(qtdTxt);
+  cadPendente=null;
+  if(cadVar.aberto){
+    const c=combinarAtributos(cadVar.atributos);
+    if(!c.combinacoes.length){
+      toast('Escreva um atributo com ao menos um valor, ou desmarque "Variações"');
+      return;
+    }
+    qtd=cadSoma();
+    cadPendente={sku, atributos:c.atributos, total:qtd,
+                 qtds:Object.assign({}, cadVar.qtds)};
+  }
   novasOrigem='manual';
   novasLinhas=[{sku, desc, cat, preco, qtd, brutoQtd:String(qtd), brutoPreco:precoTxt}];
   novasSel=new Set(); novasCorr={};
@@ -2625,6 +2760,153 @@ async function gerarSku(botao){
   }
 }
 
+/* ---------------------------------------------------- Variações no cadastro
+   Desligado por padrão, e isso é a decisão: a maioria das peças não tem
+   variação, e um formulário que abre pedindo "Cor" e "Tamanho" ensina a
+   preencher qualquer coisa para poder seguir.
+
+   Ligado, ele muda uma coisa importante: a quantidade inicial deixa de ser
+   digitada e passa a ser a SOMA das variações. Os dois campos ao mesmo tempo
+   produziriam a pergunta que ninguém sabe responder — "quantidade inicial 6,
+   soma 4, qual vale?" — e a resposta errada some com duas peças de verdade.
+
+   Os atributos são livres: quem vende por "Banho" e "Pedra" escreve "Banho"
+   e "Pedra". Lista fixa de Cor/Tamanho obrigaria a operação a mentir para
+   caber no formulário. */
+let cadVar={aberto:false, atributos:[], qtds:{}};
+/* A intenção de variação viaja separada porque o cadastro em si é o fluxo em
+   lote (a mesma conferência da importação): o produto nasce lá, e a estrutura
+   e a divisão são aplicadas logo depois, sobre o código que acabou de existir. */
+let cadPendente=null;
+
+/* Redesenhar um formulário não pode apagar o que já foi digitado nele.
+   Ligar "Variações" depois de preencher código, descrição e preço remonta a
+   view inteira — e sem isto os três campos voltavam vazios, em silêncio, no
+   meio do cadastro. */
+function preservandoCampos(ids, fn){
+  const antes={};
+  ids.forEach(id=>{ const e=document.getElementById(id); if(e) antes[id]=e.value; });
+  const rec=document.getElementById('cm-sku-recado');
+  const recAntes=rec?{txt:rec.textContent, cls:rec.className}:null;
+  fn();
+  Object.keys(antes).forEach(id=>{ const e=document.getElementById(id); if(e) e.value=antes[id]; });
+  if(recAntes){
+    const r=document.getElementById('cm-sku-recado');
+    if(r){ r.textContent=recAntes.txt; r.className=recAntes.cls; }
+  }
+}
+const CAMPOS_CADASTRO=['cm-sku','cm-desc','cm-cat','cm-preco','cm-qtd'];
+function redesenharCadastro(){ preservandoCampos(CAMPOS_CADASTRO, renderCadastro); }
+
+function cadToggleVar(on){
+  cadVar.aberto=on;
+  if(on&&!cadVar.atributos.length) cadVar.atributos=[{nome:'',valores:''}];
+  redesenharCadastro();
+}
+function cadAtrAdd(){ cadVar.atributos.push({nome:'',valores:''}); redesenharCadastro(); }
+function cadAtrDel(i){ cadVar.atributos.splice(i,1); redesenharCadastro(); }
+function cadAtrCampo(i,qual,v){ cadVar.atributos[i][qual]=v; renderCadCombos(); }
+function cadQtd(nome,v){ cadVar.qtds[nome]=Math.max(0,int(v)); pintarCadTotal(); }
+
+function cadCombos(){ return combinarAtributos(cadVar.atributos).combinacoes; }
+function cadSoma(){
+  return cadCombos().reduce((s,c)=>s+Math.max(0,int(cadVar.qtds[c.nome])),0);
+}
+
+function pintarCadTotal(){
+  const alvo=document.getElementById('cm-var-total');
+  if(!alvo) return;
+  const n=cadSoma(), combos=cadCombos().length;
+  alvo.innerHTML=`<span><b>${n}</b> ${plural(n,'peça','peças')} no total, `
+    +`${plural(combos,'em 1 variação','divididas em '+combos+' variações')}.</span>`;
+}
+
+/** Só as combinações são redesenhadas enquanto se digita o atributo — a view
+    inteira levaria o cursor embora a cada tecla. */
+function renderCadCombos(){
+  const alvo=document.getElementById('cadCombos');
+  if(!alvo) return;
+  const combos=cadCombos();
+  alvo.innerHTML=combos.length?`
+    <div class="combolista">
+      ${combos.map(c=>`<div class="combolinha">
+        <div class="cl-nm">${esc(c.nome)}</div>
+        <input type="number" min="0" inputmode="numeric" placeholder="0"
+               value="${cadVar.qtds[c.nome]==null?'':cadVar.qtds[c.nome]}"
+               oninput="cadQtd('${esc(c.nome).replace(/'/g,'&#39;')}',this.value)"
+               aria-label="Quantidade de ${esc(c.nome)}"></div>`).join('')}
+    </div>
+    <p class="hint" style="margin-top:8px">${combos.length} ${plural(combos.length,'combinação','combinações')}.
+    Deixe em branco o que ainda não tem peça — em branco é zero, e zero é um número honesto.</p>`
+    :`<p class="hint" style="margin-top:8px">Escreva o nome do atributo e os valores dele
+      (separados por vírgula) para as combinações aparecerem.</p>`;
+  pintarCadTotal();
+}
+
+function blocoVariacoesCadastro(){
+  return `
+    <div class="field" style="margin-top:2px">
+      <div class="chkrow">
+        <input type="checkbox" class="chk" id="cm-temvar" ${cadVar.aberto?'checked':''}
+               onchange="cadToggleVar(this.checked)">
+        <label for="cm-temvar">Variações (opcional)</label>
+      </div>
+      <p class="hint" style="margin-top:6px">Marque só se esta peça é vendida em mais de uma
+      opção — cor, tamanho, cristal. Sem isso, o estoque dela é um número só.</p>
+    </div>
+    ${cadVar.aberto?`
+      <div id="cadAtrs">
+        ${cadVar.atributos.map((a,i)=>`
+        <div class="atrbox">
+          <div class="ab-topo">
+            <input placeholder="Atributo — ex.: Cor" value="${esc(a.nome)}"
+                   oninput="cadAtrCampo(${i},'nome',this.value)">
+            ${cadVar.atributos.length>1?`<button class="btn btn-ghost btn-sm" onclick="cadAtrDel(${i})">Remover</button>`:''}
+          </div>
+          <input placeholder="Valores separados por vírgula — ex.: Rosa, Cristal, Dourado"
+                 value="${esc(a.valores)}" oninput="cadAtrCampo(${i},'valores',this.value)">
+        </div>`).join('')}
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="cadAtrAdd()">+ Adicionar atributo</button>
+      <div id="cadCombos"></div>
+    `:''}`;
+}
+
+/** Depois de o produto existir: primeiro a estrutura, depois a divisão.
+ *  Nesta ordem porque a divisão endereça `variante_id`, e os ids só existem
+ *  depois de a estrutura ser gravada. As duas chamadas são as MESMAS rotas
+ *  que a tela de Pendências usa — cadastro com variação não é um caminho
+ *  paralelo, é o mesmo caminho começando cheio. */
+async function aplicarVariacoesDoCadastro(){
+  const c=cadPendente; cadPendente=null;
+  if(!c) return;
+  /* O formulário volta ao padrão (desligado) assim que a peça nasce: deixar
+     os atributos preenchidos faria a próxima peça herdar variações que
+     ninguém pediu. */
+  cadVar={aberto:false, atributos:[], qtds:{}};
+  try{
+    const r=await api('PUT','/api/produtos/'+encodeURIComponent(c.sku)+'/variacoes',
+      {atributos:c.atributos.map(a=>({nome:a.nome, valores:a.valores}))});
+    const distribuicao=(r.combinacoes||[])
+      .filter(cb=>cb.varianteId)
+      .map(cb=>({varianteId:cb.varianteId, qtd:Math.max(0,int(c.qtds[cb.nome]))}));
+    const soma=distribuicao.reduce((s,d)=>s+d.qtd,0);
+    if(soma!==c.total){
+      /* Não deveria acontecer: a quantidade cadastrada É a soma. Se acontecer,
+         a estrutura fica gravada e a divisão espera em Pendências — melhor um
+         produto que aparece lá do que uma divisão que eu inventei aqui. */
+      toast(`${c.sku}: estrutura salva, divisão pendente (soma ${soma}, total ${c.total})`);
+      return;
+    }
+    await api('POST','/api/produtos/'+encodeURIComponent(c.sku)+'/variacoes/distribuir',{distribuicao});
+    toast(`${c.sku} cadastrado com ${distribuicao.length} ${plural(distribuicao.length,'variação','variações')}`);
+  }catch(e){
+    /* O produto já existe — dizer que falhou tudo seria mentira. O que falta
+       é a divisão, e ela tem tela própria. */
+    toast(`${c.sku} foi cadastrado, mas as variações não: ${e.message}`);
+  }
+}
+
 function renderCadastro(){
   const v=document.getElementById('view-cadastro');
   const pendentes=(state.catalogo&&state.catalogo.pendentes)||0;
@@ -2673,14 +2955,21 @@ function renderCadastro(){
             <input id="cm-desc" placeholder="Ex.: Brinco argola dourada" maxlength="120"></div>
           <div class="two">
             <div class="field"><label>Quantidade inicial</label>
-              <input id="cm-qtd" type="number" min="0" placeholder="0"></div>
+              ${cadVar.aberto
+                ? `<div id="cm-var-total" class="dc-soma fecha" style="margin:0"><span><b>0</b> peças no total.</span></div>
+                   <p class="hint" style="margin-top:6px">Vem da soma das variações — não se digita aqui.</p>`
+                : `<input id="cm-qtd" type="number" min="0" placeholder="0">`}</div>
             <div class="field"><label>Preço</label>
               <input id="cm-preco" type="number" min="0" step="0.01" placeholder="Em branco se ainda não tem preço"></div>
           </div>
+          ${blocoVariacoesCadastro()}
           <button class="btn btn-gold" onclick="cadastrarManual()">Cadastrar peça</button>
         </div>
       </div>
     </div>`;
+  /* As combinações são pintadas depois do innerHTML porque elas dependem do
+     que está digitado nos atributos, e não do HTML recém-montado. */
+  if(cadVar.aberto) renderCadCombos();
 }
 
 /* O estado do inventário em uma frase, no topo do Estoque total — que é a
@@ -3330,6 +3619,21 @@ function renderEstoque(){
     {k:'valor', rot:'Valor total', tipo:'money', larg:'96px', cls:'price',
      titulo:'Valor unitário × estoque total',
      cel:l=>l.preco==null?'<span class="zero">—</span>':money(l.valor)},
+    /* Editar e lixeira no fim da linha, o mesmo par que a tela de Etiquetas
+       já usa — mesma posição, mesmo ícone, mesmo tamanho de toque. A
+       lixeira não apaga na hora: ela ABRE a janela que pergunta ao banco se
+       esta peça pode ser apagada, e é o banco que decide entre apagar e
+       arquivar (§28). `val` devolve vazio para a coluna não ordenar nada e
+       não entrar na busca. */
+    {k:'acoes', rot:'', tipo:'texto', larg:'86px', busca:false, val:()=>'',
+     cel:l=>`<div class="actions">
+       <button class="iconbtn" title="Editar esta peça" aria-label="Editar ${esc(l.sku)}"
+               onclick="abrirProduto('${esc(l.sku)}')">
+         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
+       <button class="iconbtn del" title="Excluir esta peça" aria-label="Excluir ${esc(l.sku)}"
+               onclick="abrirExcluir('${esc(l.sku)}')">
+         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+     </div>`},
   ];
 
   v.innerHTML=`
@@ -3559,6 +3863,356 @@ async function kitDesfazer(){
     await sincronizar();
     toast('Kit desfeito');
   }catch(e){ toast(e.message); }
+}
+
+/* =================== Editar a peça ===================
+   Uma janela para "o que é esta peça", e nada de quantidade dentro dela.
+   Saldo é movimento (§19) e já tem lugar: a coluna Estoque total da tabela,
+   o inventário, a maleta. Misturar os dois aqui faria a mesma tela ora
+   descrever, ora mexer no físico.
+
+   A estrutura de variações vem de `loja_variantes` quando a peça está na
+   Nuvemshop — porque lá é fato, não opinião — e de `produto_variacoes`
+   quando a peça só existe aqui. O `variant_id` de quem já estava mapeado é
+   PRESERVADO em qualquer edição: é ele que amarra o estoque à caixinha
+   certa da loja, e regerá-lo em silêncio é exatamente o bug que a FASE 1
+   arrancou do motor de sincronização. */
+let prodEdit=null;   /* {sku, estrutura, atributos, aberto} */
+
+/** O produto cartesiano dos atributos, igual ao do servidor.
+    Existe nos dois lados de propósito: aqui para a pessoa VER as combinações
+    antes de salvar, lá para decidir. Se divergirem, quem manda é o de lá. */
+function combinarAtributos(atrs){
+  const limpos=(atrs||[]).map(a=>({
+    nome:String(a.nome||'').trim(),
+    valores:[...new Set(String(a.valores||'').split(',').map(v=>v.trim()).filter(Boolean))],
+  })).filter(a=>a.nome&&a.valores.length);
+  if(!limpos.length) return {atributos:[],combinacoes:[]};
+  let combos=[[]];
+  for(const a of limpos){
+    const prox=[];
+    for(const parcial of combos) for(const valor of a.valores) prox.push(parcial.concat([{atributo:a.nome,valor}]));
+    combos=prox;
+  }
+  return {atributos:limpos, combinacoes:combos.map(valores=>({valores, nome:valores.map(v=>v.valor).join(' · ')}))};
+}
+
+async function abrirProduto(sku){
+  const p=state.produtos.find(x=>x.sku===sku);
+  if(!p) return;
+  prodEdit={sku, estrutura:null, atributos:[], aberto:false};
+  document.getElementById('prodTitulo').textContent='Editar · '+p.desc;
+  document.getElementById('prodBody').innerHTML=
+    '<div class="empty"><h3>Abrindo…</h3><p>Lendo a estrutura desta peça.</p></div>';
+  document.getElementById('prodOverlay').classList.add('show');
+  try{
+    const e=await api('GET','/api/produtos/'+encodeURIComponent(sku)+'/variacoes');
+    if(!prodEdit||prodEdit.sku!==sku) return;      /* fechou ou trocou de peça */
+    prodEdit.estrutura=e;
+    prodEdit.atributos=(e.atributos||[]).map(a=>({nome:a.nome, valores:a.valores.join(', ')}));
+    prodEdit.aberto=(e.variacoes||[]).length>0;
+  }catch(err){
+    if(prodEdit) prodEdit.estrutura={erro:err.message};
+  }
+  if(prodEdit) renderProduto();
+}
+function closeProduto(){
+  document.getElementById('prodOverlay').classList.remove('show');
+  prodEdit=null;
+}
+/* Mesma armadilha da tela de cadastro: remontar a janela não pode apagar a
+   descrição ou o preço que a pessoa acabou de corrigir e ainda não salvou. */
+function redesenharProduto(){
+  preservandoCampos(['pe-desc','pe-cat','pe-preco'], renderProduto);
+}
+function prodAtrAdd(){ prodEdit.atributos.push({nome:'',valores:''}); redesenharProduto(); }
+function prodAtrDel(i){ prodEdit.atributos.splice(i,1); redesenharProduto(); }
+function prodAtrCampo(i,qual,v){ prodEdit.atributos[i][qual]=v; renderPreviaCombinacoes(); }
+function prodToggleVar(on){ prodEdit.aberto=on; redesenharProduto(); }
+
+/** Só a prévia é redesenhada enquanto se digita — redesenhar a janela
+    inteira tiraria o cursor do campo a cada tecla. */
+function renderPreviaCombinacoes(){
+  const alvo=document.getElementById('prodCombos');
+  if(!alvo||!prodEdit) return;
+  const combinacoes=combinarAtributos(prodEdit.atributos).combinacoes;
+  const atuais=new Set(((prodEdit.estrutura&&prodEdit.estrutura.variacoes)||[]).map(v=>v.nome));
+  alvo.innerHTML=combinacoes.length
+    ? `<div class="combolista">${combinacoes.map(c=>`
+        <div class="combolinha">
+          <div class="cl-nm">${esc(c.nome)}</div>
+          <span class="vl-loja">${atuais.has(c.nome)?'já existe':'nova'}</span>
+        </div>`).join('')}</div>
+       <p class="hint" style="margin-top:8px">${combinacoes.length} ${plural(combinacoes.length,'combinação','combinações')}.
+       Quantidade não se define aqui — depois de salvar a estrutura, a divisão é feita em Pendências.</p>`
+    : `<p class="hint" style="margin-top:8px">Preencha um atributo e ao menos um valor para ver as combinações.</p>`;
+}
+
+function renderProduto(){
+  const p=state.produtos.find(x=>x.sku===prodEdit.sku);
+  const e=prodEdit.estrutura||{};
+  const cats=catList();
+  const corpo=document.getElementById('prodBody');
+  if(e.erro){
+    corpo.innerHTML=`<div class="warn"><div>Não consegui ler esta peça: ${esc(e.erro)}</div></div>
+      <div class="mfoot" style="margin-top:16px"><div class="spacer"></div>
+      <button class="btn btn-ghost" onclick="closeProduto()">Fechar</button></div>`;
+    return;
+  }
+  const vars=e.variacoes||[];
+  corpo.innerHTML=`
+    <div class="field"><label>Descrição</label>
+      <input id="pe-desc" maxlength="120" value="${esc(p.desc||'')}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+      <div class="field"><label>Categoria</label>
+        <select id="pe-cat">${cats.map(c=>`<option value="${esc(c)}" ${c===p.cat?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
+      <div class="field"><label>Preço</label>
+        <input id="pe-preco" type="number" min="0" step="0.01" value="${p.semPreco?'':(p.preco||0)}"
+               placeholder="Em branco se ainda não tem preço"></div>
+    </div>
+    <p class="hint" style="margin-top:10px">
+      O código (${esc(p.sku)}) e a quantidade (${p.qtd}) não se editam aqui: código é identidade,
+      e quantidade é movimento.
+    </p>
+
+    <hr style="border:none;border-top:1px solid var(--line-soft);margin:18px 0">
+
+    <div class="chkrow" style="margin-bottom:10px">
+      <input type="checkbox" class="chk" id="pe-temvar" ${prodEdit.aberto?'checked':''}
+             onchange="prodToggleVar(this.checked)">
+      <label for="pe-temvar" style="font-size:13px;font-weight:600">Esta peça tem variações</label>
+    </div>
+
+    ${prodEdit.aberto?`
+      ${vars.length?`
+        <div class="listabox" style="margin-bottom:14px">
+          ${vars.map(v=>`<div class="varlinha" style="padding:9px 12px">
+            <div class="vl-nm">${esc(v.nome)}${v.valores&&v.valores.length
+              ?`<small>${v.valores.map(x=>esc(x.atributo)+': '+esc(x.valor)).join(' · ')}</small>`:''}</div>
+            <div class="vl-loja">aqui: ${v.saldo}${v.estoqueLoja==null?'':' · loja: '+v.estoqueLoja}</div>
+            ${v.daLoja?'':'<span class="vl-loja" style="color:var(--danger)">sem par na loja</span>'}
+          </div>`).join('')}
+        </div>
+        ${e.fonte==='loja'?`<p class="hint" style="margin-bottom:14px">
+          Estrutura lida da Nuvemshop. Mudar os atributos abaixo pode desfazer o vínculo de
+          alguma variação — se isso acontecer, o sistema avisa antes e pede confirmação.</p>`:''}`
+      :`<p class="hint" style="margin-bottom:14px">Esta peça ainda não tem variações registradas.</p>`}
+
+      <div id="prodAtrs">
+        ${prodEdit.atributos.map((a,i)=>`
+        <div class="atrbox">
+          <div class="ab-topo">
+            <input placeholder="Atributo — ex.: Cor" value="${esc(a.nome)}"
+                   oninput="prodAtrCampo(${i},'nome',this.value)">
+            <button class="btn btn-ghost btn-sm" onclick="prodAtrDel(${i})">Remover</button>
+          </div>
+          <input placeholder="Valores separados por vírgula — ex.: Rosa, Cristal, Dourado"
+                 value="${esc(a.valores)}" oninput="prodAtrCampo(${i},'valores',this.value)">
+        </div>`).join('')}
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="prodAtrAdd()">+ Adicionar atributo</button>
+      <div id="prodCombos"></div>
+      <div style="margin-top:12px">
+        <button class="btn btn-ghost btn-sm" onclick="prodSalvarVariacoes(false,this)">Salvar estrutura de variações</button>
+      </div>
+    `:`<p class="hint">Sem variações, o estoque desta peça é um número só.</p>`}
+
+    <div class="mfoot" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeProduto()">Fechar</button>
+      <div class="spacer"></div>
+      <button class="btn btn-gold" onclick="prodSalvarDados(this)">Salvar dados da peça</button>
+    </div>`;
+  if(prodEdit.aberto) renderPreviaCombinacoes();
+}
+
+async function prodSalvarDados(botao){
+  const desc=document.getElementById('pe-desc').value.trim();
+  const cat=document.getElementById('pe-cat').value;
+  const precoTxt=document.getElementById('pe-preco').value.trim();
+  if(!desc){ toast('A descrição não pode ficar vazia'); return; }
+  const antes=botao.textContent; botao.disabled=true; botao.textContent='Salvando…';
+  const sku=prodEdit.sku;
+  try{
+    await api('PATCH','/api/produtos/'+encodeURIComponent(sku),
+      {desc, cat, preco:precoTxt===''?null:num(precoTxt)});
+    closeProduto();
+    await sincronizar();
+    toast('Peça salva');
+  }catch(err){
+    toast(err.message||'Não deu certo');
+    botao.disabled=false; botao.textContent=antes;
+  }
+}
+
+/** Estrutura, nunca quantidade. O 409 com `precisaConfirmar: 'desvincular'`
+    não é erro: é o sistema anunciando o que decidiu não fazer sozinho
+    (§ regra 9). A pessoa lê quais variações perderiam o vínculo com a loja e
+    escolhe — perder vínculo em silêncio é como o estoque para de subir sem
+    ninguém notar. */
+async function prodSalvarVariacoes(desvincular,botao){
+  const r0=combinarAtributos(prodEdit.atributos);
+  if(!r0.atributos.length&&!confirm('Sem atributos, esta peça deixa de ter variações. O saldo que estiver preso em alguma delas volta para "sem variação". Continuar?')) return;
+  const antes=botao?botao.textContent:'';
+  if(botao){ botao.disabled=true; botao.textContent='Salvando…'; }
+  const sku=prodEdit.sku;
+  try{
+    const r=await api('PUT','/api/produtos/'+encodeURIComponent(sku)+'/variacoes',
+      {atributos:r0.atributos.map(a=>({nome:a.nome, valores:a.valores})), desvincular:!!desvincular});
+    if(r&&r.saldoDevolvido&&r.saldoDevolvido.length){
+      alert('Estrutura salva.\n\nO saldo de '
+        +r.saldoDevolvido.map(x=>'"'+x.nome+'" ('+x.saldo+')').join(', ')
+        +' voltou para "sem variação", porque essas variações deixaram de existir.');
+    }
+    toast(r0.combinacoes.length+' '+plural(r0.combinacoes.length,'variação salva','variações salvas'));
+    await Promise.all([sincronizar(), carregarPendencias()]);
+    await abrirProduto(sku);
+    return;
+  }catch(err){
+    const d=err.data||{};
+    if(d.precisaConfirmar==='desvincular'){
+      const nomes=(d.perdidas||[]).map(x=>x.nome).join(', ');
+      if(confirm(d.erro+'\n\n'+d.explicacao+'\n\nVariações que perderiam o vínculo: '+nomes+'\n\nDesvincular mesmo assim?')){
+        if(botao){ botao.disabled=false; botao.textContent=antes; }
+        return prodSalvarVariacoes(true,botao);
+      }
+    }else toast(err.message||'Não deu certo');
+  }
+  if(botao){ botao.disabled=false; botao.textContent=antes; }
+}
+
+/* =================== Excluir ou arquivar ===================
+   §28: quem tem histórico é arquivado, nunca apagado. Quem decide não é
+   preferência nem permissão — é `GET /api/produtos/:sku/dependencias`, que
+   pergunta ao banco se existe alguma linha em outro lugar que só faz sentido
+   por causa desta peça.
+
+   E o que nenhuma das duas faz: encostar na Nuvemshop. Excluir aqui é
+   faxina do nosso catálogo; sumir com o anúncio de alguém como efeito
+   colateral seria o tipo de estrago que só aparece quando uma cliente
+   reclama. A janela diz isso em voz alta quando a peça está na loja. */
+let delAlvo=null;
+
+async function abrirExcluir(sku){
+  delAlvo={sku, dep:null};
+  document.getElementById('delTitulo').textContent='Excluir · '+sku;
+  document.getElementById('delBody').innerHTML=
+    '<div class="empty"><h3>Conferindo…</h3><p>Perguntando ao banco o que depende desta peça.</p></div>';
+  document.getElementById('delOverlay').classList.add('show');
+  try{
+    const dep=await api('GET','/api/produtos/'+encodeURIComponent(sku)+'/dependencias');
+    if(!delAlvo||delAlvo.sku!==sku) return;
+    delAlvo.dep=dep;
+  }catch(e){
+    if(delAlvo) delAlvo.dep={erro:e.message};
+  }
+  if(delAlvo) renderExcluir();
+}
+function closeExcluir(){
+  document.getElementById('delOverlay').classList.remove('show');
+  delAlvo=null;
+}
+
+function renderExcluir(){
+  const d=delAlvo.dep||{};
+  const corpo=document.getElementById('delBody');
+  if(d.erro){
+    corpo.innerHTML=`<div class="warn"><div>${esc(d.erro)}</div></div>
+      <div class="mfoot" style="margin-top:16px"><div class="spacer"></div>
+      <button class="btn btn-ghost" onclick="closeExcluir()">Fechar</button></div>`;
+    return;
+  }
+  const lj=d.levaJunto||{};
+  const leva=[];
+  if(lj.movimentos) leva.push(`${lj.movimentos} ${plural(lj.movimentos,'movimento de estoque','movimentos de estoque')} desta peça`);
+  if(lj.variacoes) leva.push(`${lj.variacoes} ${plural(lj.variacoes,'variação registrada','variações registradas')}`);
+  if(lj.pendentes) leva.push(`${lj.pendentes} ${plural(lj.pendentes,'linha','linhas')} na fila de peças novas`);
+
+  const naLoja=d.naLoja?`<div class="warn info" style="margin-top:14px">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    <div>Esta peça existe na Nuvemshop. <b>Nada será excluído de lá.</b>
+    Se ela também precisa sair da loja, isso é feito no painel da Nuvemshop.</div></div>`:'';
+
+  if(d.podeExcluir){
+    corpo.innerHTML=`
+      <p style="font-size:13px">Apagar <b>${esc(d.desc||d.sku)}</b> (${esc(d.sku)}) de vez?</p>
+      <p class="hint" style="margin-top:8px">Esta peça não aparece em nenhuma venda, maleta,
+      contagem, kit nem reconciliação — apagá-la não deixa buraco em número nenhum.</p>
+      ${leva.length?`<ul class="deplista">${leva.map(x=>`<li class="leva">Vai junto: ${esc(x)}</li>`).join('')}</ul>`:''}
+      ${naLoja}
+      <div class="mfoot" style="margin-top:20px">
+        <button class="btn btn-ghost" onclick="closeExcluir()">Cancelar</button>
+        <div class="spacer"></div>
+        <button class="btn btn-danger" onclick="excluirDeVez(this)">Apagar de vez</button>
+      </div>`;
+    return;
+  }
+
+  const arquivada=d.status==='arquivado';
+  corpo.innerHTML=`
+    <p style="font-size:13px"><b>${esc(d.desc||d.sku)}</b> (${esc(d.sku)}) tem histórico e não pode ser apagada.</p>
+    <ul class="deplista">${(d.bloqueios||[]).map(b=>`<li>${esc(b.frase)}</li>`).join('')}</ul>
+    <p class="hint">Apagar levaria junto a explicação de números que continuam valendo — o
+    faturamento do mês, o acerto de uma revendedora, a diferença de uma contagem.
+    <b>Arquivar</b> tira a peça de circulação e da sincronização, e preserva tudo.</p>
+    ${d.qtd>0?`<div class="warn" style="margin-top:14px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+      <div>Ela ainda tem <b>${d.qtd}</b> ${plural(d.qtd,'peça','peças')} no estoque. Arquivar
+      <b>não</b> dá baixa: o saldo continua existindo, só sai de circulação.</div></div>`:''}
+    ${naLoja}
+    <div class="field" style="margin-top:14px"><label>Motivo (opcional)</label>
+      <input id="del-motivo" placeholder="Ex.: descontinuada pelo fornecedor" maxlength="120"></div>
+    <div class="mfoot" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeExcluir()">Cancelar</button>
+      <div class="spacer"></div>
+      ${arquivada
+        ? `<button class="btn btn-gold" onclick="desarquivarPeca(this)">Desarquivar</button>`
+        : `<button class="btn btn-gold" onclick="arquivarPeca(this)">Arquivar produto</button>`}
+    </div>`;
+}
+
+async function excluirDeVez(botao){
+  const d=delAlvo.dep;
+  if(!confirm('Apagar '+d.sku+' de vez? Isto não tem desfazer.')) return;
+  botao.disabled=true; botao.textContent='Apagando…';
+  try{
+    await api('DELETE','/api/produtos/'+encodeURIComponent(d.sku));
+    closeExcluir();
+    await Promise.all([sincronizar(), carregarPendencias()]);
+    toast(d.sku+' apagado');
+  }catch(e){
+    toast(e.message||'Não deu certo');
+    botao.disabled=false; botao.textContent='Apagar de vez';
+  }
+}
+
+async function arquivarPeca(botao){
+  const d=delAlvo.dep;
+  const campo=document.getElementById('del-motivo');
+  const motivo=campo?campo.value:'';
+  botao.disabled=true; botao.textContent='Arquivando…';
+  try{
+    const r=await api('POST','/api/produtos/'+encodeURIComponent(d.sku)+'/arquivar',{motivo});
+    closeExcluir();
+    await sincronizar();
+    toast(d.sku+' arquivado'+((r&&r.aviso)?' · '+r.aviso:''));
+  }catch(e){
+    toast(e.message||'Não deu certo');
+    botao.disabled=false; botao.textContent='Arquivar produto';
+  }
+}
+
+async function desarquivarPeca(botao){
+  const d=delAlvo.dep;
+  botao.disabled=true; botao.textContent='Desarquivando…';
+  try{
+    await api('POST','/api/produtos/'+encodeURIComponent(d.sku)+'/desarquivar',{});
+    closeExcluir();
+    await sincronizar();
+    toast(d.sku+' de volta');
+  }catch(e){
+    toast(e.message||'Não deu certo');
+    botao.disabled=false; botao.textContent='Desarquivar';
+  }
 }
 
 /* =================== Nuvemshop =================== */
@@ -4139,6 +4793,9 @@ function renderLoja(){
    É também a lista de trabalho do agente de catálogo: o que está pronto
    para publicar, e o que exatamente falta em quem não está. */
 let publicacao=null, fotosOrfas=[], carregandoPend=false, filtroPend='prontos';
+/* O que a sincronização decidiu NÃO escrever, e por quê. Vem de
+   GET /api/variacoes/revisao — leitura pura, não conserta nada. */
+let revisaoVar=null;
 
 const LISTAS_PUB={
   prontos:{rot:'Prontos para subir', vazio:'Nenhuma peça está com tudo pronto ainda.'},
@@ -4156,11 +4813,15 @@ async function carregarPendencias(){
   if(state.catalogo&&state.catalogo.migrado===false){ renderPendencias(); return; }
   carregandoPend=true;
   try{
-    const [pub,orf]=await Promise.all([
+    /* A revisão de variações não pode derrubar a tela inteira: ela depende
+       de `loja_variantes`, que só existe depois da migração das variantes.
+       Banco sem ela devolve erro — e o resto das pendências continua útil. */
+    const [pub,orf,rev]=await Promise.all([
       api('GET','/api/catalogo/publicacao'),
       api('GET','/api/fotos/orfas'),
+      api('GET','/api/variacoes/revisao').catch(()=>null),
     ]);
-    publicacao=pub; fotosOrfas=orf.fotos||[];
+    publicacao=pub; fotosOrfas=orf.fotos||[]; revisaoVar=rev;
     /* Abre na primeira lista que tem alguma coisa. Cair numa lista vazia
        faz a tela parecer que não há nada a fazer justamente quando há. */
     if(!(publicacao[filtroPend]||[]).length){
@@ -4242,6 +4903,228 @@ async function adotarFoto(id,input){
   }catch(e){ toast(e.message); }
 }
 
+/* =================== Distribuir as variações ===================
+   A tela que tira um código de `sem_reparticao`, e a razão de ela existir é
+   uma recusa: a sincronização sabe QUANTAS peças o código tem, sabe que a
+   loja vende esse código em três variações, e não sabe quantas de cada. Ela
+   para. Chutar aqui não é um erro de arredondamento — é anunciar aro 17
+   quando o que sobrou é aro 19, e a venda acontece antes de alguém notar.
+
+   Por isso esta tela não propõe número nenhum. Ela mostra os dois totais
+   lado a lado, uma linha por variação REAL da loja, e espera. O botão "usar
+   as quantidades da loja" só PREENCHE o formulário: a loja é um palpite bom,
+   não uma resposta, e quem responde é quem está olhando a gaveta.
+
+   O que viaja em cada linha é o `variant_id`, nunca o nome. A tela fala
+   "Rosa · n° 17" porque é isso que se lê numa peça; o id fica no `data-` e
+   não aparece. A loja pode renomear a variação amanhã sem quebrar nada.
+
+   A soma tem de fechar EXATAMENTE com o estoque total. Não é preciosismo:
+   repartir e corrigir o total são atos diferentes (§19). Se sobra ou falta
+   peça, o total é que está errado — e conserta-se o total, não a divisão. */
+
+/* Só `sem_reparticao` tem formulário. Os outros são recusas que se resolvem
+   em outro lugar, e a tela diz onde em vez de fingir que resolve aqui.
+   (Nome próprio: `MOTIVO_TXT` já existe, e é do dicionário de motivos da
+   importação — outra lista, outros motivos.) */
+const MOTIVO_VAR={
+  sem_reparticao:'Falta dizer quantas de cada',
+  maleta:'Tem peça em maleta aberta',
+  duplicado:'O mesmo código em dois produtos da loja',
+  variacao_nao_mapeada:'Variação daqui sem par na loja',
+  sem_variante_id:'Variação sem identidade da loja',
+};
+
+function distFoto(item){
+  const p=prodIndex().get(normSku(item.sku));
+  const url=(p&&fotoUrlDe(p))||(item.variantes.find(v=>v.imagemUrl)||{}).imagemUrl||'';
+  return url
+    ? `<img class="dc-foto" src="${esc(fotoMiniUrl(url))}" alt="" onerror="fotoFalhou(this)">`
+    : `<div class="dc-foto vazia">sem foto</div>`;
+}
+
+/** "Cor: Rosa · Tamanho: n° 17" — os atributos reais da loja, com o nome
+    deles. Sem `valores` (loja antiga, ou variação criada aqui), sobra o
+    nome da variação, que já é o que a pessoa lê na peça. */
+function distAtributos(v){
+  const vals=v.valores||[];
+  if(!vals.length) return '';
+  return vals.map(x=>`${esc(x.atributo)}: ${esc(x.valor)}`).join(' · ');
+}
+
+function distSomar(i){
+  const item=revisaoVar&&revisaoVar.itens[i];
+  if(!item) return;
+  let soma=0;
+  item.variantes.forEach((v,j)=>{
+    const el=document.getElementById(`dist-${i}-${j}`);
+    soma+=Math.max(0,int(el?el.value:0));
+  });
+  const barra=document.getElementById(`dist-soma-${i}`);
+  const btn=document.getElementById(`dist-salvar-${i}`);
+  if(!barra) return;
+  const falta=item.total-soma;
+  const fecha=falta===0;
+  barra.className='dc-soma '+(fecha?'fecha':'naofecha');
+  barra.innerHTML=fecha
+    ? `<span>Soma <b>${soma}</b> de <b>${item.total}</b> — fecha certinho.</span>`
+    : `<span>Soma <b>${soma}</b> de <b>${item.total}</b> — ${falta>0
+        ? `${plural(falta,'falta','faltam')} ${Math.abs(falta)}`
+        : `${plural(-falta,'sobra','sobram')} ${Math.abs(falta)}`}.</span>`;
+  if(btn) btn.disabled=!fecha;
+}
+
+/** Preenche com o que a loja tem hoje. NÃO salva: o botão existe porque
+    redigitar dez números que já estão certos convida ao erro de digitação,
+    não porque a loja seja a fonte da verdade do físico (§ regra 4). */
+function distUsarLoja(i){
+  const item=revisaoVar&&revisaoVar.itens[i];
+  if(!item) return;
+  item.variantes.forEach((v,j)=>{
+    const el=document.getElementById(`dist-${i}-${j}`);
+    if(el) el.value=v.estoque==null?0:v.estoque;
+  });
+  distSomar(i);
+  toast('Preenchido com os números da loja. Confira e confirme — nada foi salvo.');
+}
+
+function distLimpar(i){
+  const item=revisaoVar&&revisaoVar.itens[i];
+  if(!item) return;
+  item.variantes.forEach((v,j)=>{
+    const el=document.getElementById(`dist-${i}-${j}`);
+    if(el) el.value='';
+  });
+  distSomar(i);
+}
+
+async function distSalvar(i,botao){
+  const item=revisaoVar&&revisaoVar.itens[i];
+  if(!item) return;
+  const distribuicao=item.variantes.map((v,j)=>({
+    varianteId:v.varianteId,
+    qtd:Math.max(0,int((document.getElementById(`dist-${i}-${j}`)||{}).value)),
+  }));
+  const soma=distribuicao.reduce((s,d)=>s+d.qtd,0);
+  /* A mesma conta do backend, feita aqui de novo. Não é redundância: o botão
+     desabilitado some se alguém mexer no HTML, e o servidor é quem recusa. */
+  if(soma!==item.total){
+    toast(`A soma dá ${soma} e o estoque de ${item.sku} é ${item.total}.`);
+    return;
+  }
+  const linhas=item.variantes
+    .map((v,j)=>`  ${v.nome}: ${distribuicao[j].qtd}`).join('\n');
+  if(!confirm(`Confirmar a divisão de ${item.sku}?\n\n${linhas}\n\nTotal: ${soma} de ${item.total}.\n\n`
+    +`Isto grava aqui e libera a sincronização. Nada é escrito na Nuvemshop agora.`)) return;
+
+  const antes=botao?botao.textContent:'';
+  if(botao){ botao.disabled=true; botao.textContent='Salvando…'; }
+  try{
+    const r=await api('POST',`/api/produtos/${encodeURIComponent(item.sku)}/variacoes/distribuir`,{distribuicao});
+    if(r&&r.orfaosDevolvidos&&r.orfaosDevolvidos.length){
+      const nomes=r.orfaosDevolvidos.map(o=>`"${o.nome}" (${o.saldo})`).join(', ');
+      alert(`Guardei a divisão de ${item.sku}.\n\n`
+        +`Aviso: ${nomes} não ${plural(r.orfaosDevolvidos.length,'existe','existem')} mais na loja. `
+        +`Esse saldo voltou para "sem variação" em vez de sumir.`);
+    }
+    await Promise.all([sincronizar(), carregarPendencias()]);
+    toast(`${item.sku} distribuído`);
+  }catch(e){
+    toast(e.message||'Não deu certo');
+    if(botao){ botao.disabled=false; botao.textContent=antes; }
+  }
+}
+
+function painelRevisaoVariacoes(){
+  if(!revisaoVar||!revisaoVar.total) return '';
+  const itens=revisaoVar.itens||[];
+  const distribuiveis=itens.filter(x=>x.motivo==='sem_reparticao');
+  const outros=itens.filter(x=>x.motivo!=='sem_reparticao');
+
+  const cartao=(item,i)=>`
+    <div class="distcard">
+      <div class="dc-topo">
+        ${distFoto(item)}
+        <div class="dc-id">
+          <b>${esc(item.desc||item.sku)}</b>
+          <small>${esc(item.sku)}</small>
+        </div>
+      </div>
+      <div class="dc-nums">
+        <div class="dc-num"><b>${item.total}</b>no seu estoque</div>
+        <div class="dc-num"><b>${item.somaLoja}</b>na Nuvemshop hoje</div>
+        <div class="dc-num"><b>${item.variantes.length}</b>${plural(item.variantes.length,'variação','variações')}</div>
+      </div>
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:10px">
+        Distribua as ${item.total} ${plural(item.total,'unidade','unidades')} entre as variações abaixo.
+      </p>
+      <div>
+        ${item.variantes.map((v,j)=>`
+        <div class="varlinha">
+          <div class="vl-nm">${esc(v.nome)}${(()=>{const a=distAtributos(v);return a?`<small>${a}</small>`:'';})()}</div>
+          <div class="vl-loja">loja: ${v.estoque==null?'—':v.estoque}</div>
+          <input id="dist-${i}-${j}" type="number" min="0" inputmode="numeric" placeholder="0"
+                 data-variante="${esc(v.varianteId)}" oninput="distSomar(${i})"
+                 aria-label="Quantidade de ${esc(v.nome)}">
+        </div>`).join('')}
+      </div>
+      <div class="dc-soma naofecha" id="dist-soma-${i}">
+        <span>Soma <b>0</b> de <b>${item.total}</b> — ${plural(item.total,'falta','faltam')} ${item.total}.</span>
+      </div>
+      <div class="actbar" style="margin-top:12px">
+        <button class="btn btn-ghost btn-sm" onclick="distUsarLoja(${i})"
+                title="Só preenche o formulário com os números da loja — não salva">
+          Usar quantidades atuais da loja</button>
+        <button class="btn btn-ghost btn-sm" onclick="distLimpar(${i})">Limpar</button>
+        <div class="spacer"></div>
+        <button class="btn btn-gold btn-sm" id="dist-salvar-${i}" disabled
+                onclick="distSalvar(${i},this)">Salvar divisão</button>
+      </div>
+    </div>`;
+
+  const informativo=(item)=>`
+    <div class="distcard">
+      <div class="dc-topo">
+        ${distFoto(item)}
+        <div class="dc-id">
+          <b>${esc(item.desc||item.sku)}</b>
+          <small>${esc(item.sku)} · ${esc(MOTIVO_VAR[item.motivo]||item.motivo)}</small>
+        </div>
+      </div>
+      <div class="dc-nums">
+        <div class="dc-num"><b>${item.total}</b>no seu estoque</div>
+        <div class="dc-num"><b>${item.somaLoja}</b>na Nuvemshop hoje</div>
+      </div>
+      <p style="font-size:12.5px;color:var(--muted)">${esc(item.explicacao||'')}</p>
+    </div>`;
+
+  return `
+    <div class="panel" style="margin-bottom:22px">
+      <div class="head">
+        <h2>Variações esperando você dizer quantas de cada</h2>
+        <span class="hint">Enquanto não fecha, a sincronização não escreve o estoque desses códigos na loja</span>
+      </div>
+      <div class="body">
+        ${distribuiveis.length?`
+          <div class="warn info" style="margin-bottom:14px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            <div>O sistema sabe quantas peças existem, mas não sabe quantas são de cada
+            cor ou tamanho — e não vai adivinhar. Preencha olhando as peças.</div>
+          </div>
+          ${distribuiveis.map((item,k)=>cartao(item,itens.indexOf(item))).join('')}`
+        :`<div class="empty"><h3>Nada para distribuir</h3>
+            <p>Nenhum código está esperando a divisão entre variações.</p></div>`}
+
+        ${outros.length?`
+          <h3 style="font-size:13px;margin:18px 0 10px;color:var(--bordo)">
+            Travados por outro motivo (${outros.length})</h3>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+            Estes não se resolvem aqui — a divisão não é o que falta neles.</p>
+          ${outros.map(informativo).join('')}`:''}
+      </div>
+    </div>`;
+}
+
 function renderPendencias(){
   const v=document.getElementById('view-pendencias');
   const pendentes=(state.catalogo&&state.catalogo.pendentes)||0;
@@ -4309,6 +5192,8 @@ function renderPendencias(){
       o que estiver certo entra de uma vez, e só a exceção pede revisão.
       <div class="w-act"><button class="btn btn-gold btn-sm" onclick="abrirNovas('fila')">Revisar produtos novos</button></div></div>
     </div>`:''}
+
+    ${painelRevisaoVariacoes()}
 
     ${inc.length?`<div class="warn">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
@@ -4438,6 +5323,9 @@ function renderRev(id){
             <div class="spacer"></div>
             <button class="btn btn-ghost btn-sm" onclick="printAnexo(${m.id})">Imprimir Anexo I</button>
             <button class="btn btn-ghost btn-sm" onclick="openScan('add',${m.id})">+ Bipar peças</button>
+            <button class="btn btn-ghost btn-sm" onclick="openImport('rev:${r.id}')"
+                    title="Lê um Anexo I ou tabela de peças e joga na maleta desta revendedora">
+              Importar planilha</button>
             <button class="btn btn-print btn-sm" onclick="openAcerto(${m.id})">Fazer acerto</button>
           </div>
           <div style="font-size:11.5px;color:var(--muted);margin:-6px 0 14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
@@ -4464,8 +5352,14 @@ function renderRev(id){
         `:`
           <div class="empty">
             <h3>Sem maleta aberta</h3>
-            <p>Monte a maleta bipando as etiquetas das peças, uma a uma.</p>
-            <button class="btn btn-gold" style="margin-top:16px" onclick="novaMaleta(${r.id})">Montar maleta</button>
+            <p>Monte a maleta bipando as etiquetas das peças, uma a uma — ou traga a lista
+            de uma planilha, se ela já existe em algum lugar.</p>
+            <div style="margin-top:16px;display:flex;gap:9px;justify-content:center;flex-wrap:wrap">
+              <button class="btn btn-gold" onclick="novaMaleta(${r.id})">Montar maleta</button>
+              <button class="btn btn-ghost" onclick="openImport('rev:${r.id}')"
+                      title="Lê um Anexo I ou tabela de peças e abre a maleta desta revendedora com elas">
+                Importar planilha / Montar maleta</button>
+            </div>
           </div>
         `}
       </div>
@@ -5597,8 +6491,23 @@ let impWb=null, impDetect=[];
    reaproveitá-lo na FASE 4 em vez de ser reescrito. */
 let impContexto='estoque';
 
+/* Três contextos para a mesma janela, e é a mesma janela de propósito: ler
+   planilha, mapear aba, mostrar antes de aplicar é o mesmo trabalho nas três
+   vezes. O que muda é o que a planilha SIGNIFICA, e é isso que o contexto
+   decide — em vez de perguntar à pessoa.
+
+     'estoque'   → a planilha é o estoque total da Marquesa
+     'loja'      → é o export da própria Nuvemshop
+     'rev:<id>'  → é a maleta DAQUELA revendedora
+
+   O terceiro nasceu de uma remoção: montar maleta por planilha saiu de
+   "Importar Estoque Total", onde era uma opção no meio de outras e uma
+   escolha errada estragava estoque. Ele foi para dentro da revendedora, que
+   é onde a pessoa já está quando pensa nisso. A FASE 4 substitui este
+   ponto de entrada pelo fluxo completo do Anexo I. */
 function openImport(contexto){
-  impContexto = contexto === 'loja' ? 'loja' : 'estoque';
+  impContexto = (contexto === 'loja' || /^rev:\d+$/.test(String(contexto||'')))
+    ? contexto : 'estoque';
   document.getElementById('impStep1').style.display='';
   document.getElementById('impStep2').style.display='none';
   document.getElementById('impStep3').style.display='none';
@@ -5664,9 +6573,29 @@ function detectar(){
      Revendedoras precisar do seletor de volta ele está inteiro.
 
      O que a pessoa vê no lugar é o papel de cada aba, escrito. */
-  const soEstoque = impContexto !== 'loja';
+  const idRev = /^rev:\d+$/.test(impContexto) ? +impContexto.split(':')[1] : null;
+  const rev = idRev ? state.revendedoras.find(r=>r.id===idRev) : null;
+  const soEstoque = !idRev && impContexto !== 'loja';
 
   box.innerHTML=impDetect.map((d,i)=>{
+    /* Dentro da revendedora, o destino não é escolha: é a maleta DELA. O
+       catálogo fica de fora aqui de propósito — trazer estoque total por
+       dentro da tela de uma revendedora seria a mesma confusão que a
+       remoção do seletor acabou de desfazer. */
+    if(idRev){
+      const vaiEntrar = d.tipo==='maleta'||d.tipo==='revendedoras';
+      return `
+      <div class="sheetrow">
+        <div class="sr-nm">${esc(d.nome)}<small>${esc(d.resumo)}</small></div>
+        <div class="sr-papel ${vaiEntrar?'entra':'fora'}">
+          ${vaiEntrar?`Maleta de ${esc(rev?rev.nome:'')}`:'Não vai ser usada'}
+        </div>
+        <select id="impAlvo${i}" style="display:none">
+          <option value="rev:${idRev}" ${vaiEntrar?'selected':''}>maleta</option>
+          <option value="ignorar" ${vaiEntrar?'':'selected'}>ignorar</option>
+        </select>
+      </div>`;
+    }
     if(soEstoque){
       const vaiEntrar = d.tipo==='catalogo';
       return `
@@ -5696,6 +6625,15 @@ function detectar(){
     </div>`;
   }).join('');
 
+  if(idRev){
+    box.insertAdjacentHTML('afterbegin', `
+      <div class="warn info" style="margin-bottom:14px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <div>As peças desta planilha vão para a <b>maleta de ${esc(rev?rev.nome:'')}</b>.
+        Nenhum estoque total é alterado aqui — consignar move peça de casa para a rua,
+        e o total continua o mesmo.</div>
+      </div>`);
+  }
   if(soEstoque){
     box.insertAdjacentHTML('afterbegin', `
       <div class="warn info" style="margin-bottom:14px">
@@ -5706,7 +6644,10 @@ function detectar(){
   }
 
   const avisos=[];
-  if(!impDetect.some(d=>d.tipo==='catalogo')&&!state.produtos.length)
+  if(idRev&&!impDetect.some(d=>d.tipo==='maleta'||d.tipo==='revendedoras'))
+    avisos.push('Nenhuma aba deste arquivo parece ser uma maleta. Use o <b>Anexo I</b> '
+      +'ou uma tabela com código, descrição e valor por peça.');
+  if(!idRev&&!impDetect.some(d=>d.tipo==='catalogo')&&!state.produtos.length)
     avisos.push('Nenhuma aba parece ser o catálogo. Importe primeiro a planilha com a aba <b>Estoque</b>, senão as maletas não terão descrição nem preço.');
   const w=document.getElementById('impWarn');
   if(avisos.length){w.style.display='';w.innerHTML='<div>'+avisos.join('<br>')+'</div>';}
@@ -6452,6 +7393,12 @@ async function cadastrarNovas(soSelecionados){
     +`Elas entram com o estoque informado na planilha. Nenhum cadastro existente é alterado.`)) return;
   try{
     const r=await api('POST','/api/produtos/novos/cadastrar',{produtos:lista});
+    /* Cadastro manual com variações: a estrutura e a divisão são aplicadas
+       sobre o código que acabou de existir, pelas mesmas rotas da tela de
+       Pendências. Antes de `sincronizar`, para o painel já abrir com a
+       divisão feita em vez de mostrar a peça como pendente por um instante. */
+    if(cadPendente&&lista.some(p=>p.sku===cadPendente.sku)) await aplicarVariacoesDoCadastro();
+    else cadPendente=null;
     await sincronizar();
     const notas=[];
     (r.avisos||[]).slice(0,6).forEach(av=>{
@@ -6832,6 +7779,31 @@ window.Etq=(function(){
     gravar(); renderTudo(); toast('Peça removida');
   }
 
+  /* Exclusão múltipla usando a MESMA marcação da impressão. A decisão é da
+     operação: uma segunda coluna de seleção ao lado da primeira seria a
+     pergunta "qual dessas caixinhas é a certa?" em toda linha.
+
+     O risco de reusar a marcação é real — quem marcou 30 peças para
+     imprimir pode ler "Excluir selecionadas (30)" como "limpar a fila". Por
+     isso a confirmação diz o número, diz que são cadastros de ETIQUETA, e
+     diz em voz alta o que ela NÃO faz: nada aqui encosta em estoque, que
+     mora no D1 e não neste navegador. */
+  function apagarSelecionadas(){
+    const sel=naFila();
+    if(!sel.length){ toast('Nenhuma peça marcada'); return; }
+    const amostra=sel.slice(0,5).map(p=>'• '+p.desc).join('\n')
+      +(sel.length>5?'\n• … e mais '+(sel.length-5):'');
+    if(!confirm('Excluir '+sel.length+' '+(sel.length===1?'peça':'peças')+' do cadastro de etiquetas?\n\n'
+      +amostra+'\n\n'
+      +'Isto apaga só o cadastro de etiqueta destas peças. O estoque, as vendas e as maletas '
+      +'não são tocados — eles não moram aqui.')) return;
+    const ids=new Set(sel.map(p=>p.id));
+    st.products=st.products.filter(p=>!ids.has(p.id));
+    const m=$('etq-master'); if(m) m.checked=false;
+    gravar(); renderTudo();
+    toast(sel.length+' '+(sel.length===1?'etiqueta excluída':'etiquetas excluídas'));
+  }
+
   /* =================== Lista =================== */
   function filtradas(){
     const q=busca.trim().toLowerCase();
@@ -6913,6 +7885,13 @@ window.Etq=(function(){
     set('etq-selEtiquetas',total);
     set('etq-usoFolha',Math.min(total,PER_SHEET));
     set('etq-folhas',Math.max(1,Math.ceil(total/PER_SHEET))||0);
+    /* O botão de excluir aparece só quando existe seleção — e desaparece
+       quando ela zera, para não ficar um "(0)" convidando ao clique. */
+    const bx=$('etq-btnExcluirSel');
+    if(bx){
+      bx.style.display=inq.length?'':'none';
+      bx.textContent='Excluir selecionadas ('+inq.length+')';
+    }
     renderTabs();   /* o selo da subaba Impressão conta a fila */
   }
 
@@ -7334,6 +8313,10 @@ window.Etq=(function(){
                 <input id="etq-busca" placeholder="Buscar por descrição ou SKU…" oninput="Etq.buscar(this.value)">
               </div>
               <button class="btn btn-ghost btn-sm" onclick="Etq.marcarVisiveis()">Marcar todas</button>
+              <button class="btn btn-danger btn-sm" id="etq-btnExcluirSel" style="display:none"
+                      onclick="Etq.apagarSelecionadas()"
+                      title="Apaga o cadastro de etiqueta das peças marcadas. Não mexe em estoque.">
+                Excluir selecionadas (0)</button>
               <button class="btn btn-ghost btn-sm" onclick="Etq.abrirImport()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:-2px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                 Importar planilha
@@ -7419,7 +8402,7 @@ window.Etq=(function(){
   window.addEventListener('afterprint',recolherFolha);
 
   return {
-    entrar, salvarPeca, limparForm, editar, apagar, buscar, setQtd, marcar,
+    entrar, salvarPeca, limparForm, editar, apagar, apagarSelecionadas, buscar, setQtd, marcar,
     marcarTodasCb, marcarVisiveis, irParaImpressao, imprimir, gerarPDF,
     abrirImport, fecharImport, voltarUpload, lerArquivo, renderMapeamento,
     renderPrevia, importar, baixarModelo,

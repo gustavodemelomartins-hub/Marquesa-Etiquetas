@@ -36,14 +36,15 @@ git log --oneline -10
 Banco limpo e Worker local recém-subido, **um teste por vez**:
 
 ```bash
-node src/sync-test.mjs        # esperado: 67 ok, 0 falhas
-node src/variacoes-test.mjs   # esperado: 48 ok, 0 falhas
-node src/kits-test.mjs        # esperado: 20 ok, 0 falhas
-node src/e2e.mjs              # esperado: 66 ok, 0 falhas
-node src/import-total-test.mjs # esperado: 14 ok, 0 falhas
+node src/sync-test.mjs         # esperado: 67 ok, 0 falhas
+node src/variacoes-test.mjs    # esperado: 58 ok, 0 falhas
+node src/kits-test.mjs         # esperado: 20 ok, 0 falhas
+node src/e2e.mjs               # esperado: 74 ok, 0 falhas
+node src/import-total-test.mjs # esperado: 13 ok, 0 falhas
+node src/fase2-telas-test.mjs  # esperado: 100 ok, 0 falhas
 ```
 
-- [ ] Os cinco passam: **209 asserções, 0 falhas**.
+- [ ] Os seis passam: **332 asserções, 0 falhas**.
 - [ ] O resultado bate com [docs/BASELINE.md](../../../docs/BASELINE.md).
       Queda em relação ao baseline é regressão.
 - [ ] O `e2e` rodou de verdade. É o único teste que prova que interface e

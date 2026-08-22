@@ -49,5 +49,6 @@ estoque. Não reordene para trás.
 | `frontend/src/**` | `cd frontend && npm test && npm run build` (o build já roda `tsc --noEmit`) |
 | `src/dashboard.tpl.html` | `python src/build.py` + `git diff --stat --ignore-cr-at-eol dashboard.html` |
 | Tela que tem teste de navegador | a skill `ui-verification` (Playwright), não inspeção humana |
+| Pendências, cadastro, lixeira da peça, etiquetas | `node src/fase2-telas-test.mjs` (as 18 provas da FASE 2) |
 
 Detalhe de arquitetura: [docs/FRONTEND_ARCHITECTURE.md](../../docs/FRONTEND_ARCHITECTURE.md).
