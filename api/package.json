@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "inventario:golive": "node tools/inventario-golive.mjs",
+    "inventario:golive:test": "node tools/inventario-golive.mjs --self-test",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
