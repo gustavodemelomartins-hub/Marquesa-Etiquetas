@@ -39,17 +39,35 @@ ORIGENS_PERMITIDAS = "https://gustavodemelomartins-hub.github.io"
 # Não é segredo — não autoriza nada sozinha, só destrava o método HTTP.
 NUVEMSHOP_WRITES_ENABLED = "true"
 
-# Sincronização automática com a Nuvemshop. 06:00 e 18:00 no horário de
-# Brasília (o cron da Cloudflare é sempre UTC, que está 3 horas à frente).
+# Sincronização automática com a Nuvemshop.
 #
-# Duas vezes por dia, e não de hora em hora, de propósito: cada rodada lê a
-# loja inteira, e o ganho de rodar mais vezes não paga o gasto. Quando ela
-# quiser o número na hora, o botão "sincronizar agora" no painel resolve.
+# DESLIGADA EM 2026-08-22, na Fase 0 do go-live. Autorizado explicitamente.
+# Ver docs/PLANO-MESTRE-MARQUESA.md § 7.3 Fase 0 e § Risco R1.
 #
-# Não faz nada enquanto NUVEMSHOP_TOKEN e NUVEMSHOP_STORE_ID não existirem
-# como Secrets — a rodada termina avisando que a loja não está conectada.
+# O motivo: enquanto a operação real acontece no ambiente DEV, este Worker
+# ficou com um catálogo que não sabe de nenhuma venda feita lá. O cron faz
+# duas coisas em sequência — puxa pedidos do site e EMPURRA o estoque daqui
+# para a loja. Rodando sobre dado velho, ele reescreve o estoque da loja da
+# Nuvemshop duas vezes por dia com números que já não valem. O freio de
+# segurança (syncLimiteMudancas/syncLimiteZerar) provavelmente vinha barrando
+# isso — mas "provavelmente" não é padrão aceitável quando o efeito é tirar
+# peça do ar.
+#
+# `crons = []` é a forma EXPLÍCITA de desarmar: apagar o bloco inteiro faria
+# o deploy deixar como está o que já existe na Cloudflare, e o cron voltaria
+# sozinho. Lista vazia remove. É a mesma forma usada em [env.staging.triggers].
+#
+# ⚠️ Desligar pelo painel da Cloudflare NÃO basta sozinho: o `wrangler deploy`
+# trata este arquivo como fonte da verdade, e um deploy futuro com a linha
+# antiga rearmaria o cron em silêncio — inclusive o deploy do próprio corte.
+# Por isso a decisão mora aqui, versionada, e não só no painel.
+#
+# QUANDO RELIGAR: só depois do corte, com a produção nova validada e uma
+# rodada seca (POST /api/sync {"seco": true}) mostrando um relatório limpo.
+# É o passo 10 do plano. A linha de antes, para repor sem reescrever:
+#     crons = ["0 9,21 * * *"]     # 06:00 e 18:00 de Brasília (UTC−3)
 [triggers]
-crons = ["0 9,21 * * *"]
+crons = []
 
 # ------------------------------------------------------------- ambiente DEV
 # Worker separado, D1 separado, R2 separado, sem cron, sem credencial da

@@ -369,18 +369,59 @@ criá-lo e povoá-lo a partir de `marquesa-fotos-dev` não sobrescreve nada.
 Cada fase termina num ponto verificável. Nenhuma fase começa antes de a
 anterior ter passado.
 
-#### Fase 0 — parar o sangramento (antes de qualquer outra coisa)  ⬜
+#### Fase 0 — parar o sangramento  🟡 (autorizada 2026-08-22)
 
-Objetivo: impedir que o ambiente de produção antigo escreva na loja da
-Nuvemshop com dados velhos enquanto o corte acontece.
+Objetivo: impedir que o Worker de produção escreva na loja da Nuvemshop com
+dados velhos enquanto o corte acontece. **Autorizada explicitamente, com o
+escopo restrito ao cron — sem tocar em banco, R2, Secrets, `API_KEY`,
+migrations, dados ou deploy.**
 
-1. Ler `sync_execucoes` de `marquesa-db` e descobrir o que o cron vem fazendo.
-2. **Desligar o cron de produção** — `crons = []` em `[triggers]` do
-   `wrangler.toml` + `wrangler deploy`, ou desativar o Cron Trigger pelo
-   painel da Cloudflare (mais rápido e reversível, e não exige deploy).
-3. Confirmar pelo painel que não há mais trigger agendado.
+Desarmar o cron tem duas metades, e as duas são necessárias:
 
-Reversível a qualquer momento. Nada de dado é tocado.
+**a) No repositório — feito ✅.** `api/wrangler.toml`, bloco de produção,
+passou a declarar `crons = []`, com o motivo, a forma de repor e a data.
+
+Isso **não desliga nada sozinho**: só passa a valer no próximo
+`wrangler deploy`. Mas sem essa metade, o deploy do próprio corte (Fase 5)
+**rearmaria o cron em silêncio** — o `wrangler deploy` trata o
+`wrangler.toml` como fonte da verdade e reescreve os triggers a partir dele.
+Era a armadilha mais provável deste plano inteiro.
+
+`crons = []` (lista vazia) é a forma explícita de remover. Apagar o bloco
+`[triggers]` deixaria o que já existe na Cloudflare como está.
+
+**b) Na Cloudflare — pendente ⬜, precisa de quem tem acesso à conta.**
+Sem deploy, pelo painel:
+
+```
+Cloudflare → Workers & Pages → marquesa-api → Settings → Triggers
+→ Cron Triggers → remover "0 9,21 * * *"
+```
+
+Alternativa por API, se preferir linha de comando (também não é deploy de
+código — só troca a agenda):
+
+```bash
+curl -X PUT \
+  "https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/workers/scripts/marquesa-api/schedules" \
+  -H "Authorization: Bearer <TOKEN com Workers Scripts:Edit>" \
+  -H "Content-Type: application/json" \
+  --data '[]'
+```
+
+**Como confirmar que acabou** (qualquer um dos três serve, e o primeiro é o
+mais direto):
+
+- painel → `marquesa-api` → Settings → Triggers: a seção **Cron Triggers**
+  fica vazia, sem `0 9,21 * * *`;
+- `npx wrangler triggers list marquesa-api` (ou a aba **Cron Events** do
+  Worker) não lista agendamento nenhum;
+- **a prova que não depende de leitura de tela:** passada a próxima janela
+  das 06h ou 18h, nenhuma linha nova aparece em `sync_execucoes`. É o
+  primeiro item do inventário da Fase 1, e é o que fecha esta fase.
+
+Reversível a qualquer momento: repor a agenda pelo painel, ou a linha
+comentada no `wrangler.toml` mais um deploy.
 
 #### Fase 1 — inventário e diferença entre as duas bases  ⬜
 
@@ -398,6 +439,21 @@ Tudo somente leitura.
    (`SELECT name FROM sqlite_master WHERE type='table'` + `PRAGMA table_info`).
 5. Conferir maletas `aberta`/`em_acerto` no DEV — peça consignada de verdade.
 6. Volume do `marquesa-fotos-dev`.
+
+**Ferramenta pronta ✅ — `api/tools/inventario-golive.sh`.** Faz os seis
+passos acima de uma vez, nos dois bancos, e escreve em
+`backups/golive/<carimbo>_inventario/`: um `RELATORIO.txt` legível e os JSON
+brutos de cada consulta. Prova os dois uuids antes de ler qualquer coisa, e
+**toda consulta é `SELECT`** — nenhuma escrita, em nenhum dos dois lados.
+
+O diff das vendas do site é `api/tools/diff-vendas-site.mjs`, chamado pelo
+script e também usável sozinho. Ele sai com código diferente de zero quando
+existe algo que precisa de decisão humana — venda só em produção, ou o mesmo
+pedido com dados diferentes dos dois lados.
+
+```bash
+cd api && bash tools/inventario-golive.sh
+```
 
 **Saída desta fase:** uma tabela de contagens antes/depois esperadas, que vira
 o critério de aceitação da Fase 4. Sem ela não dá para provar que a cópia
@@ -528,23 +584,49 @@ Quando for a hora, e com autorização explícita:
 revendedoras — e ele passa a ser executado **com o backup do go-live guardado
 em outro lugar**.
 
-### 7.4 Decisão pendente: onde mora o frontend de produção  🔴
+### 7.4 Frontend de produção — DECIDIDO  ✅
 
-Duas opções, e a escolha muda comandos e CORS. **Precisa de decisão humana.**
+**2026-08-22 — o frontend oficial continua sendo o GitHub Pages atual:**
 
-| | Opção | A favor | Contra |
-|---|---|---|---|
-| **A** | Manter GitHub Pages (`gustavodemelomartins-hub.github.io/Marquesa-Etiquetas/`), servido por `main` | Já existe, já funciona, zero infraestrutura nova. O endereço dela não muda. | Repositório público servindo o painel. Deploy é o push em `main`, sem os testes que o `deploy-dev.yml` roda. |
-| **B** | Criar um Pages novo (`marquesa.pages.dev` está ocupado por terceiros — usar `marquesa-app` ou domínio próprio), publicado por workflow espelho do `deploy-dev.yml` a partir de `main` | Simetria com o DEV: mesmos testes, mesmo mecanismo, mesmo build. Independe do GitHub Pages. | Endereço novo para ela salvar. Um projeto Pages a mais para manter. |
+```
+https://gustavodemelomartins-hub.github.io/Marquesa-Etiquetas/
+```
 
-Recomendação: **B**, porque hoje o único caminho de deploy com testes é o do
-DEV, e produção merece pelo menos a mesma cerimônia. Mas A é legítimo e mais
-rápido — e se a prioridade for encurtar o corte, A com merge em `main` resolve
-no mesmo dia.
+A Sthefany continua usando **exatamente esse endereço**. Ele não muda no
+corte. O que muda é tudo o que está atrás dele: o código aprovado, o Worker
+de produção, o banco novo e o storage de produção.
 
-Qualquer que seja, `ORIGENS_PERMITIDAS` do Worker de produção precisa listar o
-endereço escolhido, ou a tela dirá *"Não encontrei a API neste endereço"* —
-que parece erro de rede e é CORS.
+`marquesa-dev.pages.dev` continua sendo **exclusivamente** o ambiente DEV.
+Nenhum Pages de produção é criado agora.
+
+> Decisão superada, registrada porque foi tomada e revertida na mesma
+> rodada: chegou a ser escolhido criar um Pages novo de produção, com
+> workflow espelho do `deploy-dev.yml`. Revertido no mesmo dia — a favor de
+> não trocar o endereço que a cliente já tem e de reduzir o número de peças
+> móveis no corte.
+
+**O que isso simplifica:** `ORIGENS_PERMITIDAS` do Worker de produção já vale
+`https://gustavodemelomartins-hub.github.io` e **não precisa mudar**. O
+Risco R6 (CORS) cai para perto de zero. E promover o código passa a ser um
+ato só: o merge em `main` republica o GitHub Pages sozinho.
+
+**O que isso deixa em aberto**, e vale registrar para não virar surpresa:
+publicar por GitHub Pages a partir de `main` **não roda teste nenhum**. Hoje
+o único caminho de deploy com portão de testes é o do DEV
+(`deploy-dev.yml`: testes do painel novo, build, teste de migration, e o
+`build.py` que garante que o `dashboard.html` publicado veio mesmo do
+template). Em produção, o que entra é o que estiver commitado.
+
+Duas consequências práticas para o corte:
+
+1. **O `dashboard.html` precisa estar em dia com o template antes do merge.**
+   Ele é montado, não editado (`python src/build.py`). Um merge com o
+   arquivo desatualizado publica um painel que não corresponde ao código.
+   Conferir com `git diff --ignore-cr-at-eol -- dashboard.html` — vazio.
+2. **Item de backlog, não do corte:** um workflow em `main` que rode a mesma
+   suíte e falhe alto quando o painel publicado divergir do template. Não
+   impede a publicação (o Pages publica do branch de qualquer jeito), mas
+   transforma "ninguém percebeu" em "o CI ficou vermelho".
 
 ### 7.5 Smoke tests de produção  ⬜
 
@@ -820,16 +902,17 @@ fundo_gerado | erro`), então o módulo entra sem migration nova.
 
 | # | Risco | Gravidade | Mitigação |
 |---|---|---|---|
-| **R1** | **Cron de produção empurrando estoque velho para a loja real, 2×/dia** | 🔴 alta | Fase 0: desligar o cron **antes de tudo**. Ler `sync_execucoes` para saber o estrago. |
+| **R1** | **Cron de produção empurrando estoque velho para a loja real, 2×/dia** | 🔴 alta → 🟡 | Fase 0 **autorizada e em curso**: `crons = []` já no `wrangler.toml` (impede o rearme no deploy do corte); falta remover a agenda na Cloudflare. Confirmação final = nenhuma linha nova em `sync_execucoes` depois da próxima janela. |
 | **R2** | Venda registrada no DEV durante a cópia se perde | 🔴 alta | Fase 3: rotacionar a `API_KEY` do staging na hora do corte + conferir `MAX(id)` antes e depois do dump. |
 | **R3** | Vendas do site que só existem no `marquesa-db` seriam perdidas ao promover o DEV | 🔴 alta | Fase 1: diff por `externo_id`, decisão item a item, relançamento com `obs` explicando. |
 | **R4** | Produção não tem as 8 migrations do DEV | 🟡 média | Resolvido pela estratégia: banco novo a partir do dump, que traz o schema junto. |
 | **R5** | `wrangler deploy` de produção falha por falta do bucket `marquesa-fotos` | 🟡 média | Criar o bucket antes (Fase 4). Está documentado no próprio `wrangler.toml`. |
-| **R6** | CORS errado deixa a tela dizendo "não encontrei a API" | 🟡 média | `ORIGENS_PERMITIDAS` de produção precisa listar o endereço escolhido em 7.4, **antes** do deploy. |
+| **R6** | CORS errado deixa a tela dizendo "não encontrei a API" | 🟢 baixa | Resolvido por G8: o endereço de produção não muda, e `ORIGENS_PERMITIDAS` já vale `https://gustavodemelomartins-hub.github.io`. Só reconferir que a linha continua lá no deploy. |
 | **R7** | `API_KEY` de produção circulando há meses | 🟡 média | Rotacionar no corte. Guardar a nova antes de trocar — não há como ler a antiga. |
 | **R8** | Backup do DEV carrega nome, telefone, CPF e endereço reais | 🟡 média | `backups/` fora do Git (já está). Não colar a saída do `d1 export` em lugar nenhum — ela traz link R2 público de 1 hora. |
 | **R9** | Rodada `forcar: true` logo depois do corte | 🟡 média | Só seco (`{"seco": true}`) até o smoke test 6 passar. |
 | **R10** | Service worker servindo painel antigo do cache | 🟢 baixa | O `sw.js` já rebaixa o HTML da rede a cada abertura; subir o número do `CACHE` no corte fecha a brecha. |
+| **R11** | Publicação em produção sem portão de testes (GitHub Pages publica o que estiver em `main`) | 🟡 média | Consequência aceita de G8. Antes do merge: suíte verde + `git diff --ignore-cr-at-eol -- dashboard.html` vazio. Workflow de conferência em `main` fica no backlog. |
 
 ### Bugs e dívida herdada
 
@@ -867,9 +950,11 @@ conscientes) e em [decisions/](decisions/). Registradas **nesta rodada**:
 | G5 | **Venda histórica não movimenta estoque.** `origem='historico'`, sem `movimentar()`. | 2026-08-22 | O estoque atual já incorpora essas vendas. Ver seção 9. |
 | G6 | **Fase 0 antes de tudo: desligar o cron de produção.** | 2026-08-22 | É a única coisa no sistema que age sozinha sobre a loja real com dados errados. |
 | G7 | **O DEV não é resetado no dia do corte.** | 2026-08-22 | Enquanto a produção nova não estiver validada, o `marquesa-db-dev` é a terceira cópia dos dados. |
+| G8 | **O frontend de produção continua no GitHub Pages atual.** Nenhum Pages novo de produção. `marquesa-dev.pages.dev` fica exclusivamente DEV. | 2026-08-22 | O endereço da cliente não muda, `ORIGENS_PERMITIDAS` já está correto, e o corte ganha uma peça móvel a menos. Supera a decisão oposta tomada horas antes na mesma rodada. |
+| G9 | **O cron de produção é desarmado no `wrangler.toml`, não só no painel.** | 2026-08-22 | O `wrangler deploy` reescreve os triggers a partir do arquivo. Desligar só pelo painel faria o deploy do próprio corte rearmar o cron em silêncio. |
 
-Decisão **em aberto**, precisa de resposta humana: **onde mora o frontend de
-produção** (seção 7.4).
+Nenhuma decisão de arquitetura em aberto no momento. A de 7.4 foi fechada em
+2026-08-22 (G8).
 
 ---
 
@@ -1013,19 +1098,42 @@ notificação ao cliente. Depende de decisão de negócio, não só técnica.
 | # | Passo | Estado | Precisa de |
 |---|---|---|---|
 | 0 | Auditoria e este documento | ✅ | — |
-| 1 | **Autorização para a Fase 0** (desligar o cron de produção) | ⬜ | **decisão humana** |
-| 2 | Credenciais Cloudflare para leitura (`wrangler login` ou token com D1+R2) | ⬜ | **ação humana** |
-| 3 | Fase 1 — inventário e diff das duas bases (somente leitura) | ⬜ | passo 2 |
-| 4 | Decidir 7.4 — onde mora o frontend de produção | ⬜ | **decisão humana** |
-| 5 | Fase 2 — backups dos dois bancos + R2, validados | ⬜ | passo 3 |
-| 6 | Combinar o horário do corte com a Sthefany | ⬜ | **decisão humana** |
-| 7 | Fases 3 a 5 — congelar, promover dados, promover código | ⬜ | **autorização a cada fase** |
-| 8 | Fase 6 — smoke tests | ⬜ | passo 7 |
-| 9 | Entregar o endereço novo à Sthefany | ⬜ | passo 8 verde |
-| 10 | Religar o cron, depois de uma rodada seca limpa | ⬜ | passo 9 |
-| 11 | Uma semana de operação estável | ⬜ | — |
-| 12 | Fase 7 — devolver o DEV ao papel de laboratório | ⬜ | **autorização humana** |
-| 13 | Backlog, na ordem da seção 18 | ⬜ | passo 11 |
+| 1 | Fase 0 **(a)** — `crons = []` no `wrangler.toml` | ✅ | — |
+| 2 | Fase 0 **(b)** — remover a agenda do cron na Cloudflare | ⬜ | **acesso à conta** |
+| 3 | Confirmar: nenhuma linha nova em `sync_execucoes` depois das 18h | ⬜ | passo 2 |
+| 4 | Decisão 7.4 — frontend de produção | ✅ | GitHub Pages atual (G8) |
+| 5 | Credencial Cloudflare **acessível a esta sessão** (ver nota abaixo) | ⬜ | **ação humana** |
+| 6 | Fase 1 — `bash tools/inventario-golive.sh` (somente leitura) | 🟡 ferramenta pronta | passo 5 |
+| 7 | Fase 2 — backups dos dois bancos + R2, validados | ⬜ | passo 6 |
+| 8 | Relatório de leitura + backup + diff, e **parada para decisão** | ⬜ | passo 7 |
+| 9 | Decidir o destino das vendas que existirem só em produção | ⬜ | passo 8 |
+| 10 | Combinar o horário do corte com a Sthefany | ⬜ | **decisão humana** |
+| 11 | Fases 3 a 5 — congelar, promover dados, promover código | ⬜ | **autorização a cada fase** |
+| 12 | Fase 6 — smoke tests | ⬜ | passo 11 |
+| 13 | Entregar o endereço à Sthefany (o mesmo de sempre) | ⬜ | passo 12 verde |
+| 14 | Religar o cron, depois de uma rodada seca limpa | ⬜ | passo 13 |
+| 15 | Uma semana de operação estável | ⬜ | — |
+| 16 | Fase 7 — devolver o DEV ao papel de laboratório | ⬜ | **autorização humana** |
+| 17 | Backlog, na ordem da seção 18 | ⬜ | passo 15 |
+
+> **Nota sobre a credencial (passo 5).** Esta sessão roda num container
+> efêmero na nuvem, não na máquina de quem conduz o projeto: um
+> `npx wrangler login` feito localmente **não** alcança esta sessão. Dois
+> caminhos, os dois válidos:
+>
+> **(i) a pessoa roda, o agente lê.** `bash tools/inventario-golive.sh` na
+> máquina local e o `RELATORIO.txt` é colado aqui. É o caminho mais
+> conservador, e o que a política do projeto já prevê: `wrangler d1 execute
+> --remote` contra `marquesa-db` está no `deny` do `.claude/settings.json`
+> justamente para produção não ser lida nem escrita por um agente sozinho.
+>
+> **(ii) token de escopo mínimo** exposto a esta sessão como
+> `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`. Para a Fase 1 e a Fase 2
+> bastam: **D1:Edit** (o `d1 export` precisa dele, apesar de ser leitura),
+> **Workers R2 Storage:Read**, **Workers Scripts:Read** e **Account
+> Settings:Read**. Nada de Zone, nada de DNS. Mesmo com o token, o `deny` do
+> `settings.json` continua valendo — ele é o que garante que nenhuma escrita
+> em produção passe por engano.
 
 ---
 
