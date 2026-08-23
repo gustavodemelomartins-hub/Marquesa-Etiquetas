@@ -4876,7 +4876,7 @@ function rodapeSync(){
   const quando=s.ultimaEm?fmtDataHora(s.ultimaEm):null;
   return `<div class="syncline">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6"/></svg>
-    <span>Loja ligada direto · ${quando?`última sincronização ${esc(quando)}`:'ainda não rodou'} · roda sozinha às 6h e às 18h</span>
+    <span>Loja ligada direto · ${quando?`última sincronização ${esc(quando)}`:'ainda não rodou'} · só sincroniza quando alguém manda</span>
     <button class="btn btn-ghost btn-sm" onclick="confirmarSync(false)">Sincronizar agora</button>
   </div>`;
 }
@@ -5224,7 +5224,8 @@ function renderLoja(){
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10"/></svg>
       <div><b>${L.desatualizados.length} ${plural(L.desatualizados.length,'produto mudou','produtos mudaram')} depois da última sincronização.</b>
       Não é erro: é venda de balcão, maleta ou acerto que aconteceu desde então.
-      A loja recebe esses números sozinha na próxima rodada, às 6h ou às 18h.
+      A rodada automática está desligada durante o go-live: a loja só recebe esses
+      números quando alguém clicar em "Sincronizar agora".
       <div class="w-act"><button class="btn btn-ghost btn-sm" onclick="confirmarSync(false)">Sincronizar agora</button></div></div>
     </div>`:`<div class="warn">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>

@@ -62,6 +62,135 @@ a tradução de fim de linha do `pathlib.write_text` no Windows —
 
 ---
 
+## Medição de 2026-08-23 — véspera da publicação do go-live
+
+Commit medido: `71afd20` **mais** as mudanças ainda não commitadas do corte
+de pedidos (`config.syncCorteEm`) e do texto de sincronização automática.
+Cada teste com **banco zerado e Worker local recém-subido**, e
+`GET /api/estoque/conferir` conferido depois de **cada um** — voltou
+`divergentes: []` em todos.
+
+### Como esta medição foi feita (e no que ela difere da anterior)
+
+No Windows, `src/reset-e-testar.sh` e `api/dev-local.sh` não sobem o Worker
+(usam `setsid`/`pkill`/`ss`, ausentes no Git Bash). O ciclo foi feito por um
+runner que repete, para cada teste: encerrar a porta 8787
+(`api/scripts/encerrar-porta.ps1`) → apagar `api/.wrangler/state` → aplicar
+`schema.sql` → subir `wrangler dev` → rodar o teste → ler
+`/api/estoque/conferir`.
+
+**Duas diferenças de ambiente, declaradas porque mudam o que está sendo
+medido:**
+
+1. o Worker subiu com `--env staging --local` (D1 local `marquesa-db-dev`).
+   Consequência: o binding R2 `FOTOS` existe — como existia na medição de
+   18/08, e ao contrário da produção de hoje, que ficou sem R2 (erro 10042).
+   O caminho **sem** R2 é coberto à parte por `src/fotos-storage-test.mjs`,
+   que não precisa de Worker;
+2. `--var NUVEMSHOP_WRITES_ENABLED:true`, porque `[env.staging.vars]` traz
+   `"false"` (postura de segurança do DEV na nuvem) e `.dev.vars` **não**
+   sobrescreve essa chave. Sem isso, todo teste que empurra estoque para a
+   loja falsa falharia por configuração, não por comportamento. `"true"` é o
+   valor de produção (`[vars]` da raiz).
+
+### Testes com Worker local
+
+| Teste | Resultado | Asserções | Falhas |
+|---|---|---|---|
+| `src/migracao-variantes-test.mjs` | **passou** | 37 | 0 |
+| `src/sync-test.mjs` | **passou** | 67 | 0 |
+| `src/variacoes-test.mjs` | **passou** | 58 | 0 |
+| `src/kits-test.mjs` | **passou** | 20 | 0 |
+| `src/variantes-fase1-test.mjs` | **passou** | 76 | 0 |
+| `src/catalogo-test.mjs` | **passou** | 89 | 0 |
+| `src/corte-pedidos-test.mjs` **(novo)** | **passou** | 46 | 0 |
+| `src/dry-run-test.mjs` | **passou** | 49 | 0 |
+| `src/saude-sync-test.mjs` | **passou** (ver nota) | 25 | 0 |
+| `src/import-total-test.mjs` | **passou** | 13 | 0 |
+| `src/editar-peca-test.mjs` | **passou** | 39 | 0 |
+| `src/fotos-catalogo-test.mjs` | **passou** | 28 | 0 |
+| `src/sku-auditoria-test.mjs` | **passou** | 36 | 0 |
+| `src/sku-gerador-test.mjs` | **passou** | 58 | 0 |
+| `src/pendencias-nuvemshop-test.mjs` | **passou** | 26 | 0 |
+| `src/revendedoras-test.mjs` | **passou** | 48 | 0 |
+| `src/e2e.mjs` | **passou** | 74 | 0 |
+| `src/frontend-e2e.mjs` | **passou** | 32 | 0 |
+| `src/estoque-total-e2e.mjs` | **passou** | 21 | 0 |
+| `src/produtos-novos-e2e.mjs` | **passou** | 20 | 0 |
+| `src/foto-modal-test.mjs` | **passou** | 9 | 0 |
+| `src/fundo-branco-test.mjs` | **passou** | 8 | 0 |
+| `src/fase2-telas-test.mjs` | **passou** | 103 | 0 |
+| `src/editar-peca-ui-test.mjs` | **passou** | 21 | 0 |
+
+### Testes sem Worker
+
+| Teste | Resultado | Asserções | Falhas |
+|---|---|---|---|
+| `src/nuvemshop-writes-test.mjs` | **passou** | 24 | 0 |
+| `src/fotos-storage-test.mjs` | **passou** | 19 | 0 |
+
+### Total: **1.046 asserções, 0 falhas, 26 de 26 testes rodados.**
+
+Frontend novo, sem navegador: `cd frontend && npm test` → **187 testes,
+15 arquivos, 0 falhas**. `npm run build` (com `tsc --noEmit`) passa — 625 kB
+de JS (205 kB gzip) + 24 kB de CSS + as duas fontes.
+
+### Comparação honesta com 2026-08-22 — nenhuma queda
+
+Dos 19 testes daquela medição, **18 rodaram aqui** e nenhum caiu:
+
+| Teste | 22/08 | 23/08 | |
+|---|---:|---:|---|
+| `catalogo-test` | 85 | **89** | +4 — as asserções novas do commit `71afd20` |
+| `fase2-telas-test` | 100 | **103** | +3 |
+| `migracao-variantes-test` | 36 | **37** | +1 |
+| os outros 15 | — | — | idênticos |
+
+Soma do subconjunto comparável: **782 → 790**. As três diferenças são para
+cima; o arquivo do `fase2-telas-test` não muda desde `7ebeaeb` e o do
+`migracao-variantes-test` desde `2206565`, então o +4 do `catalogo-test` é
+cobertura nova e os outros +4 provavelmente são diferença de **contagem**
+entre as duas medições, não de comportamento. De qualquer forma: nada
+diminuiu.
+
+### Dois testes NÃO rodaram nesta medição — e por quê
+
+| Teste | Asserções esperadas | Motivo |
+|---|---:|---|
+| `src/reconciliacao-test.mjs` | 143 | crashou em `execFileSync('npx', …)` |
+| `src/reconciliacao-schema-test.mjs` | 65 | mesmo crash |
+
+Os dois são os únicos da suíte que **spawnam o Wrangler de dentro do teste**
+(`rodarSql`). Nesta máquina, com Node v24.19.0, esse `execFileSync` morre
+com:
+
+```
+Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94
+```
+
+Não é regressão de produto: o `reconciliacao-test` chegou a **49 asserções
+verdes** (tudo o que passa pela API) e só quebrou na primeira linha que
+chama o Wrangler. Some-se a isso que o `reconciliacao-test` fala com
+`marquesa-db --local` fixo no código, o que exige o Worker no ambiente RAIZ
+— incompatível com o runner descrito acima.
+
+**Como rodar os dois** (ciclo à mão, ambiente raiz):
+
+```bash
+cd api
+rm -rf .wrangler/state
+npx wrangler d1 execute marquesa-db --local --file=schema.sql
+npx wrangler dev --local --port 8787 &
+cd .. && node src/reconciliacao-test.mjs
+node src/reconciliacao-schema-test.mjs      # este não precisa do Worker
+```
+
+**Nenhum dos dois toca no que mudou nesta rodada.** O diff do corte de
+pedidos vive em `sync.js › puxarPedidos`, na rota `PUT /api/config` e em
+`state.js`; o motor de reconciliação não passa por nenhum dos três.
+
+---
+
 ## Medição de 2026-08-22 — encerramento da FASE 2
 
 Suíte inteira, cada teste com **banco zerado e Worker local recém-subido**.

@@ -12,7 +12,28 @@ const WRANGLER = join(API, 'node_modules', 'wrangler', 'bin', 'wrangler.js');
 const ALVOS = [
   { chave: 'producao', rotulo: 'PRODUÇÃO ANTIGA', nome: 'marquesa-db', uuid: '089153a9-cee5-4887-b789-a23b1cf419f5', env: [] },
   { chave: 'dev', rotulo: 'DEV REAL', nome: 'marquesa-db-dev', uuid: 'dcc36f65-daaa-42a4-9fbd-15e6f27e4d4b', env: ['--env', 'staging'] },
+  /* Banco de produção criado no corte de 2026-08-22, alvo do binding raiz do
+     `wrangler.toml`. Entra aqui porque a mesma pergunta da Fase 1 — "os
+     números que eu acho que estão lá estão mesmo lá?" — passou a valer para
+     ELE, e não mais para o `marquesa-db` antigo. Não entra na lista padrão:
+     quem quer o retrato da produção nova pede por nome, com
+     `--alvos prod-nova`, e o diff de vendas do site continua sendo entre a
+     produção antiga e o DEV. */
+  { chave: 'prod-nova', rotulo: 'PRODUÇÃO NOVA', nome: 'marquesa-db-prod', uuid: '51dd629b-52dc-46d0-a1af-fa37f0a79533', env: [] },
 ];
+const ALVOS_PADRAO = ['producao', 'dev'];
+
+/** `--alvos a,b` escolhe quais bancos consultar. Sem a opção, a lista é a
+ *  original da Fase 1 — nada do que já foi rodado muda de comportamento. */
+export function escolherAlvos(argv, disponiveis = ALVOS) {
+  const i = argv.indexOf('--alvos');
+  if (i < 0) return disponiveis.filter(a => ALVOS_PADRAO.includes(a.chave));
+  const pedidos = String(argv[i + 1] || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (!pedidos.length) throw new Error('Uso: --alvos <chave>[,<chave>] — chaves: ' + disponiveis.map(a => a.chave).join(', '));
+  const desconhecido = pedidos.find(p => !disponiveis.some(a => a.chave === p));
+  if (desconhecido) throw new Error(`Alvo desconhecido: ${desconhecido}. Conhecidos: ${disponiveis.map(a => a.chave).join(', ')}.`);
+  return pedidos.map(p => disponiveis.find(a => a.chave === p));
+}
 const PROIBIDAS = /\b(?:INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER|TRUNCATE|PRAGMA|ATTACH|DETACH|VACUUM|REINDEX|ANALYZE|BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE)\b/i;
 
 export function assertReadOnly(sql) {
@@ -138,11 +159,23 @@ function snapshot(target, dest) {
     'SELECT id,iniciado_em,terminado_em,status,pedidos_lidos,vendas_criadas,produtos_enviados FROM sync_execucoes ORDER BY id DESC LIMIT 30');
   const siteSales = optional('vendas site', [['vendas', 'externo_id', 'id', 'data', 'total', 'cliente_nome', 'cancelada', 'origem']],
     "SELECT externo_id,id,data,total,cliente_nome,cancelada FROM vendas WHERE origem='site' AND externo_id IS NOT NULL ORDER BY externo_id");
+  /* `config` é o estado interno do robô — `syncUltimoPedido` é a memória de
+     até onde a leitura de pedidos já chegou. Antes de mexer nela alguém
+     precisa saber o valor de ANTES, senão não existe rollback. Nenhum
+     segredo mora aqui: token e store_id são secrets do Worker, nunca D1. */
+  const settings = optional('config', [['config', 'chave', 'valor']],
+    'SELECT chave,valor FROM config ORDER BY chave');
+  /* O relatório inteiro da última rodada. É a única prova disponível de
+     QUAIS pedidos o robô enxergou e o que ele teria feito — sem ela, a
+     conversa sobre "5 vendas antigas que não podem entrar" seria memória
+     de conversa, não evidência. Fica em arquivo próprio porque é grande. */
+  const lastRun = optional('detalhe da última sync', [['sync_execucoes', 'id', 'seco', 'iniciado_em', 'status', 'detalhe_json']],
+    'SELECT id,seco,iniciado_em,status,detalhe_json FROM sync_execucoes ORDER BY id DESC LIMIT 1');
   const stock = optional('resumo estoque', [['produtos', 'status', 'qtd', 'preco']],
     "SELECT COUNT(*) skus,SUM(CASE WHEN status='ativo' THEN 1 ELSE 0 END) ativos,COALESCE(SUM(qtd),0) pecas_total,SUM(CASE WHEN preco IS NULL THEN 1 ELSE 0 END) sem_preco FROM produtos");
 
-  const data = { target, tables, counts, ratio, salesByOrigin, cases, witnesses, orphans, idempotency, sync, siteSales, stock, warnings };
-  for (const [name, value] of Object.entries({ tables, counts, ratio, salesByOrigin, cases, witnesses, orphans, idempotency, sync, siteSales, stock, warnings })) save(join(folder, `${name}.json`), value);
+  const data = { target, tables, counts, ratio, salesByOrigin, cases, witnesses, orphans, idempotency, sync, siteSales, stock, settings, lastRun, warnings };
+  for (const [name, value] of Object.entries({ tables, counts, ratio, salesByOrigin, cases, witnesses, orphans, idempotency, sync, siteSales, stock, settings, lastRun, warnings })) save(join(folder, `${name}.json`), value);
   return data;
 }
 
@@ -167,8 +200,8 @@ function render(snapshots, diff, meta) {
     if (s.idempotency.indice_unico === false) risks.push(`${s.target.rotulo}: índice UNIQUE de vendas.externo_id não foi provado.`);
     if (s.warnings.length) risks.push(`${s.target.rotulo}: ${s.warnings.length} métrica(s) incompleta(s) por diferença de schema.`);
   }
-  if (diff.so_producao.length) risks.push(`${diff.so_producao.length} venda(s) site só na produção antiga seriam perdidas.`);
-  if (diff.divergentes.length) risks.push(`${diff.divergentes.length} pedido(s) site existem nos dois bancos com dados diferentes.`);
+  if (diff?.so_producao.length) risks.push(`${diff.so_producao.length} venda(s) site só na produção antiga seriam perdidas.`);
+  if (diff?.divergentes.length) risks.push(`${diff.divergentes.length} pedido(s) site existem nos dois bancos com dados diferentes.`);
   const out = [
     'RELATÓRIO — FASE 1 DO GO-LIVE MARQUESA', '========================================', '',
     `Gerado em: ${meta.date}`, `Commit: ${meta.commit}`, `Branch: ${meta.branch}`, `Node: ${process.version}`, `Wrangler: ${meta.wrangler}`, '',
@@ -192,8 +225,18 @@ function render(snapshots, diff, meta) {
     'Órfãos:', json(s.orphans), '',
     'Idempotência:', json({ externo_total: s.idempotency.externo_total, externo_distintos: s.idempotency.externo_distintos, duplicados: s.idempotency.duplicados, indice_unico_externo_id: s.idempotency.indice_unico }), '',
     'Testemunhas MAX(id):', json(s.witnesses), '', 'Resumo estoque:', json(s.stock), '',
-    'Últimas sync_execucoes (até 30):', json(s.sync), '', ...(s.warnings.length ? ['Avisos:', ...s.warnings.map(x => `- ${x}`), ''] : []),
+    'Últimas sync_execucoes (até 30):', json(s.sync), '',
+    'config (estado interno do robô):', json(s.settings), '',
+    ...(s.warnings.length ? ['Avisos:', ...s.warnings.map(x => `- ${x}`), ''] : []),
   );
+  /* O diff só existe quando os DOIS bancos daquela pergunta foram lidos.
+     Inventar um "0 divergências" a partir de um lado só seria pior que
+     omitir: pareceria prova. */
+  if (!diff) {
+    out.push('DIFF DE VENDAS SITE POR externo_id', '-'.repeat(60),
+      'NÃO CALCULADO: a produção antiga e o DEV real não foram lidos na mesma rodada.', '');
+    return `${out.join('\n')}\n`;
+  }
   out.push(
     'DIFF DE VENDAS SITE POR externo_id', '-'.repeat(60),
     `Produção antiga: ${diff.total_producao}`, `DEV real: ${diff.total_dev}`, `Só produção: ${diff.so_producao.length}`, `Só DEV: ${diff.so_dev.length}`, `Divergentes nos dois: ${diff.divergentes.length}`, '',
@@ -219,7 +262,19 @@ function selfTest() {
     if (!blocked) throw new Error(`self-test: deveria bloquear ${sql}`);
   }
   if (results(JSON.stringify([{ success: true, results: [{ n: 1 }] }]))[0]?.n !== 1) throw new Error('self-test: parser Wrangler');
-  console.log('self-test OK: guardas somente leitura e parser Wrangler.');
+
+  const chaves = argv => escolherAlvos(argv).map(a => a.chave).join(',');
+  if (chaves(['node', 'x']) !== 'producao,dev') throw new Error('self-test: sem --alvos a lista tem de ser a original.');
+  if (chaves(['node', 'x', '--alvos', 'prod-nova']) !== 'prod-nova') throw new Error('self-test: --alvos não filtrou.');
+  if (chaves(['node', 'x', '--alvos', 'dev,producao']) !== 'dev,producao') throw new Error('self-test: --alvos não preservou a ordem pedida.');
+  for (const argv of [['node', 'x', '--alvos', 'nao-existe'], ['node', 'x', '--alvos']]) {
+    let blocked = false; try { escolherAlvos(argv); } catch { blocked = true; }
+    if (!blocked) throw new Error(`self-test: deveria recusar ${JSON.stringify(argv)}`);
+  }
+  if (!ALVOS.some(a => a.chave === 'prod-nova' && a.uuid === '51dd629b-52dc-46d0-a1af-fa37f0a79533')) {
+    throw new Error('self-test: o UUID da produção nova saiu do lugar.');
+  }
+  console.log('self-test OK: guardas somente leitura, parser Wrangler e escolha de alvos.');
 }
 
 export function main() {
@@ -231,10 +286,15 @@ export function main() {
   mkdirSync(dest, { recursive: true });
   const reportPath = join(dest, 'RELATORIO.txt');
   try {
+    const alvos = escolherAlvos(process.argv);
     console.log('Provando UUIDs antes de qualquer SELECT...');
-    for (const target of ALVOS) { prove(target); console.log(`OK ${target.nome} = ${target.uuid}`); }
-    const snapshots = ALVOS.map(target => { console.log(`Consultando ${target.rotulo} (somente SELECT)...`); return snapshot(target, dest); });
-    const diff = diffSite(snapshots[0].siteSales, snapshots[1].siteSales); save(join(dest, 'diff-vendas-site.json'), diff);
+    for (const target of alvos) { prove(target); console.log(`OK ${target.nome} = ${target.uuid}`); }
+    const snapshots = alvos.map(target => { console.log(`Consultando ${target.rotulo} (somente SELECT)...`); return snapshot(target, dest); });
+    const porChave = new Map(snapshots.map(s => [s.target.chave, s]));
+    const diff = porChave.has('producao') && porChave.has('dev')
+      ? diffSite(porChave.get('producao').siteSales, porChave.get('dev').siteSales)
+      : null;
+    if (diff) save(join(dest, 'diff-vendas-site.json'), diff);
     writeFileSync(reportPath, render(snapshots, diff, metadata()), 'utf8');
     console.log(`Relatório concluído: ${reportPath}`);
   } catch (error) {

@@ -70,6 +70,36 @@ Chama `Nuvemshop` (`api/src/nuvemshop.js`) direto, sem subir
 6. `"true"` libera de verdade, e a loja falsa registra a escrita;
 7. espaço em volta de `"true"` é tolerado (resto de copiar/colar num secret).
 
+### `src/corte-pedidos-test.mjs` — pedido antigo é história, não venda nova
+**46 asserções · ~25 s · precisa do Worker local e do banco limpo**
+
+O go-live mudou a operação de banco, e a loja ficou com pedidos que no banco
+novo nunca foram vendas. `vendas.externo_id` não protege contra eles: ele
+impede **repetir**, não **importar pela primeira vez**. Este teste defende o
+freio que protege — `config.syncCorteEm` (`api/REGRAS.md § 4b`):
+
+1. **sem corte, o pedido antigo entraria** — a rodada seca diz que criaria as
+   vendas. É o cenário que torna o corte necessário, e ele fica provado em
+   vez de suposto;
+2. com corte, o pedido anterior à data não vira venda, não move estoque e
+   não escreve movimento;
+3. o que ficou de fora é anunciado em `pedidosAntesDoCorte`, com id, número,
+   data, status e motivo (§22);
+4. pedido **posterior** ao corte continua entrando — o corte nunca pode
+   impedir o registro de uma venda de verdade;
+5. rodar de novo não cobra a mesma venda duas vezes;
+6. pedido sem data legível é barrado (*fail closed*);
+7. `PUT /api/config` recusa data inválida **na entrada**, e `null` é a forma
+   de tirar o corte;
+8. segunda camada: `corteDePedidos` chamada direto, com um `db` de mentira —
+   valor sujo gravado por SQL derruba a rodada em vez de virar "sem corte";
+9. a razão contábil fecha no fim.
+
+O teste também documenta, num comentário, a interação com a janela de 6
+horas: cada rodada avança `syncUltimoPedido`, então a janela vai deixando os
+pedidos mais antigos fora da leitura — o que a janela deixa passar, o corte
+barra, e o que a janela corta já não era candidato.
+
 ### `src/variacoes-test.mjs` — aro do anel, comprimento da corrente
 **48 asserções · ~6 s · precisa da loja falsa**
 
@@ -569,6 +599,7 @@ node src/kits-test.mjs
 node src/frontend-e2e.mjs      # precisa de `cd frontend && npm run build` antes
 node src/dry-run-test.mjs      # a prova formal do dry-run
 node src/saude-sync-test.mjs   # análise nunca esconde falha real
+node src/corte-pedidos-test.mjs # pedido antigo não vira venda nova
 node src/reconciliacao-test.mjs # o Apply do motor de reconciliação
 
 cd frontend && npm test        # os 73 testes unitários, sem navegador
@@ -607,6 +638,7 @@ Repita os passos 1–4 para cada teste: banco limpo é requisito, não capricho.
 | `executablePath` fixo em `/opt/pw-browsers/chromium` | Os testes de navegador só rodavam no Linux | **Resolvido**: os três honram `PW_CHROMIUM` e, sem ela, usam o Chromium do Playwright |
 | CORS derruba o `e2e` na tela de conexão | O navegador vem de `localhost:8000`, e o `wrangler.toml` libera só o endereço de produção | **Resolvido pelo ambiente**: `ORIGENS_PERMITIDAS=http://localhost:8000` no `.dev.vars` |
 | `reset-e-testar.sh` usa `setsid` e `pkill` | Não roda no Windows | **Aberto** — [TECH_DEBT.md](TECH_DEBT.md) item 4 |
+| `execFileSync('npx', …, {shell:true})` dentro do teste | `reconciliacao-test` e `reconciliacao-schema-test` morrem com `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94` (Node v24.19.0 no Windows) | **Aberto** — reproduzido em 2026-08-23, ver [BASELINE.md](BASELINE.md) |
 | `npm run build` chama `python3` | Falha no Windows, onde o comando é `python` | **Aberto** — item 6 |
 | Cada teste exige reset manual do banco | Não dá para rodar a suíte inteira num comando | **Aberto** — item 4 |
 
@@ -633,4 +665,9 @@ apagar `.wrangler/state`, ou o `rm` falha com `Device or resource busy`.
 
 ## Baseline atual
 
-Resultados medidos em 2026-08-18 estão em [BASELINE.md](BASELINE.md).
+A medição mais recente é a de **2026-08-23** (véspera da publicação do
+go-live): **1.046 asserções, 0 falhas, 26 de 26 testes rodados**, mais 187
+testes unitários do frontend. Dois testes não rodaram por limitação de
+ambiente, com o motivo e o comando para rodá-los à mão. As medições
+anteriores (2026-08-22 e 2026-08-18) continuam no arquivo, para comparação:
+[BASELINE.md](BASELINE.md).

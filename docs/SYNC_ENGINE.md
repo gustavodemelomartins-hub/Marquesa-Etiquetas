@@ -54,6 +54,43 @@ Cada pedido vira uma venda com `origem='site'` e
 - **Item que não casa com o catálogo** vai para `relato.itensIgnorados` e
   aparece na tela (§22: sinalizar, não engolir). Um pedido cujos itens todos
   são desconhecidos não cria venda nenhuma.
+- **Corte** (`config.syncCorteEm`): pedido criado **antes** dessa data não
+  vira venda. Ver abaixo.
+
+### `config.syncCorteEm` — a linha entre história e operação
+
+`vendas.externo_id` protege contra **repetir** o que já entrou. Não protege
+contra **importar** o que nunca entrou. No go-live de 2026-08-22 a operação
+real mudou de banco (`marquesa-db` → `marquesa-db-prod`), e a loja ficou com
+pedidos que, no banco novo, nunca foram vendas: importá-los baixaria estoque
+de peça que já saiu por outro caminho.
+
+A janela de 6 horas não resolve isso — ela é uma **folga para trás**, feita
+justamente para reconsiderar o que é velho. Uma lista fixa de IDs resolveria
+hoje e mentiria amanhã. Por isso o corte é uma **data**:
+
+| | |
+|---|---|
+| Chave | `config.syncCorteEm` (ISO 8601, ou `null` para não haver corte) |
+| Quem escreve | `PUT /api/config {"syncCorteEm": "..."}` — rota autenticada, lista fechada |
+| Quem lê | `sync.js › corteDePedidos`, uma vez por rodada |
+| Onde aparece | `GET /api/state › config.syncCorteEm`, e `relato.corteEm` em cada rodada |
+| O que barra | pedido **sem** `externo_id` daqui **e** com `created_at` anterior ao corte |
+| O que nunca barra | pedido criado a partir do corte — venda nova entra sempre |
+
+Duas recusas deliberadas, as duas *fail closed*:
+
+- pedido **sem data legível** é barrado (motivo `sem data legível`), porque
+  não dá para provar que ele é posterior ao corte;
+- `syncCorteEm` **ilegível** derruba a rodada inteira com erro, em vez de
+  virar "sem corte" em silêncio — sem corte, a rodada seguinte importaria
+  exatamente o que o corte existe para barrar. A rota `PUT /api/config`
+  recusa a data inválida na entrada, onde ainda há alguém olhando.
+
+O que ficou de fora vai para `relato.pedidosAntesDoCorte`, com `id`,
+`numero`, `criadoEm`, `status` e `motivo` — §22, anunciado e não engolido.
+
+Prova: `src/corte-pedidos-test.mjs`.
 
 Cada linha gera `venda_itens` + `movimentar(tipo:'venda', origem:'site')`,
 tudo num `db.batch()` único.
@@ -264,3 +301,6 @@ Uma análise continua gravada e auditável — `ultimaAnaliseEm` expõe quando a
 6. O que a rodada decidiu não fazer é **anunciado**, não engolido.
 7. A rodada seca não toca em estoque, razão contábil, vendas nem na loja —
    a tabela acima é a fronteira, e `src/dry-run-test.mjs` a defende.
+8. O corte (`config.syncCorteEm`) nunca barra pedido criado a partir dele —
+   se barrasse, o sistema deixaria de registrar venda de verdade, que é pior
+   que importar histórico.

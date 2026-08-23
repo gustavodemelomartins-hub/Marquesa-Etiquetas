@@ -538,6 +538,36 @@ vezes, e a janela de leitura de pedidos olha 6 horas para trás de propósito
 para não perder pedido atrasado. A trava contra cobrar a mesma venda duas
 vezes é o índice único em `vendas.externo_id` — do banco, não da lógica.
 
+### 4b. Pedido anterior ao corte é história, não venda — §22
+
+`vendas.externo_id` impede **repetir** um pedido que já entrou. Ele não diz
+nada sobre um pedido que **nunca** entrou: para o banco, ele é novo, e a
+rodada o transformaria em venda com baixa de estoque.
+
+Isso deixou de ser hipótese no go-live de 2026-08-22. A operação real passou
+a viver num banco novo (`marquesa-db-prod`), e a loja continuou com pedidos
+antigos que ali nunca foram vendas — peças que já saíram por outro caminho,
+e cujo estoque cairia duas vezes.
+
+A regra: **`config.syncCorteEm` divide o tempo em história e operação.**
+
+- pedido criado **antes** do corte não vira venda, e vai para
+  `relato.pedidosAntesDoCorte` com id, número, data, status e motivo;
+- pedido criado **a partir** do corte entra sempre — o corte nunca pode
+  impedir o registro de uma venda de verdade;
+- pedido **sem data legível** é barrado: não dá para provar que é posterior;
+- `syncCorteEm` ilegível **derruba a rodada**, em vez de virar "sem corte"
+  em silêncio;
+- sem `syncCorteEm`, nada muda: é exatamente o comportamento anterior.
+
+Uma **data**, e não uma lista de IDs: lista resolve hoje e mente amanhã. E
+não é um ajuste na janela de 6 horas — a janela é uma folga **para trás**,
+que existe para não perder pedido atrasado, e alargar ou encurtar ela para
+resolver histórico estragaria a função dela.
+
+Escrita por `PUT /api/config`, lida em `sync.js › corteDePedidos`, visível em
+`GET /api/state › config.syncCorteEm`. Prova: `src/corte-pedidos-test.mjs`.
+
 ## Regra que precisa de confirmação no contrato
 
 §11 e §12 definem a faixa pelo total de **banhadas**, com a Prata 925 a 10%

@@ -1099,22 +1099,43 @@ notificação ao cliente. Depende de decisão de negócio, não só técnica.
 |---|---|---|---|
 | 0 | Auditoria e este documento | ✅ | — |
 | 1 | Fase 0 **(a)** — `crons = []` no `wrangler.toml` | ✅ | — |
-| 2 | Fase 0 **(b)** — remover a agenda do cron na Cloudflare | ⬜ | **acesso à conta** |
-| 3 | Confirmar: nenhuma linha nova em `sync_execucoes` depois das 18h | ⬜ | passo 2 |
+| 2 | Fase 0 **(b)** — remover a agenda do cron na Cloudflare | ✅ | feito no painel em 2026-08-22 |
+| 3 | Confirmar: nenhuma linha nova em `sync_execucoes` | ✅ | ver prova abaixo |
 | 4 | Decisão 7.4 — frontend de produção | ✅ | GitHub Pages atual (G8) |
-| 5 | Credencial Cloudflare **acessível a esta sessão** (ver nota abaixo) | ⬜ | **ação humana** |
-| 6 | Fase 1 — `bash tools/inventario-golive.sh` (somente leitura) | 🟡 ferramenta pronta | passo 5 |
-| 7 | Fase 2 — backups dos dois bancos + R2, validados | ⬜ | passo 6 |
-| 8 | Relatório de leitura + backup + diff, e **parada para decisão** | ⬜ | passo 7 |
-| 9 | Decidir o destino das vendas que existirem só em produção | ⬜ | passo 8 |
-| 10 | Combinar o horário do corte com a Sthefany | ⬜ | **decisão humana** |
-| 11 | Fases 3 a 5 — congelar, promover dados, promover código | ⬜ | **autorização a cada fase** |
+| 5 | Credencial Cloudflare acessível à sessão | ✅ | OAuth do Wrangler na máquina do Gustavo |
+| 6 | Fase 1 — `npm run inventario:golive` (somente leitura) | ✅ | inclui `--alvos prod-nova` |
+| 7 | Fase 2 — export do DEV congelado, validado | ✅ | ledger fecha dentro do dump |
+| 7b | Fase 2 — export do `marquesa-db-prod` e do `marquesa-db` | ⬜ | **comando humano** — o hook nega `d1 export` em produção |
+| 8 | Relatório de leitura + backup + diff, e **parada para decisão** | ✅ | 2026-08-23 |
+| 9 | Decidir o destino das vendas que existirem só em produção | ✅ | promovido o estado do DEV; 10 vendas válidas, 0 canceladas |
+| 10 | Combinar o horário do corte com a Sthefany | ✅ | corte de 2026-08-22 |
+| 11 | Fases 3 a 5 — congelar, promover dados, promover código | 🟡 | dados promovidos; **falta publicar o código** |
+| 11b | Gravar `config.syncCorteEm` **antes** da primeira sincronização real | ⬜ | passo 11 |
 | 12 | Fase 6 — smoke tests | ⬜ | passo 11 |
 | 13 | Entregar o endereço à Sthefany (o mesmo de sempre) | ⬜ | passo 12 verde |
 | 14 | Religar o cron, depois de uma rodada seca limpa | ⬜ | passo 13 |
 | 15 | Uma semana de operação estável | ⬜ | — |
 | 16 | Fase 7 — devolver o DEV ao papel de laboratório | ⬜ | **autorização humana** |
 | 17 | Backlog, na ordem da seção 18 | ⬜ | passo 15 |
+
+> **Prova de que o cron está desarmado (passo 3).** Em `marquesa-db`
+> (produção antiga), `sync_execucoes` tem 27 linhas e as automáticas caem
+> sempre às 09:00 e 21:00 UTC. A última é
+> **`id 27 · 2026-08-22 09:00:00 · pausado`**. Não existe linha às 21:00 do
+> dia 22 nem às 09:00 do dia 23 — as duas janelas já passaram. Em
+> `marquesa-db-prod` as três linhas existentes são rodadas manuais
+> (`seco = 1`), a última em `2026-08-22 22:28:43`. Nenhum cron rodou depois
+> do desarme.
+
+> **Passo 11b — por que ele existe.** `config.syncCorteEm` **não existe** em
+> `marquesa-db-prod`, e `syncUltimoPedido` também não. Sem corte, a primeira
+> sincronização real leria os 24 pedidos da loja desde o começo e criaria as
+> **5 vendas antigas** que a rodada seca de 22/08 já simulou — baixando
+> estoque de peça que já saiu por outro caminho. O índice único
+> `vendas.externo_id` não protege contra isso: ele impede repetir, não
+> importar pela primeira vez. Mecanismo e prova em
+> [SYNC_ENGINE.md](SYNC_ENGINE.md) § `config.syncCorteEm` e em
+> `api/REGRAS.md` § 4b.
 
 > **Nota sobre a credencial (passo 5).** Esta sessão roda num container
 > efêmero na nuvem, não na máquina de quem conduz o projeto: um

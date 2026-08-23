@@ -397,6 +397,15 @@ async function rotear(request, env) {
 
       if (path === '/api/config' && met === 'PUT') {
         const b = await request.json();
+        /* `syncCorteEm` decide o que é história e o que é operação. Uma data
+           ilegível gravada aqui derruba a sincronização inteira depois
+           (sync.js › corteDePedidos recusa a rodada em vez de fingir que não
+           há corte), então ela é recusada na entrada, onde alguém ainda está
+           olhando. `null` é a forma de tirar o corte. */
+        if (b.syncCorteEm !== undefined && b.syncCorteEm !== null
+            && Number.isNaN(Date.parse(String(b.syncCorteEm)))) {
+          return json({ erro: 'syncCorteEm precisa ser uma data ISO (ex.: "2026-08-23T12:00:00Z") ou null.' }, 400);
+        }
         const stmts = [];
         /* Lista fechada de propósito: o `config` também guarda estado interno
            da sincronização (`syncUltimoPedido`), e deixar a tela escrever
@@ -409,7 +418,15 @@ async function rotear(request, env) {
                                 parâmetros do NEGÓCIO, não do robô — uma maleta de
                                 60 peças e outra de 150 são operações diferentes, e
                                 o número certo é o que a Sthefany usa. */
-                             'maletaAlvoPecas', 'reservaMinima']) {
+                             'maletaAlvoPecas', 'reservaMinima',
+                             /* Corte do go-live: pedido da loja anterior a
+                                esta data é história e não vira venda aqui.
+                                Não é estado interno do robô — é uma decisão
+                                de quem opera, tomada uma vez, e por isso
+                                entra por uma rota autenticada e auditável em
+                                vez de SQL solto na produção. Ver
+                                sync.js › corteDePedidos. */
+                             'syncCorteEm']) {
           if (b[chave] !== undefined) {
             stmts.push(db.prepare(
               `INSERT INTO config (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`

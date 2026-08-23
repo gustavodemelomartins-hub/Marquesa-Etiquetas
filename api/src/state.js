@@ -185,6 +185,10 @@ export async function montarState(db, env) {
        reserva existe para impedir. */
     maletaAlvoPecas: c.maletaAlvoPecas ?? 100,
     reservaMinima: c.reservaMinima ?? 300,
+    /* O corte do go-live aparece aqui para poder ser CONFERIDO sem abrir o
+       banco: quem mudou precisa provar o valor de antes e o de depois, e
+       `null` é a resposta honesta para "ainda não há corte". */
+    syncCorteEm: c.syncCorteEm ?? null,
   };
 
   const inventario = await resumoInventario(db, config.inventarioDias);

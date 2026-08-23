@@ -51,6 +51,7 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
 
   const relato = {
     id: exec.id, pedidosLidos: 0, vendasCriadas: 0, itensIgnorados: [],
+    pedidosAntesDoCorte: [],
     produtosEnviados: 0, mudancas: [], semEmpurrar: [], semeados: [], naoSemeados: [],
     pausado: null, seco,
   };
@@ -101,14 +102,48 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
 
 /* ------------------------------------------------------ 1. puxar pedidos */
 
+/** Data do corte do go-live, ou `null` quando não há corte.
+ *
+ *  Existe porque a janela de 6 horas de `syncUltimoPedido` é boa para não
+ *  perder pedido, e ruim para não importar histórico: ela é uma FOLGA para
+ *  trás, e qualquer pedido antigo que caia dentro dela volta a ser
+ *  considerado. No corte de 2026-08-22 a operação real migrou de banco, e a
+ *  loja continua com pedidos que aqui nunca foram vendas — importá-los
+ *  agora criaria baixa de estoque de peça que já saiu por outro caminho.
+ *
+ *  Uma lista fixa de IDs resolveria hoje e mentiria amanhã. Uma data
+ *  resolve para sempre: antes dela é história, a partir dela é operação.
+ *  Pedido futuro nunca é afetado, e a idempotência por `externo_id`
+ *  continua sendo a trava de sempre — esta é uma segunda, não a única.
+ *
+ *  Exportada só para o teste: `PUT /api/config` já recusa data inválida na
+ *  entrada, então a recusa daqui é a segunda camada — a que vale se alguém
+ *  escrever a chave direto no banco. Sem export, essa camada ficaria
+ *  descrita e não provada. */
+export async function corteDePedidos(db) {
+  const bruto = await config(db, 'syncCorteEm', null);
+  if (!bruto) return null;
+  const t = Date.parse(String(bruto));
+  /* Data ilegível não pode virar "sem corte" em silêncio: sem corte, a
+     rodada seguinte importaria justamente o que o corte existe para barrar.
+     Recusar a rodada inteira é o único desfecho honesto. */
+  if (Number.isNaN(t)) throw new Error(`config.syncCorteEm não é uma data válida: ${JSON.stringify(bruto)}`);
+  return { iso: new Date(t).toISOString(), ms: t };
+}
+
 /** Cada pedido do site vira uma venda daqui, com origem 'site'.
  *
  *  A trava contra duplicata é `vendas.externo_id`, com índice único: se a
  *  rodada anterior morreu depois de gravar a venda mas antes de anotar a
  *  data, a próxima tenta de novo e o banco recusa em vez de cobrar a peça
- *  duas vezes. Por isso a data só avança no fim, e com folga para trás. */
+ *  duas vezes. Por isso a data só avança no fim, e com folga para trás.
+ *
+ *  E, quando existe corte, pedido anterior a ele não entra — ver
+ *  `corteDePedidos` acima. */
 async function puxarPedidos(db, loja, relato, seco) {
   const desde = await config(db, 'syncUltimoPedido', null);
+  const corte = await corteDePedidos(db);
+  if (corte) relato.corteEm = corte.iso;
   // 6 horas de folga para trás: pedido que demora a aparecer na listagem
   // não pode cair no vão entre uma rodada e outra. A trava de duplicata
   // é que garante que reler não custa nada.
@@ -124,6 +159,24 @@ async function puxarPedidos(db, loja, relato, seco) {
   for (const pedido of pedidos) {
     const chave = `nuvemshop:${pedido.id}`;
     if (jaTemos.has(chave)) continue;
+
+    /* §22: o que o sistema decide não fazer é anunciado, nunca engolido.
+       Pedido anterior ao corte não vira venda, e aparece no relatório com
+       nome e data — quem olhar vê exatamente o que ficou de fora. */
+    if (corte) {
+      const nascido = Date.parse(String(pedido.created_at || ''));
+      if (Number.isNaN(nascido) || nascido < corte.ms) {
+        relato.pedidosAntesDoCorte.push({
+          id: pedido.id,
+          numero: pedido.number || pedido.id,
+          criadoEm: pedido.created_at || null,
+          status: pedido.status || null,
+          motivo: Number.isNaN(nascido) ? 'sem data legível' : 'anterior ao corte',
+        });
+        continue;
+      }
+    }
+
     // pedido cancelado no site nunca chega a virar venda aqui
     if (pedido.status === 'cancelled' || pedido.cancelled_at) continue;
 
