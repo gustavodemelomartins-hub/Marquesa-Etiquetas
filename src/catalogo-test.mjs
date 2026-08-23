@@ -167,11 +167,27 @@ eq('C2 tem estoque diferente (loja 1, real 9)', r.resumo.estoqueDiferente, 1);
 eq('C3 e NOVO precisam ser criados na loja', r.resumo.criarNaLoja, 2);
 eq('e a loja tem 1 código que não é nosso', r.resumo.soNaLoja, 1);
 eq('todos os que faltam subir estão sem foto', r.resumo.semFoto, 2);
+eq('ajuste sem venda vinculada não recebe explicação inventada',
+  r.estoqueDiferente[0].explicadaPorVendas, undefined);
 eq('nada foi escrito na loja', loja.estado.escritas.length, 0);
 const depois = await estado();
 eq('e nada mudou aqui também',
   JSON.stringify(depois.produtos.map(p => [p.sku, p.qtd])),
   JSON.stringify(antes.produtos.map(p => [p.sku, p.qtd])));
+
+/* A loja e o nosso saldo partem de 5; uma venda real baixa 1 aqui. A
+   análise precisa apontar a venda que explica o 5 → 4 pelo vínculo
+   contábil, não por coincidência de descrição. */
+r = await api('POST', '/api/vendas', {
+  clienteNome: 'Cliente da explicação',
+  itens: [{ sku: 'C1', qtd: 1 }],
+});
+const vendaExplicada = r.id;
+r = await api('POST', '/api/sync/analisar');
+const c1Mudanca = r.estoqueDiferente.find(x => x.sku === 'C1');
+eq('a baixa de C1 foi explicada por venda', c1Mudanca.explicadaPorVendas, 'true');
+eq('a análise apontou a venda certa', c1Mudanca.vendasRelacionadas[0].id, vendaExplicada);
+eq('e mostrou a cliente certa', c1Mudanca.vendasRelacionadas[0].cliente, 'Cliente da explicação');
 
 /* ------------------------------------------------------------------ */
 console.log('\n=== 8b. vincular fotos da loja: só o endereço, sem baixar ===');

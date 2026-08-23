@@ -4943,6 +4943,16 @@ async function analisarSync(){
   }catch(e){ analisando=false; renderLoja(); toast(e.message); }
 }
 
+function explicacaoVendaSync(mudanca){
+  if(!mudanca.explicadaPorVendas||!mudanca.vendasRelacionadas?.length) return '';
+  const linhas=mudanca.vendasRelacionadas.map(v=>{
+    const rotulo=v.externoId&&String(v.externoId).startsWith('nuvemshop:')
+      ?`Pedido ${String(v.externoId).slice(10)}`:`Venda #${v.id}`;
+    return `${esc(rotulo)} · ${esc(v.cliente||v.origem||'cliente não informada')} · ${esc(fmtData(v.data))} · ${v.qtd} ${plural(v.qtd,'peça','peças')}`;
+  }).join('<br>');
+  return `<small style="display:block;margin-top:5px;color:var(--rose);font-weight:600">${linhas}</small>`;
+}
+
 /** O laudo desenhado: os números primeiro, a lista escolhida depois. */
 function painelAnalise(){
   if(analisando) return `<div class="panel"><div class="body"><div class="empty">
@@ -4961,7 +4971,7 @@ function painelAnalise(){
           <thead><tr><th>Descrição</th><th style="width:88px">Código</th>
             <th style="width:74px">No site</th><th style="width:74px">Ficaria</th><th style="width:74px">Muda</th></tr></thead>
           <tbody>${lista.map(x=>`<tr>
-            <td class="desc">${esc(x.desc)}</td>
+            <td class="desc">${esc(x.desc)}${explicacaoVendaSync(x)}</td>
             <td class="sku">${esc(x.sku)}</td>
             <td class="num">${x.de}</td>
             <td class="num ${x.zera?'neg':''}">${x.para}</td>

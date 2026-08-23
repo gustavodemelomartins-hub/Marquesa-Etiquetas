@@ -622,6 +622,69 @@ export async function resumoSync(db, env) {
 
 /* ============================================================ análise seca */
 
+/** Liga uma divergência às vendas que realmente fecham aquele delta.
+ *
+ *  A análise não pode concluir "foi venda" só porque o número diminuiu.
+ *  Por isso caminhamos pelas baixas mais recentes, usando o vínculo
+ *  contábil `movimentos.venda_id`, e só anunciamos a origem quando a soma
+ *  líquida chega EXATAMENTE a `para - de`. Venda cancelada fica fora: o
+ *  estorno devolveu a peça e ela não explica uma baixa atual.
+ */
+async function explicarMudancasComVendas(db, mudancas) {
+  const skus = [...new Set(mudancas.filter(m => m.para < m.de).map(m => m.sku))];
+  if (!skus.length) return;
+
+  const porSku = new Map();
+  for (let inicio = 0; inicio < skus.length; inicio += 80) {
+    const lote = skus.slice(inicio, inicio + 80);
+    const qs = lote.map(() => '?').join(',');
+    const r = await db.prepare(`
+      SELECT m.sku, m.variante_id, v.id, v.data, v.cliente_nome,
+             v.origem, v.externo_id, v.criada_em, SUM(m.qtd) AS qtd
+        FROM movimentos m
+        JOIN vendas v ON v.id = m.venda_id
+       WHERE v.cancelada = 0 AND m.sku IN (${qs})
+       GROUP BY m.sku, m.variante_id, v.id, v.data, v.cliente_nome,
+                v.origem, v.externo_id, v.criada_em
+      HAVING SUM(m.qtd) < 0
+       ORDER BY COALESCE(v.criada_em, v.data) DESC, v.id DESC
+    `).bind(...lote).all();
+    for (const venda of r.results || []) {
+      if (!porSku.has(venda.sku)) porSku.set(venda.sku, []);
+      porSku.get(venda.sku).push(venda);
+    }
+  }
+
+  for (const mudanca of mudancas) {
+    const delta = mudanca.para - mudanca.de;
+    if (delta >= 0) continue;
+
+    const candidatas = (porSku.get(mudanca.sku) || []).filter(v =>
+      mudanca.varianteId == null || String(v.variante_id || '') === String(mudanca.varianteId));
+    let soma = 0;
+    const usadas = [];
+    for (const venda of candidatas) {
+      soma += Number(venda.qtd);
+      usadas.push(venda);
+      if (soma <= delta) break;
+    }
+
+    /* Passar do delta ou não chegar nele significa que existe outro fato
+       no meio (ajuste, maleta, perda...). Nesse caso não atribuímos a queda
+       a uma venda por semelhança numérica. */
+    if (soma !== delta) continue;
+    mudanca.vendasRelacionadas = usadas.map(v => ({
+      id: v.id,
+      data: v.data,
+      cliente: v.cliente_nome || null,
+      origem: v.origem,
+      externoId: v.externo_id || null,
+      qtd: Math.abs(Number(v.qtd)),
+    }));
+    mudanca.explicadaPorVendas = true;
+  }
+}
+
 /** "O que aconteceria se eu sincronizasse agora?" — sem escrever nada.
  *
  *  Diferente do `seco` de `sincronizar()`, que abre uma execução, puxa
@@ -697,6 +760,7 @@ export async function analisarSincronizacao(db, env) {
   }
 
   const mudancas = relato.mudancas;
+  await explicarMudancasComVendas(db, mudancas);
   const teto = (l) => l.slice(0, 300);
 
   return {
