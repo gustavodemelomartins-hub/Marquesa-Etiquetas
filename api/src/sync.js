@@ -17,7 +17,7 @@ import { Nuvemshop, mapearSkus } from './nuvemshop.js';
 import { ingerirFotosDoCatalogo } from './fotos.js';
 import { movimentar, saldosDoSku } from './estoque.js';
 import { resolverVariantes, saldosDeVariacao, salvarVariantesDaLoja } from './variantes.js';
-import { vincularPedidoCriadoAqui } from './vendas-nuvemshop.js';
+import { sincronizarVendasPendentes, vincularPedidoCriadoAqui } from './vendas-nuvemshop.js';
 
 const agoraISO = () => new Date().toISOString();
 
@@ -54,6 +54,7 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
     id: exec.id, pedidosLidos: 0, vendasCriadas: 0, itensIgnorados: [],
     pedidosAntesDoCorte: [],
     produtosEnviados: 0, mudancas: [], semEmpurrar: [], semeados: [], naoSemeados: [],
+    vendasLocais: { tentadas: 0, sincronizadas: 0, revisao: 0, falhas: 0, resultados: [] },
     pausado: null, seco,
   };
 
@@ -67,6 +68,10 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
     relato.variantes = await salvarVariantesDaLoja(db, produtosLoja, { seco });
 
     await puxarPedidos(db, loja, relato, seco);
+    // Venda e acerto tentam criar o pedido na hora. A rodada automática é a
+    // rede de segurança para timeout/queda da Nuvemshop; em modo seco ela
+    // não toca nos estados das vendas nem cria pedido algum.
+    if (!seco) relato.vendasLocais = await sincronizarVendasPendentes(db, env, { loja });
     /* Semear antes de empurrar: um código recém-repartido já sai desta
        mesma rodada com o estoque de cada variação no ar, em vez de esperar
        a próxima. */

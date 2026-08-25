@@ -92,11 +92,11 @@ async function registrarResultadoDoPedido(db, vendaId, pedido, { recuperado = fa
  * O marcador em `extra` permite reencontrar o pedido depois de timeout, antes
  * de qualquer retry criar outro.
  */
-export async function espelharVendaNaNuvemshop(db, env, vendaId) {
+export async function espelharVendaNaNuvemshop(db, env, vendaId, { loja = new Nuvemshop(env) } = {}) {
   const venda = await db.prepare(`SELECT * FROM vendas WHERE id = ?`).bind(vendaId).first();
   if (!venda) return { status: 'erro', erro: 'Venda não encontrada.' };
   if (venda.origem === 'site') return { status: 'nao_aplicavel' };
-  if (venda.cancelada) return cancelarVendaNaNuvemshop(db, env, vendaId);
+  if (venda.cancelada) return cancelarVendaNaNuvemshop(db, env, vendaId, { loja });
 
   const jaVinculado = idDoExterno(venda.externo_id);
   if (jaVinculado) {
@@ -118,7 +118,6 @@ export async function espelharVendaNaNuvemshop(db, env, vendaId) {
     return { status: atual.nuvemshop_status, erro: atual.nuvemshop_erro, externoId: atual.externo_id };
   }
 
-  const loja = new Nuvemshop(env);
   try {
     const encontrado = await pedidoJaCriado(loja, venda);
     if (encontrado) {
@@ -127,8 +126,11 @@ export async function espelharVendaNaNuvemshop(db, env, vendaId) {
 
     const preparados = await itensParaPedido(db, vendaId);
     if (preparados.erro) {
-      await marcar(db, vendaId, 'erro', preparados.erro);
-      return { status: 'erro', erro: preparados.erro };
+      // Isto não é indisponibilidade temporária: falta uma decisão humana
+      // (variant_id, anúncio ou local). Separar de `erro` impede o cron de
+      // insistir para sempre ou, pior, escolher uma variação por aproximação.
+      await marcar(db, vendaId, 'revisao', preparados.erro);
+      return { status: 'revisao', erro: preparados.erro };
     }
 
     const nome = String(venda.cliente_nome || `Acerto da maleta ${venda.maleta_id || ''}`).trim() || 'Não informado';
@@ -163,7 +165,7 @@ export async function espelharVendaNaNuvemshop(db, env, vendaId) {
   }
 }
 
-export async function cancelarVendaNaNuvemshop(db, env, vendaId) {
+export async function cancelarVendaNaNuvemshop(db, env, vendaId, { loja = new Nuvemshop(env) } = {}) {
   const venda = await db.prepare(`SELECT * FROM vendas WHERE id = ?`).bind(vendaId).first();
   if (!venda) return { status: 'erro', erro: 'Venda não encontrada.' };
   const pedidoId = idDoExterno(venda.externo_id);
@@ -171,7 +173,6 @@ export async function cancelarVendaNaNuvemshop(db, env, vendaId) {
     await marcar(db, vendaId, 'cancelada_local', null);
     return { status: 'cancelada_local' };
   }
-  const loja = new Nuvemshop(env);
   try {
     const pedido = await loja.pedido(pedidoId);
     if (pedido.status !== 'cancelled') {
@@ -184,6 +185,44 @@ export async function cancelarVendaNaNuvemshop(db, env, vendaId) {
     await marcar(db, vendaId, 'cancelamento_pendente', erro, venda.externo_id);
     return { status: 'cancelamento_pendente', erro, pedidoId };
   }
+}
+
+/**
+ * Segunda camada do envio automático. A criação da venda já tenta na hora;
+ * esta rotina retoma somente falhas técnicas e execuções interrompidas.
+ * Pendência de decisão (`revisao`) e falta de estoque confirmada na loja
+ * (`estoque_divergente`) ficam de fora deliberadamente.
+ */
+export async function sincronizarVendasPendentes(db, env, { loja = new Nuvemshop(env), limite = 10 } = {}) {
+  const max = Math.max(1, Math.min(50, Number(limite) || 10));
+  const vendas = (await db.prepare(`
+    SELECT id, cancelada
+      FROM vendas
+     WHERE origem <> 'site' AND (
+       (cancelada = 0 AND nuvemshop_status IN ('pendente','erro','nao_enviada')) OR
+       (cancelada = 0 AND nuvemshop_status = 'sincronizando'
+          AND datetime(nuvemshop_em) < datetime('now','-5 minutes')) OR
+       (cancelada = 1 AND nuvemshop_status = 'cancelamento_pendente')
+     )
+     ORDER BY id
+     LIMIT ?
+  `).bind(max).all()).results;
+
+  const resultados = [];
+  for (const venda of vendas) {
+    const resultado = venda.cancelada
+      ? await cancelarVendaNaNuvemshop(db, env, venda.id, { loja })
+      : await espelharVendaNaNuvemshop(db, env, venda.id, { loja });
+    resultados.push({ vendaId: venda.id, ...resultado });
+  }
+
+  return {
+    tentadas: resultados.length,
+    sincronizadas: resultados.filter(r => ['sincronizada','cancelada','cancelada_local'].includes(r.status)).length,
+    revisao: resultados.filter(r => r.status === 'revisao').length,
+    falhas: resultados.filter(r => ['erro','cancelamento_pendente'].includes(r.status)).length,
+    resultados,
+  };
 }
 
 /** Chamado pela importação de pedidos para reconhecer o pedido que nasceu

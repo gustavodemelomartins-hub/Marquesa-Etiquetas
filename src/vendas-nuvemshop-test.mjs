@@ -33,6 +33,8 @@ eq('espelhamento terminou sincronizado', r.corpo.nuvemshop.status, 'sincronizada
 eq('um pedido foi criado', loja.estado.pedidosCriados.length, 1);
 eq('pedido usa claim, não replace', loja.estado.pedidosCriados[0].corpo.inventory_behaviour, 'claim');
 eq('pedido ficou pago', loja.estado.pedidosCriados[0].pedido.payment_status, 'paid');
+eq('pedidos usam a API v1 compatível com a loja', loja.estado.caminhos.some(p => /^\/v1\/[^/]+\/orders$/.test(p)), 'true');
+eq('catálogo continua na API 2025-03', loja.estado.caminhos.some(p => /^\/2025-03\/[^/]+\/products$/.test(p)), 'true');
 eq('estoque da variante caiu de 5 para 3', loja.estado.produtos[0].variants[0].inventory_levels[0].stock, 3);
 const st1 = await api('GET', '/api/state');
 eq('estoque físico também caiu para 3', st1.produtos.find(p => p.sku === 'VD-SIMPLES').qtd, 3);
@@ -155,6 +157,29 @@ const vendaCorrida = (await api('GET', `/api/vendas?data=${new Date().toISOStrin
 eq('ler o próprio pedido não escondeu a divergência', vendaCorrida.nuvemshopStatus, 'estoque_divergente');
 await api('POST', `/api/vendas/${r.corpo.id}/cancelar`, {});
 eq('cancelar restaurou só o que a loja chegou a reservar', loja.estado.produtos.at(-1).variants[0].inventory_levels[0].stock, 1);
+
+console.log('\n=== 8. falha temporária é retomada automaticamente pela rodada ===');
+await api('POST', '/api/produtos/importar', { produtos: [
+  { sku: 'VD-RETRY', desc: 'Venda para retry automático', cat: 'Brinco', preco: 55, qtd: 2 },
+] });
+loja.estado.produtos.push(produtoFalso(506, [{ id: 5061, sku: 'VD-RETRY', estoque: 2 }]));
+await api('POST', '/api/loja/variantes/importar', {});
+loja.estado.falhar = true;
+r = await apiResp('POST', '/api/vendas', {
+  clienteNome: 'Falha temporária', itens: [{ sku: 'VD-RETRY', qtd: 1 }],
+});
+eq('a venda ficou registrada apesar da queda externa', r.status, 201);
+eq('a falha externa ficou marcada para retry', r.corpo.nuvemshop.status, 'erro');
+const pedidosAntesRetry = loja.estado.pedidosCriados.length;
+loja.estado.falhar = false;
+s = await api('POST', '/api/sync', {});
+eq('a rodada tentou a venda pendente', s.vendasLocais.tentadas, 1);
+eq('a rodada concluiu o retry', s.vendasLocais.sincronizadas, 1);
+eq('o retry criou exatamente um pedido', loja.estado.pedidosCriados.length, pedidosAntesRetry + 1);
+eq('o pedido automático baixou somente uma unidade', loja.estado.produtos.at(-1).variants[0].inventory_levels[0].stock, 1);
+const vendaRetry = (await api('GET', `/api/vendas?data=${new Date().toISOString().slice(0,10)}`))
+  .find(v => v.id === r.corpo.id);
+eq('a venda terminou sincronizada sem botão manual', vendaRetry.nuvemshopStatus, 'sincronizada');
 
 eq('a razão continua fechando', (await api('GET', '/api/estoque/conferir')).ok, 'true');
 

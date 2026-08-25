@@ -50,7 +50,7 @@ export function explicarErro(status, corpo, caminho) {
          + 'e se NUVEMSHOP_STORE_ID é o número certo da loja.';
   }
   if (status === 404) {
-    return `A Nuvemshop não encontrou ${caminho}. Normalmente é o NUVEMSHOP_STORE_ID errado.`;
+    return `A Nuvemshop não encontrou ${caminho}. Confira o NUVEMSHOP_STORE_ID e a versão da API usada por este recurso.`;
   }
   return `Nuvemshop respondeu ${status} em ${caminho}: ${String(corpo || '').slice(0, 300)}`;
 }
@@ -80,6 +80,11 @@ export class Nuvemshop {
     // de verdade.
     const raiz = String(env.NUVEMSHOP_BASE || 'https://api.nuvemshop.com.br').replace(/\/+$/, '');
     this.base = `${raiz}/${VERSAO_API}/${this.loja}`;
+    // A API de pedidos 2025-03 ainda é liberada loja por loja. Esta loja já
+    // usa 2025-03 para catálogo/estoque, mas /orders responde 404 nela. O v1
+    // continua sendo a API estável e documentada para criar, ler e cancelar
+    // pedidos, inclusive com inventory_behaviour claim/bypass.
+    this.basePedidos = `${raiz}/v1/${this.loja}`;
     this.ultimaChamada = 0;
     // Fail-closed de propósito (não fail-open): qualquer coisa que não seja
     // exatamente a string "true" — ausente, "false", "1", "TRUE" — mantém a
@@ -103,13 +108,15 @@ export class Nuvemshop {
     await this.espera(INTERVALO_MS - (Date.now() - this.ultimaChamada));
     this.ultimaChamada = Date.now();
 
-    const resp = await fetch(this.base + caminho, {
-      ...opcoes,
+    const { apiPedidos, ...opcoesFetch } = opcoes;
+    const base = apiPedidos ? this.basePedidos : this.base;
+    const resp = await fetch(base + caminho, {
+      ...opcoesFetch,
       headers: {
         'Authorization': `Bearer ${this.token}`,
         'User-Agent': USER_AGENT,
         'Content-Type': 'application/json',
-        ...(opcoes.headers || {}),
+        ...(opcoesFetch.headers || {}),
       },
     });
 
@@ -133,11 +140,11 @@ export class Nuvemshop {
 
   /** Percorre todas as páginas de uma listagem. `per_page` vai no máximo
    *  permitido (200) para gastar o mínimo de requisições possível. */
-  async listarTudo(caminho, params = {}, limitePaginas = 40) {
+  async listarTudo(caminho, params = {}, limitePaginas = 40, opcoes = {}) {
     const saida = [];
     for (let pagina = 1; pagina <= limitePaginas; pagina++) {
       const q = new URLSearchParams({ ...params, page: String(pagina), per_page: '200' });
-      const lote = await this.chamar(`${caminho}?${q}`);
+      const lote = await this.chamar(`${caminho}?${q}`, opcoes);
       if (!Array.isArray(lote) || !lote.length) break;
       saida.push(...lote);
       if (lote.length < 200) break;
@@ -151,17 +158,17 @@ export class Nuvemshop {
   pedidos(desdeISO) {
     const p = { status: 'any' };
     if (desdeISO) p.created_at_min = desdeISO;
-    return this.listarTudo('/orders', p);
+    return this.listarTudo('/orders', p, 40, { apiPedidos: true });
   }
 
-  pedido(id) { return this.chamar(`/orders/${id}`); }
+  pedido(id) { return this.chamar(`/orders/${id}`, { apiPedidos: true }); }
 
   criarPedido(dados) {
-    return this.chamar('/orders', { method: 'POST', body: JSON.stringify(dados) });
+    return this.chamar('/orders', { apiPedidos: true, method: 'POST', body: JSON.stringify(dados) });
   }
 
   cancelarPedido(id, dados) {
-    return this.chamar(`/orders/${id}/cancel`, { method: 'POST', body: JSON.stringify(dados) });
+    return this.chamar(`/orders/${id}/cancel`, { apiPedidos: true, method: 'POST', body: JSON.stringify(dados) });
   }
 
   /** Escrita em lote de estoque. Um PATCH resolve vários produtos de uma

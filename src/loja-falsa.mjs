@@ -30,11 +30,13 @@ export function subirLojaFalsa(porta = 8799) {
     trocasOAuth: [],
     codigoValido: null,
     totalRequisicoes: 0,   // qualquer request que chegou aqui, de qualquer rota — prova que a trava de escrita barrou ANTES de sair do Worker, não só que o PATCH específico não apareceu
+    caminhos: [],          // inclui a versão (/v1 ou /2025-03) para provar o roteamento de cada recurso
   };
 
   const servidor = http.createServer(async (req, res) => {
     estado.totalRequisicoes++;
     const url = new URL(req.url, 'http://x');
+    estado.caminhos.push(url.pathname);
     const partes = url.pathname.split('/').filter(Boolean);   // [versão, loja, recurso...]
     const recurso = partes.slice(2).join('/');
     const responder = (código, corpo) => {

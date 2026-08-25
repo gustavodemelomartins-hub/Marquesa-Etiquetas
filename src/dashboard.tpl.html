@@ -6430,12 +6430,12 @@ function renderVendas(){
                 ${x.cancelada?'<span class="badge vencida" style="margin-left:6px">cancelada</span>':''}
                 ${x.nuvemshopStatus==='sincronizada'?'<span class="badge ok" style="margin-left:6px">na Nuvemshop</span>':''}
                 ${x.nuvemshopStatus==='estoque_divergente'?'<span class="badge vencida" style="margin-left:6px">revisar estoque</span>':''}
-                ${(!x.cancelada&&x.origem!=='site'&&['nao_enviada','erro','pendente','cancelamento_pendente'].includes(x.nuvemshopStatus))?'<span class="badge vencida" style="margin-left:6px">Nuvemshop pendente</span>':''}</div>
+                ${(!x.cancelada&&x.origem!=='site'&&['nao_enviada','erro','pendente','cancelamento_pendente'].includes(x.nuvemshopStatus))?'<span class="badge vencida" style="margin-left:6px">sincronização automática pendente</span>':''}
+                ${x.nuvemshopStatus==='revisao'?'<span class="badge vencida" style="margin-left:6px">revisar variação</span>':''}</div>
               <div class="d2">${x.itens.map(i=>`${i.qtd}× ${esc(i.desc)}${i.variacao?' · '+esc(i.variacao):''}`).join(' · ')}</div>
               ${x.nuvemshopErro?`<div class="d2" style="color:var(--red)">${esc(x.nuvemshopErro)}</div>`:''}
             </div>
             <div class="i-num"><b>${money(x.total)}</b></div>
-            ${(!x.cancelada&&x.origem!=='site'&&['nao_enviada','erro','pendente','cancelamento_pendente'].includes(x.nuvemshopStatus))?`<button class="btn btn-ghost btn-sm" onclick="reenviarVendaNuvemshop(${x.id})">Tentar Nuvemshop</button>`:''}
             ${(!x.cancelada&&x.origem==='balcao')?`<button class="btn btn-ghost btn-sm" onclick="cancelarVenda(${x.id})">Cancelar</button>`:''}
           </div>`).join('')
         :`<div class="empty" style="padding:40px 16px">
