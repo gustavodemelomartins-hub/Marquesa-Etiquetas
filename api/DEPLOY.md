@@ -373,7 +373,7 @@ não muda dependendo de qual foi usado.
 
 **Caminho A — Aplicativo sob medida** (mais simples, planos **Escala** e
 **Next**): painel da loja → **Aplicativos → Aplicativos sob medida** → criar.
-Marque **leitura e escrita em produtos** e **leitura de pedidos**. O token
+Marque **leitura e escrita em produtos** e **leitura e escrita em pedidos**. O token
 **aparece uma única vez** — copie na hora. O ID da loja é o número na URL do
 painel, e também vem junto com o token como `user_id`. Pule direto para o
 passo 3.
@@ -390,7 +390,7 @@ autoriza o app. Passo a passo:
    existe depois de publicado.
 2. Na aba **Configuração** do app, campo **URL de redirecionamento**, cole:
    `https://marquesa-api.SEU-SUBDOMINIO.workers.dev/api/nuvemshop/callback`
-3. Marque as permissões (produtos leitura/escrita, pedidos leitura) e salve.
+3. Marque as permissões (produtos leitura/escrita, pedidos leitura/escrita) e salve.
 4. Logada na loja, abra:
    `https://www.tiendanube.com/apps/SEU-APP-ID/authorize`
    (o `App ID` do passo 1 — no exemplo do print, seria `38392`)

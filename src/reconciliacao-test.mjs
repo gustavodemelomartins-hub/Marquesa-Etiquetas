@@ -47,7 +47,7 @@ function rodarSql(sql) {
   const f = join(SCRATCH, `q-${contadorSql++}.sql`);
   writeFileSync(f, sql, 'utf8');
   const out = execFileSync(
-    'npx', ['wrangler', 'd1', 'execute', 'marquesa-db', '--local', '--file', f, '--json'],
+    'npx', ['wrangler', 'd1', 'execute', 'DB', '--local', '--file', f, '--json'],
     { cwd: API_DIR, encoding: 'utf8', shell: true },
   );
   const bloco = out.match(/\[[\s\S]*\]/);
@@ -131,6 +131,10 @@ const item2 = sessao2.itens[0];
 eq('é a variação certa (14)', item2.variacao, '14');
 eq('de = 3 (loja) / para = 2 (nosso saldo novo)', `${item2.de}/${item2.para}`, '3/2');
 
+// Nome é dado editável da loja; o endereço congelado é o variant_id. Renomear
+// entre análise e Apply não pode mandar a mudança para outra caixinha.
+loja.estado.produtos.find(p => p.id === 102).variants.find(v => v.id === 1021).values[0].pt = '14 renomeado';
+
 await api('POST', `/api/reconciliacao/${sessao2.id}/itens/${item2.id}/aprovar`);
 r = await api('POST', `/api/reconciliacao/${sessao2.id}/aplicar`);
 eq('aplicou', r.corpo.status, 'aplicada');
@@ -139,6 +143,33 @@ const variante16 = loja.estado.produtos.find(p => p.id === 102).variants.find(v 
 eq('a variação 16 (irmã) NÃO foi tocada', variante16.inventory_levels[0].stock, 2);
 const variante14 = loja.estado.produtos.find(p => p.id === 102).variants.find(v => v.id === 1021);
 eq('a variação 14 foi para 2', variante14.inventory_levels[0].stock, 2);
+
+/* =========================================================================
+   2b. VARIANT_ID TROCOU — mesmo nome não autoriza recasar
+   ========================================================================= */
+console.log('\n=== 2b. mesmo nome, outro variant_id → obsoleto, nunca escreve ===');
+
+// Cria uma nova divergência na mesma peça e congela o id 1021 na sessão.
+r = await api('POST', '/api/produtos/RECVAR/movimento', { tipo: 'ajuste', quantidade: -1, variacao: '14', obs: 'novo drift' });
+eq('novo ajuste aplicado', r.status < 300, 'true');
+r = await api('POST', '/api/reconciliacao', { origem: 'nuvemshop' });
+const sessao2b = r.corpo;
+const item2b = sessao2b.itens.find(i => i.sku === 'RECVAR');
+await api('POST', `/api/reconciliacao/${sessao2b.id}/itens/${item2b.id}/aprovar`);
+
+// A loja reutilizou o MESMO nome num id novo. Casar pelo nome aplicaria na
+// variante errada; casar pelo id congelado torna a proposta obsoleta.
+variante14.id = 9099;
+const escritasAntes2b = loja.estado.escritas.length;
+r = await api('POST', `/api/reconciliacao/${sessao2b.id}/aplicar`);
+eq('ficou aplicada_parcial', r.corpo.status, 'aplicada_parcial');
+eq('item ficou obsoleto', r.corpo.obsoletos, 1);
+eq('nenhum PATCH saiu para o id novo', loja.estado.escritas.length, escritasAntes2b);
+eq('estoque da loja ficou intacto', variante14.inventory_levels[0].stock, 2);
+
+// Volta a fixture ao estado neutro para os cenários seguintes.
+variante14.id = 1021;
+await api('POST', '/api/produtos/RECVAR/movimento', { tipo: 'ajuste', quantidade: 1, variacao: '14', obs: 'restaura fixture' });
 
 /* =========================================================================
    3. PRECONDITION A — destino mudou → obsoleto, nenhum PATCH
@@ -600,6 +631,8 @@ loja.estado.produtos.push(
 );
 
 const baseResume = JSON.stringify({ qtd_total: 5, consignado: 0, casa: 5 });
+const dadosResume1 = JSON.stringify({ produtoId: 200, varianteId: 2001 });
+const dadosResume2 = JSON.stringify({ produtoId: 201, varianteId: 2011 });
 rodarSql(`INSERT INTO reconciliacao_sessoes (origem, status) VALUES ('planilha_estoque_total', 'aplicando');`);
 const sessaoResumeId = rodarSql(
   `SELECT id FROM reconciliacao_sessoes WHERE origem='planilha_estoque_total' AND status='aplicando' ORDER BY id DESC LIMIT 1;`
@@ -608,13 +641,13 @@ const sessaoResumeId = rodarSql(
 // mas DEPOIS de aplicar este item) já deixou aplicado — retomar não pode
 // mexer nele de novo.
 rodarSql(
-  `INSERT INTO reconciliacao_itens (sessao_id, sku, tipo, de, para, base_json, risco, motivo, status)
-   VALUES (${sessaoResumeId}, 'RESUME1', 'estoque_loja', '10', '5', '${baseResume}', 'confere', 'teste', 'aplicado');`
+  `INSERT INTO reconciliacao_itens (sessao_id, sku, tipo, de, para, base_json, dados_json, risco, motivo, status)
+   VALUES (${sessaoResumeId}, 'RESUME1', 'estoque_loja', '10', '5', '${baseResume}', '${dadosResume1}', 'confere', 'teste', 'aplicado');`
 );
 // item 2: ainda aprovado — é o que a retomada precisa processar.
 rodarSql(
-  `INSERT INTO reconciliacao_itens (sessao_id, sku, tipo, de, para, base_json, risco, motivo, status)
-   VALUES (${sessaoResumeId}, 'RESUME2', 'estoque_loja', '10', '5', '${baseResume}', 'confere', 'teste', 'aprovado');`
+  `INSERT INTO reconciliacao_itens (sessao_id, sku, tipo, de, para, base_json, dados_json, risco, motivo, status)
+   VALUES (${sessaoResumeId}, 'RESUME2', 'estoque_loja', '10', '5', '${baseResume}', '${dadosResume2}', 'confere', 'teste', 'aprovado');`
 );
 
 r = await api('POST', `/api/reconciliacao/${sessaoResumeId}/aplicar`);

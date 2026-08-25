@@ -12,6 +12,9 @@ export function subirLojaFalsa(porta = 8799) {
   const estado = {
     produtos: [],
     pedidos: [],
+    pedidosCriados: [],
+    proximoPedidoId: 9000,
+    criarComEstoqueInsuficiente: false,
     escritas: [],          // tudo que chegou no PATCH, na ordem
     semUserAgent: 0,
     /* Liga a loja para responder 500 em tudo. Serve para provar o que o
@@ -57,7 +60,7 @@ export function subirLojaFalsa(porta = 8799) {
       }
       return responder(200, {
         access_token: 'token-trocado-' + b.code, token_type: 'bearer',
-        scope: 'read_orders,read_products,write_products', user_id: '555444',
+        scope: 'read_orders,write_orders,read_products,write_products', user_id: '555444',
       });
     }
 
@@ -103,6 +106,73 @@ export function subirLojaFalsa(porta = 8799) {
         ? estado.pedidos.filter(p => String(p.created_at) >= min)
         : estado.pedidos;
       return responder(200, fatia(filtrados));
+    }
+    if (recurso === 'orders' && req.method === 'POST') {
+      let corpo = '';
+      for await (const p of req) corpo += p;
+      const b = JSON.parse(corpo || '{}');
+      const id = estado.proximoPedidoId++;
+      const produtos = [];
+      for (const linha of b.products || []) {
+        let achada = null, produto = null;
+        for (const p of estado.produtos) {
+          const v = (p.variants || []).find(x => String(x.id) === String(linha.variant_id));
+          if (v) { achada = v; produto = p; break; }
+        }
+        if (!achada) return responder(422, { message: 'variante não encontrada' });
+        let reservada = linha.quantity;
+        let issues = {};
+        if (b.inventory_behaviour === 'claim') {
+          const nivel = (achada.inventory_levels || [])[0];
+          if (!nivel || nivel.stock < linha.quantity) {
+            if (!estado.criarComEstoqueInsuficiente) return responder(422, { message: 'estoque insuficiente' });
+            reservada = Math.max(0, Number(nivel && nivel.stock) || 0);
+            issues = { unclaimed_stock: linha.quantity - reservada };
+            if (nivel) nivel.stock = 0;
+          } else {
+            nivel.stock -= linha.quantity;
+          }
+        }
+        produtos.push({
+          variant_id: achada.id, sku: achada.sku, quantity: linha.quantity,
+          price: linha.price, name: (produto.name && (produto.name.pt || produto.name.pt_BR)) || 'Produto',
+          issues, _reservada: reservada,
+        });
+      }
+      const pedido = {
+        id, number: id, status: b.status || 'open', payment_status: b.payment_status || 'pending',
+        created_at: new Date().toISOString(), customer: b.customer, products: produtos,
+        extra: b.extra || {}, note: b.note || null, storefront: 'api',
+      };
+      estado.pedidos.push(pedido);
+      estado.pedidosCriados.push({ corpo: b, pedido });
+      return responder(201, pedido);
+    }
+    const pedidoUnico = /^orders\/(\d+)$/.exec(recurso);
+    if (pedidoUnico && req.method === 'GET') {
+      const pedido = estado.pedidos.find(p => String(p.id) === pedidoUnico[1]);
+      return pedido ? responder(200, pedido) : responder(404, { message: 'pedido não encontrado' });
+    }
+    const cancelarPedido = /^orders\/(\d+)\/cancel$/.exec(recurso);
+    if (cancelarPedido && req.method === 'POST') {
+      let corpo = '';
+      for await (const p of req) corpo += p;
+      const b = JSON.parse(corpo || '{}');
+      const pedido = estado.pedidos.find(p => String(p.id) === cancelarPedido[1]);
+      if (!pedido) return responder(404, { message: 'pedido não encontrado' });
+      if (pedido.status !== 'cancelled' && b.restock) {
+        for (const linha of pedido.products || []) {
+          for (const p of estado.produtos) {
+            const v = (p.variants || []).find(x => String(x.id) === String(linha.variant_id));
+            if (v && v.inventory_levels && v.inventory_levels[0]) {
+              v.inventory_levels[0].stock += linha._reservada == null ? linha.quantity : linha._reservada;
+            }
+          }
+        }
+      }
+      pedido.status = 'cancelled';
+      pedido.cancelled_at = new Date().toISOString();
+      return responder(200, pedido);
     }
     if (recurso === 'products/stock-price' && req.method === 'PATCH') {
       let corpo = '';

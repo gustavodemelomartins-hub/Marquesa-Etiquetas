@@ -89,7 +89,10 @@ passe disso teria o excedente silenciosamente ignorado.
 
 ## Escrita
 
-Só uma, e só de estoque:
+Existem duas famílias de escrita, ambas protegidas por
+`NUVEMSHOP_WRITES_ENABLED=true`.
+
+### Reconciliação de estoque absoluto
 
 ```
 PATCH /products/stock-price
@@ -104,8 +107,41 @@ compatibilidade. A leitura considera os dois (`somaEstoque`); a escrita usa
 `inventory_levels` quando a variante declara `location_id`, e cai no `stock`
 simples quando a loja ainda não tem multi-estoque.
 
-**Nada mais é escrito.** O sistema não cria produto, não muda preço, não
-altera pedido, não cancela nada.
+O sistema não cria produto e não muda preço.
+
+### Venda local como pedido
+
+Uma venda de balcão ou um acerto cria um pedido pago da Nuvemshop:
+
+```
+POST /orders
+inventory_behaviour: "claim"
+products: [{ variant_id, quantity, price }]
+extra.marquesa_venda_id: <id local>
+```
+
+Venda de balcão usa `claim`: a própria Nuvemshop reserva/baixa cada
+`variant_id`, sem PATCH absoluto depois da venda. Acerto usa `bypass`: a
+peça já saiu do disponível quando entrou na maleta, então o pedido registra
+todos os itens `vendida` sem descontá-los uma segunda vez. A reconciliação
+devolve ao online somente o que voltou para casa. Item com várias variações
+sem `variant_id` exato fica em erro observável e pode ser tentado novamente
+depois da correção.
+
+Se a API criar o pedido mas devolver `issues.unclaimed_stock` (corrida com
+uma venda online), a venda fica `estoque_divergente`, mostra quantas unidades
+não foram reservadas e não é reenviada. Assim o pedido não duplica e a falta
+de estoque não vira sucesso falso.
+
+Antes de repetir um POST interrompido, o Worker procura
+`extra.marquesa_venda_id`. Ao ler pedidos, o mesmo marcador impede que o
+pedido criado daqui volte como uma segunda venda do site. Cancelar uma venda
+de balcão cancela o pedido com `restock: true` e devolve o estoque dos dois
+lados.
+
+O token precisa de `read_orders`, `write_orders`, `read_products` e
+`write_products`. Alterar o app não altera tokens antigos: é preciso gerar
+um token novo.
 
 ## Matching de SKU
 

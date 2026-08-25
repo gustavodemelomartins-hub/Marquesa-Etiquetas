@@ -16,7 +16,8 @@
 import { Nuvemshop, mapearSkus } from './nuvemshop.js';
 import { ingerirFotosDoCatalogo } from './fotos.js';
 import { movimentar, saldosDoSku } from './estoque.js';
-import { resolverVariantes, saldosDeVariacao } from './variantes.js';
+import { resolverVariantes, saldosDeVariacao, salvarVariantesDaLoja } from './variantes.js';
+import { vincularPedidoCriadoAqui } from './vendas-nuvemshop.js';
 
 const agoraISO = () => new Date().toISOString();
 
@@ -60,6 +61,10 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
     const produtosLoja = await loja.produtos();
     const { mapa, duplicados } = mapearSkus(produtosLoja);
     relato.duplicadosNaLoja = duplicados;
+
+    // A próxima venda precisa do variant_id atual. A rodada já tem o
+    // catálogo inteiro em memória, então atualiza o espelho sem outro GET.
+    relato.variantes = await salvarVariantesDaLoja(db, produtosLoja, { seco });
 
     await puxarPedidos(db, loja, relato, seco);
     /* Semear antes de empurrar: um código recém-repartido já sai desta
@@ -158,6 +163,12 @@ async function puxarPedidos(db, loja, relato, seco) {
 
   for (const pedido of pedidos) {
     const chave = `nuvemshop:${pedido.id}`;
+    // Pedido criado por uma venda presencial daqui não é uma nova venda do
+    // site. Vincula a identidade externa e para aqui — sem segunda baixa.
+    if (await vincularPedidoCriadoAqui(db, pedido)) {
+      jaTemos.add(chave);
+      continue;
+    }
     if (jaTemos.has(chave)) continue;
 
     /* §22: o que o sistema decide não fazer é anunciado, nunca engolido.
@@ -181,6 +192,7 @@ async function puxarPedidos(db, loja, relato, seco) {
     if (pedido.status === 'cancelled' || pedido.cancelled_at) continue;
 
     const linhas = [];
+    let incompleto = false;
     for (const p of pedido.products || []) {
       const sku = String(p.sku || '').trim().toUpperCase();
       const nosso = sku ? await db.prepare(
@@ -188,10 +200,15 @@ async function puxarPedidos(db, loja, relato, seco) {
       if (!nosso) {
         // §22: o que não deu para casar é anunciado, não engolido
         relato.itensIgnorados.push({ pedido: pedido.number || pedido.id, sku: sku || '(sem SKU)', nome: p.name });
+        incompleto = true;
         continue;
       }
       linhas.push({ sku: nosso.sku, desc: nosso.desc, qtd: +p.quantity || 1, preco: +p.price || 0 });
     }
+    // Pedido pela metade é pior que pedido pendente: marcá-lo como visto
+    // impediria recuperar o item desconhecido depois. Sem externo_id ele
+    // volta na próxima rodada, até o cadastro ser corrigido.
+    if (incompleto) continue;
     if (!linhas.length) continue;
     if (seco) { relato.vendasCriadas++; continue; }
 
@@ -358,6 +375,20 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
     const naLoja = mapa.get(p.sku);
     if (!naLoja) continue;
 
+    if (naLoja.variantesSemSku > 0) {
+      relato.semEmpurrar.push({
+        sku: p.sku, desc: p.desc, casa: Math.max(0, p.casa),
+        naLoja: naLoja.estoque, motivo: 'sku_ausente',
+        explicacao: 'Este produto tem opção sem SKU na Nuvemshop. Sem o código, não dá para endereçar o estoque com segurança; nada foi escrito.',
+        detalhe: { variantesSemSku: naLoja.variantesSemSku },
+        atributos: naLoja.atributos || [],
+        variacoes: naLoja.variantes.map(v => ({
+          nome: v.nome, estoque: v.estoque, varianteId: String(v.varianteId),
+        })),
+      });
+      continue;
+    }
+
     /* Código vendido em mais de uma opção: quem decide se dá para empurrar
        é `resolverVariantes`, e a resposta dele é sim ou não — nunca "mais
        ou menos". O casamento é por `variante_id`, e o que não casar por id
@@ -405,6 +436,8 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
     relato.mudancas.push({
       sku: p.sku, desc: p.desc, de: naLoja.estoque, para: certo,
       zera: certo === 0 && naLoja.estoque > 0,
+      varianteId: naLoja.varianteId, produtoId: naLoja.produtoId,
+      locais: naLoja.locais,
     });
   }
 

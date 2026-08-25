@@ -18,7 +18,11 @@ import pathlib
 # qualquer máquina, sem caminho absoluto escrito no código.
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
-src = (REPO / "index.html").read_text(encoding="utf-8").split("\n")
+# Não usar str.splitlines(): bibliotecas minificadas podem conter outros
+# separadores Unicode válidos dentro do JavaScript. Separamos só em LF e
+# retiramos o CR do fim de cada linha para o build ser igual em Windows/Linux.
+src = [linha.removesuffix("\r") for linha in
+       (REPO / "index.html").read_text(encoding="utf-8").split("\n")]
 
 
 def bloco(abre_idx, fecha_tag):
@@ -55,12 +59,13 @@ tpl = (REPO / "src" / "dashboard.tpl.html").read_text(encoding="utf-8")
 assert "/*__BASE_CSS__*/" in tpl and "<!--__SHEETJS__-->" in tpl
 
 out = tpl.replace("/*__BASE_CSS__*/", base_css).replace("<!--__SHEETJS__-->", sheetjs)
-(REPO / "dashboard.html").write_text(out, encoding="utf-8")
+# dashboard.html já é versionado em CRLF; os vendors, em LF.
+(REPO / "dashboard.html").write_text(out, encoding="utf-8", newline="\r\n")
 
 vendor = REPO / "vendor"
 vendor.mkdir(exist_ok=True)
-(vendor / "jsbarcode.min.js").write_text(jsbarcode + "\n", encoding="utf-8")
-(vendor / "jspdf.min.js").write_text(jspdf + "\n", encoding="utf-8")
+(vendor / "jsbarcode.min.js").write_text(jsbarcode + "\n", encoding="utf-8", newline="\n")
+(vendor / "jspdf.min.js").write_text(jspdf + "\n", encoding="utf-8", newline="\n")
 
 print(f"dashboard.html: {len(out):,} bytes  (css {len(base_css):,} · sheetjs {len(sheetjs):,})")
 print(f"vendor/jsbarcode.min.js: {len(jsbarcode):,} bytes")

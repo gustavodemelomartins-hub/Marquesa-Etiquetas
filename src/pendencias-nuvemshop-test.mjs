@@ -16,8 +16,11 @@
  *   5. os códigos "falta subir" alimentam Publicar na Nuvemshop, com foto,
  *      preço, estoque, variações e o que falta em cada um;
  *   6. os casos de variação continuam chegando em Pendências;
- *   7. NENHUMA escrita sai para a Nuvemshop neste ambiente.
+ *   7. NENHUMA escrita sai para a Nuvemshop neste ambiente;
+ *   8. a tela usa Revisar -> Aprovar/Rejeitar -> Aplicar, sem o atalho
+ *      antigo que forçava /api/sync diretamente.
  */
+import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { subirLojaFalsa, produtoFalso } from './loja-falsa.mjs';
 
@@ -182,6 +185,19 @@ eq('nenhum PATCH de estoque na caixinha do código não repartido',
 
 console.log('\n=== 9. nenhum erro de página ===');
 eq('sem exceção no navegador', erros.length ? erros.join(' | ') : 0, 0);
+
+console.log('\n=== 10. atualização passa pela sessão congelada de revisão ===');
+const fontePainel = readFileSync(new URL('./dashboard.tpl.html', import.meta.url), 'utf8');
+eq('abre uma sessão de reconciliação',
+  fontePainel.includes("api('POST','/api/reconciliacao'"), 'true');
+eq('permite aprovar item por item',
+  /decidirSyncItem\([^)]*,'aprovar'\)/.test(fontePainel), 'true');
+eq('permite rejeitar sem aplicar',
+  /decidirSyncItem\([^)]*,'rejeitar'\)/.test(fontePainel), 'true');
+eq('só aplica a sessão revisada',
+  fontePainel.includes("/aplicar'"), 'true');
+eq('não sobrou atalho que força a sincronização direta',
+  /api\('POST','\/api\/sync',\s*\{\s*forcar/.test(fontePainel), 'false');
 
 await browser.close();
 await loja.fechar();

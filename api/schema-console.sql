@@ -32,11 +32,11 @@ CREATE TABLE IF NOT EXISTS kit_componentes ( kit_sku TEXT NOT NULL REFERENCES pr
 
 CREATE TABLE IF NOT EXISTS clientes ( id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, tel TEXT, criada_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
-CREATE TABLE IF NOT EXISTS vendas ( id INTEGER PRIMARY KEY AUTOINCREMENT, cliente_id INTEGER REFERENCES clientes(id), cliente_nome TEXT, revendedora_id INTEGER REFERENCES revendedoras(id), maleta_id INTEGER REFERENCES maletas(id), origem TEXT NOT NULL DEFAULT 'balcao', data TEXT NOT NULL, total REAL NOT NULL, cancelada INTEGER NOT NULL DEFAULT 0, externo_id TEXT, criada_em TEXT NOT NULL DEFAULT (datetime('now')) );
+CREATE TABLE IF NOT EXISTS vendas ( id INTEGER PRIMARY KEY AUTOINCREMENT, cliente_id INTEGER REFERENCES clientes(id), cliente_nome TEXT, revendedora_id INTEGER REFERENCES revendedoras(id), maleta_id INTEGER REFERENCES maletas(id), origem TEXT NOT NULL DEFAULT 'balcao', data TEXT NOT NULL, total REAL NOT NULL, cancelada INTEGER NOT NULL DEFAULT 0, externo_id TEXT, nuvemshop_status TEXT NOT NULL DEFAULT 'nao_enviada', nuvemshop_erro TEXT, nuvemshop_em TEXT, criada_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
 CREATE TABLE IF NOT EXISTS sync_execucoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, iniciado_em TEXT, terminado_em TEXT, status TEXT, pedidos_lidos INTEGER, vendas_criadas INTEGER, produtos_enviados INTEGER, detalhe_json TEXT, seco INTEGER NOT NULL DEFAULT 0 );
 
-CREATE TABLE IF NOT EXISTS venda_itens ( venda_id INTEGER NOT NULL REFERENCES vendas(id), sku TEXT NOT NULL REFERENCES produtos(sku), desc TEXT NOT NULL, qtd INTEGER NOT NULL, preco REAL NOT NULL, motivo TEXT );
+CREATE TABLE IF NOT EXISTS venda_itens ( venda_id INTEGER NOT NULL REFERENCES vendas(id), sku TEXT NOT NULL REFERENCES produtos(sku), desc TEXT NOT NULL, qtd INTEGER NOT NULL, preco REAL NOT NULL, motivo TEXT, variacao TEXT, variante_id TEXT );
 
 CREATE TABLE IF NOT EXISTS inventarios ( id INTEGER PRIMARY KEY AUTOINCREMENT, status TEXT NOT NULL DEFAULT 'aberto', iniciado_em TEXT NOT NULL DEFAULT (datetime('now')), concluido_em TEXT, desconhecidos_json TEXT, obs TEXT );
 
@@ -49,6 +49,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_rec_sessoes_revisao_unica ON reconciliacao
 CREATE TABLE IF NOT EXISTS reconciliacao_itens ( id INTEGER PRIMARY KEY AUTOINCREMENT, sessao_id INTEGER NOT NULL REFERENCES reconciliacao_sessoes(id), sku TEXT NOT NULL, variacao TEXT, variacao_chave TEXT GENERATED ALWAYS AS (COALESCE(variacao, '')) STORED, descricao TEXT, tipo TEXT NOT NULL CHECK (tipo IN ( 'estoque_loja', 'produto_novo', 'ajuste_qtd', 'campo' )), de TEXT, para TEXT, base_json TEXT, risco TEXT NOT NULL CHECK (risco IN ( 'trivial', 'confere', 'perigoso', 'desconhecido' )), motivo TEXT, status TEXT NOT NULL DEFAULT 'pendente' CHECK (status IN ( 'pendente', 'aprovado', 'rejeitado', 'aplicado', 'obsoleto', 'erro' )), erro TEXT, dados_json TEXT );
 
 CREATE TABLE IF NOT EXISTS loja_variantes ( variante_id TEXT PRIMARY KEY, produto_id TEXT NOT NULL, sku TEXT, sku_norm TEXT, valores_json TEXT NOT NULL DEFAULT '[]', nome TEXT, estoque INTEGER, preco REAL, promocional REAL, imagem_url TEXT, locais_json TEXT, produto_nome TEXT, produto_url TEXT, produto_visivel INTEGER, posicao INTEGER NOT NULL DEFAULT 0, lido_em TEXT NOT NULL DEFAULT (datetime('now')) );
+
+CREATE TABLE IF NOT EXISTS loja_fotos ( imagem_id TEXT PRIMARY KEY, produto_id TEXT NOT NULL, url TEXT NOT NULL, posicao INTEGER NOT NULL DEFAULT 0, principal INTEGER NOT NULL DEFAULT 0, sku_norm TEXT, variante_id TEXT, lido_em TEXT NOT NULL DEFAULT (datetime('now')) );
+
+CREATE INDEX IF NOT EXISTS idx_loja_fotos_sku ON loja_fotos(sku_norm);
+
+CREATE INDEX IF NOT EXISTS idx_loja_fotos_produto ON loja_fotos(produto_id);
+
+CREATE INDEX IF NOT EXISTS idx_loja_fotos_var ON loja_fotos(variante_id);
 
 CREATE TABLE IF NOT EXISTS sku_reservas ( sku TEXT PRIMARY KEY, criado_em TEXT NOT NULL DEFAULT (datetime('now')), expira_em TEXT NOT NULL, origem TEXT );
 
@@ -69,6 +77,8 @@ CREATE INDEX IF NOT EXISTS idx_vendas_origem ON vendas(origem);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_v ON venda_itens(venda_id);
 
 CREATE INDEX IF NOT EXISTS idx_venda_itens_s ON venda_itens(sku);
+
+CREATE INDEX IF NOT EXISTS idx_venda_itens_variante ON venda_itens(variante_id);
 
 CREATE INDEX IF NOT EXISTS idx_inv_status ON inventarios(status);
 

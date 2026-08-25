@@ -311,6 +311,12 @@ CREATE TABLE IF NOT EXISTS vendas (
   -- é o que impede uma rodada repetida da sincronização de cobrar a mesma
   -- venda duas vezes — a trava é do banco, não da lógica que pode falhar.
   externo_id     TEXT,
+  -- Estado do espelhamento da venda presencial como pedido da Nuvemshop.
+  -- A venda física nunca é desfeita quando a rede falha: fica observável e
+  -- retomável. `externo_id` continua sendo a identidade idempotente.
+  nuvemshop_status TEXT NOT NULL DEFAULT 'nao_enviada',
+  nuvemshop_erro   TEXT,
+  nuvemshop_em     TEXT,
   criada_em      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -339,7 +345,9 @@ CREATE TABLE IF NOT EXISTS venda_itens (
   desc      TEXT NOT NULL,
   qtd       INTEGER NOT NULL,
   preco     REAL NOT NULL,
-  motivo    TEXT                                    -- §8: venda|perda|quebra|brinde|troca|...
+  motivo    TEXT,                                   -- §8: venda|perda|quebra|brinde|troca|...
+  variacao  TEXT,                                   -- nome para leitura/histórico
+  variante_id TEXT                                  -- identidade estável na Nuvemshop
 );
 
 -- ------------------------------------------------------------- inventário
@@ -555,6 +563,7 @@ CREATE INDEX IF NOT EXISTS idx_vendas_data    ON vendas(data);
 CREATE INDEX IF NOT EXISTS idx_vendas_origem  ON vendas(origem);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_v  ON venda_itens(venda_id);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_s  ON venda_itens(sku);
+CREATE INDEX IF NOT EXISTS idx_venda_itens_variante ON venda_itens(variante_id);
 CREATE INDEX IF NOT EXISTS idx_inv_status     ON inventarios(status);
 CREATE INDEX IF NOT EXISTS idx_inv_itens      ON inventario_itens(inventario_id);
 -- Sem cláusula WHERE de propósito: no SQLite vários NULL convivem num índice

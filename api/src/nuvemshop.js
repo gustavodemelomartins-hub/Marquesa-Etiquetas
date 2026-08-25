@@ -154,6 +154,16 @@ export class Nuvemshop {
     return this.listarTudo('/orders', p);
   }
 
+  pedido(id) { return this.chamar(`/orders/${id}`); }
+
+  criarPedido(dados) {
+    return this.chamar('/orders', { method: 'POST', body: JSON.stringify(dados) });
+  }
+
+  cancelarPedido(id, dados) {
+    return this.chamar(`/orders/${id}/cancel`, { method: 'POST', body: JSON.stringify(dados) });
+  }
+
   /** Escrita em lote de estoque. Um PATCH resolve vários produtos de uma
    *  vez, o que importa muito com 2 requisições por segundo: mandar um por
    *  produto levaria 5 minutos para os 600 da loja. */
@@ -191,9 +201,13 @@ export class Nuvemshop {
 export function mapearSkus(produtos) {
   const mapa = new Map();
   for (const p of produtos || []) {
-    for (const v of p.variants || []) {
-      const sku = String(v.sku || '').trim().toUpperCase();
-      if (!sku) continue;
+    const variantes = p.variants || [];
+    const comSku = variantes
+      .map(v => ({ v, sku: String(v.sku || '').trim().toUpperCase() }))
+      .filter(x => x.sku);
+    const semSku = variantes.length - comSku.length;
+
+    for (const { v, sku } of comSku) {
       if (!mapa.has(sku)) {
         mapa.set(sku, {
           produtoId: p.id,
@@ -210,12 +224,19 @@ export function mapearSkus(produtos) {
           // produto declara os seus, e é esse nome que a tela mostra.
           atributos: (p.attributes || []).map(texto).filter(Boolean),
           variantes: [],
+          variantesSemSku: 0,
           produtos: new Set(),
         });
       }
       const e = mapa.get(sku);
       e.produtos.add(p.id);
       e.variantes.push(descreverVariante(p, v));
+    }
+
+    // Uma variante irmã sem SKU não pode desaparecer do mapa: isso faria o
+    // produto parecer ter uma opção só e concentraria todo o estoque nela.
+    for (const sku of new Set(comSku.map(x => x.sku))) {
+      mapa.get(sku).variantesSemSku += semSku;
     }
   }
 

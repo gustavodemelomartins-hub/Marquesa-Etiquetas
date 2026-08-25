@@ -27,6 +27,7 @@ import {
 import { checarSku, gerarSku, auditarSkus } from './sku.js';
 import { Nuvemshop } from './nuvemshop.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
+import { espelharVendaNaNuvemshop, cancelarVendaNaNuvemshop } from './vendas-nuvemshop.js';
 import {
   abrirSessao, detalheSessao, aprovarItem, rejeitarItem, cancelarSessao, aplicarSessao,
   analisarPlanilhaEstoqueTotal, analisarPlanilhaProdutosNovos,
@@ -388,7 +389,7 @@ async function rotear(request, env) {
         return await adicionarItens(db, +m[1], await request.json());
       }
       if ((m = path.match(/^\/api\/maletas\/(\d+)\/acerto$/)) && met === 'POST') {
-        return await encerrarAcerto(db, +m[1], await request.json());
+        return await encerrarAcerto(db, env, +m[1], await request.json());
       }
       // §6.1 + §28: maleta criada por engano é cancelada, não apagada
       if ((m = path.match(/^\/api\/maletas\/(\d+)\/cancelar$/)) && met === 'POST') {
@@ -519,12 +520,15 @@ async function rotear(request, env) {
         return await cancelarInventario(db, +m[1]);
       }
 
-      if (path === '/api/vendas' && met === 'POST') return await registrarVenda(db, await request.json());
+      if (path === '/api/vendas' && met === 'POST') return await registrarVenda(db, env, await request.json());
       if (path === '/api/vendas' && met === 'GET') {
         return json(await listarVendas(db, url.searchParams.get('data') || hoje()));
       }
       if ((m = path.match(/^\/api\/vendas\/(\d+)\/cancelar$/)) && met === 'POST') {
-        return await cancelarVenda(db, +m[1]);
+        return await cancelarVenda(db, env, +m[1]);
+      }
+      if ((m = path.match(/^\/api\/vendas\/(\d+)\/nuvemshop$/)) && met === 'POST') {
+        return json(await espelharVendaNaNuvemshop(db, env, +m[1]));
       }
 
       return json({ erro: 'Rota não encontrada' }, 404);
@@ -967,7 +971,7 @@ async function adicionarItens(db, maletaId, { itens }) {
 }
 
 /** §7, §8, §9, §13 — conferência, motivo, venda gerada e resumo financeiro. */
-async function encerrarAcerto(db, maletaId, { devolvidas, faltas }) {
+async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas }) {
   const maleta = await db.prepare(`SELECT * FROM maletas WHERE id = ?`).bind(maletaId).first();
   if (!maleta) return json({ erro: 'Maleta não encontrada' }, 404);
   if (!['aberta', 'em_acerto'].includes(maleta.status)) {
@@ -1038,8 +1042,8 @@ async function encerrarAcerto(db, maletaId, { devolvidas, faltas }) {
   let vendaId = null;
   if (itensVenda.length) {
     const v = await db.prepare(
-      `INSERT INTO vendas (cliente_nome, revendedora_id, maleta_id, origem, data, total)
-       VALUES (NULL, ?, ?, 'acerto', ?, ?) RETURNING id`
+      `INSERT INTO vendas (cliente_nome, revendedora_id, maleta_id, origem, data, total, nuvemshop_status)
+       VALUES (NULL, ?, ?, 'acerto', ?, ?, 'pendente') RETURNING id`
     ).bind(maleta.rev_id, maletaId, dataAcerto, c.totalVendido).first();
     vendaId = v.id;
     for (const it of itensVenda) {
@@ -1088,7 +1092,8 @@ async function encerrarAcerto(db, maletaId, { devolvidas, faltas }) {
   }
 
   await db.batch(stmts);
-  return json({ ok: true, acerto, novaMaletaId, vendaId });
+  const nuvemshop = vendaId ? await espelharVendaNaNuvemshop(db, env, vendaId) : { status: 'nao_aplicavel' };
+  return json({ ok: true, acerto, novaMaletaId, vendaId, nuvemshop });
 }
 
 /** §28: maleta errada é cancelada. As peças voltam a ficar disponíveis
@@ -1111,7 +1116,21 @@ async function cancelarMaleta(db, maletaId, { motivo }) {
 }
 
 /** §24: peça sem preço bloqueia a venda, em vez de vender por R$ 0. */
-async function registrarVenda(db, { clienteId, clienteNome, itens }) {
+async function varianteDaVenda(db, sku, varianteId) {
+  const loja = (await db.prepare(
+    `SELECT variante_id, nome FROM loja_variantes WHERE sku_norm = ? ORDER BY posicao`
+  ).bind(sku).all()).results;
+  if (varianteId != null && varianteId !== '') {
+    const v = loja.find(x => String(x.variante_id) === String(varianteId));
+    if (!v) return { erro: `${sku}: o variant_id escolhido não pertence mais a este código na Nuvemshop.` };
+    return { varianteId: String(v.variante_id), variacao: v.nome || null, exigeSaldo: loja.length > 1 };
+  }
+  if (loja.length === 1) return { varianteId: String(loja[0].variante_id), variacao: loja[0].nome || null, exigeSaldo: false };
+  if (loja.length > 1) return { erro: `${sku} tem mais de uma variação. Diga qual foi vendida.` };
+  return { varianteId: null, variacao: null };
+}
+
+async function registrarVenda(db, env, { clienteId, clienteNome, itens }) {
   const entradas = (itens || []).filter(i => i.qtd > 0);
   if (!entradas.length) return json({ erro: 'Nenhum item na venda' }, 400);
   if (!clienteNome || !clienteNome.trim()) return json({ erro: 'Nome da cliente é obrigatório' }, 400);
@@ -1127,7 +1146,9 @@ async function registrarVenda(db, { clienteId, clienteNome, itens }) {
   const disponivelReal = (sku, disponivelNoBanco) => disponivelNoBanco - (reservado.get(sku) || 0);
   const reservar = (sku, qtd) => reservado.set(sku, (reservado.get(sku) || 0) + qtd);
 
-  for (const { sku, qtd } of entradas) {
+  for (const entrada of entradas) {
+    const sku = String(entrada.sku || '').trim().toUpperCase();
+    const qtd = +entrada.qtd || 0;
     const s = await saldosDoSku(db, sku);
     if (!s) return json({ erro: `Código ${sku} não está no catálogo`, sku }, 400);
     if (s.preco === null || s.preco === undefined) {
@@ -1151,20 +1172,34 @@ async function registrarVenda(db, { clienteId, clienteNome, itens }) {
     }
     if (s.componentes) { for (const c of s.componentes) reservar(c.sku, qtd * c.qtd); }
     else { reservar(sku, qtd); }
-    linhas.push({ sku, qtd, preco: s.preco, desc: s.desc, componentes: s.componentes || null });
+    const v = await varianteDaVenda(db, sku, entrada.varianteId);
+    if (v.erro) return json({ erro: v.erro, sku }, 409);
+    if (v.varianteId && v.exigeSaldo) {
+      const saldo = await db.prepare(`
+        SELECT COALESCE(SUM(qtd),0) saldo FROM movimentos
+         WHERE sku=? AND (variante_id=? OR (variante_id IS NULL AND variacao=?))
+      `).bind(sku, v.varianteId, v.variacao).first();
+      if (+saldo.saldo < qtd) {
+        return json({ erro: `${s.desc} · ${v.variacao || v.varianteId}: saldo da variação é ${saldo.saldo}. Reparta em Pendências antes de vender.`, sku }, 409);
+      }
+    }
+    linhas.push({ sku, qtd, preco: s.preco, desc: s.desc, componentes: s.componentes || null,
+      varianteId: v.varianteId, variacao: v.variacao });
   }
 
   const total = linhas.reduce((s, l) => s + l.preco * l.qtd, 0);
   const data = hoje();
   const venda = await db.prepare(
-    `INSERT INTO vendas (cliente_id, cliente_nome, origem, data, total) VALUES (?, ?, 'balcao', ?, ?) RETURNING id`
+    `INSERT INTO vendas (cliente_id, cliente_nome, origem, data, total, nuvemshop_status)
+     VALUES (?, ?, 'balcao', ?, ?, 'pendente') RETURNING id`
   ).bind(clienteId || null, clienteNome.trim(), data, total).first();
 
   const stmts = [];
   for (const l of linhas) {
     stmts.push(db.prepare(
-      `INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, motivo) VALUES (?, ?, ?, ?, ?, 'venda')`
-    ).bind(venda.id, l.sku, l.desc, l.qtd, l.preco));
+      `INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, motivo, variacao, variante_id)
+       VALUES (?, ?, ?, ?, ?, 'venda', ?, ?)`
+    ).bind(venda.id, l.sku, l.desc, l.qtd, l.preco, l.variacao, l.varianteId));
     // Kit: a baixa vai nos componentes, não no kit — ele não tem saldo
     // próprio. O recibo (venda_itens acima) continua mostrando o kit
     // inteiro, porque é assim que ela pensa na venda.
@@ -1177,15 +1212,17 @@ async function registrarVenda(db, { clienteId, clienteNome, itens }) {
       stmts.push(...movimentar(db, {
         sku: l.sku, tipo: 'venda', quantidade: l.qtd, origem: 'venda',
         vendaId: venda.id, obs: `Venda ${venda.id} · ${clienteNome.trim()}`,
+        variacao: l.variacao, varianteId: l.varianteId,
       }));
     }
   }
   await db.batch(stmts);
-  return json({ ok: true, id: venda.id, data, total, itens: linhas }, 201);
+  const nuvemshop = await espelharVendaNaNuvemshop(db, env, venda.id);
+  return json({ ok: true, id: venda.id, data, total, itens: linhas, nuvemshop }, 201);
 }
 
 /** §19 e §28: cancelar cria movimentação inversa, não apaga a venda. */
-async function cancelarVenda(db, vendaId) {
+async function cancelarVenda(db, env, vendaId) {
   const v = await db.prepare(`SELECT * FROM vendas WHERE id = ?`).bind(vendaId).first();
   if (!v) return json({ erro: 'Venda não encontrada' }, 404);
   if (v.cancelada) return json({ erro: 'Venda já está cancelada' }, 409);
@@ -1204,12 +1241,14 @@ async function cancelarVenda(db, vendaId) {
       stmts.push(...movimentar(db, {
         sku: i.sku, tipo: 'cancelamento', quantidade: +i.qtd, origem: 'cancelamento',
         vendaId, obs: `Estorno da venda ${vendaId}`,
+        variacao: i.variacao, varianteId: i.variante_id,
       }));
     }
   }
   stmts.push(db.prepare(`UPDATE vendas SET cancelada = 1 WHERE id = ?`).bind(vendaId));
   await db.batch(stmts);
-  return json({ ok: true });
+  const nuvemshop = await cancelarVendaNaNuvemshop(db, env, vendaId);
+  return json({ ok: true, nuvemshop });
 }
 
 async function listarVendas(db, data) {
@@ -1219,11 +1258,16 @@ async function listarVendas(db, data) {
   const porVenda = new Map();
   for (const it of itens) {
     if (!porVenda.has(it.venda_id)) porVenda.set(it.venda_id, []);
-    porVenda.get(it.venda_id).push({ sku: it.sku, desc: it.desc, qtd: it.qtd, preco: it.preco, motivo: it.motivo });
+    porVenda.get(it.venda_id).push({
+      sku: it.sku, desc: it.desc, qtd: it.qtd, preco: it.preco, motivo: it.motivo,
+      variacao: it.variacao, varianteId: it.variante_id,
+    });
   }
   return vendas.map(v => ({
     id: v.id, origem: v.origem, clienteNome: v.cliente_nome, revendedoraId: v.revendedora_id,
     maletaId: v.maleta_id, data: v.data, total: v.total, cancelada: !!v.cancelada,
-    criadaEm: v.criada_em, itens: porVenda.get(v.id) || [],
+    criadaEm: v.criada_em, externoId: v.externo_id,
+    nuvemshopStatus: v.nuvemshop_status, nuvemshopErro: v.nuvemshop_erro,
+    itens: porVenda.get(v.id) || [],
   }));
 }

@@ -560,18 +560,32 @@ function checarPreconditionsEstoqueLoja(item, mapaFresco) {
     return { ok: false, motivo: `O código ${item.sku} não existe mais (ou saiu do ar) na Nuvemshop.` };
   }
 
-  let alvo, destinoAtual;
-  if (item.variacao) {
-    const variante = entrada.variantes.find(v => v.nome === item.variacao);
-    if (!variante) {
-      return { ok: false, motivo: `A opção "${item.variacao}" não existe mais em ${item.sku} na loja.` };
-    }
-    destinoAtual = variante.estoque;
-    alvo = { produtoId: variante.produtoId, varianteId: variante.varianteId, locais: variante.locais || [] };
-  } else {
-    destinoAtual = entrada.estoque;
-    alvo = { produtoId: entrada.produtoId, varianteId: entrada.varianteId, locais: entrada.locais || [] };
+  let dados;
+  try {
+    dados = JSON.parse(item.dados_json || '{}');
+  } catch {
+    return { ok: false, motivo: `A revisão de ${item.sku} perdeu o endereço congelado da variante. Gere uma análise nova.` };
   }
+
+  const varianteId = dados.varianteId;
+  if (varianteId == null || varianteId === '') {
+    return { ok: false, motivo: `A revisão de ${item.sku} não congelou o variant_id. Gere uma análise nova; nada foi escrito.` };
+  }
+
+  const variante = entrada.variantes.find(v => String(v.varianteId) === String(varianteId));
+  if (!variante) {
+    return { ok: false, motivo: `A variante ${varianteId} de ${item.sku} não existe mais na loja. Gere uma análise nova.` };
+  }
+  if (dados.produtoId != null && String(variante.produtoId) !== String(dados.produtoId)) {
+    return { ok: false, motivo: `A variante ${varianteId} mudou de produto na Nuvemshop. Gere uma análise nova; nada foi escrito.` };
+  }
+
+  const destinoAtual = variante.estoque;
+  const alvo = {
+    produtoId: variante.produtoId,
+    varianteId: variante.varianteId,
+    locais: variante.locais || [],
+  };
 
   // A classificação completa (inclusive a Precondition A) mora em
   // aplicarEstoqueLoja, porque agora ela também precisa decidir entre

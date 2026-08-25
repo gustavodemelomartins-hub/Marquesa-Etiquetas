@@ -291,6 +291,27 @@ eq('e a rodada explicou por que não repartiu',
 const garg = loja.estado.produtos.find(p => p.id === 73).variants;
 eq('nenhum comprimento foi zerado', garg.map(v => v.inventory_levels[0].stock).join(','), '1,2');
 
+console.log('\n=== 15. variante irmã sem SKU bloqueia o produto inteiro ===');
+await api('POST', '/api/produtos/importar', {
+  produtos: [{ sku: 'SEM-SKU', desc: 'Produto parcialmente sem SKU', cat: 'Colar', preco: 100, qtd: 5 }],
+});
+const parcial = {
+  id: 80, name: { pt: 'Produto parcialmente sem SKU' }, handle: { pt: 'sem-sku' }, published: true,
+  attributes: [{ pt: 'Cor' }],
+  variants: [
+    { id: 801, sku: 'SEM-SKU', values: [{ pt: 'Dourado' }], inventory_levels: [{ location_id: 'L1', stock: 1 }] },
+    { id: 802, sku: '', values: [{ pt: 'Prateado' }], inventory_levels: [{ location_id: 'L1', stock: 4 }] },
+  ],
+};
+loja.estado.produtos.push(parcial);
+const escritasAntes15 = loja.estado.escritas.length;
+r = await api('POST', '/api/sync', { forcar: true });
+const bloqueioSemSku = (r.semEmpurrar || []).find(x => x.sku === 'SEM-SKU');
+eq('o produto entrou na revisão', !!bloqueioSemSku, 'true');
+eq('o motivo é SKU ausente', bloqueioSemSku && bloqueioSemSku.motivo, 'sku_ausente');
+eq('nenhum PATCH saiu para o produto incompleto', loja.estado.escritas.length, escritasAntes15);
+eq('a variante mapeada não recebeu o total', parcial.variants[0].inventory_levels[0].stock, 1);
+
 await loja.fechar();
 console.log(falhas ? `\n✗ ${falhas} FALHA(S)\n` : '\n✓ TUDO PASSOU\n');
 process.exit(falhas ? 1 : 0);

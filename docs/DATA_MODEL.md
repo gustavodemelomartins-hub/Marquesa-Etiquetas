@@ -117,7 +117,22 @@ do pedido lá fora (`nuvemshop:1234`); o índice **único**
 No SQLite vários `NULL` convivem num índice único, então as vendas normais
 passam e só o mesmo pedido do site duas vezes é recusado.
 
-`venda_itens.motivo` registra o porquê da saída (§8).
+`nuvemshop_status`, `nuvemshop_erro` e `nuvemshop_em` tornam o envio
+observável e retomável. Venda de balcão e acerto começam como `pendente`;
+depois ficam `sincronizada` ou `erro`. Venda antiga recebe
+`nao_enviada`, para nunca ser repetida automaticamente sem revisão.
+
+`venda_itens.motivo` registra o porquê da saída (§8). `variacao` e
+`variante_id` congelam a caixinha exata da Nuvemshop que saiu: um SKU com
+mais de uma variação não pode ser enviado sem isso.
+
+No acerto, todos os itens `vendida` pertencem à mesma venda ligada a
+`revendedora_id` e `maleta_id`. Eles viram um único pedido da Nuvemshop e
+suas quantidades são somadas. O pedido usa `bypass`: essas peças já estavam
+fora do online por estarem consignadas, portanto registrar quatro vendas não
+baixa novamente quatro unidades.
+Perda, quebra, dano e brinde continuam movimentos físicos com o motivo
+real, mas não são fingidos como produto pago desse pedido.
 
 ### `produto_variacoes`
 O aro do anel, o comprimento da corrente. Ninguém digita esta tabela: quem

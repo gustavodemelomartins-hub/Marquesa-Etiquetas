@@ -57,6 +57,13 @@ export async function importarVariantesDaLoja(db, loja, { seco = false } = {}) {
   }
 
   const produtos = await loja.produtos();
+  return salvarVariantesDaLoja(db, produtos, { seco });
+}
+
+/** Mesma gravação acima, mas reaproveitando o catálogo que a sincronização
+ * inteira já leu. Evita uma segunda paginação só para manter o espelho de
+ * variant_id atualizado antes da próxima venda presencial. */
+export async function salvarVariantesDaLoja(db, produtos, { seco = false } = {}) {
   const linhas = catalogoDeVariantes(produtos);
 
   const nossos = new Set(

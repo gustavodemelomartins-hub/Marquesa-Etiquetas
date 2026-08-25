@@ -1606,11 +1606,11 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
   </div>
 </div>
 
-<!-- ============ CONFIRMAR SINCRONIZAÇÃO ============ -->
+<!-- ============ REVISAR SINCRONIZAÇÃO ============ -->
 <div class="overlay center" id="syncOverlay" onclick="if(event.target===this)closeSyncConfirm()">
   <div class="modal" style="width:560px">
     <div class="mhead">
-      <h2>Confirmar sincronização</h2>
+      <h2>Revisar estoque da Nuvemshop</h2>
       <button class="closebtn" onclick="closeSyncConfirm()">×</button>
     </div>
     <div class="mbody" id="syncBody"></div>
@@ -4888,31 +4888,13 @@ function fmtDataHora(iso){
   return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
 }
 
-async function rodarSync(forcar){
-  toast(forcar?'Aplicando na loja…':'Conversando com a Nuvemshop…');
-  try{
-    const r=await api('POST','/api/sync',{forcar:!!forcar});
-    await sincronizar();
-    if(!r.ok){ toast('Não deu certo: '+r.erro); return; }
-    if(r.pausado){ toast('Parei antes de mexer na loja — veja o aviso'); return; }
-    const partes=[];
-    if(r.vendasCriadas) partes.push(`${r.vendasCriadas} ${plural(r.vendasCriadas,'venda nova do site','vendas novas do site')}`);
-    if(r.produtosEnviados) partes.push(`${r.produtosEnviados} ${plural(r.produtosEnviados,'produto atualizado','produtos atualizados')}`);
-    toast(partes.length?partes.join(' · '):'Já estava tudo em dia');
-    if(r.itensIgnorados&&r.itensIgnorados.length){
-      setTimeout(()=>alert('Itens de pedido que não achei no catálogo:\n\n• '
-        +r.itensIgnorados.map(i=>`${i.sku} — ${i.nome||''} (pedido ${i.pedido})`).join('\n• ')
-        +'\n\nEsses não baixaram estoque. Cadastre o código e sincronize de novo.'),400);
-    }
-  }catch(e){ toast(e.message); }
-}
-
 /* =================== Análise da sincronização ===================
    O ensaio antes da peça. `POST /api/sync/analisar` abre a loja, compara
    com o catálogo e não escreve nada — nem aqui, nem lá. É ele que sustenta
    a regra nova: nenhuma sincronização acontece sem alguém ver antes o
    tamanho exato da mudança e confirmar. */
-let analiseSync=null, analisando=false, filtroAnalise='estoqueDiferente', syncForcar=false;
+let analiseSync=null, analisando=false, filtroAnalise='estoqueDiferente';
+let sessaoSync=null, decidindoSync=false;
 
 const LISTAS_ANALISE={
   estoqueDiferente:{rot:'Estoque diferente', vazio:'A loja está com os mesmos números daqui.'},
@@ -5061,8 +5043,8 @@ function painelAnalise(){
         <div class="stat">A análise não altera nada — nem aqui, nem na loja.</div>
         <div class="spacer"></div>
         <button class="btn btn-ghost btn-sm" onclick="analisarSync()">Conferir de novo</button>
-        <button class="btn btn-gold btn-sm" ${(r.estoqueDiferente||a.freio)?'':'disabled'} onclick="confirmarSync(${!!a.freio})">
-          Sincronizar…</button>
+        <button class="btn btn-gold btn-sm" ${(r.estoqueDiferente||a.freio)?'':'disabled'} onclick="confirmarSync()">
+          Revisar atualização…</button>
       </div>
     </div>
   </div>`;
@@ -5070,62 +5052,105 @@ function painelAnalise(){
 
 /* -------------------------------------------- confirmação obrigatória --- */
 
-/** Nenhuma sincronização sai daqui sem passar por esta tela.
- *  Se ainda não houver análise, ela é feita agora: confirmar sem saber o
- *  tamanho da mudança não seria confirmação, seria formalidade. */
-async function confirmarSync(forcar){
-  syncForcar=!!forcar;
-  if(!analiseSync){ await analisarSync(); if(!analiseSync) return; }
-  document.getElementById('syncOverlay').classList.add('show');
-  renderConfirmSync();
+/** Cria uma sessão congelada. A lista aprovada aqui é exatamente a lista que
+ *  o Apply recebe; não existe mais um segundo sync que recalcula tudo nem um
+ *  atalho `forcar` que passa por cima da revisão. */
+async function confirmarSync(){
+  if(decidindoSync) return;
+  decidindoSync=true;
+  toast('Criando uma revisão segura, sem mexer na loja…');
+  try{
+    sessaoSync=await api('POST','/api/reconciliacao',{origem:'nuvemshop'});
+    document.getElementById('syncOverlay').classList.add('show');
+    renderConfirmSync();
+    toast(sessaoSync.itens?.length?'Revisão pronta — decida item por item':'A loja já está com o estoque certo');
+  }catch(e){ toast(e.message); }
+  finally{ decidindoSync=false; }
 }
 function closeSyncConfirm(){ document.getElementById('syncOverlay').classList.remove('show'); }
 
 function renderConfirmSync(){
-  const a=analiseSync, r=a.resumo;
   const box=document.getElementById('syncBody');
-  const segurada=a.freio&&!syncForcar;
+  const s=sessaoSync;
+  if(!s){ box.innerHTML='<div class="empty"><h3>Nenhuma revisão aberta</h3></div>'; return; }
+  const itens=s.itens||[];
+  const pendentes=itens.filter(i=>i.status==='pendente').length;
+  const aprovados=itens.filter(i=>i.status==='aprovado').length;
+  const rejeitados=itens.filter(i=>i.status==='rejeitado').length;
+  const perigosos=itens.filter(i=>i.risco==='perigoso').length;
   box.innerHTML=`
     <div class="grupos">
-      <div class="g ${r.estoqueDiferente?'acao':''}"><b>${r.estoqueDiferente}</b><span>estoques serão alterados</span></div>
-      <div class="g ${r.zerariam?'ruim':''}"><b>${r.zerariam}</b><span>sairiam do ar</span></div>
-      <div class="g"><b>0</b><span>produtos serão criados</span></div>
-      <div class="g ${r.revisao?'aviso':''}"><b>${r.revisao}</b><span>não mudam: precisam de revisão</span></div>
+      <div class="g ${pendentes?'acao':''}"><b>${pendentes}</b><span>esperando decisão</span></div>
+      <div class="g ok"><b>${aprovados}</b><span>aprovados</span></div>
+      <div class="g"><b>${rejeitados}</b><span>não serão aplicados</span></div>
+      <div class="g ${perigosos?'ruim':''}"><b>${perigosos}</b><span>zerariam estoque</span></div>
     </div>
 
     <div class="warn info">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-      <div>A sincronização <b>puxa os pedidos do site primeiro</b> e só então empurra o estoque —
-      inverter recolocaria à venda peça que já saiu. Ela <b>não cria produto</b> na Nuvemshop:
-      ${r.criarNaLoja} ${plural(r.criarNaLoja,'código continua','códigos continuam')} sem cadastro lá até alguém subir.</div>
+      <div>Esta sessão congelou o que foi lido. Ao aplicar, cada item confere de novo o
+      <b>variant_id</b>, o estoque atual da loja e o saldo físico daqui. Se algo mudou,
+      ele fica obsoleto e não escreve por aproximação.</div>
     </div>
 
-    ${a.freio?`<div class="warn">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
-      <div><b>Esta rodada bate no freio de segurança.</b> ${esc(a.freio.motivo)}
-      ${segurada?'Ela vai parar antes de mexer na loja. Para aplicar mesmo assim, marque abaixo.'
-                :'Você está prestes a aplicar mesmo assim.'}
-      <div class="w-act"><label style="display:flex;gap:8px;align-items:center;font-size:12.5px;cursor:pointer">
-        <input type="checkbox" class="chk" ${syncForcar?'checked':''} onchange="syncForcar=this.checked;renderConfirmSync()">
-        Aplicar mesmo assim, passando por cima do freio</label></div></div>
-    </div>`:''}
+    ${itens.length?`<div class="tablewrap" style="max-height:360px;overflow:auto"><table>
+      <thead><tr><th>Peça</th><th>Loja</th><th>Certo</th><th>Decisão</th></tr></thead>
+      <tbody>${itens.map(i=>`<tr>
+        <td><b>${esc(i.descricao||i.sku)}</b><div class="sku">${esc(i.sku)}${i.variacao?` · ${esc(i.variacao)}`:''}</div>
+          ${i.risco==='perigoso'?'<span class="badge bad">zera na loja</span>':''}</td>
+        <td class="num">${esc(i.de)}</td><td class="num">${esc(i.para)}</td>
+        <td>${i.status==='pendente'
+          ?`<div style="display:flex;gap:6px"><button class="btn btn-gold btn-sm" onclick="decidirSyncItem(${i.id},'aprovar')">Aprovar</button><button class="btn btn-ghost btn-sm" onclick="decidirSyncItem(${i.id},'rejeitar')">Não aplicar</button></div>`
+          :`<span class="badge ${i.status==='aprovado'?'ok':''}">${i.status==='aprovado'?'aprovado':'não aplicar'}</span>`}</td>
+      </tr>`).join('')}</tbody></table></div>`
+      :'<div class="empty"><h3>Nenhuma mudança de estoque</h3><p>A loja já mostra os mesmos números daqui.</p></div>'}
 
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeSyncConfirm()">Cancelar</button>
+      ${itens.length&&!perigosos&&pendentes?'<button class="btn btn-ghost" onclick="decidirTodosSync()">Aprovar todos</button>':''}
       <div class="spacer"></div>
-      <button class="btn btn-gold" id="syncOk" onclick="aplicarSync()">Confirmar sincronização</button>
+      <button class="btn btn-gold" id="syncOk" ${(!aprovados||pendentes)?'disabled':''} onclick="aplicarSync()">Aplicar ${aprovados||''}</button>
     </div>`;
 }
 
+async function decidirSyncItem(itemId,decisao){
+  if(decidindoSync||!sessaoSync) return;
+  decidindoSync=true;
+  try{
+    await api('POST',`/api/reconciliacao/${sessaoSync.id}/itens/${itemId}/${decisao}`);
+    sessaoSync=await api('GET',`/api/reconciliacao/${sessaoSync.id}`);
+    renderConfirmSync();
+  }catch(e){ toast(e.message); }
+  finally{ decidindoSync=false; }
+}
+
+async function decidirTodosSync(){
+  if(decidindoSync||!sessaoSync) return;
+  decidindoSync=true;
+  try{
+    for(const i of sessaoSync.itens.filter(x=>x.status==='pendente')){
+      await api('POST',`/api/reconciliacao/${sessaoSync.id}/itens/${i.id}/aprovar`);
+    }
+    sessaoSync=await api('GET',`/api/reconciliacao/${sessaoSync.id}`);
+    renderConfirmSync();
+  }catch(e){ toast(e.message); }
+  finally{ decidindoSync=false; }
+}
+
 async function aplicarSync(){
+  if(decidindoSync||!sessaoSync) return;
   const btn=document.getElementById('syncOk');
   if(btn) btn.disabled=true;
-  closeSyncConfirm();
-  await rodarSync(syncForcar);
-  /* O laudo que a pessoa acabou de aprovar virou passado no instante em que
-     a rodada escreveu. Mostrar ele de novo seria mentir sobre o presente. */
-  analiseSync=null; syncForcar=false;
-  renderLoja();
+  decidindoSync=true;
+  try{
+    const r=await api('POST',`/api/reconciliacao/${sessaoSync.id}/aplicar`);
+    closeSyncConfirm();
+    await sincronizar();
+    toast(`${r.aplicados||0} aplicados · ${r.obsoletos||0} obsoletos · ${r.erros||0} erros`);
+    analiseSync=null; sessaoSync=null;
+    renderLoja();
+  }catch(e){ toast(e.message); renderConfirmSync(); }
+  finally{ decidindoSync=false; }
 }
 
 function renderLoja(){
@@ -6070,7 +6095,7 @@ function renderRev(id){
           `maletas.acerto_json` — enviadas, devolvidas, vendidas, total
           vendido, comissão, líquido, dias — e o painel lia menos da metade.
           Nada de schema novo: o que faltava era ler.
-          
+
           É este histórico, e não a maleta de hoje, que alimenta o Top
           Revendedoras da Visão Geral. */''}
     ${fechadas.length?`
@@ -6473,7 +6498,7 @@ async function scanFinish(){
   if(scan.modo==='venda'){
     if(!Object.keys(scan.itens).length){toast('Você não bipou nenhuma peça');return;}
     pararCamera();
-    abrirFecharVenda();
+    await abrirFecharVenda();
     return;
   }
 
@@ -6678,19 +6703,35 @@ function novaVenda(){
   openScan('venda');
 }
 
-function abrirFecharVenda(){
+async function abrirFecharVenda(){
   const idx=prodIndex();
   const linhas=Object.entries(scan.itens).map(([sku,q])=>{
     const p=idx.get(sku);
     return {sku,q,desc:p?p.desc:sku,preco:(p&&p.preco!=null)?p.preco:0};
   }).sort((a,b)=>a.desc.localeCompare(b.desc,'pt'));
+  /* Etiqueta identifica o SKU, não o aro/banho. Quando o anúncio tem mais
+     de uma variante, a escolha acontece aqui, com a peça na mão, antes de
+     a venda baixar qualquer estoque. */
+  await Promise.all(linhas.map(async l=>{
+    try{
+      const e=await api('GET','/api/produtos/'+encodeURIComponent(l.sku)+'/variacoes');
+      if(e.temVariacao) l.variacoes=(e.variacoes||[]).filter(v=>v.varianteId&&v.mapeada!==false);
+    }catch(_){ l.variacoes=[]; }
+  }));
+  scan.vendaLinhas=linhas;
   const total=linhas.reduce((s,l)=>s+l.q*l.preco,0);
 
   document.getElementById('vendaBody').innerHTML=`
     <div class="scanlist" style="margin-bottom:16px">
       ${linhas.map(l=>`<div class="scanrow">
         <div class="s-qtd">${l.q}</div>
-        <div class="s-desc"><div class="d1">${esc(l.desc)}</div><div class="d2">${esc(l.sku)}</div></div>
+        <div class="s-desc"><div class="d1">${esc(l.desc)}</div><div class="d2">${esc(l.sku)}</div>
+          ${l.variacoes&&l.variacoes.length?Array.from({length:l.q},(_,n)=>`
+            <select class="vd-variante" data-sku="${esc(l.sku)}" aria-label="Variação da ${n+1}ª peça" style="margin-top:6px;width:100%">
+              <option value="">Escolha a variação da ${n+1}ª peça</option>
+              ${l.variacoes.map(v=>`<option value="${esc(v.varianteId)}">${esc(v.nome)} · saldo ${int(v.saldo)}</option>`).join('')}
+            </select>`).join(''):''}
+        </div>
         <div class="s-val">${money(l.preco*l.q)}</div>
       </div>`).join('')}
     </div>
@@ -6732,7 +6773,16 @@ async function confirmarVenda(){
   if(!nome){ toast('Diga quem levou as peças'); inp.focus(); return; }
   const btn=document.getElementById('vdConfirm');
   btn.disabled=true;
-  const itens=Object.entries(scan.itens).map(([sku,qtd])=>({sku,qtd}));
+  const itens=[];
+  for(const l of (scan.vendaLinhas||[])){
+    if(l.variacoes&&l.variacoes.length){
+      const selects=[...document.querySelectorAll(`.vd-variante[data-sku="${CSS.escape(l.sku)}"]`)];
+      if(selects.some(s=>!s.value)){ toast(`Escolha a variação de ${l.desc}`); btn.disabled=false; return; }
+      const porId=new Map();
+      selects.forEach(s=>porId.set(s.value,(porId.get(s.value)||0)+1));
+      porId.forEach((qtd,varianteId)=>itens.push({sku:l.sku,qtd,varianteId}));
+    }else itens.push({sku:l.sku,qtd:l.q});
+  }
   try{
     const r=await api('POST','/api/vendas',{clienteNome:nome, itens});
     document.getElementById('vendaOverlay').classList.remove('show');
@@ -6740,7 +6790,9 @@ async function confirmarVenda(){
     scan=null;
     await sincronizar();
     switchTab('vendas');
-    toast(`Venda registrada · ${money(r.total)}`);
+    toast(r.nuvemshop&&r.nuvemshop.status==='sincronizada'
+      ?`Venda registrada e baixada na Nuvemshop · ${money(r.total)}`
+      :`Venda registrada · Nuvemshop pendente: ${r.nuvemshop?.erro||'tente novamente na lista'}`);
   }catch(e){
     btn.disabled=false;
     toast(e.message);
@@ -6755,10 +6807,21 @@ async function carregarVendas(data){
 async function cancelarVenda(id){
   if(!confirm('Cancelar esta venda?\n\nAs peças voltam para o estoque e a venda fica registrada como cancelada — o histórico não se perde.')) return;
   try{
-    await api('POST',`/api/vendas/${id}/cancelar`);
+    const r=await api('POST',`/api/vendas/${id}/cancelar`);
     await carregarVendas(vendasData);
     await sincronizar();
-    toast('Venda cancelada e peças devolvidas ao estoque');
+    toast('Venda cancelada e peças devolvidas ao estoque'+
+      (r.nuvemshop&&r.nuvemshop.status==='cancelada'?' também na Nuvemshop':' · Nuvemshop pendente'));
+  }catch(e){ toast(e.message); }
+}
+
+async function reenviarVendaNuvemshop(id){
+  try{
+    const r=await api('POST',`/api/vendas/${id}/nuvemshop`,{});
+    await carregarVendas(vendasData); renderVendas();
+    toast(r.status==='sincronizada'||r.status==='cancelada'
+      ?'Nuvemshop atualizada com segurança'
+      :(r.erro||'Sincronização ainda em andamento'));
   }catch(e){ toast(e.message); }
 }
 
@@ -6810,10 +6873,15 @@ function renderVendas(){
             <div class="i-desc">
               <div class="d1">${esc(x.clienteNome||revNome(x.revendedoraId)||'—')}
                 ${x.origem==='acerto'?'<span class="badge fechada" style="margin-left:6px">acerto</span>':''}
-                ${x.cancelada?'<span class="badge vencida" style="margin-left:6px">cancelada</span>':''}</div>
-              <div class="d2">${x.itens.map(i=>`${i.qtd}× ${esc(i.desc)}`).join(' · ')}</div>
+                ${x.cancelada?'<span class="badge vencida" style="margin-left:6px">cancelada</span>':''}
+                ${x.nuvemshopStatus==='sincronizada'?'<span class="badge ok" style="margin-left:6px">na Nuvemshop</span>':''}
+                ${x.nuvemshopStatus==='estoque_divergente'?'<span class="badge vencida" style="margin-left:6px">revisar estoque</span>':''}
+                ${(!x.cancelada&&x.origem!=='site'&&['nao_enviada','erro','pendente','cancelamento_pendente'].includes(x.nuvemshopStatus))?'<span class="badge vencida" style="margin-left:6px">Nuvemshop pendente</span>':''}</div>
+              <div class="d2">${x.itens.map(i=>`${i.qtd}× ${esc(i.desc)}${i.variacao?' · '+esc(i.variacao):''}`).join(' · ')}</div>
+              ${x.nuvemshopErro?`<div class="d2" style="color:var(--red)">${esc(x.nuvemshopErro)}</div>`:''}
             </div>
             <div class="i-num"><b>${money(x.total)}</b></div>
+            ${(!x.cancelada&&x.origem!=='site'&&['nao_enviada','erro','pendente','cancelamento_pendente'].includes(x.nuvemshopStatus))?`<button class="btn btn-ghost btn-sm" onclick="reenviarVendaNuvemshop(${x.id})">Tentar Nuvemshop</button>`:''}
             ${(!x.cancelada&&x.origem==='balcao')?`<button class="btn btn-ghost btn-sm" onclick="cancelarVenda(${x.id})">Cancelar</button>`:''}
           </div>`).join('')
         :`<div class="empty" style="padding:40px 16px">
