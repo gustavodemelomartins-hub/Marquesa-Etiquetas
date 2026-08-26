@@ -6370,9 +6370,15 @@ async function cancelarVenda(id){
   }catch(e){ toast(e.message); }
 }
 
-async function reenviarVendaNuvemshop(id){
+async function reenviarVendaNuvemshop(id,forcar=false){
   try{
-    const r=await api('POST',`/api/vendas/${id}/nuvemshop`,{});
+    const r=await api('POST',`/api/vendas/${id}/nuvemshop`,{forcar});
+    if(r.pausado&&!forcar){
+      const n=(r.pausado.mudancas||r.pausado.quantidade||'muitas');
+      if(confirm(`A trava de segurança parou a atualização porque ela mudaria ${n} produtos.\n\nVocê revisou os números e quer aplicar o estoque físico correto mesmo assim?`)){
+        return reenviarVendaNuvemshop(id,true);
+      }
+    }
     await carregarVendas(vendasData); renderVendas();
     toast(r.status==='sincronizada'||r.status==='cancelada'
       ?'Estoque da Nuvemshop atualizado com segurança'

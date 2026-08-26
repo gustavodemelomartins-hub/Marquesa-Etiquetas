@@ -51,13 +51,13 @@ async function regularizarPendentesSeguros(db, bloqueios) {
  * torna retry seguro: duas tentativas levam ao mesmo estoque. Nenhum pedido
  * é criado na Nuvemshop por este caminho.
  */
-export async function atualizarEstoqueDaVenda(db, env, vendaId) {
+export async function atualizarEstoqueDaVenda(db, env, vendaId, { forcar = false } = {}) {
   const venda = await db.prepare(`SELECT * FROM vendas WHERE id=?`).bind(vendaId).first();
   if (!venda) return { status: 'erro', erro: 'Venda não encontrada.' };
   if (venda.origem === 'site') return { status: 'nao_aplicavel' };
 
   await marcar(db, vendaId, 'sincronizando', null);
-  const resultado = await sincronizarSomenteEstoque(db, env);
+  const resultado = await sincronizarSomenteEstoque(db, env, { forcar });
 
   if (!resultado.ok) {
     const erro = String(resultado.erro || 'Não foi possível atualizar o estoque na Nuvemshop.').slice(0, 500);

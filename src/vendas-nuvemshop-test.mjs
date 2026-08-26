@@ -125,6 +125,20 @@ const vendasFinais = await api('GET', `/api/vendas?data=${hoje}`);
 eq('segunda pendente também foi encerrada', vendasFinais.find(v => v.id === segundaPendente).nuvemshopStatus, 'sincronizada');
 eq('retry não criou pedido', loja.estado.pedidosCriados.length, 0);
 
+console.log('\n=== 7. confirmação explícita vence o freio sem desligá-lo ===');
+await api('PUT', '/api/config', { syncLimiteMudancas: 0 });
+await api('POST', '/api/produtos/importar', { produtos: [
+  { sku: 'VD-FORCE', desc: 'Confirmação do freio', cat: 'Brinco', preco: 45, qtd: 1 },
+] });
+loja.estado.produtos.push(produtoFalso(506, [{ id: 5061, sku: 'VD-FORCE', estoque: 1 }]));
+await api('POST', '/api/loja/variantes/importar', {});
+r = await apiResp('POST', '/api/vendas', { clienteNome: 'Freio', itens: [{ sku: 'VD-FORCE', qtd: 1 }] });
+eq('sem confirmação o freio segurou', !!r.corpo.nuvemshop.pausado, true);
+const forcada = await api('POST', `/api/vendas/${r.corpo.id}/nuvemshop`, { forcar: true });
+eq('com confirmação publicou', forcada.status, 'sincronizada');
+eq('confirmação não criou pedido', loja.estado.pedidosCriados.length, 0);
+await api('PUT', '/api/config', { syncLimiteMudancas: 40 });
+
 eq('a razão continua fechando', (await api('GET', '/api/estoque/conferir')).ok, true);
 await loja.fechar();
 console.log(falhas ? `\n✗ ${falhas} FALHA(S)` : '\n✓ TUDO PASSOU');

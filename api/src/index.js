@@ -528,7 +528,8 @@ async function rotear(request, env) {
         return await cancelarVenda(db, env, +m[1]);
       }
       if ((m = path.match(/^\/api\/vendas\/(\d+)\/nuvemshop$/)) && met === 'POST') {
-        return json(await atualizarEstoqueDaVenda(db, env, +m[1]));
+        const b = await request.json().catch(() => ({}));
+        return json(await atualizarEstoqueDaVenda(db, env, +m[1], { forcar: !!b.forcar }));
       }
 
       return json({ erro: 'Rota não encontrada' }, 404);
