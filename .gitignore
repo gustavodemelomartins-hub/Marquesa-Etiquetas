@@ -26,6 +26,7 @@ src/node_modules/
 api/node_modules/
 .wrangler/
 *.log
+graphify-out/
 
 # ------------------------------------------------------- Claude Code
 # As skills instaladas por `npx skills add` ficam FORA do repositório: são
