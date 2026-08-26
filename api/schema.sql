@@ -311,9 +311,9 @@ CREATE TABLE IF NOT EXISTS vendas (
   -- é o que impede uma rodada repetida da sincronização de cobrar a mesma
   -- venda duas vezes — a trava é do banco, não da lógica que pode falhar.
   externo_id     TEXT,
-  -- Estado do espelhamento da venda presencial como pedido da Nuvemshop.
+  -- Estado da publicação do estoque físico após venda/acerto/cancelamento.
   -- A venda física nunca é desfeita quando a rede falha: fica observável e
-  -- retomável. `externo_id` continua sendo a identidade idempotente.
+  -- retomável. `externo_id` só identifica pedido do site ou pedido legado.
   nuvemshop_status TEXT NOT NULL DEFAULT 'nao_enviada',
   nuvemshop_erro   TEXT,
   nuvemshop_em     TEXT,

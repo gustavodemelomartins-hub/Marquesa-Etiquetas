@@ -1062,32 +1062,22 @@ Convenção para várias imagens da mesma peça: `540490_1.jpg`, `540490_2.jpg`,
 
 Ver seção 15. **Não implementar agora.**
 
-### 9 — Venda de balcão → pedido na Nuvemshop  🔴 investigar, não implementar
+### 9 — Venda de balcão → somente estoque na Nuvemshop  ✅
 
-Fluxo desejado:
+Decisão operacional tomada em 2026-08-26: não criar pedido para venda local.
 
-1. Marquesa registra a venda;
-2. Marquesa reduz o estoque;
-3. um pedido correspondente é criado na Nuvemshop;
-4. esse pedido **não** reduz o estoque de novo;
-5. o saldo correto é sincronizado;
-6. o sistema guarda o vínculo venda Marquesa ↔ pedido Nuvemshop.
+1. Marquesa registra a venda e reduz o estoque físico;
+2. o Worker calcula `em casa = total − consignado`;
+3. publica esse saldo absoluto por `variant_id` em `/products/stock-price`;
+4. retry publica o mesmo número e não desconta duas vezes;
+5. adicionar itens à maleta baixa o online imediatamente;
+6. acerto não baixa novamente e as devolvidas aumentam o online, mesmo sem venda;
+7. cancelar venda ou maleta faz o movimento inverso e republica o saldo aumentado.
 
-**O que precisa ser prevenido:** pedido duplicado · dupla baixa · loop de
-webhook · venda criada por nós voltando pelo webhook e sendo lida como venda
-nova.
-
-**Ponto de partida já existente no código, e é bom:** o campo
-`vendas.externo_id` com **índice único** já é exatamente o mecanismo de
-vínculo e de idempotência. Uma venda de balcão que virasse pedido gravaria
-`nuvemshop:<id>` nela mesma; quando o `puxarPedidos` lesse esse pedido na
-rodada seguinte, encontraria o `externo_id` já existente e **não criaria venda
-nova** — o loop se fecha sozinho, sem mecanismo novo.
-
-Falta investigar, antes de qualquer código: se a API de criação de pedido da
-Nuvemshop permite criar **sem** movimentar o estoque dela (ou se é preciso
-compensar), e o que acontece com pedidos criados via API no fluxo fiscal e de
-notificação ao cliente. Depende de decisão de negócio, não só técnica.
+As funções de criar/cancelar pedido foram removidas do caminho ativo. A API
+de pedidos permanece somente para a futura leitura de vendas feitas no site.
+`vendas.externo_id` e a compatibilidade com pedidos antigos continuam no
+banco para impedir duplicidade se existir algum registro legado.
 
 ---
 

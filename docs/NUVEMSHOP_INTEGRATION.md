@@ -109,39 +109,39 @@ simples quando a loja ainda não tem multi-estoque.
 
 O sistema não cria produto e não muda preço.
 
-### Venda local como pedido
+### Venda local atualiza somente o estoque
 
-Uma venda de balcão ou um acerto cria um pedido pago da Nuvemshop:
+Decisão operacional de 2026-08-26: venda de balcão e acerto **não criam
+pedido** na Nuvemshop. A venda continua completa no sistema Marquesa; a loja
+online recebe somente o saldo físico absoluto de `em casa`:
 
 ```
-POST /orders
-inventory_behaviour: "claim"
-products: [{ variant_id, quantity, price }]
-extra.marquesa_venda_id: <id local>
+PATCH /products/stock-price
+products: [{ id, variants: [{ id: variant_id, stock }] }]
 ```
 
-Venda de balcão usa `claim`: a própria Nuvemshop reserva/baixa cada
-`variant_id`, sem PATCH absoluto depois da venda. Acerto usa `bypass`: a
-peça já saiu do disponível quando entrou na maleta, então o pedido registra
-todos os itens `vendida` sem descontá-los uma segunda vez. A reconciliação
-devolve ao online somente o que voltou para casa. Item com várias variações
-sem `variant_id` exato fica em erro observável e pode ser tentado novamente
-depois da correção.
+Venda de balcão reduz o físico local e, em seguida, publica o novo saldo em
+casa. Não manda delta (`-1`): manda o número absoluto, portanto retry é
+idempotente e nunca baixa duas vezes. Cancelamento faz o movimento inverso
+local e publica o saldo absoluto aumentado.
 
-Se a API criar o pedido mas devolver `issues.unclaimed_stock` (corrida com
-uma venda online), a venda fica `estoque_divergente`, mostra quantas unidades
-não foram reservadas e não é reenviada. Assim o pedido não duplica e a falta
-de estoque não vira sucesso falso.
+Adicionar peças a uma maleta também publica na hora: elas passam a
+consignadas e deixam de compor `em casa`. Cancelar a maleta repõe o saldo
+online.
 
-Antes de repetir um POST interrompido, o Worker procura
-`extra.marquesa_venda_id`. Ao ler pedidos, o mesmo marcador impede que o
-pedido criado daqui volte como uma segunda venda do site. Cancelar uma venda
-de balcão cancela o pedido com `restock: true` e devolve o estoque dos dois
-lados.
+Acerto não desconta novamente. A peça já saiu do disponível quando entrou na
+maleta; fechar o acerto apenas consolida o novo total físico e republica o
+mesmo `em casa`. O que voltou aumenta; o vendido continua fora. Isso também
+roda quando todas as peças voltam e o acerto não gera venda nenhuma.
 
-O token precisa de `read_orders`, `write_orders`, `read_products` e
-`write_products`. Alterar o app não altera tokens antigos: é preciso gerar
-um token novo.
+Item com mais de uma variação continua exigindo `variant_id` exato. Código
+sem anúncio, variante ambígua ou local não resolvido fica em revisão e não é
+endereçado por aproximação. A rota de contingência da tela repete a
+publicação absoluta, nunca cria pedido.
+
+Para vendas locais, o token precisa de `read_products` e `write_products`.
+`read_orders` continua necessário somente para a futura importação das
+vendas feitas no site. `write_orders` não é usado por este fluxo.
 
 ## Matching de SKU
 

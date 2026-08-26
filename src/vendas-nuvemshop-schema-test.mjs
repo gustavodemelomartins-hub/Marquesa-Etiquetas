@@ -1,6 +1,6 @@
 /** Prova banco novo e produção antiga + migration, sempre em pasta temporária. */
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -31,8 +31,22 @@ const antigo = mkdtempSync(join(tmpdir(), 'marquesa-venda-old-'));
 const novo = mkdtempSync(join(tmpdir(), 'marquesa-venda-new-'));
 try {
   console.log('\n=== 1. schema anterior + migration aditiva ===');
-  const schemaAnterior = execFileSync('git', ['show', 'HEAD:api/schema.sql'], { cwd: raiz, encoding: 'utf8' });
-  rodar(antigo, sqlFile(antigo, schemaAnterior));
+  // Deriva uma fotografia realmente anterior à migration. Usar `git show
+  // HEAD` deixava o teste dependente do commit corrente e reaplicava colunas
+  // que já existem no schema novo.
+  const schemaAnterior = readFileSync(schema, 'utf8')
+    .split(/\r?\n/)
+    .filter(l => !/^\s*nuvemshop_(status|erro|em)\s/.test(l))
+    .filter(l => !/^\s*variacao\s+TEXT,\s*-- nome para leitura\/histórico/.test(l))
+    .filter(l => !/^\s*variante_id\s+TEXT\s*-- identidade estável na Nuvemshop/.test(l))
+    .filter(l => !/^CREATE INDEX IF NOT EXISTS idx_venda_itens_variante/.test(l))
+    .join('\n');
+  // Sem as duas colunas posteriores, `motivo` volta a ser a última coluna.
+  const schemaLegado = schemaAnterior.replace(
+    /^(\s*motivo\s+TEXT),\s*(-- §8: venda\|perda\|quebra\|brinde\|troca\|\.\.\.)$/m,
+    '$1  $2'
+  );
+  rodar(antigo, sqlFile(antigo, schemaLegado));
   rodar(antigo, sqlFile(antigo, `
     INSERT INTO produtos (sku,desc,cat,preco,qtd) VALUES ('PRE','Prévia','Colar',10,1);
     INSERT INTO vendas (cliente_nome,origem,data,total) VALUES ('Cliente','balcao','2026-08-25',10);

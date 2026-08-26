@@ -6,7 +6,7 @@ import {
   abrirInventario, salvarContagem, concluirInventario, ajustarInventario,
   cancelarInventario, detalheInventario, listarInventarios,
 } from './inventario.js';
-import { sincronizar, historicoSync, analisarSincronizacao } from './sync.js';
+import { sincronizar, sincronizarSomenteEstoque, historicoSync, analisarSincronizacao } from './sync.js';
 import {
   analisarEstoqueTotal, aplicarEstoqueTotal, analisarNovos, cadastrarNovos,
   enfileirarPendentes, listarPendentes, limparPendentes,
@@ -27,7 +27,7 @@ import {
 import { checarSku, gerarSku, auditarSkus } from './sku.js';
 import { Nuvemshop } from './nuvemshop.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
-import { espelharVendaNaNuvemshop, cancelarVendaNaNuvemshop } from './vendas-nuvemshop.js';
+import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
 import {
   abrirSessao, detalheSessao, aprovarItem, rejeitarItem, cancelarSessao, aplicarSessao,
   analisarPlanilhaEstoqueTotal, analisarPlanilhaProdutosNovos,
@@ -386,14 +386,14 @@ async function rotear(request, env) {
         return json({ ok: true });
       }
       if ((m = path.match(/^\/api\/maletas\/(\d+)\/itens$/)) && met === 'POST') {
-        return await adicionarItens(db, +m[1], await request.json());
+        return await adicionarItens(db, env, +m[1], await request.json());
       }
       if ((m = path.match(/^\/api\/maletas\/(\d+)\/acerto$/)) && met === 'POST') {
         return await encerrarAcerto(db, env, +m[1], await request.json());
       }
       // §6.1 + §28: maleta criada por engano é cancelada, não apagada
       if ((m = path.match(/^\/api\/maletas\/(\d+)\/cancelar$/)) && met === 'POST') {
-        return await cancelarMaleta(db, +m[1], await request.json().catch(() => ({})));
+        return await cancelarMaleta(db, env, +m[1], await request.json().catch(() => ({})));
       }
 
       if (path === '/api/config' && met === 'PUT') {
@@ -528,7 +528,7 @@ async function rotear(request, env) {
         return await cancelarVenda(db, env, +m[1]);
       }
       if ((m = path.match(/^\/api\/vendas\/(\d+)\/nuvemshop$/)) && met === 'POST') {
-        return json(await espelharVendaNaNuvemshop(db, env, +m[1]));
+        return json(await atualizarEstoqueDaVenda(db, env, +m[1]));
       }
 
       return json({ erro: 'Rota não encontrada' }, 404);
@@ -926,9 +926,22 @@ async function importarLoja(db, { snapshot, produtos }) {
   return json({ ok: true, n: (produtos || []).length });
 }
 
+async function publicarEstoqueDaOperacao(db, env) {
+  const r = await sincronizarSomenteEstoque(db, env);
+  if (!r.ok) return { status: 'erro', erro: r.erro };
+  if (r.pausado) return { status: 'erro', erro: r.pausado.motivo, pausado: r.pausado };
+  if ((r.semEmpurrar || []).length) {
+    return { status: 'revisao', bloqueios: r.semEmpurrar, produtosAtualizados: r.produtosEnviados || 0 };
+  }
+  return {
+    status: 'sincronizada', modo: 'somente_estoque',
+    produtosAtualizados: r.produtosEnviados || 0, alteracoes: (r.mudancas || []).length,
+  };
+}
+
 /** §6.2 impede enviar mais do que o disponível.
  *  §6.1 congela o preço no envio. */
-async function adicionarItens(db, maletaId, { itens }) {
+async function adicionarItens(db, env, maletaId, { itens }) {
   const entradas = Object.entries(itens || {}).filter(([, q]) => q > 0);
   if (!entradas.length) return json({ erro: 'Nenhum item para adicionar' }, 400);
 
@@ -967,7 +980,8 @@ async function adicionarItens(db, maletaId, { itens }) {
   }
 
   if (stmts.length) await db.batch(stmts);
-  return json({ ok: true, adicionados, recusados });
+  const nuvemshop = adicionados ? await publicarEstoqueDaOperacao(db, env) : { status: 'nao_aplicavel' };
+  return json({ ok: true, adicionados, recusados, nuvemshop });
 }
 
 /** §7, §8, §9, §13 — conferência, motivo, venda gerada e resumo financeiro. */
@@ -1092,13 +1106,17 @@ async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas }) {
   }
 
   await db.batch(stmts);
-  const nuvemshop = vendaId ? await espelharVendaNaNuvemshop(db, env, vendaId) : { status: 'nao_aplicavel' };
+  // Mesmo um acerto sem venda pode devolver todas as peças para casa e,
+  // portanto, precisa aumentar o estoque online imediatamente.
+  const nuvemshop = vendaId
+    ? await atualizarEstoqueDaVenda(db, env, vendaId)
+    : await publicarEstoqueDaOperacao(db, env);
   return json({ ok: true, acerto, novaMaletaId, vendaId, nuvemshop });
 }
 
 /** §28: maleta errada é cancelada. As peças voltam a ficar disponíveis
  *  porque a maleta deixa de contar como consignação — e fica o registro. */
-async function cancelarMaleta(db, maletaId, { motivo }) {
+async function cancelarMaleta(db, env, maletaId, { motivo }) {
   const maleta = await db.prepare(`SELECT * FROM maletas WHERE id = ?`).bind(maletaId).first();
   if (!maleta) return json({ erro: 'Maleta não encontrada' }, 404);
   if (maleta.status === 'encerrada') return json({ erro: 'Maleta encerrada não pode ser cancelada' }, 409);
@@ -1112,7 +1130,8 @@ async function cancelarMaleta(db, maletaId, { motivo }) {
   stmts.push(db.prepare(`UPDATE maletas SET status='cancelada', encerrada_em=?, obs=? WHERE id=?`)
     .bind(hoje(), motivo || 'Cancelada', maletaId));
   await db.batch(stmts);
-  return json({ ok: true });
+  const nuvemshop = itens.length ? await publicarEstoqueDaOperacao(db, env) : { status: 'nao_aplicavel' };
+  return json({ ok: true, nuvemshop });
 }
 
 /** §24: peça sem preço bloqueia a venda, em vez de vender por R$ 0. */
@@ -1217,7 +1236,7 @@ async function registrarVenda(db, env, { clienteId, clienteNome, itens }) {
     }
   }
   await db.batch(stmts);
-  const nuvemshop = await espelharVendaNaNuvemshop(db, env, venda.id);
+  const nuvemshop = await atualizarEstoqueDaVenda(db, env, venda.id);
   return json({ ok: true, id: venda.id, data, total, itens: linhas, nuvemshop }, 201);
 }
 
@@ -1247,7 +1266,7 @@ async function cancelarVenda(db, env, vendaId) {
   }
   stmts.push(db.prepare(`UPDATE vendas SET cancelada = 1 WHERE id = ?`).bind(vendaId));
   await db.batch(stmts);
-  const nuvemshop = await cancelarVendaNaNuvemshop(db, env, vendaId);
+  const nuvemshop = await atualizarEstoqueDaVenda(db, env, vendaId);
   return json({ ok: true, nuvemshop });
 }
 

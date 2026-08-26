@@ -17,7 +17,7 @@ import { Nuvemshop, mapearSkus } from './nuvemshop.js';
 import { ingerirFotosDoCatalogo } from './fotos.js';
 import { movimentar, saldosDoSku } from './estoque.js';
 import { resolverVariantes, saldosDeVariacao, salvarVariantesDaLoja } from './variantes.js';
-import { sincronizarVendasPendentes, vincularPedidoCriadoAqui } from './vendas-nuvemshop.js';
+import { vincularPedidoCriadoAqui } from './vendas-nuvemshop.js';
 
 const agoraISO = () => new Date().toISOString();
 
@@ -68,10 +68,10 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
     relato.variantes = await salvarVariantesDaLoja(db, produtosLoja, { seco });
 
     await puxarPedidos(db, loja, relato, seco);
-    // Venda e acerto tentam criar o pedido na hora. A rodada automática é a
-    // rede de segurança para timeout/queda da Nuvemshop; em modo seco ela
-    // não toca nos estados das vendas nem cria pedido algum.
-    if (!seco) relato.vendasLocais = await sincronizarVendasPendentes(db, env, { loja });
+    // Venda local não vira mais pedido: o caminho imediato dela chama o
+    // mesmo motor de estoque abaixo. A rodada completa continua empurrando
+    // o valor absoluto de "em casa", portanto também recupera uma queda
+    // temporária sem repetir desconto.
     /* Semear antes de empurrar: um código recém-repartido já sai desta
        mesma rodada com o estoque de cada variação no ar, em vez de esperar
        a próxima. */
@@ -106,6 +106,36 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
       `UPDATE sync_execucoes SET terminado_em = datetime('now'), status = 'erro', detalhe_json = ?
         WHERE id = ?`
     ).bind(JSON.stringify({ ...relato, erro: String(e && e.message || e) }), exec.id).run();
+    return { ok: false, erro: String(e && e.message || e), ...relato };
+  }
+}
+
+/** Atualiza somente o estoque publicado.
+ *
+ * Não lê pedidos, não importa venda do site e não cria/cancela pedido. É o
+ * caminho usado logo depois de venda, acerto e cancelamento locais: o banco
+ * já contém o fato físico, e este método apenas publica o saldo absoluto
+ * `em casa` usando as mesmas travas da sincronização completa.
+ */
+export async function sincronizarSomenteEstoque(db, env, { forcar = false, seco = false } = {}) {
+  const loja = new Nuvemshop(env);
+  if (!loja.configurada()) {
+    return { ok: false, erro: 'A loja não está conectada. Falta o token da Nuvemshop.' };
+  }
+
+  const relato = {
+    produtosEnviados: 0, mudancas: [], semEmpurrar: [], pausado: null,
+    aplicado: false, seco,
+  };
+  try {
+    const produtosLoja = await loja.produtos();
+    const { mapa, duplicados } = mapearSkus(produtosLoja);
+    relato.duplicadosNaLoja = duplicados;
+    relato.variantes = await salvarVariantesDaLoja(db, produtosLoja, { seco });
+    await empurrarEstoque(db, loja, mapa, relato, { forcar, seco });
+    if (!seco) await gravarRetratoDaLoja(db, produtosLoja, mapa, relato);
+    return { ok: true, ...relato };
+  } catch (e) {
     return { ok: false, erro: String(e && e.message || e), ...relato };
   }
 }

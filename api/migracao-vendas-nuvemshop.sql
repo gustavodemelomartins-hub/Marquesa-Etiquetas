@@ -1,6 +1,8 @@
--- Liga a venda local ao pedido criado na Nuvemshop e guarda qual variante
--- física saiu. A mudança é só de expansão: código antigo ignora as colunas;
--- rollback é republicar o Worker antigo e deixar os dados preservados.
+-- Guarda o estado da publicação de estoque provocada pela venda local e qual
+-- variante física saiu. As colunas também preservam o histórico dos poucos
+-- pedidos legados criados antes da decisão stock-only de 2026-08-26.
+-- A mudança é só de expansão: código antigo ignora as colunas; rollback é
+-- republicar o Worker antigo e deixar os dados preservados.
 --
 -- ALTER TABLE ADD COLUMN não é idempotente no SQLite. "duplicate column
 -- name" significa que esta migration já foi aplicada; não execute o restante

@@ -85,7 +85,8 @@ export class Nuvemshop {
     // A API de pedidos 2025-03 ainda é liberada loja por loja. Esta loja já
     // usa 2025-03 para catálogo/estoque, mas /orders responde 404 nela. O v1
     // continua sendo a API estável e documentada para criar, ler e cancelar
-    // pedidos, inclusive com inventory_behaviour claim/bypass.
+    // pedidos. Neste projeto ela é somente leitura: vendas locais publicam
+    // estoque absoluto e não criam pedidos.
     this.basePedidos = `${raiz}/v1/${this.loja}`;
     // Pedidos convivem em duas gerações da API durante a migração da
     // plataforma. Os dois hosts v1 e a versão 2025-03 são oficiais. Só
@@ -193,16 +194,6 @@ export class Nuvemshop {
     const p = { status: 'any' };
     if (desdeISO) p.created_at_min = desdeISO;
     return this.listarTudo('/orders', p, 40, { apiPedidos: true });
-  }
-
-  pedido(id) { return this.chamar(`/orders/${id}`, { apiPedidos: true }); }
-
-  criarPedido(dados) {
-    return this.chamar('/orders', { apiPedidos: true, method: 'POST', body: JSON.stringify(dados) });
-  }
-
-  cancelarPedido(id, dados) {
-    return this.chamar(`/orders/${id}/cancel`, { apiPedidos: true, method: 'POST', body: JSON.stringify(dados) });
   }
 
   /** Escrita em lote de estoque. Um PATCH resolve vários produtos de uma

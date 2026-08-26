@@ -6811,7 +6811,8 @@ async function cancelarVenda(id){
     await carregarVendas(vendasData);
     await sincronizar();
     toast('Venda cancelada e peças devolvidas ao estoque'+
-      (r.nuvemshop&&r.nuvemshop.status==='cancelada'?' também na Nuvemshop':' · Nuvemshop pendente'));
+      (r.nuvemshop&&['cancelada','cancelada_local'].includes(r.nuvemshop.status)
+        ?' · estoque da Nuvemshop atualizado':' · Nuvemshop pendente'));
   }catch(e){ toast(e.message); }
 }
 
@@ -6820,7 +6821,7 @@ async function reenviarVendaNuvemshop(id){
     const r=await api('POST',`/api/vendas/${id}/nuvemshop`,{});
     await carregarVendas(vendasData); renderVendas();
     toast(r.status==='sincronizada'||r.status==='cancelada'
-      ?'Nuvemshop atualizada com segurança'
+      ?'Estoque da Nuvemshop atualizado com segurança'
       :(r.erro||'Sincronização ainda em andamento'));
   }catch(e){ toast(e.message); }
 }
@@ -6880,7 +6881,7 @@ function renderVendas(){
           <select id="vendaNuvemshopPendente" style="padding:8px 11px;border:1px solid var(--line);border-radius:9px;font:inherit">
             ${pendentesNuvemshop.map(x=>`<option value="${x.id}">Venda #${x.id} · ${esc(x.clienteNome||revNome(x.revendedoraId)||'sem nome')}</option>`).join('')}
           </select>
-          <button class="btn btn-ghost btn-sm" onclick="processarVendaNuvemshopSelecionada()">Processar venda selecionada</button>
+          <button class="btn btn-ghost btn-sm" onclick="processarVendaNuvemshopSelecionada()">Atualizar estoque agora</button>
         </div>`:''}
       </div>
       <div class="body" style="padding:0;border-top:1px solid var(--line-soft)">
