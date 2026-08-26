@@ -50,7 +50,9 @@ export function explicarErro(status, corpo, caminho) {
          + 'e se NUVEMSHOP_STORE_ID é o número certo da loja.';
   }
   if (status === 404) {
-    return `A Nuvemshop não encontrou ${caminho}. Confira o NUVEMSHOP_STORE_ID e a versão da API usada por este recurso.`;
+    const detalhe = String(corpo || '').trim().slice(0, 300);
+    return `A Nuvemshop não encontrou ${caminho}. Confira se NUVEMSHOP_STORE_ID é o número mostrado na página de autorização (não o App ID).`
+         + (detalhe ? ` Resposta da Nuvemshop: ${detalhe}` : '');
   }
   return `Nuvemshop respondeu ${status} em ${caminho}: ${String(corpo || '').slice(0, 300)}`;
 }
@@ -85,6 +87,15 @@ export class Nuvemshop {
     // continua sendo a API estável e documentada para criar, ler e cancelar
     // pedidos, inclusive com inventory_behaviour claim/bypass.
     this.basePedidos = `${raiz}/v1/${this.loja}`;
+    // Os dois hosts são oficiais e equivalentes na documentação, mas a
+    // migração interna da plataforma pode rotear uma loja em apenas um
+    // deles. Em produção tentamos o segundo somente quando uma LEITURA de
+    // pedidos responde 404. A leitura acontece antes de toda criação para
+    // procurar uma venda já espelhada, então o POST seguinte usa o host que
+    // acabou de ser comprovado — sem repetir escrita às cegas.
+    this.basePedidosAlternativa = raiz === 'https://api.nuvemshop.com.br'
+      ? `https://api.tiendanube.com/v1/${this.loja}`
+      : null;
     this.ultimaChamada = 0;
     // Fail-closed de propósito (não fail-open): qualquer coisa que não seja
     // exatamente a string "true" — ausente, "false", "1", "TRUE" — mantém a
@@ -101,6 +112,9 @@ export class Nuvemshop {
     // Worker enquanto a flag não disser "true" — vale para rota direta, bug
     // de frontend, sync automático ou uma tela nova que reuse este cliente.
     const metodo = String(opcoes.method || 'GET').toUpperCase();
+    if (!/^\d+$/.test(this.loja)) {
+      throw new Error('NUVEMSHOP_STORE_ID precisa ser somente o número mostrado na página de autorização da loja — não use o App ID nem o domínio.');
+    }
     if (METODOS_ESCRITA.has(metodo) && !this.escritaHabilitada) {
       throw new NuvemshopEscritaDesativada(caminho, metodo);
     }
@@ -109,8 +123,8 @@ export class Nuvemshop {
     this.ultimaChamada = Date.now();
 
     const { apiPedidos, ...opcoesFetch } = opcoes;
-    const base = apiPedidos ? this.basePedidos : this.base;
-    const resp = await fetch(base + caminho, {
+    let base = apiPedidos ? this.basePedidos : this.base;
+    const fazerFetch = () => fetch(base + caminho, {
       ...opcoesFetch,
       headers: {
         'Authorization': `Bearer ${this.token}`,
@@ -119,6 +133,13 @@ export class Nuvemshop {
         ...(opcoesFetch.headers || {}),
       },
     });
+    let resp = await fazerFetch();
+
+    if (resp.status === 404 && apiPedidos && metodo === 'GET' && this.basePedidosAlternativa) {
+      base = this.basePedidosAlternativa;
+      resp = await fazerFetch();
+      if (resp.ok) this.basePedidos = this.basePedidosAlternativa;
+    }
 
     // 429 não é falha: é a API pedindo para esperar, e ela diz quanto.
     if (resp.status === 429 && tentativa < 3) {
