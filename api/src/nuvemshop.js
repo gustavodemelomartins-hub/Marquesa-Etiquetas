@@ -87,15 +87,19 @@ export class Nuvemshop {
     // continua sendo a API estável e documentada para criar, ler e cancelar
     // pedidos, inclusive com inventory_behaviour claim/bypass.
     this.basePedidos = `${raiz}/v1/${this.loja}`;
-    // Os dois hosts são oficiais e equivalentes na documentação, mas a
-    // migração interna da plataforma pode rotear uma loja em apenas um
-    // deles. Em produção tentamos o segundo somente quando uma LEITURA de
-    // pedidos responde 404. A leitura acontece antes de toda criação para
-    // procurar uma venda já espelhada, então o POST seguinte usa o host que
-    // acabou de ser comprovado — sem repetir escrita às cegas.
-    this.basePedidosAlternativa = raiz === 'https://api.nuvemshop.com.br'
-      ? `https://api.tiendanube.com/v1/${this.loja}`
-      : null;
+    // Pedidos convivem em duas gerações da API durante a migração da
+    // plataforma. Os dois hosts v1 e a versão 2025-03 são oficiais. Só
+    // escolhemos outro depois que uma LEITURA responde 404; toda venda lê
+    // primeiro para procurar `extra.marquesa_venda_id`, e o POST usa a rota
+    // que acabou de responder. Assim o fallback nunca troca de endereço às
+    // cegas depois de uma escrita.
+    this.basesPedidos = raiz === 'https://api.nuvemshop.com.br'
+      ? [
+          this.basePedidos,
+          `https://api.tiendanube.com/v1/${this.loja}`,
+          this.base,
+        ]
+      : [this.basePedidos];
     this.ultimaChamada = 0;
     // Fail-closed de propósito (não fail-open): qualquer coisa que não seja
     // exatamente a string "true" — ausente, "false", "1", "TRUE" — mantém a
@@ -135,10 +139,19 @@ export class Nuvemshop {
     });
     let resp = await fazerFetch();
 
-    if (resp.status === 404 && apiPedidos && metodo === 'GET' && this.basePedidosAlternativa) {
-      base = this.basePedidosAlternativa;
-      resp = await fazerFetch();
-      if (resp.ok) this.basePedidos = this.basePedidosAlternativa;
+    if (resp.status === 404 && apiPedidos && metodo === 'GET') {
+      for (const candidata of this.basesPedidos) {
+        if (candidata === base) continue;
+        base = candidata;
+        resp = await fazerFetch();
+        if (resp.ok) {
+          this.basePedidos = candidata;
+          break;
+        }
+        // 401/403/429 já trazem uma orientação útil e não significam rota
+        // ausente. Só um novo 404 justifica experimentar a próxima geração.
+        if (resp.status !== 404) break;
+      }
     }
 
     // 429 não é falha: é a API pedindo para esperar, e ela diz quanto.
