@@ -139,6 +139,41 @@ eq('com confirmação publicou', forcada.status, 'sincronizada');
 eq('confirmação não criou pedido', loja.estado.pedidosCriados.length, 0);
 await api('PUT', '/api/config', { syncLimiteMudancas: 40 });
 
+console.log('\n=== 8. um SKU bloqueado não prende as vendas seguras ===');
+await api('POST', '/api/produtos/importar', { produtos: [
+  { sku: 'VD-SEGURO', desc: 'Venda segura', cat: 'Brinco', preco: 50, qtd: 1 },
+  { sku: 'VD-BLOQ', desc: 'Variação ambígua na maleta', cat: 'Anel', preco: 50, qtd: 2 },
+] });
+loja.estado.produtos.push(produtoFalso(507, [{ id: 5071, sku: 'VD-SEGURO', estoque: 1 }]));
+loja.estado.produtos.push({
+  id: 508, name: { pt: 'Variação ambígua na maleta' },
+  handle: { pt: 'variacao-ambigua-na-maleta' }, published: true,
+  attributes: [{ pt: 'Aro' }], images: [],
+  variants: [
+    { id: 5081, sku: 'VD-BLOQ', values: [{ pt: '16' }], inventory_levels: [{ location_id: 'LOC1', stock: 1 }] },
+    { id: 5082, sku: 'VD-BLOQ', values: [{ pt: '18' }], inventory_levels: [{ location_id: 'LOC1', stock: 1 }] },
+  ],
+});
+await api('POST', '/api/loja/variantes/importar', {});
+await api('POST', '/api/sync', { forcar: true });
+loja.estado.falharPatchParaProduto = new Set([507, 508]);
+const vendaSegura = await api('POST', '/api/vendas', { clienteNome: 'Segura', itens: [{ sku: 'VD-SEGURO', qtd: 1 }] });
+eq('venda segura começou retomável', vendaSegura.nuvemshop.status, 'erro');
+const respostaVendaBloqueada = await apiResp('POST', '/api/vendas', {
+  clienteNome: 'Bloqueada', itens: [{ sku: 'VD-BLOQ', qtd: 1, varianteId: '5081' }],
+});
+eq('venda que será bloqueada foi registrada', respostaVendaBloqueada.status, 201);
+const vendaBloqueada = respostaVendaBloqueada.corpo;
+eq('venda que será bloqueada começou retomável', vendaBloqueada.nuvemshop.status, 'erro');
+loja.estado.falharPatchParaProduto = null;
+const maletaAmbigua = await api('POST', '/api/maletas', { revId: rev.id, abertaEm: hoje });
+await api('POST', `/api/maletas/${maletaAmbigua.id}/itens`, { itens: { 'VD-BLOQ': 1 } });
+const retryBloqueado = await api('POST', `/api/vendas/${vendaBloqueada.id}/nuvemshop`, {});
+eq('SKU ambíguo na maleta ficou em revisão', retryBloqueado.status, 'revisao');
+eq('a mesma rodada encerrou a segura', retryBloqueado.vendasRegularizadas >= 1, true);
+const vendasDepoisDoBloqueio = await api('GET', `/api/vendas?data=${hoje}`);
+eq('venda segura não ficou presa', vendasDepoisDoBloqueio.find(v => v.id === vendaSegura.id).nuvemshopStatus, 'sincronizada');
+
 eq('a razão continua fechando', (await api('GET', '/api/estoque/conferir')).ok, true);
 await loja.fechar();
 console.log(falhas ? `\n✗ ${falhas} FALHA(S)` : '\n✓ TUDO PASSOU');

@@ -73,16 +73,21 @@ export async function atualizarEstoqueDaVenda(db, env, vendaId, { forcar = false
   const itens = (await db.prepare(`SELECT DISTINCT sku FROM venda_itens WHERE venda_id=?`).bind(vendaId).all()).results;
   const skus = new Set(itens.map(i => String(i.sku)));
   const bloqueios = (resultado.semEmpurrar || []).filter(i => skus.has(String(i.sku)));
+  // A publicação é global e absoluta. Mesmo que a venda escolhida contenha
+  // um SKU bloqueado, todas as outras vendas cujos SKUs foram publicados
+  // com segurança já podem ser encerradas nesta mesma rodada.
+  let vendasRegularizadas = 0;
+  if (!venda.cancelada) {
+    vendasRegularizadas = await regularizarPendentesSeguros(db, resultado.semEmpurrar);
+  }
   if (bloqueios.length) {
     const erro = bloqueios.map(i => `${i.sku}: ${i.explicacao || i.motivo}`).join(' · ').slice(0, 500);
     await marcar(db, vendaId, 'revisao', erro);
-    return { status: 'revisao', erro, bloqueios };
+    return { status: 'revisao', erro, bloqueios, vendasRegularizadas };
   }
 
   const status = venda.cancelada ? 'cancelada_local' : 'sincronizada';
-  let vendasRegularizadas = 0;
   if (venda.cancelada) await marcar(db, vendaId, status, null);
-  else vendasRegularizadas = await regularizarPendentesSeguros(db, resultado.semEmpurrar);
   return {
     status,
     modo: 'somente_estoque',
