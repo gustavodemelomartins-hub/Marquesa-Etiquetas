@@ -6825,6 +6825,12 @@ async function reenviarVendaNuvemshop(id){
   }catch(e){ toast(e.message); }
 }
 
+function processarVendaNuvemshopSelecionada(){
+  const id=+(document.getElementById('vendaNuvemshopPendente')?.value||0);
+  if(!id) return toast('Escolha uma venda pendente.');
+  reenviarVendaNuvemshop(id);
+}
+
 let vendasData=hoje();
 function setVendasData(d){ vendasData=d||hoje(); carregarVendas(vendasData).then(renderVendas); }
 
@@ -6834,6 +6840,8 @@ function renderVendas(){
   const total=vivas.reduce((s,x)=>s+x.total,0);
   const pecas=vivas.reduce((s,x)=>s+x.itens.reduce((a,i)=>a+i.qtd,0),0);
   const balcao=vivas.filter(x=>x.origem==='balcao');
+  const pendentesNuvemshop=vendas.filter(x=>!x.cancelada&&x.origem!=='site'&&
+    ['nao_enviada','erro','pendente','cancelamento_pendente'].includes(x.nuvemshopStatus));
 
   v.innerHTML=`
     <div class="kpis">
@@ -6866,6 +6874,14 @@ function renderVendas(){
           <div class="spacer"></div>
           <button class="btn btn-gold btn-sm" onclick="novaVenda()">+ Nova venda</button>
         </div>
+        ${pendentesNuvemshop.length?`<div class="actbar" style="margin:12px 0 0;padding-top:12px;border-top:1px solid var(--line-soft)">
+          <span class="hint">Validação e contingência — no dia a dia o sistema tenta sozinho</span>
+          <div class="spacer"></div>
+          <select id="vendaNuvemshopPendente" style="padding:8px 11px;border:1px solid var(--line);border-radius:9px;font:inherit">
+            ${pendentesNuvemshop.map(x=>`<option value="${x.id}">Venda #${x.id} · ${esc(x.clienteNome||revNome(x.revendedoraId)||'sem nome')}</option>`).join('')}
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="processarVendaNuvemshopSelecionada()">Processar venda selecionada</button>
+        </div>`:''}
       </div>
       <div class="body" style="padding:0;border-top:1px solid var(--line-soft)">
         ${vendas.length?vendas.map(x=>`
