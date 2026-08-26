@@ -592,7 +592,6 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
     }
     if (porVariante.size) {
       for (const [sku, v] of mapa) {
-        if (v.variantes.length < 2) continue;
         if (!v.variantes.some(va => porVariante.has(String(va.varianteId)))) continue;
         empurrado.set(sku, v.variantes.reduce((s, va) => {
           const novo = porVariante.get(String(va.varianteId));

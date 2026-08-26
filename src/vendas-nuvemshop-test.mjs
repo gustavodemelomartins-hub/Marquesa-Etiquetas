@@ -33,7 +33,9 @@ eq('estoque terminou sincronizado', r.corpo.nuvemshop.status, 'sincronizada');
 eq('nenhum pedido foi criado', loja.estado.pedidosCriados.length, 0);
 eq('nenhum POST /orders saiu', loja.estado.caminhos.some(p => /\/orders$/.test(p)), false);
 eq('estoque online caiu de 5 para 3', loja.estado.produtos[0].variants[0].inventory_levels[0].stock, 3);
-eq('estoque físico caiu para 3', (await api('GET', '/api/state')).produtos.find(p => p.sku === 'VD-SIMPLES').qtd, 3);
+const estadoDepoisDaVenda = await api('GET', '/api/state');
+eq('estoque físico caiu para 3', estadoDepoisDaVenda.produtos.find(p => p.sku === 'VD-SIMPLES').qtd, 3);
+eq('retrato do painel também mostra 3', estadoDepoisDaVenda.produtos.find(p => p.sku === 'VD-SIMPLES').estoqueLoja, 3);
 
 console.log('\n=== 2. retry é idempotente ===');
 await api('POST', `/api/vendas/${r.corpo.id}/nuvemshop`, {});
