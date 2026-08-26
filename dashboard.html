@@ -6848,7 +6848,7 @@ function renderVendas(){
   const pecas=vivas.reduce((s,x)=>s+x.itens.reduce((a,i)=>a+i.qtd,0),0);
   const balcao=vivas.filter(x=>x.origem==='balcao');
   const pendentesNuvemshop=vendas.filter(x=>!x.cancelada&&x.origem!=='site'&&
-    ['nao_enviada','erro','pendente','cancelamento_pendente'].includes(x.nuvemshopStatus));
+    ['nao_enviada','erro','pendente','cancelamento_pendente','revisao'].includes(x.nuvemshopStatus));
 
   v.innerHTML=`
     <div class="kpis">
