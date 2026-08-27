@@ -191,17 +191,17 @@ cd api
 rm -rf .wrangler/state
 
 # 2. carrega o backup
-npx wrangler d1 execute marquesa-db --local \
+npx wrangler d1 execute DB --local \
   --file=../backups/d1/2026-08-18_06-00/marquesa-db.sql
 
 # 3. confere o que entrou
-npx wrangler d1 execute marquesa-db --local \
+npx wrangler d1 execute DB --local \
   --command "SELECT COUNT(*) AS produtos FROM produtos"
-npx wrangler d1 execute marquesa-db --local \
+npx wrangler d1 execute DB --local \
   --command "SELECT COUNT(*) AS movimentos FROM movimentos"
 
 # 4. a prova que importa: a razão fecha?
-npx wrangler d1 execute marquesa-db --local --command \
+npx wrangler d1 execute DB --local --command \
   "SELECT COUNT(*) AS divergentes FROM produtos p LEFT JOIN (SELECT sku, SUM(qtd) soma FROM movimentos GROUP BY sku) m ON m.sku = p.sku WHERE p.qtd <> COALESCE(m.soma,0)"
 ```
 

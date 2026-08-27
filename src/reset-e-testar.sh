@@ -21,7 +21,7 @@ fi
 
 cd "$API"
 rm -rf .wrangler/state
-npx wrangler d1 execute marquesa-db --local --file=schema.sql > /dev/null 2>&1
+npx wrangler d1 execute DB --local --file=schema.sql > /dev/null 2>&1
 setsid nohup npx wrangler dev --local --port 8787 > "$API/wrangler.log" 2>&1 < /dev/null &
 disown
 

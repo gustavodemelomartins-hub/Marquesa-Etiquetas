@@ -67,7 +67,7 @@ function aplicar(caminhoAbsoluto, { esperaFalha, rotulo } = {}) {
   try {
     execFileSync(
       'npx',
-      ['wrangler', 'd1', 'execute', 'marquesa-db', '--local', '--persist-to', PERSIST, '--file', caminhoAbsoluto],
+      ['wrangler', 'd1', 'execute', 'DB', '--local', '--persist-to', PERSIST, '--file', caminhoAbsoluto],
       { cwd: API_DIR, encoding: 'utf8', shell: true, stdio: ['ignore', 'pipe', 'pipe'] },
     );
     if (esperaFalha) bad(nome, 'deveria ter falhado e passou');
@@ -87,7 +87,7 @@ function consultar(sql) {
   const f = arquivoSql(sql);
   const out = execFileSync(
     'npx',
-    ['wrangler', 'd1', 'execute', 'marquesa-db', '--local', '--persist-to', PERSIST, '--file', f, '--json'],
+    ['wrangler', 'd1', 'execute', 'DB', '--local', '--persist-to', PERSIST, '--file', f, '--json'],
     { cwd: API_DIR, encoding: 'utf8', shell: true },
   );
   const bloco = out.match(/\[[\s\S]*\]/);

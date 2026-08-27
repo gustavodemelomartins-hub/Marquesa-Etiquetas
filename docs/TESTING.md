@@ -620,7 +620,7 @@ powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='no
 
 # 2. zerar o banco e recriar o schema
 cd api && rm -rf .wrangler/state
-npx wrangler d1 execute marquesa-db --local --file=schema.sql
+npx wrangler d1 execute DB --local --file=schema.sql
 
 # 3. subir o Worker e esperar o /api/health responder
 npx wrangler dev --local --port 8787 &

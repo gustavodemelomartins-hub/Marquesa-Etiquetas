@@ -54,7 +54,7 @@ não quebra a montagem em silêncio.
 cd api
 cp .dev.vars.example .dev.vars     # e escolha uma chave qualquer de teste
 rm -rf .wrangler/state             # zera o banco (pare o wrangler antes)
-npx wrangler d1 execute marquesa-db --local --file=schema.sql
+npx wrangler d1 execute DB --local --file=schema.sql
 npx wrangler dev --local --port 8787
 ```
 
