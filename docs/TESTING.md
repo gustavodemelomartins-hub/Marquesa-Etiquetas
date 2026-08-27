@@ -70,6 +70,52 @@ Chama `Nuvemshop` (`api/src/nuvemshop.js`) direto, sem subir
 6. `"true"` libera de verdade, e a loja falsa registra a escrita;
 7. espaço em volta de `"true"` é tolerado (resto de copiar/colar num secret).
 
+### `src/vendas-historico-test.mjs` — histórico entra sem mover estoque
+**~60 asserções · ~40 s · precisa do Worker local e do banco limpo**
+
+A prova de que importar a planilha antiga não desconta peça nenhuma:
+
+1. **a regra absoluta** — zero movimentos criados, `produtos.qtd` intacto e
+   `GET /api/estoque/conferir` vazio antes, depois e após reverter;
+2. a análise (seca) não escreve nada e declara impacto `0` em estoque e loja;
+3. os totais **fecham com a fonte** — o teste recalcula faturamento, peças,
+   clientes, SKUs, linhas sem data e sem valor a partir das próprias linhas e
+   compara com o relatório de reconciliação do backend;
+4. o mesmo arquivo não entra duas vezes (sha-256 do conteúdo);
+5. o cru é preservado: `-` e `Não lembro` viram NULL e não zero, o texto
+   comercial da coluna Desconto continua legível, e o código com sufixo
+   (`996055-2`) continua TEXTO;
+6. a origem vira canal + contexto sem perder o bruto, `Maletra` vira `Maleta`
+   por alias explícito, e origem múltipla vira `Misto` em vez de escolher;
+7. contagem de pedidos e ticket médio histórico **não são inventados**;
+8. reverter o lote desfaz tudo o que ele escreveu.
+
+> **A planilha real não está no repositório.** Ela tem 351 nomes de clientes
+> reais — dado pessoal, e este repositório é público. O teste roda contra
+> `src/__dados__/vendas-historico.json` quando o arquivo existe (a pasta está
+> no `.gitignore`), e contra uma amostra embutida de 12 linhas quando não —
+> a amostra reproduz cada caso difícil observado no arquivo real.
+>
+> Para rodar contra a planilha de verdade, converta-a para JSON de matriz
+> (uma linha por array, cabeçalho na primeira) e salve nesse caminho.
+
+### `src/vendas-clientes-ui-test.mjs` — Painel de Vendas e Clientes na tela
+**~45 asserções · ~30 s · Playwright + servidor HTTP em `localhost:8000`**
+
+1. as três sub-abas de Vendas navegam — Lançamentos, Painel, Clientes;
+2. os KPIs do painel mostram o número que a API devolve (conferido contra
+   `/api/analytics/vendas`, não contra constante no teste);
+3. o painel **avisa** que o ticket médio histórico é indisponível, e por quê;
+4. **consistência visual verificável**: Clientes usa `.revgrid`/`.revcard`/
+   `.rc-nm`/`.rc-row`/`.badge` de Revendedoras, e o *estilo computado* dos
+   dois cards é comparado — raio, borda e fundo têm de bater. É o que
+   transforma "segue o padrão" em asserção em vez de opinião;
+5. o modal de cliente tem a mesma estrutura do de revendedora, campo a campo,
+   incluindo a largura e os botões do rodapé;
+6. o perfil de uma cliente abre com resumo e histórico;
+7. a 390px nenhuma das telas gera rolagem horizontal, e o modal cabe;
+8. nenhum erro de console.
+
 ### `src/corte-pedidos-test.mjs` — pedido antigo é história, não venda nova
 **46 asserções · ~25 s · precisa do Worker local e do banco limpo**
 
@@ -601,6 +647,10 @@ node src/dry-run-test.mjs      # a prova formal do dry-run
 node src/saude-sync-test.mjs   # análise nunca esconde falha real
 node src/corte-pedidos-test.mjs # pedido antigo não vira venda nova
 node src/reconciliacao-test.mjs # o Apply do motor de reconciliação
+node src/vendas-historico-test.mjs   # histórico entra sem mover estoque
+
+# navegador (precisa de `python -m http.server 8000` na raiz)
+PW_CHROMIUM=/caminho/do/chrome node src/vendas-clientes-ui-test.mjs
 
 cd frontend && npm test        # os 73 testes unitários, sem navegador
 

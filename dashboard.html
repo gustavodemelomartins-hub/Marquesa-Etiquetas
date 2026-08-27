@@ -1032,6 +1032,24 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
    Cada categoria em seu próprio cartão custava cinco telas de scroll e não
    deixava comparar nada — que é justamente para o que este bloco serve. */
 .resumotit{font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:10px}
+
+/* Coluna de número. `tabular-nums` alinha os dígitos na vertical — sem isso
+   uma coluna de dinheiro fica com as vírgulas dançando de linha em linha. */
+th.r,td.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* Evolução por mês: barras em SVG-menos-SVG (divs), pela mesma razão do
+   gráfico de rosca — nada externo carrega e funciona offline. Rola de lado
+   no celular em vez de espremer 29 meses em 360px. */
+.evo{display:flex;align-items:flex-end;gap:6px;height:132px;margin-top:10px;
+  overflow-x:auto;padding-bottom:4px}
+.evo-col{flex:0 0 34px;display:flex;flex-direction:column;align-items:center;
+  justify-content:flex-end;height:100%;gap:5px}
+.evo-bar{width:100%;background:var(--bordo);border-radius:4px 4px 0 0;min-height:2px;
+  transition:opacity .12s}
+.evo-col:hover .evo-bar{opacity:.75}
+.evo-lbl{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+
 .rcat{margin-bottom:9px}
 .rcat:last-child{margin-bottom:0}
 .rcat .l{display:flex;align-items:baseline;gap:8px;font-size:11.5px;line-height:1.2}
@@ -1456,6 +1474,16 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
   <!-- ============ VENDAS ============ -->
   <section class="view" id="view-vendas"></section>
 
+  <!-- ============ VENDAS · PAINEL (inteligência comercial) ============ -->
+  <section class="view" id="view-vendas-painel"></section>
+
+  <!-- ============ CLIENTES ============ -->
+  <!-- Mesma linguagem de Revendedoras: .revgrid/.revcard na lista,
+       .overlay/.modal/.field/.two no cadastro. Nada de componente novo
+       para fazer a mesma coisa com outra cara. -->
+  <section class="view" id="view-clientes"></section>
+  <section class="view" id="view-cliente"></section>
+
   <!-- ============ REVENDEDORAS (lista) ============ -->
   <!-- ============ REVENDEDORAS · VISÃO GERAL ============ -->
   <section class="view" id="view-revgeral"></section>
@@ -1603,6 +1631,64 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
         <button class="btn btn-gold" onclick="saveRevendedora()">Salvar</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ============ CLIENTE (cadastro/edição) ============ -->
+<!-- Mesma estrutura do modal de revendedora, campo por campo: .overlay
+     .center → .modal 460px → .mhead/.mbody/.mfoot, .field e .two. O que muda
+     são os campos que existem de verdade para cliente — não há CPF (não é
+     contrato de consignação) e há Instagram, que é por onde a Marquesa fala
+     com a maioria delas. -->
+<div class="overlay center" id="cliOverlay" onclick="if(event.target===this)closeCliForm()">
+  <div class="modal" style="width:460px">
+    <div class="mhead">
+      <h2 id="cliFormTitle">Nova cliente</h2>
+      <button class="closebtn" onclick="closeCliForm()">×</button>
+    </div>
+    <div class="mbody">
+      <input type="hidden" id="cliEditId">
+      <div class="field">
+        <label>Nome <span class="req">*</span></label>
+        <input id="clf-nome" placeholder="Nome e sobrenome" maxlength="60">
+      </div>
+      <div class="two">
+        <div class="field"><label>Telefone / WhatsApp</label><input id="clf-tel" placeholder="(00) 00000-0000" maxlength="24"></div>
+        <div class="field"><label>Cidade</label><input id="clf-cidade" placeholder="Opcional" maxlength="40"></div>
+      </div>
+      <div class="two">
+        <div class="field"><label>E-mail</label><input id="clf-email" placeholder="Opcional" maxlength="80"></div>
+        <div class="field"><label>Instagram</label><input id="clf-instagram" placeholder="@perfil" maxlength="40"></div>
+      </div>
+      <div class="field">
+        <label>Aniversário</label>
+        <input id="clf-nascimento" type="date">
+      </div>
+      <div class="field">
+        <label>Observações</label>
+        <input id="clf-obs" placeholder="Opcional" maxlength="200">
+      </div>
+      <div class="mfoot">
+        <button class="btn btn-ghost" onclick="closeCliForm()">Cancelar</button>
+        <div class="spacer"></div>
+        <button class="btn btn-gold" onclick="saveCliente()">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ IMPORTAR HISTÓRICO DE VENDAS ============ -->
+<!-- A sequência é a de todo importador do projeto: analisar (seco) →
+     relatório → decisão → aplicar. O relatório diz, em voz alta, que o
+     impacto sobre o estoque é ZERO — porque é a dúvida que essa tela
+     precisa responder antes de qualquer outra. -->
+<div class="overlay center" id="histOverlay" onclick="if(event.target===this)closeHistImport()">
+  <div class="modal" style="width:680px">
+    <div class="mhead">
+      <h2>Importar histórico de vendas</h2>
+      <button class="closebtn" onclick="closeHistImport()">×</button>
+    </div>
+    <div class="mbody" id="histBody"></div>
   </div>
 </div>
 
@@ -2322,7 +2408,10 @@ function calcComissao(vendidos,m){
 let tabAtual='geral';      /* 'geral' | 'cadastro' | 'loja' | 'pendencias' | 'vendas' | 'revlist' | 'rev:<id>' */
 function mainTabOf(name){
   if(name==='etiquetas'||name==='etq-print') return 'etiqueta';
-  if(name==='vendas') return 'vendas';
+  /* Vendas deixou de ser uma tela só: Lançamentos (o registro do dia),
+     Painel (a leitura comercial) e Clientes (o CRM) são a mesma área. */
+  if(name==='vendas'||name==='vendas-painel'||name==='clientes'
+     ||name.indexOf('cli:')===0) return 'vendas';
   if(name==='revgeral'||name==='revlist'||name.indexOf('rev:')===0) return 'revendedoras';
   return 'estoque';
 }
@@ -2360,6 +2449,20 @@ function switchTab(name){
     document.getElementById('view-vendas').classList.add('active');
     renderVendas();
     carregarVendas(vendasData).then(renderVendas);
+  }
+  else if(name==='vendas-painel'){
+    document.getElementById('view-vendas-painel').classList.add('active');
+    renderVendasPainel();
+    carregarPainelVendas().then(renderVendasPainel);
+  }
+  else if(name==='clientes'){
+    document.getElementById('view-clientes').classList.add('active');
+    renderClientes();
+    carregarClientes().then(renderClientes);
+  }
+  else if(name.indexOf('cli:')===0){
+    document.getElementById('view-cliente').classList.add('active');
+    abrirPerfilCliente(name.slice(4));
   }
   else if(name==='revgeral'){ document.getElementById('view-revgeral').classList.add('active'); renderRevGeral(); }
   else if(name==='revlist'){ document.getElementById('view-revlist').classList.add('active'); renderRevLista(); }
@@ -2431,6 +2534,16 @@ function renderTabs(){
     });
     html+=`<button class="tab addtab" onclick="openRevForm()">+ Nova</button>`;
     navSub.innerHTML=html;
+  } else if(mt==='vendas'){
+    navSub.style.display='';
+    /* Ordem do dia de trabalho: registra a venda, lê o que ela produziu,
+       e só então olha para quem comprou. */
+    const nCli=(painelVendas&&painelVendas.clientes&&painelVendas.clientes.length)||0;
+    navSub.innerHTML=`
+      <button class="tab ${tabAtual==='vendas'?'active':''}" onclick="switchTab('vendas')">Lançamentos</button>
+      <button class="tab ${tabAtual==='vendas-painel'?'active':''}" onclick="switchTab('vendas-painel')">Painel</button>
+      <button class="tab ${tabAtual==='clientes'||tabAtual.indexOf('cli:')===0?'active':''}" onclick="switchTab('clientes')">Clientes${
+        nCli?`<span class="count">${nCli}</span>`:''}</button>`;
   } else {
     navSub.style.display='none';
     navSub.innerHTML='';
@@ -6914,6 +7027,462 @@ function renderVendas(){
           </div>`}
       </div>
     </div>`;
+}
+
+/* =================== Vendas · Painel (inteligência comercial) ===================
+   Reusa os componentes que já existem: .kpis/.kpi da Visão Geral do Estoque,
+   .panel/.head/.body, .seg para o filtro de período, e a mesma paleta de
+   categoria do gráfico de rosca. Nenhuma linguagem visual nova.
+
+   As duas populações — histórico da planilha e vendas operacionais — são
+   somadas onde a soma é exata (faturamento, peças, clientes, produtos) e
+   mostradas separadas onde não é (pedido e ticket médio). O painel NUNCA
+   inventa ticket médio histórico: a planilha não tem pedido, e a API devolve
+   o motivo por escrito. */
+
+let painelPeriodo='tudo';
+let painelVendas=null;
+
+async function carregarPainelVendas(){
+  try{
+    const p='?periodo='+encodeURIComponent(painelPeriodo);
+    const [geral,evo,prod,cat,orig,cli]=await Promise.all([
+      api('GET','/api/analytics/vendas'+p),
+      api('GET','/api/analytics/evolucao'+p+'&granularidade=mes'),
+      api('GET','/api/analytics/produtos'+p+'&limite=12'),
+      api('GET','/api/analytics/categorias'+p),
+      api('GET','/api/analytics/origem'+p),
+      api('GET','/api/analytics/clientes'+p+'&limite=12'),
+    ]);
+    painelVendas={geral,evo,prod,cat,orig,clientes:cli.clientes||[]};
+  }catch(e){ painelVendas={erro:e.message||'Não consegui carregar o painel'}; }
+  return painelVendas;
+}
+
+function setPainelPeriodo(p){
+  painelPeriodo=p;
+  renderVendasPainel();
+  carregarPainelVendas().then(renderVendasPainel);
+}
+
+function renderVendasPainel(){
+  const v=document.getElementById('view-vendas-painel');
+  if(!painelVendas){ v.innerHTML=`<div class="panel"><div class="body"><div class="empty"><h3>Carregando…</h3></div></div></div>`; return; }
+  if(painelVendas.erro){
+    v.innerHTML=`<div class="panel"><div class="body"><div class="empty">
+      <h3>Não consegui carregar</h3><p>${esc(painelVendas.erro)}</p></div></div></div>`;
+    return;
+  }
+  const g=painelVendas.geral, ev=painelVendas.evo, tm=g.ticketMedio;
+  const semNada=g.pecas===0;
+
+  const seg=[['tudo','Tudo'],['12m','12 meses'],['90d','90 dias'],['30d','30 dias']]
+    .map(([k,r])=>`<button class="${painelPeriodo===k?'on':''}" onclick="setPainelPeriodo('${k}')">${r}</button>`).join('');
+
+  v.innerHTML=`
+    <div class="panel">
+      <div class="head">
+        <h2>Painel de vendas</h2>
+        <span class="hint">Histórico da planilha + vendas do sistema</span>
+      </div>
+      <div class="body">
+        <div class="seg" style="margin-bottom:14px">${seg}</div>
+        ${semNada?`<div class="empty">
+            <h3>Ainda não há vendas para ler</h3>
+            <p>Importe o histórico antigo para o painel ganhar profundidade,
+               ou registre vendas em Lançamentos.</p>
+            <button class="btn btn-gold" style="margin-top:14px" onclick="openHistImport()">Importar histórico de vendas</button>
+          </div>`:`
+        <div class="kpis">
+          ${cartaoKpi({ico:ICO.grafico,rot:'Faturamento',num:money(g.faturamento),
+            sub:[`${g.historico.linhas} do histórico · ${g.operacional.pedidos} pedidos do sistema`]})}
+          ${cartaoKpi({ico:ICO.caixa,rot:'Peças vendidas',num:g.pecas,
+            sub:[g.valorMedioPorItem!=null?`${money(g.valorMedioPorItem)} por peça, em média`:'—']})}
+          ${cartaoKpi({ico:ICO.pessoas,rot:'Clientes',num:g.clientes,
+            sub:[`${g.skus} códigos diferentes vendidos`]})}
+          ${cartaoKpi({ico:ICO.nuvem,rot:'Ticket médio',
+            num:tm.operacional!=null?money(tm.operacional):'—',
+            sub:[tm.operacional!=null?'apenas vendas do sistema':'sem pedido registrado ainda']})}
+        </div>
+
+        ${!tm.historicoDisponivel?`<div class="insight" data-tom="neutro" style="margin-top:14px">
+          <div class="i-topo"><span class="i-ico">${svgIco(ICO.escudo,15)}</span>
+            <span class="i-t">Ticket médio do histórico: indisponível de propósito</span></div>
+          <div class="i-d">${esc(tm.motivo)}</div>
+        </div>`:''}
+
+        ${graficoEvolucao(ev)}
+        </div>
+      `}
+      </div>
+    </div>
+    ${semNada?'':`
+    ${painelBloco('Produtos mais vendidos', tabelaProdutos(painelVendas.prod))}
+    ${painelBloco('Categorias', tabelaSimples(painelVendas.cat.categorias,'categoria'))}
+    ${painelBloco('De onde vieram as vendas', tabelaOrigem(painelVendas.orig))}
+    ${painelBloco('Clientes que mais compraram', tabelaClientes(painelVendas.clientes))}
+    <div class="panel"><div class="body" style="text-align:center">
+      <button class="btn btn-ghost" onclick="openHistImport()">Importar histórico de vendas</button>
+    </div></div>`}`;
+}
+
+function painelBloco(titulo,corpo){
+  return `<div class="panel"><div class="head"><h2>${esc(titulo)}</h2></div>
+    <div class="body">${corpo}</div></div>`;
+}
+
+/** Barras horizontais em SVG puro, mesma escolha do gráfico de rosca: nada
+    externo carrega, e funciona offline como o resto do painel. */
+function graficoEvolucao(ev){
+  const p=(ev&&ev.pontos)||[];
+  if(!p.length) return '';
+  const max=Math.max(...p.map(x=>x.faturamento))||1;
+  const barras=p.map(x=>{
+    const alt=Math.max(2,Math.round(x.faturamento/max*100));
+    return `<div class="evo-col" title="${esc(x.chave)} · ${money(x.faturamento)} · ${x.pecas} peças">
+      <div class="evo-bar" style="height:${alt}%"></div>
+      <div class="evo-lbl">${esc(String(x.chave).slice(2))}</div>
+    </div>`;
+  }).join('');
+  return `<div class="resumotit" style="margin-top:18px">Evolução por mês</div>
+    <div class="evo">${barras}</div>`;
+}
+
+function tabelaProdutos(d){
+  const l=(d&&d.produtos)||[];
+  if(!l.length) return `<div class="empty"><p>Nada no período.</p></div>`;
+  return `<div class="tablewrap"><table><thead><tr>
+    <th>Código</th><th>Produto</th><th class="r">Peças</th><th class="r">Faturamento</th><th class="r">%</th>
+    </tr></thead><tbody>${l.map(p=>`<tr>
+      <td><code>${esc(p.sku)}</code></td>
+      <td>${esc(p.nomeAtual||p.nomeHistorico||'—')}
+        ${p.renomeado?`<div class="hint">na época: ${esc(p.nomeHistorico)}</div>`:''}
+        ${!p.noCatalogo?`<div class="hint">fora do catálogo atual</div>`:''}</td>
+      <td class="r">${p.pecas}</td>
+      <td class="r">${money(p.faturamento)}</td>
+      <td class="r">${p.participacao}%</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+function tabelaSimples(l,campo){
+  if(!l||!l.length) return `<div class="empty"><p>Nada no período.</p></div>`;
+  return `<div class="tablewrap"><table><thead><tr>
+    <th>${esc(campo[0].toUpperCase()+campo.slice(1))}</th>
+    <th class="r">Peças</th><th class="r">Faturamento</th><th class="r">%</th>
+    </tr></thead><tbody>${l.map(x=>`<tr>
+      <td>${esc(x[campo])}</td><td class="r">${x.pecas}</td>
+      <td class="r">${money(x.faturamento)}</td><td class="r">${x.participacao}%</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+/** Canal e contexto vêm classificados, e o texto BRUTO vem junto — a
+    classificação precisa continuar conferível por quem escreveu o texto. */
+function tabelaOrigem(o){
+  const canais=(o&&o.canais)||[];
+  if(!canais.length) return `<div class="empty"><p>Nada no período.</p></div>`;
+  const linhasCanal=tabelaSimples(canais,'canal');
+  const ctx=(o.contextos||[]).filter(c=>c.origem&&c.origem.indexOf('·')>0).slice(0,12);
+  const oper=(o.operacional||[]);
+  return linhasCanal
+    +(ctx.length?`<div class="resumotit" style="margin-top:18px">Por evento / lugar</div>${tabelaSimples(ctx,'origem')}`:'')
+    +(oper.length?`<div class="resumotit" style="margin-top:18px">Vendas do sistema, por origem</div>
+      <div class="tablewrap"><table><thead><tr><th>Origem</th><th class="r">Pedidos</th>
+      <th class="r">Peças</th><th class="r">Faturamento</th></tr></thead><tbody>
+      ${oper.map(x=>`<tr><td>${esc(x.canal)}</td><td class="r">${x.pedidos}</td>
+        <td class="r">${x.pecas}</td><td class="r">${money(x.faturamento)}</td></tr>`).join('')}
+      </tbody></table></div>`:'')
+    +`<details style="margin-top:14px"><summary class="hint">Ver o texto original de cada origem (${(o.brutos||[]).length})</summary>
+       ${tabelaSimples((o.brutos||[]).slice(0,40),'texto')}</details>`;
+}
+
+function tabelaClientes(l){
+  if(!l||!l.length) return `<div class="empty"><p>Nada no período.</p></div>`;
+  return `<div class="tablewrap"><table><thead><tr>
+    <th>Cliente</th><th class="r">Peças</th><th class="r">Gastou</th>
+    <th class="r">Datas</th><th>Última</th><th>Relação</th>
+    </tr></thead><tbody>${l.map(c=>`<tr onclick="switchTab('cli:${encodeURIComponent(c.norm)}')" style="cursor:pointer">
+      <td>${esc(c.nome||'—')}</td>
+      <td class="r">${c.pecas}</td>
+      <td class="r">${money(c.faturamento)}</td>
+      <td class="r">${c.datasComCompra}</td>
+      <td>${c.ultimaCompra?fmtData(c.ultimaCompra):'—'}</td>
+      <td><span class="badge ${classeRelacao(c.relacionamento)}">${esc(c.relacionamento)}</span></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+function classeRelacao(r){
+  return ({'recorrente':'aberta','ativa':'aberta','nova':'prazo',
+    'em risco':'vencida','para reativação':'vencida'})[r]||'fechada';
+}
+
+/* =================== Clientes (CRM) ===================
+   A referência de UX é Revendedoras: .revgrid/.revcard na lista, o mesmo
+   modal de cadastro, os mesmos .field/.two. A referência de leitura é o
+   dashboard: .kpis/.kpi no perfil. Nada aqui inventa componente. */
+
+let clientesLista=null;
+let clientesBusca='';
+
+async function carregarClientes(){
+  try{
+    const r=await api('GET','/api/analytics/clientes?periodo=tudo&limite=500');
+    clientesLista=r.clientes||[];
+  }catch(e){ clientesLista=[]; }
+  return clientesLista;
+}
+
+function renderClientes(){
+  const v=document.getElementById('view-clientes');
+  if(!clientesLista){ v.innerHTML=`<div class="panel"><div class="body"><div class="empty"><h3>Carregando…</h3></div></div></div>`; return; }
+
+  const b=clientesBusca.trim().toLowerCase();
+  const l=b?clientesLista.filter(c=>String(c.nome||'').toLowerCase().includes(b)):clientesLista;
+
+  v.innerHTML=`
+    <div class="panel">
+      <div class="head">
+        <h2>Clientes</h2>
+        <span class="hint">Toque em uma para ver o histórico dela</span>
+      </div>
+      <div class="body">
+        <div class="actbar">
+          <input id="cliBusca" placeholder="Buscar pelo nome" value="${esc(clientesBusca)}"
+                 oninput="clientesBusca=this.value;renderClientes();document.getElementById('cliBusca').focus()">
+          <div class="spacer"></div>
+          <button class="btn btn-gold" onclick="openCliForm()">+ Nova cliente</button>
+        </div>
+        ${l.length?`<div class="revgrid">${l.map(cardCliente).join('')}</div>`:
+          `<div class="empty"><h3>${b?'Ninguém com esse nome':'Nenhuma cliente ainda'}</h3>
+           <p>${b?'Tente outro trecho do nome.':'As clientes aparecem aqui conforme as vendas são registradas ou o histórico é importado.'}</p></div>`}
+      </div>
+    </div>`;
+}
+
+/** Mesmo .revcard das revendedoras — mesma grade, mesmo nome em serif, mesma
+    linha de estatísticas, mesmo selo. O que muda é o que os números dizem. */
+function cardCliente(c){
+  return `<div class="revcard" onclick="switchTab('cli:${encodeURIComponent(c.norm)}')">
+    <div class="rc-nm">${esc(c.nome||'—')}</div>
+    <div class="rc-meta">${c.ultimaCompra?`Última compra em ${fmtData(c.ultimaCompra)}`:'Sem compra registrada'}</div>
+    <div class="rc-row">
+      <div class="rc-st">Peças<b>${c.pecas}</b></div>
+      <div class="rc-st">Gastou<b style="font-size:16px">${money(c.faturamento)}</b></div>
+    </div>
+    <div style="margin-top:11px"><span class="badge ${classeRelacao(c.relacionamento)}">${esc(c.relacionamento)}</span></div>
+  </div>`;
+}
+
+async function abrirPerfilCliente(norm){
+  const v=document.getElementById('view-cliente');
+  v.innerHTML=`<div class="panel"><div class="body"><div class="empty"><h3>Carregando…</h3></div></div></div>`;
+  let p;
+  try{ p=await api('GET','/api/clientes/perfil?norm='+encodeURIComponent(decodeURIComponent(norm))); }
+  catch(e){
+    v.innerHTML=`<div class="panel"><div class="body"><div class="empty">
+      <h3>Não consegui abrir</h3><p>${esc(e.message||'')}</p></div></div></div>`;
+    return;
+  }
+  const r=p.resumo, cad=p.cadastro||{};
+  v.innerHTML=`
+    <div class="panel">
+      <div class="head">
+        <h2>${esc(cad.nome||decodeURIComponent(norm))}</h2>
+        <span class="hint"><a href="#" onclick="switchTab('clientes');return false">← todas as clientes</a></span>
+      </div>
+      <div class="body">
+        <div class="actbar">
+          <div>${[cad.tel,cad.email,cad.instagram,cad.cidade].filter(Boolean).map(esc).join(' · ')||'<span class="hint">Sem dados de contato</span>'}</div>
+          <div class="spacer"></div>
+          ${cad.id?`<button class="btn btn-ghost btn-sm" onclick="openCliForm(${cad.id})">Editar dados</button>`:''}
+        </div>
+        <div class="kpis">
+          ${cartaoKpi({ico:ICO.grafico,rot:'Gastou',num:money(r.faturamento),
+            sub:[r.gastoMedioPorPeca!=null?`${money(r.gastoMedioPorPeca)} por peça`:'—']})}
+          ${cartaoKpi({ico:ICO.caixa,rot:'Peças',num:r.pecas,sub:[`${p.totalItens} lançamentos`]})}
+          ${cartaoKpi({ico:ICO.pessoas,rot:'Datas com compra',num:r.datasComCompra,
+            sub:[r.primeiraCompra?`desde ${fmtData(r.primeiraCompra)}`:'—']})}
+          ${cartaoKpi({ico:ICO.nuvem,rot:'Relação',num:r.relacionamento,
+            sub:[r.ultimaCompra?`última em ${fmtData(r.ultimaCompra)}`:'—']})}
+        </div>
+        ${p.canalPreferido?`<div class="hint" style="margin-top:12px">Compra mais por: <b>${esc(p.canalPreferido)}</b></div>`:''}
+      </div>
+    </div>
+    ${p.produtosPreferidos&&p.produtosPreferidos.length?painelBloco('Produtos preferidos',
+      `<div class="tablewrap"><table><thead><tr><th>Produto</th><th class="r">Peças</th></tr></thead>
+       <tbody>${p.produtosPreferidos.map(x=>`<tr><td>${esc(x.valor)}</td><td class="r">${x.pecas}</td></tr>`).join('')}</tbody>
+       </table></div>`):''}
+    ${painelBloco('Histórico de compras',
+      `<div class="tablewrap"><table><thead><tr><th>Data</th><th>Código</th><th>Produto</th>
+        <th class="r">Qtd</th><th class="r">Valor</th><th>Origem</th></tr></thead><tbody>
+        ${p.historico.map(h=>`<tr>
+          <td>${h.data?fmtData(h.data):'<span class="hint">sem data</span>'}</td>
+          <td><code>${esc(h.sku||'—')}</code></td>
+          <td>${esc(h.nome||'—')}</td>
+          <td class="r">${h.qtd??'—'}</td>
+          <td class="r">${h.valor!=null?money(h.valor):'<span class="hint">—</span>'}</td>
+          <td>${esc(h.canal||'—')}${h.contexto?` · ${esc(h.contexto)}`:''}
+            ${h.fonte==='historico'?'<span class="hint"> (histórico)</span>':''}</td>
+        </tr>`).join('')}</tbody></table></div>`)}`;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function openCliForm(id){
+  const c=id&&clientesLista?clientesLista.find(x=>x.clienteId===id):null;
+  document.getElementById('cliEditId').value=id||'';
+  document.getElementById('cliFormTitle').textContent=id?'Editar cliente':'Nova cliente';
+  const set=(k,v)=>{document.getElementById(k).value=v||'';};
+  set('clf-nome',c?c.nome:''); set('clf-tel',''); set('clf-cidade','');
+  set('clf-email',''); set('clf-instagram',''); set('clf-nascimento',''); set('clf-obs','');
+  if(id){
+    /* o cartão do ranking não carrega o cadastro inteiro — busca o resto */
+    api('GET','/api/clientes/perfil?id='+id).then(p=>{
+      const d=p.cadastro||{};
+      set('clf-nome',d.nome); set('clf-tel',d.tel); set('clf-cidade',d.cidade);
+      set('clf-email',d.email); set('clf-instagram',d.instagram);
+      set('clf-nascimento',d.nascimento); set('clf-obs',d.obs);
+    }).catch(()=>{});
+  }
+  document.getElementById('cliOverlay').classList.add('show');
+  setTimeout(()=>document.getElementById('clf-nome').focus(),80);
+}
+function closeCliForm(){document.getElementById('cliOverlay').classList.remove('show');}
+
+async function saveCliente(){
+  const nome=document.getElementById('clf-nome').value.trim();
+  if(!nome){toast('Coloque o nome');return;}
+  const id=document.getElementById('cliEditId').value;
+  const val=(k)=>document.getElementById(k).value.trim();
+  const dados={nome, tel:val('clf-tel'), cidade:val('clf-cidade'), email:val('clf-email'),
+    instagram:val('clf-instagram'), nascimento:val('clf-nascimento'), obs:val('clf-obs')};
+  try{
+    if(id) await api('PATCH','/api/clientes/'+id,dados);
+    else await api('POST','/api/clientes',dados);
+    closeCliForm();
+    toast(id?'Cliente atualizada':'Cliente criada');
+    await carregarClientes(); renderClientes();
+  }catch(e){ toast(e.message||'Não consegui salvar'); }
+}
+
+/* =================== Importar histórico de vendas ===================
+   analisar (seco) → relatório → decisão → aplicar. A pergunta que a tela
+   responde primeiro é a única que importa de verdade aqui: isto mexe no meu
+   estoque? Não mexe, e o relatório diz isso com o número na mão. */
+
+let histLinhas=null;
+
+function openHistImport(){
+  histLinhas=null;
+  document.getElementById('histOverlay').classList.add('show');
+  renderHistImport(`
+    <div class="field">
+      <label>Planilha de vendas (.xlsx ou .csv)</label>
+      <input type="file" id="histFile" accept=".xlsx,.xls,.csv" onchange="lerHistArquivo(this)">
+    </div>
+    <div class="insight" data-tom="neutro" style="margin-top:14px">
+      <div class="i-topo"><span class="i-t">O que esta importação faz — e o que ela NÃO faz</span></div>
+      <div class="i-d">Ela alimenta o painel de vendas, os clientes e o histórico.
+        <b>Ela não mexe no estoque</b>: essas vendas já aconteceram e o saldo de hoje
+        já as considera. Nenhuma peça é baixada, nenhuma quantidade da Nuvemshop muda.</div>
+    </div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeHistImport()">Fechar</button></div>`);
+}
+function closeHistImport(){document.getElementById('histOverlay').classList.remove('show');}
+function renderHistImport(html){document.getElementById('histBody').innerHTML=html;}
+
+function lerHistArquivo(input){
+  const f=input.files&&input.files[0];
+  if(!f) return;
+  renderHistImport(`<div class="empty"><h3>Lendo a planilha…</h3></div>`);
+  const fr=new FileReader();
+  fr.onload=async (e)=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      histLinhas=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,blankrows:false});
+      await analisarHist(f.name);
+    }catch(err){
+      renderHistImport(`<div class="empty"><h3>Não consegui ler o arquivo</h3>
+        <p>${esc(err.message||'')}</p></div>
+        <div class="mfoot"><button class="btn btn-ghost" onclick="openHistImport()">Tentar outro</button></div>`);
+    }
+  };
+  fr.readAsArrayBuffer(f);
+}
+
+async function analisarHist(nome){
+  renderHistImport(`<div class="empty"><h3>Conferindo…</h3></div>`);
+  let a;
+  try{ a=await api('POST','/api/vendas/historico/analisar',{linhas:histLinhas,arquivo:nome}); }
+  catch(e){
+    renderHistImport(`<div class="empty"><h3>A análise falhou</h3><p>${esc(e.message||'')}</p></div>
+      <div class="mfoot"><button class="btn btn-ghost" onclick="openHistImport()">Voltar</button></div>`);
+    return;
+  }
+  const li=(r,v)=>`<div class="rc-st">${r}<b>${v}</b></div>`;
+  renderHistImport(`
+    <div class="insight" data-tom="bom">
+      <div class="i-topo"><span class="i-t">Impacto no estoque: nenhum</span></div>
+      <div class="i-d">${esc(a.impactoEstoque.explicacao)}
+        <b>0 movimentos, 0 produtos alterados, 0 mudanças na Nuvemshop.</b></div>
+    </div>
+    <div class="rc-row" style="margin-top:14px;flex-wrap:wrap;gap:14px">
+      ${li('Linhas',a.linhas)}${li('Peças',a.pecas)}
+      ${li('Faturamento',money(a.faturamentoPago))}
+      ${li('Clientes',a.clientesNoArquivo)}${li('Códigos',a.skusDistintos)}
+    </div>
+    <div class="hint" style="margin-top:10px">
+      Período: ${a.periodo.de?fmtData(a.periodo.de):'—'} a ${a.periodo.ate?fmtData(a.periodo.ate):'—'} ·
+      ${a.clientesACriar} clientes novos · ${a.linhasSkuNaoEncontrado} linhas com código fora do catálogo atual
+    </div>
+    ${(a.semData||a.semValor||a.origemARevisar)?`
+      <div class="insight" data-tom="atencao" style="margin-top:14px">
+        <div class="i-topo"><span class="i-t">O que entra sem poder virar número</span></div>
+        <div class="i-d">
+          ${a.semData?`${a.semData} linhas sem data utilizável · `:''}
+          ${a.semValor?`${a.semValor} sem valor · `:''}
+          ${a.origemARevisar?`${a.origemARevisar} com origem a revisar`:''}
+          <br>Elas são importadas com o texto original preservado — só ficam de fora
+          das contas que dependem do campo que falta.
+        </div>
+      </div>`:''}
+    ${a.jaImportado?`<div class="insight" data-tom="atencao" style="margin-top:14px">
+      <div class="i-topo"><span class="i-t">Este arquivo já foi importado</span></div>
+      <div class="i-d">Lote ${a.jaImportado.loteId}, em ${esc(String(a.jaImportado.em))},
+        com ${a.jaImportado.linhas} linhas. Importar de novo é recusado — não há risco de duplicar.</div>
+    </div>`:''}
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeHistImport()">Cancelar</button>
+      <div class="spacer"></div>
+      ${a.jaImportado?'':`<button class="btn btn-gold" onclick="aplicarHist('${esc(a.arquivo)}')">Importar ${a.linhas} linhas</button>`}
+    </div>`);
+}
+
+async function aplicarHist(nome){
+  renderHistImport(`<div class="empty"><h3>Importando…</h3><p>Não feche esta janela.</p></div>`);
+  let r;
+  try{ r=await api('POST','/api/vendas/historico/importar',{linhas:histLinhas,arquivo:nome}); }
+  catch(e){
+    renderHistImport(`<div class="empty"><h3>A importação falhou</h3><p>${esc(e.message||'')}</p></div>
+      <div class="mfoot"><button class="btn btn-ghost" onclick="closeHistImport()">Fechar</button></div>`);
+    return;
+  }
+  const c=r.conferencia;
+  renderHistImport(`
+    <div class="insight" data-tom="${c.fecha?'bom':'atencao'}">
+      <div class="i-topo"><span class="i-t">${c.fecha?'Importado, e os totais fecham com a planilha':'Importado, MAS há diferença'}</span></div>
+      <div class="i-d">${c.importadas} linhas · estoque
+        ${c.estoqueIntocado?'intocado (0 movimentos criados)':'ALTERADO — isto é um defeito, avise'}</div>
+    </div>
+    <div class="tablewrap" style="margin-top:14px"><table><thead><tr>
+      <th>Conferência</th><th class="r">Planilha</th><th class="r">Banco</th><th></th>
+      </tr></thead><tbody>${c.linhas.map(l=>`<tr>
+        <td>${esc(l.campo)}</td><td class="r">${l.fonte}</td><td class="r">${l.banco}</td>
+        <td>${l.bate?'✓':'✗'}</td></tr>`).join('')}</tbody></table></div>
+    <div class="mfoot">
+      <div class="spacer"></div>
+      <button class="btn btn-gold" onclick="closeHistImport();setPainelPeriodo('tudo');switchTab('vendas-painel')">Ver o painel</button>
+    </div>`);
+  carregarClientes();
 }
 
 /* =================== Câmera ===================
