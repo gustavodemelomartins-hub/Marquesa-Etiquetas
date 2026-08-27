@@ -1,5 +1,36 @@
 # Publicar a API na Cloudflare
 
+> # 🔴 LEIA ANTES DE COPIAR QUALQUER COMANDO DAQUI
+>
+> **Este documento descreve a montagem do zero, de antes do go-live de
+> 2026-08-22. Os nomes de banco que ele usava mudaram de significado.**
+>
+> | Nome | O que era quando este texto foi escrito | O que é HOJE |
+> |---|---|---|
+> | `marquesa-db` | o banco de produção | **o banco CONGELADO de rollback** — existe para ficar intacto |
+> | `marquesa-db-prod` | não existia | **o banco de produção de verdade** |
+> | `marquesa-db-dev` | o banco do DEV | o banco do DEV (sem mudança) |
+> | `[env.dev]` | o ambiente DEV | o ambiente hoje se chama **`[env.staging]`** |
+>
+> Ou seja: `wrangler d1 execute marquesa-db --remote` **resolve**, roda sem
+> erro nenhum, e escreve no banco que jamais deveria ser tocado. É um comando
+> que parece certo e destrói a única cópia de rollback do projeto.
+>
+> **Por isso os comandos abaixo passaram a usar o binding `DB`, nunca o nome
+> do banco.** O binding é resolvido pelo `wrangler.toml` a partir do ambiente:
+>
+> ```
+> --env staging   →  DB = marquesa-db-dev      (DEV, descartável)
+> sem --env       →  DB = marquesa-db-prod     (PRODUÇÃO)
+> ```
+>
+> Errar o ambiente continua sendo possível; errar o *banco* dentro do
+> ambiente, não. E o banco congelado deixa de ser alcançável por digitação.
+>
+> Escrita remota em produção continua exigindo **autorização humana explícita
+> a cada vez + backup recente confirmado** (`CLAUDE.md`, `docs/SECURITY.md`).
+> Nenhum agente executa isso sozinho.
+
 Tudo o que a API precisa cabe no **plano gratuito**: 100.000 requisições por
 dia e um banco D1 de 5 GB. Uma operação com 780 códigos e algumas maletas usa
 uma fração disso.
@@ -8,8 +39,8 @@ Há dois caminhos. O **pelo navegador** não exige instalar nada. O **pelo
 terminal** é mais rápido se você já tem Node instalado.
 
 > ⚠️ Antes de tudo: os passos 1 e 2 **precisam ser feitos na ordem**, porque
-> o Worker não sobe enquanto o `database_id` no `wrangler.toml` for o
-> placeholder de zeros que está lá hoje.
+> o Worker não sobe enquanto o `database_id` no `wrangler.toml` não apontar
+> para um banco que existe.
 
 ---
 
@@ -19,7 +50,8 @@ terminal** é mais rápido se você já tem Node instalado.
 
 No painel da Cloudflare: **Storage & Databases → D1 → Create database**.
 
-- Nome: `marquesa-db`
+- Nome: `marquesa-db-prod` (o nome `marquesa-db` já existe e é o banco
+  congelado de rollback — não reutilize)
 
 Ao abrir o banco criado, copie o **Database ID** (um código longo com hífens).
 
@@ -121,10 +153,12 @@ cd api
 npm install
 npx wrangler login                       # abre o navegador para autorizar
 
-npx wrangler d1 create marquesa-db       # copie o database_id devolvido
-# cole o id em wrangler.toml
+npx wrangler d1 create marquesa-db-prod  # copie o database_id devolvido
+# cole o id em wrangler.toml, no bloco [[d1_databases]] de produção
 
-npx wrangler d1 execute marquesa-db --remote --file=schema.sql
+# o binding DB resolve para o banco declarado no wrangler.toml — sem --env,
+# esse é o de PRODUÇÃO. Exige autorização humana explícita + backup.
+npx wrangler d1 execute DB --remote --file=schema.sql
 npx wrangler secret put API_KEY          # cola a senha quando pedir
 npx wrangler deploy
 ```
@@ -138,7 +172,7 @@ arquivo se o endereço do painel mudar.
 
 Este ambiente existe para testar o trabalho do catálogo/fotos/R2 antes de
 ele chegar em produção, sem risco nenhum de tocar no que já está no ar. O
-`wrangler.toml` já declara um `[env.dev]` inteiro à parte — outro nome de
+`wrangler.toml` já declara um `[env.staging]` inteiro à parte — outro nome de
 Worker, outro banco, outro bucket. Nenhum comando abaixo é capaz de alcançar
 o recurso de produção, mesmo digitado errado, porque o NOME do recurso já é
 outro.
@@ -155,28 +189,28 @@ npx wrangler d1 create marquesa-db-dev
 ```
 
 Copie o `database_id` que o comando devolver e cole em `wrangler.toml`, na
-linha `database_id = "COLE_AQUI_O_ID_DE_marquesa-db-dev"` dentro do bloco
-`[[env.dev.d1_databases]]`.
+linha `database_id` do bloco
+`[[env.staging.d1_databases]]`.
 
 ```bash
-npx wrangler d1 execute marquesa-db-dev --env dev --remote --file=schema.sql
+npx wrangler d1 execute DB --env staging --remote --file=schema.sql
 npx wrangler r2 bucket create marquesa-fotos-dev
 ```
 
 ### 2. Publicar o Worker do DEV
 
 ```bash
-npx wrangler secret put API_KEY --env dev      # uma chave só do DEV, diferente da de produção
-npx wrangler deploy --env dev
+npx wrangler secret put API_KEY --env staging      # uma chave só do DEV, diferente da de produção
+npx wrangler deploy --env staging
 ```
 
-Isso publica um Worker com nome **`marquesa-api-dev`** — separado do
+Isso publica um Worker com nome **`marquesa-api-staging`** — separado do
 `marquesa-api` de produção — em
-`https://marquesa-api-dev.SEU-SUBDOMINIO.workers.dev`.
+`https://marquesa-api-staging.SEU-SUBDOMINIO.workers.dev`.
 
 Se a loja de teste precisar de sincronização de verdade (não obrigatório):
-`npx wrangler secret put NUVEMSHOP_TOKEN --env dev` e
-`NUVEMSHOP_STORE_ID --env dev`. Sem eles, a aba Nuvemshop só informa que a
+`npx wrangler secret put NUVEMSHOP_TOKEN --env staging` e
+`NUVEMSHOP_STORE_ID --env staging`. Sem eles, a aba Nuvemshop só informa que a
 loja não está conectada — nada quebra.
 
 ### 3. Publicar o painel em marquesa-dev.pages.dev
@@ -198,19 +232,19 @@ subdomínio: `marquesa-dev.pages.dev`.
 Depois de publicado, abra `https://marquesa-dev.pages.dev/dashboard.html` e
 conecte com:
 
-- **Endereço da API:** `https://marquesa-api-dev.SEU-SUBDOMINIO.workers.dev`
+- **Endereço da API:** `https://marquesa-api-staging.SEU-SUBDOMINIO.workers.dev`
 - **Chave de acesso:** a `API_KEY` do passo 2
 
-`ORIGENS_PERMITIDAS` do `[env.dev.vars]` já está preparado para
+`ORIGENS_PERMITIDAS` do `[env.staging.vars]` já está preparado para
 `https://marquesa-dev.pages.dev` — se o projeto Pages ganhar um nome
 diferente, ajuste essa linha antes do deploy.
 
 ### Testar sem nada disso
 
 Todo este ambiente pode ser testado **inteiramente no seu computador**, sem
-conta Cloudflare nenhuma: `npx wrangler dev --env dev --local` simula o
+conta Cloudflare nenhuma: `npx wrangler dev --env staging --local` simula o
 Worker, o D1 e o R2 do DEV em arquivos locais — é o que `api/dev-local.sh
---env dev` faz. Só o deploy de verdade (os três comandos acima) exige
+--env staging` faz. Só o deploy de verdade (os três comandos acima) exige
 acesso à conta.
 
 ## Fotos com fundo branco (opcional)
@@ -257,7 +291,7 @@ no painel → aba **Console**, cole o conteúdo de `api/migracao-inventario.sql`
 e execute. Ou, pelo terminal:
 
 ```bash
-npx wrangler d1 execute marquesa-db --remote --file=migracao-inventario.sql
+npx wrangler d1 execute DB --remote --file=migracao-inventario.sql
 ```
 
 É seguro rodar duas vezes: todo comando é `CREATE TABLE IF NOT EXISTS`.
@@ -286,18 +320,18 @@ tabelas `produtos_pendentes` (peça nova esperando cadastro em lote) e
 npx wrangler r2 bucket create marquesa-fotos
 
 # DEV — é este que interessa enquanto o trabalho está em revisão
-npx wrangler r2 bucket create marquesa-fotos-dev --env dev
+npx wrangler r2 bucket create marquesa-fotos-dev --env staging
 ```
 
 E a migração do banco, no ambiente certo:
 
 ```bash
 # DEV — banco marquesa-db-dev, isolado do de produção
-npx wrangler d1 execute marquesa-db-dev --env dev --remote --file=migracao-catalogo.sql
+npx wrangler d1 execute DB --env staging --remote --file=migracao-catalogo.sql
 
 # produção — só depois de aprovado; NÃO rode isto enquanto o recurso
 # ainda estiver em revisão no DEV
-npx wrangler d1 execute marquesa-db --remote --file=migracao-catalogo.sql
+npx wrangler d1 execute DB --remote --file=migracao-catalogo.sql
 ```
 
 ⚠️ Como a de sincronização e a de variações, esta **não pode ser rodada duas
@@ -324,10 +358,10 @@ bytes?", e a resposta continua sendo a mesma.
 
 ```bash
 # DEV — banco marquesa-db-dev, isolado do de produção
-npx wrangler d1 execute marquesa-db-dev --env dev --remote --file=migracao-foto-url.sql
+npx wrangler d1 execute DB --env staging --remote --file=migracao-foto-url.sql
 
 # produção — só depois de aprovado no DEV
-npx wrangler d1 execute marquesa-db --remote --file=migracao-foto-url.sql
+npx wrangler d1 execute DB --remote --file=migracao-foto-url.sql
 ```
 
 ⚠️ Aditiva e não idempotente, como as outras: `duplicate column name:
@@ -489,7 +523,7 @@ num banco separado.
 ```bash
 cd api
 cp .dev.vars.example .dev.vars
-npx wrangler d1 execute marquesa-db --local --file=schema.sql
+npx wrangler d1 execute DB --local --file=schema.sql
 npx wrangler dev --local
 ```
 

@@ -45,6 +45,17 @@ const NEGAR = [
   'npx wrangler d1 execute marquesa-db --remote --file=schema.sql',
   'npx wrangler d1 execute marquesa-db --local --file=schema.sql',
   'npx wrangler d1 execute marquesa-db --remote --command "SELECT 1"',
+  /* O BINDING endereça o mesmo banco sem citar o nome dele. Depois do
+   * go-live, produção é `marquesa-db-prod` e o binding `DB` sem `--env`
+   * resolve para ela — a regra que casa por nome não veria nada aqui. */
+  'npx wrangler d1 execute DB --remote --file=schema.sql',
+  'npx wrangler d1 execute DB --remote --command "SELECT 1"',
+  'cd api && npx wrangler d1 execute DB --remote --file=migracao-clientes.sql',
+  'npx wrangler d1 export DB --remote --output ../backups/x.sql',
+  'npx wrangler d1 migrations apply DB --remote',
+  /* ambiente errado também não passa */
+  'npx wrangler d1 execute DB --env production --remote --command "SELECT 1"',
+  'npx wrangler d1 execute marquesa-db-prod --remote --command "SELECT 1"',
   'npx wrangler r2 object delete marquesa-fotos/abc.jpg',
   'npx wrangler d1 execute marquesa-db-dev --local --command "DROP TABLE produtos"',
   'npx wrangler d1 execute marquesa-db-dev --local --command "DELETE FROM produtos"',
@@ -74,6 +85,13 @@ const LIBERAR = [
   'npx wrangler d1 execute marquesa-db-dev --local --command "UPDATE produtos SET qtd = 0 WHERE sku = \'X\'"',
   'npx wrangler d1 info marquesa-db',
   'npx wrangler d1 list',
+  /* o binding continua livre onde ele é seguro: `--env staging` prova o
+   * ambiente, e `--local` é um SQLite dentro de api/.wrangler.
+   * (com `--file` a decisão passa a depender do conteúdo do arquivo — esse
+   *  caminho é coberto pelo bloco 3, não aqui) */
+  'npx wrangler d1 execute DB --env staging --remote --command "SELECT COUNT(*) FROM produtos"',
+  'npx wrangler d1 execute DB --local --command "SELECT 1"',
+  'cd api && npx wrangler d1 execute DB --local --command "SELECT 1"',
   'npx wrangler dev --local --port 8787',
   'npx wrangler dev --env staging --remote --port 8788',
   'npx wrangler pages deployment list --project-name marquesa-dev',

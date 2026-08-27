@@ -234,6 +234,26 @@ process.stdin.on('end', () => {
           + 'em produção exige autorização humana explícita e backup confirmado. '
           + 'Carregue a skill `database-dev` e prove o alvo.');
       }
+      /* O NOME não é mais a única forma de endereçar o banco. `wrangler d1
+       * execute DB --remote` usa o BINDING, que o wrangler.toml resolve pelo
+       * ambiente: sem `--env staging` isso é o D1 de produção, e a regra de
+       * cima — que casa por nome — não veria nada.
+       *
+       * A invariante real não é o nome, é o par (remoto, ambiente): o único
+       * D1 remoto que um agente pode tocar sozinho é o do `--env staging`.
+       * `--local` continua livre: é um SQLite dentro de api/.wrangler. */
+      if (/\bd1\s+(execute|migrations|export)\b/.test(seg)
+          && /--remote\b/.test(seg)
+          && !/--env[= ]\s*staging\b/.test(seg)
+          /* nomear o banco DEV já prova o alvo — a regra de cima cuida do
+           * resto. Esta existe para o caso em que NADA no comando diz qual
+           * banco é, que é justamente o do binding. */
+          && !/marquesa-db-dev\b/.test(seg)) {
+        negar('`d1` remoto sem `--env staging` endereça o D1 de PRODUÇÃO — inclusive '
+          + 'pelo binding (`d1 execute DB --remote`), que não cita nome de banco nenhum. '
+          + 'Para DEV, acrescente `--env staging`. Produção exige autorização humana '
+          + 'explícita e backup confirmado (skill `database-dev`).');
+      }
       if (/\br2\s+(object\s+(put|delete)|bucket\s+(create|delete))\b/.test(seg) && PROD_R2.test(seg)) {
         negar('Alvo é o bucket R2 de PRODUÇÃO (`marquesa-fotos`). O bucket DEV é `marquesa-fotos-dev`.');
       }
