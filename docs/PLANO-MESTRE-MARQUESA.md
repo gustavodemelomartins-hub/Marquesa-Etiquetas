@@ -13,7 +13,8 @@ o item ganha a nova decisão e a antiga fica marcada como superada, com a data.
 | ⬜ | pendente |
 | 🔴 | bloqueado |
 
-Última revisão: **2026-08-22** · auditoria de prontidão para produção.
+Última revisão: **2026-08-27** · Vendas/CRM e histórico (seção 20).
+Auditoria de prontidão para produção: 2026-08-22.
 
 ---
 
@@ -1145,6 +1146,80 @@ banco para impedir duplicidade se existir algum registro legado.
 > Settings:Read**. Nada de Zone, nada de DNS. Mesmo com o token, o `deny` do
 > `settings.json` continua valendo — ele é o que garante que nenhuma escrita
 > em produção passe por engano.
+
+---
+
+## 20. Vendas / CRM — rodada de 2026-08-27  🟡
+
+### O que entrou
+
+**Histórico de vendas.** `Vendas Marquesa.xlsx` (1.341 linhas, 05/04/2024 a
+21/08/2026) tem importador completo: análise seca → relatório → decisão →
+aplicar, idempotente por sha-256 do conteúdo, com reconciliação campo a campo
+contra a fonte e reversão de lote. **Não movimenta estoque** — ver a regra em
+`api/src/vendas-historico.js` e a prova em `src/vendas-historico-test.mjs`.
+
+O histórico mora em `vendas_historico_itens`, não em `vendas`. A coluna `Nº`
+numera LINHAS, não pedidos (uma cliente aparece com 36 linhas na mesma data,
+que é acerto de maleta), então contagem de pedidos e ticket médio histórico
+ficam **indisponíveis por construção**, com o motivo na própria resposta da
+API. Quando existir regra de agrupamento validada, ela preenche
+`pedido_chave` sem reescrever o que está preservado.
+
+**Painel de Vendas e Clientes.** Três sub-abas — Lançamentos, Painel,
+Clientes — com KPIs, evolução, rankings de produto/categoria/origem/cliente e
+perfil individual. Clientes segue Revendedoras como referência de UX, e isso
+é **verificado**: o teste compara o estilo computado dos dois cards.
+
+**Segurança operacional.** `api/DEPLOY.md` mandava rodar
+`wrangler d1 execute marquesa-db --remote` — que hoje escreve no banco
+CONGELADO de rollback. Corrigido para o binding `DB`, e o hook de proteção
+ganhou a regra que faltava: `d1` remoto sem `--env staging` é produção,
+inclusive quando o comando não cita nome de banco nenhum.
+
+### O que falta para o DEV ficar completo  ⬜ — **precisa de credencial**
+
+O Pages publicou (`marquesa-dev.pages.dev`, commit `2caafb1`, CI verde). As
+outras duas metades **não**, porque esta sessão não tem credencial Cloudflare
+e `wrangler deploy` é Classe C (nunca executado por agente):
+
+```bash
+cd api
+
+# 1. migration no D1 do DEV — aditiva, não reescreve nada
+npx wrangler d1 execute DB --env staging --remote \
+  --file=migracao-vendas-historico.sql
+
+# 2. publicar o Worker do DEV
+npx wrangler deploy --env staging
+```
+
+Enquanto isso não acontece, Painel e Clientes mostram um aviso dizendo que a
+API deste ambiente ainda não foi atualizada. **Estoque, Revendedoras,
+Lançamentos e Etiquetas seguem funcionando normalmente** — as rotas novas só
+são chamadas por essas duas abas.
+
+Conferir depois, com a chave do DEV:
+
+```bash
+curl -H "Authorization: Bearer <API_KEY do staging>" \
+  https://marquesa-api-staging.marquesaasemijoias.workers.dev/api/analytics/vendas
+```
+
+### O que NÃO entrou nesta rodada  ⬜
+
+A Prioridade B do pedido — reestruturar Nuvemshop/Pendências/Fotos — **não
+foi feita**. Segue pendente, com o desenho já descrito no pedido:
+
+- `produto_imagens` (galeria inteira, papel semântico ≠ posição na galeria);
+- nunca classificar `imagem[0]` como "original" por posição;
+- "Subir para Nuvemshop" como pipeline (cadastro → fotos → tratamento → SEO →
+  revisão → publicação);
+- upload de fotos em massa por SKU no nome do arquivo;
+- Pendências como central de resolução guiada;
+- pontos de extensão para os agentes de imagem e de SEO.
+
+Nada disso foi iniciado — não há código pela metade a limpar.
 
 ---
 
