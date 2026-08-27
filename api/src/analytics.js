@@ -26,6 +26,8 @@
  *  ticket médio que ninguém consegue auditar. Melhor não ter o número.
  */
 
+import { normalizarNomeCliente as normalizarNome } from './vendas-historico-normalizar.js';
+
 const PERIODOS = new Set(['7d', '30d', '90d', '12m', 'tudo']);
 
 /** Traduz o filtro da tela em recorte de data. `tudo` devolve null e a
@@ -419,11 +421,34 @@ export function classificarRelacionamento(r, hoje) {
 export async function perfilCliente(db, { clienteId = null, norm = null } = {}) {
   if (clienteId === null && norm === null) return { ok: false, erro: 'Informe clienteId ou norm.' };
 
-  const cadastro = clienteId !== null
-    ? await db.prepare('SELECT * FROM clientes WHERE id = ?').bind(clienteId).first()
-    : await db.prepare('SELECT * FROM clientes WHERE nome_norm = ? LIMIT 1').bind(norm).first();
+  let cadastro = null;
+  if (clienteId !== null) {
+    cadastro = await db.prepare('SELECT * FROM clientes WHERE id = ?').bind(clienteId).first();
+  } else {
+    cadastro = await db.prepare('SELECT * FROM clientes WHERE nome_norm = ? LIMIT 1')
+      .bind(norm).first();
+    /* `nome_norm` é NULO em todo cadastro anterior à migration — ela não o
+     * preenche de propósito, porque normalizar em SQL criaria uma segunda
+     * implementação da regra, fadada a divergir da de JS (ver o comentário
+     * em migracao-vendas-historico.sql).
+     *
+     * Então quem não achou pela coluna procura de novo comparando em JS, e
+     * grava o valor no caminho — assim a busca fica rápida a partir da
+     * segunda vez, sem nunca ter existido uma segunda regra. */
+    if (!cadastro) {
+      const { results } = await db.prepare(
+        'SELECT * FROM clientes WHERE nome_norm IS NULL',
+      ).all();
+      cadastro = (results ?? []).find((c) => normalizarNome(c.nome) === norm) ?? null;
+      if (cadastro) {
+        await db.prepare('UPDATE clientes SET nome_norm = ? WHERE id = ?')
+          .bind(norm, cadastro.id).run();
+        cadastro.nome_norm = norm;
+      }
+    }
+  }
 
-  const chaveNorm = norm ?? cadastro?.nome_norm ?? null;
+  const chaveNorm = norm ?? cadastro?.nome_norm ?? normalizarNome(cadastro?.nome) ?? null;
 
   const { results: itens } = await db.prepare(
     `SELECT h.data, h.sku, h.sku_base, h.nome_produto_historico AS nome, h.qtd,

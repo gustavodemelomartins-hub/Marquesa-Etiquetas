@@ -453,10 +453,24 @@ async function rotear(request, env) {
         return json(r.results.map(c => ({ id: c.id, nome: c.nome, tel: c.tel || '' })));
       }
       if (path === '/api/clientes' && met === 'POST') {
-        const { nome, tel } = await request.json();
+        const b = await request.json();
+        const { nome, tel } = b;
         if (!nome || !nome.trim()) return json({ erro: 'Nome é obrigatório' }, 400);
-        const r = await db.prepare(`INSERT INTO clientes (nome, tel) VALUES (?, ?) RETURNING *`)
-          .bind(nome.trim(), tel || '').first();
+        /* `nome_norm` é gravado na criação. Sem isto, todo cliente novo
+         * nasce com a chave de busca vazia e só ganha uma quando alguém
+         * abre o perfil dele — e até lá a importação histórica não o
+         * reconhece, criando um segundo cadastro para a mesma pessoa. */
+        const r = await db.prepare(
+          `INSERT INTO clientes (nome, tel, nome_norm, tel_norm, email, email_norm,
+                                 instagram, cidade, nascimento, obs)
+           VALUES (?,?,?,?,?,?,?,?,?,?) RETURNING *`,
+        ).bind(
+          nome.trim(), tel || '',
+          normalizarTextoSimples(nome),
+          tel ? String(tel).replace(/\D/g, '') || null : null,
+          b.email || null, b.email ? String(b.email).trim().toLowerCase() : null,
+          b.instagram || null, b.cidade || null, b.nascimento || null, b.obs || null,
+        ).first();
         return json({ id: r.id, nome: r.nome, tel: r.tel || '' }, 201);
       }
 

@@ -145,8 +145,26 @@ ALTER TABLE clientes ADD COLUMN atualizada_em TEXT;
 CREATE INDEX IF NOT EXISTS idx_clientes_nome_norm ON clientes(nome_norm);
 CREATE INDEX IF NOT EXISTS idx_clientes_tel_norm  ON clientes(tel_norm);
 
--- Preenche a normalização do que já está lá, sem tocar no nome original.
-UPDATE clientes SET nome_norm = lower(trim(nome)) WHERE nome_norm IS NULL;
+-- `nome_norm` fica NULO nas linhas que já existem, DE PROPÓSITO.
+--
+-- A tentação era preencher aqui com `lower(trim(nome))`. Isso teria criado
+-- um bug silencioso: `vendas-historico-normalizar.js` faz NFD e remove o
+-- diacrítico, então um cadastro gravado como "vitória" nunca casaria com a
+-- linha do histórico, que normaliza para "vitoria" — e a importação criaria
+-- uma SEGUNDA cliente para a mesma pessoa.
+--
+-- Escrever a dobra de acento em SQL também não resolve: são 46 `replace()`
+-- aninhados (as maiúsculas acentuadas escapam do `lower()`, que no SQLite
+-- só rebaixa ASCII), e isso estoura o parser — "parser stack overflow".
+--
+-- O problema de fundo não era o SQL: era existir DUAS implementações da
+-- mesma normalização, condenadas a divergir. Agora existe uma só, em JS, e
+-- o SQL nunca recalcula — só lê o que foi gravado.
+--
+-- Quem lê a coluna cai de volta no normalizador quando ela é NULA
+-- (`carregarClientes` e `perfilCliente`), então nada deixa de funcionar
+-- enquanto o valor não é gravado; e ele é gravado na primeira vez que o
+-- cadastro é criado ou editado pela tela.
 
 -- ══════════════════════════════════════════ 4. vínculos que pedem revisão
 
