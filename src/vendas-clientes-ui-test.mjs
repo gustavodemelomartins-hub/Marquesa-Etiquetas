@@ -81,9 +81,10 @@ for (const k of kpis) ok(`KPI ${k.rot.trim()}`, k.num.trim());
 const api = (p) => fetch(API + p, { headers: { Authorization: 'Bearer ' + KEY } }).then((r) => r.json());
 const g = await api('/api/analytics/vendas?periodo=tudo');
 const kpiFat = kpis.find((k) => /Faturamento/i.test(k.rot));
-eq('o faturamento da tela é o da API',
-  kpiFat.num.replace(/[^\d,]/g, ''),
-  g.faturamento.toFixed(2).replace('.', ','));
+/* compara VALOR, não string: `money()` omite os centavos em valor redondo
+   ("R$ 2.300"), e uma asserção sobre a grafia quebraria por formatação */
+const naTela = Number(kpiFat.num.replace(/[^\d,]/g, '').replace(/\./g, '').replace(',', '.'));
+eq('o faturamento da tela é o da API', naTela.toFixed(2), g.faturamento.toFixed(2));
 
 console.log('\n=== 3. o painel NÃO inventa ticket médio histórico ===');
 const textoPainel = await pg.$eval('#view-vendas-painel', (e) => e.textContent);

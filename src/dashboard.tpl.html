@@ -6609,8 +6609,24 @@ async function carregarPainelVendas(){
       api('GET','/api/analytics/clientes'+p+'&limite=12'),
     ]);
     painelVendas={geral,evo,prod,cat,orig,clientes:cli.clientes||[]};
-  }catch(e){ painelVendas={erro:e.message||'Não consegui carregar o painel'}; }
+  }catch(e){ painelVendas={erro:e.message||'Não consegui carregar o painel', status:e.status}; }
   return painelVendas;
+}
+
+/** O painel e Clientes dependem de rotas que só existem depois que o Worker
+    é republicado. Enquanto o frontend está novo e a API está velha, a
+    resposta é 404 — e "Rota não encontrada" não diz a ninguém o que fazer.
+    Esta função troca o erro cru pela explicação. */
+function avisoBackendAntigo(e){
+  const antigo=(e&&(e.status===404||/rota n[ãa]o encontrada/i.test(e.erro||e.message||'')));
+  if(!antigo) return null;
+  return `<div class="empty">
+    <h3>Esta tela precisa da API atualizada</h3>
+    <p>O painel foi publicado, mas o Worker deste ambiente ainda está na versão
+       anterior e não conhece as rotas de análise de vendas.</p>
+    <p class="hint">Nada quebrou: Estoque, Revendedoras, Lançamentos e Etiquetas
+       seguem funcionando normalmente.</p>
+  </div>`;
 }
 
 function setPainelPeriodo(p){
@@ -6623,8 +6639,9 @@ function renderVendasPainel(){
   const v=document.getElementById('view-vendas-painel');
   if(!painelVendas){ v.innerHTML=`<div class="panel"><div class="body"><div class="empty"><h3>Carregando…</h3></div></div></div>`; return; }
   if(painelVendas.erro){
-    v.innerHTML=`<div class="panel"><div class="body"><div class="empty">
-      <h3>Não consegui carregar</h3><p>${esc(painelVendas.erro)}</p></div></div></div>`;
+    v.innerHTML=`<div class="panel"><div class="body">${
+      avisoBackendAntigo(painelVendas)||`<div class="empty">
+        <h3>Não consegui carregar</h3><p>${esc(painelVendas.erro)}</p></div>`}</div></div>`;
     return;
   }
   const g=painelVendas.geral, ev=painelVendas.evo, tm=g.ticketMedio;
@@ -6777,17 +6794,21 @@ function classeRelacao(r){
 let clientesLista=null;
 let clientesBusca='';
 
+let clientesErro=null;
 async function carregarClientes(){
   try{
     const r=await api('GET','/api/analytics/clientes?periodo=tudo&limite=500');
-    clientesLista=r.clientes||[];
-  }catch(e){ clientesLista=[]; }
+    clientesLista=r.clientes||[]; clientesErro=null;
+  }catch(e){ clientesLista=[]; clientesErro={erro:e.message,status:e.status}; }
   return clientesLista;
 }
 
 function renderClientes(){
   const v=document.getElementById('view-clientes');
   if(!clientesLista){ v.innerHTML=`<div class="panel"><div class="body"><div class="empty"><h3>Carregando…</h3></div></div></div>`; return; }
+
+  const avisoApi=clientesErro&&avisoBackendAntigo(clientesErro);
+  if(avisoApi){ v.innerHTML=`<div class="panel"><div class="body">${avisoApi}</div></div>`; return; }
 
   const b=clientesBusca.trim().toLowerCase();
   const l=b?clientesLista.filter(c=>String(c.nome||'').toLowerCase().includes(b)):clientesLista;
