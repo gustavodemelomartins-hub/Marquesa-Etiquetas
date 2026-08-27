@@ -29,6 +29,13 @@ import { Nuvemshop } from './nuvemshop.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
 import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
 import {
+  analisarHistorico, importarHistorico, reverterLote, listarLotes,
+} from './vendas-historico.js';
+import {
+  visaoGeral, evolucao, produtosMaisVendidos, categoriasMaisVendidas,
+  porOrigem, clientesRanking, perfilCliente, listarVendasUnificado,
+} from './analytics.js';
+import {
   abrirSessao, detalheSessao, aprovarItem, rejeitarItem, cancelarSessao, aplicarSessao,
   analisarPlanilhaEstoqueTotal, analisarPlanilhaProdutosNovos,
 } from './reconciliacao.js';
@@ -530,6 +537,90 @@ async function rotear(request, env) {
       if ((m = path.match(/^\/api\/vendas\/(\d+)\/nuvemshop$/)) && met === 'POST') {
         const b = await request.json().catch(() => ({}));
         return json(await atualizarEstoqueDaVenda(db, env, +m[1], { forcar: !!b.forcar }));
+      }
+
+      // ------------------------------------- histórico de vendas (planilha)
+      // A sequência é a de todo importador do projeto: analisar (seco, não
+      // escreve nada) → relatório → decisão humana → importar. O impacto
+      // esperado sobre estoque é ZERO, e o relatório diz isso explicitamente.
+      if (path === '/api/vendas/historico/analisar' && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        const r = await analisarHistorico(db, { linhas: b.linhas, arquivo: b.arquivo });
+        const { _registros, ...limpo } = r;
+        return json(limpo, r.ok ? 200 : 400);
+      }
+      if (path === '/api/vendas/historico/importar' && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        const r = await importarHistorico(db, { linhas: b.linhas, arquivo: b.arquivo });
+        return json(r, r.ok ? 201 : 409);
+      }
+      if (path === '/api/vendas/historico/lotes' && met === 'GET') {
+        return json(await listarLotes(db));
+      }
+      if ((m = path.match(/^\/api\/vendas\/historico\/lotes\/(\d+)\/reverter$/)) && met === 'POST') {
+        const r = await reverterLote(db, +m[1]);
+        return json(r, r.ok ? 200 : 400);
+      }
+
+      // ------------------------------------------------ inteligência comercial
+      if (path === '/api/analytics/vendas' && met === 'GET') {
+        return json(await visaoGeral(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
+      }
+      if (path === '/api/analytics/evolucao' && met === 'GET') {
+        return json(await evolucao(db, {
+          periodo: url.searchParams.get('periodo') || 'tudo',
+          granularidade: url.searchParams.get('granularidade') || 'mes',
+        }));
+      }
+      if (path === '/api/analytics/produtos' && met === 'GET') {
+        return json(await produtosMaisVendidos(db, {
+          periodo: url.searchParams.get('periodo') || 'tudo',
+          por: url.searchParams.get('por') || 'faturamento',
+          limite: Math.min(+(url.searchParams.get('limite') || 20), 200),
+        }));
+      }
+      if (path === '/api/analytics/categorias' && met === 'GET') {
+        return json(await categoriasMaisVendidas(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
+      }
+      if (path === '/api/analytics/origem' && met === 'GET') {
+        return json(await porOrigem(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
+      }
+      if (path === '/api/analytics/clientes' && met === 'GET') {
+        return json(await clientesRanking(db, {
+          periodo: url.searchParams.get('periodo') || 'tudo',
+          ordem: url.searchParams.get('ordem') || 'faturamento',
+          limite: Math.min(+(url.searchParams.get('limite') || 50), 500),
+        }));
+      }
+      if (path === '/api/vendas/lista' && met === 'GET') {
+        return json(await listarVendasUnificado(db, {
+          de: url.searchParams.get('de'), ate: url.searchParams.get('ate'),
+          busca: url.searchParams.get('busca'), canal: url.searchParams.get('canal'),
+          limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
+          offset: +(url.searchParams.get('offset') || 0),
+        }));
+      }
+
+      // ------------------------------------------------------------ clientes
+      if (path === '/api/clientes/perfil' && met === 'GET') {
+        const id = url.searchParams.get('id');
+        const r = await perfilCliente(db, {
+          clienteId: id ? +id : null, norm: url.searchParams.get('norm'),
+        });
+        return json(r, r.ok ? 200 : 400);
+      }
+      if ((m = path.match(/^\/api\/clientes\/(\d+)$/)) && met === 'PATCH') {
+        return await atualizarCliente(db, +m[1], await request.json());
+      }
+      if (path === '/api/clientes/revisao' && met === 'GET') {
+        const { results } = await db.prepare(
+          `SELECT * FROM clientes_vinculo_revisao WHERE status = 'pendente' ORDER BY linhas DESC`,
+        ).all();
+        return json({ revisoes: results ?? [] });
+      }
+      if ((m = path.match(/^\/api\/clientes\/revisao\/(\d+)$/)) && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        return await decidirVinculoCliente(db, +m[1], b);
       }
 
       return json({ erro: 'Rota não encontrada' }, 404);
@@ -1239,6 +1330,90 @@ async function registrarVenda(db, env, { clienteId, clienteNome, itens }) {
   await db.batch(stmts);
   const nuvemshop = await atualizarEstoqueDaVenda(db, env, venda.id);
   return json({ ok: true, id: venda.id, data, total, itens: linhas, nuvemshop }, 201);
+}
+
+/** Edição do cadastro de cliente (a área de CRM).
+ *
+ *  Só toca dados cadastrais: nada aqui altera venda, estoque ou histórico.
+ *  `nome_norm` e os `*_norm` são recalculados junto, senão a busca passa a
+ *  discordar do que está na tela. */
+async function atualizarCliente(db, id, corpo) {
+  const atual = await db.prepare('SELECT * FROM clientes WHERE id = ?').bind(id).first();
+  if (!atual) return json({ erro: 'Cliente não encontrado' }, 404);
+
+  const campos = ['nome', 'tel', 'email', 'instagram', 'cidade', 'nascimento', 'obs'];
+  const novo = {};
+  for (const c of campos) if (corpo[c] !== undefined) novo[c] = corpo[c] === '' ? null : corpo[c];
+
+  if (novo.nome !== undefined && !String(novo.nome ?? '').trim()) {
+    return json({ erro: 'Nome é obrigatório' }, 400);
+  }
+  if (!Object.keys(novo).length) return json({ erro: 'Nada para atualizar' }, 400);
+
+  const nome = novo.nome ?? atual.nome;
+  const tel = novo.tel !== undefined ? novo.tel : atual.tel;
+  const email = novo.email !== undefined ? novo.email : atual.email;
+
+  const sets = Object.keys(novo).map((c) => `${c} = ?`);
+  const binds = Object.values(novo);
+  sets.push('nome_norm = ?', 'tel_norm = ?', 'email_norm = ?', "atualizada_em = datetime('now')");
+  binds.push(
+    normalizarTextoSimples(nome),
+    tel ? String(tel).replace(/\D/g, '') || null : null,
+    email ? String(email).trim().toLowerCase() : null,
+  );
+  binds.push(id);
+
+  const r = await db.prepare(`UPDATE clientes SET ${sets.join(', ')} WHERE id = ? RETURNING *`)
+    .bind(...binds).first();
+  return json({ ok: true, cliente: r });
+}
+
+/** Sem acento, sem caixa — a mesma regra do importador histórico, para os
+ *  dois lados casarem. */
+function normalizarTextoSimples(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v).replace(/\s+/g, ' ').trim();
+  if (!s) return null;
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+/** Decide um vínculo de cliente que a importação NÃO fez sozinha.
+ *
+ *  `vincular` funde o histórico daquele nome no cadastro escolhido;
+ *  `separar` afirma que são pessoas diferentes e o nome segue por conta
+ *  própria. Nenhuma das duas apaga linha de histórico. */
+async function decidirVinculoCliente(db, revisaoId, { decisao, clienteId = null }) {
+  const rev = await db.prepare('SELECT * FROM clientes_vinculo_revisao WHERE id = ?')
+    .bind(revisaoId).first();
+  if (!rev) return json({ erro: 'Revisão não encontrada' }, 404);
+  if (rev.status !== 'pendente') return json({ erro: 'Revisão já decidida' }, 409);
+
+  if (decisao === 'separar') {
+    await db.prepare(
+      `UPDATE clientes_vinculo_revisao SET status = 'separado', decidido_em = datetime('now')
+        WHERE id = ?`,
+    ).bind(revisaoId).run();
+    return json({ ok: true, decisao: 'separado' });
+  }
+
+  if (decisao !== 'vincular') return json({ erro: 'decisao deve ser vincular ou separar' }, 400);
+
+  const alvo = clienteId ?? rev.candidato_id;
+  if (!alvo) return json({ erro: 'Informe clienteId para vincular' }, 400);
+  const existe = await db.prepare('SELECT id FROM clientes WHERE id = ?').bind(alvo).first();
+  if (!existe) return json({ erro: 'Cliente de destino não encontrado' }, 404);
+
+  const r = await db.prepare(
+    `UPDATE vendas_historico_itens SET cliente_id = ? WHERE cliente_nome_norm = ?`,
+  ).bind(alvo, rev.nome_norm).run();
+
+  await db.prepare(
+    `UPDATE clientes_vinculo_revisao SET status = 'vinculado', decidido_em = datetime('now')
+      WHERE id = ?`,
+  ).bind(revisaoId).run();
+
+  return json({ ok: true, decisao: 'vinculado', clienteId: alvo, itensAtualizados: r.meta?.changes ?? null });
 }
 
 /** §19 e §28: cancelar cria movimentação inversa, não apaga a venda. */

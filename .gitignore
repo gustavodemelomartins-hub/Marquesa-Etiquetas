@@ -56,3 +56,10 @@ desktop.ini
 # Planilhas que os testes de navegador geram e apagam. Aparecem no git
 # status quando um teste morre no meio — não são fonte de nada.
 src/planilha-*.xlsx
+
+# ------------------------------------------------- dados reais de teste
+# `src/vendas-historico-test.mjs` roda contra a planilha REAL quando ela
+# está aqui, e contra uma amostra embutida quando não está. A planilha tem
+# 351 nomes de clientes reais: é dado pessoal, e este repositório é público.
+# Fica local, como os backups. Como gerar: docs/TESTING.md § histórico.
+src/__dados__/

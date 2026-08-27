@@ -60,6 +60,7 @@ const MIGRACOES = [
   'api/migracao-variacoes-locais.sql',
   'api/migracao-fotos-loja.sql',
   'api/migracao-vendas-nuvemshop.sql',
+  'api/migracao-vendas-historico.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com
