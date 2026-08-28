@@ -61,6 +61,9 @@ const MIGRACOES = [
   'api/migracao-fotos-loja.sql',
   'api/migracao-vendas-nuvemshop.sql',
   'api/migracao-vendas-historico.sql',
+  /* Depois de `migracao-vendas-historico.sql`, e não antes: a camada
+     derivada referencia `vendas_historico_lotes`, que nasce lá. */
+  'api/migracao-vendas-historicas.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com
