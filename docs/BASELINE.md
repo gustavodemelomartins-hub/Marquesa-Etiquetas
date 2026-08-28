@@ -441,7 +441,7 @@ não contra banco de teste. Os números do painel são os da operação de verda
 |---|---|---|---|
 | `src/vendas-reconstrucao-test.mjs` **(novo)** | **passou** | 50 | 0 |
 | `src/categoria-nome-test.mjs` **(novo)** | **passou** | 33 | 0 |
-| `src/vendas-clientes-ui-test.mjs` (reescrito) | **passou** | 110 | 0 |
+| `src/vendas-clientes-ui-test.mjs` (reescrito) | **passou** | 135 | 0 |
 | `src/vendas-historico-test.mjs` (atualizado) | **passou** | 76 | 0 |
 | `src/revendedoras-test.mjs` | **passou** | 45 | 0 |
 

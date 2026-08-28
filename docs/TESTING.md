@@ -139,7 +139,7 @@ A prova de que importar a planilha antiga não desconta peça nenhuma:
 > (uma linha por array, cabeçalho na primeira) e salve nesse caminho.
 
 ### `src/vendas-clientes-ui-test.mjs` — Painel de Vendas e Clientes na tela
-**110 asserções · ~90 s · Playwright + servidor HTTP em `localhost:8000`**
+**135 asserções · ~130 s · Playwright + servidor HTTP em `localhost:8000`**
 
 Aponta para onde mandarem, então o mesmo arquivo verifica o local e o DEV
 publicado:
@@ -173,7 +173,16 @@ PAINEL_URL=https://marquesa-dev.pages.dev/dashboard.html API_URL=https://marques
 11. o perfil abre e **a compra de muitas peças é UMA entrada na linha do
     tempo**, com os itens dentro dela;
 12. a 390px nenhuma das telas gera rolagem horizontal, e o modal cabe;
-13. nenhum erro de console.
+13. nenhum erro de console;
+14. o **acabamento** da segunda passada, medido em 1440px: a evolução por
+    mês não ganha barra de rolagem e nenhum rótulo de mês é cortado; a lista
+    de categorias mostra no máximo seis e a rosca continua desenhando todas;
+    nenhum cartão sobra com mais de 28% de altura vazia; o indicador do topo
+    de Clientes **não** se chama mais "Clientes ativos" (o número conta quem
+    comprou no recorte, o estado da régua é outra coisa); o centro da rosca
+    de saúde fala em **clientes**, não em peças; `em risco` tem a mesma cor
+    no selo e na fatia da rosca; a legenda do gráfico liga e desliga cada
+    cliente; e os filtros e a ordenação da reativação mudam de fato a lista.
 
 ### `src/corte-pedidos-test.mjs` — pedido antigo é história, não venda nova
 **46 asserções · ~25 s · precisa do Worker local e do banco limpo**

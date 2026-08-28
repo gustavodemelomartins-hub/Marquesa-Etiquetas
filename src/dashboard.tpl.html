@@ -60,7 +60,7 @@ body{font-variant-numeric:lining-nums tabular-nums}
 /* ---------- Navegação global (Etiqueta · Estoque · Revendedoras · Vendas) ----------
    Camada distinta da subnavegação: botão grande, espaçado, centralizado — a
    subaba (#tabsSubNav) continua no tamanho pequeno de sempre. */
-#tabsNav{display:flex;justify-content:center;align-items:center;gap:16px;flex-wrap:wrap;margin:24px 0 8px}
+#tabsNav{display:flex;justify-content:center;align-items:center;gap:16px;flex-wrap:wrap;margin:14px 0 6px}
 #tabsNav .tab{
   padding:13px 28px;font-size:14.5px;font-weight:700;border-radius:12px;
   border:1.5px solid var(--line);background:var(--paper);color:var(--bordo-soft);
@@ -68,7 +68,7 @@ body{font-variant-numeric:lining-nums tabular-nums}
 }
 #tabsNav .tab:hover{border-color:var(--rose);color:var(--bordo)}
 #tabsNav .tab.active{background:var(--bordo);border-color:var(--bordo);color:#fff;box-shadow:none}
-#tabsSubNav{margin-bottom:22px}
+#tabsSubNav{margin-bottom:16px}
 
 /* ---------- Grade de duas colunas ---------- */
 .row.chart{grid-template-columns:1fr 1fr}
@@ -519,7 +519,7 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
    texto em vinho. Leve. A navegação orienta; quem tem peso é o conteúdo.
    O ativo se marca com o fundo vinho-claro e a borda cheia — indicação
    discreta, não um bloco preenchido competindo com os cartões. */
-#tabsNav{display:flex;gap:6px;margin:14px 0 0;border-bottom:none;flex-wrap:nowrap}
+#tabsNav{display:flex;gap:6px;margin:11px 0 0;border-bottom:none;flex-wrap:nowrap}
 #tabsNav .tab{
   flex:1 1 auto;min-width:0;
   display:flex;align-items:center;justify-content:center;gap:5px;
@@ -540,7 +540,7 @@ header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex
 /* ---------- Subnavegação ----------
    O respiro acima e abaixo é deliberado: colada, a subaba parecia parte dos
    botões de cima, e o sublinhado do ativo encostava na linha divisória. */
-#tabsSubNav{margin:20px 0 16px;border-bottom:1px solid var(--line);gap:0}
+#tabsSubNav{margin:13px 0 13px;border-bottom:1px solid var(--line);gap:0}
 #tabsSubNav .tab{padding:8px 8px 13px;font-size:11.5px;color:var(--muted);font-weight:500}
 #tabsSubNav .tab:first-child{padding-left:0}
 #tabsSubNav .tab.active{color:var(--ink);font-weight:700}
@@ -604,15 +604,19 @@ th.r,td.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 /* Evolução por mês: barras em SVG-menos-SVG (divs), pela mesma razão do
    gráfico de rosca — nada externo carrega e funciona offline. Rola de lado
    no celular em vez de espremer 29 meses em 360px. */
-.evo{display:flex;align-items:flex-end;gap:6px;height:132px;margin-top:10px;
+.evo{display:flex;align-items:flex-end;gap:5px;height:140px;margin-top:10px;
   overflow-x:auto;padding-bottom:4px}
-.evo-col{flex:0 0 34px;display:flex;flex-direction:column;align-items:center;
-  justify-content:flex-end;height:100%;gap:5px}
+.evo-col{flex:1 1 0;min-width:24px;display:flex;flex-direction:column;align-items:stretch;
+  justify-content:flex-end;height:100%;position:relative;padding-bottom:16px}
 .evo-bar{width:100%;background:var(--bordo);border-radius:4px 4px 0 0;min-height:2px;
   transition:opacity .12s}
-.evo-col:hover .evo-bar{opacity:.75}
-.evo-lbl{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;
-  white-space:nowrap}
+.evo-col:hover .evo-bar,.evo-col.hot .evo-bar{opacity:1;filter:brightness(1.25)}
+.evo-col:focus-visible{outline:2px solid var(--rose);outline-offset:2px;border-radius:6px}
+.evo-lbl{
+  position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  width:max-content;font-size:10px;color:var(--muted);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
 
 .rcat{margin-bottom:9px}
 .rcat:last-child{margin-bottom:0}
@@ -875,16 +879,16 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
    e a folga é o que se ganha quando há espaço.
    ========================================================================== */
 @media (min-width:900px){
-  header.top{padding:20px 0 16px}
+  header.top{padding:15px 0 11px}
   .brand .logo{height:34px}
   .brand .tooltag{font-size:10px;letter-spacing:.34em;padding-left:16px}
   .top .meta .gearbtn{font-size:13px;padding:9px 16px}
 
   /* Os botões passam a caber no próprio tamanho, centralizados: esticados
      de ponta a ponta numa tela de 1120px eles viravam faixas. */
-  #tabsNav{justify-content:center;gap:10px;margin:18px 0 0}
-  #tabsNav .tab{flex:0 0 auto;padding:10px 22px;font-size:13.5px;gap:8px}
-  #tabsSubNav{margin:24px 0 20px}
+  #tabsNav{justify-content:center;gap:8px;margin:11px 0 0}
+  #tabsNav .tab{flex:0 0 auto;padding:9px 19px;font-size:13px;gap:8px}
+  #tabsSubNav{margin:13px 0 15px}
   #tabsSubNav .tab{font-size:14.5px;padding:7px 16px 13px}
   #tabsSubNav .tab.active::after{left:16px;right:16px}
   #tabsSubNav .tab:first-child.active::after{left:0;right:16px}
@@ -1059,6 +1063,9 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 .rk-mid{min-width:0}
 .rk-nm{font-size:13px;color:var(--ink);font-weight:600;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* O texto ORIGINAL de cada origem existe para ser conferido palavra por
+   palavra: cortá-lo com reticências anula a razão de ele estar na tela. */
+.rk-nm.livre{font-weight:400;white-space:normal;overflow:visible;line-height:1.4}
 .rk-barra{height:6px;background:var(--line-soft);border-radius:99px;margin-top:6px;overflow:hidden}
 .rk-barra i{display:block;height:100%;border-radius:99px}
 .rk-vl{text-align:right;flex:none}
@@ -1089,21 +1096,6 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 .pv-vl b{display:block;font-size:13px;color:var(--bordo);font-variant-numeric:tabular-nums}
 .pv-vl span{display:block;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 
-/* ---------- oportunidade de reativação ---------- */
-.oprow{
-  display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;
-  padding:9px 4px;border-top:1px solid var(--line-soft);
-}
-.oprow:first-child{border-top:none}
-.op-nm{font-size:13px;color:var(--ink);font-weight:600;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.op-sub{font-size:10.5px;color:var(--muted);margin-top:2px}
-.dias{
-  font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:99px;white-space:nowrap;
-  background:#FBF1DC;color:#8A6A1F;border:1px solid #EBD9A8;
-}
-.dias.frio{background:#FBEAEA;color:#A6383C;border-color:#F0CFCF}
-
 /* ---------- pílulas de filtro ---------- */
 .filtros-cli{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}
 .fpill{
@@ -1128,16 +1120,30 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 .tl-item .q{flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
 
 @media (min-width:760px){
-  .kpis.cinco{grid-template-columns:repeat(5,minmax(0,1fr))}
-  .vg.vg-2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
-  .vg.vg-2.larga{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+  .kpis.cinco{grid-template-columns:repeat(3,minmax(0,1fr))}
   .pvrow{grid-template-columns:24px 54px minmax(0,1fr) auto}
   .pv-foto{width:54px;height:54px}
 }
 @media (min-width:1040px){
   .vg.vg-3{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .vg.vg-3.mid{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,1.05fr)}
+  .vg.vg-3.mid{grid-template-columns:minmax(0,1.3fr) minmax(0,1.05fr) minmax(0,1fr)}
+  /* duas colunas só quando cada uma sustenta um gráfico. Em 800px de tela,
+     dois gráficos lado a lado ficavam com 340px cada e sobrava um terço de
+     cartão vazio embaixo do menor. */
+  .vg.vg-2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .vg.vg-2.larga{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
 }
+@media (min-width:1120px){
+  .kpis.cinco{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
+@media (min-width:760px){
+  .evo{overflow-x:visible;height:196px;gap:6px}
+  .evo-col{min-width:0}
+}
+/* Na tela larga o gráfico cresce em vez de deixar o cartão com um terço
+   vazio embaixo — o vizinho da fileira é mais alto, e altura igual só ajuda
+   quando os dois têm o que mostrar. */
+@media (min-width:1040px){ .evo{height:238px} }
 @media (max-width:479px){
   .kpi.compacto .k-num{font-size:20px}
   .rkrow{grid-template-columns:22px minmax(0,1fr) auto;gap:8px}
@@ -1146,9 +1152,6 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
   .pvrow{grid-template-columns:18px 40px minmax(0,1fr);row-gap:4px}
   .pv-vl{grid-column:2 / -1;text-align:left;display:flex;gap:10px;align-items:baseline}
   .pv-vl span{display:inline}
-  .oprow{grid-template-columns:minmax(0,1fr) auto}
-  .oprow .op-acao{grid-column:1 / -1}
-  .oprow .op-acao .btn{width:100%}
 }
 
 /* A rosca traz a própria legenda, e nos blocos de vendas a lista com barra
@@ -1159,15 +1162,197 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
    deixaria o quarto sozinho numa linha. */
 .insights{grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr))}
 
-/* Com muitos meses as barras dividem a largura em vez de rolarem para fora
-   do cartão: uma rolagem horizontal que ninguém vê esconde justamente os
-   meses mais recentes, que são os que interessam. */
+/* As barras dividem a largura disponível em qualquer contagem de meses:
+   uma rolagem horizontal esconde justamente os meses mais recentes, que são
+   os que interessam. `apertada` sobrevive por compatibilidade e não decide
+   mais nada. */
 .evo.apertada{overflow-x:visible}
-.evo.apertada .evo-col{flex:1 1 0;min-width:0}
 /* O centro da rosca de origem mostra dinheiro, e "R$ 127.228,92" não cabe
    no corpo de 30px pensado para uma contagem. */
 #roscaOrigem .dcenter .dc-num{font-size:17px;letter-spacing:-.01em}
 #roscaOrigem .dcenter .dc-lbl{font-size:10px}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Vendas · Clientes — acabamento
+   --------------------------------------------------------------------------
+   Segunda passada sobre as mesmas telas. Nada muda de significado; muda a
+   distribuição. As três queixas que guiaram cada regra: cartão herdando a
+   altura do vizinho e sobrando metade vazio, gráfico com barra de rolagem
+   passando sensação de quebrado, e a área comercial (reativação) espremida
+   numa coluna estreita enquanto sobrava largura ao lado.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Cada cartão com a altura do próprio conteúdo. Igualar alturas só ajuda
+   quando os conteúdos são parecidos — nas fileiras de três, não são. */
+.vg.solto{align-items:start}
+
+/* Saúde da base e reativação na mesma fileira: leitura estreita, ação larga.
+   Era o contrário, e a lista de ação saía ilegível em coluna de 300px. */
+@media (min-width:1040px){
+  .vg.vg-2.saude{grid-template-columns:minmax(0,35fr) minmax(0,65fr)}
+}
+
+/* ---------- indicador com estado em vez de número ----------
+   "—" gigante no lugar de um número parece carregamento travado. Quando o
+   número não existe por definição, o cartão diz isso com todas as letras. */
+.kpi.k-info .k-num{
+  font-family:var(--sans);font-size:12.5px;font-weight:600;line-height:1.35;
+  color:var(--bordo-soft);margin-top:6px;
+}
+
+/* ---------- distribuição por categoria ----------
+   Rosca maior e lista curta: nove linhas empurravam o cartão para o dobro da
+   altura do vizinho. O resto continua a um clique, nunca escondido. */
+.catgrid.vend{grid-template-columns:minmax(0,44%) minmax(0,1fr);gap:16px;align-items:center}
+.catgrid.vend .donutbox{max-width:none}
+@media (min-width:900px){
+  .catgrid.vend{grid-template-columns:minmax(0,250px) minmax(0,1fr);gap:26px}
+  .catgrid.vend .donutbox{max-width:250px}
+}
+.maisitens{margin-top:6px}
+.maisitens>summary{
+  cursor:pointer;font-size:11.5px;color:var(--bordo-soft);padding:8px 6px;
+  border-top:1px solid var(--line-soft);list-style:none;
+}
+.maisitens>summary::-webkit-details-marker{display:none}
+.maisitens>summary::before{content:"+ ";font-weight:700}
+.maisitens[open]>summary::before{content:"− "}
+.maisitens>summary:hover{color:var(--bordo)}
+
+/* ---------- lugar da foto ----------
+   O texto "sem foto" em 8px dentro de um quadrado era o item mais feio da
+   tela. O lugar continua reservado (§16) — agora com um símbolo da casa em
+   vez de um aviso. */
+.pv-foto{position:relative}
+.pv-foto img{position:absolute;inset:0;z-index:1}
+.pv-ph{
+  display:flex;align-items:center;justify-content:center;width:100%;height:100%;
+  color:var(--rose);opacity:.55;
+}
+.pv-ph svg{width:20px;height:20px}
+
+/* ---------- saúde da base ----------
+   Rosca grande à esquerda, legenda densa à direita. Antes: rosca pequena
+   centralizada, legenda em linhas altas, e meio cartão vazio embaixo. */
+.saude{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:center}
+.saude .donutbox{max-width:210px;margin:0 auto}
+/* auto-fit resolve sozinho o que três media queries erravam: uma coluna
+   quando o cartão é estreito, duas ou três quando sobra largura. */
+.sd-leg{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:2px 16px}
+.sd-row{
+  display:grid;grid-template-columns:9px minmax(0,1fr) auto auto;gap:8px;
+  align-items:center;padding:5px 2px;border-radius:7px;
+}
+.sd-dot{width:9px;height:9px;border-radius:50%}
+.sd-nm{font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sd-n{font-size:13px;font-weight:700;color:var(--bordo);font-variant-numeric:tabular-nums}
+.sd-p{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:36px;text-align:right}
+.sd-exp{margin-top:12px;border-top:1px solid var(--line-soft);padding-top:10px}
+@media (min-width:760px){
+  .sd-nm{font-size:12.5px}
+  .sd-row{padding:6px 2px}
+}
+
+/* ---------- grade de leitura (top clientes, reativação) ----------
+   Não é <table>: é grade. A mesma linha vira cartão empilhado no celular sem
+   duplicar marcação, e as colunas de número alinham na vertical. */
+.gtab{width:100%}
+.gtab .gt-h,.gtab .gt-r{display:grid;gap:10px;align-items:center}
+.gtab .gt-h{
+  font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;
+  color:var(--bordo-soft);padding:0 6px 8px;border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+.gtab .gt-r{padding:9px 6px;border-bottom:1px solid var(--line-soft)}
+.gtab .gt-r:last-child{border-bottom:none}
+.gtab .gt-r.clicavel{cursor:pointer;border-radius:9px}
+.gtab .gt-r.clicavel:hover{background:var(--ivory)}
+.gtab .gt-r.clicavel:focus-visible{outline:2px solid var(--rose);outline-offset:-2px}
+.gt-pos{
+  width:22px;height:22px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:10.5px;font-weight:700;color:#fff;
+}
+.gt-nm{font-size:13px;font-weight:600;color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gt-sub{font-size:10.5px;color:var(--muted);margin-top:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gt-n{font-variant-numeric:tabular-nums;text-align:right;font-size:12.5px;color:var(--ink)}
+.gt-n small{display:block;font-size:10px;color:var(--muted);margin-top:1px}
+.gt-n.forte{font-size:13.5px;font-weight:700;color:var(--bordo)}
+
+/* Top clientes em três degraus: cartão no celular, cartão com posição no
+   tablet, tabela cheia no desktop. As colunas que somem não desaparecem da
+   leitura — descem para a linha de resumo (`.gt-mob`). */
+.tcli .gt-h,.tcli .gt-r{grid-template-columns:minmax(0,1fr) auto}
+.tcli .col-op{display:none}
+.tcli .gt-pos{display:none}
+@media (min-width:760px){
+  .tcli .gt-h,.tcli .gt-r{grid-template-columns:24px minmax(0,1fr) auto}
+  .tcli .gt-pos{display:flex}
+}
+@media (min-width:1040px){
+  .tcli .gt-h,.tcli .gt-r{
+    grid-template-columns:24px minmax(0,1.4fr) 94px 56px 70px 90px 112px;
+  }
+  .tcli .col-op{display:block}
+  .gtab.tcli .gt-mob{display:none}
+}
+
+/* Reativação: a área comercial. Larga, e cada linha responde às mesmas
+   quatro perguntas — quem é, quanto valeu, de quanto em quanto tempo
+   comprava, há quanto sumiu. */
+.oplista .gt-h,.oplista .gt-r{grid-template-columns:minmax(0,1fr) auto auto}
+.oplista .col-op{display:none}
+.oplista .gt-h{display:none}
+@media (min-width:900px){
+  .oplista .gt-h{display:grid}
+  .oplista .gt-h,.oplista .gt-r{
+    grid-template-columns:minmax(0,1fr) 92px 88px 84px auto;
+  }
+  .oplista .col-op{display:block}
+  .gtab.oplista .gt-mob{display:none}
+}
+.opbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.opbar .spacer{flex:1 1 auto}
+
+/* ---------- selo de estado ----------
+   §13: o mesmo estado tem a mesma cor em toda a tela. A cor sai de
+   COR_ESTADO, a mesma da rosca de saúde — não é uma segunda paleta. */
+.selo{
+  display:inline-flex;align-items:center;gap:5px;font-size:9.5px;font-weight:700;
+  padding:3px 9px;border-radius:99px;white-space:nowrap;
+  border:1px solid currentColor;background:#fff;
+}
+.selo i{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.dias{
+  font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap;
+  background:#FBF1DC;color:#8A6A1F;border:1px solid #EBD9A8;
+  font-variant-numeric:tabular-nums;display:inline-block;
+}
+.dias.frio{background:#F3EFF0;color:#6E5C62;border-color:#DFD5D8}
+
+/* ---------- gráfico de linhas: a legenda liga e desliga cada cliente ---------- */
+.lgn{cursor:pointer;user-select:none;padding:3px 9px;border-radius:99px;
+  border:1px solid transparent;transition:.12s}
+.lgn:hover{background:var(--ivory);border-color:var(--line)}
+.lgn.off{opacity:.4}
+.lgn.off .dot{background:var(--line) !important}
+.lgn:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
+.lchart svg{min-width:0}
+@media (max-width:759px){
+  .lchart svg{min-width:520px}
+  .tcli .gt-h{display:none}
+  .tcli .gt-r,.oplista .gt-r{row-gap:5px;padding:11px 6px}
+  /* no celular a identificação quebra em duas linhas em vez de virar
+     reticências: selo, número de compras e data são o que diz de quem é a
+     linha. */
+  .gt-sub{white-space:normal;overflow:visible;line-height:1.5}
+}
+/* A linha de resumo do celular/tablet: os números que a grade larga mostra
+   em colunas próprias, aqui em uma linha só. Some quando as colunas voltam. */
+.gtab .gt-mob{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:3px 13px;
+  font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.gtab .gt-mob b{color:var(--ink);font-weight:600}
 </style>
 </head>
 <body>
@@ -6882,8 +7067,10 @@ function renderVendasPainel(){
           <h2>Painel de vendas</h2>
           <span class="hint">Histórico da planilha + vendas do sistema</span>
         </div>
-        <span class="hint">${comp.linhasBrutas} linhas da planilha viraram
-          ${comp.vendasHistoricas} vendas</span>
+        <span class="hint">${painelPeriodo==='tudo'
+          ?`${fmtN(comp.linhasBrutas)} linhas da planilha viraram ${fmtN(comp.vendasHistoricas)} vendas`
+          :`${fmtN(comp.vendasHistoricas)} ${plural(comp.vendasHistoricas,'venda','vendas')} do histórico neste recorte ·
+             ${fmtN(comp.linhasBrutas)} linhas na planilha inteira`}</span>
       </div>
       <div class="body">
         <div class="seg" style="margin-bottom:16px">${segPeriodo(painelPeriodo,'setPainelPeriodo')}</div>
@@ -6909,8 +7096,10 @@ function renderVendasPainel(){
           <summary class="hint" style="cursor:pointer">Como o ticket médio é calculado</summary>
           <div class="hint" style="margin-top:8px;line-height:1.6">${esc(tm.regra)}
             <br><b>${money(tm.faturamentoElegivel)}</b> ÷ <b>${fmtN(tm.vendasElegiveis)}</b> vendas.
-            ${comp.vendasSemData?`<br>${comp.vendasSemData} venda(s) sem data e `:'<br>'}${comp.ajustes} operação(ões)
-            marcada(s) na planilha como ajuste ficam de fora.</div>
+            <br>${comp.vendasSemData
+              ?`${fmtN(comp.vendasSemData)} ${plural(comp.vendasSemData,'venda','vendas')} sem data ${plural(comp.vendasSemData,'fica','ficam')} de fora deste recorte. `
+              :''}${fmtN(comp.ajustes)} ${plural(comp.ajustes,'operação','operações')}
+            ${plural(comp.ajustes,'marcada','marcadas')} na planilha como ajuste ${plural(comp.ajustes,'fica','ficam')} sempre de fora.</div>
         </details>`:''}
       </div>
     </div>
@@ -6920,7 +7109,7 @@ function renderVendasPainel(){
       ${blocoEvolucao(painelVendas.evolucao,comp.vendasSemData)}
     </div>
 
-    <div class="vg vg-3 mid">
+    <div class="vg vg-3 mid solto">
       ${blocoProdutos(painelVendas.produtos)}
       ${blocoOrigem(painelVendas.origem)}
       ${blocoTopClientesPainel(painelVendas.topClientes)}
@@ -6936,6 +7125,7 @@ function renderVendasPainel(){
      nos elementos que acabaram de existir */
   pintarRoscaCategorias(painelVendas.categorias);
   pintarRoscaOrigem(painelVendas.origem);
+  pintarEvolucao(painelVendas.evolucao);
 }
 
 function blocoCarregando(txt){
@@ -6958,19 +7148,42 @@ function blocoCategorias(cat){
   if(!l.length) return painelBloco('Distribuição por categoria vendida',
     `<div class="empty"><p>Nada no período.</p></div>`);
   const maior=Math.max(...l.map(c=>c.pecas))||1;
-  const linhas=l.map(c=>`<div class="rkrow">
+  const linha=(c)=>`<div class="rkrow">
       <span class="rk-pos" style="background:${catColor(c.categoria)}"></span>
       <div class="rk-mid">
         <div class="rk-nm">${esc(c.categoria)}</div>
         <div class="rk-barra"><i style="width:${(c.pecas/maior*100).toFixed(1)}%;background:${catColor(c.categoria)}"></i></div>
       </div>
       <div class="rk-vl"><b>${fmtN(c.pecas)}</b><span>${c.participacao}%</span></div>
-    </div>`).join('');
+    </div>`;
+  /* Seis linhas cobrem o que a leitura executiva precisa; a cauda longa
+     dobrava a altura do cartão e desalinhava a fileira inteira. Nada some:
+     a rosca desenha TODAS as categorias e o resto abre em um clique. */
+  const TOPO=6, topo=l.slice(0,TOPO), resto=l.slice(TOPO);
+  /* a diferença entre esta soma e o indicador de peças, quando existe, são
+     as peças das operações marcadas como ajuste: elas têm categoria, mas
+     não são venda. Explicar é obrigatório — §9 do projeto: o que o sistema
+     decide não fazer é anunciado, nunca engolido. */
+  const somaCat=l.reduce((s,c)=>s+c.pecas,0);
+  const pecasVenda=(painelVendas&&painelVendas.geral)?painelVendas.geral.pecas:null;
+  const dif=pecasVenda!=null?somaCat-pecasVenda:0;
   return painelBloco('Distribuição por categoria vendida',
-    `<div class="catgrid">
+    `<div class="catgrid vend">
        <div id="roscaCatVendas" class="semlegenda"></div>
-       <div class="rank">${linhas}</div>
-     </div>`);
+       <div>
+         <div class="rank">${topo.map(linha).join('')}</div>
+         ${resto.length?`<details class="maisitens">
+           <summary>Mais ${resto.length} ${plural(resto.length,'categoria','categorias')}</summary>
+           <div class="rank">${resto.map(linha).join('')}</div>
+         </details>`:''}
+       </div>
+     </div>
+     ${dif>0?`<div class="hint" style="margin-top:12px;line-height:1.55">
+       Esta rosca soma <b>${fmtN(somaCat)}</b> peças e o indicador
+       <b>Peças vendidas</b> mostra <b>${fmtN(pecasVenda)}</b>: a diferença de
+       ${fmtN(dif)} ${plural(dif,'peça','peças')} está ${plural(dif,'na operação','nas operações')}
+       que a planilha marcou como ajuste. ${plural(dif,'Ela tem','Elas têm')} categoria,
+       mas ${plural(dif,'não é venda','não são venda')}.</div>`:''}`);
 }
 
 function pintarRoscaCategorias(cat){
@@ -6979,7 +7192,10 @@ function pintarRoscaCategorias(cat){
   const dados=((cat&&cat.categorias)||[])
     .map(c=>({cat:c.categoria,qtd:c.pecas,cor:catColor(c.categoria)}))
     .filter(d=>d.qtd>0);
-  desenharRosca(wrap,dados,'vendidas','Nenhuma peça vendida no período.',false);
+  /* o centro dizia "peças vendidas", e três destas peças não foram
+     vendidas: são as operações marcadas como ajuste. O rótulo neutro é o
+     verdadeiro; a diferença está explicada logo abaixo da rosca. */
+  desenharRosca(wrap,dados,'','Nenhuma peça no período.',false);
 }
 
 /* ---------------- evolução por mês ---------------- */
@@ -6998,25 +7214,89 @@ function blocoEvolucao(ev,semData){
   const max=Math.max(...p.map(x=>x[m]))||1;
   const rotulo=(x)=>m==='faturamento'?money(x.faturamento)
     :m==='pecas'?`${fmtN(x.pecas)} peças`:`${fmtN(x.vendas)} vendas`;
-  /* rótulo a cada N meses: com 24 barras estreitas, todos os nomes viram
-     borrão e nenhum deles é legível */
-  const passo=Math.max(1,Math.ceil(p.length/8));
+  /* rótulo a cada N meses: até catorze cabem todos; acima disso os nomes
+     viram borrão e o passo alterna para uma dúzia legível */
+  const passo=p.length<=14?1:Math.ceil(p.length/12);
   const barras=p.map((x,i)=>{
     const alt=Math.max(2,Math.round(x[m]/max*100));
-    /* o title é o tooltip nativo: acessível, funciona no teclado e não
-       depende de JS nenhum para dizer o valor exato */
-    return `<div class="evo-col" title="${esc(mesLegivel(x.chave))} · ${esc(rotulo(x))} · ${fmtN(x.vendas)} vendas · ${fmtN(x.pecas)} peças">
+    /* o valor exato vem do tooltip da casa (o mesmo da rosca), ligado em
+       `pintarEvolucao`. O aria-label diz o mesmo para quem navega por
+       teclado ou leitor de tela — nada depende só do cursor. */
+    return `<div class="evo-col" data-i="${i}" data-lbl="${esc(mesCurto(x.chave))}" tabindex="0" role="img"
+      aria-label="${esc(mesLegivel(x.chave))}: ${esc(rotulo(x))}, ${fmtN(x.vendas)} ${plural(x.vendas,'venda','vendas')}, ${fmtN(x.pecas)} ${plural(x.pecas,'peça','peças')}">
       <div class="evo-bar" style="height:${alt}%"></div>
       <div class="evo-lbl">${i%passo?'':esc(mesCurto(x.chave))}</div>
     </div>`;
   }).join('');
   const totalM=p.reduce((s,x)=>s+x[m],0);
   return painelBloco('Evolução por mês',
-    `<div class="evo ${p.length>16?'apertada':''}">${barras}</div>
+    `<div class="evo" id="evoBox">${barras}</div>
      <div class="hint" style="margin-top:10px">${p.length} ${plural(p.length,'mês','meses')} ·
        ${m==='faturamento'?money(totalM):fmtN(totalM)+(m==='pecas'?' peças':' vendas')} no gráfico${
        semData?` · ${semData} ${plural(semData,'venda','vendas')} sem data ${plural(semData,'fica','ficam')} de fora`:''}</div>`,
     sel);
+}
+
+/** O tooltip da evolução, ligado depois do innerHTML — o mesmo elemento
+    `#dtip` que a rosca usa, para que a tela tenha UM jeito de mostrar
+    detalhe, não dois. Mês, faturamento, vendas e peças: os quatro números
+    que este payload sustenta.
+
+    O ticket médio do mês NÃO aparece aqui de propósito. Dividir faturamento
+    do mês por vendas do mês daria um número parecido com o ticket médio do
+    indicador e diferente dele — o de cima usa só venda ELEGÍVEL, e a
+    elegibilidade não vem separada por mês. Dois "ticket médio" discordando
+    na mesma tela é pior que um a menos. §15. */
+function pintarEvolucao(ev){
+  const p=(ev&&ev.pontos)||[];
+  const box=document.getElementById('evoBox');
+  if(!box||!p.length) return;
+
+  /* Quantos rótulos cabem sai da largura que a barra REALMENTE recebeu, não
+     de um palpite sobre a contagem de meses: em 24 meses num cartão de
+     460px as barras ficam com 14px e "abr/24" precisa de 44. O passo conta
+     de trás para frente para que o mês mais recente nunca fique sem nome. */
+  const cols=[...box.querySelectorAll('.evo-col')];
+  if(cols.length){
+    const larg=cols[0].getBoundingClientRect().width;
+    const gap=parseFloat(getComputedStyle(box).columnGap)||5;
+    const passo=Math.max(1,Math.ceil(44/Math.max(1,larg+gap)));
+    const ult=cols.length-1;
+    cols.forEach((c,i)=>{
+      const l=c.querySelector('.evo-lbl');
+      if(l) l.textContent=((ult-i)%passo)?'':(c.dataset.lbl||'');
+    });
+  }
+
+  const tip=document.getElementById('dtip');
+  if(!tip) return;
+
+  function acender(col,ev2){
+    const x=p[+col.dataset.i];
+    if(!x) return;
+    box.querySelectorAll('.evo-col').forEach(c=>c.classList.toggle('hot',c===col));
+    tip.innerHTML=`<div class="t-nm">${esc(mesLegivel(x.chave))}</div>
+      <div class="t-vl">${esc(money(x.faturamento))}</div>
+      <div class="t-vl">${fmtN(x.vendas)} ${plural(x.vendas,'venda','vendas')} ·
+        ${fmtN(x.pecas)} ${plural(x.pecas,'peça','peças')}</div>`;
+    tip.classList.add('show');
+    const r=col.getBoundingClientRect();
+    const cx=ev2?ev2.clientX:r.left+r.width/2;
+    tip.style.left=Math.max(8,Math.min(cx+14,innerWidth-tip.offsetWidth-10))+'px';
+    tip.style.top=Math.max(8,r.top-tip.offsetHeight-10)+'px';
+  }
+  function apagar(){
+    box.querySelectorAll('.evo-col').forEach(c=>c.classList.remove('hot'));
+    tip.classList.remove('show');
+  }
+  box.querySelectorAll('.evo-col').forEach(col=>{
+    col.addEventListener('mousemove',e=>acender(col,e));
+    col.addEventListener('mouseleave',apagar);
+    col.addEventListener('focus',()=>acender(col,null));
+    col.addEventListener('blur',apagar);
+    col.addEventListener('touchstart',e=>acender(col,e.touches[0]),{passive:true});
+  });
+  box.addEventListener('mouseleave',apagar);
 }
 
 /* `2026-06` → `jun/26` na barra, `junho de 2026` no tooltip. */
@@ -7045,9 +7325,11 @@ function blocoProdutos(d){
   const linhas=l.map((p,i)=>{
     const cat=state.produtos&&state.produtos.find(x=>String(x.sku).toUpperCase()===String(p.sku).toUpperCase());
     const url=cat?fotoUrlDe(cat):'';
-    const foto=url
-      ? `<img src="${esc(url)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<span class=\\'semfoto\\'>sem foto</span>'">`
-      : `<span class="semfoto">sem foto</span>`;
+    /* o símbolo fica SEMPRE por baixo; a foto entra por cima e, quando a
+       CDN recusa, se remove e revela o que já estava lá. Sem remontar HTML
+       dentro de um atributo — era de onde vinham as aspas escapadas. */
+    const foto=`<span class="pv-ph" aria-hidden="true">${svgIco(ICO.caixa,20)}</span>`
+      +(url?`<img src="${esc(url)}" alt="" loading="lazy" onerror="this.remove()">`:'');
     const nome=p.nomeAtual||p.nomeHistorico||'—';
     return `<div class="pvrow">
       <div class="pv-pos">${i+1}</div>
@@ -7106,7 +7388,7 @@ function blocoOrigem(o){
        <summary class="hint" style="cursor:pointer">Ver o texto original de cada origem (${(o.brutos||[]).length})</summary>
        <div class="rank" style="margin-top:8px">${(o.brutos||[]).slice(0,40).map(b=>`
          <div class="rkrow"><span class="rk-pos" style="background:var(--line)"></span>
-           <div class="rk-mid"><div class="rk-nm" style="font-weight:400">${esc(b.texto)}</div></div>
+           <div class="rk-mid"><div class="rk-nm livre">${esc(b.texto)}</div></div>
            <div class="rk-vl"><b>${fmtN(b.linhas)}</b><span>linhas</span></div></div>`).join('')}</div>
      </details>`);
 }
@@ -7181,8 +7463,24 @@ function cartaoInsight(ico,rot,valor,sub){
     legível sem cor — §39, nada depende só de cor para ser interpretado. */
 function graficoLinhas(serie,metrica){
   const meses=(serie&&serie.meses)||[];
-  const cli=(serie&&serie.clientes)||[];
-  if(!meses.length||!cli.length) return `<div class="empty"><p>Sem histórico suficiente para desenhar a evolução.</p></div>`;
+  const todos=(serie&&serie.clientes)||[];
+  if(!meses.length||!todos.length) return `<div class="empty"><p>Sem histórico suficiente para desenhar a evolução.</p></div>`;
+
+  /* a cor é do CLIENTE, não da posição no desenho: apagar a segunda linha
+     não pode repintar a terceira */
+  const cor=(c)=>COR_SERIE[todos.findIndex(x=>x.norm===c.norm)%COR_SERIE.length];
+  const cli=todos.filter(c=>!crmSerieOff.has(c.norm));
+  const legendaDe=()=>`<div class="lgnd">${todos.map(c=>`<span class="lgn ${crmSerieOff.has(c.norm)?'off':''}"
+      role="button" tabindex="0" aria-pressed="${!crmSerieOff.has(c.norm)}"
+      onclick="toggleSerie('${encodeURIComponent(c.norm)}')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSerie('${encodeURIComponent(c.norm)}')}">
+      <span class="dot" style="background:${cor(c)}"></span>
+      <b>${esc(c.nome)}</b></span>`).join('')}</div>
+    <div class="hint" style="margin-top:8px">Toque num nome para esconder ou mostrar a linha dele.</div>`;
+
+  if(!cli.length) return `<div class="empty" style="padding:26px 10px">
+      <h3>Nenhuma cliente selecionada</h3>
+      <p>Toque em um nome abaixo para trazer a linha de volta.</p></div>`+legendaDe();
 
   const W=700,H=290,ml=52,mr=12,mt=14,mb=32;
   const iw=W-ml-mr, ih=H-mt-mb;
@@ -7205,29 +7503,30 @@ function graficoLinhas(serie,metrica){
   }
   /* eixo X: com muitos meses, um rótulo a cada N para não virar borrão */
   const passo=Math.max(1,Math.ceil(meses.length/12));
+  /* o primeiro e o último rótulo ancoram para dentro: centralizados, metade
+     de "ago/26" ficava fora da área desenhada */
   const eixoX=meses.map((m,i)=>i%passo?'':
-    `<text class="axis" x="${x(i).toFixed(1)}" y="${H-mb+16}" text-anchor="middle">${esc(mesCurto(m))}</text>`).join('');
+    `<text class="axis" x="${x(i).toFixed(1)}" y="${H-mb+16}" text-anchor="${
+      i===0?'start':i===meses.length-1?'end':'middle'}">${esc(mesCurto(m))}</text>`).join('');
 
-  const linhas=cli.map((c,ci)=>{
-    const cor=COR_SERIE[ci%COR_SERIE.length];
+  const linhas=cli.map((c)=>{
+    const cc=cor(c);
     const d=c.pontos.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p[metrica]).toFixed(1)}`).join(' ');
+    /* o alvo do cursor é maior que o ponto desenhado: com 29 meses o círculo
+       de 3,5px é difícil de acertar, e o tooltip nunca aparecia */
     const pts=c.pontos.map((p,i)=>`<circle class="pt" cx="${x(i).toFixed(1)}" cy="${y(p[metrica]).toFixed(1)}"
-        r="3.5" fill="${cor}"><title>${esc(c.nome)} · ${esc(mesLegivel(p.mes))}
+        r="3.5" fill="${cc}"/>
+      <circle class="hit" cx="${x(i).toFixed(1)}" cy="${y(p[metrica]).toFixed(1)}" r="10"><title>${esc(c.nome)} · ${esc(mesLegivel(p.mes))}
 ${esc(money(p.faturamento))} · ${p.pecas} ${plural(p.pecas,'peça','peças')} · ${p.vendas} ${plural(p.vendas,'compra','compras')}</title></circle>`).join('');
-    return `<path class="ln" d="${d}" stroke="${cor}"/>${pts}`;
+    return `<path class="ln" d="${d}" stroke="${cc}"/>${pts}`;
   }).join('');
-
-  const legenda=cli.map((c,ci)=>`<span class="lgn">
-    <span class="dot" style="background:${COR_SERIE[ci%COR_SERIE.length]}"></span>
-    <b>${esc(c.nome)}</b></span>`).join('');
 
   return `<div class="lchart">
       <svg viewBox="0 0 ${W} ${H}" role="img"
         aria-label="Evolução dos principais clientes por mês. Passe o cursor sobre um ponto para ver o valor exato.">
         <g>${grade}</g><g>${eixoY}</g><g>${eixoX}</g><g>${linhas}</g>
       </svg>
-    </div>
-    <div class="lgnd">${legenda}</div>`;
+    </div>`+legendaDe();
 }
 
 /** Rótulo do eixo Y. Milhar vira `1,2k` com uma casa: sem ela, 1.776 e
@@ -7254,6 +7553,12 @@ let crmErro=null;
 let crmPeriodo='tudo';
 let crmMetricaSerie='faturamento';    /* faturamento | pecas | vendas */
 let crmOrdemRanking='pecas';          /* pecas | faturamento | vendas */
+/* Quais linhas do gráfico estão apagadas. Cinco clientes ao mesmo tempo
+   viram um novelo; a legenda liga e desliga cada uma sem inventar controle
+   novo — ela já estava lá dizendo de quem é cada cor. */
+let crmSerieOff=new Set();
+let crmReativFiltro='todos';          /* todos | em risco | inativa */
+let crmReativOrdem='valor';           /* valor | tempo */
 let clientesBusca='';
 let clientesFiltro='todos';           /* todos | recorrente | ativa | em risco | inativa */
 /* Quantos cartões a lista desenha de uma vez. 347 clientes de uma só vez
@@ -7276,6 +7581,20 @@ function setCrmPeriodo(p){
 }
 function setCrmSerie(m){ crmMetricaSerie=m; renderClientes(); }
 function setCrmOrdem(o){ crmOrdemRanking=o; renderClientes(); }
+function toggleSerie(norm){
+  const k=decodeURIComponent(norm);
+  if(crmSerieOff.has(k)) crmSerieOff.delete(k); else crmSerieOff.add(k);
+  renderClientes();
+}
+function setReativFiltro(f){ crmReativFiltro=f; renderClientes(); }
+function setReativOrdem(o){ crmReativOrdem=o; renderClientes(); }
+/* O atalho entre a leitura e a operação: a oportunidade mostra as maiores,
+   a lista de baixo mostra TODAS daquele estado. É a mesma classificação. */
+function verEstadoNaLista(estado){
+  setClientesFiltro(estado);
+  const el=document.getElementById('todosClientes');
+  if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+}
 function setClientesFiltro(f){ clientesFiltro=f; clientesMostrar=48; renderClientes(); }
 function verMaisClientes(){
   clientesMostrar+=48;
@@ -7314,15 +7633,17 @@ function renderClientes(){
           <p>Troque o filtro acima ou cadastre a primeira cliente.</p>
           <button class="btn btn-gold" style="margin-top:14px" onclick="openCliForm()">+ Nova cliente</button></div>`:`
         <div class="kpis cinco">
-          ${cartaoKpi({ico:ICO.pessoas,rot:'Clientes ativos',num:fmtN(k.ativos),
-            cls:'compacto k-cli',sub:['compraram no período']})}
+          ${cartaoKpi({ico:ICO.pessoas,rot:'Clientes no período',num:fmtN(k.ativos),
+            cls:'compacto k-cli',sub:['compraram dentro do recorte']})}
           ${cartaoKpi({ico:ICO.brilho,rot:'Clientes recorrentes',num:fmtN(k.recorrentes),
             cls:'compacto k-ped',sub:[`${k.recorrentesPct}% da base · 2 compras ou mais`]})}
-          ${cartaoKpi({ico:ICO.etiqueta,rot:'Novos clientes',
-            num:k.novos!=null?fmtN(k.novos):'—',
-            cls:'compacto k-pec',
-            sub:[k.novos!=null?'primeira compra no período'
-              :'escolha 12 meses, 90 ou 30 dias']})}
+          ${k.novos!=null
+            ?cartaoKpi({ico:ICO.etiqueta,rot:'Novos clientes',num:fmtN(k.novos),
+              cls:'compacto k-pec',sub:['primeira compra dentro do recorte']})
+            :cartaoKpi({ico:ICO.etiqueta,rot:'Novos clientes',
+              num:'Escolha 12 meses, 90 ou 30 dias',
+              cls:'compacto k-pec k-info',
+              sub:['em “Tudo”, toda cliente é nova por definição']})}
           ${cartaoKpi({ico:ICO.grafico,rot:'Ticket médio',
             num:k.ticketMedioPorVenda!=null?money(k.ticketMedioPorVenda):'—',
             cls:'compacto k-fat',sub:['por venda']})}
@@ -7330,9 +7651,11 @@ function renderClientes(){
             num:k.valorHistoricoMedioPorCliente!=null?money(k.valorHistoricoMedioPorCliente):'—',
             cls:'compacto k-tic',sub:['gasto acumulado ÷ clientes']})}
         </div>
-        <div class="hint" style="margin-top:10px">
+        <div class="hint" style="margin-top:12px;line-height:1.6">
           <b>Valor médio por cliente</b> é o que já foi gasto, somado e dividido —
-          não é LTV: nada aqui projeta compra futura.
+          não é LTV: nada aqui projeta compra futura.<br>
+          <b>Clientes no período</b> é quem comprou dentro do recorte. Não confunda
+          com <b>Ativos</b> na saúde da base, que é um estado da régua de frequência.
         </div>`}
       </div>
     </div>
@@ -7349,9 +7672,10 @@ function renderClientes(){
       ${blocoRankingClientes(crmData.topClientes)}
     </div>
 
-    <div class="vg vg-3 mid">
+    ${blocoTopClientesLista(crmData.topClientes)}
+
+    <div class="vg vg-2 saude solto">
       ${blocoSaudeBase(saude,crmData.regua)}
-      ${blocoTopClientesLista(crmData.topClientes)}
       ${blocoReativacao(crmData.reativacao)}
     </div>
 
@@ -7368,9 +7692,15 @@ function renderClientes(){
 function blocoRankingClientes(l){
   if(!l||!l.length) return painelBloco('Peças compradas pelos principais clientes',
     `<div class="empty"><p>Nada no período.</p></div>`);
+  /* Este cartão responde QUANTIDADE e FREQUÊNCIA; Top clientes responde
+     VALOR. Ordenados pelo mesmo critério eles diziam a mesma coisa duas
+     vezes — por isso o padrão aqui é peça, e o número em destaque é peça. */
   const campo={pecas:'pecas',faturamento:'faturamento',vendas:'vendas'}[crmOrdemRanking]||'pecas';
   const lista=[...l].sort((a,b)=>b[campo]-a[campo]).slice(0,6);
   const maior=Math.max(...lista.map(c=>c[campo]))||1;
+  const un=(c)=>campo==='faturamento'?money(c.faturamento)
+    :campo==='pecas'?fmtN(c.pecas):fmtN(c.vendas);
+  const unRot=campo==='faturamento'?'':campo==='pecas'?'peças':'compras';
   const linhas=lista.map((c,i)=>`<div class="rkrow clicavel" tabindex="0" role="button"
       onclick="switchTab('cli:${encodeURIComponent(c.norm)}')"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchTab('cli:${encodeURIComponent(c.norm)}')}">
@@ -7379,11 +7709,11 @@ function blocoRankingClientes(l){
         <div class="rk-nm">${esc(c.nome)}</div>
         <div class="rk-barra"><i style="width:${(c[campo]/maior*100).toFixed(1)}%;background:${COR_SERIE[i%COR_SERIE.length]}"></i></div>
         <div class="hint" style="font-size:10.5px;margin-top:4px">
-          ${fmtN(c.pecas)} peças · ${fmtN(c.vendas)} ${plural(c.vendas,'compra','compras')}${
+          ${fmtN(c.vendas)} ${plural(c.vendas,'compra','compras')}${
           c.ultimaCompra?` · última em ${fmtData(c.ultimaCompra)}`:''}</div>
       </div>
-      <div class="rk-vl"><b>${campo==='faturamento'?money(c.faturamento):fmtN(c[campo])}</b>
-        <span>${campo==='faturamento'?`${fmtN(c.pecas)} peças`:money(c.faturamento)}</span></div>
+      <div class="rk-vl"><b>${un(c)}</b>
+        <span>${unRot||`${fmtN(c.pecas)} peças`}</span></div>
     </div>`).join('');
   return painelBloco('Peças compradas pelos principais clientes',
     `<div class="rank">${linhas}</div>`,
@@ -7399,15 +7729,21 @@ function blocoRankingClientes(l){
 function blocoSaudeBase(s,regua){
   if(!s||!s.grupos.length) return painelBloco('Saúde da base',
     `<div class="empty"><p>Sem clientes no período.</p></div>`);
-  const linhas=s.grupos.map(g=>`<div class="rkrow">
-      <span class="rk-pos" style="background:${COR_ESTADO[g.estado]||'#9E8A90'}"></span>
-      <div class="rk-mid"><div class="rk-nm">${esc(g.rotulo)}</div></div>
-      <div class="rk-vl"><b>${fmtN(g.n)}</b><span>${g.pct}%</span></div>
+  /* Uma linha por grupo, com quantidade e percentual na mesma altura da
+     cor. A versão anterior gastava 40px de altura por grupo e deixava meio
+     cartão vazio debaixo de uma rosca de 210px. */
+  const linhas=s.grupos.map(g=>`<div class="sd-row">
+      <span class="sd-dot" style="background:${COR_ESTADO[g.estado]||'#9E8A90'}"></span>
+      <span class="sd-nm">${esc(g.rotulo)}</span>
+      <span class="sd-n">${fmtN(g.n)}</span>
+      <span class="sd-p">${g.pct}%</span>
     </div>`).join('');
   return painelBloco('Saúde da base',
-    `<div id="roscaSaude" class="semlegenda" style="max-width:210px;margin:0 auto 14px"></div>
-     <div class="rank">${linhas}</div>
-     <details style="margin-top:12px">
+    `<div class="saude">
+       <div id="roscaSaude" class="semlegenda"></div>
+       <div class="sd-leg">${linhas}</div>
+     </div>
+     <details class="sd-exp">
        <summary class="hint" style="cursor:pointer">Como cada grupo é definido</summary>
        <div class="hint" style="margin-top:8px;line-height:1.6">${esc(s.explicacao)}</div>
      </details>`);
@@ -7418,26 +7754,61 @@ function pintarRoscaSaude(s){
   if(!wrap) return;
   const dados=(s.grupos||[]).map(g=>({cat:g.rotulo,qtd:g.n,cor:COR_ESTADO[g.estado]||'#9E8A90'}))
     .filter(d=>d.qtd>0);
-  desenharRosca(wrap,dados,'clientes','Sem clientes no período.',false);
+  desenharRosca(wrap,dados,'','Sem clientes no período.',false,
+    {rotulo:'clientes', formatar:(v)=>fmtN(v)});
 }
 
 /* ---------------- top clientes (lista) ---------------- */
 
+/** No Painel de Vendas o Top clientes é um resumo (§3.6). Aqui ele é a
+    leitura completa que a largura permite: gasto, peças, compras, ticket,
+    última compra e o estado da régua. Nenhum número é novo — todos já vinham
+    no mesmo payload, apertados numa coluna de 300px. */
 function blocoTopClientesLista(l){
   if(!l||!l.length) return painelBloco('Top clientes',`<div class="empty"><p>Nada no período.</p></div>`);
-  const linhas=l.slice(0,6).map((c,i)=>`<div class="rkrow clicavel" tabindex="0" role="button"
+  const linhas=l.slice(0,10).map((c,i)=>`<div class="gt-r clicavel" tabindex="0" role="button"
       onclick="switchTab('cli:${encodeURIComponent(c.norm)}')"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchTab('cli:${encodeURIComponent(c.norm)}')}">
-      <span class="rk-pos" style="background:${COR_SERIE[i%COR_SERIE.length]}">${i+1}</span>
-      <div class="rk-mid"><div class="rk-nm">${esc(c.nome)}</div>
-        <div class="hint" style="font-size:10.5px">${fmtN(c.pecas)} peças ·
-          ${fmtN(c.vendas)} ${plural(c.vendas,'compra','compras')}${
-          c.ultimaCompra?` · ${fmtData(c.ultimaCompra)}`:''}</div></div>
-      <div class="rk-vl"><b>${money(c.faturamento)}</b>
-        <span>${c.ticketMedio!=null?money(c.ticketMedio)+' /compra':''}</span></div>
+      <span class="gt-pos" style="background:${COR_SERIE[i%COR_SERIE.length]}">${i+1}</span>
+      <div>
+        <div class="gt-nm">${esc(c.nome)}</div>
+        <div class="gt-sub">${seloEstado(c.estado)}</div>
+      </div>
+      <div class="gt-n forte">${money(c.faturamento)}</div>
+      <div class="gt-n col-op">${fmtN(c.pecas)}</div>
+      <div class="gt-n col-op">${fmtN(c.vendas)}</div>
+      <div class="gt-n col-op">${c.ticketMedio!=null?money(c.ticketMedio):'—'}</div>
+      <div class="gt-n col-op">${c.ultimaCompra?fmtData(c.ultimaCompra):'—'}</div>
+      <div class="gt-mob">
+        <span><b>${fmtN(c.pecas)}</b> peças</span>
+        <span><b>${fmtN(c.vendas)}</b> ${plural(c.vendas,'compra','compras')}</span>
+        ${c.ticketMedio!=null?`<span><b>${money(c.ticketMedio)}</b> /compra</span>`:''}
+        ${c.ultimaCompra?`<span>última em <b>${fmtData(c.ultimaCompra)}</b></span>`:''}
+      </div>
     </div>`).join('');
-  return painelBloco('Top clientes',`<div class="rank">${linhas}</div>`,
-    `<button class="btn btn-ghost btn-sm" onclick="setClientesFiltro('todos');document.getElementById('todosClientes').scrollIntoView({behavior:'smooth'})">Ver todos</button>`);
+  return painelBloco('Top clientes',
+    `<div class="gtab tcli">
+       <div class="gt-h">
+         <span></span><span>Cliente</span>
+         <span class="gt-n">Gasto</span>
+         <span class="gt-n col-op">Peças</span>
+         <span class="gt-n col-op">Compras</span>
+         <span class="gt-n col-op">Ticket</span>
+         <span class="gt-n col-op">Última</span>
+       </div>
+       ${linhas}
+     </div>`,
+    `<button class="btn btn-ghost btn-sm" onclick="verEstadoNaLista('todos')">Ver todos</button>`);
+}
+
+/** O selo de estado. A cor é a MESMA de COR_ESTADO usada pela rosca de saúde
+    — §13: um estado tem uma cor só, em toda a tela. */
+function seloEstado(estado){
+  if(!estado) return '';
+  const cor=COR_ESTADO[estado]||'#9E8A90';
+  const rot={'recorrente':'Recorrente','ativa':'Ativa','em risco':'Em risco',
+    'inativa':'Inativa','sem histórico':'Sem histórico'}[estado]||estado;
+  return `<span class="selo" style="color:${cor}"><i></i>${esc(rot)}</span>`;
 }
 
 /* ---------------- oportunidades de reativação ---------------- */
@@ -7448,20 +7819,67 @@ function blocoTopClientesLista(l){
 function blocoReativacao(l){
   if(!l||!l.length) return painelBloco('Oportunidades de reativação',
     `<div class="empty"><p>Ninguém fora da própria frequência de compra. Base em dia.</p></div>`);
-  const linhas=l.slice(0,8).map(c=>`<div class="oprow">
+
+  const conta=(e)=>l.filter(c=>c.estado===e).length;
+  const lista=[...l]
+    .filter(c=>crmReativFiltro==='todos'||c.estado===crmReativFiltro)
+    .sort((a,b)=>crmReativOrdem==='tempo'
+      ?(b.diasSemComprar||0)-(a.diasSemComprar||0)
+      :b.faturamento-a.faturamento);
+
+  const pilula=(k,r,n)=>`<button class="fpill ${crmReativFiltro===k?'on':''}"
+    onclick="setReativFiltro('${k}')">${r}${n!=null?` <b>${n}</b>`:''}</button>`;
+
+  const linhas=lista.map(c=>`<div class="gt-r">
       <div>
-        <div class="op-nm">${esc(c.nome)}</div>
-        <div class="op-sub">${c.ultimaCompra?`última em ${fmtData(c.ultimaCompra)}`:'sem data'} ·
-          ${money(c.faturamento)} · ${fmtN(c.pecas)} peças · ${fmtN(c.vendas)} ${plural(c.vendas,'compra','compras')}${
-          c.frequenciaDias?` · costuma comprar a cada ${c.frequenciaDias} dias`:''}</div>
+        <div class="gt-nm">${esc(c.nome)}</div>
+        <div class="gt-sub">${seloEstado(c.estado)}
+          &nbsp;${fmtN(c.vendas)} ${plural(c.vendas,'compra','compras')}${
+          c.ultimaCompra?` · última em ${fmtData(c.ultimaCompra)}`:' · sem data'}</div>
       </div>
-      <span class="dias ${c.estado==='inativa'?'frio':''}">${fmtN(c.diasSemComprar)} dias</span>
-      <span class="op-acao"><button class="btn btn-ghost btn-sm"
-        onclick="switchTab('cli:${encodeURIComponent(c.norm)}')">Ver cliente</button></span>
+      <div class="gt-n col-op forte">${money(c.faturamento)}</div>
+      <div class="gt-n col-op">${c.frequenciaDias?`${fmtN(c.frequenciaDias)} dias`:'—'}</div>
+      <div class="gt-n"><span class="dias ${c.estado==='inativa'?'frio':''}">${fmtN(c.diasSemComprar)} dias</span></div>
+      <div><button class="btn btn-ghost btn-sm"
+        onclick="event.stopPropagation();switchTab('cli:${encodeURIComponent(c.norm)}')">Ver cliente</button></div>
+      <div class="gt-mob">
+        <span><b>${money(c.faturamento)}</b> gastos</span>
+        ${c.frequenciaDias?`<span>comprava a cada <b>${fmtN(c.frequenciaDias)}</b> dias</span>`:''}
+      </div>
     </div>`).join('');
+
+  /* Esta lista mostra as MAIORES oportunidades, não todas. Quem quiser a
+     população inteira de um estado vai para a lista de baixo, que usa
+     exatamente a mesma classificação — não há duas réguas. */
   return painelBloco('Oportunidades de reativação',
-    `<div class="hint" style="margin-bottom:10px">Clientes que passaram do próprio
-       intervalo entre compras, do maior gasto para o menor.</div>${linhas}`);
+    `<div class="hint" style="margin-bottom:11px;line-height:1.55">Clientes que passaram do
+       <b>próprio</b> intervalo entre compras. Estas são as ${l.length} de maior valor —
+       a lista completa de cada estado está em <b>Todos os clientes</b>.</div>
+     <div class="opbar">
+       ${pilula('todos','Todas',l.length)}
+       ${conta('em risco')?pilula('em risco','Em risco',conta('em risco')):''}
+       ${conta('inativa')?pilula('inativa','Inativas',conta('inativa')):''}
+       <span class="spacer"></span>
+       <select class="selmini" onchange="setReativOrdem(this.value)" aria-label="Ordenar as oportunidades">
+         <option value="valor" ${crmReativOrdem==='valor'?'selected':''}>Maior valor</option>
+         <option value="tempo" ${crmReativOrdem==='tempo'?'selected':''}>Mais tempo sem comprar</option>
+       </select>
+     </div>
+     ${lista.length?`<div class="gtab oplista">
+       <div class="gt-h">
+         <span>Cliente</span>
+         <span class="gt-n col-op">Gasto</span>
+         <span class="gt-n col-op">Comprava</span>
+         <span class="gt-n">Parada há</span>
+         <span></span>
+       </div>${linhas}</div>`
+       :`<div class="empty"><p>Nenhuma neste filtro.</p></div>`}
+     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+       ${conta('em risco')?`<button class="btn btn-ghost btn-sm"
+         onclick="verEstadoNaLista('em risco')">Ver todas em risco</button>`:''}
+       ${conta('inativa')?`<button class="btn btn-ghost btn-sm"
+         onclick="verEstadoNaLista('inativa')">Ver todas inativas</button>`:''}
+     </div>`);
 }
 
 /* ---------------- insights de clientes ---------------- */

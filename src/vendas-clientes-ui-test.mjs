@@ -345,6 +345,163 @@ const reais = errosConsole.filter((e) => !/favicon|manifest|sw\.js/i.test(e));
 eq('console limpo', reais.length, 0);
 if (reais.length) reais.slice(0, 8).forEach((e) => console.log('     ' + e));
 
+/* ═══════════════════════════════ 14. o acabamento: o que a segunda passada
+   prometeu e a tela precisa continuar cumprindo. Cada asserção aqui nasceu de
+   um defeito visto no navegador, não de uma ideia de design. */
+
+console.log('\n=== 14. acabamento visual ===');
+
+const ctxW = await nav.newContext({ viewport: { width: 1440, height: 950 } });
+const pw = await ctxW.newPage();
+const errosW = [];
+pw.on('console', (m) => { if (m.type() === 'error') errosW.push(m.text()); });
+pw.on('pageerror', (e) => errosW.push(String(e)));
+await pw.goto(PAINEL, { waitUntil: 'networkidle' });
+await pw.waitForTimeout(600);
+await pw.fill('#cf-url', API);
+await pw.fill('#cf-key', KEY);
+await pw.click('#conexaoOverlay .btn-gold');
+await pw.waitForTimeout(2500);
+
+await pw.evaluate(() => switchTab('vendas-painel'));
+await pw.waitForTimeout(2500);
+
+/* a barra de rolagem embaixo do gráfico de meses era o item que mais fazia a
+   tela parecer quebrada */
+eq('evolução não ganha barra de rolagem em 1440px', await pw.$eval('#evoBox',
+  (e) => getComputedStyle(e).overflowX !== 'visible' && e.scrollWidth - e.clientWidth > 2), 'false');
+eq('e a página não rola de lado por causa dela', await pw.evaluate(
+  () => document.documentElement.scrollWidth - document.documentElement.clientWidth > 1), 'false');
+
+/* o rótulo do mês era cortado nas duas pontas: como item de flex ele herdava
+   a largura da barra, de 14px com 24 meses */
+eq('rótulo de mês não é cortado', await pw.$$eval('#evoBox .evo-lbl',
+  (n) => n.filter((e) => e.textContent.trim() && e.scrollWidth - e.clientWidth > 2).length), 0);
+eq('o mês mais recente está rotulado', await pw.$$eval('#evoBox .evo-col',
+  (n) => !!n[n.length - 1].querySelector('.evo-lbl').textContent.trim()), 'true');
+
+/* a lista de categorias encurtou, e a rosca continua com TODAS */
+const catVis = await pw.$$eval('#view-vendas-painel .catgrid.vend > div > .rank > .rkrow', (n) => n.length);
+const catFat = await pw.$$eval('#roscaCatVendas .slice', (n) => n.length);
+eq('a lista de categorias mostra no máximo 6', catVis <= 6, 'true');
+eq('a rosca desenha todas as categorias', catFat >= catVis, 'true');
+
+/* nenhum cartão herdando altura de vizinho e sobrando metade vazio */
+const sobra = async (pgx, vista) => pgx.evaluate((v) => {
+  const out = [];
+  document.querySelectorAll(v + ' .panel').forEach((p) => {
+    const b = p.querySelector('.body'); if (!b) return;
+    const alt = p.getBoundingClientRect().height; if (alt < 220) return;
+    let baixo = 0;
+    b.querySelectorAll(':scope > *').forEach((c) => {
+      const r = c.getBoundingClientRect(); if (r.height) baixo = Math.max(baixo, r.bottom);
+    });
+    if (p.getBoundingClientRect().bottom - baixo > alt * 0.28) {
+      out.push((p.querySelector('h2') || {}).textContent);
+    }
+  });
+  return out;
+}, vista);
+eq('painel: nenhum cartão meio vazio', (await sobra(pw, '#view-vendas-painel')).join(' | '), '');
+
+/* o texto original de cada origem existe para ser conferido inteiro */
+eq('o texto original da origem não vira reticências', await pw.$$eval(
+  '#view-vendas-painel .rk-nm.livre',
+  (n) => n.filter((e) => e.scrollWidth - e.clientWidth > 2).length), 0);
+
+await pw.evaluate(() => switchTab('clientes'));
+await pw.waitForTimeout(2500);
+
+/* o rótulo ambíguo: 347 "ativos" no topo contra 40 "Ativos" na saúde da base */
+const rotulos = await pw.$$eval('#view-clientes .kpi .k-lbl', (n) => n.map((x) => x.textContent.trim()));
+eq('o indicador do topo não se chama mais "Clientes ativos"',
+  rotulos.some((r) => /clientes ativos/i.test(r)), 'false');
+eq('ele diz "Clientes no período"', rotulos.some((r) => /clientes no per/i.test(r)), 'true');
+
+/* o centro da rosca dizia "347 peças clientes" */
+const centro = await pw.$eval('#roscaSaude .dcenter', (e) => e.textContent);
+eq('o centro da rosca de saúde não fala em peças', /pe[çc]a/i.test(centro), 'false');
+eq('o centro da rosca de saúde fala em clientes', /cliente/i.test(centro), 'true');
+
+/* as duas grades novas, e a reativação ocupando a largura */
+eq('top clientes virou grade de leitura',
+  await pw.$$eval('#view-clientes .gtab.tcli .gt-r', (n) => n.length >= 6), 'true');
+eq('a grade de top clientes mostra as colunas em 1440px',
+  await pw.$eval('#view-clientes .gtab.tcli .gt-r .col-op',
+    (e) => getComputedStyle(e).display !== 'none'), 'true');
+const proporcao = await pw.evaluate(() => {
+  const g = document.querySelector('#view-clientes .vg.vg-2.saude');
+  if (!g) return null;
+  const [a, b] = [...g.children].map((c) => c.getBoundingClientRect().width);
+  return Math.round(b / (a + b) * 100);
+});
+eq('reativação ocupa a maior parte da fileira',
+  proporcao >= 55 && proporcao <= 72, 'true', proporcao + '%');
+
+/* nada truncado em nenhuma das grades nem na legenda da saúde */
+eq('nada é cortado nas grades de leitura', await pw.$$eval(
+  '#view-clientes .gtab .gt-nm, #view-clientes .gtab .gt-sub, #view-clientes .sd-nm',
+  (n) => n.filter((e) => e.scrollWidth - e.clientWidth > 2).length), 0);
+
+eq('clientes: nenhum cartão meio vazio', (await sobra(pw, '#view-clientes')).join(' | '), '');
+
+/* §13: o mesmo estado tem a mesma cor na rosca e no selo */
+const coresIguais = await pw.evaluate(() => {
+  const selo = [...document.querySelectorAll('#view-clientes .gtab .selo')]
+    .find((s) => /em risco/i.test(s.textContent));
+  if (!selo) return 'sem selo em risco na tela';
+  const c = getComputedStyle(selo).color;
+  const fatias = [...document.querySelectorAll('#roscaSaude .slice')].map((f) => f.getAttribute('fill'));
+  const hex = '#' + c.match(/\d+/g).slice(0, 3)
+    .map((x) => (+x).toString(16).padStart(2, '0')).join('').toUpperCase();
+  return fatias.includes(hex) ? 'ok' : `selo ${hex} não está entre ${fatias.join(',')}`;
+});
+eq('"em risco" tem a mesma cor no selo e na rosca', coresIguais, 'ok');
+
+/* a legenda do gráfico liga e desliga cada cliente */
+const linhasAntes = await pw.$$eval('#view-clientes .lchart .ln', (n) => n.length);
+await pw.click('#view-clientes .lgnd .lgn');
+await pw.waitForTimeout(700);
+eq('desligar um nome tira a linha do gráfico',
+  await pw.$$eval('#view-clientes .lchart .ln', (n) => n.length), linhasAntes - 1);
+await pw.click('#view-clientes .lgnd .lgn');
+await pw.waitForTimeout(700);
+eq('religar devolve a linha',
+  await pw.$$eval('#view-clientes .lchart .ln', (n) => n.length), linhasAntes);
+
+/* os filtros da reativação */
+const opTodas = await pw.$$eval('#view-clientes .oplista .gt-r', (n) => n.length);
+await pw.evaluate(() => setReativFiltro('inativa'));
+await pw.waitForTimeout(800);
+eq('o filtro da reativação deixa só o estado escolhido',
+  await pw.$$eval('#view-clientes .oplista .gt-r .selo',
+    (n) => n.length > 0 && n.every((s) => /inativa/i.test(s.textContent))), 'true');
+eq('e mostra menos linhas que "Todas"',
+  (await pw.$$eval('#view-clientes .oplista .gt-r', (n) => n.length)) < opTodas, 'true');
+await pw.evaluate(() => setReativFiltro('todos'));
+await pw.waitForTimeout(800);
+
+/* ordenar por tempo é de fato outra ordem */
+await pw.evaluate(() => setReativOrdem('tempo'));
+await pw.waitForTimeout(800);
+const opDias = await pw.$$eval('#view-clientes .oplista .dias',
+  (n) => n.map((e) => +e.textContent.replace(/\D/g, '')));
+eq('ordenar por tempo põe a mais parada em cima',
+  opDias.length > 1 && opDias.every((d, i) => i === 0 || opDias[i - 1] >= d), 'true');
+await pw.evaluate(() => setReativOrdem('valor'));
+await pw.waitForTimeout(800);
+
+/* o atalho entre a leitura e a operação */
+await pw.evaluate(() => verEstadoNaLista('em risco'));
+await pw.waitForTimeout(1000);
+eq('"Ver todas em risco" filtra a lista de baixo',
+  await pw.$eval('#todosClientes .fpill.on', (e) => /em risco/i.test(e.textContent)), 'true');
+
+eq('console limpo no acabamento',
+  errosW.filter((e) => !/favicon|manifest|sw\.js/i.test(e)).length, 0);
+if (errosW.length) errosW.slice(0, 5).forEach((e) => console.log('     ' + e));
+await ctxW.close();
+
 await nav.close();
 console.log(`\n${falhas ? '✗ ' + falhas + ' FALHA(S)' : '✓ TUDO PASSOU'}`);
 process.exit(falhas ? 1 : 0);

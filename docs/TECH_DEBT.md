@@ -449,3 +449,25 @@ E **não é o fluxo de maleta que está quebrado**:
 `src/revendedoras-test.mjs` cobre revendedora, maleta, acerto e Anexo I pela
 tela e passa inteiro (45 asserções). É algo específico deste roteiro neste
 ambiente. Registrado em `docs/BASELINE.md`; falta isolar.
+
+
+## 19. A rosca de categoria conta ITEM; o indicador de peças conta VENDA
+
+No período `tudo` do DEV a distribuição por categoria soma **1.375** peças e
+o indicador **Peças vendidas** mostra **1.372**. A diferença de 3 é exata e
+tem nome: são as peças das três operações que a planilha marcou como ajuste
+(`PERDIDO` ×2, `ACHO QUE FOI VENDIDO` ×1). Elas têm categoria — a peça
+existe — mas não são venda, e por isso ficam fora do indicador.
+
+Nenhum dos dois números está errado; eles respondem a perguntas diferentes.
+O que faltava era a tela dizer isso, e agora ela diz: quando a diferença
+existe, o cartão a explica logo abaixo da rosca, com o valor calculado no
+momento. O centro da rosca também deixou de afirmar "peças **vendidas**",
+porque três daquelas peças não foram vendidas.
+
+**Fica em aberto uma decisão de negócio, não de código:** a distribuição por
+categoria deve continuar contando as peças de ajuste, ou passar a excluí-las
+para bater com o indicador? Excluir alinha os dois números e esconde 3 peças
+que existem no estoque. Manter preserva o inventário e exige a explicação.
+Enquanto ninguém decidir, a regra atual **não muda** — a rodada de
+acabamento visual não é o lugar de mexer em contagem.
