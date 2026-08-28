@@ -1421,6 +1421,189 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
   #tabsNav::-webkit-scrollbar{display:none}
   #tabsNav .tab{flex:0 0 auto;font-size:11.5px}
 }
+
+/* ==========================================================================
+   Vendas · Painel e Clientes
+   --------------------------------------------------------------------------
+   Nada aqui inventa linguagem visual: as cores são os tokens da marca, a
+   paleta de categoria é a mesma `CAT_COR` do Estoque, o cartão é `.panel` e
+   o indicador é `.kpi`. O que estas regras acrescentam são as COMPOSIÇÕES
+   que o painel comercial precisa e que o resto do sistema não usava — a
+   fileira de cinco indicadores, as duas e três colunas de gráfico, o
+   gráfico de linhas e o ranking com barra.
+
+   Celular primeiro: tudo empilha em uma coluna por padrão, e as colunas só
+   aparecem quando há largura. A Sthefany abre isto no telefone.
+   ========================================================================== */
+
+/* Cinco indicadores. No celular viram dois por linha — cinco em coluna
+   única daria uma tela inteira de rolagem antes do primeiro gráfico. */
+.kpis.cinco{grid-template-columns:repeat(2,minmax(0,1fr))}
+.kpi.compacto{padding:12px 13px}
+.kpi.compacto .k-num{font-size:23px}
+.kpi.compacto .k-sub{font-size:10.5px}
+/* A faixa lateral colorida diz de que assunto é o cartão sem depender de
+   ler o rótulo. Cor da paleta da marca, nunca valor solto. */
+.kpi.k-fat::after{background:var(--bordo)}
+.kpi.k-ped::after{background:#C2426B}
+.kpi.k-pec::after{background:#C4802A}
+.kpi.k-cli::after{background:#0D9382}
+.kpi.k-tic::after{background:#6A54B5}
+
+/* As fileiras de blocos. `vg-2` é gráfico + leitura; `vg-3` é o rodapé de
+   três leituras curtas. Em coluna única no celular, sempre. */
+.vg{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-bottom:14px}
+.vg>.panel{margin-bottom:0}
+
+/* Cabeçalho de bloco com controle à direita (o seletor do gráfico). */
+.bhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.bhead .bh-t{min-width:0}
+.selmini{
+  border:1px solid var(--line);background:#fff;border-radius:9px;
+  padding:6px 10px;font:inherit;font-size:12px;color:var(--bordo);cursor:pointer;
+}
+.selmini:focus{outline:none;border-color:var(--rose);box-shadow:0 0 0 3px var(--rose-tint)}
+
+/* ---------- gráfico de linhas: clientes ao longo do tempo ---------- */
+.lchart{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.lchart svg{display:block;min-width:520px;width:100%;height:auto;overflow:visible}
+.lchart .grid{stroke:var(--line-soft);stroke-width:1}
+.lchart .axis{fill:var(--muted);font-size:9.5px;font-variant-numeric:tabular-nums}
+.lchart .ln{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.lchart .pt{stroke:#fff;stroke-width:1.5}
+.lchart .hit{fill:transparent;cursor:pointer}
+/* A legenda não é decoração: com cinco linhas coloridas ela é a única forma
+   de saber de quem é cada uma. §39 — cor sozinha nunca basta. */
+.lgnd{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px}
+.lgn{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink)}
+.lgn .dot{width:9px;height:9px;border-radius:50%;flex:none}
+.lgn b{font-weight:600}
+
+/* ---------- ranking com barra ---------- */
+.rank{display:flex;flex-direction:column;gap:2px}
+.rkrow{
+  display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:10px;
+  align-items:center;padding:8px 6px;border-radius:9px;
+}
+.rkrow.clicavel{cursor:pointer}
+.rkrow.clicavel:hover{background:var(--ivory)}
+.rkrow.clicavel:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
+.rk-pos{
+  width:22px;height:22px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:10.5px;font-weight:700;color:#fff;flex:none;
+}
+.rk-mid{min-width:0}
+.rk-nm{font-size:13px;color:var(--ink);font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk-barra{height:6px;background:var(--line-soft);border-radius:99px;margin-top:6px;overflow:hidden}
+.rk-barra i{display:block;height:100%;border-radius:99px}
+.rk-vl{text-align:right;flex:none}
+.rk-vl b{display:block;font-size:13.5px;color:var(--bordo);font-variant-numeric:tabular-nums}
+.rk-vl span{display:block;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* ---------- produto mais vendido, com foto ---------- */
+.pvrow{
+  display:grid;grid-template-columns:22px 46px minmax(0,1fr) auto;gap:11px;
+  align-items:center;padding:9px 4px;border-top:1px solid var(--line-soft);
+}
+.pvrow:first-child{border-top:none}
+.pv-pos{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:center}
+.pv-foto{
+  width:46px;height:46px;border-radius:10px;overflow:hidden;flex:none;
+  background:var(--ivory);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;
+}
+.pv-foto img{width:100%;height:100%;object-fit:cover;display:block}
+/* Sem foto NÃO tira a peça do ranking — mostra um lugar reservado. §16. */
+.pv-foto .semfoto{font-size:8px;color:var(--muted);text-align:center;line-height:1.2;padding:2px}
+.pv-mid{min-width:0}
+.pv-nm{font-size:12.5px;color:var(--ink);line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pv-sub{font-size:10.5px;color:var(--muted);margin-top:3px;
+  display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.pv-vl{text-align:right;flex:none}
+.pv-vl b{display:block;font-size:13px;color:var(--bordo);font-variant-numeric:tabular-nums}
+.pv-vl span{display:block;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* ---------- oportunidade de reativação ---------- */
+.oprow{
+  display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;
+  padding:9px 4px;border-top:1px solid var(--line-soft);
+}
+.oprow:first-child{border-top:none}
+.op-nm{font-size:13px;color:var(--ink);font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-sub{font-size:10.5px;color:var(--muted);margin-top:2px}
+.dias{
+  font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:99px;white-space:nowrap;
+  background:#FBF1DC;color:#8A6A1F;border:1px solid #EBD9A8;
+}
+.dias.frio{background:#FBEAEA;color:#A6383C;border-color:#F0CFCF}
+
+/* ---------- pílulas de filtro ---------- */
+.filtros-cli{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}
+.fpill{
+  border:1px solid var(--line);background:#fff;border-radius:99px;padding:6px 13px;
+  font:inherit;font-size:12px;color:var(--bordo-soft);cursor:pointer;white-space:nowrap;
+}
+.fpill:hover{border-color:var(--rose);color:var(--bordo)}
+.fpill.on{background:var(--bordo);border-color:var(--bordo);color:#fff;font-weight:600}
+.fpill:focus-visible{outline:2px solid var(--rose);outline-offset:2px}
+
+/* ---------- linha do tempo do perfil ---------- */
+.tl{display:flex;flex-direction:column}
+.tlv{border-top:1px solid var(--line-soft);padding:12px 2px}
+.tlv:first-child{border-top:none}
+.tl-topo{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.tl-dt{font-size:12.5px;font-weight:700;color:var(--bordo)}
+.tl-vl{font-size:13.5px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.tl-meta{font-size:11px;color:var(--muted);margin-top:3px}
+.tl-itens{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.tl-item{display:flex;gap:8px;font-size:11.5px;color:var(--ink);align-items:baseline}
+.tl-item code{font-size:10.5px;color:var(--muted);flex:none}
+.tl-item .q{flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
+
+@media (min-width:760px){
+  .kpis.cinco{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .vg.vg-2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .vg.vg-2.larga{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+  .pvrow{grid-template-columns:24px 54px minmax(0,1fr) auto}
+  .pv-foto{width:54px;height:54px}
+}
+@media (min-width:1040px){
+  .vg.vg-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .vg.vg-3.mid{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,1.05fr)}
+}
+@media (max-width:479px){
+  .kpi.compacto .k-num{font-size:20px}
+  .rkrow{grid-template-columns:22px minmax(0,1fr) auto;gap:8px}
+  /* O produto vira duas linhas em vez de espremer quatro colunas numa tela
+     de 360px — o nome continua legível e o valor não corta. */
+  .pvrow{grid-template-columns:18px 40px minmax(0,1fr);row-gap:4px}
+  .pv-vl{grid-column:2 / -1;text-align:left;display:flex;gap:10px;align-items:baseline}
+  .pv-vl span{display:inline}
+  .oprow{grid-template-columns:minmax(0,1fr) auto}
+  .oprow .op-acao{grid-column:1 / -1}
+  .oprow .op-acao .btn{width:100%}
+}
+
+/* A rosca traz a própria legenda, e nos blocos de vendas a lista com barra
+   ao lado já diz o mesmo — duas vezes o mesmo dado é ruído, não reforço. */
+.semlegenda .legend{display:none}
+/* Os cartões de rodapé se acomodam ao que existe: quando um insight não pode
+   ser calculado ele simplesmente não aparece, e uma grade fixa de três
+   deixaria o quarto sozinho numa linha. */
+.insights{grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr))}
+
+/* Com muitos meses as barras dividem a largura em vez de rolarem para fora
+   do cartão: uma rolagem horizontal que ninguém vê esconde justamente os
+   meses mais recentes, que são os que interessam. */
+.evo.apertada{overflow-x:visible}
+.evo.apertada .evo-col{flex:1 1 0;min-width:0}
+/* O centro da rosca de origem mostra dinheiro, e "R$ 127.228,92" não cabe
+   no corpo de 30px pensado para uma contagem. */
+#roscaOrigem .dcenter .dc-num{font-size:17px;letter-spacing:-.01em}
+#roscaOrigem .dcenter .dc-lbl{font-size:10px}
 </style>
 </head>
 <body>
@@ -2538,7 +2721,10 @@ function renderTabs(){
     navSub.style.display='';
     /* Ordem do dia de trabalho: registra a venda, lê o que ela produziu,
        e só então olha para quem comprou. */
-    const nCli=(painelVendas&&painelVendas.clientes&&painelVendas.clientes.length)||0;
+    /* O contador vem do CRM quando ele já carregou, e do painel quando não.
+       Zero some em vez de mostrar '0' — número que não informa é ruído. */
+    const nCli=(crmData&&crmData.kpis&&crmData.kpis.ativos)
+      ||(clientesLista&&clientesLista.length)||0;
     navSub.innerHTML=`
       <button class="tab ${tabAtual==='vendas'?'active':''}" onclick="switchTab('vendas')">Lançamentos</button>
       <button class="tab ${tabAtual==='vendas-painel'?'active':''}" onclick="switchTab('vendas-painel')">Painel</button>
@@ -2584,8 +2770,11 @@ function svgIco(d,tam){
  *  propósito: são quatro na mesma faixa, inclusive no celular. `sub` chega
  *  como lista de linhas, uma por informação — no telefone elas quebrariam
  *  em lugar errado se viessem numa frase só. */
-function cartaoKpi({ico,rot,num,sub}){
-  return `<div class="kpi">
+function cartaoKpi({ico,rot,num,sub,cls}){
+  /* `cls` é opcional e entrou com o painel de vendas: ele precisa da versão
+     compacta (cinco cartões numa fileira) e da faixa lateral por assunto.
+     Ausente, o cartão é exatamente o que sempre foi. */
+  return `<div class="kpi${cls?' '+cls:''}">
     <div class="k-topo">
       <span class="k-ico">${svgIco(ico,15)}</span>
       <span class="k-lbl">${esc(rot)}</span>
@@ -3592,8 +3781,15 @@ function renderResumoCat(dados){
 
 /* Desenha a rosca em qualquer container: usada na Visão geral e também
    dentro da maleta de cada revendedora. */
-function desenharRosca(wrap,dados,legendaCentro,textoVazio,comRotulos){
+function desenharRosca(wrap,dados,legendaCentro,textoVazio,comRotulos,un){
   if(comRotulos===undefined) comRotulos=true;
+  /* `un` chegou com o painel de vendas: a rosca de ORIGEM mede dinheiro,
+     não peça, e o centro dizia "126617 pecas" sobre um valor em reais.
+     Ausente, tudo continua exatamente como era. */
+  un=un||{};
+  const fmtQ=un.formatar||((v)=>String(v));
+  const rotulo=un.rotulo!==undefined?un.rotulo:'peças';
+  const rotuloDe=(v)=>un.rotulo!==undefined?un.rotulo:plural(v,'peça','peças');
   if(!wrap) return;
   const total=dados.reduce((s,d)=>s+d.qtd,0);
 
@@ -3630,13 +3826,13 @@ function desenharRosca(wrap,dados,legendaCentro,textoVazio,comRotulos){
       <svg viewBox="0 0 ${S} ${S}" role="img" aria-label="Peças por categoria">
         <g>${paths}</g><g>${labels}</g>
       </svg>
-      <div class="dcenter"><div class="dc-num">${total}</div><div class="dc-lbl">peças${legendaCentro?' '+esc(legendaCentro):''}</div></div>
+      <div class="dcenter"><div class="dc-num">${fmtQ(total)}</div><div class="dc-lbl">${esc(rotulo)}${legendaCentro?' '+esc(legendaCentro):''}</div></div>
     </div>
     <div class="legend">${dados.map((d,i)=>`
       <div class="lgd" data-i="${i}">
         <span class="dot" style="background:${d.cor}"></span>
         <span class="nm">${esc(d.cat)}</span>
-        <span class="vl"><b>${d.qtd}</b> (${pctTexto(d.qtd,total)})</span>
+        <span class="vl"><b>${fmtQ(d.qtd)}</b> (${pctTexto(d.qtd,total)})</span>
       </div>`).join('')}</div>`;
 
   /* camada de hover: destaca a fatia e mostra o valor exato */
@@ -3647,7 +3843,7 @@ function desenharRosca(wrap,dados,legendaCentro,textoVazio,comRotulos){
     box.querySelectorAll('.slice').forEach(s=>s.classList.toggle('hot',+s.dataset.i===i));
     const d=dados[i];
     tip.innerHTML=`<div class="t-nm">${esc(d.cat)}</div>
-      <div class="t-vl">${d.qtd} ${plural(d.qtd,'peça','peças')} · ${(d.qtd/total*100).toFixed(1)}%</div>`;
+      <div class="t-vl">${fmtQ(d.qtd)} ${rotuloDe(d.qtd)} · ${(d.qtd/total*100).toFixed(1)}%</div>`;
     tip.classList.add('show');
     if(ev){
       const x=Math.min(ev.clientX+14, innerWidth-tip.offsetWidth-10);
@@ -4039,7 +4235,14 @@ function fotoImg(p, {classe='fotomini', alt='', alternativas=null, vazio='sem fo
  *  cru — por isso o que fica GRAVADO é sempre a URL original. */
 function fotoMiniUrl(url){
   if(!/tiendanube\.com|nuvemshop\.com/.test(url)) return url;
-  return url.replace(/(\.[a-z]{3,4})(\?.*)?$/i, '-240-0$1$2');
+  /* O endereço gravado JÁ vem com um tamanho (`…-1024-1024.jpg`), e a CDN
+     aceita UM par de tamanho, não dois: anexar o segundo produzia
+     `-1024-1024-240-0.jpg`, que responde 403. O efeito era silencioso e
+     duplo — cada peça baixava a imagem de 1024px pelo `onerror`, e cada
+     uma somava um 403 ao console. Então o par antigo SAI antes do novo
+     entrar. Conferido contra a CDN: `-240-0` e `-320-0` respondem 200;
+     `-1024-1024-240-0` e `-240-240`, 403. */
+  return url.replace(/(?:-\d{1,4}-\d{1,4})?(\.[a-z]{3,4})(\?.*)?$/i, '-240-0$1$2');
 }
 /* Primeiro erro: tenta o endereço cru (a miniatura `-240-0` pode não existir
    na CDN). Segundo: desiste e mostra um espaço vazio, nunca o ícone de
@@ -7030,39 +7233,39 @@ function renderVendas(){
 }
 
 /* =================== Vendas · Painel (inteligência comercial) ===================
-   Reusa os componentes que já existem: .kpis/.kpi da Visão Geral do Estoque,
-   .panel/.head/.body, .seg para o filtro de período, e a mesma paleta de
-   categoria do gráfico de rosca. Nenhuma linguagem visual nova.
+   Reusa o que o sistema já tem: `.kpis`/`.kpi` da Visão Geral do Estoque,
+   `.panel`/`.head`/`.body`, `.seg` para o período, `desenharRosca` e a MESMA
+   paleta `CAT_COR` das categorias. Nenhuma linguagem visual nova, nenhuma
+   segunda paleta.
 
-   As duas populações — histórico da planilha e vendas operacionais — são
-   somadas onde a soma é exata (faturamento, peças, clientes, produtos) e
-   mostradas separadas onde não é (pedido e ticket médio). O painel NUNCA
-   inventa ticket médio histórico: a planilha não tem pedido, e a API devolve
-   o motivo por escrito. */
+   As duas populações — o histórico da planilha, agora RECONSTRUÍDO em vendas,
+   e as vendas do sistema — são somadas onde a soma é exata e mostradas
+   separadas no subtítulo do cartão, para que ninguém confunda 1.341 linhas
+   com 1.341 vendas.
+
+   O que o painel NÃO faz: comparar com o período anterior. A comparação não
+   está implementada, e um "+18%" inventado é pior que um cartão a menos. */
 
 let painelPeriodo='tudo';
 let painelVendas=null;
+let painelEvoMetrica='faturamento';   /* faturamento | pecas | vendas */
+
+/* Cores das linhas/fatias de cliente. Saem da mesma família de `CAT_COR` —
+   não é uma paleta concorrente, é a mesma escolhida para séries. */
+const COR_SERIE=['#C2426B','#C4802A','#0D9382','#3D77C4','#6A54B5'];
+const COR_ESTADO={'recorrente':'#0D9382','ativa':'#3D77C4','em risco':'#C4802A',
+  'inativa':'#9E8A90','sem histórico':'#D8CFD2'};
 
 async function carregarPainelVendas(){
   try{
-    const p='?periodo='+encodeURIComponent(painelPeriodo);
-    const [geral,evo,prod,cat,orig,cli]=await Promise.all([
-      api('GET','/api/analytics/vendas'+p),
-      api('GET','/api/analytics/evolucao'+p+'&granularidade=mes'),
-      api('GET','/api/analytics/produtos'+p+'&limite=12'),
-      api('GET','/api/analytics/categorias'+p),
-      api('GET','/api/analytics/origem'+p),
-      api('GET','/api/analytics/clientes'+p+'&limite=12'),
-    ]);
-    painelVendas={geral,evo,prod,cat,orig,clientes:cli.clientes||[]};
+    painelVendas=await api('GET','/api/analytics/painel?periodo='+encodeURIComponent(painelPeriodo));
   }catch(e){ painelVendas={erro:e.message||'Não consegui carregar o painel', status:e.status}; }
   return painelVendas;
 }
 
 /** O painel e Clientes dependem de rotas que só existem depois que o Worker
     é republicado. Enquanto o frontend está novo e a API está velha, a
-    resposta é 404 — e "Rota não encontrada" não diz a ninguém o que fazer.
-    Esta função troca o erro cru pela explicação. */
+    resposta é 404 — e "Rota não encontrada" não diz a ninguém o que fazer. */
 function avisoBackendAntigo(e){
   const antigo=(e&&(e.status===404||/rota n[ãa]o encontrada/i.test(e.erro||e.message||'')));
   if(!antigo) return null;
@@ -7080,279 +7283,839 @@ function setPainelPeriodo(p){
   renderVendasPainel();
   carregarPainelVendas().then(renderVendasPainel);
 }
+function setEvoMetrica(m){ painelEvoMetrica=m; renderVendasPainel(); }
+
+function segPeriodo(atual,fn){
+  return [['tudo','Tudo'],['12m','12 meses'],['90d','90 dias'],['30d','30 dias']]
+    .map(([k,r])=>`<button class="${atual===k?'on':''}" onclick="${fn}('${k}')">${r}</button>`).join('');
+}
 
 function renderVendasPainel(){
   const v=document.getElementById('view-vendas-painel');
-  if(!painelVendas){ v.innerHTML=`<div class="panel"><div class="body"><div class="empty"><h3>Carregando…</h3></div></div></div>`; return; }
+  if(!painelVendas){ v.innerHTML=blocoCarregando('Lendo as vendas…'); return; }
   if(painelVendas.erro){
     v.innerHTML=`<div class="panel"><div class="body">${
       avisoBackendAntigo(painelVendas)||`<div class="empty">
-        <h3>Não consegui carregar</h3><p>${esc(painelVendas.erro)}</p></div>`}</div></div>`;
+        <h3>Não consegui carregar</h3><p>${esc(painelVendas.erro)}</p>
+        <button class="btn btn-ghost" style="margin-top:14px" onclick="setPainelPeriodo(painelPeriodo)">Tentar de novo</button>
+      </div>`}</div></div>`;
     return;
   }
-  const g=painelVendas.geral, ev=painelVendas.evo, tm=g.ticketMedio;
+
+  const g=painelVendas.geral, tm=g.ticketMedio, comp=g.composicao;
   const semNada=g.pecas===0;
 
-  const seg=[['tudo','Tudo'],['12m','12 meses'],['90d','90 dias'],['30d','30 dias']]
-    .map(([k,r])=>`<button class="${painelPeriodo===k?'on':''}" onclick="setPainelPeriodo('${k}')">${r}</button>`).join('');
+  if(semNada){
+    v.innerHTML=`<div class="panel">
+      <div class="head"><h2>Painel de vendas</h2>
+        <span class="hint">Histórico da planilha + vendas do sistema</span></div>
+      <div class="body">
+        <div class="seg" style="margin-bottom:14px">${segPeriodo(painelPeriodo,'setPainelPeriodo')}</div>
+        <div class="empty">
+          <h3>Ainda não há vendas neste período</h3>
+          <p>Troque o filtro acima, importe o histórico antigo, ou registre
+             vendas em Lançamentos.</p>
+          <button class="btn btn-gold" style="margin-top:14px" onclick="openHistImport()">Importar histórico de vendas</button>
+        </div>
+      </div></div>`;
+    return;
+  }
 
   v.innerHTML=`
     <div class="panel">
-      <div class="head">
-        <h2>Painel de vendas</h2>
-        <span class="hint">Histórico da planilha + vendas do sistema</span>
+      <div class="head bhead">
+        <div class="bh-t">
+          <h2>Painel de vendas</h2>
+          <span class="hint">Histórico da planilha + vendas do sistema</span>
+        </div>
+        <span class="hint">${comp.linhasBrutas} linhas da planilha viraram
+          ${comp.vendasHistoricas} vendas</span>
       </div>
       <div class="body">
-        <div class="seg" style="margin-bottom:14px">${seg}</div>
-        ${semNada?`<div class="empty">
-            <h3>Ainda não há vendas para ler</h3>
-            <p>Importe o histórico antigo para o painel ganhar profundidade,
-               ou registre vendas em Lançamentos.</p>
-            <button class="btn btn-gold" style="margin-top:14px" onclick="openHistImport()">Importar histórico de vendas</button>
-          </div>`:`
-        <div class="kpis">
+        <div class="seg" style="margin-bottom:16px">${segPeriodo(painelPeriodo,'setPainelPeriodo')}</div>
+        <div class="kpis cinco">
           ${cartaoKpi({ico:ICO.grafico,rot:'Faturamento',num:money(g.faturamento),
-            sub:[`${g.historico.linhas} do histórico · ${g.operacional.pedidos} pedidos do sistema`]})}
-          ${cartaoKpi({ico:ICO.caixa,rot:'Peças vendidas',num:g.pecas,
+            cls:'compacto k-fat',
+            sub:[`${comp.vendasHistoricas} do histórico · ${comp.vendasSistema} do sistema`]})}
+          ${cartaoKpi({ico:ICO.etiqueta,rot:'Vendas',num:fmtN(g.vendas),
+            cls:'compacto k-ped',
+            sub:['pedidos, não linhas de planilha']})}
+          ${cartaoKpi({ico:ICO.caixa,rot:'Peças vendidas',num:fmtN(g.pecas),
+            cls:'compacto k-pec',
             sub:[g.valorMedioPorItem!=null?`${money(g.valorMedioPorItem)} por peça, em média`:'—']})}
-          ${cartaoKpi({ico:ICO.pessoas,rot:'Clientes',num:g.clientes,
-            sub:[`${g.skus} códigos diferentes vendidos`]})}
-          ${cartaoKpi({ico:ICO.nuvem,rot:'Ticket médio',
-            num:tm.operacional!=null?money(tm.operacional):'—',
-            sub:[tm.operacional!=null?'apenas vendas do sistema':'sem pedido registrado ainda']})}
+          ${cartaoKpi({ico:ICO.pessoas,rot:'Clientes',num:fmtN(g.clientes),
+            cls:'compacto k-cli',
+            sub:[`${fmtN(g.skus)} códigos diferentes vendidos`]})}
+          ${cartaoKpi({ico:ICO.brilho,rot:'Ticket médio',
+            num:tm.valor!=null?money(tm.valor):'—',
+            cls:'compacto k-tic',
+            sub:[tm.valor!=null?`${fmtN(tm.vendasElegiveis)} vendas pagas elegíveis`:'sem venda elegível no período']})}
         </div>
-
-        ${!tm.historicoDisponivel?`<div class="insight" data-tom="neutro" style="margin-top:14px">
-          <div class="i-topo"><span class="i-ico">${svgIco(ICO.escudo,15)}</span>
-            <span class="i-t">Ticket médio do histórico: indisponível de propósito</span></div>
-          <div class="i-d">${esc(tm.motivo)}</div>
-        </div>`:''}
-
-        ${graficoEvolucao(ev)}
-        </div>
-      `}
+        ${tm.valor!=null?`<details style="margin-top:12px">
+          <summary class="hint" style="cursor:pointer">Como o ticket médio é calculado</summary>
+          <div class="hint" style="margin-top:8px;line-height:1.6">${esc(tm.regra)}
+            <br><b>${money(tm.faturamentoElegivel)}</b> ÷ <b>${fmtN(tm.vendasElegiveis)}</b> vendas.
+            ${comp.vendasSemData?`<br>${comp.vendasSemData} venda(s) sem data e `:'<br>'}${comp.ajustes} operação(ões)
+            marcada(s) na planilha como ajuste ficam de fora.</div>
+        </details>`:''}
       </div>
     </div>
-    ${semNada?'':`
-    ${painelBloco('Produtos mais vendidos', tabelaProdutos(painelVendas.prod))}
-    ${painelBloco('Categorias', tabelaSimples(painelVendas.cat.categorias,'categoria'))}
-    ${painelBloco('De onde vieram as vendas', tabelaOrigem(painelVendas.orig))}
-    ${painelBloco('Clientes que mais compraram', tabelaClientes(painelVendas.clientes))}
+
+    <div class="vg vg-2 larga">
+      ${blocoCategorias(painelVendas.categorias)}
+      ${blocoEvolucao(painelVendas.evolucao,comp.vendasSemData)}
+    </div>
+
+    <div class="vg vg-3 mid">
+      ${blocoProdutos(painelVendas.produtos)}
+      ${blocoOrigem(painelVendas.origem)}
+      ${blocoTopClientesPainel(painelVendas.topClientes)}
+    </div>
+
+    ${insightsVendas(painelVendas.insights)}
+
     <div class="panel"><div class="body" style="text-align:center">
       <button class="btn btn-ghost" onclick="openHistImport()">Importar histórico de vendas</button>
-    </div></div>`}`;
+    </div></div>`;
+
+  /* a rosca é desenhada DEPOIS do innerHTML: ela liga os eventos de hover
+     nos elementos que acabaram de existir */
+  pintarRoscaCategorias(painelVendas.categorias);
+  pintarRoscaOrigem(painelVendas.origem);
 }
 
-function painelBloco(titulo,corpo){
-  return `<div class="panel"><div class="head"><h2>${esc(titulo)}</h2></div>
-    <div class="body">${corpo}</div></div>`;
+function blocoCarregando(txt){
+  return `<div class="panel"><div class="body"><div class="empty">
+    <h3>${esc(txt)}</h3><p class="hint">Um instante.</p></div></div></div>`;
+}
+function painelBloco(titulo,corpo,extra){
+  return `<div class="panel"><div class="head bhead">
+      <div class="bh-t"><h2>${esc(titulo)}</h2></div>${extra||''}
+    </div><div class="body">${corpo}</div></div>`;
+}
+/* Número com separador de milhar. `money()` já faz o dele; isto é para
+   contagem, onde "1375" e "1.375" mudam a velocidade de leitura. */
+function fmtN(n){ return (isFinite(+n)?+n:0).toLocaleString('pt-BR'); }
+
+/* ---------------- distribuição por categoria vendida ---------------- */
+
+function blocoCategorias(cat){
+  const l=(cat&&cat.categorias)||[];
+  if(!l.length) return painelBloco('Distribuição por categoria vendida',
+    `<div class="empty"><p>Nada no período.</p></div>`);
+  const maior=Math.max(...l.map(c=>c.pecas))||1;
+  const linhas=l.map(c=>`<div class="rkrow">
+      <span class="rk-pos" style="background:${catColor(c.categoria)}"></span>
+      <div class="rk-mid">
+        <div class="rk-nm">${esc(c.categoria)}</div>
+        <div class="rk-barra"><i style="width:${(c.pecas/maior*100).toFixed(1)}%;background:${catColor(c.categoria)}"></i></div>
+      </div>
+      <div class="rk-vl"><b>${fmtN(c.pecas)}</b><span>${c.participacao}%</span></div>
+    </div>`).join('');
+  return painelBloco('Distribuição por categoria vendida',
+    `<div class="catgrid">
+       <div id="roscaCatVendas" class="semlegenda"></div>
+       <div class="rank">${linhas}</div>
+     </div>`);
 }
 
-/** Barras horizontais em SVG puro, mesma escolha do gráfico de rosca: nada
-    externo carrega, e funciona offline como o resto do painel. */
-function graficoEvolucao(ev){
+function pintarRoscaCategorias(cat){
+  const wrap=document.getElementById('roscaCatVendas');
+  if(!wrap) return;
+  const dados=((cat&&cat.categorias)||[])
+    .map(c=>({cat:c.categoria,qtd:c.pecas,cor:catColor(c.categoria)}))
+    .filter(d=>d.qtd>0);
+  desenharRosca(wrap,dados,'vendidas','Nenhuma peça vendida no período.',false);
+}
+
+/* ---------------- evolução por mês ---------------- */
+
+function blocoEvolucao(ev,semData){
   const p=(ev&&ev.pontos)||[];
-  if(!p.length) return '';
-  const max=Math.max(...p.map(x=>x.faturamento))||1;
-  const barras=p.map(x=>{
-    const alt=Math.max(2,Math.round(x.faturamento/max*100));
-    return `<div class="evo-col" title="${esc(x.chave)} · ${money(x.faturamento)} · ${x.pecas} peças">
+  const sel=`<select class="selmini" onchange="setEvoMetrica(this.value)" aria-label="O que o gráfico mostra">
+      <option value="faturamento" ${painelEvoMetrica==='faturamento'?'selected':''}>Faturamento</option>
+      <option value="pecas" ${painelEvoMetrica==='pecas'?'selected':''}>Peças vendidas</option>
+      <option value="vendas" ${painelEvoMetrica==='vendas'?'selected':''}>Vendas</option>
+    </select>`;
+  if(!p.length) return painelBloco('Evolução por mês',
+    `<div class="empty"><p>Nada no período.</p></div>`,sel);
+
+  const m=painelEvoMetrica;
+  const max=Math.max(...p.map(x=>x[m]))||1;
+  const rotulo=(x)=>m==='faturamento'?money(x.faturamento)
+    :m==='pecas'?`${fmtN(x.pecas)} peças`:`${fmtN(x.vendas)} vendas`;
+  /* rótulo a cada N meses: com 24 barras estreitas, todos os nomes viram
+     borrão e nenhum deles é legível */
+  const passo=Math.max(1,Math.ceil(p.length/8));
+  const barras=p.map((x,i)=>{
+    const alt=Math.max(2,Math.round(x[m]/max*100));
+    /* o title é o tooltip nativo: acessível, funciona no teclado e não
+       depende de JS nenhum para dizer o valor exato */
+    return `<div class="evo-col" title="${esc(mesLegivel(x.chave))} · ${esc(rotulo(x))} · ${fmtN(x.vendas)} vendas · ${fmtN(x.pecas)} peças">
       <div class="evo-bar" style="height:${alt}%"></div>
-      <div class="evo-lbl">${esc(String(x.chave).slice(2))}</div>
+      <div class="evo-lbl">${i%passo?'':esc(mesCurto(x.chave))}</div>
     </div>`;
   }).join('');
-  return `<div class="resumotit" style="margin-top:18px">Evolução por mês</div>
-    <div class="evo">${barras}</div>`;
+  const totalM=p.reduce((s,x)=>s+x[m],0);
+  return painelBloco('Evolução por mês',
+    `<div class="evo ${p.length>16?'apertada':''}">${barras}</div>
+     <div class="hint" style="margin-top:10px">${p.length} ${plural(p.length,'mês','meses')} ·
+       ${m==='faturamento'?money(totalM):fmtN(totalM)+(m==='pecas'?' peças':' vendas')} no gráfico${
+       semData?` · ${semData} ${plural(semData,'venda','vendas')} sem data ${plural(semData,'fica','ficam')} de fora`:''}</div>`,
+    sel);
 }
 
-function tabelaProdutos(d){
+/* `2026-06` → `jun/26` na barra, `junho de 2026` no tooltip. */
+const MESES_CURTO=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const MESES_LONGO=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto',
+  'setembro','outubro','novembro','dezembro'];
+function mesCurto(chave){
+  const [a,mm]=String(chave).split('-');
+  return mm?`${MESES_CURTO[+mm-1]}/${a.slice(2)}`:String(chave);
+}
+function mesLegivel(chave){
+  const [a,mm]=String(chave).split('-');
+  return mm?`${MESES_LONGO[+mm-1]} de ${a}`:String(chave);
+}
+
+/* ---------------- produtos mais vendidos, com foto ---------------- */
+
+/** A foto sai do catálogo de hoje, casada pelo CÓDIGO — nunca pelo nome.
+    Peça fora do catálogo não tem foto e continua no ranking com um lugar
+    reservado: esconder o que mais vendeu por falta de imagem seria trocar
+    o conteúdo pela decoração. §16. */
+function blocoProdutos(d){
   const l=(d&&d.produtos)||[];
-  if(!l.length) return `<div class="empty"><p>Nada no período.</p></div>`;
-  return `<div class="tablewrap"><table><thead><tr>
-    <th>Código</th><th>Produto</th><th class="r">Peças</th><th class="r">Faturamento</th><th class="r">%</th>
-    </tr></thead><tbody>${l.map(p=>`<tr>
-      <td><code>${esc(p.sku)}</code></td>
-      <td>${esc(p.nomeAtual||p.nomeHistorico||'—')}
-        ${p.renomeado?`<div class="hint">na época: ${esc(p.nomeHistorico)}</div>`:''}
-        ${!p.noCatalogo?`<div class="hint">fora do catálogo atual</div>`:''}</td>
-      <td class="r">${p.pecas}</td>
-      <td class="r">${money(p.faturamento)}</td>
-      <td class="r">${p.participacao}%</td>
-    </tr>`).join('')}</tbody></table></div>`;
+  if(!l.length) return painelBloco('Produtos mais vendidos',
+    `<div class="empty"><p>Nada no período.</p></div>`);
+  const linhas=l.map((p,i)=>{
+    const cat=state.produtos&&state.produtos.find(x=>String(x.sku).toUpperCase()===String(p.sku).toUpperCase());
+    const url=cat?fotoUrlDe(cat):'';
+    const foto=url
+      ? `<img src="${esc(url)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<span class=\\'semfoto\\'>sem foto</span>'">`
+      : `<span class="semfoto">sem foto</span>`;
+    const nome=p.nomeAtual||p.nomeHistorico||'—';
+    return `<div class="pvrow">
+      <div class="pv-pos">${i+1}</div>
+      <div class="pv-foto">${foto}</div>
+      <div class="pv-mid">
+        <div class="pv-nm">${esc(nome)}</div>
+        <div class="pv-sub">
+          <code>${esc(p.sku)}</code>
+          ${p.categoria?`<span class="catchip" style="background:${catColor(p.categoria)}">${esc(p.categoria)}</span>`:''}
+          ${!p.noCatalogo?'<span>fora do catálogo</span>':''}
+        </div>
+      </div>
+      <div class="pv-vl"><b>${fmtN(p.pecas)} ${plural(p.pecas,'peça','peças')}</b>
+        <span>${money(p.faturamento)} · ${p.participacao}%</span></div>
+    </div>`;
+  }).join('');
+  return painelBloco('Produtos mais vendidos',linhas);
 }
 
-function tabelaSimples(l,campo){
-  if(!l||!l.length) return `<div class="empty"><p>Nada no período.</p></div>`;
-  return `<div class="tablewrap"><table><thead><tr>
-    <th>${esc(campo[0].toUpperCase()+campo.slice(1))}</th>
-    <th class="r">Peças</th><th class="r">Faturamento</th><th class="r">%</th>
-    </tr></thead><tbody>${l.map(x=>`<tr>
-      <td>${esc(x[campo])}</td><td class="r">${x.pecas}</td>
-      <td class="r">${money(x.faturamento)}</td><td class="r">${x.participacao}%</td>
-    </tr>`).join('')}</tbody></table></div>`;
-}
+/* ---------------- origem das vendas ---------------- */
 
-/** Canal e contexto vêm classificados, e o texto BRUTO vem junto — a
-    classificação precisa continuar conferível por quem escreveu o texto. */
-function tabelaOrigem(o){
+function blocoOrigem(o){
   const canais=(o&&o.canais)||[];
-  if(!canais.length) return `<div class="empty"><p>Nada no período.</p></div>`;
-  const linhasCanal=tabelaSimples(canais,'canal');
-  const ctx=(o.contextos||[]).filter(c=>c.origem&&c.origem.indexOf('·')>0).slice(0,12);
-  const oper=(o.operacional||[]);
-  return linhasCanal
-    +(ctx.length?`<div class="resumotit" style="margin-top:18px">Por evento / lugar</div>${tabelaSimples(ctx,'origem')}`:'')
-    +(oper.length?`<div class="resumotit" style="margin-top:18px">Vendas do sistema, por origem</div>
-      <div class="tablewrap"><table><thead><tr><th>Origem</th><th class="r">Pedidos</th>
-      <th class="r">Peças</th><th class="r">Faturamento</th></tr></thead><tbody>
-      ${oper.map(x=>`<tr><td>${esc(x.canal)}</td><td class="r">${x.pedidos}</td>
-        <td class="r">${x.pecas}</td><td class="r">${money(x.faturamento)}</td></tr>`).join('')}
-      </tbody></table></div>`:'')
-    +`<details style="margin-top:14px"><summary class="hint">Ver o texto original de cada origem (${(o.brutos||[]).length})</summary>
-       ${tabelaSimples((o.brutos||[]).slice(0,40),'texto')}</details>`;
+  if(!canais.length) return painelBloco('Origem das vendas',
+    `<div class="empty"><p>Nada no período.</p></div>`);
+  const lista=canais.slice(0,5).map((c,i)=>`<div class="rkrow">
+      <span class="rk-pos" style="background:${COR_SERIE[i%COR_SERIE.length]}"></span>
+      <div class="rk-mid">
+        <div class="rk-nm">${esc(c.canal)}</div>
+        <div class="hint" style="font-size:10.5px">${fmtN(c.vendas)} ${plural(c.vendas,'venda','vendas')} ·
+          ${fmtN(c.pecas)} ${plural(c.pecas,'peça','peças')}</div>
+      </div>
+      <div class="rk-vl"><b>${money(c.faturamento)}</b><span>${c.participacao}%</span></div>
+    </div>`).join('');
+  const ctx=(o.contextos||[]).slice(0,8);
+  const resto=canais.length>5?canais.slice(5):[];
+  return painelBloco('Origem das vendas',
+    `<div id="roscaOrigem" class="semlegenda" style="max-width:230px;margin:0 auto 14px"></div>
+     <div class="rank">${lista}</div>
+     ${resto.length?`<details style="margin-top:10px">
+       <summary class="hint" style="cursor:pointer">Mais ${resto.length} ${plural(resto.length,'canal','canais')}</summary>
+       <div class="rank" style="margin-top:8px">${resto.map(c=>`<div class="rkrow">
+         <span class="rk-pos" style="background:var(--line)"></span>
+         <div class="rk-mid"><div class="rk-nm">${esc(c.canal)}</div></div>
+         <div class="rk-vl"><b>${money(c.faturamento)}</b><span>${c.participacao}%</span></div>
+       </div>`).join('')}</div></details>`:''}
+     ${ctx.length?`<details style="margin-top:8px">
+       <summary class="hint" style="cursor:pointer">Por evento e lugar (${ctx.length})</summary>
+       <div class="rank" style="margin-top:8px">${ctx.map(c=>`<div class="rkrow">
+         <span class="rk-pos" style="background:var(--rose)"></span>
+         <div class="rk-mid"><div class="rk-nm">${esc(c.contexto)}</div>
+           <div class="hint" style="font-size:10.5px">${esc(c.canal||'—')} · ${fmtN(c.vendas)} ${plural(c.vendas,'venda','vendas')}</div></div>
+         <div class="rk-vl"><b>${money(c.faturamento)}</b><span>${fmtN(c.pecas)} peças</span></div>
+       </div>`).join('')}</div></details>`:''}
+     <details style="margin-top:14px">
+       <summary class="hint" style="cursor:pointer">Ver o texto original de cada origem (${(o.brutos||[]).length})</summary>
+       <div class="rank" style="margin-top:8px">${(o.brutos||[]).slice(0,40).map(b=>`
+         <div class="rkrow"><span class="rk-pos" style="background:var(--line)"></span>
+           <div class="rk-mid"><div class="rk-nm" style="font-weight:400">${esc(b.texto)}</div></div>
+           <div class="rk-vl"><b>${fmtN(b.linhas)}</b><span>linhas</span></div></div>`).join('')}</div>
+     </details>`);
 }
 
-function tabelaClientes(l){
-  if(!l||!l.length) return `<div class="empty"><p>Nada no período.</p></div>`;
-  return `<div class="tablewrap"><table><thead><tr>
-    <th>Cliente</th><th class="r">Peças</th><th class="r">Gastou</th>
-    <th class="r">Datas</th><th>Última</th><th>Relação</th>
-    </tr></thead><tbody>${l.map(c=>`<tr onclick="switchTab('cli:${encodeURIComponent(c.norm)}')" style="cursor:pointer">
-      <td>${esc(c.nome||'—')}</td>
-      <td class="r">${c.pecas}</td>
-      <td class="r">${money(c.faturamento)}</td>
-      <td class="r">${c.datasComCompra}</td>
-      <td>${c.ultimaCompra?fmtData(c.ultimaCompra):'—'}</td>
-      <td><span class="badge ${classeRelacao(c.relacionamento)}">${esc(c.relacionamento)}</span></td>
-    </tr>`).join('')}</tbody></table></div>`;
+function pintarRoscaOrigem(o){
+  const wrap=document.getElementById('roscaOrigem');
+  if(!wrap) return;
+  const dados=((o&&o.canais)||[])
+    .map((c,i)=>({cat:c.canal,qtd:Math.round(c.faturamento*100),cor:COR_SERIE[i%COR_SERIE.length]}))
+    .filter(d=>d.qtd>0);
+  desenharRosca(wrap,dados,'','Sem origem registrada no período.',false,
+    {rotulo:'faturamento', formatar:(v)=>money(v/100)});
 }
 
-function classeRelacao(r){
-  return ({'recorrente':'aberta','ativa':'aberta','nova':'prazo',
-    'em risco':'vencida','para reativação':'vencida'})[r]||'fechada';
+/* ---------------- top clientes no painel ---------------- */
+
+function blocoTopClientesPainel(l){
+  if(!l||!l.length) return painelBloco('Top clientes',
+    `<div class="empty"><p>Nada no período.</p></div>`);
+  const maior=Math.max(...l.map(c=>c.faturamento))||1;
+  const linhas=l.map((c,i)=>`<div class="rkrow clicavel" tabindex="0" role="button"
+      onclick="switchTab('cli:${encodeURIComponent(c.norm)}')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchTab('cli:${encodeURIComponent(c.norm)}')}">
+      <span class="rk-pos" style="background:${COR_SERIE[i%COR_SERIE.length]}">${i+1}</span>
+      <div class="rk-mid">
+        <div class="rk-nm">${esc(c.nome)}</div>
+        <div class="rk-barra"><i style="width:${(c.faturamento/maior*100).toFixed(1)}%;background:${COR_SERIE[i%COR_SERIE.length]}"></i></div>
+      </div>
+      <div class="rk-vl"><b>${money(c.faturamento)}</b>
+        <span>${fmtN(c.vendas)} ${plural(c.vendas,'venda','vendas')} · ${fmtN(c.pecas)} peças</span></div>
+    </div>`).join('');
+  return painelBloco('Top clientes',
+    `<div class="rank">${linhas}</div>`,
+    `<button class="btn btn-ghost btn-sm" onclick="switchTab('clientes')">Ver todos</button>`);
+}
+
+/* ---------------- insights do rodapé ---------------- */
+
+/** Só entram métricas que este payload sustenta. O mockup mostrava
+    "+18% vs. período anterior" em cada cartão — a comparação com o período
+    anterior NÃO está implementada, então ela simplesmente não aparece.
+    Percentual inventado é pior que cartão a menos. */
+function insightsVendas(ins){
+  if(!ins) return '';
+  const c=[];
+  if(ins.categoriaCampea) c.push(cartaoInsight(ICO.brilho,'Categoria campeã',ins.categoriaCampea.nome,
+    `${fmtN(ins.categoriaCampea.pecas)} peças vendidas (${ins.categoriaCampea.participacao}%)`));
+  if(ins.canalCampeao) c.push(cartaoInsight(ICO.caixa,'Canal campeão',ins.canalCampeao.nome,
+    `${money(ins.canalCampeao.faturamento)} (${ins.canalCampeao.participacao}%)`));
+  if(ins.melhorMes) c.push(cartaoInsight(ICO.grafico,'Melhor mês',mesLegivel(ins.melhorMes.chave),
+    `${fmtN(ins.melhorMes.pecas)} peças · ${money(ins.melhorMes.faturamento)}`));
+  if(ins.ticketMedio!=null) c.push(cartaoInsight(ICO.etiqueta,'Ticket médio',money(ins.ticketMedio),
+    'por venda paga elegível'));
+  if(ins.clientesNovos!=null) c.push(cartaoInsight(ICO.pessoas,'Clientes novos',fmtN(ins.clientesNovos),
+    'primeira compra dentro do período'));
+  if(!c.length) return '';
+  return `<div class="insights" style="margin-bottom:14px">${c.join('')}</div>`;
+}
+
+function cartaoInsight(ico,rot,valor,sub){
+  return `<div class="insight" data-tom="neutro">
+    <div class="i-topo"><span class="i-ico">${svgIco(ico,15)}</span>
+      <span class="i-t">${esc(rot)}</span></div>
+    <div class="i-d"><b>${esc(String(valor))}</b><br>${esc(sub||'')}</div>
+  </div>`;
+}
+
+/* ---------------- gráfico de linhas (séries por cliente) ---------------- */
+
+/** SVG puro, como a rosca: nada externo carrega e funciona offline.
+    O eixo, a grade e o tooltip nativo (`<title>`) fazem o gráfico continuar
+    legível sem cor — §39, nada depende só de cor para ser interpretado. */
+function graficoLinhas(serie,metrica){
+  const meses=(serie&&serie.meses)||[];
+  const cli=(serie&&serie.clientes)||[];
+  if(!meses.length||!cli.length) return `<div class="empty"><p>Sem histórico suficiente para desenhar a evolução.</p></div>`;
+
+  const W=700,H=290,ml=52,mr=12,mt=14,mb=32;
+  const iw=W-ml-mr, ih=H-mt-mb;
+  const vals=cli.flatMap(c=>c.pontos.map(p=>p[metrica]));
+  const max=Math.max(...vals,1);
+  const x=(i)=>ml+(meses.length===1?iw/2:i*(iw/(meses.length-1)));
+  const y=(v)=>mt+ih-(v/max*ih);
+
+  const fmtV=(v)=>metrica==='faturamento'?money(v)
+    :metrica==='pecas'?`${fmtN(v)} ${plural(v,'peça','peças')}`
+    :`${fmtN(v)} ${plural(v,'compra','compras')}`;
+
+  /* grade e eixo Y em 4 degraus — número redondo o bastante para ler */
+  let grade='',eixoY='';
+  for(let k=0;k<=4;k++){
+    const v=max*k/4, yy=y(v);
+    grade+=`<line class="grid" x1="${ml}" y1="${yy.toFixed(1)}" x2="${W-mr}" y2="${yy.toFixed(1)}"/>`;
+    eixoY+=`<text class="axis" x="${ml-8}" y="${(yy+3).toFixed(1)}" text-anchor="end">${
+      esc(eixoValor(v,metrica))}</text>`;
+  }
+  /* eixo X: com muitos meses, um rótulo a cada N para não virar borrão */
+  const passo=Math.max(1,Math.ceil(meses.length/12));
+  const eixoX=meses.map((m,i)=>i%passo?'':
+    `<text class="axis" x="${x(i).toFixed(1)}" y="${H-mb+16}" text-anchor="middle">${esc(mesCurto(m))}</text>`).join('');
+
+  const linhas=cli.map((c,ci)=>{
+    const cor=COR_SERIE[ci%COR_SERIE.length];
+    const d=c.pontos.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p[metrica]).toFixed(1)}`).join(' ');
+    const pts=c.pontos.map((p,i)=>`<circle class="pt" cx="${x(i).toFixed(1)}" cy="${y(p[metrica]).toFixed(1)}"
+        r="3.5" fill="${cor}"><title>${esc(c.nome)} · ${esc(mesLegivel(p.mes))}
+${esc(money(p.faturamento))} · ${p.pecas} ${plural(p.pecas,'peça','peças')} · ${p.vendas} ${plural(p.vendas,'compra','compras')}</title></circle>`).join('');
+    return `<path class="ln" d="${d}" stroke="${cor}"/>${pts}`;
+  }).join('');
+
+  const legenda=cli.map((c,ci)=>`<span class="lgn">
+    <span class="dot" style="background:${COR_SERIE[ci%COR_SERIE.length]}"></span>
+    <b>${esc(c.nome)}</b></span>`).join('');
+
+  return `<div class="lchart">
+      <svg viewBox="0 0 ${W} ${H}" role="img"
+        aria-label="Evolução dos principais clientes por mês. Passe o cursor sobre um ponto para ver o valor exato.">
+        <g>${grade}</g><g>${eixoY}</g><g>${eixoX}</g><g>${linhas}</g>
+      </svg>
+    </div>
+    <div class="lgnd">${legenda}</div>`;
+}
+
+/** Rótulo do eixo Y. Milhar vira `1,2k` com uma casa: sem ela, 1.776 e
+    2.368 viram os dois "2k" e o eixo deixa de medir. */
+function eixoValor(v,metrica){
+  if(metrica!=='faturamento') return String(Math.round(v));
+  if(v>=1000) return (v/1000).toFixed(1).replace('.',',')+'k';
+  return String(Math.round(v));
 }
 
 /* =================== Clientes (CRM) ===================
-   A referência de UX é Revendedoras: .revgrid/.revcard na lista, o mesmo
-   modal de cadastro, os mesmos .field/.two. A referência de leitura é o
-   dashboard: .kpis/.kpi no perfil. Nada aqui inventa componente. */
+   Duas metades no mesmo lugar, e nenhuma substitui a outra:
 
-let clientesLista=null;
+     leitura   — os indicadores, o gráfico, a saúde da base e as
+                 oportunidades. A referência é o dashboard de Estoque.
+     operação  — buscar, cadastrar, editar, abrir o perfil. A referência é
+                 Revendedoras: `.revgrid`/`.revcard`, o mesmo modal, os
+                 mesmos `.field`. Continua tudo funcionando como antes.
+
+   Não existe uma terceira linguagem visual aqui. */
+
+let crmData=null;
+let crmErro=null;
+let crmPeriodo='tudo';
+let crmMetricaSerie='faturamento';    /* faturamento | pecas | vendas */
+let crmOrdemRanking='pecas';          /* pecas | faturamento | vendas */
 let clientesBusca='';
+let clientesFiltro='todos';           /* todos | recorrente | ativa | em risco | inativa */
+/* Quantos cartões a lista desenha de uma vez. 347 clientes de uma só vez
+   davam uma página de quase 18 mil pixels, e o celular sentia. */
+let clientesMostrar=48;
+let clientesLista=null;               /* compatibilidade com quem já lia isto */
 
-let clientesErro=null;
 async function carregarClientes(){
   try{
-    const r=await api('GET','/api/analytics/clientes?periodo=tudo&limite=500');
-    clientesLista=r.clientes||[]; clientesErro=null;
-  }catch(e){ clientesLista=[]; clientesErro={erro:e.message,status:e.status}; }
+    crmData=await api('GET','/api/analytics/crm?periodo='+encodeURIComponent(crmPeriodo));
+    clientesLista=crmData.todos||[];
+    crmErro=null;
+  }catch(e){ crmData=null; clientesLista=[]; crmErro={erro:e.message,status:e.status}; }
   return clientesLista;
+}
+
+function setCrmPeriodo(p){
+  crmPeriodo=p; renderClientes();
+  carregarClientes().then(renderClientes);
+}
+function setCrmSerie(m){ crmMetricaSerie=m; renderClientes(); }
+function setCrmOrdem(o){ crmOrdemRanking=o; renderClientes(); }
+function setClientesFiltro(f){ clientesFiltro=f; clientesMostrar=48; renderClientes(); }
+function verMaisClientes(){
+  clientesMostrar+=48;
+  renderClientes();
+  document.getElementById('todosClientes').scrollIntoView({block:'end',behavior:'smooth'});
 }
 
 function renderClientes(){
   const v=document.getElementById('view-clientes');
-  if(!clientesLista){ v.innerHTML=`<div class="panel"><div class="body"><div class="empty"><h3>Carregando…</h3></div></div></div>`; return; }
+  if(!crmData&&!crmErro){ v.innerHTML=blocoCarregando('Lendo os clientes…'); return; }
 
-  const avisoApi=clientesErro&&avisoBackendAntigo(clientesErro);
-  if(avisoApi){ v.innerHTML=`<div class="panel"><div class="body">${avisoApi}</div></div>`; return; }
+  if(crmErro){
+    const aviso=avisoBackendAntigo(crmErro);
+    v.innerHTML=`<div class="panel"><div class="body">${aviso||`<div class="empty">
+      <h3>Não consegui carregar</h3><p>${esc(crmErro.erro||'')}</p>
+      <button class="btn btn-ghost" style="margin-top:14px" onclick="setCrmPeriodo(crmPeriodo)">Tentar de novo</button>
+    </div>`}</div></div>`;
+    return;
+  }
 
-  const b=clientesBusca.trim().toLowerCase();
-  const l=b?clientesLista.filter(c=>String(c.nome||'').toLowerCase().includes(b)):clientesLista;
+  const k=crmData.kpis, saude=crmData.saudeBase;
+  const vazio=k.ativos===0;
 
   v.innerHTML=`
     <div class="panel">
-      <div class="head">
-        <h2>Clientes</h2>
-        <span class="hint">Toque em uma para ver o histórico dela</span>
+      <div class="head bhead">
+        <div class="bh-t">
+          <h2>Clientes</h2>
+          <span class="hint">Relacionamento, recorrência e valor</span>
+        </div>
+        <span class="hint">${fmtN(k.vendasTotal)} ${plural(k.vendasTotal,'venda','vendas')} no período</span>
       </div>
       <div class="body">
-        <div class="actbar">
-          <input id="cliBusca" placeholder="Buscar pelo nome" value="${esc(clientesBusca)}"
-                 oninput="clientesBusca=this.value;renderClientes();document.getElementById('cliBusca').focus()">
-          <div class="spacer"></div>
-          <button class="btn btn-gold" onclick="openCliForm()">+ Nova cliente</button>
+        <div class="seg" style="margin-bottom:16px">${segPeriodo(crmPeriodo,'setCrmPeriodo')}</div>
+        ${vazio?`<div class="empty"><h3>Nenhuma cliente com compra neste período</h3>
+          <p>Troque o filtro acima ou cadastre a primeira cliente.</p>
+          <button class="btn btn-gold" style="margin-top:14px" onclick="openCliForm()">+ Nova cliente</button></div>`:`
+        <div class="kpis cinco">
+          ${cartaoKpi({ico:ICO.pessoas,rot:'Clientes ativos',num:fmtN(k.ativos),
+            cls:'compacto k-cli',sub:['compraram no período']})}
+          ${cartaoKpi({ico:ICO.brilho,rot:'Clientes recorrentes',num:fmtN(k.recorrentes),
+            cls:'compacto k-ped',sub:[`${k.recorrentesPct}% da base · 2 compras ou mais`]})}
+          ${cartaoKpi({ico:ICO.etiqueta,rot:'Novos clientes',
+            num:k.novos!=null?fmtN(k.novos):'—',
+            cls:'compacto k-pec',
+            sub:[k.novos!=null?'primeira compra no período'
+              :'escolha 12 meses, 90 ou 30 dias']})}
+          ${cartaoKpi({ico:ICO.grafico,rot:'Ticket médio',
+            num:k.ticketMedioPorVenda!=null?money(k.ticketMedioPorVenda):'—',
+            cls:'compacto k-fat',sub:['por venda']})}
+          ${cartaoKpi({ico:ICO.caixa,rot:'Valor médio por cliente',
+            num:k.valorHistoricoMedioPorCliente!=null?money(k.valorHistoricoMedioPorCliente):'—',
+            cls:'compacto k-tic',sub:['gasto acumulado ÷ clientes']})}
         </div>
-        ${l.length?`<div class="revgrid">${l.map(cardCliente).join('')}</div>`:
-          `<div class="empty"><h3>${b?'Ninguém com esse nome':'Nenhuma cliente ainda'}</h3>
-           <p>${b?'Tente outro trecho do nome.':'As clientes aparecem aqui conforme as vendas são registradas ou o histórico é importado.'}</p></div>`}
+        <div class="hint" style="margin-top:10px">
+          <b>Valor médio por cliente</b> é o que já foi gasto, somado e dividido —
+          não é LTV: nada aqui projeta compra futura.
+        </div>`}
       </div>
-    </div>`;
+    </div>
+
+    ${vazio?'':`
+    <div class="vg vg-2 larga">
+      ${painelBloco('Principais clientes ao longo do tempo',
+        graficoLinhas(crmData.serieTopClientes,crmMetricaSerie),
+        `<select class="selmini" onchange="setCrmSerie(this.value)" aria-label="O que o gráfico mostra">
+           <option value="faturamento" ${crmMetricaSerie==='faturamento'?'selected':''}>Valor gasto</option>
+           <option value="pecas" ${crmMetricaSerie==='pecas'?'selected':''}>Peças</option>
+           <option value="vendas" ${crmMetricaSerie==='vendas'?'selected':''}>Compras</option>
+         </select>`)}
+      ${blocoRankingClientes(crmData.topClientes)}
+    </div>
+
+    <div class="vg vg-3 mid">
+      ${blocoSaudeBase(saude,crmData.regua)}
+      ${blocoTopClientesLista(crmData.topClientes)}
+      ${blocoReativacao(crmData.reativacao)}
+    </div>
+
+    ${insightsClientes(crmData.insights)}
+    `}
+
+    ${blocoTodosClientes()}`;
+
+  if(!vazio) pintarRoscaSaude(saude);
 }
 
-/** Mesmo .revcard das revendedoras — mesma grade, mesmo nome em serif, mesma
-    linha de estatísticas, mesmo selo. O que muda é o que os números dizem. */
-function cardCliente(c){
-  return `<div class="revcard" onclick="switchTab('cli:${encodeURIComponent(c.norm)}')">
-    <div class="rc-nm">${esc(c.nome||'—')}</div>
-    <div class="rc-meta">${c.ultimaCompra?`Última compra em ${fmtData(c.ultimaCompra)}`:'Sem compra registrada'}</div>
-    <div class="rc-row">
-      <div class="rc-st">Peças<b>${c.pecas}</b></div>
-      <div class="rc-st">Gastou<b style="font-size:16px">${money(c.faturamento)}</b></div>
+/* ---------------- ranking: peças compradas pelos principais ---------------- */
+
+function blocoRankingClientes(l){
+  if(!l||!l.length) return painelBloco('Peças compradas pelos principais clientes',
+    `<div class="empty"><p>Nada no período.</p></div>`);
+  const campo={pecas:'pecas',faturamento:'faturamento',vendas:'vendas'}[crmOrdemRanking]||'pecas';
+  const lista=[...l].sort((a,b)=>b[campo]-a[campo]).slice(0,6);
+  const maior=Math.max(...lista.map(c=>c[campo]))||1;
+  const linhas=lista.map((c,i)=>`<div class="rkrow clicavel" tabindex="0" role="button"
+      onclick="switchTab('cli:${encodeURIComponent(c.norm)}')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchTab('cli:${encodeURIComponent(c.norm)}')}">
+      <span class="rk-pos" style="background:${COR_SERIE[i%COR_SERIE.length]}">${i+1}</span>
+      <div class="rk-mid">
+        <div class="rk-nm">${esc(c.nome)}</div>
+        <div class="rk-barra"><i style="width:${(c[campo]/maior*100).toFixed(1)}%;background:${COR_SERIE[i%COR_SERIE.length]}"></i></div>
+        <div class="hint" style="font-size:10.5px;margin-top:4px">
+          ${fmtN(c.pecas)} peças · ${fmtN(c.vendas)} ${plural(c.vendas,'compra','compras')}${
+          c.ultimaCompra?` · última em ${fmtData(c.ultimaCompra)}`:''}</div>
+      </div>
+      <div class="rk-vl"><b>${campo==='faturamento'?money(c.faturamento):fmtN(c[campo])}</b>
+        <span>${campo==='faturamento'?`${fmtN(c.pecas)} peças`:money(c.faturamento)}</span></div>
+    </div>`).join('');
+  return painelBloco('Peças compradas pelos principais clientes',
+    `<div class="rank">${linhas}</div>`,
+    `<select class="selmini" onchange="setCrmOrdem(this.value)" aria-label="Ordenar por">
+       <option value="pecas" ${crmOrdemRanking==='pecas'?'selected':''}>Por peças</option>
+       <option value="faturamento" ${crmOrdemRanking==='faturamento'?'selected':''}>Por gasto</option>
+       <option value="vendas" ${crmOrdemRanking==='vendas'?'selected':''}>Por compras</option>
+     </select>`);
+}
+
+/* ---------------- saúde da base ---------------- */
+
+function blocoSaudeBase(s,regua){
+  if(!s||!s.grupos.length) return painelBloco('Saúde da base',
+    `<div class="empty"><p>Sem clientes no período.</p></div>`);
+  const linhas=s.grupos.map(g=>`<div class="rkrow">
+      <span class="rk-pos" style="background:${COR_ESTADO[g.estado]||'#9E8A90'}"></span>
+      <div class="rk-mid"><div class="rk-nm">${esc(g.rotulo)}</div></div>
+      <div class="rk-vl"><b>${fmtN(g.n)}</b><span>${g.pct}%</span></div>
+    </div>`).join('');
+  return painelBloco('Saúde da base',
+    `<div id="roscaSaude" class="semlegenda" style="max-width:210px;margin:0 auto 14px"></div>
+     <div class="rank">${linhas}</div>
+     <details style="margin-top:12px">
+       <summary class="hint" style="cursor:pointer">Como cada grupo é definido</summary>
+       <div class="hint" style="margin-top:8px;line-height:1.6">${esc(s.explicacao)}</div>
+     </details>`);
+}
+
+function pintarRoscaSaude(s){
+  const wrap=document.getElementById('roscaSaude');
+  if(!wrap) return;
+  const dados=(s.grupos||[]).map(g=>({cat:g.rotulo,qtd:g.n,cor:COR_ESTADO[g.estado]||'#9E8A90'}))
+    .filter(d=>d.qtd>0);
+  desenharRosca(wrap,dados,'clientes','Sem clientes no período.',false);
+}
+
+/* ---------------- top clientes (lista) ---------------- */
+
+function blocoTopClientesLista(l){
+  if(!l||!l.length) return painelBloco('Top clientes',`<div class="empty"><p>Nada no período.</p></div>`);
+  const linhas=l.slice(0,6).map((c,i)=>`<div class="rkrow clicavel" tabindex="0" role="button"
+      onclick="switchTab('cli:${encodeURIComponent(c.norm)}')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchTab('cli:${encodeURIComponent(c.norm)}')}">
+      <span class="rk-pos" style="background:${COR_SERIE[i%COR_SERIE.length]}">${i+1}</span>
+      <div class="rk-mid"><div class="rk-nm">${esc(c.nome)}</div>
+        <div class="hint" style="font-size:10.5px">${fmtN(c.pecas)} peças ·
+          ${fmtN(c.vendas)} ${plural(c.vendas,'compra','compras')}${
+          c.ultimaCompra?` · ${fmtData(c.ultimaCompra)}`:''}</div></div>
+      <div class="rk-vl"><b>${money(c.faturamento)}</b>
+        <span>${c.ticketMedio!=null?money(c.ticketMedio)+' /compra':''}</span></div>
+    </div>`).join('');
+  return painelBloco('Top clientes',`<div class="rank">${linhas}</div>`,
+    `<button class="btn btn-ghost btn-sm" onclick="setClientesFiltro('todos');document.getElementById('todosClientes').scrollIntoView({behavior:'smooth'})">Ver todos</button>`);
+}
+
+/* ---------------- oportunidades de reativação ---------------- */
+
+/** O mockup trazia um botão "Reativar". Não existe integração de WhatsApp
+    nem registro de reativação neste sistema, então o botão abre a cliente —
+    fingir envio de mensagem seria prometer o que a tela não faz. §26. */
+function blocoReativacao(l){
+  if(!l||!l.length) return painelBloco('Oportunidades de reativação',
+    `<div class="empty"><p>Ninguém fora da própria frequência de compra. Base em dia.</p></div>`);
+  const linhas=l.slice(0,8).map(c=>`<div class="oprow">
+      <div>
+        <div class="op-nm">${esc(c.nome)}</div>
+        <div class="op-sub">${c.ultimaCompra?`última em ${fmtData(c.ultimaCompra)}`:'sem data'} ·
+          ${money(c.faturamento)} · ${fmtN(c.pecas)} peças · ${fmtN(c.vendas)} ${plural(c.vendas,'compra','compras')}${
+          c.frequenciaDias?` · costuma comprar a cada ${c.frequenciaDias} dias`:''}</div>
+      </div>
+      <span class="dias ${c.estado==='inativa'?'frio':''}">${fmtN(c.diasSemComprar)} dias</span>
+      <span class="op-acao"><button class="btn btn-ghost btn-sm"
+        onclick="switchTab('cli:${encodeURIComponent(c.norm)}')">Ver cliente</button></span>
+    </div>`).join('');
+  return painelBloco('Oportunidades de reativação',
+    `<div class="hint" style="margin-bottom:10px">Clientes que passaram do próprio
+       intervalo entre compras, do maior gasto para o menor.</div>${linhas}`);
+}
+
+/* ---------------- insights de clientes ---------------- */
+
+/** O mockup trazia "Última reativação". Não existe sistema que registre
+    reativação, então esse cartão não existe — no lugar dele entram métricas
+    que os dados sustentam. §28. */
+function insightsClientes(ins){
+  if(!ins) return '';
+  const c=[];
+  if(ins.campeao) c.push(cartaoInsight(ICO.brilho,'Cliente campeã',ins.campeao.nome,
+    `${money(ins.campeao.faturamento)} em ${fmtN(ins.campeao.pecas)} peças`));
+  if(ins.maisFrequente) c.push(cartaoInsight(ICO.pessoas,'Maior frequência',ins.maisFrequente.nome,
+    `${fmtN(ins.maisFrequente.vendas)} ${plural(ins.maisFrequente.vendas,'compra','compras')} no período`));
+  if(ins.maiorCompra) c.push(cartaoInsight(ICO.caixa,'Maior compra',ins.maiorCompra.nome,
+    `${money(ins.maiorCompra.valor)} numa venda só`));
+  if(ins.maiorTicket) c.push(cartaoInsight(ICO.etiqueta,'Maior ticket médio',ins.maiorTicket.nome,
+    `${money(ins.maiorTicket.ticketMedio)} por compra`));
+  if(ins.canalDaBase) c.push(cartaoInsight(ICO.grafico,'Canal preferido da base',ins.canalDaBase.nome,
+    `${ins.canalDaBase.participacao}% do faturamento`));
+  if(!c.length) return '';
+  return `<div class="insights" style="margin-bottom:14px">${c.join('')}</div>`;
+}
+
+/* ---------------- todos os clientes (a parte operacional) ---------------- */
+
+function blocoTodosClientes(){
+  const l0=clientesLista||[];
+  const b=clientesBusca.trim().toLowerCase();
+  const l=l0
+    .filter(c=>clientesFiltro==='todos'||c.estado===clientesFiltro)
+    .filter(c=>!b||String(c.nome||'').toLowerCase().includes(b));
+
+  const conta=(e)=>l0.filter(c=>c.estado===e).length;
+  const pilula=(k,r,n)=>`<button class="fpill ${clientesFiltro===k?'on':''}"
+    onclick="setClientesFiltro('${k}')">${r}${n!=null?` <b>${n}</b>`:''}</button>`;
+
+  return `<div class="panel" id="todosClientes">
+    <div class="head bhead">
+      <div class="bh-t"><h2>Todos os clientes</h2>
+        <span class="hint">Toque em uma para ver o histórico dela</span></div>
+      <span class="hint">${fmtN(l.length)} de ${fmtN(l0.length)}</span>
     </div>
-    <div style="margin-top:11px"><span class="badge ${classeRelacao(c.relacionamento)}">${esc(c.relacionamento)}</span></div>
+    <div class="body">
+      <div class="actbar">
+        <input id="cliBusca" placeholder="Buscar pelo nome" value="${esc(clientesBusca)}"
+               aria-label="Buscar cliente pelo nome"
+               oninput="clientesBusca=this.value;clientesMostrar=48;renderClientes();focarBusca()">
+        <div class="spacer"></div>
+        <button class="btn btn-gold" onclick="openCliForm()">+ Nova cliente</button>
+      </div>
+      <div class="filtros-cli">
+        ${pilula('todos','Todos',l0.length)}
+        ${pilula('recorrente','Recorrentes',conta('recorrente'))}
+        ${pilula('ativa','Ativos',conta('ativa'))}
+        ${pilula('em risco','Em risco',conta('em risco'))}
+        ${pilula('inativa','Inativos',conta('inativa'))}
+      </div>
+      ${l.length?`<div class="revgrid">${l.slice(0,clientesMostrar).map(cardCliente).join('')}</div>
+        ${l.length>clientesMostrar?`<div style="margin-top:16px;text-align:center">
+          <button class="btn btn-ghost" onclick="verMaisClientes()">Ver mais
+            (${fmtN(l.length-clientesMostrar)} ${plural(l.length-clientesMostrar,'restante','restantes')})</button>
+          <div class="hint" style="margin-top:8px">Mostrando ${fmtN(clientesMostrar)} de ${fmtN(l.length)}.
+            A busca e os filtros procuram na lista inteira.</div></div>`:''}`
+      :`<div class="empty"><h3>${b?'Ninguém com esse nome':'Nenhuma cliente neste filtro'}</h3>
+        <p>${b?'Tente outro trecho do nome.':'Troque o filtro acima.'}</p></div>`}
+    </div>
   </div>`;
 }
 
+/* O `renderClientes` reescreve a tela inteira a cada tecla, e o foco morre
+   junto com o input antigo. Devolver o cursor ao fim do texto é o que faz a
+   busca não perder letra. */
+function focarBusca(){
+  const i=document.getElementById('cliBusca');
+  if(!i) return;
+  i.focus();
+  const n=i.value.length;
+  try{ i.setSelectionRange(n,n); }catch(e){}
+}
+
+/** Mesmo `.revcard` das revendedoras — mesma grade, mesmo nome em serif,
+    mesma linha de estatísticas, mesmo selo. O que muda é o que os números
+    dizem. */
+function cardCliente(c){
+  return `<div class="revcard" tabindex="0" role="button"
+      onclick="switchTab('cli:${encodeURIComponent(c.norm)}')"
+      onkeydown="if(event.key==='Enter'){switchTab('cli:${encodeURIComponent(c.norm)}')}">
+    <div class="rc-nm">${esc(c.nome)}</div>
+    <div class="rc-meta">${c.ultimaCompra?`Última compra em ${fmtData(c.ultimaCompra)}`:'Sem compra registrada'}${
+      c.diasSemComprar!=null?` · há ${fmtN(c.diasSemComprar)} dias`:''}</div>
+    <div class="rc-row">
+      <div class="rc-st">Compras<b>${fmtN(c.vendas)}</b></div>
+      <div class="rc-st">Peças<b>${fmtN(c.pecas)}</b></div>
+      <div class="rc-st">Gastou<b style="font-size:16px">${money(c.faturamento)}</b></div>
+    </div>
+    <div style="margin-top:11px"><span class="badge ${classeRelacao(c.estado)}">${esc(c.estado)}</span></div>
+  </div>`;
+}
+
+function classeRelacao(r){
+  return ({'recorrente':'aberta','ativa':'aberta','nova':'prazo',
+    'em risco':'vencida','inativa':'vencida','para reativação':'vencida'})[r]||'fechada';
+}
+
+/* ---------------- perfil individual ---------------- */
+
 async function abrirPerfilCliente(norm){
   const v=document.getElementById('view-cliente');
-  v.innerHTML=`<div class="panel"><div class="body"><div class="empty"><h3>Carregando…</h3></div></div></div>`;
+  v.innerHTML=blocoCarregando('Abrindo o perfil…');
   let p;
   try{ p=await api('GET','/api/clientes/perfil?norm='+encodeURIComponent(decodeURIComponent(norm))); }
   catch(e){
     v.innerHTML=`<div class="panel"><div class="body"><div class="empty">
-      <h3>Não consegui abrir</h3><p>${esc(e.message||'')}</p></div></div></div>`;
+      <h3>Não consegui abrir</h3><p>${esc(e.message||'')}</p>
+      <button class="btn btn-ghost" style="margin-top:14px" onclick="switchTab('clientes')">← todas as clientes</button>
+    </div></div></div>`;
     return;
   }
   const r=p.resumo, cad=p.cadastro||{};
+  const contato=[cad.tel,cad.email,cad.instagram,cad.cidade].filter(Boolean);
+
   v.innerHTML=`
     <div class="panel">
-      <div class="head">
-        <h2>${esc(cad.nome||decodeURIComponent(norm))}</h2>
-        <span class="hint"><a href="#" onclick="switchTab('clientes');return false">← todas as clientes</a></span>
+      <div class="head bhead">
+        <div class="bh-t"><h2>${esc(p.nomeExibicao)}</h2>
+          <span class="hint"><a href="#" onclick="switchTab('clientes');return false">← todas as clientes</a></span></div>
+        <span class="badge ${classeRelacao(r.estado)}">${esc(r.estado)}</span>
       </div>
       <div class="body">
         <div class="actbar">
-          <div>${[cad.tel,cad.email,cad.instagram,cad.cidade].filter(Boolean).map(esc).join(' · ')||'<span class="hint">Sem dados de contato</span>'}</div>
+          <div>${contato.length?contato.map(esc).join(' · ')
+            :'<span class="hint">Sem dados de contato cadastrados</span>'}</div>
           <div class="spacer"></div>
-          ${cad.id?`<button class="btn btn-ghost btn-sm" onclick="openCliForm(${cad.id})">Editar dados</button>`:''}
+          ${cad.id?`<button class="btn btn-ghost btn-sm" onclick="openCliForm(${cad.id})">Editar dados</button>`
+            :`<button class="btn btn-ghost btn-sm" onclick="openCliForm(null,${JSON.stringify(p.nomeExibicao).replace(/"/g,'&quot;')})">Cadastrar contato</button>`}
         </div>
-        <div class="kpis">
-          ${cartaoKpi({ico:ICO.grafico,rot:'Gastou',num:money(r.faturamento),
+        <div class="kpis cinco">
+          ${cartaoKpi({ico:ICO.grafico,rot:'Gastou',num:money(r.faturamento),cls:'compacto k-fat',
             sub:[r.gastoMedioPorPeca!=null?`${money(r.gastoMedioPorPeca)} por peça`:'—']})}
-          ${cartaoKpi({ico:ICO.caixa,rot:'Peças',num:r.pecas,sub:[`${p.totalItens} lançamentos`]})}
-          ${cartaoKpi({ico:ICO.pessoas,rot:'Datas com compra',num:r.datasComCompra,
+          ${cartaoKpi({ico:ICO.etiqueta,rot:'Compras',num:fmtN(r.vendas),cls:'compacto k-ped',
+            sub:[`${fmtN(r.itensLancados)} ${plural(r.itensLancados,'item','itens')} no total`]})}
+          ${cartaoKpi({ico:ICO.caixa,rot:'Peças',num:fmtN(r.pecas),cls:'compacto k-pec',
             sub:[r.primeiraCompra?`desde ${fmtData(r.primeiraCompra)}`:'—']})}
-          ${cartaoKpi({ico:ICO.nuvem,rot:'Relação',num:r.relacionamento,
-            sub:[r.ultimaCompra?`última em ${fmtData(r.ultimaCompra)}`:'—']})}
+          ${cartaoKpi({ico:ICO.brilho,rot:'Ticket médio dela',
+            num:r.ticketMedio!=null?money(r.ticketMedio):'—',cls:'compacto k-tic',
+            sub:['por compra']})}
+          ${cartaoKpi({ico:ICO.pessoas,rot:'Frequência',
+            num:r.frequenciaDias?`${fmtN(r.frequenciaDias)} dias`:'—',cls:'compacto k-cli',
+            sub:[r.ultimaCompra?`última em ${fmtData(r.ultimaCompra)}${
+              r.diasSemComprar!=null?` · há ${fmtN(r.diasSemComprar)} dias`:''}`:'—']})}
         </div>
-        ${p.canalPreferido?`<div class="hint" style="margin-top:12px">Compra mais por: <b>${esc(p.canalPreferido)}</b></div>`:''}
+        ${cad.obs?`<div class="hint" style="margin-top:12px"><b>Observações:</b> ${esc(cad.obs)}</div>`:''}
       </div>
     </div>
-    ${p.produtosPreferidos&&p.produtosPreferidos.length?painelBloco('Produtos preferidos',
-      `<div class="tablewrap"><table><thead><tr><th>Produto</th><th class="r">Peças</th></tr></thead>
-       <tbody>${p.produtosPreferidos.map(x=>`<tr><td>${esc(x.valor)}</td><td class="r">${x.pecas}</td></tr>`).join('')}</tbody>
-       </table></div>`):''}
+
+    <div class="vg vg-2">
+      ${painelBloco('Preferências',
+        `${p.canalPreferido?`<div class="hint" style="margin-bottom:10px">Compra mais por
+           <b style="color:var(--bordo)">${esc(p.canalPreferido)}</b></div>`:''}
+         ${p.categoriasPreferidas&&p.categoriasPreferidas.length?`
+           <div class="resumotit">Categorias favoritas</div>
+           <div class="rank">${p.categoriasPreferidas.map(x=>`<div class="rkrow">
+             <span class="rk-pos" style="background:${catColor(x.valor)}"></span>
+             <div class="rk-mid"><div class="rk-nm">${esc(x.valor)}</div></div>
+             <div class="rk-vl"><b>${fmtN(x.pecas)}</b><span>peças</span></div></div>`).join('')}</div>`:''}
+         ${p.contextos&&p.contextos.length?`<div class="resumotit" style="margin-top:16px">Onde comprou</div>
+           <div class="rank">${p.contextos.map(x=>`<div class="rkrow">
+             <span class="rk-pos" style="background:var(--rose)"></span>
+             <div class="rk-mid"><div class="rk-nm">${esc(x.valor)}</div></div>
+             <div class="rk-vl"><b>${fmtN(x.pecas)}</b><span>peças</span></div></div>`).join('')}</div>`:''}`)}
+      ${painelBloco('Produtos preferidos',
+        p.produtosPreferidos&&p.produtosPreferidos.length
+          ?`<div class="rank">${p.produtosPreferidos.map((x,i)=>`<div class="rkrow">
+             <span class="rk-pos" style="background:${COR_SERIE[i%COR_SERIE.length]}">${i+1}</span>
+             <div class="rk-mid"><div class="rk-nm">${esc(x.valor)}</div></div>
+             <div class="rk-vl"><b>${fmtN(x.pecas)}</b><span>peças</span></div></div>`).join('')}</div>`
+          :`<div class="empty"><p>Sem itens registrados.</p></div>`)}
+    </div>
+
     ${painelBloco('Histórico de compras',
-      `<div class="tablewrap"><table><thead><tr><th>Data</th><th>Código</th><th>Produto</th>
-        <th class="r">Qtd</th><th class="r">Valor</th><th>Origem</th></tr></thead><tbody>
-        ${p.historico.map(h=>`<tr>
-          <td>${h.data?fmtData(h.data):'<span class="hint">sem data</span>'}</td>
-          <td><code>${esc(h.sku||'—')}</code></td>
-          <td>${esc(h.nome||'—')}</td>
-          <td class="r">${h.qtd??'—'}</td>
-          <td class="r">${h.valor!=null?money(h.valor):'<span class="hint">—</span>'}</td>
-          <td>${esc(h.canal||'—')}${h.contexto?` · ${esc(h.contexto)}`:''}
-            ${h.fonte==='historico'?'<span class="hint"> (histórico)</span>':''}</td>
-        </tr>`).join('')}</tbody></table></div>`)}`;
+      p.vendas&&p.vendas.length?`<div class="tl">${p.vendas.map(v=>`
+        <div class="tlv">
+          <div class="tl-topo">
+            <span class="tl-dt">${v.data?fmtData(v.data):'sem data'}</span>
+            <span class="tl-vl">${money(v.valor)}</span>
+          </div>
+          <div class="tl-meta">${fmtN(v.pecas)} ${plural(v.pecas,'peça','peças')} ·
+            ${esc(v.canal||'origem não registrada')}${v.contexto?` · ${esc(v.contexto)}`:''}
+            ${v.status&&v.status!=='paga'?` · <b>${esc(v.status.replace('_',' '))}</b>`:''}
+            ${v.fonte==='historico'?' · histórico':' · venda do sistema'}</div>
+          ${v.itens&&v.itens.length?`<div class="tl-itens">${v.itens.map(i=>`
+            <div class="tl-item"><span class="q">${i.qtd}×</span>
+              <code>${esc(i.sku||'—')}</code>
+              <span>${esc(i.nome||'—')}</span></div>`).join('')}</div>`:''}
+        </div>`).join('')}</div>
+        <div class="hint" style="margin-top:12px">Cada bloco é uma COMPRA, não uma linha
+          de planilha: uma cliente que levou 36 peças no mesmo dia aparece uma vez.</div>`
+      :`<div class="empty"><p>Sem compras registradas.</p></div>`)}`;
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-function openCliForm(id){
+function openCliForm(id,nomeSugerido){
   const c=id&&clientesLista?clientesLista.find(x=>x.clienteId===id):null;
   document.getElementById('cliEditId').value=id||'';
   document.getElementById('cliFormTitle').textContent=id?'Editar cliente':'Nova cliente';
   const set=(k,v)=>{document.getElementById(k).value=v||'';};
-  set('clf-nome',c?c.nome:''); set('clf-tel',''); set('clf-cidade','');
+  set('clf-nome',c?c.nome:(nomeSugerido||'')); set('clf-tel',''); set('clf-cidade','');
   set('clf-email',''); set('clf-instagram',''); set('clf-nascimento',''); set('clf-obs','');
   if(id){
     /* o cartão do ranking não carrega o cadastro inteiro — busca o resto */
@@ -7383,6 +8146,7 @@ async function saveCliente(){
     await carregarClientes(); renderClientes();
   }catch(e){ toast(e.message||'Não consegui salvar'); }
 }
+
 
 /* =================== Importar histórico de vendas ===================
    analisar (seco) → relatório → decisão → aplicar. A pergunta que a tela

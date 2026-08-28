@@ -126,9 +126,19 @@ eq('peças', an.corpo.pecas, FONTE.pecas);
 eq('faturamento pago', an.corpo.faturamentoPago, FONTE.faturamentoPago);
 eq('faturamento de todas as linhas', an.corpo.faturamentoTodas, FONTE.faturamentoTodas);
 
-console.log('\n=== 1c. o que NÃO é inventado ===');
-eq('contagem de pedidos declarada indisponível', an.corpo.pedidos.disponivel, false);
-ok('e o motivo é escrito', String(an.corpo.pedidos.motivo).slice(0, 60) + '…');
+console.log('\n=== 1c. a análise prevê quantas VENDAS as linhas viram ===');
+/* Este bloco afirmava o CONTRÁRIO até 2026-08-27: sem regra de agrupamento
+   validada, contar pedidos seria invenção. A regra passou a existir — mesmo
+   cliente normalizado + mesma data = uma venda — e a prévia usa a MESMA
+   função que a reconstrução usa depois de importar. O número que a tela
+   mostra antes de aplicar é o que vai existir depois. */
+eq('a contagem de vendas está disponível', an.corpo.pedidos.disponivel, true);
+eq('e são menos vendas que linhas', an.corpo.pedidos.vendas < an.corpo.linhas, 'true');
+ok('linhas → vendas', `${an.corpo.linhas} → ${an.corpo.pedidos.vendas}`);
+eq('a regra vem escrita junto do número', /mesmo cliente/i.test(an.corpo.pedidos.regra), 'true');
+eq('e o ticket médio previsto existe', an.corpo.pedidos.ticketMedio != null, 'true');
+ok('ticket médio previsto', String(an.corpo.pedidos.ticketMedio));
+ok('maior venda do arquivo', `${an.corpo.pedidos.maiorVenda} itens numa compra só`);
 
 /* ══════════════════════════════════════════════════════════ 2. importação */
 
@@ -174,9 +184,32 @@ eq('e diz qual lote já tinha o arquivo', imp2.corpo.jaImportado.loteId, imp.cor
 const lotes = await api('GET', '/api/vendas/historico/lotes');
 eq('continua existindo UM lote só', lotes.corpo.lotes.length, 1);
 
+/* O faturamento do painel é o das VENDAS, e o que a planilha marca como
+   não-venda (aqui, a linha com observação `PERDIDO`) fica de fora dele — mas
+   continua no banco, na camada bruta, contado como ajuste. Por isso a
+   comparação desconta essas linhas em vez de somar tudo o que está `PAGO`. */
+const AJUSTE = /^(PERDIDO|ACHO QUE FOI VENDIDO)$/i;
+/* `Observação Venda ` tem espaço no fim no cabeçalho real — é o dado, não
+   um deslize de digitação deste teste. */
+const eAjuste = (l) => AJUSTE.test(String(l[col('Observação Venda ')] ?? '').trim())
+  || String(l[col('Nome do Cliente')] ?? '').trim().toLowerCase() === 'inventário';
+const semAjuste = corpo.filter((l) => !eAjuste(l));
+const ESPERADO = {
+  faturamento: +semAjuste.reduce((s, l) =>
+    s + (pagoDe(l[col('Status Pagamento')]) ? (num(l[col('Valor Total Venda')]) ?? 0) : 0), 0).toFixed(2),
+  pecas: semAjuste.reduce((s, l) => s + (num(l[col('Quantidade Vendida')]) ?? 0), 0),
+  ajustes: corpo.length - semAjuste.length,
+};
+
 const kpi = await api('GET', '/api/analytics/vendas');
-eq('e o faturamento não dobrou', kpi.corpo.historico.faturamento, FONTE.faturamentoPago);
-eq('nem as peças', kpi.corpo.historico.pecas, FONTE.pecas);
+eq('e o faturamento não dobrou', kpi.corpo.faturamento, ESPERADO.faturamento);
+eq('nem as peças', kpi.corpo.pecas, ESPERADO.pecas);
+eq('a linha marcada como não-venda ficou fora do faturamento',
+  kpi.corpo.composicao.ajustes, ESPERADO.ajustes);
+eq('mas continua no banco, na camada bruta',
+  kpi.corpo.composicao.linhasBrutas, FONTE.linhas);
+eq('e o ticket médio existe', kpi.corpo.ticketMedio.valor != null, 'true');
+ok('ticket médio depois de importar', String(kpi.corpo.ticketMedio.valor));
 
 /* ══════════════════════════════════════════ 5. o cru continua legível */
 
@@ -236,12 +269,23 @@ if (casado) eq('a peça que existe no catálogo aparece com nome atual', casado.
 
 const cli = await api('GET', '/api/analytics/clientes?limite=5');
 eq('ranking de clientes responde', cli.status, 200);
-eq('e o campo é "datasComCompra", não "pedidos"',
-  Object.hasOwn(cli.corpo.clientes[0] ?? {}, 'datasComCompra'), 'true');
+/* O campo se chamava `datasComCompra` porque "duas compras no mesmo dia
+   contam uma vez" era o melhor que dava para afirmar sem regra de
+   agrupamento. Agora a venda existe, e o campo se chama pelo que ele é. */
+eq('o cliente traz o número de VENDAS',
+  Object.hasOwn(cli.corpo.clientes[0] ?? {}, 'vendas'), 'true');
+eq('e o ticket médio dele', Object.hasOwn(cli.corpo.clientes[0] ?? {}, 'ticketMedio'), 'true');
 
-console.log('\n=== 7b. ticket médio histórico continua indisponível ===');
-eq('não inventa ticket médio para o histórico', kpi.corpo.ticketMedio.historico, 'null');
-eq('e diz que não está disponível', kpi.corpo.ticketMedio.historicoDisponivel, false);
+console.log('\n=== 7b. o ticket médio histórico agora EXISTE ===');
+/* Este bloco checava o contrário até 2026-08-27. A regra de agrupamento
+   passou a existir; o número saiu de "indisponível de propósito" para
+   calculado, com a regra publicada junto dele. */
+eq('o ticket médio é um número', typeof kpi.corpo.ticketMedio.valor, 'number');
+eq('e vem com a quantidade de vendas elegíveis',
+  kpi.corpo.ticketMedio.vendasElegiveis > 0, 'true');
+eq('e com a regra por escrito', /elegív|elegiv/i.test(kpi.corpo.ticketMedio.regra), 'true');
+eq('o denominador NÃO são as linhas da planilha',
+  kpi.corpo.ticketMedio.vendasElegiveis < FONTE.linhas, 'true');
 
 if (!usandoReal) {
   console.log('\n=== 8. cliente: mesmo nome com grafias diferentes conta junto ===');
@@ -251,7 +295,11 @@ if (!usandoReal) {
   const perfil = await api('GET', '/api/clientes/perfil?norm=angela%20alves');
   eq('o perfil responde pelo nome normalizado', perfil.status, 200);
   eq('com as duas compras', perfil.corpo.resumo.pecas, 2);
-  eq('e um estado de relacionamento derivado', typeof perfil.corpo.resumo.relacionamento, 'string');
+  eq('e um estado de relacionamento derivado', typeof perfil.corpo.resumo.estado, 'string');
+  /* datas diferentes = vendas diferentes: as duas linhas da Angela são
+     2025-06-01 e 2025-07-10, então são duas compras, não uma */
+  eq('duas datas viraram duas vendas', perfil.corpo.resumo.vendas, 2);
+  eq('a linha do tempo tem uma entrada por venda', perfil.corpo.vendas.length, 2);
 }
 
 /* ═══════════════════════════════════════════════════════════ 9. reverter */
@@ -263,7 +311,12 @@ eq('reverteu', rev.status, 200);
 eq('removeu todos os itens', rev.corpo.itensRemovidos, FONTE.linhas);
 
 const kpiZero = await api('GET', '/api/analytics/vendas');
-eq('o histórico sumiu dos números', kpiZero.corpo.historico.linhas, 0);
+eq('o histórico sumiu dos números', kpiZero.corpo.composicao.linhasBrutas, 0);
+eq('e as vendas reconstruídas foram junto', kpiZero.corpo.composicao.vendasHistoricas, 0);
+/* a camada derivada é filha do item: reverter tem de levar as duas, e nesta
+   ordem — o item aponta para a venda, então ele sai primeiro */
+const derivadasZero = await api('GET', '/api/vendas/historico/reconstrucao');
+eq('nenhuma venda derivada ficou órfã', derivadasZero.corpo.vendas, 0);
 
 const finalConf = await api('GET', '/api/estoque/conferir');
 eq('e a razão continua fechando depois de reverter', JSON.stringify(finalConf.corpo.divergentes), '[]');

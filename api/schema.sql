@@ -315,6 +315,11 @@ CREATE TABLE IF NOT EXISTS vendas (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
   cliente_id     INTEGER REFERENCES clientes(id),
   cliente_nome   TEXT,                              -- vazio quando a origem é acerto
+  -- Gravado por `normalizarNomeCliente()` em JS — o MESMO normalizador que
+  -- a importação histórica usa. Existe para que analytics não precise
+  -- normalizar em SQL: `LOWER(TRIM())` dobra caixa mas não acento, e
+  -- separava "Vitória" de "vitoria" em duas clientes.
+  cliente_nome_norm TEXT,
   revendedora_id INTEGER REFERENCES revendedoras(id),
   maleta_id      INTEGER REFERENCES maletas(id),
   origem         TEXT NOT NULL DEFAULT 'balcao',    -- balcao | acerto | site
@@ -698,7 +703,8 @@ CREATE TABLE IF NOT EXISTS vendas_historico_itens (
 
   -- ─── prestação de contas
   problemas_json TEXT,                      -- por que a linha não vira número
-  pedido_chave   TEXT,                      -- NULL até existir regra validada
+  pedido_chave   TEXT,                      -- a chave do agrupamento, legível
+  venda_historica_id INTEGER REFERENCES vendas_historicas(id),
   criado_em      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -711,6 +717,7 @@ CREATE INDEX IF NOT EXISTS idx_vh_itens_sku     ON vendas_historico_itens(sku_ba
 CREATE INDEX IF NOT EXISTS idx_vh_itens_cliente ON vendas_historico_itens(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_vh_itens_norm    ON vendas_historico_itens(cliente_nome_norm);
 CREATE INDEX IF NOT EXISTS idx_vh_itens_canal   ON vendas_historico_itens(canal);
+CREATE INDEX IF NOT EXISTS idx_vh_itens_venda   ON vendas_historico_itens(venda_historica_id);
 
 
 -- ══════════════════════════════════════════ 4. vínculos que pedem revisão
@@ -744,3 +751,64 @@ CREATE INDEX IF NOT EXISTS idx_cvr_status ON clientes_vinculo_revisao(status);
 -- propósito: nome não é identidade, e duas "Camila" podem ser duas pessoas.
 CREATE INDEX IF NOT EXISTS idx_clientes_nome_norm ON clientes(nome_norm);
 CREATE INDEX IF NOT EXISTS idx_clientes_tel_norm  ON clientes(tel_norm);
+
+-- ══════════════════════════════════════ vendas históricas RECONSTRUÍDAS
+
+-- A camada DERIVADA do histórico: a venda, montada a partir das linhas da
+-- planilha pela regra "mesmo cliente normalizado + mesma data = uma venda"
+-- (`api/src/vendas-historicas.js`). O bruto continua em
+-- `vendas_historico_itens`, intocado e auditável.
+--
+-- Esta tabela é descartável por construção: some inteira e é reconstruída
+-- com o mesmo resultado, porque a regra é determinística. É por isso que ela
+-- pode ser apagada e refeita sem cerimônia — e por isso que nada aqui é
+-- fonte da verdade de coisa nenhuma.
+--
+-- Ela NÃO move estoque. Agrupar linhas que já existiam não cria nem consome
+-- peça física; nenhuma coluna aqui referencia `movimentos`.
+CREATE TABLE IF NOT EXISTS vendas_historicas (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  lote_id   INTEGER NOT NULL REFERENCES vendas_historico_lotes(id),
+  chave     TEXT NOT NULL,             -- `<nome normalizado>|<data>`
+
+  -- 'venda' | 'ajuste'. Ajuste é o que a PLANILHA marca como não-venda
+  -- (PERDIDO, ACHO QUE FOI VENDIDO, correção). Nunca se deduz do tamanho do
+  -- grupo: 36 linhas no mesmo dia é uma compra de 36 peças, não um acerto.
+  classe    TEXT NOT NULL DEFAULT 'venda' CHECK (classe IN ('venda', 'ajuste')),
+  regra     TEXT NOT NULL,             -- qual regra formou este grupo, por extenso
+
+  cliente_nome      TEXT,
+  cliente_nome_norm TEXT,
+  cliente_id        INTEGER REFERENCES clientes(id),
+  data              TEXT,              -- YYYY-MM-DD, ou NULL
+
+  itens       INTEGER NOT NULL DEFAULT 0,
+  pecas       INTEGER NOT NULL DEFAULT 0,
+  valor_total REAL,                    -- NULL se algum item não tem valor
+  valor_pago  REAL NOT NULL DEFAULT 0,
+
+  status TEXT NOT NULL DEFAULT 'indefinida'
+         CHECK (status IN ('paga', 'nao_paga', 'parcial', 'indefinida')),
+
+  -- A definição de "pode entrar no ticket médio", numa coluna em vez de um
+  -- WHERE repetido: paga por inteiro, com data, sem item de valor ignorado.
+  elegivel_ticket INTEGER NOT NULL DEFAULT 0,
+
+  canal    TEXT,
+  contexto TEXT,
+  observacao_original TEXT,
+  origem_linhas TEXT NOT NULL DEFAULT '[]',   -- os `Nº` da planilha, em JSON
+
+  criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_vh_vendas_chave
+  ON vendas_historicas(lote_id, chave);
+CREATE INDEX IF NOT EXISTS idx_vh_vendas_data    ON vendas_historicas(data);
+CREATE INDEX IF NOT EXISTS idx_vh_vendas_norm    ON vendas_historicas(cliente_nome_norm);
+CREATE INDEX IF NOT EXISTS idx_vh_vendas_cliente ON vendas_historicas(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_vh_vendas_canal   ON vendas_historicas(canal);
+CREATE INDEX IF NOT EXISTS idx_vh_vendas_classe  ON vendas_historicas(classe, elegivel_ticket);
+CREATE INDEX IF NOT EXISTS idx_vh_vendas_periodo ON vendas_historicas(classe, data, elegivel_ticket);
+
+CREATE INDEX IF NOT EXISTS idx_vendas_cliente_norm ON vendas(cliente_nome_norm);

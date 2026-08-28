@@ -114,6 +114,46 @@ npx wrangler d1 execute DB --env staging --remote \
   --file=migracao-vendas-historico.sql
 ```
 
+### 3b. A segunda migration — a venda histórica reconstruída
+
+`migracao-vendas-historicas.sql` (com **s** no fim) cria a camada derivada
+que transforma as 1.341 linhas em 695 vendas, e é o que faz o ticket médio
+existir. Também puramente aditiva: 1 `CREATE TABLE`, 2 `ALTER TABLE ADD
+COLUMN`, 9 `CREATE INDEX`. Nenhum `UPDATE`, `DELETE` ou `DROP`.
+
+> **Já aplicada no `marquesa-db-dev` em 2026-08-28**, com a reconstrução
+> junto. Este passo existe para quem montar o ambiente do zero, e para
+> produção quando chegar a vez.
+
+```bash
+npx wrangler d1 execute DB --env staging --remote \
+  --file=migracao-vendas-historicas.sql
+```
+
+Num banco que **já tinha** histórico importado, a camada derivada precisa ser
+construída uma vez. Importação nova já faz isso sozinha:
+
+```bash
+curl -s -X POST -H "Authorization: Bearer <API_KEY do staging>" \
+  "https://marquesa-api-staging.marquesaasemijoias.workers.dev/api/vendas/historico/reconstruir"
+```
+
+Sem depender do Worker publicado, a ferramenta que usa a MESMA função da
+rota — lê o D1, calcula em JS, emite o SQL:
+
+```bash
+node api/tools/reconstruir-historico.mjs
+npx wrangler d1 execute DB --env staging --remote \
+  -c api/wrangler.toml --file=api/.tmp-sql/reconstrucao.sql
+```
+
+Confira que fechou (`itens_soltos` tem de ser `0`):
+
+```bash
+curl -s -H "Authorization: Bearer <API_KEY do staging>" \
+  "https://marquesa-api-staging.marquesaasemijoias.workers.dev/api/vendas/historico/reconstrucao"
+```
+
 ---
 
 ## 4. Publicar o Worker do DEV
@@ -157,9 +197,12 @@ W=https://marquesa-api-staging.marquesaasemijoias.workers.dev
 curl -s "$W/api/health"                       # {"ok":true,...}
 
 # as rotas novas: 401 = existem e estão protegidas. 404 = o deploy não pegou.
-for r in /api/analytics/vendas /api/analytics/clientes /api/analytics/origem \
+# `/painel` e `/crm` são as duas AGREGADAS — cada tela pede uma vez só.
+for r in /api/analytics/painel /api/analytics/crm \
+         /api/analytics/vendas /api/analytics/clientes /api/analytics/origem \
          /api/analytics/produtos /api/analytics/categorias /api/analytics/evolucao \
-         /api/vendas/lista /api/vendas/historico/lotes; do
+         /api/vendas/lista /api/vendas/historico/lotes \
+         /api/vendas/historico/reconstrucao; do
   printf '%s  %s\n' "$(curl -s -o /dev/null -w '%{http_code}' "$W$r")" "$r"
 done
 

@@ -63,3 +63,8 @@ src/planilha-*.xlsx
 # 351 nomes de clientes reais: é dado pessoal, e este repositório é público.
 # Fica local, como os backups. Como gerar: docs/TESTING.md § histórico.
 src/__dados__/
+
+# Saída gerada por api/tools/reconstruir-historico.mjs e sondagens de D1.
+# É derivado do banco: some e é refeito, não entra no histórico do repositório.
+api/.tmp-sql/
+src/.shot-*.png

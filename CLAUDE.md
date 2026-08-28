@@ -182,6 +182,7 @@ proporcional à mudança — direcionada, nunca a suíte inteira por reflexo:
 | `src/dashboard.tpl.html` | `python src/build.py` e depois `node src/e2e.mjs` |
 | foto, variação, SKU | `src/editar-peca-test.mjs` · `src/editar-peca-ui-test.mjs` · `src/fotos-catalogo-test.mjs` · `src/sku-auditoria-test.mjs` · `src/sku-gerador-test.mjs` |
 | Pendências / Nuvemshop | `src/pendencias-nuvemshop-test.mjs` |
+| Vendas, Clientes, histórico | `src/vendas-reconstrucao-test.mjs` · `src/categoria-nome-test.mjs` (puros) · `src/vendas-historico-test.mjs` · `src/vendas-clientes-ui-test.mjs` |
 | Revendedoras / Anexo I | `src/revendedoras-test.mjs` |
 | `frontend/src/**` | `cd frontend && npm test && npm run build` |
 | schema ou migration | contagens antes/depois, cada delta explicado, razão fechando |

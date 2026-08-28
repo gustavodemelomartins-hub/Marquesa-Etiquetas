@@ -34,7 +34,11 @@ import {
 import {
   visaoGeral, evolucao, produtosMaisVendidos, categoriasMaisVendidas,
   porOrigem, clientesRanking, perfilCliente, listarVendasUnificado,
+  painel, crm,
 } from './analytics.js';
+import {
+  reconstruir, estadoReconstrucao, backfillNormalizacao,
+} from './vendas-historicas.js';
 import {
   abrirSessao, detalheSessao, aprovarItem, rejeitarItem, cancelarSessao, aplicarSessao,
   analisarPlanilhaEstoqueTotal, analisarPlanilhaProdutosNovos,
@@ -576,7 +580,30 @@ async function rotear(request, env) {
         return json(r, r.ok ? 200 : 400);
       }
 
+      // ---------------------------------- reconstrução das vendas históricas
+      // Camada DERIVADA: apaga e refaz pela mesma regra determinística, e o
+      // bruto (`vendas_historico_itens`) não é tocado. Não move estoque —
+      // agrupar linhas que já existiam não cria nem consome peça física.
+      if (path === '/api/vendas/historico/reconstruir' && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        const norm = await backfillNormalizacao(db);
+        const r = await reconstruir(db, { loteId: b.loteId ?? null });
+        return json({ ...r, normalizacao: norm });
+      }
+      if (path === '/api/vendas/historico/reconstrucao' && met === 'GET') {
+        return json(await estadoReconstrucao(db));
+      }
+
       // ------------------------------------------------ inteligência comercial
+      // As duas rotas AGREGADAS: cada tela pede uma vez e recebe todos os
+      // blocos dela do mesmo recorte — assim nenhum cartão pode discordar do
+      // gráfico ao lado, e o filtro de período não dispara seis requisições.
+      if (path === '/api/analytics/painel' && met === 'GET') {
+        return json(await painel(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
+      }
+      if (path === '/api/analytics/crm' && met === 'GET') {
+        return json(await crm(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
+      }
       if (path === '/api/analytics/vendas' && met === 'GET') {
         return json(await visaoGeral(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
       }

@@ -397,3 +397,55 @@ base sem reescrever a tela: `gerarSugestoes` já recebe os pesos por
 parâmetro (`pesosPorCategoria`), que é também o ponto de entrada da
 personalização por revendedora.
 
+
+## 16. ~~Duas normalizações de cliente~~ — RESOLVIDO em 2026-08-28
+
+`analytics.js` comparava cliente operacional com cliente histórico usando
+`LOWER(TRIM(...))` em SQL, enquanto a importação usava
+`normalizarNomeCliente()` em JS — que faz NFD e remove o diacrítico. As duas
+discordavam exatamente onde dói: **"José" e "jose" viravam clientes
+diferentes**, "Vitória" e "vitoria" também, e a mesma pessoa aparecia duas
+vezes no painel com metade do gasto em cada.
+
+A correção **não** foi reimplementar o NFD em SQL (seriam 46 `replace()`
+aninhados, e a segunda implementação divergiria de novo na primeira
+mudança). Foi a venda operacional passar a **guardar** o nome já normalizado
+pelo mesmo JS: `vendas.cliente_nome_norm`, preenchida por
+`backfillNormalizacao()`, e o SQL só lê a coluna. Nunca houve, e não passa a
+haver, uma segunda regra.
+
+Provado em `src/vendas-reconstrucao-test.mjs` § 3.
+
+## 17. A tabela de categorias existe em dois lugares — declarada e travada
+
+`api/src/categoria-nome.js` (fonte da verdade para relatório) e `CAT_MAP` em
+`src/dashboard.tpl.html` têm a mesma tabela de palavra → categoria.
+
+A duplicação é real e tem motivo: o painel de etiquetas classifica planilha
+**no navegador, sem rede**, e não pode importar um módulo do Worker. Mover
+esse fluxo para o servidor é o que resolveria de verdade, e está fora do
+escopo desta rodada.
+
+Enquanto isso, a duplicação é **declarada e verificada**:
+`src/categoria-nome-test.mjs` lê o `CAT_MAP` do template e compara entrada
+por entrada. Divergiu, o teste falha no mesmo dia. Duplicação silenciosa é
+como o item 16 aconteceu.
+
+## 18. `src/e2e.mjs` falha em maleta no `wrangler dev --local` do Windows
+
+Três asserções do roteiro de maleta falham, e o teste estoura em seguida:
+
+```
+FALHA a maleta guardou 6 peças         → esperava 6, veio 0
+FALHA o preço do envio ficou congelado → esperava 500, veio undefined
+FALHA 900001: 13 no total, 2 fora      → esperava 2, veio 0
+TypeError: Cannot read properties of null (reading 'faltas')
+```
+
+**Não é regressão.** Medido com banco limpo contra o `dashboard.html` do
+commit `b37b877`, servido de um `git worktree` separado: falha idêntica.
+
+E **não é o fluxo de maleta que está quebrado**:
+`src/revendedoras-test.mjs` cobre revendedora, maleta, acerto e Anexo I pela
+tela e passa inteiro (45 asserções). É algo específico deste roteiro neste
+ambiente. Registrado em `docs/BASELINE.md`; falta isolar.

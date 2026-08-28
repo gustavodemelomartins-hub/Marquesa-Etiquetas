@@ -882,3 +882,72 @@ e oferece cancelar.
 **Exportar o Anexo I em arquivo está BLOQUEADO** enquanto o modelo
 operacional original não estiver no repositório. Ver `docs/TECH_DEBT.md`
 item 15. `printAnexo()` (impressão) continua como estava.
+
+### 21. A venda histórica é reconstruída, e a regra vem escrita junto — §22
+
+**Decisão anterior, superada em 2026-08-28.** Quando a planilha
+`Vendas Marquesa.xlsx` foi importada, o sistema recusou contar pedidos e
+ticket médio históricos: a coluna `Nº` numera **linhas** (1 a 1.341, sem
+repetir), não pedidos, e sem regra de agrupamento validada qualquer ticket
+médio seria artefato da importação. A recusa estava certa para o que se
+sabia. Junto dela vinha uma inferência: "uma cliente com 36 linhas na mesma
+data é acerto de maleta, não uma compra". **Essa inferência estava errada.**
+
+O dono do negócio esclareceu como a operação funcionava. A regra é:
+
+> **Mesmo cliente normalizado + mesma data = UMA venda histórica.**
+> As linhas daquele grupo são os itens dela.
+
+Uma cliente que aparece 36 vezes em 13/06/2026 comprou 36 peças numa venda
+só — não fez 36 compras, e não é acerto. **O tamanho do grupo não classifica
+a operação.** O que não é venda vem **escrito na planilha**, na coluna
+`Observação Venda`: `PERDIDO`, `ACHO QUE FOI VENDIDO`, ajuste, correção. Só
+isso vira `classe='ajuste'`, e só isso sai do faturamento. Nesta base são
+3 linhas, todas do "cliente" `Inventário` — nenhuma delas grande.
+
+**O bruto não é tocado.** As 1.341 linhas continuam em
+`vendas_historico_itens`, com os campos `*_original` como estavam na célula.
+A venda vive numa camada **derivada** (`vendas_historicas`), descartável por
+construção: `reconstruir()` apaga e refaz, e o resultado é idêntico a cada
+rodada porque a regra é determinística. Cada venda guarda os `Nº` das linhas
+que a formaram e a regra que a agrupou — de qualquer número do painel dá
+para chegar de volta às células.
+
+**Duas travas de honestidade:**
+
+- **Linha sem data** não pode ser agrupada por data. Vira venda própria,
+  marcada, e **fica fora do ticket médio** — não se sabe se ela era parte de
+  outra compra. São 15 linhas em 1.341.
+- **Ticket médio** = faturamento das vendas **pagas elegíveis** ÷ número
+  dessas vendas. Elegível = paga por inteiro, com data conhecida, sem item
+  de valor desconhecido. Venda pendente, parcial, sem data ou ajuste fica de
+  fora. Misturar as populações daria um número menor e sem significado.
+
+Nada disso movimenta estoque. Agrupar linhas que já existiam não cria nem
+consome peça física; a invariante `produtos.qtd == SUM(movimentos.qtd)` não
+é tocada.
+
+Implementado em `api/src/vendas-historicas.js`; provado em
+`src/vendas-reconstrucao-test.mjs`.
+
+### 22. Categoria vem do catálogo ou do nome — nunca do material
+
+`vendas_historico_itens.tipo` guarda **material**: `Prata 925`, `Aço Inox`,
+`Banhada`, `Bruto`. O painel usava esse campo como categoria quando a peça
+não estava mais no catálogo, e a rosca "Distribuição por categoria vendida"
+somava `Banhada 445` e `Bruto 227` ao lado de `Brinco 153` — duas dimensões
+diferentes no mesmo total, respondendo uma pergunta que ninguém fez.
+
+62% das linhas do histórico (833 de 1.341) são de peças fora do catálogo
+atual, então isso não era um caso de borda: era a maior parte do gráfico.
+
+A ordem correta é: **`produtos.cat` quando a peça existe hoje** (é cadastro,
+alguém decidiu), e **a primeira palavra do nome histórico quando não existe**
+(é leitura, mas é a categoria certa: "Brinco Maxi…", "Colar Cordão…"). Sem
+reconhecer a palavra, `Outros` — nunca um chute pela segunda palavra.
+
+A tabela de palavras existe em dois lugares: `api/src/categoria-nome.js`
+(fonte da verdade para relatório) e `CAT_MAP` em `src/dashboard.tpl.html`
+(classifica planilha no navegador, sem rede). A duplicação é **declarada e
+verificada**: `src/categoria-nome-test.mjs` lê as duas e falha se
+divergirem.

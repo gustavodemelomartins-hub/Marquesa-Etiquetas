@@ -13,7 +13,7 @@ o item ganha a nova decisão e a antiga fica marcada como superada, com a data.
 | ⬜ | pendente |
 | 🔴 | bloqueado |
 
-Última revisão: **2026-08-27** · Vendas/CRM e histórico (seção 20).
+Última revisão: **2026-08-28** · Vendas + Clientes, venda histórica reconstruída (seção 21).
 Auditoria de prontidão para produção: 2026-08-22.
 
 ---
@@ -1160,11 +1160,11 @@ contra a fonte e reversão de lote. **Não movimenta estoque** — ver a regra e
 `api/src/vendas-historico.js` e a prova em `src/vendas-historico-test.mjs`.
 
 O histórico mora em `vendas_historico_itens`, não em `vendas`. A coluna `Nº`
-numera LINHAS, não pedidos (uma cliente aparece com 36 linhas na mesma data,
-que é acerto de maleta), então contagem de pedidos e ticket médio histórico
-ficam **indisponíveis por construção**, com o motivo na própria resposta da
-API. Quando existir regra de agrupamento validada, ela preenche
-`pedido_chave` sem reescrever o que está preservado.
+numera LINHAS, não pedidos, então contagem de pedidos e ticket médio ficaram
+**indisponíveis por construção** nesta rodada, com o motivo na resposta da
+API. ~~Uma cliente com 36 linhas na mesma data é acerto de maleta.~~
+**SUPERADO em 2026-08-28 — ver seção 21.** A regra de agrupamento passou a
+existir e a leitura do "acerto de maleta" estava errada.
 
 **Painel de Vendas e Clientes.** Três sub-abas — Lançamentos, Painel,
 Clientes — com KPIs, evolução, rankings de produto/categoria/origem/cliente e
@@ -1239,3 +1239,79 @@ nenhuma chamada saiu para a Nuvemshop.
 | Os dois Workers no ar e protegidos | `GET /api/health` → 200 · `GET /api/state` sem chave → 401, nos dois |
 | Ausência de proxy de API no Pages | `GET marquesa-dev.pages.dev/api/health` devolve HTML (fallback SPA), não JSON |
 | Contagens dos bancos, Secrets, R2, `sync_execucoes` | **não verificado** — sem credencial Cloudflare nesta sessão |
+
+---
+
+## 21. Vendas + Clientes — rodada de 2026-08-28  ✅ (código e dados) 🟡 (Worker)
+
+Primeira rodada executada **na máquina do Gustavo**, com credencial
+Cloudflare real. Tudo abaixo foi medido no `marquesa-db-dev` remoto, não em
+banco de teste.
+
+### 21.1 A regra de negócio que mudou
+
+A decisão de 2026-08-27 — "ticket médio histórico é indisponível de
+propósito" — está **revogada**. O dono do negócio esclareceu a operação:
+
+> **Mesmo cliente normalizado + mesma data = UMA venda histórica.**
+
+E corrigiu a inferência que a acompanhava: **não se classifica uma operação
+como acerto porque ela tem muitas linhas.** O que não é venda vem escrito na
+planilha. Regra completa em [api/REGRAS.md](../api/REGRAS.md) § 21.
+
+### 21.2 O que os números viraram
+
+| | Antes | Agora |
+|---|---|---|
+| Linhas brutas | 1.341 | 1.341 (**intocadas**) |
+| Vendas históricas | não contadas | **695** |
+| Ajustes (marcados na planilha) | — | **3** (`PERDIDO` ×2, `ACHO QUE FOI VENDIDO` ×1, todas do "cliente" `Inventário`) |
+| Vendas sem data | — | 15 (venda própria, fora do ticket) |
+| Ticket médio | "indisponível" | **R$ 186,08** (histórico) · **R$ 185,55** (com as 10 do sistema) |
+| Vendas elegíveis | — | 664, somando R$ 123.556,82 |
+| Maior venda | lida como acerto | Jéssica Melim, 13/06/2026 — **36 peças, R$ 2.368,80, uma compra** |
+
+Peças (1.357) e faturamento pago (R$ 125.726,92) continuam **idênticos à
+planilha**: o agrupamento não mexe em soma de item.
+
+### 21.3 Defeito encontrado e corrigido: categoria ≠ material
+
+A rosca "Distribuição por categoria vendida" mostrava `Banhada 445`,
+`Bruto 227`, `Prata 925 165` — isso é **material**, não categoria. Vinha do
+fallback para `vendas_historico_itens.tipo`, e afetava 62% das linhas (833
+de 1.341), porque a peça já saiu do catálogo. Agora a categoria sai do
+catálogo ou do nome histórico. Regra em [api/REGRAS.md](../api/REGRAS.md)
+§ 22, com teste que impede as duas tabelas de palavras de divergirem.
+
+Distribuição real: Brinco 422 (30,7%) · Colar 304 · Pulseira 242 · Anel 140 ·
+Argola 122 · Berloque 57 · Conjunto 43 · Pingente 36 · Outros 9.
+
+### 21.4 Defeitos menores corrigidos no caminho
+
+- **Miniatura da CDN nunca funcionou.** `fotoMiniUrl` anexava `-240-0` a uma
+  URL que já terminava em `-1024-1024`, e a Nuvemshop responde 403 para dois
+  pares de tamanho. Efeito duplo e silencioso: cada peça baixava a imagem de
+  1024px pelo `onerror`, e cada uma somava um 403 ao console — ~600 por carga
+  do Estoque. Pré-existente (confirmado contra o `dashboard.html` de `b37b877`).
+- **Reverter lote quebrava com FK.** `vendas_historico_itens` aponta para
+  `vendas_historicas`; apagar a venda antes do item devolvia
+  `FOREIGN KEY constraint failed` e 500.
+- **Dívida da normalização dupla, quitada.** `analytics.js` comparava cliente
+  com `LOWER(TRIM())` em SQL enquanto a importação usava NFD em JS —
+  "Vitória" e "vitoria" viravam duas clientes. Agora `vendas.cliente_nome_norm`
+  guarda o valor gravado pelo MESMO JS, e o SQL só lê.
+
+### 21.5 O que foi executado no DEV
+
+- migration `api/migracao-vendas-historicas.sql` aplicada no
+  `marquesa-db-dev` (`dcc36f65-…`): 12 comandos, aditiva;
+- reconstrução aplicada: 1.408 comandos, 698 vendas derivadas, **0 itens
+  soltos**;
+- **estoque intocado, antes e depois**: 772 produtos, soma 1.489, 1.171
+  movimentos, 10 vendas, 4 revendedoras, 8 maletas — idênticos. Razão
+  contábil fecha (`divergentes = 0`).
+
+### 21.6 O que falta  🟡
+
+`wrangler deploy --env staging` — Classe C, comando humano. O Pages sobe
+sozinho com o push em `develop`. Ver [RUNBOOK-DEV-API.md](RUNBOOK-DEV-API.md).

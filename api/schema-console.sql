@@ -30,9 +30,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_variacoes_variante ON produto_variacoes(va
 
 CREATE TABLE IF NOT EXISTS kit_componentes ( kit_sku TEXT NOT NULL REFERENCES produtos(sku), componente_sku TEXT NOT NULL REFERENCES produtos(sku), qtd INTEGER NOT NULL DEFAULT 1, PRIMARY KEY (kit_sku, componente_sku) );
 
-CREATE TABLE IF NOT EXISTS clientes ( id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, tel TEXT, criada_em TEXT NOT NULL DEFAULT (datetime('now')) );
+CREATE TABLE IF NOT EXISTS clientes ( id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, tel TEXT, nome_norm TEXT, tel_norm TEXT, email TEXT, email_norm TEXT, instagram TEXT, cidade TEXT, nascimento TEXT, obs TEXT, origem TEXT NOT NULL DEFAULT 'manual', criada_em TEXT NOT NULL DEFAULT (datetime('now')), atualizada_em TEXT );
 
-CREATE TABLE IF NOT EXISTS vendas ( id INTEGER PRIMARY KEY AUTOINCREMENT, cliente_id INTEGER REFERENCES clientes(id), cliente_nome TEXT, revendedora_id INTEGER REFERENCES revendedoras(id), maleta_id INTEGER REFERENCES maletas(id), origem TEXT NOT NULL DEFAULT 'balcao', data TEXT NOT NULL, total REAL NOT NULL, cancelada INTEGER NOT NULL DEFAULT 0, externo_id TEXT, nuvemshop_status TEXT NOT NULL DEFAULT 'nao_enviada', nuvemshop_erro TEXT, nuvemshop_em TEXT, criada_em TEXT NOT NULL DEFAULT (datetime('now')) );
+CREATE TABLE IF NOT EXISTS vendas ( id INTEGER PRIMARY KEY AUTOINCREMENT, cliente_id INTEGER REFERENCES clientes(id), cliente_nome TEXT, cliente_nome_norm TEXT, revendedora_id INTEGER REFERENCES revendedoras(id), maleta_id INTEGER REFERENCES maletas(id), origem TEXT NOT NULL DEFAULT 'balcao', data TEXT NOT NULL, total REAL NOT NULL, cancelada INTEGER NOT NULL DEFAULT 0, externo_id TEXT, nuvemshop_status TEXT NOT NULL DEFAULT 'nao_enviada', nuvemshop_erro TEXT, nuvemshop_em TEXT, criada_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
 CREATE TABLE IF NOT EXISTS sync_execucoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, iniciado_em TEXT, terminado_em TEXT, status TEXT, pedidos_lidos INTEGER, vendas_criadas INTEGER, produtos_enviados INTEGER, detalhe_json TEXT, seco INTEGER NOT NULL DEFAULT 0 );
 
@@ -109,3 +109,51 @@ CREATE INDEX IF NOT EXISTS idx_loja_var_produto ON loja_variantes(produto_id);
 CREATE INDEX IF NOT EXISTS idx_sku_reservas_exp ON sku_reservas(expira_em);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_produtos_sku_norm ON produtos(UPPER(REPLACE(REPLACE(REPLACE(sku, ' ', ''), CHAR(9), ''), CHAR(160), '')));
+
+CREATE TABLE IF NOT EXISTS vendas_historico_lotes ( id INTEGER PRIMARY KEY AUTOINCREMENT, arquivo_nome TEXT NOT NULL, arquivo_hash TEXT NOT NULL, linhas_total INTEGER NOT NULL DEFAULT 0, linhas_importadas INTEGER NOT NULL DEFAULT 0, linhas_rejeitadas INTEGER NOT NULL DEFAULT 0, relatorio_json TEXT, status TEXT NOT NULL DEFAULT 'importado' CHECK (status IN ('importado', 'revertido')), criado_em TEXT NOT NULL DEFAULT (datetime('now')), revertido_em TEXT );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_vh_lotes_hash ON vendas_historico_lotes(arquivo_hash) WHERE status = 'importado';
+
+CREATE TABLE IF NOT EXISTS vendas_historico_itens ( id INTEGER PRIMARY KEY AUTOINCREMENT, lote_id INTEGER NOT NULL REFERENCES vendas_historico_lotes(id), origem_linha TEXT NOT NULL, data_original TEXT, cliente_nome_original TEXT, sku_original TEXT, nome_produto_historico TEXT, tipo_original TEXT, preco_unit_original TEXT, desconto_original TEXT, valor_total_original TEXT, pagamento_original TEXT, status_pagamento_original TEXT, observacao_original TEXT, data TEXT, cliente_id INTEGER REFERENCES clientes(id), cliente_nome_norm TEXT, sku TEXT, sku_base TEXT, tipo TEXT, qtd INTEGER, preco_unit REAL, valor_total REAL, desconto_valor REAL, desconto_pct REAL, desconto_rotulo TEXT, pagamento_forma TEXT, pagamento_parcelas INTEGER, pago INTEGER, canal TEXT, contexto TEXT, revendedora_nome TEXT, revendedora_id INTEGER REFERENCES revendedoras(id), problemas_json TEXT, pedido_chave TEXT, venda_historica_id INTEGER REFERENCES vendas_historicas(id), criado_em TEXT NOT NULL DEFAULT (datetime('now')) );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_vh_itens_idem ON vendas_historico_itens(lote_id, origem_linha);
+
+CREATE INDEX IF NOT EXISTS idx_vh_itens_data ON vendas_historico_itens(data);
+
+CREATE INDEX IF NOT EXISTS idx_vh_itens_sku ON vendas_historico_itens(sku_base);
+
+CREATE INDEX IF NOT EXISTS idx_vh_itens_cliente ON vendas_historico_itens(cliente_id);
+
+CREATE INDEX IF NOT EXISTS idx_vh_itens_norm ON vendas_historico_itens(cliente_nome_norm);
+
+CREATE INDEX IF NOT EXISTS idx_vh_itens_canal ON vendas_historico_itens(canal);
+
+CREATE INDEX IF NOT EXISTS idx_vh_itens_venda ON vendas_historico_itens(venda_historica_id);
+
+CREATE TABLE IF NOT EXISTS clientes_vinculo_revisao ( id INTEGER PRIMARY KEY AUTOINCREMENT, lote_id INTEGER REFERENCES vendas_historico_lotes(id), nome_original TEXT NOT NULL, nome_norm TEXT NOT NULL, candidato_id INTEGER REFERENCES clientes(id), candidato_nome TEXT, motivo TEXT NOT NULL, linhas INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'pendente' CHECK (status IN ('pendente', 'vinculado', 'separado')), criado_em TEXT NOT NULL DEFAULT (datetime('now')), decidido_em TEXT );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cvr_unico ON clientes_vinculo_revisao(nome_norm, status) WHERE status = 'pendente';
+
+CREATE INDEX IF NOT EXISTS idx_cvr_status ON clientes_vinculo_revisao(status);
+
+CREATE INDEX IF NOT EXISTS idx_clientes_nome_norm ON clientes(nome_norm);
+
+CREATE INDEX IF NOT EXISTS idx_clientes_tel_norm ON clientes(tel_norm);
+
+CREATE TABLE IF NOT EXISTS vendas_historicas ( id INTEGER PRIMARY KEY AUTOINCREMENT, lote_id INTEGER NOT NULL REFERENCES vendas_historico_lotes(id), chave TEXT NOT NULL, classe TEXT NOT NULL DEFAULT 'venda' CHECK (classe IN ('venda', 'ajuste')), regra TEXT NOT NULL, cliente_nome TEXT, cliente_nome_norm TEXT, cliente_id INTEGER REFERENCES clientes(id), data TEXT, itens INTEGER NOT NULL DEFAULT 0, pecas INTEGER NOT NULL DEFAULT 0, valor_total REAL, valor_pago REAL NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'indefinida' CHECK (status IN ('paga', 'nao_paga', 'parcial', 'indefinida')), elegivel_ticket INTEGER NOT NULL DEFAULT 0, canal TEXT, contexto TEXT, observacao_original TEXT, origem_linhas TEXT NOT NULL DEFAULT '[]', criado_em TEXT NOT NULL DEFAULT (datetime('now')) );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_vh_vendas_chave ON vendas_historicas(lote_id, chave);
+
+CREATE INDEX IF NOT EXISTS idx_vh_vendas_data ON vendas_historicas(data);
+
+CREATE INDEX IF NOT EXISTS idx_vh_vendas_norm ON vendas_historicas(cliente_nome_norm);
+
+CREATE INDEX IF NOT EXISTS idx_vh_vendas_cliente ON vendas_historicas(cliente_id);
+
+CREATE INDEX IF NOT EXISTS idx_vh_vendas_canal ON vendas_historicas(canal);
+
+CREATE INDEX IF NOT EXISTS idx_vh_vendas_classe ON vendas_historicas(classe, elegivel_ticket);
+
+CREATE INDEX IF NOT EXISTS idx_vh_vendas_periodo ON vendas_historicas(classe, data, elegivel_ticket);
+
+CREATE INDEX IF NOT EXISTS idx_vendas_cliente_norm ON vendas(cliente_nome_norm);

@@ -26,6 +26,9 @@
 import {
   mapearColunas, normalizarLinha, normalizarTexto, normalizarNomeCliente,
 } from './vendas-historico-normalizar.js';
+import {
+  reconstruirVendas, reconstruir, backfillNormalizacao, REGRA_DESCRITA,
+} from './vendas-historicas.js';
 
 /* --------------------------------------------------------------- utilidades */
 
@@ -219,16 +222,37 @@ function resumir(registros, catalogo, clientes) {
     porTipo: contar('tipo'),
     porPagamento: contar('pagamento_forma'),
 
-    /* Honestidade estrutural: sem chave de pedido, isto não existe. */
-    pedidos: {
-      disponivel: false,
-      motivo: 'A planilha identifica LINHAS (a coluna Nº vai de 1 a N sem repetir), '
-        + 'não pedidos. Uma cliente aparece com dezenas de linhas na mesma data, '
-        + 'que é acerto de maleta e não uma compra só. Sem regra de agrupamento '
-        + 'validada, contagem de pedidos e ticket médio seriam invenção.',
-      alternativas: ['faturamento', 'peças', 'clientes', 'valor médio por item',
-        'gasto médio por cliente'],
-    },
+    /* Quantas VENDAS estas linhas vão virar.
+     *
+     *  Este campo dizia `disponivel: false` e explicava que contar pedidos
+     *  seria invenção — porque a planilha numera linhas, não pedidos, e a
+     *  leitura da época era que dezenas de linhas na mesma data seriam um
+     *  acerto de maleta. O dono do negócio corrigiu as duas coisas em
+     *  2026-08-28: a regra existe (mesmo cliente + mesma data = uma venda) e
+     *  o que não é venda vem ESCRITO na planilha, não deduzido do tamanho.
+     *
+     *  A prévia usa a MESMA função que a reconstrução usa depois de
+     *  importar, então o número que a tela mostra antes é o número que vai
+     *  existir depois. `origem_linha` faz o papel de id: nesta etapa nada
+     *  foi gravado e não há id de banco ainda. */
+    pedidos: (() => {
+      const previa = reconstruirVendas(
+        registros.map((r) => ({ ...r, id: r.origem_linha })),
+      );
+      const vendas = previa.filter((v) => v.classe === 'venda');
+      const elegiveis = previa.filter((v) => v.elegivelTicket);
+      const fat = elegiveis.reduce((s, v) => s + (v.valorTotal ?? 0), 0);
+      return {
+        disponivel: true,
+        vendas: vendas.length,
+        ajustes: previa.length - vendas.length,
+        semData: vendas.filter((v) => !v.data).length,
+        ticketMedio: elegiveis.length ? +(fat / elegiveis.length).toFixed(2) : null,
+        vendasElegiveis: elegiveis.length,
+        maiorVenda: Math.max(0, ...vendas.map((v) => v.itens)),
+        regra: REGRA_DESCRITA,
+      };
+    })(),
 
     exemplosProblema: registros.filter((r) => r.problemas.length)
       .slice(0, 25)
@@ -364,7 +388,20 @@ export async function importarHistorico(db, { linhas, arquivo = 'Vendas Marquesa
   ).bind(conferencia.importadas, registros.length - conferencia.importadas,
     JSON.stringify(conferencia), lote.id).run();
 
-  return { ok: true, loteId: lote.id, analise: semRegistros(analise), conferencia };
+  /* A camada derivada nasce junto com o lote. Sem isto, o painel mostraria
+   * zero venda logo depois de uma importação bem-sucedida — os itens estão
+   * no banco, mas ninguém os agrupou ainda. Continua sem tocar estoque:
+   * agrupar linhas que já existiam não cria nem consome peça. */
+  const reconstrucao = await reconstruir(db, { loteId: lote.id });
+  await backfillNormalizacao(db);
+
+  return {
+    ok: true,
+    loteId: lote.id,
+    analise: semRegistros(analise),
+    conferencia,
+    reconstrucao: reconstrucao.lotes[0] ?? null,
+  };
 }
 
 function semRegistros(a) { const { _registros, ...resto } = a; return resto; }
@@ -433,7 +470,14 @@ export async function reverterLote(db, loteId) {
   ).bind(loteId).first();
 
   await db.batch([
+    /* O ITEM aponta para a venda derivada (`venda_historica_id`), então a
+       venda não pode sair antes dele: o D1 força chave estrangeira em toda
+       query e não aceita `PRAGMA foreign_keys`. Apagar `vendas_historicas`
+       primeiro devolvia
+       `FOREIGN KEY constraint failed` e a reversão inteira falhava com 500.
+       Item primeiro, venda derivada depois. */
     db.prepare('DELETE FROM vendas_historico_itens WHERE lote_id = ?').bind(loteId),
+    db.prepare('DELETE FROM vendas_historicas WHERE lote_id = ?').bind(loteId),
     db.prepare('DELETE FROM clientes_vinculo_revisao WHERE lote_id = ?').bind(loteId),
     db.prepare(
       `UPDATE vendas_historico_lotes SET status = 'revertido', revertido_em = datetime('now')

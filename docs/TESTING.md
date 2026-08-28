@@ -70,8 +70,42 @@ Chama `Nuvemshop` (`api/src/nuvemshop.js`) direto, sem subir
 6. `"true"` libera de verdade, e a loja falsa registra a escrita;
 7. espaço em volta de `"true"` é tolerado (resto de copiar/colar num secret).
 
+### `src/vendas-reconstrucao-test.mjs` — a regra que vira linha em venda
+**50 asserções · <1 s · teste PURO, sem Worker e sem banco**
+
+A regra é uma função, então o teste é uma função. Roda em qualquer máquina.
+
+1. mesmo cliente + mesma data = uma venda — vale para 1 linha e para **36**;
+2. o que separa: datas diferentes, clientes diferentes;
+3. o que **não** separa: acento, caixa e espaço sobrando (`José`/`jose`,
+   `Vitória`/`vitoria`);
+4. o que a planilha marca como não-venda (`PERDIDO`, `ACHO QUE FOI VENDIDO`,
+   ajuste, correção) vira ajuste — e **muitas linhas continuam sendo venda**,
+   que é a inferência errada que este teste existe para impedir de voltar;
+5. pago / não pago / parcial / indefinido, com `NULL` nunca virando zero;
+6. linha sem data vira venda própria e fica fora do ticket médio;
+7. ticket médio sai só do elegível, e **não** é faturamento ÷ linhas;
+8. canais divergentes viram `Misto` em vez de um escolhido a esmo;
+9. reconstruir duas vezes dá o mesmo resultado, e a ordem de entrada não muda
+   nada;
+10. cada venda guarda os `Nº` da planilha que a formaram.
+
+### `src/categoria-nome-test.mjs` — categoria não é material
+**33 asserções · <1 s · teste PURO**
+
+1. acerta os nomes reais do histórico, inclusive os erros de digitação que
+   existem na planilha (`Binco`, `Piecing`);
+2. o que não se reconhece vira `Outros`, nunca um chute pela segunda palavra;
+3. `Banhada`, `Bruto`, `Prata 925` e `Aço Inox` **não são categorias** — é a
+   trava contra o defeito que somava material e categoria na mesma rosca;
+4. **a trava contra a duplicação**: lê o `CAT_MAP` de
+   `src/dashboard.tpl.html` e compara entrada por entrada com
+   `api/src/categoria-nome.js`. A tabela existe em dois lugares por
+   necessidade (o painel de etiquetas classifica no navegador, sem rede);
+   este teste garante que ela não divirja em silêncio.
+
 ### `src/vendas-historico-test.mjs` — histórico entra sem mover estoque
-**~60 asserções · ~40 s · precisa do Worker local e do banco limpo**
+**76 asserções · ~40 s · precisa do Worker local e do banco limpo**
 
 A prova de que importar a planilha antiga não desconta peça nenhuma:
 
@@ -87,8 +121,13 @@ A prova de que importar a planilha antiga não desconta peça nenhuma:
    (`996055-2`) continua TEXTO;
 6. a origem vira canal + contexto sem perder o bruto, `Maletra` vira `Maleta`
    por alias explícito, e origem múltipla vira `Misto` em vez de escolher;
-7. contagem de pedidos e ticket médio histórico **não são inventados**;
-8. reverter o lote desfaz tudo o que ele escreveu.
+7. a análise **prevê quantas vendas** as linhas vão virar, usando a mesma
+   função que a reconstrução usa depois — o número que a tela mostra antes de
+   aplicar é o que vai existir depois;
+8. a linha marcada `PERDIDO` fica **fora do faturamento** mas **dentro do
+   banco**, contada como ajuste;
+9. reverter o lote desfaz tudo o que ele escreveu, camada derivada inclusive
+   — e nesta ordem, porque o item aponta para a venda.
 
 > **A planilha real não está no repositório.** Ela tem 351 nomes de clientes
 > reais — dado pessoal, e este repositório é público. O teste roda contra
@@ -100,21 +139,41 @@ A prova de que importar a planilha antiga não desconta peça nenhuma:
 > (uma linha por array, cabeçalho na primeira) e salve nesse caminho.
 
 ### `src/vendas-clientes-ui-test.mjs` — Painel de Vendas e Clientes na tela
-**~45 asserções · ~30 s · Playwright + servidor HTTP em `localhost:8000`**
+**110 asserções · ~90 s · Playwright + servidor HTTP em `localhost:8000`**
 
-1. as três sub-abas de Vendas navegam — Lançamentos, Painel, Clientes;
-2. os KPIs do painel mostram o número que a API devolve (conferido contra
-   `/api/analytics/vendas`, não contra constante no teste);
-3. o painel **avisa** que o ticket médio histórico é indisponível, e por quê;
-4. **consistência visual verificável**: Clientes usa `.revgrid`/`.revcard`/
+Aponta para onde mandarem, então o mesmo arquivo verifica o local e o DEV
+publicado:
+
+```bash
+PAINEL_URL=https://marquesa-dev.pages.dev/dashboard.html API_URL=https://marquesa-api-staging.marquesaasemijoias.workers.dev API_KEY=<a chave do staging> node src/vendas-clientes-ui-test.mjs
+```
+
+1. o **cabeçalho real** do sistema continua de pé — logo, Ajustes, e a
+   navegação Estoque · Revendedoras · Vendas · Etiquetas, com as três
+   sub-abas dentro de Vendas;
+2. os cinco indicadores do painel mostram o número que a API devolve
+   (conferido contra `/api/analytics/vendas`, não contra constante no teste),
+   e **vendas ≠ linhas brutas** — a prova de que o agrupamento aconteceu;
+3. o ticket médio **existe** e a tela explica a regra. *Este item afirmava o
+   contrário até 2026-08-27; ver `api/REGRAS.md` § 21;*
+4. os blocos aparecem: categoria, evolução, produtos **com foto ou lugar
+   reservado**, origem, top clientes e insights — e nenhum insight inventa
+   "% vs. período anterior", porque a comparação não está implementada;
+5. a rosca mostra **categoria, nunca material**: `Banhada`, `Bruto` e
+   `Prata 925` não podem aparecer como fatia;
+6. o filtro de período muda os números de verdade;
+7. Clientes tem o dashboard **e** a operação, e não diz `LTV` sobre gasto
+   acumulado nem inventa "Última reativação";
+8. **consistência visual verificável**: Clientes usa `.revgrid`/`.revcard`/
    `.rc-nm`/`.rc-row`/`.badge` de Revendedoras, e o *estilo computado* dos
    dois cards é comparado — raio, borda e fundo têm de bater. É o que
    transforma "segue o padrão" em asserção em vez de opinião;
-5. o modal de cliente tem a mesma estrutura do de revendedora, campo a campo,
-   incluindo a largura e os botões do rodapé;
-6. o perfil de uma cliente abre com resumo e histórico;
-7. a 390px nenhuma das telas gera rolagem horizontal, e o modal cabe;
-8. nenhum erro de console.
+9. busca, pílulas de status e paginação da lista;
+10. o modal de cliente espelha o de revendedora, campo a campo;
+11. o perfil abre e **a compra de muitas peças é UMA entrada na linha do
+    tempo**, com os itens dentro dela;
+12. a 390px nenhuma das telas gera rolagem horizontal, e o modal cabe;
+13. nenhum erro de console.
 
 ### `src/corte-pedidos-test.mjs` — pedido antigo é história, não venda nova
 **46 asserções · ~25 s · precisa do Worker local e do banco limpo**
@@ -647,6 +706,8 @@ node src/dry-run-test.mjs      # a prova formal do dry-run
 node src/saude-sync-test.mjs   # análise nunca esconde falha real
 node src/corte-pedidos-test.mjs # pedido antigo não vira venda nova
 node src/reconciliacao-test.mjs # o Apply do motor de reconciliação
+node src/vendas-reconstrucao-test.mjs  # a regra: linha vira venda (puro)
+node src/categoria-nome-test.mjs      # categoria não é material (puro)
 node src/vendas-historico-test.mjs   # histórico entra sem mover estoque
 
 # navegador (precisa de `python -m http.server 8000` na raiz)

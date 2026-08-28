@@ -419,3 +419,62 @@ node src/reconciliacao-schema-test.mjs   # este não precisa do Worker
 ```
 
 Queda em relação a esta tabela é regressão.
+
+---
+
+# Medição de 2026-08-28 — Vendas + Clientes
+
+Primeira medição feita **na máquina do Gustavo**, com credencial Cloudflare
+real: o painel roda contra o `marquesa-db-dev` remoto (`wrangler dev --remote`),
+não contra banco de teste. Os números do painel são os da operação de verdade.
+
+| | |
+|---|---|
+| Commit base | `b37b877` |
+| Worker local | `wrangler dev --env staging --local` (banco limpo por rodada) |
+| Worker com dados reais | `wrangler dev --env staging --remote` → `marquesa-db-dev` |
+| Painel | `python -m http.server 8000` sobre o `dashboard.html` recém-buildado |
+
+## Testes que rodaram
+
+| Teste | Resultado | Asserções | Falhas |
+|---|---|---|---|
+| `src/vendas-reconstrucao-test.mjs` **(novo)** | **passou** | 50 | 0 |
+| `src/categoria-nome-test.mjs` **(novo)** | **passou** | 33 | 0 |
+| `src/vendas-clientes-ui-test.mjs` (reescrito) | **passou** | 110 | 0 |
+| `src/vendas-historico-test.mjs` (atualizado) | **passou** | 76 | 0 |
+| `src/revendedoras-test.mjs` | **passou** | 45 | 0 |
+
+Os dois primeiros são puros — não sobem Worker nem tocam banco, e por isso
+rodam em qualquer máquina. `vendas-clientes-ui-test.mjs` aceita
+`PAINEL_URL` / `API_URL` / `API_KEY` e serve tanto para o local quanto para o
+DEV publicado.
+
+## `src/e2e.mjs` — falha PRÉ-EXISTENTE, não regressão
+
+```
+FALHA a maleta guardou 6 peças        → esperava 6, veio 0
+FALHA o preço do envio ficou congelado → esperava 500, veio undefined
+FALHA 900001: 13 no total, 2 fora      → esperava 2, veio 0
+TypeError: Cannot read properties of null (reading 'faltas')
+```
+
+**Provado que não é desta rodada.** O mesmo teste, com banco limpo e o
+`dashboard.html` do commit `b37b877` servido a partir de um `git worktree`
+separado, falha exatamente nas mesmas três asserções e estoura no mesmo
+ponto. O diff desta rodada não toca maleta, consignação nem acerto.
+
+`src/revendedoras-test.mjs`, que cobre revendedora, maleta, acerto e Anexo I
+pela tela, **passa inteiro** — então não é o fluxo de maleta que está
+quebrado, é algo específico deste roteiro no `wrangler dev --local` do
+Windows. Fica registrado aqui até alguém isolar.
+
+## Erros de console: zero, e um defeito antigo a menos
+
+`vendas-clientes-ui-test.mjs` exige console limpo. Na primeira execução
+apareceram **23 erros 403**, todos da CDN da Nuvemshop. Investigado: era
+`fotoMiniUrl` anexando `-240-0` a uma URL que já terminava em `-1024-1024`,
+e a CDN recusa dois pares de tamanho. Confirmado como pré-existente contra o
+`dashboard.html` de `b37b877`, e corrigido nesta rodada — a miniatura de
+240px passou a existir de verdade, em vez de cair sempre no arquivo de
+1024px pelo `onerror`.
