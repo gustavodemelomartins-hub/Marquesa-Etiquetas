@@ -39,8 +39,69 @@
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import { REGRA_DESCRITA } from './vendas-historicas.js';
 import { categoriaDoItem } from './categoria-nome.js';
+import { calcComissao, isPrata } from './comissao.js';
+import { FAIXAS_PADRAO } from './state.js';
 
 const PERIODOS = new Set(['7d', '30d', '90d', '12m', 'tudo']);
+
+/* ══════════════════════════════════════════ revendedora NÃO é cliente
+
+   A planilha histórica tem uma coluna só para quem levou a peça, e nela
+   convivem duas coisas diferentes:
+
+     a cliente final   — comprou, pagou, levou. É do CRM.
+     a revendedora     — levou a maleta, vendeu lá fora e veio acertar. O
+                         nome dela no lugar do cliente é o ACERTO, não uma
+                         compra pessoal.
+
+   Sem essa separação a revendedora entra no ranking como a maior cliente
+   da casa: 46 linhas de "Maleta" num acerto de 36 peças viram "a maior
+   compra da história" num cartão de destaque. Era o que acontecia.
+
+   A fronteira é o CADASTRO, não uma heurística sobre o texto da
+   observação: nome que bate com uma revendedora cadastrada é revendedora.
+   Quem não está cadastrada continua sendo tratada como cliente — o
+   sistema não adivinha papel de ninguém.
+
+   O DINHEIRO NÃO SOME. Faturamento, peças e ticket médio continuam
+   contando o acerto: a venda aconteceu e o valor entrou. O que muda é
+   onde ela aparece — em "Acertos de maleta", não em "Top clientes". */
+
+/** As revendedoras cadastradas, indexadas pelo MESMO normalizador de nome
+ *  que a importação histórica usa. Inclui as inativas de propósito: quem
+ *  saiu continua tendo sido revendedora no histórico que já está gravado. */
+async function revendedorasPorNome(db) {
+  const { results } = await db.prepare(
+    'SELECT id, nome, status FROM revendedoras',
+  ).all();
+  const porNorm = new Map();
+  for (const r of results ?? []) {
+    const norm = normalizarNomeCliente(r.nome);
+    if (norm) porNorm.set(norm, { id: r.id, nome: r.nome, status: r.status });
+  }
+  return porNorm;
+}
+
+/** Fragmento `NOT IN (?,?,…)` para tirar as revendedoras de uma contagem de
+ *  clientes. Com a lista vazia devolve string vazia — nenhum SQL a mais e
+ *  nenhum bind a mais quando não há revendedora cadastrada. */
+function foraRevendedoras(coluna, norms) {
+  if (!norms.length) return { sql: '', binds: [] };
+  return { sql: ` AND ${coluna} NOT IN (${norms.map(() => '?').join(',')})`, binds: [...norms] };
+}
+
+/** `COUNT(DISTINCT …)` de cliente de verdade: a mesma contagem de sempre,
+ *  com as revendedoras fora. Sem revendedora cadastrada, é literalmente a
+ *  expressão antiga — nenhum caminho novo para o caso comum. */
+function contagemDeClientes(norms) {
+  const chave = "COALESCE(norm, 'sem-nome')";
+  if (!norms.length) return { sql: `COUNT(DISTINCT ${chave})`, binds: [] };
+  const marks = norms.map(() => '?').join(',');
+  return {
+    sql: `COUNT(DISTINCT CASE WHEN ${chave} NOT IN (${marks}) THEN ${chave} END)`,
+    binds: [...norms],
+  };
+}
 
 /** Traduz o filtro da tela em recorte de data. `tudo` devolve null e a
  *  consulta sai sem WHERE de período. */
@@ -103,6 +164,15 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
   const h = recorte('h.data', faixa);
   const v = recorte('v.data', faixa);
 
+  /* Faturamento, peças e ticket médio contam o acerto de maleta: o dinheiro
+     entrou. Só a CONTAGEM DE CLIENTES não conta a revendedora — ela não é
+     cliente, e somá-la aqui inflava a base em uma pessoa que já aparece,
+     com nome e valor, no bloco de acertos. */
+  const revs = await revendedorasPorNome(db);
+  const normRevs = [...revs.keys()];
+  const nCli = contagemDeClientes(normRevs);
+  const foraNovos = foraRevendedoras("COALESCE(norm,'sem-nome')", normRevs);
+
   const [geral, itens, novos] = await Promise.all([
     db.prepare(
       `WITH vd AS (${V.sql})
@@ -111,13 +181,13 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
               SUM(CASE WHEN fonte = 'operacional' THEN 1 ELSE 0 END) AS vendas_sistema,
               COALESCE(SUM(pecas), 0)                        AS pecas,
               ROUND(COALESCE(SUM(faturamento), 0), 2)        AS faturamento,
-              COUNT(DISTINCT COALESCE(norm, 'sem-nome'))     AS clientes,
+              ${nCli.sql}                                    AS clientes,
               SUM(elegivel)                                  AS elegiveis,
               ROUND(COALESCE(SUM(CASE WHEN elegivel = 1 THEN valor_total END), 0), 2) AS fat_elegivel,
               SUM(CASE WHEN data IS NULL THEN 1 ELSE 0 END)  AS sem_data,
               MIN(data) AS de, MAX(data) AS ate
          FROM vd`,
-    ).bind(...V.binds).first(),
+    ).bind(...V.binds, ...nCli.binds).first(),
 
     /* peças e códigos saem do ITEM, não da venda: são somas exatas nas duas
        populações e não dependem de agrupamento nenhum */
@@ -139,9 +209,9 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
       `WITH todas AS (${cteVendas({ de: null, ate: null }).sql})
        SELECT COUNT(*) AS novos FROM (
          SELECT COALESCE(norm,'sem-nome') AS k, MIN(data) AS primeira
-           FROM todas WHERE data IS NOT NULL GROUP BY k
+           FROM todas WHERE data IS NOT NULL${foraNovos.sql} GROUP BY k
        ) WHERE primeira >= ? AND primeira <= ?`,
-    ).bind(faixa.de, faixa.ate).first() : Promise.resolve({ novos: null }),
+    ).bind(...foraNovos.binds, faixa.de, faixa.ate).first() : Promise.resolve({ novos: null }),
   ]);
 
   const vendas = Number(geral?.vendas ?? 0);
@@ -466,6 +536,7 @@ export function classificarCliente({ vendas, primeira, ultima, intervaloBase }, 
 /** A base de clientes medida em VENDAS reconstruídas, não em linhas.
  *  É o insumo comum do ranking, da saúde da base e da reativação. */
 async function baseDeClientes(db, faixa) {
+  const revs = await revendedorasPorNome(db);
   const V = cteVendas(faixa);
   const { results } = await db.prepare(
     `WITH vd AS (${V.sql})
@@ -497,33 +568,43 @@ async function baseDeClientes(db, faixa) {
     : null;
 
   const hoje = new Date().toISOString().slice(0, 10);
+  const todos = linhas.map((r) => {
+    const c = classificarCliente({
+      vendas: r.vendas, primeira: r.primeira, ultima: r.ultima, intervaloBase,
+    }, hoje);
+    const revendedora = revs.get(r.norm) ?? null;
+    return {
+      norm: r.norm,
+      /* §10: a chave técnica pode ser `sem-nome`; a APRESENTAÇÃO é uma só,
+         e não inventa nome nenhum. */
+      nome: r.nome ?? (r.norm === 'sem-nome' ? 'Cliente não identificado' : r.norm),
+      identificada: r.norm !== 'sem-nome',
+      /* preenchido só quando o nome bate com uma revendedora CADASTRADA */
+      revendedora,
+      clienteId: r.cliente_id ?? null,
+      vendas: Number(r.vendas),
+      pecas: Number(r.pecas ?? 0),
+      faturamento: Number(r.faturamento ?? 0),
+      maiorCompra: Number(r.maior_compra ?? 0),
+      ticketMedio: Number(r.vendas) > 0
+        ? +(Number(r.faturamento ?? 0) / Number(r.vendas)).toFixed(2) : null,
+      primeiraCompra: r.primeira ?? null,
+      ultimaCompra: r.ultima ?? null,
+      vendasSistema: Number(r.vendas_sistema ?? 0),
+      recorrente: Number(r.vendas) >= REGUA_RELACIONAMENTO.recorrenteMinimo,
+      ...c,
+    };
+  });
+
+  /* Uma leitura, duas populações. Quem chama pede `clientes` e recebe só
+     gente que comprou para si; quem precisa do acerto pede `revendedoras`.
+     Ninguém precisa lembrar de filtrar — e é por isso que o ranking, a
+     saúde da base e os destaques não podem mais discordar entre si. */
   return {
     intervaloBase,
     hoje,
-    clientes: linhas.map((r) => {
-      const c = classificarCliente({
-        vendas: r.vendas, primeira: r.primeira, ultima: r.ultima, intervaloBase,
-      }, hoje);
-      return {
-        norm: r.norm,
-        /* §10: a chave técnica pode ser `sem-nome`; a APRESENTAÇÃO é uma só,
-           e não inventa nome nenhum. */
-        nome: r.nome ?? (r.norm === 'sem-nome' ? 'Cliente não identificado' : r.norm),
-        identificada: r.norm !== 'sem-nome',
-        clienteId: r.cliente_id ?? null,
-        vendas: Number(r.vendas),
-        pecas: Number(r.pecas ?? 0),
-        faturamento: Number(r.faturamento ?? 0),
-        maiorCompra: Number(r.maior_compra ?? 0),
-        ticketMedio: Number(r.vendas) > 0
-          ? +(Number(r.faturamento ?? 0) / Number(r.vendas)).toFixed(2) : null,
-        primeiraCompra: r.primeira ?? null,
-        ultimaCompra: r.ultima ?? null,
-        vendasSistema: Number(r.vendas_sistema ?? 0),
-        recorrente: Number(r.vendas) >= REGUA_RELACIONAMENTO.recorrenteMinimo,
-        ...c,
-      };
-    }),
+    clientes: todos.filter((c) => !c.revendedora),
+    revendedoras: todos.filter((c) => c.revendedora),
   };
 }
 
@@ -728,13 +809,14 @@ export async function listarVendasUnificado(db, {
 /** Tudo o que o Painel de Vendas desenha, numa resposta só. */
 export async function painel(db, { periodo = 'tudo' } = {}) {
   const faixa = faixaDePeriodo(periodo);
-  const [geral, evo, cat, prod, orig, rank] = await Promise.all([
+  const [geral, evo, cat, prod, orig, rank, maletas] = await Promise.all([
     visaoGeral(db, { periodo }),
     evolucao(db, { periodo, granularidade: 'mes' }),
     categoriasMaisVendidas(db, { periodo }),
     produtosMaisVendidos(db, { periodo, limite: 5, por: 'quantidade' }),
     porOrigem(db, { periodo }),
     clientesRanking(db, { periodo, limite: 5, ordem: 'faturamento' }),
+    acertosDeMaleta(db, { periodo }),
   ]);
 
   /* ─── insights do rodapé. Só entram métricas que este mesmo payload
@@ -753,6 +835,10 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
     produtos: prod,
     origem: orig,
     topClientes: rank.clientes,
+    /* o dinheiro que veio pela revendedora, com a comissão estimada e o
+       líquido. Está no faturamento lá em cima; aqui ele aparece separado,
+       para ninguém confundir venda de balcão com acerto de maleta. */
+    maletas,
     insights: {
       categoriaCampea: catCampea && {
         nome: catCampea.categoria, pecas: catCampea.pecas, participacao: catCampea.participacao,
@@ -767,6 +853,197 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
       },
       ticketMedio: geral.ticketMedio.valor,
       clientesNovos: geral.clientesNovos,
+      /* Os dois destaques que o Painel enxuto mostra por nome. Saem do
+         MESMO recorte que os indicadores de cima — é o que impede o cartão
+         de nomear uma peça que o gráfico ao lado não conta. */
+      pecaCampea: prod.produtos?.[0] ? {
+        sku: prod.produtos[0].sku,
+        /* o nome ATUAL quando a peça ainda está no catálogo, e o da época
+           quando ela já saiu — nunca um "produto 787123" */
+        nome: prod.produtos[0].nomeAtual ?? prod.produtos[0].nomeHistorico ?? prod.produtos[0].sku,
+        pecas: prod.produtos[0].pecas,
+        faturamento: prod.produtos[0].faturamento,
+        temFoto: prod.produtos[0].temFoto,
+      } : null,
+      clienteCampea: rank.clientes?.[0] ? {
+        nome: rank.clientes[0].nome,
+        norm: rank.clientes[0].norm,
+        faturamento: rank.clientes[0].faturamento,
+        vendas: rank.clientes[0].vendas,
+        pecas: rank.clientes[0].pecas,
+      } : null,
+    },
+  };
+}
+
+/* ══════════════════════════════════════════════ acertos de maleta
+
+   O dinheiro que veio pela revendedora, e o que dele sobrou para a casa.
+
+   ─────────────────────────────────────────────────────────────────────────
+   POR QUE ESTE NÚMERO É UMA ESTIMATIVA, E POR QUE ELE APARECE MESMO ASSIM
+
+   A planilha histórica registra o VALOR DA VENDA, não o que entrou no
+   caixa. Ela não tem coluna de comissão, não tem vínculo com maleta e não
+   guarda o preço congelado no envio. O motor de comissão do sistema
+   (`comissao.js`) acerta porque roda no acerto de verdade, com o preço
+   congelado — aqui ele é aplicado de fora, sobre linhas que já são
+   história.
+
+   O que ele usa, e que a planilha de fato tem: o valor de cada item e a
+   coluna `Tipo` (Banhada, Bruto, Prata 925…). O que ele assume, por
+   decisão do dono do negócio em 2026-08-28:
+
+     · peça BRUTA entra na mesma faixa das banhadas — a distinção entre
+       peça comprada já banhada e peça comprada em bruto e mandada banhar
+       existe na operação e tem precificação própria, mas ainda não está
+       modelada aqui;
+     · as faixas de hoje valeram o período inteiro da planilha.
+
+   As duas premissas viajam no payload (`premissas`) e a tela as mostra.
+   Estimativa rotulada é útil; estimativa disfarçada de extrato é mentira.
+
+   ─────────────────────────────────────────────────────────────────────────
+   SÓ O HISTÓRICO
+
+   Acerto registrado pelo sistema já tem comissão calculada de verdade, no
+   fechamento da maleta. Estimar por cima dele produziria dois números para
+   a mesma coisa — §15. Este bloco olha apenas `vendas_historicas`. */
+
+const PREMISSAS_COMISSAO = [
+  'Peça bruta entra na mesma faixa das banhadas.',
+  'As faixas de comissão de hoje valeram o período inteiro da planilha.',
+  'Só o histórico da planilha entra aqui: acerto fechado pelo sistema já tem '
+  + 'comissão calculada de verdade, no fechamento da maleta.',
+];
+
+/** Faixas e percentual da prata, como o acerto real os lê. */
+async function configComissao(db) {
+  const { results } = await db.prepare(
+    `SELECT chave, valor FROM config WHERE chave IN ('faixas', 'prataPct')`,
+  ).all();
+  const c = Object.fromEntries((results ?? []).map((x) => [x.chave, JSON.parse(x.valor)]));
+  return {
+    faixas: c.faixas ?? FAIXAS_PADRAO,
+    prataPct: c.prataPct ?? 10,
+    /* a tela precisa saber se está mostrando a régua configurada ou o
+       padrão de fábrica — são conversas diferentes com quem lê */
+    faixasConfiguradas: Array.isArray(c.faixas),
+  };
+}
+
+/** Os acertos históricos de cada revendedora cadastrada, com a comissão
+ *  estimada e o líquido que sobrou para a casa. */
+export async function acertosDeMaleta(db, { periodo = 'tudo' } = {}) {
+  const faixa = faixaDePeriodo(periodo);
+  const revs = await revendedorasPorNome(db);
+  const norms = [...revs.keys()];
+  const vazio = {
+    periodo: faixa,
+    revendedoras: [],
+    acertos: [],
+    totais: { acertos: 0, pecas: 0, vendido: 0, comissao: 0, liquido: 0 },
+    premissas: PREMISSAS_COMISSAO,
+    config: null,
+  };
+  if (!norms.length) return vazio;
+
+  const cfg = await configComissao(db);
+  const h = recorte('vh.data', faixa);
+  const marks = norms.map(() => '?').join(',');
+
+  const { results: vendas } = await db.prepare(
+    `SELECT vh.id, vh.data, vh.cliente_nome_norm AS norm, vh.cliente_nome AS nome,
+            vh.pecas, vh.itens, COALESCE(vh.valor_pago, 0) AS vendido
+       FROM vendas_historicas vh
+       JOIN vendas_historico_lotes l ON l.id = vh.lote_id AND l.status = 'importado'
+      WHERE vh.classe = 'venda' AND vh.cliente_nome_norm IN (${marks})${h.sql}
+      ORDER BY vh.data DESC`,
+  ).bind(...norms, ...h.binds).all();
+
+  if (!(vendas ?? []).length) return { ...vazio, config: cfg };
+
+  /* os itens dos acertos, para separar prata de banhada. `isPrata` é a
+     MESMA função do acerto real — a definição de prata não pode ter duas
+     versões, uma em JS e outra em SQL. */
+  const ids = vendas.map((v) => v.id);
+  const { results: itens } = await db.prepare(
+    `SELECT i.venda_historica_id AS venda, i.tipo, i.nome_produto_historico AS nome,
+            COALESCE(i.valor_total, 0) AS valor
+       FROM vendas_historico_itens i
+      WHERE i.venda_historica_id IN (${ids.map(() => '?').join(',')})`,
+  ).bind(...ids).all();
+
+  const porVenda = new Map();
+  for (const it of itens ?? []) {
+    if (!porVenda.has(it.venda)) porVenda.set(it.venda, []);
+    /* a planilha escreve o material ora na coluna `Tipo`, ora no nome da
+       peça. Procurar nos dois é ler o que está escrito, não adivinhar. */
+    porVenda.get(it.venda).push({
+      qtd: 1, preco: Number(it.valor ?? 0), desc: `${it.tipo ?? ''} ${it.nome ?? ''}`,
+    });
+  }
+
+  const acertos = vendas.map((v) => {
+    const linhas = porVenda.get(v.id) ?? [];
+    const c = calcComissao(linhas, cfg);
+    const rev = revs.get(v.norm);
+    return {
+      id: v.id,
+      data: v.data ?? null,
+      revendedoraId: rev?.id ?? null,
+      revendedora: rev?.nome ?? v.nome,
+      status: rev?.status ?? null,
+      pecas: Number(v.pecas ?? 0),
+      /* `vendido` é o que a planilha soma; `baseComissao` é o que os itens
+         somam. Iguais em condição normal, e a diferença — quando existe —
+         é item sem valor, que o acerto real também não saberia comissionar.
+         Ela viaja em vez de sumir: §9. */
+      vendido: +Number(v.vendido ?? 0).toFixed(2),
+      baseComissao: +c.totalVendido.toFixed(2),
+      baseBanhada: +c.baseBanhada.toFixed(2),
+      pct: c.pct,
+      basePrata: +c.basePrata.toFixed(2),
+      pctPrata: c.pctPrata,
+      comissao: +c.comissao.toFixed(2),
+      liquido: +(Number(v.vendido ?? 0) - c.comissao).toFixed(2),
+      itensSemValor: linhas.filter((l) => !l.preco).length,
+    };
+  });
+
+  const soma = (f) => +acertos.reduce((t, a) => t + f(a), 0).toFixed(2);
+  const porRev = new Map();
+  for (const a of acertos) {
+    const k = a.revendedoraId ?? a.revendedora;
+    const r = porRev.get(k) ?? {
+      revendedoraId: a.revendedoraId, nome: a.revendedora, status: a.status,
+      acertos: 0, pecas: 0, vendido: 0, comissao: 0, liquido: 0, ultimo: null,
+    };
+    r.acertos += 1; r.pecas += a.pecas;
+    r.vendido += a.vendido; r.comissao += a.comissao; r.liquido += a.liquido;
+    if (a.data && (!r.ultimo || a.data > r.ultimo)) r.ultimo = a.data;
+    porRev.set(k, r);
+  }
+
+  return {
+    periodo: faixa,
+    config: cfg,
+    premissas: PREMISSAS_COMISSAO,
+    revendedoras: [...porRev.values()]
+      .map((r) => ({
+        ...r,
+        vendido: +r.vendido.toFixed(2),
+        comissao: +r.comissao.toFixed(2),
+        liquido: +r.liquido.toFixed(2),
+      }))
+      .sort((a, b) => b.vendido - a.vendido),
+    acertos,
+    totais: {
+      acertos: acertos.length,
+      pecas: acertos.reduce((t, a) => t + a.pecas, 0),
+      vendido: soma((a) => a.vendido),
+      comissao: soma((a) => a.comissao),
+      liquido: soma((a) => a.liquido),
     },
   };
 }
@@ -774,47 +1051,18 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
 /* ═══════════════════════════════════════════════════ ROTA AGREGADA: o CRM */
 
 /** Tudo o que a aba Clientes desenha, numa resposta só. */
-export async function crm(db, { periodo = 'tudo', topN = 5 } = {}) {
+export async function crm(db, { periodo = 'tudo' } = {}) {
   const faixa = faixaDePeriodo(periodo);
   const { clientes, intervaloBase, hoje } = await baseDeClientes(db, faixa);
 
   const porFaturamento = [...clientes].sort((a, b) => b.faturamento - a.faturamento);
-  const top = porFaturamento.slice(0, topN);
 
-  /* série mensal dos top N — o gráfico de linhas. Uma consulta só, filtrada
-     pelos nomes já escolhidos, em vez de uma por cliente. */
-  let serie = { meses: [], clientes: [] };
-  if (top.length) {
-    const V = cteVendas(faixa);
-    const marks = top.map(() => '?').join(',');
-    const { results } = await db.prepare(
-      `WITH vd AS (${V.sql})
-       SELECT COALESCE(norm,'sem-nome') AS norm, strftime('%Y-%m', data) AS mes,
-              ROUND(SUM(faturamento), 2) AS faturamento,
-              SUM(pecas) AS pecas, COUNT(*) AS vendas
-         FROM vd
-        WHERE data IS NOT NULL AND COALESCE(norm,'sem-nome') IN (${marks})
-        GROUP BY norm, mes ORDER BY mes`,
-    ).bind(...V.binds, ...top.map((c) => c.norm)).all();
-
-    const meses = [...new Set((results ?? []).map((r) => r.mes))].sort();
-    serie = {
-      meses,
-      clientes: top.map((c) => ({
-        norm: c.norm,
-        nome: c.nome,
-        pontos: meses.map((m) => {
-          const r = (results ?? []).find((x) => x.norm === c.norm && x.mes === m);
-          return {
-            mes: m,
-            faturamento: r ? Number(r.faturamento) : 0,
-            pecas: r ? Number(r.pecas) : 0,
-            vendas: r ? Number(r.vendas) : 0,
-          };
-        }),
-      })),
-    };
-  }
+  /* A série mensal dos principais clientes saiu daqui em 2026-08-28, junto
+     com o gráfico de linhas que ela alimentava. Ele dizia, em cinco linhas
+     cruzadas, o que a tabela de Top clientes já dizia em cinco linhas de
+     texto — e custava uma consulta a mais em toda abertura da aba. Quem
+     quer a evolução de UMA cliente abre a ficha dela, onde a linha do tempo
+     é a compra inteira, não um ponto por mês. */
 
   const conta = (e) => clientes.filter((c) => c.estado === e).length;
   const total = clientes.length;
@@ -840,10 +1088,33 @@ export async function crm(db, { periodo = 'tudo', topN = 5 } = {}) {
     .sort((a, b) => b.faturamento - a.faturamento)
     .slice(0, 12);
 
-  /* canal preferido da BASE — deixando claro que é da base, não de um
-     cliente (§28 pediu que a origem do número fosse explícita) */
-  const canaisBase = await porOrigem(db, { periodo });
-  const canalBase = canaisBase.canais[0] ?? null;
+  /* ─── o CADASTRO de cada cliente.
+
+     A base acima é medida em VENDA: ela sabe quanto cada uma gastou e
+     quando comprou pela última vez, e não sabe o telefone de ninguém. A
+     aba Clientes virou a agenda da operação — telefone, CPF, cidade — e
+     esses campos moram em `clientes`.
+
+     Uma consulta só, para a tabela inteira, e o casamento é feito em JS
+     pela mesma chave de sempre: `cliente_id` quando a venda já aponta para
+     um cadastro, `nome_norm` quando não aponta. É a MESMA precedência que
+     `perfilCliente` usa — duas regras de casamento seria o começo de duas
+     verdades. */
+  const { results: cadastros } = await db.prepare(
+    `SELECT id, nome_norm, tel, cpf, cidade FROM clientes`,
+  ).all();
+  const cadPorId = new Map((cadastros ?? []).map((c) => [c.id, c]));
+  const cadPorNorm = new Map((cadastros ?? []).map((c) => [c.nome_norm, c]).filter(([k]) => k));
+  const comCadastro = (c) => {
+    const d = (c.clienteId !== null ? cadPorId.get(c.clienteId) : null) ?? cadPorNorm.get(c.norm) ?? null;
+    return {
+      ...c,
+      clienteId: c.clienteId ?? d?.id ?? null,
+      tel: d?.tel || null,
+      cpf: d?.cpf || null,
+      cidade: d?.cidade || null,
+    };
+  };
 
   const campeao = porFaturamento[0] ?? null;
   const maisFrequente = [...clientes].sort((a, b) => b.vendas - a.vendas)[0] ?? null;
@@ -871,8 +1142,6 @@ export async function crm(db, { periodo = 'tudo', topN = 5 } = {}) {
       vendasTotal,
     },
 
-    serieTopClientes: serie,
-
     saudeBase: {
       total,
       grupos: [
@@ -890,15 +1159,14 @@ export async function crm(db, { periodo = 'tudo', topN = 5 } = {}) {
     },
 
     reativacao,
-    topClientes: porFaturamento.slice(0, 10),
-    todos: porFaturamento,
+    topClientes: porFaturamento.slice(0, 10).map(comCadastro),
+    todos: porFaturamento.map(comCadastro),
 
     insights: {
       campeao: campeao && { nome: campeao.nome, norm: campeao.norm, faturamento: campeao.faturamento, pecas: campeao.pecas },
       maisFrequente: maisFrequente && { nome: maisFrequente.nome, norm: maisFrequente.norm, vendas: maisFrequente.vendas },
       maiorCompra: maiorCompra && { nome: maiorCompra.nome, norm: maiorCompra.norm, valor: maiorCompra.maiorCompra },
       maiorTicket: maiorTicket && { nome: maiorTicket.nome, norm: maiorTicket.norm, ticketMedio: maiorTicket.ticketMedio },
-      canalDaBase: canalBase && { nome: canalBase.canal, participacao: canalBase.participacao },
     },
   };
 }

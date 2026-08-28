@@ -13,7 +13,7 @@ o item ganha a nova decisão e a antiga fica marcada como superada, com a data.
 | ⬜ | pendente |
 | 🔴 | bloqueado |
 
-Última revisão: **2026-08-28** · Vendas + Clientes, venda histórica reconstruída (seção 21).
+Última revisão: **2026-08-28** · a segunda leitura de quem usa: Painel e Clientes enxutos, revendedora fora do CRM, troca de planilha (seção 22).
 Auditoria de prontidão para produção: 2026-08-22.
 
 ---
@@ -1315,3 +1315,90 @@ Argola 122 · Berloque 57 · Conjunto 43 · Pingente 36 · Outros 9.
 
 `wrangler deploy --env staging` — Classe C, comando humano. O Pages sobe
 sozinho com o push em `develop`. Ver [RUNBOOK-DEV-API.md](RUNBOOK-DEV-API.md).
+
+---
+
+## 22. A rodada do feedback — 2026-08-28  ✅ (código e testes) 🟡 (DEV)
+
+A primeira entrega de Vendas + Clientes foi ao ar no DEV e a dona do negócio
+usou. O retorno dela, em áudio, é a origem inteira desta rodada — e vale
+registrar o teor, porque ele orientou cada decisão:
+
+> "Ficou bonito o design e tudo mais. Só que eu achei muito bagunçado e
+> difícil de entender. Acho que tem muita informação nesse painel e nessa
+> aba clientes. Eu tinha pensado em algo bem mais simples."
+
+Nada do que ela apontou era um número errado. Era **excesso**: dez blocos
+abertos no Painel, oito na aba Clientes, e a informação que ela procura
+enterrada no meio.
+
+### 22.1 O que ela pediu, e o que virou
+
+| O pedido | O que foi feito |
+|---|---|
+| "Esse gráfico ela falou que não precisa" (Principais clientes ao longo do tempo) | removido, com a consulta que o alimentava |
+| "Tem peças compradas pelos principais e embaixo top clientes — não precisa dessas duas" | ficou **só** Top clientes, e só na aba Clientes |
+| "No painel: meu ticket médio, a peça que mais vendeu, a cliente que mais compra, meu faturamento" | 4 indicadores + 3 destaques nomeados; o resto atrás de "Ver detalhes" |
+| "Na aba clientes, ficar só os meus clientes: nome, telefone, CPF, cidade, se está inativa, última compra" | a aba virou agenda; CPF ganhou migration |
+| "Igual essa parte aqui" (o cartão de Revendedoras, com o selo) | é o mesmo `.revcard`, agora com contato |
+| "Essa mulher era revendedora" (Jessica Melim como maior cliente) | REGRAS § 23 |
+| "Ela saiu, não vai pegar maleta nova — tem como ficar tipo revendedoras inativas?" | a tela passou a ler o `status` que o banco já guardava |
+| "Escrever Bruna e já aparecer a cliente" | busca no servidor enquanto digita |
+| "Novos clientes: escolha 12 meses, 90 ou 30 dias — não entendi" | o cartão saiu |
+| "Tinha clientes errados... teria como subir de novo?" | REGRAS § 25 |
+
+### 22.2 Cinco defeitos encontrados no caminho
+
+Nenhum deles foi reportado por ela — apareceram ao mexer no código:
+
+1. **Duas funções `cartaoInsight` no mesmo `<script>`.** A segunda apagava a
+   primeira em toda a página, e os três cartões da Visão Geral do **Estoque**
+   vinham renderizando com título "undefined" desde que o arquivo nasceu.
+   Nomes separados (`cartaoDestaque`), defeito resolvido.
+2. **Revendedora arquivada continuava nas abas.** `revendedoras.status`
+   existe desde o schema original e a tela nunca o leu — o oposto do que o
+   próprio aviso de arquivamento promete.
+3. **A venda de balcão não criava a ficha da cliente**, embora um comentário
+   do painel afirmasse que o servidor criava. REGRAS § 26.
+4. **`vendas.cliente_nome_norm` só nascia numa importação de planilha.** Até
+   lá a venda do dia ficava fora da ficha da cliente.
+5. **O autocompletar carregava 50 nomes em ordem alfabética, uma vez.** Com
+   338 clientes, quem vem depois do "C" não existia para a tela — e a rota
+   já aceitava `?busca=` desde sempre.
+
+### 22.3 A planilha nova
+
+`Vendas_Marquesa_1.xlsx`, com os sobrenomes corrigidos: **1.342 linhas →
+696 vendas · 1.355 peças · R$ 125.919,92 · 338 nomes**. Contra a anterior
+(1.341 → 695, R$ 125.726,92).
+
+Ela **não** pode ser importada por cima: a trava é por hash do arquivo e as
+duas versões se somariam. A troca é uma operação só — REGRAS § 25, provada
+contra o arquivo real em `src/trocar-planilha-test.mjs`.
+
+### 22.4 A comissão do acerto
+
+Decisão do dono do negócio nesta rodada: o dinheiro da revendedora continua
+no faturamento, **com a comissão estimada exibida à parte**. Três premissas
+declaradas na tela, e uma delas é dívida assumida: peça **bruta** conta como
+banhada até a distinção entre "comprada banhada" e "comprada em bruto e
+mandada banhar" estar modelada — são precificações diferentes na operação.
+REGRAS § 24 e `docs/TECH_DEBT.md`.
+
+### 22.5 O que foi provado
+
+`revendedora-nao-e-cliente-test.mjs` (puro) · `trocar-planilha-test.mjs`
+(planilha real) · `vendas-clientes-ui-test.mjs` (18 seções, navegador) ·
+`e2e.mjs` · `revendedoras-test.mjs` · `vendas-historico-test.mjs` ·
+`vendas-nuvemshop-test.mjs` · `migracao-variantes-test.mjs` ·
+`vendas-reconstrucao-test.mjs` · `categoria-nome-test.mjs` · `build.py`.
+Razão contábil fechando em todas as rodadas.
+
+### 22.6 O que falta  🟡
+
+1. `api/migracao-cliente-cpf.sql` no `marquesa-db-dev` — sem ela a aba
+   Clientes responde 503 com a instrução;
+2. `wrangler deploy --env staging` — Classe C, comando humano;
+3. **trocar a planilha no DEV** pela tela nova, conferindo os números contra
+   o arquivo;
+4. a precificação de peça bruta (§ 22.4), numa rodada própria.

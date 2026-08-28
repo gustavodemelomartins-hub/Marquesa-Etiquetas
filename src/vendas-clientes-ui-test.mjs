@@ -83,7 +83,7 @@ for (const t of ['Lançamentos', 'Painel', 'Clientes']) {
 
 /* ══════════════════════════════════════════════════════════════ 2. painel */
 
-console.log('\n=== 2. o Painel mostra os cinco indicadores ===');
+console.log('\n=== 2. o Painel mostra os quatro indicadores ===');
 
 await pg.evaluate(() => switchTab('vendas-painel'));
 await pg.waitForTimeout(3000);
@@ -94,11 +94,17 @@ const kpis = await pg.$$eval('#view-vendas-painel .panel:first-of-type .kpi', (n
   rot: (x.querySelector('.k-lbl') || {}).textContent || '',
   num: (x.querySelector('.k-num') || {}).textContent || '',
 })));
-eq('cinco indicadores no topo', kpis.length, 5);
+/* Eram cinco até 2026-08-28. "Clientes" saiu do topo do Painel: a
+   contagem de gente não é leitura de faturamento, e a aba Clientes inteira
+   responde a essa pergunta melhor. Os quatro que ficaram são os que a dona
+   do negócio nomeou. */
+eq('quatro indicadores no topo', kpis.length, 4);
 for (const k of kpis) ok(`indicador ${k.rot.trim()}`, k.num.trim());
-for (const r of ['Faturamento', 'Vendas', 'Peças vendidas', 'Clientes', 'Ticket médio']) {
+for (const r of ['Faturamento', 'Ticket médio', 'Vendas', 'Peças vendidas']) {
   eq(`existe o indicador "${r}"`, kpis.some((k) => k.rot.trim() === r), 'true');
 }
+eq('e "Clientes" NÃO é mais indicador do Painel',
+  kpis.some((k) => k.rot.trim() === 'Clientes'), 'false');
 
 const g = await api('/api/analytics/vendas?periodo=tudo');
 const num = (s) => Number(String(s).replace(/[^\d,]/g, '').replace(/\./g, '').replace(',', '.'));
@@ -121,12 +127,28 @@ eq('NÃO diz mais "indisponível de propósito"',
 eq('explica como o ticket é calculado',
   /Como o ticket m[ée]dio [ée] calculado/i.test(textoPainel), 'true');
 
-console.log('\n=== 4. os blocos do painel aparecem ===');
+console.log('\n=== 4. os blocos do painel: o que fica em cima e o que desce ===');
 const titulos = await pg.$$eval('#view-vendas-painel .panel .head h2', (n) => n.map((x) => x.textContent.trim()));
-for (const t of ['Distribuição por categoria vendida', 'Evolução por mês',
-  'Produtos mais vendidos', 'Origem das vendas', 'Top clientes']) {
-  eq(`bloco "${t}"`, titulos.includes(t), 'true');
+
+/* Na primeira tela, aberta, só a evolução por mês. */
+eq('bloco "Evolução por mês"', titulos.includes('Evolução por mês'), 'true');
+/* "Top clientes" mudou de endereço: ele agora mora na aba Clientes, e não
+   nas duas. Era a queixa literal — a mesma informação em dois lugares. */
+eq('"Top clientes" NÃO está mais no Painel', titulos.includes('Top clientes'), 'false');
+
+/* O resto continua existindo, dentro do "Ver detalhes" — nada foi apagado. */
+const detalhes = await pg.$('#view-vendas-painel details.maisitens.secao');
+eq('existe o bloco "Ver detalhes"', !!detalhes, 'true');
+eq('e ele começa FECHADO', await detalhes.evaluate((e) => e.open), 'false');
+eq('o resumo diz o que tem lá dentro',
+  /produtos, categorias e canais/i.test(await detalhes.$eval('summary', (e) => e.textContent)), 'true');
+for (const t of ['Distribuição por categoria vendida', 'Produtos mais vendidos', 'Origem das vendas']) {
+  eq(`"${t}" continua existindo, dentro do "Ver detalhes"`,
+    await detalhes.evaluate((e, alvo) => [...e.querySelectorAll('.head h2')]
+      .some((h) => h.textContent.trim() === alvo), t), 'true');
 }
+await detalhes.evaluate((e) => { e.open = true; });
+await pg.waitForTimeout(400);
 eq('a rosca de categoria foi desenhada',
   await pg.$$eval('#roscaCatVendas svg .slice', (n) => n.length > 0), 'true');
 eq('o gráfico de evolução tem barras',
@@ -135,9 +157,24 @@ eq('os produtos têm linha com foto ou lugar reservado',
   await pg.$$eval('#view-vendas-painel .pvrow .pv-foto', (n) => n.length > 0), 'true');
 const semFoto = await pg.$$eval('#view-vendas-painel .pv-foto .semfoto', (n) => n.length);
 ok('produtos sem foto mostram o lugar reservado (não somem do ranking)', String(semFoto));
-eq('há cartões de insight no rodapé',
-  await pg.$$eval('#view-vendas-painel .insights .insight', (n) => n.length > 0), 'true');
-eq('nenhum insight inventa "% vs. período anterior"',
+/* Os três destaques que a dona do negócio pediu pelo NOME. Cinco cartões
+   viraram três, e os três nomeiam alguém ou alguma coisa. */
+const destaques = await pg.$$eval('#view-vendas-painel .insights .insight',
+  (n) => n.map((x) => ({
+    rot: (x.querySelector('.i-t') || {}).textContent || '',
+    val: (x.querySelector('.i-d b') || {}).textContent || '',
+  })));
+eq('três destaques', destaques.length, 3);
+for (const r of ['Peça que mais vendeu', 'Cliente que mais compra', 'Melhor mês']) {
+  const d = destaques.find((x) => x.rot.trim() === r);
+  eq(`destaque "${r}"`, !!d, 'true');
+  if (d) ok(`  e ele nomeia`, d.val.trim());
+}
+eq('a peça campeã é nomeada, não é um código solto',
+  /^\d+$/.test((destaques.find((d) => /Peça/i.test(d.rot)) || {}).val || ''), 'false');
+eq('o cartão da cliente leva para a ficha dela',
+  await pg.$$eval('#view-vendas-painel .insight.clicavel', (n) => n.length > 0), 'true');
+eq('nenhum destaque inventa "% vs. período anterior"',
   /vs\.?\s*per[íi]odo anterior/i.test(textoPainel), 'false');
 
 console.log('\n=== 5. a rosca mostra CATEGORIA, nunca material ===');
@@ -162,7 +199,7 @@ await pg.waitForTimeout(2500);
 
 /* ════════════════════════════════════════════════ 7. Clientes: CRM + operação */
 
-console.log('\n=== 7. Clientes tem dashboard E operação ===');
+console.log('\n=== 7. Clientes é a agenda, não um dashboard ===');
 
 await pg.evaluate(() => switchTab('revlist'));
 await pg.waitForTimeout(700);
@@ -171,28 +208,30 @@ await pg.waitForTimeout(3000);
 eq('a view de clientes está ativa',
   await pg.$eval('#view-clientes', (e) => e.classList.contains('active')), 'true');
 
-const kpisCli = await pg.$$eval('#view-clientes .kpi .k-lbl', (n) => n.map((x) => x.textContent.trim()));
-eq('cinco indicadores de CRM', kpisCli.length >= 5, 'true');
-ok('são eles', kpisCli.join(' · '));
-
+/* DOIS blocos, nesta ordem, e mais nada. Era o pedido literal de quem usa:
+   "na aba clientes, ficar só os meus clientes". */
 const titulosCli = await pg.$$eval('#view-clientes .panel .head h2', (n) => n.map((x) => x.textContent.trim()));
+eq('dois blocos, e só', titulosCli.length, 2);
+eq('o primeiro é Top clientes', titulosCli[0], 'Top clientes');
+eq('o segundo é Todos os clientes', titulosCli[1], 'Todos os clientes');
+
+eq('nenhum indicador de dashboard sobrou',
+  await pg.$$eval('#view-clientes .kpi', (n) => n.length), 0);
 for (const t of ['Principais clientes ao longo do tempo', 'Peças compradas pelos principais clientes',
-  'Saúde da base', 'Top clientes', 'Oportunidades de reativação', 'Todos os clientes']) {
-  eq(`bloco "${t}"`, titulosCli.includes(t), 'true');
+  'Saúde da base', 'Oportunidades de reativação']) {
+  eq(`"${t}" saiu`, titulosCli.includes(t), 'false');
 }
-eq('o gráfico de linhas tem séries',
-  await pg.$$eval('#view-clientes .lchart .ln', (n) => n.length > 0), 'true');
-eq('e legenda com o nome de cada cliente (não só cor)',
-  await pg.$$eval('#view-clientes .lgnd .lgn', (n) => n.length > 0), 'true');
-eq('a rosca da saúde da base foi desenhada',
-  await pg.$$eval('#roscaSaude svg .slice', (n) => n.length > 0), 'true');
+eq('e o gráfico de linhas não existe mais',
+  await pg.$$eval('#view-clientes .lchart', (n) => n.length), 0);
 
 const textoCli = await pg.$eval('#view-clientes', (e) => e.textContent);
-eq('não chama gasto acumulado de LTV', /\bLTV\b/.test(textoCli.replace(/não é LTV/g, '')), 'false');
-eq('e diz explicitamente que não é LTV', /não é LTV/i.test(textoCli), 'true');
+eq('não chama gasto acumulado de LTV', /\bLTV\b/.test(textoCli), 'false');
 eq('não inventa "Última reativação"', /[ÚU]ltima reativa[çc][ãa]o/i.test(textoCli), 'false');
-eq('o botão de reativação não promete envio de mensagem',
-  /Reativar<|>Reativar</.test(await pg.$eval('#view-clientes', (e) => e.innerHTML)), 'false');
+
+/* O selo continua: é a única leitura que ficou, e ela vira ação (filtrar,
+   abrir a cliente), não mais um cartão para rolar. */
+eq('as linhas do Top clientes trazem o selo de relacionamento',
+  await pg.$$eval('#view-clientes .gtab.tcli .selo', (n) => n.length > 0), 'true');
 
 console.log('\n=== 8. a lista usa os componentes de Revendedoras ===');
 eq('usa a MESMA .revgrid', await pg.$$eval('#view-clientes .revgrid', (n) => n.length > 0), 'true');
@@ -412,90 +451,179 @@ eq('o texto original da origem não vira reticências', await pw.$$eval(
 await pw.evaluate(() => switchTab('clientes'));
 await pw.waitForTimeout(2500);
 
-/* o rótulo ambíguo: 347 "ativos" no topo contra 40 "Ativos" na saúde da base */
-const rotulos = await pw.$$eval('#view-clientes .kpi .k-lbl', (n) => n.map((x) => x.textContent.trim()));
-eq('o indicador do topo não se chama mais "Clientes ativos"',
-  rotulos.some((r) => /clientes ativos/i.test(r)), 'false');
-eq('ele diz "Clientes no período"', rotulos.some((r) => /clientes no per/i.test(r)), 'true');
-
-/* o centro da rosca dizia "347 peças clientes" */
-const centro = await pw.$eval('#roscaSaude .dcenter', (e) => e.textContent);
-eq('o centro da rosca de saúde não fala em peças', /pe[çc]a/i.test(centro), 'false');
-eq('o centro da rosca de saúde fala em clientes', /cliente/i.test(centro), 'true');
-
-/* as duas grades novas, e a reativação ocupando a largura */
-eq('top clientes virou grade de leitura',
+/* A grade de Top clientes, que é a única leitura que ficou nesta aba. */
+eq('top clientes é uma grade de leitura',
   await pw.$$eval('#view-clientes .gtab.tcli .gt-r', (n) => n.length >= 6), 'true');
-eq('a grade de top clientes mostra as colunas em 1440px',
+eq('e mostra as colunas em 1440px',
   await pw.$eval('#view-clientes .gtab.tcli .gt-r .col-op',
     (e) => getComputedStyle(e).display !== 'none'), 'true');
-const proporcao = await pw.evaluate(() => {
-  const g = document.querySelector('#view-clientes .vg.vg-2.saude');
-  if (!g) return null;
-  const [a, b] = [...g.children].map((c) => c.getBoundingClientRect().width);
-  return Math.round(b / (a + b) * 100);
-});
-eq('reativação ocupa a maior parte da fileira',
-  proporcao >= 55 && proporcao <= 72, 'true', proporcao + '%');
 
-/* nada truncado em nenhuma das grades nem na legenda da saúde */
+/* nada truncado em nenhuma das grades */
 eq('nada é cortado nas grades de leitura', await pw.$$eval(
-  '#view-clientes .gtab .gt-nm, #view-clientes .gtab .gt-sub, #view-clientes .sd-nm',
+  '#view-clientes .gtab .gt-nm, #view-clientes .gtab .gt-sub',
   (n) => n.filter((e) => e.scrollWidth - e.clientWidth > 2).length), 0);
 
 eq('clientes: nenhum cartão meio vazio', (await sobra(pw, '#view-clientes')).join(' | '), '');
 
-/* §13: o mesmo estado tem a mesma cor na rosca e no selo */
-const coresIguais = await pw.evaluate(() => {
-  const selo = [...document.querySelectorAll('#view-clientes .gtab .selo')]
-    .find((s) => /em risco/i.test(s.textContent));
-  if (!selo) return 'sem selo em risco na tela';
-  const c = getComputedStyle(selo).color;
-  const fatias = [...document.querySelectorAll('#roscaSaude .slice')].map((f) => f.getAttribute('fill'));
-  const hex = '#' + c.match(/\d+/g).slice(0, 3)
-    .map((x) => (+x).toString(16).padStart(2, '0')).join('').toUpperCase();
-  return fatias.includes(hex) ? 'ok' : `selo ${hex} não está entre ${fatias.join(',')}`;
-});
-eq('"em risco" tem a mesma cor no selo e na rosca', coresIguais, 'ok');
+/* A FICHA: telefone, CPF e cidade estavam no cadastro e não apareciam em
+   lugar nenhum da lista. É o que a dona do negócio pediu para ver de
+   relance, sem abrir cliente por cliente. */
+console.log('\n=== 15. o cartão da cliente virou ficha ===');
+const semContato = await pw.$$eval('#view-clientes .revcard .rc-contato.vazio', (n) => n.length);
+const comContato = await pw.$$eval('#view-clientes .revcard .rc-contato:not(.vazio)', (n) => n.length);
+eq('todo cartão diz alguma coisa sobre contato',
+  semContato + comContato, await pw.$$eval('#view-clientes .revcard', (n) => n.length));
+eq('e quem não tem nada preenchido é convidado a preencher',
+  semContato === 0 || await pw.$eval('#view-clientes .revcard .rc-contato.vazio',
+    (e) => /toque para preencher/i.test(e.textContent)), 'true');
 
-/* a legenda do gráfico liga e desliga cada cliente */
-const linhasAntes = await pw.$$eval('#view-clientes .lchart .ln', (n) => n.length);
-await pw.click('#view-clientes .lgnd .lgn');
-await pw.waitForTimeout(700);
-eq('desligar um nome tira a linha do gráfico',
-  await pw.$$eval('#view-clientes .lchart .ln', (n) => n.length), linhasAntes - 1);
-await pw.click('#view-clientes .lgnd .lgn');
-await pw.waitForTimeout(700);
-eq('religar devolve a linha',
-  await pw.$$eval('#view-clientes .lchart .ln', (n) => n.length), linhasAntes);
+/* prova de ponta a ponta: grava contato numa cliente e ele aparece no cartão */
+const alvoFicha = await pw.$eval('#view-clientes .revcard .rc-nm', (e) => e.textContent.trim());
+const idAlvo = await pw.evaluate((nome) => {
+  const c = (clientesLista || []).find((x) => x.nome === nome);
+  return c ? c.clienteId : null;
+}, alvoFicha);
+eq('a cliente do primeiro cartão tem cadastro', !!idAlvo, 'true');
+if (idAlvo) {
+  await pw.evaluate(async (id) => {
+    await api('PATCH', '/api/clientes/' + id,
+      { tel: '41999998888', cpf: '39053344705', cidade: 'Maringá' });
+    await carregarClientes(); renderClientes();
+  }, idAlvo);
+  await pw.waitForTimeout(1200);
+  const ficha = await pw.evaluate((nome) => {
+    const card = [...document.querySelectorAll('#view-clientes .revcard')]
+      .find((c) => c.querySelector('.rc-nm').textContent.trim() === nome);
+    return card ? card.querySelector('.rc-contato').textContent : '';
+  }, alvoFicha);
+  eq('o telefone aparece no cartão, formatado', /\(41\) 99999-8888/.test(ficha), 'true');
+  eq('a cidade também', /Maring/.test(ficha), 'true');
+  eq('e o CPF, com máscara', /390\.533\.447-05/.test(ficha), 'true');
 
-/* os filtros da reativação */
-const opTodas = await pw.$$eval('#view-clientes .oplista .gt-r', (n) => n.length);
-await pw.evaluate(() => setReativFiltro('inativa'));
-await pw.waitForTimeout(800);
-eq('o filtro da reativação deixa só o estado escolhido',
-  await pw.$$eval('#view-clientes .oplista .gt-r .selo',
-    (n) => n.length > 0 && n.every((s) => /inativa/i.test(s.textContent))), 'true');
-eq('e mostra menos linhas que "Todas"',
-  (await pw.$$eval('#view-clientes .oplista .gt-r', (n) => n.length)) < opTodas, 'true');
-await pw.evaluate(() => setReativFiltro('todos'));
-await pw.waitForTimeout(800);
+  /* e a busca acha por telefone, não só por nome */
+  await pw.fill('#cliBusca', '99998888');
+  await pw.waitForTimeout(800);
+  eq('a busca acha pelo telefone',
+    await pw.$$eval('#view-clientes .revcard .rc-nm', (n) => n.map((x) => x.textContent.trim())),
+    [alvoFicha].toString());
+  await pw.fill('#cliBusca', '');
+  await pw.waitForTimeout(600);
+}
 
-/* ordenar por tempo é de fato outra ordem */
-await pw.evaluate(() => setReativOrdem('tempo'));
-await pw.waitForTimeout(800);
-const opDias = await pw.$$eval('#view-clientes .oplista .dias',
-  (n) => n.map((e) => +e.textContent.replace(/\D/g, '')));
-eq('ordenar por tempo põe a mais parada em cima',
-  opDias.length > 1 && opDias.every((d, i) => i === 0 || opDias[i - 1] >= d), 'true');
-await pw.evaluate(() => setReativOrdem('valor'));
-await pw.waitForTimeout(800);
-
-/* o atalho entre a leitura e a operação */
+/* o atalho entre a leitura e a agenda */
 await pw.evaluate(() => verEstadoNaLista('em risco'));
 await pw.waitForTimeout(1000);
-eq('"Ver todas em risco" filtra a lista de baixo',
+eq('"Ver todos" filtra a lista de baixo',
   await pw.$eval('#todosClientes .fpill.on', (e) => /em risco/i.test(e.textContent)), 'true');
+await pw.evaluate(() => setClientesFiltro('todos'));
+await pw.waitForTimeout(600);
+
+/* ───────────────────────── revendedora não é cliente, e o acerto dela aparece
+
+   O defeito que originou esta rodada: a planilha tem UMA coluna para quem
+   levou a peça, e nela convivem a cliente final e a revendedora que veio
+   acertar a maleta. A revendedora entrava no CRM como a maior cliente da
+   casa — 46 linhas de "Maleta" num acerto de 36 peças viravam "Maior
+   compra" num cartão de destaque.
+
+   O teste é independente dos dados: pega quem hoje é a PRIMEIRA do ranking,
+   cadastra essa pessoa como revendedora e exige que ela saia do ranking e
+   apareça em "Acertos de maleta", com a comissão estimada. */
+console.log('\n=== 16. revendedora sai do ranking e vira acerto de maleta ===');
+
+const rankAntes = (await api('/api/analytics/crm?periodo=tudo')).topClientes;
+const primeira = rankAntes[0];
+ok('primeira do ranking antes', `${primeira.nome} · ${primeira.faturamento}`);
+
+const nova = await fetch(API + '/api/revendedoras', {
+  method: 'POST',
+  headers: { Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ nome: primeira.nome, cidade: 'Curitiba' }),
+}).then((r) => r.json());
+eq('cadastrei ela como revendedora', !!nova.id, 'true');
+
+const crmDepois = await api('/api/analytics/crm?periodo=tudo');
+eq('ela sumiu do ranking de clientes',
+  crmDepois.topClientes.some((c) => c.norm === primeira.norm), 'false');
+eq('e da lista completa também',
+  crmDepois.todos.some((c) => c.norm === primeira.norm), 'false');
+eq('outra pessoa assumiu o topo', crmDepois.topClientes[0].norm !== primeira.norm, 'true');
+
+const painelApi = await api('/api/analytics/painel?periodo=tudo');
+const ml = painelApi.maletas;
+eq('o painel traz o bloco de acertos', ml.totais.acertos > 0, 'true');
+ok('vendido nos acertos', String(ml.totais.vendido));
+ok('comissão estimada', String(ml.totais.comissao));
+eq('líquido = vendido − comissão',
+  (ml.totais.vendido - ml.totais.comissao).toFixed(2), ml.totais.liquido.toFixed(2));
+eq('a comissão é menor que o vendido', ml.totais.comissao < ml.totais.vendido, 'true');
+eq('e as premissas da estimativa viajam junto', (ml.premissas || []).length >= 3, 'true');
+
+/* o dinheiro NÃO some do faturamento — é a decisão de negócio desta rodada */
+const geralDepois = await api('/api/analytics/vendas?periodo=tudo');
+eq('o faturamento continua contando o acerto',
+  geralDepois.faturamento.toFixed(2), g.faturamento.toFixed(2));
+eq('mas a contagem de clientes caiu em um', geralDepois.clientes, g.clientes - 1);
+
+await pw.evaluate(() => switchTab('vendas-painel'));
+await pw.waitForTimeout(2800);
+const txtPainel2 = await pw.$eval('#view-vendas-painel', (e) => e.textContent);
+eq('a tela mostra "Acertos de maleta"', /Acertos de maleta/.test(txtPainel2), 'true');
+eq('e diz que a comissão é estimativa',
+  /comiss[ãa]o [ée] uma estimativa/i.test(txtPainel2), 'true');
+eq('a grade de acertos tem linha',
+  await pw.$$eval('#view-vendas-painel .gtab.acertos .gt-r', (n) => n.length > 0), 'true');
+
+/* ─────────────────────────────── e some das abas quando é arquivada */
+console.log('\n=== 17. revendedora arquivada sai das abas e volta pela lista ===');
+await pw.evaluate(async () => { await sincronizar(); });
+await pw.evaluate((id) => api('POST', `/api/revendedoras/${id}/arquivar`), nova.id);
+await pw.evaluate(async () => { await sincronizar(); });
+await pw.evaluate(() => switchTab('revlist'));
+await pw.waitForTimeout(1500);
+
+const abasRev = await pw.$$eval('#tabsSubNav .tab', (n) => n.map((x) => x.textContent.trim()));
+eq('a arquivada saiu das abas laterais',
+  abasRev.some((t) => t.includes(primeira.nome.split(' ')[0])), 'false');
+eq('mas continua listada em "Revendedoras inativas"',
+  await pw.$$eval('#view-revlist .gtab.inativas .gt-nm', (n) => n.map((x) => x.textContent.trim()))
+    .then((l) => l.includes(primeira.nome)), 'true');
+eq('com o botão de reativar do lado',
+  await pw.$$eval('#view-revlist .gtab.inativas .btn-gold', (n) => n.length > 0), 'true');
+eq('e ela não conta como ativa',
+  await pw.evaluate(() => revAtivas().some((r) => r.status === 'inativa')), 'false');
+eq('o acerto dela continua no painel mesmo arquivada',
+  (await api('/api/analytics/painel?periodo=tudo')).maletas.totais.acertos > 0, 'true');
+
+await pw.evaluate((id) => reativarRevendedora(id), nova.id);
+await pw.waitForTimeout(1800);
+eq('reativar devolve ela para as ativas',
+  await pw.evaluate((id) => revAtivas().some((r) => r.id === id), nova.id), 'true');
+
+/* ─────────────────────────── o autocompletar de cliente em Lançamentos */
+console.log('\n=== 18. o autocompletar acha quem está no fim do alfabeto ===');
+const todos = crmDepois.todos.filter((c) => c.identificada);
+/* alguém cuja inicial NÃO caiba nas 50 primeiras em ordem alfabética —
+   era exatamente quem o autocompletar antigo não encontrava */
+const tarde = [...todos].sort((a, b) => b.nome.localeCompare(a.nome))[0];
+ok('procurando por', tarde.nome);
+const achou = await pw.evaluate(async (termo) => {
+  const r = await api('GET', '/api/clientes?busca=' + encodeURIComponent(termo));
+  return (r || []).map((c) => c.nome);
+}, tarde.nome.split(' ')[0]);
+eq('a busca do servidor acha', achou.includes(tarde.nome), 'true');
+
+/* Aqui a prova para no que a busca CARREGA: o `<datalist>` só existe
+   enquanto o modal de venda está aberto, e abrir o modal exige um carrinho
+   com peça bipada. Esse caminho inteiro — digitar, ver a opção aparecer e
+   a venda cair na ficha certa — está coberto em `src/e2e.mjs`, no fluxo de
+   venda de verdade. */
+await pw.evaluate((nome) => buscarClienteVenda(nome), tarde.nome.split(' ')[0]);
+await pw.waitForTimeout(900);
+eq('e a lista que alimenta o autocompletar recebe ela',
+  await pw.evaluate((nome) => vdClientes.some((c) => c.nome === nome), tarde.nome), 'true');
+eq('com a cidade junto, para desempatar homônima',
+  await pw.evaluate(() => vdClientes.every((c) => 'cidade' in c)), 'true');
 
 eq('console limpo no acabamento',
   errosW.filter((e) => !/favicon|manifest|sw\.js/i.test(e)).length, 0);

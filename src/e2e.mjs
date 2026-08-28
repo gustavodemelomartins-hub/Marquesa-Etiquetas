@@ -230,7 +230,19 @@ await page.click('#scanConfirm');
 await page.waitForTimeout(500);
 eq('pede a cliente antes de gravar',
   await page.locator('#vendaOverlay').evaluate(e => e.classList.contains('show')), 'true');
+/* O autocompletar de cliente, dentro do modal de verdade.
+
+   Ele carregava as 50 primeiras clientes em ordem alfabética, UMA vez ao
+   abrir, e nunca mais consultava o servidor: com a base cheia, quem vem
+   depois do "C" não aparecia, e a venda abria um cadastro novo ao lado do
+   antigo. Agora a tela pergunta enquanto se digita.
+
+   E o campo diz, ANTES de confirmar, para onde a venda vai — cliente
+   conhecida ou cadastro novo. */
 await page.fill('#vd-cliente', 'Cliente Teste');
+await page.waitForTimeout(700);
+eq('o campo avisa que é cadastro novo',
+  /ainda não está cadastrada/i.test(await page.textContent('#vd-cliente-eco')), 'true');
 await page.click('#vdConfirm');
 await page.waitForTimeout(2000);
 
@@ -242,6 +254,40 @@ const vs = await fetch(URL_API + '/api/vendas?data=' + new Date().toISOString().
 const balcao = vs.find(v => v.origem === 'balcao');
 eq('a venda de balcão foi registrada', balcao.clienteNome, 'Cliente Teste');
 eq('com o total certo', balcao.total, 1200);
+
+/* A chave de agrupamento é gravada NA VENDA, e não só na próxima
+   importação de planilha. Sem ela a venda de hoje ficava fora da ficha da
+   cliente até alguém importar alguma coisa. */
+const vendaNorm = await fetch(URL_API + '/api/clientes/perfil?norm=cliente%20teste', {
+  headers: { Authorization: 'Bearer ' + KEY },
+}).then(r => r.json());
+eq('a venda já responde pelo nome normalizado', vendaNorm.ok !== false, 'true');
+eq('e traz a compra que acabou de acontecer', (vendaNorm.vendas || []).length >= 1, 'true');
+
+/* segunda venda para a MESMA cliente: agora ela já está cadastrada, e o
+   campo tem de reconhecê-la em vez de propor um cadastro novo */
+await page.evaluate(() => switchTab('vendas'));
+await page.waitForTimeout(600);
+await page.evaluate(() => novaVenda());
+await page.waitForTimeout(400);
+await page.fill('#scanInput', '900001');
+await page.press('#scanInput', 'Enter');
+await page.waitForTimeout(250);
+await page.click('#scanConfirm');
+await page.waitForTimeout(600);
+await page.fill('#vd-cliente', 'cliente teste');
+await page.waitForTimeout(900);
+eq('o autocompletar traz a cliente já cadastrada',
+  await page.evaluate(() => [...document.querySelectorAll('#vd-clientes option')]
+    .some(o => /Cliente Teste/i.test(o.value))), 'true');
+eq('e o campo diz que a venda vai para a ficha dela',
+  /Vai para a ficha de/i.test(await page.textContent('#vd-cliente-eco')), 'true');
+eq('mesmo escrito sem maiúscula — acento e caixa não separam pessoas',
+  await page.evaluate(() => !!clienteEscolhidaNaVenda('cliente teste')), 'true');
+await page.evaluate(() => closeVenda());
+await page.waitForTimeout(300);
+await page.evaluate(() => { document.getElementById('scanOverlay').classList.remove('show'); });
+await page.waitForTimeout(300);
 
 console.log('\n=== inventário ===');
 await page.evaluate(() => switchTab('geral'));

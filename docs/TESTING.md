@@ -90,6 +90,52 @@ A regra é uma função, então o teste é uma função. Roda em qualquer máqui
    nada;
 10. cada venda guarda os `Nº` da planilha que a formaram.
 
+### `src/revendedora-nao-e-cliente-test.mjs` — revendedora sai do CRM, o dinheiro fica
+**28 asserções · <1 s · teste PURO, sem Worker**
+
+Não sobe Worker e não toca a nuvem: monta um SQLite em memória a partir do
+`api/schema.sql` de verdade e conversa com `analytics.js` por um adaptador
+mínimo que fala a língua do D1 (`prepare().bind().all()/.first()`).
+
+O defeito que ele impede de voltar: a revendedora entrando no ranking como a
+maior cliente da casa — 46 linhas de "Maleta" num acerto de 36 peças viravam
+"Maior compra" num cartão de destaque (REGRAS § 23).
+
+1. a revendedora **cadastrada** sai do ranking, da lista e dos destaques;
+2. quem tem "Maleta" na observação mas **não** está cadastrada continua
+   cliente — o papel vem do cadastro, nunca do texto da planilha;
+3. faturamento e peças **continuam contando** o acerto; só a contagem de
+   clientes o exclui;
+4. a comissão estimada bate com a conta feita à mão sobre os acertos reais:
+   R$ 3.186,25 vendidos → R$ 703,58 de comissão → R$ 2.482,67 líquidos, com
+   o acerto de 13/06/2026 caindo na faixa de 30% e a prata a 10% à parte;
+5. as premissas da estimativa viajam no payload (REGRAS § 24);
+6. **sem revendedora cadastrada, nada muda** — todo mundo volta a ser
+   cliente e não há acerto a estimar.
+
+### `src/trocar-planilha-test.mjs` — trocar a planilha não soma duas versões
+**26 asserções · ~40 s · precisa do Worker local**
+
+Roda contra a planilha real quando ela está disponível
+(`PLANILHA_JSON=/caminho/vendas.json`, ou
+`src/__dados__/vendas-historico.json`); senão, contra uma amostra embutida.
+
+O defeito que ele impede: a trava de idempotência é o **hash do arquivo**,
+então uma planilha corrigida entra sem reclamar e o faturamento dobra sem
+nenhum erro na tela (REGRAS § 25).
+
+1. trocar **não duplica** — linhas, vendas, peças e faturamento ficam nos
+   números da planilha nova, não na soma das duas;
+2. o lote antigo fica `revertido` e só um lote continua de pé;
+3. a resposta traz antes, depois e **delta**;
+4. cliente com telefone, CPF ou cidade digitados à mão **sobrevive** à
+   troca;
+5. subir a MESMA planilha que já está no ar é recusado **antes** de reverter
+   qualquer coisa;
+6. arquivo ilegível também para na análise, com o histórico intacto;
+7. o estoque não é tocado em nenhum momento — a razão contábil antes e
+   depois é byte a byte a mesma.
+
 ### `src/categoria-nome-test.mjs` — categoria não é material
 **33 asserções · <1 s · teste PURO**
 
@@ -718,6 +764,8 @@ node src/reconciliacao-test.mjs # o Apply do motor de reconciliação
 node src/vendas-reconstrucao-test.mjs  # a regra: linha vira venda (puro)
 node src/categoria-nome-test.mjs      # categoria não é material (puro)
 node src/vendas-historico-test.mjs   # histórico entra sem mover estoque
+node src/revendedora-nao-e-cliente-test.mjs  # revendedora sai do CRM (puro)
+node src/trocar-planilha-test.mjs    # trocar a planilha não soma duas versões
 
 # navegador (precisa de `python -m http.server 8000` na raiz)
 PW_CHROMIUM=/caminho/do/chrome node src/vendas-clientes-ui-test.mjs

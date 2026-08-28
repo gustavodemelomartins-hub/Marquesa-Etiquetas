@@ -388,6 +388,33 @@ SELECT name FROM sqlite_master WHERE type='table'
    AND name IN ('produtos_pendentes','fotos_orfas');
 ```
 
+### CPF na ficha de cliente
+
+`api/migracao-cliente-cpf.sql` acrescenta `cpf` e `cpf_norm` a `clientes`,
+mais o índice de busca. Aditiva e independente das outras — só depende de
+`clientes`, que existe desde o schema original.
+
+```bash
+# DEV — banco marquesa-db-dev
+npx wrangler d1 execute DB --env staging --remote --file=migracao-cliente-cpf.sql
+
+# produção — só depois de aprovado
+npx wrangler d1 execute DB --remote --file=migracao-cliente-cpf.sql
+```
+
+⚠️ `ALTER TABLE ADD COLUMN` não é idempotente: rodar duas vezes devolve
+`duplicate column name`, e esse erro significa "já foi aplicada".
+
+Sem ela, a aba **Clientes** e a **troca de planilha** respondem 503 com a
+instrução do que rodar — não um erro de banco cru. O resto do painel
+funciona normalmente.
+
+Para conferir depois:
+
+```sql
+SELECT name FROM pragma_table_info('clientes') WHERE name IN ('cpf','cpf_norm');
+```
+
 ## Ligar a sincronização com a Nuvemshop
 
 Enquanto os dois segredos abaixo não existirem, o Worker funciona igual e a

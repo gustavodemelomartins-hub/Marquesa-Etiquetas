@@ -951,3 +951,137 @@ A tabela de palavras existe em dois lugares: `api/src/categoria-nome.js`
 (classifica planilha no navegador, sem rede). A duplicação é **declarada e
 verificada**: `src/categoria-nome-test.mjs` lê as duas e falha se
 divergirem.
+
+### 23. Revendedora não é cliente — mas o dinheiro dela é faturamento
+
+A planilha histórica tem **uma** coluna para quem levou a peça, e nela
+convivem duas coisas diferentes:
+
+- a **cliente final** — comprou, pagou, levou;
+- a **revendedora** — levou a maleta, vendeu lá fora e veio acertar. O nome
+  dela naquela coluna é o **acerto**, não uma compra pessoal.
+
+Sem separar as duas, a revendedora entrava no CRM como a maior cliente da
+casa. Foi o que aconteceu: 46 linhas de "Maleta" num acerto de 36 peças em
+13/06/2026 viraram *"Maior compra — R$ 2.368,80 numa venda só"* num cartão
+de destaque, e a dona do negócio precisou avisar, olhando a tela, que aquela
+pessoa era revendedora.
+
+**A fronteira é o CADASTRO, não uma heurística sobre o texto.** Nome que bate
+com uma revendedora cadastrada (pelo mesmo `normalizarNomeCliente` de todo o
+resto) é revendedora. Quem não está cadastrada continua sendo tratada como
+cliente — o sistema não deduz papel de ninguém pela observação da planilha,
+onde "Maleta" aparece em 669 linhas que são vendas de balcão da própria
+Marquesa.
+
+**O dinheiro não some.** Faturamento, peças, ticket médio e evolução
+continuam contando o acerto: a venda aconteceu e o valor entrou. O que muda
+é **onde ela aparece** — em "Acertos de maleta", no Painel, e não em "Top
+clientes". A única contagem que a exclui é a de **clientes**, porque ela não
+é uma.
+
+Revendedora **inativa continua valendo** para o histórico já gravado: quem
+encerrou a parceria não deixa de ter sido revendedora nos acertos que fez.
+
+Implementado em `api/src/analytics.js › revendedorasPorNome`,
+`baseDeClientes`; provado em `src/revendedora-nao-e-cliente-test.mjs`.
+
+### 24. A comissão do acerto histórico é ESTIMATIVA, e diz que é
+
+A planilha registra o **valor da venda**, não o que entrou no caixa: não tem
+coluna de comissão, não tem vínculo com maleta e não guarda o preço
+congelado no envio. O motor de comissão do sistema (§11, §12, §32) acerta
+porque roda no acerto de verdade; aqui ele é aplicado **de fora**, sobre
+linhas que já são história.
+
+O que a planilha de fato tem: o valor de cada item e a coluna `Tipo`
+(`Banhada`, `Bruto`, `Prata 925`…). O que a estimativa **assume**, por
+decisão do dono do negócio em 2026-08-28:
+
+1. **peça bruta entra na mesma faixa das banhadas.** A operação distingue
+   peça comprada já banhada de peça comprada em bruto e mandada banhar na
+   fábrica, e as duas têm precificação própria — mas essa distinção **ainda
+   não está modelada** no sistema. Enquanto não estiver, bruto conta como
+   banhada, e isso está escrito na tela;
+2. **as faixas de hoje valeram o período inteiro da planilha**;
+3. **só o histórico entra.** Acerto fechado pelo sistema já tem comissão
+   calculada de verdade, no fechamento da maleta — estimar por cima dele
+   produziria dois números para a mesma coisa.
+
+As três premissas viajam no payload (`maletas.premissas`) e a tela as mostra
+num expansor ao lado do número. **Estimativa rotulada é útil; estimativa
+disfarçada de extrato é mentira** — §9.
+
+Implementado em `api/src/analytics.js › acertosDeMaleta`, reusando
+`comissao.js › calcComissao` e `isPrata` (a definição de prata não tem duas
+versões).
+
+### 25. Trocar a planilha do histórico é uma operação só — nunca "importar de novo"
+
+A trava de idempotência da importação é o **hash do arquivo**: o mesmo
+arquivo não entra duas vezes. Um arquivo **diferente** entra sem reclamar —
+e é exatamente o caso de quem corrigiu o sobrenome de uma cliente e
+reexportou a planilha. As 695 vendas antigas e as 696 novas se somariam, e o
+faturamento dobraria **sem nenhum erro na tela**.
+
+Então trocar não é importar por cima. `POST /api/vendas/historico/substituir`
+reverte o que está de pé e importa o novo, com o antes e o depois na mesma
+resposta. A ordem é deliberada:
+
+1. **analisa primeiro.** Arquivo ilegível, cabeçalho trocado ou planilha
+   vazia param aqui, com o histórico antigo **intacto**;
+2. a mesma planilha que já está no ar é **recusada** — não se derruba o
+   histórico para recolocar o que já estava lá;
+3. só então reverte e importa.
+
+Se a importação falhar depois da reversão, a resposta diz **quais lotes
+foram revertidos e de qual arquivo**: reverter libera o hash (o índice único
+só vale para lote `importado`), então reimportar a planilha antiga é um
+caminho de volta que existe de verdade.
+
+**A reversão preserva o cadastro digitado à mão.** Cliente criada pela
+importação e sem nenhum campo preenchido some, como antes; cliente com
+telefone, CPF, cidade, email, instagram, nascimento ou observação **fica**.
+A linha da planilha volta na importação seguinte; o telefone não volta de
+lugar nenhum.
+
+Estoque: nada, dos dois lados. A importação nunca criou movimento, então não
+há o que desfazer.
+
+Implementado em `api/src/vendas-historico.js › substituirHistorico`,
+`retratoDoHistorico`; provado em `src/trocar-planilha-test.mjs`.
+
+### 26. A venda de balcão abre a ficha da cliente
+
+A venda gravava o **nome** e ia embora. O painel dizia, num comentário, que
+"se o nome for novo, o servidor cria" — e o servidor não criava. Duas
+consequências:
+
+- vender para alguém pela primeira vez não abria ficha nenhuma, então na
+  segunda venda o autocompletar não a encontrava (não havia o que
+  encontrar), e não havia onde guardar o telefone dela;
+- `vendas.cliente_nome_norm` só nascia no `backfillNormalizacao` que roda
+  depois de uma importação de planilha. Até lá a venda do dia ficava com a
+  chave de agrupamento nula e o painel a contava em "sem-nome", separada do
+  histórico da mesma pessoa.
+
+Agora `registrarVenda` grava a chave normalizada **na venda** e resolve a
+ficha, com uma regra que não chuta identidade:
+
+| cadastros com aquele nome normalizado | o que acontece |
+|---|---|
+| exatamente um | a venda se amarra a ele |
+| nenhum | cria, com `origem='manual'` |
+| mais de um | **não escolhe** — a venda segue pelo nome, como já seguia |
+
+`origem='manual'`, e não um valor novo, é o que garante que reverter um lote
+de planilha (§25) nunca apague uma cliente que nasceu de uma venda de
+verdade: a reversão só toca em `origem='historico'`.
+
+O autocompletar do campo, do outro lado, passou a **consultar o servidor
+enquanto se digita** (`GET /api/clientes?busca=`). Ele carregava as 50
+primeiras clientes em ordem alfabética, uma vez ao abrir o modal, e nunca
+mais perguntava nada: com 338 clientes cadastradas, quem vem depois do "C"
+não existia para a tela.
+
+Provado em `src/e2e.mjs`, no fluxo de venda de verdade.

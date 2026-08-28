@@ -570,6 +570,14 @@ body{font-variant-numeric:lining-nums tabular-nums}
 .revcard:hover{border-color:var(--rose);box-shadow:var(--shadow)}
 .revcard .rc-nm{font-family:var(--serif);font-size:19px;font-weight:700;color:var(--bordo);line-height:1.15}
 .revcard .rc-meta{font-size:11.5px;color:var(--muted);margin-top:2px}
+/* A linha de contato da ficha de cliente: telefone, cidade e CPF, cada um
+   com o seu ícone, quebrando em duas linhas no celular em vez de cortar. */
+.revcard .rc-contato{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px}
+.revcard .rc-ct{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink)}
+.revcard .rc-ct svg{flex:none;color:var(--muted)}
+/* Campo em branco não é espaço vazio: é convite. Dizer o que falta é o que
+   faz alguém preencher — §9 vale para a tela também. */
+.revcard .rc-contato.vazio{font-size:11.5px;color:var(--muted);font-style:italic}
 .revcard .rc-row{display:flex;gap:16px;margin-top:12px;padding-top:11px;border-top:1px solid var(--line-soft)}
 .revcard .rc-st{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
 .revcard .rc-st b{display:block;font-family:var(--serif);font-size:20px;color:var(--ink);letter-spacing:0;text-transform:none}
@@ -1468,21 +1476,6 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 }
 .selmini:focus{outline:none;border-color:var(--rose);box-shadow:0 0 0 3px var(--rose-tint)}
 
-/* ---------- gráfico de linhas: clientes ao longo do tempo ---------- */
-.lchart{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
-.lchart svg{display:block;min-width:520px;width:100%;height:auto;overflow:visible}
-.lchart .grid{stroke:var(--line-soft);stroke-width:1}
-.lchart .axis{fill:var(--muted);font-size:9.5px;font-variant-numeric:tabular-nums}
-.lchart .ln{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
-.lchart .pt{stroke:#fff;stroke-width:1.5}
-.lchart .hit{fill:transparent;cursor:pointer}
-/* A legenda não é decoração: com cinco linhas coloridas ela é a única forma
-   de saber de quem é cada uma. §39 — cor sozinha nunca basta. */
-.lgnd{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px}
-.lgn{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink)}
-.lgn .dot{width:9px;height:9px;border-radius:50%;flex:none}
-.lgn b{font-weight:600}
-
 /* ---------- ranking com barra ---------- */
 .rank{display:flex;flex-direction:column;gap:2px}
 .rkrow{
@@ -1625,7 +1618,6 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 /* Saúde da base e reativação na mesma fileira: leitura estreita, ação larga.
    Era o contrário, e a lista de ação saía ilegível em coluna de 300px. */
 @media (min-width:1040px){
-  .vg.vg-2.saude{grid-template-columns:minmax(0,35fr) minmax(0,65fr)}
 }
 
 /* ---------- indicador com estado em vez de número ----------
@@ -1654,6 +1646,20 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 .maisitens>summary::before{content:"+ ";font-weight:700}
 .maisitens[open]>summary::before{content:"− "}
 .maisitens>summary:hover{color:var(--bordo)}
+/* A versão "seção" do mesmo `details`: ela separa a leitura principal do
+   resto do painel, então pesa um pouco mais que um "mais N categorias"
+   dentro de um cartão. */
+.maisitens.secao>summary{
+  font-size:13px;font-weight:600;color:var(--bordo);
+  padding:11px 14px;background:var(--rose-tint);
+  border:1px solid var(--line);border-radius:12px;
+}
+.maisitens.secao>summary:hover{border-color:var(--bordo)}
+.maisitens.secao[open]>summary{border-radius:12px 12px 0 0;margin-bottom:0}
+/* O cartão de destaque que leva para a ficha de quem ele nomeia. */
+.insight.clicavel{cursor:pointer}
+.insight.clicavel:hover{border-color:var(--bordo)}
+.insight.clicavel:focus-visible{outline:2px solid var(--bordo);outline-offset:2px}
 
 /* ---------- lugar da foto ----------
    O texto "sem foto" em 8px dentro de um quadrado era o item mais feio da
@@ -1666,28 +1672,6 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
   color:var(--rose);opacity:.55;
 }
 .pv-ph svg{width:20px;height:20px}
-
-/* ---------- saúde da base ----------
-   Rosca grande à esquerda, legenda densa à direita. Antes: rosca pequena
-   centralizada, legenda em linhas altas, e meio cartão vazio embaixo. */
-.saude{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:center}
-.saude .donutbox{max-width:210px;margin:0 auto}
-/* auto-fit resolve sozinho o que três media queries erravam: uma coluna
-   quando o cartão é estreito, duas ou três quando sobra largura. */
-.sd-leg{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:2px 16px}
-.sd-row{
-  display:grid;grid-template-columns:9px minmax(0,1fr) auto auto;gap:8px;
-  align-items:center;padding:5px 2px;border-radius:7px;
-}
-.sd-dot{width:9px;height:9px;border-radius:50%}
-.sd-nm{font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sd-n{font-size:13px;font-weight:700;color:var(--bordo);font-variant-numeric:tabular-nums}
-.sd-p{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:36px;text-align:right}
-.sd-exp{margin-top:12px;border-top:1px solid var(--line-soft);padding-top:10px}
-@media (min-width:760px){
-  .sd-nm{font-size:12.5px}
-  .sd-row{padding:6px 2px}
-}
 
 /* ---------- grade de leitura (top clientes, reativação) ----------
    Não é <table>: é grade. A mesma linha vira cartão empilhado no celular sem
@@ -1734,22 +1718,18 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
   .gtab.tcli .gt-mob{display:none}
 }
 
-/* Reativação: a área comercial. Larga, e cada linha responde às mesmas
-   quatro perguntas — quem é, quanto valeu, de quanto em quanto tempo
-   comprava, há quanto sumiu. */
-.oplista .gt-h,.oplista .gt-r{grid-template-columns:minmax(0,1fr) auto auto}
-.oplista .col-op{display:none}
-.oplista .gt-h{display:none}
-@media (min-width:900px){
-  .oplista .gt-h{display:grid}
-  .oplista .gt-h,.oplista .gt-r{
-    grid-template-columns:minmax(0,1fr) 92px 88px 84px auto;
-  }
-  .oplista .col-op{display:block}
-  .gtab.oplista .gt-mob{display:none}
+/* Acertos de maleta: quem vendeu, quanto vendeu, quanto ficou de comissão
+   e quanto sobrou. No celular a comissão desce — o que importa na mão é o
+   par vendido/líquido, e a comissão é a diferença entre os dois. */
+.acertos .gt-h,.acertos .gt-r{grid-template-columns:minmax(0,1fr) 92px 92px}
+.acertos .col-op{display:none}
+@media (min-width:760px){
+  .acertos .gt-h,.acertos .gt-r{grid-template-columns:minmax(0,1fr) 100px 100px 100px}
+  .acertos .col-op{display:block}
 }
-.opbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
-.opbar .spacer{flex:1 1 auto}
+
+/* Revendedoras inativas: nome à esquerda, os dois botões à direita. */
+.inativas .gt-h,.inativas .gt-r{grid-template-columns:minmax(0,1fr) auto}
 
 /* ---------- selo de estado ----------
    §13: o mesmo estado tem a mesma cor em toda a tela. A cor sai de
@@ -1767,18 +1747,9 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 }
 .dias.frio{background:#F3EFF0;color:#6E5C62;border-color:#DFD5D8}
 
-/* ---------- gráfico de linhas: a legenda liga e desliga cada cliente ---------- */
-.lgn{cursor:pointer;user-select:none;padding:3px 9px;border-radius:99px;
-  border:1px solid transparent;transition:.12s}
-.lgn:hover{background:var(--ivory);border-color:var(--line)}
-.lgn.off{opacity:.4}
-.lgn.off .dot{background:var(--line) !important}
-.lgn:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
-.lchart svg{min-width:0}
 @media (max-width:759px){
-  .lchart svg{min-width:520px}
   .tcli .gt-h{display:none}
-  .tcli .gt-r,.oplista .gt-r{row-gap:5px;padding:11px 6px}
+  .tcli .gt-r,.acertos .gt-r,.inativas .gt-r{row-gap:5px;padding:11px 6px}
   /* no celular a identificação quebra em duas linhas em vez de virar
      reticências: selo, número de compras e data são o que diz de quem é a
      linha. */
@@ -2025,12 +1996,12 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
         <div class="field"><label>Cidade</label><input id="clf-cidade" placeholder="Opcional" maxlength="40"></div>
       </div>
       <div class="two">
+        <div class="field"><label>CPF</label><input id="clf-cpf" placeholder="Opcional" maxlength="18" inputmode="numeric"></div>
         <div class="field"><label>E-mail</label><input id="clf-email" placeholder="Opcional" maxlength="80"></div>
-        <div class="field"><label>Instagram</label><input id="clf-instagram" placeholder="@perfil" maxlength="40"></div>
       </div>
-      <div class="field">
-        <label>Aniversário</label>
-        <input id="clf-nascimento" type="date">
+      <div class="two">
+        <div class="field"><label>Instagram</label><input id="clf-instagram" placeholder="@perfil" maxlength="40"></div>
+        <div class="field"><label>Aniversário</label><input id="clf-nascimento" type="date"></div>
       </div>
       <div class="field">
         <label>Observações</label>
@@ -2893,8 +2864,8 @@ function renderTabs(){
        existindo, com o nome do que ela é. */
     let html=`<button class="tab ${tabAtual==='revgeral'?'active':''}" onclick="switchTab('revgeral')">Visão Geral</button>`
       +`<button class="tab ${tabAtual==='revlist'?'active':''}" onclick="switchTab('revlist')">Todas as revendedoras${
-        state.revendedoras.length?`<span class="count">${state.revendedoras.length}</span>`:''}</button>`;
-    state.revendedoras.forEach(r=>{
+        revAtivas().length?`<span class="count">${revAtivas().length}</span>`:''}</button>`;
+    revAtivas().forEach(r=>{
       const m=maletaAbertaDe(r.id);
       const q=m?qtdMaleta(m):0;
       html+=`<button class="tab ${tabAtual==='rev:'+r.id?'active':''}" onclick="switchTab('rev:${r.id}')">
@@ -2945,7 +2916,10 @@ const ICO={
   brilho:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/>',
   etiqueta:'<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7.2-7.2A2 2 0 0 1 2.8 12V4.8A2 2 0 0 1 4.8 2.8H12a2 2 0 0 1 1.4.6l7.2 7.2a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
   planilha:'<path d="M4 3h16v18H4z"/><path d="M4 9h16M4 15h16M10 3v18"/>',
-  caixaMais:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 11.5v6M9 14.5h6"/>'
+  caixaMais:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 11.5v6M9 14.5h6"/>',
+  /* os dois da ficha de cliente: telefone e cidade */
+  telefone:'<path d="M15.5 21A12.5 12.5 0 0 1 3 8.5 2.5 2.5 0 0 1 5.5 6h2L9 9.5l-1.8 1.3a10 10 0 0 0 4 4L12.5 13l3.5 1.5v2A2.5 2.5 0 0 1 15.5 21z"/>',
+  pino:'<path d="M12 21s7-5.7 7-11a7 7 0 1 0-14 0c0 5.3 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'
 };
 function svgIco(d,tam){
   return `<svg width="${tam||18}" height="${tam||18}" viewBox="0 0 24 24" fill="none"
@@ -3264,14 +3238,15 @@ function renderRevGeral(){
 
   /* Top revendedoras, do histórico. Só entram quem TEM ciclo fechado —
      ordenar por valor vendido quem nunca acertou seria ordenar zeros. */
-  const desempenhos=state.revendedoras.map(r=>({rev:r, d:desempenhoDe(r.id)}));
+  const desempenhos=revAtivas().map(r=>({rev:r, d:desempenhoDe(r.id)}));
   const comHistorico=desempenhos.filter(x=>!x.d.semDados)
     .sort((a,b)=>b.d.vendido-a.d.vendido);
   const semHistorico=desempenhos.length-comHistorico.length;
 
   v.innerHTML=`
     <div class="actbar" style="margin-bottom:16px">
-      <div class="stat"><b>${state.revendedoras.length}</b> ${plural(state.revendedoras.length,'revendedora','revendedoras')}</div>
+      <div class="stat"><b>${revAtivas().length}</b> ${plural(revAtivas().length,'revendedora','revendedoras')}</div>${
+        revInativas().length?`<div class="stat hint"><b>${revInativas().length}</b> ${plural(revInativas().length,'inativa','inativas')}</div>`:''}
       <div class="stat"><b>${abertas.length}</b> ${plural(abertas.length,'maleta aberta','maletas abertas')}</div>
       <div class="spacer"></div>
       <button class="btn btn-gold btn-sm" onclick="openRevForm()">+ Nova revendedora</button>
@@ -3394,6 +3369,7 @@ function renderRevGeral(){
    principal própria, com o mesmo grid e o mesmo cardRev(). */
 function renderRevLista(){
   const v=document.getElementById('view-revlist');
+  const ativas=revAtivas(), inativas=revInativas();
   v.innerHTML=`
     <div class="panel">
       <div class="head">
@@ -3401,12 +3377,61 @@ function renderRevLista(){
         <span class="hint">Toque em uma para abrir a maleta dela</span>
       </div>
       <div class="body">
-        ${state.revendedoras.length?`<div class="revgrid">${state.revendedoras.map(r=>cardRev(r)).join('')}</div>`:
-          `<div class="empty"><h3>Nenhuma revendedora ainda</h3>
-           <p>Crie uma aba para cada pessoa que leva maleta.</p>
+        ${ativas.length?`<div class="revgrid">${ativas.map(r=>cardRev(r)).join('')}</div>`:
+          `<div class="empty"><h3>Nenhuma revendedora ativa</h3>
+           <p>${inativas.length
+             ?'Todas as que existem estão arquivadas — elas continuam listadas aqui embaixo.'
+             :'Crie uma aba para cada pessoa que leva maleta.'}</p>
            <button class="btn btn-gold" style="margin-top:14px" onclick="openRevForm()">+ Nova revendedora</button></div>`}
       </div>
+    </div>
+    ${inativas.length?blocoRevInativas(inativas):''}`;
+}
+
+/** As que saíram.
+
+    Elas continuam aqui, e continuam abrindo: o histórico de maletas, os
+    acertos e o desempenho não foram para lugar nenhum. O que elas deixaram
+    de ter é presença nas abas do dia a dia e nas contas de quem está
+    rodando maleta agora. Voltar é um clique. */
+function blocoRevInativas(l){
+  const linhas=l.map(r=>{
+    const fechadas=state.maletas.filter(x=>x.revId===r.id&&maletaEncerrada(x)).length;
+    return `<div class="gt-r">
+      <div>
+        <div class="gt-nm">${esc(r.nome)}</div>
+        <div class="gt-sub">${fechadas
+          ?`${fechadas} ${plural(fechadas,'maleta fechada','maletas fechadas')} no histórico`
+          :'Sem maleta no histórico'}${r.cidade?` · ${esc(r.cidade)}`:''}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn btn-ghost btn-sm" onclick="switchTab('rev:${r.id}')">Ver histórico</button>
+        <button class="btn btn-gold btn-sm" onclick="event.stopPropagation();reativarRevendedora(${r.id})">Reativar</button>
+      </div>
     </div>`;
+  }).join('');
+  return `<div class="panel">
+    <div class="head bhead">
+      <div class="bh-t"><h2>Revendedoras inativas</h2>
+        <span class="hint">Arquivadas — o histórico delas continua guardado</span></div>
+      <span class="hint">${fmtN(l.length)}</span>
+    </div>
+    <div class="body"><div class="gtab inativas">${linhas}</div></div>
+  </div>`;
+}
+
+/** Desarquivar. O caminho de volta do `delRevendedora`, e o motivo de
+    arquivar poder ser um clique sem medo: nada do que ela fez se perdeu, e
+    voltar não custa recadastrar ninguém. */
+async function reativarRevendedora(id){
+  const r=state.revendedoras.find(x=>x.id===id);
+  if(!r) return;
+  try{
+    await api('PATCH',`/api/revendedoras/${id}`,{status:'ativa'});
+    await sincronizar();
+    renderTabs();
+    toast(`${r.nome} voltou para as ativas`);
+  }catch(e){ toast(e.message); }
 }
 
 /* =================== Cadastro de Produtos =================== */
@@ -3846,6 +3871,22 @@ async function descartarInventario(){
     toast('Contagem descartada');
   }catch(e){ toast(e.message); }
 }
+
+/* Quem está na ativa, e quem saiu.
+
+   `revendedoras.status` guarda 'ativa' | 'inativa' desde o schema original,
+   e o botão "Arquivar revendedora" grava 'inativa' desde sempre. A tela
+   nunca leu essa coluna: a arquivada continuava na barra de abas, no grid
+   e na contagem — exatamente o contrário do que o próprio aviso de
+   arquivamento promete ("ela some das abas ativas"). Quem encerrou a
+   parceria e fez o último acerto continuava ocupando lugar como se fosse
+   pegar maleta amanhã.
+
+   O histórico dela não sai de lugar nenhum: as maletas fechadas, o
+   desempenho e os acertos continuam guardados, e reativar é um clique. §28
+   — arquiva, nunca apaga. */
+function revAtivas(){ return state.revendedoras.filter(r=>r.status!=='inativa'); }
+function revInativas(){ return state.revendedoras.filter(r=>r.status==='inativa'); }
 
 function cardRev(r){
   const m=maletaAbertaDe(r.id);
@@ -6737,9 +6778,12 @@ async function delRevendedora(id){
   if(!confirm(`Arquivar ${r.nome}?\n\nEla some das abas ativas, mas o histórico dela continua guardado. Não é possível arquivar com maleta aberta.`)) return;
   try{
     await api('POST',`/api/revendedoras/${id}/arquivar`);
-    switchTab('geral');
     await sincronizar();
-    toast('Revendedora arquivada');
+    /* para a LISTA, e não para o Estoque: é onde ela aparece agora, na
+       seção de inativas, com o botão de reativar do lado. Mandar para
+       outra área deixava a pessoa sem ver o que a ação fez. */
+    switchTab('revlist');
+    toast(`${r.nome} foi arquivada — está em "Revendedoras inativas"`);
   }catch(e){ toast(e.message); }
 }
 async function novaMaleta(revId){
@@ -7243,8 +7287,11 @@ async function abrirFecharVenda(){
     </div>
     <div class="field">
       <label>Cliente <span class="req">*</span></label>
-      <input id="vd-cliente" list="vd-clientes" autocomplete="off" placeholder="Nome de quem levou" maxlength="60">
+      <input id="vd-cliente" list="vd-clientes" autocomplete="off"
+             placeholder="Comece a escrever o nome" maxlength="60"
+             oninput="ecoClienteVenda();buscarClienteVenda(this.value)">
       <datalist id="vd-clientes"></datalist>
+      <div class="hint" id="vd-cliente-eco" style="margin-top:6px"></div>
     </div>
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeVenda()">Voltar</button>
@@ -7254,12 +7301,83 @@ async function abrirFecharVenda(){
 
   document.getElementById('vendaOverlay').classList.add('show');
   setTimeout(()=>document.getElementById('vd-cliente').focus(),80);
+  vdClientes=[];
+  document.getElementById('vd-cliente-eco').textContent='';
+  buscarClienteVenda('');
+}
 
-  /* a lista de clientes é conveniência: se o nome for novo, o servidor cria */
-  api('GET','/api/clientes').then(cs=>{
-    const dl=document.getElementById('vd-clientes');
-    if(dl) dl.innerHTML=(cs||[]).map(c=>`<option value="${esc(c.nome)}">`).join('');
-  }).catch(()=>{});
+/* =================== quem levou as peças ===================
+
+   O campo de cliente da venda de balcão.
+
+   Ele carregava, UMA vez ao abrir, as 50 primeiras clientes em ordem
+   alfabética — `GET /api/clientes` sem busca — e nunca mais perguntava
+   nada ao servidor. Com 338 clientes cadastradas, quem vem depois do "C"
+   simplesmente não existia para o autocompletar: escrever "Bruna" não
+   trazia a Bruna, e a venda ia para um cadastro novo com o mesmo nome, ao
+   lado do antigo. A rota já aceitava `?busca=` desde sempre; a tela é que
+   não usava.
+
+   Agora ela pergunta enquanto se digita, com 180ms de espera para não
+   disparar uma requisição por tecla, e o resultado mais recente sempre
+   vence — resposta atrasada de uma busca antiga não pode sobrescrever a
+   lista da busca nova.
+
+   O `<datalist>` continua sendo o mecanismo: é nativo, funciona no teclado
+   do iPhone dela e não inventa um combo box que precisaria de setinha,
+   rolagem e acessibilidade próprias. */
+let vdClientes=[];        /* o que a última busca trouxe */
+let vdBuscaTimer=null;
+let vdBuscaSeq=0;
+
+function buscarClienteVenda(termo){
+  clearTimeout(vdBuscaTimer);
+  vdBuscaTimer=setTimeout(()=>{
+    const seq=++vdBuscaSeq;
+    const q=String(termo||'').trim();
+    api('GET','/api/clientes?limite=25'+(q?'&busca='+encodeURIComponent(q):''))
+      .then(cs=>{
+        if(seq!==vdBuscaSeq) return;       /* chegou tarde: já há busca mais nova */
+        vdClientes=cs||[];
+        const dl=document.getElementById('vd-clientes');
+        /* Cidade e telefone entram no rótulo, e não só o nome: duas
+           "Camila" no cadastro são duas pessoas, e escolher a errada manda
+           a venda para o histórico de outra. O `value` continua sendo só o
+           nome — é o que o servidor espera. */
+        if(dl) dl.innerHTML=vdClientes.map(c=>{
+          const extra=[c.cidade,c.tel?fmtTel(c.tel):''].filter(Boolean).join(' · ');
+          return `<option value="${esc(c.nome)}"${extra?` label="${esc(c.nome)} — ${esc(extra)}"`:''}>`;
+        }).join('');
+        ecoClienteVenda();
+      }).catch(()=>{});
+  },180);
+}
+
+/** O que a tela responde depois de escolhido o nome: cliente conhecida com
+    a ficha dela, ou cadastro novo — dito antes de confirmar, não depois. */
+function ecoClienteVenda(){
+  const eco=document.getElementById('vd-cliente-eco');
+  const inp=document.getElementById('vd-cliente');
+  if(!eco||!inp) return;
+  const nome=inp.value.trim();
+  if(!nome){ eco.textContent=''; return; }
+  const achada=clienteEscolhidaNaVenda(nome);
+  if(achada){
+    const extra=[achada.cidade,achada.tel?fmtTel(achada.tel):''].filter(Boolean).join(' · ');
+    eco.innerHTML=`Vai para a ficha de <b>${esc(achada.nome)}</b>${extra?` · ${esc(extra)}`:''}`;
+  }else{
+    eco.innerHTML=`<b>${esc(nome)}</b> ainda não está cadastrada — a venda cria a ficha dela`;
+  }
+}
+
+/** O cadastro que o nome digitado casa, comparado sem acento e sem caixa —
+    a mesma regra do servidor. Nome ambíguo (duas cadastradas com o mesmo
+    nome normalizado) NÃO escolhe uma por conta própria: devolve nada, e a
+    venda segue pelo nome, como sempre seguiu. §2 — não se chuta identidade. */
+function clienteEscolhidaNaVenda(nome){
+  const n=normalizarBusca(nome);
+  const iguais=vdClientes.filter(c=>normalizarBusca(c.nome)===n);
+  return iguais.length===1?iguais[0]:null;
 }
 
 function closeVenda(){
@@ -7285,7 +7403,12 @@ async function confirmarVenda(){
     }else itens.push({sku:l.sku,qtd:l.q});
   }
   try{
-    const r=await api('POST','/api/vendas',{clienteNome:nome, itens});
+    /* Com o cadastro identificado, a venda vai AMARRADA a ele (`clienteId`),
+       e não só pelo nome. É o que faz a venda de hoje aparecer na ficha da
+       cliente de sempre em vez de abrir uma segunda com o mesmo nome. */
+    const escolhida=clienteEscolhidaNaVenda(nome);
+    const r=await api('POST','/api/vendas',
+      {clienteNome:nome, clienteId:escolhida?escolhida.id:undefined, itens});
     document.getElementById('vendaOverlay').classList.remove('show');
     document.getElementById('scanOverlay').classList.remove('show');
     scan=null;
@@ -7475,6 +7598,22 @@ function segPeriodo(atual,fn){
     .map(([k,r])=>`<button class="${atual===k?'on':''}" onclick="${fn}('${k}')">${r}</button>`).join('');
 }
 
+/* =================== Painel de vendas ===================
+
+   A leitura comercial em UMA tela, e o resto atrás de um clique.
+
+   A versão anterior tinha dez blocos abertos ao mesmo tempo: cinco
+   indicadores, duas roscas, dois rankings, um gráfico e cinco cartões de
+   insight. Cada um estava certo sozinho e o conjunto era ilegível — a
+   dona do negócio abriu, achou bonito e disse que não conseguia achar o
+   que precisava. Informação que ninguém acha não informa.
+
+   O que ficou em cima é o que ela pediu, com nome e sobrenome:
+   faturamento, ticket médio, a peça que mais vendeu e a cliente que mais
+   compra. O que desceu para "Ver detalhes" continua inteiro, calculado
+   pelo mesmo recorte — nada foi apagado, e §9 exige que isso esteja
+   escrito, e não subentendido. */
+
 function renderVendasPainel(){
   const v=document.getElementById('view-vendas-painel');
   if(!painelVendas){ v.innerHTML=blocoCarregando('Lendo as vendas…'); return; }
@@ -7520,23 +7659,20 @@ function renderVendasPainel(){
       </div>
       <div class="body">
         <div class="seg" style="margin-bottom:16px">${segPeriodo(painelPeriodo,'setPainelPeriodo')}</div>
-        <div class="kpis cinco">
+        <div class="kpis">
           ${cartaoKpi({ico:ICO.grafico,rot:'Faturamento',num:money(g.faturamento),
             cls:'compacto k-fat',
             sub:[`${comp.vendasHistoricas} do histórico · ${comp.vendasSistema} do sistema`]})}
+          ${cartaoKpi({ico:ICO.brilho,rot:'Ticket médio',
+            num:tm.valor!=null?money(tm.valor):'—',
+            cls:'compacto k-tic',
+            sub:[tm.valor!=null?`${fmtN(tm.vendasElegiveis)} vendas pagas elegíveis`:'sem venda elegível no período']})}
           ${cartaoKpi({ico:ICO.etiqueta,rot:'Vendas',num:fmtN(g.vendas),
             cls:'compacto k-ped',
             sub:['pedidos, não linhas de planilha']})}
           ${cartaoKpi({ico:ICO.caixa,rot:'Peças vendidas',num:fmtN(g.pecas),
             cls:'compacto k-pec',
             sub:[g.valorMedioPorItem!=null?`${money(g.valorMedioPorItem)} por peça, em média`:'—']})}
-          ${cartaoKpi({ico:ICO.pessoas,rot:'Clientes',num:fmtN(g.clientes),
-            cls:'compacto k-cli',
-            sub:[`${fmtN(g.skus)} códigos diferentes vendidos`]})}
-          ${cartaoKpi({ico:ICO.brilho,rot:'Ticket médio',
-            num:tm.valor!=null?money(tm.valor):'—',
-            cls:'compacto k-tic',
-            sub:[tm.valor!=null?`${fmtN(tm.vendasElegiveis)} vendas pagas elegíveis`:'sem venda elegível no período']})}
         </div>
         ${tm.valor!=null?`<details style="margin-top:12px">
           <summary class="hint" style="cursor:pointer">Como o ticket médio é calculado</summary>
@@ -7550,28 +7686,124 @@ function renderVendasPainel(){
       </div>
     </div>
 
-    <div class="vg vg-2 larga">
-      ${blocoCategorias(painelVendas.categorias)}
-      ${blocoEvolucao(painelVendas.evolucao,comp.vendasSemData)}
-    </div>
+    ${destaquesPainel(painelVendas.insights)}
 
-    <div class="vg vg-3 mid solto">
-      ${blocoProdutos(painelVendas.produtos)}
-      ${blocoOrigem(painelVendas.origem)}
-      ${blocoTopClientesPainel(painelVendas.topClientes)}
-    </div>
+    ${blocoEvolucao(painelVendas.evolucao,comp.vendasSemData)}
 
-    ${insightsVendas(painelVendas.insights)}
+    ${blocoAcertosMaleta(painelVendas.maletas)}
+
+    ${detalhesDoPainel()}
 
     <div class="panel"><div class="body" style="text-align:center">
-      <button class="btn btn-ghost" onclick="openHistImport()">Importar histórico de vendas</button>
+      <button class="btn btn-ghost" onclick="openHistImport()">Histórico de vendas da planilha</button>
     </div></div>`;
 
-  /* a rosca é desenhada DEPOIS do innerHTML: ela liga os eventos de hover
-     nos elementos que acabaram de existir */
+  /* desenhado DEPOIS do innerHTML: liga os eventos de hover nos elementos
+     que acabaram de existir. As roscas moram dentro do `<details>` fechado
+     e isso não as atrapalha — `desenharRosca` usa um viewBox fixo e não
+     mede largura de tela. `pintarEvolucao` mede, e por isso o gráfico de
+     evolução ficou de fora do bloco recolhido. */
   pintarRoscaCategorias(painelVendas.categorias);
   pintarRoscaOrigem(painelVendas.origem);
   pintarEvolucao(painelVendas.evolucao);
+}
+
+/* ---------------- os três destaques ----------------
+
+   Um número tem contexto; um NOME tem significado. "Peça que mais vendeu"
+   e "cliente que mais compra" foram pedidos assim, com o nome na frente —
+   é o que se olha de manhã. Saem do MESMO recorte dos indicadores acima,
+   então o cartão nunca nomeia uma peça que o gráfico ao lado não conta. */
+function destaquesPainel(ins){
+  if(!ins) return '';
+  const c=[];
+  if(ins.pecaCampea) c.push(cartaoDestaque(ICO.caixa,'Peça que mais vendeu',
+    ins.pecaCampea.nome,
+    `${fmtN(ins.pecaCampea.pecas)} ${plural(ins.pecaCampea.pecas,'peça','peças')} · ${money(ins.pecaCampea.faturamento)}`));
+  if(ins.clienteCampea) c.push(cartaoDestaque(ICO.brilho,'Cliente que mais compra',
+    ins.clienteCampea.nome,
+    `${money(ins.clienteCampea.faturamento)} em ${fmtN(ins.clienteCampea.vendas)} ${plural(ins.clienteCampea.vendas,'compra','compras')}`,
+    `switchTab('cli:${encodeURIComponent(ins.clienteCampea.norm)}')`));
+  if(ins.melhorMes) c.push(cartaoDestaque(ICO.grafico,'Melhor mês',
+    mesLegivel(ins.melhorMes.chave),
+    `${money(ins.melhorMes.faturamento)} · ${fmtN(ins.melhorMes.pecas)} ${plural(ins.melhorMes.pecas,'peça','peças')}`));
+  if(!c.length) return '';
+  return `<div class="insights" style="margin-bottom:14px">${c.join('')}</div>`;
+}
+
+/* ---------------- acertos de maleta ----------------
+
+   O dinheiro que veio pela revendedora aparece SEPARADO do balcão, e com a
+   comissão descontada. Ele está somado no faturamento lá em cima — a venda
+   aconteceu — mas o que sobrou para a casa é outro número, e confundir os
+   dois é a diferença entre saber e achar que sabe.
+
+   A comissão aqui é ESTIMATIVA, e o cartão diz isso na cara: a planilha
+   histórica registra o valor da venda, não o que entrou no caixa. As
+   premissas vêm do servidor e são mostradas, não escondidas — §9. */
+function blocoAcertosMaleta(m){
+  if(!m||!m.totais||!m.totais.acertos) return '';
+  const t=m.totais;
+  const linhas=(m.revendedoras||[]).map(r=>`<div class="gt-r">
+      <div>
+        <div class="gt-nm">${esc(r.nome)}${r.status==='inativa'?' <span class="badge fechada">inativa</span>':''}</div>
+        <div class="gt-sub">${fmtN(r.acertos)} ${plural(r.acertos,'acerto','acertos')} ·
+          ${fmtN(r.pecas)} ${plural(r.pecas,'peça','peças')}${
+          r.ultimo?` · último em ${fmtData(r.ultimo)}`:''}</div>
+      </div>
+      <div class="gt-n forte">${money(r.vendido)}</div>
+      <div class="gt-n col-op">${money(r.comissao)}</div>
+      <div class="gt-n">${money(r.liquido)}</div>
+    </div>`).join('');
+  return painelBloco('Acertos de maleta',
+    `<div class="rc-row" style="flex-wrap:wrap;gap:14px;margin-bottom:14px">
+       <div class="rc-st">Vendido<b>${money(t.vendido)}</b></div>
+       <div class="rc-st">Comissão estimada<b>${money(t.comissao)}</b></div>
+       <div class="rc-st">Ficou para a casa<b style="font-size:16px">${money(t.liquido)}</b></div>
+     </div>
+     <div class="gtab acertos">
+       <div class="gt-h">
+         <span>Revendedora</span>
+         <span class="gt-n">Vendido</span>
+         <span class="gt-n col-op">Comissão</span>
+         <span class="gt-n">Líquido</span>
+       </div>
+       ${linhas}
+     </div>
+     <details class="maisitens" style="margin-top:12px">
+       <summary>Por que a comissão é uma estimativa</summary>
+       <div class="hint" style="margin-top:8px;line-height:1.6">
+         A planilha histórica registra o <b>valor da venda</b>, não o que entrou
+         no caixa: ela não tem coluna de comissão nem vínculo com maleta. O
+         cálculo aqui usa a mesma régua do acerto de verdade — faixa pelo total
+         das banhadas, Prata 925 com ${m.config?m.config.prataPct:10}% à parte —
+         aplicada de fora, sobre linhas que já são história.
+         ${m.config&&!m.config.faixasConfiguradas
+           ?'<br>As faixas em uso são as <b>padrão</b>: ninguém configurou outras neste banco.'
+           :''}
+         <ul style="margin:8px 0 0;padding-left:18px">
+           ${(m.premissas||[]).map(p=>`<li>${esc(p)}</li>`).join('')}
+         </ul>
+       </div>
+     </details>`);
+}
+
+/* ---------------- o resto, a um clique ----------------
+
+   Nada aqui foi removido do sistema: categoria, produto e canal continuam
+   sendo calculados no mesmo recorte e continuam abrindo inteiros. Eles só
+   deixaram de disputar a primeira tela com o faturamento. */
+function detalhesDoPainel(){
+  return `<details class="maisitens secao" style="margin-bottom:14px">
+    <summary>Ver detalhes: produtos, categorias e canais de venda</summary>
+    <div style="margin-top:12px">
+      <div class="vg vg-2 larga">
+        ${blocoProdutos(painelVendas.produtos)}
+        ${blocoCategorias(painelVendas.categorias)}
+      </div>
+      ${blocoOrigem(painelVendas.origem)}
+    </div>
+  </details>`;
 }
 
 function blocoCarregando(txt){
@@ -7849,162 +8081,72 @@ function pintarRoscaOrigem(o){
     {rotulo:'faturamento', formatar:(v)=>money(v/100)});
 }
 
-/* ---------------- top clientes no painel ---------------- */
+/* O "Top clientes" do Painel e a fileira de cinco insights saíram em
+   2026-08-28. O primeiro repetia, em barras, a mesma tabela que a aba
+   Clientes já mostra por extenso — e a dona do negócio pediu UM lugar para
+   isso, não dois. Os cinco insights viraram três destaques (`destaquesPainel`):
+   "categoria campeã" e "canal campeão" repetiam os blocos que abrem em
+   "Ver detalhes", e "clientes novos" era o cartão que ninguém entendia
+   (ver `renderClientes`). Ticket médio e melhor mês continuam — subiram
+   para os indicadores e para os destaques. */
 
-function blocoTopClientesPainel(l){
-  if(!l||!l.length) return painelBloco('Top clientes',
-    `<div class="empty"><p>Nada no período.</p></div>`);
-  const maior=Math.max(...l.map(c=>c.faturamento))||1;
-  const linhas=l.map((c,i)=>`<div class="rkrow clicavel" tabindex="0" role="button"
-      onclick="switchTab('cli:${encodeURIComponent(c.norm)}')"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchTab('cli:${encodeURIComponent(c.norm)}')}">
-      <span class="rk-pos" style="background:${COR_SERIE[i%COR_SERIE.length]}">${i+1}</span>
-      <div class="rk-mid">
-        <div class="rk-nm">${esc(c.nome)}</div>
-        <div class="rk-barra"><i style="width:${(c.faturamento/maior*100).toFixed(1)}%;background:${COR_SERIE[i%COR_SERIE.length]}"></i></div>
-      </div>
-      <div class="rk-vl"><b>${money(c.faturamento)}</b>
-        <span>${fmtN(c.vendas)} ${plural(c.vendas,'venda','vendas')} · ${fmtN(c.pecas)} peças</span></div>
-    </div>`).join('');
-  return painelBloco('Top clientes',
-    `<div class="rank">${linhas}</div>`,
-    `<button class="btn btn-ghost btn-sm" onclick="switchTab('clientes')">Ver todos</button>`);
-}
+/* O cartão de destaque do Painel de Vendas — ícone, rótulo, um NOME em
+   destaque e uma linha de detalhe.
 
-/* ---------------- insights do rodapé ---------------- */
+   Chamava-se `cartaoInsight` e colidia com a função de mesmo nome da Visão
+   Geral do Estoque (`cartaoInsight({tom,ico,titulo,corpo,acao})`), 5.000
+   linhas acima. Duas declarações de função com o mesmo nome no mesmo
+   `<script>` não convivem: a de baixo vence em TODA a página, e os três
+   cartões da Visão Geral do Estoque vinham renderizando com título
+   "undefined" desde que este arquivo nasceu. Nomes diferentes, defeito
+   resolvido.
 
-/** Só entram métricas que este payload sustenta. O mockup mostrava
-    "+18% vs. período anterior" em cada cartão — a comparação com o período
-    anterior NÃO está implementada, então ela simplesmente não aparece.
-    Percentual inventado é pior que cartão a menos. */
-function insightsVendas(ins){
-  if(!ins) return '';
-  const c=[];
-  if(ins.categoriaCampea) c.push(cartaoInsight(ICO.brilho,'Categoria campeã',ins.categoriaCampea.nome,
-    `${fmtN(ins.categoriaCampea.pecas)} peças vendidas (${ins.categoriaCampea.participacao}%)`));
-  if(ins.canalCampeao) c.push(cartaoInsight(ICO.caixa,'Canal campeão',ins.canalCampeao.nome,
-    `${money(ins.canalCampeao.faturamento)} (${ins.canalCampeao.participacao}%)`));
-  if(ins.melhorMes) c.push(cartaoInsight(ICO.grafico,'Melhor mês',mesLegivel(ins.melhorMes.chave),
-    `${fmtN(ins.melhorMes.pecas)} peças · ${money(ins.melhorMes.faturamento)}`));
-  if(ins.ticketMedio!=null) c.push(cartaoInsight(ICO.etiqueta,'Ticket médio',money(ins.ticketMedio),
-    'por venda paga elegível'));
-  if(ins.clientesNovos!=null) c.push(cartaoInsight(ICO.pessoas,'Clientes novos',fmtN(ins.clientesNovos),
-    'primeira compra dentro do período'));
-  if(!c.length) return '';
-  return `<div class="insights" style="margin-bottom:14px">${c.join('')}</div>`;
-}
-
-function cartaoInsight(ico,rot,valor,sub){
-  return `<div class="insight" data-tom="neutro">
+   `acao` é opcional: com ela o cartão vira botão de verdade — teclado
+   incluído — e leva para a ficha de quem ele nomeia. Sem ela, nada muda. */
+function cartaoDestaque(ico,rot,valor,sub,acao){
+  const clicavel=acao?` clicavel" tabindex="0" role="button"
+    onclick="${acao}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${acao}}`:'"';
+  return `<div class="insight${clicavel} data-tom="neutro">
     <div class="i-topo"><span class="i-ico">${svgIco(ico,15)}</span>
       <span class="i-t">${esc(rot)}</span></div>
     <div class="i-d"><b>${esc(String(valor))}</b><br>${esc(sub||'')}</div>
   </div>`;
 }
 
-/* ---------------- gráfico de linhas (séries por cliente) ---------------- */
+/* O gráfico de linhas "Principais clientes ao longo do tempo" saiu em
+   2026-08-28, a pedido de quem usa: cinco linhas cruzando dois anos de
+   meses respondiam a mesma pergunta que a tabela de Top clientes responde
+   em cinco linhas de texto, e a tabela responde melhor. Quem quer a
+   evolução de UMA cliente abre a ficha dela — lá a linha do tempo é a
+   compra inteira, com os itens, e não um ponto por mês.
 
-/** SVG puro, como a rosca: nada externo carrega e funciona offline.
-    O eixo, a grade e o tooltip nativo (`<title>`) fazem o gráfico continuar
-    legível sem cor — §39, nada depende só de cor para ser interpretado. */
-function graficoLinhas(serie,metrica){
-  const meses=(serie&&serie.meses)||[];
-  const todos=(serie&&serie.clientes)||[];
-  if(!meses.length||!todos.length) return `<div class="empty"><p>Sem histórico suficiente para desenhar a evolução.</p></div>`;
+   A rota que o alimentava (`crm.serieTopClientes`) saiu junto do
+   `analytics.js`: era uma consulta a mais em toda abertura da aba. */
 
-  /* a cor é do CLIENTE, não da posição no desenho: apagar a segunda linha
-     não pode repintar a terceira */
-  const cor=(c)=>COR_SERIE[todos.findIndex(x=>x.norm===c.norm)%COR_SERIE.length];
-  const cli=todos.filter(c=>!crmSerieOff.has(c.norm));
-  const legendaDe=()=>`<div class="lgnd">${todos.map(c=>`<span class="lgn ${crmSerieOff.has(c.norm)?'off':''}"
-      role="button" tabindex="0" aria-pressed="${!crmSerieOff.has(c.norm)}"
-      onclick="toggleSerie('${encodeURIComponent(c.norm)}')"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSerie('${encodeURIComponent(c.norm)}')}">
-      <span class="dot" style="background:${cor(c)}"></span>
-      <b>${esc(c.nome)}</b></span>`).join('')}</div>
-    <div class="hint" style="margin-top:8px">Toque num nome para esconder ou mostrar a linha dele.</div>`;
+/* =================== Clientes ===================
 
-  if(!cli.length) return `<div class="empty" style="padding:26px 10px">
-      <h3>Nenhuma cliente selecionada</h3>
-      <p>Toque em um nome abaixo para trazer a linha de volta.</p></div>`+legendaDe();
+   A agenda de clientes. Não é um dashboard.
 
-  const W=700,H=290,ml=52,mr=12,mt=14,mb=32;
-  const iw=W-ml-mr, ih=H-mt-mb;
-  const vals=cli.flatMap(c=>c.pontos.map(p=>p[metrica]));
-  const max=Math.max(...vals,1);
-  const x=(i)=>ml+(meses.length===1?iw/2:i*(iw/(meses.length-1)));
-  const y=(v)=>mt+ih-(v/max*ih);
+   A versão anterior punha oito blocos aqui — cinco indicadores, um gráfico
+   de linhas, dois rankings, uma rosca de saúde da base, uma lista de
+   reativação e cinco insights — e a lista de clientes, que é o motivo da
+   aba existir, ficava no rodapé de tudo isso. O pedido de quem usa foi
+   direto: "na aba clientes, ficar só os meus clientes".
 
-  const fmtV=(v)=>metrica==='faturamento'?money(v)
-    :metrica==='pecas'?`${fmtN(v)} ${plural(v,'peça','peças')}`
-    :`${fmtN(v)} ${plural(v,'compra','compras')}`;
+   Então ficaram dois blocos, nesta ordem:
 
-  /* grade e eixo Y em 4 degraus — número redondo o bastante para ler */
-  let grade='',eixoY='';
-  for(let k=0;k<=4;k++){
-    const v=max*k/4, yy=y(v);
-    grade+=`<line class="grid" x1="${ml}" y1="${yy.toFixed(1)}" x2="${W-mr}" y2="${yy.toFixed(1)}"/>`;
-    eixoY+=`<text class="axis" x="${ml-8}" y="${(yy+3).toFixed(1)}" text-anchor="end">${
-      esc(eixoValor(v,metrica))}</text>`;
-  }
-  /* eixo X: com muitos meses, um rótulo a cada N para não virar borrão */
-  const passo=Math.max(1,Math.ceil(meses.length/12));
-  /* o primeiro e o último rótulo ancoram para dentro: centralizados, metade
-     de "ago/26" ficava fora da área desenhada */
-  const eixoX=meses.map((m,i)=>i%passo?'':
-    `<text class="axis" x="${x(i).toFixed(1)}" y="${H-mb+16}" text-anchor="${
-      i===0?'start':i===meses.length-1?'end':'middle'}">${esc(mesCurto(m))}</text>`).join('');
+     Top clientes    — quem mais gastou, dez linhas. É a única leitura que
+                       sobreviveu aqui, e sobreviveu porque foi pedida.
+     Todos os clientes — a agenda: busca, filtro e o cartão de cada uma com
+                       telefone, CPF, cidade e última compra.
 
-  const linhas=cli.map((c)=>{
-    const cc=cor(c);
-    const d=c.pontos.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p[metrica]).toFixed(1)}`).join(' ');
-    /* o alvo do cursor é maior que o ponto desenhado: com 29 meses o círculo
-       de 3,5px é difícil de acertar, e o tooltip nunca aparecia */
-    const pts=c.pontos.map((p,i)=>`<circle class="pt" cx="${x(i).toFixed(1)}" cy="${y(p[metrica]).toFixed(1)}"
-        r="3.5" fill="${cc}"/>
-      <circle class="hit" cx="${x(i).toFixed(1)}" cy="${y(p[metrica]).toFixed(1)}" r="10"><title>${esc(c.nome)} · ${esc(mesLegivel(p.mes))}
-${esc(money(p.faturamento))} · ${p.pecas} ${plural(p.pecas,'peça','peças')} · ${p.vendas} ${plural(p.vendas,'compra','compras')}</title></circle>`).join('');
-    return `<path class="ln" d="${d}" stroke="${cc}"/>${pts}`;
-  }).join('');
-
-  return `<div class="lchart">
-      <svg viewBox="0 0 ${W} ${H}" role="img"
-        aria-label="Evolução dos principais clientes por mês. Passe o cursor sobre um ponto para ver o valor exato.">
-        <g>${grade}</g><g>${eixoY}</g><g>${eixoX}</g><g>${linhas}</g>
-      </svg>
-    </div>`+legendaDe();
-}
-
-/** Rótulo do eixo Y. Milhar vira `1,2k` com uma casa: sem ela, 1.776 e
-    2.368 viram os dois "2k" e o eixo deixa de medir. */
-function eixoValor(v,metrica){
-  if(metrica!=='faturamento') return String(Math.round(v));
-  if(v>=1000) return (v/1000).toFixed(1).replace('.',',')+'k';
-  return String(Math.round(v));
-}
-
-/* =================== Clientes (CRM) ===================
-   Duas metades no mesmo lugar, e nenhuma substitui a outra:
-
-     leitura   — os indicadores, o gráfico, a saúde da base e as
-                 oportunidades. A referência é o dashboard de Estoque.
-     operação  — buscar, cadastrar, editar, abrir o perfil. A referência é
-                 Revendedoras: `.revgrid`/`.revcard`, o mesmo modal, os
-                 mesmos `.field`. Continua tudo funcionando como antes.
-
-   Não existe uma terceira linguagem visual aqui. */
+   A linguagem visual continua a de Revendedoras — `.revgrid`, `.revcard`,
+   `.badge` —, que é a parte que a dona do negócio disse ter gostado. Não
+   existe uma terceira linguagem aqui. */
 
 let crmData=null;
 let crmErro=null;
 let crmPeriodo='tudo';
-let crmMetricaSerie='faturamento';    /* faturamento | pecas | vendas */
-let crmOrdemRanking='pecas';          /* pecas | faturamento | vendas */
-/* Quais linhas do gráfico estão apagadas. Cinco clientes ao mesmo tempo
-   viram um novelo; a legenda liga e desliga cada uma sem inventar controle
-   novo — ela já estava lá dizendo de quem é cada cor. */
-let crmSerieOff=new Set();
-let crmReativFiltro='todos';          /* todos | em risco | inativa */
-let crmReativOrdem='valor';           /* valor | tempo */
 let clientesBusca='';
 let clientesFiltro='todos';           /* todos | recorrente | ativa | em risco | inativa */
 /* Quantos cartões a lista desenha de uma vez. 347 clientes de uma só vez
@@ -8025,17 +8167,8 @@ function setCrmPeriodo(p){
   crmPeriodo=p; renderClientes();
   carregarClientes().then(renderClientes);
 }
-function setCrmSerie(m){ crmMetricaSerie=m; renderClientes(); }
-function setCrmOrdem(o){ crmOrdemRanking=o; renderClientes(); }
-function toggleSerie(norm){
-  const k=decodeURIComponent(norm);
-  if(crmSerieOff.has(k)) crmSerieOff.delete(k); else crmSerieOff.add(k);
-  renderClientes();
-}
-function setReativFiltro(f){ crmReativFiltro=f; renderClientes(); }
-function setReativOrdem(o){ crmReativOrdem=o; renderClientes(); }
-/* O atalho entre a leitura e a operação: a oportunidade mostra as maiores,
-   a lista de baixo mostra TODAS daquele estado. É a mesma classificação. */
+/* O atalho entre a leitura e a agenda: o Top clientes mostra dez, a lista
+   de baixo mostra todas. É a mesma classificação, não há duas réguas. */
 function verEstadoNaLista(estado){
   setClientesFiltro(estado);
   const el=document.getElementById('todosClientes');
@@ -8061,157 +8194,28 @@ function renderClientes(){
     return;
   }
 
-  const k=crmData.kpis, saude=crmData.saudeBase;
-  const vazio=k.ativos===0;
-
+  /* Sem filtro de período aqui, de propósito. A agenda de clientes não é um
+     recorte: procurar o telefone de alguém que comprou ano passado não pode
+     depender de lembrar de trocar um filtro para "Tudo". A leitura por
+     período mora no Painel, que é onde ela significa alguma coisa. */
   v.innerHTML=`
-    <div class="panel">
-      <div class="head bhead">
-        <div class="bh-t">
-          <h2>Clientes</h2>
-          <span class="hint">Relacionamento, recorrência e valor</span>
-        </div>
-        <span class="hint">${fmtN(k.vendasTotal)} ${plural(k.vendasTotal,'venda','vendas')} no período</span>
-      </div>
-      <div class="body">
-        <div class="seg" style="margin-bottom:16px">${segPeriodo(crmPeriodo,'setCrmPeriodo')}</div>
-        ${vazio?`<div class="empty"><h3>Nenhuma cliente com compra neste período</h3>
-          <p>Troque o filtro acima ou cadastre a primeira cliente.</p>
-          <button class="btn btn-gold" style="margin-top:14px" onclick="openCliForm()">+ Nova cliente</button></div>`:`
-        <div class="kpis cinco">
-          ${cartaoKpi({ico:ICO.pessoas,rot:'Clientes no período',num:fmtN(k.ativos),
-            cls:'compacto k-cli',sub:['compraram dentro do recorte']})}
-          ${cartaoKpi({ico:ICO.brilho,rot:'Clientes recorrentes',num:fmtN(k.recorrentes),
-            cls:'compacto k-ped',sub:[`${k.recorrentesPct}% da base · 2 compras ou mais`]})}
-          ${k.novos!=null
-            ?cartaoKpi({ico:ICO.etiqueta,rot:'Novos clientes',num:fmtN(k.novos),
-              cls:'compacto k-pec',sub:['primeira compra dentro do recorte']})
-            :cartaoKpi({ico:ICO.etiqueta,rot:'Novos clientes',
-              num:'Escolha 12 meses, 90 ou 30 dias',
-              cls:'compacto k-pec k-info',
-              sub:['em “Tudo”, toda cliente é nova por definição']})}
-          ${cartaoKpi({ico:ICO.grafico,rot:'Ticket médio',
-            num:k.ticketMedioPorVenda!=null?money(k.ticketMedioPorVenda):'—',
-            cls:'compacto k-fat',sub:['por venda']})}
-          ${cartaoKpi({ico:ICO.caixa,rot:'Valor médio por cliente',
-            num:k.valorHistoricoMedioPorCliente!=null?money(k.valorHistoricoMedioPorCliente):'—',
-            cls:'compacto k-tic',sub:['gasto acumulado ÷ clientes']})}
-        </div>
-        <div class="hint" style="margin-top:12px;line-height:1.6">
-          <b>Valor médio por cliente</b> é o que já foi gasto, somado e dividido —
-          não é LTV: nada aqui projeta compra futura.<br>
-          <b>Clientes no período</b> é quem comprou dentro do recorte. Não confunda
-          com <b>Ativos</b> na saúde da base, que é um estado da régua de frequência.
-        </div>`}
-      </div>
-    </div>
-
-    ${vazio?'':`
-    <div class="vg vg-2 larga">
-      ${painelBloco('Principais clientes ao longo do tempo',
-        graficoLinhas(crmData.serieTopClientes,crmMetricaSerie),
-        `<select class="selmini" onchange="setCrmSerie(this.value)" aria-label="O que o gráfico mostra">
-           <option value="faturamento" ${crmMetricaSerie==='faturamento'?'selected':''}>Valor gasto</option>
-           <option value="pecas" ${crmMetricaSerie==='pecas'?'selected':''}>Peças</option>
-           <option value="vendas" ${crmMetricaSerie==='vendas'?'selected':''}>Compras</option>
-         </select>`)}
-      ${blocoRankingClientes(crmData.topClientes)}
-    </div>
-
     ${blocoTopClientesLista(crmData.topClientes)}
-
-    <div class="vg vg-2 saude solto">
-      ${blocoSaudeBase(saude,crmData.regua)}
-      ${blocoReativacao(crmData.reativacao)}
-    </div>
-
-    ${insightsClientes(crmData.insights)}
-    `}
-
     ${blocoTodosClientes()}`;
-
-  if(!vazio) pintarRoscaSaude(saude);
 }
 
-/* ---------------- ranking: peças compradas pelos principais ---------------- */
+/* ---------------- top clientes ----------------
 
-function blocoRankingClientes(l){
-  if(!l||!l.length) return painelBloco('Peças compradas pelos principais clientes',
-    `<div class="empty"><p>Nada no período.</p></div>`);
-  /* Este cartão responde QUANTIDADE e FREQUÊNCIA; Top clientes responde
-     VALOR. Ordenados pelo mesmo critério eles diziam a mesma coisa duas
-     vezes — por isso o padrão aqui é peça, e o número em destaque é peça. */
-  const campo={pecas:'pecas',faturamento:'faturamento',vendas:'vendas'}[crmOrdemRanking]||'pecas';
-  const lista=[...l].sort((a,b)=>b[campo]-a[campo]).slice(0,6);
-  const maior=Math.max(...lista.map(c=>c[campo]))||1;
-  const un=(c)=>campo==='faturamento'?money(c.faturamento)
-    :campo==='pecas'?fmtN(c.pecas):fmtN(c.vendas);
-  const unRot=campo==='faturamento'?'':campo==='pecas'?'peças':'compras';
-  const linhas=lista.map((c,i)=>`<div class="rkrow clicavel" tabindex="0" role="button"
-      onclick="switchTab('cli:${encodeURIComponent(c.norm)}')"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchTab('cli:${encodeURIComponent(c.norm)}')}">
-      <span class="rk-pos" style="background:${COR_SERIE[i%COR_SERIE.length]}">${i+1}</span>
-      <div class="rk-mid">
-        <div class="rk-nm">${esc(c.nome)}</div>
-        <div class="rk-barra"><i style="width:${(c[campo]/maior*100).toFixed(1)}%;background:${COR_SERIE[i%COR_SERIE.length]}"></i></div>
-        <div class="hint" style="font-size:10.5px;margin-top:4px">
-          ${fmtN(c.vendas)} ${plural(c.vendas,'compra','compras')}${
-          c.ultimaCompra?` · última em ${fmtData(c.ultimaCompra)}`:''}</div>
-      </div>
-      <div class="rk-vl"><b>${un(c)}</b>
-        <span>${unRot||`${fmtN(c.pecas)} peças`}</span></div>
-    </div>`).join('');
-  return painelBloco('Peças compradas pelos principais clientes',
-    `<div class="rank">${linhas}</div>`,
-    `<select class="selmini" onchange="setCrmOrdem(this.value)" aria-label="Ordenar por">
-       <option value="pecas" ${crmOrdemRanking==='pecas'?'selected':''}>Por peças</option>
-       <option value="faturamento" ${crmOrdemRanking==='faturamento'?'selected':''}>Por gasto</option>
-       <option value="vendas" ${crmOrdemRanking==='vendas'?'selected':''}>Por compras</option>
-     </select>`);
-}
+   Dez linhas, ordenadas por quanto gastaram. Foi o único bloco de leitura
+   que a dona do negócio pediu para manter nesta aba — e o motivo dele ter
+   sobrevivido é o mesmo motivo do gráfico ter saído: aqui está escrito
+   quem é, quanto gastou e quando comprou pela última vez, sem precisar
+   cruzar linha com legenda.
 
-/* ---------------- saúde da base ---------------- */
-
-function blocoSaudeBase(s,regua){
-  if(!s||!s.grupos.length) return painelBloco('Saúde da base',
-    `<div class="empty"><p>Sem clientes no período.</p></div>`);
-  /* Uma linha por grupo, com quantidade e percentual na mesma altura da
-     cor. A versão anterior gastava 40px de altura por grupo e deixava meio
-     cartão vazio debaixo de uma rosca de 210px. */
-  const linhas=s.grupos.map(g=>`<div class="sd-row">
-      <span class="sd-dot" style="background:${COR_ESTADO[g.estado]||'#9E8A90'}"></span>
-      <span class="sd-nm">${esc(g.rotulo)}</span>
-      <span class="sd-n">${fmtN(g.n)}</span>
-      <span class="sd-p">${g.pct}%</span>
-    </div>`).join('');
-  return painelBloco('Saúde da base',
-    `<div class="saude">
-       <div id="roscaSaude" class="semlegenda"></div>
-       <div class="sd-leg">${linhas}</div>
-     </div>
-     <details class="sd-exp">
-       <summary class="hint" style="cursor:pointer">Como cada grupo é definido</summary>
-       <div class="hint" style="margin-top:8px;line-height:1.6">${esc(s.explicacao)}</div>
-     </details>`);
-}
-
-function pintarRoscaSaude(s){
-  const wrap=document.getElementById('roscaSaude');
-  if(!wrap) return;
-  const dados=(s.grupos||[]).map(g=>({cat:g.rotulo,qtd:g.n,cor:COR_ESTADO[g.estado]||'#9E8A90'}))
-    .filter(d=>d.qtd>0);
-  desenharRosca(wrap,dados,'','Sem clientes no período.',false,
-    {rotulo:'clientes', formatar:(v)=>fmtN(v)});
-}
-
-/* ---------------- top clientes (lista) ---------------- */
-
-/** No Painel de Vendas o Top clientes é um resumo (§3.6). Aqui ele é a
-    leitura completa que a largura permite: gasto, peças, compras, ticket,
-    última compra e o estado da régua. Nenhum número é novo — todos já vinham
-    no mesmo payload, apertados numa coluna de 300px. */
+   Revendedora não entra: quem acerta maleta aparece no Painel, em "Acertos
+   de maleta", com a comissão descontada. */
 function blocoTopClientesLista(l){
-  if(!l||!l.length) return painelBloco('Top clientes',`<div class="empty"><p>Nada no período.</p></div>`);
+  if(!l||!l.length) return painelBloco('Top clientes',
+    `<div class="empty"><p>Ninguém com compra registrada ainda.</p></div>`);
   const linhas=l.slice(0,10).map((c,i)=>`<div class="gt-r clicavel" tabindex="0" role="button"
       onclick="switchTab('cli:${encodeURIComponent(c.norm)}')"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchTab('cli:${encodeURIComponent(c.norm)}')}">
@@ -8257,107 +8261,24 @@ function seloEstado(estado){
   return `<span class="selo" style="color:${cor}"><i></i>${esc(rot)}</span>`;
 }
 
-/* ---------------- oportunidades de reativação ---------------- */
-
-/** O mockup trazia um botão "Reativar". Não existe integração de WhatsApp
-    nem registro de reativação neste sistema, então o botão abre a cliente —
-    fingir envio de mensagem seria prometer o que a tela não faz. §26. */
-function blocoReativacao(l){
-  if(!l||!l.length) return painelBloco('Oportunidades de reativação',
-    `<div class="empty"><p>Ninguém fora da própria frequência de compra. Base em dia.</p></div>`);
-
-  const conta=(e)=>l.filter(c=>c.estado===e).length;
-  const lista=[...l]
-    .filter(c=>crmReativFiltro==='todos'||c.estado===crmReativFiltro)
-    .sort((a,b)=>crmReativOrdem==='tempo'
-      ?(b.diasSemComprar||0)-(a.diasSemComprar||0)
-      :b.faturamento-a.faturamento);
-
-  const pilula=(k,r,n)=>`<button class="fpill ${crmReativFiltro===k?'on':''}"
-    onclick="setReativFiltro('${k}')">${r}${n!=null?` <b>${n}</b>`:''}</button>`;
-
-  const linhas=lista.map(c=>`<div class="gt-r">
-      <div>
-        <div class="gt-nm">${esc(c.nome)}</div>
-        <div class="gt-sub">${seloEstado(c.estado)}
-          &nbsp;${fmtN(c.vendas)} ${plural(c.vendas,'compra','compras')}${
-          c.ultimaCompra?` · última em ${fmtData(c.ultimaCompra)}`:' · sem data'}</div>
-      </div>
-      <div class="gt-n col-op forte">${money(c.faturamento)}</div>
-      <div class="gt-n col-op">${c.frequenciaDias?`${fmtN(c.frequenciaDias)} dias`:'—'}</div>
-      <div class="gt-n"><span class="dias ${c.estado==='inativa'?'frio':''}">${fmtN(c.diasSemComprar)} dias</span></div>
-      <div><button class="btn btn-ghost btn-sm"
-        onclick="event.stopPropagation();switchTab('cli:${encodeURIComponent(c.norm)}')">Ver cliente</button></div>
-      <div class="gt-mob">
-        <span><b>${money(c.faturamento)}</b> gastos</span>
-        ${c.frequenciaDias?`<span>comprava a cada <b>${fmtN(c.frequenciaDias)}</b> dias</span>`:''}
-      </div>
-    </div>`).join('');
-
-  /* Esta lista mostra as MAIORES oportunidades, não todas. Quem quiser a
-     população inteira de um estado vai para a lista de baixo, que usa
-     exatamente a mesma classificação — não há duas réguas. */
-  return painelBloco('Oportunidades de reativação',
-    `<div class="hint" style="margin-bottom:11px;line-height:1.55">Clientes que passaram do
-       <b>próprio</b> intervalo entre compras. Estas são as ${l.length} de maior valor —
-       a lista completa de cada estado está em <b>Todos os clientes</b>.</div>
-     <div class="opbar">
-       ${pilula('todos','Todas',l.length)}
-       ${conta('em risco')?pilula('em risco','Em risco',conta('em risco')):''}
-       ${conta('inativa')?pilula('inativa','Inativas',conta('inativa')):''}
-       <span class="spacer"></span>
-       <select class="selmini" onchange="setReativOrdem(this.value)" aria-label="Ordenar as oportunidades">
-         <option value="valor" ${crmReativOrdem==='valor'?'selected':''}>Maior valor</option>
-         <option value="tempo" ${crmReativOrdem==='tempo'?'selected':''}>Mais tempo sem comprar</option>
-       </select>
-     </div>
-     ${lista.length?`<div class="gtab oplista">
-       <div class="gt-h">
-         <span>Cliente</span>
-         <span class="gt-n col-op">Gasto</span>
-         <span class="gt-n col-op">Comprava</span>
-         <span class="gt-n">Parada há</span>
-         <span></span>
-       </div>${linhas}</div>`
-       :`<div class="empty"><p>Nenhuma neste filtro.</p></div>`}
-     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-       ${conta('em risco')?`<button class="btn btn-ghost btn-sm"
-         onclick="verEstadoNaLista('em risco')">Ver todas em risco</button>`:''}
-       ${conta('inativa')?`<button class="btn btn-ghost btn-sm"
-         onclick="verEstadoNaLista('inativa')">Ver todas inativas</button>`:''}
-     </div>`);
-}
-
-/* ---------------- insights de clientes ---------------- */
-
-/** O mockup trazia "Última reativação". Não existe sistema que registre
-    reativação, então esse cartão não existe — no lugar dele entram métricas
-    que os dados sustentam. §28. */
-function insightsClientes(ins){
-  if(!ins) return '';
-  const c=[];
-  if(ins.campeao) c.push(cartaoInsight(ICO.brilho,'Cliente campeã',ins.campeao.nome,
-    `${money(ins.campeao.faturamento)} em ${fmtN(ins.campeao.pecas)} peças`));
-  if(ins.maisFrequente) c.push(cartaoInsight(ICO.pessoas,'Maior frequência',ins.maisFrequente.nome,
-    `${fmtN(ins.maisFrequente.vendas)} ${plural(ins.maisFrequente.vendas,'compra','compras')} no período`));
-  if(ins.maiorCompra) c.push(cartaoInsight(ICO.caixa,'Maior compra',ins.maiorCompra.nome,
-    `${money(ins.maiorCompra.valor)} numa venda só`));
-  if(ins.maiorTicket) c.push(cartaoInsight(ICO.etiqueta,'Maior ticket médio',ins.maiorTicket.nome,
-    `${money(ins.maiorTicket.ticketMedio)} por compra`));
-  if(ins.canalDaBase) c.push(cartaoInsight(ICO.grafico,'Canal preferido da base',ins.canalDaBase.nome,
-    `${ins.canalDaBase.participacao}% do faturamento`));
-  if(!c.length) return '';
-  return `<div class="insights" style="margin-bottom:14px">${c.join('')}</div>`;
-}
+/* "Oportunidades de reativação" e os cinco insights de cliente saíram em
+   2026-08-28. Os dois eram leitura, e esta aba deixou de ser um dashboard:
+   quem está parada há tempo demais continua marcada com o selo `Inativa`
+   no próprio cartão e tem uma pílula de filtro na lista — a mesma
+   classificação, no lugar onde ela vira ação (abrir a cliente e ligar para
+   ela) em vez de virar mais um cartão para rolar. */
 
 /* ---------------- todos os clientes (a parte operacional) ---------------- */
 
 function blocoTodosClientes(){
   const l0=clientesLista||[];
-  const b=clientesBusca.trim().toLowerCase();
+  const b=normalizarBusca(clientesBusca);
   const l=l0
     .filter(c=>clientesFiltro==='todos'||c.estado===clientesFiltro)
-    .filter(c=>!b||String(c.nome||'').toLowerCase().includes(b));
+    /* A busca procura no nome, no telefone, no CPF e na cidade, e ignora
+       acento e pontuação: quem digita "vitoria" acha "Vitória", e quem
+       digita os quatro últimos dígitos acha pelo telefone. */
+    .filter(c=>!b||[c.nome,c.tel,c.cpf,c.cidade].some(x=>normalizarBusca(x).includes(b)));
 
   const conta=(e)=>l0.filter(c=>c.estado===e).length;
   const pilula=(k,r,n)=>`<button class="fpill ${clientesFiltro===k?'on':''}"
@@ -8366,13 +8287,13 @@ function blocoTodosClientes(){
   return `<div class="panel" id="todosClientes">
     <div class="head bhead">
       <div class="bh-t"><h2>Todos os clientes</h2>
-        <span class="hint">Toque em uma para ver o histórico dela</span></div>
+        <span class="hint">Toque em uma para ver a ficha e o histórico dela</span></div>
       <span class="hint">${fmtN(l.length)} de ${fmtN(l0.length)}</span>
     </div>
     <div class="body">
       <div class="actbar">
-        <input id="cliBusca" placeholder="Buscar pelo nome" value="${esc(clientesBusca)}"
-               aria-label="Buscar cliente pelo nome"
+        <input id="cliBusca" placeholder="Buscar por nome, telefone, CPF ou cidade" value="${esc(clientesBusca)}"
+               aria-label="Buscar cliente"
                oninput="clientesBusca=this.value;clientesMostrar=48;renderClientes();focarBusca()">
         <div class="spacer"></div>
         <button class="btn btn-gold" onclick="openCliForm()">+ Nova cliente</button>
@@ -8390,10 +8311,19 @@ function blocoTodosClientes(){
             (${fmtN(l.length-clientesMostrar)} ${plural(l.length-clientesMostrar,'restante','restantes')})</button>
           <div class="hint" style="margin-top:8px">Mostrando ${fmtN(clientesMostrar)} de ${fmtN(l.length)}.
             A busca e os filtros procuram na lista inteira.</div></div>`:''}`
-      :`<div class="empty"><h3>${b?'Ninguém com esse nome':'Nenhuma cliente neste filtro'}</h3>
-        <p>${b?'Tente outro trecho do nome.':'Troque o filtro acima.'}</p></div>`}
+      :`<div class="empty"><h3>${b?'Ninguém com esse dado':'Nenhuma cliente neste filtro'}</h3>
+        <p>${b?'Tente outro trecho do nome, do telefone ou da cidade.':'Troque o filtro acima.'}</p></div>`}
     </div>
   </div>`;
+}
+
+/** Sem acento, sem caixa, sem pontuação. É a regra de comparação da busca
+    da agenda — a mesma ideia do normalizador do servidor, aplicada aqui
+    porque a lista inteira já está na mão e filtrar no navegador é
+    instantâneo. */
+function normalizarBusca(v){
+  return String(v==null?'':v).normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^0-9a-zA-Z ]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
 }
 
 /* O `renderClientes` reescreve a tela inteira a cada tecla, e o foco morre
@@ -8407,16 +8337,30 @@ function focarBusca(){
   try{ i.setSelectionRange(n,n); }catch(e){}
 }
 
-/** Mesmo `.revcard` das revendedoras — mesma grade, mesmo nome em serif,
-    mesma linha de estatísticas, mesmo selo. O que muda é o que os números
-    dizem. */
+/** O cartão da cliente — o mesmo `.revcard` das revendedoras, que é a peça
+    que a dona do negócio disse ter gostado: nome em serifa, uma linha de
+    contexto, os números na horizontal e o selo embaixo.
+
+    O que mudou aqui em 2026-08-28: o cartão deixou de ser só leitura
+    comercial e virou FICHA. Telefone, CPF e cidade estavam no cadastro e
+    não apareciam em lugar nenhum da lista — para ver o telefone de alguém
+    era preciso abrir a cliente e depois abrir o formulário de edição.
+    Agora estão no cartão, e o que falta aparece como convite para
+    preencher, não como espaço em branco. */
 function cardCliente(c){
+  const contato=[
+    c.tel?`<span class="rc-ct">${svgIco(ICO.telefone,12)}${esc(fmtTel(c.tel))}</span>`:'',
+    c.cidade?`<span class="rc-ct">${svgIco(ICO.pino,12)}${esc(c.cidade)}</span>`:'',
+    c.cpf?`<span class="rc-ct">CPF ${esc(fmtCpf(c.cpf))}</span>`:'',
+  ].filter(Boolean).join('');
   return `<div class="revcard" tabindex="0" role="button"
       onclick="switchTab('cli:${encodeURIComponent(c.norm)}')"
       onkeydown="if(event.key==='Enter'){switchTab('cli:${encodeURIComponent(c.norm)}')}">
     <div class="rc-nm">${esc(c.nome)}</div>
     <div class="rc-meta">${c.ultimaCompra?`Última compra em ${fmtData(c.ultimaCompra)}`:'Sem compra registrada'}${
       c.diasSemComprar!=null?` · há ${fmtN(c.diasSemComprar)} dias`:''}</div>
+    ${contato?`<div class="rc-contato">${contato}</div>`
+      :`<div class="rc-contato vazio">Sem telefone, CPF nem cidade — toque para preencher</div>`}
     <div class="rc-row">
       <div class="rc-st">Compras<b>${fmtN(c.vendas)}</b></div>
       <div class="rc-st">Peças<b>${fmtN(c.pecas)}</b></div>
@@ -8424,6 +8368,22 @@ function cardCliente(c){
     </div>
     <div style="margin-top:11px"><span class="badge ${classeRelacao(c.estado)}">${esc(c.estado)}</span></div>
   </div>`;
+}
+
+/** Telefone e CPF são digitados de seis jeitos. Na LEITURA eles saem de um
+    jeito só; o que foi digitado continua guardado como veio. Formato
+    desconhecido é devolvido intacto — inventar máscara sobre número que não
+    encaixa é pior que mostrar o número cru. */
+function fmtTel(v){
+  const d=String(v||'').replace(/\D/g,'');
+  if(d.length===11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+  if(d.length===10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+  return String(v||'');
+}
+function fmtCpf(v){
+  const d=String(v||'').replace(/\D/g,'');
+  if(d.length!==11) return String(v||'');
+  return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
 }
 
 function classeRelacao(r){
@@ -8533,13 +8493,13 @@ function openCliForm(id,nomeSugerido){
   document.getElementById('cliEditId').value=id||'';
   document.getElementById('cliFormTitle').textContent=id?'Editar cliente':'Nova cliente';
   const set=(k,v)=>{document.getElementById(k).value=v||'';};
-  set('clf-nome',c?c.nome:(nomeSugerido||'')); set('clf-tel',''); set('clf-cidade','');
+  set('clf-nome',c?c.nome:(nomeSugerido||'')); set('clf-tel',''); set('clf-cidade',''); set('clf-cpf','');
   set('clf-email',''); set('clf-instagram',''); set('clf-nascimento',''); set('clf-obs','');
   if(id){
     /* o cartão do ranking não carrega o cadastro inteiro — busca o resto */
     api('GET','/api/clientes/perfil?id='+id).then(p=>{
       const d=p.cadastro||{};
-      set('clf-nome',d.nome); set('clf-tel',d.tel); set('clf-cidade',d.cidade);
+      set('clf-nome',d.nome); set('clf-tel',d.tel); set('clf-cidade',d.cidade); set('clf-cpf',d.cpf);
       set('clf-email',d.email); set('clf-instagram',d.instagram);
       set('clf-nascimento',d.nascimento); set('clf-obs',d.obs);
     }).catch(()=>{});
@@ -8554,7 +8514,7 @@ async function saveCliente(){
   if(!nome){toast('Coloque o nome');return;}
   const id=document.getElementById('cliEditId').value;
   const val=(k)=>document.getElementById(k).value.trim();
-  const dados={nome, tel:val('clf-tel'), cidade:val('clf-cidade'), email:val('clf-email'),
+  const dados={nome, tel:val('clf-tel'), cidade:val('clf-cidade'), cpf:val('clf-cpf'), email:val('clf-email'),
     instagram:val('clf-instagram'), nascimento:val('clf-nascimento'), obs:val('clf-obs')};
   try{
     if(id) await api('PATCH','/api/clientes/'+id,dados);
@@ -8572,23 +8532,66 @@ async function saveCliente(){
    estoque? Não mexe, e o relatório diz isso com o número na mão. */
 
 let histLinhas=null;
+let histRetrato=null;   /* o que está no ar, para a comparação antes/depois */
 
 function openHistImport(){
   histLinhas=null;
+  histRetrato=null;
   document.getElementById('histOverlay').classList.add('show');
+  renderHistImport(`<div class="empty"><h3>Lendo o que já está no ar…</h3></div>`);
+  api('GET','/api/vendas/historico/retrato')
+    .then(r=>{ histRetrato=r; telaHistInicial(); })
+    /* Backend sem a rota nova ainda: a tela não trava, só perde a
+       comparação de antes/depois e volta a ser a importação simples. */
+    .catch(()=>{ histRetrato=null; telaHistInicial(); });
+}
+
+/** A primeira tela: o que está no ar hoje, e o que dá para fazer.
+ *
+ *  Com histórico de pé, o verbo é TROCAR, não importar. Foi a queixa que
+ *  originou esta tela: a dona do negócio corrigiu sobrenomes na planilha e
+ *  perguntou se dava para "subir de novo" — e subir de novo, com a
+ *  importação antiga, teria SOMADO as duas versões. A trava de
+ *  idempotência é por hash do arquivo, e arquivo corrigido tem hash novo. */
+function telaHistInicial(){
+  const r=histRetrato;
+  const tem=r&&r.lotes&&r.lotes.length;
+  const li=(rot,val)=>`<div class="rc-st">${rot}<b>${val}</b></div>`;
   renderHistImport(`
-    <div class="field">
-      <label>Planilha de vendas (.xlsx ou .csv)</label>
+    ${tem?`<div class="insight" data-tom="neutro">
+      <div class="i-topo"><span class="i-t">O que está no ar agora</span></div>
+      <div class="i-d">${r.lotes.map(l=>`<b>${esc(l.arquivo)}</b>`).join(', ')}
+        ${r.lotes.length===1?`— importada em ${esc(String(r.lotes[0].em||'').slice(0,10))}`:''}</div>
+    </div>
+    <div class="rc-row" style="margin-top:14px;flex-wrap:wrap;gap:14px">
+      ${li('Linhas',fmtN(r.linhas))}${li('Vendas',fmtN(r.vendas))}
+      ${li('Peças',fmtN(r.pecas))}${li('Faturamento',money(r.faturamento))}
+      ${li('Clientes',fmtN(r.clientes))}
+    </div>`:''}
+
+    <div class="field" style="margin-top:${tem?'18':'0'}px">
+      <label>${tem?'Planilha corrigida (.xlsx ou .csv)':'Planilha de vendas (.xlsx ou .csv)'}</label>
       <input type="file" id="histFile" accept=".xlsx,.xls,.csv" onchange="lerHistArquivo(this)">
     </div>
+
+    ${tem?`<div class="insight" data-tom="atencao" style="margin-top:14px">
+      <div class="i-topo"><span class="i-t">Isto vai SUBSTITUIR o histórico, não somar</span></div>
+      <div class="i-d">A planilha que está no ar sai e a nova entra, numa operação só.
+        Somar as duas dobraria o faturamento — e importar por cima, sem trocar,
+        é exatamente o que faria isso.
+        <br><b>Cliente com telefone, CPF ou cidade preenchidos à mão não se perde</b>
+        na troca: a linha da planilha volta na importação, o que foi digitado não.</div>
+    </div>`:''}
+
     <div class="insight" data-tom="neutro" style="margin-top:14px">
-      <div class="i-topo"><span class="i-t">O que esta importação faz — e o que ela NÃO faz</span></div>
-      <div class="i-d">Ela alimenta o painel de vendas, os clientes e o histórico.
-        <b>Ela não mexe no estoque</b>: essas vendas já aconteceram e o saldo de hoje
-        já as considera. Nenhuma peça é baixada, nenhuma quantidade da Nuvemshop muda.</div>
+      <div class="i-topo"><span class="i-t">O que isto NÃO faz</span></div>
+      <div class="i-d">Não mexe no estoque. Essas vendas já aconteceram e o saldo de
+        hoje já as considera: nenhuma peça é baixada, nenhuma quantidade da
+        Nuvemshop muda.</div>
     </div>
     <div class="mfoot"><button class="btn btn-ghost" onclick="closeHistImport()">Fechar</button></div>`);
 }
+
 function closeHistImport(){document.getElementById('histOverlay').classList.remove('show');}
 function renderHistImport(html){document.getElementById('histBody').innerHTML=html;}
 
@@ -8621,18 +8624,36 @@ async function analisarHist(nome){
       <div class="mfoot"><button class="btn btn-ghost" onclick="openHistImport()">Voltar</button></div>`);
     return;
   }
-  const li=(r,v)=>`<div class="rc-st">${r}<b>${v}</b></div>`;
+  const r=histRetrato;
+  const trocando=!!(r&&r.lotes&&r.lotes.length);
+  const li=(rot,val)=>`<div class="rc-st">${rot}<b>${val}</b></div>`;
+  /* A comparação lado a lado só existe quando há o que comparar. Ela é o
+     que responde a pergunta que importa antes de confirmar: "o que muda?" */
+  const cmp=(rot,antes,agora)=>`<tr><td>${rot}</td>
+    <td class="r">${antes}</td><td class="r">${agora}</td></tr>`;
   renderHistImport(`
     <div class="insight" data-tom="bom">
       <div class="i-topo"><span class="i-t">Impacto no estoque: nenhum</span></div>
       <div class="i-d">${esc(a.impactoEstoque.explicacao)}
         <b>0 movimentos, 0 produtos alterados, 0 mudanças na Nuvemshop.</b></div>
     </div>
-    <div class="rc-row" style="margin-top:14px;flex-wrap:wrap;gap:14px">
-      ${li('Linhas',a.linhas)}${li('Peças',a.pecas)}
+
+    ${trocando?`<div class="tablewrap" style="margin-top:14px"><table><thead><tr>
+      <th>Se você trocar</th><th class="r">Está no ar</th><th class="r">Vai ficar</th>
+      </tr></thead><tbody>
+        ${cmp('Linhas da planilha',fmtN(r.linhas),fmtN(a.linhas))}
+        ${cmp('Peças',fmtN(r.pecas),fmtN(a.pecas))}
+        ${cmp('Faturamento pago',money(r.faturamento),money(a.faturamentoPago))}
+        ${cmp('Clientes no arquivo',fmtN(r.clientes),fmtN(a.clientesNoArquivo))}
+      </tbody></table></div>
+      <div class="hint" style="margin-top:8px">A contagem de VENDAS só aparece depois
+        da troca: ela é o agrupamento das linhas, e o agrupamento roda na importação.</div>`
+    :`<div class="rc-row" style="margin-top:14px;flex-wrap:wrap;gap:14px">
+      ${li('Linhas',fmtN(a.linhas))}${li('Peças',fmtN(a.pecas))}
       ${li('Faturamento',money(a.faturamentoPago))}
-      ${li('Clientes',a.clientesNoArquivo)}${li('Códigos',a.skusDistintos)}
-    </div>
+      ${li('Clientes',fmtN(a.clientesNoArquivo))}${li('Códigos',fmtN(a.skusDistintos))}
+    </div>`}
+
     <div class="hint" style="margin-top:10px">
       Período: ${a.periodo.de?fmtData(a.periodo.de):'—'} a ${a.periodo.ate?fmtData(a.periodo.ate):'—'} ·
       ${a.clientesACriar} clientes novos · ${a.linhasSkuNaoEncontrado} linhas com código fora do catálogo atual
@@ -8649,33 +8670,59 @@ async function analisarHist(nome){
         </div>
       </div>`:''}
     ${a.jaImportado?`<div class="insight" data-tom="atencao" style="margin-top:14px">
-      <div class="i-topo"><span class="i-t">Este arquivo já foi importado</span></div>
+      <div class="i-topo"><span class="i-t">Esta planilha JÁ é a que está no ar</span></div>
       <div class="i-d">Lote ${a.jaImportado.loteId}, em ${esc(String(a.jaImportado.em))},
-        com ${a.jaImportado.linhas} linhas. Importar de novo é recusado — não há risco de duplicar.</div>
+        com ${a.jaImportado.linhas} linhas. Não há o que trocar — e importar de novo
+        é recusado, então não há risco de duplicar.</div>
     </div>`:''}
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeHistImport()">Cancelar</button>
       <div class="spacer"></div>
-      ${a.jaImportado?'':`<button class="btn btn-gold" onclick="aplicarHist('${esc(a.arquivo)}')">Importar ${a.linhas} linhas</button>`}
+      ${a.jaImportado?''
+        :trocando
+          ?`<button class="btn btn-gold" onclick="aplicarHist('${esc(a.arquivo)}',true)">Trocar pela nova (${fmtN(a.linhas)} linhas)</button>`
+          :`<button class="btn btn-gold" onclick="aplicarHist('${esc(a.arquivo)}',false)">Importar ${fmtN(a.linhas)} linhas</button>`}
     </div>`);
 }
 
-async function aplicarHist(nome){
-  renderHistImport(`<div class="empty"><h3>Importando…</h3><p>Não feche esta janela.</p></div>`);
+/** Aplica. `trocar` decide a rota: substituir (reverte o que está de pé e
+ *  importa numa operação só) ou importar (não havia nada no ar). */
+async function aplicarHist(nome,trocar){
+  renderHistImport(`<div class="empty"><h3>${trocar?'Trocando…':'Importando…'}</h3>
+    <p>Não feche esta janela.</p></div>`);
   let r;
-  try{ r=await api('POST','/api/vendas/historico/importar',{linhas:histLinhas,arquivo:nome}); }
-  catch(e){
-    renderHistImport(`<div class="empty"><h3>A importação falhou</h3><p>${esc(e.message||'')}</p></div>
+  try{
+    r=await api('POST', trocar?'/api/vendas/historico/substituir':'/api/vendas/historico/importar',
+      {linhas:histLinhas,arquivo:nome});
+  }catch(e){
+    /* O corpo do erro carrega a etapa em que parou — e a etapa é a
+       diferença entre "nada aconteceu" e "o antigo já saiu". */
+    const d=e.data||{};
+    renderHistImport(`<div class="empty"><h3>${trocar?'A troca falhou':'A importação falhou'}</h3>
+      <p>${esc(d.erro||e.message||'')}</p>
+      ${d.etapa==='analise'?`<p class="hint">O histórico que estava no ar continua intacto.</p>`:''}</div>
       <div class="mfoot"><button class="btn btn-ghost" onclick="closeHistImport()">Fechar</button></div>`);
     return;
   }
   const c=r.conferencia;
+  const d=r.delta;
   renderHistImport(`
     <div class="insight" data-tom="${c.fecha?'bom':'atencao'}">
-      <div class="i-topo"><span class="i-t">${c.fecha?'Importado, e os totais fecham com a planilha':'Importado, MAS há diferença'}</span></div>
+      <div class="i-topo"><span class="i-t">${c.fecha
+        ?(trocar?'Trocado, e os totais fecham com a planilha nova':'Importado, e os totais fecham com a planilha')
+        :'Aplicado, MAS há diferença'}</span></div>
       <div class="i-d">${c.importadas} linhas · estoque
         ${c.estoqueIntocado?'intocado (0 movimentos criados)':'ALTERADO — isto é um defeito, avise'}</div>
     </div>
+    ${d?`<div class="tablewrap" style="margin-top:14px"><table><thead><tr>
+      <th>O que mudou</th><th class="r">Antes</th><th class="r">Agora</th>
+      </tr></thead><tbody>
+        <tr><td>Linhas</td><td class="r">${fmtN(r.antes.linhas)}</td><td class="r">${fmtN(r.depois.linhas)}</td></tr>
+        <tr><td>Vendas</td><td class="r">${fmtN(r.antes.vendas)}</td><td class="r">${fmtN(r.depois.vendas)}</td></tr>
+        <tr><td>Peças</td><td class="r">${fmtN(r.antes.pecas)}</td><td class="r">${fmtN(r.depois.pecas)}</td></tr>
+        <tr><td>Faturamento</td><td class="r">${money(r.antes.faturamento)}</td><td class="r">${money(r.depois.faturamento)}</td></tr>
+        <tr><td>Clientes</td><td class="r">${fmtN(r.antes.clientes)}</td><td class="r">${fmtN(r.depois.clientes)}</td></tr>
+      </tbody></table></div>`:''}
     <div class="tablewrap" style="margin-top:14px"><table><thead><tr>
       <th>Conferência</th><th class="r">Planilha</th><th class="r">Banco</th><th></th>
       </tr></thead><tbody>${c.linhas.map(l=>`<tr>

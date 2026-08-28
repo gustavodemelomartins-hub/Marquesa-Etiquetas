@@ -64,6 +64,9 @@ const MIGRACOES = [
   /* Depois de `migracao-vendas-historico.sql`, e não antes: a camada
      derivada referencia `vendas_historico_lotes`, que nasce lá. */
   'api/migracao-vendas-historicas.sql',
+  /* Aditiva e independente das anteriores: só acrescenta CPF à ficha da
+     cliente, que já existe desde o schema original. */
+  'api/migracao-cliente-cpf.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com

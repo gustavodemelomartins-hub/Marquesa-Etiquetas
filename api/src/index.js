@@ -30,7 +30,13 @@ import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
 import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
 import {
   analisarHistorico, importarHistorico, reverterLote, listarLotes,
+  substituirHistorico, retratoDoHistorico,
 } from './vendas-historico.js';
+/* A normalização de nome de cliente é UMA, e mora no importador histórico.
+   Este arquivo tinha uma cópia dela (`normalizarTextoSimples`) com a mesma
+   regra escrita de novo — e cópia de regra é divergência esperando data
+   marcada. §21 do plano mestre já cobrou essa dívida uma vez. */
+import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import {
   visaoGeral, evolucao, produtosMaisVendidos, categoriasMaisVendidas,
   porOrigem, clientesRanking, perfilCliente, listarVendasUnificado,
@@ -449,12 +455,41 @@ async function rotear(request, env) {
         return json({ ok: true });
       }
 
+      /* A busca de cliente do balcão. Ela é digitada com a peça na mão e o
+         leitor de código de barras ainda quente, então precisa achar a
+         pessoa por qualquer pedaço do nome — e sem depender de acento:
+         quem digita "vitoria" tem de encontrar "Vitória". Por isso a
+         comparação é contra `nome_norm`, gravado pelo MESMO normalizador
+         que a importação histórica usa, com `nome` como rede de segurança
+         para cadastro antigo que ainda não tem a coluna preenchida.
+
+         Telefone entra na mesma caixa: quem tem o número na conversa do
+         WhatsApp acha mais rápido por ele do que por um sobrenome que pode
+         ter sido escrito de dois jeitos. */
       if (path === '/api/clientes' && met === 'GET') {
         const busca = (url.searchParams.get('busca') || '').trim();
-        const r = busca
-          ? await db.prepare(`SELECT * FROM clientes WHERE nome LIKE ? ORDER BY nome LIMIT 20`).bind(`%${busca}%`).all()
-          : await db.prepare(`SELECT * FROM clientes ORDER BY nome LIMIT 50`).all();
-        return json(r.results.map(c => ({ id: c.id, nome: c.nome, tel: c.tel || '' })));
+        const limite = Math.min(+(url.searchParams.get('limite') || 25), 100);
+        let r;
+        if (busca) {
+          const norm = `%${normalizarNomeCliente(busca) ?? ''}%`;
+          const cru = `%${busca.toLowerCase()}%`;
+          const digitos = somenteDigitos(busca);
+          r = await db.prepare(
+            `SELECT * FROM clientes
+              WHERE nome_norm LIKE ?
+                 OR LOWER(nome) LIKE ?
+                 OR (? IS NOT NULL AND tel_norm LIKE ?)
+              ORDER BY nome LIMIT ?`,
+          ).bind(norm, cru, digitos, `%${digitos ?? ''}%`, limite).all();
+        } else {
+          r = await db.prepare(`SELECT * FROM clientes ORDER BY nome LIMIT ?`).bind(limite).all();
+        }
+        /* `cidade` viaja junto porque duas "Camila" só se distinguem por
+           algum campo além do nome — e escolher a errada no balcão manda a
+           venda para o histórico de outra pessoa. */
+        return json(r.results.map(c => ({
+          id: c.id, nome: c.nome, tel: c.tel || '', cidade: c.cidade || '',
+        })));
       }
       if (path === '/api/clientes' && met === 'POST') {
         const b = await request.json();
@@ -466,14 +501,16 @@ async function rotear(request, env) {
          * reconhece, criando um segundo cadastro para a mesma pessoa. */
         const r = await db.prepare(
           `INSERT INTO clientes (nome, tel, nome_norm, tel_norm, email, email_norm,
-                                 instagram, cidade, nascimento, obs)
-           VALUES (?,?,?,?,?,?,?,?,?,?) RETURNING *`,
+                                 instagram, cidade, cpf, cpf_norm, nascimento, obs)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?) RETURNING *`,
         ).bind(
           nome.trim(), tel || '',
-          normalizarTextoSimples(nome),
+          normalizarNomeCliente(nome),
           tel ? String(tel).replace(/\D/g, '') || null : null,
           b.email || null, b.email ? String(b.email).trim().toLowerCase() : null,
-          b.instagram || null, b.cidade || null, b.nascimento || null, b.obs || null,
+          b.instagram || null, b.cidade || null,
+          b.cpf || null, somenteDigitos(b.cpf),
+          b.nascimento || null, b.obs || null,
         ).first();
         return json({ id: r.id, nome: r.nome, tel: r.tel || '' }, 201);
       }
@@ -575,6 +612,21 @@ async function rotear(request, env) {
       if (path === '/api/vendas/historico/lotes' && met === 'GET') {
         return json(await listarLotes(db));
       }
+      /* O retrato do que está no ar: quantas vendas, quanto faturamento, de
+         qual arquivo. É o que a tela mostra ANTES de propor a troca — trocar
+         sem saber o que está sendo trocado é o mesmo que não perguntar. */
+      if (path === '/api/vendas/historico/retrato' && met === 'GET') {
+        return json(await retratoDoHistorico(db));
+      }
+      /* TROCAR a planilha: reverte o que está de pé e importa a corrigida,
+         numa operação só. Importar por cima SEM reverter é o caminho que
+         duplicaria o faturamento — a trava de idempotência é por hash do
+         arquivo, e um arquivo corrigido tem hash novo. */
+      if (path === '/api/vendas/historico/substituir' && met === 'POST') {
+        const b2 = await request.json().catch(() => ({}));
+        const r = await substituirHistorico(db, { linhas: b2.linhas, arquivo: b2.arquivo });
+        return json(r, r.ok ? 200 : 409);
+      }
       if ((m = path.match(/^\/api\/vendas\/historico\/lotes\/(\d+)\/reverter$/)) && met === 'POST') {
         const r = await reverterLote(db, +m[1]);
         return json(r, r.ok ? 200 : 400);
@@ -671,6 +723,16 @@ async function rotear(request, env) {
          "no such column: p.foto_original", que não diz a ninguém o que
          fazer. Aqui esse erro vira a instrução — o mesmo tratamento que os
          erros da Nuvemshop já recebem. */
+      /* Mesmo tratamento das fotos, para a coluna nova da ficha de cliente:
+         "no such column: cpf" não diz a ninguém o que fazer. */
+      if (/no such column/i.test(msg) && /\bcpf(_norm)?\b/i.test(msg)) {
+        return json({
+          erro: 'A ficha de cliente com CPF precisa de uma migração que este banco ainda não recebeu.',
+          detalhe: 'Rode api/migracao-cliente-cpf.sql no D1 — o passo está no api/DEPLOY.md. '
+                 + 'O resto do painel funciona normalmente sem ela.',
+          migracao: 'cliente-cpf',
+        }, 503);
+      }
       if (/no such (table|column)/i.test(msg) && /foto|produtos_pendentes|fotos_orfas/i.test(msg)) {
         /* TRÊS migrações mexem em foto, e mandar rodar a errada faz a pessoa
            perder a tarde. O que faltou é quem decide, e a ordem do teste
@@ -1341,10 +1403,60 @@ async function registrarVenda(db, env, { clienteId, clienteNome, itens }) {
 
   const total = linhas.reduce((s, l) => s + l.preco * l.qtd, 0);
   const data = hoje();
+
+  /* ─── a ficha de quem levou as peças
+   *
+   * A venda de balcão gravava o NOME e ia embora. O painel dizia, num
+   * comentário, que "se o nome for novo, o servidor cria" — e o servidor
+   * não criava. Efeito: vender para alguém pela primeira vez não abria
+   * ficha nenhuma, então na segunda venda o autocompletar não a encontrava
+   * (não havia o que encontrar), e não havia onde guardar o telefone dela.
+   * O ciclo que a operação descreve — "vendo, seleciono a cliente, e vai
+   * para a ficha dela" — não fechava.
+   *
+   * Duas regras, e a segunda é a que importa:
+   *
+   *   um cadastro com esse nome  → a venda se amarra a ele;
+   *   nenhum                     → cria, com `origem='manual'`;
+   *   mais de um                 → NÃO escolhe. §2: nome não é identidade,
+   *                                e duas "Camila" podem ser duas pessoas.
+   *                                A venda segue pelo nome normalizado, que
+   *                                é como ela já seguia — nada se perde, e
+   *                                ninguém é fundido por engano.
+   *
+   * `origem='manual'`, e não um valor novo: é o que garante que reverter um
+   * lote de planilha nunca apague uma cliente que nasceu de uma venda de
+   * verdade — a reversão só toca em `origem='historico'`. */
+  const nomeLimpo = clienteNome.trim();
+  const norm = normalizarNomeCliente(nomeLimpo);
+  let idCliente = clienteId || null;
+  if (!idCliente && norm) {
+    const { results: iguais } = await db.prepare(
+      'SELECT id FROM clientes WHERE nome_norm = ?',
+    ).bind(norm).all();
+    if ((iguais ?? []).length === 1) idCliente = iguais[0].id;
+    else if (!(iguais ?? []).length) {
+      const nova = await db.prepare(
+        `INSERT INTO clientes (nome, nome_norm, origem, criada_em)
+         VALUES (?, ?, 'manual', datetime('now')) RETURNING id`,
+      ).bind(nomeLimpo, norm).first();
+      idCliente = nova.id;
+    }
+  }
+  /* `cliente_nome_norm` é gravado AQUI, na venda.
+   *
+   * Ele nascia só no `backfillNormalizacao` que roda depois de uma
+   * importação de planilha. Efeito: a venda de balcão de hoje ficava com a
+   * chave de agrupamento nula até a próxima importação — e até lá o painel
+   * a contava em "sem-nome", separada do histórico da mesma cliente. Quem
+   * vendeu para a Bruna de manhã não via a venda na ficha da Bruna à tarde.
+   *
+   * A regra é a MESMA do importador (`normalizarNomeCliente`), o que é
+   * justamente o que faz as duas populações se encontrarem. */
   const venda = await db.prepare(
-    `INSERT INTO vendas (cliente_id, cliente_nome, origem, data, total, nuvemshop_status)
-     VALUES (?, ?, 'balcao', ?, ?, 'pendente') RETURNING id`
-  ).bind(clienteId || null, clienteNome.trim(), data, total).first();
+    `INSERT INTO vendas (cliente_id, cliente_nome, cliente_nome_norm, origem, data, total, nuvemshop_status)
+     VALUES (?, ?, ?, 'balcao', ?, ?, 'pendente') RETURNING id`
+  ).bind(idCliente, nomeLimpo, norm, data, total).first();
 
   const stmts = [];
   for (const l of linhas) {
@@ -1382,7 +1494,7 @@ async function atualizarCliente(db, id, corpo) {
   const atual = await db.prepare('SELECT * FROM clientes WHERE id = ?').bind(id).first();
   if (!atual) return json({ erro: 'Cliente não encontrado' }, 404);
 
-  const campos = ['nome', 'tel', 'email', 'instagram', 'cidade', 'nascimento', 'obs'];
+  const campos = ['nome', 'tel', 'email', 'instagram', 'cidade', 'cpf', 'nascimento', 'obs'];
   const novo = {};
   for (const c of campos) if (corpo[c] !== undefined) novo[c] = corpo[c] === '' ? null : corpo[c];
 
@@ -1394,14 +1506,17 @@ async function atualizarCliente(db, id, corpo) {
   const nome = novo.nome ?? atual.nome;
   const tel = novo.tel !== undefined ? novo.tel : atual.tel;
   const email = novo.email !== undefined ? novo.email : atual.email;
+  const cpf = novo.cpf !== undefined ? novo.cpf : atual.cpf;
 
   const sets = Object.keys(novo).map((c) => `${c} = ?`);
   const binds = Object.values(novo);
-  sets.push('nome_norm = ?', 'tel_norm = ?', 'email_norm = ?', "atualizada_em = datetime('now')");
+  sets.push('nome_norm = ?', 'tel_norm = ?', 'email_norm = ?', 'cpf_norm = ?',
+            "atualizada_em = datetime('now')");
   binds.push(
-    normalizarTextoSimples(nome),
+    normalizarNomeCliente(nome),
     tel ? String(tel).replace(/\D/g, '') || null : null,
     email ? String(email).trim().toLowerCase() : null,
+    somenteDigitos(cpf),
   );
   binds.push(id);
 
@@ -1410,13 +1525,13 @@ async function atualizarCliente(db, id, corpo) {
   return json({ ok: true, cliente: r });
 }
 
-/** Sem acento, sem caixa — a mesma regra do importador histórico, para os
- *  dois lados casarem. */
-function normalizarTextoSimples(v) {
+/** Só os dígitos. Telefone e CPF são digitados de seis jeitos diferentes e
+ *  buscar por eles não pode depender de quem pôs o ponto. Devolve NULL —
+ *  nunca string vazia — quando não sobrou dígito nenhum: §24. */
+function somenteDigitos(v) {
   if (v === null || v === undefined) return null;
-  const s = String(v).replace(/\s+/g, ' ').trim();
-  if (!s) return null;
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const d = String(v).replace(/\D/g, '');
+  return d || null;
 }
 
 /** Decide um vínculo de cliente que a importação NÃO fez sozinha.

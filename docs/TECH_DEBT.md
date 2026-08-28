@@ -471,3 +471,27 @@ para bater com o indicador? Excluir alinha os dois números e esconde 3 peças
 que existem no estoque. Manter preserva o inventário e exige a explicação.
 Enquanto ninguém decidir, a regra atual **não muda** — a rodada de
 acabamento visual não é o lugar de mexer em contagem.
+
+
+## 20. Peça bruta e peça banhada têm precificação diferente — o sistema não sabe
+
+A operação compra peças de duas formas: **já banhadas**, por um valor, e
+**em bruto**, mandadas banhar na fábrica depois — com custo e precificação
+próprios. `vendas_historico_itens.tipo` registra a diferença (`Banhada`,
+`Bruto`, `Prata 925`), mas nenhum cálculo do sistema a usa.
+
+Onde isso aparece hoje, e por que ainda não é um defeito: a **comissão
+estimada** dos acertos históricos (REGRAS § 24) trata bruto como banhada —
+mesma faixa, mesmo percentual. É a regra que o motor de comissão já aplicava
+(`comissao.js › isPrata` separa só a Prata 925), e a premissa está
+**escrita na tela**, num expansor ao lado do número.
+
+O tamanho do problema: **660 das 1.342 linhas** do histórico são `Bruto`.
+Quase metade. Se a comissão do bruto tiver percentual próprio, ou se ele
+ficar fora da faixa das banhadas, a estimativa muda bastante.
+
+**Não mexer sem decisão de negócio.** O que falta saber, e só o dono do
+negócio responde: bruto entra na faixa das banhadas, tem percentual fixo
+próprio como a prata, ou não gera comissão? E o custo de banhar entra no
+preço da peça ou é despesa à parte? Enquanto não houver resposta, a
+premissa atual vale e continua declarada.

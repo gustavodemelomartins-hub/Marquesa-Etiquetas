@@ -304,7 +304,15 @@ CREATE TABLE IF NOT EXISTS clientes (
   obs           TEXT,
   origem        TEXT NOT NULL DEFAULT 'manual',   -- manual | historico
   criada_em     TEXT NOT NULL DEFAULT (datetime('now')),
-  atualizada_em TEXT
+  atualizada_em TEXT,
+  -- CPF é anotação de cadastro, não identidade: sem UNIQUE, sem validação de
+  -- dígito. Duas linhas com o mesmo CPF digitado errado não podem virar erro
+  -- de escrita no meio de uma venda. `cpf_norm` guarda só os dígitos, para a
+  -- busca não depender de quem digitou com ponto.
+  -- Últimas de propósito: `migracao-cliente-cpf.sql` as acrescenta com
+  -- ALTER TABLE, que sempre põe no fim. Os dois caminhos terminam iguais.
+  cpf           TEXT,
+  cpf_norm      TEXT
 );
 
 -- ------------------------------------------------------------------ vendas
@@ -751,6 +759,7 @@ CREATE INDEX IF NOT EXISTS idx_cvr_status ON clientes_vinculo_revisao(status);
 -- propósito: nome não é identidade, e duas "Camila" podem ser duas pessoas.
 CREATE INDEX IF NOT EXISTS idx_clientes_nome_norm ON clientes(nome_norm);
 CREATE INDEX IF NOT EXISTS idx_clientes_tel_norm  ON clientes(tel_norm);
+CREATE INDEX IF NOT EXISTS idx_clientes_cpf_norm  ON clientes(cpf_norm);
 
 -- ══════════════════════════════════════ vendas históricas RECONSTRUÍDAS
 

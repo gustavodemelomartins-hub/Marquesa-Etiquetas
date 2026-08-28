@@ -486,15 +486,174 @@ export async function reverterLote(db, loteId) {
   ]);
 
   /* Cliente criado pela importação e que ficou sem nenhum histórico deixa de
-   * ter razão de existir. Cliente com venda operacional NUNCA é removido. */
-  await db.prepare(
+   * ter razão de existir. Três exceções, e as três valem mais que a
+   * arrumação:
+   *
+   *   1. cliente com venda OPERACIONAL — ela comprou de verdade, pelo
+   *      sistema, e o cadastro é o dono daquela venda;
+   *   2. cliente com histórico de OUTRO lote ainda de pé;
+   *   3. cliente com QUALQUER dado digitado à mão — telefone, CPF, cidade,
+   *      email, instagram, nascimento ou observação. Esse cadastro deixou de
+   *      ser um subproduto da planilha no instante em que alguém sentou e
+   *      digitou o telefone dela. Trocar a planilha não pode custar o
+   *      trabalho de cadastro: a linha da planilha volta na importação
+   *      seguinte, o telefone não volta de lugar nenhum. */
+  const r = await db.prepare(
     `DELETE FROM clientes
       WHERE origem = 'historico'
         AND id NOT IN (SELECT cliente_id FROM vendas_historico_itens WHERE cliente_id IS NOT NULL)
-        AND id NOT IN (SELECT cliente_id FROM vendas WHERE cliente_id IS NOT NULL)`,
+        AND id NOT IN (SELECT cliente_id FROM vendas WHERE cliente_id IS NOT NULL)
+        AND COALESCE(NULLIF(TRIM(tel), ''), NULLIF(TRIM(cpf), ''),
+                     NULLIF(TRIM(cidade), ''), NULLIF(TRIM(email), ''),
+                     NULLIF(TRIM(instagram), ''), NULLIF(TRIM(nascimento), ''),
+                     NULLIF(TRIM(obs), '')) IS NULL`,
   ).run();
 
-  return { ok: true, loteId, itensRemovidos: antes.n };
+  return {
+    ok: true,
+    loteId,
+    itensRemovidos: antes.n,
+    clientesRemovidos: r.meta?.changes ?? null,
+  };
+}
+
+/** O retrato do histórico que está de pé agora. É o "antes" da troca, e é
+ *  o mesmo conjunto de números que o "depois" vai mostrar — comparar duas
+ *  leituras diferentes seria comparar nada. */
+export async function retratoDoHistorico(db) {
+  const [lotes, vendas] = await Promise.all([
+    db.prepare(
+      `SELECT id, arquivo_nome, linhas_importadas, criado_em
+         FROM vendas_historico_lotes WHERE status = 'importado' ORDER BY id`,
+    ).all(),
+    db.prepare(
+      `SELECT COUNT(*) AS vendas,
+              COALESCE(SUM(pecas), 0) AS pecas,
+              ROUND(COALESCE(SUM(valor_pago), 0), 2) AS faturamento,
+              COUNT(DISTINCT cliente_nome_norm) AS clientes,
+              MIN(data) AS de, MAX(data) AS ate
+         FROM vendas_historicas vh
+         JOIN vendas_historico_lotes l ON l.id = vh.lote_id AND l.status = 'importado'
+        WHERE vh.classe = 'venda'`,
+    ).first(),
+  ]);
+  const linhas = (lotes.results ?? []).reduce((t, l) => t + Number(l.linhas_importadas ?? 0), 0);
+  return {
+    lotes: (lotes.results ?? []).map((l) => ({
+      id: l.id, arquivo: l.arquivo_nome, linhas: l.linhas_importadas, em: l.criado_em,
+    })),
+    linhas,
+    vendas: Number(vendas?.vendas ?? 0),
+    pecas: Number(vendas?.pecas ?? 0),
+    faturamento: Number(vendas?.faturamento ?? 0),
+    clientes: Number(vendas?.clientes ?? 0),
+    periodo: { de: vendas?.de ?? null, ate: vendas?.ate ?? null },
+  };
+}
+
+/** TROCAR a planilha do histórico por uma corrigida.
+ *
+ *  ─────────────────────────────────────────────────────────────────────────
+ *  POR QUE ISTO EXISTE E NÃO BASTA "IMPORTAR DE NOVO"
+ *
+ *  A trava de idempotência é o HASH DO ARQUIVO: o mesmo arquivo não entra
+ *  duas vezes. Um arquivo DIFERENTE entra sem reclamar — e é exatamente o
+ *  caso de quem corrigiu o sobrenome de uma cliente e reexportou a
+ *  planilha. O painel passaria a somar as 695 vendas antigas com as 691
+ *  novas, e o faturamento dobraria sem nenhum erro na tela.
+ *
+ *  Então trocar é uma operação só: revira o que está de pé e põe o novo no
+ *  lugar, com o antes e o depois na mesma resposta.
+ *
+ *  ─────────────────────────────────────────────────────────────────────────
+ *  A ORDEM É DELIBERADA
+ *
+ *  A análise vem ANTES da reversão. Arquivo ilegível, cabeçalho trocado ou
+ *  planilha vazia param aqui, com o histórico antigo intacto — a troca nem
+ *  começa. Só depois de o arquivo novo provar que é legível o antigo sai.
+ *
+ *  Se ainda assim a importação falhar depois da reversão, a resposta diz
+ *  quais lotes foram revertidos e por qual arquivo: reverter LIBERA o hash
+ *  (o índice único só vale para lote `importado`), então reimportar a
+ *  planilha antiga é um caminho de volta que existe de verdade.
+ *
+ *  ─────────────────────────────────────────────────────────────────────────
+ *  ESTOQUE: nada, dos dois lados
+ *
+ *  Reverter não desfaz movimento porque a importação nunca criou nenhum, e
+ *  importar não cria. A troca inteira é invisível para a razão contábil. */
+export async function substituirHistorico(db, { linhas, arquivo = 'Vendas Marquesa.xlsx' }) {
+  const analise = await analisarHistorico(db, { linhas, arquivo });
+  if (!analise.ok) return { ok: false, etapa: 'analise', ...semRegistros(analise) };
+
+  const antes = await retratoDoHistorico(db);
+
+  /* O mesmo arquivo que já está de pé não é uma troca — é um clique
+     repetido. Recusar aqui evita derrubar o histórico para pôr de volta
+     exatamente o que estava lá. */
+  if (analise.jaImportado) {
+    return {
+      ok: false,
+      etapa: 'analise',
+      jaImportado: analise.jaImportado,
+      antes,
+      erro: `Esta planilha JÁ é a que está no ar (lote ${analise.jaImportado.loteId}, `
+        + `importada em ${analise.jaImportado.em}). Não há o que trocar.`,
+    };
+  }
+
+  const revertidos = [];
+  for (const l of antes.lotes) {
+    const r = await reverterLote(db, l.id);
+    if (!r.ok) {
+      return {
+        ok: false,
+        etapa: 'reversao',
+        antes,
+        revertidos,
+        erro: `Não consegui reverter o lote ${l.id} (${l.arquivo}): ${r.erro} `
+          + 'Nada foi importado; o histórico continua como estava.',
+      };
+    }
+    revertidos.push({ ...l, itensRemovidos: r.itensRemovidos, clientesRemovidos: r.clientesRemovidos });
+  }
+
+  const imp = await importarHistorico(db, { linhas, arquivo });
+  if (!imp.ok) {
+    return {
+      ok: false,
+      etapa: 'importacao',
+      antes,
+      revertidos,
+      erro: `${imp.erro ?? 'A importação falhou.'} `
+        + (revertidos.length
+          ? `O histórico anterior JÁ havia sido revertido (${revertidos.map((r) => `lote ${r.id}: ${r.arquivo}`).join('; ')}). `
+            + 'Reverter libera o arquivo para nova importação — subir a planilha antiga de volta funciona.'
+          : ''),
+    };
+  }
+
+  const depois = await retratoDoHistorico(db);
+
+  return {
+    ok: true,
+    antes,
+    depois,
+    revertidos,
+    loteId: imp.loteId,
+    analise: imp.analise,
+    conferencia: imp.conferencia,
+    reconstrucao: imp.reconstrucao,
+    /* a diferença explícita, para a tela não ter de subtrair nada e para o
+       operador ver o que a troca fez, e não só o resultado final */
+    delta: {
+      linhas: depois.linhas - antes.linhas,
+      vendas: depois.vendas - antes.vendas,
+      pecas: depois.pecas - antes.pecas,
+      faturamento: +(depois.faturamento - antes.faturamento).toFixed(2),
+      clientes: depois.clientes - antes.clientes,
+    },
+  };
 }
 
 /** Os lotes já importados, para a tela saber o que existe. */
