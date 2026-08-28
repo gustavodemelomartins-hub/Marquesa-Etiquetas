@@ -196,14 +196,23 @@ W=https://marquesa-api-staging.marquesaasemijoias.workers.dev
 
 curl -s "$W/api/health"                       # {"ok":true,...}
 
-# as rotas novas: 401 = existem e estão protegidas. 404 = o deploy não pegou.
+# ⚠️ SEM a chave, TODA rota devolve 401 — inclusive as que não existem.
+# A verificação de chave acontece ANTES do roteamento (api/src/index.js), então
+# "401" não prova que a rota existe. Confira você mesmo:
+curl -s -o /dev/null -w '%{http_code}\n' "$W/api/rota-que-nao-existe"   # 401
+#
+# (Versões anteriores deste runbook mandavam ler 401 como "a rota existe".
+#  Isso estava errado e daria um deploy por publicado sem ele ter pegado.)
+
+# COM a chave, aí sim: 200 = existe, 404 = o deploy não pegou.
 # `/painel` e `/crm` são as duas AGREGADAS — cada tela pede uma vez só.
+K='<API_KEY do staging>'
 for r in /api/analytics/painel /api/analytics/crm \
          /api/analytics/vendas /api/analytics/clientes /api/analytics/origem \
          /api/analytics/produtos /api/analytics/categorias /api/analytics/evolucao \
          /api/vendas/lista /api/vendas/historico/lotes \
          /api/vendas/historico/reconstrucao; do
-  printf '%s  %s\n' "$(curl -s -o /dev/null -w '%{http_code}' "$W$r")" "$r"
+  printf '%s  %s\n' "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $K" "$W$r")" "$r"
 done
 
 # CORS para o painel do DEV
