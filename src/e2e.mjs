@@ -239,6 +239,41 @@ eq('pede a cliente antes de gravar',
 
    E o campo diz, ANTES de confirmar, para onde a venda vai — cliente
    conhecida ou cadastro novo. */
+/* ─── §27: o lápis, o desconto numa peça só, e o motivo obrigatório
+ *
+ * A planilha dela sempre teve coluna Desconto; a venda de balcão não tinha
+ * nada — o servidor descartava qualquer preço da tela e gravava o do
+ * catálogo. A venda entrava pelo preço cheio e o faturamento nascia acima
+ * do que entrou no caixa. */
+const precoTabela = await page.evaluate(() => scan.vendaLinhas[0].preco);
+const qtdDaLinha = await page.evaluate(() => scan.vendaLinhas[0].q);
+await page.click('.scanrow .vd-lapis');
+await page.waitForTimeout(250);
+eq('o lápis abre o preço daquela peça',
+  await page.locator('#vd-preco-0').isVisible(), 'true');
+eq('já preenchido com o de tabela',
+  await page.locator('#vd-preco-0').inputValue(), precoTabela.toFixed(2));
+
+/* A recusa acontece NA TELA, antes de sair para o servidor: ela descobre o
+   que falta com a peça na mão, e não depois de um 409. */
+await page.fill('#vd-preco-0', '10.00');
+await page.click('.vd-editor .btn-gold');
+await page.waitForTimeout(250);
+eq('preço diferente SEM motivo é recusado aqui mesmo',
+  /motivo/i.test(await page.textContent('#vd-erro-0')), 'true');
+eq('e o preço continua o de tabela',
+  await page.evaluate(() => scan.vendaLinhas[0].precoFinal), 'null');
+
+await page.selectOption('#vd-motivo-0', 'Grupo VIP');
+await page.click('.vd-editor .btn-gold');
+await page.waitForTimeout(250);
+eq('com o motivo, o preço passa',
+  await page.evaluate(() => scan.vendaLinhas[0].precoFinal), 10);
+eq('a linha mostra o motivo, antes de confirmar',
+  await page.textContent('.vd-tag'), 'Grupo VIP');
+eq('e o resumo anuncia o desconto',
+  /Desconto/.test(await page.textContent('#vd-resumo')), 'true');
+
 await page.fill('#vd-cliente', 'Cliente Teste');
 await page.waitForTimeout(700);
 eq('o campo avisa que é cadastro novo',
@@ -253,7 +288,19 @@ const vs = await fetch(URL_API + '/api/vendas?data=' + new Date().toISOString().
 }).then(r => r.json());
 const balcao = vs.find(v => v.origem === 'balcao');
 eq('a venda de balcão foi registrada', balcao.clienteNome, 'Cliente Teste');
-eq('com o total certo', balcao.total, 1200);
+/* O total é o COBRADO, não o de tabela: 1200 menos o abatimento da linha
+   que ela editou. É esta linha que prova que o desconto atravessou a tela,
+   o servidor e o banco sem se perder no caminho. */
+eq('o total é o cobrado, não o de tabela',
+  balcao.total, 1200 - (precoTabela - 10) * qtdDaLinha);
+const comDesconto = balcao.itens.find(i => i.descontoRotulo);
+eq('o motivo chegou ao banco', comDesconto && comDesconto.descontoRotulo, 'Grupo VIP');
+eq('com o preço de tabela preservado', comDesconto && comDesconto.precoTabela, precoTabela);
+eq('o preço cobrado', comDesconto && comDesconto.preco, 10);
+eq('e o abatimento derivado, não digitado',
+  comDesconto && comDesconto.descontoValor, precoTabela - 10);
+eq('a outra peça continua sem desconto nenhum',
+  balcao.itens.filter(i => i.descontoRotulo).length, 1);
 
 /* A chave de agrupamento é gravada NA VENDA, e não só na próxima
    importação de planilha. Sem ela a venda de hoje ficava fora da ficha da

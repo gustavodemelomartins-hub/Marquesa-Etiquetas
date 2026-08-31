@@ -409,6 +409,37 @@ Sem ela, a aba **Clientes** e a **troca de planilha** respondem 503 com a
 instrução do que rodar — não um erro de banco cru. O resto do painel
 funciona normalmente.
 
+### Desconto por peça na venda de balcão
+
+`api/migracao-venda-desconto.sql` acrescenta `preco_tabela`,
+`desconto_valor` e `desconto_rotulo` a `venda_itens` (§27). Aditiva e
+independente — `venda_itens` existe desde o schema original, e as três
+colunas só descrevem o preço que já era gravado.
+
+```bash
+# DEV — banco marquesa-db-dev
+npx wrangler d1 execute DB --env staging --remote --file=migracao-venda-desconto.sql
+
+# produção — só depois de aprovado
+npx wrangler d1 execute DB --remote --file=migracao-venda-desconto.sql
+```
+
+⚠️ Se o token OAuth do `wrangler login` devolver `Authentication error
+[code: 10000]` no `--file`, é o endpoint `/import` que ele usa — não a sua
+permissão. Rode os mesmos comandos com `--command`, um por instrução: eles
+vão pelo `/query`, que o mesmo token executa. E **confira o resultado**: o
+`/import` pode ter aplicado parte antes de falhar, então o `pragma` vale
+mais que a mensagem de erro.
+
+```bash
+npx wrangler d1 execute DB --env staging --remote \
+  --command "SELECT name FROM pragma_table_info('venda_itens') WHERE name LIKE 'preco_tabela' OR name LIKE 'desconto%'"
+```
+
+Sem ela, **vender quebra** — é o caminho mais crítico do painel. Por isso o
+erro vira 503 com a instrução do que rodar, e não um erro de SQL na cara de
+quem está no balcão. Até lá, venda sem alterar preço continua funcionando.
+
 Para conferir depois:
 
 ```sql

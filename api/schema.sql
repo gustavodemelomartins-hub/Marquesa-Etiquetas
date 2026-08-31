@@ -374,7 +374,13 @@ CREATE TABLE IF NOT EXISTS venda_itens (
   preco     REAL NOT NULL,
   motivo    TEXT,                                   -- §8: venda|perda|quebra|brinde|troca|...
   variacao  TEXT,                                   -- nome para leitura/histórico
-  variante_id TEXT                                  -- identidade estável na Nuvemshop
+  variante_id TEXT,                                 -- identidade estável na Nuvemshop
+  -- §27: `preco` acima é o que foi COBRADO. Estas três dizem de onde ele veio.
+  -- Últimas de propósito: `migracao-venda-desconto.sql` as acrescenta com
+  -- ALTER TABLE, que sempre põe no fim. Os dois caminhos terminam iguais.
+  preco_tabela    REAL,                             -- catálogo no momento da venda
+  desconto_valor  REAL,                             -- preco_tabela - preco
+  desconto_rotulo TEXT                              -- "Grupo VIP"
 );
 
 -- ------------------------------------------------------------- inventário

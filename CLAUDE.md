@@ -183,6 +183,7 @@ proporcional à mudança — direcionada, nunca a suíte inteira por reflexo:
 | foto, variação, SKU | `src/editar-peca-test.mjs` · `src/editar-peca-ui-test.mjs` · `src/fotos-catalogo-test.mjs` · `src/sku-auditoria-test.mjs` · `src/sku-gerador-test.mjs` |
 | Pendências / Nuvemshop | `src/pendencias-nuvemshop-test.mjs` |
 | Vendas, Clientes, histórico | `src/vendas-reconstrucao-test.mjs` · `src/categoria-nome-test.mjs` · `src/revendedora-nao-e-cliente-test.mjs` (puros) · `src/vendas-historico-test.mjs` · `src/trocar-planilha-test.mjs` · `src/vendas-clientes-ui-test.mjs` |
+| Preço, desconto na venda | `src/venda-desconto-test.mjs` · `src/e2e.mjs` |
 | Revendedoras / Anexo I | `src/revendedoras-test.mjs` |
 | `frontend/src/**` | `cd frontend && npm test && npm run build` |
 | schema ou migration | contagens antes/depois, cada delta explicado, razão fechando |

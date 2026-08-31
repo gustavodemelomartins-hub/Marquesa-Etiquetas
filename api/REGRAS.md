@@ -1085,3 +1085,64 @@ mais perguntava nada: com 338 clientes cadastradas, quem vem depois do "C"
 não existia para a tela.
 
 Provado em `src/e2e.mjs`, no fluxo de venda de verdade.
+
+### 27. O preço da peça na venda é o COBRADO — e o desconto diz por quê
+
+A planilha dela sempre teve uma coluna Desconto, preenchida à mão: "R$10 de
+Desconto", "5% de desconto". O importador lê isso desde sempre e guarda em
+`vendas_historico_itens.desconto_valor / _pct / _rotulo`.
+
+A venda de balcão — a tela feita para SUBSTITUIR a planilha — não sabia nada
+disso. `registrarVenda` descartava qualquer preço vindo da tela e gravava o
+do catálogo:
+
+```js
+linhas.push({ sku, qtd, preco: s.preco, ... });   // s.preco = catálogo
+```
+
+Efeito: dar desconto era possível no balcão e impossível no sistema. A venda
+entrava pelo preço cheio e o faturamento nascia acima do que entrou no caixa,
+sem erro na tela e sem rastro no banco.
+
+**A regra agora:**
+
+| | |
+|---|---|
+| `preco` | o que foi **cobrado**. É o que soma o total, como sempre foi |
+| `preco_tabela` | o catálogo **no momento da venda**. Gravado SEMPRE |
+| `desconto_valor` | `preco_tabela - preco`. NULL quando não houve alteração |
+| `desconto_rotulo` | o motivo, como ela escreve: "Grupo VIP" |
+
+**Ela digita o preço final, não o abatimento.** É como ela fala no balcão
+("vou fazer por 65"). O desconto é derivado, então não existe o estado em que
+os dois números se contradizem.
+
+**O motivo é obrigatório quando o preço muda**, e não é burocracia: preço
+diferente sem motivo é indistinguível de erro de digitação, e sem ele o
+dinheiro sai do faturamento sem deixar rastro de quanto, para quem, por quê.
+A tela recusa antes de mandar; o servidor recusa de novo, com 409. Zero COM
+motivo é aceito — brinde existe.
+
+**`preco_tabela` é gravado mesmo sem desconto.** Sem ele, um reajuste de
+catálogo no mês que vem faria o desconto de hoje parecer outro número.
+
+**O catálogo NÃO é reprecificado.** O desconto é desta venda. Editar o
+cadastro a partir da tela de venda mudaria, em silêncio, o preço de toda
+venda futura da peça.
+
+**O estoque não muda.** Desconto é dinheiro, não peça — §1 continua valendo
+inteiro, e o teste prova que a baixa é a mesma com e sem desconto.
+
+**O passado não é reescrito.** Venda registrada antes desta regra fica com
+`preco_tabela` NULL, e é assim que se lê "esta venda é anterior à regra". Não
+dá para saber hoje quanto de desconto ela deu numa venda que o sistema gravou
+pelo preço cheio, e inventar o número seria pior que admitir que não se sabe.
+
+**Só a venda de balcão, por enquanto.** No acerto de maleta o desconto muda a
+base da comissão da revendedora (§24), que é decisão de negócio a combinar com
+elas — não de implementação. Enquanto não for combinado, o acerto continua
+como está.
+
+Migration: `api/migracao-venda-desconto.sql`. Provado em
+`src/venda-desconto-test.mjs` (a regra) e em `src/e2e.mjs` (o lápis na tela,
+do clique até o banco).

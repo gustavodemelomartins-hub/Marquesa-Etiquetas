@@ -786,9 +786,19 @@ export async function listarVendasUnificado(db, {
          FROM vendas_historico_itens h
          JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
        UNION ALL
+       -- §27: a coluna observacao do lado histórico é a observação escrita na
+       -- planilha, e é lá que o desconto dela sempre apareceu. Do lado
+       -- operacional ela era NULL; agora carrega o desconto digitado na venda,
+       -- para a auditoria dizer a mesma coisa nas duas populações em vez de
+       -- esconder metade. (Comentário em SQL, não em JS: isto está dentro de
+       -- um template literal, e uma crase aqui fecharia a string.)
        SELECT 'operacional', i.rowid, v.id, NULL, NULL, CAST(v.id AS TEXT), v.data,
               COALESCE(c.nome, v.cliente_nome), v.cliente_nome_norm,
-              i.sku, i.desc, i.qtd, i.qtd * i.preco, v.origem, NULL, NULL, 1, v.cancelada
+              i.sku, i.desc, i.qtd, i.qtd * i.preco, v.origem, NULL,
+              CASE WHEN i.desconto_rotulo IS NOT NULL
+                   THEN 'Desconto ' || printf('%.2f', COALESCE(i.desconto_valor, 0))
+                        || ' · ' || i.desconto_rotulo END,
+              1, v.cancelada
          FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
          LEFT JOIN clientes c ON c.id = v.cliente_id
      )

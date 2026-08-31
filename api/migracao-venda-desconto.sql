@@ -1,0 +1,51 @@
+-- Desconto por peça na venda de balcão.
+--
+-- ─────────────────────────────────────────────────────────────────────────
+-- POR QUE
+--
+-- A planilha dela sempre teve uma coluna Desconto, escrita à mão: "R$10 de
+-- Desconto", "5% de desconto". O importador lê isso desde sempre e guarda em
+-- `vendas_historico_itens.desconto_valor/_pct/_rotulo`. Só que a venda de
+-- balcão — a tela que era para SUBSTITUIR a planilha — não sabia nada disso:
+-- `registrarVenda` descartava qualquer preço vindo da tela e gravava o de
+-- catálogo. Dar desconto na peça era possível na vida real e impossível no
+-- sistema, então a venda entrava com o preço cheio e o faturamento nascia
+-- acima do que entrou no caixa.
+--
+-- Os nomes aqui são os MESMOS do histórico de propósito: as duas populações
+-- respondem a mesma pergunta ("quanto foi abatido, e por quê") com as mesmas
+-- colunas.
+--
+-- ─────────────────────────────────────────────────────────────────────────
+-- O QUE CADA UMA GUARDA
+--
+-- `preco_tabela`  o preço do catálogo NO MOMENTO DA VENDA. Gravado sempre,
+--                 mesmo sem desconto: sem ele, um reajuste de catálogo no mês
+--                 que vem faz o desconto de hoje parecer outro número.
+-- `desconto_valor` quanto foi abatido (preco_tabela - preco). Positivo abate;
+--                 negativo é acréscimo. NULL quando não houve alteração.
+-- `desconto_rotulo` o motivo, como ela escreve: "Grupo VIP".
+--
+-- `preco` (que já existia) continua sendo o que foi REALMENTE cobrado, e
+-- continua sendo o que soma o total. Nenhuma fórmula de analytics muda.
+--
+-- ─────────────────────────────────────────────────────────────────────────
+-- ESTOQUE: nada
+--
+-- Desconto é dinheiro, não peça. Nenhuma coluna aqui toca `movimentos` nem
+-- `produtos.qtd`. A razão contábil não é afetada.
+--
+-- ─────────────────────────────────────────────────────────────────────────
+-- O PASSADO NÃO É REESCRITO
+--
+-- Venda já registrada fica com `preco_tabela` NULL, e é assim que se lê
+-- "esta venda é anterior à regra". Não dá para saber hoje quanto de desconto
+-- ela deu numa venda que o sistema gravou pelo preço cheio — e inventar o
+-- número seria pior que admitir que não se sabe.
+--
+-- Aditiva. Rodar duas vezes devolve "duplicate column name", que é como
+-- `ALTER TABLE ADD COLUMN` diz "já foi aplicada".
+
+ALTER TABLE venda_itens ADD COLUMN preco_tabela    REAL;
+ALTER TABLE venda_itens ADD COLUMN desconto_valor  REAL;
+ALTER TABLE venda_itens ADD COLUMN desconto_rotulo TEXT;

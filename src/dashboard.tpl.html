@@ -220,6 +220,41 @@ body{font-variant-numeric:lining-nums tabular-nums}
   min-width:34px;text-align:center;
 }
 .scanrow .s-val{font-size:12.5px;font-weight:700;color:var(--ink);white-space:nowrap}
+
+/* §27 — o preço de UMA peça dentro da venda.
+   O lápis fica na coluna do dinheiro, ao lado do número que ele muda: é o
+   lugar onde ela já está olhando quando decide fazer por menos. */
+.scanrow .s-val{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.vd-lapis{
+  border:none;background:none;padding:2px;margin:0;cursor:pointer;
+  color:var(--muted);line-height:0;border-radius:6px;
+}
+.vd-lapis:hover{color:var(--gold-deep,#8A6A1F);background:var(--surface-2,rgba(0,0,0,.04))}
+.scanrow .s-val .vd-antes{font-weight:600;color:var(--muted);font-size:11.5px}
+/* o eco: o que era, o que ficou, e por quê — na linha da peça, antes de
+   confirmar. Desconto que só aparece depois da venda não ajuda ninguém. */
+.vd-eco{margin-top:4px;font-size:11.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.vd-eco b{color:var(--ink)}
+.vd-eco.acresc b{color:var(--gold-deep,#8A6A1F)}
+.vd-tag{
+  background:var(--surface-2,rgba(0,0,0,.05));border-radius:999px;
+  padding:1px 8px;font-size:10.5px;font-weight:600;color:var(--ink);
+}
+.vd-abate{font-variant-numeric:tabular-nums}
+.vd-editor{
+  margin-top:8px;padding:10px;border-radius:10px;
+  background:var(--surface-2,rgba(0,0,0,.035));
+  border:1px solid var(--line,rgba(0,0,0,.08));
+}
+.vd-linha{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.vd-linha label{font-size:11.5px;color:var(--muted);min-width:96px}
+.vd-linha input,.vd-linha select{flex:1;min-width:0}
+.vd-de{font-size:11px;color:var(--muted);white-space:nowrap}
+.vd-erro{font-size:11.5px;color:var(--danger);margin:4px 0 6px}
+.vd-acoes{display:flex;align-items:center;gap:6px;margin-top:8px}
+.btn-mini{padding:5px 10px;font-size:11.5px}
+.vd-descto{color:var(--muted)}
+.vd-descto b{color:var(--ink)}
 /* no inventário a linha mostra a comparação, não o dinheiro */
 .scanrow .s-cmp{font-size:11.5px;font-weight:700;white-space:nowrap;color:var(--muted)}
 .scanrow .s-cmp.ok{color:var(--ok)}
@@ -2473,7 +2508,9 @@ const ICO={
   caixaMais:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 11.5v6M9 14.5h6"/>',
   /* os dois da ficha de cliente: telefone e cidade */
   telefone:'<path d="M15.5 21A12.5 12.5 0 0 1 3 8.5 2.5 2.5 0 0 1 5.5 6h2L9 9.5l-1.8 1.3a10 10 0 0 0 4 4L12.5 13l3.5 1.5v2A2.5 2.5 0 0 1 15.5 21z"/>',
-  pino:'<path d="M12 21s7-5.7 7-11a7 7 0 1 0-14 0c0 5.3 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'
+  pino:'<path d="M12 21s7-5.7 7-11a7 7 0 1 0-14 0c0 5.3 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  /* §27: o lápis que abre o preço de UMA peça dentro da venda */
+  lapis:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'
 };
 function svgIco(d,tam){
   return `<svg width="${tam||18}" height="${tam||18}" viewBox="0 0 24 24" fill="none"
@@ -6818,27 +6855,13 @@ async function abrirFecharVenda(){
     }catch(_){ l.variacoes=[]; }
   }));
   scan.vendaLinhas=linhas;
-  const total=linhas.reduce((s,l)=>s+l.q*l.preco,0);
+  /* §27: o preço de tabela fica guardado como `preco`; `precoFinal` é o que
+     ela cobrou nesta venda. Nulo = não mexeu. */
+  linhas.forEach(l=>{ l.precoFinal=null; l.rotulo=null; l.editando=false; });
 
   document.getElementById('vendaBody').innerHTML=`
-    <div class="scanlist" style="margin-bottom:16px">
-      ${linhas.map(l=>`<div class="scanrow">
-        <div class="s-qtd">${l.q}</div>
-        <div class="s-desc"><div class="d1">${esc(l.desc)}</div><div class="d2">${esc(l.sku)}</div>
-          ${l.variacoes&&l.variacoes.length?Array.from({length:l.q},(_,n)=>`
-            <select class="vd-variante" data-sku="${esc(l.sku)}" aria-label="Variação da ${n+1}ª peça" style="margin-top:6px;width:100%">
-              <option value="">Escolha a variação da ${n+1}ª peça</option>
-              ${l.variacoes.map(v=>`<option value="${esc(v.varianteId)}">${esc(v.nome)} · saldo ${int(v.saldo)}</option>`).join('')}
-            </select>`).join(''):''}
-        </div>
-        <div class="s-val">${money(l.preco*l.q)}</div>
-      </div>`).join('')}
-    </div>
-    <div class="actbar" style="margin-bottom:16px">
-      <div class="stat"><b>${linhas.reduce((s,l)=>s+l.q,0)}</b> peças</div>
-      <div class="spacer"></div>
-      <div class="stat" style="font-size:15px">Total <b>${money(total)}</b></div>
-    </div>
+    <div class="scanlist" id="vd-lista" style="margin-bottom:16px"></div>
+    <div class="actbar" id="vd-resumo" style="margin-bottom:16px"></div>
     <div class="field">
       <label>Cliente <span class="req">*</span></label>
       <input id="vd-cliente" list="vd-clientes" autocomplete="off"
@@ -6853,11 +6876,178 @@ async function abrirFecharVenda(){
       <button class="btn btn-gold" id="vdConfirm" onclick="confirmarVenda()">Registrar venda</button>
     </div>`;
 
+  pintarCarrinho();
   document.getElementById('vendaOverlay').classList.add('show');
   setTimeout(()=>document.getElementById('vd-cliente').focus(),80);
   vdClientes=[];
   document.getElementById('vd-cliente-eco').textContent='';
   buscarClienteVenda('');
+}
+
+/* =================== o preço de UMA peça nesta venda ===================
+
+   §27. A planilha dela sempre teve coluna Desconto, escrita à mão ("R$10 de
+   Desconto", "5% de desconto"), e o importador sempre soube ler. A venda de
+   balcão — a tela feita para SUBSTITUIR a planilha — não sabia: o servidor
+   descartava qualquer preço vindo daqui e gravava o do catálogo. Dar
+   desconto era possível no balcão e impossível no sistema, então a venda
+   entrava pelo preço cheio e o faturamento nascia acima do caixa.
+
+   Ela digita o preço FINAL, não o abatimento: é como ela fala ("vou fazer
+   por 65"). O desconto é derivado, então não existe o estado em que os dois
+   números se contradizem.
+
+   O MOTIVO é obrigatório quando o preço muda, e não é burocracia: preço
+   diferente sem motivo é indistinguível de erro de digitação, e sem ele o
+   dinheiro sai do faturamento sem deixar rastro de quanto, para quem, por
+   quê. A lista curta existe para a resposta de "quanto eu dei de desconto
+   para o Grupo VIP este mês" ser possível — texto livre puro faz cada
+   grafia virar um motivo diferente e nada agrupa. "Outro" continua aberto
+   porque a vida não cabe numa lista de cinco. */
+const VD_MOTIVOS=['Grupo VIP','Amiga','Promoção','Peça com marca','Combinado'];
+
+/** O preço que vale para esta linha agora: o editado, ou o de tabela. */
+function vdPreco(l){ return l.precoFinal==null?l.preco:l.precoFinal; }
+function vdMudou(l){ return l.precoFinal!=null&&l.precoFinal!==l.preco; }
+
+function pintarCarrinho(){
+  const linhas=(scan&&scan.vendaLinhas)||[];
+  const lista=document.getElementById('vd-lista');
+  if(!lista) return;
+  lista.innerHTML=linhas.map((l,i)=>{
+    const mudou=vdMudou(l);
+    const abate=mudou?+(l.preco-l.precoFinal).toFixed(2):0;
+    return `<div class="scanrow">
+      <div class="s-qtd">${l.q}</div>
+      <div class="s-desc">
+        <div class="d1">${esc(l.desc)}</div>
+        <div class="d2">${esc(l.sku)}</div>
+        ${mudou?`<div class="vd-eco ${abate<0?'acresc':''}">
+          <s>${money(l.preco)}</s> → <b>${money(l.precoFinal)}</b>
+          <span class="vd-tag">${esc(l.rotulo||'')}</span>
+          <span class="vd-abate">${abate>=0?'−':'+'}${money(Math.abs(abate))} por peça</span>
+        </div>`:''}
+        ${l.variacoes&&l.variacoes.length?Array.from({length:l.q},(_,n)=>`
+            <select class="vd-variante" data-sku="${esc(l.sku)}" aria-label="Variação da ${n+1}ª peça" style="margin-top:6px;width:100%">
+              <option value="">Escolha a variação da ${n+1}ª peça</option>
+              ${l.variacoes.map(v=>`<option value="${esc(v.varianteId)}">${esc(v.nome)} · saldo ${int(v.saldo)}</option>`).join('')}
+            </select>`).join(''):''}
+        ${l.editando?editorDePreco(l,i):''}
+      </div>
+      <div class="s-val">
+        ${mudou?`<s class="vd-antes">${money(l.preco*l.q)}</s>`:''}
+        <div>${money(vdPreco(l)*l.q)}</div>
+        <button class="vd-lapis" onclick="abrirPrecoDaPeca(${i})"
+                title="Mudar o preço desta peça nesta venda"
+                aria-label="Mudar o preço de ${esc(l.desc)} nesta venda">${svgIco(ICO.lapis,15)}</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  const total=linhas.reduce((s,l)=>s+l.q*vdPreco(l),0);
+  const cheio=linhas.reduce((s,l)=>s+l.q*l.preco,0);
+  const desconto=+(cheio-total).toFixed(2);
+  const resumo=document.getElementById('vd-resumo');
+  if(resumo) resumo.innerHTML=`
+    <div class="stat"><b>${linhas.reduce((s,l)=>s+l.q,0)}</b> peças</div>
+    <div class="spacer"></div>
+    ${desconto?`<div class="stat vd-descto">${desconto>0?'Desconto':'Acréscimo'}
+      <b>${money(Math.abs(desconto))}</b></div>`:''}
+    <div class="stat" style="font-size:15px">Total <b>${money(total)}</b></div>`;
+}
+
+/** O editor de uma linha. Mora DENTRO da linha, e não num modal por cima:
+ *  ela precisa ver a peça e o preço no mesmo lugar em que está mexendo. */
+function editorDePreco(l,i){
+  const naLista=VD_MOTIVOS.includes(l.rotulo||'');
+  const outro=!!l.rotulo&&!naLista;
+  return `<div class="vd-editor" onclick="event.stopPropagation()">
+    <div class="vd-linha">
+      <label for="vd-preco-${i}">Preço desta peça</label>
+      <input id="vd-preco-${i}" type="number" inputmode="decimal" step="0.01" min="0"
+             value="${vdPreco(l).toFixed(2)}"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();salvarPrecoDaPeca(${i});}">
+      <span class="vd-de">de ${money(l.preco)}</span>
+    </div>
+    <div class="vd-linha">
+      <label for="vd-motivo-${i}">Motivo</label>
+      <select id="vd-motivo-${i}" onchange="trocouMotivo(${i})">
+        <option value="">Escolha…</option>
+        ${VD_MOTIVOS.map(m=>`<option value="${esc(m)}"${l.rotulo===m?' selected':''}>${esc(m)}</option>`).join('')}
+        <option value="__outro"${outro?' selected':''}>Outro…</option>
+      </select>
+    </div>
+    <div class="vd-linha" id="vd-outro-${i}" ${outro?'':'hidden'}>
+      <label for="vd-motivo-livre-${i}">Qual</label>
+      <input id="vd-motivo-livre-${i}" maxlength="40" placeholder="Escreva o motivo"
+             value="${outro?esc(l.rotulo):''}"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();salvarPrecoDaPeca(${i});}">
+    </div>
+    <div class="vd-erro" id="vd-erro-${i}" hidden></div>
+    <div class="vd-acoes">
+      <button class="btn btn-ghost btn-mini" onclick="fecharPrecoDaPeca(${i})">Cancelar</button>
+      ${vdMudou(l)?`<button class="btn btn-ghost btn-mini" onclick="voltarAoDeTabela(${i})">Voltar ao de tabela</button>`:''}
+      <div class="spacer"></div>
+      <button class="btn btn-gold btn-mini" onclick="salvarPrecoDaPeca(${i})">Aplicar</button>
+    </div>
+  </div>`;
+}
+
+function abrirPrecoDaPeca(i){
+  const linhas=(scan&&scan.vendaLinhas)||[];
+  linhas.forEach((l,n)=>{ l.editando=n===i?!l.editando:false; });
+  pintarCarrinho();
+  const c=document.getElementById('vd-preco-'+i);
+  if(c){ c.focus(); c.select(); }
+}
+function fecharPrecoDaPeca(i){
+  const l=((scan&&scan.vendaLinhas)||[])[i];
+  if(!l) return;
+  l.editando=false;
+  pintarCarrinho();
+}
+function trocouMotivo(i){
+  const sel=document.getElementById('vd-motivo-'+i);
+  const bloco=document.getElementById('vd-outro-'+i);
+  if(!sel||!bloco) return;
+  bloco.hidden=sel.value!=='__outro';
+  if(!bloco.hidden){ const c=document.getElementById('vd-motivo-livre-'+i); if(c) c.focus(); }
+}
+function voltarAoDeTabela(i){
+  const l=((scan&&scan.vendaLinhas)||[])[i];
+  if(!l) return;
+  l.precoFinal=null; l.rotulo=null; l.editando=false;
+  pintarCarrinho();
+}
+
+function salvarPrecoDaPeca(i){
+  const l=((scan&&scan.vendaLinhas)||[])[i];
+  if(!l) return;
+  const erro=document.getElementById('vd-erro-'+i);
+  const dizer=m=>{ if(erro){ erro.textContent=m; erro.hidden=false; } };
+  const bruto=(document.getElementById('vd-preco-'+i)||{}).value;
+  const preco=Math.round(Number(String(bruto).replace(',','.'))*100)/100;
+  if(!Number.isFinite(preco)||preco<0) return dizer('Preço inválido.');
+
+  const sel=(document.getElementById('vd-motivo-'+i)||{}).value||'';
+  const livre=((document.getElementById('vd-motivo-livre-'+i)||{}).value||'').trim();
+  const rotulo=sel==='__outro'?livre:sel;
+
+  if(preco===l.preco){ l.precoFinal=null; l.rotulo=null; l.editando=false; return pintarCarrinho(); }
+  /* A MESMA regra do servidor, dita antes de a venda sair daqui — ela
+     descobre o que falta com a peça na mão, não depois de um 409. */
+  if(!rotulo) return dizer('Diga o motivo do preço diferente do de tabela.');
+
+  l.precoFinal=preco; l.rotulo=rotulo; l.editando=false;
+  pintarCarrinho();
+}
+
+/** §27: o preço só viaja quando ela mexeu nele. Mandar sempre faria toda
+ *  venda carregar um preço vindo do navegador — e o servidor passaria a
+ *  confiar na tela para dizer quanto custa a peça, que é exatamente o que
+ *  ele não deve fazer. Sem edição, o catálogo continua sendo a única fonte. */
+function vdPrecoNoEnvio(l){
+  return vdMudou(l)?{preco:l.precoFinal,descontoRotulo:l.rotulo}:{};
 }
 
 /* =================== quem levou as peças ===================
@@ -6953,8 +7143,8 @@ async function confirmarVenda(){
       if(selects.some(s=>!s.value)){ toast(`Escolha a variação de ${l.desc}`); btn.disabled=false; return; }
       const porId=new Map();
       selects.forEach(s=>porId.set(s.value,(porId.get(s.value)||0)+1));
-      porId.forEach((qtd,varianteId)=>itens.push({sku:l.sku,qtd,varianteId}));
-    }else itens.push({sku:l.sku,qtd:l.q});
+      porId.forEach((qtd,varianteId)=>itens.push({sku:l.sku,qtd,varianteId,...vdPrecoNoEnvio(l)}));
+    }else itens.push({sku:l.sku,qtd:l.q,...vdPrecoNoEnvio(l)});
   }
   try{
     /* Com o cadastro identificado, a venda vai AMARRADA a ele (`clienteId`),
@@ -7080,6 +7270,12 @@ function renderVendas(){
                 ${(!x.cancelada&&x.origem!=='site'&&['nao_enviada','erro','pendente','cancelamento_pendente'].includes(x.nuvemshopStatus))?'<span class="badge vencida" style="margin-left:6px">sincronização automática pendente</span>':''}
                 ${x.nuvemshopStatus==='revisao'?'<span class="badge vencida" style="margin-left:6px">revisar variação</span>':''}</div>
               <div class="d2">${x.itens.map(i=>`${i.qtd}× ${esc(i.desc)}${i.variacao?' · '+esc(i.variacao):''}`).join(' · ')}</div>
+              ${/* §27: o desconto não some depois de registrado. Ela precisa
+                    poder conferir hoje à noite o que fez de manhã. */
+                x.itens.filter(i=>i.descontoRotulo).map(i=>`
+                <div class="d2 vd-eco"><s>${money(i.precoTabela)}</s> → <b>${money(i.preco)}</b>
+                  <span class="vd-tag">${esc(i.descontoRotulo)}</span>
+                  <span class="vd-abate">${esc(i.desc)}</span></div>`).join('')}
               ${x.nuvemshopErro?`<div class="d2" style="color:var(--red)">${esc(x.nuvemshopErro)}</div>`:''}
             </div>
             <div class="i-num"><b>${money(x.total)}</b></div>

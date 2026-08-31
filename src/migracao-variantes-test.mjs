@@ -67,6 +67,9 @@ const MIGRACOES = [
   /* Aditiva e independente das anteriores: só acrescenta CPF à ficha da
      cliente, que já existe desde o schema original. */
   'api/migracao-cliente-cpf.sql',
+  /* Também aditiva e independente: `venda_itens` existe desde o schema
+     original, e as três colunas só descrevem o preço que já era gravado. */
+  'api/migracao-venda-desconto.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com

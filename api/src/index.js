@@ -733,6 +733,17 @@ async function rotear(request, env) {
           migracao: 'cliente-cpf',
         }, 503);
       }
+      /* Idem para o desconto por peça (§27). Sem a migração, VENDER quebra —
+         é o caminho mais crítico do painel — então a mensagem tem de dizer o
+         que rodar, e não devolver um erro de SQL para quem está no balcão. */
+      if (/no such column/i.test(msg) && /\b(preco_tabela|desconto_valor|desconto_rotulo)\b/i.test(msg)) {
+        return json({
+          erro: 'O desconto por peça precisa de uma migração que este banco ainda não recebeu.',
+          detalhe: 'Rode api/migracao-venda-desconto.sql no D1 — o passo está no api/DEPLOY.md. '
+                 + 'Até lá, venda sem alterar preço continua funcionando.',
+          migracao: 'venda-desconto',
+        }, 503);
+      }
       if (/no such (table|column)/i.test(msg) && /foto|produtos_pendentes|fotos_orfas/i.test(msg)) {
         /* TRÊS migrações mexem em foto, e mandar rodar a errada faz a pessoa
            perder a tarde. O que faltou é quem decide, e a ordem do teste
@@ -1397,10 +1408,43 @@ async function registrarVenda(db, env, { clienteId, clienteNome, itens }) {
         return json({ erro: `${s.desc} · ${v.variacao || v.varianteId}: saldo da variação é ${saldo.saldo}. Reparta em Pendências antes de vender.`, sku }, 409);
       }
     }
-    linhas.push({ sku, qtd, preco: s.preco, desc: s.desc, componentes: s.componentes || null,
+    /* ─── §27: o preço DESTA venda, que pode não ser o do catálogo
+     *
+     * `s.preco` é o cadastro e continua intocado: desconto é desta venda, não
+     * reprecificação. Editar o catálogo a partir daqui mudaria, em silêncio,
+     * o preço de toda venda futura da peça.
+     *
+     * A tela manda o preço FINAL ("vou fazer por 65"), não o abatimento — é
+     * como ela fala no balcão. O desconto é derivado, não digitado, então não
+     * existe o estado em que os dois números se contradizem. */
+    const precoTabela = s.preco;
+    let preco = precoTabela;
+    let rotulo = null;
+    if (entrada.preco !== undefined && entrada.preco !== null && entrada.preco !== '') {
+      const bruto = Number(entrada.preco);
+      if (!Number.isFinite(bruto) || bruto < 0) {
+        return json({ erro: `${s.desc}: preço inválido.`, sku }, 400);
+      }
+      preco = Math.round(bruto * 100) / 100;
+      rotulo = String(entrada.descontoRotulo ?? '').trim() || null;
+      /* Preço diferente do catálogo SEM motivo é indistinguível de erro de
+       * digitação. Exigir o motivo é o que separa "fiz por 65 para o Grupo
+       * VIP" de "digitei 65 sem querer", e é o que transforma o desconto em
+       * informação — sem ele, o dinheiro some do faturamento sem explicação
+       * e ninguém consegue perguntar quanto foi dado, para quem, por quê. */
+      if (preco !== precoTabela && !rotulo) {
+        return json({
+          erro: `${s.desc}: diga o motivo do preço diferente do de tabela.`, sku,
+        }, 409);
+      }
+    }
+    linhas.push({ sku, qtd, preco, precoTabela, rotulo,
+      desc: s.desc, componentes: s.componentes || null,
       varianteId: v.varianteId, variacao: v.variacao });
   }
 
+  /* O total sempre foi a soma de `preco * qtd`. Continua sendo — o que mudou
+     é de onde `preco` vem. Nenhuma fórmula de analytics precisou mudar. */
   const total = linhas.reduce((s, l) => s + l.preco * l.qtd, 0);
   const data = hoje();
 
@@ -1461,9 +1505,17 @@ async function registrarVenda(db, env, { clienteId, clienteNome, itens }) {
   const stmts = [];
   for (const l of linhas) {
     stmts.push(db.prepare(
-      `INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, motivo, variacao, variante_id)
-       VALUES (?, ?, ?, ?, ?, 'venda', ?, ?)`
-    ).bind(venda.id, l.sku, l.desc, l.qtd, l.preco, l.variacao, l.varianteId));
+      `INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, motivo, variacao, variante_id,
+                                preco_tabela, desconto_valor, desconto_rotulo)
+       VALUES (?, ?, ?, ?, ?, 'venda', ?, ?, ?, ?, ?)`
+    ).bind(venda.id, l.sku, l.desc, l.qtd, l.preco, l.variacao, l.varianteId,
+      /* `preco_tabela` é gravado SEMPRE, com ou sem desconto: sem ele, um
+         reajuste de catálogo no mês que vem faria o desconto de hoje parecer
+         outro número. `desconto_valor` fica NULL quando não houve alteração —
+         zero diria "houve desconto, de zero", que é outra coisa. */
+      l.precoTabela,
+      l.preco === l.precoTabela ? null : Math.round((l.precoTabela - l.preco) * 100) / 100,
+      l.rotulo));
     // Kit: a baixa vai nos componentes, não no kit — ele não tem saldo
     // próprio. O recibo (venda_itens acima) continua mostrando o kit
     // inteiro, porque é assim que ela pensa na venda.
@@ -1612,6 +1664,12 @@ async function listarVendas(db, data) {
     porVenda.get(it.venda_id).push({
       sku: it.sku, desc: it.desc, qtd: it.qtd, preco: it.preco, motivo: it.motivo,
       variacao: it.variacao, varianteId: it.variante_id,
+      /* §27: o desconto viaja com a venda. Sem isto, quem abre a venda de
+         ontem vê R$ 65,00 e não tem como saber que a peça é de R$ 89,00 nem
+         por que saiu mais barata. */
+      precoTabela: it.preco_tabela ?? null,
+      descontoValor: it.desconto_valor ?? null,
+      descontoRotulo: it.desconto_rotulo ?? null,
     });
   }
   return vendas.map(v => ({

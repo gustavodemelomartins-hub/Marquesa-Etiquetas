@@ -136,6 +136,31 @@ nenhum erro na tela (REGRAS § 25).
 7. o estoque não é tocado em nenhum momento — a razão contábil antes e
    depois é byte a byte a mesma.
 
+### `src/venda-desconto-test.mjs` — desconto por peça na venda de balcão
+**21 asserções · ~10 s · precisa do Worker local**
+
+O defeito que ele impede: `registrarVenda` descartava qualquer preço vindo
+da tela e gravava o do catálogo. Dar desconto era possível no balcão e
+impossível no sistema — a venda entrava pelo preço cheio e o faturamento
+nascia acima do que entrou no caixa, sem erro na tela (REGRAS § 27).
+
+1. **sem mexer no preço, nada muda** — o catálogo continua sendo a única
+   fonte, e a venda de sempre continua igual;
+2. com preço editado, o **total é o cobrado**, não o de tabela;
+3. `preco_tabela` é gravado **sempre**, com ou sem desconto: sem ele, um
+   reajuste de catálogo faz o desconto de ontem parecer outro número;
+4. preço diferente do de tabela **sem motivo é recusado** (409) — é
+   indistinguível de erro de digitação;
+5. preço negativo é recusado; **zero com motivo é aceito** — brinde existe;
+6. o preço do **catálogo não muda** — desconto é desta venda, não
+   reprecificação da peça;
+7. o **estoque baixa igual**, com e sem desconto: desconto é dinheiro, não
+   peça, e a razão contábil continua fechando.
+
+O lápis na tela — do clique até o banco, incluindo a recusa sem motivo
+acontecer no navegador antes de ir ao servidor — é provado em `src/e2e.mjs`,
+no fluxo de venda de verdade.
+
 ### `src/categoria-nome-test.mjs` — categoria não é material
 **33 asserções · <1 s · teste PURO**
 
@@ -766,6 +791,7 @@ node src/categoria-nome-test.mjs      # categoria não é material (puro)
 node src/vendas-historico-test.mjs   # histórico entra sem mover estoque
 node src/revendedora-nao-e-cliente-test.mjs  # revendedora sai do CRM (puro)
 node src/trocar-planilha-test.mjs    # trocar a planilha não soma duas versões
+node src/venda-desconto-test.mjs     # desconto por peça na venda de balcão
 
 # navegador (precisa de `python -m http.server 8000` na raiz)
 PW_CHROMIUM=/caminho/do/chrome node src/vendas-clientes-ui-test.mjs
