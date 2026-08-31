@@ -274,6 +274,13 @@ eq('a linha mostra o motivo, antes de confirmar',
 eq('e o resumo anuncia o desconto',
   /Desconto/.test(await page.textContent('#vd-resumo')), 'true');
 
+/* §28: o campo de data. `max` é hoje — venda futura é erro de digitação, e
+   a tela nem oferece. */
+eq('a venda vem datada de hoje por padrão',
+  await page.locator('#vd-data').inputValue(), new Date().toISOString().slice(0, 10));
+eq('e não deixa escolher dia futuro',
+  await page.locator('#vd-data').getAttribute('max'), new Date().toISOString().slice(0, 10));
+
 await page.fill('#vd-cliente', 'Cliente Teste');
 await page.waitForTimeout(700);
 eq('o campo avisa que é cadastro novo',
@@ -331,9 +338,44 @@ eq('e o campo diz que a venda vai para a ficha dela',
   /Vai para a ficha de/i.test(await page.textContent('#vd-cliente-eco')), 'true');
 eq('mesmo escrito sem maiúscula — acento e caixa não separam pessoas',
   await page.evaluate(() => !!clienteEscolhidaNaVenda('cliente teste')), 'true');
-await page.evaluate(() => closeVenda());
-await page.waitForTimeout(300);
-await page.evaluate(() => { document.getElementById('scanOverlay').classList.remove('show'); });
+
+/* §28: a venda do sábado, lançada na segunda.
+ *
+ * A lista de vendas é filtrada por DIA. Registrar a venda de ontem e cair
+ * na lista de hoje faria a venda parecer não ter entrado — e é exatamente
+ * ali que ela iria procurar o botão de cancelar se tivesse errado. */
+const ontem = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+await page.fill('#vd-data', ontem);
+await page.evaluate(() => ecoDataVenda());
+await page.waitForTimeout(200);
+eq('a tela avisa, por extenso, que não é hoje',
+  /não é hoje/i.test(await page.textContent('#vd-data-eco')), 'true');
+await page.click('#vdConfirm');
+await page.waitForTimeout(2000);
+
+eq('a lista de vendas foi para o DIA da venda, não ficou em hoje',
+  await page.evaluate(() => vendasData), ontem);
+const deOntem = await fetch(URL_API + '/api/vendas?data=' + ontem, {
+  headers: { Authorization: 'Bearer ' + KEY },
+}).then(r => r.json());
+eq('e a venda está lá, com a data de ontem', deOntem.length, 1);
+eq('o movimento diz de que dia é a venda', await fetch(
+  URL_API + '/api/estoque/900001/movimentos', { headers: { Authorization: 'Bearer ' + KEY } })
+  .then(r => r.json())
+  .then(h => (h.movimentos || []).some(m => (m.obs || '').includes(`venda de ${ontem}`))), 'true');
+
+/* e a venda lançada por engano se cancela, com as peças voltando */
+const antesDoCancelamento = await totalNaTela();
+await page.evaluate((id) => cancelarVenda(id), deOntem[0].id);
+await page.waitForTimeout(1800);
+await page.evaluate(() => sincronizar());
+await page.waitForTimeout(1200);
+eq('cancelar devolve a peça ao estoque',
+  Number((await totalNaTela()).replace(/\D/g, '')),
+  Number(antesDoCancelamento.replace(/\D/g, '')) + 1);
+
+await page.evaluate(() => { const o = document.getElementById('scanOverlay');
+  if (o) o.classList.remove('show'); });
 await page.waitForTimeout(300);
 
 console.log('\n=== inventário ===');

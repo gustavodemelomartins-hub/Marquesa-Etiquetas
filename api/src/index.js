@@ -1355,10 +1355,32 @@ async function varianteDaVenda(db, sku, varianteId) {
   return { varianteId: null, variacao: null };
 }
 
-async function registrarVenda(db, env, { clienteId, clienteNome, itens }) {
+async function registrarVenda(db, env, { clienteId, clienteNome, itens, data: dataPedida }) {
   const entradas = (itens || []).filter(i => i.qtd > 0);
   if (!entradas.length) return json({ erro: 'Nenhum item na venda' }, 400);
   if (!clienteNome || !clienteNome.trim()) return json({ erro: 'Nome da cliente é obrigatório' }, 400);
+
+  /* ─── §28: a venda pode ser de ontem
+   *
+   * `data` era `hoje()`, sem alternativa. Quem vendeu no sábado e só foi
+   * lançar na segunda não tinha caminho nenhum: a venda entrava com a data
+   * errada ou não entrava. O painel de vendas é filtrado por dia, então ela
+   * também não reaparecia onde a pessoa foi procurar.
+   *
+   * Data FUTURA é recusada: venda que ainda não aconteceu é erro de
+   * digitação, e aceitá-la contaminaria o faturamento do mês que vem.
+   * Passado é livre — é justamente o caso de uso.
+   *
+   * `movimentos.criado_em` continua sendo AGORA, e isso é o correto: a
+   * venda aconteceu no sábado, o sistema soube na segunda. As duas datas
+   * são verdadeiras e dizem coisas diferentes. */
+  const data = dataPedida ? String(dataPedida).trim() : hoje();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    return json({ erro: 'Data da venda inválida. Use o formato AAAA-MM-DD.' }, 400);
+  }
+  if (data > hoje()) {
+    return json({ erro: `${data} ainda não chegou. A venda não pode ser de uma data futura.` }, 400);
+  }
 
   const linhas = [];
   // Quanto de cada SKU-base este carrinho já reservou até aqui. Existe por
@@ -1446,7 +1468,6 @@ async function registrarVenda(db, env, { clienteId, clienteNome, itens }) {
   /* O total sempre foi a soma de `preco * qtd`. Continua sendo — o que mudou
      é de onde `preco` vem. Nenhuma fórmula de analytics precisou mudar. */
   const total = linhas.reduce((s, l) => s + l.preco * l.qtd, 0);
-  const data = hoje();
 
   /* ─── a ficha de quem levou as peças
    *
@@ -1519,15 +1540,20 @@ async function registrarVenda(db, env, { clienteId, clienteNome, itens }) {
     // Kit: a baixa vai nos componentes, não no kit — ele não tem saldo
     // próprio. O recibo (venda_itens acima) continua mostrando o kit
     // inteiro, porque é assim que ela pensa na venda.
+    /* Venda de outro dia diz isso no movimento. `criado_em` guarda quando o
+       lançamento aconteceu; quem lê a movimentação da peça precisa saber que
+       a saída é de sábado, e não do dia em que a linha foi digitada. */
+    const obsMov = `Venda ${venda.id} · ${clienteNome.trim()}`
+      + (data === hoje() ? '' : ` · venda de ${data}`);
     if (l.componentes) {
       stmts.push(...await movimentarKit(db, {
         kitSku: l.sku, tipo: 'venda', quantidade: l.qtd, origem: 'venda',
-        vendaId: venda.id, obs: `Venda ${venda.id} · ${clienteNome.trim()}`,
+        vendaId: venda.id, obs: obsMov,
       }));
     } else {
       stmts.push(...movimentar(db, {
         sku: l.sku, tipo: 'venda', quantidade: l.qtd, origem: 'venda',
-        vendaId: venda.id, obs: `Venda ${venda.id} · ${clienteNome.trim()}`,
+        vendaId: venda.id, obs: obsMov,
         variacao: l.variacao, varianteId: l.varianteId,
       }));
     }

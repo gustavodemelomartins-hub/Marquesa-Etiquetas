@@ -690,6 +690,8 @@ body{font-variant-numeric:lining-nums tabular-nums}
 .vd-acoes{display:flex;align-items:center;gap:6px;margin-top:8px}
 .btn-mini{padding:5px 10px;font-size:11.5px}
 .vd-descto{color:var(--muted)}
+/* §28: a data que não é hoje precisa ser vista, não descoberta depois */
+#vd-data-eco.aviso{color:var(--gold-deep,#8A6A1F);font-weight:600}
 .vd-descto b{color:var(--ink)}
 /* no inventário a linha mostra a comparação, não o dinheiro */
 .scanrow .s-cmp{font-size:11.5px;font-weight:700;white-space:nowrap;color:var(--muted)}
@@ -7316,6 +7318,16 @@ async function abrirFecharVenda(){
       <datalist id="vd-clientes"></datalist>
       <div class="hint" id="vd-cliente-eco" style="margin-top:6px"></div>
     </div>
+    <!-- §28: quem vendeu no sábado e lança na segunda precisa dizer sábado.
+         O atributo max é hoje: venda futura é erro de digitação, e o
+         servidor recusa de novo — a trava da tela é conveniência, não a
+         garantia. (Sem crase aqui: isto está dentro de um template literal
+         e uma crase fecharia a string.) -->
+    <div class="field">
+      <label for="vd-data">Data da venda</label>
+      <input id="vd-data" type="date" max="${hoje()}" value="${hoje()}" onchange="ecoDataVenda()">
+      <div class="hint" id="vd-data-eco" style="margin-top:6px"></div>
+    </div>
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeVenda()">Voltar</button>
       <div class="spacer"></div>
@@ -7488,6 +7500,29 @@ function salvarPrecoDaPeca(i){
   pintarCarrinho();
 }
 
+/** §28: a data escolhida, dita por extenso e em voz alta.
+ *
+ *  Um campo de data em branco no meio de um formulário é o tipo de coisa
+ *  que se preenche errado sem perceber — e uma venda no dia errado desloca
+ *  faturamento de um mês para outro. Quando NÃO é hoje, a tela diz o dia da
+ *  semana por extenso, que é como ela pensa ("a venda do sábado"). */
+function ecoDataVenda(){
+  const c=document.getElementById('vd-data');
+  const eco=document.getElementById('vd-data-eco');
+  if(!c||!eco) return;
+  const d=c.value;
+  if(!d||d===hoje()){ eco.textContent=''; eco.classList.remove('aviso'); return; }
+  if(d>hoje()){
+    eco.textContent='Essa data ainda não chegou — a venda não pode ser de um dia futuro.';
+    eco.classList.add('aviso');
+    return;
+  }
+  const [a,m,dia]=d.split('-').map(Number);
+  const semana=['domingo','segunda','terça','quarta','quinta','sexta','sábado'][new Date(a,m-1,dia).getDay()];
+  eco.textContent=`Venda de ${semana}, ${fmtData(d)} — não é hoje.`;
+  eco.classList.add('aviso');
+}
+
 /** §27: o preço só viaja quando ela mexeu nele. Mandar sempre faria toda
  *  venda carregar um preço vindo do navegador — e o servidor passaria a
  *  confiar na tela para dizer quanto custa a peça, que é exatamente o que
@@ -7597,16 +7632,23 @@ async function confirmarVenda(){
        e não só pelo nome. É o que faz a venda de hoje aparecer na ficha da
        cliente de sempre em vez de abrir uma segunda com o mesmo nome. */
     const escolhida=clienteEscolhidaNaVenda(nome);
+    const dataVenda=(document.getElementById('vd-data')||{}).value||hoje();
     const r=await api('POST','/api/vendas',
-      {clienteNome:nome, clienteId:escolhida?escolhida.id:undefined, itens});
+      {clienteNome:nome, clienteId:escolhida?escolhida.id:undefined, itens, data:dataVenda});
     document.getElementById('vendaOverlay').classList.remove('show');
     document.getElementById('scanOverlay').classList.remove('show');
     scan=null;
     await sincronizar();
     switchTab('vendas');
-    toast(r.nuvemshop&&r.nuvemshop.status==='sincronizada'
+    /* §28: a lista de vendas é filtrada por DIA. Registrar a venda de sábado
+       e cair na lista de hoje faria a venda parecer não ter entrado — e é
+       exatamente aí que ela iria procurar o botão de cancelar se tivesse
+       errado. A tela vai para o dia da venda. */
+    if(dataVenda!==vendasData){ vendasData=dataVenda; await carregarVendas(vendasData); renderVendas(); }
+    toast((r.nuvemshop&&r.nuvemshop.status==='sincronizada'
       ?`Venda registrada e baixada na Nuvemshop · ${money(r.total)}`
-      :`Venda registrada · Nuvemshop pendente: ${r.nuvemshop?.erro||'tente novamente na lista'}`);
+      :`Venda registrada · Nuvemshop pendente: ${r.nuvemshop?.erro||'tente novamente na lista'}`)
+      +(dataVenda===hoje()?'':` · lançada em ${fmtData(dataVenda)}`));
   }catch(e){
     btn.disabled=false;
     toast(e.message);

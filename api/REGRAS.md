@@ -1146,3 +1146,42 @@ como está.
 Migration: `api/migracao-venda-desconto.sql`. Provado em
 `src/venda-desconto-test.mjs` (a regra) e em `src/e2e.mjs` (o lápis na tela,
 do clique até o banco).
+
+### 28. A venda pode ser de ontem — nunca de amanhã
+
+`registrarVenda` fazia `const data = hoje()`, sem alternativa. Quem vendeu no
+sábado e só foi lançar na segunda não tinha caminho nenhum: a venda entrava
+com a data errada ou não entrava. E, como a lista de vendas é filtrada por
+dia, ela também não reaparecia onde a pessoa foi procurar.
+
+**A data agora vem no pedido**, com duas travas:
+
+| | |
+|---|---|
+| ausente | vale hoje, como sempre valeu |
+| formato ≠ `AAAA-MM-DD` | 400 |
+| **futura** | 400 — venda que ainda não aconteceu é erro de digitação, e aceitá-la contaminaria o faturamento do mês que vem |
+| passada | livre. É o caso de uso |
+
+A tela põe `max` no campo e diz por extenso quando não é hoje ("Venda de
+sábado, 30/08/2026 — não é hoje"). A trava da tela é conveniência; a
+garantia é o servidor.
+
+**`movimentos.criado_em` continua sendo AGORA, e isso é o correto.** A venda
+aconteceu no sábado; o sistema soube na segunda. As duas datas são
+verdadeiras e dizem coisas diferentes — quem audita a peça precisa das duas.
+O movimento carrega `· venda de AAAA-MM-DD` na observação quando as duas não
+coincidem.
+
+**Depois de registrar, a tela vai para o dia da venda.** Registrar a venda de
+sábado e cair na lista de hoje faz a venda parecer não ter entrado — e é
+exatamente ali que ela procuraria o botão de cancelar se tivesse errado.
+
+**Cancelar já existia e continua igual** (§28 de sempre: cancela, não apaga).
+As peças voltam por um movimento de `cancelamento`, a venda fica marcada e o
+histórico não se perde. Cancelar duas vezes devolve 409 — a peça não volta
+duas vezes.
+
+Provado em `src/venda-desconto-test.mjs` (a regra, incluindo o cancelamento
+idempotente) e em `src/e2e.mjs` (a venda de ontem pela tela, a lista indo
+para o dia certo, e o cancelamento devolvendo a peça).

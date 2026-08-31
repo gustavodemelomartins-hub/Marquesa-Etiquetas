@@ -126,12 +126,70 @@ console.log('\n=== 4. preço inválido é recusado ===');
   eq('e o total é zero', z.corpo?.total, 0);
 }
 
-console.log('\n=== 5. o catálogo não foi reprecificado ===');
+console.log('\n=== 5. a venda pode ser de um dia anterior ===');
+/* §28: `data` era `hoje()` sem alternativa. Quem vendeu no sábado e lançou
+   na segunda não tinha caminho: a venda entrava com a data errada ou não
+   entrava. */
+{
+  const ontem = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const r = await api('POST', '/api/vendas',
+    { clienteNome: 'Cliente de Sábado', data: ontem, itens: [{ sku: SKU, qtd: 1 }] });
+  eq('venda de ontem é aceita', r.status, 201);
+  const doDia = await api('GET', '/api/vendas?data=' + ontem);
+  eq('e aparece na lista DAQUELE dia',
+    (doDia.corpo ?? []).some((v) => v.id === r.corpo?.id), 'true');
+  const hojeLista = await api('GET', '/api/vendas');
+  eq('e não na de hoje', (hojeLista.corpo ?? []).some((v) => v.id === r.corpo?.id), 'false');
+
+  /* o movimento diz de que dia é a venda — `criado_em` é quando foi
+     digitada, e as duas informações são diferentes e verdadeiras */
+  const mov = await api('GET', '/api/estoque/' + SKU + '/movimentos');
+  const dele = (mov.corpo?.movimentos ?? []).find((m) => /venda de /i.test(m.obs || ''));
+  eq('o movimento registra a data da venda', /venda de /i.test(dele?.obs || ''), 'true');
+}
+
+console.log('\n=== 5b. data futura é recusada ===');
+{
+  const amanha = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const r = await api('POST', '/api/vendas',
+    { clienteNome: 'Cliente do Futuro', data: amanha, itens: [{ sku: SKU, qtd: 1 }] });
+  eq('recusou', r.status, 400);
+  eq('e disse por quê', /ainda não chegou/i.test(r.corpo?.erro || ''), 'true');
+
+  const torto = await api('POST', '/api/vendas',
+    { clienteNome: 'Data Torta', data: '31/08/2026', itens: [{ sku: SKU, qtd: 1 }] });
+  eq('data em formato errado também é recusada', torto.status, 400);
+}
+
+console.log('\n=== 5c. venda lançada por engano se cancela, e a peça volta ===');
+{
+  const antes = await saldo();
+  const v = await api('POST', '/api/vendas',
+    { clienteNome: 'Engano', itens: [{ sku: SKU, qtd: 3 }] });
+  eq('registrou', v.status, 201);
+  eq('estoque baixou 3', await saldo(), antes - 3);
+
+  const c = await api('POST', `/api/vendas/${v.corpo.id}/cancelar`);
+  eq('cancelou', c.status, 200);
+  eq('as peças voltaram', await saldo(), antes);
+
+  /* §28: cancela, não apaga — o histórico não se perde */
+  const lista = await api('GET', '/api/vendas');
+  const ela = (lista.corpo ?? []).find((x) => x.id === v.corpo.id);
+  eq('a venda continua no histórico', !!ela, 'true');
+  eq('marcada como cancelada', ela?.cancelada, 'true');
+
+  const denovo = await api('POST', `/api/vendas/${v.corpo.id}/cancelar`);
+  eq('cancelar duas vezes não devolve peça duas vezes', denovo.status, 409);
+  eq('o estoque continua o mesmo', await saldo(), antes);
+}
+
+console.log('\n=== 6. o catálogo não foi reprecificado ===');
 {
   eq('a peça continua custando o que custava', await precoDoCatalogo(), PRECO);
 }
 
-console.log('\n=== 6. a razão contábil fecha ===');
+console.log('\n=== 7. a razão contábil fecha ===');
 {
   const c = await api('GET', '/api/estoque/conferir');
   eq('sem divergência', JSON.stringify(c.corpo?.divergentes ?? []), '[]');

@@ -136,8 +136,8 @@ nenhum erro na tela (REGRAS § 25).
 7. o estoque não é tocado em nenhum momento — a razão contábil antes e
    depois é byte a byte a mesma.
 
-### `src/venda-desconto-test.mjs` — desconto por peça na venda de balcão
-**21 asserções · ~10 s · precisa do Worker local**
+### `src/venda-desconto-test.mjs` — desconto, data e cancelamento da venda
+**36 asserções · ~15 s · precisa do Worker local**
 
 O defeito que ele impede: `registrarVenda` descartava qualquer preço vindo
 da tela e gravava o do catálogo. Dar desconto era possível no balcão e
@@ -157,9 +157,20 @@ nascia acima do que entrou no caixa, sem erro na tela (REGRAS § 27).
 7. o **estoque baixa igual**, com e sem desconto: desconto é dinheiro, não
    peça, e a razão contábil continua fechando.
 
+E mais três, sobre a venda em si (REGRAS § 28):
+
+8. **venda de ontem é aceita** e aparece na lista DAQUELE dia, não na de
+   hoje — quem vendeu no sábado e lança na segunda tinha de escolher entre
+   data errada e não lançar;
+9. **data futura é recusada** (400), e formato torto também — venda que não
+   aconteceu contaminaria o faturamento do mês que vem;
+10. **cancelar devolve a peça** e mantém a venda no histórico marcada como
+    cancelada; cancelar de novo é 409, e a peça não volta duas vezes.
+
 O lápis na tela — do clique até o banco, incluindo a recusa sem motivo
-acontecer no navegador antes de ir ao servidor — é provado em `src/e2e.mjs`,
-no fluxo de venda de verdade.
+acontecer no navegador antes de ir ao servidor —, a venda de ontem pela
+tela, a lista indo para o dia certo e o cancelamento devolvendo a peça são
+provados em `src/e2e.mjs`, no fluxo de venda de verdade.
 
 ### `src/categoria-nome-test.mjs` — categoria não é material
 **33 asserções · <1 s · teste PURO**
