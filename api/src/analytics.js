@@ -312,37 +312,110 @@ export async function produtosMaisVendidos(db, { periodo = 'tudo', limite = 20, 
      )
      SELECT j.chave                        AS sku,
             MAX(j.nome_hist)               AS nome_historico,
-            p.desc                         AS nome_atual,
-            p.cat                          AS categoria,
-            p.foto_original_key, p.foto_tratada_key, p.foto_url,
             SUM(j.qtd)                     AS pecas,
             ROUND(SUM(j.valor), 2)         AS faturamento
        FROM juntos j
-       LEFT JOIN produtos p ON UPPER(p.sku) = j.chave
       GROUP BY j.chave
       ORDER BY ${ordem} DESC
       LIMIT ?`,
   ).bind(...h.binds, ...v.binds, limite).all();
 
+  /* A ficha de catálogo só das peças que sobreviveram ao `LIMIT` — no
+     máximo `limite` códigos. Era um `LEFT JOIN produtos ON UPPER(p.sku) =
+     j.chave` aqui dentro, e `UPPER()` na coluna impede o SQLite de usar a
+     PRIMARY KEY: ele varria `produtos` inteira uma vez POR LINHA do outro
+     lado da união. Ver `fichasDoCatalogo`. */
+  const fichas = await fichasDoCatalogo(db, (results ?? []).map((r) => r.sku));
+
   const total = (results ?? []).reduce((s, r) => s + Number(r.faturamento), 0);
   return {
     periodo: faixa,
     por,
-    produtos: (results ?? []).map((r) => ({
-      sku: r.sku,
-      nomeHistorico: r.nome_historico,
-      nomeAtual: r.nome_atual,
-      renomeado: !!(r.nome_atual && r.nome_historico && r.nome_atual !== r.nome_historico),
-      noCatalogo: !!r.nome_atual,
-      categoria: categoriaDoItem({ catCatalogo: r.categoria, nomeHistorico: r.nome_historico }),
-      /* a tela pede a foto por `/api/fotos/<sku>`; aqui só se diz se existe */
-      temFoto: !!(r.foto_tratada_key || r.foto_original_key || r.foto_url),
-      fotoUrl: r.foto_url ?? null,
-      pecas: Number(r.pecas),
-      faturamento: Number(r.faturamento),
-      participacao: total > 0 ? +(Number(r.faturamento) / total * 100).toFixed(1) : 0,
-    })),
+    produtos: (results ?? []).map((r) => {
+      /* a mesma ficha que o LEFT JOIN trazia, agora do Map; ausente = a peça
+         saiu do catálogo, e era exatamente isso que o LEFT JOIN devolvia */
+      const p = fichas.get(r.sku) ?? null;
+      return {
+        sku: r.sku,
+        nomeHistorico: r.nome_historico,
+        nomeAtual: p?.desc ?? null,
+        renomeado: !!(p?.desc && r.nome_historico && p.desc !== r.nome_historico),
+        noCatalogo: !!p?.desc,
+        categoria: categoriaDoItem({ catCatalogo: p?.cat ?? null, nomeHistorico: r.nome_historico }),
+        /* a tela pede a foto por `/api/fotos/<sku>`; aqui só se diz se existe */
+        temFoto: !!(p?.foto_tratada_key || p?.foto_original_key || p?.foto_url),
+        fotoUrl: p?.foto_url ?? null,
+        pecas: Number(r.pecas),
+        faturamento: Number(r.faturamento),
+        participacao: total > 0 ? +(Number(r.faturamento) / total * 100).toFixed(1) : 0,
+      };
+    }),
   };
+}
+
+/** O catálogo em memória, para resolver categoria SEM JOIN.
+ *
+ *  `UPPER(p.sku) = h.sku_base` é função sobre a coluna, e função sobre
+ *  coluna desliga o índice: `produtos.sku` é PRIMARY KEY, mas `UPPER()`
+ *  obriga o SQLite a varrer a tabela inteira uma vez POR LINHA do outro lado
+ *  do JOIN. Com 1.342 linhas de histórico e 772 produtos, uma consulta que
+ *  DEVOLVE 1.342 linhas LIA 1.037.366 — 490x mais. O plano de execução dizia
+ *  `SCAN p LEFT-JOIN`.
+ *
+ *  O limite de leitura do D1 é diário e é da CONTA, não do banco: dois
+ *  cliques na aba Vendas consumiam os 5 milhões do plano gratuito e
+ *  derrubavam DEV e produção ao mesmo tempo. Como só as rotas que leem o
+ *  banco morrem, `/api/health` continuava respondendo 200 e o Worker
+ *  parecia saudável no `wrangler tail`.
+ *
+ *  772 linhas cabem na memória do Worker — este arquivo já usa esse mesmo
+ *  argumento para agrupar em JS. As duas regras de casamento de antes são
+ *  preservadas ao pé da letra, e não fundidas numa só:
+ *
+ *    histórico   → `UPPER(p.sku)` comparado com `h.sku_base` COMO ESTÁ
+ *    operacional → `p.sku` igual a `i.sku`, sem normalizar nada
+ *
+ *  Normalizar os dois lados aqui casaria linhas que o SQL não casava, e §2
+ *  não deixa adivinhar. Devolve `null` quando a peça não está mais no
+ *  catálogo — o mesmo que o LEFT JOIN devolvia, e o que faz a categoria cair
+ *  para o nome histórico.
+ */
+async function catalogoDeCategorias(db) {
+  const { results } = await db.prepare('SELECT sku, cat FROM produtos').all();
+  const exato = new Map();
+  const maiusculo = new Map();
+  for (const p of results ?? []) {
+    if (!exato.has(p.sku)) exato.set(p.sku, p.cat);
+    const k = String(p.sku ?? '').toUpperCase();
+    if (!maiusculo.has(k)) maiusculo.set(k, p.cat);
+  }
+  return (fonte, chave) => {
+    if (chave == null) return null;
+    return (fonte === 'historico' ? maiusculo : exato).get(chave) ?? null;
+  };
+}
+
+/** A ficha de catálogo de uma LISTA curta de códigos, buscada depois do
+ *  `LIMIT`. Mesmo motivo de `catalogoDeCategorias`: o JOIN com `UPPER()`
+ *  custava uma varredura de `produtos` por linha do histórico. Aqui a
+ *  varredura é uma só, e sobre no máximo `limite` códigos.
+ *
+ *  A chave é `UPPER(sku)` porque era `UPPER(p.sku) = j.chave` que o JOIN
+ *  comparava, e `j.chave` já chega em maiúsculas dos dois ramos da união.
+ */
+async function fichasDoCatalogo(db, chaves) {
+  const unicas = [...new Set((chaves ?? []).filter((c) => c != null))];
+  const fichas = new Map();
+  if (!unicas.length) return fichas;
+  const qs = unicas.map(() => '?').join(',');
+  const { results } = await db.prepare(
+    `SELECT sku, desc, cat, foto_original_key, foto_tratada_key, foto_url
+       FROM produtos WHERE UPPER(sku) IN (${qs})`).bind(...unicas).all();
+  for (const p of results ?? []) {
+    const k = String(p.sku ?? '').toUpperCase();
+    if (!fichas.has(k)) fichas.set(k, p);
+  }
+  return fichas;
 }
 
 /** Distribuição por categoria.
@@ -364,23 +437,29 @@ export async function categoriasMaisVendidas(db, { periodo = 'tudo' } = {}) {
   const h = recorte('h.data', faixa);
   const v = recorte('v.data', faixa);
 
-  const { results } = await db.prepare(
-    `SELECT p.cat AS cat_catalogo, h.nome_produto_historico AS nome, h.qtd AS qtd,
-            CASE WHEN h.pago = 1 THEN h.valor_total ELSE 0 END AS valor
-       FROM vendas_historico_itens h
-       JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
-       LEFT JOIN produtos p ON UPPER(p.sku) = h.sku_base
-      WHERE 1 = 1${h.sql}
-      UNION ALL
-     SELECT p.cat, i.desc, i.qtd, i.qtd * i.preco
-       FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
-       LEFT JOIN produtos p ON p.sku = i.sku
-      WHERE v.cancelada = 0${v.sql}`,
-  ).bind(...h.binds, ...v.binds).all();
+  /* O catálogo entra pelo Worker, não por JOIN — ver `catalogoDeCategorias`.
+     A chave de casamento continua sendo a MESMA das duas regras de antes:
+     `UPPER(p.sku)` contra `h.sku_base` no histórico, igualdade exata entre
+     `p.sku` e `i.sku` no operacional. */
+  const [{ results }, catalogo] = await Promise.all([
+    db.prepare(
+      `SELECT 'historico' AS fonte, h.sku_base AS chave,
+              h.nome_produto_historico AS nome, h.qtd AS qtd,
+              CASE WHEN h.pago = 1 THEN h.valor_total ELSE 0 END AS valor
+         FROM vendas_historico_itens h
+         JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
+        WHERE 1 = 1${h.sql}
+        UNION ALL
+       SELECT 'operacional', i.sku, i.desc, i.qtd, i.qtd * i.preco
+         FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
+        WHERE v.cancelada = 0${v.sql}`,
+    ).bind(...h.binds, ...v.binds).all(),
+    catalogoDeCategorias(db),
+  ]);
 
   const acc = new Map();
   for (const r of results ?? []) {
-    const cat = categoriaDoItem({ catCatalogo: r.cat_catalogo, nomeHistorico: r.nome });
+    const cat = categoriaDoItem({ catCatalogo: catalogo(r.fonte, r.chave), nomeHistorico: r.nome });
     const a = acc.get(cat) ?? { pecas: 0, faturamento: 0 };
     a.pecas += Number(r.qtd ?? 0);
     a.faturamento += Number(r.valor ?? 0);
@@ -658,7 +737,7 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
   const chaveNorm = norm ?? cadastro?.nome_norm ?? normalizarNomeCliente(cadastro?.nome) ?? null;
   const V = cteVendas({ de: null, ate: null });
 
-  const [vendasR, itensR] = await Promise.all([
+  const [vendasR, itensR, catalogo] = await Promise.all([
     /* a linha do tempo é de VENDAS, não de linhas de planilha: uma compra de
        36 peças aparece uma vez, com 36 itens dentro */
     db.prepare(
@@ -673,10 +752,9 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
       `SELECT h.data, h.sku, h.sku_base, h.nome_produto_historico AS nome, h.qtd,
               h.valor_total AS valor, h.canal, h.contexto, h.pago,
               h.observacao_original, h.venda_historica_id AS venda_ref,
-              'historico' AS fonte, p.cat AS categoria
+              'historico' AS fonte, NULL AS categoria
          FROM vendas_historico_itens h
          JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
-         LEFT JOIN produtos p ON UPPER(p.sku) = h.sku_base
         WHERE (h.cliente_id IS NOT NULL AND h.cliente_id = ?) OR h.cliente_nome_norm = ?
         UNION ALL
        SELECT v.data, i.sku, UPPER(i.sku), i.desc, i.qtd, i.qtd * i.preco,
@@ -687,10 +765,18 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
           AND ((v.cliente_id IS NOT NULL AND v.cliente_id = ?) OR v.cliente_nome_norm = ?)
         ORDER BY data DESC`,
     ).bind(clienteId, chaveNorm, clienteId, chaveNorm).all(),
+    catalogoDeCategorias(db),
   ]);
 
   const vendas = vendasR.results ?? [];
   const itens = itensR.results ?? [];
+  /* A categoria do ramo histórico é preenchida aqui, com a MESMA regra que o
+     `LEFT JOIN produtos ON UPPER(p.sku) = h.sku_base` aplicava — ele varria
+     `produtos` inteira por linha. O ramo operacional continua com o JOIN
+     `p2.sku = i.sku`, que usa a PRIMARY KEY e custa uma busca por linha. */
+  for (const i of itens) {
+    if (i.fonte === 'historico') i.categoria = catalogo('historico', i.sku_base);
+  }
 
   const faturamento = vendas.reduce((s, v) => s + Number(v.faturamento ?? 0), 0);
   const pecas = vendas.reduce((s, v) => s + Number(v.pecas ?? 0), 0);

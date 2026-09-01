@@ -2024,11 +2024,25 @@ async function api(method,path,body){
   const opts={method, headers:{'Authorization':'Bearer '+conn.key}};
   if(body!==undefined){ opts.headers['Content-Type']='application/json'; opts.body=JSON.stringify(body); }
   const res=await fetch(conn.url+path,opts);
-  let json=null;
-  try{ json=await res.json(); }catch(e){}
-  if(!res.ok){
+  /* O corpo é lido como TEXTO antes de virar JSON. Antes, `res.json()` num
+     corpo que não fosse JSON — um HTML de erro de proxy, uma resposta vazia —
+     estourava dentro de um catch vazio, e a única pista da falha morria ali.
+     Aqui ela sobrevive. E o `detalhe` que o servidor manda ao lado do `erro`
+     deixa de ser jogado fora: era ele que dizia "o limite diário de leitura
+     do D1 foi atingido" enquanto a tela só sabia repetir "Falha interna". */
+  const bruto=await res.text();
+  let json=null,erroJson=null;
+  if(bruto){ try{ json=JSON.parse(bruto); }catch(e){ erroJson=e; } }
+  if(!res.ok||erroJson){
     const err=new Error((json&&json.erro)||res.statusText||'Erro na conexão com o servidor');
     err.data=json; err.status=res.status;
+    err.detalhe=(json&&json.detalhe)||null; err.etapa=method+' '+path;
+    if(erroJson) err.message='O servidor respondeu algo que não é JSON (HTTP '+res.status+').';
+    /* Diagnóstico no console — status, rota, corpo e o erro de parse. A CHAVE
+       NÃO ENTRA AQUI: ela viaja no cabeçalho Authorization e nunca é impressa. */
+    console.error('[API] '+err.etapa+' falhou',{
+      status:res.status, url:conn.url+path, erro:err.message, detalhe:err.detalhe,
+      jsonInvalido:erroJson?String(erroJson.message):null, corpo:bruto.slice(0,1000)});
     throw err;
   }
   return json;
@@ -2072,8 +2086,14 @@ async function salvarConexao(){
     renderAll();
   }catch(e){
     conn=null;
-    fb.textContent=(e.status===401)?'Chave incorreta.':(e.message||'Não consegui conectar.');
+    const base=(e.status===401)?'Chave incorreta.':(e.message||'Não consegui conectar.');
+    /* O `detalhe` é a frase que diz O QUE FAZER — "a cota do D1 se renova à
+       meia-noite UTC", "rode a migração tal". Escondê-lo transformava toda
+       falha do servidor num "Falha interna" sem saída, e mandava procurar o
+       defeito no lugar errado. */
+    fb.textContent=e.detalhe?base+' '+e.detalhe:base;
     fb.classList.add('bad');
+    console.error('[conexão] falhou',{etapa:e.etapa||'GET /api/health',status:e.status||null},e);
   }finally{
     btn.disabled=false;
   }
@@ -2093,6 +2113,10 @@ async function boot(){
   }catch(e){
     conn=null;
     toast('Não consegui carregar os dados: '+e.message);
+    console.error('[abertura] /api/state falhou',
+      {etapa:e.etapa||null,status:e.status||null,detalhe:e.detalhe||null},e);
+    /* o overlay reabre, e o `detalhe` aparece nele assim que ela tentar
+       conectar de novo — é lá que a frase tem espaço para ser lida */
     document.getElementById('conexaoOverlay').classList.add('show');
   }
 }

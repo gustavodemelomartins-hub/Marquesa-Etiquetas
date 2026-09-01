@@ -136,6 +136,34 @@ nenhum erro na tela (REGRAS § 25).
 7. o estoque não é tocado em nenhum momento — a razão contábil antes e
    depois é byte a byte a mesma.
 
+### `src/erro-detalhe-test.mjs` — a tela diz a CAUSA, nunca só "Falha interna"
+**6 asserções · ~5 s · não precisa do Worker (sobe uma API falsa na 8899)**
+
+O defeito que ele impede: o painel inteiro parou em 2026-09-01, em DEV e em
+produção ao mesmo tempo, e a única coisa que a tela sabia dizer era "Falha
+interna". A causa real — o limite diário de leitura do D1, que é da CONTA
+Cloudflare e não do banco — viajava no campo `detalhe` da resposta, e o
+`api()` do painel jogava esse campo fora. `wrangler tail` também não ajudava:
+ele imprime o OUTCOME da invocação, e uma exceção tratada pelo `catch` sai
+como "Ok".
+
+A API falsa responde `/api/health` com 200 e `/api/state` com 503 +
+`{erro, detalhe}` — a forma exata da resposta nova do Worker. O teste prova:
+
+1. a **causa** aparece na tela de conexão;
+2. a **saída** também ("se renova à meia-noite UTC");
+3. não sobrou o "Falha interna" genérico;
+4. o console registra **etapa** e **status**;
+5. a **chave de acesso NUNCA** aparece no console.
+
+O item 5 é o que impede o diagnóstico de virar vazamento: a chave viaja no
+cabeçalho `Authorization` e não pode entrar em nenhum `console.error`.
+
+```bash
+python -m http.server 8000        # a raiz do repositório, para servir dashboard.html
+node src/erro-detalhe-test.mjs
+```
+
 ### `src/venda-desconto-test.mjs` — desconto, data e cancelamento da venda
 **36 asserções · ~15 s · precisa do Worker local**
 
@@ -803,6 +831,7 @@ node src/vendas-historico-test.mjs   # histórico entra sem mover estoque
 node src/revendedora-nao-e-cliente-test.mjs  # revendedora sai do CRM (puro)
 node src/trocar-planilha-test.mjs    # trocar a planilha não soma duas versões
 node src/venda-desconto-test.mjs     # desconto por peça na venda de balcão
+node src/erro-detalhe-test.mjs       # a tela mostra a causa, não "Falha interna"
 
 # navegador (precisa de `python -m http.server 8000` na raiz)
 PW_CHROMIUM=/caminho/do/chrome node src/vendas-clientes-ui-test.mjs

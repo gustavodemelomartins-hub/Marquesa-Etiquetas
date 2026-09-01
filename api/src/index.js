@@ -719,6 +719,13 @@ async function rotear(request, env) {
       return json({ erro: 'Rota não encontrada' }, 404);
     } catch (e) {
       const msg = String((e && e.message) || e);
+      /* `wrangler tail` imprime o OUTCOME da invocação, e uma exceção que
+         este catch trata sai como "Ok" — foi por isso que uma queda total do
+         painel apareceu no tail como duas requisições saudáveis. O log
+         abaixo é a única coisa que faz a causa chegar até quem está olhando.
+         Rota e método não são segredo; a chave viaja no cabeçalho e não é
+         impressa aqui. */
+      console.error('[api] ' + met + ' ' + path + ' → ' + msg, (e && e.stack) || '');
       /* Banco que ainda não recebeu a migracao-catalogo.sql responde
          "no such column: p.foto_original", que não diz a ninguém o que
          fazer. Aqui esse erro vira a instrução — o mesmo tratamento que os
@@ -765,6 +772,23 @@ async function rotear(request, env) {
           detalhe: `Rode api/migracao-${qual}.sql no D1 — `
                  + 'o passo está no api/DEPLOY.md. O resto do painel funciona normalmente sem ela.',
           migracao: qual,
+        }, 503);
+      }
+      /* Limite de leitura do D1. Não é falha de código nem de dado, e
+         chamá-lo de "Falha interna" mandou procurar no lugar errado — numa
+         revendedora recém-cadastrada, num payload quebrado, no banco de
+         produção. A cota é DIÁRIA e da CONTA Cloudflare, não do banco: por
+         isso DEV e produção param no mesmo instante, embora tenham D1
+         separados. E só as rotas que LEEM o banco caem: `/api/health` não
+         toca no D1 e continua respondendo 200, o que faz o Worker parecer
+         saudável enquanto o painel inteiro está fora do ar. */
+      if (/exceeded/i.test(msg) && /(daily|limit)/i.test(msg) && /(D1|row read|rows read)/i.test(msg)) {
+        return json({
+          erro: 'O limite diário de leitura do banco (D1) foi atingido nesta conta Cloudflare.',
+          detalhe: 'Não é erro de cadastro nem de venda: a cota é da CONTA, e por isso o DEV para junto. '
+                 + 'Ela se renova à meia-noite UTC (21h de Brasília). Para deixar de depender disso, o '
+                 + 'plano Workers Paid eleva o limite. Mensagem do banco: ' + msg,
+          limite: 'd1-leitura-diaria',
         }, 503);
       }
       return json({ erro: 'Falha interna', detalhe: msg }, 500);
