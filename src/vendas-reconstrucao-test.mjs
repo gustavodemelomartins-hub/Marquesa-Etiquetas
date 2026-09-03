@@ -22,7 +22,9 @@
 import {
   reconstruirVendas, classificarLinha, statusDaVenda,
 } from '../api/src/vendas-historicas.js';
-import { normalizarNomeCliente } from '../api/src/vendas-historico-normalizar.js';
+import {
+  normalizarData, normalizarNomeCliente,
+} from '../api/src/vendas-historico-normalizar.js';
 
 let falhas = 0;
 const ok = (t, x = '') => console.log(`  ok   ${t}${x ? '  → ' + x : ''}`);
@@ -49,6 +51,10 @@ function linha({ cliente, data = '2026-06-13', qtd = 1, valor = 100, pago = 1,
     observacao_original: obs,
   };
 }
+
+console.log('\n── 0. serial de data do Excel não muda de dia por causa do fuso');
+eq('21/08/2026 continua 21/08/2026', normalizarData(46255), '2026-08-21');
+eq('14/08/2026 continua 14/08/2026', normalizarData(46248), '2026-08-14');
 
 console.log('\n── 1. mesmo cliente + mesma data = uma venda');
 {

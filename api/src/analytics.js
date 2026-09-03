@@ -39,69 +39,12 @@
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import { REGRA_DESCRITA } from './vendas-historicas.js';
 import { categoriaDoItem } from './categoria-nome.js';
-import { calcComissao, isPrata } from './comissao.js';
-import { FAIXAS_PADRAO } from './state.js';
+import { listarContasReceber } from './historico-operacoes.js';
 
 const PERIODOS = new Set(['7d', '30d', '90d', '12m', 'tudo']);
 
-/* ══════════════════════════════════════════ revendedora NÃO é cliente
-
-   A planilha histórica tem uma coluna só para quem levou a peça, e nela
-   convivem duas coisas diferentes:
-
-     a cliente final   — comprou, pagou, levou. É do CRM.
-     a revendedora     — levou a maleta, vendeu lá fora e veio acertar. O
-                         nome dela no lugar do cliente é o ACERTO, não uma
-                         compra pessoal.
-
-   Sem essa separação a revendedora entra no ranking como a maior cliente
-   da casa: 46 linhas de "Maleta" num acerto de 36 peças viram "a maior
-   compra da história" num cartão de destaque. Era o que acontecia.
-
-   A fronteira é o CADASTRO, não uma heurística sobre o texto da
-   observação: nome que bate com uma revendedora cadastrada é revendedora.
-   Quem não está cadastrada continua sendo tratada como cliente — o
-   sistema não adivinha papel de ninguém.
-
-   O DINHEIRO NÃO SOME. Faturamento, peças e ticket médio continuam
-   contando o acerto: a venda aconteceu e o valor entrou. O que muda é
-   onde ela aparece — em "Acertos de maleta", não em "Top clientes". */
-
-/** As revendedoras cadastradas, indexadas pelo MESMO normalizador de nome
- *  que a importação histórica usa. Inclui as inativas de propósito: quem
- *  saiu continua tendo sido revendedora no histórico que já está gravado. */
-async function revendedorasPorNome(db) {
-  const { results } = await db.prepare(
-    'SELECT id, nome, status FROM revendedoras',
-  ).all();
-  const porNorm = new Map();
-  for (const r of results ?? []) {
-    const norm = normalizarNomeCliente(r.nome);
-    if (norm) porNorm.set(norm, { id: r.id, nome: r.nome, status: r.status });
-  }
-  return porNorm;
-}
-
-/** Fragmento `NOT IN (?,?,…)` para tirar as revendedoras de uma contagem de
- *  clientes. Com a lista vazia devolve string vazia — nenhum SQL a mais e
- *  nenhum bind a mais quando não há revendedora cadastrada. */
-function foraRevendedoras(coluna, norms) {
-  if (!norms.length) return { sql: '', binds: [] };
-  return { sql: ` AND ${coluna} NOT IN (${norms.map(() => '?').join(',')})`, binds: [...norms] };
-}
-
-/** `COUNT(DISTINCT …)` de cliente de verdade: a mesma contagem de sempre,
- *  com as revendedoras fora. Sem revendedora cadastrada, é literalmente a
- *  expressão antiga — nenhum caminho novo para o caso comum. */
-function contagemDeClientes(norms) {
-  const chave = "COALESCE(norm, 'sem-nome')";
-  if (!norms.length) return { sql: `COUNT(DISTINCT ${chave})`, binds: [] };
-  const marks = norms.map(() => '?').join(',');
-  return {
-    sql: `COUNT(DISTINCT CASE WHEN ${chave} NOT IN (${marks}) THEN ${chave} END)`,
-    binds: [...norms],
-  };
-}
+/* O papel pertence à operação histórica, não ao nome atual da pessoa.
+   `cteVendas` é o único ponto que decide cliente x acerto x revisão. */
 
 /** Traduz o filtro da tela em recorte de data. `tudo` devolve null e a
  *  consulta sai sem WHERE de período. */
@@ -131,15 +74,38 @@ function cteVendas(faixa, { incluirAjuste = false } = {}) {
   return {
     sql: `
       SELECT 'historico' AS fonte, vh.id AS id, vh.data AS data,
-             vh.cliente_nome_norm AS norm, vh.cliente_nome AS nome,
-             vh.cliente_id AS cliente_id, vh.pecas AS pecas,
-             COALESCE(vh.valor_pago, 0) AS faturamento,
-             vh.valor_total AS valor_total, vh.status AS status,
-             vh.elegivel_ticket AS elegivel, vh.canal AS canal,
-             vh.contexto AS contexto, vh.classe AS classe
+             COALESCE(ho.cliente_nome_norm, vh.cliente_nome_norm) AS norm,
+             vh.cliente_nome AS nome,
+             COALESCE(ho.cliente_id, vh.cliente_id) AS cliente_id,
+             CASE WHEN ho.papel='acerto' THEN ho.pecas ELSE vh.pecas END AS pecas,
+             CASE WHEN ho.papel='acerto' THEN ho.liquido_centavos / 100.0
+                  WHEN ho.cobranca_status='paga' THEN ho.valor_efetivo_centavos / 100.0
+                  WHEN ho.cobranca_status='aberta' THEN COALESCE(ho.valor_recebido_centavos, 0) / 100.0
+                  ELSE COALESCE(vh.valor_pago, 0) END AS faturamento,
+             CASE WHEN ho.papel='acerto' THEN ho.liquido_centavos / 100.0
+                  ELSE COALESCE(ho.valor_efetivo_centavos / 100.0, vh.valor_total) END AS valor_total,
+             CASE WHEN ho.papel='acerto' THEN 'paga'
+                  WHEN ho.cobranca_status IN ('aberta','paga') THEN ho.cobranca_status
+                  ELSE vh.status END AS status,
+             CASE WHEN vh.data IS NULL THEN 0
+                  WHEN ho.papel='acerto' THEN 1
+                  WHEN ho.cobranca_status='paga' THEN 1
+                  WHEN ho.cobranca_status='aberta' THEN 0
+                  ELSE vh.elegivel_ticket END AS elegivel,
+             COALESCE(ho.canal, vh.canal) AS canal,
+             COALESCE(ho.contexto, vh.contexto) AS contexto,
+             vh.classe AS classe,
+             COALESCE(ho.papel, 'cliente') AS papel,
+             ho.id AS operacao_id, ho.versao AS operacao_versao,
+             ho.cobranca_status, ho.valor_efetivo_centavos,
+             ho.valor_recebido_centavos, ho.saldo_centavos,
+             ho.vencimento_em, ho.paga_em, COALESCE(ho.observacao, vh.observacao_original) AS observacao
         FROM vendas_historicas vh
         JOIN vendas_historico_lotes l ON l.id = vh.lote_id AND l.status = 'importado'
-       WHERE ${incluirAjuste ? '1 = 1' : "vh.classe = 'venda'"}${h.sql}
+        LEFT JOIN historico_operacoes ho
+          ON ho.lote_id=vh.lote_id AND ho.venda_chave=vh.chave AND ho.status_registro='ativa'
+       WHERE ${incluirAjuste ? '1 = 1' : "vh.classe = 'venda'"}
+         AND COALESCE(ho.papel, 'cliente') = 'cliente'${h.sql}
       UNION ALL
       SELECT 'operacional', v.id, v.data,
              v.cliente_nome_norm, COALESCE(c.nome, v.cliente_nome),
@@ -148,13 +114,42 @@ function cteVendas(faixa, { incluirAjuste = false } = {}) {
              CASE v.origem WHEN 'balcao' THEN 'Balcão' WHEN 'site' THEN 'Site'
                            WHEN 'acerto' THEN 'Acerto de maleta'
                            ELSE v.origem END,
-             NULL, 'venda'
+             NULL, 'venda',
+             CASE WHEN v.origem='acerto' OR v.revendedora_id IS NOT NULL THEN 'acerto' ELSE 'cliente' END,
+             NULL, NULL, 'paga', CAST(ROUND(v.total * 100) AS INTEGER),
+             CAST(ROUND(v.total * 100) AS INTEGER), 0, NULL, v.criada_em, NULL
         FROM vendas v
         LEFT JOIN clientes c ON c.id = v.cliente_id
-       WHERE v.cancelada = 0${v.sql}`,
+       WHERE v.cancelada = 0
+         AND v.origem <> 'acerto' AND v.revendedora_id IS NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM historico_operacao_vendas hov
+            WHERE hov.venda_id=v.id AND hov.status_registro='ativa'
+         )${v.sql}`,
     binds: [...h.binds, ...v.binds],
   };
 }
+
+const JOIN_OPERACAO_ITEM_HISTORICO = `
+  JOIN vendas_historicas vh ON vh.id=h.venda_historica_id
+  LEFT JOIN historico_operacoes ho
+    ON ho.lote_id=vh.lote_id AND ho.venda_chave=vh.chave AND ho.status_registro='ativa'`;
+const FILTRO_ITEM_HISTORICO = `
+  AND COALESCE(ho.papel, 'cliente') = 'cliente'
+  AND NOT EXISTS (
+    SELECT 1 FROM json_each(COALESCE(ho.linhas_excluidas_json, '[]')) ex
+     WHERE CAST(ex.value AS TEXT)=CAST(h.origem_linha AS TEXT)
+  )`;
+const FILTRO_VENDA_OPERACIONAL_DUPLICADA = `
+  AND v.origem <> 'acerto' AND v.revendedora_id IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM historico_operacao_vendas hov
+     WHERE hov.venda_id=v.id AND hov.status_registro='ativa'
+  )`;
+const VALOR_RECEBIDO_ITEM_HISTORICO = `CASE
+  WHEN ho.cobranca_status='paga' THEN COALESCE(h.valor_total, 0)
+  WHEN h.pago=1 THEN COALESCE(h.valor_total, 0)
+  ELSE 0 END`;
 
 /* ═══════════════════════════════════════════════════════ visão geral (KPIs) */
 
@@ -164,15 +159,9 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
   const h = recorte('h.data', faixa);
   const v = recorte('v.data', faixa);
 
-  /* Faturamento, peças e ticket médio contam o acerto de maleta: o dinheiro
-     entrou. Só a CONTAGEM DE CLIENTES não conta a revendedora — ela não é
-     cliente, e somá-la aqui inflava a base em uma pessoa que já aparece,
-     com nome e valor, no bloco de acertos. */
-  const revs = await revendedorasPorNome(db);
-  const normRevs = [...revs.keys()];
-  const nCli = contagemDeClientes(normRevs);
-  const foraNovos = foraRevendedoras("COALESCE(norm,'sem-nome')", normRevs);
-
+  /* O painel é exclusivamente de compras de clientes. Acertos de maleta
+     ficam em Revendedoras, com bruto, comissão e líquido exatos; contá-los
+     aqui faria a mesma operação aparecer nas duas áreas. */
   const [geral, itens, novos] = await Promise.all([
     db.prepare(
       `WITH vd AS (${V.sql})
@@ -181,22 +170,23 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
               SUM(CASE WHEN fonte = 'operacional' THEN 1 ELSE 0 END) AS vendas_sistema,
               COALESCE(SUM(pecas), 0)                        AS pecas,
               ROUND(COALESCE(SUM(faturamento), 0), 2)        AS faturamento,
-              ${nCli.sql}                                    AS clientes,
+              COUNT(DISTINCT CASE WHEN papel='cliente' THEN COALESCE(norm,'sem-nome') END) AS clientes,
               SUM(elegivel)                                  AS elegiveis,
               ROUND(COALESCE(SUM(CASE WHEN elegivel = 1 THEN valor_total END), 0), 2) AS fat_elegivel,
               SUM(CASE WHEN data IS NULL THEN 1 ELSE 0 END)  AS sem_data,
               MIN(data) AS de, MAX(data) AS ate
          FROM vd`,
-    ).bind(...V.binds, ...nCli.binds).first(),
+    ).bind(...V.binds).first(),
 
     /* peças e códigos saem do ITEM, não da venda: são somas exatas nas duas
        populações e não dependem de agrupamento nenhum */
     db.prepare(
       `SELECT (SELECT COUNT(DISTINCT h.sku_base) FROM vendas_historico_itens h
                  JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status='importado'
-                WHERE h.sku_base IS NOT NULL${h.sql})
+                 ${JOIN_OPERACAO_ITEM_HISTORICO}
+                WHERE h.sku_base IS NOT NULL${FILTRO_ITEM_HISTORICO}${h.sql})
             + (SELECT COUNT(DISTINCT i.sku) FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
-                WHERE v.cancelada = 0${v.sql}) AS skus,
+                WHERE v.cancelada = 0${FILTRO_VENDA_OPERACIONAL_DUPLICADA}${v.sql}) AS skus,
               (SELECT COUNT(*) FROM vendas_historicas x
                  JOIN vendas_historico_lotes l2 ON l2.id = x.lote_id AND l2.status='importado'
                 WHERE x.classe = 'ajuste') AS ajustes,
@@ -209,9 +199,9 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
       `WITH todas AS (${cteVendas({ de: null, ate: null }).sql})
        SELECT COUNT(*) AS novos FROM (
          SELECT COALESCE(norm,'sem-nome') AS k, MIN(data) AS primeira
-           FROM todas WHERE data IS NOT NULL${foraNovos.sql} GROUP BY k
+           FROM todas WHERE data IS NOT NULL AND papel='cliente' GROUP BY k
        ) WHERE primeira >= ? AND primeira <= ?`,
-    ).bind(...foraNovos.binds, faixa.de, faixa.ate).first() : Promise.resolve({ novos: null }),
+    ).bind(faixa.de, faixa.ate).first() : Promise.resolve({ novos: null }),
   ]);
 
   const vendas = Number(geral?.vendas ?? 0);
@@ -301,14 +291,15 @@ export async function produtosMaisVendidos(db, { periodo = 'tudo', limite = 20, 
        SELECT h.sku_base AS chave,
               h.nome_produto_historico AS nome_hist,
               h.qtd AS qtd,
-              CASE WHEN h.pago = 1 THEN h.valor_total ELSE 0 END AS valor
+              ${VALOR_RECEBIDO_ITEM_HISTORICO} AS valor
          FROM vendas_historico_itens h
          JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
-        WHERE h.sku_base IS NOT NULL${h.sql}
+         ${JOIN_OPERACAO_ITEM_HISTORICO}
+        WHERE h.sku_base IS NOT NULL${FILTRO_ITEM_HISTORICO}${h.sql}
        UNION ALL
        SELECT UPPER(i.sku), i.desc, i.qtd, i.qtd * i.preco
          FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
-        WHERE v.cancelada = 0${v.sql}
+        WHERE v.cancelada = 0${FILTRO_VENDA_OPERACIONAL_DUPLICADA}${v.sql}
      )
      SELECT j.chave                        AS sku,
             MAX(j.nome_hist)               AS nome_historico,
@@ -445,14 +436,15 @@ export async function categoriasMaisVendidas(db, { periodo = 'tudo' } = {}) {
     db.prepare(
       `SELECT 'historico' AS fonte, h.sku_base AS chave,
               h.nome_produto_historico AS nome, h.qtd AS qtd,
-              CASE WHEN h.pago = 1 THEN h.valor_total ELSE 0 END AS valor
+              ${VALOR_RECEBIDO_ITEM_HISTORICO} AS valor
          FROM vendas_historico_itens h
          JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
-        WHERE 1 = 1${h.sql}
+         ${JOIN_OPERACAO_ITEM_HISTORICO}
+        WHERE 1 = 1${FILTRO_ITEM_HISTORICO}${h.sql}
         UNION ALL
        SELECT 'operacional', i.sku, i.desc, i.qtd, i.qtd * i.preco
          FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
-        WHERE v.cancelada = 0${v.sql}`,
+        WHERE v.cancelada = 0${FILTRO_VENDA_OPERACIONAL_DUPLICADA}${v.sql}`,
     ).bind(...h.binds, ...v.binds).all(),
     catalogoDeCategorias(db),
   ]);
@@ -615,7 +607,6 @@ export function classificarCliente({ vendas, primeira, ultima, intervaloBase }, 
 /** A base de clientes medida em VENDAS reconstruídas, não em linhas.
  *  É o insumo comum do ranking, da saúde da base e da reativação. */
 async function baseDeClientes(db, faixa) {
-  const revs = await revendedorasPorNome(db);
   const V = cteVendas(faixa);
   const { results } = await db.prepare(
     `WITH vd AS (${V.sql})
@@ -630,6 +621,7 @@ async function baseDeClientes(db, faixa) {
             MAX(data)                      AS ultima,
             SUM(CASE WHEN fonte = 'operacional' THEN 1 ELSE 0 END) AS vendas_sistema
        FROM vd
+      WHERE papel='cliente'
       GROUP BY norm`,
   ).bind(...V.binds).all();
 
@@ -651,15 +643,12 @@ async function baseDeClientes(db, faixa) {
     const c = classificarCliente({
       vendas: r.vendas, primeira: r.primeira, ultima: r.ultima, intervaloBase,
     }, hoje);
-    const revendedora = revs.get(r.norm) ?? null;
     return {
       norm: r.norm,
       /* §10: a chave técnica pode ser `sem-nome`; a APRESENTAÇÃO é uma só,
          e não inventa nome nenhum. */
       nome: r.nome ?? (r.norm === 'sem-nome' ? 'Cliente não identificado' : r.norm),
       identificada: r.norm !== 'sem-nome',
-      /* preenchido só quando o nome bate com uma revendedora CADASTRADA */
-      revendedora,
       clienteId: r.cliente_id ?? null,
       vendas: Number(r.vendas),
       pecas: Number(r.pecas ?? 0),
@@ -675,16 +664,7 @@ async function baseDeClientes(db, faixa) {
     };
   });
 
-  /* Uma leitura, duas populações. Quem chama pede `clientes` e recebe só
-     gente que comprou para si; quem precisa do acerto pede `revendedoras`.
-     Ninguém precisa lembrar de filtrar — e é por isso que o ranking, a
-     saúde da base e os destaques não podem mais discordar entre si. */
-  return {
-    intervaloBase,
-    hoje,
-    clientes: todos.filter((c) => !c.revendedora),
-    revendedoras: todos.filter((c) => c.revendedora),
-  };
+  return { intervaloBase, hoje, clientes: todos };
 }
 
 export async function clientesRanking(db, { periodo = 'tudo', limite = 50, ordem = 'faturamento' } = {}) {
@@ -743,25 +723,35 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
     db.prepare(
       `WITH vd AS (${V.sql})
        SELECT * FROM vd
-        WHERE COALESCE(norm,'sem-nome') = ?
-           OR (cliente_id IS NOT NULL AND cliente_id = ?)
+        WHERE papel='cliente'
+          AND (COALESCE(norm,'sem-nome') = ?
+           OR (cliente_id IS NOT NULL AND cliente_id = ?))
         ORDER BY data DESC`,
     ).bind(chaveNorm, clienteId).all(),
 
     db.prepare(
       `SELECT h.data, h.sku, h.sku_base, h.nome_produto_historico AS nome, h.qtd,
-              h.valor_total AS valor, h.canal, h.contexto, h.pago,
+              h.valor_total AS valor, h.preco_unit AS preco_tabela,
+              CASE WHEN h.preco_unit IS NOT NULL AND h.valor_total IS NOT NULL
+                   THEN MAX(0, h.preco_unit * h.qtd - h.valor_total)
+                   ELSE h.desconto_valor END AS desconto_valor,
+              COALESCE(h.desconto_original, h.desconto_rotulo) AS desconto_rotulo,
+              h.canal, h.contexto, h.pago,
               h.observacao_original, h.venda_historica_id AS venda_ref,
               'historico' AS fonte, NULL AS categoria
          FROM vendas_historico_itens h
          JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
-        WHERE (h.cliente_id IS NOT NULL AND h.cliente_id = ?) OR h.cliente_nome_norm = ?
+         ${JOIN_OPERACAO_ITEM_HISTORICO}
+        WHERE COALESCE(ho.papel, 'cliente')='cliente'${FILTRO_ITEM_HISTORICO}
+          AND ((h.cliente_id IS NOT NULL AND h.cliente_id = ?) OR h.cliente_nome_norm = ?)
         UNION ALL
        SELECT v.data, i.sku, UPPER(i.sku), i.desc, i.qtd, i.qtd * i.preco,
+              i.preco_tabela, i.desconto_valor * i.qtd, i.desconto_rotulo,
               v.origem, NULL, 1, NULL, v.id, 'operacional', p2.cat
          FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
          LEFT JOIN produtos p2 ON p2.sku = i.sku
         WHERE v.cancelada = 0
+          ${FILTRO_VENDA_OPERACIONAL_DUPLICADA}
           AND ((v.cliente_id IS NOT NULL AND v.cliente_id = ?) OR v.cliente_nome_norm = ?)
         ORDER BY data DESC`,
     ).bind(clienteId, chaveNorm, clienteId, chaveNorm).all(),
@@ -835,10 +825,22 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
       id: v.id,
       data: v.data,
       pecas: Number(v.pecas ?? 0),
-      valor: Number(v.faturamento ?? 0),
+      /* Na linha do tempo, venda não paga mostra o que foi COBRADO. R$ 0 é
+         quanto entrou, não quanto a cliente deve. */
+      valor: Number(v.valor_total ?? 0),
+      valorRecebido: Number(v.faturamento ?? 0),
+      valorReceber: v.saldo_centavos == null
+        ? Math.max(0, +(Number(v.valor_total ?? 0) - Number(v.faturamento ?? 0)).toFixed(2))
+        : +(Number(v.saldo_centavos) / 100).toFixed(2),
       status: v.status,
+      cobrancaStatus: v.cobranca_status ?? null,
+      operacaoId: v.operacao_id == null ? null : Number(v.operacao_id),
+      operacaoVersao: v.operacao_versao == null ? null : Number(v.operacao_versao),
+      vencimentoEm: v.vencimento_em ?? null,
+      pagaEm: v.paga_em ?? null,
       canal: v.canal,
       contexto: v.contexto,
+      observacao: v.observacao ?? null,
       itens: itens.filter((i) => (v.fonte === 'historico'
         ? i.venda_ref === v.id && i.fonte === 'historico'
         : i.venda_ref === v.id && i.fonte === 'operacional')),
@@ -871,6 +873,14 @@ export async function listarVendasUnificado(db, {
               h.observacao_original AS observacao, h.pago AS pago, 0 AS cancelada
          FROM vendas_historico_itens h
          JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
+         JOIN vendas_historicas vh ON vh.id=h.venda_historica_id
+         LEFT JOIN historico_operacoes ho
+           ON ho.lote_id=vh.lote_id AND ho.venda_chave=vh.chave AND ho.status_registro='ativa'
+        WHERE COALESCE(ho.papel, 'cliente')='cliente'
+          AND NOT EXISTS (
+            SELECT 1 FROM json_each(COALESCE(ho.linhas_excluidas_json, '[]')) ex
+             WHERE CAST(ex.value AS TEXT)=CAST(h.origem_linha AS TEXT)
+          )
        UNION ALL
        -- §27: a coluna observacao do lado histórico é a observação escrita na
        -- planilha, e é lá que o desconto dela sempre apareceu. Do lado
@@ -887,6 +897,11 @@ export async function listarVendasUnificado(db, {
               1, v.cancelada
          FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
          LEFT JOIN clientes c ON c.id = v.cliente_id
+        WHERE v.origem <> 'acerto' AND v.revendedora_id IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM historico_operacao_vendas hov
+             WHERE hov.venda_id=v.id AND hov.status_registro='ativa'
+          )
      )
      SELECT * FROM juntos
       WHERE (? IS NULL OR data >= ?)
@@ -905,14 +920,22 @@ export async function listarVendasUnificado(db, {
 /** Tudo o que o Painel de Vendas desenha, numa resposta só. */
 export async function painel(db, { periodo = 'tudo' } = {}) {
   const faixa = faixaDePeriodo(periodo);
-  const [geral, evo, cat, prod, orig, rank, maletas] = await Promise.all([
+  const mes = new Date().toISOString().slice(0, 7);
+  const VMes = cteVendas({ de: `${mes}-01`, ate: `${mes}-31` });
+  const [geral, evo, cat, prod, orig, rank, mesAtual, contasReceber] = await Promise.all([
     visaoGeral(db, { periodo }),
     evolucao(db, { periodo, granularidade: 'mes' }),
     categoriasMaisVendidas(db, { periodo }),
     produtosMaisVendidos(db, { periodo, limite: 5, por: 'quantidade' }),
     porOrigem(db, { periodo }),
     clientesRanking(db, { periodo, limite: 5, ordem: 'faturamento' }),
-    acertosDeMaleta(db, { periodo }),
+    db.prepare(
+      `WITH vd AS (${VMes.sql})
+       SELECT ROUND(COALESCE(SUM(faturamento), 0), 2) AS faturamento,
+              COUNT(*) AS vendas, COALESCE(SUM(pecas), 0) AS pecas
+         FROM vd`,
+    ).bind(...VMes.binds).first(),
+    listarContasReceber(db, { status: 'aberta' }),
   ]);
 
   /* ─── insights do rodapé. Só entram métricas que este mesmo payload
@@ -931,10 +954,13 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
     produtos: prod,
     origem: orig,
     topClientes: rank.clientes,
-    /* o dinheiro que veio pela revendedora, com a comissão estimada e o
-       líquido. Está no faturamento lá em cima; aqui ele aparece separado,
-       para ninguém confundir venda de balcão com acerto de maleta. */
-    maletas,
+    mesAtual: {
+      mes,
+      faturamento: Number(mesAtual?.faturamento ?? 0),
+      vendas: Number(mesAtual?.vendas ?? 0),
+      pecas: Number(mesAtual?.pecas ?? 0),
+    },
+    contasReceber,
     insights: {
       categoriaCampea: catCampea && {
         nome: catCampea.categoria, pecas: catCampea.pecas, participacao: catCampea.participacao,
@@ -974,138 +1000,64 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
 
 /* ══════════════════════════════════════════════ acertos de maleta
 
-   O dinheiro que veio pela revendedora, e o que dele sobrou para a casa.
+   Documento histórico e acerto operacional são as duas fontes exatas.
+   Nome parecido e faixas atuais nunca reconstruem comissão antiga. */
 
-   ─────────────────────────────────────────────────────────────────────────
-   POR QUE ESTE NÚMERO É UMA ESTIMATIVA, E POR QUE ELE APARECE MESMO ASSIM
-
-   A planilha histórica registra o VALOR DA VENDA, não o que entrou no
-   caixa. Ela não tem coluna de comissão, não tem vínculo com maleta e não
-   guarda o preço congelado no envio. O motor de comissão do sistema
-   (`comissao.js`) acerta porque roda no acerto de verdade, com o preço
-   congelado — aqui ele é aplicado de fora, sobre linhas que já são
-   história.
-
-   O que ele usa, e que a planilha de fato tem: o valor de cada item e a
-   coluna `Tipo` (Banhada, Bruto, Prata 925…). O que ele assume, por
-   decisão do dono do negócio em 2026-08-28:
-
-     · peça BRUTA entra na mesma faixa das banhadas — a distinção entre
-       peça comprada já banhada e peça comprada em bruto e mandada banhar
-       existe na operação e tem precificação própria, mas ainda não está
-       modelada aqui;
-     · as faixas de hoje valeram o período inteiro da planilha.
-
-   As duas premissas viajam no payload (`premissas`) e a tela as mostra.
-   Estimativa rotulada é útil; estimativa disfarçada de extrato é mentira.
-
-   ─────────────────────────────────────────────────────────────────────────
-   SÓ O HISTÓRICO
-
-   Acerto registrado pelo sistema já tem comissão calculada de verdade, no
-   fechamento da maleta. Estimar por cima dele produziria dois números para
-   a mesma coisa — §15. Este bloco olha apenas `vendas_historicas`. */
-
-const PREMISSAS_COMISSAO = [
-  'Peça bruta entra na mesma faixa das banhadas.',
-  'As faixas de comissão de hoje valeram o período inteiro da planilha.',
-  'Só o histórico da planilha entra aqui: acerto fechado pelo sistema já tem '
-  + 'comissão calculada de verdade, no fechamento da maleta.',
-];
-
-/** Faixas e percentual da prata, como o acerto real os lê. */
-async function configComissao(db) {
-  const { results } = await db.prepare(
-    `SELECT chave, valor FROM config WHERE chave IN ('faixas', 'prataPct')`,
-  ).all();
-  const c = Object.fromEntries((results ?? []).map((x) => [x.chave, JSON.parse(x.valor)]));
-  return {
-    faixas: c.faixas ?? FAIXAS_PADRAO,
-    prataPct: c.prataPct ?? 10,
-    /* a tela precisa saber se está mostrando a régua configurada ou o
-       padrão de fábrica — são conversas diferentes com quem lê */
-    faixasConfiguradas: Array.isArray(c.faixas),
-  };
-}
-
-/** Os acertos históricos de cada revendedora cadastrada, com a comissão
- *  estimada e o líquido que sobrou para a casa. */
+/** Acertos documentais do histórico + acertos efetivamente fechados no
+ * sistema. Nenhum valor é estimado: se não há documento, não entra. */
 export async function acertosDeMaleta(db, { periodo = 'tudo' } = {}) {
   const faixa = faixaDePeriodo(periodo);
-  const revs = await revendedorasPorNome(db);
-  const norms = [...revs.keys()];
-  const vazio = {
-    periodo: faixa,
-    revendedoras: [],
-    acertos: [],
-    totais: { acertos: 0, pecas: 0, vendido: 0, comissao: 0, liquido: 0 },
-    premissas: PREMISSAS_COMISSAO,
-    config: null,
-  };
-  if (!norms.length) return vazio;
-
-  const cfg = await configComissao(db);
   const h = recorte('vh.data', faixa);
-  const marks = norms.map(() => '?').join(',');
+  const m = recorte('m.encerrada_em', faixa);
+  const [historicos, operacionais, revisoes] = await Promise.all([
+    db.prepare(
+      `SELECT 'historico:' || ho.id AS id, vh.data, r.id AS revendedora_id,
+              r.nome AS revendedora, r.status, ho.pecas,
+              ho.bruto_centavos / 100.0 AS vendido,
+              ho.comissao_centavos / 100.0 AS comissao,
+              ho.liquido_centavos / 100.0 AS liquido,
+              'documento da maleta' AS fonte
+         FROM historico_operacoes ho
+         JOIN vendas_historico_lotes l ON l.id=ho.lote_id AND l.status='importado'
+         JOIN vendas_historicas vh ON vh.lote_id=ho.lote_id AND vh.chave=ho.venda_chave
+         JOIN revendedoras r ON r.id=ho.revendedora_id
+        WHERE ho.status_registro='ativa' AND ho.papel='acerto'${h.sql}
+        ORDER BY vh.data DESC`,
+    ).bind(...h.binds).all(),
+    db.prepare(
+      `SELECT 'sistema:' || m.id AS id, m.encerrada_em AS data,
+              r.id AS revendedora_id, r.nome AS revendedora, r.status,
+              CAST(COALESCE(json_extract(m.acerto_json, '$.vendidas'), 0) AS INTEGER) AS pecas,
+              COALESCE(json_extract(m.acerto_json, '$.totalVendido'), 0) AS vendido,
+              COALESCE(json_extract(m.acerto_json, '$.comissao'), 0) AS comissao,
+              COALESCE(json_extract(m.acerto_json, '$.liquido'), 0) AS liquido,
+              'acerto do sistema' AS fonte
+         FROM maletas m JOIN revendedoras r ON r.id=m.rev_id
+        WHERE m.status='encerrada' AND m.acerto_json IS NOT NULL${m.sql}
+        ORDER BY m.encerrada_em DESC`,
+    ).bind(...m.binds).all(),
+    db.prepare(
+      `SELECT COUNT(*) AS n FROM historico_operacoes ho
+         JOIN vendas_historico_lotes l ON l.id=ho.lote_id AND l.status='importado'
+        WHERE ho.status_registro='ativa' AND ho.papel='revisao'`,
+    ).first(),
+  ]);
 
-  const { results: vendas } = await db.prepare(
-    `SELECT vh.id, vh.data, vh.cliente_nome_norm AS norm, vh.cliente_nome AS nome,
-            vh.pecas, vh.itens, COALESCE(vh.valor_pago, 0) AS vendido
-       FROM vendas_historicas vh
-       JOIN vendas_historico_lotes l ON l.id = vh.lote_id AND l.status = 'importado'
-      WHERE vh.classe = 'venda' AND vh.cliente_nome_norm IN (${marks})${h.sql}
-      ORDER BY vh.data DESC`,
-  ).bind(...norms, ...h.binds).all();
-
-  if (!(vendas ?? []).length) return { ...vazio, config: cfg };
-
-  /* os itens dos acertos, para separar prata de banhada. `isPrata` é a
-     MESMA função do acerto real — a definição de prata não pode ter duas
-     versões, uma em JS e outra em SQL. */
-  const ids = vendas.map((v) => v.id);
-  const { results: itens } = await db.prepare(
-    `SELECT i.venda_historica_id AS venda, i.tipo, i.nome_produto_historico AS nome,
-            COALESCE(i.valor_total, 0) AS valor
-       FROM vendas_historico_itens i
-      WHERE i.venda_historica_id IN (${ids.map(() => '?').join(',')})`,
-  ).bind(...ids).all();
-
-  const porVenda = new Map();
-  for (const it of itens ?? []) {
-    if (!porVenda.has(it.venda)) porVenda.set(it.venda, []);
-    /* a planilha escreve o material ora na coluna `Tipo`, ora no nome da
-       peça. Procurar nos dois é ler o que está escrito, não adivinhar. */
-    porVenda.get(it.venda).push({
-      qtd: 1, preco: Number(it.valor ?? 0), desc: `${it.tipo ?? ''} ${it.nome ?? ''}`,
-    });
-  }
-
-  const acertos = vendas.map((v) => {
-    const linhas = porVenda.get(v.id) ?? [];
-    const c = calcComissao(linhas, cfg);
-    const rev = revs.get(v.norm);
-    return {
+  const acertos = [...(historicos.results ?? []), ...(operacionais.results ?? [])]
+    .map((v) => ({
       id: v.id,
       data: v.data ?? null,
-      revendedoraId: rev?.id ?? null,
-      revendedora: rev?.nome ?? v.nome,
-      status: rev?.status ?? null,
+      revendedoraId: Number(v.revendedora_id),
+      revendedora: v.revendedora,
+      status: v.status,
       pecas: Number(v.pecas ?? 0),
-      /* `vendido` é o que a planilha soma; `baseComissao` é o que os itens
-         somam. Iguais em condição normal, e a diferença — quando existe —
-         é item sem valor, que o acerto real também não saberia comissionar.
-         Ela viaja em vez de sumir: §9. */
       vendido: +Number(v.vendido ?? 0).toFixed(2),
-      baseComissao: +c.totalVendido.toFixed(2),
-      baseBanhada: +c.baseBanhada.toFixed(2),
-      pct: c.pct,
-      basePrata: +c.basePrata.toFixed(2),
-      pctPrata: c.pctPrata,
-      comissao: +c.comissao.toFixed(2),
-      liquido: +(Number(v.vendido ?? 0) - c.comissao).toFixed(2),
-      itensSemValor: linhas.filter((l) => !l.preco).length,
-    };
-  });
+      comissao: +Number(v.comissao ?? 0).toFixed(2),
+      liquido: +Number(v.liquido ?? 0).toFixed(2),
+      fonte: v.fonte,
+      exato: true,
+    }))
+    .sort((a, b) => String(b.data ?? '').localeCompare(String(a.data ?? '')));
 
   const soma = (f) => +acertos.reduce((t, a) => t + f(a), 0).toFixed(2);
   const porRev = new Map();
@@ -1123,8 +1075,8 @@ export async function acertosDeMaleta(db, { periodo = 'tudo' } = {}) {
 
   return {
     periodo: faixa,
-    config: cfg,
-    premissas: PREMISSAS_COMISSAO,
+    exato: true,
+    pendentesRevisao: Number(revisoes?.n ?? 0),
     revendedoras: [...porRev.values()]
       .map((r) => ({
         ...r,

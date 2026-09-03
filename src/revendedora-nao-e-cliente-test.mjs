@@ -1,4 +1,4 @@
-/** Revendedora não é cliente — e o dinheiro dela não some.
+/** A mesma pessoa pode ser cliente e revendedora em momentos diferentes.
  *
  *  O defeito que este teste existe para impedir de voltar:
  *
@@ -10,16 +10,12 @@
  *
  *  O que precisa ficar provado:
  *
- *   1. a revendedora CADASTRADA sai do ranking, da lista e dos destaques;
- *   2. quem NÃO está cadastrada continua sendo cliente — o sistema não
- *      adivinha papel de ninguém pelo texto da observação;
- *   3. o FATURAMENTO continua contando o acerto: a venda aconteceu e o
- *      valor entrou. Só a CONTAGEM DE CLIENTES exclui a revendedora;
- *   4. a comissão estimada usa a régua do acerto real — faixa pelas
- *      banhadas, Prata 925 com 10% à parte — e bate com a conta feita à
- *      mão sobre os acertos verdadeiros da planilha;
- *   5. as premissas da estimativa viajam no payload. Estimativa rotulada é
- *      útil; estimativa disfarçada de extrato é mentira.
+ *   1. o papel é da OPERAÇÃO, não do cadastro da pessoa;
+ *   2. a compra pessoal anterior continua no CRM;
+ *   3. acertos documentais saem de Vendas e entram em Revendedoras;
+ *   4. vendido, comissão e líquido são os números exatos do documento;
+ *   5. sem decisão explícita, a operação continua cliente — nada é inferido
+ *      pelo texto "Maleta" nem pelo cadastro atual da pessoa.
  *
  *  Teste puro: não sobe Worker e não toca a nuvem. O banco é um SQLite
  *  em memória criado a partir do `api/schema.sql` de verdade, com um adaptador
@@ -100,10 +96,21 @@ function venda({ nome, norm, data, prata = 0, outros = 0, pecas = 1 }) {
   return id;
 }
 
-/* os três acertos verdadeiros da revendedora */
+/* Uma compra pessoal e dois acertos da mesma pessoa. */
 venda({ nome: 'Jessica Melim', norm: 'jessica melim', data: '2026-03-27', prata: 54.00, outros: 69.00, pecas: 2 });
 venda({ nome: 'Jessica Melim', norm: 'jessica melim', data: '2026-06-13', prata: 62.30, outros: 2306.50, pecas: 36 });
 venda({ nome: 'Jessica Melim', norm: 'jessica melim', data: '2026-07-18', prata: 0, outros: 694.45, pecas: 8 });
+
+sq.exec(`INSERT INTO historico_operacoes
+  (lote_id, venda_chave, fingerprint, papel, cliente_nome_norm,
+   revendedora_id, pecas, bruto_centavos, comissao_centavos, liquido_centavos)
+VALUES
+  (1, 'jessica melim|2026-03-27', 'pessoal-jessica', 'cliente', 'jessica melim',
+   NULL, NULL, NULL, NULL, NULL),
+  (1, 'jessica melim|2026-06-13', 'maleta-1-jessica', 'acerto', NULL,
+   1, 36, 343100, 106220, 236880),
+  (1, 'jessica melim|2026-07-18', 'maleta-2-jessica', 'acerto', NULL,
+   1, 8, 81700, 12255, 69445)`);
 
 /* duas clientes de verdade, uma delas com mais dinheiro que a outra */
 venda({ nome: 'Thais Nania', norm: 'thais nania', data: '2026-05-10', outros: 800.00, pecas: 5 });
@@ -114,52 +121,51 @@ venda({ nome: 'Angela Alves', norm: 'angela alves', data: '2026-06-20', outros: 
    observação "Maleta": ela continua sendo cliente */
 venda({ nome: 'Cinthia Noronha', norm: 'cinthia noronha', data: '2026-07-01', outros: 250.00, pecas: 2 });
 
-console.log('\n── 1. a revendedora sai do CRM');
+console.log('\n── 1. somente os acertos saem do CRM');
 {
   const c = await crm(db, { periodo: 'tudo' });
   const nomes = c.todos.map((x) => x.nome);
-  eq('a revendedora não está na lista de clientes', nomes.includes('Jessica Melim'), 'false');
-  eq('as clientes de verdade estão', nomes.length, 3);
+  eq('a compra pessoal mantém Jéssica na lista', nomes.includes('Jessica Melim'), 'true');
+  eq('há quatro clientes reais', nomes.length, 4);
+  eq('Jéssica tem só uma compra pessoal', c.todos.find((x) => x.nome === 'Jessica Melim').vendas, 1);
+  eq('essa compra pessoal vale R$ 123', c.todos.find((x) => x.nome === 'Jessica Melim').faturamento, 123);
   eq('a campeã é a maior cliente REAL', c.insights.campeao.nome, 'Thais Nania');
-  eq('e não a revendedora com o acerto de R$ 2.368,80',
+  eq('e não a revendedora com os acertos documentais',
     c.insights.maiorCompra.nome, 'Thais Nania');
   eq('quem tem "Maleta" na observação mas não é cadastrada continua cliente',
     nomes.includes('Cinthia Noronha'), 'true');
 }
 
-console.log('\n── 2. o dinheiro NÃO some');
+console.log('\n── 2. Vendas contém só compras pessoais');
 {
   const g = await visaoGeral(db, { periodo: 'tudo' });
-  /* 3.186,25 da revendedora + 1.750,00 das três clientes */
-  eq('faturamento conta o acerto de maleta', g.faturamento, 4936.25);
-  eq('peças também', g.pecas, 58);
-  eq('mas a contagem de clientes exclui a revendedora', g.clientes, 3);
+  /* 123 da Jéssica + 1.750 das demais clientes. */
+  eq('faturamento não mistura acerto', g.faturamento, 1873);
+  eq('peças de clientes apenas', g.pecas, 14);
+  eq('a pessoa cliente e revendedora conta uma vez no CRM', g.clientes, 4);
 }
 
-console.log('\n── 3. o ranking de clientes ignora a revendedora');
+console.log('\n── 3. o ranking usa só compras pessoais');
 {
   const r = await clientesRanking(db, { periodo: 'tudo', limite: 50 });
-  eq('total de clientes no ranking', r.total, 3);
+  eq('total de clientes no ranking', r.total, 4);
   eq('primeira colocada', r.clientes[0].nome, 'Thais Nania');
-  eq('a revendedora não aparece',
-    r.clientes.some((c) => c.nome === 'Jessica Melim'), 'false');
+  eq('Jéssica aparece somente pelos R$ 123 pessoais',
+    r.clientes.find((c) => c.nome === 'Jessica Melim').faturamento, 123);
 }
 
-console.log('\n── 4. a comissão estimada usa a régua do acerto real');
+console.log('\n── 4. comissão e líquido vêm exatos dos documentos');
 {
   const a = await acertosDeMaleta(db, { periodo: 'tudo' });
-  eq('três acertos', a.totais.acertos, 3);
-  eq('vendido', a.totais.vendido, 3186.25);
-  /* 27/03: banhadas 69,00 → faixa de 0%; prata 54,00 × 10% = 5,40
-     13/06: banhadas 2.306,50 → faixa de 30% = 691,95; prata 62,30 × 10% = 6,23
-     18/07: banhadas 694,45 → faixa de 0%; sem prata                    */
-  eq('comissão estimada', a.totais.comissao, 703.58);
-  eq('líquido para a casa', a.totais.liquido, 2482.67);
+  eq('dois acertos', a.totais.acertos, 2);
+  eq('vendido documental', a.totais.vendido, 4248);
+  eq('comissão documental', a.totais.comissao, 1184.75);
+  eq('líquido para a casa', a.totais.liquido, 3063.25);
 
   const junho = a.acertos.find((x) => x.data === '2026-06-13');
-  eq('o acerto grande cai na faixa de 30%', junho.pct, 30);
-  eq('e a prata dele é cobrada à parte, a 10%', junho.pctPrata, 10);
-  eq('comissão do acerto grande', junho.comissao, 698.18);
+  eq('bruto da maleta 1 é exato', junho.vendido, 3431);
+  eq('comissão da maleta 1 é exata', junho.comissao, 1062.2);
+  eq('não existe percentual estimado', 'pct' in junho, false);
 
   eq('uma revendedora com acerto no período', a.revendedoras.length, 1);
   eq('e ela é a Jessica', a.revendedoras[0].nome, 'Jessica Melim');
@@ -167,25 +173,22 @@ console.log('\n── 4. a comissão estimada usa a régua do acerto real');
     a.acertos.every((x) => x.revendedoraId === 1), 'true');
 }
 
-console.log('\n── 5. a estimativa se declara estimativa');
+console.log('\n── 5. a resposta declara que os valores são exatos');
 {
   const a = await acertosDeMaleta(db, { periodo: 'tudo' });
-  eq('as premissas viajam com o número', a.premissas.length >= 3, 'true');
-  eq('a peça bruta está declarada',
-    a.premissas.some((p) => /bruta/i.test(p)), 'true');
-  eq('e a validade das faixas no tempo também',
-    a.premissas.some((p) => /faixas/i.test(p)), 'true');
-  eq('a tela sabe se a régua é a configurada ou o padrão',
-    typeof a.config.faixasConfiguradas, 'boolean');
+  eq('payload é exato', a.exato, true);
+  eq('cada acerto também é exato', a.acertos.every((x) => x.exato), true);
+  eq('não há premissas de estimativa', 'premissas' in a, false);
 }
 
 console.log('\n── 6. sem revendedora cadastrada, nada muda');
 {
+  sq.exec('DELETE FROM historico_operacoes');
   sq.exec('DELETE FROM revendedoras');
   const g = await visaoGeral(db, { periodo: 'tudo' });
   eq('todo mundo volta a ser cliente', g.clientes, 4);
   const a = await acertosDeMaleta(db, { periodo: 'tudo' });
-  eq('e não há acerto nenhum para estimar', a.totais.acertos, 0);
+  eq('e não há acerto documental', a.totais.acertos, 0);
   eq('nem revendedora para listar', a.revendedoras.length, 0);
 }
 

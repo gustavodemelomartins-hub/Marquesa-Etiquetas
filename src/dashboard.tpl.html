@@ -1148,6 +1148,25 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 .tl-item{display:flex;gap:8px;font-size:11.5px;color:var(--ink);align-items:baseline}
 .tl-item code{font-size:10.5px;color:var(--muted);flex:none}
 .tl-item .q{flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
+.nao-pago{border:0;border-radius:999px;background:#9f1239;color:#fff;font-size:12px;
+  font-weight:900;letter-spacing:.06em;padding:9px 14px;cursor:pointer;box-shadow:0 5px 14px #9f123933}
+.nao-pago:hover{background:#7f1230}.pago-selo{display:inline-flex;align-items:center;border-radius:999px;
+  background:#e8f7f1;color:#08705f;font-size:11px;font-weight:800;padding:7px 11px}
+.tl-cobranca{margin-top:9px;padding:10px 12px;border-radius:10px;background:#fff5f6;
+  border:1px solid #f0cbd3;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tl-cobranca .saldo{font-family:Georgia,serif;color:var(--bordo);font-size:18px;font-weight:700}
+.tl-desconto{font-size:10.5px;color:#9f1239;font-weight:700}
+.receber-lista{display:flex;flex-direction:column}.receber-linha{display:grid;
+  grid-template-columns:minmax(150px,1.2fr) minmax(180px,2fr) 150px 110px;gap:12px;
+  align-items:center;padding:12px 2px;border-top:1px solid var(--line-soft)}
+.receber-linha:first-child{border-top:0}.receber-linha.vencida{background:#fff7f5}
+.receber-cliente{border:0;background:none;padding:0;text-align:left;color:var(--bordo);
+  font-weight:800;cursor:pointer}.receber-cliente:hover{text-decoration:underline}
+.receber-origem{font-size:11px;color:var(--muted)}.receber-prazo{font-size:10px;color:var(--muted)}
+.receber-prazo input{display:block;width:100%;margin-top:3px;padding:6px;border:1px solid var(--line);
+  border-radius:7px;background:#fff;color:var(--ink)}.receber-valor{text-align:right;font-family:Georgia,serif;color:var(--bordo)}
+@media(max-width:720px){.receber-linha{grid-template-columns:1fr auto}.receber-origem{grid-column:1/-1}
+  .receber-prazo{grid-column:1}.receber-valor{grid-column:2;grid-row:1}}
 
 @media (min-width:760px){
   .kpis.cinco{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -2418,7 +2437,10 @@ function switchTab(name){
     document.getElementById('view-cliente').classList.add('active');
     abrirPerfilCliente(name.slice(4));
   }
-  else if(name==='revgeral'){ document.getElementById('view-revgeral').classList.add('active'); renderRevGeral(); }
+  else if(name==='revgeral'){
+    document.getElementById('view-revgeral').classList.add('active');
+    renderRevGeral(); carregarAcertosRevendedoras().then(renderRevGeral);
+  }
   else if(name==='revlist'){ document.getElementById('view-revlist').classList.add('active'); renderRevLista(); }
   else { document.getElementById('view-rev').classList.add('active'); renderRev(+name.split(':')[1]); }
   window.scrollTo({top:0,behavior:'smooth'});
@@ -2762,6 +2784,13 @@ function renderGeral(){
 
    A lista completa continua existindo, na aba ao lado. */
 
+let acertosRevendedoras=null;
+async function carregarAcertosRevendedoras(){
+  try{ acertosRevendedoras=await api('GET','/api/analytics/revendedoras?periodo=tudo'); }
+  catch(e){ acertosRevendedoras={erro:e.message||'Não consegui carregar os acertos'}; }
+  return acertosRevendedoras;
+}
+
 /** Os ciclos FECHADOS de uma revendedora — uma linha por maleta encerrada,
  *  com o acerto que a fechou.
  *
@@ -2855,10 +2884,15 @@ function renderRevGeral(){
 
   /* Top revendedoras, do histórico. Só entram quem TEM ciclo fechado —
      ordenar por valor vendido quem nunca acertou seria ordenar zeros. */
-  const desempenhos=revAtivas().map(r=>({rev:r, d:desempenhoDe(r.id)}));
-  const comHistorico=desempenhos.filter(x=>!x.d.semDados)
-    .sort((a,b)=>b.d.vendido-a.d.vendido);
-  const semHistorico=desempenhos.length-comHistorico.length;
+  const resumos=(acertosRevendedoras&&acertosRevendedoras.revendedoras)||[];
+  const comHistorico=resumos.map(r=>({
+    rev:state.revendedoras.find(x=>x.id===r.revendedoraId)||{id:r.revendedoraId,nome:r.nome,status:r.status},
+    d:{vendido:r.vendido,qtdVendida:r.pecas,comissao:r.comissao,liquido:r.liquido,
+       giro:null,ticket:r.pecas?r.vendido/r.pecas:null,ciclos:r.acertos,
+       ultimoAcerto:r.ultimo,semDados:false}
+  })).sort((a,b)=>b.d.vendido-a.d.vendido);
+  const idsComHistorico=new Set(resumos.map(r=>r.revendedoraId));
+  const semHistorico=revAtivas().filter(r=>!idsComHistorico.has(r.id)).length;
 
   v.innerHTML=`
     <div class="actbar" style="margin-bottom:16px">
@@ -2903,6 +2937,10 @@ function renderRevGeral(){
           <p>${abertas.length?'As maletas abertas não têm data combinada.':'Nenhuma maleta aberta no momento.'}</p></div>`}
       </div>
     </div>
+
+    ${acertosRevendedoras&&acertosRevendedoras.erro
+      ?`<div class="warn"><div><b>Não consegui carregar os acertos:</b> ${esc(acertosRevendedoras.erro)}</div></div>`
+      :blocoAcertosMaleta(acertosRevendedoras)}
 
     <div class="panel" style="margin-bottom:22px">
       <div class="head">
@@ -3023,7 +3061,7 @@ function blocoRevInativas(l){
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
         <button class="btn btn-ghost btn-sm" onclick="switchTab('rev:${r.id}')">Ver histórico</button>
-        <button class="btn btn-gold btn-sm" onclick="event.stopPropagation();reativarRevendedora(${r.id})">Reativar</button>
+        <button class="btn btn-gold btn-sm" onclick="event.stopPropagation();reativarRevendedora(${r.id})">Ativar revendedora</button>
       </div>
     </div>`;
   }).join('');
@@ -6145,6 +6183,7 @@ function renderRev(id){
   if(!r){v.innerHTML='<div class="panel"><div class="body"><div class="empty"><h3>Revendedora não encontrada</h3></div></div></div>';return;}
 
   const m=maletaAbertaDe(id);
+  const ativa=r.status!=='inativa';
   const idx=prodIndex();
   const fechadas=state.maletas.filter(x=>x.revId===id&&maletaEncerrada(x))
     .sort((a,b)=>String(b.encerradaEm).localeCompare(String(a.encerradaEm)));
@@ -6179,7 +6218,7 @@ function renderRev(id){
     <div class="panel" style="margin-bottom:16px">
       <div class="body revtopo">
         <div class="rt-id">
-          <h2>${esc(r.nome)}</h2>
+          <h2>${esc(r.nome)}${ativa?'':' <span class="badge fechada">inativa</span>'}</h2>
           <div class="rt-meta">${[r.cidade,r.cpf?'CPF '+r.cpf:'',r.endereco].filter(Boolean).map(esc).join(' · ')||'Sem endereço cadastrado'}</div>
         </div>
         <div class="rt-contatos">
@@ -6195,11 +6234,17 @@ function renderRev(id){
 
     <div class="panel">
       <div class="head">
-        <h2>${m?'Maleta aberta':'Sem maleta aberta'}</h2>
-        <span class="hint">${m?(prazoDe(m)?`Acerto marcado para ${fmtData(prazoDe(m))}`:'Sem data de acerto combinada'):'Monte a maleta bipando ou importando o Anexo I'}</span>
+        <h2>${!ativa?'Revendedora inativa':m?'Maleta aberta':'Sem maleta aberta'}</h2>
+        <span class="hint">${!ativa?'O histórico continua disponível; ative para montar uma nova maleta.':m?(prazoDe(m)?`Acerto marcado para ${fmtData(prazoDe(m))}`:'Sem data de acerto combinada'):'Monte a maleta bipando ou importando o Anexo I'}</span>
       </div>
       <div class="body">
-        ${m?`
+        ${!ativa?`
+          <div class="empty">
+            <h3>${esc(r.nome)} está inativa</h3>
+            <p>Ela não aparece na barra superior nem nas opções de montar maleta. O histórico abaixo permanece guardado.</p>
+            <button class="btn btn-gold" style="margin-top:14px" onclick="reativarRevendedora(${r.id})">Ativar revendedora</button>
+          </div>
+        `:m?`
           <div class="actbar">
             <div class="stat"><b>${qtdMaleta(m)}</b> peças</div>
             <div class="stat"><b>${Object.values(m.itens).filter(q=>q>0).length}</b> códigos</div>
@@ -6301,7 +6346,9 @@ function renderRev(id){
     <div class="panel" style="margin-top:22px">
       <div class="body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <div class="spacer" style="flex:1"></div>
-        <button class="btn btn-danger btn-sm" onclick="delRevendedora(${r.id})">Arquivar revendedora</button>
+        ${ativa
+          ?`<button class="btn btn-danger btn-sm" onclick="delRevendedora(${r.id})">Desativar revendedora</button>`
+          :`<button class="btn btn-gold btn-sm" onclick="reativarRevendedora(${r.id})">Ativar revendedora</button>`}
       </div>
     </div>`;
 
@@ -7479,13 +7526,14 @@ function renderVendasPainel(){
           ${cartaoKpi({ico:ICO.grafico,rot:'Faturamento',num:money(g.faturamento),
             cls:'compacto k-fat',
             sub:[`${comp.vendasHistoricas} do histórico · ${comp.vendasSistema} do sistema`]})}
+          ${cartaoKpi({ico:ICO.etiqueta,rot:'Faturamento do mês',
+            num:money((painelVendas.mesAtual||{}).faturamento||0),
+            cls:'compacto k-ped',
+            sub:['zera no início de cada mês']})}
           ${cartaoKpi({ico:ICO.brilho,rot:'Ticket médio',
             num:tm.valor!=null?money(tm.valor):'—',
             cls:'compacto k-tic',
             sub:[tm.valor!=null?`${fmtN(tm.vendasElegiveis)} vendas pagas elegíveis`:'sem venda elegível no período']})}
-          ${cartaoKpi({ico:ICO.etiqueta,rot:'Vendas',num:fmtN(g.vendas),
-            cls:'compacto k-ped',
-            sub:['pedidos, não linhas de planilha']})}
           ${cartaoKpi({ico:ICO.caixa,rot:'Peças vendidas',num:fmtN(g.pecas),
             cls:'compacto k-pec',
             sub:[g.valorMedioPorItem!=null?`${money(g.valorMedioPorItem)} por peça, em média`:'—']})}
@@ -7506,7 +7554,7 @@ function renderVendasPainel(){
 
     ${blocoEvolucao(painelVendas.evolucao,comp.vendasSemData)}
 
-    ${blocoAcertosMaleta(painelVendas.maletas)}
+    ${blocoContasReceber(painelVendas.contasReceber)}
 
     ${detalhesDoPainel()}
 
@@ -7547,16 +7595,7 @@ function destaquesPainel(ins){
   return `<div class="insights" style="margin-bottom:14px">${c.join('')}</div>`;
 }
 
-/* ---------------- acertos de maleta ----------------
-
-   O dinheiro que veio pela revendedora aparece SEPARADO do balcão, e com a
-   comissão descontada. Ele está somado no faturamento lá em cima — a venda
-   aconteceu — mas o que sobrou para a casa é outro número, e confundir os
-   dois é a diferença entre saber e achar que sabe.
-
-   A comissão aqui é ESTIMATIVA, e o cartão diz isso na cara: a planilha
-   histórica registra o valor da venda, não o que entrou no caixa. As
-   premissas vêm do servidor e são mostradas, não escondidas — §9. */
+/* Este bloco só é usado em Revendedoras › Visão geral. */
 function blocoAcertosMaleta(m){
   if(!m||!m.totais||!m.totais.acertos) return '';
   const t=m.totais;
@@ -7574,7 +7613,7 @@ function blocoAcertosMaleta(m){
   return painelBloco('Acertos de maleta',
     `<div class="rc-row" style="flex-wrap:wrap;gap:14px;margin-bottom:14px">
        <div class="rc-st">Vendido<b>${money(t.vendido)}</b></div>
-       <div class="rc-st">Comissão estimada<b>${money(t.comissao)}</b></div>
+       <div class="rc-st">Comissão<b>${money(t.comissao)}</b></div>
        <div class="rc-st">Ficou para a casa<b style="font-size:16px">${money(t.liquido)}</b></div>
      </div>
      <div class="gtab acertos">
@@ -7586,22 +7625,46 @@ function blocoAcertosMaleta(m){
        </div>
        ${linhas}
      </div>
-     <details class="maisitens" style="margin-top:12px">
-       <summary>Por que a comissão é uma estimativa</summary>
-       <div class="hint" style="margin-top:8px;line-height:1.6">
-         A planilha histórica registra o <b>valor da venda</b>, não o que entrou
-         no caixa: ela não tem coluna de comissão nem vínculo com maleta. O
-         cálculo aqui usa a mesma régua do acerto de verdade — faixa pelo total
-         das banhadas, Prata 925 com ${m.config?m.config.prataPct:10}% à parte —
-         aplicada de fora, sobre linhas que já são história.
-         ${m.config&&!m.config.faixasConfiguradas
-           ?'<br>As faixas em uso são as <b>padrão</b>: ninguém configurou outras neste banco.'
-           :''}
-         <ul style="margin:8px 0 0;padding-left:18px">
-           ${(m.premissas||[]).map(p=>`<li>${esc(p)}</li>`).join('')}
-         </ul>
-       </div>
-     </details>`);
+     <div class="hint" style="margin-top:12px">Valores exatos dos documentos das maletas e dos acertos fechados no sistema. Nenhuma comissão estimada.</div>`);
+}
+
+function blocoContasReceber(r){
+  const contas=(r&&r.contas)||[], resumo=(r&&r.resumo)||{};
+  return painelBloco('A receber', contas.length?`
+    <div class="rc-row" style="flex-wrap:wrap;gap:14px;margin-bottom:14px">
+      <div class="rc-st">Total em aberto<b>${money(resumo.total||0)}</b></div>
+      <div class="rc-st">Clientes / compras<b>${fmtN(resumo.quantidade||0)}</b></div>
+      <div class="rc-st">Sem prazo definido<b>${fmtN(resumo.semPrazo||0)}</b></div>
+    </div>
+    <div class="receber-lista">${contas.map(c=>`
+      <div class="receber-linha ${c.vencida?'vencida':''}">
+        <button class="receber-cliente" onclick="switchTab('cli:${encodeURIComponent(c.clienteNorm||'')}')">${esc(c.cliente||c.clienteNorm||'Cliente')}</button>
+        <div class="receber-origem">${esc(c.canal||'origem não registrada')}${c.contexto?` · ${esc(c.contexto)}`:''}${c.observacao&&c.observacao!==c.canal?` · ${esc(c.observacao)}`:''}</div>
+        <label class="receber-prazo">Prazo
+          <input type="date" value="${esc(c.vencimentoEm||'')}" onchange="definirPrazoConta(${c.id},${c.versao},this.value)">
+        </label>
+        <b class="receber-valor">${money(c.valorReceber)}</b>
+      </div>`).join('')}</div>`:
+    `<div class="empty"><h3>Nada a receber</h3><p>Não há compra de cliente marcada como não paga.</p></div>`);
+}
+
+async function definirPrazoConta(id,versao,vencimentoEm){
+  try{
+    await api('PATCH',`/api/contas-receber/${id}/vencimento`,{versaoEsperada:versao,vencimentoEm:vencimentoEm||null});
+    await carregarPainelVendas(); renderVendasPainel();
+    toast(vencimentoEm?'Prazo atualizado':'Prazo removido');
+  }catch(e){ toast(e.message||'Não consegui atualizar o prazo'); await carregarPainelVendas(); renderVendasPainel(); }
+}
+
+async function marcarContaPaga(id,versao,norm,cliente,valor){
+  norm=decodeURIComponent(norm); cliente=decodeURIComponent(cliente);
+  if(!confirm(`${cliente} pagou ${money(valor)}?\n\nAo confirmar, a cobrança será quitada. Isso não altera o estoque.`)) return;
+  try{
+    await api('POST',`/api/contas-receber/${id}/marcar-paga`,{confirmar:true,versaoEsperada:versao});
+    await carregarPainelVendas();
+    toast('Pagamento confirmado');
+    await abrirPerfilCliente(norm);
+  }catch(e){ toast(e.message||'Não consegui confirmar o pagamento'); await abrirPerfilCliente(norm); }
 }
 
 /* ---------------- o resto, a um clique ----------------
@@ -8284,19 +8347,28 @@ async function abrirPerfilCliente(norm){
 
     ${painelBloco('Histórico de compras',
       p.vendas&&p.vendas.length?`<div class="tl">${p.vendas.map(v=>`
-        <div class="tlv">
+        <div class="tlv ${v.cobrancaStatus==='aberta'?'cobranca-aberta':''}">
           <div class="tl-topo">
             <span class="tl-dt">${v.data?fmtData(v.data):'sem data'}</span>
             <span class="tl-vl">${money(v.valor)}</span>
           </div>
           <div class="tl-meta">${fmtN(v.pecas)} ${plural(v.pecas,'peça','peças')} ·
             ${esc(v.canal||'origem não registrada')}${v.contexto?` · ${esc(v.contexto)}`:''}
+            ${v.observacao&&v.observacao!==v.canal?` · ${esc(v.observacao)}`:''}
             ${v.status&&v.status!=='paga'?` · <b>${esc(v.status.replace('_',' '))}</b>`:''}
             ${v.fonte==='historico'?' · histórico':' · venda do sistema'}</div>
           ${v.itens&&v.itens.length?`<div class="tl-itens">${v.itens.map(i=>`
             <div class="tl-item"><span class="q">${i.qtd}×</span>
               <code>${esc(i.sku||'—')}</code>
-              <span>${esc(i.nome||'—')}</span></div>`).join('')}</div>`:''}
+              <span style="flex:1">${esc(i.nome||'—')}</span>
+              <span>${money(i.valor)}</span>
+              ${Number(i.desconto_valor)>0?`<span class="tl-desconto">desconto ${money(i.desconto_valor)}${i.desconto_rotulo?` · ${esc(i.desconto_rotulo)}`:''}</span>`:''}</div>`).join('')}</div>`:''}
+          ${v.cobrancaStatus==='aberta'?`<div class="tl-cobranca">
+            <button class="nao-pago" ${v.operacaoId?'':'disabled title="Cobrança aguardando revisão"'}
+              onclick="marcarContaPaga(${v.operacaoId||0},${v.operacaoVersao||0},'${encodeURIComponent(p.norm||'')}','${encodeURIComponent(p.nomeExibicao||'Cliente')}',${Number(v.valorReceber||0)})">NÃO PAGO</button>
+            <span class="saldo">${money(v.valorReceber)}</span>
+            <span class="hint">${v.vencimentoEm?`prazo ${fmtData(v.vencimentoEm)}`:'sem prazo definido'}</span>
+          </div>`:v.cobrancaStatus==='paga'&&v.pagaEm?`<div style="margin-top:8px"><span class="pago-selo">PAGO em ${fmtData(String(v.pagaEm).slice(0,10))}</span></div>`:''}
         </div>`).join('')}</div>
         <div class="hint" style="margin-top:12px">Cada bloco é uma COMPRA, não uma linha
           de planilha: uma cliente que levou 36 peças no mesmo dia aparece uma vez.</div>`

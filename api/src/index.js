@@ -40,11 +40,15 @@ import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import {
   visaoGeral, evolucao, produtosMaisVendidos, categoriasMaisVendidas,
   porOrigem, clientesRanking, perfilCliente, listarVendasUnificado,
-  painel, crm,
+  painel, crm, acertosDeMaleta,
 } from './analytics.js';
 import {
   reconstruir, estadoReconstrucao, backfillNormalizacao,
 } from './vendas-historicas.js';
+import {
+  aplicarOperacoesHistoricas, listarContasReceber,
+  marcarContaPaga, definirVencimento,
+} from './historico-operacoes.js';
 import {
   abrirSessao, detalheSessao, aprovarItem, rejeitarItem, cancelarSessao, aplicarSessao,
   analisarPlanilhaEstoqueTotal, analisarPlanilhaProdutosNovos,
@@ -645,6 +649,25 @@ async function rotear(request, env) {
       if (path === '/api/vendas/historico/reconstrucao' && met === 'GET') {
         return json(await estadoReconstrucao(db));
       }
+      if (path === '/api/vendas/historico/operacoes' && met === 'POST') {
+        const r = await aplicarOperacoesHistoricas(db, await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+      }
+
+      // Cobrança é uma decisão financeira versionada. Nenhuma destas rotas
+      // chama estoque ou rebaixa a venda quando o dinheiro entra.
+      if (path === '/api/contas-receber' && met === 'GET') {
+        const r = await listarContasReceber(db, { status: url.searchParams.get('status') || 'aberta' });
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
+      }
+      if ((m = path.match(/^\/api\/contas-receber\/(\d+)\/marcar-paga$/)) && met === 'POST') {
+        const r = await marcarContaPaga(db, +m[1], await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+      }
+      if ((m = path.match(/^\/api\/contas-receber\/(\d+)\/vencimento$/)) && met === 'PATCH') {
+        const r = await definirVencimento(db, +m[1], await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+      }
 
       // ------------------------------------------------ inteligência comercial
       // As duas rotas AGREGADAS: cada tela pede uma vez e recebe todos os
@@ -655,6 +678,9 @@ async function rotear(request, env) {
       }
       if (path === '/api/analytics/crm' && met === 'GET') {
         return json(await crm(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
+      }
+      if (path === '/api/analytics/revendedoras' && met === 'GET') {
+        return json(await acertosDeMaleta(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
       }
       if (path === '/api/analytics/vendas' && met === 'GET') {
         return json(await visaoGeral(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));

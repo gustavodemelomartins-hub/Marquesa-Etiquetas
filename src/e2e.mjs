@@ -136,7 +136,15 @@ await page.waitForTimeout(250);
 eq('código fora do catálogo é recusado na hora', await page.textContent('#scanQtd'), '6');
 
 await page.click('#scanConfirm');
-await page.waitForTimeout(2000);
+/* `page.click()` não espera a Promise do onclick. Em máquinas onde o D1
+ * local leva mais de 2 s, o teste lia o estado antigo e começava o acerto
+ * enquanto o envio ainda estava em curso. Espere o efeito de negócio. */
+await page.waitForFunction((rid) => {
+  const atual = state.maletas.find(m => m.revId === rid
+    && (m.status === 'aberta' || m.status === 'em_acerto'));
+  return !scan && atual
+    && Object.values(atual.itens).reduce((a, b) => a + b, 0) === 6;
+}, revId, { timeout: 15000 });
 s = await st();
 const mal = s.maletas.find(m => m.revId === revId && (m.status === 'aberta' || m.status === 'em_acerto'));
 eq('a maleta guardou 6 peças',
@@ -286,7 +294,10 @@ await page.waitForTimeout(700);
 eq('o campo avisa que é cadastro novo',
   /ainda não está cadastrada/i.test(await page.textContent('#vd-cliente-eco')), 'true');
 await page.click('#vdConfirm');
-await page.waitForTimeout(2000);
+await page.waitForFunction(() => {
+  const total = state.produtos.reduce((s, p) => s + Number(p.qtd || 0), 0);
+  return !document.querySelector('#vendaOverlay').classList.contains('show') && total === 32;
+}, undefined, { timeout: 15000 });
 
 s = await st();
 eq('a venda tirou as 3 peças do estoque (35 − 3)', await totalNaTela(), '32');
@@ -351,7 +362,10 @@ await page.waitForTimeout(200);
 eq('a tela avisa, por extenso, que não é hoje',
   /não é hoje/i.test(await page.textContent('#vd-data-eco')), 'true');
 await page.click('#vdConfirm');
-await page.waitForTimeout(2000);
+await page.waitForFunction((dataEsperada) =>
+  !document.querySelector('#vendaOverlay').classList.contains('show')
+    && vendasData === dataEsperada,
+  ontem, { timeout: 15000 });
 
 eq('a lista de vendas foi para o DIA da venda, não ficou em hoje',
   await page.evaluate(() => vendasData), ontem);

@@ -24,6 +24,7 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §22 | Importação sinaliza, não corrige em silêncio | `importarProdutos` devolve `avisos[]` |
 | §24 | Produto sem preço não vira R$ 0 | `produtos.preco` é `NULL`; venda é bloqueada |
 | §28 | Não apagar histórico | revendedora arquiva, maleta cancela, venda estorna |
+| §29 | Receber uma dívida não movimenta estoque | `historico_operacoes.cobranca_status` |
 | §19 | Inventário não corrige em silêncio | `concluir` só compara; `ajustar` exige confirmação por código |
 | §5.2 | Inventário cobra só o que está em casa | `inventario.js › SQL_ESPERADO` desconta o consignado |
 | §6.1 | Esperado congelado no fechamento | `inventario_itens.esperado` |
@@ -952,69 +953,37 @@ A tabela de palavras existe em dois lugares: `api/src/categoria-nome.js`
 verificada**: `src/categoria-nome-test.mjs` lê as duas e falha se
 divergirem.
 
-### 23. Revendedora não é cliente — mas o dinheiro dela é faturamento
+### 23. O papel pertence à operação, não ao nome da pessoa
 
-A planilha histórica tem **uma** coluna para quem levou a peça, e nela
-convivem duas coisas diferentes:
+A planilha histórica tem uma coluna para quem levou a peça, mas a mesma
+pessoa pode ter comprado como cliente e, em outra data, acertado uma maleta.
+Evelyn, Andréia e Jéssica são casos reais dessa mudança de papel.
 
-- a **cliente final** — comprou, pagou, levou;
-- a **revendedora** — levou a maleta, vendeu lá fora e veio acertar. O nome
-  dela naquela coluna é o **acerto**, não uma compra pessoal.
+Por isso o cadastro da pessoa não classifica toda a vida dela. A decisão
+fica em `historico_operacoes.papel`, por `venda_chave`, com evidência. Sem
+decisão explícita, a venda histórica continua cliente; nome, quantidade de
+linhas e a palavra “Maleta” nunca promovem a pessoa inteira a revendedora.
 
-Sem separar as duas, a revendedora entrava no CRM como a maior cliente da
-casa. Foi o que aconteceu: 46 linhas de "Maleta" num acerto de 36 peças em
-13/06/2026 viraram *"Maior compra — R$ 2.368,80 numa venda só"* num cartão
-de destaque, e a dona do negócio precisou avisar, olhando a tela, que aquela
-pessoa era revendedora.
+O dinheiro não some. O acerto entra uma vez no faturamento pelo líquido da
+Marquesa, mas aparece em **Revendedoras › Visão geral**. Compra pessoal entra
+em **Vendas › Clientes**. A mesma operação não pode aparecer nos dois lugares.
 
-**A fronteira é o CADASTRO, não uma heurística sobre o texto.** Nome que bate
-com uma revendedora cadastrada (pelo mesmo `normalizarNomeCliente` de todo o
-resto) é revendedora. Quem não está cadastrada continua sendo tratada como
-cliente — o sistema não deduz papel de ninguém pela observação da planilha,
-onde "Maleta" aparece em 669 linhas que são vendas de balcão da própria
-Marquesa.
+Venda operacional que já está na planilha não é cancelada, pois seus
+movimentos são a saída física verdadeira. O vínculo em
+`historico_operacao_vendas` remove somente a segunda representação dos
+analytics e impede vincular a mesma `vendas.id` duas vezes.
 
-**O dinheiro não some.** Faturamento, peças, ticket médio e evolução
-continuam contando o acerto: a venda aconteceu e o valor entrou. O que muda
-é **onde ela aparece** — em "Acertos de maleta", no Painel, e não em "Top
-clientes". A única contagem que a exclui é a de **clientes**, porque ela não
-é uma.
+### 24. Acerto histórico usa o documento da maleta, não estimativa
 
-Revendedora **inativa continua valendo** para o histórico já gravado: quem
-encerrou a parceria não deixa de ter sido revendedora nos acertos que fez.
+Quando existe planilha da maleta, ela é a fonte documental do acerto:
+`bruto − comissão = líquido`. Os três valores e a quantidade vendida ficam
+congelados em `historico_operacoes`, junto ao arquivo e às linhas que os
+provam.
 
-Implementado em `api/src/analytics.js › revendedorasPorNome`,
-`baseDeClientes`; provado em `src/revendedora-nao-e-cliente-test.mjs`.
-
-### 24. A comissão do acerto histórico é ESTIMATIVA, e diz que é
-
-A planilha registra o **valor da venda**, não o que entrou no caixa: não tem
-coluna de comissão, não tem vínculo com maleta e não guarda o preço
-congelado no envio. O motor de comissão do sistema (§11, §12, §32) acerta
-porque roda no acerto de verdade; aqui ele é aplicado **de fora**, sobre
-linhas que já são história.
-
-O que a planilha de fato tem: o valor de cada item e a coluna `Tipo`
-(`Banhada`, `Bruto`, `Prata 925`…). O que a estimativa **assume**, por
-decisão do dono do negócio em 2026-08-28:
-
-1. **peça bruta entra na mesma faixa das banhadas.** A operação distingue
-   peça comprada já banhada de peça comprada em bruto e mandada banhar na
-   fábrica, e as duas têm precificação própria — mas essa distinção **ainda
-   não está modelada** no sistema. Enquanto não estiver, bruto conta como
-   banhada, e isso está escrito na tela;
-2. **as faixas de hoje valeram o período inteiro da planilha**;
-3. **só o histórico entra.** Acerto fechado pelo sistema já tem comissão
-   calculada de verdade, no fechamento da maleta — estimar por cima dele
-   produziria dois números para a mesma coisa.
-
-As três premissas viajam no payload (`maletas.premissas`) e a tela as mostra
-num expansor ao lado do número. **Estimativa rotulada é útil; estimativa
-disfarçada de extrato é mentira** — §9.
-
-Implementado em `api/src/analytics.js › acertosDeMaleta`, reusando
-`comissao.js › calcComissao` e `isPrata` (a definição de prata não tem duas
-versões).
+Sem documento, a operação fica em `papel='revisao'`; o painel anuncia a
+pendência e não inventa comissão. Acerto fechado pelo sistema continua lendo
+`maletas.acerto_json`, que já guarda a comissão real. Andréia M2 existe só
+nesse caminho operacional; importar o documento da M1 não a duplica.
 
 ### 25. Trocar a planilha do histórico é uma operação só — nunca "importar de novo"
 
@@ -1185,3 +1154,20 @@ duas vezes.
 Provado em `src/venda-desconto-test.mjs` (a regra, incluindo o cancelamento
 idempotente) e em `src/e2e.mjs` (a venda de ontem pela tela, a lista indo
 para o dia certo, e o cancelamento devolvendo a peça).
+
+### 29. Conta a receber é dinheiro pendente, não peça pendente
+
+Venda histórica não paga mostra o **valor efetivamente cobrado**, inclusive
+desconto, e não `valor_pago = 0`. O saldo inicial é `valor_total − valor_pago`
+da fonte. Canal, contexto e observação permanecem visíveis; prazo ausente é
+“sem prazo definido”, nunca uma data inventada.
+
+Marcar “PAGO” exige confirmação e cria nova versão da decisão financeira em
+`historico_operacoes`. Retry é inofensivo e versão concorrente devolve 409.
+Essa ação não chama `movimentar`, não altera `produtos.qtd` e não rebaixa a
+venda: receber o dinheiro não faz a peça sair de novo.
+
+Somente `papel='cliente'` gera conta a receber. Acerto de revendedora, troca
+excluída do documento, ajuste e operação em revisão não viram dívida de
+cliente. O painel soma apenas cobranças abertas e deixa cada nome navegar
+para a ficha da cliente.

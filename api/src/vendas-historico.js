@@ -29,6 +29,7 @@ import {
 import {
   reconstruirVendas, reconstruir, backfillNormalizacao, REGRA_DESCRITA,
 } from './vendas-historicas.js';
+import { operacoesAtivasDoLote } from './historico-operacoes.js';
 
 /* --------------------------------------------------------------- utilidades */
 
@@ -464,6 +465,15 @@ export async function reverterLote(db, loteId) {
   ).bind(loteId).first();
   if (!lote) return { ok: false, erro: 'Lote não encontrado.' };
   if (lote.status === 'revertido') return { ok: false, erro: 'Lote já revertido.' };
+  const protegidas = await operacoesAtivasDoLote(db, loteId);
+  if (protegidas.length) {
+    return {
+      ok: false,
+      erro: `Este lote tem ${protegidas.length} decisões ativas (papel, duplicidade ou cobrança). `
+        + 'A troca precisa preservar cada chave e fingerprint antes de reverter.',
+      operacoesProtegidas: protegidas,
+    };
+  }
 
   const antes = await db.prepare(
     'SELECT COUNT(*) AS n FROM vendas_historico_itens WHERE lote_id = ?',

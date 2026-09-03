@@ -92,7 +92,10 @@ export function normalizarData(v) {
     if (v < 1 || v > 80000) return null;
     const ms = Math.round((v - 25569) * 86400 * 1000);
     const d = new Date(ms);
-    return isNaN(d) ? null : isoDeData(d);
+    /* O serial não tem fuso. `ms` aponta para meia-noite UTC; ler com
+     * getFullYear/getMonth/getDate em Brasília recuava todas as datas um dia.
+     * Neste ramo, portanto, os componentes precisam continuar em UTC. */
+    return isNaN(d) ? null : d.toISOString().slice(0, 10);
   }
 
   const s = limparSemantico(v);

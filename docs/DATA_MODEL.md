@@ -134,6 +134,20 @@ o acerto não pode baixá-las novamente. A publicação apenas envia o saldo
 absoluto atual; as devolvidas voltam para o estoque online.
 Perda, quebra, dano e brinde continuam movimentos físicos com o motivo real.
 
+### `historico_operacoes` / `historico_operacao_vendas`
+
+`vendas_historicas` é uma projeção descartável da planilha. Estas duas
+tabelas guardam o que não pode ser reconstruído por texto: o papel daquela
+operação (`cliente`, `acerto` ou `revisao`), os valores documentais do acerto,
+o estado atual da cobrança e quais vendas operacionais são somente outra
+representação da mesma venda histórica.
+
+Cada mudança de cobrança cria uma nova `versao` e substitui a anterior. O
+índice parcial mantém uma única versão ativa por `venda_chave`; outro índice
+impede que a mesma `vendas.id` seja ocultada como duplicata duas vezes.
+Pagamento e prazo são financeiros e nunca escrevem em `produtos` ou
+`movimentos`.
+
 ### `produto_variacoes`
 O aro do anel, o comprimento da corrente. Ninguém digita esta tabela: quem
 preenche é a sincronização, lendo o que a Nuvemshop declara — e ela é
@@ -295,4 +309,5 @@ loja_variantes            (avulsa — espelho da loja, SEM FK de propósito)
 sku_reservas              (avulsa)
 sync_execucoes            (avulsa)
 reconciliacao_sessoes ──< reconciliacao_itens     (schema pronto, não aplicado)
+vendas_historico_lotes ──< historico_operacoes ──< historico_operacao_vendas
 ```
