@@ -252,9 +252,19 @@ async function puxarPedidos(db, loja, relato, seco) {
     const cliente = (pedido.customer && pedido.customer.name) || 'Cliente do site';
 
     const venda = await db.prepare(
-      `INSERT INTO vendas (cliente_nome, origem, data, total, externo_id)
-       VALUES (?, 'site', ?, ?, ?) RETURNING id`
-    ).bind(cliente, data, total, chave).first();
+      /* §1 da revisão — a procedência da data de pagamento, dita em voz alta.
+       *
+       * A loja aceita pedido com pagamento pendente e a sincronização nunca
+       * guardou `payment_status`: o sistema NÃO SABE se este pedido foi pago.
+       * O comportamento financeiro continua exatamente o que sempre foi (o
+       * pedido conta no dia em que entrou), mas a linha fica carimbada como
+       * indeterminada, e é por esse carimbo que o relatório de conferência a
+       * encontra. Fingir 'informado' aqui seria inventar um fato que ninguém
+       * verificou. */
+      `INSERT INTO vendas (cliente_nome, origem, data, total, externo_id,
+                           pago, data_pagamento, pagamento_origem)
+       VALUES (?, 'site', ?, ?, ?, 1, ?, 'indeterminado_site') RETURNING id`
+    ).bind(cliente, data, total, chave, data).first();
 
     const stmts = [];
     for (const l of linhas) {

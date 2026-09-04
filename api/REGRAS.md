@@ -1372,3 +1372,73 @@ segunda baixa. Aplicar apenas marca a linha como não-venda, e as somas
 comerciais passam a ignorá-la. `DELETE` desfaz.
 
 Provado em `src/pacote-vendas-test.mjs`, cenário L.
+
+---
+
+## §36 — a data do pagamento tem procedência, e "sem dono" é durável
+
+Duas correções de identidade, das quais nenhuma muda um número de
+faturamento existente.
+
+### §36.1 — `vendas.pagamento_origem`: fato não se confunde com aproximação
+
+`data_pagamento` (§30) resolveu **quando** o dinheiro entrou. Faltava dizer
+**como o sistema sabe disso** — e sem essa distinção, o backfill da migration
+transformaria toda venda antiga em "pagamento conhecido".
+
+O backfill de `migracao-vendas-pagamento.sql` classifica cada venda pela
+evidência que **já existe** no banco:
+
+| Carimbo | Quando | O que a migration escreve |
+|---|---|---|
+| `informado` | um humano disse a data na tela | `pago=1`, a data que ele escolheu |
+| `historico_paga` | há cobrança histórica paga, com `paga_em` | `pago=1`, a data REAL do recebimento |
+| `historico_aberto` | há cobrança histórica **aberta** | `pago=0`, **sem** data |
+| `indeterminado_site` | pedido da loja | comportamento antigo preservado, e a linha vai para conferência humana |
+| `legado_data_venda` | nenhuma evidência existiu jamais | data da venda como **aproximação declarada** |
+
+A regra em uma linha: **uma conta a receber real nunca vira pagamento por
+causa de uma migration.** A loja aceita pedido com pagamento pendente e a
+sincronização nunca guardou `payment_status`; por isso o pedido do site sai
+carimbado como indeterminado em vez de se passar por conhecido.
+
+`GET /api/vendas/pagamento/auditoria` é **seco** e roda **antes** do
+backfill: ele usa a mesma classificação e nenhuma coluna nova.
+
+Provado em `src/migracao-pagamento-test.mjs`, que executa o arquivo SQL de
+verdade sobre a forma anterior de `vendas`.
+
+### §36.2 — `vendas.cliente_ambiguo`: a recusa de escolher fica escrita
+
+Vender para um nome que tem **dois** cadastros já era tratado direito na
+escrita: o sistema se recusa a escolher e a venda fica sem `cliente_id`,
+porque nome não é identidade (§2).
+
+O defeito estava no **depois**. "Sem dono" era indistinguível de "ainda não
+amarrada": no dia em que uma das homônimas fosse renomeada, o nome passava a
+apontar para uma pessoa só, e a venda que ninguém nunca atribuiu entrava
+inteira na ficha da que sobrou.
+
+`cliente_ambiguo = 1` quer dizer **"o sistema olhou e se recusou a
+escolher"** — e isso não deixa de ser verdade porque a população de
+cadastros mudou depois. A ficha da cliente casa por `cliente_id`; o nome só
+alcança a linha que não tem dono **e** cujo nome identifica uma pessoa só
+**e** em que a recusa não foi registrada.
+
+O perfil devolve `clienteId`, `homonimos` e `nomeAmbiguo`, e a tela endereça
+a ficha por `cli:#<id>` — nome é rótulo e busca, nunca endereço.
+
+### §36.3 — `saidas_sem_faturamento.estoque_refletido`: uma baixa, uma vez
+
+A linha da planilha reclassificada como brinde **já baixou** a peça na
+importação. Registrá-la como saída não pode baixar de novo — e, o simétrico
+que faltava, **estorná-la não pode devolver**: devolveria ao estoque uma
+unidade que nunca saiu por causa dela.
+
+`estoque_refletido = 0` marca a linha como **classificatória**: ela não cria
+movimento ao nascer, não pode apontar para movimento nenhum (é CHECK de
+banco), e o estorno dela desfaz a classificação sem tocar em saldo. Desfazer
+uma reclassificação histórica segue a mesma regra e declara
+`estoqueAlterado: false`.
+
+Provado em `src/revisao-pre-golive-test.mjs`, seções 4 a 6.

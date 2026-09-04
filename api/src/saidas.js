@@ -58,6 +58,10 @@ function publica(row) {
     motivo: row.motivo ?? null,
     observacao: row.observacao ?? null,
     movimentoId: row.movimento_id ?? null,
+    /* Quem é dono da baixa física. `false` = esta linha só CLASSIFICA uma
+       saída que já aconteceu (a linha da planilha já baixou a peça), e por
+       isso o estorno dela não devolve nada. */
+    estoqueRefletido: !!row.estoque_refletido,
     origemUsuario: row.origem_usuario ?? null,
     estornada: !!row.estornada,
     estornoEm: row.estorno_em ?? null,
@@ -104,6 +108,17 @@ export async function registrarSaida(db, corpo = {}) {
     return { ok: false, statusHttp: 400, erro: 'Quantidade tem que ser um inteiro maior que zero.' };
   }
 
+  /* §3 da revisão — de quem é a baixa física.
+   *
+   *  Uma linha vinda da planilha JÁ baixou a peça quando o lote foi
+   *  importado. Reclassificá-la como brinde não pode baixar de novo: seria
+   *  a segunda baixa da mesma peça. Ela entra como registro CLASSIFICATÓRIO
+   *  — `estoque_refletido = 0`, sem movimento, e o estorno dela também não
+   *  devolve peça nenhuma. Cada alteração física acontece uma vez só. */
+  const daMigracao = corpo.origemRegistro === 'migracao_historico'
+    || corpo.historicoItemId != null;
+  const estoqueRefletido = !daMigracao;
+
   const s = await saldosDoSku(db, sku);
   if (!s) return { ok: false, statusHttp: 400, erro: `Código ${sku} não está no catálogo.`, sku };
 
@@ -116,7 +131,7 @@ export async function registrarSaida(db, corpo = {}) {
     };
   }
 
-  if (sentido === 'saida' && qtd > s.disponivel) {
+  if (estoqueRefletido && sentido === 'saida' && qtd > s.disponivel) {
     return { ok: false, statusHttp: 409, erro: `${s.desc}: só tem ${s.disponivel} disponível.`, sku };
   }
 
@@ -138,14 +153,31 @@ export async function registrarSaida(db, corpo = {}) {
   const linha = await db.prepare(
     `INSERT INTO saidas_sem_faturamento
        (tipo, sentido, data, sku, variacao, variante_id, qtd, motivo, observacao,
-        origem_usuario, origem_registro, historico_item_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+        origem_usuario, origem_registro, historico_item_id, estoque_refletido)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
   ).bind(
     tipo, sentido, data, sku, variacao, varianteId, qtd, motivo, observacao,
     String(corpo.usuario ?? '').trim() || null,
-    corpo.origemRegistro === 'migracao_historico' ? 'migracao_historico' : 'manual',
+    daMigracao ? 'migracao_historico' : 'manual',
     corpo.historicoItemId ?? null,
+    estoqueRefletido ? 1 : 0,
   ).first();
+
+  /* Linha classificatória para aqui: nenhum movimento, nenhum saldo tocado,
+     e a resposta diz isso em voz alta em vez de deixar quem chamou supor. */
+  if (!estoqueRefletido) {
+    return {
+      ok: true,
+      saida: publica({ ...linha, produto: s.desc }),
+      estoque: { sku, desc: s.desc, antes: s.qtd, depois: s.qtd },
+      estoqueAlterado: false,
+      porQueNaoAlterouEstoque:
+        'a linha histórica já baixou esta peça na importação — baixar aqui seria a segunda baixa',
+      faturamento: 0,
+      criouVenda: false,
+      criouCliente: false,
+    };
+  }
 
   const obsMov = `${ROTULO[tipo]} ${linha.id}`
     + (motivo ? ` · ${motivo}` : '')
@@ -182,6 +214,7 @@ export async function registrarSaida(db, corpo = {}) {
     ok: true,
     saida: publica({ ...linha, produto: s.desc }),
     estoque: { sku, desc: s.desc, antes: s.qtd, depois: depois.qtd },
+    estoqueAlterado: true,
     /* §30 dito em voz alta na resposta: quem chamou não precisa deduzir. */
     faturamento: 0,
     criouVenda: false,
@@ -203,6 +236,28 @@ export async function estornarSaida(db, id, { motivo = null } = {}) {
   if (!razao) return { ok: false, statusHttp: 400, erro: 'Diga por que está estornando.' };
 
   const antes = await saldosDoSku(db, linha.sku);
+
+  /* A linha que nunca foi dona da baixa não devolve peça ao ser estornada.
+     Devolver aqui somaria ao estoque uma unidade que jamais saiu por causa
+     dela — a peça saiu na importação da planilha, e continua fora. O
+     estorno existe mesmo assim: ele desfaz a CLASSIFICAÇÃO. */
+  if (!linha.estoque_refletido) {
+    const atualizada = await db.prepare(
+      `UPDATE saidas_sem_faturamento
+          SET estornada = 1, estorno_em = datetime('now'), estorno_motivo = ?,
+              atualizado_em = datetime('now')
+        WHERE id = ? RETURNING *`,
+    ).bind(razao, id).first();
+    return {
+      ok: true,
+      saida: publica(atualizada),
+      estoque: { sku: linha.sku, antes: antes.qtd, depois: antes.qtd },
+      estoqueAlterado: false,
+      porQueNaoAlterouEstoque:
+        'esta linha nunca baixou estoque — quem baixou foi a linha da planilha, e ela continua baixada',
+    };
+  }
+
   const obsMov = `Estorno da ${ROTULO[linha.tipo]} ${linha.id} · ${razao}`;
 
   /* O inverso exato do movimento original, sempre por `ajuste` — o tipo cujo
@@ -235,6 +290,7 @@ export async function estornarSaida(db, id, { motivo = null } = {}) {
     ok: true,
     saida: publica(atualizada),
     estoque: { sku: linha.sku, antes: antes.qtd, depois: depois.qtd },
+    estoqueAlterado: true,
   };
 }
 

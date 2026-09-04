@@ -174,8 +174,115 @@ function snapshot(target, dest) {
   const stock = optional('resumo estoque', [['produtos', 'status', 'qtd', 'preco']],
     "SELECT COUNT(*) skus,SUM(CASE WHEN status='ativo' THEN 1 ELSE 0 END) ativos,COALESCE(SUM(qtd),0) pecas_total,SUM(CASE WHEN preco IS NULL THEN 1 ELSE 0 END) sem_preco FROM produtos");
 
-  const data = { target, tables, counts, ratio, salesByOrigin, cases, witnesses, orphans, idempotency, sync, siteSales, stock, settings, lastRun, warnings };
-  for (const [name, value] of Object.entries({ tables, counts, ratio, salesByOrigin, cases, witnesses, orphans, idempotency, sync, siteSales, stock, settings, lastRun, warnings })) save(join(folder, `${name}.json`), value);
+  /* ─── PRÉ-VOO DAS MIGRATIONS PENDENTES (somente leitura)
+   *
+   *  "duplicate column name" NÃO é sinal de sucesso: ele diz que a coluna
+   *  já existe, e não diz nada sobre as outras da mesma migration. Uma
+   *  migration que morreu no meio deixa metade das colunas — e rodá-la de
+   *  novo pararia no primeiro ALTER, sem aplicar o resto.
+   *
+   *  Este bloco olha ANTES: para cada migration, quantos dos artefatos dela
+   *  já estão no banco. 0 = não aplicada. Todos = aplicada. Qualquer coisa
+   *  no meio = PARCIAL, e aí ninguém executa nada antes de olhar. */
+  const migrations = [
+    ['migracao-venda-desconto.sql', [
+      ['coluna', 'venda_itens', 'preco_tabela'],
+      ['coluna', 'venda_itens', 'desconto_valor'],
+      ['coluna', 'venda_itens', 'desconto_rotulo'],
+    ]],
+    ['migracao-historico-operacoes.sql', [
+      ['tabela', 'historico_operacoes'],
+      ['tabela', 'historico_operacao_vendas'],
+    ]],
+    ['migracao-vendas-pagamento.sql', [
+      ['coluna', 'vendas', 'pago'],
+      ['coluna', 'vendas', 'data_pagamento'],
+      ['coluna', 'vendas', 'observacao'],
+      ['coluna', 'vendas', 'pagamento_origem'],
+    ]],
+    ['migracao-vendas-cliente-ambiguo.sql', [
+      ['coluna', 'vendas', 'cliente_ambiguo'],
+    ]],
+    ['migracao-saidas-sem-faturamento.sql', [
+      ['tabela', 'saidas_sem_faturamento'],
+      ['tabela', 'historico_reclassificacao'],
+    ]],
+    ['migracao-garantias.sql', [
+      ['tabela', 'garantias'],
+      ['tabela', 'garantia_eventos'],
+      ['tabela', 'garantia_trocas'],
+      ['tabela', 'feriados'],
+    ]],
+  ];
+  const preflight = migrations.map(([arquivo, artefatos]) => {
+    const detalhe = artefatos.map(([tipo, alvo, coluna]) => ({
+      tipo, alvo, coluna: coluna ?? null,
+      presente: tipo === 'tabela' ? schema.hasTable(alvo) : schema.has(alvo, coluna),
+    }));
+    const presentes = detalhe.filter(d => d.presente).length;
+    const estado = presentes === 0 ? 'NAO_APLICADA'
+      : presentes === detalhe.length ? 'APLICADA' : 'PARCIAL';
+    if (estado === 'PARCIAL') {
+      warnings.push(`PARE: ${arquivo} está PARCIALMENTE aplicada (${presentes}/${detalhe.length}). `
+        + `Faltam: ${detalhe.filter(d => !d.presente).map(d => d.coluna ? `${d.alvo}.${d.coluna}` : d.alvo).join(', ')}.`);
+    }
+    return { arquivo, estado, presentes, total: detalhe.length, detalhe };
+  });
+
+  /* ─── §1: quantas vendas seriam pagas, não pagas e indeterminadas
+   *
+   *  Roda ANTES da migration de propósito: nenhuma coluna nova é usada. A
+   *  classificação sai da evidência que JÁ existe no banco, e é exatamente
+   *  a mesma que o backfill aplica. Sem este número, marcar tudo como pago
+   *  seria transformar conta a receber em faturamento no escuro. */
+  const EVID = estado => `EXISTS (SELECT 1 FROM historico_operacao_vendas hov
+      JOIN historico_operacoes ho ON ho.id = hov.operacao_id
+     WHERE hov.venda_id = v.id AND hov.status_registro = 'ativa'
+       AND ho.status_registro = 'ativa' AND ho.cobranca_status = ${lit(estado)}
+       ${estado === 'paga' ? 'AND ho.paga_em IS NOT NULL' : ''})`;
+  const CLASSE = `CASE
+      WHEN ${EVID('aberta')} THEN 'evidencia_pendencia'
+      WHEN ${EVID('paga')}   THEN 'evidencia_pagamento'
+      WHEN v.origem = 'site' THEN 'indeterminado_site'
+      ELSE 'sem_evidencia_legado' END`;
+  const payments = optional('classificação de pagamento',
+    [['vendas', 'id', 'origem', 'data', 'total', 'cancelada'],
+     ['historico_operacao_vendas', 'venda_id', 'operacao_id', 'status_registro'],
+     ['historico_operacoes', 'id', 'cobranca_status', 'paga_em', 'status_registro']],
+    `SELECT classe, COUNT(*) AS vendas, ROUND(COALESCE(SUM(total),0),2) AS valor,
+            MIN(data) AS primeira, MAX(data) AS ultima
+       FROM (SELECT v.id, v.total, v.data, ${CLASSE} AS classe
+               FROM vendas v WHERE v.cancelada = 0)
+      GROUP BY classe ORDER BY classe`);
+  /* A lista nominal do que ficaria indeterminado. É o relatório de
+     conferência humana que §1 exige — número agregado não se confere. */
+  const paymentsUnknown = optional('vendas indeterminadas',
+    [['vendas', 'id', 'origem', 'data', 'total', 'cancelada', 'externo_id', 'cliente_nome']],
+    `SELECT id, data, total, externo_id, cliente_nome
+       FROM vendas WHERE cancelada = 0 AND origem = 'site'
+      ORDER BY data DESC, id DESC LIMIT 200`);
+
+  /* ─── §2: nome não é identidade, e aqui está a prova de que isso importa
+     neste banco: cadastros diferentes que dividem o mesmo nome normalizado. */
+  const homonyms = optional('cadastros homônimos', [['clientes', 'id', 'nome', 'nome_norm']],
+    `SELECT nome_norm, COUNT(*) AS cadastros, GROUP_CONCAT(id) AS ids
+       FROM clientes WHERE nome_norm IS NOT NULL
+      GROUP BY nome_norm HAVING COUNT(*) > 1
+      ORDER BY cadastros DESC, nome_norm`);
+
+  /* ─── as contas a receber que existem HOJE. É o número que a migration
+     não pode mover: conta aberta antes tem que continuar aberta depois. */
+  const receivables = optional('contas a receber',
+    [['historico_operacoes', 'cobranca_status', 'saldo_centavos', 'papel', 'status_registro']],
+    `SELECT cobranca_status, COUNT(*) AS operacoes,
+            COALESCE(SUM(saldo_centavos),0) AS saldo_centavos
+       FROM historico_operacoes
+      WHERE status_registro = 'ativa' AND papel = 'cliente'
+      GROUP BY cobranca_status ORDER BY cobranca_status`);
+
+  const extras = { preflight, payments, paymentsUnknown, homonyms, receivables };
+  const data = { target, tables, counts, ratio, salesByOrigin, cases, witnesses, orphans, idempotency, sync, siteSales, stock, settings, lastRun, ...extras, warnings };
+  for (const [name, value] of Object.entries({ tables, counts, ratio, salesByOrigin, cases, witnesses, orphans, idempotency, sync, siteSales, stock, settings, lastRun, ...extras, warnings })) save(join(folder, `${name}.json`), value);
   return data;
 }
 
@@ -199,6 +306,24 @@ function render(snapshots, diff, meta) {
     if (s.idempotency.duplicados?.length) risks.push(`${s.target.rotulo}: há externo_id duplicado.`);
     if (s.idempotency.indice_unico === false) risks.push(`${s.target.rotulo}: índice UNIQUE de vendas.externo_id não foi provado.`);
     if (s.warnings.length) risks.push(`${s.target.rotulo}: ${s.warnings.length} métrica(s) incompleta(s) por diferença de schema.`);
+    /* Migration pela metade é o risco que "duplicate column name" esconde:
+       rodar de novo pararia no primeiro artefato existente sem aplicar o
+       resto, e a mensagem de erro pareceria a de uma migration já feita. */
+    for (const m of (s.preflight ?? [])) {
+      if (m.estado === 'PARCIAL') {
+        risks.push(`${s.target.rotulo}: ${m.arquivo} está PARCIALMENTE aplicada `
+          + `(${m.presentes}/${m.total}) — NÃO execute; inspecione primeiro.`);
+      }
+    }
+    const indet = (s.payments ?? []).find(x => x.classe === 'indeterminado_site');
+    if (indet && Number(indet.vendas) > 0) {
+      risks.push(`${s.target.rotulo}: ${indet.vendas} venda(s) do site sem estado de pagamento conhecido `
+        + `(R$ ${Number(indet.valor || 0).toFixed(2)}) — conferência humana antes do backfill.`);
+    }
+    if ((s.homonyms ?? []).length) {
+      risks.push(`${s.target.rotulo}: ${s.homonyms.length} nome(s) repetido(s) em cadastros diferentes — `
+        + 'ficha por nome não identifica; use o id.');
+    }
   }
   if (diff?.so_producao.length) risks.push(`${diff.so_producao.length} venda(s) site só na produção antiga seriam perdidas.`);
   if (diff?.divergentes.length) risks.push(`${diff.divergentes.length} pedido(s) site existem nos dois bancos com dados diferentes.`);
@@ -227,6 +352,19 @@ function render(snapshots, diff, meta) {
     'Testemunhas MAX(id):', json(s.witnesses), '', 'Resumo estoque:', json(s.stock), '',
     'Últimas sync_execucoes (até 30):', json(s.sync), '',
     'config (estado interno do robô):', json(s.settings), '',
+    'Pré-voo das migrations (nenhuma foi executada):',
+    ...(s.preflight ?? []).map(m => `- ${m.arquivo}: ${m.estado} (${m.presentes}/${m.total})`
+      + (m.estado === 'APLICADA' ? '' : `
+    faltando: ${m.detalhe.filter(d => !d.presente).map(d => d.coluna ? `${d.alvo}.${d.coluna}` : d.alvo).join(', ') || '—'}`)),
+    '',
+    'Classificação de pagamento das vendas (evidência que já existe no banco):',
+    json(s.payments), '',
+    'Vendas do site sem estado de pagamento conhecido (até 200):',
+    json(s.paymentsUnknown), '',
+    'Contas a receber hoje (o número que a migration não pode mover):',
+    json(s.receivables), '',
+    'Cadastros que dividem o mesmo nome normalizado:',
+    json(s.homonyms), '',
     ...(s.warnings.length ? ['Avisos:', ...s.warnings.map(x => `- ${x}`), ''] : []),
   );
   /* O diff só existe quando os DOIS bancos daquela pergunta foram lidos.

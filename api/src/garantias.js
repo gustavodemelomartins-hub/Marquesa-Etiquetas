@@ -72,7 +72,10 @@ async function itemOperacional(db, { vendaId, sku, varianteId = null }) {
     vendaHistoricaId: null,
     clienteId: venda.cliente_id ?? null,
     clienteNome: venda.cliente_nome ?? null,
-    clienteNomeNorm: venda.cliente_nome_norm ?? null,
+    /* §2 — a venda em que o sistema se recusou a escolher entre homônimas
+       não tem dona, e a garantia dela também não pode ter. O nome fica para
+       exibição; o que NÃO fica é a chave que a penduraria na ficha errada. */
+    clienteNomeNorm: venda.cliente_ambiguo ? null : (venda.cliente_nome_norm ?? null),
     sku: item.sku,
     variacao: item.variacao ?? null,
     varianteId: item.variante_id ?? null,
@@ -549,14 +552,18 @@ export async function lerGarantia(db, id, { feriados = null, hoje = null } = {})
   return publica(g, troca ?? null, ev.results ?? [], prazo);
 }
 
-/** As garantias de uma cliente, para a linha do tempo do perfil. Casa por id
- *  e por nome normalizado — a mesma dupla que `perfilCliente` usa, para uma
- *  cliente sem `cliente_id` gravado não perder as garantias dela. */
+/** As garantias de uma cliente, para a linha do tempo do perfil.
+ *
+ *  Casa por id e por nome normalizado — a mesma dupla que `perfilCliente`
+ *  usa, para uma cliente sem `cliente_id` gravado não perder as garantias
+ *  dela. Com a mesma trava de §2: o nome só alcança a garantia que NÃO tem
+ *  dono, e quem chama passa `norm: null` quando o nome é ambíguo. Sem isso,
+ *  duas "Cliente sem nome" veriam a garantia uma da outra. */
 export async function garantiasDaCliente(db, { clienteId = null, norm = null } = {}) {
   const { results } = await db.prepare(
     `SELECT id FROM garantias
       WHERE (? IS NOT NULL AND cliente_id = ?)
-         OR (? IS NOT NULL AND cliente_nome_norm = ?)
+         OR (cliente_id IS NULL AND ? IS NOT NULL AND cliente_nome_norm = ?)
       ORDER BY data_entrada DESC, id DESC`,
   ).bind(clienteId, clienteId, norm, norm).all();
   const feriados = await carregarFeriados(db);

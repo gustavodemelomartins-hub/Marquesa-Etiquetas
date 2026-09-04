@@ -354,13 +354,25 @@ export async function aplicarReclassificacao(db, { decisoes = [], usuario = null
 }
 
 /** Desfaz uma decisão. A linha volta a ser venda e as somas voltam a
- *  alcançá-la — nada foi perdido no caminho, porque nada foi apagado. */
+ *  alcançá-la — nada foi perdido no caminho, porque nada foi apagado.
+ *
+ *  E não devolve peça ao estoque, pelo mesmo motivo que aplicar não tirou:
+ *  quem baixou a peça foi a importação da planilha, e ela continua baixada.
+ *  Somar +1 aqui inventaria uma unidade que nunca voltou para a gaveta —
+ *  o defeito simétrico do que §3 da revisão manda impedir. */
 export async function desfazerReclassificacao(db, historicoItemId) {
   const r = await db.prepare(
     'DELETE FROM historico_reclassificacao WHERE historico_item_id = ? RETURNING *',
   ).bind(Number(historicoItemId)).first();
   if (!r) return { ok: false, statusHttp: 404, erro: 'Não há decisão registrada para esta linha.' };
-  return { ok: true, desfeita: { historicoItemId: r.historico_item_id, classeAnterior: r.classe_nova } };
+  return {
+    ok: true,
+    desfeita: { historicoItemId: r.historico_item_id, classeAnterior: r.classe_nova },
+    estoqueAlterado: false,
+    porQueNaoAlterouEstoque:
+      'a baixa desta peça é da linha da planilha, não desta decisão — devolver aqui somaria '
+      + 'ao estoque uma unidade que nunca saiu por causa dela',
+  };
 }
 
 export async function listarReclassificacoes(db, { status = null } = {}) {

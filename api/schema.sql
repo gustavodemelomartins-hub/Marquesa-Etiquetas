@@ -357,7 +357,20 @@ CREATE TABLE IF NOT EXISTS vendas (
   -- ALTER TABLE, que sempre põe no fim. Os dois caminhos terminam iguais.
   pago           INTEGER NOT NULL DEFAULT 1,
   data_pagamento TEXT,
-  observacao     TEXT
+  observacao     TEXT,
+  -- De onde veio `data_pagamento`, para que uma aproximação herdada nunca
+  -- seja lida como pagamento conhecido:
+  --   informado · historico_paga · historico_aberto
+  --   legado_data_venda · indeterminado_site
+  -- Sem CHECK: `ALTER TABLE` no SQLite não sabe acrescentar um, e este
+  -- arquivo tem que terminar idêntico ao caminho da migration.
+  pagamento_origem TEXT,
+  -- §2 — a recusa de escolher entre homônimas, escrita para durar.
+  -- 1 quer dizer "havia mais de um cadastro com este nome e o sistema NÃO
+  -- escolheu". A venda fica sem dono de propósito, e continua sem dono
+  -- mesmo que uma das homônimas seja renomeada depois — senão o dinheiro
+  -- de ninguém entraria na ficha da que sobrou.
+  cliente_ambiguo INTEGER NOT NULL DEFAULT 0
 );
 
 -- Cada rodada da sincronização com a loja, para poder responder "o que o
@@ -609,6 +622,8 @@ CREATE INDEX IF NOT EXISTS idx_vendas_data    ON vendas(data);
 CREATE INDEX IF NOT EXISTS idx_vendas_origem  ON vendas(origem);
 CREATE INDEX IF NOT EXISTS idx_vendas_pagamento ON vendas(data_pagamento);
 CREATE INDEX IF NOT EXISTS idx_vendas_pago      ON vendas(pago, data);
+CREATE INDEX IF NOT EXISTS idx_vendas_pgorigem  ON vendas(pagamento_origem);
+CREATE INDEX IF NOT EXISTS idx_vendas_ambiguo   ON vendas(cliente_ambiguo, cliente_nome_norm);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_v  ON venda_itens(venda_id);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_s  ON venda_itens(sku);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_variante ON venda_itens(variante_id);
@@ -966,6 +981,18 @@ CREATE TABLE IF NOT EXISTS saidas_sem_faturamento (
 
   -- Rastreabilidade: a linha aponta para o movimento que mexeu no estoque.
   movimento_id INTEGER REFERENCES movimentos(id),
+
+  -- ─── de quem é a baixa física
+  -- 1  esta linha É a baixa: ela criou o movimento apontado acima, e
+  --    estorná-la devolve a peça ao estoque.
+  -- 0  o estoque JÁ tinha sido baixado por outro registro — o caso da linha
+  --    da planilha reclassificada, que baixou peça na importação. Aqui a
+  --    linha apenas CLASSIFICA uma saída que já aconteceu: não movimenta ao
+  --    nascer, e estorná-la NÃO pode somar peça, porque somaria uma unidade
+  --    que nunca saiu por causa dela.
+  -- Cada alteração física de estoque acontece exatamente uma vez, e esta
+  -- coluna é quem diz de quem ela é.
+  estoque_refletido INTEGER NOT NULL DEFAULT 1 CHECK (estoque_refletido IN (0, 1)),
   origem_usuario TEXT,                           -- quem lançou, quando se sabe
 
   -- ─── estorno: corrigir sem apagar
@@ -987,7 +1014,12 @@ CREATE TABLE IF NOT EXISTS saidas_sem_faturamento (
   atualizado_em TEXT,
 
   CHECK (sentido = 'saida' OR tipo = 'perda'),
-  CHECK (estornada = 0 OR estorno_em IS NOT NULL)
+  CHECK (estornada = 0 OR estorno_em IS NOT NULL),
+  -- A trava de banco por trás de "uma baixa, uma vez só": linha que não é
+  -- dona da baixa não pode apontar para movimento nenhum, nem no registro
+  -- nem no estorno.
+  CHECK (estoque_refletido = 1 OR movimento_id IS NULL),
+  CHECK (estoque_refletido = 1 OR estorno_movimento_id IS NULL)
 );
 
 CREATE INDEX IF NOT EXISTS idx_ssf_data  ON saidas_sem_faturamento(data);

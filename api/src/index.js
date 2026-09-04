@@ -51,6 +51,7 @@ import {
   estornarTroca, listarGarantias, lerGarantia, garantiasPendentes,
 } from './garantias.js';
 import { historicoDoDia } from './historico-dia.js';
+import { auditoriaPagamentos } from './pagamentos-auditoria.js';
 import {
   analisarHistoricoNaoVenda, aplicarReclassificacao,
   desfazerReclassificacao, listarReclassificacoes,
@@ -843,6 +844,13 @@ async function rotear(request, env) {
       if ((m = path.match(/^\/api\/garantias\/(\d+)\/troca\/estornar$/)) && met === 'POST') {
         const r = await estornarTroca(db, +m[1], await request.json().catch(() => ({})));
         return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+      }
+
+      /* §1 da revisão — o estado de pagamento das vendas, ANTES do backfill.
+         Somente leitura, e roda em banco que ainda não tem as colunas novas:
+         é o relatório que decide, não o efeito de já ter decidido. */
+      if (path === '/api/vendas/pagamento/auditoria' && met === 'GET') {
+        return json(await auditoriaPagamentos(db));
       }
 
       // ────────────────── §30.5: auditoria dos históricos que não são venda
@@ -1713,11 +1721,17 @@ async function registrarVenda(db, env, {
   const nomeLimpo = clienteNome.trim();
   const norm = normalizarNomeCliente(nomeLimpo);
   let idCliente = clienteId || null;
+  /* A recusa de escolher precisa ficar ESCRITA (§2 da revisão). Enquanto ela
+     era só a ausência de `cliente_id`, renomear uma das homônimas fazia o
+     nome voltar a apontar para uma pessoa só — e a venda que ninguém nunca
+     atribuiu entrava inteira na ficha da que sobrou. */
+  let clienteAmbiguo = 0;
   if (!idCliente && norm) {
     const { results: iguais } = await db.prepare(
       'SELECT id FROM clientes WHERE nome_norm = ?',
     ).bind(norm).all();
     if ((iguais ?? []).length === 1) idCliente = iguais[0].id;
+    else if ((iguais ?? []).length > 1) clienteAmbiguo = 1;
     else if (!(iguais ?? []).length) {
       const nova = await db.prepare(
         `INSERT INTO clientes (nome, nome_norm, origem, criada_em)
@@ -1738,9 +1752,15 @@ async function registrarVenda(db, env, {
    * justamente o que faz as duas populações se encontrarem. */
   const venda = await db.prepare(
     `INSERT INTO vendas (cliente_id, cliente_nome, cliente_nome_norm, origem, data, total,
-                         nuvemshop_status, pago, data_pagamento, observacao)
-     VALUES (?, ?, ?, 'balcao', ?, ?, 'pendente', ?, ?, ?) RETURNING id`
-  ).bind(idCliente, nomeLimpo, norm, data, total, pago, dataPagamento, observacao).first();
+                         nuvemshop_status, pago, data_pagamento, observacao, pagamento_origem,
+                         cliente_ambiguo)
+     VALUES (?, ?, ?, 'balcao', ?, ?, 'pendente', ?, ?, ?, ?, ?) RETURNING id`,
+    /* §1 da revisão — de onde veio a data de pagamento. Aqui ela é FATO:
+       um humano marcou PAGO e escolheu a data na tela. É o que distingue
+       esta linha da venda antiga, cuja data de pagamento é a data da venda
+       usada como aproximação porque nunca existiu outra. */
+  ).bind(idCliente, nomeLimpo, norm, data, total, pago, dataPagamento, observacao,
+    pago ? 'informado' : null, clienteAmbiguo).first();
 
   const stmts = [];
   for (const l of linhas) {
@@ -1781,6 +1801,14 @@ async function registrarVenda(db, env, {
   const nuvemshop = await atualizarEstoqueDaVenda(db, env, venda.id);
   return json({
     ok: true, id: venda.id, data, total, itens: linhas, nuvemshop,
+    /* §2 anunciado, nunca engolido: o sistema não decidiu de quem é a venda,
+       e diz isso em vez de deixar a tela supor que decidiu. */
+    clienteId: idCliente,
+    clienteAmbiguo: !!clienteAmbiguo,
+    ...(clienteAmbiguo ? {
+      aviso: `Existe mais de um cadastro com o nome "${nomeLimpo}". A venda foi `
+        + 'registrada sem vínculo — abra a ficha certa e amarre, se for o caso.',
+    } : {}),
     /* §29 na resposta: a tela não precisa deduzir para onde o dinheiro foi. */
     pago: !!pago,
     dataPagamento,
@@ -1819,7 +1847,8 @@ async function registrarPagamentoVenda(db, id, corpo = {}) {
   if (!querPagar) {
     if (!v.pago) return json({ erro: 'Esta venda já está como NÃO PAGA.' }, 409);
     const r = await db.prepare(
-      `UPDATE vendas SET pago = 0, data_pagamento = NULL WHERE id = ? RETURNING *`,
+      `UPDATE vendas SET pago = 0, data_pagamento = NULL, pagamento_origem = NULL
+        WHERE id = ? RETURNING *`,
     ).bind(id).first();
     return json({
       ok: true, id: r.id, pago: false, data: r.data, dataPagamento: null,
@@ -1848,7 +1877,7 @@ async function registrarPagamentoVenda(db, id, corpo = {}) {
   }
 
   const r = await db.prepare(
-    `UPDATE vendas SET pago = 1, data_pagamento = ?,
+    `UPDATE vendas SET pago = 1, data_pagamento = ?, pagamento_origem = 'informado',
             observacao = COALESCE(?, observacao)
       WHERE id = ? RETURNING *`,
   ).bind(dataPagamento, String(corpo.observacao ?? '').trim() || null, id).first();
@@ -1862,6 +1891,9 @@ async function registrarPagamentoVenda(db, id, corpo = {}) {
     data: r.data,
     dataPagamento: r.data_pagamento,
     faturamentoEm: r.data_pagamento,
+    /* A data foi DITA por alguém, não deduzida. É a distinção que §1 da
+       revisão exige que nunca se perca. */
+    pagamentoOrigem: r.pagamento_origem,
     valor: Number(r.total),
     aReceber: 0,
     estoqueAlterado: false,

@@ -140,10 +140,21 @@ histórico do dia e a contagem de vendas, peças e clientes. `data_pagamento`
 entrou; `observacao` guarda o texto livre do fechamento ("Maleta", "Feira",
 "Grupo VIP").
 
-As três nasceram com o valor que o sistema já assumia — paga, no dia da
-venda — para que a migration não movesse faturamento existente de mês.
 `idx_vendas_pagamento` e `idx_vendas_pago` existem pelo mesmo motivo que
 `idx_vendas_data`: o recorte de período agora consulta as duas colunas.
+
+**§36.1 — `pagamento_origem`.** Diz *como o sistema sabe* a data de
+pagamento, para que uma aproximação herdada nunca seja lida como fato:
+`informado` · `historico_paga` · `historico_aberto` · `indeterminado_site` ·
+`legado_data_venda`. O backfill da migration não marca tudo como pago: venda
+amarrada a cobrança histórica **aberta** nasce `pago = 0`, porque uma conta
+a receber real não pode virar faturamento por causa de uma migration.
+
+**§36.2 — `cliente_ambiguo`.** `1` quer dizer "havia mais de um cadastro com
+este nome e o sistema NÃO escolheu" (§2). A venda fica sem dona de propósito
+— e continua sem dona mesmo que uma das homônimas seja renomeada depois,
+que era o caminho pelo qual o dinheiro de ninguém entrava na ficha da que
+sobrava.
 
 ### `saidas_sem_faturamento`
 §31. Brinde, uso próprio e diferença de inventário. Elas **não** estão em
@@ -161,6 +172,15 @@ Corrigir é **estornar**: `estornada`, `estorno_em`, `estorno_motivo` e
 
 `historico_item_id` com índice único parcial é a trava que impede a auditoria
 histórica de baixar o mesmo estoque duas vezes se rodar de novo.
+
+**§36.3 — `estoque_refletido`.** Diz *de quem é a baixa física*. `1`: esta
+linha É a baixa, criou o movimento, e estorná-la devolve a peça. `0`: o
+estoque já tinha sido baixado por outro registro — a linha da planilha, no
+caso de uma reclassificação histórica — e aqui a linha só **classifica** uma
+saída que já aconteceu. Ela não movimenta ao nascer e o estorno dela não
+devolve peça nenhuma, senão somaria uma unidade que nunca saiu por causa
+dela. Dois CHECK de banco garantem a regra: linha com `estoque_refletido = 0`
+não pode apontar para `movimento_id` nem para `estorno_movimento_id`.
 
 ### `historico_reclassificacao`
 §35. Diz que uma linha da planilha **não é venda**, sem apagá-la (§7). As

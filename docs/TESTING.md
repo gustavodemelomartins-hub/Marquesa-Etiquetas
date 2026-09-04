@@ -882,6 +882,50 @@ certa que não voltava para a ficha.
 9. 390px sem rolagem horizontal em Lançamentos, Saídas e Painel;
 10. console limpo.
 
+### `src/migracao-pagamento-test.mjs` — a migration de pagamentos, sem rede
+**22 asserções · ~1 s · não precisa de Worker nem de banco**
+
+Executa `api/migracao-vendas-pagamento.sql` — o arquivo que vai para
+produção, não uma cópia — sobre um SQLite montado em memória com a forma
+ANTERIOR de `vendas`. O defeito que ele impede de voltar é o mais silencioso
+do pacote: `UPDATE vendas SET pago = 1` em todas as linhas não muda o
+faturamento, e por isso ninguém percebe que uma conta a **receber** de
+verdade virou pagamento.
+
+1. venda com cobrança histórica **paga** → `pago=1` com a data REAL do
+   recebimento (`paga_em`), não a data da venda;
+2. venda com cobrança **aberta** → `pago=0`, sem data, e o total de contas
+   abertas é idêntico antes e depois;
+3. pedido do **site** → o comportamento financeiro antigo é preservado, mas
+   a linha sai carimbada `indeterminado_site`, para conferência humana;
+4. legado sem evidência → `legado_data_venda`: aproximação DECLARADA;
+5. nenhuma linha herdada se declara `informado` — esse carimbo é só de quem
+   teve um humano dizendo a data;
+6. o backfill é idempotente (os `ALTER TABLE` não são, e não podem ser).
+
+### `src/revisao-pre-golive-test.mjs` — identidade, estoque e data do dinheiro
+**84 asserções · ~40 s · precisa do Worker local e do banco limpo**
+
+Os três pontos críticos da revisão pré-go-live, cada seção nomeando o
+defeito que impede de voltar:
+
+1. duas **"Cliente sem nome"** são duas pessoas: cada ficha mostra só o seu,
+   o sistema diz que o nome é ambíguo, e a venda lançada só pelo nome fica
+   **sem dona** em vez de ser atribuída a uma das duas;
+2. editar X não toca em Y — nem antes nem **depois** de X ser renomeada. Foi
+   este teste que achou o vazamento: renomear uma homônima fazia a venda sem
+   dona entrar inteira na ficha da que sobrava (§2, `vendas.cliente_ambiguo`);
+3. garantia aberta no item de X não aparece em Y;
+4. saída **classificatória** (vinda da planilha) não baixa estoque, e
+   estorná-la não devolve peça — a peça saiu na importação e continua fora;
+5. saída **manual** continua sendo dona da baixa, e o estorno dela devolve;
+6. reclassificar uma linha histórica e **desfazer** não move estoque em
+   nenhuma das duas direções, e o faturamento cai e volta exatamente;
+7. venda **retroativa**: vender e receber em 28/08 lançando em 04/09 fatura
+   em agosto; marcar pago depois usa a data escolhida, não a do clique;
+8. o relatório de pagamentos existe, é seco e diz o que não faz;
+9. a razão contábil fecha no fim de tudo.
+
 ## Como rodar
 
 ### Linux / macOS
@@ -940,7 +984,7 @@ Repita os passos 1–4 para cada teste: banco limpo é requisito, não capricho.
 
 ### `vendas-clientes-ui-test.mjs` precisa de uma base com histórico
 
-Cinco asserções dele não têm o que verificar num banco recém-criado:
+Seis asserções dele não têm o que verificar num banco de bancada:
 
 - **paginação da lista de clientes** — o limiar é 48 cadastros; com menos, o
   rodapé "Mostrando X de Y" corretamente não aparece;
@@ -948,10 +992,17 @@ Cinco asserções dele não têm o que verificar num banco recém-criado:
   `historico_operacoes.papel = 'acerto'`, que só existe depois de um lote da
   planilha importado e reconstruído. Numa base só com vendas de balcão,
   cadastrar alguém como revendedora não reclassifica venda nenhuma, e esse é
-  o comportamento certo.
+  o comportamento certo. A seção 16 termina com `TypeError` em `ml.totais`
+  pela mesma razão — não há acerto para o painel trazer;
+- **"as VENDAS da API não são as linhas da planilha"** — a asserção compara
+  `vendas` com `composicao.linhasBrutas` para provar o agrupamento, e só faz
+  sentido numa base majoritariamente histórica, como a produção. Na bancada
+  há 57 vendas operacionais para 41 linhas de planilha, então 96 vendas > 41
+  linhas — e isso está certo. Verificado em 2026-09-04: nenhuma das duas
+  medidas passa por linha alterada na revisão pré-go-live.
 
 Não é regressão: é o teste rodando fora do ambiente para o qual foi escrito.
-Rode-o contra o DEV publicado, ou semeie um lote histórico antes.
+Rode-o contra o DEV publicado, ou semeie um lote histórico maior antes.
 
 
 | Limitação | Efeito | Situação |

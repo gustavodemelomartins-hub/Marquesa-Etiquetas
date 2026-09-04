@@ -8587,7 +8587,7 @@ function destaquesPainel(ins){
   if(ins.clienteCampea) c.push(cartaoDestaque(ICO.brilho,'Cliente que mais compra',
     ins.clienteCampea.nome,
     `${money(ins.clienteCampea.faturamento)} em ${fmtN(ins.clienteCampea.vendas)} ${plural(ins.clienteCampea.vendas,'compra','compras')}`,
-    `switchTab('cli:${encodeURIComponent(ins.clienteCampea.norm)}')`));
+    `switchTab('${chaveCliente(ins.clienteCampea)}')`));
   if(ins.melhorMes) c.push(cartaoDestaque(ICO.grafico,'Melhor mês',
     mesLegivel(ins.melhorMes.chave),
     `${money(ins.melhorMes.faturamento)} · ${fmtN(ins.melhorMes.pecas)} ${plural(ins.melhorMes.pecas,'peça','peças')}`));
@@ -8638,7 +8638,7 @@ function blocoContasReceber(r){
     </div>
     <div class="receber-lista">${contas.map(c=>`
       <div class="receber-linha ${c.vencida?'vencida':''}">
-        <button class="receber-cliente" onclick="switchTab('cli:${encodeURIComponent(c.clienteNorm||'')}')">${esc(c.cliente||c.clienteNorm||'Cliente')}</button>
+        <button class="receber-cliente" onclick="switchTab('${chaveCliente({clienteId:c.clienteId,norm:c.clienteNorm||''})}')">${esc(c.cliente||c.clienteNorm||'Cliente')}</button>
         <div class="receber-origem">${esc(c.canal||'origem não registrada')}${c.contexto?` · ${esc(c.contexto)}`:''}${c.observacao&&c.observacao!==c.canal?` · ${esc(c.observacao)}`:''}</div>
         <label class="receber-prazo">Prazo
           <input type="date" value="${esc(c.vencimentoEm||'')}" onchange="definirPrazoConta(${c.id},${c.versao},this.value)">
@@ -9096,8 +9096,8 @@ function blocoTopClientesLista(l){
   if(!l||!l.length) return painelBloco('Top clientes',
     `<div class="empty"><p>Ninguém com compra registrada ainda.</p></div>`);
   const linhas=l.slice(0,10).map((c,i)=>`<div class="gt-r clicavel" tabindex="0" role="button"
-      onclick="switchTab('cli:${encodeURIComponent(c.norm)}')"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchTab('cli:${encodeURIComponent(c.norm)}')}">
+      onclick="switchTab('${chaveCliente(c)}')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchTab('${chaveCliente(c)}')}">
       <span class="gt-pos" style="background:${COR_SERIE[i%COR_SERIE.length]}">${i+1}</span>
       <div>
         <div class="gt-nm">${esc(c.nome)}</div>
@@ -9233,8 +9233,8 @@ function cardCliente(c){
     c.cpf?`<span class="rc-ct">CPF ${esc(fmtCpf(c.cpf))}</span>`:'',
   ].filter(Boolean).join('');
   return `<div class="revcard" tabindex="0" role="button"
-      onclick="switchTab('cli:${encodeURIComponent(c.norm)}')"
-      onkeydown="if(event.key==='Enter'){switchTab('cli:${encodeURIComponent(c.norm)}')}">
+      onclick="switchTab('${chaveCliente(c)}')"
+      onkeydown="if(event.key==='Enter'){switchTab('${chaveCliente(c)}')}">
     <div class="rc-nm">${esc(c.nome)}</div>
     <div class="rc-meta">${c.ultimaCompra?`Última compra em ${fmtData(c.ultimaCompra)}`:'Sem compra registrada'}${
       c.diasSemComprar!=null?` · há ${fmtN(c.diasSemComprar)} dias`:''}</div>
@@ -9277,14 +9277,39 @@ function classeRelacao(r){
    valor corrente, reabrir a ficha depois de salvar levaria ao norm antigo e
    mostraria uma ficha vazia logo depois de uma edição bem-sucedida. */
 let perfilNormAtual=null;
+let perfilIdAtual=null;
+
+/* §2 — o endereço da ficha é o ID quando ele existe.
+ *
+ * A ficha sempre navegou por `cli:<norm>` porque a imensa maioria das
+ * linhas veio da planilha e a planilha só tem nome. O problema: nome não é
+ * identidade. Duas "Cliente sem nome" cadastradas separadamente dividem o
+ * mesmo norm, e abrir uma abriria as duas.
+ *
+ * `cli:#<id>` é o endereço forte, e é o que a tela usa sempre que conhece o
+ * id. `cli:<norm>` continua valendo — é o caminho da cliente que só existe
+ * na planilha, sem cadastro nenhum — mas aí o servidor só devolve o que não
+ * tem dono, e diz quando o nome é ambíguo. */
+function chaveCliente(c){
+  const id=c&&(c.clienteId!=null?c.clienteId:(c.cadastroId!=null?c.cadastroId:null));
+  if(id!=null&&id!=='') return 'cli:#'+id;
+  return 'cli:'+encodeURIComponent((c&&c.norm)||'');
+}
 let perfilAtual=null;
 
-async function abrirPerfilCliente(norm){
+async function abrirPerfilCliente(chave){
   const v=document.getElementById('view-cliente');
   v.innerHTML=blocoCarregando('Abrindo o perfil…');
-  perfilNormAtual=norm;
+  perfilNormAtual=chave;
+  /* `#123` é ficha por id; qualquer outra coisa é o nome normalizado. */
+  const porId=String(chave||'').charAt(0)==='#';
+  perfilIdAtual=porId?String(chave).slice(1):null;
   let p;
-  try{ p=await api('GET','/api/clientes/perfil?norm='+encodeURIComponent(decodeURIComponent(norm))); }
+  try{
+    p=await api('GET','/api/clientes/perfil?'+(porId
+      ?'id='+encodeURIComponent(perfilIdAtual)
+      :'norm='+encodeURIComponent(decodeURIComponent(chave))));
+  }
   catch(e){
     v.innerHTML=`<div class="panel"><div class="body"><div class="empty">
       <h3>Não consegui abrir</h3><p>${esc(e.message||'')}</p>
@@ -9293,6 +9318,7 @@ async function abrirPerfilCliente(norm){
     return;
   }
   perfilAtual=p;
+  if(p.clienteId!=null) perfilIdAtual=String(p.clienteId);
   const r=p.resumo, cad=p.cadastro||{};
   const contato=[cad.tel,cad.email,cad.instagram,cad.cidade].filter(Boolean);
   /* §31: as garantias dela, indexadas pelo ITEM que as originou. A chave é
@@ -9313,6 +9339,12 @@ async function abrirPerfilCliente(norm){
         <span class="badge ${classeRelacao(r.estado)}">${esc(r.estado)}</span>
       </div>
       <div class="body">
+        ${p.nomeAmbiguo?`<div class="warn" style="margin-bottom:12px">
+          <b>${fmtN(p.homonimos)} cadastros têm este mesmo nome.</b>
+          Esta ficha mostra só o que está amarrado a ela por identificador
+          (nº ${esc(String(p.clienteId!=null?p.clienteId:'—'))}). Compra antiga sem vínculo
+          não é atribuída a nenhuma das duas — nome igual não é a mesma pessoa.
+        </div>`:''}
         <div class="actbar">
           <div>${contato.length?contato.map(esc).join(' · ')
             :'<span class="hint">Sem dados de contato cadastrados</span>'}</div>
@@ -9805,14 +9837,15 @@ async function saveCliente(){
      * de novo pelo caminho antigo via um perfil vazio e concluía, com razão,
      * que a edição não tinha pegado.
      *
-     * Agora ela volta para a ficha, pelo norm NOVO que o servidor devolveu.
-     * O servidor, do seu lado, já amarrou o histórico ao id antes de mexer
-     * no nome — os dois lados do mesmo defeito. */
-    if(id&&perfilNormAtual&&r&&r.norm){
-      toast(r.aviso
+     * Agora ela volta para a ficha PELO ID — que é a identidade real e não
+     * muda quando o nome muda (§2). O norm novo fica de reserva para o caso
+     * de não haver id. O servidor, do seu lado, já amarrou o histórico ao id
+     * antes de mexer no nome — os dois lados do mesmo defeito. */
+    if(id&&perfilNormAtual){
+      toast(r&&r.aviso
         ? 'Cliente atualizada · ' + r.aviso
         : 'Cliente atualizada · histórico preservado');
-      switchTab('cli:'+encodeURIComponent(r.norm));
+      switchTab('cli:#'+id);
       return;
     }
     toast(id?'Cliente atualizada':'Cliente criada');

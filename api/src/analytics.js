@@ -889,6 +889,27 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
    *
    * Achado o cadastro, o id dele é a identidade real — §2. */
   const idCliente = clienteId ?? cadastro?.id ?? null;
+
+  /* §2 — nome NÃO é identidade, e duas pessoas podem ter o mesmo.
+   *
+   *  O casamento por `norm` existe porque o histórico da planilha muitas
+   *  vezes não tem `cliente_id` nenhum: sem ele, a cliente perderia tudo o
+   *  que comprou antes do cadastro. Mas ele só é seguro enquanto o nome
+   *  apontar para UMA pessoa. Havendo homônimas — duas "Cliente sem nome",
+   *  por exemplo — o nome deixa de identificar, e só o `cliente_id` vale:
+   *  a linha sem vínculo não é de ninguém até alguém dizer de quem é, e
+   *  atribuí-la às duas fichas somaria dinheiro alheio nas duas.
+   *
+   *  A contagem é sobre `clientes`, não sobre as vendas: o que torna o nome
+   *  ambíguo é existir mais de um CADASTRO com ele. */
+  const homonimos = chaveNorm ? Number((await db.prepare(
+    'SELECT COUNT(*) AS n FROM clientes WHERE nome_norm = ?',
+  ).bind(chaveNorm).first())?.n ?? 0) : 0;
+  const nomeAmbiguo = homonimos > 1;
+  /* O que vai para o bind do casamento por nome. `null` desliga o ramo
+     inteiro no SQL, sem precisar montar duas consultas diferentes. */
+  const porNome = nomeAmbiguo ? null : chaveNorm;
+
   const V = cteVendas({ de: null, ate: null });
 
   const [vendasR, itensR, catalogo, garantias] = await Promise.all([
@@ -898,10 +919,18 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
       `WITH vd AS (${V.sql})
        SELECT * FROM vd
         WHERE papel='cliente'
-          AND (COALESCE(norm,'sem-nome') = ?
-           OR (cliente_id IS NOT NULL AND cliente_id = ?))
+          -- O id manda. O nome só alcança a linha que não tem dono nenhum,
+          -- e só enquanto ele identificar uma pessoa só (§2).
+          AND ((cliente_id IS NOT NULL AND cliente_id = ?)
+            OR (cliente_id IS NULL AND ? IS NOT NULL AND COALESCE(norm,'sem-nome') = ?
+                -- E nunca a venda em que o sistema JÁ se recusou a escolher
+                -- entre homônimas: essa recusa não deixa de valer porque uma
+                -- delas foi renomeada depois.
+                AND NOT EXISTS (SELECT 1 FROM vendas va
+                                 WHERE vd.fonte = 'operacional' AND va.id = vd.id
+                                   AND va.cliente_ambiguo = 1)))
         ORDER BY data DESC`,
-    ).bind(chaveNorm, idCliente).all(),
+    ).bind(idCliente, porNome, porNome).all(),
 
     db.prepare(
       /* §31: item_id é o que permite abrir uma garantia amarrada à LINHA da
@@ -920,7 +949,8 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
          JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
          ${JOIN_OPERACAO_ITEM_HISTORICO}
         WHERE COALESCE(ho.papel, 'cliente')='cliente'${FILTRO_ITEM_HISTORICO}
-          AND ((h.cliente_id IS NOT NULL AND h.cliente_id = ?) OR h.cliente_nome_norm = ?)
+          AND ((h.cliente_id IS NOT NULL AND h.cliente_id = ?)
+            OR (h.cliente_id IS NULL AND ? IS NOT NULL AND h.cliente_nome_norm = ?))
         UNION ALL
        -- O lado operacional não tem id de item: a tabela venda_itens não tem
        -- chave própria. A identidade dele é (venda_id, sku, variante_id), e
@@ -934,15 +964,17 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
          LEFT JOIN produtos p2 ON p2.sku = i.sku
         WHERE v.cancelada = 0
           ${FILTRO_VENDA_OPERACIONAL_DUPLICADA}
-          AND ((v.cliente_id IS NOT NULL AND v.cliente_id = ?) OR v.cliente_nome_norm = ?)
+          AND ((v.cliente_id IS NOT NULL AND v.cliente_id = ?)
+            OR (v.cliente_id IS NULL AND v.cliente_ambiguo = 0
+                AND ? IS NOT NULL AND v.cliente_nome_norm = ?))
         ORDER BY data DESC`,
-    ).bind(idCliente, chaveNorm, idCliente, chaveNorm).all(),
+    ).bind(idCliente, porNome, porNome, idCliente, porNome, porNome).all(),
     catalogoDeCategorias(db),
     /* §31 — as garantias dela, para o histórico de compras poder pendurar a
        linha do tempo do reparo embaixo do ITEM que a originou. Falhar aqui
        (banco anterior à migration) não pode derrubar o perfil inteiro: a
        cliente continua tendo compras mesmo sem a tabela existir. */
-    garantiasDaCliente(db, { clienteId: idCliente, norm: chaveNorm }).catch(() => []),
+    garantiasDaCliente(db, { clienteId: idCliente, norm: porNome }).catch(() => []),
   ]);
 
   const vendas = vendasR.results ?? [];
@@ -986,7 +1018,21 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
   return {
     ok: true,
     cadastro: cadastro ?? null,
+    /* A identidade da ficha, para a tela poder navegar por ela em vez de
+       pelo nome. `null` só quando não existe cadastro nenhum — o caso da
+       cliente que só aparece na planilha. */
+    clienteId: idCliente,
     norm: chaveNorm,
+    /* §2 na resposta: quantas fichas têm este mesmo nome, e se por isso o
+       histórico sem vínculo ficou de fora. Engolir isto faria a ficha
+       parecer menor sem explicação. */
+    homonimos,
+    nomeAmbiguo,
+    aviso: nomeAmbiguo
+      ? `Existem ${homonimos} cadastros com este mesmo nome. Só o que está `
+        + 'amarrado a esta ficha por id aparece aqui — linha antiga sem '
+        + 'vínculo não é atribuída a nenhuma das duas.'
+      : null,
     nomeExibicao: cadastro?.nome
       ?? vendas[0]?.nome
       ?? (chaveNorm === 'sem-nome' || !chaveNorm ? 'Cliente não identificado' : chaveNorm),
@@ -1436,10 +1482,12 @@ export async function crm(db, { periodo = 'tudo' } = {}) {
     todos: porFaturamento.map(comCadastro),
 
     insights: {
-      campeao: campeao && { nome: campeao.nome, norm: campeao.norm, faturamento: campeao.faturamento, pecas: campeao.pecas },
-      maisFrequente: maisFrequente && { nome: maisFrequente.nome, norm: maisFrequente.norm, vendas: maisFrequente.vendas },
-      maiorCompra: maiorCompra && { nome: maiorCompra.nome, norm: maiorCompra.norm, valor: maiorCompra.maiorCompra },
-      maiorTicket: maiorTicket && { nome: maiorTicket.nome, norm: maiorTicket.norm, ticketMedio: maiorTicket.ticketMedio },
+      /* `clienteId` vai junto do nome em todo destaque: a tela abre a ficha
+         por id quando ele existe, e §2 exige que o nome seja só rótulo. */
+      campeao: campeao && { nome: campeao.nome, norm: campeao.norm, clienteId: campeao.clienteId ?? null, faturamento: campeao.faturamento, pecas: campeao.pecas },
+      maisFrequente: maisFrequente && { nome: maisFrequente.nome, norm: maisFrequente.norm, clienteId: maisFrequente.clienteId ?? null, vendas: maisFrequente.vendas },
+      maiorCompra: maiorCompra && { nome: maiorCompra.nome, norm: maiorCompra.norm, clienteId: maiorCompra.clienteId ?? null, valor: maiorCompra.maiorCompra },
+      maiorTicket: maiorTicket && { nome: maiorTicket.nome, norm: maiorTicket.norm, clienteId: maiorTicket.clienteId ?? null, ticketMedio: maiorTicket.ticketMedio },
     },
   };
 }
