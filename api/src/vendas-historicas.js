@@ -36,6 +36,7 @@
  */
 
 import { normalizarNomeCliente, normalizarTexto } from './vendas-historico-normalizar.js';
+import { operacoesAtivasDoLote, fingerprintDoConteudo } from './historico-operacoes.js';
 
 /* ═════════════════════════════════════════════════ o que NÃO é venda
 
@@ -202,7 +203,7 @@ export function reconstruirVendas(itens) {
  *
  *  O DELETE é de tabela DERIVADA e tem filtro pelo lote — nada aqui pode
  *  perder dado de origem, porque a origem não é tocada. */
-export async function reconstruir(db, { loteId = null } = {}) {
+export async function reconstruir(db, { loteId = null, aceitarQuebraDeDecisao = false } = {}) {
   const lotes = loteId != null
     ? [{ id: loteId }]
     : (await db.prepare(
@@ -210,17 +211,88 @@ export async function reconstruir(db, { loteId = null } = {}) {
     ).all()).results ?? [];
 
   const resumo = [];
+  const quebrasAceitas = [];
   for (const lote of lotes) {
     const { results: itens } = await db.prepare(
+      /* `sku_base` e `desconto_original` não entram no agrupamento; entram no
+         fingerprint, e sem eles a conferência de decisão abaixo compararia
+         uma assinatura diferente da que o banco guardou. */
       `SELECT id, origem_linha, data, cliente_id, cliente_nome_norm,
               cliente_nome_original, qtd, valor_total, pago, canal, contexto,
-              observacao_original
+              observacao_original, sku_base, desconto_original
          FROM vendas_historico_itens
         WHERE lote_id = ?
         ORDER BY id`,
     ).bind(lote.id).all();
 
     const vendas = reconstruirVendas(itens ?? []);
+
+    /* ── uma decisão humana não pode ser invalidada em silêncio ────────────
+       `historico_operacoes` guarda papel, acerto documental, vínculo de
+       duplicata e cobrança — cada uma presa a uma `venda_chave` e ao
+       fingerprint do conteúdo que a pessoa olhou quando decidiu.
+
+       Reconstruir apaga e refaz `vendas_historicas`. Se a regra de
+       agrupamento mudar (ou a normalização de nome mudar sob ela), uma chave
+       pode DEIXAR DE EXISTIR — e a cobrança some da lista, porque o SQL das
+       contas entra por JOIN nessa tabela — ou pode voltar com OUTRO
+       conteúdo, e aí a decisão continua no ar aplicada a números que ninguém
+       revisou. Nenhum dos dois dá erro sozinho. Os dois são dinheiro.
+
+       Então a conferência acontece ANTES do DELETE, com o resultado que a
+       regra nova produziria. Quebrou, não reconstrói: devolve exatamente
+       quais decisões quebram e por quê. */
+    const decisoes = await operacoesAtivasDoLote(db, lote.id);
+    if (decisoes.length) {
+      const porId = new Map((itens ?? []).map((i) => [i.id, i]));
+      const porChave = new Map(vendas.map((v) => [v.chave, v]));
+      const quebras = [];
+      for (const d of decisoes) {
+        const v = porChave.get(d.venda_chave);
+        if (!v) {
+          quebras.push({
+            vendaChave: d.venda_chave, papel: d.papel, cobranca: d.cobranca_status,
+            motivo: 'esta venda deixa de existir com o agrupamento novo',
+          });
+          continue;
+        }
+        const linhaDaVenda = {
+          chave: v.chave, classe: v.classe, cliente_nome_norm: v.clienteNomeNorm,
+          data: v.data, pecas: v.pecas, valor_total: v.valorTotal,
+          valor_pago: v.valorPago, status: v.status, canal: v.canal, contexto: v.contexto,
+        };
+        const itensDaVenda = [...v.itensIds]
+          .sort((a, b) => a - b)
+          .map((id) => porId.get(id))
+          .filter(Boolean);
+        const novo = await fingerprintDoConteudo(linhaDaVenda, itensDaVenda);
+        if (novo !== d.fingerprint) {
+          quebras.push({
+            vendaChave: d.venda_chave, papel: d.papel, cobranca: d.cobranca_status,
+            motivo: 'o conteúdo desta venda muda com o agrupamento novo',
+            fingerprintDaDecisao: d.fingerprint, fingerprintNovo: novo,
+          });
+        }
+      }
+      if (quebras.length && !aceitarQuebraDeDecisao) {
+        return {
+          ok: false,
+          statusHttp: 409,
+          loteId: lote.id,
+          erro: `Reconstruir este lote invalidaria ${quebras.length} decisão(ões) humana(s) `
+            + 'ativa(s) sobre vendas históricas. Este lote não foi tocado. Reveja as decisões '
+            + 'listadas antes de insistir.',
+          quebras,
+          /* A parada é ANTES do DELETE deste lote, mas lotes anteriores da
+             mesma chamada já foram refeitos. Refazer é idempotente pela
+             mesma regra, então não há estrago — mas quem lê a recusa merece
+             saber o que já aconteceu, em vez de supor que nada rodou. */
+          lotesJaReconstruidos: resumo.map((r) => r.loteId),
+          regra: REGRA_DESCRITA,
+        };
+      }
+      if (quebras.length) quebrasAceitas.push(...quebras.map((q) => ({ ...q, loteId: lote.id })));
+    }
 
     /* limpa o que havia — o ponteiro do item primeiro, senão ele fica
        apontando para uma venda que deixou de existir */
@@ -265,7 +337,13 @@ export async function reconstruir(db, { loteId = null } = {}) {
     });
   }
 
-  return { ok: true, lotes: resumo, regra: REGRA_DESCRITA };
+  return {
+    ok: true,
+    lotes: resumo,
+    regra: REGRA_DESCRITA,
+    /* Só aparece quando alguém passou por cima da trava de propósito. */
+    ...(quebrasAceitas.length ? { decisoesInvalidadas: quebrasAceitas } : {}),
+  };
 }
 
 /* ═══════════════════════════════════ uma normalização de cliente, não duas
@@ -311,7 +389,8 @@ export const REGRA_DESCRITA = 'Mesmo cliente normalizado + mesma data = uma vend
  *  mostrar número de venda — melhor dizer "reconstrua" do que mostrar zero. */
 export async function estadoReconstrucao(db) {
   const r = await db.prepare(
-    `SELECT (SELECT COUNT(*) FROM vendas_historicas)                          AS vendas,
+    `SELECT (SELECT COUNT(*) FROM vendas_historicas v
+               JOIN vendas_historico_lotes l ON l.id = v.lote_id AND l.status='importado') AS vendas,
             (SELECT COUNT(*) FROM vendas_historico_itens h
                JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status='importado') AS itens,
             (SELECT COUNT(*) FROM vendas_historico_itens h

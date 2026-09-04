@@ -457,9 +457,20 @@ export async function reconciliar(db, loteId, analise) {
   };
 }
 
-/** Desfaz um lote inteiro. Só apaga o que ELE escreveu, e como nada em
- *  `movimentos` foi criado, não há efeito de estoque para desfazer. */
-export async function reverterLote(db, loteId) {
+/** Tira o lote do ar SEM apagar nada.
+ *
+ *  Todo leitor do histórico entra por `vendas_historico_lotes` com
+ *  `status = 'importado'`, e o índice único do hash do arquivo também é
+ *  parcial (`WHERE status = 'importado'`). Então virar o status já esconde o
+ *  lote de tudo e já libera o arquivo para uma importação nova — sem que uma
+ *  linha de origem tenha saído do banco.
+ *
+ *  A única coisa que precisa mesmo sair na hora é a fila de revisão de
+ *  cliente: `idx_cvr_unico` é único por `(nome_norm, status)` entre as
+ *  PENDENTES e não conhece lote, então as pendências do lote velho
+ *  colidiriam com as do lote novo. Elas saem, mas voltam inteiras se a troca
+ *  for desfeita — por isso são devolvidas aqui. */
+async function desativarLote(db, loteId) {
   const lote = await db.prepare(
     'SELECT id, status FROM vendas_historico_lotes WHERE id = ?',
   ).bind(loteId).first();
@@ -475,6 +486,43 @@ export async function reverterLote(db, loteId) {
     };
   }
 
+  const { results: pendentes } = await db.prepare(
+    `SELECT nome_original, nome_norm, candidato_id, candidato_nome, motivo, linhas, criado_em
+       FROM clientes_vinculo_revisao WHERE lote_id = ? AND status = 'pendente'`,
+  ).bind(loteId).all();
+
+  await db.batch([
+    db.prepare(
+      `DELETE FROM clientes_vinculo_revisao WHERE lote_id = ? AND status = 'pendente'`,
+    ).bind(loteId),
+    db.prepare(
+      `UPDATE vendas_historico_lotes SET status = 'revertido', revertido_em = datetime('now')
+        WHERE id = ?`,
+    ).bind(loteId),
+  ]);
+  return { ok: true, loteId, pendentesRemovidas: pendentes ?? [] };
+}
+
+/** Põe de volta no ar um lote que `desativarLote` tirou. Existe para o
+ *  caminho de volta da troca: como nada foi apagado, devolver é virar o
+ *  status e repor a fila de revisão. */
+async function reativarLote(db, loteId, pendentes = []) {
+  await db.prepare(
+    `UPDATE vendas_historico_lotes SET status = 'importado', revertido_em = NULL WHERE id = ?`,
+  ).bind(loteId).run();
+  const voltam = (pendentes ?? []).map((p) => db.prepare(
+    `INSERT INTO clientes_vinculo_revisao
+       (lote_id, nome_original, nome_norm, candidato_id, candidato_nome, motivo, linhas, criado_em)
+     VALUES (?,?,?,?,?,?,?,?)`,
+  ).bind(loteId, p.nome_original, p.nome_norm, p.candidato_id, p.candidato_nome,
+    p.motivo, p.linhas, p.criado_em));
+  for (let i = 0; i < voltam.length; i += 50) await db.batch(voltam.slice(i, i + 50));
+  return { ok: true, loteId, pendentesRepostas: voltam.length };
+}
+
+/** Apaga de vez o que um lote JÁ desativado escreveu. Como nada em
+ *  `movimentos` foi criado, não há efeito de estoque para desfazer. */
+async function limparLoteRevertido(db, loteId) {
   const antes = await db.prepare(
     'SELECT COUNT(*) AS n FROM vendas_historico_itens WHERE lote_id = ?',
   ).bind(loteId).first();
@@ -489,10 +537,6 @@ export async function reverterLote(db, loteId) {
     db.prepare('DELETE FROM vendas_historico_itens WHERE lote_id = ?').bind(loteId),
     db.prepare('DELETE FROM vendas_historicas WHERE lote_id = ?').bind(loteId),
     db.prepare('DELETE FROM clientes_vinculo_revisao WHERE lote_id = ?').bind(loteId),
-    db.prepare(
-      `UPDATE vendas_historico_lotes SET status = 'revertido', revertido_em = datetime('now')
-        WHERE id = ?`,
-    ).bind(loteId),
   ]);
 
   /* Cliente criado pela importação e que ficou sem nenhum histórico deixa de
@@ -507,7 +551,13 @@ export async function reverterLote(db, loteId) {
    *      ser um subproduto da planilha no instante em que alguém sentou e
    *      digitou o telefone dela. Trocar a planilha não pode custar o
    *      trabalho de cadastro: a linha da planilha volta na importação
-   *      seguinte, o telefone não volta de lugar nenhum. */
+   *      seguinte, o telefone não volta de lugar nenhum.
+   *
+   * Na TROCA esta limpeza roda depois de o lote novo já estar no banco, e
+   * isso é de propósito: a cliente que aparece nas duas planilhas continua
+   * tendo item, escapa do DELETE e MANTÉM o mesmo `id`. Antes ela era
+   * apagada e recriada com id novo, e qualquer decisão que apontasse para
+   * ela (`historico_operacoes.cliente_id`) perdia o dono. */
   const r = await db.prepare(
     `DELETE FROM clientes
       WHERE origem = 'historico'
@@ -525,6 +575,30 @@ export async function reverterLote(db, loteId) {
     itensRemovidos: antes.n,
     clientesRemovidos: r.meta?.changes ?? null,
   };
+}
+
+/** Apaga um lote que nunca chegou a existir de verdade.
+ *
+ *  `importarHistorico` cria a linha do lote ANTES de gravar as linhas dela.
+ *  Se a gravação cair no meio, sobra um lote `importado` com conteúdo pela
+ *  metade — e, para todo leitor, isso é um segundo histórico no ar. Não é
+ *  reversão: é um pedaço de escrita que não terminou, e ele sai inteiro,
+ *  inclusive a linha do lote. */
+async function descartarLoteParcial(db, loteId) {
+  await db.batch([
+    db.prepare('DELETE FROM vendas_historico_itens WHERE lote_id = ?').bind(loteId),
+    db.prepare('DELETE FROM vendas_historicas WHERE lote_id = ?').bind(loteId),
+    db.prepare('DELETE FROM clientes_vinculo_revisao WHERE lote_id = ?').bind(loteId),
+    db.prepare('DELETE FROM vendas_historico_lotes WHERE id = ?').bind(loteId),
+  ]);
+  return { ok: true, loteId };
+}
+
+/** Desfaz um lote inteiro: tira do ar e apaga o que ele escreveu. */
+export async function reverterLote(db, loteId) {
+  const fora = await desativarLote(db, loteId);
+  if (!fora.ok) return fora;
+  return limparLoteRevertido(db, loteId);
 }
 
 /** O retrato do histórico que está de pé agora. É o "antes" da troca, e é
@@ -578,14 +652,30 @@ export async function retratoDoHistorico(db) {
  *  ─────────────────────────────────────────────────────────────────────────
  *  A ORDEM É DELIBERADA
  *
- *  A análise vem ANTES da reversão. Arquivo ilegível, cabeçalho trocado ou
+ *  A análise vem ANTES de tudo. Arquivo ilegível, cabeçalho trocado ou
  *  planilha vazia param aqui, com o histórico antigo intacto — a troca nem
  *  começa. Só depois de o arquivo novo provar que é legível o antigo sai.
  *
- *  Se ainda assim a importação falhar depois da reversão, a resposta diz
- *  quais lotes foram revertidos e por qual arquivo: reverter LIBERA o hash
- *  (o índice único só vale para lote `importado`), então reimportar a
- *  planilha antiga é um caminho de volta que existe de verdade.
+ *  E o antigo sai em DOIS tempos, que é o ponto desta função:
+ *
+ *      1. desativar   vira `status = 'revertido'`. Nada é apagado. Todo
+ *                     leitor entra por `status = 'importado'`, então o lote
+ *                     some da tela na hora, e o índice único do hash é
+ *                     parcial, então o arquivo antigo fica livre.
+ *      2. importar    o lote novo entra com o antigo ainda no banco, só que
+ *                     invisível. As chaves únicas de venda e item são por
+ *                     lote, então os dois convivem.
+ *      3. limpar      só depois do sucesso as linhas do antigo saem.
+ *
+ *  Antes, o passo 3 acontecia junto com o passo 1: uma falha na importação
+ *  deixava o sistema SEM histórico nenhum, e a volta era manual — subir de
+ *  novo a planilha antiga na mão. Agora a falha no passo 2 devolve o lote
+ *  antigo ao ar, com os mesmos ids de cliente e a mesma fila de revisão,
+ *  porque ele nunca chegou a ser apagado.
+ *
+ *  Uma falha no passo 3 deixa o resultado CORRETO e o banco sujo: o lote
+ *  novo no ar, o antigo invisível mas ocupando linhas. A resposta traz
+ *  `limpezaPendente` dizendo isso, e reverter o lote termina o serviço.
  *
  *  ─────────────────────────────────────────────────────────────────────────
  *  ESTOQUE: nada, dos dois lados
@@ -612,35 +702,107 @@ export async function substituirHistorico(db, { linhas, arquivo = 'Vendas Marque
     };
   }
 
-  const revertidos = [];
+  /* ── 1. tirar o antigo do ar, SEM apagar nada ────────────────────────────
+     Só o status vira. As linhas do lote antigo continuam no banco, invisíveis
+     para todo leitor (todos entram por `status = 'importado'`), e o hash do
+     arquivo antigo fica livre. É o que torna o passo 3 possível. */
+  const desativados = [];
+  /* `.reverse()` mutaria a lista que o passo 3 ainda vai percorrer. */
+  const desfazer = async () => {
+    for (const d of [...desativados].reverse()) await reativarLote(db, d.id, d.pendentesRemovidas);
+  };
   for (const l of antes.lotes) {
-    const r = await reverterLote(db, l.id);
+    const r = await desativarLote(db, l.id);
     if (!r.ok) {
+      await desfazer();
       return {
         ok: false,
         etapa: 'reversao',
         antes,
-        revertidos,
-        erro: `Não consegui reverter o lote ${l.id} (${l.arquivo}): ${r.erro} `
-          + 'Nada foi importado; o histórico continua como estava.',
+        revertidos: [],
+        erro: `Não consegui tirar do ar o lote ${l.id} (${l.arquivo}): ${r.erro} `
+          + 'Nada foi importado nem apagado; o histórico continua como estava.',
+        ...(r.operacoesProtegidas ? { operacoesProtegidas: r.operacoesProtegidas } : {}),
       };
     }
-    revertidos.push({ ...l, itensRemovidos: r.itensRemovidos, clientesRemovidos: r.clientesRemovidos });
+    desativados.push({ ...l, pendentesRemovidas: r.pendentesRemovidas });
   }
 
-  const imp = await importarHistorico(db, { linhas, arquivo });
-  if (!imp.ok) {
+  /* O maior id ANTES de importar: tudo acima disso nasceu nesta tentativa e,
+     se ela falhar, é lixo que precisa sair junto. */
+  const ultimoLoteAntes = Number(
+    (await db.prepare('SELECT COALESCE(MAX(id), 0) AS n FROM vendas_historico_lotes').first())?.n ?? 0,
+  );
+  /* Nunca deixa de rodar o `desfazer()`: devolver o histórico antigo ao ar
+     vale mais que varrer o pedaço que não terminou. Se a varrição também
+     cair, ela é reportada e a limpeza fica para depois. */
+  const limparTentativa = async () => {
+    try {
+      const { results } = await db.prepare(
+        'SELECT id FROM vendas_historico_lotes WHERE id > ?',
+      ).bind(ultimoLoteAntes).all();
+      for (const l of results ?? []) await descartarLoteParcial(db, l.id);
+      return (results ?? []).length;
+    } catch (erro) {
+      return { erro: String(erro?.message ?? erro) };
+    }
+  };
+
+  /* ── 2. importar o novo ──────────────────────────────────────────────────
+     Se falhar aqui, o antigo VOLTA — inteiro, com os mesmos ids de cliente e
+     a mesma fila de revisão. Antes desta ordem, uma falha nesta linha deixava
+     o sistema sem histórico nenhum e a volta era manual: subir de novo a
+     planilha antiga na mão. */
+  let imp;
+  try {
+    imp = await importarHistorico(db, { linhas, arquivo });
+  } catch (erro) {
+    const parciais = await limparTentativa();
+    await desfazer();
     return {
       ok: false,
       etapa: 'importacao',
       antes,
-      revertidos,
-      erro: `${imp.erro ?? 'A importação falhou.'} `
-        + (revertidos.length
-          ? `O histórico anterior JÁ havia sido revertido (${revertidos.map((r) => `lote ${r.id}: ${r.arquivo}`).join('; ')}). `
-            + 'Reverter libera o arquivo para nova importação — subir a planilha antiga de volta funciona.'
-          : ''),
+      revertidos: [],
+      restaurado: true,
+      loteParcialDescartado: parciais,
+      erro: `A importação falhou (${erro?.message ?? erro}). O histórico anterior foi `
+        + 'devolvido ao ar exatamente como estava — nenhuma linha dele chegou a ser apagada.',
     };
+  }
+  if (!imp.ok) {
+    const parciais = await limparTentativa();
+    await desfazer();
+    return {
+      ok: false,
+      etapa: 'importacao',
+      antes,
+      revertidos: [],
+      restaurado: true,
+      loteParcialDescartado: parciais,
+      erro: `${imp.erro ?? 'A importação falhou.'} O histórico anterior foi devolvido ao ar `
+        + 'exatamente como estava — nenhuma linha dele chegou a ser apagada.',
+    };
+  }
+
+  /* ── 3. só agora apagar o antigo ─────────────────────────────────────────
+     O lote novo já está de pé. A cliente que aparece nas duas planilhas
+     continua tendo item e escapa do DELETE, mantendo o mesmo `id` — e com ele
+     qualquer decisão que aponte para ela.
+
+     Se ESTA etapa falhar, o sistema fica correto e um pouco sujo: o lote novo
+     no ar, o antigo invisível mas ainda ocupando linhas. Isso é dito na
+     resposta, não engolido, e `POST /api/vendas/historico/lotes/:id/reverter`
+     termina a limpeza. */
+  const revertidos = [];
+  const limpezaPendente = [];
+  for (const d of desativados) {
+    try {
+      const r = await limparLoteRevertido(db, d.id);
+      revertidos.push({ ...d, itensRemovidos: r.itensRemovidos, clientesRemovidos: r.clientesRemovidos });
+    } catch (erro) {
+      limpezaPendente.push({ loteId: d.id, arquivo: d.arquivo, erro: String(erro?.message ?? erro) });
+    }
   }
 
   const depois = await retratoDoHistorico(db);
@@ -654,6 +816,10 @@ export async function substituirHistorico(db, { linhas, arquivo = 'Vendas Marque
     analise: imp.analise,
     conferencia: imp.conferencia,
     reconstrucao: imp.reconstrucao,
+    /* Lote antigo que ficou sem ser apagado. Vazio no caminho normal; se vier
+       preenchido, a troca está CORRETA e o banco está sujo — e quem leu a
+       resposta sabe disso. */
+    ...(limpezaPendente.length ? { limpezaPendente } : {}),
     /* a diferença explícita, para a tela não ter de subtrair nada e para o
        operador ver o que a troca fez, e não só o resultado final */
     delta: {

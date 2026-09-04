@@ -25,9 +25,16 @@ comentado. O porquê de cada tabela está em
 Descubra também o que **produção** realmente tem. Não é a mesma pergunta:
 
 ```bash
-npx wrangler d1 execute marquesa-db --remote \
+npx wrangler d1 execute DB --remote \
   --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
 ```
+
+> **Endereçe pelo binding `DB`, nunca pelo nome.** Sem `--env`, o
+> `api/wrangler.toml` resolve `DB` para **`marquesa-db-prod`**
+> (`51dd629b-…`), que é a produção desde o go-live de 2026-08-22. O nome
+> `marquesa-db` ainda resolve — e aponta para a cópia **congelada de
+> rollback** (`089153a9-…`), a única volta que o projeto tem. Ver
+> [api/DEPLOY.md](../../../api/DEPLOY.md).
 
 Só leitura, mas **`--remote` sempre pede confirmação humana**. Não rode
 sozinho.
@@ -54,8 +61,8 @@ Responda por escrito, antes de escrever SQL:
 ### 3. Verificar o backup
 
 ```bash
-npx wrangler d1 export marquesa-db --remote \
-  --output ../backups/d1/<AAAA-MM-DD_HH-mm>/marquesa-db.sql
+npx wrangler d1 export DB --remote \
+  --output ../backups/d1/<AAAA-MM-DD_HH-mm>/marquesa-db-prod.sql
 ```
 
 Depois **confira** que o arquivo presta — tamanho, `CREATE TABLE`, `INSERT`,
@@ -65,7 +72,7 @@ e a razão fechando. O procedimento está em
 Anote também o bookmark de Time Travel:
 
 ```bash
-npx wrangler d1 time-travel info marquesa-db
+npx wrangler d1 time-travel info marquesa-db-prod
 ```
 
 **Sem backup conferido, a etapa 7 não acontece.** Não é formalidade: é a
@@ -98,8 +105,8 @@ Regras:
 ```bash
 cd api
 rm -rf .wrangler/state                                   # pare o wrangler dev antes
-npx wrangler d1 execute marquesa-db --local --file=schema.sql
-npx wrangler d1 execute marquesa-db --local --file=migracao-<assunto>.sql
+npx wrangler d1 execute DB --local --file=schema.sql
+npx wrangler d1 execute DB --local --file=migracao-<assunto>.sql
 npx wrangler dev --local --port 8787
 ```
 

@@ -10,10 +10,14 @@ representa **peça física**. Confiabilidade vale mais que velocidade.
 
 ## Alvo — sempre a primeira coisa que você confere
 
-| | DEV | Produção |
-|---|---|---|
-| D1 | `marquesa-db-dev` (`dcc36f65-…`) | `marquesa-db` (`089153a9-…`) |
-| Escrita | livre, descartável | **nunca por agente** |
+| | DEV | Produção | Rollback congelado |
+|---|---|---|---|
+| D1 | `marquesa-db-dev` (`dcc36f65-…`) | `marquesa-db-prod` (`51dd629b-…`) | `marquesa-db` (`089153a9-…`) |
+| Escrita | livre, descartável | **nunca por agente** | **nunca, por ninguém, sem decisão explícita** |
+
+Depois do go-live de 2026-08-22, produção é `marquesa-db-prod`; `marquesa-db`
+guarda a cópia congelada de rollback. O nome antigo continua resolvendo — e é
+exatamente por isso que ele é perigoso.
 
 Comando sem `marquesa-db-dev` literal e sem `--local` **não é executado por
 você**. Não existe escrita "provavelmente em DEV".
@@ -22,7 +26,7 @@ você**. Não existe escrita "provavelmente em DEV".
 
 `DROP TABLE` · `DROP DATABASE` · `DELETE`/`UPDATE` em massa sem filtro
 validado · `d1 delete` · `d1 time-travel restore` · qualquer escrita em
-`marquesa-db`. Migration destrutiva você **escreve e explica**; quem aplica é
+`marquesa-db-prod` ou em `marquesa-db`. Migration destrutiva você **escreve e explica**; quem aplica é
 uma pessoa.
 
 ## Procedimento

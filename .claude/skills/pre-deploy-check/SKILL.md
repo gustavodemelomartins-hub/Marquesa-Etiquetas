@@ -101,7 +101,9 @@ Qualquer um desses exige releitura da regra correspondente em
 Obrigatório quando houver migration, importação em massa, ou sincronização
 forçada:
 
-- [ ] `npx wrangler d1 export marquesa-db --remote --output …` feito;
+- [ ] `npx wrangler d1 export DB --remote --output …` feito — pelo BINDING,
+      que o `wrangler.toml` resolve para `marquesa-db-prod`. Digitar o nome
+      `marquesa-db` exporta a cópia congelada de rollback, não a produção;
 - [ ] o arquivo foi **conferido** (não vazio, tabelas presentes, razão
       fechando);
 - [ ] bookmark de Time Travel anotado.
@@ -120,7 +122,9 @@ Procedimento: [docs/BACKUP_RECOVERY.md](../../../docs/BACKUP_RECOVERY.md).
 ## 9. Ambiente certo
 
 - [ ] `api/wrangler.toml`: `name = "marquesa-api"`, `database_name =
-      "marquesa-db"`, `database_id` correto.
+      "marquesa-db-prod"`, `database_id = 51dd629b-…`. Desde o go-live de
+      2026-08-22 é ESTE o banco de produção; `marquesa-db` (`089153a9-…`)
+      virou a cópia congelada de rollback e não pode ser alvo de nada.
 - [ ] `ORIGENS_PERMITIDAS` aponta para o endereço público do painel.
 - [ ] O cron (`0 9,21 * * *` UTC) continua o pretendido.
 - [ ] Você está na conta certa da Cloudflare.

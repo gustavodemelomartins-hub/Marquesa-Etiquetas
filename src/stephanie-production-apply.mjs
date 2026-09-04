@@ -23,7 +23,10 @@ const API = String(process.env.API_URL || '').replace(/\/$/, '');
 const KEY = String(process.env.API_KEY || '');
 const ALVO = String(process.env.MARQUESA_TARGET || '');
 const TRAVA = String(process.env.MARQUESA_APPLY || '');
-const ARQUIVO = 'C:\\Users\\User\\Downloads\\Vendas Marquesa (3).xlsx';
+/* O caminho da máquina do Gustavo continua sendo o padrão, mas deixa de ser
+ * a única possibilidade: sem `MARQUESA_XLSX` este arquivo só roda num Windows
+ * específico, e um ensaio que só uma máquina consegue fazer não é um ensaio. */
+const ARQUIVO = process.env.MARQUESA_XLSX || 'C:\\Users\\User\\Downloads\\Vendas Marquesa (3).xlsx';
 
 if (!API || !KEY) throw new Error('API_URL e API_KEY sao obrigatorios; nao existe alvo padrao.');
 if (!['ENSAIO_LOCAL', 'PRODUCAO'].includes(ALVO)) {
@@ -31,6 +34,19 @@ if (!['ENSAIO_LOCAL', 'PRODUCAO'].includes(ALVO)) {
 }
 if (TRAVA !== 'APLICAR_STEPHANIE_2026_09_03') {
   throw new Error('Trava ausente: defina MARQUESA_APPLY=APLICAR_STEPHANIE_2026_09_03.');
+}
+
+// O erro que as duas travas de cima NAO pegam e o mais facil de cometer:
+// dizer PRODUCAO e apontar para o Worker local, ou dizer ENSAIO_LOCAL e
+// apontar para a nuvem. As duas variaveis existem, as duas estao
+// preenchidas, e mesmo assim o alvo nao e o que a pessoa pensa.
+const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(API);
+if (ALVO === 'PRODUCAO' && LOCAL) {
+  throw new Error(`MARQUESA_TARGET=PRODUCAO com API_URL local (${API}). Um dos dois esta errado.`);
+}
+if (ALVO === 'ENSAIO_LOCAL' && !LOCAL) {
+  throw new Error(`MARQUESA_TARGET=ENSAIO_LOCAL com API_URL remoto (${API}). `
+    + 'Um ensaio contra a nuvem nao e um ensaio.');
 }
 
 const api = async (metodo, caminho, corpo) => {
@@ -202,7 +218,35 @@ for (const conta of contas) {
   }
 }
 const pacoteDecisoes = [...duplicatas, ...contasAindaSemDecisao, ...acertos];
-const decisoes = await api('POST', '/api/vendas/historico/operacoes', { operacoes: pacoteDecisoes });
+
+// PREVIEW antes de escrever. A rodada seca analisa o pacote inteiro contra o
+// banco de verdade e devolve o plano com o hash dele, sem gravar nada. O
+// plano e conferido aqui; so entao o mesmo hash volta em `planoEsperado`, e
+// a escrita e recusada se qualquer coisa tiver mudado entre olhar e aplicar.
+// Sem isso, o apply escrevia direto sobre um banco que ninguem tinha acabado
+// de ver.
+const previa = await api('POST', '/api/vendas/historico/operacoes', {
+  operacoes: pacoteDecisoes, seco: true,
+});
+exigir(previa.seco === true, 'a rodada seca nao respondeu como seca');
+exigir(previa.plano.length === pacoteDecisoes.length, 'o plano nao cobre todas as operacoes');
+exigir(previa.criadas + previa.preservadas === pacoteDecisoes.length, 'nem todas as decisoes foram reconhecidas');
+const acertosNoPlano = previa.plano.filter((p) => p.papel === 'acerto');
+exigir(acertosNoPlano.length === 4, `esperava 4 acertos no plano, vieram ${acertosNoPlano.length}`);
+for (const p of acertosNoPlano) {
+  exigir(p.brutoCentavos === p.comissaoCentavos + p.liquidoCentavos,
+    `acerto ${p.vendaChave} nao fecha bruto = comissao + liquido`);
+}
+const vinculosNoPlano = previa.plano.reduce((s, p) => s + p.vinculos.length, 0);
+exigir(vinculosNoPlano === duplicatas.length, `esperava ${duplicatas.length} vinculos, o plano tem ${vinculosNoPlano}`);
+for (const p of previa.plano) {
+  exigir(p.saldoCentavos == null || p.saldoCentavos >= 0, `saldo negativo em ${p.vendaChave}`);
+}
+console.log(`  plano conferido: ${previa.criadas} a criar, ${previa.preservadas} preservadas, hash ${previa.planoHash.slice(0, 12)}`);
+
+const decisoes = await api('POST', '/api/vendas/historico/operacoes', {
+  operacoes: pacoteDecisoes, planoEsperado: previa.planoHash,
+});
 exigir(decisoes.criadas + decisoes.preservadas === pacoteDecisoes.length, 'nem todas as decisoes foram reconhecidas');
 
 console.log('3/5 Cadastrando apenas codigos ainda ausentes...');

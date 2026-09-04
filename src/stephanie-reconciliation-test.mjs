@@ -11,7 +11,10 @@ XLSX.set_fs(fs);
 
 const API = process.env.API_URL || 'http://localhost:8787';
 const KEY = process.env.API_KEY || 'troque-por-uma-chave-de-teste';
-const ARQUIVO = 'C:\\Users\\User\\Downloads\\Vendas Marquesa (3).xlsx';
+/* O caminho da máquina do Gustavo continua sendo o padrão, mas deixa de ser
+ * a única possibilidade: sem `MARQUESA_XLSX` este arquivo só roda num Windows
+ * específico, e um ensaio que só uma máquina consegue fazer não é um ensaio. */
+const ARQUIVO = process.env.MARQUESA_XLSX || 'C:\\Users\\User\\Downloads\\Vendas Marquesa (3).xlsx';
 
 let falhas = 0;
 const ok = (t, x = '') => console.log(`  ok   ${t}${x ? '  → ' + x : ''}`);

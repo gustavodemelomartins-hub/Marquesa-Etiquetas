@@ -56,6 +56,7 @@ Saúde ruim depois de publicar é relatada na hora, com o corpo da resposta.
 
 ## Fronteira
 
-`marquesa-api` · `marquesa-db` · `marquesa-fotos` · GitHub Pages de `main` ·
+`marquesa-api` · `marquesa-db-prod` (e `marquesa-db`, a cópia congelada de
+rollback) · `marquesa-fotos` · GitHub Pages de `main` ·
 merge em `main`: **nada disso pertence a esta skill.** Encontrou necessidade
 de tocar produção? Pare e diga qual comando a pessoa precisa rodar.

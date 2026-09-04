@@ -30,11 +30,16 @@ while [ $# -gt 0 ]; do
   shift
 done
 FLAG_ENV=()
-DB_NOME="marquesa-db"
+# O `d1 execute` aceita o BINDING, e é assim que este script endereça o banco:
+# `DB` é resolvido pelo wrangler.toml a partir do ambiente, então acertar o
+# `--env` já acerta o banco. Antes daqui saía o NOME (`marquesa-db`), e depois
+# do go-live de 2026-08-22 esse nome deixou de ser o banco de produção para
+# ser a cópia CONGELADA de rollback — um nome que ninguém deveria digitar por
+# engano num script de desenvolvimento. Ver api/DEPLOY.md.
+DB_NOME="DB"
 if [ -n "$AMBIENTE" ]; then
   FLAG_ENV=(--env "$AMBIENTE")
-  DB_NOME="marquesa-db-$AMBIENTE"   # o `d1 execute` quer o nome do banco
-fi                                   # DAQUELE ambiente, não o binding "DB"
+fi
 
 # O -o exclui este próprio script do alvo, senão ele se mata ao procurar por
 # um padrão que a própria linha de comando contém.

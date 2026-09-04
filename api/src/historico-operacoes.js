@@ -22,9 +22,85 @@ function jsonSeguro(valor, padrao) {
   try { return JSON.parse(valor ?? ''); } catch { return padrao; }
 }
 
+const ERRO = (statusHttp, erro, extra = {}) => ({ ok: false, statusHttp, erro, ...extra });
+
+/** Dinheiro aqui é SEMPRE centavo inteiro. `1.5`, `NaN`, `Infinity`, `"12"`
+ *  com espaço e qualquer coisa acima de 2^53 param aqui — depois do INSERT
+ *  o CHECK do banco só sabe dizer "constraint failed", sem dizer de quê. */
+function centavosValidos(valor) {
+  if (valor == null) return { ok: true, valor: null };
+  if (typeof valor !== 'number' && typeof valor !== 'string') return { ok: false };
+  const n = Number(valor);
+  if (!Number.isSafeInteger(n) || n < 0) return { ok: false };
+  return { ok: true, valor: n };
+}
+
+function inteiroValido(valor) {
+  if (valor == null) return { ok: true, valor: null };
+  const n = Number(valor);
+  if (!Number.isSafeInteger(n) || n < 0) return { ok: false };
+  return { ok: true, valor: n };
+}
+
+/** `2026-02-31` casa com a regex e não existe no calendário. Um prazo que
+ *  não existe nunca vence, e a conta ficaria invisível para sempre na lista
+ *  de vencidas. */
+function dataIsoValida(valor) {
+  const s = String(valor);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(`${s}T00:00:00.000Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
+/** `evidencia` é texto gravado hoje e lido por outra pessoa meses depois.
+ *  Aceita só objeto simples que sobrevive a um round-trip JSON: `undefined`,
+ *  função, `BigInt` e ciclo viram silêncio ou exceção na hora do INSERT. */
+function jsonDeEvidencia(valor) {
+  if (valor == null) return { ok: true, texto: '{}' };
+  if (typeof valor !== 'object' || Array.isArray(valor)) return { ok: false };
+  let texto;
+  try { texto = JSON.stringify(valor); } catch { return { ok: false }; }
+  if (typeof texto !== 'string') return { ok: false };
+  try { JSON.parse(texto); } catch { return { ok: false }; }
+  if (texto.length > 8000) return { ok: false };
+  return { ok: true, texto };
+}
+
 /** Assinatura apenas do conteúdo comercial normalizado. IDs derivados e
  * metadados do XLSX não entram: reconstruir o mesmo conteúdo deve preservar
- * a decisão; mudar item, quantidade ou valor deve bloqueá-la. */
+ * a decisão; mudar item, quantidade ou valor deve bloqueá-la.
+ *
+ * A regra mora AQUI, numa função só, porque ela é usada de dois lugares: a
+ * leitura do banco (abaixo) e a reconstrução, que precisa saber o que a nova
+ * regra de agrupamento faria ANTES de apagar a antiga. Duas implementações
+ * da mesma assinatura seriam duas respostas diferentes para "mudou?" — e a
+ * pergunta que elas respondem é se uma decisão humana ainda vale.
+ *
+ * `venda` e `itens` vêm na forma das colunas do banco, dos dois lados. */
+export function fingerprintDoConteudo(venda, itens) {
+  return sha256({
+    chave: venda.chave,
+    classe: venda.classe,
+    nome: venda.cliente_nome_norm,
+    data: venda.data,
+    pecas: Number(venda.pecas),
+    valorTotal: centavos(venda.valor_total),
+    valorPago: centavos(venda.valor_pago),
+    status: venda.status,
+    canal: venda.canal,
+    contexto: venda.contexto,
+    linhas: (itens ?? []).map((item) => ({
+      numero: String(item.origem_linha),
+      sku: item.sku_base,
+      qtd: Number(item.qtd),
+      valor: centavos(item.valor_total),
+      pago: item.pago,
+      desconto: item.desconto_original,
+      observacao: item.observacao_original,
+    })),
+  });
+}
+
 export async function fingerprintDaVendaHistorica(db, loteId, vendaChave) {
   const venda = await db.prepare(
     `SELECT chave, classe, cliente_nome_norm, data, pecas, valor_total,
@@ -40,27 +116,7 @@ export async function fingerprintDaVendaHistorica(db, loteId, vendaChave) {
       WHERE lote_id = ? AND pedido_chave = ?
       ORDER BY id`,
   ).bind(loteId, vendaChave).all();
-  return sha256({
-    chave: venda.chave,
-    classe: venda.classe,
-    nome: venda.cliente_nome_norm,
-    data: venda.data,
-    pecas: Number(venda.pecas),
-    valorTotal: centavos(venda.valor_total),
-    valorPago: centavos(venda.valor_pago),
-    status: venda.status,
-    canal: venda.canal,
-    contexto: venda.contexto,
-    linhas: (results ?? []).map((item) => ({
-      numero: String(item.origem_linha),
-      sku: item.sku_base,
-      qtd: Number(item.qtd),
-      valor: centavos(item.valor_total),
-      pago: item.pago,
-      desconto: item.desconto_original,
-      observacao: item.observacao_original,
-    })),
-  });
+  return fingerprintDoConteudo(venda, results ?? []);
 }
 
 function operacaoPublica(row) {
@@ -177,6 +233,18 @@ async function criarNovaVersao(db, atual, mudancas) {
           (${CAMPOS_VERSAO.join(',')}, versao, status_registro, substitui_id, atualizado_em)
          VALUES (${CAMPOS_VERSAO.map(() => '?').join(',')}, ?, 'ativa', ?, datetime('now'))`,
       ).bind(...valores, versao, atual.id),
+      /* O vínculo de duplicata é fato sobre a VENDA, não sobre a versão da
+       * cobrança. Sem esta linha, receber o dinheiro criaria uma versão nova
+       * e deixaria o vínculo pendurado no registro substituído: a retomada
+       * do backfill leria "nenhuma duplicata gravada" e recusaria a operação
+       * como se alguém a tivesse revisado com outra decisão. A chave é
+       * estável, então o vínculo acompanha quem está ativo agora. */
+      db.prepare(
+        `UPDATE historico_operacao_vendas
+            SET operacao_id = (SELECT id FROM historico_operacoes
+                                WHERE venda_chave=? AND status_registro='ativa')
+          WHERE operacao_id=? AND status_registro='ativa'`,
+      ).bind(atual.venda_chave, atual.id),
     ]);
   } catch (erro) {
     const corrente = await db.prepare(
@@ -211,8 +279,8 @@ export async function marcarContaPaga(db, id, { confirmar = false, versaoEsperad
 }
 
 export async function definirVencimento(db, id, { vencimentoEm = null, versaoEsperada = null } = {}) {
-  if (vencimentoEm != null && !/^\d{4}-\d{2}-\d{2}$/.test(String(vencimentoEm))) {
-    return { ok: false, statusHttp: 400, erro: 'Prazo inválido. Use AAAA-MM-DD.' };
+  if (vencimentoEm != null && vencimentoEm !== '' && !dataIsoValida(vencimentoEm)) {
+    return ERRO(400, 'Prazo inválido. Use uma data real no formato AAAA-MM-DD.');
   }
   const atual = await contaAtiva(db, id);
   if (!atual) return { ok: false, statusHttp: 404, erro: 'Cobrança não encontrada.' };
@@ -294,7 +362,7 @@ async function decisaoExistenteConfere(db, existente, p) {
     [existente.cliente_id, e.clienteId ?? p.venda.cliente_id],
     [existente.cliente_nome_norm, e.clienteNomeNorm ?? p.venda.cliente_nome_norm],
     [existente.revendedora_id, e.revendedoraId ?? null],
-    [existente.pecas, e.pecas ?? p.venda.pecas],
+    [existente.pecas, p.pecas],
     [existente.bruto_centavos, p.bruto],
     [existente.comissao_centavos, p.comissao],
     [existente.liquido_centavos, p.liquido],
@@ -304,7 +372,7 @@ async function decisaoExistenteConfere(db, existente, p) {
     [existente.valor_recebido_fonte_centavos, p.recebido],
     [existente.valor_recebido_centavos, p.recebidoAtual],
     [existente.saldo_centavos, p.saldo],
-    [existente.vencimento_em, e.vencimentoEm ?? null],
+    [existente.vencimento_em, p.vencimentoEm],
     [existente.canal, e.canal ?? p.venda.canal],
     [existente.contexto, e.contexto ?? p.venda.contexto],
     [existente.observacao, e.observacao ?? p.venda.observacao_original],
@@ -319,67 +387,190 @@ async function decisaoExistenteConfere(db, existente, p) {
   return JSON.stringify(gravadas) === JSON.stringify(pedidas);
 }
 
-/** Entrada administrativa usada no backfill revisado. Ela analisa todas as
- * operações antes do primeiro INSERT e é idempotente por chave+fingerprint. */
-export async function aplicarOperacoesHistoricas(db, { operacoes = [] } = {}) {
+/** Entrada administrativa usada no backfill revisado. Ela analisa TODAS as
+ * operações antes do primeiro INSERT e é idempotente por chave+fingerprint.
+ *
+ * Três travas, porque este é o caminho que escreve decisão humana em massa:
+ *
+ *   `seco: true`        faz a análise inteira e não escreve nada. Devolve o
+ *                       plano e o `planoHash`.
+ *   `planoEsperado`     é aquele hash, mandado de volta na hora de aplicar.
+ *                       Se qualquer coisa mudou entre olhar e aplicar — o
+ *                       histórico foi trocado, alguém quitou uma conta — o
+ *                       hash muda e a escrita é recusada em vez de pousar
+ *                       sobre um banco que já não é o que foi revisado.
+ *   `fingerprintEsperado` por operação, para quem sabe de antemão qual
+ *                       conteúdo está decidindo.
+ */
+export async function aplicarOperacoesHistoricas(
+  db, { operacoes = [], seco = false, planoEsperado = null } = {},
+) {
   if (!Array.isArray(operacoes) || !operacoes.length) {
-    return { ok: false, statusHttp: 400, erro: 'Informe ao menos uma operação.' };
+    return ERRO(400, 'Informe ao menos uma operação.');
   }
+
+  /* Duas linhas para a mesma venda no mesmo pacote não têm resultado
+   * definido: o INSERT do vínculo procura a decisão ativa PELA CHAVE, e com
+   * a chave repetida ele encontraria a linha errada — ou a certa, dependendo
+   * da ordem em que o D1 resolvesse o batch. O mesmo vale para vincular a
+   * mesma venda operacional a duas operações: o índice único só reclamaria
+   * no fim, quando parte do pacote já estivesse gravada. Os dois casos são
+   * recusados aqui, antes de olhar o banco, e sempre pelo mesmo motivo. */
+  const chavesVistas = new Set();
+  const donoDoVinculo = new Map();
+  for (const entrada of operacoes) {
+    if (!entrada || typeof entrada !== 'object') return ERRO(400, 'Operação vazia no pacote.');
+    const chave = String(entrada.vendaChave ?? '').trim();
+    if (!chave) return ERRO(400, 'Operação sem `vendaChave`.');
+    if (chavesVistas.has(chave)) {
+      return ERRO(400, `A venda ${chave} aparece duas vezes no mesmo pacote. `
+        + 'Junte as duas decisões numa só antes de reenviar.');
+    }
+    chavesVistas.add(chave);
+    if (entrada.vendasDuplicadas != null && !Array.isArray(entrada.vendasDuplicadas)) {
+      return ERRO(400, `\`vendasDuplicadas\` de ${chave} não é uma lista.`);
+    }
+    for (const vinculo of entrada.vendasDuplicadas ?? []) {
+      const vendaId = Number(vinculo?.vendaId);
+      if (!Number.isSafeInteger(vendaId) || vendaId <= 0) {
+        return ERRO(400, `Vínculo com \`vendaId\` inválido em ${chave}.`);
+      }
+      const dono = donoDoVinculo.get(vendaId);
+      if (dono) {
+        return ERRO(400, `A venda ${vendaId} foi vinculada a ${dono} e a ${chave} `
+          + 'no mesmo pacote. Uma venda operacional duplica uma linha do histórico, não duas.');
+      }
+      donoDoVinculo.set(vendaId, chave);
+    }
+  }
+
   const preparadas = [];
   for (const entrada of operacoes) {
     const venda = await vendaHistoricaAtiva(db, entrada.vendaChave);
-    if (!venda) return { ok: false, statusHttp: 409, erro: `Venda histórica não encontrada: ${entrada.vendaChave}.` };
-    if (venda.classe !== 'venda') return { ok: false, statusHttp: 409, erro: `${entrada.vendaChave} não é uma venda.` };
+    if (!venda) return ERRO(409, `Venda histórica não encontrada: ${entrada.vendaChave}.`);
+    if (venda.classe !== 'venda') return ERRO(409, `${entrada.vendaChave} não é uma venda.`);
     const fingerprint = await fingerprintDaVendaHistorica(db, venda.lote_id, venda.chave);
+    if (entrada.fingerprintEsperado != null && entrada.fingerprintEsperado !== fingerprint) {
+      return ERRO(409, `O conteúdo de ${venda.chave} não é o que foi revisado.`,
+        { fingerprintAtual: fingerprint, fingerprintEsperado: entrada.fingerprintEsperado });
+    }
     const existente = await db.prepare(
       `SELECT * FROM historico_operacoes WHERE venda_chave=? AND status_registro='ativa'`,
     ).bind(venda.chave).first();
     if (existente && existente.fingerprint !== fingerprint) {
-      return { ok: false, statusHttp: 409, erro: `A decisão ativa de ${venda.chave} pertence a outro conteúdo.` };
+      return ERRO(409, `A decisão ativa de ${venda.chave} pertence a outro conteúdo.`);
     }
 
     const papel = entrada.papel ?? 'cliente';
-    if (!['cliente', 'acerto', 'revisao'].includes(papel)) return { ok: false, statusHttp: 400, erro: `Papel inválido em ${venda.chave}.` };
+    if (!['cliente', 'acerto', 'revisao'].includes(papel)) return ERRO(400, `Papel inválido em ${venda.chave}.`);
+
+    if (entrada.linhasExcluidas != null && !Array.isArray(entrada.linhasExcluidas)) {
+      return ERRO(400, `\`linhasExcluidas\` de ${venda.chave} não é uma lista.`);
+    }
     const excluidas = (entrada.linhasExcluidas ?? []).map(String);
     const linhas = new Set(jsonSeguro(venda.origem_linhas, []).map(String));
-    if (excluidas.some((x) => !linhas.has(x))) return { ok: false, statusHttp: 409, erro: `Linha excluída não pertence a ${venda.chave}.` };
+    if (excluidas.some((x) => !linhas.has(x))) return ERRO(409, `Linha excluída não pertence a ${venda.chave}.`);
 
-    const efetivo = entrada.valorEfetivoCentavos ?? centavos(venda.valor_total);
-    const recebido = entrada.valorRecebidoFonteCentavos ?? centavos(venda.valor_pago) ?? 0;
-    const recebidoAtual = entrada.valorRecebidoCentavos ?? recebido;
-    const saldo = entrada.saldoCentavos ?? (efetivo == null ? null : Math.max(0, efetivo - recebidoAtual));
-    const cobranca = entrada.cobrancaStatus ?? (papel === 'cliente' && saldo > 0 ? 'aberta' : 'nenhuma');
-    const bruto = entrada.brutoCentavos ?? null;
-    const comissao = entrada.comissaoCentavos ?? null;
-    const liquido = entrada.liquidoCentavos ?? null;
-    if (papel === 'acerto' && (!entrada.revendedoraId || bruto == null || comissao == null || liquido == null || bruto !== comissao + liquido)) {
-      return { ok: false, statusHttp: 409, erro: `Acerto sem valores documentais fechados em ${venda.chave}.` };
+    /* Todo dinheiro é inteiro de centavo, conferido campo a campo. O nome do
+     * campo aparece na recusa: "constraint failed" não diz qual número. */
+    const dinheiro = {};
+    for (const [campo, bruto] of [
+      ['valorEfetivoCentavos', entrada.valorEfetivoCentavos],
+      ['valorRecebidoFonteCentavos', entrada.valorRecebidoFonteCentavos],
+      ['valorRecebidoCentavos', entrada.valorRecebidoCentavos],
+      ['saldoCentavos', entrada.saldoCentavos],
+      ['brutoCentavos', entrada.brutoCentavos],
+      ['comissaoCentavos', entrada.comissaoCentavos],
+      ['liquidoCentavos', entrada.liquidoCentavos],
+    ]) {
+      const v = centavosValidos(bruto);
+      if (!v.ok) return ERRO(400, `${campo} de ${venda.chave} não é um inteiro de centavos.`);
+      dinheiro[campo] = v.valor;
     }
-    if (cobranca === 'aberta' && !(saldo > 0)) return { ok: false, statusHttp: 409, erro: `Cobrança aberta sem saldo em ${venda.chave}.` };
+    const pecasEntrada = inteiroValido(entrada.pecas);
+    if (!pecasEntrada.ok) return ERRO(400, `pecas de ${venda.chave} não é um inteiro não negativo.`);
+
+    if (entrada.vencimentoEm != null && entrada.vencimentoEm !== ''
+        && !dataIsoValida(entrada.vencimentoEm)) {
+      return ERRO(400, `Prazo inválido em ${venda.chave}. Use uma data real no formato AAAA-MM-DD.`);
+    }
+    const vencimentoEm = entrada.vencimentoEm || null;
+
+    const evidenciaOperacao = jsonDeEvidencia(entrada.evidencia);
+    if (!evidenciaOperacao.ok) return ERRO(400, `A evidência de ${venda.chave} não é um objeto JSON válido.`);
+
+    const efetivo = dinheiro.valorEfetivoCentavos ?? centavos(venda.valor_total);
+    const recebido = dinheiro.valorRecebidoFonteCentavos ?? centavos(venda.valor_pago) ?? 0;
+    const recebidoAtual = dinheiro.valorRecebidoCentavos ?? recebido;
+
+    /* Saldo é subtração, não opinião. Antes ele era `Math.max(0, …)`: uma
+     * planilha que registrasse pago MAIOR que o total virava saldo zero em
+     * silêncio, e ninguém ficava sabendo que os dois números brigavam. */
+    let saldo = null;
+    if (efetivo != null) {
+      saldo = efetivo - recebidoAtual;
+      if (saldo < 0) {
+        return ERRO(409, `Em ${venda.chave} o recebido (${recebidoAtual}) supera o valor efetivo `
+          + `(${efetivo}). Não invento saldo negativo nem arredondo para zero — confira a planilha.`);
+      }
+    }
+    if (dinheiro.saldoCentavos != null && dinheiro.saldoCentavos !== saldo) {
+      return ERRO(409, `O saldo informado para ${venda.chave} (${dinheiro.saldoCentavos}) não é `
+        + `efetivo menos recebido (${saldo}).`);
+    }
+
+    const cobranca = entrada.cobrancaStatus ?? (papel === 'cliente' && saldo > 0 ? 'aberta' : 'nenhuma');
+    if (!['nenhuma', 'aberta', 'paga', 'revisao'].includes(cobranca)) {
+      return ERRO(400, `Situação de cobrança inválida em ${venda.chave}.`);
+    }
+    const bruto = dinheiro.brutoCentavos;
+    const comissao = dinheiro.comissaoCentavos;
+    const liquido = dinheiro.liquidoCentavos;
+    if (papel === 'acerto' && (!entrada.revendedoraId || bruto == null || comissao == null || liquido == null || bruto !== comissao + liquido)) {
+      return ERRO(409, `Acerto sem valores documentais fechados em ${venda.chave}.`);
+    }
+    if (cobranca === 'aberta' && !(saldo > 0)) return ERRO(409, `Cobrança aberta sem saldo em ${venda.chave}.`);
+    if (cobranca === 'paga' && saldo !== 0) return ERRO(409, `Cobrança paga com saldo em aberto em ${venda.chave}.`);
 
     const duplicatas = [];
     for (const vinculo of entrada.vendasDuplicadas ?? []) {
+      const evidenciaVinculo = jsonDeEvidencia(vinculo.evidencia);
+      if (!evidenciaVinculo.ok) return ERRO(400, `A evidência do vínculo ${vinculo.vendaId} não é um objeto JSON válido.`);
       const op = await assinaturaOperacional(db, Number(vinculo.vendaId));
       const hist = await assinaturaHistorica(db, venda);
       if (!op || op.total !== hist.total || op.pecas !== hist.pecas
           || JSON.stringify(op.itens) !== JSON.stringify(hist.itens)) {
-        return { ok: false, statusHttp: 409, erro: `Venda ${vinculo.vendaId} não é duplicata exata de ${venda.chave}.` };
+        return ERRO(409, `Venda ${vinculo.vendaId} não é duplicata exata de ${venda.chave}.`);
       }
-      if (!vinculo.confirmado) return { ok: false, statusHttp: 409, erro: `Confirmação humana ausente para vincular a venda ${vinculo.vendaId}.` };
+      if (!vinculo.confirmado) return ERRO(409, `Confirmação humana ausente para vincular a venda ${vinculo.vendaId}.`);
       if (op.data !== hist.data && !vinculo.dataDiferenteConfirmada) {
-        return { ok: false, statusHttp: 409,
-          erro: `As vendas ${vinculo.vendaId} e ${venda.chave} têm datas diferentes; confirme essa diferença.` };
+        return ERRO(409, `As vendas ${vinculo.vendaId} e ${venda.chave} têm datas diferentes; confirme essa diferença.`);
       }
       if (op.nome !== hist.nome && !vinculo.clienteDiferenteConfirmado) {
-        return { ok: false, statusHttp: 409,
-          erro: `As vendas ${vinculo.vendaId} e ${venda.chave} têm nomes diferentes; confirme que é a mesma pessoa.` };
+        return ERRO(409, `As vendas ${vinculo.vendaId} e ${venda.chave} têm nomes diferentes; confirme que é a mesma pessoa.`);
       }
-      duplicatas.push(vinculo);
+      /* Já vinculada a OUTRA chave em outro pacote: o índice único pegaria,
+       * mas só depois de gravar parte deste. */
+      const jaVinculada = await db.prepare(
+        `SELECT ho.venda_chave FROM historico_operacao_vendas hov
+           JOIN historico_operacoes ho ON ho.id=hov.operacao_id
+          WHERE hov.venda_id=? AND hov.status_registro='ativa'`,
+      ).bind(Number(vinculo.vendaId)).first();
+      if (jaVinculada && jaVinculada.venda_chave !== venda.chave) {
+        return ERRO(409, `A venda ${vinculo.vendaId} já está vinculada a ${jaVinculada.venda_chave}.`);
+      }
+      duplicatas.push({ ...vinculo, evidenciaTexto: evidenciaVinculo.texto });
     }
-    const preparada = { entrada, venda, fingerprint, papel, excluidas, efetivo, recebido, recebidoAtual, saldo, cobranca, bruto, comissao, liquido, duplicatas };
+
+    const preparada = {
+      entrada, venda, fingerprint, papel, excluidas, efetivo, recebido, recebidoAtual,
+      saldo, cobranca, bruto, comissao, liquido, duplicatas, vencimentoEm,
+      pecas: pecasEntrada.valor ?? venda.pecas,
+      evidenciaTexto: evidenciaOperacao.texto,
+    };
     if (existente) {
       if (!await decisaoExistenteConfere(db, existente, preparada)) {
-        return { ok: false, statusHttp: 409, erro: `A operação ${venda.chave} já foi revisada com outra decisão.` };
+        return ERRO(409, `A operação ${venda.chave} já foi revisada com outra decisão.`);
       }
       preparada.existente = existente;
       preparada.ignorar = true;
@@ -388,6 +579,39 @@ export async function aplicarOperacoesHistoricas(db, { operacoes = [] } = {}) {
   }
 
   const novas = preparadas.filter((p) => !p.ignorar);
+
+  /* O plano é o que a pessoa revisou. O hash dele é o que ela devolve para
+   * provar que revisou ISTO, e não o banco de dez minutos atrás. */
+  const plano = preparadas.map((p) => ({
+    vendaChave: p.venda.chave,
+    fingerprint: p.fingerprint,
+    acao: p.ignorar ? 'preservar' : 'criar',
+    papel: p.papel,
+    pecas: Number(p.pecas ?? 0),
+    cobranca: p.cobranca,
+    efetivoCentavos: p.efetivo,
+    recebidoCentavos: p.recebidoAtual,
+    saldoCentavos: p.saldo,
+    brutoCentavos: p.bruto,
+    comissaoCentavos: p.comissao,
+    liquidoCentavos: p.liquido,
+    linhasExcluidas: p.excluidas,
+    vencimentoEm: p.vencimentoEm,
+    vinculos: p.duplicatas.map((d) => Number(d.vendaId)).sort((a, b) => a - b),
+  }));
+  const planoHash = await sha256(plano);
+  const resumo = {
+    planoHash,
+    criadas: novas.length,
+    preservadas: preparadas.length - novas.length,
+    vinculos: novas.reduce((s, p) => s + p.duplicatas.length, 0),
+  };
+  if (planoEsperado != null && planoEsperado !== planoHash) {
+    return ERRO(409, 'O plano mudou entre o preview e a aplicação. Rode o preview de novo e '
+      + 'confira a diferença antes de aplicar.', { planoHash, plano });
+  }
+  if (seco) return { ok: true, seco: true, ...resumo, plano };
+
   const stmts = [];
   for (const p of novas) {
     const e = p.entrada;
@@ -402,12 +626,12 @@ export async function aplicarOperacoesHistoricas(db, { operacoes = [] } = {}) {
     ).bind(
       p.venda.lote_id, p.venda.chave, p.fingerprint, p.papel,
       e.clienteId ?? p.venda.cliente_id, e.clienteNomeNorm ?? p.venda.cliente_nome_norm,
-      e.revendedoraId ?? null, e.pecas ?? p.venda.pecas,
+      e.revendedoraId ?? null, p.pecas,
       p.bruto, p.comissao, p.liquido, JSON.stringify(p.excluidas), p.cobranca,
-      p.efetivo, p.recebido, p.recebidoAtual, p.saldo, e.vencimentoEm ?? null,
-      e.vencimentoEm ? 'manual' : null, e.canal ?? p.venda.canal,
+      p.efetivo, p.recebido, p.recebidoAtual, p.saldo, p.vencimentoEm,
+      p.vencimentoEm ? 'manual' : null, e.canal ?? p.venda.canal,
       e.contexto ?? p.venda.contexto, e.observacao ?? p.venda.observacao_original,
-      JSON.stringify(e.evidencia ?? {}),
+      p.evidenciaTexto,
     ));
     for (const vinculo of p.duplicatas) {
       stmts.push(db.prepare(
@@ -415,11 +639,11 @@ export async function aplicarOperacoesHistoricas(db, { operacoes = [] } = {}) {
           (operacao_id, venda_id, evidencia_json)
          VALUES ((SELECT id FROM historico_operacoes
                    WHERE venda_chave=? AND status_registro='ativa'), ?, ?)`,
-      ).bind(p.venda.chave, Number(vinculo.vendaId), JSON.stringify(vinculo.evidencia ?? {})));
+      ).bind(p.venda.chave, Number(vinculo.vendaId), vinculo.evidenciaTexto));
     }
   }
   if (stmts.length) await db.batch(stmts);
-  return { ok: true, criadas: novas.length, preservadas: preparadas.length - novas.length, vinculos: novas.reduce((s, p) => s + p.duplicatas.length, 0) };
+  return { ok: true, ...resumo };
 }
 
 export async function operacoesAtivasDoLote(db, loteId) {

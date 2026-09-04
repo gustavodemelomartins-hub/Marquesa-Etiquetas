@@ -643,14 +643,28 @@ async function rotear(request, env) {
       if (path === '/api/vendas/historico/reconstruir' && met === 'POST') {
         const b = await request.json().catch(() => ({}));
         const norm = await backfillNormalizacao(db);
-        const r = await reconstruir(db, { loteId: b.loteId ?? null });
-        return json({ ...r, normalizacao: norm });
+        // Reconstruir que invalidaria decisão humana ativa (papel, acerto,
+        // duplicata, cobrança) para em 409 e diz quais. Passar por cima é
+        // possível, mas só de propósito e com nome feio.
+        const r = await reconstruir(db, {
+          loteId: b.loteId ?? null,
+          aceitarQuebraDeDecisao: b.aceitarQuebraDeDecisao === true,
+        });
+        return json({ ...r, normalizacao: norm }, r.ok ? 200 : (r.statusHttp ?? 409));
       }
       if (path === '/api/vendas/historico/reconstrucao' && met === 'GET') {
         return json(await estadoReconstrucao(db));
       }
       if (path === '/api/vendas/historico/operacoes' && met === 'POST') {
-        const r = await aplicarOperacoesHistoricas(db, await request.json().catch(() => ({})));
+        // `seco: true` devolve o plano e o `planoHash` sem escrever nada;
+        // mandar esse hash de volta em `planoEsperado` recusa a escrita se o
+        // banco mudou entre revisar e aplicar.
+        const b3 = await request.json().catch(() => ({}));
+        const r = await aplicarOperacoesHistoricas(db, {
+          operacoes: b3.operacoes,
+          seco: b3.seco === true,
+          planoEsperado: b3.planoEsperado ?? null,
+        });
         return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
       }
 
