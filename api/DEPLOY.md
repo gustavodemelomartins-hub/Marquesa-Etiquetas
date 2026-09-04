@@ -416,13 +416,46 @@ funciona normalmente.
 independente — `venda_itens` existe desde o schema original, e as três
 colunas só descrevem o preço que já era gravado.
 
+**Esta migration não é idempotente, e `duplicate column name` NÃO é
+sucesso.** As outras migrations do repositório usam `IF NOT EXISTS` e podem
+rodar duas vezes sem efeito; esta são três `ALTER TABLE … ADD COLUMN`
+crus, que o SQLite não sabe repetir. Rodar de novo aborta na primeira
+coluna que já existir — e **aborta antes das seguintes**. Ou seja, esse erro
+tem dois significados opostos:
+
+- as três já estão lá, e não há nada a fazer; **ou**
+- só a primeira está lá, a execução anterior morreu no meio, e faltam duas.
+
+A mensagem é idêntica nos dois casos. Quem lê `duplicate column name` e
+segue em frente publica código que lê coluna inexistente. **Só o `pragma`
+decide.**
+
+Passo 1 — perguntar antes de escrever (funciona em qualquer estado):
+
 ```bash
-# DEV — banco marquesa-db-dev
+# produção: sem --env. DEV: acrescente --env staging.
+npx wrangler d1 execute DB --remote --command \
+  "SELECT COUNT(*) AS colunas FROM pragma_table_info('venda_itens') WHERE name IN ('preco_tabela','desconto_valor','desconto_rotulo')"
+```
+
+| `colunas` | O que fazer |
+|---|---|
+| `3` | Já aplicada. **Não rode a migration.** Siga para a próxima. |
+| `0` | Aplique o passo 2 inteiro. |
+| `1` ou `2` | **PARE.** Aplicação anterior morreu no meio. Aplique só as que faltam, uma a uma, com `--command`, e volte ao passo 1. |
+
+Passo 2 — aplicar:
+
+```bash
+# DEV — binding DB com --env staging → marquesa-db-dev
 npx wrangler d1 execute DB --env staging --remote --file=migracao-venda-desconto.sql
 
-# produção — só depois de aprovado
+# produção — binding DB sem --env → marquesa-db-prod, só depois de aprovado
 npx wrangler d1 execute DB --remote --file=migracao-venda-desconto.sql
 ```
+
+Passo 3 — **repetir o passo 1 e exigir `colunas = 3`.** Este é o critério de
+aceitação; a saída do passo 2 não é. Só depois disso o deploy pode sair.
 
 ⚠️ Se o token OAuth do `wrangler login` devolver `Authentication error
 [code: 10000]` no `--file`, é o endpoint `/import` que ele usa — não a sua

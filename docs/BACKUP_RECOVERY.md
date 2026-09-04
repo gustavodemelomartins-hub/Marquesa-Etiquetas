@@ -1,12 +1,25 @@
 # Backup e recuperação
 
-> **BACKUP DE PRODUÇÃO FEITO E CONFERIDO — 2026-08-18 06:22.**
->
+## ⚠️ Qual banco é produção
+
+Desde o corte de **2026-08-22**, produção é **`marquesa-db-prod`**
+(`51dd629b-52dc-46d0-a1af-fa37f0a79533`). O `marquesa-db` antigo
+(`089153a9-…`) virou a **cópia congelada de rollback** e não é alvo de nada.
+
+Por isso **todo comando aqui endereça o banco pelo binding `DB`**, que o
+`api/wrangler.toml` resolve: sem `--env` → produção; `--env staging` →
+`marquesa-db-dev`. Digitar o nome de memória não erra o ambiente — acerta o
+banco que jamais deveria ser tocado.
+
+> **Último backup conferido do banco ANTIGO — 2026-08-18 06:22.**
 > `backups/d1/2026-08-18_06-22/marquesa-db.sql` · 720.922 bytes · 16 tabelas
 > · 2.583 `INSERT`. Restaurado num banco limpo local e validado: **a razão
 > contábil fecha (0 divergências)**, zero registros órfãos, idempotência dos
 > pedidos intacta. Detalhes e contagens no `MANIFESTO.txt` ao lado do
 > arquivo.
+> Este arquivo é do `marquesa-db`, quando ele ainda era produção. **Não é
+> backup da produção atual**, e não existe backup da produção atual até
+> alguém rodar o export da seção 1.
 
 Ambiente conferido: Wrangler **4.123.0**, Node v24.19.0, Windows 10.
 Todos os comandos abaixo foram verificados contra o `--help` desta versão e
@@ -21,12 +34,15 @@ Todos os comandos abaixo foram verificados contra o `--help` desta versão e
 
 | Recurso | Valor | Onde |
 |---|---|---|
-| Banco `marquesa-db` (D1) | Estoque, movimentos, vendas, maletas, revendedoras, inventários | Cloudflare, `database_id` em [api/wrangler.toml](../api/wrangler.toml) |
+| Banco `marquesa-db-prod` (D1) | Estoque, movimentos, vendas, maletas, revendedoras, inventários, histórico | Cloudflare, `51dd629b-52dc-46d0-a1af-fa37f0a79533` — binding `DB` em [api/wrangler.toml](../api/wrangler.toml) |
 | Código | Este repositório | Git local + GitHub |
 | Secrets | `API_KEY`, `NUVEMSHOP_*` | Cloudflare Secrets. **Não têm backup e não são legíveis** — se perder, é rotação, não recuperação |
 
-Binding do Worker: `DB` → `marquesa-db`. Só um ambiente declarado
-(produção); não existe `[env.staging]` no `wrangler.toml`.
+| Banco | Nome | `database_id` | Papel |
+|---|---|---|---|
+| Produção | `marquesa-db-prod` | `51dd629b-52dc-46d0-a1af-fa37f0a79533` | binding `DB` **sem** `--env` |
+| DEV | `marquesa-db-dev` | `dcc36f65-daaa-42a4-9fbd-15e6f27e4d4b` | binding `DB` com `--env staging` |
+| Rollback congelado | `marquesa-db` | `089153a9-cee5-4887-b789-a23b1cf419f5` | **nunca é alvo de nada** |
 
 ---
 
@@ -36,9 +52,22 @@ Binding do Worker: `DB` → `marquesa-db`. Só um ambiente declarado
 
 ```bash
 cd api
-npx wrangler d1 export marquesa-db --remote \
-  --output ../backups/d1/2026-08-18_06-00/marquesa-db.sql
+npx wrangler d1 export DB --remote \
+  --output ../backups/d1/2026-09-04_07-35/producao-51dd629b-2026-09-04.sql
 ```
+
+**Pelo binding `DB`, nunca pelo nome.** Digitar `marquesa-db` exporta a cópia
+congelada de rollback: o comando termina com sucesso, o arquivo nasce com
+tamanho plausível, e você fica sem backup da produção sem nenhum sinal de
+que algo deu errado.
+
+Duas observações sobre o nome do arquivo:
+
+- não escreva `marquesa-db` no caminho de saída. O hook
+  `.claude/hooks/protect-production.mjs` casa esse texto **em qualquer
+  posição do comando**, inclusive no `--output`, e recusa a linha inteira;
+- ponha o `database_id` no nome. Seis meses depois, `producao-51dd629b-…`
+  responde sozinho de qual banco o dump saiu; `marquesa-db.sql` não.
 
 Só leitura. Não altera nada no banco. Três coisas aprendidas rodando isto
 de verdade:
@@ -69,10 +98,10 @@ Opções úteis desta versão:
 ```
 backups/
   d1/
-    2026-08-18_06-00/
-      marquesa-db.sql          <- export completo (schema + dados)
-      marquesa-db.schema.sql   <- opcional: --no-data, facilita ver o que mudou
-      MANIFESTO.txt            <- data, wrangler, contagens, tamanho
+    2026-09-04_07-35/
+      producao-51dd629b-2026-09-04.sql         <- export completo (schema + dados)
+      producao-51dd629b-2026-09-04.schema.sql  <- opcional: --no-data, para ver o que mudou
+      MANIFESTO.txt                            <- data, wrangler, contagens, tamanho, bookmark
 ```
 
 Pasta por `YYYY-MM-DD_HH-mm` em **horário local**. Ordena sozinha e nunca
@@ -87,10 +116,11 @@ para a mais cara:
 **a) Não está vazio nem truncado**
 
 ```bash
-ls -l backups/d1/2026-08-18_06-00/marquesa-db.sql
-grep -c "INSERT INTO"  backups/d1/2026-08-18_06-00/marquesa-db.sql
-grep -c "CREATE TABLE" backups/d1/2026-08-18_06-00/marquesa-db.sql   # esperado: 16
-tail -5 backups/d1/2026-08-18_06-00/marquesa-db.sql                  # termina em ';', não no meio
+DUMP=backups/d1/2026-09-04_07-35/producao-51dd629b-2026-09-04.sql
+ls -l "$DUMP"
+grep -c "INSERT INTO"  "$DUMP"
+grep -c "CREATE TABLE" "$DUMP"   # produção tem 29 tabelas em 2026-09-04
+tail -5 "$DUMP"                  # termina em ';', não no meio
 ```
 
 As 16 tabelas esperadas estão em [DATA_MODEL.md](DATA_MODEL.md).
@@ -143,9 +173,13 @@ rápida para "a importação de agora há pouco estragou tudo".
 
 Consulta — só leitura, segura:
 
+`time-travel` **não aceita binding** — só nome ou `database_id`. Use o
+`database_id`, que não tem como ser confundido com o banco errado:
+
 ```bash
-npx wrangler d1 time-travel info marquesa-db
-npx wrangler d1 time-travel info marquesa-db --timestamp 2026-08-18T09:00:00Z
+npx wrangler d1 time-travel info 51dd629b-52dc-46d0-a1af-fa37f0a79533
+npx wrangler d1 time-travel info 51dd629b-52dc-46d0-a1af-fa37f0a79533 \
+  --timestamp 2026-09-04T09:00:00Z
 ```
 
 Guarde o **bookmark** que ele devolve antes de qualquer operação de risco:
@@ -192,7 +226,7 @@ rm -rf .wrangler/state
 
 # 2. carrega o backup
 npx wrangler d1 execute DB --local \
-  --file=../backups/d1/2026-08-18_06-00/marquesa-db.sql
+  --file=../backups/d1/2026-09-04_07-35/producao-51dd629b-2026-09-04.sql
 
 # 3. confere o que entrou
 npx wrangler d1 execute DB --local \
@@ -220,8 +254,10 @@ Dois caminhos. **Prefira o primeiro.**
 Reverte o banco inteiro a um ponto no tempo. Não depende de arquivo.
 
 ```bash
-npx wrangler d1 time-travel info    marquesa-db --timestamp <RFC3339>
-npx wrangler d1 time-travel restore marquesa-db --bookmark  <BOOKMARK>
+# 51dd629b-… é marquesa-db-prod. Confira o UUID antes de apertar enter:
+# um dígito errado restaura o banco errado, e restore não tem volta.
+npx wrangler d1 time-travel info    51dd629b-52dc-46d0-a1af-fa37f0a79533 --timestamp <RFC3339>
+npx wrangler d1 time-travel restore 51dd629b-52dc-46d0-a1af-fa37f0a79533 --bookmark  <BOOKMARK>
 # ou: --timestamp <RFC3339>
 ```
 
