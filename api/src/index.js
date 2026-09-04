@@ -42,6 +42,19 @@ import {
   porOrigem, clientesRanking, perfilCliente, listarVendasUnificado,
   painel, crm, acertosDeMaleta,
 } from './analytics.js';
+/* §30 · §31 · §32 — as três áreas novas de Vendas. Cada uma num arquivo
+   próprio porque cada uma tem uma regra própria de o que NÃO fazer, e essa
+   regra some quando o código mora dentro do roteador. */
+import { registrarSaida, estornarSaida, listarSaidas } from './saidas.js';
+import {
+  abrirGarantia, mudarStatusGarantia, registrarTroca, pagarDiferencaTroca,
+  estornarTroca, listarGarantias, lerGarantia, garantiasPendentes,
+} from './garantias.js';
+import { historicoDoDia } from './historico-dia.js';
+import {
+  analisarHistoricoNaoVenda, aplicarReclassificacao,
+  desfazerReclassificacao, listarReclassificacoes,
+} from './auditoria-historico.js';
 import {
   reconstruir, estadoReconstrucao, backfillNormalizacao,
 } from './vendas-historicas.js';
@@ -590,6 +603,20 @@ async function rotear(request, env) {
       if (path === '/api/vendas' && met === 'GET') {
         return json(await listarVendas(db, url.searchParams.get('data') || hoje()));
       }
+      /* §32 — tudo o que aconteceu comercialmente numa data, de todas as
+         origens e sem duplicidade. É o que a lista por dia mostrava pela
+         metade: venda de balcão, linha de planilha, acerto de revendedora,
+         maleta que saiu, brinde e troca de garantia. */
+      if (path === '/api/vendas/dia' && met === 'GET') {
+        const r = await historicoDoDia(db, url.searchParams.get('data') || hoje());
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
+      }
+      /* §29 — o dinheiro entrou. Registra a data DO PAGAMENTO e não toca na
+         data da venda; não mexe em estoque, porque a peça já saiu quando a
+         venda foi registrada. */
+      if ((m = path.match(/^\/api\/vendas\/(\d+)\/pagamento$/)) && met === 'POST') {
+        return await registrarPagamentoVenda(db, +m[1], await request.json().catch(() => ({})));
+      }
       if ((m = path.match(/^\/api\/vendas\/(\d+)\/cancelar$/)) && met === 'POST') {
         return await cancelarVenda(db, env, +m[1]);
       }
@@ -754,6 +781,89 @@ async function rotear(request, env) {
       if ((m = path.match(/^\/api\/clientes\/revisao\/(\d+)$/)) && met === 'POST') {
         const b = await request.json().catch(() => ({}));
         return await decidirVinculoCliente(db, +m[1], b);
+      }
+
+      // ─────────────────────────────────── §30: saídas sem faturamento
+      // Brinde, uso próprio e diferença de inventário. Saem do estoque e
+      // não são venda: nenhuma delas cria cliente, venda ou faturamento.
+      if (path === '/api/saidas' && met === 'GET') {
+        return json(await listarSaidas(db, {
+          de: url.searchParams.get('de'), ate: url.searchParams.get('ate'),
+          tipo: url.searchParams.get('tipo'),
+          incluirEstornadas: url.searchParams.get('estornadas') !== 'nao',
+          limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
+          offset: +(url.searchParams.get('offset') || 0),
+        }));
+      }
+      if (path === '/api/saidas' && met === 'POST') {
+        const r = await registrarSaida(db, await request.json().catch(() => ({})));
+        return json(r, r.ok ? 201 : (r.statusHttp ?? 400));
+      }
+      if ((m = path.match(/^\/api\/saidas\/(\d+)\/estornar$/)) && met === 'POST') {
+        const r = await estornarSaida(db, +m[1], await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+      }
+
+      // ──────────────────────────────────────────── §31: garantia e reparo
+      // Nada aqui altera a venda original, devolve a peça defeituosa ao
+      // estoque vendável ou gera faturamento. A única receita é a diferença
+      // de uma troca, quando paga, e ela tem rota própria.
+      if (path === '/api/garantias' && met === 'GET') {
+        return json(await listarGarantias(db, {
+          status: url.searchParams.get('status'),
+          limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
+          offset: +(url.searchParams.get('offset') || 0),
+        }));
+      }
+      if (path === '/api/garantias/pendentes' && met === 'GET') {
+        return json(await garantiasPendentes(db, {
+          limite: Math.min(+(url.searchParams.get('limite') || 50), 200),
+        }));
+      }
+      if (path === '/api/garantias' && met === 'POST') {
+        const r = await abrirGarantia(db, await request.json().catch(() => ({})));
+        return json(r, r.ok ? 201 : (r.statusHttp ?? 400));
+      }
+      if ((m = path.match(/^\/api\/garantias\/(\d+)$/)) && met === 'GET') {
+        const g = await lerGarantia(db, +m[1]);
+        return json(g ?? { erro: 'Garantia não encontrada' }, g ? 200 : 404);
+      }
+      if ((m = path.match(/^\/api\/garantias\/(\d+)\/status$/)) && met === 'POST') {
+        const r = await mudarStatusGarantia(db, +m[1], await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+      }
+      if ((m = path.match(/^\/api\/garantias\/(\d+)\/troca$/)) && met === 'POST') {
+        const r = await registrarTroca(db, +m[1], await request.json().catch(() => ({})));
+        return json(r, r.ok ? 201 : (r.statusHttp ?? 409));
+      }
+      if ((m = path.match(/^\/api\/garantias\/(\d+)\/troca\/pagar$/)) && met === 'POST') {
+        const r = await pagarDiferencaTroca(db, +m[1], await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+      }
+      if ((m = path.match(/^\/api\/garantias\/(\d+)\/troca\/estornar$/)) && met === 'POST') {
+        const r = await estornarTroca(db, +m[1], await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+      }
+
+      // ────────────────── §30.5: auditoria dos históricos que não são venda
+      // `analisar` é SECO: lê tudo, propõe e não escreve. Aplicar recebe a
+      // lista nomeada — não existe "aplicar todas" no servidor.
+      if (path === '/api/historico/auditoria' && met === 'GET') {
+        const nomes = (url.searchParams.get('usoProprio') || '')
+          .split(',').map((x) => x.trim()).filter(Boolean);
+        return json(await analisarHistoricoNaoVenda(db, { nomesUsoProprio: nomes }));
+      }
+      if (path === '/api/historico/reclassificar' && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        const r = await aplicarReclassificacao(db, b);
+        return json(r, r.statusHttp ?? (r.ok ? 200 : 400));
+      }
+      if (path === '/api/historico/reclassificar' && met === 'GET') {
+        return json(await listarReclassificacoes(db, { status: url.searchParams.get('status') }));
+      }
+      if ((m = path.match(/^\/api\/historico\/reclassificar\/(\d+)$/)) && met === 'DELETE') {
+        const r = await desfazerReclassificacao(db, +m[1]);
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 404));
       }
 
       return json({ erro: 'Rota não encontrada' }, 404);
@@ -1419,7 +1529,14 @@ async function varianteDaVenda(db, sku, varianteId) {
   return { varianteId: null, variacao: null };
 }
 
-async function registrarVenda(db, env, { clienteId, clienteNome, itens, data: dataPedida }) {
+async function registrarVenda(db, env, {
+  clienteId, clienteNome, itens, data: dataPedida,
+  /* §29 e §13 do pacote: a venda fecha dizendo se foi paga e por quê ela
+     aconteceu. Os dois campos são OPCIONAIS e nascem com o valor que o
+     sistema já assumia — venda paga hoje —, então quem não os manda
+     continua com o comportamento de sempre. */
+  pago: pagoPedido, dataPagamento: dataPagamentoPedida, observacao: observacaoPedida,
+}) {
   const entradas = (itens || []).filter(i => i.qtd > 0);
   if (!entradas.length) return json({ erro: 'Nenhum item na venda' }, 400);
   if (!clienteNome || !clienteNome.trim()) return json({ erro: 'Nome da cliente é obrigatório' }, 400);
@@ -1445,6 +1562,43 @@ async function registrarVenda(db, env, { clienteId, clienteNome, itens, data: da
   if (data > hoje()) {
     return json({ erro: `${data} ainda não chegou. A venda não pode ser de uma data futura.` }, 400);
   }
+
+  /* ─── §29: pago quando? não é a mesma pergunta que vendido quando?
+   *
+   * Uma venda "A Receber" marcada como paga depois tem que entrar no
+   * faturamento do mês em que o DINHEIRO chegou, não no da venda. Vender em
+   * julho e receber em setembro é uma frase que o sistema não sabia dizer:
+   * `vendas` só tinha `data`, e toda venda operacional era contada como
+   * paga naquele dia.
+   *
+   * O padrão continua sendo PAGA — é o que a venda de balcão é na imensa
+   * maioria das vezes, e mudar o padrão para "não paga" abriria uma conta a
+   * receber em toda venda de quem não mexeu em nada.
+   *
+   * `data_pagamento` de uma venda paga que não diz a data é a data da
+   * venda: pagou na hora. Nula só quando NÃO foi paga — e aí o campo
+   * significa exatamente "ainda não aconteceu". */
+  const pago = pagoPedido === undefined || pagoPedido === null ? 1 : (pagoPedido ? 1 : 0);
+  let dataPagamento = null;
+  if (pago) {
+    dataPagamento = dataPagamentoPedida ? String(dataPagamentoPedida).trim() : data;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataPagamento)) {
+      return json({ erro: 'Data do pagamento inválida. Use o formato AAAA-MM-DD.' }, 400);
+    }
+    if (dataPagamento > hoje()) {
+      return json({ erro: `${dataPagamento} ainda não chegou. O pagamento não pode ser de uma data futura.` }, 400);
+    }
+    /* Receber ANTES de vender é erro de digitação — e inverteria a ordem
+       dos dois números no relatório de qualquer mês. */
+    if (dataPagamento < data) {
+      return json({
+        erro: `O pagamento (${dataPagamento}) é anterior à venda (${data}). Confira as duas datas.`,
+      }, 400);
+    }
+  } else if (dataPagamentoPedida) {
+    return json({ erro: 'Uma venda marcada como NÃO PAGA não pode ter data de pagamento.' }, 400);
+  }
+  const observacao = String(observacaoPedida ?? '').trim() || null;
 
   const linhas = [];
   // Quanto de cada SKU-base este carrinho já reservou até aqui. Existe por
@@ -1583,9 +1737,10 @@ async function registrarVenda(db, env, { clienteId, clienteNome, itens, data: da
    * A regra é a MESMA do importador (`normalizarNomeCliente`), o que é
    * justamente o que faz as duas populações se encontrarem. */
   const venda = await db.prepare(
-    `INSERT INTO vendas (cliente_id, cliente_nome, cliente_nome_norm, origem, data, total, nuvemshop_status)
-     VALUES (?, ?, ?, 'balcao', ?, ?, 'pendente') RETURNING id`
-  ).bind(idCliente, nomeLimpo, norm, data, total).first();
+    `INSERT INTO vendas (cliente_id, cliente_nome, cliente_nome_norm, origem, data, total,
+                         nuvemshop_status, pago, data_pagamento, observacao)
+     VALUES (?, ?, ?, 'balcao', ?, ?, 'pendente', ?, ?, ?) RETURNING id`
+  ).bind(idCliente, nomeLimpo, norm, data, total, pago, dataPagamento, observacao).first();
 
   const stmts = [];
   for (const l of linhas) {
@@ -1624,7 +1779,93 @@ async function registrarVenda(db, env, { clienteId, clienteNome, itens, data: da
   }
   await db.batch(stmts);
   const nuvemshop = await atualizarEstoqueDaVenda(db, env, venda.id);
-  return json({ ok: true, id: venda.id, data, total, itens: linhas, nuvemshop }, 201);
+  return json({
+    ok: true, id: venda.id, data, total, itens: linhas, nuvemshop,
+    /* §29 na resposta: a tela não precisa deduzir para onde o dinheiro foi. */
+    pago: !!pago,
+    dataPagamento,
+    observacao,
+    faturamentoEm: pago ? dataPagamento : null,
+    aReceber: pago ? 0 : total,
+  }, 201);
+}
+
+/** §29 — o dinheiro de uma venda "A Receber" entrou.
+ *
+ *  O defeito: marcar a venda como paga não movia o valor para o mês do
+ *  pagamento. Não movia porque não havia onde escrever a data — e sem ela,
+ *  faturamento e data da venda eram forçosamente a mesma coisa.
+ *
+ *  O que esta rota faz, e só isto:
+ *    · grava `pago = 1` e a data em que o dinheiro chegou;
+ *    · deixa `data` — a da venda — exatamente como estava.
+ *
+ *  O que ela deliberadamente NÃO faz:
+ *    · não toca em estoque. A peça saiu quando a venda foi registrada;
+ *      baixar de novo aqui seria a segunda baixa da mesma peça (§15 do
+ *      pacote: "MARCAR VENDA COMO PAGA não baixa estoque novamente");
+ *    · não mexe na Nuvemshop, nos itens nem no total.
+ */
+async function registrarPagamentoVenda(db, id, corpo = {}) {
+  const v = await db.prepare('SELECT * FROM vendas WHERE id = ?').bind(id).first();
+  if (!v) return json({ erro: 'Venda não encontrada' }, 404);
+  if (v.cancelada) return json({ erro: 'Venda cancelada não recebe pagamento.' }, 409);
+
+  /* `pago: false` desfaz — é o caminho de volta de quem marcou por engano.
+     Ele limpa a data junto, senão sobraria uma data de pagamento numa venda
+     que não foi paga, e o faturamento continuaria a enxergá-la. */
+  const querPagar = corpo.pago === undefined ? true : !!corpo.pago;
+
+  if (!querPagar) {
+    if (!v.pago) return json({ erro: 'Esta venda já está como NÃO PAGA.' }, 409);
+    const r = await db.prepare(
+      `UPDATE vendas SET pago = 0, data_pagamento = NULL WHERE id = ? RETURNING *`,
+    ).bind(id).first();
+    return json({
+      ok: true, id: r.id, pago: false, data: r.data, dataPagamento: null,
+      aReceber: Number(r.total), estoqueAlterado: false,
+    });
+  }
+
+  if (v.pago) {
+    return json({
+      erro: `Esta venda já está paga${v.data_pagamento ? ` em ${v.data_pagamento}` : ''}.`,
+      dataPagamento: v.data_pagamento ?? null,
+    }, 409);
+  }
+
+  const dataPagamento = corpo.dataPagamento ? String(corpo.dataPagamento).trim() : hoje();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataPagamento)) {
+    return json({ erro: 'Data do pagamento inválida. Use o formato AAAA-MM-DD.' }, 400);
+  }
+  if (dataPagamento > hoje()) {
+    return json({ erro: `${dataPagamento} ainda não chegou.` }, 400);
+  }
+  if (dataPagamento < v.data) {
+    return json({
+      erro: `O pagamento (${dataPagamento}) é anterior à venda (${v.data}). Confira as duas datas.`,
+    }, 400);
+  }
+
+  const r = await db.prepare(
+    `UPDATE vendas SET pago = 1, data_pagamento = ?,
+            observacao = COALESCE(?, observacao)
+      WHERE id = ? RETURNING *`,
+  ).bind(dataPagamento, String(corpo.observacao ?? '').trim() || null, id).first();
+
+  return json({
+    ok: true,
+    id: r.id,
+    pago: true,
+    /* As duas datas, lado a lado, porque são duas coisas diferentes e é
+       exatamente essa distinção que a rota existe para tornar possível. */
+    data: r.data,
+    dataPagamento: r.data_pagamento,
+    faturamentoEm: r.data_pagamento,
+    valor: Number(r.total),
+    aReceber: 0,
+    estoqueAlterado: false,
+  });
 }
 
 /** Edição do cadastro de cliente (a área de CRM).
@@ -1650,12 +1891,77 @@ async function atualizarCliente(db, id, corpo) {
   const email = novo.email !== undefined ? novo.email : atual.email;
   const cpf = novo.cpf !== undefined ? novo.cpf : atual.cpf;
 
+  /* ─── o defeito que fazia "Editar dados" parecer não salvar
+   *
+   * O UPDATE sempre funcionou. O que se perdia era o HISTÓRICO.
+   *
+   * A ficha da cliente é montada por `cliente_nome_norm` — o nome
+   * normalizado — porque a imensa maioria das linhas veio da planilha, e a
+   * planilha só tem nome. Renomear "Senhora (não sei nome)" para "Cliente
+   * sem nome" mudava `clientes.nome_norm` e deixava as compras dela
+   * carimbadas com o norm ANTIGO. Efeito na tela: as compras sumiam, o
+   * valor gasto zerava, o ticket médio zerava — e quem viu isso concluiu,
+   * com razão, que a edição não tinha pegado.
+   *
+   * A correção é escrever a identidade REAL antes de mexer no nome: as
+   * linhas que hoje casam pelo norm antigo passam a apontar para o
+   * `cliente_id`. Depois disso o nome pode virar o que for, que o histórico
+   * segue amarrado por id — que é o que §2 pede desde sempre: nome não é
+   * identidade, id é.
+   *
+   * É uma escrita ADITIVA. Nenhuma linha é apagada, nenhum valor é
+   * alterado, nenhum id muda: só se preenche um `cliente_id` que estava
+   * nulo. Rodar de novo não faz nada — as linhas já apontam.
+   */
+  const normAntigo = atual.nome_norm ?? normalizarNomeCliente(atual.nome) ?? null;
+  const normNovo = normalizarNomeCliente(nome);
+  const renomeou = novo.nome !== undefined && normAntigo && normNovo !== normAntigo;
+
+  /* A trava que impede o amarre de virar um chute.
+   *
+   * Se DUAS clientes têm o mesmo nome normalizado, as compras carimbadas
+   * com aquele nome podem ser de qualquer uma das duas — e apontá-las para
+   * a que está sendo editada seria escolher por conta própria de quem é o
+   * dinheiro. §2: nome não é identidade. Nesse caso o amarre não acontece,
+   * a edição do cadastro segue normalmente, e o sistema DIZ o que deixou de
+   * fazer em vez de fazer errado em silêncio. */
+  const homonimos = renomeou ? await db.prepare(
+    'SELECT COUNT(*) AS n FROM clientes WHERE nome_norm = ? AND id <> ?',
+  ).bind(normAntigo, id).first() : { n: 0 };
+  const nomeEraAmbiguo = Number(homonimos?.n ?? 0) > 0;
+
+  let historicoAmarrado = null;
+  if (renomeou && !nomeEraAmbiguo) {
+    const amarrar = [
+      ['vendas', 'cliente_nome_norm'],
+      ['vendas_historicas', 'cliente_nome_norm'],
+      ['vendas_historico_itens', 'cliente_nome_norm'],
+      ['historico_operacoes', 'cliente_nome_norm'],
+      ['garantias', 'cliente_nome_norm'],
+    ];
+    historicoAmarrado = {};
+    for (const [tabela, coluna] of amarrar) {
+      try {
+        const r = await db.prepare(
+          `UPDATE ${tabela} SET cliente_id = ?
+            WHERE cliente_id IS NULL AND ${coluna} = ?`,
+        ).bind(id, normAntigo).run();
+        historicoAmarrado[tabela] = r?.meta?.changes ?? 0;
+      } catch {
+        /* Tabela que ainda não existe neste banco (migration pendente) não
+           pode impedir a edição de um cadastro. Ela simplesmente não tinha
+           linha para amarrar. */
+        historicoAmarrado[tabela] = null;
+      }
+    }
+  }
+
   const sets = Object.keys(novo).map((c) => `${c} = ?`);
   const binds = Object.values(novo);
   sets.push('nome_norm = ?', 'tel_norm = ?', 'email_norm = ?', 'cpf_norm = ?',
             "atualizada_em = datetime('now')");
   binds.push(
-    normalizarNomeCliente(nome),
+    normNovo,
     tel ? String(tel).replace(/\D/g, '') || null : null,
     email ? String(email).trim().toLowerCase() : null,
     somenteDigitos(cpf),
@@ -1664,7 +1970,29 @@ async function atualizarCliente(db, id, corpo) {
 
   const r = await db.prepare(`UPDATE clientes SET ${sets.join(', ')} WHERE id = ? RETURNING *`)
     .bind(...binds).first();
-  return json({ ok: true, cliente: r });
+  return json({
+    ok: true,
+    cliente: r,
+    /* A tela precisa saber o norm NOVO para reabrir a ficha certa: ela
+       navega por `cli:<norm>`, e continuar com o antigo mostraria uma ficha
+       vazia logo depois de uma edição bem-sucedida. */
+    norm: r.nome_norm,
+    normAnterior: normAntigo,
+    renomeou,
+    /* Quantas linhas passaram a apontar para o id. Zero é a resposta normal
+       de quem só corrigiu um telefone, e também de quem renomeou uma cliente
+       cujas compras já estavam amarradas por id — que é o caso de toda venda
+       nascida no sistema. */
+    historicoAmarrado,
+    /* Quando havia outra cliente com o mesmo nome, o histórico solto NÃO foi
+       amarrado — e isso é dito, não escondido. */
+    nomeEraAmbiguo,
+    aviso: nomeEraAmbiguo
+      ? 'Havia outro cadastro com este mesmo nome. As compras registradas só pelo nome '
+        + 'não foram amarradas a esta ficha: não dá para saber de qual das duas elas são. '
+        + 'Use a revisão de vínculos de cliente para decidir.'
+      : null,
+  });
 }
 
 /** Só os dígitos. Telefone e CPF são digitados de seis jeitos diferentes e
@@ -1767,6 +2095,13 @@ async function listarVendas(db, data) {
     maletaId: v.maleta_id, data: v.data, total: v.total, cancelada: !!v.cancelada,
     criadaEm: v.criada_em, externoId: v.externo_id,
     nuvemshopStatus: v.nuvemshop_status, nuvemshopErro: v.nuvemshop_erro,
+    /* §29: a lista do dia precisa dizer o que foi recebido e o que não foi.
+       Sem isto, a venda "A Receber" fica indistinguível da paga, e o botão
+       de marcar o pagamento não tem onde aparecer. */
+    pago: !!v.pago,
+    dataPagamento: v.data_pagamento ?? null,
+    aReceber: v.pago ? 0 : Number(v.total),
+    observacao: v.observacao ?? null,
     itens: porVenda.get(v.id) || [],
   }));
 }

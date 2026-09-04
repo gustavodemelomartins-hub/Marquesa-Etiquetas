@@ -1171,3 +1171,204 @@ Somente `papel='cliente'` gera conta a receber. Acerto de revendedora, troca
 excluída do documento, ajuste e operação em revisão não viram dívida de
 cliente. O painel soma apenas cobranças abertas e deixa cada nome navegar
 para a ficha da cliente.
+
+### 30. A data da venda e a data do pagamento são duas datas diferentes
+
+Uma venda tem duas datas verdadeiras, e elas respondem perguntas diferentes:
+
+- **`data`** — o dia em que a venda aconteceu. É **imutável**. Governa o
+  histórico do dia, a contagem de vendas, peças e clientes.
+- **`data_pagamento`** — o dia em que o dinheiro entrou. Governa o
+  **faturamento**.
+
+Vender em 15/07 e receber em 04/09 significa: a venda continua sendo de
+julho, e os R$ 100 entram no faturamento de **setembro**. Antes de §30 isso
+não tinha como ser dito — `vendas` só tinha `data`, e toda venda operacional
+era contada como paga no dia da venda.
+
+`pago` nasce **1** e `data_pagamento` nasce igual a `data` em toda venda que
+já existia: é o que o sistema assumia, e um default diferente teria movido
+faturamento real de mês na migration.
+
+Marcar como paga:
+
+- grava `data_pagamento`, **não** altera `data`;
+- **não** chama `movimentar` e **não** altera `produtos.qtd` — a peça saiu
+  quando a venda foi registrada, e baixar de novo seria a segunda baixa da
+  mesma peça;
+- é recusada na segunda vez (409), então o retry do clique não dobra receita.
+
+Pagamento anterior à venda é recusado: receber antes de vender é erro de
+digitação, e inverteria os dois números em qualquer relatório mensal.
+
+Do lado histórico, `paga_em` só governa o faturamento quando a cobrança
+nasceu **aberta** e foi paga depois. A venda que a planilha já trouxe paga
+não tem essa data e continua faturando no dia da venda, onde sempre esteve.
+
+O recorte de período passou a ser duplo: a linha entra quando a venda **ou**
+o pagamento cai na faixa, e cada número escolhe qual data o governa. Com
+`periodo=tudo` os dois predicados viram `1` e nenhum número muda — que é o
+que garante que a separação não reescreveu o passado.
+
+Provado em `src/pacote-vendas-test.mjs`, cenários A e B.
+
+### 31. Peça que sai do estoque nem sempre é venda
+
+Quatro saídas, e só a primeira é venda:
+
+| Saída | Estoque | Venda | Cliente | Faturamento |
+|---|---|---|---|---|
+| Venda | baixa | sim | sim | quando paga, na data do pagamento |
+| Brinde | baixa | **não** | **não** | **não** |
+| Uso próprio | baixa | **não** | **não** | **não** |
+| Diferença de inventário / perda | ajusta | **não** | **não** | **não** |
+
+Brinde, uso próprio e diferença de inventário moram em
+`saidas_sem_faturamento`, **não** em `vendas`. Não é preferência de
+organização: a linha que não está em `vendas` é invisível por construção
+para toda soma de venda. Pendurá-las numa venda obrigaria cada consulta de
+faturamento a lembrar de excluí-las, e a que esquecesse voltaria a
+contaminar o número — que é exatamente como "Brinde dia das mães" virou uma
+cliente no ranking.
+
+Nenhuma delas cria cliente fictício. O estoque sai por `estoque.js ›
+movimentar` como qualquer outro movimento, e `movimento_id` amarra a linha
+ao movimento que a explica.
+
+Só a diferença de inventário pode **somar** peça (`sentido='entrada'`):
+brinde e uso próprio sempre saem. Saída sem motivo nem observação é recusada
+— saída sem explicação não se audita seis meses depois, a mesma regra do
+desconto em §27.
+
+**Corrigir é estornar, nunca apagar.** O estorno cria um segundo movimento
+que devolve a peça e mantém a linha no histórico, com data e motivo.
+Estornar duas vezes é recusado.
+
+Provado em `src/pacote-vendas-test.mjs`, cenários D, E, F e K.
+
+### 32. Garantia é do ITEM da compra — e troca não é venda nova
+
+A garantia pertence à **linha da compra**, não ao cliente e não ao código. Se
+a mesma cliente comprou o mesmo anel três vezes, prender a garantia ao SKU
+perde qual compra a originou — e perde junto o **valor efetivamente pago**,
+que é a base da diferença de uma troca. Usar o preço de tabela cobraria a
+mais de quem comprou com desconto.
+
+A identidade do item é `(venda_id, sku, variante_id)` no lado operacional
+(`venda_itens` não tem chave própria, e `rowid` não sobrevive a um VACUUM) e
+`vendas_historico_itens.id` no lado da planilha.
+
+O que a garantia **não** faz, em nenhum estado:
+
+- não altera a venda original — nem total, nem itens, nem data;
+- não devolve a peça defeituosa ao estoque vendável: ela está quebrada, e
+  somá-la ao disponível a colocaria à venda de novo;
+- não gera faturamento. Nem a abertura, nem a devolução, nem a troca.
+
+Prazo: **45 dias úteis**. Sábado e domingo nunca contam. Feriado conta
+quando cadastrado em `feriados` — e quando a tabela está vazia a resposta diz
+`consideraFeriados: false` em vez de fingir precisão que não tem. Nenhum
+feriado é escrito no código.
+
+**A troca.** Sem conserto, sai uma peça nova do estoque — com movimento de
+tipo `troca` e origem `troca_garantia`, nunca `venda`. Trocar um anel de
+R$ 89 por um de R$ 99:
+
+- a peça nova baixa 1 do estoque;
+- **nada** entra no faturamento naquele momento;
+- a diferença de **R$ 10** fica a receber;
+- quando paga, entram **R$ 10** — pela data do pagamento (§30), nunca os
+  R$ 99, e sem contar como uma segunda compra da cliente.
+
+A origem do dinheiro é declarada em
+`composicao.faturamentoDeDiferencaTroca`, separada do faturamento de vendas.
+
+**Peça nova mais barata que a original: regra de negócio PENDENTE.** Crédito
+ou reembolso nunca foi definido. A troca é registrada com
+`diferenca_status='pendente_regra'`, nada é lançado, e o sistema anuncia isso
+(§9) em vez de inventar um crédito.
+
+Provado em `src/pacote-vendas-test.mjs`, cenários G, H e H.2.
+
+### 33. O histórico de um dia tem mais de uma origem
+
+Escolher uma data em Vendas mostra **tudo** o que aconteceu comercialmente
+nela, de todas as origens: venda de balcão, linha da planilha, acerto de
+revendedora, maleta que saiu, saída sem faturamento e troca de garantia.
+Cada linha diz de onde veio, e nenhuma aparece duas vezes — a deduplicação
+usa os mesmos filtros que o painel usa para não contar em dobro.
+
+É o dia da **movimentação**, não o do pagamento. A venda feita em 28/08 e
+paga em setembro aparece no histórico de 28/08 **e** no faturamento de
+setembro; a linha carrega as duas datas para a tela não ter que escolher.
+
+Nem tudo ali é venda, e a linha diz isso em `ehVenda`. Consignação de maleta,
+brinde e troca de garantia aconteceram no dia e pertencem ao histórico;
+nenhuma delas é dinheiro que entrou, e todas saem com valor nulo — um zero
+somaria silenciosamente numa média de ticket.
+
+Para o acerto de revendedora vale a data em que o acerto foi **registrado**,
+não a data em que a maleta saiu.
+
+Provado em `src/pacote-vendas-test.mjs`, cenário J.
+
+### 34. Renomear uma cliente não pode desligar o histórico dela
+
+O cadastro é editável e a edição **nunca** cria cliente novo: `cliente_id` é
+a identidade, e ele não muda. Compras, valores, ticket médio, frequência,
+contas a receber e garantias continuam onde estavam.
+
+O defeito que isto corrige: a ficha é montada por `cliente_nome_norm`, porque
+a imensa maioria das linhas veio da planilha e a planilha só tem nome.
+Renomear mudava `clientes.nome_norm` e deixava as compras carimbadas com o
+norm **antigo** — as compras sumiam, o valor gasto zerava, e quem viu isso
+concluiu, com razão, que a edição não tinha salvado.
+
+A correção tem dois lados:
+
+- **servidor** — escrever a identidade real *antes* de mexer no nome: as
+  linhas que casam pelo norm antigo passam a apontar para o `cliente_id`. É
+  escrita **aditiva**: só preenche um `cliente_id` que estava nulo, não apaga
+  nem altera nada, e rodar de novo não faz efeito;
+- **tela** — voltar para a ficha pelo norm NOVO que o servidor devolve. Antes
+  ela voltava para a lista, e reabrir pelo caminho antigo mostrava um perfil
+  vazio.
+
+**Quando o nome era ambíguo, o amarre não acontece.** Se havia outro cadastro
+com o mesmo nome normalizado, as compras registradas só pelo nome podem ser
+de qualquer uma das duas, e apontá-las para a que está sendo editada seria
+escolher a dona do dinheiro por conta própria (§2). Nesse caso a edição do
+cadastro segue normal, nada é amarrado, e o sistema **diz** o que deixou de
+fazer.
+
+CPF, telefone, e-mail e cidade podem ficar vazios. Nome vazio é recusado.
+
+Provado em `src/pacote-vendas-test.mjs`, cenários I e I.2, e em
+`src/pacote-vendas-ui-test.mjs` § 8.
+
+### 35. Reclassificar histórico propõe — nunca decide sozinho
+
+A planilha trouxe, misturadas com as compras, linhas que nunca foram venda:
+"Brinde dia das mães", "Brinde festa junina", retiradas pessoais e diferenças
+de inventário ("PERDIDO", "ACHO QUE FOI VENDIDO").
+
+`GET /api/historico/auditoria` é **seco**: lê tudo, propõe e não escreve uma
+linha. Cada candidato vem com classificação proposta, **nível de confiança** e
+o motivo por extenso — "porque o nome começa com Brinde" é auditável, um
+número de confiança não é.
+
+Só `confianca: 'alta'` é aplicável sozinho, e mesmo ela precisa de uma
+decisão que nomeie a linha: não existe "aplicar todas" no servidor. "ACHO QUE
+FOI VENDIDO" é o caso que prova a regra — a própria planilha está em dúvida,
+e um classificador que escolhesse estaria inventando a resposta.
+
+Uso próprio depende de um NOME de pessoa, e nome não é identidade (§2): a
+lista de nomes vem na chamada. Vazia, nenhuma linha é proposta como uso
+próprio.
+
+Aplicar **não apaga** a linha da planilha (§7) e **não mexe em estoque** — a
+linha histórica não movimentou peça, e criar um movimento agora seria uma
+segunda baixa. Aplicar apenas marca a linha como não-venda, e as somas
+comerciais passam a ignorá-la. `DELETE` desfaz.
+
+Provado em `src/pacote-vendas-test.mjs`, cenário L.

@@ -811,6 +811,77 @@ Detalhe do fluxo completo, das preconditions e da idempotência em
 ### `api/test-api.mjs`
 Script auxiliar de chamada à API. Não faz parte da suíte.
 
+### `src/pacote-vendas-test.mjs` — pagamento, saídas, garantia, troca e o dia
+**182 asserções · ~35 s · precisa do Worker local e do banco limpo**
+
+O pacote de §30 a §35, cenário a cenário. Cada seção começa dizendo o
+DEFEITO que ela existe para impedir de voltar — um teste que só afirma o
+comportamento certo não explica por que ele importa.
+
+1. **A** — venda de 15/07 paga em 04/09: a série mensal põe a **venda** em
+   julho e o **dinheiro** em setembro. Se as duas caíssem na mesma chave, a
+   separação de §30 não estaria valendo em lugar nenhum;
+2. **B** — venda não paga é A Receber e faturamento zero; marcada paga,
+   entra pela data do pagamento. Pagar duas vezes é 409 e o faturamento não
+   dobra;
+3. **C** — preço de tabela 89, negociado 79: o item vale 79, `preco_tabela`
+   fica 89, o desconto é derivado, e o **catálogo não muda**. Preço diferente
+   sem motivo é recusado;
+4. **D · E · F** — brinde, uso próprio e diferença de inventário: estoque
+   baixa, e faturamento, vendas, peças, clientes, ticket médio e ranking
+   ficam **idênticos**. Saída sem explicação nenhuma é recusada. Só a
+   diferença de inventário pode somar peça;
+5. **G** — garantia: a venda original continua com o total e os itens dela,
+   o estoque comercial **não** é incrementado, o faturamento não muda, e a
+   mesma peça não abre duas garantias em aberto. Aparece em "Peças em
+   reparo" com prazo calculado;
+6. **H** — troca 89 → 99: a peça nova sai do estoque, a defeituosa **não**
+   volta, faturamento imediato **zero**, diferença 10 a receber. Paga, o
+   faturamento sobe **exatamente 10** — nunca 99 — e a contagem de vendas
+   não se move. Pagar duas vezes é 409;
+7. **H.2** — troca mais barata: o sistema registra e **para**, com
+   `pendente_regra` e aviso. Crédito/reembolso não é regra definida;
+8. **I** — editar a cliente: mesmo `cliente_id`, mesmo faturamento, mesmas
+   compras, abrindo por id **e** pelo nome novo;
+9. **I.2** — nome ambíguo: a edição funciona, o amarre **não** acontece, e o
+   sistema diz por quê. §2 aplicado a dinheiro;
+10. **J** — o dia 28/08 traz venda, saída sem faturamento e o resto, cada
+    linha com origem, sem duplicata, e o que foi pago em outro dia **não**
+    conta no caixa daquele dia;
+11. **K** — estorno de brinde: estoque restaurado, linha preservada e
+    marcada, estorno sem motivo recusado, segundo estorno recusado;
+12. **L · L.2** — a auditoria histórica é **seca**, anuncia o que não faz, e
+    **"ACHO QUE FOI VENDIDO" sai com confiança baixa mesmo com o nome
+    dizendo "Inventário"**: a dúvida da linha rebaixa qualquer certeza.
+    Aplicar não apaga linha e não toca estoque; o faturamento cai
+    exatamente o que o relatório previu; desfazer devolve o valor;
+13. **M** — a razão contábil fecha depois de tudo, e nenhum saldo é negativo.
+
+### `src/pacote-vendas-ui-test.mjs` — as telas do pacote, num navegador
+**59 asserções · ~60 s · Playwright + servidor HTTP em `localhost:8000`**
+
+O teste de API prova as regras; este prova que elas **chegam à tela**. A
+distinção importa: o defeito do "Editar dados" era exatamente isso — regra
+certa que não voltava para a ficha.
+
+1. a sub-aba "Saídas sem faturamento" existe, navega, e a lista mostra o que
+   foi registrado;
+2. registrar pela tela baixa o estoque e **não move** faturamento nem
+   contagem de vendas;
+3. estornar devolve a peça e a linha continua, marcada;
+4. o modal de fechar venda tem **observação** e **PAGO / NÃO PAGO**, e diz
+   para qual data o dinheiro vai **antes** de confirmar;
+5. a venda não paga aparece como **A RECEBER**, com o botão de marcar o
+   pagamento, e o dia mostra o bloco "Também aconteceu em…";
+6. o Painel mostra **Peças em reparo** com dias úteis decorridos e
+   restantes, e diz que sábado e domingo não contam;
+7. o perfil abre garantia **por item**, já sabendo de qual peça é e quanto
+   ela pagou, e mostra a linha do tempo embaixo do item;
+8. editar a cliente volta para a **ficha dela**, com o nome novo, a
+   observação salva, o histórico inteiro e o mesmo `cliente_id`;
+9. 390px sem rolagem horizontal em Lançamentos, Saídas e Painel;
+10. console limpo.
+
 ## Como rodar
 
 ### Linux / macOS
@@ -866,6 +937,22 @@ node ../src/sync-test.mjs
 Repita os passos 1–4 para cada teste: banco limpo é requisito, não capricho.
 
 ## Limitações conhecidas do ambiente
+
+### `vendas-clientes-ui-test.mjs` precisa de uma base com histórico
+
+Cinco asserções dele não têm o que verificar num banco recém-criado:
+
+- **paginação da lista de clientes** — o limiar é 48 cadastros; com menos, o
+  rodapé "Mostrando X de Y" corretamente não aparece;
+- **"revendedora sai do ranking de clientes"** (3 asserções) — depende de
+  `historico_operacoes.papel = 'acerto'`, que só existe depois de um lote da
+  planilha importado e reconstruído. Numa base só com vendas de balcão,
+  cadastrar alguém como revendedora não reclassifica venda nenhuma, e esse é
+  o comportamento certo.
+
+Não é regressão: é o teste rodando fora do ambiente para o qual foi escrito.
+Rode-o contra o DEV publicado, ou semeie um lote histórico antes.
+
 
 | Limitação | Efeito | Situação |
 |---|---|---|

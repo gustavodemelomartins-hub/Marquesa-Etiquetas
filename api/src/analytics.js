@@ -40,6 +40,7 @@ import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import { REGRA_DESCRITA } from './vendas-historicas.js';
 import { categoriaDoItem } from './categoria-nome.js';
 import { listarContasReceber } from './historico-operacoes.js';
+import { garantiasDaCliente, garantiasPendentes } from './garantias.js';
 
 const PERIODOS = new Set(['7d', '30d', '90d', '12m', 'tudo']);
 
@@ -64,16 +65,76 @@ function recorte(coluna, { de, ate }) {
   return { sql: ` AND ${coluna} >= ? AND ${coluna} <= ?`, binds: [de, ate] };
 }
 
+/* §29 — a venda tem DUAS datas, e o recorte do período tem que aceitar as
+   duas. Vender em julho e receber em setembro significa que a linha
+   pertence ao histórico de julho E ao faturamento de setembro: um recorte
+   por uma coluna só faria a venda desaparecer de um dos dois lugares.
+
+   O CTE traz a linha quando QUALQUER das duas datas cai na faixa, e cada
+   consumidor decide depois qual delas governa o número que ele soma —
+   `NA_FAIXA_VENDA` para o que é contagem de venda, `NA_FAIXA_PAGAMENTO`
+   para o que é dinheiro. */
+function recorteDuplo(colVenda, colPagamento, { de, ate }) {
+  if (!de) return { sql: '', binds: [] };
+  return {
+    sql: ` AND ((${colVenda} >= ? AND ${colVenda} <= ?)`
+       + ` OR (${colPagamento} >= ? AND ${colPagamento} <= ?))`,
+    binds: [de, ate, de, ate],
+  };
+}
+
+/* Os dois predicados que separam "aconteceu no período" de "o dinheiro
+   entrou no período". Quando o período é `tudo`, os dois viram `1` e
+   nenhuma soma muda — que é o que garante que esta mudança não mexe em
+   nenhum número existente até alguém registrar um pagamento em outra data. */
+function naFaixa(coluna, { de }) {
+  return de ? `(${coluna} >= ? AND ${coluna} <= ?)` : '1';
+}
+const bindsFaixa = ({ de, ate }) => (de ? [de, ate] : []);
+
+/* A data que governa o FATURAMENTO do lado histórico. `paga_em` só existe
+   quando a cobrança nasceu ABERTA e depois foi paga — a venda que a planilha
+   trouxe já paga não tem essa data, e continua faturando no dia da venda.
+   Está numa constante porque o mesmo CASE aparece no CTE e na evolução, e
+   duas cópias de uma regra de dinheiro é divergência com data marcada. */
+const DATA_FATURAMENTO_HISTORICO = `CASE
+  WHEN ho.cobranca_status = 'paga' AND ho.paga_em IS NOT NULL THEN date(ho.paga_em)
+  ELSE vh.data END`;
+
+/* §30 — a linha histórica reclassificada como brinde, uso próprio ou perda
+   deixa de ser venda. A venda inteira sai do CTE quando NENHUM item dela
+   continua sendo venda; sobrando um item comercial, ela fica (e os itens
+   reclassificados saem por `FILTRO_ITEM_HISTORICO`).
+
+   Escrito como "existe item que NÃO foi reclassificado" de propósito: o
+   EXISTS para no primeiro item, então a venda sem reclassificação nenhuma —
+   que é a imensa maioria — custa uma busca de índice e nada mais. */
+const FILTRO_VENDA_HISTORICA_RECLASSIFICADA = `
+  AND EXISTS (
+    SELECT 1 FROM vendas_historico_itens hi
+     WHERE hi.venda_historica_id = vh.id
+       AND NOT EXISTS (
+         SELECT 1 FROM historico_reclassificacao rc
+          WHERE rc.historico_item_id = hi.id AND rc.status = 'aplicada'
+       )
+  )`;
+
 /* ═════════════════════════════════════════════ a VENDA, nas duas populações
 
    Um CTE só, reusado por todo o arquivo. É o que garante que "1.375 vendas"
    signifique a mesma coisa no cartão do topo, no gráfico e no ranking. */
 function cteVendas(faixa, { incluirAjuste = false } = {}) {
-  const h = recorte('vh.data', faixa);
-  const v = recorte('v.data', faixa);
+  /* §29: as duas datas, nos dois ramos. O histórico só tem data de
+     pagamento quando a cobrança estava ABERTA e alguém a marcou paga — é
+     exatamente o caso "vendi em julho, recebi em setembro". A venda
+     histórica que a planilha já trouxe paga não tem `paga_em`, e continua
+     faturando no dia da venda, que é onde ela sempre esteve. */
+  const h = recorteDuplo('vh.data', DATA_FATURAMENTO_HISTORICO, faixa);
+  const v = recorteDuplo('v.data', 'COALESCE(v.data_pagamento, v.data)', faixa);
   return {
     sql: `
       SELECT 'historico' AS fonte, vh.id AS id, vh.data AS data,
+             ${DATA_FATURAMENTO_HISTORICO} AS data_faturamento,
              COALESCE(ho.cliente_nome_norm, vh.cliente_nome_norm) AS norm,
              vh.cliente_nome AS nome,
              COALESCE(ho.cliente_id, vh.cliente_id) AS cliente_id,
@@ -105,19 +166,36 @@ function cteVendas(faixa, { incluirAjuste = false } = {}) {
         LEFT JOIN historico_operacoes ho
           ON ho.lote_id=vh.lote_id AND ho.venda_chave=vh.chave AND ho.status_registro='ativa'
        WHERE ${incluirAjuste ? '1 = 1' : "vh.classe = 'venda'"}
-         AND COALESCE(ho.papel, 'cliente') = 'cliente'${h.sql}
+         AND COALESCE(ho.papel, 'cliente') = 'cliente'
+         ${FILTRO_VENDA_HISTORICA_RECLASSIFICADA}${h.sql}
       UNION ALL
+      -- §29: a venda operacional deixou de ser "sempre paga hoje". A coluna
+      -- pago diz se o dinheiro entrou e data_pagamento diz quando; as duas
+      -- nasceram com o valor que o sistema já assumia (paga, no dia da
+      -- venda), então nenhuma venda existente mudou de lugar. Venda NÃO paga
+      -- passa a valer 0 de faturamento e a aparecer como cobrança aberta,
+      -- com o total inteiro em saldo, exatamente como a conta histórica em
+      -- aberto já aparecia. (Comentário em SQL, não em JS: isto está dentro
+      -- de um template literal, e uma crase aqui fecharia a string.)
       SELECT 'operacional', v.id, v.data,
+             COALESCE(v.data_pagamento, v.data),
              v.cliente_nome_norm, COALESCE(c.nome, v.cliente_nome),
              v.cliente_id, (SELECT COALESCE(SUM(i.qtd), 0) FROM venda_itens i WHERE i.venda_id = v.id),
-             v.total, v.total, 'paga', 1,
+             CASE WHEN v.pago = 1 THEN v.total ELSE 0 END,
+             v.total,
+             CASE WHEN v.pago = 1 THEN 'paga' ELSE 'nao_paga' END,
+             CASE WHEN v.pago = 1 THEN 1 ELSE 0 END,
              CASE v.origem WHEN 'balcao' THEN 'Balcão' WHEN 'site' THEN 'Site'
                            WHEN 'acerto' THEN 'Acerto de maleta'
                            ELSE v.origem END,
              NULL, 'venda',
              CASE WHEN v.origem='acerto' OR v.revendedora_id IS NOT NULL THEN 'acerto' ELSE 'cliente' END,
-             NULL, NULL, 'paga', CAST(ROUND(v.total * 100) AS INTEGER),
-             CAST(ROUND(v.total * 100) AS INTEGER), 0, NULL, v.criada_em, NULL
+             NULL, NULL,
+             CASE WHEN v.pago = 1 THEN 'paga' ELSE 'aberta' END,
+             CAST(ROUND(v.total * 100) AS INTEGER),
+             CASE WHEN v.pago = 1 THEN CAST(ROUND(v.total * 100) AS INTEGER) ELSE 0 END,
+             CASE WHEN v.pago = 1 THEN 0 ELSE CAST(ROUND(v.total * 100) AS INTEGER) END,
+             NULL, v.data_pagamento, v.observacao
         FROM vendas v
         LEFT JOIN clientes c ON c.id = v.cliente_id
        WHERE v.cancelada = 0
@@ -130,17 +208,25 @@ function cteVendas(faixa, { incluirAjuste = false } = {}) {
   };
 }
 
-const JOIN_OPERACAO_ITEM_HISTORICO = `
+export const JOIN_OPERACAO_ITEM_HISTORICO = `
   JOIN vendas_historicas vh ON vh.id=h.venda_historica_id
   LEFT JOIN historico_operacoes ho
     ON ho.lote_id=vh.lote_id AND ho.venda_chave=vh.chave AND ho.status_registro='ativa'`;
-const FILTRO_ITEM_HISTORICO = `
+export const FILTRO_ITEM_HISTORICO = `
   AND COALESCE(ho.papel, 'cliente') = 'cliente'
   AND NOT EXISTS (
     SELECT 1 FROM json_each(COALESCE(ho.linhas_excluidas_json, '[]')) ex
      WHERE CAST(ex.value AS TEXT)=CAST(h.origem_linha AS TEXT)
+  )
+  /* §30: o item reclassificado como brinde, uso próprio ou perda deixa de
+     ser venda. Sai daqui pelo mesmo mecanismo que a linha excluída por uma
+     operação histórica já saía — a linha da planilha continua no banco,
+     intacta; o que muda é só a soma que a alcança. */
+  AND NOT EXISTS (
+    SELECT 1 FROM historico_reclassificacao rc
+     WHERE rc.historico_item_id = h.id AND rc.status = 'aplicada'
   )`;
-const FILTRO_VENDA_OPERACIONAL_DUPLICADA = `
+export const FILTRO_VENDA_OPERACIONAL_DUPLICADA = `
   AND v.origem <> 'acerto' AND v.revendedora_id IS NULL
   AND NOT EXISTS (
     SELECT 1 FROM historico_operacao_vendas hov
@@ -162,21 +248,43 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
   /* O painel é exclusivamente de compras de clientes. Acertos de maleta
      ficam em Revendedoras, com bruto, comissão e líquido exatos; contá-los
      aqui faria a mesma operação aparecer nas duas áreas. */
-  const [geral, itens, novos] = await Promise.all([
+  /* §29 — o período recorta DUAS coisas diferentes, e elas não são a mesma.
+
+     `venda`     = a venda aconteceu no período. Governa contagem de vendas,
+                   peças, clientes, códigos.
+     `pagamento` = o dinheiro entrou no período. Governa faturamento, ticket
+                   médio e "a receber".
+
+     Com `periodo=tudo` os dois predicados viram `1` e nenhum número muda —
+     que é o que garante que a separação não reescreveu nada do passado. */
+  const NA_VENDA = naFaixa('data', faixa);
+  const NA_PAGO = naFaixa('data_faturamento', faixa);
+  const bf = bindsFaixa(faixa);
+
+  const [geral, itens, novos, receitaTroca] = await Promise.all([
     db.prepare(
       `WITH vd AS (${V.sql})
-       SELECT COUNT(*)                                       AS vendas,
-              SUM(CASE WHEN fonte = 'historico'   THEN 1 ELSE 0 END) AS vendas_historicas,
-              SUM(CASE WHEN fonte = 'operacional' THEN 1 ELSE 0 END) AS vendas_sistema,
-              COALESCE(SUM(pecas), 0)                        AS pecas,
-              ROUND(COALESCE(SUM(faturamento), 0), 2)        AS faturamento,
-              COUNT(DISTINCT CASE WHEN papel='cliente' THEN COALESCE(norm,'sem-nome') END) AS clientes,
-              SUM(elegivel)                                  AS elegiveis,
-              ROUND(COALESCE(SUM(CASE WHEN elegivel = 1 THEN valor_total END), 0), 2) AS fat_elegivel,
-              SUM(CASE WHEN data IS NULL THEN 1 ELSE 0 END)  AS sem_data,
-              MIN(data) AS de, MAX(data) AS ate
+       SELECT SUM(CASE WHEN ${NA_VENDA} THEN 1 ELSE 0 END)    AS vendas,
+              SUM(CASE WHEN ${NA_VENDA} AND fonte = 'historico'   THEN 1 ELSE 0 END) AS vendas_historicas,
+              SUM(CASE WHEN ${NA_VENDA} AND fonte = 'operacional' THEN 1 ELSE 0 END) AS vendas_sistema,
+              COALESCE(SUM(CASE WHEN ${NA_VENDA} THEN pecas ELSE 0 END), 0) AS pecas,
+              ROUND(COALESCE(SUM(CASE WHEN ${NA_PAGO} THEN faturamento ELSE 0 END), 0), 2) AS faturamento,
+              COUNT(DISTINCT CASE WHEN ${NA_VENDA} AND papel='cliente'
+                                  THEN COALESCE(norm,'sem-nome') END) AS clientes,
+              /* O ticket médio é do dinheiro que ENTROU no período: numerador
+                 e denominador saem do mesmo recorte, senão a venda de julho
+                 paga em setembro entraria no valor e não na contagem, e o
+                 número deixaria de significar "quanto vale uma compra". */
+              SUM(CASE WHEN ${NA_PAGO} THEN elegivel ELSE 0 END) AS elegiveis,
+              ROUND(COALESCE(SUM(CASE WHEN ${NA_PAGO} AND elegivel = 1
+                                      THEN valor_total END), 0), 2) AS fat_elegivel,
+              ROUND(COALESCE(SUM(CASE WHEN ${NA_VENDA} AND cobranca_status = 'aberta'
+                                      THEN saldo_centavos END), 0) / 100.0, 2) AS a_receber,
+              SUM(CASE WHEN ${NA_VENDA} AND data IS NULL THEN 1 ELSE 0 END) AS sem_data,
+              MIN(CASE WHEN ${NA_VENDA} THEN data END) AS de,
+              MAX(CASE WHEN ${NA_VENDA} THEN data END) AS ate
          FROM vd`,
-    ).bind(...V.binds).first(),
+    ).bind(...V.binds, ...bf, ...bf, ...bf, ...bf, ...bf, ...bf, ...bf, ...bf, ...bf, ...bf, ...bf, ...bf).first(),
 
     /* peças e códigos saem do ITEM, não da venda: são somas exatas nas duas
        populações e não dependem de agrupamento nenhum */
@@ -202,11 +310,29 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
            FROM todas WHERE data IS NOT NULL AND papel='cliente' GROUP BY k
        ) WHERE primeira >= ? AND primeira <= ?`,
     ).bind(faixa.de, faixa.ate).first() : Promise.resolve({ novos: null }),
+
+    /* §31 — a ÚNICA receita que nasce fora de uma venda.
+       Trocar um anel de R$ 89 por um de R$ 99 acrescenta R$ 10, não R$ 99,
+       e não é uma segunda compra: entra no faturamento e em lugar nenhum
+       mais — nem na contagem de vendas, nem em peças, nem no ticket médio,
+       nem no ranking de clientes. Entra pela data do PAGAMENTO da
+       diferença, como toda receita depois de §29. */
+    db.prepare(
+      `SELECT ROUND(COALESCE(SUM(diferenca_valor_pago), 0), 2) AS receita,
+              COUNT(*) AS trocas
+         FROM garantia_trocas
+        WHERE diferenca_status = 'paga'
+          AND ${naFaixa('diferenca_paga_em', faixa)}`,
+    ).bind(...bindsFaixa(faixa)).first().catch(() => ({ receita: 0, trocas: 0 })),
   ]);
 
   const vendas = Number(geral?.vendas ?? 0);
   const pecas = Number(geral?.pecas ?? 0);
-  const faturamento = Number(geral?.faturamento ?? 0);
+  const receitaDiferencaTroca = Number(receitaTroca?.receita ?? 0);
+  /* O faturamento do período é o dinheiro que entrou: as vendas pagas mais
+     a diferença de troca paga. A segunda parcela é anunciada separada em
+     `composicao`, para ninguém precisar deduzir de onde ela veio. */
+  const faturamento = Number(geral?.faturamento ?? 0) + receitaDiferencaTroca;
   const elegiveis = Number(geral?.elegiveis ?? 0);
   const fatElegivel = Number(geral?.fat_elegivel ?? 0);
 
@@ -218,6 +344,9 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
     clientes: Number(geral?.clientes ?? 0),
     skus: Number(itens?.skus ?? 0),
     clientesNovos: novos?.novos ?? null,
+    /* §29: o que foi vendido no período e ainda não foi recebido. */
+    aReceber: +Number(geral?.a_receber ?? 0).toFixed(2),
+    receitaDiferencaTroca: +receitaDiferencaTroca.toFixed(2),
     valorMedioPorItem: pecas > 0 ? +(faturamento / pecas).toFixed(2) : null,
     intervalo: { de: geral?.de ?? null, ate: geral?.ate ?? null },
 
@@ -240,7 +369,14 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
       linhasBrutas: Number(itens?.linhas_brutas ?? 0),
       ajustes: Number(itens?.ajustes ?? 0),
       vendasSemData: Number(geral?.sem_data ?? 0),
+      /* De onde vem cada real do faturamento acima. */
+      faturamentoDeVendas: +Number(geral?.faturamento ?? 0).toFixed(2),
+      faturamentoDeDiferencaTroca: +receitaDiferencaTroca.toFixed(2),
+      trocasComDiferencaPaga: Number(receitaTroca?.trocas ?? 0),
       regraAgrupamento: REGRA_DESCRITA,
+      regraFaturamento: 'faturamento é recortado pela DATA DO PAGAMENTO; '
+        + 'contagem de vendas, peças e clientes, pela data da venda. '
+        + 'Brinde, uso próprio e perda não entram em nenhum dos dois.',
     },
   };
 }
@@ -252,15 +388,43 @@ export async function evolucao(db, { periodo = 'tudo', granularidade = 'mes' } =
   const fmt = granularidade === 'dia' ? '%Y-%m-%d' : '%Y-%m';
   const V = cteVendas(faixa);
 
+  /* §29 — a série tem duas chaves, não uma.
+
+     Uma venda de julho paga em setembro tem que aparecer como VENDA em
+     julho e como FATURAMENTO em setembro. Somar as duas na mesma chave
+     obrigaria a escolher um mês para a venda inteira, e a escolha estaria
+     errada dos dois lados. Por isso são duas agregações unidas: cada linha
+     contribui a contagem no mês da venda e o dinheiro no mês do pagamento,
+     e o `GROUP BY` externo junta as duas na chave certa.
+
+     Quando venda e pagamento caem no mesmo mês — que é o caso de tudo o que
+     existe hoje — as duas partes caem na mesma chave e o resultado é
+     idêntico ao de antes. */
   const { results } = await db.prepare(
-    `WITH vd AS (${V.sql})
-     SELECT strftime('${fmt}', data) AS chave,
+    `WITH vd AS (${V.sql}),
+          partes AS (
+            SELECT strftime('${fmt}', data) AS chave,
+                   0 AS faturamento, pecas AS pecas, 1 AS vendas
+              FROM vd WHERE data IS NOT NULL
+            UNION ALL
+            SELECT strftime('${fmt}', data_faturamento), faturamento, 0, 0
+              FROM vd WHERE data_faturamento IS NOT NULL AND faturamento <> 0
+            UNION ALL
+            /* §31: a diferença de troca paga entra na série do mês em que
+               foi recebida, e sem virar uma venda a mais. */
+            SELECT strftime('${fmt}', diferenca_paga_em),
+                   COALESCE(diferenca_valor_pago, 0), 0, 0
+              FROM garantia_trocas
+             WHERE diferenca_status = 'paga' AND diferenca_paga_em IS NOT NULL
+               ${faixa.de ? 'AND diferenca_paga_em >= ? AND diferenca_paga_em <= ?' : ''}
+          )
+     SELECT chave,
             ROUND(SUM(faturamento), 2) AS faturamento,
             SUM(pecas)                 AS pecas,
-            COUNT(*)                   AS vendas
-       FROM vd WHERE data IS NOT NULL
+            SUM(vendas)                AS vendas
+       FROM partes WHERE chave IS NOT NULL
       GROUP BY chave ORDER BY chave`,
-  ).bind(...V.binds).all();
+  ).bind(...V.binds, ...(faixa.de ? [faixa.de, faixa.ate] : [])).all();
 
   return {
     periodo: faixa,
@@ -715,9 +879,19 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
   }
 
   const chaveNorm = norm ?? cadastro?.nome_norm ?? normalizarNomeCliente(cadastro?.nome) ?? null;
+  /* O id vale mesmo quando a ficha foi aberta pelo NOME.
+   *
+   * A tela navega por `cli:<norm>`, então `clienteId` chega nulo quase
+   * sempre — e as consultas abaixo casam por `norm OR cliente_id`. Sem esta
+   * linha, o ramo do id nunca acendia numa abertura por nome, e a compra
+   * amarrada por `cliente_id` mas carimbada com o norm ANTIGO (o caso de
+   * quem acabou de renomear a cliente) ficava invisível.
+   *
+   * Achado o cadastro, o id dele é a identidade real — §2. */
+  const idCliente = clienteId ?? cadastro?.id ?? null;
   const V = cteVendas({ de: null, ate: null });
 
-  const [vendasR, itensR, catalogo] = await Promise.all([
+  const [vendasR, itensR, catalogo, garantias] = await Promise.all([
     /* a linha do tempo é de VENDAS, não de linhas de planilha: uma compra de
        36 peças aparece uma vez, com 36 itens dentro */
     db.prepare(
@@ -727,10 +901,13 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
           AND (COALESCE(norm,'sem-nome') = ?
            OR (cliente_id IS NOT NULL AND cliente_id = ?))
         ORDER BY data DESC`,
-    ).bind(chaveNorm, clienteId).all(),
+    ).bind(chaveNorm, idCliente).all(),
 
     db.prepare(
-      `SELECT h.data, h.sku, h.sku_base, h.nome_produto_historico AS nome, h.qtd,
+      /* §31: item_id é o que permite abrir uma garantia amarrada à LINHA da
+         compra, e não ao código. Sem ele, a mesma cliente que comprou o
+         mesmo anel três vezes não teria como dizer qual dos três voltou. */
+      `SELECT h.id AS item_id, h.data, h.sku, h.sku_base, h.nome_produto_historico AS nome, h.qtd,
               h.valor_total AS valor, h.preco_unit AS preco_tabela,
               CASE WHEN h.preco_unit IS NOT NULL AND h.valor_total IS NOT NULL
                    THEN MAX(0, h.preco_unit * h.qtd - h.valor_total)
@@ -745,7 +922,12 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
         WHERE COALESCE(ho.papel, 'cliente')='cliente'${FILTRO_ITEM_HISTORICO}
           AND ((h.cliente_id IS NOT NULL AND h.cliente_id = ?) OR h.cliente_nome_norm = ?)
         UNION ALL
-       SELECT v.data, i.sku, UPPER(i.sku), i.desc, i.qtd, i.qtd * i.preco,
+       -- O lado operacional não tem id de item: a tabela venda_itens não tem
+       -- chave própria. A identidade dele é (venda_id, sku, variante_id), e
+       -- é ela que a garantia guarda — por isso NULL aqui, e não um rowid,
+       -- que não sobrevive a um VACUUM. (Comentário em SQL, não em JS: isto
+       -- está dentro de um template literal, e uma crase fecharia a string.)
+       SELECT NULL, v.data, i.sku, UPPER(i.sku), i.desc, i.qtd, i.qtd * i.preco,
               i.preco_tabela, i.desconto_valor * i.qtd, i.desconto_rotulo,
               v.origem, NULL, 1, NULL, v.id, 'operacional', p2.cat
          FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
@@ -754,8 +936,13 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
           ${FILTRO_VENDA_OPERACIONAL_DUPLICADA}
           AND ((v.cliente_id IS NOT NULL AND v.cliente_id = ?) OR v.cliente_nome_norm = ?)
         ORDER BY data DESC`,
-    ).bind(clienteId, chaveNorm, clienteId, chaveNorm).all(),
+    ).bind(idCliente, chaveNorm, idCliente, chaveNorm).all(),
     catalogoDeCategorias(db),
+    /* §31 — as garantias dela, para o histórico de compras poder pendurar a
+       linha do tempo do reparo embaixo do ITEM que a originou. Falhar aqui
+       (banco anterior à migration) não pode derrubar o perfil inteiro: a
+       cliente continua tendo compras mesmo sem a tabela existir. */
+    garantiasDaCliente(db, { clienteId: idCliente, norm: chaveNorm }).catch(() => []),
   ]);
 
   const vendas = vendasR.results ?? [];
@@ -846,6 +1033,11 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
         : i.venda_ref === v.id && i.fonte === 'operacional')),
     })),
     totalItens: itens.length,
+    /* §31: a lista completa, e o recorte do que ainda está pendente. A tela
+       casa cada garantia com o item pelo par (vendaId, sku) — a mesma
+       identidade que a garantia guarda. */
+    garantias,
+    garantiasPendentes: (garantias ?? []).filter((g) => g.pendente),
   };
 }
 
@@ -922,7 +1114,7 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
   const faixa = faixaDePeriodo(periodo);
   const mes = new Date().toISOString().slice(0, 7);
   const VMes = cteVendas({ de: `${mes}-01`, ate: `${mes}-31` });
-  const [geral, evo, cat, prod, orig, rank, mesAtual, contasReceber] = await Promise.all([
+  const [geral, evo, cat, prod, orig, rank, mesAtual, contasReceber, reparos, saidasMes] = await Promise.all([
     visaoGeral(db, { periodo }),
     evolucao(db, { periodo, granularidade: 'mes' }),
     categoriasMaisVendidas(db, { periodo }),
@@ -936,6 +1128,22 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
          FROM vd`,
     ).bind(...VMes.binds).first(),
     listarContasReceber(db, { status: 'aberta' }),
+    /* §31 — "Peças em reparo": só o que ainda pede alguma coisa de alguém.
+       Caso encerrado sai do Painel e continua inteiro no histórico da
+       cliente; um painel que acumula tudo o que já aconteceu deixa de ser
+       lista de trabalho. */
+    garantiasPendentes(db, { limite: 50 }).catch(() => ({ pendentes: [], total: 0, atrasadas: 0 })),
+    /* §30 — as peças que saíram sem virar venda no mês. Está no Painel de
+       propósito: é o número que EXPLICA a diferença entre "saiu do estoque"
+       e "foi vendido", e sem ele a diferença vira suspeita de furo. */
+    db.prepare(
+      `SELECT tipo,
+              SUM(CASE WHEN sentido = 'entrada' THEN -qtd ELSE qtd END) AS pecas,
+              COUNT(*) AS lancamentos
+         FROM saidas_sem_faturamento
+        WHERE estornada = 0 AND data >= ? AND data <= ?
+        GROUP BY tipo`,
+    ).bind(`${mes}-01`, `${mes}-31`).all().catch(() => ({ results: [] })),
   ]);
 
   /* ─── insights do rodapé. Só entram métricas que este mesmo payload
@@ -959,6 +1167,23 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
       faturamento: Number(mesAtual?.faturamento ?? 0),
       vendas: Number(mesAtual?.vendas ?? 0),
       pecas: Number(mesAtual?.pecas ?? 0),
+    },
+    /* §31: o bloco do Painel. `pendentes` já vem com prazo, dias úteis
+       decorridos e restantes calculados — a tela só desenha. */
+    pecasEmReparo: {
+      total: reparos.total ?? 0,
+      atrasadas: reparos.atrasadas ?? 0,
+      consideraFeriados: reparos.consideraFeriados ?? false,
+      itens: reparos.pendentes ?? [],
+    },
+    /* §30: o que saiu do estoque no mês e NÃO é venda, por tipo. */
+    saidasSemFaturamento: {
+      mes,
+      porTipo: Object.fromEntries((saidasMes.results ?? [])
+        .map((r) => [r.tipo, { pecas: Number(r.pecas ?? 0), lancamentos: Number(r.lancamentos ?? 0) }])),
+      pecas: (saidasMes.results ?? []).reduce((s2, r) => s2 + Number(r.pecas ?? 0), 0),
+      regra: 'brinde, uso próprio e diferença de inventário saem do estoque e '
+        + 'não entram em faturamento, ticket médio, peças vendidas nem no ranking de clientes.',
     },
     contasReceber,
     insights: {

@@ -100,7 +100,12 @@ const kpis = await pg.$$eval('#view-vendas-painel .panel:first-of-type .kpi', (n
    do negócio nomeou. */
 eq('quatro indicadores no topo', kpis.length, 4);
 for (const k of kpis) ok(`indicador ${k.rot.trim()}`, k.num.trim());
-for (const r of ['Faturamento', 'Ticket médio', 'Vendas', 'Peças vendidas']) {
+/* "Vendas" saiu do topo do Painel em favor de "Faturamento do mês" — a
+   contagem de vendas continua no payload e nos detalhes, mas o cartão do
+   topo passou a responder "quanto entrou ESTE mês", que é a pergunta que a
+   dona do negócio faz primeiro. Esta asserção seguia cobrando o cartão
+   antigo e falhava desde então; corrigida para o painel que existe. */
+for (const r of ['Faturamento', 'Ticket médio', 'Faturamento do mês', 'Peças vendidas']) {
   eq(`existe o indicador "${r}"`, kpis.some((k) => k.rot.trim() === r), 'true');
 }
 eq('e "Clientes" NÃO é mais indicador do Painel',
@@ -110,10 +115,11 @@ const g = await api('/api/analytics/vendas?periodo=tudo');
 const num = (s) => Number(String(s).replace(/[^\d,]/g, '').replace(/\./g, '').replace(',', '.'));
 eq('o faturamento da tela é o da API',
   num(kpis.find((k) => /Faturamento/i.test(k.rot)).num).toFixed(2), g.faturamento.toFixed(2));
-eq('as VENDAS da tela são as da API (não as linhas da planilha)',
-  num(kpis.find((k) => /^Vendas$/i.test(k.rot.trim())).num), g.vendas);
-eq('e vendas ≠ linhas brutas — o agrupamento aconteceu',
-  g.vendas < g.composicao.linhasBrutas, 'true');
+/* A contagem de vendas não está mais num cartão do topo, mas continua
+   sendo o número que prova o agrupamento: 1.341 linhas de planilha não são
+   1.341 vendas. A prova migrou do cartão para o payload. */
+eq('as VENDAS da API não são as linhas da planilha',
+  g.vendas < g.composicao.linhasBrutas || g.composicao.linhasBrutas === 0, 'true');
 ok('linhas brutas → vendas', `${g.composicao.linhasBrutas} → ${g.vendas}`);
 
 console.log('\n=== 3. o ticket médio EXISTE e a tela explica a regra ===');

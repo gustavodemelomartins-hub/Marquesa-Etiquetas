@@ -344,7 +344,20 @@ CREATE TABLE IF NOT EXISTS vendas (
   nuvemshop_status TEXT NOT NULL DEFAULT 'nao_enviada',
   nuvemshop_erro   TEXT,
   nuvemshop_em     TEXT,
-  criada_em      TEXT NOT NULL DEFAULT (datetime('now'))
+  criada_em      TEXT NOT NULL DEFAULT (datetime('now')),
+  -- §29: a data da venda e a data do PAGAMENTO são duas datas diferentes.
+  -- `data` acima é imutável: o dia em que a venda aconteceu, e é por ela
+  -- que o histórico do dia é filtrado. `data_pagamento` é quando o dinheiro
+  -- entrou, e é por ela que o FATURAMENTO é recortado. Vender em julho e
+  -- receber em setembro não tinha como ser dito antes destas colunas.
+  --
+  -- `pago` nasce 1 porque é o que o sistema já assumia de toda venda
+  -- operacional; um default 0 apagaria faturamento existente na migration.
+  -- Últimas de propósito: `migracao-vendas-pagamento.sql` as acrescenta com
+  -- ALTER TABLE, que sempre põe no fim. Os dois caminhos terminam iguais.
+  pago           INTEGER NOT NULL DEFAULT 1,
+  data_pagamento TEXT,
+  observacao     TEXT
 );
 
 -- Cada rodada da sincronização com a loja, para poder responder "o que o
@@ -594,6 +607,8 @@ CREATE INDEX IF NOT EXISTS idx_maleta_itens   ON maleta_itens(maleta_id);
 CREATE INDEX IF NOT EXISTS idx_maletas_rev    ON maletas(rev_id);
 CREATE INDEX IF NOT EXISTS idx_vendas_data    ON vendas(data);
 CREATE INDEX IF NOT EXISTS idx_vendas_origem  ON vendas(origem);
+CREATE INDEX IF NOT EXISTS idx_vendas_pagamento ON vendas(data_pagamento);
+CREATE INDEX IF NOT EXISTS idx_vendas_pago      ON vendas(pago, data);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_v  ON venda_itens(venda_id);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_s  ON venda_itens(sku);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_variante ON venda_itens(variante_id);
@@ -914,3 +929,239 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_hist_op_relacao_ativa
   ON historico_operacao_vendas(operacao_id, venda_id) WHERE status_registro = 'ativa';
 CREATE INDEX IF NOT EXISTS idx_hist_op_vendas_operacao
   ON historico_operacao_vendas(operacao_id, status_registro);
+
+/* ═══════════════════════════════════════════ §30 — saída sem faturamento
+
+   Peça que sai do estoque nem sempre é venda. Brinde, uso próprio e
+   diferença de inventário moram AQUI, e não em `vendas`: não têm cliente,
+   não têm preço cobrado e não geram contas a receber. Pendurá-las numa
+   venda obrigaria toda consulta de faturamento a lembrar de excluí-las — e
+   a que esquecesse voltaria a contaminar o número. Aqui elas são invisíveis
+   por construção para quem soma venda.
+
+   O estoque continua saindo por `estoque.js › movimentar`; `movimento_id`
+   amarra a linha ao movimento que a explica. Detalhe e motivação completos
+   em `api/migracao-saidas-sem-faturamento.sql`. */
+CREATE TABLE IF NOT EXISTS saidas_sem_faturamento (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  -- brinde       Dia das Mães, festa junina, ação promocional
+  -- uso_proprio  retirada pessoal (a própria Sthefany)
+  -- perda        diferença de inventário, peça perdida, quebra sem venda
+  tipo      TEXT NOT NULL CHECK (tipo IN ('brinde', 'uso_proprio', 'perda')),
+
+  -- Diferença de inventário pode ser para os DOIS lados. `saida` baixa,
+  -- `entrada` devolve — e a segunda só existe para `perda`, porque brinde
+  -- e uso próprio nunca somam peça. A trava está no CHECK lá embaixo.
+  sentido   TEXT NOT NULL DEFAULT 'saida' CHECK (sentido IN ('saida', 'entrada')),
+
+  data      TEXT NOT NULL,                       -- YYYY-MM-DD, o dia do fato
+  sku       TEXT NOT NULL REFERENCES produtos(sku),
+  variacao  TEXT,                                -- o aro, quando se sabe
+  variante_id TEXT,                              -- a caixinha da loja, quando se sabe
+  qtd       INTEGER NOT NULL CHECK (qtd > 0),
+
+  motivo    TEXT,                                -- rótulo curto e agrupável
+  observacao TEXT,                               -- "PERDIDO", texto livre
+
+  -- Rastreabilidade: a linha aponta para o movimento que mexeu no estoque.
+  movimento_id INTEGER REFERENCES movimentos(id),
+  origem_usuario TEXT,                           -- quem lançou, quando se sabe
+
+  -- ─── estorno: corrigir sem apagar
+  -- Uma saída errada não some. Ela é ESTORNADA: um segundo movimento
+  -- devolve a peça e a linha continua no histórico dizendo o que houve.
+  estornada    INTEGER NOT NULL DEFAULT 0 CHECK (estornada IN (0, 1)),
+  estorno_em   TEXT,
+  estorno_motivo TEXT,
+  estorno_movimento_id INTEGER REFERENCES movimentos(id),
+
+  -- ─── de onde a linha veio
+  -- manual              lançada na tela
+  -- migracao_historico  reclassificada a partir de uma linha da planilha
+  origem_registro TEXT NOT NULL DEFAULT 'manual'
+                  CHECK (origem_registro IN ('manual', 'migracao_historico')),
+  historico_item_id INTEGER REFERENCES vendas_historico_itens(id),
+
+  criado_em     TEXT NOT NULL DEFAULT (datetime('now')),
+  atualizado_em TEXT,
+
+  CHECK (sentido = 'saida' OR tipo = 'perda'),
+  CHECK (estornada = 0 OR estorno_em IS NOT NULL)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ssf_data  ON saidas_sem_faturamento(data);
+CREATE INDEX IF NOT EXISTS idx_ssf_tipo  ON saidas_sem_faturamento(tipo, estornada);
+CREATE INDEX IF NOT EXISTS idx_ssf_sku   ON saidas_sem_faturamento(sku);
+-- Uma linha da planilha vira no máximo UMA saída: a trava que impede a
+-- auditoria histórica de baixar o mesmo estoque duas vezes se rodar de novo.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ssf_historico
+  ON saidas_sem_faturamento(historico_item_id)
+  WHERE historico_item_id IS NOT NULL;
+
+-- ─── as linhas históricas que foram reclassificadas
+-- Reclassificar NÃO apaga a linha da planilha (§7: o dado de origem se
+-- preserva). Esta tabela diz "esta linha não é venda", e as consultas de
+-- faturamento passam a pulá-la — do mesmo jeito que já pulam a linha
+-- excluída por uma operação histórica.
+CREATE TABLE IF NOT EXISTS historico_reclassificacao (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  historico_item_id INTEGER NOT NULL REFERENCES vendas_historico_itens(id),
+  classe_nova   TEXT NOT NULL CHECK (classe_nova IN ('brinde', 'uso_proprio', 'perda')),
+  confianca     TEXT NOT NULL CHECK (confianca IN ('alta', 'media', 'baixa')),
+  motivo        TEXT NOT NULL,             -- por extenso, o que decidiu
+  saida_id      INTEGER REFERENCES saidas_sem_faturamento(id),
+  -- proposta   o relatório sugeriu e ninguém confirmou ainda
+  -- aplicada   um humano aprovou; as métricas já a ignoram
+  -- recusada   um humano disse que é venda mesmo
+  status        TEXT NOT NULL DEFAULT 'proposta'
+                CHECK (status IN ('proposta', 'aplicada', 'recusada')),
+  decidido_em   TEXT,
+  decidido_por  TEXT,
+  criado_em     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_hrec_item
+  ON historico_reclassificacao(historico_item_id);
+CREATE INDEX IF NOT EXISTS idx_hrec_status ON historico_reclassificacao(status);
+
+/* ═══════════════════════════════════════════════ §31 — garantia e reparo
+
+   A garantia pertence ao ITEM da compra, não ao cliente nem ao código: se a
+   mesma cliente comprou o mesmo SKU três vezes, prender ao SKU perde a
+   compra de origem e o valor efetivamente pago junto com ela.
+
+   Nada aqui altera a venda original, devolve a peça defeituosa ao estoque
+   vendável ou gera faturamento. Só a DIFERENÇA de uma troca, quando paga,
+   vira receita. Detalhe completo em `api/migracao-garantias.sql`. */
+CREATE TABLE IF NOT EXISTS garantias (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  -- ─── o item de origem, nas duas populações de venda
+  -- `operacional` → venda do sistema; a identidade do item é
+  --                 (venda_id, sku, variante_id): `venda_itens` não tem
+  --                 chave própria, e rowid não é estável entre VACUUMs.
+  -- `historico`   → linha da planilha; `vendas_historico_itens.id` é PK real.
+  origem_fonte TEXT NOT NULL CHECK (origem_fonte IN ('operacional', 'historico')),
+  venda_id           INTEGER REFERENCES vendas(id),
+  historico_item_id  INTEGER REFERENCES vendas_historico_itens(id),
+  venda_historica_id INTEGER REFERENCES vendas_historicas(id),
+
+  cliente_id        INTEGER REFERENCES clientes(id),
+  cliente_nome_norm TEXT,
+  cliente_nome      TEXT,
+
+  sku          TEXT NOT NULL,
+  variacao     TEXT,
+  variante_id  TEXT,
+  produto_nome TEXT,
+  data_venda   TEXT,                    -- a compra de origem, para a tela
+  -- O que ela EFETIVAMENTE pagou por esta peça — com desconto, se houve.
+  -- É a base da diferença de troca; usar o preço de tabela cobraria a mais.
+  valor_pago_original REAL,
+
+  -- ─── o caso
+  data_entrada TEXT NOT NULL,           -- quando a peça entrou para reparo
+  prazo_dias_uteis INTEGER NOT NULL DEFAULT 45,
+  previsao_retorno TEXT,                -- calculado na abertura, congelado
+  motivo       TEXT NOT NULL,           -- o problema relatado
+  observacao   TEXT,
+
+  -- em_reparo     na bancada
+  -- reparada      pronta, aguardando entrega
+  -- devolvida     entregue à cliente
+  -- sem_conserto  troca autorizada
+  -- concluida     encerrada (a troca terminou, ou o caso morreu)
+  -- cancelada     abriu por engano
+  status TEXT NOT NULL DEFAULT 'em_reparo'
+         CHECK (status IN ('em_reparo', 'reparada', 'devolvida',
+                           'sem_conserto', 'concluida', 'cancelada')),
+  encerrada_em TEXT,                    -- data em que saiu do Painel
+
+  criado_em     TEXT NOT NULL DEFAULT (datetime('now')),
+  atualizado_em TEXT,
+
+  CHECK (origem_fonte <> 'operacional' OR venda_id IS NOT NULL),
+  CHECK (origem_fonte <> 'historico'   OR historico_item_id IS NOT NULL),
+  CHECK (prazo_dias_uteis > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_gar_status   ON garantias(status);
+CREATE INDEX IF NOT EXISTS idx_gar_cliente  ON garantias(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_gar_norm     ON garantias(cliente_nome_norm);
+CREATE INDEX IF NOT EXISTS idx_gar_venda    ON garantias(venda_id);
+CREATE INDEX IF NOT EXISTS idx_gar_hist     ON garantias(historico_item_id);
+CREATE INDEX IF NOT EXISTS idx_gar_entrada  ON garantias(data_entrada);
+
+-- ─── a linha do tempo
+CREATE TABLE IF NOT EXISTS garantia_eventos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  garantia_id INTEGER NOT NULL REFERENCES garantias(id),
+  -- aberta | status | devolvida | troca | diferenca_paga | observacao | cancelada
+  tipo        TEXT NOT NULL,
+  data        TEXT NOT NULL,
+  status_novo TEXT,
+  observacao  TEXT,
+  dados_json  TEXT NOT NULL DEFAULT '{}',
+  criado_em   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_gar_ev ON garantia_eventos(garantia_id, id);
+
+-- ─── a troca, quando não tem conserto
+CREATE TABLE IF NOT EXISTS garantia_trocas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  garantia_id INTEGER NOT NULL REFERENCES garantias(id),
+  data        TEXT NOT NULL,
+
+  sku_novo        TEXT NOT NULL REFERENCES produtos(sku),
+  variacao_nova   TEXT,
+  variante_id_novo TEXT,
+  produto_novo_nome TEXT,
+
+  -- valor_original: o que ela pagou na compra de origem (com desconto)
+  -- valor_novo:     o preço considerado da peça nova
+  -- diferenca:      novo − original. Positiva = ela deve; negativa = crédito
+  valor_original REAL NOT NULL,
+  valor_novo     REAL NOT NULL,
+  diferenca      REAL NOT NULL,
+
+  -- nenhuma         diferença zero: nada a cobrar
+  -- a_receber       positiva e em aberto
+  -- paga            positiva e recebida — SÓ ELA vira faturamento
+  -- pendente_regra  NEGATIVA: crédito/reembolso é regra de negócio que
+  --                 ainda não existe. O sistema registra e PARA, em vez de
+  --                 inventar um crédito que ninguém definiu.
+  diferenca_status TEXT NOT NULL
+                   CHECK (diferenca_status IN ('nenhuma', 'a_receber',
+                                               'paga', 'pendente_regra')),
+  diferenca_paga_em    TEXT,          -- a data que governa o faturamento
+  diferenca_valor_pago REAL,
+
+  -- o movimento que baixou a peça NOVA. Tipo `troca`, origem
+  -- `troca_garantia` — nunca `venda`.
+  movimento_id INTEGER REFERENCES movimentos(id),
+
+  criado_em     TEXT NOT NULL DEFAULT (datetime('now')),
+  atualizado_em TEXT,
+
+  CHECK (diferenca_status <> 'paga' OR diferenca_paga_em IS NOT NULL)
+);
+
+-- Uma garantia troca no máximo uma vez. Sem isto, dois cliques no botão
+-- baixariam duas peças novas do estoque.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_gar_troca_unica
+  ON garantia_trocas(garantia_id);
+CREATE INDEX IF NOT EXISTS idx_gar_troca_dif
+  ON garantia_trocas(diferenca_status, diferenca_paga_em);
+
+-- ─── feriados, num lugar só
+-- O prazo da garantia é em DIAS ÚTEIS. Sábado e domingo o calendário
+-- resolve; feriado, não. Esta tabela existe para o feriado não nascer
+-- espalhado em `if` pelo código — vazia, o cálculo usa só fim de semana, e
+-- isso é dito na resposta em vez de fingir precisão que não tem.
+CREATE TABLE IF NOT EXISTS feriados (
+  data      TEXT PRIMARY KEY,           -- YYYY-MM-DD
+  nome      TEXT NOT NULL,
+  escopo    TEXT NOT NULL DEFAULT 'nacional',
+  criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);

@@ -66,6 +66,11 @@ Cloudflare Worker, ES modules, sem dependências em runtime.
 | [api/src/nuvemshop-oauth.js](../api/src/nuvemshop-oauth.js) | Troca do código de autorização por token (app de parceiro) |
 | [api/src/inventario.js](../api/src/inventario.js) | Contagem física: abrir, contar, concluir, ajustar |
 | [api/src/comissao.js](../api/src/comissao.js) | Faixas de comissão do acerto de maleta |
+| [api/src/saidas.js](../api/src/saidas.js) | §31 — brinde, uso próprio e perda: sai do estoque, **não** é venda |
+| [api/src/garantias.js](../api/src/garantias.js) | §32 — garantia por ITEM da compra, troca e a diferença |
+| [api/src/dias-uteis.js](../api/src/dias-uteis.js) | O prazo em dias úteis, com os feriados vindos da tabela |
+| [api/src/historico-dia.js](../api/src/historico-dia.js) | §33 — o dia inteiro, de todas as origens, sem duplicata |
+| [api/src/auditoria-historico.js](../api/src/auditoria-historico.js) | §35 — propõe reclassificar linha da planilha; **nunca** decide |
 
 Duas portas de entrada não exigem a `API_KEY`, de propósito:
 
@@ -121,3 +126,9 @@ a invariante `produtos.qtd == SUM(movimentos.qtd)`.
   **destino**; a exceção única e vigiada é a semeadura de variações.
 - Não tem contas de usuário. É uma senha compartilhada, proporcional a uma
   ferramenta interna de uma pessoa.
+- **Não decide, sozinho, o que era uma linha ambígua da planilha.** A
+  auditoria de §35 propõe e mostra o motivo; quem aplica é uma pessoa, linha
+  a linha. "ACHO QUE FOI VENDIDO" fica esperando.
+- **Não define crédito nem reembolso** quando a peça nova de uma troca custa
+  menos que a original. A troca é registrada com `pendente_regra`, nada é
+  lançado, e o sistema diz que parou ali.

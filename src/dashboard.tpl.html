@@ -1436,6 +1436,13 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
   <!-- ============ VENDAS · PAINEL (inteligência comercial) ============ -->
   <section class="view" id="view-vendas-painel"></section>
 
+  <!-- ============ VENDAS · SAÍDAS SEM FATURAMENTO ============ -->
+  <!-- §30. Brinde, uso próprio e diferença de inventário. Mora dentro de
+       Vendas porque é aqui que ela procura "para onde foi a peça", e usa a
+       MESMA linguagem da lista de vendas (.invrow, .kpi, .panel) — é a
+       mesma pergunta, com outra resposta. -->
+  <section class="view" id="view-vendas-saidas"></section>
+
   <!-- ============ CLIENTES ============ -->
   <!-- Mesma linguagem de Revendedoras: .revgrid/.revcard na lista,
        .overlay/.modal/.field/.two no cadastro. Nada de componente novo
@@ -1552,6 +1559,33 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
   </div>
 </div>
 
+<!-- ============ SAÍDA SEM FATURAMENTO ============ -->
+<!-- §30. Mesmo overlay, mesmo modal, mesmos campos do resto do sistema:
+     brinde, uso próprio e diferença de inventário não merecem uma
+     linguagem visual própria — merecem estar num lugar próprio. -->
+<div class="overlay center" id="saidaOverlay" onclick="if(event.target===this)closeSaidaForm()">
+  <div class="modal" style="max-width:520px">
+    <div class="mhead">
+      <h2>Saída sem faturamento</h2>
+      <button class="closebtn" onclick="closeSaidaForm()">×</button>
+    </div>
+    <div class="mbody" id="saidaBody"></div>
+  </div>
+</div>
+
+<!-- ============ GARANTIA / REPARO ============ -->
+<!-- §31. A garantia é do ITEM da compra: o modal já abre sabendo de qual
+     venda, de qual peça e por quanto ela foi paga. -->
+<div class="overlay center" id="garOverlay" onclick="if(event.target===this)closeGarantia()">
+  <div class="modal" style="max-width:560px">
+    <div class="mhead">
+      <h2 id="garTitulo">Garantia / reparo</h2>
+      <button class="closebtn" onclick="closeGarantia()">×</button>
+    </div>
+    <div class="mbody" id="garBody"></div>
+  </div>
+</div>
+
 <!-- ============ ACERTO ============ -->
 <div class="overlay center" id="acOverlay" onclick="if(event.target===this)closeAcerto()">
   <div class="modal">
@@ -1630,7 +1664,7 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
       <div class="mfoot">
         <button class="btn btn-ghost" onclick="closeCliForm()">Cancelar</button>
         <div class="spacer"></div>
-        <button class="btn btn-gold" onclick="saveCliente()">Salvar</button>
+        <button class="btn btn-gold" id="cliSalvar" onclick="saveCliente()">Salvar</button>
       </div>
     </div>
   </div>
@@ -2383,8 +2417,8 @@ function mainTabOf(name){
   if(name==='etiquetas'||name==='etq-print') return 'etiqueta';
   /* Vendas deixou de ser uma tela só: Lançamentos (o registro do dia),
      Painel (a leitura comercial) e Clientes (o CRM) são a mesma área. */
-  if(name==='vendas'||name==='vendas-painel'||name==='clientes'
-     ||name.indexOf('cli:')===0) return 'vendas';
+  if(name==='vendas'||name==='vendas-painel'||name==='vendas-saidas'
+     ||name==='clientes'||name.indexOf('cli:')===0) return 'vendas';
   if(name==='revgeral'||name==='revlist'||name.indexOf('rev:')===0) return 'revendedoras';
   return 'estoque';
 }
@@ -2427,6 +2461,11 @@ function switchTab(name){
     document.getElementById('view-vendas-painel').classList.add('active');
     renderVendasPainel();
     carregarPainelVendas().then(renderVendasPainel);
+  }
+  else if(name==='vendas-saidas'){
+    document.getElementById('view-vendas-saidas').classList.add('active');
+    renderSaidas();
+    carregarSaidas().then(renderSaidas);
   }
   else if(name==='clientes'){
     document.getElementById('view-clientes').classList.add('active');
@@ -2521,6 +2560,11 @@ function renderTabs(){
     navSub.innerHTML=`
       <button class="tab ${tabAtual==='vendas'?'active':''}" onclick="switchTab('vendas')">Lançamentos</button>
       <button class="tab ${tabAtual==='vendas-painel'?'active':''}" onclick="switchTab('vendas-painel')">Painel</button>
+      <!-- §30: a peça que saiu e NÃO foi vendida tem lugar próprio. Fica ao
+           lado de Lançamentos porque é a mesma pergunta ("para onde foi a
+           peça?") com outra resposta — e porque escondê-la em Estoque faria
+           quem procura o brinde do Dia das Mães procurar em Vendas. -->
+      <button class="tab ${tabAtual==='vendas-saidas'?'active':''}" onclick="switchTab('vendas-saidas')">Saídas sem faturamento</button>
       <button class="tab ${tabAtual==='clientes'||tabAtual.indexOf('cli:')===0?'active':''}" onclick="switchTab('clientes')">Clientes${
         nCli?`<span class="count">${nCli}</span>`:''}</button>`;
   } else {
@@ -6953,6 +6997,38 @@ async function abrirFecharVenda(){
       <input id="vd-data" type="date" max="${hoje()}" value="${hoje()}" onchange="ecoDataVenda()">
       <div class="hint" id="vd-data-eco" style="margin-top:6px"></div>
     </div>
+    <!-- §29: PAGO ou NÃO PAGO, e a data em que o dinheiro entrou.
+         O padrão é PAGO porque é o que a venda de balcão é quase sempre;
+         mudar o padrão abriria uma conta a receber em toda venda de quem
+         não mexeu em nada. Marcar NÃO PAGO é o que cria "A Receber" — e
+         quando ela for paga, o valor entra no faturamento do mês do
+         PAGAMENTO, não no da venda. -->
+    <div class="field">
+      <label>Pagamento</label>
+      <div class="seg" id="vd-pago-seg">
+        <button type="button" class="on" id="vd-pago-sim" onclick="setPagoVenda(true)">PAGO</button>
+        <button type="button" id="vd-pago-nao" onclick="setPagoVenda(false)">NÃO PAGO</button>
+      </div>
+      <div class="hint" id="vd-pago-eco" style="margin-top:6px"></div>
+    </div>
+    <div class="field" id="vd-pagto-campo">
+      <label for="vd-data-pagto">Data do pagamento</label>
+      <input id="vd-data-pagto" type="date" max="${hoje()}" value="${hoje()}" onchange="ecoPagoVenda()">
+      <div class="hint" style="margin-top:6px">É esta data que decide em qual mês
+        o dinheiro entra — não a data da venda.</div>
+    </div>
+    <!-- §13.1 do pacote: onde a venda aconteceu, com as palavras dela.
+         "Maleta", "Feira", "Grupo VIP", "Instagram" — o mesmo texto que ela
+         escrevia na coluna de observação da planilha. -->
+    <div class="field">
+      <label for="vd-obs">Observação</label>
+      <input id="vd-obs" list="vd-obs-sugestoes" maxlength="120"
+             placeholder="Maleta, Feira, Grupo VIP, Instagram, condição especial…">
+      <datalist id="vd-obs-sugestoes">
+        ${['Maleta','Feira','Grupo VIP','Instagram','WhatsApp','Condição especial']
+          .map(o=>`<option value="${o}">`).join('')}
+      </datalist>
+    </div>
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeVenda()">Voltar</button>
       <div class="spacer"></div>
@@ -6960,11 +7036,51 @@ async function abrirFecharVenda(){
     </div>`;
 
   pintarCarrinho();
+  vdPago=true;
+  ecoPagoVenda();
   document.getElementById('vendaOverlay').classList.add('show');
   setTimeout(()=>document.getElementById('vd-cliente').focus(),80);
   vdClientes=[];
   document.getElementById('vd-cliente-eco').textContent='';
   buscarClienteVenda('');
+}
+
+/* §29 — a situação do pagamento, escolhida no fechamento.
+ *
+ * `vdPago` mora aqui e não num `checked` de input porque o modal é
+ * reconstruído a cada abertura: um estado guardado só no DOM voltaria ao
+ * padrão de forma invisível, e a venda seguinte sairia paga sem ninguém ter
+ * escolhido isso. */
+let vdPago=true;
+
+function setPagoVenda(pago){
+  vdPago=!!pago;
+  ecoPagoVenda();
+}
+
+/** O que a tela diz depois da escolha, antes de confirmar — e não depois.
+ *  A frase é sobre o FATURAMENTO, porque é isso que a escolha decide. */
+function ecoPagoVenda(){
+  const sim=document.getElementById('vd-pago-sim');
+  const nao=document.getElementById('vd-pago-nao');
+  const campo=document.getElementById('vd-pagto-campo');
+  const eco=document.getElementById('vd-pago-eco');
+  if(!sim||!nao) return;
+  sim.classList.toggle('on',vdPago);
+  nao.classList.toggle('on',!vdPago);
+  if(campo) campo.hidden=!vdPago;
+  if(!eco) return;
+  if(!vdPago){
+    eco.innerHTML='Entra em <b>A Receber</b>. Não conta no faturamento enquanto não for paga — '
+      +'quando for, o valor entra no mês do pagamento.';
+    return;
+  }
+  const dv=(document.getElementById('vd-data')||{}).value||hoje();
+  const dp=(document.getElementById('vd-data-pagto')||{}).value||hoje();
+  eco.innerHTML=dp===dv
+    ? 'Entra no faturamento de <b>'+fmtData(dp)+'</b>.'
+    : 'Venda de <b>'+fmtData(dv)+'</b>, dinheiro em <b>'+fmtData(dp)+'</b> — '
+      +'o faturamento é do mês do pagamento.';
 }
 
 /* =================== o preço de UMA peça nesta venda ===================
@@ -7258,8 +7374,16 @@ async function confirmarVenda(){
        cliente de sempre em vez de abrir uma segunda com o mesmo nome. */
     const escolhida=clienteEscolhidaNaVenda(nome);
     const dataVenda=(document.getElementById('vd-data')||{}).value||hoje();
+    /* §29: a data do pagamento só viaja quando a venda É paga. Numa venda
+       não paga ela não existe ainda — e o servidor recusa a combinação, de
+       propósito: um campo preenchido ali significaria um pagamento que não
+       aconteceu. */
+    const dataPagto=(document.getElementById('vd-data-pagto')||{}).value||dataVenda;
+    const obs=String((document.getElementById('vd-obs')||{}).value||'').trim();
     const r=await api('POST','/api/vendas',
-      {clienteNome:nome, clienteId:escolhida?escolhida.id:undefined, itens, data:dataVenda});
+      {clienteNome:nome, clienteId:escolhida?escolhida.id:undefined, itens, data:dataVenda,
+       pago:vdPago, dataPagamento:vdPago?dataPagto:undefined,
+       observacao:obs||undefined});
     document.getElementById('vendaOverlay').classList.remove('show');
     document.getElementById('scanOverlay').classList.remove('show');
     scan=null;
@@ -7273,7 +7397,11 @@ async function confirmarVenda(){
     toast((r.nuvemshop&&r.nuvemshop.status==='sincronizada'
       ?`Venda registrada e baixada na Nuvemshop · ${money(r.total)}`
       :`Venda registrada · Nuvemshop pendente: ${r.nuvemshop?.erro||'tente novamente na lista'}`)
-      +(dataVenda===hoje()?'':` · lançada em ${fmtData(dataVenda)}`));
+      +(dataVenda===hoje()?'':` · lançada em ${fmtData(dataVenda)}`)
+      /* §29 dito no toast: o destino do dinheiro é a coisa que ela mais
+         precisa conferir logo depois de fechar a venda. */
+      +(r.pago===false?` · A RECEBER ${money(r.aReceber)}`
+        :(r.dataPagamento&&r.dataPagamento!==dataVenda?` · pago em ${fmtData(r.dataPagamento)}`:'')));
   }catch(e){
     btn.disabled=false;
     toast(e.message);
@@ -7281,8 +7409,33 @@ async function confirmarVenda(){
 }
 
 async function carregarVendas(data){
-  try{ vendas=await api('GET','/api/vendas?data='+(data||hoje())); }
+  const d=data||hoje();
+  try{ vendas=await api('GET','/api/vendas?data='+d); }
   catch(e){ vendas=[]; toast(e.message); }
+  /* §32 — o dia inteiro, não só as vendas do sistema.
+     A lista por data mostrava metade do que aconteceu: a linha da planilha,
+     o acerto da revendedora, a maleta que saiu e o brinde ficavam de fora, e
+     quem procurava "a venda do dia 28" concluía que ela não tinha entrado.
+     A falha desta chamada NÃO derruba a tela: a lista de vendas continua
+     valendo, e o bloco consolidado simplesmente não aparece. */
+  try{ vendasDia=await api('GET','/api/vendas/dia?data='+d); }
+  catch(e){ vendasDia=null; }
+}
+let vendasDia=null;
+
+/** §29 — o dinheiro de uma venda "A Receber" entrou. Não mexe em estoque:
+ *  a peça saiu quando a venda foi registrada. */
+async function marcarVendaPaga(id,total){
+  const d=prompt(`Quando o pagamento de ${money(total)} entrou?\n\n`
+    +`É esta data que decide em qual mês o valor entra no faturamento —\n`
+    +`a data da venda não muda.`,hoje());
+  if(d===null) return;
+  const dataPagamento=String(d).trim()||hoje();
+  try{
+    const r=await api('POST',`/api/vendas/${id}/pagamento`,{dataPagamento});
+    await carregarVendas(vendasData); renderVendas();
+    toast(`Pagamento registrado em ${fmtData(r.dataPagamento)} · faturamento de ${fmtData(r.dataPagamento)} · estoque intocado`);
+  }catch(e){ toast(e.message||'Não consegui registrar o pagamento'); }
 }
 
 async function cancelarVenda(id){
@@ -7328,6 +7481,9 @@ function renderVendas(){
   const total=vivas.reduce((s,x)=>s+x.total,0);
   const pecas=vivas.reduce((s,x)=>s+x.itens.reduce((a,i)=>a+i.qtd,0),0);
   const balcao=vivas.filter(x=>x.origem==='balcao');
+  /* §29: vendido e recebido deixaram de ser o mesmo número. O cartão diz os
+     dois, porque no dia em que eles diferem é a diferença que importa. */
+  const aReceber=vivas.reduce((s,x)=>s+(x.pago===false?Number(x.aReceber||x.total):0),0);
   const pendentesNuvemshop=vendas.filter(x=>!x.cancelada&&x.origem!=='site'&&
     ['nao_enviada','erro','pendente','cancelamento_pendente','revisao'].includes(x.nuvemshopStatus));
 
@@ -7348,6 +7504,11 @@ function renderVendas(){
         <div class="k-num">${vivas.length-balcao.length}</div>
         <div class="k-sub">Peças que a revendedora não devolveu</div>
       </div>
+      ${aReceber?`<div class="kpi k-pend">
+        <div class="k-lbl">A receber deste dia</div>
+        <div class="k-num small">${money(aReceber)}</div>
+        <div class="k-sub">ainda fora do faturamento — entra no mês em que for pago</div>
+      </div>`:''}
     </div>
 
     <div class="panel">
@@ -7389,9 +7550,22 @@ function renderVendas(){
                 <div class="d2 vd-eco"><s>${money(i.precoTabela)}</s> → <b>${money(i.preco)}</b>
                   <span class="vd-tag">${esc(i.descontoRotulo)}</span>
                   <span class="vd-abate">${esc(i.desc)}</span></div>`).join('')}
+              ${/* §13.1: a observação escrita no fechamento — "Maleta",
+                    "Feira", "Grupo VIP". É o mesmo texto que ela punha na
+                    coluna de observação da planilha, e some se não aparecer
+                    aqui. */
+                x.observacao?`<div class="d2"><b>${esc(x.observacao)}</b></div>`:''}
               ${x.nuvemshopErro?`<div class="d2" style="color:var(--red)">${esc(x.nuvemshopErro)}</div>`:''}
             </div>
-            <div class="i-num"><b>${money(x.total)}</b></div>
+            <div class="i-num"><b>${money(x.total)}</b>
+              ${/* §29: pago e a receber deixam de ser indistinguíveis na
+                    lista — e o selo diz a DATA em que o dinheiro entrou,
+                    que é o que decide o mês do faturamento. */
+                x.pago===false?`<span class="badge vencida" style="margin-top:4px;display:inline-block">A RECEBER</span>`
+                :(x.dataPagamento&&x.dataPagamento!==x.data
+                  ?`<span class="hint" style="display:block">pago em ${fmtData(x.dataPagamento)}</span>`:'')}</div>
+            ${(!x.cancelada&&x.pago===false)?`<button class="btn btn-gold btn-sm"
+              onclick="marcarVendaPaga(${x.id},${Number(x.total)})">Marcar pago</button>`:''}
             ${(!x.cancelada&&x.origem==='balcao')?`<button class="btn btn-ghost btn-sm" onclick="cancelarVenda(${x.id})">Cancelar</button>`:''}
           </div>`).join('')
         :`<div class="empty" style="padding:40px 16px">
@@ -7400,7 +7574,300 @@ function renderVendas(){
             <button class="btn btn-gold" style="margin-top:14px" onclick="novaVenda()">+ Nova venda</button>
           </div>`}
       </div>
+    </div>
+    ${blocoHistoricoDoDia()}`;
+}
+
+/** §32 — tudo o que aconteceu comercialmente naquela data.
+ *
+ *  A lista acima é das vendas do SISTEMA. Este bloco é o dia inteiro: a
+ *  linha que veio da planilha, o acerto da revendedora, a maleta que saiu e
+ *  a saída sem faturamento. Cada linha diz de onde veio, e o servidor já
+ *  garantiu que nenhuma aparece duas vezes.
+ *
+ *  Nem tudo aqui é venda — e é exatamente por isso que o bloco existe
+ *  separado, com a coluna de valor VAZIA no que não é dinheiro. Somar
+ *  consignação e brinde no "vendido no dia" seria repetir, com outra cara,
+ *  o erro que §30 corrigiu. */
+function blocoHistoricoDoDia(){
+  if(!vendasDia||!vendasDia.itens) return '';
+  const outras=vendasDia.itens.filter(i=>!i.vendaId);
+  if(!outras.length) return '';
+  const r=vendasDia.resumo||{};
+  return `
+    <div class="panel">
+      <div class="head">
+        <h2>Também aconteceu em ${fmtData(vendasDia.data)}</h2>
+        <span class="hint">Planilha, acerto de revendedora, maleta e saídas sem faturamento</span>
+      </div>
+      <div class="body" style="padding:0">
+        ${outras.map(i=>`
+          <div class="invrow">
+            <div class="i-desc">
+              <div class="d1">${esc(i.produto||i.sku||'—')}
+                <span class="badge ${i.ehVenda?'ok':'fechada'}" style="margin-left:6px">${esc(i.origem)}</span>
+                ${i.ehVenda?'':'<span class="badge" style="margin-left:6px">não é venda</span>'}</div>
+              <div class="d2"><code>${esc(i.sku||'—')}</code> ·
+                ${fmtN(i.qtd)} ${plural(Math.abs(i.qtd),'peça','peças')}
+                ${i.cliente?' · '+esc(i.cliente):''}${i.revendedora?' · '+esc(i.revendedora):''}</div>
+              ${i.observacao?`<div class="d2">${esc(i.observacao)}</div>`:''}
+              ${/* §29 outra vez: quando a venda foi paga em outro dia, a
+                    linha diz as duas datas em vez de esconder uma. */
+                i.dataPagamento&&i.dataPagamento!==i.data
+                  ?`<div class="d2">pago em ${fmtData(i.dataPagamento)}</div>`:''}
+            </div>
+            <div class="i-num">${i.valor==null?'<span class="hint">sem valor</span>':`<b>${money(i.valor)}</b>`}</div>
+          </div>`).join('')}
+      </div>
+      <div class="body" style="border-top:1px solid var(--line-soft)">
+        <span class="hint">${fmtN(r.linhas||0)} ${plural(r.linhas||0,'movimentação','movimentações')} no dia ·
+          ${fmtN(r.vendas||0)} ${plural(r.vendas||0,'é venda','são vendas')} ·
+          ${fmtN(r.semFaturamento||0)} sem faturamento ·
+          <b>${money(r.recebidoNoDia||0)}</b> entrou no caixa <b>neste dia</b>
+          (venda de outro dia paga hoje conta aqui; venda de hoje paga depois, não).</span>
+      </div>
     </div>`;
+}
+
+/* =================== Vendas · Saídas sem faturamento ===================
+
+   §30. A peça saiu do estoque e NÃO foi vendida.
+
+   O sistema assumia "saiu do estoque = venda". Brinde do Dia das Mães,
+   retirada pessoal e diferença de inventário entravam como CLIENTE e como
+   VENDA — e cada uma delas inflava faturamento, ticket médio, peças
+   vendidas e o ranking de clientes com dinheiro que nunca existiu.
+
+   A tela não inventa linguagem nova: usa `.kpi`, `.panel` e `.invrow`, os
+   mesmos da lista de vendas. É a mesma pergunta ("para onde foi a peça?")
+   com outra resposta, e a semelhança visual é o que diz isso.
+
+   Corrigir aqui é ESTORNAR, nunca apagar: o estoque volta e a linha fica,
+   dizendo o que houve e por que foi desfeito. */
+
+const SAIDA_TIPOS=[
+  {v:'brinde',      r:'Brinde',                      ex:'Dia das Mães, festa junina, ação promocional'},
+  {v:'uso_proprio', r:'Uso próprio',                 ex:'retirada pessoal'},
+  {v:'perda',       r:'Diferença de inventário / Perda', ex:'PERDIDO, diferença sem origem conhecida'},
+];
+const saidaRotulo=(t)=>(SAIDA_TIPOS.find(x=>x.v===t)||{}).r||t;
+
+let saidasDados=null;
+let saidasFiltro='';        /* '' = todos os tipos */
+
+async function carregarSaidas(){
+  try{
+    const q=saidasFiltro?('?tipo='+encodeURIComponent(saidasFiltro)):'';
+    saidasDados=await api('GET','/api/saidas'+q);
+  }catch(e){ saidasDados={erro:e.message||'Não consegui carregar', status:e.status}; }
+  return saidasDados;
+}
+
+function setSaidaFiltro(t){ saidasFiltro=t; renderSaidas(); carregarSaidas().then(renderSaidas); }
+
+function renderSaidas(){
+  const v=document.getElementById('view-vendas-saidas');
+  if(!v) return;
+  if(!saidasDados){ v.innerHTML=`<div class="panel"><div class="body"><div class="empty"><h3>Carregando…</h3></div></div></div>`; return; }
+  if(saidasDados.erro){ v.innerHTML=avisoBackendAntigo(saidasDados); return; }
+
+  const linhas=saidasDados.saidas||[];
+  const r=saidasDados.resumo||{brinde:0,uso_proprio:0,perda:0,total:0,estornadas:0};
+
+  v.innerHTML=`
+    <div class="kpis">
+      <div class="kpi k-casa">
+        <div class="k-lbl">Brinde</div>
+        <div class="k-num">${fmtN(r.brinde||0)}</div>
+        <div class="k-sub">peças que saíram sem virar venda</div>
+      </div>
+      <div class="kpi k-rev">
+        <div class="k-lbl">Uso próprio</div>
+        <div class="k-num">${fmtN(r.uso_proprio||0)}</div>
+        <div class="k-sub">retiradas pessoais</div>
+      </div>
+      <div class="kpi k-val">
+        <div class="k-lbl">Inventário / Perda</div>
+        <div class="k-num">${fmtN(r.perda||0)}</div>
+        <div class="k-sub">diferença de contagem</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="head">
+        <h2>Saídas sem faturamento</h2>
+        <span class="hint">Baixam estoque · não são venda · não entram em faturamento nem no ranking</span>
+      </div>
+      <div class="body" style="padding:14px 20px">
+        <div class="actbar" style="margin:0">
+          <div class="seg">
+            <button class="${saidasFiltro===''?'on':''}" onclick="setSaidaFiltro('')">Todas</button>
+            ${SAIDA_TIPOS.map(t=>`<button class="${saidasFiltro===t.v?'on':''}"
+              onclick="setSaidaFiltro('${t.v}')">${t.r}</button>`).join('')}
+          </div>
+          <div class="spacer"></div>
+          <button class="btn btn-gold btn-sm" onclick="openSaidaForm()">+ Registrar saída</button>
+        </div>
+      </div>
+      <div class="body" style="padding:0;border-top:1px solid var(--line-soft)">
+        ${linhas.length?linhas.map(s=>`
+          <div class="invrow ${s.estornada?'feito':''}">
+            <div class="i-desc">
+              <div class="d1">${esc(s.produto||s.sku)}
+                <span class="badge ${s.tipo==='perda'?'vencida':'fechada'}" style="margin-left:6px">${esc(s.tipoRotulo||saidaRotulo(s.tipo))}</span>
+                ${s.sentido==='entrada'?'<span class="badge ok" style="margin-left:6px">sobra</span>':''}
+                ${s.estornada?'<span class="badge vencida" style="margin-left:6px">estornada</span>':''}</div>
+              <div class="d2"><code>${esc(s.sku)}</code> · ${fmtData(s.data)} ·
+                ${s.sentido==='entrada'?'+':'−'}${fmtN(s.qtd)} ${plural(s.qtd,'peça','peças')}
+                ${s.variacao?' · '+esc(s.variacao):''}</div>
+              ${(s.motivo||s.observacao)?`<div class="d2">${esc([s.motivo,s.observacao].filter(Boolean).join(' · '))}</div>`:''}
+              ${s.estornada?`<div class="d2" style="color:var(--red)">Estornada em ${fmtData(String(s.estornoEm||'').slice(0,10))}${
+                s.estornoMotivo?' · '+esc(s.estornoMotivo):''}</div>`:''}
+            </div>
+            <div class="i-num"><b>${s.sentido==='entrada'?'+':'−'}${fmtN(s.qtd)}</b></div>
+            ${s.estornada?'':`<button class="btn btn-ghost btn-sm" onclick="estornarSaida(${s.id})">Estornar</button>`}
+          </div>`).join('')
+        :`<div class="empty" style="padding:40px 16px">
+            <h3>Nenhuma saída registrada${saidasFiltro?' deste tipo':''}</h3>
+            <p>Brinde, retirada pessoal e diferença de inventário entram aqui — e ficam
+               fora do faturamento, do ticket médio e do ranking de clientes.</p>
+            <button class="btn btn-gold" style="margin-top:14px" onclick="openSaidaForm()">+ Registrar saída</button>
+          </div>`}
+      </div>
+      ${r.estornadas?`<div class="body" style="border-top:1px solid var(--line-soft)">
+        <span class="hint">${fmtN(r.estornadas)} ${plural(r.estornadas,'saída estornada continua','saídas estornadas continuam')}
+          na lista de propósito: corrigir não apaga o que aconteceu.</span></div>`:''}
+    </div>`;
+}
+
+/** O formulário. Mora num overlay igual ao de venda e ao de cliente — não é
+ *  um componente novo, é o mesmo modal com outros campos. */
+function openSaidaForm(){
+  const o=document.getElementById('saidaOverlay');
+  document.getElementById('saidaBody').innerHTML=`
+    <div class="field">
+      <label for="sd-tipo">O que aconteceu <span class="req">*</span></label>
+      <select id="sd-tipo" onchange="ecoSaidaTipo()">
+        ${SAIDA_TIPOS.map(t=>`<option value="${t.v}">${t.r}</option>`).join('')}
+      </select>
+      <div class="hint" id="sd-tipo-eco" style="margin-top:6px"></div>
+    </div>
+    <div class="two">
+      <div class="field">
+        <label for="sd-sku">Código da peça <span class="req">*</span></label>
+        <input id="sd-sku" list="sd-skus" autocomplete="off" placeholder="Bipe ou escreva o código"
+               oninput="ecoSaidaSku()">
+        <datalist id="sd-skus"></datalist>
+        <div class="hint" id="sd-sku-eco" style="margin-top:6px"></div>
+      </div>
+      <div class="field">
+        <label for="sd-qtd">Quantidade <span class="req">*</span></label>
+        <input id="sd-qtd" type="number" min="1" step="1" value="1">
+      </div>
+    </div>
+    <div class="two">
+      <div class="field">
+        <label for="sd-data">Data</label>
+        <input id="sd-data" type="date" max="${hoje()}" value="${hoje()}">
+      </div>
+      <div class="field" id="sd-sentido-campo" hidden>
+        <label for="sd-sentido">Direção</label>
+        <select id="sd-sentido">
+          <option value="saida">Faltou peça (baixa do estoque)</option>
+          <option value="entrada">Sobrou peça (devolve ao estoque)</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="sd-motivo">Motivo</label>
+      <input id="sd-motivo" maxlength="60" placeholder="Dia das Mães, Festa Junina, uso pessoal…">
+    </div>
+    <div class="field">
+      <label for="sd-obs">Observação</label>
+      <input id="sd-obs" maxlength="200" placeholder="PERDIDO, não foi possível identificar a origem…">
+      <!-- A mesma regra do desconto na venda (§27): saída sem nenhuma
+           explicação é indistinguível de erro de lançamento seis meses
+           depois, e o servidor recusa. A tela diz isso antes. -->
+      <div class="hint" style="margin-top:6px">Diga o motivo <b>ou</b> escreva uma observação —
+        saída sem explicação não se audita depois.</div>
+    </div>
+    <div class="vd-erro" id="sd-erro" hidden></div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeSaidaForm()">Voltar</button>
+      <div class="spacer"></div>
+      <button class="btn btn-gold" id="sdConfirm" onclick="salvarSaida()">Registrar saída</button>
+    </div>`;
+  /* O catálogo já está na memória da tela — o autocompletar não precisa de
+     uma requisição para existir. */
+  const dl=document.getElementById('sd-skus');
+  if(dl) dl.innerHTML=(state.produtos||[]).slice(0,400)
+    .map(p=>`<option value="${esc(p.sku)}" label="${esc(p.sku)} — ${esc(p.desc||'')}">`).join('');
+  ecoSaidaTipo();
+  o.classList.add('show');
+  setTimeout(()=>document.getElementById('sd-sku').focus(),80);
+}
+function closeSaidaForm(){ document.getElementById('saidaOverlay').classList.remove('show'); }
+
+function ecoSaidaTipo(){
+  const t=(document.getElementById('sd-tipo')||{}).value;
+  const eco=document.getElementById('sd-tipo-eco');
+  const campo=document.getElementById('sd-sentido-campo');
+  const d=SAIDA_TIPOS.find(x=>x.v===t);
+  if(eco) eco.innerHTML=d?`${esc(d.ex)} · <b>não vira venda, não vira cliente, não entra no faturamento</b>`:'';
+  /* Só a diferença de inventário pode SOMAR peça — brinde e uso próprio
+     sempre saem, e mostrar a opção neles seria oferecer um caminho que o
+     servidor recusa. */
+  if(campo) campo.hidden=t!=='perda';
+}
+function ecoSaidaSku(){
+  const sku=String((document.getElementById('sd-sku')||{}).value||'').trim().toUpperCase();
+  const eco=document.getElementById('sd-sku-eco');
+  if(!eco) return;
+  if(!sku){ eco.textContent=''; return; }
+  const p=(state.produtos||[]).find(x=>String(x.sku).toUpperCase()===sku);
+  eco.innerHTML=p?`<b>${esc(p.desc||sku)}</b> · ${fmtN(p.qtd)} em estoque`
+    :`<span style="color:var(--red)">${esc(sku)} não está no catálogo</span>`;
+}
+
+async function salvarSaida(){
+  const erro=document.getElementById('sd-erro');
+  const dizer=m=>{ if(erro){ erro.textContent=m; erro.hidden=false; } };
+  const val=k=>String((document.getElementById(k)||{}).value||'').trim();
+  const tipo=val('sd-tipo');
+  const corpo={
+    tipo,
+    sku:val('sd-sku').toUpperCase(),
+    qtd:+val('sd-qtd')||0,
+    data:val('sd-data')||hoje(),
+    motivo:val('sd-motivo'),
+    observacao:val('sd-obs'),
+    sentido:tipo==='perda'?(val('sd-sentido')||'saida'):'saida',
+  };
+  if(!corpo.sku) return dizer('Diga qual é a peça.');
+  if(!(corpo.qtd>0)) return dizer('A quantidade tem que ser maior que zero.');
+  if(!corpo.motivo&&!corpo.observacao) return dizer('Diga o motivo ou escreva uma observação.');
+
+  const btn=document.getElementById('sdConfirm');
+  btn.disabled=true;
+  try{
+    const r=await api('POST','/api/saidas',corpo);
+    closeSaidaForm();
+    await sincronizar();
+    await carregarSaidas(); renderSaidas();
+    toast(`${saidaRotulo(tipo)} registrado · estoque de ${r.estoque.sku}: ${r.estoque.antes} → ${r.estoque.depois} · sem faturamento`);
+  }catch(e){ btn.disabled=false; dizer(e.message||'Não consegui registrar'); }
+}
+
+async function estornarSaida(id){
+  const motivo=prompt('Por que está estornando?\n\nA peça volta para o estoque e a linha continua no histórico, dizendo o que houve.');
+  if(motivo===null) return;
+  if(!String(motivo).trim()) return toast('Diga o motivo do estorno');
+  try{
+    const r=await api('POST',`/api/saidas/${id}/estornar`,{motivo:String(motivo).trim()});
+    await sincronizar();
+    await carregarSaidas(); renderSaidas();
+    toast(`Estornada · estoque de ${r.estoque.sku}: ${r.estoque.antes} → ${r.estoque.depois}`);
+  }catch(e){ toast(e.message||'Não consegui estornar'); }
 }
 
 /* =================== Vendas · Painel (inteligência comercial) ===================
@@ -7476,6 +7943,89 @@ function segPeriodo(atual,fn){
    compra. O que desceu para "Ver detalhes" continua inteiro, calculado
    pelo mesmo recorte — nada foi apagado, e §9 exige que isso esteja
    escrito, e não subentendido. */
+
+/** §31 — "Peças em reparo" no Painel.
+ *
+ *  Só o que ainda pede alguma coisa de alguém: em reparo, pronta esperando
+ *  entrega, ou sem conserto aguardando a troca. Caso encerrado SAI daqui e
+ *  continua inteiro no histórico da cliente — um painel que acumula tudo o
+ *  que já aconteceu deixa de ser lista de trabalho.
+ *
+ *  O prazo é de 45 dias úteis, e os dias vêm calculados do servidor: sábado
+ *  e domingo nunca contam; feriado conta quando cadastrado, e a tela DIZ
+ *  quando ele não entrou na conta em vez de fingir precisão que não tem. */
+function blocoPecasEmReparo(r){
+  if(!r) return '';
+  if(!r.total) return '';
+  return `
+    <div class="panel">
+      <div class="head">
+        <h2>Peças em reparo</h2>
+        <span class="hint">${fmtN(r.total)} ${plural(r.total,'caso pendente','casos pendentes')}${
+          r.atrasadas?` · <b style="color:var(--red)">${fmtN(r.atrasadas)} fora do prazo</b>`:''}</span>
+      </div>
+      <div class="body" style="padding:0">
+        ${r.itens.map(g=>`
+          <div class="invrow ${g.atrasado?'':''}" style="cursor:pointer"
+               onclick="abrirGarantiaDetalhe(${g.id})">
+            <div class="i-desc">
+              <div class="d1">${esc(g.clienteNome||'cliente não identificada')}
+                <span class="badge ${g.status==='sem_conserto'?'vencida':(g.status==='reparada'?'ok':'fechada')}"
+                      style="margin-left:6px">${esc(g.statusRotulo)}</span>
+                ${g.atrasado?`<span class="badge vencida" style="margin-left:6px">atrasada ${fmtN(g.atrasoDiasUteis)} ${plural(g.atrasoDiasUteis,'dia útil','dias úteis')}</span>`:''}</div>
+              <div class="d2"><code>${esc(g.sku)}</code> ${esc(g.produtoNome||'')} ·
+                entrada ${fmtData(g.dataEntrada)} ·
+                prazo ${g.previsaoRetorno?fmtData(g.previsaoRetorno):'—'}</div>
+              <div class="d2">${fmtN(g.diasUteisDecorridos)} ${plural(g.diasUteisDecorridos,'dia útil decorrido','dias úteis decorridos')} ·
+                ${fmtN(g.diasUteisRestantes)} ${plural(g.diasUteisRestantes,'restante','restantes')} de ${fmtN(g.prazoDiasUteis)}</div>
+              ${g.motivo?`<div class="d2">${esc(g.motivo)}</div>`:''}
+            </div>
+            <div class="i-num">${g.valorPagoOriginal!=null?`<b>${money(g.valorPagoOriginal)}</b>
+              <span class="hint" style="display:block">pago na compra</span>`:'<span class="hint">valor não registrado</span>'}</div>
+          </div>`).join('')}
+      </div>
+      <div class="body" style="border-top:1px solid var(--line-soft)">
+        <span class="hint">Prazo de 45 dias úteis. Sábado e domingo nunca contam.
+          ${r.consideraFeriados?'Feriados cadastrados também são descontados.'
+            :'<b>Feriados não estão cadastrados</b> — a conta usa só o fim de semana.'}
+          Casos encerrados saem daqui e continuam no histórico da cliente.</span>
+      </div>
+    </div>`;
+}
+
+/** §30 — o que saiu do estoque no mês e NÃO é venda.
+ *
+ *  Está no Painel de propósito: é o número que EXPLICA a diferença entre
+ *  "saiu do estoque" e "foi vendido". Sem ele, a diferença vira suspeita de
+ *  furo — e foi tentando explicá-la que essas saídas viraram vendas falsas
+ *  na planilha, que é o defeito que §30 corrigiu. */
+function blocoSaidasSemFaturamento(s){
+  if(!s||!s.pecas) return '';
+  const t=s.porTipo||{};
+  const linha=(k,rotulo)=>t[k]?`<div class="rkrow">
+      <span class="rk-pos" style="background:var(--rose)"></span>
+      <div class="rk-mid"><div class="rk-nm">${rotulo}</div></div>
+      <div class="rk-vl"><b>${fmtN(t[k].pecas)}</b><span>peças</span></div></div>`:'';
+  return `
+    <div class="panel">
+      <div class="head">
+        <h2>Saiu do estoque e não foi venda</h2>
+        <span class="hint">${fmtN(s.pecas)} ${plural(s.pecas,'peça','peças')} em ${esc(s.mes)}</span>
+      </div>
+      <div class="body">
+        <div class="rank">
+          ${linha('brinde','Brinde')}
+          ${linha('uso_proprio','Uso próprio')}
+          ${linha('perda','Diferença de inventário / Perda')}
+        </div>
+        <div class="hint" style="margin-top:12px">${esc(s.regra)}</div>
+        <div class="actbar" style="margin-top:12px">
+          <div class="spacer"></div>
+          <button class="btn btn-ghost btn-sm" onclick="switchTab('vendas-saidas')">Ver as saídas</button>
+        </div>
+      </div>
+    </div>`;
+}
 
 function renderVendasPainel(){
   const v=document.getElementById('view-vendas-painel');
@@ -7555,6 +8105,10 @@ function renderVendasPainel(){
     ${blocoEvolucao(painelVendas.evolucao,comp.vendasSemData)}
 
     ${blocoContasReceber(painelVendas.contasReceber)}
+
+    ${blocoPecasEmReparo(painelVendas.pecasEmReparo)}
+
+    ${blocoSaidasSemFaturamento(painelVendas.saidasSemFaturamento)}
 
     ${detalhesDoPainel()}
 
@@ -8272,9 +8826,17 @@ function classeRelacao(r){
 
 /* ---------------- perfil individual ---------------- */
 
+/* O norm da ficha ABERTA agora. Existe por causa de §12: renomear a cliente
+   muda o nome normalizado, e a tela navega por `cli:<norm>` — sem guardar o
+   valor corrente, reabrir a ficha depois de salvar levaria ao norm antigo e
+   mostraria uma ficha vazia logo depois de uma edição bem-sucedida. */
+let perfilNormAtual=null;
+let perfilAtual=null;
+
 async function abrirPerfilCliente(norm){
   const v=document.getElementById('view-cliente');
   v.innerHTML=blocoCarregando('Abrindo o perfil…');
+  perfilNormAtual=norm;
   let p;
   try{ p=await api('GET','/api/clientes/perfil?norm='+encodeURIComponent(decodeURIComponent(norm))); }
   catch(e){
@@ -8284,8 +8846,18 @@ async function abrirPerfilCliente(norm){
     </div></div></div>`;
     return;
   }
+  perfilAtual=p;
   const r=p.resumo, cad=p.cadastro||{};
   const contato=[cad.tel,cad.email,cad.instagram,cad.cidade].filter(Boolean);
+  /* §31: as garantias dela, indexadas pelo ITEM que as originou. A chave é
+     a mesma identidade que a garantia guarda no banco — (venda, código) do
+     lado do sistema, id da linha do lado da planilha. */
+  const garPorItem=new Map();
+  for(const g of (p.garantias||[])){
+    const k=g.historicoItemId!=null?('h:'+g.historicoItemId):('v:'+g.vendaId+':'+g.sku);
+    if(!garPorItem.has(k)) garPorItem.set(k,[]);
+    garPorItem.get(k).push(g);
+  }
 
   v.innerHTML=`
     <div class="panel">
@@ -8357,15 +8929,51 @@ async function abrirPerfilCliente(norm){
             ${v.observacao&&v.observacao!==v.canal?` · ${esc(v.observacao)}`:''}
             ${v.status&&v.status!=='paga'?` · <b>${esc(v.status.replace('_',' '))}</b>`:''}
             ${v.fonte==='historico'?' · histórico':' · venda do sistema'}</div>
-          ${v.itens&&v.itens.length?`<div class="tl-itens">${v.itens.map(i=>`
+          ${v.itens&&v.itens.length?`<div class="tl-itens">${v.itens.map(i=>{
+            /* §31: a garantia se pendura NO ITEM. A chave é a identidade
+               que o banco guarda — não o nome do produto, não o SKU
+               sozinho: a mesma cliente pode ter comprado o mesmo anel três
+               vezes, e é a compra que diz qual deles voltou. */
+            const chave=i.fonte==='historico'?('h:'+i.item_id):('v:'+v.id+':'+i.sku);
+            const gs=garPorItem.get(chave)||[];
+            const ctx={vendaId:v.id, historicoItemId:i.fonte==='historico'?i.item_id:null,
+              sku:i.sku, produto:i.nome, data:v.data, cliente:p.nomeExibicao,
+              valorPago:i.qtd>0?Math.round((Number(i.valor)/Number(i.qtd))*100)/100:Number(i.valor)};
+            return `
             <div class="tl-item"><span class="q">${i.qtd}×</span>
               <code>${esc(i.sku||'—')}</code>
               <span style="flex:1">${esc(i.nome||'—')}</span>
               <span>${money(i.valor)}</span>
-              ${Number(i.desconto_valor)>0?`<span class="tl-desconto">desconto ${money(i.desconto_valor)}${i.desconto_rotulo?` · ${esc(i.desconto_rotulo)}`:''}</span>`:''}</div>`).join('')}</div>`:''}
+              ${Number(i.desconto_valor)>0?`<span class="tl-desconto">desconto ${money(i.desconto_valor)}${i.desconto_rotulo?` · ${esc(i.desconto_rotulo)}`:''}</span>`:''}
+              ${(i.fonte==='historico'&&i.item_id==null)?'':`<button class="vd-lapis"
+                title="Registrar garantia ou reparo desta peça"
+                aria-label="Registrar garantia de ${esc(i.nome||i.sku||'')}"
+                onclick='openGarantia(${JSON.stringify(ctx).replace(/'/g,"&#39;")})'>${svgIco(ICO.brilho,14)}</button>`}</div>
+            ${gs.map(g=>`
+            <div class="tl-item" style="cursor:pointer;opacity:.92" onclick="abrirGarantiaDetalhe(${g.id})">
+              <span class="q">·</span>
+              <span style="flex:1">${fmtData(g.dataEntrada)} — garantia registrada${
+                g.motivo?': '+esc(g.motivo):''}</span>
+              <span class="badge ${g.status==='sem_conserto'?'vencida':(g.pendente?'fechada':'ok')}">${esc(g.statusRotulo)}</span></div>
+            ${g.troca?`<div class="tl-item" style="opacity:.92">
+              <span class="q">·</span>
+              <span style="flex:1">${fmtData(g.troca.data)} — troca: ${esc(g.sku)}
+                (${money(g.troca.valorOriginal)}) → ${esc(g.troca.skuNovo)} (${money(g.troca.valorNovo)}) ·
+                diferença ${money(g.troca.diferenca)}${
+                  g.troca.diferencaStatus==='paga'&&g.troca.diferencaPagaEm
+                    ? ' · paga em '+fmtData(g.troca.diferencaPagaEm)
+                    : (g.troca.diferencaStatus==='a_receber'?' · a receber':'')}</span></div>`:''}`).join('')}`;
+          }).join('')}</div>`:''}
           ${v.cobrancaStatus==='aberta'?`<div class="tl-cobranca">
-            <button class="nao-pago" ${v.operacaoId?'':'disabled title="Cobrança aguardando revisão"'}
-              onclick="marcarContaPaga(${v.operacaoId||0},${v.operacaoVersao||0},'${encodeURIComponent(p.norm||'')}','${encodeURIComponent(p.nomeExibicao||'Cliente')}',${Number(v.valorReceber||0)})">NÃO PAGO</button>
+            ${/* §29: a venda do SISTEMA em aberto passa a ter caminho próprio.
+                  Antes só a cobrança histórica tinha — a venda de balcão não
+                  paga era impossível de marcar como recebida daqui, porque
+                  ela nem existia como "não paga". */
+              v.fonte==='operacional'
+              ? `<button class="nao-pago"
+                   onclick="marcarVendaPagaDoPerfil(${v.id},${Number(v.valorReceber||0)})">NÃO PAGO</button>`
+              : `<button class="nao-pago" ${v.operacaoId?'':'disabled title="Cobrança aguardando revisão"'}
+              onclick="marcarContaPaga(${v.operacaoId||0},${v.operacaoVersao||0},'${encodeURIComponent(p.norm||'')}','${encodeURIComponent(p.nomeExibicao||'Cliente')}',${Number(v.valorReceber||0)})">NÃO PAGO</button>`}
             <span class="saldo">${money(v.valorReceber)}</span>
             <span class="hint">${v.vencimentoEm?`prazo ${fmtData(v.vencimentoEm)}`:'sem prazo definido'}</span>
           </div>`:v.cobrancaStatus==='paga'&&v.pagaEm?`<div style="margin-top:8px"><span class="pago-selo">PAGO em ${fmtData(String(v.pagaEm).slice(0,10))}</span></div>`:''}
@@ -8374,6 +8982,335 @@ async function abrirPerfilCliente(norm){
           de planilha: uma cliente que levou 36 peças no mesmo dia aparece uma vez.</div>`
       :`<div class="empty"><p>Sem compras registradas.</p></div>`)}`;
   window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* =================== Garantia / reparo ===================
+
+   §31. A garantia é do ITEM da compra — não do cliente, não do código.
+
+   Se a mesma cliente comprou o mesmo anel três vezes, prender a garantia ao
+   SKU perde qual compra a originou, e perde junto o valor que ela
+   EFETIVAMENTE pagou naquele dia. Esse valor é a base da diferença de uma
+   troca: usar o preço de tabela cobraria a mais de quem comprou com
+   desconto.
+
+   O que a garantia nunca faz, e a tela repete isso onde a decisão acontece:
+   não altera a venda original, não devolve a peça quebrada ao estoque
+   vendável, e não gera faturamento. Só a DIFERENÇA de uma troca, quando
+   paga, vira dinheiro — e pela data do pagamento. */
+
+const GAR_STATUS=[
+  {v:'em_reparo',    r:'Em reparo'},
+  {v:'reparada',     r:'Reparada · aguardando entrega'},
+  {v:'devolvida',    r:'Peça devolvida'},
+  {v:'sem_conserto', r:'Sem conserto · troca autorizada'},
+  {v:'concluida',    r:'Concluída'},
+];
+
+let garContexto=null;   /* o item da compra de onde a garantia foi aberta */
+let garAtual=null;      /* a garantia carregada no modal, quando é detalhe */
+
+function closeGarantia(){ document.getElementById('garOverlay').classList.remove('show'); }
+
+/** Abre o formulário JÁ SABENDO de qual item da compra ele fala. Nada aqui
+ *  é digitado de novo: cliente, venda, peça e valor pago vêm do item. */
+function openGarantia(ctx){
+  garContexto=ctx; garAtual=null;
+  document.getElementById('garTitulo').textContent='Registrar garantia / reparo';
+  document.getElementById('garBody').innerHTML=`
+    <div class="panel" style="box-shadow:none;margin:0 0 14px">
+      <div class="body" style="padding:12px 14px">
+        <div class="d1">${esc(ctx.produto||ctx.sku||'—')}</div>
+        <div class="hint" style="margin-top:4px">
+          <code>${esc(ctx.sku||'—')}</code> · compra de ${ctx.data?fmtData(ctx.data):'data não registrada'}
+          ${ctx.cliente?' · '+esc(ctx.cliente):''}</div>
+        <div class="hint" style="margin-top:4px">Valor efetivamente pago:
+          <b>${ctx.valorPago!=null?money(ctx.valorPago):'não registrado'}</b></div>
+      </div>
+    </div>
+    <div class="two">
+      <div class="field">
+        <label for="gr-entrada">Data de entrada <span class="req">*</span></label>
+        <input id="gr-entrada" type="date" max="${hoje()}" value="${hoje()}">
+      </div>
+      <div class="field">
+        <label for="gr-prazo">Prazo (dias úteis)</label>
+        <input id="gr-prazo" type="number" min="1" step="1" value="45">
+      </div>
+    </div>
+    <div class="field">
+      <label for="gr-motivo">Problema / motivo <span class="req">*</span></label>
+      <input id="gr-motivo" maxlength="160" placeholder="A pedra soltou, o banho descascou…">
+    </div>
+    <div class="field">
+      <label for="gr-obs">Observações</label>
+      <input id="gr-obs" maxlength="200" placeholder="O que mais precisa ficar registrado">
+    </div>
+    <div class="hint">Sábado e domingo não contam no prazo. Registrar a garantia
+      <b>não</b> altera esta compra, <b>não</b> devolve a peça ao estoque e
+      <b>não</b> mexe no faturamento.</div>
+    <div class="vd-erro" id="gr-erro" hidden></div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeGarantia()">Voltar</button>
+      <div class="spacer"></div>
+      <button class="btn btn-gold" id="grConfirm" onclick="salvarGarantia()">Registrar garantia</button>
+    </div>`;
+  document.getElementById('garOverlay').classList.add('show');
+  setTimeout(()=>document.getElementById('gr-motivo').focus(),80);
+}
+
+async function salvarGarantia(){
+  const erro=document.getElementById('gr-erro');
+  const dizer=m=>{ if(erro){ erro.textContent=m; erro.hidden=false; } };
+  const val=k=>String((document.getElementById(k)||{}).value||'').trim();
+  const motivo=val('gr-motivo');
+  if(!motivo) return dizer('Diga qual é o problema da peça.');
+
+  const corpo={
+    motivo,
+    dataEntrada:val('gr-entrada')||hoje(),
+    prazoDiasUteis:+val('gr-prazo')||45,
+    observacao:val('gr-obs')||undefined,
+  };
+  /* As duas formas de apontar o ITEM. Histórico tem id de linha; a venda do
+     sistema é identificada pelo par (venda, código) — `venda_itens` não tem
+     chave própria. */
+  if(garContexto.historicoItemId) corpo.historicoItemId=garContexto.historicoItemId;
+  else { corpo.vendaId=garContexto.vendaId; corpo.sku=garContexto.sku; }
+
+  const btn=document.getElementById('grConfirm');
+  btn.disabled=true;
+  try{
+    const r=await api('POST','/api/garantias',corpo);
+    closeGarantia();
+    toast(`Garantia registrada · previsão ${fmtData(r.garantia.previsaoRetorno)} · a venda original não mudou`);
+    if(perfilNormAtual) await abrirPerfilCliente(perfilNormAtual);
+  }catch(e){ btn.disabled=false; dizer(e.message||'Não consegui registrar'); }
+}
+
+/** O detalhe: a linha do tempo e o que ainda dá para fazer com o caso. */
+async function abrirGarantiaDetalhe(id){
+  let g;
+  try{ g=await api('GET','/api/garantias/'+id); }
+  catch(e){ return toast(e.message||'Não consegui abrir a garantia'); }
+  garAtual=g; garContexto=null;
+  document.getElementById('garTitulo').textContent='Garantia #'+g.id;
+
+  const podeTrocar=!g.troca&&['em_reparo','reparada','sem_conserto'].includes(g.status);
+  const skus=(state.produtos||[]).filter(p=>Number(p.qtd)>0).slice(0,400);
+
+  document.getElementById('garBody').innerHTML=`
+    <div class="panel" style="box-shadow:none;margin:0 0 14px">
+      <div class="body" style="padding:12px 14px">
+        <div class="d1">${esc(g.produtoNome||g.sku)}
+          <span class="badge ${g.status==='sem_conserto'?'vencida':(g.pendente?'fechada':'ok')}"
+                style="margin-left:6px">${esc(g.statusRotulo)}</span></div>
+        <div class="hint" style="margin-top:4px"><code>${esc(g.sku)}</code> ·
+          ${esc(g.clienteNome||'cliente não identificada')} ·
+          compra de ${g.dataVenda?fmtData(g.dataVenda):'data não registrada'}</div>
+        <div class="hint" style="margin-top:4px">Pago na compra:
+          <b>${g.valorPagoOriginal!=null?money(g.valorPagoOriginal):'não registrado'}</b></div>
+        <div class="hint" style="margin-top:4px">Entrada ${fmtData(g.dataEntrada)} ·
+          prazo ${g.previsaoRetorno?fmtData(g.previsaoRetorno):'—'} ·
+          ${fmtN(g.diasUteisDecorridos)} ${plural(g.diasUteisDecorridos,'dia útil decorrido','dias úteis decorridos')},
+          ${fmtN(g.diasUteisRestantes)} ${plural(g.diasUteisRestantes,'restante','restantes')}
+          ${g.atrasado?`· <b style="color:var(--red)">atrasada ${fmtN(g.atrasoDiasUteis)} ${plural(g.atrasoDiasUteis,'dia útil','dias úteis')}</b>`:''}</div>
+        <div class="hint" style="margin-top:4px">Motivo: ${esc(g.motivo)}</div>
+      </div>
+    </div>
+
+    ${timelineGarantia(g)}
+
+    ${g.troca?blocoTrocaGarantia(g):''}
+
+    ${g.pendente?`<div class="field">
+      <label for="gr-status">Mudar o status</label>
+      <select id="gr-status">
+        ${GAR_STATUS.filter(s=>s.v!==g.status).map(s=>`<option value="${s.v}">${esc(s.r)}</option>`).join('')}
+      </select>
+      <div class="hint" style="margin-top:6px">"Peça devolvida" registra a entrega e
+        encerra o caso. Não gera venda, não gera faturamento e não cria estoque —
+        a peça consertada volta para a dona, não para a prateleira.</div>
+    </div>
+    <div class="field">
+      <label for="gr-status-obs">Observação</label>
+      <input id="gr-status-obs" maxlength="200" placeholder="O que aconteceu">
+    </div>
+    <div class="actbar" style="margin:0 0 14px">
+      <div class="spacer"></div>
+      <button class="btn btn-ghost btn-sm" onclick="salvarStatusGarantia(${g.id})">Salvar status</button>
+    </div>`:''}
+
+    ${podeTrocar?`<details style="margin-bottom:14px">
+      <summary style="cursor:pointer;font-weight:600">Sem conserto — trocar por outra peça</summary>
+      <div style="padding-top:12px">
+        <div class="two">
+          <div class="field">
+            <label for="gr-sku-novo">Peça nova <span class="req">*</span></label>
+            <input id="gr-sku-novo" list="gr-skus" autocomplete="off" placeholder="Código da peça"
+                   oninput="ecoTrocaGarantia(${g.valorPagoOriginal==null?'null':g.valorPagoOriginal})">
+            <datalist id="gr-skus">${skus.map(p=>`<option value="${esc(p.sku)}" label="${esc(p.sku)} — ${esc(p.desc||'')}">`).join('')}</datalist>
+          </div>
+          <div class="field">
+            <label for="gr-data-troca">Data da troca</label>
+            <input id="gr-data-troca" type="date" max="${hoje()}" value="${hoje()}">
+          </div>
+        </div>
+        ${g.valorPagoOriginal==null?`<div class="field">
+          <label for="gr-valor-original">Quanto ela pagou pela peça original <span class="req">*</span></label>
+          <input id="gr-valor-original" type="number" step="0.01" min="0"
+                 oninput="ecoTrocaGarantia(null)">
+          <div class="hint" style="margin-top:6px">O histórico não registrou o valor.
+            Sem ele não dá para calcular a diferença — e adivinhar seria cobrar
+            um número que ninguém combinou.</div>
+        </div>`:''}
+        <div class="hint" id="gr-troca-eco" style="margin-bottom:12px"></div>
+        <div class="vd-erro" id="gr-troca-erro" hidden></div>
+        <div class="actbar" style="margin:0">
+          <div class="spacer"></div>
+          <button class="btn btn-gold btn-sm" onclick="salvarTrocaGarantia(${g.id})">Registrar troca</button>
+        </div>
+      </div>
+    </details>`:''}
+
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeGarantia()">Fechar</button>
+    </div>`;
+  document.getElementById('garOverlay').classList.add('show');
+}
+
+/** A linha do tempo. Evento novo NÃO sobrescreve o anterior — é isso que faz
+ *  o histórico contar a história em vez de mostrar só o fim. */
+function timelineGarantia(g){
+  if(!g.eventos||!g.eventos.length) return '';
+  return `<div class="resumotit">Linha do tempo</div>
+    <div class="tl" style="margin-bottom:14px">${g.eventos.map(e=>`
+      <div class="tlv">
+        <div class="tl-topo">
+          <span class="tl-dt">${fmtData(e.data)}</span>
+          <span class="tl-vl">${esc(rotuloEventoGarantia(e))}</span>
+        </div>
+        ${e.observacao?`<div class="tl-meta">${esc(e.observacao)}</div>`:''}
+        ${e.tipo==='troca'?`<div class="tl-meta">
+          ${esc(e.dados.skuOriginal||'')} (${money(e.dados.valorOriginal)}) →
+          ${esc(e.dados.skuNovo||'')} (${money(e.dados.valorNovo)}) ·
+          diferença <b>${money(e.dados.diferenca)}</b></div>`:''}
+        ${e.tipo==='diferenca_paga'?`<div class="tl-meta">Diferença de
+          <b>${money(e.dados.valor)}</b> recebida — é só este valor que entra no faturamento</div>`:''}
+      </div>`).join('')}</div>`;
+}
+function rotuloEventoGarantia(e){
+  if(e.tipo==='aberta') return 'Garantia registrada';
+  if(e.tipo==='troca') return 'Troca de garantia';
+  if(e.tipo==='troca_estornada') return 'Troca estornada';
+  if(e.tipo==='diferenca_paga') return 'Diferença paga';
+  if(e.tipo==='devolvida') return 'Peça devolvida';
+  if(e.tipo==='cancelada') return 'Cancelada';
+  return e.statusRotulo||'Atualização';
+}
+
+function blocoTrocaGarantia(g){
+  const t=g.troca;
+  const rot={nenhuma:'sem diferença',a_receber:'diferença a receber',
+    paga:'diferença paga',pendente_regra:'peça nova mais barata — regra pendente'}[t.diferencaStatus]||t.diferencaStatus;
+  return `<div class="panel" style="box-shadow:none;margin:0 0 14px">
+    <div class="body" style="padding:12px 14px">
+      <div class="resumotit">Troca de garantia</div>
+      <div class="hint" style="margin-top:6px">Original <code>${esc(g.sku)}</code>
+        · pago <b>${money(t.valorOriginal)}</b></div>
+      <div class="hint" style="margin-top:4px">Nova <code>${esc(t.skuNovo)}</code>
+        ${esc(t.produtoNovoNome||'')} · <b>${money(t.valorNovo)}</b></div>
+      <div class="hint" style="margin-top:4px">Diferença <b>${money(t.diferenca)}</b> · ${esc(rot)}
+        ${t.diferencaPagaEm?` · recebida em ${fmtData(t.diferencaPagaEm)}`:''}</div>
+      <div class="hint" style="margin-top:8px">A peça nova saiu do estoque como
+        <b>troca de garantia</b>, não como venda: nem os ${money(t.valorNovo)} entram no
+        faturamento, nem esta troca conta como uma segunda compra.</div>
+      ${t.diferencaStatus==='a_receber'?`<div class="actbar" style="margin-top:12px">
+        <div class="spacer"></div>
+        <button class="btn btn-gold btn-sm" onclick="pagarDiferencaGarantia(${g.id},${t.diferenca})">
+          Diferença paga (${money(t.diferenca)})</button>
+      </div>`:''}
+      ${t.diferencaStatus==='pendente_regra'?`<div class="hint" style="margin-top:8px;color:var(--red)">
+        A peça nova custa menos que a original. Crédito ou reembolso ainda não é
+        regra definida — nada foi lançado, e o caso ficou registrado esperando a decisão.</div>`:''}
+    </div>
+  </div>`;
+}
+
+function ecoTrocaGarantia(valorOriginal){
+  const eco=document.getElementById('gr-troca-eco');
+  if(!eco) return;
+  const sku=String((document.getElementById('gr-sku-novo')||{}).value||'').trim().toUpperCase();
+  const orig=valorOriginal!=null?Number(valorOriginal)
+    :Number(String((document.getElementById('gr-valor-original')||{}).value||'').replace(',','.'));
+  const p=(state.produtos||[]).find(x=>String(x.sku).toUpperCase()===sku);
+  if(!p){ eco.innerHTML=sku?`<span style="color:var(--red)">${esc(sku)} não está no catálogo</span>`:''; return; }
+  if(!Number.isFinite(orig)){ eco.innerHTML=`<b>${esc(p.desc||sku)}</b> · ${money(p.preco)} — falta o valor pago na peça original`; return; }
+  const dif=Math.round((Number(p.preco)-orig)*100)/100;
+  eco.innerHTML=`<b>${esc(p.desc||sku)}</b> · ${money(p.preco)} · ${fmtN(p.qtd)} em estoque<br>`
+    +(dif>0?`Diferença a receber: <b>${money(dif)}</b> — só ela entra no faturamento, quando for paga.`
+      :(dif===0?'Sem diferença a cobrar.'
+        :`<span style="color:var(--red)">A peça nova custa ${money(-dif)} a menos. `
+          +'Crédito ou reembolso ainda não é regra definida — a troca fica registrada e nada é lançado.</span>'));
+}
+
+async function salvarStatusGarantia(id){
+  const status=String((document.getElementById('gr-status')||{}).value||'');
+  if(!status) return toast('Escolha o status');
+  try{
+    await api('POST',`/api/garantias/${id}/status`,
+      {status, observacao:String((document.getElementById('gr-status-obs')||{}).value||'').trim()||undefined});
+    await abrirGarantiaDetalhe(id);
+    if(painelVendas){ await carregarPainelVendas(); if(tabAtual==='vendas-painel') renderVendasPainel(); }
+    toast('Status atualizado · nada mudou em venda, estoque ou faturamento');
+  }catch(e){ toast(e.message||'Não consegui atualizar'); }
+}
+
+async function salvarTrocaGarantia(id){
+  const erro=document.getElementById('gr-troca-erro');
+  const dizer=m=>{ if(erro){ erro.textContent=m; erro.hidden=false; } };
+  const sku=String((document.getElementById('gr-sku-novo')||{}).value||'').trim().toUpperCase();
+  if(!sku) return dizer('Escolha a peça nova.');
+  const corpo={skuNovo:sku, data:String((document.getElementById('gr-data-troca')||{}).value||'')||undefined};
+  const vo=document.getElementById('gr-valor-original');
+  if(vo){
+    const n=Number(String(vo.value||'').replace(',','.'));
+    if(!Number.isFinite(n)) return dizer('Diga quanto ela pagou pela peça original.');
+    corpo.valorOriginal=n;
+  }
+  try{
+    const r=await api('POST',`/api/garantias/${id}/troca`,corpo);
+    await sincronizar();
+    await abrirGarantiaDetalhe(id);
+    toast(r.aviso||`Troca registrada · ${r.estoque.sku}: ${r.estoque.antes} → ${r.estoque.depois} · `
+      +`diferença ${money(r.diferenca)} · faturamento agora: ${money(0)}`);
+  }catch(e){ dizer(e.message||'Não consegui registrar a troca'); }
+}
+
+async function pagarDiferencaGarantia(id,valor){
+  const d=prompt(`Quando a diferença de ${money(valor)} foi paga?\n\n`
+    +`Só estes ${money(valor)} entram no faturamento — nunca o preço da peça nova.`,hoje());
+  if(d===null) return;
+  try{
+    const r=await api('POST',`/api/garantias/${id}/troca/pagar`,{pagaEm:String(d).trim()||hoje()});
+    await abrirGarantiaDetalhe(id);
+    if(perfilNormAtual) await abrirPerfilCliente(perfilNormAtual);
+    toast(`Diferença de ${money(r.faturamento)} no faturamento de ${fmtData(r.dataFaturamento)}`);
+  }catch(e){ toast(e.message||'Não consegui registrar o pagamento'); }
+}
+
+/** §29 — a venda do sistema em aberto, marcada como paga a partir da ficha
+ *  da cliente. É a mesma rota da lista do dia; o que muda é para onde a tela
+ *  volta depois. */
+async function marcarVendaPagaDoPerfil(id,valor){
+  const d=prompt(`Quando o pagamento de ${money(valor)} entrou?\n\n`
+    +`A data da venda não muda — é esta data que decide o mês do faturamento.`,hoje());
+  if(d===null) return;
+  try{
+    const r=await api('POST',`/api/vendas/${id}/pagamento`,{dataPagamento:String(d).trim()||hoje()});
+    toast(`Pagamento em ${fmtData(r.dataPagamento)} · faturamento desse mês · estoque intocado`);
+  }catch(e){ toast(e.message||'Não consegui registrar o pagamento'); }
+  if(perfilNormAtual) await abrirPerfilCliente(perfilNormAtual);
 }
 
 function openCliForm(id,nomeSugerido){
@@ -8392,6 +9329,8 @@ function openCliForm(id,nomeSugerido){
       set('clf-nascimento',d.nascimento); set('clf-obs',d.obs);
     }).catch(()=>{});
   }
+  const btn=document.getElementById('cliSalvar');
+  if(btn) btn.disabled=false;
   document.getElementById('cliOverlay').classList.add('show');
   setTimeout(()=>document.getElementById('clf-nome').focus(),80);
 }
@@ -8404,13 +9343,35 @@ async function saveCliente(){
   const val=(k)=>document.getElementById(k).value.trim();
   const dados={nome, tel:val('clf-tel'), cidade:val('clf-cidade'), cpf:val('clf-cpf'), email:val('clf-email'),
     instagram:val('clf-instagram'), nascimento:val('clf-nascimento'), obs:val('clf-obs')};
+  const btn=document.getElementById('cliSalvar');
+  if(btn) btn.disabled=true;
   try{
-    if(id) await api('PATCH','/api/clientes/'+id,dados);
-    else await api('POST','/api/clientes',dados);
+    const r=id?await api('PATCH','/api/clientes/'+id,dados)
+              :await api('POST','/api/clientes',dados);
     closeCliForm();
+    await carregarClientes();
+
+    /* §12 — o defeito que fazia "Editar dados" parecer não salvar.
+     *
+     * O UPDATE sempre funcionou; o que se perdia era a TELA. Renomear muda o
+     * nome normalizado, e a ficha é endereçada por ele (`cli:<norm>`).
+     * Depois de salvar, a tela voltava para a LISTA — e quem abrisse a ficha
+     * de novo pelo caminho antigo via um perfil vazio e concluía, com razão,
+     * que a edição não tinha pegado.
+     *
+     * Agora ela volta para a ficha, pelo norm NOVO que o servidor devolveu.
+     * O servidor, do seu lado, já amarrou o histórico ao id antes de mexer
+     * no nome — os dois lados do mesmo defeito. */
+    if(id&&perfilNormAtual&&r&&r.norm){
+      toast(r.aviso
+        ? 'Cliente atualizada · ' + r.aviso
+        : 'Cliente atualizada · histórico preservado');
+      switchTab('cli:'+encodeURIComponent(r.norm));
+      return;
+    }
     toast(id?'Cliente atualizada':'Cliente criada');
-    await carregarClientes(); renderClientes();
-  }catch(e){ toast(e.message||'Não consegui salvar'); }
+    renderClientes();
+  }catch(e){ if(btn) btn.disabled=false; toast(e.message||'Não consegui salvar'); }
 }
 
 
@@ -11081,6 +12042,17 @@ function renderAll(){
   else if(tabAtual==='loja') renderLoja();
   else if(tabAtual==='pendencias') renderPendencias();
   else if(tabAtual==='vendas') renderVendas();
+  /* As abas de Vendas e Clientes caíam no `else` lá embaixo, que procura uma
+     revendedora pelo id depois do `:` — não acha nenhuma, e MANDAVA A TELA
+     PARA A VISÃO GERAL. Efeito: qualquer coisa que chame `sincronizar()`
+     (registrar uma saída, salvar uma garantia, cancelar uma venda) tirava a
+     pessoa da tela em que ela estava, sem aviso. `vendas-saidas` só tornou
+     isso visível — o defeito já valia para Painel, Clientes e para a ficha
+     de uma cliente. */
+  else if(tabAtual==='vendas-painel') renderVendasPainel();
+  else if(tabAtual==='vendas-saidas') renderSaidas();
+  else if(tabAtual==='clientes') renderClientes();
+  else if(tabAtual.indexOf('cli:')===0) abrirPerfilCliente(tabAtual.slice(4));
   else if(tabAtual==='revgeral') renderRevGeral();
   else if(tabAtual==='revlist') renderRevLista();
   else{

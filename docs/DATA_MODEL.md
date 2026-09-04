@@ -134,6 +134,60 @@ o acerto não pode baixá-las novamente. A publicação apenas envia o saldo
 absoluto atual; as devolvidas voltam para o estoque online.
 Perda, quebra, dano e brinde continuam movimentos físicos com o motivo real.
 
+**§30 — as duas datas.** `data` é o dia da venda e é imutável: governa o
+histórico do dia e a contagem de vendas, peças e clientes. `data_pagamento`
+é o dia em que o dinheiro entrou e governa o **faturamento**. `pago` diz se
+entrou; `observacao` guarda o texto livre do fechamento ("Maleta", "Feira",
+"Grupo VIP").
+
+As três nasceram com o valor que o sistema já assumia — paga, no dia da
+venda — para que a migration não movesse faturamento existente de mês.
+`idx_vendas_pagamento` e `idx_vendas_pago` existem pelo mesmo motivo que
+`idx_vendas_data`: o recorte de período agora consulta as duas colunas.
+
+### `saidas_sem_faturamento`
+§31. Brinde, uso próprio e diferença de inventário. Elas **não** estão em
+`vendas`, e isso é a regra, não a organização: a linha que não está em
+`vendas` é invisível por construção para toda soma de venda. Pendurá-las
+numa venda obrigaria cada consulta de faturamento a lembrar de excluí-las.
+
+`tipo` é `brinde | uso_proprio | perda`; `sentido` é `saida` por padrão e só
+`perda` pode ser `entrada` (a sobra de uma contagem). `movimento_id` amarra
+a linha ao movimento que baixou o estoque — a razão contábil continua
+fechando sem exceção.
+
+Corrigir é **estornar**: `estornada`, `estorno_em`, `estorno_motivo` e
+`estorno_movimento_id`. A linha nunca é apagada.
+
+`historico_item_id` com índice único parcial é a trava que impede a auditoria
+histórica de baixar o mesmo estoque duas vezes se rodar de novo.
+
+### `historico_reclassificacao`
+§35. Diz que uma linha da planilha **não é venda**, sem apagá-la (§7). As
+somas comerciais passam a ignorá-la pelo mesmo mecanismo que já ignoravam a
+linha excluída por uma operação histórica. `status` é `proposta | aplicada |
+recusada`; `confianca` e `motivo` viajam junto para a decisão ser auditável
+depois. Índice único por `historico_item_id`: uma linha tem uma decisão.
+
+### `garantias` / `garantia_eventos` / `garantia_trocas` / `feriados`
+§32. A garantia pertence ao **item** da compra. A identidade é
+`(venda_id, sku, variante_id)` do lado operacional — `venda_itens` não tem
+chave própria, e `rowid` não sobrevive a um VACUUM — e
+`vendas_historico_itens.id` do lado da planilha. `valor_pago_original` é o
+que ela **pagou**, não o de tabela: é a base da diferença de uma troca.
+
+`garantia_eventos` é a linha do tempo, e evento novo **não** sobrescreve o
+anterior. `garantia_trocas` tem índice único por `garantia_id`: dois cliques
+no botão não baixam duas peças novas.
+
+`diferenca_status` vale `nenhuma | a_receber | paga | pendente_regra`. O
+último é a diferença **negativa** — peça nova mais barata: crédito ou
+reembolso nunca foi definido como regra, então o sistema registra e para.
+
+`feriados` existe para o feriado não nascer espalhado em `if` pelo código.
+Vazia, o cálculo de dias úteis usa só sábado e domingo — e diz isso em
+`consideraFeriados: false` em vez de fingir precisão.
+
 ### `historico_operacoes` / `historico_operacao_vendas`
 
 `vendas_historicas` é uma projeção descartável da planilha. Estas duas
@@ -310,4 +364,9 @@ sku_reservas              (avulsa)
 sync_execucoes            (avulsa)
 reconciliacao_sessoes ──< reconciliacao_itens     (schema pronto, não aplicado)
 vendas_historico_lotes ──< historico_operacoes ──< historico_operacao_vendas
+produtos ──< saidas_sem_faturamento >── movimentos   (§31, saída que não é venda)
+vendas_historico_itens ──< historico_reclassificacao (§35, "isto não era venda")
+vendas ──< garantias ──< garantia_eventos            (§32, por ITEM da compra)
+garantias ──< garantia_trocas >── produtos           (a peça NOVA da troca)
+feriados                  (avulsa — o prazo em dias úteis)
 ```
