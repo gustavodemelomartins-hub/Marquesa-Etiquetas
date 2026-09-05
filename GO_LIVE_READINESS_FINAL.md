@@ -5,7 +5,7 @@
 > nenhum registro foi alterado.
 >
 > Gerado em **2026-09-05 10:40 UTC** · branch `feat/vendas-pagamento-saidas-garantias`
-> · commit `f54434e`
+> · commit `39618a9`
 > Evidência bruta: `backups/golive/2026-09-05-10-40-29Z_inventario/`
 
 ---
@@ -284,7 +284,7 @@ Três colunas sustentam isso: `vendas.pago`, `vendas.valor_recebido`
 
 ### Status ausente: ausência de informação permanece ausência
 
-Corrigido em `f54434e`. A versão anterior punha o total no faturamento
+Corrigido em `39618a9`. A versão anterior punha o total no faturamento
 quando `payment_status` não vinha — o que viola a regra principal: **sem
 `payment_status` não existe evidência suficiente de recebimento.**
 
