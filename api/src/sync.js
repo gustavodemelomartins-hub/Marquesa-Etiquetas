@@ -52,6 +52,9 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
 
   const relato = {
     id: exec.id, pedidosLidos: 0, vendasCriadas: 0, itensIgnorados: [],
+    /* §22: o que o sistema decide não fazer é anunciado. Pedido que entrou
+       sem virar faturamento aparece com nome, data e valor. */
+    pedidosNaoPagos: [], pedidosSemEstadoDePagamento: [],
     pedidosAntesDoCorte: [],
     produtosEnviados: 0, mudancas: [], semEmpurrar: [], semeados: [], naoSemeados: [],
     vendasLocais: { tentadas: 0, sincronizadas: 0, revisao: 0, falhas: 0, resultados: [] },
@@ -180,6 +183,38 @@ export async function corteDePedidos(db) {
  *
  *  E, quando existe corte, pedido anterior a ele não entra — ver
  *  `corteDePedidos` acima. */
+/** §36.1 — o que a loja diz sobre o dinheiro deste pedido.
+ *
+ *  A regra de negócio é: FATURAMENTO É SÓ DINHEIRO EFETIVAMENTE RECEBIDO.
+ *  A existência do pedido não é evidência de recebimento — pedido de PIX
+ *  aguardando pagamento é uma venda que ainda não virou dinheiro.
+ *
+ *  `payment_status` e `paid_at` já vêm no MESMO payload de `/orders` que a
+ *  sincronização sempre leu: nenhuma requisição a mais, nenhum escopo novo
+ *  (`read_orders` já cobre), nenhuma mudança de contrato. O que faltava era
+ *  ler os dois campos.
+ *
+ *  `authorized` NÃO conta: autorizado é o cartão reservado, não capturado.
+ *  `partially_paid` também não: recebido pela metade não é recebido.
+ *  Pedido sem o campo (loja antiga, resposta parcial) fica INDETERMINADO —
+ *  o comportamento anterior — e vai para o relatório de conferência, em vez
+ *  de ser adivinhado para um lado ou para o outro. */
+export function pagamentoDoPedido(pedido, dataPedido) {
+  const bruto = pedido && pedido.payment_status;
+  if (bruto === undefined || bruto === null || bruto === '') {
+    return { pago: 1, dataPagamento: dataPedido, origem: 'indeterminado_site', estadoLoja: null };
+  }
+  const estado = String(bruto).trim().toLowerCase();
+  if (estado === 'paid') {
+    /* `paid_at` é a data REAL do recebimento, e é ela que decide o mês do
+       faturamento. Sem ela, cai na data do pedido — que é o mais próximo
+       que se tem, e fica dito no carimbo. */
+    const quando = pedido.paid_at ? String(pedido.paid_at).slice(0, 10) : dataPedido;
+    return { pago: 1, dataPagamento: quando, origem: 'nuvemshop_pago', estadoLoja: estado };
+  }
+  return { pago: 0, dataPagamento: null, origem: 'nuvemshop_nao_pago', estadoLoja: estado };
+}
+
 async function puxarPedidos(db, loja, relato, seco) {
   const desde = await config(db, 'syncUltimoPedido', null);
   const corte = await corteDePedidos(db);
@@ -245,26 +280,40 @@ async function puxarPedidos(db, loja, relato, seco) {
     // volta na próxima rodada, até o cadastro ser corrigido.
     if (incompleto) continue;
     if (!linhas.length) continue;
-    if (seco) { relato.vendasCriadas++; continue; }
-
     const total = linhas.reduce((s, l) => s + l.preco * l.qtd, 0);
     const data = String(pedido.created_at || agoraISO()).slice(0, 10);
     const cliente = (pedido.customer && pedido.customer.name) || 'Cliente do site';
 
+    /* §36.1 — o estado do pagamento vem da loja, não de suposição.
+       Calculado ANTES do desvio do dry-run de propósito: a tela precisa
+       dizer quanto do que vai entrar NÃO é faturamento antes de alguém
+       confirmar, e não depois. */
+    const pg = pagamentoDoPedido(pedido, data);
+    if (pg.origem === 'nuvemshop_nao_pago') {
+      relato.pedidosNaoPagos.push({
+        pedido: pedido.number || pedido.id, externoId: chave, data,
+        total, cliente, estadoLoja: pg.estadoLoja,
+      });
+    } else if (pg.origem === 'indeterminado_site') {
+      relato.pedidosSemEstadoDePagamento.push({
+        pedido: pedido.number || pedido.id, externoId: chave, data, total, cliente,
+      });
+    }
+
+    if (seco) { relato.vendasCriadas++; continue; }
+
     const venda = await db.prepare(
-      /* §1 da revisão — a procedência da data de pagamento, dita em voz alta.
-       *
-       * A loja aceita pedido com pagamento pendente e a sincronização nunca
-       * guardou `payment_status`: o sistema NÃO SABE se este pedido foi pago.
-       * O comportamento financeiro continua exatamente o que sempre foi (o
-       * pedido conta no dia em que entrou), mas a linha fica carimbada como
-       * indeterminada, e é por esse carimbo que o relatório de conferência a
-       * encontra. Fingir 'informado' aqui seria inventar um fato que ninguém
-       * verificou. */
+      /* A venda do site nasce com o estado de pagamento que a LOJA declara.
+       * Antes, todo pedido não cancelado entrava como faturamento no dia em
+       * que apareceu — inclusive o que ainda esperava o PIX. Agora o pedido
+       * não pago nasce A RECEBER, e o pago entra pela data real do
+       * recebimento. O estoque baixa nos dois casos: a peça saiu da gaveta
+       * quando o pedido foi feito, e isso não depende de o dinheiro ter
+       * entrado. */
       `INSERT INTO vendas (cliente_nome, origem, data, total, externo_id,
                            pago, data_pagamento, pagamento_origem)
-       VALUES (?, 'site', ?, ?, ?, 1, ?, 'indeterminado_site') RETURNING id`
-    ).bind(cliente, data, total, chave, data).first();
+       VALUES (?, 'site', ?, ?, ?, ?, ?, ?) RETURNING id`
+    ).bind(cliente, data, total, chave, pg.pago, pg.dataPagamento, pg.origem).first();
 
     const stmts = [];
     for (const l of linhas) {

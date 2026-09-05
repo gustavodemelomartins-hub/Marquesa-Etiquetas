@@ -903,6 +903,21 @@ verdade virou pagamento.
    teve um humano dizendo a data;
 6. o backfill é idempotente (os `ALTER TABLE` não são, e não podem ser).
 
+### `src/pagamento-nuvemshop-test.mjs` — pedido não é dinheiro
+**23 asserções · <1 s · puro: sem Worker, sem rede, sem loja**
+
+A sincronização tratava todo pedido não cancelado como venda paga no dia em
+que apareceu. Pedido de PIX esperando pagamento entrava no faturamento como
+se o dinheiro tivesse entrado.
+
+1. `paid` → pago, pela data de `paid_at`; sem `paid_at`, pela data do pedido;
+2. `pending`, `abandoned`, `voided`, `refunded` → **não pago**, sem data;
+3. `authorized` (cartão reservado, não capturado) e `partially_paid`
+   (recebido pela metade) **também não** contam;
+4. sem o campo → comportamento antigo preservado, mas carimbado
+   `indeterminado_site` para conferência humana;
+5. o estado bruto da loja fica registrado, normalizado em minúsculas.
+
 ### `src/revisao-pre-golive-test.mjs` — identidade, estoque e data do dinheiro
 **84 asserções · ~40 s · precisa do Worker local e do banco limpo**
 

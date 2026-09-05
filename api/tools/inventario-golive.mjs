@@ -257,10 +257,115 @@ function snapshot(target, dest) {
   /* A lista nominal do que ficaria indeterminado. É o relatório de
      conferência humana que §1 exige — número agregado não se confere. */
   const paymentsUnknown = optional('vendas indeterminadas',
-    [['vendas', 'id', 'origem', 'data', 'total', 'cancelada', 'externo_id', 'cliente_nome']],
-    `SELECT id, data, total, externo_id, cliente_nome
-       FROM vendas WHERE cancelada = 0 AND origem = 'site'
-      ORDER BY data DESC, id DESC LIMIT 200`);
+    [['vendas', 'id', 'origem', 'data', 'total', 'cancelada', 'externo_id', 'cliente_nome'],
+     ['historico_operacao_vendas', 'venda_id', 'operacao_id', 'status_registro'],
+     ['historico_operacoes', 'id', 'cobranca_status', 'paga_em', 'status_registro']],
+    `SELECT v.id AS venda_id, v.externo_id, v.origem, v.cliente_nome, v.data, v.total,
+            v.nuvemshop_status,
+            -- Tudo o que o banco permite saber sobre o pagamento deste pedido.
+            -- Vazio nas colunas abaixo = nao ha evidencia nenhuma: o pedido
+            -- existir NAO e evidencia de que o dinheiro entrou.
+            (SELECT ho.cobranca_status FROM historico_operacao_vendas hov
+               JOIN historico_operacoes ho ON ho.id = hov.operacao_id
+              WHERE hov.venda_id = v.id AND hov.status_registro = 'ativa'
+                AND ho.status_registro = 'ativa' ORDER BY ho.id DESC LIMIT 1) AS cobranca_status,
+            (SELECT ho.paga_em FROM historico_operacao_vendas hov
+               JOIN historico_operacoes ho ON ho.id = hov.operacao_id
+              WHERE hov.venda_id = v.id AND hov.status_registro = 'ativa'
+                AND ho.status_registro = 'ativa' ORDER BY ho.id DESC LIMIT 1) AS paga_em,
+            (SELECT COUNT(*) FROM historico_operacao_vendas hov
+              WHERE hov.venda_id = v.id AND hov.status_registro = 'ativa') AS operacoes_ligadas
+       FROM vendas v
+      WHERE v.cancelada = 0 AND v.origem = 'site'
+      ORDER BY v.data DESC, v.id DESC LIMIT 500`);
+
+  /* O DDL das tabelas que as migrations tocam. Ler o schema de verdade e o
+     que impede um pre-voo de acertar por coincidencia. */
+  const ddl = query(target,
+    `SELECT type, name, tbl_name, sql FROM sqlite_schema
+      WHERE tbl_name IN ('vendas','venda_itens','historico_operacoes','historico_operacao_vendas')
+        AND sql IS NOT NULL ORDER BY tbl_name, type DESC, name`);
+
+  /* Faturamento por mes, nas DUAS populacoes, separadas de proposito. Nao e
+     o numero do painel (que soma as duas e aplica reclassificacao): e a
+     materia-prima dele, para comparar antes x depois sem o Worker. */
+  const revenueOperational = optional('faturamento operacional por mes',
+    [['vendas', 'data', 'total', 'cancelada', 'origem', 'revendedora_id']],
+    `SELECT strftime('%Y-%m', v.data) AS mes, COUNT(*) AS vendas,
+            ROUND(COALESCE(SUM(v.total),0),2) AS valor
+       FROM vendas v
+      WHERE v.cancelada = 0 AND v.origem <> 'acerto' AND v.revendedora_id IS NULL
+      GROUP BY mes ORDER BY mes`);
+  const revenueHistoric = optional('faturamento historico por mes',
+    [['vendas_historicas', 'data', 'valor_pago', 'classe', 'lote_id'],
+     ['vendas_historico_lotes', 'id', 'status']],
+    `SELECT strftime('%Y-%m', vh.data) AS mes, COUNT(*) AS vendas,
+            ROUND(COALESCE(SUM(vh.valor_pago),0),2) AS valor_pago
+       FROM vendas_historicas vh
+       JOIN vendas_historico_lotes l ON l.id = vh.lote_id AND l.status = 'importado'
+      WHERE vh.classe = 'venda' AND vh.data IS NOT NULL
+      GROUP BY mes ORDER BY mes`);
+
+  /* Saldo negativo e peca que o sistema acha que existe menos que zero.
+     Separado da razao contabil: sao defeitos diferentes. */
+  const negativeStock = optional('saldos negativos', [['produtos', 'sku', 'qtd', 'desc']],
+    'SELECT sku, desc, qtd FROM produtos WHERE qtd < 0 ORDER BY qtd');
+
+  /* Candidatos historicos a nao-venda.
+     ATENCAO: varredura CRUA de texto, NAO a classificacao do modulo
+     auditoria-historico.js. Existe para dizer QUANTAS linhas merecem passar
+     pelo classificador em producao - nunca para decidir. */
+  const FILTRO_CAND = `LOWER(COALESCE(h.cliente_nome_original,'')) LIKE 'brinde%'
+         OR LOWER(COALESCE(h.observacao_original,'')) LIKE '%brinde%'
+         OR LOWER(COALESCE(h.cliente_nome_original,'')) LIKE '%invent%'
+         OR UPPER(COALESCE(h.observacao_original,'')) LIKE '%PERDID%'
+         OR UPPER(COALESCE(h.observacao_original,'')) LIKE '%ACHO QUE%'
+         OR LOWER(COALESCE(h.observacao_original,'')) LIKE '%uso pessoal%'`;
+  const REQ_CAND = [
+    ['vendas_historico_itens', 'id', 'cliente_nome_original', 'observacao_original',
+      'qtd', 'valor_total', 'data', 'sku', 'lote_id'],
+    ['vendas_historico_lotes', 'id', 'status'],
+  ];
+  const historicCandidates = optional('candidatos historicos', REQ_CAND,
+    `SELECT CASE
+              WHEN LOWER(COALESCE(h.cliente_nome_original,'')) LIKE 'brinde%'
+                OR LOWER(COALESCE(h.observacao_original,'')) LIKE '%brinde%' THEN 'brinde'
+              WHEN LOWER(COALESCE(h.cliente_nome_original,'')) LIKE '%invent%'
+                OR UPPER(COALESCE(h.observacao_original,'')) LIKE '%PERDID%'
+                OR UPPER(COALESCE(h.observacao_original,'')) LIKE '%ACHO QUE%' THEN 'perda_ou_inventario'
+              ELSE 'uso_proprio_ou_outro' END AS grupo,
+            COUNT(*) AS linhas, COALESCE(SUM(h.qtd),0) AS pecas,
+            ROUND(COALESCE(SUM(h.valor_total),0),2) AS valor
+       FROM vendas_historico_itens h
+       JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
+      WHERE ${FILTRO_CAND}
+      GROUP BY grupo ORDER BY grupo`);
+  /* Retirada pessoal so pode ser encontrada por NOME, e nome nao e identidade
+     (§2). Esta consulta NAO classifica: ela lista as linhas cujo nome de
+     "cliente" parece o da propria dona do negocio, para que uma pessoa olhe.
+     Sem ela, a pergunta "quantas retiradas pessoais existem em producao?"
+     ficaria sem resposta ate o Worker novo estar publicado. */
+  const personalWithdrawals = optional('linhas com nome de retirada pessoal', REQ_CAND,
+    `SELECT h.id, h.data, h.cliente_nome_original AS nome, h.sku, h.qtd,
+            h.valor_total AS valor, h.observacao_original AS observacao
+       FROM vendas_historico_itens h
+       JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
+      WHERE LOWER(COALESCE(h.cliente_nome_original,'')) LIKE '%sthefany%'
+         OR LOWER(COALESCE(h.cliente_nome_original,'')) LIKE '%stefany%'
+         OR LOWER(COALESCE(h.cliente_nome_original,'')) LIKE '%stephany%'
+         OR LOWER(COALESCE(h.cliente_nome_original,'')) LIKE '%marquesa%'
+         OR LOWER(COALESCE(h.observacao_original,'')) LIKE '%uso proprio%'
+         OR LOWER(COALESCE(h.observacao_original,'')) LIKE '%uso pr%prio%'
+         OR LOWER(COALESCE(h.observacao_original,'')) LIKE '%pessoal%'
+      ORDER BY h.data, h.id LIMIT 300`);
+
+  const historicCandidateRows = optional('candidatos historicos linha a linha', REQ_CAND,
+    `SELECT h.id, h.data, h.cliente_nome_original AS nome, h.sku, h.qtd,
+            h.valor_total AS valor, h.observacao_original AS observacao
+       FROM vendas_historico_itens h
+       JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
+      WHERE ${FILTRO_CAND}
+      ORDER BY h.data, h.id LIMIT 500`);
 
   /* ─── §2: nome não é identidade, e aqui está a prova de que isso importa
      neste banco: cadastros diferentes que dividem o mesmo nome normalizado. */
@@ -280,7 +385,11 @@ function snapshot(target, dest) {
       WHERE status_registro = 'ativa' AND papel = 'cliente'
       GROUP BY cobranca_status ORDER BY cobranca_status`);
 
-  const extras = { preflight, payments, paymentsUnknown, homonyms, receivables };
+  const extras = {
+    preflight, payments, paymentsUnknown, homonyms, receivables,
+    ddl, revenueOperational, revenueHistoric, negativeStock,
+    historicCandidates, historicCandidateRows, personalWithdrawals,
+  };
   const data = { target, tables, counts, ratio, salesByOrigin, cases, witnesses, orphans, idempotency, sync, siteSales, stock, settings, lastRun, ...extras, warnings };
   for (const [name, value] of Object.entries({ tables, counts, ratio, salesByOrigin, cases, witnesses, orphans, idempotency, sync, siteSales, stock, settings, lastRun, ...extras, warnings })) save(join(folder, `${name}.json`), value);
   return data;
@@ -319,6 +428,9 @@ function render(snapshots, diff, meta) {
     if (indet && Number(indet.vendas) > 0) {
       risks.push(`${s.target.rotulo}: ${indet.vendas} venda(s) do site sem estado de pagamento conhecido `
         + `(R$ ${Number(indet.valor || 0).toFixed(2)}) — conferência humana antes do backfill.`);
+    }
+    if ((s.negativeStock ?? []).length) {
+      risks.push(`${s.target.rotulo}: ${s.negativeStock.length} SKU(s) com saldo NEGATIVO.`);
     }
     if ((s.homonyms ?? []).length) {
       risks.push(`${s.target.rotulo}: ${s.homonyms.length} nome(s) repetido(s) em cadastros diferentes — `
@@ -365,6 +477,16 @@ function render(snapshots, diff, meta) {
     json(s.receivables), '',
     'Cadastros que dividem o mesmo nome normalizado:',
     json(s.homonyms), '',
+    'Saldos negativos:', json(s.negativeStock), '',
+    'Faturamento operacional por mes (vendas de cliente, sem acerto):',
+    json(s.revenueOperational), '',
+    'Faturamento historico por mes (valor_pago das vendas reconstruidas):',
+    json(s.revenueHistoric), '',
+    'Candidatos historicos a nao-venda - varredura CRUA de texto,',
+    'NAO e a classificacao do modulo de auditoria:', json(s.historicCandidates), '',
+    'Linhas com nome de retirada pessoal (NAO classificadas - para conferencia):',
+    json(s.personalWithdrawals), '',
+    'DDL das tabelas que as migrations tocam:', json(s.ddl), '',
     ...(s.warnings.length ? ['Avisos:', ...s.warnings.map(x => `- ${x}`), ''] : []),
   );
   /* O diff só existe quando os DOIS bancos daquela pergunta foram lidos.

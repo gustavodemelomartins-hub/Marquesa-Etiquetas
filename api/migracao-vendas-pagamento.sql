@@ -43,7 +43,13 @@ ALTER TABLE vendas ADD COLUMN observacao TEXT;
 --                         venda é usada como APROXIMAÇÃO para preservar o
 --                         comportamento financeiro antigo — inferida, não
 --                         conhecida.
---   indeterminado_site  idem, mas o pedido veio do site, e o site aceita
+--   nuvemshop_pago      a loja declarou `payment_status = paid`; a data veio
+--                       de `paid_at`. Vale para pedido sincronizado depois
+--                       de §36.1.
+--   nuvemshop_nao_pago  a loja declarou qualquer outro estado: a venda nasce
+--                       A RECEBER, porque faturamento é só dinheiro
+--                       efetivamente recebido.
+--   indeterminado_site  o pedido veio do site sem estado legível, e o site aceita
 --                         pedido com pagamento pendente. O banco nunca
 --                         guardou `payment_status`, então o estado real é
 --                         DESCONHECIDO e a linha entra no relatório de

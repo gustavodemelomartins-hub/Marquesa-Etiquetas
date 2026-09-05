@@ -1394,13 +1394,31 @@ evidência que **já existe** no banco:
 | `informado` | um humano disse a data na tela | `pago=1`, a data que ele escolheu |
 | `historico_paga` | há cobrança histórica paga, com `paga_em` | `pago=1`, a data REAL do recebimento |
 | `historico_aberto` | há cobrança histórica **aberta** | `pago=0`, **sem** data |
-| `indeterminado_site` | pedido da loja | comportamento antigo preservado, e a linha vai para conferência humana |
+| `nuvemshop_pago` | a loja diz `payment_status = paid` | `pago=1`, data de `paid_at` |
+| `nuvemshop_nao_pago` | a loja diz qualquer outra coisa | `pago=0`, **sem** data |
+| `indeterminado_site` | pedido da loja sem `payment_status` legível | comportamento antigo preservado, e a linha vai para conferência humana |
 | `legado_data_venda` | nenhuma evidência existiu jamais | data da venda como **aproximação declarada** |
 
 A regra em uma linha: **uma conta a receber real nunca vira pagamento por
-causa de uma migration.** A loja aceita pedido com pagamento pendente e a
-sincronização nunca guardou `payment_status`; por isso o pedido do site sai
-carimbado como indeterminado em vez de se passar por conhecido.
+causa de uma migration.**
+
+**Faturamento é só dinheiro efetivamente recebido.** A existência do pedido
+não é evidência de recebimento: pedido de PIX aguardando pagamento é venda
+que ainda não virou dinheiro, e nasce **A Receber**. `authorized` não conta
+(cartão reservado, não capturado) e `partially_paid` também não (recebido
+pela metade não é recebido) — contar qualquer um seria repetir o defeito com
+outro nome. O estoque baixa nos dois casos: a peça saiu da gaveta quando o
+pedido foi feito, e isso não depende do dinheiro ter entrado.
+
+`payment_status` e `paid_at` já vinham no **mesmo** payload de `/orders` que
+a sincronização sempre leu — nenhuma requisição a mais, nenhum escopo novo
+(`read_orders` já cobre), nenhuma mudança de contrato com a loja. O que
+faltava era ler os dois campos. Provado em
+`src/pagamento-nuvemshop-test.mjs` (puro).
+
+As vendas do site que já estão no banco continuam `indeterminado_site`: o
+`payment_status` delas existe **na loja**, não aqui, e resolvê-las é uma
+conferência contra a Nuvemshop, não um chute da migration.
 
 `GET /api/vendas/pagamento/auditoria` é **seco** e roda **antes** do
 backfill: ele usa a mesma classificação e nenhuma coluna nova.

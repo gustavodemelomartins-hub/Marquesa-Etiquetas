@@ -87,6 +87,31 @@ que usa só fazem `GET` na Nuvemshop.
 menor que 200 — com teto de **40 páginas** (8.000 registros). Uma loja que
 passe disso teria o excedente silenciosamente ignorado.
 
+### O estado do pagamento vem no mesmo payload (§36.1)
+
+`GET /orders` devolve o pedido inteiro, e `payment_status` e `paid_at` já
+estavam lá — a sincronização é que não os lia. Ler os dois **não custa
+requisição nova, não pede escopo novo** (`read_orders` já cobre) e **não
+muda contrato nenhum** com a loja: a mudança é toda do lado de cá.
+
+`pagamentoDoPedido(pedido, dataDoPedido)` em `api/src/sync.js` traduz:
+
+| `payment_status` | Vira | Por quê |
+|---|---|---|
+| `paid` | `pago=1`, data de `paid_at` | dinheiro recebido, e a data real decide o mês |
+| `pending`, `abandoned`, `voided`, `refunded` | `pago=0`, sem data | venda que ainda não virou dinheiro |
+| `authorized` | `pago=0` | cartão **reservado**, não capturado |
+| `partially_paid` | `pago=0` | recebido pela metade não é recebido |
+| ausente ou ilegível | `pago=1`, carimbo `indeterminado_site` | preserva o comportamento antigo e **anuncia** a dúvida |
+
+O estoque baixa em todos os casos: a peça saiu da gaveta quando o pedido foi
+feito, e isso não depende do dinheiro ter entrado.
+
+O relatório da sincronização passou a trazer `pedidosNaoPagos` e
+`pedidosSemEstadoDePagamento` com pedido, data, valor, cliente e o estado
+bruto da loja — inclusive no **dry-run**, para a tela poder dizer quanto do
+que vai entrar NÃO é faturamento **antes** de alguém confirmar.
+
 ## Escrita
 
 Existem duas famílias de escrita, ambas protegidas por
