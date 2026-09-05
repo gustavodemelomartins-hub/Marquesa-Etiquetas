@@ -4,9 +4,9 @@
 > aplicada, nenhum Worker foi publicado, nenhum dashboard foi publicado,
 > nenhum registro foi alterado.
 >
-> Gerado em **2026-09-05 00:08 UTC** · branch `feat/vendas-pagamento-saidas-garantias`
-> · commit `68b014e`
-> Evidência bruta: `backups/golive/2026-09-05-00-08-56Z_inventario/`
+> Gerado em **2026-09-05 10:40 UTC** · branch `feat/vendas-pagamento-saidas-garantias`
+> · commit `a4eac80`
+> Evidência bruta: `backups/golive/2026-09-05-10-40-29Z_inventario/`
 
 ---
 
@@ -44,7 +44,7 @@ escritas 24h    10.129 queries ·    46.969 linhas
 |---|---|---|---|
 | 1 | `migracao-venda-desconto.sql` | **APLICADA** | 3/3 |
 | 2 | `migracao-historico-operacoes.sql` | **APLICADA** | 2/2 |
-| 3 | `migracao-vendas-pagamento.sql` | **NAO_APLICADA** | 0/4 |
+| 3 | `migracao-vendas-pagamento.sql` | **NAO_APLICADA** | 0/6 |
 | 4 | `migracao-vendas-cliente-ambiguo.sql` | **NAO_APLICADA** | 0/1 |
 | 5 | `migracao-saidas-sem-faturamento.sql` | **NAO_APLICADA** | 0/2 |
 | 6 | `migracao-garantias.sql` | **NAO_APLICADA** | 0/4 |
@@ -59,11 +59,13 @@ Detalhe artefato a artefato:
 2  migracao-historico-operacoes.sql       APLICADA      2/2
      PRESENTE  tabela  historico_operacoes
      PRESENTE  tabela  historico_operacao_vendas
-3  migracao-vendas-pagamento.sql          NAO_APLICADA  0/4
+3  migracao-vendas-pagamento.sql          NAO_APLICADA  0/6
      AUSENTE   coluna  vendas.pago
      AUSENTE   coluna  vendas.data_pagamento
      AUSENTE   coluna  vendas.observacao
      AUSENTE   coluna  vendas.pagamento_origem
+     AUSENTE   coluna  vendas.valor_recebido
+     AUSENTE   coluna  vendas.cobravel
 4  migracao-vendas-cliente-ambiguo.sql    NAO_APLICADA  0/1
      AUSENTE   coluna  vendas.cliente_ambiguo
 5  migracao-saidas-sem-faturamento.sql    NAO_APLICADA  0/2
@@ -174,8 +176,8 @@ historico_operacao_vendas  idx_hist_op_relacao_ativa, idx_hist_op_venda_ativa,
 ```
 
 As migrations 3 e 4 acrescentam `idx_vendas_pagamento`, `idx_vendas_pago`,
-`idx_vendas_pgorigem` e `idx_vendas_ambiguo`. Nenhum índice existente é
-removido ou alterado.
+`idx_vendas_pgorigem`, `idx_vendas_cobravel` e `idx_vendas_ambiguo`. Nenhum
+índice existente é removido ou alterado.
 
 ---
 
@@ -226,35 +228,102 @@ sempre as contou no dia da venda. A migration preserva exatamente isso e
 
 ---
 
-## 7. NUVEMSHOP — COMO OBTER O `payment_status` REAL
+## 7. NUVEMSHOP — REGRA FINAL POR `payment_status`
 
-**Confirmado, e já implementado no commit `68b014e`.**
+**Confirmado e implementado** (commits `68b014e` e `7ceadab`).
 
-`GET /orders` devolve o pedido inteiro, e `payment_status` e `paid_at` **já
-estavam no mesmo payload** que a sincronização sempre leu. Ler os dois:
+`GET /orders` devolve o pedido inteiro, e os campos de pagamento **já
+estavam no mesmo payload** que a sincronização sempre leu. Ler:
 
 - **não custa requisição nova** — mesmo endpoint, mesma paginação;
 - **não pede escopo novo** — `read_orders` já cobre;
-- **não muda contrato nenhum** com a loja — a mudança é toda do lado de cá;
-- **não mexe em estoque** — a peça sai da gaveta quando o pedido é feito, e
-  isso não depende do dinheiro ter entrado.
+- **não muda contrato nenhum** com a loja — a mudança é toda do lado de cá.
 
-| `payment_status` | Vira | Por quê |
-|---|---|---|
-| `paid` | `pago=1`, data de `paid_at` | dinheiro recebido, e a data real decide o mês |
-| `pending`, `abandoned`, `voided`, `refunded` | `pago=0`, sem data | venda que ainda não virou dinheiro |
-| `authorized` | `pago=0` | cartão **reservado**, não capturado |
-| `partially_paid` | `pago=0` | recebido pela metade não é recebido |
-| ausente / ilegível | `pago=1`, carimbo `indeterminado_site` | preserva o comportamento antigo e **anuncia** a dúvida |
+### Campos reais utilizados, e nenhum além destes
 
-O relatório da sincronização ganhou `pedidosNaoPagos` e
-`pedidosSemEstadoDePagamento` com pedido, data, valor, cliente e o estado
-bruto da loja — **inclusive no dry-run**, para a tela dizer quanto do que vai
-entrar não é faturamento **antes** de alguém confirmar.
+| Campo | Para quê |
+|---|---|
+| `payment_status` | o estado do pagamento |
+| `paid_at` | a data **real** do recebimento |
+| `status` | o pedido está de pé ou cancelado |
+| `cancelled_at` | idem, o outro sinal de cancelamento |
+| `transactions[]` | valor recebido, **só quando vier** |
 
-Prova: `src/pagamento-nuvemshop-test.mjs` — 23 asserções, puro, sem rede.
+### Regra final
 
----
+Duas frases governam, e elas não são a mesma:
+
+> **FATURAMENTO** = dinheiro efetivamente recebido.
+> **A RECEBER** = dinheiro que o cliente **realmente** ainda deve.
+
+A versão anterior deste relatório dizia `pending / authorized /
+partially_paid / voided / refunded → A Receber`. **Estava errada.**
+Faturamento e A Receber não são complementares: um reembolso não é nem um
+nem outro, e um pagamento parcial é os dois em partes.
+
+| `payment_status` | Faturamento | A Receber | Carimbo | Regra |
+|---|---|---|---|---|
+| `paid` **com** `paid_at` | total | 0 | `nuvemshop_pago` | data real do recebimento decide o mês |
+| `paid` **sem** `paid_at` | total | 0 | `nuvemshop_pago_sem_data` | data do pedido como fallback **declarado** no relatório |
+| `pending` + pedido ativo | 0 | total | `nuvemshop_pendente` | a venda existe, o dinheiro ainda não |
+| `pending` + cancelado | 0 | **0** | `nuvemshop_cancelado` | não há o que cobrar |
+| `authorized` + ativo | 0 | total | `nuvemshop_autorizado` | cartão **reservado**, não capturado |
+| `authorized` + cancelado | 0 | **0** | `nuvemshop_cancelado` | idem |
+| `partially_paid` **com** valor | recebido | saldo | `nuvemshop_parcial` | 40 de 100 → fatura 40, deve 60 |
+| `partially_paid` **sem** valor | **0** | **0** | `pagamento_parcial_indeterminado` | nada contabilizado até alguém conferir |
+| `refunded` | **0** | **0** | `nuvemshop_reembolsado` | ninguém deve nada · **exige política** |
+| `voided` + cancelado | 0 | **0** | `nuvemshop_anulado` | não há o que cobrar |
+| `voided` + pedido **ativo** | 0 | total | `nuvemshop_pendente_apos_anulacao` | a peça saiu e o cliente ainda deve |
+| `abandoned` | 0 | **0** | `nuvemshop_abandonado` | carrinho nunca virou compra |
+| estado desconhecido | 0 | **0** | `nuvemshop_estado_desconhecido` | vira pergunta, não número |
+| campo ausente | total | **0** | `indeterminado_site` | preserva o comportamento antigo e **anuncia** a dúvida |
+
+Três colunas sustentam isso: `vendas.pago`, `vendas.valor_recebido`
+(`NULL` = ou tudo, ou nada) e `vendas.cobravel`.
+
+### Nenhum valor é adivinhado
+
+O valor parcial só é lido de estrutura **autodescritiva**: uma lista de
+transações em que cada entrada diz o próprio estado e o próprio valor. Sem
+ela a resposta é `null`, que é diferente de zero.
+
+**Nenhum payload real da loja da Marquesa foi observado até 2026-09-05** —
+produção nunca importou pedido de site, e não há payload gravado no
+repositório nem em `sync_execucoes`. Portanto o caminho **provado hoje** é o
+`pagamento_parcial_indeterminado`. O outro existe para o dia em que a
+informação vier, e não muda nada enquanto não vier.
+
+### Estoque não segue pagamento
+
+`payment_status` **não** decide estoque. A baixa segue o PEDIDO, como sempre
+seguiu: a peça saiu da gaveta quando o pedido foi feito, e isso não depende
+de o dinheiro ter entrado — nem muda quando o pagamento muda. Provado:
+`pending → paid` não grava movimento novo e o saldo não se move.
+
+### O caminho de volta, que faltava
+
+Um pedido entrava `pending` e ficava `pending` para sempre: a rodada
+seguinte via o `externo_id` conhecido e pulava o pedido inteiro, então o PIX
+que caía nunca virava faturamento. `atualizarPagamentoDaVenda` fecha isso e
+escreve **só** pagamento — nunca estoque, item, total ou data.
+
+Duas coisas ela se recusa a fazer sozinha:
+
+- **desfazer faturamento já contado** (`paid → refunded`/`voided`): apagaria
+  receita de mês fechado. Ela anuncia em `pedidosExigindoPolitica`;
+- **sobrescrever pagamento que uma pessoa registrou** (`informado`).
+
+### O relatório separa pelo motivo
+
+`pedidosNaoPagos` (o cliente deve) · `pedidosParciais` (entrou parte) ·
+`pedidosNaoCobraveis` (**ninguém** deve) · `pedidosExigindoPolitica` (falta
+regra, não informação) · `pedidosSemEstadoDePagamento` ·
+`pagamentosAtualizados`. Todos aparecem **também no dry-run**.
+
+### Impacto retroativo: zero
+
+Produção tem **0 pedidos de site** (`externo_total = 0`). Nenhuma migração
+de pedido antigo é necessária. A regra passa a valer para o que entrar.
 
 ## 8. USO PRÓPRIO — STHEFANY MARQUES
 
@@ -420,6 +489,23 @@ Consequências para o planejamento:
 | Nenhum problema de estoque | ✅ razão fecha, 0 negativos, 0 órfãos |
 | Nenhuma inconsistência estrutural | ✅ 0 avisos, índice único provado, 0 homônimos |
 | Migrations necessárias identificadas | ✅ 3, 4, 5 e 6, nesta ordem |
+
+### Suíte, na revisão de 2026-09-05
+
+| Teste | Resultado |
+|---|---|
+| `pagamento-nuvemshop-test.mjs` | **86 ok** — cenários A–M, puro |
+| `sync-pagamento-test.mjs` | **40 ok** — loja de mentira, ponta a ponta |
+| `migracao-pagamento-test.mjs` | 22 ok |
+| `revisao-pre-golive-test.mjs` | 84 ok |
+| `pacote-vendas-test.mjs` · `pacote-vendas-ui-test.mjs` | tudo ok |
+| `sync-test` · `corte-pedidos` · `saude-sync` · `pendencias-nuvemshop` | passaram |
+| `e2e.mjs` | ✓ TUDO PASSOU |
+| `venda-desconto` · `vendas-historico` · `historico-operacoes` | passaram |
+| `vendas-reconstrucao` · `categoria-nome` · `revendedora-nao-e-cliente` | Tudo certo |
+
+Schema provado equivalente: **35 tabelas, 81 índices**, colunas idênticas
+entre `api/schema.sql` do zero e o caminho das migrations.
 
 **Nada foi aplicado. Aguardando autorização humana.**
 
