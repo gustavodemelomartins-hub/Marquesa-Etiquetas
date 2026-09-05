@@ -903,20 +903,49 @@ verdade virou pagamento.
    teve um humano dizendo a data;
 6. o backfill é idempotente (os `ALTER TABLE` não são, e não podem ser).
 
-### `src/pagamento-nuvemshop-test.mjs` — pedido não é dinheiro
-**23 asserções · <1 s · puro: sem Worker, sem rede, sem loja**
+### `src/pagamento-nuvemshop-test.mjs` — faturamento ≠ (total − a receber)
+**86 asserções · <1 s · puro: sem Worker, sem rede, sem loja**
 
-A sincronização tratava todo pedido não cancelado como venda paga no dia em
-que apareceu. Pedido de PIX esperando pagamento entrava no faturamento como
-se o dinheiro tivesse entrado.
+Dois defeitos, um dentro do outro. O primeiro: tratar todo pedido não
+cancelado como pago. O segundo, mais caro: corrigir o primeiro jogando tudo
+o que não é `paid` em "A Receber" — reembolso viraria dívida de quem não
+deve nada.
 
-1. `paid` → pago, pela data de `paid_at`; sem `paid_at`, pela data do pedido;
-2. `pending`, `abandoned`, `voided`, `refunded` → **não pago**, sem data;
-3. `authorized` (cartão reservado, não capturado) e `partially_paid`
-   (recebido pela metade) **também não** contam;
-4. sem o campo → comportamento antigo preservado, mas carimbado
-   `indeterminado_site` para conferência humana;
-5. o estado bruto da loja fica registrado, normalizado em minúsculas.
+Cenários A–M, cada um afirmando o par `(faturamento, A Receber)`:
+
+- **A** `pending` 100 → 0 e 100;
+- **B** `paid` 100 → 100 e 0, pela data de `paid_at`. Sem `paid_at`, o
+  fallback existe mas é **declarado** (`nuvemshop_pago_sem_data`);
+- **C** `pending → paid`: a soma dos dois momentos é 100, não 200 — é esta
+  conta que prova que marcar pago não duplica receita;
+- **D** `partially_paid` 40 de 100 → 40 e 60 **se** a fonte informar o
+  valor; sem ele, **0 e 0** com carimbo `pagamento_parcial_indeterminado`;
+- **E** `refunded` → 0 e **0**, `exigePolitica`, sem faturamento negativo;
+- **F** `voided` + pedido cancelado → 0 e **0**;
+- **G** `voided` + pedido **ativo** → 0 e 100, com carimbo próprio;
+- **H** `authorized` (reservado, não capturado) → 0 e 100 se o pedido vive;
+- **I–K** cancelado, abandonado, estado novo e campo ausente não viram dívida;
+- **L** a leitura do valor recebido não adivinha campo nenhum: sem
+  `transactions[]` a resposta é `null`, que é diferente de zero;
+- **M** o estado bruto é normalizado sem mudar a decisão.
+
+### `src/sync-pagamento-test.mjs` — o dinheiro muda, o estoque não
+**40 asserções · ~25 s · Worker local + loja de mentira**
+
+O teste acima prova a REGRA; este prova o EFEITO no banco.
+
+1. pedido pendente vira venda, baixa o estoque **uma** vez e não fatura;
+2. o mesmo pedido, agora pago: faturamento sobe exatamente o valor, o
+   estoque **não** baixa de novo e **nenhum movimento novo** é gravado. Era
+   o buraco — o `externo_id` conhecido fazia a rodada pular o pedido, e o
+   PIX que caía nunca virava faturamento;
+3. `paid → refunded` **não** apaga faturamento: a sincronização se recusa e
+   anuncia em `pedidosExigindoPolitica`;
+4. pedido reembolsado que chega novo: a peça sai do estoque (a mercadoria
+   foi embora) mas não vira faturamento **nem** conta a receber;
+5. pagamento que uma **pessoa** registrou não é sobrescrito pela loja;
+6. o **dry-run** já anuncia o que não vai virar faturamento;
+7. a razão contábil fecha no fim de tudo.
 
 ### `src/revisao-pre-golive-test.mjs` — identidade, estoque e data do dinheiro
 **84 asserções · ~40 s · precisa do Worker local e do banco limpo**

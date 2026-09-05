@@ -199,6 +199,8 @@ function snapshot(target, dest) {
       ['coluna', 'vendas', 'data_pagamento'],
       ['coluna', 'vendas', 'observacao'],
       ['coluna', 'vendas', 'pagamento_origem'],
+      ['coluna', 'vendas', 'valor_recebido'],
+      ['coluna', 'vendas', 'cobravel'],
     ]],
     ['migracao-vendas-cliente-ambiguo.sql', [
       ['coluna', 'vendas', 'cliente_ambiguo'],

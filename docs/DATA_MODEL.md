@@ -150,6 +150,15 @@ pagamento, para que uma aproximação herdada nunca seja lida como fato:
 amarrada a cobrança histórica **aberta** nasce `pago = 0`, porque uma conta
 a receber real não pode virar faturamento por causa de uma migration.
 
+**§36.4 — `valor_recebido` e `cobravel`.** `valor_recebido` guarda quanto
+entrou quando entrou **parte**; `NULL` é o caso normal (ou entrou tudo, ou
+não entrou nada) e só é preenchido quando a fonte informa o número — sem
+ele a linha vira `pagamento_parcial_indeterminado` e não entra em soma
+nenhuma. `cobravel = 1` quer dizer que o cliente **realmente** ainda deve;
+`0` marca o que não é faturamento **nem** conta a receber: reembolso,
+anulação, pedido abandonado e parcial sem valor. Status técnico da loja não
+vira dívida de ninguém.
+
 **§36.2 — `cliente_ambiguo`.** `1` quer dizer "havia mais de um cadastro com
 este nome e o sistema NÃO escolheu" (§2). A venda fica sem dona de propósito
 — e continua sem dona mesmo que uma das homônimas seja renomeada depois,

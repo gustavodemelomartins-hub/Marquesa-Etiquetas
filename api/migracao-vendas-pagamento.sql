@@ -56,6 +56,24 @@ ALTER TABLE vendas ADD COLUMN observacao TEXT;
 --                         conferência humana.
 ALTER TABLE vendas ADD COLUMN pagamento_origem TEXT;
 
+-- §36.4 — recebido pela metade não é recebido, e reembolsado não é a receber.
+--
+--   valor_recebido  quanto entrou, quando entrou PARTE. NULL é o caso normal
+--                   (ou entrou tudo, ou não entrou nada). Preenchido só
+--                   quando a fonte informa o valor: sem o número, a linha
+--                   vira `pagamento_parcial_indeterminado` e não é
+--                   contabilizada de jeito nenhum — inventar o valor seria
+--                   pior que não ter.
+--   cobravel        1 = o cliente REALMENTE ainda deve isto. 0 = não é
+--                   faturamento nem conta a receber. Reembolso, anulação e
+--                   pedido abandonado caem aqui: transformá-los em cobrança
+--                   aberta inventaria uma dívida que ninguém tem.
+--
+-- Default 1 porque toda venda não paga que já existe É uma conta a receber
+-- de verdade. A coluna só muda de valor quando a origem diz o contrário.
+ALTER TABLE vendas ADD COLUMN valor_recebido REAL;
+ALTER TABLE vendas ADD COLUMN cobravel INTEGER NOT NULL DEFAULT 1;
+
 -- ─────────────────────────────────────────────────────── o backfill, por prova
 --
 -- O backfill NÃO é "marque tudo como pago". Uma conta a receber de verdade
@@ -120,3 +138,5 @@ CREATE INDEX IF NOT EXISTS idx_vendas_pago      ON vendas(pago, data);
 -- O relatório de conferência procura por procedência: sem índice ele varre
 -- `vendas` inteira toda vez que alguém pergunta "o que ficou indeterminado?".
 CREATE INDEX IF NOT EXISTS idx_vendas_pgorigem  ON vendas(pagamento_origem);
+-- "o que ainda me devem" passa a filtrar por `cobravel` também.
+CREATE INDEX IF NOT EXISTS idx_vendas_cobravel  ON vendas(cobravel, pago);

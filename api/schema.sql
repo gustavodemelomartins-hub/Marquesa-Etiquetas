@@ -365,6 +365,15 @@ CREATE TABLE IF NOT EXISTS vendas (
   -- Sem CHECK: `ALTER TABLE` no SQLite não sabe acrescentar um, e este
   -- arquivo tem que terminar idêntico ao caminho da migration.
   pagamento_origem TEXT,
+  -- §36.4 — quanto entrou quando entrou PARTE. NULL é o caso normal: ou
+  -- entrou tudo, ou não entrou nada. Só é preenchido quando a fonte informa
+  -- o número; sem ele a linha fica `pagamento_parcial_indeterminado` e não
+  -- entra em soma nenhuma.
+  valor_recebido REAL,
+  -- §36.4 — 1 = o cliente REALMENTE ainda deve isto. 0 = não é faturamento
+  -- nem conta a receber: reembolso, anulação, pedido abandonado e parcial
+  -- sem valor. Status técnico da loja não vira dívida de ninguém.
+  cobravel INTEGER NOT NULL DEFAULT 1,
   -- §2 — a recusa de escolher entre homônimas, escrita para durar.
   -- 1 quer dizer "havia mais de um cadastro com este nome e o sistema NÃO
   -- escolheu". A venda fica sem dono de propósito, e continua sem dono
@@ -623,6 +632,7 @@ CREATE INDEX IF NOT EXISTS idx_vendas_origem  ON vendas(origem);
 CREATE INDEX IF NOT EXISTS idx_vendas_pagamento ON vendas(data_pagamento);
 CREATE INDEX IF NOT EXISTS idx_vendas_pago      ON vendas(pago, data);
 CREATE INDEX IF NOT EXISTS idx_vendas_pgorigem  ON vendas(pagamento_origem);
+CREATE INDEX IF NOT EXISTS idx_vendas_cobravel  ON vendas(cobravel, pago);
 CREATE INDEX IF NOT EXISTS idx_vendas_ambiguo   ON vendas(cliente_ambiguo, cliente_nome_norm);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_v  ON venda_itens(venda_id);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_s  ON venda_itens(sku);

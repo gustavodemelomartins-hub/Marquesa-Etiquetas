@@ -53,8 +53,12 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
   const relato = {
     id: exec.id, pedidosLidos: 0, vendasCriadas: 0, itensIgnorados: [],
     /* §22: o que o sistema decide não fazer é anunciado. Pedido que entrou
-       sem virar faturamento aparece com nome, data e valor. */
+       sem virar faturamento aparece com nome, data e valor, separado pelo
+       MOTIVO — porque "a receber" e "não é de ninguém" são coisas
+       diferentes e misturá-las é o defeito que §36.4 corrige. */
     pedidosNaoPagos: [], pedidosSemEstadoDePagamento: [],
+    pedidosNaoCobraveis: [], pedidosParciais: [],
+    pedidosExigindoPolitica: [], pagamentosAtualizados: [],
     pedidosAntesDoCorte: [],
     produtosEnviados: 0, mudancas: [], semEmpurrar: [], semeados: [], naoSemeados: [],
     vendasLocais: { tentadas: 0, sincronizadas: 0, revisao: 0, falhas: 0, resultados: [] },
@@ -183,36 +187,295 @@ export async function corteDePedidos(db) {
  *
  *  E, quando existe corte, pedido anterior a ele não entra — ver
  *  `corteDePedidos` acima. */
-/** §36.1 — o que a loja diz sobre o dinheiro deste pedido.
+/* ═══════════════════════════════ §36.4 — o dinheiro do pedido da loja
+
+   Duas frases governam tudo aqui, e elas NÃO são a mesma:
+
+     FATURAMENTO  = dinheiro efetivamente recebido.
+     A RECEBER    = dinheiro que o cliente REALMENTE ainda deve.
+
+   O erro que este bloco existe para impedir é tratar as duas como
+   complementares. Não são: um pedido reembolsado não é faturamento E
+   também não é conta a receber; um pedido parcialmente pago não é nem uma
+   coisa nem outra por inteiro. Traduzir `payment_status` direto para
+   "pago ou a receber" inventaria dívida de quem não deve nada.
+
+   Nenhum campo é assumido. O que a integração lê é o objeto de `/orders`
+   como ele vem, e cada regra abaixo diz de qual campo ela depende. */
+
+/** Quanto do pedido já entrou, quando entrou PARTE.
  *
- *  A regra de negócio é: FATURAMENTO É SÓ DINHEIRO EFETIVAMENTE RECEBIDO.
- *  A existência do pedido não é evidência de recebimento — pedido de PIX
- *  aguardando pagamento é uma venda que ainda não virou dinheiro.
+ *  Só olha estrutura AUTODESCRITIVA: uma lista de transações em que cada
+ *  entrada diz o próprio estado e o próprio valor. Se ela não vier, a
+ *  resposta é `null` — e `null` aqui significa "não sei", que é diferente
+ *  de zero. Adivinhar o nome de um campo de valor seria inventar dinheiro.
  *
- *  `payment_status` e `paid_at` já vêm no MESMO payload de `/orders` que a
- *  sincronização sempre leu: nenhuma requisição a mais, nenhum escopo novo
- *  (`read_orders` já cobre), nenhuma mudança de contrato. O que faltava era
- *  ler os dois campos.
+ *  Nenhum payload real da loja da Marquesa foi observado até 2026-09-05
+ *  (produção nunca importou pedido de site: `externo_id` total = 0), então
+ *  o caminho PROVADO é o do `null`. O outro existe para o dia em que a
+ *  informação vier, e não muda nada enquanto não vier. */
+export function valorRecebidoDoPedido(pedido) {
+  const lista = pedido && pedido.transactions;
+  if (!Array.isArray(lista) || !lista.length) return null;
+  let soma = 0;
+  let achou = false;
+  for (const t of lista) {
+    if (!t || typeof t !== 'object') continue;
+    const estado = String(t.status ?? '').trim().toLowerCase();
+    if (estado !== 'paid' && estado !== 'approved') continue;
+    const valor = Number(t.amount && typeof t.amount === 'object' ? t.amount.value : t.amount);
+    if (!Number.isFinite(valor) || valor <= 0) continue;
+    soma += valor;
+    achou = true;
+  }
+  return achou ? Math.round(soma * 100) / 100 : null;
+}
+
+/** O pedido foi cancelado na loja? `status` e `cancelled_at` são os dois
+ *  campos que a integração já lia para decidir não importar o pedido. */
+export function pedidoCancelado(pedido) {
+  return !!(pedido && (pedido.status === 'cancelled' || pedido.cancelled_at));
+}
+
+/** A tradução de `payment_status` para o que o sistema precisa saber.
  *
- *  `authorized` NÃO conta: autorizado é o cartão reservado, não capturado.
- *  `partially_paid` também não: recebido pela metade não é recebido.
- *  Pedido sem o campo (loja antiga, resposta parcial) fica INDETERMINADO —
- *  o comportamento anterior — e vai para o relatório de conferência, em vez
- *  de ser adivinhado para um lado ou para o outro. */
-export function pagamentoDoPedido(pedido, dataPedido) {
+ *  Devolve sempre:
+ *    pago            1 quando o dinheiro entrou por inteiro
+ *    dataPagamento   a data REAL do recebimento, ou null
+ *    valorRecebido   quanto entrou, quando entrou parte; null nos demais
+ *    cobravel        1 quando o cliente ainda deve; 0 quando NINGUÉM deve
+ *    origem          o carimbo, que é o que os relatórios agrupam
+ *    estadoLoja      o `payment_status` bruto, em minúsculas
+ *    exigePolitica   true quando falta REGRA DE NEGÓCIO, não informação
+ *
+ *  Campos do payload usados, e nenhum além destes:
+ *    payment_status · paid_at · status · cancelled_at · transactions[] */
+export function pagamentoDoPedido(pedido, dataPedido, total = null) {
   const bruto = pedido && pedido.payment_status;
-  if (bruto === undefined || bruto === null || bruto === '') {
-    return { pago: 1, dataPagamento: dataPedido, origem: 'indeterminado_site', estadoLoja: null };
+  const cancelado = pedidoCancelado(pedido);
+
+  /* Sem o campo, o sistema NÃO SABE. Preserva o comportamento anterior —
+     mudar para não pago apagaria faturamento sem prova nenhuma — e carimba
+     a dúvida para a conferência humana encontrar. */
+  if (bruto === undefined || bruto === null || String(bruto).trim() === '') {
+    return {
+      pago: 1, dataPagamento: dataPedido, valorRecebido: null, cobravel: 0,
+      origem: 'indeterminado_site', estadoLoja: null, exigePolitica: false,
+      porque: 'a loja não informou o estado do pagamento',
+    };
   }
+
   const estado = String(bruto).trim().toLowerCase();
+  const base = { estadoLoja: estado, exigePolitica: false, valorRecebido: null };
+
+  /* ─── PAGO. A única situação em que entra faturamento. */
   if (estado === 'paid') {
-    /* `paid_at` é a data REAL do recebimento, e é ela que decide o mês do
-       faturamento. Sem ela, cai na data do pedido — que é o mais próximo
-       que se tem, e fica dito no carimbo. */
-    const quando = pedido.paid_at ? String(pedido.paid_at).slice(0, 10) : dataPedido;
-    return { pago: 1, dataPagamento: quando, origem: 'nuvemshop_pago', estadoLoja: estado };
+    /* `paid_at` é a data REAL do recebimento, e é ela que decide o mês. Sem
+       ela, a data do pedido é o mais próximo que existe — e o fallback é
+       DECLARADO no retorno, nunca silencioso. */
+    const temPaidAt = !!(pedido && pedido.paid_at);
+    return {
+      ...base, pago: 1, cobravel: 0,
+      dataPagamento: temPaidAt ? String(pedido.paid_at).slice(0, 10) : dataPedido,
+      fallbackData: !temPaidAt,
+      origem: temPaidAt ? 'nuvemshop_pago' : 'nuvemshop_pago_sem_data',
+      porque: temPaidAt
+        ? 'a loja confirmou o pagamento e informou a data'
+        : 'a loja confirmou o pagamento mas não informou paid_at — usada a data do pedido',
+    };
   }
-  return { pago: 0, dataPagamento: null, origem: 'nuvemshop_nao_pago', estadoLoja: estado };
+
+  /* ─── REEMBOLSADO. Não é faturamento, e NÃO É A RECEBER.
+     O dinheiro entrou e voltou: ninguém deve nada. Criar cobrança aberta
+     aqui inventaria uma dívida do cliente. Faturamento negativo também não
+     se inventa — a política contábil de reembolso da Marquesa não existe
+     ainda, e é ela que decide o que fazer com o valor. */
+  if (estado === 'refunded' || estado === 'partially_refunded') {
+    return {
+      ...base, pago: 0, cobravel: 0, dataPagamento: null,
+      origem: 'nuvemshop_reembolsado', exigePolitica: true,
+      porque: 'pagamento reembolsado: não é faturamento e não é dívida do cliente — '
+        + 'a política contábil de reembolso ainda não foi definida',
+    };
+  }
+
+  /* ─── PAGO PELA METADE. Recebido pela metade não é recebido, mas também
+     não é dever tudo. Com o valor: entra o que entrou, fica devendo o
+     resto. Sem o valor: NADA é contabilizado, e a linha vira pendência
+     financeira nomeada — porque um número inventado é pior que a ausência
+     dele. */
+  if (estado === 'partially_paid') {
+    const recebido = valorRecebidoDoPedido(pedido);
+    const totalNum = Number(total);
+    const utilizavel = recebido !== null && Number.isFinite(totalNum)
+      && recebido > 0 && recebido < totalNum;
+    if (!utilizavel) {
+      return {
+        ...base, pago: 0, cobravel: 0, dataPagamento: null,
+        origem: 'pagamento_parcial_indeterminado', exigePolitica: false,
+        porque: recebido === null
+          ? 'a loja não informou quanto foi pago: nada é contabilizado até alguém conferir'
+          : 'o valor informado não fecha com o total do pedido: nada é contabilizado',
+      };
+    }
+    return {
+      ...base, pago: 0, cobravel: 1, valorRecebido: recebido,
+      dataPagamento: pedido.paid_at ? String(pedido.paid_at).slice(0, 10) : null,
+      origem: 'nuvemshop_parcial',
+      porque: `entraram ${recebido} de ${totalNum}; o saldo continua a receber`,
+    };
+  }
+
+  /* ─── ANULADO. `voided` sozinho não decide nada: é preciso cruzar com o
+     estado do PEDIDO. Pagamento anulado num pedido cancelado não é dívida
+     de ninguém; num pedido que segue de pé, o cliente ainda deve. */
+  if (estado === 'voided') {
+    if (cancelado) {
+      return {
+        ...base, pago: 0, cobravel: 0, dataPagamento: null,
+        origem: 'nuvemshop_anulado',
+        porque: 'pagamento anulado E pedido cancelado: não há o que cobrar',
+      };
+    }
+    return {
+      ...base, pago: 0, cobravel: 1, dataPagamento: null,
+      origem: 'nuvemshop_pendente_apos_anulacao',
+      porque: 'pagamento anulado mas o pedido continua ativo: a peça saiu e o cliente ainda deve',
+    };
+  }
+
+  /* ─── ABANDONADO. Carrinho que nunca virou compra. Não entra em
+     faturamento nem em cobrança. */
+  if (estado === 'abandoned') {
+    return {
+      ...base, pago: 0, cobravel: 0, dataPagamento: null,
+      origem: 'nuvemshop_abandonado',
+      porque: 'pedido abandonado: nunca houve compra a cobrar',
+    };
+  }
+
+  /* ─── AUTORIZADO. Autorização NÃO é liquidação: o cartão está reservado,
+     o dinheiro não saiu da conta de ninguém. Não é faturamento. Enquanto o
+     pedido estiver de pé, é cobrança em aberto — a regra fica dita aqui e
+     no carimbo próprio, para poder ser separada do `pending` num relatório
+     sem ler código. */
+  if (estado === 'authorized') {
+    if (cancelado) {
+      return {
+        ...base, pago: 0, cobravel: 0, dataPagamento: null,
+        origem: 'nuvemshop_cancelado',
+        porque: 'autorização num pedido cancelado: não há o que cobrar',
+      };
+    }
+    return {
+      ...base, pago: 0, cobravel: 1, dataPagamento: null,
+      origem: 'nuvemshop_autorizado',
+      porque: 'autorizado é cartão reservado, não capturado: o dinheiro ainda não entrou',
+    };
+  }
+
+  /* ─── PENDENTE. O caso comum do PIX esperando. Cobrança em aberto pelo
+     valor inteiro — desde que o pedido esteja de pé. */
+  if (estado === 'pending') {
+    if (cancelado) {
+      return {
+        ...base, pago: 0, cobravel: 0, dataPagamento: null,
+        origem: 'nuvemshop_cancelado',
+        porque: 'pagamento pendente num pedido cancelado: não há o que cobrar',
+      };
+    }
+    return {
+      ...base, pago: 0, cobravel: 1, dataPagamento: null,
+      origem: 'nuvemshop_pendente',
+      porque: 'aguardando o pagamento: a venda existe, o dinheiro ainda não',
+    };
+  }
+
+  /* ─── QUALQUER OUTRO. Estado que a loja passou a usar e este código não
+     conhece. Não vira faturamento nem dívida: vira pergunta. */
+  return {
+    ...base, pago: 0, cobravel: 0, dataPagamento: null,
+    origem: 'nuvemshop_estado_desconhecido',
+    porque: `a loja informou "${estado}", que este código não sabe interpretar`,
+  };
+}
+/** Põe o pedido na gaveta certa do relatório. Três gavetas, porque são três
+ *  coisas diferentes, e juntá-las é justamente o defeito de §36.4:
+ *
+ *    pedidosNaoPagos          o cliente ainda deve — vira conta a receber
+ *    pedidosParciais          entrou parte; o saldo é que fica a receber
+ *    pedidosNaoCobraveis      NINGUÉM deve nada, e também não é faturamento
+ *
+ *  `pedidosExigindoPolitica` é transversal: marca o que precisa de decisão
+ *  humana, não de mais informação. */
+function anunciarPagamento(relato, pg, linha) {
+  const item = { ...linha, estadoLoja: pg.estadoLoja, carimbo: pg.origem, porque: pg.porque };
+  if (pg.pago === 1) {
+    if (pg.fallbackData) {
+      relato.pedidosSemEstadoDePagamento.push({ ...item, fallback: 'data do pedido no lugar de paid_at' });
+    }
+    return;
+  }
+  if (pg.origem === 'nuvemshop_parcial') relato.pedidosParciais.push({ ...item, valorRecebido: pg.valorRecebido });
+  else if (pg.cobravel === 1) relato.pedidosNaoPagos.push(item);
+  else relato.pedidosNaoCobraveis.push(item);
+  if (pg.exigePolitica) relato.pedidosExigindoPolitica.push(item);
+  if (pg.origem === 'indeterminado_site') relato.pedidosSemEstadoDePagamento.push(item);
+}
+
+/** O pedido JÁ virou venda aqui, e a loja mudou o estado do pagamento dele.
+ *
+ *  Esta função existe porque faltava o caminho de volta: um pedido entrava
+ *  como `pending` e ficava `pending` para sempre — a rodada seguinte via o
+ *  `externo_id` já conhecido e pulava o pedido inteiro. O PIX caía e o
+ *  dinheiro nunca entrava no faturamento.
+ *
+ *  O que ela faz, e SÓ isto:
+ *    · escreve pago / data_pagamento / valor_recebido / cobravel;
+ *    · nunca toca em estoque, item, total ou data da venda.
+ *
+ *  O que ela se RECUSA a fazer sozinha:
+ *    · desfazer um pagamento que já foi contado (paid → refunded/voided):
+ *      isso apaga faturamento de um mês fechado, e é decisão humana;
+ *    · sobrescrever pagamento que uma PESSOA registrou (`informado`).
+ *
+ *  Devolve o que fez, ou o motivo de não ter feito. */
+export async function atualizarPagamentoDaVenda(db, vendaId, pg) {
+  const v = await db.prepare(
+    'SELECT id, total, pago, data_pagamento, pagamento_origem, valor_recebido, cobravel, cancelada'
+    + ' FROM vendas WHERE id = ?',
+  ).bind(vendaId).first();
+  if (!v) return { mudou: false, motivo: 'venda não encontrada' };
+  if (v.cancelada) return { mudou: false, motivo: 'venda cancelada não recebe atualização de pagamento' };
+  if (v.pagamento_origem === 'informado') {
+    return { mudou: false, motivo: 'o pagamento desta venda foi registrado por uma pessoa — a loja não o sobrescreve' };
+  }
+  if (Number(v.pago) === 1 && pg.pago !== 1) {
+    return {
+      mudou: false, exigePolitica: true,
+      motivo: `a loja passou o pedido de pago para "${pg.estadoLoja}": isso removeria faturamento já contado, `
+        + 'e a política contábil para esse caso não existe',
+    };
+  }
+  const igual = Number(v.pago) === pg.pago
+    && (v.data_pagamento ?? null) === (pg.dataPagamento ?? null)
+    && (v.valor_recebido ?? null) === (pg.valorRecebido ?? null)
+    && Number(v.cobravel) === pg.cobravel
+    && v.pagamento_origem === pg.origem;
+  if (igual) return { mudou: false, motivo: 'nada mudou' };
+
+  await db.prepare(
+    `UPDATE vendas SET pago = ?, data_pagamento = ?, pagamento_origem = ?,
+            valor_recebido = ?, cobravel = ?
+      WHERE id = ?`,
+  ).bind(pg.pago, pg.dataPagamento, pg.origem, pg.valorRecebido, pg.cobravel, vendaId).run();
+
+  return {
+    mudou: true, vendaId,
+    de: { pago: Number(v.pago), carimbo: v.pagamento_origem },
+    para: { pago: pg.pago, carimbo: pg.origem, dataPagamento: pg.dataPagamento },
+    estoqueAlterado: false,
+  };
 }
 
 async function puxarPedidos(db, loja, relato, seco) {
@@ -239,7 +502,34 @@ async function puxarPedidos(db, loja, relato, seco) {
       jaTemos.add(chave);
       continue;
     }
-    if (jaTemos.has(chave)) continue;
+    /* §36.4 — o pedido já virou venda aqui, mas o PAGAMENTO dele pode ter
+       mudado na loja desde então. Antes este `continue` engolia a mudança:
+       o PIX caía e o dinheiro nunca entrava no faturamento. Atualizar o
+       pagamento não cria venda, não cria item e NÃO MEXE EM ESTOQUE. */
+    if (jaTemos.has(chave)) {
+      const ja = await db.prepare(
+        'SELECT id, total FROM vendas WHERE externo_id = ? LIMIT 1',
+      ).bind(chave).first();
+      if (ja) {
+        const pgAtual = pagamentoDoPedido(pedido, String(pedido.created_at || '').slice(0, 10), ja.total);
+        if (seco) {
+          anunciarPagamento(relato, pgAtual, {
+            pedido: pedido.number || pedido.id, externoId: chave, vendaId: ja.id,
+            total: ja.total, jaImportado: true,
+          });
+        } else {
+          const r = await atualizarPagamentoDaVenda(db, ja.id, pgAtual);
+          if (r.mudou) relato.pagamentosAtualizados.push({ pedido: pedido.number || pedido.id, ...r });
+          else if (r.exigePolitica) {
+            relato.pedidosExigindoPolitica.push({
+              pedido: pedido.number || pedido.id, externoId: chave, vendaId: ja.id,
+              estadoLoja: pgAtual.estadoLoja, porque: r.motivo,
+            });
+          }
+        }
+      }
+      continue;
+    }
 
     /* §22: o que o sistema decide não fazer é anunciado, nunca engolido.
        Pedido anterior ao corte não vira venda, e aparece no relatório com
@@ -284,36 +574,35 @@ async function puxarPedidos(db, loja, relato, seco) {
     const data = String(pedido.created_at || agoraISO()).slice(0, 10);
     const cliente = (pedido.customer && pedido.customer.name) || 'Cliente do site';
 
-    /* §36.1 — o estado do pagamento vem da loja, não de suposição.
+    /* §36.4 — o estado do pagamento vem da loja, não de suposição.
        Calculado ANTES do desvio do dry-run de propósito: a tela precisa
        dizer quanto do que vai entrar NÃO é faturamento antes de alguém
        confirmar, e não depois. */
-    const pg = pagamentoDoPedido(pedido, data);
-    if (pg.origem === 'nuvemshop_nao_pago') {
-      relato.pedidosNaoPagos.push({
-        pedido: pedido.number || pedido.id, externoId: chave, data,
-        total, cliente, estadoLoja: pg.estadoLoja,
-      });
-    } else if (pg.origem === 'indeterminado_site') {
-      relato.pedidosSemEstadoDePagamento.push({
-        pedido: pedido.number || pedido.id, externoId: chave, data, total, cliente,
-      });
-    }
+    const pg = pagamentoDoPedido(pedido, data, total);
+    anunciarPagamento(relato, pg, {
+      pedido: pedido.number || pedido.id, externoId: chave, data, total, cliente,
+    });
 
     if (seco) { relato.vendasCriadas++; continue; }
 
     const venda = await db.prepare(
       /* A venda do site nasce com o estado de pagamento que a LOJA declara.
        * Antes, todo pedido não cancelado entrava como faturamento no dia em
-       * que apareceu — inclusive o que ainda esperava o PIX. Agora o pedido
-       * não pago nasce A RECEBER, e o pago entra pela data real do
-       * recebimento. O estoque baixa nos dois casos: a peça saiu da gaveta
-       * quando o pedido foi feito, e isso não depende de o dinheiro ter
-       * entrado. */
+       * que apareceu — inclusive o que ainda esperava o PIX. Agora:
+       *   pago      entra pela data real do recebimento;
+       *   pendente  nasce A RECEBER pelo valor inteiro;
+       *   parcial   entra o que entrou, e o saldo fica a receber;
+       *   reembolso, anulação e abandono não são NENHUM DOS DOIS.
+       *
+       * O estoque não olha para nada disso: ele segue o PEDIDO. A peça saiu
+       * da gaveta quando o pedido foi feito, e isso não depende de o
+       * dinheiro ter entrado — nem muda quando o pagamento muda. */
       `INSERT INTO vendas (cliente_nome, origem, data, total, externo_id,
-                           pago, data_pagamento, pagamento_origem)
-       VALUES (?, 'site', ?, ?, ?, ?, ?, ?) RETURNING id`
-    ).bind(cliente, data, total, chave, pg.pago, pg.dataPagamento, pg.origem).first();
+                           pago, data_pagamento, pagamento_origem,
+                           valor_recebido, cobravel)
+       VALUES (?, 'site', ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+    ).bind(cliente, data, total, chave, pg.pago, pg.dataPagamento, pg.origem,
+      pg.valorRecebido, pg.cobravel).first();
 
     const stmts = [];
     for (const l of linhas) {

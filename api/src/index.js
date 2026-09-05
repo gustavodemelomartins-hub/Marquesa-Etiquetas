@@ -1753,14 +1753,18 @@ async function registrarVenda(db, env, {
   const venda = await db.prepare(
     `INSERT INTO vendas (cliente_id, cliente_nome, cliente_nome_norm, origem, data, total,
                          nuvemshop_status, pago, data_pagamento, observacao, pagamento_origem,
-                         cliente_ambiguo)
-     VALUES (?, ?, ?, 'balcao', ?, ?, 'pendente', ?, ?, ?, ?, ?) RETURNING id`,
+                         cliente_ambiguo, cobravel)
+     VALUES (?, ?, ?, 'balcao', ?, ?, 'pendente', ?, ?, ?, ?, ?, ?) RETURNING id`,
     /* §1 da revisão — de onde veio a data de pagamento. Aqui ela é FATO:
        um humano marcou PAGO e escolheu a data na tela. É o que distingue
        esta linha da venda antiga, cuja data de pagamento é a data da venda
        usada como aproximação porque nunca existiu outra. */
   ).bind(idCliente, nomeLimpo, norm, data, total, pago, dataPagamento, observacao,
-    pago ? 'informado' : null, clienteAmbiguo).first();
+    pago ? 'informado' : null, clienteAmbiguo,
+    /* Venda de balcão não paga É conta a receber: a cliente levou a peça e
+       ficou devendo. `cobravel = 0` existe só para o que a LOJA declara que
+       ninguém deve (reembolso, anulação, abandono). */
+    pago ? 0 : 1).first();
 
   const stmts = [];
   for (const l of linhas) {
@@ -1847,7 +1851,11 @@ async function registrarPagamentoVenda(db, id, corpo = {}) {
   if (!querPagar) {
     if (!v.pago) return json({ erro: 'Esta venda já está como NÃO PAGA.' }, 409);
     const r = await db.prepare(
-      `UPDATE vendas SET pago = 0, data_pagamento = NULL, pagamento_origem = NULL
+      /* Desfazer devolve a venda para "o cliente ainda deve": é o caminho de
+         volta de quem marcou pago por engano, e o padrão de toda venda não
+         paga lançada por uma pessoa. */
+      `UPDATE vendas SET pago = 0, data_pagamento = NULL, pagamento_origem = NULL,
+              valor_recebido = NULL, cobravel = 1
         WHERE id = ? RETURNING *`,
     ).bind(id).first();
     return json({
@@ -1877,7 +1885,10 @@ async function registrarPagamentoVenda(db, id, corpo = {}) {
   }
 
   const r = await db.prepare(
+    /* §36.4: pago por inteiro zera o que se tem a receber, e limpa qualquer
+       parcial que existisse — o saldo virou zero, não sobra metade. */
     `UPDATE vendas SET pago = 1, data_pagamento = ?, pagamento_origem = 'informado',
+            valor_recebido = NULL, cobravel = 0,
             observacao = COALESCE(?, observacao)
       WHERE id = ? RETURNING *`,
   ).bind(dataPagamento, String(corpo.observacao ?? '').trim() || null, id).first();

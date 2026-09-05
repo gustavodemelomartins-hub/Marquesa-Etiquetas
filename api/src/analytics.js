@@ -177,13 +177,25 @@ function cteVendas(faixa, { incluirAjuste = false } = {}) {
       -- com o total inteiro em saldo, exatamente como a conta histórica em
       -- aberto já aparecia. (Comentário em SQL, não em JS: isto está dentro
       -- de um template literal, e uma crase aqui fecharia a string.)
+      -- §36.4: FATURAMENTO e A RECEBER não são complementares. Um pedido
+      -- reembolsado não é nem um nem outro, e um pedido pago pela metade é
+      -- os dois ao mesmo tempo, em partes. Três colunas decidem:
+      --   pago            entrou tudo
+      --   valor_recebido  entrou isto (NULL = ou tudo, ou nada)
+      --   cobravel        o cliente REALMENTE ainda deve o resto
+      -- Linha antiga tem valor_recebido NULL e cobravel 1, então o CASE cai
+      -- exatamente onde caía antes: nenhum número existente se move.
       SELECT 'operacional', v.id, v.data,
              COALESCE(v.data_pagamento, v.data),
              v.cliente_nome_norm, COALESCE(c.nome, v.cliente_nome),
              v.cliente_id, (SELECT COALESCE(SUM(i.qtd), 0) FROM venda_itens i WHERE i.venda_id = v.id),
-             CASE WHEN v.pago = 1 THEN v.total ELSE 0 END,
+             CASE WHEN v.pago = 1 THEN v.total
+                  WHEN v.valor_recebido IS NOT NULL THEN v.valor_recebido
+                  ELSE 0 END,
              v.total,
-             CASE WHEN v.pago = 1 THEN 'paga' ELSE 'nao_paga' END,
+             CASE WHEN v.pago = 1 THEN 'paga'
+                  WHEN v.valor_recebido IS NOT NULL THEN 'parcial'
+                  ELSE 'nao_paga' END,
              CASE WHEN v.pago = 1 THEN 1 ELSE 0 END,
              CASE v.origem WHEN 'balcao' THEN 'Balcão' WHEN 'site' THEN 'Site'
                            WHEN 'acerto' THEN 'Acerto de maleta'
@@ -191,10 +203,18 @@ function cteVendas(faixa, { incluirAjuste = false } = {}) {
              NULL, 'venda',
              CASE WHEN v.origem='acerto' OR v.revendedora_id IS NOT NULL THEN 'acerto' ELSE 'cliente' END,
              NULL, NULL,
-             CASE WHEN v.pago = 1 THEN 'paga' ELSE 'aberta' END,
+             CASE WHEN v.pago = 1 THEN 'paga'
+                  WHEN v.cobravel = 0 THEN 'nenhuma'
+                  ELSE 'aberta' END,
              CAST(ROUND(v.total * 100) AS INTEGER),
-             CASE WHEN v.pago = 1 THEN CAST(ROUND(v.total * 100) AS INTEGER) ELSE 0 END,
-             CASE WHEN v.pago = 1 THEN 0 ELSE CAST(ROUND(v.total * 100) AS INTEGER) END,
+             CASE WHEN v.pago = 1 THEN CAST(ROUND(v.total * 100) AS INTEGER)
+                  WHEN v.valor_recebido IS NOT NULL THEN CAST(ROUND(v.valor_recebido * 100) AS INTEGER)
+                  ELSE 0 END,
+             CASE WHEN v.pago = 1 THEN 0
+                  WHEN v.cobravel = 0 THEN 0
+                  WHEN v.valor_recebido IS NOT NULL
+                       THEN CAST(ROUND((v.total - v.valor_recebido) * 100) AS INTEGER)
+                  ELSE CAST(ROUND(v.total * 100) AS INTEGER) END,
              NULL, v.data_pagamento, v.observacao
         FROM vendas v
         LEFT JOIN clientes c ON c.id = v.cliente_id

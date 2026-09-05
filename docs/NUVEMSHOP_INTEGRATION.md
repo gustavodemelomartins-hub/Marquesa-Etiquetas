@@ -94,23 +94,45 @@ estavam lá — a sincronização é que não os lia. Ler os dois **não custa
 requisição nova, não pede escopo novo** (`read_orders` já cobre) e **não
 muda contrato nenhum** com a loja: a mudança é toda do lado de cá.
 
-`pagamentoDoPedido(pedido, dataDoPedido)` em `api/src/sync.js` traduz:
+**Campos usados, e nenhum além destes:** `payment_status`, `paid_at`,
+`status`, `cancelled_at`, `transactions[]`.
 
-| `payment_status` | Vira | Por quê |
-|---|---|---|
-| `paid` | `pago=1`, data de `paid_at` | dinheiro recebido, e a data real decide o mês |
-| `pending`, `abandoned`, `voided`, `refunded` | `pago=0`, sem data | venda que ainda não virou dinheiro |
-| `authorized` | `pago=0` | cartão **reservado**, não capturado |
-| `partially_paid` | `pago=0` | recebido pela metade não é recebido |
-| ausente ou ilegível | `pago=1`, carimbo `indeterminado_site` | preserva o comportamento antigo e **anuncia** a dúvida |
+`pagamentoDoPedido(pedido, dataDoPedido, total)` em `api/src/sync.js`
+devolve `{ pago, dataPagamento, valorRecebido, cobravel, origem, estadoLoja,
+exigePolitica, porque }`. A regra por estado está em **§36.4 de
+`api/REGRAS.md`** — não duplicada aqui de propósito.
 
-O estoque baixa em todos os casos: a peça saiu da gaveta quando o pedido foi
-feito, e isso não depende do dinheiro ter entrado.
+O que importa saber nesta página:
 
-O relatório da sincronização passou a trazer `pedidosNaoPagos` e
-`pedidosSemEstadoDePagamento` com pedido, data, valor, cliente e o estado
-bruto da loja — inclusive no **dry-run**, para a tela poder dizer quanto do
-que vai entrar NÃO é faturamento **antes** de alguém confirmar.
+- **faturamento e A Receber não são complementares.** `refunded`, `voided`
+  em pedido cancelado, `abandoned` e o parcial sem valor não são nem um nem
+  outro: `cobravel = 0`;
+- **nenhum campo de valor é adivinhado.** O valor parcial só sai de
+  `transactions[]`, que é autodescritiva (cada entrada diz o próprio estado
+  e o próprio valor). Sem ela, o carimbo é `pagamento_parcial_indeterminado`
+  e **nada** é contabilizado;
+- **o estoque segue o PEDIDO, não o pagamento.** A peça saiu da gaveta
+  quando o pedido foi feito. Mudar `payment_status` não cria nem desfaz
+  movimento nenhum;
+- **o caminho de volta existe.** `atualizarPagamentoDaVenda` atualiza o
+  pagamento de um pedido já importado sem tocar em estoque, item, total ou
+  data. Antes, o `externo_id` conhecido fazia a rodada pular o pedido, e o
+  PIX que caía nunca virava faturamento.
+
+O relatório da sincronização traz, separados pelo **motivo** — porque "a
+receber" e "não é de ninguém" são coisas diferentes:
+
+| Campo | O que é |
+|---|---|
+| `pedidosNaoPagos` | o cliente ainda deve: vira conta a receber |
+| `pedidosParciais` | entrou parte; o saldo é que fica a receber |
+| `pedidosNaoCobraveis` | ninguém deve nada, e também não é faturamento |
+| `pedidosExigindoPolitica` | falta REGRA DE NEGÓCIO, não informação |
+| `pedidosSemEstadoDePagamento` | a loja não disse, ou faltou `paid_at` |
+| `pagamentosAtualizados` | pedido já importado que mudou de estado |
+
+Todos aparecem **também no dry-run**, para a tela dizer quanto do que vai
+entrar NÃO é faturamento **antes** de alguém confirmar.
 
 ## Escrita
 

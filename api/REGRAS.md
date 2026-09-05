@@ -1394,27 +1394,78 @@ evidência que **já existe** no banco:
 | `informado` | um humano disse a data na tela | `pago=1`, a data que ele escolheu |
 | `historico_paga` | há cobrança histórica paga, com `paga_em` | `pago=1`, a data REAL do recebimento |
 | `historico_aberto` | há cobrança histórica **aberta** | `pago=0`, **sem** data |
-| `nuvemshop_pago` | a loja diz `payment_status = paid` | `pago=1`, data de `paid_at` |
-| `nuvemshop_nao_pago` | a loja diz qualquer outra coisa | `pago=0`, **sem** data |
+| `nuvemshop_*` | a loja declarou o estado do pagamento | ver a tabela de §36.4 |
 | `indeterminado_site` | pedido da loja sem `payment_status` legível | comportamento antigo preservado, e a linha vai para conferência humana |
 | `legado_data_venda` | nenhuma evidência existiu jamais | data da venda como **aproximação declarada** |
 
 A regra em uma linha: **uma conta a receber real nunca vira pagamento por
 causa de uma migration.**
 
-**Faturamento é só dinheiro efetivamente recebido.** A existência do pedido
-não é evidência de recebimento: pedido de PIX aguardando pagamento é venda
-que ainda não virou dinheiro, e nasce **A Receber**. `authorized` não conta
-(cartão reservado, não capturado) e `partially_paid` também não (recebido
-pela metade não é recebido) — contar qualquer um seria repetir o defeito com
-outro nome. O estoque baixa nos dois casos: a peça saiu da gaveta quando o
-pedido foi feito, e isso não depende do dinheiro ter entrado.
+### §36.4 — faturamento e A Receber NÃO são complementares
+
+Duas frases, e elas não são a mesma:
+
+> **FATURAMENTO** = dinheiro efetivamente recebido.
+> **A RECEBER** = dinheiro que o cliente **realmente** ainda deve.
+
+O primeiro defeito era tratar todo pedido não cancelado como pago. O
+segundo — mais sutil e mais caro — seria corrigi-lo jogando tudo o que não é
+`paid` em "A Receber". Um pedido **reembolsado** não é nem um nem outro:
+ninguém deve nada. Um pedido **pago pela metade** é os dois, em partes.
+Traduzir status técnico direto para dívida inventa débito de quem não deve.
+
+| `payment_status` | Pago | Cobrável | Carimbo | Regra |
+|---|---|---|---|---|
+| `paid` (com `paid_at`) | sim | — | `nuvemshop_pago` | faturamento pela data **real** do recebimento |
+| `paid` (sem `paid_at`) | sim | — | `nuvemshop_pago_sem_data` | data do pedido como fallback **declarado** no relatório |
+| `pending` + pedido ativo | não | **sim** | `nuvemshop_pendente` | A Receber pelo valor inteiro |
+| `pending` + pedido cancelado | não | não | `nuvemshop_cancelado` | não há o que cobrar |
+| `authorized` + pedido ativo | não | **sim** | `nuvemshop_autorizado` | cartão **reservado**, não capturado — não é dinheiro |
+| `authorized` + cancelado | não | não | `nuvemshop_cancelado` | idem |
+| `partially_paid` **com valor** | não | **sim** | `nuvemshop_parcial` | entra o recebido; o **saldo** fica a receber |
+| `partially_paid` **sem valor** | não | não | `pagamento_parcial_indeterminado` | **nada** é contabilizado até alguém conferir |
+| `refunded` | não | **não** | `nuvemshop_reembolsado` | não é faturamento e **não é dívida** — exige política |
+| `voided` + pedido cancelado | não | não | `nuvemshop_anulado` | não há o que cobrar |
+| `voided` + pedido **ativo** | não | **sim** | `nuvemshop_pendente_apos_anulacao` | a peça saiu e o cliente ainda deve |
+| `abandoned` | não | não | `nuvemshop_abandonado` | carrinho nunca virou compra |
+| desconhecido | não | não | `nuvemshop_estado_desconhecido` | vira pergunta, não número |
+| ausente | sim | não | `indeterminado_site` | preserva o comportamento antigo e **anuncia** a dúvida |
+
+Três colunas sustentam isso em `vendas`: `pago` (entrou tudo),
+`valor_recebido` (entrou **isto**; `NULL` = ou tudo, ou nada) e `cobravel`
+(o cliente **realmente** ainda deve).
+
+**Nenhum campo é adivinhado.** O valor parcial só é lido de estrutura
+autodescritiva — uma lista de transações em que cada entrada diz o próprio
+estado e o próprio valor. Sem ela, a resposta é "não sei", que é diferente
+de zero. Até 2026-09-05 **nenhum payload real da loja foi observado**
+(produção nunca importou pedido de site: `externo_id` total = 0), então o
+caminho **provado** é o indeterminado.
+
+**O estoque não olha para nada disso.** Ele segue o PEDIDO: a peça saiu da
+gaveta quando o pedido foi feito, e isso não depende de o dinheiro ter
+entrado — nem muda quando o pagamento muda. Mudar `payment_status` não cria
+nem desfaz movimento nenhum.
+
+**O caminho de volta existe.** Um pedido que entra `pending` e depois é pago
+tem o pagamento atualizado na rodada seguinte — antes, o `externo_id` já
+conhecido fazia a sincronização pular o pedido inteiro, e o PIX que caía
+nunca virava faturamento. A atualização escreve **só** pagamento: nunca
+estoque, item, total ou data da venda.
+
+**Duas coisas a sincronização se recusa a fazer sozinha:**
+
+- desfazer um pagamento já contado (`paid` → `refunded`/`voided`): isso apaga
+  faturamento de um mês fechado, e é decisão humana. Ela **anuncia** em
+  `pedidosExigindoPolitica`;
+- sobrescrever pagamento que uma **pessoa** registrou (`informado`).
 
 `payment_status` e `paid_at` já vinham no **mesmo** payload de `/orders` que
 a sincronização sempre leu — nenhuma requisição a mais, nenhum escopo novo
-(`read_orders` já cobre), nenhuma mudança de contrato com a loja. O que
-faltava era ler os dois campos. Provado em
-`src/pagamento-nuvemshop-test.mjs` (puro).
+(`read_orders` já cobre), nenhuma mudança de contrato com a loja.
+
+Provado em `src/pagamento-nuvemshop-test.mjs` (puro, cenários A–M) e
+`src/sync-pagamento-test.mjs` (ponta a ponta, contra a loja de mentira).
 
 As vendas do site que já estão no banco continuam `indeterminado_site`: o
 `payment_status` delas existe **na loja**, não aqui, e resolvê-las é uma
