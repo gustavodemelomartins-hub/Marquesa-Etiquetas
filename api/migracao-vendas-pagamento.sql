@@ -49,10 +49,10 @@ ALTER TABLE vendas ADD COLUMN observacao TEXT;
 --   nuvemshop_nao_pago  a loja declarou qualquer outro estado: a venda nasce
 --                       A RECEBER, porque faturamento é só dinheiro
 --                       efetivamente recebido.
---   indeterminado_site  o pedido veio do site sem estado legível, e o site aceita
---                         pedido com pagamento pendente. O banco nunca
---                         guardou `payment_status`, então o estado real é
---                         DESCONHECIDO e a linha entra no relatório de
+--   indeterminado_site  o pedido veio do site sem estado legível. O banco
+--                         nunca guardou `payment_status`, então o estado
+--                         real é DESCONHECIDO: a linha não vira faturamento
+--                         NEM conta a receber, e entra no relatório de
 --                         conferência humana.
 ALTER TABLE vendas ADD COLUMN pagamento_origem TEXT;
 
@@ -116,11 +116,24 @@ UPDATE vendas
 
 -- 3) INDETERMINADO — pedido do site. A Nuvemshop aceita pedido com
 --    pagamento pendente e a sincronização nunca guardou `payment_status`:
---    o banco não sabe. O comportamento financeiro antigo é preservado
---    (a venda já era contada no dia da venda), mas a linha fica CARIMBADA
---    como indeterminada e sai no relatório de conferência.
+--    o banco NÃO SABE se este dinheiro entrou.
+--
+--    E não saber não é o mesmo que saber que entrou. Faturamento é dinheiro
+--    efetivamente recebido; a existência do pedido nunca foi evidência de
+--    recebimento. Então a ausência de informação vira ausência de número
+--    dos DOIS lados: faturamento 0 (não há prova de que entrou) e A Receber
+--    0 (não há prova de que o cliente deve).
+--
+--    `valor_recebido = 0` — e não NULL — é o que diz "o recebido conhecido
+--    é zero". A linha fica carimbada e sai no relatório de conferência
+--    financeira: ela não some, vira pendência.
+--
+--    Em `marquesa-db-prod` isto não move um centavo: a produção tem ZERO
+--    vendas de origem `site` (`externo_id` total = 0), medido em
+--    2026-09-05. A regra existe para o dia em que houver.
 UPDATE vendas
-   SET data_pagamento = data, pagamento_origem = 'indeterminado_site'
+   SET pago = 0, data_pagamento = NULL, valor_recebido = 0, cobravel = 0,
+       pagamento_origem = 'indeterminado_site'
  WHERE pagamento_origem IS NULL AND origem = 'site';
 
 -- 4) LEGADO SEM EVIDÊNCIA — balcão e acerto. Nenhuma informação de

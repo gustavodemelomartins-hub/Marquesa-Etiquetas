@@ -254,14 +254,24 @@ export function pagamentoDoPedido(pedido, dataPedido, total = null) {
   const bruto = pedido && pedido.payment_status;
   const cancelado = pedidoCancelado(pedido);
 
-  /* Sem o campo, o sistema NÃO SABE. Preserva o comportamento anterior —
-     mudar para não pago apagaria faturamento sem prova nenhuma — e carimba
-     a dúvida para a conferência humana encontrar. */
+  /* Sem o campo, o sistema NÃO SABE — e não saber não é o mesmo que saber
+     que entrou. Faturamento é dinheiro efetivamente recebido, e a mera
+     existência do pedido nunca foi evidência de recebimento.
+
+     Então a ausência de informação vira ausência de número, dos DOIS lados:
+     faturamento 0 porque não há prova de que entrou, e A Receber 0 porque
+     também não há prova de que o cliente deve. `valor_recebido = 0` (e não
+     NULL) é o que diz "o recebido conhecido é zero", em vez de deixar o
+     total inteiro cair em alguma soma por omissão.
+
+     O pedido continua aparecendo em `pedidosSemEstadoDePagamento`: ele não
+     some, vira pendência de conferência financeira. */
   if (bruto === undefined || bruto === null || String(bruto).trim() === '') {
     return {
-      pago: 1, dataPagamento: dataPedido, valorRecebido: null, cobravel: 0,
+      pago: 0, dataPagamento: null, valorRecebido: 0, cobravel: 0,
       origem: 'indeterminado_site', estadoLoja: null, exigePolitica: false,
-      porque: 'a loja não informou o estado do pagamento',
+      porque: 'a loja não informou o estado do pagamento: sem evidência de recebimento '
+        + 'não há faturamento, e sem evidência de dívida não há conta a receber',
     };
   }
 

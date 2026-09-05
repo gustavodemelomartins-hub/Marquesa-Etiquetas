@@ -1429,11 +1429,18 @@ Traduzir status técnico direto para dívida inventa débito de quem não deve.
 | `voided` + pedido **ativo** | não | **sim** | `nuvemshop_pendente_apos_anulacao` | a peça saiu e o cliente ainda deve |
 | `abandoned` | não | não | `nuvemshop_abandonado` | carrinho nunca virou compra |
 | desconhecido | não | não | `nuvemshop_estado_desconhecido` | vira pergunta, não número |
-| ausente | sim | não | `indeterminado_site` | preserva o comportamento antigo e **anuncia** a dúvida |
+| ausente | não | **não** | `indeterminado_site` | sem evidência de recebimento não há faturamento; sem evidência de dívida não há cobrança |
 
 Três colunas sustentam isso em `vendas`: `pago` (entrou tudo),
 `valor_recebido` (entrou **isto**; `NULL` = ou tudo, ou nada) e `cobravel`
 (o cliente **realmente** ainda deve).
+
+**Ausência de informação permanece ausência de informação.** Sem
+`payment_status` não existe evidência suficiente de recebimento — e a mera
+existência do pedido nunca foi evidência. A linha fica com faturamento 0 e
+A Receber 0 (`valor_recebido = 0`, `cobravel = 0`), e continua aparecendo
+como **pendência de conferência financeira**. Não vira pago, não vira
+pendente, não vira faturamento e não vira cobrança automaticamente.
 
 **Nenhum campo é adivinhado.** O valor parcial só é lido de estrutura
 autodescritiva — uma lista de transações em que cada entrada diz o próprio

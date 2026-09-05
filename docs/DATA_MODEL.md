@@ -156,7 +156,9 @@ não entrou nada) e só é preenchido quando a fonte informa o número — sem
 ele a linha vira `pagamento_parcial_indeterminado` e não entra em soma
 nenhuma. `cobravel = 1` quer dizer que o cliente **realmente** ainda deve;
 `0` marca o que não é faturamento **nem** conta a receber: reembolso,
-anulação, pedido abandonado e parcial sem valor. Status técnico da loja não
+anulação, pedido abandonado, parcial sem valor e pedido sem
+`payment_status` — sem evidência de recebimento não há faturamento, e sem
+evidência de dívida não há cobrança. Status técnico da loja não
 vira dívida de ninguém.
 
 **§36.2 — `cliente_ambiguo`.** `1` quer dizer "havia mais de um cadastro com

@@ -211,14 +211,34 @@ console.log('\n=== J. abandonado e desconhecido não viram dívida ===');
     novo.estadoLoja === 'pix_em_analise');
 }
 
-console.log('\n=== K. sem o campo, o sistema diz que NÃO SABE ===');
+/* ═════════════════════════════════ CENÁRIO OBRIGATÓRIO — status ausente
+   Pedido ativo, R$ 100, `payment_status` ausente.
+
+   Não saber NÃO é o mesmo que saber que entrou. A existência do pedido
+   nunca foi evidência de recebimento — era exatamente essa a suposição que
+   punha R$ 100 no faturamento sem ninguém ter recebido nada.
+
+   A ausência de informação vira ausência de número dos DOIS lados. */
+console.log('\n=== K. status ausente: faturamento 0 E A Receber 0 ===');
+{
+  const r = pagamentoDoPedido({ id: 8001, status: 'open' }, DIA, 100);
+  eq('não é declarado pago', r.pago, 0);
+  eq('o recebido conhecido é ZERO, não desconhecido', r.valorRecebido, 0);
+  eq('faturamento', faturamento(r, 100), 0);
+  eq('não é cobrável', r.cobravel, 0);
+  eq('A Receber', aReceber(r, 100), 0);
+  eq('sem data de pagamento', r.dataPagamento, 'null');
+  eq('carimbo', r.origem, 'indeterminado_site');
+  verdade('e o motivo explica os dois lados',
+    /sem evidência de recebimento/i.test(r.porque)
+    && /sem evidência de dívida/i.test(r.porque));
+}
 for (const pedido of [{}, { payment_status: null }, { payment_status: '' }]) {
   const r = pagamentoDoPedido(pedido, DIA, 100);
-  /* Preserva o comportamento antigo — mudar para não pago apagaria
-     faturamento sem prova nenhuma — mas carimba a dúvida. */
-  eq('comportamento antigo preservado', r.pago, 1);
+  eq('nenhuma forma de ausência vira faturamento', faturamento(r, 100), 0);
+  eq('nem vira dívida', aReceber(r, 100), 0);
   eq('carimbo de dúvida', r.origem, 'indeterminado_site');
-  eq('e não cria dívida', aReceber(r, 100), 0);
+  eq('e o estado bruto continua nulo', r.estadoLoja, 'null');
 }
 
 console.log('\n=== L. a leitura do valor recebido não adivinha campo nenhum ===');

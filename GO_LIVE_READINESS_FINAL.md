@@ -5,7 +5,7 @@
 > nenhum registro foi alterado.
 >
 > Gerado em **2026-09-05 10:40 UTC** · branch `feat/vendas-pagamento-saidas-garantias`
-> · commit `a4eac80`
+> · commit `f54434e`
 > Evidência bruta: `backups/golive/2026-09-05-10-40-29Z_inventario/`
 
 ---
@@ -276,10 +276,36 @@ nem outro, e um pagamento parcial é os dois em partes.
 | `voided` + pedido **ativo** | 0 | total | `nuvemshop_pendente_apos_anulacao` | a peça saiu e o cliente ainda deve |
 | `abandoned` | 0 | **0** | `nuvemshop_abandonado` | carrinho nunca virou compra |
 | estado desconhecido | 0 | **0** | `nuvemshop_estado_desconhecido` | vira pergunta, não número |
-| campo ausente | total | **0** | `indeterminado_site` | preserva o comportamento antigo e **anuncia** a dúvida |
+| campo **ausente** | **0** | **0** | `indeterminado_site` | sem evidência de recebimento **nem** de dívida — vira pendência de conferência |
 
 Três colunas sustentam isso: `vendas.pago`, `vendas.valor_recebido`
-(`NULL` = ou tudo, ou nada) e `vendas.cobravel`.
+(`NULL` = ou tudo, ou nada; `0` = o recebido conhecido é zero) e
+`vendas.cobravel`.
+
+### Status ausente: ausência de informação permanece ausência
+
+Corrigido em `f54434e`. A versão anterior punha o total no faturamento
+quando `payment_status` não vinha — o que viola a regra principal: **sem
+`payment_status` não existe evidência suficiente de recebimento.**
+
+```
+payment_status ausente
+  → pago             = 0
+  → valor_recebido   = 0
+  → faturamento      = 0
+  → cobravel         = 0
+  → A Receber        = 0
+  → pagamento_origem = indeterminado_site
+```
+
+Não vira pago, não vira pendente, não vira faturamento e não vira conta a
+receber automaticamente. O pedido continua aparecendo em
+`pedidosSemEstadoDePagamento` e no relatório de conferência financeira: ele
+não some, vira pendência.
+
+A mesma regra vale no backfill da migration para vendas de site que já
+estejam no banco — e em `marquesa-db-prod` isso não move um centavo, porque
+não há nenhuma (`externo_total = 0`).
 
 ### Nenhum valor é adivinhado
 
@@ -494,7 +520,7 @@ Consequências para o planejamento:
 
 | Teste | Resultado |
 |---|---|
-| `pagamento-nuvemshop-test.mjs` | **86 ok** — cenários A–M, puro |
+| `pagamento-nuvemshop-test.mjs` | **97 ok** — cenários A–M, puro |
 | `sync-pagamento-test.mjs` | **40 ok** — loja de mentira, ponta a ponta |
 | `migracao-pagamento-test.mjs` | 22 ok |
 | `revisao-pre-golive-test.mjs` | 84 ok |

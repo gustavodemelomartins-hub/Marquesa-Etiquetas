@@ -194,7 +194,7 @@ function cteVendas(faixa, { incluirAjuste = false } = {}) {
                   ELSE 0 END,
              v.total,
              CASE WHEN v.pago = 1 THEN 'paga'
-                  WHEN v.valor_recebido IS NOT NULL THEN 'parcial'
+                  WHEN v.valor_recebido > 0 THEN 'parcial'
                   ELSE 'nao_paga' END,
              CASE WHEN v.pago = 1 THEN 1 ELSE 0 END,
              CASE v.origem WHEN 'balcao' THEN 'Balcão' WHEN 'site' THEN 'Site'

@@ -904,7 +904,7 @@ verdade virou pagamento.
 6. o backfill é idempotente (os `ALTER TABLE` não são, e não podem ser).
 
 ### `src/pagamento-nuvemshop-test.mjs` — faturamento ≠ (total − a receber)
-**86 asserções · <1 s · puro: sem Worker, sem rede, sem loja**
+**97 asserções · <1 s · puro: sem Worker, sem rede, sem loja**
 
 Dois defeitos, um dentro do outro. O primeiro: tratar todo pedido não
 cancelado como pago. O segundo, mais caro: corrigir o primeiro jogando tudo
@@ -924,7 +924,11 @@ Cenários A–M, cada um afirmando o par `(faturamento, A Receber)`:
 - **F** `voided` + pedido cancelado → 0 e **0**;
 - **G** `voided` + pedido **ativo** → 0 e 100, com carimbo próprio;
 - **H** `authorized` (reservado, não capturado) → 0 e 100 se o pedido vive;
-- **I–K** cancelado, abandonado, estado novo e campo ausente não viram dívida;
+- **I–J** cancelado, abandonado e estado novo não viram dívida;
+- **K** (obrigatório) pedido ativo de R$ 100 com `payment_status`
+  **ausente** → faturamento **0** e A Receber **0**. Não saber não é o mesmo
+  que saber que entrou, e a existência do pedido nunca foi evidência de
+  recebimento;
 - **L** a leitura do valor recebido não adivinha campo nenhum: sem
   `transactions[]` a resposta é `null`, que é diferente de zero;
 - **M** o estado bruto é normalizado sem mudar a decisão.

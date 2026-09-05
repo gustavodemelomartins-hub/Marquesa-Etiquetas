@@ -40,9 +40,10 @@ export const CLASSES = {
   },
   indeterminado_site: {
     rotulo: 'Indeterminado (pedido do site)',
-    decisao: 'pago = 1, data da venda como aproximação DECLARADA',
-    porque: 'a loja aceita pedido com pagamento pendente e o banco nunca guardou '
-      + 'o estado do pagamento — o sistema não sabe, e diz que não sabe',
+    decisao: 'faturamento 0 e A Receber 0 — a ausência de informação permanece ausência',
+    porque: 'o banco nunca guardou o estado do pagamento deste pedido. Sem evidência '
+      + 'de recebimento não há faturamento; sem evidência de dívida não há conta a '
+      + 'receber. A linha vira pendência de conferência financeira',
     conferenciaHumana: true,
   },
   sem_evidencia_legado: {
@@ -115,6 +116,8 @@ export async function auditoriaPagamentos(db, { limiteLista = 200 } = {}) {
     /* `null` = a migration ainda não rodou neste banco. */
     estadoGravado: gravado,
     resumo: {
+      /* `indeterminado_site` NÃO entra em pagas: ele não é nem pago nem a
+         receber — é falta de informação, e conta-se à parte. */
       pagas: (acha('evidencia_pagamento')?.vendas ?? 0) + (acha('sem_evidencia_legado')?.vendas ?? 0),
       naoPagas: acha('evidencia_pendencia')?.vendas ?? 0,
       indeterminadas: acha('indeterminado_site')?.vendas ?? 0,

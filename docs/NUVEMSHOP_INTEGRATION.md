@@ -105,8 +105,11 @@ exigePolitica, porque }`. A regra por estado está em **§36.4 de
 O que importa saber nesta página:
 
 - **faturamento e A Receber não são complementares.** `refunded`, `voided`
-  em pedido cancelado, `abandoned` e o parcial sem valor não são nem um nem
-  outro: `cobravel = 0`;
+  em pedido cancelado, `abandoned`, o parcial sem valor e o pedido **sem
+  `payment_status`** não são nem um nem outro: `cobravel = 0`;
+- **ausência de informação permanece ausência.** Sem `payment_status` não há
+  evidência de recebimento: faturamento 0 e A Receber 0, e o pedido vira
+  pendência de conferência financeira em `pedidosSemEstadoDePagamento`;
 - **nenhum campo de valor é adivinhado.** O valor parcial só sai de
   `transactions[]`, que é autodescritiva (cada entrada diz o próprio estado
   e o próprio valor). Sem ela, o carimbo é `pagamento_parcial_indeterminado`

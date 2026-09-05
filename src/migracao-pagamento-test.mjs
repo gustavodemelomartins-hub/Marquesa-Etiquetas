@@ -12,8 +12,8 @@
  *
  *    1. venda histórica PAGA           → pago=1 com a data REAL do recebimento
  *    2. venda histórica A RECEBER      → pago=0, sem data, e continua a receber
- *    3. venda AMBÍGUA (pedido do site) → comportamento financeiro preservado,
- *                                        mas CARIMBADA como indeterminada
+ *    3. venda do site sem estado       → ausência de informação vira ausência
+ *                                        de número: faturamento 0 E A Receber 0
  *    4. legado sem evidência           → aproximação DECLARADA, não fato
  *    5. rodar o backfill duas vezes não muda nada
  *
@@ -107,16 +107,23 @@ console.log('\n=== 2. venda histórica A RECEBER — continua a receber ===');
   eq('cobranças abertas: saldo', dep.s, abertasAntes.s);
 }
 
-console.log('\n=== 3. pedido do site — AMBÍGUO, e dito em voz alta ===');
+console.log('\n=== 3. pedido do site — ausência de informação, ausência de número ===');
 {
   const r = v(3);
-  /* O comportamento financeiro é o de sempre: a loja aceita pedido com
-     pagamento pendente, mas o sistema nunca guardou isso, e mudar agora
-     apagaria faturamento existente sem prova nenhuma. O que muda é que a
-     linha para de se passar por conhecida. */
-  eq('pago (comportamento antigo preservado)', r.pago, 1);
-  eq('data aproximada = data da venda', r.data_pagamento, '2026-08-02');
+  /* Não saber NÃO é o mesmo que saber que entrou. O banco nunca guardou o
+     estado do pagamento deste pedido, e a existência do pedido nunca foi
+     evidência de recebimento. Então a linha não vira faturamento (não há
+     prova de que entrou) NEM conta a receber (não há prova de que o cliente
+     deve). Ela vira pendência de conferência financeira.
+
+     Em produção isto não move um centavo: `marquesa-db-prod` tem ZERO
+     vendas de origem `site`, medido em 2026-09-05. */
+  eq('não é declarado pago', r.pago, 0);
+  eq('sem data de pagamento', r.data_pagamento, 'null');
+  eq('o recebido conhecido é ZERO', r.valor_recebido, 0);
+  eq('e não é cobrável', r.cobravel, 0);
   eq('procedência diz que é indeterminada', r.pagamento_origem, 'indeterminado_site');
+  eq('a data da venda continua intocada', r.data, '2026-08-02');
 }
 
 console.log('\n=== 4. legado sem evidência — aproximação DECLARADA ===');
@@ -134,13 +141,21 @@ console.log('\n=== 5. nada foi inventado ===');
   eq('toda venda tem procedência', conta('pagamento_origem IS NULL'), 0);
   eq('nenhuma venda herdada se declara informada', conta("pagamento_origem = 'informado'"), 0);
   eq('as aproximações estão marcadas como aproximação',
-    conta("pagamento_origem IN ('legado_data_venda','indeterminado_site')"), 3);
+    conta("pagamento_origem = 'legado_data_venda'"), 2);
+  /* O pedido do site NÃO é aproximação: é ausência. Ele não entra em
+     faturamento nem em cobrança, e por isso conta à parte. */
+  eq('e a ausência está marcada como ausência',
+    conta("pagamento_origem = 'indeterminado_site'"), 1);
+  eq('nenhuma linha indeterminada virou faturamento',
+    conta("pagamento_origem = 'indeterminado_site' AND pago = 1"), 0);
+  eq('nem conta a receber',
+    conta("pagamento_origem = 'indeterminado_site' AND cobravel = 1"), 0);
 }
 
 console.log('\n=== 6. rodar o backfill de novo não muda nada ===');
 {
   const retrato = () => JSON.stringify(
-    db.prepare('SELECT id, pago, data_pagamento, pagamento_origem FROM vendas ORDER BY id').all());
+    db.prepare('SELECT id, pago, data_pagamento, pagamento_origem, valor_recebido, cobravel FROM vendas ORDER BY id').all());
   const antes = retrato();
   /* Os `ALTER TABLE` não são idempotentes no SQLite — "duplicate column
      name" é justamente o sinal de que a migration já rodou. O que precisa
