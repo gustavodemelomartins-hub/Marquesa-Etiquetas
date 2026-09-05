@@ -68,3 +68,6 @@ src/__dados__/
 # É derivado do banco: some e é refeito, não entra no histórico do repositório.
 api/.tmp-sql/
 src/.shot-*.png
+
+# banco de bancada do wrangler local
+api/.tmp/
