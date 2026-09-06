@@ -424,8 +424,16 @@ Nada aqui foi executado. É o roteiro para quem for publicar.
 
 - [ ] Autorização para o merge em `main`
 - [ ] Autorização + backup recente para a migration em `marquesa-db-prod`
-- [ ] Aplicar a migration **antes** do deploy do Worker (o código funciona sem
-      ela — só mais devagar e sem as telas novas — mas não o contrário)
+- [ ] Aplicar a migration **antes** do deploy do Worker. A ordem não é
+      preferência: sem ela, `GET /api/analytics/painel` e `GET /api/vendas`
+      (rotas que já rodavam em produção) respondem 500 — `analytics.js`
+      chama `contasAReceber` sem `.catch` e `index.js` chama
+      `personalizacoesDeVendas` sem guard, e as duas leem colunas/tabelas
+      que só existem depois da migration. Faturamento de troca, trocas do
+      dia e pendência de maleta também viram zero em silêncio noutras
+      rotas. O caminho inverso é seguro — o banco migrado com o Worker
+      antigo apenas ignora as colunas e tabelas novas — então a janela
+      entre migration e deploy é o lado tolerável, nunca o contrário.
 - [ ] Autorização para `wrangler deploy` (Worker) e para a publicação do painel
 - [ ] Depois: `GET /api/estoque/conferir` em produção, vazio
 - [ ] Depois: conferir que o "A receber" subiu pelo motivo esperado (R1)

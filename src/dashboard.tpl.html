@@ -3003,6 +3003,12 @@ function renderGeral(){
 
 let acertosRevendedoras=null;
 async function carregarAcertosRevendedoras(){
+  /* Um acerto fecha por outro aparelho, ou pela sincronização da
+     madrugada — não por uma escrita desta página. A memória de leitura só
+     é limpa quando ESTA página escreve (`api()`), então sem esta linha o
+     Top Revendedoras podia mostrar, por até 60s, o retrato de antes do
+     acerto mesmo depois de perguntar de novo. */
+  invalidarMemoriaLeitura();
   try{ acertosRevendedoras=await api('GET','/api/analytics/revendedoras?periodo=tudo'); }
   catch(e){ acertosRevendedoras={erro:e.message||'Não consegui carregar os acertos'}; }
   return acertosRevendedoras;
@@ -13295,7 +13301,7 @@ function renderAll(){
   else if(tabAtual==='vendas-saidas') renderSaidas();
   else if(tabAtual==='clientes') renderClientes();
   else if(tabAtual.indexOf('cli:')===0) abrirPerfilCliente(tabAtual.slice(4));
-  else if(tabAtual==='revgeral') renderRevGeral();
+  else if(tabAtual==='revgeral'){ renderRevGeral(); carregarAcertosRevendedoras().then(renderRevGeral); }
   else if(tabAtual==='revlist') renderRevLista();
   else{
     const id=+tabAtual.split(':')[1];

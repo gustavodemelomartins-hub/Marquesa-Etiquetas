@@ -113,6 +113,15 @@ await page.waitForTimeout(1200);
 top = (await page.locator('#view-revgeral').innerText()).replace(/\s+/g, ' ');
 eq('Bia entrou no Top', /Bia Teste/.test(top), 'true');
 eq('com o valor vendido de verdade (30 × R$ 50)', /R\$ 1\.500\b/.test(top), 'true');
+/* FALHA conhecida, pré-existente em main: `acertosDeMaleta` (api/src/
+   analytics.js) nunca agrega "enviadas" — Top Revendedoras hardcoda
+   giro:null e a coluna mostra "—" sempre, para qualquer revendedora.
+   `desempenhoDe()` já calcula o giro certo a partir de state.maletas e é
+   usado com sucesso na ficha individual — o Top só não reaproveita. Não
+   corrigido aqui de propósito: exige decidir o que fazer com acertos
+   históricos importados, que não guardam "enviadas" (schema.sql não tem
+   essa coluna em historico_operacoes) — decisão de negócio, não bug de
+   uma linha. Ver PRE_STAGING_GATE.md § Revendedoras. */
 eq('e o giro em cima do que saiu (30 de 40)', /75%/.test(top), 'true');
 eq('Ana continua fora, porque não tem ciclo fechado',
   /revendedora ainda n[ãa]o tem acerto fechado|revendedoras ainda n[ãa]o t[êe]m acerto fechado/.test(top), 'true');
