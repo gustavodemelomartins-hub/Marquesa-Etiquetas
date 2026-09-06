@@ -599,5 +599,164 @@ console.log('\n=== P–S. Central de Pendências e resolução de variação ===
   eq('adiar sem data é recusado', semData.status, 400);
 }
 
+/* ═══════════════════════════════════════════════════════ CENÁRIO N / O
+   Monte seu Colar. O caminho óbvio — uma variante permanente por combinação
+   — explode o cadastro: três posições × dois sexos × seis cores já são 1.728
+   variantes que ninguém mantém. A composição é escolhida por VENDA. */
+console.log('\n=== N/O. Monte seu Colar ===');
+{
+  const mod = await api('POST', '/api/personalizacao/modelos', {
+    nome: 'Colar personalizado — 3 filhos', slug: '3-filhos',
+    slotsMin: 1, slotsMax: 3, baseSkuPadrao: P('VENEZ'), precoSugerido: 149,
+    opcoes: [
+      { componenteSku: P('MENVE'), rotulo: 'Menino Verde', grupo: 'Menino' },
+      { componenteSku: P('MENAZ'), rotulo: 'Menino Azul', grupo: 'Menino' },
+      { componenteSku: P('MENRO'), rotulo: 'Menina Rosa', grupo: 'Menina' },
+    ],
+  });
+  eq('modelo cadastrado', mod.status, 200);
+  eq('com três opções', (mod.corpo.modelo.opcoes ?? []).length, 3);
+  eq('e as posições que o pacote pediu',
+    `${mod.corpo.modelo.slotsMin}-${mod.corpo.modelo.slotsMax}`, '1-3');
+
+  const lista = await api('GET', '/api/personalizacao/modelos');
+  const m = (lista.corpo.modelos ?? [])[0];
+  verdade('a disponibilidade dos componentes vem junto',
+    (m.opcoes ?? []).every((o) => typeof o.disponivel === 'number'),
+    (m.opcoes ?? []).map((o) => `${o.rotulo}:${o.disponivel}`).join(' '));
+  eq('e a da base também', m.baseDisponivel != null, 'true');
+
+  /* ─── N: a venda consome base + componentes, uma vez cada */
+  const antesBase = await saldo(P('VENEZ'));
+  const antesVerde = await saldo(P('MENVE'));
+  const antesRosa = await saldo(P('MENRO'));
+  const antesAzul = await saldo(P('MENAZ'));
+
+  const v = await api('POST', '/api/vendas', {
+    clienteNome: 'Cliente do Colar', data: '2026-09-01',
+    personalizacoes: [{
+      modeloSlug: '3-filhos', baseSku: P('VENEZ'), preco: 149,
+      componentes: [
+        { posicao: 1, componenteSku: P('MENVE'), rotulo: 'Menino Verde' },
+        { posicao: 2, componenteSku: P('MENRO'), rotulo: 'Menina Rosa' },
+        { posicao: 3, componenteSku: P('MENAZ'), rotulo: 'Menino Azul' },
+      ],
+    }],
+  });
+  eq('venda personalizada registrada', v.status, 201);
+  eq('pelo valor da composição, não pela soma das peças', v.corpo.total, 149);
+
+  eq('a base baixou uma', await saldo(P('VENEZ')), antesBase - 1);
+  eq('o pingente verde baixou um', await saldo(P('MENVE')), antesVerde - 1);
+  eq('a menina rosa baixou um', await saldo(P('MENRO')), antesRosa - 1);
+  eq('o menino azul baixou um', await saldo(P('MENAZ')), antesAzul - 1);
+  verdade('a razão fecha', await razaoFecha());
+
+  /* o histórico mostra UMA venda personalizada, com a configuração */
+  const dia = await api('GET', '/api/vendas?data=2026-09-01');
+  const venda = (dia.corpo ?? []).find((x) => x.id === v.corpo.id);
+  eq('o recibo tem UMA linha, não quatro', venda.itens.length, 1);
+  verdade('e ela nomeia a composição',
+    /3 filhos/.test(venda.itens[0].desc) && /Menino Verde/.test(venda.itens[0].desc),
+    venda.itens[0].desc);
+  const comp = (venda.personalizacoes ?? [])[0];
+  verdade('a configuração viaja com a venda', !!comp);
+  eq('com as três posições', (comp.componentes ?? []).length, 3);
+  eq('e a base registrada', comp.baseSku, P('VENEZ'));
+
+  /* dois componentes iguais na mesma composição consomem dois */
+  const antesVerde2 = await saldo(P('MENVE'));
+  const v2 = await api('POST', '/api/vendas', {
+    clienteNome: 'Cliente Dois Verdes', data: '2026-09-01',
+    personalizacoes: [{
+      modeloSlug: '3-filhos', baseSku: P('VENEZ'), preco: 149,
+      componentes: [
+        { posicao: 1, componenteSku: P('MENVE'), rotulo: 'Menino Verde' },
+        { posicao: 2, componenteSku: P('MENVE'), rotulo: 'Menino Verde' },
+        { posicao: 3, componenteSku: P('MENRO'), rotulo: 'Menina Rosa' },
+      ],
+    }],
+  });
+  eq('composição com duas peças iguais foi aceita', v2.status, 201);
+  eq('e o verde baixou DOIS', await saldo(P('MENVE')), antesVerde2 - 2);
+  verdade('a razão continua fechando', await razaoFecha());
+
+  /* sem peça, a composição é recusada com o número */
+  const semPeca = await api('POST', '/api/vendas', {
+    clienteNome: 'Sem Estoque', data: '2026-09-01',
+    personalizacoes: [{
+      modeloSlug: '3-filhos', baseSku: P('VENEZ'), preco: 149,
+      componentes: Array.from({ length: 3 }, (_, i) => ({
+        posicao: i + 1, componenteSku: P('MENAZ'), rotulo: 'Menino Azul',
+      })),
+    }],
+  });
+  eq('sem peça suficiente, recusa', semPeca.status, 409);
+  verdade('e diz os dois números', /disponíve/.test(semPeca.corpo.erro || ''), semPeca.corpo.erro);
+
+  /* mais peças que o modelo permite também é recusado */
+  const demais = await api('POST', '/api/vendas', {
+    clienteNome: 'Slots Demais', data: '2026-09-01',
+    personalizacoes: [{
+      modeloSlug: '3-filhos', baseSku: P('VENEZ'), preco: 149,
+      componentes: Array.from({ length: 4 }, (_, i) => ({
+        posicao: i + 1, componenteSku: P('MENRO'), rotulo: 'Menina Rosa',
+      })),
+    }],
+  });
+  eq('mais posições que o modelo permite é recusado', demais.status, 409);
+
+  /* ─── O: a venda que JÁ ACONTECEU não baixa de novo (§7.4) */
+  const b1 = await saldo(P('VENEZ'));
+  const c1 = await saldo(P('MENRO'));
+  const antiga = await api('POST', '/api/vendas', {
+    clienteNome: 'Venda Antiga do Colar', data: '2026-05-10',
+    pago: true, dataPagamento: '2026-05-10',
+    observacao: 'Registrada depois, estoque já refletido',
+    estoqueJaRefletido: true,
+    personalizacoes: [{
+      modeloSlug: '3-filhos', baseSku: P('VENEZ'), preco: 149,
+      componentes: [
+        { posicao: 1, componenteSku: P('MENRO'), rotulo: 'Menina Rosa' },
+      ],
+    }],
+  });
+  eq('venda personalizada retroativa aceita', antiga.status, 201);
+  eq('e a flag voltou na resposta', antiga.corpo.estoqueJaRefletido, 'true');
+  eq('a base NÃO baixou de novo', await saldo(P('VENEZ')), b1);
+  eq('o componente NÃO baixou de novo', await saldo(P('MENRO')), c1);
+  verdade('a razão continua fechando', await razaoFecha());
+  eq('e nada foi empurrado para a loja', antiga.corpo.nuvemshop.status, 'nao_aplicavel');
+
+  /* a flag é auditável: fica gravada na composição */
+  const diaAntigo = await api('GET', '/api/vendas?data=2026-05-10');
+  const vAntiga = (diaAntigo.corpo ?? []).find((x) => x.id === antiga.corpo.id);
+  eq('a flag fica gravada na composição',
+    (vAntiga.personalizacoes ?? [])[0]?.estoqueJaRefletido, 'true');
+  eq('e sem movimento ligado a ela',
+    (vAntiga.personalizacoes ?? [])[0]?.componentes?.[0]?.movimentoId, 'null');
+
+  /* misturar peça avulsa com "estoque já refletido" é recusado */
+  const misto = await api('POST', '/api/vendas', {
+    clienteNome: 'Mistura', data: '2026-05-10', estoqueJaRefletido: true,
+    itens: [{ sku: P('326660'), qtd: 1 }],
+    personalizacoes: [{
+      modeloSlug: '3-filhos', baseSku: P('VENEZ'), preco: 149,
+      componentes: [{ posicao: 1, componenteSku: P('MENRO'), rotulo: 'Menina Rosa' }],
+    }],
+  });
+  eq('misturar avulsa com estoque já refletido é recusado', misto.status, 409);
+
+  /* o histórico da cliente preserva a configuração */
+  const perfil = await api('GET', '/api/clientes/perfil?norm=' + encodeURIComponent('cliente do colar'));
+  const vp = (perfil.corpo.vendas ?? []).find((x) => x.id === v.corpo.id);
+  verdade('a ficha da cliente guarda a composição', !!(vp && vp.personalizacoes));
+  eq('com os três pingentes',
+    (vp?.personalizacoes?.[0]?.componentes ?? []).length, 3);
+  verdade('e cada um com o rótulo escolhido',
+    (vp?.personalizacoes?.[0]?.componentes ?? []).some((c) => c.rotulo === 'Menina Rosa'),
+    (vp?.personalizacoes?.[0]?.componentes ?? []).map((c) => c.rotulo).join(', '));
+}
+
 console.log(falhas ? `\n${falhas} FALHA(S)\n` : '\nTudo passou.\n');
 process.exit(falhas ? 1 : 0);

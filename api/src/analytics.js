@@ -43,6 +43,9 @@ import { categoriaDoItem } from './categoria-nome.js';
    "SKU corrigido de X para Y" ao lado do item, e para a linha da planilha
    exibir o nome da peça CERTA sem reescrever o que a planilha dizia. */
 import { correcoesDeVenda } from './venda-correcao.js';
+/* §43 — a composição do colar montado, para o histórico da cliente mostrar
+   a venda personalizada inteira e não a base solta. */
+import { personalizacoesDeVendas } from './personalizacao.js';
 /* §37 — "A receber" passou a somar as três fontes de dívida de cliente:
    compra histórica em aberto, venda do sistema não paga e diferença de
    troca de garantia. Antes só a primeira aparecia, e a venda fiada de
@@ -1034,6 +1037,14 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
    *
    *  Falhar não derruba o perfil: banco anterior à migration continua
    *  abrindo a ficha inteira, só sem as correções. */
+  /* §43 — as composições das vendas operacionais desta cliente. Uma
+     consulta para todas, não uma por venda. */
+  let composicoes = new Map();
+  try {
+    composicoes = await personalizacoesDeVendas(db,
+      vendas.filter((v) => v.fonte === 'operacional').map((v) => v.id));
+  } catch { composicoes = new Map(); }
+
   let correcoes = [];
   try {
     correcoes = await correcoesDeVenda(db, {
@@ -1197,6 +1208,12 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
       itens: itens.filter((i) => (v.fonte === 'historico'
         ? i.venda_ref === v.id && i.fonte === 'historico'
         : i.venda_ref === v.id && i.fonte === 'operacional')),
+      /* §7.3 do pacote: a configuração fica preservada para sempre. Daqui a
+         dois anos a ficha dela ainda diz que o colar era menino verde,
+         menina rosa, menino azul — mesmo que o modelo mude ou saia do ar,
+         porque o nome de cada peça foi congelado no momento da venda. */
+      ...(v.fonte === 'operacional' && composicoes.has(v.id)
+        ? { personalizacoes: composicoes.get(v.id) } : {}),
     })),
     totalItens: itens.length,
     /* §41 — a lista completa de correções desta ficha, para a auditoria

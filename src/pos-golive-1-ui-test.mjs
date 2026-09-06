@@ -350,7 +350,90 @@ console.log('\n=== 6. Central de Pendências resolve a variação (§42) ===');
     JSON.stringify(conf.corpo?.divergentes ?? []), '[]');
 }
 
-console.log('\n=== 7. o console ficou limpo ===');
+console.log('\n=== 7. Monte seu Colar, no mesmo carrinho (§43) ===');
+{
+  await api('POST', '/api/produtos/importar', {
+    produtos: [
+      { sku: P('VENEZ'), desc: 'Colar Veneziana', preco: 79, cat: 'Colares', qtd: 10 },
+      { sku: P('VERDE'), desc: 'Pingente Filho Verde', preco: 35, cat: 'Pingentes', qtd: 4 },
+      { sku: P('ROSA'), desc: 'Pingente Filha Rosa', preco: 35, cat: 'Pingentes', qtd: 5 },
+      { sku: P('AZUL'), desc: 'Pingente Filho Azul', preco: 35, cat: 'Pingentes', qtd: 3 },
+    ],
+  });
+  const mod = await api('POST', '/api/personalizacao/modelos', {
+    nome: 'Colar personalizado — 3 filhos', slug: 'ui-3-filhos',
+    slotsMin: 3, slotsMax: 3, baseSkuPadrao: P('VENEZ'), precoSugerido: 149,
+    opcoes: [
+      { componenteSku: P('VERDE'), rotulo: 'Menino Verde', grupo: 'Menino' },
+      { componenteSku: P('AZUL'), rotulo: 'Menino Azul', grupo: 'Menino' },
+      { componenteSku: P('ROSA'), rotulo: 'Menina Rosa', grupo: 'Menina' },
+    ],
+  });
+  eq('modelo cadastrado', mod.status, 200);
+
+  await page.evaluate(() => switchTab('vendas'));
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => { modelosColar = null; });
+  await page.evaluate(() => novaVendaPersonalizada());
+  await page.waitForTimeout(2500);
+
+  verdade('o box "Monte seu colar" abriu dentro da venda',
+    await page.locator('.colar-box').isVisible());
+  const cab = await page.locator('.colar-cab').innerText();
+  verdade('e diz que vai para o mesmo carrinho', /mesmo carrinho/.test(cab), cab.replace(/\n/g, ' '));
+  eq('com três posições, como o modelo manda',
+    await page.locator('.colar-slot select').count(), 3);
+
+  /* escolher menino verde, menina rosa, menino azul — o exemplo do pacote */
+  const ids = await page.evaluate(() => {
+    const m = modelosColar.modelos.find((x) => x.slug === 'ui-3-filhos');
+    const p = (r) => String(m.opcoes.find((o) => o.rotulo === r).id);
+    return [p('Menino Verde'), p('Menina Rosa'), p('Menino Azul')];
+  });
+  for (const [i, id] of ids.entries()) {
+    await page.locator('.colar-slot select').nth(i).selectOption(id);
+    await page.waitForTimeout(300);
+  }
+  const resumo = await page.locator('.colar-resumo').innerText();
+  verdade('o resumo diz o que sai do estoque ANTES de confirmar',
+    /Sai do estoque/.test(resumo) && /Veneziana/.test(resumo), resumo.replace(/\n/g, ' '));
+
+  await page.locator('.colar-box .btn-gold').click();
+  await page.waitForTimeout(700);
+  const carrinho = await page.locator('#vd-personalizados').innerText();
+  verdade('a composição entrou no carrinho',
+    /3 filhos/.test(carrinho) && /Menino Verde/.test(carrinho), carrinho.replace(/\n/g, ' '));
+  const rodape = await page.locator('#vd-resumo').innerText();
+  verdade('e soma no total da venda', /149/.test(rodape.replace(/\./g, '')), rodape.replace(/\n/g, ' '));
+  verdade('a caixinha de "estoque já refletido" aparece',
+    await page.locator('.colar-refletido').isVisible());
+
+  const antes = await api('GET', '/api/state');
+  const saldoDe = (st, sku) => Number((st.corpo?.produtos ?? []).find((x) => x.sku === sku)?.qtd ?? -1);
+
+  await page.fill('#vd-cliente', 'Cliente do Colar UI');
+  await page.click('#vdConfirm');
+  await page.waitForTimeout(3000);
+
+  const depois = await api('GET', '/api/state');
+  eq('a base baixou uma', saldoDe(depois, P('VENEZ')), saldoDe(antes, P('VENEZ')) - 1);
+  eq('o verde baixou um', saldoDe(depois, P('VERDE')), saldoDe(antes, P('VERDE')) - 1);
+  eq('a rosa baixou uma', saldoDe(depois, P('ROSA')), saldoDe(antes, P('ROSA')) - 1);
+  eq('o azul baixou um', saldoDe(depois, P('AZUL')), saldoDe(antes, P('AZUL')) - 1);
+
+  const conf = await api('GET', '/api/estoque/conferir');
+  eq('a razão fecha depois da venda personalizada',
+    JSON.stringify(conf.corpo?.divergentes ?? []), '[]');
+
+  /* o histórico mostra a composição, não quatro peças soltas */
+  await page.evaluate(() => switchTab('cli:cliente do colar ui'));
+  await page.waitForTimeout(2000);
+  const ficha = await page.locator('#view-cliente').innerText();
+  verdade('a ficha mostra a venda personalizada', /3 filhos/.test(ficha),
+    (ficha.match(/[^\n]*3 filhos[^\n]*/) || [''])[0]);
+}
+
+console.log('\n=== 8. o console ficou limpo ===');
 eq('nenhum erro de JavaScript', erros.length, 0);
 if (erros.length) erros.slice(0, 6).forEach((e) => console.log('     ' + e));
 

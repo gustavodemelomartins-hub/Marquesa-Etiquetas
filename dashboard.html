@@ -1604,6 +1604,26 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 @media(max-width:720px){.receber-linha{grid-template-columns:1fr auto}.receber-origem{grid-column:1/-1}
   .receber-prazo{grid-column:1}.receber-valor{grid-column:2;grid-row:1}}
 
+/* ---------- Monte seu colar (§43)
+   O configurador mora dentro do fechamento da venda: a composição vai para
+   o mesmo carrinho, e uma tela própria daria duas vendas para uma compra. */
+.colar-box{border:1px solid var(--rose-tint);background:var(--bordo-tint);
+  border-radius:11px;padding:13px 15px}
+.colar-cab{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.colar-cab b{color:var(--bordo)}
+.colar-linha{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.colar-linha label,.colar-slot{display:flex;flex-direction:column;gap:4px;
+  font-size:11.5px;color:var(--muted)}
+.colar-linha select,.colar-linha input,.colar-slot select{padding:7px 9px;border:1px solid var(--line);
+  border-radius:8px;background:#fff;color:var(--ink);font:inherit;font-size:12.5px}
+.colar-slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:10px}
+.colar-slot-acoes{display:flex;align-items:flex-end;gap:12px}
+.colar-slot-acoes .lnk{border:0;background:none;padding:0;color:var(--bordo);cursor:pointer;
+  font:inherit;font-size:11.5px;text-decoration:underline}
+.colar-resumo{margin-top:12px;padding-top:10px;border-top:1px solid var(--rose-tint);font-size:12.5px}
+.colar-refletido{display:flex;gap:9px;align-items:flex-start;margin-top:10px;padding:10px 12px;
+  background:#FFF4E0;border:1px solid #F0D9A8;border-radius:10px;font-size:12px;color:#7A5410}
+
 /* ---------- Central de pendências (§42)
    Cada linha resolve dentro dela mesma: abrir uma tela nova para escolher um
    aro seria perder o contexto que faz a escolha ser possível. */
@@ -7820,6 +7840,20 @@ function novaVenda(){
   openScan('venda');
 }
 
+/** §43 — abrir o fechamento da venda direto no "Monte seu colar", sem bipar
+ *  nada antes. É o caminho de quem começa pela composição — e o mesmo
+ *  caminho do §7.4, "registrar venda personalizada já realizada": a data, o
+ *  pago/não pago e a observação são os mesmos campos, e a caixinha
+ *  "estoque já refletido" aparece assim que a primeira composição entra. */
+async function novaVendaPersonalizada(){
+  if(!state.produtos.length){toast('Importe seu catálogo antes de vender');return;}
+  scan={modo:'venda', maletaId:null, itens:{}, hist:[], audio:null, novaVazia:false,
+        invId:null, fora:new Set(), personalizados:[]};
+  await abrirFecharVenda();
+  const box=document.getElementById('vd-monte');
+  if(box) box.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
 async function abrirFecharVenda(){
   const idx=prodIndex();
   const linhas=Object.entries(scan.itens).map(([sku,q])=>{
@@ -7842,6 +7876,8 @@ async function abrirFecharVenda(){
 
   document.getElementById('vendaBody').innerHTML=`
     <div class="scanlist" id="vd-lista" style="margin-bottom:16px"></div>
+    <div id="vd-personalizados" style="margin-bottom:16px"></div>
+    <div id="vd-monte" style="margin-bottom:16px"></div>
     <div class="actbar" id="vd-resumo" style="margin-bottom:16px"></div>
     <div class="field">
       <label>Cliente <span class="req">*</span></label>
@@ -7900,6 +7936,12 @@ async function abrirFecharVenda(){
     </div>`;
 
   pintarCarrinho();
+  /* §43 — o "Monte seu Colar" mora DENTRO do fechamento da venda, e não
+     numa tela própria: o pacote pede que a composição vá para o mesmo
+     carrinho da venda normal, e duas telas dariam duas vendas para uma
+     compra só. */
+  scan.personalizados=scan.personalizados||[];
+  montarBoxColar();
   vdPago=true;
   ecoPagoVenda();
   document.getElementById('vendaOverlay').classList.add('show');
@@ -7973,6 +8015,224 @@ const VD_MOTIVOS=['Grupo VIP','Amiga','Promoção','Peça com marca','Combinado'
 function vdPreco(l){ return l.precoFinal==null?l.preco:l.precoFinal; }
 function vdMudou(l){ return l.precoFinal!=null&&l.precoFinal!==l.preco; }
 
+/* ═══════════════════════ §43 — MONTE SEU COLAR, dentro do carrinho
+ *
+ *  A Sthefany vende um colar Veneziana com um a três pingentes de filho,
+ *  cada um com sexo e cor escolhidos na hora. Uma variante permanente por
+ *  combinação explodiria o cadastro — três posições × dois sexos × seis
+ *  cores já são 1.728 variações que ninguém mantém.
+ *
+ *  Aqui a composição é montada na hora e vai para o MESMO carrinho: base,
+ *  componentes e preço. O que sai do estoque é a base e cada pingente
+ *  escolhido, uma vez cada — e a tela diz isso antes de confirmar. */
+let modelosColar=null;
+let vdEstoqueRefletido=false;
+
+async function carregarModelosColar(){
+  try{ modelosColar=await api('GET','/api/personalizacao/modelos'); }
+  catch(e){ modelosColar={erro:e.message||'não consegui carregar os modelos'}; }
+  return modelosColar;
+}
+
+async function montarBoxColar(){
+  const box=document.getElementById('vd-monte');
+  if(!box) return;
+  if(!modelosColar) { box.innerHTML='<div class="hint">Carregando "Monte seu colar"…</div>';
+    await carregarModelosColar(); }
+  if(!document.getElementById('vd-monte')) return;   /* modal fechou no meio */
+  desenharBoxColar();
+}
+
+function desenharBoxColar(){
+  const box=document.getElementById('vd-monte');
+  if(!box) return;
+  const m=modelosColar;
+  if(!m||m.erro||!(m.modelos||[]).length){
+    /* Sem modelo cadastrado o box não aparece — mas ele não some em
+       silêncio: quem procurar sabe onde ele nasce. */
+    box.innerHTML=`<details class="maisitens secao"><summary>Monte seu colar</summary>
+      <div class="hint" style="padding:10px 2px">${m&&m.erro?esc(m.erro)
+        :'Nenhum modelo cadastrado. Um modelo diz quantas posições o colar tem e quais peças do catálogo podem ocupar cada uma.'}</div>
+    </details>`;
+    return;
+  }
+  const sel=colarEscolha.modeloId||m.modelos[0].id;
+  const modelo=m.modelos.find(x=>x.id===sel)||m.modelos[0];
+  colarEscolha.modeloId=modelo.id;
+  if(colarEscolha.baseSku===null) colarEscolha.baseSku=modelo.baseSkuPadrao||'';
+  if(!colarEscolha.slots.length) colarEscolha.slots=Array(modelo.slotsMin).fill('');
+  if(colarEscolha.preco===null&&modelo.precoSugerido!=null) colarEscolha.preco=modelo.precoSugerido;
+
+  /* A base padrão do modelo entra na lista mesmo que o catálogo em memória
+     ainda não a conheça: quem cadastrou a peça noutro aparelho há dois
+     minutos veria "escolha a base" com a base já escolhida. O servidor é
+     quem sabe — ele manda `baseNome` e `baseDisponivel` junto do modelo. */
+  const basesPossiveis=(state.produtos||[]).filter(p=>p.disponivel>0||p.sku===modelo.baseSkuPadrao);
+  if(modelo.baseSkuPadrao&&!basesPossiveis.some(p=>p.sku===modelo.baseSkuPadrao)){
+    basesPossiveis.unshift({sku:modelo.baseSkuPadrao,
+      desc:modelo.baseNome||modelo.baseSkuPadrao,
+      disponivel:modelo.baseDisponivel==null?0:modelo.baseDisponivel});
+  }
+  const grupos=[...new Set((modelo.opcoes||[]).map(o=>o.grupo||'Opções'))];
+
+  box.innerHTML=`<div class="colar-box">
+    <div class="colar-cab"><b>Monte seu colar</b>
+      <span class="hint">A composição vai para o mesmo carrinho desta venda</span></div>
+
+    <div class="colar-linha">
+      <label>Modelo
+        <select onchange="setModeloColar(this.value)">
+          ${m.modelos.map(x=>`<option value="${x.id}" ${x.id===modelo.id?'selected':''}>${esc(x.nome)}</option>`).join('')}
+        </select>
+      </label>
+      <label>Base utilizada
+        <select onchange="colarEscolha.baseSku=this.value;desenharBoxColar()">
+          <option value="">Escolha a base</option>
+          ${basesPossiveis.map(p=>`<option value="${esc(p.sku)}" ${p.sku===colarEscolha.baseSku?'selected':''}
+            >${esc(p.desc)} · ${fmtN(p.disponivel)} ${plural(p.disponivel,'disponível','disponíveis')}</option>`).join('')}
+        </select>
+      </label>
+      <label>Valor da venda
+        <input type="number" min="0" step="0.01" value="${colarEscolha.preco==null?'':colarEscolha.preco}"
+               oninput="colarEscolha.preco=this.value===''?null:Number(this.value)">
+      </label>
+    </div>
+
+    <div class="colar-slots">
+      ${colarEscolha.slots.map((v,i)=>`
+        <label class="colar-slot">Posição ${i+1}
+          <select onchange="colarEscolha.slots[${i}]=this.value;desenharBoxColar()">
+            <option value="">Escolha a peça</option>
+            ${grupos.map(g=>`<optgroup label="${esc(g)}">
+              ${(modelo.opcoes||[]).filter(o=>(o.grupo||'Opções')===g).map(o=>`
+                <option value="${o.id}" ${String(o.id)===String(v)?'selected':''}
+                  ${o.disponivel<=0?'disabled':''}>${esc(o.rotulo)}${
+                  o.disponivel<=0?` · ${esc(o.indisponivel||'sem estoque')}`:` · ${fmtN(o.disponivel)} disponíveis`}</option>`).join('')}
+            </optgroup>`).join('')}
+          </select>
+        </label>`).join('')}
+      <div class="colar-slot-acoes">
+        ${colarEscolha.slots.length<modelo.slotsMax
+          ?`<button class="lnk" onclick="colarEscolha.slots.push('');desenharBoxColar()">+ posição</button>`:''}
+        ${colarEscolha.slots.length>modelo.slotsMin
+          ?`<button class="lnk" onclick="colarEscolha.slots.pop();desenharBoxColar()">− posição</button>`:''}
+      </div>
+    </div>
+
+    ${resumoColar(modelo)}
+
+    <div class="pend-acoes">
+      <span class="cd-fb" id="colar-fb"></span>
+      <button class="btn btn-gold btn-sm" onclick="adicionarColarAoCarrinho()">Adicionar ao carrinho</button>
+    </div>
+  </div>`;
+}
+
+/** O que a composição vai consumir, dito ANTES de confirmar. Sem isto, a
+ *  cliente escolhe e só descobre que faltou pingente quando a venda é
+ *  recusada. */
+function resumoColar(modelo){
+  const escolhidas=colarEscolha.slots.map(id=>(modelo.opcoes||[]).find(o=>String(o.id)===String(id)))
+    .filter(Boolean);
+  if(!escolhidas.length) return '<div class="hint">Escolha as peças de cada posição.</div>';
+  /* Mesma razão da lista de bases: o catálogo em memória pode não conhecer
+     a peça ainda, e o modelo traz o nome dela do servidor. */
+  const base=(state.produtos||[]).find(p=>p.sku===colarEscolha.baseSku)
+    || (colarEscolha.baseSku&&colarEscolha.baseSku===modelo.baseSkuPadrao
+        ? {sku:modelo.baseSkuPadrao, desc:modelo.baseNome||modelo.baseSkuPadrao} : null);
+  const porSku=new Map();
+  for(const o of escolhidas) porSku.set(o.componenteSku,(porSku.get(o.componenteSku)||0)+1);
+  const falta=[...porSku.entries()].filter(([sku,q])=>{
+    const o=(modelo.opcoes||[]).find(x=>x.componenteSku===sku);
+    return o&&o.disponivel<q;
+  });
+  return `<div class="colar-resumo">
+    <b>${esc(modelo.nome)}</b> — ${escolhidas.map(o=>esc(o.rotulo)).join(', ')}
+    ${colarEscolha.preco!=null?` · <b>${money(colarEscolha.preco)}</b>`:''}
+    <div class="hint" style="margin-top:5px">Sai do estoque:
+      ${base?`1× ${esc(base.desc)} (base)`:'<b style="color:var(--danger)">falta escolher a base</b>'}
+      ${[...porSku.entries()].map(([sku,q])=>{
+        const o=(modelo.opcoes||[]).find(x=>x.componenteSku===sku);
+        return ` · ${q}× ${esc(o?o.rotulo:sku)}`;
+      }).join('')}</div>
+    ${falta.length?`<div class="hint" style="color:var(--danger)">Não há peça suficiente de
+      ${falta.map(([sku])=>{const o=(modelo.opcoes||[]).find(x=>x.componenteSku===sku);
+        return esc(o?o.rotulo:sku);}).join(', ')}.</div>`:''}
+  </div>`;
+}
+
+const colarEscolha={modeloId:null, baseSku:null, slots:[], preco:null};
+function setModeloColar(id){
+  colarEscolha.modeloId=Number(id);
+  const m=(modelosColar&&modelosColar.modelos||[]).find(x=>x.id===colarEscolha.modeloId);
+  colarEscolha.baseSku=m?(m.baseSkuPadrao||''):'';
+  colarEscolha.slots=Array(m?m.slotsMin:1).fill('');
+  colarEscolha.preco=m&&m.precoSugerido!=null?m.precoSugerido:null;
+  desenharBoxColar();
+}
+
+function adicionarColarAoCarrinho(){
+  const fb=document.getElementById('colar-fb');
+  const dizer=t=>{ if(fb) fb.textContent=t; };
+  dizer('');
+  const modelo=(modelosColar&&modelosColar.modelos||[]).find(x=>x.id===colarEscolha.modeloId);
+  if(!modelo) return dizer('Escolha o modelo.');
+  if(!colarEscolha.baseSku) return dizer('Escolha a base utilizada.');
+  const escolhidas=colarEscolha.slots.map(id=>(modelo.opcoes||[]).find(o=>String(o.id)===String(id)));
+  if(escolhidas.some(o=>!o)) return dizer('Falta escolher a peça de alguma posição.');
+  if(colarEscolha.preco==null||!(colarEscolha.preco>=0)) return dizer('Diga o valor desta composição.');
+
+  scan.personalizados.push({
+    modeloId:modelo.id, modeloNome:modelo.nome,
+    baseSku:colarEscolha.baseSku,
+    baseNome:((state.produtos||[]).find(p=>p.sku===colarEscolha.baseSku)||{}).desc
+      ||(colarEscolha.baseSku===modelo.baseSkuPadrao?modelo.baseNome:null)||colarEscolha.baseSku,
+    preco:colarEscolha.preco,
+    componentes:escolhidas.map(o=>({componenteSku:o.componenteSku, rotulo:o.rotulo,
+      variacao:o.variacao||null, varianteId:o.varianteId||null})),
+  });
+  colarEscolha.slots=Array(modelo.slotsMin).fill('');
+  desenharBoxColar();
+  pintarPersonalizados();
+  pintarResumoVenda();
+}
+
+function removerColar(i){
+  scan.personalizados.splice(i,1);
+  pintarPersonalizados(); pintarResumoVenda();
+}
+
+function pintarPersonalizados(){
+  const el=document.getElementById('vd-personalizados');
+  if(!el) return;
+  const lista=scan.personalizados||[];
+  if(!lista.length){ el.innerHTML=''; vdEstoqueRefletido=false; return; }
+  el.innerHTML=`<div class="scanlist">${lista.map((p,i)=>`
+    <div class="scanrow">
+      <div class="s-qtd">1</div>
+      <div class="s-desc">
+        <div class="d1">${esc(p.modeloNome)}</div>
+        <div class="d2">Base: <code>${esc(p.baseSku)}</code> · ${esc(p.baseNome)}</div>
+        <div class="d2">${p.componentes.map(c=>esc(c.rotulo)).join(' · ')}</div>
+      </div>
+      <div class="s-val"><div>${money(p.preco)}</div>
+        <button class="vd-lapis" onclick="removerColar(${i})" title="Tirar do carrinho"
+                aria-label="Tirar ${esc(p.modeloNome)} do carrinho">×</button></div>
+    </div>`).join('')}</div>
+  <label class="colar-refletido">
+    <input type="checkbox" class="chk" ${vdEstoqueRefletido?'checked':''}
+           onchange="vdEstoqueRefletido=this.checked;pintarResumoVenda()">
+    <span>O estoque desta venda <b>já está refletido</b> — é uma venda que já
+      aconteceu e está sendo registrada agora. Marcando isto, nada sai do estoque.</span>
+  </label>`;
+}
+
+function pintarResumoVenda(){
+  /* o resumo do rodapé é redesenhado por `pintarCarrinho`; chamar de novo é
+     o jeito de manter o total somando as composições */
+  if(typeof pintarCarrinho==='function') pintarCarrinho();
+}
+
 function pintarCarrinho(){
   const linhas=(scan&&scan.vendaLinhas)||[];
   const lista=document.getElementById('vd-lista');
@@ -8007,15 +8267,22 @@ function pintarCarrinho(){
     </div>`;
   }).join('');
 
-  const total=linhas.reduce((s,l)=>s+l.q*vdPreco(l),0);
-  const cheio=linhas.reduce((s,l)=>s+l.q*l.preco,0);
+  /* §43 — as composições somam no mesmo total: elas são itens desta venda,
+     e um total que as ignorasse mostraria menos do que ela vai cobrar. */
+  const comps=(scan&&scan.personalizados)||[];
+  const totalComp=comps.reduce((s,p)=>s+Number(p.preco||0),0);
+  const total=linhas.reduce((s,l)=>s+l.q*vdPreco(l),0)+totalComp;
+  const cheio=linhas.reduce((s,l)=>s+l.q*l.preco,0)+totalComp;
   const desconto=+(cheio-total).toFixed(2);
+  const pecas=linhas.reduce((s,l)=>s+l.q,0)+comps.length;
   const resumo=document.getElementById('vd-resumo');
   if(resumo) resumo.innerHTML=`
-    <div class="stat"><b>${linhas.reduce((s,l)=>s+l.q,0)}</b> peças</div>
+    <div class="stat"><b>${pecas}</b> ${plural(pecas,'peça','peças')}${
+      comps.length?` · ${comps.length} ${plural(comps.length,'montada','montadas')}`:''}</div>
     <div class="spacer"></div>
     ${desconto?`<div class="stat vd-descto">${desconto>0?'Desconto':'Acréscimo'}
       <b>${money(Math.abs(desconto))}</b></div>`:''}
+    ${vdEstoqueRefletido?`<div class="stat" style="color:#7A5410">estoque já refletido</div>`:''}
     <div class="stat" style="font-size:15px">Total <b>${money(total)}</b></div>`;
 }
 
@@ -8220,6 +8487,9 @@ async function confirmarVenda(){
   const inp=document.getElementById('vd-cliente');
   const nome=inp.value.trim();
   if(!nome){ toast('Diga quem levou as peças'); inp.focus(); return; }
+  if(!((scan.vendaLinhas||[]).length)&&!((scan.personalizados||[]).length)){
+    toast('Nenhuma peça na venda'); return;
+  }
   const btn=document.getElementById('vdConfirm');
   btn.disabled=true;
   const itens=[];
@@ -8244,10 +8514,23 @@ async function confirmarVenda(){
        aconteceu. */
     const dataPagto=(document.getElementById('vd-data-pagto')||{}).value||dataVenda;
     const obs=String((document.getElementById('vd-obs')||{}).value||'').trim();
+    /* §43 — as composições viajam ao lado dos itens avulsos, na MESMA
+       venda. `estoqueJaRefletido` é o §7.4: a venda personalizada que já
+       aconteecu antes desta tela existir entra como histórico e não baixa
+       peça que já saiu. */
+    const personalizacoes=(scan.personalizados||[]).map(p=>({
+      modeloId:p.modeloId, baseSku:p.baseSku, preco:p.preco,
+      componentes:p.componentes.map((c,i)=>({
+        posicao:i+1, componenteSku:c.componenteSku, variacao:c.variacao||undefined,
+        varianteId:c.varianteId||undefined, rotulo:c.rotulo,
+      })),
+    }));
     const r=await api('POST','/api/vendas',
       {clienteNome:nome, clienteId:escolhida?escolhida.id:undefined, itens, data:dataVenda,
        pago:vdPago, dataPagamento:vdPago?dataPagto:undefined,
-       observacao:obs||undefined});
+       observacao:obs||undefined,
+       ...(personalizacoes.length?{personalizacoes}:{}),
+       ...(personalizacoes.length&&vdEstoqueRefletido?{estoqueJaRefletido:true}:{})});
     document.getElementById('vendaOverlay').classList.remove('show');
     document.getElementById('scanOverlay').classList.remove('show');
     scan=null;
@@ -8422,6 +8705,9 @@ function renderVendas(){
           <input type="date" value="${vendasData}" onchange="setVendasData(this.value)"
                  style="padding:8px 11px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;font-family:inherit">
           <div class="spacer"></div>
+          ${/* §43 — o caminho de quem começa pela composição. A venda é a
+                mesma; o que muda é por onde ela começa. */''}
+          <button class="btn btn-ghost btn-sm" onclick="novaVendaPersonalizada()">+ Colar personalizado</button>
           <button class="btn btn-gold btn-sm" onclick="novaVenda()">+ Nova venda</button>
         </div>
         ${pendentesNuvemshop.length?`<div class="actbar" style="margin:12px 0 0;padding-top:12px;border-top:1px solid var(--line-soft)">

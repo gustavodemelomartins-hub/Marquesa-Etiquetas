@@ -56,6 +56,11 @@ import { historicoDoDia, lancamentosDoDia } from './historico-dia.js';
 import { contasAReceber, definirPrazoDaConta, receberConta } from './contas-receber.js';
 /* §41 — corrigir o código de uma peça já vendida, sem cancelar a venda. */
 import { corrigirItemDeVenda, listarCorrecoes } from './venda-correcao.js';
+/* §43 — Monte seu Colar: base + componentes + configuração da venda. */
+import {
+  listarModelos, salvarModelo, prepararPersonalizacoes,
+  gravarPersonalizacoes, personalizacoesDeVendas,
+} from './personalizacao.js';
 /* §42 — a Central de Pendências e as duas formas de resolver uma variação. */
 import {
   listarPendencias, adiarPendencia, retomarPendencia,
@@ -691,6 +696,19 @@ async function rotear(request, env, contador = null) {
          devolve uma unidade ao código errado e tira uma do certo (venda do
          sistema) ou não movimenta nada (linha da planilha, cujo estoque já
          estava refletido). Registra a auditoria em `venda_item_correcoes`. */
+      /* §43 — Monte seu Colar. Os modelos são DADO, não interface: uma
+         página de produto da Nuvemshop pode ler daqui e postar a composição
+         em `POST /api/vendas` sem que nada mude, e as duas telas passam a
+         ser duas vistas da mesma regra em vez de duas regras. */
+      if (path === '/api/personalizacao/modelos' && met === 'GET') {
+        return json(await listarModelos(db, {
+          incluirInativos: url.searchParams.get('inativos') === '1',
+        }));
+      }
+      if (path === '/api/personalizacao/modelos' && met === 'POST') {
+        const r = await salvarModelo(db, await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
+      }
       if (path === '/api/vendas/corrigir-item' && met === 'POST') {
         const r = await corrigirItemDeVenda(db, await request.json().catch(() => ({})));
         return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
@@ -1644,6 +1662,13 @@ async function varianteDaVenda(db, sku, varianteId) {
 
 async function registrarVenda(db, env, {
   clienteId, clienteNome, itens, data: dataPedida,
+  /* §43 — as composições do "Monte seu Colar", no MESMO carrinho dos itens
+     normais. Elas entram aqui, e não numa rota própria, porque a venda é
+     uma só: separar criaria duas vendas para uma compra, e o histórico da
+     cliente mostraria a mesma tarde duas vezes.
+     `estoqueJaRefletido` é o §7.4 — registrar uma venda personalizada que
+     JÁ aconteceu, sem baixar peça que já saiu meses atrás. */
+  personalizacoes: personalizacoesPedidas, estoqueJaRefletido: estoqueJaRefletidoPedido,
   /* §29 e §13 do pacote: a venda fecha dizendo se foi paga e por quê ela
      aconteceu. Os dois campos são OPCIONAIS e nascem com o valor que o
      sistema já assumia — venda paga hoje —, então quem não os manda
@@ -1651,8 +1676,19 @@ async function registrarVenda(db, env, {
   pago: pagoPedido, dataPagamento: dataPagamentoPedida, observacao: observacaoPedida,
 }) {
   const entradas = (itens || []).filter(i => i.qtd > 0);
-  if (!entradas.length) return json({ erro: 'Nenhum item na venda' }, 400);
+  const composicoes = Array.isArray(personalizacoesPedidas) ? personalizacoesPedidas : [];
+  const estoqueJaRefletido = !!estoqueJaRefletidoPedido;
+  if (!entradas.length && !composicoes.length) return json({ erro: 'Nenhum item na venda' }, 400);
   if (!clienteNome || !clienteNome.trim()) return json({ erro: 'Nome da cliente é obrigatório' }, 400);
+  /* A flag do §7.4 vale para a venda inteira, e uma venda que mistura peça
+     avulsa com composição não pode ter metade do estoque refletido e metade
+     não — isso seria impossível de auditar depois. */
+  if (estoqueJaRefletido && entradas.length) {
+    return json({
+      erro: 'Uma venda com "estoque já refletido" registra só a composição já realizada. '
+        + 'Lance as peças avulsas em outra venda.',
+    }, 409);
+  }
 
   /* ─── §28: a venda pode ser de ontem
    *
@@ -1796,6 +1832,23 @@ async function registrarVenda(db, env, {
       varianteId: v.varianteId, variacao: v.variacao });
   }
 
+  /* §43 — as composições entram no MESMO carrinho, depois dos itens avulsos.
+     Depois, e não antes, porque elas usam o mesmo `reservado`: uma peça
+     avulsa e um componente de composição podem ser a mesma peça física, e
+     validar cada um contra o disponível do BANCO aprovaria os dois — o banco
+     só muda no batch, lá embaixo. */
+  let personalizadas = [];
+  if (composicoes.length) {
+    const prep = await prepararPersonalizacoes(db, composicoes, {
+      disponivelReal, reservar, estoqueJaRefletido,
+    });
+    if (prep.erro) return json(prep.erro, prep.erro.statusHttp ?? 409);
+    personalizadas = prep.preparadas;
+    for (const p of personalizadas) {
+      linhas.push({ ...p.linha, componentes: null, personalizacao: p });
+    }
+  }
+
   /* O total sempre foi a soma de `preco * qtd`. Continua sendo — o que mudou
      é de onde `preco` vem. Nenhuma fórmula de analytics precisou mudar. */
   const total = linhas.reduce((s, l) => s + l.preco * l.qtd, 0);
@@ -1893,7 +1946,23 @@ async function registrarVenda(db, env, {
        a saída é de sábado, e não do dia em que a linha foi digitada. */
     const obsMov = `Venda ${venda.id} · ${clienteNome.trim()}`
       + (data === hoje() ? '' : ` · venda de ${data}`);
-    if (l.componentes) {
+    if (l.personalizacao) {
+      /* §43 — a composição baixa a BASE e cada COMPONENTE, uma vez cada.
+         Os movimentos saem de uma lista montada em `prepararPersonalizacoes`,
+         e não de `kit_componentes`: a composição é escolhida por venda, e
+         somar os dois caminhos baixaria o componente duas vezes.
+         `estoqueJaRefletido` (§7.4) pula esta parte inteira: a venda já
+         aconteceu, e a peça já saiu na época. */
+      if (!estoqueJaRefletido) {
+        for (const mv of l.personalizacao.movimentos) {
+          stmts.push(...movimentar(db, {
+            sku: mv.sku, tipo: 'venda', quantidade: mv.qtd, origem: 'personalizado',
+            vendaId: venda.id,
+            obs: `${obsMov} · ${l.personalizacao.modeloNome} (${mv.papel})`,
+          }));
+        }
+      }
+    } else if (l.componentes) {
       stmts.push(...await movimentarKit(db, {
         kitSku: l.sku, tipo: 'venda', quantidade: l.qtd, origem: 'venda',
         vendaId: venda.id, obs: obsMov,
@@ -1907,9 +1976,35 @@ async function registrarVenda(db, env, {
     }
   }
   await db.batch(stmts);
-  const nuvemshop = await atualizarEstoqueDaVenda(db, env, venda.id);
+
+  /* §43 — a configuração é gravada DEPOIS dos movimentos, e nunca antes: se
+     a baixa falhar, não fica composição registrada de uma venda que não
+     baixou peça nenhuma. */
+  let composicoesGravadas = [];
+  if (personalizadas.length) {
+    composicoesGravadas = await gravarPersonalizacoes(db, venda.id, personalizadas,
+      { estoqueJaRefletido });
+  }
+
+  /* Venda cujo estoque já estava refletido não empurra nada para a loja: a
+     peça saiu meses atrás, e reescrever o estoque online agora inventaria
+     uma movimentação que não houve. */
+  const nuvemshop = estoqueJaRefletido
+    ? { status: 'nao_aplicavel', motivo: 'estoque já refletido; nada foi movimentado aqui' }
+    : await atualizarEstoqueDaVenda(db, env, venda.id);
   return json({
     ok: true, id: venda.id, data, total, itens: linhas, nuvemshop,
+    /* §43 — o que foi montado, para a tela mostrar a composição sem
+       precisar pedir de novo. */
+    ...(composicoesGravadas.length ? {
+      personalizacoes: composicoesGravadas.map((p) => ({
+        id: p.id, modeloNome: p.modeloNome, baseSku: p.baseSku, preco: p.preco,
+        componentes: p.slots.map((s2) => ({
+          posicao: s2.posicao, sku: s2.componenteSku, rotulo: s2.rotulo,
+        })),
+      })),
+      estoqueJaRefletido,
+    } : {}),
     /* §2 anunciado, nunca engolido: o sistema não decidiu de quem é a venda,
        e diz isso em vez de deixar a tela supor que decidiu. */
     clienteId: idCliente,
@@ -2224,6 +2319,10 @@ async function listarVendas(db, data) {
   const vendas = (await db.prepare(`SELECT * FROM vendas WHERE data = ? ORDER BY id`).bind(data).all()).results;
   const itens = (await db.prepare(
     `SELECT vi.* FROM venda_itens vi JOIN vendas v ON v.id = vi.venda_id WHERE v.data = ?`).bind(data).all()).results;
+  /* §43 — a configuração das composições do dia, numa consulta só para
+     todas as vendas: pedir uma por venda seria o N+1 que a auditoria do D1
+     mandou evitar. */
+  const composicoes = await personalizacoesDeVendas(db, vendas.map((v) => v.id));
   const porVenda = new Map();
   for (const it of itens) {
     if (!porVenda.has(it.venda_id)) porVenda.set(it.venda_id, []);
@@ -2251,5 +2350,9 @@ async function listarVendas(db, data) {
     aReceber: v.pago ? 0 : Number(v.total),
     observacao: v.observacao ?? null,
     itens: porVenda.get(v.id) || [],
+    /* §43 — o colar montado aparece como UMA venda personalizada, com a
+       configuração por baixo, e não como base e pingentes soltos que
+       ninguém reconhece como o colar que a cliente levou. */
+    ...(composicoes.has(v.id) ? { personalizacoes: composicoes.get(v.id) } : {}),
   }));
 }
