@@ -73,6 +73,7 @@
       "Bash(npx wrangler pages deployment list:*)",
       "Bash(npx wrangler r2 object get marquesa-fotos-dev:*)",
       "Bash(npx wrangler tail marquesa-api-staging:*)",
+      "Bash(npx wrangler d1 export:*)",
 
       "Bash(curl -s http://localhost:*)",
       "Bash(curl -s https://marquesa-api-staging.*)",
@@ -101,7 +102,6 @@
       "Bash(npx skills add:*)",
       "Bash(rm:*)",
       "Bash(mv:*)",
-      "Bash(npx wrangler d1 export:*)",
       "Bash(npx wrangler d1 create:*)",
       "Bash(npx wrangler d1 migrations:*)",
       "Bash(npx wrangler r2 bucket:*)",

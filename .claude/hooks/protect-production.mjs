@@ -21,8 +21,10 @@
  *  Silêncio = liberado.
  */
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, appendFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { ACOES, validarAprovacao } from './lib/release-approval.mjs';
 
 const PROD_DB = /marquesa-db(?!-dev)/;
 const PROD_R2 = /marquesa-fotos(?!-dev)/;
@@ -50,6 +52,184 @@ function ramoAtual() {
       encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
   } catch { return ''; }
+}
+
+/* --------------------------------------------------------------------------
+ *  Production Release Approval — autorização por RELEASE, não por comando
+ *
+ *  Merge em `main`, push de `main`, migration no D1 de produção e deploy
+ *  (Worker/Pages) eram `negar()` incondicional — nenhuma aprovação prévia
+ *  destravava. Isso protegia bem, mas obrigava uma pessoa a aprovar cada
+ *  `Bash` da sequência de publicação, um por um, mesmo depois de já ter
+ *  dito "pode publicar este release".
+ *
+ *  Agora essas quatro categorias consultam `.claude/approvals/
+ *  production-release.json` (lido por `carregarAprovacao`) e a decisão pura
+ *  de `validarAprovacao` (`lib/release-approval.mjs`) — branch, commit,
+ *  ação, ambiente, árvore limpa e (para migration) o hash do arquivo têm
+ *  todos de bater, e a aprovação expira sozinha. Sem aprovação válida, o
+ *  comportamento é EXATAMENTE o de antes: `negar()`.
+ *
+ *  O que NÃO muda: tudo no bloco "SQL destrutivo" mais abaixo (DROP,
+ *  TRUNCATE, DELETE/UPDATE sem WHERE, `d1 delete`, `time-travel restore`,
+ *  `git push --force`, `git reset --hard`, secret) continua `negar()`
+ *  incondicional, sem NENHUM caminho de aprovação — essas checagens nem
+ *  perguntam se existe aprovação. Uma aprovação de release autoriza UM
+ *  arquivo de migration específico contra o binding de produção; não muda
+ *  o que esse arquivo pode conter.
+ *
+ *  Importante: quando a aprovação É válida, a função devolve e quem chamou
+ *  simplesmente NÃO nega — não existe um "permitir() que já sai". Sair cedo
+ *  no caminho aprovado pularia as checagens de CONTEÚDO que vêm depois no
+ *  mesmo comando (a seção "SQL destrutivo"), e aprovação de release nunca
+ *  deveria ser capaz de calar essa checagem.
+ */
+
+const CAMINHO_APROVACAO = ['.claude', 'approvals', 'production-release.json'];
+const CAMINHO_AUDITORIA = ['.claude', 'approvals', 'audit.log.jsonl'];
+
+function shaAtual() {
+  try {
+    return execSync('git rev-parse HEAD', {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch { return ''; }
+}
+
+/** `false` também quando o comando `git status` falhar — sem prova de que
+ *  a árvore está limpa, ela não está. Fail-closed. */
+function arvoreEstaLimpa() {
+  try {
+    const saida = execSync('git status --porcelain', {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return saida.trim() === '';
+  } catch { return false; }
+}
+
+/** `--is-ancestor` também é verdadeiro quando os dois SHAs são iguais —
+ *  cobre tanto "a aprovação ainda é a ponta de main" (fast-forward) quanto
+ *  "main já ganhou um commit de merge por cima dela". Recusa qualquer coisa
+ *  que não pareça um SHA de Git ANTES de montar o comando — nunca interpola
+ *  texto não validado numa string de shell. */
+function commitEhAncestral(shaAntigo, raiz) {
+  if (!/^[0-9a-f]{7,40}$/i.test(String(shaAntigo || ''))) return false;
+  try {
+    execSync(`git merge-base --is-ancestor ${shaAntigo} HEAD`, { cwd: raiz, stdio: 'ignore' });
+    return true;
+  } catch { return false; }
+}
+
+/** `null` para "sem aprovação" cobre três casos de uma vez: arquivo não
+ *  existe, sem permissão de leitura, ou JSON inválido. Os três são tratados
+ *  IGUAL por `validarAprovacao` — nunca travam o hook, nunca "quase liberam".
+ *
+ *  `MARQUESA_APROVACAO_CAMINHO`/`MARQUESA_AUDITORIA_CAMINHO` existem só para
+ *  o teste de integração: sem elas, o hook sempre lê/escreve os caminhos
+ *  reais dentro do repositório. Isto existe para o teste NUNCA precisar
+ *  escrever em `.claude/approvals/production-release.json` de verdade — um
+ *  teste que sobrescrevesse uma aprovação real em andamento seria pior que
+ *  o problema que está provando não existir. */
+function carregarAprovacao(raiz) {
+  const caminho = process.env.MARQUESA_APROVACAO_CAMINHO || path.join(raiz, ...CAMINHO_APROVACAO);
+  try {
+    const bruto = readFileSync(caminho, 'utf8');
+    return JSON.parse(bruto);
+  } catch { return null; }
+}
+
+function hashArquivoSha256(caminhoAbsoluto) {
+  try {
+    return createHash('sha256').update(readFileSync(caminhoAbsoluto)).digest('hex');
+  } catch { return null; }
+}
+
+/** Caminho de `--file=<algo>` normalizado para o formato em que a aprovação
+ *  o registra: relativo à RAIZ do repositório, com `/`. Sem isto, rodar o
+ *  mesmo comando de dentro de `api/` (onde `--file=migracao-x.sql` não leva
+ *  o prefixo `api/`) pareceria um arquivo "diferente" do aprovado. */
+function caminhoRelativoARaiz(bruto, base, raiz) {
+  const abs = path.resolve(base, bruto);
+  return path.relative(raiz, abs).split(path.sep).join('/');
+}
+
+/** Best-effort: uma falha ao gravar auditoria nunca derruba a decisão do
+ *  hook (o contrato dele é sair com 0 sempre). O log é para revisão humana
+ *  depois, não parte da decisão em si. */
+function registrarAuditoria(raiz, entrada) {
+  try {
+    const caminho = process.env.MARQUESA_AUDITORIA_CAMINHO || path.join(raiz, ...CAMINHO_AUDITORIA);
+    const linha = `${JSON.stringify({ em: new Date().toISOString(), ...entrada })}\n`;
+    appendFileSync(caminho, linha, 'utf8');
+  } catch { /* nunca deixa a auditoria quebrar a decisão */ }
+}
+
+/** Reúne os fatos (branch simulada, árvore, ancestralidade, hash do arquivo
+ *  quando fizer sentido) e devolve a decisão de `validarAprovacao`, já
+ *  registrada em auditoria. `branchSimulada` é passada por quem chama — ela
+ *  reflete `checkout`/`switch` já vistos MAIS CEDO no mesmo comando, não só
+ *  o branch real no início do processo (ver `simularCheckout`). */
+function decisaoDeRelease(raiz, acao, branchSimulada, extras = {}) {
+  const aprovacao = carregarAprovacao(raiz);
+  const resultado = validarAprovacao({
+    aprovacao,
+    acao,
+    agora: new Date(),
+    ambienteAlvo: 'production',
+    branchAtual: branchSimulada,
+    arvoreLimpa: arvoreEstaLimpa(),
+    shaEhAncestral: aprovacao ? commitEhAncestral(aprovacao.commit, raiz) : false,
+    migrationArquivo: extras.migrationArquivo ?? null,
+    migrationHashAtual: extras.migrationHashAtual ?? null,
+  });
+  registrarAuditoria(raiz, {
+    acao,
+    decisao: resultado.ok ? 'allow' : 'deny',
+    motivo: resultado.motivo,
+    aprovacaoId: aprovacao?.id ?? null,
+    branch: branchSimulada,
+    headAtual: shaAtual(),
+  });
+  return resultado;
+}
+
+/** Atualiza a branch "simulada" quando o segmento é um `checkout`/`switch`.
+ *  Sem isto, `git checkout main && git merge <branch>` na MESMA invocação
+ *  seria avaliado com o branch de ANTES do comando rodar — o hook roda antes
+ *  do Bash, então `ramoAtual()` sozinho nunca veria o `checkout` que ainda
+ *  vai acontecer. Mesma ideia do `base` para `cd`, um pouco abaixo. */
+function simularCheckout(seg, atual) {
+  const m = seg.match(/\bgit\s+(?:checkout|switch)\s+(?:-b\s+)?(-\S+\s+)*([A-Za-z0-9._/-]+)\s*$/);
+  if (!m) return atual;
+  const alvo = m[2];
+  if (!alvo || alvo.startsWith('-')) return atual;
+  return alvo;
+}
+
+/** Extrai os valores de `--command`, nas duas sintaxes e com aspas — mesmo
+ *  padrão de `arquivosSql`, usado para achar SQL solto (`-c`/`--command`) em
+ *  vez de um `--file`. */
+function comandosInline(seg) {
+  const achados = [];
+  const re = /--command(?:=|\s+)(?:"([^"]*)"|'([^']*)'|([^\s;&|]+))/g;
+  let m = re.exec(seg);
+  while (m !== null) {
+    achados.push(m[1] ?? m[2] ?? m[3] ?? '');
+    m = re.exec(seg);
+  }
+  return achados;
+}
+
+/** `true` só quando TODA statement do texto (depois de tirar comentário e
+ *  literal) é `SELECT`/`WITH`/`PRAGMA`/`EXPLAIN`. Vazio, ou qualquer coisa
+ *  que não prove ser leitura, devolve `false` — fail-closed: a dúvida não
+ *  vira "deve ser leitura", vira "trate como escrita". */
+function ehLeituraPura(sqlBruto) {
+  const limpo = limparSql(String(sqlBruto || '')).trim();
+  if (!limpo) return false;
+  const statements = limpo.split(';').map((s) => s.trim()).filter(Boolean);
+  if (!statements.length) return false;
+  return statements.every((s) => /^(select|with|pragma|explain)\b/i.test(s));
 }
 
 /** Tira o corpo dos heredocs: é conteúdo de arquivo, não comando. */
@@ -199,6 +379,7 @@ process.stdin.on('end', () => {
 
   const raiz = raizDoRepositorio();
   let base = process.cwd();
+  let branchSimulada = ramoAtual();
 
   for (const [nome, seg] of segmentos(semEnvelope(semHeredoc(cru)))) {
     const seco = /--dry-run\b/.test(seg);
@@ -214,11 +395,29 @@ process.stdin.on('end', () => {
     /* -------------------------------------------------------- Cloudflare */
     if (nome === 'wrangler') {
       const sub = seg.replace(/^.*?wrangler\s+/, '');
-      if (/^(deploy|rollback)\b|\b(versions|triggers)\s+deploy\b|\bpages\s+deploy\b/.test(sub) && !seco) {
-        negar('`wrangler deploy` não é executado por agente em NENHUM ambiente '
-          + '(docs/SECURITY.md, Classe C). O DEV publica por push em `develop` '
-          + '(.github/workflows/deploy-dev.yml); o Worker staging é comando humano. '
-          + 'Entregue o comando ao Gustavo em vez de rodá-lo.');
+      const ehRollback = /^rollback\b/.test(sub);
+      const ehDeployWorker = /^deploy\b/.test(sub) || /\b(versions|triggers)\s+deploy\b/.test(sub);
+      const ehDeployPages = /\bpages\s+deploy\b/.test(sub);
+      if (ehRollback && !seco) {
+        negar('`wrangler rollback` não é executado por agente em NENHUM ambiente — '
+          + 'é caminho de emergência, sempre comando humano.');
+      }
+      if ((ehDeployWorker || ehDeployPages) && !seco) {
+        if (/--env[= ]\s*staging\b/.test(seg)) {
+          negar('Deploy de DEV não é executado direto pelo agente — o pipeline é '
+            + '`git push origin develop` (.github/workflows/deploy-dev.yml). '
+            + 'Entregue o comando ao Gustavo se precisar rodar assim mesmo.');
+        } else {
+          const acao = ehDeployPages ? ACOES.PAGES_DEPLOY : ACOES.WORKER_DEPLOY;
+          const r = decisaoDeRelease(raiz, acao, branchSimulada);
+          if (!r.ok) {
+            negar(`\`wrangler ${ehDeployPages ? 'pages ' : ''}deploy\` de PRODUÇÃO exige uma `
+              + `aprovação de release válida (docs/SECURITY.md § Production Release Approval). ${r.motivo}`);
+          }
+          /* aprovado: não nega, não pergunta — cai para fora do if. Não há
+             checagem de conteúdo depois desta para wrangler deploy, então
+             cair para fora aqui já é "liberado" para este segmento. */
+        }
       }
       if (/--env[= ]\s*(production|prod)\b/.test(seg)) {
         negar('Comando aponta para o ambiente de produção (`--env production`). Bloqueado.');
@@ -240,8 +439,9 @@ process.stdin.on('end', () => {
        * cima — que casa por nome — não veria nada.
        *
        * A invariante real não é o nome, é o par (remoto, ambiente): o único
-       * D1 remoto que um agente pode tocar sozinho é o do `--env staging`.
-       * `--local` continua livre: é um SQLite dentro de api/.wrangler. */
+       * D1 remoto que um agente pode tocar sozinho sem aprovação de release
+       * é o do `--env staging`. `--local` continua livre: é um SQLite
+       * dentro de api/.wrangler. */
       if (/\bd1\s+(execute|migrations|export)\b/.test(seg)
           && /--remote\b/.test(seg)
           && !/--env[= ]\s*staging\b/.test(seg)
@@ -249,10 +449,42 @@ process.stdin.on('end', () => {
            * resto. Esta existe para o caso em que NADA no comando diz qual
            * banco é, que é justamente o do binding. */
           && !/marquesa-db-dev\b/.test(seg)) {
-        negar('`d1` remoto sem `--env staging` endereça o D1 de PRODUÇÃO — inclusive '
-          + 'pelo binding (`d1 execute DB --remote`), que não cita nome de banco nenhum. '
-          + 'Para DEV, acrescente `--env staging`. Produção exige autorização humana '
-          + 'explícita e backup confirmado (skill `database-dev`).');
+        const ehExport = /\bd1\s+export\b/.test(seg);
+        if (ehExport) {
+          /* Export é LEITURA — não escreve uma linha no D1. Tratá-lo como
+             migration obrigaria uma aprovação de release só para tirar
+             backup, e backup é exatamente o que precisa poder rodar SEM
+             depender de já ter um release aprovado (é o passo 1, antes de
+             tudo). Continua endereçado pelo binding, então nunca alcança o
+             banco errado por acidente — só deixou de exigir aprovação. */
+        } else {
+          const leituras = comandosInline(seg);
+          const arquivos = arquivosSql(seg);
+          const somenteLeituraPorComando = leituras.length > 0
+            && arquivos.length === 0
+            && leituras.every((c) => ehLeituraPura(c));
+          if (!somenteLeituraPorComando) {
+            let migrationArquivo = null;
+            let migrationHashAtual = null;
+            if (arquivos.length === 1) {
+              migrationArquivo = caminhoRelativoARaiz(arquivos[0], base, raiz);
+              migrationHashAtual = hashArquivoSha256(path.resolve(raiz, migrationArquivo));
+            }
+            const r = arquivos.length > 1
+              ? { ok: false, motivo: 'o comando cita mais de um `--file`; a aprovação de release cobre um arquivo por vez.' }
+              : decisaoDeRelease(raiz, ACOES.D1_MIGRATE_PROD, branchSimulada, { migrationArquivo, migrationHashAtual });
+            if (!r.ok) {
+              negar('`d1` remoto sem `--env staging` endereça o D1 de PRODUÇÃO — inclusive '
+                + 'pelo binding (`d1 execute DB --remote`), que não cita nome de banco nenhum. '
+                + `Exige uma aprovação de release válida para a migration exata (skill \`database-dev\`). ${r.motivo}`);
+            }
+            /* aprovado: cai para fora. A checagem de CONTEÚDO (DROP/TRUNCATE/
+               DUVIDOSO) roda depois, incondicional — a aprovação nunca a
+               dispensa, ver bloco "SQL destrutivo" mais abaixo. */
+          }
+          /* somenteLeituraPorComando: SELECT/WITH/PRAGMA/EXPLAIN por --command,
+             sem --file — não pode mutar nada, liberado sem aprovação. */
+        }
       }
       if (/\br2\s+(object\s+(put|delete)|bucket\s+(create|delete))\b/.test(seg) && PROD_R2.test(seg)) {
         negar('Alvo é o bucket R2 de PRODUÇÃO (`marquesa-fotos`). O bucket DEV é `marquesa-fotos-dev`.');
@@ -279,8 +511,14 @@ process.stdin.on('end', () => {
 
     /* --------------------------------------------------------------- Git */
     if (nome === 'git') {
+      /* ANTES de qualquer checagem que dependa de branch: se este segmento
+         é um checkout/switch, atualiza a simulação para os segmentos
+         seguintes DO MESMO comando (`git checkout main && git merge x`). */
+      branchSimulada = simularCheckout(seg, branchSimulada);
+
       if (/\bpush\b/.test(seg) && /(--force\b|--force-with-lease\b|(^|\s)-f(\s|$))/.test(seg)) {
-        negar('`git push --force` é proibido em qualquer branch, sem exceção (CLAUDE.md).');
+        negar('`git push --force` é proibido em qualquer branch, sem exceção (CLAUDE.md). '
+          + 'Nenhuma aprovação de release cobre isto — não existe caminho aprovado para force push.');
       }
       if (/\breset\s+--hard\b/.test(seg)) {
         negar('`git reset --hard` descarta trabalho. Só com instrução humana explícita.');
@@ -297,13 +535,24 @@ process.stdin.on('end', () => {
       if (/\bpush\b/.test(seg) && !seco) {
         const alvoMain = /\bpush\b.*\b(main|master|HEAD:main|origin\/main)\b/.test(seg);
         const semAlvo = !/\bpush\s+\S+\s+\S+/.test(seg);
-        if (alvoMain || (semAlvo && /^(main|master)$/.test(ramoAtual()))) {
-          negar('Push em `main` exige autorização humana explícita. O fluxo normal é '
-            + '`git push origin develop`, que dispara o deploy DEV.');
+        if (alvoMain || (semAlvo && /^(main|master)$/.test(branchSimulada))) {
+          const r = decisaoDeRelease(raiz, ACOES.PUSH_MAIN, branchSimulada);
+          if (!r.ok) {
+            negar('Push em `main` exige uma aprovação de release válida '
+              + '(docs/SECURITY.md § Production Release Approval). O fluxo normal para DEV é '
+              + `\`git push origin develop\`, sem aprovação nenhuma. ${r.motivo}`);
+          }
+          /* aprovado: cai para fora — nada depois disto no bloco git checa
+             o conteúdo de um push, então liberar aqui já é liberar. */
         }
       }
-      if (/\bmerge\b/.test(seg) && /\bmain\b/.test(seg)) {
-        negar('Merge envolvendo `main` exige autorização humana explícita (CLAUDE.md).');
+      if (/\bmerge\b/.test(seg) && branchSimulada === 'main') {
+        const r = decisaoDeRelease(raiz, ACOES.MERGE_MAIN, branchSimulada);
+        if (!r.ok) {
+          negar('Merge envolvendo `main` exige uma aprovação de release válida '
+            + `(docs/SECURITY.md § Production Release Approval). ${r.motivo}`);
+        }
+        /* aprovado: cai para fora, mesmo raciocínio do push acima. */
       }
     }
 

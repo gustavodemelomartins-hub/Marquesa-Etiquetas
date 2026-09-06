@@ -42,8 +42,15 @@ skills-lock.json
 !.claude/skills/
 !.claude/rules/
 !.claude/hooks/
+!.claude/approvals/
 # fixturas do teste do hook: criadas e apagadas por ele, nunca versionadas
 .claude/hooks/__fixturas__/
+# Production Release Approval (docs/SECURITY.md): a aprovação e a auditoria
+# são estado de RUNTIME de um release em andamento, não configuração do
+# projeto — nunca versionadas. README.md e EXEMPLO.json, no mesmo diretório,
+# continuam versionados (são documentação, não aprovação de verdade).
+.claude/approvals/production-release.json
+.claude/approvals/audit.log.jsonl
 .claude/settings.local.json
 .claude/plugins/
 .claude/cache/

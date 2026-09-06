@@ -33,10 +33,18 @@ quem for mexer na configuração. O que entra em toda sessão é o `CLAUDE.md`
 │   ├── verifier.md          sonnet · roda o teste e dá o veredito
 │   ├── database-guardian.md sonnet · integridade e contagens no D1
 │   └── architect.md         opus   · mudança que atravessa camadas
-└── hooks/                 determinísticos, rodam antes do agente
-    ├── protect-production.mjs       PreToolUse(Bash) — trava produção
-    ├── protect-production.test.mjs  50 casos, metade deles falso positivo
-    └── verify-before-stop.mjs       Stop — cobra verificação, 1x por sessão
+├── hooks/                 determinísticos, rodam antes do agente
+│   ├── protect-production.mjs       PreToolUse(Bash) — trava produção
+│   ├── protect-production.test.mjs  hard-deny + Production Release Approval
+│   ├── verify-before-stop.mjs       Stop — cobra verificação, 1x por sessão
+│   └── lib/
+│       ├── release-approval.mjs       decisão PURA da aprovação de release
+│       └── release-approval.test.mjs  a mesma decisão, sem git nem disco
+└── approvals/             Production Release Approval — só README/EXEMPLO
+    ├── README.md            como uma aprovação nasce, campo a campo
+    ├── EXEMPLO.json         um arquivo válido de referência
+    ├── production-release.json   a aprovação ATIVA — nunca versionado
+    └── audit.log.jsonl           trilha de toda decisão — nunca versionado
 ```
 
 `marquesa-reconciliation` e `marquesa-sync` **são** as skills de
@@ -60,26 +68,43 @@ Prefixo não separa `marquesa-db` de `marquesa-db-dev`, nem um deploy com
 produção. Se o hook deixar de rodar, nada vira permitido por isso — o comando
 cai no padrão, que é perguntar.
 
-### O que o hook nega, em qualquer ambiente
+### O que o hook nega sempre — nenhuma aprovação cobre isto
 
-Deploy (Worker e Pages) · `--env production` · secret put/delete/bulk ·
-`d1 delete` · time-travel restore · escrita em `marquesa-db` · escrita no
-bucket `marquesa-fotos` · mutação em `marquesa-api` · DROP · TRUNCATE ·
-DELETE/UPDATE sem WHERE · push forçado · push ou merge envolvendo `main` ·
-reset --hard · clean -f · reescrita de histórico · leitura de `.dev.vars`,
-`.env`, `backups/`, `seed.sql` · sync forçado fora do local/staging.
+`--env production` · secret put/delete/bulk · `d1 delete` · time-travel
+restore · `wrangler rollback` · escrita em `marquesa-db` (o nome, não o
+binding) · escrita no bucket `marquesa-fotos` · mutação em `marquesa-api` ·
+DROP · TRUNCATE · DELETE/UPDATE sem WHERE · push forçado · reset --hard ·
+clean -f · reescrita de histórico · leitura de `.dev.vars`, `.env`,
+`backups/`, `seed.sql` · sync forçado fora do local/staging.
+
+### O que o hook nega por padrão, mas libera com uma aprovação de release
+
+Merge em `main` · push de `main` · migration no D1 de produção
+(`d1 execute`/`migrations` pelo binding, sem `--env staging`) · `wrangler
+deploy`/`pages deploy` de produção. Ver [Production Release
+Approval](../docs/SECURITY.md#production-release-approval) — a lógica pura
+mora em `hooks/lib/release-approval.mjs`, testada sem precisar de um
+repositório Git de mentira.
+
+### O que já era leitura, e continua liberado sem aprovação nenhuma
+
+`wrangler d1 export` (backup) · `wrangler d1 execute --remote --command`
+cujo conteúdo seja só `SELECT`/`WITH`/`PRAGMA`/`EXPLAIN` · `time-travel
+info` · consultas locais.
 
 Ele analisa **por segmento** e ignora corpo de heredoc: escrever documentação
 que cita um comando perigoso não é rodar o comando, e `grep` num termo
-perigoso é leitura. Metade da bateria de teste existe só para provar isso.
+perigoso é leitura. Boa parte da bateria de teste existe só para provar isso.
 
 Bloqueio não é impossibilidade: uma pessoa continua podendo rodar tudo isso
-no terminal dela. O que a lista impede é o agente fazer sozinho.
+no terminal dela. O que a lista impede é o agente fazer sozinho, sem uma
+aprovação de release válida onde ela se aplica.
 
 ### Depois de mexer no hook
 
 ```bash
-node .claude/hooks/protect-production.test.mjs
+node .claude/hooks/lib/release-approval.test.mjs   # decisão pura, sem git
+node .claude/hooks/protect-production.test.mjs     # o hook de ponta a ponta
 ```
 
 ## Estratégia de modelo

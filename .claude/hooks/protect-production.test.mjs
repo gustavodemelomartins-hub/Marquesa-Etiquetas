@@ -3,29 +3,51 @@
  *
  *      node .claude/hooks/protect-production.test.mjs
  *
- *  Três blocos. O segundo importa tanto quanto o primeiro: hook que atrapalha
- *  trabalho normal acaba desligado, e aí não protege nada. O terceiro cuida
- *  do conteúdo dos arquivos `.sql`, onde o alvo certo não prova nada.
+ *  Quatro blocos. O segundo importa tanto quanto o primeiro: hook que
+ *  atrapalha trabalho normal acaba desligado, e aí não protege nada. O
+ *  terceiro cuida do conteúdo dos arquivos `.sql`, onde o alvo certo não
+ *  prova nada. O quarto é o Production Release Approval — a decisão PURA já
+ *  está provada em `lib/release-approval.test.mjs`; aqui só se prova que
+ *  este hook, de verdade, CONSULTA aquela decisão nos quatro pontos certos
+ *  (merge/push de `main`, migration de produção, deploy) e que os hard-deny
+ *  permanentes (force push, DROP, `d1 delete`, `time-travel restore`,
+ *  secret) continuam absolutos mesmo com uma aprovação válida presente.
+ *
+ *  O bloco 4 usa `MARQUESA_APROVACAO_CAMINHO`/`MARQUESA_AUDITORIA_CAMINHO`
+ *  para nunca tocar `.claude/approvals/production-release.json` de verdade
+ *  — ele escreve num arquivo temporário fora do repositório.
+ *
+ *  Pré-condição do bloco 4: a árvore de trabalho deste repositório precisa
+ *  estar limpa quando o teste rodar (`git status --porcelain` vazio) — é
+ *  um dos fatos que `validarAprovacao` confere de verdade, contra o
+ *  repositório real. Rodar com mudança não commitada faz os casos
+ *  "aprovação válida" falharem com o motivo "árvore suja", não com um
+ *  bug do hook.
  *
  *  Sem framework, no estilo dos outros testes do projeto: imprime `ok` /
  *  `FALHA` e sai com 1 se falhou. Node puro, portátil.
  */
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { ACOES } from './lib/release-approval.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const HOOK = path.join(AQUI, 'protect-production.mjs');
 const RAIZ = path.resolve(AQUI, '..', '..');
 
-/** Devolve 'deny', 'ask' ou 'ok' — silêncio do hook é 'ok'. */
-function decisao(cmd) {
+/** Devolve 'deny', 'ask' ou 'ok' — silêncio do hook é 'ok'. `envExtra` só é
+ *  usado pelo bloco 4, para apontar o hook para um arquivo de aprovação de
+ *  teste em vez do real. */
+function decisao(cmd, envExtra = {}) {
   const saida = execFileSync('node', [HOOK], {
     input: JSON.stringify({ tool_name: 'Bash', tool_input: { command: cmd } }),
     encoding: 'utf8',
     cwd: RAIZ,
+    env: { ...process.env, ...envExtra },
   });
   if (!saida.trim()) return 'ok';
   try {
@@ -49,10 +71,23 @@ const NEGAR = [
    * go-live, produção é `marquesa-db-prod` e o binding `DB` sem `--env`
    * resolve para ela — a regra que casa por nome não veria nada aqui. */
   'npx wrangler d1 execute DB --remote --file=schema.sql',
-  'npx wrangler d1 execute DB --remote --command "SELECT 1"',
   'cd api && npx wrangler d1 execute DB --remote --file=migracao-clientes.sql',
-  'npx wrangler d1 export DB --remote --output ../backups/x.sql',
   'npx wrangler d1 migrations apply DB --remote',
+  /* leitura pura MISTURADA com --file continua exigindo aprovação — o
+   * arquivo pode conter qualquer coisa, então a presença dele manda. */
+  'npx wrangler d1 execute DB --remote --command "SELECT 1" --file=schema.sql',
+  /* --command que não é prova de leitura pura (mistura SELECT com algo que
+   * não é) continua exigindo aprovação, mesmo sem --file. */
+  'npx wrangler d1 execute DB --remote --command "SELECT 1; DELETE FROM produtos"',
+  'npx wrangler d1 execute DB --remote --command "UPDATE produtos SET qtd = 0"',
+  /* limitação conhecida, e do lado seguro: `segmentos()` corta em `;` sem
+   * entender aspas, então um --command com DUAS statements SELECT
+   * separadas por `;` chega em pedaços — nenhum se prova leitura pura
+   * sozinho, e a ação cai para "exige aprovação" em vez de "leitura livre".
+   * Documentado, não corrigido: escrever um parser de shell só para isto
+   * custaria mais do que o caso de uso (a régua do projeto já pede um
+   * `--command` por SELECT). */
+  'npx wrangler d1 execute DB --remote --command "select sku from produtos; SELECT 1"',
   /* ambiente errado também não passa */
   'npx wrangler d1 execute DB --env production --remote --command "SELECT 1"',
   'npx wrangler d1 execute marquesa-db-prod --remote --command "SELECT 1"',
@@ -66,7 +101,10 @@ const NEGAR = [
   'git push origin HEAD:main',
   'git reset --hard HEAD~1',
   'git clean -fd',
-  'git merge develop main',
+  /* merge PARA dentro de main, sem aprovação — a direção que importa */
+  'git checkout main && git merge claude/alguma-feature',
+  'git switch main && git merge claude/alguma-feature',
+  'git checkout -b main && git merge claude/alguma-feature',
   'git filter-branch --tree-filter x HEAD',
   'cat api/.dev.vars',
   'curl -X POST https://marquesa-api.workers.dev/api/sync -d \'{"forcar": true}\'',
@@ -92,6 +130,18 @@ const LIBERAR = [
   'npx wrangler d1 execute DB --env staging --remote --command "SELECT COUNT(*) FROM produtos"',
   'npx wrangler d1 execute DB --local --command "SELECT 1"',
   'cd api && npx wrangler d1 execute DB --local --command "SELECT 1"',
+  /* leitura pura contra o binding de PRODUÇÃO, sem --file: não muta nada,
+   * liberada sem aprovação de release (§ READ-ONLY DE PRODUÇÃO) */
+  'npx wrangler d1 execute DB --remote --command "SELECT 1"',
+  'npx wrangler d1 execute DB --remote --command "SELECT COUNT(*) FROM produtos"',
+  'npx wrangler d1 execute DB --remote --command "PRAGMA table_info(produtos)"',
+  /* export é backup — leitura, mesmo contra o binding de PRODUÇÃO */
+  'npx wrangler d1 export DB --remote --output ../backups/x.sql',
+  'cd api && npx wrangler d1 export DB --remote --output ../backups/y.sql',
+  /* merge/push que NÃO afetam `main` continuam livres, mesma direção de
+   * sempre: merge PARA FORA de main, ou push de outro branch */
+  'git merge develop main',
+  'git checkout develop && git merge main',
   'npx wrangler dev --local --port 8787',
   'npx wrangler dev --env staging --remote --port 8788',
   'npx wrangler pages deployment list --project-name marquesa-dev',
@@ -195,15 +245,141 @@ const ARQUIVO = [
   [`npx wrangler d1 execute marquesa-db --local --file=${REL}/criar.sql`, 'deny'],
 ];
 
+/* ══════════════════════════════════════════════════════════════════════════
+ *  Bloco 4 — Production Release Approval: o hook CONSULTA a aprovação, e os
+ *  hard-deny permanentes ignoram ela por completo.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+const APROVACAO_TESTE = path.join(tmpdir(), 'marquesa-hook-aprovacao-teste.json');
+const AUDITORIA_TESTE = path.join(tmpdir(), 'marquesa-hook-auditoria-teste.jsonl');
+const ENV_TESTE = { MARQUESA_APROVACAO_CAMINHO: APROVACAO_TESTE, MARQUESA_AUDITORIA_CAMINHO: AUDITORIA_TESTE };
+/* env "sem aprovação nenhuma": aponta para um caminho que nunca existe, em
+ * vez de deixar o hook cair no caminho real de `.claude/approvals/` — assim
+ * o bloco 4 nunca lê nem escreve o arquivo de aprovação de verdade. */
+const ENV_SEM_APROVACAO = { MARQUESA_APROVACAO_CAMINHO: path.join(tmpdir(), 'marquesa-hook-sem-aprovacao.json') };
+
+function shaReal() {
+  return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', cwd: RAIZ }).trim();
+}
+function branchReal() {
+  return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8', cwd: RAIZ }).trim();
+}
+function arvoreRealLimpa() {
+  return execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8', cwd: RAIZ }).trim() === '';
+}
+function sha256Do(caminho) {
+  return createHash('sha256').update(readFileSync(caminho)).digest('hex');
+}
+
+/** Aprovação "de referência" para os testes: válida em todo campo, cobrindo
+ *  as cinco ações, para o branch/commit REAIS do repositório onde o teste
+ *  está rodando — é o que faz `shaEhAncestral` e `arvoreLimpa` conferirem
+ *  contra fatos verdadeiros, sem precisar de um repositório Git de mentira. */
+function aprovacaoValida(overrides = {}) {
+  const agora = Date.now();
+  return {
+    versao: 1,
+    id: 'teste-integracao-release-approval',
+    ambiente: 'production',
+    branch: branchReal(),
+    commit: shaReal(),
+    acoes: Object.values(ACOES),
+    criadaEm: new Date(agora - 60_000).toISOString(),
+    expiraEm: new Date(agora + 3_600_000).toISOString(),
+    migration: { arquivo: `${REL}/aditiva.sql`, sha256: sha256Do(path.join(PASTA, 'aditiva.sql')) },
+    ...overrides,
+  };
+}
+
+function escreverAprovacao(objeto) {
+  writeFileSync(APROVACAO_TESTE, JSON.stringify(objeto, null, 2), 'utf8');
+}
+
+/* [comando, env, decisão esperada] — o env decide qual aprovação (se
+ * alguma) o hook enxerga para este comando. */
+function casosReleaseApproval() {
+  const valida = aprovacaoValida();
+  const expirada = aprovacaoValida({ expiraEm: new Date(Date.now() - 1000).toISOString() });
+  const shaErrado = aprovacaoValida({ commit: '0'.repeat(40) });
+  const migrationErrada = aprovacaoValida({ migration: { arquivo: 'api/outra-migration.sql', sha256: 'a'.repeat(64) } });
+  const escopoReduzido = aprovacaoValida({ acoes: [ACOES.MERGE_MAIN] });
+
+  return [
+    /* 1. sem aprovação → as quatro categorias continuam bloqueadas, como
+     *    sempre foram — nada nesta mudança afrouxa o caminho padrão. */
+    ['git checkout main && git merge claude/alguma-feature', ENV_SEM_APROVACAO, 'deny'],
+    ['git checkout main && git push origin main', ENV_SEM_APROVACAO, 'deny'],
+    ['git checkout main && npx wrangler deploy', ENV_SEM_APROVACAO, 'deny'],
+    [`git checkout main && npx wrangler d1 execute DB --remote --file=${REL}/aditiva.sql`, ENV_SEM_APROVACAO, 'deny'],
+
+    /* 2. aprovação válida → cada uma das quatro ações passa a ser liberada */
+    ['git checkout main && git merge claude/alguma-feature', valida, 'ok'],
+    ['git checkout main && git push origin main', valida, 'ok'],
+    ['git checkout main && npx wrangler deploy', valida, 'ok'],
+    ['git checkout main && npx wrangler pages deploy frontend/dist', valida, 'ok'],
+    [`git checkout main && npx wrangler d1 execute DB --remote --file=${REL}/aditiva.sql`, valida, 'ok'],
+
+    /* 3. aprovação expirada → volta a bloquear */
+    ['git checkout main && git push origin main', expirada, 'deny'],
+
+    /* 4. SHA que não é ancestral do HEAD atual → bloqueado */
+    ['git checkout main && git push origin main', shaErrado, 'deny'],
+
+    /* 5. migration diferente da aprovada (nome OU hash) → bloqueada */
+    [`git checkout main && npx wrangler d1 execute DB --remote --file=${REL}/aditiva.sql`, migrationErrada, 'deny'],
+    [`git checkout main && npx wrangler d1 execute DB --remote --file=${REL}/criar.sql`, valida, 'deny'],
+
+    /* 6. escopo: aprovação só de merge-main não libera deploy */
+    ['git checkout main && npx wrangler deploy', escopoReduzido, 'deny'],
+    ['git checkout main && git merge claude/alguma-feature', escopoReduzido, 'ok'],
+
+    /* 7. HARD DENY PERMANENTE — mesmo com a aprovação VÁLIDA presente acima,
+     *    estas continuam bloqueadas sem exceção. É o teste que prova que a
+     *    mudança não virou desculpa para afrouxar as travas de dado físico.
+     *
+     *    Os dois casos de conteúdo (DROP/TRUNCATE) usam uma aprovação cujo
+     *    `migration.arquivo`/`sha256` bate EXATAMENTE com o arquivo — tudo o
+     *    que a camada de aprovação confere está certo. Só assim o teste prova
+     *    que é a checagem de CONTEÚDO (independente de aprovação) que barra,
+     *    não algum outro campo que por acaso não bateu. */
+    ['git push --force origin main', valida, 'deny'],
+    ['git push -f origin main', valida, 'deny'],
+    ['git reset --hard HEAD~1', valida, 'deny'],
+    ['git clean -fd', valida, 'deny'],
+    [
+      `git checkout main && npx wrangler d1 execute DB --remote --file=${REL}/derruba.sql`,
+      aprovacaoValida({ migration: { arquivo: `${REL}/derruba.sql`, sha256: sha256Do(path.join(PASTA, 'derruba.sql')) } }),
+      'deny', // DROP — aprovação bate 100% e ainda assim é negado
+    ],
+    [
+      `git checkout main && npx wrangler d1 execute DB --remote --file=${REL}/trunca.sql`,
+      aprovacaoValida({ migration: { arquivo: `${REL}/trunca.sql`, sha256: sha256Do(path.join(PASTA, 'trunca.sql')) } }),
+      'deny', // TRUNCATE — mesma prova
+    ],
+    ['npx wrangler d1 delete marquesa-db-dev', valida, 'deny'],
+    ['npx wrangler d1 time-travel restore marquesa-db-prod --bookmark=x', valida, 'deny'],
+    ['npx wrangler secret put API_KEY', valida, 'deny'],
+    ['npx wrangler rollback', valida, 'deny'],
+    ['npx wrangler deploy --env staging', valida, 'deny'], // staging não é o escopo desta aprovação
+
+    /* 8. export/backup e leitura continuam liberados SEM aprovação nenhuma
+     *    — reconfirmado aqui com o env "sem aprovação" para deixar claro
+     *    que não são, e nunca foram, gate de release. */
+    ['npx wrangler d1 export DB --remote --output ../backups/x.sql', ENV_SEM_APROVACAO, 'ok'],
+    ['npx wrangler d1 execute DB --remote --command "SELECT 1"', ENV_SEM_APROVACAO, 'ok'],
+  ];
+}
+
 let falhas = 0;
-const conferir = (cmd, esperado) => {
-  const veio = decisao(cmd);
+const conferir = (cmd, esperado, envExtra = {}) => {
+  const veio = decisao(cmd, envExtra);
   if (veio !== esperado) {
     console.log(`FALHA — esperava ${esperado}, veio ${veio}:`, cmd);
     falhas += 1;
   }
 };
 
+let releaseApprovalCasos = [];
 try {
   mkdirSync(PASTA, { recursive: true });
   for (const [nome, sql] of Object.entries(FIXTURAS)) {
@@ -214,9 +390,23 @@ try {
   for (const c of NEGAR) conferir(c, 'deny');
   for (const c of LIBERAR) conferir(c, 'ok');
   for (const [c, esperado] of ARQUIVO) conferir(c, esperado);
+
+  if (!arvoreRealLimpa()) {
+    console.log('AVISO: árvore de trabalho não está limpa — o bloco 4 (Release '
+      + 'Approval) pode falhar nos casos "aprovação válida" por causa disso, '
+      + 'não por bug no hook. Faça commit/stash e rode de novo para um veredito limpo.');
+  }
+  releaseApprovalCasos = casosReleaseApproval();
+  for (const [cmd, aprov, esperado] of releaseApprovalCasos) {
+    if (aprov !== ENV_SEM_APROVACAO) escreverAprovacao(aprov);
+    conferir(cmd, esperado, aprov === ENV_SEM_APROVACAO ? ENV_SEM_APROVACAO : ENV_TESTE);
+    rmSync(APROVACAO_TESTE, { force: true });
+  }
 } finally {
   rmSync(PASTA, { recursive: true, force: true });
   rmSync(FORA, { force: true });
+  rmSync(APROVACAO_TESTE, { force: true });
+  rmSync(AUDITORIA_TESTE, { force: true });
 }
 
 const total = NEGAR.length + LIBERAR.length + ARQUIVO.length;

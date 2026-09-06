@@ -1,13 +1,22 @@
 ---
 name: pre-deploy-check
-description: Carregue antes de qualquer deploy, publicação ou "subir para produção". Checklist de dez itens — Git, testes, build, secrets, migrations, mudanças críticas, backup, diff, ambiente e rollback. O deploy em si é Classe C e nunca é executado por um agente.
+description: Carregue antes de qualquer deploy, publicação ou "subir para produção". Checklist de dez itens — Git, testes, build, secrets, migrations, mudanças críticas, backup, diff, ambiente e rollback. O deploy em si é Classe C: sem uma Production Release Approval válida, nunca é executado por um agente.
 ---
 
 # Antes de publicar
 
-> **`npx wrangler deploy` é Classe C** ([docs/SECURITY.md](../../../docs/SECURITY.md))
-> e está no `deny` do `.claude/settings.json`. **Quem publica é uma pessoa.**
-> Seu trabalho é deixar a decisão pronta, com o rollback escrito.
+> **`npx wrangler deploy` é Classe C**
+> ([docs/SECURITY.md](../../../docs/SECURITY.md)). Sem uma [Production
+> Release
+> Approval](../../../docs/SECURITY.md#production-release-approval) válida,
+> `.claude/hooks/protect-production.mjs` nega o comando — **quem publica é
+> uma pessoa**, e seu trabalho é deixar a decisão pronta, com o rollback
+> escrito. Com uma aprovação de release válida (branch, commit e migration
+> certos, dentro da janela, `main` em checkout, árvore limpa), o mesmo hook
+> libera o comando para o agente concluir o release aprovado — mas a
+> aprovação em si só nasce de uma instrução humana explícita no chat, nunca
+> inferida. Os dez itens abaixo valem nos dois casos: quem aperta o botão
+> muda, o que precisa estar prova continua igual.
 
 Percorra os dez itens. Um item não verificado é um item reprovado.
 
@@ -99,7 +108,8 @@ Qualquer um desses exige releitura da regra correspondente em
 ## 7. Backup
 
 Obrigatório quando houver migration, importação em massa, ou sincronização
-forçada:
+forçada. É leitura — não precisa de aprovação de release nenhuma, e pode
+rodar antes mesmo de o release ser aprovado (é o passo 1, não o último):
 
 - [ ] `npx wrangler d1 export DB --remote --output …` feito — pelo BINDING,
       que o `wrangler.toml` resolve para `marquesa-db-prod`. Digitar o nome
@@ -166,5 +176,8 @@ Backup:            <caminho>  ·  bookmark <valor>
 Secrets:           nenhum novo / <NOME> precisa de `secret put` antes
 Risco:             baixo | médio | alto — <por quê>
 Rollback:          <como, em uma frase>
-Comando:           npx wrangler deploy      ← rodado por uma PESSOA
+Comando:           npx wrangler deploy      ← rodado por uma PESSOA,
+                                               ou pelo agente sob uma
+                                               Production Release Approval
+                                               válida (docs/SECURITY.md)
 ```

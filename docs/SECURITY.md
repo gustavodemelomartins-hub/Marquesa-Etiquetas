@@ -42,17 +42,94 @@ Reversível significa: existe um commit ou snapshot ao qual voltar. Ver
 - Restore de banco · reset de banco
 - Comandos Git destrutivos
 
-## NUNCA executar automaticamente
+Migration em produção e deploy de produção continuam Classe C, mas desde
+2026-09-06 a validação humana acontece **por release**
+([§ Production Release Approval](#production-release-approval)), não a cada
+comando. As demais linhas desta lista não têm caminho de aprovação
+nenhum — ver a seção "NUNCA executar" logo abaixo dessa.
 
-Estes comandos e padrões **não** podem ser executados por um agente sem uma
-instrução humana explícita, consciente e específica para aquele comando
-naquele momento:
+## Production Release Approval
+
+Desde 2026-09-06, quatro categorias — merge em `main`, push de `main`,
+migration no D1 de produção, deploy (Worker ou Pages) — deixaram de exigir
+autorização humana **a cada comando** e passaram a exigir uma autorização
+**por release**: uma aprovação efêmera que, uma vez concedida, libera a
+sequência inteira de publicação dentro de uma janela curta.
+
+Isto é uma mudança de MECANISMO, não de PADRÃO: a régua continua "produção
+não muda sem uma pessoa dizer que pode", só que a pessoa diz isso uma vez
+por release, em vez de uma vez por `Bash`.
+
+### Como funciona
+
+`.claude/hooks/protect-production.mjs` consulta
+`.claude/approvals/production-release.json` (não versionado) antes de negar
+qualquer uma das quatro categorias. Quando o arquivo existe e é válido, a
+ação prossegue; quando não existe — o estado normal — nada muda em relação
+a antes: as quatro continuam negadas.
+
+Uma aprovação só é válida quando **todos** os pontos abaixo se confirmam
+contra o repositório de verdade no momento da ação (não contra o que está
+escrito no arquivo por si só):
+
+1. **não expirou** — e nunca dura mais que um teto absoluto de 12 horas,
+   embutido no código (`JANELA_MAXIMA_MS`), mesmo que o arquivo diga outra
+   coisa;
+2. **o ambiente bate** — `"production"` exato, nunca `"staging"`;
+3. **a ação está na lista** — `merge-main`, `push-main`, `d1-migrate-prod`,
+   `worker-deploy` ou `pages-deploy`, e só as que a aprovação nomeou;
+4. **`main` já está em checkout** — é de lá que se publica, sempre;
+5. **a árvore de trabalho está limpa** (`git status --porcelain` vazio);
+6. **o commit aprovado é ancestral do HEAD atual** (`git merge-base
+   --is-ancestor`) — cobre tanto fast-forward quanto um merge por cima dele;
+   se a branch mudou ou `main` avançou depois da aprovação, ela para de
+   valer;
+7. **para migration**: o `--file=` do comando é exatamente o arquivo
+   aprovado, e o `sha256` do CONTEÚDO atual desse arquivo bate com o
+   registrado na aprovação — mudou uma linha depois de aprovar, a aprovação
+   não cobre mais aquele arquivo.
+
+Cada consulta — liberada ou negada — grava uma linha em
+`.claude/approvals/audit.log.jsonl` (também não versionado), para revisão
+humana depois do fato.
+
+Como uma pessoa autoriza um release, e o formato completo do arquivo:
+[.claude/approvals/README.md](../.claude/approvals/README.md).
+
+### O que uma aprovação de release NUNCA destrava
+
+Nenhuma aprovação, por mais válida que seja, muda o resultado da seção
+seguinte. Essas checagens não CONSULTAM aprovação nenhuma — nem perguntam se
+existe uma. E dentro de uma migration aprovada, o CONTEÚDO do arquivo
+continua sendo conferido à parte (DROP/TRUNCATE negam sempre; DELETE/UPDATE/
+REPLACE/RENAME sem WHERE claro pedem confirmação humana sempre) — a
+aprovação autoriza QUAL arquivo pode rodar contra produção, nunca O QUE ele
+pode conter.
+
+### Leitura contra produção não é gate de release
+
+`wrangler d1 export` (backup) e qualquer `wrangler d1 execute --remote
+--command` cujo conteúdo seja só `SELECT`/`WITH`/`PRAGMA`/`EXPLAIN` — mesmo
+pelo binding de produção, sem `--env staging` — rodam **sem aprovação
+nenhuma**. Não escrevem uma linha no banco, e exigir aprovação para tirar um
+backup impediria o próprio primeiro passo de um release (backup vem antes de
+qualquer aprovação fazer sentido). `wrangler d1 time-travel info` já era
+leitura livre antes desta mudança e continua sendo. Continuar a digitar o
+NOME do banco (`marquesa-db`/`marquesa-db-prod`) em vez do binding `DB`
+continua bloqueado, leitura ou não — é a convenção que evita confundir o
+banco congelado de rollback com o de produção.
+
+## NUNCA executar — nenhuma aprovação de release cobre isto
+
+Estes comandos e padrões **não** podem ser executados por um agente,
+independentemente de qualquer aprovação de release presente, válida ou não:
 
 ```
 git reset --hard
 git clean -fd
 git push --force        (e --force-with-lease)
 git checkout -- <arquivo>   quando há trabalho não commitado
+reescrita de histórico (filter-branch, filter-repo, reflog expire, gc --prune=now)
 
 DROP TABLE
 DROP DATABASE
@@ -60,15 +137,15 @@ DELETE sem cláusula WHERE validada
 UPDATE em massa sem condição validada
 TRUNCATE
 
-wrangler d1 execute --remote        com qualquer coisa que não seja SELECT
-wrangler d1 time-travel restore     (restore sobre produção)
+wrangler rollback
+wrangler d1 time-travel restore     (restore sobre qualquer ambiente)
 wrangler d1 delete
-wrangler deploy
-wrangler secret delete
+wrangler secret put / delete / bulk (inclusive em staging)
 ```
 
 Autorização para uma operação **não se estende** à próxima nem ao próximo
-dia. "Pode aplicar a migration" autoriza aquela migration, não a seguinte.
+dia. "Pode aplicar a migration" autoriza aquela migration (aquele arquivo,
+aquele hash), não a seguinte.
 
 ## DEV é descartável. PROD é Classe C sempre.
 
@@ -128,14 +205,23 @@ Isso muda a régua **só para os recursos DEV**:
 
 O que **não muda**, nem para DEV:
 
-- `wrangler deploy` (com ou sem `--env`) nunca é executado por um agente —
-  é bloqueio de infraestrutura da sessão, não só política deste documento.
-  A primeira publicação de cada ambiente (Worker e Pages) é sempre um
+- `wrangler deploy --env staging` (o Worker de DEV) nunca é executado pelo
+  agente — o pipeline é `git push origin develop`
+  (`.github/workflows/deploy-dev.yml`), nunca o comando direto. A Production
+  Release Approval (seção acima) não cobre `staging` em hipótese nenhuma:
+  seu campo `ambiente` precisa ser exatamente `"production"`.
+- A primeira publicação de cada ambiente (Worker e Pages) é sempre um
   comando que a pessoa roda, ou a conexão Git nativa da Cloudflare, nunca
   o agente diretamente.
-- Merge em `main`, deploy de produção, migration em `marquesa-db`
-  (produção) e qualquer escrita na Nuvemshop real continuam Classe C,
-  exigindo autorização humana explícita a cada vez.
+- Merge em `main`, push de `main`, deploy de produção e migration em
+  `marquesa-db-prod` continuam Classe C — exigindo autorização humana
+  explícita — mas agora por **release aprovado**
+  ([§ Production Release Approval](#production-release-approval)), não por
+  comando individual. Sem uma aprovação válida, o comportamento é
+  idêntico ao de antes desta mudança: bloqueado.
+- Qualquer escrita na Nuvemshop real continua fora do escopo de qualquer
+  aprovação de release — é regida só por `NUVEMSHOP_WRITES_ENABLED`
+  (acima) e pelo freio de segurança da sincronização.
 
 ## Auditoria de segredos — resultado (2026-08-18)
 

@@ -119,7 +119,7 @@ sessão. Ver [.claude/README.md](.claude/README.md).
 Use subagente quando a investigação geraria muita saída. Tarefa trivial não
 merece Opus nem subagente.
 
-## DEV é livre. PROD exige autorização a cada vez.
+## DEV é livre. PROD exige autorização — por release, não por comando.
 
 Existe um ambiente de desenvolvimento na nuvem — `develop` → Worker
 `marquesa-api-staging` → D1 `marquesa-db-dev` → Cloudflare Pages
@@ -129,27 +129,37 @@ completo em [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 - **Push em `develop` depois de testes verdes → permitido sem pedir.**
   Dispara o deploy automático DEV.
-- **Merge em `main` → exige autorização humana explícita.**
-- **Deploy de produção (`wrangler deploy` sem `--env`, ou a conexão Git de
-  produção) → exige autorização humana explícita.**
-- **Migration no D1 de produção (`marquesa-db`) → exige autorização humana
-  explícita + backup recente confirmado.**
+- **Merge em `main`, push de `main`, migration no D1 de produção e deploy
+  (Worker/Pages) → exigem uma [Production Release
+  Approval](docs/SECURITY.md#production-release-approval) válida.** Desde
+  2026-09-06 a autorização é **por release**, não por comando: uma frase
+  explícita no chat ("autorizo o release do branch X, commit Y, para
+  produção — ações: merge, push, migration `Z`, deploy") vira um arquivo
+  efêmero (`.claude/approvals/production-release.json`, curto, com
+  expiração e escopo fechados) que libera a sequência inteira. Sem essa
+  aprovação — o estado normal, o dia a dia — as quatro continuam bloqueadas
+  exatamente como sempre foram; o agente nunca infere autorização da
+  conversa sozinho.
+- **Backup/export do D1 e qualquer consulta somente leitura contra
+  produção rodam sem aprovação nenhuma** — não são escrita, e exigir
+  aprovação para tirar um backup impediria o próprio passo 1 de um release.
 
-## Nunca execute sem instrução humana explícita
+## Nunca execute — nenhuma aprovação de release cobre isto
 
 ```
 git reset --hard · git clean -fd · git push --force
 DROP TABLE · DROP DATABASE · DELETE ou UPDATE em massa sem filtro validado
-wrangler deploy                              (qualquer ambiente — ver acima)
-wrangler d1 execute --remote  (com qualquer escrita em marquesa-db, produção)
-wrangler d1 time-travel restore · wrangler d1 delete
+wrangler rollback · wrangler d1 delete · wrangler d1 time-travel restore
+wrangler secret put/delete
 POST /api/sync {"forcar": true}  contra produção
-merge de develop/feature/* em main
+reescrita de histórico (filter-branch, filter-repo, reflog expire)
 ```
 
-`marquesa-db-dev` é isento da regra de `wrangler d1 execute --remote`
-acima — é descartável, existe só para isso. `marquesa-db` (produção)
-continua exigindo autorização a cada vez, sem exceção.
+Isto é absoluto: mesmo com uma Production Release Approval válida e presente,
+`.claude/hooks/protect-production.mjs` nega estes comandos incondicionalmente
+— eles nem consultam o arquivo de aprovação. `marquesa-db-dev` é descartável
+e isento da régua de escrita remota; `marquesa-db-prod` (produção) e
+`marquesa-db` (a cópia congelada de rollback) nunca são.
 
 Este é o clone real de `gustavodemelomartins-hub/Marquesa-Etiquetas`, com o
 histórico completo e `origin` configurado. `push` em `develop` é rotina;
