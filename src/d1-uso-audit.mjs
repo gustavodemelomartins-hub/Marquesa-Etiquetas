@@ -193,6 +193,9 @@ const ROTAS = [
   ['/api/variacoes/revisao', 'pendências de variação'],
   ['/api/estoque/conferir', 'prova da razão'],
   ['/api/pendencias', 'Central de Pendências (nova)'],
+  ['/api/analytics/mes?mes=2025-05', 'resumo de um mês (nova)'],
+  ['/api/variacoes/reconciliacao', 'reconciliação de variações, read-only (nova)'],
+  ['/api/personalizacao/modelos', 'modelos do Monte seu Colar (nova)'],
 ];
 
 async function medir() {

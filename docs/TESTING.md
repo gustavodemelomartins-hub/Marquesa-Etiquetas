@@ -26,6 +26,45 @@ introduzir um runner.
 
 ## Os testes
 
+### `src/pos-golive-1-test.mjs` — a revisão operacional 1
+**189 asserções · ~30 s · precisa do Worker local, banco limpo**
+
+Os cenários A–T do pacote de 05/09/2026, cada seção começando pelo DEFEITO
+que ela existe para impedir de voltar. Em ordem: cartões de Lançamentos por
+data (A/B), troca da Evelyn com a diferença de R$ 10 chegando ao A Receber e
+sendo quitada (G/H), comprou/pago/em aberto (J), prazo salvo e relido (I),
+resumo mensal com clientes atendidas contando gente e não compra (C–F),
+correção de SKU operacional e histórica (K/L/M), Central de Pendências e
+resolução de variação pela venda e pela maleta (P–S), e Monte seu Colar com
+a trava de estoque já refletido (N/O).
+
+`GET /api/estoque/conferir` é conferido depois de cada operação que toca
+estoque — a razão fecha em todas.
+
+### `src/pos-golive-1-variacoes-test.mjs` — o freio da maleta e o cenário T
+**27 asserções · ~15 s · sobe a loja falsa sozinho**
+
+Prova que peça em maleta aberta trava a sincronização daquele código
+enquanto ninguém disser qual variação saiu, que dizer destrava sem movimentar
+estoque, e que a reconciliação de variações é READ-ONLY — comparando o estado
+da loja falsa antes e depois.
+
+### `src/pos-golive-1-ui-test.mjs` — as telas da revisão 1
+**69 asserções · ~60 s · precisa do painel em :8000 e do Chromium**
+
+Cartões que seguem a data, campo de prazo em DD/MM/AAAA (incluindo 31/02
+recusado sem apagar o que foi digitado, e o valor sobrevivendo ao recarregar),
+resumo do mês abrindo no clique da barra, correção de SKU pelo modal, Central
+de Pendências resolvendo a variação, e Monte seu Colar no mesmo carrinho.
+Termina exigindo console limpo.
+
+### `src/d1-uso-audit.mjs` — quantas linhas cada rota lê do D1
+**não é teste: é instrumento de medição**
+
+Semeia um banco local com o tamanho da produção e mede rota a rota, com a
+métrica que o próprio D1 devolve. Ver [../D1_USAGE_AUDIT.md](../D1_USAGE_AUDIT.md).
+
+
 ### `src/sync-test.mjs` — sincronização com a Nuvemshop
 **67 asserções · ~10 s · precisa da loja falsa (ele mesmo a sobe)**
 

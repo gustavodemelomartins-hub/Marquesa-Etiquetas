@@ -1248,6 +1248,13 @@ Provado em `src/pacote-vendas-test.mjs`, cenários D, E, F e K.
 
 ### 32. Garantia é do ITEM da compra — e troca não é venda nova
 
+> ⚠️ **A segunda metade deste título deixou de valer em 05/09/2026.** A
+> Sthefany definiu que a peça que entra numa troca sem conserto PASSA a ter
+> registro comercial próprio. O texto abaixo continua descrevendo tudo o que
+> não mudou — e o que mudou está em **§37**, logo depois. O dinheiro é o
+> mesmo nos dois: entra a diferença, nunca o preço cheio.
+
+
 A garantia pertence à **linha da compra**, não ao cliente e não ao código. Se
 a mesma cliente comprou o mesmo anel três vezes, prender a garantia ao SKU
 perde qual compra a originou — e perde junto o **valor efetivamente pago**,
@@ -1518,3 +1525,277 @@ uma reclassificação histórica segue a mesma regra e declara
 `estoqueAlterado: false`.
 
 Provado em `src/revisao-pre-golive-test.mjs`, seções 4 a 6.
+
+
+---
+
+## Revisão operacional 1 — pós-go-live (06/09/2026)
+
+As regras abaixo nasceram do pacote de revisão de 05/09/2026, com a operação
+real já rodando. Cada uma diz o defeito que a originou, porque é o defeito —
+não a regra — que explica por que ela existe.
+
+### 35. Os cartões de um dia somam TODAS as origens daquele dia
+
+**O defeito.** Escolher 05/08/2026 em Vendas → Lançamentos mostrava `R$ 0`
+nos três cartões com a lista cheia logo abaixo. A data era respeitada; o
+recorte é que era pobre — os cartões eram somados no navegador a partir de
+`GET /api/vendas`, que lê só a tabela `vendas`. Linha de planilha, acerto de
+revendedora e troca de garantia daquele dia não estão nela.
+
+`GET /api/vendas/lancamentos?data=` calcula os três no servidor, a partir da
+mesma leitura que a lista de baixo usa — número de cima e linha de baixo não
+podem divergir sem que ninguém saiba qual está certo.
+
+As três definições, escritas para poderem ser testadas:
+
+- **BALCÃO** — venda direta para cliente naquele dia, venha ela da tabela
+  `vendas` ou da planilha. Valor, número de vendas e número de peças.
+- **ACERTO** — o que a revendedora efetivamente VENDEU e confirmou no acerto
+  daquele dia. O número principal é o **LÍQUIDO DA MARQUESA**: bruto menos
+  comissão. Peça que ainda está na maleta **não é venda** — o texto anterior
+  do cartão ("peças que a revendedora não devolveu") contava outra coisa.
+- **VENDIDO NO DIA** = balcão + **líquido** dos acertos.
+
+Comissão **nunca é estimada** (§11): sai do documento da maleta
+(`historico_operacoes`) ou do acerto fechado no sistema
+(`maletas.acerto_json`). Havendo acerto no dia sem nenhuma das duas fontes, o
+cartão declara o BRUTO conhecido, marca `exato: false` e deixa aqueles
+valores **fora** do líquido e do total — em vez de aplicar uma faixa de hoje
+sobre uma venda de ontem.
+
+**Dois defeitos achados no mesmo caminho e corrigidos:**
+
+1. `GET /api/vendas/dia` deduplicava pela VENDA, não pelo item: do segundo
+   item em diante cada linha era descartada como repetição, e uma venda de
+   R$ 110 com três peças aparecia como R$ 50 com uma;
+2. "entrou no caixa neste dia" só encontrava a venda feita **e** paga no
+   mesmo dia — justamente o caso em que vendido e recebido não diferem. A
+   venda de julho paga em setembro nunca aparecia. Agora a pergunta vai ao
+   banco com a mesma regra de faturamento do painel (`cteVendas`).
+
+Provado em `src/pos-golive-1-test.mjs`, cenários A e B.
+
+### 36. Um mês é dois recortes que não coincidem — e isso é dito
+
+`GET /api/analytics/mes?mes=AAAA-MM` responde por UMA barra do gráfico
+"Evolução por mês", para ser desenhada logo abaixo dele.
+
+- **FATURAMENTO** — dinheiro que ENTROU no mês. Recorte pela data do
+  **pagamento**.
+- **VENDAS, PEÇAS e CLIENTES ATENDIDAS** — o que SAIU no mês. Recorte pela
+  data da **venda**.
+- **CLIENTES ATENDIDAS** conta **gente, não compra**: quem comprou quatro
+  vezes em maio é uma cliente atendida.
+
+Os dois recortes não fecham entre si, e a resposta **não inventa um terceiro
+número que os concilie**. Cada compra paga em outro mês leva
+`faturaEmOutroMes`; a que não foi paga leva `aindaNaoPaga`; e o bloco
+`faturamentoDeOutrosMeses` diz quanto do faturamento do mês veio de compras
+anteriores. Sem isso, "vendido em julho, pago em setembro" pareceria a mesma
+peça vendida duas vezes.
+
+Provado em `src/pos-golive-1-test.mjs`, cenários C a F.
+
+### 37. A troca de garantia tem registro comercial — e continua valendo a diferença
+
+**Regra nova, definida pela Sthefany em 05/09/2026. Substitui a segunda
+metade de §32.**
+
+**O defeito.** O caso da Evelyn Veiga: troca 393950 (R$ 89) por 313860
+(R$ 99), diferença R$ 10 "a receber" — e nenhuma ação para receber, nada no
+A Receber, e a peça nova invisível no histórico dela.
+
+A troca sem conserto passa a criar uma linha em `vendas`, ligada por
+`garantia_trocas.venda_id`. A peça nova aparece no histórico, nas
+preferências e na contagem de peças.
+
+**O que NÃO muda, e é o ponto inteiro:**
+
+- a venda vale a **DIFERENÇA**, nunca o preço da peça nova. Os R$ 89 já
+  entraram no faturamento no dia deles; faturar R$ 99 agora os contaria pela
+  segunda vez. O item guarda `preco_tabela = 99` e `preco = 10`, com o
+  abatimento rotulado `Crédito de garantia · <sku original>`;
+- o **estoque** sai uma vez só, no movimento de tipo `troca` e origem
+  `troca_garantia` que já existia. A venda não gera segundo movimento;
+- diferença **negativa** continua `pendente_regra`: crédito ou reembolso
+  nunca foi definido, e o sistema registra e para.
+
+**Três guardas impedem contagem em dobro**, cada uma na ponta onde o risco
+mora: `visaoGeral` soma `diferenca_valor_pago` só das trocas **sem**
+`venda_id`; `recebidoNoDia` idem; e a linha de troca em `historicoDoDia`
+deixa de carregar o valor quando a venda o carrega.
+
+Provado em `src/pos-golive-1-test.mjs`, cenários G e H, e em
+`src/pacote-vendas-test.mjs`, cenário H (atualizado).
+
+### 38. "A receber" soma as três fontes de dívida de cliente
+
+**O defeito.** A lista lia só `historico_operacoes`. Ficavam de fora a venda
+de balcão lançada como NÃO PAGA — a peça saiu, a cliente ficou devendo, e o
+Painel não mostrava — e a diferença de troca de garantia.
+
+As três fontes numa lista só, cada linha com uma `chave` que diz de onde veio
+e para onde a ação vai: `historico:<id>`, `venda:<id>`, `troca:<garantia>`.
+
+**O que não entra, e por quê:** acerto de revendedora (não é dívida de
+cliente, §29); `cobravel = 0` (reembolso, anulação, abandono — §36.4); venda
+cancelada (§28); venda operacional que já é duplicata de operação histórica;
+diferença negativa (regra inexistente); troca que já está na lista como venda.
+
+Venda operacional não paga ganhou `vendas.vencimento_em` — sem prazo padrão
+inventado: uma data que ninguém combinou vira cobrança vencida sozinha.
+
+### 39. COMPROU, PAGO e EM ABERTO são três números, não um
+
+**O defeito.** O card "GASTOU" do perfil somava `faturamento`, que é o
+dinheiro **recebido**. Quem comprou R$ 1.000 e pagou R$ 700 aparecia com 700
+— a compra fiada sumia da ficha exatamente enquanto ela ainda devia.
+
+- **COMPROU** — total comercial das compras dela. Não diminui porque parte
+  ainda não foi paga.
+- **PAGO** — o que efetivamente entrou.
+- **EM ABERTO** — o que falta.
+
+Eles **não são complementares por construção** (§36.4): um pedido
+reembolsado não é nem pago nem a receber, então `comprou` pode ser maior que
+`pago + emAberto`. Forçar a igualdade esconderia justamente o caso que
+precisa ser visto.
+
+Ticket médio e gasto por peça do PERFIL passaram a sair do **comprado** —
+saindo do recebido, contradiziam o card de cima. O ticket médio do PAINEL é
+outro número, com outra regra (só venda paga elegível), e continua como
+estava.
+
+### 40. Corrigir o código de uma peça vendida é identidade, não venda nova
+
+**O defeito.** Juliana Negri, 30/08/2026: peça lançada com o código errado, o
+certo é 326660, e nenhum caminho pela interface. Cancelar e relançar perderia
+data, cliente, desconto e histórico; editar direto deixaria a correção
+indistinguível de um erro de digitação novo.
+
+`POST /api/vendas/corrigir-item` troca o código NA LINHA e mantém venda,
+cliente, data, preço e faturamento. Preço só muda se pedirem, e a mudança
+fica registrada ao lado.
+
+**Estoque — duas populações, duas respostas:**
+
+- venda **OPERACIONAL** baixou estoque pelo sistema: a correção devolve uma
+  unidade ao código errado e tira uma do certo, **exatamente uma vez cada**.
+  A devolução é movimento novo, não apagamento do antigo (§28): a razão
+  continua contando a história inteira e `produtos.qtd == SUM(movimentos.qtd)`
+  vale nos dois códigos. Sem peça disponível no código certo, a correção
+  **para** e diz o número — nunca deixa saldo negativo em silêncio;
+- linha da **PLANILHA** já teve o estoque refletido no saldo inicial: não
+  movimenta nada, e forçar é recusado com o motivo. As colunas `*_original`
+  não são reescritas — o que muda é a leitura delas, e o nome novo é
+  resolvido pela correção registrada, na exibição.
+
+A auditoria fica em `venda_item_correcoes` e aparece na ficha da cliente:
+"SKU corrigido de XXXXX para 326660 em DD/MM/AAAA."
+
+Provado em `src/pos-golive-1-test.mjs`, cenários K, L e M.
+
+### 41. Resolver uma variação é dizer QUAL peça saiu — nunca uma segunda baixa
+
+**O defeito.** "REVISAR VARIAÇÃO — há peças deste código em maleta aberta, e
+a maleta ainda não sabe qual variação saiu" era um beco sem saída: o sistema
+identificava o caso com precisão e não oferecia caminho para responder.
+
+Duas formas de resolver, e **nenhuma movimenta estoque**. A peça saiu quando
+a venda foi registrada ou quando a maleta foi aberta; movimentar de novo
+seria a segunda baixa da mesma peça. O que muda é `variacao` /`variante_id`
+do movimento que já existe — `qtd` não é tocado, e a razão fecha igual antes
+e depois.
+
+- **pela VENDA** (`/api/pendencias/variacao/venda`): grava nos dois lugares
+  que importam — a linha da venda e o movimento. É o movimento que a
+  sincronização lê para saber qual caixinha da loja diminuir; deixar um dos
+  dois para trás faria a venda parecer resolvida e a loja continuar sem saber.
+- **pela MALETA** (`/api/pendencias/variacao/maleta`): aceita a distribuição
+  inteira, porque uma maleta leva dois anéis do mesmo código, um 16 e um 18,
+  e isso é o caso normal — é por isso que `maleta_item_variacoes` é tabela
+  filha e não uma coluna em `maleta_itens`. Dizer mais do que saiu é recusado
+  com os dois números: inventaria peça.
+
+O freio da maleta em `resolverVariantes` deixou de ser absoluto. Ele continua
+segurando enquanto ninguém disser qual variação está fora — e a recusa passa
+a dizer **quanto já foi identificado e quanto falta**. Identificado tudo, o
+código volta a sincronizar.
+
+A escolha é sempre entre variações **já cadastradas**. A Sthefany afirma que
+cadastrou todas as que possui; oferecer "criar variação" primeiro responderia
+outra pergunta.
+
+**A Central de Pendências não é tabela.** Cada caso é derivável do estado, e
+uma cópia seria um segundo lugar para a mesma verdade divergir — justamente
+quando alguém resolvesse o caso e a lista continuasse mostrando. A única
+coisa gravada é "revisar depois", que não é fato de negócio, mora em `config`
+e **exige data**: adiar sem data é esquecer.
+
+`GET /api/variacoes/reconciliacao` compara as três fontes — nós, as variações
+cadastradas e o espelho da loja — e classifica em `RESOLVIDO`,
+`PENDENTE_HUMANO` e `DIVERGENCIA_REAL`. **Leitura pura**: não escreve no
+banco nem na Nuvemshop. `PENDENTE_HUMANO` é falta de informação e nunca vira
+escrita; `DIVERGENCIA_REAL` só sai daqui por `POST /api/sync`, com
+autorização.
+
+Provado em `src/pos-golive-1-test.mjs` (P–S) e
+`src/pos-golive-1-variacoes-test.mjs` (T).
+
+### 42. Monte seu Colar: base + componentes + configuração da venda
+
+**O problema.** Uma variante permanente por combinação explode o cadastro:
+três posições × dois sexos × seis cores são 1.728 variantes que ninguém
+mantém, cada uma com saldo próprio para desencontrar do físico.
+
+- **PRODUTO BASE** — um SKU que já existe no catálogo (o Colar Veneziana).
+- **COMPONENTES** — SKUs que já existem no catálogo. O "Pingente Filho Verde
+  Banho de Ouro 18k" é hoje a peça que mais vendeu no painel; não são
+  estrutura nova.
+- **CONFIGURAÇÃO** — escolhida por VENDA, não cadastrada antes. Mora em
+  `venda_personalizacoes` + `venda_personalizacao_itens`, do lado da venda.
+
+De `kit_componentes` se reusa a ideia e o mecanismo de baixa — um SKU sem
+saldo próprio cujo disponível é o mínimo entre os componentes. O que não
+servia é a composição **fixa**.
+
+**A baixa é onde mora o risco:** a composição consome a base e cada
+componente **exatamente uma vez**. Nem a base duas vezes (ela é o item do
+recibo e uma peça física), nem o componente pelo caminho do kit e de novo
+pelo da personalização.
+
+`venda_personalizacoes.estoque_ja_refletido` registra a venda personalizada
+que **já aconteceu**: entra como histórico comercial, não movimenta nada, e a
+flag fica gravada e auditável — é ela que separa "registrei o passado" de
+"vendi agora" e que impede a baixa dupla. Misturar peça avulsa com essa flag
+é recusado: metade do estoque refletido e metade não seria impossível de
+auditar depois.
+
+O preço é da **composição**, não a soma das peças: "Colar personalizado
+3 filhos R$ 149" é o que ela cobra. O recibo mostra uma linha; a ficha da
+cliente guarda a configuração para sempre, com o nome de cada peça congelado
+no momento da venda.
+
+Modelo e opções são **dado, não interface**: uma página de produto da
+Nuvemshop lê `GET /api/personalizacao/modelos` e posta a composição em
+`POST /api/vendas` sem que nada mude aqui.
+
+Provado em `src/pos-golive-1-test.mjs`, cenários N e O.
+
+### 43. Medir antes de otimizar (leitura do D1)
+
+A cota do D1 é da **conta**, e ela bateu no limite. `api/src/d1-metrica.js`
+soma o `rows_read` que o próprio D1 devolve, por requisição — desligado por
+padrão, ligado por `D1_METRICAS=true` ou pelo cabeçalho `X-D1-Metricas: 1`.
+
+O achado: `GET /api/variacoes/revisao` lia **298.032 linhas** por chamada, e
+a causa era uma subconsulta correlacionada sobre `maleta_itens`, que não tem
+índice por `sku`. Corrigido por dois caminhos independentes — a reescrita da
+consulta (vale sem migration) e o índice.
+
+Números, método e o que ficou de fora: [D1_USAGE_AUDIT.md](../D1_USAGE_AUDIT.md).
+
+**A regra que governa qualquer otimização futura:** nada troca consistência
+de estoque ou de dinheiro por leitura. A memorização do painel é do CLIENTE,
+some a qualquer escrita, e nunca cobre `/api/state` nem rota de escrita.
