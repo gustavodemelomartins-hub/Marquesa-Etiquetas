@@ -79,7 +79,10 @@ escrito no arquivo por si só):
 3. **a ação está na lista** — `merge-main`, `push-main`, `d1-migrate-prod`,
    `worker-deploy` ou `pages-deploy`, e só as que a aprovação nomeou;
 4. **`main` já está em checkout** — é de lá que se publica, sempre;
-5. **a árvore de trabalho está limpa** (`git status --porcelain` vazio);
+5. **a árvore de trabalho está limpa** — nenhum arquivo RASTREADO com
+   mudança não commitada (`git status --porcelain` sem linha fora de `??`;
+   arquivo não rastreado não conta, não pode vazar para um push nem mudar o
+   que um `--file=` lê);
 6. **o commit aprovado é ancestral do HEAD atual** (`git merge-base
    --is-ancestor`) — cobre tanto fast-forward quanto um merge por cima dele;
    se a branch mudou ou `main` avançou depois da aprovação, ela para de

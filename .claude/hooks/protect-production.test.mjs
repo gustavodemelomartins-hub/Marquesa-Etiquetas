@@ -17,11 +17,13 @@
  *  para nunca tocar `.claude/approvals/production-release.json` de verdade
  *  — ele escreve num arquivo temporário fora do repositório.
  *
- *  Pré-condição do bloco 4: a árvore de trabalho deste repositório precisa
- *  estar limpa quando o teste rodar (`git status --porcelain` vazio) — é
- *  um dos fatos que `validarAprovacao` confere de verdade, contra o
- *  repositório real. Rodar com mudança não commitada faz os casos
- *  "aprovação válida" falharem com o motivo "árvore suja", não com um
+ *  Pré-condição do bloco 4: nenhum arquivo RASTREADO deste repositório pode
+ *  ter mudança não commitada quando o teste rodar — é um dos fatos que
+ *  `validarAprovacao` confere de verdade, contra o repositório real. Arquivo
+ *  NÃO rastreado (`??`) não conta, pelo mesmo motivo que não conta no hook
+ *  (`arvoreEstaLimpa`): não pode vazar para um push nem mudar o que um
+ *  `--file=` lê. Rodar com mudança não commitada em arquivo rastreado faz os
+ *  casos "aprovação válida" falharem com o motivo "árvore suja", não com um
  *  bug do hook.
  *
  *  Sem framework, no estilo dos outros testes do projeto: imprime `ok` /
@@ -264,8 +266,12 @@ function shaReal() {
 function branchReal() {
   return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8', cwd: RAIZ }).trim();
 }
+/** Mesmo critério de `arvoreEstaLimpa` no hook: arquivo NÃO rastreado (`??`)
+ *  não conta como sujeira — só modificação não commitada em arquivo que o
+ *  Git já conhece. */
 function arvoreRealLimpa() {
-  return execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8', cwd: RAIZ }).trim() === '';
+  const saida = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8', cwd: RAIZ });
+  return saida.split('\n').every((linha) => !linha.trim() || linha.startsWith('??'));
 }
 function sha256Do(caminho) {
   return createHash('sha256').update(readFileSync(caminho)).digest('hex');
@@ -392,8 +398,8 @@ try {
   for (const [c, esperado] of ARQUIVO) conferir(c, esperado);
 
   if (!arvoreRealLimpa()) {
-    console.log('AVISO: árvore de trabalho não está limpa — o bloco 4 (Release '
-      + 'Approval) pode falhar nos casos "aprovação válida" por causa disso, '
+    console.log('AVISO: há arquivo RASTREADO com mudança não commitada — o bloco 4 '
+      + '(Release Approval) pode falhar nos casos "aprovação válida" por causa disso, '
       + 'não por bug no hook. Faça commit/stash e rode de novo para um veredito limpo.');
   }
   releaseApprovalCasos = casosReleaseApproval();

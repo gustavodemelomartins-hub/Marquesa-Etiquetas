@@ -56,7 +56,8 @@ O agente então:
 
 1. Confere `git rev-parse <branch>` — o commit de verdade, não o que a
    pessoa digitou (menos chance de erro de transcrição).
-2. Confere `git status --porcelain` — árvore precisa estar limpa.
+2. Confere `git status --porcelain` — nenhum arquivo RASTREADO pode ter
+   mudança não commitada (arquivo não rastreado, `??`, não conta).
 3. Se a lista de ações incluir `d1-migrate-prod`, calcula o `sha256` do
    arquivo de migration EXATO que vai rodar.
 4. Escreve `production-release.json` com esses fatos apurados — não com o

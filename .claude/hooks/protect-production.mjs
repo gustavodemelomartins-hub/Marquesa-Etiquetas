@@ -97,13 +97,23 @@ function shaAtual() {
 }
 
 /** `false` também quando o comando `git status` falhar — sem prova de que
- *  a árvore está limpa, ela não está. Fail-closed. */
+ *  a árvore está limpa, ela não está. Fail-closed.
+ *
+ *  Ignora linhas `??` (arquivo NÃO rastreado): um arquivo que o Git nunca
+ *  viu não pode vazar para dentro de um `git push` (push só manda commit) e
+ *  não muda o que um `--file=` de migration lê (isso é sempre o caminho
+ *  exato, por fora do índice do Git). O risco real que "árvore suja" evita
+ *  é modificação NÃO COMMITADA num arquivo RASTREADO — código ou migration
+ *  diferente do que foi commitado e revisado. Sem este filtro, um arquivo
+ *  solto e intencional na raiz (uma nota, um scratch) travaria toda
+ *  aprovação de release para sempre, por um motivo que não tem nada a ver
+ *  com o que está sendo publicado. */
 function arvoreEstaLimpa() {
   try {
     const saida = execSync('git status --porcelain', {
       encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
     });
-    return saida.trim() === '';
+    return saida.split('\n').every((linha) => !linha.trim() || linha.startsWith('??'));
   } catch { return false; }
 }
 

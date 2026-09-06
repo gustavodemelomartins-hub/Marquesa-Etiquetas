@@ -134,7 +134,13 @@ export function validarCamposBasicos(aprovacao) {
  *                                        `switch` anteriores no mesmo
  *                                        comando — ver `ramoSimulado` em
  *                                        `protect-production.mjs`).
- *  @param {boolean}  args.arvoreLimpa    `git status --porcelain` vazio.
+ *  @param {boolean}  args.arvoreLimpa    nenhuma modificação NÃO commitada
+ *                                        em arquivo RASTREADO (`git status
+ *                                        --porcelain` sem linha fora de
+ *                                        `??`) — arquivo não rastreado não
+ *                                        conta como sujeira, ver
+ *                                        `arvoreEstaLimpa` em
+ *                                        protect-production.mjs.
  *  @param {boolean}  args.shaEhAncestral `git merge-base --is-ancestor
  *                                        <aprovacao.commit> HEAD` — true
  *                                        também quando são o mesmo commit.
