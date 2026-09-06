@@ -7501,7 +7501,15 @@ async function abrirFecharVenda(){
      carrinho da venda normal, e duas telas dariam duas vendas para uma
      compra só. */
   scan.personalizados=scan.personalizados||[];
-  montarBoxColar();
+  /* §43 — Produtos Montáveis desligado no lançamento de 2026-09-06 (retomada
+     2026-09-07, ver SESSION_CLOSE_2026-09-06.md § Retomar amanhã). Chamar
+     montarBoxColar() aqui bateria em /api/personalizacao/modelos, que agora
+     responde 503 (personalizacaoAtiva em api/src/personalizacao.js) — e
+     desenharBoxColar() mostraria a seção "Monte seu colar" com o erro em vez
+     de escondê-la. Comentar esta linha é o que de fato tira a seção da tela
+     de toda venda, não só do botão "+ Colar personalizado" (já comentado
+     acima). Reativar amanhã: descomentar as duas linhas juntas. */
+  // montarBoxColar();
   vdPago=true;
   ecoPagoVenda();
   document.getElementById('vendaOverlay').classList.add('show');
@@ -8265,9 +8273,11 @@ function renderVendas(){
           <input type="date" value="${vendasData}" onchange="setVendasData(this.value)"
                  style="padding:8px 11px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;font-family:inherit">
           <div class="spacer"></div>
-          ${/* §43 — o caminho de quem começa pela composição. A venda é a
-                mesma; o que muda é por onde ela começa. */''}
-          <button class="btn btn-ghost btn-sm" onclick="novaVendaPersonalizada()">+ Colar personalizado</button>
+          ${/* §43 — Produtos Montáveis desligado no lançamento de 2026-09-06
+                (retomada 2026-09-07, ver SESSION_CLOSE_2026-09-06.md). Botão
+                comentado, não removido: reativar amanhã é só descomentar
+                esta linha. */''}
+          <!-- <button class="btn btn-ghost btn-sm" onclick="novaVendaPersonalizada()">+ Colar personalizado</button> -->
           <button class="btn btn-gold btn-sm" onclick="novaVenda()">+ Nova venda</button>
         </div>
         ${pendentesNuvemshop.length?`<div class="actbar" style="margin:12px 0 0;padding-top:12px;border-top:1px solid var(--line-soft)">

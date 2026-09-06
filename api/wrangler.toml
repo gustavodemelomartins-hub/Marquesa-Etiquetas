@@ -42,6 +42,15 @@ ORIGENS_PERMITIDAS = "https://gustavodemelomartins-hub.github.io"
 # Não é segredo — não autoriza nada sozinha, só destrava o método HTTP.
 NUVEMSHOP_WRITES_ENABLED = "true"
 
+# Produtos Montáveis / "Monte seu Colar" (api/REGRAS.md §42) — parado antes de
+# fechar SKU comercial x base x componentes, base trocável, Ouro 18k/Prata
+# 925 e o estorno de troca. Retomada prevista 2026-09-07 — ver
+# SESSION_CLOSE_2026-09-06.md § Retomar amanhã.
+# Fail-closed como a linha acima: só "true" exato liga. `api/src/index.js` e
+# `api/src/personalizacao.js` recusam com 503 enquanto isto não for "true";
+# nenhuma rota normal de venda depende desta linha.
+PERSONALIZACAO_ATIVA = "false"
+
 # Sincronização automática com a Nuvemshop.
 #
 # DESLIGADA EM 2026-08-22, na Fase 0 do go-live. Autorizado explicitamente.
@@ -104,6 +113,11 @@ ORIGENS_PERMITIDAS = "https://marquesa-dev.pages.dev,https://marquesa-dev-legado
 # decisão consciente — não é segredo, mas muda a postura de segurança do
 # ambiente, então documente por que se mudar. Ver docs/SECURITY.md.
 NUVEMSHOP_WRITES_ENABLED = "false"
+
+# DEV é descartável e é onde o trabalho de Produtos Montáveis continua amanhã
+# — ligado aqui, ao contrário da produção, para o checklist manual
+# (MONTE_SEU_COLAR_CHECKLIST.md) continuar testável sem passo extra.
+PERSONALIZACAO_ATIVA = "true"
 #
 # Sem cron nenhum no DEV. Uma sincronização automática de madrugada, num
 # ambiente de teste, é exatamente o tipo de coisa que ninguém está olhando

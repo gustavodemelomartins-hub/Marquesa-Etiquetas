@@ -48,6 +48,17 @@
  */
 import { saldosDoSku } from './estoque.js';
 
+/** Trava operacional do lançamento de 2026-09-06 — Produtos Montáveis
+ *  ("Monte seu Colar") ficou parado antes de fechar SKU comercial x base x
+ *  componentes, base trocável, Ouro 18k/Prata 925 e o estorno de troca.
+ *  Fail-closed, mesmo padrão de NUVEMSHOP_WRITES_ENABLED em nuvemshop.js: só
+ *  a string exata "true" liga; ausente, "false" ou qualquer outra coisa
+ *  mantém a feature fora do ar. Schema e código continuam no lugar — só o
+ *  acesso fecha. Ver SESSION_CLOSE_2026-09-06.md § Retomar amanhã. */
+export function personalizacaoAtiva(env) {
+  return String(env?.PERSONALIZACAO_ATIVA || '').trim() === 'true';
+}
+
 const ERRO = (statusHttp, erro, extra = {}) => ({ ok: false, statusHttp, erro, ...extra });
 const dinheiro = (v) => Math.round(Number(v) * 100) / 100;
 const slugificar = (s) => String(s ?? '').trim().toLowerCase()

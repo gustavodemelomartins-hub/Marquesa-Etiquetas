@@ -14,6 +14,19 @@
 --
 -- Ordem de aplicação: os índices primeiro (só melhoram leitura), depois as
 -- tabelas, depois as colunas.
+--
+-- DECISÃO 2026-09-06 sobre a seção 5 (MONTE SEU COLAR): a feature "Produtos
+-- Montáveis" foi adiada (SESSION_CLOSE_2026-09-06.md § Retomar amanhã), mas
+-- as quatro tabelas dela PERMANECEM nesta migration. Motivo: são só
+-- CREATE TABLE IF NOT EXISTS + índices, sem ALTER em tabela existente, sem
+-- linha nenhuma gravada por elas — e o código que escreveria nelas
+-- (api/src/personalizacao.js, api/src/index.js) está atrás da trava
+-- PERSONALIZACAO_ATIVA (fail-closed, "false" em produção): as rotas de
+-- criação respondem 503 antes de tocar o banco. Zero tabelas vazias e zero
+-- rotas fechadas não mudam nenhum comportamento de nenhuma outra feature —
+-- é exatamente o caso em que a instrução de hoje permite manter o bloco
+-- junto. Separar exigiria reescrever esta migration sob pressão de deploy
+-- por um ganho que não existe.
 -- ════════════════════════════════════════════════════════════════════════
 
 

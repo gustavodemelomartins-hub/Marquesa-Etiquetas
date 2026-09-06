@@ -59,7 +59,7 @@ import { corrigirItemDeVenda, listarCorrecoes } from './venda-correcao.js';
 /* §43 — Monte seu Colar: base + componentes + configuração da venda. */
 import {
   listarModelos, salvarModelo, prepararPersonalizacoes,
-  gravarPersonalizacoes, personalizacoesDeVendas,
+  gravarPersonalizacoes, personalizacoesDeVendas, personalizacaoAtiva,
 } from './personalizacao.js';
 /* §42 — a Central de Pendências e as duas formas de resolver uma variação. */
 import {
@@ -700,12 +700,19 @@ async function rotear(request, env, contador = null) {
          página de produto da Nuvemshop pode ler daqui e postar a composição
          em `POST /api/vendas` sem que nada mude, e as duas telas passam a
          ser duas vistas da mesma regra em vez de duas regras. */
-      if (path === '/api/personalizacao/modelos' && met === 'GET') {
-        return json(await listarModelos(db, {
-          incluirInativos: url.searchParams.get('inativos') === '1',
-        }));
-      }
-      if (path === '/api/personalizacao/modelos' && met === 'POST') {
+      if (path === '/api/personalizacao/modelos' && (met === 'GET' || met === 'POST')) {
+        /* Desligado no lançamento de 2026-09-06 — ver personalizacaoAtiva(). */
+        if (!personalizacaoAtiva(env)) {
+          return json({
+            erro: 'Produtos Montáveis (Monte seu Colar) está temporariamente desativado.',
+            codigo: 'PERSONALIZACAO_DESATIVADA',
+          }, 503);
+        }
+        if (met === 'GET') {
+          return json(await listarModelos(db, {
+            incluirInativos: url.searchParams.get('inativos') === '1',
+          }));
+        }
         const r = await salvarModelo(db, await request.json().catch(() => ({})));
         return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
       }
@@ -1677,6 +1684,15 @@ async function registrarVenda(db, env, {
 }) {
   const entradas = (itens || []).filter(i => i.qtd > 0);
   const composicoes = Array.isArray(personalizacoesPedidas) ? personalizacoesPedidas : [];
+  /* Desligado no lançamento de 2026-09-06 — ver personalizacaoAtiva(). Falha
+     antes de tocar catálogo ou D1: uma venda comum (sem composições) não
+     passa por aqui e continua funcionando igual. */
+  if (composicoes.length && !personalizacaoAtiva(env)) {
+    return json({
+      erro: 'Produtos Montáveis (Monte seu Colar) está temporariamente desativado.',
+      codigo: 'PERSONALIZACAO_DESATIVADA',
+    }, 503);
+  }
   const estoqueJaRefletido = !!estoqueJaRefletidoPedido;
   if (!entradas.length && !composicoes.length) return json({ erro: 'Nenhum item na venda' }, 400);
   if (!clienteNome || !clienteNome.trim()) return json({ erro: 'Nome da cliente é obrigatório' }, 400);
