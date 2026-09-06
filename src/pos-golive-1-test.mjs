@@ -282,5 +282,84 @@ console.log('\n=== I. prazo salvo e relido ===');
   await api('PATCH', '/api/contas-receber/prazo', { chave: conta.chave, vencimentoEm: '2026-09-15' });
 }
 
+/* ═════════════════════════════════════════════════════════ CENÁRIO C–F
+   O defeito: o gráfico "Evolução por mês" mostrava 25 barras e não deixava
+   perguntar nada sobre nenhuma delas. */
+console.log('\n=== C–F. resumo de um mês ===');
+{
+  /* Maio e junho de 2026, não outubro: a venda não pode ser de data futura
+     (o sistema recusa, e com razão), e hoje é setembro de 2026 no ambiente
+     de teste. Datar o cenário no futuro faria o teste falhar por causa do
+     teste. */
+  /* a MESMA cliente compra quatro vezes em maio — o teste de "clientes
+     atendidos", que é gente e não compra */
+  for (const d of ['2026-05-02', '2026-05-09', '2026-05-16', '2026-05-23']) {
+    const r = await api('POST', '/api/vendas', {
+      clienteNome: 'Repetida do Mes', data: d, itens: [{ sku: P('326660'), qtd: 1 }],
+    });
+    eq(`compra de ${d} registrada`, r.status, 201);
+  }
+  await api('POST', '/api/vendas', {
+    clienteNome: 'Outra do Mes', data: '2026-05-05',
+    itens: [{ sku: P('393950'), qtd: 2 }],
+  });
+  /* e uma compra fiada de maio que só será paga em junho: é ela que separa
+     "vendido no mês" de "faturado no mês" */
+  /* uma peça que os cenários anteriores não consumiram: o estoque de
+     313860 já acabou lá em cima, e uma venda recusada por falta de peça
+     faria este cenário falhar por motivo alheio ao que ele prova. */
+  const fiada = await api('POST', '/api/vendas', {
+    clienteNome: 'Fiada de Maio', data: '2026-05-20', pago: false,
+    itens: [{ sku: P('VENEZ'), qtd: 1 }],
+  });
+  eq('a compra fiada foi registrada', fiada.status, 201);
+
+  const m = await api('GET', '/api/analytics/mes?mes=2026-05');
+  eq('o resumo do mês responde', m.status, 200);
+  eq('com o mês por extenso', m.corpo.rotulo, 'maio de 2026');
+
+  /* C — os quatro cartões */
+  eq('vendas do mês', m.corpo.cards.vendas.total, 6);
+  eq('peças do mês', m.corpo.cards.pecas.total, 7);
+  /* D — cliente repetida conta UMA vez */
+  eq('clientes atendidos são pessoas, não compras', m.corpo.cards.clientesAtendidos.total, 3);
+  /* faturamento exclui a fiada: 4×60 + 2×89 = 418, e os 99 ficam de fora */
+  eq('faturamento do mês, sem a compra fiada', m.corpo.cards.faturamento.valor, 418);
+
+  /* E — as categorias somam as peças do mês */
+  const somaCat = (m.corpo.categorias ?? []).reduce((s, c) => s + c.pecas, 0);
+  eq('a soma das categorias bate com as peças', somaCat, m.corpo.cards.pecas.total);
+
+  /* F — o histórico traz venda e itens */
+  eq('o histórico lista as compras do mês', m.corpo.vendas.length, 6);
+  const daFiada = m.corpo.vendas.find((v) => v.id === fiada.corpo.id && v.fonte === 'operacional');
+  verdade('a compra fiada aparece na lista de vendas', !!daFiada);
+  eq('marcada como ainda não paga', daFiada && daFiada.aindaNaoPaga, 'true');
+  eq('e com o valor comercial, não zero', daFiada && daFiada.valor, 79);
+  verdade('cada compra traz os itens dela',
+    (m.corpo.vendas[0].itens ?? []).length > 0, String((m.corpo.vendas[0].itens ?? []).length));
+
+  /* §2.4 — pagar em junho move o dinheiro, não a venda */
+  const pg = await api('POST', '/api/contas-receber/receber', {
+    chave: `venda:${fiada.corpo.id}`, confirmar: true, pagaEm: '2026-06-04',
+  });
+  eq('pagamento em junho aceito', pg.status, 200);
+  const out = await api('GET', '/api/analytics/mes?mes=2026-05');
+  const jun = await api('GET', '/api/analytics/mes?mes=2026-06');
+  eq('a venda continua sendo de maio', out.corpo.cards.vendas.total, 6);
+  eq('a peça também', out.corpo.cards.pecas.total, 7);
+  eq('o faturamento de maio não mudou', out.corpo.cards.faturamento.valor, 418);
+  eq('e os R$ 79 entraram em junho', jun.corpo.cards.faturamento.valor, 79);
+  eq('sem virar venda de junho', jun.corpo.cards.vendas.total, 0);
+  eq('junho declara de onde veio o dinheiro',
+    jun.corpo.faturamentoDeOutrosMeses.valor, 79);
+  const marcada = out.corpo.vendas.find((v) => v.id === fiada.corpo.id && v.fonte === 'operacional');
+  eq('e a linha de maio diz que foi paga em outro mês',
+    marcada && marcada.faturaEmOutroMes, 'true');
+
+  const invalido = await api('GET', '/api/analytics/mes?mes=2026-13');
+  eq('mês impossível é recusado', invalido.status, 400);
+}
+
 console.log(falhas ? `\n${falhas} FALHA(S)\n` : '\nTudo passou.\n');
 process.exit(falhas ? 1 : 0);

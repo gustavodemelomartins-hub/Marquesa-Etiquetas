@@ -40,7 +40,7 @@ import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import {
   visaoGeral, evolucao, produtosMaisVendidos, categoriasMaisVendidas,
   porOrigem, clientesRanking, perfilCliente, listarVendasUnificado,
-  painel, crm, acertosDeMaleta,
+  painel, crm, acertosDeMaleta, resumoDoMes,
 } from './analytics.js';
 /* §30 · §31 · §32 — as três áreas novas de Vendas. Cada uma num arquivo
    próprio porque cada uma tem uma regra própria de o que NÃO fazer, e essa
@@ -761,6 +761,15 @@ async function rotear(request, env, contador = null) {
       }
       if (path === '/api/analytics/vendas' && met === 'GET') {
         return json(await visaoGeral(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
+      }
+      /* §40 — o resumo de UMA barra do gráfico "Evolução por mês".
+         Quatro cartões, categorias do mês e o histórico compacto, para
+         desenhar logo abaixo do gráfico sem trocar de tela. Faturamento é
+         recortado pela data do pagamento; vendas, peças e clientes, pela
+         data da venda — e a diferença entre os dois é dita, não conciliada. */
+      if (path === '/api/analytics/mes' && met === 'GET') {
+        const r = await resumoDoMes(db, { mes: url.searchParams.get('mes') });
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
       }
       if (path === '/api/analytics/evolucao' && met === 'GET') {
         return json(await evolucao(db, {

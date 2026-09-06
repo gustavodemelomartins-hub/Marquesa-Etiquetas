@@ -1168,6 +1168,55 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 @media(max-width:720px){.receber-linha{grid-template-columns:1fr auto}.receber-origem{grid-column:1/-1}
   .receber-prazo{grid-column:1}.receber-valor{grid-column:2;grid-row:1}}
 
+/* ---------- Resumo de um mês (§40)
+   Abre logo abaixo do gráfico "Evolução por mês", não em outra página: a
+   pergunta é sobre uma barra, e a resposta fica ao lado dela. O histórico
+   sai compacto e cada linha expande — uma tabela grande aberta por padrão
+   é justamente o que o pacote pediu para evitar. */
+.evo-col.aberta .evo-bar{opacity:1;outline:2px solid var(--gold);outline-offset:1px}
+.mes-box{margin-top:18px;padding-top:16px;border-top:1px solid var(--line-soft)}
+.mes-cab{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.mes-cab h3{margin:0;font-family:var(--serif);font-weight:400;color:var(--bordo);font-size:18px}
+.mes-cab .lnk{border:0;background:none;padding:0;color:var(--muted);cursor:pointer;
+  font:inherit;font-size:11.5px;text-decoration:underline}
+.mes-cats{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+.mes-cat{display:grid;grid-template-columns:minmax(80px,120px) 1fr 44px;gap:10px;align-items:center;
+  font-size:12.5px}
+.mes-cat .mc-nm{color:var(--ink)}
+.mes-cat .mc-bar{background:var(--line-soft);border-radius:5px;height:10px;overflow:hidden}
+.mes-cat .mc-bar i{display:block;height:100%;border-radius:5px}
+.mes-cat .mc-vl{text-align:right;font-family:Georgia,serif;color:var(--bordo)}
+.mes-lista{display:flex;flex-direction:column;margin-top:8px}
+.mes-venda{border-top:1px solid var(--line-soft)}
+.mes-venda:first-child{border-top:0}
+.mv-topo{width:100%;display:grid;grid-template-columns:86px minmax(0,1fr) 76px 84px 16px;gap:10px;
+  align-items:center;padding:10px 2px;border:0;background:none;cursor:pointer;text-align:left;
+  font:inherit;color:var(--ink)}
+.mv-topo:hover{background:var(--bordo-tint)}
+.mv-dt{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mv-nm{font-weight:700;color:var(--bordo);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv-pc{font-size:11.5px;color:var(--muted)}
+.mv-vl{text-align:right;font-family:Georgia,serif;color:var(--bordo)}
+.mv-seta{color:var(--muted);font-size:11px}
+.mv-selo{margin:0 2px 8px;font-size:11px;color:#7A5410;background:#FFF4E0;
+  border:1px solid #F0D9A8;border-radius:8px;padding:5px 9px;display:inline-block}
+.mv-itens{padding:2px 2px 12px}
+.mv-item{display:grid;grid-template-columns:76px minmax(0,1fr) 88px 34px 76px;gap:9px;
+  align-items:center;font-size:12px;padding:4px 8px}
+.mv-item code{font-size:11px;color:var(--muted)}
+.mv-item .mi-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv-item .mi-ct{font-size:11px;color:var(--muted)}
+.mv-item .mi-qt{text-align:right;color:var(--muted)}
+.mv-item .mi-vl{text-align:right;font-variant-numeric:tabular-nums}
+.mv-obs{font-size:11px;color:var(--muted);padding:0 8px 6px}
+@media(max-width:720px){
+  .mv-topo{grid-template-columns:1fr auto;row-gap:2px}
+  .mv-dt{grid-column:1}.mv-nm{grid-column:1}.mv-pc{grid-column:1}
+  .mv-vl{grid-column:2;grid-row:1/3}.mv-seta{grid-column:2}
+  .mv-item{grid-template-columns:1fr auto}
+  .mv-item .mi-ct,.mv-item .mi-qt{display:none}
+}
+
 /* ---------- Campo de data (§39)
    A Sthefany relatou que digitar prazo era difícil e que o valor sumia. O
    campo passou a ter dois estados: LIDO ("Prazo: 15/09/2026 · editar"), que
@@ -8548,8 +8597,13 @@ function blocoEvolucao(ev,semData){
     /* o valor exato vem do tooltip da casa (o mesmo da rosca), ligado em
        `pintarEvolucao`. O aria-label diz o mesmo para quem navega por
        teclado ou leitor de tela — nada depende só do cursor. */
-    return `<div class="evo-col" data-i="${i}" data-lbl="${esc(mesCurto(x.chave))}" tabindex="0" role="img"
-      aria-label="${esc(mesLegivel(x.chave))}: ${esc(rotulo(x))}, ${fmtN(x.vendas)} ${plural(x.vendas,'venda','vendas')}, ${fmtN(x.pecas)} ${plural(x.pecas,'peça','peças')}">
+    /* §40 — a barra passou a ser clicável. `role="button"` e o Enter/Espaço
+       ligados em `pintarEvolucao` são o que fazem isso valer também para
+       quem navega por teclado: o clique não pode ser a única porta. */
+    return `<div class="evo-col ${mesAberto===x.chave?'aberta':''}" data-i="${i}" data-mes="${esc(x.chave)}"
+      data-lbl="${esc(mesCurto(x.chave))}" tabindex="0" role="button"
+      aria-pressed="${mesAberto===x.chave?'true':'false'}"
+      aria-label="${esc(mesLegivel(x.chave))}: ${esc(rotulo(x))}, ${fmtN(x.vendas)} ${plural(x.vendas,'venda','vendas')}, ${fmtN(x.pecas)} ${plural(x.pecas,'peça','peças')}. Abrir o resumo do mês.">
       <div class="evo-bar" style="height:${alt}%"></div>
       <div class="evo-lbl">${i%passo?'':esc(mesCurto(x.chave))}</div>
     </div>`;
@@ -8559,8 +8613,132 @@ function blocoEvolucao(ev,semData){
     `<div class="evo" id="evoBox">${barras}</div>
      <div class="hint" style="margin-top:10px">${p.length} ${plural(p.length,'mês','meses')} ·
        ${m==='faturamento'?money(totalM):fmtN(totalM)+(m==='pecas'?' peças':' vendas')} no gráfico${
-       semData?` · ${semData} ${plural(semData,'venda','vendas')} sem data ${plural(semData,'fica','ficam')} de fora`:''}</div>`,
+       semData?` · ${semData} ${plural(semData,'venda','vendas')} sem data ${plural(semData,'fica','ficam')} de fora`:''}
+       · <b>clique numa barra</b> para ver o resumo do mês</div>
+     ${blocoResumoDoMes()}`,
     sel);
+}
+
+/* ═══════════════════════ §40 — o resumo de um mês, embaixo do gráfico
+ *
+ *  Clicar em maio/2025 abre "Resumo de maio de 2025" aqui mesmo. Não é
+ *  outra página, e não troca o período do painel inteiro: a pergunta é
+ *  sobre uma barra, e a resposta fica ao lado dela.
+ *
+ *  O ponto delicado é §2.4 do pacote — coerência de datas. FATURAMENTO é o
+ *  dinheiro que entrou no mês (data do pagamento); VENDAS, PEÇAS e CLIENTES
+ *  são o que foi vendido no mês (data da venda). Os dois recortes não
+ *  coincidem, e a tela DIZ isso em vez de fingir que fecham: cada compra
+ *  paga em outro mês leva um selo, e o rodapé mostra quanto do faturamento
+ *  veio de compras de meses anteriores. */
+let mesAberto=null;
+let resumoMes=null;
+let mesCarregando=false;
+const mesVendasAbertas=new Set();
+
+async function abrirMes(chave){
+  if(mesAberto===chave){ mesAberto=null; resumoMes=null; renderVendasPainel(); return; }
+  mesAberto=chave; resumoMes=null; mesVendasAbertas.clear(); mesCarregando=true;
+  renderVendasPainel();
+  try{ resumoMes=await api('GET','/api/analytics/mes?mes='+encodeURIComponent(chave)); }
+  catch(e){ resumoMes={erro:e.message||'não consegui carregar o resumo deste mês'}; }
+  mesCarregando=false;
+  renderVendasPainel();
+  const alvo=document.getElementById('resumoMesBox');
+  if(alvo) alvo.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function alternarVendaDoMes(chave){
+  if(mesVendasAbertas.has(chave)) mesVendasAbertas.delete(chave); else mesVendasAbertas.add(chave);
+  renderVendasPainel();
+}
+
+function blocoResumoDoMes(){
+  if(!mesAberto) return '';
+  if(mesCarregando||!resumoMes){
+    return `<div class="mes-box" id="resumoMesBox"><div class="hint">Carregando ${esc(mesLegivel(mesAberto))}…</div></div>`;
+  }
+  if(resumoMes.erro){
+    return `<div class="mes-box" id="resumoMesBox"><div class="warn" style="display:block">
+      ${esc(resumoMes.erro)}</div></div>`;
+  }
+  const r=resumoMes, c=r.cards||{};
+  const maxCat=Math.max(1,...(r.categorias||[]).map(x=>x.pecas));
+  const fora=r.faturamentoDeOutrosMeses||{};
+  return `<div class="mes-box" id="resumoMesBox">
+    <div class="mes-cab">
+      <h3>Resumo de ${esc(r.rotulo)}</h3>
+      <button class="lnk" onclick="abrirMes('${esc(r.mes)}')">fechar</button>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi k-val"><div class="k-lbl">Faturamento do mês</div>
+        <div class="k-num small">${money(c.faturamento?.valor||0)}</div>
+        <div class="k-sub">dinheiro que entrou — pela data do pagamento</div></div>
+      <div class="kpi k-ped"><div class="k-lbl">Vendas do mês</div>
+        <div class="k-num">${fmtN(c.vendas?.total||0)}</div>
+        <div class="k-sub">compras feitas neste mês</div></div>
+      <div class="kpi k-pec"><div class="k-lbl">Peças vendidas</div>
+        <div class="k-num">${fmtN(c.pecas?.total||0)}</div>
+        <div class="k-sub">nas compras deste mês</div></div>
+      <div class="kpi k-cli"><div class="k-lbl">Clientes atendidos</div>
+        <div class="k-num">${fmtN(c.clientesAtendidos?.total||0)}</div>
+        <div class="k-sub">clientes únicas · quem comprou 4× conta 1</div></div>
+    </div>
+
+    ${(r.categorias||[]).length?`
+      <div class="resumotit">Categorias mais vendidas</div>
+      <div class="mes-cats">${r.categorias.map(x=>`
+        <div class="mes-cat">
+          <span class="mc-nm">${esc(x.categoria)}</span>
+          <span class="mc-bar"><i style="width:${Math.max(3,Math.round(x.pecas/maxCat*100))}%;
+            background:${catColor(x.categoria)}"></i></span>
+          <b class="mc-vl">${fmtN(x.pecas)}</b>
+        </div>`).join('')}</div>
+      <div class="hint" style="margin-top:6px">${fmtN(r.totalPecasCategorias||0)}
+        ${plural(r.totalPecasCategorias||0,'peça','peças')} no total — o mesmo número do cartão acima.</div>
+    `:''}
+
+    <div class="resumotit" style="margin-top:18px">Vendas do mês</div>
+    ${(r.vendas||[]).length?`<div class="mes-lista">${r.vendas.map(v=>`
+      <div class="mes-venda ${mesVendasAbertas.has(v.chave)?'aberta':''}">
+        <button class="mv-topo" onclick="alternarVendaDoMes('${esc(v.chave)}')"
+                aria-expanded="${mesVendasAbertas.has(v.chave)?'true':'false'}">
+          <span class="mv-dt">${v.data?fmtData(v.data):'sem data'}</span>
+          <span class="mv-nm">${esc(v.cliente||'Cliente')}</span>
+          <span class="mv-pc">${fmtN(v.pecas)} ${plural(v.pecas,'peça','peças')}</span>
+          <span class="mv-vl">${money(v.valor)}</span>
+          <span class="mv-seta">${mesVendasAbertas.has(v.chave)?'▾':'▸'}</span>
+        </button>
+        ${/* §2.4 — o selo que impede a leitura errada. Uma peça vendida em
+              julho e paga em setembro não foi vendida duas vezes. */
+          v.faturaEmOutroMes?`<div class="mv-selo">paga em ${fmtData(v.dataFaturamento)} —
+            entra no faturamento daquele mês, não deste</div>`
+          :(v.aindaNaoPaga?`<div class="mv-selo">${money(v.aReceber)} ainda a receber —
+            fora do faturamento até ser paga</div>`:'')}
+        ${mesVendasAbertas.has(v.chave)?`<div class="mv-itens">${
+          (v.itens||[]).length?v.itens.map(i=>`
+            <div class="mv-item">
+              <code>${esc(i.sku||'—')}</code>
+              <span class="mi-nm">${esc(i.nome||'—')}${i.variacao?' · '+esc(i.variacao):''}</span>
+              <span class="mi-ct">${esc(i.categoria||'')}</span>
+              <span class="mi-qt">${fmtN(i.qtd)}×</span>
+              <span class="mi-vl">${i.valor==null?'—':money(i.valor)}</span>
+            </div>
+            ${i.descontoRotulo||i.observacao?`<div class="mv-obs">${
+              [i.descontoRotulo,i.observacao].filter(Boolean).map(esc).join(' · ')}</div>`:''}`).join('')
+          :'<div class="hint" style="padding:8px 10px">Sem itens detalhados nesta compra.</div>'}
+          ${v.canal||v.contexto?`<div class="mv-obs">origem: ${esc(v.canal||'—')}${
+            v.contexto?' · '+esc(v.contexto):''}</div>`:''}
+        </div>`:''}
+      </div>`).join('')}</div>`
+      :`<div class="empty" style="padding:24px"><p>Nenhuma compra registrada neste mês.</p></div>`}
+
+    ${fora.vendas?`<div class="hint" style="margin-top:12px">
+      <b>${money(fora.valor)}</b> do faturamento deste mês veio de
+      ${fmtN(fora.vendas)} ${plural(fora.vendas,'compra','compras')} de outros meses,
+      ${plural(fora.vendas,'paga','pagas')} aqui. ${plural(fora.vendas,'Ela não aparece','Elas não aparecem')}
+      na lista acima porque a peça saiu no mês dela.</div>`:''}
+  </div>`;
 }
 
 /** O tooltip da evolução, ligado depois do innerHTML — o mesmo elemento
@@ -8621,6 +8799,13 @@ function pintarEvolucao(ev){
     col.addEventListener('focus',()=>acender(col,null));
     col.addEventListener('blur',apagar);
     col.addEventListener('touchstart',e=>acender(col,e.touches[0]),{passive:true});
+    /* §40 — abrir o resumo daquele mês. Enter e Espaço fazem o mesmo que o
+       clique: a barra é um botão, e um botão que só o mouse alcança não é
+       um botão. */
+    col.addEventListener('click',()=>{ apagar(); abrirMes(col.dataset.mes); });
+    col.addEventListener('keydown',e=>{
+      if(e.key==='Enter'||e.key===' '){ e.preventDefault(); apagar(); abrirMes(col.dataset.mes); }
+    });
   });
   box.addEventListener('mouseleave',apagar);
 }

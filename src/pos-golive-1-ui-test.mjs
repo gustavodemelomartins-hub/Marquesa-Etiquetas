@@ -148,7 +148,71 @@ console.log('\n=== 3. campo de prazo no A receber (§39) ===');
   verdade('e continua lá depois de sair e voltar', /15\/09\/2026/.test(relido), relido.trim());
 }
 
-console.log('\n=== 4. o console ficou limpo ===');
+console.log('\n=== 4. clicar numa barra abre o resumo do mês (§40) ===');
+{
+  await page.evaluate(() => switchTab('vendas-painel'));
+  await page.waitForTimeout(1800);
+
+  const barras = await page.locator('#evoBox .evo-col').count();
+  verdade('o gráfico tem barras', barras > 0, String(barras));
+  verdade('e elas se anunciam como botão',
+    (await page.locator('#evoBox .evo-col').first().getAttribute('role')) === 'button');
+
+  /* a barra de agosto/2026, que é onde os dados de teste estão */
+  const alvoMes = await page.evaluate(() => {
+    const c = [...document.querySelectorAll('#evoBox .evo-col')]
+      .find((x) => x.dataset.mes === '2026-08');
+    return c ? c.dataset.mes : null;
+  });
+  verdade('a barra de agosto/2026 existe', !!alvoMes, String(alvoMes));
+
+  await page.locator('#evoBox .evo-col[data-mes="2026-08"]').click();
+  await page.waitForTimeout(1800);
+
+  const box = page.locator('#resumoMesBox');
+  verdade('o resumo abriu abaixo do gráfico, sem trocar de tela',
+    await box.isVisible());
+  const cab = await box.locator('.mes-cab h3').innerText();
+  eq('e traz o mês por extenso no título', cab, 'Resumo de agosto de 2026');
+
+  const esperado = (await api('GET', '/api/analytics/mes?mes=2026-08')).corpo;
+  const cards = await box.locator('.kpis').innerText();
+  verdade('quatro cartões', (await box.locator('.kpi').count()) === 4,
+    String(await box.locator('.kpi').count()));
+  verdade('faturamento do mês bate com o servidor',
+    cards.replace(/[^0-9]/g, ' ').includes(String(Math.round(esperado.cards.faturamento.valor))),
+    String(esperado.cards.faturamento.valor));
+  verdade('clientes atendidos conta pessoa, não compra',
+    /Clientes atendidos/i.test(cards)
+      && esperado.cards.clientesAtendidos.total <= esperado.cards.vendas.total,
+    `${esperado.cards.clientesAtendidos.total} clientes / ${esperado.cards.vendas.total} vendas`);
+
+  verdade('o gráfico de categorias aparece',
+    (await box.locator('.mes-cat').count()) > 0);
+  const somaCats = await page.evaluate(() => [...document.querySelectorAll('#resumoMesBox .mc-vl')]
+    .reduce((s, e) => s + Number(e.textContent.replace(/\D/g, '')), 0));
+  eq('e a soma das categorias bate com as peças do mês',
+    somaCats, esperado.cards.pecas.total);
+
+  /* histórico compacto: fechado por padrão, expande no clique */
+  const linhas = await box.locator('.mes-venda').count();
+  verdade('o histórico do mês lista as compras', linhas > 0, String(linhas));
+  eq('e nenhuma vem aberta por padrão', await box.locator('.mv-itens').count(), 0);
+
+  await box.locator('.mv-topo').first().click();
+  await page.waitForTimeout(700);
+  verdade('clicar numa compra mostra os itens dela',
+    (await page.locator('#resumoMesBox .mv-item').count()) > 0);
+  const item = await page.locator('#resumoMesBox .mv-item').first().innerText();
+  verdade('com SKU e nome da peça', /UI1-/.test(item), item.replace(/\n/g, ' '));
+
+  /* fechar volta ao estado anterior */
+  await page.locator('#resumoMesBox .mes-cab .lnk').click();
+  await page.waitForTimeout(700);
+  eq('fechar remove o resumo', await page.locator('#resumoMesBox').count(), 0);
+}
+
+console.log('\n=== 5. o console ficou limpo ===');
 eq('nenhum erro de JavaScript', erros.length, 0);
 if (erros.length) erros.slice(0, 6).forEach((e) => console.log('     ' + e));
 

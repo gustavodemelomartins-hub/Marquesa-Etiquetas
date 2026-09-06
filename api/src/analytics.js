@@ -1563,3 +1563,235 @@ export async function crm(db, { periodo = 'tudo' } = {}) {
     },
   };
 }
+
+/* ═══════════════════════════════════════════ §40 — O RESUMO DE UM MÊS
+
+   O gráfico "Evolução por mês" mostra 25 barras e não deixa perguntar nada
+   sobre nenhuma delas. Clicar em maio/2025 e ver o que houve em maio/2025
+   era ir para outra tela, escolher período, e perder o mês de vista.
+
+   Esta rota é a resposta de UMA barra, e ela existe para ser desenhada logo
+   abaixo do gráfico, sem trocar de página.
+
+   ─── §2.4 do pacote: coerência de datas, que aqui é o ponto delicado
+
+   Um mês tem DUAS populações que não coincidem, e o pacote pede que a tela
+   não as misture:
+
+     VENDAS e PEÇAS   pela data da VENDA. Foi neste mês que a peça saiu.
+     FATURAMENTO      pela data do PAGAMENTO. Foi neste mês que o dinheiro
+                      entrou (§29/§30).
+     CLIENTES         pela data da VENDA, e contando pessoa, não compra:
+                      quem comprou quatro vezes em maio é UMA cliente
+                      atendida.
+
+   Uma venda de julho paga em setembro aparece nos dois meses, dizendo
+   coisas diferentes em cada um — e a linha dela carrega as duas datas,
+   marcada com `faturaEmOutroMes` / `vendidaEmOutroMes`, para a tela poder
+   dizer isso em vez de deixar parecer que a peça foi vendida duas vezes.
+
+   O que a rota NÃO faz: não inventa um terceiro número que "concilia" os
+   dois. Eles não conciliam, e é isso que precisa ser visível. */
+
+const MESES_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+/** 'maio de 2025' a partir de '2025-05'. */
+function rotuloDoMes(mes) {
+  const [a, m] = String(mes).split('-');
+  return `${MESES_PT[Number(m) - 1] ?? m} de ${a}`;
+}
+
+/** O último dia do mês, para o recorte não perder o dia 31 nem inventar 31
+ *  de fevereiro. */
+function fimDoMes(mes) {
+  const [a, m] = String(mes).split('-').map(Number);
+  return `${mes}-${String(new Date(Date.UTC(a, m, 0)).getUTCDate()).padStart(2, '0')}`;
+}
+
+export async function resumoDoMes(db, { mes } = {}) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(mes ?? ''))) {
+    return { ok: false, statusHttp: 400, erro: 'Mês inválido. Use AAAA-MM.' };
+  }
+  const de = `${mes}-01`;
+  const ate = fimDoMes(mes);
+  const faixa = { de, ate, rotulo: rotuloDoMes(mes) };
+  const V = cteVendas(faixa);
+  const h = recorte('h.data', faixa);
+  const v = recorte('v.data', faixa);
+
+  const [vendasR, itensR, catalogo] = await Promise.all([
+    /* O CTE já traz venda e pagamento no mesmo recorte duplo: a venda entra
+       quando QUALQUER uma das duas datas cai no mês, e cada número abaixo
+       escolhe qual das duas o governa. */
+    db.prepare(
+      `WITH vd AS (${V.sql})
+       SELECT fonte, id, data, data_faturamento, norm, nome, cliente_id,
+              pecas, faturamento, valor_total, status, canal, contexto,
+              cobranca_status, saldo_centavos, vencimento_em, paga_em, observacao
+         FROM vd WHERE papel = 'cliente'
+        ORDER BY data DESC, id DESC`,
+    ).bind(...V.binds).all(),
+
+    /* Os itens das compras do mês, para o detalhe expansível. São ~100 numa
+       loja deste tamanho: cabem numa resposta só, e pedi-los um a um seria
+       exatamente o N+1 que a auditoria do D1 mandou evitar. */
+    db.prepare(
+      `SELECT 'historico' AS fonte, h.venda_historica_id AS venda_ref,
+              h.sku AS sku, h.sku_base AS chave, h.nome_produto_historico AS nome,
+              h.qtd AS qtd, h.valor_total AS valor,
+              COALESCE(h.desconto_original, h.desconto_rotulo) AS desconto_rotulo,
+              h.observacao_original AS observacao, NULL AS variacao
+         FROM vendas_historico_itens h
+         JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
+         ${JOIN_OPERACAO_ITEM_HISTORICO}
+        WHERE 1 = 1${FILTRO_ITEM_HISTORICO}${h.sql}
+        UNION ALL
+       SELECT 'operacional', v.id, i.sku, UPPER(i.sku), i.desc,
+              i.qtd, i.qtd * i.preco, i.desconto_rotulo, v.observacao, i.variacao
+         FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
+        WHERE v.cancelada = 0${FILTRO_VENDA_OPERACIONAL_DUPLICADA}${v.sql}`,
+    ).bind(...h.binds, ...v.binds).all(),
+
+    catalogoDeCategorias(db),
+  ]);
+
+  const vendas = vendasR.results ?? [];
+  const itens = itensR.results ?? [];
+
+  const noMes = (d) => typeof d === 'string' && d.slice(0, 7) === mes;
+  const vendidasNoMes = vendas.filter((x) => noMes(x.data));
+  const faturadasNoMes = vendas.filter((x) => noMes(x.data_faturamento));
+
+  /* ─── os quatro cartões */
+  const pecas = vendidasNoMes.reduce((s, x) => s + Number(x.pecas ?? 0), 0);
+  const faturamento = faturadasNoMes.reduce((s, x) => s + Number(x.faturamento ?? 0), 0);
+  /* CLIENTES ATENDIDAS: pessoas, não compras. A mesma cliente que comprou
+     quatro vezes em maio conta UMA vez — é o que o pacote pede, e é a
+     diferença entre "atendimentos" e "clientes". `sem-nome` é uma chave só,
+     e isso é honesto: sem nome não dá para separar duas pessoas. */
+  const clientes = new Set(vendidasNoMes.map((x) => (x.cliente_id != null
+    ? `id:${x.cliente_id}` : `n:${x.norm ?? 'sem-nome'}`)));
+
+  /* ─── categorias mais vendidas DO MÊS.
+     Pelas peças VENDIDAS no mês — a mesma base do cartão de peças, senão o
+     gráfico somaria 98 e o cartão diria outra coisa. */
+  const refsVendidasNoMes = new Set(vendidasNoMes.map((x) => `${x.fonte}:${x.id}`));
+  const itensDoMes = itens.filter((i) => refsVendidasNoMes.has(`${i.fonte}:${i.venda_ref}`));
+  const porCategoria = new Map();
+  for (const i of itensDoMes) {
+    const cat = categoriaDoItem({
+      catCatalogo: catalogo(i.fonte, i.chave), nomeHistorico: i.nome,
+    });
+    const a = porCategoria.get(cat) ?? { pecas: 0, valor: 0 };
+    a.pecas += Number(i.qtd ?? 0);
+    a.valor += Number(i.valor ?? 0);
+    porCategoria.set(cat, a);
+  }
+  const categorias = [...porCategoria.entries()]
+    .map(([categoria, a]) => ({ categoria, pecas: a.pecas, valor: +a.valor.toFixed(2) }))
+    .sort((a, b) => b.pecas - a.pecas);
+  const totalCatPecas = categorias.reduce((s, c) => s + c.pecas, 0);
+
+  /* ─── o histórico compacto: uma linha por COMPRA, os itens dentro. */
+  const itensPorVenda = new Map();
+  for (const i of itensDoMes) {
+    const k = `${i.fonte}:${i.venda_ref}`;
+    if (!itensPorVenda.has(k)) itensPorVenda.set(k, []);
+    itensPorVenda.get(k).push({
+      sku: i.sku,
+      nome: i.nome ?? i.sku,
+      categoria: categoriaDoItem({ catCatalogo: catalogo(i.fonte, i.chave), nomeHistorico: i.nome }),
+      qtd: Number(i.qtd ?? 0),
+      valor: i.valor == null ? null : Number(i.valor),
+      variacao: i.variacao ?? null,
+      descontoRotulo: i.desconto_rotulo ?? null,
+      observacao: i.observacao ?? null,
+    });
+  }
+
+  const lista = vendidasNoMes.map((x) => ({
+    chave: `${x.fonte}:${x.id}`,
+    fonte: x.fonte,
+    id: Number(x.id),
+    data: x.data,
+    cliente: x.nome ?? x.norm ?? 'Cliente não identificada',
+    clienteId: x.cliente_id == null ? null : Number(x.cliente_id),
+    norm: x.norm ?? null,
+    pecas: Number(x.pecas ?? 0),
+    valor: Number(x.valor_total ?? 0),
+    recebido: Number(x.faturamento ?? 0),
+    aReceber: x.saldo_centavos == null
+      ? Math.max(0, +(Number(x.valor_total ?? 0) - Number(x.faturamento ?? 0)).toFixed(2))
+      : +(Number(x.saldo_centavos) / 100).toFixed(2),
+    status: x.status,
+    canal: x.canal ?? null,
+    contexto: x.contexto ?? null,
+    observacao: x.observacao ?? null,
+    dataFaturamento: x.data_faturamento ?? null,
+    /* §2.4 — as duas marcas que impedem a leitura errada, e elas dizem
+       coisas diferentes:
+         aindaNaoPaga      a compra é deste mês e o dinheiro não entrou em
+                           mês nenhum ainda;
+         faturaEmOutroMes  entrou, mas em outro mês. Esta compra está no
+                           cartão de VENDAS deste mês e no de FATURAMENTO de
+                           outro — as duas coisas são verdadeiras.
+       Sem separá-las, "não está no faturamento deste mês" cobriria os dois
+       casos e esconderia qual é qual. */
+    aindaNaoPaga: Number(x.faturamento ?? 0) === 0 && x.cobranca_status === 'aberta',
+    faturaEmOutroMes: Number(x.faturamento ?? 0) > 0 && !noMes(x.data_faturamento),
+    itens: itensPorVenda.get(`${x.fonte}:${x.id}`) ?? [],
+  }));
+
+  /* As compras de OUTROS meses cujo dinheiro entrou neste. Não entram na
+     lista acima — elas não foram vendidas aqui — mas explicam a diferença
+     entre o cartão de faturamento e a soma da lista, que sem isso pareceria
+     erro de conta. */
+  const deOutrosMeses = faturadasNoMes.filter((x) => !noMes(x.data));
+
+  return {
+    ok: true,
+    mes,
+    rotulo: rotuloDoMes(mes),
+    periodo: { de, ate },
+    cards: {
+      faturamento: {
+        valor: +faturamento.toFixed(2),
+        vendas: faturadasNoMes.length,
+        regra: 'dinheiro que ENTROU neste mês — recortado pela data do pagamento',
+      },
+      vendas: {
+        total: vendidasNoMes.length,
+        regra: 'compras FEITAS neste mês — recortado pela data da venda',
+      },
+      pecas: {
+        total: pecas,
+        regra: 'peças das compras feitas neste mês',
+      },
+      clientesAtendidos: {
+        total: clientes.size,
+        regra: 'clientes ÚNICAS. Quem comprou quatro vezes no mês conta uma vez.',
+      },
+    },
+    categorias: categorias.map((c) => ({
+      ...c,
+      participacao: totalCatPecas > 0 ? +(c.pecas / totalCatPecas * 100).toFixed(1) : 0,
+    })),
+    totalPecasCategorias: totalCatPecas,
+    vendas: lista,
+    /* §9 — o que este mês tem e a lista acima não mostra. */
+    faturamentoDeOutrosMeses: {
+      valor: +deOutrosMeses.reduce((s, x) => s + Number(x.faturamento ?? 0), 0).toFixed(2),
+      vendas: deOutrosMeses.length,
+      detalhe: deOutrosMeses.slice(0, 30).map((x) => ({
+        data: x.data, cliente: x.nome ?? x.norm, valor: Number(x.faturamento ?? 0),
+        pagoEm: x.data_faturamento,
+      })),
+      regra: 'compras de outros meses cujo pagamento entrou neste. Somam no '
+        + 'faturamento e NÃO somam em vendas nem em peças — a peça saiu no mês dela.',
+    },
+    regra: 'Faturamento é recortado pela data do PAGAMENTO; vendas, peças e '
+      + 'clientes atendidas, pela data da VENDA. Os dois recortes não coincidem, '
+      + 'e a diferença é dita em vez de conciliada.',
+  };
+}
