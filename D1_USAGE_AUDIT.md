@@ -6,12 +6,22 @@ foi feito, o que ainda dá para fazer e o que não vale a pena fazer.
 
 Data da medição: 06/09/2026 · branch `claude/marquesa-operational-review-eztpzt`
 
+**Importante — o que isto NÃO é**: nenhum número deste documento veio de
+ler o D1 de produção (`marquesa-db`). Toda medição rodou contra um banco
+D1 **local**, semeado sinteticamente com dimensões equivalentes às de
+produção (seção 1). A conclusão de que `/api/variacoes/revisao` é a causa
+do estouro de cota é a causa **reproduzida e provável** — reproduzida
+neste banco sintético, não observada diretamente no ambiente de produção
+que de fato bateu no limite.
+
 ---
 
 ## 1. Como isto foi medido
 
 Não por estimativa. `api/src/d1-metrica.js` envolve o binding do D1 e soma o
-`meta.rows_read` que o **próprio D1 devolve** em cada consulta.
+`meta.rows_read` que o **próprio D1 devolve** em cada consulta — mas contra
+o banco D1 **local** de `api/dev-local.sh`, nunca contra `marquesa-db` de
+produção.
 
 ```
 GET /api/qualquer   +  cabeçalho  X-D1-Metricas: 1

@@ -126,7 +126,7 @@ linha, não altera coluna existente, não reclassifica dado antigo. Nenhum
 | 5 | `personalizacao_modelos`, `personalizacao_opcoes`, `venda_personalizacoes`, `venda_personalizacao_itens` | nenhum — nascem vazias |
 | 6 | `vendas.vencimento_em` + índice parcial | nenhum — NULL = "sem prazo definido", que é o que a tela já sabe dizer |
 
-**Três `ALTER TABLE ADD COLUMN`** (`garantia_trocas.venda_id`,
+**Dois `ALTER TABLE ADD COLUMN`** (`garantia_trocas.venda_id`,
 `vendas.vencimento_em`) não são idempotentes no SQLite. Rodar a migration
 duas vezes falha com `duplicate column name` — e essa falha significa "já foi
 aplicada", não "deu errado". Cada bloco é independente e pode ser retomado do
@@ -358,7 +358,7 @@ Conferir a tela contra os vídeos é item de revisão antes do deploy.
 | R4 | Correção de SKU aplicada por engano | baixa | Modal exige VER a peça antes de confirmar; auditoria guarda o antes; estoque recusa se não houver peça |
 | R5 | Venda personalizada registrada duas vezes | baixa | `estoque_ja_refletido` é explícita e auditável; misturar peça avulsa com a flag é recusado |
 | R6 | Resolver variação com saldo insuficiente | média | A resolução prossegue (a peça física já saiu) mas devolve `conflito` com os números — §8.5 do pacote |
-| R7 | Migration falhar no meio (3 `ALTER TABLE` não idempotentes) | média se rodada duas vezes | Cada bloco é independente; `duplicate column name` significa "já aplicada". Backup antes, sempre |
+| R7 | Migration falhar no meio (2 `ALTER TABLE` não idempotentes) | média se rodada duas vezes | Cada bloco é independente; `duplicate column name` significa "já aplicada". Backup antes, sempre |
 | R8 | `revendedoras-test` continua falhando | certa | Pré-existente, verificada em `main`. Não bloqueia — mas a seção "Top Revendedoras" merece investigação própria |
 
 ---
