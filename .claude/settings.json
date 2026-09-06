@@ -112,7 +112,13 @@
       "Edit(api/schema.sql)",
       "Edit(api/wrangler.toml)",
       "Edit(.github/workflows/**)",
-      "Write(api/migracao-*.sql)"
+      "Write(api/migracao-*.sql)",
+
+      "Bash(git push origin main:*)",
+      "Bash(npx wrangler deploy:*)",
+      "Bash(npx wrangler pages deploy:*)",
+      "Bash(wrangler deploy:*)",
+      "Bash(wrangler pages deploy:*)"
     ],
     "deny": [
       "Read(./api/.dev.vars)",
@@ -128,15 +134,12 @@
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
       "Bash(git push --force-with-lease:*)",
-      "Bash(git push origin main:*)",
       "Bash(git filter-branch:*)",
       "Bash(git filter-repo:*)",
       "Bash(git update-ref -d:*)",
       "Bash(git reflog expire:*)",
       "Bash(git gc --prune=now:*)",
 
-      "Bash(npx wrangler deploy:*)",
-      "Bash(npx wrangler pages deploy:*)",
       "Bash(npx wrangler versions deploy:*)",
       "Bash(npx wrangler triggers deploy:*)",
       "Bash(npx wrangler rollback:*)",
@@ -146,8 +149,6 @@
       "Bash(npx wrangler d1 execute --remote:*)",
       "Bash(npx wrangler secret:*)",
       "Bash(npx wrangler r2 object delete:*)",
-      "Bash(wrangler deploy:*)",
-      "Bash(wrangler pages deploy:*)",
       "Bash(wrangler delete:*)",
       "Bash(wrangler d1 delete:*)",
       "Bash(wrangler d1 time-travel restore:*)",
