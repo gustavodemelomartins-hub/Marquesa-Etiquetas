@@ -361,5 +361,119 @@ console.log('\n=== C–F. resumo de um mês ===');
   eq('mês impossível é recusado', invalido.status, 400);
 }
 
+/* ═══════════════════════════════════════════════════════ CENÁRIO K / L
+   O caso real: Juliana Negri, 30/08/2026, peça lançada com o código errado.
+   O certo é 326660. Não havia caminho nenhum pela interface, e as duas
+   saídas óbvias eram as duas erradas — cancelar e relançar perde a venda,
+   editar direto torna a correção indistinguível de um erro novo. */
+console.log('\n=== K/L. corrigir o SKU de uma venda operacional ===');
+{
+  const antesErrado = await saldo(P('999999'));
+  const antesCerto = await saldo(P('326660'));
+
+  const v = await api('POST', '/api/vendas', {
+    clienteNome: 'Juliana Negri', data: '2026-08-30',
+    itens: [{ sku: P('999999'), qtd: 1 }],
+  });
+  eq('venda de 30/08 registrada', v.status, 201);
+  const vendaId = v.corpo.id;
+  eq('estoque do código errado baixou', await saldo(P('999999')), antesErrado - 1);
+
+  const r = await api('POST', '/api/vendas/corrigir-item', {
+    fonte: 'operacional', vendaId, sku: P('999999'), skuNovo: P('326660'),
+    motivo: 'Código lançado errado no balcão',
+  });
+  eq('correção aceita', r.status, 200);
+  eq('e o texto da auditoria sai no formato pedido',
+    /^SKU corrigido de .* para .* em \d{2}\/\d{2}\/\d{4}\.$/.test(r.corpo.correcao.texto), 'true');
+
+  /* L — o estoque anda uma vez em cada lado */
+  eq('o código errado recebeu a peça de volta', await saldo(P('999999')), antesErrado);
+  eq('e o certo baixou uma', await saldo(P('326660')), antesCerto - 1);
+  verdade('a razão continua fechando', await razaoFecha());
+
+  /* a venda continua a mesma: cliente, data, preço, faturamento */
+  const dia = await api('GET', '/api/vendas?data=2026-08-30');
+  const venda = (dia.corpo ?? []).find((x) => x.id === vendaId);
+  verdade('a venda continua existindo', !!venda);
+  eq('mesma cliente', venda.clienteNome, 'Juliana Negri');
+  eq('mesma data', venda.data, '2026-08-30');
+  eq('mesmo total', venda.total, 60);
+  eq('o item agora tem o código certo', venda.itens[0].sku, P('326660'));
+  eq('e o nome da peça certa', venda.itens[0].desc, 'Brinco Argola Média Banho de Ouro 18k');
+  eq('a correção não alterou faturamento', r.corpo.faturamentoAlterado, 'false');
+
+  /* a auditoria aparece no perfil da cliente, junto do item */
+  const perfil = await api('GET', '/api/clientes/perfil?norm=' + encodeURIComponent('juliana negri'));
+  const c = (perfil.corpo.correcoes ?? [])[0];
+  verdade('a correção aparece na ficha da cliente', !!c);
+  eq('dizendo de qual código para qual', c && c.skuAntes + '→' + c.skuDepois,
+    `${P('999999')}→${P('326660')}`);
+  eq('e que o estoque foi movido', c && c.estoqueMovido, 'true');
+
+  /* corrigir de novo para o mesmo código é recusado */
+  const denovo = await api('POST', '/api/vendas/corrigir-item', {
+    fonte: 'operacional', vendaId, sku: P('326660'), skuNovo: P('326660'),
+  });
+  eq('corrigir para o mesmo código é recusado', denovo.status, 409);
+
+  /* código que não existe no catálogo é recusado antes de escrever nada */
+  const inexistente = await api('POST', '/api/vendas/corrigir-item', {
+    fonte: 'operacional', vendaId, sku: P('326660'), skuNovo: 'NAO-EXISTE',
+  });
+  eq('código fora do catálogo é recusado', inexistente.status, 400);
+  eq('e o estoque não se mexeu por causa disso', await saldo(P('326660')), antesCerto - 1);
+}
+
+/* ══════════════════════════════════════════════════════════ CENÁRIO M
+   Linha da planilha: o estoque dela já estava refletido no saldo inicial.
+   Movimentar aqui criaria uma peça no código errado e sumiria com uma no
+   certo — e é exatamente esse o erro que o cenário existe para impedir. */
+console.log('\n=== M. corrigir o SKU de uma linha do histórico ===');
+{
+  /* A planilha chega como array de arrays: cabeçalho + linhas, do mesmo
+     jeito que o SheetJS entrega no navegador. */
+  const lote = await api('POST', '/api/vendas/historico/importar', {
+    arquivo: 'correcao-pos-golive-1.xlsx',
+    linhas: [
+      ['Nº', 'Data', 'Nome do Cliente', 'ID Produto Marquesa', 'Nome Produto',
+        'Quantidade Vendida', 'Preço Unit. Venda', 'Valor Total Venda',
+        'Forma de Pagamento', 'Status Pagamento', 'Observação Venda'],
+      ['9001', '2026-04-10', 'Historica Correcao', P('999999'), 'Peça com código errado',
+        1, 60, 60, 'PIX', 'PAGO', 'Maleta'],
+    ],
+  });
+  eq('lote histórico importado', lote.status, 201);
+
+  const lista = await api('GET', '/api/vendas/lista?busca=' + encodeURIComponent('Historica Correcao'));
+  const linha = (lista.corpo?.itens ?? []).find((x) => x.fonte === 'historico');
+  verdade('a linha da planilha foi encontrada', !!linha,
+    linha ? JSON.stringify({ id: linha.id, sku: linha.sku }) : 'nenhuma');
+
+  if (!linha) {
+    bad('sem linha histórica para corrigir — o cenário M não rodou');
+  } else {
+    linha.itemId = linha.id ?? linha.itemId;
+    const antesErrado = await saldo(P('999999'));
+    const antesCerto = await saldo(P('326660'));
+    const r = await api('POST', '/api/vendas/corrigir-item', {
+      fonte: 'historico', historicoItemId: linha.itemId, skuNovo: P('326660'),
+      motivo: 'Código da planilha estava errado',
+    });
+    eq('correção histórica aceita', r.status, 200);
+    eq('e ela NÃO movimenta estoque', r.corpo.estoque.movimentado, 'false');
+    eq('o código errado não ganhou peça', await saldo(P('999999')), antesErrado);
+    eq('o certo não perdeu peça', await saldo(P('326660')), antesCerto);
+    verdade('a razão continua fechando', await razaoFecha());
+    verdade('e a célula da planilha continua intacta',
+      !!r.corpo.fontePreservada && r.corpo.fontePreservada.skuOriginal !== P('326660'));
+
+    const forcar = await api('POST', '/api/vendas/corrigir-item', {
+      fonte: 'historico', historicoItemId: linha.itemId, skuNovo: P('393950'), moverEstoque: true,
+    });
+    eq('forçar movimento numa linha de planilha é recusado', forcar.status, 409);
+  }
+}
+
 console.log(falhas ? `\n${falhas} FALHA(S)\n` : '\nTudo passou.\n');
 process.exit(falhas ? 1 : 0);

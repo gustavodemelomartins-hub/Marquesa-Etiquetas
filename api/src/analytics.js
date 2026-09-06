@@ -39,6 +39,10 @@
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import { REGRA_DESCRITA } from './vendas-historicas.js';
 import { categoriaDoItem } from './categoria-nome.js';
+/* §41 — as correções de código, para o histórico da cliente poder mostrar
+   "SKU corrigido de X para Y" ao lado do item, e para a linha da planilha
+   exibir o nome da peça CERTA sem reescrever o que a planilha dizia. */
+import { correcoesDeVenda } from './venda-correcao.js';
 /* §37 — "A receber" passou a somar as três fontes de dívida de cliente:
    compra histórica em aberto, venda do sistema não paga e diferença de
    troca de garantia. Antes só a primeira aparecia, e a venda fiada de
@@ -1019,6 +1023,50 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
     if (i.fonte === 'historico') i.categoria = catalogo('historico', i.sku_base);
   }
 
+  /* §41 — as correções de código desta cliente.
+   *
+   *  Duas coisas dependem disto. A tela mostra "SKU corrigido de X para Y em
+   *  DD/MM/AAAA" ao lado do item, para a correção nunca ser confundida com
+   *  um erro de digitação novo. E o ramo HISTÓRICO passa a exibir o nome da
+   *  peça certa: `vendas_historico_itens.nome_produto_historico` é o nome NA
+   *  ÉPOCA, dado da planilha, e não é reescrito — quem resolve o nome novo é
+   *  a correção registrada, aqui, na leitura.
+   *
+   *  Falhar não derruba o perfil: banco anterior à migration continua
+   *  abrindo a ficha inteira, só sem as correções. */
+  let correcoes = [];
+  try {
+    correcoes = await correcoesDeVenda(db, {
+      vendaId: null,
+      historicoItemIds: itens.filter((i) => i.fonte === 'historico' && i.item_id != null)
+        .map((i) => i.item_id),
+    });
+    const idsOperacionais = [...new Set(vendas.filter((v) => v.fonte === 'operacional').map((v) => v.id))];
+    for (const vid of idsOperacionais) {
+      correcoes.push(...await correcoesDeVenda(db, { vendaId: vid }));
+    }
+  } catch { correcoes = []; }
+
+  const correcaoDe = new Map();
+  for (const c of correcoes) {
+    const k = c.fonte === 'historico'
+      ? `h:${c.historicoItemId}` : `v:${c.vendaId}:${String(c.skuDepois).toUpperCase()}`;
+    /* A última correção manda: corrigir duas vezes é possível, e é a mais
+       recente que descreve o estado de agora. As anteriores continuam na
+       tabela de auditoria, que é onde a história inteira mora. */
+    correcaoDe.set(k, c);
+  }
+  for (const i of itens) {
+    const k = i.fonte === 'historico'
+      ? `h:${i.item_id}` : `v:${i.venda_ref}:${String(i.sku ?? '').toUpperCase()}`;
+    const c = correcaoDe.get(k);
+    if (!c) continue;
+    i.correcao = c;
+    /* Só o histórico precisa do nome resolvido: no operacional a própria
+       linha da venda já foi corrigida. */
+    if (i.fonte === 'historico' && c.descDepois) i.nome = c.descDepois;
+  }
+
   /* §38 — TRÊS números, e não um.
    *
    *  O card do perfil dizia "GASTOU R$ 192,80" somando `faturamento`, que no
@@ -1151,6 +1199,9 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
         : i.venda_ref === v.id && i.fonte === 'operacional')),
     })),
     totalItens: itens.length,
+    /* §41 — a lista completa de correções desta ficha, para a auditoria
+       poder ser lida de cima sem procurar item por item. */
+    correcoes,
     /* §31: a lista completa, e o recorte do que ainda está pendente. A tela
        casa cada garantia com o item pelo par (vendaId, sku) — a mesma
        identidade que a garantia guarda. */

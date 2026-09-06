@@ -212,7 +212,75 @@ console.log('\n=== 4. clicar numa barra abre o resumo do mês (§40) ===');
   eq('fechar remove o resumo', await page.locator('#resumoMesBox').count(), 0);
 }
 
-console.log('\n=== 5. o console ficou limpo ===');
+console.log('\n=== 5. corrigir o código de uma peça vendida (§41) ===');
+{
+  /* uma venda com o código errado, para corrigir pela tela */
+  await api('POST', '/api/produtos/importar', {
+    produtos: [
+      { sku: P('ERRADO'), desc: 'Peça Lançada Errada', preco: 60, cat: 'Brincos', qtd: 5 },
+      { sku: P('CERTO'), desc: 'Brinco Argola Média', preco: 60, cat: 'Brincos', qtd: 5 },
+    ],
+  });
+  await api('POST', '/api/vendas', {
+    clienteNome: 'Juliana Negri', data: '2026-08-30', itens: [{ sku: P('ERRADO'), qtd: 1 }],
+  });
+
+  await page.evaluate(() => switchTab('cli:juliana negri'));
+  await page.waitForTimeout(2000);
+
+  const botoes = page.locator('#view-cliente .tl-item .vd-lapis');
+  verdade('o item tem ação de corrigir código', (await botoes.count()) >= 2,
+    String(await botoes.count()));
+  await botoes.nth(1).click();
+  await page.waitForTimeout(600);
+  verdade('o modal de correção abriu',
+    await page.locator('#corrOverlay').evaluate((e) => e.classList.contains('show')));
+
+  /* código inexistente: recusado ANTES de confirmar */
+  await page.fill('#cor-sku', 'NAO-EXISTE-MESMO');
+  /* o catálogo em memória não conhece o código, então a tela pergunta ao
+     servidor depois de uma pausa de digitação — a espera aqui é essa pausa
+     mais a ida e volta */
+  await page.waitForTimeout(1500);
+  verdade('código fora do catálogo é barrado na hora',
+    /Nenhuma peça/.test(await page.locator('#cor-achado').innerText()));
+  eq('e o botão de confirmar fica desligado',
+    await page.locator('#corConfirm').isDisabled(), 'true');
+
+  /* o código certo mostra QUAL peça é antes de confirmar */
+  await page.fill('#cor-sku', P('CERTO'));
+  await page.waitForTimeout(2500);
+  const achado = await page.locator('#cor-achado').innerText();
+  verdade('o código certo mostra a peça antes de confirmar',
+    /Brinco Argola Média/.test(achado), achado.trim());
+  eq('e libera o confirmar', await page.locator('#corConfirm').isDisabled(), 'false');
+
+  const antes = await api('GET', '/api/state');
+  const saldoDe = (st, sku) => Number((st.corpo?.produtos ?? []).find((x) => x.sku === sku)?.qtd ?? -1);
+
+  await page.fill('#cor-motivo', 'Código lançado errado no balcão');
+  await page.click('#corConfirm');
+  await page.waitForTimeout(2500);
+
+  eq('o modal fechou', await page.locator('#corrOverlay').evaluate((e) => e.classList.contains('show')), 'false');
+  const depois = await api('GET', '/api/state');
+  eq('o código errado recebeu a peça de volta',
+    saldoDe(depois, P('ERRADO')), saldoDe(antes, P('ERRADO')) + 1);
+  eq('e o certo baixou uma',
+    saldoDe(depois, P('CERTO')), saldoDe(antes, P('CERTO')) - 1);
+
+  const ficha = await page.locator('#view-cliente').innerText();
+  verdade('a ficha mostra o texto da auditoria',
+    /SKU corrigido de .* para .* em \d{2}\/\d{2}\/\d{4}/.test(ficha),
+    (ficha.match(/SKU corrigido[^\n]*/) || [''])[0]);
+  verdade('e a peça certa aparece no histórico', /Brinco Argola Média/.test(ficha));
+
+  const conf = await api('GET', '/api/estoque/conferir');
+  eq('a razão fecha depois da correção',
+    JSON.stringify(conf.corpo?.divergentes ?? []), '[]');
+}
+
+console.log('\n=== 6. o console ficou limpo ===');
 eq('nenhum erro de JavaScript', erros.length, 0);
 if (erros.length) erros.slice(0, 6).forEach((e) => console.log('     ' + e));
 

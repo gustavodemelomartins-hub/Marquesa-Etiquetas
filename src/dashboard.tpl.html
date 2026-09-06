@@ -1659,6 +1659,21 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
   </div>
 </div>
 
+<!-- ============ CORRIGIR CÓDIGO DA PEÇA (§41) ============ -->
+<!-- O caso da Juliana Negri: a peça foi lançada com o código errado e a
+     venda continua valendo. Cancelar e relançar perderia data, cliente e
+     desconto; editar direto tornaria a correção indistinguível de um erro
+     novo. Aqui a venda fica de pé, o código muda, e a troca fica auditada. -->
+<div class="overlay center" id="corrOverlay" onclick="if(event.target===this)closeCorrecao()">
+  <div class="modal" style="max-width:560px">
+    <div class="mhead">
+      <h2>Corrigir peça / código</h2>
+      <button class="closebtn" onclick="closeCorrecao()">×</button>
+    </div>
+    <div class="mbody" id="corrBody"></div>
+  </div>
+</div>
+
 <!-- ============ ACERTO ============ -->
 <div class="overlay center" id="acOverlay" onclick="if(event.target===this)closeAcerto()">
   <div class="modal">
@@ -9391,7 +9406,24 @@ async function abrirPerfilCliente(chave){
               ${(i.fonte==='historico'&&i.item_id==null)?'':`<button class="vd-lapis"
                 title="Registrar garantia ou reparo desta peça"
                 aria-label="Registrar garantia de ${esc(i.nome||i.sku||'')}"
-                onclick='openGarantia(${JSON.stringify(ctx).replace(/'/g,"&#39;")})'>${svgIco(ICO.brilho,14)}</button>`}</div>
+                onclick='openGarantia(${JSON.stringify(ctx).replace(/'/g,"&#39;")})'>${svgIco(ICO.brilho,14)}</button>`}
+              ${/* §41 — corrigir o código desta linha. A venda não é
+                    cancelada nem recriada: muda a identidade da peça, e o
+                    estoque acompanha uma vez só quando a venda é do
+                    sistema. */
+                (i.fonte==='historico'&&i.item_id==null)?'':`<button class="vd-lapis"
+                title="Corrigir o código desta peça"
+                aria-label="Corrigir o código de ${esc(i.nome||i.sku||'')}"
+                onclick='openCorrecao(${JSON.stringify({
+                  fonte:i.fonte, vendaId:v.id, historicoItemId:i.fonte==='historico'?i.item_id:null,
+                  sku:i.sku, variacao:i.variacao||null, produto:i.nome, qtd:i.qtd,
+                  data:v.data, cliente:p.nomeExibicao,
+                }).replace(/'/g,"&#39;")})'>${svgIco(ICO.etiqueta,14)}</button>`}</div>
+              ${i.correcao?`<div class="tl-item" style="opacity:.85">
+                <span class="q">·</span>
+                <span style="flex:1"><b>${esc(i.correcao.texto)}</b>${
+                  i.correcao.motivo?' '+esc(i.correcao.motivo):''}${
+                  i.correcao.estoqueMovido?' · estoque ajustado nos dois códigos':' · estoque não movimentado'}</span></div>`:''}
             ${gs.map(g=>`
             <div class="tl-item" style="cursor:pointer;opacity:.92" onclick="abrirGarantiaDetalhe(${g.id})">
               <span class="q">·</span>
@@ -9435,6 +9467,150 @@ async function abrirPerfilCliente(chave){
           de planilha: uma cliente que levou 36 peças no mesmo dia aparece uma vez.</div>`
       :`<div class="empty"><p>Sem compras registradas.</p></div>`)}`;
   window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ═══════════════════ §41 — corrigir o código de uma peça já vendida
+ *
+ *  O caso da Juliana Negri, 30/08/2026: peça lançada com o código errado, e
+ *  a venda continua valendo. As duas saídas óbvias são as duas erradas —
+ *  cancelar e relançar perde data, cliente e desconto; editar direto deixa a
+ *  correção indistinguível de um erro de digitação novo.
+ *
+ *  O fluxo aqui é: digitar o código certo, VER qual peça é (nome, categoria,
+ *  disponível) e só então confirmar. Confirmar sem ver seria trocar um
+ *  código errado por outro. */
+let corrCtx=null;
+
+function openCorrecao(ctx){
+  corrCtx=ctx;
+  const operacional=ctx.fonte!=='historico';
+  document.getElementById('corrBody').innerHTML=`
+    <div class="panel" style="box-shadow:none;margin:0 0 14px">
+      <div class="body" style="padding:12px 14px">
+        <div class="d1">${esc(ctx.produto||ctx.sku||'—')}</div>
+        <div class="hint" style="margin-top:4px">
+          <code>${esc(ctx.sku||'—')}</code>${ctx.variacao?' · '+esc(ctx.variacao):''} ·
+          compra de ${ctx.data?fmtData(ctx.data):'data não registrada'}
+          ${ctx.cliente?' · '+esc(ctx.cliente):''}</div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="cor-sku">Código correto <span class="req">*</span></label>
+      <input id="cor-sku" maxlength="40" placeholder="326660" autocomplete="off"
+             oninput="buscarPecaDaCorrecao()">
+    </div>
+    <div id="cor-achado" class="hint" style="min-height:34px">Digite o código para
+      conferir de qual peça se trata antes de confirmar.</div>
+    <div class="field">
+      <label for="cor-motivo">Por que está corrigindo</label>
+      <input id="cor-motivo" maxlength="160" placeholder="Código lançado errado no balcão">
+    </div>
+    <div class="hint">${operacional
+      ? 'Esta é uma venda do sistema: a correção devolve <b>uma</b> peça ao código errado e '
+        + 'tira <b>uma</b> do certo — exatamente uma vez cada. A venda, a cliente, a data e o '
+        + 'preço não mudam, e o faturamento também não.'
+      : 'Esta é uma linha da planilha: o estoque dela já estava refletido no saldo inicial, '
+        + 'então <b>nada</b> é movimentado. A célula original da planilha continua intacta — '
+        + 'o que muda é a leitura dela.'}</div>
+    <div class="vd-erro" id="cor-erro" hidden></div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeCorrecao()">Voltar</button>
+      <div class="spacer"></div>
+      <button class="btn btn-gold" id="corConfirm" onclick="salvarCorrecao()" disabled>Corrigir</button>
+    </div>`;
+  document.getElementById('corrOverlay').classList.add('show');
+  setTimeout(()=>document.getElementById('cor-sku').focus(),80);
+}
+function closeCorrecao(){
+  document.getElementById('corrOverlay').classList.remove('show');
+  corrCtx=null;
+}
+
+/** Mostra QUAL peça é o código digitado — nome, categoria e disponível. É o
+ *  passo que impede trocar um código errado por outro código errado.
+ *
+ *  O catálogo em memória responde na hora e serve para a quase totalidade
+ *  dos casos. Quando ele não conhece o código, a pergunta vai ao servidor
+ *  DEPOIS de uma pausa de digitação: a peça pode ter sido cadastrada no
+ *  celular há dois minutos, e dizer "não existe" sem perguntar seria
+ *  responder pela memória desta aba. O debounce existe para a consulta não
+ *  sair a cada tecla — é leitura do D1, e §34 vale aqui também. */
+let corrBusca=null;
+function buscarPecaDaCorrecao(){
+  const alvo=document.getElementById('cor-achado');
+  const btn=document.getElementById('corConfirm');
+  const sku=String(document.getElementById('cor-sku').value||'').trim().toUpperCase();
+  clearTimeout(corrBusca);
+  if(!sku){ alvo.innerHTML='Digite o código para conferir de qual peça se trata antes de confirmar.';
+    btn.disabled=true; return; }
+  const p=(state.produtos||[]).find(x=>String(x.sku).toUpperCase()===sku);
+  if(!p){
+    alvo.innerHTML='Procurando…';
+    btn.disabled=true;
+    corrBusca=setTimeout(async()=>{
+      /* A aba pode ter sido aberta antes do cadastro da peça. */
+      let achou=null;
+      try{
+        const r=await api('GET','/api/produtos/sku/checar?sku='+encodeURIComponent(sku));
+        achou=(r.usos||[]).find(u=>u.onde==='produtos')||null;
+      }catch(e){ /* sem rede: fica a resposta do catálogo em memória */ }
+      if(String(document.getElementById('cor-sku')?.value||'').trim().toUpperCase()!==sku) return;
+      if(!achou){
+        alvo.innerHTML=`<span style="color:var(--danger)">Nenhuma peça com o código
+          <code>${esc(sku)}</code> no catálogo.</span>`;
+        btn.disabled=true; return;
+      }
+      /* Achada no servidor: o painel ainda não a tem em memória, então
+         recarrega o estado e refaz a conferência com o dado completo. */
+      await carregarEstado();
+      buscarPecaDaCorrecao();
+    },350);
+    return;
+  }
+  if(String(p.sku).toUpperCase()===String(corrCtx.sku||'').toUpperCase()){
+    alvo.innerHTML='<span style="color:var(--danger)">Esse já é o código atual desta linha.</span>';
+    btn.disabled=true; return;
+  }
+  const precisa=Number(corrCtx.qtd||1);
+  const falta=corrCtx.fonte!=='historico'&&Number(p.disponivel)<precisa;
+  alvo.innerHTML=`<b style="color:var(--bordo)">${esc(p.desc)}</b>
+    ${p.cat?' · '+esc(p.cat):''} · ${fmtN(p.disponivel)} ${plural(p.disponivel,'disponível','disponíveis')}
+    ${p.variacoes&&p.variacoes.length>1
+      ? `<br><span style="color:var(--danger)">Este código tem ${p.variacoes.length} variações — a
+         correção vai pedir qual saiu.</span>` : ''}
+    ${falta?`<br><span style="color:var(--danger)">Não há peça disponível suficiente
+      (precisa de ${fmtN(precisa)}).</span>`:''}`;
+  btn.disabled=falta;
+}
+
+async function salvarCorrecao(){
+  const erro=document.getElementById('cor-erro');
+  const dizer=m=>{ if(erro){ erro.textContent=m; erro.hidden=false; } };
+  erro.hidden=true;
+  const skuNovo=String(document.getElementById('cor-sku').value||'').trim().toUpperCase();
+  if(!skuNovo) return dizer('Diga o código correto.');
+
+  const corpo={ fonte:corrCtx.fonte, skuNovo,
+    motivo:String(document.getElementById('cor-motivo').value||'').trim()||undefined };
+  if(corrCtx.fonte==='historico') corpo.historicoItemId=corrCtx.historicoItemId;
+  else { corpo.vendaId=corrCtx.vendaId; corpo.sku=corrCtx.sku; }
+
+  const btn=document.getElementById('corConfirm');
+  btn.disabled=true;
+  try{
+    const r=await api('POST','/api/vendas/corrigir-item',corpo);
+    closeCorrecao();
+    await sincronizar();
+    toast(r.resumo||'Código corrigido');
+    if(perfilNormAtual) await abrirPerfilCliente(perfilNormAtual);
+  }catch(e){
+    btn.disabled=false;
+    /* A recusa por variação vem com a lista das que existem: repetir o
+       pedido sem ela seria pedir que ela adivinhe qual o servidor quer. */
+    const vars=(e.data&&e.data.variacoes)||[];
+    dizer((e.message||'Não consegui corrigir')
+      +(vars.length?' — variações: '+vars.map(v=>v.nome).join(', '):''));
+  }
 }
 
 /* =================== Garantia / reparo ===================

@@ -53,6 +53,8 @@ import {
 import { historicoDoDia, lancamentosDoDia } from './historico-dia.js';
 /* §37 — a lista única de quem deve. Ver api/src/contas-receber.js. */
 import { contasAReceber, definirPrazoDaConta, receberConta } from './contas-receber.js';
+/* §41 — corrigir o código de uma peça já vendida, sem cancelar a venda. */
+import { corrigirItemDeVenda, listarCorrecoes } from './venda-correcao.js';
 /* §34 — medição de leitura do D1. Desligada por padrão; ver d1-metrica.js. */
 import {
   criarContador, medirD1, carimbarMetrica, metricasLigadas,
@@ -639,6 +641,21 @@ async function rotear(request, env, contador = null) {
          venda foi registrada. */
       if ((m = path.match(/^\/api\/vendas\/(\d+)\/pagamento$/)) && met === 'POST') {
         return await registrarPagamentoVenda(db, +m[1], await request.json().catch(() => ({})));
+      }
+      /* §41 — o código da peça estava errado e a venda continua valendo.
+         Mantém venda, cliente, data e preço; troca só a identidade da peça,
+         devolve uma unidade ao código errado e tira uma do certo (venda do
+         sistema) ou não movimenta nada (linha da planilha, cujo estoque já
+         estava refletido). Registra a auditoria em `venda_item_correcoes`. */
+      if (path === '/api/vendas/corrigir-item' && met === 'POST') {
+        const r = await corrigirItemDeVenda(db, await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+      }
+      if (path === '/api/vendas/correcoes' && met === 'GET') {
+        return json(await listarCorrecoes(db, {
+          limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
+          offset: +(url.searchParams.get('offset') || 0),
+        }));
       }
       if ((m = path.match(/^\/api\/vendas\/(\d+)\/cancelar$/)) && met === 'POST') {
         return await cancelarVenda(db, env, +m[1]);
