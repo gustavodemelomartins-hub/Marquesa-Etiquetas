@@ -19,6 +19,7 @@ import {
 import { conferirAssinaturaFoto } from './assinatura.js';
 import {
   importarVariantesDaLoja, variacoesParaRevisao, variantesDoSku, distribuirVariantes,
+  reconciliarVariacoes,
 } from './variantes.js';
 import {
   dependenciasDoProduto, excluirProduto, arquivarProduto, desarquivarProduto, definirVariacoes,
@@ -55,6 +56,11 @@ import { historicoDoDia, lancamentosDoDia } from './historico-dia.js';
 import { contasAReceber, definirPrazoDaConta, receberConta } from './contas-receber.js';
 /* §41 — corrigir o código de uma peça já vendida, sem cancelar a venda. */
 import { corrigirItemDeVenda, listarCorrecoes } from './venda-correcao.js';
+/* §42 — a Central de Pendências e as duas formas de resolver uma variação. */
+import {
+  listarPendencias, adiarPendencia, retomarPendencia,
+  resolverVariacaoDaVenda, resolverVariacaoDaMaleta,
+} from './pendencias.js';
 /* §34 — medição de leitura do D1. Desligada por padrão; ver d1-metrica.js. */
 import {
   criarContador, medirD1, carimbarMetrica, metricasLigadas,
@@ -295,6 +301,44 @@ async function rotear(request, env, contador = null) {
       // decidiu NÃO escrever, com os dois números lado a lado.
       if (path === '/api/variacoes/revisao' && met === 'GET') {
         return json(await variacoesParaRevisao(db));
+      }
+
+      /* §42 — a CENTRAL DE PENDÊNCIAS.
+         O sistema já dizia "REVISAR VARIAÇÃO" com precisão e parava ali.
+         Aqui todos os casos em aberto de todas as fontes viram uma lista só,
+         cada um com o caminho para resolver. É leitura derivada do estado —
+         não há tabela de pendências, e resolver o caso o faz sumir sozinho.
+         Resolver uma variação é dizer QUAL peça saiu: identidade, nunca uma
+         segunda baixa de estoque. */
+      /* §42.6 — a comparação READ-ONLY das três fontes: o que sabemos aqui,
+         as variações cadastradas e o espelho da loja. Classifica em
+         RESOLVIDO, PENDENTE_HUMANO e DIVERGENCIA_REAL, e não escreve em
+         lugar nenhum — nem no banco, nem na Nuvemshop. É o relatório que
+         vem ANTES de qualquer sincronização de escrita. */
+      if (path === '/api/variacoes/reconciliacao' && met === 'GET') {
+        return json(await reconciliarVariacoes(db));
+      }
+      if (path === '/api/pendencias' && met === 'GET') {
+        return json(await listarPendencias(db, {
+          tipo: url.searchParams.get('tipo') || null,
+          incluirAdiadas: url.searchParams.get('adiadas') === '1',
+        }));
+      }
+      if (path === '/api/pendencias/adiar' && met === 'POST') {
+        const r = await adiarPendencia(db, await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
+      }
+      if (path === '/api/pendencias/retomar' && met === 'POST') {
+        const r = await retomarPendencia(db, await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
+      }
+      if (path === '/api/pendencias/variacao/venda' && met === 'POST') {
+        const r = await resolverVariacaoDaVenda(db, await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+      }
+      if (path === '/api/pendencias/variacao/maleta' && met === 'POST') {
+        const r = await resolverVariacaoDaMaleta(db, await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
       }
 
       /* A confirmação humana que tira um produto de `sem_reparticao`.

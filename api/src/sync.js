@@ -797,6 +797,10 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
         saldoPorNome: saldos.porNome(p.sku),
         saldoPorVariante: saldos.porVariante(p.sku),
         persistido: saldos.persistido(p.sku),
+        /* §42 — quando a maleta já disse qual variação levou, o freio da
+           maleta deixa de segurar este código. Vazio, o comportamento é o
+           de sempre: peça fora de casa sem identidade não empurra nada. */
+        consignadoPorVariacao: saldos.consignado(p.sku),
       });
 
       if (!r.ok) {

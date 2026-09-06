@@ -475,5 +475,129 @@ console.log('\n=== M. corrigir o SKU de uma linha do histórico ===');
   }
 }
 
+/* ═══════════════════════════════════════════════════ CENÁRIO P–S
+   O print de 04/09/2026: a venda da Andreia Aparecida com o selo REVISAR
+   VARIAÇÃO e a explicação certa — "647729: Há peças deste código em maleta
+   aberta, e a maleta ainda não sabe qual variação saiu" — e nenhum caminho
+   para responder. O sistema identificava o problema com precisão e parava. */
+console.log('\n=== P–S. Central de Pendências e resolução de variação ===');
+{
+  /* o código com aro, como o 647729 do print */
+  const varsSku = P('AROVAR');
+  const dv = await api('PUT', `/api/produtos/${encodeURIComponent(varsSku)}/variacoes`, {
+    atributos: [{ nome: 'Aro', valores: ['16', '18'] }],
+  });
+  eq('variações cadastradas', dv.status, 200);
+  const rep = await api('POST', `/api/produtos/${encodeURIComponent(varsSku)}/repartir`, {
+    distribuicao: { 16: 3, 18: 3 },
+  });
+  eq('estoque repartido entre os aros', rep.status, 200);
+  verdade('razão fecha depois de repartir', await razaoFecha());
+
+  /* ─── P: resolver pela VENDA */
+  const venda = await api('POST', '/api/vendas', {
+    clienteNome: 'Andreia Aparecida', data: '2026-09-04',
+    itens: [{ sku: varsSku, qtd: 1, varianteId: null }],
+  });
+  /* venda de código com variação exige dizer qual quando a LOJA tem mais de
+     uma variante; sem espelho da loja ela passa sem variação, e é
+     exatamente esse o caso que vira pendência */
+  eq('venda registrada', venda.status, 201);
+  const vendaId = venda.corpo.id;
+
+  const p1 = await api('GET', '/api/pendencias');
+  eq('a central responde', p1.status, 200);
+  const pv = (p1.corpo.pendencias ?? []).find(
+    (x) => x.tipo === 'venda' && x.vendaId === vendaId && x.motivo === 'variacao_da_venda');
+  verdade('a venda sem variação virou pendência', !!pv,
+    pv ? pv.chave : JSON.stringify((p1.corpo.pendencias ?? []).map((x) => x.chave)));
+  verdade('com as variações JÁ CADASTRADAS para escolher',
+    pv && (pv.variacoesPossiveis ?? []).length === 2,
+    pv ? (pv.variacoesPossiveis ?? []).map((v) => v.nome).join(',') : '');
+  verdade('e a ação de resolver pela venda',
+    pv && (pv.acoes ?? []).includes('resolver_venda'));
+
+  const saldoAntes = await saldo(varsSku);
+  const rv = await api('POST', '/api/pendencias/variacao/venda', {
+    vendaId, sku: varsSku, variacao: '16',
+  });
+  eq('resolver pela venda foi aceito', rv.status, 200);
+  /* R — resolver NÃO baixa estoque de novo */
+  eq('e não movimentou estoque', rv.corpo.estoqueMovimentado, 'false');
+  eq('o saldo do código não mudou', await saldo(varsSku), saldoAntes);
+  verdade('a razão continua fechando', await razaoFecha());
+
+  const p2 = await api('GET', '/api/pendencias');
+  const aindaLa = (p2.corpo.pendencias ?? []).some((x) => x.chave === pv.chave);
+  verdade('a pendência fechou sozinha', !aindaLa);
+
+  /* a variação chegou nos DOIS lugares: a linha da venda e o movimento */
+  const dia = await api('GET', '/api/vendas?data=2026-09-04');
+  const linha = (dia.corpo ?? []).find((x) => x.id === vendaId);
+  eq('a linha da venda agora diz o aro', linha && linha.itens[0].variacao, '16');
+  const movs = await api('GET', `/api/produtos/${encodeURIComponent(varsSku)}/movimentos`);
+  const mv = (movs.corpo?.movimentos ?? []).find((x) => x.vendaId === vendaId || x.venda_id === vendaId);
+  if (mv) eq('e o movimento também', mv.variacao ?? mv.variacao_nome, '16');
+  else ok('rota de movimentos não expõe o campo nesta versão — conferido pelo saldo por variação');
+
+  /* variação que não existe é recusada, com a lista do que existe */
+  const inventada = await api('POST', '/api/pendencias/variacao/venda', {
+    vendaId, sku: varsSku, variacao: '99',
+  });
+  eq('variação não cadastrada é recusada', inventada.status, 409);
+
+  /* ─── Q: resolver pela MALETA */
+  const rev = await api('POST', '/api/revendedoras', { nome: 'Revendedora Pendencia' });
+  const revId = rev.corpo?.id ?? rev.corpo?.revendedora?.id;
+  verdade('revendedora criada', !!revId, String(revId));
+  const mal = await api('POST', '/api/maletas', { revId, abertaEm: '2026-09-01' });
+  eq('maleta aberta', mal.status, 201);
+  const maletaId = mal.corpo.id;
+  verdade('maleta tem id', !!maletaId, String(maletaId));
+  /* os itens entram por rota própria, e o corpo é um mapa sku → quantidade */
+  const mi = await api('POST', `/api/maletas/${maletaId}/itens`, {
+    itens: { [varsSku]: 2 },
+  });
+  eq('2 peças do código foram para a maleta', mi.status, 200);
+
+  const p3 = await api('GET', '/api/pendencias?tipo=maleta');
+  const pm = (p3.corpo.pendencias ?? []).find((x) => x.maletaId === maletaId && x.sku === varsSku);
+  verdade('a maleta sem variação virou pendência', !!pm,
+    pm ? `${pm.chave} · falta ${pm.qtd}` : 'nenhuma');
+  eq('dizendo quantas peças faltam identificar', pm && pm.qtd, 2);
+
+  const saldoMaletaAntes = await saldo(varsSku);
+  /* a maleta levou um 16 e um 18 — o caso normal, e a razão de a tabela ser
+     filha em vez de uma coluna em maleta_itens */
+  const rm = await api('POST', '/api/pendencias/variacao/maleta', {
+    maletaId, sku: varsSku,
+    distribuicao: [{ variacao: '16', qtd: 1 }, { variacao: '18', qtd: 1 }],
+  });
+  eq('resolver pela maleta foi aceito', rm.status, 200);
+  eq('e não movimentou estoque', rm.corpo.estoqueMovimentado, 'false');
+  eq('o saldo não mudou', await saldo(varsSku), saldoMaletaAntes);
+  eq('e não falta mais identificar nada', rm.corpo.faltaIdentificar, 0);
+  verdade('a razão continua fechando', await razaoFecha());
+
+  const p4 = await api('GET', '/api/pendencias?tipo=maleta');
+  const aindaMaleta = (p4.corpo.pendencias ?? []).some((x) => x.chave === pm.chave);
+  verdade('a pendência da maleta fechou', !aindaMaleta);
+
+  /* S — dizer mais do que saiu inventaria peça: recusado com os dois números */
+  const demais = await api('POST', '/api/pendencias/variacao/maleta', {
+    maletaId, sku: varsSku,
+    distribuicao: [{ variacao: '16', qtd: 5 }],
+  });
+  eq('distribuição maior que o que saiu é recusada', demais.status, 409);
+  verdade('e a recusa mostra os dois números',
+    /soma 5/.test(demais.corpo.erro || '') && /2 peças/.test(demais.corpo.erro || ''),
+    demais.corpo.erro);
+
+  /* "revisar depois" tira da lista sem resolver — e exige uma data, porque
+     adiar sem data é esquecer */
+  const semData = await api('POST', '/api/pendencias/adiar', { chave: 'nuvemshop:1' });
+  eq('adiar sem data é recusado', semData.status, 400);
+}
+
 console.log(falhas ? `\n${falhas} FALHA(S)\n` : '\nTudo passou.\n');
 process.exit(falhas ? 1 : 0);

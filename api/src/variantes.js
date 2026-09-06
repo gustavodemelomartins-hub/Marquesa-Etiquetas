@@ -167,12 +167,30 @@ export const IMPEDIMENTOS = {
  */
 export function resolverVariantes(p, naLoja, {
   saldoPorNome = new Map(), saldoPorVariante = new Map(), persistido = new Map(),
+  consignadoPorVariacao = new Map(),
 } = {}) {
   const recusa = (motivo, detalhe) => ({ ok: false, motivo, explicacao: IMPEDIMENTOS[motivo], detalhe });
   const consignado = p.qtd - p.casa;
 
   if (naLoja.produtos.size > 1) return recusa('duplicado', { produtos: [...naLoja.produtos].map(String) });
-  if (consignado > 0) return recusa('maleta', { consignado });
+  /* §42 — a maleta agora PODE saber qual variação levou.
+   *
+   *  A recusa continua sendo a resposta certa quando ninguém disse: peça
+   *  fora de casa e sem identidade é exatamente o caso em que adivinhar
+   *  colocaria a variação errada à venda. O que mudou é existir um caminho
+   *  para responder — `maleta_item_variacoes`, preenchida em Pendências —
+   *  e a recusa passa a dizer QUANTO já foi identificado e quanto falta,
+   *  em vez de só apontar que há peça fora.
+   *
+   *  Identificar não movimenta estoque: a peça saiu quando a maleta abriu,
+   *  e dizer qual aro era não a faz sair de novo (§8.4 do pacote). */
+  const identificado = [...consignadoPorVariacao.values()].reduce((s, q) => s + Number(q || 0), 0);
+  if (consignado > identificado) {
+    return recusa('maleta', {
+      consignado, identificado, faltaIdentificar: consignado - identificado,
+      porVariacao: [...consignadoPorVariacao.entries()].map(([chave, qtd]) => ({ chave, qtd })),
+    });
+  }
 
   // Índice da loja pela identidade estável. Variante sem id é uma loja que
   // não respondeu direito — e sem id não existe casamento possível.
@@ -296,11 +314,30 @@ export async function saldosDeVariacao(db) {
     persistido.get(r.sku).set(r.nome, String(r.variante_id));
   }
 
+  /* §42 — quanto de cada variação está numa maleta ABERTA, quando alguém já
+     disse. Tabela nova (`maleta_item_variacoes`); banco que ainda não rodou
+     a migration devolve vazio, e o comportamento volta a ser o de antes:
+     nenhuma peça consignada identificada, e o freio da maleta segura. */
+  const consignado = new Map();
+  try {
+    for (const r of (await db.prepare(
+      `SELECT mv.sku, COALESCE(mv.variante_id, mv.variacao) AS chave, SUM(mv.qtd) AS qtd
+         FROM maleta_item_variacoes mv
+         JOIN maletas m ON m.id = mv.maleta_id
+        WHERE m.status IN ('aberta','em_acerto')
+        GROUP BY mv.sku, chave`).all()).results) {
+      if (!consignado.has(r.sku)) consignado.set(r.sku, new Map());
+      const m = consignado.get(r.sku);
+      m.set(String(r.chave), (m.get(String(r.chave)) || 0) + Number(r.qtd || 0));
+    }
+  } catch (e) { /* migration pendente: segue sem nenhuma identificada */ }
+
   const vazio = new Map();
   return {
     porNome: (sku) => porNome.get(sku) || vazio,
     porVariante: (sku) => porVariante.get(sku) || vazio,
     persistido: (sku) => persistido.get(sku) || vazio,
+    consignado: (sku) => consignado.get(sku) || vazio,
   };
 }
 
@@ -374,6 +411,7 @@ export async function variacoesParaRevisao(db) {
       saldoPorNome: saldos.porNome(p.sku),
       saldoPorVariante: saldos.porVariante(p.sku),
       persistido: saldos.persistido(p.sku),
+      consignadoPorVariacao: saldos.consignado(p.sku),
     });
     if (r.ok) continue;
 
@@ -679,5 +717,172 @@ export async function distribuirVariantes(db, sku, { distribuicao, obs, ajustarT
     mudou: feito,
     orfaosDevolvidos: orfaos.map(b => ({ nome: b.variacao, saldo: b.saldo })),
     jaEstava: feito.length === 0 && orfaos.length === 0 && !totalAjustado,
+  };
+}
+
+/* ==================================================================== */
+/* 5. RECONCILIAÇÃO DE VARIAÇÕES — LEITURA PURA                         */
+/* ==================================================================== */
+
+/** §42.6 — a comparação das TRÊS fontes, sem escrever em lugar nenhum.
+ *
+ *  Depois de resolver pendências, a pergunta que sobra é: o que ainda não
+ *  bate? Ela tem três respostas possíveis, e confundi-las é o que faz
+ *  alguém escrever na loja quando devia perguntar:
+ *
+ *    RESOLVIDO          nós sabemos qual variação é qual, e o número da loja
+ *                       já é o nosso. Nada a fazer.
+ *    PENDENTE_HUMANO    falta uma decisão de gente: peça em maleta sem
+ *                       variação identificada, estoque não repartido,
+ *                       variação que a loja não conhece. NÃO é divergência
+ *                       de número — é falta de informação, e escrever aqui
+ *                       colocaria a variação errada à venda.
+ *    DIVERGENCIA_REAL   nós sabemos qual é qual, e o número da loja está
+ *                       diferente do nosso. Isto sim é para empurrar — e o
+ *                       empurrão é `POST /api/sync`, com autorização, nunca
+ *                       daqui.
+ *
+ *  Esta função não chama a Nuvemshop: ela lê o ESPELHO (`loja_variantes`),
+ *  que a sincronização mantém. Ler a loja é outro ato, e misturar os dois é
+ *  como o estoque já foi bagunçado antes.
+ */
+export async function reconciliarVariacoes(db) {
+  const linhas = (await db.prepare(`
+    SELECT sku_norm AS sku, produto_id, variante_id, nome, estoque, valores_json, posicao
+      FROM loja_variantes
+     WHERE sku_norm IS NOT NULL
+     ORDER BY sku_norm, posicao`).all()).results;
+
+  const porSku = new Map();
+  for (const l of linhas) {
+    if (!porSku.has(l.sku)) porSku.set(l.sku, []);
+    porSku.get(l.sku).push(l);
+  }
+
+  const produtos = new Map();
+  for (const p of (await db.prepare(`
+    WITH fora AS (
+      SELECT mi.sku AS sku, SUM(mi.qtd - mi.devolvida) AS consignado
+        FROM maleta_itens mi JOIN maletas m ON m.id = mi.maleta_id
+       WHERE m.status IN ('aberta','em_acerto')
+       GROUP BY mi.sku
+    )
+    SELECT p.sku, p.desc, p.qtd, p.qtd - COALESCE(f.consignado, 0) AS casa
+      FROM produtos p LEFT JOIN fora f ON f.sku = p.sku
+     WHERE p.status = 'ativo'`).all()).results) {
+    produtos.set(normSku(p.sku), p);
+  }
+
+  /* As variações CADASTRADAS aqui — a terceira fonte. É contra ela que se
+     mede "a Sthefany já cadastrou todas as que possui". */
+  const cadastradas = new Map();
+  for (const v of (await db.prepare(
+    `SELECT sku, nome, variante_id FROM produto_variacoes ORDER BY sku, ordem, nome`).all()).results) {
+    const k = normSku(v.sku);
+    if (!cadastradas.has(k)) cadastradas.set(k, []);
+    cadastradas.get(k).push({
+      nome: v.nome, varianteId: v.variante_id == null ? null : String(v.variante_id),
+    });
+  }
+
+  const saldos = await saldosDeVariacao(db);
+  const resolvidos = [];
+  const pendentes = [];
+  const divergentes = [];
+  const soNaLoja = [];
+
+  for (const [sku, vars] of porSku) {
+    const p = produtos.get(sku);
+    if (!p) { soNaLoja.push({ sku, variantes: vars.length }); continue; }
+    if (vars.length < 2) continue;                 // sem variação, outro assunto
+
+    const naLoja = {
+      produtos: new Set(vars.map((v) => String(v.produto_id))),
+      variantes: vars.map((v) => ({
+        varianteId: String(v.variante_id), produtoId: String(v.produto_id),
+        nome: v.nome, estoque: v.estoque == null ? 0 : v.estoque, locais: [],
+      })),
+    };
+
+    const r = resolverVariantes(p, naLoja, {
+      saldoPorNome: saldos.porNome(p.sku),
+      saldoPorVariante: saldos.porVariante(p.sku),
+      persistido: saldos.persistido(p.sku),
+      consignadoPorVariacao: saldos.consignado(p.sku),
+    });
+
+    const base = {
+      sku: p.sku,
+      produto: p.desc,
+      total: p.qtd,
+      casa: p.casa,
+      cadastradas: cadastradas.get(sku) ?? [],
+      naLoja: vars.map((v) => ({
+        varianteId: String(v.variante_id), nome: v.nome,
+        estoque: v.estoque == null ? null : Number(v.estoque),
+      })),
+    };
+
+    if (!r.ok) {
+      pendentes.push({
+        ...base,
+        classe: 'PENDENTE_HUMANO',
+        motivo: r.motivo,
+        explicacao: r.explicacao,
+        detalhe: r.detalhe ?? null,
+        /* O que fazer, dito por extenso — a lista existe para ser agida,
+           não para ser contemplada. */
+        caminho: r.motivo === 'maleta'
+          ? 'Pendências › Central: diga qual variação está na maleta.'
+          : r.motivo === 'sem_reparticao'
+            ? 'Pendências › Variações: reparta o estoque entre as variações.'
+            : r.motivo === 'variacao_nao_mapeada'
+              ? 'Confira se a loja renomeou um valor; remapeie a variação antes de sincronizar.'
+              : r.motivo === 'duplicado'
+                ? 'O mesmo código está em dois anúncios da loja. Escolha um.'
+                : 'A loja não informou o id de alguma variante — releia o catálogo dela.',
+      });
+      continue;
+    }
+
+    /* Sabemos qual é qual. Falta ver se o número já é o mesmo. */
+    const difere = r.alvos.filter((a) => Number(a.de ?? 0) !== Number(a.para ?? 0));
+    if (!difere.length) {
+      resolvidos.push({ ...base, classe: 'RESOLVIDO' });
+    } else {
+      divergentes.push({
+        ...base,
+        classe: 'DIVERGENCIA_REAL',
+        diferencas: difere.map((a) => ({
+          varianteId: String(a.varianteId), nome: a.nome,
+          naLoja: Number(a.de ?? 0), aqui: Number(a.para ?? 0),
+          delta: Number(a.para ?? 0) - Number(a.de ?? 0),
+        })),
+        caminho: 'Isto é para empurrar. Rode POST /api/sync {"seco": true} para conferir '
+          + 'o relatório e só então autorize a escrita.',
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    lidoEm: new Date().toISOString(),
+    somenteLeitura: true,
+    resumo: {
+      codigos: resolvidos.length + pendentes.length + divergentes.length,
+      resolvidos: resolvidos.length,
+      pendenteHumano: pendentes.length,
+      divergenciaReal: divergentes.length,
+      soNaLoja: soNaLoja.length,
+      pecasEmDivergencia: divergentes.reduce(
+        (s, d) => s + d.diferencas.reduce((t, x) => t + Math.abs(x.delta), 0), 0),
+    },
+    resolvidos,
+    pendenteHumano: pendentes,
+    divergenciaReal: divergentes,
+    soNaLoja,
+    regra: 'Leitura pura: nada é escrito aqui, nem no banco nem na Nuvemshop. '
+      + 'PENDENTE_HUMANO é falta de informação e não vira escrita; DIVERGENCIA_REAL '
+      + 'é número diferente e só sai daqui por POST /api/sync, com autorização.',
   };
 }

@@ -280,7 +280,77 @@ console.log('\n=== 5. corrigir o código de uma peça vendida (§41) ===');
     JSON.stringify(conf.corpo?.divergentes ?? []), '[]');
 }
 
-console.log('\n=== 6. o console ficou limpo ===');
+console.log('\n=== 6. Central de Pendências resolve a variação (§42) ===');
+{
+  /* o caso do print: código com aro, peça vendida sem dizer qual */
+  await api('POST', '/api/produtos/importar', {
+    produtos: [{ sku: P('ARO'), desc: 'Anel Solitário Coroa', preco: 109, cat: 'Anéis', qtd: 6 }],
+  });
+  await api('PUT', `/api/produtos/${encodeURIComponent(P('ARO'))}/variacoes`, {
+    atributos: [{ nome: 'Aro', valores: ['16', '18'] }],
+  });
+  await api('POST', `/api/produtos/${encodeURIComponent(P('ARO'))}/repartir`, {
+    distribuicao: { 16: 3, 18: 3 },
+  });
+  const v = await api('POST', '/api/vendas', {
+    clienteNome: 'Andreia Aparecida', data: '2026-09-04', itens: [{ sku: P('ARO'), qtd: 1 }],
+  });
+  eq('venda sem variação registrada', v.status, 201);
+
+  await page.evaluate(() => switchTab('pendencias'));
+  await page.waitForTimeout(2500);
+  await page.evaluate(() => setSecaoPend('central'));
+  await page.waitForTimeout(1200);
+
+  const central = page.locator('#view-pendencias .panel', { hasText: 'Central de pendências' });
+  verdade('a Central existe na aba Pendências', await central.count() > 0);
+
+  const chave = await page.evaluate(() => {
+    const p = (centralPend?.pendencias ?? []).find((x) => x.motivo === 'variacao_da_venda');
+    return p ? p.chave : null;
+  });
+  verdade('a venda sem variação está na Central', !!chave, String(chave));
+
+  /* filtros por tipo */
+  await page.evaluate(() => setFiltroCentral('venda'));
+  await page.waitForTimeout(1200);
+  const soVendas = await page.evaluate(() =>
+    (centralPend?.pendencias ?? []).every((x) => x.tipo === 'venda'));
+  verdade('o filtro por tipo funciona', soVendas);
+
+  /* resolver dentro da própria linha */
+  await page.evaluate((k) => alternarPendencia(k), chave);
+  await page.waitForTimeout(600);
+  const opcoes = await page.locator('.pend-linha.escolha').count();
+  eq('oferece as variações já cadastradas', opcoes, 2);
+  const texto = await page.locator('.pend-form').first().innerText();
+  verdade('e diz que escolher não baixa estoque de novo',
+    /não baixa estoque de novo/.test(texto));
+
+  const antes = await api('GET', '/api/state');
+  const saldoDe = (st, sku) => Number((st.corpo?.produtos ?? []).find((x) => x.sku === sku)?.qtd ?? -1);
+
+  await page.locator('.pend-linha.escolha input[type="radio"]').nth(1).check();
+  await page.locator('.pend-form .btn-gold').first().click();
+  await page.waitForTimeout(2500);
+
+  const depois = await api('GET', '/api/state');
+  eq('o estoque NÃO mudou ao resolver',
+    saldoDe(depois, P('ARO')), saldoDe(antes, P('ARO')));
+  const aindaLa = await page.evaluate((k) =>
+    (centralPend?.pendencias ?? []).some((x) => x.chave === k), chave);
+  verdade('e a pendência saiu da lista sozinha', !aindaLa);
+
+  const dia = await api('GET', '/api/vendas?data=2026-09-04');
+  const venda = (dia.corpo ?? []).find((x) => x.id === v.corpo.id);
+  eq('a linha da venda passou a dizer o aro', venda && venda.itens[0].variacao, '18');
+
+  const conf = await api('GET', '/api/estoque/conferir');
+  eq('a razão fecha depois de resolver',
+    JSON.stringify(conf.corpo?.divergentes ?? []), '[]');
+}
+
+console.log('\n=== 7. o console ficou limpo ===');
 eq('nenhum erro de JavaScript', erros.length, 0);
 if (erros.length) erros.slice(0, 6).forEach((e) => console.log('     ' + e));
 

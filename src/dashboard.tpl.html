@@ -1168,6 +1168,25 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 @media(max-width:720px){.receber-linha{grid-template-columns:1fr auto}.receber-origem{grid-column:1/-1}
   .receber-prazo{grid-column:1}.receber-valor{grid-column:2;grid-row:1}}
 
+/* ---------- Central de pendências (§42)
+   Cada linha resolve dentro dela mesma: abrir uma tela nova para escolher um
+   aro seria perder o contexto que faz a escolha ser possível. */
+.pend-form{margin-top:10px;padding:10px 12px;background:var(--bordo-tint);
+  border:1px solid var(--rose-tint);border-radius:10px}
+.pend-linha{display:grid;grid-template-columns:minmax(90px,140px) 1fr 76px;gap:10px;
+  align-items:center;padding:5px 0;font-size:12.5px}
+.pend-linha.escolha{grid-template-columns:20px minmax(90px,140px) 1fr}
+.pend-linha .pl-nm{font-weight:700;color:var(--bordo)}
+.pend-linha .pl-info{font-size:11px;color:var(--muted)}
+.pend-linha .pl-qtd{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:7px;
+  background:#fff;color:var(--ink);font:inherit;text-align:right}
+.pend-acoes{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+.pend-acoes .cd-fb{flex:1;font-size:11px;color:var(--danger)}
+@media(max-width:720px){
+  .pend-linha,.pend-linha.escolha{grid-template-columns:1fr auto;row-gap:2px}
+  .pend-linha .pl-info{grid-column:1/-1}
+}
+
 /* ---------- Resumo de um mês (§40)
    Abre logo abaixo do gráfico "Evolução por mês", não em outra página: a
    pergunta é sobre uma barra, e a resposta fica ao lado dela. O histórico
@@ -5863,6 +5882,9 @@ async function carregarPendencias(){
       api('GET','/api/catalogo/publicacao'),
       api('GET','/api/fotos/orfas'),
       api('GET','/api/variacoes/revisao').catch(()=>null),
+      /* §42 — a Central é a primeira seção da aba, então ela carrega junto
+         e não numa segunda ida quando alguém clica. */
+      carregarCentralPendencias(),
     ]);
     publicacao=pub; fotosOrfas=orf.fotos||[]; revisaoVar=rev;
     /* Abre na primeira lista que tem alguma coisa. Cair numa lista vazia
@@ -6172,6 +6194,260 @@ function painelRevisaoVariacoes(){
     </div>`;
 }
 
+/* ═══════════════════════ §42 — A CENTRAL DE PENDÊNCIAS
+ *
+ *  O print de 04/09/2026 mostrava o problema inteiro: a venda da Andreia
+ *  Aparecida com o selo REVISAR VARIAÇÃO e a explicação certa —
+ *  "647729: Há peças deste código em maleta aberta, e a maleta ainda não
+ *  sabe qual variação saiu" — e nada para clicar. O sistema identificava o
+ *  caso com precisão e parava ali.
+ *
+ *  A lista vem derivada do estado (`GET /api/pendencias`), não de uma tabela
+ *  de pendências: resolver o caso o faz sumir daqui sozinho, e não existe um
+ *  segundo lugar para a mesma verdade divergir.
+ *
+ *  Cada linha traz o suficiente para decidir sem abrir outra tela, e as
+ *  variações oferecidas são as JÁ CADASTRADAS — a Sthefany disse que
+ *  cadastrou todas as que possui, então a primeira ação é escolher, nunca
+ *  criar. */
+let centralPend=null;
+let filtroCentral='';
+let centralAdiadas=false;
+const centralAberta=new Set();
+
+async function carregarCentralPendencias(){
+  try{
+    const q=[filtroCentral?`tipo=${encodeURIComponent(filtroCentral)}`:'',
+             centralAdiadas?'adiadas=1':''].filter(Boolean).join('&');
+    centralPend=await api('GET','/api/pendencias'+(q?'?'+q:''));
+  }catch(e){ centralPend={erro:e.message||'não consegui carregar as pendências'}; }
+}
+function setFiltroCentral(t){
+  filtroCentral=t; carregarCentralPendencias().then(renderPendencias);
+}
+function alternarCentralAdiadas(){
+  centralAdiadas=!centralAdiadas; carregarCentralPendencias().then(renderPendencias);
+}
+function alternarPendencia(chave){
+  if(centralAberta.has(chave)) centralAberta.delete(chave); else centralAberta.add(chave);
+  renderPendencias();
+}
+
+const ROTULO_MOTIVO={
+  variacao_da_venda:'A venda não diz qual variação saiu',
+  variacao_da_maleta:'A maleta não diz qual variação levou',
+  maleta:'Peça em maleta aberta sem variação identificada',
+  sem_reparticao:'Falta repartir o estoque entre as variações',
+  variacao_nao_mapeada:'Saldo em variação que a loja não conhece',
+  sem_variante_id:'A loja não informou o id de alguma variante',
+  duplicado:'O mesmo código está em mais de um produto da loja',
+  vinculo_em_duvida:'Vínculo de cliente em dúvida',
+  credito_sem_regra:'Peça nova mais barata — crédito sem regra definida',
+  operacao_em_revisao:'Operação da planilha marcada para revisão',
+  erro:'A sincronização com a loja falhou',
+  revisao:'A sincronização parou para revisão',
+  estoque_divergente:'O estoque da loja não bateu',
+  cancelamento_pendente:'O cancelamento não chegou na loja',
+};
+
+function blocoCentralPendencias(){
+  if(!centralPend){
+    return `<div class="panel"><div class="body"><div class="empty">
+      <h3>Conferindo…</h3><p>Levantando o que está esperando gente.</p></div></div></div>`;
+  }
+  if(centralPend.erro){
+    return `<div class="warn" style="display:block"><b>Não consegui carregar a central.</b>
+      ${esc(centralPend.erro)}</div>`;
+  }
+  const lista=centralPend.pendencias||[];
+  const por=(centralPend.resumo&&centralPend.resumo.porTipo)||{};
+  const FILTROS=[['','Tudo',centralPend.resumo.total],
+    ['variacao','Variações',(por.variacao||{}).total||0],
+    ['venda','Vendas',(por.venda||{}).total||0],
+    ['maleta','Maletas',(por.maleta||{}).total||0],
+    ['nuvemshop','Nuvemshop',(por.nuvemshop||{}).total||0],
+    ['cliente','Clientes',(por.cliente||{}).total||0],
+    ['garantia','Garantias',(por.garantia||{}).total||0]];
+
+  return `<div class="panel">
+    <div class="head">
+      <h2>Central de pendências</h2>
+      <span class="hint">Tudo o que está esperando uma decisão, de todas as origens</span>
+    </div>
+    <div class="body" style="padding:12px 18px">
+      <div class="subtabs" style="margin:0">
+        ${FILTROS.map(([k,rot,n])=>`<button class="pill ${filtroCentral===k?'on':''}"
+          onclick="setFiltroCentral('${k}')">${rot}${n?` (${n})`:''}</button>`).join('')}
+        <div class="spacer"></div>
+        <button class="pill ${centralAdiadas?'on':''}" onclick="alternarCentralAdiadas()"
+          title="Mostrar também o que foi adiado">${centralPend.resumo.adiadas||0} adiada${
+            (centralPend.resumo.adiadas||0)===1?'':'s'}</button>
+      </div>
+    </div>
+    <div class="body" style="padding:0;border-top:1px solid var(--line-soft)">
+      ${lista.length?lista.map(x=>desenharPendencia(x)).join('')
+        :`<div class="empty" style="padding:40px 16px"><h3>Nada esperando</h3>
+           <p>Nenhuma decisão pendente${filtroCentral?' neste filtro':''}.</p></div>`}
+    </div>
+    <div class="body" style="border-top:1px solid var(--line-soft)">
+      <span class="hint">${esc(centralPend.regra||'')}</span>
+    </div>
+  </div>`;
+}
+
+function desenharPendencia(x){
+  const aberta=centralAberta.has(x.chave);
+  const contexto=[
+    x.cliente?`cliente ${esc(x.cliente)}`:'',
+    x.revendedora?`revendedora ${esc(x.revendedora)}`:'',
+    x.maletaId?`maleta ${x.maletaId}`:'',
+    x.vendaId?`venda #${x.vendaId}`:'',
+    x.data?fmtData(x.data):'',
+    x.qtd?`${fmtN(x.qtd)} ${plural(x.qtd,'peça','peças')}`:'',
+    x.valor!=null?money(x.valor):'',
+  ].filter(Boolean).join(' · ');
+
+  return `<div class="invrow ${x.status==='adiada'?'feito':''}">
+    <div class="i-desc">
+      <div class="d1">${esc(x.produto||x.sku||x.cliente||'—')}
+        <span class="badge fechada" style="margin-left:6px">${esc(x.grupo)}</span>
+        ${x.status==='adiada'?`<span class="badge" style="margin-left:6px">adiada até ${fmtData(x.adiadaAte)}</span>`:''}</div>
+      <div class="d2">${x.sku?`<code>${esc(x.sku)}</code> · `:''}${esc(x.origem||'')}
+        ${contexto?' · '+contexto:''}</div>
+      <div class="d2"><b>${esc(ROTULO_MOTIVO[x.motivo]||x.motivo||'')}</b></div>
+      <div class="d2">${esc(x.explicacao||'')}</div>
+      ${aberta?desenharResolucao(x):''}
+    </div>
+    <div class="i-num">
+      ${(x.acoes||[]).includes('resolver_venda')||(x.acoes||[]).includes('resolver_maleta')
+        ?`<button class="btn btn-gold btn-sm" onclick="alternarPendencia('${esc(x.chave)}')"
+            >${aberta?'Fechar':'Resolver variação'}</button>`
+        :((x.acoes||[]).includes('distribuir')
+          ?`<button class="btn btn-ghost btn-sm" onclick="setSecaoPend('variacoes')">Repartir</button>`
+          :((x.acoes||[]).includes('reenviar')&&x.vendaId
+            ?`<button class="btn btn-ghost btn-sm" onclick="reenviarVendaNuvemshop(${x.vendaId})">Tentar de novo</button>`
+            :''))}
+      ${x.status==='adiada'
+        ?`<button class="btn btn-ghost btn-sm" onclick="retomarPendencia('${esc(x.chave)}')">Voltar para a lista</button>`
+        :`<button class="btn btn-ghost btn-sm" onclick="adiarPendencia('${esc(x.chave)}')">Revisar depois</button>`}
+    </div>
+  </div>`;
+}
+
+/** O formulário de resolução, aberto dentro da própria linha.
+ *
+ *  Pela VENDA é uma escolha só — a peça saiu, e ela era de um aro só.
+ *  Pela MALETA é uma distribuição: uma maleta leva dois anéis do mesmo
+ *  código, um 16 e um 18, e isso é o caso normal. */
+function desenharResolucao(x){
+  const vars=x.variacoesPossiveis||[];
+  if(!vars.length){
+    return `<div class="warn" style="display:block;margin-top:10px">
+      <b>${esc(x.sku||'')} não tem variação cadastrada.</b>
+      Cadastre as variações em <b>Estoque › Editar peça</b> antes de resolver — esta tela
+      escolhe entre as que existem, e não cria variação nova.</div>`;
+  }
+  const info=(v)=>[
+    v.atributo?esc(v.atributo):'',
+    `saldo ${fmtN(v.saldo)}`,
+    v.estoqueLoja!=null?`loja ${fmtN(v.estoqueLoja)}`:'',
+    v.varianteId?`id ${esc(v.varianteId)}`:'sem id na loja',
+  ].filter(Boolean).join(' · ');
+
+  if((x.acoes||[]).includes('resolver_maleta')&&x.maletaId){
+    return `<div class="pend-form">
+      <div class="hint" style="margin-bottom:8px">Quantas peças de cada variação estão
+        nesta maleta? ${x.fora!=null?`Saíram <b>${fmtN(x.fora)}</b>; `:''}
+        ${x.identificado?`já ${plural(x.identificado,'identificada','identificadas')}
+          <b>${fmtN(x.identificado)}</b>.`:''}
+        Dizer qual é identidade, não movimentação — nada sai do estoque de novo.</div>
+      ${vars.map((v,i)=>`<label class="pend-linha">
+        <span class="pl-nm">${esc(v.nome)}</span>
+        <span class="pl-info">${info(v)}</span>
+        <input type="number" min="0" step="1" value="0" class="pl-qtd"
+               id="pq-${esc(x.chave)}-${i}" data-variacao="${esc(v.nome)}"
+               aria-label="Quantas ${esc(v.nome)}">
+      </label>`).join('')}
+      <div class="pend-acoes">
+        <span class="cd-fb" id="pf-${esc(x.chave)}"></span>
+        <button class="btn btn-gold btn-sm"
+          onclick="salvarVariacaoMaleta('${esc(x.chave)}',${x.maletaId},'${esc(x.sku)}',${vars.length})"
+          >Salvar variações da maleta</button>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="pend-form">
+    <div class="hint" style="margin-bottom:8px">Qual variação saiu nesta venda?
+      Escolher não baixa estoque de novo — a peça já saiu quando a venda foi registrada.</div>
+    ${vars.map((v,i)=>`<label class="pend-linha escolha">
+      <input type="radio" name="pv-${esc(x.chave)}" value="${esc(v.nome)}"
+             ${i===0?'checked':''} class="chk">
+      <span class="pl-nm">${esc(v.nome)}</span>
+      <span class="pl-info">${info(v)}</span>
+    </label>`).join('')}
+    <div class="pend-acoes">
+      <span class="cd-fb" id="pf-${esc(x.chave)}"></span>
+      <button class="btn btn-gold btn-sm"
+        onclick="salvarVariacaoVenda('${esc(x.chave)}',${x.vendaId},'${esc(x.sku)}',${x.linha||'null'})"
+        >Salvar variação</button>
+    </div>
+  </div>`;
+}
+
+async function salvarVariacaoVenda(chave,vendaId,sku,linha){
+  const fb=document.getElementById('pf-'+chave);
+  const escolhido=document.querySelector(`input[name="pv-${chave}"]:checked`);
+  if(!escolhido){ if(fb) fb.textContent='Escolha a variação.'; return; }
+  try{
+    const r=await api('POST','/api/pendencias/variacao/venda',
+      {vendaId, sku, linha:linha===null?undefined:linha, variacao:escolhido.value});
+    centralAberta.delete(chave);
+    toast(r.resumo||'Variação resolvida');
+    await Promise.all([sincronizar(),carregarCentralPendencias(),carregarPendencias()]);
+    renderPendencias();
+  }catch(e){ if(fb) fb.textContent=e.message||'Não consegui salvar'; }
+}
+
+async function salvarVariacaoMaleta(chave,maletaId,sku,n){
+  const fb=document.getElementById('pf-'+chave);
+  const distribuicao=[];
+  for(let i=0;i<n;i++){
+    const el=document.getElementById(`pq-${chave}-${i}`);
+    const qtd=Number(el&&el.value||0);
+    /* O nome da variação viaja no próprio campo: lê-lo andando pelo DOM
+       quebraria na primeira vez que alguém mexesse no layout da linha. */
+    if(qtd>0) distribuicao.push({variacao:el.dataset.variacao, qtd});
+  }
+  if(!distribuicao.length){ if(fb) fb.textContent='Diga quantas peças de cada variação.'; return; }
+  try{
+    const r=await api('POST','/api/pendencias/variacao/maleta',{maletaId, sku, distribuicao});
+    centralAberta.delete(chave);
+    toast(r.resumo||'Variações da maleta registradas');
+    await Promise.all([sincronizar(),carregarCentralPendencias(),carregarPendencias()]);
+    renderPendencias();
+  }catch(e){ if(fb) fb.textContent=e.message||'Não consegui salvar'; }
+}
+
+/** Adiar não resolve: a pendência volta na data combinada. Sem data seria
+ *  esquecer, e o servidor recusa — a tela pergunta antes de tentar. */
+async function adiarPendencia(chave){
+  const d=perguntarDataBR('Revisar esta pendência até quando?\n'
+    +'Ela sai da lista e volta sozinha nessa data.');
+  if(d===null) return;
+  try{
+    await api('POST','/api/pendencias/adiar',{chave, ate:d});
+    toast(`Volta em ${fmtData(d)}`);
+    await carregarCentralPendencias(); renderPendencias();
+  }catch(e){ toast(e.message||'Não consegui adiar'); }
+}
+async function retomarPendencia(chave){
+  try{
+    await api('POST','/api/pendencias/retomar',{chave});
+    await carregarCentralPendencias(); renderPendencias();
+  }catch(e){ toast(e.message||'Não consegui trazer de volta'); }
+}
+
 function renderPendencias(){
   const v=document.getElementById('view-pendencias');
   const pendentes=(state.catalogo&&state.catalogo.pendentes)||0;
@@ -6217,9 +6493,15 @@ function renderPendencias(){
   /* Abre na primeira seção que tem trabalho. Cair numa seção vazia faz a
      tela parecer que não há nada a fazer justamente quando há. */
   if(!secaoPend){
-    secaoPend=nVariacoes?'variacoes':(nPublicar?'publicar':(nOutras?'outras':'variacoes'));
+    secaoPend='central';
   }
+  /* §42 — a Central vem primeiro: ela é a lista de TUDO que espera alguém,
+     de todas as origens, com o caminho para resolver ao lado. As seções
+     seguintes continuam existindo porque cada uma tem um fluxo próprio
+     (repartir variação, publicar na loja, cadastrar peça nova). */
+  const nCentral=(centralPend&&centralPend.resumo&&centralPend.resumo.total)||0;
   const SECOES=[
+    ['central','Central',nCentral],
     ['variacoes','Variações',nVariacoes],
     ['publicar','Publicar na Nuvemshop',nPublicar],
     ['outras','Outras pendências',nOutras],
@@ -6252,6 +6534,8 @@ function renderPendencias(){
     <div class="subtabs" style="margin-top:4px">
       ${SECOES.map(([k,rot,n])=>`<button class="pill ${secaoPend===k?'on':''}" onclick="setSecaoPend('${k}')">${rot}${n?` (${n})`:''}</button>`).join('')}
     </div>
+
+    ${secaoPend==='central'?blocoCentralPendencias():''}
 
     ${secaoPend==='variacoes'?(painelRevisaoVariacoes()||`
       <div class="panel"><div class="body"><div class="empty">
