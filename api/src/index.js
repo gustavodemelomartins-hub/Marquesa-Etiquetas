@@ -50,7 +50,9 @@ import {
   abrirGarantia, mudarStatusGarantia, registrarTroca, pagarDiferencaTroca,
   estornarTroca, listarGarantias, lerGarantia, garantiasPendentes,
 } from './garantias.js';
-import { historicoDoDia } from './historico-dia.js';
+import { historicoDoDia, lancamentosDoDia } from './historico-dia.js';
+/* §37 — a lista única de quem deve. Ver api/src/contas-receber.js. */
+import { contasAReceber, definirPrazoDaConta, receberConta } from './contas-receber.js';
 /* §34 — medição de leitura do D1. Desligada por padrão; ver d1-metrica.js. */
 import {
   criarContador, medirD1, carimbarMetrica, metricasLigadas,
@@ -64,7 +66,7 @@ import {
   reconstruir, estadoReconstrucao, backfillNormalizacao,
 } from './vendas-historicas.js';
 import {
-  aplicarOperacoesHistoricas, listarContasReceber,
+  aplicarOperacoesHistoricas,
   marcarContaPaga, definirVencimento,
 } from './historico-operacoes.js';
 import {
@@ -621,6 +623,17 @@ async function rotear(request, env, contador = null) {
         const r = await historicoDoDia(db, url.searchParams.get('data') || hoje());
         return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
       }
+      /* §35 — os três cartões de Lançamentos, calculados no servidor a
+         partir de TODAS as origens comerciais da data escolhida. Antes eles
+         eram somados no navegador sobre `GET /api/vendas`, que só conhece a
+         tabela `vendas`: um dia histórico aparecia zerado com a lista cheia
+         logo abaixo. O cartão de acerto passa a mostrar o LÍQUIDO da
+         Marquesa (bruto − comissão), e não "peças que a revendedora não
+         devolveu" — peça em maleta não é venda. */
+      if (path === '/api/vendas/lancamentos' && met === 'GET') {
+        const r = await lancamentosDoDia(db, url.searchParams.get('data') || hoje());
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
+      }
       /* §29 — o dinheiro entrou. Registra a data DO PAGAMENTO e não toca na
          data da venda; não mexe em estoque, porque a peça já saiu quando a
          venda foi registrada. */
@@ -707,9 +720,22 @@ async function rotear(request, env, contador = null) {
 
       // Cobrança é uma decisão financeira versionada. Nenhuma destas rotas
       // chama estoque ou rebaixa a venda quando o dinheiro entra.
+      /* §37 — as três fontes de dívida de cliente numa lista só: compra
+         histórica em aberto, venda do sistema não paga e diferença de troca
+         de garantia. Cada linha traz uma `chave` (`historico:12`,
+         `venda:45`, `troca:7`) que diz de onde veio e para onde a ação vai.
+         As rotas antigas continuam válidas e tratam só o lado histórico. */
       if (path === '/api/contas-receber' && met === 'GET') {
-        const r = await listarContasReceber(db, { status: url.searchParams.get('status') || 'aberta' });
+        const r = await contasAReceber(db, { status: url.searchParams.get('status') || 'aberta' });
         return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
+      }
+      if (path === '/api/contas-receber/prazo' && met === 'PATCH') {
+        const r = await definirPrazoDaConta(db, await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+      }
+      if (path === '/api/contas-receber/receber' && met === 'POST') {
+        const r = await receberConta(db, await request.json().catch(() => ({})));
+        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
       }
       if ((m = path.match(/^\/api\/contas-receber\/(\d+)\/marcar-paga$/)) && met === 'POST') {
         const r = await marcarContaPaga(db, +m[1], await request.json().catch(() => ({})));

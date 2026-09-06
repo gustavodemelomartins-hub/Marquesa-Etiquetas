@@ -16,6 +16,39 @@
  *  e ela entra pela data do pagamento (§29) — nunca o preço cheio da peça
  *  nova. Trocar um anel de R$ 89 por um de R$ 99 acrescenta R$ 10 ao
  *  faturamento, não R$ 99, e não conta como uma segunda compra.
+ *
+ *  ══════════════════════════════════════════════════════════════════════
+ *  §36 — A TROCA PASSA A TER REGISTRO COMERCIAL (regra nova, 05/09/2026)
+ *  ══════════════════════════════════════════════════════════════════════
+ *
+ *  A Sthefany definiu que a peça que entra numa troca sem conserto tem de
+ *  NASCER COMO VENDA: aparecer no histórico da cliente, nas preferências,
+ *  na contagem de peças. Antes ela sumia — o caso da Evelyn Veiga mostrava
+ *  "troca 393950 → 313860 · diferença R$ 10 · a receber" como uma linha de
+ *  texto, sem ação para receber os R$ 10 e sem nada no A Receber.
+ *
+ *  O que MUDA: a troca cria uma linha em `vendas`, ligada à garantia por
+ *  `garantia_trocas.venda_id`.
+ *
+ *  O que NÃO muda, e é o ponto inteiro: o DINHEIRO. A venda criada tem
+ *  `total` = a DIFERENÇA, não o preço da peça nova. Os R$ 89 que a cliente
+ *  pagou na compra original já entraram no faturamento no dia deles; faturar
+ *  R$ 99 agora os contaria pela segunda vez. O item guarda os dois números
+ *  lado a lado — `preco_tabela` = 99, `preco` = 10 — e o abatimento aparece
+ *  rotulado como "Crédito de garantia · <sku original>", que é exatamente o
+ *  que aconteceu no balcão.
+ *
+ *  O ESTOQUE também não muda: a peça nova sai UMA vez, no movimento de tipo
+ *  `troca` que esta função já criava. A venda não gera segundo movimento —
+ *  ela aponta para o mesmo, por `movimentos.venda_id`.
+ *
+ *  E a diferença deixa de precisar de tela própria para ser cobrada: sendo
+ *  uma venda não paga, ela entra no "A Receber" pelo mesmo caminho de
+ *  qualquer venda de balcão fiada.
+ *
+ *  A contagem em dobro do faturamento é barrada em `analytics.js`:
+ *  `visaoGeral` soma `garantia_trocas.diferenca_valor_pago` e passa a somar
+ *  só as trocas SEM `venda_id` — as antigas, de antes desta regra.
  */
 import { movimentar, saldosDoSku, componentesDoKit } from './estoque.js';
 import { carregarFeriados, prazoDaGarantia, somarDiasUteis } from './dias-uteis.js';
@@ -340,14 +373,26 @@ export async function registrarTroca(db, id, corpo = {}) {
   ).bind(id, data, skuNovo, variacaoNova, varianteIdNovo, s.desc,
     valorOriginal, valorNovo, diferenca, diferencaStatus).first();
 
+  /* §36 — o registro comercial da peça nova, ANTES do movimento: assim o
+     movimento já nasce apontando para a venda, e a razão do estoque explica
+     de onde a saída veio sem precisar de um segundo UPDATE que poderia
+     falhar no meio. */
+  const venda = await registrarVendaDaTroca(db, {
+    garantia: g, troca, skuNovo, descNovo: s.desc,
+    variacaoNova, varianteIdNovo, valorOriginal, valorNovo, diferenca, data,
+  });
+
   /* O movimento que baixa a peça nova. Tipo `troca`, origem `troca_garantia`.
-     Nenhuma consulta de faturamento olha para movimentos, mas a movimentação
-     da peça precisa dizer POR QUE ela saiu — e "vendida" seria mentira. */
+     Continua NÃO sendo `venda`: a movimentação da peça precisa dizer por que
+     ela saiu, e a saída foi uma troca. O `venda_id` liga os dois sem
+     confundir o motivo com o registro. */
   const obsMov = `Troca de garantia ${id} · ${g.sku} → ${skuNovo}`
-    + (g.cliente_nome ? ` · ${g.cliente_nome}` : '');
+    + (g.cliente_nome ? ` · ${g.cliente_nome}` : '')
+    + (venda ? ` · registro comercial ${venda.id}` : '');
   await db.batch(movimentar(db, {
     sku: skuNovo, tipo: 'troca', quantidade: 1, origem: 'troca_garantia',
     obs: obsMov, variacao: variacaoNova, varianteId: varianteIdNovo,
+    vendaId: venda ? venda.id : null,
   }));
   const mov = await db.prepare(
     `SELECT id FROM movimentos WHERE sku = ? AND obs = ? ORDER BY id DESC LIMIT 1`,
@@ -376,16 +421,96 @@ export async function registrarTroca(db, id, corpo = {}) {
     ok: true,
     garantia: await lerGarantia(db, id),
     estoque: { sku: skuNovo, desc: s.desc, antes: s.qtd, depois: depois.qtd },
-    /* Zero, e não `valorNovo`: a troca não é venda. Só a diferença, quando
-       PAGA, vira receita — e por outra rota. */
+    /* Zero AGORA, e não `valorNovo`: existe registro comercial da peça nova
+       (§36), mas ele vale a DIFERENÇA, e ela só vira faturamento no dia em
+       que for paga. Trocar não é receber. */
     faturamento: 0,
-    criouVenda: false,
+    criouVenda: !!venda,
+    vendaId: venda ? venda.id : null,
     diferenca,
     diferencaStatus,
     aviso: diferencaStatus === 'pendente_regra'
       ? 'A peça nova custa menos que a original. Crédito ou reembolso ainda não é regra definida — a diferença ficou registrada e nada foi lançado.'
       : null,
   };
+}
+
+/** §36 — o registro comercial da peça nova de uma troca.
+ *
+ *  Uma venda de verdade, na tabela `vendas`, para a peça aparecer no
+ *  histórico da cliente, nas preferências e na contagem de peças. Com três
+ *  travas que a impedem de virar dinheiro que não existiu:
+ *
+ *    1. `total` é a DIFERENÇA, nunca o preço da peça nova. O crédito da peça
+ *       devolvida entra como desconto rotulado no item.
+ *    2. NENHUM movimento de estoque é criado aqui. A peça sai uma vez, no
+ *       movimento de tipo `troca` que o chamador grava logo em seguida.
+ *    3. `origem = 'troca'`, para toda consulta poder distinguir esta linha
+ *       de uma venda de balcão sem ter que adivinhar pelo valor.
+ *
+ *  Diferença positiva nasce NÃO PAGA — é a conta a receber que o pacote
+ *  pede. Diferença zero ou negativa nasce paga com total zero: não há o que
+ *  cobrar, e o crédito de uma peça mais barata continua sendo regra que
+ *  ninguém definiu (`pendente_regra`), anunciada em vez de inventada.
+ *
+ *  Falhar aqui NÃO derruba a troca: a peça física já mudou de mãos, e o
+ *  registro comercial é a parte que pode ser refeita. A troca fica gravada
+ *  com `venda_id` nulo — que é exatamente o estado das trocas anteriores a
+ *  esta regra, já tratado em todo lugar. */
+async function registrarVendaDaTroca(db, {
+  garantia, troca, skuNovo, descNovo, variacaoNova, varianteIdNovo,
+  valorOriginal, valorNovo, diferenca, data,
+}) {
+  try {
+    const nome = String(garantia.cliente_nome ?? '').trim();
+    const norm = garantia.cliente_nome_norm ?? (nome ? normalizarNomeCliente(nome) : null);
+    /* A diferença é o que ela ainda deve. Negativa não vira dívida nem
+       crédito: vira zero cobrado, e o caso fica marcado `pendente_regra`. */
+    const aCobrar = diferenca > 0 ? dinheiro(diferenca) : 0;
+    const pago = aCobrar > 0 ? 0 : 1;
+
+    const venda = await db.prepare(
+      `INSERT INTO vendas (cliente_id, cliente_nome, cliente_nome_norm, origem, data, total,
+                           nuvemshop_status, pago, data_pagamento, observacao,
+                           pagamento_origem, cobravel)
+       VALUES (?, ?, ?, 'troca', ?, ?, 'nao_aplicavel', ?, ?, ?, ?, ?) RETURNING id`,
+    ).bind(
+      garantia.cliente_id ?? null, nome || null, norm, data, aCobrar,
+      pago,
+      /* Diferença zero "pagou" no dia da troca porque não havia nada a
+         pagar — e sem data o faturamento não saberia onde pôr o zero. */
+      pago ? data : null,
+      `Troca de garantia ${garantia.id} · ${garantia.sku} → ${skuNovo}`,
+      pago ? 'informado' : null,
+      /* Só é cobrável o que ela realmente deve. */
+      aCobrar > 0 ? 1 : 0,
+    ).first();
+
+    await db.prepare(
+      `INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, motivo, variacao, variante_id,
+                                preco_tabela, desconto_valor, desconto_rotulo)
+       VALUES (?, ?, ?, 1, ?, 'troca', ?, ?, ?, ?, ?)`,
+    ).bind(
+      venda.id, skuNovo, descNovo, aCobrar, variacaoNova, varianteIdNovo,
+      /* Os dois números lado a lado: o que a peça vale e o que foi cobrado.
+         Sem `preco_tabela`, daqui a um ano ninguém saberia que a peça de
+         R$ 10 no recibo era uma peça de R$ 99 com crédito de garantia. */
+      dinheiro(valorNovo),
+      dinheiro(valorNovo) - aCobrar === 0 ? null : dinheiro(dinheiro(valorNovo) - aCobrar),
+      `Crédito de garantia · ${garantia.sku} (${dinheiro(valorOriginal).toFixed(2)})`,
+    ).run();
+
+    await db.prepare('UPDATE garantia_trocas SET venda_id = ? WHERE id = ?')
+      .bind(venda.id, troca.id).run();
+    troca.venda_id = venda.id;
+    return venda;
+  } catch (e) {
+    /* §9: o que não deu certo é dito, não engolido. O chamador devolve
+       `criouVenda: false` e a tela mostra a troca sem o registro comercial,
+       que é o comportamento de antes desta regra — nunca um sucesso falso. */
+    console.error('troca: não consegui criar o registro comercial da peça nova', e);
+    return null;
+  }
 }
 
 /** A diferença foi paga. É o ÚNICO ponto deste módulo que gera receita, e
@@ -425,25 +550,45 @@ export async function pagarDiferencaTroca(db, id, corpo = {}) {
     };
   }
 
-  await db.prepare(
-    `UPDATE garantia_trocas
-        SET diferenca_status = 'paga', diferenca_paga_em = ?, diferenca_valor_pago = ?,
-            atualizado_em = datetime('now')
-      WHERE id = ?`,
-  ).bind(pagaEm, valor, troca.id).run();
+  /* §36 — a troca com registro comercial tem DUAS linhas para fechar, e
+     elas fecham juntas ou o dinheiro fica contado pela metade. O `batch`
+     é o que garante isso: ou as duas gravam, ou nenhuma.
+     A venda NÃO tem estoque tocado aqui — a peça saiu no dia da troca, e
+     receber a diferença não a faz sair de novo (§29). */
+  const escritas = [
+    db.prepare(
+      `UPDATE garantia_trocas
+          SET diferenca_status = 'paga', diferenca_paga_em = ?, diferenca_valor_pago = ?,
+              atualizado_em = datetime('now')
+        WHERE id = ?`,
+    ).bind(pagaEm, valor, troca.id),
+  ];
+  if (troca.venda_id) {
+    escritas.push(db.prepare(
+      `UPDATE vendas
+          SET pago = 1, data_pagamento = ?, pagamento_origem = 'informado', cobravel = 0
+        WHERE id = ? AND pago = 0`,
+    ).bind(pagaEm, troca.venda_id));
+  }
+  await db.batch(escritas);
 
   await evento(db, id, {
     tipo: 'diferenca_paga', data: pagaEm,
     observacao: String(corpo.observacao ?? '').trim() || null,
-    dados: { valor, de: 'a_receber', para: 'paga' },
+    dados: { valor, de: 'a_receber', para: 'paga', vendaId: troca.venda_id ?? null },
   });
 
   return {
     ok: true,
     garantia: await lerGarantia(db, id),
-    /* O número que entra no faturamento de `pagaEm`: só a diferença. */
+    /* O número que entra no faturamento de `pagaEm`: só a diferença.
+       Quando a troca tem registro comercial, ele entra PELA VENDA — o
+       `receitaDiferencaTroca` de analytics.js ignora estas, justamente para
+       o mesmo real não ser somado duas vezes. */
     faturamento: valor,
     dataFaturamento: pagaEm,
+    vendaId: troca.venda_id ?? null,
+    porOndeFatura: troca.venda_id ? 'venda' : 'diferenca_troca',
   };
 }
 
@@ -469,10 +614,21 @@ export async function estornarTroca(db, id, { motivo = null } = {}) {
     obs: obsMov, variacao: troca.variacao_nova, varianteId: troca.variante_id_novo,
   }));
 
+  /* §36 — o registro comercial da peça nova é CANCELADO, não apagado
+     (§28: cancela, não apaga). Ele sai de toda soma pelo mesmo caminho de
+     qualquer venda cancelada, e a linha fica dizendo o que houve. */
+  if (troca.venda_id) {
+    await db.prepare(
+      `UPDATE vendas
+          SET cancelada = 1, cobravel = 0,
+              observacao = COALESCE(observacao || ' · ', '') || 'Troca estornada: ' || ?
+        WHERE id = ?`,
+    ).bind(razao, troca.venda_id).run();
+  }
   await db.prepare('DELETE FROM garantia_trocas WHERE id = ?').bind(troca.id).run();
   await evento(db, id, {
     tipo: 'troca_estornada', data: hojeISO(), observacao: razao,
-    dados: { skuNovo: troca.sku_novo, diferenca: troca.diferenca },
+    dados: { skuNovo: troca.sku_novo, diferenca: troca.diferenca, vendaId: troca.venda_id ?? null },
   });
 
   const depois = await saldosDoSku(db, troca.sku_novo);
@@ -521,6 +677,11 @@ function publica(g, troca, eventos, prazo) {
       diferencaStatus: troca.diferenca_status,
       diferencaPagaEm: troca.diferenca_paga_em ?? null,
       diferencaValorPago: troca.diferenca_valor_pago == null ? null : Number(troca.diferenca_valor_pago),
+      /* §36 — o registro comercial da peça nova. `null` nas trocas
+         anteriores à regra, e é assim que toda soma distingue as duas
+         populações sem contar dinheiro duas vezes. */
+      vendaId: troca.venda_id ?? null,
+      movimentoId: troca.movimento_id ?? null,
     } : null,
     eventos: (eventos ?? []).map((e) => ({
       id: e.id,

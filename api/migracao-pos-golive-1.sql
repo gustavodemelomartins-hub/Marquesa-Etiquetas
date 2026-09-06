@@ -272,3 +272,20 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_vpers_item_posicao
   ON venda_personalizacao_itens(personalizacao_id, posicao);
 CREATE INDEX IF NOT EXISTS idx_vpers_item_sku
   ON venda_personalizacao_itens(componente_sku);
+
+
+-- ───────────────────── 6. PRAZO DE UMA VENDA OPERACIONAL NÃO PAGA (§ 4/5)
+--
+-- "A Receber" só conhecia a conta HISTÓRICA (`historico_operacoes`), que
+-- tem `vencimento_em` próprio. Uma venda de balcão lançada como NÃO PAGA
+-- ficava fora da lista: a peça saiu, a cliente ficou devendo, e o Painel
+-- não mostrava. A partir desta rodada ela entra — e para entrar precisa de
+-- onde guardar o prazo combinado.
+--
+-- NULL é "sem prazo definido", que é o que a tela já sabe dizer. Não existe
+-- prazo padrão inventado: uma data que ninguém combinou vira cobrança
+-- vencida sozinha.
+ALTER TABLE vendas ADD COLUMN vencimento_em TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_vendas_vencimento
+  ON vendas(vencimento_em) WHERE pago = 0;

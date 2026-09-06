@@ -39,7 +39,11 @@
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import { REGRA_DESCRITA } from './vendas-historicas.js';
 import { categoriaDoItem } from './categoria-nome.js';
-import { listarContasReceber } from './historico-operacoes.js';
+/* §37 — "A receber" passou a somar as três fontes de dívida de cliente:
+   compra histórica em aberto, venda do sistema não paga e diferença de
+   troca de garantia. Antes só a primeira aparecia, e a venda fiada de
+   ontem não estava em lugar nenhum do Painel. */
+import { contasAReceber } from './contas-receber.js';
 import { garantiasDaCliente, garantiasPendentes } from './garantias.js';
 
 const PERIODOS = new Set(['7d', '30d', '90d', '12m', 'tudo']);
@@ -123,7 +127,7 @@ const FILTRO_VENDA_HISTORICA_RECLASSIFICADA = `
 
    Um CTE só, reusado por todo o arquivo. É o que garante que "1.375 vendas"
    signifique a mesma coisa no cartão do topo, no gráfico e no ranking. */
-function cteVendas(faixa, { incluirAjuste = false } = {}) {
+export function cteVendas(faixa, { incluirAjuste = false } = {}) {
   /* §29: as duas datas, nos dois ramos. O histórico só tem data de
      pagamento quando a cobrança estava ABERTA e alguém a marcou paga — é
      exatamente o caso "vendi em julho, recebi em setembro". A venda
@@ -199,6 +203,7 @@ function cteVendas(faixa, { incluirAjuste = false } = {}) {
              CASE WHEN v.pago = 1 THEN 1 ELSE 0 END,
              CASE v.origem WHEN 'balcao' THEN 'Balcão' WHEN 'site' THEN 'Site'
                            WHEN 'acerto' THEN 'Acerto de maleta'
+                           WHEN 'troca' THEN 'Troca de garantia'
                            ELSE v.origem END,
              NULL, 'venda',
              CASE WHEN v.origem='acerto' OR v.revendedora_id IS NOT NULL THEN 'acerto' ELSE 'cliente' END,
@@ -342,6 +347,13 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
               COUNT(*) AS trocas
          FROM garantia_trocas
         WHERE diferenca_status = 'paga'
+          -- §36: a troca com registro comercial fatura PELA VENDA, e a
+          -- venda já está no CTE acima. Somar as duas contaria o mesmo real
+          -- duas vezes. Sem venda ligada são as trocas anteriores à regra
+          -- nova, que continuam faturando por aqui e por lugar nenhum mais.
+          -- (Comentário em SQL dentro de um template literal: nenhuma crase
+          -- aqui, ela fecharia a string.)
+          AND venda_id IS NULL
           AND ${naFaixa('diferenca_paga_em', faixa)}`,
     ).bind(...bindsFaixa(faixa)).first().catch(() => ({ receita: 0, trocas: 0 })),
   ]);
@@ -1007,7 +1019,29 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
     if (i.fonte === 'historico') i.categoria = catalogo('historico', i.sku_base);
   }
 
+  /* §38 — TRÊS números, e não um.
+   *
+   *  O card do perfil dizia "GASTOU R$ 192,80" somando `faturamento`, que no
+   *  CTE é o dinheiro RECEBIDO. Quem comprou R$ 1.000 e pagou R$ 700
+   *  aparecia como se tivesse comprado 700 — a compra fiada sumia da ficha
+   *  da cliente exatamente enquanto ela ainda devia.
+   *
+   *  Os três saem do mesmo CTE e já existiam por venda; o que faltava era
+   *  somá-los:
+   *
+   *    comprou   `valor_total`     o total comercial das compras dela
+   *    pago      `faturamento`     o que efetivamente entrou
+   *    emAberto  `saldo_centavos`  o que ainda falta
+   *
+   *  E eles NÃO são complementares por construção (§36.4): um pedido
+   *  reembolsado não é nem pago nem a receber, então `comprou` pode ser
+   *  maior que `pago + emAberto`. Forçar a igualdade esconderia justamente o
+   *  caso que precisa ser visto. */
+  const comprou = vendas.reduce((s, v) => s + Number(v.valor_total ?? 0), 0);
   const faturamento = vendas.reduce((s, v) => s + Number(v.faturamento ?? 0), 0);
+  const emAberto = vendas.reduce((s, v) => s + (v.saldo_centavos == null
+    ? Math.max(0, Number(v.valor_total ?? 0) - Number(v.faturamento ?? 0))
+    : Number(v.saldo_centavos) / 100), 0);
   const pecas = vendas.reduce((s, v) => s + Number(v.pecas ?? 0), 0);
   const datas = vendas.map((v) => v.data).filter(Boolean).sort();
   const primeira = datas[0] ?? null;
@@ -1057,11 +1091,29 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
       ?? vendas[0]?.nome
       ?? (chaveNorm === 'sem-nome' || !chaveNorm ? 'Cliente não identificado' : chaveNorm),
     resumo: {
+      /* §38 — os três, separados e ditos por nome. */
+      comprou: +comprou.toFixed(2),
+      pago: +faturamento.toFixed(2),
+      emAberto: +emAberto.toFixed(2),
+      /* Mantido com o mesmo nome e o mesmo significado de sempre — o
+         RECEBIDO. Quem já lia `faturamento` continua lendo a mesma coisa;
+         o que mudou é existir agora `comprou` ao lado, e a tela mostrar os
+         dois em vez de chamar um pelo nome do outro. */
       faturamento: +faturamento.toFixed(2),
       pecas,
       vendas: vendas.length,
-      ticketMedio: vendas.length > 0 ? +(faturamento / vendas.length).toFixed(2) : null,
-      gastoMedioPorPeca: pecas > 0 ? +(faturamento / pecas).toFixed(2) : null,
+      /* Ticket médio e gasto por peça passam a sair do COMPRADO.
+         Saindo do recebido, eles contradiziam o card de cima: uma cliente
+         com "Comprou R$ 1.000" em 2 compras mostraria ticket de R$ 350. O
+         ticket médio DO PAINEL é outro número, com outra regra (só venda
+         paga elegível) — este aqui é "quanto ela costuma levar por vez". */
+      ticketMedio: vendas.length > 0 ? +(comprou / vendas.length).toFixed(2) : null,
+      ticketMedioRecebido: vendas.length > 0 ? +(faturamento / vendas.length).toFixed(2) : null,
+      gastoMedioPorPeca: pecas > 0 ? +(comprou / pecas).toFixed(2) : null,
+      regraFinanceira: 'COMPROU é o total comercial das compras dela e não diminui '
+        + 'porque parte ainda não foi paga. PAGO é o que entrou. EM ABERTO é o que '
+        + 'falta. Os três não fecham por construção: pedido reembolsado ou anulado '
+        + 'não é nem pago nem a receber.',
       primeiraCompra: primeira,
       ultimaCompra: ultima,
       ...estado,
@@ -1193,7 +1245,7 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
               COUNT(*) AS vendas, COALESCE(SUM(pecas), 0) AS pecas
          FROM vd`,
     ).bind(...VMes.binds).first(),
-    listarContasReceber(db, { status: 'aberta' }),
+    contasAReceber(db, { status: 'aberta' }),
     /* §31 — "Peças em reparo": só o que ainda pede alguma coisa de alguém.
        Caso encerrado sai do Painel e continua inteiro no histórico da
        cliente; um painel que acumula tudo o que já aconteceu deixa de ser

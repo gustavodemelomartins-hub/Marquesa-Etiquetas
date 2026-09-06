@@ -301,7 +301,17 @@ let vendaG; let garantiaG;
 
 /* ══════════════════════════════════════════════════════════════ CENÁRIO H
    Troca 89 → 99: baixa só a peça nova, faturamento imediato 0,
-   diferença 10 a receber. Depois de paga, faturamento +10 — nunca +99. */
+   diferença 10 a receber. Depois de paga, faturamento +10 — nunca +99.
+
+   REGRA ATUALIZADA em 05/09/2026 pela Sthefany, e este bloco mudou com ela
+   (§36 · api/src/garantias.js). O que valia antes: a troca não criava
+   registro comercial nenhum, e a peça nova sumia da ficha da cliente. O que
+   vale agora: a troca CRIA uma venda para a peça nova — mas essa venda vale
+   a DIFERENÇA, não o preço da peça.
+
+   O que NÃO mudou, e continua sendo o ponto do cenário: o dinheiro. Entram
+   R$ 10, nunca R$ 99, e entram uma vez só. As asserções abaixo passaram a
+   provar isso pelo caminho novo. */
 console.log('\n=== H. troca de garantia: entra a diferença, nunca o preço cheio ===');
 {
   const a = await api('GET', '/api/analytics/vendas?periodo=tudo');
@@ -317,12 +327,18 @@ console.log('\n=== H. troca de garantia: entra a diferença, nunca o preço chei
   eq('a diferença é 99 − 89', t.corpo.diferenca, 10);
   eq('e está a receber', t.corpo.diferencaStatus, 'a_receber');
   eq('a troca não faturou nada agora', t.corpo.faturamento, 0);
-  eq('e não criou venda', t.corpo.criouVenda, false);
+  /* §36 — agora CRIA o registro comercial da peça nova. */
+  eq('criou o registro comercial da peça nova', t.corpo.criouVenda, true);
+  const vendaDaTroca = t.corpo.vendaId;
+  verdade('e devolveu o id dela', !!vendaDaTroca);
 
   const b = await api('GET', '/api/analytics/vendas?periodo=tudo');
   eq('faturamento não mudou com a troca', b.corpo.faturamento, a.corpo.faturamento);
-  eq('a contagem de vendas não mudou', b.corpo.vendas, a.corpo.vendas);
-  eq('as peças vendidas não mudaram', b.corpo.pecas, a.corpo.pecas);
+  /* A venda existe, então a CONTAGEM sobe — é o que a regra nova pede: a
+     peça nova participa dos indicadores. O que não pode subir é o dinheiro,
+     e a linha acima prova que não subiu. */
+  eq('a contagem de vendas sobe em uma', b.corpo.vendas, a.corpo.vendas + 1);
+  eq('e as peças vendidas, também em uma', b.corpo.pecas, a.corpo.pecas + 1);
   eq('o ticket médio não mudou', b.corpo.ticketMedio.valor, a.corpo.ticketMedio.valor);
 
   /* O movimento da peça nova precisa dizer POR QUE ela saiu. "Vendida"
@@ -344,7 +360,15 @@ console.log('\n=== H. troca de garantia: entra a diferença, nunca o preço chei
   eq('faturamento subiu exatamente 10', +(c.corpo.faturamento - b.corpo.faturamento).toFixed(2), 10);
   naoEq('e NÃO subiu 99', +(c.corpo.faturamento - b.corpo.faturamento).toFixed(2), 99);
   eq('a contagem de vendas continua a mesma', c.corpo.vendas, b.corpo.vendas);
-  eq('a origem do dinheiro é declarada', c.corpo.composicao.faturamentoDeDiferencaTroca, 10);
+  /* §36 — a origem do dinheiro mudou de caminho, não de valor: a troca com
+     registro comercial fatura PELA VENDA, e `faturamentoDeDiferencaTroca`
+     conta só as trocas antigas, sem venda ligada. Ele ser zero aqui é a
+     prova de que os R$ 10 entraram por um caminho só — se ele fosse 10 com
+     a venda também paga, o mesmo real estaria contado duas vezes. */
+  eq('a diferença não fatura por fora quando há registro comercial',
+    c.corpo.composicao.faturamentoDeDiferencaTroca, 0);
+  eq('e o que subiu veio das vendas',
+    +(c.corpo.composicao.faturamentoDeVendas - b.corpo.composicao.faturamentoDeVendas).toFixed(2), 10);
 
   const dup = await api('POST', `/api/garantias/${garantiaG}/troca/pagar`, {});
   eq('pagar a diferença duas vezes é recusado', dup.status, 409);

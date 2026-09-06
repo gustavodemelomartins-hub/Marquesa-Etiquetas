@@ -7912,8 +7912,18 @@ async function carregarVendas(data){
      valendo, e o bloco consolidado simplesmente não aparece. */
   try{ vendasDia=await api('GET','/api/vendas/dia?data='+d); }
   catch(e){ vendasDia=null; }
+  /* §35 — os cartões do topo saem daqui, e não mais de uma soma feita no
+     navegador sobre `vendas`. Aquela soma só enxergava a tabela `vendas`:
+     escolher 05/08/2026 mostrava R$ 0 nos três cartões com a lista de baixo
+     cheia, porque linha de planilha, acerto de revendedora e troca de
+     garantia daquele dia não estão nela.
+     Falhar aqui não derruba a tela — a lista continua valendo e os cartões
+     dizem que não conseguiram carregar, em vez de mostrar zero. */
+  try{ lancDia=await api('GET','/api/vendas/lancamentos?data='+d); }
+  catch(e){ lancDia={erro:e.message||'não consegui carregar os cartões deste dia'}; }
 }
 let vendasDia=null;
+let lancDia=null;
 
 /** §29 — o dinheiro de uma venda "A Receber" entrou. Não mexe em estoque:
  *  a peça saiu quando a venda foi registrada. */
@@ -7967,41 +7977,68 @@ function processarVendaNuvemshopSelecionada(){
 let vendasData=hoje();
 function setVendasData(d){ vendasData=d||hoje(); carregarVendas(vendasData).then(renderVendas); }
 
+/* §35 — os cartões de Lançamentos, comandados pela DATA ESCOLHIDA.
+ *
+ *  Eles vêm prontos de `GET /api/vendas/lancamentos?data=`, que soma todas
+ *  as origens comerciais daquele dia. Somar aqui no navegador, a partir de
+ *  `vendas`, era o defeito: aquela lista só tem as vendas da tabela
+ *  `vendas`, então um dia histórico dava R$ 0 com a lista cheia embaixo.
+ *
+ *  O cartão de acerto mostra o LÍQUIDO DA MARQUESA — bruto menos a comissão
+ *  da revendedora —, com os três números escritos por extenso. O texto
+ *  anterior ("peças que a revendedora não devolveu") contava outra coisa:
+ *  peça não devolvida ainda pode estar na maleta, e maleta não é venda. */
+function cartoesDoDia(){
+  const L=lancDia;
+  if(!L||L.erro){
+    return `<div class="kpis"><div class="kpi k-pend">
+      <div class="k-lbl">Cartões do dia</div>
+      <div class="k-num small">—</div>
+      <div class="k-sub">${esc((L&&L.erro)||'carregando…')}</div>
+    </div></div>`;
+  }
+  const a=L.acerto||{}, b=L.balcao||{}, t=L.vendidoNoDia||{};
+  return `
+    <div class="kpis">
+      <div class="kpi k-val">
+        <div class="k-lbl">Vendido no dia</div>
+        <div class="k-num small">${money(t.valor||0)}</div>
+        <div class="k-sub">${fmtN(t.pecas||0)} ${plural(t.pecas||0,'peça','peças')} ·
+          balcão + líquido dos acertos</div>
+      </div>
+      <div class="kpi k-casa">
+        <div class="k-lbl">Vendas no balcão</div>
+        <div class="k-num small">${money(b.valor||0)}</div>
+        <div class="k-sub">${fmtN(b.vendas||0)} ${plural(b.vendas||0,'venda','vendas')} ·
+          ${fmtN(b.pecas||0)} ${plural(b.pecas||0,'peça','peças')}</div>
+      </div>
+      <div class="kpi k-rev">
+        <div class="k-lbl">Vendas de acerto</div>
+        <div class="k-num small">${money(a.liquido||0)}</div>
+        <div class="k-sub">líquido da Marquesa · ${fmtN(a.pecas||0)} ${plural(a.pecas||0,'peça vendida','peças vendidas')}<br>
+          Bruto ${money(a.bruto||0)} · Comissão ${money(a.comissao||0)}</div>
+      </div>
+      ${L.aReceberDoDia&&L.aReceberDoDia.valor?`<div class="kpi k-pend">
+        <div class="k-lbl">A receber deste dia</div>
+        <div class="k-num small">${money(L.aReceberDoDia.valor)}</div>
+        <div class="k-sub">ainda fora do faturamento — entra no mês em que for pago</div>
+      </div>`:''}
+    </div>
+    ${a.semComissaoConhecida?`<div class="warn" style="display:block;margin:0 0 16px">
+      <b>Acerto sem documento de comissão neste dia.</b>
+      ${money(a.semComissaoConhecida.bruto)} em ${fmtN(a.semComissaoConhecida.pecas)}
+      ${plural(a.semComissaoConhecida.pecas,'peça','peças')} têm bruto conhecido e comissão não.
+      Estes valores ficaram <b>fora</b> do líquido e do total do dia — a comissão não é estimada.
+    </div>`:''}`;
+}
+
 function renderVendas(){
   const v=document.getElementById('view-vendas');
-  const vivas=vendas.filter(x=>!x.cancelada);
-  const total=vivas.reduce((s,x)=>s+x.total,0);
-  const pecas=vivas.reduce((s,x)=>s+x.itens.reduce((a,i)=>a+i.qtd,0),0);
-  const balcao=vivas.filter(x=>x.origem==='balcao');
-  /* §29: vendido e recebido deixaram de ser o mesmo número. O cartão diz os
-     dois, porque no dia em que eles diferem é a diferença que importa. */
-  const aReceber=vivas.reduce((s,x)=>s+(x.pago===false?Number(x.aReceber||x.total):0),0);
   const pendentesNuvemshop=vendas.filter(x=>!x.cancelada&&x.origem!=='site'&&
     ['nao_enviada','erro','pendente','cancelamento_pendente','revisao'].includes(x.nuvemshopStatus));
 
   v.innerHTML=`
-    <div class="kpis">
-      <div class="kpi k-val">
-        <div class="k-lbl">Vendido no dia</div>
-        <div class="k-num small">${money(total)}</div>
-        <div class="k-sub">${pecas} ${plural(pecas,'peça','peças')} em ${vivas.length} ${plural(vivas.length,'venda','vendas')}</div>
-      </div>
-      <div class="kpi k-casa">
-        <div class="k-lbl">Vendas no balcão</div>
-        <div class="k-num">${balcao.length}</div>
-        <div class="k-sub">${money(balcao.reduce((s,x)=>s+x.total,0))}</div>
-      </div>
-      <div class="kpi k-rev">
-        <div class="k-lbl">Vindas de acerto</div>
-        <div class="k-num">${vivas.length-balcao.length}</div>
-        <div class="k-sub">Peças que a revendedora não devolveu</div>
-      </div>
-      ${aReceber?`<div class="kpi k-pend">
-        <div class="k-lbl">A receber deste dia</div>
-        <div class="k-num small">${money(aReceber)}</div>
-        <div class="k-sub">ainda fora do faturamento — entra no mês em que for pago</div>
-      </div>`:''}
-    </div>
+    ${cartoesDoDia()}
 
     <div class="panel">
       <div class="head">

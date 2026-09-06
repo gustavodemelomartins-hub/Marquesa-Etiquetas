@@ -33,18 +33,47 @@
    justamente as duas metades. A parte que importa dos dois — não contar em
    dobro o que já é operação histórica — aparece escrita no WHERE de cada
    consulta abaixo. */
-import { JOIN_OPERACAO_ITEM_HISTORICO } from './analytics.js';
+import { JOIN_OPERACAO_ITEM_HISTORICO, cteVendas } from './analytics.js';
 
-/** O que entrou no caixa nesta data: as vendas cujo PAGAMENTO caiu aqui
- *  (não as que foram feitas aqui) mais a diferença de troca recebida hoje. */
-function recebidoNoDia(vendas, trocas, data) {
-  const deVenda = vendas
-    .filter((l) => (l.dataPagamento ?? null) === data)
-    .reduce((s, l) => s + (l.valor ?? 0), 0);
-  const deTroca = trocas
-    .filter((t) => t.diferenca_status === 'paga' && t.diferenca_paga_em === data)
-    .reduce((s, t) => s + Number(t.diferenca ?? 0), 0);
-  return +(deVenda + deTroca).toFixed(2);
+/** O que entrou no caixa NESTA data.
+ *
+ *  O defeito que isto corrige: a função somava as linhas do próprio dia
+ *  cuja `dataPagamento` fosse hoje — e as linhas do dia são, por construção,
+ *  as vendas com `data = hoje`. Ou seja, ela só encontrava a venda feita e
+ *  paga no mesmo dia, que é exatamente o caso em que "vendido" e "recebido"
+ *  não diferem. A venda de julho paga em setembro — o caso inteiro de §29,
+ *  e o da diferença de troca da Evelyn, cobrada quase um mês depois — nunca
+ *  aparecia, e o rodapé dizia "R$ 0 entrou no caixa neste dia" num dia em
+ *  que entrou dinheiro.
+ *
+ *  Agora a pergunta é feita ao BANCO, com a mesma regra de faturamento que o
+ *  painel usa (`cteVendas`, recortado num dia só). Reusar o CTE, e não
+ *  reescrever a regra aqui, é o que garante que o rodapé do dia e o
+ *  faturamento do mês não possam discordar.
+ *
+ *  Fora daqui, de propósito: o acerto de revendedora, que o painel também
+ *  mantém fora do faturamento e conta inteiro em Revendedoras (§11). */
+async function recebidoNoDia(db, data) {
+  const V = cteVendas({ de: data, ate: data });
+  const r = await db.prepare(
+    `WITH vd AS (${V.sql})
+     SELECT ROUND(COALESCE(SUM(faturamento), 0), 2) AS entrou
+       FROM vd WHERE data_faturamento = ?`,
+  ).bind(...V.binds, data).first().catch(() => ({ entrou: 0 }));
+
+  /* §36 — a troca com registro comercial fatura PELA VENDA, e a venda já
+     está no CTE acima. Somar a diferença outra vez dobraria o dinheiro do
+     dia. Só as trocas sem venda ligada — as anteriores à regra nova —
+     entram por aqui, e para essas o CTE não sabe nada.
+     A pergunta é pela data do PAGAMENTO da diferença, não pela data da
+     troca: são datas diferentes, e usar a segunda repetia aqui o mesmo erro
+     que esta função existe para corrigir. */
+  const t = await db.prepare(
+    `SELECT ROUND(COALESCE(SUM(diferenca_valor_pago), 0), 2) AS entrou
+       FROM garantia_trocas
+      WHERE diferenca_status = 'paga' AND diferenca_paga_em = ? AND venda_id IS NULL`,
+  ).bind(data).first().catch(() => ({ entrou: 0 }));
+  return +(Number(r?.entrou ?? 0) + Number(t?.entrou ?? 0)).toFixed(2);
 }
 
 const ORIGENS = {
@@ -80,7 +109,13 @@ export async function historicoDoDia(db, data) {
               ROUND(i.qtd * i.preco, 2) AS valor,
               i.preco_tabela AS preco_tabela, i.desconto_valor AS desconto_valor,
               i.desconto_rotulo AS desconto_rotulo, i.motivo AS motivo,
-              i.variacao AS variacao
+              i.variacao AS variacao,
+              /* Só para a deduplicação desta resposta, e por isso o rowid
+                 serve: ele não é gravado em lugar nenhum nem comparado com
+                 nada de outra requisição — é o número da linha DENTRO desta
+                 leitura. A identidade durável de um item continua sendo
+                 (venda_id, sku, variante_id), como §32 exige. */
+              i.rowid AS item_rowid
          FROM vendas v
          JOIN venda_itens i ON i.venda_id = v.id
          LEFT JOIN clientes c ON c.id = v.cliente_id
@@ -142,6 +177,7 @@ export async function historicoDoDia(db, data) {
     db.prepare(
       `SELECT t.id, t.data, t.sku_novo, t.produto_novo_nome, t.diferenca,
               t.diferenca_status, t.diferenca_paga_em, t.valor_original, t.valor_novo,
+              t.venda_id AS venda_id,
               g.id AS garantia_id, g.sku AS sku_original, g.cliente_nome AS cliente
          FROM garantia_trocas t
          JOIN garantias g ON g.id = t.garantia_id
@@ -173,7 +209,13 @@ export async function historicoDoDia(db, data) {
       origem: acerto ? ORIGENS.acerto : ORIGENS.cliente,
       origemChave: acerto ? 'acerto' : 'cliente',
       fonte: 'operacional',
-      referencia: `venda:${r.venda_id}`,
+      /* A chave de deduplicação é do ITEM, não da venda.
+         Era `venda:<id>` — igual para todos os itens da mesma venda —, e o
+         filtro logo abaixo descartava do segundo item em diante como se
+         fossem repetições. Uma venda de R$ 110 com três peças aparecia
+         como R$ 50 com uma peça, e o resumo do dia dizia
+         `duplicadasRemovidas: 1` sobre uma peça que existia de verdade. */
+      referencia: `venda:${r.venda_id}:${r.item_rowid}`,
       vendaId: r.venda_id,
       data: r.data,
       dataPagamento: r.data_pagamento ?? null,
@@ -271,11 +313,18 @@ export async function historicoDoDia(db, data) {
       produto: r.produto_novo_nome ?? r.sku_novo,
       qtd: 1,
       /* O valor da linha é a DIFERENÇA, nunca o preço da peça nova: a troca
-         não é uma segunda venda de R$ 99 (§31). */
-      valor: Number(r.diferenca ?? 0),
+         não é uma segunda venda de R$ 99 (§31).
+         §36: quando a troca TEM registro comercial, nem a diferença mora
+         aqui — ela é o total da venda, que já aparece na lista como linha
+         própria. Repetir o número faria o dia somar duas vezes. A linha
+         continua existindo porque a troca aconteceu e pertence ao
+         histórico; ela só deixa de carregar o dinheiro. */
+      valor: r.venda_id == null ? Number(r.diferenca ?? 0) : null,
+      vendaId: r.venda_id ?? null,
       tipo: 'troca_garantia',
       observacao: `Troca de ${r.sku_original} (pago ${Number(r.valor_original).toFixed(2)}) `
-        + `por ${r.sku_novo} (${Number(r.valor_novo).toFixed(2)}) · diferença ${r.diferenca_status}`,
+        + `por ${r.sku_novo} (${Number(r.valor_novo).toFixed(2)}) · diferença ${r.diferenca_status}`
+        + (r.venda_id == null ? '' : ` · registro comercial na venda ${r.venda_id}`),
       ehVenda: false,
     });
   }
@@ -322,7 +371,7 @@ export async function historicoDoDia(db, data) {
     /* O dinheiro que entrou NESTE dia é outra pergunta: é a venda cujo
        PAGAMENTO caiu aqui, não a que foi feita aqui (§29). A diferença de
        troca paga hoje entra junto, porque também é dinheiro deste dia. */
-    recebidoNoDia: recebidoNoDia(soVenda, trocas.results ?? [], data),
+    recebidoNoDia: await recebidoNoDia(db, data),
     porOrigem: {},
     semFaturamento: unicas.filter((l) => !l.ehVenda).length,
   };
@@ -340,3 +389,170 @@ export async function historicoDoDia(db, data) {
 }
 
 export { ORIGENS as ORIGENS_DO_DIA };
+
+/* ═══════════════════════════════ §35 — OS CARTÕES DE LANÇAMENTOS
+
+   O defeito relatado: escolher 05/08/2026 em Vendas → Lançamentos mostrava
+   `R$ 0` nos três cartões enquanto a lista logo abaixo tinha movimentação
+   naquele dia.
+
+   A causa não era a data ser ignorada — ela era respeitada. Era o RECORTE:
+   os cartões eram somados no navegador a partir de `GET /api/vendas`, que
+   lê só a tabela `vendas`. Linha de planilha, acerto de revendedora e troca
+   de garantia daquele dia não estão nela, então um dia histórico aparecia
+   vazio. `historicoDoDia` já sabia de tudo isso e era usado só para a lista
+   de baixo.
+
+   As três definições, escritas para poderem ser testadas:
+
+     BALCÃO   venda direta para cliente naquele dia — a compra da cliente,
+              venha ela da tabela `vendas` ou da planilha. Valor, número de
+              vendas e número de peças.
+
+     ACERTO   o que a revendedora efetivamente VENDEU e confirmou no acerto
+              daquele dia. O número principal é o LÍQUIDO DA MARQUESA:
+              bruto − comissão. Peça que ainda está na maleta não é venda e
+              não entra aqui — a definição antiga do cartão ("peças que a
+              revendedora não devolveu") confundia as duas coisas.
+
+     VENDIDO  balcão + LÍQUIDO dos acertos.
+     NO DIA
+
+   Comissão nunca é estimada (§11): ela sai do documento da maleta
+   (`historico_operacoes`) ou do acerto fechado no sistema
+   (`maletas.acerto_json`). Havendo acerto no dia sem nenhuma das duas
+   fontes, o cartão diz quanto ele foi em BRUTO e declara `exato: false` —
+   em vez de aplicar uma faixa de hoje sobre uma venda de ontem. */
+
+/** Os acertos EXATOS de uma data, das duas fontes que têm comissão. */
+async function acertosDaData(db, data) {
+  const [documentais, doSistema] = await Promise.all([
+    db.prepare(
+      `SELECT 'historico:' || ho.id AS id, ho.revendedora_id, r.nome AS revendedora,
+              ho.pecas AS pecas,
+              ho.bruto_centavos / 100.0 AS bruto,
+              ho.comissao_centavos / 100.0 AS comissao,
+              ho.liquido_centavos / 100.0 AS liquido,
+              NULL AS maleta_id,
+              'documento da maleta' AS fonte
+         FROM historico_operacoes ho
+         JOIN vendas_historico_lotes l ON l.id = ho.lote_id AND l.status = 'importado'
+         JOIN vendas_historicas vh ON vh.lote_id = ho.lote_id AND vh.chave = ho.venda_chave
+         LEFT JOIN revendedoras r ON r.id = ho.revendedora_id
+        WHERE ho.status_registro = 'ativa' AND ho.papel = 'acerto' AND vh.data = ?`,
+    ).bind(data).all(),
+    db.prepare(
+      `SELECT 'sistema:' || m.id AS id, m.rev_id AS revendedora_id, r.nome AS revendedora,
+              CAST(COALESCE(json_extract(m.acerto_json, '$.vendidas'), 0) AS INTEGER) AS pecas,
+              COALESCE(json_extract(m.acerto_json, '$.totalVendido'), 0) AS bruto,
+              COALESCE(json_extract(m.acerto_json, '$.comissao'), 0) AS comissao,
+              COALESCE(json_extract(m.acerto_json, '$.liquido'), 0) AS liquido,
+              m.id AS maleta_id,
+              'acerto do sistema' AS fonte
+         FROM maletas m JOIN revendedoras r ON r.id = m.rev_id
+        WHERE m.status = 'encerrada' AND m.acerto_json IS NOT NULL AND m.encerrada_em = ?`,
+    ).bind(data).all(),
+  ]);
+  return [...(documentais.results ?? []), ...(doSistema.results ?? [])].map((a) => ({
+    id: a.id,
+    revendedoraId: a.revendedora_id == null ? null : Number(a.revendedora_id),
+    revendedora: a.revendedora ?? null,
+    maletaId: a.maleta_id == null ? null : Number(a.maleta_id),
+    pecas: Number(a.pecas ?? 0),
+    bruto: +Number(a.bruto ?? 0).toFixed(2),
+    comissao: +Number(a.comissao ?? 0).toFixed(2),
+    liquido: +Number(a.liquido ?? 0).toFixed(2),
+    fonte: a.fonte,
+  }));
+}
+
+/** Os cartões de Vendas → Lançamentos para UMA data.
+ *
+ *  Reusa `historicoDoDia` inteiro — a lista e os cartões precisam sair da
+ *  mesma leitura, senão o número de cima e a linha de baixo divergem sem
+ *  ninguém conseguir dizer qual está certo. */
+export async function lancamentosDoDia(db, data) {
+  const dia = await historicoDoDia(db, data);
+  if (!dia.ok) return dia;
+
+  const acertos = await acertosDaData(db, data);
+  const linhas = dia.itens;
+
+  /* ─── balcão: a compra de cliente, nas duas populações */
+  const deCliente = linhas.filter((l) => l.ehVenda && l.origemChave === 'cliente');
+  const chaveVenda = (l) => (l.vendaId != null ? `v:${l.vendaId}`
+    : l.vendaHistoricaId != null ? `h:${l.vendaHistoricaId}`
+      : l.historicoItemId != null ? `hi:${l.historicoItemId}` : l.referencia);
+  const vendasBalcao = new Set(deCliente.map(chaveVenda));
+  const balcao = {
+    valor: +deCliente.reduce((s, l) => s + (l.valor ?? 0), 0).toFixed(2),
+    vendas: vendasBalcao.size,
+    pecas: deCliente.reduce((s, l) => s + (l.qtd ?? 0), 0),
+  };
+
+  /* ─── acerto: só o que tem comissão exata entra no líquido. */
+  const maletasComDocumento = new Set(acertos.map((a) => a.maletaId).filter((x) => x != null));
+  const linhasDeAcerto = linhas.filter((l) => l.ehVenda && l.origemChave === 'acerto');
+  /* A linha de acerto que veio da planilha É a operação documental já
+     contada acima. A operacional só está contada se a maleta dela fechou
+     com `acerto_json` nesta data; a que não está fica declarada, com o
+     bruto que se sabe e a comissão em NULL — que é "não sei", não zero. */
+  const semDocumento = linhasDeAcerto.filter(
+    (l) => l.fonte === 'operacional' && !maletasComDocumento.has(l.maletaId),
+  );
+  const acerto = {
+    bruto: +acertos.reduce((s, a) => s + a.bruto, 0).toFixed(2),
+    comissao: +acertos.reduce((s, a) => s + a.comissao, 0).toFixed(2),
+    liquido: +acertos.reduce((s, a) => s + a.liquido, 0).toFixed(2),
+    pecas: acertos.reduce((s, a) => s + a.pecas, 0),
+    acertos: acertos.length,
+    exato: semDocumento.length === 0,
+    revendedoras: [...new Set(acertos.map((a) => a.revendedora).filter(Boolean))],
+    detalhe: acertos,
+    /* §9 — o que o sistema decidiu NÃO fazer, dito em voz alta. */
+    semComissaoConhecida: semDocumento.length ? {
+      linhas: semDocumento.length,
+      bruto: +semDocumento.reduce((s, l) => s + (l.valor ?? 0), 0).toFixed(2),
+      pecas: semDocumento.reduce((s, l) => s + (l.qtd ?? 0), 0),
+      motivo: 'Há venda de acerto nesta data sem documento de comissão. '
+        + 'O bruto é conhecido; a comissão não, e não é estimada — '
+        + 'estes valores ficam FORA do líquido e do total do dia.',
+    } : null,
+  };
+
+  /* ─── o total do dia, com a fórmula dita junto do número */
+  const vendidoNoDia = +(balcao.valor + acerto.liquido).toFixed(2);
+
+  /* ─── o que foi vendido HOJE e ainda não foi pago. Não é o mesmo que
+     "entrou no caixa hoje" (`recebidoNoDia`, que já vem de historicoDoDia):
+     um é dívida que nasceu, o outro é dinheiro que chegou. */
+  const naoPagas = deCliente.filter((l) => l.pago === false);
+  const aReceberDoDia = {
+    valor: +naoPagas.reduce((s, l) => s + (l.valor ?? 0), 0).toFixed(2),
+    vendas: new Set(naoPagas.map(chaveVenda)).size,
+  };
+
+  return {
+    ok: true,
+    data,
+    vendidoNoDia: {
+      valor: vendidoNoDia,
+      pecas: balcao.pecas + acerto.pecas,
+      vendas: balcao.vendas + acerto.acertos,
+      formula: 'balcão + líquido dos acertos',
+    },
+    balcao,
+    acerto,
+    aReceberDoDia,
+    recebidoNoDia: dia.resumo.recebidoNoDia,
+    /* Quantas movimentações do dia NÃO são venda — consignação, brinde,
+       troca de garantia. Fica aqui para o cartão poder dizer que o dia teve
+       movimento mesmo quando vendeu zero. */
+    semFaturamento: dia.resumo.semFaturamento,
+    movimentacoes: dia.resumo.linhas,
+    regra: 'Vendido no dia = vendas diretas para cliente + LÍQUIDO dos acertos '
+      + '(bruto − comissão da revendedora). Peça que ainda está na maleta não é '
+      + 'venda. Comissão nunca é estimada: sai do documento da maleta ou do '
+      + 'acerto fechado no sistema.',
+  };
+}
