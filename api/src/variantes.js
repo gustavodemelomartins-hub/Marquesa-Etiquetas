@@ -329,15 +329,28 @@ export async function variacoesParaRevisao(db) {
     porSku.get(l.sku).push(l);
   }
 
+  /* §34 — a mesma pergunta, agrupada uma vez em vez de uma por produto.
+     A subconsulta correlacionada que estava aqui varria `maleta_itens`
+     inteira para CADA produto ativo: medido em banco do tamanho da
+     produção (772 produtos, 382 peças em maleta), esta rota lia 298.032
+     linhas do D1 — mais do que todo o resto do painel somado.
+     Agregar antes e casar depois lê cada tabela uma vez só. O índice
+     `idx_maleta_itens_sku` (migracao-pos-golive-1.sql) resolve o mesmo
+     problema pelo outro lado; os dois juntos é o que faz a rota custar
+     ~4 mil linhas com ou sem a migration aplicada. */
   const produtos = new Map();
   for (const p of (await db.prepare(`
-    SELECT p.sku, p.desc, p.qtd,
-           p.qtd - COALESCE((
-             SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
-               JOIN maletas m ON m.id = mi.maleta_id
-              WHERE mi.sku = p.sku AND m.status IN ('aberta','em_acerto')
-           ), 0) AS casa
-      FROM produtos p WHERE p.status = 'ativo'`).all()).results) {
+    WITH fora AS (
+      SELECT mi.sku AS sku, SUM(mi.qtd - mi.devolvida) AS consignado
+        FROM maleta_itens mi
+        JOIN maletas m ON m.id = mi.maleta_id
+       WHERE m.status IN ('aberta','em_acerto')
+       GROUP BY mi.sku
+    )
+    SELECT p.sku, p.desc, p.qtd, p.qtd - COALESCE(f.consignado, 0) AS casa
+      FROM produtos p
+      LEFT JOIN fora f ON f.sku = p.sku
+     WHERE p.status = 'ativo'`).all()).results) {
     produtos.set(normSku(p.sku), p);
   }
 

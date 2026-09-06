@@ -51,6 +51,10 @@ import {
   estornarTroca, listarGarantias, lerGarantia, garantiasPendentes,
 } from './garantias.js';
 import { historicoDoDia } from './historico-dia.js';
+/* §34 — medição de leitura do D1. Desligada por padrão; ver d1-metrica.js. */
+import {
+  criarContador, medirD1, carimbarMetrica, metricasLigadas,
+} from './d1-metrica.js';
 import { auditoriaPagamentos } from './pagamentos-auditoria.js';
 import {
   analisarHistoricoNaoVenda, aplicarReclassificacao,
@@ -76,7 +80,12 @@ export default {
    *  pode esquecer de devolvê-lo. */
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return comCors(new Response(null, { status: 204 }), request, env);
-    return comCors(await rotear(request, env), request, env);
+    /* §34 — medir antes de otimizar. Desligado, `contador` é null e o
+       binding do D1 segue direto, sem envelope nenhum: a medição não pode
+       custar nada quando não está sendo usada. */
+    const contador = metricasLigadas(request, env) ? criarContador() : null;
+    const resposta = await rotear(request, env, contador);
+    return comCors(carimbarMetrica(resposta, contador), request, env);
   },
 
   /** Cron da Cloudflare. Roda mesmo sem ninguém com o app aberto — é o que
@@ -93,7 +102,7 @@ export default {
   },
 };
 
-async function rotear(request, env) {
+async function rotear(request, env, contador = null) {
   {
     const url = new URL(request.url);
     const path = url.pathname;
@@ -132,7 +141,7 @@ async function rotear(request, env) {
 
     if (!checarChave(request, env)) return respostaNaoAutorizada();
 
-    const db = env.DB;
+    const db = medirD1(env.DB, contador);
     try {
       if (path === '/api/state' && met === 'GET') return json(await montarState(db, env));
 

@@ -2519,7 +2519,49 @@ function gravarConexao(c){
 /* Chamador central da API — todo mutation passa por aqui. Em erro, lança
    Error com a mensagem do servidor (json.erro) e guarda o corpo em .data,
    para casos como o 409 de acerto sem preço, que precisa dos detalhes. */
+/* ═════════════════ §34 — não pagar duas vezes pela mesma leitura do D1
+ *
+ * A conta bateu no limite diário de linhas lidas do D1. Medido com
+ * `node src/d1-uso-audit.mjs` num banco do tamanho da produção, uma
+ * abertura de `/api/analytics/painel` lê ~70 mil linhas: o painel recalcula
+ * faturamento, evolução, categorias, produtos, origem e ranking sobre os 25
+ * meses de histórico inteiros, e o `switchTab` refazia isso a CADA volta
+ * para a aba. Ir em Clientes e voltar custava outras 70 mil.
+ *
+ * A memória guarda só GET de rota de ANÁLISE — nada que decida estoque ou
+ * dinheiro de escrita passa por aqui — e vale enquanto duas coisas forem
+ * verdade:
+ *
+ *   1. nada foi ESCRITO desde então. Qualquer método diferente de GET
+ *      incrementa `dadosVersao` e invalida tudo. `api()` é o único caminho
+ *      de escrita do painel, então não há como uma gravação escapar disso.
+ *   2. faz menos de 60 segundos. É o teto para o que este navegador NÃO
+ *      pode saber: a sincronização da madrugada e outro aparelho escrevendo
+ *      ao mesmo tempo. Sem esse teto, a memória seria uma segunda verdade.
+ *
+ * Uma cópia é devolvida a cada acerto: quem chamou pode alterar o objeto
+ * que recebeu (a tela faz isso) sem contaminar o que ficou guardado. */
+let dadosVersao=0;
+const memoriaLeitura=new Map();
+const MEMORIA_MS=60000;
+const MEMORIZAVEL=/^\/api\/(analytics\/|variacoes\/revisao|pendencias)/;
+function invalidarMemoriaLeitura(){ dadosVersao++; memoriaLeitura.clear(); }
+function copiaMemoria(v){
+  try{ return structuredClone(v); }catch(e){ return JSON.parse(JSON.stringify(v)); }
+}
+
 async function api(method,path,body){
+  const memoriza=method==='GET'&&MEMORIZAVEL.test(path);
+  if(memoriza){
+    const guardado=memoriaLeitura.get(path);
+    if(guardado&&guardado.versao===dadosVersao&&(Date.now()-guardado.em)<MEMORIA_MS){
+      return copiaMemoria(guardado.valor);
+    }
+  }
+  /* Escrever invalida ANTES da resposta chegar: se a gravação der certo e a
+     resposta se perder no caminho, a memória já não vale mais — o contrário
+     deixaria a tela mostrando o número de antes de uma escrita que ocorreu. */
+  if(method!=='GET') invalidarMemoriaLeitura();
   const opts={method, headers:{'Authorization':'Bearer '+conn.key}};
   if(body!==undefined){ opts.headers['Content-Type']='application/json'; opts.body=JSON.stringify(body); }
   const res=await fetch(conn.url+path,opts);
@@ -2544,12 +2586,16 @@ async function api(method,path,body){
       jsonInvalido:erroJson?String(erroJson.message):null, corpo:bruto.slice(0,1000)});
     throw err;
   }
+  if(memoriza) memoriaLeitura.set(path,{versao:dadosVersao, em:Date.now(), valor:json});
   return json;
 }
 /* Upload de bytes: o corpo da requisição É o arquivo, sem envelope JSON —
    assim o servidor recebe exatamente o que o navegador leu do disco, sem
    inflar 33% em base64 à toa. */
 async function apiArquivo(method,path,arquivo){
+  /* Upload é escrita: invalida a memória de leitura pela mesma razão que
+     `api()` invalida — foto e planilha mudam o que as análises somam. */
+  if(method!=='GET') invalidarMemoriaLeitura();
   const res=await fetch(conn.url+path,{
     method, headers:{'Authorization':'Bearer '+conn.key,'Content-Type':arquivo.type||'application/octet-stream'},
     body:arquivo,
