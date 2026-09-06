@@ -1168,6 +1168,30 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 @media(max-width:720px){.receber-linha{grid-template-columns:1fr auto}.receber-origem{grid-column:1/-1}
   .receber-prazo{grid-column:1}.receber-valor{grid-column:2;grid-row:1}}
 
+/* ---------- Campo de data (§39)
+   A Sthefany relatou que digitar prazo era difícil e que o valor sumia. O
+   campo passou a ter dois estados: LIDO ("Prazo: 15/09/2026 · editar"), que
+   é como ele fica 99% do tempo, e EDITANDO, que abre um campo com máscara
+   DD/MM/AAAA ao lado do calendário do navegador. Um input de data cru, em
+   branco, o tempo todo era a própria fonte da dificuldade. */
+.campo-data{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12px}
+.campo-data b{color:var(--bordo);font-weight:700}
+.campo-data .cd-txt{width:104px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;
+  background:#fff;color:var(--ink);font:inherit;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.campo-data .cd-txt:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-tint)}
+.campo-data .cd-txt.erro{border-color:var(--danger);box-shadow:0 0 0 3px var(--danger-tint)}
+/* O calendário nativo fica reduzido ao próprio ícone: ele é a alternativa a
+   digitar, não o campo principal — quem prefere teclado nunca o encontra
+   no caminho. */
+.campo-data .cd-cal{width:34px;padding:6px 4px;border:1px solid var(--line);border-radius:7px;
+  background:#fff;color:transparent;font:inherit}
+.campo-data .cd-cal::-webkit-datetime-edit{display:none}
+.campo-data .cd-cal::-webkit-calendar-picker-indicator{opacity:.7;cursor:pointer}
+.campo-data .lnk{border:0;background:none;padding:0;color:var(--bordo);cursor:pointer;
+  font:inherit;font-size:11.5px;text-decoration:underline}
+.campo-data .cd-fb{font-size:11px;color:var(--danger);flex-basis:100%}
+.campo-data .cd-fb.ok{color:var(--green,#0D9382)}
+
 @media (min-width:760px){
   .kpis.cinco{grid-template-columns:repeat(3,minmax(0,1fr))}
   .pvrow{grid-template-columns:24px 54px minmax(0,1fr) auto}
@@ -8271,32 +8295,134 @@ function blocoAcertosMaleta(m){
      <div class="hint" style="margin-top:12px">Valores exatos dos documentos das maletas e dos acertos fechados no sistema. Nenhuma comissão estimada.</div>`);
 }
 
+/* ═══════════════════════════════ §39 — o campo de data que dá para usar
+ *
+ *  A Sthefany relatou que os prazos do "A receber" eram difíceis de digitar
+ *  e que o valor não sobrevivia. O campo era um `<input type="date">` cru,
+ *  permanentemente vazio na tela, mostrando "dd/mm/aaaa" como placeholder e
+ *  exigindo o formato do navegador.
+ *
+ *  Agora ele tem dois estados. LIDO é o normal: "Prazo: 15/09/2026 · editar".
+ *  EDITANDO abre um campo de texto com máscara DD/MM/AAAA — o formato que
+ *  ela escreve — com o calendário do navegador ao lado, para quem preferir
+ *  clicar. Internamente continua tudo YYYY-MM-DD; a conversão acontece nas
+ *  duas bordas e em lugar nenhum mais.
+ *
+ *  Enter salva, Escape cancela, e nenhum dos dois apaga o que estava lá:
+ *  data inválida acende o campo em vermelho e diz o que está errado, sem
+ *  perder o que foi digitado. O painel redesenha telas inteiras a partir de
+ *  string, então quais campos estão abertos precisa morar fora do DOM. */
+const camposDataAbertos=new Set();
+const dataBR=(iso)=>iso?String(iso).slice(0,10).split('-').reverse().join('/'):'';
+
+function isoDeBR(br){
+  const t=String(br||'').trim();
+  const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t);
+  if(!m) return {erro:'Escreva no formato DD/MM/AAAA.'};
+  const iso=`${m[3]}-${m[2]}-${m[1]}`;
+  /* 31/02 passa no formato e não existe no calendário. O Date normaliza
+     para 03/03 em silêncio — comparar de volta é o que pega isso. */
+  const d=new Date(iso+'T00:00:00Z');
+  if(Number.isNaN(d.getTime())||d.toISOString().slice(0,10)!==iso){
+    return {erro:`${t} não existe no calendário.`};
+  }
+  return {iso};
+}
+
+/** Máscara enquanto digita: só dígitos, barras postas sozinhas. Apagar
+    funciona porque a barra nunca é obrigatória para continuar. */
+function mascaraDataBR(el){
+  const d=el.value.replace(/\D/g,'').slice(0,8);
+  el.value=d.length>4?`${d.slice(0,2)}/${d.slice(2,4)}/${d.slice(4)}`
+    :d.length>2?`${d.slice(0,2)}/${d.slice(2)}`:d;
+  el.classList.remove('erro');
+}
+function abrirCampoData(chave,foco){
+  camposDataAbertos.add(chave); renderVendasPainel();
+  const el=document.getElementById('cd-'+chave); if(el){ el.focus(); el.select(); }
+}
+function fecharCampoData(chave){ camposDataAbertos.delete(chave); renderVendasPainel(); }
+function erroCampoData(chave,msg){
+  const el=document.getElementById('cd-'+chave); const fb=document.getElementById('cd-fb-'+chave);
+  if(el) el.classList.add('erro');
+  if(fb) fb.textContent=msg;
+}
+
+/** O HTML do campo. `acao` é o nome da função global que salva. */
+function campoData(chave,iso,{rotulo='Prazo',acao='salvarPrazoConta',vazio='Sem prazo definido',
+                             podeEditar=true,motivo=''}={}){
+  if(!podeEditar){
+    return `<span class="campo-data"><span class="hint" title="${esc(motivo)}">${esc(vazio)}</span></span>`;
+  }
+  if(!camposDataAbertos.has(chave)){
+    return `<span class="campo-data">
+      ${iso?`<b>${esc(rotulo)}: ${dataBR(iso)}</b>`:`<span class="hint">${esc(vazio)}</span>`}
+      <button class="lnk" onclick="abrirCampoData('${chave}')">${iso?'editar':'definir'}</button>
+    </span>`;
+  }
+  return `<span class="campo-data">
+    <input type="text" class="cd-txt" id="cd-${chave}" value="${dataBR(iso)}"
+           inputmode="numeric" maxlength="10" placeholder="DD/MM/AAAA"
+           aria-label="${esc(rotulo)} em dia, mês e ano"
+           oninput="mascaraDataBR(this)"
+           onkeydown="if(event.key==='Enter'){event.preventDefault();${acao}('${chave}')}else if(event.key==='Escape'){fecharCampoData('${chave}')}">
+    <input type="date" class="cd-cal" value="${esc(iso||'')}" title="Escolher no calendário"
+           onchange="var t=document.getElementById('cd-${chave}');if(t){t.value=this.value?this.value.split('-').reverse().join('/'):'';t.classList.remove('erro')}">
+    <button class="btn btn-gold btn-sm" onclick="${acao}('${chave}')">Salvar</button>
+    <button class="lnk" onclick="fecharCampoData('${chave}')">cancelar</button>
+    <span class="cd-fb" id="cd-fb-${chave}"></span>
+  </span>`;
+}
+
 function blocoContasReceber(r){
   const contas=(r&&r.contas)||[], resumo=(r&&r.resumo)||{};
+  const porTipo=resumo.porTipo||{};
+  const rotuloTipo={historico:'de planilha',venda:'de venda do sistema',troca:'de troca de garantia'};
   return painelBloco('A receber', contas.length?`
     <div class="rc-row" style="flex-wrap:wrap;gap:14px;margin-bottom:14px">
       <div class="rc-st">Total em aberto<b>${money(resumo.total||0)}</b></div>
       <div class="rc-st">Clientes / compras<b>${fmtN(resumo.quantidade||0)}</b></div>
+      <div class="rc-st">Vencidas<b>${fmtN(resumo.vencidas||0)}</b></div>
       <div class="rc-st">Sem prazo definido<b>${fmtN(resumo.semPrazo||0)}</b></div>
     </div>
+    ${/* §37 — de onde vem cada real em aberto. Antes a lista tinha uma
+          origem só (planilha) e não dizia isso; agora tem três, e somar sem
+          separar esconderia que a venda fiada de ontem passou a contar. */
+      Object.keys(porTipo).length>1?`<div class="hint" style="margin-bottom:12px">${
+        Object.entries(porTipo).map(([t,v])=>`${money(v.total)} ${rotuloTipo[t]||t}`).join(' · ')}</div>`:''}
     <div class="receber-lista">${contas.map(c=>`
       <div class="receber-linha ${c.vencida?'vencida':''}">
-        <button class="receber-cliente" onclick="switchTab('${chaveCliente({clienteId:c.clienteId,norm:c.clienteNorm||''})}')">${esc(c.cliente||c.clienteNorm||'Cliente')}</button>
-        <div class="receber-origem">${esc(c.canal||'origem não registrada')}${c.contexto?` · ${esc(c.contexto)}`:''}${c.observacao&&c.observacao!==c.canal?` · ${esc(c.observacao)}`:''}</div>
-        <label class="receber-prazo">Prazo
-          <input type="date" value="${esc(c.vencimentoEm||'')}" onchange="definirPrazoConta(${c.id},${c.versao},this.value)">
-        </label>
+        ${c.clienteAmbiguo
+          ? `<span class="receber-cliente" title="Mais de um cadastro com este nome — a venda não foi atribuída a nenhum">${esc(c.cliente||'Cliente')}</span>`
+          : `<button class="receber-cliente" onclick="switchTab('${chaveCliente({clienteId:c.clienteId,norm:c.clienteNorm||''})}')">${esc(c.cliente||c.clienteNorm||'Cliente')}</button>`}
+        <div class="receber-origem">${esc(c.origem||c.canal||'origem não registrada')}${c.contexto?` · ${esc(c.contexto)}`:''}${c.observacao&&c.observacao!==c.origem?` · ${esc(c.observacao)}`:''}</div>
+        <div>${campoData(c.chave,c.vencimentoEm,{podeEditar:c.podeDefinirPrazo!==false,
+          motivo:'A diferença de troca antiga não tem prazo próprio.'})}</div>
         <b class="receber-valor">${money(c.valorReceber)}</b>
       </div>`).join('')}</div>`:
     `<div class="empty"><h3>Nada a receber</h3><p>Não há compra de cliente marcada como não paga.</p></div>`);
 }
 
-async function definirPrazoConta(id,versao,vencimentoEm){
+/** Salva o prazo de uma conta do A receber, seja ela histórica, venda do
+ *  sistema ou diferença de troca — a `chave` diz qual. */
+async function salvarPrazoConta(chave){
+  const el=document.getElementById('cd-'+chave);
+  if(!el) return;
+  const bruto=(el.value||'').trim();
+  let iso=null;
+  if(bruto){
+    const r=isoDeBR(bruto);
+    /* O valor digitado NÃO é apagado quando está errado: quem errou o dia
+       quer corrigir o dia, não redigitar tudo. */
+    if(r.erro){ erroCampoData(chave,r.erro); return; }
+    iso=r.iso;
+  }
   try{
-    await api('PATCH',`/api/contas-receber/${id}/vencimento`,{versaoEsperada:versao,vencimentoEm:vencimentoEm||null});
+    await api('PATCH','/api/contas-receber/prazo',{chave,vencimentoEm:iso});
+    camposDataAbertos.delete(chave);
+    toast(iso?`Prazo ${dataBR(iso)} salvo`:'Prazo removido');
     await carregarPainelVendas(); renderVendasPainel();
-    toast(vencimentoEm?'Prazo atualizado':'Prazo removido');
-  }catch(e){ toast(e.message||'Não consegui atualizar o prazo'); await carregarPainelVendas(); renderVendasPainel(); }
+  }catch(e){ erroCampoData(chave,e.message||'Não consegui salvar o prazo'); }
 }
 
 async function marcarContaPaga(id,versao,norm,cliente,valor){
@@ -8996,8 +9122,19 @@ async function abrirPerfilCliente(chave){
             :`<button class="btn btn-ghost btn-sm" onclick="openCliForm(null,${JSON.stringify(p.nomeExibicao).replace(/"/g,'&quot;')})">Cadastrar contato</button>`}
         </div>
         <div class="kpis cinco">
-          ${cartaoKpi({ico:ICO.grafico,rot:'Gastou',num:money(r.faturamento),cls:'compacto k-fat',
-            sub:[r.gastoMedioPorPeca!=null?`${money(r.gastoMedioPorPeca)} por peça`:'—']})}
+          ${/* §38 — TRÊS números, não um.
+                O card dizia "Gastou" e mostrava o RECEBIDO: quem comprou
+                R$ 1.000 e pagou R$ 700 aparecia com 700, e a compra fiada
+                sumia da ficha exatamente enquanto ela ainda devia.
+                COMPROU é o total comercial e não encolhe porque parte ainda
+                não foi paga; pago e em aberto vêm logo abaixo, em texto
+                menor, porque são a explicação do número de cima. */''}
+          ${cartaoKpi({ico:ICO.grafico,rot:'Comprou',num:money(r.comprou!=null?r.comprou:r.faturamento),
+            cls:'compacto k-fat',
+            sub:[r.comprou!=null
+              ? `Pago ${money(r.pago||0)} · Em aberto ${money(r.emAberto||0)}`
+              : (r.gastoMedioPorPeca!=null?`${money(r.gastoMedioPorPeca)} por peça`:'—'),
+              r.gastoMedioPorPeca!=null?`${money(r.gastoMedioPorPeca)} por peça`:'']})}
           ${cartaoKpi({ico:ICO.etiqueta,rot:'Compras',num:fmtN(r.vendas),cls:'compacto k-ped',
             sub:[`${fmtN(r.itensLancados)} ${plural(r.itensLancados,'item','itens')} no total`]})}
           ${cartaoKpi({ico:ICO.caixa,rot:'Peças',num:fmtN(r.pecas),cls:'compacto k-pec',
@@ -9082,8 +9219,18 @@ async function abrirPerfilCliente(chave){
                 (${money(g.troca.valorOriginal)}) → ${esc(g.troca.skuNovo)} (${money(g.troca.valorNovo)}) ·
                 diferença ${money(g.troca.diferenca)}${
                   g.troca.diferencaStatus==='paga'&&g.troca.diferencaPagaEm
-                    ? ' · paga em '+fmtData(g.troca.diferencaPagaEm)
-                    : (g.troca.diferencaStatus==='a_receber'?' · a receber':'')}</span></div>`:''}`).join('')}`;
+                    ? ' · <b>Diferença paga em '+fmtData(g.troca.diferencaPagaEm)+'</b>'
+                    : (g.troca.diferencaStatus==='a_receber'
+                        ? ` · <b>${money(g.troca.diferenca)} a receber</b>`
+                        : (g.troca.diferencaStatus==='pendente_regra'
+                            ? ' · peça nova mais barata — crédito ainda não é regra definida'
+                            : ''))}</span>
+              ${/* §36 — a ação que faltava. O print da Evelyn mostrava
+                    "diferença R$ 10 · a receber" e nada para clicar: os R$ 10
+                    não tinham como ser recebidos por lugar nenhum. */
+                g.troca.diferencaStatus==='a_receber'?`<button class="btn btn-gold btn-sm"
+                  onclick="pagarDiferencaTroca(${g.id},${Number(g.troca.diferenca)},${g.troca.vendaId||0})"
+                  >Registrar pagamento</button>`:''}</div>`:''}`).join('')}`;
           }).join('')}</div>`:''}
           ${v.cobrancaStatus==='aberta'?`<div class="tl-cobranca">
             ${/* §29: a venda do SISTEMA em aberto passa a ter caminho próprio.
@@ -9423,14 +9570,56 @@ async function pagarDiferencaGarantia(id,valor){
 /** §29 — a venda do sistema em aberto, marcada como paga a partir da ficha
  *  da cliente. É a mesma rota da lista do dia; o que muda é para onde a tela
  *  volta depois. */
+/** §39 — perguntar uma data no formato que ela escreve.
+ *
+ *  O `prompt` pedia AAAA-MM-DD, que é o formato do banco e não o de
+ *  ninguém. Aqui a pergunta é em DD/MM/AAAA, já preenchida com hoje, e uma
+ *  data impossível é recusada com o motivo em vez de virar erro do servidor
+ *  — ou, pior, uma data errada aceita em silêncio.
+ *
+ *  Devolve o ISO, ou `null` quando a pessoa desistiu. */
+function perguntarDataBR(titulo,padraoIso){
+  let sugestao=dataBR(padraoIso||hoje());
+  for(;;){
+    const bruto=prompt(titulo+'\n\nEscreva no formato DD/MM/AAAA.',sugestao);
+    if(bruto===null) return null;
+    const r=isoDeBR(bruto);
+    if(r.iso) return r.iso;
+    sugestao=String(bruto).trim();
+    alert(r.erro);
+  }
+}
+
 async function marcarVendaPagaDoPerfil(id,valor){
-  const d=prompt(`Quando o pagamento de ${money(valor)} entrou?\n\n`
-    +`A data da venda não muda — é esta data que decide o mês do faturamento.`,hoje());
+  const d=perguntarDataBR(`Quando o pagamento de ${money(valor)} entrou?\n`
+    +`A data da venda não muda — é esta data que decide o mês do faturamento.`);
   if(d===null) return;
   try{
-    const r=await api('POST',`/api/vendas/${id}/pagamento`,{dataPagamento:String(d).trim()||hoje()});
+    const r=await api('POST',`/api/vendas/${id}/pagamento`,{dataPagamento:d});
     toast(`Pagamento em ${fmtData(r.dataPagamento)} · faturamento desse mês · estoque intocado`);
   }catch(e){ toast(e.message||'Não consegui registrar o pagamento'); }
+  if(perfilNormAtual) await abrirPerfilCliente(perfilNormAtual);
+}
+
+/** §36 — receber a DIFERENÇA de uma troca de garantia, do próprio histórico
+ *  da cliente. Era o botão que faltava: o print da Evelyn mostrava
+ *  "diferença R$ 10 · a receber" e não havia onde clicar.
+ *
+ *  A troca nova tem registro comercial (`vendaId`), e o pagamento passa por
+ *  ele — é a mesma conta que aparece no A receber, e fechar por dois
+ *  caminhos diferentes deixaria os dois lugares discordando. A troca antiga,
+ *  sem venda, continua sendo quitada pela rota da garantia. */
+async function pagarDiferencaTroca(garantiaId,valor,vendaId){
+  if(!confirm(`Receber ${money(valor)} de diferença desta troca?\n\n`
+    +`Isso entra no faturamento do mês do pagamento e NÃO baixa estoque de novo — `
+    +`a peça saiu no dia da troca.`)) return;
+  const d=perguntarDataBR(`Quando a diferença de ${money(valor)} foi paga?`);
+  if(d===null) return;
+  try{
+    await api('POST','/api/contas-receber/receber',{
+      chave:(vendaId?`venda:${vendaId}`:`troca:${garantiaId}`), confirmar:true, pagaEm:d});
+    toast(`Diferença paga em ${fmtData(d)} · estoque intocado`);
+  }catch(e){ toast(e.message||'Não consegui registrar o pagamento da diferença'); }
   if(perfilNormAtual) await abrirPerfilCliente(perfilNormAtual);
 }
 
