@@ -1,5 +1,9 @@
 # Handoff — Pacotes 0–4 e investigação de governança
 
+> **Nota histórica:** o estado dos Pacotes 0–4 permanece válido, mas a seção
+> de governança foi superada por
+> [HANDOFF-2026-09-08-GOVERNANCA-CODEX-CLAUDE.md](./HANDOFF-2026-09-08-GOVERNANCA-CODEX-CLAUDE.md).
+
 Data: 2026-09-08
 
 ## ESTADO ATUAL

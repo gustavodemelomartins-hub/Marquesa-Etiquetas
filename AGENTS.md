@@ -38,6 +38,20 @@ construção). O backend não tem dependência de runtime.
    nenhum.
 9. **O que o sistema decide não fazer é anunciado, nunca engolido.**
 
+## Hierarquia de instruções
+
+Use uma regra por assunto, nesta ordem:
+
+1. pedido humano explícito mais recente;
+2. este roteador (`AGENTS.md` no Codex, `CLAUDE.md` no Claude);
+3. `docs/SECURITY.md` para risco/ambientes e `api/REGRAS.md` para negócio;
+4. regra por caminho ou skill especializada, somente quando acionada;
+5. runbooks e documentação histórica como evidência, nunca como precedência.
+
+Configuração local (`AGENTS.override.md`, `CLAUDE.local.md`, `.codex/` ou
+`.agents/`) conecta a máquina às ferramentas, mas não pode reintroduzir uma
+política revogada nem contradizer as duas fontes canônicas do item 3.
+
 ## Onde procurar informação
 
 ```
@@ -57,7 +71,7 @@ Dívida técnica     → docs/TECH_DEBT.md
 Próxima fase       → docs/ROADMAP_RECONCILIATION.md
 Publicar a API     → api/DEPLOY.md
 Montar o dashboard → src/README.md
-Camada agentic     → .Codex/README.md   (permissões, hooks, modelos)
+Camada agentic     → .claude/README.md   (arquitetura comum e adaptador Claude)
 WSL2 / sandbox     → docs/WSL2_MIGRATION.md
 ```
 
@@ -99,13 +113,14 @@ token gasto sem retorno.
 
 ## Regras por caminho e travas automáticas
 
-`.codex/` e `.claude/rules/` guardam as travas específicas de cada agente —
-`frontend.md`, `api.md`, `database.md`, `business-rules.md`. Não os leia por
-conta própria; eles chegam quando são úteis.
+`.claude/rules/` guarda regras por caminho do Claude. O Codex descobre skills
+em `.agents/skills` e configuração de projeto em `.codex/`; essas cópias são
+adaptadores e não fontes concorrentes de política.
 
 Duas travas rodam antes de você: `PreToolUse` deixa Classe C seguir e pede
 decisão explícita somente para Classe D, além de impedir leitura de segredo;
-`Stop` cobra a verificação uma vez por sessão. Ver
+`Stop` cobra a verificação uma vez por sessão. Configurações de Codex devem
+espelhar esse comportamento, nunca criar uma segunda política. Ver
 [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Subagentes

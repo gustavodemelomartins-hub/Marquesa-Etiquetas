@@ -176,7 +176,7 @@ develop  →  frontend DEV (Cloudflare Pages)  →  API DEV (Worker)  →  D1 DE
 | URL do frontend | `https://gustavodemelomartins-hub.github.io/Marquesa-Etiquetas/` | **`https://marquesa-dev.pages.dev`** (fixo) |
 | Worker | `marquesa-api` | `marquesa-api-staging` |
 | URL da API | `https://marquesa-api.marquesaasemijoias.workers.dev` | `https://marquesa-api-staging.marquesaasemijoias.workers.dev` |
-| D1 | `marquesa-db` | `marquesa-db-dev` |
+| D1 | `marquesa-db-prod` | `marquesa-db-dev` |
 | Nuvemshop | conectada, leitura e escrita | pode receber `NUVEMSHOP_TOKEN`/`NUVEMSHOP_STORE_ID` reais (leitura de catálogo/produtos/variações/imagens) — **escrita fica sempre barrada**, ver abaixo |
 
 ### Staging lê a loja real. Nunca escreve nela.
@@ -267,7 +267,8 @@ para ele, exceto a lista de `ORIGENS_PERMITIDAS` do Worker staging.
 `marquesa-api-staging` (Worker DEV) **não** faz parte deste workflow — é
 publicado à parte, hoje só manual (comando da seção acima).
 
-Nada neste fluxo toca `main`, `marquesa-api` ou `marquesa-db`.
+Nada neste fluxo toca `main`, `marquesa-api`, `marquesa-db-prod` nem
+`marquesa-db` (a cópia congelada de rollback).
 
 Para ver o que está publicado agora e em qual commit:
 

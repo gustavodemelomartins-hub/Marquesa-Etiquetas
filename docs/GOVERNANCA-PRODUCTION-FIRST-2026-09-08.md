@@ -1,5 +1,9 @@
 # Investigação da governança production-first — 2026-09-08
 
+> **Nota histórica:** esta investigação registra o diagnóstico inicial. A
+> decisão consolidada e o estado final desta etapa estão em
+> [HANDOFF-2026-09-08-GOVERNANCA-CODEX-CLAUDE.md](./HANDOFF-2026-09-08-GOVERNANCA-CODEX-CLAUDE.md).
+
 ## Resultado
 
 A política canônica e a camada Claude versionada foram migradas para

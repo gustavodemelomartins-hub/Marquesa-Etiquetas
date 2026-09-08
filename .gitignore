@@ -76,3 +76,6 @@ src/.shot-*.png
 
 # banco de bancada do wrangler local
 api/.tmp/
+
+# Artefatos descartáveis de testes e auditorias locais.
+.tmp/

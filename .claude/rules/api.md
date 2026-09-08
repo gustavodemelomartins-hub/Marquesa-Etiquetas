@@ -14,7 +14,7 @@ As invariantes que nenhuma rota pode quebrar já estão no `CLAUDE.md`
 
 ## Ambientes no `wrangler.toml`
 
-Bloco raiz = **produção** (`marquesa-api`, `marquesa-db`, `marquesa-fotos`).
+Bloco raiz = **produção** (`marquesa-api`, `marquesa-db-prod`, `marquesa-fotos`).
 `[env.staging]` = **DEV** (`marquesa-api-staging`, `marquesa-db-dev`,
 `marquesa-fotos-dev`, sem cron, sem credencial da Nuvemshop).
 

@@ -1,0 +1,73 @@
+#!/usr/bin/env node
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const ler = (arquivo) => readFileSync(path.join(raiz, arquivo), 'utf8');
+const hash = (arquivo) => createHash('sha256').update(ler(arquivo)).digest('hex');
+const problemas = [];
+
+const hooksConfig = '.codex/hooks.json';
+if (!existsSync(path.join(raiz, hooksConfig))) {
+  problemas.push(`${hooksConfig} ausente`);
+} else if (/Marquesa-Etiquetas[\\/]+\.codex/i.test(ler(hooksConfig))) {
+  problemas.push('.codex/hooks.json usa caminho absoluto específico desta máquina');
+}
+
+function decisao(hookRelativo, command) {
+  const r = spawnSync(process.execPath, [path.join(raiz, hookRelativo)], {
+    cwd: raiz,
+    input: JSON.stringify({ tool_name: 'Bash', tool_input: { command } }),
+    encoding: 'utf8',
+  });
+  if (r.status !== 0) return `erro:${r.status}`;
+  if (!r.stdout.trim()) return 'allow';
+  return JSON.parse(r.stdout).hookSpecificOutput.permissionDecision;
+}
+
+const matriz = [
+  ['git push origin main', 'allow'],
+  ['npx wrangler deploy', 'allow'],
+  ['npx wrangler d1 execute DB --remote --file=api/migracao-publicacao-catalogo.sql', 'allow'],
+  ['npx wrangler secret put API_KEY', 'allow'],
+  ['git push --force origin main', 'ask'],
+  ['npx wrangler d1 execute DB --remote --command "DROP TABLE produtos"', 'ask'],
+  ['cat api/.dev.vars', 'deny'],
+];
+
+const hookCodex = '.codex/hooks/protect-production.mjs';
+if (!existsSync(path.join(raiz, hookCodex))) {
+  problemas.push(`${hookCodex} ausente`);
+} else {
+  for (const [command, esperado] of matriz) {
+    const atual = decisao(hookCodex, command);
+    if (atual !== esperado) problemas.push(`hook Codex: ${command} => ${atual}; esperado ${esperado}`);
+  }
+}
+
+const skillsClaude = path.join(raiz, '.claude/skills');
+for (const entrada of readdirSync(skillsClaude, { withFileTypes: true })) {
+  if (!entrada.isDirectory()) continue;
+  const c = `.claude/skills/${entrada.name}/SKILL.md`;
+  const a = `.agents/skills/${entrada.name}/SKILL.md`;
+  if (!existsSync(path.join(raiz, a))) problemas.push(`skill Codex ausente: ${a}`);
+  else if (hash(c) !== hash(a)) problemas.push(`skill Codex divergente: ${entrada.name}`);
+}
+
+const guardian = '.codex/agents/database-guardian.toml';
+if (!existsSync(path.join(raiz, guardian))) {
+  problemas.push(`${guardian} ausente`);
+} else if (!/marquesa-db-prod/.test(ler(guardian))) {
+  problemas.push('database-guardian do Codex ainda identifica o banco antigo como produção');
+}
+
+if (problemas.length) {
+  console.error(`DIVERGENTE — ${problemas.length} problema(s) locais:`);
+  for (const problema of problemas) console.error(`- ${problema}`);
+  process.exit(1);
+}
+
+console.log('ok — adaptadores locais Codex coerentes com a governança versionada');

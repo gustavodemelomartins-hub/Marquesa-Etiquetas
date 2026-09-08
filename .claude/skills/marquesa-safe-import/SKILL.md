@@ -94,8 +94,11 @@ As três lacunas são o motivo de a sequência acima existir.
 ## Importação real em produção é Classe C
 
 Escreve em massa. Exige backup do D1 antes — ver
-[docs/BACKUP_RECOVERY.md](../../../docs/BACKUP_RECOVERY.md) — e autorização
-humana explícita: [docs/SECURITY.md](../../../docs/SECURITY.md).
+[docs/BACKUP_RECOVERY.md](../../../docs/BACKUP_RECOVERY.md) — além de preview,
+limites, rollback e validação posterior. Quando a tarefa autoriza a importação
+e o diff não contém ambiguidade, o agente pode concluir a Classe C. Resolver
+conflito de peça física por palpite continua Classe D:
+[docs/SECURITY.md](../../../docs/SECURITY.md).
 
 ## Para onde isto vai
 

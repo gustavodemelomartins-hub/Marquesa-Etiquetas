@@ -160,8 +160,9 @@ revogação por dispositivo ou auditoria por usuário.
 
 ## Hooks e permissões
 
-`.claude/hooks/protect-production.mjs` é a implementação versionada desta
-política. Qualquer integração local em `.codex/` deve espelhá-la:
+Este documento é a fonte versionada da política. O adaptador executável do
+Claude está em `.claude/hooks/protect-production.mjs`; qualquer integração
+Codex em `.codex/` deve espelhar o mesmo contrato, sem criar outra política:
 
 - Classe C não é bloqueada por aprovação humana artificial;
 - Classe D retorna `ask` com o risco concreto;
@@ -172,9 +173,10 @@ O antigo `.claude/approvals/production-release.json` não faz mais parte do
 fluxo. Segurança de release é comprovada pelo preflight, artefatos de
 backup/rollback e validação pós-deploy registrados no handoff.
 
-Uma cópia local `.codex/` divergente é conflito de governança, não exceção à
-política. Não publique enquanto ela ainda impuser o modelo human-only; veja
-o handoff da sessão que introduziu esta política.
+Uma cópia local `.codex/` ou `.agents/` divergente é conflito de governança,
+não exceção à política. Configuração local nunca prevalece sobre esta fonte;
+se ainda bloquear Classe C, não publique até alinhar o adaptador e testar a
+mesma matriz Classe C/Classe D/segredos.
 
 ## Regra de parada
 

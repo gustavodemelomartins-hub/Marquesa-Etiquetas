@@ -38,6 +38,20 @@ construção). O backend não tem dependência de runtime.
    nenhum.
 9. **O que o sistema decide não fazer é anunciado, nunca engolido.**
 
+## Hierarquia de instruções
+
+Use uma regra por assunto, nesta ordem:
+
+1. pedido humano explícito mais recente;
+2. este roteador (`CLAUDE.md` no Claude, `AGENTS.md` no Codex);
+3. `docs/SECURITY.md` para risco/ambientes e `api/REGRAS.md` para negócio;
+4. regra por caminho ou skill especializada, somente quando acionada;
+5. runbooks e documentação histórica como evidência, nunca como precedência.
+
+Configuração local (`CLAUDE.local.md`, `AGENTS.override.md`, `.codex/` ou
+`.agents/`) conecta a máquina às ferramentas, mas não pode reintroduzir uma
+política revogada nem contradizer as duas fontes canônicas do item 3.
+
 ## Onde procurar informação
 
 ```
@@ -105,7 +119,8 @@ conta própria; eles chegam quando são úteis.
 
 Duas travas rodam antes de você: `PreToolUse` deixa Classe C seguir e pede
 decisão explícita somente para Classe D, além de impedir leitura de segredo;
-`Stop` cobra a verificação uma vez por sessão. Ver
+`Stop` cobra a verificação uma vez por sessão. Configurações de Codex devem
+espelhar esse comportamento, nunca criar uma segunda política. Ver
 [.claude/README.md](.claude/README.md).
 
 ## Subagentes

@@ -41,9 +41,9 @@ existente, sim; ampliar comportamento, não — sem pedido humano explícito.
 - `{"forcar": true}` contra a loja real: Classe D quando não foi solicitado;
   quando faz parte explícita da tarefa, dry-run e limites antes, validação depois.
 
-## Dados de DEV
+## Dados e ambientes
 
-`marquesa-db-dev` roda com os **dados reais destinados ao teste**. Seed
-fictício serve para subir o schema, não para validar comportamento — não
-mantenha dado inventado quando o teste for de verdade, e nunca conclua nada
-sobre estoque real a partir de seed.
+Os dados reais da operação estão em **PROD**. `marquesa-db-dev` pode conter
+seed sintético, amostras de teste ou estado atrasado; nunca conclua estoque,
+vendas ou clientes reais a partir dele e nunca copie DEV sobre PROD. Quando
+um teste precisar de realismo, use dados anonimizados ou contagens seguras.
