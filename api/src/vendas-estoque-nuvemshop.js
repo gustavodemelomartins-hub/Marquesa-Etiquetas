@@ -19,7 +19,14 @@ async function regularizarPendentesSeguros(db, bloqueios) {
      WHERE v.origem <> 'site'
        AND v.cancelada = 0
        AND v.nuvemshop_status IN ('nao_enviada','pendente','sincronizando','erro','revisao')
-     ORDER BY v.id
+    UNION
+    SELECT v.id, m.sku
+      FROM vendas v
+      JOIN movimentos m ON m.venda_id = v.id
+     WHERE v.origem <> 'site'
+       AND v.cancelada = 0
+       AND v.nuvemshop_status IN ('nao_enviada','pendente','sincronizando','erro','revisao')
+     ORDER BY id
   `).all()).results || [];
   const porVenda = new Map();
   for (const linha of linhas) {
@@ -70,7 +77,14 @@ export async function atualizarEstoqueDaVenda(db, env, vendaId, { forcar = false
     return { status: 'erro', erro, pausado: resultado.pausado };
   }
 
-  const itens = (await db.prepare(`SELECT DISTINCT sku FROM venda_itens WHERE venda_id=?`).bind(vendaId).all()).results;
+  /* Em produto montado, `venda_itens` guarda o SKU comercial, enquanto os
+     SKUs que realmente mudaram estão nos movimentos. A união preserva a
+     venda comum e inclui base/componentes sem criar regra paralela. */
+  const itens = (await db.prepare(`
+    SELECT sku FROM venda_itens WHERE venda_id=?
+    UNION
+    SELECT sku FROM movimentos WHERE venda_id=?
+  `).bind(vendaId, vendaId).all()).results;
   const skus = new Set(itens.map(i => String(i.sku)));
   const bloqueios = (resultado.semEmpurrar || []).filter(i => skus.has(String(i.sku)));
   // A publicação é global e absoluta. Mesmo que a venda escolhida contenha

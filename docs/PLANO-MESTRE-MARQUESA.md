@@ -1,5 +1,10 @@
 # Plano mestre — Marquesa Semijoias
 
+> **Nota de governança (2026-09-08):** o histórico abaixo preserva decisões
+> do go-live, mas qualquer regra human-only/DEV-first foi substituída por
+> [SECURITY.md](SECURITY.md): PROD é fonte operacional, DEV não é gate e
+> Classe C pode ser executada autonomamente após gates.
+
 Documento vivo de acompanhamento do projeto. É a fonte contínua de contexto:
 onde estamos, o que já foi decidido, o que falta, e por quê.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Prova `validarAprovacao` — a decisão pura do Production Release Approval.
+/** Teste histórico do mecanismo inerte de Production Release Approval.
  *
  *      node .claude/hooks/lib/release-approval.test.mjs
  *

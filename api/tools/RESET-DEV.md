@@ -263,8 +263,8 @@ O DEV remoto não é tocado em momento nenhum.
 
 ## Fase B — o reset (só depois da sua aprovação)
 
-`DELETE` em massa é **Classe C** em `docs/SECURITY.md`: exige autorização
-humana explícita. É por isso que esta parte espera.
+`DELETE` em massa é **Classe D** em `docs/SECURITY.md`: exige instrução
+humana explícita para este reset. É por isso que esta parte espera.
 
 ```bash
 cd api
@@ -338,9 +338,8 @@ e linhas) é o próprio dump.
 Nos dois caminhos, o critério de aceitação é o mesmo: as contagens batendo
 com o `MANIFESTO.txt` e `divergentes = 0` na razão contábil.
 
-> Restore é **Classe C**. Nunca é executado por um agente. Só quando uma
-> pessoa diz, naquele momento, que quer restaurar aquele banco a partir
-> daquele arquivo.
+> Restore técnico é **Classe C** e pode ser executado pelo agente com plano e
+> validação. Este reset destrutivo do DEV continua Classe D.
 
 ---
 

@@ -167,6 +167,21 @@ este nome e o sistema NÃO escolheu" (§2). A venda fica sem dona de propósito
 que era o caminho pelo qual o dinheiro de ninguém entrava na ficha da que
 sobrava.
 
+### `personalizacao_modelos` / `personalizacao_opcoes` /
+### `venda_personalizacoes` / `venda_personalizacao_itens`
+
+O Monte seu Colar separa identidade comercial de estoque físico. A linha de
+`venda_itens` usa o SKU comercial do modelo (ou `MONTE-COLAR` na composição
+livre); `venda_personalizacoes.sku_comercial` congela essa identidade. A
+baixa física usa sempre a base `444032` e os componentes escolhidos, que
+ficam congelados por posição, SKU, variação e `variante_id` em
+`venda_personalizacao_itens`.
+
+`estoque_ja_refletido=1` distingue o registro retroativo: ele preserva a
+história comercial sem criar baixa nem devolução posterior. O índice
+`idx_vpers_venda_base` é deliberadamente não único, pois uma mesma venda pode
+conter mais de um colar com a mesma base.
+
 ### `saidas_sem_faturamento`
 §31. Brinde, uso próprio e diferença de inventário. Elas **não** estão em
 `vendas`, e isso é a regra, não a organização: a linha que não está em

@@ -119,4 +119,6 @@ E confira a razão: `GET /api/estoque/conferir` tem de voltar vazio.
 ## Escrever na loja de verdade é Classe C
 
 Ver [docs/SECURITY.md](../../../docs/SECURITY.md). Sincronização forçada
-contra produção precisa de autorização humana explícita, e de backup antes.
+contra produção exige escopo explícito, dry-run, limites conferidos e
+validação posterior. É Classe C autônoma; `forcar:true` não solicitado é
+Classe D.

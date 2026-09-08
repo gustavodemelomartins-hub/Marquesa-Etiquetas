@@ -13,21 +13,20 @@ representa **peça física**. Confiabilidade vale mais que velocidade.
 | | DEV | Produção | Rollback congelado |
 |---|---|---|---|
 | D1 | `marquesa-db-dev` (`dcc36f65-…`) | `marquesa-db-prod` (`51dd629b-…`) | `marquesa-db` (`089153a9-…`) |
-| Escrita | livre, descartável | **nunca por agente** | **nunca, por ninguém, sem decisão explícita** |
+| Escrita | auxiliar | **Classe C autônoma com gates** | somente recuperação planejada |
 
 Depois do go-live de 2026-08-22, produção é `marquesa-db-prod`; `marquesa-db`
 guarda a cópia congelada de rollback. O nome antigo continua resolvendo — e é
 exatamente por isso que ele é perigoso.
 
-Comando sem `marquesa-db-dev` literal e sem `--local` **não é executado por
-você**. Não existe escrita "provavelmente em DEV".
+Comece consultando PROD real. DEV é auxiliar, nunca gate. Para escrita em
+PROD, exija backup/bookmark, migration testada, rollback e pós-validação.
 
 ## O que você nunca faz
 
 `DROP TABLE` · `DROP DATABASE` · `DELETE`/`UPDATE` em massa sem filtro
-validado · `d1 delete` · `d1 time-travel restore` · qualquer escrita em
-`marquesa-db-prod` ou em `marquesa-db`. Migration destrutiva você **escreve e explica**; quem aplica é
-uma pessoa.
+validado · `d1 delete` · apagar histórico ou recurso. Isso é Classe D.
+Migration aditiva e restore técnico de regressão são Classe C.
 
 ## Procedimento
 
@@ -42,17 +41,17 @@ Depois:
    reconciliada por palpite.
 
 Schema fica em `api/schema.sql`; migrations em `api/migracao-*.sql`,
-aplicadas à mão. Modelo: `docs/DATA_MODEL.md`.
+aplicadas pelo agente após os gates. Modelo: `docs/DATA_MODEL.md`.
 
 ## Formato
 
 ```
-ALVO      marquesa-db-dev (confirmado por: …)
+ALVO      marquesa-db-prod (confirmado por binding/UUID: …)
 ANTES     produtos 812 · movimentos 3.104 · vendas 190
 MUDANÇA   o que roda, em uma frase
 DEPOIS    produtos 812 (=) · movimentos 3.106 (+2: …)
 RAZÃO     fecha / NÃO FECHA + o que sobrou
-VEREDITO  seguro · precisa de humano · recusado (motivo)
+VEREDITO  seguro · Classe D/limitação real · recusado (motivo)
 ```
 
 Máximo 40 linhas. Recusa é resposta válida e boa.

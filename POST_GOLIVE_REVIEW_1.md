@@ -1,5 +1,7 @@
 # READY_FOR_REVIEW_DEPLOY
 
+> Documento histórico. Governança vigente: `docs/SECURITY.md` (2026-09-08).
+
 **Revisão operacional 1 — pós-go-live** · 06/09/2026
 Branch `claude/marquesa-operational-review-eztpzt` · base `main` em `d3a2740`
 

@@ -1,314 +1,183 @@
-# Segurança e política de operações perigosas
+# Segurança operacional
 
-> Este sistema controla **estoque real e vendas reais**. Confiabilidade vale
-> mais que velocidade de implementação.
+Vigente desde 2026-09-08. Esta política substitui o antigo modelo de
+`Production Release Approval` e qualquer regra que exigia execução humana
+para push, migration ou deploy de produção.
 
-## Classes de operação
+## Princípio operacional
 
-Toda ação sobre este repositório cai numa de três classes. A classe decide
-se ela pode ser executada direto, depois de checkpoint, ou só com
-autorização humana explícita.
+O Sistema Marquesa opera em modo **production-first**.
 
-### Classe A — leitura · pode executar normalmente
+- Produção é a fonte de verdade operacional para código implantado, Worker,
+  bindings, configuração, schema e dados.
+- DEV/staging é auxiliar. Pode ser usado em experiências e testes, mas não é
+  gate, fonte de verdade nem pré-requisito para produção.
+- Divergência entre DEV e PROD não bloqueia uma release. Ela apenas impede
+  usar DEV como evidência sobre o estado de PROD.
+- Agentes podem concluir autonomamente o ciclo analisar → implementar →
+  testar → proteger → publicar → validar → corrigir/rollback → registrar.
+- Segurança vem de gates proporcionais ao risco, não de um botão humano.
 
-- Ler arquivos, buscar no código, gerar diff
-- Consultar Git (`status`, `log`, `diff`, `show`, `branch`)
-- Consultar o banco **local** (`wrangler d1 execute --local` com `SELECT`)
-- Rodar dry-run (`POST /api/sync {"seco": true}`)
-- Rodar a suíte de testes local
-- Consultar a Nuvemshop **sem escrita** (`GET /products`, `GET /orders`)
-- Ler `GET /api/state`, `GET /api/estoque/conferir`
+Antes de uma operação relevante, consulte diretamente o estado real de
+produção. Nunca publique sobre PROD a partir de uma branch antiga, migration
+local presumida ou documentação histórica sem reconciliar as diferenças.
 
-### Classe B — alteração local reversível · depois de checkpoint
+## Classes de risco
 
-- Editar documentação
-- Criar ou editar testes
-- Criar configuração, skills, agentes
-- Refactor **autorizado explicitamente**, com testes rodando antes e depois
+### Classe A — baixo risco
 
-Reversível significa: existe um commit ou snapshot ao qual voltar. Ver
-[BACKUP_RECOVERY.md](BACKUP_RECOVERY.md).
+Leitura, documentação, testes e UI simples sem impacto operacional relevante.
+O agente executa normalmente e valida de forma proporcional.
 
-### Classe C — operação crítica · exige validação humana explícita antes
+### Classe B — risco operacional moderado
 
-- Migration em produção
-- `DELETE` em massa · `UPDATE` em massa
-- Alteração de schema no D1 remoto
-- Importação real de estoque ou catálogo
-- Sincronização forçada (`{"forcar": true}`)
-- Qualquer escrita de estoque na Nuvemshop
-- Alteração, rotação ou remoção de Secret
-- Deploy de produção (`wrangler deploy`)
-- Restore de banco · reset de banco
-- Comandos Git destrutivos
+Backend, APIs, lógica, integrações e mudanças que podem afetar comportamento
+existente. O agente implementa, testa, revisa o diff e valida as regressões
+prováveis.
 
-Migration em produção e deploy de produção continuam Classe C, mas desde
-2026-09-06 a validação humana acontece **por release**
-([§ Production Release Approval](#production-release-approval)), não a cada
-comando. As demais linhas desta lista não têm caminho de aprovação
-nenhum — ver a seção "NUNCA executar" logo abaixo dessa.
+### Classe C — alto risco técnico, execução autônoma permitida
 
-## Production Release Approval
+Produção, D1 PROD, migrations, deploy, infraestrutura, secrets técnicos,
+merge/push de release e rollback. Classe C **não exige execução humana**.
+O agente pode operar autonomamente quando a tarefa autorizada inclui colocar
+a mudança em funcionamento, desde que execute os gates aplicáveis:
 
-Desde 2026-09-06, quatro categorias — merge em `main`, push de `main`,
-migration no D1 de produção, deploy (Worker ou Pages) — deixaram de exigir
-autorização humana **a cada comando** e passaram a exigir uma autorização
-**por release**: uma aprovação efêmera que, uma vez concedida, libera a
-sequência inteira de publicação dentro de uma janela curta.
+1. confirmar branch, commit e árvore de trabalho;
+2. comparar com a revisão atualmente implantada e com o remoto;
+3. revisar exatamente o diff que entrará na release;
+4. executar testes, lint, typecheck e build existentes e relevantes;
+5. consultar bindings, variáveis e schema reais de PROD;
+6. testar a migration em banco novo e em banco antigo representativo;
+7. criar backup/bookmark quando houver risco de dados;
+8. definir o rollback antes da primeira escrita;
+9. executar migration/deploy na ordem compatível;
+10. validar produção por API, UI, banco, logs e integrações afetadas;
+11. corrigir ou fazer rollback seguro diante de regressão grave;
+12. registrar commit, versão, backup, migration e resultado.
 
-Isto é uma mudança de MECANISMO, não de PADRÃO: a régua continua "produção
-não muda sem uma pessoa dizer que pode", só que a pessoa diz isso uma vez
-por release, em vez de uma vez por `Bash`.
+Use somente os gates que existem e fazem sentido para a mudança. Ausência de
+uma ferramenta que o projeto não usa não é falha burocrática.
 
-### Como funciona
+### Classe D — destrutiva ou empresarial
 
-`.claude/hooks/protect-production.mjs` consulta
-`.claude/approvals/production-release.json` (não versionado) antes de negar
-qualquer uma das quatro categorias. Quando o arquivo existe e é válido, a
-ação prossegue; quando não existe — o estado normal — nada muda em relação
-a antes: as quatro continuam negadas.
+Exige instrução humana explícita para o alvo e o efeito concretos. Exemplos:
 
-Uma aprovação só é válida quando **todos** os pontos abaixo se confirmam
-contra o repositório de verdade no momento da ação (não contra o que está
-escrito no arquivo por si só):
+- apagar base, tabela, bucket, Worker ou histórico comercial;
+- zerar estoque ou excluir clientes/dados financeiros;
+- `DELETE`/`UPDATE` em massa sem condição previamente validada;
+- force-push, reescrita de histórico ou descarte de trabalho não salvo;
+- mudar uma regra de negócio importante não solicitada.
 
-1. **não expirou** — e nunca dura mais que um teto absoluto de 12 horas,
-   embutido no código (`JANELA_MAXIMA_MS`), mesmo que o arquivo diga outra
-   coisa;
-2. **o ambiente bate** — `"production"` exato, nunca `"staging"`;
-3. **a ação está na lista** — `merge-main`, `push-main`, `d1-migrate-prod`,
-   `worker-deploy` ou `pages-deploy`, e só as que a aprovação nomeou;
-4. **`main` já está em checkout** — é de lá que se publica, sempre;
-5. **a árvore de trabalho está limpa** — nenhum arquivo RASTREADO com
-   mudança não commitada (`git status --porcelain` sem linha fora de `??`;
-   arquivo não rastreado não conta, não pode vazar para um push nem mudar o
-   que um `--file=` lê);
-6. **o commit aprovado é ancestral do HEAD atual** (`git merge-base
-   --is-ancestor`) — cobre tanto fast-forward quanto um merge por cima dele;
-   se a branch mudou ou `main` avançou depois da aprovação, ela para de
-   valer;
-7. **para migration**: o `--file=` do comando é exatamente o arquivo
-   aprovado, e o `sha256` do CONTEÚDO atual desse arquivo bate com o
-   registrado na aprovação — mudou uma linha depois de aprovar, a aprovação
-   não cobre mais aquele arquivo.
+Uma autorização de implementação/release não vira autorização genérica para
+Classe D. A intervenção humana também é necessária quando há limitação real:
+credencial ausente, permissão insuficiente, MFA, serviço indisponível ou
+bloqueio da plataforma.
 
-Cada consulta — liberada ou negada — grava uma linha em
-`.claude/approvals/audit.log.jsonl` (também não versionado), para revisão
-humana depois do fato.
+## Preflight production-first
 
-Como uma pessoa autoriza um release, e o formato completo do arquivo:
-[.claude/approvals/README.md](../.claude/approvals/README.md).
+O preflight começa em PROD, não em DEV:
 
-### O que uma aprovação de release NUNCA destrava
-
-Nenhuma aprovação, por mais válida que seja, muda o resultado da seção
-seguinte. Essas checagens não CONSULTAM aprovação nenhuma — nem perguntam se
-existe uma. E dentro de uma migration aprovada, o CONTEÚDO do arquivo
-continua sendo conferido à parte (DROP/TRUNCATE negam sempre; DELETE/UPDATE/
-REPLACE/RENAME sem WHERE claro pedem confirmação humana sempre) — a
-aprovação autoriza QUAL arquivo pode rodar contra produção, nunca O QUE ele
-pode conter.
-
-### Leitura contra produção não é gate de release
-
-`wrangler d1 export` (backup) e qualquer `wrangler d1 execute --remote
---command` cujo conteúdo seja só `SELECT`/`WITH`/`PRAGMA`/`EXPLAIN` — mesmo
-pelo binding de produção, sem `--env staging` — rodam **sem aprovação
-nenhuma**. Não escrevem uma linha no banco, e exigir aprovação para tirar um
-backup impediria o próprio primeiro passo de um release (backup vem antes de
-qualquer aprovação fazer sentido). `wrangler d1 time-travel info` já era
-leitura livre antes desta mudança e continua sendo. Continuar a digitar o
-NOME do banco (`marquesa-db`/`marquesa-db-prod`) em vez do binding `DB`
-continua bloqueado, leitura ou não — é a convenção que evita confundir o
-banco congelado de rollback com o de produção.
-
-## NUNCA executar — nenhuma aprovação de release cobre isto
-
-Estes comandos e padrões **não** podem ser executados por um agente,
-independentemente de qualquer aprovação de release presente, válida ou não:
-
-```
-git reset --hard
-git clean -fd
-git push --force        (e --force-with-lease)
-git checkout -- <arquivo>   quando há trabalho não commitado
-reescrita de histórico (filter-branch, filter-repo, reflog expire, gc --prune=now)
-
-DROP TABLE
-DROP DATABASE
-DELETE sem cláusula WHERE validada
-UPDATE em massa sem condição validada
-TRUNCATE
-
-wrangler rollback
-wrangler d1 time-travel restore     (restore sobre qualquer ambiente)
-wrangler d1 delete
-wrangler secret put / delete / bulk (inclusive em staging)
+```text
+Git remoto e commit implantado
+        ↓
+Worker/deployments e bindings reais
+        ↓
+D1 PROD: schema, migrations e contagens seguras
+        ↓
+diff + testes + build + impacto
+        ↓
+backup/bookmark + rollback
+        ↓
+migration → deploy → smoke tests → observação
 ```
 
-Autorização para uma operação **não se estende** à próxima nem ao próximo
-dia. "Pode aplicar a migration" autoriza aquela migration (aquele arquivo,
-aquele hash), não a seguinte.
+Se repositório/documentação divergirem de produção, pare a publicação,
+investigue e reconcilie. Não copie DEV por cima de PROD.
 
-## DEV é descartável. PROD é Classe C sempre.
+## D1 de produção
 
-Desde 2026-08-18 existe um ambiente de desenvolvimento na nuvem, separado
-de produção em toda camada (ver [DEVELOPMENT.md § Ambiente DEV na
-nuvem](DEVELOPMENT.md)):
+Desde o go-live de 2026-08-22:
 
-| Recurso | Produção | DEV |
+| Papel | Nome | ID conhecido |
 |---|---|---|
-| Worker | `marquesa-api` | `marquesa-api-staging` |
-| D1 | `marquesa-db` | `marquesa-db-dev` |
-| Frontend | GitHub Pages (`main`) | Cloudflare Pages `marquesa-dev.pages.dev` (`develop`) |
-| Nuvemshop | real, leitura e escrita | pode receber credencial real de **leitura** — escrita continua barrada estruturalmente, ver abaixo |
+| Produção operacional | `marquesa-db-prod` | `51dd629b-…` |
+| DEV auxiliar | `marquesa-db-dev` | `dcc36f65-…` |
+| Cópia congelada de rollback | `marquesa-db` | `089153a9-…` |
 
-### Staging pode ler a loja real. Nunca pode escrever nela.
+No `api/wrangler.toml`, o binding `DB` sem `--env` resolve para produção.
+Não use o nome `marquesa-db` como sinônimo de produção: ele é a cópia
+congelada. Para qualquer migration:
 
-Desde 2026-08-21, `marquesa-api-staging` pode receber
-`NUVEMSHOP_TOKEN`/`NUVEMSHOP_STORE_ID` de verdade como Secret — para
-analisar catálogo, produtos, variações e imagens reais sem depender de
-`marquesa-db`/produção. A trava não é mais "a credencial não existe": é
-estrutural, dentro do cliente (`api/src/nuvemshop.js › Nuvemshop.chamar`).
+- consultar primeiro `sqlite_master`, `PRAGMA table_info` e contagens úteis;
+- confirmar se já foi aplicada e se os dados existentes são compatíveis;
+- preferir operações aditivas e pré-condições;
+- exportar D1 e registrar bookmark/time-travel antes da escrita;
+- aplicar um arquivo revisado, não SQL improvisado;
+- validar schema, contagens e `produtos.qtd == SUM(movimentos.qtd)` depois.
 
-- `NUVEMSHOP_WRITES_ENABLED` decide, por ambiente. **Fail-closed**: ausente,
-  `"false"` ou qualquer outro valor → bloqueia. Só a string exata `"true"`
-  libera. Não é segredo (não autoriza nada sozinha, só destrava o método
-  HTTP) — mora em `[vars]`/`[env.staging.vars]` no `wrangler.toml`.
-- Todo `POST`/`PUT`/`PATCH`/`DELETE` para a Nuvemshop passa por `chamar()`
-  antes do `fetch` sair do Worker. `GET`/`HEAD` nunca são afetados. Vale
-  para rota direta, bug de frontend, sync automático ou uma tela nova que
-  reuse o cliente — não é uma checagem de interface, é o único ponto por
-  onde toda chamada externa passa.
-- Erro de escrita bloqueada: `NUVEMSHOP_WRITE_DISABLED` — mensagem humana,
-  nunca imprime token nem credencial.
-- Staging vem com `NUVEMSHOP_WRITES_ENABLED = "false"` no `wrangler.toml`
-  (linha versionada, não secret). Mudar para `"true"` em staging é decisão
-  consciente que muda a postura de segurança do ambiente — documente o
-  motivo se fizer isso, não troque "de passagem".
-- Produção precisa de `NUVEMSHOP_WRITES_ENABLED = "true"` explícito no
-  `[vars]` raiz — sem essa linha, o padrão fail-closed do código pararia de
-  empurrar estoque de verdade para a loja no próximo deploy,
-  silenciosamente. Já está lá; se um dia essa linha sumir do
-  `wrangler.toml`, é bug, não intenção.
-- Secrets (`NUVEMSHOP_TOKEN`, `NUVEMSHOP_STORE_ID`, `NUVEMSHOP_CLIENT_ID`,
-  `NUVEMSHOP_CLIENT_SECRET`) continuam fora do Git em qualquer ambiente,
-  sempre via `wrangler secret put`.
+Migration destrutiva ou que apague histórico é Classe D. Migration aditiva e
+necessária para a release é Classe C e pode ser executada autonomamente.
 
-Isso muda a régua **só para os recursos DEV**:
+## Backup e rollback
 
-- `wrangler d1 execute marquesa-db-dev --remote` com schema/seed: **Classe B**
-  (reversível — é descartável, dá para recriar do zero a qualquer momento).
-  `marquesa-db` (produção) continua Classe C sempre.
-- `wrangler secret put` no Worker `marquesa-api-staging`: **Classe B**.
-  Qualquer secret em `marquesa-api` (produção) continua Classe C.
-- Push em `develop` depois de testes verdes: **autorizado por padrão**,
-  disparando o deploy automático DEV — ver § Fluxo padrão em
-  DEVELOPMENT.md.
+Rollback é parte do plano, não sinal de fracasso. Antes de publicar, registre:
 
-O que **não muda**, nem para DEV:
+- commit/release anterior;
+- deployment anterior do Worker/Pages;
+- export e bookmark/time-travel do D1 quando houver migration;
+- migration reversa ou estratégia compatível com o código anterior;
+- condição objetiva para abortar ou reverter.
 
-- `wrangler deploy --env staging` (o Worker de DEV) nunca é executado pelo
-  agente — o pipeline é `git push origin develop`
-  (`.github/workflows/deploy-dev.yml`), nunca o comando direto. A Production
-  Release Approval (seção acima) não cobre `staging` em hipótese nenhuma:
-  seu campo `ambiente` precisa ser exatamente `"production"`.
-- A primeira publicação de cada ambiente (Worker e Pages) é sempre um
-  comando que a pessoa roda, ou a conexão Git nativa da Cloudflare, nunca
-  o agente diretamente.
-- Merge em `main`, push de `main`, deploy de produção e migration em
-  `marquesa-db-prod` continuam Classe C — exigindo autorização humana
-  explícita — mas agora por **release aprovado**
-  ([§ Production Release Approval](#production-release-approval)), não por
-  comando individual. Sem uma aprovação válida, o comportamento é
-  idêntico ao de antes desta mudança: bloqueado.
-- Qualquer escrita na Nuvemshop real continua fora do escopo de qualquer
-  aprovação de release — é regida só por `NUVEMSHOP_WRITES_ENABLED`
-  (acima) e pelo freio de segurança da sincronização.
+`wrangler rollback` e `d1 time-travel restore` podem ser executados pelo
+agente quando uma regressão grave foi comprovada e essa é a alternativa mais
+segura. Exclusão definitiva de recurso/dados continua Classe D.
 
-## Auditoria de segredos — resultado (2026-08-18)
+## Nuvemshop
 
-Varredura de todo o repositório atrás de chaves, tokens, senhas, credenciais
-Cloudflare/Nuvemshop, Bearer tokens, URLs com segredo e arquivos `.env`.
+A Nuvemshop é destino do estoque físico, não sua fonte de verdade. Toda
+escrita externa continua passando por `api/src/nuvemshop.js` e pelo freio
+fail-closed `NUVEMSHOP_WRITES_ENABLED`.
 
-**Nenhum segredo real encontrado versionado.** Nenhum valor de credencial é
-reproduzido neste documento.
+- Produção precisa da string exata `"true"` para preservar a sincronização
+  operacional já autorizada.
+- DEV/staging permanece `"false"` por padrão, mas isso não o transforma em
+  gate de release.
+- Preview/dry-run deve preceder sync de risco.
+- Sync forçado contra a loja real sem solicitação específica é Classe D.
 
-| Item | Arquivo | Tipo | Gravidade | Versionado? | Ação |
-|---|---|---|---|---|---|
-| Chave de teste `troque-por-uma-chave-de-teste` | `api/.dev.vars.example`, `src/*.mjs`, `src/reset-e-testar.sh` | Valor de teste, sem poder | Nenhuma | Sim, de propósito | Nenhuma |
-| Token falso da loja de mentira | `src/loja-falsa.mjs` | Fixture de teste | Nenhuma | Sim, de propósito | Nenhuma |
-| `database_id` do D1 | `api/wrangler.toml` | Identificador de recurso | **Baixa** | Sim | Manter. Não é credencial: sem conta e sem token da Cloudflare, não abre nada. Convenção do próprio Wrangler é versionar |
-| `API_KEY` guardada em `localStorage` | `src/dashboard.tpl.html` (`marquesa_conexao_v1`) | Credencial no navegador | **Média** | Não (só em runtime) | Aceito por decisão de projeto. Ver abaixo |
-| Ausência de `.env` no repositório | — | — | — | — | Confirmado: nenhum arquivo `.env` ou `.dev.vars` existe no disco versionado |
+## Segredos e dados reais
 
-### Sobre a `API_KEY` no `localStorage`
+- Nunca imprimir valores de secrets, tokens ou dados pessoais em resposta,
+  log, commit ou documentação.
+- Nunca versionar `.env`, `.dev.vars`, backups, seeds reais ou dumps.
+- Consultar metadados e nomes de secrets é permitido; ler o valor não é.
+- `wrangler secret put/delete` é Classe C quando tecnicamente necessário à
+  tarefa. A ausência do valor/credencial é uma limitação real a reportar.
 
-É uma senha única compartilhada, não um sistema de contas — e
-[api/src/auth.js](../api/src/auth.js) diz isso com todas as letras. É
-proporcional a uma ferramenta interna de uma pessoa só. As consequências que
-precisam ficar escritas:
+O painel usa uma `API_KEY` compartilhada em `localStorage`. Isso é aceitável
+para a operação atual de uma pessoa, mas não oferece identidade individual,
+revogação por dispositivo ou auditoria por usuário.
 
-- quem tiver acesso ao navegador dela tem a chave;
-- XSS no dashboard entrega a chave, e o `dashboard.html` embute bibliotecas
-  de terceiros (SheetJS, ZXing);
-- **não existe revogação por dispositivo**: trocar a chave desconecta todos;
-- **não existe rastro de quem fez o quê** — a razão de `movimentos` diz o
-  que mudou, nunca quem mudou.
+## Hooks e permissões
 
-Se um dia mais de uma pessoa usar o painel, isto deixa de ser proporcional.
+`.claude/hooks/protect-production.mjs` é a implementação versionada desta
+política. Qualquer integração local em `.codex/` deve espelhá-la:
 
-### O repositório é público
+- Classe C não é bloqueada por aprovação humana artificial;
+- Classe D retorna `ask` com o risco concreto;
+- leitura de segredo/dado real continua negada;
+- arquivos SQL são inspecionados para destruição extraordinária.
 
-Serve o PWA pelo GitHub Pages. Tudo que entra é baixado por quem clona e
-publicado na web. O `.gitignore` foi endurecido nesta etapa para cobrir
-`.env*`, `.dev.vars*`, `*.pem`, `*.key`, `backups/`, `*.sqlite` e
-`node_modules/`, preservando as duas exceções deliberadas
-(`.env.example`, `.dev.vars.example`) e passando a **versionar** a
-configuração própria de `.claude/`.
+O antigo `.claude/approvals/production-release.json` não faz mais parte do
+fluxo. Segurança de release é comprovada pelo preflight, artefatos de
+backup/rollback e validação pós-deploy registrados no handoff.
 
-`api/.gitignore` já protegia o `seed.sql` — dado real de clientes e
-revendedoras gerado por `gerar-seed.py`. Mantido.
+Uma cópia local `.codex/` divergente é conflito de governança, não exceção à
+política. Não publique enquanto ela ainda impuser o modelo human-only; veja
+o handoff da sessão que introduziu esta política.
 
-## Superfície de ataque da API
+## Regra de parada
 
-| Rota | Autenticação | Nota |
-|---|---|---|
-| `GET /api/health` | **Nenhuma** | Não devolve dado. Aceitável |
-| `GET /api/nuvemshop/callback` | **Nenhuma** — `code` de uso único | Correto: quem chama é o navegador vindo da Nuvemshop. Sem rate limit próprio |
-| Todo o resto de `/api/*` | Bearer `API_KEY` | Comparação de string simples (`chave === env.API_KEY`), não constant-time |
-| CORS | `ORIGENS_PERMITIDAS` no `wrangler.toml` | Sem a variável, libera geral — aceitável **só** em desenvolvimento |
-
-Pontos conhecidos, registrados sem correção nesta etapa (ver
-[TECH_DEBT.md](TECH_DEBT.md)):
-
-- sem rate limiting em nenhuma rota;
-- sem constant-time compare na checagem da chave;
-- sem log de auditoria de quem chamou o quê.
-
-## Rotação de credenciais
-
-Se uma credencial vazar, na ordem:
-
-1. **Nuvemshop** — gerar token novo no painel (o antigo para de valer) e
-   `npx wrangler secret put NUVEMSHOP_TOKEN`. Lembrar: o token guarda as
-   permissões de quando foi criado.
-2. **API_KEY** — `npx wrangler secret put API_KEY`. Todos os dispositivos
-   caem e precisam reconectar.
-3. **Cloudflare** — revogar o token de API no painel da conta.
-4. Se o segredo chegou a ser **commitado**, trocar a credencial vem
-   **primeiro**. Reescrever histórico é o segundo passo, e nunca substitui o
-   primeiro: o valor já está em qualquer clone.
-
-## Regras permanentes para quem trabalha aqui (humano ou agente)
-
-1. Nunca imprimir o valor de um segredo numa resposta, log, commit ou
-   documento.
-2. Nunca gravar credencial em arquivo versionado.
-3. Nunca mover uma credencial de um lugar para outro automaticamente — é a
-   razão de o callback do OAuth mostrar o token para copiar à mão.
-4. Preferir preview/dry-run antes de qualquer escrita.
-5. Nunca adivinhar quando um conflito de dados puder representar estoque
-   físico. Parar e mostrar os dois números é sempre melhor.
-6. Git protege código. Backup protege dados. Teste protege comportamento.
-   Dry-run protege operações. Nenhum dos quatro substitui os outros.
+Uma release só termina depois da validação pós-deploy. Se aparecer falha
+grave, interrompa mudanças novas, avalie impacto e escolha a correção mínima
+segura ou o rollback já preparado. Valide novamente e registre o incidente.

@@ -1,9 +1,9 @@
 -- ════════════════════════════════════════════════════════════════════════
 -- REVISÃO OPERACIONAL 1 (pós-go-live) — 06/09/2026
 --
--- NÃO APLICAR EM PRODUÇÃO SEM AUTORIZAÇÃO HUMANA EXPLÍCITA E BACKUP
--- RECENTE CONFIRMADO. Ver docs/BACKUP_RECOVERY.md e CLAUDE.md § operação
--- crítica.
+-- EM PRODUÇÃO: Classe C. Conferir schema real, export/bookmark, testes,
+-- rollback e pós-validação. DEV não é gate. Ver docs/BACKUP_RECOVERY.md e
+-- docs/SECURITY.md.
 --
 -- Tudo aqui é ADITIVO: cria índice e tabela nova, e acrescenta coluna. Não
 -- apaga linha, não altera coluna existente, não reclassifica dado antigo.

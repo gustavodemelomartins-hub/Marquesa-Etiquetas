@@ -1597,6 +1597,23 @@ peça vendida duas vezes.
 
 Provado em `src/pos-golive-1-test.mjs`, cenários C a F.
 
+#### Painel analítico: período e mês corrente
+
+O Painel usa a mesma regra nas três leituras agregadas. Em `Tudo`, `12 meses`,
+`90 dias` e `30 dias`, cada ponto da Evolução aplica o filtro outra vez na
+data que governa a métrica: `data` para vendas e peças;
+`data_faturamento` para dinheiro. Assim, uma venda de julho paga hoje pode
+contribuir para o faturamento de 30 dias, mas não desenha uma barra de julho
+fora desse recorte nem vira venda atual.
+
+Os KPIs fixos do mês corrente seguem a mesma separação: faturamento pela data
+do pagamento; vendas e peças pela data da venda. `A receber deste mês` é a
+soma das contas abertas com `vencimento_em` dentro do mês corrente. Contas
+sem prazo continuam no total geral e na lista operacional, sem serem
+atribuídas silenciosamente a um mês.
+
+Provado em `src/pacote3-test.mjs` e `src/pacote3-ui-test.mjs`.
+
 ### 37. A troca de garantia tem registro comercial — e continua valendo a diferença
 
 **Regra nova, definida pela Sthefany em 05/09/2026. Substitui a segunda
@@ -1745,20 +1762,24 @@ Provado em `src/pos-golive-1-test.mjs` (P–S) e
 
 ### 42. Monte seu Colar: base + componentes + configuração da venda
 
-**O problema.** Uma variante permanente por combinação explode o cadastro:
-três posições × dois sexos × seis cores são 1.728 variantes que ninguém
-mantém, cada uma com saldo próprio para desencontrar do físico.
+**O problema.** Uma variante permanente por combinação explode o cadastro e
+faz o saldo comercial divergir das peças que realmente saíram. A identidade
+canônica desta família é fechada por dado:
 
-- **PRODUTO BASE** — um SKU que já existe no catálogo (o Colar Veneziana).
-- **COMPONENTES** — SKUs que já existem no catálogo. O "Pingente Filho Verde
-  Banho de Ouro 18k" é hoje a peça que mais vendeu no painel; não são
-  estrutura nova.
-- **CONFIGURAÇÃO** — escolhida por VENDA, não cadastrada antes. Mora em
-  `venda_personalizacoes` + `venda_personalizacao_itens`, do lado da venda.
+- **BASE FÍSICA FIXA** — Colar Veneziana, SKU `444032`, uma unidade por colar;
+- **COMPONENTES FÍSICOS** — `263236` (menina rosa), `273470` (menina
+  incolor), `251551` (menino azul), `251552` (menino incolor) e `329494`
+  (menino verde);
+- **MODELOS COMERCIAIS** — `326660` (casal, R$ 129), `364945` (duas meninas,
+  R$ 129), `311066` (dois meninos, R$ 129), `314161` (dois meninos e uma
+  menina, R$ 159) e `399872` (duas meninas e um menino, R$ 159);
+- **COMPOSIÇÃO LIVRE** — linha interna `MONTE-COLAR`, sem saldo e sem preço de
+  catálogo; o valor é informado na venda.
 
-De `kit_componentes` se reusa a ideia e o mecanismo de baixa — um SKU sem
-saldo próprio cujo disponível é o mínimo entre os componentes. O que não
-servia é a composição **fixa**.
+O SKU comercial aparece uma vez em `venda_itens`; a base e os componentes
+são as peças físicas movimentadas. A configuração escolhida mora em
+`venda_personalizacoes` + `venda_personalizacao_itens` e fica congelada junto
+da venda.
 
 **A baixa é onde mora o risco:** a composição consome a base e cada
 componente **exatamente uma vez**. Nem a base duas vezes (ela é o item do
@@ -1772,16 +1793,21 @@ flag fica gravada e auditável — é ela que separa "registrei o passado" de
 é recusado: metade do estoque refletido e metade não seria impossível de
 auditar depois.
 
-O preço é da **composição**, não a soma das peças: "Colar personalizado
-3 filhos R$ 149" é o que ela cobra. O recibo mostra uma linha; a ficha da
-cliente guarda a configuração para sempre, com o nome de cada peça congelado
-no momento da venda.
+O preço é da **composição**, não a soma das peças. Nos cinco modelos ele é
+fixo e automático; somente a composição livre aceita valor manual. O recibo
+mostra uma linha; a ficha da cliente guarda a configuração para sempre, com
+o nome e a variante de cada peça congelados no momento da venda.
+
+Cancelar faz o inverso completo: devolve uma base e todos os componentes de
+cada composição, preservando a variante. Venda histórica marcada com
+`estoque_ja_refletido=1` continua sem baixa e sem devolução.
 
 Modelo e opções são **dado, não interface**: uma página de produto da
 Nuvemshop lê `GET /api/personalizacao/modelos` e posta a composição em
 `POST /api/vendas` sem que nada mude aqui.
 
-Provado em `src/pos-golive-1-test.mjs`, cenários N e O.
+Provado em `src/pos-golive-1-test.mjs`, cenários N e O, e em
+`src/pacote2-test.mjs` para os modelos canônicos e o estorno integral.
 
 ### 43. Medir antes de otimizar (leitura do D1)
 

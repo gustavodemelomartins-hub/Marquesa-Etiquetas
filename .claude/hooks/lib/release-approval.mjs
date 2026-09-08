@@ -1,4 +1,8 @@
-/** Núcleo de decisão do "Production Release Approval".
+/** LEGADO INERTE desde 2026-09-08.
+ *  O hook ativo não importa este módulo; mantido para auditoria histórica.
+ *  A política vigente está em docs/SECURITY.md.
+ *
+ *  Núcleo de decisão do antigo "Production Release Approval".
  *
  *  Migra o modelo de autorização de "por comando" para "por release": uma
  *  aprovação efêmera (`.claude/approvals/production-release.json`), escrita

@@ -1,5 +1,7 @@
 # PHASE1_FAILED_STOP
 
+> Documento histórico. Governança vigente: `docs/SECURITY.md` (2026-09-08).
+
 **Motivo: o ambiente bloqueia backup e migration contra produção. Nada foi
 executado contra os dados — produção está exatamente como estava.**
 

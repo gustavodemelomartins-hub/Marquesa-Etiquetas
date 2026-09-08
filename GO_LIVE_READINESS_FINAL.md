@@ -1,5 +1,7 @@
 # READY_FOR_GO_LIVE
 
+> Documento histórico. Governança vigente: `docs/SECURITY.md` (2026-09-08).
+
 > Pré-voo final de produção — **somente leitura**. Nenhuma migration foi
 > aplicada, nenhum Worker foi publicado, nenhum dashboard foi publicado,
 > nenhum registro foi alterado.

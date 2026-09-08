@@ -4,6 +4,10 @@ INSERT OR IGNORE INTO categorias (nome, ordem, cor) VALUES ('Colar', 1, '#C2426B
 
 CREATE TABLE IF NOT EXISTS produtos ( sku TEXT PRIMARY KEY, desc TEXT NOT NULL, cat TEXT NOT NULL REFERENCES categorias(nome), preco REAL, qtd INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'ativo', url_loja TEXT, estoque_loja INTEGER, visivel INTEGER, nome_loja TEXT, foto_original_key TEXT, foto_original_tipo TEXT, foto_original_tam INTEGER, foto_tratada_key TEXT, foto_tratada_tipo TEXT, foto_tratada_tam INTEGER, foto_status TEXT, foto_erro TEXT, foto_origem TEXT, foto_em TEXT, arquivado_em TEXT, arquivado_motivo TEXT, foto_url TEXT, foto_url_em TEXT, atualizado_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
+CREATE TABLE IF NOT EXISTS catalogo_publicacoes ( sku TEXT PRIMARY KEY REFERENCES produtos(sku), estado TEXT NOT NULL DEFAULT 'em_preparacao_agente' CHECK (estado IN ('em_preparacao_agente','aguardando_aprovacao','aprovado_para_publicar','publicado','falhou_ao_publicar')), nome_site TEXT, descricao_site TEXT, seo_titulo TEXT, seo_descricao TEXT, dados_assinatura TEXT, preparo_erro TEXT, publicacao_erro TEXT, tentativas INTEGER NOT NULL DEFAULT 0, preparado_em TEXT, aprovado_em TEXT, aprovado_por TEXT, publicado_em TEXT, atualizado_em TEXT NOT NULL DEFAULT (datetime('now')) );
+
+CREATE INDEX IF NOT EXISTS idx_catalogo_publicacoes_estado ON catalogo_publicacoes(estado);
+
 CREATE TABLE IF NOT EXISTS produtos_pendentes ( sku TEXT PRIMARY KEY, desc TEXT, cat TEXT, preco REAL, qtd INTEGER NOT NULL DEFAULT 0, origem TEXT, motivo TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
 CREATE TABLE IF NOT EXISTS fotos_orfas ( id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT NOT NULL, sku_loja TEXT, nome_loja TEXT, produto_id TEXT, visto_em TEXT NOT NULL DEFAULT (datetime('now')) );
@@ -32,11 +36,21 @@ CREATE TABLE IF NOT EXISTS kit_componentes ( kit_sku TEXT NOT NULL REFERENCES pr
 
 CREATE TABLE IF NOT EXISTS clientes ( id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, tel TEXT, nome_norm TEXT, tel_norm TEXT, email TEXT, email_norm TEXT, instagram TEXT, cidade TEXT, nascimento TEXT, obs TEXT, origem TEXT NOT NULL DEFAULT 'manual', criada_em TEXT NOT NULL DEFAULT (datetime('now')), atualizada_em TEXT, cpf TEXT, cpf_norm TEXT );
 
-CREATE TABLE IF NOT EXISTS vendas ( id INTEGER PRIMARY KEY AUTOINCREMENT, cliente_id INTEGER REFERENCES clientes(id), cliente_nome TEXT, cliente_nome_norm TEXT, revendedora_id INTEGER REFERENCES revendedoras(id), maleta_id INTEGER REFERENCES maletas(id), origem TEXT NOT NULL DEFAULT 'balcao', data TEXT NOT NULL, total REAL NOT NULL, cancelada INTEGER NOT NULL DEFAULT 0, externo_id TEXT, nuvemshop_status TEXT NOT NULL DEFAULT 'nao_enviada', nuvemshop_erro TEXT, nuvemshop_em TEXT, criada_em TEXT NOT NULL DEFAULT (datetime('now')) );
+CREATE TABLE IF NOT EXISTS vendas ( id INTEGER PRIMARY KEY AUTOINCREMENT, cliente_id INTEGER REFERENCES clientes(id), cliente_nome TEXT, cliente_nome_norm TEXT, revendedora_id INTEGER REFERENCES revendedoras(id), maleta_id INTEGER REFERENCES maletas(id), origem TEXT NOT NULL DEFAULT 'balcao', data TEXT NOT NULL, total REAL NOT NULL, cancelada INTEGER NOT NULL DEFAULT 0, externo_id TEXT, nuvemshop_status TEXT NOT NULL DEFAULT 'nao_enviada', nuvemshop_erro TEXT, nuvemshop_em TEXT, criada_em TEXT NOT NULL DEFAULT (datetime('now')), pago INTEGER NOT NULL DEFAULT 1, data_pagamento TEXT, observacao TEXT, pagamento_origem TEXT, valor_recebido REAL, cobravel INTEGER NOT NULL DEFAULT 1, cliente_ambiguo INTEGER NOT NULL DEFAULT 0, vencimento_em TEXT );
 
 CREATE TABLE IF NOT EXISTS sync_execucoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, iniciado_em TEXT, terminado_em TEXT, status TEXT, pedidos_lidos INTEGER, vendas_criadas INTEGER, produtos_enviados INTEGER, detalhe_json TEXT, seco INTEGER NOT NULL DEFAULT 0 );
 
 CREATE TABLE IF NOT EXISTS venda_itens ( venda_id INTEGER NOT NULL REFERENCES vendas(id), sku TEXT NOT NULL REFERENCES produtos(sku), desc TEXT NOT NULL, qtd INTEGER NOT NULL, preco REAL NOT NULL, motivo TEXT, variacao TEXT, variante_id TEXT, preco_tabela REAL, desconto_valor REAL, desconto_rotulo TEXT );
+
+CREATE TABLE IF NOT EXISTS personalizacao_modelos ( id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE, nome TEXT NOT NULL, slots_min INTEGER NOT NULL DEFAULT 1 CHECK (slots_min > 0), slots_max INTEGER NOT NULL DEFAULT 1 CHECK (slots_max > 0), base_sku_padrao TEXT REFERENCES produtos(sku), preco_sugerido REAL, ativo INTEGER NOT NULL DEFAULT 1, ordem INTEGER NOT NULL DEFAULT 0, obs TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')), CHECK (slots_max >= slots_min) );
+
+CREATE TABLE IF NOT EXISTS personalizacao_opcoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, modelo_id INTEGER NOT NULL REFERENCES personalizacao_modelos(id), componente_sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT, variante_id TEXT, rotulo TEXT NOT NULL, grupo TEXT, ordem INTEGER NOT NULL DEFAULT 0, ativo INTEGER NOT NULL DEFAULT 1 );
+
+CREATE TABLE IF NOT EXISTS venda_personalizacoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, venda_id INTEGER NOT NULL REFERENCES vendas(id), sku_comercial TEXT REFERENCES produtos(sku), base_sku TEXT NOT NULL REFERENCES produtos(sku), base_variacao TEXT, base_variante_id TEXT, modelo_id INTEGER REFERENCES personalizacao_modelos(id), modelo_nome TEXT NOT NULL, preco REAL NOT NULL, estoque_ja_refletido INTEGER NOT NULL DEFAULT 0, observacao TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')) );
+
+CREATE TABLE IF NOT EXISTS venda_personalizacao_itens ( id INTEGER PRIMARY KEY AUTOINCREMENT, personalizacao_id INTEGER NOT NULL REFERENCES venda_personalizacoes(id), posicao INTEGER NOT NULL, componente_sku TEXT NOT NULL REFERENCES produtos(sku), componente_nome TEXT, variacao TEXT, variante_id TEXT, rotulo TEXT, qtd INTEGER NOT NULL DEFAULT 1 CHECK (qtd > 0), movimento_id INTEGER REFERENCES movimentos(id) );
+
+INSERT OR IGNORE INTO produtos (sku, desc, cat, preco, qtd, status) VALUES ('MONTE-COLAR', 'Monte seu Colar — composição livre', 'Colar', NULL, 0, 'inativo');
 
 CREATE TABLE IF NOT EXISTS inventarios ( id INTEGER PRIMARY KEY AUTOINCREMENT, status TEXT NOT NULL DEFAULT 'aberto', iniciado_em TEXT NOT NULL DEFAULT (datetime('now')), concluido_em TEXT, desconhecidos_json TEXT, obs TEXT );
 
@@ -74,6 +88,18 @@ CREATE INDEX IF NOT EXISTS idx_vendas_data ON vendas(data);
 
 CREATE INDEX IF NOT EXISTS idx_vendas_origem ON vendas(origem);
 
+CREATE INDEX IF NOT EXISTS idx_vendas_pagamento ON vendas(data_pagamento);
+
+CREATE INDEX IF NOT EXISTS idx_vendas_pago ON vendas(pago, data);
+
+CREATE INDEX IF NOT EXISTS idx_vendas_pgorigem ON vendas(pagamento_origem);
+
+CREATE INDEX IF NOT EXISTS idx_vendas_cobravel ON vendas(cobravel, pago);
+
+CREATE INDEX IF NOT EXISTS idx_vendas_ambiguo ON vendas(cliente_ambiguo, cliente_nome_norm);
+
+CREATE INDEX IF NOT EXISTS idx_vendas_vencimento ON vendas(vencimento_em) WHERE pago = 0;
+
 CREATE INDEX IF NOT EXISTS idx_venda_itens_v ON venda_itens(venda_id);
 
 CREATE INDEX IF NOT EXISTS idx_venda_itens_s ON venda_itens(sku);
@@ -87,6 +113,18 @@ CREATE INDEX IF NOT EXISTS idx_inv_itens ON inventario_itens(inventario_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_vendas_externo ON vendas(externo_id);
 
 CREATE INDEX IF NOT EXISTS idx_kit_componentes ON kit_componentes(kit_sku);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pers_opcao_unica ON personalizacao_opcoes(modelo_id, componente_sku, COALESCE(variacao, ''));
+
+CREATE INDEX IF NOT EXISTS idx_pers_opcoes_modelo ON personalizacao_opcoes(modelo_id, ordem);
+
+CREATE INDEX IF NOT EXISTS idx_vpers_venda ON venda_personalizacoes(venda_id);
+
+CREATE INDEX IF NOT EXISTS idx_vpers_venda_base ON venda_personalizacoes(venda_id, base_sku);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_vpers_item_posicao ON venda_personalizacao_itens(personalizacao_id, posicao);
+
+CREATE INDEX IF NOT EXISTS idx_vpers_item_sku ON venda_personalizacao_itens(componente_sku);
 
 CREATE INDEX IF NOT EXISTS idx_rec_itens_sessao ON reconciliacao_itens(sessao_id);
 
@@ -179,3 +217,49 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_hist_op_venda_ativa ON historico_operacao_
 CREATE UNIQUE INDEX IF NOT EXISTS idx_hist_op_relacao_ativa ON historico_operacao_vendas(operacao_id, venda_id) WHERE status_registro = 'ativa';
 
 CREATE INDEX IF NOT EXISTS idx_hist_op_vendas_operacao ON historico_operacao_vendas(operacao_id, status_registro);
+
+/* ═══════════════════════════════════════════ §30 — saída sem faturamento Peça que sai do estoque nem sempre é venda. Brinde, uso próprio e diferença de inventário moram AQUI, e não em `vendas`: não têm cliente, não têm preço cobrado e não geram contas a receber. Pendurá-las numa venda obrigaria toda consulta de faturamento a lembrar de excluí-las — e a que esquecesse voltaria a contaminar o número. Aqui elas são invisíveis por construção para quem soma venda. O estoque continua saindo por `estoque.js › movimentar`;
+
+`movimento_id` amarra a linha ao movimento que a explica. Detalhe e motivação completos em `api/migracao-saidas-sem-faturamento.sql`. */ CREATE TABLE IF NOT EXISTS saidas_sem_faturamento ( id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT NOT NULL CHECK (tipo IN ('brinde', 'uso_proprio', 'perda')), sentido TEXT NOT NULL DEFAULT 'saida' CHECK (sentido IN ('saida', 'entrada')), data TEXT NOT NULL, sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT, variante_id TEXT, qtd INTEGER NOT NULL CHECK (qtd > 0), motivo TEXT, observacao TEXT, movimento_id INTEGER REFERENCES movimentos(id), estoque_refletido INTEGER NOT NULL DEFAULT 1 CHECK (estoque_refletido IN (0, 1)), origem_usuario TEXT, estornada INTEGER NOT NULL DEFAULT 0 CHECK (estornada IN (0, 1)), estorno_em TEXT, estorno_motivo TEXT, estorno_movimento_id INTEGER REFERENCES movimentos(id), origem_registro TEXT NOT NULL DEFAULT 'manual' CHECK (origem_registro IN ('manual', 'migracao_historico')), historico_item_id INTEGER REFERENCES vendas_historico_itens(id), criado_em TEXT NOT NULL DEFAULT (datetime('now')), atualizado_em TEXT, CHECK (sentido = 'saida' OR tipo = 'perda'), CHECK (estornada = 0 OR estorno_em IS NOT NULL), CHECK (estoque_refletido = 1 OR movimento_id IS NULL), CHECK (estoque_refletido = 1 OR estorno_movimento_id IS NULL) );
+
+CREATE INDEX IF NOT EXISTS idx_ssf_data ON saidas_sem_faturamento(data);
+
+CREATE INDEX IF NOT EXISTS idx_ssf_tipo ON saidas_sem_faturamento(tipo, estornada);
+
+CREATE INDEX IF NOT EXISTS idx_ssf_sku ON saidas_sem_faturamento(sku);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ssf_historico ON saidas_sem_faturamento(historico_item_id) WHERE historico_item_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS historico_reclassificacao ( id INTEGER PRIMARY KEY AUTOINCREMENT, historico_item_id INTEGER NOT NULL REFERENCES vendas_historico_itens(id), classe_nova TEXT NOT NULL CHECK (classe_nova IN ('brinde', 'uso_proprio', 'perda')), confianca TEXT NOT NULL CHECK (confianca IN ('alta', 'media', 'baixa')), motivo TEXT NOT NULL, saida_id INTEGER REFERENCES saidas_sem_faturamento(id), status TEXT NOT NULL DEFAULT 'proposta' CHECK (status IN ('proposta', 'aplicada', 'recusada')), decidido_em TEXT, decidido_por TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')) );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_hrec_item ON historico_reclassificacao(historico_item_id);
+
+CREATE INDEX IF NOT EXISTS idx_hrec_status ON historico_reclassificacao(status);
+
+/* ═══════════════════════════════════════════════ §31 — garantia e reparo A garantia pertence ao ITEM da compra, não ao cliente nem ao código: se a mesma cliente comprou o mesmo SKU três vezes, prender ao SKU perde a compra de origem e o valor efetivamente pago junto com ela. Nada aqui altera a venda original, devolve a peça defeituosa ao estoque vendável ou gera faturamento. Só a DIFERENÇA de uma troca, quando paga, vira receita. Detalhe completo em `api/migracao-garantias.sql`. */ CREATE TABLE IF NOT EXISTS garantias ( id INTEGER PRIMARY KEY AUTOINCREMENT, origem_fonte TEXT NOT NULL CHECK (origem_fonte IN ('operacional', 'historico')), venda_id INTEGER REFERENCES vendas(id), historico_item_id INTEGER REFERENCES vendas_historico_itens(id), venda_historica_id INTEGER REFERENCES vendas_historicas(id), cliente_id INTEGER REFERENCES clientes(id), cliente_nome_norm TEXT, cliente_nome TEXT, sku TEXT NOT NULL, variacao TEXT, variante_id TEXT, produto_nome TEXT, data_venda TEXT, valor_pago_original REAL, data_entrada TEXT NOT NULL, prazo_dias_uteis INTEGER NOT NULL DEFAULT 45, previsao_retorno TEXT, motivo TEXT NOT NULL, observacao TEXT, status TEXT NOT NULL DEFAULT 'em_reparo' CHECK (status IN ('em_reparo', 'reparada', 'devolvida', 'sem_conserto', 'concluida', 'cancelada')), encerrada_em TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')), atualizado_em TEXT, CHECK (origem_fonte <> 'operacional' OR venda_id IS NOT NULL), CHECK (origem_fonte <> 'historico' OR historico_item_id IS NOT NULL), CHECK (prazo_dias_uteis > 0) );
+
+CREATE INDEX IF NOT EXISTS idx_gar_status ON garantias(status);
+
+CREATE INDEX IF NOT EXISTS idx_gar_cliente ON garantias(cliente_id);
+
+CREATE INDEX IF NOT EXISTS idx_gar_norm ON garantias(cliente_nome_norm);
+
+CREATE INDEX IF NOT EXISTS idx_gar_venda ON garantias(venda_id);
+
+CREATE INDEX IF NOT EXISTS idx_gar_hist ON garantias(historico_item_id);
+
+CREATE INDEX IF NOT EXISTS idx_gar_entrada ON garantias(data_entrada);
+
+CREATE TABLE IF NOT EXISTS garantia_eventos ( id INTEGER PRIMARY KEY AUTOINCREMENT, garantia_id INTEGER NOT NULL REFERENCES garantias(id), tipo TEXT NOT NULL, data TEXT NOT NULL, status_novo TEXT, observacao TEXT, dados_json TEXT NOT NULL DEFAULT '{}', criado_em TEXT NOT NULL DEFAULT (datetime('now')) );
+
+CREATE INDEX IF NOT EXISTS idx_gar_ev ON garantia_eventos(garantia_id, id);
+
+CREATE TABLE IF NOT EXISTS garantia_trocas ( id INTEGER PRIMARY KEY AUTOINCREMENT, garantia_id INTEGER NOT NULL REFERENCES garantias(id), data TEXT NOT NULL, sku_novo TEXT NOT NULL REFERENCES produtos(sku), variacao_nova TEXT, variante_id_novo TEXT, produto_novo_nome TEXT, valor_original REAL NOT NULL, valor_novo REAL NOT NULL, diferenca REAL NOT NULL, diferenca_status TEXT NOT NULL CHECK (diferenca_status IN ('nenhuma', 'a_receber', 'paga', 'pendente_regra')), diferenca_paga_em TEXT, diferenca_valor_pago REAL, movimento_id INTEGER REFERENCES movimentos(id), criado_em TEXT NOT NULL DEFAULT (datetime('now')), atualizado_em TEXT, venda_id INTEGER REFERENCES vendas(id), CHECK (diferenca_status <> 'paga' OR diferenca_paga_em IS NOT NULL) );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_gar_troca_unica ON garantia_trocas(garantia_id);
+
+CREATE INDEX IF NOT EXISTS idx_gar_troca_dif ON garantia_trocas(diferenca_status, diferenca_paga_em);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_gar_troca_venda ON garantia_trocas(venda_id);
+
+CREATE TABLE IF NOT EXISTS feriados ( data TEXT PRIMARY KEY, nome TEXT NOT NULL, escopo TEXT NOT NULL DEFAULT 'nacional', criado_em TEXT NOT NULL DEFAULT (datetime('now')) );

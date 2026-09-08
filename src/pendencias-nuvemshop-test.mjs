@@ -12,8 +12,8 @@
  *   1. os banners saíram da tela;
  *   2. os NÚMEROS não saíram: KPIs e abas continuam contando o mesmo;
  *   3. as ações dos banners também não sumiram — mudaram de lugar;
- *   4. Pendências tem três seções nomeadas, e cada uma com o seu conteúdo;
- *   5. os códigos "falta subir" alimentam Publicar na Nuvemshop, com foto,
+ *   4. a Central reúne os casos e resolve a distribuição na própria linha;
+ *   5. Publicar na Nuvemshop é uma área principal, com foto,
  *      preço, estoque, variações e o que falta em cada um;
  *   6. os casos de variação continuam chegando em Pendências;
  *   7. NENHUMA escrita sai para a Nuvemshop neste ambiente;
@@ -120,33 +120,31 @@ await page.waitForTimeout(500);
 const acoesVar = await page.locator('#view-loja .subtabs button').allInnerTexts();
 eq('baixar a lista de variações continua ali',
   acoesVar.some(t => /Baixar lista/.test(t)), 'true');
-eq('e o caminho para repartir leva a Pendências',
-  acoesVar.some(t => /Repartir em Pend[êe]ncias/.test(t)), 'true');
+eq('e o caminho para repartir leva à Central',
+  acoesVar.some(t => /Resolver na Central/.test(t)), 'true');
 
 /* ==================================================================== */
-console.log('\n=== 4. Pendências tem três seções nomeadas ===');
-await page.evaluate(() => switchTab('pendencias'));
+console.log('\n=== 4. Central reúne o fluxo em uma tela ===');
+await page.evaluate(() => switchTab('central'));
 await page.waitForTimeout(2000);
-const secoes = await page.evaluate(() =>
-  [...document.querySelectorAll('#view-pendencias > .subtabs .pill')].map(b => b.textContent.trim()));
-eq('as três estão lá', secoes.length, 3);
-eq('e na ordem certa',
-  secoes.map(s => s.replace(/\s*\(\d+\)$/, '')).join(' | '),
-  'Variações | Publicar na Nuvemshop | Outras pendências');
+const navEstoque = await page.locator('#tabsSubNav').innerText();
+eq('Publicar é área de primeira linha', /Publicar na Nuvemshop/.test(navEstoque), 'true');
+eq('Central é área de primeira linha', /Central/.test(navEstoque), 'true');
+eq('não há subtela separada de variações',
+  await page.locator('#view-pendencias > .subtabs').count(), 0);
 
-console.log('\n=== 5. a seção Variações traz o que a sincronização recusou ===');
-await page.evaluate(() => setSecaoPend('variacoes'));
-await page.waitForSelector('.distcard', { timeout: 15000 });
-const cartoes = await page.locator('.distcard').count();
-eq('há cartão para repartir', cartoes >= 1, 'true');
-eq('e ele é do código certo',
-  /VARIA/.test(await page.locator('.distcard').first().innerText()), 'true');
+console.log('\n=== 5. a variação recusada é resolvida na própria linha ===');
+const linhaVariacao = page.locator('.invrow').filter({ hasText: 'VARIA' }).first();
+eq('há linha para repartir', await linhaVariacao.count(), 1);
+await linhaVariacao.getByRole('button', { name: 'Resolver' }).click();
+eq('o formulário abre sem trocar de tela', await linhaVariacao.locator('.pend-form').count(), 1);
+eq('a linha mostra falta e efeito', /FALTA[\s\S]*EFEITO/i.test(await linhaVariacao.innerText()), 'true');
 const rev = await api('GET', '/api/variacoes/revisao');
 eq('o backend continua devolvendo o caso', rev.total, 1);
 eq('pelo motivo certo', rev.itens[0].motivo, 'sem_reparticao');
 
-console.log('\n=== 6. a seção Publicar traz os códigos que a loja não tem ===');
-await page.evaluate(() => setSecaoPend('publicar'));
+console.log('\n=== 6. Publicar traz os códigos que a loja não tem ===');
+await page.evaluate(() => switchTab('publicar'));
 await page.waitForTimeout(800);
 const pub = await api('GET', '/api/catalogo/publicacao');
 const todos = new Set(['prontos', 'semFoto', 'semFundoBranco', 'semDescricao', 'semCategoria', 'semPreco']
@@ -162,31 +160,25 @@ eq('a peça sem foto também aparece com "foto" faltando',
   ((pub.semFoto || []).find(x => x.sku === 'FORA1') || {}).falta.includes('foto'), 'true');
 
 const linhaFora = await page.evaluate(() => {
-  const l = [...document.querySelectorAll('#view-pendencias tbody tr')]
+  const l = [...document.querySelectorAll('#view-pendencias .pub-card')]
     .find(e => e.textContent.includes('FORA'));
   return l ? l.innerText.replace(/\s+/g, ' ') : null;
 });
 eq('a tabela mostra a linha da peça', !!linhaFora, 'true');
-eq('com os selos do que falta', /pre[çc]o|foto/i.test(linhaFora || ''), 'true');
+eq('com os gates do que falta', /pre[çc]o|foto/i.test(linhaFora || ''), 'true');
+eq('o funil mostra os cinco estados', await page.locator('.pub-etapa').count(), 5);
 
-console.log('\n=== 7. a seção Outras existe e não inventa categoria ===');
-await page.evaluate(() => setSecaoPend('outras'));
-await page.waitForTimeout(600);
-const txtOutras = await page.locator('#view-pendencias').innerText();
-eq('ela fala de fotos sem dono', /Fotos sem dono/.test(txtOutras), 'true');
-eq('e não repete a lista de publicação', /Falta subir/.test(txtOutras), 'false');
-
-console.log('\n=== 8. nenhuma escrita saiu para a Nuvemshop ===');
+console.log('\n=== 7. nenhuma escrita saiu para a Nuvemshop ===');
 /* A trava é estrutural (api/src/nuvemshop.js › chamar), mas esta é a prova
    pelo lado de fora: a loja de mentira registra tudo que chega. */
 const escritas = loja.estado.escritas.slice(escritasAntes);
 eq('nenhum PATCH de estoque na caixinha do código não repartido',
   escritas.some(w => JSON.stringify(w).includes('70')), 'false');
 
-console.log('\n=== 9. nenhum erro de página ===');
+console.log('\n=== 8. nenhum erro de página ===');
 eq('sem exceção no navegador', erros.length ? erros.join(' | ') : 0, 0);
 
-console.log('\n=== 10. atualização passa pela sessão congelada de revisão ===');
+console.log('\n=== 9. atualização passa pela sessão congelada de revisão ===');
 const fontePainel = readFileSync(new URL('./dashboard.tpl.html', import.meta.url), 'utf8');
 eq('abre uma sessão de reconciliação',
   fontePainel.includes("api('POST','/api/reconciliacao'"), 'true');

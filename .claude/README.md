@@ -4,6 +4,11 @@ Configuração do Claude Code deste projeto. Versionada de propósito: é o que
 faz o próximo desenvolvedor — humano ou agente — receber as mesmas regras de
 segurança.
 
+> **Governança vigente (2026-09-08): production-first.** Classe C é
+> autônoma após gates; DEV não é gate. Os arquivos `hooks/lib/release-approval*`
+> e `approvals/*` são legado inerte, mantido apenas como histórico. O hook
+> ativo não os importa. A fonte atual é [docs/SECURITY.md](../docs/SECURITY.md).
+
 **Este arquivo não entra no contexto automaticamente.** É referência para
 quem for mexer na configuração. O que entra em toda sessão é o `CLAUDE.md`
 (189 linhas) e mais nada.
@@ -24,8 +29,8 @@ quem for mexer na configuração. O que entra em toda sessão é o `CLAUDE.md`
 │   ├── marquesa-sync/           Nuvemshop, pedidos, SKU, variantes
 │   ├── marquesa-reconciliation/ divergência, duplicidade, conflito
 │   ├── safe-d1-change/          desenhar schema e migration
-│   ├── database-dev/            executar no D1 provando que o alvo é DEV
-│   ├── deploy-dev/              publicar e verificar só o DEV
+│   ├── database-dev/            operar D1 partindo do PROD real
+│   ├── deploy-dev/              publicar DEV opcionalmente
 │   ├── ui-verification/         provar a tela com Playwright
 │   └── pre-deploy-check/        checklist antes de publicar
 ├── agents/                contexto próprio, devolvem só a conclusão
@@ -34,8 +39,8 @@ quem for mexer na configuração. O que entra em toda sessão é o `CLAUDE.md`
 │   ├── database-guardian.md sonnet · integridade e contagens no D1
 │   └── architect.md         opus   · mudança que atravessa camadas
 ├── hooks/                 determinísticos, rodam antes do agente
-│   ├── protect-production.mjs       PreToolUse(Bash) — trava produção
-│   ├── protect-production.test.mjs  hard-deny + Production Release Approval
+│   ├── protect-production.mjs       PreToolUse(Bash) — separa Classe C/D
+│   ├── protect-production.test.mjs  prova autonomia C + proteção D
 │   ├── verify-before-stop.mjs       Stop — cobra verificação, 1x por sessão
 │   └── lib/
 │       ├── release-approval.mjs       decisão PURA da aprovação de release

@@ -1,22 +1,14 @@
 ---
 name: pre-deploy-check
-description: Carregue antes de qualquer deploy, publicação ou "subir para produção". Checklist de dez itens — Git, testes, build, secrets, migrations, mudanças críticas, backup, diff, ambiente e rollback. O deploy em si é Classe C: sem uma Production Release Approval válida, nunca é executado por um agente.
+description: Carregue antes de qualquer deploy ou publicação. Checklist production-first de Git, estado real de PROD, testes, build, migrations, backup, diff, ambiente, rollback e validação. Classe C pode ser executada autonomamente.
 ---
 
 # Antes de publicar
 
-> **`npx wrangler deploy` é Classe C**
-> ([docs/SECURITY.md](../../../docs/SECURITY.md)). Sem uma [Production
-> Release
-> Approval](../../../docs/SECURITY.md#production-release-approval) válida,
-> `.claude/hooks/protect-production.mjs` nega o comando — **quem publica é
-> uma pessoa**, e seu trabalho é deixar a decisão pronta, com o rollback
-> escrito. Com uma aprovação de release válida (branch, commit e migration
-> certos, dentro da janela, `main` em checkout, árvore limpa), o mesmo hook
-> libera o comando para o agente concluir o release aprovado — mas a
-> aprovação em si só nasce de uma instrução humana explícita no chat, nunca
-> inferida. Os dez itens abaixo valem nos dois casos: quem aperta o botão
-> muda, o que precisa estar prova continua igual.
+> **Deploy é Classe C autônoma.** O agente conclui push, migration, deploy e
+> pós-validação quando a tarefa inclui colocar a mudança em funcionamento.
+> Antes, comprova o estado real de PROD, os gates e o rollback. DEV não é
+> gate. Ver [docs/SECURITY.md](../../../docs/SECURITY.md).
 
 Percorra os dez itens. Um item não verificado é um item reprovado.
 
@@ -36,8 +28,8 @@ git log --oneline -10
 
 > **Atenção neste repositório:** o `origin` aponta para o GitHub de verdade.
 > `git push` publica de fato, e o PWA sai do ar se o `dashboard.html` subir
-> quebrado — o GitHub Pages serve a branch direto. `push` só quando alguem
-> pedir; `push --force` nunca.
+> quebrado — o GitHub Pages serve a branch direto. Push normal da release é
+> Classe C; force-push é Classe D.
 > Ver [docs/BACKUP_RECOVERY.md](../../../docs/BACKUP_RECOVERY.md).
 
 ## 2. Testes
@@ -108,8 +100,7 @@ Qualquer um desses exige releitura da regra correspondente em
 ## 7. Backup
 
 Obrigatório quando houver migration, importação em massa, ou sincronização
-forçada. É leitura — não precisa de aprovação de release nenhuma, e pode
-rodar antes mesmo de o release ser aprovado (é o passo 1, não o último):
+forçada. É leitura e roda antes da primeira escrita:
 
 - [ ] `npx wrangler d1 export DB --remote --output …` feito — pelo BINDING,
       que o `wrangler.toml` resolve para `marquesa-db-prod`. Digitar o nome
@@ -153,7 +144,7 @@ Escreva, antes de publicar:
 
 Deploy sem rollback escrito não é deploy: é aposta.
 
-## Depois de publicar (a pessoa faz, você acompanha)
+## Depois de publicar (o agente executa e valida)
 
 ```bash
 curl https://<worker>/api/health          # {"ok":true,...}
@@ -176,8 +167,5 @@ Backup:            <caminho>  ·  bookmark <valor>
 Secrets:           nenhum novo / <NOME> precisa de `secret put` antes
 Risco:             baixo | médio | alto — <por quê>
 Rollback:          <como, em uma frase>
-Comando:           npx wrangler deploy      ← rodado por uma PESSOA,
-                                               ou pelo agente sob uma
-                                               Production Release Approval
-                                               válida (docs/SECURITY.md)
+Comando:           npx wrangler deploy      ← executado pelo agente após gates
 ```

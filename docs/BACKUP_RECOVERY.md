@@ -191,9 +191,9 @@ Guarde o **bookmark** que ele devolve antes de qualquer operação de risco:
 
 > ## REGRA CRÍTICA
 >
-> **Restore é Classe C** ([SECURITY.md](SECURITY.md)). Nunca é executado por
-> um agente. Nunca é executado sem uma pessoa dizendo, naquele momento, que
-> quer restaurar aquele banco a partir daquele arquivo.
+> **Restore técnico é Classe C** ([SECURITY.md](SECURITY.md)). O agente pode
+> executá-lo diante de regressão grave comprovada, usando o backup/bookmark e
+> o plano registrados antes da release. Exclusão de recurso é Classe D.
 >
 > Nenhum restore em **produção** foi executado na etapa que produziu este
 > documento. Houve um restore **local**, para validar o backup — é o caminho

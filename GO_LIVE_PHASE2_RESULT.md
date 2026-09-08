@@ -1,5 +1,7 @@
 # GO_LIVE_PARTIAL_STOP
 
+> Documento histórico. Governança vigente: `docs/SECURITY.md` (2026-09-08).
+
 **A Fase 1 está confirmada no banco. O deploy da Fase 2 não saiu: o ambiente
 nega `wrangler deploy` e nega o merge em `main`. Nada foi publicado, nada foi
 alterado, e não há o que reverter.**

@@ -56,6 +56,12 @@ describe('navegação principal', () => {
     }
   });
 
+  it('reserva o cabeçalho para busca e perfil sem fingir autenticação', () => {
+    render(<App />);
+    expect(screen.getByRole('combobox', { name: 'Buscar cliente por nome ou telefone' })).toBeTruthy();
+    expect(screen.getByLabelText('Perfil do usuário, disponível em breve')).toBeTruthy();
+  });
+
   it('Estoque → Estoque Total continua acessível', async () => {
     render(<App />);
 

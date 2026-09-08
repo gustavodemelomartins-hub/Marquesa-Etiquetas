@@ -40,6 +40,8 @@ export function VisaoGeralRevendedoras({
   const resumo = resumoDasRevendedoras(estado);
   const cap = calcularCapacidade(estado, planejamento.config);
   const atrasadas = agenda.filter((a) => a.situacao.atrasada);
+  const proximo = agenda.find((a) => !!a.prazo);
+  const proximoPrazo = proximo?.prazo ?? null;
 
   return (
     <>
@@ -55,20 +57,22 @@ export function VisaoGeralRevendedoras({
           }
         />
         <Kpi
-          rotulo="Valor na rua"
+          rotulo="Valor consignado"
           valor={money(t.valFora)}
           acento="valor"
           compacto
           nota="Preço de envio das peças que estão fora"
         />
         <Kpi
-          rotulo="Maletas abertas"
-          valor={agenda.length}
+          rotulo="Próximo acerto"
+          valor={proximoPrazo ? fmtData(proximoPrazo) : '—'}
           acento="marca"
           nota={
-            atrasadas.length
-              ? `${atrasadas.length} ${plural(atrasadas.length, 'passou', 'passaram')} da data combinada`
-              : 'Nenhuma passou da data combinada'
+            proximo
+              ? proximo.revNome
+              : atrasadas.length
+                ? `${atrasadas.length} ${plural(atrasadas.length, 'passou', 'passaram')} da data combinada`
+                : 'Nenhuma data marcada'
           }
         />
         <Kpi
@@ -139,11 +143,6 @@ export function VisaoGeralRevendedoras({
         <Painel
           titulo="Revendedoras"
           dica="Toque em uma para abrir a maleta dela"
-          acoes={
-            <button type="button" className="btn btn-leitura btn-sm" onClick={aoNovaRevendedora}>
-              + Nova
-            </button>
-          }
         >
           {!resumo.length ? (
             <EmptyState

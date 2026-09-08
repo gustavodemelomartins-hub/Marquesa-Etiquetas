@@ -48,6 +48,37 @@
  */
 import { saldosDoSku } from './estoque.js';
 
+/** Pacote 2 — a família de colares de filhos deixou de ser configurável por
+ * improviso. Estes são os SKUs confirmados pela operação em 07/09/2026.
+ *
+ * `MONTE-COLAR` é deliberadamente um SKU COMERCIAL interno: aparece como a
+ * única linha da composição livre, mas não tem saldo nem movimento próprio.
+ * O físico continua sendo sempre a Veneziana + os produtos escolhidos. */
+export const SKU_BASE_COLAR = '444032';
+export const SKU_COMERCIAL_LIVRE = 'MONTE-COLAR';
+
+const OPCOES_CANONICAS = [
+  { sku: '263236', rotulo: 'Menina rosa claro', grupo: 'Menina', nome: 'Colar Menina Zircônia Rosa Claro Banho de Ouro 18k' },
+  { sku: '273470', rotulo: 'Menina incolor', grupo: 'Menina', nome: 'Colar Menina Zircônia Incolor Banho de Ouro 18k' },
+  { sku: '251551', rotulo: 'Menino azul', grupo: 'Menino', nome: 'Colar Menino Zircônia Azul Banho de Ouro 18k' },
+  { sku: '251552', rotulo: 'Menino incolor', grupo: 'Menino', nome: 'Colar Menino Zircônia Incolor Banho de Ouro 18k' },
+  { sku: '329494', rotulo: 'Menino verde', grupo: 'Menino', nome: 'Colar Menino Zircônia Verde Banho de Ouro 18k' },
+];
+
+const MODELOS_CANONICOS = [
+  { slug: 'casal', skuComercial: '326660', nome: 'Colar Casal Banho de Ouro 18k', slotTipos: ['Menino', 'Menina'], preco: 129 },
+  { slug: 'duas-meninas', skuComercial: '364945', nome: 'Colar Filhas Duas Meninas Banho de Ouro 18k', slotTipos: ['Menina', 'Menina'], preco: 129 },
+  { slug: 'dois-meninos', skuComercial: '311066', nome: 'Colar Filhos Dois Meninos Banho de Ouro 18k', slotTipos: ['Menino', 'Menino'], preco: 129 },
+  { slug: 'dois-meninos-uma-menina', skuComercial: '314161', nome: 'Colar Filhos Dois Meninos e Uma Menina Banho de Ouro 18k', slotTipos: ['Menino', 'Menino', 'Menina'], preco: 159 },
+  { slug: 'duas-meninas-um-menino', skuComercial: '399872', nome: 'Colar Filhos Duas Meninas e Um Menino Banho de Ouro 18k', slotTipos: ['Menina', 'Menina', 'Menino'], preco: 159 },
+  { slug: 'livre', skuComercial: SKU_COMERCIAL_LIVRE, nome: 'Monte seu Colar — composição livre', slotTipos: [], preco: null, livre: true },
+];
+
+const modeloCanonico = ({ modeloSlug, modeloId } = {}) => {
+  const chave = String(modeloSlug ?? modeloId ?? '').replace(/^canonico:/, '');
+  return MODELOS_CANONICOS.find((m) => m.slug === chave) ?? null;
+};
+
 /** Trava operacional do lançamento de 2026-09-06 — Produtos Montáveis
  *  ("Monte seu Colar") ficou parado antes de fechar SKU comercial x base x
  *  componentes, base trocável, Ouro 18k/Prata 925 e o estorno de troca.
@@ -79,7 +110,53 @@ export async function listarModelos(db, { incluirInativos = false } = {}) {
       WHERE (? = 1 OR ativo = 1) ORDER BY ordem, nome`,
   ).bind(incluirInativos ? 1 : 0).all().catch(() => ({ results: [] }));
 
-  if (!modelos || !modelos.length) {
+  /* Os modelos confirmados só aparecem quando a base física existe no
+     catálogo deste ambiente. Assim instalações antigas, testes isolados e
+     bancos ainda não preparados continuam vendo exatamente seus modelos
+     dinâmicos; no catálogo real, a família canônica nasce sem cadastro
+     manual paralelo. */
+  const baseCanonica = await saldosDoSku(db, SKU_BASE_COLAR);
+  const saldosCanonicos = new Map();
+  if (baseCanonica) {
+    for (const o of OPCOES_CANONICAS) saldosCanonicos.set(o.sku, await saldosDoSku(db, o.sku));
+  }
+  const canonicos = baseCanonica ? MODELOS_CANONICOS.map((m) => ({
+    id: `canonico:${m.slug}`,
+    slug: m.slug,
+    nome: m.nome,
+    skuComercial: m.skuComercial,
+    slotsMin: m.livre ? 1 : m.slotTipos.length,
+    slotsMax: m.livre ? 12 : m.slotTipos.length,
+    slotTipos: m.slotTipos,
+    composicaoLivre: !!m.livre,
+    baseSkuPadrao: SKU_BASE_COLAR,
+    baseNome: baseCanonica.desc,
+    baseDisponivel: baseCanonica.disponivel,
+    precoSugerido: m.preco,
+    ativo: true,
+    canonico: true,
+    obs: m.livre
+      ? 'Valor obrigatório informado na venda; um único SKU comercial para qualquer combinação livre.'
+      : 'Preço e composição comercial confirmados pela operação.',
+    opcoes: OPCOES_CANONICAS.map((o, i) => {
+      const s = saldosCanonicos.get(o.sku);
+      return {
+        id: `canonico:${o.sku}`,
+        componenteSku: o.sku,
+        componenteNome: s?.desc ?? o.nome,
+        variacao: null,
+        varianteId: null,
+        rotulo: o.rotulo,
+        grupo: o.grupo,
+        preco: s?.preco ?? null,
+        disponivel: s?.disponivel ?? 0,
+        indisponivel: !s ? 'peça fora do catálogo' : (s.disponivel <= 0 ? 'sem peça em estoque' : null),
+        ordem: i,
+      };
+    }),
+  })) : [];
+
+  if ((!modelos || !modelos.length) && !canonicos.length) {
     return {
       ok: true, modelos: [],
       regra: 'Nenhum modelo cadastrado ainda. Um modelo diz quantas posições o '
@@ -128,7 +205,9 @@ export async function listarModelos(db, { incluirInativos = false } = {}) {
 
   return {
     ok: true,
-    modelos: modelos.map((m) => {
+    modelos: [...canonicos, ...modelos
+      .filter((m) => !canonicos.some((c) => c.slug === m.slug))
+      .map((m) => {
       const base = m.base_sku_padrao ? saldo.get(m.base_sku_padrao) : null;
       return {
         id: Number(m.id),
@@ -144,9 +223,9 @@ export async function listarModelos(db, { incluirInativos = false } = {}) {
         obs: m.obs ?? null,
         opcoes: porModelo.get(m.id) ?? [],
       };
-    }),
-    regra: 'A base é uma peça do catálogo e cada componente também. Vender uma '
-      + 'composição consome a base e os componentes escolhidos, uma vez cada.',
+    })],
+    regra: 'Nesta família, a base é sempre a Veneziana 444032. A linha da venda '
+      + 'usa o SKU comercial do modelo; o estoque baixa a base e cada produto escolhido uma vez.',
   };
 }
 
@@ -250,9 +329,22 @@ export async function prepararPersonalizacoes(db, lista, {
   for (const [i, p] of (lista ?? []).entries()) {
     const onde = `Composição ${i + 1}`;
 
-    /* o modelo, por id ou por slug — a tela usa id, a loja usaria slug */
+    /* O modelo canônico é regra de negócio; modelos positivos salvos no D1
+       continuam aceitos para preservar as integrações e os testes existentes. */
+    const canonico = modeloCanonico(p);
     let modelo = null;
-    if (p.modeloId != null || p.modeloSlug) {
+    if (canonico) {
+      modelo = {
+        id: null,
+        slug: canonico.slug,
+        nome: canonico.nome,
+        slots_min: canonico.livre ? 1 : canonico.slotTipos.length,
+        slots_max: canonico.livre ? 12 : canonico.slotTipos.length,
+        base_sku_padrao: SKU_BASE_COLAR,
+        preco_sugerido: canonico.preco,
+        ativo: 1,
+      };
+    } else if (p.modeloId != null || p.modeloSlug) {
       modelo = await db.prepare(
         'SELECT * FROM personalizacao_modelos WHERE (id = ? OR slug = ?) LIMIT 1',
       ).bind(p.modeloId ?? -1, p.modeloSlug ?? '').first();
@@ -260,7 +352,11 @@ export async function prepararPersonalizacoes(db, lista, {
       if (!modelo.ativo) return { erro: ERRO(409, `${onde}: o modelo "${modelo.nome}" está inativo.`) };
     }
 
-    const baseSku = String(p.baseSku ?? modelo?.base_sku_padrao ?? '').trim().toUpperCase();
+    const basePedida = String(p.baseSku ?? modelo?.base_sku_padrao ?? '').trim().toUpperCase();
+    if (canonico && basePedida && basePedida !== SKU_BASE_COLAR) {
+      return { erro: ERRO(409, `${onde}: esta família usa sempre a base ${SKU_BASE_COLAR}.`) };
+    }
+    const baseSku = canonico ? SKU_BASE_COLAR : basePedida;
     if (!baseSku) return { erro: ERRO(400, `${onde}: diga qual base foi usada.`) };
     const base = await saldosDoSku(db, baseSku);
     if (!base) return { erro: ERRO(400, `${onde}: a base ${baseSku} não está no catálogo.`, { sku: baseSku }) };
@@ -281,16 +377,28 @@ export async function prepararPersonalizacoes(db, lista, {
     /* O preço é da COMPOSIÇÃO, não a soma das peças: "Colar personalizado
        3 filhos R$ 149" é o que ela cobra, e somar base + pingentes daria
        outro número. §24 continua valendo — sem preço, não vende. */
-    const preco = p.preco == null || p.preco === ''
+    let preco = p.preco == null || p.preco === ''
       ? (modelo && modelo.preco_sugerido != null ? Number(modelo.preco_sugerido) : null)
       : dinheiro(p.preco);
+    if (canonico && !canonico.livre) {
+      if (preco != null && preco !== canonico.preco) {
+        return { erro: ERRO(409, `${onde}: o modelo ${canonico.skuComercial} custa R$ ${canonico.preco.toFixed(2).replace('.', ',')}.`) };
+      }
+      preco = canonico.preco;
+    }
     if (preco == null || !Number.isFinite(preco) || preco < 0) {
       return { erro: ERRO(409, `${onde}: diga o valor desta composição.`) };
     }
 
     /* ─── a demanda de peças físicas: a base uma vez, e cada componente
        quantas vezes ele aparecer. */
-    const movimentos = [{ sku: baseSku, qtd: 1, papel: 'base', nome: base.desc }];
+    const baseVariacao = String(p.baseVariacao ?? '').trim() || null;
+    const baseVarianteId = p.baseVarianteId == null || p.baseVarianteId === ''
+      ? null : String(p.baseVarianteId);
+    const movimentos = [{
+      sku: baseSku, qtd: 1, papel: 'base', nome: base.desc,
+      variacao: baseVariacao, varianteId: baseVarianteId,
+    }];
     const slots = [];
     for (const [k, c] of componentes.entries()) {
       const sku = String(c.componenteSku ?? c.sku ?? '').trim().toUpperCase();
@@ -299,6 +407,16 @@ export async function prepararPersonalizacoes(db, lista, {
       if (qtd < 1) return { erro: ERRO(400, `${onde}: quantidade inválida na posição ${k + 1}.`) };
       const s = await saldosDoSku(db, sku);
       if (!s) return { erro: ERRO(400, `${onde}: o componente ${sku} não está no catálogo.`, { sku }) };
+      if (canonico) {
+        const opcao = OPCOES_CANONICAS.find((o) => o.sku === sku);
+        if (!opcao) {
+          return { erro: ERRO(409, `${onde}: ${sku} não é uma opção física desta família.`) };
+        }
+        const tipoEsperado = canonico.slotTipos[k];
+        if (tipoEsperado && opcao.grupo !== tipoEsperado) {
+          return { erro: ERRO(409, `${onde}: a posição ${k + 1} pede ${tipoEsperado.toLowerCase()}.`) };
+        }
+      }
       slots.push({
         posicao: Number(c.posicao ?? k + 1),
         componenteSku: sku,
@@ -308,9 +426,12 @@ export async function prepararPersonalizacoes(db, lista, {
         rotulo: String(c.rotulo ?? '').trim() || s.desc,
         qtd,
       });
-      const ja = movimentos.find((m) => m.sku === sku && m.papel === 'componente');
+      const variacao = String(c.variacao ?? '').trim() || null;
+      const varianteId = c.varianteId == null || c.varianteId === '' ? null : String(c.varianteId);
+      const ja = movimentos.find((m) => m.sku === sku && m.papel === 'componente'
+        && m.variacao === variacao && m.varianteId === varianteId);
       if (ja) ja.qtd += qtd;
-      else movimentos.push({ sku, qtd, papel: 'componente', nome: s.desc });
+      else movimentos.push({ sku, qtd, papel: 'componente', nome: s.desc, variacao, varianteId });
     }
 
     /* ─── disponibilidade, quando a venda vai mesmo baixar estoque.
@@ -331,17 +452,24 @@ export async function prepararPersonalizacoes(db, lista, {
       if (reservar) for (const m of movimentos) reservar(m.sku, m.qtd);
     }
 
+    const skuComercial = canonico ? canonico.skuComercial : baseSku;
+    const comercial = await saldosDoSku(db, skuComercial);
+    if (!comercial) {
+      return { erro: ERRO(409, `${onde}: o SKU comercial ${skuComercial} não está no catálogo.`, { sku: skuComercial }) };
+    }
+
     const nomeComposicao = (modelo?.nome ?? 'Colar personalizado')
       + ' — ' + slots.map((s) => s.rotulo).join(', ');
 
     preparadas.push({
-      modeloId: modelo ? Number(modelo.id) : null,
+      modeloId: modelo?.id == null ? null : Number(modelo.id),
       modeloNome: modelo?.nome ?? 'Colar personalizado',
+      modeloSlug: modelo?.slug ?? null,
+      skuComercial,
       baseSku,
       baseNome: base.desc,
-      baseVariacao: String(p.baseVariacao ?? '').trim() || null,
-      baseVarianteId: p.baseVarianteId == null || p.baseVarianteId === ''
-        ? null : String(p.baseVarianteId),
+      baseVariacao,
+      baseVarianteId,
       preco,
       precoTabela: base.preco == null ? null : Number(base.preco),
       observacao: String(p.observacao ?? '').trim() || null,
@@ -357,7 +485,7 @@ export async function prepararPersonalizacoes(db, lista, {
          SUGERIDO do modelo quando existe: vender a composição por menos que
          o sugerido é desconto de verdade, e §27 quer isso registrado. */
       linha: {
-        sku: baseSku,
+        sku: skuComercial,
         desc: nomeComposicao,
         qtd: 1,
         preco,
@@ -383,10 +511,10 @@ export async function gravarPersonalizacoes(db, vendaId, preparadas, {
   for (const p of preparadas) {
     const r = await db.prepare(
       `INSERT INTO venda_personalizacoes
-         (venda_id, base_sku, base_variacao, base_variante_id, modelo_id, modelo_nome,
+         (venda_id, sku_comercial, base_sku, base_variacao, base_variante_id, modelo_id, modelo_nome,
           preco, estoque_ja_refletido, observacao)
-       VALUES (?,?,?,?,?,?,?,?,?) RETURNING id`,
-    ).bind(vendaId, p.baseSku, p.baseVariacao, p.baseVarianteId, p.modeloId,
+       VALUES (?,?,?,?,?,?,?,?,?,?) RETURNING id`,
+    ).bind(vendaId, p.skuComercial, p.baseSku, p.baseVariacao, p.baseVarianteId, p.modeloId,
       p.modeloNome, p.preco, estoqueJaRefletido ? 1 : 0, p.observacao).first();
 
     await db.batch(p.slots.map((s) => db.prepare(
@@ -414,7 +542,8 @@ export async function personalizacoesDeVendas(db, vendaIds = []) {
   const qs = ids.map(() => '?').join(',');
   const { results } = await db.prepare(
     `SELECT vp.*, vpi.posicao, vpi.componente_sku, vpi.componente_nome,
-            vpi.variacao AS item_variacao, vpi.rotulo, vpi.qtd AS item_qtd,
+            vpi.variacao AS item_variacao, vpi.variante_id AS item_variante_id,
+            vpi.rotulo, vpi.qtd AS item_qtd,
             vpi.movimento_id
        FROM venda_personalizacoes vp
        LEFT JOIN venda_personalizacao_itens vpi ON vpi.personalizacao_id = vp.id
@@ -431,6 +560,7 @@ export async function personalizacoesDeVendas(db, vendaIds = []) {
         vendaId: Number(r.venda_id),
         modeloId: r.modelo_id == null ? null : Number(r.modelo_id),
         modeloNome: r.modelo_nome,
+        skuComercial: r.sku_comercial ?? r.base_sku,
         baseSku: r.base_sku,
         baseVariacao: r.base_variacao ?? null,
         preco: Number(r.preco ?? 0),
@@ -449,6 +579,7 @@ export async function personalizacoesDeVendas(db, vendaIds = []) {
         sku: r.componente_sku,
         nome: r.componente_nome ?? r.componente_sku,
         variacao: r.item_variacao ?? null,
+        varianteId: r.item_variante_id ?? null,
         rotulo: r.rotulo ?? null,
         qtd: Number(r.item_qtd ?? 1),
         movimentoId: r.movimento_id == null ? null : Number(r.movimento_id),

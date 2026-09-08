@@ -11,9 +11,9 @@ paths:
 ## Antes de qualquer mudança de schema
 
 Carregue a skill `safe-d1-change`. Sete etapas, sem pular nenhuma. Migration
-destrutiva **nunca** é executada automaticamente.
+destrutiva é Classe D; migration aditiva de release é Classe C autônoma.
 
-## Alvo: provar que é DEV antes de mutar
+## Alvo: começar pelo estado real de PROD
 
 | | Produção | Rollback congelado | DEV |
 |---|---|---|---|
@@ -22,20 +22,19 @@ destrutiva **nunca** é executada automaticamente.
 
 Desde o go-live de 2026-08-22 **produção é `marquesa-db-prod`**, e o binding
 `DB` sem `--env` resolve para ele (`api/wrangler.toml`). O nome `marquesa-db`
-não é mais produção: é a cópia **congelada de rollback**, e escrever nela
-destrói a única volta que o projeto tem. Os dois exigem autorização humana
-explícita **a cada vez**, mais backup recente confirmado.
+não é mais produção: é a cópia **congelada de rollback**. Escrita em PROD é
+Classe C autônoma depois de inspeção, backup/bookmark, migration testada,
+rollback e pós-validação. DEV não é fonte de verdade nem gate.
 
-`marquesa-db-dev` é descartável: escrever ali é reversível e não pede
-autorização. Três nomes parecidos, consequências opostas — leia o alvo duas
-vezes, e prefira o binding `DB` ao nome. Procedimento: skill `database-dev`.
+Três nomes parecidos, consequências opostas — leia o alvo duas vezes, e
+prefira o binding `DB` ao nome. Procedimento: skill `database-dev`.
 
-## Nunca, em nenhum ambiente, sem instrução humana
+## Classe D — exige instrução humana explícita
 
 ```
 DROP TABLE · DROP DATABASE
 DELETE ou UPDATE em massa sem filtro validado
-wrangler d1 time-travel restore · wrangler d1 delete
+wrangler d1 delete · apagar histórico ou recurso
 ```
 
 ## Verificação depois de mexer no banco

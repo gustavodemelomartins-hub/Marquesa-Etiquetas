@@ -983,17 +983,36 @@ body::before{
    As contagens que moravam aqui foram para os indicadores, onde já estavam
    de qualquer jeito. No celular elas custavam uma tela inteira de altura
    antes de qualquer informação nova aparecer. */
-header.top{border-bottom:1px solid var(--line);padding:14px 0 12px;gap:10px;flex-wrap:nowrap}
+header.top{position:relative;z-index:30;border-bottom:1px solid var(--line);padding:14px 0 12px;gap:18px;flex-wrap:nowrap;align-items:center}
 /* A base empilha marca e ações abaixo de 760px, porque lá o bloco da
    direita tinha três linhas de contagem. Sem elas sobra só o botão, e ele
    cabe ao lado — o que devolve uma tela inteira de altura no celular. */
 .top .brand{flex:0 1 auto;min-width:0}
-.top .meta{flex:0 0 auto;text-align:right}
+.top .meta{flex:1 1 auto;min-width:0;text-align:right}
 .brandtag{border-width:1px;padding:9px 17px 9px 27px;box-shadow:0 1px 3px rgba(20,19,18,.10)}
 .brand .logo{height:29px}
 .brand{gap:13px}
 .brand .tooltag{border-left-width:1px;padding-left:13px;font-size:9.5px;letter-spacing:.3em}
 .top .meta .gearbtn{margin-top:0;border-width:1px;border-radius:10px;padding:8px 14px;font-size:12.5px}
+.top-tools{display:flex;align-items:center;justify-content:flex-end;gap:9px;min-width:0}
+.client-search{position:relative;flex:1 1 320px;max-width:390px;text-align:left}
+.client-search-box{display:flex;align-items:center;gap:8px;height:38px;padding:0 11px;border:1px solid var(--line);border-radius:11px;background:var(--paper);color:var(--muted);transition:.15s}
+.client-search-box:focus-within{border-color:var(--bordo);box-shadow:0 0 0 3px var(--bordo-tint);color:var(--bordo)}
+.client-search-box svg{width:15px;height:15px;flex:none}
+.client-search-box input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--ink);font:500 12.5px/1.3 var(--sans);padding:0}
+.client-search-box input::placeholder{color:var(--muted);font-weight:400}
+.client-search-results{display:none;position:absolute;top:calc(100% + 7px);left:0;right:0;z-index:80;max-height:320px;overflow:auto;padding:6px;background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 36px rgba(44,36,40,.17)}
+.client-search.open .client-search-results{display:block}
+.client-search-msg{padding:11px 12px;color:var(--muted);font-size:12px;line-height:1.45}
+.client-search-result{display:block;width:100%;border:0;border-radius:8px;background:transparent;padding:9px 10px;text-align:left;color:var(--ink);cursor:pointer;font-family:var(--sans)}
+.client-search-result:hover,.client-search-result[aria-selected="true"]{background:var(--bordo-tint)}
+.client-search-result b{display:block;font-size:12.5px;font-weight:650}
+.client-search-result small{display:block;margin-top:2px;color:var(--muted);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.profile-placeholder{display:flex;align-items:center;gap:7px;min-height:38px;padding:4px 9px 4px 5px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.62);color:var(--muted);text-align:left;white-space:nowrap}
+.profile-placeholder .profile-avatar{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--bordo-tint);color:var(--bordo)}
+.profile-placeholder .profile-avatar svg{width:14px;height:14px}
+.profile-placeholder .profile-copy{font-size:11.5px;line-height:1.15;color:var(--ink);font-weight:600}
+.profile-placeholder .profile-copy small{display:block;margin-top:2px;color:var(--muted);font-size:9px;font-weight:500}
 
 /* ---------- Navegação principal ----------
    Mesmo conceito do botão Ajustes: fundo claro, borda fina escura, ícone e
@@ -1233,6 +1252,55 @@ th.r,td.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .dc-soma.neutro em{font-style:normal;color:var(--muted)}
 .dc-soma b{font-family:var(--serif);font-size:15px}
 .dc-soma .spacer{flex:1}
+
+/* ---------- Pacote 4: Central + Publicação ---------- */
+.page-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin:4px 0 18px}
+.page-intro h1{font-family:var(--serif);font-size:30px;line-height:1.05;color:var(--bordo);margin:3px 0 7px}
+.page-intro p{font-size:13px;color:var(--muted);max-width:650px}
+.eyebrow{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--rose)}
+.safe-lock{flex:none;border:1px solid var(--line);background:var(--ivory);color:var(--muted);border-radius:999px;padding:8px 13px;font-size:11.5px;font-weight:700}
+.central-kpis{margin-bottom:18px}
+.pend-impacto{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.pend-impacto>div{padding:9px 10px;border:1px solid var(--line-soft);background:var(--ivory);border-radius:9px;min-width:0}
+.pend-impacto span{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:3px}
+.pend-impacto b{display:block;font-size:11.5px;line-height:1.4;color:var(--ink);font-weight:600}
+.pend-foto-orfa{width:68px;height:68px;object-fit:cover;border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+.pub-pipeline{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0 0 18px}
+.pub-etapa{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;text-align:left;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--muted);transition:.15s}
+.pub-etapa>span{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--ivory);font-size:11px;font-weight:800;color:var(--bordo)}
+.pub-etapa b{font-size:11.5px;line-height:1.2}
+.pub-etapa em{font-style:normal;font-family:var(--serif);font-size:18px;color:var(--bordo)}
+.pub-etapa:hover{border-color:var(--rose);color:var(--bordo)}
+.pub-etapa.on{border-color:var(--bordo);box-shadow:0 0 0 1px var(--bordo);background:var(--ivory)}
+.pub-etapa.on>span{background:var(--bordo);color:#fff}
+.pub-lista{display:grid;gap:12px}
+.pub-card{display:grid;grid-template-columns:74px minmax(0,1fr);gap:15px;padding:15px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 5px 20px rgba(92,39,55,.05)}
+.pub-foto .dc-foto{width:74px;height:74px;object-fit:cover;border:1px solid var(--line);border-radius:11px;background:var(--ivory)}
+.pub-foto .dc-foto.vazia{display:grid;place-items:center;text-align:center;font-size:10px;color:var(--muted);padding:5px}
+.pub-corpo{min-width:0}.pub-topo{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.pub-topo h3{font-family:var(--serif);font-size:17px;line-height:1.2;color:var(--ink);margin:0 0 2px}
+.pub-topo code{font-size:10.5px;color:var(--muted)}
+.pub-status{flex:none;padding:5px 9px;border-radius:999px;background:var(--ivory);border:1px solid var(--line);font-size:10.5px;font-weight:800;color:var(--muted)}
+.pub-status.falta_informacao,.pub-status.falhou_ao_publicar{background:var(--danger-tint);border-color:#E8BBC4;color:var(--danger)}
+.pub-status.em_preparacao_agente{background:#FFF5DB;border-color:#EAD393;color:#835E12}
+.pub-status.aguardando_aprovacao{background:#EEF2FA;border-color:#C7D3EB;color:#385686}
+.pub-status.aprovado_para_publicar,.pub-status.publicado{background:var(--ok-tint);border-color:#B9DDCE;color:var(--ok)}
+.pub-meta{display:flex;gap:7px;flex-wrap:wrap;margin:9px 0}
+.pub-meta span{font-size:10.5px;color:var(--muted);background:var(--ivory);border-radius:999px;padding:4px 8px}
+.pub-faltas{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--danger);margin-top:8px}
+.pub-faltas span{background:var(--danger-tint);padding:3px 7px;border-radius:999px}
+.pub-bloqueio,.pub-gate{display:grid;gap:3px;margin-top:10px;padding:10px 11px;border-left:3px solid var(--gold);background:var(--gold-tint);font-size:11.5px;color:var(--ink)}
+.pub-bloqueio span,.pub-gate{color:var(--muted)}
+.pub-bloqueio.erro{border-left-color:var(--danger);background:var(--danger-tint)}
+.pub-previa{margin-top:10px;border:1px solid var(--line-soft);border-radius:10px;padding:9px 11px;font-size:11.5px;color:var(--muted)}
+.pub-previa summary{cursor:pointer;font-weight:700;color:var(--bordo)}
+.pub-previa h4{font-family:var(--serif);font-size:16px;color:var(--ink);margin:10px 0 5px}.pub-previa p{line-height:1.5;margin-bottom:8px}
+.pub-acoes{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:11px}
+.pub-editor{margin-top:12px;padding:13px;border:1px solid var(--rose);border-radius:11px;background:var(--ivory)}
+.pub-editor-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:var(--muted)}
+.pub-editor-head b{color:var(--ink)}
+.pub-editor textarea{width:100%;resize:vertical;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font:inherit}
+.pub-editor textarea:focus{outline:none;border-color:var(--gold)}
 /* Atributos e valores no cadastro: um bloco por atributo, valores como
    texto separado por vírgula. É o menor formulário que ainda deixa a
    pessoa inventar "Cristal" sem pedir para ninguém. */
@@ -1259,6 +1327,49 @@ th.r,td.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .combolinha:first-child{border-top:none}
 .combolinha .cl-nm{flex:1;min-width:0;font-size:12.5px}
 .combolinha input{width:64px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;text-align:center}
+
+/* ---------- Painel analítico de Vendas (Pacote 3) ---------- */
+.modulo-analitico .body{padding-top:14px}
+.analitico-controles{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:16px}
+.analitico-controles .seg{width:auto}
+.analitico-controles .seg button{flex:0 0 auto;padding:8px 12px}
+.troca-analise button.on{background:var(--bordo);color:#fff}
+.periodo-analise{margin-left:auto}
+.receber-destaque{
+  display:flex;align-items:center;justify-content:space-between;gap:18px;
+  padding:14px 16px;margin-bottom:14px;border:1px solid var(--rose-soft);
+  border-radius:13px;background:linear-gradient(120deg,var(--rose-tint),#fff);
+}
+.receber-destaque>div{display:grid;grid-template-columns:auto auto;align-items:baseline;gap:2px 12px}
+.receber-destaque span{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--bordo)}
+.receber-destaque b{font-family:var(--serif);font-size:24px;font-weight:500;color:var(--bordo)}
+.receber-destaque small{grid-column:1/-1;color:var(--muted);font-size:11.5px}
+.analise-grade{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
+.analise-grade>.panel{margin:0;box-shadow:none;border-color:var(--line-soft)}
+.analise-grade>.panel .head{padding:13px 14px 8px}
+.analise-grade>.panel .body{padding:8px 14px 14px}
+.mes-fechar{
+  width:30px;height:30px;margin-left:auto;border:1px solid var(--line);border-radius:50%;
+  background:#fff;color:var(--ink);font:400 20px/1 var(--sans);cursor:pointer;
+}
+.mes-fechar:hover,.mes-fechar:focus-visible{border-color:var(--bordo);color:var(--bordo);outline:none}
+@media(min-width:820px){
+  .analise-grade{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .analise-grade>.panel:last-child{grid-column:1/-1}
+}
+@media(min-width:1180px){
+  .analise-grade{grid-template-columns:1.2fr 1fr 1fr}
+  .analise-grade>.panel:last-child{grid-column:auto}
+}
+@media(max-width:720px){
+  .kpis.cinco{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpis.cinco>.kpi:last-child{grid-column:1/-1}
+  .analitico-controles .seg{width:100%}
+  .analitico-controles .seg button{flex:1 1 0;padding:8px 4px}
+  .periodo-analise{margin-left:0}
+  .receber-destaque{align-items:flex-start;flex-direction:column}
+  .receber-destaque .btn{width:100%}
+}
 /* O que a exclusão vai levar junto, e o que a impede. Lista, não parágrafo:
    cada bloqueio é um fato separado. */
 .deplista{margin:12px 0;padding:0;list-style:none}
@@ -1422,6 +1533,15 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
   .acgrid{grid-template-columns:1fr}
 }
 @media (max-width:760px){
+  header.top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 8px}
+  .top .meta{grid-column:1 / -1;width:100%;text-align:left}
+  .top-tools{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px}
+  .client-search{max-width:none;min-width:0}
+  .client-search-box{height:36px}
+  .profile-placeholder{min-height:36px;padding-right:5px}
+  .profile-placeholder .profile-copy{display:none}
+  .top .meta .gearbtn{min-height:36px;padding:7px 9px}
+  .top .meta .gearbtn .gear-label{display:none}
   /* A base transforma tabelas em cartões no celular; aqui o dashboard
      mantém a tabela de estoque rolável, que é mais legível para números. */
   .tablewrap.keeptable{border:1px solid var(--line);background:#fff;overflow:auto;border-radius:12px;-webkit-overflow-scrolling:touch}
@@ -1443,6 +1563,16 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
   .tablewrap.keeptable tr.filtros th{display:table-cell;padding:5px 6px}
   .fotogrid{grid-template-columns:1fr}
   .pager{justify-content:center}
+  .page-intro{align-items:flex-start;flex-direction:column}.page-intro h1{font-size:26px}
+  .pub-pipeline{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pub-etapa:last-child{grid-column:1 / -1}
+  .pub-card{grid-template-columns:56px minmax(0,1fr);gap:11px;padding:12px}
+  .pub-foto .dc-foto{width:56px;height:56px}.pub-topo{display:block}.pub-status{display:inline-block;margin-top:7px}
+  .pend-impacto{grid-template-columns:1fr}.pub-acoes{justify-content:stretch}.pub-acoes .btn{flex:1}
+  .central-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .invrow{align-items:stretch;flex-direction:column;padding:13px}
+  .invrow .i-num{display:flex;gap:8px;flex-wrap:wrap;width:100%;white-space:normal;text-align:left}
+  .invrow .i-num .btn{flex:1;min-width:130px}
 }
 /* Abaixo de 380px, um quarto de tela não comporta "REVENDEDORAS" inteira
    nem a 8px — e cortar a palavra no meio é pior que qualquer economia de
@@ -1595,13 +1725,21 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 .receber-lista{display:flex;flex-direction:column}.receber-linha{display:grid;
   grid-template-columns:minmax(150px,1.2fr) minmax(180px,2fr) 150px 110px;gap:12px;
   align-items:center;padding:12px 2px;border-top:1px solid var(--line-soft)}
+.receber-resumo{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.receber-resumo .rc-st{display:flex;min-height:62px;flex-direction:column;justify-content:space-between;
+  gap:6px;padding:10px 12px;border:1px solid var(--line-soft);border-radius:9px;background:#fcfafb;
+  color:var(--muted);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.receber-resumo .rc-st b{display:block;color:var(--ink);font-family:var(--serif);font-size:20px;
+  line-height:1.1;letter-spacing:0;text-transform:none}
 .receber-linha:first-child{border-top:0}.receber-linha.vencida{background:#fff7f5}
+.receber-linha.proxima{background:#fffaf0}.receber-linha.sem-prazo{background:#fcfafb}
 .receber-cliente{border:0;background:none;padding:0;text-align:left;color:var(--bordo);
   font-weight:800;cursor:pointer}.receber-cliente:hover{text-decoration:underline}
 .receber-origem{font-size:11px;color:var(--muted)}.receber-prazo{font-size:10px;color:var(--muted)}
 .receber-prazo input{display:block;width:100%;margin-top:3px;padding:6px;border:1px solid var(--line);
   border-radius:7px;background:#fff;color:var(--ink)}.receber-valor{text-align:right;font-family:Georgia,serif;color:var(--bordo)}
-@media(max-width:720px){.receber-linha{grid-template-columns:1fr auto}.receber-origem{grid-column:1/-1}
+@media(max-width:720px){.receber-resumo{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .receber-linha{grid-template-columns:1fr auto}.receber-origem{grid-column:1/-1}
   .receber-prazo{grid-column:1}.receber-valor{grid-column:2;grid-row:1}}
 
 /* ---------- Monte seu colar (§43)
@@ -1623,6 +1761,26 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 .colar-resumo{margin-top:12px;padding-top:10px;border-top:1px solid var(--rose-tint);font-size:12.5px}
 .colar-refletido{display:flex;gap:9px;align-items:flex-start;margin-top:10px;padding:10px 12px;
   background:#FFF4E0;border:1px solid #F0D9A8;border-radius:10px;font-size:12px;color:#7A5410}
+.lanc-opcoes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.lanc-opcao{display:flex;min-height:126px;flex-direction:column;align-items:flex-start;gap:7px;
+  padding:16px;border:1px solid var(--line);border-radius:12px;background:#fff;text-align:left;
+  color:var(--ink);font:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(63,27,41,.04)}
+.lanc-opcao:hover:not(:disabled){border-color:var(--rose);background:var(--bordo-tint)}
+.lanc-opcao:disabled{cursor:not-allowed;opacity:.62}.lanc-opcao .lo-ico{display:grid;place-items:center;
+  width:32px;height:32px;border-radius:9px;background:var(--rose-tint);color:var(--bordo)}
+.lanc-opcao .lo-t{font-family:var(--serif);font-size:18px;color:var(--bordo)}
+.lanc-opcao .lo-d{font-size:11.5px;line-height:1.45;color:var(--muted)}
+.vd-cli-resultados{display:flex;flex-direction:column;margin-top:7px;border:1px solid var(--line-soft);
+  border-radius:9px;overflow:hidden}.vd-cli-resultados:empty{display:none}
+.vd-cli-resultados button{display:flex;justify-content:space-between;gap:12px;border:0;border-top:1px solid var(--line-soft);
+  background:#fff;padding:8px 10px;text-align:left;color:var(--ink);font:inherit;cursor:pointer}
+.vd-cli-resultados button:first-child{border-top:0}.vd-cli-resultados button:hover{background:var(--bordo-tint)}
+.vd-cli-resultados small{color:var(--muted)}.vd-cli-rapido{margin-top:9px;padding:11px 12px;
+  border:1px solid var(--rose-tint);border-radius:9px;background:var(--bordo-tint)}
+.vd-cli-rapido .grade{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:9px}
+.vd-cli-rapido input{width:100%;padding:8px 9px;border:1px solid var(--line);border-radius:8px;font:inherit}
+@media(max-width:720px){.lanc-opcoes{grid-template-columns:1fr}.lanc-opcao{min-height:0}
+  .vd-cli-rapido .grade{grid-template-columns:1fr}}
 
 /* ---------- Central de pendências (§42)
    Cada linha resolve dentro dela mesma: abrir uma tela nova para escolher um
@@ -1891,6 +2049,10 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
    par vendido/líquido, e a comissão é a diferença entre os dois. */
 .acertos .gt-h,.acertos .gt-r{grid-template-columns:minmax(0,1fr) 92px 92px}
 .acertos .col-op{display:none}
+.acerto-resumo{display:grid!important;grid-template-columns:repeat(3,minmax(120px,1fr));gap:14px!important}
+.acerto-resumo .rc-st{display:flex;min-height:68px;flex-direction:column;justify-content:space-between;
+  gap:8px;padding:11px 12px;border:1px solid var(--line-soft);border-radius:9px;background:#fcfafb}
+.acerto-resumo .rc-st b{line-height:1.15}
 @media (min-width:760px){
   .acertos .gt-h,.acertos .gt-r{grid-template-columns:minmax(0,1fr) 100px 100px 100px}
   .acertos .col-op{display:block}
@@ -1916,6 +2078,7 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 .dias.frio{background:#F3EFF0;color:#6E5C62;border-color:#DFD5D8}
 
 @media (max-width:759px){
+  .acerto-resumo{grid-template-columns:1fr}
   .tcli .gt-h{display:none}
   .tcli .gt-r,.acertos .gt-r,.inativas .gt-r{row-gap:5px;padding:11px 6px}
   /* no celular a identificação quebra em duas linhas em vez de virar
@@ -1945,10 +2108,31 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
            coisa, com mais precisão, e no cabeçalho só custavam altura de tela
            no celular. O cabeçalho identifica onde você está; quem conta é o
            conteúdo. -->
-      <div class="linkrow">
-        <button class="gearbtn" onclick="openSettings()">
+      <div class="top-tools">
+        <div class="client-search" id="clientSearchGlobal">
+          <label class="client-search-box" for="clientSearchInput">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input id="clientSearchInput" type="search" autocomplete="off"
+              placeholder="Buscar cliente por nome ou telefone"
+              aria-label="Buscar cliente por nome ou telefone"
+              aria-controls="clientSearchResults" aria-expanded="false"
+              onfocus="buscarClienteGlobal(this.value)"
+              oninput="buscarClienteGlobal(this.value)"
+              onkeydown="teclaBuscaClienteGlobal(event)">
+          </label>
+          <div class="client-search-results" id="clientSearchResults" role="listbox"
+            aria-label="Clientes encontrados"></div>
+        </div>
+        <div class="profile-placeholder" aria-label="Perfil do usuário, disponível em breve"
+          title="Perfis e permissões serão implementados em uma etapa futura">
+          <span class="profile-avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          </span>
+          <span class="profile-copy">Perfil<small>Em breve</small></span>
+        </div>
+        <button class="gearbtn" onclick="openSettings()" aria-label="Abrir ajustes">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Ajustes
+          <span class="gear-label">Ajustes</span>
         </button>
       </div>
     </div>
@@ -2755,6 +2939,7 @@ async function salvarConexao(){
     gravarConexao(conn);
     fb.textContent='';
     document.getElementById('conexaoOverlay').classList.remove('show');
+    aplicarRotaInicial();
     renderAll();
   }catch(e){
     conn=null;
@@ -2781,6 +2966,7 @@ async function boot(){
   try{
     toast('Carregando dados…');
     await carregarEstado();
+    aplicarRotaInicial();
     renderAll();
   }catch(e){
     conn=null;
@@ -2792,6 +2978,96 @@ async function boot(){
     document.getElementById('conexaoOverlay').classList.add('show');
   }
 }
+
+/** A busca do cabeçalho do app novo abre esta tela por identidade forte. A
+ * URL continua recarregável; sem conexão, o destino espera a pessoa conectar
+ * e só então é aplicado. */
+function aplicarRotaInicial(){
+  const id=new URLSearchParams(location.search).get('clienteId');
+  if(id&&/^\d+$/.test(id)) tabAtual='cli:#'+id;
+}
+
+/* =================== busca global de clientes =================== */
+let buscaClienteGlobalTimer=null;
+let buscaClienteGlobalSeq=0;
+let buscaClienteGlobalItens=[];
+let buscaClienteGlobalAtivo=-1;
+
+function abrirBuscaClienteGlobal(){
+  const box=document.getElementById('clientSearchGlobal');
+  const inp=document.getElementById('clientSearchInput');
+  if(box) box.classList.add('open');
+  if(inp) inp.setAttribute('aria-expanded','true');
+}
+function fecharBuscaClienteGlobal(){
+  const box=document.getElementById('clientSearchGlobal');
+  const inp=document.getElementById('clientSearchInput');
+  if(box) box.classList.remove('open');
+  if(inp){ inp.setAttribute('aria-expanded','false'); inp.removeAttribute('aria-activedescendant'); }
+  buscaClienteGlobalAtivo=-1;
+}
+function mensagemBuscaClienteGlobal(texto){
+  const lista=document.getElementById('clientSearchResults');
+  if(lista) lista.innerHTML=`<div class="client-search-msg">${esc(texto)}</div>`;
+  buscaClienteGlobalItens=[];
+  buscaClienteGlobalAtivo=-1;
+  abrirBuscaClienteGlobal();
+}
+function renderBuscaClienteGlobal(clientes){
+  const lista=document.getElementById('clientSearchResults');
+  if(!lista) return;
+  buscaClienteGlobalItens=clientes||[];
+  buscaClienteGlobalAtivo=-1;
+  if(!buscaClienteGlobalItens.length){ mensagemBuscaClienteGlobal('Nenhuma cliente encontrada.'); return; }
+  lista.innerHTML=buscaClienteGlobalItens.map((c,i)=>{
+    const extra=[c.cidade,c.tel?fmtTel(c.tel):''].filter(Boolean).join(' · ');
+    return `<button type="button" class="client-search-result" id="clientSearchOption${i}"
+      role="option" aria-selected="false" onclick="abrirClienteDaBuscaGlobal(${Number(c.id)})">
+      <b>${esc(c.nome)}</b>${extra?`<small>${esc(extra)}</small>`:''}</button>`;
+  }).join('');
+  abrirBuscaClienteGlobal();
+}
+function buscarClienteGlobal(termo){
+  clearTimeout(buscaClienteGlobalTimer);
+  const seq=++buscaClienteGlobalSeq;
+  const q=String(termo||'').trim();
+  if(q.length<2){ mensagemBuscaClienteGlobal('Digite pelo menos 2 caracteres.'); return; }
+  if(!conn){ mensagemBuscaClienteGlobal('Conecte o painel para buscar clientes.'); return; }
+  mensagemBuscaClienteGlobal('Buscando…');
+  buscaClienteGlobalTimer=setTimeout(()=>{
+    api('GET','/api/clientes?limite=8&busca='+encodeURIComponent(q))
+      .then(cs=>{ if(seq===buscaClienteGlobalSeq) renderBuscaClienteGlobal(cs); })
+      .catch(e=>{ if(seq===buscaClienteGlobalSeq) mensagemBuscaClienteGlobal(e.message||'Não consegui buscar agora.'); });
+  },180);
+}
+function marcarClienteGlobal(indice){
+  if(!buscaClienteGlobalItens.length) return;
+  buscaClienteGlobalAtivo=(indice+buscaClienteGlobalItens.length)%buscaClienteGlobalItens.length;
+  document.querySelectorAll('.client-search-result').forEach((el,i)=>
+    el.setAttribute('aria-selected',i===buscaClienteGlobalAtivo?'true':'false'));
+  const atual=document.getElementById('clientSearchOption'+buscaClienteGlobalAtivo);
+  const inp=document.getElementById('clientSearchInput');
+  if(atual){ atual.scrollIntoView({block:'nearest'}); if(inp) inp.setAttribute('aria-activedescendant',atual.id); }
+}
+function teclaBuscaClienteGlobal(ev){
+  if(ev.key==='Escape'){ fecharBuscaClienteGlobal(); ev.currentTarget.blur(); return; }
+  if(ev.key==='ArrowDown'){ ev.preventDefault(); marcarClienteGlobal(buscaClienteGlobalAtivo+1); return; }
+  if(ev.key==='ArrowUp'){ ev.preventDefault(); marcarClienteGlobal(buscaClienteGlobalAtivo-1); return; }
+  if(ev.key==='Enter'&&buscaClienteGlobalAtivo>=0){
+    ev.preventDefault();
+    abrirClienteDaBuscaGlobal(buscaClienteGlobalItens[buscaClienteGlobalAtivo].id);
+  }
+}
+function abrirClienteDaBuscaGlobal(id){
+  const inp=document.getElementById('clientSearchInput');
+  if(inp) inp.value='';
+  fecharBuscaClienteGlobal();
+  switchTab('cli:#'+id);
+}
+document.addEventListener('click',ev=>{
+  const box=document.getElementById('clientSearchGlobal');
+  if(box&&!box.contains(ev.target)) fecharBuscaClienteGlobal();
+});
 
 /* =================== Categorias =================== */
 /* A categoria sai da primeira palavra da descrição. Foi conferida contra as 791
@@ -3042,6 +3318,9 @@ function mainTabOf(name){
   return 'estoque';
 }
 function switchTab(name){
+  /* URL/bookmark antigo: "Pendências" virou a Central, sem quebrar quem
+     ainda chama o nome anterior. */
+  if(name==='pendencias') name='central';
   tabAtual=name;
   renderTabs();
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -3066,7 +3345,8 @@ function switchTab(name){
   }
   else if(name==='cadastro'){ document.getElementById('view-cadastro').classList.add('active'); renderCadastro(); }
   else if(name==='loja'){ document.getElementById('view-loja').classList.add('active'); renderLoja(); }
-  else if(name==='pendencias'){
+  else if(name==='central'||name==='publicar'){
+    secaoPend=name==='publicar'?'publicar':'central';
     document.getElementById('view-pendencias').classList.add('active');
     renderPendencias();
     carregarPendencias();
@@ -3074,7 +3354,7 @@ function switchTab(name){
   else if(name==='vendas'){
     document.getElementById('view-vendas').classList.add('active');
     renderVendas();
-    carregarVendas(vendasData).then(renderVendas);
+    Promise.all([carregarVendas(vendasData),carregarModelosColar()]).then(renderVendas);
   }
   else if(name==='vendas-painel'){
     document.getElementById('view-vendas-painel').classList.add('active');
@@ -3147,9 +3427,10 @@ function renderTabs(){
       <button class="tab ${tabAtual==='geral'?'active':''}" onclick="switchTab('geral')">Visão Geral</button>
       <button class="tab ${tabAtual==='cadastro'?'active':''}" onclick="switchTab('cadastro')">Cadastro de Produtos${
         (c.pendentes||0)?`<span class="count">${c.pendentes}</span>`:''}</button>
-      <button class="tab ${tabAtual==='loja'?'active':''}" onclick="switchTab('loja')">Nuvemshop${
-        temLoja()&&faltaSubir?`<span class="count">${faltaSubir}</span>`:''}</button>
-      <button class="tab ${tabAtual==='pendencias'?'active':''}" onclick="switchTab('pendencias')">Pendências${
+      <button class="tab ${tabAtual==='publicar'?'active':''}" onclick="switchTab('publicar')">Publicar na Nuvemshop${
+        faltaSubir?`<span class="count">${faltaSubir}</span>`:''}</button>
+      <button class="tab ${tabAtual==='loja'?'active':''}" onclick="switchTab('loja')">Nuvemshop</button>
+      <button class="tab ${tabAtual==='central'?'active':''}" onclick="switchTab('central')">Central${
         aEsperar?`<span class="count">${aEsperar}</span>`:''}</button>`;
   } else if(mt==='revendedoras'){
     navSub.style.display='';
@@ -3183,7 +3464,6 @@ function renderTabs(){
            lado de Lançamentos porque é a mesma pergunta ("para onde foi a
            peça?") com outra resposta — e porque escondê-la em Estoque faria
            quem procura o brinde do Dia das Mães procurar em Vendas. -->
-      <button class="tab ${tabAtual==='vendas-saidas'?'active':''}" onclick="switchTab('vendas-saidas')">Saídas sem faturamento</button>
       <button class="tab ${tabAtual==='clientes'||tabAtual.indexOf('cli:')===0?'active':''}" onclick="switchTab('clientes')">Clientes${
         nCli?`<span class="count">${nCli}</span>`:''}</button>`;
   } else {
@@ -3301,7 +3581,7 @@ function insights(){
   const saude = ln.length
     ? {tom:inc.length?'critico':'atencao', corpo:ln.join(''),
        acao:botaoInsight('Ver detalhes', inc.length ? 'setFiltroInc(true)'
-              : (aEsperar ? "switchTab('pendencias')"
+              : (aEsperar ? "switchTab('central')"
                           : "document.getElementById('view-estoque').scrollIntoView({behavior:'smooth'})"))}
     : {tom:'', corpo:`Nada pendente. <b>${state.produtos.length}</b> ${plural(state.produtos.length,'código conferido','códigos conferidos')}, ${plural(state.produtos.length,'com foto e preço','todos com foto e preço')}.`, acao:''};
 
@@ -3560,18 +3840,7 @@ function renderRevGeral(){
        giro:null,ticket:r.pecas?r.vendido/r.pecas:null,ciclos:r.acertos,
        ultimoAcerto:r.ultimo,semDados:false}
   })).sort((a,b)=>b.d.vendido-a.d.vendido);
-  const idsComHistorico=new Set(resumos.map(r=>r.revendedoraId));
-  const semHistorico=revAtivas().filter(r=>!idsComHistorico.has(r.id)).length;
-
   v.innerHTML=`
-    <div class="actbar" style="margin-bottom:16px">
-      <div class="stat"><b>${revAtivas().length}</b> ${plural(revAtivas().length,'revendedora','revendedoras')}</div>${
-        revInativas().length?`<div class="stat hint"><b>${revInativas().length}</b> ${plural(revInativas().length,'inativa','inativas')}</div>`:''}
-      <div class="stat"><b>${abertas.length}</b> ${plural(abertas.length,'maleta aberta','maletas abertas')}</div>
-      <div class="spacer"></div>
-      <button class="btn btn-gold btn-sm" onclick="openRevForm()">+ Nova revendedora</button>
-    </div>
-
     <div class="kpis">
       ${cartaoKpi({ico:ICO.pessoas, rot:'Peças com revendedoras', num:pecasFora,
         sub:[`${abertas.length} ${plural(abertas.length,'maleta aberta','maletas abertas')}`]})}
@@ -3614,7 +3883,6 @@ function renderRevGeral(){
     <div class="panel" style="margin-bottom:22px">
       <div class="head">
         <h2>Top revendedoras</h2>
-        <span class="hint">Pelo que já foi vendido de verdade, não pelo tamanho da maleta de hoje</span>
       </div>
       <div class="body">
         ${comHistorico.length?`
@@ -3639,16 +3907,9 @@ function renderRevGeral(){
               <td>${d.ultimoAcerto?fmtData(d.ultimoAcerto):'—'}</td>
             </tr>`).join('')}</tbody>
           </table>
-        </div>
-        ${semHistorico?`<div style="margin-top:12px;font-size:11.5px;color:var(--muted)">
-          ${semHistorico} ${plural(semHistorico,'revendedora ainda não tem','revendedoras ainda não têm')} acerto fechado
-          e por isso ${plural(semHistorico,'não aparece','não aparecem')} aqui — sem ciclo encerrado não há desempenho
-          para medir, e ordenar pelo valor da maleta atual mediria só quem recebeu a maleta maior.
-        </div>`:''}`
+        </div>`
         :`<div class="empty"><h3>Ainda não há acerto fechado</h3>
-          <p>O desempenho sai do histórico de acertos: valor vendido, quantidade, giro e ticket.
-          Enquanto nenhuma maleta tiver sido encerrada, não existe número real para comparar —
-          e o valor da maleta de hoje não serve: ele diz quem levou mais, não quem vendeu mais.</p></div>`}
+          <p>Os resultados aparecem aqui depois do primeiro fechamento.</p></div>`}
       </div>
     </div>
 
@@ -5094,7 +5355,8 @@ async function gerarFundoBranco(sku){
   toast('Mandando para tratamento…');
   try{
     const r=await api('POST',`/api/produtos/${encodeURIComponent(sku)}/foto/fundo-branco`);
-    await sincronizar(); redesenharFotoOnde(); if(tabAtual==='pendencias') await carregarPendencias();
+    await sincronizar(); redesenharFotoOnde();
+    if(tabAtual==='central'||tabAtual==='publicar') await carregarPendencias();
     if(r.pendente) alert(r.detalhe);
     else if(r.ok) toast('Fundo branco gerado');
     else toast('Não deu certo: '+(r.erro||''));
@@ -6168,7 +6430,7 @@ function renderLoja(){
                 E "resolver" leva para Pendências, que é onde o trabalho mora. */''}
           ${eVariacao?`
             <button class="btn btn-ghost btn-sm" onclick="exportVariacoes()">↓ Baixar lista</button>
-            <button class="btn btn-ghost btn-sm" onclick="switchTab('pendencias')">Repartir em Pendências</button>`
+            <button class="btn btn-ghost btn-sm" onclick="switchTab('central')">Resolver na Central</button>`
           :(filtroVitrine==='falta'?`
             <button class="btn btn-ghost btn-sm" onclick="exportSemCadastro()">↓ Baixar lista para cadastrar</button>
             <button class="btn btn-ghost btn-sm" onclick="irPublicar()">Preparar para publicar</button>`:'')}
@@ -6277,7 +6539,7 @@ function setSecaoPend(v){ secaoPend=v; pendFoco=null; renderPendencias(); }
 function irPublicar(sku){
   secaoPend='publicar';
   if(sku) pendFoco=sku;
-  switchTab('pendencias');
+  switchTab('publicar');
 }
 /* O que a sincronização decidiu NÃO escrever, e por quê. Vem de
    GET /api/variacoes/revisao — leitura pura, não conserta nada. */
@@ -6367,7 +6629,7 @@ async function carregarPendencias(){
     }
   }catch(e){ toast(e.message); }
   carregandoPend=false;
-  if(tabAtual==='pendencias') renderPendencias();
+  if(tabAtual==='central'||tabAtual==='publicar') renderPendencias();
 }
 
 /** Vincular: uma leitura da loja, e a miniatura aparece na tabela.
@@ -6438,6 +6700,19 @@ async function adotarFoto(id,input){
     await carregarPendencias();
     toast(`Foto vinculada a ${r.sku}`);
   }catch(e){ toast(e.message); }
+}
+
+async function salvarFotoOrfaCentral(chave,id){
+  const input=document.getElementById('po-'+id);
+  const sku=String(input&&input.value||'').trim();
+  const fb=document.getElementById('pf-'+chave);
+  if(!sku){ if(fb) fb.textContent='Informe o código correto.'; return; }
+  try{
+    const r=await api('POST','/api/fotos/orfas/adotar',{id,sku});
+    centralAberta.delete(chave);
+    await Promise.all([sincronizar(),carregarPendencias(),carregarCentralPendencias()]);
+    renderPendencias(); toast(`Foto vinculada a ${r.sku}`);
+  }catch(e){ if(fb) fb.textContent=e.message||'Não consegui vincular'; }
 }
 
 /* =================== Distribuir as variações ===================
@@ -6720,6 +6995,11 @@ const ROTULO_MOTIVO={
   revisao:'A sincronização parou para revisão',
   estoque_divergente:'O estoque da loja não bateu',
   cancelamento_pendente:'O cancelamento não chegou na loja',
+  falta_informacao:'Faltam dados obrigatórios para publicar',
+  em_preparacao_agente:'A prévia ainda está em preparação',
+  falhou_ao_publicar:'A publicação falhou',
+  cadastro_pendente:'Cadastro novo esperando revisão',
+  foto_sem_correspondencia:'Foto da loja sem peça correspondente',
 };
 
 function blocoCentralPendencias(){
@@ -6738,6 +7018,7 @@ function blocoCentralPendencias(){
     ['venda','Vendas',(por.venda||{}).total||0],
     ['maleta','Maletas',(por.maleta||{}).total||0],
     ['nuvemshop','Nuvemshop',(por.nuvemshop||{}).total||0],
+    ['catalogo','Catálogo',(por.catalogo||{}).total||0],
     ['cliente','Clientes',(por.cliente||{}).total||0],
     ['garantia','Garantias',(por.garantia||{}).total||0]];
 
@@ -6761,14 +7042,12 @@ function blocoCentralPendencias(){
         :`<div class="empty" style="padding:40px 16px"><h3>Nada esperando</h3>
            <p>Nenhuma decisão pendente${filtroCentral?' neste filtro':''}.</p></div>`}
     </div>
-    <div class="body" style="border-top:1px solid var(--line-soft)">
-      <span class="hint">${esc(centralPend.regra||'')}</span>
-    </div>
   </div>`;
 }
 
 function desenharPendencia(x){
   const aberta=centralAberta.has(x.chave);
+  const foco=pendFoco&&x.sku&&normSku(pendFoco)===normSku(x.sku);
   const contexto=[
     x.cliente?`cliente ${esc(x.cliente)}`:'',
     x.revendedora?`revendedora ${esc(x.revendedora)}`:'',
@@ -6779,7 +7058,7 @@ function desenharPendencia(x){
     x.valor!=null?money(x.valor):'',
   ].filter(Boolean).join(' · ');
 
-  return `<div class="invrow ${x.status==='adiada'?'feito':''}">
+  return `<div class="invrow ${x.status==='adiada'?'feito':''}${foco?' foco':''}">
     <div class="i-desc">
       <div class="d1">${esc(x.produto||x.sku||x.cliente||'—')}
         <span class="badge fechada" style="margin-left:6px">${esc(x.grupo)}</span>
@@ -6788,22 +7067,43 @@ function desenharPendencia(x){
         ${contexto?' · '+contexto:''}</div>
       <div class="d2"><b>${esc(ROTULO_MOTIVO[x.motivo]||x.motivo||'')}</b></div>
       <div class="d2">${esc(x.explicacao||'')}</div>
+      <div class="pend-impacto">
+        <div><span>Falta</span><b>${esc(x.informacaoFaltante||'Uma decisão humana')}</b></div>
+        <div><span>Efeito</span><b>${esc(x.efeito||'O caso continua bloqueado.')}</b></div>
+        ${x.proximoPasso?`<div><span>Próximo passo</span><b>${esc(x.proximoPasso)}</b></div>`:''}
+      </div>
       ${aberta?desenharResolucao(x):''}
     </div>
     <div class="i-num">
-      ${(x.acoes||[]).includes('resolver_venda')||(x.acoes||[]).includes('resolver_maleta')
-        ?`<button class="btn btn-gold btn-sm" onclick="alternarPendencia('${esc(x.chave)}')"
-            >${aberta?'Fechar':'Resolver variação'}</button>`
-        :((x.acoes||[]).includes('distribuir')
-          ?`<button class="btn btn-ghost btn-sm" onclick="setSecaoPend('variacoes')">Repartir</button>`
-          :((x.acoes||[]).includes('reenviar')&&x.vendaId
-            ?`<button class="btn btn-ghost btn-sm" onclick="reenviarVendaNuvemshop(${x.vendaId})">Tentar de novo</button>`
-            :''))}
+      ${acaoPrincipalPendencia(x,aberta)}
       ${x.status==='adiada'
         ?`<button class="btn btn-ghost btn-sm" onclick="retomarPendencia('${esc(x.chave)}')">Voltar para a lista</button>`
         :`<button class="btn btn-ghost btn-sm" onclick="adiarPendencia('${esc(x.chave)}')">Revisar depois</button>`}
     </div>
   </div>`;
+}
+
+function acaoPrincipalPendencia(x,aberta){
+  const a=x.acoes||[];
+  if(a.includes('resolver_venda')||a.includes('resolver_maleta')||a.includes('distribuir')||a.includes('vincular_foto')){
+    return `<button class="btn btn-gold btn-sm" onclick="alternarPendencia('${esc(x.chave)}')">${aberta?'Fechar':'Resolver'}</button>`;
+  }
+  if(a.includes('editar_produto')&&x.sku){
+    return `<button class="btn btn-gold btn-sm" onclick="abrirProduto('${esc(x.sku)}')">Completar dados</button>`;
+  }
+  if(a.includes('revisar_cadastro')){
+    return `<button class="btn btn-gold btn-sm" onclick="abrirNovas('fila')">Revisar cadastro</button>`;
+  }
+  if(a.includes('preparar_publicacao')&&x.sku){
+    return `<button class="btn btn-gold btn-sm" onclick="prepararProdutoPublicacao('${esc(x.sku)}')">Preparar com agente</button>`;
+  }
+  if(a.includes('repetir_publicacao')&&x.sku){
+    return `<button class="btn btn-gold btn-sm" onclick="repetirProdutoPublicacao('${esc(x.sku)}')">Preparar retry</button>`;
+  }
+  if(a.includes('reenviar')&&x.vendaId){
+    return `<button class="btn btn-ghost btn-sm" onclick="reenviarVendaNuvemshop(${x.vendaId})">Tentar de novo</button>`;
+  }
+  return '';
 }
 
 /** O formulário de resolução, aberto dentro da própria linha.
@@ -6813,6 +7113,26 @@ function desenharPendencia(x){
  *  código, um 16 e um 18, e isso é o caso normal. */
 function desenharResolucao(x){
   const vars=x.variacoesPossiveis||[];
+  if((x.acoes||[]).includes('vincular_foto')&&x.fotoOrfaId){
+    return `<div class="pend-form">
+      ${x.fotoUrl?`<img src="${esc(x.fotoUrl)}" alt="Foto sem correspondência" class="pend-foto-orfa">`:''}
+      <label class="field"><span>Código correto da peça</span>
+        <input id="po-${x.fotoOrfaId}" placeholder="Ex.: 647729" autocomplete="off"></label>
+      <div class="pend-acoes"><span class="cd-fb" id="pf-${esc(x.chave)}"></span>
+        <button class="btn btn-gold btn-sm" onclick="salvarFotoOrfaCentral('${esc(x.chave)}',${x.fotoOrfaId})">Vincular foto</button>
+      </div></div>`;
+  }
+  if((x.acoes||[]).includes('distribuir')){
+    if(!vars.length) return `<div class="warn" style="display:block;margin-top:10px"><b>${esc(x.sku||'')} não tem variações cadastradas.</b> Revise o cadastro da peça antes de distribuir.</div>`;
+    return `<div class="pend-form">
+      <div class="hint" style="margin-bottom:8px">Distribua as <b>${fmtN(x.qtd||0)}</b> peças entre as variações. A soma precisa fechar; salvar define identidade e não movimenta estoque.</div>
+      ${vars.map((v,i)=>`<label class="pend-linha"><span class="pl-nm">${esc(v.nome)}</span>
+        <span class="pl-info">saldo ${fmtN(v.saldo)}${v.estoqueLoja!=null?` · loja ${fmtN(v.estoqueLoja)}`:''}</span>
+        <input type="number" min="0" step="1" value="0" class="pl-qtd" id="pd-${esc(x.chave)}-${i}" data-variante="${esc(v.varianteId||'')}" aria-label="Quantidade de ${esc(v.nome)}"></label>`).join('')}
+      <div class="pend-acoes"><span class="cd-fb" id="pf-${esc(x.chave)}"></span>
+        <button class="btn btn-gold btn-sm" onclick="salvarDistribuicaoCentral('${esc(x.chave)}','${esc(x.sku)}',${Number(x.qtd||0)},${vars.length})">Salvar distribuição</button>
+      </div></div>`;
+  }
   if(!vars.length){
     return `<div class="warn" style="display:block;margin-top:10px">
       <b>${esc(x.sku||'')} não tem variação cadastrada.</b>
@@ -6867,6 +7187,23 @@ function desenharResolucao(x){
   </div>`;
 }
 
+async function salvarDistribuicaoCentral(chave,sku,total,n){
+  const fb=document.getElementById('pf-'+chave);
+  const distribuicao=[];
+  let soma=0;
+  for(let i=0;i<n;i++){
+    const el=document.getElementById(`pd-${chave}-${i}`);
+    const qtd=Math.max(0,int(el&&el.value)); soma+=qtd;
+    if(qtd) distribuicao.push({varianteId:el.dataset.variante,qtd});
+  }
+  if(soma!==total){ if(fb) fb.textContent=`A soma precisa dar ${total}; agora dá ${soma}.`; return; }
+  try{
+    await api('POST',`/api/produtos/${encodeURIComponent(sku)}/variacoes/distribuir`,{distribuicao});
+    centralAberta.delete(chave); toast(`${sku} distribuído · estoque total intocado`);
+    await Promise.all([sincronizar(),carregarCentralPendencias(),carregarPendencias()]); renderPendencias();
+  }catch(e){ if(fb) fb.textContent=e.message||'Não consegui salvar'; }
+}
+
 async function salvarVariacaoVenda(chave,vendaId,sku,linha){
   const fb=document.getElementById('pf-'+chave);
   const escolhido=document.querySelector(`input[name="pv-${chave}"]:checked`);
@@ -6918,6 +7255,182 @@ async function retomarPendencia(chave){
     await api('POST','/api/pendencias/retomar',{chave});
     await carregarCentralPendencias(); renderPendencias();
   }catch(e){ toast(e.message||'Não consegui trazer de volta'); }
+}
+
+/* =================== Publicar na Nuvemshop — Pacote 4 ===================
+   A área é irmã de Visão Geral e Cadastro. Ela governa preparação, prévia e
+   aprovação; o último passo externo continua ausente até a decisão humana
+   prevista na especificação. */
+const ESTADOS_PUB=[
+  ['falta_informacao','Falta informação'],
+  ['em_preparacao_agente','Em preparação pelo agente'],
+  ['aguardando_aprovacao','Aguardando aprovação'],
+  ['aprovado_para_publicar','Aprovado para publicar'],
+  ['finalizado','Publicado / Falhou'],
+];
+let filtroEstadoPub='aguardando_aprovacao';
+let filtroPubEscolhido=false;
+const previaPubAberta=new Set();
+const pubDomId=s=>String(s||'').replace(/[^a-zA-Z0-9_-]/g,'_');
+function setFiltroEstadoPub(v){ filtroEstadoPub=v; filtroPubEscolhido=true; renderPendencias(); }
+function alternarPreviaPub(sku){
+  if(previaPubAberta.has(sku)) previaPubAberta.delete(sku); else previaPubAberta.add(sku);
+  renderPendencias();
+}
+function estadoNoFiltroPub(x){
+  return filtroEstadoPub==='finalizado'
+    ? x.estado==='publicado'||x.estado==='falhou_ao_publicar'
+    : x.estado===filtroEstadoPub;
+}
+
+function acoesPublicacao(x){
+  const sku=esc(x.sku);
+  if(x.estado==='falta_informacao'){
+    return `<button class="btn btn-gold btn-sm" onclick="irCentral('${sku}')">Corrigir na Central</button>`;
+  }
+  if(x.estado==='em_preparacao_agente'){
+    return `<button class="btn btn-gold btn-sm" onclick="prepararProdutoPublicacao('${sku}')">Preparar com agente</button>
+      <button class="btn btn-ghost btn-sm" onclick="alternarPreviaPub('${sku}')">Preencher prévia</button>`;
+  }
+  if(x.estado==='aguardando_aprovacao'){
+    return `<button class="btn btn-gold btn-sm" onclick="aprovarProdutoPublicacao('${sku}')">Aprovar prévia</button>
+      <button class="btn btn-ghost btn-sm" onclick="alternarPreviaPub('${sku}')">Editar prévia</button>`;
+  }
+  if(x.estado==='aprovado_para_publicar'){
+    return `<button class="btn btn-ghost btn-sm" onclick="reabrirProdutoPublicacao('${sku}')">Reabrir revisão</button>`;
+  }
+  if(x.estado==='falhou_ao_publicar'){
+    return `<button class="btn btn-gold btn-sm" onclick="repetirProdutoPublicacao('${sku}')">Preparar nova tentativa</button>`;
+  }
+  if(x.estado==='publicado'&&x.urlLoja){
+    return `<a class="btn btn-ghost btn-sm" href="${esc(x.urlLoja)}" target="_blank" rel="noopener">Abrir na loja</a>`;
+  }
+  return '';
+}
+
+function formularioPreviaPublicacao(x){
+  if(!previaPubAberta.has(x.sku)) return '';
+  const d=pubDomId(x.sku), r=x.rascunho||{};
+  return `<div class="pub-editor">
+    <div class="pub-editor-head"><b>Prévia para aprovação</b><span>Nome da peça: ${esc(x.desc)}</span></div>
+    <label class="field"><span>Descrição do site</span>
+      <textarea id="pp-desc-${d}" rows="4" placeholder="Descrição comercial completa">${esc(r.descricaoSite||'')}</textarea></label>
+    <div class="formgrid">
+      <label class="field"><span>Título SEO</span><input id="pp-seot-${d}" value="${esc(r.seoTitulo||x.desc||'')}"></label>
+      <label class="field"><span>Descrição SEO</span><input id="pp-seod-${d}" value="${esc(r.seoDescricao||'')}"></label>
+    </div>
+    <div class="actbar"><span class="hint" id="pp-fb-${d}"></span><div class="spacer"></div>
+      <button class="btn btn-ghost btn-sm" onclick="alternarPreviaPub('${esc(x.sku)}')">Cancelar</button>
+      <button class="btn btn-gold btn-sm" onclick="salvarPreviaProduto('${esc(x.sku)}')">Salvar prévia</button></div>
+  </div>`;
+}
+
+function cartaoPublicacao(x){
+  const falta=(x.falta||[]).map(f=>FALTA_TXT[f]||({codigo:'código',nome:'nome',quantidade:'quantidade',foto:'foto'})[f]||f);
+  const p=prodIndex().get(normSku(x.sku))||x;
+  return `<article class="pub-card" data-estado="${esc(x.estado)}">
+    <div class="pub-foto">${fotoImg(p,{classe:'dc-foto',alt:'Foto de '+x.desc})}</div>
+    <div class="pub-corpo">
+      <div class="pub-topo"><div><h3>${esc(x.desc)}</h3><code>${esc(x.sku)}</code></div>
+        <span class="pub-status ${esc(x.estado)}">${esc(x.estadoRotulo)}</span></div>
+      <div class="pub-meta"><span>${esc(x.cat||'Sem categoria')}</span><span>${x.preco==null?'Sem preço':money(x.preco)}</span><span>${fmtN(x.casa)} em casa</span></div>
+      ${falta.length?`<div class="pub-faltas"><b>Falta:</b> ${falta.map(f=>`<span>${esc(f)}</span>`).join('')}</div>`:''}
+      ${x.aprovacaoInvalidada?`<div class="warn" style="display:block"><b>A aprovação anterior perdeu a validade.</b> Os dados da peça mudaram; revise a prévia novamente.</div>`:''}
+      ${x.bloqueioExterno?`<div class="pub-bloqueio"><b>${esc(x.bloqueioExterno.motivo)}</b><span>${esc(x.bloqueioExterno.proximoPasso)}</span></div>`:''}
+      ${x.erroPublicacao?`<div class="pub-bloqueio erro"><b>${esc(x.erroPublicacao)}</b><span>Nada foi corrigido em silêncio. Revise antes da nova tentativa.</span></div>`:''}
+      ${x.rascunho&&!previaPubAberta.has(x.sku)?`<details class="pub-previa"><summary>Ver prévia</summary>
+        <h4>${esc(x.rascunho.nomeSite)}</h4><p>${esc(x.rascunho.descricaoSite)}</p>
+        <div><b>SEO:</b> ${esc(x.rascunho.seoTitulo)} · ${esc(x.rascunho.seoDescricao)}</div></details>`:''}
+      ${x.estado==='aprovado_para_publicar'?`<div class="pub-gate"><b>Aprovação humana registrada.</b>
+        O botão final de publicar permanece bloqueado até Gustavo/Sthefany confirmarem os estados e ações definitivos.</div>`:''}
+      <div class="pub-acoes">${acoesPublicacao(x)}</div>
+      ${formularioPreviaPublicacao(x)}
+    </div>
+  </article>`;
+}
+
+function areaPublicacao(){
+  const itens=(publicacao&&publicacao.itens)||[];
+  const conta=k=>k==='finalizado'
+    ?itens.filter(x=>x.estado==='publicado'||x.estado==='falhou_ao_publicar').length
+    :itens.filter(x=>x.estado===k).length;
+  if(!filtroPubEscolhido&&!conta(filtroEstadoPub)){
+    const primeira=['aguardando_aprovacao','aprovado_para_publicar','em_preparacao_agente','falta_informacao','finalizado'].find(conta);
+    if(primeira) filtroEstadoPub=primeira;
+  }
+  const lista=itens.filter(estadoNoFiltroPub);
+  return `<div class="page-intro">
+      <div><span class="eyebrow">Catálogo online</span><h1>Publicar na Nuvemshop</h1>
+        <p>Prepare a foto e o conteúdo, revise a prévia e registre a aprovação.</p></div>
+      <div class="safe-lock">Nenhuma escrita automática na loja</div>
+    </div>
+    ${publicacao&&!publicacao.migrado?`<div class="warn"><div><b>O fluxo de aprovação ainda não foi preparado neste banco.</b>
+      A leitura continua disponível; aplique <code>api/migracao-publicacao-catalogo.sql</code> neste ambiente para preparar e aprovar.</div></div>`:''}
+    <div class="pub-pipeline" role="tablist" aria-label="Estados da publicação">
+      ${ESTADOS_PUB.map(([k,rot],i)=>`<button class="pub-etapa ${filtroEstadoPub===k?'on':''}" onclick="setFiltroEstadoPub('${k}')" role="tab" aria-selected="${filtroEstadoPub===k}">
+        <span>${i+1}</span><b>${rot}</b><em>${conta(k)}</em></button>`).join('')}
+    </div>
+    <div class="pub-lista">${lista.length?lista.map(cartaoPublicacao).join(''):
+      `<div class="panel"><div class="body"><div class="empty"><h3>Nenhum produto neste estado</h3><p>Quando um item avançar, ele aparecerá aqui.</p></div></div></div>`}</div>`;
+}
+
+function irCentral(sku){ pendFoco=sku||null; switchTab('central'); }
+
+async function prepararProdutoPublicacao(sku){
+  try{
+    const r=await api('POST',`/api/catalogo/publicacao/${encodeURIComponent(sku)}/preparar`,{});
+    toast(r.bloqueioExterno?r.bloqueioExterno.motivo:'Prévia preparada para revisão');
+    await Promise.all([carregarPendencias(),carregarCentralPendencias()]); renderPendencias();
+  }catch(e){ toast(e.message||'Não consegui iniciar a preparação'); }
+}
+async function salvarPreviaProduto(sku){
+  const d=pubDomId(sku), fb=document.getElementById('pp-fb-'+d);
+  const corpo={nomeSite:(prodIndex().get(normSku(sku))||{}).desc||sku,
+    descricaoSite:(document.getElementById('pp-desc-'+d)||{}).value,
+    seoTitulo:(document.getElementById('pp-seot-'+d)||{}).value,
+    seoDescricao:(document.getElementById('pp-seod-'+d)||{}).value};
+  try{
+    await api('POST',`/api/catalogo/publicacao/${encodeURIComponent(sku)}/previa`,corpo);
+    previaPubAberta.delete(sku); filtroEstadoPub='aguardando_aprovacao';
+    await Promise.all([carregarPendencias(),carregarCentralPendencias()]); renderPendencias(); toast('Prévia salva · aguardando aprovação');
+  }catch(e){ if(fb) fb.textContent=e.message||'Não consegui salvar'; }
+}
+async function aprovarProdutoPublicacao(sku){
+  if(!confirm(`Aprovar a prévia de ${sku}?\n\nA aprovação fica registrada, mas nada será publicado na Nuvemshop enquanto o botão final não for confirmado.`)) return;
+  try{
+    const r=await api('POST',`/api/catalogo/publicacao/${encodeURIComponent(sku)}/aprovar`,{});
+    filtroEstadoPub='aprovado_para_publicar'; await Promise.all([carregarPendencias(),carregarCentralPendencias()]); renderPendencias(); toast(r.aviso||'Aprovação registrada');
+  }catch(e){ toast(e.message||'Não consegui aprovar'); }
+}
+async function reabrirProdutoPublicacao(sku){
+  try{
+    await api('POST',`/api/catalogo/publicacao/${encodeURIComponent(sku)}/reabrir`,{});
+    filtroEstadoPub='aguardando_aprovacao'; await carregarPendencias(); renderPendencias(); toast('Prévia reaberta para revisão');
+  }catch(e){ toast(e.message||'Não consegui reabrir'); }
+}
+async function repetirProdutoPublicacao(sku){
+  try{
+    const r=await api('POST',`/api/catalogo/publicacao/${encodeURIComponent(sku)}/repetir`,{});
+    filtroEstadoPub='aprovado_para_publicar'; await Promise.all([carregarPendencias(),carregarCentralPendencias()]); renderPendencias(); toast(r.aviso||'Nova tentativa preparada');
+  }catch(e){ toast(e.message||'Não consegui preparar a nova tentativa'); }
+}
+
+function areaCentral(inc){
+  const res=(centralPend&&centralPend.resumo)||{total:0,adiadas:0,porTipo:{}};
+  const por=res.porTipo||{};
+  const nVar=((por.variacao||{}).total||0)+((por.maleta||{}).total||0);
+  const nCat=(por.catalogo||{}).total||0;
+  return `<div class="page-intro"><div><span class="eyebrow">Fila de decisões</span><h1>Central de pendências</h1>
+      <p>Problema, informação que falta, efeito e resolução no mesmo lugar.</p></div></div>
+    <div class="kpis central-kpis">
+      <div class="kpi k-rev"><div class="k-lbl">Abertas</div><div class="k-num">${res.total||0}</div><div class="k-sub">esperando decisão</div></div>
+      <div class="kpi"><div class="k-lbl">Variações</div><div class="k-num">${nVar}</div><div class="k-sub">identificar ou distribuir</div></div>
+      <div class="kpi k-casa"><div class="k-lbl">Catálogo</div><div class="k-num">${nCat}</div><div class="k-sub">cadastro, foto ou preparação</div></div>
+      <div class="kpi"><div class="k-lbl">Revisar depois</div><div class="k-num">${res.adiadas||0}</div><div class="k-sub">voltam na data combinada</div></div>
+    </div>
+    ${blocoCentralPendencias()}
+    ${inc.length?`<div class="warn"><div><b>${inc.length} ${plural(inc.length,'código tem','códigos têm')} mais peças na rua do que no cadastro.</b>
+      Este é um bloqueio físico, não da Nuvemshop. <button class="btn btn-ghost btn-sm" onclick="switchTab('geral');setTimeout(()=>setFiltroInc(true),60)">Ver códigos</button></div></div>`:''}`;
 }
 
 function renderPendencias(){
@@ -6978,6 +7491,16 @@ function renderPendencias(){
     ['publicar','Publicar na Nuvemshop',nPublicar],
     ['outras','Outras pendências',nOutras],
   ];
+
+  if(tabAtual==='central'){
+    v.innerHTML=areaCentral(inc);
+    pendFoco=null;
+    return;
+  }
+  if(tabAtual==='publicar'){
+    v.innerHTML=areaPublicacao();
+    return;
+  }
 
   v.innerHTML=`
     <div class="kpis">
@@ -7889,9 +8412,11 @@ async function abrirFecharVenda(){
       <label>Cliente <span class="req">*</span></label>
       <input id="vd-cliente" list="vd-clientes" autocomplete="off"
              placeholder="Comece a escrever o nome" maxlength="60"
-             oninput="ecoClienteVenda();buscarClienteVenda(this.value)">
+             oninput="vdClienteSelecionada=null;ecoClienteVenda();buscarClienteVenda(this.value)">
       <datalist id="vd-clientes"></datalist>
       <div class="hint" id="vd-cliente-eco" style="margin-top:6px"></div>
+      <div class="vd-cli-resultados" id="vd-cliente-resultados"></div>
+      <div id="vd-cliente-rapido"></div>
     </div>
     <!-- §28: quem vendeu no sábado e lança na segunda precisa dizer sábado.
          O atributo max é hoje: venda futura é erro de digitação, e o
@@ -7947,20 +8472,15 @@ async function abrirFecharVenda(){
      carrinho da venda normal, e duas telas dariam duas vendas para uma
      compra só. */
   scan.personalizados=scan.personalizados||[];
-  /* §43 — Produtos Montáveis desligado no lançamento de 2026-09-06 (retomada
-     2026-09-07, ver SESSION_CLOSE_2026-09-06.md § Retomar amanhã). Chamar
-     montarBoxColar() aqui bateria em /api/personalizacao/modelos, que agora
-     responde 503 (personalizacaoAtiva em api/src/personalizacao.js) — e
-     desenharBoxColar() mostraria a seção "Monte seu colar" com o erro em vez
-     de escondê-la. Comentar esta linha é o que de fato tira a seção da tela
-     de toda venda, não só do botão "+ Colar personalizado" (já comentado
-     acima). Reativar amanhã: descomentar as duas linhas juntas. */
-  // montarBoxColar();
+  colarEscolha.modeloSlug=null; colarEscolha.baseSku=null;
+  colarEscolha.slots=[]; colarEscolha.preco=null;
+  montarBoxColar();
   vdPago=true;
   ecoPagoVenda();
   document.getElementById('vendaOverlay').classList.add('show');
   setTimeout(()=>document.getElementById('vd-cliente').focus(),80);
   vdClientes=[];
+  vdClienteSelecionada=null;
   document.getElementById('vd-cliente-eco').textContent='';
   buscarClienteVenda('');
 }
@@ -8044,7 +8564,7 @@ let vdEstoqueRefletido=false;
 
 async function carregarModelosColar(){
   try{ modelosColar=await api('GET','/api/personalizacao/modelos'); }
-  catch(e){ modelosColar={erro:e.message||'não consegui carregar os modelos'}; }
+  catch(e){ modelosColar=e.status===503?{indisponivel:true}:{erro:e.message||'não consegui carregar os modelos'}; }
   return modelosColar;
 }
 
@@ -8061,6 +8581,7 @@ function desenharBoxColar(){
   const box=document.getElementById('vd-monte');
   if(!box) return;
   const m=modelosColar;
+  if(m&&m.indisponivel){ box.innerHTML=''; return; }
   if(!m||m.erro||!(m.modelos||[]).length){
     /* Sem modelo cadastrado o box não aparece — mas ele não some em
        silêncio: quem procurar sabe onde ele nasce. */
@@ -8070,9 +8591,9 @@ function desenharBoxColar(){
     </details>`;
     return;
   }
-  const sel=colarEscolha.modeloId||m.modelos[0].id;
-  const modelo=m.modelos.find(x=>x.id===sel)||m.modelos[0];
-  colarEscolha.modeloId=modelo.id;
+  const sel=colarEscolha.modeloSlug||m.modelos[0].slug;
+  const modelo=m.modelos.find(x=>x.slug===sel)||m.modelos[0];
+  colarEscolha.modeloSlug=modelo.slug;
   if(colarEscolha.baseSku===null) colarEscolha.baseSku=modelo.baseSkuPadrao||'';
   if(!colarEscolha.slots.length) colarEscolha.slots=Array(modelo.slotsMin).fill('');
   if(colarEscolha.preco===null&&modelo.precoSugerido!=null) colarEscolha.preco=modelo.precoSugerido;
@@ -8081,12 +8602,6 @@ function desenharBoxColar(){
      ainda não a conheça: quem cadastrou a peça noutro aparelho há dois
      minutos veria "escolha a base" com a base já escolhida. O servidor é
      quem sabe — ele manda `baseNome` e `baseDisponivel` junto do modelo. */
-  const basesPossiveis=(state.produtos||[]).filter(p=>p.disponivel>0||p.sku===modelo.baseSkuPadrao);
-  if(modelo.baseSkuPadrao&&!basesPossiveis.some(p=>p.sku===modelo.baseSkuPadrao)){
-    basesPossiveis.unshift({sku:modelo.baseSkuPadrao,
-      desc:modelo.baseNome||modelo.baseSkuPadrao,
-      disponivel:modelo.baseDisponivel==null?0:modelo.baseDisponivel});
-  }
   const grupos=[...new Set((modelo.opcoes||[]).map(o=>o.grupo||'Opções'))];
 
   box.innerHTML=`<div class="colar-box">
@@ -8096,39 +8611,38 @@ function desenharBoxColar(){
     <div class="colar-linha">
       <label>Modelo
         <select onchange="setModeloColar(this.value)">
-          ${m.modelos.map(x=>`<option value="${x.id}" ${x.id===modelo.id?'selected':''}>${esc(x.nome)}</option>`).join('')}
+          ${m.modelos.map(x=>`<option value="${esc(x.slug)}" ${x.slug===modelo.slug?'selected':''}>${esc(x.nome)}</option>`).join('')}
         </select>
       </label>
-      <label>Base utilizada
-        <select onchange="colarEscolha.baseSku=this.value;desenharBoxColar()">
-          <option value="">Escolha a base</option>
-          ${basesPossiveis.map(p=>`<option value="${esc(p.sku)}" ${p.sku===colarEscolha.baseSku?'selected':''}
-            >${esc(p.desc)} · ${fmtN(p.disponivel)} ${plural(p.disponivel,'disponível','disponíveis')}</option>`).join('')}
-        </select>
+      <label>Base fixa
+        <input value="${esc(modelo.baseSkuPadrao||'')} · ${esc(modelo.baseNome||'Veneziana 45 cm')}" disabled>
       </label>
-      <label>Valor da venda
+      <label>Valor da venda ${modelo.composicaoLivre?'<span class="req">*</span>':''}
         <input type="number" min="0" step="0.01" value="${colarEscolha.preco==null?'':colarEscolha.preco}"
+               ${modelo.composicaoLivre?'':'disabled'}
                oninput="colarEscolha.preco=this.value===''?null:Number(this.value)">
       </label>
     </div>
 
     <div class="colar-slots">
-      ${colarEscolha.slots.map((v,i)=>`
-        <label class="colar-slot">Posição ${i+1}
+      ${colarEscolha.slots.map((v,i)=>{
+        const tipo=(modelo.slotTipos||[])[i]||null;
+        const opcoes=tipo?(modelo.opcoes||[]).filter(o=>o.grupo===tipo):(modelo.opcoes||[]);
+        return `<label class="colar-slot">${tipo||'Filho'} ${i+1}
           <select onchange="colarEscolha.slots[${i}]=this.value;desenharBoxColar()">
             <option value="">Escolha a peça</option>
             ${grupos.map(g=>`<optgroup label="${esc(g)}">
-              ${(modelo.opcoes||[]).filter(o=>(o.grupo||'Opções')===g).map(o=>`
+              ${opcoes.filter(o=>(o.grupo||'Opções')===g).map(o=>`
                 <option value="${o.id}" ${String(o.id)===String(v)?'selected':''}
                   ${o.disponivel<=0?'disabled':''}>${esc(o.rotulo)}${
                   o.disponivel<=0?` · ${esc(o.indisponivel||'sem estoque')}`:` · ${fmtN(o.disponivel)} disponíveis`}</option>`).join('')}
             </optgroup>`).join('')}
           </select>
-        </label>`).join('')}
+        </label>`}).join('')}
       <div class="colar-slot-acoes">
-        ${colarEscolha.slots.length<modelo.slotsMax
+        ${modelo.composicaoLivre&&colarEscolha.slots.length<modelo.slotsMax
           ?`<button class="lnk" onclick="colarEscolha.slots.push('');desenharBoxColar()">+ posição</button>`:''}
-        ${colarEscolha.slots.length>modelo.slotsMin
+        ${modelo.composicaoLivre&&colarEscolha.slots.length>modelo.slotsMin
           ?`<button class="lnk" onclick="colarEscolha.slots.pop();desenharBoxColar()">− posição</button>`:''}
       </div>
     </div>
@@ -8161,10 +8675,11 @@ function resumoColar(modelo){
     return o&&o.disponivel<q;
   });
   return `<div class="colar-resumo">
-    <b>${esc(modelo.nome)}</b> — ${escolhidas.map(o=>esc(o.rotulo)).join(', ')}
+    <b>${esc(modelo.nome)}</b> · SKU comercial <code>${esc(modelo.skuComercial||modelo.baseSkuPadrao)}</code>
+    — ${escolhidas.map(o=>esc(o.rotulo)).join(', ')}
     ${colarEscolha.preco!=null?` · <b>${money(colarEscolha.preco)}</b>`:''}
     <div class="hint" style="margin-top:5px">Sai do estoque:
-      ${base?`1× ${esc(base.desc)} (base)`:'<b style="color:var(--danger)">falta escolher a base</b>'}
+      ${base?`1× ${esc(base.desc)} (base fixa)`:'<b style="color:var(--danger)">base fixa fora do catálogo</b>'}
       ${[...porSku.entries()].map(([sku,q])=>{
         const o=(modelo.opcoes||[]).find(x=>x.componenteSku===sku);
         return ` · ${q}× ${esc(o?o.rotulo:sku)}`;
@@ -8175,10 +8690,10 @@ function resumoColar(modelo){
   </div>`;
 }
 
-const colarEscolha={modeloId:null, baseSku:null, slots:[], preco:null};
-function setModeloColar(id){
-  colarEscolha.modeloId=Number(id);
-  const m=(modelosColar&&modelosColar.modelos||[]).find(x=>x.id===colarEscolha.modeloId);
+const colarEscolha={modeloSlug:null, baseSku:null, slots:[], preco:null};
+function setModeloColar(slug){
+  colarEscolha.modeloSlug=String(slug);
+  const m=(modelosColar&&modelosColar.modelos||[]).find(x=>x.slug===colarEscolha.modeloSlug);
   colarEscolha.baseSku=m?(m.baseSkuPadrao||''):'';
   colarEscolha.slots=Array(m?m.slotsMin:1).fill('');
   colarEscolha.preco=m&&m.precoSugerido!=null?m.precoSugerido:null;
@@ -8189,15 +8704,15 @@ function adicionarColarAoCarrinho(){
   const fb=document.getElementById('colar-fb');
   const dizer=t=>{ if(fb) fb.textContent=t; };
   dizer('');
-  const modelo=(modelosColar&&modelosColar.modelos||[]).find(x=>x.id===colarEscolha.modeloId);
+  const modelo=(modelosColar&&modelosColar.modelos||[]).find(x=>x.slug===colarEscolha.modeloSlug);
   if(!modelo) return dizer('Escolha o modelo.');
-  if(!colarEscolha.baseSku) return dizer('Escolha a base utilizada.');
+  if(!colarEscolha.baseSku) return dizer('A base fixa não está disponível.');
   const escolhidas=colarEscolha.slots.map(id=>(modelo.opcoes||[]).find(o=>String(o.id)===String(id)));
   if(escolhidas.some(o=>!o)) return dizer('Falta escolher a peça de alguma posição.');
   if(colarEscolha.preco==null||!(colarEscolha.preco>=0)) return dizer('Diga o valor desta composição.');
 
   scan.personalizados.push({
-    modeloId:modelo.id, modeloNome:modelo.nome,
+    modeloSlug:modelo.slug, modeloNome:modelo.nome, skuComercial:modelo.skuComercial||modelo.baseSkuPadrao,
     baseSku:colarEscolha.baseSku,
     baseNome:((state.produtos||[]).find(p=>p.sku===colarEscolha.baseSku)||{}).desc
       ||(colarEscolha.baseSku===modelo.baseSkuPadrao?modelo.baseNome:null)||colarEscolha.baseSku,
@@ -8226,7 +8741,8 @@ function pintarPersonalizados(){
       <div class="s-qtd">1</div>
       <div class="s-desc">
         <div class="d1">${esc(p.modeloNome)}</div>
-        <div class="d2">Base: <code>${esc(p.baseSku)}</code> · ${esc(p.baseNome)}</div>
+        <div class="d2">SKU comercial: <code>${esc(p.skuComercial)}</code> · Base física: <code>${esc(p.baseSku)}</code></div>
+        <div class="d2">${esc(p.baseNome)}</div>
         <div class="d2">${p.componentes.map(c=>esc(c.rotulo)).join(' · ')}</div>
       </div>
       <div class="s-val"><div>${money(p.preco)}</div>
@@ -8440,11 +8956,12 @@ function vdPrecoNoEnvio(l){
 let vdClientes=[];        /* o que a última busca trouxe */
 let vdBuscaTimer=null;
 let vdBuscaSeq=0;
+let vdClienteSelecionada=null;
 
 function buscarClienteVenda(termo){
   clearTimeout(vdBuscaTimer);
+  const seq=++vdBuscaSeq;
   vdBuscaTimer=setTimeout(()=>{
-    const seq=++vdBuscaSeq;
     const q=String(termo||'').trim();
     api('GET','/api/clientes?limite=25'+(q?'&busca='+encodeURIComponent(q):''))
       .then(cs=>{
@@ -8459,9 +8976,32 @@ function buscarClienteVenda(termo){
           const extra=[c.cidade,c.tel?fmtTel(c.tel):''].filter(Boolean).join(' · ');
           return `<option value="${esc(c.nome)}"${extra?` label="${esc(c.nome)} — ${esc(extra)}"`:''}>`;
         }).join('');
+        renderResultadosClienteVenda(q);
         ecoClienteVenda();
       }).catch(()=>{});
   },180);
+}
+
+function renderResultadosClienteVenda(q){
+  const el=document.getElementById('vd-cliente-resultados');
+  if(!el) return;
+  const termo=normalizarBusca(q);
+  if(!termo||vdClienteSelecionada){ el.innerHTML=''; return; }
+  el.innerHTML=vdClientes.slice(0,6).map(c=>{
+    const extra=[c.cidade,c.tel?fmtTel(c.tel):''].filter(Boolean).join(' · ');
+    return `<button type="button" onclick="escolherClienteVenda(${c.id})">
+      <b>${esc(c.nome)}</b><small>${esc(extra||'cadastro existente')}</small></button>`;
+  }).join('');
+}
+
+function escolherClienteVenda(id){
+  const c=vdClientes.find(x=>Number(x.id)===Number(id));
+  if(!c) return;
+  vdClienteSelecionada=c;
+  const inp=document.getElementById('vd-cliente'); if(inp) inp.value=c.nome;
+  const lista=document.getElementById('vd-cliente-resultados'); if(lista) lista.innerHTML='';
+  const form=document.getElementById('vd-cliente-rapido'); if(form) form.innerHTML='';
+  ecoClienteVenda();
 }
 
 /** O que a tela responde depois de escolhido o nome: cliente conhecida com
@@ -8477,8 +9017,48 @@ function ecoClienteVenda(){
     const extra=[achada.cidade,achada.tel?fmtTel(achada.tel):''].filter(Boolean).join(' · ');
     eco.innerHTML=`Vai para a ficha de <b>${esc(achada.nome)}</b>${extra?` · ${esc(extra)}`:''}`;
   }else{
-    eco.innerHTML=`<b>${esc(nome)}</b> ainda não está cadastrada — a venda cria a ficha dela`;
+    eco.innerHTML=`<b>${esc(nome)}</b> não foi selecionada no cadastro.
+      <button type="button" class="lnk" onclick="abrirCadastroRapidoVenda()">+ Cadastrar sem sair da venda</button>`;
   }
+}
+
+function abrirCadastroRapidoVenda(){
+  const alvo=document.getElementById('vd-cliente-rapido');
+  const nome=((document.getElementById('vd-cliente')||{}).value||'').trim();
+  if(!alvo||!nome) return;
+  alvo.innerHTML=`<div class="vd-cli-rapido">
+    <b>Cadastro rápido</b><div class="hint">O nome cria a identidade; telefone, cidade e e-mail podem ser completados agora ou depois.</div>
+    <div class="grade">
+      <input id="vd-cr-nome" value="${esc(nome)}" maxlength="80" aria-label="Nome da nova cliente">
+      <input id="vd-cr-tel" placeholder="Telefone" maxlength="30" aria-label="Telefone da nova cliente">
+      <input id="vd-cr-cidade" placeholder="Cidade" maxlength="80" aria-label="Cidade da nova cliente">
+      <input id="vd-cr-email" type="email" placeholder="E-mail" maxlength="120" aria-label="E-mail da nova cliente">
+    </div>
+    <div class="pend-acoes"><span class="cd-fb" id="vd-cr-fb"></span>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('vd-cliente-rapido').innerHTML=''">Cancelar</button>
+      <button type="button" class="btn btn-gold btn-sm" onclick="cadastrarClienteNaVenda()">Cadastrar e selecionar</button>
+    </div></div>`;
+  document.getElementById('vd-cr-tel').focus();
+}
+
+async function cadastrarClienteNaVenda(){
+  const nome=((document.getElementById('vd-cr-nome')||{}).value||'').trim();
+  const fb=document.getElementById('vd-cr-fb');
+  if(!nome){ if(fb) fb.textContent='Diga o nome da cliente.'; return; }
+  try{
+    const criada=await api('POST','/api/clientes',{
+      nome,
+      tel:((document.getElementById('vd-cr-tel')||{}).value||'').trim(),
+      cidade:((document.getElementById('vd-cr-cidade')||{}).value||'').trim(),
+      email:((document.getElementById('vd-cr-email')||{}).value||'').trim(),
+    });
+    vdClienteSelecionada={...criada,cidade:((document.getElementById('vd-cr-cidade')||{}).value||'').trim()};
+    vdClientes=[vdClienteSelecionada,...vdClientes.filter(c=>Number(c.id)!==Number(criada.id))];
+    const inp=document.getElementById('vd-cliente'); if(inp) inp.value=criada.nome;
+    const alvo=document.getElementById('vd-cliente-rapido'); if(alvo) alvo.innerHTML='';
+    const lista=document.getElementById('vd-cliente-resultados'); if(lista) lista.innerHTML='';
+    ecoClienteVenda(); toast('Cliente cadastrada e selecionada');
+  }catch(e){ if(fb) fb.textContent=e.message||'Não consegui cadastrar a cliente.'; }
 }
 
 /** O cadastro que o nome digitado casa, comparado sem acento e sem caixa —
@@ -8487,6 +9067,7 @@ function ecoClienteVenda(){
     venda segue pelo nome, como sempre seguiu. §2 — não se chuta identidade. */
 function clienteEscolhidaNaVenda(nome){
   const n=normalizarBusca(nome);
+  if(vdClienteSelecionada&&normalizarBusca(vdClienteSelecionada.nome)===n) return vdClienteSelecionada;
   const iguais=vdClientes.filter(c=>normalizarBusca(c.nome)===n);
   return iguais.length===1?iguais[0]:null;
 }
@@ -8533,7 +9114,7 @@ async function confirmarVenda(){
        aconteecu antes desta tela existir entra como histórico e não baixa
        peça que já saiu. */
     const personalizacoes=(scan.personalizados||[]).map(p=>({
-      modeloId:p.modeloId, baseSku:p.baseSku, preco:p.preco,
+      modeloSlug:p.modeloSlug, baseSku:p.baseSku, preco:p.preco,
       componentes:p.componentes.map((c,i)=>({
         posicao:i+1, componenteSku:c.componenteSku, variacao:c.variacao||undefined,
         varianteId:c.varianteId||undefined, rotulo:c.rotulo,
@@ -8703,10 +9284,30 @@ function cartoesDoDia(){
 
 function renderVendas(){
   const v=document.getElementById('view-vendas');
-  const pendentesNuvemshop=vendas.filter(x=>!x.cancelada&&x.origem!=='site'&&
-    ['nao_enviada','erro','pendente','cancelamento_pendente','revisao'].includes(x.nuvemshopStatus));
+  const monteDisponivel=!!(modelosColar&&!modelosColar.erro&&!modelosColar.indisponivel
+    &&(modelosColar.modelos||[]).length);
 
   v.innerHTML=`
+    <div class="lanc-opcoes" aria-label="Operações de lançamento">
+      <button class="lanc-opcao" onclick="novaVenda()">
+        <span class="lo-ico">${svgIco(ICO.etiqueta,18)}</span>
+        <b class="lo-t">Venda normal</b>
+        <span class="lo-d">Bipe ou busque uma peça comum, escolha a cliente e registre o pagamento.</span>
+      </button>
+      <button class="lanc-opcao" onclick="novaVendaPersonalizada()" ${monteDisponivel?'':'disabled'}>
+        <span class="lo-ico">${svgIco(ICO.brilho,18)}</span>
+        <b class="lo-t">Monte seu Colar</b>
+        <span class="lo-d">${modelosColar===null?'Verificando disponibilidade…':monteDisponivel
+          ?'Escolha um modelo ou composição livre. A base e os filhos baixam do estoque.'
+          :'Protegido neste ambiente; a venda normal continua disponível.'}</span>
+      </button>
+      <button class="lanc-opcao" onclick="switchTab('vendas-saidas');setTimeout(openSaidaForm,80)">
+        <span class="lo-ico">${svgIco(ICO.caixa,18)}</span>
+        <b class="lo-t">Saída sem faturamento</b>
+        <span class="lo-d">Brinde, uso próprio ou diferença de inventário/perda, sem virar venda.</span>
+      </button>
+    </div>
+
     ${cartoesDoDia()}
 
     <div class="panel">
@@ -8719,21 +9320,8 @@ function renderVendas(){
           <input type="date" value="${vendasData}" onchange="setVendasData(this.value)"
                  style="padding:8px 11px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;font-family:inherit">
           <div class="spacer"></div>
-          ${/* §43 — Produtos Montáveis desligado no lançamento de 2026-09-06
-                (retomada 2026-09-07, ver SESSION_CLOSE_2026-09-06.md). Botão
-                comentado, não removido: reativar amanhã é só descomentar
-                esta linha. */''}
-          <!-- <button class="btn btn-ghost btn-sm" onclick="novaVendaPersonalizada()">+ Colar personalizado</button> -->
           <button class="btn btn-gold btn-sm" onclick="novaVenda()">+ Nova venda</button>
         </div>
-        ${pendentesNuvemshop.length?`<div class="actbar" style="margin:12px 0 0;padding-top:12px;border-top:1px solid var(--line-soft)">
-          <span class="hint">Validação e contingência — no dia a dia o sistema tenta sozinho</span>
-          <div class="spacer"></div>
-          <select id="vendaNuvemshopPendente" style="padding:8px 11px;border:1px solid var(--line);border-radius:9px;font:inherit">
-            ${pendentesNuvemshop.map(x=>`<option value="${x.id}">Venda #${x.id} · ${esc(x.clienteNome||revNome(x.revendedoraId)||'sem nome')}</option>`).join('')}
-          </select>
-          <button class="btn btn-ghost btn-sm" onclick="processarVendaNuvemshopSelecionada()">Atualizar estoque agora</button>
-        </div>`:''}
       </div>
       <div class="body" style="padding:0;border-top:1px solid var(--line-soft)">
         ${vendas.length?vendas.map(x=>`
@@ -8742,10 +9330,8 @@ function renderVendas(){
               <div class="d1">${esc(x.clienteNome||revNome(x.revendedoraId)||'—')}
                 ${x.origem==='acerto'?'<span class="badge fechada" style="margin-left:6px">acerto</span>':''}
                 ${x.cancelada?'<span class="badge vencida" style="margin-left:6px">cancelada</span>':''}
-                ${x.nuvemshopStatus==='sincronizada'?'<span class="badge ok" style="margin-left:6px">na Nuvemshop</span>':''}
                 ${x.nuvemshopStatus==='estoque_divergente'?'<span class="badge vencida" style="margin-left:6px">revisar estoque</span>':''}
-                ${(!x.cancelada&&x.origem!=='site'&&['nao_enviada','erro','pendente','cancelamento_pendente'].includes(x.nuvemshopStatus))?'<span class="badge vencida" style="margin-left:6px">sincronização automática pendente</span>':''}
-                ${x.nuvemshopStatus==='revisao'?'<span class="badge vencida" style="margin-left:6px">revisar variação</span>':''}</div>
+                ${x.nuvemshopStatus==='revisao'?`<button class="lnk" style="margin-left:6px" onclick="switchTab('central')">Resolver variação na Central</button>`:''}</div>
               <div class="d2">${x.itens.map(i=>`${i.qtd}× ${esc(i.desc)}${i.variacao?' · '+esc(i.variacao):''}`).join(' · ')}</div>
               ${/* §27: o desconto não some depois de registrado. Ela precisa
                     poder conferir hoje à noite o que fez de manhã. */
@@ -8758,7 +9344,6 @@ function renderVendas(){
                     coluna de observação da planilha, e some se não aparecer
                     aqui. */
                 x.observacao?`<div class="d2"><b>${esc(x.observacao)}</b></div>`:''}
-              ${x.nuvemshopErro?`<div class="d2" style="color:var(--red)">${esc(x.nuvemshopErro)}</div>`:''}
             </div>
             <div class="i-num"><b>${money(x.total)}</b>
               ${/* §29: pago e a receber deixam de ser indistinguíveis na
@@ -9096,6 +9681,7 @@ async function estornarSaida(id){
 let painelPeriodo='tudo';
 let painelVendas=null;
 let painelEvoMetrica='faturamento';   /* faturamento | pecas | vendas */
+let painelAnaliseVisao='analise';     /* analise | evolucao */
 
 /* Cores das linhas/fatias de cliente. Saem da mesma família de `CAT_COR` —
    não é uma paleta concorrente, é a mesma escolhida para séries. */
@@ -9127,10 +9713,20 @@ function avisoBackendAntigo(e){
 
 function setPainelPeriodo(p){
   painelPeriodo=p;
+  mesAberto=null; resumoMes=null; mesVendasAbertas.clear();
   renderVendasPainel();
   carregarPainelVendas().then(renderVendasPainel);
 }
 function setEvoMetrica(m){ painelEvoMetrica=m; renderVendasPainel(); }
+function setPainelAnaliseVisao(visao){
+  painelAnaliseVisao=visao==='evolucao'?'evolucao':'analise';
+  renderVendasPainel();
+}
+function voltarPainelPeriodoCompleto(){
+  mesAberto=null; resumoMes=null; mesVendasAbertas.clear();
+  painelAnaliseVisao='analise';
+  renderVendasPainel();
+}
 
 function segPeriodo(atual,fn){
   return [['tudo','Tudo'],['12m','12 meses'],['90d','90 dias'],['30d','30 dias']]
@@ -9164,8 +9760,8 @@ function segPeriodo(atual,fn){
  *  e domingo nunca contam; feriado conta quando cadastrado, e a tela DIZ
  *  quando ele não entrou na conta em vez de fingir precisão que não tem. */
 function blocoPecasEmReparo(r){
-  if(!r) return '';
-  if(!r.total) return '';
+  if(!r||!r.total) return painelBloco('Reparos',
+    `<div class="empty"><h3>Nenhuma peça em reparo</h3><p>Os casos encerrados continuam no histórico de cada cliente.</p></div>`);
   return `
     <div class="panel">
       <div class="head">
@@ -9175,7 +9771,7 @@ function blocoPecasEmReparo(r){
       </div>
       <div class="body" style="padding:0">
         ${r.itens.map(g=>`
-          <div class="invrow ${g.atrasado?'':''}" style="cursor:pointer"
+          <div class="invrow ${g.atrasado?'vencida':(g.diasUteisRestantes<=7?'proxima':'')}" style="cursor:pointer"
                onclick="abrirGarantiaDetalhe(${g.id})">
             <div class="i-desc">
               <div class="d1">${esc(g.clienteNome||'cliente não identificada')}
@@ -9189,15 +9785,11 @@ function blocoPecasEmReparo(r){
                 ${fmtN(g.diasUteisRestantes)} ${plural(g.diasUteisRestantes,'restante','restantes')} de ${fmtN(g.prazoDiasUteis)}</div>
               ${g.motivo?`<div class="d2">${esc(g.motivo)}</div>`:''}
             </div>
-            <div class="i-num">${g.valorPagoOriginal!=null?`<b>${money(g.valorPagoOriginal)}</b>
-              <span class="hint" style="display:block">pago na compra</span>`:'<span class="hint">valor não registrado</span>'}</div>
+            <div class="i-num">${g.troca&&g.troca.diferenca>0?`<b>${money(g.troca.diferenca)}</b>
+              <span class="badge ${g.troca.diferencaStatus==='paga'?'ok':'vencida'}" style="display:inline-block;margin-top:4px">${g.troca.diferencaStatus==='paga'?'paga':'a receber'}</span>`
+              :g.valorPagoOriginal!=null?`<b>${money(g.valorPagoOriginal)}</b><span class="hint" style="display:block">pago na compra</span>`
+              :'<span class="hint">valor não registrado</span>'}</div>
           </div>`).join('')}
-      </div>
-      <div class="body" style="border-top:1px solid var(--line-soft)">
-        <span class="hint">Prazo de 45 dias úteis. Sábado e domingo nunca contam.
-          ${r.consideraFeriados?'Feriados cadastrados também são descontados.'
-            :'<b>Feriados não estão cadastrados</b> — a conta usa só o fim de semana.'}
-          Casos encerrados saem daqui e continuam no histórico da cliente.</span>
       </div>
     </div>`;
 }
@@ -9253,8 +9845,7 @@ function renderVendasPainel(){
 
   if(semNada){
     v.innerHTML=`<div class="panel">
-      <div class="head"><h2>Painel de vendas</h2>
-        <span class="hint">Histórico da planilha + vendas do sistema</span></div>
+      <div class="head"><h2>Painel de vendas</h2></div>
       <div class="body">
         <div class="seg" style="margin-bottom:14px">${segPeriodo(painelPeriodo,'setPainelPeriodo')}</div>
         <div class="empty">
@@ -9270,56 +9861,37 @@ function renderVendasPainel(){
   v.innerHTML=`
     <div class="panel">
       <div class="head bhead">
-        <div class="bh-t">
-          <h2>Painel de vendas</h2>
-          <span class="hint">Histórico da planilha + vendas do sistema</span>
-        </div>
-        <span class="hint">${painelPeriodo==='tudo'
-          ?`${fmtN(comp.linhasBrutas)} linhas da planilha viraram ${fmtN(comp.vendasHistoricas)} vendas`
-          :`${fmtN(comp.vendasHistoricas)} ${plural(comp.vendasHistoricas,'venda','vendas')} do histórico neste recorte ·
-             ${fmtN(comp.linhasBrutas)} linhas na planilha inteira`}</span>
+        <div class="bh-t"><h2>Painel de vendas</h2></div>
       </div>
       <div class="body">
-        <div class="seg" style="margin-bottom:16px">${segPeriodo(painelPeriodo,'setPainelPeriodo')}</div>
-        <div class="kpis">
-          ${cartaoKpi({ico:ICO.grafico,rot:'Faturamento',num:money(g.faturamento),
+        <div class="kpis cinco">
+          ${cartaoKpi({ico:ICO.grafico,rot:'Faturamento do período',num:money(g.faturamento),
             cls:'compacto k-fat',
-            sub:[`${comp.vendasHistoricas} do histórico · ${comp.vendasSistema} do sistema`]})}
+            sub:[painelPeriodo==='tudo'?'todo o histórico':`filtro: ${painelPeriodo}`]})}
           ${cartaoKpi({ico:ICO.etiqueta,rot:'Faturamento do mês',
             num:money((painelVendas.mesAtual||{}).faturamento||0),
             cls:'compacto k-ped',
-            sub:['zera no início de cada mês']})}
+            sub:[mesLegivel((painelVendas.mesAtual||{}).mes)]})}
           ${cartaoKpi({ico:ICO.brilho,rot:'Ticket médio',
             num:tm.valor!=null?money(tm.valor):'—',
             cls:'compacto k-tic',
             sub:[tm.valor!=null?`${fmtN(tm.vendasElegiveis)} vendas pagas elegíveis`:'sem venda elegível no período']})}
           ${cartaoKpi({ico:ICO.caixa,rot:'Peças vendidas',num:fmtN(g.pecas),
             cls:'compacto k-pec',
-            sub:[g.valorMedioPorItem!=null?`${money(g.valorMedioPorItem)} por peça, em média`:'—']})}
+            sub:[`${fmtN(g.vendas)} ${plural(g.vendas,'venda','vendas')} no período`]})}
+          ${cartaoKpi({ico:ICO.pessoas,rot:'A receber deste mês',
+            num:money((painelVendas.mesAtual||{}).aReceber||0),
+            cls:'compacto k-rec',
+            sub:[`${fmtN((painelVendas.mesAtual||{}).contasAReceber||0)} ${plural((painelVendas.mesAtual||{}).contasAReceber||0,'conta com vencimento','contas com vencimento')}`]})}
         </div>
-        ${tm.valor!=null?`<details style="margin-top:12px">
-          <summary class="hint" style="cursor:pointer">Como o ticket médio é calculado</summary>
-          <div class="hint" style="margin-top:8px;line-height:1.6">${esc(tm.regra)}
-            <br><b>${money(tm.faturamentoElegivel)}</b> ÷ <b>${fmtN(tm.vendasElegiveis)}</b> vendas.
-            <br>${comp.vendasSemData
-              ?`${fmtN(comp.vendasSemData)} ${plural(comp.vendasSemData,'venda','vendas')} sem data ${plural(comp.vendasSemData,'fica','ficam')} de fora deste recorte. `
-              :''}${fmtN(comp.ajustes)} ${plural(comp.ajustes,'operação','operações')}
-            ${plural(comp.ajustes,'marcada','marcadas')} na planilha como ajuste ${plural(comp.ajustes,'fica','ficam')} sempre de fora.</div>
-        </details>`:''}
       </div>
     </div>
 
+    ${moduloAnaliticoVendas()}
+
     ${destaquesPainel(painelVendas.insights)}
 
-    ${blocoEvolucao(painelVendas.evolucao,comp.vendasSemData)}
-
-    ${blocoContasReceber(painelVendas.contasReceber)}
-
-    ${blocoPecasEmReparo(painelVendas.pecasEmReparo)}
-
     ${blocoSaidasSemFaturamento(painelVendas.saidasSemFaturamento)}
-
-    ${detalhesDoPainel()}
 
     <div class="panel"><div class="body" style="text-align:center">
       <button class="btn btn-ghost" onclick="openHistImport()">Histórico de vendas da planilha</button>
@@ -9330,9 +9902,7 @@ function renderVendasPainel(){
      e isso não as atrapalha — `desenharRosca` usa um viewBox fixo e não
      mede largura de tela. `pintarEvolucao` mede, e por isso o gráfico de
      evolução ficou de fora do bloco recolhido. */
-  pintarRoscaCategorias(painelVendas.categorias);
-  pintarRoscaOrigem(painelVendas.origem);
-  pintarEvolucao(painelVendas.evolucao);
+  if(painelAnaliseVisao==='evolucao') pintarEvolucao(painelVendas.evolucao);
 }
 
 /* ---------------- os três destaques ----------------
@@ -9374,7 +9944,7 @@ function blocoAcertosMaleta(m){
       <div class="gt-n">${money(r.liquido)}</div>
     </div>`).join('');
   return painelBloco('Acertos de maleta',
-    `<div class="rc-row" style="flex-wrap:wrap;gap:14px;margin-bottom:14px">
+    `<div class="rc-row acerto-resumo" style="margin-bottom:14px">
        <div class="rc-st">Vendido<b>${money(t.vendido)}</b></div>
        <div class="rc-st">Comissão<b>${money(t.comissao)}</b></div>
        <div class="rc-st">Ficou para a casa<b style="font-size:16px">${money(t.liquido)}</b></div>
@@ -9387,8 +9957,7 @@ function blocoAcertosMaleta(m){
          <span class="gt-n">Líquido</span>
        </div>
        ${linhas}
-     </div>
-     <div class="hint" style="margin-top:12px">Valores exatos dos documentos das maletas e dos acertos fechados no sistema. Nenhuma comissão estimada.</div>`);
+     </div>`);
 }
 
 /* ═══════════════════════════════ §39 — o campo de data que dá para usar
@@ -9434,10 +10003,13 @@ function mascaraDataBR(el){
   el.classList.remove('erro');
 }
 function abrirCampoData(chave,foco){
-  camposDataAbertos.add(chave); renderVendasPainel();
+  camposDataAbertos.add(chave); renderContextoFinanceiro();
   const el=document.getElementById('cd-'+chave); if(el){ el.focus(); el.select(); }
 }
-function fecharCampoData(chave){ camposDataAbertos.delete(chave); renderVendasPainel(); }
+function fecharCampoData(chave){ camposDataAbertos.delete(chave); renderContextoFinanceiro(); }
+function renderContextoFinanceiro(){
+  if(tabAtual==='clientes') renderClientes(); else renderVendasPainel();
+}
 function erroCampoData(chave,msg){
   const el=document.getElementById('cd-'+chave); const fb=document.getElementById('cd-fb-'+chave);
   if(el) el.classList.add('erro');
@@ -9472,31 +10044,36 @@ function campoData(chave,iso,{rotulo='Prazo',acao='salvarPrazoConta',vazio='Sem 
 
 function blocoContasReceber(r){
   const contas=(r&&r.contas)||[], resumo=(r&&r.resumo)||{};
-  const porTipo=resumo.porTipo||{};
-  const rotuloTipo={historico:'de planilha',venda:'de venda do sistema',troca:'de troca de garantia'};
   return painelBloco('A receber', contas.length?`
-    <div class="rc-row" style="flex-wrap:wrap;gap:14px;margin-bottom:14px">
+    <div class="receber-resumo">
       <div class="rc-st">Total em aberto<b>${money(resumo.total||0)}</b></div>
       <div class="rc-st">Clientes / compras<b>${fmtN(resumo.quantidade||0)}</b></div>
       <div class="rc-st">Vencidas<b>${fmtN(resumo.vencidas||0)}</b></div>
       <div class="rc-st">Sem prazo definido<b>${fmtN(resumo.semPrazo||0)}</b></div>
     </div>
-    ${/* §37 — de onde vem cada real em aberto. Antes a lista tinha uma
-          origem só (planilha) e não dizia isso; agora tem três, e somar sem
-          separar esconderia que a venda fiada de ontem passou a contar. */
-      Object.keys(porTipo).length>1?`<div class="hint" style="margin-bottom:12px">${
-        Object.entries(porTipo).map(([t,v])=>`${money(v.total)} ${rotuloTipo[t]||t}`).join(' · ')}</div>`:''}
     <div class="receber-lista">${contas.map(c=>`
-      <div class="receber-linha ${c.vencida?'vencida':''}">
+      <div class="receber-linha ${classePrazoConta(c)}">
         ${c.clienteAmbiguo
           ? `<span class="receber-cliente" title="Mais de um cadastro com este nome — a venda não foi atribuída a nenhum">${esc(c.cliente||'Cliente')}</span>`
           : `<button class="receber-cliente" onclick="switchTab('${chaveCliente({clienteId:c.clienteId,norm:c.clienteNorm||''})}')">${esc(c.cliente||c.clienteNorm||'Cliente')}</button>`}
         <div class="receber-origem">${esc(c.origem||c.canal||'origem não registrada')}${c.contexto?` · ${esc(c.contexto)}`:''}${c.observacao&&c.observacao!==c.origem?` · ${esc(c.observacao)}`:''}</div>
-        <div>${campoData(c.chave,c.vencimentoEm,{podeEditar:c.podeDefinirPrazo!==false,
+        <div>${rotuloPrazoConta(c)}${campoData(c.chave,c.vencimentoEm,{podeEditar:c.podeDefinirPrazo!==false,
           motivo:'A diferença de troca antiga não tem prazo próprio.'})}</div>
         <b class="receber-valor">${money(c.valorReceber)}</b>
       </div>`).join('')}</div>`:
     `<div class="empty"><h3>Nada a receber</h3><p>Não há compra de cliente marcada como não paga.</p></div>`);
+}
+
+function classePrazoConta(c){
+  if(c.vencida) return 'vencida';
+  if(!c.vencimentoEm) return 'sem-prazo';
+  const dias=Math.ceil((new Date(c.vencimentoEm+'T00:00:00')-new Date(hoje()+'T00:00:00'))/86400000);
+  return dias>=0&&dias<=7?'proxima':'';
+}
+function rotuloPrazoConta(c){
+  const cls=classePrazoConta(c);
+  const r=cls==='vencida'?'Vencida':cls==='proxima'?'Próxima do prazo':cls==='sem-prazo'?'Sem prazo':'';
+  return r?`<span class="badge ${cls==='vencida'?'vencida':cls==='proxima'?'prazo':'fechada'}" style="margin:0 7px 5px 0">${r}</span>`:'';
 }
 
 /** Salva o prazo de uma conta do A receber, seja ela histórica, venda do
@@ -9514,10 +10091,16 @@ async function salvarPrazoConta(chave){
     iso=r.iso;
   }
   try{
-    await api('PATCH','/api/contas-receber/prazo',{chave,vencimentoEm:iso});
+    const fontes=[...(((painelVendas||{}).contasReceber||{}).contas||[]),...((clientesContas||{}).contas||[])];
+    const conta=fontes.find(c=>c.chave===chave);
+    await api('PATCH','/api/contas-receber/prazo',{
+      chave,vencimentoEm:iso,
+      ...(conta&&conta.tipo==='historico'?{versaoEsperada:conta.versao}:{}),
+    });
     camposDataAbertos.delete(chave);
     toast(iso?`Prazo ${dataBR(iso)} salvo`:'Prazo removido');
-    await carregarPainelVendas(); renderVendasPainel();
+    if(tabAtual==='clientes'){ await carregarClientes(); renderClientes(); }
+    else { await carregarPainelVendas(); renderVendasPainel(); }
   }catch(e){ erroCampoData(chave,e.message||'Não consegui salvar o prazo'); }
 }
 
@@ -9537,17 +10120,60 @@ async function marcarContaPaga(id,versao,norm,cliente,valor){
    Nada aqui foi removido do sistema: categoria, produto e canal continuam
    sendo calculados no mesmo recorte e continuam abrindo inteiros. Eles só
    deixaram de disputar a primeira tela com o faturamento. */
-function detalhesDoPainel(){
-  return `<details class="maisitens secao" style="margin-bottom:14px">
-    <summary>Ver detalhes: produtos, categorias e canais de venda</summary>
-    <div style="margin-top:12px">
-      <div class="vg vg-2 larga">
-        ${blocoProdutos(painelVendas.produtos)}
-        ${blocoCategorias(painelVendas.categorias)}
+function moduloAnaliticoVendas(){
+  const emEvolucao=painelAnaliseVisao==='evolucao';
+  const contas=painelVendas.contasReceber||{};
+  const resumo=contas.resumo||{};
+  return `<div class="panel modulo-analitico">
+    <div class="head bhead">
+      <div class="bh-t">
+        <h2>${emEvolucao?'Evolução mensal':'Análise detalhada'}</h2>
+        ${mesAberto?`<span class="hint">${esc(mesLegivel(mesAberto))}</span>`
+          :`<span class="hint">${painelPeriodo==='tudo'?'Período completo':`Recorte de ${painelPeriodo}`}</span>`}
       </div>
+      ${emEvolucao?`<select class="selmini" onchange="setEvoMetrica(this.value)" aria-label="Métrica da evolução">
+        <option value="faturamento" ${painelEvoMetrica==='faturamento'?'selected':''}>Faturamento</option>
+        <option value="pecas" ${painelEvoMetrica==='pecas'?'selected':''}>Peças vendidas</option>
+        <option value="vendas" ${painelEvoMetrica==='vendas'?'selected':''}>Vendas</option>
+      </select>`:''}
+    </div>
+    <div class="body">
+      <div class="analitico-controles">
+        <div class="seg troca-analise" role="tablist" aria-label="Visão da análise">
+          <button role="tab" aria-selected="${!emEvolucao}" class="${!emEvolucao?'on':''}"
+            onclick="setPainelAnaliseVisao('analise')">Análise detalhada</button>
+          <button role="tab" aria-selected="${emEvolucao}" class="${emEvolucao?'on':''}"
+            onclick="setPainelAnaliseVisao('evolucao')">Evolução mensal</button>
+        </div>
+        <div class="seg periodo-analise" aria-label="Período da análise">
+          ${segPeriodo(painelPeriodo,'setPainelPeriodo')}
+        </div>
+        ${mesAberto?`<button class="btn btn-ghost btn-sm" onclick="voltarPainelPeriodoCompleto()">
+          Ver período completo</button>`:''}
+      </div>
+      ${emEvolucao
+        ?blocoEvolucao(painelVendas.evolucao)
+        :mesAberto?blocoResumoDoMes():analisePeriodoInteiro(resumo)}
+    </div>
+  </div>`;
+}
+
+function analisePeriodoInteiro(resumoReceber){
+  return `<div class="analise-periodo">
+    <div class="receber-destaque">
+      <div>
+        <span>Total em aberto</span>
+        <b>${money(resumoReceber.total||0)}</b>
+        <small>${fmtN(resumoReceber.quantidade||0)} ${plural(resumoReceber.quantidade||0,'conta','contas')} aguardando pagamento</small>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="switchTab('clientes');setClientesSub('receber')">Ver A receber</button>
+    </div>
+    <div class="analise-grade">
+      ${blocoProdutos(painelVendas.produtos)}
+      ${blocoCategorias(painelVendas.categorias)}
       ${blocoOrigem(painelVendas.origem)}
     </div>
-  </details>`;
+  </div>`;
 }
 
 function blocoCarregando(txt){
@@ -9582,30 +10208,12 @@ function blocoCategorias(cat){
      dobrava a altura do cartão e desalinhava a fileira inteira. Nada some:
      a rosca desenha TODAS as categorias e o resto abre em um clique. */
   const TOPO=6, topo=l.slice(0,TOPO), resto=l.slice(TOPO);
-  /* a diferença entre esta soma e o indicador de peças, quando existe, são
-     as peças das operações marcadas como ajuste: elas têm categoria, mas
-     não são venda. Explicar é obrigatório — §9 do projeto: o que o sistema
-     decide não fazer é anunciado, nunca engolido. */
-  const somaCat=l.reduce((s,c)=>s+c.pecas,0);
-  const pecasVenda=(painelVendas&&painelVendas.geral)?painelVendas.geral.pecas:null;
-  const dif=pecasVenda!=null?somaCat-pecasVenda:0;
   return painelBloco('Distribuição por categoria vendida',
-    `<div class="catgrid vend">
-       <div id="roscaCatVendas" class="semlegenda"></div>
-       <div>
-         <div class="rank">${topo.map(linha).join('')}</div>
-         ${resto.length?`<details class="maisitens">
-           <summary>Mais ${resto.length} ${plural(resto.length,'categoria','categorias')}</summary>
-           <div class="rank">${resto.map(linha).join('')}</div>
-         </details>`:''}
-       </div>
-     </div>
-     ${dif>0?`<div class="hint" style="margin-top:12px;line-height:1.55">
-       Esta rosca soma <b>${fmtN(somaCat)}</b> peças e o indicador
-       <b>Peças vendidas</b> mostra <b>${fmtN(pecasVenda)}</b>: a diferença de
-       ${fmtN(dif)} ${plural(dif,'peça','peças')} está ${plural(dif,'na operação','nas operações')}
-       que a planilha marcou como ajuste. ${plural(dif,'Ela tem','Elas têm')} categoria,
-       mas ${plural(dif,'não é venda','não são venda')}.</div>`:''}`);
+    `<div class="rank">${topo.map(linha).join('')}</div>
+     ${resto.length?`<details class="maisitens">
+       <summary>Mais ${resto.length} ${plural(resto.length,'categoria','categorias')}</summary>
+       <div class="rank">${resto.map(linha).join('')}</div>
+     </details>`:''}`);
 }
 
 function pintarRoscaCategorias(cat){
@@ -9622,15 +10230,9 @@ function pintarRoscaCategorias(cat){
 
 /* ---------------- evolução por mês ---------------- */
 
-function blocoEvolucao(ev,semData){
+function blocoEvolucao(ev){
   const p=(ev&&ev.pontos)||[];
-  const sel=`<select class="selmini" onchange="setEvoMetrica(this.value)" aria-label="O que o gráfico mostra">
-      <option value="faturamento" ${painelEvoMetrica==='faturamento'?'selected':''}>Faturamento</option>
-      <option value="pecas" ${painelEvoMetrica==='pecas'?'selected':''}>Peças vendidas</option>
-      <option value="vendas" ${painelEvoMetrica==='vendas'?'selected':''}>Vendas</option>
-    </select>`;
-  if(!p.length) return painelBloco('Evolução por mês',
-    `<div class="empty"><p>Nada no período.</p></div>`,sel);
+  if(!p.length) return `<div class="empty"><p>Nada no período.</p></div>`;
 
   const m=painelEvoMetrica;
   const max=Math.max(...p.map(x=>x[m]))||1;
@@ -9655,15 +10257,7 @@ function blocoEvolucao(ev,semData){
       <div class="evo-lbl">${i%passo?'':esc(mesCurto(x.chave))}</div>
     </div>`;
   }).join('');
-  const totalM=p.reduce((s,x)=>s+x[m],0);
-  return painelBloco('Evolução por mês',
-    `<div class="evo" id="evoBox">${barras}</div>
-     <div class="hint" style="margin-top:10px">${p.length} ${plural(p.length,'mês','meses')} ·
-       ${m==='faturamento'?money(totalM):fmtN(totalM)+(m==='pecas'?' peças':' vendas')} no gráfico${
-       semData?` · ${semData} ${plural(semData,'venda','vendas')} sem data ${plural(semData,'fica','ficam')} de fora`:''}
-       · <b>clique numa barra</b> para ver o resumo do mês</div>
-     ${blocoResumoDoMes()}`,
-    sel);
+  return `<div class="evo" id="evoBox">${barras}</div>`;
 }
 
 /* ═══════════════════════ §40 — o resumo de um mês, embaixo do gráfico
@@ -9684,7 +10278,8 @@ let mesCarregando=false;
 const mesVendasAbertas=new Set();
 
 async function abrirMes(chave){
-  if(mesAberto===chave){ mesAberto=null; resumoMes=null; renderVendasPainel(); return; }
+  painelAnaliseVisao='analise';
+  if(mesAberto===chave&&resumoMes){ renderVendasPainel(); return; }
   mesAberto=chave; resumoMes=null; mesVendasAbertas.clear(); mesCarregando=true;
   renderVendasPainel();
   try{ resumoMes=await api('GET','/api/analytics/mes?mes='+encodeURIComponent(chave)); }
@@ -9714,7 +10309,8 @@ function blocoResumoDoMes(){
   return `<div class="mes-box" id="resumoMesBox">
     <div class="mes-cab">
       <h3>Resumo de ${esc(r.rotulo)}</h3>
-      <button class="lnk" onclick="abrirMes('${esc(r.mes)}')">fechar</button>
+      <button class="mes-fechar" onclick="voltarPainelPeriodoCompleto()"
+        aria-label="Voltar ao período completo" title="Voltar ao período completo">×</button>
     </div>
 
     <div class="kpis">
@@ -9741,8 +10337,6 @@ function blocoResumoDoMes(){
             background:${catColor(x.categoria)}"></i></span>
           <b class="mc-vl">${fmtN(x.pecas)}</b>
         </div>`).join('')}</div>
-      <div class="hint" style="margin-top:6px">${fmtN(r.totalPecasCategorias||0)}
-        ${plural(r.totalPecasCategorias||0,'peça','peças')} no total — o mesmo número do cartão acima.</div>
     `:''}
 
     <div class="resumotit" style="margin-top:18px">Vendas do mês</div>
@@ -9917,6 +10511,7 @@ function blocoOrigem(o){
       <span class="rk-pos" style="background:${COR_SERIE[i%COR_SERIE.length]}"></span>
       <div class="rk-mid">
         <div class="rk-nm">${esc(c.canal)}</div>
+        <div class="rk-barra"><i style="width:${Math.max(2,Number(c.participacao)||0)}%;background:${COR_SERIE[i%COR_SERIE.length]}"></i></div>
         <div class="hint" style="font-size:10.5px">${fmtN(c.vendas)} ${plural(c.vendas,'venda','vendas')} ·
           ${fmtN(c.pecas)} ${plural(c.pecas,'peça','peças')}</div>
       </div>
@@ -9925,8 +10520,7 @@ function blocoOrigem(o){
   const ctx=(o.contextos||[]).slice(0,8);
   const resto=canais.length>5?canais.slice(5):[];
   return painelBloco('Origem das vendas',
-    `<div id="roscaOrigem" class="semlegenda" style="max-width:230px;margin:0 auto 14px"></div>
-     <div class="rank">${lista}</div>
+    `<div class="rank">${lista}</div>
      ${resto.length?`<details style="margin-top:10px">
        <summary class="hint" style="cursor:pointer">Mais ${resto.length} ${plural(resto.length,'canal','canais')}</summary>
        <div class="rank" style="margin-top:8px">${resto.map(c=>`<div class="rkrow">
@@ -9934,21 +10528,14 @@ function blocoOrigem(o){
          <div class="rk-mid"><div class="rk-nm">${esc(c.canal)}</div></div>
          <div class="rk-vl"><b>${money(c.faturamento)}</b><span>${c.participacao}%</span></div>
        </div>`).join('')}</div></details>`:''}
-     ${ctx.length?`<details style="margin-top:8px">
+     ${ctx.length?`<details style="margin-top:10px">
        <summary class="hint" style="cursor:pointer">Por evento e lugar (${ctx.length})</summary>
        <div class="rank" style="margin-top:8px">${ctx.map(c=>`<div class="rkrow">
          <span class="rk-pos" style="background:var(--rose)"></span>
          <div class="rk-mid"><div class="rk-nm">${esc(c.contexto)}</div>
            <div class="hint" style="font-size:10.5px">${esc(c.canal||'—')} · ${fmtN(c.vendas)} ${plural(c.vendas,'venda','vendas')}</div></div>
          <div class="rk-vl"><b>${money(c.faturamento)}</b><span>${fmtN(c.pecas)} peças</span></div>
-       </div>`).join('')}</div></details>`:''}
-     <details style="margin-top:14px">
-       <summary class="hint" style="cursor:pointer">Ver o texto original de cada origem (${(o.brutos||[]).length})</summary>
-       <div class="rank" style="margin-top:8px">${(o.brutos||[]).slice(0,40).map(b=>`
-         <div class="rkrow"><span class="rk-pos" style="background:var(--line)"></span>
-           <div class="rk-mid"><div class="rk-nm livre">${esc(b.texto)}</div></div>
-           <div class="rk-vl"><b>${fmtN(b.linhas)}</b><span>linhas</span></div></div>`).join('')}</div>
-     </details>`);
+       </div>`).join('')}</div></details>`:''}`);
 }
 
 function pintarRoscaOrigem(o){
@@ -10027,6 +10614,9 @@ function cartaoDestaque(ico,rot,valor,sub,acao){
 let crmData=null;
 let crmErro=null;
 let crmPeriodo='tudo';
+let clientesSub='top';             /* top | todos | receber | reparos */
+let clientesContas=null;
+let clientesReparos=null;
 let clientesBusca='';
 let clientesFiltro='todos';           /* todos | recorrente | ativa | em risco | inativa */
 /* Quantos cartões a lista desenha de uma vez. 347 clientes de uma só vez
@@ -10036,10 +10626,20 @@ let clientesLista=null;               /* compatibilidade com quem já lia isto *
 
 async function carregarClientes(){
   try{
-    crmData=await api('GET','/api/analytics/crm?periodo='+encodeURIComponent(crmPeriodo));
+    const [crmR,contasR,reparosR]=await Promise.all([
+      api('GET','/api/analytics/crm?periodo='+encodeURIComponent(crmPeriodo)),
+      api('GET','/api/contas-receber'),
+      api('GET','/api/garantias/pendentes?limite=200'),
+    ]);
+    crmData=crmR; clientesContas=contasR;
+    /* A rota focada chama a coleção de `pendentes`; o bloco também é usado
+       pelo Painel, onde a mesma coleção chega como `itens`. Normalizar na
+       borda mantém uma única apresentação sem acoplar a tela a dois nomes. */
+    clientesReparos={...reparosR,itens:reparosR.itens||reparosR.pendentes||[]};
     clientesLista=crmData.todos||[];
     crmErro=null;
-  }catch(e){ crmData=null; clientesLista=[]; crmErro={erro:e.message,status:e.status}; }
+  }catch(e){ crmData=null; clientesContas=null; clientesReparos=null;
+    clientesLista=[]; crmErro={erro:e.message,status:e.status}; }
   return clientesLista;
 }
 
@@ -10050,11 +10650,13 @@ function setCrmPeriodo(p){
 /* O atalho entre a leitura e a agenda: o Top clientes mostra dez, a lista
    de baixo mostra todas. É a mesma classificação, não há duas réguas. */
 function verEstadoNaLista(estado){
+  clientesSub='todos';
   setClientesFiltro(estado);
   const el=document.getElementById('todosClientes');
   if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function setClientesFiltro(f){ clientesFiltro=f; clientesMostrar=48; renderClientes(); }
+function setClientesSub(s){ clientesSub=s; renderClientes(); }
 function verMaisClientes(){
   clientesMostrar+=48;
   renderClientes();
@@ -10078,9 +10680,19 @@ function renderClientes(){
      recorte: procurar o telefone de alguém que comprou ano passado não pode
      depender de lembrar de trocar um filtro para "Tudo". A leitura por
      período mora no Painel, que é onde ela significa alguma coisa. */
-  v.innerHTML=`
-    ${blocoTopClientesLista(crmData.topClientes)}
-    ${blocoTodosClientes()}`;
+  const contaReceber=(clientesContas&&clientesContas.resumo&&clientesContas.resumo.quantidade)||0;
+  const contaReparos=(clientesReparos&&clientesReparos.total)||0;
+  const conteudo=clientesSub==='top'?blocoTopClientesLista(crmData.topClientes)
+    :clientesSub==='todos'?blocoTodosClientes()
+    :clientesSub==='receber'?blocoContasReceber(clientesContas)
+    :blocoPecasEmReparo(clientesReparos);
+  v.innerHTML=`<div class="panel clientes-subnav"><div class="body" style="padding:10px 14px">
+    <div class="seg" role="tablist" aria-label="Área de clientes">
+      <button role="tab" aria-selected="${clientesSub==='top'}" class="${clientesSub==='top'?'on':''}" onclick="setClientesSub('top')">Top clientes</button>
+      <button role="tab" aria-selected="${clientesSub==='todos'}" class="${clientesSub==='todos'?'on':''}" onclick="setClientesSub('todos')">Todos os clientes</button>
+      <button role="tab" aria-selected="${clientesSub==='receber'}" class="${clientesSub==='receber'?'on':''}" onclick="setClientesSub('receber')">A receber${contaReceber?` · ${contaReceber}`:''}</button>
+      <button role="tab" aria-selected="${clientesSub==='reparos'}" class="${clientesSub==='reparos'?'on':''}" onclick="setClientesSub('reparos')">Reparos${contaReparos?` · ${contaReparos}`:''}</button>
+    </div></div></div>${conteudo}`;
 }
 
 /* ---------------- top clientes ----------------
@@ -13744,7 +14356,7 @@ function renderAll(){
   else if(tabAtual==='geral'){ renderGeral(); renderEstoque(); }
   else if(tabAtual==='cadastro') renderCadastro();
   else if(tabAtual==='loja') renderLoja();
-  else if(tabAtual==='pendencias') renderPendencias();
+  else if(tabAtual==='central'||tabAtual==='publicar') renderPendencias();
   else if(tabAtual==='vendas') renderVendas();
   /* As abas de Vendas e Clientes caíam no `else` lá embaixo, que procura uma
      revendedora pelo id depois do `:` — não acha nenhuma, e MANDAVA A TELA

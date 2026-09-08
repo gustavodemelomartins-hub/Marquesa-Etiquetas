@@ -1,5 +1,10 @@
 # Production Release Approval
 
+> **LEGADO INERTE desde 2026-09-08.** O modelo production-first substituiu
+> esta aprovação efêmera. O hook ativo não lê este diretório; consulte
+> [docs/SECURITY.md](../../docs/SECURITY.md). O restante deste arquivo é
+> preservado somente para explicar releases anteriores.
+
 Autorização por **release**, não por comando. Uma aprovação efêmera, curta,
 que libera uma sequência fechada de ações de publicação — em vez de exigir
 aprovação humana a cada `Bash` individual da sequência.

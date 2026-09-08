@@ -69,21 +69,74 @@ a { color: var(--bordo); }
 
 .shell { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
 
+.shell-cabecalho {
+  position: relative; z-index: 20;
+  background: rgba(251, 246, 244, .92);
+  border-bottom: 1px solid var(--line);
+}
 .shell-topo {
-  display: flex; align-items: baseline; gap: var(--r4);
-  flex-wrap: wrap;
-  padding: var(--r5) var(--r5) var(--r3);
+  display: flex; align-items: center; gap: var(--r5);
+  padding: var(--r4) var(--r5) var(--r3);
   max-width: 1180px; width: 100%; margin: 0 auto;
 }
+.shell-identidade { display: flex; align-items: center; gap: var(--r3); flex: 0 0 auto; }
 .marca { font-family: var(--serif); font-size: 26px; color: var(--bordo); letter-spacing: .02em; }
 .marca span { color: var(--rose); }
-.shell-topo .espaco { margin-left: auto; }
+.shell-utilidades {
+  display: flex; align-items: center; justify-content: flex-end; gap: var(--r2);
+  flex: 1 1 auto; min-width: 0;
+}
+
+.busca-global { position: relative; flex: 1 1 320px; max-width: 410px; }
+.busca-global-campo {
+  display: flex; align-items: center; gap: var(--r2); height: 38px;
+  padding: 0 var(--r3); border: 1px solid var(--line); border-radius: var(--raio-sm);
+  background: var(--paper); color: var(--muted);
+}
+.busca-global-campo:focus-within {
+  border-color: var(--bordo); box-shadow: 0 0 0 3px var(--bordo-tint); color: var(--bordo);
+}
+.busca-global-campo svg { width: 15px; height: 15px; flex: none; }
+.busca-global-campo input {
+  min-width: 0; width: 100%; border: 0; outline: 0; padding: 0;
+  background: transparent; color: var(--ink); font: 500 12.5px/1.3 var(--sans);
+}
+.busca-global-campo input::placeholder { color: var(--muted); font-weight: 400; }
+.busca-global-resultados {
+  position: absolute; top: calc(100% + 7px); left: 0; right: 0; z-index: 50;
+  max-height: 320px; overflow: auto; padding: 6px;
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--raio-sm);
+  box-shadow: 0 14px 36px rgba(44, 36, 40, .17);
+}
+.busca-global-resultados p { padding: 10px 11px; color: var(--muted); font-size: 12px; }
+.busca-global-resultados a {
+  display: block; padding: 9px 10px; border-radius: var(--r2);
+  color: var(--ink); text-decoration: none;
+}
+.busca-global-resultados a:hover,
+.busca-global-resultados a[aria-selected='true'] { background: var(--bordo-tint); }
+.busca-global-resultados b { display: block; font-size: 12.5px; font-weight: 650; }
+.busca-global-resultados small {
+  display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--muted); font-size: 10.5px;
+}
+.perfil-placeholder {
+  display: flex; align-items: center; gap: 7px; min-height: 38px;
+  padding: 4px 9px 4px 5px; border: 1px solid var(--line); border-radius: var(--raio-sm);
+  background: rgba(255, 255, 255, .62); white-space: nowrap;
+}
+.perfil-avatar {
+  display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+  border-radius: 50%; background: var(--bordo-tint); color: var(--bordo);
+}
+.perfil-avatar svg { width: 14px; height: 14px; }
+.perfil-texto { color: var(--ink); font-size: 11.5px; font-weight: 600; line-height: 1.15; }
+.perfil-texto small { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; font-weight: 500; }
 
 .nav {
   display: flex; gap: var(--r1); flex-wrap: wrap;
   padding: 0 var(--r5);
   max-width: 1180px; width: 100%; margin: 0 auto;
-  border-bottom: 1px solid var(--line);
 }
 .nav-item {
   appearance: none; border: 0; background: transparent;
@@ -388,6 +441,19 @@ table.tabela tbody tr[data-conflito]:hover { background: var(--danger-tint); }
 
 @media (max-width: 640px) {
   .shell-topo, .nav, .conteudo, .rodape { padding-left: var(--r4); padding-right: var(--r4); }
+  .shell-topo { display: block; padding-top: var(--r3); }
+  .shell-identidade { justify-content: space-between; }
+  .shell-utilidades {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+    width: 100%; margin-top: var(--r3);
+  }
+  .busca-global { min-width: 0; max-width: none; }
+  .perfil-placeholder { min-height: 36px; padding-right: 5px; }
+  .perfil-texto { display: none; }
+  .shell-utilidades > .btn { min-height: 36px; }
+  .nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-item { flex: 0 0 auto; padding-left: var(--r2); padding-right: var(--r2); }
   h1 { font-size: 25px; }
   .metric .valor { font-size: 27px; }
   .conteudo { padding-top: var(--r4); }

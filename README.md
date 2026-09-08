@@ -82,8 +82,9 @@ momento.
 
 Este sistema controla estoque e vendas reais.
 
-- Operações críticas — migration, deploy, restore, escrita em massa, Git
-  destrutivo — exigem autorização humana explícita:
+- Produção é a fonte operacional. Classe C — migration, deploy, push e
+  rollback — pode ser executada autonomamente depois dos gates; Classe D
+  destrutiva/empresarial exige decisão humana explícita:
   [docs/SECURITY.md](docs/SECURITY.md).
 - Prefira dry-run: `POST /api/sync {"seco": true}` lê tudo e não escreve na
   loja.

@@ -6,7 +6,7 @@
  *
  *  O que precisa ficar provado:
  *
- *   1. a sub-aba "Saídas sem faturamento" existe, navega e registra brinde,
+ *   1. a entrada "Saída sem faturamento" existe em Lançamentos, navega e registra brinde,
  *      uso próprio e diferença de inventário — com o estoque baixando na
  *      tela e o faturamento parado;
  *   2. o estorno devolve a peça e a linha continua na lista, marcada;
@@ -15,7 +15,7 @@
  *   4. a venda não paga aparece como A RECEBER na lista do dia, com o botão
  *      de marcar o pagamento;
  *   5. o dia mostra também o que não é venda do sistema (§32);
- *   6. o Painel mostra "Peças em reparo" com dias úteis;
+ *   6. Clientes mostra "Reparos" com os tempos operacionais;
  *   7. o perfil da cliente abre garantia POR ITEM e mostra a linha do tempo;
  *   8. editar a cliente volta para a ficha DELA, com o histórico inteiro —
  *      o defeito de §12;
@@ -45,6 +45,11 @@ const api = (m, p, b) => fetch(API + p, {
 
 const hoje = new Date().toISOString().slice(0, 10);
 const SKU = 'UI-PACOTE-1';
+const SUFIXO = Date.now().toString(36);
+const CLIENTE = `Cliente UI ${SUFIXO}`;
+const CLIENTE_RENOMEADA = `Cliente UI Renomeada ${SUFIXO}`;
+const CLIENTE_NORM = CLIENTE.toLocaleLowerCase('pt-BR');
+const CLIENTE_RENOMEADA_NORM = CLIENTE_RENOMEADA.toLocaleLowerCase('pt-BR');
 
 console.log(`painel: ${PAINEL}\napi:    ${API}\n`);
 
@@ -56,7 +61,7 @@ console.log('=== 0. dados de partida ===');
   eq('catálogo pronto', r.status, 200);
 
   const v = await api('POST', '/api/vendas', {
-    clienteNome: 'Cliente UI', itens: [{ sku: SKU, qtd: 1 }], pago: false,
+    clienteNome: CLIENTE, itens: [{ sku: SKU, qtd: 1 }], pago: false,
   });
   eq('uma venda NÃO paga para a tela mostrar', v.status, 201);
 
@@ -95,13 +100,13 @@ const irPara = async (aba) => {
   await pg.waitForTimeout(900);
 };
 
-console.log('\n=== 1. a sub-aba Saídas sem faturamento existe e navega ===');
+console.log('\n=== 1. a entrada Saída sem faturamento existe e navega ===');
 {
   await irPara('vendas');
-  const abas = await pg.$$eval('#tabsSubNav .tab', (bs) => bs.map((b) => b.textContent.trim()));
-  verdade('a sub-aba aparece em Vendas', abas.some((a) => /Sa[íi]das sem faturamento/i.test(a)));
-
-  await irPara('vendas-saidas');
+  const entrada = pg.locator('#view-vendas .lanc-opcao', { hasText: 'Saída sem faturamento' });
+  verdade('a operação aparece em Lançamentos', await entrada.count() === 1);
+  await entrada.click();
+  await pg.waitForTimeout(900);
   const visivel = await pg.$eval('#view-vendas-saidas', (e) => e.classList.contains('active'));
   verdade('a view fica ativa', visivel);
   const titulo = await pg.$eval('#view-vendas-saidas .head h2', (e) => e.textContent.trim())
@@ -114,6 +119,7 @@ console.log('\n=== 1. a sub-aba Saídas sem faturamento existe e navega ===');
   const texto = await pg.$eval('#view-vendas-saidas', (e) => e.textContent);
   verdade('a tela diz que não entra em faturamento', /n[ãa]o entram? em faturamento/i.test(texto)
     || /não são venda/i.test(texto));
+  await pg.evaluate(() => closeSaidaForm());
 }
 
 console.log('\n=== 2. registrar uma saída pela tela baixa o estoque, e só ===');
@@ -198,7 +204,7 @@ console.log('\n=== 4. o modal de venda tem observação e situação do pagament
 
   await pg.click('#vd-pago-sim');
   await pg.fill('#vd-obs', 'Feira');
-  await pg.fill('#vd-cliente', 'Cliente UI');
+  await pg.fill('#vd-cliente', CLIENTE);
   await pg.waitForTimeout(500);
   await pg.click('#vdConfirm');
   await pg.waitForTimeout(2000);
@@ -225,23 +231,27 @@ console.log('\n=== 5. a venda não paga aparece como A RECEBER, com o botão ===
   verdade('dizendo o que entrou no caixa NESTE dia', /entrou no caixa/i.test(texto));
 }
 
-console.log('\n=== 6. o Painel mostra Peças em reparo com dias úteis ===');
+console.log('\n=== 6. Clientes mostra Reparos com prioridades operacionais ===');
 {
-  await irPara('vendas-painel');
-  await pg.waitForTimeout(1500);
-  const texto = await pg.$eval('#view-vendas-painel', (e) => e.textContent);
+  await irPara('clientes');
+  await pg.locator('#view-clientes [role=tab]', { hasText: 'Reparos' }).click();
+  await pg.waitForTimeout(900);
+  const texto = await pg.$eval('#view-clientes', (e) => e.textContent);
   verdade('o bloco existe', /Pe[çc]as em reparo/i.test(texto));
   verdade('com dias úteis decorridos', /dias? [úu]t(eis|il) decorridos?/i.test(texto));
   verdade('e com o prazo restante', /restantes? de 45|restante de 45/i.test(texto)
     || /45/.test(texto));
-  verdade('e diz que sábado e domingo não contam', /S[áa]bado e domingo/i.test(texto));
+  verdade('sem rodapé explicativo genérico', !/S[áa]bado e domingo/i.test(texto));
+
+  await irPara('vendas-painel');
+  const textoPainel = await pg.$eval('#view-vendas-painel', (e) => e.textContent);
   verdade('o bloco do que saiu sem ser venda aparece',
-    /Saiu do estoque e n[ãa]o foi venda/i.test(texto));
+    /Saiu do estoque e n[ãa]o foi venda/i.test(textoPainel));
 }
 
 console.log('\n=== 7. o perfil abre garantia POR ITEM e mostra a linha do tempo ===');
 {
-  await pg.evaluate(() => switchTab('cli:' + encodeURIComponent('cliente ui')));
+  await pg.evaluate((norm) => switchTab('cli:' + encodeURIComponent(norm)), CLIENTE_NORM);
   await pg.waitForTimeout(1800);
   const texto = await pg.$eval('#view-cliente', (e) => e.textContent);
   verdade('a ficha abre', /Hist[óo]rico de compras/i.test(texto));
@@ -266,22 +276,21 @@ console.log('\n=== 7. o perfil abre garantia POR ITEM e mostra a linha do tempo 
 
 console.log('\n=== 8. §12: editar a cliente volta para a ficha DELA, inteira ===');
 {
-  await pg.evaluate(() => switchTab('cli:' + encodeURIComponent('cliente ui')));
+  await pg.evaluate((norm) => switchTab('cli:' + encodeURIComponent(norm)), CLIENTE_NORM);
   await pg.waitForTimeout(1500);
   const antes = await pg.$eval('#view-cliente', (e) => e.textContent);
-  const gastouAntes = (antes.match(/Gastou/) || []).length;
-  verdade('a ficha mostra o quanto ela gastou', gastouAntes >= 1);
-
-  const perfil = await api('GET', '/api/clientes/perfil?norm=' + encodeURIComponent('cliente ui'));
+  const perfil = await api('GET', '/api/clientes/perfil?norm=' + encodeURIComponent(CLIENTE_NORM));
   const idAntes = perfil.corpo.cadastro.id;
   const fatAntes = perfil.corpo.resumo.faturamento;
   const comprasAntes = perfil.corpo.resumo.vendas;
+  verdade('a ficha mostra o faturamento real',
+    antes.replace(/\s+/g, ' ').includes(`R$ ${Number(fatAntes).toLocaleString('pt-BR')}`));
 
   await pg.click('#view-cliente .actbar .btn-ghost');
   await pg.waitForTimeout(900);
   verdade('o formulário de edição abre', await pg.$eval('#cliOverlay', (e) => e.classList.contains('show')));
 
-  await pg.fill('#clf-nome', 'Cliente UI Renomeada');
+  await pg.fill('#clf-nome', CLIENTE_RENOMEADA);
   await pg.fill('#clf-obs', 'Cliente atendida pela minha mãe.');
   await pg.click('#cliSalvar');
   await pg.waitForTimeout(2200);
@@ -298,11 +307,11 @@ console.log('\n=== 8. §12: editar a cliente volta para a ficha DELA, inteira ==
   verdade('a tela ficou na ficha da cliente', String(ativa).startsWith('cli:'));
 
   const depois = await pg.$eval('#view-cliente', (e) => e.textContent);
-  verdade('com o nome NOVO', depois.includes('Cliente UI Renomeada'));
+  verdade('com o nome NOVO', depois.includes(CLIENTE_RENOMEADA));
   verdade('e com a observação salva', depois.includes('Cliente atendida pela minha mãe.'));
   verdade('o histórico de compras continua lá', /Hist[óo]rico de compras/i.test(depois));
 
-  const perfil2 = await api('GET', '/api/clientes/perfil?norm=' + encodeURIComponent('cliente ui renomeada'));
+  const perfil2 = await api('GET', '/api/clientes/perfil?norm=' + encodeURIComponent(CLIENTE_RENOMEADA_NORM));
   eq('mesmo cliente_id', perfil2.corpo.cadastro.id, idAntes);
   eq('mesmo faturamento', perfil2.corpo.resumo.faturamento, fatAntes);
   eq('mesmas compras', perfil2.corpo.resumo.vendas, comprasAntes);

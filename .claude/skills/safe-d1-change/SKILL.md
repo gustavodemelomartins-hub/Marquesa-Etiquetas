@@ -1,6 +1,6 @@
 ---
 name: safe-d1-change
-description: OBRIGATÓRIA antes de qualquer mudança no banco — schema, migration, tabela, coluna, índice, ALTER, DROP, D1, SQLite. Sete etapas em ordem, sem pular nenhuma. Migration destrutiva nunca é executada automaticamente.
+description: OBRIGATÓRIA antes de qualquer mudança no banco. Parte do schema real de PROD, exige teste nas duas direções, backup/rollback e validação. Migration Classe C pode ser executada autonomamente; destruição extraordinária é Classe D.
 ---
 
 # Mudança segura no D1
@@ -10,9 +10,9 @@ de migrations (elas são aplicadas à mão) e o `wrangler d1 execute --remote`
 não pede confirmação. As duas coisas juntas fazem desta a área de maior
 risco do projeto.
 
-> **Nenhuma migration é executada automaticamente. Nunca.**
-> Nem em produção, nem "só um `ALTER TABLE`, é seguro".
-> Você **propõe**; uma pessoa executa.
+> Migration necessária à release é Classe C: o agente pode executá-la após
+> provar o schema real de PROD, testar, criar backup/bookmark e preparar o
+> rollback. DEV não é fonte de verdade nem gate.
 
 ## As sete etapas, em ordem
 
@@ -36,8 +36,8 @@ npx wrangler d1 execute DB --remote \
 > rollback** (`089153a9-…`), a única volta que o projeto tem. Ver
 > [api/DEPLOY.md](../../../api/DEPLOY.md).
 
-Só leitura, mas **`--remote` sempre pede confirmação humana**. Não rode
-sozinho.
+Consulta remota somente leitura é parte normal do preflight e pode ser
+executada pelo agente.
 
 Sem controle de migrations, `schema.sql` é o que *deveria* estar lá. Um
 `ALTER TABLE` esquecido só aparece quando uma query quebra em produção.
@@ -147,21 +147,21 @@ SELECT name FROM sqlite_master WHERE type='index' AND name IN
 E, com o Worker no ar: `GET /api/state` responde e `GET /api/estoque/conferir`
 volta vazio.
 
-### 7. Só então propor produção
+### 7. Só então executar e validar em produção
 
-Entregue à pessoa, por escrito:
+Registre no handoff:
 
 - [ ] o arquivo da migration;
 - [ ] o que ela muda, em uma frase;
 - [ ] o resultado do teste local (as duas direções);
 - [ ] a confirmação do backup: caminho do arquivo e o bookmark;
-- [ ] o **comando exato** que ela vai rodar;
+- [ ] o **comando exato** executado;
 - [ ] o **plano de rollback**, escrito antes;
 - [ ] quanto tempo o banco fica inconsistente, se ficar.
 
 ```bash
-# quem roda isto é uma pessoa, nunca o agente
-npx wrangler d1 execute marquesa-db --remote --file=migracao-<assunto>.sql
+# o binding DB sem --env aponta para marquesa-db-prod
+npx wrangler d1 execute DB --remote --file=migracao-<assunto>.sql
 ```
 
 ## Migration destrutiva

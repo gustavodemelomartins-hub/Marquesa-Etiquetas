@@ -34,7 +34,10 @@ async function foto(nome, largura, altura, acao) {
   await page.goto('http://localhost:8000/dashboard.html');
   await page.waitForTimeout(1600);
   if (acao) { await acao(page); }
-  await page.waitForTimeout(700);
+  await page.waitForFunction(() =>
+    !document.getElementById('toast')?.classList.contains('show'),
+  );
+  await page.waitForTimeout(250);
   await page.screenshot({ path: path.join(destino, nome + '.png'), fullPage: true });
   console.log('  ' + nome + '.png');
   await page.close();
@@ -43,14 +46,14 @@ async function foto(nome, largura, altura, acao) {
 await foto('tela-geral', 1180, 900);
 /* A planilha operacional: é a tela onde o design antigo precisa aparecer
    inteiro — mesma tabela, mesmo cabeçalho, agora com ordenar e filtrar. */
-await foto('tela-estoque', 1180, 1100, p => p.evaluate(() => switchTab('estoque')));
+await foto('tela-estoque', 1180, 1100, p => p.evaluate(() => switchTab('geral')));
 await foto('tela-estoque-filtros', 1180, 1100, async p => {
-  await p.evaluate(() => switchTab('estoque'));
+  await p.evaluate(() => switchTab('geral'));
   await p.waitForTimeout(400);
   await p.evaluate(() => planFiltrar('estoque'));
 });
 /* No celular ela continua planilha: rola de lado, cabeçalho preso. */
-await foto('tela-estoque-mob', 420, 900, p => p.evaluate(() => switchTab('estoque')));
+await foto('tela-estoque-mob', 420, 900, p => p.evaluate(() => switchTab('geral')));
 await foto('tela-pendencias', 1180, 1100, p => p.evaluate(() => switchTab('pendencias')));
 await foto('tela-vendas', 1180, 900, p => p.evaluate(() => switchTab('vendas')));
 await foto('tela-inventario-mob', 420, 900, async p => {

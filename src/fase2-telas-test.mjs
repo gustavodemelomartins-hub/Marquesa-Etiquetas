@@ -118,8 +118,16 @@ const naRevisao = sku => page.evaluate(
   s => !!(revisaoVar && revisaoVar.itens.some(x => x.sku === s)), sku);
 
 async function irParaPendencias() {
-  await page.evaluate(() => switchTab('pendencias'));
-  await page.waitForTimeout(1400);
+  await page.evaluate(async () => {
+    /* Este ensaio também escreve pela API fora do painel. Invalide a memória
+       de leituras da página para que a próxima abertura enxergue essas
+       mutações externas, como enxergaria depois de uma ação feita pela UI. */
+    invalidarMemoriaLeitura();
+    switchTab('pendencias');
+    await carregarPendencias();
+  });
+  await page.evaluate(() => setSecaoPend('variacoes'));
+  await page.waitForTimeout(100);
 }
 
 /* ==================================================================== */

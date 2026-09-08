@@ -38,7 +38,8 @@ existente, sim; ampliar comportamento, não — sem pedido humano explícito.
   publicação. Nada disso vira número silencioso.
 - **Nenhuma sincronização destrutiva sem regra explícita.** Prefira
   `POST /api/sync {"seco": true}` — lê tudo, não escreve na loja.
-- `{"forcar": true}` contra a loja real: autorização humana, sempre.
+- `{"forcar": true}` contra a loja real: Classe D quando não foi solicitado;
+  quando faz parte explícita da tarefa, dry-run e limites antes, validação depois.
 
 ## Dados de DEV
 

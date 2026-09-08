@@ -1,5 +1,8 @@
 # PRE_STAGING_GATE — revisão final antes de staging
 
+> Documento histórico. DEV não é mais gate; governança vigente em
+> `docs/SECURITY.md` (2026-09-08).
+
 Revisão do pacote `claude/marquesa-operational-review-eztpzt`, trazido
 para esta branch por fast-forward. **Nenhum deploy, migration em produção,
 escrita na Nuvemshop ou merge em `main` foi executado.** Tudo abaixo rodou

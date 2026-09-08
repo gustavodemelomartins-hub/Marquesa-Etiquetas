@@ -209,18 +209,17 @@ Preview por commit também existe (Cloudflare gera um para cada deploy),
 mas serve só para comparar uma versão específica; o link que vai para os
 favoritos é sempre o fixo.
 
-### Publicar pela primeira vez (feito uma única vez, manual)
+### Publicar o Worker DEV (opcional)
 
-`wrangler deploy` não é executado por um agente em ambiente nenhum — ver
-[SECURITY.md](SECURITY.md). O primeiro deploy do Worker DEV é:
+DEV é auxiliar e não precisa ser publicado para liberar PROD. Quando ele
+trouxer evidência útil, o agente pode publicar e validar:
 
 ```bash
 cd api
 npx wrangler deploy --env staging
 ```
 
-Depois disso, o Worker DEV é republicado só por este comando à mão (ou
-por uma pipeline de CI que vier a existir para `api/` — hoje não há uma).
+Depois disso, o Worker DEV pode ser republicado por este comando ou pelo CI.
 
 ### Deploy automático do frontend — GitHub Actions, não Git Integration
 
@@ -340,12 +339,12 @@ Use a skill `pre-deploy-check`. O essencial:
       regerado incluído no commit
 - [ ] `GET /api/estoque/conferir` vazio
 - [ ] nenhum segredo no diff
-- [ ] migration pendente identificada e **combinada com uma pessoa**
+- [ ] migration pendente identificada, testada e comparada ao schema real de PROD
 - [ ] backup do D1 feito se houver migration ou escrita em massa
 - [ ] rollback definido antes de subir
 
-**Deploy é Classe C** ([SECURITY.md](SECURITY.md)): `npx wrangler deploy`
-nunca é executado por um agente.
+**Deploy é Classe C autônoma** ([SECURITY.md](SECURITY.md)): o agente executa
+depois do preflight e encerra somente após a validação pós-deploy.
 
 ## Onde as coisas ficam
 

@@ -58,6 +58,7 @@ function AppConectado({
 
   return (
     <AppShell
+      conexao={conexao}
       area={area}
       aoNavegar={setArea}
       aoDesconectar={() => {

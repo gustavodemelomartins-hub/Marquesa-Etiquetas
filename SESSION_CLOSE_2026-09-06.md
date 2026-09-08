@@ -1,5 +1,7 @@
 # Encerramento da sessão — 2026-09-06
 
+> Documento histórico. Governança vigente: `docs/SECURITY.md` (2026-09-08).
+
 > Este documento é escrito **antes** do deploy de produção. `wrangler deploy`,
 > `wrangler pages deploy` e qualquer `wrangler d1 execute --remote` com
 > escrita são Classe C (docs/SECURITY.md) e estão no `deny` do

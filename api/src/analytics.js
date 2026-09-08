@@ -445,9 +445,11 @@ export async function evolucao(db, { periodo = 'tudo', granularidade = 'mes' } =
             SELECT strftime('${fmt}', data) AS chave,
                    0 AS faturamento, pecas AS pecas, 1 AS vendas
               FROM vd WHERE data IS NOT NULL
+               ${faixa.de ? 'AND data >= ? AND data <= ?' : ''}
             UNION ALL
             SELECT strftime('${fmt}', data_faturamento), faturamento, 0, 0
               FROM vd WHERE data_faturamento IS NOT NULL AND faturamento <> 0
+               ${faixa.de ? 'AND data_faturamento >= ? AND data_faturamento <= ?' : ''}
             UNION ALL
             /* §31: a diferença de troca paga entra na série do mês em que
                foi recebida, e sem virar uma venda a mais. */
@@ -463,7 +465,7 @@ export async function evolucao(db, { periodo = 'tudo', granularidade = 'mes' } =
             SUM(vendas)                AS vendas
        FROM partes WHERE chave IS NOT NULL
       GROUP BY chave ORDER BY chave`,
-  ).bind(...V.binds, ...(faixa.de ? [faixa.de, faixa.ate] : [])).all();
+  ).bind(...V.binds, ...bindsFaixa(faixa), ...bindsFaixa(faixa), ...bindsFaixa(faixa)).all();
 
   return {
     periodo: faixa,
@@ -1299,7 +1301,8 @@ export async function listarVendasUnificado(db, {
 export async function painel(db, { periodo = 'tudo' } = {}) {
   const faixa = faixaDePeriodo(periodo);
   const mes = new Date().toISOString().slice(0, 7);
-  const VMes = cteVendas({ de: `${mes}-01`, ate: `${mes}-31` });
+  const faixaMes = { de: `${mes}-01`, ate: `${mes}-31` };
+  const VMes = cteVendas(faixaMes);
   const [geral, evo, cat, prod, orig, rank, mesAtual, contasReceber, reparos, saidasMes] = await Promise.all([
     visaoGeral(db, { periodo }),
     evolucao(db, { periodo, granularidade: 'mes' }),
@@ -1309,10 +1312,13 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
     clientesRanking(db, { periodo, limite: 5, ordem: 'faturamento' }),
     db.prepare(
       `WITH vd AS (${VMes.sql})
-       SELECT ROUND(COALESCE(SUM(faturamento), 0), 2) AS faturamento,
-              COUNT(*) AS vendas, COALESCE(SUM(pecas), 0) AS pecas
+       SELECT ROUND(COALESCE(SUM(CASE WHEN ${naFaixa('data_faturamento', faixaMes)}
+                                      THEN faturamento ELSE 0 END), 0), 2) AS faturamento,
+              SUM(CASE WHEN ${naFaixa('data', faixaMes)} THEN 1 ELSE 0 END) AS vendas,
+              COALESCE(SUM(CASE WHEN ${naFaixa('data', faixaMes)} THEN pecas ELSE 0 END), 0) AS pecas
          FROM vd`,
-    ).bind(...VMes.binds).first(),
+    ).bind(...VMes.binds, ...bindsFaixa(faixaMes), ...bindsFaixa(faixaMes),
+      ...bindsFaixa(faixaMes)).first(),
     contasAReceber(db, { status: 'aberta' }),
     /* §31 — "Peças em reparo": só o que ainda pede alguma coisa de alguém.
        Caso encerrado sai do Painel e continua inteiro no histórico da
@@ -1339,6 +1345,14 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
   const melhorMes = [...evo.pontos].sort((a, b) => b.faturamento - a.faturamento)[0] ?? null;
   const catCampea = cat.categorias[0] ?? null;
   const canalCampeao = orig.canais[0] ?? null;
+  /* O KPI mensal de cobrança segue o vencimento, que é a data operacional
+     usada por A Receber. Contas sem prazo continuam no total geral e na
+     lista de trabalho, mas não são atribuídas silenciosamente a um mês. */
+  const contasDoMes = (contasReceber.contas ?? [])
+    .filter((c) => String(c.vencimentoEm ?? '').slice(0, 7) === mes);
+  const aReceberMesCentavos = contasDoMes.reduce(
+    (soma, c) => soma + Math.round(Number(c.valorReceber ?? 0) * 100), 0,
+  );
 
   return {
     periodo: faixa,
@@ -1353,6 +1367,8 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
       faturamento: Number(mesAtual?.faturamento ?? 0),
       vendas: Number(mesAtual?.vendas ?? 0),
       pecas: Number(mesAtual?.pecas ?? 0),
+      aReceber: +(aReceberMesCentavos / 100).toFixed(2),
+      contasAReceber: contasDoMes.length,
     },
     /* §31: o bloco do Painel. `pendentes` já vem com prazo, dias úteis
        decorridos e restantes calculados — a tela só desenha. */

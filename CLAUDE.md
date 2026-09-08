@@ -29,9 +29,10 @@ construção). O backend não tem dependência de runtime.
    Rodar o cron duas vezes tem que ser inofensivo.
 6. **Prefira preview/dry-run antes de escrever.** `POST /api/sync
    {"seco": true}` lê tudo e não escreve na loja.
-7. **Operação crítica precisa de autorização humana explícita** — migration,
-   deploy, restore, escrita em massa, Git destrutivo. Ver
-   [docs/SECURITY.md](docs/SECURITY.md).
+7. **Produção é a fonte de verdade operacional.** Classe C (deploy, push,
+   migration, infraestrutura e rollback) pode ser executada autonomamente
+   após gates proporcionais. Só Classe D destrutiva/empresarial exige decisão
+   humana explícita. Ver [docs/SECURITY.md](docs/SECURITY.md).
 8. **[api/REGRAS.md](api/REGRAS.md) é a fonte fundamental das regras de
    negócio.** Leia antes de mudar comportamento; não o duplique em lugar
    nenhum.
@@ -91,8 +92,8 @@ token gasto sem retorno.
 | `marquesa-sync` | Nuvemshop, pedidos, SKU, variantes, `sync.js` |
 | `marquesa-reconciliation` | divergência, duplicado, conflito, revisão humana |
 | `safe-d1-change` | desenhar schema, migration, índice |
-| `database-dev` | **executar** comando no D1 — prova que o alvo é DEV |
-| `deploy-dev` | publicar e verificar `marquesa-dev` / `marquesa-api-staging` |
+| `database-dev` | operação segura no D1; PROD real primeiro, DEV auxiliar |
+| `deploy-dev` | publicar/verificar DEV quando ele for útil, nunca como gate |
 | `ui-verification` | provar que a tela funciona (Playwright), sem inspeção humana |
 | `pre-deploy-check` | antes de qualquer deploy |
 
@@ -102,10 +103,10 @@ token gasto sem retorno.
 `frontend.md`, `api.md`, `database.md`, `business-rules.md`. Não os leia por
 conta própria; eles chegam quando são úteis.
 
-Duas travas rodam antes de você: `PreToolUse` bloqueia deploy, escrita em
-`marquesa-db`/`marquesa-fotos`, force push, push em `main`, secret e SQL
-destrutivo — em qualquer ambiente. `Stop` cobra a verificação uma vez por
-sessão. Ver [.claude/README.md](.claude/README.md).
+Duas travas rodam antes de você: `PreToolUse` deixa Classe C seguir e pede
+decisão explícita somente para Classe D, além de impedir leitura de segredo;
+`Stop` cobra a verificação uma vez por sessão. Ver
+[.claude/README.md](.claude/README.md).
 
 ## Subagentes
 
@@ -119,52 +120,25 @@ sessão. Ver [.claude/README.md](.claude/README.md).
 Use subagente quando a investigação geraria muita saída. Tarefa trivial não
 merece Opus nem subagente.
 
-## DEV é livre. PROD exige autorização — por release, não por comando.
+## Operação production-first
 
-Existe um ambiente de desenvolvimento na nuvem — `develop` → Worker
-`marquesa-api-staging` → D1 `marquesa-db-dev` → Cloudflare Pages
-`marquesa-dev.pages.dev`. Descartável de propósito: quebrar, importar
-planilha errada ou testar reconciliação ali nunca afeta produção. Detalhe
-completo em [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+PROD é a referência real. Antes de publicar, confira diretamente commit,
+Worker, bindings, D1/schema, migrations e configurações implantadas. DEV
+(`develop` / `marquesa-api-staging` / `marquesa-db-dev`) é auxiliar: pode ser
+usado quando acrescenta evidência, mas nunca é gate, fonte de verdade ou
+pré-requisito para produção.
 
-- **Push em `develop` depois de testes verdes → permitido sem pedir.**
-  Dispara o deploy automático DEV.
-- **Merge em `main`, push de `main`, migration no D1 de produção e deploy
-  (Worker/Pages) → exigem uma [Production Release
-  Approval](docs/SECURITY.md#production-release-approval) válida.** Desde
-  2026-09-06 a autorização é **por release**, não por comando: uma frase
-  explícita no chat ("autorizo o release do branch X, commit Y, para
-  produção — ações: merge, push, migration `Z`, deploy") vira um arquivo
-  efêmero (`.claude/approvals/production-release.json`, curto, com
-  expiração e escopo fechados) que libera a sequência inteira. Sem essa
-  aprovação — o estado normal, o dia a dia — as quatro continuam bloqueadas
-  exatamente como sempre foram; o agente nunca infere autorização da
-  conversa sozinho.
-- **Backup/export do D1 e qualquer consulta somente leitura contra
-  produção rodam sem aprovação nenhuma** — não são escrita, e exigir
-  aprovação para tirar um backup impediria o próprio passo 1 de um release.
-
-## Nunca execute — nenhuma aprovação de release cobre isto
-
-```
-git reset --hard · git clean -fd · git push --force
-DROP TABLE · DROP DATABASE · DELETE ou UPDATE em massa sem filtro validado
-wrangler rollback · wrangler d1 delete · wrangler d1 time-travel restore
-wrangler secret put/delete
-POST /api/sync {"forcar": true}  contra produção
-reescrita de histórico (filter-branch, filter-repo, reflog expire)
-```
-
-Isto é absoluto: mesmo com uma Production Release Approval válida e presente,
-`.claude/hooks/protect-production.mjs` nega estes comandos incondicionalmente
-— eles nem consultam o arquivo de aprovação. `marquesa-db-dev` é descartável
-e isento da régua de escrita remota; `marquesa-db-prod` (produção) e
-`marquesa-db` (a cópia congelada de rollback) nunca são.
+Quando uma tarefa pede implementação, correção ou conclusão de release, o
+agente pode executar merge, push, migration, deploy, secret técnico,
+validação e rollback necessários. Classe C requer preflight, backup quando
+há risco de dados, rollback preparado e validação pós-deploy — não execução
+humana. Classe D (apagar dados/recursos, zerar estoque, force-push, reescrever
+histórico ou decidir regra empresarial não solicitada) exige instrução humana
+explícita. A régua completa está em [docs/SECURITY.md](docs/SECURITY.md).
 
 Este é o clone real de `gustavodemelomartins-hub/Marquesa-Etiquetas`, com o
-histórico completo e `origin` configurado. `push` em `develop` é rotina;
-`push` em `main` e `push --force` em qualquer branch só quando alguém
-pedir explicitamente, e `--force` **nunca**.
+histórico completo e `origin` configurado. Nunca publique uma branch antiga
+por cima de uma produção mais nova; reconcilie primeiro.
 
 ## Ciclo de trabalho
 

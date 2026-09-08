@@ -36,6 +36,7 @@
  *  valendo antes e depois, sem exceção.
  */
 import { variacoesParaRevisao, normSku } from './variantes.js';
+import { listarPublicacoes, ESTADO_PUBLICACAO } from './publicacao-catalogo.js';
 
 const CHAVE_ADIADAS = 'pendencias_adiadas';
 const hojeISO = () => new Date().toISOString().slice(0, 10);
@@ -105,7 +106,8 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
   const pendencias = [];
 
   const [revisao, vendasTravadas, itensSemVariacao, maletasAbertas,
-    vinculos, trocas, operacoesRevisao] = await Promise.all([
+    vinculos, trocas, operacoesRevisao, publicacao, produtosPendentes,
+    fotosOrfas] = await Promise.all([
     variacoesParaRevisao(db).catch(() => ({ itens: [] })),
 
     /* Vendas que a sincronização decidiu não escrever. `revisao` é o selo
@@ -181,6 +183,16 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
          JOIN vendas_historicas vh ON vh.lote_id = ho.lote_id AND vh.chave = ho.venda_chave
         WHERE ho.status_registro = 'ativa' AND ho.papel = 'revisao' LIMIT 100`,
     ).all().catch(() => ({ results: [] })),
+
+    listarPublicacoes(db).catch(() => ({ itens: [] })),
+
+    db.prepare(`SELECT sku, desc, cat, preco, qtd, origem, motivo, criado_em
+      FROM produtos_pendentes ORDER BY criado_em, sku LIMIT 300`)
+      .all().catch(() => ({ results: [] })),
+
+    db.prepare(`SELECT id, url, sku_loja, nome_loja, produto_id, visto_em
+      FROM fotos_orfas ORDER BY visto_em, id LIMIT 300`)
+      .all().catch(() => ({ results: [] })),
   ]);
 
   /* As variações CADASTRADAS de cada código que aparece nesta lista, para a
@@ -220,7 +232,20 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
   }
   const vars = (sku) => variacoesPorSku.get(sku) ?? variacoesPorSku.get(normSku(sku)) ?? [];
 
+  const efeitoPadrao = (p) => {
+    if (p.tipo === 'variacao' || p.tipo === 'maleta' || p.tipo === 'venda') {
+      return 'A peça continua sem identidade de variação e a sincronização não pode corrigir esse código com segurança.';
+    }
+    if (p.tipo === 'nuvemshop') return 'O estoque publicado pode continuar diferente do estoque físico até a exceção ser resolvida.';
+    if (p.tipo === 'catalogo') return 'O produto não avança para revisão nem pode ser publicado.';
+    if (p.tipo === 'cliente') return 'O histórico continua sem vínculo confirmado com um cadastro.';
+    if (p.tipo === 'garantia') return 'Nenhum crédito ou reembolso é lançado sem a regra humana.';
+    return 'O caso continua fora dos resultados oficiais até a decisão.';
+  };
   const juntar = (p) => pendencias.push({
+    informacaoFaltante: p.informacaoFaltante || p.explicacao || 'Falta uma decisão humana.',
+    efeito: p.efeito || efeitoPadrao(p),
+    proximoPasso: p.proximoPasso || null,
     ...p,
     grupo: GRUPOS[p.tipo] ?? 'Outros',
     adiadaAte: adiadas[p.chave] ? adiadas[p.chave].ate : null,
@@ -246,6 +271,86 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
       acoes: r.motivo === 'sem_reparticao' ? ['distribuir', 'revisar_depois']
         : r.motivo === 'maleta' ? ['resolver_maleta', 'revisar_depois']
           : ['revisar_depois'],
+    });
+  }
+
+  /* ─── preparação/publicação do catálogo (Pacote 4)
+     Somente bloqueios entram na Central. Prévia aguardando aprovação e item
+     aprovado pertencem à área principal "Publicar na Nuvemshop". */
+  const NOMES_FALTA = {
+    codigo: 'código', nome: 'Nome da peça', categoria: 'categoria', preco: 'preço',
+    quantidade: 'quantidade em casa', foto: 'foto original', fundo_branco: 'foto com fundo branco',
+  };
+  for (const r of publicacao.itens ?? []) {
+    if (![ESTADO_PUBLICACAO.FALTA, ESTADO_PUBLICACAO.PREPARANDO, ESTADO_PUBLICACAO.FALHOU]
+      .includes(r.estado)) continue;
+    const faltam = (r.falta ?? []).map((x) => NOMES_FALTA[x] || x);
+    const falhou = r.estado === ESTADO_PUBLICACAO.FALHOU;
+    const preparando = r.estado === ESTADO_PUBLICACAO.PREPARANDO;
+    juntar({
+      chave: `publicacao:${r.sku}`,
+      tipo: 'catalogo',
+      sku: r.sku,
+      produto: r.desc,
+      origem: 'Publicação na Nuvemshop',
+      qtd: r.casa,
+      valor: r.preco == null ? null : r.preco * r.casa,
+      motivo: r.estado,
+      explicacao: falhou
+        ? (r.erroPublicacao || 'A última tentativa não concluiu a publicação.')
+        : preparando
+          ? (r.bloqueioExterno?.motivo || 'A foto e a prévia comercial ainda estão sendo preparadas.')
+          : `Falta ${faltam.join(', ')}.`,
+      informacaoFaltante: falhou
+        ? 'É preciso confirmar que os dados aprovados continuam iguais antes de repetir.'
+        : preparando
+          ? (faltam.length ? faltam.join(', ') : 'prévia comercial preparada pelo agente')
+          : faltam.join(', '),
+      efeito: falhou
+        ? 'O produto não foi criado nem atualizado na loja; o erro permanece visível para retry seguro.'
+        : 'O produto não avança para aprovação e nada é escrito na loja.',
+      proximoPasso: r.bloqueioExterno?.proximoPasso
+        || (falhou ? 'Revise o erro e prepare uma nova tentativa segura.'
+          : preparando ? 'Conclua o fundo branco e a prévia comercial.'
+            : 'Abra o cadastro da peça e complete os campos indicados.'),
+      acoes: falhou ? ['repetir_publicacao', 'revisar_depois']
+        : preparando ? ['preparar_publicacao', 'preencher_previa', 'revisar_depois']
+          : ['editar_produto', 'revisar_depois'],
+    });
+  }
+
+  for (const r of produtosPendentes.results ?? []) {
+    juntar({
+      chave: `cadastro:${r.sku}`,
+      tipo: 'catalogo',
+      sku: r.sku,
+      produto: r.desc || r.sku,
+      origem: r.origem || 'Importação de produtos novos',
+      qtd: Number(r.qtd ?? 0),
+      motivo: 'cadastro_pendente',
+      explicacao: r.motivo || 'O código foi encontrado na planilha, mas ainda não virou produto.',
+      informacaoFaltante: 'Revisão e aprovação do cadastro da peça.',
+      efeito: 'A peça não entra no catálogo nem no estoque enquanto o cadastro não for aprovado.',
+      proximoPasso: 'Abra a fila de produtos novos, confira os dados e aprove ou rejeite o item.',
+      acoes: ['revisar_cadastro', 'revisar_depois'],
+    });
+  }
+
+  for (const r of fotosOrfas.results ?? []) {
+    juntar({
+      chave: `foto_orfa:${r.id}`,
+      tipo: 'catalogo',
+      sku: r.sku_loja || null,
+      produto: r.nome_loja || r.sku_loja || 'Foto sem correspondência',
+      origem: 'Catálogo da Nuvemshop',
+      motivo: 'foto_sem_correspondencia',
+      explicacao: 'A imagem veio da loja, mas o código não corresponde com segurança a uma peça daqui.',
+      informacaoFaltante: 'Código exato da peça dona desta foto.',
+      efeito: 'A foto não é vinculada automaticamente; assim o painel evita mostrar uma peça no produto errado.',
+      proximoPasso: 'Informe o código correto ou revise depois.',
+      fotoOrfaId: Number(r.id),
+      fotoUrl: r.url,
+      acoes: ['vincular_foto', 'revisar_depois'],
     });
   }
 

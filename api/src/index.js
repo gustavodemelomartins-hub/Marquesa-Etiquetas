@@ -13,9 +13,13 @@ import {
 } from './catalogo.js';
 import {
   importarFotosDaLoja, vincularFotosDaLoja, listarFotosOrfas, adotarFotoOrfa, salvarFotoUpload,
-  lerFotoParaServir, removerFotos, gerarFundoBranco, pendenciasDePublicacao,
+  lerFotoParaServir, removerFotos, gerarFundoBranco,
   sincronizarFotosDaLoja, fotosDoSku,
 } from './fotos.js';
+import {
+  listarPublicacoes, prepararPublicacao, salvarPreviaPublicacao,
+  aprovarPublicacao, reabrirPublicacao, repetirPublicacao,
+} from './publicacao-catalogo.js';
 import { conferirAssinaturaFoto } from './assinatura.js';
 import {
   importarVariantesDaLoja, variacoesParaRevisao, variantesDoSku, distribuirVariantes,
@@ -270,7 +274,27 @@ async function rotear(request, env, contador = null) {
       }
       // o que o agente de catálogo enxerga: pronto para publicar × o que falta
       if (path === '/api/catalogo/publicacao' && met === 'GET') {
-        return json(await pendenciasDePublicacao(db));
+        return json(await listarPublicacoes(db));
+      }
+      if ((m = path.match(/^\/api\/catalogo\/publicacao\/([^/]+)\/preparar$/)) && met === 'POST') {
+        const r = await prepararPublicacao(db, env, decodeURIComponent(m[1]), await request.json().catch(() => ({})));
+        return json(r, r.statusHttp || 200);
+      }
+      if ((m = path.match(/^\/api\/catalogo\/publicacao\/([^/]+)\/previa$/)) && met === 'POST') {
+        const r = await salvarPreviaPublicacao(db, decodeURIComponent(m[1]), await request.json().catch(() => ({})));
+        return json(r, r.statusHttp || 200);
+      }
+      if ((m = path.match(/^\/api\/catalogo\/publicacao\/([^/]+)\/aprovar$/)) && met === 'POST') {
+        const r = await aprovarPublicacao(db, decodeURIComponent(m[1]), await request.json().catch(() => ({})));
+        return json(r, r.statusHttp || 200);
+      }
+      if ((m = path.match(/^\/api\/catalogo\/publicacao\/([^/]+)\/reabrir$/)) && met === 'POST') {
+        const r = await reabrirPublicacao(db, decodeURIComponent(m[1]));
+        return json(r, r.statusHttp || 200);
+      }
+      if ((m = path.match(/^\/api\/catalogo\/publicacao\/([^/]+)\/repetir$/)) && met === 'POST') {
+        const r = await repetirPublicacao(db, decodeURIComponent(m[1]));
+        return json(r, r.statusHttp || 200);
       }
 
       if ((m = path.match(/^\/api\/produtos\/([^/]+)$/)) && met === 'PATCH') {
@@ -1975,6 +1999,7 @@ async function registrarVenda(db, env, {
             sku: mv.sku, tipo: 'venda', quantidade: mv.qtd, origem: 'personalizado',
             vendaId: venda.id,
             obs: `${obsMov} · ${l.personalizacao.modeloNome} (${mv.papel})`,
+            variacao: mv.variacao || null, varianteId: mv.varianteId || null,
           }));
         }
       }
@@ -2308,8 +2333,36 @@ async function cancelarVenda(db, env, vendaId) {
   if (v.cancelada) return json({ erro: 'Venda já está cancelada' }, 409);
 
   const itens = (await db.prepare(`SELECT * FROM venda_itens WHERE venda_id = ?`).bind(vendaId).all()).results;
+  const personalizacoes = (await personalizacoesDeVendas(db, [vendaId])).get(vendaId) || [];
   const stmts = [];
+  /* A linha comercial da composição não é uma peça física. Para cada colar,
+     estornamos a base e todos os componentes congelados, e pulamos exatamente
+     uma linha correspondente do recibo. Venda retroativa com estoque já
+     refletido não devolve nada — a mesma regra que impediu a baixa original. */
+  const linhasComerciais = new Map();
+  for (const p of personalizacoes) {
+    const skuLinha = String(p.skuComercial || p.baseSku);
+    linhasComerciais.set(skuLinha, (linhasComerciais.get(skuLinha) || 0) + 1);
+    if (p.estoqueJaRefletido) continue;
+    stmts.push(...movimentar(db, {
+      sku: p.baseSku, tipo: 'cancelamento', quantidade: 1, origem: 'cancelamento',
+      vendaId, obs: `Estorno da venda ${vendaId} · ${p.modeloNome} (base)`,
+    }));
+    for (const c of p.componentes || []) {
+      stmts.push(...movimentar(db, {
+        sku: c.sku, tipo: 'cancelamento', quantidade: Number(c.qtd || 1),
+        origem: 'cancelamento', vendaId,
+        obs: `Estorno da venda ${vendaId} · ${p.modeloNome} (componente)`,
+        variacao: c.variacao || null, varianteId: c.varianteId || null,
+      }));
+    }
+  }
   for (const i of itens) {
+    const restantes = linhasComerciais.get(String(i.sku)) || 0;
+    if (restantes > 0) {
+      linhasComerciais.set(String(i.sku), restantes - 1);
+      continue;
+    }
     // se o sku vendido era um kit, o estorno também precisa ir para os
     // componentes — é lá que a baixa original aconteceu
     if (await ehKit(db, i.sku)) {
@@ -2328,7 +2381,7 @@ async function cancelarVenda(db, env, vendaId) {
   stmts.push(db.prepare(`UPDATE vendas SET cancelada = 1 WHERE id = ?`).bind(vendaId));
   await db.batch(stmts);
   const nuvemshop = await atualizarEstoqueDaVenda(db, env, vendaId);
-  return json({ ok: true, nuvemshop });
+  return json({ ok: true, nuvemshop, personalizacoesEstornadas: personalizacoes.length });
 }
 
 async function listarVendas(db, data) {

@@ -80,7 +80,7 @@ Sempre um ato humano, um código por vez, com a razão registrada:
 | Repartir entre variações | `POST /api/produtos/:sku/repartir` | a soma não bate com o estoque |
 | Desfazer semeadura automática indevida | `POST /api/variacoes/desfazer-semeadura` | — |
 | Ajustar contagem | `POST /api/inventarios/:id/ajustar` | o código já foi ajustado nesse inventário |
-| Aplicar sincronização barrada pelo freio | `POST /api/sync {"forcar": true}` | — **Classe C**, exige autorização |
+| Aplicar sincronização barrada pelo freio | `POST /api/sync {"forcar": true}` | Classe D sem solicitação explícita; com escopo solicitado, gates e dry-run |
 
 Nenhuma dessas rotas escreve `produtos.qtd`: todas passam por `movimentar`,
 e a repartição gera dois movimentos que se anulam no total.

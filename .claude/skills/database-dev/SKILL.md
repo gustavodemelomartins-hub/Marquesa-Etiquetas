@@ -1,9 +1,9 @@
 ---
 name: database-dev
-description: Carregue ANTES de qualquer comando que escreva no D1 pela linha de comando. Prova que o alvo é marquesa-db-dev (DEV) e não marquesa-db-prod (produção) nem marquesa-db (rollback congelado), e define o que rodar antes e depois. Para desenhar schema/migration, use safe-d1-change; esta skill é sobre executar com segurança.
+description: Carregue antes de qualquer comando que escreva no D1. Parte do schema real de PROD, prova o alvo exato, protege dados e valida antes/depois. DEV é auxiliar, nunca gate. Para desenhar schema/migration, use safe-d1-change.
 ---
 
-# D1 DEV — provar o alvo antes de mutar
+# Operar D1 — production-first
 
 Os três bancos diferem por poucas letras e por consequência irreversível.
 **Prove o alvo antes de qualquer escrita.**
@@ -12,7 +12,7 @@ Os três bancos diferem por poucas letras e por consequência irreversível.
 |---|---|---|---|
 | Nome | `marquesa-db-dev` | `marquesa-db-prod` | `marquesa-db` |
 | `database_id` | `dcc36f65-daaa-42a4-9fbd-15e6f27e4d4b` | `51dd629b-52dc-46d0-a1af-fa37f0a79533` | `089153a9-cee5-4887-b789-a23b1cf419f5` |
-| Escrita | livre, descartável | **autorização humana a cada vez + backup** | **nunca** — é a única volta |
+| Escrita | auxiliar, descartável | **Classe C autônoma + backup/rollback** | somente recuperação planejada |
 
 Desde o go-live de 2026-08-22, **`marquesa-db` não é mais produção**. Quem
 digita o nome antigo por memória não erra o ambiente: acerta o banco que
@@ -20,20 +20,21 @@ jamais deveria ser tocado. Por isso o `api/wrangler.toml` e o `api/DEPLOY.md`
 mandam usar o binding `DB` (`--env staging` → DEV; sem `--env` → produção),
 nunca o nome do banco.
 
-## 1. Provar
+## 1. Provar o alvo real
 
 ```bash
-npx wrangler d1 info marquesa-db-dev        # confira o uuid dcc36f65-…
+npx wrangler d1 info marquesa-db-prod       # confira o uuid 51dd629b-…
+npx wrangler d1 execute DB --remote --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
 ```
 
-Se o comando que você vai rodar não contém literalmente `marquesa-db-dev`,
-ou contém `--remote` apontando para outro nome, **não rode**. Não existe
-escrita "provavelmente em DEV".
+Para PROD, prefira o binding `DB` sem `--env`; confirme no `wrangler.toml`
+que ele resolve para `marquesa-db-prod`. Nunca use DEV como prova de schema
+ou como pré-requisito. O nome `marquesa-db` é a cópia congelada, não PROD.
 
 ## 2. Fotografar antes
 
 ```bash
-npx wrangler d1 execute marquesa-db-dev --remote \
+npx wrangler d1 execute DB --remote \
   --command "SELECT 'produtos', COUNT(*) FROM produtos UNION ALL SELECT 'movimentos', COUNT(*) FROM movimentos UNION ALL SELECT 'vendas', COUNT(*) FROM vendas"
 ```
 
@@ -41,8 +42,8 @@ Guarde os números. São a sua base de comparação.
 
 ## 3. Executar
 
-Local (`--local`) sempre que der — é grátis e ainda mais reversível.
-Remoto só com `marquesa-db-dev` no comando.
+Teste local antes. Em PROD, crie export/bookmark, registre rollback e então
+execute autonomamente o arquivo revisado necessário à release.
 
 ## 4. Conferir depois
 
@@ -52,9 +53,10 @@ Remoto só com `marquesa-db-dev` no comando.
 
 ## Nunca aqui
 
-`DROP TABLE` · `DROP DATABASE` · `DELETE`/`UPDATE` em massa sem filtro
-validado · `d1 delete` · `d1 time-travel restore` — nem no DEV, sem
-instrução humana. Recriar o DEV do zero é procedimento, não improviso.
+`DROP TABLE` · `DROP DATABASE` · exclusão de recurso ou `DELETE`/`UPDATE` em
+massa sem filtro validado são Classe D e exigem instrução humana explícita.
+Restore técnico diante de regressão comprovada é Classe C e segue o plano de
+rollback preparado antes da release.
 
-Dados: o DEV trabalha com os **dados reais destinados ao teste**. Seed
-fictício sobe schema; não valida comportamento.
+Dados: PROD é a fonte operacional. DEV pode ajudar em testes, mas sua
+divergência nunca bloqueia uma release.

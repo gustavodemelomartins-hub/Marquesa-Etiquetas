@@ -1,10 +1,9 @@
 #!/bin/bash
 # Volta o marquesa-db-dev ao estado de um backup feito por backup-dev.sh.
 #
-# ⚠️ Restore é Classe C (docs/SECURITY.md): NUNCA roda por iniciativa de um
-#    agente. Só quando uma pessoa diz, naquele momento, que quer restaurar
-#    aquele banco a partir daquele arquivo. Por isso este script pede a
-#    palavra RESTAURAR digitada por extenso e não aceita nada automatizado.
+# ⚠️ Restore técnico é Classe C (docs/SECURITY.md). O agente pode executá-lo
+#    diante de regressão comprovada, com backup validado e rollback planejado.
+#    Este script mantém confirmação interativa porque substitui todo o DEV.
 #
 # É o caminho 2 — o que parte do arquivo. O caminho 1, preferido, não
 # depende de arquivo nenhum:

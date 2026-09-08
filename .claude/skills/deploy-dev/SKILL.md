@@ -1,6 +1,6 @@
 ---
 name: deploy-dev
-description: Carregue para publicar e verificar o ambiente DEV — Cloudflare Pages marquesa-dev e Worker marquesa-api-staging. Só DEV. Nunca produção. Inclui o smoke test do que foi publicado.
+description: Carregue quando for útil publicar e verificar o ambiente DEV. DEV é auxiliar e nunca gate; releases de produção usam pre-deploy-check e partem do estado real de PROD.
 ---
 
 # Publicar e verificar o DEV
@@ -8,10 +8,9 @@ description: Carregue para publicar e verificar o ambiente DEV — Cloudflare Pa
 **Alvos permitidos, e só eles:** Pages `marquesa-dev` · Worker
 `marquesa-api-staging` · D1 `marquesa-db-dev` · R2 `marquesa-fotos-dev`.
 
-**`wrangler deploy` não é executado por agente — em nenhum ambiente.** É
-política de [docs/SECURITY.md](../../../docs/SECURITY.md), reforçada por
-`deny` em `.claude/settings.json` e pelo hook `protect-production`. O que o
-agente faz é preparar, empurrar por `develop` e **verificar**.
+O agente pode executar o deploy de DEV quando ele trouxer evidência útil.
+Não faça deploy de DEV por burocracia e não use seu estado como fonte de
+verdade sobre produção. Ver [docs/SECURITY.md](../../../docs/SECURITY.md).
 
 ## 1. Portão verde antes de empurrar
 
@@ -37,9 +36,7 @@ gh run watch                     # ou: gh run list --workflow=deploy-dev.yml --l
 npx wrangler pages deployment list --project-name marquesa-dev
 ```
 
-## 3. Worker DEV — comando humano
-
-O agente **entrega o comando**, não o executa:
+## 3. Worker DEV — execução opcional
 
 ```
 npx wrangler deploy --env staging
@@ -58,5 +55,5 @@ Saúde ruim depois de publicar é relatada na hora, com o corpo da resposta.
 
 `marquesa-api` · `marquesa-db-prod` (e `marquesa-db`, a cópia congelada de
 rollback) · `marquesa-fotos` · GitHub Pages de `main` ·
-merge em `main`: **nada disso pertence a esta skill.** Encontrou necessidade
-de tocar produção? Pare e diga qual comando a pessoa precisa rodar.
+merge em `main`: **nada disso pertence a esta skill.** Para produção, carregue
+`pre-deploy-check`, inspecione PROD real e conclua a release autonomamente.

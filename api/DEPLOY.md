@@ -27,9 +27,9 @@
 > Errar o ambiente continua sendo possível; errar o *banco* dentro do
 > ambiente, não. E o banco congelado deixa de ser alcançável por digitação.
 >
-> Escrita remota em produção continua exigindo **autorização humana explícita
-> a cada vez + backup recente confirmado** (`CLAUDE.md`, `docs/SECURITY.md`).
-> Nenhum agente executa isso sozinho.
+> Produção é a fonte operacional. Escrita remota é Classe C autônoma depois
+> de confirmar o estado real, testes, backup/bookmark, rollback e validação
+> pós-operação (`CLAUDE.md`, `docs/SECURITY.md`). DEV não é gate.
 
 Tudo o que a API precisa cabe no **plano gratuito**: 100.000 requisições por
 dia e um banco D1 de 5 GB. Uma operação com 780 códigos e algumas maletas usa
@@ -157,7 +157,7 @@ npx wrangler d1 create marquesa-db-prod  # copie o database_id devolvido
 # cole o id em wrangler.toml, no bloco [[d1_databases]] de produção
 
 # o binding DB resolve para o banco declarado no wrangler.toml — sem --env,
-# esse é o de PRODUÇÃO. Exige autorização humana explícita + backup.
+# esse é o de PRODUÇÃO. Exige os gates Classe C + backup.
 npx wrangler d1 execute DB --remote --file=schema.sql
 npx wrangler secret put API_KEY          # cola a senha quando pedir
 npx wrangler deploy
@@ -285,6 +285,27 @@ mentira, sem nunca configurar isto de verdade em lugar nenhum.
 
 Quando uma versão nova cria tabelas, o banco existente precisa recebê-las —
 os dados que já estão lá **não** são tocados.
+
+### Pacote 2: Monte seu Colar e vencimento
+
+Em banco existente, aplique primeiro `migracao-pos-golive-1.sql` (se ainda
+não foi aplicada) e depois `migracao-pacote-2.sql`. A segunda acrescenta o
+SKU comercial congelado, permite mais de uma composição com a mesma base na
+venda e cria o SKU interno sem estoque `MONTE-COLAR`.
+
+Antes de aplicar, confirme que `vendas.vencimento_em` já existe — ela vem de
+`migracao-pos-golive-1.sql`. O `schema.sql` de instalação nova já contém as
+duas etapas.
+
+```bash
+# DEV remoto, somente quando a publicação em DEV for autorizada
+npx wrangler d1 execute DB --env staging --remote --file=migracao-pos-golive-1.sql
+npx wrangler d1 execute DB --env staging --remote --file=migracao-pacote-2.sql
+```
+
+`migracao-pacote-2.sql` contém `ALTER TABLE` e não deve ser repetida: a coluna
+duplicada significa que já foi aplicada. Em produção, consulte o schema real,
+faça backup/bookmark e valide depois; DEV não é pré-requisito.
 
 Para o inventário (tabelas `inventarios` e `inventario_itens`), abra o banco
 no painel → aba **Console**, cole o conteúdo de `api/migracao-inventario.sql`

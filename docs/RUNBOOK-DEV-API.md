@@ -4,6 +4,9 @@ Fecha a metade que falta do ambiente DEV: a **migration** no `marquesa-db-dev`
 e o **Worker** `marquesa-api-staging`. O Pages (`marquesa-dev.pages.dev`) já
 sobe sozinho a cada push em `develop` e não precisa de nada aqui.
 
+> Este runbook é **opcional**. Desde 2026-09-08, PROD é a fonte operacional e
+> DEV não é gate nem pré-requisito de release.
+
 > **Nada neste documento toca produção.** Nenhum comando cita `marquesa-api`,
 > `marquesa-db` (o banco congelado de rollback) ou `marquesa-db-prod`. Todos
 > carregam `--env staging`, e o passo 1 existe para provar isso antes de
@@ -13,17 +16,15 @@ sobe sozinho a cada push em `develop` e não precisa de nada aqui.
 
 ## Por que isto é comando de terminal, e não um botão
 
-`docs/SECURITY.md` classifica `wrangler deploy` como **Classe C**: nenhum
-agente executa, em ambiente nenhum. A regra continua valendo e não foi
-afrouxada.
+`docs/SECURITY.md` classifica `wrangler deploy` como **Classe C autônoma**:
+o agente pode executar depois dos gates e deve validar o resultado.
 
 Existe um workflow pronto — `.github/workflows/deploy-staging-api.yml` — que
 faz tudo isto por CI, com disparo manual (`workflow_dispatch`), confirmação
 digitada e as mesmas verificações. Mas o GitHub só oferece o botão *Run
 workflow* para arquivos que existem no **branch padrão**, que aqui é `main`.
 O arquivo está em `develop`. Enquanto ele não chegar em `main` — o que é um
-merge, e merge em `main` exige sua autorização explícita — o caminho é este
-runbook.
+merge. Enquanto ele não chegar a `main`, o caminho opcional é este runbook.
 
 Depois que `main` alcançar `develop`, o botão passa a existir e este
 documento vira o plano B.

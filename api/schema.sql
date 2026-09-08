@@ -82,6 +82,27 @@ CREATE TABLE IF NOT EXISTS produtos (
   atualizado_em  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- -------------------------------- preparação/publicação do catálogo (P4)
+CREATE TABLE IF NOT EXISTS catalogo_publicacoes (
+  sku TEXT PRIMARY KEY REFERENCES produtos(sku),
+  estado TEXT NOT NULL DEFAULT 'em_preparacao_agente'
+    CHECK (estado IN ('em_preparacao_agente','aguardando_aprovacao','aprovado_para_publicar','publicado','falhou_ao_publicar')),
+  nome_site TEXT,
+  descricao_site TEXT,
+  seo_titulo TEXT,
+  seo_descricao TEXT,
+  dados_assinatura TEXT,
+  preparo_erro TEXT,
+  publicacao_erro TEXT,
+  tentativas INTEGER NOT NULL DEFAULT 0,
+  preparado_em TEXT,
+  aprovado_em TEXT,
+  aprovado_por TEXT,
+  publicado_em TEXT,
+  atualizado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_catalogo_publicacoes_estado ON catalogo_publicacoes(estado);
+
 -- ------------------------------------------------- peças novas na fila
 -- A importação de estoque total encontra códigos que ainda não existem
 -- aqui. Ela NÃO os cria — isso é trabalho do fluxo "Adicionar peças
@@ -379,7 +400,10 @@ CREATE TABLE IF NOT EXISTS vendas (
   -- escolheu". A venda fica sem dono de propósito, e continua sem dono
   -- mesmo que uma das homônimas seja renomeada depois — senão o dinheiro
   -- de ninguém entraria na ficha da que sobrou.
-  cliente_ambiguo INTEGER NOT NULL DEFAULT 0
+  cliente_ambiguo INTEGER NOT NULL DEFAULT 0,
+  -- Prazo combinado de uma venda operacional ainda não paga. NULL significa
+  -- honestamente "sem prazo"; não há data padrão inventada.
+  vencimento_em TEXT
 );
 
 -- Cada rodada da sincronização com a loja, para poder responder "o que o
@@ -417,6 +441,73 @@ CREATE TABLE IF NOT EXISTS venda_itens (
   desconto_valor  REAL,                             -- preco_tabela - preco
   desconto_rotulo TEXT                              -- "Grupo VIP"
 );
+
+-- ------------------------------------------------------- Monte seu Colar
+-- Os modelos confirmados da família de filhos vivem na regra de negócio de
+-- `api/src/personalizacao.js`. Estas tabelas preservam modelos adicionais e,
+-- principalmente, congelam a composição efetivamente vendida.
+CREATE TABLE IF NOT EXISTS personalizacao_modelos (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug      TEXT NOT NULL UNIQUE,
+  nome      TEXT NOT NULL,
+  slots_min INTEGER NOT NULL DEFAULT 1 CHECK (slots_min > 0),
+  slots_max INTEGER NOT NULL DEFAULT 1 CHECK (slots_max > 0),
+  base_sku_padrao TEXT REFERENCES produtos(sku),
+  preco_sugerido REAL,
+  ativo     INTEGER NOT NULL DEFAULT 1,
+  ordem     INTEGER NOT NULL DEFAULT 0,
+  obs       TEXT,
+  criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+  CHECK (slots_max >= slots_min)
+);
+
+CREATE TABLE IF NOT EXISTS personalizacao_opcoes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  modelo_id      INTEGER NOT NULL REFERENCES personalizacao_modelos(id),
+  componente_sku TEXT NOT NULL REFERENCES produtos(sku),
+  variacao       TEXT,
+  variante_id    TEXT,
+  rotulo         TEXT NOT NULL,
+  grupo          TEXT,
+  ordem          INTEGER NOT NULL DEFAULT 0,
+  ativo          INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS venda_personalizacoes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  venda_id       INTEGER NOT NULL REFERENCES vendas(id),
+  -- A linha do recibo. É diferente da base física e não recebe movimento.
+  sku_comercial  TEXT REFERENCES produtos(sku),
+  -- A Veneziana consumida fisicamente, uma vez por composição.
+  base_sku       TEXT NOT NULL REFERENCES produtos(sku),
+  base_variacao  TEXT,
+  base_variante_id TEXT,
+  modelo_id      INTEGER REFERENCES personalizacao_modelos(id),
+  modelo_nome    TEXT NOT NULL,
+  preco          REAL NOT NULL,
+  estoque_ja_refletido INTEGER NOT NULL DEFAULT 0,
+  observacao     TEXT,
+  criado_em      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS venda_personalizacao_itens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  personalizacao_id INTEGER NOT NULL REFERENCES venda_personalizacoes(id),
+  posicao          INTEGER NOT NULL,
+  componente_sku   TEXT NOT NULL REFERENCES produtos(sku),
+  componente_nome  TEXT,
+  variacao         TEXT,
+  variante_id      TEXT,
+  rotulo           TEXT,
+  qtd              INTEGER NOT NULL DEFAULT 1 CHECK (qtd > 0),
+  movimento_id     INTEGER REFERENCES movimentos(id)
+);
+
+-- Um SKU comercial interno único para toda composição livre. Fica inativo
+-- no catálogo e sem preço/saldo: preço é obrigatório na venda, e estoque
+-- existe somente na base e nos componentes físicos.
+INSERT OR IGNORE INTO produtos (sku, desc, cat, preco, qtd, status)
+VALUES ('MONTE-COLAR', 'Monte seu Colar — composição livre', 'Colar', NULL, 0, 'inativo');
 
 -- ------------------------------------------------------------- inventário
 -- A conferência física do que está em casa. Fica aberta enquanto ela bipa:
@@ -634,6 +725,7 @@ CREATE INDEX IF NOT EXISTS idx_vendas_pago      ON vendas(pago, data);
 CREATE INDEX IF NOT EXISTS idx_vendas_pgorigem  ON vendas(pagamento_origem);
 CREATE INDEX IF NOT EXISTS idx_vendas_cobravel  ON vendas(cobravel, pago);
 CREATE INDEX IF NOT EXISTS idx_vendas_ambiguo   ON vendas(cliente_ambiguo, cliente_nome_norm);
+CREATE INDEX IF NOT EXISTS idx_vendas_vencimento ON vendas(vencimento_em) WHERE pago = 0;
 CREATE INDEX IF NOT EXISTS idx_venda_itens_v  ON venda_itens(venda_id);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_s  ON venda_itens(sku);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_variante ON venda_itens(variante_id);
@@ -645,6 +737,14 @@ CREATE INDEX IF NOT EXISTS idx_inv_itens      ON inventario_itens(inventario_id)
 -- Índice parcial faria o mesmo com mais sintaxe para dar errado.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_vendas_externo ON vendas(externo_id);
 CREATE INDEX IF NOT EXISTS idx_kit_componentes ON kit_componentes(kit_sku);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pers_opcao_unica
+  ON personalizacao_opcoes(modelo_id, componente_sku, COALESCE(variacao, ''));
+CREATE INDEX IF NOT EXISTS idx_pers_opcoes_modelo ON personalizacao_opcoes(modelo_id, ordem);
+CREATE INDEX IF NOT EXISTS idx_vpers_venda ON venda_personalizacoes(venda_id);
+CREATE INDEX IF NOT EXISTS idx_vpers_venda_base ON venda_personalizacoes(venda_id, base_sku);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_vpers_item_posicao
+  ON venda_personalizacao_itens(personalizacao_id, posicao);
+CREATE INDEX IF NOT EXISTS idx_vpers_item_sku ON venda_personalizacao_itens(componente_sku);
 CREATE INDEX IF NOT EXISTS idx_rec_itens_sessao   ON reconciliacao_itens(sessao_id);
 CREATE INDEX IF NOT EXISTS idx_rec_itens_status   ON reconciliacao_itens(sessao_id, status);
 CREATE INDEX IF NOT EXISTS idx_rec_sessoes_status ON reconciliacao_sessoes(status);
@@ -1186,6 +1286,11 @@ CREATE TABLE IF NOT EXISTS garantia_trocas (
   criado_em     TEXT NOT NULL DEFAULT (datetime('now')),
   atualizado_em TEXT,
 
+  -- Registro comercial da diferença (§36). Última para que instalações
+  -- novas terminem com a mesma ordem de colunas do ALTER da migração
+  -- pós-go-live. NULL preserva as trocas anteriores a essa regra.
+  venda_id INTEGER REFERENCES vendas(id),
+
   CHECK (diferenca_status <> 'paga' OR diferenca_paga_em IS NOT NULL)
 );
 
@@ -1195,6 +1300,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_gar_troca_unica
   ON garantia_trocas(garantia_id);
 CREATE INDEX IF NOT EXISTS idx_gar_troca_dif
   ON garantia_trocas(diferenca_status, diferenca_paga_em);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_gar_troca_venda
+  ON garantia_trocas(venda_id);
 
 -- ─── feriados, num lugar só
 -- O prazo da garantia é em DIAS ÚTEIS. Sábado e domingo o calendário
