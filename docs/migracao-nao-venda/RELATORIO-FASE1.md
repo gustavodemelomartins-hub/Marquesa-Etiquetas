@@ -17,8 +17,8 @@ O pedido fala em "Stephanie Marques". Em produção o cadastro é
 Isso não é detalhe ortográfico: existem **outros nove cadastros com sobrenome
 Marques** que são clientes legítimas, e um cadastro `Stephany Abreu` que é
 outra pessoa. Um filtro por `LIKE '%marques%'` ou `LIKE '%steph%'` pegaria
-R$ 3.836,51 de venda real de terceiros. A migração tem que endereçar
-**`cliente_id`**, nunca nome.
+**R$ 3.989,51 lançados / R$ 3.920,51 pagos** de venda real de terceiros. A
+migração tem que endereçar **`cliente_id`**, nunca nome.
 
 | Não tocar (clientes reais) | id | linhas | valor |
 |---|---|---|---|
@@ -157,6 +157,48 @@ sinalizo):
 | `h#1522` | 2025-05-02 | Ana Victoria (#73) | R$ 79,00 | `Maleta (Ganhadora do Sorteio Dia das Mães)` |
 
 ---
+
+## 5.1 Ensaio antes/depois — 14 critérios, todos verdes
+
+`ensaio-antes-depois.py` copia o dump de produção, aplica as 37
+reclassificações do jeito exato que a rota oficial as grava, mede tudo de
+novo, tenta rodar uma segunda vez e depois desfaz. Produção não é tocada em
+momento nenhum.
+
+```
+--- ANTES
+  faturamento=R$ 128780.71   vendas=711  pecas=1391  tickets=681
+  razao: produtos=1487 movimentos=1487 (n=1428)  linhas_historico=1375
+
+--- DEPOIS (37 reclassificacoes aplicadas)
+  faturamento=R$ 127680.71   vendas=681  pecas=1357  tickets=664
+  razao: produtos=1487 movimentos=1487 (n=1428)  linhas_historico=1375
+
+  [OK] faturamento cai exatamente R$ 1100,00     128780.71 -> 127680.71
+  [OK] vendas caem 30                            711 -> 681
+  [OK] pecas vendidas caem 34                    1391 -> 1357
+  [OK] tickets caem 17                           681 -> 664
+  [OK] estoque intacto (nenhuma baixa dupla)     produtos=1487 movimentos=1487 n=1428
+  [OK] razao contabil fecha                      1487 == 1487
+  [OK] nenhuma linha historica apagada           1375
+  [OK] SKUs e datas identicos (impressao)        37 linhas byte a byte
+  [OK] 9 Marques legitimos intocados             R$ 3920.51 em 28 vendas
+  [OK] zero SKU divergente                       0 divergentes
+  [OK] nenhum outro cliente afetado              0 fora dos alvos
+  [OK] indice unico barra rodada repetida        0 insercoes duplicadas aceitas
+
+--- APOS ROLLBACK
+  faturamento=R$ 128780.71   vendas=711  pecas=1391  tickets=681
+  [OK] rollback devolve os numeros exatos        R$ 128780.71 / 711 vendas
+  [OK] rollback nao devolve peca ao estoque      movimentos=1487
+
+TODOS OS CRITERIOS PASSARAM
+```
+
+Isto cobre, com número, os critérios de validação pedidos: nenhuma peça
+duplicada, nenhuma baixa executada duas vezes, SKUs corretos, Sthefany e
+Brinde fora da venda real, estoque coerente, histórico rastreável, dashboards
+sem esses valores, e nenhum cliente legítimo afetado.
 
 ## 6. Drift DEV × PROD × repositório
 
