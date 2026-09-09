@@ -207,7 +207,11 @@ console.log('\n=== 4. o modal de venda tem observação e situação do pagament
   await pg.fill('#vd-cliente', CLIENTE);
   await pg.waitForTimeout(500);
   await pg.click('#vdConfirm');
-  await pg.waitForTimeout(2000);
+  await pg.waitForFunction(
+    () => !document.getElementById('vendaOverlay')?.classList.contains('show'),
+    null,
+    { timeout: 15000 },
+  );
 
   const lista = await api('GET', `/api/vendas?data=${hoje}`);
   const ultima = (lista.corpo ?? []).filter((v) => v.observacao === 'Feira').pop();

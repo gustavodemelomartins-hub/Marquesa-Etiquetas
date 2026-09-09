@@ -2,6 +2,114 @@
 
 Data: 2026-09-08
 
+## Retomada da release dos Pacotes 0–4 — 2026-09-08
+
+Esta conversa retomou exatamente o commit
+`053e4f0b3ed28d34fde603091e92c9850ce37571`, na branch
+`codex/especificacao-mestra-2026-09-07`, e tentou cumprir o fluxo completo de
+alinhamento local + release para PROD.
+
+### Resultado desta retomada
+
+- **PROD não foi alterada.** Não houve push, merge, migration remota, deploy,
+  secret, sync forçado, rollback nem escrita no D1/Nuvemshop.
+- `main` e o GitHub remoto continuam em
+  `2e5aaf1e524c495a401075460dccf28cf53959af`; a release candidata é linear e
+  está dois commits à frente: `6715492` (Pacotes 0–4) + `053e4f0`
+  (governança production-first).
+- O frontend público respondeu HTTP 200 e ainda tem a publicação de
+  06/09/2026. O Worker público respondeu HTTP 200 em `/api/health`, com CORS
+  para `https://gustavodemelomartins-hub.github.io`.
+- O commit exato do Worker, deployments, bindings efetivos, schema/contagens
+  do D1 e bookmark não puderam ser confirmados remotamente: a autenticação do
+  Wrangler expirou e o ambiente é não interativo.
+
+### Governança efetiva nesta nova sessão
+
+O teste de escrita foi repetido sem assumir o resultado anterior. O editor
+autorizado do workspace recebeu falha ao criar um sentinela tanto em
+`.codex/` quanto em `.agents/`.
+
+Há duas camadas externas simultâneas:
+
+1. o sandbox desta sessão monta explicitamente `.codex/` e `.agents/` como
+   somente leitura;
+2. as ACLs dos dois diretórios ainda contêm ACEs `Deny` antigas para os SIDs
+   `S-1-5-21-1546791605-2159425086-1137788284-981849538` e
+   `S-1-5-21-3041257493-1339505290-2378085003-1148381291`.
+
+Nenhum contorno foi tentado. Resultado das provas:
+
+| Prova | Resultado nesta retomada |
+|---|---|
+| `scripts/governance-local-audit.mjs` | **falhou: 16 divergências** |
+| `scripts/governance-versioned.test.mjs` | 27/27 |
+| `.claude/hooks/protect-production.test.mjs` | 23/23 |
+
+As 16 divergências são as mesmas já enumeradas abaixo: caminho absoluto,
+matriz human-only do hook Codex, oito skills divergentes e o
+`database-guardian` apontando para o banco congelado. A meta de zero não pode
+ser atingida enquanto esses diretórios estiverem somente leitura. Pela regra
+explícita de `docs/SECURITY.md`, a release não pode seguir com adaptadores
+locais conflitantes.
+
+O writeback do vault privado também foi tentado pelo mecanismo autorizado e
+recusado pelo auto-review externo como ampliação de autonomia. Nenhum
+workaround foi usado. `DEC-2026-006`, `Seguranca-Producao.md` e o parágrafo de
+segurança de `Estado-Atual.md` continuam desatualizados e devem ser
+reconciliados quando a plataforma aceitar explicitamente a decisão humana de
+08/09/2026.
+
+### Preflight e validação local concluídos
+
+- `python src/build.py`: passou; o `dashboard.html` gerado permaneceu
+  reprodutível.
+- frontend: 190/190 testes e build TypeScript + Vite com 96 módulos.
+- Pacote 1 Playwright: passou, inclusive mobile e console.
+- Pacote 2: API (38 verificações) e Playwright (6 capturas descartáveis)
+  passaram; razão de estoque fechou após venda e estorno.
+- Pacote 3: API e Playwright (5 capturas descartáveis) passaram.
+- Pacote 4: API e Playwright passaram; desktop/mobile sem rolagem horizontal,
+  zero erro de console e nenhuma escrita externa na Nuvemshop.
+- regressão financeira completa (`pacote-vendas-test.mjs`): passou até
+  `produtos.qtd == SUM(movimentos.qtd)` e nenhum saldo negativo.
+- regressão de Vendas/Clientes no navegador: passou após trocar uma espera
+  fixa de 2 segundos por espera pelo fechamento real do modal em
+  `src/pacote-vendas-ui-test.mjs`; a aplicação não foi alterada.
+- schema atual em D1 local novo: 132 comandos.
+- upgrade local `schema de main` → `migracao-pos-golive-1.sql` →
+  `migracao-pacote-2.sql` → `migracao-publicacao-catalogo.sql`: passou.
+  `sku_comercial`, `catalogo_publicacoes` e seu índice existem;
+  `idx_vendas_externo` foi preservado; `PRAGMA foreign_key_check` ficou vazio.
+
+### Estado das migrations e rollback
+
+Nenhuma migration foi executada em PROD e nenhum backup/bookmark de release
+foi criado. As duas migrations candidatas continuam, nesta ordem:
+
+1. `api/migracao-pacote-2.sql`;
+2. `api/migracao-publicacao-catalogo.sql`.
+
+Antes de aplicá-las, a próxima sessão precisa confirmar em
+`marquesa-db-prod` (`51dd629b-52dc-46d0-a1af-fa37f0a79533`) o schema real,
+o pré-requisito pós-go-live, a ausência/compatibilidade de `MONTE-COLAR` e as
+contagens. O rollback preferencial continua sendo voltar o código e manter o
+schema aditivo. Não executar automaticamente
+`migracao-publicacao-catalogo-rollback.sql`: ele contém `DROP TABLE` e perde
+rascunhos/aprovações.
+
+### Próxima ação exata após esta retomada
+
+1. abrir uma sessão em que `.codex/` e `.agents/` sejam graváveis;
+2. alinhar os 16 itens e provar auditoria local com zero divergências;
+3. renovar `wrangler login`/credencial sem expor o token;
+4. consultar deployments/bindings e o D1 PROD real;
+5. criar export + bookmark e registrar contagens pré-release;
+6. aplicar as duas migrations revisadas, publicar `6715492` + `053e4f0` e
+   executar os smoke tests pós-deploy.
+
+Pacote 5 e a reestruturação arquitetural continuam fora do escopo.
+
 ## Resultado executivo
 
 A governança **versionada** foi simplificada e está coerente: production-first,
