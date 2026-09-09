@@ -1733,7 +1733,7 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
   <section class="view" id="view-vendas-painel"></section>
 
   <!-- ============ VENDAS · SAÍDAS SEM FATURAMENTO ============ -->
-  <!-- §30. Brinde, uso próprio e diferença de inventário. Mora dentro de
+  <!-- §30. Brinde, uso próprio, perda/diferença de inventário e sorteio. Mora dentro de
        Vendas porque é aqui que ela procura "para onde foi a peça", e usa a
        MESMA linguagem da lista de vendas (.invrow, .kpi, .panel) — é a
        mesma pergunta, com outra resposta. -->
@@ -1857,7 +1857,7 @@ tr.foco>td:first-child{box-shadow:inset 3px 0 0 var(--bordo)}
 
 <!-- ============ SAÍDA SEM FATURAMENTO ============ -->
 <!-- §30. Mesmo overlay, mesmo modal, mesmos campos do resto do sistema:
-     brinde, uso próprio e diferença de inventário não merecem uma
+     brinde, uso próprio, perda/diferença de inventário e sorteio não merecem uma
      linguagem visual própria — merecem estar num lugar próprio. -->
 <div class="overlay center" id="saidaOverlay" onclick="if(event.target===this)closeSaidaForm()">
   <div class="modal" style="max-width:520px">
@@ -8982,7 +8982,7 @@ function blocoHistoricoDoDia(){
    §30. A peça saiu do estoque e NÃO foi vendida.
 
    O sistema assumia "saiu do estoque = venda". Brinde do Dia das Mães,
-   retirada pessoal e diferença de inventário entravam como CLIENTE e como
+   retirada pessoal, diferença de inventário e peças de sorteio entravam como CLIENTE e como
    VENDA — e cada uma delas inflava faturamento, ticket médio, peças
    vendidas e o ranking de clientes com dinheiro que nunca existiu.
 
@@ -8997,6 +8997,7 @@ const SAIDA_TIPOS=[
   {v:'brinde',      r:'Brinde',                      ex:'Dia das Mães, festa junina, ação promocional'},
   {v:'uso_proprio', r:'Uso próprio',                 ex:'retirada pessoal'},
   {v:'perda',       r:'Diferença de inventário / Perda', ex:'PERDIDO, diferença sem origem conhecida'},
+  {v:'sorteio',     r:'Sorteio',                      ex:'peça destinada a sorteio'},
 ];
 const saidaRotulo=(t)=>(SAIDA_TIPOS.find(x=>x.v===t)||{}).r||t;
 
@@ -9020,7 +9021,7 @@ function renderSaidas(){
   if(saidasDados.erro){ v.innerHTML=avisoBackendAntigo(saidasDados); return; }
 
   const linhas=saidasDados.saidas||[];
-  const r=saidasDados.resumo||{brinde:0,uso_proprio:0,perda:0,total:0,estornadas:0};
+  const r=saidasDados.resumo||{brinde:0,uso_proprio:0,perda:0,sorteio:0,total:0,estornadas:0};
 
   v.innerHTML=`
     <div class="kpis">
@@ -9038,6 +9039,11 @@ function renderSaidas(){
         <div class="k-lbl">Inventário / Perda</div>
         <div class="k-num">${fmtN(r.perda||0)}</div>
         <div class="k-sub">diferença de contagem</div>
+      </div>
+      <div class="kpi k-casa">
+        <div class="k-lbl">Sorteio</div>
+        <div class="k-num">${fmtN(r.sorteio||0)}</div>
+        <div class="k-sub">peças destinadas a sorteio</div>
       </div>
     </div>
 
@@ -9077,7 +9083,7 @@ function renderSaidas(){
           </div>`).join('')
         :`<div class="empty" style="padding:40px 16px">
             <h3>Nenhuma saída registrada${saidasFiltro?' deste tipo':''}</h3>
-            <p>Brinde, retirada pessoal e diferença de inventário entram aqui — e ficam
+            <p>Brinde, retirada pessoal, diferença de inventário e sorteio entram aqui — e ficam
                fora do faturamento, do ticket médio e do ranking de clientes.</p>
             <button class="btn btn-gold" style="margin-top:14px" onclick="openSaidaForm()">+ Registrar saída</button>
           </div>`}
@@ -9372,6 +9378,7 @@ function blocoSaidasSemFaturamento(s){
           ${linha('brinde','Brinde')}
           ${linha('uso_proprio','Uso próprio')}
           ${linha('perda','Diferença de inventário / Perda')}
+          ${linha('sorteio','Sorteio')}
         </div>
         <div class="hint" style="margin-top:12px">${esc(s.regra)}</div>
         <div class="actbar" style="margin-top:12px">

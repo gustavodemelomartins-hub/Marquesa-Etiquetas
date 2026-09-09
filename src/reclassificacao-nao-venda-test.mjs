@@ -6,6 +6,7 @@ import {
   proporClassificacao,
 } from '../api/src/auditoria-historico.js';
 import { TIPOS_SAIDA } from '../api/src/saidas.js';
+import { efeitoDe, TIPOS_SEM_FATURAMENTO } from '../api/src/estoque.js';
 
 const linha = (observacao, nome = 'Inventário') => ({
   cliente_nome_original: nome,
@@ -18,7 +19,8 @@ assert.equal(duvida.classe, 'perda');
 assert.equal(duvida.confianca, 'baixa');
 assert.match(duvida.motivo, /dúvida/i);
 assert.ok(!TIPOS_SAIDA.has('acho_que_foi_vendido'));
-assert.deepEqual([...TIPOS_SAIDA].sort(), ['brinde', 'perda', 'uso_proprio']);
+assert.deepEqual([...TIPOS_SAIDA].sort(), ['brinde', 'perda', 'sorteio', 'uso_proprio']);
+assert.deepEqual([...TIPOS_SEM_FATURAMENTO].sort(), ['brinde', 'perda', 'sorteio', 'uso_proprio']);
 
 const confirmada = proporClassificacao(linha('PERDIDO'), PADROES_AUDITORIA);
 assert.equal(confirmada.classe, 'perda');
@@ -28,7 +30,9 @@ const sorteio = proporClassificacao(
   linha('Sorteio em evento', 'Pessoa sem regra confirmada'),
   PADROES_AUDITORIA,
 );
-assert.equal(sorteio, null, 'Sorteio não pode ganhar classe por inferência');
+assert.equal(sorteio.classe, 'sorteio');
+assert.equal(sorteio.confianca, 'alta');
+assert.equal(efeitoDe('sorteio', 2), -2, 'Sorteio reduz estoque');
 
 function bancoFalso() {
   const estado = {
@@ -111,7 +115,16 @@ assert.equal(rollback.ok, true);
 assert.equal(rollback.estoqueAlterado, false);
 assert.equal(db.estado.reclassificacao, null);
 
-const depoisDoRollback = await aplicarReclassificacao(db, { decisoes: [decisao], usuario: 'teste' });
+const depoisDoRollback = await aplicarReclassificacao(db, {
+  decisoes: [{
+    ...decisao,
+    classe: 'sorteio',
+    confianca: 'alta',
+    motivo: 'Peça destinada a sorteio.',
+  }],
+  usuario: 'teste',
+});
 assert.equal(depoisDoRollback.ok, true);
+assert.equal(db.estado.reclassificacao.classe_nova, 'sorteio');
 
 console.log('Reclassificação não-venda: regra, idempotência e rollback OK');

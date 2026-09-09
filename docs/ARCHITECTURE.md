@@ -66,7 +66,7 @@ Cloudflare Worker, ES modules, sem dependências em runtime.
 | [api/src/nuvemshop-oauth.js](../api/src/nuvemshop-oauth.js) | Troca do código de autorização por token (app de parceiro) |
 | [api/src/inventario.js](../api/src/inventario.js) | Contagem física: abrir, contar, concluir, ajustar |
 | [api/src/comissao.js](../api/src/comissao.js) | Faixas de comissão do acerto de maleta |
-| [api/src/saidas.js](../api/src/saidas.js) | §31 — brinde, uso próprio e perda: sai do estoque, **não** é venda |
+| [api/src/saidas.js](../api/src/saidas.js) | §31 — brinde, uso próprio, perda e sorteio: sai do estoque, **não** é venda |
 | [api/src/garantias.js](../api/src/garantias.js) | §32 — garantia por ITEM da compra, troca e a diferença |
 | [api/src/dias-uteis.js](../api/src/dias-uteis.js) | O prazo em dias úteis, com os feriados vindos da tabela |
 | [api/src/historico-dia.js](../api/src/historico-dia.js) | §33 — o dia inteiro, de todas as origens, sem duplicata |

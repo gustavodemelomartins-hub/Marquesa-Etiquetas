@@ -1214,7 +1214,7 @@ Provado em `src/pacote-vendas-test.mjs`, cenários A e B.
 
 ### 31. Peça que sai do estoque nem sempre é venda
 
-Quatro saídas, e só a primeira é venda:
+Cinco saídas, e só a primeira é venda:
 
 | Saída | Estoque | Venda | Cliente | Faturamento |
 |---|---|---|---|---|
@@ -1222,8 +1222,9 @@ Quatro saídas, e só a primeira é venda:
 | Brinde | baixa | **não** | **não** | **não** |
 | Uso próprio | baixa | **não** | **não** | **não** |
 | Diferença de inventário / perda | ajusta | **não** | **não** | **não** |
+| Sorteio | baixa | **não** | **não** | **não** |
 
-Brinde, uso próprio e diferença de inventário moram em
+Brinde, uso próprio, diferença de inventário/perda e sorteio moram em
 `saidas_sem_faturamento`, **não** em `vendas`. Não é preferência de
 organização: a linha que não está em `vendas` é invisível por construção
 para toda soma de venda. Pendurá-las numa venda obrigaria cada consulta de
@@ -1236,7 +1237,7 @@ movimentar` como qualquer outro movimento, e `movimento_id` amarra a linha
 ao movimento que a explica.
 
 Só a diferença de inventário pode **somar** peça (`sentido='entrada'`):
-brinde e uso próprio sempre saem. Saída sem motivo nem observação é recusada
+brinde, uso próprio e sorteio sempre saem. Saída sem motivo nem observação é recusada
 — saída sem explicação não se audita seis meses depois, a mesma regra do
 desconto em §27.
 
@@ -1244,7 +1245,7 @@ desconto em §27.
 que devolve a peça e mantém a linha no histórico, com data e motivo.
 Estornar duas vezes é recusado.
 
-Provado em `src/pacote-vendas-test.mjs`, cenários D, E, F e K.
+Provado em `src/pacote-vendas-test.mjs`, cenários D, E, E.2, F e K.
 
 ### 32. Garantia é do ITEM da compra — e troca não é venda nova
 
@@ -1374,6 +1375,10 @@ durante Inventário for confirmada como perda ou peça ausente, o fato é uma
 saída sem faturamento de tipo `perda`, relacionada ao inventário. "ACHO QUE
 FOI VENDIDO" não é tipo nem motivo estrutural: permanece como observação do
 registro. A confirmação humana resolve o caso; o texto sozinho não resolve.
+
+“Sorteio” é diferente: quando o texto afirma que a peça foi destinada a
+sorteio, a classe é `sorteio`. Isso não muda a regra de “ACHO...”, que continua
+uma observação de dúvida e nunca uma categoria.
 
 Uso próprio depende de um NOME de pessoa, e nome não é identidade (§2): a
 lista de nomes vem na chamada. Vazia, nenhuma linha é proposta como uso

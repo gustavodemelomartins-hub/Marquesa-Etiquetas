@@ -10,7 +10,7 @@
 
 Esse snapshot pode avançar antes de bancos existentes. Portanto, “existe em `schema.sql`” significa estado desejado de instalação limpa; só um ledger de aplicação ou introspecção autorizada prova um banco concreto.
 
-## Manifesto dos 26 arquivos
+## Manifesto dos 27 arquivos
 
 | Migration | Papel | Repetição/risco | Evidência versionada sobre aplicação |
 |---|---|---|---|
@@ -29,6 +29,7 @@ Esse snapshot pode avançar antes de bancos existentes. Portanto, “existe em `
 | `migracao-publicacao-catalogo-rollback.sql` | remove publicação interna | **destrutiva: DROP** | rollback manual somente; nunca runner automático |
 | `migracao-reconciliacao.sql` | sessões/itens de reconciliação | `IF NOT EXISTS`; aditiva | documento do motor diz não aplicada em produção naquele baseline |
 | `migracao-saidas-sem-faturamento.sql` | brindes/uso próprio/ajustes | aditiva | GO_LIVE Phase 2 registra aplicação |
+| `migracao-sorteio-saida-sem-faturamento.sql` | adiciona `sorteio` aos CHECKs de saída/reclassificação | **destrutiva no schema: reconstrói duas tabelas** | proposta local; não executada em produção |
 | `migracao-sync-seco.sql` | marca execução seca | não idempotente na 2ª execução | sequência histórica; estado remoto não provado aqui |
 | `migracao-sync.sql` | histórico/config do sync | aditiva | ledger remoto ausente |
 | `migracao-variacoes-locais.sql` | estrutura local de variação | aditiva | sequência histórica; ledger remoto ausente |
@@ -50,8 +51,9 @@ nos commits `87732d3` e `0a9df94`, é **data correction / reconciliation
 operation**, não schema migration. O schema necessário já pertence a
 `migracao-saidas-sem-faturamento.sql`; um manifesto com IDs de produção não
 entra neste inventário de 26 migrations nem deve ser versionado. A operação
-permanece não executada nesta integração e ainda depende de uma decisão humana
-sobre o caso “Sorteio”.
+permanece não executada nesta integração. A decisão posterior classifica
+“Sorteio” como saída sem faturamento própria, mas não autoriza aplicar dados
+históricos nem a migration em produção.
 
 ## Sequenciamento e segurança
 

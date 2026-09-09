@@ -23,6 +23,7 @@ const EFEITO = {
   dano: -1,
   furto: -1,
   brinde: -1,
+  sorteio: -1,
   /* §30: retirada pessoal. Sai do estoque exatamente como um brinde sai —
      o que muda não é o efeito, é o que a saída SIGNIFICA: ela não é venda,
      não tem cliente e não entra em faturamento nenhum. Existe como tipo
@@ -37,7 +38,7 @@ const EFEITO = {
 /** Os tipos que representam saída SEM faturamento (§30). Nenhum deles é
  *  venda; nenhum deles pode aparecer numa soma de dinheiro. Está aqui, e
  *  não espalhado em cada consulta, para a lista ter um dono só. */
-export const TIPOS_SEM_FATURAMENTO = new Set(['brinde', 'uso_proprio', 'perda']);
+export const TIPOS_SEM_FATURAMENTO = new Set(['brinde', 'uso_proprio', 'perda', 'sorteio']);
 
 export function efeitoDe(tipo, quantidade) {
   const sinal = EFEITO[tipo];

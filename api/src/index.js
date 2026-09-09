@@ -939,8 +939,8 @@ async function rotear(request, env, contador = null) {
       }
 
       // ─────────────────────────────────── §30: saídas sem faturamento
-      // Brinde, uso próprio e diferença de inventário. Saem do estoque e
-      // não são venda: nenhuma delas cria cliente, venda ou faturamento.
+      // Brinde, uso próprio, perda/diferença de inventário e sorteio. Saem
+      // do estoque e não são venda: nenhuma cria cliente, venda ou faturamento.
       if (path === '/api/saidas' && met === 'GET') {
         return json(await listarSaidas(db, {
           de: url.searchParams.get('de'), ate: url.searchParams.get('ate'),

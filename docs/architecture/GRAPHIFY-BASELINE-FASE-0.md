@@ -64,3 +64,17 @@ continuou sem endpoints ausentes, arestas penduradas, duplicatas exatas ou
 colapsos direcionais; permanecem os mesmos 4 self-loops já tratados como
 alerta. O mapa privado passou a classificar o `package.json` raiz como manifesto
 de tooling.
+
+## Checkpoint da categoria Sorteio — 2026-09-09
+
+Após incorporar `sorteio` ao domínio de saídas sem faturamento, o Graphify foi
+regenerado localmente no checkpoint `33a7cef`. O RAW passou a 5.031 nós, 10.417 arestas e 304
+comunidades. O Lite passou a 523 entradas, 16 domínios, 157 arquivos, 60 hubs,
+13 tabelas, 3 integrações, 258 relações e 16 dependências externas (323.416
+bytes na primeira geração e 323.422 bytes no checkpoint Git).
+
+A classificação final resultou em 1.627 nós vendor, 1.107 de domínio, 2.228
+supporting, 27 duplicatas e 42 tabelas. O diagnóstico continuou com zero
+endpoints ausentes, arestas penduradas, duplicatas exatas ou colapsos; os 4
+self-loops conhecidos permanecem como alerta de qualidade. A geração foi
+local, sem LLM/rede e sem acesso a produção.

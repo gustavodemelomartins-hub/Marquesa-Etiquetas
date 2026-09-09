@@ -183,12 +183,12 @@ história comercial sem criar baixa nem devolução posterior. O índice
 conter mais de um colar com a mesma base.
 
 ### `saidas_sem_faturamento`
-§31. Brinde, uso próprio e diferença de inventário. Elas **não** estão em
+§31. Brinde, uso próprio, diferença de inventário/perda e sorteio. Elas **não** estão em
 `vendas`, e isso é a regra, não a organização: a linha que não está em
 `vendas` é invisível por construção para toda soma de venda. Pendurá-las
 numa venda obrigaria cada consulta de faturamento a lembrar de excluí-las.
 
-`tipo` é `brinde | uso_proprio | perda`; `sentido` é `saida` por padrão e só
+`tipo` é `brinde | uso_proprio | perda | sorteio`; `sentido` é `saida` por padrão e só
 `perda` pode ser `entrada` (a sobra de uma contagem). `movimento_id` amarra
 a linha ao movimento que baixou o estoque — a razão contábil continua
 fechando sem exceção.

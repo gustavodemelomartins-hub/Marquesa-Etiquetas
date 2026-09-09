@@ -112,7 +112,7 @@ const DATA_FATURAMENTO_HISTORICO = `CASE
   WHEN ho.cobranca_status = 'paga' AND ho.paga_em IS NOT NULL THEN date(ho.paga_em)
   ELSE vh.data END`;
 
-/* §30 — a linha histórica reclassificada como brinde, uso próprio ou perda
+/* §30 — a linha histórica reclassificada como brinde, uso próprio, perda ou sorteio
    deixa de ser venda. A venda inteira sai do CTE quando NENHUM item dela
    continua sendo venda; sobrando um item comercial, ela fica (e os itens
    reclassificados saem por `FILTRO_ITEM_HISTORICO`).
@@ -250,7 +250,7 @@ export const FILTRO_ITEM_HISTORICO = `
     SELECT 1 FROM json_each(COALESCE(ho.linhas_excluidas_json, '[]')) ex
      WHERE CAST(ex.value AS TEXT)=CAST(h.origem_linha AS TEXT)
   )
-  /* §30: o item reclassificado como brinde, uso próprio ou perda deixa de
+  /* §30: o item reclassificado como brinde, uso próprio, perda ou sorteio deixa de
      ser venda. Sai daqui pelo mesmo mecanismo que a linha excluída por uma
      operação histórica já saía — a linha da planilha continua no banco,
      intacta; o que muda é só a soma que a alcança. */
@@ -415,7 +415,7 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
       regraAgrupamento: REGRA_DESCRITA,
       regraFaturamento: 'faturamento é recortado pela DATA DO PAGAMENTO; '
         + 'contagem de vendas, peças e clientes, pela data da venda. '
-        + 'Brinde, uso próprio e perda não entram em nenhum dos dois.',
+        + 'Brinde, uso próprio, perda e sorteio não entram em nenhum dos dois.',
     },
   };
 }
@@ -1384,7 +1384,7 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
       porTipo: Object.fromEntries((saidasMes.results ?? [])
         .map((r) => [r.tipo, { pecas: Number(r.pecas ?? 0), lancamentos: Number(r.lancamentos ?? 0) }])),
       pecas: (saidasMes.results ?? []).reduce((s2, r) => s2 + Number(r.pecas ?? 0), 0),
-      regra: 'brinde, uso próprio e diferença de inventário saem do estoque e '
+      regra: 'brinde, uso próprio, diferença de inventário e sorteio saem do estoque e '
         + 'não entram em faturamento, ticket médio, peças vendidas nem no ranking de clientes.',
     },
     contasReceber,

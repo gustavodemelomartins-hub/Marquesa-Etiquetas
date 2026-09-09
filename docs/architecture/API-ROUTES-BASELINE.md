@@ -257,7 +257,7 @@ Proprietário: Estoque para o movimento; Vendas/Saídas para o caso de uso. Tabe
 | Contrato | Classe | Entrada/efeito principal |
 |---|---:|---|
 | `GET /api/saidas?de=&ate=&tipo=&estornadas=&limite=&offset=` | R | Lista. |
-| `POST /api/saidas` | C/H | Brinde/uso próprio/diferença via razão; sem venda. |
+| `POST /api/saidas` | C/H | Brinde/uso próprio/perda/sorteio via razão; sem venda. |
 | `POST /api/saidas/:id/estornar` | C/H | Contrapartida; não apaga. |
 
 ### Garantias e trocas

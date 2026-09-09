@@ -74,6 +74,23 @@ estoque, reduziu o faturamento exatamente nos R$ 179 previstos e o rollback
 devolveu o valor. Ao final, a razão fechou e não havia saldo negativo. Nenhum
 D1 remoto, Nuvemshop real, deploy ou navegador foi acessado.
 
+## Checkpoint da categoria Sorteio — 2026-09-09
+
+A decisão humana foi caracterizada sem abrir nova fase arquitetural. O teste
+puro de reclassificação confirmou `sorteio` como o quarto tipo de saída sem
+faturamento e efeito negativo na razão de estoque. O pacote E2E local confirmou
+que registrar a saída reduz uma peça, não cria venda e não altera faturamento;
+o filtro `tipo=sorteio` e o resumo por categoria também retornaram o registro.
+
+Sobre D1 e Worker estritamente locais no ambiente `staging`
+(`marquesa-db-dev`), `src/pacote-vendas-test.mjs` e
+`src/reclassificacao-nao-venda-test.mjs` passaram. `npm run test:fast` passou
+3/3 e `npm run test:domain` passou 2/2, mantendo Vitest em 190/190. Depois que
+template e artefato legado foram incluídos no mesmo checkpoint Git, `npm test`
+passou 6/6, inclusive build React e paridade do dashboard. Nenhuma migration
+destrutiva, D1 remoto, Nuvemshop real, deploy ou alteração de PROD foi
+executada.
+
 ## Política de expansão
 
 Começar pelo nível mínimo. Em mudança de domínio, executar testes puros + integração focada; em mudança de UI, acrescentar Playwright; em release, usar `npm test` e os gates adicionais exigidos pelo risco. Migration, produção e reconciliação real continuam sujeitos aos protocolos específicos e nunca são autorizados por este runner.

@@ -35,30 +35,30 @@ prova o histórico operacional completo da saída.
 
 ## Decisão implementada no conhecimento
 
-- Brinde, uso próprio e perda continuam sendo os únicos tipos estruturais de
-  saída sem faturamento.
+- Brinde, uso próprio, perda e sorteio são os tipos estruturais de saída sem
+  faturamento.
 - Diferença negativa encontrada em Inventário e confirmada como perda/peça
   ausente é `perda`, relacionada ao inventário.
 - “ACHO QUE FOI VENDIDO” é observação, não tipo nem motivo estrutural. A frase
   isolada continua sem autorizar aplicação automática; a confirmação humana é
   que decide o fato.
-- O caso correspondente dentro das 37 propostas está decidido. O universo
-  continua com 37 propostas: 35 tinham classificação automática forte, o caso
-  de baixa confiança “ACHO...” foi resolvido pela decisão humana atual e 1
-  permanece pendente.
+- O caso “ACHO...” dentro das 37 propostas permanece de baixa confiança até a
+  confirmação da baixa; quando confirmado como perda/diferença, a classe é
+  `perda`.
 
-## Pendência humana
+## Decisão posterior sobre “Sorteio”
 
-O caso descrito como “Sorteio” permanece sem classe aprovada. Pode representar
-brinde, uso próprio ou venda real; nenhuma dessas leituras será escolhida por
-inferência. Enquanto estiver pendente, ele fica fora de qualquer futuro
-manifesto aplicável.
+Na integração original, “Sorteio” ficou pendente. A decisão humana posterior de
+09/09/2026 encerrou essa pendência: peça destinada a sorteio é saída sem
+faturamento `sorteio`, distinta de `brinde`, e pode ser filtrada e relatada por
+essa categoria.
 
 ## Suporte do modelo atual
 
 | Requisito | Situação atual |
 |---|---|
 | tipo `perda` | suportado |
+| tipo `sorteio` | suportado no código e no schema de instalação nova; banco existente exige migration de CHECK ainda não aplicada |
 | motivo | suportado em `saidas_sem_faturamento` e `historico_reclassificacao` |
 | observação | suportada na saída e preservada na linha histórica de origem |
 | origem de inventário | parcial: movimento novo aceita origem `inventario`, mas reclassificação histórica não aponta para sessão/item de inventário |
@@ -78,7 +78,7 @@ própria de schema/data e sem UI nesta integração.
 | `auditar-prod.py` | `87732d3` | auditoria de dump | script operacional one-off | hardcodes de dados reais | **D**: preservar no commit de origem |
 | `conferencia.sql` | `87732d3` | conferência read-only | SQL operacional | espera todas as propostas aplicadas | **C**: incorporar critérios reproduzíveis em teste e registrar aqui os demais como lacunas |
 | `gerar-manifesto.py` | `87732d3` | gerar decisões | script operacional one-off | hardcodes e saída com dados reais | **D**: preservar no commit de origem |
-| `manifesto-nao-venda.json` | `87732d3` | alvos reais | evidência sensível | PII, decisão pendente e hash inconsistente | **E**: não integrar |
+| `manifesto-nao-venda.json` | `87732d3` | alvos reais | evidência sensível | PII e hash inconsistente | **E**: não integrar |
 | `migrar-nao-venda.mjs` | `87732d3` | aplicar pela API | script operacional | autenticação incompatível e aplicação incompleta | **E**: não integrar |
 | `patch-hook-leitura-prod.md` | `87732d3` | proposta de governança | proposta superada | contradiz a política production-first atual | **E**: não integrar |
 | `ensaio-antes-depois.py` | `0a9df94` | prova local | teste/evidência | dump/caminho real e SQL direto | **B**: adaptar a regra/idempotência/rollback para teste hermético e manter os agregados como evidência; os demais critérios continuam sem prova E2E reproduzível |

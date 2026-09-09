@@ -1073,11 +1073,12 @@ CREATE TABLE IF NOT EXISTS saidas_sem_faturamento (
   -- brinde       Dia das Mães, festa junina, ação promocional
   -- uso_proprio  retirada pessoal (a própria Sthefany)
   -- perda        diferença de inventário, peça perdida, quebra sem venda
-  tipo      TEXT NOT NULL CHECK (tipo IN ('brinde', 'uso_proprio', 'perda')),
+  -- sorteio      peça destinada a uma ação de sorteio
+  tipo      TEXT NOT NULL CHECK (tipo IN ('brinde', 'uso_proprio', 'perda', 'sorteio')),
 
   -- Diferença de inventário pode ser para os DOIS lados. `saida` baixa,
-  -- `entrada` devolve — e a segunda só existe para `perda`, porque brinde
-  -- e uso próprio nunca somam peça. A trava está no CHECK lá embaixo.
+  -- `entrada` devolve — e a segunda só existe para `perda`, porque brinde,
+  -- uso próprio e sorteio nunca somam peça. A trava está no CHECK lá embaixo.
   sentido   TEXT NOT NULL DEFAULT 'saida' CHECK (sentido IN ('saida', 'entrada')),
 
   data      TEXT NOT NULL,                       -- YYYY-MM-DD, o dia do fato
@@ -1149,7 +1150,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_ssf_historico
 CREATE TABLE IF NOT EXISTS historico_reclassificacao (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   historico_item_id INTEGER NOT NULL REFERENCES vendas_historico_itens(id),
-  classe_nova   TEXT NOT NULL CHECK (classe_nova IN ('brinde', 'uso_proprio', 'perda')),
+  classe_nova   TEXT NOT NULL CHECK (classe_nova IN ('brinde', 'uso_proprio', 'perda', 'sorteio')),
   confianca     TEXT NOT NULL CHECK (confianca IN ('alta', 'media', 'baixa')),
   motivo        TEXT NOT NULL,             -- por extenso, o que decidiu
   saida_id      INTEGER REFERENCES saidas_sem_faturamento(id),

@@ -1,7 +1,7 @@
 /** §30 — SAÍDAS SEM FATURAMENTO
  *
- *  Brinde, uso próprio e diferença de inventário. As três saem do estoque e
- *  nenhuma delas é venda.
+ *  Brinde, uso próprio, perda/diferença de inventário e sorteio. Todas saem
+ *  do estoque e nenhuma delas é venda.
  *
  *  O defeito que este módulo existe para corrigir: essas saídas entravam
  *  como CLIENTE e como VENDA. "Brinde dia das mães" virou uma cliente no
@@ -10,7 +10,7 @@
  *  ticket médio, peças vendidas, clientes ativos — nasceu contaminado por
  *  dinheiro que nunca entrou.
  *
- *  As regras, que valem para os três tipos:
+ *  As regras, que valem para os quatro tipos:
  *
  *    · baixa o estoque UMA vez, por `estoque.js › movimentar` (§19);
  *    · não cria cliente, não cria venda, não cria contas a receber;
@@ -21,11 +21,12 @@
  */
 import { movimentar, saldosDoSku, componentesDoKit } from './estoque.js';
 
-const TIPOS = new Set(['brinde', 'uso_proprio', 'perda']);
+const TIPOS = new Set(['brinde', 'uso_proprio', 'perda', 'sorteio']);
 const ROTULO = {
   brinde: 'Brinde',
   uso_proprio: 'Uso próprio',
   perda: 'Diferença de inventário / Perda',
+  sorteio: 'Sorteio',
 };
 
 /** O tipo de MOVIMENTO que cada saída produz. Brinde e uso próprio sempre
@@ -37,6 +38,7 @@ function tipoDeMovimento(tipo, sentido) {
   if (sentido === 'entrada') return 'ajuste';
   if (tipo === 'uso_proprio') return 'uso_proprio';
   if (tipo === 'brinde') return 'brinde';
+  if (tipo === 'sorteio') return 'sorteio';
   return 'perda';
 }
 
@@ -78,7 +80,7 @@ function publica(row) {
 export async function registrarSaida(db, corpo = {}) {
   const tipo = String(corpo.tipo ?? '').trim();
   if (!TIPOS.has(tipo)) {
-    return { ok: false, statusHttp: 400, erro: 'Tipo inválido. Use brinde, uso_proprio ou perda.' };
+    return { ok: false, statusHttp: 400, erro: 'Tipo inválido. Use brinde, uso_proprio, perda ou sorteio.' };
   }
   const sentido = String(corpo.sentido ?? 'saida').trim();
   if (sentido !== 'saida' && sentido !== 'entrada') {
@@ -89,7 +91,7 @@ export async function registrarSaida(db, corpo = {}) {
   if (sentido === 'entrada' && tipo !== 'perda') {
     return {
       ok: false, statusHttp: 400,
-      erro: 'Só a diferença de inventário pode somar peça. Brinde e uso próprio sempre saem.',
+      erro: 'Só a diferença de inventário pode somar peça. Brinde, uso próprio e sorteio sempre saem.',
     };
   }
 
@@ -316,7 +318,7 @@ export async function listarSaidas(db, {
   /* O resumo diz, na mesma resposta, quantas PEÇAS saíram sem virar venda.
      É o número que responde "quanto eu dei de brinde este mês" — e ele não
      existe em lugar nenhum das métricas de venda, de propósito. */
-  const resumo = { brinde: 0, uso_proprio: 0, perda: 0, total: 0, estornadas: 0 };
+  const resumo = { brinde: 0, uso_proprio: 0, perda: 0, sorteio: 0, total: 0, estornadas: 0 };
   for (const l of linhas) {
     if (l.estornada) { resumo.estornadas++; continue; }
     const n = l.sentido === 'entrada' ? -l.qtd : l.qtd;

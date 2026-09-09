@@ -866,9 +866,10 @@ comportamento certo não explica por que ele importa.
 3. **C** — preço de tabela 89, negociado 79: o item vale 79, `preco_tabela`
    fica 89, o desconto é derivado, e o **catálogo não muda**. Preço diferente
    sem motivo é recusado;
-4. **D · E · F** — brinde, uso próprio e diferença de inventário: estoque
+4. **D · E · E.2 · F** — brinde, uso próprio, sorteio e diferença de inventário: estoque
    baixa, e faturamento, vendas, peças, clientes, ticket médio e ranking
-   ficam **idênticos**. Saída sem explicação nenhuma é recusada. Só a
+   ficam **idênticos**. O filtro e o resumo preservam `sorteio` como categoria
+   própria. Saída sem explicação nenhuma é recusada. Só a
    diferença de inventário pode somar peça;
 5. **G** — garantia: a venda original continua com o total e os itens dela,
    o estoque comercial **não** é incrementado, o faturamento não muda, e a
