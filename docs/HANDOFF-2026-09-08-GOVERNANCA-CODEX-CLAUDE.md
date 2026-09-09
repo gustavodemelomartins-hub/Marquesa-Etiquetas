@@ -16,10 +16,12 @@ como divergência conhecida (sem qualquer tentativa de alterar `.codex/` ou
 - o frontend público passou a servir os Pacotes 0–4 pelo GitHub Pages;
 - o Worker `marquesa-api` foi publicado com o mesmo bundle do checkpoint
   funcional. A versão explicitamente rotulada foi
-  `ece61956-e0b5-42c2-95da-175b7c077eb5`; a versão efetiva mais recente,
-  `496c263a-be38-45a8-80a8-614cc88cea37`, tem o mesmo script etag
+  `ece61956-e0b5-42c2-95da-175b7c077eb5`. Os pushes seguintes de `main`
+  geraram deployments automáticos sem rótulo; os deployments conferidos
+  (`496c263a-be38-45a8-80a8-614cc88cea37` e
+  `d22a5cd7-5974-48b5-a994-5ac18c8fbaa5`) têm o mesmo script etag
   `c333fc175e1e6b1b6f47c5d9e5881c0554adcb1857a8579852e9863f4d21cb26`
-  e os mesmos bindings;
+  e os mesmos bindings da versão validada;
 - o D1 usado foi inequivocamente `marquesa-db-prod`, id
   `51dd629b-52dc-46d0-a1af-fa37f0a79533`, na conta
   `add18da8ed17f8536c2d30d7119e99eb`;
