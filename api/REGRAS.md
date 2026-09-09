@@ -1365,9 +1365,15 @@ o motivo por extenso — "porque o nome começa com Brinde" é auditável, um
 número de confiança não é.
 
 Só `confianca: 'alta'` é aplicável sozinho, e mesmo ela precisa de uma
-decisão que nomeie a linha: não existe "aplicar todas" no servidor. "ACHO QUE
-FOI VENDIDO" é o caso que prova a regra — a própria planilha está em dúvida,
-e um classificador que escolhesse estaria inventando a resposta.
+decisão que nomeie a linha: não existe "aplicar todas" no servidor. A frase
+"ACHO QUE FOI VENDIDO", isoladamente, continua sendo evidência de dúvida e
+não autoriza classificação automática.
+
+**Decisão humana de 09/09/2026.** Quando uma diferença negativa encontrada
+durante Inventário for confirmada como perda ou peça ausente, o fato é uma
+saída sem faturamento de tipo `perda`, relacionada ao inventário. "ACHO QUE
+FOI VENDIDO" não é tipo nem motivo estrutural: permanece como observação do
+registro. A confirmação humana resolve o caso; o texto sozinho não resolve.
 
 Uso próprio depende de um NOME de pessoa, e nome não é identidade (§2): a
 lista de nomes vem na chamada. Vazia, nenhuma linha é proposta como uso
@@ -1377,6 +1383,12 @@ Aplicar **não apaga** a linha da planilha (§7) e **não mexe em estoque** — 
 linha histórica não movimentou peça, e criar um movimento agora seria uma
 segunda baixa. Aplicar apenas marca a linha como não-venda, e as somas
 comerciais passam a ignorá-la. `DELETE` desfaz.
+
+O valor de custo de uma saída histórica pode precisar de correção posterior.
+Essa correção deve preservar valor anterior, valor novo, motivo, autor e data;
+`preco_unit` e `valor_total` da planilha são valores comerciais e não podem ser
+reutilizados silenciosamente como custo. O modelo para essa correção ainda
+não existe e não é inferido nesta regra.
 
 Provado em `src/pacote-vendas-test.mjs`, cenário L.
 

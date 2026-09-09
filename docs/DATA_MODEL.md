@@ -199,6 +199,19 @@ Corrigir é **estornar**: `estornada`, `estorno_em`, `estorno_motivo` e
 `historico_item_id` com índice único parcial é a trava que impede a auditoria
 histórica de baixar o mesmo estoque duas vezes se rodar de novo.
 
+O modelo atual representa `tipo`, `sentido`, `motivo`, `observacao`, a linha
+histórica de origem e se o estoque já foi refletido. Ele **não** representa de
+forma explícita a sessão/item de inventário que originou uma perda histórica:
+`origem_registro='migracao_historico'` e `historico_item_id` preservam a
+proveniência da planilha, mas não equivalem a uma FK para `inventarios` ou
+`inventario_itens`.
+
+Também não existe campo ou evento de **custo histórico corrigível**.
+`vendas_historico_itens.preco_unit` e `valor_total` são valores comerciais,
+não custo. Uma evolução futura precisa ser aditiva e auditável, guardando
+valor anterior/novo, motivo, autor e data; não deve sobrescrever o bruto da
+planilha nem transformar valor comercial em custo por inferência.
+
 **§36.3 — `estoque_refletido`.** Diz *de quem é a baixa física*. `1`: esta
 linha É a baixa, criou o movimento, e estorná-la devolve a peça. `0`: o
 estoque já tinha sido baixado por outro registro — a linha da planilha, no
@@ -214,6 +227,11 @@ somas comerciais passam a ignorá-la pelo mesmo mecanismo que já ignoravam a
 linha excluída por uma operação histórica. `status` é `proposta | aplicada |
 recusada`; `confianca` e `motivo` viajam junto para a decisão ser auditável
 depois. Índice único por `historico_item_id`: uma linha tem uma decisão.
+
+Hoje `aplicarReclassificacao` grava esta decisão, mas não cria a linha
+correspondente em `saidas_sem_faturamento`. Portanto a exclusão das métricas
+comerciais existe, enquanto o histórico operacional de saída com
+motivo/observação e origem de inventário ainda é uma lacuna explícita.
 
 ### `garantias` / `garantia_eventos` / `garantia_trocas` / `feriados`
 §32. A garantia pertence ao **item** da compra. A identidade é

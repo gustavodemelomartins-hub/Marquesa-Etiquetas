@@ -58,6 +58,22 @@ O Plano Mestre registrava, antes desta fase: governança **27/27**, hook **23/23
 
 Vitest/Vite precisaram ser executados fora da restrição de leitura do sandbox local porque o `esbuild` recebeu “Cannot read directory ../../..”; repetido com as mesmas entradas em ambiente local autorizado, o gate passou. As suítes Node puras emitiram apenas o warning existente `MODULE_TYPELESS_PACKAGE_JSON`; não houve falha. Nenhuma suíte de integração, navegador, D1 remoto ou Nuvemshop real foi executada.
 
+## Checkpoint da integração não-venda — 2026-09-09
+
+Após integrar o workstream `claude/nonrevenue-migration-prep`, o baseline foi
+reexecutado sobre `main`: `test:fast` passou 3/3, `test:domain` passou 2/2 e
+`npm test` passou 6/6. O domínio incluiu o novo teste hermético de
+reclassificação; Vitest permaneceu em 16 arquivos e 190 testes. Builds React e
+legado, governança 27/27 e hard-denies 23/23 continuaram aprovados.
+
+O pacote E2E `src/pacote-vendas-test.mjs` também passou contra Worker e D1
+estritamente locais no ambiente `staging` (`marquesa-db-dev`). No cenário
+fictício L.2, “ACHO QUE FOI VENDIDO” permaneceu com confiança baixa e não
+aplicável automaticamente; a aplicação autorizada não apagou linha nem tocou
+estoque, reduziu o faturamento exatamente nos R$ 179 previstos e o rollback
+devolveu o valor. Ao final, a razão fechou e não havia saldo negativo. Nenhum
+D1 remoto, Nuvemshop real, deploy ou navegador foi acessado.
+
 ## Política de expansão
 
 Começar pelo nível mínimo. Em mudança de domínio, executar testes puros + integração focada; em mudança de UI, acrescentar Playwright; em release, usar `npm test` e os gates adicionais exigidos pelo risco. Migration, produção e reconciliação real continuam sujeitos aos protocolos específicos e nunca são autorizados por este runner.

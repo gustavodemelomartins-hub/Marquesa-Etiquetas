@@ -657,7 +657,10 @@ Entregas:
 - identidade de cliente e vínculo ambíguo;
 - recebíveis como caso de uso/read model explícito;
 - garantias, trocas e eventos;
-- histórico bruto, projeções e correções com ownership documentado.
+- histórico bruto, projeções e correções com ownership documentado;
+- custo histórico corrigível por evento auditável (valor anterior/novo,
+  motivo, autor e data), sem sobrescrever o bruto nem confundir preço de venda
+  com custo.
 
 Gate: fixtures de dinheiro e datas, venda/cancelamento, idempotência externa, histórico imutável e dupla execução.
 

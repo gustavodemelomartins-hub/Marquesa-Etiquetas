@@ -43,6 +43,16 @@ Esse snapshot pode avançar antes de bancos existentes. Portanto, “existe em `
 
 “Ledger remoto ausente” não significa “não aplicada”; significa apenas que a Fase 0 se recusou a inferir estado implantado de arquivos locais. A pasta mistura evolução histórica, migrations candidatas, migrations já absorvidas pelo schema e um rollback destrutivo. Não existe ainda tabela/manifesto executável único que registre versão por banco.
 
+## Operação de dados catalogada fora do fluxo forward
+
+A reclassificação de linhas históricas que não representam venda, auditada
+nos commits `87732d3` e `0a9df94`, é **data correction / reconciliation
+operation**, não schema migration. O schema necessário já pertence a
+`migracao-saidas-sem-faturamento.sql`; um manifesto com IDs de produção não
+entra neste inventário de 26 migrations nem deve ser versionado. A operação
+permanece não executada nesta integração e ainda depende de uma decisão humana
+sobre o caso “Sorteio”.
+
 ## Sequenciamento e segurança
 
 - Instalação limpa usa `schema.sql`; não deve reaplicar cegamente todas as migrations.

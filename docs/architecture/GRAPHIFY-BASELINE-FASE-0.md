@@ -49,3 +49,18 @@ python C:\Users\User\Desktop\Marquesa-AI\07_GRAPH\tools\graphify-lite-generator.
 ```
 
 Os comandos leem o repositório e escrevem apenas artefatos derivados locais/privados; não acessam produção.
+
+## Checkpoint da integração não-venda — 2026-09-09
+
+Depois da documentação e do teste hermético desta integração, o Graphify foi
+regenerado localmente. O RAW passou a 5.023 nós, 10.404 arestas e 314
+comunidades. O Lite permaneceu com 519 entradas, 16 domínios, 156 arquivos, 60
+hubs, 13 tabelas, 3 integrações, 255 relações e 16 dependências externas
+(321.671 bytes).
+
+A classificação resultou em 1.627 nós vendor, 1.103 de domínio, 2.226
+supporting, 27 duplicatas e 40 tabelas, com **zero uncertain**. O diagnóstico
+continuou sem endpoints ausentes, arestas penduradas, duplicatas exatas ou
+colapsos direcionais; permanecem os mesmos 4 self-loops já tratados como
+alerta. O mapa privado passou a classificar o `package.json` raiz como manifesto
+de tooling.
