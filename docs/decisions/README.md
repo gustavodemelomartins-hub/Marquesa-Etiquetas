@@ -65,3 +65,4 @@ O que foi considerado e por que não. É a parte mais útil daqui a um ano.
 | # | Decisão | Data | Situação |
 |---|---|---|---|
 | [0001](0001-bootstrap-organizacao-claude-code.md) | Bootstrap de organização para Claude Code | 2026-08-18 | aceita |
+| [0002](0002-strangler-incremental-por-contrato.md) | Evoluir o monólito por strangler incremental de contratos | 2026-09-09 | aceita |
