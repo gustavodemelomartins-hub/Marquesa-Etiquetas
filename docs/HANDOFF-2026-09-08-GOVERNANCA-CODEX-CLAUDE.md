@@ -2,6 +2,83 @@
 
 Data: 2026-09-08
 
+## Release PROD dos Pacotes 0–4 concluída — 2026-09-08
+
+Esta seção substitui o estado interrompido descrito abaixo. A autenticação do
+Wrangler foi renovada, a limitação externa dos adaptadores locais foi tratada
+como divergência conhecida (sem qualquer tentativa de alterar `.codex/` ou
+`.agents/`) e a release foi concluída com a governança versionada vigente.
+
+### Resultado efetivo
+
+- `main` foi avançada linearmente de `2e5aaf1` para o checkpoint funcional
+  `3176a9f9add909f6dcbfcb30d1aa5a0270d86b8f`, sem rebase, reset ou reescrita;
+- o frontend público passou a servir os Pacotes 0–4 pelo GitHub Pages;
+- o Worker `marquesa-api` foi publicado com o mesmo bundle do checkpoint
+  funcional. A versão explicitamente rotulada foi
+  `ece61956-e0b5-42c2-95da-175b7c077eb5`; a versão efetiva mais recente,
+  `496c263a-be38-45a8-80a8-614cc88cea37`, tem o mesmo script etag
+  `c333fc175e1e6b1b6f47c5d9e5881c0554adcb1857a8579852e9863f4d21cb26`
+  e os mesmos bindings;
+- o D1 usado foi inequivocamente `marquesa-db-prod`, id
+  `51dd629b-52dc-46d0-a1af-fa37f0a79533`, na conta
+  `add18da8ed17f8536c2d30d7119e99eb`;
+- não houve reset, seed, importação de DEV, substituição de banco, exclusão de
+  dados reais, sync forçado nem escrita automática na Nuvemshop.
+
+### Backup e migrations
+
+Antes de qualquer migration foi exportado o banco completo para
+`backups/d1/2026-09-08_22-24-57/producao-51dd629b-2026-09-08.sql`, com
+bookmark
+`000000f8-00000000-000050e1-db7c982fe0b09aaba36f3e013387b056` e SHA-256
+`1A6D4455061C1F16B04A714492038ECD3E0D5DF5E5C20D9F253F688C5F5A410C`.
+O dump foi carregado integralmente em SQLite isolado e passou em
+`integrity_check`, reconciliação de saldo e `foreign_key_check`.
+
+A inspeção do schema real mostrou que ambas as candidatas ainda eram
+necessárias. Foram aplicadas, nesta ordem, e somente elas:
+
+1. `api/migracao-pacote-2.sql` — adicionou `sku_comercial`, tornou
+   `idx_vpers_venda_base` não único e criou o SKU inativo `MONTE-COLAR` com
+   quantidade zero;
+2. `api/migracao-publicacao-catalogo.sql` — criou
+   `catalogo_publicacoes` e `idx_catalogo_publicacoes_estado`.
+
+As migrations são aditivas para os dados operacionais. O rollback preferencial
+é de código mantendo o schema; o export e o bookmark ficam reservados para
+contingência, não para uso automático.
+
+### Validação pós-release
+
+- saúde pública: `/api/health` HTTP 200; rota autenticada sem chave HTTP 401;
+  preflight CORS HTTP 204 para a origem pública esperada;
+- D1 final: 790 produtos, 1.428 movimentos, 19 vendas e zero publicações de
+  catálogo; a diferença de um produto é exatamente o `MONTE-COLAR` inativo;
+- razão de estoque: zero divergências entre `produtos.qtd` e a soma de
+  `movimentos.qtd` por SKU;
+- integridade: `foreign_key_check` vazio e zero grupos duplicados de
+  `vendas.externo_id`;
+- dashboard PROD carregou os dados reais e as superfícies dos Pacotes 0–4:
+  navegação simplificada e busca global, três modalidades de lançamento,
+  painel de vendas, publicação de catálogo e Central de pendências;
+- `Monte seu Colar` permaneceu corretamente bloqueado em PROD por
+  `PERSONALIZACAO_ATIVA=false`; nenhuma ação operacional ou de publicação foi
+  disparada durante o smoke test;
+- testes pré-release: governança versionada 27/27, hook 23/23, frontend
+  190/190, build Vite e geração reprodutível do dashboard.
+
+O console do navegador registrou apenas respostas esperadas do recurso de
+personalização desativado (HTTP 503) e duas buscas inválidas provocadas pelo
+autofill do navegador automatizado no campo global. O código não preenche esse
+campo com a URL e os testes Playwright desktop/mobile do mesmo checkpoint
+passaram sem erros. A leitura de tail remoto foi recusada pela plataforma por
+risco de exposição de dados sensíveis; não houve contorno. A verificação de
+4xx/5xx foi concluída pelos status HTTP seguros e pelo console do dashboard.
+
+O checkpoint final da release é o commit de documentação que contém esta
+seção, imediatamente posterior a `3176a9f`, em `main`.
+
 ## Retomada da release dos Pacotes 0–4 — 2026-09-08
 
 Esta conversa retomou exatamente o commit
