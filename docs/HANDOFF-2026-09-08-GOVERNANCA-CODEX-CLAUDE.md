@@ -78,8 +78,8 @@ passaram sem erros. A leitura de tail remoto foi recusada pela plataforma por
 risco de exposição de dados sensíveis; não houve contorno. A verificação de
 4xx/5xx foi concluída pelos status HTTP seguros e pelo console do dashboard.
 
-O checkpoint final da release é o commit de documentação que contém esta
-seção, imediatamente posterior a `3176a9f`, em `main`.
+O checkpoint funcional da aplicação é `3176a9f`. O checkpoint final da release
+é o HEAD de `main` que contém esta seção e seus esclarecimentos documentais.
 
 ## Retomada da release dos Pacotes 0–4 — 2026-09-08
 
