@@ -9,6 +9,7 @@ import { rotas as analytics } from './analytics.js';
 import { rotas as catalogo } from './catalogo.js';
 import { rotas as catalogoComandos } from './catalogo-comandos.js';
 import { rotas as fotos } from './fotos.js';
+import { rotas as catalogoImportacao } from './catalogo-importacao.js';
 import { rotas as comercial } from './comercial.js';
 import { rotas as operacao } from './operacao.js';
 
@@ -18,6 +19,7 @@ export const rotas = [
   ...catalogo,
   ...catalogoComandos,
   ...fotos,
+  ...catalogoImportacao,
   ...comercial,
   ...operacao,
   ...analytics,

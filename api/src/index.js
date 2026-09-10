@@ -3,19 +3,12 @@ import { criarRoteador } from './http/router.js';
 import { rotas } from './http/routes/index.js';
 import { FAIXAS_PADRAO } from './state.js';
 import { calcComissao } from './comissao.js';
-import { movimentar, consignadoDoSku, saldosDoSku, movimentarKit, ehKit } from './estoque.js';
+import { movimentar, saldosDoSku, movimentarKit, ehKit } from './estoque.js';
 import { sincronizar, sincronizarSomenteEstoque, analisarSincronizacao } from './sync.js';
-import {
-  analisarEstoqueTotal,
-  aplicarEstoqueTotal,
-  analisarNovos,
-  cadastrarNovos,
-} from './catalogo.js';
 import { lerFotoParaServir } from './fotos.js';
 import { conferirAssinaturaFoto } from './assinatura.js';
-import { importarVariantesDaLoja, variantesDoSku } from './variantes.js';
-import { dependenciasDoProduto, excluirProduto, definirVariacoes } from './produtos.js';
-import { gerarSku } from './sku.js';
+import { variantesDoSku } from './variantes.js';
+import { dependenciasDoProduto } from './produtos.js';
 import { Nuvemshop } from './nuvemshop.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
 import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
@@ -56,7 +49,6 @@ import {
 const despacharRota = criarRoteador(rotas);
 
 const hoje = () => new Date().toISOString().slice(0, 10);
-const int = v => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
 
 export default {
   /** O CORS é aplicado uma única vez, na saída — assim nenhuma rota nova
@@ -130,28 +122,14 @@ async function rotear(request, env, contador = null) {
       if (daTabela) return daTabela;
 
 
-      if (path === '/api/produtos/importar' && met === 'POST') return await importarProdutos(db, await request.json());
-      if (path === '/api/loja/importar' && met === 'POST') return await importarLoja(db, await request.json());
 
       /* ----------------------------------------- estoque total e peças novas
          Dois fluxos separados de propósito. O primeiro ajusta quantidade de
          quem já existe e NUNCA cria; o segundo cria quem não existe e NUNCA
          altera. Cada um analisa antes de aplicar, e a análise não escreve. */
-      if (path === '/api/estoque-total/analisar' && met === 'POST') {
-        return json(await analisarEstoqueTotal(db, await request.json()));
-      }
-      if (path === '/api/estoque-total/aplicar' && met === 'POST') {
-        return json(await aplicarEstoqueTotal(db, await request.json()));
-      }
       /* `origem: 'manual'` muda uma coisa só: liga a regra de formato do
          código digitado à mão (seis dígitos). Planilha e fila continuam
          aceitando o código que o fornecedor ou a loja escreveu. */
-      if (path === '/api/produtos/novos/analisar' && met === 'POST') {
-        return json(await analisarNovos(db, await request.json()));
-      }
-      if (path === '/api/produtos/novos/cadastrar' && met === 'POST') {
-        return json(await cadastrarNovos(db, await request.json()));
-      }
 
       // ------------------------------------------------------------- fotos
       // A leitura (GET original/tratada) fica lá em cima, fora do Bearer —
@@ -167,9 +145,6 @@ async function rotear(request, env, contador = null) {
          frente. Preserva as múltiplas imagens: a tela operacional mostra a
          principal, e quem precisar das outras não abre a Nuvemshop. */
 
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)$/)) && met === 'PATCH') {
-        return await editarProduto(db, decodeURIComponent(m[1]), await request.json());
-      }
 
       /* ------------------------------------------------- estrutura da loja
          Leitura pura do catálogo REAL da Nuvemshop: uma linha por variante,
@@ -177,10 +152,6 @@ async function rotear(request, env, contador = null) {
          preço e imagem. Não escreve estoque, preço nem cadastro em lugar
          nenhum — nem aqui, nem lá. Saber o que a loja tem e decidir o que
          fazer com isso são atos separados de propósito. */
-      if (path === '/api/loja/variantes/importar' && met === 'POST') {
-        const b = await request.json().catch(() => ({}));
-        return json(await importarVariantesDaLoja(db, new Nuvemshop(env), { seco: !!b.seco }));
-      }
 
       /* §42 — a CENTRAL DE PENDÊNCIAS.
          O sistema já dizia "REVISAR VARIAÇÃO" com precisão e parava ali.
@@ -195,12 +166,6 @@ async function rotear(request, env, contador = null) {
          api/REGRAS.md § 8b. A soma tem de fechar exatamente com o estoque
          do produto, e a rota recusa em vez de escolher sozinha quem está
          certo (§19: repartir e corrigir o total são atos diferentes). */
-      // Estrutura (atributos e valores). NÃO mexe em estoque: quantidade é
-      // o outro ato, e passa pela rota acima.
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/variacoes$/)) && met === 'PUT') {
-        const r = await definirVariacoes(db, decodeURIComponent(m[1]), await request.json());
-        return json(r, r.status || (r.erro ? 400 : 200));
-      }
       /* A estrutura como a tela de edição precisa dela: a loja, a nossa
          decisão e o saldo de cada variação na MESMA linha. `variantesDoSku`
          continua existindo em /api/loja/variantes/:sku, e é outra pergunta —
@@ -211,34 +176,17 @@ async function rotear(request, env, contador = null) {
          (a peça de teste que entulha a lista) some de vez. Quem decide não
          é preferência: é a pergunta que `dependenciasDoProduto` faz ao
          banco. Nenhuma destas rotas encosta na Nuvemshop. */
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)$/)) && met === 'DELETE') {
-        const r = await excluirProduto(db, decodeURIComponent(m[1]));
-        return json(r, r.status || (r.erro ? 400 : 200));
-      }
 
       /* ------------------------------------------------------------- SKU
          Checar e gerar são duas rotas e não uma: checar é de leitura e pode
          ser chamada a cada tecla; gerar RESERVA um código no banco e por
          isso é POST, mesmo "só devolvendo um texto". */
-      if (path === '/api/produtos/sku/gerar' && met === 'POST') {
-        const b = await request.json().catch(() => ({}));
-        /* O código que sai daqui é DEFINITIVO e já está reservado. Ele foi
-           provisório enquanto a auditoria não tinha rodado contra o catálogo
-           real; rodou, o formato ficou decidido — seis dígitos sorteados —
-           e a tela não tem mais nada para relativizar. Ver api/REGRAS.md §17
-           e GET /api/produtos/sku/auditoria. */
-        return json(await gerarSku(db, { origem: b.origem || 'cadastro' }));
-      }
       /* O padrão REAL dos códigos, medido no catálogo inteiro — produtos,
          fila de peças novas e o que a loja carrega nas variantes. Leitura
          pura: não muda gerador, não renumera, não decide. Existe porque
          "qual código o sistema deve gerar?" é pergunta de dado, não de
          opinião, e a resposta errada só aparece meses depois numa etiqueta. */
 
-      // ---------------------------------------------------------------- kits
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/componentes$/)) && met === 'PUT') {
-        return await definirKit(db, decodeURIComponent(m[1]), await request.json());
-      }
 
       if (path === '/api/revendedoras' && met === 'POST') {
         const { nome, tel, cidade, cpf, endereco, obs } = await request.json();
@@ -578,149 +526,12 @@ async function configAtual(db) {
   return { prazoDias: c.prazoDias ?? 45, prataPct: c.prataPct ?? 10, faixas: c.faixas ?? FAIXAS_PADRAO };
 }
 
-/** §22: a importação não corrige em silêncio — devolve o que estranhou.
- *  §24: preço ausente entra como NULL, nunca como zero. */
-async function importarProdutos(db, { produtos }) {
-  if (!Array.isArray(produtos) || !produtos.length) return json({ erro: 'Lista vazia' }, 400);
-
-  const existentes = new Map(
-    (await db.prepare(`SELECT sku, qtd FROM produtos`).all()).results.map(p => [p.sku, p.qtd])
-  );
-  const cats = new Set((await db.prepare(`SELECT nome FROM categorias`).all()).results.map(c => c.nome));
-
-  const stmts = [], avisos = [];
-  let novos = 0, ajustados = 0;
-
-  for (const p of produtos) {
-    const sku = String(p.sku || '').trim();
-    if (!sku) { avisos.push({ tipo: 'sku_vazio', detalhe: p.desc || '(sem descrição)' }); continue; }
-
-    const preco = (p.preco === null || p.preco === undefined || p.preco === '' || +p.preco === 0) ? null : +p.preco;
-    if (preco === null) avisos.push({ tipo: 'sem_preco', sku, detalhe: p.desc });
-
-    let cat = p.cat || 'Outros';
-    if (!cats.has(cat)) { avisos.push({ tipo: 'categoria_desconhecida', sku, detalhe: cat }); cat = 'Outros'; }
-
-    const qtdAlvo = int(p.qtd);
-
-    if (!existentes.has(sku)) {
-      stmts.push(db.prepare(
-        `INSERT INTO produtos (sku, desc, cat, preco, qtd) VALUES (?, ?, ?, ?, 0)`
-      ).bind(sku, p.desc || sku, cat, preco));
-      if (qtdAlvo !== 0) {
-        stmts.push(...movimentar(db, {
-          sku, tipo: 'entrada', quantidade: qtdAlvo, origem: 'importacao',
-          obs: 'Saldo inicial da importação',
-        }));
-      }
-      novos++;
-    } else {
-      stmts.push(db.prepare(
-        `UPDATE produtos SET desc = ?, cat = ?, preco = ?, atualizado_em = datetime('now') WHERE sku = ?`
-      ).bind(p.desc || sku, cat, preco, sku));
-      // §19: a planilha traz um saldo-alvo; a diferença vira um AJUSTE rastreável
-      const delta = qtdAlvo - existentes.get(sku);
-      if (delta !== 0) {
-        stmts.push(...movimentar(db, {
-          sku, tipo: 'ajuste', quantidade: delta, origem: 'importacao',
-          obs: `Importação: planilha diz ${qtdAlvo}, sistema tinha ${existentes.get(sku)}`,
-        }));
-        ajustados++;
-      }
-    }
-  }
-
-  if (stmts.length) await db.batch(stmts);
-  return json({ ok: true, novos, ajustados, avisos });
-}
-
-async function editarProduto(db, sku, b) {
-  const campos = [], vals = [];
-  if (b.desc !== undefined) { campos.push('desc = ?'); vals.push(String(b.desc)); }
-  if (b.cat !== undefined) { campos.push('cat = ?'); vals.push(String(b.cat)); }
-  if (b.preco !== undefined) { campos.push('preco = ?'); vals.push(b.preco === null ? null : +b.preco); }
-  if (b.status !== undefined) { campos.push('status = ?'); vals.push(String(b.status)); }
-  if (b.qtd !== undefined) {
-    return json({ erro: 'Saldo não se edita direto (§19). Use POST /api/produtos/:sku/movimento' }, 400);
-  }
-  if (!campos.length) return json({ erro: 'Nada para atualizar' }, 400);
-  campos.push("atualizado_em = datetime('now')");
-  await db.prepare(`UPDATE produtos SET ${campos.join(', ')} WHERE sku = ?`).bind(...vals, sku).run();
-  return json({ ok: true });
-}
-
-/** Define (ou remove) os componentes de um kit — ver kit_componentes no
- *  schema. `componentes: []` remove o kit e o produto volta a ser normal.
- *
- *  Recusa transformar em kit um produto que ainda tem saldo próprio: virar
- *  kit muda o SIGNIFICADO do saldo (de "quanto existe" para "sempre 0,
- *  calculado pelos componentes"), e zerar isso sozinho seria inventar um
- *  ajuste que ninguém pediu (§19, §22). Ela lança um ajuste explícito
- *  primeiro — o histórico mostra o motivo — e só depois monta o kit. */
-async function definirKit(db, kitSku, { componentes }) {
-  const kit = await db.prepare(`SELECT sku, qtd, desc FROM produtos WHERE sku = ?`).bind(kitSku).first();
-  if (!kit) return json({ erro: `Código ${kitSku} não está no catálogo` }, 404);
-
-  const lista = Array.isArray(componentes) ? componentes.filter(c => c && c.sku && c.qtd > 0) : [];
-
-  if (!lista.length) {
-    await db.prepare(`DELETE FROM kit_componentes WHERE kit_sku = ?`).bind(kitSku).run();
-    return json({ ok: true, kit: kitSku, componentes: [] });
-  }
-
-  if (kit.qtd !== 0) {
-    return json({
-      erro: `${kit.desc} tem ${kit.qtd} no saldo próprio. Zere com um ajuste antes de virar kit — `
-          + 'transformar em kit sem isso apagaria esse número em silêncio.',
-    }, 409);
-  }
-  const consignado = await consignadoDoSku(db, kitSku);
-  if (consignado > 0) {
-    return json({ erro: `${kit.desc} tem ${consignado} peça(s) em maleta. Kit não pode estar consignado.` }, 409);
-  }
-
-  for (const c of lista) {
-    if (c.sku === kitSku) return json({ erro: 'Um kit não pode ser componente de si mesmo' }, 400);
-    const comp = await db.prepare(`SELECT sku FROM produtos WHERE sku = ?`).bind(c.sku).first();
-    if (!comp) return json({ erro: `Componente ${c.sku} não está no catálogo` }, 400);
-    if (await ehKit(db, c.sku)) {
-      return json({ erro: `${c.sku} também é um kit — kit dentro de kit não é suportado` }, 400);
-    }
-  }
-
-  const stmts = [db.prepare(`DELETE FROM kit_componentes WHERE kit_sku = ?`).bind(kitSku)];
-  for (const c of lista) {
-    stmts.push(db.prepare(
-      `INSERT INTO kit_componentes (kit_sku, componente_sku, qtd) VALUES (?, ?, ?)`
-    ).bind(kitSku, c.sku, int(c.qtd)));
-  }
-  await db.batch(stmts);
-  return json({ ok: true, kit: kitSku, componentes: lista });
-}
 
 
 
 
-async function importarLoja(db, { snapshot, produtos }) {
-  const stmts = [];
-  if (snapshot) {
-    stmts.push(db.prepare(
-      `INSERT INTO loja_snapshot (id, lido_em, produtos_na_loja, produtos_casados, so_na_loja, codigos_casados, duplicados_json)
-       VALUES (1, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET lido_em=excluded.lido_em, produtos_na_loja=excluded.produtos_na_loja,
-         produtos_casados=excluded.produtos_casados, so_na_loja=excluded.so_na_loja,
-         codigos_casados=excluded.codigos_casados, duplicados_json=excluded.duplicados_json`
-    ).bind(snapshot.lidoEm, snapshot.produtosNaLoja, snapshot.produtosCasados, snapshot.soNaLoja,
-      snapshot.codigosCasados, JSON.stringify(snapshot.duplicados || [])));
-  }
-  stmts.push(db.prepare(`UPDATE produtos SET url_loja=NULL, estoque_loja=NULL, visivel=NULL`));
-  for (const p of (produtos || [])) {
-    stmts.push(db.prepare(`UPDATE produtos SET url_loja=?, estoque_loja=?, visivel=?, nome_loja=? WHERE sku=?`)
-      .bind(p.urlLoja, p.estoqueLoja, p.visivel === null ? null : (p.visivel ? 1 : 0), p.nomeLoja || null, p.sku));
-  }
-  await db.batch(stmts);
-  return json({ ok: true, n: (produtos || []).length });
-}
+
+
 
 async function publicarEstoqueDaOperacao(db, env) {
   const r = await sincronizarSomenteEstoque(db, env);
