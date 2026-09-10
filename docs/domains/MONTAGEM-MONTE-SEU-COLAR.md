@@ -5,8 +5,9 @@ Sthefany. Esta é a fonte de negócio mais recente para o domínio; onde a
 documentação antiga divergir, prevalece esta — e o §14 preserva o histórico das
 decisões que foram substituídas.
 
-O item 3 da Fase 4 está **liberado**: a última decisão de negócio foi fechada
-em 10/09/2026 (§7).
+O item 3 da Fase 4 está **implementado** — commits `2490502` a `d9e5196`, com
+`PERSONALIZACAO_ATIVA` ainda `false`. O que falta é cadastro e dado, não
+código: ver §5.
 
 ## A regra de ouro
 
@@ -404,26 +405,37 @@ Consequência prática: o item 3 entrega o **mecanismo**, com as cinco
 configurações cadastráveis e `PERSONALIZACAO_ATIVA` ainda `false`. A limpeza
 do saldo de `326660` é um passo operacional posterior, com aprovação própria.
 
-## 6. O que o item 3 vai provar
+## 6. O que o item 3 provou
 
-| Proteção | Teste |
+Cada proteção obrigatória, e onde ela é provada.
+
+| Proteção | Onde |
 |---|---|
-| configuração não soma estoque patrimonial | falha se configuração com slots tiver `qtd != 0` |
-| sem saldo físico independente | `saldosDoSku` de configuração ignora `produtos.qtd` |
-| disponibilidade deriva dos componentes | §3.6, incluindo a Veneziana como teto |
-| venda registra a identidade comercial | uma linha em `venda_itens`, com o SKU da configuração |
-| estoque baixa só componentes | nenhum movimento no SKU comercial |
-| Veneziana sai em toda montagem | sem ela no catálogo, a venda é recusada |
-| slots respeitados exatamente | 4 escolhas numa configuração de 3 é 409 |
-| SKU fora do cardápio do grupo | 409, dizendo qual grupo |
-| cancelamento restaura o exato | saldo **por variação** antes == depois, base incluída |
-| idempotência | cancelar duas vezes não devolve duas vezes |
-| concorrência | duas configurações no mesmo carrinho disputando o mesmo pingente |
-| configuração não entra em maleta nem em inventário | recusa explícita |
-| vender configuração como linha avulsa | recusado |
+| configuração não soma estoque patrimonial | [scripts/montagem-dupla-contagem.test.mjs](../../scripts/montagem-dupla-contagem.test.mjs), 6 travas |
+| sem saldo físico independente | [src/montagem-saldo-test.mjs](../../src/montagem-saldo-test.mjs) — `qtd 0` mesmo com `produtos.qtd = 1` |
+| desativar não devolve o saldo legado | idem — a busca não filtra por `ativo` |
+| disponibilidade deriva dos componentes | idem — `min(Veneziana, floor(Σ grupo / k))` |
+| Veneziana é teto de toda montagem | idem — sem ela, disponível zero |
+| cor repetida no mesmo grupo é válida | idem e [src/montagem-venda-test.mjs](../../src/montagem-venda-test.mjs) |
+| venda registra a identidade comercial | [src/montagem-integracao-test.mjs](../../src/montagem-integracao-test.mjs) — `venda_itens` = `326660,311066` |
+| estoque baixa só componentes | idem — zero movimentos nos SKUs comerciais |
+| slots respeitados exatamente | [src/montagem-venda-test.mjs](../../src/montagem-venda-test.mjs) — para mais e para menos |
+| SKU fora do cardápio do grupo | idem — 409 nomeando o grupo |
+| base não é escolha | idem — `baseSku` diferente é 409 |
+| preço é o da configuração | idem — valor digitado diferente é 409 |
+| cancelamento restaura o exato | [src/montagem-estorno-test.mjs](../../src/montagem-estorno-test.mjs) — SKU e variação, base incluída |
+| idempotência | [src/montagem-integracao-test.mjs](../../src/montagem-integracao-test.mjs) — cancelar duas vezes é 409 |
+| concorrência | [src/montagem-venda-test.mjs](../../src/montagem-venda-test.mjs) — duas montagens disputando o mesmo pingente |
+| configuração fora de maleta e inventário | [scripts/montagem-dupla-contagem.test.mjs](../../scripts/montagem-dupla-contagem.test.mjs) |
+| vender configuração como linha avulsa | idem, e [src/montagem-integracao-test.mjs](../../src/montagem-integracao-test.mjs) |
+| a razão fecha em todo passo | [src/montagem-integracao-test.mjs](../../src/montagem-integracao-test.mjs) — schema e seed reais |
 | nenhuma escrita direta em `produtos.qtd` | [scripts/razao-estoque.test.mjs](../../scripts/razao-estoque.test.mjs) |
 | 142 contratos HTTP | [scripts/api-contracts.test.mjs](../../scripts/api-contracts.test.mjs) |
 | normalização única de SKU | [scripts/sku-normalizacao.test.mjs](../../scripts/sku-normalizacao.test.mjs) |
+
+Pelo Worker, com `PERSONALIZACAO_ATIVA=true`: `src/pacote2-test.mjs` e o
+cenário N/O de `src/pos-golive-1-test.mjs`, os dois reescritos para este
+modelo e **não executados** nesta sessão — exigem `wrangler dev`.
 
 ## 7. A cor pode repetir — decidido
 
@@ -458,9 +470,10 @@ Preservado como pedido. Nada aqui é regra vigente.
 | 10/09/2026 | configuração comercial teria saldo físico próprio, com `-1 configuração + -1 veneziana` | **substituída** no mesmo dia: configuração não tem saldo |
 | 10/09/2026 | auditoria recomendou reaproveitar `kit_componentes` | **substituída** — ver §2: não representa slot |
 | 10/09/2026 | autorizada a remoção de `slotTipos`/`slots_min`/`slots_max` | **revogada** — ver §3.5: slot é necessidade real do negócio |
+| 10/09/2026 | em dois slots do mesmo grupo, pode repetir a mesma cor | **vigente** — ver §7 |
 | 10/09/2026 | composição livre (`MONTE-COLAR`) como exceção | **encerrada** — §5 da decisão: não existe "monte qualquer coisa" |
 
-§42 do [api/REGRAS.md](../../api/REGRAS.md) descreve o modelo de 06/09 e fica
-desatualizado em dois pontos — base trocável e composição livre. A atualização
-dele entra com a implementação do item 3, não antes: REGRAS.md descreve o que o
-código faz.
+§42 do [api/REGRAS.md](../../api/REGRAS.md) foi reescrito junto com a
+implementação (`2cd915c`) e descreve o modelo vigente. O
+[checklist manual](../testing/MONTE_SEU_COLAR_CHECKLIST.md) também: o GAP do
+item 14 está fechado.
