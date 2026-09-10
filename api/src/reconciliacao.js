@@ -19,6 +19,7 @@ import { json } from './auth.js';
 import { movimentar, saldosDoSku, ehKit, consignadoDoSku } from './estoque.js';
 import { sincronizar } from './sync.js';
 import { Nuvemshop, mapearSkus } from './nuvemshop.js';
+import { comExecucao } from './plataforma/execucao.js';
 
 /* ----------------------------------------------------------- base_json ---
  * A mesma leitura serve dois papéis: no momento da análise, vira o
@@ -389,7 +390,16 @@ function mensagemSeguraDeErro(e) {
  *  para progredir — as duas processam, e a proteção por item garante que
  *  o efeito acontece uma vez só. O que continua proibido é reabrir sessão
  *  TERMINADA (aplicada, aplicada_parcial, cancelada, superada, erro). */
-export async function aplicarSessao(db, env, sessaoId) {
+/** O apply de uma sessão é a operação mais delicada deste módulo: escreve
+ *  na loja e move estoque. O identificador liga todas as linhas dela. */
+export function aplicarSessao(db, env, sessaoId) {
+  return comExecucao('reconciliacao', {
+    dados: { sessao: sessaoId },
+    resumir: (r) => ({ status: r && r.status }),
+  }, () => aplicarSessaoRodada(db, env, sessaoId));
+}
+
+async function aplicarSessaoRodada(db, env, sessaoId) {
   const sessaoInicial = await db.prepare(`SELECT * FROM reconciliacao_sessoes WHERE id = ?`).bind(sessaoId).first();
   if (!sessaoInicial) return json({ erro: 'Sessão não encontrada' }, 404);
 

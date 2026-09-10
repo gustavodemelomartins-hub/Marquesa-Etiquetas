@@ -19,6 +19,7 @@ import { movimentar, saldosDoSku } from './estoque.js';
 import { resolverVariantes, saldosDeVariacao, salvarVariantesDaLoja } from './variantes.js';
 import { vincularPedidoCriadoAqui } from './vendas-nuvemshop.js';
 import { consultarEmLotes } from './plataforma/d1.js';
+import { comExecucao } from './plataforma/execucao.js';
 
 const agoraISO = () => new Date().toISOString();
 
@@ -37,7 +38,22 @@ async function gravarConfig(db, chave, valor) {
 
 /** Roda uma sincronização inteira. `forcar` ignora o freio de segurança —
  *  é o que o botão "aplicar mesmo assim" do dashboard usa. */
-export async function sincronizar(db, env, { forcar = false, seco = false } = {}) {
+/** A rodada de sincronização, com identificador próprio no log. O cron da
+ *  madrugada e um clique no painel podem estar no ar ao mesmo tempo, e sem
+ *  o identificador as linhas das duas rodadas se misturam. O invólucro não
+ *  altera argumento nem resultado. */
+export function sincronizar(db, env, opcoes = {}) {
+  return comExecucao('sync', {
+    dados: { seco: !!opcoes.seco, forcar: !!opcoes.forcar },
+    resumir: (r) => ({
+      ok: r && r.ok,
+      pausado: r && r.pausado && r.pausado.motivo,
+      erro: r && r.erro,
+    }),
+  }, () => sincronizarRodada(db, env, opcoes));
+}
+
+async function sincronizarRodada(db, env, { forcar = false, seco = false } = {}) {
   const loja = new Nuvemshop(env);
   if (!loja.configurada()) {
     return { ok: false, erro: 'A loja não está conectada. Falta o token da Nuvemshop.' };
