@@ -5,10 +5,13 @@ import { FAIXAS_PADRAO } from './state.js';
 import { calcComissao } from './comissao.js';
 import { movimentar, consignadoDoSku, saldosDoSku, movimentarKit, ehKit } from './estoque.js';
 import {
-  abrirInventario, salvarContagem, concluirInventario, ajustarInventario,
-  cancelarInventario, detalheInventario, listarInventarios,
+  abrirInventario,
+  salvarContagem,
+  concluirInventario,
+  ajustarInventario,
+  cancelarInventario,
 } from './inventario.js';
-import { sincronizar, sincronizarSomenteEstoque, historicoSync, analisarSincronizacao } from './sync.js';
+import { sincronizar, sincronizarSomenteEstoque, analisarSincronizacao } from './sync.js';
 import {
   analisarEstoqueTotal,
   aplicarEstoqueTotal,
@@ -81,8 +84,10 @@ import {
 } from './personalizacao.js';
 /* §42 — a Central de Pendências e as duas formas de resolver uma variação. */
 import {
-  listarPendencias, adiarPendencia, retomarPendencia,
-  resolverVariacaoDaVenda, resolverVariacaoDaMaleta,
+  adiarPendencia,
+  retomarPendencia,
+  resolverVariacaoDaVenda,
+  resolverVariacaoDaMaleta,
 } from './pendencias.js';
 /* §34 — medição de leitura do D1. Desligada por padrão; ver d1-metrica.js. */
 import {
@@ -95,8 +100,13 @@ import {
   marcarContaPaga, definirVencimento,
 } from './historico-operacoes.js';
 import {
-  abrirSessao, detalheSessao, aprovarItem, rejeitarItem, cancelarSessao, aplicarSessao,
-  analisarPlanilhaEstoqueTotal, analisarPlanilhaProdutosNovos,
+  abrirSessao,
+  aprovarItem,
+  rejeitarItem,
+  cancelarSessao,
+  aplicarSessao,
+  analisarPlanilhaEstoqueTotal,
+  analisarPlanilhaProdutosNovos,
 } from './reconciliacao.js';
 
 /* Rotas já extraídas do despachante. A corrente de `if` abaixo continua
@@ -317,17 +327,6 @@ async function rotear(request, env, contador = null) {
          não há tabela de pendências, e resolver o caso o faz sumir sozinho.
          Resolver uma variação é dizer QUAL peça saiu: identidade, nunca uma
          segunda baixa de estoque. */
-      /* §42.6 — a comparação READ-ONLY das três fontes: o que sabemos aqui,
-         as variações cadastradas e o espelho da loja. Classifica em
-         RESOLVIDO, PENDENTE_HUMANO e DIVERGENCIA_REAL, e não escreve em
-         lugar nenhum — nem no banco, nem na Nuvemshop. É o relatório que
-         vem ANTES de qualquer sincronização de escrita. */
-      if (path === '/api/pendencias' && met === 'GET') {
-        return json(await listarPendencias(db, {
-          tipo: url.searchParams.get('tipo') || null,
-          incluirAdiadas: url.searchParams.get('adiadas') === '1',
-        }));
-      }
       if (path === '/api/pendencias/adiar' && met === 'POST') {
         const r = await adiarPendencia(db, await request.json().catch(() => ({})));
         return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
@@ -581,7 +580,6 @@ async function rotear(request, env, contador = null) {
         const b = await request.json().catch(() => ({}));
         return json(await sincronizar(db, env, { forcar: !!b.forcar, seco: !!b.seco }));
       }
-      if (path === '/api/sync' && met === 'GET') return json(await historicoSync(db));
       /* Dry-run de leitura pura: não abre execução, não puxa pedido, não
          grava retrato e não escreve na loja. É o que a tela mostra antes de
          pedir a confirmação. */
@@ -608,9 +606,6 @@ async function rotear(request, env, contador = null) {
         const b = await request.json().catch(() => ({}));
         return await analisarPlanilhaProdutosNovos(db, b.produtos);
       }
-      if ((m = path.match(/^\/api\/reconciliacao\/(\d+)$/)) && met === 'GET') {
-        return await detalheSessao(db, +m[1]);
-      }
       if ((m = path.match(/^\/api\/reconciliacao\/(\d+)\/itens\/(\d+)\/aprovar$/)) && met === 'POST') {
         return await aprovarItem(db, +m[1], +m[2]);
       }
@@ -625,11 +620,7 @@ async function rotear(request, env, contador = null) {
       }
 
       // ------------------------------------------------------- inventário
-      if (path === '/api/inventarios' && met === 'GET') return await listarInventarios(db);
       if (path === '/api/inventarios' && met === 'POST') return await abrirInventario(db);
-      if ((m = path.match(/^\/api\/inventarios\/(\d+)$/)) && met === 'GET') {
-        return await detalheInventario(db, +m[1]);
-      }
       if ((m = path.match(/^\/api\/inventarios\/(\d+)\/contagem$/)) && met === 'PUT') {
         return await salvarContagem(db, +m[1], await request.json());
       }
