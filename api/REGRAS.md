@@ -1777,54 +1777,109 @@ autorização.
 Provado em `src/pos-golive-1-test.mjs` (P–S) e
 `src/pos-golive-1-variacoes-test.mjs` (T).
 
-### 42. Monte seu Colar: base + componentes + configuração da venda
+### 42. Monte seu Colar: configuração comercial, componentes físicos, composição
 
 **O problema.** Uma variante permanente por combinação explode o cadastro e
-faz o saldo comercial divergir das peças que realmente saíram. A identidade
-canônica desta família é fechada por dado:
+faz o saldo comercial divergir das peças que realmente saíram.
 
-- **BASE FÍSICA FIXA** — Colar Veneziana, SKU `444032`, uma unidade por colar;
-- **COMPONENTES FÍSICOS** — `263236` (menina rosa), `273470` (menina
-  incolor), `251551` (menino azul), `251552` (menino incolor) e `329494`
-  (menino verde);
-- **MODELOS COMERCIAIS** — `326660` (casal, R$ 129), `364945` (duas meninas,
-  R$ 129), `311066` (dois meninos, R$ 129), `314161` (dois meninos e uma
-  menina, R$ 159) e `399872` (duas meninas e um menino, R$ 159);
-- **COMPOSIÇÃO LIVRE** — linha interna `MONTE-COLAR`, sem saldo e sem preço de
-  catálogo; o valor é informado na venda.
+**As duas identidades**, que são a regra inteira:
 
-O SKU comercial aparece uma vez em `venda_itens`; a base e os componentes
-são as peças físicas movimentadas. A configuração escolhida mora em
-`venda_personalizacoes` + `venda_personalizacao_itens` e fica congelada junto
-da venda.
+```
+SKU comercial      = o que foi vendido       (Colar Casal, 326660)
+componente físico  = o que existe na gaveta  (Veneziana 444032, os pingentes)
+composição         = a regra que liga os dois
 
-**A baixa é onde mora o risco:** a composição consome a base e cada
-componente **exatamente uma vez**. Nem a base duas vezes (ela é o item do
-recibo e uma peça física), nem o componente pelo caminho do kit e de novo
-pelo da personalização.
+ESTOQUE FINANCEIRO = somente aquilo que fisicamente existe
+```
 
-`venda_personalizacoes.estoque_ja_refletido` registra a venda personalizada
-que **já aconteceu**: entra como histórico comercial, não movimenta nada, e a
-flag fica gravada e auditável — é ela que separa "registrei o passado" de
-"vendi agora" e que impede a baixa dupla. Misturar peça avulsa com essa flag
-é recusado: metade do estoque refletido e metade não seria impossível de
-auditar depois.
+Uma **configuração** tem SKU, nome, preço, foto e linha de venda. Ela **não
+tem saldo físico próprio** e **não soma patrimônio**: contá-la ao lado das
+peças que consome contaria as mesmas peças duas vezes. `produtos.qtd` dela é
+ignorado de propósito — em produção ele nem sempre é zero, e ler esse número
+venderia um colar que só existe como nome.
 
-O preço é da **composição**, não a soma das peças. Nos cinco modelos ele é
-fixo e automático; somente a composição livre aceita valor manual. O recibo
-mostra uma linha; a ficha da cliente guarda a configuração para sempre, com
-o nome e a variante de cada peça congelados no momento da venda.
+**A composição é por SLOT TIPADO**, não por SKU fixo. A configuração fixa uma
+base e declara quantas peças de cada grupo ela leva; a cor de cada uma é
+escolhida na venda, entre as do cardápio daquele grupo:
 
-Cancelar faz o inverso completo: devolve uma base e todos os componentes de
-cada composição, preservando a variante. Venda histórica marcada com
-`estoque_ja_refletido=1` continua sem baixa e sem devolução.
+```
+326660  Colar Casal    fixo: 1 × Veneziana 444032
+                       slots: 1 Menino · 1 Menina
+314161  2M + 1F        fixo: 1 × Veneziana 444032
+                       slots: 2 Menino · 1 Menina
+```
+
+Por isso **não é um kit**: `kit_componentes` nomeia um SKU por linha, e não
+tem como dizer "uma peça do grupo Menino". Reaproveitá-la faria a venda passar
+por `movimentarKit`, que baixaria só a Veneziana.
+
+**Repetir a mesma cor dentro de um grupo é permitido** (decisão de
+10/09/2026): "Dois Meninos" aceita Azul + Azul. O que a configuração fixa é
+quantas peças de cada grupo, não quais.
+
+**A base não é escolha.** A Veneziana sai automaticamente em toda montagem, e
+um pedido que mande outra base é recusado. A decisão de 06/09/2026, que previa
+troca de base, está revogada.
+
+**Composição livre não existe.** A pessoa escolhe primeiro uma configuração
+cadastrada, e ela determina quantos e quais slots. Uma combinação nova exige
+**cadastrar** uma configuração — produto com SKU próprio mais a composição —,
+o que é dado e não deploy: `POST /api/personalizacao/modelos`. O SKU
+`MONTE-COLAR` continua no catálogo, inativo, como registro do modelo antigo.
+
+**A disponibilidade é derivada**, nunca guardada:
+
+```
+disponível(configuração) = min(
+    disponível(base),
+    para cada grupo G com k slots:  floor( Σ disponível(G) / k )
+)
+```
+
+A soma dentro do grupo, e não o mínimo, porque repetir a cor vale. Duas
+configurações que compartilham um pingente caem juntas sozinhas.
+
+**A venda separa as duas coisas:**
+
+```
+venda_itens                 UMA linha, o SKU comercial, o preço da configuração
+venda_personalizacoes       qual configuração foi vendida, e a base
+venda_personalizacao_itens  o que fisicamente saiu, com variação e movimento_id
+movimentos                  -1 base  ·  -1 de cada peça escolhida  ·  NADA no comercial
+```
+
+O preço é da **configuração**, não a soma das peças: R$ 119 e R$ 74 são preços
+dos produtos físicos nos contextos deles, e R$ 129 é decisão comercial.
+Vender a configuração como linha avulsa é recusado.
+
+**A baixa é onde mora o risco:** a composição consome a base e cada componente
+**exatamente uma vez**. Nem a base duas vezes, nem o componente pelo caminho do
+kit e de novo pelo da configuração.
+
+`venda_personalizacoes.estoque_ja_refletido` registra a venda que **já
+aconteceu**: entra como histórico comercial, não movimenta nada, e a flag fica
+gravada e auditável — é ela que separa "registrei o passado" de "vendi agora" e
+que impede a baixa dupla.
+
+**Cancelar faz o inverso exato:** devolve a base e cada componente pelo SKU
+gravado, preservando variação e variante dos dois — devolver "um menino
+qualquer" fecha o total e faz a razão por variação mentir. Repetir o
+cancelamento não devolve duas vezes. Venda com `estoque_ja_refletido = 1`
+continua sem baixa e sem devolução.
+
+**Configuração fica fora do inventário e da maleta**, como o kit: contá-la
+somaria peças já contadas, e consigná-la reservaria peças que continuariam
+disponíveis.
 
 Modelo e opções são **dado, não interface**: uma página de produto da
 Nuvemshop lê `GET /api/personalizacao/modelos` e posta a composição em
 `POST /api/vendas` sem que nada mude aqui.
 
-Provado em `src/pos-golive-1-test.mjs`, cenários N e O, e em
-`src/pacote2-test.mjs` para os modelos canônicos e o estorno integral.
+Provado em `src/montagem-saldo-test.mjs` (saldo derivado, sem dupla contagem),
+`src/montagem-venda-test.mjs` (slots exatos, base fixa, cardápio, preço),
+`src/montagem-estorno-test.mjs` (estorno exato com variação) e no gate
+`scripts/montagem-dupla-contagem.test.mjs`. O desenho e as decisões estão em
+`docs/domains/MONTAGEM-MONTE-SEU-COLAR.md`.
 
 ### 43. Medir antes de otimizar (leitura do D1)
 
