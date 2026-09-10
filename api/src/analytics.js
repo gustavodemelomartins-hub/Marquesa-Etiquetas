@@ -52,6 +52,7 @@ import { personalizacoesDeVendas } from './personalizacao.js';
    ontem não estava em lugar nenhum do Painel. */
 import { contasAReceber } from './contas-receber.js';
 import { garantiasDaCliente, garantiasPendentes } from './garantias.js';
+import { parametros } from './plataforma/d1.js';
 
 const PERIODOS = new Set(['7d', '30d', '90d', '12m', 'tudo']);
 
@@ -603,7 +604,7 @@ async function fichasDoCatalogo(db, chaves) {
   const unicas = [...new Set((chaves ?? []).filter((c) => c != null))];
   const fichas = new Map();
   if (!unicas.length) return fichas;
-  const qs = unicas.map(() => '?').join(',');
+  const qs = parametros(unicas.length);
   const { results } = await db.prepare(
     `SELECT sku, desc, cat, foto_original_key, foto_tratada_key, foto_url
        FROM produtos WHERE UPPER(sku) IN (${qs})`).bind(...unicas).all();

@@ -18,6 +18,7 @@ import { ingerirFotosDoCatalogo } from './fotos.js';
 import { movimentar, saldosDoSku } from './estoque.js';
 import { resolverVariantes, saldosDeVariacao, salvarVariantesDaLoja } from './variantes.js';
 import { vincularPedidoCriadoAqui } from './vendas-nuvemshop.js';
+import { consultarEmLotes } from './plataforma/d1.js';
 
 const agoraISO = () => new Date().toISOString();
 
@@ -1116,11 +1117,11 @@ async function explicarMudancasComVendas(db, mudancas) {
   const skus = [...new Set(mudancas.filter(m => m.para < m.de).map(m => m.sku))];
   if (!skus.length) return;
 
+  /* Em lotes porque o D1 limita quantos parâmetros uma consulta aceita, e
+     esta lista cresce com o tamanho do inventário. O tamanho do lote é o
+     mesmo de antes; a quebra agora mora em plataforma/d1.js. */
   const porSku = new Map();
-  for (let inicio = 0; inicio < skus.length; inicio += 80) {
-    const lote = skus.slice(inicio, inicio + 80);
-    const qs = lote.map(() => '?').join(',');
-    const r = await db.prepare(`
+  const vendas = await consultarEmLotes(db, skus, (qs) => `
       SELECT m.sku, m.variante_id, v.id, v.data, v.cliente_nome,
              v.origem, v.externo_id, v.criada_em, SUM(m.qtd) AS qtd
         FROM movimentos m
@@ -1130,11 +1131,10 @@ async function explicarMudancasComVendas(db, mudancas) {
                 v.origem, v.externo_id, v.criada_em
       HAVING SUM(m.qtd) < 0
        ORDER BY COALESCE(v.criada_em, v.data) DESC, v.id DESC
-    `).bind(...lote).all();
-    for (const venda of r.results || []) {
-      if (!porSku.has(venda.sku)) porSku.set(venda.sku, []);
-      porSku.get(venda.sku).push(venda);
-    }
+    `);
+  for (const venda of vendas) {
+    if (!porSku.has(venda.sku)) porSku.set(venda.sku, []);
+    porSku.get(venda.sku).push(venda);
   }
 
   for (const mudanca of mudancas) {

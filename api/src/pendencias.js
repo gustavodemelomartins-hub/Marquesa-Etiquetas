@@ -37,6 +37,7 @@
  */
 import { variacoesParaRevisao, normSku } from './variantes.js';
 import { listarPublicacoes, ESTADO_PUBLICACAO } from './publicacao-catalogo.js';
+import { parametros } from './plataforma/d1.js';
 
 const CHAVE_ADIADAS = 'pendencias_adiadas';
 const hojeISO = () => new Date().toISOString().slice(0, 10);
@@ -205,7 +206,7 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
   ].filter(Boolean));
   const variacoesPorSku = new Map();
   if (skus.size) {
-    const qs = [...skus].map(() => '?').join(',');
+    const qs = parametros(skus.size);
     const { results } = await db.prepare(
       `SELECT pv.sku, pv.nome, pv.atributo, pv.variante_id, pv.valores_json, pv.estoque_loja,
               COALESCE((SELECT SUM(mo.qtd) FROM movimentos mo
