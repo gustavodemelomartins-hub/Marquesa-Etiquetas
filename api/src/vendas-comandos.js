@@ -29,7 +29,10 @@ import {
 const hoje = () => new Date().toISOString().slice(0, 10);
 
 /** §24: peça sem preço bloqueia a venda, em vez de vender por R$ 0. */
-async function varianteDaVenda(db, sku, varianteId) {
+/* Exportada para caracterização (Fase 4, item 2): é o ponto onde a venda
+   decide QUAL variação saiu, e esse contrato precisa de teste próprio.
+   Nenhum outro módulo a chama. */
+export async function varianteDaVenda(db, sku, varianteId) {
   const loja = (await db.prepare(
     `SELECT variante_id, nome FROM loja_variantes WHERE sku_norm = ? ORDER BY posicao`
   ).bind(sku).all()).results;
