@@ -20,7 +20,7 @@ dois:
 - `garantia_trocas.venda_id` (linha 102)
 - `vendas.vencimento_em` (linha 288)
 
-`POST_GOLIVE_REVIEW_1.md` dizia "Três" em dois lugares (linha 129 e a
+`docs/releases/POST_GOLIVE_REVIEW_1.md` dizia "Três" em dois lugares (linha 129 e a
 linha de risco R7). Corrigido para "Dois" nos dois pontos. A migration em
 si **não foi alterada** — só a documentação, que estava errada.
 
@@ -93,7 +93,7 @@ hoje**, nos dois sentidos:
 
 ## 3. Monte seu Colar — checklist de validação manual
 
-**Documento próprio**: [`MONTE_SEU_COLAR_CHECKLIST.md`](MONTE_SEU_COLAR_CHECKLIST.md).
+**Documento próprio**: [`MONTE_SEU_COLAR_CHECKLIST.md`](../../MONTE_SEU_COLAR_CHECKLIST.md).
 
 Cobre modelo, base, posições, menino/menina, cores, disponibilidade,
 preço, carrinho, venda, histórico, baixa da base, baixa de cada
@@ -237,7 +237,7 @@ mensagem explícita em vez de deixar o número passar de zero.
 
 ### Impacto esperado no "A Receber"
 
-Conforme já registrado em `POST_GOLIVE_REVIEW_1.md`: vendas operacionais
+Conforme já registrado em `docs/releases/POST_GOLIVE_REVIEW_1.md`: vendas operacionais
 não pagas que já existiam (`pago=0, cobravel=1`) passam a **aparecer** no
 A Receber. O total em aberto do Painel deve subir — não porque alguém
 passou a dever mais, mas porque uma dívida que já existia deixa de ficar

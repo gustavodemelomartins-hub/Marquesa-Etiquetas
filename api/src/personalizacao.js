@@ -85,7 +85,7 @@ const modeloCanonico = ({ modeloSlug, modeloId } = {}) => {
  *  Fail-closed, mesmo padrão de NUVEMSHOP_WRITES_ENABLED em nuvemshop.js: só
  *  a string exata "true" liga; ausente, "false" ou qualquer outra coisa
  *  mantém a feature fora do ar. Schema e código continuam no lugar — só o
- *  acesso fecha. Ver SESSION_CLOSE_2026-09-06.md § Retomar amanhã. */
+ *  acesso fecha. Ver docs/releases/SESSION_CLOSE_2026-09-06.md § Retomar amanhã. */
 export function personalizacaoAtiva(env) {
   return String(env?.PERSONALIZACAO_ATIVA || '').trim() === 'true';
 }

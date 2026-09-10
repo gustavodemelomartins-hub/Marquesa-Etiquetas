@@ -29,7 +29,7 @@ existente, e todas podem ser resolvidas depois de a Sthefany usar.
 | **7** Monte seu Colar | Base + componentes + configuração por venda, no mesmo carrinho; flag de estoque já refletido | `api/src/personalizacao.js` |
 | **8** Central de Pendências / variações | Lista agregada com filtros e ações; resolução pela venda e pela maleta; reconciliação read-only das três fontes | `api/src/pendencias.js`, `api/src/variantes.js` |
 | **9** Auditoria de consumo D1 | Instrumento de medição + achado de 298 mil linhas por clique, corrigido | `api/src/d1-metrica.js`, `D1_USAGE_AUDIT.md` |
-| **10** Auditoria antes de implementar | Mapa do que já existia, feito antes de escrever qualquer linha | `docs/AUDITORIA_POS_GOLIVE_1.md` |
+| **10** Auditoria antes de implementar | Mapa do que já existia, feito antes de escrever qualquer linha | `docs/archive/AUDITORIA_POS_GOLIVE_1.md` |
 | **11** Testes | 285 asserções novas em 3 arquivos, cobrindo A–T | `src/pos-golive-1-*.mjs` |
 
 Sete commits, cada um nomeando o defeito que corrige:
@@ -105,7 +105,7 @@ enquanto ela ainda devia.
 `src/pacote-vendas-test.mjs` (atualizado — ver §11.1)
 
 **Documentação:** `api/REGRAS.md` (§35 a §43) · `docs/TESTING.md` ·
-`docs/AUDITORIA_POS_GOLIVE_1.md` · `D1_USAGE_AUDIT.md` · este arquivo
+`docs/archive/AUDITORIA_POS_GOLIVE_1.md` · `D1_USAGE_AUDIT.md` · este arquivo
 
 Total: 20 arquivos, +7.625 / −157 linhas (metade é o `dashboard.html` gerado).
 
@@ -243,7 +243,7 @@ variação, venda personalizada, troca de garantia. Fecha em todas.
 
 ## 7. Auditoria D1
 
-Documento completo: **[D1_USAGE_AUDIT.md](D1_USAGE_AUDIT.md)**.
+Documento completo: **[D1_USAGE_AUDIT.md](../../D1_USAGE_AUDIT.md)**.
 
 O essencial:
 

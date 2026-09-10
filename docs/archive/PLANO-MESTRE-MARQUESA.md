@@ -2,7 +2,7 @@
 
 > **Nota de governança (2026-09-08):** o histórico abaixo preserva decisões
 > do go-live, mas qualquer regra human-only/DEV-first foi substituída por
-> [SECURITY.md](SECURITY.md): PROD é fonte operacional, DEV não é gate e
+> [SECURITY.md](../SECURITY.md): PROD é fonte operacional, DEV não é gate e
 > Classe C pode ser executada autonomamente após gates.
 
 Documento vivo de acompanhamento do projeto. É a fonte contínua de contexto:
@@ -195,8 +195,8 @@ Consequências práticas enquanto isso não acontece:
 
 ## 5. Banco de dados  🟡
 
-Modelo completo em [DATA_MODEL.md](DATA_MODEL.md); regras em
-[../api/REGRAS.md](../api/REGRAS.md). O que importa para o corte:
+Modelo completo em [DATA_MODEL.md](../DATA_MODEL.md); regras em
+[../api/REGRAS.md](../../api/REGRAS.md). O que importa para o corte:
 
 ### A invariante que decide se um backup presta
 
@@ -243,7 +243,7 @@ lados e comparar por `externo_id`** — está na Fase 1 do plano.
 ## 6. Backup  ⬜ (o plano existe; a execução ainda não)
 
 Procedimento completo, comandos conferidos e critérios de aceitação:
-[BACKUP_RECOVERY.md](BACKUP_RECOVERY.md).
+[BACKUP_RECOVERY.md](../BACKUP_RECOVERY.md).
 Ferramentas prontas: `api/tools/backup-dev.sh`, `validar-backup.sh`,
 `restaurar-backup.sh`.
 
@@ -358,7 +358,7 @@ Três caminhos foram considerados:
 | B | Apagar as tabelas de `marquesa-db` e recarregar o dump do DEV | **Recusado.** Faz uma escrita destrutiva em produção. Se o dump tiver qualquer problema, a produção fica pela metade e o rollback depende de arquivo. |
 | C | **Criar um D1 novo, carregar o dump do DEV nele, validar, e só então apontar `marquesa-api` para ele** | **Recomendado.** Nenhuma escrita destrutiva. O `marquesa-db` atual continua existindo, intocado, como rollback de um comando. |
 
-O caminho C é também o que o próprio [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md)
+O caminho C é também o que o próprio [BACKUP_RECOVERY.md](../BACKUP_RECOVERY.md)
 recomenda para restauração em produção: *"carregar o arquivo num banco D1
 **novo** e validar lá (…) só então decidir entre apontar o binding para o
 banco novo ou reverter o antigo"*.
@@ -922,7 +922,7 @@ fundo_gerado | erro`), então o módulo entra sem migration nova.
 
 ### Bugs e dívida herdada
 
-Lista completa em [TECH_DEBT.md](TECH_DEBT.md). Os que tocam este plano:
+Lista completa em [TECH_DEBT.md](../TECH_DEBT.md). Os que tocam este plano:
 
 - **1 — migrations aplicadas à mão, sem controle de versão.** É a causa direta
   de R4. Depois do go-live, adotar `wrangler d1 migrations` fica muito mais
@@ -944,8 +944,8 @@ Lista completa em [TECH_DEBT.md](TECH_DEBT.md). Os que tocam este plano:
 ## 17. Decisões de arquitetura
 
 Decisões anteriores continuam válidas e estão registradas em
-[../api/REGRAS.md](../api/REGRAS.md) (as 8 regras + as divergências
-conscientes) e em [decisions/](decisions/). Registradas **nesta rodada**:
+[../api/REGRAS.md](../../api/REGRAS.md) (as 8 regras + as divergências
+conscientes) e em [decisions/](../decisions). Registradas **nesta rodada**:
 
 | # | Decisão | Data | Motivo |
 |---|---|---|---|
@@ -1130,7 +1130,7 @@ banco para impedir duplicidade se existir algum registro legado.
 > estoque de peça que já saiu por outro caminho. O índice único
 > `vendas.externo_id` não protege contra isso: ele impede repetir, não
 > importar pela primeira vez. Mecanismo e prova em
-> [SYNC_ENGINE.md](SYNC_ENGINE.md) § `config.syncCorteEm` e em
+> [SYNC_ENGINE.md](../SYNC_ENGINE.md) § `config.syncCorteEm` e em
 > `api/REGRAS.md` § 4b.
 
 > **Nota sobre a credencial (passo 5).** Esta sessão roda num container
@@ -1262,7 +1262,7 @@ propósito" — está **revogada**. O dono do negócio esclareceu a operação:
 
 E corrigiu a inferência que a acompanhava: **não se classifica uma operação
 como acerto porque ela tem muitas linhas.** O que não é venda vem escrito na
-planilha. Regra completa em [api/REGRAS.md](../api/REGRAS.md) § 21.
+planilha. Regra completa em [api/REGRAS.md](../../api/REGRAS.md) § 21.
 
 ### 21.2 O que os números viraram
 
@@ -1285,7 +1285,7 @@ A rosca "Distribuição por categoria vendida" mostrava `Banhada 445`,
 `Bruto 227`, `Prata 925 165` — isso é **material**, não categoria. Vinha do
 fallback para `vendas_historico_itens.tipo`, e afetava 62% das linhas (833
 de 1.341), porque a peça já saiu do catálogo. Agora a categoria sai do
-catálogo ou do nome histórico. Regra em [api/REGRAS.md](../api/REGRAS.md)
+catálogo ou do nome histórico. Regra em [api/REGRAS.md](../../api/REGRAS.md)
 § 22, com teste que impede as duas tabelas de palavras de divergirem.
 
 Distribuição real: Brinco 422 (30,7%) · Colar 304 · Pulseira 242 · Anel 140 ·
@@ -1319,7 +1319,7 @@ Argola 122 · Berloque 57 · Conjunto 43 · Pingente 36 · Outros 9.
 ### 21.6 O que falta  🟡
 
 `wrangler deploy --env staging` — Classe C, comando humano. O Pages sobe
-sozinho com o push em `develop`. Ver [RUNBOOK-DEV-API.md](RUNBOOK-DEV-API.md).
+sozinho com o push em `develop`. Ver [RUNBOOK-DEV-API.md](../RUNBOOK-DEV-API.md).
 
 ---
 

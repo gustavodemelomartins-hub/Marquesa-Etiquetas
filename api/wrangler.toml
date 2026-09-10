@@ -4,7 +4,7 @@ compatibility_date = "2026-08-01"
 
 # go-live 2026-08-22: banco novo, carregado a partir do DEV congelado
 # (772 produtos, 1.171 movimentos, 10 vendas, 4 maletas abertas/382 peças —
-# ver docs/PLANO-MESTRE-MARQUESA.md § go-live). `marquesa-db` antigo
+# ver docs/archive/PLANO-MESTRE-MARQUESA.md § go-live). `marquesa-db` antigo
 # (089153a9-cee5-4887-b789-a23b1cf419f5) fica intacto como rollback; não é
 # mais o alvo do binding raiz.
 [[d1_databases]]
@@ -45,7 +45,7 @@ NUVEMSHOP_WRITES_ENABLED = "true"
 # Produtos Montáveis / "Monte seu Colar" (api/REGRAS.md §42) — parado antes de
 # fechar SKU comercial x base x componentes, base trocável, Ouro 18k/Prata
 # 925 e o estorno de troca. Retomada prevista 2026-09-07 — ver
-# SESSION_CLOSE_2026-09-06.md § Retomar amanhã.
+# docs/releases/SESSION_CLOSE_2026-09-06.md § Retomar amanhã.
 # Fail-closed como a linha acima: só "true" exato liga. `api/src/index.js` e
 # `api/src/personalizacao.js` recusam com 503 enquanto isto não for "true";
 # nenhuma rota normal de venda depende desta linha.
@@ -54,7 +54,7 @@ PERSONALIZACAO_ATIVA = "false"
 # Sincronização automática com a Nuvemshop.
 #
 # DESLIGADA EM 2026-08-22, na Fase 0 do go-live. Autorizado explicitamente.
-# Ver docs/PLANO-MESTRE-MARQUESA.md § 7.3 Fase 0 e § Risco R1.
+# Ver docs/archive/PLANO-MESTRE-MARQUESA.md § 7.3 Fase 0 e § Risco R1.
 #
 # O motivo: enquanto a operação real acontece no ambiente DEV, este Worker
 # ficou com um catálogo que não sabe de nenhuma venda feita lá. O cron faz
