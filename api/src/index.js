@@ -21,13 +21,6 @@ import {
   gerarFundoBranco,
   sincronizarFotosDaLoja,
 } from './fotos.js';
-import {
-  prepararPublicacao,
-  salvarPreviaPublicacao,
-  aprovarPublicacao,
-  reabrirPublicacao,
-  repetirPublicacao,
-} from './publicacao-catalogo.js';
 import { conferirAssinaturaFoto } from './assinatura.js';
 import { importarVariantesDaLoja, variantesDoSku } from './variantes.js';
 import { dependenciasDoProduto, excluirProduto, definirVariacoes } from './produtos.js';
@@ -233,27 +226,6 @@ async function rotear(request, env, contador = null) {
       }
       if ((m = path.match(/^\/api\/produtos\/([^/]+)\/foto\/fundo-branco$/)) && met === 'POST') {
         return json(await gerarFundoBranco(db, env, decodeURIComponent(m[1])));
-      }
-      // o que o agente de catálogo enxerga: pronto para publicar × o que falta
-      if ((m = path.match(/^\/api\/catalogo\/publicacao\/([^/]+)\/preparar$/)) && met === 'POST') {
-        const r = await prepararPublicacao(db, env, decodeURIComponent(m[1]), await request.json().catch(() => ({})));
-        return json(r, r.statusHttp || 200);
-      }
-      if ((m = path.match(/^\/api\/catalogo\/publicacao\/([^/]+)\/previa$/)) && met === 'POST') {
-        const r = await salvarPreviaPublicacao(db, decodeURIComponent(m[1]), await request.json().catch(() => ({})));
-        return json(r, r.statusHttp || 200);
-      }
-      if ((m = path.match(/^\/api\/catalogo\/publicacao\/([^/]+)\/aprovar$/)) && met === 'POST') {
-        const r = await aprovarPublicacao(db, decodeURIComponent(m[1]), await request.json().catch(() => ({})));
-        return json(r, r.statusHttp || 200);
-      }
-      if ((m = path.match(/^\/api\/catalogo\/publicacao\/([^/]+)\/reabrir$/)) && met === 'POST') {
-        const r = await reabrirPublicacao(db, decodeURIComponent(m[1]));
-        return json(r, r.statusHttp || 200);
-      }
-      if ((m = path.match(/^\/api\/catalogo\/publicacao\/([^/]+)\/repetir$/)) && met === 'POST') {
-        const r = await repetirPublicacao(db, decodeURIComponent(m[1]));
-        return json(r, r.statusHttp || 200);
       }
 
       if ((m = path.match(/^\/api\/produtos\/([^/]+)$/)) && met === 'PATCH') {

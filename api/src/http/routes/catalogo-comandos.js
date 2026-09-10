@@ -1,14 +1,19 @@
 /** Comandos de catálogo e de pendência que não tocam a razão de estoque nem a
- *  Nuvemshop: categoria, fila de peças novas, ciclo de vida da ficha e adiar
- *  ou retomar uma pendência.
+ *  Nuvemshop: categoria, fila de peças novas, ciclo de vida da ficha, adiar
+ *  ou retomar uma pendência e a publicação INTERNA do catálogo.
  *
  *  Arquivar não apaga: §28 manda arquivar quem tem histórico. Adiar uma
  *  pendência é decisão de agenda, não de estoque — nenhuma rota daqui cria
- *  movimento. */
+ *  movimento. E preparar ou aprovar publicação é ato interno: aprovação aqui
+ *  não concede escrita na loja (§CAT-06). */
 import { json } from '../../auth.js';
 import { enfileirarPendentes, limparPendentes } from '../../catalogo.js';
 import { arquivarProduto, desarquivarProduto } from '../../produtos.js';
 import { adiarPendencia, retomarPendencia } from '../../pendencias.js';
+import {
+  prepararPublicacao, salvarPreviaPublicacao, aprovarPublicacao,
+  reabrirPublicacao, repetirPublicacao,
+} from '../../publicacao-catalogo.js';
 
 const sku = (params) => decodeURIComponent(params.sku);
 
@@ -66,6 +71,42 @@ export const rotas = [
     async handler({ db, request }) {
       const r = await retomarPendencia(db, await request.json().catch(() => ({})));
       return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
+    },
+  },
+  {
+    // o que o agente de catálogo enxerga: pronto para publicar × o que falta
+    metodo: 'POST', caminho: '/api/catalogo/publicacao/:sku/preparar', auth: 'bearer',
+    async handler({ db, env, request, params }) {
+      const r = await prepararPublicacao(db, env, sku(params), await request.json().catch(() => ({})));
+      return json(r, r.statusHttp || 200);
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/catalogo/publicacao/:sku/previa', auth: 'bearer',
+    async handler({ db, request, params }) {
+      const r = await salvarPreviaPublicacao(db, sku(params), await request.json().catch(() => ({})));
+      return json(r, r.statusHttp || 200);
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/catalogo/publicacao/:sku/aprovar', auth: 'bearer',
+    async handler({ db, request, params }) {
+      const r = await aprovarPublicacao(db, sku(params), await request.json().catch(() => ({})));
+      return json(r, r.statusHttp || 200);
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/catalogo/publicacao/:sku/reabrir', auth: 'bearer',
+    async handler({ db, params }) {
+      const r = await reabrirPublicacao(db, sku(params));
+      return json(r, r.statusHttp || 200);
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/catalogo/publicacao/:sku/repetir', auth: 'bearer',
+    async handler({ db, params }) {
+      const r = await repetirPublicacao(db, sku(params));
+      return json(r, r.statusHttp || 200);
     },
   },
 ];
