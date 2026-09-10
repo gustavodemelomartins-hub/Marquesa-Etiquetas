@@ -13,10 +13,16 @@ import { listarCorrecoes } from '../../venda-correcao.js';
 import { auditoriaPagamentos } from '../../pagamentos-auditoria.js';
 import { listarLotes, retratoDoHistorico } from '../../vendas-historico.js';
 import { estadoReconstrucao } from '../../vendas-historicas.js';
-import { contasAReceber } from '../../contas-receber.js';
+import {
+  contasAReceber, definirPrazoDaConta, receberConta,
+} from '../../contas-receber.js';
+import { marcarContaPaga, definirVencimento } from '../../historico-operacoes.js';
 import { perfilCliente } from '../../analytics.js';
 import { listarSaidas, registrarSaida, estornarSaida } from '../../saidas.js';
-import { listarGarantias, lerGarantia, garantiasPendentes } from '../../garantias.js';
+import {
+  listarGarantias, lerGarantia, garantiasPendentes, abrirGarantia,
+  mudarStatusGarantia, registrarTroca, pagarDiferencaTroca, estornarTroca,
+} from '../../garantias.js';
 import { analisarHistoricoNaoVenda, listarReclassificacoes } from '../../auditoria-historico.js';
 
 const hoje = () => new Date().toISOString().slice(0, 10);
@@ -174,6 +180,75 @@ export const rotas = [
     metodo: 'POST', caminho: '/api/saidas/:id/estornar', auth: 'bearer', padroes: { id: '[0-9]+' },
     async handler({ db, request, params }) {
       const r = await estornarSaida(db, +params.id, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+    },
+  },
+  {
+    /* §31 — garantia por ITEM da compra. Nada aqui altera a venda original,
+       devolve a peça defeituosa ao estoque vendável ou gera faturamento: a
+       única receita é a diferença de uma troca, e ela tem rota própria. */
+    metodo: 'POST', caminho: '/api/garantias', auth: 'bearer',
+    async handler({ db, request }) {
+      const r = await abrirGarantia(db, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 201 : (r.statusHttp ?? 400));
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/garantias/:id/status', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      const r = await mudarStatusGarantia(db, +params.id, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/garantias/:id/troca', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      const r = await registrarTroca(db, +params.id, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 201 : (r.statusHttp ?? 409));
+    },
+  },
+  {
+    // Liquida APENAS a diferença da troca — nunca a venda original.
+    metodo: 'POST', caminho: '/api/garantias/:id/troca/pagar', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      const r = await pagarDiferencaTroca(db, +params.id, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/garantias/:id/troca/estornar', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      const r = await estornarTroca(db, +params.id, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+    },
+  },
+  {
+    /* §37 — recebível é projeção do que a venda decidiu. Liquidar aqui mexe
+       em dinheiro e nunca em estoque. */
+    metodo: 'PATCH', caminho: '/api/contas-receber/prazo', auth: 'bearer',
+    async handler({ db, request }) {
+      const r = await definirPrazoDaConta(db, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/contas-receber/receber', auth: 'bearer',
+    async handler({ db, request }) {
+      const r = await receberConta(db, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/contas-receber/:id/marcar-paga', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      const r = await marcarContaPaga(db, +params.id, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+    },
+  },
+  {
+    metodo: 'PATCH', caminho: '/api/contas-receber/:id/vencimento', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      const r = await definirVencimento(db, +params.id, await request.json().catch(() => ({})));
       return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
     },
   },

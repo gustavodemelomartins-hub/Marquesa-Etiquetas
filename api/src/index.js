@@ -43,15 +43,7 @@ import { painel } from './analytics.js';
 /* §30 · §31 · §32 — as três áreas novas de Vendas. Cada uma num arquivo
    próprio porque cada uma tem uma regra própria de o que NÃO fazer, e essa
    regra some quando o código mora dentro do roteador. */
-import {
-  abrirGarantia,
-  mudarStatusGarantia,
-  registrarTroca,
-  pagarDiferencaTroca,
-  estornarTroca,
-} from './garantias.js';
 /* §37 — a lista única de quem deve. Ver api/src/contas-receber.js. */
-import { definirPrazoDaConta, receberConta } from './contas-receber.js';
 /* §41 — corrigir o código de uma peça já vendida, sem cancelar a venda. */
 import { corrigirItemDeVenda } from './venda-correcao.js';
 /* §43 — Monte seu Colar: base + componentes + configuração da venda. */
@@ -66,10 +58,7 @@ import {
 } from './d1-metrica.js';
 import { aplicarReclassificacao, desfazerReclassificacao } from './auditoria-historico.js';
 import { reconstruir, backfillNormalizacao } from './vendas-historicas.js';
-import {
-  aplicarOperacoesHistoricas,
-  marcarContaPaga, definirVencimento,
-} from './historico-operacoes.js';
+import { aplicarOperacoesHistoricas } from './historico-operacoes.js';
 import {
   abrirSessao,
   aprovarItem,
@@ -638,22 +627,6 @@ async function rotear(request, env, contador = null) {
          de garantia. Cada linha traz uma `chave` (`historico:12`,
          `venda:45`, `troca:7`) que diz de onde veio e para onde a ação vai.
          As rotas antigas continuam válidas e tratam só o lado histórico. */
-      if (path === '/api/contas-receber/prazo' && met === 'PATCH') {
-        const r = await definirPrazoDaConta(db, await request.json().catch(() => ({})));
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
-      }
-      if (path === '/api/contas-receber/receber' && met === 'POST') {
-        const r = await receberConta(db, await request.json().catch(() => ({})));
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
-      }
-      if ((m = path.match(/^\/api\/contas-receber\/(\d+)\/marcar-paga$/)) && met === 'POST') {
-        const r = await marcarContaPaga(db, +m[1], await request.json().catch(() => ({})));
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
-      }
-      if ((m = path.match(/^\/api\/contas-receber\/(\d+)\/vencimento$/)) && met === 'PATCH') {
-        const r = await definirVencimento(db, +m[1], await request.json().catch(() => ({})));
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
-      }
 
       if ((m = path.match(/^\/api\/clientes\/(\d+)$/)) && met === 'PATCH') {
         return await atualizarCliente(db, +m[1], await request.json());
@@ -664,30 +637,6 @@ async function rotear(request, env, contador = null) {
       }
 
 
-      // ──────────────────────────────────────── §31: garantia e reparo
-      // Nada aqui altera a venda original, devolve a peça defeituosa ao
-      // estoque vendável ou gera faturamento. A única receita é a diferença
-      // de uma troca, quando paga, e ela tem rota própria.
-      if (path === '/api/garantias' && met === 'POST') {
-        const r = await abrirGarantia(db, await request.json().catch(() => ({})));
-        return json(r, r.ok ? 201 : (r.statusHttp ?? 400));
-      }
-      if ((m = path.match(/^\/api\/garantias\/(\d+)\/status$/)) && met === 'POST') {
-        const r = await mudarStatusGarantia(db, +m[1], await request.json().catch(() => ({})));
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
-      }
-      if ((m = path.match(/^\/api\/garantias\/(\d+)\/troca$/)) && met === 'POST') {
-        const r = await registrarTroca(db, +m[1], await request.json().catch(() => ({})));
-        return json(r, r.ok ? 201 : (r.statusHttp ?? 409));
-      }
-      if ((m = path.match(/^\/api\/garantias\/(\d+)\/troca\/pagar$/)) && met === 'POST') {
-        const r = await pagarDiferencaTroca(db, +m[1], await request.json().catch(() => ({})));
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
-      }
-      if ((m = path.match(/^\/api\/garantias\/(\d+)\/troca\/estornar$/)) && met === 'POST') {
-        const r = await estornarTroca(db, +m[1], await request.json().catch(() => ({})));
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
-      }
 
       /* §1 da revisão — o estado de pagamento das vendas, ANTES do backfill.
          Somente leitura, e roda em banco que ainda não tem as colunas novas:
