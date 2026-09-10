@@ -49,6 +49,7 @@ regra corrente e não autoriza operação nenhuma hoje.
 | Assunto | Documento |
 |---|---|
 | Estoque e catálogo | [domains/ESTOQUE-CATALOGO-BASELINE.md](domains/ESTOQUE-CATALOGO-BASELINE.md) |
+| Inventário — desenho canônico da Fase 4.4 | [domains/INVENTARIO-4-4.md](domains/INVENTARIO-4-4.md) |
 | Saídas sem faturamento | [domains/SAIDAS-SEM-FATURAMENTO.md](domains/SAIDAS-SEM-FATURAMENTO.md) |
 | Nuvemshop | [domains/NUVEMSHOP_INTEGRATION.md](domains/NUVEMSHOP_INTEGRATION.md) |
 | Sincronização | [domains/SYNC_ENGINE.md](domains/SYNC_ENGINE.md) |

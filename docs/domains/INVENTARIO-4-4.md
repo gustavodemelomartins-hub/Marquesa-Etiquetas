@@ -1,7 +1,14 @@
 # Inventário — Fase 4, item 4
 
-Desenho aprovado por decisão humana de **10/09/2026**. Este documento é o
-requisito de entrada da implementação; **nada aqui foi implementado**.
+**Fonte canônica da Fase 4, item 4.** Desenho aprovado por decisão humana de
+**10/09/2026**; **nada aqui foi implementado**.
+
+Vale para o mecanismo, o modelo de dados, o contrato de rotas, o contrato de
+UX/API (seção 11) e as pendências S1–S6 (seção 12). Onde documentação anterior
+descrever o inventário de outro jeito, **prevalece este documento**, e o texto
+antigo passa a ser histórico. Duas exceções, acima dele:
+[api/REGRAS.md](../../api/REGRAS.md) para a regra de negócio e
+[SECURITY.md](../SECURITY.md) para risco e ambiente.
 
 Entra depois de [HISTORICO-INCOMPLETO-E-INVENTARIO.md](HISTORICO-INCOMPLETO-E-INVENTARIO.md),
 que decidiu que o passado não se reconstrói por adivinhação, e ao lado de
