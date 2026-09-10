@@ -445,6 +445,48 @@ mesmo estoque físico.
 8. inventário ignora os kits e conta só os componentes reais;
 9. a razão fecha no fim de tudo (§19).
 
+### `src/inventario-4-4-test.mjs` — o inventário inteiro, contra o schema real
+**22 provas · ~2 s · sem Worker, sem rede, sem banco em disco**
+
+Roda `api/schema.sql` de verdade, aplica `api/migracao-inventario-4-4.sql` em
+cima **duas vezes** (para provar que ela é aditiva e idempotente) e chama os
+módulos de verdade — só o HTTP fica de fora. Usa `node:sqlite`; onde ele não
+existir, o teste **diz que não rodou** em vez de passar em silêncio.
+
+As treze provas do §10 de
+[INVENTARIO-4-4.md](../domains/INVENTARIO-4-4.md), mais a compatibilidade:
+
+1. a contagem sobrevive a pausar e retomar, e pausado não é abandonado;
+2. **item não conferido nunca aparece como faltante**, nem entra em lote;
+3. contado-zero explícito gera diferença; não contado não gera nada;
+4. SKU com variação recusa contagem agregada e devolve a régua cadastrada;
+5. **"não sei" bloqueia o código inteiro e não movimenta nada** — nem depois
+   de o retrato ser relido;
+6. contar 4, vender 2 e fechar depois **não é divergência nenhuma**;
+7. movimento posterior sem identidade, e razão incompleta no histórico,
+   mandam a linha para `nao_comparavel` com o número na frente;
+8. negativa vira `perda`/saída e positiva vira `ajuste`/entrada — as duas com
+   `inventario_id` e `origem = 'inventario'`;
+9. aplicar duas vezes é recusado **pelo índice único**, provado limpando o
+   retrato à mão para simular a segunda aba;
+10. estorno devolve a peça e o relançamento volta a ser permitido;
+11. a razão fecha em **cada** passo;
+12. o movimento historicamente incompleto é conferido byte a byte no fim;
+13. a rota antiga continua servindo o dashboard legado, ignora a quantidade
+    que o cliente manda, e a contagem agregada dele nunca vira movimento sem
+    variação.
+
+### `scripts/inventario-tri-estado.test.mjs` — as travas do inventário no código
+**9 regras · <1 s · só lê arquivos**
+
+Gate de código-fonte, no mesmo espírito do `montagem-dupla-contagem`: o teste
+acima prova que hoje está certo; este prova que os pontos onde o inventário
+voltaria a mentir continuam fechados. Cobre o tri-estado no banco, a recusa de
+`movimentar()` dentro de `inventario.js`, a quantidade vinda do retrato
+congelado, a origem `inventario` no movimento, o índice único com
+`estornada = 0`, `inventario_itens` como leitura, e a migration sem `DROP`,
+sem backfill e sem reconstrução de tabela.
+
 ### `src/e2e.mjs` — o caminho inteiro num navegador de verdade
 **66 asserções · ~36 s · Playwright + servidor HTTP em `localhost:8000`**
 
@@ -1109,7 +1151,11 @@ apagar `.wrangler/state`, ou o `rm` falha com `Device or resource busy`.
 
 - `comissao.js` — as faixas do acerto não têm teste próprio; só passam pelo
   caminho do `e2e`;
-- `inventario.js` — coberto de raspão pelo `e2e` e pelo `kits-test`;
+- ~~`inventario.js` — coberto de raspão pelo `e2e` e pelo `kits-test`~~ —
+  **fechado em 10/09/2026** por `src/inventario-4-4-test.mjs` (22 provas
+  contra o schema real) e `scripts/inventario-tri-estado.test.mjs` (9 travas
+  de código-fonte). O que continua sem teste é o inventário **na tela**: o
+  `e2e` cobre o fluxo legado, e nenhuma tela nova existe ainda;
 - rotas de revendedora, cliente e categoria fora do caminho do `e2e`;
 - comportamento contra a Nuvemshop **de verdade** (por definição: a loja
   falsa imita o que se sabe que ela faz);

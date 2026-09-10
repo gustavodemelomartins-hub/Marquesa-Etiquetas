@@ -42,6 +42,29 @@ Esse snapshot pode avançar antes de bancos existentes. Portanto, “existe em `
 | `migracao-vendas-nuvemshop.sql` | identidade/status de venda externa | aditiva | ledger remoto ausente |
 | `migracao-vendas-pagamento.sql` | pagamento/data/observação | aditiva | GO_LIVE Phase 2 registra aplicação |
 
+## Acrescentado depois do baseline
+
+O manifesto acima é o retrato de **2026-09-09** e não se reescreve. O que
+entrou na pasta depois dele fica aqui, com a mesma régua de evidência.
+
+| Migration | Papel | Repetição/risco | Evidência versionada sobre aplicação |
+|---|---|---|---|
+| `migracao-inventario-4-4.sql` | contagem por variação, "não sei", retrato congelado, vínculo da diferença | aditiva; `IF NOT EXISTS` em tudo, `ADD COLUMN` tolerado como "já aplicada" | **não executada em produção**; provada em SQLite em memória por `src/inventario-4-4-test.mjs`, inclusive rodando duas vezes |
+| `migracao-inventario-4-4-rollback.sql` | remove as três tabelas novas e os índices | **destrutiva: DROP** | rollback manual somente; nunca runner automático |
+
+Duas observações que a Fase 4.4 registrou e que valem para a janela de release:
+
+- ela **não presume** que `migracao-inventario.sql` está aplicada. A primeira
+  coisa que faz é recriar `inventarios` e `inventario_itens` com
+  `IF NOT EXISTS`, cópia literal da antiga — num banco que já as tem, não faz
+  nada; num que não tem, impede as chaves estrangeiras de apontarem para o
+  vazio;
+- o rollback **não** derruba as duas colunas aditivas (`inventarios.pausado_em`
+  e `saidas_sem_faturamento.inventario_id`). Coluna com default NULL não muda
+  leitura nenhuma, e removê-la em SQLite exigiria reconstruir
+  `saidas_sem_faturamento` — a operação que a migration existe para evitar, e
+  a mesma que mantém a P11 parada.
+
 “Ledger remoto ausente” não significa “não aplicada”; significa apenas que a Fase 0 se recusou a inferir estado implantado de arquivos locais. A pasta mistura evolução histórica, migrations candidatas, migrations já absorvidas pelo schema e um rollback destrutivo. Não existe ainda tabela/manifesto executável único que registre versão por banco.
 
 ## Operação de dados catalogada fora do fluxo forward

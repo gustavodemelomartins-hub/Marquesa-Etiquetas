@@ -1,7 +1,38 @@
 # Inventário — Fase 4, item 4
 
 **Fonte canônica da Fase 4, item 4.** Desenho aprovado por decisão humana de
-**10/09/2026**; **nada aqui foi implementado**.
+**10/09/2026** e **implementado em 10/09/2026** — código, migration e provas
+na branch `claude/refactor-sistema-marquesa`. **Nada foi aplicado em
+produção**: a migration é Classe C e continua esperando a janela de release.
+
+| O que | Onde |
+|---|---|
+| Contagem, comparação, fechamento e aplicação | `api/src/inventario.js` |
+| Vínculo, origem e a trava do índice | `api/src/saidas.js` |
+| Sete rotas novas | `api/src/http/routes/operacao.js` |
+| Migration aditiva e rollback | `api/migracao-inventario-4-4.sql` · `…-rollback.sql` |
+| Schema de referência | `api/schema.sql` |
+| Prova contra o schema real (22 cenários) | `src/inventario-4-4-test.mjs` |
+| Travas no código-fonte (9 regras) | `scripts/inventario-tri-estado.test.mjs` |
+| Regra de negócio consolidada | [../../api/REGRAS.md](../../api/REGRAS.md) §3 |
+
+Três coisas que a implementação decidiu e que este desenho não dizia, todas
+na direção de não chutar:
+
+1. **pausar não muda `status`**, só grava `pausado_em`. É o que mantém o
+   dashboard legado retomando a contagem sem alteração nenhuma e o que impede
+   abrir um segundo inventário por cima de um parado. O estado "pausado" que a
+   tela mostra é derivado;
+2. **`nao_comparavel` só vale para código que alguém contou.** Código que
+   ninguém bipou é `nao_conferido` — ele não produz movimento de qualquer
+   jeito, e marcá-lo como não comparável afogaria a lista que existe para ser
+   lida uma a uma. Quando a razão daquele código tem peça sem identidade, a
+   linha sai no nível do CÓDIGO, que é o único número demonstrável ali;
+3. **`POST /ajustar` passou a ser um apelido do mesmo motor**, e não um
+   segundo caminho. Ele ignora o `qtd` do corpo (§8) e recusa quando o mesmo
+   código tem diferença em mais de uma variação e ninguém disse qual. Manter
+   dois mecanismos para o mesmo fato deixaria a tela legada fora do
+   `inventario_id`, do estorno e da idempotência.
 
 Vale para o mecanismo, o modelo de dados, o contrato de rotas, o contrato de
 UX/API (seção 11) e as pendências S1–S6 (seção 12). Onde documentação anterior
@@ -340,7 +371,7 @@ O contrato de campos está na seção 11, que é a versão para a trilha de prod
 
 ---
 
-## 10. O que a implementação vai ter que provar
+## 10. O que a implementação teve que provar — e provou
 
 1. contagem sobrevive a pausar, fechar o navegador e trocar de aparelho;
 2. **não contado nunca vira faltante** — nem no relatório, nem em lote;
@@ -358,14 +389,26 @@ O contrato de campos está na seção 11, que é a versão para a trilha de prod
 13. `produtos.qtd` nunca escrito direto (gate já existente em
     `scripts/razao-estoque.test.mjs`).
 
+As treze estão em `src/inventario-4-4-test.mjs`, que roda `api/schema.sql` de
+verdade, aplica a migration em cima (duas vezes, para provar idempotência) e
+chama os módulos de verdade — só o HTTP fica de fora. Vinte e duas provas, a
+razão fechando em cada passo e o movimento historicamente incompleto conferido
+byte a byte no fim.
+
 ### Migration
 
-Classe C, aditiva: três `CREATE TABLE`, dois `ADD COLUMN`, dois índices. Nenhum
+Classe C, aditiva: três `CREATE TABLE`, dois `ADD COLUMN`, três índices. Nenhum
 `DROP`, nenhuma tabela reconstruída, nenhum backfill, testável nas duas direções.
 Rollback é descartar as tabelas novas; o inventário antigo continua legível.
 
 O baseline da Fase 0 **não prova** que `migracao-inventario.sql` está aplicada em
-produção. A migration nova precisa verificar isso antes de rodar, e não presumir.
+produção. A migration nova não presume: ela começa recriando `inventarios` e
+`inventario_itens` com `IF NOT EXISTS`, cópia literal da antiga, para as chaves
+estrangeiras não apontarem para o vazio num banco que nunca a rodou.
+
+O rollback **não** derruba as duas colunas aditivas. Coluna com default NULL não
+muda leitura nenhuma, e removê-la em SQLite exigiria reconstruir
+`saidas_sem_faturamento` — a operação que esta migration existe para evitar.
 
 ---
 

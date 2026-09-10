@@ -42,7 +42,7 @@ ou apagar consignação em silêncio — ver
 [RECONCILIATION_ENGINE.md § Fonte da verdade](../domains/RECONCILIATION_ENGINE.md).
 
 Esta prioridade é temporária por definição: quando o inventário interno
-(hoje já existe como conferência — `inventarios`/`inventario_itens` — mas
+(hoje já existe como conferência — `inventarios`/`inventario_contagem` — mas
 não é aplicado automaticamente, §3 de `api/REGRAS.md`) passar a ser
 controlado com confiança suficiente, ele poderá substituir a planilha como
 fonte da verdade física. Não é uma regra eterna, é o que vale **hoje**.
@@ -336,20 +336,44 @@ Esse mínimo é **compartilhado**: dois kits que usam a mesma peça disputam o
 mesmo número, e vender um derruba o outro na mesma hora. Kit não entra em
 maleta e fica fora do inventário — limites de escopo deliberados.
 
-### `inventarios` / `inventario_itens`
+### `inventarios` / `inventario_contagem` / `inventario_nao_identificado` / `inventario_resultado`
 A conferência física do que está **em casa** (o consignado é descontado do
-esperado). Status: `aberto` | `concluido` | `cancelado`.
+esperado). Status: `aberto` | `concluido` | `cancelado`, mais `pausado_em`.
 
 Contar e corrigir são **dois atos separados** (§19): `concluir` só compara e
-devolve a diferença; `ajustar` grava um movimento `ajuste` com origem
-`inventario` e a frase do motivo, um código por vez, e recusa ajustar duas
-vezes o mesmo código (`ajustado = 1`).
+CONGELA; aplicar a diferença é um segundo ato, item a item, nunca "todos".
 
-`inventario_itens.esperado` é congelado no fechamento, pelo mesmo motivo do
-`preco_envio`: um inventário que mudasse de resultado depois de fechado não
-serviria para nada.
+**`inventario_contagem` é a contagem viva.** Chave
+`(inventario_id, sku, variacao)`, `''` para o código sem variação. Existe
+linha = foi contado; não existe = **não** foi contado. É essa ausência, e não
+um valor, que implementa "não contado nunca é zero" — zero é um resultado
+("conferi, não tem nenhuma") e vira `contado = 0`. `contado_em` existe para a
+comparação retroagida: fechar na sexta uma contagem da segunda desconta os
+movimentos do intervalo, que estão registrados.
 
-Código bipado fora do catálogo não cabe em `inventario_itens` (a chave
+**`inventario_nao_identificado`** guarda a quantidade que ela viu e não soube
+dizer de qual variação era. Nunca vira movimento, e bloqueia a correção
+daquele código inteiro — §2: não se chuta a distribuição de uma variante.
+
+**`inventario_resultado` é o retrato congelado**, por variação, pelo mesmo
+motivo do `preco_envio`: um inventário que mudasse de resultado depois de
+fechado não serviria para nada. `situacao` é
+`conferido | faltando | sobrando | nao_conferido | nao_comparavel`, e `dif` é
+`NULL` nas duas últimas. A aplicação da diferença relê daqui e **ignora**
+qualquer quantidade enviada pelo cliente.
+
+A diferença aplicada vira uma linha em `saidas_sem_faturamento` com
+`inventario_id` preenchido — negativa `sentido='saida'`, positiva
+`sentido='entrada'`, as duas `tipo='perda'`. `idx_saida_inventario_unica` é o
+que impede aplicá-la duas vezes; a cláusula `estornada = 0` é o que permite
+relançá-la depois de um estorno.
+
+**`inventario_itens` é histórica.** Ela não recebe escrita nova: a chave
+`(inventario_id, sku)` não comporta variação, e mudá-la em SQLite exigiria
+reconstruir a tabela. Os inventários fechados antes da Fase 4.4 continuam
+sendo lidos de lá, e continuam certos.
+
+Código bipado fora do catálogo não cabe em `inventario_contagem` (a chave
 estrangeira o recusaria, e com razão). Fica em
 `inventarios.desconhecidos_json`, para a tela poder mostrá-lo (§22).
 
@@ -418,7 +442,10 @@ dois lados, não só um).
 categorias ──< produtos ──< movimentos
                   │  ├──< maleta_itens >── maletas >── revendedoras
                   │  ├──< venda_itens  >── vendas   >── clientes
-                  │  ├──< inventario_itens >── inventarios
+                  │  ├──< inventario_contagem       >── inventarios
+                  │  ├──< inventario_nao_identificado>── inventarios
+                  │  ├──< inventario_resultado       >── inventarios
+                  │  ├──< inventario_itens           >── inventarios  (histórica)
                   │  ├──< produto_variacoes
                   │  └──< kit_componentes (kit_sku e componente_sku)
 config                    (avulsa)
