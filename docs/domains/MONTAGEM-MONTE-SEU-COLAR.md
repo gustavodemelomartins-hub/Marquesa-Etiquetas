@@ -1,331 +1,461 @@
-# Produtos Montáveis / Monte seu Colar — auditoria final antes do item 3
+# Produtos Montáveis / Monte seu Colar
 
-Auditoria de **10/09/2026**, Fase 4 item 3. **Nada foi implementado.**
-Substitui o levantamento anterior deste arquivo: a decisão humana de
-10/09/2026 respondeu a pergunta que estava aberta (§6.1 da versão anterior).
+Decisão humana oficial de **10/09/2026**, com os SKUs confirmados pela
+Sthefany. Esta é a fonte de negócio mais recente para o domínio; onde a
+documentação antiga divergir, prevalece esta — e o §14 preserva o histórico das
+decisões que foram substituídas.
 
-## A regra oficial
+**Nada foi implementado.** O item 3 da Fase 4 tem uma decisão pendente (§13).
+
+## A regra de ouro
 
 ```
-SKU comercial      = o que foi vendido
-SKU/componente     = o que realmente existe e saiu da gaveta
-Composição         = a regra que conecta os dois
+CONFIGURAÇÃO          define quantos Meninos/Meninas podem ser escolhidos
+VENDA                 registra qual configuração comercial foi vendida
+COMPONENTES ESCOLHIDOS  dizem o que fisicamente saiu
+VENEZIANA             sai automaticamente em toda montagem
 
-ESTOQUE FINANCEIRO = somente aquilo que fisicamente existe
+ESTOQUE FINANCEIRO    = somente componentes físicos reais
 ```
 
-Uma configuração comercial montável **pode** ter SKU, nome, preço, foto,
-aparecer na tela e na venda — e **não pode** ter saldo físico próprio nem
-somar valor patrimonial. A disponibilidade dela é derivada dos componentes.
+## 1. Os 11 SKUs confirmados
 
-## 1. SKUs e configurações documentados
+### 6 componentes físicos
 
-Origem: constantes de [`personalizacao.js`](../../api/src/personalizacao.js) e
-§42 do [api/REGRAS.md](../../api/REGRAS.md). A coluna de produção foi medida no
-dump de 10/09/2026, somente leitura.
+Têm saldo, recebem movimento, entram no inventário, podem ter entrada de
+compra e podem ir para maleta conforme a operação permitir.
 
-| Papel documentado | SKU | Nome documentado | Catálogo de produção |
-|---|---|---|---|
-| Base física | `444032` | Colar Veneziana | **AUSENTE** |
-| Componente | `263236` | Menina rosa claro | `Pingente`, qtd 5, R$ 119 |
-| Componente | `273470` | Menina incolor | `Pingente`, qtd 5, R$ 119 |
-| Componente | `251551` | Menino azul | **AUSENTE** |
-| Componente | `251552` | Menino incolor | **AUSENTE** |
-| Componente | `329494` | Menino verde | **AUSENTE** |
-| Configuração | `326660` | Colar Casal | `Colar`, **qtd 1**, R$ 129, ativo |
-| Configuração | `364945` | Duas meninas | **AUSENTE** |
-| Configuração | `311066` | Dois meninos | **AUSENTE** |
-| Configuração | `314161` | 2 meninos + 1 menina | **AUSENTE** |
-| Configuração | `399872` | 2 meninas + 1 menino | `Colar`, qtd 0, R$ 129, inativo |
-| Composição livre | `MONTE-COLAR` | composição livre | qtd 0, sem preço, inativo |
-
-**7 dos 12 não existem no catálogo de produção.** Conforme a decisão, eles
-**não são descartados**: continuam sendo a identidade comercial da família,
-esperando o cadastro a ser informado.
-
-## 2. Quais são claramente componentes físicos
-
-Existem, têm saldo, entram no inventário e no valor do estoque:
-
-| SKU | Nome | Saldo | Preço | Papel |
+| SKU | Nome oficial (decisão) | Preço | Grupo | Catálogo de produção |
 |---|---|---|---|---|
-| `263236` | Pingente Menina Zircônia Rosa Claro 18k | 5 | 119 | componente documentado |
-| `273470` | Pingente Menina Zircônia Incolor 18k | 5 | 119 | componente documentado |
-| `455109` | Colar Veneziana 45cm Banho de Ouro 18k | 2 | 74 | **candidato a base** · publicado na loja · 1 un. na maleta 13 |
-| `453578` | Colar Veneziana 0.80 com Bolinhas 18k | 3 | 89 | outra veneziana física |
-| `926220` | Pingente Menino Zircônia Incolor 18k | 1 | 74 | **candidato** a `251552` |
+| `263236` | Colar Menina Zircônia Rosa Claro Banho de Ouro 18k | 119 | Menina | existe · `Pingente` · qtd 5 · R$ 119 |
+| `273470` | Colar Menina Zircônia Incolor Banho de Ouro 18k | 119 | Menina | existe · `Pingente` · qtd 5 · R$ 119 |
+| `251551` | Colar Menino Zircônia Azul Banho de Ouro 18k | 119 | Menino | **AUSENTE** |
+| `251552` | Colar Menino Zircônia Incolor Banho de Ouro 18k | 119 | Menino | **AUSENTE** |
+| `329494` | Colar Menino Zircônia Verde Banho de Ouro 18k | 119 | Menino | **AUSENTE** |
+| `444032` | Colar Veneziana 45cm com Extensor Banho de Ouro 18k | 74 | base fixa | **AUSENTE** |
 
-Os três componentes menino documentados (azul, incolor e verde da linha
-Zircônia) **não existem** com esses códigos. O catálogo tem uma linha
-*Cravejado* paralela (`718221` azul, `222908` e `640509` verde, `718220` e
-`640508` em prata) que **não** é a mesma linha comercial. Nenhuma associação
-foi feita.
+Dois detalhes registrados sem ação, porque **nada foi associado por semelhança
+de nome**:
 
-**A base `444032` não tem substituto decidido.** `455109` é o único "Colar
-Veneziana 45cm" do catálogo e bate com a decisão de 06/09 ("Base Veneziana
-45 cm"), mas isso é semelhança de nome, não identidade provada.
+- os dois que existem estão cadastrados como `Pingente ...`, e a decisão os
+  nomeia `Colar ...`. O nome comercial **não muda**; o papel na mecânica é de
+  componente físico, e isso já está dito aqui;
+- o catálogo tem `455109` "Colar Veneziana 45cm Banho de Ouro 18k", R$ 74, com
+  saldo 2 — mesmo preço, **sem extensor** no nome, código diferente. Não é
+  `444032`. Os quatro ausentes precisam de cadastro e de saldo informado.
 
-## 3. Quais são claramente configurações comerciais
+### 5 configurações comerciais
 
-Pelo documento: `326660`, `364945`, `311066`, `314161`, `399872` e
-`MONTE-COLAR`.
+Identidade comercial real, preço próprio, podem ter foto/nome/publicação.
+**Sem quantidade física independente, sem patrimônio próprio**, disponibilidade
+derivada dos componentes.
 
-**Pelos dados de produção, não.** Ver §11 — é a contradição que trava.
+| SKU | Nome | Preço | Fixo | Slots | Catálogo de produção |
+|---|---|---|---|---|---|
+| `326660` | Colar Casal | 129 | 1 × `444032` | 1 Menino + 1 Menina | existe · **qtd 1** · ativo |
+| `364945` | Colar Filhas Duas Meninas | 129 | 1 × `444032` | 2 Menina | **AUSENTE** |
+| `311066` | Colar Filhos Dois Meninos | 129 | 1 × `444032` | 2 Menino | **AUSENTE** |
+| `314161` | Colar Filhos Dois Meninos e Uma Menina | 159 | 1 × `444032` | 2 Menino + 1 Menina | **AUSENTE** |
+| `399872` | Colar Filhos Duas Meninas e Um Menino | 159 | 1 × `444032` | 2 Menina + 1 Menino | existe · qtd 0 · inativo |
 
-O catálogo tem ainda estas, que ninguém mapeou como configuração e que
-confirmam que existe **mais de um "Colar Casal"**:
+Preço de venda **não** infere composição nem custo: R$ 119 e R$ 74 são preços
+dos produtos físicos nos contextos deles; R$ 129 e R$ 159 são decisão comercial
+da configuração. A observação anterior de que "o preço não fecha" está
+**resolvida e descartada** como critério.
 
-| SKU | Nome | Saldo | Preço | Na loja |
-|---|---|---|---|---|
-| `453324` | Colar Casal Filhos Azul e Rosa Prata 925 | 1 | 209 | **publicado**, estoque 1 |
-| `637629` | Colar Casal Menina Rosa e Menino Azul Prata 925 | 1 | 210 | não |
-| `424442` | Colar Casal de Filhos com Coração Cravejado 45cm Prata 925 | 1 | 219 | não |
-| `458893` | Colar Coração Casal de Filhos Azul e Rosa 18k | 1 | 169 | não |
-| `762844` | Colar Coração e Casal Cravejado Banho de Prata | 1 | 119 | 1 un. na maleta 13 |
-| `366066` | Colar Filhos Três Meninos Banho de Ouro 18k | 1 | 159 | não |
+## 2. O que muda em relação à auditoria anterior
 
-`366066` é exatamente a combinação "três meninos" citada como exemplo de
-configuração nova — e ela **já existe como produto com saldo**. Mesmo caso de
-`326660`. Estes são os SKUs "Prata 925" que a decisão de 06/09 mencionava;
-nenhum deles aparece em `personalizacao.js`.
+A composição é **por slot tipado**, não por SKU fixo. Isso invalida a
+recomendação anterior deste documento de usar `kit_componentes`:
 
-## 4. Composição já conhecida de cada configuração
+> `kit_componentes` tem chave primária `(kit_sku, componente_sku)`. Uma linha
+> nomeia **um SKU**. Não existe forma de escrever "1 × qualquer coisa do grupo
+> Menino" nela.
 
-| Configuração | Composição declarada em código | Grau |
-|---|---|---|
-| `326660` casal | 1 base + 1 slot Menino + 1 slot Menina | **tipo**, não SKU |
-| `364945` duas meninas | 1 base + 2 slots Menina | tipo |
-| `311066` dois meninos | 1 base + 2 slots Menino | tipo |
-| `314161` 2M+1F | 1 base + Menino, Menino, Menina | tipo |
-| `399872` 2F+1M | 1 base + Menina, Menina, Menino | tipo |
-| `MONTE-COLAR` | 1 base + 1 a 12 slots livres | arbitrário |
+`kit_componentes` representa **apenas componente fixo**. Ela serve para a
+Veneziana e para nada mais desta família — e, como se vê no §3, usá-la nem
+para isso é seguro. **Recomendação: não reaproveitar `kit_componentes` no Monte
+seu Colar.** Ela fica como está: mecanismo genérico de composição fixa, vazio,
+sem uso e sem expansão.
 
-**Nenhuma configuração tem composição fechada em SKU.** O que existe é
-`slotTipos`, uma lista de **grupos** (`'Menino'`, `'Menina'`) preenchida pela
-vendedora **no momento da venda**, escolhendo entre as cinco opções canônicas.
-Não existe em lugar nenhum a linha "casal = `444032` + `251551` + `263236`".
+Motivo concreto: uma linha em `kit_componentes` faz `saldosDoSku` devolver um
+kit e `ehKit` devolver `true`. Isso daria a propriedade certa ("sem saldo
+próprio") com dois efeitos errados — a disponibilidade seria calculada só sobre
+a Veneziana, ignorando os slots, e a venda e o cancelamento passariam por
+`movimentarKit`, que movimentaria **só a Veneziana**. São exatamente os
+"mecanismos sobrepostos" a evitar.
 
-Isso importa: o modelo oficial — composição cadastrada, disponível derivado
-dela — precisa da relação exata SKU→SKUs, e ela **não existe hoje**, nem em
-código nem em dado.
+## 3. Desenho técnico mínimo final
 
-## 5. Composição incompleta ou ambígua — **pendente**
+### 3.1 Componente fixo `444032` (pergunta 1)
 
-1. **Toda configuração**, pelo motivo do §4: falta a relação exata.
-2. **A base**: `444032` ausente; qual SKU físico ocupa esse papel.
-3. **Os três componentes menino**: ausentes; se voltam com o código antigo ou
-   com outro.
-4. **As seis configurações do §3** que não estão em `personalizacao.js`: são
-   configurações montáveis ou peças prontas compradas do fornecedor?
-5. **O preço não fecha.** O casal custa R$ 129 e cada pingente componente
-   custa R$ 119, com a veneziana a R$ 74 — a configuração é vendida por menos
-   da metade da soma das peças que consumiria. Ou os pingentes de R$ 119 não
-   são os componentes do casal de R$ 129, ou o preço da configuração não é
-   comparável com o das peças. Não interpretei.
-6. **Ouro 18k × Prata 925**: as configurações documentadas são todas 18k; as
-   do §3 são quase todas Prata 925. Se a mesma configuração existe nos dois
-   acabamentos, são SKUs diferentes com composições diferentes.
+Na coluna que já existe: `personalizacao_modelos.base_sku_padrao`.
 
-## 6. Papel atual das quatro tabelas vazias
-
-Todas com **0 linhas** em produção, confirmado no dump.
-
-| Tabela | Papel | Sob a regra oficial |
-|---|---|---|
-| `personalizacao_modelos` | um modelo: slots mín/máx, base padrão, preço sugerido, ativo | **quase**: é o lugar da configuração, mas guarda *quantos* slots, não *quais* SKUs |
-| `personalizacao_opcoes` | quais SKUs podem ocupar um slot, com rótulo e grupo | é **cardápio**, não composição — diz o que *pode* entrar, não o que entra |
-| `venda_personalizacoes` | a composição escolhida, congelada por venda | **mantém**: é o registro da identidade comercial vendida |
-| `venda_personalizacao_itens` | cada peça daquela composição, com `movimento_id` | **mantém**: é o que liga a venda ao movimento e permite o estorno exato |
-
-Existe uma quinta tabela relevante, também vazia: **`kit_componentes`**
-(`kit_sku`, `componente_sku`, `qtd`). É a única do sistema que já representa
-composição fixa em SKU.
-
-## 7. Quais mecanismos manter
-
-**Manter `kit_componentes`.** Ele já é, literalmente, o modelo descrito na
-decisão — e não por coincidência: §5 do REGRAS.md cita o "Colar Casal de
-Filhos" como o caso real que o motivou.
-
-| Regra oficial | O que `kit_componentes` já faz | Onde |
-|---|---|---|
-| configuração sem saldo próprio | `produtos.qtd` do kit fica sempre 0 | REGRAS §5 |
-| disponível deriva dos componentes | `min(floor(disponível / qtd))` | `estoque.js › saldosDoKit` |
-| venda baixa só os componentes | `movimentarKit` | `estoque.js:141` |
-| cancelamento devolve os componentes | `movimentarKit('cancelamento')` | `vendas-comandos.js:553` |
-| falta de componente bloqueia | o mínimo cai a 0 | `saldosDoKit` |
-| não duplicar estoque financeiro | kit fora do inventário e da maleta | `inventario.js:31`, `maletas-comandos.js:69` |
-| não virar saldo por acidente | `definirKit` **recusa** transformar em kit um produto com saldo ou consignado | `catalogo-comandos.js:117` |
-
-A última é notável: a proteção contra dupla contagem **já existe** e já
-recusaria, hoje, transformar `326660` em configuração — porque ele tem 1 no
-saldo e está numa maleta aberta.
-
-**Manter também** `venda_personalizacoes` + `venda_personalizacao_itens`: o
-kit sozinho não registra *qual* variação de cada componente saiu, e a regra 2
-do CLAUDE.md exige essa identidade.
-
-## 8. Quais remover ou consolidar
-
-| O quê | Por quê | Ação proposta |
-|---|---|---|
-| **Composição livre `MONTE-COLAR`** | §7 da decisão: nada de composição arbitrária em tempo de venda | remover o modelo `livre` e o caminho de preço manual |
-| **Troca de base (`corpo.baseSku`)** | §6: a Veneziana não é escolha na versão atual | recusar override; a base vem da composição |
-| **`slotTipos` / `slots_min` / `slots_max`** | são "escolha na hora", o oposto de composição cadastrada | substituídos pela composição em SKU |
-| **`MODELOS_CANONICOS` e `OPCOES_CANONICAS` no código** | §7: a Sthefany precisa poder cadastrar configuração nova, e constante em `.js` só muda com deploy | migrar para dado |
-| `personalizacao_opcoes` | vira cardápio de um motor que deixa de existir | consolidar na composição |
-
-Nada disso tem efeito operacional hoje: a feature está desligada
-(`PERSONALIZACAO_ATIVA = "false"` desde 06/09, `1ca62f6`) e as tabelas estão
-vazias.
-
-## 9. Desenho de dados mínimo recomendado
-
-**Sem tabela nova.** A composição vai para `kit_componentes`, que já existe,
-já está vazia e já tem exatamente as três colunas necessárias:
-
-```
-produtos('326660')      configuração comercial · qtd SEMPRE 0 · preço 129
-produtos('455109')      veneziana · componente físico · qtd real
-produtos('263236')      pingente  · componente físico · qtd real
-
-kit_componentes
-  kit_sku    componente_sku   qtd
-  326660     455109           1     ← a base entra como componente comum
-  326660     <menino>         1
-  326660     <menina>         1
+```sql
+-- já no schema, api/schema.sql:449
+base_sku_padrao TEXT REFERENCES produtos(sku)
 ```
 
-A base deixa de ser um campo especial (`base_sku_padrao`) e vira **um
-componente como os outros**, com `qtd 1`. O conceito de "base trocável"
-desaparece sem precisar de trava: não existe campo para trocar.
+Quantidade implícita de 1, que é a regra ("uma Veneziana por montagem").
+Passa a ser **obrigatória** para configuração montável, e o override
+`corpo.baseSku` é **recusado** — a base não é escolha nesta versão.
 
-Duas configurações que compartilham um pingente disputam o mesmo número — o
-efeito descrito na decisão, e o que `saldosDoKit` já calcula.
+Não vira tabela de componentes fixos. Se algum dia uma configuração precisar de
+dois fixos, ou de 2 × o mesmo fixo, aí sim — e é proposta separada.
 
-**Muda de nome?** `kit_componentes` carrega a palavra "kit", que a decisão não
-quer como conceito comercial. Recomendo renomear a *linguagem* (a UI e as
-mensagens falam "configuração" e "composição") e **não** a tabela: renomear
-schema é migration com risco, para ganho de vocabulário. Se for para renomear,
-é proposta separada com `safe-d1-change`.
+### 3.2 Grupos Menino e Menina (pergunta 2)
 
-O que continua em `venda_personalizacoes` / `venda_personalizacao_itens`: qual
-configuração foi vendida, qual **variação** de cada componente saiu, e o
-`movimento_id` de cada baixa — que é o que torna o estorno exato.
+Na coluna que já existe: `personalizacao_opcoes.grupo`.
 
-Escopo do item 3, então:
+```sql
+-- já no schema, api/schema.sql:464
+modelo_id, componente_sku, variacao, variante_id, rotulo, grupo, ordem, ativo
+```
 
-1. a composição das configurações passa a viver em `kit_componentes` (dado);
-2. `personalizacao.js` deixa de escolher slots e passa a **ler a composição**;
-3. remove composição livre e troca de base;
-4. cadastrar configuração nova = criar produto + gravar composição, sem deploy;
-5. testes das nove proteções obrigatórias;
-6. `PERSONALIZACAO_ATIVA` continua `false`.
+Uma linha por (configuração, SKU elegível), com o grupo. Para o Casal são 5
+linhas: 3 Menino e 2 Menina. Para Duas Meninas, 2 linhas.
 
-## 10. Impacto esperado
+Fica **por configuração**, não global, porque é o schema que já existe e porque
+permite uma configuração futura restringir cores sem mexer nas outras. Custo:
+~19 linhas para as cinco configurações.
 
-**Venda.** Sem mudança de contrato: a linha de `venda_itens` continua sendo o
-SKU comercial, uma linha, preço da configuração. O que muda é de onde vêm os
-movimentos — da composição cadastrada, não da escolha da tela. Faturamento não
-muda: os componentes nunca tiveram linha de venda, então nunca somaram receita.
+Uma trava nova: o mesmo SKU não pode aparecer em dois grupos da mesma
+configuração — senão o cálculo de disponibilidade do §3.6 deixa de valer.
 
-**Cancelamento.** Já estorna base + componentes hoje
-([`vendas-comandos.js:528-547`](../../api/src/vendas-comandos.js)) — o GAP do
-[checklist item 14](../testing/MONTE_SEU_COLAR_CHECKLIST.md) **foi fechado, e o
-checklist está desatualizado**. A idempotência vem de `if (v.cancelada) return
-409`, antes de qualquer movimento.
+### 3.3 Quantidade de slots por configuração (pergunta 3)
 
-Resta **um defeito real**: o estorno da base não devolve a variação.
+**É o único gap real.** Nenhuma tabela sabe hoje "2 Menino + 1 Menina".
+
+Tabela nova, três colunas úteis:
+
+```sql
+CREATE TABLE personalizacao_slots (
+  modelo_id INTEGER NOT NULL REFERENCES personalizacao_modelos(id),
+  grupo     TEXT    NOT NULL,
+  qtd       INTEGER NOT NULL CHECK (qtd > 0),
+  ordem     INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (modelo_id, grupo)
+);
+```
+
+As cinco configurações, inteiras:
+
+```
+326660  Menino 1 · Menina 1
+364945  Menina 2
+311066  Menino 2
+314161  Menino 2 · Menina 1
+399872  Menina 2 · Menino 1
+```
+
+### 3.4 Tabelas reaproveitadas (perguntas 4, 5 e 6)
+
+| Tabela | Papel no desenho final | Muda? |
+|---|---|---|
+| `personalizacao_modelos` | a configuração: nome, base fixa, preço, ativo | **+1 coluna** `sku_comercial` |
+| `personalizacao_opcoes` | cardápio: quais SKUs são elegíveis em cada grupo | não |
+| `personalizacao_slots` | quantos slots de cada grupo | **nova** |
+| `venda_personalizacoes` | qual configuração foi vendida, e a base usada | não |
+| `venda_personalizacao_itens` | quais componentes saíram, com variação e `movimento_id` | não |
+| `kit_componentes` | composição fixa genérica — **fora** desta família | não |
+
+A coluna que falta é decisiva para a pergunta 8: hoje o SKU comercial existe
+**somente** na constante `MODELOS_CANONICOS` de `personalizacao.js`. Sem ela em
+dado, cadastrar configuração nova exige deploy.
+
+```sql
+ALTER TABLE personalizacao_modelos ADD COLUMN sku_comercial TEXT REFERENCES produtos(sku);
+```
+
+### 3.5 `slotTipos`, `slots_min`, `slots_max` (pergunta 7)
+
+Auditados como pedido. O veredito **não** é "complexidade antiga":
+`slots_min`/`slots_max` são **insuficientes**.
+
+```
+326660  Casal          slots_min=2  slots_max=2
+364945  Duas Meninas   slots_min=2  slots_max=2
+```
+
+Duas configurações diferentes, números idênticos. Um contador não distingue
+`1 Menino + 1 Menina` de `2 Menina`. É por isso que o código precisou do array
+`slotTipos` hard-coded ao lado: a informação que falta no banco está numa
+constante `.js`.
+
+`slotTipos` é a **ideia certa no lugar errado** — e é exatamente o que
+`personalizacao_slots` passa a ser, em dado.
+
+Proposta:
+
+- `slotTipos` (constante) **sai**; vira linhas de `personalizacao_slots`;
+- `slots_min` e `slots_max` **ficam** como colunas, sempre iguais a
+  `SUM(personalizacao_slots.qtd)`, com um teste de gate cobrando a igualdade.
+  Ficam porque são `NOT NULL` com `CHECK` no schema e porque o código e os
+  testes existentes já validam o total de peças por elas — um segundo portão
+  barato sobre o mesmo número;
+- a **faixa** (`min < max`) deixa de ser usada: ela só existia para a
+  composição livre, que sai. Com slots tipados, mín == máx sempre.
+
+Alternativa considerada e descartada: `DROP COLUMN` nas duas. As tabelas estão
+vazias, então seria seguro — mas não compra nada, e custa migration.
+
+### 3.6 Disponibilidade (pergunta 10)
+
+Derivada, nunca `produtos.qtd` do SKU comercial. Com a Veneziana como teto
+comum:
+
+```
+disponível(configuração) = min(
+    disponível(444032),
+    para cada grupo G com k slots:  capacidade(G, k)
+)
+```
+
+Os grupos são conjuntos de SKUs **disjuntos**, então a conta por grupo compõe
+— é o que a trava do §3.2 garante.
+
+Para `k = 1` (o Casal, em cada grupo) não há ambiguidade:
+
+```
+capacidade(G, 1) = Σ disponível(sku)   para sku em G
+```
+
+Para `k ≥ 2` (Duas Meninas, Dois Meninos, e os dois de três filhos) **a
+fórmula depende da decisão pendente do §13**:
+
+```
+S = Σ disponível(sku)   ·   M = max disponível(sku)   em G
+
+repetir a mesma cor PERMITIDO:   capacidade = floor(S / k)
+cores OBRIGATORIAMENTE distintas (k=2):  capacidade = min(floor(S/2), S − M)
+```
+
+Exemplo com Menino = Azul 3, Incolor 0, Verde 1 e Veneziana 10, para
+`311066` Dois Meninos:
+
+```
+permitido repetir:  S=4        floor(4/2) = 2 colares
+distintas:          S=4, M=3   min(2, 4−3) = 1 colar
+```
+
+**Dois números diferentes, para o mesmo estoque.** Não é detalhe de
+implementação: é o que a vendedora vê na tela e o que a venda aceita ou recusa.
+
+Duas configurações que compartilham um componente caem juntas
+automaticamente, porque as duas derivam do mesmo saldo.
+
+### 3.7 A venda (pergunta 9)
+
+Sem mudança de schema e sem mudança de contrato HTTP.
+
+```
+venda_itens                       1 linha · sku 326660 · qtd 1 · R$ 129
+                                  (identidade comercial)
+
+venda_personalizacoes             sku_comercial 326660 · base_sku 444032
+                                  base_variacao · base_variante_id · preco
+
+venda_personalizacao_itens        1 linha por componente escolhido:
+                                  componente_sku · variacao · variante_id
+                                  · qtd · movimento_id
+
+movimentos                        -1 × 444032   (base, automática)
+                                  -1 × 251551   (escolha do slot Menino)
+                                  -1 × 263236   (escolha do slot Menina)
+                                  NADA em 326660
+```
+
+`venda_personalizacao_itens` já cumpre o papel pedido — guarda o SKU exato, a
+variação, a variante e o id do movimento que baixou a peça. É o que torna
+possível histórico, auditoria, estorno exato, estoque, sincronização e
+Central de Pendências.
+
+Validação na venda: a contagem de escolhas por grupo tem de ser **exatamente**
+a de `personalizacao_slots`. Nem a mais (não existe quarto pingente), nem a
+menos. Um SKU escolhido que não esteja em `personalizacao_opcoes` daquela
+configuração, naquele grupo, é recusado.
+
+Três proteções novas, porque a configuração não é peça:
+
+1. vender o SKU comercial como **linha avulsa** é recusado — ele não tem saldo
+   para baixar, e aceitar criaria a segunda camada patrimonial;
+2. o SKU comercial **não entra em maleta** (mesma regra que já vale para kit);
+3. o SKU comercial **fica fora do inventário** (idem) e a importação de
+   catálogo não escreve saldo nele.
+
+### 3.8 Cancelamento (pergunta 11)
+
+Estorno exato, a partir de `venda_personalizacao_itens` — nunca "um Menino
+qualquer":
+
+```
++1 × 444032   com base_variacao e base_variante_id da venda
++1 × cada componente_sku gravado, com variacao e variante_id dele
+```
+
+Idempotência: `if (v.cancelada) return 409`, antes de qualquer movimento —
+já é o comportamento de hoje.
+
+**O defeito a corrigir.** A venda baixa a base com variação; o estorno devolve
+sem:
 
 ```js
-// vendas-comandos.js:532 — o componente preserva a variante; a base não
+// api/src/vendas-comandos.js:532
 movimentar(db, { sku: p.baseSku, tipo: 'cancelamento', quantidade: 1, ... })
 //                                  ↑ sem variacao, sem varianteId
 ```
 
-A venda baixou a base com `baseVariacao`; o estorno devolve com `NULL`. O total
-fecha, a razão por variação não. `personalizacoesDeVendas` também não devolve
-`baseVarianteId`. §42 do REGRAS.md diz "preservando a variante" — o código não
-cumpre isso para a base. No desenho do §9 o defeito **desaparece por
-construção**: a base vira componente comum e passa pelo mesmo caminho.
+E `personalizacoesDeVendas` nem devolve `base_variante_id`, embora a coluna
+exista e esteja gravada. O total fecha; a razão **por variação** não. §42 do
+REGRAS.md diz "preservando a variante" — o código não cumpre para a base.
+Correção e teste explícito fazem parte do item 3, e não dependem da decisão
+pendente.
 
-**Disponibilidade.** Passa a existir um número por configuração, que hoje não
-existe: `listarModelos` devolve o disponível de cada opção separadamente, e
-nunca "quantos casais dá para montar". `saldosDoSku` já entrega isso de graça
-para quem tem linha em `kit_componentes`.
-
-**Financeiro.** Medido: **não existe nenhuma soma patrimonial de estoque no
-sistema** — nenhum `SUM(qtd * preco)` sobre `produtos`, em lugar nenhum do
-backend nem dos dois painéis. Todos os `qtd * preco` são sobre `venda_itens`.
-A dupla contagem temida **ainda não pode acontecer**, e a proteção a criar é
-preventiva: um teste que falhe se uma configuração com composição tiver
-`qtd != 0`, e a garantia de que inventário e maleta continuem excluindo-a.
-
-## 11. Contradição encontrada — precisa de decisão
-
-Sob a regra oficial, `326660` é configuração comercial e **não pode ter saldo
-físico**. Na produção de hoje:
+### 3.9 Cadastro de configuração nova, sem deploy (pergunta 8)
 
 ```
-produtos.sku = '326660'   qtd = 1   ativo   R$ 129
-
-movimentos:
-  2026-08-21 13:34  entrada      +1  importacao  "Saldo inicial do cadastro de peças novas"
-  2026-08-21 14:21  consignacao   0  maleta      "1 un. para a maleta 12"
-
-maleta_itens: maleta 12 · qtd 1 · devolvida 0 · status ABERTA
+1. criar o produto            POST /api/produtos      SKU comercial, nome, preço
+2. definir a configuração     POST /api/personalizacao/modelos
+                                { skuComercial, baseSkuPadrao: '444032',
+                                  slots:  [ { grupo: 'Menino', qtd: 3 } ],
+                                  opcoes: [ { componenteSku, grupo, rotulo } ] }
 ```
 
-**Existe uma peça física chamada "Colar Casal Banho de Ouro 18k" na mão de uma
-revendedora agora.** Ela foi contada, entrou por importação e saiu em maleta.
+"Três Meninos" passa a ser duas chamadas e zero deploy. As constantes
+`MODELOS_CANONICOS` e `OPCOES_CANONICAS` deixam de ser regra em tempo de
+execução e viram **seed** das cinco configurações confirmadas — dado inicial,
+editável depois, não código consultado a cada venda.
 
-O mesmo vale, com saldo 1 cada, para as seis do §3 — e `453324` está
-**publicada na loja com estoque 1**, vendendo como peça pronta.
+Rotas já existem (`POST /api/personalizacao/modelos` é um dos 142 contratos);
+o corpo ganha `skuComercial` e `slots`. Nenhum contrato é removido ou alterado
+na forma da resposta.
 
-Duas leituras possíveis, que levam a sistemas diferentes:
+### 3.10 Composição livre — sai (§5 da decisão)
 
-- **(a) São peças prontas de fornecedor.** A Marquesa compra o "Colar Casal
-  Prata 925" já montado. Então elas são **componentes físicos** no vocabulário
-  oficial (§1A), mantêm saldo, e "Monte seu Colar" é um produto **diferente**
-  que por acaso tem nomes parecidos — e precisa dos seus próprios SKUs
-  comerciais, os sete ausentes;
-- **(b) São configurações cadastradas erradas como peça física.** Então esses
-  saldos são dupla contagem já existente, e corrigir significa zerar o saldo de
-  `326660` — **uma peça que está fisicamente numa maleta aberta**.
+`MONTE-COLAR` e o modelo `livre` saem do caminho de venda: a pessoa escolhe
+primeiro uma configuração cadastrada, e ela determina quantos e quais slots.
+Preço manual de composição sai com ele. O **produto** `MONTE-COLAR` não é
+apagado — ver §4.
 
-Não foi escolhido. A regra 2 do [CLAUDE.md](../../CLAUDE.md) — nunca decidir
-sozinho quando o conflito pode representar peça física — vale exatamente aqui,
-e a leitura (b) é destrutiva se estiver errada.
+## 4. O 12º SKU (pergunta 13)
 
-## 12. Decisões pendentes
+É **`MONTE-COLAR`**.
 
-1. **§11: (a) ou (b)?** — trava o item 3. Pergunta prática: a Sthefany comprou
-   esse "Colar Casal" já montado do fornecedor, ou ela o montou com peças que
-   também estão contadas separadamente?
-2. **Qual SKU é a Veneziana** (`444032` ausente; `455109` é candidato).
-3. **Quais SKUs são os componentes menino** (três ausentes; `926220` é
-   candidato para um deles).
-4. **A composição exata de cada configuração** — a relação SKU→SKUs. Sem ela
-   nada pode ser cadastrado. Será informada.
-5. **Ouro 18k × Prata 925**: configurações separadas, com composição própria?
-6. **As seis configurações do §3** entram na família montável, ou ficam como
-   peça pronta?
-7. **Renomear `kit_componentes`?** (§9 — recomendação: não).
+```
+produtos: MONTE-COLAR · "Monte seu Colar — composição livre"
+          qtd 0 · sem preço · INATIVO · 0 movimentos · fora da loja
+```
 
-## 13. O que fica provado quando o item 3 for feito
+Classificação: **legado / não confirmado nesta decisão.** Era o SKU comercial
+interno da composição livre. Não é apagado nem incorporado: o produto fica
+como está, inativo, e o caminho de código que o usava é removido.
 
-Cada proteção obrigatória com o teste que a prova:
+### Fora do escopo confirmado, registrado sem associação
 
-| Proteção | Como provar |
+Encontrados no catálogo de produção, **não** incorporados:
+
+| SKU | Nome | Saldo | Por que está fora |
+|---|---|---|---|
+| `366066` | Colar Filhos Três Meninos Banho de Ouro 18k | 1 | **é 18k e parece configuração**, mas não está nos 11 confirmados |
+| `453324` | Colar Casal Filhos Azul e Rosa Prata 925 | 1 | Prata 925 · publicado na loja com estoque 1 |
+| `637629` | Colar Casal Menina Rosa e Menino Azul Prata 925 | 1 | Prata 925 |
+| `424442` | Colar Casal de Filhos com Coração Cravejado 45cm Prata 925 | 1 | Prata 925 |
+| `458893` | Colar Coração Casal de Filhos Azul e Rosa 18k | 1 | 18k, fora da lista |
+| `762844` | Colar Coração e Casal Cravejado Banho de Prata | 1 | prata · 1 un. na maleta 13 |
+| `455109` | Colar Veneziana 45cm Banho de Ouro 18k | 2 | **não é** `444032` · sem extensor no nome |
+
+Conjunto separado, a validar em outro momento. Nada de Ouro foi derivado para
+Prata nem o contrário.
+
+## 5. Os saldos legados (pergunta 12)
+
+Três configurações confirmadas ainda não existem no catálogo; duas existem, e
+uma delas tem saldo:
+
+| SKU | Estado em produção | O que falta |
+|---|---|---|
+| `326660` | qtd **1** · `entrada +1` de importação · `consignacao 0` para a **maleta 12, ABERTA** | resolver o saldo e a maleta |
+| `399872` | qtd 0 · inativo · 0 movimentos | ativar |
+| `364945` `311066` `314161` | ausentes | cadastrar |
+
+**Nada destrutivo, e nada sem nova aprovação.** O plano, em ordem:
+
+1. **cadastrar** os 4 componentes físicos ausentes (`444032`, `251551`,
+   `251552`, `329494`) com o saldo que a Sthefany informar — entrada por
+   movimento, como qualquer peça nova;
+2. **cadastrar** as 3 configurações ausentes com `qtd 0`;
+3. **definir** as cinco configurações (slots + cardápio), via a rota do §3.9;
+4. **resolver a maleta 12 antes de tocar em `326660`.** Existe uma peça física
+   com esse código na mão de uma revendedora. Enquanto a maleta estiver aberta,
+   o saldo 1 tem contrapartida física e não é erro de cadastro — é item de
+   acerto. Duas saídas possíveis, e a escolha é da operação: a peça volta no
+   acerto, ou ela é vendida como está;
+5. **só então** o saldo de `326660` vai a zero — por **movimento de `ajuste`
+   assinado** via `estoque.js › movimentar`, com `obs` dizendo que o código
+   passou a ser configuração comercial. Nenhum `UPDATE produtos SET qtd`,
+   nenhum movimento apagado, a razão fecha antes e depois;
+6. o ajuste do passo 5 é **decisão de inventário** e pertence ao item 4 da
+   Fase 4 — ver
+   [HISTORICO-INCOMPLETO-E-INVENTARIO.md](HISTORICO-INCOMPLETO-E-INVENTARIO.md).
+   Ele não entra no item 3.
+
+Consequência prática: o item 3 entrega o **mecanismo**, com as cinco
+configurações cadastráveis e `PERSONALIZACAO_ATIVA` ainda `false`. A limpeza
+do saldo de `326660` é um passo operacional posterior, com aprovação própria.
+
+## 6. O que o item 3 vai provar
+
+| Proteção | Teste |
 |---|---|
-| configuração não soma estoque financeiro | o teste falha se configuração com composição tiver `qtd != 0` |
+| configuração não soma estoque patrimonial | falha se configuração com slots tiver `qtd != 0` |
 | sem saldo físico independente | `saldosDoSku` de configuração ignora `produtos.qtd` |
-| disponibilidade deriva dos componentes | `min(floor(saldo / qtd))`, incluindo a base |
-| venda registra a identidade comercial | `venda_itens` tem uma linha, com o SKU da configuração |
+| disponibilidade deriva dos componentes | §3.6, incluindo a Veneziana como teto |
+| venda registra a identidade comercial | uma linha em `venda_itens`, com o SKU da configuração |
 | estoque baixa só componentes | nenhum movimento no SKU comercial |
-| cancelamento restaura o consumido | saldo por **variação** antes == depois |
-| falta de componente bloqueia | 409, e a mensagem diz qual componente |
-| concorrência | duas configurações no mesmo carrinho disputando o mesmo pingente |
+| Veneziana sai em toda montagem | sem ela no catálogo, a venda é recusada |
+| slots respeitados exatamente | 4 escolhas numa configuração de 3 é 409 |
+| SKU fora do cardápio do grupo | 409, dizendo qual grupo |
+| cancelamento restaura o exato | saldo **por variação** antes == depois, base incluída |
 | idempotência | cancelar duas vezes não devolve duas vezes |
-| nenhuma escrita direta em `produtos.qtd` | [scripts/razao-estoque.test.mjs](../../scripts/razao-estoque.test.mjs), já verde |
+| concorrência | duas configurações no mesmo carrinho disputando o mesmo pingente |
+| configuração não entra em maleta nem em inventário | recusa explícita |
+| vender configuração como linha avulsa | recusado |
+| nenhuma escrita direta em `produtos.qtd` | [scripts/razao-estoque.test.mjs](../../scripts/razao-estoque.test.mjs) |
 | 142 contratos HTTP | [scripts/api-contracts.test.mjs](../../scripts/api-contracts.test.mjs) |
+| normalização única de SKU | [scripts/sku-normalizacao.test.mjs](../../scripts/sku-normalizacao.test.mjs) |
+
+## 7. Decisão pendente
+
+Uma só, e ela trava a disponibilidade (§3.6) e a validação da venda (§3.7):
+
+> Numa configuração com **dois slots do mesmo grupo** — Dois Meninos, Duas
+> Meninas, e os dois de três filhos — a Sthefany pode escolher a **mesma cor
+> duas vezes** (Azul + Azul, Rosa + Rosa), ou as duas escolhas precisam ser de
+> SKUs diferentes?
+
+Não foi assumida. As duas respostas dão números diferentes para o mesmo
+estoque, como mostra o exemplo do §3.6.
+
+Nota de escopo para a resposta: hoje nenhuma configuração confirmada passa de
+**2 slots por grupo**. Se a regra for "distintas", uma configuração futura de
+3 slots no mesmo grupo (Três Meninos) exigiria 3 cores distintas — com as 3
+cores de Menino existentes, daria exatamente `min(azul, incolor, verde)`.
+
+## 8. Histórico documental das decisões
+
+Preservado como pedido. Nada aqui é regra vigente.
+
+| Data | Decisão | Estado |
+|---|---|---|
+| 06/09/2026 | base Veneziana 45 cm **com possibilidade de trocar a base** | **revogada** em 10/09 — a base não é escolha nesta versão |
+| 06/09/2026 | arquitetura genérica para pulseiras, berloques e outros montáveis | **revogada** em 10/09 — sem motor genérico |
+| 06/09/2026 | `PERSONALIZACAO_ATIVA` desligado (`1ca62f6`) antes de fechar SKU × base × componentes | **vigente** — continua `false` |
+| 10/09/2026 | configuração comercial teria saldo físico próprio, com `-1 configuração + -1 veneziana` | **substituída** no mesmo dia: configuração não tem saldo |
+| 10/09/2026 | auditoria recomendou reaproveitar `kit_componentes` | **substituída** — ver §2: não representa slot |
+| 10/09/2026 | autorizada a remoção de `slotTipos`/`slots_min`/`slots_max` | **revogada** — ver §3.5: slot é necessidade real do negócio |
+| 10/09/2026 | composição livre (`MONTE-COLAR`) como exceção | **encerrada** — §5 da decisão: não existe "monte qualquer coisa" |
+
+§42 do [api/REGRAS.md](../../api/REGRAS.md) descreve o modelo de 06/09 e fica
+desatualizado em dois pontos — base trocável e composição livre. A atualização
+dele entra com a implementação do item 3, não antes: REGRAS.md descreve o que o
+código faz.
