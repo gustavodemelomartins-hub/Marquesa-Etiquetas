@@ -69,7 +69,7 @@ históricos nem a migration em produção.
 |---|---|
 | `api/wrangler.toml` raiz | `[triggers] crons = []`; comentário diz desligado desde 2026-08-22 |
 | `api/wrangler.toml` staging | `[env.staging.triggers] crons = []` |
-| `docs/ARCHITECTURE.md`, `docs/SYNC_ENGINE.md`, `api/DEPLOY.md` | descrevem `0 9,21 * * *` como agendamento |
+| `docs/architecture/ARCHITECTURE.md`, `docs/domains/SYNC_ENGINE.md`, `api/DEPLOY.md` | descrevem `0 9,21 * * *` como agendamento |
 | `docs/archive/PLANO-MESTRE-MARQUESA.md` | registra produção `0 9,21` e DEV vazio, mas também narra o desligamento versionado |
 | Canonical privado `Sistema-Atual.md` | registra produção `0 9,21`, DEV nenhum |
 | código `scheduled()` | continua funcional e chama sincronização |

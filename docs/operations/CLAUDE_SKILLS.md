@@ -208,4 +208,4 @@ A regra 7 foi acionada: o frontend deixou de ser só vanilla. O que mudou:
 O que **não** mudou: nada de React/Next/Redux/Tailwind entrou, então nenhuma
 skill dessas ferramentas passou a fazer sentido. As sete dependências do
 `frontend/` são a stack alvo e mais nada — ver
-[FRONTEND_ARCHITECTURE.md](../FRONTEND_ARCHITECTURE.md).
+[FRONTEND_ARCHITECTURE.md](../architecture/FRONTEND_ARCHITECTURE.md).

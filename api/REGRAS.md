@@ -616,7 +616,7 @@ Regra irmã, objetivo oposto: `origem = 'planilha_produtos_novos'` só cria
 SKU que ainda não existe — SKU já cadastrado é ignorado por completo,
 estruturalmente, mesmo que quantidade/descrição/preço da planilha
 divirjam do catálogo. Detalhe completo em
-[docs/RECONCILIATION_ENGINE.md](../docs/RECONCILIATION_ENGINE.md).
+[docs/domains/RECONCILIATION_ENGINE.md](../docs/domains/RECONCILIATION_ENGINE.md).
 
 Esta prioridade da planilha sobre o sistema é **temporária por
 definição**: quando o inventário interno passar a ser controlado com
@@ -881,7 +881,7 @@ com 0 — a tela avisa que a peça vai sair de um saldo que ainda não existe,
 e oferece cancelar.
 
 **Exportar o Anexo I em arquivo está BLOQUEADO** enquanto o modelo
-operacional original não estiver no repositório. Ver `docs/TECH_DEBT.md`
+operacional original não estiver no repositório. Ver `docs/architecture/TECH_DEBT.md`
 item 15. `printAnexo()` (impressão) continua como estava.
 
 ### 21. A venda histórica é reconstruída, e a regra vem escrita junto — §22

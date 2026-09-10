@@ -123,7 +123,7 @@ grep -c "CREATE TABLE" "$DUMP"   # produção tem 29 tabelas em 2026-09-04
 tail -5 "$DUMP"                  # termina em ';', não no meio
 ```
 
-As 16 tabelas esperadas estão em [DATA_MODEL.md](../DATA_MODEL.md).
+As 16 tabelas esperadas estão em [DATA_MODEL.md](../architecture/DATA_MODEL.md).
 
 **b) O SQL carrega num banco limpo** — ver "Restaurar em ambiente de teste".
 

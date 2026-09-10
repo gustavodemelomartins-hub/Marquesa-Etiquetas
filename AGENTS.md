@@ -57,18 +57,18 @@ política revogada nem contradizer as duas fontes canônicas do item 3.
 ```
 Plano mestre       → docs/archive/PLANO-MESTRE-MARQUESA.md   (estado, go-live, backlog)
 Regras de negócio  → api/REGRAS.md
-Arquitetura        → docs/ARCHITECTURE.md
-Frontend React/TS  → docs/FRONTEND_ARCHITECTURE.md
-Banco              → docs/DATA_MODEL.md
-Nuvemshop          → docs/NUVEMSHOP_INTEGRATION.md
-Sincronização      → docs/SYNC_ENGINE.md
-Reconciliação      → docs/RECONCILIATION_ENGINE.md   (backend do Apply existe, tela ainda não)
+Arquitetura        → docs/architecture/ARCHITECTURE.md
+Frontend React/TS  → docs/architecture/FRONTEND_ARCHITECTURE.md
+Banco              → docs/architecture/DATA_MODEL.md
+Nuvemshop          → docs/domains/NUVEMSHOP_INTEGRATION.md
+Sincronização      → docs/domains/SYNC_ENGINE.md
+Reconciliação      → docs/domains/RECONCILIATION_ENGINE.md   (backend do Apply existe, tela ainda não)
 Segurança          → docs/SECURITY.md
 Backup / restore   → docs/operations/BACKUP_RECOVERY.md
-Testes             → docs/TESTING.md   (baseline em docs/BASELINE.md)
+Testes             → docs/testing/TESTING.md   (baseline em docs/testing/BASELINE.md)
 Ambiente local     → docs/operations/DEVELOPMENT.md
-Dívida técnica     → docs/TECH_DEBT.md
-Próxima fase       → docs/ROADMAP_RECONCILIATION.md
+Dívida técnica     → docs/architecture/TECH_DEBT.md
+Próxima fase       → docs/domains/ROADMAP_RECONCILIATION.md
 Publicar a API     → api/DEPLOY.md
 Montar o dashboard → src/README.md
 Camada agentic     → .claude/README.md   (arquitetura comum e adaptador Claude)
@@ -177,7 +177,7 @@ proporcional à mudança — direcionada, nunca a suíte inteira por reflexo:
 
 | Mudou | Prova |
 |---|---|
-| `api/src/**` | o teste do assunto (`docs/TESTING.md`) + `GET /api/estoque/conferir` vazio |
+| `api/src/**` | o teste do assunto (`docs/testing/TESTING.md`) + `GET /api/estoque/conferir` vazio |
 | `src/dashboard.tpl.html` | `python src/build.py` e depois `node src/e2e.mjs` |
 | foto, variação, SKU | `src/editar-peca-test.mjs` · `src/editar-peca-ui-test.mjs` · `src/fotos-catalogo-test.mjs` · `src/sku-auditoria-test.mjs` · `src/sku-gerador-test.mjs` |
 | Pendências / Nuvemshop | `src/pendencias-nuvemshop-test.mjs` |

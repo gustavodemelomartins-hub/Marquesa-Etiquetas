@@ -30,9 +30,9 @@ Muita coisa já está registrada e **não** precisa virar ADR retroativo:
 | Decisão | Onde já está |
 |---|---|
 | Regras de negócio e as divergências conscientes | [api/REGRAS.md](../../api/REGRAS.md) |
-| Por que cada tabela é assim | [api/schema.sql](../../api/schema.sql) e [DATA_MODEL.md](../DATA_MODEL.md) |
-| Por que puxar antes de empurrar | [SYNC_ENGINE.md](../SYNC_ENGINE.md) |
-| Por que o token não se move sozinho | [NUVEMSHOP_INTEGRATION.md](../NUVEMSHOP_INTEGRATION.md) |
+| Por que cada tabela é assim | [api/schema.sql](../../api/schema.sql) e [DATA_MODEL.md](../architecture/DATA_MODEL.md) |
+| Por que puxar antes de empurrar | [SYNC_ENGINE.md](../domains/SYNC_ENGINE.md) |
+| Por que o token não se move sozinho | [NUVEMSHOP_INTEGRATION.md](../domains/NUVEMSHOP_INTEGRATION.md) |
 
 O `REGRAS.md` continua sendo a fonte fundamental das regras do negócio.
 ADR é para decisões **técnicas** que ainda não têm dono.

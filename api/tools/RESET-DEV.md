@@ -60,7 +60,7 @@ teria que ficar com os produtos cadastrados e as quantidades desencontradas.
 
 ## Fase A — o mapa das 20 tabelas
 
-Lido de `api/schema.sql` no commit atual, conferido contra `docs/DATA_MODEL.md`.
+Lido de `api/schema.sql` no commit atual, conferido contra `docs/architecture/DATA_MODEL.md`.
 **As contagens reais faltam** — esta sessão não tem credencial Cloudflare
 (`wrangler whoami` → *not authenticated*), então o DEV remoto não foi lido.
 `tools/backup-dev.sh` produz essa coluna e a grava no `MANIFESTO.txt`.

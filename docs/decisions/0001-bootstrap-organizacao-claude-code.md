@@ -94,7 +94,7 @@ externos. Foram recomendadas duas, e nove **removidas** —
 **Corrigir de passagem os problemas encontrados** (o `executablePath` fixo
 dos testes, o CRLF do `build.py`, o `python3` no `package.json`). Descartada
 por ser alteração de código, fora do escopo declarado. Registrados em
-[TECH_DEBT.md](../TECH_DEBT.md) com a correção já escrita, prontos para
+[TECH_DEBT.md](../architecture/TECH_DEBT.md) com a correção já escrita, prontos para
 serem aplicados quando alguém autorizar.
 
 ---

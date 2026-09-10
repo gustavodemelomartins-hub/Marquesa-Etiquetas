@@ -195,7 +195,7 @@ Consequências práticas enquanto isso não acontece:
 
 ## 5. Banco de dados  🟡
 
-Modelo completo em [DATA_MODEL.md](../DATA_MODEL.md); regras em
+Modelo completo em [DATA_MODEL.md](../architecture/DATA_MODEL.md); regras em
 [../api/REGRAS.md](../../api/REGRAS.md). O que importa para o corte:
 
 ### A invariante que decide se um backup presta
@@ -922,7 +922,7 @@ fundo_gerado | erro`), então o módulo entra sem migration nova.
 
 ### Bugs e dívida herdada
 
-Lista completa em [TECH_DEBT.md](../TECH_DEBT.md). Os que tocam este plano:
+Lista completa em [TECH_DEBT.md](../architecture/TECH_DEBT.md). Os que tocam este plano:
 
 - **1 — migrations aplicadas à mão, sem controle de versão.** É a causa direta
   de R4. Depois do go-live, adotar `wrangler d1 migrations` fica muito mais
@@ -1130,7 +1130,7 @@ banco para impedir duplicidade se existir algum registro legado.
 > estoque de peça que já saiu por outro caminho. O índice único
 > `vendas.externo_id` não protege contra isso: ele impede repetir, não
 > importar pela primeira vez. Mecanismo e prova em
-> [SYNC_ENGINE.md](../SYNC_ENGINE.md) § `config.syncCorteEm` e em
+> [SYNC_ENGINE.md](../domains/SYNC_ENGINE.md) § `config.syncCorteEm` e em
 > `api/REGRAS.md` § 4b.
 
 > **Nota sobre a credencial (passo 5).** Esta sessão roda num container
@@ -1388,7 +1388,7 @@ no faturamento, **com a comissão estimada exibida à parte**. Três premissas
 declaradas na tela, e uma delas é dívida assumida: peça **bruta** conta como
 banhada até a distinção entre "comprada banhada" e "comprada em bruto e
 mandada banhar" estar modelada — são precificações diferentes na operação.
-REGRAS § 24 e `docs/TECH_DEBT.md`.
+REGRAS § 24 e `docs/architecture/TECH_DEBT.md`.
 
 ### 22.5 O que foi provado
 

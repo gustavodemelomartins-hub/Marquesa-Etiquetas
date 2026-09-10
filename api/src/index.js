@@ -638,7 +638,7 @@ async function rotear(request, env, contador = null) {
         return await abrirSessao(db, env, b.origem || 'nuvemshop');
       }
       // Planilha da Stéfane — Estoque Total: compara com produtos.qtd,
-      // nunca escreve direto (docs/RECONCILIATION_ENGINE.md § Fonte da
+      // nunca escreve direto (docs/domains/RECONCILIATION_ENGINE.md § Fonte da
       // verdade). `produtos` chega no mesmo formato que
       // POST /api/produtos/importar sempre aceitou.
       if (path === '/api/reconciliacao/planilha/estoque-total/analisar' && met === 'POST') {

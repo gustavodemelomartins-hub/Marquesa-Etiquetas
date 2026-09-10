@@ -104,7 +104,7 @@ enquanto ela ainda devia.
 `src/pos-golive-1-variacoes-test.mjs` · `src/d1-uso-audit.mjs` ·
 `src/pacote-vendas-test.mjs` (atualizado — ver §11.1)
 
-**Documentação:** `api/REGRAS.md` (§35 a §43) · `docs/TESTING.md` ·
+**Documentação:** `api/REGRAS.md` (§35 a §43) · `docs/testing/TESTING.md` ·
 `docs/archive/AUDITORIA_POS_GOLIVE_1.md` · `docs/operations/D1_USAGE_AUDIT.md` · este arquivo
 
 Total: 20 arquivos, +7.625 / −157 linhas (metade é o `dashboard.html` gerado).

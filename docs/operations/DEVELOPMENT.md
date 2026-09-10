@@ -23,7 +23,7 @@ cd ../frontend && npm install   # React, TypeScript, Vite, vitest
 
 > **Windows:** o comando é `python`, não `python3`. O script
 > `npm run build` do `src/package.json` chama `python3` e falha aqui —
-> rode `python src/build.py` direto. Ver [TECH_DEBT.md](../TECH_DEBT.md).
+> rode `python src/build.py` direto. Ver [TECH_DEBT.md](../architecture/TECH_DEBT.md).
 
 ## Gerar o dashboard
 
@@ -110,7 +110,7 @@ servido de qualquer subdiretório — inclusive por baixo do
 `http://localhost:8000/frontend/dist/index.html`.
 
 Arquitetura, tipos e decisões em
-[FRONTEND_ARCHITECTURE.md](../FRONTEND_ARCHITECTURE.md).
+[FRONTEND_ARCHITECTURE.md](../architecture/FRONTEND_ARCHITECTURE.md).
 
 ## Servir o dashboard
 
@@ -143,7 +143,7 @@ preciso iniciá-la à mão.
 
 ## Rodar os testes
 
-Ver [TESTING.md](../TESTING.md) — inclui o que roda em cada sistema
+Ver [TESTING.md](../testing/TESTING.md) — inclui o que roda em cada sistema
 operacional e o baseline atual.
 
 Resumo:
@@ -352,11 +352,11 @@ depois do preflight e encerra somente após a validação pós-deploy.
 | Preciso de… | Vá para |
 |---|---|
 | Regras de negócio e o porquê | [api/REGRAS.md](../../api/REGRAS.md) |
-| Visão geral do sistema | [ARCHITECTURE.md](../ARCHITECTURE.md) |
-| Tabelas e invariantes | [DATA_MODEL.md](../DATA_MODEL.md) |
-| API da loja, matching, limites | [NUVEMSHOP_INTEGRATION.md](../NUVEMSHOP_INTEGRATION.md) |
-| Fluxo da sincronização | [SYNC_ENGINE.md](../SYNC_ENGINE.md) |
+| Visão geral do sistema | [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) |
+| Tabelas e invariantes | [DATA_MODEL.md](../architecture/DATA_MODEL.md) |
+| API da loja, matching, limites | [NUVEMSHOP_INTEGRATION.md](../domains/NUVEMSHOP_INTEGRATION.md) |
+| Fluxo da sincronização | [SYNC_ENGINE.md](../domains/SYNC_ENGINE.md) |
 | Publicar a API pela primeira vez | [api/DEPLOY.md](../../api/DEPLOY.md) |
 | Backup e restore | [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md) |
 | Como montar o dashboard | [src/README.md](../../src/README.md) |
-| Frontend React/TS/Vite | [FRONTEND_ARCHITECTURE.md](../FRONTEND_ARCHITECTURE.md) |
+| Frontend React/TS/Vite | [FRONTEND_ARCHITECTURE.md](../architecture/FRONTEND_ARCHITECTURE.md) |

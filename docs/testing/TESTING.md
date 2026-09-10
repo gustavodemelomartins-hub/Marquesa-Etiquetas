@@ -2,7 +2,7 @@
 
 Nenhum teste toca a nuvem. Todos rodam contra o Worker local
 (`localhost:8787`), um SQLite dentro de `api/.wrangler` e — quando o assunto
-é Nuvemshop — a loja de mentira de [src/loja-falsa.mjs](../src/loja-falsa.mjs).
+é Nuvemshop — a loja de mentira de [src/loja-falsa.mjs](../../src/loja-falsa.mjs).
 
 Não há framework: cada arquivo é um script que imprime `ok` / `FALHA` e sai
 com código 1 se falhou alguma coisa. Manter esse estilo é mais barato que
@@ -14,7 +14,7 @@ introduzir um runner.
 2. **banco limpo** — as contagens mudam se sobrar dado de outro teste;
 3. `api/.dev.vars` completo: as variáveis de OAuth **e**
    `ORIGENS_PERMITIDAS=http://localhost:8000`. Ver
-   [DEVELOPMENT.md](operations/DEVELOPMENT.md);
+   [DEVELOPMENT.md](../operations/DEVELOPMENT.md);
 4. para os testes de navegador, também: `npm install` dentro de `src/`,
    `npx playwright install chromium`, e o dashboard servido por HTTP em
    `localhost:8000`.
@@ -62,7 +62,7 @@ Termina exigindo console limpo.
 **não é teste: é instrumento de medição**
 
 Semeia um banco local com o tamanho da produção e mede rota a rota, com a
-métrica que o próprio D1 devolve. Ver [../D1_USAGE_AUDIT.md](operations/D1_USAGE_AUDIT.md).
+métrica que o próprio D1 devolve. Ver [../D1_USAGE_AUDIT.md](../operations/D1_USAGE_AUDIT.md).
 
 
 ### `src/sync-test.mjs` — sincronização com a Nuvemshop
@@ -656,7 +656,7 @@ Prova o painel React/TypeScript sobre o mesmo backend:
    MESMA divergência vira a pendência mais séria da tela**, em primeiro
    lugar, carregando a mensagem que o servidor deu — não um texto genérico.
    É o teste de ponta a ponta do diagnóstico descrito em
-   [FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md);
+   [FRONTEND_ARCHITECTURE.md](../architecture/FRONTEND_ARCHITECTURE.md);
 10. o rodapé continua apontando para o painel legado;
 11. nenhum erro de console.
 
@@ -711,7 +711,7 @@ Quatro seções:
    este bloco, todos os "não mudou" acima poderiam ser verdade por acidente.
 
 A tabela do que muda e do que não muda está em
-[SYNC_ENGINE.md](SYNC_ENGINE.md).
+[SYNC_ENGINE.md](../domains/SYNC_ENGINE.md).
 
 > Ele lê `api/.wrangler/state/.../*.sqlite` em modo somente-leitura, com o
 > Worker no ar. SQLite aceita vários leitores; nada aqui escreve.
@@ -762,7 +762,7 @@ nessa ordem:
    **falha**, e isso é o esperado — mesmo padrão de `migracao-variacoes.sql`.
 
 Detalhe completo do schema em
-[RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md).
+[RECONCILIATION_ENGINE.md](../domains/RECONCILIATION_ENGINE.md).
 
 ### `src/reconciliacao-test.mjs` — o Apply do motor de reconciliação
 **143 asserções · ~35 s · precisa da loja falsa (ele mesmo a sobe) e do
@@ -845,7 +845,7 @@ rota HTTP para "travar" uma sessão no meio — isso só acontece de verdade
 quando o Worker morre.
 
 Detalhe do fluxo completo, das preconditions e da idempotência em
-[RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md).
+[RECONCILIATION_ENGINE.md](../domains/RECONCILIATION_ENGINE.md).
 
 ### `api/test-api.mjs`
 Script auxiliar de chamada à API. Não faz parte da suíte.
@@ -1097,7 +1097,7 @@ Rode-o contra o DEV publicado, ou semeie um lote histórico maior antes.
 |---|---|---|
 | `executablePath` fixo em `/opt/pw-browsers/chromium` | Os testes de navegador só rodavam no Linux | **Resolvido**: os três honram `PW_CHROMIUM` e, sem ela, usam o Chromium do Playwright |
 | CORS derruba o `e2e` na tela de conexão | O navegador vem de `localhost:8000`, e o `wrangler.toml` libera só o endereço de produção | **Resolvido pelo ambiente**: `ORIGENS_PERMITIDAS=http://localhost:8000` no `.dev.vars` |
-| `reset-e-testar.sh` usa `setsid` e `pkill` | Não roda no Windows | **Aberto** — [TECH_DEBT.md](TECH_DEBT.md) item 4 |
+| `reset-e-testar.sh` usa `setsid` e `pkill` | Não roda no Windows | **Aberto** — [TECH_DEBT.md](../architecture/TECH_DEBT.md) item 4 |
 | `execFileSync('npx', …, {shell:true})` dentro do teste | `reconciliacao-test` e `reconciliacao-schema-test` morrem com `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94` (Node v24.19.0 no Windows) | **Aberto** — reproduzido em 2026-08-23, ver [BASELINE.md](BASELINE.md) |
 | `npm run build` chama `python3` | Falha no Windows, onde o comando é `python` | **Aberto** — item 6 |
 | Cada teste exige reset manual do banco | Não dá para rodar a suíte inteira num comando | **Aberto** — item 4 |
@@ -1118,7 +1118,7 @@ apagar `.wrangler/state`, ou o `rm` falha com `Device or resource busy`.
   e o Apply não sabe executá-lo; um item desse tipo vira `erro`
   explicitamente (nunca aplica por aproximação). `estoque_loja`,
   `ajuste_qtd` e `produto_novo` já têm gerador e execução. Ver
-  [RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md);
+  [RECONCILIATION_ENGINE.md](../domains/RECONCILIATION_ENGINE.md);
 - a tela de revisão/aprovação do motor de reconciliação — o backend
   (`api/src/reconciliacao.js`, `src/reconciliacao-test.mjs`) existe; a
   integração com o painel React ainda não.

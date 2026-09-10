@@ -133,7 +133,7 @@ sem erro e o diff de `dashboard.html` é só a mudança do botão comentado.
 ### O que não rodou nesta sessão
 
 `kits-test.mjs`, `e2e.mjs`, `fase2-telas-test.mjs`, `catalogo-test.mjs` e o
-resto da suíte de 2026-08-23 (`docs/BASELINE.md`) **não foram re-rodados**:
+resto da suíte de 2026-08-23 (`docs/testing/BASELINE.md`) **não foram re-rodados**:
 nenhum arquivo que eles cobrem foi tocado por esta sessão nem pelas 10
 commits anteriores (conferido por `git diff --stat main..HEAD`). Rodar a
 suíte inteira por reflexo não é a régua deste projeto — é rodar o que o diff

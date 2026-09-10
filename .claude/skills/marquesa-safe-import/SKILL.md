@@ -86,7 +86,7 @@ As três lacunas são o motivo de a sequência acima existir.
 2. Leia `index.js › importarProdutos` inteira (é curta).
 3. Rode `src/import-total-test.mjs` se estiver num ambiente que suporta
    Playwright — hoje o Windows não suporta, ver
-   [docs/TESTING.md](../../../docs/TESTING.md).
+   [docs/testing/TESTING.md](../../../docs/testing/TESTING.md).
 4. Se for construir a prévia: o formato de diff da sincronização
    (`relato.mudancas` com `{sku, desc, de, para, zera}`) já existe e já é
    exibido pela tela. Reaproveite em vez de inventar um segundo.
@@ -102,6 +102,6 @@ conflito de peça física por palpite continua Classe D:
 
 ## Para onde isto vai
 
-[docs/ROADMAP_RECONCILIATION.md](../../../docs/ROADMAP_RECONCILIATION.md),
+[docs/domains/ROADMAP_RECONCILIATION.md](../../../docs/domains/ROADMAP_RECONCILIATION.md),
 item 2. A prévia da importação e a prévia da sincronização são o mesmo
 problema e merecem o mesmo motor.

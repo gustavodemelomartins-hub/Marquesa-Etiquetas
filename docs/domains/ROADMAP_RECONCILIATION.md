@@ -203,16 +203,16 @@ Vale repetir aqui, porque um motor novo é exatamente onde elas correm risco:
 
 ## O que fazer antes de começar
 
-1. Backup do D1 conferido — [BACKUP_RECOVERY.md](operations/BACKUP_RECOVERY.md).
+1. Backup do D1 conferido — [BACKUP_RECOVERY.md](../operations/BACKUP_RECOVERY.md).
    **Feito**: `backups/d1/2026-08-18_06-22/`, reconferido em 2026-08-18
    carregando o dump num banco limpo — 16 tabelas, 782 produtos, razão com
    0 divergências, nenhum `externo_id` repetido. Vale como comprovação de
    que o backup funciona; **antes da migration de produção, tirar outro**,
    porque a loja escreve o dia inteiro.
-2. Migrations sob controle — [TECH_DEBT.md](TECH_DEBT.md) item 1.
+2. Migrations sob controle — [TECH_DEBT.md](../architecture/TECH_DEBT.md) item 1.
 3. `e2e` rodando na máquina de desenvolvimento — item 3.
 4. Baseline atualizado, para medir a mudança contra ele —
-   [BASELINE.md](BASELINE.md).
+   [BASELINE.md](../testing/BASELINE.md).
 5. Comportamento do dry-run provado, não presumido — `src/dry-run-test.mjs`
    e a tabela em [SYNC_ENGINE.md](SYNC_ENGINE.md). **Feito.** O motor será
    construído em cima dessa rodada; herdar uma suposição errada sobre ela
@@ -220,7 +220,7 @@ Vale repetir aqui, porque um motor novo é exatamente onde elas correm risco:
 6. Decidir sobre a coluna `base_json`. **Feito em 2026-08-18** — existe,
    documentada por `tipo` em [RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md),
    antes de a migration ter rodado em qualquer lugar.
-7. Decidir sobre [TECH_DEBT.md](TECH_DEBT.md) item 12 — uma rodada seca
+7. Decidir sobre [TECH_DEBT.md](../architecture/TECH_DEBT.md) item 12 — uma rodada seca
    apagando o rastro de uma rodada real que falhou. **Feito em
    2026-08-18** — `sync_execucoes.seco`, `resumoSync` filtrando por ela,
    provado em `src/saude-sync-test.mjs`. O motor vai gravar muito mais

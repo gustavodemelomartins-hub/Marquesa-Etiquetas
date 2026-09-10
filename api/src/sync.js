@@ -791,7 +791,7 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
        Isso não é excesso de zelo. Casar por nome já falhou em produção do
        pior jeito que existe: a conta do total continuava fechando, então
        nenhum freio disparava, cada variante recebia zero, e a peça saía do
-       ar sem ninguém ver. Ver docs/SYNC_ENGINE.md § variações. */
+       ar sem ninguém ver. Ver docs/domains/SYNC_ENGINE.md § variações. */
     if (naLoja.variantes.length > 1) {
       const r = resolverVariantes(p, naLoja, {
         saldoPorNome: saldos.porNome(p.sku),

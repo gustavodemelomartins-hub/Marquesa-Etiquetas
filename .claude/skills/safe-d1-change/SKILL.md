@@ -20,7 +20,7 @@ risco do projeto.
 
 Leia [api/schema.sql](../../../api/schema.sql) — é a fonte da verdade, e é
 comentado. O porquê de cada tabela está em
-[docs/DATA_MODEL.md](../../../docs/DATA_MODEL.md).
+[docs/architecture/DATA_MODEL.md](../../../docs/architecture/DATA_MODEL.md).
 
 Descubra também o que **produção** realmente tem. Não é a mesma pergunta:
 
@@ -122,7 +122,7 @@ E rode a suíte, com banco limpo entre cada teste:
 node src/sync-test.mjs && node src/variacoes-test.mjs && node src/kits-test.mjs
 ```
 
-Ver [docs/TESTING.md](../../../docs/TESTING.md) para o passo a passo no
+Ver [docs/testing/TESTING.md](../../../docs/testing/TESTING.md) para o passo a passo no
 Windows.
 
 ### 6. Validar os dados
@@ -193,5 +193,5 @@ que vai ser apagado.** E, ainda assim:
 
 `wrangler d1 migrations` existe nesta versão e resolveria a ausência de
 controle de versão — mas adotá-lo exige mapear o estado real de produção
-primeiro. Registrado em [docs/TECH_DEBT.md](../../../docs/TECH_DEBT.md),
+primeiro. Registrado em [docs/architecture/TECH_DEBT.md](../../../docs/architecture/TECH_DEBT.md),
 item 1.

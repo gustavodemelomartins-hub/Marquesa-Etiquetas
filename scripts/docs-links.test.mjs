@@ -19,9 +19,9 @@ const REFERENCIAS_HISTORICAS = new Set([
   '.claude/hooks/lib/release-approval.test.mjs',
   '.claude/settings.local.json',
   'docs/x.md',
-  // Suíte aposentada, citada riscada em docs/BASELINE.md.
+  // Suíte aposentada, citada riscada em docs/testing/BASELINE.md.
   'src/import-casa-test.mjs',
-  // Amostra local opcional: docs/TESTING.md descreve o caso em que não existe.
+  // Amostra local opcional: docs/testing/TESTING.md descreve o caso em que não existe.
   'src/__dados__/vendas-historico.json',
 ]);
 

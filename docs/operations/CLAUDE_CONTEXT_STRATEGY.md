@@ -43,13 +43,13 @@ aparece:
 
 ```
 Regras de negócio  → api/REGRAS.md
-Arquitetura        → docs/ARCHITECTURE.md
-Banco              → docs/DATA_MODEL.md
-Nuvemshop          → docs/NUVEMSHOP_INTEGRATION.md
-Sincronização      → docs/SYNC_ENGINE.md
+Arquitetura        → docs/architecture/ARCHITECTURE.md
+Banco              → docs/architecture/DATA_MODEL.md
+Nuvemshop          → docs/domains/NUVEMSHOP_INTEGRATION.md
+Sincronização      → docs/domains/SYNC_ENGINE.md
 Segurança          → docs/SECURITY.md
 Backup             → docs/operations/BACKUP_RECOVERY.md
-Testes             → docs/TESTING.md
+Testes             → docs/testing/TESTING.md
 Ambiente local     → docs/operations/DEVELOPMENT.md
 ```
 
@@ -118,7 +118,7 @@ Cada regra tem **um** dono:
 |---|---|---|
 | Por que a regra de negócio é assim | `api/REGRAS.md` | apontam |
 | O que cada tabela guarda | `api/schema.sql` | explicam o porquê, não repetem colunas |
-| Fluxo da sincronização | `docs/SYNC_ENGINE.md` | apontam |
+| Fluxo da sincronização | `docs/domains/SYNC_ENGINE.md` | apontam |
 | O que pode e o que não pode ser executado | `docs/SECURITY.md` | apontam |
 
 Duplicar não custa só tokens: cria duas versões da verdade que divergem na

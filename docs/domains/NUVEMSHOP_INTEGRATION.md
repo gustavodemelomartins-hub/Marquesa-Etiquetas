@@ -1,6 +1,6 @@
 # Integração com a Nuvemshop
 
-Transporte em [api/src/nuvemshop.js](../api/src/nuvemshop.js); decisões de
+Transporte em [api/src/nuvemshop.js](../../api/src/nuvemshop.js); decisões de
 sincronização em [SYNC_ENGINE.md](SYNC_ENGINE.md).
 
 API: `https://api.nuvemshop.com.br/2025-03/{store_id}`
@@ -37,7 +37,7 @@ dono da loja autoriza o app
   → página HTML mostrando NUVEMSHOP_TOKEN e NUVEMSHOP_STORE_ID para copiar
 ```
 
-Duas decisões deliberadas em [api/src/nuvemshop-oauth.js](../api/src/nuvemshop-oauth.js):
+Duas decisões deliberadas em [api/src/nuvemshop-oauth.js](../../api/src/nuvemshop-oauth.js):
 
 - a rota fica **fora** da checagem da `API_KEY` — quem chega nela é o
   navegador vindo da Nuvemshop, e quem prova a autorização é o `code` de uso
@@ -244,7 +244,7 @@ a lado, e o conjunto sai também em `GET /api/variacoes/revisao`.
 
 **A regra que manda em tudo isto:** se a loja tem mais de uma variante e o
 sistema não sabe exatamente quanto pertence a cada `variant_id`, não se
-escreve nada — nem parte. Ver [../api/REGRAS.md](../api/REGRAS.md) § 8b.
+escreve nada — nem parte. Ver [../api/REGRAS.md](../../api/REGRAS.md) § 8b.
 
 Além desses, produto que só existe na loja **nunca é tocado**: não conhecer
 um produto não é o mesmo que saber que ele tem zero.
@@ -272,6 +272,6 @@ porque os dois erros mais prováveis são de configuração:
 
 ## Testar sem tocar na loja
 
-[src/loja-falsa.mjs](../src/loja-falsa.mjs) sobe uma Nuvemshop de mentira em
+[src/loja-falsa.mjs](../../src/loja-falsa.mjs) sobe uma Nuvemshop de mentira em
 `localhost:8799`. Nenhuma chamada sai, nenhum token real é preciso. Ver
-[TESTING.md](TESTING.md).
+[TESTING.md](../testing/TESTING.md).

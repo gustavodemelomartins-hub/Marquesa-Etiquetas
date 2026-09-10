@@ -29,7 +29,7 @@ O runner usa `spawnSync` sem shell e recusa no próprio manifesto comandos com `
 | release | `npm test` | gates locais conhecidos e builds |
 | inventário | `npm run test:list` | lista suítes, níveis, modo e descrição |
 
-Integração/navegador deliberadamente não inventam hermeticidade. Para executá-los, preparar D1 local descartável, Worker local, fake Nuvemshop e/ou navegador conforme `docs/TESTING.md`, então chamar a suíte individual. Nunca reutilizar banco com estado de uma suíte anterior quando o documento pede estado limpo. Os scripts `stephanie-production-apply.mjs`, screenshots e auditorias ficam `manual-only` e não entram em gate.
+Integração/navegador deliberadamente não inventam hermeticidade. Para executá-los, preparar D1 local descartável, Worker local, fake Nuvemshop e/ou navegador conforme `docs/testing/TESTING.md`, então chamar a suíte individual. Nunca reutilizar banco com estado de uma suíte anterior quando o documento pede estado limpo. Os scripts `stephanie-production-apply.mjs`, screenshots e auditorias ficam `manual-only` e não entram em gate.
 
 ## Cobertura congelada
 
