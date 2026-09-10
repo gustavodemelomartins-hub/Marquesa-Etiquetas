@@ -59,7 +59,10 @@ console.log('\n=== 0. catálogo de teste ===');
       /* o caso da Juliana Negri: código errado e código certo */
       { sku: P('999999'), desc: 'Brinco Errado', preco: 60, cat: 'Brincos', qtd: 10 },
       { sku: P('326660'), desc: 'Brinco Argola Média Banho de Ouro 18k', preco: 60, cat: 'Brincos', qtd: 10 },
-      /* Monte seu Colar: base e componentes */
+      /* Monte seu Colar: base, componentes e a identidade comercial.
+         A configuração nasce e continua com saldo ZERO — ela é o que foi
+         vendido, não o que existe na gaveta. */
+      { sku: P('COLCF'), desc: 'Colar Filhos Banho de Ouro 18k', preco: 149, cat: 'Colares', qtd: 0 },
       { sku: P('VENEZ'), desc: 'Colar Veneziana Banho de Ouro 18k', preco: 79, cat: 'Colares', qtd: 10 },
       { sku: P('MENVE'), desc: 'Pingente Filho Verde Banho de Ouro 18k', preco: 35, cat: 'Pingentes', qtd: 4 },
       { sku: P('MENAZ'), desc: 'Pingente Filho Azul Banho de Ouro 18k', preco: 35, cat: 'Pingentes', qtd: 3 },
@@ -602,22 +605,27 @@ console.log('\n=== P–S. Central de Pendências e resolução de variação ===
 /* ═══════════════════════════════════════════════════════ CENÁRIO N / O
    Monte seu Colar. O caminho óbvio — uma variante permanente por combinação
    — explode o cadastro: três posições × dois sexos × seis cores já são 1.728
-   variantes que ninguém mantém. A composição é escolhida por VENDA. */
+   variantes que ninguém mantém. A configuração fixa QUANTAS peças de cada
+   grupo, e a cor de cada uma é escolhida na VENDA. */
 console.log('\n=== N/O. Monte seu Colar ===');
 {
   const mod = await api('POST', '/api/personalizacao/modelos', {
     nome: 'Colar personalizado — 3 filhos', slug: '3-filhos',
-    slotsMin: 1, slotsMax: 3, baseSkuPadrao: P('VENEZ'), precoSugerido: 149,
+    skuComercial: P('COLCF'), baseSkuPadrao: P('VENEZ'), precoSugerido: 149,
+    slots: [{ grupo: 'Menino', qtd: 2 }, { grupo: 'Menina', qtd: 1 }],
     opcoes: [
       { componenteSku: P('MENVE'), rotulo: 'Menino Verde', grupo: 'Menino' },
       { componenteSku: P('MENAZ'), rotulo: 'Menino Azul', grupo: 'Menino' },
       { componenteSku: P('MENRO'), rotulo: 'Menina Rosa', grupo: 'Menina' },
     ],
   });
-  eq('modelo cadastrado', mod.status, 200);
+  eq('configuração cadastrada pela rota, sem deploy', mod.status, 200);
   eq('com três opções', (mod.corpo.modelo.opcoes ?? []).length, 3);
-  eq('e as posições que o pacote pediu',
-    `${mod.corpo.modelo.slotsMin}-${mod.corpo.modelo.slotsMax}`, '1-3');
+  eq('e os slots tipados que o negócio pediu',
+    JSON.stringify(mod.corpo.modelo.slotTipos), '["Menino","Menino","Menina"]');
+  eq('o total de posições sai da soma dos slots',
+    `${mod.corpo.modelo.slotsMin}-${mod.corpo.modelo.slotsMax}`, '3-3');
+  eq('a configuração não tem saldo próprio', await saldo(P('COLCF')), 0);
 
   const lista = await api('GET', '/api/personalizacao/modelos');
   const m = (lista.corpo.modelos ?? [])[0];
@@ -650,6 +658,7 @@ console.log('\n=== N/O. Monte seu Colar ===');
   eq('o pingente verde baixou um', await saldo(P('MENVE')), antesVerde - 1);
   eq('a menina rosa baixou um', await saldo(P('MENRO')), antesRosa - 1);
   eq('o menino azul baixou um', await saldo(P('MENAZ')), antesAzul - 1);
+  eq('e o SKU comercial NÃO baixou', await saldo(P('COLCF')), 0);
   verdade('a razão fecha', await razaoFecha());
 
   /* o histórico mostra UMA venda personalizada, com a configuração */
@@ -681,20 +690,23 @@ console.log('\n=== N/O. Monte seu Colar ===');
   eq('e o verde baixou DOIS', await saldo(P('MENVE')), antesVerde2 - 2);
   verdade('a razão continua fechando', await razaoFecha());
 
-  /* sem peça, a composição é recusada com o número */
+  /* sem peça, a composição é recusada com o número. Sobrou UM verde:
+     quatro no catálogo, um na primeira venda e dois na segunda. */
   const semPeca = await api('POST', '/api/vendas', {
     clienteNome: 'Sem Estoque', data: '2026-09-01',
     personalizacoes: [{
       modeloSlug: '3-filhos', baseSku: P('VENEZ'), preco: 149,
-      componentes: Array.from({ length: 3 }, (_, i) => ({
-        posicao: i + 1, componenteSku: P('MENAZ'), rotulo: 'Menino Azul',
-      })),
+      componentes: [
+        { posicao: 1, componenteSku: P('MENVE'), rotulo: 'Menino Verde' },
+        { posicao: 2, componenteSku: P('MENVE'), rotulo: 'Menino Verde' },
+        { posicao: 3, componenteSku: P('MENRO'), rotulo: 'Menina Rosa' },
+      ],
     }],
   });
   eq('sem peça suficiente, recusa', semPeca.status, 409);
   verdade('e diz os dois números', /disponíve/.test(semPeca.corpo.erro || ''), semPeca.corpo.erro);
 
-  /* mais peças que o modelo permite também é recusado */
+  /* mais peças que a configuração tem também é recusado */
   const demais = await api('POST', '/api/vendas', {
     clienteNome: 'Slots Demais', data: '2026-09-01',
     personalizacoes: [{
@@ -704,7 +716,28 @@ console.log('\n=== N/O. Monte seu Colar ===');
       })),
     }],
   });
-  eq('mais posições que o modelo permite é recusado', demais.status, 409);
+  eq('mais posições que a configuração tem é recusado', demais.status, 409);
+
+  /* a base não é escolha: a decisão de 10/09/2026 revogou a troca */
+  const outraBase = await api('POST', '/api/vendas', {
+    clienteNome: 'Base Trocada', data: '2026-09-01',
+    personalizacoes: [{
+      modeloSlug: '3-filhos', baseSku: P('393950'), preco: 149,
+      componentes: [
+        { posicao: 1, componenteSku: P('MENAZ'), rotulo: 'Menino Azul' },
+        { posicao: 2, componenteSku: P('MENAZ'), rotulo: 'Menino Azul' },
+        { posicao: 3, componenteSku: P('MENRO'), rotulo: 'Menina Rosa' },
+      ],
+    }],
+  });
+  eq('trocar a base é recusado', outraBase.status, 409);
+
+  /* vender a configuração como peça avulsa baixaria um saldo que ela não tem */
+  const comoAvulsa = await api('POST', '/api/vendas', {
+    clienteNome: 'Configuração Avulsa', data: '2026-09-01',
+    itens: [{ sku: P('COLCF'), qtd: 1 }],
+  });
+  eq('vender a configuração como peça avulsa é recusado', comoAvulsa.status, 409);
 
   /* ─── O: a venda que JÁ ACONTECEU não baixa de novo (§7.4) */
   const b1 = await saldo(P('VENEZ'));
@@ -717,7 +750,9 @@ console.log('\n=== N/O. Monte seu Colar ===');
     personalizacoes: [{
       modeloSlug: '3-filhos', baseSku: P('VENEZ'), preco: 149,
       componentes: [
-        { posicao: 1, componenteSku: P('MENRO'), rotulo: 'Menina Rosa' },
+        { posicao: 1, componenteSku: P('MENAZ'), rotulo: 'Menino Azul' },
+        { posicao: 2, componenteSku: P('MENAZ'), rotulo: 'Menino Azul' },
+        { posicao: 3, componenteSku: P('MENRO'), rotulo: 'Menina Rosa' },
       ],
     }],
   });
@@ -742,7 +777,11 @@ console.log('\n=== N/O. Monte seu Colar ===');
     itens: [{ sku: P('326660'), qtd: 1 }],
     personalizacoes: [{
       modeloSlug: '3-filhos', baseSku: P('VENEZ'), preco: 149,
-      componentes: [{ posicao: 1, componenteSku: P('MENRO'), rotulo: 'Menina Rosa' }],
+      componentes: [
+        { posicao: 1, componenteSku: P('MENAZ'), rotulo: 'Menino Azul' },
+        { posicao: 2, componenteSku: P('MENAZ'), rotulo: 'Menino Azul' },
+        { posicao: 3, componenteSku: P('MENRO'), rotulo: 'Menina Rosa' },
+      ],
     }],
   });
   eq('misturar avulsa com estoque já refletido é recusado', misto.status, 409);
