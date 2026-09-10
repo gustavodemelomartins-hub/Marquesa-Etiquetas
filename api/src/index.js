@@ -19,12 +19,6 @@ import { gerarSku } from './sku.js';
 import { Nuvemshop } from './nuvemshop.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
 import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
-import {
-  analisarHistorico,
-  importarHistorico,
-  reverterLote,
-  substituirHistorico,
-} from './vendas-historico.js';
 /* A normalização de nome de cliente é UMA, e mora no importador histórico.
    Este arquivo tinha uma cópia dela (`normalizarTextoSimples`) com a mesma
    regra escrita de novo — e cópia de regra é divergência esperando data
@@ -47,9 +41,6 @@ import {
 import {
   criarContador, medirD1, carimbarMetrica, metricasLigadas,
 } from './d1-metrica.js';
-import { aplicarReclassificacao, desfazerReclassificacao } from './auditoria-historico.js';
-import { reconstruir, backfillNormalizacao } from './vendas-historicas.js';
-import { aplicarOperacoesHistoricas } from './historico-operacoes.js';
 import {
   abrirSessao,
   aprovarItem,
@@ -471,21 +462,6 @@ async function rotear(request, env, contador = null) {
         return json(await atualizarEstoqueDaVenda(db, env, +m[1], { forcar: !!b.forcar }));
       }
 
-      // ------------------------------------- histórico de vendas (planilha)
-      // A sequência é a de todo importador do projeto: analisar (seco, não
-      // escreve nada) → relatório → decisão humana → importar. O impacto
-      // esperado sobre estoque é ZERO, e o relatório diz isso explicitamente.
-      if (path === '/api/vendas/historico/analisar' && met === 'POST') {
-        const b = await request.json().catch(() => ({}));
-        const r = await analisarHistorico(db, { linhas: b.linhas, arquivo: b.arquivo });
-        const { _registros, ...limpo } = r;
-        return json(limpo, r.ok ? 200 : 400);
-      }
-      if (path === '/api/vendas/historico/importar' && met === 'POST') {
-        const b = await request.json().catch(() => ({}));
-        const r = await importarHistorico(db, { linhas: b.linhas, arquivo: b.arquivo });
-        return json(r, r.ok ? 201 : 409);
-      }
       /* O retrato do que está no ar: quantas vendas, quanto faturamento, de
          qual arquivo. É o que a tela mostra ANTES de propor a troca — trocar
          sem saber o que está sendo trocado é o mesmo que não perguntar. */
@@ -493,44 +469,7 @@ async function rotear(request, env, contador = null) {
          numa operação só. Importar por cima SEM reverter é o caminho que
          duplicaria o faturamento — a trava de idempotência é por hash do
          arquivo, e um arquivo corrigido tem hash novo. */
-      if (path === '/api/vendas/historico/substituir' && met === 'POST') {
-        const b2 = await request.json().catch(() => ({}));
-        const r = await substituirHistorico(db, { linhas: b2.linhas, arquivo: b2.arquivo });
-        return json(r, r.ok ? 200 : 409);
-      }
-      if ((m = path.match(/^\/api\/vendas\/historico\/lotes\/(\d+)\/reverter$/)) && met === 'POST') {
-        const r = await reverterLote(db, +m[1]);
-        return json(r, r.ok ? 200 : 400);
-      }
 
-      // ---------------------------------- reconstrução das vendas históricas
-      // Camada DERIVADA: apaga e refaz pela mesma regra determinística, e o
-      // bruto (`vendas_historico_itens`) não é tocado. Não move estoque —
-      // agrupar linhas que já existiam não cria nem consome peça física.
-      if (path === '/api/vendas/historico/reconstruir' && met === 'POST') {
-        const b = await request.json().catch(() => ({}));
-        const norm = await backfillNormalizacao(db);
-        // Reconstruir que invalidaria decisão humana ativa (papel, acerto,
-        // duplicata, cobrança) para em 409 e diz quais. Passar por cima é
-        // possível, mas só de propósito e com nome feio.
-        const r = await reconstruir(db, {
-          loteId: b.loteId ?? null,
-          aceitarQuebraDeDecisao: b.aceitarQuebraDeDecisao === true,
-        });
-        return json({ ...r, normalizacao: norm }, r.ok ? 200 : (r.statusHttp ?? 409));
-      }
-      if (path === '/api/vendas/historico/operacoes' && met === 'POST') {
-        // `seco: true` devolve o plano e o `planoHash` sem escrever nada;
-        // mandar esse hash de volta em `planoEsperado` recusa a escrita se o
-        // banco mudou entre revisar e aplicar.
-        const b3 = await request.json().catch(() => ({}));
-        const r = await aplicarOperacoesHistoricas(db, {
-          operacoes: b3.operacoes,
-          seco: b3.seco === true,
-          planoEsperado: b3.planoEsperado ?? null,
-        });
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
-      }
 
       // Cobrança é uma decisão financeira versionada. Nenhuma destas rotas
       // chama estoque ou rebaixa a venda quando o dinheiro entra.
@@ -547,18 +486,6 @@ async function rotear(request, env, contador = null) {
          Somente leitura, e roda em banco que ainda não tem as colunas novas:
          é o relatório que decide, não o efeito de já ter decidido. */
 
-      // ────────────────── §30.5: auditoria dos históricos que não são venda
-      // `analisar` é SECO: lê tudo, propõe e não escreve. Aplicar recebe a
-      // lista nomeada — não existe "aplicar todas" no servidor.
-      if (path === '/api/historico/reclassificar' && met === 'POST') {
-        const b = await request.json().catch(() => ({}));
-        const r = await aplicarReclassificacao(db, b);
-        return json(r, r.statusHttp ?? (r.ok ? 200 : 400));
-      }
-      if ((m = path.match(/^\/api\/historico\/reclassificar\/(\d+)$/)) && met === 'DELETE') {
-        const r = await desfazerReclassificacao(db, +m[1]);
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 404));
-      }
 
       return json({ erro: 'Rota não encontrada' }, 404);
     } catch (e) {

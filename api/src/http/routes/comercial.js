@@ -9,12 +9,19 @@ import { json } from '../../auth.js';
 import { historicoDoDia, lancamentosDoDia } from '../../historico-dia.js';
 import { listarCorrecoes } from '../../venda-correcao.js';
 import { auditoriaPagamentos } from '../../pagamentos-auditoria.js';
-import { listarLotes, retratoDoHistorico } from '../../vendas-historico.js';
-import { estadoReconstrucao } from '../../vendas-historicas.js';
+import {
+  listarLotes, retratoDoHistorico, analisarHistorico, importarHistorico,
+  substituirHistorico, reverterLote,
+} from '../../vendas-historico.js';
+import {
+  estadoReconstrucao, reconstruir, backfillNormalizacao,
+} from '../../vendas-historicas.js';
 import {
   contasAReceber, definirPrazoDaConta, receberConta,
 } from '../../contas-receber.js';
-import { marcarContaPaga, definirVencimento } from '../../historico-operacoes.js';
+import {
+  marcarContaPaga, definirVencimento, aplicarOperacoesHistoricas,
+} from '../../historico-operacoes.js';
 import { perfilCliente } from '../../analytics.js';
 import {
   buscarClientes, criarCliente, atualizarCliente, decidirVinculoCliente,
@@ -24,7 +31,10 @@ import {
   listarGarantias, lerGarantia, garantiasPendentes, abrirGarantia,
   mudarStatusGarantia, registrarTroca, pagarDiferencaTroca, estornarTroca,
 } from '../../garantias.js';
-import { analisarHistoricoNaoVenda, listarReclassificacoes } from '../../auditoria-historico.js';
+import {
+  analisarHistoricoNaoVenda, listarReclassificacoes,
+  aplicarReclassificacao, desfazerReclassificacao,
+} from '../../auditoria-historico.js';
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 
@@ -278,6 +288,91 @@ export const rotas = [
     async handler({ db, request, params }) {
       const b = await request.json().catch(() => ({}));
       return await decidirVinculoCliente(db, +params.id, b);
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/vendas/historico/analisar', auth: 'bearer',
+    async handler({ db, request }) {
+      const b = await request.json().catch(() => ({}));
+      const r = await analisarHistorico(db, { linhas: b.linhas, arquivo: b.arquivo });
+      const { _registros, ...limpo } = r;
+      return json(limpo, r.ok ? 200 : 400);
+    },
+  },
+  {
+    // Idempotente por hash do arquivo: reimportar o mesmo lote nao duplica
+    // faturamento -- devolve 409.
+    metodo: 'POST', caminho: '/api/vendas/historico/importar', auth: 'bearer',
+    async handler({ db, request }) {
+      const b = await request.json().catch(() => ({}));
+      const r = await importarHistorico(db, { linhas: b.linhas, arquivo: b.arquivo });
+      return json(r, r.ok ? 201 : 409);
+    },
+  },
+  {
+    /* TROCAR a planilha: reverte o que esta de pe e importa a corrigida,
+       numa operacao so. Importar por cima SEM reverter e o caminho que
+       duplicaria o faturamento. */
+    metodo: 'POST', caminho: '/api/vendas/historico/substituir', auth: 'bearer',
+    async handler({ db, request }) {
+      const b2 = await request.json().catch(() => ({}));
+      const r = await substituirHistorico(db, { linhas: b2.linhas, arquivo: b2.arquivo });
+      return json(r, r.ok ? 200 : 409);
+    },
+  },
+  {
+    // Reverter nao apaga o bruto: 28.
+    metodo: 'POST', caminho: '/api/vendas/historico/lotes/:id/reverter', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params }) {
+      const r = await reverterLote(db, +params.id);
+      return json(r, r.ok ? 200 : 400);
+    },
+  },
+  {
+    /* Camada DERIVADA: apaga e refaz pela mesma regra deterministica, e o
+       bruto (`vendas_historico_itens`) nao e tocado. Nao move estoque --
+       agrupar linhas que ja existiam nao cria nem consome peca fisica.
+       Reconstruir que invalidaria decisao humana ativa para em 409. */
+    metodo: 'POST', caminho: '/api/vendas/historico/reconstruir', auth: 'bearer',
+    async handler({ db, request }) {
+      const b = await request.json().catch(() => ({}));
+      const norm = await backfillNormalizacao(db);
+      const r = await reconstruir(db, {
+        loteId: b.loteId ?? null,
+        aceitarQuebraDeDecisao: b.aceitarQuebraDeDecisao === true,
+      });
+      return json({ ...r, normalizacao: norm }, r.ok ? 200 : (r.statusHttp ?? 409));
+    },
+  },
+  {
+    // `seco: true` devolve o plano e o `planoHash` sem escrever nada;
+    // mandar esse hash de volta em `planoEsperado` recusa a escrita se o
+    // banco mudou entre revisar e aplicar.
+    metodo: 'POST', caminho: '/api/vendas/historico/operacoes', auth: 'bearer',
+    async handler({ db, request }) {
+      const b3 = await request.json().catch(() => ({}));
+      const r = await aplicarOperacoesHistoricas(db, {
+        operacoes: b3.operacoes,
+        seco: b3.seco === true,
+        planoEsperado: b3.planoEsperado ?? null,
+      });
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+    },
+  },
+  {
+    // 30.5 -- aplica apenas as linhas nomeadas; nao existe aplicar todas.
+    metodo: 'POST', caminho: '/api/historico/reclassificar', auth: 'bearer',
+    async handler({ db, request }) {
+      const b = await request.json().catch(() => ({}));
+      const r = await aplicarReclassificacao(db, b);
+      return json(r, r.statusHttp ?? (r.ok ? 200 : 400));
+    },
+  },
+  {
+    metodo: 'DELETE', caminho: '/api/historico/reclassificar/:id', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params }) {
+      const r = await desfazerReclassificacao(db, +params.id);
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 404));
     },
   },
 ];
