@@ -48,28 +48,32 @@ import { Nuvemshop } from './nuvemshop.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
 import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
 import {
-  analisarHistorico, importarHistorico, reverterLote, listarLotes,
-  substituirHistorico, retratoDoHistorico,
+  analisarHistorico,
+  importarHistorico,
+  reverterLote,
+  substituirHistorico,
 } from './vendas-historico.js';
 /* A normalização de nome de cliente é UMA, e mora no importador histórico.
    Este arquivo tinha uma cópia dela (`normalizarTextoSimples`) com a mesma
    regra escrita de novo — e cópia de regra é divergência esperando data
    marcada. §21 do plano mestre já cobrou essa dívida uma vez. */
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
-import { perfilCliente, painel } from './analytics.js';
+import { painel } from './analytics.js';
 /* §30 · §31 · §32 — as três áreas novas de Vendas. Cada uma num arquivo
    próprio porque cada uma tem uma regra própria de o que NÃO fazer, e essa
    regra some quando o código mora dentro do roteador. */
-import { registrarSaida, estornarSaida, listarSaidas } from './saidas.js';
+import { registrarSaida, estornarSaida } from './saidas.js';
 import {
-  abrirGarantia, mudarStatusGarantia, registrarTroca, pagarDiferencaTroca,
-  estornarTroca, listarGarantias, lerGarantia, garantiasPendentes,
+  abrirGarantia,
+  mudarStatusGarantia,
+  registrarTroca,
+  pagarDiferencaTroca,
+  estornarTroca,
 } from './garantias.js';
-import { historicoDoDia, lancamentosDoDia } from './historico-dia.js';
 /* §37 — a lista única de quem deve. Ver api/src/contas-receber.js. */
-import { contasAReceber, definirPrazoDaConta, receberConta } from './contas-receber.js';
+import { definirPrazoDaConta, receberConta } from './contas-receber.js';
 /* §41 — corrigir o código de uma peça já vendida, sem cancelar a venda. */
-import { corrigirItemDeVenda, listarCorrecoes } from './venda-correcao.js';
+import { corrigirItemDeVenda } from './venda-correcao.js';
 /* §43 — Monte seu Colar: base + componentes + configuração da venda. */
 import {
   listarModelos, salvarModelo, prepararPersonalizacoes,
@@ -84,14 +88,8 @@ import {
 import {
   criarContador, medirD1, carimbarMetrica, metricasLigadas,
 } from './d1-metrica.js';
-import { auditoriaPagamentos } from './pagamentos-auditoria.js';
-import {
-  analisarHistoricoNaoVenda, aplicarReclassificacao,
-  desfazerReclassificacao, listarReclassificacoes,
-} from './auditoria-historico.js';
-import {
-  reconstruir, estadoReconstrucao, backfillNormalizacao,
-} from './vendas-historicas.js';
+import { aplicarReclassificacao, desfazerReclassificacao } from './auditoria-historico.js';
+import { reconstruir, backfillNormalizacao } from './vendas-historicas.js';
 import {
   aplicarOperacoesHistoricas,
   marcarContaPaga, definirVencimento,
@@ -528,6 +526,7 @@ async function rotear(request, env, contador = null) {
          Telefone entra na mesma caixa: quem tem o número na conversa do
          WhatsApp acha mais rápido por ele do que por um sobrenome que pode
          ter sido escrito de dois jeitos. */
+      // ------------------------------------------------------------ clientes
       if (path === '/api/clientes' && met === 'GET') {
         const busca = (url.searchParams.get('busca') || '').trim();
         const limite = Math.min(+(url.searchParams.get('limite') || 25), 100);
@@ -652,10 +651,6 @@ async function rotear(request, env, contador = null) {
          origens e sem duplicidade. É o que a lista por dia mostrava pela
          metade: venda de balcão, linha de planilha, acerto de revendedora,
          maleta que saiu, brinde e troca de garantia. */
-      if (path === '/api/vendas/dia' && met === 'GET') {
-        const r = await historicoDoDia(db, url.searchParams.get('data') || hoje());
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
-      }
       /* §35 — os três cartões de Lançamentos, calculados no servidor a
          partir de TODAS as origens comerciais da data escolhida. Antes eles
          eram somados no navegador sobre `GET /api/vendas`, que só conhece a
@@ -663,10 +658,6 @@ async function rotear(request, env, contador = null) {
          logo abaixo. O cartão de acerto passa a mostrar o LÍQUIDO da
          Marquesa (bruto − comissão), e não "peças que a revendedora não
          devolveu" — peça em maleta não é venda. */
-      if (path === '/api/vendas/lancamentos' && met === 'GET') {
-        const r = await lancamentosDoDia(db, url.searchParams.get('data') || hoje());
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
-      }
       /* §29 — o dinheiro entrou. Registra a data DO PAGAMENTO e não toca na
          data da venda; não mexe em estoque, porque a peça já saiu quando a
          venda foi registrada. */
@@ -702,12 +693,6 @@ async function rotear(request, env, contador = null) {
         const r = await corrigirItemDeVenda(db, await request.json().catch(() => ({})));
         return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
       }
-      if (path === '/api/vendas/correcoes' && met === 'GET') {
-        return json(await listarCorrecoes(db, {
-          limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
-          offset: +(url.searchParams.get('offset') || 0),
-        }));
-      }
       if ((m = path.match(/^\/api\/vendas\/(\d+)\/cancelar$/)) && met === 'POST') {
         return await cancelarVenda(db, env, +m[1]);
       }
@@ -731,15 +716,9 @@ async function rotear(request, env, contador = null) {
         const r = await importarHistorico(db, { linhas: b.linhas, arquivo: b.arquivo });
         return json(r, r.ok ? 201 : 409);
       }
-      if (path === '/api/vendas/historico/lotes' && met === 'GET') {
-        return json(await listarLotes(db));
-      }
       /* O retrato do que está no ar: quantas vendas, quanto faturamento, de
          qual arquivo. É o que a tela mostra ANTES de propor a troca — trocar
          sem saber o que está sendo trocado é o mesmo que não perguntar. */
-      if (path === '/api/vendas/historico/retrato' && met === 'GET') {
-        return json(await retratoDoHistorico(db));
-      }
       /* TROCAR a planilha: reverte o que está de pé e importa a corrigida,
          numa operação só. Importar por cima SEM reverter é o caminho que
          duplicaria o faturamento — a trava de idempotência é por hash do
@@ -770,9 +749,6 @@ async function rotear(request, env, contador = null) {
         });
         return json({ ...r, normalizacao: norm }, r.ok ? 200 : (r.statusHttp ?? 409));
       }
-      if (path === '/api/vendas/historico/reconstrucao' && met === 'GET') {
-        return json(await estadoReconstrucao(db));
-      }
       if (path === '/api/vendas/historico/operacoes' && met === 'POST') {
         // `seco: true` devolve o plano e o `planoHash` sem escrever nada;
         // mandar esse hash de volta em `planoEsperado` recusa a escrita se o
@@ -793,10 +769,6 @@ async function rotear(request, env, contador = null) {
          de garantia. Cada linha traz uma `chave` (`historico:12`,
          `venda:45`, `troca:7`) que diz de onde veio e para onde a ação vai.
          As rotas antigas continuam válidas e tratam só o lado histórico. */
-      if (path === '/api/contas-receber' && met === 'GET') {
-        const r = await contasAReceber(db, { status: url.searchParams.get('status') || 'aberta' });
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
-      }
       if (path === '/api/contas-receber/prazo' && met === 'PATCH') {
         const r = await definirPrazoDaConta(db, await request.json().catch(() => ({})));
         return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
@@ -814,40 +786,17 @@ async function rotear(request, env, contador = null) {
         return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
       }
 
-      // ------------------------------------------------------------ clientes
-      if (path === '/api/clientes/perfil' && met === 'GET') {
-        const id = url.searchParams.get('id');
-        const r = await perfilCliente(db, {
-          clienteId: id ? +id : null, norm: url.searchParams.get('norm'),
-        });
-        return json(r, r.ok ? 200 : 400);
-      }
       if ((m = path.match(/^\/api\/clientes\/(\d+)$/)) && met === 'PATCH') {
         return await atualizarCliente(db, +m[1], await request.json());
-      }
-      if (path === '/api/clientes/revisao' && met === 'GET') {
-        const { results } = await db.prepare(
-          `SELECT * FROM clientes_vinculo_revisao WHERE status = 'pendente' ORDER BY linhas DESC`,
-        ).all();
-        return json({ revisoes: results ?? [] });
       }
       if ((m = path.match(/^\/api\/clientes\/revisao\/(\d+)$/)) && met === 'POST') {
         const b = await request.json().catch(() => ({}));
         return await decidirVinculoCliente(db, +m[1], b);
       }
 
-      // ─────────────────────────────────── §30: saídas sem faturamento
+      // ───────────────────────────────── §30: saídas sem faturamento
       // Brinde, uso próprio, perda/diferença de inventário e sorteio. Saem
       // do estoque e não são venda: nenhuma cria cliente, venda ou faturamento.
-      if (path === '/api/saidas' && met === 'GET') {
-        return json(await listarSaidas(db, {
-          de: url.searchParams.get('de'), ate: url.searchParams.get('ate'),
-          tipo: url.searchParams.get('tipo'),
-          incluirEstornadas: url.searchParams.get('estornadas') !== 'nao',
-          limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
-          offset: +(url.searchParams.get('offset') || 0),
-        }));
-      }
       if (path === '/api/saidas' && met === 'POST') {
         const r = await registrarSaida(db, await request.json().catch(() => ({})));
         return json(r, r.ok ? 201 : (r.statusHttp ?? 400));
@@ -857,29 +806,13 @@ async function rotear(request, env, contador = null) {
         return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
       }
 
-      // ──────────────────────────────────────────── §31: garantia e reparo
+      // ──────────────────────────────────────── §31: garantia e reparo
       // Nada aqui altera a venda original, devolve a peça defeituosa ao
       // estoque vendável ou gera faturamento. A única receita é a diferença
       // de uma troca, quando paga, e ela tem rota própria.
-      if (path === '/api/garantias' && met === 'GET') {
-        return json(await listarGarantias(db, {
-          status: url.searchParams.get('status'),
-          limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
-          offset: +(url.searchParams.get('offset') || 0),
-        }));
-      }
-      if (path === '/api/garantias/pendentes' && met === 'GET') {
-        return json(await garantiasPendentes(db, {
-          limite: Math.min(+(url.searchParams.get('limite') || 50), 200),
-        }));
-      }
       if (path === '/api/garantias' && met === 'POST') {
         const r = await abrirGarantia(db, await request.json().catch(() => ({})));
         return json(r, r.ok ? 201 : (r.statusHttp ?? 400));
-      }
-      if ((m = path.match(/^\/api\/garantias\/(\d+)$/)) && met === 'GET') {
-        const g = await lerGarantia(db, +m[1]);
-        return json(g ?? { erro: 'Garantia não encontrada' }, g ? 200 : 404);
       }
       if ((m = path.match(/^\/api\/garantias\/(\d+)\/status$/)) && met === 'POST') {
         const r = await mudarStatusGarantia(db, +m[1], await request.json().catch(() => ({})));
@@ -901,25 +834,14 @@ async function rotear(request, env, contador = null) {
       /* §1 da revisão — o estado de pagamento das vendas, ANTES do backfill.
          Somente leitura, e roda em banco que ainda não tem as colunas novas:
          é o relatório que decide, não o efeito de já ter decidido. */
-      if (path === '/api/vendas/pagamento/auditoria' && met === 'GET') {
-        return json(await auditoriaPagamentos(db));
-      }
 
       // ────────────────── §30.5: auditoria dos históricos que não são venda
       // `analisar` é SECO: lê tudo, propõe e não escreve. Aplicar recebe a
       // lista nomeada — não existe "aplicar todas" no servidor.
-      if (path === '/api/historico/auditoria' && met === 'GET') {
-        const nomes = (url.searchParams.get('usoProprio') || '')
-          .split(',').map((x) => x.trim()).filter(Boolean);
-        return json(await analisarHistoricoNaoVenda(db, { nomesUsoProprio: nomes }));
-      }
       if (path === '/api/historico/reclassificar' && met === 'POST') {
         const b = await request.json().catch(() => ({}));
         const r = await aplicarReclassificacao(db, b);
         return json(r, r.statusHttp ?? (r.ok ? 200 : 400));
-      }
-      if (path === '/api/historico/reclassificar' && met === 'GET') {
-        return json(await listarReclassificacoes(db, { status: url.searchParams.get('status') }));
       }
       if ((m = path.match(/^\/api\/historico\/reclassificar\/(\d+)$/)) && met === 'DELETE') {
         const r = await desfazerReclassificacao(db, +m[1]);
