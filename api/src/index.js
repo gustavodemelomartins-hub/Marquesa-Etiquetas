@@ -848,66 +848,6 @@ async function rotear(request, env, contador = null) {
         return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
       }
 
-      // ------------------------------------------------ inteligência comercial
-      // As duas rotas AGREGADAS: cada tela pede uma vez e recebe todos os
-      // blocos dela do mesmo recorte — assim nenhum cartão pode discordar do
-      // gráfico ao lado, e o filtro de período não dispara seis requisições.
-      if (path === '/api/analytics/painel' && met === 'GET') {
-        return json(await painel(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
-      }
-      if (path === '/api/analytics/crm' && met === 'GET') {
-        return json(await crm(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
-      }
-      if (path === '/api/analytics/revendedoras' && met === 'GET') {
-        return json(await acertosDeMaleta(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
-      }
-      if (path === '/api/analytics/vendas' && met === 'GET') {
-        return json(await visaoGeral(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
-      }
-      /* §40 — o resumo de UMA barra do gráfico "Evolução por mês".
-         Quatro cartões, categorias do mês e o histórico compacto, para
-         desenhar logo abaixo do gráfico sem trocar de tela. Faturamento é
-         recortado pela data do pagamento; vendas, peças e clientes, pela
-         data da venda — e a diferença entre os dois é dita, não conciliada. */
-      if (path === '/api/analytics/mes' && met === 'GET') {
-        const r = await resumoDoMes(db, { mes: url.searchParams.get('mes') });
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
-      }
-      if (path === '/api/analytics/evolucao' && met === 'GET') {
-        return json(await evolucao(db, {
-          periodo: url.searchParams.get('periodo') || 'tudo',
-          granularidade: url.searchParams.get('granularidade') || 'mes',
-        }));
-      }
-      if (path === '/api/analytics/produtos' && met === 'GET') {
-        return json(await produtosMaisVendidos(db, {
-          periodo: url.searchParams.get('periodo') || 'tudo',
-          por: url.searchParams.get('por') || 'faturamento',
-          limite: Math.min(+(url.searchParams.get('limite') || 20), 200),
-        }));
-      }
-      if (path === '/api/analytics/categorias' && met === 'GET') {
-        return json(await categoriasMaisVendidas(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
-      }
-      if (path === '/api/analytics/origem' && met === 'GET') {
-        return json(await porOrigem(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
-      }
-      if (path === '/api/analytics/clientes' && met === 'GET') {
-        return json(await clientesRanking(db, {
-          periodo: url.searchParams.get('periodo') || 'tudo',
-          ordem: url.searchParams.get('ordem') || 'faturamento',
-          limite: Math.min(+(url.searchParams.get('limite') || 50), 500),
-        }));
-      }
-      if (path === '/api/vendas/lista' && met === 'GET') {
-        return json(await listarVendasUnificado(db, {
-          de: url.searchParams.get('de'), ate: url.searchParams.get('ate'),
-          busca: url.searchParams.get('busca'), canal: url.searchParams.get('canal'),
-          limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
-          offset: +(url.searchParams.get('offset') || 0),
-        }));
-      }
-
       // ------------------------------------------------------------ clientes
       if (path === '/api/clientes/perfil' && met === 'GET') {
         const id = url.searchParams.get('id');
