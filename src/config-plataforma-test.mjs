@@ -148,4 +148,41 @@ console.log('  ok   escrita na Nuvemshop: ausente = bloqueada, só "true" liga')
   console.log('  ok   o log nomeia a variável e o efeito, sem o valor');
 }
 
+
+/* Os adapters passaram a ler a configuração daqui em vez de `env`. O que
+   eles DERIVAM dela — os endereços da loja e a trava de escrita — tem de
+   continuar idêntico, senão a sincronização passa a falar com outro host
+   sem ninguém ver. */
+{
+  const { Nuvemshop } = await import('../api/src/nuvemshop.js');
+
+  const real = new Nuvemshop({ NUVEMSHOP_STORE_ID: ' 123 ', NUVEMSHOP_TOKEN: ' t ' });
+  assert.equal(real.loja, '123');
+  assert.equal(real.token, 't');
+  assert.equal(real.base, 'https://api.nuvemshop.com.br/2025-03/123');
+  assert.equal(real.basePedidos, 'https://api.nuvemshop.com.br/v1/123');
+  assert.deepEqual(real.basesPedidos, [
+    'https://api.nuvemshop.com.br/v1/123',
+    'https://api.tiendanube.com/v1/123',
+    'https://api.nuvemshop.com.br/2025-03/123',
+  ], 'a lista de hosts de pedidos mudou — o fallback trocaria de endereço');
+  assert.equal(real.configurada(), true);
+  assert.equal(real.escritaHabilitada, false, 'sem a variável, a escrita tem de ficar desligada');
+
+  /* A loja de mentira dos testes: com NUVEMSHOP_BASE definido, o fallback
+     para os hosts oficiais NÃO existe — senão um teste local sairia
+     falando com a Nuvemshop de verdade. */
+  const falsa = new Nuvemshop({
+    NUVEMSHOP_STORE_ID: '9', NUVEMSHOP_TOKEN: 't',
+    NUVEMSHOP_BASE: 'http://localhost:9999///', NUVEMSHOP_WRITES_ENABLED: 'true',
+  });
+  assert.equal(falsa.base, 'http://localhost:9999/2025-03/9');
+  assert.deepEqual(falsa.basesPedidos, ['http://localhost:9999/v1/9'],
+    'a loja de mentira ganhou os hosts reais na lista de fallback');
+  assert.equal(falsa.escritaHabilitada, true);
+
+  assert.equal(new Nuvemshop({}).configurada(), false, 'cliente sem loja/token disse estar configurado');
+  console.log('  ok   o cliente Nuvemshop deriva os mesmos endereços e a mesma trava');
+}
+
 console.log('Configuração da plataforma: ok');
