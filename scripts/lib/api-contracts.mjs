@@ -74,7 +74,11 @@ function contratosDeclarados(raiz) {
     const texto = readFileSync(completo, 'utf8');
     const declaracao = /metodo:\s*'([A-Z]+)'\s*,\s*caminho:\s*'([^']+)'\s*,\s*auth:\s*'(bearer|sem-bearer)'/g;
     for (const achado of texto.matchAll(declaracao)) {
-      contratos.push({ contrato: `${achado[1]} ${achado[2]}`, auth: achado[3] });
+      // O nome do parâmetro é documentação da rota, não parte do contrato:
+      // `/api/estoque/:sku/movimentos` e `/api/estoque/:param/movimentos` são
+      // o mesmo caminho para quem chama.
+      const caminho = achado[2].replace(/\/:[A-Za-z0-9_]+/g, '/:param');
+      contratos.push({ contrato: `${achado[1]} ${caminho}`, auth: achado[3] });
     }
   }
   return contratos;

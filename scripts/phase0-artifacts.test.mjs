@@ -29,7 +29,13 @@ for (let i = 0; i < lines.length; i += 1) {
   while (!condition.includes('{') && i + 1 < lines.length) condition += ` ${lines[++i]}`;
   if (/\bpath\b/.test(condition)) dispatchConditions.push(condition);
 }
-assert.equal(dispatchConditions.length, 132, 'o despachante mudou; atualize o inventário');
+/* A Fase 0 fixou 132 decisões de rota dentro do despachante. A Fase 2 as
+   move para `api/src/http/routes/`, então o número só pode cair: quem prova
+   que nenhum contrato se perdeu no caminho é scripts/api-contracts.test.mjs,
+   que compara o conjunto inteiro com o inventário versionado. Aqui fica
+   apenas o freio contra crescer de novo. */
+assert.ok(dispatchConditions.length <= 132,
+  `o despachante cresceu para ${dispatchConditions.length}; rota nova nasce em api/src/http/routes/`);
 for (const marker of ['/api/health', '/api/state', '/api/sync', '/api/reconciliacao', '/api/inventarios', '/api/vendas']) {
   assert.ok(routes.includes(marker), `rota sentinela ausente: ${marker}`);
 }

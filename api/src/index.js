@@ -1,4 +1,6 @@
 import { checarChave, respostaNaoAutorizada, json, comCors } from './auth.js';
+import { criarRoteador } from './http/router.js';
+import { rotas } from './http/routes/index.js';
 import { montarState, FAIXAS_PADRAO } from './state.js';
 import { calcComissao } from './comissao.js';
 import { movimentar, consignadoDoSku, saldosDoSku, conferirEstoque, movimentarKit, componentesDoKit, ehKit } from './estoque.js';
@@ -91,6 +93,10 @@ import {
   analisarPlanilhaEstoqueTotal, analisarPlanilhaProdutosNovos,
 } from './reconciliacao.js';
 
+/* Rotas já extraídas do despachante. A corrente de `if` abaixo continua
+   respondendo tudo o que ainda não migrou — inclusive o 404 final. */
+const despacharRota = criarRoteador(rotas);
+
 const hoje = () => new Date().toISOString().slice(0, 10);
 const int = v => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
 
@@ -162,22 +168,8 @@ async function rotear(request, env, contador = null) {
 
     const db = medirD1(env.DB, contador);
     try {
-      if (path === '/api/state' && met === 'GET') return json(await montarState(db, env));
-
-      // §19 — prova de que o saldo bate com a razão
-      if (path === '/api/estoque/conferir' && met === 'GET') {
-        const divergentes = await conferirEstoque(db);
-        return json({ ok: divergentes.length === 0, divergentes });
-      }
-
-      // §18 — "por que o estoque deste SKU mudou?"
-      if ((m = path.match(/^\/api\/estoque\/([^/]+)\/movimentos$/)) && met === 'GET') {
-        const sku = decodeURIComponent(m[1]);
-        const r = await db.prepare(
-          `SELECT * FROM movimentos WHERE sku = ? ORDER BY id`).bind(sku).all();
-        const saldos = await saldosDoSku(db, sku);
-        return json({ sku, saldos, movimentos: r.results });
-      }
+      const daTabela = await despacharRota({ request, env, url, db, path, metodo: met });
+      if (daTabela) return daTabela;
 
       if (path === '/api/categorias' && met === 'GET') {
         const r = await db.prepare(`SELECT * FROM categorias ORDER BY ordem, nome`).all();
