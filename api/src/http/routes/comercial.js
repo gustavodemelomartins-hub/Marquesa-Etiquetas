@@ -2,11 +2,9 @@
  *  importado, contas a receber, perfil e revisão de cliente, saídas sem
  *  faturamento e garantias.
  *
- *  Só leitura, e só transporte: cada handler chama o módulo dono do assunto.
- *  Ficaram de fora, de propósito, as leituras cuja consulta ainda mora dentro
- *  de `index.js` (`GET /api/vendas` e `GET /api/clientes`): mover a rota sem
- *  mover a regra criaria uma dependência circular entre o despachante e a
- *  tabela. Elas migram quando o domínio delas sair. */
+ *  Só transporte: cada handler chama o módulo dono do assunto. `GET
+ *  /api/vendas` continua de fora porque a consulta dela ainda mora dentro de
+ *  `index.js`; ela migra junto do domínio de vendas. */
 import { json } from '../../auth.js';
 import { historicoDoDia, lancamentosDoDia } from '../../historico-dia.js';
 import { listarCorrecoes } from '../../venda-correcao.js';
@@ -18,6 +16,9 @@ import {
 } from '../../contas-receber.js';
 import { marcarContaPaga, definirVencimento } from '../../historico-operacoes.js';
 import { perfilCliente } from '../../analytics.js';
+import {
+  buscarClientes, criarCliente, atualizarCliente, decidirVinculoCliente,
+} from '../../clientes.js';
 import { listarSaidas, registrarSaida, estornarSaida } from '../../saidas.js';
 import {
   listarGarantias, lerGarantia, garantiasPendentes, abrirGarantia,
@@ -250,6 +251,33 @@ export const rotas = [
     async handler({ db, request, params }) {
       const r = await definirVencimento(db, +params.id, await request.json().catch(() => ({})));
       return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+    },
+  },
+  {
+    /* Busca por nome, telefone ou CPF. Nome não é identidade: homônimo não é
+       fundido sozinho — quem decide isso é a revisão de vínculo. */
+    metodo: 'GET', caminho: '/api/clientes', auth: 'bearer',
+    async handler({ db, url }) {
+      return await buscarClientes(db, url);
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/clientes', auth: 'bearer',
+    async handler({ db, request }) {
+      return await criarCliente(db, request);
+    },
+  },
+  {
+    metodo: 'PATCH', caminho: '/api/clientes/:id', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      return await atualizarCliente(db, +params.id, await request.json());
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/clientes/revisao/:id', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      const b = await request.json().catch(() => ({}));
+      return await decidirVinculoCliente(db, +params.id, b);
     },
   },
 ];
