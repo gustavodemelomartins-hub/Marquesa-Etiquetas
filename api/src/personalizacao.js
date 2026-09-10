@@ -47,7 +47,7 @@
  *  telas sobre a mesma regra, e não duas regras.
  */
 import { saldosDoSku } from './estoque.js';
-import { parametros } from './plataforma/d1.js';
+import { consultarEmLotes } from './plataforma/d1.js';
 
 /** Pacote 2 — a família de colares de filhos deixou de ser configurável por
  * improviso. Estes são os SKUs confirmados pela operação em 07/09/2026.
@@ -540,17 +540,26 @@ export async function gravarPersonalizacoes(db, vendaId, preparadas, {
 export async function personalizacoesDeVendas(db, vendaIds = []) {
   const ids = [...new Set((vendaIds ?? []).filter((x) => x != null))];
   if (!ids.length) return new Map();
-  const qs = parametros(ids.length);
-  const { results } = await db.prepare(
-    `SELECT vp.*, vpi.posicao, vpi.componente_sku, vpi.componente_nome,
-            vpi.variacao AS item_variacao, vpi.variante_id AS item_variante_id,
-            vpi.rotulo, vpi.qtd AS item_qtd,
-            vpi.movimento_id
-       FROM venda_personalizacoes vp
-       LEFT JOIN venda_personalizacao_itens vpi ON vpi.personalizacao_id = vp.id
-      WHERE vp.venda_id IN (${qs})
-      ORDER BY vp.id, vpi.posicao`,
-  ).bind(...ids).all().catch(() => ({ results: [] }));
+  /* Em lotes porque o D1 limita quantos parâmetros uma consulta aceita.
+     O histórico de uma cliente antiga passa de cem vendas, e sem a quebra a
+     consulta falhava inteira — com o `catch` transformando a falha em
+     "nenhuma composição", que na tela vira o colar desmontado em peças
+     soltas. Cada venda está em um lote só, então as linhas de uma mesma
+     composição continuam juntas e na ordem de `vpi.posicao`. */
+  let results = [];
+  try {
+    results = await consultarEmLotes(db, ids, (qs) => `
+      SELECT vp.*, vpi.posicao, vpi.componente_sku, vpi.componente_nome,
+             vpi.variacao AS item_variacao, vpi.variante_id AS item_variante_id,
+             vpi.rotulo, vpi.qtd AS item_qtd,
+             vpi.movimento_id
+        FROM venda_personalizacoes vp
+        LEFT JOIN venda_personalizacao_itens vpi ON vpi.personalizacao_id = vp.id
+       WHERE vp.venda_id IN (${qs})
+       ORDER BY vp.id, vpi.posicao`);
+  } catch {
+    results = [];
+  }
 
   const porVenda = new Map();
   const porId = new Map();

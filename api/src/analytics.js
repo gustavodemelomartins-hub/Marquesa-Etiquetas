@@ -52,7 +52,7 @@ import { personalizacoesDeVendas } from './personalizacao.js';
    ontem não estava em lugar nenhum do Painel. */
 import { contasAReceber } from './contas-receber.js';
 import { garantiasDaCliente, garantiasPendentes } from './garantias.js';
-import { parametros } from './plataforma/d1.js';
+import { consultarEmLotes } from './plataforma/d1.js';
 
 const PERIODOS = new Set(['7d', '30d', '90d', '12m', 'tudo']);
 
@@ -604,10 +604,13 @@ async function fichasDoCatalogo(db, chaves) {
   const unicas = [...new Set((chaves ?? []).filter((c) => c != null))];
   const fichas = new Map();
   if (!unicas.length) return fichas;
-  const qs = parametros(unicas.length);
-  const { results } = await db.prepare(
+  /* Em lotes porque o D1 limita quantos parâmetros uma consulta aceita, e
+     `GET /api/analytics/produtos?limite=200` chega aqui com 200 códigos.
+     Sem a quebra essa chamada respondia 500. Não há `ORDER BY`: o consumo
+     é por chave, e cada código está em um lote só. */
+  const results = await consultarEmLotes(db, unicas, (qs) =>
     `SELECT sku, desc, cat, foto_original_key, foto_tratada_key, foto_url
-       FROM produtos WHERE UPPER(sku) IN (${qs})`).bind(...unicas).all();
+       FROM produtos WHERE UPPER(sku) IN (${qs})`);
   for (const p of results ?? []) {
     const k = String(p.sku ?? '').toUpperCase();
     if (!fichas.has(k)) fichas.set(k, p);
