@@ -1,37 +1,49 @@
 import { checarChave, respostaNaoAutorizada, json, comCors } from './auth.js';
 import { criarRoteador } from './http/router.js';
 import { rotas } from './http/routes/index.js';
-import { montarState, FAIXAS_PADRAO } from './state.js';
+import { FAIXAS_PADRAO } from './state.js';
 import { calcComissao } from './comissao.js';
-import { movimentar, consignadoDoSku, saldosDoSku, conferirEstoque, movimentarKit, componentesDoKit, ehKit } from './estoque.js';
+import { movimentar, consignadoDoSku, saldosDoSku, movimentarKit, ehKit } from './estoque.js';
 import {
   abrirInventario, salvarContagem, concluirInventario, ajustarInventario,
   cancelarInventario, detalheInventario, listarInventarios,
 } from './inventario.js';
 import { sincronizar, sincronizarSomenteEstoque, historicoSync, analisarSincronizacao } from './sync.js';
 import {
-  analisarEstoqueTotal, aplicarEstoqueTotal, analisarNovos, cadastrarNovos,
-  enfileirarPendentes, listarPendentes, limparPendentes,
+  analisarEstoqueTotal,
+  aplicarEstoqueTotal,
+  analisarNovos,
+  cadastrarNovos,
+  enfileirarPendentes,
+  limparPendentes,
 } from './catalogo.js';
 import {
-  importarFotosDaLoja, vincularFotosDaLoja, listarFotosOrfas, adotarFotoOrfa, salvarFotoUpload,
-  lerFotoParaServir, removerFotos, gerarFundoBranco,
-  sincronizarFotosDaLoja, fotosDoSku,
+  importarFotosDaLoja,
+  vincularFotosDaLoja,
+  adotarFotoOrfa,
+  salvarFotoUpload,
+  lerFotoParaServir,
+  removerFotos,
+  gerarFundoBranco,
+  sincronizarFotosDaLoja,
 } from './fotos.js';
 import {
-  listarPublicacoes, prepararPublicacao, salvarPreviaPublicacao,
-  aprovarPublicacao, reabrirPublicacao, repetirPublicacao,
+  prepararPublicacao,
+  salvarPreviaPublicacao,
+  aprovarPublicacao,
+  reabrirPublicacao,
+  repetirPublicacao,
 } from './publicacao-catalogo.js';
 import { conferirAssinaturaFoto } from './assinatura.js';
+import { importarVariantesDaLoja, variantesDoSku, distribuirVariantes } from './variantes.js';
 import {
-  importarVariantesDaLoja, variacoesParaRevisao, variantesDoSku, distribuirVariantes,
-  reconciliarVariacoes,
-} from './variantes.js';
-import {
-  dependenciasDoProduto, excluirProduto, arquivarProduto, desarquivarProduto, definirVariacoes,
-  estruturaDoProduto,
+  dependenciasDoProduto,
+  excluirProduto,
+  arquivarProduto,
+  desarquivarProduto,
+  definirVariacoes,
 } from './produtos.js';
-import { checarSku, gerarSku, auditarSkus } from './sku.js';
+import { gerarSku } from './sku.js';
 import { Nuvemshop } from './nuvemshop.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
 import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
@@ -44,11 +56,7 @@ import {
    regra escrita de novo — e cópia de regra é divergência esperando data
    marcada. §21 do plano mestre já cobrou essa dívida uma vez. */
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
-import {
-  visaoGeral, evolucao, produtosMaisVendidos, categoriasMaisVendidas,
-  porOrigem, clientesRanking, perfilCliente, listarVendasUnificado,
-  painel, crm, acertosDeMaleta, resumoDoMes,
-} from './analytics.js';
+import { perfilCliente, painel } from './analytics.js';
 /* §30 · §31 · §32 — as três áreas novas de Vendas. Cada uma num arquivo
    próprio porque cada uma tem uma regra própria de o que NÃO fazer, e essa
    regra some quando o código mora dentro do roteador. */
@@ -171,10 +179,6 @@ async function rotear(request, env, contador = null) {
       const daTabela = await despacharRota({ request, env, url, db, path, metodo: met });
       if (daTabela) return daTabela;
 
-      if (path === '/api/categorias' && met === 'GET') {
-        const r = await db.prepare(`SELECT * FROM categorias ORDER BY ordem, nome`).all();
-        return json(r.results);
-      }
       if (path === '/api/categorias' && met === 'POST') {
         const { nome, ordem, cor } = await request.json();
         if (!nome || !nome.trim()) return json({ erro: 'Nome é obrigatório' }, 400);
@@ -208,7 +212,6 @@ async function rotear(request, env, contador = null) {
         return json(await cadastrarNovos(db, await request.json()));
       }
       // fila que liga um fluxo ao outro, para não reimportar o mesmo arquivo
-      if (path === '/api/produtos/pendentes' && met === 'GET') return json(await listarPendentes(db));
       if (path === '/api/produtos/pendentes' && met === 'POST') {
         return json(await enfileirarPendentes(db, await request.json()));
       }
@@ -242,10 +245,6 @@ async function rotear(request, env, contador = null) {
       /* A galeria de um código, na ordem da loja e com a principal na
          frente. Preserva as múltiplas imagens: a tela operacional mostra a
          principal, e quem precisar das outras não abre a Nuvemshop. */
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/fotos$/)) && met === 'GET') {
-        return json(await fotosDoSku(db, decodeURIComponent(m[1])));
-      }
-      if (path === '/api/fotos/orfas' && met === 'GET') return json(await listarFotosOrfas(db));
       if (path === '/api/fotos/orfas/adotar' && met === 'POST') {
         return json(await adotarFotoOrfa(db, env, await request.json()));
       }
@@ -265,9 +264,6 @@ async function rotear(request, env, contador = null) {
         return json(await gerarFundoBranco(db, env, decodeURIComponent(m[1])));
       }
       // o que o agente de catálogo enxerga: pronto para publicar × o que falta
-      if (path === '/api/catalogo/publicacao' && met === 'GET') {
-        return json(await listarPublicacoes(db));
-      }
       if ((m = path.match(/^\/api\/catalogo\/publicacao\/([^/]+)\/preparar$/)) && met === 'POST') {
         const r = await prepararPublicacao(db, env, decodeURIComponent(m[1]), await request.json().catch(() => ({})));
         return json(r, r.statusHttp || 200);
@@ -315,14 +311,6 @@ async function rotear(request, env, contador = null) {
         const b = await request.json().catch(() => ({}));
         return json(await importarVariantesDaLoja(db, new Nuvemshop(env), { seco: !!b.seco }));
       }
-      if ((m = path.match(/^\/api\/loja\/variantes\/([^/]+)$/)) && met === 'GET') {
-        return json(await variantesDoSku(db, decodeURIComponent(m[1])));
-      }
-      // "Precisa de revisão — variações não mapeadas": o que a sincronização
-      // decidiu NÃO escrever, com os dois números lado a lado.
-      if (path === '/api/variacoes/revisao' && met === 'GET') {
-        return json(await variacoesParaRevisao(db));
-      }
 
       /* §42 — a CENTRAL DE PENDÊNCIAS.
          O sistema já dizia "REVISAR VARIAÇÃO" com precisão e parava ali.
@@ -336,9 +324,6 @@ async function rotear(request, env, contador = null) {
          RESOLVIDO, PENDENTE_HUMANO e DIVERGENCIA_REAL, e não escreve em
          lugar nenhum — nem no banco, nem na Nuvemshop. É o relatório que
          vem ANTES de qualquer sincronização de escrita. */
-      if (path === '/api/variacoes/reconciliacao' && met === 'GET') {
-        return json(await reconciliarVariacoes(db));
-      }
       if (path === '/api/pendencias' && met === 'GET') {
         return json(await listarPendencias(db, {
           tipo: url.searchParams.get('tipo') || null,
@@ -381,20 +366,12 @@ async function rotear(request, env, contador = null) {
          decisão e o saldo de cada variação na MESMA linha. `variantesDoSku`
          continua existindo em /api/loja/variantes/:sku, e é outra pergunta —
          ela lê a loja e só a loja. */
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/variacoes$/)) && met === 'GET') {
-        const r = await estruturaDoProduto(db, decodeURIComponent(m[1]));
-        return json(r, r.erro ? (r.status || 400) : 200);
-      }
 
       /* ------------------------------------------- ciclo de vida da peça
          §28: quem tem histórico é arquivado, nunca apagado. Quem não tem
          (a peça de teste que entulha a lista) some de vez. Quem decide não
          é preferência: é a pergunta que `dependenciasDoProduto` faz ao
          banco. Nenhuma destas rotas encosta na Nuvemshop. */
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/dependencias$/)) && met === 'GET') {
-        const r = await dependenciasDoProduto(db, decodeURIComponent(m[1]));
-        return json(r, r.erro ? (r.status || 400) : 200);
-      }
       if ((m = path.match(/^\/api\/produtos\/([^/]+)$/)) && met === 'DELETE') {
         const r = await excluirProduto(db, decodeURIComponent(m[1]));
         return json(r, r.status || (r.erro ? 400 : 200));
@@ -413,9 +390,6 @@ async function rotear(request, env, contador = null) {
          Checar e gerar são duas rotas e não uma: checar é de leitura e pode
          ser chamada a cada tecla; gerar RESERVA um código no banco e por
          isso é POST, mesmo "só devolvendo um texto". */
-      if (path === '/api/produtos/sku/checar' && met === 'GET') {
-        return json(await checarSku(db, url.searchParams.get('sku')));
-      }
       if (path === '/api/produtos/sku/gerar' && met === 'POST') {
         const b = await request.json().catch(() => ({}));
         /* O código que sai daqui é DEFINITIVO e já está reservado. Ele foi
@@ -430,16 +404,8 @@ async function rotear(request, env, contador = null) {
          pura: não muda gerador, não renumera, não decide. Existe porque
          "qual código o sistema deve gerar?" é pergunta de dado, não de
          opinião, e a resposta errada só aparece meses depois numa etiqueta. */
-      if (path === '/api/produtos/sku/auditoria' && met === 'GET') {
-        return json(await auditarSkus(db, {
-          amostra: Math.min(200, Math.max(1, Number(url.searchParams.get('amostra')) || 25)),
-        }));
-      }
 
       // ---------------------------------------------------------------- kits
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/componentes$/)) && met === 'GET') {
-        return json(await componentesDoKit(db, decodeURIComponent(m[1])));
-      }
       if ((m = path.match(/^\/api\/produtos\/([^/]+)\/componentes$/)) && met === 'PUT') {
         return await definirKit(db, decodeURIComponent(m[1]), await request.json());
       }
