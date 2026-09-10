@@ -5,7 +5,8 @@ Sthefany. Esta é a fonte de negócio mais recente para o domínio; onde a
 documentação antiga divergir, prevalece esta — e o §14 preserva o histórico das
 decisões que foram substituídas.
 
-**Nada foi implementado.** O item 3 da Fase 4 tem uma decisão pendente (§13).
+O item 3 da Fase 4 está **liberado**: a última decisão de negócio foi fechada
+em 10/09/2026 (§7).
 
 ## A regra de ouro
 
@@ -220,26 +221,26 @@ Para `k = 1` (o Casal, em cada grupo) não há ambiguidade:
 capacidade(G, 1) = Σ disponível(sku)   para sku em G
 ```
 
-Para `k ≥ 2` (Duas Meninas, Dois Meninos, e os dois de três filhos) **a
-fórmula depende da decisão pendente do §13**:
+Para `k ≥ 2` vale a mesma fórmula, pela decisão de 10/09/2026 (§7):
+**repetir a mesma cor é permitido**.
 
 ```
-S = Σ disponível(sku)   ·   M = max disponível(sku)   em G
-
-repetir a mesma cor PERMITIDO:   capacidade = floor(S / k)
-cores OBRIGATORIAMENTE distintas (k=2):  capacidade = min(floor(S/2), S − M)
+capacidade(G, k) = floor( Σ disponível(sku) / k )   para sku em G
 ```
 
 Exemplo com Menino = Azul 3, Incolor 0, Verde 1 e Veneziana 10, para
 `311066` Dois Meninos:
 
 ```
-permitido repetir:  S=4        floor(4/2) = 2 colares
-distintas:          S=4, M=3   min(2, 4−3) = 1 colar
+S = 4        floor(4 / 2) = 2
+disponivel   min(10, 2)   = 2 colares
+
+Azul + Azul   é venda válida
 ```
 
-**Dois números diferentes, para o mesmo estoque.** Não é detalhe de
-implementação: é o que a vendedora vê na tela e o que a venda aceita ou recusa.
+Nenhuma validação de cores distintas entra no código. A regra recusada era
+`min(floor(S/2), S − max)`, que daria 1 colar para o mesmo estoque; fica
+registrada aqui apenas como a alternativa descartada.
 
 Duas configurações que compartilham um componente caem juntas
 automaticamente, porque as duas derivam do mesmo saldo.
@@ -424,22 +425,26 @@ do saldo de `326660` é um passo operacional posterior, com aprovação própria
 | 142 contratos HTTP | [scripts/api-contracts.test.mjs](../../scripts/api-contracts.test.mjs) |
 | normalização única de SKU | [scripts/sku-normalizacao.test.mjs](../../scripts/sku-normalizacao.test.mjs) |
 
-## 7. Decisão pendente
+## 7. A cor pode repetir — decidido
 
-Uma só, e ela trava a disponibilidade (§3.6) e a validação da venda (§3.7):
+Decisão humana de **10/09/2026**:
 
-> Numa configuração com **dois slots do mesmo grupo** — Dois Meninos, Duas
-> Meninas, e os dois de três filhos — a Sthefany pode escolher a **mesma cor
-> duas vezes** (Azul + Azul, Rosa + Rosa), ou as duas escolhas precisam ser de
-> SKUs diferentes?
+> Numa configuração com dois slots do mesmo grupo — Dois Meninos, Duas
+> Meninas, e os dois de três filhos — a Sthefany **pode escolher a mesma cor
+> duas vezes**. Azul + Azul é uma venda válida.
 
-Não foi assumida. As duas respostas dão números diferentes para o mesmo
-estoque, como mostra o exemplo do §3.6.
+Consequências diretas:
 
-Nota de escopo para a resposta: hoje nenhuma configuração confirmada passa de
-**2 slots por grupo**. Se a regra for "distintas", uma configuração futura de
-3 slots no mesmo grupo (Três Meninos) exigiria 3 cores distintas — com as 3
-cores de Menino existentes, daria exatamente `min(azul, incolor, verde)`.
+- disponibilidade é `floor(Σ disponível do grupo / k)`, sem descontar
+  concentração numa cor (§3.6);
+- **nenhuma validação de distinção entra na venda**: o que o cardapio do grupo
+  permite, dois slots do mesmo grupo também permitem;
+- a regra vale para qualquer `k`. Uma configuração futura de três slots no
+  mesmo grupo herda a mesma fórmula, sem decisão nova.
+
+O que continua valendo sem depender disto: a contagem por grupo é **exata**
+(nem a mais nem a menos), e o SKU escolhido tem de estar no cardápio daquele
+grupo naquela configuração.
 
 ## 8. Histórico documental das decisões
 
