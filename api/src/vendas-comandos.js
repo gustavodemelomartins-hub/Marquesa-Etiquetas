@@ -164,6 +164,18 @@ export async function registrarVenda(db, env, {
     if (s.preco === null || s.preco === undefined) {
       return json({ erro: `${s.desc} está sem preço cadastrado. Defina o preço antes de vender.`, sku }, 409);
     }
+    /* §42 — a configuração montável não é peça avulsa. Aceitar esta linha
+       movimentaria o SKU comercial, que não tem saldo físico: o `qtd` dele
+       em `produtos` é resíduo de cadastro, e baixá-lo somaria uma segunda
+       camada de estoque sobre as mesmas venezianas e pingentes. Ela entra
+       por `personalizacoes`, com as peças escolhidas. */
+    if (s.montagem) {
+      return json({
+        erro: `${s.desc} é uma configuração montável — escolha as peças em `
+            + 'Colar personalizado em vez de vender o código direto.',
+        sku,
+      }, 409);
+    }
 
     let disp;
     if (s.componentes) {
