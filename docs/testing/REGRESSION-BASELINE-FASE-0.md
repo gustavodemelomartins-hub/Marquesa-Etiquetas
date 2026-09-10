@@ -128,10 +128,11 @@ não migrou continua sendo respondido por `api/src/index.js` — inclusive o 404
 final. As rotas migradas vivem em `api/src/http/routes/`, agrupadas por
 domínio, e são só transporte.
 
-Migrados **48 dos 142 contratos**, todos de leitura: estado agregado, razão de
+Migrados **55 dos 142 contratos**: 48 leituras — estado agregado, razão de
 estoque, catálogo/produto/variações/kits, ciclo comercial, leituras
-operacionais e os read models de analytics. Nenhuma rota de escrita saiu do
-lugar nesta etapa.
+operacionais e os read models de analytics — e 7 comandos de baixo risco, que
+não tocam a razão de estoque nem a Nuvemshop: categoria, fila de peças novas,
+arquivar/desarquivar e adiar/retomar pendência.
 
 Ficaram no despachante de propósito `GET /api/vendas` e `GET /api/clientes`:
 a consulta delas ainda é função declarada dentro de `index.js`, e movê-las
@@ -158,8 +159,33 @@ Além disso, `src/router-http-test.mjs` prova de forma hermética a precedência
 o casamento por método, o `:param` que não atravessa barra, o id restrito a
 dígitos e o `null` que devolve a decisão para a corrente antiga.
 
+### Como os comandos foram provados
+
+Leitura se prova comparando resposta; escrita se prova comparando **efeito**.
+O roteiro de escrita repõe o banco ao mesmo estado semeado antes de cada
+execução (`DELETE` das linhas do cenário e reinserção do produto e do
+movimento), executa 26 passos alternando comando e a leitura que mostra o
+efeito, e normaliza os campos de horário. As duas transcrições — código novo e
+`main` — saíram idênticas, incluindo upsert repetido, nome vazio, corpo sem
+lista, SKU já existente, arquivar duas vezes, produto inexistente e pendência
+sem chave. `GET /api/estoque/conferir` fechou nas duas execuções.
+
+O banco local aceita `wrangler d1 execute --local` com o `wrangler dev` no ar,
+e o Worker enxerga a mudança — é o que torna o reposicionamento entre
+execuções barato.
+
 `npm test` seguiu **8/8** e `npm run test:domain` **2/2**. Nenhuma migration,
 D1 remoto, Nuvemshop real ou deploy.
+
+### O que falta na Fase 2
+
+Faltam 87 contratos, quase todos de escrita: movimento e repartição de
+estoque, importações, fotos e R2, publicação interna, variações, SKU,
+inventário, vendas, pagamento, maletas, garantias, histórico, contas a
+receber, reconciliação e sync. As três rotas públicas (health, callback OAuth
+e foto assinada) continuam antes da porta da chave e migram por último, junto
+da política de erro. `GET /api/vendas` e `GET /api/clientes` dependem de
+funções declaradas dentro de `index.js` e migram com o domínio delas.
 
 ## Política de expansão
 
