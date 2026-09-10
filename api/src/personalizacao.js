@@ -574,6 +574,10 @@ export async function personalizacoesDeVendas(db, vendaIds = []) {
         skuComercial: r.sku_comercial ?? r.base_sku,
         baseSku: r.base_sku,
         baseVariacao: r.base_variacao ?? null,
+        /* A coluna sempre foi gravada; não devolvê-la fazia o estorno
+           perder a identidade da base — o total fechava e a razão por
+           variação não. */
+        baseVarianteId: r.base_variante_id ?? null,
         preco: Number(r.preco ?? 0),
         estoqueJaRefletido: !!r.estoque_ja_refletido,
         observacao: r.observacao ?? null,
