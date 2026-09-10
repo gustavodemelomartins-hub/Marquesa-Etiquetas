@@ -38,7 +38,7 @@ src/build.py            monta o dashboard.html
 frontend/               painel novo: React + TypeScript + Vite
 src/*-test.mjs          testes
 api/src/                o Worker
-api/schema.sql          as 16 tabelas
+api/schema.sql          as 40 tabelas
 api/REGRAS.md           regras de negócio e as justificativas históricas
 docs/                   arquitetura, banco, integração, segurança, backup
 CLAUDE.md               roteador de contexto para trabalhar com Claude Code

@@ -18,7 +18,7 @@ Worker + D1, autenticado pelo mesmo Bearer, guardado na mesma chave de
 
 **React**, porque o problema real do painel legado não é a linguagem — é que
 estado global mutável mais re-render completo torna cada mudança arriscada em
-proporção ao tamanho do arquivo, e ele tem 3.802 linhas. React não é mais
+proporção ao tamanho do arquivo, e ele tem 13.948 linhas. React não é mais
 rápido nem mais bonito; ele torna explícito quem depende de quê.
 
 **TypeScript**, porque o contrato com o backend hoje é implícito. `GET

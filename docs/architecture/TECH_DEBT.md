@@ -31,7 +31,7 @@ antes, o que exige acesso remoto. Ver a skill `safe-d1-change`.
 
 ---
 
-## 2. `src/dashboard.tpl.html` com 3.802 linhas num arquivo só
+## 2. `src/dashboard.tpl.html` com 13.948 linhas num arquivo só
 
 Markup, estado, regras de tela, formatação, gráficos e integração com a
 câmera, tudo no mesmo arquivo.

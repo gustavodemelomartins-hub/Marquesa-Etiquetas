@@ -1,5 +1,9 @@
 # Auditoria pós-go-live 1 — mapa do que já existe
 
+> **Documento histórico (2026-09-09).** Levantamento anterior aos pacotes
+> 0–4. O mapa vigente de contratos, schema e testes está nos baselines da
+> Fase 0, em [docs/architecture/](../architecture/) e [docs/testing/](../testing/).
+
 Levantamento feito **antes** de escrever qualquer linha, como o pacote exige.
 Serve a dois propósitos: não duplicar estrutura que já existe, e deixar
 escrito de onde cada número vem hoje — para o relatório de impacto poder

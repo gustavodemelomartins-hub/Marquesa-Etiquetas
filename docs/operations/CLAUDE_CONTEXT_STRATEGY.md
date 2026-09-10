@@ -11,7 +11,7 @@ janela de contexto.
 
 | Arquivo | Linhas | Custo aproximado se lido inteiro |
 |---|---|---|
-| `src/dashboard.tpl.html` | 3.802 | ~50k tokens |
+| `src/dashboard.tpl.html` | 13.948 | ~180k tokens |
 | `dashboard.html` (gerado) | ~9.000 | **nunca leia** — é build, com SheetJS embutido |
 | `index.html` (fonte da tela de Etiquetas) | grande | **nunca leia inteiro** — CSS + SheetJS embutidos, `grep`/`sed -n` como no template |
 | `api/src/index.js` | 856 | ~11k tokens |

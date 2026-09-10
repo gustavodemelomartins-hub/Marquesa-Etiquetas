@@ -32,7 +32,7 @@ de editar.
   coluna na importação, chave `marquesa_etiquetas_v1` no localStorage — veio
   linha a linha do original. Mexer numa e não na outra faz as duas
   divergirem em silêncio.
-- **Nunca abra `src/dashboard.tpl.html` inteiro** (3.802 linhas). `grep -n`
+- **Nunca abra `src/dashboard.tpl.html` inteiro** (13.948 linhas). `grep -n`
   para achar, `sed -n 'a,bp'` para ler a faixa.
 - Mexeu no legado sem rodar `python src/build.py` = mudança que não chega
   ao usuário.

@@ -55,7 +55,9 @@ política revogada nem contradizer as duas fontes canônicas do item 3.
 ## Onde procurar informação
 
 ```
-Plano mestre       → docs/archive/PLANO-MESTRE-MARQUESA.md   (estado, go-live, backlog)
+Índice da documentação → docs/README.md   (taxonomia e precedência)
+Plano mestre       → docs/architecture/MASTER-PLAN-SISTEMA-MARQUESA-2026-09.md
+Plano do go-live   → docs/archive/PLANO-MESTRE-MARQUESA.md   (histórico)
 Regras de negócio  → api/REGRAS.md
 Arquitetura        → docs/architecture/ARCHITECTURE.md
 Frontend React/TS  → docs/architecture/FRONTEND_ARCHITECTURE.md
@@ -86,7 +88,7 @@ o resto é token gasto sem retorno.
   só lê CSS e SheetJS de dentro dele, não o escreve.
 - Tarefa no painel **novo** (React/TS/Vite) mora em `frontend/` e não precisa
   do `dashboard.tpl.html` — os dois convivem e o backend é o mesmo.
-- **Nunca** abra `src/dashboard.tpl.html` inteiro (3.802 linhas). Ache com
+- **Nunca** abra `src/dashboard.tpl.html` inteiro (13.948 linhas). Ache com
   `grep -n`, leia a faixa com `sed -n`.
 - Use o subagente `repo-explorer` para "onde acontece X?" — ele responde em
   contexto próprio e devolve só a conclusão.
