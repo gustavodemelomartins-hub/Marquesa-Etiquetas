@@ -1,7 +1,10 @@
 # SKU e variação — como a peça é identificada hoje
 
-Levantamento da Fase 4, item 2. Descreve o que **existe**, não o que deveria
-existir. Nenhum comportamento foi alterado para produzir este documento.
+Fase 4, item 2. Descreve o que **existe** hoje, depois da unificação de
+10/09/2026.
+
+> **Regra de negócio oficial (Gustavo, 10/09/2026):** espaço interno não
+> diferencia SKU na Marquesa. `BR1234` e `BR 1234` são a mesma identidade.
 
 Fonte da regra: [api/REGRAS.md](../../api/REGRAS.md). Gates executáveis:
 [scripts/sku-normalizacao.test.mjs](../../scripts/sku-normalizacao.test.mjs) e
@@ -33,7 +36,7 @@ nunca como permissão para escolher uma variante.
 ```
 código digitado / planilha / loja
         │
-        ├─ normalização  ──────────────────►  OITO implementações (§3)
+        ├─ normalização  ──────────────────►  sku.js › normSku  (uma só, §3)
         │
         ├─ produtos.sku                       exato, PRIMARY KEY
         │     └─ idx_produtos_sku_norm        unicidade real, em SQL
@@ -63,73 +66,72 @@ As cinco recusas possíveis do empurrão estão em `IMPEDIMENTOS`:
 `duplicado`, `maleta`, `sem_reparticao`, `variacao_nao_mapeada`,
 `sem_variante_id`.
 
-## 3. Problema encontrado: oito respostas para "qual é o código?"
+## 3. A unificação de 10/09/2026
 
-Existem **oito** normalizações de SKU no backend — seis funções chamadas
-`normSku`, uma por arquivo, e duas soltas dentro de outras funções. Quatro
-removem o espaço do MEIO do código; quatro só aparam as pontas.
+Antes: **23** normalizações de SKU no backend — seis funções `normSku`, uma por
+arquivo, e dezessete `String(x).trim().toUpperCase()` soltos dentro de outras
+funções. **Dezenove preservavam o espaço do meio.** As quatro canônicas eram
+`sku.js`, `variantes.js`, `produtos.js` e `catalogo.js`.
 
-| Onde | Espaço interno | Papel |
-|---|---|---|
-| `api/src/sku.js` | **remove** | a canônica; espelha o índice `idx_produtos_sku_norm` |
-| `api/src/variantes.js` | **remove** | escreve `loja_variantes.sku_norm` |
-| `api/src/produtos.js` | **remove** | apagar, arquivar, dependências |
-| `api/src/catalogo.js` | **remove** | importação e cadastro — grava `produtos.sku` |
-| `api/src/fotos.js` | preserva | indexa `loja_fotos.sku_norm`, responde `/api/fotos/:sku` |
-| `api/src/publicacao-catalogo.js` | preserva | fila de publicação |
-| `api/src/nuvemshop.js` › `mapearSkus` | preserva | **chave do casamento com a loja** |
-| `api/src/vendas-comandos.js` › `registrarVenda` | preserva | código digitado na venda |
+Depois: **uma**, em [api/src/sku.js](../../api/src/sku.js). `produtos.js` e
+`variantes.js` reexportam o mesmo objeto de função, porque o nome já fazia parte
+da superfície deles. Todo o resto importa.
 
-`BR 1234` vira `BR1234` nas quatro primeiras e continua `BR 1234` nas quatro
-últimas. A diferença não dá erro em lugar nenhum.
+A medição que autorizou a mudança (dump de produção, somente leitura,
+10/09/2026) mostrou **impacto zero sobre os dados de hoje**:
 
-### Consequência de cada divergência
+| | |
+|---|---|
+| SKUs no catálogo local | 790, **nenhum** fora da forma canônica |
+| Variantes na loja (espelho de 06/09) | 686, sob 631 códigos, **nenhum** com espaço interno |
+| Variantes que passariam a casar | **0** |
+| Colisões após remover espaços | **0** |
+| Fotos que passariam a vincular | **0** (`loja_fotos` e `fotos_orfas` vazias) |
+| Ambiguidade nova | **0** |
 
-1. **`mapearSkus` — a mais cara.** Uma variante cujo SKU foi digitado na loja
-   com espaço no meio entra no mapa como `BR 1234` e nunca casa com o código
-   local `BR1234`. O código **parece não existir na loja** e a sincronização o
-   ignora, sem aviso. É exatamente a "peça fantasma que ninguém encontra" que o
-   cabeçalho de `sku.js` descreve.
-2. **`fotos.js`.** A foto é indexada sob `BR 1234` enquanto
-   `loja_variantes.sku_norm` guarda `BR1234`. A foto existe e nunca chega na
-   peça.
-3. **`publicacao-catalogo.js`.** A mesma divergência no caminho da publicação.
-4. **`vendas-comandos.js`.** Sem consequência silenciosa: `saldosDoSku` não
-   encontra e a venda para com "Código X não está no catálogo", que é a
-   resposta certa. Está na lista porque é a mesma pergunta respondida de um
-   oitavo jeito.
+Quatro códigos existem na loja e não no catálogo (`131576`, `264141`, `349129`,
+`925252`). Não é normalização: são peças sem cadastro local.
 
-### O que NÃO foi encontrado
+### O que a unificação muda daqui para a frente
+
+Nada no dado existente. O que muda é o dia em que alguém digitar um código com
+espaço:
+
+- `mapearSkus` passa a casar esse código com o catálogo, em vez de tratá-lo como
+  inexistente na loja. Se dois anúncios diferentes tiverem `BR1234` e `BR 1234`,
+  eles passam a ser o MESMO código — e aí `resolverVariantes` recusa por
+  `duplicado`, que é a resposta certa sob a regra nova: não há como dividir
+  estoque entre dois anúncios;
+- o SKU de um pedido da Nuvemshop ([sync.js](../../api/src/sync.js)) passa a
+  casar em vez de cair em `itensIgnorados`;
+- foto, publicação, garantia, saída sem faturamento, personalização, correção de
+  item e histórico passam a resolver o mesmo código que o estoque resolve.
+
+### Achados que NÃO foram tocados
+
+Levantados na mesma medição, e deixados como estão por decisão explícita:
+
+1. `sincronizar` chama `gravarRetratoDaLoja` sem olhar o `seco`, enquanto
+   `sincronizarSomenteEstoque` faz `if (!seco)`. Uma rodada seca escreve
+   `produtos.url_loja`, `estoque_loja` e `visivel` no catálogo inteiro;
+2. `sync_execucoes` tem 4 linhas, todas `seco=1`, a última em 26/08 com status
+   `pausado`. Nenhuma rodada real registrada. O espelho foi atualizado em 06/09
+   por outro caminho, que não abre execução;
+3. 78 movimentos sem identidade de variação em códigos que têm variação — é o
+   acervo da Central de Pendências.
+
+## 4. O que continua valendo
 
 - nenhuma resolução ambígua sem erro explícito;
-- nenhum ponto onde `0` seja confundido com ausente — `normSku(0)` é `"0"` nas
-  três exportadas, e `resolverVariantes` aceita o `variante_id` 0 como id;
-- nenhuma escrita direta em `produtos.qtd` fora de `estoque.js › movimentar`
-  (cobrado por [scripts/razao-estoque.test.mjs](../../scripts/razao-estoque.test.mjs));
-- nenhum movimento de estoque nascendo fora de `movimentar`.
+- `0` nunca é ausente — `normSku(0)` é `"0"`, e `resolverVariantes` aceita o
+  `variante_id` 0 como id;
+- nenhuma escrita direta em `produtos.qtd` fora de `estoque.js › movimentar`,
+  cobrado por [scripts/razao-estoque.test.mjs](../../scripts/razao-estoque.test.mjs);
+- nenhum movimento de estoque nascendo fora de `movimentar`;
+- a normalização em JavaScript espelha, caractere por caractere, a expressão do
+  índice `idx_produtos_sku_norm` — o SQLite só usa índice de expressão quando a
+  consulta repete a expressão igual.
 
-## 4. Decisão pendente
-
-**DP — unificar a normalização de SKU?**
-
-Unificar significa fazer `mapearSkus`, `fotos.js` e `publicacao-catalogo.js`
-usarem a normalização canônica. Isso **muda comportamento sobre dados reais**:
-
-- um código da loja hoje invisível para a sincronização passaria a casar, e a
-  próxima rodada escreveria estoque nele;
-- fotos hoje órfãs passariam a vincular;
-- `loja_fotos.sku_norm` já gravado continuaria com o valor antigo até a
-  próxima leitura da loja.
-
-Por isso **não foi corrigido aqui**. O risco de corrigir por interpretação, no
-meio de uma refatoração, é maior que o de continuar convivendo com a
-divergência por mais alguns dias: a mudança escreve estoque na loja.
-
-O que falta para decidir: saber se existe, hoje, algum SKU com espaço interno
-na loja. Isso se mede sem escrever nada, com
-`POST /api/sync {"seco": true}` ou a análise de sincronização, comparando as
-chaves lidas da loja com as do catálogo.
-
-Enquanto a decisão não vier, o inventário em
-[scripts/sku-normalizacao.test.mjs](../../scripts/sku-normalizacao.test.mjs)
-impede que a lista cresça ou mude sem que alguém repare.
+O gate [scripts/sku-normalizacao.test.mjs](../../scripts/sku-normalizacao.test.mjs)
+reprova uma segunda definição, uma reexportação não declarada, um
+`.trim().toUpperCase()` à mão, e o uso sem import.

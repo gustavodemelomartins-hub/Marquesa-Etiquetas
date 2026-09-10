@@ -35,9 +35,10 @@
  *  é tocada, e por isso `produtos.qtd == SUM(movimentos.qtd)` continua
  *  valendo antes e depois, sem exceção.
  */
-import { variacoesParaRevisao, normSku } from './variantes.js';
+import { variacoesParaRevisao } from './variantes.js';
 import { listarPublicacoes, ESTADO_PUBLICACAO } from './publicacao-catalogo.js';
 import { consultarEmLotes } from './plataforma/d1.js';
+import { normSku } from './sku.js';
 
 const CHAVE_ADIADAS = 'pendencias_adiadas';
 const hojeISO = () => new Date().toISOString().slice(0, 10);
@@ -511,7 +512,7 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
 export async function resolverVariacaoDaVenda(db, corpo = {}) {
   const vendaId = Number(corpo.vendaId);
   if (!Number.isFinite(vendaId)) return ERRO(400, 'Diga de qual venda é a linha.');
-  const sku = String(corpo.sku ?? '').trim().toUpperCase();
+  const sku = normSku(corpo.sku);
   if (!sku) return ERRO(400, 'Diga qual código está sem variação.');
 
   const escolha = await escolherVariacao(db, sku, corpo);
@@ -582,7 +583,7 @@ export async function resolverVariacaoDaVenda(db, corpo = {}) {
  *  estão numa maleta que levou duas inventaria uma peça. */
 export async function resolverVariacaoDaMaleta(db, corpo = {}) {
   const maletaId = Number(corpo.maletaId);
-  const sku = String(corpo.sku ?? '').trim().toUpperCase();
+  const sku = normSku(corpo.sku);
   if (!Number.isFinite(maletaId) || !sku) return ERRO(400, 'Diga a maleta e o código.');
 
   const maleta = await db.prepare(

@@ -1,189 +1,162 @@
-/** Fase 4, item 2 — quantas respostas o sistema tem para "qual é o código
- *  desta peça?".
+/** Fase 4, item 2 — uma resposta só para "qual é o código desta peça?".
  *
- *  A resposta deveria ser uma. São OITO: seis funções chamadas `normSku`,
- *  cada uma escrita no seu arquivo, mais duas normalizações soltas dentro
- *  de outras funções. Elas não são todas iguais, e a diferença entre elas
- *  não dá erro em lugar nenhum — dá peça que não casa.
+ *  REGRA DE NEGÓCIO (decidida por Gustavo em 10/09/2026):
  *
- *  Quatro removem o espaço INTERNO: `BR 1234` vira `BR1234`. Quatro só
- *  aparam as pontas e passam para maiúsculas: `BR 1234` continua
- *  `BR 1234`, e nunca casa com o código guardado.
+ *      Espaço interno não diferencia SKU na Marquesa.
+ *      `BR1234` e `BR 1234` são a MESMA identidade.
  *
- *  Este teste é um INVENTÁRIO, não uma correção. Ele não muda comportamento
- *  nenhum: ele impede que a lista cresça sem alguém decidir, e obriga a
- *  declaração a bater com o código. Mexer numa destas linhas sem atualizar
- *  a lista reprova aqui — que é exatamente o momento certo de decidir.
+ *  Antes desta decisão havia 23 normalizações de SKU espalhadas pelo
+ *  backend: seis funções chamadas `normSku`, uma por arquivo, e dezessete
+ *  `String(x).trim().toUpperCase()` soltos dentro de outras funções.
+ *  Dezenove delas preservavam o espaço do meio — as quatro canônicas eram
+ *  `sku.js`, `variantes.js`, `produtos.js` e `catalogo.js`. A diferença não
+ *  dava erro em lugar nenhum: dava peça que não casa.
  *
- *  O comentário de cabeçalho de `sku.js` já descrevia este risco em 2026:
- *  "duas linhas, dois estoques, e só uma delas casando com a loja — a outra
- *  vira peça fantasma que ninguém encontra". A lista abaixo mostra onde ele
- *  ainda está de pé.
+ *  Agora existe UMA: `sku.js › normSku`. Este teste é o que impede a lista
+ *  de voltar a crescer.
+ *
+ *  Os defeitos que ele existe para impedir:
+ *
+ *   1. uma segunda definição de `normSku` aparecer em qualquer módulo;
+ *   2. alguém normalizar um código à mão com `.trim().toUpperCase()`, que é
+ *      a forma exata que preservava o espaço interno;
+ *   3. a canônica deixar de valer a regra de negócio;
+ *   4. `0` virar ausente, ou ausente virar outra coisa que não string vazia;
+ *   5. as reexportações apontarem para funções diferentes;
+ *   6. a normalização em JavaScript deixar de espelhar a expressão do índice
+ *      `idx_produtos_sku_norm` — o SQLite só usa um índice de expressão
+ *      quando a consulta repete a expressão igual, caractere por caractere.
  */
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { normSku as canonica } from '../api/src/sku.js';
 import { normSku as deProdutos } from '../api/src/produtos.js';
 import { normSku as deVariantes } from '../api/src/variantes.js';
 
 const RAIZ = join(fileURLToPath(new URL('.', import.meta.url)), '..');
+const FONTE = join(RAIZ, 'api', 'src');
+const DONO = 'api/src/sku.js';
 
-/** Cada normalização de SKU que existe hoje, com o que ela faz com o espaço
- *  do MEIO do código e o que isso significa quando ela erra.
- *
- *  `interna: 'remove'`   → concorda com `sku.js`, que é a canônica;
- *  `interna: 'preserva'` → diverge, e a coluna `consequencia` diz onde. */
-const INVENTARIO = [
-  {
-    onde: 'api/src/sku.js',
-    trecho: "export const normSku = (v) => String(v == null ? '' : v)",
-    seguinte: ".trim().replace(/[\\s\\u00a0]+/g, '').toUpperCase();",
-    interna: 'remove',
-    papel: 'A CANÔNICA. Espelha a expressão do índice `idx_produtos_sku_norm`.',
-  },
-  {
-    onde: 'api/src/variantes.js',
-    trecho: "export const normSku = (v) => String(v == null ? '' : v).trim().replace(/\\s+/g, '').toUpperCase();",
-    interna: 'remove',
-    papel: 'Escreve `loja_variantes.sku_norm` — a chave por onde a venda acha a variação.',
-  },
-  {
-    onde: 'api/src/produtos.js',
-    trecho: "export const normSku = (v) => String(v == null ? '' : v).trim().replace(/[\\s",
-    interna: 'remove',
-    papel: 'Apagar, arquivar e conferir dependências de uma peça.',
-  },
-  {
-    onde: 'api/src/catalogo.js',
-    trecho: "const normSku = (v) => texto(v).replace(/\\s+/g, '').toUpperCase();",
-    interna: 'remove',
-    papel: 'Importação de planilha e cadastro — é o que grava `produtos.sku`.',
-  },
-  {
-    onde: 'api/src/fotos.js',
-    trecho: "const normSku = (v) => String(v == null ? '' : v).trim().toUpperCase();",
-    interna: 'preserva',
-    papel: 'Indexa `loja_fotos.sku_norm` e responde `/api/fotos/:sku`.',
-    consequencia:
-      'Um código digitado na loja com espaço no meio é indexado aqui como "BR 1234" '
-      + 'enquanto `loja_variantes.sku_norm` guarda "BR1234". A foto existe e nunca '
-      + 'chega na peça.',
-  },
-  {
-    onde: 'api/src/publicacao-catalogo.js',
-    trecho: "const normSku = (v) => String(v == null ? '' : v).trim().toUpperCase();",
-    interna: 'preserva',
-    papel: 'Fila de publicação do catálogo.',
-    consequencia: 'Mesma divergência da de fotos, no caminho da publicação.',
-  },
-  {
-    onde: 'api/src/nuvemshop.js',
-    trecho: ".map(v => ({ v, sku: String(v.sku || '').trim().toUpperCase() }))",
-    interna: 'preserva',
-    papel: 'mapearSkus — a chave por onde a sincronização casa a loja com o catálogo.',
-    consequencia:
-      'ESTA É A MAIS CARA. Uma variante cujo SKU foi digitado na loja com espaço '
-      + 'entra no mapa como "BR 1234" e nunca casa com o código local "BR1234": o '
-      + 'código parece não existir na loja e a sincronização o ignora, em silêncio.',
-  },
-  {
-    onde: 'api/src/vendas-comandos.js',
-    trecho: "const sku = String(entrada.sku || '').trim().toUpperCase();",
-    interna: 'preserva',
-    papel: 'O código digitado na venda de balcão.',
-    consequencia:
-      'Sem consequência silenciosa: `saldosDoSku` não encontra e a venda para com '
-      + '"Código X não está no catálogo", que é a resposta certa. Fica na lista '
-      + 'porque é a mesma pergunta respondida de um nono jeito.',
-  },
-];
+/** Módulos que podem REEXPORTAR o nome, porque ele já fazia parte da
+ *  superfície deles quando outros módulos passaram a importá-lo de lá.
+ *  Reexportar é apontar para a mesma função — não é uma segunda definição. */
+const REEXPORTAM = new Set(['api/src/produtos.js', 'api/src/variantes.js']);
+
+/** Nenhuma exceção. Se aparecer uma necessidade real de normalizar um
+ *  código de outro jeito, ela entra aqui com o motivo — e isso obriga
+ *  alguém a decidir, em vez de a lista crescer sozinha. */
+const EXCECOES_TRIM_UPPER = {};
+
+function arquivos(dir) {
+  return readdirSync(dir).flatMap((nome) => {
+    const caminho = join(dir, nome);
+    if (statSync(caminho).isDirectory()) return arquivos(caminho);
+    return caminho.endsWith('.js') ? [caminho] : [];
+  });
+}
 
 const falhas = [];
-const fonte = new Map();
-const ler = (rel) => {
-  if (!fonte.has(rel)) fonte.set(rel, readFileSync(join(RAIZ, rel), 'utf8'));
-  return fonte.get(rel);
-};
+const linhaDe = (texto, pos) => texto.slice(0, pos).split('\n').length;
 
-/** Remove espaço interno? Decidido pelo TEXTO da normalização: só quem tem
- *  um `.replace()` sobre classe de espaço remove. */
-const removeInterno = (trecho) => /\.replace\(\s*\/\[?\\s/.test(trecho);
+const fontes = arquivos(FONTE).map((caminho) => ({
+  rel: relative(RAIZ, caminho).replace(/\\/g, '/'),
+  texto: readFileSync(caminho, 'utf8'),
+}));
 
-for (const item of INVENTARIO) {
-  const texto = ler(item.onde);
-  const inteiro = item.trecho + (item.seguinte || '');
-  if (!texto.includes(item.trecho)) {
-    falhas.push(`${item.onde}: a normalização declarada não está mais no arquivo.\n`
-      + `        Declarado: ${item.trecho}\n`
-      + '        Se ela mudou de forma, atualize o inventário — é a hora de decidir.');
-    continue;
-  }
-  if (item.seguinte && !texto.includes(item.seguinte)) {
-    falhas.push(`${item.onde}: a continuação da normalização mudou.`);
-    continue;
-  }
-  const real = removeInterno(inteiro) ? 'remove' : 'preserva';
-  if (real !== item.interna) {
-    falhas.push(`${item.onde}: declarada como "${item.interna}" do espaço interno, `
-      + `mas o código agora "${real}".`);
-  }
-}
-
-/* Nenhuma normalização NOVA pode aparecer sem entrar no inventário. */
-const declarados = new Set(INVENTARIO.map((i) => i.onde));
-const arquivosComNormSku = ['catalogo.js', 'fotos.js', 'produtos.js', 'publicacao-catalogo.js',
-  'sku.js', 'variantes.js', 'nuvemshop.js', 'vendas-comandos.js', 'pendencias.js',
-  'estoque.js', 'sync.js', 'reconciliacao.js', 'personalizacao.js', 'venda-correcao.js',
-  'inventario.js', 'maletas-comandos.js', 'catalogo-comandos.js', 'state.js']
-  .map((n) => 'api/src/' + n);
-
-for (const rel of arquivosComNormSku) {
-  let texto;
-  try { texto = ler(rel); } catch { continue; }
+let definicoes = 0;
+for (const { rel, texto } of fontes) {
+  /* 1 — uma definição só. */
   for (const m of texto.matchAll(/(?:export\s+)?const\s+normSku\s*=/g)) {
-    if (declarados.has(rel)) continue;
-    const linha = texto.slice(0, m.index).split('\n').length;
-    falhas.push(`${rel}:${linha}: normalização de SKU nova, fora do inventário.\n`
-      + '        Antes de acrescentar mais uma, veja se alguma das oito serve.');
-  }
-}
-
-/* As três exportadas têm de concordar — elas decidem chaves que se
-   encontram: `produtos.sku`, `loja_variantes.sku_norm` e a checagem de
-   unicidade. */
-const SONDAS = ['BR1234', ' br1234 ', 'BR 1234', '10 06 33', '\tbr 12 34 ', '', null, undefined, 0];
-for (const sonda of SONDAS) {
-  const a = canonica(sonda);
-  for (const [nome, fn] of [['produtos.js', deProdutos], ['variantes.js', deVariantes]]) {
-    if (fn(sonda) !== a) {
-      falhas.push(`${nome}: normaliza ${JSON.stringify(sonda)} como ${JSON.stringify(fn(sonda))}, `
-        + `e sku.js como ${JSON.stringify(a)}. Estas três decidem chaves que se encontram.`);
+    definicoes += 1;
+    if (rel !== DONO) {
+      falhas.push(`${rel}:${linhaDe(texto, m.index)}: segunda definição de normSku.\n`
+        + `        A única mora em ${DONO}. Importe de lá — ou reexporte, se o nome já `
+        + 'fazia parte da superfície deste módulo.');
     }
   }
+
+  /* Reexportação só nos módulos declarados. */
+  for (const m of texto.matchAll(/export\s*\{\s*normSku\s*\}\s*from/g)) {
+    if (!REEXPORTAM.has(rel)) {
+      falhas.push(`${rel}:${linhaDe(texto, m.index)}: reexporta normSku sem estar declarado.\n`
+        + '        Reexportar espalha o nome; quem precisa dele importa de sku.js.');
+    }
+  }
+
+  /* 2 — a forma que preservava o espaço interno. */
+  for (const m of texto.matchAll(/\.trim\(\)\s*\.toUpperCase\(\)|\.toUpperCase\(\)\s*\.trim\(\)/g)) {
+    if (EXCECOES_TRIM_UPPER[rel]) continue;
+    falhas.push(`${rel}:${linhaDe(texto, m.index)}: normalização de código à mão.\n`
+      + '        `.trim().toUpperCase()` é exatamente a forma que preserva o espaço do meio.\n'
+      + '        Use normSku() — espaço interno não diferencia SKU (regra de 10/09/2026).');
+  }
+
+  /* Quem usa, importa. */
+  const usa = /\bnormSku\s*\(/.test(texto);
+  const declara = rel === DONO || /import\s*\{[^}]*\bnormSku\b[^}]*\}\s*from/.test(texto);
+  if (usa && !declara) {
+    falhas.push(`${rel}: usa normSku() sem importar.`);
+  }
 }
 
-/* A divergência declarada é real, e é esta: */
-const preservando = (v) => String(v == null ? '' : v).trim().toUpperCase();
-if (preservando('BR 1234') === canonica('BR 1234')) {
-  falhas.push('A divergência do inventário sumiu do comportamento. '
-    + 'Se alguém a corrigiu, atualize o inventário e diga qual decisão foi tomada.');
+if (definicoes !== 1) {
+  falhas.push(`Existem ${definicoes} definições de normSku. Tem de existir exatamente 1.`);
 }
 
-/* E `0` nunca é ausente, em nenhuma delas. */
-for (const [nome, fn] of [['sku.js', canonica], ['produtos.js', deProdutos], ['variantes.js', deVariantes]]) {
-  if (fn(0) !== '0') falhas.push(`${nome}: o código 0 virou ${JSON.stringify(fn(0))} em vez de "0".`);
-  if (fn(null) !== '') falhas.push(`${nome}: ausente deixou de virar string vazia.`);
+/* 3 — a regra de negócio, exercitada. */
+const MESMA_IDENTIDADE = [
+  ['BR1234', 'BR 1234'],
+  ['BR1234', ' br1234 '],
+  ['BR1234', 'br 12 34'],
+  ['BR1234', '\tBR\t1234 '],
+  ['BR1234', 'BR' + String.fromCharCode(160) + '1234'],  // espaço sem quebra, o que sai de planilha
+  ['100633', '10 06 33'],
+];
+for (const [a, b] of MESMA_IDENTIDADE) {
+  if (canonica(a) !== canonica(b)) {
+    falhas.push(`A regra de negócio quebrou: ${JSON.stringify(a)} e ${JSON.stringify(b)} `
+      + `deveriam ser a mesma identidade, viraram ${JSON.stringify(canonica(a))} `
+      + `e ${JSON.stringify(canonica(b))}.`);
+  }
+}
+
+/* Códigos realmente diferentes continuam diferentes. */
+const DIFERENTES = [['BR1234', 'BR1235'], ['BR1234', 'BR123'], ['100633', '100634']];
+for (const [a, b] of DIFERENTES) {
+  if (canonica(a) === canonica(b)) {
+    falhas.push(`${JSON.stringify(a)} e ${JSON.stringify(b)} viraram o mesmo código.`);
+  }
+}
+
+/* 4 — ausente e zero. */
+if (canonica(0) !== '0') falhas.push(`normSku(0) virou ${JSON.stringify(canonica(0))} em vez de "0".`);
+for (const ausente of [null, undefined, '', '   ']) {
+  if (canonica(ausente) !== '') {
+    falhas.push(`normSku(${JSON.stringify(ausente)}) deixou de ser string vazia.`);
+  }
+}
+
+/* 5 — as reexportações são a MESMA função, não uma cópia parecida. */
+if (deProdutos !== canonica) falhas.push('produtos.js reexporta uma função diferente da de sku.js.');
+if (deVariantes !== canonica) falhas.push('variantes.js reexporta uma função diferente da de sku.js.');
+
+/* 6 — o espelho em SQL. */
+const skuJs = fontes.find((f) => f.rel === DONO).texto;
+for (const pedaco of ["' '", 'CHAR(9)', 'CHAR(160)', 'UPPER(']) {
+  if (!skuJs.includes(pedaco)) {
+    falhas.push(`sku.js: SQL_NORM perdeu ${pedaco} — o índice idx_produtos_sku_norm `
+      + 'deixaria de ser usado, e a checagem de unicidade viraria varredura da tabela.');
+  }
 }
 
 if (falhas.length) {
   console.error('Normalização de SKU: REPROVADO\n');
   for (const f of falhas) console.error('  ' + f);
+  console.error('\nRegra: espaço interno não diferencia SKU. Ver docs/domains/SKU-NORMALIZACAO.md.');
   process.exit(1);
 }
 
-const divergentes = INVENTARIO.filter((i) => i.interna === 'preserva');
-console.log(`Normalização de SKU: ok — ${INVENTARIO.length} normalizações inventariadas, `
-  + `${divergentes.length} divergentes e declaradas:`);
-for (const d of divergentes) console.log(`   · ${d.onde} — ${d.papel}`);
-console.log('   Nenhuma foi alterada por este teste. Ver docs/domains/SKU-NORMALIZACAO.md.');
+console.log(`Normalização de SKU: ok — uma definição (${DONO}), `
+  + `${REEXPORTAM.size} reexportações apontando para ela, `
+  + `${fontes.length} módulos varridos, nenhuma normalização à mão.`);

@@ -7,6 +7,7 @@
  */
 
 import { lerConfig } from './plataforma/config.js';
+import { normSku } from './sku.js';
 
 const VERSAO_API = '2025-03';
 
@@ -241,7 +242,7 @@ export function mapearSkus(produtos) {
   for (const p of produtos || []) {
     const variantes = p.variants || [];
     const comSku = variantes
-      .map(v => ({ v, sku: String(v.sku || '').trim().toUpperCase() }))
+      .map(v => ({ v, sku: normSku(v.sku) }))
       .filter(x => x.sku);
     const semSku = variantes.length - comSku.length;
 

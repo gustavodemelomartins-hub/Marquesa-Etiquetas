@@ -20,6 +20,7 @@ import { resolverVariantes, saldosDeVariacao, salvarVariantesDaLoja } from './va
 import { vincularPedidoCriadoAqui } from './vendas-nuvemshop.js';
 import { consultarEmLotes } from './plataforma/d1.js';
 import { comExecucao } from './plataforma/execucao.js';
+import { normSku } from './sku.js';
 
 const agoraISO = () => new Date().toISOString();
 
@@ -581,7 +582,7 @@ async function puxarPedidos(db, loja, relato, seco) {
     const linhas = [];
     let incompleto = false;
     for (const p of pedido.products || []) {
-      const sku = String(p.sku || '').trim().toUpperCase();
+      const sku = normSku(p.sku);
       const nosso = sku ? await db.prepare(
         `SELECT sku, desc, preco FROM produtos WHERE sku = ?`).bind(sku).first() : null;
       if (!nosso) {

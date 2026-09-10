@@ -54,6 +54,7 @@ import { movimentar, saldosDoSku, componentesDoKit } from './estoque.js';
 import { carregarFeriados, prazoDaGarantia, somarDiasUteis } from './dias-uteis.js';
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import { parametros } from './plataforma/d1.js';
+import { normSku } from './sku.js';
 
 const STATUS = new Set(['em_reparo', 'reparada', 'devolvida', 'sem_conserto', 'concluida', 'cancelada']);
 /** Os que ainda pedem alguma coisa de alguém. São estes que o Painel mostra;
@@ -175,7 +176,7 @@ export async function abrirGarantia(db, corpo = {}) {
   } else if (corpo.vendaId != null && corpo.sku) {
     base = await itemOperacional(db, {
       vendaId: Number(corpo.vendaId),
-      sku: String(corpo.sku).trim().toUpperCase(),
+      sku: normSku(corpo.sku),
       varianteId: corpo.varianteId == null || corpo.varianteId === '' ? null : String(corpo.varianteId),
     });
   } else {
@@ -315,7 +316,7 @@ export async function registrarTroca(db, id, corpo = {}) {
     return { ok: false, statusHttp: 409, erro: `Garantia em "${ROTULO_STATUS[g.status]}" não troca peça.` };
   }
 
-  const skuNovo = String(corpo.skuNovo ?? '').trim().toUpperCase();
+  const skuNovo = normSku(corpo.skuNovo);
   if (!skuNovo) return { ok: false, statusHttp: 400, erro: 'Escolha a peça nova.' };
 
   const data = corpo.data ? String(corpo.data).trim() : hojeISO();

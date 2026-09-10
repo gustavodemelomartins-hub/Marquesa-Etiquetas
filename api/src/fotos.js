@@ -25,6 +25,7 @@
 import { Nuvemshop } from './nuvemshop.js';
 import { salvarFoto, lerFoto, apagarFoto, tipoValido } from './fotos-storage.js';
 import { lerConfig } from './plataforma/config.js';
+import { normSku } from './sku.js';
 
 /* Os cinco estados da foto, que é o que a tela mostra na peça. */
 export const FOTO = {
@@ -40,7 +41,6 @@ const texto = (v) => {
   if (typeof v === 'string') return v.trim();
   return String(v.pt || v.pt_BR || Object.values(v)[0] || '').trim();
 };
-const normSku = (v) => String(v == null ? '' : v).trim().toUpperCase();
 
 /** Busca os bytes de uma URL de fora (Nuvemshop) para copiar ao R2.
  *  Devolve `null` em vez de lançar — uma foto que não baixou não pode

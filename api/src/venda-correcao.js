@@ -39,6 +39,7 @@
  */
 import { movimentar, saldosDoSku } from './estoque.js';
 import { consultarEmLotes } from './plataforma/d1.js';
+import { normSku } from './sku.js';
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const dinheiro = (v) => Math.round(Number(v) * 100) / 100;
@@ -59,7 +60,7 @@ export async function corrigirItemDeVenda(db, corpo = {}) {
   if (fonte !== 'operacional' && fonte !== 'historico') {
     return ERRO(400, 'Diga se a venda é do sistema (operacional) ou da planilha (historico).');
   }
-  const skuNovo = String(corpo.skuNovo ?? '').trim().toUpperCase();
+  const skuNovo = normSku(corpo.skuNovo);
   if (!skuNovo) return ERRO(400, 'Escolha o código correto.');
 
   const motivo = String(corpo.motivo ?? '').trim() || null;
@@ -79,7 +80,7 @@ export async function corrigirItemDeVenda(db, corpo = {}) {
 
 async function corrigirOperacional(db, corpo, skuNovo, novo, motivo) {
   const vendaId = Number(corpo.vendaId);
-  const skuAntes = String(corpo.sku ?? '').trim().toUpperCase();
+  const skuAntes = normSku(corpo.sku);
   if (!Number.isFinite(vendaId) || !skuAntes) {
     return ERRO(400, 'Informe a venda e o código que está errado.');
   }
