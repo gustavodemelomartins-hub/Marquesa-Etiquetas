@@ -17,8 +17,6 @@ import {
   aplicarEstoqueTotal,
   analisarNovos,
   cadastrarNovos,
-  enfileirarPendentes,
-  limparPendentes,
 } from './catalogo.js';
 import {
   importarFotosDaLoja,
@@ -39,13 +37,7 @@ import {
 } from './publicacao-catalogo.js';
 import { conferirAssinaturaFoto } from './assinatura.js';
 import { importarVariantesDaLoja, variantesDoSku, distribuirVariantes } from './variantes.js';
-import {
-  dependenciasDoProduto,
-  excluirProduto,
-  arquivarProduto,
-  desarquivarProduto,
-  definirVariacoes,
-} from './produtos.js';
+import { dependenciasDoProduto, excluirProduto, definirVariacoes } from './produtos.js';
 import { gerarSku } from './sku.js';
 import { Nuvemshop } from './nuvemshop.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
@@ -83,12 +75,7 @@ import {
   gravarPersonalizacoes, personalizacoesDeVendas, personalizacaoAtiva,
 } from './personalizacao.js';
 /* §42 — a Central de Pendências e as duas formas de resolver uma variação. */
-import {
-  adiarPendencia,
-  retomarPendencia,
-  resolverVariacaoDaVenda,
-  resolverVariacaoDaMaleta,
-} from './pendencias.js';
+import { resolverVariacaoDaVenda, resolverVariacaoDaMaleta } from './pendencias.js';
 /* §34 — medição de leitura do D1. Desligada por padrão; ver d1-metrica.js. */
 import {
   criarContador, medirD1, carimbarMetrica, metricasLigadas,
@@ -187,15 +174,6 @@ async function rotear(request, env, contador = null) {
       const daTabela = await despacharRota({ request, env, url, db, path, metodo: met });
       if (daTabela) return daTabela;
 
-      if (path === '/api/categorias' && met === 'POST') {
-        const { nome, ordem, cor } = await request.json();
-        if (!nome || !nome.trim()) return json({ erro: 'Nome é obrigatório' }, 400);
-        await db.prepare(
-          `INSERT INTO categorias (nome, ordem, cor) VALUES (?, ?, ?)
-           ON CONFLICT(nome) DO UPDATE SET ordem = excluded.ordem, cor = excluded.cor`
-        ).bind(nome.trim(), ordem ?? 99, cor || null).run();
-        return json({ ok: true }, 201);
-      }
 
       if (path === '/api/produtos/importar' && met === 'POST') return await importarProdutos(db, await request.json());
       if (path === '/api/loja/importar' && met === 'POST') return await importarLoja(db, await request.json());
@@ -218,14 +196,6 @@ async function rotear(request, env, contador = null) {
       }
       if (path === '/api/produtos/novos/cadastrar' && met === 'POST') {
         return json(await cadastrarNovos(db, await request.json()));
-      }
-      // fila que liga um fluxo ao outro, para não reimportar o mesmo arquivo
-      if (path === '/api/produtos/pendentes' && met === 'POST') {
-        return json(await enfileirarPendentes(db, await request.json()));
-      }
-      if (path === '/api/produtos/pendentes' && met === 'DELETE') {
-        const b = await request.json().catch(() => ({}));
-        return json(await limparPendentes(db, b.skus));
       }
 
       // ------------------------------------------------------------- fotos
@@ -327,14 +297,6 @@ async function rotear(request, env, contador = null) {
          não há tabela de pendências, e resolver o caso o faz sumir sozinho.
          Resolver uma variação é dizer QUAL peça saiu: identidade, nunca uma
          segunda baixa de estoque. */
-      if (path === '/api/pendencias/adiar' && met === 'POST') {
-        const r = await adiarPendencia(db, await request.json().catch(() => ({})));
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
-      }
-      if (path === '/api/pendencias/retomar' && met === 'POST') {
-        const r = await retomarPendencia(db, await request.json().catch(() => ({})));
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
-      }
       if (path === '/api/pendencias/variacao/venda' && met === 'POST') {
         const r = await resolverVariacaoDaVenda(db, await request.json().catch(() => ({})));
         return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
@@ -371,15 +333,6 @@ async function rotear(request, env, contador = null) {
          banco. Nenhuma destas rotas encosta na Nuvemshop. */
       if ((m = path.match(/^\/api\/produtos\/([^/]+)$/)) && met === 'DELETE') {
         const r = await excluirProduto(db, decodeURIComponent(m[1]));
-        return json(r, r.status || (r.erro ? 400 : 200));
-      }
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/arquivar$/)) && met === 'POST') {
-        const b = await request.json().catch(() => ({}));
-        const r = await arquivarProduto(db, decodeURIComponent(m[1]), b);
-        return json(r, r.status || (r.erro ? 400 : 200));
-      }
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/desarquivar$/)) && met === 'POST') {
-        const r = await desarquivarProduto(db, decodeURIComponent(m[1]));
         return json(r, r.status || (r.erro ? 400 : 200));
       }
 
