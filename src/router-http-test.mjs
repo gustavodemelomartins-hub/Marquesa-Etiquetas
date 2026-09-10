@@ -62,9 +62,17 @@ const espelho = criarRoteador(rotasReais.map((r) => ({ ...r, handler: () => r.ca
 const comId = rotasReais.filter((r) => r.padroes && r.padroes.id);
 assert.ok(comId.length >= 8, 'esperava rotas com id numérico na tabela');
 
+/* Uma rota pode ter mais de um parâmetro (`/:id/itens/:item/aprovar`), e
+   trocar só o `:id` deixaria o resto do caminho literal — o casamento
+   falharia por motivo errado. Cada parâmetro recebe um valor que o padrão
+   dele aceita; só o `:id` vira texto no caso negativo. */
+const valorValido = (rota, nome) => (/\[0-9\]/.test(rota.padroes?.[nome] || '') ? '12' : 'x');
+const preencher = (rota, trocas = {}) => rota.caminho.replace(
+  /:([A-Za-z0-9_]+)/g, (_, nome) => trocas[nome] ?? valorValido(rota, nome));
+
 for (const rota of comId) {
-  const numerico = rota.caminho.replace(':id', '12');
-  const texto = rota.caminho.replace(':id', 'abc');
+  const numerico = preencher(rota);
+  const texto = preencher(rota, { id: 'abc' });
   assert.equal(
     await espelho({ metodo: rota.metodo, path: numerico, request: null, env: {}, url: null, db: null }),
     rota.caminho,
