@@ -57,7 +57,9 @@ Cloudflare Worker, ES modules, sem dependências em runtime.
 
 | Arquivo | Responsabilidade |
 |---|---|
-| [api/src/index.js](../../api/src/index.js) | Roteador HTTP de `/api/*` + handler do cron (`scheduled`) |
+| [api/src/index.js](../../api/src/index.js) | Composição, autenticação, política de erro, o que resta da corrente de `if` e o handler do cron (`scheduled`) |
+| [api/src/http/router.js](../../api/src/http/router.js) | Casamento de método e caminho, com a precedência da corrente antiga; devolve `null` quando não casa |
+| [api/src/http/routes/](../../api/src/http/routes/) | Rotas já extraídas, agrupadas por domínio. Só transporte: chamam os módulos abaixo |
 | [api/src/auth.js](../../api/src/auth.js) | Bearer da `API_KEY`, CORS, helper `json()` |
 | [api/src/state.js](../../api/src/state.js) | Monta o payload de `GET /api/state` que o dashboard consome |
 | [api/src/estoque.js](../../api/src/estoque.js) | **Razão contábil.** `movimentar`, saldos, kits, `conferirEstoque` |
