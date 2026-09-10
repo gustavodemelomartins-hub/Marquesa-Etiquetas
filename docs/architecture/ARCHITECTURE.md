@@ -57,10 +57,14 @@ Cloudflare Worker, ES modules, sem dependências em runtime.
 
 | Arquivo | Responsabilidade |
 |---|---|
-| [api/src/index.js](../../api/src/index.js) | Composição, autenticação, política de erro, o que resta da corrente de `if` e o handler do cron (`scheduled`) |
+| [api/src/index.js](../../api/src/index.js) | Entrypoint e nada mais: CORS, envelope de métrica do D1, porta da chave, cron (`scheduled`) e o encaminhamento do erro |
+| [api/src/http/erros.js](../../api/src/http/erros.js) | Tabela ordenada que traduz erro de banco em instrução, e o log que faz a causa aparecer no `wrangler tail` |
 | [api/src/http/router.js](../../api/src/http/router.js) | Casamento de método e caminho, com a precedência da corrente antiga; devolve `null` quando não casa |
 | [api/src/http/routes/](../../api/src/http/routes/) | Rotas já extraídas, agrupadas por domínio. Só transporte: chamam os módulos abaixo |
 | [api/src/auth.js](../../api/src/auth.js) | Bearer da `API_KEY`, CORS, helper `json()` |
+| [api/src/plataforma/config.js](../../api/src/plataforma/config.js) | **Única leitura de `env`.** Normaliza, congela e diz o que falta. Fail-closed |
+| [api/src/plataforma/d1.js](../../api/src/plataforma/d1.js) | Encanação mínima de D1: placeholders, linhas e consulta em lotes |
+| [api/src/plataforma/execucao.js](../../api/src/plataforma/execucao.js) | Identificador de rodada para sync, importação e reconciliação, só no log |
 | [api/src/state.js](../../api/src/state.js) | Monta o payload de `GET /api/state` que o dashboard consome |
 | [api/src/estoque.js](../../api/src/estoque.js) | **Razão contábil.** `movimentar`, saldos, kits, `conferirEstoque` |
 | [api/src/sync.js](../../api/src/sync.js) | Motor de sincronização com a loja — ver [SYNC_ENGINE.md](../domains/SYNC_ENGINE.md) |
@@ -107,13 +111,24 @@ matching e limites em [NUVEMSHOP_INTEGRATION.md](../domains/NUVEMSHOP_INTEGRATIO
 ```
 navegador
   → GET /api/state  (Bearer)
-      → auth.js       checarChave
+      → http/routes/  roteador sem Bearer (health, callback, foto assinada)
+      → auth.js       checarChave  (chave lida de plataforma/config.js)
       → state.js      montarState  (10 queries em paralelo)
           → inventario.js  resumoInventario
           → sync.js        resumoSync
       → auth.js       comCors
   ← JSON com produtos, revendedoras, maletas, config, loja, inventário, sync
 ```
+
+Erro que escapa de um handler não vira "Falha interna" por padrão: passa por
+`http/erros.js`, que reconhece migração faltando e cota de leitura do D1 e
+devolve a instrução correspondente com 503. O que ninguém reconhece continua
+chegando inteiro no `detalhe`, porque a tela de conexão precisa da causa.
+
+Operação longa — sync, importação, reconciliação — abre uma execução com
+identificador próprio (`plataforma/execucao.js`). Ele existe só no log, no
+formato `[exec] <tipo> <id> <evento>`: nada é gravado no banco e nada entra
+na resposta.
 
 Toda mudança de estoque, venha de onde vier (venda de balcão, acerto de
 maleta, pedido do site, inventário, importação), passa por
