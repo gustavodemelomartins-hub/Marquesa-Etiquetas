@@ -11,16 +11,7 @@ import {
   analisarNovos,
   cadastrarNovos,
 } from './catalogo.js';
-import {
-  importarFotosDaLoja,
-  vincularFotosDaLoja,
-  adotarFotoOrfa,
-  salvarFotoUpload,
-  lerFotoParaServir,
-  removerFotos,
-  gerarFundoBranco,
-  sincronizarFotosDaLoja,
-} from './fotos.js';
+import { lerFotoParaServir } from './fotos.js';
 import { conferirAssinaturaFoto } from './assinatura.js';
 import { importarVariantesDaLoja, variantesDoSku } from './variantes.js';
 import { dependenciasDoProduto, excluirProduto, definirVariacoes } from './produtos.js';
@@ -181,39 +172,9 @@ async function rotear(request, env, contador = null) {
          sincronização já faz isto sozinha, com o catálogo que ela leu —
          esta rota existe para contingência e para conferir antes
          (`{"seco": true}` lê tudo e não grava nada). */
-      if (path === '/api/fotos/sincronizar' && met === 'POST') {
-        const b = await request.json().catch(() => ({}));
-        return json(await sincronizarFotosDaLoja(db, env, { seco: !!b.seco }));
-      }
-      if (path === '/api/fotos/vincular-da-loja' && met === 'POST') {
-        const b = await request.json().catch(() => ({}));
-        return json(await vincularFotosDaLoja(db, env, { seco: !!b.seco, refazer: !!b.refazer }));
-      }
-      if (path === '/api/fotos/importar-da-loja' && met === 'POST') {
-        const b = await request.json().catch(() => ({}));
-        return json(await importarFotosDaLoja(db, env, { seco: !!b.seco, refazer: !!b.refazer }));
-      }
       /* A galeria de um código, na ordem da loja e com a principal na
          frente. Preserva as múltiplas imagens: a tela operacional mostra a
          principal, e quem precisar das outras não abre a Nuvemshop. */
-      if (path === '/api/fotos/orfas/adotar' && met === 'POST') {
-        return json(await adotarFotoOrfa(db, env, await request.json()));
-      }
-      // Upload dos bytes: o corpo da requisição É a imagem — sem envelope
-      // JSON, porque não há razão para base64 inflar 33% um arquivo que já
-      // vai carimbado com o Content-Type certo pelo próprio navegador.
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/foto\/(original|tratada)$/)) && met === 'PUT') {
-        const [, skuBruto, versao] = m;
-        const tipo = (request.headers.get('Content-Type') || '').split(';')[0].trim();
-        const bytes = await request.arrayBuffer();
-        return json(await salvarFotoUpload(db, env, decodeURIComponent(skuBruto), versao, bytes, tipo));
-      }
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/foto$/)) && met === 'DELETE') {
-        return json(await removerFotos(db, env, decodeURIComponent(m[1])));
-      }
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/foto\/fundo-branco$/)) && met === 'POST') {
-        return json(await gerarFundoBranco(db, env, decodeURIComponent(m[1])));
-      }
 
       if ((m = path.match(/^\/api\/produtos\/([^/]+)$/)) && met === 'PATCH') {
         return await editarProduto(db, decodeURIComponent(m[1]), await request.json());
