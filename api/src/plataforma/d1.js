@@ -75,3 +75,54 @@ export async function consultarEmLotes(db, valores, montarSql, { tamanho = LOTE_
   }
   return saida;
 }
+
+/** As instruções que MUDAM o banco. Tudo o mais é leitura. */
+const ESCRITA = /^\s*(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER|TRUNCATE|VACUUM|PRAGMA\s+\w+\s*=)/i;
+
+class EscritaEmRodadaSeca extends Error {
+  constructor(sql) {
+    super('Rodada seca tentou escrever no banco: ' + String(sql).replace(/\s+/g, ' ').trim().slice(0, 160)
+      + ' — simulação não altera dado. Envolva a escrita em `if (!seco)`.');
+    this.name = 'EscritaEmRodadaSeca';
+    this.codigo = 'ESCRITA_EM_RODADA_SECA';
+  }
+}
+
+/** A definição ÚNICA de rodada seca, e ela é estrutural.
+ *
+ *  Uma simulação pode ler o banco, ler a loja, calcular a diferença e dizer
+ *  o que faria. Não pode mudar nada. Guardar cada escrita atrás de um
+ *  `if (!seco)` funciona enquanto alguém lembra — e o histórico mostra que
+ *  não lembra: `sincronizar` gravava o retrato da loja em rodada seca
+ *  enquanto `sincronizarSomenteEstoque`, ao lado, não gravava.
+ *
+ *  Este invólucro tira a lembrança da conta. Com ele, uma escrita nova numa
+ *  rodada seca falha ALTO, em vez de alterar em silêncio o sistema que a
+ *  simulação deveria apenas descrever. Falhar é a resposta certa: o dado
+ *  fica intacto e a rodada diz por quê.
+ *
+ *  Fora do modo seco devolve o binding original, sem envelope nenhum. */
+export function somenteLeitura(db, seco) {
+  if (!seco) return db;
+  const recusarSe = (sql) => { if (ESCRITA.test(String(sql))) throw new EscritaEmRodadaSeca(sql); };
+  const envolver = (stmt, sql) => ({
+    /* O statement preparado guarda o SQL: um `movimentar()` pode montar a
+       escrita e só depois decidir não executá-la, e montar não é escrever. */
+    sqlSeco: sql,
+    bind(...a) { return envolver(stmt.bind(...a), sql); },
+    async all(...a) { recusarSe(sql); return stmt.all(...a); },
+    async first(...a) { recusarSe(sql); return stmt.first(...a); },
+    async raw(...a) { recusarSe(sql); return stmt.raw(...a); },
+    async run() { throw new EscritaEmRodadaSeca(sql); },
+    real: stmt,
+  });
+  return {
+    prepare(sql) { return envolver(db.prepare(sql), sql); },
+    async batch(stmts) {
+      for (const s of stmts || []) recusarSe((s && s.sqlSeco) || '');
+      return db.batch((stmts || []).map((s) => (s && s.real) || s));
+    },
+    async exec(sql) { throw new EscritaEmRodadaSeca(sql); },
+    withSession: db.withSession ? (...a) => db.withSession(...a) : undefined,
+  };
+}

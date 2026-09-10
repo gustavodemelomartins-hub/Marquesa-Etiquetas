@@ -121,4 +121,48 @@ function bancoFalso() {
   console.log('  ok   montarSql recebe os placeholders e o lote');
 }
 
+
+/* `somenteLeitura` — a definição estrutural de rodada seca.
+   Fora do modo seco tem de sair do caminho por completo; dentro dele, tem de
+   recusar toda escrita, inclusive a que chega por batch. */
+{
+  const { somenteLeitura } = await import('../api/src/plataforma/d1.js');
+  const real = bancoFalso();
+  assert.equal(somenteLeitura(real, false), real,
+    'fora do modo seco o binding deixou de passar direto — a medição custaria por nada');
+
+  const seco = somenteLeitura(bancoFalso(), true);
+  await seco.prepare('SELECT 1 FROM produtos').bind().all();
+  console.log('  ok   somenteLeitura: leitura passa');
+
+  const escritas = [
+    ['INSERT INTO movimentos (sku) VALUES (?)', 'run'],
+    ['UPDATE produtos SET qtd = 1', 'run'],
+    ['DELETE FROM produtos', 'run'],
+    ['insert into sync_execucoes (a) values (1) returning id', 'first'],
+    ['UPDATE produtos SET qtd = 1 RETURNING qtd', 'all'],
+  ];
+  for (const [sql, metodo] of escritas) {
+    await assert.rejects(
+      () => seco.prepare(sql)[metodo](),
+      /rodada seca/i,
+      `a rodada seca aceitou: ${sql}`,
+    );
+  }
+
+  await assert.rejects(() => seco.exec('DELETE FROM produtos'), /rodada seca/i,
+    'exec passou numa rodada seca');
+  await assert.rejects(
+    () => seco.batch([seco.prepare('INSERT INTO movimentos (sku) VALUES (?)').bind('A')]),
+    /rodada seca/i,
+    'o batch aceitou escrita numa rodada seca — é por onde toda movimentação passa',
+  );
+
+  /* Montar a escrita não é escrever: `movimentar()` monta e quem chama
+     decide se executa. Só a execução falha. */
+  const montado = seco.prepare('INSERT INTO movimentos (sku) VALUES (?)').bind('A');
+  assert.ok(montado, 'preparar a escrita passou a falhar — movimentar() nem montaria o statement');
+  console.log('  ok   somenteLeitura: run, exec, batch e RETURNING recusados; montar continua valendo');
+}
+
 console.log('Helpers de D1: ok');

@@ -18,7 +18,7 @@ import { ingerirFotosDoCatalogo } from './fotos.js';
 import { movimentar, saldosDoSku } from './estoque.js';
 import { resolverVariantes, saldosDeVariacao, salvarVariantesDaLoja } from './variantes.js';
 import { vincularPedidoCriadoAqui } from './vendas-nuvemshop.js';
-import { consultarEmLotes } from './plataforma/d1.js';
+import { consultarEmLotes, somenteLeitura } from './plataforma/d1.js';
 import { comExecucao } from './plataforma/execucao.js';
 import { normSku } from './sku.js';
 
@@ -51,25 +51,33 @@ export function sincronizar(db, env, opcoes = {}) {
       pausado: r && r.pausado && r.pausado.motivo,
       erro: r && r.erro,
     }),
-  }, () => sincronizarRodada(db, env, opcoes));
+  }, (exec) => sincronizarRodada(db, env, opcoes, exec));
 }
 
-async function sincronizarRodada(db, env, { forcar = false, seco = false } = {}) {
+async function sincronizarRodada(db, env, { forcar = false, seco = false } = {}, execucao = null) {
   const loja = new Nuvemshop(env);
   if (!loja.configurada()) {
     return { ok: false, erro: 'A loja não está conectada. Falta o token da Nuvemshop.' };
   }
 
-  /* `seco` grava no INSERT, não é derivado do relato no fim — assim ele
-     está certo mesmo enquanto a linha ainda é 'rodando'. É o que permite
-     `resumoSync` ignorar rodadas secas sem depender de JSON (TECH_DEBT.md
-     item 12). */
-  const exec = await db.prepare(
-    `INSERT INTO sync_execucoes (iniciado_em, status, seco) VALUES (datetime('now'), 'rodando', ?) RETURNING id`
-  ).bind(seco ? 1 : 0).first();
+  /* A definição ÚNICA de rodada seca (plataforma/d1.js › somenteLeitura):
+     simulação lê o banco e a loja, calcula a diferença e diz o que faria —
+     e não pode mudar nada. Envolver aqui tira a proteção da lembrança de
+     quem escreve o próximo `if`. */
+  db = somenteLeitura(db, seco);
+
+  /* A telemetria da rodada é uma escrita como qualquer outra, então rodada
+     seca não abre linha em `sync_execucoes`: o identificador dela é o da
+     correlação, que vive só no log (`[exec] sync <id> …`). Rodada de
+     verdade continua registrando igual. */
+  const exec = seco ? null : await db.prepare(
+    `INSERT INTO sync_execucoes (iniciado_em, status, seco) VALUES (datetime('now'), 'rodando', 0) RETURNING id`
+  ).first();
 
   const relato = {
-    id: exec.id, pedidosLidos: 0, vendasCriadas: 0, itensIgnorados: [],
+    id: exec ? exec.id : null,
+    correlacao: execucao ? execucao.id : null,
+    pedidosLidos: 0, vendasCriadas: 0, itensIgnorados: [],
     /* §22: o que o sistema decide não fazer é anunciado. Pedido que entrou
        sem virar faturamento aparece com nome, data e valor, separado pelo
        MOTIVO — porque "a receber" e "não é de ninguém" são coisas
@@ -104,7 +112,7 @@ async function sincronizarRodada(db, env, { forcar = false, seco = false } = {})
     await empurrarEstoque(db, loja, mapa, relato, { forcar, seco });
     /* Depois de empurrar, e não antes: assim o retrato já nasce com os
        números que a loja passou a ter nesta rodada. */
-    await gravarRetratoDaLoja(db, produtosLoja, mapa, relato);
+    if (!seco) await gravarRetratoDaLoja(db, produtosLoja, mapa, relato);
 
     /* As fotos do catálogo inteiro, com o mesmo `produtosLoja` que esta
        rodada já leu — nenhuma segunda chamada à loja.
@@ -118,19 +126,25 @@ async function sincronizarRodada(db, env, { forcar = false, seco = false } = {})
        subindo do mesmo jeito. */
     relato.fotos = await ingerirFotosDoCatalogo(db, produtosLoja, { seco });
 
-    await db.prepare(
-      `UPDATE sync_execucoes SET terminado_em = datetime('now'), status = ?,
-              pedidos_lidos = ?, vendas_criadas = ?, produtos_enviados = ?, detalhe_json = ?
-        WHERE id = ?`
-    ).bind(relato.pausado ? 'pausado' : 'ok', relato.pedidosLidos, relato.vendasCriadas,
-           relato.produtosEnviados, JSON.stringify(relato), exec.id).run();
+    if (exec) {
+      await db.prepare(
+        `UPDATE sync_execucoes SET terminado_em = datetime('now'), status = ?,
+                pedidos_lidos = ?, vendas_criadas = ?, produtos_enviados = ?, detalhe_json = ?
+          WHERE id = ?`
+      ).bind(relato.pausado ? 'pausado' : 'ok', relato.pedidosLidos, relato.vendasCriadas,
+             relato.produtosEnviados, JSON.stringify(relato), exec.id).run();
+    }
 
     return { ok: true, ...relato };
   } catch (e) {
-    await db.prepare(
-      `UPDATE sync_execucoes SET terminado_em = datetime('now'), status = 'erro', detalhe_json = ?
-        WHERE id = ?`
-    ).bind(JSON.stringify({ ...relato, erro: String(e && e.message || e) }), exec.id).run();
+    /* Rodada seca não abriu linha, então não há o que fechar. O erro dela
+       sai no log da correlação, como o resto da rodada. */
+    if (exec) {
+      await db.prepare(
+        `UPDATE sync_execucoes SET terminado_em = datetime('now'), status = 'erro', detalhe_json = ?
+          WHERE id = ?`
+      ).bind(JSON.stringify({ ...relato, erro: String(e && e.message || e) }), exec.id).run();
+    }
     return { ok: false, erro: String(e && e.message || e), ...relato };
   }
 }
@@ -147,6 +161,11 @@ export async function sincronizarSomenteEstoque(db, env, { forcar = false, seco 
   if (!loja.configurada()) {
     return { ok: false, erro: 'A loja não está conectada. Falta o token da Nuvemshop.' };
   }
+
+  /* A MESMA definição de seco da rodada completa. Antes esta função tinha
+     a sua, um `if (!seco)` só no retrato da loja — e a outra não tinha nem
+     isso. */
+  db = somenteLeitura(db, seco);
 
   const relato = {
     produtosEnviados: 0, mudancas: [], semEmpurrar: [], pausado: null,
@@ -1186,10 +1205,11 @@ async function explicarMudancasComVendas(db, mudancas) {
 
 /** "O que aconteceria se eu sincronizasse agora?" — sem escrever nada.
  *
- *  Diferente do `seco` de `sincronizar()`, que abre uma execução, puxa
- *  pedidos e grava o retrato da loja, esta função é uma LEITURA pura: ela
- *  abre a loja, compara com o catálogo e devolve o laudo. Nenhuma linha do
- *  banco muda, nenhum pedido é importado, nenhum PATCH sai.
+ *  Diferente de `sincronizar({ seco: true })`, que também não escreve mas
+ *  puxa pedidos, esta função só compara: abre a loja, confronta com o
+ *  catálogo e devolve o laudo. Nenhuma linha do banco muda, nenhum pedido é
+ *  importado, nenhum PATCH sai — e isso é garantido pelo mesmo invólucro
+ *  `somenteLeitura` das rodadas secas, não por disciplina.
  *
  *  É o que sustenta a confirmação obrigatória da tela: a pessoa vê o
  *  tamanho exato da mudança antes de autorizar, e o botão que autoriza é
@@ -1200,6 +1220,7 @@ export async function analisarSincronizacao(db, env) {
   if (!loja.configurada()) {
     return { ok: false, erro: 'A loja não está conectada. Falta o token da Nuvemshop.' };
   }
+  db = somenteLeitura(db, true);
 
   const produtosLoja = await loja.produtos();
   const { mapa, duplicados } = mapearSkus(produtosLoja);
