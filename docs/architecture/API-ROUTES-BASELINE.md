@@ -300,4 +300,4 @@ O legado chama diretamente a maior parte dos contratos dentro de `src/dashboard.
 6. Publicação de catálogo é interna; aprovação não concede escrita na loja.
 7. Pagamento, garantia e histórico jamais podem causar segunda baixa de estoque.
 
-O teste `scripts/phase0-artifacts.test.mjs` caracteriza a contagem do despachante e rotas sentinela. A Fase 1 deve evoluí-lo para método/path, auth e status de cada contrato antes de mover handlers.
+O teste `scripts/phase0-artifacts.test.mjs` caracteriza a contagem do despachante e rotas sentinela. A Fase 1 acrescentou o inventário executável: `docs/architecture/api-contracts.json` lista os 142 contratos com método, caminho e exigência de chave, e `scripts/api-contracts.test.mjs` extrai o mesmo conjunto do código a cada execução do gate rápido. Enquanto uma rota migra do despachante para um módulo em `api/src/http/routes/`, o conjunto tem de continuar idêntico; divergência falha o gate e obriga a declarar a mudança de contrato. Status e corpo de cada resposta continuam provados pelas suítes de integração catalogadas, não por este inventário.
