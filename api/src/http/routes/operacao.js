@@ -14,6 +14,8 @@ import { detalheSessao } from '../../reconciliacao.js';
 import {
   listarInventarios, detalheInventario, abrirInventario, salvarContagem,
   concluirInventario, ajustarInventario, cancelarInventario,
+  contarItem, descontarItem, registrarNaoIdentificado,
+  pausarInventario, retomarInventario, resultadoInventario, aplicarInventario,
 } from '../../inventario.js';
 
 export const rotas = [
@@ -83,6 +85,61 @@ export const rotas = [
     metodo: 'POST', caminho: '/api/inventarios/:id/cancelar', auth: 'bearer', padroes: { id: '[0-9]+' },
     async handler({ db, params }) {
       return await cancelarInventario(db, +params.id);
+    },
+  },
+  {
+    /* §4.4/D2 — conta UMA linha. O corpo traz `contado`, e `contado: 0` é
+       "conferi, não tem nenhuma": um resultado, não a ausência de um. Quem
+       não contou simplesmente não manda nada, e não existe linha. */
+    metodo: 'POST', caminho: '/api/inventarios/:id/itens', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      return await contarItem(db, +params.id, await request.json().catch(() => ({})));
+    },
+  },
+  {
+    /* Volta a linha para "não contado" — que não é zero. Desfazer um engano
+       tem de ter caminho próprio, senão o único jeito de corrigir seria
+       afirmar um zero que ela não conferiu. */
+    metodo: 'DELETE', caminho: '/api/inventarios/:id/itens/:sku', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params, url }) {
+      return await descontarItem(db, +params.id, decodeURIComponent(params.sku),
+        url.searchParams.get('variacao') || '');
+    },
+  },
+  {
+    /* §4.4/D5 — "não sei qual variação é" é resposta válida. Não vira
+       movimento nenhum e bloqueia o código inteiro até alguém resolver. */
+    metodo: 'POST', caminho: '/api/inventarios/:id/nao-identificado', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      return await registrarNaoIdentificado(db, +params.id, await request.json().catch(() => ({})));
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/inventarios/:id/pausar', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params }) {
+      return await pausarInventario(db, +params.id);
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/inventarios/:id/retomar', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params }) {
+      return await retomarInventario(db, +params.id);
+    },
+  },
+  {
+    /* O retrato CONGELADO, por variação. É a mesma fonte que `/aplicar` lê:
+       o número já foi decidido no fechamento e não se recalcula. */
+    metodo: 'GET', caminho: '/api/inventarios/:id/resultado', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params }) {
+      return await resultadoInventario(db, +params.id);
+    },
+  },
+  {
+    /* §19 — junto com `/ajustar`, o único ato do inventário que toca a
+       razão. A quantidade NÃO vem no corpo: vem do retrato congelado. */
+    metodo: 'POST', caminho: '/api/inventarios/:id/aplicar', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      return await aplicarInventario(db, +params.id, await request.json().catch(() => ({})));
     },
   },
   {

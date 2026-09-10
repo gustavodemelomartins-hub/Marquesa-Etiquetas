@@ -8,7 +8,7 @@
   "sem-bearer": "responde antes da porta de checarChave: health, callback OAuth e foto assinada por HMAC",
   "bearer": "exige Authorization: Bearer <API_KEY>"
  },
- "total": 142,
+ "total": 149,
  "contratos": [
   {
    "contrato": "ANY /api/health",
@@ -16,6 +16,10 @@
   },
   {
    "contrato": "DELETE /api/historico/reclassificar/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "DELETE /api/inventarios/:param/itens/:param",
    "auth": "bearer"
   },
   {
@@ -132,6 +136,10 @@
   },
   {
    "contrato": "GET /api/inventarios/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/inventarios/:param/resultado",
    "auth": "bearer"
   },
   {
@@ -363,11 +371,31 @@
    "auth": "bearer"
   },
   {
+   "contrato": "POST /api/inventarios/:param/aplicar",
+   "auth": "bearer"
+  },
+  {
    "contrato": "POST /api/inventarios/:param/cancelar",
    "auth": "bearer"
   },
   {
    "contrato": "POST /api/inventarios/:param/concluir",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/inventarios/:param/itens",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/inventarios/:param/nao-identificado",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/inventarios/:param/pausar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/inventarios/:param/retomar",
    "auth": "bearer"
   },
   {
@@ -578,5 +606,6 @@
    "contrato": "PUT /api/produtos/:param/variacoes",
    "auth": "bearer"
   }
- ]
+ ],
+ "fase44": "Fase 4.4 — sete contratos NOVOS do inventário (contagem por linha, não-identificado, pausa, retomada, retrato congelado e aplicação da diferença). Nenhum contrato anterior foi removido nem mudou de auth; dois mudaram de COMPORTAMENTO e estão declarados em docs/domains/INVENTARIO-4-4.md §9: POST /ajustar passa a recusar item não contado e não comparável, e POST /concluir devolve cinco listas em vez de duas, mantendo `faltando` e `sobrando` no formato antigo."
 }
