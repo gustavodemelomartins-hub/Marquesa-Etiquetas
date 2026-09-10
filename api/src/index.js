@@ -4,13 +4,6 @@ import { rotas } from './http/routes/index.js';
 import { FAIXAS_PADRAO } from './state.js';
 import { calcComissao } from './comissao.js';
 import { movimentar, consignadoDoSku, saldosDoSku, movimentarKit, ehKit } from './estoque.js';
-import {
-  abrirInventario,
-  salvarContagem,
-  concluirInventario,
-  ajustarInventario,
-  cancelarInventario,
-} from './inventario.js';
 import { sincronizar, sincronizarSomenteEstoque, analisarSincronizacao } from './sync.js';
 import {
   analisarEstoqueTotal,
@@ -556,20 +549,6 @@ async function rotear(request, env, contador = null) {
         return await aplicarSessao(db, env, +m[1]);
       }
 
-      // ------------------------------------------------------- inventário
-      if (path === '/api/inventarios' && met === 'POST') return await abrirInventario(db);
-      if ((m = path.match(/^\/api\/inventarios\/(\d+)\/contagem$/)) && met === 'PUT') {
-        return await salvarContagem(db, +m[1], await request.json());
-      }
-      if ((m = path.match(/^\/api\/inventarios\/(\d+)\/concluir$/)) && met === 'POST') {
-        return await concluirInventario(db, +m[1]);
-      }
-      if ((m = path.match(/^\/api\/inventarios\/(\d+)\/ajustar$/)) && met === 'POST') {
-        return await ajustarInventario(db, +m[1], await request.json());
-      }
-      if ((m = path.match(/^\/api\/inventarios\/(\d+)\/cancelar$/)) && met === 'POST') {
-        return await cancelarInventario(db, +m[1]);
-      }
 
       if (path === '/api/vendas' && met === 'POST') return await registrarVenda(db, env, await request.json());
       if (path === '/api/vendas' && met === 'GET') {
