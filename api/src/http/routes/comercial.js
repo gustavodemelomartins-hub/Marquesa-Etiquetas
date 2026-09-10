@@ -15,7 +15,7 @@ import { listarLotes, retratoDoHistorico } from '../../vendas-historico.js';
 import { estadoReconstrucao } from '../../vendas-historicas.js';
 import { contasAReceber } from '../../contas-receber.js';
 import { perfilCliente } from '../../analytics.js';
-import { listarSaidas } from '../../saidas.js';
+import { listarSaidas, registrarSaida, estornarSaida } from '../../saidas.js';
 import { listarGarantias, lerGarantia, garantiasPendentes } from '../../garantias.js';
 import { analisarHistoricoNaoVenda, listarReclassificacoes } from '../../auditoria-historico.js';
 
@@ -137,7 +137,7 @@ export const rotas = [
     },
   },
   {
-    metodo: 'GET', caminho: '/api/garantias/:id', auth: 'bearer', padroes: { id: '\\d+' },
+    metodo: 'GET', caminho: '/api/garantias/:id', auth: 'bearer', padroes: { id: '[0-9]+' },
     async handler({ db, params }) {
       const g = await lerGarantia(db, +params.id);
       return json(g ?? { erro: 'Garantia não encontrada' }, g ? 200 : 404);
@@ -157,6 +157,24 @@ export const rotas = [
     metodo: 'GET', caminho: '/api/historico/reclassificar', auth: 'bearer',
     async handler({ db, url }) {
       return json(await listarReclassificacoes(db, { status: url.searchParams.get('status') }));
+    },
+  },
+  {
+    /* §30 — brinde, uso próprio, perda/diferença de inventário e sorteio.
+       Saem do estoque pela razão e não são venda: nenhuma cria cliente,
+       venda ou faturamento. */
+    metodo: 'POST', caminho: '/api/saidas', auth: 'bearer',
+    async handler({ db, request }) {
+      const r = await registrarSaida(db, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 201 : (r.statusHttp ?? 400));
+    },
+  },
+  {
+    // §28 — estorno lança contrapartida; nada é apagado.
+    metodo: 'POST', caminho: '/api/saidas/:id/estornar', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      const r = await estornarSaida(db, +params.id, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
     },
   },
 ];

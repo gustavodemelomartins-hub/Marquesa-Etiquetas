@@ -43,7 +43,6 @@ import { painel } from './analytics.js';
 /* §30 · §31 · §32 — as três áreas novas de Vendas. Cada uma num arquivo
    próprio porque cada uma tem uma regra própria de o que NÃO fazer, e essa
    regra some quando o código mora dentro do roteador. */
-import { registrarSaida, estornarSaida } from './saidas.js';
 import {
   abrirGarantia,
   mudarStatusGarantia,
@@ -61,7 +60,6 @@ import {
   gravarPersonalizacoes, personalizacoesDeVendas, personalizacaoAtiva,
 } from './personalizacao.js';
 /* §42 — a Central de Pendências e as duas formas de resolver uma variação. */
-import { resolverVariacaoDaVenda, resolverVariacaoDaMaleta } from './pendencias.js';
 /* §34 — medição de leitura do D1. Desligada por padrão; ver d1-metrica.js. */
 import {
   criarContador, medirD1, carimbarMetrica, metricasLigadas,
@@ -250,14 +248,6 @@ async function rotear(request, env, contador = null) {
          não há tabela de pendências, e resolver o caso o faz sumir sozinho.
          Resolver uma variação é dizer QUAL peça saiu: identidade, nunca uma
          segunda baixa de estoque. */
-      if (path === '/api/pendencias/variacao/venda' && met === 'POST') {
-        const r = await resolverVariacaoDaVenda(db, await request.json().catch(() => ({})));
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
-      }
-      if (path === '/api/pendencias/variacao/maleta' && met === 'POST') {
-        const r = await resolverVariacaoDaMaleta(db, await request.json().catch(() => ({})));
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
-      }
 
       /* A confirmação humana que tira um produto de `sem_reparticao`.
          A chave de cada quantidade é o `variant_id`, nunca o nome — ver
@@ -673,17 +663,6 @@ async function rotear(request, env, contador = null) {
         return await decidirVinculoCliente(db, +m[1], b);
       }
 
-      // ───────────────────────────────── §30: saídas sem faturamento
-      // Brinde, uso próprio, perda/diferença de inventário e sorteio. Saem
-      // do estoque e não são venda: nenhuma cria cliente, venda ou faturamento.
-      if (path === '/api/saidas' && met === 'POST') {
-        const r = await registrarSaida(db, await request.json().catch(() => ({})));
-        return json(r, r.ok ? 201 : (r.statusHttp ?? 400));
-      }
-      if ((m = path.match(/^\/api\/saidas\/(\d+)\/estornar$/)) && met === 'POST') {
-        const r = await estornarSaida(db, +m[1], await request.json().catch(() => ({})));
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
-      }
 
       // ──────────────────────────────────────── §31: garantia e reparo
       // Nada aqui altera a venda original, devolve a peça defeituosa ao
