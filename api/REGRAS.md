@@ -1837,7 +1837,7 @@ a causa era uma subconsulta correlacionada sobre `maleta_itens`, que não tem
 índice por `sku`. Corrigido por dois caminhos independentes — a reescrita da
 consulta (vale sem migration) e o índice.
 
-Números, método e o que ficou de fora: [D1_USAGE_AUDIT.md](../D1_USAGE_AUDIT.md).
+Números, método e o que ficou de fora: [docs/operations/D1_USAGE_AUDIT.md](../docs/operations/D1_USAGE_AUDIT.md).
 
 **A regra que governa qualquer otimização futura:** nada troca consistência
 de estoque ou de dinheiro por leitura. A memorização do painel é do CLIENTE,

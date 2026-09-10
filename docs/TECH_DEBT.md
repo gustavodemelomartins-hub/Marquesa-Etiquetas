@@ -39,7 +39,7 @@ câmera, tudo no mesmo arquivo.
 **Custo concreto, não estético:**
 
 - **Contexto.** Abrir o arquivo inteiro num agente consome dezenas de
-  milhares de tokens por tarefa. Ver [CLAUDE_CONTEXT_STRATEGY.md](CLAUDE_CONTEXT_STRATEGY.md).
+  milhares de tokens por tarefa. Ver [CLAUDE_CONTEXT_STRATEGY.md](operations/CLAUDE_CONTEXT_STRATEGY.md).
 - **Estado global.** O objeto de estado é global e mutável; qualquer função
   pode escrever nele, e não há um lugar único onde olhar para saber quem
   mudou o quê.

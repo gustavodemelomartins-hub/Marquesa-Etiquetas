@@ -67,7 +67,7 @@ npx wrangler d1 export DB --remote \
 
 Depois **confira** que o arquivo presta — tamanho, `CREATE TABLE`, `INSERT`,
 e a razão fechando. O procedimento está em
-[docs/BACKUP_RECOVERY.md](../../../docs/BACKUP_RECOVERY.md).
+[docs/operations/BACKUP_RECOVERY.md](../../../docs/operations/BACKUP_RECOVERY.md).
 
 Anote também o bookmark de Time Travel:
 

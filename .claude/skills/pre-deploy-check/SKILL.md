@@ -30,7 +30,7 @@ git log --oneline -10
 > `git push` publica de fato, e o PWA sai do ar se o `dashboard.html` subir
 > quebrado — o GitHub Pages serve a branch direto. Push normal da release é
 > Classe C; force-push é Classe D.
-> Ver [docs/BACKUP_RECOVERY.md](../../../docs/BACKUP_RECOVERY.md).
+> Ver [docs/operations/BACKUP_RECOVERY.md](../../../docs/operations/BACKUP_RECOVERY.md).
 
 ## 2. Testes
 
@@ -109,7 +109,7 @@ forçada. É leitura e roda antes da primeira escrita:
       fechando);
 - [ ] bookmark de Time Travel anotado.
 
-Procedimento: [docs/BACKUP_RECOVERY.md](../../../docs/BACKUP_RECOVERY.md).
+Procedimento: [docs/operations/BACKUP_RECOVERY.md](../../../docs/operations/BACKUP_RECOVERY.md).
 
 ## 8. Diff revisado
 

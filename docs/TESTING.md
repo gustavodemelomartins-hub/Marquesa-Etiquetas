@@ -14,7 +14,7 @@ introduzir um runner.
 2. **banco limpo** — as contagens mudam se sobrar dado de outro teste;
 3. `api/.dev.vars` completo: as variáveis de OAuth **e**
    `ORIGENS_PERMITIDAS=http://localhost:8000`. Ver
-   [DEVELOPMENT.md](DEVELOPMENT.md);
+   [DEVELOPMENT.md](operations/DEVELOPMENT.md);
 4. para os testes de navegador, também: `npm install` dentro de `src/`,
    `npx playwright install chromium`, e o dashboard servido por HTTP em
    `localhost:8000`.
@@ -62,7 +62,7 @@ Termina exigindo console limpo.
 **não é teste: é instrumento de medição**
 
 Semeia um banco local com o tamanho da produção e mede rota a rota, com a
-métrica que o próprio D1 devolve. Ver [../D1_USAGE_AUDIT.md](../D1_USAGE_AUDIT.md).
+métrica que o próprio D1 devolve. Ver [../D1_USAGE_AUDIT.md](operations/D1_USAGE_AUDIT.md).
 
 
 ### `src/sync-test.mjs` — sincronização com a Nuvemshop

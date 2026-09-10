@@ -203,7 +203,7 @@ Vale repetir aqui, porque um motor novo é exatamente onde elas correm risco:
 
 ## O que fazer antes de começar
 
-1. Backup do D1 conferido — [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md).
+1. Backup do D1 conferido — [BACKUP_RECOVERY.md](operations/BACKUP_RECOVERY.md).
    **Feito**: `backups/d1/2026-08-18_06-22/`, reconferido em 2026-08-18
    carregando o dump num banco limpo — 16 tabelas, 782 produtos, razão com
    0 divergências, nenhum `externo_id` repetido. Vale como comprovação de

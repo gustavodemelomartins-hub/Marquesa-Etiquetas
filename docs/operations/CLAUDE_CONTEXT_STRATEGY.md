@@ -48,9 +48,9 @@ Banco              → docs/DATA_MODEL.md
 Nuvemshop          → docs/NUVEMSHOP_INTEGRATION.md
 Sincronização      → docs/SYNC_ENGINE.md
 Segurança          → docs/SECURITY.md
-Backup             → docs/BACKUP_RECOVERY.md
+Backup             → docs/operations/BACKUP_RECOVERY.md
 Testes             → docs/TESTING.md
-Ambiente local     → docs/DEVELOPMENT.md
+Ambiente local     → docs/operations/DEVELOPMENT.md
 ```
 
 Uma tarefa de front não precisa de `DATA_MODEL.md`. Uma tarefa de banco não

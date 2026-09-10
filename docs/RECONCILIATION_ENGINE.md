@@ -509,7 +509,7 @@ tirado na hora.
 em produção: gerar um backup novo, imediatamente antes da operação.** A
 loja escreve o dia inteiro; um backup de horas atrás não cobre o que
 aconteceu depois. Ver
-[BACKUP_RECOVERY.md](BACKUP_RECOVERY.md).
+[BACKUP_RECOVERY.md](operations/BACKUP_RECOVERY.md).
 
 ## Estado real desta fase
 

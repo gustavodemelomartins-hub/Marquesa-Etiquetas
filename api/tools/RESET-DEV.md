@@ -123,7 +123,7 @@ libera escrita**. Os freios e os parâmetros de negócio ficam.
 **`clientes`.** Sem FK para produto, então poderia ficar. Vai junto porque
 em DEV são nomes de teste. Se algum for real, comente a linha.
 
-**Revendedoras com prefixo `DEV-`.** `docs/DEVELOPMENT.md` diz que
+**Revendedoras com prefixo `DEV-`.** `docs/operations/DEVELOPMENT.md` diz que
 `marquesa-db-dev` *"não recebe cópia de dado real — nunca"*, e que a semente
 usa prefixo `DEV-`. Se as revendedoras do DEV forem todas `DEV-…`, preservá-las
 é trivial e não há dado pessoal em jogo. Se **não** tiverem o prefixo, é
@@ -230,7 +230,7 @@ nenhum. É o caminho de restauração preferido.
 
 > ⚠️ O `wrangler d1 export` imprime um **link temporário do R2 (1 hora) que
 > dá acesso ao dump inteiro sem autenticação**. Não cole a saída do comando
-> em lugar nenhum — ver `docs/BACKUP_RECOVERY.md`.
+> em lugar nenhum — ver `docs/operations/BACKUP_RECOVERY.md`.
 
 Nenhum Secret é lido ou gravado. `backups/` já é ignorado pelo Git.
 

@@ -96,7 +96,7 @@ database_name = "marquesa-db-dev"
 database_id = "dcc36f65-daaa-42a4-9fbd-15e6f27e4d4b"
 
 # Fotos do ambiente DEV: bucket próprio, nunca o de produção
-# (marquesa-fotos). Criado à parte — ver docs/DEVELOPMENT.md § Ambiente DEV.
+# (marquesa-fotos). Criado à parte — ver docs/operations/DEVELOPMENT.md § Ambiente DEV.
 [[env.staging.r2_buckets]]
 binding = "FOTOS"
 bucket_name = "marquesa-fotos-dev"
@@ -116,7 +116,7 @@ NUVEMSHOP_WRITES_ENABLED = "false"
 
 # DEV é descartável e é onde o trabalho de Produtos Montáveis continua amanhã
 # — ligado aqui, ao contrário da produção, para o checklist manual
-# (MONTE_SEU_COLAR_CHECKLIST.md) continuar testável sem passo extra.
+# (docs/testing/MONTE_SEU_COLAR_CHECKLIST.md) continuar testável sem passo extra.
 PERSONALIZACAO_ATIVA = "true"
 #
 # Sem cron nenhum no DEV. Uma sincronização automática de madrugada, num

@@ -26,7 +26,7 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ```
 
 Passo a passo completo, incluindo o `.dev.vars`:
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+[docs/operations/DEVELOPMENT.md](docs/operations/DEVELOPMENT.md).
 
 ## Mapa
 
@@ -55,8 +55,8 @@ CLAUDE.md               roteador de contexto para trabalhar com Claude Code
 | Nuvemshop | [docs/NUVEMSHOP_INTEGRATION.md](docs/NUVEMSHOP_INTEGRATION.md) |
 | Sincronização | [docs/SYNC_ENGINE.md](docs/SYNC_ENGINE.md) |
 | Segurança e operações perigosas | [docs/SECURITY.md](docs/SECURITY.md) |
-| Backup e recuperação | [docs/BACKUP_RECOVERY.md](docs/BACKUP_RECOVERY.md) |
-| Ambiente de desenvolvimento | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
+| Backup e recuperação | [docs/operations/BACKUP_RECOVERY.md](docs/operations/BACKUP_RECOVERY.md) |
+| Ambiente de desenvolvimento | [docs/operations/DEVELOPMENT.md](docs/operations/DEVELOPMENT.md) |
 | Testes | [docs/TESTING.md](docs/TESTING.md) · [baseline](docs/BASELINE.md) |
 | Dívida técnica | [docs/TECH_DEBT.md](docs/TECH_DEBT.md) |
 | Próxima fase | [docs/ROADMAP_RECONCILIATION.md](docs/ROADMAP_RECONCILIATION.md) |
@@ -89,4 +89,4 @@ Este sistema controla estoque e vendas reais.
 - Prefira dry-run: `POST /api/sync {"seco": true}` lê tudo e não escreve na
   loja.
 - Backup antes de qualquer mudança de banco:
-  [docs/BACKUP_RECOVERY.md](docs/BACKUP_RECOVERY.md).
+  [docs/operations/BACKUP_RECOVERY.md](docs/operations/BACKUP_RECOVERY.md).

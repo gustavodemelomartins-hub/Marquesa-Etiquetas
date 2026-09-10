@@ -321,4 +321,4 @@ npm test           # vitest
 ```
 
 O painel precisa de um Worker no ar para ter o que mostrar — ver
-[DEVELOPMENT.md](DEVELOPMENT.md).
+[DEVELOPMENT.md](operations/DEVELOPMENT.md).

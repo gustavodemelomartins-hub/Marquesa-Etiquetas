@@ -471,7 +471,7 @@ node node_modules/wrangler/bin/wrangler.js d1 time-travel restore marquesa-db-pr
 ```
 
 Recomendação: além do time travel, gerar o dump antes do go-live conforme
-`docs/BACKUP_RECOVERY.md`, mirando o binding `DB` → `marquesa-db-prod` — **não**
+`docs/operations/BACKUP_RECOVERY.md`, mirando o binding `DB` → `marquesa-db-prod` — **não**
 o nome `marquesa-db`, que é a cópia congelada da produção antiga.
 
 ---
@@ -543,7 +543,7 @@ entre `api/schema.sql` do zero e o caminho das migrations.
 # 1. capturar bookmark NOVO (o desta página estará velho)
 cd api && node node_modules/wrangler/bin/wrangler.js d1 time-travel info marquesa-db-prod
 
-# 2. backup conforme docs/BACKUP_RECOVERY.md, mirando o binding DB
+# 2. backup conforme docs/operations/BACKUP_RECOVERY.md, mirando o binding DB
 
 # 3. as quatro migrations, nesta ordem, uma de cada vez, conferindo entre elas
 #    (comandos exatos ficam para a autorização — nenhum é executado aqui)

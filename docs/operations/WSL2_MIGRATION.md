@@ -43,7 +43,7 @@ incremental, não pré-requisito.
    chromium` mais as dependências de sistema do Chromium.
 
 4. **Recriar `api/.dev.vars`** à mão. Ele não é versionado, de propósito.
-   Os nomes das variáveis estão em `.env.example` e em `docs/DEVELOPMENT.md`.
+   Os nomes das variáveis estão em `.env.example` e em `docs/operations/DEVELOPMENT.md`.
 
 5. **VS Code continua sendo a interface do Gustavo**: extensão *WSL*,
    "Reopen Folder in WSL". Editor igual, terminal e agente do lado Linux.

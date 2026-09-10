@@ -93,7 +93,7 @@ hoje**, nos dois sentidos:
 
 ## 3. Monte seu Colar — checklist de validação manual
 
-**Documento próprio**: [`MONTE_SEU_COLAR_CHECKLIST.md`](../../MONTE_SEU_COLAR_CHECKLIST.md).
+**Documento próprio**: [`docs/testing/MONTE_SEU_COLAR_CHECKLIST.md`](../testing/MONTE_SEU_COLAR_CHECKLIST.md).
 
 Cobre modelo, base, posições, menino/menina, cores, disponibilidade,
 preço, carrinho, venda, histórico, baixa da base, baixa de cada
@@ -120,7 +120,7 @@ nesta rodada — não precisa reconferir manualmente, só validar visualmente.
 
 **PASS, corrigido.**
 
-`D1_USAGE_AUDIT.md` agora deixa explícito, logo na abertura e na seção
+`docs/operations/D1_USAGE_AUDIT.md` agora deixa explícito, logo na abertura e na seção
 "Como isto foi medido": nenhum número veio de ler o D1 de produção
 (`marquesa-db`) — toda medição rodou contra um banco D1 **local**, semeado
 sinteticamente com dimensões equivalentes à produção. A conclusão de que
@@ -252,7 +252,7 @@ decisão de negócio pendente.
 ### Estado do Monte seu Colar
 
 Fluxo automatizado (N/O) 100% coberto e passando. Checklist manual
-entregue (`MONTE_SEU_COLAR_CHECKLIST.md`) com 1 gap sinalizado
+entregue (`docs/testing/MONTE_SEU_COLAR_CHECKLIST.md`) com 1 gap sinalizado
 (cancelamento/estorno de componentes) para validação humana antes de
 confiar cegamente nessa parte em produção.
 

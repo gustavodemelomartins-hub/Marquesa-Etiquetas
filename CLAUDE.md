@@ -64,15 +64,15 @@ Nuvemshop          → docs/NUVEMSHOP_INTEGRATION.md
 Sincronização      → docs/SYNC_ENGINE.md
 Reconciliação      → docs/RECONCILIATION_ENGINE.md   (backend do Apply existe, tela ainda não)
 Segurança          → docs/SECURITY.md
-Backup / restore   → docs/BACKUP_RECOVERY.md
+Backup / restore   → docs/operations/BACKUP_RECOVERY.md
 Testes             → docs/TESTING.md   (baseline em docs/BASELINE.md)
-Ambiente local     → docs/DEVELOPMENT.md
+Ambiente local     → docs/operations/DEVELOPMENT.md
 Dívida técnica     → docs/TECH_DEBT.md
 Próxima fase       → docs/ROADMAP_RECONCILIATION.md
 Publicar a API     → api/DEPLOY.md
 Montar o dashboard → src/README.md
 Camada agentic     → .claude/README.md   (permissões, hooks, modelos)
-WSL2 / sandbox     → docs/WSL2_MIGRATION.md
+WSL2 / sandbox     → docs/operations/WSL2_MIGRATION.md
 ```
 
 ## Regra de contexto
@@ -91,7 +91,7 @@ o resto é token gasto sem retorno.
 - Use o subagente `repo-explorer` para "onde acontece X?" — ele responde em
   contexto próprio e devolve só a conclusão.
 
-Estratégia completa: [docs/CLAUDE_CONTEXT_STRATEGY.md](docs/CLAUDE_CONTEXT_STRATEGY.md)
+Estratégia completa: [docs/operations/CLAUDE_CONTEXT_STRATEGY.md](docs/operations/CLAUDE_CONTEXT_STRATEGY.md)
 
 ## Skills deste projeto
 
@@ -168,7 +168,7 @@ por cima de uma produção mais nova; reconcilie primeiro.
 ```
 
 Comandos, variáveis do `.dev.vars` e as particularidades de Windows estão em
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+[docs/operations/DEVELOPMENT.md](docs/operations/DEVELOPMENT.md).
 
 ## Definição de pronto
 
@@ -195,4 +195,4 @@ diga sempre o que ficou de fora.
 
 Tag local `checkpoint/pre-bootstrap-claude` (commit `f3f08cb`, o último antes
 do bootstrap) + tarball em `../Marquesa-Etiquetas-backups/`. Como voltar:
-[docs/BACKUP_RECOVERY.md](docs/BACKUP_RECOVERY.md).
+[docs/operations/BACKUP_RECOVERY.md](docs/operations/BACKUP_RECOVERY.md).

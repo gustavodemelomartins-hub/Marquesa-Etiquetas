@@ -134,6 +134,6 @@ Uma segunda tabela seria um segundo lugar para a mesma verdade divergir. A
 Central de Pendências é uma **rota de leitura agregada** sobre as fontes que
 já existem.
 
-## 6. Índices que faltam (ver `D1_USAGE_AUDIT.md`)
+## 6. Índices que faltam (ver `docs/operations/D1_USAGE_AUDIT.md`)
 
 Levantados na Fase B e listados lá com a medição.

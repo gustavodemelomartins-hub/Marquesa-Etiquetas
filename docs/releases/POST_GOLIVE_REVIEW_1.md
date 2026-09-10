@@ -28,7 +28,7 @@ existente, e todas podem ser resolvidas depois de a Sthefany usar.
 | **6** Corrigir SKU de venda registrada | Rota + modal, com estoque tratado diferente em venda do sistema e linha de planilha; auditoria em tabela própria | `api/src/venda-correcao.js` |
 | **7** Monte seu Colar | Base + componentes + configuração por venda, no mesmo carrinho; flag de estoque já refletido | `api/src/personalizacao.js` |
 | **8** Central de Pendências / variações | Lista agregada com filtros e ações; resolução pela venda e pela maleta; reconciliação read-only das três fontes | `api/src/pendencias.js`, `api/src/variantes.js` |
-| **9** Auditoria de consumo D1 | Instrumento de medição + achado de 298 mil linhas por clique, corrigido | `api/src/d1-metrica.js`, `D1_USAGE_AUDIT.md` |
+| **9** Auditoria de consumo D1 | Instrumento de medição + achado de 298 mil linhas por clique, corrigido | `api/src/d1-metrica.js`, `docs/operations/D1_USAGE_AUDIT.md` |
 | **10** Auditoria antes de implementar | Mapa do que já existia, feito antes de escrever qualquer linha | `docs/archive/AUDITORIA_POS_GOLIVE_1.md` |
 | **11** Testes | 285 asserções novas em 3 arquivos, cobrindo A–T | `src/pos-golive-1-*.mjs` |
 
@@ -71,7 +71,7 @@ Corrigido usando a mesma regra de faturamento do painel.
 **Gravidade: alta (é a causa provável do estouro de cota).** Subconsulta
 correlacionada sobre `maleta_itens`, que não tem índice por `sku`: a tabela
 inteira era varrida uma vez por produto ativo. Detalhe e medição em
-`D1_USAGE_AUDIT.md` §2.1.
+`docs/operations/D1_USAGE_AUDIT.md` §2.1.
 
 ### B4 — venda de balcão não paga não aparecia em lugar nenhum do Painel
 **Gravidade: média.** "A receber" lia só `historico_operacoes`. A peça saiu,
@@ -105,7 +105,7 @@ enquanto ela ainda devia.
 `src/pacote-vendas-test.mjs` (atualizado — ver §11.1)
 
 **Documentação:** `api/REGRAS.md` (§35 a §43) · `docs/TESTING.md` ·
-`docs/archive/AUDITORIA_POS_GOLIVE_1.md` · `D1_USAGE_AUDIT.md` · este arquivo
+`docs/archive/AUDITORIA_POS_GOLIVE_1.md` · `docs/operations/D1_USAGE_AUDIT.md` · este arquivo
 
 Total: 20 arquivos, +7.625 / −157 linhas (metade é o `dashboard.html` gerado).
 
@@ -243,7 +243,7 @@ variação, venda personalizada, troca de garantia. Fecha em todas.
 
 ## 7. Auditoria D1
 
-Documento completo: **[D1_USAGE_AUDIT.md](../../D1_USAGE_AUDIT.md)**.
+Documento completo: **[docs/operations/D1_USAGE_AUDIT.md](../operations/D1_USAGE_AUDIT.md)**.
 
 O essencial:
 
@@ -394,7 +394,7 @@ custa perder o original.
 
 ### D5 — O indicador "códigos distintos vendidos" vale 20% do custo do Painel
 Uma consulta de 13.752 linhas alimenta esse único número
-(`D1_USAGE_AUDIT.md` §4.1). Tirá-lo do payload padrão economiza isso por
+(`docs/operations/D1_USAGE_AUDIT.md` §4.1). Tirá-lo do payload padrão economiza isso por
 abertura. É um número na tela; a decisão é dela.
 
 ---
@@ -409,7 +409,7 @@ Nada aqui foi executado. É o roteiro para quem for publicar.
 - [ ] `python src/build.py` e `git diff --stat --ignore-cr-at-eol dashboard.html` — o gerado bate com o template
 - [ ] `api/dev-local.sh` + a suíte de §5.2 em banco limpo
 - [ ] `GET /api/estoque/conferir` vazio
-- [ ] **Backup de `marquesa-db-prod` confirmado** — `docs/BACKUP_RECOVERY.md`
+- [ ] **Backup de `marquesa-db-prod` confirmado** — `docs/operations/BACKUP_RECOVERY.md`
 - [ ] Ler §10 (riscos) e §11 (decisões) com a Sthefany, em especial R1 e R2
 
 **DEV primeiro**
@@ -465,7 +465,7 @@ migration acrescenta é ignorado por quem não sabe dele.
 Ou seja: **rollback de código é suficiente**, e não há passo destrutivo de
 banco. Se ainda assim for preciso voltar o banco inteiro,
 `wrangler d1 time-travel restore` — que é operação de autorização humana
-explícita, com o procedimento em `docs/BACKUP_RECOVERY.md`.
+explícita, com o procedimento em `docs/operations/BACKUP_RECOVERY.md`.
 
 **Dado criado depois do deploy que se perderia num restore de banco:**
 resoluções de variação, correções de SKU, prazos definidos, composições

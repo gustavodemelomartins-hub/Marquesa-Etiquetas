@@ -123,7 +123,7 @@ GitHub Actions      │ marquesa-dev.pages.dev  →  marquesa-api-staging  →  
 ```
 
 Fontes: `api/wrangler.toml`, `.github/workflows/deploy-dev.yml`,
-`docs/DEVELOPMENT.md § Ambiente DEV`, `api/tools/RESET-DEV.md`.
+`docs/operations/DEVELOPMENT.md § Ambiente DEV`, `api/tools/RESET-DEV.md`.
 
 Nada foi assumido por nome: cada linha acima está declarada em arquivo
 versionado ou foi confirmada por requisição HTTP pública.
@@ -172,7 +172,7 @@ precisa ser lido em `sync_execucoes` antes de qualquer outra coisa.
 
 ## 4. DEV  🟡 (contém dado real, contra o que a própria documentação previa)
 
-`docs/DEVELOPMENT.md` diz, textualmente: *"`marquesa-db-dev` não recebe cópia
+`docs/operations/DEVELOPMENT.md` diz, textualmente: *"`marquesa-db-dev` não recebe cópia
 de dado real — nunca."* Essa regra **não vale mais desde o teste de importação
 da Sthefany**, e este documento registra a mudança de fato:
 
@@ -243,7 +243,7 @@ lados e comparar por `externo_id`** — está na Fase 1 do plano.
 ## 6. Backup  ⬜ (o plano existe; a execução ainda não)
 
 Procedimento completo, comandos conferidos e critérios de aceitação:
-[BACKUP_RECOVERY.md](../BACKUP_RECOVERY.md).
+[BACKUP_RECOVERY.md](../operations/BACKUP_RECOVERY.md).
 Ferramentas prontas: `api/tools/backup-dev.sh`, `validar-backup.sh`,
 `restaurar-backup.sh`.
 
@@ -358,7 +358,7 @@ Três caminhos foram considerados:
 | B | Apagar as tabelas de `marquesa-db` e recarregar o dump do DEV | **Recusado.** Faz uma escrita destrutiva em produção. Se o dump tiver qualquer problema, a produção fica pela metade e o rollback depende de arquivo. |
 | C | **Criar um D1 novo, carregar o dump do DEV nele, validar, e só então apontar `marquesa-api` para ele** | **Recomendado.** Nenhuma escrita destrutiva. O `marquesa-db` atual continua existindo, intocado, como rollback de um comando. |
 
-O caminho C é também o que o próprio [BACKUP_RECOVERY.md](../BACKUP_RECOVERY.md)
+O caminho C é também o que o próprio [BACKUP_RECOVERY.md](../operations/BACKUP_RECOVERY.md)
 recomenda para restauração em produção: *"carregar o arquivo num banco D1
 **novo** e validar lá (…) só então decidir entre apontar o binding para o
 banco novo ou reverter o antigo"*.
@@ -1319,7 +1319,7 @@ Argola 122 · Berloque 57 · Conjunto 43 · Pingente 36 · Outros 9.
 ### 21.6 O que falta  🟡
 
 `wrangler deploy --env staging` — Classe C, comando humano. O Pages sobe
-sozinho com o push em `develop`. Ver [RUNBOOK-DEV-API.md](../RUNBOOK-DEV-API.md).
+sozinho com o push em `develop`. Ver [RUNBOOK-DEV-API.md](../operations/RUNBOOK-DEV-API.md).
 
 ---
 

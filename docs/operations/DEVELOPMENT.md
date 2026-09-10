@@ -23,7 +23,7 @@ cd ../frontend && npm install   # React, TypeScript, Vite, vitest
 
 > **Windows:** o comando é `python`, não `python3`. O script
 > `npm run build` do `src/package.json` chama `python3` e falha aqui —
-> rode `python src/build.py` direto. Ver [TECH_DEBT.md](TECH_DEBT.md).
+> rode `python src/build.py` direto. Ver [TECH_DEBT.md](../TECH_DEBT.md).
 
 ## Gerar o dashboard
 
@@ -110,7 +110,7 @@ servido de qualquer subdiretório — inclusive por baixo do
 `http://localhost:8000/frontend/dist/index.html`.
 
 Arquitetura, tipos e decisões em
-[FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md).
+[FRONTEND_ARCHITECTURE.md](../FRONTEND_ARCHITECTURE.md).
 
 ## Servir o dashboard
 
@@ -127,7 +127,7 @@ Na tela de conexão: endereço `http://localhost:8787` e a chave do
 
 ## Trabalhar com a loja falsa
 
-[src/loja-falsa.mjs](../src/loja-falsa.mjs) sobe uma Nuvemshop de mentira em
+[src/loja-falsa.mjs](../../src/loja-falsa.mjs) sobe uma Nuvemshop de mentira em
 `localhost:8799`. Nenhuma chamada sai para a loja de verdade e nenhum token
 real é preciso.
 
@@ -143,7 +143,7 @@ preciso iniciá-la à mão.
 
 ## Rodar os testes
 
-Ver [TESTING.md](TESTING.md) — inclui o que roda em cada sistema
+Ver [TESTING.md](../TESTING.md) — inclui o que roda em cada sistema
 operacional e o baseline atual.
 
 Resumo:
@@ -185,7 +185,7 @@ develop  →  frontend DEV (Cloudflare Pages)  →  API DEV (Worker)  →  D1 DE
 ambiente, se `POST`/`PUT`/`PATCH`/`DELETE` para a Nuvemshop saem do Worker.
 Fail-closed: ausente ou `"false"` bloqueia; só `"true"` libera. A trava é
 estrutural, dentro do cliente (`api/src/nuvemshop.js › Nuvemshop.chamar`,
-ver [SECURITY.md](SECURITY.md)) — vale para qualquer rota, não só para a
+ver [SECURITY.md](../SECURITY.md)) — vale para qualquer rota, não só para a
 tela de sync.
 
 - `marquesa-api-staging` vem com `NUVEMSHOP_WRITES_ENABLED = "false"`. Ligar
@@ -344,19 +344,19 @@ Use a skill `pre-deploy-check`. O essencial:
 - [ ] backup do D1 feito se houver migration ou escrita em massa
 - [ ] rollback definido antes de subir
 
-**Deploy é Classe C autônoma** ([SECURITY.md](SECURITY.md)): o agente executa
+**Deploy é Classe C autônoma** ([SECURITY.md](../SECURITY.md)): o agente executa
 depois do preflight e encerra somente após a validação pós-deploy.
 
 ## Onde as coisas ficam
 
 | Preciso de… | Vá para |
 |---|---|
-| Regras de negócio e o porquê | [api/REGRAS.md](../api/REGRAS.md) |
-| Visão geral do sistema | [ARCHITECTURE.md](ARCHITECTURE.md) |
-| Tabelas e invariantes | [DATA_MODEL.md](DATA_MODEL.md) |
-| API da loja, matching, limites | [NUVEMSHOP_INTEGRATION.md](NUVEMSHOP_INTEGRATION.md) |
-| Fluxo da sincronização | [SYNC_ENGINE.md](SYNC_ENGINE.md) |
-| Publicar a API pela primeira vez | [api/DEPLOY.md](../api/DEPLOY.md) |
+| Regras de negócio e o porquê | [api/REGRAS.md](../../api/REGRAS.md) |
+| Visão geral do sistema | [ARCHITECTURE.md](../ARCHITECTURE.md) |
+| Tabelas e invariantes | [DATA_MODEL.md](../DATA_MODEL.md) |
+| API da loja, matching, limites | [NUVEMSHOP_INTEGRATION.md](../NUVEMSHOP_INTEGRATION.md) |
+| Fluxo da sincronização | [SYNC_ENGINE.md](../SYNC_ENGINE.md) |
+| Publicar a API pela primeira vez | [api/DEPLOY.md](../../api/DEPLOY.md) |
 | Backup e restore | [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md) |
-| Como montar o dashboard | [src/README.md](../src/README.md) |
-| Frontend React/TS/Vite | [FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md) |
+| Como montar o dashboard | [src/README.md](../../src/README.md) |
+| Frontend React/TS/Vite | [FRONTEND_ARCHITECTURE.md](../FRONTEND_ARCHITECTURE.md) |
