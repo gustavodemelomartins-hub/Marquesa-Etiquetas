@@ -1,6 +1,7 @@
 import { checarChave, respostaNaoAutorizada, json, comCors } from './auth.js';
 import { criarRoteador } from './http/router.js';
 import { respostaDeErro } from './http/erros.js';
+import { lerConfig, registrarBloqueios } from './plataforma/config.js';
 import { rotas } from './http/routes/index.js';
 import { sincronizar } from './sync.js';
 /* §34 — medição de leitura do D1. Desligada por padrão; ver d1-metrica.js. */
@@ -20,6 +21,11 @@ export default {
   /** O CORS é aplicado uma única vez, na saída — assim nenhuma rota nova
    *  pode esquecer de devolvê-lo. */
   async fetch(request, env) {
+    /* Uma vez por isolate, no primeiro pedido. Um segredo ausente é
+       invisível: o Worker sobe, responde, e recusa tudo com 401. Sem esta
+       linha, o `wrangler tail` mostra uma API saudável e ninguém descobre
+       que falta a chave. Não altera resposta nenhuma. */
+    conferirConfig(env);
     if (request.method === 'OPTIONS') return comCors(new Response(null, { status: 204 }), request, env);
     /* §34 — medir antes de otimizar. Desligado, `contador` é null e o
        binding do D1 segue direto, sem envelope nenhum: a medição não pode
@@ -42,6 +48,14 @@ export default {
     }));
   },
 };
+
+/** Diagnóstico de configuração, uma vez por isolate. */
+let configConferida = false;
+function conferirConfig(env) {
+  if (configConferida) return;
+  configConferida = true;
+  registrarBloqueios(lerConfig(env));
+}
 
 async function rotear(request, env, contador = null) {
   const url = new URL(request.url);
