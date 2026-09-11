@@ -38,6 +38,8 @@
  *  quem chama pedir explicitamente, e a mudança fica registrada ao lado.
  */
 import { movimentar, saldosDoSku } from './estoque.js';
+import { consultarEmLotes } from './plataforma/d1.js';
+import { normSku } from './sku.js';
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const dinheiro = (v) => Math.round(Number(v) * 100) / 100;
@@ -58,7 +60,7 @@ export async function corrigirItemDeVenda(db, corpo = {}) {
   if (fonte !== 'operacional' && fonte !== 'historico') {
     return ERRO(400, 'Diga se a venda é do sistema (operacional) ou da planilha (historico).');
   }
-  const skuNovo = String(corpo.skuNovo ?? '').trim().toUpperCase();
+  const skuNovo = normSku(corpo.skuNovo);
   if (!skuNovo) return ERRO(400, 'Escolha o código correto.');
 
   const motivo = String(corpo.motivo ?? '').trim() || null;
@@ -78,7 +80,7 @@ export async function corrigirItemDeVenda(db, corpo = {}) {
 
 async function corrigirOperacional(db, corpo, skuNovo, novo, motivo) {
   const vendaId = Number(corpo.vendaId);
-  const skuAntes = String(corpo.sku ?? '').trim().toUpperCase();
+  const skuAntes = normSku(corpo.sku);
   if (!Number.isFinite(vendaId) || !skuAntes) {
     return ERRO(400, 'Informe a venda e o código que está errado.');
   }
@@ -341,11 +343,15 @@ export async function correcoesDeVenda(db, { vendaId = null, historicoItemIds = 
   }
   const ids = (historicoItemIds ?? []).filter((x) => x != null);
   if (ids.length) {
-    const qs = ids.map(() => '?').join(',');
-    const { results } = await db.prepare(
-      `SELECT * FROM venda_item_correcoes WHERE historico_item_id IN (${qs}) ORDER BY id`,
-    ).bind(...ids).all();
-    partes.push(...(results ?? []));
+    /* Em lotes porque o D1 limita quantos parâmetros uma consulta aceita, e
+       uma planilha de histórico tem mais de cem linhas. Sem a quebra, a
+       consulta falhava inteira e a tela do histórico vinha com erro. */
+    const corrigidas = await consultarEmLotes(db, ids, (qs) =>
+      `SELECT * FROM venda_item_correcoes WHERE historico_item_id IN (${qs}) ORDER BY id`);
+    /* O `ORDER BY` vale dentro do lote. A ordem global por `id` é restaurada
+       aqui para esta lista sair exatamente como a da consulta única. */
+    corrigidas.sort((a, b) => Number(a.id) - Number(b.id));
+    partes.push(...corrigidas);
   }
   return partes.map(publica);
 }

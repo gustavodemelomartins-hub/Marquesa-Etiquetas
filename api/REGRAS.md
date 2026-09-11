@@ -7,6 +7,13 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | Documento | Regra | Onde está |
 |---|---|---|
 | §4 | Categorias configuráveis | tabela `categorias`, `GET/POST /api/categorias` |
+| §4 | A categoria sobrevive ao próprio nome | `categorias.id`; `PATCH /api/categorias/:id` |
+| §4 | "Sem categoria" não é "Outros" | `categorias.sentinela = 1` |
+| §24 | Preço zero não é publicável | `catalogo/completude.js › temPreco` |
+| §24 | "Peça completa" tem um dono só | `catalogo/completude.js › faltasDaPeca` |
+| §22 | Foto nunca é atribuída por palpite | `catalogo/nome-de-arquivo.js`; ambíguo para |
+| §28 | O original da foto nunca é sobrescrito | `produto_fotos.original_key` por foto |
+| CAT-06 | Nada publica sem aprovação humana | `publicador.js`; três travas fail-closed |
 | §5.2 | Três saldos: total, consignado, disponível | `estoque.js › saldosDoSku` |
 | §5.3 | Consignação **não** é venda | movimento `consignacao` tem efeito 0 no total |
 | §6.1 | Maleta congela o preço do envio | `maleta_itens.preco_envio` |
@@ -25,9 +32,11 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §24 | Produto sem preço não vira R$ 0 | `produtos.preco` é `NULL`; venda é bloqueada |
 | §28 | Não apagar histórico | revendedora arquiva, maleta cancela, venda estorna |
 | §29 | Receber uma dívida não movimenta estoque | `historico_operacoes.cobranca_status` |
-| §19 | Inventário não corrige em silêncio | `concluir` só compara; `ajustar` exige confirmação por código |
+| §19 | Inventário não corrige em silêncio | `concluir` só compara; aplicar a diferença é ato separado, item a item |
+| §19 | Não contado nunca é zero | ausência de linha em `inventario_contagem`; zero exige gesto explícito |
+| §2 | Contagem de SKU com variação exige identidade | `contarItem` recusa contagem agregada e devolve a régua |
 | §5.2 | Inventário cobra só o que está em casa | `inventario.js › SQL_ESPERADO` desconta o consignado |
-| §6.1 | Esperado congelado no fechamento | `inventario_itens.esperado` |
+| §6.1 | Esperado congelado no fechamento | `inventario_resultado`, por variação |
 | §22 | Código bipado fora do catálogo é anunciado | `inventarios.desconhecidos_json` |
 | §8 §9 | Venda de balcão, acerto e site na mesma tabela | `vendas.origem = 'balcao' \| 'acerto' \| 'site'` |
 | §5.1 | Puxar pedidos antes de empurrar estoque | `sync.js › sincronizar` |
@@ -101,14 +110,58 @@ mesmo estando "certo": o número passaria a valer por autoridade, não por
 uma razão registrada.
 
 Por isso a contagem e a correção são dois atos separados. `concluir` só
-compara e devolve a diferença; `ajustar` grava um movimento `ajuste` com
-origem `inventario` e a frase do motivo ("contado 7, sistema dizia 9"),
-um código por vez, e recusa ajustar duas vezes o mesmo código.
+compara e CONGELA o resultado; aplicar a diferença é um segundo ato,
+explícito, item a item, e nunca "todos".
 
 A razão prática é mais forte que a formal: peça faltando quase nunca sumiu.
 Está na bolsa, foi para a maleta sem lançar, ou a etiqueta não leu. Se o
 sistema corrigisse sozinho, o erro de contagem viraria a nova verdade sem
 deixar rastro.
+
+**Decisão humana de 10/09/2026** — o que a contagem passou a saber.
+Desenho completo em `docs/domains/INVENTARIO-4-4.md`.
+
+*A contagem é pausável.* Ela pode durar dias. Cada bipe é gravado na hora,
+em `inventario_contagem`, e retomar preserva tudo. Pausar não trava venda
+nem maleta: é isso que cria a deriva tratada mais abaixo.
+
+*Não contado nunca é zero.* Existe linha = foi contado. Não existe linha =
+não foi contado. Zero é um resultado — "conferi, não tem nenhuma" — e exige
+um gesto próprio. Item não conferido **não** entra em correção em lote e
+**não** aparece como faltante: sem essa trava, um inventário interrompido
+zeraria meio catálogo por movimentação registrada.
+
+*Código com variação cadastrada exige a variação.* A API recusa contagem
+agregada e devolve a lista cadastrada dentro do erro. Sem identidade não há
+movimento: era exatamente por aqui que o inventário fabricava movimento
+incompleto novo (§2 — não se chuta a distribuição de uma variante).
+**"Não sei" é resposta válida**: fica registrada, bloqueia a correção
+daquele código inteiro e não vira nada.
+
+*A comparação é retroagida.* Contar na segunda, vender duas na quarta e
+fechar na sexta não é divergência: o esperado comparável desconta os
+movimentos posteriores à contagem, que estão registrados com `criado_em`.
+Ler o que está registrado não é adivinhar. Quando o movimento do intervalo
+não tem identidade suficiente para provar de qual variação saiu, a linha vai
+para `nao_comparavel` com o motivo por extenso — e não vira nada.
+
+*A diferença é uma saída sem faturamento (§30).* Negativa vira
+`tipo='perda'`, `sentido='saida'`; positiva vira o **mesmo** mecanismo com
+`sentido='entrada'`. As duas ficam presas ao `inventario_id`, com observação
+opcional, movimento correspondente e estorno possível. A **origem** do
+movimento é `inventario`: o motivo diz que é diferença, a origem diz que o
+fato nasceu de uma contagem física. Corrigir um engano é **estornar**, nunca
+lançar um ajuste compensatório solto.
+
+*Aplicar duas vezes é recusado pelo banco.* `idx_saida_inventario_unica`
+vale sob crash-e-retry e sob duas abas abertas — o que um flag lido e
+escrito no mesmo batch não garantia. Depois do estorno, o relançamento volta
+a ser permitido, com o valor certo. E a quantidade aplicada vem sempre do
+retrato congelado: número enviado pelo cliente é ignorado, porque já foi
+decidido no fechamento.
+
+Provado em `src/inventario-4-4-test.mjs` (contra o schema real) e
+`scripts/inventario-tri-estado.test.mjs` (as travas no código).
 
 ### 5. Kit não tem saldo próprio — o disponível vem sempre dos componentes
 
@@ -616,7 +669,7 @@ Regra irmã, objetivo oposto: `origem = 'planilha_produtos_novos'` só cria
 SKU que ainda não existe — SKU já cadastrado é ignorado por completo,
 estruturalmente, mesmo que quantidade/descrição/preço da planilha
 divirjam do catálogo. Detalhe completo em
-[docs/RECONCILIATION_ENGINE.md](../docs/RECONCILIATION_ENGINE.md).
+[docs/domains/RECONCILIATION_ENGINE.md](../docs/domains/RECONCILIATION_ENGINE.md).
 
 Esta prioridade da planilha sobre o sistema é **temporária por
 definição**: quando o inventário interno passar a ser controlado com
@@ -881,7 +934,7 @@ com 0 — a tela avisa que a peça vai sair de um saldo que ainda não existe,
 e oferece cancelar.
 
 **Exportar o Anexo I em arquivo está BLOQUEADO** enquanto o modelo
-operacional original não estiver no repositório. Ver `docs/TECH_DEBT.md`
+operacional original não estiver no repositório. Ver `docs/architecture/TECH_DEBT.md`
 item 15. `printAnexo()` (impressão) continua como estava.
 
 ### 21. A venda histórica é reconstruída, e a regra vem escrita junto — §22
@@ -1214,7 +1267,7 @@ Provado em `src/pacote-vendas-test.mjs`, cenários A e B.
 
 ### 31. Peça que sai do estoque nem sempre é venda
 
-Quatro saídas, e só a primeira é venda:
+Cinco saídas, e só a primeira é venda:
 
 | Saída | Estoque | Venda | Cliente | Faturamento |
 |---|---|---|---|---|
@@ -1222,8 +1275,9 @@ Quatro saídas, e só a primeira é venda:
 | Brinde | baixa | **não** | **não** | **não** |
 | Uso próprio | baixa | **não** | **não** | **não** |
 | Diferença de inventário / perda | ajusta | **não** | **não** | **não** |
+| Sorteio | baixa | **não** | **não** | **não** |
 
-Brinde, uso próprio e diferença de inventário moram em
+Brinde, uso próprio, diferença de inventário/perda e sorteio moram em
 `saidas_sem_faturamento`, **não** em `vendas`. Não é preferência de
 organização: a linha que não está em `vendas` é invisível por construção
 para toda soma de venda. Pendurá-las numa venda obrigaria cada consulta de
@@ -1236,7 +1290,7 @@ movimentar` como qualquer outro movimento, e `movimento_id` amarra a linha
 ao movimento que a explica.
 
 Só a diferença de inventário pode **somar** peça (`sentido='entrada'`):
-brinde e uso próprio sempre saem. Saída sem motivo nem observação é recusada
+brinde, uso próprio e sorteio sempre saem. Saída sem motivo nem observação é recusada
 — saída sem explicação não se audita seis meses depois, a mesma regra do
 desconto em §27.
 
@@ -1244,7 +1298,7 @@ desconto em §27.
 que devolve a peça e mantém a linha no histórico, com data e motivo.
 Estornar duas vezes é recusado.
 
-Provado em `src/pacote-vendas-test.mjs`, cenários D, E, F e K.
+Provado em `src/pacote-vendas-test.mjs`, cenários D, E, E.2, F e K.
 
 ### 32. Garantia é do ITEM da compra — e troca não é venda nova
 
@@ -1365,9 +1419,19 @@ o motivo por extenso — "porque o nome começa com Brinde" é auditável, um
 número de confiança não é.
 
 Só `confianca: 'alta'` é aplicável sozinho, e mesmo ela precisa de uma
-decisão que nomeie a linha: não existe "aplicar todas" no servidor. "ACHO QUE
-FOI VENDIDO" é o caso que prova a regra — a própria planilha está em dúvida,
-e um classificador que escolhesse estaria inventando a resposta.
+decisão que nomeie a linha: não existe "aplicar todas" no servidor. A frase
+"ACHO QUE FOI VENDIDO", isoladamente, continua sendo evidência de dúvida e
+não autoriza classificação automática.
+
+**Decisão humana de 09/09/2026.** Quando uma diferença negativa encontrada
+durante Inventário for confirmada como perda ou peça ausente, o fato é uma
+saída sem faturamento de tipo `perda`, relacionada ao inventário. "ACHO QUE
+FOI VENDIDO" não é tipo nem motivo estrutural: permanece como observação do
+registro. A confirmação humana resolve o caso; o texto sozinho não resolve.
+
+“Sorteio” é diferente: quando o texto afirma que a peça foi destinada a
+sorteio, a classe é `sorteio`. Isso não muda a regra de “ACHO...”, que continua
+uma observação de dúvida e nunca uma categoria.
 
 Uso próprio depende de um NOME de pessoa, e nome não é identidade (§2): a
 lista de nomes vem na chamada. Vazia, nenhuma linha é proposta como uso
@@ -1377,6 +1441,12 @@ Aplicar **não apaga** a linha da planilha (§7) e **não mexe em estoque** — 
 linha histórica não movimentou peça, e criar um movimento agora seria uma
 segunda baixa. Aplicar apenas marca a linha como não-venda, e as somas
 comerciais passam a ignorá-la. `DELETE` desfaz.
+
+O valor de custo de uma saída histórica pode precisar de correção posterior.
+Essa correção deve preservar valor anterior, valor novo, motivo, autor e data;
+`preco_unit` e `valor_total` da planilha são valores comerciais e não podem ser
+reutilizados silenciosamente como custo. O modelo para essa correção ainda
+não existe e não é inferido nesta regra.
 
 Provado em `src/pacote-vendas-test.mjs`, cenário L.
 
@@ -1760,54 +1830,109 @@ autorização.
 Provado em `src/pos-golive-1-test.mjs` (P–S) e
 `src/pos-golive-1-variacoes-test.mjs` (T).
 
-### 42. Monte seu Colar: base + componentes + configuração da venda
+### 42. Monte seu Colar: configuração comercial, componentes físicos, composição
 
 **O problema.** Uma variante permanente por combinação explode o cadastro e
-faz o saldo comercial divergir das peças que realmente saíram. A identidade
-canônica desta família é fechada por dado:
+faz o saldo comercial divergir das peças que realmente saíram.
 
-- **BASE FÍSICA FIXA** — Colar Veneziana, SKU `444032`, uma unidade por colar;
-- **COMPONENTES FÍSICOS** — `263236` (menina rosa), `273470` (menina
-  incolor), `251551` (menino azul), `251552` (menino incolor) e `329494`
-  (menino verde);
-- **MODELOS COMERCIAIS** — `326660` (casal, R$ 129), `364945` (duas meninas,
-  R$ 129), `311066` (dois meninos, R$ 129), `314161` (dois meninos e uma
-  menina, R$ 159) e `399872` (duas meninas e um menino, R$ 159);
-- **COMPOSIÇÃO LIVRE** — linha interna `MONTE-COLAR`, sem saldo e sem preço de
-  catálogo; o valor é informado na venda.
+**As duas identidades**, que são a regra inteira:
 
-O SKU comercial aparece uma vez em `venda_itens`; a base e os componentes
-são as peças físicas movimentadas. A configuração escolhida mora em
-`venda_personalizacoes` + `venda_personalizacao_itens` e fica congelada junto
-da venda.
+```
+SKU comercial      = o que foi vendido       (Colar Casal, 326660)
+componente físico  = o que existe na gaveta  (Veneziana 444032, os pingentes)
+composição         = a regra que liga os dois
 
-**A baixa é onde mora o risco:** a composição consome a base e cada
-componente **exatamente uma vez**. Nem a base duas vezes (ela é o item do
-recibo e uma peça física), nem o componente pelo caminho do kit e de novo
-pelo da personalização.
+ESTOQUE FINANCEIRO = somente aquilo que fisicamente existe
+```
 
-`venda_personalizacoes.estoque_ja_refletido` registra a venda personalizada
-que **já aconteceu**: entra como histórico comercial, não movimenta nada, e a
-flag fica gravada e auditável — é ela que separa "registrei o passado" de
-"vendi agora" e que impede a baixa dupla. Misturar peça avulsa com essa flag
-é recusado: metade do estoque refletido e metade não seria impossível de
-auditar depois.
+Uma **configuração** tem SKU, nome, preço, foto e linha de venda. Ela **não
+tem saldo físico próprio** e **não soma patrimônio**: contá-la ao lado das
+peças que consome contaria as mesmas peças duas vezes. `produtos.qtd` dela é
+ignorado de propósito — em produção ele nem sempre é zero, e ler esse número
+venderia um colar que só existe como nome.
 
-O preço é da **composição**, não a soma das peças. Nos cinco modelos ele é
-fixo e automático; somente a composição livre aceita valor manual. O recibo
-mostra uma linha; a ficha da cliente guarda a configuração para sempre, com
-o nome e a variante de cada peça congelados no momento da venda.
+**A composição é por SLOT TIPADO**, não por SKU fixo. A configuração fixa uma
+base e declara quantas peças de cada grupo ela leva; a cor de cada uma é
+escolhida na venda, entre as do cardápio daquele grupo:
 
-Cancelar faz o inverso completo: devolve uma base e todos os componentes de
-cada composição, preservando a variante. Venda histórica marcada com
-`estoque_ja_refletido=1` continua sem baixa e sem devolução.
+```
+326660  Colar Casal    fixo: 1 × Veneziana 444032
+                       slots: 1 Menino · 1 Menina
+314161  2M + 1F        fixo: 1 × Veneziana 444032
+                       slots: 2 Menino · 1 Menina
+```
+
+Por isso **não é um kit**: `kit_componentes` nomeia um SKU por linha, e não
+tem como dizer "uma peça do grupo Menino". Reaproveitá-la faria a venda passar
+por `movimentarKit`, que baixaria só a Veneziana.
+
+**Repetir a mesma cor dentro de um grupo é permitido** (decisão de
+10/09/2026): "Dois Meninos" aceita Azul + Azul. O que a configuração fixa é
+quantas peças de cada grupo, não quais.
+
+**A base não é escolha.** A Veneziana sai automaticamente em toda montagem, e
+um pedido que mande outra base é recusado. A decisão de 06/09/2026, que previa
+troca de base, está revogada.
+
+**Composição livre não existe.** A pessoa escolhe primeiro uma configuração
+cadastrada, e ela determina quantos e quais slots. Uma combinação nova exige
+**cadastrar** uma configuração — produto com SKU próprio mais a composição —,
+o que é dado e não deploy: `POST /api/personalizacao/modelos`. O SKU
+`MONTE-COLAR` continua no catálogo, inativo, como registro do modelo antigo.
+
+**A disponibilidade é derivada**, nunca guardada:
+
+```
+disponível(configuração) = min(
+    disponível(base),
+    para cada grupo G com k slots:  floor( Σ disponível(G) / k )
+)
+```
+
+A soma dentro do grupo, e não o mínimo, porque repetir a cor vale. Duas
+configurações que compartilham um pingente caem juntas sozinhas.
+
+**A venda separa as duas coisas:**
+
+```
+venda_itens                 UMA linha, o SKU comercial, o preço da configuração
+venda_personalizacoes       qual configuração foi vendida, e a base
+venda_personalizacao_itens  o que fisicamente saiu, com variação e movimento_id
+movimentos                  -1 base  ·  -1 de cada peça escolhida  ·  NADA no comercial
+```
+
+O preço é da **configuração**, não a soma das peças: R$ 119 e R$ 74 são preços
+dos produtos físicos nos contextos deles, e R$ 129 é decisão comercial.
+Vender a configuração como linha avulsa é recusado.
+
+**A baixa é onde mora o risco:** a composição consome a base e cada componente
+**exatamente uma vez**. Nem a base duas vezes, nem o componente pelo caminho do
+kit e de novo pelo da configuração.
+
+`venda_personalizacoes.estoque_ja_refletido` registra a venda que **já
+aconteceu**: entra como histórico comercial, não movimenta nada, e a flag fica
+gravada e auditável — é ela que separa "registrei o passado" de "vendi agora" e
+que impede a baixa dupla.
+
+**Cancelar faz o inverso exato:** devolve a base e cada componente pelo SKU
+gravado, preservando variação e variante dos dois — devolver "um menino
+qualquer" fecha o total e faz a razão por variação mentir. Repetir o
+cancelamento não devolve duas vezes. Venda com `estoque_ja_refletido = 1`
+continua sem baixa e sem devolução.
+
+**Configuração fica fora do inventário e da maleta**, como o kit: contá-la
+somaria peças já contadas, e consigná-la reservaria peças que continuariam
+disponíveis.
 
 Modelo e opções são **dado, não interface**: uma página de produto da
 Nuvemshop lê `GET /api/personalizacao/modelos` e posta a composição em
 `POST /api/vendas` sem que nada mude aqui.
 
-Provado em `src/pos-golive-1-test.mjs`, cenários N e O, e em
-`src/pacote2-test.mjs` para os modelos canônicos e o estorno integral.
+Provado em `src/montagem-saldo-test.mjs` (saldo derivado, sem dupla contagem),
+`src/montagem-venda-test.mjs` (slots exatos, base fixa, cardápio, preço),
+`src/montagem-estorno-test.mjs` (estorno exato com variação) e no gate
+`scripts/montagem-dupla-contagem.test.mjs`. O desenho e as decisões estão em
+`docs/domains/MONTAGEM-MONTE-SEU-COLAR.md`.
 
 ### 43. Medir antes de otimizar (leitura do D1)
 
@@ -1820,8 +1945,99 @@ a causa era uma subconsulta correlacionada sobre `maleta_itens`, que não tem
 índice por `sku`. Corrigido por dois caminhos independentes — a reescrita da
 consulta (vale sem migration) e o índice.
 
-Números, método e o que ficou de fora: [D1_USAGE_AUDIT.md](../D1_USAGE_AUDIT.md).
+Números, método e o que ficou de fora: [docs/operations/D1_USAGE_AUDIT.md](../docs/operations/D1_USAGE_AUDIT.md).
 
 **A regra que governa qualquer otimização futura:** nada troca consistência
 de estoque ou de dinheiro por leitura. A memorização do painel é do CLIENTE,
 some a qualquer escrita, e nunca cobre `/api/state` nem rota de escrita.
+
+### 44. O produto nasce aqui — e a loja é canal, não fonte
+
+Decisão de Gustavo, **10/09/2026**. Muda a direção de autoridade do catálogo:
+o cadastro comercial nasce no Sistema Marquesa e a Nuvemshop passa a ser um
+canal externo de publicação e venda. Isso não remove importação nem
+reconciliação; remove a ambiguidade sobre quem manda.
+
+O desenho, as medições de produção e as decisões que ficaram pendentes estão
+em [docs/domains/CATALOGO-MIDIA-PUBLICACAO-4-5.md](../docs/domains/CATALOGO-MIDIA-PUBLICACAO-4-5.md).
+O que vale como regra:
+
+**Origem ≠ autoridade.** `produtos.origem_cadastro` é fato histórico e não se
+reescreve; `produtos.autoridade` é decisão e pode migrar. Sem a separação,
+"veio da loja" acabava sendo lido como "a loja manda nele". As 790 peças que
+já existiam ficam com `NULL` nos dois, que é o valor honesto para "não
+sabemos" — inventar procedência seria pior que não ter.
+
+**"Peça completa" tem um dono só.** `api/src/catalogo/completude.js`. Existiam
+quatro definições que discordavam, e a mesma peça aparecia pronta numa tela e
+incompleta na outra. A regra, agora única: falta `nome` quando `desc` repete
+o código; falta `categoria` quando ela é a sentinela; falta `preco` quando é
+`NULL` **ou `<= 0`**; falta `quantidade` quando `casa <= 0`; falta `foto`
+quando não há imagem em lugar nenhum.
+
+**Preço zero existe e não é publicável.** A peça pode ser cadastrada com
+preço 0 — rascunho, peça incompleta — e nunca é considerada pronta para
+venda ou publicação. Antes, três das quatro cópias liam só `preco == null` e
+uma peça de R$ 0 passava.
+
+**`'Outros'` é categoria de verdade.** Ela era, ao mesmo tempo, categoria
+semeada e código para "sem categoria" em três lugares — e uma peça
+legitimamente "Outros" ficava marcada como incompleta para sempre. A ausência
+passa a ter nome próprio: a linha sentinela `Sem categoria`
+(`categorias.sentinela = 1`), que existe porque `produtos.cat` é `NOT NULL`.
+
+**A categoria sobrevive ao próprio nome.** `categorias.id` é a identidade
+estável; o nome é atributo. Renomear é um ato atômico de quatro passos dentro
+de um `db.batch` — arquiva a antiga, insere a nova com o mesmo id, move os
+produtos, apaga a antiga. `nome_norm` com índice único parcial impede que
+`"Colar "`, `"colar"` e `"Colar"` virem três categorias. Plural **não** é
+normalizado: `"Colares"` continua sendo outra coisa.
+
+**A galeria é nossa, e o original não se perde.** A foto deixa de ser coluna
+de `produtos` e vira linha em `produto_fotos`. A chave do R2 inclui o id da
+foto, então trocar a imagem cria outra linha em vez de sobrescrever o objeto.
+Uma principal por peça é garantida pelo **banco**
+(`idx_produto_fotos_principal`), não pela disciplina de quem escreve o
+próximo UPDATE. Registrar a versão preparada nunca encosta em
+`original_key`.
+
+**Foto não é atribuída por palpite.** O casamento por nome de arquivo procura
+do candidato mais específico para o menos e deixa o catálogo responder. Nada
+de sufixo é removido por regra: a convenção `212223-2` = segunda compra
+pertence ao importador de histórico (§ SKU-SUFIXO-DE-COMPRA), e o hífen é
+legítimo em códigos reais (`MONTE-COLAR`). Dois candidatos existindo como
+produto ⇒ `nome_ambiguo`, e o arquivo **para**.
+
+**O ERP não sabe quem prepara o conteúdo.** `preparacao_tarefas` é uma fila;
+`executor` é rótulo livre. Nenhuma coluna, CHECK ou consulta deste banco
+menciona fornecedor. Concluir uma tarefa grava o rascunho e leva a peça a
+`aguardando_aprovacao` — **nunca publica**.
+
+**Aprovação humana é invariante.** Nada preparado por agente chega à
+Nuvemshop sem alguém ter olhado. A trava é a assinatura dos dados
+(`dados_assinatura`): mudou nome, categoria, preço, quantidade em casa ou a
+foto aprovada, a aprovação anterior é invalidada sozinha.
+
+**Publicar é ato próprio, e nasce desligado.** `catalogo/publicador.js` dá
+writer real aos estados que o CHECK declarava e ninguém escrevia. Três travas
+em série, todas fail-closed: `NUVEMSHOP_WRITES_ENABLED` (já existia, e
+produção precisa dela ligada para o estoque), `NUVEMSHOP_PUBLICACAO_ENABLED`
+(nova, **não declarada em ambiente nenhum**) e `seco` por padrão. Criar um
+produto na loja nunca o deixa visível no mesmo passo.
+
+**"Publicado" é decisão nossa; `url_loja` é observação.** Os dois convivem e
+a resposta diz qual é qual (`estado` × `presencaNaLoja`). Enquanto uma peça
+não tiver estado gravado — o caso das 627 que já estavam na loja — a
+observação vale como estado e vem marcada com `estadoObservado`.
+
+**Despublicar existe.** Arquivar aqui continua **não** tirando a peça do ar:
+fazer isso automaticamente é decisão comercial ainda pendente.
+
+**Preço divergente é medido, não julgado.** `GET /api/catalogo/precos/divergentes`
+conta e mostra. Promoção legítima, preço específico da loja e divergência
+acidental produzem o mesmo número, e declarar "diferente = erro" seria tomar
+sozinho uma decisão de negócio cujo custo de errar é mexer no preço de venda
+de uma peça real. A política está registrada como pendente.
+
+Provas: [src/catalogo-4-5-test.mjs](../src/catalogo-4-5-test.mjs), 26 provas
+contra o schema real.

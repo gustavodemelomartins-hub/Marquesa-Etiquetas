@@ -17,7 +17,7 @@
  */
 
 import { movimentar } from './estoque.js';
-import { liberarReserva, formatoManual } from './sku.js';
+import { liberarReserva, formatoManual, normSku } from './sku.js';
 
 /* Quanto detalhe volta dos grupos que a tela só EXIBE. O total sempre é o
    de verdade — o corte é só do que ela desenha, para uma planilha de 5.000
@@ -25,7 +25,6 @@ import { liberarReserva, formatoManual } from './sku.js';
 const TETO_DETALHE = 500;
 
 const texto = (v) => String(v == null ? '' : v).trim();
-const normSku = (v) => texto(v).replace(/\s+/g, '').toUpperCase();
 
 /** Número inteiro escrito por gente. Devolve `null` quando a célula tinha
  *  algo que não é número — é essa diferença que separa "quantidade zero"

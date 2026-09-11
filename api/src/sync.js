@@ -15,9 +15,16 @@
  */
 import { Nuvemshop, mapearSkus } from './nuvemshop.js';
 import { ingerirFotosDoCatalogo } from './fotos.js';
+import { skusComFotoPropria } from './catalogo/galeria.js';
+/* O juiz UNICO de completude (Fase 4.5): "peca pronta" deixou de ter quatro
+   definicoes que discordavam. */
+import { faltasDaPeca, sentinelasDeCategoria } from './catalogo/completude.js';
 import { movimentar, saldosDoSku } from './estoque.js';
 import { resolverVariantes, saldosDeVariacao, salvarVariantesDaLoja } from './variantes.js';
 import { vincularPedidoCriadoAqui } from './vendas-nuvemshop.js';
+import { consultarEmLotes, somenteLeitura } from './plataforma/d1.js';
+import { comExecucao } from './plataforma/execucao.js';
+import { normSku } from './sku.js';
 
 const agoraISO = () => new Date().toISOString();
 
@@ -36,22 +43,45 @@ async function gravarConfig(db, chave, valor) {
 
 /** Roda uma sincronização inteira. `forcar` ignora o freio de segurança —
  *  é o que o botão "aplicar mesmo assim" do dashboard usa. */
-export async function sincronizar(db, env, { forcar = false, seco = false } = {}) {
+/** A rodada de sincronização, com identificador próprio no log. O cron da
+ *  madrugada e um clique no painel podem estar no ar ao mesmo tempo, e sem
+ *  o identificador as linhas das duas rodadas se misturam. O invólucro não
+ *  altera argumento nem resultado. */
+export function sincronizar(db, env, opcoes = {}) {
+  return comExecucao('sync', {
+    dados: { seco: !!opcoes.seco, forcar: !!opcoes.forcar },
+    resumir: (r) => ({
+      ok: r && r.ok,
+      pausado: r && r.pausado && r.pausado.motivo,
+      erro: r && r.erro,
+    }),
+  }, (exec) => sincronizarRodada(db, env, opcoes, exec));
+}
+
+async function sincronizarRodada(db, env, { forcar = false, seco = false } = {}, execucao = null) {
   const loja = new Nuvemshop(env);
   if (!loja.configurada()) {
     return { ok: false, erro: 'A loja não está conectada. Falta o token da Nuvemshop.' };
   }
 
-  /* `seco` grava no INSERT, não é derivado do relato no fim — assim ele
-     está certo mesmo enquanto a linha ainda é 'rodando'. É o que permite
-     `resumoSync` ignorar rodadas secas sem depender de JSON (TECH_DEBT.md
-     item 12). */
-  const exec = await db.prepare(
-    `INSERT INTO sync_execucoes (iniciado_em, status, seco) VALUES (datetime('now'), 'rodando', ?) RETURNING id`
-  ).bind(seco ? 1 : 0).first();
+  /* A definição ÚNICA de rodada seca (plataforma/d1.js › somenteLeitura):
+     simulação lê o banco e a loja, calcula a diferença e diz o que faria —
+     e não pode mudar nada. Envolver aqui tira a proteção da lembrança de
+     quem escreve o próximo `if`. */
+  db = somenteLeitura(db, seco);
+
+  /* A telemetria da rodada é uma escrita como qualquer outra, então rodada
+     seca não abre linha em `sync_execucoes`: o identificador dela é o da
+     correlação, que vive só no log (`[exec] sync <id> …`). Rodada de
+     verdade continua registrando igual. */
+  const exec = seco ? null : await db.prepare(
+    `INSERT INTO sync_execucoes (iniciado_em, status, seco) VALUES (datetime('now'), 'rodando', 0) RETURNING id`
+  ).first();
 
   const relato = {
-    id: exec.id, pedidosLidos: 0, vendasCriadas: 0, itensIgnorados: [],
+    id: exec ? exec.id : null,
+    correlacao: execucao ? execucao.id : null,
+    pedidosLidos: 0, vendasCriadas: 0, itensIgnorados: [],
     /* §22: o que o sistema decide não fazer é anunciado. Pedido que entrou
        sem virar faturamento aparece com nome, data e valor, separado pelo
        MOTIVO — porque "a receber" e "não é de ninguém" são coisas
@@ -86,7 +116,7 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
     await empurrarEstoque(db, loja, mapa, relato, { forcar, seco });
     /* Depois de empurrar, e não antes: assim o retrato já nasce com os
        números que a loja passou a ter nesta rodada. */
-    await gravarRetratoDaLoja(db, produtosLoja, mapa, relato);
+    if (!seco) await gravarRetratoDaLoja(db, produtosLoja, mapa, relato);
 
     /* As fotos do catálogo inteiro, com o mesmo `produtosLoja` que esta
        rodada já leu — nenhuma segunda chamada à loja.
@@ -100,19 +130,25 @@ export async function sincronizar(db, env, { forcar = false, seco = false } = {}
        subindo do mesmo jeito. */
     relato.fotos = await ingerirFotosDoCatalogo(db, produtosLoja, { seco });
 
-    await db.prepare(
-      `UPDATE sync_execucoes SET terminado_em = datetime('now'), status = ?,
-              pedidos_lidos = ?, vendas_criadas = ?, produtos_enviados = ?, detalhe_json = ?
-        WHERE id = ?`
-    ).bind(relato.pausado ? 'pausado' : 'ok', relato.pedidosLidos, relato.vendasCriadas,
-           relato.produtosEnviados, JSON.stringify(relato), exec.id).run();
+    if (exec) {
+      await db.prepare(
+        `UPDATE sync_execucoes SET terminado_em = datetime('now'), status = ?,
+                pedidos_lidos = ?, vendas_criadas = ?, produtos_enviados = ?, detalhe_json = ?
+          WHERE id = ?`
+      ).bind(relato.pausado ? 'pausado' : 'ok', relato.pedidosLidos, relato.vendasCriadas,
+             relato.produtosEnviados, JSON.stringify(relato), exec.id).run();
+    }
 
     return { ok: true, ...relato };
   } catch (e) {
-    await db.prepare(
-      `UPDATE sync_execucoes SET terminado_em = datetime('now'), status = 'erro', detalhe_json = ?
-        WHERE id = ?`
-    ).bind(JSON.stringify({ ...relato, erro: String(e && e.message || e) }), exec.id).run();
+    /* Rodada seca não abriu linha, então não há o que fechar. O erro dela
+       sai no log da correlação, como o resto da rodada. */
+    if (exec) {
+      await db.prepare(
+        `UPDATE sync_execucoes SET terminado_em = datetime('now'), status = 'erro', detalhe_json = ?
+          WHERE id = ?`
+      ).bind(JSON.stringify({ ...relato, erro: String(e && e.message || e) }), exec.id).run();
+    }
     return { ok: false, erro: String(e && e.message || e), ...relato };
   }
 }
@@ -129,6 +165,11 @@ export async function sincronizarSomenteEstoque(db, env, { forcar = false, seco 
   if (!loja.configurada()) {
     return { ok: false, erro: 'A loja não está conectada. Falta o token da Nuvemshop.' };
   }
+
+  /* A MESMA definição de seco da rodada completa. Antes esta função tinha
+     a sua, um `if (!seco)` só no retrato da loja — e a outra não tinha nem
+     isso. */
+  db = somenteLeitura(db, seco);
 
   const relato = {
     produtosEnviados: 0, mudancas: [], semEmpurrar: [], pausado: null,
@@ -564,7 +605,7 @@ async function puxarPedidos(db, loja, relato, seco) {
     const linhas = [];
     let incompleto = false;
     for (const p of pedido.products || []) {
-      const sku = String(p.sku || '').trim().toUpperCase();
+      const sku = normSku(p.sku);
       const nosso = sku ? await db.prepare(
         `SELECT sku, desc, preco FROM produtos WHERE sku = ?`).bind(sku).first() : null;
       if (!nosso) {
@@ -679,7 +720,10 @@ async function semearVariacoes(db, mapa, relato, seco) {
   for (const p of comVariacao) {
     if (p.jaTocado > 0) continue;          // regra 1: código já tem dono
     if (p.qtd <= 0) continue;
-    const naLoja = mapa.get(p.sku);
+    /* A chave do `mapa` e canonica (`normSku`). Comparar com o SKU cru do
+       catalogo fazia a peca sumir do casamento em silencio — ver R4 da
+       auditoria da Fase 4.5. */
+    const naLoja = mapa.get(normSku(p.sku));
     if (!naLoja || naLoja.variantes.length < 2) continue;
 
     /* Regra 2: a soma da loja é o ATESTADO de que ela sabe do que fala.
@@ -765,7 +809,7 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
 
   const nossos = [...normais, ...kits];
   for (const p of nossos) {
-    const naLoja = mapa.get(p.sku);
+    const naLoja = mapa.get(normSku(p.sku));   // R4: chave canonica dos dois lados
     if (!naLoja) continue;
 
     if (naLoja.variantesSemSku > 0) {
@@ -791,7 +835,7 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
        Isso não é excesso de zelo. Casar por nome já falhou em produção do
        pior jeito que existe: a conta do total continuava fechando, então
        nenhum freio disparava, cada variante recebia zero, e a peça saía do
-       ar sem ninguém ver. Ver docs/SYNC_ENGINE.md § variações. */
+       ar sem ninguém ver. Ver docs/domains/SYNC_ENGINE.md § variações. */
     if (naLoja.variantes.length > 1) {
       const r = resolverVariantes(p, naLoja, {
         saldoPorNome: saldos.porNome(p.sku),
@@ -878,8 +922,8 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
   for (const m of relato.mudancas) {
     const alvo = m.varianteId
       ? { produtoId: m.produtoId, varianteId: m.varianteId, locais: m.locais || [] }
-      : mapa.get(m.sku);
-    const publicado = mapa.get(m.sku);
+      : mapa.get(normSku(m.sku));
+    const publicado = mapa.get(normSku(m.sku));
     const multi = !!publicado && publicado.variantes.length > 1;
     if (!alvo || alvo.produtoId == null || (multi && !m.varianteId)) recusadas.push(m);
     else enderecadas.push({ m, alvo });
@@ -963,16 +1007,30 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
     }
   }
 
-  const nossos = new Set(
-    (await db.prepare(`SELECT sku FROM produtos`).all()).results.map(p => p.sku)
+  /* O `mapa` tem chave canonica (`normSku`); este conjunto precisa ter a
+     mesma, senao um produto gravado fora da forma some do casamento sem
+     erro nenhum. Guarda norm -> sku real, porque o UPDATE ainda precisa
+     endereçar a linha pela chave primaria que existe. */
+  const nossos = new Map(
+    (await db.prepare(`SELECT sku, url_loja FROM produtos`).all()).results
+      .map(p => [normSku(p.sku), p])
   );
 
-  const stmts = [
-    /* Produto tirado do ar na Nuvemshop precisa deixar de constar como
-       publicado aqui — por isso limpa antes de reescrever, igual à
-       importação por arquivo faz. */
-    db.prepare(`UPDATE produtos SET url_loja = NULL, estoque_loja = NULL, visivel = NULL`),
-  ];
+  /* Produto tirado do ar na Nuvemshop precisa deixar de constar como
+     publicado aqui. O que mudou na Fase 4.5 e COMO: antes um
+     `UPDATE produtos SET url_loja = NULL` varria o catalogo inteiro e os
+     INSERTs repovoavam. Uma leitura truncada da loja — paginacao no teto de
+     40 paginas, um 429 mal recuperado — fazia centenas de pecas passarem a
+     constar como nao publicadas, e como a tela de publicacao lia `url_loja`,
+     o estado delas mudava por causa de uma falha de rede.
+     Agora limpa SO quem estava publicado e nao apareceu nesta leitura. */
+  const stmts = [];
+  for (const [norm, p] of nossos) {
+    if (!p.url_loja || mapa.has(norm)) continue;
+    stmts.push(db.prepare(
+      `UPDATE produtos SET url_loja = NULL, estoque_loja = NULL, visivel = NULL WHERE sku = ?`
+    ).bind(p.sku));
+  }
 
   /* As variações vindas da loja são reescritas do zero a cada rodada: ela é
      a fonte da verdade sobre quais existem, e aro que sumiu de lá não pode
@@ -993,6 +1051,9 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
     if (!nossos.has(sku)) { soNaLoja++; continue; }
     casados++;
     produtosCasados.add(v.produtoId);
+    /* O SKU real da linha, que pode diferir da forma canonica usada para
+       casar. Todo bind abaixo usa este, nunca a chave do mapa. */
+    const skuLocal = nossos.get(sku).sku;
 
     if (v.variantes.length > 1) {
       v.variantes.forEach((va, i) => {
@@ -1009,7 +1070,7 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
              promocional=excluded.promocional, imagem_url=excluded.imagem_url,
              origem='loja'`
         ).bind(
-          sku, va.nome || `opção ${i + 1}`, (v.atributos || []).join(' · ') || null,
+          skuLocal, va.nome || `opção ${i + 1}`, (v.atributos || []).join(' · ') || null,
           String(va.varianteId), String(va.produtoId),
           porVariante.has(String(va.varianteId)) ? porVariante.get(String(va.varianteId)) : va.estoque,
           i,
@@ -1026,13 +1087,18 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
       });
     }
     stmts.push(db.prepare(
-      `UPDATE produtos SET url_loja = ?, estoque_loja = ?, visivel = ?, nome_loja = ? WHERE sku = ?`
+      `UPDATE produtos SET url_loja = ?, estoque_loja = ?, visivel = ?, nome_loja = ?,
+              produto_id_loja = ? WHERE sku = ?`
     ).bind(
       v.url || String(v.produtoId),
       empurrado.has(sku) ? empurrado.get(sku) : v.estoque,
       v.visivel === null ? null : (v.visivel ? 1 : 0),
       v.nome || null,
-      sku,
+      /* D9: o id do produto na loja passa a morar em `produtos`. Antes ele so
+         existia por caminho indireto, e uma peca sem variante espelhada nao
+         tinha como ser endereçada la. */
+      v.produtoId == null ? null : String(v.produtoId),
+      skuLocal,
     ));
   }
 
@@ -1116,11 +1182,11 @@ async function explicarMudancasComVendas(db, mudancas) {
   const skus = [...new Set(mudancas.filter(m => m.para < m.de).map(m => m.sku))];
   if (!skus.length) return;
 
+  /* Em lotes porque o D1 limita quantos parâmetros uma consulta aceita, e
+     esta lista cresce com o tamanho do inventário. O tamanho do lote é o
+     mesmo de antes; a quebra agora mora em plataforma/d1.js. */
   const porSku = new Map();
-  for (let inicio = 0; inicio < skus.length; inicio += 80) {
-    const lote = skus.slice(inicio, inicio + 80);
-    const qs = lote.map(() => '?').join(',');
-    const r = await db.prepare(`
+  const vendas = await consultarEmLotes(db, skus, (qs) => `
       SELECT m.sku, m.variante_id, v.id, v.data, v.cliente_nome,
              v.origem, v.externo_id, v.criada_em, SUM(m.qtd) AS qtd
         FROM movimentos m
@@ -1130,11 +1196,10 @@ async function explicarMudancasComVendas(db, mudancas) {
                 v.origem, v.externo_id, v.criada_em
       HAVING SUM(m.qtd) < 0
        ORDER BY COALESCE(v.criada_em, v.data) DESC, v.id DESC
-    `).bind(...lote).all();
-    for (const venda of r.results || []) {
-      if (!porSku.has(venda.sku)) porSku.set(venda.sku, []);
-      porSku.get(venda.sku).push(venda);
-    }
+    `);
+  for (const venda of vendas) {
+    if (!porSku.has(venda.sku)) porSku.set(venda.sku, []);
+    porSku.get(venda.sku).push(venda);
   }
 
   for (const mudanca of mudancas) {
@@ -1169,10 +1234,11 @@ async function explicarMudancasComVendas(db, mudancas) {
 
 /** "O que aconteceria se eu sincronizasse agora?" — sem escrever nada.
  *
- *  Diferente do `seco` de `sincronizar()`, que abre uma execução, puxa
- *  pedidos e grava o retrato da loja, esta função é uma LEITURA pura: ela
- *  abre a loja, compara com o catálogo e devolve o laudo. Nenhuma linha do
- *  banco muda, nenhum pedido é importado, nenhum PATCH sai.
+ *  Diferente de `sincronizar({ seco: true })`, que também não escreve mas
+ *  puxa pedidos, esta função só compara: abre a loja, confronta com o
+ *  catálogo e devolve o laudo. Nenhuma linha do banco muda, nenhum pedido é
+ *  importado, nenhum PATCH sai — e isso é garantido pelo mesmo invólucro
+ *  `somenteLeitura` das rodadas secas, não por disciplina.
  *
  *  É o que sustenta a confirmação obrigatória da tela: a pessoa vê o
  *  tamanho exato da mudança antes de autorizar, e o botão que autoriza é
@@ -1183,6 +1249,7 @@ export async function analisarSincronizacao(db, env) {
   if (!loja.configurada()) {
     return { ok: false, erro: 'A loja não está conectada. Falta o token da Nuvemshop.' };
   }
+  db = somenteLeitura(db, true);
 
   const produtosLoja = await loja.produtos();
   const { mapa, duplicados } = mapearSkus(produtosLoja);
@@ -1193,8 +1260,10 @@ export async function analisarSincronizacao(db, env) {
   const relato = { mudancas: [], semEmpurrar: [], pausado: null };
   await empurrarEstoque(db, loja, mapa, relato, { forcar: false, seco: true });
 
+  const sentinelas = await sentinelasDeCategoria(db);
+  const galeria = await skusComFotoPropria(db);
   const nossos = (await db.prepare(`
-    SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja,
+    SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja, p.foto_url,
            p.foto_original_key, p.foto_tratada_key, p.foto_status,
            p.qtd - COALESCE((
              SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
@@ -1213,18 +1282,24 @@ export async function analisarSincronizacao(db, env) {
   const iguais = [], criarNaLoja = [], bloqueadosSemPreco = [];
   const semFoto = [], semDescricao = [], semCategoria = [];
   for (const p of nossos) {
-    const naLoja = mapa.get(p.sku);
+    const naLoja = mapa.get(normSku(p.sku));   // R4
     if (!naLoja) {
       /* Só entra em "criar na loja" quem tem peça em casa: cadastrar o que
          não dá para vender é trabalho sem venda do outro lado. */
       if ((p.casa || 0) > 0) {
+        /* A mesma regra de completude do resto do sistema (Fase 4.5). Antes
+           esta funcao tinha a sua: preco 0 entrava em "criar na loja" aqui e
+           era recusado na tela de publicacao. */
+        p.temFotoPropria = galeria.com.has(p.sku);
+        p.temFotoPreparadaPropria = galeria.preparadas.has(p.sku);
+        const { faltas } = faltasDaPeca(p, { sentinelas });
         const item = { sku: p.sku, desc: p.desc, cat: p.cat, preco: p.preco, casa: p.casa,
-                       fotoStatus: p.foto_status || 'sem_foto' };
-        if (p.preco == null) { bloqueadosSemPreco.push(item); continue; }
+                       fotoStatus: p.foto_status || 'sem_foto', falta: faltas };
+        if (faltas.includes('preco')) { bloqueadosSemPreco.push(item); continue; }
         criarNaLoja.push(item);
-        if (!p.foto_original_key && !p.foto_tratada_key) semFoto.push(item);
-        if (!p.desc || p.desc.trim() === p.sku) semDescricao.push(item);
-        if (!p.cat || p.cat === 'Outros') semCategoria.push(item);
+        if (faltas.includes('foto')) semFoto.push(item);
+        if (faltas.includes('nome')) semDescricao.push(item);
+        if (faltas.includes('categoria')) semCategoria.push(item);
       }
       continue;
     }
@@ -1234,7 +1309,7 @@ export async function analisarSincronizacao(db, env) {
   /* Código que a loja tem e o catálogo não conhece. Não é para criar aqui
      sozinho: pode ser produto aposentado, pode ser código digitado errado
      lá — as duas coisas pedem gente olhando. */
-  const nossosSku = new Set(nossos.map(p => p.sku));
+  const nossosSku = new Set(nossos.map(p => normSku(p.sku)));
   const soNaLoja = [];
   for (const [sku, e] of mapa) {
     if (nossosSku.has(sku)) continue;

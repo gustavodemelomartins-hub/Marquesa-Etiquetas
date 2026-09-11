@@ -1,0 +1,13 @@
+{
+  "name": "marquesa-baseline",
+  "private": true,
+  "scripts": {
+    "test": "node scripts/run-baseline-tests.mjs release",
+    "test:list": "node scripts/run-baseline-tests.mjs list",
+    "test:fast": "node scripts/run-baseline-tests.mjs fast",
+    "test:domain": "node scripts/run-baseline-tests.mjs domain",
+    "test:integration": "node scripts/run-baseline-tests.mjs integration",
+    "test:browser": "node scripts/run-baseline-tests.mjs browser",
+    "test:release": "node scripts/run-baseline-tests.mjs release"
+  }
+}

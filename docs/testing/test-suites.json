@@ -1,0 +1,633 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-09-09",
+  "sourceCommit": "04edb022455e417b8389d2163b2f007b7dd3ecff",
+  "safety": "Somente processos locais; nenhum comando remoto, deploy, push ou escrita externa.",
+  "levels": [
+    {
+      "id": "fast",
+      "label": "Rápido",
+      "howToRun": "npm run test:fast"
+    },
+    {
+      "id": "domain",
+      "label": "Domínio puro",
+      "howToRun": "npm run test:domain"
+    },
+    {
+      "id": "integration",
+      "label": "Integração local",
+      "howToRun": "Catálogo apenas: requer Worker e D1 local descartável conforme docs/testing/TESTING.md."
+    },
+    {
+      "id": "browser",
+      "label": "Navegador local",
+      "howToRun": "Catálogo apenas: requer servidores locais e Playwright."
+    },
+    {
+      "id": "release",
+      "label": "Baseline de release",
+      "howToRun": "npm test"
+    }
+  ],
+  "suites": [
+    {
+      "id": "phase0-artifacts",
+      "level": "fast",
+      "mode": "local",
+      "description": "Coerência e freios da Fase 0",
+      "gates": [
+        "fast",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "scripts/phase0-artifacts.test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [],
+      "duration": "<2s"
+    },
+    {
+      "id": "api-contracts",
+      "level": "fast",
+      "mode": "local",
+      "description": "Contratos HTTP servidos = inventário versionado",
+      "gates": [
+        "fast",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "scripts/api-contracts.test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [],
+      "duration": "<2s"
+    },
+    {
+      "id": "razao-estoque",
+      "level": "fast",
+      "mode": "local",
+      "description": "Invariante da razao contabil no codigo-fonte",
+      "gates": [
+        "fast",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "scripts/razao-estoque.test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [],
+      "duration": "<2s"
+    },
+    {
+      "id": "montagem-dupla-contagem",
+      "level": "fast",
+      "mode": "local",
+      "description": "Configuracao montavel nunca soma estoque financeiro",
+      "gates": [
+        "fast",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "scripts/montagem-dupla-contagem.test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [],
+      "duration": "<2s"
+    },
+    {
+      "id": "inventario-tri-estado",
+      "level": "fast",
+      "mode": "local",
+      "description": "Travas do inventario 4.4 no codigo-fonte",
+      "gates": [
+        "fast",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "scripts/inventario-tri-estado.test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [],
+      "duration": "<2s"
+    },
+    {
+      "id": "inventario-4-4",
+      "level": "domain",
+      "mode": "local",
+      "description": "Inventario pausavel, por variacao, contra o schema real",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/inventario-4-4-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<3s"
+    },
+    {
+      "id": "catalogo-4-5",
+      "level": "domain",
+      "mode": "local",
+      "description": "Catalogo, midia e publicacao contra o schema real",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/catalogo-4-5-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<3s"
+    },
+    {
+      "id": "sku-normalizacao",
+      "level": "fast",
+      "mode": "local",
+      "description": "Inventario das normalizacoes de SKU",
+      "gates": [
+        "fast",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "scripts/sku-normalizacao.test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [],
+      "duration": "<2s"
+    },
+    {
+      "id": "docs-links",
+      "level": "fast",
+      "mode": "local",
+      "description": "Links e caminhos citados na documentação",
+      "gates": [
+        "fast",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "scripts/docs-links.test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [],
+      "duration": "<2s"
+    },
+    {
+      "id": "projeto-painel",
+      "level": "fast",
+      "mode": "local",
+      "description": "Painel do projeto em dia com PROJECT-STATUS e a auditoria de paridade",
+      "gates": [
+        "fast",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "scripts/build-project-dashboard.mjs",
+            "--check"
+          ]
+        }
+      ],
+      "prerequisites": [],
+      "duration": "<2s"
+    },
+    {
+      "id": "schema-migration-coerencia",
+      "level": "fast",
+      "mode": "local",
+      "description": "schema.sql e as 30 migrations chegam ao mesmo banco",
+      "gates": [
+        "fast",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/migracao-variantes-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [],
+      "duration": "<5s"
+    },
+    {
+      "id": "governance-versioned",
+      "level": "fast",
+      "mode": "local",
+      "description": "Governança versionada",
+      "gates": [
+        "fast",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "scripts/governance-versioned.test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [],
+      "duration": "<2s"
+    },
+    {
+      "id": "protect-production",
+      "level": "fast",
+      "mode": "local",
+      "description": "Hard-denies production-first",
+      "gates": [
+        "fast",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            ".claude/hooks/protect-production.test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [],
+      "duration": "<2s"
+    },
+    {
+      "id": "frontend-unit",
+      "level": "domain",
+      "mode": "local",
+      "description": "React/Vitest",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "npm",
+          "args": [
+            "test",
+            "--",
+            "--run"
+          ],
+          "cwd": "frontend"
+        }
+      ],
+      "prerequisites": [
+        "npm ci em frontend"
+      ],
+      "duration": "~5s"
+    },
+    {
+      "id": "frontend-build",
+      "level": "release",
+      "mode": "local",
+      "description": "TypeScript e build React",
+      "gates": [
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "npm",
+          "args": [
+            "run",
+            "build"
+          ],
+          "cwd": "frontend"
+        }
+      ],
+      "prerequisites": [
+        "npm ci em frontend"
+      ],
+      "duration": "~10s"
+    },
+    {
+      "id": "legacy-build",
+      "level": "release",
+      "mode": "local",
+      "description": "Build e paridade do dashboard legado",
+      "gates": [
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "python",
+          "args": [
+            "src/build.py"
+          ]
+        },
+        {
+          "bin": "git",
+          "args": [
+            "diff",
+            "--exit-code",
+            "--",
+            "dashboard.html"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Python 3"
+      ],
+      "duration": "~3s"
+    },
+    {
+      "id": "domain-pure",
+      "level": "domain",
+      "mode": "local",
+      "description": "Regras puras sem Worker/navegador/rede",
+      "gates": [
+        "domain"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/router-http-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/erros-http-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/config-plataforma-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/d1-helpers-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/execucao-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/d1-in-lotes-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/estoque-razao-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/variantes-resolucao-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/venda-variacao-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/sync-seco-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/montagem-estorno-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/montagem-saldo-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/montagem-venda-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/montagem-integracao-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/categoria-nome-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/vendas-reconstrucao-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/reclassificacao-nao-venda-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/revendedora-nao-e-cliente-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/nuvemshop-writes-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "dependências de src"
+      ],
+      "duration": "~5s"
+    },
+    {
+      "id": "worker-local",
+      "level": "integration",
+      "mode": "catalog-only",
+      "description": "APIs contra Wrangler local e D1 local limpo",
+      "gates": [],
+      "commands": [],
+      "prerequisites": [
+        "wrangler dev local",
+        "D1 local descartável/limpo",
+        "fake Nuvemshop quando indicado"
+      ],
+      "duration": "1–4 min/suíte",
+      "files": [
+        "pos-golive-1-test.mjs",
+        "pos-golive-1-variacoes-test.mjs",
+        "sync-test.mjs",
+        "trocar-planilha-test.mjs",
+        "venda-desconto-test.mjs",
+        "vendas-historico-test.mjs",
+        "corte-pedidos-test.mjs",
+        "variacoes-test.mjs",
+        "variantes-fase1-test.mjs",
+        "kits-test.mjs",
+        "dry-run-test.mjs",
+        "saude-sync-test.mjs",
+        "reconciliacao-test.mjs",
+        "pacote-vendas-test.mjs",
+        "sync-pagamento-test.mjs",
+        "revisao-pre-golive-test.mjs",
+        "pacote1-shell-test.mjs",
+        "pacote2-test.mjs",
+        "pacote3-test.mjs",
+        "pacote4-test.mjs",
+        "revendedoras-test.mjs",
+        "pendencias-nuvemshop-test.mjs",
+        "editar-peca-test.mjs",
+        "sku-auditoria-test.mjs",
+        "sku-gerador-test.mjs",
+        "fotos-catalogo-test.mjs",
+        "fotos-storage-test.mjs",
+        "fundo-branco-test.mjs",
+        "foto-modal-test.mjs",
+        "catalogo-test.mjs",
+        "import-total-test.mjs",
+        "estoque-total-e2e.mjs",
+        "produtos-novos-e2e.mjs",
+        "vendas-nuvemshop-test.mjs",
+        "pagamento-nuvemshop-test.mjs",
+        "troca-historico-atomica-test.mjs",
+        "historico-operacoes-test.mjs",
+        "historico-operacoes-riscos-test.mjs"
+      ]
+    },
+    {
+      "id": "migration-local",
+      "level": "integration",
+      "mode": "catalog-only",
+      "description": "Migrations em SQLite/D1 local descartável",
+      "gates": [],
+      "commands": [],
+      "prerequisites": [
+        "banco local descartável; nunca remoto"
+      ],
+      "duration": "<1 min/suíte",
+      "files": [
+        "migracao-variantes-test.mjs",
+        "migracao-pagamento-test.mjs",
+        "migracao-historico-operacoes-test.mjs",
+        "reconciliacao-schema-test.mjs",
+        "vendas-nuvemshop-schema-test.mjs"
+      ]
+    },
+    {
+      "id": "browser-local",
+      "level": "browser",
+      "mode": "catalog-only",
+      "description": "Fluxos Playwright locais",
+      "gates": [],
+      "commands": [],
+      "prerequisites": [
+        "servidor estático local",
+        "Worker local quando pedido",
+        "Playwright",
+        "D1 descartável quando houver escrita"
+      ],
+      "duration": "1–4 min/suíte",
+      "files": [
+        "e2e.mjs",
+        "frontend-e2e.mjs",
+        "fase2-telas-test.mjs",
+        "fase2-telas-fotos.mjs",
+        "pos-golive-1-ui-test.mjs",
+        "vendas-clientes-ui-test.mjs",
+        "pacote-vendas-ui-test.mjs",
+        "pacote2-ui-test.mjs",
+        "pacote3-ui-test.mjs",
+        "pacote4-ui-test.mjs",
+        "editar-peca-ui-test.mjs",
+        "erro-detalhe-test.mjs",
+        "stephanie-ui-test.mjs"
+      ]
+    },
+    {
+      "id": "diagnostics-manual",
+      "level": "integration",
+      "mode": "manual-only",
+      "description": "Auditorias, screenshots e utilitários não automáticos",
+      "gates": [],
+      "commands": [],
+      "prerequisites": [
+        "revisão humana do alvo e efeitos"
+      ],
+      "duration": "variável",
+      "files": [
+        "d1-uso-audit.mjs",
+        "loja-falsa.mjs",
+        "shot.mjs",
+        "shot-pacote1.mjs",
+        "shot-pos-fase2.mjs",
+        "stephanie-inventory-reconciliation-test.mjs",
+        "stephanie-reconciliation-test.mjs",
+        "stephanie-production-apply.mjs",
+        "reset-e-testar.sh"
+      ]
+    }
+  ]
+}

@@ -7,6 +7,9 @@
  * baixa física correta.
  */
 
+import { parametros } from './plataforma/d1.js';
+import { normSku } from './sku.js';
+
 const centavos = (valor) => valor == null ? null : Math.round(Number(valor) * 100);
 const reais = (valor) => valor == null ? null : +(Number(valor) / 100).toFixed(2);
 const hoje = () => new Date().toISOString().slice(0, 10);
@@ -231,7 +234,7 @@ async function criarNovaVersao(db, atual, mudancas) {
       db.prepare(
         `INSERT INTO historico_operacoes
           (${CAMPOS_VERSAO.join(',')}, versao, status_registro, substitui_id, atualizado_em)
-         VALUES (${CAMPOS_VERSAO.map(() => '?').join(',')}, ?, 'ativa', ?, datetime('now'))`,
+         VALUES (${parametros(CAMPOS_VERSAO.length)}, ?, 'ativa', ?, datetime('now'))`,
       ).bind(...valores, versao, atual.id),
       /* O vínculo de duplicata é fato sobre a VENDA, não sobre a versão da
        * cobrança. Sem esta linha, receber o dinheiro criaria uma versão nova
@@ -342,7 +345,7 @@ function agruparAssinatura(itens, ler) {
   const porSku = new Map();
   for (const item of itens) {
     const l = ler(item);
-    const sku = String(l.sku ?? '').trim().toUpperCase();
+    const sku = normSku(l.sku);
     const atual = porSku.get(sku) ?? { qtd: 0, centavos: 0 };
     atual.qtd += Number(l.qtd ?? 0);
     atual.centavos += Number(l.centavos ?? 0);
