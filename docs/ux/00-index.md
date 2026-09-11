@@ -48,12 +48,14 @@ AAAA-MM-DD_<tela>_<viewport>_<sequencia>.<ext>
 | Tela | Pasta | Referências | Estado do material |
 |---|---|---|---|
 | Dashboard | [03-screens/dashboard/](03-screens/dashboard/) | [02-references/dashboard/](02-references/dashboard/) | vazio |
-| Vendas | [03-screens/vendas/](03-screens/vendas/) | [02-references/vendas/](02-references/vendas/) | vazio |
+| Vendas | [03-screens/vendas/](03-screens/vendas/) | [02-references/vendas/](02-references/vendas/) | descrito |
 | Clientes | [03-screens/clientes/](03-screens/clientes/) | [02-references/clientes/](02-references/clientes/) | vazio |
 | Revendedoras | [03-screens/revendedoras/](03-screens/revendedoras/) | [02-references/revendedoras/](02-references/revendedoras/) | vazio |
-| Estoque | [03-screens/estoque/](03-screens/estoque/) | [02-references/estoque/](02-references/estoque/) | vazio |
+| Estoque | [03-screens/estoque/](03-screens/estoque/) | [02-references/estoque/](02-references/estoque/) | descrito |
+| Catálogo, Mídia e Publicação | [03-screens/catalogo/](03-screens/catalogo/) | — | domínio mapeado; aguardando mockups |
+| Etiquetas | [03-screens/etiquetas/](03-screens/etiquetas/) | — | descrito |
 | Reparos | [03-screens/reparos/](03-screens/reparos/) | [02-references/reparos/](02-references/reparos/) | vazio |
-| Personalização | [03-screens/personalizacao/](03-screens/personalizacao/) | [02-references/personalizacao/](02-references/personalizacao/) | vazio |
+| Personalização | [03-screens/personalizacao/](03-screens/personalizacao/) | [02-references/personalizacao/](02-references/personalizacao/) | recebendo |
 
 "Estado do material": `vazio` → `recebendo` → `descrito` → `pronto para
 avaliação arquitetural`. Ninguém promove sozinho o estado de uma tela para o

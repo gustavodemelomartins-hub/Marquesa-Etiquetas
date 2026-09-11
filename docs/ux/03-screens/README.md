@@ -11,6 +11,8 @@ para que qualquer material chegue sempre no mesmo lugar, em qualquer tela.
 | Clientes | [clientes/](clientes/) |
 | Revendedoras | [revendedoras/](revendedoras/) |
 | Estoque | [estoque/](estoque/) |
+| Catálogo, Mídia e Publicação | [catalogo/](catalogo/) |
+| Etiquetas | [etiquetas/](etiquetas/) |
 | Reparos | [reparos/](reparos/) |
 | Personalização | [personalizacao/](personalizacao/) |
 

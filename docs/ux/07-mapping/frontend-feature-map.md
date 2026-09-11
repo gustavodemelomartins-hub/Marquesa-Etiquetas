@@ -13,6 +13,8 @@ construção). A coluna "React hoje" descreve o que existe, não o alvo.
 | Clientes | `src/dashboard.tpl.html` | — a confirmar — | — indefinido (fase 9) — |
 | Revendedoras | `src/dashboard.tpl.html` | — a confirmar — | — indefinido (fase 9) — |
 | Estoque | `src/dashboard.tpl.html` — `view-estoque` | — a confirmar — | — indefinido (fase 9) — |
+| Catálogo, Mídia e Publicação | `src/dashboard.tpl.html` — abas `cadastro` e `publicar`; galeria e filas no legado | sem tela; Nuvemshop possui paridade parcial em outra feature | — indefinido (fase 9) — |
+| Etiquetas | `index.html` — peças/fila e `etq-print` | placeholder `Etiqueta` | — indefinido — |
 | Reparos | não existe | não existe | — indefinido — |
 | Personalização | parcial (Monte seu Colar) | — a confirmar — | — indefinido — |
 

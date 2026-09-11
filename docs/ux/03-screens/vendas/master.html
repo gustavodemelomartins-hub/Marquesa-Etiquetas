@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Protótipo mestre da área de Vendas do Sistema Marquesa" />
+    <title>Sistema Marquesa · Vendas</title>
+    <link rel="stylesheet" href="master.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="header-main">
+          <a class="brand" href="#painel" aria-label="Sistema Marquesa — início">
+            <img src="../../01-brand/logo_sistema-marquesa_horizontal.svg" alt="Marquesa Semijoias" />
+          </a>
+
+          <nav class="primary-nav" aria-label="Áreas principais">
+            <button type="button">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 7 8-4 8 4-8 4-8-4Zm0 0v10l8 4 8-4V7M12 11v10"/></svg>
+              Estoque
+            </button>
+            <button type="button">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+              Revendedoras
+            </button>
+            <button type="button" class="active" aria-current="page">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M7 15l4-4 3 2 5-7"/></svg>
+              Vendas
+            </button>
+            <button type="button">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 13 11 22 2 13V4h9l9 9Z"/><circle cx="7" cy="9" r="1"/></svg>
+              Etiquetas
+            </button>
+          </nav>
+
+          <div class="header-tools">
+            <button class="icon-button notification" type="button" aria-label="3 notificações">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+              <span>3</span>
+            </button>
+            <button class="profile" type="button" aria-expanded="false" aria-controls="profile-menu">
+              <span class="avatar">SM</span>
+              <span class="profile-copy"><strong>Sthefany Marques</strong><small>Administradora</small></span>
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg>
+            </button>
+            <div class="profile-menu" id="profile-menu" hidden>
+              <button type="button">Meu perfil</button>
+              <button type="button">Preferências</button>
+              <button type="button">Sair</button>
+            </div>
+          </div>
+        </div>
+
+        <nav class="secondary-nav" aria-label="Navegação de Vendas">
+          <button type="button" data-screen="lancamentos">Lançamentos</button>
+          <button type="button" class="active" data-screen="painel" aria-current="page">Painel</button>
+          <button type="button" data-screen="clientes">Clientes <span>345</span></button>
+          <button type="button" data-screen="saidas">Saídas sem faturamento</button>
+        </nav>
+      </header>
+
+      <main>
+        <div class="prototype-note" role="note">
+          <span>Protótipo de design</span>
+          Dados ilustrativos · referência visual e de interação
+        </div>
+
+        <section class="screen active" id="painel" aria-labelledby="painel-title">
+          <div class="page-heading">
+            <div>
+              <p class="context">Visão financeira e comercial</p>
+              <h1 id="painel-title">Painel de vendas</h1>
+              <p>Dinheiro recebido e vendas realizadas usam seus próprios recortes de data.</p>
+            </div>
+            <div class="period-control" aria-label="Período do painel">
+              <button type="button">Tudo</button>
+              <button type="button" class="active">12 meses</button>
+              <button type="button">90 dias</button>
+              <button type="button">30 dias</button>
+              <button type="button" class="calendar-button" aria-label="Escolher intervalo personalizado">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM8 3v6M16 3v6M4 10h16"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="headline-grid">
+            <article class="revenue-card">
+              <div>
+                <span>Faturamento recebido no período</span>
+                <strong>R$ 124.455,95</strong>
+              </div>
+              <div class="revenue-meta">
+                <span>Neste mês</span><b>R$ 9.891,59</b>
+                <small>pela data efetiva dos recebimentos</small>
+              </div>
+              <svg class="spark" aria-hidden="true" viewBox="0 0 90 46"><path d="M5 38 24 23l15 6 18-20 27 5"/><circle cx="84" cy="14" r="3"/></svg>
+            </article>
+
+            <article class="receivable-card">
+              <div>
+                <span>A receber em setembro</span>
+                <strong>R$ 12.269,90</strong>
+                <small>8 clientes com vencimento no mês</small>
+              </div>
+              <button type="button">Ver recebimentos <span aria-hidden="true">›</span></button>
+              <svg class="receipt" aria-hidden="true" viewBox="0 0 80 80"><path d="M20 10h40v58l-8-6-8 6-8-6-8 6-8-6V10Z"/><path d="M29 26h22M29 36h22M29 46h16"/></svg>
+            </article>
+          </div>
+
+          <button class="repair-alert" type="button">
+            <span class="repair-icon">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 7 3-3 3 3-3 3M13 8l-8 8-1 4 4-1 8-8M5 5l4 4M15 15l4 4"/></svg>
+            </span>
+            <span><strong>Reparos</strong> 21 ativos, 3 próximos do prazo</span>
+            <span aria-hidden="true">›</span>
+          </button>
+
+          <article class="data-section chart-section">
+            <div class="section-heading">
+              <div><h2>Desempenho de vendas</h2><p>Últimos 12 meses · valores pela data da venda</p></div>
+              <div class="legend"><i></i> Valor vendido</div>
+            </div>
+            <div class="sales-chart" role="img" aria-label="Gráfico de valor vendido por mês entre outubro de 2025 e setembro de 2026">
+              <div class="axis"><span>25 mil</span><span>20 mil</span><span>15 mil</span><span>10 mil</span><span>5 mil</span><span>0</span></div>
+              <button style="--value:46%"><i></i><span>out 25</span><b>R$ 11.640</b></button>
+              <button style="--value:58%"><i></i><span>nov 25</span><b>R$ 14.510</b></button>
+              <button style="--value:71%"><i></i><span>dez 25</span><b>R$ 17.720</b></button>
+              <button style="--value:88%"><i></i><span>jan 26</span><b>R$ 22.080</b></button>
+              <button style="--value:66%"><i></i><span>fev 26</span><b>R$ 16.490</b></button>
+              <button style="--value:54%"><i></i><span>mar 26</span><b>R$ 13.580</b></button>
+              <button style="--value:62%"><i></i><span>abr 26</span><b>R$ 15.420</b></button>
+              <button style="--value:43%"><i></i><span>mai 26</span><b>R$ 10.810</b></button>
+              <button style="--value:38%"><i></i><span>jun 26</span><b>R$ 9.470</b></button>
+              <button style="--value:51%"><i></i><span>jul 26</span><b>R$ 12.820</b></button>
+              <button style="--value:33%"><i></i><span>ago 26</span><b>R$ 8.210</b></button>
+              <button class="selected" style="--value:73%"><i></i><span>set 26</span><b>R$ 18.320</b></button>
+            </div>
+          </article>
+
+          <article class="data-section period-details">
+            <div class="section-heading detail-heading">
+              <div><h2>Informações do período</h2><p><span class="date-chip">Setembro de 2026</span> seleção ativa no gráfico</p></div>
+              <div class="view-toggle" aria-label="Visão do período">
+                <button type="button" class="active" data-view="detail">Análise detalhada</button>
+                <button type="button" data-view="month">Evolução por mês</button>
+              </div>
+            </div>
+
+            <div class="analytics-view active" data-view-panel="detail">
+              <div class="detail-grid">
+                <section class="product-ranking">
+                  <div class="mini-heading"><h3>Produtos mais vendidos</h3><button type="button">Ver lista completa</button></div>
+                  <div class="table-wrap">
+                    <table>
+                      <thead><tr><th>#</th><th>Produto</th><th>Categoria</th><th>Peças</th><th>Valor vendido</th><th>Participação</th></tr></thead>
+                      <tbody>
+                        <tr><td>1</td><td><b>Pingente Filho Verde</b><small>SKU 214299 · Ouro 18k</small></td><td><span class="tag green">Pingente</span></td><td>10</td><td>R$ 890,00</td><td><strong>29,2%</strong></td></tr>
+                        <tr><td>2</td><td><b>Colar Cordão Baiano</b><small>SKU 996655 · Ouro 18k</small></td><td><span class="tag rose">Colar</span></td><td>6</td><td>R$ 814,00</td><td><strong>26,7%</strong></td></tr>
+                        <tr><td>3</td><td><b>Colar Borboleta Preta</b><small>SKU 376198 · Ouro 18k</small></td><td><span class="tag rose">Colar</span></td><td>6</td><td>R$ 534,00</td><td><strong>17,5%</strong></td></tr>
+                        <tr><td>4</td><td><b>Argola Borboleta</b><small>SKU 185126 · Ouro 18k</small></td><td><span class="tag blue">Argola</span></td><td>6</td><td>R$ 474,00</td><td><strong>15,6%</strong></td></tr>
+                        <tr><td>5</td><td><b>Brinco Ponto de Luz</b><small>SKU 122060 · Ouro 18k</small></td><td><span class="tag amber">Brinco</span></td><td>6</td><td>R$ 334,00</td><td><strong>11,0%</strong></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <aside class="breakdowns">
+                  <section>
+                    <h3>Categorias mais vendidas</h3>
+                    <ul class="bars">
+                      <li><span>Brinco</span><i><b style="width:92%"></b></i><strong>390 <small>peças</small></strong></li>
+                      <li><span>Colar</span><i><b style="width:78%"></b></i><strong>305 <small>peças</small></strong></li>
+                      <li><span>Pulseira</span><i><b style="width:61%"></b></i><strong>233 <small>peças</small></strong></li>
+                      <li><span>Anel</span><i><b style="width:39%"></b></i><strong>112 <small>peças</small></strong></li>
+                    </ul>
+                  </section>
+                  <section>
+                    <h3>Origem das vendas</h3>
+                    <div class="stacked-bar"><i style="width:61%"></i><i style="width:20%"></i><i style="width:11%"></i><i style="width:8%"></i></div>
+                    <dl class="origins">
+                      <div><dt><i></i>Maleta</dt><dd>61%</dd><dd>R$ 75.909</dd></div>
+                      <div><dt><i></i>Balcão</dt><dd>20%</dd><dd>R$ 24.891</dd></div>
+                      <div><dt><i></i>Site</dt><dd>11%</dd><dd>R$ 13.690</dd></div>
+                      <div><dt><i></i>Outros</dt><dd>8%</dd><dd>R$ 9.965</dd></div>
+                    </dl>
+                  </section>
+                </aside>
+              </div>
+            </div>
+
+            <div class="analytics-view" data-view-panel="month" hidden>
+              <div class="metric-row">
+                <article><span>Faturamento recebido</span><strong>R$ 9.891,59</strong><small>+12% sobre agosto</small></article>
+                <article><span>Vendas realizadas</span><strong>47</strong><small>pela data da venda</small></article>
+                <article><span>Peças vendidas</span><strong>86</strong><small>1,8 peça por venda</small></article>
+                <article><span>Clientes atendidas</span><strong>39</strong><small>6 novas no período</small></article>
+              </div>
+              <div class="month-grid">
+                <section><h3>Movimento do mês</h3><div class="mini-chart"><i style="height:38%"></i><i style="height:56%"></i><i style="height:47%"></i><i style="height:73%"></i><i style="height:66%"></i><i style="height:84%"></i><i style="height:62%"></i><i style="height:92%"></i></div></section>
+                <section><h3>Destaques do mês</h3><dl class="highlights"><div><dt>Maior venda</dt><dd>R$ 777,00</dd></div><div><dt>Ticket médio</dt><dd>R$ 148,94</dd></div><div><dt>Dia mais forte</dt><dd>05/09</dd></div></dl><p class="pending-rule">Critérios finais desses destaques aguardam decisão de produto.</p></section>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="screen" id="lancamentos" aria-labelledby="launch-title" hidden>
+          <div class="page-heading">
+            <div><p class="context">Operação do dia</p><h1 id="launch-title">Novo lançamento</h1><p>Escolha o tipo de operação e registre cada efeito com clareza.</p></div>
+            <button class="button ghost" type="button">Limpar rascunho</button>
+          </div>
+          <div class="choice-grid" role="radiogroup" aria-label="Tipo de lançamento">
+            <button class="choice active" type="button" role="radio" aria-checked="true"><span>Venda normal</span><small>Produtos do estoque</small></button>
+            <button class="choice" type="button" role="radio" aria-checked="false"><span>Monte seu Colar</span><small>Modelo e composição</small></button>
+            <button class="choice" type="button" role="radio" aria-checked="false"><span>Saída sem faturamento</span><small>Brinde, uso próprio, perda ou sorteio</small></button>
+          </div>
+          <div class="launch-grid">
+            <section class="data-section launch-card"><div class="section-heading"><div><h2>Itens da venda</h2><p>Nome, SKU ou código da etiqueta</p></div><button class="button secondary" type="button">Adicionar item</button></div><div class="search-field">Buscar produto <kbd>⌘ K</kbd></div><ul class="cart-list"><li><span class="jewel">◌</span><div><b>Argola Duas Linhas Cravejadas</b><small>SKU 122060 · Banho de Ouro 18k</small></div><span>1 × R$ 72,00</span><strong>R$ 72,00</strong></li><li><span class="jewel">◇</span><div><b>Pulseira Medalha Salmo</b><small>SKU 451109 · Banho de Ouro 18k</small></div><span>1 × R$ 136,00</span><strong>R$ 136,00</strong></li><li><span class="jewel">⌁</span><div><b>Monte seu Colar · Casal</b><small>SKU 326660 · composição confirmada</small></div><span>1 × R$ 129,00</span><strong>R$ 129,00</strong></li></ul></section>
+            <section class="data-section customer-card"><div class="section-heading"><div><h2>Cliente e venda</h2><p>Identificação e origem da operação</p></div><button class="button secondary" type="button">Nova cliente</button></div><div class="search-field">Buscar por nome, WhatsApp ou CPF</div><div class="selected-customer"><span>TN</span><div><b>Thais Nania</b><small>(19) 9 8888-7777 · CPF final 890-00</small></div><button aria-label="Remover cliente">×</button></div><div class="form-grid"><label>Data da venda<input value="11/09/2026" readonly></label><label>Local ou canal<select><option>Balcão</option></select></label><label class="wide">Observação<textarea placeholder="Informação útil para o histórico"></textarea></label></div></section>
+          </div>
+          <section class="payment data-section"><div class="section-heading"><div><h2>Pagamento</h2><p>O status é calculado pelos recebimentos, nunca escolhido manualmente.</p></div><span class="status paid">Pago</span></div><div class="payment-summary"><span>Venda <b>R$ 337,00</b></span><span>Recebido <b>R$ 337,00</b></span><span>A receber <b>R$ 0,00</b></span></div><div class="payment-line"><strong>R$ 337,00</strong><span>PIX</span><span>Pago hoje</span><button type="button" aria-label="Mais opções">•••</button></div><div class="payment-actions"><button class="button ghost" type="button">+ Adicionar pagamento</button><button class="button ghost" type="button">Parcelar</button><button class="button primary" type="button">Finalizar venda · R$ 337,00</button></div></section>
+        </section>
+
+        <section class="screen" id="clientes" aria-labelledby="clients-title" hidden>
+          <div class="page-heading"><div><p class="context">Relacionamento</p><h1 id="clients-title">Clientes</h1><p>Compras, pagamentos e valores em aberto aparecem separados.</p></div><button class="button primary" type="button">Nova cliente</button></div>
+          <div class="metric-row compact"><article><span>Clientes ativas</span><strong>345</strong><small>cadastros com histórico</small></article><article><span>Compraram no mês</span><strong>39</strong><small>6 novas clientes</small></article><article><span>Com valor em aberto</span><strong>8</strong><small>R$ 12.269,90</small></article></div>
+          <section class="data-section client-list"><div class="section-heading"><div><h2>Lista de clientes</h2><p>Busque por nome, telefone ou CPF</p></div><div class="search-field narrow">Buscar cliente</div></div><table><thead><tr><th>Cliente</th><th>Comprou</th><th>Pago</th><th>Em aberto</th><th>Última compra</th><th></th></tr></thead><tbody><tr><td><b>Camila Ferreira</b><small>(19) 9 8123-4567</small></td><td>R$ 1.284,00</td><td>R$ 1.125,00</td><td><span class="status partial">R$ 159,00</span></td><td>05/09/2026</td><td>›</td></tr><tr><td><b>Juliana Prado</b><small>(19) 9 9211-1098</small></td><td>R$ 898,00</td><td>R$ 898,00</td><td><span class="status paid">R$ 0,00</span></td><td>04/09/2026</td><td>›</td></tr><tr><td><b>Ana Luiza Sedassari</b><small>(19) 9 7790-3112</small></td><td>R$ 2.044,00</td><td>R$ 1.704,00</td><td><span class="status partial">R$ 340,00</span></td><td>03/09/2026</td><td>›</td></tr></tbody></table></section>
+        </section>
+
+        <section class="screen" id="saidas" aria-labelledby="outputs-title" hidden>
+          <div class="page-heading"><div><p class="context">Movimento não comercial</p><h1 id="outputs-title">Saídas sem faturamento</h1><p>Retira a peça do estoque sem tratar a operação como venda ou receita.</p></div><button class="button primary" type="button">Registrar saída</button></div>
+          <div class="warning-banner"><strong>Estoque com rastreabilidade</strong><span>Toda saída gera movimento na razão. Nada é apagado nem convertido em venda.</span></div>
+          <div class="metric-row compact"><article><span>Brindes</span><strong>12</strong><small>18 peças no período</small></article><article><span>Uso próprio</span><strong>4</strong><small>4 peças no período</small></article><article><span>Perdas</span><strong>2</strong><small>2 peças no período</small></article><article><span>Sorteios</span><strong>3</strong><small>9 peças no período</small></article></div>
+          <section class="data-section output-list"><div class="section-heading"><div><h2>Histórico de saídas</h2><p>Motivo, destino e explicação auditável</p></div><button class="button ghost" type="button">Exportar</button></div><table><thead><tr><th>Data</th><th>Motivo</th><th>Destino</th><th>Peças</th><th>Responsável</th><th>Estado</th></tr></thead><tbody><tr><td>10/09/2026</td><td><span class="tag rose">Brinde</span></td><td>Cliente VIP</td><td>2</td><td>Sthefany Marques</td><td><span class="status paid">Concluída</span></td></tr><tr><td>08/09/2026</td><td><span class="tag amber">Sorteio</span></td><td>Campanha Primavera</td><td>4</td><td>Sthefany Marques</td><td><span class="status paid">Concluída</span></td></tr><tr><td>03/09/2026</td><td><span class="tag blue">Uso próprio</span></td><td>Produção de conteúdo</td><td>1</td><td>Sthefany Marques</td><td><span class="status neutral">Estornada</span></td></tr></tbody></table></section>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const tabs = [...document.querySelectorAll('[data-screen]')];
+      const screens = [...document.querySelectorAll('.screen')];
+      tabs.forEach((tab) => tab.addEventListener('click', () => {
+        tabs.forEach((item) => { item.classList.toggle('active', item === tab); item.removeAttribute('aria-current'); });
+        tab.setAttribute('aria-current', 'page');
+        screens.forEach((screen) => { const active = screen.id === tab.dataset.screen; screen.classList.toggle('active', active); screen.hidden = !active; });
+        window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      }));
+
+      const viewButtons = [...document.querySelectorAll('[data-view]')];
+      const viewPanels = [...document.querySelectorAll('[data-view-panel]')];
+      viewButtons.forEach((button) => button.addEventListener('click', () => {
+        viewButtons.forEach((item) => item.classList.toggle('active', item === button));
+        viewPanels.forEach((panel) => { const active = panel.dataset.viewPanel === button.dataset.view; panel.classList.toggle('active', active); panel.hidden = !active; });
+      }));
+
+      document.querySelectorAll('.period-control button:not(.calendar-button)').forEach((button) => button.addEventListener('click', () => {
+        document.querySelectorAll('.period-control button').forEach((item) => item.classList.remove('active'));
+        button.classList.add('active');
+      }));
+
+      const profile = document.querySelector('.profile');
+      const menu = document.querySelector('#profile-menu');
+      profile.addEventListener('click', () => {
+        const open = profile.getAttribute('aria-expanded') === 'true';
+        profile.setAttribute('aria-expanded', String(!open));
+        menu.hidden = open;
+      });
+    </script>
+  </body>
+</html>

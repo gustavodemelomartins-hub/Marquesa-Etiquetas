@@ -17,3 +17,4 @@ Ligação entre o material de produto desta pasta e o código real.
 | [frontend-feature-map.md](frontend-feature-map.md) | onde cada tela vive hoje no legado e no React |
 | [backend-feature-map.md](backend-feature-map.md) | qual módulo da API sustenta cada tela |
 | [integration-status.md](integration-status.md) | o que já está ligado ponta a ponta |
+| [catalogo-fase-4-5.md](catalogo-fase-4-5.md) | relação exata entre as telas conceituais de Catálogo e o contrato da Fase 4.5 |

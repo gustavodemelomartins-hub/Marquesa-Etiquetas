@@ -12,7 +12,10 @@ Imagens deste componente ficam nesta pasta, nome
 
 | Variante | Quando usar | Referência |
 |---|---|---|
-| | | |
+| estado do pipeline de catálogo | indicar um dos dez estados fechados de preparação/aprovação/publicação | [Catálogo — estados](../../03-screens/catalogo/states.md#pipeline-de-publicação--conjunto-fechado) |
+| falta humana | nome, categoria, preço, quantidade ou foto podem ser resolvidos pela operação | [Catálogo — dimensões](../../03-screens/catalogo/rules.md#falta-bloqueio-e-presença) |
+| bloqueio do sistema | `sem_r2`, `sem_preparador` ou `foto_nao_preparada`; nunca parece checkbox humano | [Catálogo — dimensões](../../03-screens/catalogo/rules.md#falta-bloqueio-e-presença) |
+| presença observada na loja | informar “Está na loja” sem alegar “Publicamos” | [Catálogo — estados](../../03-screens/catalogo/states.md#dimensões-simultâneas-por-produto) |
 
 ## Estados
 
@@ -28,6 +31,18 @@ Imagens deste componente ficam nesta pasta, nome
 
 - cor nunca é o único portador do significado; sempre acompanha texto;
 - o conjunto de badges de um domínio é fechado e listado no `rules.md` da tela.
+- origem/canal, motivo da saída, estado operacional e estado financeiro são
+  dimensões diferentes; não reutilizar o mesmo badge como se fossem sinônimos;
+- `Concluída` não substitui `Paga`, e `A receber` não é estado operacional da
+  venda;
+- brinde, uso próprio, perda e sorteio têm texto e ícones próprios; ajuste de
+  inventário não vira motivo de saída por semelhança de cor.
+- falta humana, bloqueio de infraestrutura, presença na loja e estado do
+  pipeline são dimensões diferentes; não usar um badge para substituir outra;
+- `estadoObservado: true` usa linguagem de presença, não de autoria da
+  publicação;
+- `aprovacaoInvalidada` acompanha explicação e ação de revisar novamente; não
+  aparece como falha técnica.
 
 ## Componente React equivalente hoje
 

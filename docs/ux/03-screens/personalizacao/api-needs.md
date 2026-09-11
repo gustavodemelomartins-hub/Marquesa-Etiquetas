@@ -11,13 +11,21 @@ Baseline de contratos existentes:
 
 | Dado | Rota atual | Observação |
 |---|---|---|
-| | | |
+| modelos e opções de personalização | `GET /api/personalizacao/modelos?inativos=1` | contrato existe; funcionalidade permanece sujeita ao estado de ativação |
 
 ## Falta
 
 | # | Dado necessário | Existe em algum lugar? | Bloqueia o quê | Fase provável |
 |---|---|---|---|---|
-| | | | | |
+| API-PER-001 | slots exigidos pelo modelo, com grupo, posição e ordem | domínio de personalização | renderização dinâmica por posição | avaliar no contrato funcional existente |
+| API-PER-002 | disponibilidade elegível por SKU/opção | catálogo e estoque | pré-validação e mensagem `precisa N, disponível M` | avaliar no contrato funcional existente |
+| API-PER-003 | validação autoritativa da composição agregando quantidades por SKU | registro de venda/personalização | impedir conclusão quando um SKU repetido não cobre todos os slots | obrigatório no servidor; formato a mapear |
+
+## Regra de consumo repetido
+
+A interface soma quantas vezes cada SKU foi escolhido, inclusive em slots do
+mesmo grupo. Essa conta serve para feedback imediato; a confirmação definitiva
+é do servidor, porque o estoque pode mudar entre a seleção e a finalização.
 
 ## Incompatibilidade conhecida
 

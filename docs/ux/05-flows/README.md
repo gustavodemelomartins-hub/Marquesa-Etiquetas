@@ -10,7 +10,14 @@ nome `AAAA-MM-DD_fluxo-<nome>_<sequencia>.<ext>`.
 
 | Fluxo | Arquivo | Telas envolvidas | Estado |
 |---|---|---|---|
-| | | | |
+| Preparar, imprimir e reimprimir etiquetas | [etiquetas-preparar-imprimir-reimprimir.md](etiquetas-preparar-imprimir-reimprimir.md) | Catálogo/importação → Etiquetas: Preparar, Impressão e Histórico | descrito |
+| Lançar venda e consultar histórico | [lancar-venda-e-consultar-historico.md](lancar-venda-e-consultar-historico.md) | Vendas, Personalização, Clientes e Financeiro | em detalhamento |
+| Registrar recebimentos da venda | [registrar-recebimentos-da-venda.md](registrar-recebimentos-da-venda.md) | Nova Venda, Histórico e Financeiro | descrito |
+| Registrar e estornar saída sem faturamento | [registrar-e-estornar-saida-sem-faturamento.md](registrar-e-estornar-saida-sem-faturamento.md) | Vendas, Estoque, Histórico e Inventário | em detalhamento |
+| Cadastrar e completar produto | [catalogo-cadastrar-e-completar-produto.md](catalogo-cadastrar-e-completar-produto.md) | Central do Catálogo, Produto, Categorias e Galeria | mapeado; contrato de salvar produto não exposto no espelho |
+| Enviar e casar fotos em lote | [catalogo-enviar-e-casar-fotos-em-lote.md](catalogo-enviar-e-casar-fotos-em-lote.md) | Fotos em lote, Revisão do casamento, Galeria e Órfãs | descrito pelo contrato 4.5 |
+| Preparar, aprovar e publicar | [catalogo-preparar-aprovar-publicar.md](catalogo-preparar-aprovar-publicar.md) | Preparação, Aprovação e Publicação | descrito; publicação real desligada |
+| Revisar divergências com Nuvemshop | [catalogo-revisar-divergencias-nuvemshop.md](catalogo-revisar-divergencias-nuvemshop.md) | Central, Sincronização e Preços divergentes | descrito pelo contrato 4.5 |
 
 ## Modelo de arquivo de fluxo
 

@@ -12,7 +12,8 @@ Imagens deste componente ficam nesta pasta, nome
 
 | Variante | Quando usar | Referência |
 |---|---|---|
-| | | |
+| período com presets | intervalo livre combinado a Hoje, 7, 30 e 90 dias | históricos de vendas e saídas |
+| busca + facetas | texto combinado a canal, tipo, pagamento, estado, motivo ou pessoa | históricos e filas |
 
 ## Estados
 
@@ -29,6 +30,13 @@ Imagens deste componente ficam nesta pasta, nome
 - filtro ativo é visível sem abrir menu;
 - resultado vazio por filtro é estado próprio, distinto de `vazio`;
 - filtro não pode alterar dado, só a visão.
+- cards, tabela, paginação, rodapé e exportação usam exatamente o mesmo conjunto
+  filtrado;
+- limpar filtros restaura um padrão declarado pela tela, não um intervalo
+  silenciosamente diferente;
+- abrir uma lista por `Ver todas` preserva o contexto de origem até a pessoa
+  escolher outro período;
+- exportação não é filtro e deve informar formato e alcance antes de começar.
 
 ## Componente React equivalente hoje
 

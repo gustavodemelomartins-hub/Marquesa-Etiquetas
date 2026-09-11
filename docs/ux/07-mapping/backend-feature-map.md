@@ -14,6 +14,8 @@ adapters) e as fases de domínio ainda vão mover código; por isso a coluna
 | Clientes | `comercial.js` | clientes | fase 5 |
 | Revendedoras | `maletas.js`, `comercial.js` | revendedoras, maletas | fase 6 |
 | Estoque | `estoque.js`, `catalogo.js`, `catalogo-comandos.js`, `catalogo-importacao.js`, `fotos.js` | estoque e catálogo | fase 4 |
+| Catálogo, Mídia e Publicação | nomes finais dos módulos não visíveis nesta branch; famílias de rota documentadas em `CONTRATO-UX-API-4-5.md` | catálogo, categorias, mídia, preparação, publicação e Nuvemshop | fase 4.5 — implementada/provada na branch paralela, sem deploy |
+| Etiquetas | sem módulo de rota próprio; fila e impressão atuais operam em `index.html` | composição e impressão de etiquetas | — indefinido — |
 | Reparos | não existe | — | — |
 | Personalização | `vendas.js` (modelos de Monte seu Colar) | personalização | — indefinido — |
 
@@ -26,3 +28,7 @@ Fonte do contrato: `docs/architecture/API-ROUTES-BASELINE.md` e
 `scripts/api-contracts.test.mjs` reprova qualquer mudança de método, caminho ou
 exigência de chave — inclusive uma "melhoria" proposta a partir de um material
 desta pasta.
+
+Para Catálogo 4.5, a fonte específica é
+`docs/domains/CONTRATO-UX-API-4-5.md`. Como ela ainda não está nesta branch, o
+mapa de UX usa o espelho integral aprovado e não inventa nomes de módulo.

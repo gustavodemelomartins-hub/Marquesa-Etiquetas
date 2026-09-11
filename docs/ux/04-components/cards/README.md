@@ -12,7 +12,9 @@ Imagens deste componente ficam nesta pasta, nome
 
 | Variante | Quando usar | Referência |
 |---|---|---|
-| | | |
+| opção selecionável | escolher um modo mutuamente exclusivo, com ícone, título, explicação curta, rádio e estado ativo | Vendas: tipos de lançamento e históricos |
+| indicador resumido | mostrar uma métrica e sua unidade dentro do mesmo conjunto filtrado | Vendas: históricos; Etiquetas: resumo da impressão |
+| opção visual de produto | escolher modelo/componente com imagem, SKU, disponibilidade e seleção | Monte seu Colar |
 
 ## Estados
 
@@ -28,6 +30,11 @@ Imagens deste componente ficam nesta pasta, nome
 
 - card que mostra número segue as regras de [metrics](../../03-screens/dashboard/metrics.md);
 - card não esconde dado essencial atrás de hover.
+- opção selecionável usa rádio e borda/ícone, nunca somente cor;
+- conjunto de opções mutuamente exclusivas permite navegação por teclado;
+- card de indicador não inventa unidade ou fórmula: título precisa dizer
+  `vendido`, `recebido`, `a receber`, `peças` ou a grandeza exata;
+- cards de motivos e estados usam cor sem transformar bordô em cor de todo texto.
 
 ## Componente React equivalente hoje
 

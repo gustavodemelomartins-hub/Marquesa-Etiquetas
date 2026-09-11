@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Estado do material | vazio |
-| Última atualização | — |
-| Referências recebidas | 0 |
+| Estado do material | recebendo |
+| Última atualização | 10/09/2026 |
+| Referências recebidas | 1 mockup próprio, dentro do fluxo de Vendas |
 | Existe hoje no legado? | parcial — modelos de Monte seu Colar |
 | Existe hoje no React? | ver [07-mapping/frontend-feature-map.md](../../07-mapping/frontend-feature-map.md) |
 
@@ -13,11 +13,13 @@
 
 ## Objetivo da tela
 
-Peça feita ou ajustada a pedido, incluindo Monte seu Colar. Modelo, escolha do cliente e produção.
+Configurar um Monte seu Colar dentro do rascunho de venda: escolher o modelo,
+personalizar cada posição com componentes físicos disponíveis e adicionar a
+composição fechada à venda.
 
 ## Para quem
 
-— ainda não definido — (Gustavo, Sthefany, revendedora, operação de estoque?)
+Sthefany Marques e demais perfis autorizados a lançar vendas.
 
 ## Conteúdo da pasta
 
@@ -38,10 +40,20 @@ Preencher quando houver mockup. Um bloco por seção visível.
 
 | # | Bloco | O que mostra | Origem do dado | Referência |
 |---|---|---|---|---|
-| | | | | |
+| 1 | modelos prontos | imagem, nome, SKU comercial, preço e disponibilidade | personalização / catálogo / estoque | [mockup](../vendas/images/2026-09-10_vendas-monte-seu-colar_desktop_01.jpg) |
+| 2 | posições da composição | opções compatíveis com imagem, SKU e disponibilidade | componentes físicos / estoque | [mockup](../vendas/images/2026-09-10_vendas-monte-seu-colar_desktop_01.jpg) |
+| 3 | resumo da ação | preço da composição e retorno ao rascunho de venda | modelo selecionado | [mockup](../vendas/images/2026-09-10_vendas-monte-seu-colar_desktop_01.jpg) |
+
+## Revisão inicial
+
+O conceito em duas etapas está aprovado como direção. Antes de fechar o
+desenho, a coluna direita precisa representar **cada posição** do modelo — não
+apenas uma escolha genérica de menino e outra de menina — para suportar duas ou
+três crianças, repetições e ordem dos pingentes. As decisões correspondentes
+estão em `VEN-Q016` a `VEN-Q018` na tela de Vendas.
 
 ## Log de material recebido
 
 | Data | O que chegou | Arquivo | Quem enviou |
 |---|---|---|---|
-| | | | |
+| 10/09/2026 | composição Monte seu Colar dentro de Novo lançamento | [mockup](../vendas/images/2026-09-10_vendas-monte-seu-colar_desktop_01.jpg) | Gustavo |
