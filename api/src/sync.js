@@ -15,6 +15,9 @@
  */
 import { Nuvemshop, mapearSkus } from './nuvemshop.js';
 import { ingerirFotosDoCatalogo } from './fotos.js';
+/* O juiz UNICO de completude (Fase 4.5): "peca pronta" deixou de ter quatro
+   definicoes que discordavam. */
+import { faltasDaPeca, sentinelasDeCategoria } from './catalogo/completude.js';
 import { movimentar, saldosDoSku } from './estoque.js';
 import { resolverVariantes, saldosDeVariacao, salvarVariantesDaLoja } from './variantes.js';
 import { vincularPedidoCriadoAqui } from './vendas-nuvemshop.js';
@@ -1231,8 +1234,9 @@ export async function analisarSincronizacao(db, env) {
   const relato = { mudancas: [], semEmpurrar: [], pausado: null };
   await empurrarEstoque(db, loja, mapa, relato, { forcar: false, seco: true });
 
+  const sentinelas = await sentinelasDeCategoria(db);
   const nossos = (await db.prepare(`
-    SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja,
+    SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja, p.foto_url,
            p.foto_original_key, p.foto_tratada_key, p.foto_status,
            p.qtd - COALESCE((
              SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
@@ -1256,13 +1260,17 @@ export async function analisarSincronizacao(db, env) {
       /* Só entra em "criar na loja" quem tem peça em casa: cadastrar o que
          não dá para vender é trabalho sem venda do outro lado. */
       if ((p.casa || 0) > 0) {
+        /* A mesma regra de completude do resto do sistema (Fase 4.5). Antes
+           esta funcao tinha a sua: preco 0 entrava em "criar na loja" aqui e
+           era recusado na tela de publicacao. */
+        const { faltas } = faltasDaPeca(p, { sentinelas });
         const item = { sku: p.sku, desc: p.desc, cat: p.cat, preco: p.preco, casa: p.casa,
-                       fotoStatus: p.foto_status || 'sem_foto' };
-        if (p.preco == null) { bloqueadosSemPreco.push(item); continue; }
+                       fotoStatus: p.foto_status || 'sem_foto', falta: faltas };
+        if (faltas.includes('preco')) { bloqueadosSemPreco.push(item); continue; }
         criarNaLoja.push(item);
-        if (!p.foto_original_key && !p.foto_tratada_key) semFoto.push(item);
-        if (!p.desc || p.desc.trim() === p.sku) semDescricao.push(item);
-        if (!p.cat || p.cat === 'Outros') semCategoria.push(item);
+        if (faltas.includes('foto')) semFoto.push(item);
+        if (faltas.includes('nome')) semDescricao.push(item);
+        if (faltas.includes('categoria')) semCategoria.push(item);
       }
       continue;
     }

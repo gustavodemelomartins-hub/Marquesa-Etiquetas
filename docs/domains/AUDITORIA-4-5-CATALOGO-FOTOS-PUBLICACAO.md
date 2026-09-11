@@ -5,7 +5,7 @@
 - **Natureza:** somente leitura. Nenhum código, migration ou deploy foi produzido.
 - **PROD não foi consultada.** O que depende do dado real está na seção 12.
 
-`docs/PROJECT-MAP.md` **não existe nesta branch** — ele vive em
+O mapa do projeto (PROJECT-MAP) **não existe nesta branch** — ele vive em
 `codex/ui-system-marquesa` e, como registra a memória do projeto, ainda diz
 "4.4 — próximo da fila", o que já não é verdade. Esta auditoria usa o Master
 Plan (`docs/architecture/MASTER-PLAN-SISTEMA-MARQUESA-2026-09.md` § 30),

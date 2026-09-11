@@ -43,8 +43,8 @@ export const rotas = [
   },
   {
     metodo: 'GET', caminho: '/api/catalogo/publicacao', auth: 'bearer',
-    async handler({ db }) {
-      return json(await listarPublicacoes(db));
+    async handler({ db, env }) {
+      return json(await listarPublicacoes(db, env));
     },
   },
   {

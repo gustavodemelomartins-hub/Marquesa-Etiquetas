@@ -26,6 +26,10 @@ import { Nuvemshop } from './nuvemshop.js';
 import { salvarFoto, lerFoto, apagarFoto, tipoValido } from './fotos-storage.js';
 import { lerConfig } from './plataforma/config.js';
 import { normSku } from './sku.js';
+/* O juiz UNICO de completude (Fase 4.5). Esta funcao tinha a sua propria
+   regra — preco NULL bloqueava, preco 0 passava — e discordava da de
+   publicacao-catalogo.js sobre a mesma peca. */
+import { faltasDaPeca, sentinelasDeCategoria } from './catalogo/completude.js';
 
 /* Os cinco estados da foto, que é o que a tela mostra na peça. */
 export const FOTO = {
@@ -515,8 +519,9 @@ export async function gerarFundoBranco(db, env, sku) {
  *  para ser um detalhe menor entre os outros.
  */
 export async function pendenciasDePublicacao(db) {
+  const sentinelas = await sentinelasDeCategoria(db);
   const r = await db.prepare(`
-    SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja,
+    SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja, p.foto_url,
            p.foto_original_key, p.foto_tratada_key, p.foto_status,
            p.qtd - COALESCE((
              SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
@@ -557,15 +562,25 @@ export async function pendenciasDePublicacao(db) {
       variacoes: vars.map(v => v.nome),
       temVariacao: vars.length > 1,
     };
+    /* A regra nao mora mais aqui. O juiz unico decide, e esta funcao so
+       agrupa o veredito com os nomes que a tela conhece. `quantidade` nunca
+       aparece porque o filtro acima ja exigiu peca em casa. */
+    const { faltas, bloqueios } = faltasDaPeca(p, { sentinelas });
     const falta = [];
-    if (!p.foto_original_key) { falta.push('foto'); semFoto.push(item); }
-    else if (!p.foto_tratada_key) { falta.push('fundo_branco'); semFundoBranco.push(item); }
-    /* "Descrição" aqui é a descrição comercial. A da etiqueta é curta por
-       natureza — quando ela é só o próprio código, não há texto nenhum. */
-    if (!p.desc || p.desc.trim() === p.sku) { falta.push('descricao'); semDescricao.push(item); }
-    if (!p.cat || p.cat === 'Outros') { falta.push('categoria'); semCategoria.push(item); }
-    // §24: sem preço NUNCA é "pronto", ponto — não é uma pendência opcional
-    if (p.preco == null) { falta.push('preco'); semPreco.push(item); }
+    for (const f of faltas) {
+      if (f === 'foto') { falta.push('foto'); semFoto.push(item); }
+      /* "Descricao" aqui e a descricao comercial. A da etiqueta e curta por
+         natureza — quando ela e so o proprio codigo, nao ha texto nenhum. */
+      else if (f === 'nome') { falta.push('descricao'); semDescricao.push(item); }
+      else if (f === 'categoria') { falta.push('categoria'); semCategoria.push(item); }
+      // §24 mais a decisao de 10/09/2026: preco 0 tambem nao e "pronto".
+      else if (f === 'preco') { falta.push('preco'); semPreco.push(item); }
+    }
+    /* Fundo branco e BLOQUEIO, nao falta: sem R2 no ambiente, ninguem
+       consegue produzi-lo, e cobrar isso da Sthefany era o defeito. Entra
+       na lista da tela so quando nao ha mais nada a fazer antes. */
+    item.bloqueios = bloqueios;
+    if (!falta.length && bloqueios.length) semFundoBranco.push(item);
 
     /* `falta` vai DENTRO do item, e não só implícito na lista em que ele
        caiu: uma peça sem foto e sem preço aparece em duas listas, e em
