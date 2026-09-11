@@ -27,7 +27,8 @@
 import { catalogoDeVariantes } from './nuvemshop.js';
 import { movimentar } from './estoque.js';
 
-export const normSku = (v) => String(v == null ? '' : v).trim().replace(/\s+/g, '').toUpperCase();
+export { normSku } from './sku.js';
+import { normSku } from './sku.js';
 
 function parseJson(s, padrao) {
   try { const v = JSON.parse(s); return v == null ? padrao : v; } catch (e) { return padrao; }

@@ -20,6 +20,7 @@ import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
    regra escrita de novo — e cópia de regra é divergência esperando data
    marcada. §21 do plano mestre já cobrou essa dívida uma vez. */
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
+import { normSku } from './sku.js';
 /* §43 — Monte seu Colar: base + componentes + configuração da venda. */
 import {
   prepararPersonalizacoes, gravarPersonalizacoes, personalizacoesDeVendas,
@@ -29,7 +30,10 @@ import {
 const hoje = () => new Date().toISOString().slice(0, 10);
 
 /** §24: peça sem preço bloqueia a venda, em vez de vender por R$ 0. */
-async function varianteDaVenda(db, sku, varianteId) {
+/* Exportada para caracterização (Fase 4, item 2): é o ponto onde a venda
+   decide QUAL variação saiu, e esse contrato precisa de teste próprio.
+   Nenhum outro módulo a chama. */
+export async function varianteDaVenda(db, sku, varianteId) {
   const loja = (await db.prepare(
     `SELECT variante_id, nome FROM loja_variantes WHERE sku_norm = ? ORDER BY posicao`
   ).bind(sku).all()).results;
@@ -153,7 +157,7 @@ export async function registrarVenda(db, env, {
   const reservar = (sku, qtd) => reservado.set(sku, (reservado.get(sku) || 0) + qtd);
 
   for (const entrada of entradas) {
-    const sku = String(entrada.sku || '').trim().toUpperCase();
+    const sku = normSku(entrada.sku);
     const qtd = +entrada.qtd || 0;
     const s = await saldosDoSku(db, sku);
     if (!s) return json({ erro: `Código ${sku} não está no catálogo`, sku }, 400);

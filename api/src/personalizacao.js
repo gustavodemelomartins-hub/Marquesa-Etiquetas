@@ -47,7 +47,8 @@
  *  telas sobre a mesma regra, e não duas regras.
  */
 import { saldosDoSku } from './estoque.js';
-import { parametros } from './plataforma/d1.js';
+import { consultarEmLotes } from './plataforma/d1.js';
+import { normSku } from './sku.js';
 
 /** Pacote 2 — a família de colares de filhos deixou de ser configurável por
  * improviso. Estes são os SKUs confirmados pela operação em 07/09/2026.
@@ -246,7 +247,7 @@ export async function salvarModelo(db, corpo = {}) {
   if (!Number.isInteger(slotsMin) || slotsMin < 1) return ERRO(400, 'O modelo precisa de ao menos uma posição.');
   if (!Number.isInteger(slotsMax) || slotsMax < slotsMin) return ERRO(400, 'O máximo de posições não pode ser menor que o mínimo.');
 
-  const baseSku = corpo.baseSkuPadrao ? String(corpo.baseSkuPadrao).trim().toUpperCase() : null;
+  const baseSku = corpo.baseSkuPadrao ? normSku(corpo.baseSkuPadrao) : null;
   if (baseSku) {
     const b = await saldosDoSku(db, baseSku);
     if (!b) return ERRO(400, `A base ${baseSku} não está no catálogo.`, { sku: baseSku });
@@ -257,7 +258,7 @@ export async function salvarModelo(db, corpo = {}) {
 
   const opcoes = Array.isArray(corpo.opcoes) ? corpo.opcoes : [];
   for (const o of opcoes) {
-    const sku = String(o.componenteSku ?? '').trim().toUpperCase();
+    const sku = normSku(o.componenteSku);
     if (!sku) return ERRO(400, 'Toda opção precisa de um código de componente.');
     const s = await saldosDoSku(db, sku);
     if (!s) return ERRO(400, `O componente ${sku} não está no catálogo.`, { sku });
@@ -298,7 +299,7 @@ export async function salvarModelo(db, corpo = {}) {
         `INSERT INTO personalizacao_opcoes
            (modelo_id, componente_sku, variacao, variante_id, rotulo, grupo, ordem, ativo)
          VALUES (?,?,?,?,?,?,?,1)`,
-      ).bind(id, String(o.componenteSku).trim().toUpperCase(),
+      ).bind(id, normSku(o.componenteSku),
         String(o.variacao ?? '').trim() || null,
         o.varianteId == null || o.varianteId === '' ? null : String(o.varianteId),
         String(o.rotulo).trim(), String(o.grupo ?? '').trim() || null,
@@ -353,7 +354,7 @@ export async function prepararPersonalizacoes(db, lista, {
       if (!modelo.ativo) return { erro: ERRO(409, `${onde}: o modelo "${modelo.nome}" está inativo.`) };
     }
 
-    const basePedida = String(p.baseSku ?? modelo?.base_sku_padrao ?? '').trim().toUpperCase();
+    const basePedida = normSku(p.baseSku ?? modelo?.base_sku_padrao);
     if (canonico && basePedida && basePedida !== SKU_BASE_COLAR) {
       return { erro: ERRO(409, `${onde}: esta família usa sempre a base ${SKU_BASE_COLAR}.`) };
     }
@@ -402,7 +403,7 @@ export async function prepararPersonalizacoes(db, lista, {
     }];
     const slots = [];
     for (const [k, c] of componentes.entries()) {
-      const sku = String(c.componenteSku ?? c.sku ?? '').trim().toUpperCase();
+      const sku = normSku(c.componenteSku ?? c.sku);
       if (!sku) return { erro: ERRO(400, `${onde}: componente sem código na posição ${k + 1}.`) };
       const qtd = Number(c.qtd ?? 1) || 1;
       if (qtd < 1) return { erro: ERRO(400, `${onde}: quantidade inválida na posição ${k + 1}.`) };
@@ -540,17 +541,26 @@ export async function gravarPersonalizacoes(db, vendaId, preparadas, {
 export async function personalizacoesDeVendas(db, vendaIds = []) {
   const ids = [...new Set((vendaIds ?? []).filter((x) => x != null))];
   if (!ids.length) return new Map();
-  const qs = parametros(ids.length);
-  const { results } = await db.prepare(
-    `SELECT vp.*, vpi.posicao, vpi.componente_sku, vpi.componente_nome,
-            vpi.variacao AS item_variacao, vpi.variante_id AS item_variante_id,
-            vpi.rotulo, vpi.qtd AS item_qtd,
-            vpi.movimento_id
-       FROM venda_personalizacoes vp
-       LEFT JOIN venda_personalizacao_itens vpi ON vpi.personalizacao_id = vp.id
-      WHERE vp.venda_id IN (${qs})
-      ORDER BY vp.id, vpi.posicao`,
-  ).bind(...ids).all().catch(() => ({ results: [] }));
+  /* Em lotes porque o D1 limita quantos parâmetros uma consulta aceita.
+     O histórico de uma cliente antiga passa de cem vendas, e sem a quebra a
+     consulta falhava inteira — com o `catch` transformando a falha em
+     "nenhuma composição", que na tela vira o colar desmontado em peças
+     soltas. Cada venda está em um lote só, então as linhas de uma mesma
+     composição continuam juntas e na ordem de `vpi.posicao`. */
+  let results = [];
+  try {
+    results = await consultarEmLotes(db, ids, (qs) => `
+      SELECT vp.*, vpi.posicao, vpi.componente_sku, vpi.componente_nome,
+             vpi.variacao AS item_variacao, vpi.variante_id AS item_variante_id,
+             vpi.rotulo, vpi.qtd AS item_qtd,
+             vpi.movimento_id
+        FROM venda_personalizacoes vp
+        LEFT JOIN venda_personalizacao_itens vpi ON vpi.personalizacao_id = vp.id
+       WHERE vp.venda_id IN (${qs})
+       ORDER BY vp.id, vpi.posicao`);
+  } catch {
+    results = [];
+  }
 
   const porVenda = new Map();
   const porId = new Map();

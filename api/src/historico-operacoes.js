@@ -8,6 +8,7 @@
  */
 
 import { parametros } from './plataforma/d1.js';
+import { normSku } from './sku.js';
 
 const centavos = (valor) => valor == null ? null : Math.round(Number(valor) * 100);
 const reais = (valor) => valor == null ? null : +(Number(valor) / 100).toFixed(2);
@@ -344,7 +345,7 @@ function agruparAssinatura(itens, ler) {
   const porSku = new Map();
   for (const item of itens) {
     const l = ler(item);
-    const sku = String(l.sku ?? '').trim().toUpperCase();
+    const sku = normSku(l.sku);
     const atual = porSku.get(sku) ?? { qtd: 0, centavos: 0 };
     atual.qtd += Number(l.qtd ?? 0);
     atual.centavos += Number(l.centavos ?? 0);

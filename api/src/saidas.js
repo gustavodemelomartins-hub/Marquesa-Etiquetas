@@ -20,6 +20,7 @@
  *    · corrigir é ESTORNAR, não apagar: o histórico fica, o estoque volta.
  */
 import { movimentar, saldosDoSku, componentesDoKit } from './estoque.js';
+import { normSku } from './sku.js';
 
 const TIPOS = new Set(['brinde', 'uso_proprio', 'perda', 'sorteio']);
 const ROTULO = {
@@ -103,7 +104,7 @@ export async function registrarSaida(db, corpo = {}) {
     return { ok: false, statusHttp: 400, erro: `${data} ainda não chegou.` };
   }
 
-  const sku = String(corpo.sku ?? '').trim().toUpperCase();
+  const sku = normSku(corpo.sku);
   if (!sku) return { ok: false, statusHttp: 400, erro: 'Informe o código da peça.' };
   const qtd = Number(corpo.qtd);
   if (!Number.isInteger(qtd) || qtd <= 0) {

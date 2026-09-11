@@ -7,9 +7,9 @@
  */
 import { gerarFundoBranco, FOTO } from './fotos.js';
 import { lerConfig } from './plataforma/config.js';
+import { normSku } from './sku.js';
 
 const ERRO = (statusHttp, erro, extra = {}) => ({ ok: false, statusHttp, erro, ...extra });
-const normSku = (v) => String(v == null ? '' : v).trim().toUpperCase();
 const texto = (v, limite = 5000) => String(v == null ? '' : v).trim().slice(0, limite);
 
 export const ESTADO_PUBLICACAO = {

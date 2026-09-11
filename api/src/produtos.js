@@ -23,7 +23,8 @@
  */
 import { movimentar } from './estoque.js';
 
-export const normSku = (v) => String(v == null ? '' : v).trim().replace(/[\s ]+/g, '').toUpperCase();
+export { normSku } from './sku.js';
+import { normSku } from './sku.js';
 
 /* ==================================================================== */
 /* 1. DEPENDÊNCIAS — a pergunta que decide                              */
