@@ -18,6 +18,8 @@
 
 import { movimentar } from './estoque.js';
 import { liberarReserva, formatoManual, normSku } from './sku.js';
+import { SEM_CATEGORIA } from './catalogo/completude.js';
+import { normalizarNomeCategoria } from './catalogo/categorias.js';
 
 /* Quanto detalhe volta dos grupos que a tela só EXIBE. O total sempre é o
    de verdade — o corte é só do que ela desenha, para uma planilha de 5.000
@@ -52,6 +54,18 @@ function precoOuNulo(bruto, jaNumero) {
 
 const SKU_LIMPO = /^[A-Z0-9][A-Z0-9._\-/]*$/;
 
+/** Reconhece a categoria pela forma canônica, não pelo texto exato — a
+ *  Fase 4.5 deu a `categorias` um `nome_norm` justamente porque "Colar",
+ *  "colar" e "Colar " precisam casar. Devolve o nome CANÔNICO (o que está
+ *  gravado hoje), nunca o que a planilha escreveu. `null` quando a categoria
+ *  não é reconhecida — inclusive quando foi arquivada, porque `retrato()` só
+ *  carrega as vivas. */
+function resolverCategoria(bruto, categoriasPorNorm) {
+  const t = texto(bruto);
+  if (!t) return null;
+  return categoriasPorNorm.get(normalizarNomeCategoria(t)) || null;
+}
+
 function corta(lista) {
   return { total: lista.length, itens: lista.slice(0, TETO_DETALHE) };
 }
@@ -66,10 +80,16 @@ function inteira(lista) {
 
 /** Leitura do banco que as duas análises precisam. */
 async function retrato(db) {
-  const [prod, cats, kits, cons, pend, naLoja, reservas] = await Promise.all([
+  const [prod, cats, kits, montagem, cons, pend, naLoja, reservas] = await Promise.all([
     db.prepare(`SELECT sku, desc, cat, preco, qtd, status FROM produtos`).all(),
-    db.prepare(`SELECT nome FROM categorias`).all(),
+    // Só categoria VIVA. Uma arquivada não é reconhecível — mesma regra de
+    // categorias.js: reaparecer numa importação não é o caminho de volta.
+    db.prepare(`SELECT nome, nome_norm FROM categorias WHERE arquivada_em IS NULL`).all(),
     db.prepare(`SELECT DISTINCT kit_sku FROM kit_componentes`).all(),
+    // §42 — configuração montável (Monte seu Colar). Ela é uma linha comum
+    // em `produtos`, mas `qtd` dela é residual e nunca deve receber ajuste
+    // de importação — o disponível dela vem dos componentes, igual ao kit.
+    db.prepare(`SELECT DISTINCT sku_comercial FROM personalizacao_modelos WHERE sku_comercial IS NOT NULL`).all(),
     db.prepare(`SELECT mi.sku, SUM(mi.qtd - mi.devolvida) AS fora
                   FROM maleta_itens mi JOIN maletas m ON m.id = mi.maleta_id
                  WHERE m.status IN ('aberta','em_acerto') GROUP BY mi.sku`).all(),
@@ -93,8 +113,9 @@ async function retrato(db) {
 
   return {
     existentes: new Map(prod.results.map(p => [p.sku, p])),
-    categorias: new Set(cats.results.map(c => c.nome)),
+    categoriasPorNorm: new Map(cats.results.map(c => [c.nome_norm, c.nome])),
     kits: new Set(kits.results.map(k => k.kit_sku)),
+    montagem: new Set(montagem.results.map(m => m.sku_comercial)),
     consignado: new Map(cons.results.map(c => [c.sku, c.fora])),
     pendentes: new Map(pend.results.map(p => [normSku(p.sku), p])),
     variantesPorSku,
@@ -143,7 +164,7 @@ function ondeEstaEmUso(sku, r) {
  */
 export async function analisarEstoqueTotal(db, { produtos, modo = 'total' } = {}) {
   if (!Array.isArray(produtos)) return { erro: 'Nada para analisar' };
-  const { existentes, kits, consignado } = await retrato(db);
+  const { existentes, kits, montagem, consignado } = await retrato(db);
   const emCasa = modo === 'casa';
 
   const iguais = [], mudam = [], novos = [], revisao = [];
@@ -193,6 +214,14 @@ export async function analisarEstoqueTotal(db, { produtos, modo = 'total' } = {}
       paraRevisar(sku, 'kit', ex.desc, { valor: qtd });
       continue;
     }
+    if (montagem.has(sku)) {
+      /* §42 — configuração montável (Monte seu Colar). Mesma razão do kit:
+         `qtd` dela é residual e deliberadamente ignorado (estoque.js ›
+         saldosDaConfiguracao); gravar um ajuste aqui inventaria estoque de
+         uma peça que não existe fisicamente. */
+      paraRevisar(sku, 'montagem', ex.desc, { valor: qtd });
+      continue;
+    }
 
     const fora = consignado.get(sku) || 0;
     const alvo = emCasa ? qtd + fora : qtd;
@@ -213,7 +242,7 @@ export async function analisarEstoqueTotal(db, { produtos, modo = 'total' } = {}
      sozinho quem não apareceu é como se apagar peça fosse o padrão. */
   const ausentes = [];
   for (const [sku, p] of existentes) {
-    if (naPlanilha.has(sku) || p.status !== 'ativo' || kits.has(sku)) continue;
+    if (naPlanilha.has(sku) || p.status !== 'ativo' || kits.has(sku) || montagem.has(sku)) continue;
     ausentes.push({ sku, desc: p.desc, qtd: p.qtd });
   }
   ausentes.sort((a, b) => b.qtd - a.qtd);
@@ -260,7 +289,7 @@ export async function analisarEstoqueTotal(db, { produtos, modo = 'total' } = {}
 export async function aplicarEstoqueTotal(db, { itens } = {}) {
   if (!Array.isArray(itens) || !itens.length) return { erro: 'Nada para aplicar' };
 
-  const { existentes, kits, consignado } = await retrato(db);
+  const { existentes, kits, montagem, consignado } = await retrato(db);
   const stmts = [], aplicados = [], recusados = [];
 
   for (const it of itens) {
@@ -268,6 +297,7 @@ export async function aplicarEstoqueTotal(db, { itens } = {}) {
     const ex = existentes.get(sku);
     if (!ex) { recusados.push({ sku, motivo: 'nao_existe' }); continue; }
     if (kits.has(sku)) { recusados.push({ sku, motivo: 'kit' }); continue; }
+    if (montagem.has(sku)) { recusados.push({ sku, motivo: 'montagem' }); continue; }
 
     const alvo = inteiroOuNulo(undefined, it.para);
     if (alvo === null || alvo < 0) { recusados.push({ sku, motivo: 'alvo_invalido' }); continue; }
@@ -314,7 +344,7 @@ export async function analisarNovos(db, { produtos, origem } = {}) {
      existe para fazer. Ver api/REGRAS.md §17. */
   const manual = origem === 'manual';
   const r = await retrato(db);
-  const { categorias } = r;
+  const { categoriasPorNorm } = r;
 
   const prontos = [], jaExistem = [], revisao = [];
   const vistos = new Map();
@@ -367,7 +397,8 @@ export async function analisarNovos(db, { produtos, origem } = {}) {
     if (preco === undefined) motivos.push('preco_invalido');
 
     const cat = texto(bruto.cat);
-    if (cat && !categorias.has(cat)) motivos.push('categoria_inexistente');
+    const catResolvida = resolverCategoria(cat, categoriasPorNorm);
+    if (cat && !catResolvida) motivos.push('categoria_inexistente');
 
     if (motivos.length) {
       paraRevisar(sku, desc, motivos, {
@@ -379,8 +410,11 @@ export async function analisarNovos(db, { produtos, origem } = {}) {
          legítimo e conhecido, diferente de R$ 0, e a venda dela já é
          bloqueada por isso lá na frente. Mandar para revisão seria trocar um
          estado que o sistema sabe tratar por um clique a mais em cada peça —
-         justamente o que este fluxo existe para acabar. Ela entra marcada. */
-      prontos.push({ sku, desc, cat: cat || 'Outros', preco, qtd,
+         justamente o que este fluxo existe para acabar. Ela entra marcada.
+         Sem categoria na planilha vai para a SENTINELA (Fase 4.5), nunca
+         para "Outros" — que virou categoria real e não é mais o código para
+         ausência (§5 de CATALOGO-MIDIA-PUBLICACAO-4-5.md). */
+      prontos.push({ sku, desc, cat: catResolvida || SEM_CATEGORIA, preco, qtd,
                      alertas: [
                        ...(preco === null ? ['sem_preco'] : []),
                        ...(avisosDeUso.length ? ['ja_na_loja'] : []),
@@ -420,7 +454,7 @@ export async function cadastrarNovos(db, { produtos, origem } = {}) {
   // Mesma distinção da análise: seis dígitos é regra do que se digita aqui.
   const manual = origem === 'manual';
   const r = await retrato(db);
-  const { categorias } = r;
+  const { categoriasPorNorm } = r;
 
   const stmts = [], criados = [], ignorados = [], avisos = [];
   const nesteLote = new Set();
@@ -452,8 +486,15 @@ export async function cadastrarNovos(db, { produtos, origem } = {}) {
     if (noCatalogo) { ignorados.push({ sku, motivo: 'ja_existe', usos: [noCatalogo] }); continue; }
     nesteLote.add(sku);
 
-    let cat = texto(p.cat) || 'Outros';
-    if (!categorias.has(cat)) { avisos.push({ tipo: 'categoria_desconhecida', sku, detalhe: cat }); cat = 'Outros'; }
+    /* Sem categoria informada, ou categoria que não bate com nenhuma viva:
+       cai na SENTINELA (Fase 4.5), nunca em "Outros" — que é categoria real
+       hoje, e forçar uma peça não classificada para dentro dela poluiria a
+       única categoria que as pessoas realmente usam para "isso é outra
+       coisa mesmo". */
+    const catBruta = texto(p.cat);
+    let cat = resolverCategoria(catBruta, categoriasPorNorm);
+    if (catBruta && !cat) avisos.push({ tipo: 'categoria_desconhecida', sku, detalhe: catBruta });
+    if (!cat) cat = SEM_CATEGORIA;
 
     const precoBruto = p.preco;
     const preco = (precoBruto === null || precoBruto === undefined || precoBruto === '' || +precoBruto === 0)

@@ -20,6 +20,8 @@ import { movimentar, saldosDoSku, ehKit, consignadoDoSku } from './estoque.js';
 import { sincronizar } from './sync.js';
 import { Nuvemshop, mapearSkus } from './nuvemshop.js';
 import { comExecucao } from './plataforma/execucao.js';
+import { SEM_CATEGORIA } from './catalogo/completude.js';
+import { normalizarNomeCategoria } from './catalogo/categorias.js';
 
 /* ----------------------------------------------------------- base_json ---
  * A mesma leitura serve dois papéis: no momento da análise, vira o
@@ -174,6 +176,17 @@ export async function analisarPlanilhaEstoqueTotal(db, produtos) {
   const existentes = new Map(
     (await db.prepare(`SELECT sku, qtd FROM produtos`).all()).results.map(p => [p.sku, p.qtd])
   );
+  // Fase 4.6 — kit e configuração montável (§42, Monte seu Colar) não têm
+  // saldo próprio: `qtd` deles é residual (estoque.js › saldosDoKit /
+  // saldosDaConfiguracao) e nunca pode virar um `ajuste_qtd` de verdade,
+  // mesmo que a planilha traga um número diferente para o código.
+  const kits = new Set(
+    (await db.prepare(`SELECT DISTINCT kit_sku FROM kit_componentes`).all()).results.map(k => k.kit_sku)
+  );
+  const montagem = new Set(
+    (await db.prepare(`SELECT DISTINCT sku_comercial FROM personalizacao_modelos WHERE sku_comercial IS NOT NULL`).all())
+      .results.map(m => m.sku_comercial)
+  );
 
   const itens = [];
   const semAlteracao = [];
@@ -181,9 +194,14 @@ export async function analisarPlanilhaEstoqueTotal(db, produtos) {
   // produto (§3 do pedido — isso é o trabalho de planilha_produtos_novos).
   // Só anunciado, nunca ignorado em silêncio.
   const naoEncontrados = [];
+  // Kit ou configuração montável citados na planilha: o código é
+  // reconhecido, mas não tem saldo próprio para ajustar — mesma lógica de
+  // "ausente", só que o motivo é estrutural, não porque a linha faltou.
+  const semSaldoProprio = [];
 
   for (const l of linhas) {
     if (!existentes.has(l.sku)) { naoEncontrados.push(l.sku); continue; }
+    if (kits.has(l.sku) || montagem.has(l.sku)) { semSaldoProprio.push(l.sku); continue; }
     const atual = existentes.get(l.sku);
     if (l.qtd === atual) { semAlteracao.push(l.sku); continue; }
 
@@ -228,6 +246,9 @@ export async function analisarPlanilhaEstoqueTotal(db, produtos) {
     seraoAlterados: itens.length - itens.filter(i => i.dados_json && i.dados_json.conflito).length,
     novos: naoEncontrados.length, conflitos, criticos,
     naoEncontrados, ausentesDaPlanilha: ausentes,
+    // Fase 4.6: reconhecido, mas sem saldo próprio para ajustar — kit ou
+    // configuração montável. Nunca vira item.
+    semSaldoProprio: semSaldoProprio.length, skusSemSaldoProprio: semSaldoProprio,
   });
 
   return await detalheSessao(db, sessaoId);
@@ -243,7 +264,12 @@ export async function analisarPlanilhaProdutosNovos(db, produtos) {
   if (!Array.isArray(produtos) || !produtos.length) return json({ erro: 'Lista vazia' }, 400);
 
   const existentes = new Set((await db.prepare(`SELECT sku FROM produtos`).all()).results.map(p => p.sku));
-  const cats = new Set((await db.prepare(`SELECT nome FROM categorias`).all()).results.map(c => c.nome));
+  // Fase 4.6 — casamento pela forma canônica ("colar" reconhece "Colar"),
+  // só entre categoria VIVA. Ver catalogo.js › resolverCategoria.
+  const categoriasPorNorm = new Map(
+    (await db.prepare(`SELECT nome, nome_norm FROM categorias WHERE arquivada_em IS NULL`).all())
+      .results.map(c => [c.nome_norm, c.nome])
+  );
 
   const itens = [];
   const vistos = new Set();
@@ -258,9 +284,16 @@ export async function analisarPlanilhaProdutosNovos(db, produtos) {
     if (existentes.has(sku)) { ignorados++; continue; } // §11: SKU existente — nenhuma alteração, ponto final
 
     const preco = (p.preco === null || p.preco === undefined || p.preco === '' || +p.preco === 0) ? null : +p.preco;
-    const catInformada = p.cat || 'Outros';
-    const categoriaDesconhecida = !cats.has(catInformada);
-    const cat = categoriaDesconhecida ? 'Outros' : catInformada;
+    /* Sem categoria informada, ou categoria que não bate com nenhuma viva
+       (mesmo por caixa/espaço — nome_norm): cai na SENTINELA (Fase 4.5),
+       nunca em "Outros" — que é categoria real hoje, e empilhar peça não
+       classificada nela poluiria a única categoria que as pessoas usam de
+       verdade para "isso é outra coisa mesmo". */
+    const catInformada = String(p.cat ?? '').trim();
+    const catResolvida = catInformada
+      ? (categoriasPorNorm.get(normalizarNomeCategoria(catInformada)) || null) : null;
+    const categoriaDesconhecida = !!catInformada && !catResolvida;
+    const cat = catResolvida || SEM_CATEGORIA;
     const qtdInicial = intSeguro(p.qtd);
     const desc = String(p.desc || '').trim() || sku;
 
@@ -270,7 +303,7 @@ export async function analisarPlanilhaProdutosNovos(db, produtos) {
       motivo: preco === null
         ? 'Sem preço na planilha — ficará sem preço (§24 de api/REGRAS.md), defina antes de vender.'
         : categoriaDesconhecida
-          ? `Categoria "${catInformada}" não existe — cairá em "Outros".`
+          ? `Categoria "${catInformada}" não existe — cairá em "${SEM_CATEGORIA}".`
           : 'Código novo, pronto para criar.',
       dados_json: { desc, cat, preco, qtdInicial },
     });
@@ -613,6 +646,18 @@ async function checarPreconditionsInternas(db, item) {
   if (item.tipo === 'ajuste_qtd') {
     const p = await db.prepare(`SELECT qtd FROM produtos WHERE sku = ?`).bind(item.sku).first();
     if (!p) return { ok: false, motivo: `${item.sku} não está mais no catálogo.` };
+    // Fase 4.6 — defesa em profundidade: a análise já recusa gerar item
+    // para kit/configuração montável (§42), mas entre a aprovação e o
+    // Apply alguém pode ter definido o SKU como um dos dois. `qtd` deles é
+    // residual; nunca pode virar `ajuste_qtd`.
+    if (await ehKit(db, item.sku)) {
+      return { ok: false, motivo: `${item.sku} virou kit depois da análise — kit não tem saldo próprio para ajustar. Gere uma análise nova.` };
+    }
+    const viraMontagem = await db.prepare(
+      `SELECT 1 FROM personalizacao_modelos WHERE sku_comercial = ? LIMIT 1`).bind(item.sku).first();
+    if (viraMontagem) {
+      return { ok: false, motivo: `${item.sku} virou uma configuração montável depois da análise — o saldo dela é residual. Gere uma análise nova.` };
+    }
     // Precondition A — destino: produtos.qtd ainda é o que a análise viu.
     if (!numIgual(p.qtd, item.de)) {
       return { ok: false, motivo: `${item.sku} está com ${p.qtd} agora; a análise viu ${item.de}. Estoque mudou desde então.` };
@@ -844,7 +889,7 @@ async function aplicarProdutoNovo(db, sessaoId, item) {
 
   const stmts = [
     db.prepare(`INSERT INTO produtos (sku, desc, cat, preco, qtd) VALUES (?, ?, ?, ?, 0)`)
-      .bind(item.sku, dados.desc || item.sku, dados.cat || 'Outros', dados.preco ?? null),
+      .bind(item.sku, dados.desc || item.sku, dados.cat || SEM_CATEGORIA, dados.preco ?? null),
   ];
   if (qtdInicial !== 0) {
     stmts.push(...movimentar(db, {

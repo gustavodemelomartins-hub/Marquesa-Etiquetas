@@ -18,6 +18,7 @@ import { comExecucao } from './plataforma/execucao.js';
    peca fantasma que a loja nunca encontra. */
 import { normSku } from './sku.js';
 import { SEM_CATEGORIA } from './catalogo/completude.js';
+import { normalizarNomeCategoria } from './catalogo/categorias.js';
 
 /* Copia deliberada do helper do despachante, que ainda precisa dele. */
 const int = v => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
@@ -43,7 +44,29 @@ async function importarProdutosRodada(db, { produtos }) {
     (await db.prepare(`SELECT sku, qtd FROM produtos`).all()).results
       .map(p => [normSku(p.sku), { sku: p.sku, qtd: p.qtd }])
   );
-  const cats = new Set((await db.prepare(`SELECT nome FROM categorias`).all()).results.map(c => c.nome));
+  // Só categoria VIVA, casada pela forma canônica — mesma regra de
+  // catalogo.js › resolverCategoria: "Colar" e "colar" são a mesma coisa,
+  // e uma categoria arquivada não volta por reaparecer numa planilha.
+  const categoriasPorNorm = new Map(
+    (await db.prepare(`SELECT nome, nome_norm FROM categorias WHERE arquivada_em IS NULL`).all())
+      .results.map(c => [c.nome_norm, c.nome])
+  );
+  const resolverCategoria = (bruto) => {
+    const t = String(bruto ?? '').trim();
+    return t ? (categoriasPorNorm.get(normalizarNomeCategoria(t)) || null) : null;
+  };
+  // Kit e configuração montável (§42 — Monte seu Colar) não têm saldo
+  // próprio: o `qtd` deles é residual (estoque.js › saldosDoKit /
+  // saldosDaConfiguracao) e nunca pode receber um ajuste de importação —
+  // essa era a mesma lacuna que catalogo.js tinha para kit antes da 4.6, e
+  // aqui nunca existiu nem para kit.
+  const kits = new Set(
+    (await db.prepare(`SELECT DISTINCT kit_sku FROM kit_componentes`).all()).results.map(k => k.kit_sku)
+  );
+  const montagem = new Set(
+    (await db.prepare(`SELECT DISTINCT sku_comercial FROM personalizacao_modelos WHERE sku_comercial IS NOT NULL`).all())
+      .results.map(m => m.sku_comercial)
+  );
 
   const stmts = [], avisos = [];
   let novos = 0, ajustados = 0;
@@ -57,11 +80,13 @@ async function importarProdutosRodada(db, { produtos }) {
 
     /* Categoria desconhecida cai na SENTINELA, nao em 'Outros'. Antes as
        duas coisas eram o mesmo valor, e uma peca que e legitimamente
-       "Outros" ficava marcada como incompleta para sempre. */
-    let cat = p.cat || SEM_CATEGORIA;
-    if (!cats.has(cat)) {
-      avisos.push({ tipo: 'categoria_desconhecida', sku, detalhe: cat });
-      cat = cats.has(SEM_CATEGORIA) ? SEM_CATEGORIA : 'Outros';
+       "Outros" ficava marcada como incompleta para sempre. Casamento pela
+       forma canonica (nome_norm): "colar" e "Colar" sao a mesma categoria. */
+    const catBruta = p.cat;
+    let cat = resolverCategoria(catBruta);
+    if (!cat) {
+      if (catBruta) avisos.push({ tipo: 'categoria_desconhecida', sku, detalhe: catBruta });
+      cat = SEM_CATEGORIA;
     }
 
     const qtdAlvo = int(p.qtd);
@@ -86,14 +111,22 @@ async function importarProdutosRodada(db, { produtos }) {
       stmts.push(db.prepare(
         `UPDATE produtos SET desc = ?, cat = ?, preco = ?, atualizado_em = datetime('now') WHERE sku = ?`
       ).bind(p.desc || atual.sku, cat, preco, atual.sku));
-      // §19: a planilha traz um saldo-alvo; a diferença vira um AJUSTE rastreável
-      const delta = qtdAlvo - atual.qtd;
-      if (delta !== 0) {
-        stmts.push(...movimentar(db, {
-          sku: atual.sku, tipo: 'ajuste', quantidade: delta, origem: 'importacao',
-          obs: `Importação: planilha diz ${qtdAlvo}, sistema tinha ${atual.qtd}`,
-        }));
-        ajustados++;
+      if (kits.has(sku) || montagem.has(sku)) {
+        /* Ficha (desc/cat/preco) atualiza normalmente acima. O que nunca
+           acontece é um ajuste de QUANTIDADE: kit e configuração montável
+           não têm saldo próprio, e gravar um ajuste aqui inventaria
+           estoque de uma peça que não existe fisicamente. */
+        avisos.push({ tipo: 'sem_saldo_proprio', sku: atual.sku, detalhe: kits.has(sku) ? 'kit' : 'montagem' });
+      } else {
+        // §19: a planilha traz um saldo-alvo; a diferença vira um AJUSTE rastreável
+        const delta = qtdAlvo - atual.qtd;
+        if (delta !== 0) {
+          stmts.push(...movimentar(db, {
+            sku: atual.sku, tipo: 'ajuste', quantidade: delta, origem: 'importacao',
+            obs: `Importação: planilha diz ${qtdAlvo}, sistema tinha ${atual.qtd}`,
+          }));
+          ajustados++;
+        }
       }
     }
   }

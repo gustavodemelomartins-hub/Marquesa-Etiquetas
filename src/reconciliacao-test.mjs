@@ -896,9 +896,86 @@ eq('exatamente 1 movimento de entrada', r.corpo.movimentos.filter(m => m.tipo ==
 eq('qtd final é 4, não 8', r.corpo.saldos.qtd, 4);
 
 /* =========================================================================
-   26. a razão fecha depois de tudo isso (§19 do CLAUDE.md)
+   26. FASE 4.6 — kit e configuração montável nunca viram ajuste_qtd
    ========================================================================= */
-console.log('\n=== 26. a razão continua fechando depois de todos os fluxos ===');
+console.log('\n=== 26. Fase 4.6 — kit e configuração montável nunca viram ajuste_qtd ===');
+/* §42: uma configuração montável (Monte seu Colar) é uma linha comum em
+   `produtos`, mas o `qtd` dela é residual e deliberadamente ignorado
+   (estoque.js › saldosDaConfiguracao) — o mesmo defeito real observado em
+   produção em 326660 (ver montagem-saldo-test.mjs). Este motor é o que o
+   frontend React chama de verdade (frontend/src/features/estoque-total/
+   api.ts), então o defeito aqui era o mais grave dos três lugares achados
+   na auditoria da 4.6. */
+
+await importar([
+  { sku: 'RC-COMP1', desc: 'RC-COMP1', cat: 'Colar', preco: 10, qtd: 10 },
+  { sku: 'RC-COMP2', desc: 'RC-COMP2', cat: 'Colar', preco: 10, qtd: 10 },
+  { sku: 'RC-KIT', desc: 'RC-KIT', cat: 'Colar', preco: 30, qtd: 0 },
+  { sku: 'RC-BASE', desc: 'RC-BASE', cat: 'Colar', preco: 20, qtd: 10 },
+  // Residual deliberado — o mesmo cenário de 326660 em produção.
+  { sku: 'RC-CONFIG', desc: 'RC-CONFIG', cat: 'Colar', preco: 90, qtd: 1 },
+]);
+r = await api('PUT', '/api/produtos/RC-KIT/componentes', {
+  componentes: [{ sku: 'RC-COMP1', qtd: 1 }, { sku: 'RC-COMP2', qtd: 1 }],
+});
+eq('kit de teste montado', r.status < 300, 'true');
+/* PERSONALIZACAO_ATIVA fica desligada por padrão (fail-closed) — seguindo
+   o mesmo caminho que os cenários de concorrência do topo do arquivo já
+   usam, a linha entra direto no D1 local, sem passar pelo freio do HTTP. */
+rodarSql(
+  `INSERT INTO personalizacao_modelos
+     (slug, nome, sku_comercial, slots_min, slots_max, base_sku_padrao, preco_sugerido, ativo, ordem)
+   VALUES ('rc-config', 'RC Config', 'RC-CONFIG', 1, 1, 'RC-BASE', 90, 1, 0);`
+);
+
+r = await api('POST', '/api/reconciliacao/planilha/estoque-total/analisar', {
+  produtos: [{ sku: 'RC-KIT', qtd: 55 }, { sku: 'RC-CONFIG', qtd: 42 }],
+});
+eq('nenhum item criado para os dois', r.corpo.itens.length, 0);
+eq('os dois contam como "sem saldo próprio", não como ajuste', r.corpo.resumo.semSaldoProprio, 2);
+eq('e listados nominalmente', [...r.corpo.resumo.skusSemSaldoProprio].sort().join(','), 'RC-CONFIG,RC-KIT');
+
+const movRcKit = await api('GET', '/api/estoque/RC-KIT/movimentos');
+eq('o saldo do kit continua zero', movRcKit.corpo.saldos.qtd, 0);
+/* `saldosDoSku` devolve SEMPRE 0 para uma configuração — o `qtd` de
+   `produtos` é lido como residual e nunca aparece no `/movimentos` (é essa
+   a proteção do lado da LEITURA). A prova de que o lado da ESCRITA também
+   não mexeu é olhar a coluna crua e o histórico de movimentos direto. */
+const rcConfigCru = rodarSql(`SELECT qtd FROM produtos WHERE sku = 'RC-CONFIG';`)[0];
+eq('o resíduo cru da configuração não foi tocado (nem para 42, nem para outro número)', rcConfigCru.qtd, 1);
+const movsRcConfig = rodarSql(`SELECT COUNT(*) n FROM movimentos WHERE sku = 'RC-CONFIG' AND tipo = 'ajuste';`)[0];
+eq('nenhum movimento de ajuste foi gravado para a configuração', movsRcConfig.n, 0);
+
+/* =========================================================================
+   27. FASE 4.6 — categoria desconhecida cai na sentinela, nunca em "Outros"
+   ========================================================================= */
+console.log('\n=== 27. Fase 4.6 — categoria desconhecida cai na sentinela, nunca em "Outros" ===');
+r = await api('POST', '/api/reconciliacao/planilha/produtos-novos/analisar', {
+  produtos: [
+    { sku: 'RC-SEMCAT', desc: 'RC-SEMCAT', qtd: 1, preco: 10 },
+    { sku: 'RC-COLARMIN', desc: 'RC-COLARMIN', cat: 'colar', qtd: 1, preco: 10 },
+  ],
+});
+const sessaoRC27 = r.corpo;
+const itemSemCat = sessaoRC27.itens.find(i => i.sku === 'RC-SEMCAT');
+const itemColarMin = sessaoRC27.itens.find(i => i.sku === 'RC-COLARMIN');
+eq('sem categoria informada entra com a sentinela', itemSemCat.dados.cat, 'Sem categoria');
+/* Ausência de categoria não é exceção — é um estado legítimo (mesma
+   filosofia do §24 para preço): não pede revisão, e nunca pediu, nem antes
+   da 4.6. O que muda na 4.6 é só PARA ONDE ela cai. */
+eq('sem categoria não pede revisão — cai trivial, só que na sentinela certa', itemSemCat.risco, 'trivial');
+eq('"colar" em minúscula reconhece a categoria "Colar" (nome_norm)', itemColarMin.dados.cat, 'Colar');
+eq('e essa também é trivial, sem pedir revisão', itemColarMin.risco, 'trivial');
+
+await api('POST', `/api/reconciliacao/${sessaoRC27.id}/itens/${itemSemCat.id}/aprovar`);
+await api('POST', `/api/reconciliacao/${sessaoRC27.id}/itens/${itemColarMin.id}/aprovar`);
+r = await api('POST', `/api/reconciliacao/${sessaoRC27.id}/aplicar`);
+eq('aplicou os dois', r.corpo.status, 'aplicada');
+
+/* =========================================================================
+   28. a razão fecha depois de tudo isso (§19 do CLAUDE.md)
+   ========================================================================= */
+console.log('\n=== 28. a razão continua fechando depois de todos os fluxos ===');
 
 r = await api('GET', '/api/estoque/conferir');
 eq('produtos.qtd == SUM(movimentos.qtd) em todo SKU', r.corpo.ok, 'true');
