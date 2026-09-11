@@ -1,6 +1,8 @@
 # Painel Operacional — Sistema Marquesa
 
-**Atualizado em:** 2026-09-11 (revisão da noite: consolidação das decisões e das frentes paralelas)
+**Atualizado em:** 2026-09-11 (revisão da noite: consolidação das decisões e
+das frentes paralelas; depois, mesmo dia: Fase 4.6 do Claude Refactor
+concluída e branch protegida, `data.workstreams` passa a alimentar o painel)
 **Fonte:** auditoria estrutural completa (branches locais/remotas, commits, docs/ux,
 docs/ui, docs/domains da branch paralela, código legado e React), mais leitura
 read-only do D1 de produção e de `wrangler deployments` em 11/09/2026
@@ -191,49 +193,62 @@ terminar uma coisinha". Leitura cruzada é sempre permitida via `git show
 | Backend / domínios | **Claude Refactor** | `Marquesa-Claude-Refactor` | `claude/refactor-sistema-marquesa` |
 | Arquitetura / auditoria / governança | **Claude Review** | `Marquesa-Claude-ReviewV2` | `claude/review-marquesa-v2` |
 
-### Estado por frente (11/09/2026)
+### Estado por frente (atualizado 11/09/2026, revisão da noite)
 
 #### CODEX — frontend / UX V2
 
 | | |
 |---|---|
-| Tarefa atual | Painel de Vendas; concluir `VEN-105` (correção de item vendido) |
-| Status | em andamento, **não commitado** |
-| Último commit | `52f5f5f` — idêntico à V2; `git rev-list --count review..codex` = **0** |
-| Concluído | 9 mockups de Vendas, protótipo mestre (`9bbf712`), taxonomia de docs |
-| Próximo | concluir `VEN-105`, aprovação visual do Gustavo, commit |
-| Bloqueios | nenhum técnico |
+| Fase | redesign V2 das telas (sem numeração de fase de backend) |
+| Item/subetapa | painel/tela atual em refinamento visual |
+| Status | **EM ANDAMENTO** — trabalho visual local, Gustavo ainda refinando |
+| Progresso | não quantificado — não considerar o frontend encerrado |
+| Tarefa atual | concluir o trabalho visual da tela atual |
+| Último concluído | 9 mockups de Vendas, protótipo mestre (`9bbf712`), taxonomia de docs |
+| Próximo | concluir trabalho visual atual → aprovação do Gustavo → commit → revisão posterior |
+| Bloqueios | nenhum técnico conhecido |
 | Aguardando Gustavo | sim — aprovação visual |
 | Aguardando Sthefany | não |
-| Pronto para revisão | nada novo desde `52f5f5f` |
+| Último commit conhecido | `52f5f5f` — idêntico à V2; sem SHA final novo conhecido, tratar como trabalho local/em andamento |
 
 #### CLAUDE REFACTOR — backend / domínios
 
 | | |
 |---|---|
-| Tarefa atual | nenhuma ativa; a linha foi integrada à V2 |
-| Status | **integrada** em 9 lotes (`B1`–`B9`), 16/16 gates no nível `release` |
-| Último commit | `bfd5d6b` — preservado em `backup/claude-refactor-sistema-marquesa-20260911` |
-| Concluído | Fases 2, 3, 4.4 e 4.5; SKU unificado; Monte seu Colar atrás de flag |
-| Próximo | publicar no DEV (`ARQ-001`–`ARQ-003` só faltam isso); Produtos Montáveis quando `DR-005` responder |
-| Bloqueios | `ARQ-007` — divergência entre `api/schema.sql` e as migrations |
+| Fase | Fase 4 — Estoque e Catálogo |
+| Item/subetapa | 6/6 concluídas — último: 4.6 (Importações relacionadas) |
+| Status | **COMPLETA** — Fase 4 fechada nesta branch |
+| Progresso | 100% da fase |
+| Gate | Fase 4 PASSOU |
+| Tarefa atual | nenhuma em andamento |
+| Último concluído | 4.6 — Importações relacionadas (`35fd51b` fix, `1bd0dd5` docs — auditoria vira registro canônico) |
+| Próximo | Fase 5 — vendas, clientes, financeiro e garantias |
+| Status da próxima fase | **AGUARDANDO ALINHAMENTO / NÃO INICIAR FASE 5 AINDA** |
+| Bloqueios | alinhar backend com o avanço do redesign do Codex antes de começar a Fase 5 |
 | Aguardando Gustavo | não |
-| Aguardando Sthefany | sim — `DR-005`, `DR-006` |
-| Pronto para revisão | já revisado e mesclado |
+| Aguardando Sthefany | sim — `DR-005`, `DR-006` (e as demais pendências de Fase 5+) |
+| Branch | `claude/refactor-sistema-marquesa` — protegida no remoto, upstream configurado; ponto inicial protegido `bfd5d6b` |
+| Working tree | limpa |
+| Integração | nada desta branch foi mesclado em `main` |
+| Último commit conhecido | `1bd0dd5` |
+| Pendência futura já identificada | Fase 7 deverá corrigir a exclusão de configuração montável no sync com Nuvemshop |
+| Sequência macro | Fases 0–4: concluídas nesta branch · Fase 5: próxima (vendas, clientes, financeiro, garantias) · Fase 6: revendedoras/maletas/comissão · Fase 7: Nuvemshop/sync/reconciliação · Fase 8: analytics/projeções |
 
 #### CLAUDE REVIEW — arquitetura / auditoria / governança
 
 | | |
 |---|---|
-| Tarefa atual | consolidação de DR/P — este commit |
-| Status | 11 decisões fechadas, `P11`/`P17` separadas, 3 frentes registradas |
-| Último commit | este |
-| Concluído | `DOC-001` a `DOC-004`, `ARQ-005`, `ARQ-006`, `ARQ-008` |
+| Fase | não numerada — governança/auditoria corre em paralelo às fases numeradas do Refactor |
+| Item/subetapa | atualização do Marquesa Dev Pages com o estado real das 3 frentes |
+| Status | decisões humanas consolidadas; acompanhando Codex e Refactor; PROD congelada |
+| Progresso | 11 decisões fechadas, `P11`/`P17` separadas, 3 frentes registradas e mantidas |
+| Tarefa atual | este commit — painel/dados do projeto |
+| Último concluído | `DOC-001` a `DOC-004`, `ARQ-005`, `ARQ-006`, `ARQ-008` |
 | Próximo | revisar as respostas da Sthefany e os commits do Codex quando chegarem |
 | Bloqueios | nenhum |
 | Aguardando Gustavo | não |
 | Aguardando Sthefany | sim — `DR-005`, `DR-006`, `DR-015`, `DR-016` |
-| Pronto para revisão | — |
+| Último commit conhecido | `3843297` |
 
 ### Duas worktrees fora das três frentes oficiais
 
@@ -283,19 +298,23 @@ pergunta multi-frente:**
    `wrangler.toml`. **É a única fonte duplicada encontrada** — se o R2 de
    produção for ligado, a tela continuará dizendo "não habilitado".
 
-**Proposta de fonte única — não implementada nesta sessão** (o pedido foi
-auditar, não redesenhar). A tabela `## WORKSTREAMS` acima é a fonte; para o
-painel passar a lê-la sem depender da memória do Gustavo, bastariam três
-mudanças no gerador, nenhuma na interface:
+**Das três mudanças propostas, a primeira está implementada** (sessão de
+11/09/2026, revisão da noite): o gerador agora lê esta seção como as outras
+já eram lidas, produzindo `data.workstreams` — os cards de frente no painel
+vêm daqui, não de texto digitado na tela. As outras duas continuam
+pendentes, e o painel não finge o contrário:
 
-- ler esta seção como as outras já são lidas, produzindo `data.workstreams`;
+- ~~ler esta seção como as outras já são lidas, produzindo `data.workstreams`~~
+  — feito;
 - rodar `git -C <worktree> log` por frente, em vez de um `git log` só, e usar
   `git worktree list --porcelain` para descobrir as worktrees em vez de
-  listá-las à mão;
+  listá-las à mão — **ainda não feito**: o painel só mostra o `git log` desta
+  branch;
 - mover as literais de `lerAmbientes()` para o `wrangler.toml` (ou para uma
-  tabela daqui), eliminando a duplicação do item 3.
+  tabela daqui), eliminando a duplicação do item 3 — **ainda não feito**.
 
-Enquanto isso não existir, **esta seção é atualizada à mão** e é ela que vale.
+Enquanto os dois itens restantes não existirem, **esta seção `## WORKSTREAMS`
+continua atualizada à mão** e é ela que vale para as três frentes.
 
 ---
 

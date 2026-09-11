@@ -47,6 +47,26 @@
 
   $('rodape-fonte').textContent = 'Fonte: ' + dados.fonte;
 
+  // ── frentes de trabalho (workstreams) ────────────────────────────────
+  $('frentes').innerHTML = (dados.workstreams || [])
+    .map((w) => {
+      const linhas = Object.entries(w.campos)
+        .map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>')
+        .join('');
+      return (
+        '<div class="frente">' +
+        '<div class="frente__nome">' + esc(w.agente) + '</div>' +
+        '<p class="frente__papel">' + esc(w.frente) + '</p>' +
+        '<dl class="frente__meta">' +
+        '<dt>worktree</dt><dd>' + esc(w.worktree) + '</dd>' +
+        '<dt>branch</dt><dd>' + esc(w.branch) + '</dd>' +
+        '</dl>' +
+        '<dl class="frente__campos">' + linhas + '</dl>' +
+        '</div>'
+      );
+    })
+    .join('');
+
   // ── ambientes ─────────────────────────────────────────────────────────
   $('ambientes').innerHTML = dados.ambientes
     .map((a) => {

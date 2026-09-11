@@ -6,6 +6,14 @@
     "branch": "claude/review-marquesa-v2",
     "recentes": [
       {
+        "commit": "3843297",
+        "data": "2026-09-11",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(decisoes): onze decisões fecham, e o projeto passa a ter três frentes com nome",
+        "agente": "",
+        "taskIds": []
+      },
+      {
         "commit": "52f5f5f",
         "data": "2026-09-11",
         "autor": "gustavodemelomartins-hub",
@@ -196,14 +204,6 @@
         "data": "2026-09-10",
         "autor": "gustavodemelomartins-hub",
         "assunto": "feat(preparacao): tarefa em vez de fornecedor",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "5e4209b",
-        "data": "2026-09-10",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(midia): a peça passa a ter galeria, e o original sobrevive ao preparo",
         "agente": "",
         "taskIds": []
       }
@@ -2403,6 +2403,75 @@
         "ARQ-000",
         "SAI-102"
       ]
+    }
+  ],
+  "workstreams": [
+    {
+      "frente": "Frontend / UX V2",
+      "agente": "Codex",
+      "worktree": "Marquesa-Etiquetas",
+      "branch": "codex/ui-system-marquesa",
+      "titulo": "CODEX — frontend / UX V2",
+      "campos": {
+        "fase": "redesign V2 das telas (sem numeração de fase de backend)",
+        "item/subetapa": "painel/tela atual em refinamento visual",
+        "status": "EM ANDAMENTO — trabalho visual local, Gustavo ainda refinando",
+        "progresso": "não quantificado — não considerar o frontend encerrado",
+        "tarefa atual": "concluir o trabalho visual da tela atual",
+        "último concluído": "9 mockups de Vendas, protótipo mestre (9bbf712), taxonomia de docs",
+        "próximo": "concluir trabalho visual atual → aprovação do Gustavo → commit → revisão posterior",
+        "bloqueios": "nenhum técnico conhecido",
+        "aguardando gustavo": "sim — aprovação visual",
+        "aguardando sthefany": "não",
+        "último commit conhecido": "52f5f5f — idêntico à V2; sem SHA final novo conhecido, tratar como trabalho local/em andamento"
+      }
+    },
+    {
+      "frente": "Backend / domínios",
+      "agente": "Claude Refactor",
+      "worktree": "Marquesa-Claude-Refactor",
+      "branch": "claude/refactor-sistema-marquesa",
+      "titulo": "CLAUDE REFACTOR — backend / domínios",
+      "campos": {
+        "fase": "Fase 4 — Estoque e Catálogo",
+        "item/subetapa": "6/6 concluídas — último: 4.6 (Importações relacionadas)",
+        "status": "COMPLETA — Fase 4 fechada nesta branch",
+        "progresso": "100% da fase",
+        "gate": "Fase 4 PASSOU",
+        "tarefa atual": "nenhuma em andamento",
+        "último concluído": "4.6 — Importações relacionadas (35fd51b fix, 1bd0dd5 docs — auditoria vira registro canônico)",
+        "próximo": "Fase 5 — vendas, clientes, financeiro e garantias",
+        "status da próxima fase": "AGUARDANDO ALINHAMENTO / NÃO INICIAR FASE 5 AINDA",
+        "bloqueios": "alinhar backend com o avanço do redesign do Codex antes de começar a Fase 5",
+        "aguardando gustavo": "não",
+        "aguardando sthefany": "sim — DR-005, DR-006 (e as demais pendências de Fase 5+)",
+        "branch": "claude/refactor-sistema-marquesa — protegida no remoto, upstream configurado; ponto inicial protegido bfd5d6b",
+        "working tree": "limpa",
+        "integração": "nada desta branch foi mesclado em main",
+        "último commit conhecido": "1bd0dd5",
+        "pendência futura já identificada": "Fase 7 deverá corrigir a exclusão de configuração montável no sync com Nuvemshop",
+        "sequência macro": "Fases 0–4: concluídas nesta branch · Fase 5: próxima (vendas, clientes, financeiro, garantias) · Fase 6: revendedoras/maletas/comissão · Fase 7: Nuvemshop/sync/reconciliação · Fase 8: analytics/projeções"
+      }
+    },
+    {
+      "frente": "Arquitetura / auditoria / governança",
+      "agente": "Claude Review",
+      "worktree": "Marquesa-Claude-ReviewV2",
+      "branch": "claude/review-marquesa-v2",
+      "titulo": "CLAUDE REVIEW — arquitetura / auditoria / governança",
+      "campos": {
+        "fase": "não numerada — governança/auditoria corre em paralelo às fases numeradas do Refactor",
+        "item/subetapa": "atualização do Marquesa Dev Pages com o estado real das 3 frentes",
+        "status": "decisões humanas consolidadas; acompanhando Codex e Refactor; PROD congelada",
+        "progresso": "11 decisões fechadas, P11/P17 separadas, 3 frentes registradas e mantidas",
+        "tarefa atual": "este commit — painel/dados do projeto",
+        "último concluído": "DOC-001 a DOC-004, ARQ-005, ARQ-006, ARQ-008",
+        "próximo": "revisar as respostas da Sthefany e os commits do Codex quando chegarem",
+        "bloqueios": "nenhum",
+        "aguardando gustavo": "não",
+        "aguardando sthefany": "sim — DR-005, DR-006, DR-015, DR-016",
+        "último commit conhecido": "3843297"
+      }
     }
   ],
   "ambientes": [

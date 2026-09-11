@@ -248,6 +248,103 @@ function lerGit() {
   return { branch, recentes };
 }
 
+// ── WORKSTREAMS ──────────────────────────────────────────────────────────
+// As três frentes paralelas (Codex/Refactor/Review) vivem em `## WORKSTREAMS`
+// de PROJECT-STATUS.md: uma tabela de visão geral (Frente/Agente/Worktree/
+// Branch) seguida de um `#### <título>` por frente, cada um com sua própria
+// tabela chave/valor. O painel não hardcoda os nomes dos campos — lê
+// qualquer linha da tabela e mostra, então uma frente pode ter mais ou menos
+// campos que outra sem exigir mudança neste script.
+function textoDaSecao(md, titulo) {
+  const linhas = md.split('\n');
+  const inicio = linhas.findIndex(
+    (l) => l.trim().toLowerCase() === `## ${titulo}`.toLowerCase(),
+  );
+  if (inicio === -1) return '';
+  let fim = linhas.length;
+  for (let i = inicio + 1; i < linhas.length; i += 1) {
+    if (linhas[i].startsWith('## ')) {
+      fim = i;
+      break;
+    }
+  }
+  return linhas.slice(inicio + 1, fim).join('\n');
+}
+
+// A primeira tabela de uma seção, sem exigir que ela termine em `## ` (ao
+// contrário de `tabelaDaSecao`, que serve para tabelas nomeadas por `## `).
+function primeiraTabela(bloco) {
+  const linhas = bloco.split('\n');
+  const saidaLinhas = [];
+  let cabecalhoVisto = false;
+  let dentro = false;
+  for (const linha of linhas) {
+    if (!ehLinhaTabela(linha)) {
+      if (dentro) break;
+      continue;
+    }
+    dentro = true;
+    if (ehSeparador(linha)) {
+      cabecalhoVisto = true;
+      continue;
+    }
+    if (!cabecalhoVisto) continue;
+    saidaLinhas.push(celulas(linha));
+  }
+  return saidaLinhas;
+}
+
+// Um bloco por `#### título`, até o próximo `#### ` ou `### `.
+function subsecoesH4(bloco) {
+  const linhas = bloco.split('\n');
+  const blocos = [];
+  for (let i = 0; i < linhas.length; i += 1) {
+    const m = linhas[i].match(/^#### (.+)$/);
+    if (!m) continue;
+    let fim = linhas.length;
+    for (let j = i + 1; j < linhas.length; j += 1) {
+      if (/^#### |^### /.test(linhas[j])) {
+        fim = j;
+        break;
+      }
+    }
+    blocos.push({ titulo: texto(m[1]), corpo: linhas.slice(i + 1, fim).join('\n') });
+  }
+  return blocos;
+}
+
+// Uma tabela de 2 colunas vira um dicionário — chave em minúsculas, valor em
+// texto puro, na ordem em que aparece no documento.
+function paresChaveValor(corpo) {
+  const campos = {};
+  for (const linha of corpo.split('\n')) {
+    if (!ehLinhaTabela(linha) || ehSeparador(linha)) continue;
+    const c = celulas(linha);
+    if (c.length === 2 && c[0]) campos[texto(c[0]).toLowerCase()] = texto(c[1]);
+  }
+  return campos;
+}
+
+function lerWorkstreams() {
+  const md = ler(arquivoProjeto('PROJECT-STATUS.md'));
+  const secao = textoDaSecao(md, 'WORKSTREAMS');
+  if (!secao) return [];
+  const visaoGeral = primeiraTabela(secao);
+  const subsecoes = subsecoesH4(secao);
+  return visaoGeral.map((linha) => {
+    const [frente, agente, worktree, branch] = linha.map(texto);
+    const sub = subsecoes.find((s) => s.titulo.toUpperCase().includes(agente.toUpperCase()));
+    return {
+      frente,
+      agente,
+      worktree,
+      branch,
+      titulo: sub ? sub.titulo : '',
+      campos: sub ? paresChaveValor(sub.corpo) : {},
+    };
+  });
+}
+
 // ── ambientes ────────────────────────────────────────────────────────────
 // Lidos de api/wrangler.toml para que a tela nunca invente um endereço.
 function lerAmbientes() {
@@ -340,6 +437,7 @@ function montar() {
     dominios: Object.values(dominios).sort((a, b) => a.nome.localeCompare(b.nome)),
     paridade,
     worklogs,
+    workstreams: lerWorkstreams(),
     ambientes: lerAmbientes(),
   };
 }
