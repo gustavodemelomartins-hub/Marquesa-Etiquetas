@@ -120,6 +120,47 @@ Uma correção de rota interna: a reorganização tocou comentários de
 `src/dashboard.tpl.html`, então o artefato `dashboard.html` foi regerado por
 `python src/build.py` no mesmo commit, como a regra do painel legado exige.
 
+## Checkpoint da Fase 2 — leituras extraídas — 2026-09-09
+
+O shell HTTP existe: `api/src/http/router.js` casa método e caminho na ordem
+da corrente antiga e devolve `null` quando não casa, de modo que o que ainda
+não migrou continua sendo respondido por `api/src/index.js` — inclusive o 404
+final. As rotas migradas vivem em `api/src/http/routes/`, agrupadas por
+domínio, e são só transporte.
+
+Migrados **48 dos 142 contratos**, todos de leitura: estado agregado, razão de
+estoque, catálogo/produto/variações/kits, ciclo comercial, leituras
+operacionais e os read models de analytics. Nenhuma rota de escrita saiu do
+lugar nesta etapa.
+
+Ficaram no despachante de propósito `GET /api/vendas` e `GET /api/clientes`:
+a consulta delas ainda é função declarada dentro de `index.js`, e movê-las
+antes do domínio criaria dependência circular.
+
+### Como as leituras foram provadas
+
+Worker e D1 **estritamente locais** (`wrangler dev --local`, porta 8791, banco
+criado do `schema.sql` e semeado com um produto e um movimento; chave passada
+por `--var`, nenhum segredo lido). Para cada lote:
+
+1. capturar método, caminho, status, `content-type`, CORS e corpo de todos os
+   casos com o código novo;
+2. trocar `api/src/index.js` pela versão de `main` e esconder `api/src/http/`;
+3. capturar de novo, com o mesmo banco;
+4. `diff` dos dois arquivos.
+
+Resultado: **72 casos idênticos**, incluindo 401 sem chave, 404 por método,
+404 por caminho a mais, SKU com espaço codificado, id inexistente, id não
+numérico, query ausente e limites acima do teto. Dois campos de horário
+(`hoje`, `lidoEm`) são normalizados antes da comparação por serem voláteis.
+
+Além disso, `src/router-http-test.mjs` prova de forma hermética a precedência,
+o casamento por método, o `:param` que não atravessa barra, o id restrito a
+dígitos e o `null` que devolve a decisão para a corrente antiga.
+
+`npm test` seguiu **8/8** e `npm run test:domain` **2/2**. Nenhuma migration,
+D1 remoto, Nuvemshop real ou deploy.
+
 ## Política de expansão
 
 Começar pelo nível mínimo. Em mudança de domínio, executar testes puros + integração focada; em mudança de UI, acrescentar Playwright; em release, usar `npm test` e os gates adicionais exigidos pelo risco. Migration, produção e reconciliação real continuam sujeitos aos protocolos específicos e nunca são autorizados por este runner.

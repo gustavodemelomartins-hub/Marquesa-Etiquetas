@@ -1,65 +1,82 @@
 import { checarChave, respostaNaoAutorizada, json, comCors } from './auth.js';
-import { montarState, FAIXAS_PADRAO } from './state.js';
+import { criarRoteador } from './http/router.js';
+import { rotas } from './http/routes/index.js';
+import { FAIXAS_PADRAO } from './state.js';
 import { calcComissao } from './comissao.js';
-import { movimentar, consignadoDoSku, saldosDoSku, conferirEstoque, movimentarKit, componentesDoKit, ehKit } from './estoque.js';
+import { movimentar, consignadoDoSku, saldosDoSku, movimentarKit, ehKit } from './estoque.js';
 import {
-  abrirInventario, salvarContagem, concluirInventario, ajustarInventario,
-  cancelarInventario, detalheInventario, listarInventarios,
+  abrirInventario,
+  salvarContagem,
+  concluirInventario,
+  ajustarInventario,
+  cancelarInventario,
 } from './inventario.js';
-import { sincronizar, sincronizarSomenteEstoque, historicoSync, analisarSincronizacao } from './sync.js';
+import { sincronizar, sincronizarSomenteEstoque, analisarSincronizacao } from './sync.js';
 import {
-  analisarEstoqueTotal, aplicarEstoqueTotal, analisarNovos, cadastrarNovos,
-  enfileirarPendentes, listarPendentes, limparPendentes,
+  analisarEstoqueTotal,
+  aplicarEstoqueTotal,
+  analisarNovos,
+  cadastrarNovos,
+  enfileirarPendentes,
+  limparPendentes,
 } from './catalogo.js';
 import {
-  importarFotosDaLoja, vincularFotosDaLoja, listarFotosOrfas, adotarFotoOrfa, salvarFotoUpload,
-  lerFotoParaServir, removerFotos, gerarFundoBranco,
-  sincronizarFotosDaLoja, fotosDoSku,
+  importarFotosDaLoja,
+  vincularFotosDaLoja,
+  adotarFotoOrfa,
+  salvarFotoUpload,
+  lerFotoParaServir,
+  removerFotos,
+  gerarFundoBranco,
+  sincronizarFotosDaLoja,
 } from './fotos.js';
 import {
-  listarPublicacoes, prepararPublicacao, salvarPreviaPublicacao,
-  aprovarPublicacao, reabrirPublicacao, repetirPublicacao,
+  prepararPublicacao,
+  salvarPreviaPublicacao,
+  aprovarPublicacao,
+  reabrirPublicacao,
+  repetirPublicacao,
 } from './publicacao-catalogo.js';
 import { conferirAssinaturaFoto } from './assinatura.js';
+import { importarVariantesDaLoja, variantesDoSku, distribuirVariantes } from './variantes.js';
 import {
-  importarVariantesDaLoja, variacoesParaRevisao, variantesDoSku, distribuirVariantes,
-  reconciliarVariacoes,
-} from './variantes.js';
-import {
-  dependenciasDoProduto, excluirProduto, arquivarProduto, desarquivarProduto, definirVariacoes,
-  estruturaDoProduto,
+  dependenciasDoProduto,
+  excluirProduto,
+  arquivarProduto,
+  desarquivarProduto,
+  definirVariacoes,
 } from './produtos.js';
-import { checarSku, gerarSku, auditarSkus } from './sku.js';
+import { gerarSku } from './sku.js';
 import { Nuvemshop } from './nuvemshop.js';
 import { trocarCodigoPorToken } from './nuvemshop-oauth.js';
 import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
 import {
-  analisarHistorico, importarHistorico, reverterLote, listarLotes,
-  substituirHistorico, retratoDoHistorico,
+  analisarHistorico,
+  importarHistorico,
+  reverterLote,
+  substituirHistorico,
 } from './vendas-historico.js';
 /* A normalização de nome de cliente é UMA, e mora no importador histórico.
    Este arquivo tinha uma cópia dela (`normalizarTextoSimples`) com a mesma
    regra escrita de novo — e cópia de regra é divergência esperando data
    marcada. §21 do plano mestre já cobrou essa dívida uma vez. */
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
-import {
-  visaoGeral, evolucao, produtosMaisVendidos, categoriasMaisVendidas,
-  porOrigem, clientesRanking, perfilCliente, listarVendasUnificado,
-  painel, crm, acertosDeMaleta, resumoDoMes,
-} from './analytics.js';
+import { painel } from './analytics.js';
 /* §30 · §31 · §32 — as três áreas novas de Vendas. Cada uma num arquivo
    próprio porque cada uma tem uma regra própria de o que NÃO fazer, e essa
    regra some quando o código mora dentro do roteador. */
-import { registrarSaida, estornarSaida, listarSaidas } from './saidas.js';
+import { registrarSaida, estornarSaida } from './saidas.js';
 import {
-  abrirGarantia, mudarStatusGarantia, registrarTroca, pagarDiferencaTroca,
-  estornarTroca, listarGarantias, lerGarantia, garantiasPendentes,
+  abrirGarantia,
+  mudarStatusGarantia,
+  registrarTroca,
+  pagarDiferencaTroca,
+  estornarTroca,
 } from './garantias.js';
-import { historicoDoDia, lancamentosDoDia } from './historico-dia.js';
 /* §37 — a lista única de quem deve. Ver api/src/contas-receber.js. */
-import { contasAReceber, definirPrazoDaConta, receberConta } from './contas-receber.js';
+import { definirPrazoDaConta, receberConta } from './contas-receber.js';
 /* §41 — corrigir o código de uma peça já vendida, sem cancelar a venda. */
-import { corrigirItemDeVenda, listarCorrecoes } from './venda-correcao.js';
+import { corrigirItemDeVenda } from './venda-correcao.js';
 /* §43 — Monte seu Colar: base + componentes + configuração da venda. */
 import {
   listarModelos, salvarModelo, prepararPersonalizacoes,
@@ -67,29 +84,34 @@ import {
 } from './personalizacao.js';
 /* §42 — a Central de Pendências e as duas formas de resolver uma variação. */
 import {
-  listarPendencias, adiarPendencia, retomarPendencia,
-  resolverVariacaoDaVenda, resolverVariacaoDaMaleta,
+  adiarPendencia,
+  retomarPendencia,
+  resolverVariacaoDaVenda,
+  resolverVariacaoDaMaleta,
 } from './pendencias.js';
 /* §34 — medição de leitura do D1. Desligada por padrão; ver d1-metrica.js. */
 import {
   criarContador, medirD1, carimbarMetrica, metricasLigadas,
 } from './d1-metrica.js';
-import { auditoriaPagamentos } from './pagamentos-auditoria.js';
-import {
-  analisarHistoricoNaoVenda, aplicarReclassificacao,
-  desfazerReclassificacao, listarReclassificacoes,
-} from './auditoria-historico.js';
-import {
-  reconstruir, estadoReconstrucao, backfillNormalizacao,
-} from './vendas-historicas.js';
+import { aplicarReclassificacao, desfazerReclassificacao } from './auditoria-historico.js';
+import { reconstruir, backfillNormalizacao } from './vendas-historicas.js';
 import {
   aplicarOperacoesHistoricas,
   marcarContaPaga, definirVencimento,
 } from './historico-operacoes.js';
 import {
-  abrirSessao, detalheSessao, aprovarItem, rejeitarItem, cancelarSessao, aplicarSessao,
-  analisarPlanilhaEstoqueTotal, analisarPlanilhaProdutosNovos,
+  abrirSessao,
+  aprovarItem,
+  rejeitarItem,
+  cancelarSessao,
+  aplicarSessao,
+  analisarPlanilhaEstoqueTotal,
+  analisarPlanilhaProdutosNovos,
 } from './reconciliacao.js';
+
+/* Rotas já extraídas do despachante. A corrente de `if` abaixo continua
+   respondendo tudo o que ainda não migrou — inclusive o 404 final. */
+const despacharRota = criarRoteador(rotas);
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 const int = v => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
@@ -162,27 +184,9 @@ async function rotear(request, env, contador = null) {
 
     const db = medirD1(env.DB, contador);
     try {
-      if (path === '/api/state' && met === 'GET') return json(await montarState(db, env));
+      const daTabela = await despacharRota({ request, env, url, db, path, metodo: met });
+      if (daTabela) return daTabela;
 
-      // §19 — prova de que o saldo bate com a razão
-      if (path === '/api/estoque/conferir' && met === 'GET') {
-        const divergentes = await conferirEstoque(db);
-        return json({ ok: divergentes.length === 0, divergentes });
-      }
-
-      // §18 — "por que o estoque deste SKU mudou?"
-      if ((m = path.match(/^\/api\/estoque\/([^/]+)\/movimentos$/)) && met === 'GET') {
-        const sku = decodeURIComponent(m[1]);
-        const r = await db.prepare(
-          `SELECT * FROM movimentos WHERE sku = ? ORDER BY id`).bind(sku).all();
-        const saldos = await saldosDoSku(db, sku);
-        return json({ sku, saldos, movimentos: r.results });
-      }
-
-      if (path === '/api/categorias' && met === 'GET') {
-        const r = await db.prepare(`SELECT * FROM categorias ORDER BY ordem, nome`).all();
-        return json(r.results);
-      }
       if (path === '/api/categorias' && met === 'POST') {
         const { nome, ordem, cor } = await request.json();
         if (!nome || !nome.trim()) return json({ erro: 'Nome é obrigatório' }, 400);
@@ -216,7 +220,6 @@ async function rotear(request, env, contador = null) {
         return json(await cadastrarNovos(db, await request.json()));
       }
       // fila que liga um fluxo ao outro, para não reimportar o mesmo arquivo
-      if (path === '/api/produtos/pendentes' && met === 'GET') return json(await listarPendentes(db));
       if (path === '/api/produtos/pendentes' && met === 'POST') {
         return json(await enfileirarPendentes(db, await request.json()));
       }
@@ -250,10 +253,6 @@ async function rotear(request, env, contador = null) {
       /* A galeria de um código, na ordem da loja e com a principal na
          frente. Preserva as múltiplas imagens: a tela operacional mostra a
          principal, e quem precisar das outras não abre a Nuvemshop. */
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/fotos$/)) && met === 'GET') {
-        return json(await fotosDoSku(db, decodeURIComponent(m[1])));
-      }
-      if (path === '/api/fotos/orfas' && met === 'GET') return json(await listarFotosOrfas(db));
       if (path === '/api/fotos/orfas/adotar' && met === 'POST') {
         return json(await adotarFotoOrfa(db, env, await request.json()));
       }
@@ -273,9 +272,6 @@ async function rotear(request, env, contador = null) {
         return json(await gerarFundoBranco(db, env, decodeURIComponent(m[1])));
       }
       // o que o agente de catálogo enxerga: pronto para publicar × o que falta
-      if (path === '/api/catalogo/publicacao' && met === 'GET') {
-        return json(await listarPublicacoes(db));
-      }
       if ((m = path.match(/^\/api\/catalogo\/publicacao\/([^/]+)\/preparar$/)) && met === 'POST') {
         const r = await prepararPublicacao(db, env, decodeURIComponent(m[1]), await request.json().catch(() => ({})));
         return json(r, r.statusHttp || 200);
@@ -323,14 +319,6 @@ async function rotear(request, env, contador = null) {
         const b = await request.json().catch(() => ({}));
         return json(await importarVariantesDaLoja(db, new Nuvemshop(env), { seco: !!b.seco }));
       }
-      if ((m = path.match(/^\/api\/loja\/variantes\/([^/]+)$/)) && met === 'GET') {
-        return json(await variantesDoSku(db, decodeURIComponent(m[1])));
-      }
-      // "Precisa de revisão — variações não mapeadas": o que a sincronização
-      // decidiu NÃO escrever, com os dois números lado a lado.
-      if (path === '/api/variacoes/revisao' && met === 'GET') {
-        return json(await variacoesParaRevisao(db));
-      }
 
       /* §42 — a CENTRAL DE PENDÊNCIAS.
          O sistema já dizia "REVISAR VARIAÇÃO" com precisão e parava ali.
@@ -339,20 +327,6 @@ async function rotear(request, env, contador = null) {
          não há tabela de pendências, e resolver o caso o faz sumir sozinho.
          Resolver uma variação é dizer QUAL peça saiu: identidade, nunca uma
          segunda baixa de estoque. */
-      /* §42.6 — a comparação READ-ONLY das três fontes: o que sabemos aqui,
-         as variações cadastradas e o espelho da loja. Classifica em
-         RESOLVIDO, PENDENTE_HUMANO e DIVERGENCIA_REAL, e não escreve em
-         lugar nenhum — nem no banco, nem na Nuvemshop. É o relatório que
-         vem ANTES de qualquer sincronização de escrita. */
-      if (path === '/api/variacoes/reconciliacao' && met === 'GET') {
-        return json(await reconciliarVariacoes(db));
-      }
-      if (path === '/api/pendencias' && met === 'GET') {
-        return json(await listarPendencias(db, {
-          tipo: url.searchParams.get('tipo') || null,
-          incluirAdiadas: url.searchParams.get('adiadas') === '1',
-        }));
-      }
       if (path === '/api/pendencias/adiar' && met === 'POST') {
         const r = await adiarPendencia(db, await request.json().catch(() => ({})));
         return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
@@ -389,20 +363,12 @@ async function rotear(request, env, contador = null) {
          decisão e o saldo de cada variação na MESMA linha. `variantesDoSku`
          continua existindo em /api/loja/variantes/:sku, e é outra pergunta —
          ela lê a loja e só a loja. */
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/variacoes$/)) && met === 'GET') {
-        const r = await estruturaDoProduto(db, decodeURIComponent(m[1]));
-        return json(r, r.erro ? (r.status || 400) : 200);
-      }
 
       /* ------------------------------------------- ciclo de vida da peça
          §28: quem tem histórico é arquivado, nunca apagado. Quem não tem
          (a peça de teste que entulha a lista) some de vez. Quem decide não
          é preferência: é a pergunta que `dependenciasDoProduto` faz ao
          banco. Nenhuma destas rotas encosta na Nuvemshop. */
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/dependencias$/)) && met === 'GET') {
-        const r = await dependenciasDoProduto(db, decodeURIComponent(m[1]));
-        return json(r, r.erro ? (r.status || 400) : 200);
-      }
       if ((m = path.match(/^\/api\/produtos\/([^/]+)$/)) && met === 'DELETE') {
         const r = await excluirProduto(db, decodeURIComponent(m[1]));
         return json(r, r.status || (r.erro ? 400 : 200));
@@ -421,9 +387,6 @@ async function rotear(request, env, contador = null) {
          Checar e gerar são duas rotas e não uma: checar é de leitura e pode
          ser chamada a cada tecla; gerar RESERVA um código no banco e por
          isso é POST, mesmo "só devolvendo um texto". */
-      if (path === '/api/produtos/sku/checar' && met === 'GET') {
-        return json(await checarSku(db, url.searchParams.get('sku')));
-      }
       if (path === '/api/produtos/sku/gerar' && met === 'POST') {
         const b = await request.json().catch(() => ({}));
         /* O código que sai daqui é DEFINITIVO e já está reservado. Ele foi
@@ -438,16 +401,8 @@ async function rotear(request, env, contador = null) {
          pura: não muda gerador, não renumera, não decide. Existe porque
          "qual código o sistema deve gerar?" é pergunta de dado, não de
          opinião, e a resposta errada só aparece meses depois numa etiqueta. */
-      if (path === '/api/produtos/sku/auditoria' && met === 'GET') {
-        return json(await auditarSkus(db, {
-          amostra: Math.min(200, Math.max(1, Number(url.searchParams.get('amostra')) || 25)),
-        }));
-      }
 
       // ---------------------------------------------------------------- kits
-      if ((m = path.match(/^\/api\/produtos\/([^/]+)\/componentes$/)) && met === 'GET') {
-        return json(await componentesDoKit(db, decodeURIComponent(m[1])));
-      }
       if ((m = path.match(/^\/api\/produtos\/([^/]+)\/componentes$/)) && met === 'PUT') {
         return await definirKit(db, decodeURIComponent(m[1]), await request.json());
       }
@@ -570,6 +525,7 @@ async function rotear(request, env, contador = null) {
          Telefone entra na mesma caixa: quem tem o número na conversa do
          WhatsApp acha mais rápido por ele do que por um sobrenome que pode
          ter sido escrito de dois jeitos. */
+      // ------------------------------------------------------------ clientes
       if (path === '/api/clientes' && met === 'GET') {
         const busca = (url.searchParams.get('busca') || '').trim();
         const limite = Math.min(+(url.searchParams.get('limite') || 25), 100);
@@ -624,7 +580,6 @@ async function rotear(request, env, contador = null) {
         const b = await request.json().catch(() => ({}));
         return json(await sincronizar(db, env, { forcar: !!b.forcar, seco: !!b.seco }));
       }
-      if (path === '/api/sync' && met === 'GET') return json(await historicoSync(db));
       /* Dry-run de leitura pura: não abre execução, não puxa pedido, não
          grava retrato e não escreve na loja. É o que a tela mostra antes de
          pedir a confirmação. */
@@ -651,9 +606,6 @@ async function rotear(request, env, contador = null) {
         const b = await request.json().catch(() => ({}));
         return await analisarPlanilhaProdutosNovos(db, b.produtos);
       }
-      if ((m = path.match(/^\/api\/reconciliacao\/(\d+)$/)) && met === 'GET') {
-        return await detalheSessao(db, +m[1]);
-      }
       if ((m = path.match(/^\/api\/reconciliacao\/(\d+)\/itens\/(\d+)\/aprovar$/)) && met === 'POST') {
         return await aprovarItem(db, +m[1], +m[2]);
       }
@@ -668,11 +620,7 @@ async function rotear(request, env, contador = null) {
       }
 
       // ------------------------------------------------------- inventário
-      if (path === '/api/inventarios' && met === 'GET') return await listarInventarios(db);
       if (path === '/api/inventarios' && met === 'POST') return await abrirInventario(db);
-      if ((m = path.match(/^\/api\/inventarios\/(\d+)$/)) && met === 'GET') {
-        return await detalheInventario(db, +m[1]);
-      }
       if ((m = path.match(/^\/api\/inventarios\/(\d+)\/contagem$/)) && met === 'PUT') {
         return await salvarContagem(db, +m[1], await request.json());
       }
@@ -694,10 +642,6 @@ async function rotear(request, env, contador = null) {
          origens e sem duplicidade. É o que a lista por dia mostrava pela
          metade: venda de balcão, linha de planilha, acerto de revendedora,
          maleta que saiu, brinde e troca de garantia. */
-      if (path === '/api/vendas/dia' && met === 'GET') {
-        const r = await historicoDoDia(db, url.searchParams.get('data') || hoje());
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
-      }
       /* §35 — os três cartões de Lançamentos, calculados no servidor a
          partir de TODAS as origens comerciais da data escolhida. Antes eles
          eram somados no navegador sobre `GET /api/vendas`, que só conhece a
@@ -705,10 +649,6 @@ async function rotear(request, env, contador = null) {
          logo abaixo. O cartão de acerto passa a mostrar o LÍQUIDO da
          Marquesa (bruto − comissão), e não "peças que a revendedora não
          devolveu" — peça em maleta não é venda. */
-      if (path === '/api/vendas/lancamentos' && met === 'GET') {
-        const r = await lancamentosDoDia(db, url.searchParams.get('data') || hoje());
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
-      }
       /* §29 — o dinheiro entrou. Registra a data DO PAGAMENTO e não toca na
          data da venda; não mexe em estoque, porque a peça já saiu quando a
          venda foi registrada. */
@@ -744,12 +684,6 @@ async function rotear(request, env, contador = null) {
         const r = await corrigirItemDeVenda(db, await request.json().catch(() => ({})));
         return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
       }
-      if (path === '/api/vendas/correcoes' && met === 'GET') {
-        return json(await listarCorrecoes(db, {
-          limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
-          offset: +(url.searchParams.get('offset') || 0),
-        }));
-      }
       if ((m = path.match(/^\/api\/vendas\/(\d+)\/cancelar$/)) && met === 'POST') {
         return await cancelarVenda(db, env, +m[1]);
       }
@@ -773,15 +707,9 @@ async function rotear(request, env, contador = null) {
         const r = await importarHistorico(db, { linhas: b.linhas, arquivo: b.arquivo });
         return json(r, r.ok ? 201 : 409);
       }
-      if (path === '/api/vendas/historico/lotes' && met === 'GET') {
-        return json(await listarLotes(db));
-      }
       /* O retrato do que está no ar: quantas vendas, quanto faturamento, de
          qual arquivo. É o que a tela mostra ANTES de propor a troca — trocar
          sem saber o que está sendo trocado é o mesmo que não perguntar. */
-      if (path === '/api/vendas/historico/retrato' && met === 'GET') {
-        return json(await retratoDoHistorico(db));
-      }
       /* TROCAR a planilha: reverte o que está de pé e importa a corrigida,
          numa operação só. Importar por cima SEM reverter é o caminho que
          duplicaria o faturamento — a trava de idempotência é por hash do
@@ -812,9 +740,6 @@ async function rotear(request, env, contador = null) {
         });
         return json({ ...r, normalizacao: norm }, r.ok ? 200 : (r.statusHttp ?? 409));
       }
-      if (path === '/api/vendas/historico/reconstrucao' && met === 'GET') {
-        return json(await estadoReconstrucao(db));
-      }
       if (path === '/api/vendas/historico/operacoes' && met === 'POST') {
         // `seco: true` devolve o plano e o `planoHash` sem escrever nada;
         // mandar esse hash de volta em `planoEsperado` recusa a escrita se o
@@ -835,10 +760,6 @@ async function rotear(request, env, contador = null) {
          de garantia. Cada linha traz uma `chave` (`historico:12`,
          `venda:45`, `troca:7`) que diz de onde veio e para onde a ação vai.
          As rotas antigas continuam válidas e tratam só o lado histórico. */
-      if (path === '/api/contas-receber' && met === 'GET') {
-        const r = await contasAReceber(db, { status: url.searchParams.get('status') || 'aberta' });
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
-      }
       if (path === '/api/contas-receber/prazo' && met === 'PATCH') {
         const r = await definirPrazoDaConta(db, await request.json().catch(() => ({})));
         return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
@@ -856,100 +777,17 @@ async function rotear(request, env, contador = null) {
         return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
       }
 
-      // ------------------------------------------------ inteligência comercial
-      // As duas rotas AGREGADAS: cada tela pede uma vez e recebe todos os
-      // blocos dela do mesmo recorte — assim nenhum cartão pode discordar do
-      // gráfico ao lado, e o filtro de período não dispara seis requisições.
-      if (path === '/api/analytics/painel' && met === 'GET') {
-        return json(await painel(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
-      }
-      if (path === '/api/analytics/crm' && met === 'GET') {
-        return json(await crm(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
-      }
-      if (path === '/api/analytics/revendedoras' && met === 'GET') {
-        return json(await acertosDeMaleta(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
-      }
-      if (path === '/api/analytics/vendas' && met === 'GET') {
-        return json(await visaoGeral(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
-      }
-      /* §40 — o resumo de UMA barra do gráfico "Evolução por mês".
-         Quatro cartões, categorias do mês e o histórico compacto, para
-         desenhar logo abaixo do gráfico sem trocar de tela. Faturamento é
-         recortado pela data do pagamento; vendas, peças e clientes, pela
-         data da venda — e a diferença entre os dois é dita, não conciliada. */
-      if (path === '/api/analytics/mes' && met === 'GET') {
-        const r = await resumoDoMes(db, { mes: url.searchParams.get('mes') });
-        return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
-      }
-      if (path === '/api/analytics/evolucao' && met === 'GET') {
-        return json(await evolucao(db, {
-          periodo: url.searchParams.get('periodo') || 'tudo',
-          granularidade: url.searchParams.get('granularidade') || 'mes',
-        }));
-      }
-      if (path === '/api/analytics/produtos' && met === 'GET') {
-        return json(await produtosMaisVendidos(db, {
-          periodo: url.searchParams.get('periodo') || 'tudo',
-          por: url.searchParams.get('por') || 'faturamento',
-          limite: Math.min(+(url.searchParams.get('limite') || 20), 200),
-        }));
-      }
-      if (path === '/api/analytics/categorias' && met === 'GET') {
-        return json(await categoriasMaisVendidas(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
-      }
-      if (path === '/api/analytics/origem' && met === 'GET') {
-        return json(await porOrigem(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
-      }
-      if (path === '/api/analytics/clientes' && met === 'GET') {
-        return json(await clientesRanking(db, {
-          periodo: url.searchParams.get('periodo') || 'tudo',
-          ordem: url.searchParams.get('ordem') || 'faturamento',
-          limite: Math.min(+(url.searchParams.get('limite') || 50), 500),
-        }));
-      }
-      if (path === '/api/vendas/lista' && met === 'GET') {
-        return json(await listarVendasUnificado(db, {
-          de: url.searchParams.get('de'), ate: url.searchParams.get('ate'),
-          busca: url.searchParams.get('busca'), canal: url.searchParams.get('canal'),
-          limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
-          offset: +(url.searchParams.get('offset') || 0),
-        }));
-      }
-
-      // ------------------------------------------------------------ clientes
-      if (path === '/api/clientes/perfil' && met === 'GET') {
-        const id = url.searchParams.get('id');
-        const r = await perfilCliente(db, {
-          clienteId: id ? +id : null, norm: url.searchParams.get('norm'),
-        });
-        return json(r, r.ok ? 200 : 400);
-      }
       if ((m = path.match(/^\/api\/clientes\/(\d+)$/)) && met === 'PATCH') {
         return await atualizarCliente(db, +m[1], await request.json());
-      }
-      if (path === '/api/clientes/revisao' && met === 'GET') {
-        const { results } = await db.prepare(
-          `SELECT * FROM clientes_vinculo_revisao WHERE status = 'pendente' ORDER BY linhas DESC`,
-        ).all();
-        return json({ revisoes: results ?? [] });
       }
       if ((m = path.match(/^\/api\/clientes\/revisao\/(\d+)$/)) && met === 'POST') {
         const b = await request.json().catch(() => ({}));
         return await decidirVinculoCliente(db, +m[1], b);
       }
 
-      // ─────────────────────────────────── §30: saídas sem faturamento
+      // ───────────────────────────────── §30: saídas sem faturamento
       // Brinde, uso próprio, perda/diferença de inventário e sorteio. Saem
       // do estoque e não são venda: nenhuma cria cliente, venda ou faturamento.
-      if (path === '/api/saidas' && met === 'GET') {
-        return json(await listarSaidas(db, {
-          de: url.searchParams.get('de'), ate: url.searchParams.get('ate'),
-          tipo: url.searchParams.get('tipo'),
-          incluirEstornadas: url.searchParams.get('estornadas') !== 'nao',
-          limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
-          offset: +(url.searchParams.get('offset') || 0),
-        }));
-      }
       if (path === '/api/saidas' && met === 'POST') {
         const r = await registrarSaida(db, await request.json().catch(() => ({})));
         return json(r, r.ok ? 201 : (r.statusHttp ?? 400));
@@ -959,29 +797,13 @@ async function rotear(request, env, contador = null) {
         return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
       }
 
-      // ──────────────────────────────────────────── §31: garantia e reparo
+      // ──────────────────────────────────────── §31: garantia e reparo
       // Nada aqui altera a venda original, devolve a peça defeituosa ao
       // estoque vendável ou gera faturamento. A única receita é a diferença
       // de uma troca, quando paga, e ela tem rota própria.
-      if (path === '/api/garantias' && met === 'GET') {
-        return json(await listarGarantias(db, {
-          status: url.searchParams.get('status'),
-          limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
-          offset: +(url.searchParams.get('offset') || 0),
-        }));
-      }
-      if (path === '/api/garantias/pendentes' && met === 'GET') {
-        return json(await garantiasPendentes(db, {
-          limite: Math.min(+(url.searchParams.get('limite') || 50), 200),
-        }));
-      }
       if (path === '/api/garantias' && met === 'POST') {
         const r = await abrirGarantia(db, await request.json().catch(() => ({})));
         return json(r, r.ok ? 201 : (r.statusHttp ?? 400));
-      }
-      if ((m = path.match(/^\/api\/garantias\/(\d+)$/)) && met === 'GET') {
-        const g = await lerGarantia(db, +m[1]);
-        return json(g ?? { erro: 'Garantia não encontrada' }, g ? 200 : 404);
       }
       if ((m = path.match(/^\/api\/garantias\/(\d+)\/status$/)) && met === 'POST') {
         const r = await mudarStatusGarantia(db, +m[1], await request.json().catch(() => ({})));
@@ -1003,25 +825,14 @@ async function rotear(request, env, contador = null) {
       /* §1 da revisão — o estado de pagamento das vendas, ANTES do backfill.
          Somente leitura, e roda em banco que ainda não tem as colunas novas:
          é o relatório que decide, não o efeito de já ter decidido. */
-      if (path === '/api/vendas/pagamento/auditoria' && met === 'GET') {
-        return json(await auditoriaPagamentos(db));
-      }
 
       // ────────────────── §30.5: auditoria dos históricos que não são venda
       // `analisar` é SECO: lê tudo, propõe e não escreve. Aplicar recebe a
       // lista nomeada — não existe "aplicar todas" no servidor.
-      if (path === '/api/historico/auditoria' && met === 'GET') {
-        const nomes = (url.searchParams.get('usoProprio') || '')
-          .split(',').map((x) => x.trim()).filter(Boolean);
-        return json(await analisarHistoricoNaoVenda(db, { nomesUsoProprio: nomes }));
-      }
       if (path === '/api/historico/reclassificar' && met === 'POST') {
         const b = await request.json().catch(() => ({}));
         const r = await aplicarReclassificacao(db, b);
         return json(r, r.statusHttp ?? (r.ok ? 200 : 400));
-      }
-      if (path === '/api/historico/reclassificar' && met === 'GET') {
-        return json(await listarReclassificacoes(db, { status: url.searchParams.get('status') }));
       }
       if ((m = path.match(/^\/api\/historico\/reclassificar\/(\d+)$/)) && met === 'DELETE') {
         const r = await desfazerReclassificacao(db, +m[1]);
