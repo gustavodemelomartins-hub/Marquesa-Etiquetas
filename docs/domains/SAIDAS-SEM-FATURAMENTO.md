@@ -63,7 +63,7 @@ essa categoria.
 | observação | suportada na saída e preservada na linha histórica de origem |
 | origem de inventário | parcial: movimento novo aceita origem `inventario`, mas reclassificação histórica não aponta para sessão/item de inventário |
 | histórico operacional da saída reclassificada | lacuna: a aplicação atual só grava `historico_reclassificacao` |
-| custo histórico corrigível | não suportado; não há campo/evento de custo nem trilha anterior/novo |
+| custo histórico corrigível | não suportado; não há campo/evento de custo nem trilha anterior/novo. Confirmado em 11/09/2026: **zero ocorrências de custo em `api/schema.sql`**. Desenho proposto em [CUSTO-HISTORICO-AUDITAVEL.md](../architecture/CUSTO-HISTORICO-AUDITAVEL.md) (`P12`) |
 | rollback auditável | lacuna: a operação atual apaga a decisão; reverte métricas, mas não preserva quem/quando/por quê desfez |
 
 A origem de inventário pertence à fronteira de Estoque/Inventário da Fase 4.
@@ -82,6 +82,62 @@ própria de schema/data e sem UI nesta integração.
 | `migrar-nao-venda.mjs` | `87732d3` | aplicar pela API | script operacional | autenticação incompatível e aplicação incompleta | **E**: não integrar |
 | `patch-hook-leitura-prod.md` | `87732d3` | proposta de governança | proposta superada | contradiz a política production-first atual | **E**: não integrar |
 | `ensaio-antes-depois.py` | `0a9df94` | prova local | teste/evidência | dump/caminho real e SQL direto | **B**: adaptar a regra/idempotência/rollback para teste hermético e manter os agregados como evidência; os demais critérios continuam sem prova E2E reproduzível |
+
+## São dois assuntos, não um (11/09/2026)
+
+Decisão de `DR-007`: **o schema e o histórico deixam de ser tratados como uma
+coisa só.** Juntá-los escondia que um deles já estava auditado e o outro nem
+começado, e fazia "aplicar a migration" parecer resolver ambos.
+
+| | Assunto | Pendência | Estado |
+|---|---|---|---|
+| 1 | Migration de schema que admite `sorteio` como tipo | `P11` | não executada; produção ainda tem `CHECK` de **3** tipos |
+| 2 | Reclassificação do histórico já importado (37 linhas) | `P17` | regra e evidência integradas; **execução não autorizada** |
+
+O assunto 2 **não precisa do assunto 1**: os três tipos de destino das 37
+linhas (`uso_proprio`, `brinde`, `perda`) já cabem no `CHECK` atual de
+produção. A única das 37 que esbarra em `sorteio` é o registro de confiança
+média (`Sorteio (Feira Franceschini)`), e ele depende de decisão humana antes
+de qualquer coisa.
+
+Estado de produção medido por leitura em 11/09/2026:
+
+```sql
+saidas_sem_faturamento.tipo   CHECK (tipo IN ('brinde', 'uso_proprio', 'perda'))
+saidas_sem_faturamento        0 linhas
+historico_reclassificacao     0 linhas
+vendas_historico_itens        1.375 linhas
+```
+
+`api/schema.sql` já declara os quatro tipos, então instalação nova nasce certa
+e banco migrado não — a mesma divergência registrada em `ARQ-007`.
+
+## Direção futura: os quatro tipos são o padrão, não o teto
+
+Decisão de produto de 11/09/2026: a Sthefany deverá poder **criar tipos novos
+pela interface**. `brinde`, `uso_proprio`, `perda` e `sorteio` passam a ser os
+tipos que o sistema já traz, não a lista fechada.
+
+Isso condena o modelo atual, e a razão é mecânica: cada tipo está preso num
+`CHECK` em **duas** tabelas, e ampliar um `CHECK` no SQLite exige **reconstruir
+a tabela**. A migration do `sorteio` é a prova — ela faz `DROP TABLE` de duas
+tabelas para acrescentar uma palavra. Uma migration destrutiva por tipo novo
+não é um caminho que se possa oferecer a um botão de interface.
+
+A direção correta, quando isso for implementado — **não é autorização, e nada
+disso existe hoje**:
+
+- os tipos viram **dados**, numa tabela própria, com chave estrangeira
+  substituindo o `CHECK`;
+- os tipos que o sistema traz são marcados como **de sistema** e não podem ser
+  apagados, porque regra de negócio depende deles (`perda` é o único que aceita
+  `sentido = 'entrada'`, e essa trava precisa continuar existindo);
+- tipo criado pela usuária **desativa, nunca apaga** — apagar órfã o histórico
+  que aponta para ele;
+- a regra por tipo (se soma ou só subtrai, se entra em relatório de brinde) tem
+  que morar junto do tipo, senão volta tudo para o código.
+
+Registrado no [Master Plan § 46.1](../architecture/MASTER-PLAN-SISTEMA-MARQUESA-2026-09.md).
 
 ## Limites desta integração
 

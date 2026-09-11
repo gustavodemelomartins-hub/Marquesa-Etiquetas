@@ -995,7 +995,8 @@ Cada redesign deve manter os mesmos casos de uso ou declarar formalmente a mudan
 
 Somente após os gates estruturais relevantes:
 
-- Pacote 5, com escopo novamente aprovado;
+- ~~Pacote 5, com escopo novamente aprovado~~ — **cancelado em 11/09/2026**:
+  não existe escopo obrigatório com esse nome; era placeholder (`P6`);
 - publicação externa de catálogo na Nuvemshop;
 - automações agendadas adicionais;
 - novas regras de comissão ou giro;
@@ -1005,6 +1006,69 @@ Somente após os gates estruturais relevantes:
 - relatórios e exportações avançadas.
 
 Nenhuma dessas funcionalidades é consequência automática do presente plano.
+
+### 46.1 Direções registradas em 11/09/2026
+
+Sete itens ganharam direção decidida nesta data. Direção **não** é autorização
+de implementação: nenhum deles tem código, schema ou tela aprovados, e todos
+dependem dos gates das fases correspondentes. O que muda é que, quando forem
+implementados, já se sabe **qual** é o desenho certo — e qual seria o errado.
+
+**1. Tipos configuráveis de saída sem faturamento.** `brinde`, `uso_proprio`,
+`perda` e `sorteio` passam a ser o **padrão, não o teto**: a Sthefany deverá
+poder criar tipos novos pela interface. O modelo atual prende cada tipo num
+`CHECK` de duas tabelas, e ampliar esse `CHECK` no SQLite exige **reconstruir a
+tabela** — foi exatamente o que a migration do `sorteio` teve que fazer. Um tipo
+novo por migration destrutiva é um beco sem saída. A direção é mover os tipos
+para **dados** (tabela própria, com chave estrangeira, tipos de sistema
+não-apagáveis e desativação em vez de exclusão, para não órfãos o histórico).
+Ver [SAIDAS-SEM-FATURAMENTO.md](../domains/SAIDAS-SEM-FATURAMENTO.md).
+
+**2. Login, usuários e permissões** (`P7`). Redesenho da tela de login,
+autenticação individual, criação de usuários, perfis (Administrador,
+Funcionário, eventualmente outros), permissões, identificação de quem realizou
+ações importantes e trilha de auditoria por usuário. Pós-validação da V2.
+Enquanto não existir, todo campo de autor nasce como texto livre preenchido
+pela aplicação — ver § 46.1 item 7 e `P12`.
+
+**3. Gestão de categorias na interface** (`DR-012`). `POST /api/categorias` já
+existe e nenhuma tela chama. Entra **depois** do sistema principal validado e
+estável; não é prioridade da reconstrução atual.
+
+**4. Central de Notificações** (`P10`). Ligada ao sino que já existe no
+cabeçalho. Recebe eventos técnicos (erro 500, falha de sync, cron, Nuvemshop,
+publicação, migration, imagens), de estoque e inventário, financeiros, de
+garantias, pagamentos e integrações. Cada notificação carrega, quando aplicável,
+severidade, lida/não lida, contexto, link para a origem e **agrupamento de
+repetições**. O critério que mata o desenho errado: não pode virar feed
+barulhento. Sem stack enterprise e sem SLA formal.
+
+**5. Sugestão de próxima maleta** (`P4`). Assistente, não automação:
+selecionar revendedora → escolher quantidade desejada → gerar sugestão.
+Considera, por revendedora, o histórico dela, quais peças já recebeu, o estoque
+em casa, a reserva mínima, a quantidade disponível por SKU, priorização de
+novidades, e evita repetição excessiva — permitindo repetir de propósito peça
+estratégica, de boa saída ou com estoque alto. O resultado mostra total de
+peças, quantas novidades, quantas repetidas, SKUs diferentes e valor total, e
+permite gerar outra sugestão ou trocar peça à mão.
+
+A trava que define esta funcionalidade: **gerar sugestão não movimenta estoque,
+não cria maleta, não transfere peça e não baixa produto.** A movimentação só
+acontece na confirmação humana da maleta real. E a reserva mínima **avisa
+forte, mas não impede** decisão manual.
+
+**6. Migração Nuvemshop → R2** (`P9`). Quando o R2 de produção for ativado, a
+primeira carga tem processo próprio e **aditivo**: localizar as imagens que já
+existem dos produtos na loja → baixar/copiar → validar → armazenar no R2 →
+vincular ao produto/SKU → conferir correspondência. **Nada é apagado da
+Nuvemshop durante essa migração.**
+
+**7. DEV com cópia controlada dos dados de produção** (`P9`). O DEV deve receber
+um snapshot controlado dos dados reais para teste, **nunca** apontando direto
+para o banco de produção, e com a escrita real na Nuvemshop permanentemente
+bloqueada (`NUVEMSHOP_WRITES_ENABLED = "false"`). A medição que torna isso
+urgente: produção tem 41 tabelas e o DEV tem 29, então hoje um teste feito lá
+não prova nada sobre cá.
 
 ## 47. Caminho eventual para SaaS
 
@@ -1061,24 +1125,38 @@ A refatoração estrutural estará concluída quando:
 
 ## 50. Decisões humanas pendentes
 
-Antes das fases correspondentes, decidir explicitamente:
+A lista viva, com estado e detalhe de cada uma, mora em
+[docs/decisions/PENDENTES.md](../decisions/PENDENTES.md) (`P1..P17`). Esta
+seção só diz em que pé ela está, para o plano não virar uma segunda fonte.
 
-- fonte operacional e frequência real do cron de sync;
-- semântica definitiva de giro e comissão;
-- regra de preço para material bruto versus banhado;
-- fonte única dos parâmetros de planejamento;
-- quanto tempo manter fallback do legado;
-- quais fluxos compõem Pacote 5;
-- quando identidade individual passa a ser necessária;
-- se publicação externa de catálogo será criada e com quais freios — resposta
-  parcial: o contrato da Fase 4.5 já define dry-run padrão, rodada pausada
-  acima de 20 e aprovação humana obrigatória (§30); falta decidir a ativação
-  em produção;
-- se a criação de produto ganha rota própria no domínio Catálogo ou continua
-  exclusiva do fluxo de importação/Estoque — achado ao desenhar a Fase 4.5
-  em 10–11/09/2026 (§30);
-- política de R2/mídia em produção;
-- SLO e nível de observabilidade esperado.
+**Fechadas em 11/09/2026** — cron de sync (`P1`, por verificação read-only:
+desarmado nos dois ambientes, confirmado por 10 deploys posteriores ao commit
+que o desarmou); fonte única dos parâmetros de planejamento (`P4`, a reserva
+avisa e não bloqueia); tempo de fallback do legado (`P5`, ~30 dias somente
+leitura); Pacote 5 (`P6`, **não existe** — era placeholder); identidade
+individual (`P7`, roadmap pós-validação, § 46.1); observabilidade (`P10`,
+prática e sem SLA formal, § 46.1); preço divergente (`P13`, preço cadastral é
+sempre o do Sistema Marquesa); mesclagem de categorias (`P14`, não reescreve o
+passado); arquivamento (`P15`, estoque zero **não** arquiva); categorias da loja
+(`P16`, entidades distintas e mapeáveis).
+
+Também em 11/09/2026, a criação de produto (§ 30) **continua exclusiva do fluxo
+de Estoque → Cadastro de Produtos**; Catálogo não ganha rota própria, e um
+futuro botão "Novo produto" ali apenas reutiliza o mesmo fluxo.
+
+**Direção decidida, ativação ainda pendente** — publicação externa de catálogo
+(`P8`: os seis critérios cumulativos estão fechados; falta o ato de ligar) e
+política de R2/mídia em produção (`P9`: produção continua desligada, DEV pode
+ganhar bucket próprio, e a migração Nuvemshop → R2 é aditiva — § 46.1).
+
+**Continuam abertas** — semântica de giro e comissão (`P2`, aguarda a Sthefany:
+com desconto no acerto, a comissão incide sobre o preço original ou sobre o
+valor final?); regra de preço para material bruto versus banhado (`P3`); quando
+aplicar a migration do `sorteio` (`P11`, só o schema); desenho da correção
+auditável de custo histórico (`P12`, regra fechada e proposta em
+[CUSTO-HISTORICO-AUDITAVEL.md](CUSTO-HISTORICO-AUDITAVEL.md)); e a
+reclassificação do histórico de não-vendas (`P17`, auditoria pronta, execução
+não autorizada).
 
 ## 51. Não objetivos deste plano
 

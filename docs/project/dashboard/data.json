@@ -3,8 +3,16 @@
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
   "atualizadoEm": "2026-09-11",
   "git": {
-    "branch": "codex/ui-system-marquesa",
+    "branch": "claude/review-marquesa-v2",
     "recentes": [
+      {
+        "commit": "52f5f5f",
+        "data": "2026-09-11",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(schema): test all 30 migrations against the schema, in a proven order",
+        "agente": "",
+        "taskIds": []
+      },
       {
         "commit": "2ad2ca9",
         "data": "2026-09-11",
@@ -198,27 +206,19 @@
         "assunto": "feat(midia): a peça passa a ter galeria, e o original sobrevive ao preparo",
         "agente": "",
         "taskIds": []
-      },
-      {
-        "commit": "0f06dda",
-        "data": "2026-09-10",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(categorias): renomear passa a ser possível, e 'Outros' volta a ser só uma categoria",
-        "agente": "",
-        "taskIds": []
       }
     ]
   },
   "visaoGeral": {
-    "progresso": 20,
+    "progresso": 24,
     "porEstado": {
-      "DONE": 7,
+      "DONE": 9,
       "IN PROGRESS": 15,
-      "NEXT": 10,
-      "BLOCKED": 3,
-      "DECISIONS REQUIRED": 13
+      "NEXT": 9,
+      "BLOCKED": 4,
+      "DECISIONS REQUIRED": 4
     },
-    "totalTarefas": 48
+    "totalTarefas": 41
   },
   "tarefas": [
     {
@@ -278,6 +278,22 @@
       "nota": ""
     },
     {
+      "id": "CAT-003",
+      "estado": "DONE",
+      "dominio": "Catálogo",
+      "titulo": "Cadastro de produto — decidido: continua em Estoque → Cadastro de Produtos; Catálogo não ganha fluxo próprio",
+      "contexto": "DR-002, 11/09/2026",
+      "nota": ""
+    },
+    {
+      "id": "DOC-004",
+      "estado": "DONE",
+      "dominio": "Documentação",
+      "titulo": "Consolidação das 11 decisões de 11/09/2026, separação de P11/P17, e registro das 3 frentes paralelas de trabalho",
+      "contexto": "este commit — ver ## WORKSTREAMS e ## DECISIONS MADE",
+      "nota": ""
+    },
+    {
       "id": "ARQ-001",
       "estado": "IN PROGRESS",
       "dominio": "Arquitetura",
@@ -307,7 +323,7 @@
       "dominio": "Catálogo",
       "titulo": "Backend Fase 4.5 — categoria (identidade/renomear), galeria/mídia, tarefa de preparação, publicação (writer + estados), 19 testes de schema",
       "contexto": "mesclado na V2; 26 provas do catalogo-4-5-test.mjs verdes",
-      "nota": "R2 desligado e P13–P16 continuam bloqueando o uso real (ver Decisions Required)"
+      "nota": "P13–P16 fecharam em 11/09 (DR-008–DR-011): o que resta implementar tem regra. R2 continua desligado por DR-003"
     },
     {
       "id": "CAT-002",
@@ -315,7 +331,7 @@
       "dominio": "Catálogo",
       "titulo": "UX da Fase 4.5 — 10 telas conceituais, 4 fluxos, matriz UX↔API",
       "contexto": "docs/ux/03-screens/catalogo/, docs/ux/05-flows/catalogo-*.md; estado do material: domínio mapeado, aguardando mockups",
-      "nota": "falta mockup visual; falta decisão de cadastro (CAT-003)"
+      "nota": "falta mockup visual. A decisão de cadastro fechou (DR-002): Catálogo não desenha cadastro próprio"
     },
     {
       "id": "INV-001",
@@ -393,32 +409,24 @@
       "id": "SAI-001",
       "estado": "IN PROGRESS",
       "dominio": "Saídas sem faturamento",
-      "titulo": "Categoria \"sorteio\" (saída sem faturamento) — schema e código prontos (ae81c5b, 8055732), migration escrita",
+      "titulo": "Categoria \"sorteio\" (saída sem faturamento) — só o schema, depois da separação de DR-007. Código e api/schema.sql já têm os 4 tipos",
       "contexto": "main",
-      "nota": "migration api/migracao-sorteio-saida-sem-faturamento.sql não executada em produção (P11)"
-    },
-    {
-      "id": "CAT-003",
-      "estado": "NEXT",
-      "dominio": "Catálogo",
-      "titulo": "Cadastro de produto — decidir se ganha rota própria no domínio Catálogo ou continua exclusivo do fluxo de importação/Estoque",
-      "contexto": "decisão humana — ver Decisions Required",
-      "nota": ""
+      "nota": "produção ainda tem o CHECK de 3 tipos (lido do sqlite_master em 11/09); migration api/migracao-sorteio-saida-sem-faturamento.sql não executada e reconstrói 2 tabelas (P11)"
     },
     {
       "id": "CAT-004",
       "estado": "NEXT",
       "dominio": "Catálogo",
       "titulo": "Gestão de categorias (criar/editar) — hoje POST /api/categorias existe e nenhuma tela chama, nem legado nem React",
-      "contexto": "decisão de prioridade",
+      "contexto": "despriorizada por DR-012: roadmap pós-validação",
       "nota": ""
     },
     {
       "id": "CAT-005",
       "estado": "NEXT",
       "dominio": "Catálogo",
-      "titulo": "React de Catálogo/Cadastro/Categorias — nenhuma pasta existe ainda",
-      "contexto": "CAT-003 primeiro (senão desenha a tela errada)",
+      "titulo": "React de Catálogo/Cadastro — nenhuma pasta existe ainda",
+      "contexto": "destravada por DR-002: o cadastro não é dela; reutiliza o fluxo de Estoque",
       "nota": ""
     },
     {
@@ -442,7 +450,7 @@
       "estado": "NEXT",
       "dominio": "Vendas",
       "titulo": "React de Vendas — App.tsx só mostra AreaPendente, zero tela real",
-      "contexto": "VEN-001 fechar decisões abertas antes de implementar",
+      "contexto": "VEN-001 fechar decisões abertas antes de implementar. VEN-105 (correção de item vendido) entra aqui por DR-014, fora da ordem de fase — em curso no Codex",
       "nota": ""
     },
     {
@@ -458,7 +466,7 @@
       "estado": "NEXT",
       "dominio": "Garantias",
       "titulo": "React de Garantias — não existe nenhuma pasta",
-      "contexto": "fatia vertical na Fase 5",
+      "contexto": "prioridade alta por DR-014 (GAR-101 é paridade obrigatória). Atenção: docs/ux/03-screens/reparos/ é domínio NOVO com material vazio, não é o desenho de GAR-101",
       "nota": ""
     },
     {
@@ -466,7 +474,7 @@
       "estado": "NEXT",
       "dominio": "Financeiro",
       "titulo": "React de Financeiro/Recebíveis — não existe nenhuma pasta",
-      "contexto": "fatia vertical na Fase 5",
+      "contexto": "prioridade alta por DR-014 (FIN-101 é paridade obrigatória). Não existe pasta de UX para contas a receber em docs/ux/03-screens/",
       "nota": ""
     },
     {
@@ -498,38 +506,22 @@
       "estado": "BLOCKED",
       "dominio": "Catálogo",
       "titulo": "Upload/tratamento de foto própria em produção",
-      "contexto": "R2 não habilitado em nenhum ambiente de produção (achado independente desta branch — 158 de 160 peças fora da loja não têm imagem em lugar nenhum)",
+      "contexto": "R2 não habilitado em nenhum ambiente de produção (achado independente desta branch — 158 de 160 peças fora da loja não têm imagem em lugar nenhum). DR-003 confirmou: continua desligado",
       "nota": ""
     },
     {
-      "id": "DR-002",
-      "estado": "DECISIONS REQUIRED",
-      "dominio": "Decisão",
-      "titulo": "Cadastro de produto: rota própria no domínio Catálogo ou continua exclusivo do fluxo de importação/Estoque?",
-      "contexto": "CAT-003, CAT-005, e se a Fase 4.5 pode ser considerada com o fluxo de produto completo",
-      "nota": ""
-    },
-    {
-      "id": "DR-003",
-      "estado": "DECISIONS REQUIRED",
-      "dominio": "Decisão",
-      "titulo": "Habilitar R2 em produção — é decisão de custo/release, não técnica",
-      "contexto": "CAT-001 (mídia), NUV-002, toda a cadeia de fotos",
-      "nota": ""
-    },
-    {
-      "id": "DR-004",
-      "estado": "DECISIONS REQUIRED",
-      "dominio": "Decisão",
-      "titulo": "Ligar NUVEMSHOP_PUBLICACAO_ENABLED — quando e com qual rodada seca de validação antes",
-      "contexto": "NUV-002",
+      "id": "SAI-002",
+      "estado": "BLOCKED",
+      "dominio": "Saídas sem faturamento",
+      "titulo": "Reclassificação das 37 linhas de não-venda do histórico importado (32 uso_proprio, 2 brinde, 3 perda) — regra e evidência já integradas ao conhecimento em 09/09/2026",
+      "contexto": "DR-016: falta autorização humana, mais 2 decisões que o sistema não toma sozinho. O ensaio não exercitou a rota oficial nem criou linhas em saidas_sem_faturamento, então o histórico operacional da saída continua sem prova (P17)",
       "nota": ""
     },
     {
       "id": "DR-005",
       "estado": "DECISIONS REQUIRED",
       "dominio": "Decisão",
-      "titulo": "Sthefany: saldo físico real dos 7 SKUs de Monte seu Colar ainda sem cadastro/saldo, e resolver o SKU 326660 preso numa maleta aberta",
+      "titulo": "Sthefany: saldo físico real dos 7 SKUs de Monte seu Colar ainda sem cadastro/saldo, e identificação física das peças",
       "contexto": "MON-001",
       "nota": ""
     },
@@ -542,67 +534,19 @@
       "nota": ""
     },
     {
-      "id": "DR-007",
+      "id": "DR-015",
       "estado": "DECISIONS REQUIRED",
       "dominio": "Decisão",
-      "titulo": "Quando aplicar api/migracao-sorteio-saida-sem-faturamento.sql em produção",
-      "contexto": "SAI-001",
+      "titulo": "Sthefany: com desconto no acerto, a comissão incide sobre o preço original ou sobre o valor final? E desconto autorizado por ela difere de desconto dado pela revendedora? (P2)",
+      "contexto": "REV-002, toda a Fase 6",
       "nota": ""
     },
     {
-      "id": "DR-008",
+      "id": "DR-016",
       "estado": "DECISIONS REQUIRED",
       "dominio": "Decisão",
-      "titulo": "Preço divergente local × Nuvemshop — que política? (P13)",
-      "contexto": "CAT-001, NUV-001",
-      "nota": ""
-    },
-    {
-      "id": "DR-009",
-      "estado": "DECISIONS REQUIRED",
-      "dominio": "Decisão",
-      "titulo": "Mesclar duas categorias — o que acontece com o histórico de relatório? (P14)",
-      "contexto": "CAT-004",
-      "nota": ""
-    },
-    {
-      "id": "DR-010",
-      "estado": "DECISIONS REQUIRED",
-      "dominio": "Decisão",
-      "titulo": "Arquivar uma peça deve despublicá-la da loja automaticamente? (P15)",
-      "contexto": "CAT-001",
-      "nota": ""
-    },
-    {
-      "id": "DR-011",
-      "estado": "DECISIONS REQUIRED",
-      "dominio": "Decisão",
-      "titulo": "Categorias da Nuvemshop: mapear com as internas ou continuar ignorando? (P16)",
-      "contexto": "NUV-001",
-      "nota": ""
-    },
-    {
-      "id": "DR-012",
-      "estado": "DECISIONS REQUIRED",
-      "dominio": "Decisão",
-      "titulo": "Vale criar tela de gestão de categorias agora, já que a rota existe e nunca teve UI? (achado novo desta auditoria)",
-      "contexto": "CAT-004",
-      "nota": ""
-    },
-    {
-      "id": "DR-013",
-      "estado": "DECISIONS REQUIRED",
-      "dominio": "Decisão",
-      "titulo": "Quando, e sob que critério, a V2 sai do DEV e entra em produção. Hoje PROD está congelada por instrução sua e nada da reconstrução a alcança. Isto não trava nenhum trabalho — trava o fim da fila",
-      "contexto": "toda a escada de DEV para cima",
-      "nota": ""
-    },
-    {
-      "id": "DR-014",
-      "estado": "DECISIONS REQUIRED",
-      "dominio": "Decisão",
-      "titulo": "Das 12 funcionalidades que só existem no legado e ainda não têm nem desenho (ver achado na auditoria de paridade), três mexem com dinheiro ou compromisso com cliente: FIN-101 contas a receber, GAR-101 garantias, VEN-105 correção de item vendido. Elas entram na fila de UX fora da ordem de fase?",
-      "contexto": "FIN-001, GAR-001, VEN-002",
+      "titulo": "Autorizar a execução da reclassificação das 37 linhas de não-venda em produção, e decidir os 2 casos que o sistema não classifica sozinho (P17)",
+      "contexto": "SAI-002",
       "nota": ""
     }
   ],
@@ -685,12 +629,20 @@
       "nome": "Catálogo",
       "tarefas": [
         {
+          "id": "CAT-003",
+          "estado": "DONE",
+          "dominio": "Catálogo",
+          "titulo": "Cadastro de produto — decidido: continua em Estoque → Cadastro de Produtos; Catálogo não ganha fluxo próprio",
+          "contexto": "DR-002, 11/09/2026",
+          "nota": ""
+        },
+        {
           "id": "CAT-001",
           "estado": "IN PROGRESS",
           "dominio": "Catálogo",
           "titulo": "Backend Fase 4.5 — categoria (identidade/renomear), galeria/mídia, tarefa de preparação, publicação (writer + estados), 19 testes de schema",
           "contexto": "mesclado na V2; 26 provas do catalogo-4-5-test.mjs verdes",
-          "nota": "R2 desligado e P13–P16 continuam bloqueando o uso real (ver Decisions Required)"
+          "nota": "P13–P16 fecharam em 11/09 (DR-008–DR-011): o que resta implementar tem regra. R2 continua desligado por DR-003"
         },
         {
           "id": "CAT-002",
@@ -698,30 +650,22 @@
           "dominio": "Catálogo",
           "titulo": "UX da Fase 4.5 — 10 telas conceituais, 4 fluxos, matriz UX↔API",
           "contexto": "docs/ux/03-screens/catalogo/, docs/ux/05-flows/catalogo-*.md; estado do material: domínio mapeado, aguardando mockups",
-          "nota": "falta mockup visual; falta decisão de cadastro (CAT-003)"
-        },
-        {
-          "id": "CAT-003",
-          "estado": "NEXT",
-          "dominio": "Catálogo",
-          "titulo": "Cadastro de produto — decidir se ganha rota própria no domínio Catálogo ou continua exclusivo do fluxo de importação/Estoque",
-          "contexto": "decisão humana — ver Decisions Required",
-          "nota": ""
+          "nota": "falta mockup visual. A decisão de cadastro fechou (DR-002): Catálogo não desenha cadastro próprio"
         },
         {
           "id": "CAT-004",
           "estado": "NEXT",
           "dominio": "Catálogo",
           "titulo": "Gestão de categorias (criar/editar) — hoje POST /api/categorias existe e nenhuma tela chama, nem legado nem React",
-          "contexto": "decisão de prioridade",
+          "contexto": "despriorizada por DR-012: roadmap pós-validação",
           "nota": ""
         },
         {
           "id": "CAT-005",
           "estado": "NEXT",
           "dominio": "Catálogo",
-          "titulo": "React de Catálogo/Cadastro/Categorias — nenhuma pasta existe ainda",
-          "contexto": "CAT-003 primeiro (senão desenha a tela errada)",
+          "titulo": "React de Catálogo/Cadastro — nenhuma pasta existe ainda",
+          "contexto": "destravada por DR-002: o cadastro não é dela; reutiliza o fluxo de Estoque",
           "nota": ""
         },
         {
@@ -729,7 +673,7 @@
           "estado": "BLOCKED",
           "dominio": "Catálogo",
           "titulo": "Upload/tratamento de foto própria em produção",
-          "contexto": "R2 não habilitado em nenhum ambiente de produção (achado independente desta branch — 158 de 160 peças fora da loja não têm imagem em lugar nenhum)",
+          "contexto": "R2 não habilitado em nenhum ambiente de produção (achado independente desta branch — 158 de 160 peças fora da loja não têm imagem em lugar nenhum). DR-003 confirmou: continua desligado",
           "nota": ""
         }
       ],
@@ -931,8 +875,9 @@
         }
       ],
       "contagem": {
+        "DONE": 1,
         "IN PROGRESS": 2,
-        "NEXT": 3,
+        "NEXT": 2,
         "BLOCKED": 1
       }
     },
@@ -984,34 +929,10 @@
       "nome": "Decisão",
       "tarefas": [
         {
-          "id": "DR-002",
-          "estado": "DECISIONS REQUIRED",
-          "dominio": "Decisão",
-          "titulo": "Cadastro de produto: rota própria no domínio Catálogo ou continua exclusivo do fluxo de importação/Estoque?",
-          "contexto": "CAT-003, CAT-005, e se a Fase 4.5 pode ser considerada com o fluxo de produto completo",
-          "nota": ""
-        },
-        {
-          "id": "DR-003",
-          "estado": "DECISIONS REQUIRED",
-          "dominio": "Decisão",
-          "titulo": "Habilitar R2 em produção — é decisão de custo/release, não técnica",
-          "contexto": "CAT-001 (mídia), NUV-002, toda a cadeia de fotos",
-          "nota": ""
-        },
-        {
-          "id": "DR-004",
-          "estado": "DECISIONS REQUIRED",
-          "dominio": "Decisão",
-          "titulo": "Ligar NUVEMSHOP_PUBLICACAO_ENABLED — quando e com qual rodada seca de validação antes",
-          "contexto": "NUV-002",
-          "nota": ""
-        },
-        {
           "id": "DR-005",
           "estado": "DECISIONS REQUIRED",
           "dominio": "Decisão",
-          "titulo": "Sthefany: saldo físico real dos 7 SKUs de Monte seu Colar ainda sem cadastro/saldo, e resolver o SKU 326660 preso numa maleta aberta",
+          "titulo": "Sthefany: saldo físico real dos 7 SKUs de Monte seu Colar ainda sem cadastro/saldo, e identificação física das peças",
           "contexto": "MON-001",
           "nota": ""
         },
@@ -1024,73 +945,25 @@
           "nota": ""
         },
         {
-          "id": "DR-007",
+          "id": "DR-015",
           "estado": "DECISIONS REQUIRED",
           "dominio": "Decisão",
-          "titulo": "Quando aplicar api/migracao-sorteio-saida-sem-faturamento.sql em produção",
-          "contexto": "SAI-001",
+          "titulo": "Sthefany: com desconto no acerto, a comissão incide sobre o preço original ou sobre o valor final? E desconto autorizado por ela difere de desconto dado pela revendedora? (P2)",
+          "contexto": "REV-002, toda a Fase 6",
           "nota": ""
         },
         {
-          "id": "DR-008",
+          "id": "DR-016",
           "estado": "DECISIONS REQUIRED",
           "dominio": "Decisão",
-          "titulo": "Preço divergente local × Nuvemshop — que política? (P13)",
-          "contexto": "CAT-001, NUV-001",
-          "nota": ""
-        },
-        {
-          "id": "DR-009",
-          "estado": "DECISIONS REQUIRED",
-          "dominio": "Decisão",
-          "titulo": "Mesclar duas categorias — o que acontece com o histórico de relatório? (P14)",
-          "contexto": "CAT-004",
-          "nota": ""
-        },
-        {
-          "id": "DR-010",
-          "estado": "DECISIONS REQUIRED",
-          "dominio": "Decisão",
-          "titulo": "Arquivar uma peça deve despublicá-la da loja automaticamente? (P15)",
-          "contexto": "CAT-001",
-          "nota": ""
-        },
-        {
-          "id": "DR-011",
-          "estado": "DECISIONS REQUIRED",
-          "dominio": "Decisão",
-          "titulo": "Categorias da Nuvemshop: mapear com as internas ou continuar ignorando? (P16)",
-          "contexto": "NUV-001",
-          "nota": ""
-        },
-        {
-          "id": "DR-012",
-          "estado": "DECISIONS REQUIRED",
-          "dominio": "Decisão",
-          "titulo": "Vale criar tela de gestão de categorias agora, já que a rota existe e nunca teve UI? (achado novo desta auditoria)",
-          "contexto": "CAT-004",
-          "nota": ""
-        },
-        {
-          "id": "DR-013",
-          "estado": "DECISIONS REQUIRED",
-          "dominio": "Decisão",
-          "titulo": "Quando, e sob que critério, a V2 sai do DEV e entra em produção. Hoje PROD está congelada por instrução sua e nada da reconstrução a alcança. Isto não trava nenhum trabalho — trava o fim da fila",
-          "contexto": "toda a escada de DEV para cima",
-          "nota": ""
-        },
-        {
-          "id": "DR-014",
-          "estado": "DECISIONS REQUIRED",
-          "dominio": "Decisão",
-          "titulo": "Das 12 funcionalidades que só existem no legado e ainda não têm nem desenho (ver achado na auditoria de paridade), três mexem com dinheiro ou compromisso com cliente: FIN-101 contas a receber, GAR-101 garantias, VEN-105 correção de item vendido. Elas entram na fila de UX fora da ordem de fase?",
-          "contexto": "FIN-001, GAR-001, VEN-002",
+          "titulo": "Autorizar a execução da reclassificação das 37 linhas de não-venda em produção, e decidir os 2 casos que o sistema não classifica sozinho (P17)",
+          "contexto": "SAI-002",
           "nota": ""
         }
       ],
       "paridade": [],
       "contagem": {
-        "DECISIONS REQUIRED": 13
+        "DECISIONS REQUIRED": 4
       }
     },
     {
@@ -1119,11 +992,19 @@
           "titulo": "Painel visual do projeto (docs/project/dashboard/) gerado a partir dos .md, com gate projeto-painel que falha se a tela divergir dos documentos",
           "contexto": "scripts/build-project-dashboard.mjs, docs/testing/test-suites.json",
           "nota": ""
+        },
+        {
+          "id": "DOC-004",
+          "estado": "DONE",
+          "dominio": "Documentação",
+          "titulo": "Consolidação das 11 decisões de 11/09/2026, separação de P11/P17, e registro das 3 frentes paralelas de trabalho",
+          "contexto": "este commit — ver ## WORKSTREAMS e ## DECISIONS MADE",
+          "nota": ""
         }
       ],
       "paridade": [],
       "contagem": {
-        "DONE": 3
+        "DONE": 4
       }
     },
     {
@@ -1185,7 +1066,7 @@
           "estado": "NEXT",
           "dominio": "Financeiro",
           "titulo": "React de Financeiro/Recebíveis — não existe nenhuma pasta",
-          "contexto": "fatia vertical na Fase 5",
+          "contexto": "prioridade alta por DR-014 (FIN-101 é paridade obrigatória). Não existe pasta de UX para contas a receber em docs/ux/03-screens/",
           "nota": ""
         }
       ],
@@ -1216,7 +1097,7 @@
           "estado": "NEXT",
           "dominio": "Garantias",
           "titulo": "React de Garantias — não existe nenhuma pasta",
-          "contexto": "fatia vertical na Fase 5",
+          "contexto": "prioridade alta por DR-014 (GAR-101 é paridade obrigatória). Atenção: docs/ux/03-screens/reparos/ é domínio NOVO com material vazio, não é o desenho de GAR-101",
           "nota": ""
         }
       ],
@@ -1617,9 +1498,17 @@
           "id": "SAI-001",
           "estado": "IN PROGRESS",
           "dominio": "Saídas sem faturamento",
-          "titulo": "Categoria \"sorteio\" (saída sem faturamento) — schema e código prontos (ae81c5b, 8055732), migration escrita",
+          "titulo": "Categoria \"sorteio\" (saída sem faturamento) — só o schema, depois da separação de DR-007. Código e api/schema.sql já têm os 4 tipos",
           "contexto": "main",
-          "nota": "migration api/migracao-sorteio-saida-sem-faturamento.sql não executada em produção (P11)"
+          "nota": "produção ainda tem o CHECK de 3 tipos (lido do sqlite_master em 11/09); migration api/migracao-sorteio-saida-sem-faturamento.sql não executada e reconstrói 2 tabelas (P11)"
+        },
+        {
+          "id": "SAI-002",
+          "estado": "BLOCKED",
+          "dominio": "Saídas sem faturamento",
+          "titulo": "Reclassificação das 37 linhas de não-venda do histórico importado (32 uso_proprio, 2 brinde, 3 perda) — regra e evidência já integradas ao conhecimento em 09/09/2026",
+          "contexto": "DR-016: falta autorização humana, mais 2 decisões que o sistema não toma sozinho. O ensaio não exercitou a rota oficial nem criou linhas em saidas_sem_faturamento, então o histórico operacional da saída continua sem prova (P17)",
+          "nota": ""
         }
       ],
       "paridade": [
@@ -1651,7 +1540,8 @@
         }
       ],
       "contagem": {
-        "IN PROGRESS": 1
+        "IN PROGRESS": 1,
+        "BLOCKED": 1
       }
     },
     {
@@ -1670,7 +1560,7 @@
           "estado": "NEXT",
           "dominio": "Vendas",
           "titulo": "React de Vendas — App.tsx só mostra AreaPendente, zero tela real",
-          "contexto": "VEN-001 fechar decisões abertas antes de implementar",
+          "contexto": "VEN-001 fechar decisões abertas antes de implementar. VEN-105 (correção de item vendido) entra aqui por DR-014, fora da ordem de fase — em curso no Codex",
           "nota": ""
         },
         {
@@ -2440,6 +2330,27 @@
         "INV-001",
         "MON-001",
         "DOC-003"
+      ]
+    },
+    {
+      "agente": "Claude",
+      "data": "2026-09-11 (noite)",
+      "titulo": "Consolidação das decisões e das frentes paralelas",
+      "branch": "claude/review-marquesa-v2",
+      "commits": "1, documental",
+      "status": "concluído; nada implantado, nada escrito em produção",
+      "taskIds": [
+        "DOC-004",
+        "CAT-003",
+        "SAI-001",
+        "SAI-002",
+        "CAT-002",
+        "CAT-004",
+        "CAT-005",
+        "GAR-001",
+        "FIN-001",
+        "VEN-002",
+        "CAT-001"
       ]
     },
     {

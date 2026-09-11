@@ -40,6 +40,7 @@ regra corrente e não autoriza operação nenhuma hoje.
 | Frontend React/TS | [architecture/FRONTEND_ARCHITECTURE.md](architecture/FRONTEND_ARCHITECTURE.md) |
 | Modelo de dados | [architecture/DATA_MODEL.md](architecture/DATA_MODEL.md) |
 | Dívida técnica | [architecture/TECH_DEBT.md](architecture/TECH_DEBT.md) |
+| Custo histórico auditável — desenho proposto (`P12`) | [architecture/CUSTO-HISTORICO-AUDITAVEL.md](architecture/CUSTO-HISTORICO-AUDITAVEL.md) |
 | Contratos HTTP congelados | [architecture/API-ROUTES-BASELINE.md](architecture/API-ROUTES-BASELINE.md) |
 | Schema, migrations e cron por ambiente | [architecture/SCHEMA-MIGRATIONS-OPERATIONS-BASELINE.md](architecture/SCHEMA-MIGRATIONS-OPERATIONS-BASELINE.md) |
 | Grafo do repositório | [architecture/GRAPHIFY-BASELINE-FASE-0.md](architecture/GRAPHIFY-BASELINE-FASE-0.md) |

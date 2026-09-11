@@ -18,6 +18,67 @@ conversa, que sei de primeira mão serem meus. Commits feitos direto em
 
 ---
 
+## 2026-09-11 (noite) — Consolidação das decisões e das frentes paralelas
+
+| | |
+|---|---|
+| Branch | `claude/review-marquesa-v2` |
+| Commits | 1, documental |
+| Status | **concluído**; nada implantado, nada escrito em produção |
+
+**Task IDs tocados:** `DOC-004`, `CAT-003`, `SAI-001`, `SAI-002`, `CAT-002`,
+`CAT-004`, `CAT-005`, `GAR-001`, `FIN-001`, `VEN-002`, `CAT-001`.
+
+**O que foi feito.** Onze decisões de Gustavo foram confrontadas com o
+repositório antes de virarem documento, e depois registradas: `DR-002`
+(cadastro fica em Estoque), `DR-003` (R2 de produção segue desligado),
+`DR-004` (publicação segue desligada, critério fechado), `DR-007` (separa
+schema de histórico), `DR-008` (preço cadastral × transacional), `DR-009`
+(mesclagem não reescreve o passado), `DR-010` (estoque zero não arquiva),
+`DR-011` (categorias mapeáveis), `DR-012`, `DR-013` (go-live por gate, não por
+data) e `DR-014` (paridade crítica fora da ordem de fase). No
+`PENDENTES.md`, dez pendências fecharam e `P17` nasceu, separada de `P11`.
+
+Três `DR` novas abriram porque a conversa as revelou: `DR-015` (comissão sobre
+desconto, `P2`), `DR-016` (autorizar a reclassificação, `P17`) e a consolidação
+de `DR-005`+`DR-006` numa pergunta só para a Sthefany.
+
+**Verificações read-only feitas** (nenhuma escrita, em nenhum ambiente):
+
+| O que | Resultado |
+|---|---|
+| `P1` — cron | `crons = []` nos dois ambientes desde `69986ef` (22/08); **10 deploys posteriores**, o último em 09/09. Desarmado, sem divergência doc × código |
+| `saidas_sem_faturamento` em produção | `CHECK` com **3** tipos, não 4; 0 linhas. `api/schema.sql` já tem 4 — outra face de `ARQ-007` |
+| `P12` — custo | **zero ocorrências** de custo em `api/schema.sql`; terreno limpo, não correção |
+| SKU `326660` | maleta 12 `aberta`, Bruna Follei, acerto 17/09, razão fechando. **Não está "preso"** |
+| Razão contábil | `SUM(produtos.qtd)` = `SUM(movimentos.qtd)` = 1.487 |
+
+**Duas correções de rumo durante o próprio trabalho**, ambas por confrontar o
+repositório antes de escrever: (1) eu ia registrar a branch
+`claude/nonrevenue-migration-prep` como "trabalho valioso esquecido" — ela já
+tinha sido auditada e classificada artefato por artefato em 09/09, e os scripts
+ficaram fora **de propósito**; (2) eu ia descrever o ensaio de `P17` como
+"validado em 14 critérios" sem dizer que ele não exercitou a rota oficial nem
+criou linha em `saidas_sem_faturamento`.
+
+**Achados que contradizem premissas** — registrados em
+`PROJECT-STATUS.md § Achados de auditoria`: o `326660` não está preso;
+`FIN-101` e `GAR-101` **não têm design novo no Git** (`reparos/` é domínio novo
+com material `vazio`); o DEV tem 29 tabelas contra 41 de produção; e a grafia
+em produção é `Sthefany`, não "Stephanie" — distinção que importa porque nove
+clientes legítimas com sobrenome Marques somam R$ 3.989,51.
+
+**Novo:** `docs/architecture/CUSTO-HISTORICO-AUDITAVEL.md`, desenho proposto
+para `P12` — custo como série temporal de eventos, migration aditiva, sem
+tocar `movimentos`. Proposta, não autorização.
+
+**Governança:** `PROJECT-STATUS.md` ganhou `## WORKSTREAMS`, a primeira fonte
+única das frentes paralelas, com a auditoria de como o painel obtém dados e as
+três limitações que o impedem de enxergar mais de uma worktree. Nada da
+interface do painel foi alterado.
+
+---
+
 ## 2026-09-10 — Refatoração estrutural Fases 0–4.5 (backend)
 
 | | |
