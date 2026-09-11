@@ -6,6 +6,14 @@
     "branch": "codex/ui-system-marquesa",
     "recentes": [
       {
+        "commit": "2ad2ca9",
+        "data": "2026-09-11",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(project): visual dashboard, parity ladder, and the reconciled V2 status",
+        "agente": "",
+        "taskIds": []
+      },
+      {
         "commit": "9806d98",
         "data": "2026-09-11",
         "autor": "gustavodemelomartins-hub",
@@ -198,27 +206,19 @@
         "assunto": "feat(categorias): renomear passa a ser possível, e 'Outros' volta a ser só uma categoria",
         "agente": "",
         "taskIds": []
-      },
-      {
-        "commit": "bfdfaf7",
-        "data": "2026-09-10",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(catalogo): a exclusão pergunta ao banco, não a uma lista digitada",
-        "agente": "",
-        "taskIds": []
       }
     ]
   },
   "visaoGeral": {
-    "progresso": 18,
+    "progresso": 20,
     "porEstado": {
-      "DONE": 6,
-      "IN PROGRESS": 14,
+      "DONE": 7,
+      "IN PROGRESS": 15,
       "NEXT": 10,
       "BLOCKED": 3,
       "DECISIONS REQUIRED": 13
     },
-    "totalTarefas": 46
+    "totalTarefas": 48
   },
   "tarefas": [
     {
@@ -259,6 +259,14 @@
       "dominio": "Arquitetura",
       "titulo": "Preservação de todo o trabalho local no remoto — 10 refs backup/* empurradas (a branch Claude de 79 commits, a V2, main local, 2 stashes e 3 branches à frente do upstream). Nenhum merge em main, nenhum force, nenhum deploy",
       "contexto": "git ls-remote origin 'refs/heads/backup/*'",
+      "nota": ""
+    },
+    {
+      "id": "ARQ-008",
+      "estado": "DONE",
+      "dominio": "Arquitetura",
+      "titulo": "Gate schema-migration-coerencia na suíte local — migracao-variantes-test.mjs rodava só no CI do DEV e por isso a integração passou 15/15 aqui e quebrou lá. Agora ele roda no nível fast",
+      "contexto": "docs/testing/test-suites.json; 16/16 gates no nível release",
       "nota": ""
     },
     {
@@ -372,6 +380,14 @@
       "titulo": "React de Nuvemshop/sync — leitura completa e testada (panorama, saúde); escrita/aprovação só no legado",
       "contexto": "frontend/src/features/nuvemshop/, frontend/src/features/reconciliacao/",
       "nota": "reconciliacao/ autodeclarada \"em construção\": aprovar/aplicar não persiste ainda"
+    },
+    {
+      "id": "ARQ-007",
+      "estado": "IN PROGRESS",
+      "dominio": "Arquitetura",
+      "titulo": "Divergência entre api/schema.sql e as migrations — migracao-pos-golive-1.sql cria maleta_item_variacoes, venda_item_correcoes e 5 índices que nunca foram escritos de volta no schema. Banco criado do zero não os tem; banco migrado (PROD e DEV) tem",
+      "contexto": "achado em 11/09/2026 ao estender src/migracao-variantes-test.mjs das 8 migrations originais para as 30 reais. O teste hoje subtrai essa lista nomeada e falha se ela mudar",
+      "nota": "é anterior a esta sessão e não bloqueia nada hoje; fechar exige safe-d1-change e nunca em PROD congelada"
     },
     {
       "id": "SAI-001",
@@ -619,6 +635,14 @@
           "nota": ""
         },
         {
+          "id": "ARQ-008",
+          "estado": "DONE",
+          "dominio": "Arquitetura",
+          "titulo": "Gate schema-migration-coerencia na suíte local — migracao-variantes-test.mjs rodava só no CI do DEV e por isso a integração passou 15/15 aqui e quebrou lá. Agora ele roda no nível fast",
+          "contexto": "docs/testing/test-suites.json; 16/16 gates no nível release",
+          "nota": ""
+        },
+        {
           "id": "ARQ-001",
           "estado": "IN PROGRESS",
           "dominio": "Arquitetura",
@@ -641,12 +665,20 @@
           "titulo": "Auditoria/unificação de normalização de SKU (8 pontos) e sufixo de compra",
           "contexto": "mesclado na V2; sku-normalizacao.test.mjs verde — uma definição, 61 módulos varridos",
           "nota": "falta publicar no DEV"
+        },
+        {
+          "id": "ARQ-007",
+          "estado": "IN PROGRESS",
+          "dominio": "Arquitetura",
+          "titulo": "Divergência entre api/schema.sql e as migrations — migracao-pos-golive-1.sql cria maleta_item_variacoes, venda_item_correcoes e 5 índices que nunca foram escritos de volta no schema. Banco criado do zero não os tem; banco migrado (PROD e DEV) tem",
+          "contexto": "achado em 11/09/2026 ao estender src/migracao-variantes-test.mjs das 8 migrations originais para as 30 reais. O teste hoje subtrai essa lista nomeada e falha se ela mudar",
+          "nota": "é anterior a esta sessão e não bloqueia nada hoje; fechar exige safe-d1-change e nunca em PROD congelada"
         }
       ],
       "paridade": [],
       "contagem": {
-        "DONE": 3,
-        "IN PROGRESS": 3
+        "DONE": 4,
+        "IN PROGRESS": 4
       }
     },
     {
@@ -2402,6 +2434,8 @@
         "ARQ-003",
         "ARQ-005",
         "ARQ-006",
+        "ARQ-007",
+        "ARQ-008",
         "CAT-001",
         "INV-001",
         "MON-001",

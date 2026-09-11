@@ -186,7 +186,8 @@ sem reverter as outras.
 | Status | **DONE** para integrar, testar e documentar. **NÃO implantado no Worker do DEV** — isso é botão manual, ver abaixo |
 
 **Task IDs tocados:** `ARQ-001`, `ARQ-002`, `ARQ-003`, `ARQ-005`, `ARQ-006`,
-`CAT-001`, `INV-001`, `MON-001`, `DOC-003`, `DR-001`, `DR-013`, `DR-014`.
+`ARQ-007`, `ARQ-008`, `CAT-001`, `INV-001`, `MON-001`, `DOC-003`, `DR-001`,
+`DR-013`, `DR-014`.
 
 ### O que estava errado no retrato anterior
 
@@ -262,6 +263,42 @@ nova. Três mexem com dinheiro ou compromisso com cliente (`FIN-101`,
 `projeto-painel` roda `--check` e falha se a tela divergir dos documentos, o
 que impede a segunda fonte de verdade que o `PROJECT-STATUS.md` proíbe. Ele
 sobe junto com o DEV, em `/projeto/`.
+
+### O deploy do DEV falhou na primeira tentativa, e o que isso revelou
+
+O push em `develop` disparou o workflow, que **falhou** no passo
+`node src/migracao-variantes-test.mjs`. Frontend e build passaram; a quebra foi
+a coerência entre `api/schema.sql` e as migrations. Regressão minha: a
+refatoração consolidou o schema inteiro, e a lista de migrations daquele teste
+tinha **8 arquivos dos 33** do repositório — o schema cresceu, a lista não.
+
+A causa de eu não ter pego antes: esse teste só existia no CI do DEV, fora da
+suíte local. Por isso 15/15 aqui e falha lá. Agora ele é o gate
+`schema-migration-coerencia`, no nível `fast` (`ARQ-008`).
+
+Consertar exigiu descobrir uma ordem de aplicação válida para as 30 migrations
+(as 3 de rollback ficam de fora). Duas dependências reais ficaram codificadas
+em comentário no arquivo, porque quebram em silêncio se alguém reordenar:
+`montagem-slots` precisa de `personalizacao_modelos`, que quem cria é
+`pos-golive-1`; e `inventario-4-4` precisa vir depois de
+`sorteio-saida-sem-faturamento`, senão o `idx_saida_inventario_unica` se perde.
+
+Duas asserções também estavam erradas por proxy: cobravam que a contagem de
+produtos não mudasse para provar que "nada se perdeu". Mas
+`migracao-pacote-2.sql` **semeia** legitimamente o SKU de recibo `MONTE-COLAR`
+(qtd 0, inativo). Passaram a cobrar a invariante de verdade — o produto
+anterior continua lá, a contagem nunca diminui, e o único acréscimo é o
+nomeado.
+
+**Achado que veio de brinde (`ARQ-007`):** com as 30 migrations no teste,
+apareceu uma divergência **anterior a esta sessão**.
+`migracao-pos-golive-1.sql` cria `maleta_item_variacoes`,
+`venda_item_correcoes` e 5 índices que nunca foram escritos de volta no
+`schema.sql`. Um banco criado do zero não os tem; um banco migrado — que é o
+caso de PROD e do DEV — tem. Não escondi com um `skip`: o teste subtrai essa
+lista **nomeada**, confere que cada exceção está mesmo onde a lista diz, e
+falha se ela mudar. Fechar de verdade mexe em `schema.sql`, o que tem gate
+próprio e não se faz de passagem.
 
 ### PROD
 

@@ -237,6 +237,26 @@
       "duration": "<2s"
     },
     {
+      "id": "schema-migration-coerencia",
+      "level": "fast",
+      "mode": "local",
+      "description": "schema.sql e as 30 migrations chegam ao mesmo banco",
+      "gates": [
+        "fast",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/migracao-variantes-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [],
+      "duration": "<5s"
+    },
+    {
       "id": "governance-versioned",
       "level": "fast",
       "mode": "local",
