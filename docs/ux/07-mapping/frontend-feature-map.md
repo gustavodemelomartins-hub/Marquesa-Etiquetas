@@ -25,5 +25,5 @@ A matriz detalhada de paridade legado → React é mantida pela trilha de UI em
 `docs/ui/LEGACY-REACT-PARITY.md`. Esta tabela **não** a substitui e não deve
 ser preenchida por leitura de código: copie de lá quando precisar.
 
-Restrição permanente: `src/dashboard.html` é gerado por `python src/build.py` e
+Restrição permanente: `dashboard.html` é gerado por `python src/build.py` e
 nunca é editado à mão.

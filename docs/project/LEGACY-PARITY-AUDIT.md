@@ -108,7 +108,7 @@ numa branch" não é "redesenhada". "UX foi desenhada" não é "implementada".
 
 | ID | Funcionalidade | Legado | Novo backend | Nova UX | Novo frontend | Testado | Produção | Situação |
 |---|---|---|---|---|---|---|---|---|
-| ETQ-101 | Fila, impressão (Pimaco 7×18), PDF, calibração | sim, `window.Etq` em `dashboard.tpl.html:13228-13650+` — **localStorage, fora do D1**, dívida já registrada em `docs/TECH_DEBT.md` | nenhum (por design) | descrito, `docs/ux/03-screens/etiquetas/`, 4 ideias em backlog (`IF-002`-`004`) | placeholder `AreaPendente` | não | legado | `LEGACY ONLY` — risco: perde tudo se limpar o navegador |
+| ETQ-101 | Fila, impressão (Pimaco 7×18), PDF, calibração | sim, `window.Etq` em `dashboard.tpl.html:13228-13650+` — **localStorage, fora do D1**, dívida já registrada em `docs/architecture/TECH_DEBT.md` | nenhum (por design) | descrito, `docs/ux/03-screens/etiquetas/`, 4 ideias em backlog (`IF-002`-`004`) | placeholder `AreaPendente` | não | legado | `LEGACY ONLY` — risco: perde tudo se limpar o navegador |
 
 ## Apêndice — rotas de API sem nenhuma UI (nem legado, nem React)
 
@@ -215,7 +215,7 @@ resolvido sem nunca ter sido desenhado ou migrado corretamente.
 
 **8. Etiquetas isoladas em `localStorage` — baixo, é decisão deliberada**
 
-- Já registrado como dívida técnica conhecida (`docs/TECH_DEBT.md`); listado
+- Já registrado como dívida técnica conhecida (`docs/architecture/TECH_DEBT.md`); listado
   aqui só para constar na paridade. Risco real: limpar o navegador apaga a
   fila de etiquetas sem qualquer backup central.
 
