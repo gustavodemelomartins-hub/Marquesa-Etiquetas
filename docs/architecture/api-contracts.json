@@ -1,0 +1,582 @@
+{
+ "schemaVersion": 1,
+ "capturedAt": "2026-09-09",
+ "sourceCommit": "0b100b13f494b52939caaf85d1334efc36f1f864",
+ "fonte": "api/src/index.js e api/src/http/routes/**",
+ "regra": "Refatoração estrutural não pode alterar este conjunto. Mudança aqui é mudança de contrato público e precisa de decisão explícita.",
+ "auth": {
+  "sem-bearer": "responde antes da porta de checarChave: health, callback OAuth e foto assinada por HMAC",
+  "bearer": "exige Authorization: Bearer <API_KEY>"
+ },
+ "total": 142,
+ "contratos": [
+  {
+   "contrato": "ANY /api/health",
+   "auth": "sem-bearer"
+  },
+  {
+   "contrato": "DELETE /api/historico/reclassificar/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "DELETE /api/produtos/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "DELETE /api/produtos/:param/foto",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "DELETE /api/produtos/pendentes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/analytics/categorias",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/analytics/clientes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/analytics/crm",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/analytics/evolucao",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/analytics/mes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/analytics/origem",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/analytics/painel",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/analytics/produtos",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/analytics/revendedoras",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/analytics/vendas",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/catalogo/publicacao",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/categorias",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/clientes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/clientes/perfil",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/clientes/revisao",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/contas-receber",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/estoque/:param/movimentos",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/estoque/conferir",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/fotos/orfas",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/garantias",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/garantias/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/garantias/pendentes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/historico/auditoria",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/historico/reclassificar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/inventarios",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/inventarios/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/loja/variantes/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/nuvemshop/callback",
+   "auth": "sem-bearer"
+  },
+  {
+   "contrato": "GET /api/pendencias",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/personalizacao/modelos",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/produtos/:param/componentes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/produtos/:param/dependencias",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/produtos/:param/foto/:param",
+   "auth": "sem-bearer"
+  },
+  {
+   "contrato": "GET /api/produtos/:param/fotos",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/produtos/:param/variacoes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/produtos/pendentes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/produtos/sku/auditoria",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/produtos/sku/checar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/reconciliacao/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/saidas",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/state",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/sync",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/variacoes/reconciliacao",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/variacoes/revisao",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/vendas",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/vendas/correcoes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/vendas/dia",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/vendas/historico/lotes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/vendas/historico/reconstrucao",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/vendas/historico/retrato",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/vendas/lancamentos",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/vendas/lista",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/vendas/pagamento/auditoria",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PATCH /api/clientes/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PATCH /api/contas-receber/:param/vencimento",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PATCH /api/contas-receber/prazo",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PATCH /api/maletas/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PATCH /api/produtos/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PATCH /api/revendedoras/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/catalogo/publicacao/:param/aprovar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/catalogo/publicacao/:param/preparar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/catalogo/publicacao/:param/previa",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/catalogo/publicacao/:param/reabrir",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/catalogo/publicacao/:param/repetir",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/categorias",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/clientes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/clientes/revisao/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/contas-receber/:param/marcar-paga",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/contas-receber/receber",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/estoque-total/analisar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/estoque-total/aplicar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/fotos/importar-da-loja",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/fotos/orfas/adotar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/fotos/sincronizar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/fotos/vincular-da-loja",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/garantias",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/garantias/:param/status",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/garantias/:param/troca",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/garantias/:param/troca/estornar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/garantias/:param/troca/pagar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/historico/reclassificar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/inventarios",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/inventarios/:param/ajustar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/inventarios/:param/cancelar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/inventarios/:param/concluir",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/loja/importar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/loja/variantes/importar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/maletas",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/maletas/:param/acerto",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/maletas/:param/cancelar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/maletas/:param/itens",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/pendencias/adiar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/pendencias/retomar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/pendencias/variacao/maleta",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/pendencias/variacao/venda",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/personalizacao/modelos",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/produtos/:param/arquivar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/produtos/:param/desarquivar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/produtos/:param/foto/fundo-branco",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/produtos/:param/movimento",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/produtos/:param/repartir",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/produtos/:param/variacoes/distribuir",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/produtos/importar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/produtos/novos/analisar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/produtos/novos/cadastrar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/produtos/pendentes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/produtos/sku/gerar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/reconciliacao",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/reconciliacao/:param/aplicar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/reconciliacao/:param/cancelar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/reconciliacao/:param/itens/:param/aprovar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/reconciliacao/:param/itens/:param/rejeitar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/reconciliacao/planilha/estoque-total/analisar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/reconciliacao/planilha/produtos-novos/analisar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/revendedoras",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/revendedoras/:param/arquivar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/saidas",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/saidas/:param/estornar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/sync",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/sync/analisar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/variacoes/desfazer-semeadura",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/vendas",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/vendas/:param/cancelar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/vendas/:param/nuvemshop",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/vendas/:param/pagamento",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/vendas/corrigir-item",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/vendas/historico/analisar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/vendas/historico/importar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/vendas/historico/lotes/:param/reverter",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/vendas/historico/operacoes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/vendas/historico/reconstruir",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/vendas/historico/substituir",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PUT /api/config",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PUT /api/inventarios/:param/contagem",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PUT /api/produtos/:param/componentes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PUT /api/produtos/:param/foto/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PUT /api/produtos/:param/variacoes",
+   "auth": "bearer"
+  }
+ ]
+}

@@ -91,6 +91,35 @@ passou 6/6, inclusive build React e paridade do dashboard. Nenhuma migration
 destrutiva, D1 remoto, Nuvemshop real, deploy ou alteração de PROD foi
 executada.
 
+## Checkpoint da Fase 1 — 2026-09-09
+
+Documentação e governança, sem mudança de produto. A taxonomia de `docs/`
+passou a separar arquitetura, domínios, operação, decisões, testes, releases e
+arquivo; nenhum documento foi apagado e todos os movimentos usaram `git mv`,
+com rename detectado no histórico.
+
+Dois gates novos entraram no nível rápido e no de release:
+
+| Gate | O que prova |
+|---|---|
+| `scripts/docs-links.test.mjs` | 73 documentos, 259 links relativos e ~1.016 caminhos citados existem de verdade |
+| `scripts/api-contracts.test.mjs` | os 142 contratos HTTP e as três rotas sem Bearer continuam idênticos ao inventário |
+
+O inventário executável vive em `docs/architecture/api-contracts.json` e é
+extraído do próprio código; ele é a trava de "contrato antes = contrato depois"
+que a Fase 2 vai usar a cada rota movida. Conferido contra a caracterização da
+Fase 0: mesmo conjunto de 142, mesmas três públicas. Testado também ao
+contrário — renomear uma rota no despachante reprova o gate.
+
+`npm test` passou **8/8** no nível release: artefatos da Fase 0, contratos,
+documentação, governança 27/27, hard-denies 23/23, Vitest 190/190, build React
+e paridade do dashboard legado. Nenhuma migration, nenhum D1, nenhum deploy,
+nenhuma chamada externa.
+
+Uma correção de rota interna: a reorganização tocou comentários de
+`src/dashboard.tpl.html`, então o artefato `dashboard.html` foi regerado por
+`python src/build.py` no mesmo commit, como a regra do painel legado exige.
+
 ## Política de expansão
 
 Começar pelo nível mínimo. Em mudança de domínio, executar testes puros + integração focada; em mudança de UI, acrescentar Playwright; em release, usar `npm test` e os gates adicionais exigidos pelo risco. Migration, produção e reconciliação real continuam sujeitos aos protocolos específicos e nunca são autorizados por este runner.
