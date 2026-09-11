@@ -43,6 +43,15 @@ function tipoDeMovimento(tipo, sentido) {
   return 'perda';
 }
 
+/** A ORIGEM do movimento — de onde o fato nasceu, que é outra coisa do que
+ *  ele é. Uma diferença de inventário é `perda` como TIPO e `inventario`
+ *  como ORIGEM: o motivo explica que é diferença, e a origem é o que a tela
+ *  de histórico da peça mostra para dizer que aquilo veio de uma contagem
+ *  física, não de um lançamento avulso. (Fase 4.4, decisão D9.) */
+function origemDoMovimento(tipo, inventarioId) {
+  return inventarioId != null ? 'inventario' : tipo;
+}
+
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const dataValida = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 
@@ -66,6 +75,7 @@ function publica(row) {
        isso o estorno dela não devolve nada. */
     estoqueRefletido: !!row.estoque_refletido,
     origemUsuario: row.origem_usuario ?? null,
+    inventarioId: row.inventario_id ?? null,
     estornada: !!row.estornada,
     estornoEm: row.estorno_em ?? null,
     estornoMotivo: row.estorno_motivo ?? null,
@@ -153,18 +163,48 @@ export async function registrarSaida(db, corpo = {}) {
   const variacao = String(corpo.variacao ?? '').trim() || null;
   const varianteId = corpo.varianteId == null || corpo.varianteId === '' ? null : String(corpo.varianteId);
 
-  const linha = await db.prepare(
-    `INSERT INTO saidas_sem_faturamento
-       (tipo, sentido, data, sku, variacao, variante_id, qtd, motivo, observacao,
-        origem_usuario, origem_registro, historico_item_id, estoque_refletido)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-  ).bind(
-    tipo, sentido, data, sku, variacao, varianteId, qtd, motivo, observacao,
-    String(corpo.usuario ?? '').trim() || null,
-    daMigracao ? 'migracao_historico' : 'manual',
-    corpo.historicoItemId ?? null,
-    estoqueRefletido ? 1 : 0,
-  ).first();
+  /* §4.4/D8 — a diferença de inventário aponta para a contagem que a
+     explicou. Só `perda` pode ter esse vínculo: brinde, uso próprio e
+     sorteio não nascem de contagem nenhuma, e deixá-los entrar aqui daria a
+     eles a origem `inventario` sem que ninguém tivesse contado nada. */
+  const inventarioId = corpo.inventarioId == null ? null : Number(corpo.inventarioId);
+  if (inventarioId != null && (!Number.isInteger(inventarioId) || tipo !== 'perda')) {
+    return {
+      ok: false, statusHttp: 400,
+      erro: 'Só diferença de inventário se liga a um inventário.',
+    };
+  }
+
+  let linha;
+  try {
+    linha = await db.prepare(
+      `INSERT INTO saidas_sem_faturamento
+         (tipo, sentido, data, sku, variacao, variante_id, qtd, motivo, observacao,
+          origem_usuario, origem_registro, historico_item_id, estoque_refletido, inventario_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+    ).bind(
+      tipo, sentido, data, sku, variacao, varianteId, qtd, motivo, observacao,
+      String(corpo.usuario ?? '').trim() || null,
+      daMigracao ? 'migracao_historico' : 'manual',
+      corpo.historicoItemId ?? null,
+      estoqueRefletido ? 1 : 0,
+      inventarioId,
+    ).first();
+  } catch (e) {
+    /* A idempotência é do BANCO, não da aplicação: `idx_saida_inventario_unica`
+       recusa a segunda aplicação da mesma diferença mesmo sob crash-e-retry
+       ou duas abas abertas — o que o antigo flag lido e escrito no mesmo
+       batch não garantia. O relançamento depois do ESTORNO continua livre,
+       porque o índice só vale para `estornada = 0`. */
+    if (inventarioId != null && /UNIQUE constraint/i.test(String(e?.message ?? e))) {
+      return {
+        ok: false, statusHttp: 409, sku,
+        erro: `A diferença de ${sku}${variacao ? ` (${variacao})` : ''} `
+          + `do inventário ${inventarioId} já foi lançada.`,
+      };
+    }
+    throw e;
+  }
 
   /* Linha classificatória para aqui: nenhum movimento, nenhum saldo tocado,
      e a resposta diz isso em voz alta em vez de deixar quem chamou supor. */
@@ -193,7 +233,7 @@ export async function registrarSaida(db, corpo = {}) {
     sku,
     tipo: tipoDeMovimento(tipo, sentido),
     quantidade: qtd,
-    origem: tipo,
+    origem: origemDoMovimento(tipo, inventarioId),
     obs: obsMov,
     variacao,
     varianteId,

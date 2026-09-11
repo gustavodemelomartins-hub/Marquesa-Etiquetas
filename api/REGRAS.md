@@ -25,9 +25,11 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §24 | Produto sem preço não vira R$ 0 | `produtos.preco` é `NULL`; venda é bloqueada |
 | §28 | Não apagar histórico | revendedora arquiva, maleta cancela, venda estorna |
 | §29 | Receber uma dívida não movimenta estoque | `historico_operacoes.cobranca_status` |
-| §19 | Inventário não corrige em silêncio | `concluir` só compara; `ajustar` exige confirmação por código |
+| §19 | Inventário não corrige em silêncio | `concluir` só compara; aplicar a diferença é ato separado, item a item |
+| §19 | Não contado nunca é zero | ausência de linha em `inventario_contagem`; zero exige gesto explícito |
+| §2 | Contagem de SKU com variação exige identidade | `contarItem` recusa contagem agregada e devolve a régua |
 | §5.2 | Inventário cobra só o que está em casa | `inventario.js › SQL_ESPERADO` desconta o consignado |
-| §6.1 | Esperado congelado no fechamento | `inventario_itens.esperado` |
+| §6.1 | Esperado congelado no fechamento | `inventario_resultado`, por variação |
 | §22 | Código bipado fora do catálogo é anunciado | `inventarios.desconhecidos_json` |
 | §8 §9 | Venda de balcão, acerto e site na mesma tabela | `vendas.origem = 'balcao' \| 'acerto' \| 'site'` |
 | §5.1 | Puxar pedidos antes de empurrar estoque | `sync.js › sincronizar` |
@@ -101,14 +103,58 @@ mesmo estando "certo": o número passaria a valer por autoridade, não por
 uma razão registrada.
 
 Por isso a contagem e a correção são dois atos separados. `concluir` só
-compara e devolve a diferença; `ajustar` grava um movimento `ajuste` com
-origem `inventario` e a frase do motivo ("contado 7, sistema dizia 9"),
-um código por vez, e recusa ajustar duas vezes o mesmo código.
+compara e CONGELA o resultado; aplicar a diferença é um segundo ato,
+explícito, item a item, e nunca "todos".
 
 A razão prática é mais forte que a formal: peça faltando quase nunca sumiu.
 Está na bolsa, foi para a maleta sem lançar, ou a etiqueta não leu. Se o
 sistema corrigisse sozinho, o erro de contagem viraria a nova verdade sem
 deixar rastro.
+
+**Decisão humana de 10/09/2026** — o que a contagem passou a saber.
+Desenho completo em `docs/domains/INVENTARIO-4-4.md`.
+
+*A contagem é pausável.* Ela pode durar dias. Cada bipe é gravado na hora,
+em `inventario_contagem`, e retomar preserva tudo. Pausar não trava venda
+nem maleta: é isso que cria a deriva tratada mais abaixo.
+
+*Não contado nunca é zero.* Existe linha = foi contado. Não existe linha =
+não foi contado. Zero é um resultado — "conferi, não tem nenhuma" — e exige
+um gesto próprio. Item não conferido **não** entra em correção em lote e
+**não** aparece como faltante: sem essa trava, um inventário interrompido
+zeraria meio catálogo por movimentação registrada.
+
+*Código com variação cadastrada exige a variação.* A API recusa contagem
+agregada e devolve a lista cadastrada dentro do erro. Sem identidade não há
+movimento: era exatamente por aqui que o inventário fabricava movimento
+incompleto novo (§2 — não se chuta a distribuição de uma variante).
+**"Não sei" é resposta válida**: fica registrada, bloqueia a correção
+daquele código inteiro e não vira nada.
+
+*A comparação é retroagida.* Contar na segunda, vender duas na quarta e
+fechar na sexta não é divergência: o esperado comparável desconta os
+movimentos posteriores à contagem, que estão registrados com `criado_em`.
+Ler o que está registrado não é adivinhar. Quando o movimento do intervalo
+não tem identidade suficiente para provar de qual variação saiu, a linha vai
+para `nao_comparavel` com o motivo por extenso — e não vira nada.
+
+*A diferença é uma saída sem faturamento (§30).* Negativa vira
+`tipo='perda'`, `sentido='saida'`; positiva vira o **mesmo** mecanismo com
+`sentido='entrada'`. As duas ficam presas ao `inventario_id`, com observação
+opcional, movimento correspondente e estorno possível. A **origem** do
+movimento é `inventario`: o motivo diz que é diferença, a origem diz que o
+fato nasceu de uma contagem física. Corrigir um engano é **estornar**, nunca
+lançar um ajuste compensatório solto.
+
+*Aplicar duas vezes é recusado pelo banco.* `idx_saida_inventario_unica`
+vale sob crash-e-retry e sob duas abas abertas — o que um flag lido e
+escrito no mesmo batch não garantia. Depois do estorno, o relançamento volta
+a ser permitido, com o valor certo. E a quantidade aplicada vem sempre do
+retrato congelado: número enviado pelo cliente é ignorado, porque já foi
+decidido no fechamento.
+
+Provado em `src/inventario-4-4-test.mjs` (contra o schema real) e
+`scripts/inventario-tri-estado.test.mjs` (as travas no código).
 
 ### 5. Kit não tem saldo próprio — o disponível vem sempre dos componentes
 

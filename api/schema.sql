@@ -550,13 +550,23 @@ CREATE TABLE IF NOT EXISTS inventarios (
   iniciado_em        TEXT NOT NULL DEFAULT (datetime('now')),
   concluido_em       TEXT,
   desconhecidos_json TEXT,
-  obs                TEXT
+  obs                TEXT,
+  -- Fase 4.4 (D1) — a contagem é pausável e pode durar dias. Pausar não muda
+  -- mais nada: a contagem já está no banco desde o primeiro bipe. `status`
+  -- continua 'aberto' enquanto pausado, de propósito — é o que mantém o
+  -- dashboard legado retomando a contagem sem alteração nenhuma, e o que
+  -- impede abrir um segundo inventário por cima do que está parado.
+  pausado_em         TEXT
 );
 
 -- `esperado` é congelado no fechamento, do mesmo jeito que maleta_itens
 -- congela o preço do envio (§6.1). Sem isso, abrir um inventário de três
 -- meses atrás mostraria a diferença contra o estoque de HOJE — e um
 -- inventário que muda de resultado depois de fechado não serve para nada.
+-- HISTÓRICA a partir da Fase 4.4. Nenhuma escrita nova entra aqui: a chave
+-- primária (inventario_id, sku) não comporta variação, e mudá-la em SQLite
+-- exigiria reconstruir a tabela. Os inventários já fechados continuam sendo
+-- lidos daqui, e continuam certos.
 CREATE TABLE IF NOT EXISTS inventario_itens (
   inventario_id INTEGER NOT NULL REFERENCES inventarios(id),
   sku           TEXT NOT NULL REFERENCES produtos(sku),
@@ -565,6 +575,66 @@ CREATE TABLE IF NOT EXISTS inventario_itens (
   ajustado      INTEGER NOT NULL DEFAULT 0,         -- 1 = já virou movimento
   PRIMARY KEY (inventario_id, sku)
 );
+
+-- ─────────────────── Fase 4.4 — a contagem VIVA, por variação (D1, D2, D4)
+--
+-- Existe linha = foi contado. Não existe linha = NÃO foi contado. É esta
+-- ausência que implementa "não contado nunca é zero": o silêncio nunca é
+-- lido como zero, nem no fechamento, nem no relatório, nem na aplicação.
+-- Zero exige gesto explícito, e vira uma linha com `contado = 0`.
+--
+-- Notas por coluna e motivação completa em
+-- `api/migracao-inventario-4-4.sql`; os dois precisam continuar idênticos.
+CREATE TABLE IF NOT EXISTS inventario_contagem (
+  inventario_id INTEGER NOT NULL REFERENCES inventarios(id),
+  sku           TEXT    NOT NULL REFERENCES produtos(sku),
+  -- '' é o SKU sem variação. NOT NULL com default '' porque a coluna entra na
+  -- chave primária, e NULL em chave primária não compara com NULL.
+  variacao      TEXT    NOT NULL DEFAULT '',
+  variante_id   TEXT,
+  contado       INTEGER NOT NULL CHECK (contado >= 0),
+  -- É contra esta hora que os movimentos posteriores são lidos, na comparação
+  -- retroagida: contar na segunda, vender na quarta e fechar na sexta não é
+  -- divergência nenhuma, e o sistema tem de saber disso.
+  contado_em    TEXT    NOT NULL DEFAULT (datetime('now')),
+  origem        TEXT,                               -- bipagem | digitado
+  PRIMARY KEY (inventario_id, sku, variacao)
+);
+
+-- "Não sei qual variação é" é resposta válida, e nunca vira movimento. Ela
+-- bloqueia o SKU inteiro na aplicação e diz por quê. Regra 2 do CLAUDE.md com
+-- um lugar para morar: não sabe qual aro saiu, não escreve.
+CREATE TABLE IF NOT EXISTS inventario_nao_identificado (
+  inventario_id INTEGER NOT NULL REFERENCES inventarios(id),
+  sku           TEXT    NOT NULL REFERENCES produtos(sku),
+  qtd           INTEGER NOT NULL CHECK (qtd > 0),
+  contado_em    TEXT    NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (inventario_id, sku)
+);
+
+-- O retrato CONGELADO do fechamento, por variação — mesmo motivo do §6.1, que
+-- já congelava o esperado: inventário que muda de resultado depois de fechado
+-- não prova nada. A aplicação da diferença relê DAQUI e ignora qualquer
+-- quantidade enviada pelo cliente.
+CREATE TABLE IF NOT EXISTS inventario_resultado (
+  inventario_id INTEGER NOT NULL REFERENCES inventarios(id),
+  sku           TEXT    NOT NULL REFERENCES produtos(sku),
+  variacao      TEXT    NOT NULL DEFAULT '',
+  variante_id   TEXT,
+  contado       INTEGER,                       -- NULL = não conferido
+  esperado      INTEGER NOT NULL,              -- o saldo comparável, já retroagido
+  delta_pos     INTEGER NOT NULL DEFAULT 0,    -- movimentos entre contar e fechar
+  dif           INTEGER,                       -- NULL quando não comparável
+  -- conferido | faltando | sobrando | nao_conferido | nao_comparavel
+  situacao      TEXT    NOT NULL,
+  motivo        TEXT,                          -- por extenso quando nao_comparavel
+  aplicado_em   TEXT,
+  saida_id      INTEGER REFERENCES saidas_sem_faturamento(id),
+  PRIMARY KEY (inventario_id, sku, variacao)
+);
+
+CREATE INDEX IF NOT EXISTS idx_inv_contagem  ON inventario_contagem(inventario_id);
+CREATE INDEX IF NOT EXISTS idx_inv_resultado ON inventario_resultado(inventario_id);
 
 -- ------------------------------------------------------- reconciliação
 -- Prévia, revisão humana e aplicação do aprovado — ver
@@ -1146,6 +1216,13 @@ CREATE TABLE IF NOT EXISTS saidas_sem_faturamento (
                   CHECK (origem_registro IN ('manual', 'migracao_historico')),
   historico_item_id INTEGER REFERENCES vendas_historico_itens(id),
 
+  -- ─── Fase 4.4 (D8) — a diferença de inventário tem dono estrutural
+  -- Antes, o vínculo entre a saída e o inventário que a explicou era a frase
+  -- do `obs`. Texto livre não sustenta índice, relatório nem estorno. Aqui a
+  -- diferença aponta para a contagem física que a gerou, e o índice único
+  -- lá embaixo é o que impede aplicá-la duas vezes.
+  inventario_id INTEGER REFERENCES inventarios(id),
+
   criado_em     TEXT NOT NULL DEFAULT (datetime('now')),
   atualizado_em TEXT,
 
@@ -1166,6 +1243,13 @@ CREATE INDEX IF NOT EXISTS idx_ssf_sku   ON saidas_sem_faturamento(sku);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ssf_historico
   ON saidas_sem_faturamento(historico_item_id)
   WHERE historico_item_id IS NOT NULL;
+-- Fase 4.4 — a mesma diferença de inventário entra uma vez só, e a trava é do
+-- BANCO, não da aplicação: vale sob crash-e-retry e sob duas abas abertas, o
+-- que o antigo flag `inventario_itens.ajustado` não garantia.
+-- `estornada = 0` é deliberado: diferença estornada PODE ser relançada (D12).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_saida_inventario_unica
+  ON saidas_sem_faturamento (inventario_id, sku, COALESCE(variacao, ''))
+  WHERE inventario_id IS NOT NULL AND estornada = 0;
 
 -- ─── as linhas históricas que foram reclassificadas
 -- Reclassificar NÃO apaga a linha da planilha (§7: o dado de origem se
