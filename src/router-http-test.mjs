@@ -53,3 +53,37 @@ assert.equal(await chamar('GET', '/api/nao-existe'), null);
 assert.throws(() => criarRoteador([{ metodo: 'GET', caminho: '/api/x' }]), /rota incompleta/);
 
 console.log('Roteador HTTP: ok — ordem, método, parâmetro e fallback preservados');
+
+/* A tabela real, não uma imitação: um `padroes` escrito errado — escape a
+   mais ou a menos — passa em toda revisão de olho e só aparece como 404 em
+   produção. Aqui a rota é exercitada de verdade. */
+const { rotas: rotasReais } = await import('../api/src/http/routes/index.js');
+const espelho = criarRoteador(rotasReais.map((r) => ({ ...r, handler: () => r.caminho })));
+const comId = rotasReais.filter((r) => r.padroes && r.padroes.id);
+assert.ok(comId.length >= 8, 'esperava rotas com id numérico na tabela');
+
+/* Uma rota pode ter mais de um parâmetro (`/:id/itens/:item/aprovar`), e
+   trocar só o `:id` deixaria o resto do caminho literal — o casamento
+   falharia por motivo errado. Cada parâmetro recebe um valor que o padrão
+   dele aceita; só o `:id` vira texto no caso negativo. */
+const valorValido = (rota, nome) => (/\[0-9\]/.test(rota.padroes?.[nome] || '') ? '12' : 'x');
+const preencher = (rota, trocas = {}) => rota.caminho.replace(
+  /:([A-Za-z0-9_]+)/g, (_, nome) => trocas[nome] ?? valorValido(rota, nome));
+
+for (const rota of comId) {
+  const numerico = preencher(rota);
+  const texto = preencher(rota, { id: 'abc' });
+  assert.equal(
+    await espelho({ metodo: rota.metodo, path: numerico, request: null, env: {}, url: null, db: null }),
+    rota.caminho,
+    `id numérico deixou de casar em ${rota.metodo} ${rota.caminho}`,
+  );
+  assert.equal(
+    await espelho({ metodo: rota.metodo, path: texto, request: null, env: {}, url: null, db: null }),
+    null,
+    `id de texto passou a casar em ${rota.metodo} ${rota.caminho}`,
+  );
+}
+
+console.log(`Tabela real: ok — ${rotasReais.length} rotas, ${comId.length} com id restrito a dígitos`);
+
