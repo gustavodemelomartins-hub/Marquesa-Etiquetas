@@ -86,7 +86,7 @@ async function lerFluxos(db) {
 
 async function lerProdutos(db) {
   const { results } = await db.prepare(`
-    SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja, p.foto_url,
+    SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja, p.foto_url, p.produto_id_loja,
            p.foto_original_key, p.foto_tratada_key, p.foto_status, p.foto_erro,
            p.qtd - COALESCE((
              SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
@@ -184,6 +184,9 @@ function itemPublico(p, fluxo, capacidades = {}) {
     /* Fato lido da vitrine, ao lado da decisao nossa. "A loja mostra" e
        "nos decidimos" nunca mais compartilham um campo. */
     presencaNaLoja: !!p.url_loja,
+    /* O id externo, agora direto em `produtos` (D9). O publicador precisa
+       dele para ATUALIZAR em vez de criar de novo. */
+    produtoIdLoja: p.produto_id_loja || fluxo?.produto_id_loja || null,
     estadoObservado: !!calculado.estadoObservado,
     pronto: calculado.estado === ESTADO_PUBLICACAO.AGUARDANDO
       || calculado.estado === ESTADO_PUBLICACAO.APROVADO,
