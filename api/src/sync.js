@@ -719,7 +719,10 @@ async function semearVariacoes(db, mapa, relato, seco) {
   for (const p of comVariacao) {
     if (p.jaTocado > 0) continue;          // regra 1: código já tem dono
     if (p.qtd <= 0) continue;
-    const naLoja = mapa.get(p.sku);
+    /* A chave do `mapa` e canonica (`normSku`). Comparar com o SKU cru do
+       catalogo fazia a peca sumir do casamento em silencio — ver R4 da
+       auditoria da Fase 4.5. */
+    const naLoja = mapa.get(normSku(p.sku));
     if (!naLoja || naLoja.variantes.length < 2) continue;
 
     /* Regra 2: a soma da loja é o ATESTADO de que ela sabe do que fala.
@@ -805,7 +808,7 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
 
   const nossos = [...normais, ...kits];
   for (const p of nossos) {
-    const naLoja = mapa.get(p.sku);
+    const naLoja = mapa.get(normSku(p.sku));   // R4: chave canonica dos dois lados
     if (!naLoja) continue;
 
     if (naLoja.variantesSemSku > 0) {
@@ -918,8 +921,8 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
   for (const m of relato.mudancas) {
     const alvo = m.varianteId
       ? { produtoId: m.produtoId, varianteId: m.varianteId, locais: m.locais || [] }
-      : mapa.get(m.sku);
-    const publicado = mapa.get(m.sku);
+      : mapa.get(normSku(m.sku));
+    const publicado = mapa.get(normSku(m.sku));
     const multi = !!publicado && publicado.variantes.length > 1;
     if (!alvo || alvo.produtoId == null || (multi && !m.varianteId)) recusadas.push(m);
     else enderecadas.push({ m, alvo });
@@ -1003,16 +1006,30 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
     }
   }
 
-  const nossos = new Set(
-    (await db.prepare(`SELECT sku FROM produtos`).all()).results.map(p => p.sku)
+  /* O `mapa` tem chave canonica (`normSku`); este conjunto precisa ter a
+     mesma, senao um produto gravado fora da forma some do casamento sem
+     erro nenhum. Guarda norm -> sku real, porque o UPDATE ainda precisa
+     endereçar a linha pela chave primaria que existe. */
+  const nossos = new Map(
+    (await db.prepare(`SELECT sku, url_loja FROM produtos`).all()).results
+      .map(p => [normSku(p.sku), p])
   );
 
-  const stmts = [
-    /* Produto tirado do ar na Nuvemshop precisa deixar de constar como
-       publicado aqui — por isso limpa antes de reescrever, igual à
-       importação por arquivo faz. */
-    db.prepare(`UPDATE produtos SET url_loja = NULL, estoque_loja = NULL, visivel = NULL`),
-  ];
+  /* Produto tirado do ar na Nuvemshop precisa deixar de constar como
+     publicado aqui. O que mudou na Fase 4.5 e COMO: antes um
+     `UPDATE produtos SET url_loja = NULL` varria o catalogo inteiro e os
+     INSERTs repovoavam. Uma leitura truncada da loja — paginacao no teto de
+     40 paginas, um 429 mal recuperado — fazia centenas de pecas passarem a
+     constar como nao publicadas, e como a tela de publicacao lia `url_loja`,
+     o estado delas mudava por causa de uma falha de rede.
+     Agora limpa SO quem estava publicado e nao apareceu nesta leitura. */
+  const stmts = [];
+  for (const [norm, p] of nossos) {
+    if (!p.url_loja || mapa.has(norm)) continue;
+    stmts.push(db.prepare(
+      `UPDATE produtos SET url_loja = NULL, estoque_loja = NULL, visivel = NULL WHERE sku = ?`
+    ).bind(p.sku));
+  }
 
   /* As variações vindas da loja são reescritas do zero a cada rodada: ela é
      a fonte da verdade sobre quais existem, e aro que sumiu de lá não pode
@@ -1033,6 +1050,9 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
     if (!nossos.has(sku)) { soNaLoja++; continue; }
     casados++;
     produtosCasados.add(v.produtoId);
+    /* O SKU real da linha, que pode diferir da forma canonica usada para
+       casar. Todo bind abaixo usa este, nunca a chave do mapa. */
+    const skuLocal = nossos.get(sku).sku;
 
     if (v.variantes.length > 1) {
       v.variantes.forEach((va, i) => {
@@ -1049,7 +1069,7 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
              promocional=excluded.promocional, imagem_url=excluded.imagem_url,
              origem='loja'`
         ).bind(
-          sku, va.nome || `opção ${i + 1}`, (v.atributos || []).join(' · ') || null,
+          skuLocal, va.nome || `opção ${i + 1}`, (v.atributos || []).join(' · ') || null,
           String(va.varianteId), String(va.produtoId),
           porVariante.has(String(va.varianteId)) ? porVariante.get(String(va.varianteId)) : va.estoque,
           i,
@@ -1066,13 +1086,18 @@ async function gravarRetratoDaLoja(db, produtosLoja, mapa, relato) {
       });
     }
     stmts.push(db.prepare(
-      `UPDATE produtos SET url_loja = ?, estoque_loja = ?, visivel = ?, nome_loja = ? WHERE sku = ?`
+      `UPDATE produtos SET url_loja = ?, estoque_loja = ?, visivel = ?, nome_loja = ?,
+              produto_id_loja = ? WHERE sku = ?`
     ).bind(
       v.url || String(v.produtoId),
       empurrado.has(sku) ? empurrado.get(sku) : v.estoque,
       v.visivel === null ? null : (v.visivel ? 1 : 0),
       v.nome || null,
-      sku,
+      /* D9: o id do produto na loja passa a morar em `produtos`. Antes ele so
+         existia por caminho indireto, e uma peca sem variante espelhada nao
+         tinha como ser endereçada la. */
+      v.produtoId == null ? null : String(v.produtoId),
+      skuLocal,
     ));
   }
 
@@ -1255,7 +1280,7 @@ export async function analisarSincronizacao(db, env) {
   const iguais = [], criarNaLoja = [], bloqueadosSemPreco = [];
   const semFoto = [], semDescricao = [], semCategoria = [];
   for (const p of nossos) {
-    const naLoja = mapa.get(p.sku);
+    const naLoja = mapa.get(normSku(p.sku));   // R4
     if (!naLoja) {
       /* Só entra em "criar na loja" quem tem peça em casa: cadastrar o que
          não dá para vender é trabalho sem venda do outro lado. */
@@ -1280,7 +1305,7 @@ export async function analisarSincronizacao(db, env) {
   /* Código que a loja tem e o catálogo não conhece. Não é para criar aqui
      sozinho: pode ser produto aposentado, pode ser código digitado errado
      lá — as duas coisas pedem gente olhando. */
-  const nossosSku = new Set(nossos.map(p => p.sku));
+  const nossosSku = new Set(nossos.map(p => normSku(p.sku)));
   const soNaLoja = [];
   for (const [sku, e] of mapa) {
     if (nossosSku.has(sku)) continue;

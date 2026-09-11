@@ -92,9 +92,15 @@ async function baixar(url) {
  *    orfas          a loja tem imagem de um código que não existe aqui
  */
 async function lerFotosDaLoja(db, env) {
+  /* Indexado pela forma CANONICA, porque a chave do outro lado (`mapa` de
+     `mapearSkus`, e o `normSku(v.sku)` logo abaixo) tambem e canonica.
+     Comparar chave normalizada com chave crua fazia um produto gravado fora
+     da forma sumir do casamento EM SILENCIO: ele virava "so na loja", a foto
+     dele virava orfa, e o estoque nunca era empurrado — sintoma
+     indistinguivel de "a peca realmente nao esta na loja". */
   const nossos = new Map((await db.prepare(
     `SELECT sku, desc, foto_original_key, foto_tratada_key, foto_status, foto_url FROM produtos`
-  ).all()).results.map(p => [p.sku, p]));
+  ).all()).results.map(p => [normSku(p.sku), p]));
 
   const produtosLoja = await new Nuvemshop(env).produtos();
 
@@ -423,6 +429,28 @@ export async function removerFotos(db, env, sku) {
 /* 3. Fundo branco                                                      */
 /* ==================================================================== */
 
+/** Bytes para base64 sem espalhar um argumento por byte.
+ *
+ *  `String.fromCharCode(...new Uint8Array(bytes))` passa UM ARGUMENTO POR
+ *  BYTE para a funcao. Com o limite de 8 MB de `fotos-storage.js`, isso e
+ *  oito milhoes de argumentos e o runtime responde
+ *  `RangeError: Maximum call stack size exceeded` — capturado pelo `catch`
+ *  de quem chama e gravado como `foto_status='erro'`. A peca ficava marcada
+ *  como erro de TRATAMENTO quando o erro era de CODIFICACAO, e a foto boa
+ *  parecia defeituosa.
+ *
+ *  32 mil bytes por bloco fica folgado abaixo de qualquer limite de pilha e
+ *  ainda faz poucas voltas numa foto de celular. */
+function paraBase64(bytes) {
+  const vista = new Uint8Array(bytes);
+  const BLOCO = 32768;
+  let s = '';
+  for (let i = 0; i < vista.length; i += BLOCO) {
+    s += String.fromCharCode(...vista.subarray(i, i + BLOCO));
+  }
+  return btoa(s);
+}
+
 /** Manda a foto original para tratamento e guarda o resultado.
  *
  *  O tratamento em si é um serviço de fora (o ChatGPT gerando a versão com
@@ -466,7 +494,7 @@ export async function gerarFundoBranco(db, env, sku) {
     const original = await lerFoto(env, p.foto_original_key);
     if (!original) throw new Error('a foto original não foi encontrada no armazenamento');
     const bytesOriginais = await new Response(original.corpo).arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(bytesOriginais)));
+    const base64 = paraBase64(bytesOriginais);
 
     const resp = await fetch(endereco, {
       method: 'POST',
