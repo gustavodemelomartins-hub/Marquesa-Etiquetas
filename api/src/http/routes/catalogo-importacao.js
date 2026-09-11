@@ -93,8 +93,8 @@ export const rotas = [
   {
     // §28 — só exclui quem não tem histórico; o resto se arquiva.
     metodo: 'DELETE', caminho: '/api/produtos/:sku', auth: 'bearer',
-    async handler({ db, params }) {
-      const r = await excluirProduto(db, sku(params));
+    async handler({ db, env, params }) {
+      const r = await excluirProduto(db, sku(params), env);
       return json(r, r.status || (r.erro ? 400 : 200));
     },
   },

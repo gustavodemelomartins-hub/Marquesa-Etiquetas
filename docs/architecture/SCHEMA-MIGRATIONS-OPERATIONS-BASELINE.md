@@ -51,6 +51,9 @@ entrou na pasta depois dele fica aqui, com a mesma régua de evidência.
 |---|---|---|---|
 | `migracao-inventario-4-4.sql` | contagem por variação, "não sei", retrato congelado, vínculo da diferença | aditiva; `IF NOT EXISTS` em tudo, `ADD COLUMN` tolerado como "já aplicada" | **não executada em produção**; provada em SQLite em memória por `src/inventario-4-4-test.mjs`, inclusive rodando duas vezes |
 | `migracao-inventario-4-4-rollback.sql` | remove as três tabelas novas e os índices | **destrutiva: DROP** | rollback manual somente; nunca runner automático |
+| `migracao-catalogo-4-5.sql` | identidade estável de categoria, sentinela "Sem categoria", origem×autoridade e id da loja em `produtos`, galeria própria (`produto_fotos`), lote de fotos, tarefa de preparação | aditiva; dez `ADD COLUMN`, cinco `CREATE TABLE IF NOT EXISTS`, sete índices, backfill condicionado | **não executada em produção**; provada em SQLite contra o **dump real de PROD** (790 produtos e 1.428 movimentos intactos, razão fechando) e por `src/catalogo-4-5-test.mjs`, rodando duas vezes |
+| `migracao-catalogo-4-5-publicacao.sql` | reconstrói `catalogo_publicacoes` para o CHECK parar de declarar estados que ninguém escrevia | **reconstrói uma tabela; NÃO idempotente — roda UMA vez** | **não executada em produção**; medido: a tabela tem **0 linhas** em PROD (10/09/2026). Pré-condição no cabeçalho do arquivo decide se já rodou |
+| `migracao-catalogo-4-5-rollback.sql` | remove as cinco tabelas novas e os índices novos | **destrutiva: DROP** | rollback manual somente; nunca runner automático. Não derruba as dez colunas aditivas nem a sentinela — ver o cabeçalho |
 
 Duas observações que a Fase 4.4 registrou e que valem para a janela de release:
 

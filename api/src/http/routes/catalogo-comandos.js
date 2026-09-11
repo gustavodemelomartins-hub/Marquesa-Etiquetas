@@ -10,6 +10,7 @@ import { json } from '../../auth.js';
 import { enfileirarPendentes, limparPendentes } from '../../catalogo.js';
 import { arquivarProduto, desarquivarProduto } from '../../produtos.js';
 import { adiarPendencia, retomarPendencia } from '../../pendencias.js';
+import { salvarCategoria, renomearCategoria, arquivarCategoria } from '../../catalogo/categorias.js';
 import {
   prepararPublicacao, salvarPreviaPublicacao, aprovarPublicacao,
   reabrirPublicacao, repetirPublicacao,
@@ -19,15 +20,32 @@ const sku = (params) => decodeURIComponent(params.sku);
 
 export const rotas = [
   {
+    /* O mesmo contrato de antes, com a normalização que faltava: um nome que
+       colapsa para uma categoria existente ATUALIZA aquela em vez de criar
+       uma quase-igual ao lado. */
     metodo: 'POST', caminho: '/api/categorias', auth: 'bearer',
     async handler({ db, request }) {
-      const { nome, ordem, cor } = await request.json();
-      if (!nome || !nome.trim()) return json({ erro: 'Nome é obrigatório' }, 400);
-      await db.prepare(
-        `INSERT INTO categorias (nome, ordem, cor) VALUES (?, ?, ?)
-         ON CONFLICT(nome) DO UPDATE SET ordem = excluded.ordem, cor = excluded.cor`,
-      ).bind(nome.trim(), ordem ?? 99, cor || null).run();
-      return json({ ok: true }, 201);
+      const r = await salvarCategoria(db, await request.json().catch(() => ({})));
+      return json(r, r.ok ? (r.criada ? 201 : 200) : (r.statusHttp ?? 400));
+    },
+  },
+  {
+    /* Renomear — o ato que a API não tinha, e não tinha porque o nome era a
+       chave primária. `categorias.id` é o que permite: a categoria continua
+       sendo a mesma coisa depois de mudar de nome. */
+    metodo: 'PATCH', caminho: '/api/categorias/:id', auth: 'bearer',
+    async handler({ db, request, params }) {
+      const r = await renomearCategoria(db, decodeURIComponent(params.id),
+        await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
+    },
+  },
+  {
+    /* Arquivar, nunca excluir (§28) — e só quando não há peça nenhuma. */
+    metodo: 'POST', caminho: '/api/categorias/:id/arquivar', auth: 'bearer',
+    async handler({ db, params }) {
+      const r = await arquivarCategoria(db, decodeURIComponent(params.id));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
     },
   },
   {

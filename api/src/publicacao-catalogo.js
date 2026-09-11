@@ -8,28 +8,58 @@
 import { gerarFundoBranco, FOTO } from './fotos.js';
 import { lerConfig } from './plataforma/config.js';
 import { normSku } from './sku.js';
+/* O juiz UNICO de completude (Fase 4.5). Este arquivo tinha a sua propria
+   `faltasBasicas`, que discordava das outras tres do sistema — em
+   particular sobre preco zero e sobre a categoria "Outros". */
+import {
+  faltasDaPeca, capacidadesDoAmbiente, sentinelasDeCategoria,
+} from './catalogo/completude.js';
+import { skusComFotoPropria } from './catalogo/galeria.js';
 
 const ERRO = (statusHttp, erro, extra = {}) => ({ ok: false, statusHttp, erro, ...extra });
 const texto = (v, limite = 5000) => String(v == null ? '' : v).trim().slice(0, limite);
 
+/** Os estados do pipeline. Dois sao CALCULADOS e nunca persistidos
+ *  (`FALTA`, `PRONTO`) — quem decide e o juiz de completude, nao a tabela.
+ *  Os demais sao gravados, e desde a Fase 4.5 todos tem writer real: os
+ *  dois ultimos eram declarados no CHECK e nenhum caminho os escrevia. */
 export const ESTADO_PUBLICACAO = {
   FALTA: 'falta_informacao',
-  PREPARANDO: 'em_preparacao_agente',
+  PRONTO: 'pronto_para_preparacao',
+  PREPARANDO: 'em_preparacao',
+  PREPARADO: 'preparado',
   AGUARDANDO: 'aguardando_aprovacao',
   APROVADO: 'aprovado_para_publicar',
+  PUBLICANDO: 'publicando',
   PUBLICADO: 'publicado',
   FALHOU: 'falhou_ao_publicar',
+  DESPUBLICADO: 'despublicado',
 };
 
 const ROTULOS = {
   [ESTADO_PUBLICACAO.FALTA]: 'Falta informação',
-  [ESTADO_PUBLICACAO.PREPARANDO]: 'Em preparação pelo agente',
+  [ESTADO_PUBLICACAO.PRONTO]: 'Pronto para preparação',
+  [ESTADO_PUBLICACAO.PREPARANDO]: 'Em preparação',
+  [ESTADO_PUBLICACAO.PREPARADO]: 'Conteúdo preparado',
   [ESTADO_PUBLICACAO.AGUARDANDO]: 'Aguardando aprovação',
   [ESTADO_PUBLICACAO.APROVADO]: 'Aprovado para publicar',
+  [ESTADO_PUBLICACAO.PUBLICANDO]: 'Publicando',
   [ESTADO_PUBLICACAO.PUBLICADO]: 'Publicado',
   [ESTADO_PUBLICACAO.FALHOU]: 'Falhou ao publicar',
+  [ESTADO_PUBLICACAO.DESPUBLICADO]: 'Despublicado',
 };
 
+/* O estado que o banco antigo guardava, traduzido na leitura. A migration
+   ja converte as linhas; isto cobre um banco que ainda nao a rodou. */
+const ESTADO_LEGADO = { em_preparacao_agente: ESTADO_PUBLICACAO.PREPARANDO };
+const traduzir = (e) => ESTADO_LEGADO[e] || e;
+
+/** A impressao digital dos dados aprovados.
+ *
+ *  E o mecanismo que invalida a aprovacao sozinha quando a peca muda — e
+ *  continua sendo, palavra por palavra, o que era antes da Fase 4.5. O
+ *  unico acrescimo e a foto APROVADA da galeria propria, que passou a ser
+ *  o que vai para a vitrine quando existe. */
 function assinatura(p) {
   return JSON.stringify({
     sku: p.sku,
@@ -37,19 +67,8 @@ function assinatura(p) {
     categoria: texto(p.cat, 120),
     preco: p.preco == null ? null : Number(p.preco),
     quantidade: Number(p.casa ?? 0),
-    foto: p.foto_tratada_key || null,
+    foto: p.foto_aprovada_id || p.foto_tratada_key || null,
   });
-}
-
-function faltasBasicas(p) {
-  const faltas = [];
-  if (!texto(p.sku)) faltas.push('codigo');
-  if (!texto(p.desc) || normSku(p.desc) === normSku(p.sku)) faltas.push('nome');
-  if (!texto(p.cat) || p.cat === 'Outros') faltas.push('categoria');
-  if (p.preco == null || Number(p.preco) <= 0) faltas.push('preco');
-  if (Number(p.casa ?? 0) <= 0) faltas.push('quantidade');
-  if (!p.foto_original_key && !p.foto_tratada_key) faltas.push('foto');
-  return faltas;
 }
 
 function rascunhoCompleto(f) {
@@ -68,7 +87,7 @@ async function lerFluxos(db) {
 
 async function lerProdutos(db) {
   const { results } = await db.prepare(`
-    SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja,
+    SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja, p.foto_url, p.produto_id_loja,
            p.foto_original_key, p.foto_tratada_key, p.foto_status, p.foto_erro,
            p.qtd - COALESCE((
              SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
@@ -81,31 +100,66 @@ async function lerProdutos(db) {
   return results ?? [];
 }
 
-function estadoDoItem(p, fluxo) {
-  const falta = faltasBasicas(p);
-  if (p.url_loja) return { estado: ESTADO_PUBLICACAO.PUBLICADO, falta: [] };
-  if (falta.length) return { estado: ESTADO_PUBLICACAO.FALTA, falta };
-  if (!p.foto_tratada_key || !rascunhoCompleto(fluxo)) {
-    return { estado: ESTADO_PUBLICACAO.PREPARANDO, falta: p.foto_tratada_key ? [] : ['fundo_branco'] };
-  }
+/** O estado da PECA no pipeline — que e decisao nossa — e nada mais.
+ *
+ *  Duas mudancas da Fase 4.5, e as duas vem da auditoria:
+ *
+ *  1. `foto_tratada_key` deixou de ser gate. Antes, sem ela a peca nao saia
+ *     de "em preparacao"; como producao nao tem R2 para preenche-la, isso
+ *     travava o pipeline inteiro dois passos antes do executor. Agora a
+ *     ausencia da foto preparada e BLOQUEIO, e bloqueio nao impede a peca de
+ *     esperar aprovacao — impede o ambiente de trabalhar, e diz isso.
+ *
+ *  2. `publicado` deixou de ser derivado de `url_loja` quando existe estado
+ *     gravado. `url_loja` e FATO OBSERVADO da vitrine; o estado e o que nos
+ *     decidimos. Enquanto nao houver linha gravada — o caso das 627 pecas
+ *     que ja estavam na loja antes desta fase — a observacao continua
+ *     valendo como estado, marcada com `estadoObservado`.
+ */
+const TERMINAIS = [
+  ESTADO_PUBLICACAO.PUBLICANDO, ESTADO_PUBLICACAO.PUBLICADO, ESTADO_PUBLICACAO.DESPUBLICADO,
+];
+
+function estadoDoItem(p, fluxo, capacidades = {}) {
+  const { faltas, bloqueios } = faltasDaPeca(p, capacidades);
+  const gravado = traduzir(fluxo?.estado);
   const assinaturaAtual = assinatura(p);
   const aprovacaoVigente = fluxo?.dados_assinatura === assinaturaAtual;
-  if (fluxo?.estado === ESTADO_PUBLICACAO.FALHOU && aprovacaoVigente) {
-    return { estado: ESTADO_PUBLICACAO.FALHOU, falta: [] };
+
+  /* Estado gravado pelo writer de publicacao manda: ele descreve um ato que
+     aconteceu do lado de fora, e nenhum calculo daqui pode desfaze-lo. */
+  if (TERMINAIS.includes(gravado)) return { estado: gravado, falta: [], bloqueios };
+
+  if (!fluxo && p.url_loja) {
+    return { estado: ESTADO_PUBLICACAO.PUBLICADO, falta: [], bloqueios, estadoObservado: true };
   }
-  if (fluxo?.estado === ESTADO_PUBLICACAO.APROVADO && aprovacaoVigente) {
-    return { estado: ESTADO_PUBLICACAO.APROVADO, falta: [] };
+  if (faltas.length) return { estado: ESTADO_PUBLICACAO.FALTA, falta: faltas, bloqueios };
+
+  if (gravado === ESTADO_PUBLICACAO.FALHOU && aprovacaoVigente) {
+    return { estado: ESTADO_PUBLICACAO.FALHOU, falta: [], bloqueios };
+  }
+  if (gravado === ESTADO_PUBLICACAO.APROVADO && aprovacaoVigente) {
+    return { estado: ESTADO_PUBLICACAO.APROVADO, falta: [], bloqueios };
+  }
+  if (!rascunhoCompleto(fluxo)) {
+    /* Sem rascunho: ou existe tarefa de preparacao aberta (o estado gravado
+       diz isso), ou a peca esta apenas esperando alguem comecar. */
+    return {
+      estado: gravado === ESTADO_PUBLICACAO.PREPARANDO
+        ? ESTADO_PUBLICACAO.PREPARANDO : ESTADO_PUBLICACAO.PRONTO,
+      falta: [], bloqueios,
+    };
   }
   return {
     estado: ESTADO_PUBLICACAO.AGUARDANDO,
-    falta: [],
+    falta: [], bloqueios,
     aprovacaoInvalidada: !!fluxo?.aprovado_em && !aprovacaoVigente,
   };
 }
 
-function itemPublico(p, fluxo) {
-  const calculado = estadoDoItem(p, fluxo);
-  const bloqueioExterno = calculado.estado === ESTADO_PUBLICACAO.PREPARANDO && fluxo?.preparo_erro
+function itemPublico(p, fluxo, capacidades = {}) {
+  const calculado = estadoDoItem(p, fluxo, capacidades);
+  const bloqueioExterno = fluxo?.preparo_erro
     ? {
         motivo: fluxo.preparo_erro,
         proximoPasso: 'Configure o preparador do catálogo ou preencha a prévia manualmente.',
@@ -119,11 +173,26 @@ function itemPublico(p, fluxo) {
     casa: Number(p.casa ?? 0),
     qtd: Number(p.qtd ?? 0),
     fotoStatus: p.foto_status || FOTO.SEM,
-    temOriginal: !!p.foto_original_key,
-    temTratada: !!p.foto_tratada_key,
+    temOriginal: !!p.foto_original_key || !!p.temFotoPropria,
+    temTratada: !!p.foto_tratada_key || !!p.temFotoPreparadaPropria,
+    /* Três estados, não dois (necessidade de UX 1 da auditoria): foto
+       nossa, só o endereço da foto da loja, ou nenhuma. */
+    temFotoPropria: !!p.temFotoPropria,
+    temEnderecoDaLoja: !!p.foto_url,
     estado: calculado.estado,
     estadoRotulo: ROTULOS[calculado.estado],
     falta: calculado.falta,
+    /* O que o AMBIENTE nao consegue fazer, separado do que falta a peca.
+       Sao perguntas diferentes e a tela precisa das duas — ver o cabecalho
+       de catalogo/completude.js. */
+    bloqueios: calculado.bloqueios || [],
+    /* Fato lido da vitrine, ao lado da decisao nossa. "A loja mostra" e
+       "nos decidimos" nunca mais compartilham um campo. */
+    presencaNaLoja: !!p.url_loja,
+    /* O id externo, agora direto em `produtos` (D9). O publicador precisa
+       dele para ATUALIZAR em vez de criar de novo. */
+    produtoIdLoja: p.produto_id_loja || fluxo?.produto_id_loja || null,
+    estadoObservado: !!calculado.estadoObservado,
     pronto: calculado.estado === ESTADO_PUBLICACAO.AGUARDANDO
       || calculado.estado === ESTADO_PUBLICACAO.APROVADO,
     aprovacaoInvalidada: !!calculado.aprovacaoInvalidada,
@@ -147,21 +216,53 @@ function itemPublico(p, fluxo) {
 /** Lista compatível com a tela antiga e, em `itens`, expõe a máquina de
  * estados completa do Pacote 4. Bancos ainda sem a migration continuam em
  * leitura; apenas preparar/aprovar fica indisponível. */
-export async function listarPublicacoes(db) {
-  const [produtos, fluxos] = await Promise.all([lerProdutos(db), lerFluxos(db)]);
+export async function listarPublicacoes(db, env) {
+  const [produtos, fluxos, sentinelas, galeria] = await Promise.all([
+    lerProdutos(db), lerFluxos(db), sentinelasDeCategoria(db), skusComFotoPropria(db),
+  ]);
+  /* A galeria própria é a camada em que a Marquesa é dona da imagem. Ela
+     entra na conta de completude como as outras — se não entrasse, uma peça
+     com três fotos nossas continuaria aparecendo como "sem foto", que é
+     exatamente o defeito que a galeria existe para corrigir. */
+  for (const p of produtos) {
+    p.temFotoPropria = galeria.com.has(p.sku);
+    p.temFotoPreparadaPropria = galeria.preparadas.has(p.sku);
+    p.foto_aprovada_id = galeria.aprovadas.has(p.sku) ? `aprovada:${p.sku}` : null;
+  }
+  /* As capacidades do ambiente entram na conta porque "o que falta" e "o
+     que este servidor nem consegue fazer" sao respostas diferentes. Sem
+     `env` — chamada interna, teste puro — nada e bloqueado por
+     infraestrutura, que e o comportamento certo para quem so quer saber o
+     que a pessoa precisa fazer. */
+  const capacidades = env
+    ? { ...capacidadesDoAmbiente(lerConfig(env)), sentinelas }
+    : { sentinelas };
+
   const itens = produtos
     .filter((p) => p.url_loja || Number(p.casa ?? 0) > 0 || fluxos.mapa.has(p.sku))
-    .map((p) => itemPublico(p, fluxos.mapa.get(p.sku)));
+    .map((p) => itemPublico(p, fluxos.mapa.get(p.sku), capacidades));
 
   const candidatos = itens.filter((x) => !x.urlLoja && x.casa > 0);
+  /* As seis listas que a tela legada renderiza. Elas NAO recalculam a regra:
+     sao a mesma decisao do juiz unico, so agrupada com os nomes que aquela
+     tela conhece. Antes cada uma tinha o seu proprio `if`, e era por isso
+     que a mesma peca aparecia pronta numa aba e incompleta na outra. */
   const antigas = { prontos: [], semFoto: [], semFundoBranco: [], semDescricao: [], semCategoria: [], semPreco: [] };
+  const PARA_LISTA = {
+    foto: 'semFoto', nome: 'semDescricao', categoria: 'semCategoria', preco: 'semPreco',
+  };
   for (const x of candidatos) {
     const falta = [];
-    if (!x.temOriginal && !x.temTratada) { falta.push('foto'); antigas.semFoto.push(x); }
-    else if (!x.temTratada) { falta.push('fundo_branco'); antigas.semFundoBranco.push(x); }
-    if (!texto(x.desc) || normSku(x.desc) === normSku(x.sku)) { falta.push('descricao'); antigas.semDescricao.push(x); }
-    if (!texto(x.cat) || x.cat === 'Outros') { falta.push('categoria'); antigas.semCategoria.push(x); }
-    if (x.preco == null || x.preco <= 0) { falta.push('preco'); antigas.semPreco.push(x); }
+    for (const f of x.falta) {
+      const lista = PARA_LISTA[f];
+      if (!lista) continue;                 // `quantidade` nunca cai aqui: candidato ja tem casa > 0
+      falta.push(f === 'nome' ? 'descricao' : f);
+      antigas[lista].push(x);
+    }
+    /* Fundo branco e a unica "pendencia" da tela antiga que hoje e
+       bloqueio: ela so aparece quando nao ha outra falta, porque cobrar
+       tratamento de foto de uma peca que ainda nem tem preco e ruido. */
+    if (!falta.length && x.bloqueios.length) antigas.semFundoBranco.push(x);
     x.faltaLegada = falta;
     if (!falta.length) antigas.prontos.push(x);
   }
@@ -200,8 +301,8 @@ export async function listarPublicacoes(db) {
   };
 }
 
-async function itemPorSku(db, sku) {
-  const lista = await listarPublicacoes(db);
+async function itemPorSku(db, sku, env) {
+  const lista = await listarPublicacoes(db, env);
   return { lista, item: lista.itens.find((x) => x.sku === normSku(sku)) || null };
 }
 
@@ -254,9 +355,11 @@ export async function salvarPreviaPublicacao(db, sku, corpo = {}) {
   if (item.estado === ESTADO_PUBLICACAO.FALTA) {
     return ERRO(409, 'Complete as informações obrigatórias antes da prévia.', { faltam: item.falta });
   }
-  if (!item.temTratada) {
-    return ERRO(409, 'A foto com fundo branco precisa estar pronta antes da prévia.', { faltam: ['fundo_branco'] });
-  }
+  /* A foto com fundo branco NAO e mais gate aqui. Ela era, e como producao
+     nao tem R2 para produzi-la, nenhuma peca chegava a ter previa — o
+     pipeline parava dois passos antes do executor por falta de
+     infraestrutura, exibindo isso como pendencia de trabalho humano. O
+     estado da imagem continua visivel em `bloqueios`. */
   const p = {
     sku: item.sku, desc: item.desc, cat: item.cat, preco: item.preco,
     casa: item.casa, dadosAssinaturaAtual: item.dadosAssinaturaAtual,
@@ -273,7 +376,7 @@ export async function salvarPreviaPublicacao(db, sku, corpo = {}) {
 export async function prepararPublicacao(db, env, sku, corpo = {}) {
   const faltaTabela = await exigirTabela(db);
   if (faltaTabela) return faltaTabela;
-  let { item } = await itemPorSku(db, sku);
+  let { item } = await itemPorSku(db, sku, env);
   if (!item) return ERRO(404, 'Produto não encontrado na fila de publicação.');
   if (item.estado === ESTADO_PUBLICACAO.FALTA) {
     return ERRO(409, 'Ainda faltam informações para iniciar a preparação.', { faltam: item.falta });
@@ -287,34 +390,48 @@ export async function prepararPublicacao(db, env, sku, corpo = {}) {
     item.sku, ESTADO_PUBLICACAO.PREPARANDO,
   ).run();
 
+  /* A foto com fundo branco é TENTADA, e não mais exigida.
+
+     Antes, se ela não ficasse pronta a função voltava aqui — e como
+     produção não tem R2 para produzi-la, nenhuma peça passava deste ponto.
+     A preparação de TEXTO não depende da imagem, e travá-la por causa dela
+     fazia o pipeline inteiro parar dois passos antes do executor por um
+     motivo que não era da peça nem de quem trabalha nela.
+
+     O que não ficou pronto continua registrado e continua aparecendo — como
+     bloqueio, ao lado do estado, e não como falta da peça. */
+  let bloqueioDaFoto = null;
   if (!item.temTratada) {
     const foto = await gerarFundoBranco(db, env, item.sku);
     if (!foto.ok || foto.pendente) {
       const motivo = foto.erro || foto.detalhe || 'O tratamento da foto ainda não terminou.';
+      bloqueioDaFoto = { motivo, proximoPasso: 'Configure o serviço de fundo branco; o texto segue sem ele.' };
       await db.prepare('UPDATE catalogo_publicacoes SET preparo_erro=?, atualizado_em=datetime(\'now\') WHERE sku=?')
         .bind(motivo, item.sku).run();
-      return {
-        ok: true,
-        estado: ESTADO_PUBLICACAO.PREPARANDO,
-        bloqueioExterno: { motivo, proximoPasso: 'Configure o serviço de fundo branco e tente preparar novamente.' },
-        escritaNaLoja: false,
-      };
     }
-    item = (await itemPorSku(db, sku)).item;
+    item = (await itemPorSku(db, sku, env)).item;
   }
 
-  if (corpo.rascunho) return salvarPreviaPublicacao(db, sku, corpo.rascunho);
+  if (corpo.rascunho) {
+    const r = await salvarPreviaPublicacao(db, sku, corpo.rascunho);
+    return r.ok ? { ...r, bloqueioExterno: bloqueioDaFoto } : r;
+  }
 
   const preparador = lerConfig(env).catalogo;
   const endereco = texto(preparador.preparadorUrl, 2000);
   if (!endereco) {
-    const motivo = 'O serviço do agente de catálogo não está configurado (falta PREPARADOR_CATALOGO_URL).';
+    /* Sem serviço configurado, a peça fica EM PREPARAÇÃO esperando um
+       executor — que hoje é humano-assistido, lendo
+       `GET /api/catalogo/preparacao/tarefas`. Não é erro: é o estado certo
+       de uma tarefa aberta que ninguém pegou ainda. */
+    const motivo = 'Nenhum serviço automático de preparação está configurado; '
+      + 'a peça está na fila para o executor externo.';
     await db.prepare('UPDATE catalogo_publicacoes SET preparo_erro=?, atualizado_em=datetime(\'now\') WHERE sku=?')
       .bind(motivo, item.sku).run();
     return {
       ok: true,
       estado: ESTADO_PUBLICACAO.PREPARANDO,
-      bloqueioExterno: { motivo, proximoPasso: 'Configure o serviço ou preencha a prévia manualmente.' },
+      bloqueioExterno: bloqueioDaFoto || { motivo, proximoPasso: 'Abra uma tarefa em POST /api/catalogo/preparacao/tarefas ou preencha a prévia manualmente.' },
       escritaNaLoja: false,
     };
   }

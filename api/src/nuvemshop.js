@@ -203,6 +203,66 @@ export class Nuvemshop {
     return this.listarTudo('/orders', p, 40, { apiPedidos: true });
   }
 
+  /* ================================================================== */
+  /* CATÁLOGO — escrita (Fase 4.5)                                       */
+  /* ================================================================== */
+  /*
+   *  Antes desta fase o cliente tinha TRÊS operações: ler produtos, ler
+   *  pedidos e escrever estoque. `analisarSincronizacao` produzia uma lista
+   *  `criarNaLoja` que era relatório, não comando — não havia com o que
+   *  executá-la.
+   *
+   *  Estes métodos são o transporte que faltava, e nada mais: quem decide o
+   *  que publicar, quando e com qual freio é `catalogo/publicador.js`. Todos
+   *  passam por `chamar`, logo todos param antes do fetch se
+   *  `NUVEMSHOP_WRITES_ENABLED` não for exatamente "true".
+   */
+
+  /** As categorias da loja. Leitura apenas — hoje as categorias daqui e as
+   *  de lá não se falam, e decidir quem manda é decisão comercial pendente
+   *  (§ 15 do desenho da 4.5). Existe para a decisão ter dado. */
+  categorias() { return this.listarTudo('/categories'); }
+
+  produto(id) { return this.chamar(`/products/${id}`); }
+
+  criarProduto(corpo) {
+    return this.chamar('/products', { method: 'POST', body: JSON.stringify(corpo) });
+  }
+
+  atualizarProduto(id, corpo) {
+    return this.chamar(`/products/${id}`, { method: 'PUT', body: JSON.stringify(corpo) });
+  }
+
+  /** Publicar e despublicar são o MESMO campo (`published`), e por isso os
+   *  dois métodos existem separados: no código de quem chama, "tirar do ar"
+   *  precisa ser um ato com nome, não um booleano invertido no meio de um
+   *  objeto. */
+  publicarProduto(id) {
+    return this.atualizarProduto(id, { published: true });
+  }
+
+  despublicarProduto(id) {
+    return this.atualizarProduto(id, { published: false });
+  }
+
+  criarVariante(produtoId, corpo) {
+    return this.chamar(`/products/${produtoId}/variants`, { method: 'POST', body: JSON.stringify(corpo) });
+  }
+
+  atualizarVariante(produtoId, varianteId, corpo) {
+    return this.chamar(`/products/${produtoId}/variants/${varianteId}`,
+      { method: 'PUT', body: JSON.stringify(corpo) });
+  }
+
+  /** Imagem por base64 — a foto original mora no R2 atrás da chave da API,
+   *  então a loja não consegue baixar uma URL nossa. */
+  enviarImagem(produtoId, { base64, filename, position }) {
+    return this.chamar(`/products/${produtoId}/images`, {
+      method: 'POST',
+      body: JSON.stringify({ attachment: base64, filename, position }),
+    });
+  }
+
   /** Escrita em lote de estoque. Um PATCH resolve vários produtos de uma
    *  vez, o que importa muito com 2 requisições por segundo: mandar um por
    *  produto levaria 5 minutos para os 600 da loja. */

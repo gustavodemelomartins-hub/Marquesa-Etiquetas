@@ -51,6 +51,16 @@ export function lerConfig(env = {}) {
       clientId: texto(env.NUVEMSHOP_CLIENT_ID),
       clientSecret: texto(env.NUVEMSHOP_CLIENT_SECRET),
       escritaHabilitada: ligado(env.NUVEMSHOP_WRITES_ENABLED),
+      /* A SEGUNDA trava, específica da publicação de catálogo (Fase 4.5).
+         `NUVEMSHOP_WRITES_ENABLED` está "true" em produção porque o
+         empurrão de estoque depende dela — e empurrar estoque para um
+         produto que já existe é muito diferente de CRIAR um produto na
+         loja. Uma trava só não consegue separar as duas coisas.
+
+         Não está declarada em `wrangler.toml` de propósito: ausente vale
+         como desligada, e é assim em todo ambiente até alguém decidir o
+         contrário por release. */
+      publicacaoHabilitada: ligado(env.NUVEMSHOP_PUBLICACAO_ENABLED),
     },
     fotos: {
       /* Binding do R2, não texto: presente ou ausente. Ausente é estado
@@ -101,6 +111,11 @@ export function diagnosticar(config) {
     add('aviso', 'NUVEMSHOP_WRITES_ENABLED',
       'A sincronização lê a loja mas não escreve nela. É o padrão seguro: '
       + 'produção precisa desta variável em "true" para empurrar estoque.');
+  }
+  if (config.nuvemshop.token && config.nuvemshop.loja && !config.nuvemshop.publicacaoHabilitada) {
+    add('aviso', 'NUVEMSHOP_PUBLICACAO_ENABLED',
+      'Criar, atualizar, publicar e despublicar produto na loja está desligado. '
+      + 'Preparar e aprovar continuam funcionando; a escrita externa é o único passo travado.');
   }
   if (!config.fotos.temR2) {
     add('aviso', 'FOTOS',
