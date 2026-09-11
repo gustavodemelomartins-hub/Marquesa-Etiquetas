@@ -286,6 +286,11 @@ bipou 748801  ──▶  o SKU tem variação cadastrada?
   recusa o que não está cadastrado e devolve o cardápio dentro do erro;
 - repetir a mesma variação é normal: três peças aro 16 são três bipes.
 
+**Confirmado pela Sthefany em 11/09/2026 (`S3`, `S4`):** a única variação que a
+operação diferencia hoje é o **aro do anel**. A régua basta — ela reconhece a
+peça pelo aro, sem precisar de foto ou medida ao lado. Cor e descritivos não
+entram na régua: continuam texto manual na descrição. Ver §12.
+
 ### 7.3 O fechamento devolve cinco listas (D3)
 
 | Lista | Quem entra | Correção em lote |
@@ -504,24 +509,49 @@ já existe. A tela de inventário não oferece "corrigir de novo".
 
 ---
 
-## 12. Pendências para validação com a Sthefany
+## 12. Pendências para validação com a Sthefany — **todas respondidas**
 
-Nenhuma delas bloqueia o desenho, e **nenhum dado real foi alterado por causa
-delas**. Ficam registradas aqui até a conversa acontecer.
+A conversa aconteceu em **11/09/2026**. As seis perguntas estão respondidas e
+**nenhum dado real foi alterado por causa delas** — nem antes, nem agora. O que
+mudou é que o desenho deixou de esperar informação humana.
 
-| # | Pergunta | O que destrava |
+| # | Pergunta | Resposta (11/09/2026) |
 |---|---|---|
-| S1 | Quantidade física atual da Veneziana `444032` | cadastro do Monte Seu Colar (item 3, §5) |
-| S2 | Realidade física do legado `326660` na maleta 12 | o ajuste do saldo legado, que é decisão de inventário |
-| S3 | Quais variações ela diferencia hoje na etiqueta | a régua de variação da tela (7.2) |
-| S4 | Como identifica fisicamente cada variação | se a régua basta, ou se precisa de foto/medida ao lado |
-| S5 | Quantidades reais dos demais componentes do Monte Seu Colar | cadastro dos 4 SKUs ausentes |
-| S6 | Vende e monta maleta enquanto um inventário está pausado? | confirma que a deriva da seção 6 é real, e não teórica |
+| S1 | Quantidade física atual da Veneziana `444032` | **18 em casa**, mais 1 consignada no Colar Casal da Bruna = **19** no total |
+| S2 | Realidade física do legado `326660` na maleta 12 | 1 exemplar real com a Bruna, composto por `329494` + `263236` + `444032`. O **Menino Verde está confirmado** |
+| S3 | Quais variações ela diferencia hoje na etiqueta | **só o tamanho/aro dos anéis** (Aro 16, 17, 18…). Cor e descritivos continuam texto manual na descrição |
+| S4 | Como identifica fisicamente cada variação | pelo aro. A régua de variações cadastradas (§7.2) basta; não é preciso foto nem medida ao lado |
+| S5 | Quantidades reais dos demais componentes do Monte Seu Colar | informadas, em casa: `263236` 4 · `273470` 5 · `251551` 2 · `251552` 5 · `329494` 2 |
+| S6 | Vende e monta maleta enquanto um inventário está pausado? | hoje ela **normalmente para a operação** enquanto conta — mas a arquitetura **continua suportando** movimentação durante inventário pausado |
 
-Sobre **S6**: se a resposta for "ela para tudo enquanto conta", a comparação
-retroagida continua correta e simplesmente nunca dispara. **Não vale simplificar
-o desenho apostando nessa resposta** — a aposta errada devolve peça vendida ao
-estoque.
+Os números de S1/S5 são **estoque em casa** e não incluem o que está com a
+Bruna. A tabela completa, com "em casa", "consignado" e "patrimônio total", mora
+em [MONTAGEM-MONTE-SEU-COLAR.md §5.1](MONTAGEM-MONTE-SEU-COLAR.md) — aqui
+ficaria duplicada.
+
+**S3/S4 fecham a régua do §7.2, e fecham também o que ela NÃO é.** Aro de anel é
+variação **estruturada**: vem de `produto_variacoes`, entra na régua, e SKU com
+aro cadastrado continua recusando contagem agregada. Cor de ponto de luz e
+descritivos do gênero continuam **texto manual na descrição** — e essa é a
+resposta, não uma limitação a corrigir depois. **Não transformar toda
+característica escrita na descrição em variante do sistema**: isso multiplicaria
+variação sem que a operação precise distinguir a peça na contagem.
+
+> **Roadmap de etiquetas, registrado e não implementado.** Quando o sistema
+> gerar etiquetas automaticamente, a etiqueta de anel deve identificar
+> **SKU + variação**: bipar a etiqueta do SKU X / aro 17 já diz que é aro 17,
+> sem seleção manual depois. A seleção manual da régua **continua existindo como
+> fallback**. Isto é direção, não contrato: a tela de hoje segue pedindo a
+> variação na régua.
+
+**S6 fechou com a resposta "ela normalmente para" — e o desenho não muda por
+isso.** Era exatamente o risco antecipado: se a simplificação tivesse sido feita
+apostando nessa resposta, a aposta errada devolveria peça vendida ao estoque. A
+comparação retroagida da seção 6 **fica**, porque a arquitetura deve continuar
+suportando movimentação durante inventário pausado para não limitar crescimento
+futuro — mais de uma pessoa contando, ou venda acontecendo enquanto se conta.
+Na prática de hoje ela raramente dispara; é uma trava barata contra um caso que
+a operação pode passar a ter.
 
 ---
 

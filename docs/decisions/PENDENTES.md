@@ -19,7 +19,7 @@ conteúdo da regra, e o PROJECT-STATUS é a fonte para o estado da tarefa.
 | # | Pendência | Trava qual fase | Estado |
 |---|---|---|---|
 | P1 | Fonte operacional e frequência real do cron de sync | Fase 7 | **fechada (11/09/2026)** — verificação read-only |
-| P2 | Semântica definitiva de giro e comissão | Fase 6 | **aberta — aguarda Sthefany** |
+| P2 | Semântica definitiva de giro e comissão | Fase 6 | **fechada (11/09/2026)** — acerto pelo preço cheio |
 | P3 | Regra de preço para material bruto versus banhado | Fase 5 | aberta |
 | P4 | Fonte única dos parâmetros de planejamento | Fase 9 | **fechada (11/09/2026)** — reserva é parâmetro, não trava |
 | P5 | Por quanto tempo manter o fallback do legado | Fase 11 | **fechada (11/09/2026)** — ~30 dias somente leitura |
@@ -34,20 +34,36 @@ conteúdo da regra, e o PROJECT-STATUS é a fonte para o estado da tarefa.
 | P14 | Mesclar duas categorias numa: o que acontece com o histórico de relatório | Fase 4.5 | **fechada (11/09/2026)** — não reescreve o passado |
 | P15 | Arquivar uma peça deve despublicá-la da loja? | Fase 4.5 | **fechada (11/09/2026)** — sim, mas nunca por estoque zero |
 | P16 | Categorias da loja: mapear com as nossas, ou continuar ignorando | Fase 7 | **fechada (11/09/2026)** — entidades distintas, mapeáveis |
-| P17 | Reclassificação do histórico de não-vendas já importado | trilha de release | **aberta** — auditoria pronta, execução não autorizada |
+| P17 | Reclassificação do histórico de não-vendas já importado | trilha de release | **classe decidida (11/09/2026)**; execução continua não autorizada |
 
 ## Detalhe do que está travado
 
-**P2 — giro e comissão. Aguarda Sthefany.** Aparece nos fluxos de maleta, mas
-não tem regra fechada. A pergunta específica que falta, formulada em
-11/09/2026: quando há desconto no acerto de uma revendedora, a comissão incide
-sobre o **preço original** ou sobre o **valor final após o desconto**? E existe
-diferença de tratamento entre desconto **autorizado pela Sthefany** e desconto
-**concedido pela própria revendedora**? Enquanto isso não for respondido, a
-Fase 6 caracteriza e preserva o comportamento existente; inventar semântica de
-giro durante a extração continua proibido. Note que `maletas.acerto_json` já
-guarda a comissão real do acerto, então o histórico não depende desta resposta
-— só o cálculo dos acertos futuros depende.
+**P2 — giro e comissão. Fechada em 11/09/2026, pela Sthefany.** A pergunta
+formulada era: quando há desconto no acerto de uma revendedora, a comissão
+incide sobre o **preço original** ou sobre o **valor final após o desconto**? E
+desconto **autorizado pela Sthefany** difere de desconto **concedido pela
+própria revendedora**? A resposta separa as duas coisas em definitivo:
+
+> **A revendedora não deve vender com desconto.** Se ela decidir dar desconto
+> para a cliente dela, isso é negociação **particular** entre as duas. Para a
+> Marquesa, **o acerto é pelo preço cheio**.
+
+Exemplo dado por ela: preço Marquesa R$ 100, a revendedora vende para a cliente
+dela por R$ 90 — o acerto com a Marquesa continua considerando **R$ 100**. O
+desconto particular **não** reduz o valor devido à Marquesa e **não** reduz a
+base operacional do acerto; logo, também não reduz a base de cálculo da
+comissão.
+
+Consequência para o código, dita para não ser inferida errado: o acerto nunca
+pode interpretar um desconto concedido pela revendedora como desconto concedido
+pela Marquesa. Desconto autorizado **diretamente pela Marquesa** é caso
+distinto e explícito — quando existir, terá origem e campo próprios, nunca
+comportamento implícito de revendedora. Enquanto esse caso não existir, não há
+caminho no acerto que reduza a base.
+
+A regra vigente está em [§45 do api/REGRAS.md](../../api/REGRAS.md). O histórico
+continua não dependendo desta resposta: `maletas.acerto_json` já guarda a
+comissão real dos acertos já fechados.
 
 **P3 — material bruto versus banhado.** Continua aberta e não foi tocada em
 11/09/2026. Relacionada à faixa de comissão das banhadas, que o
@@ -93,11 +109,24 @@ sem faturamento registradas como venda — 32 `uso_proprio`, 2 `brinde`, 3
 classifica artefato por artefato o que foi integrado e o que ficou
 deliberadamente no commit de origem.
 
-O que falta é **autorização humana para executar**, mais duas decisões de
-classificação que o sistema não toma sozinho: um registro com observação
-`Sorteio (Feira Franceschini)` (confiança **média** — sorteio é brinde para
-quem ganha, não retirada pessoal) e um `ACHO QUE FOI VENDIDO` (confiança
-**baixa**; a frase é observação, não categoria).
+**As duas classificações que o sistema não tomava sozinho foram decididas em
+11/09/2026, pela Sthefany:**
+
+| Registro | Confiança anterior | Classe oficial |
+|---|---|---|
+| `Sorteio (Feira Franceschini)` | média | saída sem faturamento, `tipo = sorteio` — **foi realmente um sorteio**, não é venda |
+| `ACHO QUE FOI VENDIDO` | baixa | saída sem faturamento, `tipo = perda` — **perda / diferença de inventário**, não é venda |
+
+A confirmação da segunda é o que faltava: a frase continua sendo observação, e
+a confirmação humana é que decide o fato. Semanticamente ela pertence à
+diferença de inventário, e é assim que a linha deve nascer quando houver
+execução — com a observação original preservada.
+
+**Fechar a classe não autoriza executar.** O que continua aberto aqui é o ato
+técnico: reclassificar as 37 linhas exige plano seguro de migração, e nada
+disso roda em produção por causa desta decisão. A tarefa técnica é `SAI-002`.
+Note ainda que o caso do sorteio **depende de `P11`** — `sorteio` não cabe no
+`CHECK` de produção hoje.
 
 **O ensaio não prova tudo, e a diferença importa.** Ele inseriu direto em
 `historico_reclassificacao`, sem exercitar a rota oficial e sem criar linha em
@@ -131,7 +160,11 @@ supostas:
   nada a implementar agora.
 - **"ACHO QUE FOI VENDIDO" não é categoria.** É observação. Diferença negativa
   de inventário confirmada entra como `perda`, com a observação registrada e
-  rastreabilidade pelo histórico de saída sem faturamento.
+  rastreabilidade pelo histórico de saída sem faturamento. **O caso concreto do
+  histórico importado foi confirmado como `perda` em 11/09/2026** — ver `P17`.
+- **Revendedora acerta pelo preço cheio** (11/09/2026, `P2`). Desconto que a
+  revendedora dá à cliente dela é negociação particular e não muda o que ela
+  deve à Marquesa. Ver [§45 do api/REGRAS.md](../../api/REGRAS.md).
 - **Estratégia de evolução:** strangler incremental por contrato, registrado em
   [0002-strangler-incremental-por-contrato.md](0002-strangler-incremental-por-contrato.md).
 

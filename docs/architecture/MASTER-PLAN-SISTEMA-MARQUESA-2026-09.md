@@ -1149,14 +1149,28 @@ futuro botão "Novo produto" ali apenas reutiliza o mesmo fluxo.
 política de R2/mídia em produção (`P9`: produção continua desligada, DEV pode
 ganhar bucket próprio, e a migração Nuvemshop → R2 é aditiva — § 46.1).
 
-**Continuam abertas** — semântica de giro e comissão (`P2`, aguarda a Sthefany:
-com desconto no acerto, a comissão incide sobre o preço original ou sobre o
-valor final?); regra de preço para material bruto versus banhado (`P3`); quando
-aplicar a migration do `sorteio` (`P11`, só o schema); desenho da correção
-auditável de custo histórico (`P12`, regra fechada e proposta em
-[CUSTO-HISTORICO-AUDITAVEL.md](CUSTO-HISTORICO-AUDITAVEL.md)); e a
-reclassificação do histórico de não-vendas (`P17`, auditoria pronta, execução
-não autorizada).
+**Fechadas em 11/09/2026, pelas respostas da Sthefany** — semântica de comissão
+com desconto (`P2`: **a revendedora acerta pelo preço cheio**; desconto que ela
+dá à cliente dela é negociação particular e não reduz o que ela deve à
+Marquesa, nem a base da comissão — § 45 do `api/REGRAS.md`); e a **classe** dos
+dois casos históricos que o sistema não classificava sozinho (`P17`:
+`Sorteio (Feira Franceschini)` é `sorteio`, `ACHO QUE FOI VENDIDO` é `perda` /
+diferença de inventário). Junto com elas, as seis perguntas de inventário
+`S1`–`S6` e os saldos físicos do Monte seu Colar — os números informados são
+**estoque em casa** e não incluem o exemplar consignado com a Bruna.
+
+**Continuam abertas** — regra de preço para material bruto versus banhado
+(`P3`); quando aplicar a migration do `sorteio` (`P11`, só o schema); desenho da
+correção auditável de custo histórico (`P12`, regra fechada e proposta em
+[CUSTO-HISTORICO-AUDITAVEL.md](CUSTO-HISTORICO-AUDITAVEL.md)); e a **execução**
+da reclassificação do histórico de não-vendas (`P17`: a classe fechou, o ato
+técnico continua não autorizado e exige plano seguro).
+
+A distinção vale para as duas últimas: **decisão fechada não é migração
+executada.** Nenhuma das respostas de 11/09/2026 autorizou escrita em produção,
+e a transformação do saldo legado de `326660` em componentes físicos continua
+sendo planejamento — com a dupla contagem medida e registrada em
+[MONTAGEM-MONTE-SEU-COLAR.md § 5.3](../domains/MONTAGEM-MONTE-SEU-COLAR.md).
 
 ## 51. Não objetivos deste plano
 

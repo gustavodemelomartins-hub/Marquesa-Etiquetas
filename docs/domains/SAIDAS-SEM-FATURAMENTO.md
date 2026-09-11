@@ -53,6 +53,36 @@ Na integração original, “Sorteio” ficou pendente. A decisão humana poster
 faturamento `sorteio`, distinta de `brinde`, e pode ser filtrada e relatada por
 essa categoria.
 
+## Os dois casos históricos foram classificados (11/09/2026)
+
+Das 37 linhas, duas dependiam de confirmação humana porque o sistema não as
+classifica sozinho. A Sthefany respondeu as duas, e `DR-016`/`P17` fecharam
+**quanto à classe**:
+
+| Registro histórico | Confiança antes | **Classe oficial** | Por quê |
+|---|---|---|---|
+| `Sorteio (Feira Franceschini)` | média | saída sem faturamento, **`tipo = sorteio`** | confirmado: **foi realmente um sorteio**. Não é venda |
+| `ACHO QUE FOI VENDIDO` | baixa | saída sem faturamento, **`tipo = perda`** | confirmado: para ela o caso é **perda / diferença de inventário**. Não é venda |
+
+Sobre o segundo, que era o mais delicado: a frase continua sendo **observação, e
+não categoria** — o que mudou é que a confirmação humana chegou e decidiu o
+fato. Semanticamente a linha pertence à **diferença de inventário**; quando
+houver execução, ela deve nascer com a observação original preservada e, se o
+modelo já oferecer vínculo/origem de inventário apropriado, apontando para ele.
+Hoje esse vínculo é **parcial** — ver “Suporte do modelo atual”, abaixo: movimento novo
+aceita `origem = 'inventario'`, mas reclassificação histórica não aponta para
+sessão/item de inventário.
+
+**Classificar não é executar, e a diferença é o assunto inteiro desta página.**
+Nenhuma das 37 linhas foi reescrita, nenhuma migration rodou, nada foi tocado em
+produção. O que estava travado por falta de decisão humana deixou de estar; o
+que continua travado é o **plano seguro de execução** — as três travas medidas
+listadas em [PENDENTES.md](../decisions/PENDENTES.md) (`cliente_id` nunca nome,
+nenhum movimento de estoque, nenhuma migration nova) seguem valendo inteiras.
+
+Uma dependência a não perder de vista: o caso do sorteio **precisa de `P11`**.
+`sorteio` ainda não cabe no `CHECK` de produção — os outros 36 destinos cabem.
+
 ## Suporte do modelo atual
 
 | Requisito | Situação atual |
@@ -92,13 +122,14 @@ começado, e fazia "aplicar a migration" parecer resolver ambos.
 | | Assunto | Pendência | Estado |
 |---|---|---|---|
 | 1 | Migration de schema que admite `sorteio` como tipo | `P11` | não executada; produção ainda tem `CHECK` de **3** tipos |
-| 2 | Reclassificação do histórico já importado (37 linhas) | `P17` | regra e evidência integradas; **execução não autorizada** |
+| 2 | Reclassificação do histórico já importado (37 linhas) | `P17` | regra, evidência e **classe dos 2 casos duvidosos** fechadas; **execução continua não autorizada** |
 
-O assunto 2 **não precisa do assunto 1**: os três tipos de destino das 37
+O assunto 2 **quase não precisa do assunto 1**: os três tipos de destino das 37
 linhas (`uso_proprio`, `brinde`, `perda`) já cabem no `CHECK` atual de
-produção. A única das 37 que esbarra em `sorteio` é o registro de confiança
-média (`Sorteio (Feira Franceschini)`), e ele depende de decisão humana antes
-de qualquer coisa.
+produção. A única das 37 que esbarra em `sorteio` é o registro
+`Sorteio (Feira Franceschini)` — e, com a classe agora confirmada como
+`sorteio` (11/09/2026), essa linha **passou a depender de `P11`** em vez de
+depender de decisão humana.
 
 Estado de produção medido por leitura em 11/09/2026:
 

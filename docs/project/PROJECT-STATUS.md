@@ -2,7 +2,9 @@
 
 **Atualizado em:** 2026-09-11 (revisão da noite: consolidação das decisões e
 das frentes paralelas; depois, mesmo dia: Fase 4.6 do Claude Refactor
-concluída e branch protegida, `data.workstreams` passa a alimentar o painel)
+concluída e branch protegida, `data.workstreams` passa a alimentar o painel;
+por último: **as respostas da Sthefany chegaram** e `DR-005`, `DR-006`,
+`DR-015` e `DR-016` fecharam)
 **Fonte:** auditoria estrutural completa (branches locais/remotas, commits, docs/ux,
 docs/ui, docs/domains da branch paralela, código legado e React), mais leitura
 read-only do D1 de produção e de `wrangler deployments` em 11/09/2026
@@ -58,7 +60,8 @@ painel só diz **em que pé** cada pedaço dele está agora.
 | ARQ-008 | Gate `schema-migration-coerencia` na suíte local — `migracao-variantes-test.mjs` rodava só no CI do DEV e por isso a integração passou 15/15 aqui e quebrou lá. Agora ele roda no nível `fast` | `docs/testing/test-suites.json`; 16/16 gates no nível `release` |
 | DOC-003 | Painel visual do projeto (`docs/project/dashboard/`) gerado a partir dos `.md`, com gate `projeto-painel` que falha se a tela divergir dos documentos | `scripts/build-project-dashboard.mjs`, `docs/testing/test-suites.json` |
 | CAT-003 | Cadastro de produto — **decidido**: continua em Estoque → Cadastro de Produtos; Catálogo não ganha fluxo próprio | `DR-002`, 11/09/2026 |
-| DOC-004 | Consolidação das 11 decisões de 11/09/2026, separação de `P11`/`P17`, e registro das 3 frentes paralelas de trabalho | este commit — ver `## WORKSTREAMS` e `## DECISIONS MADE` |
+| DOC-004 | Consolidação das 11 decisões de 11/09/2026, separação de `P11`/`P17`, e registro das 3 frentes paralelas de trabalho | commits `3843297` e `510afa5` — ver `## WORKSTREAMS` e `## DECISIONS MADE` |
+| DOC-005 | **Consolidação das respostas finais da Sthefany** — saldos físicos do Monte seu Colar, composição do exemplar consignado, régua de variação, comissão com desconto e classe dos 2 casos históricos. `DR-005`, `DR-006`, `DR-015` e `DR-016` fechadas; nenhuma escrita, migration ou reclassificação executada | este commit — `api/REGRAS.md` §45, `MONTAGEM-MONTE-SEU-COLAR.md` §5, `INVENTARIO-4-4.md` §12, `SAIDAS-SEM-FATURAMENTO.md`, `PENDENTES.md` |
 
 Fora da janela de ontem/hoje, já em produção e estável (contexto, não tarefa
 ativa): Pacotes 0–4 do painel (checkpoint `69ac8ac`), 790 produtos / 1.428
@@ -75,7 +78,7 @@ movimentos / 19 vendas validados, reconciliação zero — ver Master Plan §2.
 | ARQ-003 | Auditoria/unificação de normalização de SKU (8 pontos) e sufixo de compra | **mesclado na V2**; `sku-normalizacao.test.mjs` verde — uma definição, 61 módulos varridos | falta publicar no DEV |
 | CAT-001 | Backend Fase 4.5 — categoria (identidade/renomear), galeria/mídia, tarefa de preparação, publicação (writer + estados), 19 testes de schema | **mesclado na V2**; 26 provas do `catalogo-4-5-test.mjs` verdes | **`P13`–`P16` fecharam em 11/09** (`DR-008`–`DR-011`): o que resta implementar tem regra. R2 continua desligado por `DR-003` |
 | CAT-002 | UX da Fase 4.5 — 10 telas conceituais, 4 fluxos, matriz UX↔API | `docs/ux/03-screens/catalogo/`, `docs/ux/05-flows/catalogo-*.md`; estado do material: **domínio mapeado, aguardando mockups** | falta mockup visual. A decisão de cadastro fechou (`DR-002`): Catálogo **não** desenha cadastro próprio |
-| INV-001 | Backend Fase 4.4 — inventário físico: 5 rotas preservadas + 7 novas, migration, 22+9 testes | **mesclado na V2**; 22 provas + 9 travas verdes, razão fechando | migration não aplicada em lugar nenhum; S1–S6 continuam abertas. PROD está congelada: o alvo é o D1 do DEV |
+| INV-001 | Backend Fase 4.4 — inventário físico: 5 rotas preservadas + 7 novas, migration, 22+9 testes | **mesclado na V2**; 22 provas + 9 travas verdes, razão fechando | **`S1`–`S6` fecharam** (`DR-006`): a régua de variação é o aro do anel, e o desenho de inventário pausado **fica** por decisão explícita. Resta o técnico — migration não aplicada em lugar nenhum. PROD está congelada: o alvo é o D1 do DEV |
 | INV-002 | UX de Inventário — 9 blocos, 5 mockups, embutido em Estoque | `docs/ux/03-screens/estoque/`; estado: **descrito** (não é o degrau final) | fórmulas de "Saúde do estoque"/"valor estimado" ainda abertas (`EST-Q*`) |
 | MON-002 | UX de Personalização (Monte seu Colar) | `docs/ux/03-screens/personalizacao/`; estado: **recebendo** | posições/repetição de criança (`VEN-Q016`–`VEN-Q018`) |
 | VEN-001 | UX completa de Vendas — 13 blocos, 8 mockups, editor de desconto por peça, pagamento composto | `docs/ux/03-screens/vendas/`; estado: **descrito** | 35 decisões abertas (`VEN-Q001`–`VEN-Q035`) |
@@ -109,9 +112,9 @@ movimentos / 19 vendas validados, reconciliação zero — ver Master Plan §2.
 | ID | Tarefa | Bloqueado por |
 |---|---|---|
 | NUV-002 | Publicação externa de catálogo na Nuvemshop (ligar de verdade) | `NUVEMSHOP_PUBLICACAO_ENABLED` ausente em todo ambiente **e** R2 desligado em produção — decisão de release |
-| MON-001 | Monte seu Colar em produção | `PERSONALIZACAO_ATIVA=false`; 7 dos 11 SKUs de negócio sem saldo cadastrado em produção — precisa da Sthefany |
+| MON-001 | Monte seu Colar em produção | `PERSONALIZACAO_ATIVA=false`. **Os saldos chegaram** (`DR-005`) e o bloqueio deixou de ser humano: falta cadastrar os 4 componentes ausentes e as 3 configurações ausentes, e **resolver o `326660` sem dupla contagem** — ver [MONTAGEM §5.3](../domains/MONTAGEM-MONTE-SEU-COLAR.md). Nada disso é decisão de negócio; é trabalho com conferência peça a peça |
 | CAT-001 (parte de mídia/fotos) | Upload/tratamento de foto própria em produção | R2 não habilitado em nenhum ambiente de produção (achado independente desta branch — 158 de 160 peças fora da loja não têm imagem em lugar nenhum). `DR-003` confirmou: continua desligado |
-| SAI-002 | **Reclassificação das 37 linhas de não-venda do histórico importado** (32 `uso_proprio`, 2 `brinde`, 3 `perda`) — regra e evidência já integradas ao conhecimento em 09/09/2026 | `DR-016`: falta autorização humana, mais 2 decisões que o sistema não toma sozinho. O ensaio **não exercitou a rota oficial** nem criou linhas em `saidas_sem_faturamento`, então o histórico operacional da saída continua sem prova (`P17`) |
+| SAI-002 | **Reclassificação das 37 linhas de não-venda do histórico importado** (32 `uso_proprio`, 2 `brinde`, 3 `perda`) — regra e evidência já integradas ao conhecimento em 09/09/2026 | **`DR-016` fechou a classe** dos 2 casos duvidosos (`sorteio` e `perda`). O bloqueio restante é **técnico, não humano**: falta plano seguro de execução, e o ensaio **não exercitou a rota oficial** nem criou linhas em `saidas_sem_faturamento`, então o histórico operacional da saída continua sem prova (`P17`). A linha do sorteio ainda depende de `P11` |
 
 ---
 
@@ -128,19 +131,40 @@ em `backup/claude-refactor-sistema-marquesa-20260911`. A parte que *era*
 decisão sua — quando isso chega a produção — continua aberta, e agora tem nome
 próprio: `DR-013`.
 
+**Nenhuma decisão continua aguardando a Sthefany.** As quatro que estavam aqui
+— `DR-005`, `DR-006`, `DR-015` e `DR-016` — fecharam em 11/09/2026 com as
+respostas dela, e estão em `## DECISIONS MADE`. O que restou nesta lista são
+duas escolhas do Gustavo que a auditoria encontrou sem dono, nenhuma delas
+bloqueando trabalho em andamento.
+
 | ID | Pergunta | Trava o quê |
 |---|---|---|
-| DR-005 | Sthefany: saldo físico real dos 7 SKUs de Monte seu Colar ainda sem cadastro/saldo, e identificação física das peças | MON-001 |
-| DR-006 | Sthefany: 6 perguntas de negócio do Inventário 4.4 (S1–S6, saldo de SKUs específicos) antes de aplicar a migration em produção | INV-001 |
-| DR-015 | Sthefany: com desconto no acerto, a comissão incide sobre o preço original ou sobre o valor final? E desconto autorizado por ela difere de desconto dado pela revendedora? (`P2`) | REV-002, toda a Fase 6 |
-| DR-016 | Autorizar a execução da reclassificação das 37 linhas de não-venda em produção, e decidir os 2 casos que o sistema não classifica sozinho (`P17`) | SAI-002 |
+| DR-017 | Preço de material **bruto** versus **banhado** (`P3`), e a conferência da faixa de comissão contra o contrato assinado — hoje a faixa é calculada só sobre as banhadas, com a Prata 925 a 10% à parte, e perto da fronteira isso vale R$ 295 num acerto | Fase 5 (preço) e o uso do valor do acerto para cobrar |
+| DR-018 | A worktree `Marquesa-Kimi` (`kimi/ai-operations`, atrás da V2, sem trabalho recente) continua existindo? | nada em andamento; é higiene de repositório |
 
-**DR-005 e DR-006 viram uma conversa só.** As duas dependem da mesma pessoa e
-do mesmo tipo de informação — quantidade física e identificação de peça —, e
-`DR-015` entra junto por ser da mesma sessão. A pergunta consolidada será
-enviada à Sthefany separadamente. O que ela precisa cobrir: quantidades físicas
-dos componentes, identificação física das peças, e quais variações a operação
-realmente usa.
+**O que a Sthefany respondeu, e o que isso NÃO autorizou.** As respostas
+fecharam a **decisão**; nenhuma delas autorizou escrita. Continuam proibidos
+sem plano próprio: mexer no saldo de `326660`, aplicar a migration do `sorteio`
+(`P11`) e reclassificar as 37 linhas (`SAI-002`, `P17`).
+
+**Perguntas humanas que continuam abertas em outro namespace.** Não são `DR-*` e
+não entram na contagem acima, mas são de pessoa e não de código, então ficam
+ditas em voz alta: `ETQ-Q001`, `ETQ-Q003`, `ETQ-Q004` e `ETQ-Q009`
+(etiquetas), `VEN-Q012`, `VEN-Q017`, `VEN-Q018`, `VEN-Q022`, `VEN-Q027`,
+`VEN-Q031` e `VEN-Q032` (vendas) e `DP-003` (onde vive o nome abreviado da
+etiqueta) estão marcadas em `docs/ux/` como "Gustavo + Sthefany Marques".
+Duas observações sobre elas, para quem for conduzir a próxima conversa:
+
+- **`VEN-Q018` já tem resposta e o arquivo de UX não sabe.** Ela pergunta se a
+  base Veneziana pode ser trocada durante a composição; a decisão de 10/09/2026
+  diz que **a base não é escolha nesta versão**
+  ([MONTAGEM §3.1](../domains/MONTAGEM-MONTE-SEU-COLAR.md)). `docs/ux/` é da
+  frente do Codex e não foi editado daqui — a correção pertence a essa worktree.
+- **`ETQ-Q002` ganhou insumo, mas não fechou.** A Sthefany confirmou que a única
+  variação estruturada é o **aro do anel**, e que a etiqueta automática deveria
+  identificar **SKU + variação**. Isso é direção de roadmap, registrado em
+  [INVENTARIO-4-4.md §12](../domains/INVENTARIO-4-4.md); o modelo do dado do
+  nome da etiqueta continua em aberto.
 
 **O caso `326660` saiu de DR-005 em 11/09/2026.** Ele estava descrito ali como
 "SKU preso numa maleta aberta". A verificação read-only em produção mostrou que
@@ -168,6 +192,10 @@ efeito sobre as tarefas.
 | DR-012 | 11/09/2026 | Tela de gestão de categorias é **roadmap pós-validação**, não prioridade da reconstrução | despriorizada CAT-004 |
 | DR-013 | 11/09/2026 | **Não há data de go-live.** A entrada em produção depende de gate de qualidade, não de calendário. PROD continua congelada | critério da escada `DEV` para cima |
 | DR-014 | 11/09/2026 | **Sim, fora da ordem de fase.** `FIN-101`, `GAR-101` e `VEN-105` são paridade obrigatória antes de aposentar o legado, e têm prioridade sobre melhoria cosmética | FIN-001, GAR-001, VEN-002 |
+| DR-005 | 11/09/2026 | **Sthefany:** saldos físicos **em casa** dos 6 componentes (`263236` 4 · `273470` 5 · `251551` 2 · `251552` 5 · `329494` 2 · `444032` 18), **sem** contar o que está com a Bruna. O exemplar de `326660` na maleta 12 é 1 × `329494` + 1 × `263236` + 1 × `444032` — **Menino Verde confirmado**. `326660` é identidade comercial, **não** peça física adicional (`S1`, `S2`, `S5`) | MON-001 — vira trabalho, não decisão |
+| DR-006 | 11/09/2026 | **Sthefany:** `S1`–`S6` respondidas. Variação estruturada é **só o aro do anel**; cor e descritivos continuam texto manual na descrição. `S6`: ela normalmente **para a operação** durante o inventário, mas a arquitetura **continua suportando** movimentação com inventário pausado, para não limitar crescimento | INV-001 — resta só o técnico |
+| DR-015 | 11/09/2026 | **Sthefany: a revendedora não vende com desconto.** Desconto que ela dá à cliente dela é negociação particular; para a Marquesa **o acerto é pelo preço cheio**, e essa também é a base da comissão. Desconto autorizado pela Marquesa é caso distinto e explícito, nunca implícito (`P2`) | REV-002, Fase 6 — ver `api/REGRAS.md` §45 |
+| DR-016 | 11/09/2026 | **Sthefany, quanto à classe:** `Sorteio (Feira Franceschini)` **foi mesmo sorteio** → saída sem faturamento `tipo = sorteio`; `ACHO QUE FOI VENDIDO` → **`tipo = perda`**, diferença de inventário. Nenhum dos dois é venda. **A execução continua não autorizada** (`P17`) | classe de SAI-002; a execução segue bloqueada |
 
 O gate de qualidade de `DR-013`, por extenso: fluxos principais concluídos;
 testes em ambiente DEV seguro; dados representativos; aprovação visual do
@@ -192,6 +220,12 @@ terminar uma coisinha". Leitura cruzada é sempre permitida via `git show
 | Frontend / UX V2 | **Codex** | `Marquesa-Etiquetas` | `codex/ui-system-marquesa` |
 | Backend / domínios | **Claude Refactor** | `Marquesa-Claude-Refactor` | `claude/refactor-sistema-marquesa` |
 | Arquitetura / auditoria / governança | **Claude Review** | `Marquesa-Claude-ReviewV2` | `claude/review-marquesa-v2` |
+| Decisões de negócio e realidade física | **Sthefany** | — (não é worktree) | — |
+
+A quarta linha não é um agente e não tem worktree: é a **fonte humana** de que
+as outras três dependem, e ela aparece aqui porque "o que está esperando
+resposta de pessoa" era justamente o que o painel não sabia dizer. A regra de
+propriedade abaixo vale só para as três primeiras.
 
 ### Estado por frente (atualizado 11/09/2026, revisão da noite)
 
@@ -226,7 +260,7 @@ terminar uma coisinha". Leitura cruzada é sempre permitida via `git show
 | Status da próxima fase | **AGUARDANDO ALINHAMENTO / NÃO INICIAR FASE 5 AINDA** |
 | Bloqueios | alinhar backend com o avanço do redesign do Codex antes de começar a Fase 5 |
 | Aguardando Gustavo | não |
-| Aguardando Sthefany | sim — `DR-005`, `DR-006` (e as demais pendências de Fase 5+) |
+| Aguardando Sthefany | **não** para iniciar — `DR-005` e `DR-006` fecharam em 11/09/2026. A Fase 5 ainda cruza perguntas de UX marcadas "Gustavo + Sthefany" (`VEN-Q*`), que são da frente do Codex e não travam o backend |
 | Branch | `claude/refactor-sistema-marquesa` — protegida no remoto, upstream configurado; ponto inicial protegido `bfd5d6b` |
 | Working tree | limpa |
 | Integração | nada desta branch foi mesclado em `main` |
@@ -234,21 +268,33 @@ terminar uma coisinha". Leitura cruzada é sempre permitida via `git show
 | Pendência futura já identificada | Fase 7 deverá corrigir a exclusão de configuração montável no sync com Nuvemshop |
 | Sequência macro | Fases 0–4: concluídas nesta branch · Fase 5: próxima (vendas, clientes, financeiro, garantias) · Fase 6: revendedoras/maletas/comissão · Fase 7: Nuvemshop/sync/reconciliação · Fase 8: analytics/projeções |
 
+#### STHEFANY — decisões de negócio e realidade física
+
+| | |
+|---|---|
+| Papel | fonte humana das regras de negócio e do que existe fisicamente |
+| Status | **RESPOSTAS RECEBIDAS** (11/09/2026) |
+| Pendências humanas | **nenhuma** — `DR-005`, `DR-006`, `DR-015` e `DR-016` fecharam |
+| O que ela respondeu | saldos físicos **em casa** dos 6 componentes do Monte seu Colar · composição do Colar Casal consignado com a Bruna (Menino Verde confirmado) · variação estruturada é só o **aro do anel** · revendedora acerta pelo **preço cheio** · `Sorteio` é sorteio e `ACHO QUE FOI VENDIDO` é **perda** |
+| O que isso **não** autorizou | nenhuma escrita de saldo, nenhuma migration, nenhuma reclassificação. Decisão fechada não é migração executada |
+| Ainda com ela, em outro namespace | 11 perguntas de UX marcadas "Gustavo + Sthefany" (`ETQ-Q001` `ETQ-Q003` `ETQ-Q004` `ETQ-Q009` `VEN-Q012` `VEN-Q017` `VEN-Q018` `VEN-Q022` `VEN-Q027` `VEN-Q031` `VEN-Q032`) mais `DP-003`. São da frente do Codex e nenhuma trava backend |
+| Próxima conversa | os dois casos de UX já respondidos sem que o arquivo saiba (`VEN-Q018`, insumo de `ETQ-Q002`), e as quantidades de `MON-001` na hora do cadastro real |
+
 #### CLAUDE REVIEW — arquitetura / auditoria / governança
 
 | | |
 |---|---|
 | Fase | não numerada — governança/auditoria corre em paralelo às fases numeradas do Refactor |
-| Item/subetapa | atualização do Marquesa Dev Pages com o estado real das 3 frentes |
-| Status | decisões humanas consolidadas; acompanhando Codex e Refactor; PROD congelada |
-| Progresso | 11 decisões fechadas, `P11`/`P17` separadas, 3 frentes registradas e mantidas |
-| Tarefa atual | este commit — painel/dados do projeto |
-| Último concluído | `DOC-001` a `DOC-004`, `ARQ-005`, `ARQ-006`, `ARQ-008` |
-| Próximo | revisar as respostas da Sthefany e os commits do Codex quando chegarem |
+| Item/subetapa | consolidação das respostas finais da Sthefany nas fontes canônicas |
+| Status | **respostas de negócio consolidadas** — o que resta na frente é técnico: integração, review e verificação. PROD continua congelada |
+| Progresso | 15 decisões fechadas (11 em `DR-002`–`DR-014`, mais `DR-005`, `DR-006`, `DR-015`, `DR-016`); `P2` e a classe de `P17` fechadas; 2 decisões novas abertas para o Gustavo (`DR-017`, `DR-018`) |
+| Tarefa atual | este commit — consolidação documental + painel |
+| Último concluído | `DOC-005` — respostas da Sthefany integradas em `REGRAS.md`, `PENDENTES.md`, Master Plan e 3 documentos de domínio |
+| Próximo | revisar os commits do Codex quando chegarem; planejar (sem executar) a transformação do saldo legado de `326660` e a execução de `SAI-002` |
 | Bloqueios | nenhum |
 | Aguardando Gustavo | não |
-| Aguardando Sthefany | sim — `DR-005`, `DR-006`, `DR-015`, `DR-016` |
-| Último commit conhecido | `3843297` |
+| Aguardando Sthefany | **não** — `DR-005`, `DR-006`, `DR-015` e `DR-016` fecharam em 11/09/2026 |
+| Último commit conhecido | `510afa5` |
 
 ### Duas worktrees fora das três frentes oficiais
 
@@ -338,9 +384,19 @@ somente leitura:
 
 Não há venda, devolução nem variação pendente. O `qtd 1` do catálogo **é** a
 peça consignada: consignação tem efeito zero no total porque a peça mudou de
-lugar, não de dono. Nada a corrigir — e a pergunta à Sthefany muda de "por que
+lugar, não de dono. Nada a corrigir — e a pergunta à Sthefany mudou de "por que
 este SKU está preso" para "confirme que a peça está fisicamente com a Bruna,
 já que o acerto é dia 17".
+
+**Confirmado por ela em 11/09/2026, com a composição junto:** o exemplar é
+1 × `329494` Menino Verde + 1 × `263236` Menina Rosa + 1 × `444032` Veneziana
+45cm com extensor. O Menino Verde era a parte que faltava. Isso transforma o
+achado numa medição nova e mais incômoda: os saldos que ela informou são
+**estoque em casa**, e o `qtd 5` cadastrado de `263236` parece já incluir a
+peça que está com a Bruna — o que significaria a mesma Menina Rosa contada
+duas vezes, uma em `263236` e outra dentro de `326660`. É **inferência, não
+prova**, e é por isso que nenhum saldo foi escrito. A medição está em
+[MONTAGEM §5.3](../domains/MONTAGEM-MONTE-SEU-COLAR.md).
 
 **2. `FIN-101` e `GAR-101` não têm design novo no repositório.** A sessão de
 decisões partiu de que "Contas a Receber e Garantias já possuem novos designs".
@@ -371,12 +427,18 @@ nome em vez de `cliente_id` as pegaria junto. A documentação segue com
 
 ## Contagem
 
-DONE: 9 · IN PROGRESS: 15 · NEXT: 9 · BLOCKED: 4 · DECISIONS REQUIRED: 4
+DONE: 10 · IN PROGRESS: 15 · NEXT: 9 · BLOCKED: 4 · DECISIONS REQUIRED: 2
 
-As decisões pendentes caíram de 13 para 4 em 11/09/2026: **onze fecharam**
-(`DR-002`–`DR-004`, `DR-007`–`DR-014`), duas continuam com a Sthefany
-(`DR-005`, `DR-006`) e **duas novas abriram** (`DR-015`, `DR-016`). As fechadas
-estão em `## DECISIONS MADE` — não desapareceram.
+As decisões pendentes caíram de 13 para 4 e depois para **2**, no mesmo dia.
+Quinze fecharam (`DR-002`–`DR-016`), sendo as quatro últimas — `DR-005`,
+`DR-006`, `DR-015` e `DR-016` — pelas respostas da Sthefany. **Nenhuma decisão
+aguarda mais a Sthefany.** As duas que restam são do Gustavo e nasceram da
+auditoria (`DR-017`, `DR-018`); nenhuma bloqueia trabalho em andamento. As
+fechadas estão em `## DECISIONS MADE` — não desapareceram.
+
+`BLOCKED` continua em 4 de propósito: `SAI-002` e `MON-001` deixaram de ter
+bloqueio **humano**, e passaram a ter bloqueio **técnico**. Decisão fechada não
+é migração executada.
 
 Contagem gerada por `scripts/build-project-dashboard.mjs` a partir das
 tabelas acima — não a edite à mão. O painel visual

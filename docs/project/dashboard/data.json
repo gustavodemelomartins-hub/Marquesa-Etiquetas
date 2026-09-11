@@ -6,6 +6,14 @@
     "branch": "claude/review-marquesa-v2",
     "recentes": [
       {
+        "commit": "510afa5",
+        "data": "2026-09-11",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(painel): tres frentes reais viram data.workstreams, nao texto na tela",
+        "agente": "",
+        "taskIds": []
+      },
+      {
         "commit": "3843297",
         "data": "2026-09-11",
         "autor": "gustavodemelomartins-hub",
@@ -198,27 +206,19 @@
         "assunto": "feat(publicacao): os estados mortos ganham writer, e a escrita nasce desligada",
         "agente": "",
         "taskIds": []
-      },
-      {
-        "commit": "0763ef6",
-        "data": "2026-09-10",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(preparacao): tarefa em vez de fornecedor",
-        "agente": "",
-        "taskIds": []
       }
     ]
   },
   "visaoGeral": {
-    "progresso": 24,
+    "progresso": 26,
     "porEstado": {
-      "DONE": 9,
+      "DONE": 10,
       "IN PROGRESS": 15,
       "NEXT": 9,
       "BLOCKED": 4,
-      "DECISIONS REQUIRED": 4
+      "DECISIONS REQUIRED": 2
     },
-    "totalTarefas": 41
+    "totalTarefas": 40
   },
   "tarefas": [
     {
@@ -290,7 +290,15 @@
       "estado": "DONE",
       "dominio": "Documentação",
       "titulo": "Consolidação das 11 decisões de 11/09/2026, separação de P11/P17, e registro das 3 frentes paralelas de trabalho",
-      "contexto": "este commit — ver ## WORKSTREAMS e ## DECISIONS MADE",
+      "contexto": "commits 3843297 e 510afa5 — ver ## WORKSTREAMS e ## DECISIONS MADE",
+      "nota": ""
+    },
+    {
+      "id": "DOC-005",
+      "estado": "DONE",
+      "dominio": "Documentação",
+      "titulo": "Consolidação das respostas finais da Sthefany — saldos físicos do Monte seu Colar, composição do exemplar consignado, régua de variação, comissão com desconto e classe dos 2 casos históricos. DR-005, DR-006, DR-015 e DR-016 fechadas; nenhuma escrita, migration ou reclassificação executada",
+      "contexto": "este commit — api/REGRAS.md §45, MONTAGEM-MONTE-SEU-COLAR.md §5, INVENTARIO-4-4.md §12, SAIDAS-SEM-FATURAMENTO.md, PENDENTES.md",
       "nota": ""
     },
     {
@@ -339,7 +347,7 @@
       "dominio": "Inventário",
       "titulo": "Backend Fase 4.4 — inventário físico: 5 rotas preservadas + 7 novas, migration, 22+9 testes",
       "contexto": "mesclado na V2; 22 provas + 9 travas verdes, razão fechando",
-      "nota": "migration não aplicada em lugar nenhum; S1–S6 continuam abertas. PROD está congelada: o alvo é o D1 do DEV"
+      "nota": "S1–S6 fecharam (DR-006): a régua de variação é o aro do anel, e o desenho de inventário pausado fica por decisão explícita. Resta o técnico — migration não aplicada em lugar nenhum. PROD está congelada: o alvo é o D1 do DEV"
     },
     {
       "id": "INV-002",
@@ -498,7 +506,7 @@
       "estado": "BLOCKED",
       "dominio": "Monte seu Colar",
       "titulo": "Monte seu Colar em produção",
-      "contexto": "PERSONALIZACAO_ATIVA=false; 7 dos 11 SKUs de negócio sem saldo cadastrado em produção — precisa da Sthefany",
+      "contexto": "PERSONALIZACAO_ATIVA=false. Os saldos chegaram (DR-005) e o bloqueio deixou de ser humano: falta cadastrar os 4 componentes ausentes e as 3 configurações ausentes, e resolver o 326660 sem dupla contagem — ver MONTAGEM §5.3. Nada disso é decisão de negócio; é trabalho com conferência peça a peça",
       "nota": ""
     },
     {
@@ -514,39 +522,23 @@
       "estado": "BLOCKED",
       "dominio": "Saídas sem faturamento",
       "titulo": "Reclassificação das 37 linhas de não-venda do histórico importado (32 uso_proprio, 2 brinde, 3 perda) — regra e evidência já integradas ao conhecimento em 09/09/2026",
-      "contexto": "DR-016: falta autorização humana, mais 2 decisões que o sistema não toma sozinho. O ensaio não exercitou a rota oficial nem criou linhas em saidas_sem_faturamento, então o histórico operacional da saída continua sem prova (P17)",
+      "contexto": "DR-016 fechou a classe dos 2 casos duvidosos (sorteio e perda). O bloqueio restante é técnico, não humano: falta plano seguro de execução, e o ensaio não exercitou a rota oficial nem criou linhas em saidas_sem_faturamento, então o histórico operacional da saída continua sem prova (P17). A linha do sorteio ainda depende de P11",
       "nota": ""
     },
     {
-      "id": "DR-005",
+      "id": "DR-017",
       "estado": "DECISIONS REQUIRED",
       "dominio": "Decisão",
-      "titulo": "Sthefany: saldo físico real dos 7 SKUs de Monte seu Colar ainda sem cadastro/saldo, e identificação física das peças",
-      "contexto": "MON-001",
+      "titulo": "Preço de material bruto versus banhado (P3), e a conferência da faixa de comissão contra o contrato assinado — hoje a faixa é calculada só sobre as banhadas, com a Prata 925 a 10% à parte, e perto da fronteira isso vale R$ 295 num acerto",
+      "contexto": "Fase 5 (preço) e o uso do valor do acerto para cobrar",
       "nota": ""
     },
     {
-      "id": "DR-006",
+      "id": "DR-018",
       "estado": "DECISIONS REQUIRED",
       "dominio": "Decisão",
-      "titulo": "Sthefany: 6 perguntas de negócio do Inventário 4.4 (S1–S6, saldo de SKUs específicos) antes de aplicar a migration em produção",
-      "contexto": "INV-001",
-      "nota": ""
-    },
-    {
-      "id": "DR-015",
-      "estado": "DECISIONS REQUIRED",
-      "dominio": "Decisão",
-      "titulo": "Sthefany: com desconto no acerto, a comissão incide sobre o preço original ou sobre o valor final? E desconto autorizado por ela difere de desconto dado pela revendedora? (P2)",
-      "contexto": "REV-002, toda a Fase 6",
-      "nota": ""
-    },
-    {
-      "id": "DR-016",
-      "estado": "DECISIONS REQUIRED",
-      "dominio": "Decisão",
-      "titulo": "Autorizar a execução da reclassificação das 37 linhas de não-venda em produção, e decidir os 2 casos que o sistema não classifica sozinho (P17)",
-      "contexto": "SAI-002",
+      "titulo": "A worktree Marquesa-Kimi (kimi/ai-operations, atrás da V2, sem trabalho recente) continua existindo?",
+      "contexto": "nada em andamento; é higiene de repositório",
       "nota": ""
     }
   ],
@@ -929,41 +921,25 @@
       "nome": "Decisão",
       "tarefas": [
         {
-          "id": "DR-005",
+          "id": "DR-017",
           "estado": "DECISIONS REQUIRED",
           "dominio": "Decisão",
-          "titulo": "Sthefany: saldo físico real dos 7 SKUs de Monte seu Colar ainda sem cadastro/saldo, e identificação física das peças",
-          "contexto": "MON-001",
+          "titulo": "Preço de material bruto versus banhado (P3), e a conferência da faixa de comissão contra o contrato assinado — hoje a faixa é calculada só sobre as banhadas, com a Prata 925 a 10% à parte, e perto da fronteira isso vale R$ 295 num acerto",
+          "contexto": "Fase 5 (preço) e o uso do valor do acerto para cobrar",
           "nota": ""
         },
         {
-          "id": "DR-006",
+          "id": "DR-018",
           "estado": "DECISIONS REQUIRED",
           "dominio": "Decisão",
-          "titulo": "Sthefany: 6 perguntas de negócio do Inventário 4.4 (S1–S6, saldo de SKUs específicos) antes de aplicar a migration em produção",
-          "contexto": "INV-001",
-          "nota": ""
-        },
-        {
-          "id": "DR-015",
-          "estado": "DECISIONS REQUIRED",
-          "dominio": "Decisão",
-          "titulo": "Sthefany: com desconto no acerto, a comissão incide sobre o preço original ou sobre o valor final? E desconto autorizado por ela difere de desconto dado pela revendedora? (P2)",
-          "contexto": "REV-002, toda a Fase 6",
-          "nota": ""
-        },
-        {
-          "id": "DR-016",
-          "estado": "DECISIONS REQUIRED",
-          "dominio": "Decisão",
-          "titulo": "Autorizar a execução da reclassificação das 37 linhas de não-venda em produção, e decidir os 2 casos que o sistema não classifica sozinho (P17)",
-          "contexto": "SAI-002",
+          "titulo": "A worktree Marquesa-Kimi (kimi/ai-operations, atrás da V2, sem trabalho recente) continua existindo?",
+          "contexto": "nada em andamento; é higiene de repositório",
           "nota": ""
         }
       ],
       "paridade": [],
       "contagem": {
-        "DECISIONS REQUIRED": 4
+        "DECISIONS REQUIRED": 2
       }
     },
     {
@@ -998,13 +974,21 @@
           "estado": "DONE",
           "dominio": "Documentação",
           "titulo": "Consolidação das 11 decisões de 11/09/2026, separação de P11/P17, e registro das 3 frentes paralelas de trabalho",
-          "contexto": "este commit — ver ## WORKSTREAMS e ## DECISIONS MADE",
+          "contexto": "commits 3843297 e 510afa5 — ver ## WORKSTREAMS e ## DECISIONS MADE",
+          "nota": ""
+        },
+        {
+          "id": "DOC-005",
+          "estado": "DONE",
+          "dominio": "Documentação",
+          "titulo": "Consolidação das respostas finais da Sthefany — saldos físicos do Monte seu Colar, composição do exemplar consignado, régua de variação, comissão com desconto e classe dos 2 casos históricos. DR-005, DR-006, DR-015 e DR-016 fechadas; nenhuma escrita, migration ou reclassificação executada",
+          "contexto": "este commit — api/REGRAS.md §45, MONTAGEM-MONTE-SEU-COLAR.md §5, INVENTARIO-4-4.md §12, SAIDAS-SEM-FATURAMENTO.md, PENDENTES.md",
           "nota": ""
         }
       ],
       "paridade": [],
       "contagem": {
-        "DONE": 4
+        "DONE": 5
       }
     },
     {
@@ -1142,7 +1126,7 @@
           "dominio": "Inventário",
           "titulo": "Backend Fase 4.4 — inventário físico: 5 rotas preservadas + 7 novas, migration, 22+9 testes",
           "contexto": "mesclado na V2; 22 provas + 9 travas verdes, razão fechando",
-          "nota": "migration não aplicada em lugar nenhum; S1–S6 continuam abertas. PROD está congelada: o alvo é o D1 do DEV"
+          "nota": "S1–S6 fecharam (DR-006): a régua de variação é o aro do anel, e o desenho de inventário pausado fica por decisão explícita. Resta o técnico — migration não aplicada em lugar nenhum. PROD está congelada: o alvo é o D1 do DEV"
         },
         {
           "id": "INV-002",
@@ -1283,7 +1267,7 @@
           "estado": "BLOCKED",
           "dominio": "Monte seu Colar",
           "titulo": "Monte seu Colar em produção",
-          "contexto": "PERSONALIZACAO_ATIVA=false; 7 dos 11 SKUs de negócio sem saldo cadastrado em produção — precisa da Sthefany",
+          "contexto": "PERSONALIZACAO_ATIVA=false. Os saldos chegaram (DR-005) e o bloqueio deixou de ser humano: falta cadastrar os 4 componentes ausentes e as 3 configurações ausentes, e resolver o 326660 sem dupla contagem — ver MONTAGEM §5.3. Nada disso é decisão de negócio; é trabalho com conferência peça a peça",
           "nota": ""
         }
       ],
@@ -1507,7 +1491,7 @@
           "estado": "BLOCKED",
           "dominio": "Saídas sem faturamento",
           "titulo": "Reclassificação das 37 linhas de não-venda do histórico importado (32 uso_proprio, 2 brinde, 3 perda) — regra e evidência já integradas ao conhecimento em 09/09/2026",
-          "contexto": "DR-016: falta autorização humana, mais 2 decisões que o sistema não toma sozinho. O ensaio não exercitou a rota oficial nem criou linhas em saidas_sem_faturamento, então o histórico operacional da saída continua sem prova (P17)",
+          "contexto": "DR-016 fechou a classe dos 2 casos duvidosos (sorteio e perda). O bloqueio restante é técnico, não humano: falta plano seguro de execução, e o ensaio não exercitou a rota oficial nem criou linhas em saidas_sem_faturamento, então o histórico operacional da saída continua sem prova (P17). A linha do sorteio ainda depende de P11",
           "nota": ""
         }
       ],
@@ -2444,7 +2428,7 @@
         "status da próxima fase": "AGUARDANDO ALINHAMENTO / NÃO INICIAR FASE 5 AINDA",
         "bloqueios": "alinhar backend com o avanço do redesign do Codex antes de começar a Fase 5",
         "aguardando gustavo": "não",
-        "aguardando sthefany": "sim — DR-005, DR-006 (e as demais pendências de Fase 5+)",
+        "aguardando sthefany": "não para iniciar — DR-005 e DR-006 fecharam em 11/09/2026. A Fase 5 ainda cruza perguntas de UX marcadas \"Gustavo + Sthefany\" (VEN-Q*), que são da frente do Codex e não travam o backend",
         "branch": "claude/refactor-sistema-marquesa — protegida no remoto, upstream configurado; ponto inicial protegido bfd5d6b",
         "working tree": "limpa",
         "integração": "nada desta branch foi mesclado em main",
@@ -2461,16 +2445,32 @@
       "titulo": "CLAUDE REVIEW — arquitetura / auditoria / governança",
       "campos": {
         "fase": "não numerada — governança/auditoria corre em paralelo às fases numeradas do Refactor",
-        "item/subetapa": "atualização do Marquesa Dev Pages com o estado real das 3 frentes",
-        "status": "decisões humanas consolidadas; acompanhando Codex e Refactor; PROD congelada",
-        "progresso": "11 decisões fechadas, P11/P17 separadas, 3 frentes registradas e mantidas",
-        "tarefa atual": "este commit — painel/dados do projeto",
-        "último concluído": "DOC-001 a DOC-004, ARQ-005, ARQ-006, ARQ-008",
-        "próximo": "revisar as respostas da Sthefany e os commits do Codex quando chegarem",
+        "item/subetapa": "consolidação das respostas finais da Sthefany nas fontes canônicas",
+        "status": "respostas de negócio consolidadas — o que resta na frente é técnico: integração, review e verificação. PROD continua congelada",
+        "progresso": "15 decisões fechadas (11 em DR-002–DR-014, mais DR-005, DR-006, DR-015, DR-016); P2 e a classe de P17 fechadas; 2 decisões novas abertas para o Gustavo (DR-017, DR-018)",
+        "tarefa atual": "este commit — consolidação documental + painel",
+        "último concluído": "DOC-005 — respostas da Sthefany integradas em REGRAS.md, PENDENTES.md, Master Plan e 3 documentos de domínio",
+        "próximo": "revisar os commits do Codex quando chegarem; planejar (sem executar) a transformação do saldo legado de 326660 e a execução de SAI-002",
         "bloqueios": "nenhum",
         "aguardando gustavo": "não",
-        "aguardando sthefany": "sim — DR-005, DR-006, DR-015, DR-016",
-        "último commit conhecido": "3843297"
+        "aguardando sthefany": "não — DR-005, DR-006, DR-015 e DR-016 fecharam em 11/09/2026",
+        "último commit conhecido": "510afa5"
+      }
+    },
+    {
+      "frente": "Decisões de negócio e realidade física",
+      "agente": "Sthefany",
+      "worktree": "— (não é worktree)",
+      "branch": "—",
+      "titulo": "STHEFANY — decisões de negócio e realidade física",
+      "campos": {
+        "papel": "fonte humana das regras de negócio e do que existe fisicamente",
+        "status": "RESPOSTAS RECEBIDAS (11/09/2026)",
+        "pendências humanas": "nenhuma — DR-005, DR-006, DR-015 e DR-016 fecharam",
+        "o que ela respondeu": "saldos físicos em casa dos 6 componentes do Monte seu Colar · composição do Colar Casal consignado com a Bruna (Menino Verde confirmado) · variação estruturada é só o aro do anel · revendedora acerta pelo preço cheio · Sorteio é sorteio e ACHO QUE FOI VENDIDO é perda",
+        "o que isso não autorizou": "nenhuma escrita de saldo, nenhuma migration, nenhuma reclassificação. Decisão fechada não é migração executada",
+        "ainda com ela, em outro namespace": "11 perguntas de UX marcadas \"Gustavo + Sthefany\" (ETQ-Q001 ETQ-Q003 ETQ-Q004 ETQ-Q009 VEN-Q012 VEN-Q017 VEN-Q018 VEN-Q022 VEN-Q027 VEN-Q031 VEN-Q032) mais DP-003. São da frente do Codex e nenhuma trava backend",
+        "próxima conversa": "os dois casos de UX já respondidos sem que o arquivo saiba (VEN-Q018, insumo de ETQ-Q002), e as quantidades de MON-001 na hora do cadastro real"
       }
     }
   ],

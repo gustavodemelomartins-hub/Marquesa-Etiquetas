@@ -1160,10 +1160,12 @@ inteiro, e o teste prova que a baixa é a mesma com e sem desconto.
 dá para saber hoje quanto de desconto ela deu numa venda que o sistema gravou
 pelo preço cheio, e inventar o número seria pior que admitir que não se sabe.
 
-**Só a venda de balcão, por enquanto.** No acerto de maleta o desconto muda a
-base da comissão da revendedora (§24), que é decisão de negócio a combinar com
-elas — não de implementação. Enquanto não for combinado, o acerto continua
-como está.
+**Só a venda de balcão — e agora se sabe por quê.** A pendência que este
+parágrafo registrava ("o desconto no acerto muda a base da comissão, e isso é
+decisão de negócio a combinar") **fechou em 11/09/2026**: no acerto de maleta
+não existe desconto de revendedora a aplicar, porque o acerto é sempre pelo
+preço cheio. Ver **§45**. O acerto continua como está — e agora por regra, não
+por falta de resposta.
 
 Migration: `api/migracao-venda-desconto.sql`. Provado em
 `src/venda-desconto-test.mjs` (a regra) e em `src/e2e.mjs` (o lápis na tela,
@@ -2041,3 +2043,47 @@ de uma peça real. A política está registrada como pendente.
 
 Provas: [src/catalogo-4-5-test.mjs](../src/catalogo-4-5-test.mjs), 26 provas
 contra o schema real.
+
+### 45. Desconto da revendedora é negociação dela — o acerto é pelo preço cheio
+
+Decisão da Sthefany, **11/09/2026**. Fecha `P2`/`DR-015`, que era a última
+pergunta de comissão em aberto.
+
+> **A revendedora não deve vender com desconto.** Se ela decidir dar desconto
+> para a cliente dela, isso é negociação **particular** entre a revendedora e a
+> cliente dela. Para a Marquesa, **a revendedora acerta pelo valor normal**.
+
+| | |
+|---|---|
+| Preço Marquesa | R$ 100 |
+| A revendedora vende para a cliente dela por | R$ 90 |
+| A revendedora deve à Marquesa, no acerto | **R$ 100** |
+| Base de cálculo da comissão | **R$ 100** |
+
+Os R$ 10 saem do bolso da revendedora, não do faturamento da Marquesa. O
+desconto particular **não** reduz o valor devido, **não** reduz a base
+operacional do acerto e, por consequência, **não** reduz a base da comissão de
+§11–§13.
+
+**A trava que isto cria.** O sistema nunca pode interpretar desconto concedido
+pela revendedora como desconto concedido pela Marquesa. Não existe caminho no
+acerto que leia um preço abaixo do enviado (`maleta_itens.preco_envio`) e
+diminua o que a revendedora deve. Quem quiser implementar redução de base
+precisa de um campo de origem explícito — não de uma inferência a partir do
+valor que a revendedora informou ter cobrado.
+
+**Desconto autorizado pela Marquesa é outro caso, e ainda não existe.** Se um
+dia a Sthefany autorizar desconto diretamente — promoção, campanha, condição
+especial —, ele é **caso distinto e explícito**, com origem própria e registro
+de quem autorizou, na mesma lógica de §27 ("preço diferente sem motivo é
+indistinguível de erro"). O que está proibido é ele nascer como comportamento
+implícito de revendedora.
+
+**Nada muda no código hoje.** Esta seção é regra de negócio confirmada, não
+implementação: o acerto já calcula sobre o valor enviado, e §27 já restringe o
+desconto à venda de balcão. O efeito prático é que a Fase 6 deixa de precisar
+caracterizar um comportamento indefinido — e que nenhuma extração futura pode
+"descobrir" desconto de revendedora no caminho do acerto.
+
+O histórico não depende desta resposta: `maletas.acerto_json` guarda a comissão
+real dos acertos já fechados (§24).
