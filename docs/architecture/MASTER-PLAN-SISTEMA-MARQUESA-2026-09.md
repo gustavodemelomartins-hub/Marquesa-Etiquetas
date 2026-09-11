@@ -10,6 +10,9 @@
 
 **Estado do documento:** proposta para aprovação humana
 
+**Última auditoria de progresso:** 2026-09-11 — ver §2 (o que mudou desde o
+baseline) e §30 (Fase 4.4/4.5).
+
 ---
 
 ## 1. Resumo executivo
@@ -46,6 +49,21 @@ O plano usa como fonte operacional corrente o conjunto de handoffs, baselines do
 Duas migrations foram aplicadas no release registrado: Pacote 2 e publicação de catálogo, após export e bookmark. Isso não significa que todo o conteúdo de `api/schema.sql` esteja instalado em PROD. A diferença entre schema desejado e schema efetivamente aplicado precisa passar a ser um artefato verificável.
 
 As restrições desta fase permanecem absolutas: não executar reset, seed, importação DEV, sync destrutivo, escrita automática nova na Nuvemshop, deploy, migration ou operação em PROD.
+
+### Atualizações desde o baseline (auditoria de 2026-09-11)
+
+O baseline permanece `69ac8ac`. A tabela abaixo registra o que aconteceu
+depois dele — não altera os fatos do release nem os números acima.
+
+| Quando | O que aconteceu | Onde | Efeito neste plano |
+|---|---|---|---|
+| 09/09/2026 | Categoria "sorteio" (saída sem faturamento) implementada em schema, regras e código | commits `8055732`, `ae81c5b` | Fase 5 (§31) já recebeu "custo histórico corrigível por evento auditável" |
+| 09–10/09/2026 | Criada área permanente de intake de produto/UX (`docs/ux/`) e inventário de telas/paridade React (`docs/ui/`) | commits `1d86337`, `1844739` | nova categoria de documentação fora da taxonomia de §16; ver nota lá |
+| 10–11/09/2026 | Preenchido o esqueleto de `docs/ux/` com regras, estados, métricas, fluxos e mapeamento reais para Estoque, Vendas, Personalização e Catálogo/Publicação; mapa completo da Fase 4.5 (10 telas conceituais, 4 fluxos, matriz UX↔API) | working tree desta sessão, ainda não commitado nesta branch | detalhado em §30 |
+| 10–11/09/2026 | Ao desenhar a Fase 4.5, identificada a ausência de contrato de criação de produto (cadastro) no domínio Catálogo | idem | pendência nova em §50; detalhe em §30 |
+
+Nenhuma destas entradas altera o baseline auditado, o estado de PROD ou
+autoriza deploy. Documentação e desenho não avançam gate de release.
 
 ## 3. Método e fontes da auditoria
 
@@ -376,7 +394,12 @@ Ações futuras, sem apagar evidência:
 - mover relatórios de go-live, readiness e fechamento para `releases` ou `archive`;
 - agrupar runbooks Windows/WSL, D1 e deploy em `operations`;
 - manter regras de negócio e segurança como fontes canônicas, com cabeçalho de precedência;
-- registrar decisões humanas pendentes sem transformá-las em regra por inferência.
+- registrar decisões humanas pendentes sem transformá-las em regra por inferência;
+- reconhecer `docs/ux/` (regras, estados, métricas e fluxos por tela) e
+  `docs/ui/` (inventário de telas e paridade legado/React) como categoria de
+  produto/UX criada em 09/2026 (`1d86337`, `1844739`), fora desta taxonomia
+  original; decidir depois se ela se funde a `domains/` ou permanece
+  paralela, sem duplicar telas por falta de leitura cruzada entre as duas.
 
 ## 17. Auditoria da governança Codex e memória
 
@@ -645,6 +668,55 @@ Ordem:
 6. importações relacionadas.
 
 Gate: nenhuma escrita direta em `produtos.qtd`, reconciliação zero, idempotência, kits/variações e caracterização das rotas. Mudanças de schema, se realmente necessárias, são propostas separadamente e não fazem parte automática desta fase.
+
+### Progresso registrado nos itens 4 e 5 (auditoria de 2026-09-11)
+
+Os itens 4 e 5 da ordem acima estão sendo trabalhados numa branch paralela
+(`claude/refactor-sistema-marquesa`) sob os rótulos externos "Fase 4.4"
+(inventário) e "Fase 4.5" (categorias, fotos, personalização e publicação
+interna). A numeração decimal identifica fase e item desta lista — não é uma
+fase nova nem substitui esta seção. Nenhuma das duas está mesclada ou
+implantada.
+
+| Rótulo externo | Item desta lista | Estado auditado |
+|---|---|---|
+| Fase 4.4 | 4 — inventário | aprovada e provada na trilha paralela; sem deploy |
+| Fase 4.5 | 5 — categorias, fotos, personalização e publicação interna | contrato de API implementado e provado na trilha paralela (`docs/domains/CONTRATO-UX-API-4-5.md`), sem deploy; UX mapeada nesta branch em `docs/ux/03-screens/catalogo/` e `docs/ux/05-flows/catalogo-*.md` (10 telas conceituais, 4 fluxos); React não iniciado; escrita real na Nuvemshop desligada por padrão em todos os ambientes (`NUVEMSHOP_PUBLICACAO_ENABLED` ausente) |
+
+O contrato da Fase 4.5 já formaliza os freios que a §50 deixava em aberto
+para "publicação externa de catálogo": chamadas secas por padrão, prévia com
+payload exato, aprovação humana obrigatória antes de publicar, rodada
+pausada acima de 20 itens aprovados, e a flag de ativação ausente em todo
+ambiente. Falta decidir a ativação em produção (§50 permanece aberta nesse
+ponto).
+
+**Lacuna descoberta ao desenhar a Fase 4.5: cadastro de produto.**
+
+- Hoje existe uma tela real e em produção de cadastro: o dashboard legado
+  (`src/dashboard.tpl.html`, aba "Cadastro de Produtos"), cadastro manual ou
+  em lote, gravando por `/api/produtos/novos/analisar` →
+  `/api/produtos/novos/cadastrar`. Essa rota vive no domínio Estoque/
+  Importação (skill `marquesa-safe-import`), não num domínio "Catálogo" —
+  cadastrar uma peça à mão é tratado como o mesmo caso de "peça nova" da
+  importação em lote.
+- O espelho técnico da Fase 4.5 documenta leitura/edição de produto já
+  existente (variações, dependências, categoria, galeria) e publicação, mas
+  **não expõe rota de criar produto**. A documentação UX registrou isso
+  explicitamente em vez de inventar uma rota
+  (`docs/ux/03-screens/catalogo/api-needs.md` § "Lacuna deliberada do
+  espelho"; `docs/ux/05-flows/catalogo-cadastrar-e-completar-produto.md`;
+  pendência `CAT-Q006` em `docs/ux/03-screens/catalogo/open-questions.md`).
+- Este plano nunca previu uma tela própria de cadastro dentro do domínio
+  Catálogo: o item 5 acima presume que o produto já existe. O cadastro
+  sempre morou no fluxo de Estoque/Importação, fora do escopo aqui descrito.
+  Não é um esquecimento desta fase — é uma fronteira de domínio nunca
+  decidida, que só ficou visível ao desenhar a tela "Cadastro/edição de
+  produto" da Fase 4.5.
+- **Decisão que falta** (registrada em §50): manter a criação de produto
+  exclusiva do fluxo de importação/Estoque, ou dar ao domínio Catálogo sua
+  própria rota de criação. Enquanto isso não for decidido, a Fase 4.5 não
+  deve ser considerada com o fluxo de produto completamente desenhado, e a
+  publicação na Nuvemshop não substitui o cadastro interno do produto.
 
 ## 31. Fase 5 — vendas, clientes, financeiro e garantias
 
@@ -968,7 +1040,13 @@ Antes das fases correspondentes, decidir explicitamente:
 - quanto tempo manter fallback do legado;
 - quais fluxos compõem Pacote 5;
 - quando identidade individual passa a ser necessária;
-- se publicação externa de catálogo será criada e com quais freios;
+- se publicação externa de catálogo será criada e com quais freios — resposta
+  parcial: o contrato da Fase 4.5 já define dry-run padrão, rodada pausada
+  acima de 20 e aprovação humana obrigatória (§30); falta decidir a ativação
+  em produção;
+- se a criação de produto ganha rota própria no domínio Catálogo ou continua
+  exclusiva do fluxo de importação/Estoque — achado ao desenhar a Fase 4.5
+  em 10–11/09/2026 (§30);
 - política de R2/mídia em produção;
 - SLO e nível de observabilidade esperado.
 
