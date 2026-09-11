@@ -403,3 +403,68 @@ produção. A arquitetura fica pronta para todos eles.
 4. **Habilitar R2 em produção** — custo e release controlado.
 5. **Ligar a escrita de publicação** — `NUVEMSHOP_PUBLICACAO_ENABLED`.
 6. **Categorias da loja** — hoje ignoradas dos dois lados. Mapear ou não?
+
+---
+
+## 16. O que foi construído — estado em 10/09/2026
+
+**Implementado e provado localmente. Nada aplicado em produção: nenhuma
+migration rodada, nenhum deploy, nenhuma escrita na Nuvemshop.**
+
+Contrato para quem vai desenhar a tela: [CONTRATO-UX-API-4-5.md](CONTRATO-UX-API-4-5.md).
+
+### Módulos novos
+
+```
+api/src/catalogo/completude.js        o juiz único (§ 4)
+api/src/catalogo/categorias.js        identidade estável, renomear, arquivar (§ 5)
+api/src/catalogo/galeria.js           a galeria própria e as versões (§ 6)
+api/src/catalogo/nome-de-arquivo.js   de quem é esta foto (§ 7)
+api/src/catalogo/lote-de-fotos.js     analisar antes de gravar (§ 7)
+api/src/catalogo/preparacao.js        a fronteira do executor (§ 8)
+api/src/catalogo/publicador.js        o writer que faltava (§ 10)
+```
+
+### Rotas
+
+24 contratos novos, todos `bearer`, todos no inventário versionado
+(`docs/architecture/api-contracts.json`, 149 → 173). Nenhum contrato anterior
+mudou de método, caminho ou exigência de chave.
+
+### Migrations
+
+| Arquivo | Natureza |
+|---|---|
+| `api/migracao-catalogo-4-5.sql` | aditiva, roda quantas vezes precisar |
+| `api/migracao-catalogo-4-5-publicacao.sql` | **reconstrói uma tabela; roda UMA vez** |
+| `api/migracao-catalogo-4-5-rollback.sql` | rollback manual |
+
+### Provas
+
+`src/catalogo-4-5-test.mjs` — 26 provas contra `api/schema.sql` de verdade,
+com a migration aplicada duas vezes, R2 de mentira e loja de mentira.
+Registrada no manifesto nos níveis `domain` e `release`.
+
+Gates do repositório no fim da fase: **fast 9/9, domain 4/4, release 14/14.**
+
+E as migrations foram aplicadas sobre o **dump real de produção** (somente
+leitura, analisado em SQLite local): 790 produtos e 1.428 movimentos
+intactos, razão fechando, 9 categorias viram 10.
+
+### Comportamento que MUDA quando isto for para produção
+
+Três mudanças visíveis, todas deliberadas:
+
+1. **3 peças em `Outros`** deixam de ser tratadas como incompletas e passam a
+   poder ser publicadas;
+2. peça com `preco = 0` deixa de aparecer como pronta em qualquer tela — em
+   produção hoje **não existe nenhuma** (medido), então o efeito imediato é
+   zero;
+3. `foto_tratada_key` deixa de bloquear o avanço de estado, e as peças que
+   estavam presas em "em preparação" por falta de R2 passam a alcançar
+   "pronto para preparação" e "aguardando aprovação".
+
+### O que continua desligado
+
+R2, o executor automático, e a escrita de publicação
+(`NUVEMSHOP_PUBLICACAO_ENABLED`, não declarada em ambiente nenhum).

@@ -7,6 +7,13 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | Documento | Regra | Onde está |
 |---|---|---|
 | §4 | Categorias configuráveis | tabela `categorias`, `GET/POST /api/categorias` |
+| §4 | A categoria sobrevive ao próprio nome | `categorias.id`; `PATCH /api/categorias/:id` |
+| §4 | "Sem categoria" não é "Outros" | `categorias.sentinela = 1` |
+| §24 | Preço zero não é publicável | `catalogo/completude.js › temPreco` |
+| §24 | "Peça completa" tem um dono só | `catalogo/completude.js › faltasDaPeca` |
+| §22 | Foto nunca é atribuída por palpite | `catalogo/nome-de-arquivo.js`; ambíguo para |
+| §28 | O original da foto nunca é sobrescrito | `produto_fotos.original_key` por foto |
+| CAT-06 | Nada publica sem aprovação humana | `publicador.js`; três travas fail-closed |
 | §5.2 | Três saldos: total, consignado, disponível | `estoque.js › saldosDoSku` |
 | §5.3 | Consignação **não** é venda | movimento `consignacao` tem efeito 0 no total |
 | §6.1 | Maleta congela o preço do envio | `maleta_itens.preco_envio` |
@@ -1943,3 +1950,94 @@ Números, método e o que ficou de fora: [docs/operations/D1_USAGE_AUDIT.md](../
 **A regra que governa qualquer otimização futura:** nada troca consistência
 de estoque ou de dinheiro por leitura. A memorização do painel é do CLIENTE,
 some a qualquer escrita, e nunca cobre `/api/state` nem rota de escrita.
+
+### 44. O produto nasce aqui — e a loja é canal, não fonte
+
+Decisão de Gustavo, **10/09/2026**. Muda a direção de autoridade do catálogo:
+o cadastro comercial nasce no Sistema Marquesa e a Nuvemshop passa a ser um
+canal externo de publicação e venda. Isso não remove importação nem
+reconciliação; remove a ambiguidade sobre quem manda.
+
+O desenho, as medições de produção e as decisões que ficaram pendentes estão
+em [docs/domains/CATALOGO-MIDIA-PUBLICACAO-4-5.md](../docs/domains/CATALOGO-MIDIA-PUBLICACAO-4-5.md).
+O que vale como regra:
+
+**Origem ≠ autoridade.** `produtos.origem_cadastro` é fato histórico e não se
+reescreve; `produtos.autoridade` é decisão e pode migrar. Sem a separação,
+"veio da loja" acabava sendo lido como "a loja manda nele". As 790 peças que
+já existiam ficam com `NULL` nos dois, que é o valor honesto para "não
+sabemos" — inventar procedência seria pior que não ter.
+
+**"Peça completa" tem um dono só.** `api/src/catalogo/completude.js`. Existiam
+quatro definições que discordavam, e a mesma peça aparecia pronta numa tela e
+incompleta na outra. A regra, agora única: falta `nome` quando `desc` repete
+o código; falta `categoria` quando ela é a sentinela; falta `preco` quando é
+`NULL` **ou `<= 0`**; falta `quantidade` quando `casa <= 0`; falta `foto`
+quando não há imagem em lugar nenhum.
+
+**Preço zero existe e não é publicável.** A peça pode ser cadastrada com
+preço 0 — rascunho, peça incompleta — e nunca é considerada pronta para
+venda ou publicação. Antes, três das quatro cópias liam só `preco == null` e
+uma peça de R$ 0 passava.
+
+**`'Outros'` é categoria de verdade.** Ela era, ao mesmo tempo, categoria
+semeada e código para "sem categoria" em três lugares — e uma peça
+legitimamente "Outros" ficava marcada como incompleta para sempre. A ausência
+passa a ter nome próprio: a linha sentinela `Sem categoria`
+(`categorias.sentinela = 1`), que existe porque `produtos.cat` é `NOT NULL`.
+
+**A categoria sobrevive ao próprio nome.** `categorias.id` é a identidade
+estável; o nome é atributo. Renomear é um ato atômico de quatro passos dentro
+de um `db.batch` — arquiva a antiga, insere a nova com o mesmo id, move os
+produtos, apaga a antiga. `nome_norm` com índice único parcial impede que
+`"Colar "`, `"colar"` e `"Colar"` virem três categorias. Plural **não** é
+normalizado: `"Colares"` continua sendo outra coisa.
+
+**A galeria é nossa, e o original não se perde.** A foto deixa de ser coluna
+de `produtos` e vira linha em `produto_fotos`. A chave do R2 inclui o id da
+foto, então trocar a imagem cria outra linha em vez de sobrescrever o objeto.
+Uma principal por peça é garantida pelo **banco**
+(`idx_produto_fotos_principal`), não pela disciplina de quem escreve o
+próximo UPDATE. Registrar a versão preparada nunca encosta em
+`original_key`.
+
+**Foto não é atribuída por palpite.** O casamento por nome de arquivo procura
+do candidato mais específico para o menos e deixa o catálogo responder. Nada
+de sufixo é removido por regra: a convenção `212223-2` = segunda compra
+pertence ao importador de histórico (§ SKU-SUFIXO-DE-COMPRA), e o hífen é
+legítimo em códigos reais (`MONTE-COLAR`). Dois candidatos existindo como
+produto ⇒ `nome_ambiguo`, e o arquivo **para**.
+
+**O ERP não sabe quem prepara o conteúdo.** `preparacao_tarefas` é uma fila;
+`executor` é rótulo livre. Nenhuma coluna, CHECK ou consulta deste banco
+menciona fornecedor. Concluir uma tarefa grava o rascunho e leva a peça a
+`aguardando_aprovacao` — **nunca publica**.
+
+**Aprovação humana é invariante.** Nada preparado por agente chega à
+Nuvemshop sem alguém ter olhado. A trava é a assinatura dos dados
+(`dados_assinatura`): mudou nome, categoria, preço, quantidade em casa ou a
+foto aprovada, a aprovação anterior é invalidada sozinha.
+
+**Publicar é ato próprio, e nasce desligado.** `catalogo/publicador.js` dá
+writer real aos estados que o CHECK declarava e ninguém escrevia. Três travas
+em série, todas fail-closed: `NUVEMSHOP_WRITES_ENABLED` (já existia, e
+produção precisa dela ligada para o estoque), `NUVEMSHOP_PUBLICACAO_ENABLED`
+(nova, **não declarada em ambiente nenhum**) e `seco` por padrão. Criar um
+produto na loja nunca o deixa visível no mesmo passo.
+
+**"Publicado" é decisão nossa; `url_loja` é observação.** Os dois convivem e
+a resposta diz qual é qual (`estado` × `presencaNaLoja`). Enquanto uma peça
+não tiver estado gravado — o caso das 627 que já estavam na loja — a
+observação vale como estado e vem marcada com `estadoObservado`.
+
+**Despublicar existe.** Arquivar aqui continua **não** tirando a peça do ar:
+fazer isso automaticamente é decisão comercial ainda pendente.
+
+**Preço divergente é medido, não julgado.** `GET /api/catalogo/precos/divergentes`
+conta e mostra. Promoção legítima, preço específico da loja e divergência
+acidental produzem o mesmo número, e declarar "diferente = erro" seria tomar
+sozinho uma decisão de negócio cujo custo de errar é mexer no preço de venda
+de uma peça real. A política está registrada como pendente.
+
+Provas: [src/catalogo-4-5-test.mjs](../src/catalogo-4-5-test.mjs), 26 provas
+contra o schema real.
