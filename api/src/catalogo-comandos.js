@@ -11,13 +11,22 @@
  *  nunca contem outro kit (CAT-04). */
 import { json } from './auth.js';
 import { movimentar, consignadoDoSku, ehKit } from './estoque.js';
+import { comExecucao } from './plataforma/execucao.js';
 
 /* Copia deliberada do helper do despachante, que ainda precisa dele. */
 const int = v => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
 
 /** §22: a importação não corrige em silêncio — devolve o que estranhou.
  *  §24: preço ausente entra como NULL, nunca como zero. */
-export async function importarProdutos(db, { produtos }) {
+/** Importação de planilha: uma rodada só, muitos ajustes de estoque. */
+export function importarProdutos(db, entrada = {}) {
+  return comExecucao('importacao', {
+    dados: { fonte: 'produtos', itens: (entrada.produtos || []).length },
+    resumir: (r) => ({ status: r && r.status }),
+  }, () => importarProdutosRodada(db, entrada));
+}
+
+async function importarProdutosRodada(db, { produtos }) {
   if (!Array.isArray(produtos) || !produtos.length) return json({ erro: 'Lista vazia' }, 400);
 
   const existentes = new Map(
@@ -135,7 +144,15 @@ export async function definirKit(db, kitSku, { componentes }) {
   return json({ ok: true, kit: kitSku, componentes: lista });
 }
 
-export async function importarLoja(db, { snapshot, produtos }) {
+/** Importação do retrato da loja. */
+export function importarLoja(db, entrada = {}) {
+  return comExecucao('importacao', {
+    dados: { fonte: 'loja', itens: (entrada.produtos || []).length },
+    resumir: (r) => ({ status: r && r.status }),
+  }, () => importarLojaRodada(db, entrada));
+}
+
+async function importarLojaRodada(db, { snapshot, produtos }) {
   const stmts = [];
   if (snapshot) {
     stmts.push(db.prepare(

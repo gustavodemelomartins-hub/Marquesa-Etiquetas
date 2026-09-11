@@ -6,6 +6,8 @@
  *  Documentação: https://tiendanube.github.io/api-documentation/intro
  */
 
+import { lerConfig } from './plataforma/config.js';
+
 const VERSAO_API = '2025-03';
 
 /** O User-Agent é obrigatório: sem ele a API responde 400, não 401 — o que
@@ -75,12 +77,16 @@ export class NuvemshopEscritaDesativada extends Error {
 
 export class Nuvemshop {
   constructor(env) {
-    this.loja = String(env.NUVEMSHOP_STORE_ID || '').trim();
-    this.token = String(env.NUVEMSHOP_TOKEN || '').trim();
+    /* A leitura e a normalização do ambiente moram em
+       plataforma/config.js — um lugar só, para que nenhum módulo entenda a
+       mesma variável de um jeito diferente. */
+    const cfg = lerConfig(env).nuvemshop;
+    this.loja = cfg.loja;
+    this.token = cfg.token;
     // NUVEMSHOP_BASE existe para o teste poder subir uma loja de mentira no
     // próprio computador. Fora do teste ninguém define, e vale o endereço
     // de verdade.
-    const raiz = String(env.NUVEMSHOP_BASE || 'https://api.nuvemshop.com.br').replace(/\/+$/, '');
+    const raiz = cfg.base;
     this.base = `${raiz}/${VERSAO_API}/${this.loja}`;
     // A API de pedidos 2025-03 ainda é liberada loja por loja. Esta loja já
     // usa 2025-03 para catálogo/estoque, mas /orders responde 404 nela. O v1
@@ -105,7 +111,7 @@ export class Nuvemshop {
     // Fail-closed de propósito (não fail-open): qualquer coisa que não seja
     // exatamente a string "true" — ausente, "false", "1", "TRUE" — mantém a
     // escrita desligada. Só um "true" exato liga. Ver docs/SECURITY.md.
-    this.escritaHabilitada = String(env.NUVEMSHOP_WRITES_ENABLED || '').trim() === 'true';
+    this.escritaHabilitada = cfg.escritaHabilitada;
   }
 
   configurada() { return !!(this.loja && this.token); }

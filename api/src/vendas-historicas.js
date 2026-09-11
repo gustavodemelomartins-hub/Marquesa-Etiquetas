@@ -37,6 +37,7 @@
 
 import { normalizarNomeCliente, normalizarTexto } from './vendas-historico-normalizar.js';
 import { operacoesAtivasDoLote, fingerprintDoConteudo } from './historico-operacoes.js';
+import { parametros } from './plataforma/d1.js';
 
 /* ═════════════════════════════════════════════════ o que NÃO é venda
 
@@ -323,7 +324,7 @@ export async function reconstruir(db, { loteId = null, aceitarQuebraDeDecisao = 
           SET venda_historica_id = (SELECT id FROM vendas_historicas
                                      WHERE lote_id = ? AND chave = ?),
               pedido_chave = ?
-        WHERE lote_id = ? AND id IN (${v.itensIds.map(() => '?').join(',')})`,
+        WHERE lote_id = ? AND id IN (${parametros(v.itensIds.length)})`,
     ).bind(lote.id, v.chave, v.chave, lote.id, ...v.itensIds));
     for (let i = 0; i < ligacoes.length; i += 50) await db.batch(ligacoes.slice(i, i + 50));
 

@@ -6,6 +6,7 @@
  * ligado depois da confirmação final dos estados/botões (§15 da especificação).
  */
 import { gerarFundoBranco, FOTO } from './fotos.js';
+import { lerConfig } from './plataforma/config.js';
 
 const ERRO = (statusHttp, erro, extra = {}) => ({ ok: false, statusHttp, erro, ...extra });
 const normSku = (v) => String(v == null ? '' : v).trim().toUpperCase();
@@ -304,7 +305,8 @@ export async function prepararPublicacao(db, env, sku, corpo = {}) {
 
   if (corpo.rascunho) return salvarPreviaPublicacao(db, sku, corpo.rascunho);
 
-  const endereco = texto(env.PREPARADOR_CATALOGO_URL, 2000);
+  const preparador = lerConfig(env).catalogo;
+  const endereco = texto(preparador.preparadorUrl, 2000);
   if (!endereco) {
     const motivo = 'O serviço do agente de catálogo não está configurado (falta PREPARADOR_CATALOGO_URL).';
     await db.prepare('UPDATE catalogo_publicacoes SET preparo_erro=?, atualizado_em=datetime(\'now\') WHERE sku=?')
@@ -322,7 +324,7 @@ export async function prepararPublicacao(db, env, sku, corpo = {}) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(env.PREPARADOR_CATALOGO_TOKEN ? { Authorization: `Bearer ${env.PREPARADOR_CATALOGO_TOKEN}` } : {}),
+        ...(preparador.preparadorToken ? { Authorization: `Bearer ${preparador.preparadorToken}` } : {}),
       },
       body: JSON.stringify({
         sku: item.sku, nome: item.desc, categoria: item.cat,

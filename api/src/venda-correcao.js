@@ -38,6 +38,7 @@
  *  quem chama pedir explicitamente, e a mudança fica registrada ao lado.
  */
 import { movimentar, saldosDoSku } from './estoque.js';
+import { parametros } from './plataforma/d1.js';
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const dinheiro = (v) => Math.round(Number(v) * 100) / 100;
@@ -341,7 +342,7 @@ export async function correcoesDeVenda(db, { vendaId = null, historicoItemIds = 
   }
   const ids = (historicoItemIds ?? []).filter((x) => x != null);
   if (ids.length) {
-    const qs = ids.map(() => '?').join(',');
+    const qs = parametros(ids.length);
     const { results } = await db.prepare(
       `SELECT * FROM venda_item_correcoes WHERE historico_item_id IN (${qs}) ORDER BY id`,
     ).bind(...ids).all();

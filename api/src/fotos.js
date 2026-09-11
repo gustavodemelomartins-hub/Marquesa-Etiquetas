@@ -24,6 +24,7 @@
 
 import { Nuvemshop } from './nuvemshop.js';
 import { salvarFoto, lerFoto, apagarFoto, tipoValido } from './fotos-storage.js';
+import { lerConfig } from './plataforma/config.js';
 
 /* Os cinco estados da foto, que é o que a tela mostra na peça. */
 export const FOTO = {
@@ -444,7 +445,8 @@ export async function gerarFundoBranco(db, env, sku) {
   if (!p) return { erro: 'Produto não encontrado' };
   if (!p.foto_original_key) return { erro: 'Esta peça ainda não tem foto original para tratar' };
 
-  const endereco = String(env.FOTO_FUNDO_URL || '').trim();
+  const fundo = lerConfig(env).fotos;
+  const endereco = fundo.fundoUrl;
   if (!endereco) {
     await db.prepare(
       `UPDATE produtos SET foto_status=?, foto_erro=NULL, foto_em=datetime('now') WHERE sku=?`
@@ -466,7 +468,7 @@ export async function gerarFundoBranco(db, env, sku) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(env.FOTO_FUNDO_TOKEN ? { Authorization: `Bearer ${env.FOTO_FUNDO_TOKEN}` } : {}),
+        ...(fundo.fundoToken ? { Authorization: `Bearer ${fundo.fundoToken}` } : {}),
       },
       body: JSON.stringify({
         sku: p.sku, descricao: p.desc, fundo: 'branco',

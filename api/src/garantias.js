@@ -53,6 +53,7 @@
 import { movimentar, saldosDoSku, componentesDoKit } from './estoque.js';
 import { carregarFeriados, prazoDaGarantia, somarDiasUteis } from './dias-uteis.js';
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
+import { parametros } from './plataforma/d1.js';
 
 const STATUS = new Set(['em_reparo', 'reparada', 'devolvida', 'sem_conserto', 'concluida', 'cancelada']);
 /** Os que ainda pedem alguma coisa de alguém. São estes que o Painel mostra;
@@ -737,7 +738,7 @@ export async function garantiasDaCliente(db, { clienteId = null, norm = null } =
 export async function garantiasPendentes(db, { limite = 50 } = {}) {
   const { results } = await db.prepare(
     `SELECT id FROM garantias
-      WHERE status IN (${PENDENTES.map(() => '?').join(', ')})
+      WHERE status IN (${parametros(PENDENTES.length)})
       ORDER BY data_entrada ASC, id ASC LIMIT ?`,
   ).bind(...PENDENTES, limite).all();
   const feriados = await carregarFeriados(db);
