@@ -8,7 +8,7 @@
   "sem-bearer": "responde antes da porta de checarChave: health, callback OAuth e foto assinada por HMAC",
   "bearer": "exige Authorization: Bearer <API_KEY>"
  },
- "total": 163,
+ "total": 169,
  "contratos": [
   {
    "contrato": "ANY /api/health",
@@ -76,6 +76,10 @@
   },
   {
    "contrato": "GET /api/analytics/vendas",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/catalogo/preparacao/tarefas",
    "auth": "bearer"
   },
   {
@@ -288,6 +292,26 @@
   },
   {
    "contrato": "PATCH /api/revendedoras/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/catalogo/preparacao/tarefas",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/catalogo/preparacao/tarefas/:param/cancelar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/catalogo/preparacao/tarefas/:param/entregar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/catalogo/preparacao/tarefas/:param/falhou",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/catalogo/preparacao/tarefas/:param/resultado",
    "auth": "bearer"
   },
   {

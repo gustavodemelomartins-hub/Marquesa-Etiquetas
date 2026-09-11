@@ -373,34 +373,48 @@ export async function prepararPublicacao(db, env, sku, corpo = {}) {
     item.sku, ESTADO_PUBLICACAO.PREPARANDO,
   ).run();
 
+  /* A foto com fundo branco é TENTADA, e não mais exigida.
+
+     Antes, se ela não ficasse pronta a função voltava aqui — e como
+     produção não tem R2 para produzi-la, nenhuma peça passava deste ponto.
+     A preparação de TEXTO não depende da imagem, e travá-la por causa dela
+     fazia o pipeline inteiro parar dois passos antes do executor por um
+     motivo que não era da peça nem de quem trabalha nela.
+
+     O que não ficou pronto continua registrado e continua aparecendo — como
+     bloqueio, ao lado do estado, e não como falta da peça. */
+  let bloqueioDaFoto = null;
   if (!item.temTratada) {
     const foto = await gerarFundoBranco(db, env, item.sku);
     if (!foto.ok || foto.pendente) {
       const motivo = foto.erro || foto.detalhe || 'O tratamento da foto ainda não terminou.';
+      bloqueioDaFoto = { motivo, proximoPasso: 'Configure o serviço de fundo branco; o texto segue sem ele.' };
       await db.prepare('UPDATE catalogo_publicacoes SET preparo_erro=?, atualizado_em=datetime(\'now\') WHERE sku=?')
         .bind(motivo, item.sku).run();
-      return {
-        ok: true,
-        estado: ESTADO_PUBLICACAO.PREPARANDO,
-        bloqueioExterno: { motivo, proximoPasso: 'Configure o serviço de fundo branco e tente preparar novamente.' },
-        escritaNaLoja: false,
-      };
     }
     item = (await itemPorSku(db, sku, env)).item;
   }
 
-  if (corpo.rascunho) return salvarPreviaPublicacao(db, sku, corpo.rascunho);
+  if (corpo.rascunho) {
+    const r = await salvarPreviaPublicacao(db, sku, corpo.rascunho);
+    return r.ok ? { ...r, bloqueioExterno: bloqueioDaFoto } : r;
+  }
 
   const preparador = lerConfig(env).catalogo;
   const endereco = texto(preparador.preparadorUrl, 2000);
   if (!endereco) {
-    const motivo = 'O serviço do agente de catálogo não está configurado (falta PREPARADOR_CATALOGO_URL).';
+    /* Sem serviço configurado, a peça fica EM PREPARAÇÃO esperando um
+       executor — que hoje é humano-assistido, lendo
+       `GET /api/catalogo/preparacao/tarefas`. Não é erro: é o estado certo
+       de uma tarefa aberta que ninguém pegou ainda. */
+    const motivo = 'Nenhum serviço automático de preparação está configurado; '
+      + 'a peça está na fila para o executor externo.';
     await db.prepare('UPDATE catalogo_publicacoes SET preparo_erro=?, atualizado_em=datetime(\'now\') WHERE sku=?')
       .bind(motivo, item.sku).run();
     return {
       ok: true,
       estado: ESTADO_PUBLICACAO.PREPARANDO,
-      bloqueioExterno: { motivo, proximoPasso: 'Configure o serviço ou preencha a prévia manualmente.' },
+      bloqueioExterno: bloqueioDaFoto || { motivo, proximoPasso: 'Abra uma tarefa em POST /api/catalogo/preparacao/tarefas ou preencha a prévia manualmente.' },
       escritaNaLoja: false,
     };
   }
