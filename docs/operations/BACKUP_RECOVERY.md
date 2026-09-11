@@ -34,7 +34,7 @@ Todos os comandos abaixo foram verificados contra o `--help` desta versão e
 
 | Recurso | Valor | Onde |
 |---|---|---|
-| Banco `marquesa-db-prod` (D1) | Estoque, movimentos, vendas, maletas, revendedoras, inventários, histórico | Cloudflare, `51dd629b-52dc-46d0-a1af-fa37f0a79533` — binding `DB` em [api/wrangler.toml](../api/wrangler.toml) |
+| Banco `marquesa-db-prod` (D1) | Estoque, movimentos, vendas, maletas, revendedoras, inventários, histórico | Cloudflare, `51dd629b-52dc-46d0-a1af-fa37f0a79533` — binding `DB` em [api/wrangler.toml](../../api/wrangler.toml) |
 | Código | Este repositório | Git local + GitHub |
 | Secrets | `API_KEY`, `NUVEMSHOP_*` | Cloudflare Secrets. **Não têm backup e não são legíveis** — se perder, é rotação, não recuperação |
 
@@ -123,7 +123,7 @@ grep -c "CREATE TABLE" "$DUMP"   # produção tem 29 tabelas em 2026-09-04
 tail -5 "$DUMP"                  # termina em ';', não no meio
 ```
 
-As 16 tabelas esperadas estão em [DATA_MODEL.md](DATA_MODEL.md).
+As 16 tabelas esperadas estão em [DATA_MODEL.md](../architecture/DATA_MODEL.md).
 
 **b) O SQL carrega num banco limpo** — ver "Restaurar em ambiente de teste".
 
@@ -191,7 +191,7 @@ Guarde o **bookmark** que ele devolve antes de qualquer operação de risco:
 
 > ## REGRA CRÍTICA
 >
-> **Restore técnico é Classe C** ([SECURITY.md](SECURITY.md)). O agente pode
+> **Restore técnico é Classe C** ([SECURITY.md](../SECURITY.md)). O agente pode
 > executá-lo diante de regressão grave comprovada, usando o backup/bookmark e
 > o plano registrados antes da release. Exclusão de recurso é Classe D.
 >
@@ -288,7 +288,7 @@ Sequência mínima aceitável, com uma pessoa acompanhando cada passo:
 3. Restore não é Classe A nem B. Só roda com autorização explícita.
 4. O agente do Claude Code está impedido de executar
    `wrangler d1 time-travel restore`, `wrangler d1 execute --remote` com
-   escrita, e `wrangler d1 delete` — ver [SECURITY.md](SECURITY.md) e
+   escrita, e `wrangler d1 delete` — ver [SECURITY.md](../SECURITY.md) e
    `.claude/settings.json`.
 5. Faça o export **antes**, sempre. Ele é a única coisa que transforma um
    erro em contratempo.
@@ -326,7 +326,7 @@ tar -xzf ../Marquesa-Etiquetas-backups/pre-bootstrap-claude_2026-08-18_00-21.tar
 ```
 
 > `git reset --hard` **não** está nesta lista, de propósito. Ele apaga
-> trabalho não commitado sem perguntar. Ver [SECURITY.md](SECURITY.md).
+> trabalho não commitado sem perguntar. Ver [SECURITY.md](../SECURITY.md).
 
 ## Proveniência deste repositório
 
@@ -342,5 +342,5 @@ A pasta antiga pode ser apagada quando você quiser. O tarball em
 `../Marquesa-Etiquetas-backups/` continua sendo a cópia física de segurança.
 
 Como o `origin` agora existe, vale a regra do
-[SECURITY.md](SECURITY.md): `push` só quando alguém pedir, e
+[SECURITY.md](../SECURITY.md): `push` só quando alguém pedir, e
 `push --force` nunca.

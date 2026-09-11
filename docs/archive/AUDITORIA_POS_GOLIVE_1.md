@@ -1,5 +1,9 @@
 # Auditoria pós-go-live 1 — mapa do que já existe
 
+> **Documento histórico (2026-09-09).** Levantamento anterior aos pacotes
+> 0–4. O mapa vigente de contratos, schema e testes está nos baselines da
+> Fase 0, em [docs/architecture/](../architecture/) e [docs/testing/](../testing/).
+
 Levantamento feito **antes** de escrever qualquer linha, como o pacote exige.
 Serve a dois propósitos: não duplicar estrutura que já existe, e deixar
 escrito de onde cada número vem hoje — para o relatório de impacto poder
@@ -134,6 +138,6 @@ Uma segunda tabela seria um segundo lugar para a mesma verdade divergir. A
 Central de Pendências é uma **rota de leitura agregada** sobre as fontes que
 já existem.
 
-## 6. Índices que faltam (ver `D1_USAGE_AUDIT.md`)
+## 6. Índices que faltam (ver `docs/operations/D1_USAGE_AUDIT.md`)
 
 Levantados na Fase B e listados lá com a medição.

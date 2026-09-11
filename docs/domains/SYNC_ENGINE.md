@@ -1,6 +1,6 @@
 # Motor de sincronização
 
-[api/src/sync.js](../api/src/sync.js) · 544 linhas · função de entrada
+[api/src/sync.js](../../api/src/sync.js) · 544 linhas · função de entrada
 `sincronizar(db, env, { forcar, seco })`.
 
 ## O fluxo real
@@ -281,14 +281,14 @@ SELECT * FROM sync_execucoes WHERE seco = 0 ORDER BY id DESC LIMIT 1
 Sem esse filtro, uma rodada real que falhasse no PATCH, seguida de um
 dry-run que passasse, deixaria o resumo dizendo "tudo bem" — uma falha real
 escondida atrás de uma leitura, contrariando a regra 9 do `CLAUDE.md`.
-Corrigido em 2026-08-18 ([TECH_DEBT.md](TECH_DEBT.md) item 12, RESOLVIDO):
+Corrigido em 2026-08-18 ([TECH_DEBT.md](../architecture/TECH_DEBT.md) item 12, RESOLVIDO):
 `seco` é gravado no **INSERT**, não derivado do relato no fim, então o
 filtro funciona mesmo enquanto a linha ainda está `'rodando'`.
 
 Uma análise continua gravada e auditável — `ultimaAnaliseEm` expõe quando a
 última rodou, **separado** de propósito da saúde operacional. Ver
 `diagnosticarSync` em `frontend/src/features/nuvemshop/saude.ts` e
-[FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md). Provado por
+[FRONTEND_ARCHITECTURE.md](../architecture/FRONTEND_ARCHITECTURE.md). Provado por
 `src/saude-sync-test.mjs`.
 
 ## Invariantes que qualquer mudança precisa preservar

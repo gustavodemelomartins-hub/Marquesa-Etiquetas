@@ -10,8 +10,8 @@ description: Carregue quando a tarefa envolver divergência entre o estoque inte
 > testadas, mas nunca foram aplicadas em banco nenhum, e não há rota nem
 > Apply. Esta skill diz como investigar divergências com o que existe hoje,
 > e registra a direção combinada. Não construa o Apply sem que alguém peça —
-> [docs/RECONCILIATION_ENGINE.md](../../../docs/RECONCILIATION_ENGINE.md)
-> tem o fluxo completo; [docs/ROADMAP_RECONCILIATION.md](../../../docs/ROADMAP_RECONCILIATION.md)
+> [docs/domains/RECONCILIATION_ENGINE.md](../../../docs/domains/RECONCILIATION_ENGINE.md)
+> tem o fluxo completo; [docs/domains/ROADMAP_RECONCILIATION.md](../../../docs/domains/ROADMAP_RECONCILIATION.md)
 > tem o histórico da decisão.
 
 ## Princípio
@@ -101,9 +101,9 @@ que não passa nas duas **não aplica** — vira `status = 'obsoleto'`, nunca
 uma escrita por aproximação.
 
 Detalhe completo do schema, das duas máquinas de estado e da idempotência em
-[docs/RECONCILIATION_ENGINE.md](../../../docs/RECONCILIATION_ENGINE.md). Os
+[docs/domains/RECONCILIATION_ENGINE.md](../../../docs/domains/RECONCILIATION_ENGINE.md). Os
 problemas que motivaram o desenho, e o histórico da decisão, em
-[docs/ROADMAP_RECONCILIATION.md](../../../docs/ROADMAP_RECONCILIATION.md).
+[docs/domains/ROADMAP_RECONCILIATION.md](../../../docs/domains/ROADMAP_RECONCILIATION.md).
 Se você for mexer em qualquer coisa desta área, leia antes: várias mudanças
 "óbvias" andam na direção contrária.
 

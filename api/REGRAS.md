@@ -616,7 +616,7 @@ Regra irmã, objetivo oposto: `origem = 'planilha_produtos_novos'` só cria
 SKU que ainda não existe — SKU já cadastrado é ignorado por completo,
 estruturalmente, mesmo que quantidade/descrição/preço da planilha
 divirjam do catálogo. Detalhe completo em
-[docs/RECONCILIATION_ENGINE.md](../docs/RECONCILIATION_ENGINE.md).
+[docs/domains/RECONCILIATION_ENGINE.md](../docs/domains/RECONCILIATION_ENGINE.md).
 
 Esta prioridade da planilha sobre o sistema é **temporária por
 definição**: quando o inventário interno passar a ser controlado com
@@ -881,7 +881,7 @@ com 0 — a tela avisa que a peça vai sair de um saldo que ainda não existe,
 e oferece cancelar.
 
 **Exportar o Anexo I em arquivo está BLOQUEADO** enquanto o modelo
-operacional original não estiver no repositório. Ver `docs/TECH_DEBT.md`
+operacional original não estiver no repositório. Ver `docs/architecture/TECH_DEBT.md`
 item 15. `printAnexo()` (impressão) continua como estava.
 
 ### 21. A venda histórica é reconstruída, e a regra vem escrita junto — §22
@@ -1837,7 +1837,7 @@ a causa era uma subconsulta correlacionada sobre `maleta_itens`, que não tem
 índice por `sku`. Corrigido por dois caminhos independentes — a reescrita da
 consulta (vale sem migration) e o índice.
 
-Números, método e o que ficou de fora: [D1_USAGE_AUDIT.md](../D1_USAGE_AUDIT.md).
+Números, método e o que ficou de fora: [docs/operations/D1_USAGE_AUDIT.md](../docs/operations/D1_USAGE_AUDIT.md).
 
 **A regra que governa qualquer otimização futura:** nada troca consistência
 de estoque ou de dinheiro por leitura. A memorização do painel é do CLIENTE,

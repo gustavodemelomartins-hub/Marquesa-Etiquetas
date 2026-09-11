@@ -57,7 +57,7 @@ python src/build.py
 **Diferença contra o `dashboard.html` versionado:** 4.248 linhas alteradas,
 **0 mudanças de conteúdo**. Ignorando os `\r`, os arquivos são idênticos. É
 a tradução de fim de linha do `pathlib.write_text` no Windows —
-[TECH_DEBT.md](TECH_DEBT.md), item 5. Confira com
+[TECH_DEBT.md](../architecture/TECH_DEBT.md), item 5. Confira com
 `git diff --ignore-cr-at-eol`.
 
 ---
@@ -228,7 +228,7 @@ Frontend novo, sem navegador: `cd frontend && npm test` → **187 testes,
 são `datetime('now')` do SQLite, com resolução de **segundo**: quando a
 rodada real e a seca caem no mesmo segundo, os textos são iguais e a
 asserção quebra. É oscilação do relógio, não regressão — nada da FASE 2
-toca `sync.js`. Registrado em [TECH_DEBT.md](TECH_DEBT.md).
+toca `sync.js`. Registrado em [TECH_DEBT.md](../architecture/TECH_DEBT.md).
 
 **`foto-modal-test` voltou a rodar no Windows.** Ele tinha
 `executablePath: '/opt/pw-browsers/chromium'` fixo no código e só rodava no
@@ -378,7 +378,7 @@ ambiente, que vão acontecer de novo com quem montar a máquina do zero:
    prova formal em vez de leitura de código: `src/dry-run-test.mjs` compara
    oito tabelas linha por linha, lidas direto do SQLite. Ele **também**
    documenta os quatro recursos que a rodada seca SIM atualiza — todos
-   metadado de leitura. Tabela completa em [SYNC_ENGINE.md](SYNC_ENGINE.md).
+   metadado de leitura. Tabela completa em [SYNC_ENGINE.md](../domains/SYNC_ENGINE.md).
 
 7. **O backup de produção foi reconferido nesta medição**, carregando o dump
    de 06:22 num banco limpo: 16 tabelas, 782 produtos, 1.278 movimentos,
@@ -402,7 +402,7 @@ ambiente, que vão acontecer de novo com quem montar a máquina do zero:
     `src/reconciliacao-schema-test.mjs` aplica a migration sobre o schema
     real de ANTES desta fase (`git show f3f08cb:api/schema.sql`) e prova a
     unicidade, os `CHECK`, a idempotência e que nada anterior se perdeu.
-    Detalhe completo em [RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md).
+    Detalhe completo em [RECONCILIATION_ENGINE.md](../domains/RECONCILIATION_ENGINE.md).
 
 11. `src/shot.mjs` não é teste — tira fotos das telas. `api/test-api.mjs` é
     script auxiliar.

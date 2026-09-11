@@ -183,7 +183,7 @@ merge que passasse mudaria a árvore local. A leitura do hook é prova
 determinística — não precisava do experimento.
 
 > **Aviso que vale repetir:** publicar por GitHub Pages a partir de `main`
-> **não roda teste nenhum** (docs/PLANO-MESTRE-MARQUESA.md, linha 615). A rede
+> **não roda teste nenhum** (docs/archive/PLANO-MESTRE-MARQUESA.md, linha 615). A rede
 > de proteção é a suíte da seção 4, que já está verde — e a ordem que você
 > pediu: Worker primeiro, smoke test, só então o dashboard.
 

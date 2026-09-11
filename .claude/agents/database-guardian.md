@@ -41,7 +41,7 @@ Depois:
    reconciliada por palpite.
 
 Schema fica em `api/schema.sql`; migrations em `api/migracao-*.sql`,
-aplicadas pelo agente após os gates. Modelo: `docs/DATA_MODEL.md`.
+aplicadas pelo agente após os gates. Modelo: `docs/architecture/DATA_MODEL.md`.
 
 ## Formato
 

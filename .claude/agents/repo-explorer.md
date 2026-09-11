@@ -25,7 +25,7 @@ comando. Se a tarefa pedir mudança, responda o que precisaria mudar e
 | `dashboard.html` | Gerado. ~450 KB com o SheetJS embutido |
 | `index.html` | ~740 KB, CSS + SheetJS embutidos |
 | `vendor/zxing.min.js` | Biblioteca minificada, 356 KB |
-| `src/dashboard.tpl.html` | 3.802 linhas. **Sempre** localize com Grep e leia só a faixa |
+| `src/dashboard.tpl.html` | 13.948 linhas. **Sempre** localize com Grep e leia só a faixa |
 | `*/node_modules/**`, `api/.wrangler/**`, `backups/**` | Ruído ou dado real |
 
 Para arquivos grandes: `Grep` para achar a linha, `Read` com `offset` e
@@ -44,7 +44,7 @@ api/src/nuvemshop-oauth.js  troca do código por token
 api/src/inventario.js    contagem física
 api/src/comissao.js      faixas de comissão
 
-api/schema.sql           16 tabelas. Fonte da verdade do banco
+api/schema.sql           40 tabelas. Fonte da verdade do banco
 api/migracao-*.sql       migrations, aplicadas à mão
 api/REGRAS.md            regras de negócio e as justificativas históricas
 api/DEPLOY.md            como publicar a API

@@ -18,7 +18,7 @@ Worker + D1, autenticado pelo mesmo Bearer, guardado na mesma chave de
 
 **React**, porque o problema real do painel legado não é a linguagem — é que
 estado global mutável mais re-render completo torna cada mudança arriscada em
-proporção ao tamanho do arquivo, e ele tem 3.802 linhas. React não é mais
+proporção ao tamanho do arquivo, e ele tem 13.948 linhas. React não é mais
 rápido nem mais bonito; ele torna explícito quem depende de quê.
 
 **TypeScript**, porque o contrato com o backend hoje é implícito. `GET
@@ -98,7 +98,7 @@ Três decisões que valem ficar escritas:
    diferentes.
 3. **`services/sync.ts` não sabe escrever.** Ele só chama `{seco: true}`, e
    um teste trava isso. Escrever na loja é Classe C
-   ([SECURITY.md](SECURITY.md)) e vai acontecer pelo motor de reconciliação,
+   ([SECURITY.md](../SECURITY.md)) e vai acontecer pelo motor de reconciliação,
    com aprovação item a item.
 
 ## Autenticação
@@ -109,7 +109,7 @@ chave e o mesmo formato do painel legado.
 
 Isso é compatibilidade deliberada, não aprovação do modelo. As limitações
 (sem revogação por dispositivo, sem auditoria de quem fez o quê) estão em
-[SECURITY.md](SECURITY.md) e serão outra etapa.
+[SECURITY.md](../SECURITY.md) e serão outra etapa.
 
 ## Tipos
 
@@ -307,7 +307,7 @@ legítimo.
 **Ainda não publicado, de propósito.** O `dist/` é estático e o `base: './'`
 faz os caminhos funcionarem de qualquer subdiretório, então publicar é
 possível a qualquer momento — mas onde e sob qual endereço é decisão a
-tomar depois da revisão. Ver [SECURITY.md](SECURITY.md): deploy é Classe C.
+tomar depois da revisão. Ver [SECURITY.md](../SECURITY.md): deploy é Classe C.
 
 ## Como rodar
 
@@ -321,4 +321,4 @@ npm test           # vitest
 ```
 
 O painel precisa de um Worker no ar para ter o que mostrar — ver
-[DEVELOPMENT.md](DEVELOPMENT.md).
+[DEVELOPMENT.md](../operations/DEVELOPMENT.md).

@@ -31,7 +31,7 @@ antes, o que exige acesso remoto. Ver a skill `safe-d1-change`.
 
 ---
 
-## 2. `src/dashboard.tpl.html` com 3.802 linhas num arquivo só
+## 2. `src/dashboard.tpl.html` com 13.948 linhas num arquivo só
 
 Markup, estado, regras de tela, formatação, gráficos e integração com a
 câmera, tudo no mesmo arquivo.
@@ -39,7 +39,7 @@ câmera, tudo no mesmo arquivo.
 **Custo concreto, não estético:**
 
 - **Contexto.** Abrir o arquivo inteiro num agente consome dezenas de
-  milhares de tokens por tarefa. Ver [CLAUDE_CONTEXT_STRATEGY.md](CLAUDE_CONTEXT_STRATEGY.md).
+  milhares de tokens por tarefa. Ver [CLAUDE_CONTEXT_STRATEGY.md](../operations/CLAUDE_CONTEXT_STRATEGY.md).
 - **Estado global.** O objeto de estado é global e mutável; qualquer função
   pode escrever nele, e não há um lugar único onde olhar para saber quem
   mudou o quê.
@@ -95,9 +95,9 @@ derrubar/zerar/subir/rodar é feito à mão, teste a teste.
 Agora que os cinco testes passam aqui, este virou o item de maior retorno da
 lista: um runner portátil transformaria cinco sequências manuais em um
 comando. A forma de derrubar o Wrangler que funciona no Windows está em
-[BASELINE.md](BASELINE.md) e serviria de base.
+[BASELINE.md](../testing/BASELINE.md) e serviria de base.
 
-Ver o passo a passo em [TESTING.md](TESTING.md).
+Ver o passo a passo em [TESTING.md](../testing/TESTING.md).
 
 ---
 
@@ -125,7 +125,7 @@ comando é `python`, e o script falha. O caminho que funciona é
 
 ## 7. Segurança proporcional, mas com limites já visíveis
 
-Detalhes e justificativa em [SECURITY.md](SECURITY.md). Em forma de dívida:
+Detalhes e justificativa em [SECURITY.md](../SECURITY.md). Em forma de dívida:
 
 | Item | Consequência |
 |---|---|
@@ -146,7 +146,7 @@ fluxo natural da tela é aplicar. O mesmo vale para a importação, que grava
 antes de mostrar prévia.
 
 Este item é a **fase seguinte de trabalho**, não dívida a ser paga em
-silêncio: ver [ROADMAP_RECONCILIATION.md](ROADMAP_RECONCILIATION.md).
+silêncio: ver [ROADMAP_RECONCILIATION.md](../domains/ROADMAP_RECONCILIATION.md).
 
 ---
 
@@ -162,7 +162,7 @@ Um teste de tabela em `calcComissao`, com os casos de fronteira das faixas,
 é barato e cobre a decisão de maior valor em dinheiro por linha de código do
 sistema.
 
-Lacunas completas em [TESTING.md](TESTING.md).
+Lacunas completas em [TESTING.md](../testing/TESTING.md).
 
 ---
 
@@ -294,7 +294,7 @@ arquivo de lock, ou matar só o PID que ele mesmo iniciou em vez de todo
 - ~~`reconciliacao_itens` sem UNIQUE em `(sessao_id, sku, variacao, tipo)`~~
   — RESOLVIDO em 2026-08-18: `idx_rec_itens_unico`, sobre uma coluna gerada
   (`variacao_chave`) para o caso `variacao IS NULL` também ser pego. Ver
-  [RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md).
+  [RECONCILIATION_ENGINE.md](../domains/RECONCILIATION_ENGINE.md).
 - `api/gerar-seed.py` gera dado real e o `.gitignore` protege a saída
   (`seed.sql`) — correto, e vale manter no radar em qualquer mudança do
   `.gitignore`.
@@ -448,7 +448,7 @@ commit `b37b877`, servido de um `git worktree` separado: falha idêntica.
 E **não é o fluxo de maleta que está quebrado**:
 `src/revendedoras-test.mjs` cobre revendedora, maleta, acerto e Anexo I pela
 tela e passa inteiro (45 asserções). É algo específico deste roteiro neste
-ambiente. Registrado em `docs/BASELINE.md`; falta isolar.
+ambiente. Registrado em `docs/testing/BASELINE.md`; falta isolar.
 
 
 ## 19. A rosca de categoria conta ITEM; o indicador de peças conta VENDA

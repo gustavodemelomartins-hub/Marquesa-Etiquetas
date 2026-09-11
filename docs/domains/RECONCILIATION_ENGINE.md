@@ -1,8 +1,8 @@
 # Motor de reconciliação
 
-Schema em [api/migracao-reconciliacao.sql](../api/migracao-reconciliacao.sql)
-+ [api/migracao-idempotencia-reconciliacao.sql](../api/migracao-idempotencia-reconciliacao.sql)
-(espelhadas em [api/schema.sql](../api/schema.sql)) · **ainda NÃO aplicadas
+Schema em [api/migracao-reconciliacao.sql](../../api/migracao-reconciliacao.sql)
++ [api/migracao-idempotencia-reconciliacao.sql](../../api/migracao-idempotencia-reconciliacao.sql)
+(espelhadas em [api/schema.sql](../../api/schema.sql)) · **ainda NÃO aplicadas
 em banco nenhum de produção** — só no D1 local, e só dentro dos testes. O
 backend do fluxo Review → Apply já existe para três origens —
 `nuvemshop`, `planilha_estoque_total`, `planilha_produtos_novos`
@@ -38,7 +38,7 @@ maleta (§ Consignação abaixo) nem decide o que a Nuvemshop publica. E esta
 prioridade é temporária por definição: quando o inventário interno for
 controlado com confiança suficiente, ele poderá substituir a planilha como
 fonte da verdade física. Não é regra eterna — ver
-[DATA_MODEL.md § Fonte da verdade do físico](DATA_MODEL.md).
+[DATA_MODEL.md § Fonte da verdade do físico](../architecture/DATA_MODEL.md).
 
 ## Três origens, um motor
 
@@ -89,7 +89,7 @@ Hoje a sincronização e a importação **decidem e aplicam no mesmo ato**. A
 prévia existe (`POST /api/sync {"seco": true}`), mas é um desvio de
 comportamento, não o caminho principal — e a única proteção contra um erro
 em massa é um freio que conta quantos produtos mudariam
-([TECH_DEBT.md](TECH_DEBT.md) item 8). O importador de planilha
+([TECH_DEBT.md](../architecture/TECH_DEBT.md) item 8). O importador de planilha
 (`POST /api/produtos/importar`) tem o mesmo problema, mais grave: ele
 GRAVA no mesmo ato que lê, sem sessão nenhuma no meio.
 
@@ -354,7 +354,7 @@ sessões, de origens diferentes, propuserem algo para o MESMO SKU.
 
 ## Idempotência interna — `ajuste_qtd`
 
-Migration: [api/migracao-idempotencia-reconciliacao.sql](../api/migracao-idempotencia-reconciliacao.sql)
+Migration: [api/migracao-idempotencia-reconciliacao.sql](../../api/migracao-idempotencia-reconciliacao.sql)
 (espelhada em `api/schema.sql`/`api/schema-console.sql`, também ainda **não
 aplicada em produção**). Adiciona `movimentos.reconciliacao_item_id`
 (nullable, `REFERENCES reconciliacao_itens(id)`) e um índice único sobre
@@ -509,7 +509,7 @@ tirado na hora.
 em produção: gerar um backup novo, imediatamente antes da operação.** A
 loja escreve o dia inteiro; um backup de horas atrás não cobre o que
 aconteceu depois. Ver
-[BACKUP_RECOVERY.md](BACKUP_RECOVERY.md).
+[BACKUP_RECOVERY.md](../operations/BACKUP_RECOVERY.md).
 
 ## Estado real desta fase
 

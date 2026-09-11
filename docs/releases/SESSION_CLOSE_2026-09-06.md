@@ -52,7 +52,7 @@ separação entre "o que é Produtos Montáveis" e "o que não é" está feita p
 | UI do carrinho ("Monte seu colar", botão "+ Colar personalizado") | `src/dashboard.tpl.html` | `e7bac41` (e ajustes em `c6ff1fe`, `5b9aa09`, `8c28337`) |
 | 4 tabelas (`personalizacao_modelos`, `personalizacao_opcoes`, `venda_personalizacoes`, `venda_personalizacao_itens`) | `api/migracao-pos-golive-1.sql` linhas 162–274 (seção 5) | `a16d004` (o arquivo inteiro nasceu nesta commit, junto com índices e outras tabelas que NÃO são desta feature) |
 | Regra de negócio documentada | `api/REGRAS.md` § 42 | `044af41` |
-| Checklist manual de validação | `MONTE_SEU_COLAR_CHECKLIST.md` | `7c5f8d0` |
+| Checklist manual de validação | `docs/testing/MONTE_SEU_COLAR_CHECKLIST.md` | `7c5f8d0` |
 | Cenários de teste N/O | `src/pos-golive-1-test.mjs` linhas 602–759, `src/pos-golive-1-ui-test.mjs` § 7 | espalhado em `c6ff1fe`, `5b9aa09`, `8c28337`, `e7bac41` |
 
 Todo o resto dessas 10 commits (correção de `/api/vendas/dia`, dinheiro por
@@ -133,7 +133,7 @@ sem erro e o diff de `dashboard.html` é só a mudança do botão comentado.
 ### O que não rodou nesta sessão
 
 `kits-test.mjs`, `e2e.mjs`, `fase2-telas-test.mjs`, `catalogo-test.mjs` e o
-resto da suíte de 2026-08-23 (`docs/BASELINE.md`) **não foram re-rodados**:
+resto da suíte de 2026-08-23 (`docs/testing/BASELINE.md`) **não foram re-rodados**:
 nenhum arquivo que eles cobrem foi tocado por esta sessão nem pelas 10
 commits anteriores (conferido por `git diff --stat main..HEAD`). Rodar a
 suíte inteira por reflexo não é a régua deste projeto — é rodar o que o diff
@@ -209,7 +209,7 @@ implementado:
   venda, imunes a mudança posterior do modelo).
 - Baixa automática dos componentes (já implementado).
 - Cancelamento/estorno de **todos** os componentes da composição — não só da
-  base. **Gap conhecido e já registrado**: `MONTE_SEU_COLAR_CHECKLIST.md`
+  base. **Gap conhecido e já registrado**: `docs/testing/MONTE_SEU_COLAR_CHECKLIST.md`
   item 14 documenta que o cancelamento hoje estorna a base mas não os
   componentes. Isto precisa ser fechado antes de reativar a feature.
 - Integração futura com a Nuvemshop, usando o mesmo motor de regras
@@ -239,7 +239,7 @@ npx wrangler d1 time-travel info 51dd629b-52dc-46d0-a1af-fa37f0a79533
 npx wrangler d1 export DB --remote \
   --output ../backups/d1/<AAAA-MM-DD_HH-mm>/producao-51dd629b-<AAAA-MM-DD>.sql
 # conferir: tamanho plausível, CREATE TABLE / INSERT presentes, razão fecha
-# (ver docs/BACKUP_RECOVERY.md § 3)
+# (ver docs/operations/BACKUP_RECOVERY.md § 3)
 
 # 2. Migration (roda ANTES do deploy do Worker — o código novo não depende
 #    de nenhuma coluna nova, mas a ordem documentada no projeto é sempre

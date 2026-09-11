@@ -30,7 +30,7 @@ git log --oneline -10
 > `git push` publica de fato, e o PWA sai do ar se o `dashboard.html` subir
 > quebrado — o GitHub Pages serve a branch direto. Push normal da release é
 > Classe C; force-push é Classe D.
-> Ver [docs/BACKUP_RECOVERY.md](../../../docs/BACKUP_RECOVERY.md).
+> Ver [docs/operations/BACKUP_RECOVERY.md](../../../docs/operations/BACKUP_RECOVERY.md).
 
 ## 2. Testes
 
@@ -46,7 +46,7 @@ node src/fase2-telas-test.mjs  # esperado: 100 ok, 0 falhas
 ```
 
 - [ ] Os seis passam: **332 asserções, 0 falhas**.
-- [ ] O resultado bate com [docs/BASELINE.md](../../../docs/BASELINE.md).
+- [ ] O resultado bate com [docs/testing/BASELINE.md](../../../docs/testing/BASELINE.md).
       Queda em relação ao baseline é regressão.
 - [ ] O `e2e` rodou de verdade. É o único teste que prova que interface e
       API conversam — pular por pressa é publicar sem essa prova.
@@ -109,7 +109,7 @@ forçada. É leitura e roda antes da primeira escrita:
       fechando);
 - [ ] bookmark de Time Travel anotado.
 
-Procedimento: [docs/BACKUP_RECOVERY.md](../../../docs/BACKUP_RECOVERY.md).
+Procedimento: [docs/operations/BACKUP_RECOVERY.md](../../../docs/operations/BACKUP_RECOVERY.md).
 
 ## 8. Diff revisado
 

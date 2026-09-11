@@ -1,10 +1,10 @@
 # Modelo de dados
 
-Cloudflare D1 (SQLite). Fonte da verdade: [api/schema.sql](../api/schema.sql).
+Cloudflare D1 (SQLite). Fonte da verdade: [api/schema.sql](../../api/schema.sql).
 Este documento explica o **porquê** de cada tabela; o schema explica o **quê**.
 
 > As justificativas de negócio por trás destas escolhas estão em
-> [api/REGRAS.md](../api/REGRAS.md). Não duplicá-las aqui é proposital.
+> [api/REGRAS.md](../../api/REGRAS.md). Não duplicá-las aqui é proposital.
 
 ## A invariante central
 
@@ -23,7 +23,7 @@ o saldo no mesmo `db.batch()`.
 ## Fonte da verdade do físico — TEMPORÁRIA
 
 Enquanto o inventário interno não for controlado definitivamente pelo
-sistema (ver [ROADMAP_RECONCILIATION.md](ROADMAP_RECONCILIATION.md)), a
+sistema (ver [ROADMAP_RECONCILIATION.md](../domains/ROADMAP_RECONCILIATION.md)), a
 planilha de Estoque Total mantida pela Stéfane é a fonte máxima da verdade
 para a **quantidade física total** de cada SKU — não para o resto:
 
@@ -39,7 +39,7 @@ A planilha nunca autoriza mexer em maleta: se o total que ela informa é
 menor do que já está registrado com revendedoras, isso é uma contradição de
 dados (`total_menor_que_consignado`), não uma instrução para redistribuir
 ou apagar consignação em silêncio — ver
-[RECONCILIATION_ENGINE.md § Fonte da verdade](RECONCILIATION_ENGINE.md).
+[RECONCILIATION_ENGINE.md § Fonte da verdade](../domains/RECONCILIATION_ENGINE.md).
 
 Esta prioridade é temporária por definição: quando o inventário interno
 (hoje já existe como conferência — `inventarios`/`inventario_itens` — mas
@@ -278,7 +278,7 @@ PK `(sku, nome)`, mas a IDENTIDADE é `variante_id`, garantida pelo índice
 "Dourado · Zircônia") é dado da loja e muda quando ela renomeia um valor ou
 troca a ordem dos atributos. O id não muda. Casar por nome fechava a conta
 do total e escrevia zero em cada caixinha — ver
-[SYNC_ENGINE.md](SYNC_ENGINE.md) § 3.
+[SYNC_ENGINE.md](../domains/SYNC_ENGINE.md) § 3.
 
 `valores_json` guarda os atributos **já resolvidos em pares**, e é o que
 permite atributo dinâmico:
@@ -387,11 +387,11 @@ bem-sucedida não pode fazer uma falha real desaparecer da tela
 
 **Ainda não aplicadas em banco nenhum** — nem local, nem produção. O schema
 existe e está fechado (migration em
-[api/migracao-reconciliacao.sql](../api/migracao-reconciliacao.sql)), mas a
+[api/migracao-reconciliacao.sql](../../api/migracao-reconciliacao.sql)), mas a
 aplicação (Apply) que vai escrever nelas de verdade ainda não foi
 construída. Explicação completa, com a máquina de estados das duas tabelas
 e o que cada campo guarda, em
-[RECONCILIATION_ENGINE.md](RECONCILIATION_ENGINE.md) — não repetida aqui
+[RECONCILIATION_ENGINE.md](../domains/RECONCILIATION_ENGINE.md) — não repetida aqui
 para as duas versões não desencontrarem.
 
 Resumo: `reconciliacao_sessoes` é uma rodada de análise; `reconciliacao_itens`

@@ -6,12 +6,13 @@
   "levels": [
     {"id":"fast","label":"Rápido","howToRun":"npm run test:fast"},
     {"id":"domain","label":"Domínio puro","howToRun":"npm run test:domain"},
-    {"id":"integration","label":"Integração local","howToRun":"Catálogo apenas: requer Worker e D1 local descartável conforme docs/TESTING.md."},
+    {"id":"integration","label":"Integração local","howToRun":"Catálogo apenas: requer Worker e D1 local descartável conforme docs/testing/TESTING.md."},
     {"id":"browser","label":"Navegador local","howToRun":"Catálogo apenas: requer servidores locais e Playwright."},
     {"id":"release","label":"Baseline de release","howToRun":"npm test"}
   ],
   "suites": [
     {"id":"phase0-artifacts","level":"fast","mode":"local","description":"Coerência e freios da Fase 0","gates":["fast","release"],"commands":[{"bin":"node","args":["scripts/phase0-artifacts.test.mjs"]}],"prerequisites":[],"duration":"<2s"},
+    {"id":"docs-links","level":"fast","mode":"local","description":"Links e caminhos citados na documentação","gates":["fast","release"],"commands":[{"bin":"node","args":["scripts/docs-links.test.mjs"]}],"prerequisites":[],"duration":"<2s"},
     {"id":"governance-versioned","level":"fast","mode":"local","description":"Governança versionada","gates":["fast","release"],"commands":[{"bin":"node","args":["scripts/governance-versioned.test.mjs"]}],"prerequisites":[],"duration":"<2s"},
     {"id":"protect-production","level":"fast","mode":"local","description":"Hard-denies production-first","gates":["fast","release"],"commands":[{"bin":"node","args":[".claude/hooks/protect-production.test.mjs"]}],"prerequisites":[],"duration":"<2s"},
     {"id":"frontend-unit","level":"domain","mode":"local","description":"React/Vitest","gates":["domain","release"],"commands":[{"bin":"npm","args":["test","--","--run"],"cwd":"frontend"}],"prerequisites":["npm ci em frontend"],"duration":"~5s"},
