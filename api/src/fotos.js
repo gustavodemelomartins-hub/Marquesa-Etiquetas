@@ -30,6 +30,7 @@ import { normSku } from './sku.js';
    regra — preco NULL bloqueava, preco 0 passava — e discordava da de
    publicacao-catalogo.js sobre a mesma peca. */
 import { faltasDaPeca, sentinelasDeCategoria } from './catalogo/completude.js';
+import { skusComFotoPropria } from './catalogo/galeria.js';
 
 /* Os cinco estados da foto, que é o que a tela mostra na peça. */
 export const FOTO = {
@@ -548,6 +549,7 @@ export async function gerarFundoBranco(db, env, sku) {
  */
 export async function pendenciasDePublicacao(db) {
   const sentinelas = await sentinelasDeCategoria(db);
+  const galeria = await skusComFotoPropria(db);
   const r = await db.prepare(`
     SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja, p.foto_url,
            p.foto_original_key, p.foto_tratada_key, p.foto_status,
@@ -593,6 +595,8 @@ export async function pendenciasDePublicacao(db) {
     /* A regra nao mora mais aqui. O juiz unico decide, e esta funcao so
        agrupa o veredito com os nomes que a tela conhece. `quantidade` nunca
        aparece porque o filtro acima ja exigiu peca em casa. */
+    p.temFotoPropria = galeria.com.has(p.sku);
+    p.temFotoPreparadaPropria = galeria.preparadas.has(p.sku);
     const { faltas, bloqueios } = faltasDaPeca(p, { sentinelas });
     const falta = [];
     for (const f of faltas) {

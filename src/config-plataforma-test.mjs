@@ -119,15 +119,33 @@ console.log('  ok   escrita na Nuvemshop: ausente = bloqueada, só "true" liga')
   const completo = lerConfig({
     DB: {}, API_KEY: 'k', ORIGENS_PERMITIDAS: 'https://a.com', FOTOS: {},
     NUVEMSHOP_TOKEN: 't', NUVEMSHOP_STORE_ID: '1', NUVEMSHOP_WRITES_ENABLED: 'true',
+    /* Fase 4.5: a segunda trava, específica de criar/atualizar/publicar
+       produto na loja. "Completo" aqui significa toda capacidade ligada;
+       no ambiente de verdade esta linha está deliberadamente ausente. */
+    NUVEMSHOP_PUBLICACAO_ENABLED: 'true',
   });
   assert.equal(bloqueios(completo).length, 0, 'configuração completa acusou bloqueio');
   assert.equal(diagnosticar(completo).length, 0, 'configuração completa acusou aviso');
+
+  /* E a trava nova, sozinha: escrita ligada e publicação desligada é o
+     estado REAL de produção, e ele é aviso, nunca bloqueio. */
+  const semPublicacao = lerConfig({
+    DB: {}, API_KEY: 'k', ORIGENS_PERMITIDAS: 'https://a.com', FOTOS: {},
+    NUVEMSHOP_TOKEN: 't', NUVEMSHOP_STORE_ID: '1', NUVEMSHOP_WRITES_ENABLED: 'true',
+  });
+  assert.equal(bloqueios(semPublicacao).length, 0, 'publicação desligada virou bloqueio');
+  assert.ok(nomes(diagnosticar(semPublicacao), 'aviso').includes('NUVEMSHOP_PUBLICACAO_ENABLED'),
+    'publicação desligada não aparece no diagnóstico');
 
   const semEscrita = lerConfig({
     DB: {}, API_KEY: 'k', ORIGENS_PERMITIDAS: 'https://a.com', FOTOS: {},
     NUVEMSHOP_TOKEN: 't', NUVEMSHOP_STORE_ID: '1',
   });
-  assert.deepEqual(diagnosticar(semEscrita).map((x) => x.chave), ['NUVEMSHOP_WRITES_ENABLED'],
+  /* As duas travas aparecem: a central e a de publicação. Elas são
+     independentes de propósito — empurrar estoque para um produto que já
+     existe e criar um produto na loja são atos de tamanhos diferentes. */
+  assert.deepEqual(diagnosticar(semEscrita).map((x) => x.chave),
+    ['NUVEMSHOP_WRITES_ENABLED', 'NUVEMSHOP_PUBLICACAO_ENABLED'],
     'a loja configurada sem escrita habilitada precisa aparecer no diagnóstico');
   console.log('  ok   bloqueio é DB e API_KEY; o resto é aviso');
 }

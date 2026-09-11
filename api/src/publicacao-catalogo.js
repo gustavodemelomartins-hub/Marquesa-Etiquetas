@@ -14,6 +14,7 @@ import { normSku } from './sku.js';
 import {
   faltasDaPeca, capacidadesDoAmbiente, sentinelasDeCategoria,
 } from './catalogo/completude.js';
+import { skusComFotoPropria } from './catalogo/galeria.js';
 
 const ERRO = (statusHttp, erro, extra = {}) => ({ ok: false, statusHttp, erro, ...extra });
 const texto = (v, limite = 5000) => String(v == null ? '' : v).trim().slice(0, limite);
@@ -172,8 +173,12 @@ function itemPublico(p, fluxo, capacidades = {}) {
     casa: Number(p.casa ?? 0),
     qtd: Number(p.qtd ?? 0),
     fotoStatus: p.foto_status || FOTO.SEM,
-    temOriginal: !!p.foto_original_key,
-    temTratada: !!p.foto_tratada_key,
+    temOriginal: !!p.foto_original_key || !!p.temFotoPropria,
+    temTratada: !!p.foto_tratada_key || !!p.temFotoPreparadaPropria,
+    /* Três estados, não dois (necessidade de UX 1 da auditoria): foto
+       nossa, só o endereço da foto da loja, ou nenhuma. */
+    temFotoPropria: !!p.temFotoPropria,
+    temEnderecoDaLoja: !!p.foto_url,
     estado: calculado.estado,
     estadoRotulo: ROTULOS[calculado.estado],
     falta: calculado.falta,
@@ -212,9 +217,18 @@ function itemPublico(p, fluxo, capacidades = {}) {
  * estados completa do Pacote 4. Bancos ainda sem a migration continuam em
  * leitura; apenas preparar/aprovar fica indisponível. */
 export async function listarPublicacoes(db, env) {
-  const [produtos, fluxos, sentinelas] = await Promise.all([
-    lerProdutos(db), lerFluxos(db), sentinelasDeCategoria(db),
+  const [produtos, fluxos, sentinelas, galeria] = await Promise.all([
+    lerProdutos(db), lerFluxos(db), sentinelasDeCategoria(db), skusComFotoPropria(db),
   ]);
+  /* A galeria própria é a camada em que a Marquesa é dona da imagem. Ela
+     entra na conta de completude como as outras — se não entrasse, uma peça
+     com três fotos nossas continuaria aparecendo como "sem foto", que é
+     exatamente o defeito que a galeria existe para corrigir. */
+  for (const p of produtos) {
+    p.temFotoPropria = galeria.com.has(p.sku);
+    p.temFotoPreparadaPropria = galeria.preparadas.has(p.sku);
+    p.foto_aprovada_id = galeria.aprovadas.has(p.sku) ? `aprovada:${p.sku}` : null;
+  }
   /* As capacidades do ambiente entram na conta porque "o que falta" e "o
      que este servidor nem consegue fazer" sao respostas diferentes. Sem
      `env` — chamada interna, teste puro — nada e bloqueado por
