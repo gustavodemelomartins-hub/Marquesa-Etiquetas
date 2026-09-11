@@ -17,19 +17,47 @@
 CREATE TABLE IF NOT EXISTS categorias (
   nome   TEXT PRIMARY KEY,
   ordem  INTEGER NOT NULL DEFAULT 0,
-  cor    TEXT
+  cor    TEXT,
+  -- A identidade ESTÁVEL, que sobrevive ao nome (Fase 4.5). A PK continua
+  -- sendo `nome` porque `produtos.cat` é FK dela e trocar isso exigiria
+  -- reconstruir as duas tabelas; `id` é o que permite renomear sem perder a
+  -- categoria de vista.
+  id     TEXT,
+  slug   TEXT,
+  -- A forma canônica: "Colar", "colar" e "Colar " são a mesma categoria.
+  -- Plural não é normalizado — "Colares" continua sendo outra coisa.
+  nome_norm TEXT,
+  -- 1 = não é categoria, é o estado "sem categoria". Existe porque
+  -- `produtos.cat` é NOT NULL. Antes disto, 'Outros' acumulava os dois
+  -- sentidos e uma peça legitimamente "Outros" ficava incompleta para sempre.
+  sentinela    INTEGER NOT NULL DEFAULT 0,
+  arquivada_em TEXT,
+  -- Para onde as peças foram quando duas categorias viraram uma. Nenhum
+  -- código escreve isto ainda: mesclar é decisão comercial.
+  sucessora_id TEXT,
+  criada_em    TEXT
 );
+-- O banco garantindo o que o código promete: um id vivo por categoria, um
+-- nome vivo por forma canônica. Parciais para a linha arquivada sair do
+-- caminho durante o rename e para um nome aposentado poder ser reusado.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_categorias_id_viva
+  ON categorias(id) WHERE arquivada_em IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_categorias_nome_viva
+  ON categorias(nome_norm) WHERE arquivada_em IS NULL;
 
-INSERT OR IGNORE INTO categorias (nome, ordem, cor) VALUES
-  ('Colar',     1, '#C2426B'),
-  ('Brinco',    2, '#C4802A'),
-  ('Pulseira',  3, '#0D9382'),
-  ('Berloque',  4, '#6A54B5'),
-  ('Anel',      5, '#D8646B'),
-  ('Argola',    6, '#3D77C4'),
-  ('Pingente',  7, '#5C8A34'),
-  ('Conjunto',  8, '#A15BA0'),
-  ('Outros',    9, '#9E8A90');
+INSERT OR IGNORE INTO categorias (nome, ordem, cor, id, slug, nome_norm, sentinela, criada_em) VALUES
+  ('Colar',     1, '#C2426B', 'colar',     'colar',     'colar',     0, datetime('now')),
+  ('Brinco',    2, '#C4802A', 'brinco',    'brinco',    'brinco',    0, datetime('now')),
+  ('Pulseira',  3, '#0D9382', 'pulseira',  'pulseira',  'pulseira',  0, datetime('now')),
+  ('Berloque',  4, '#6A54B5', 'berloque',  'berloque',  'berloque',  0, datetime('now')),
+  ('Anel',      5, '#D8646B', 'anel',      'anel',      'anel',      0, datetime('now')),
+  ('Argola',    6, '#3D77C4', 'argola',    'argola',    'argola',    0, datetime('now')),
+  ('Pingente',  7, '#5C8A34', 'pingente',  'pingente',  'pingente',  0, datetime('now')),
+  ('Conjunto',  8, '#A15BA0', 'conjunto',  'conjunto',  'conjunto',  0, datetime('now')),
+  -- Categoria REAL, e só isso. Deixou de ser código para ausência na Fase 4.5.
+  ('Outros',    9, '#9E8A90', 'outros',    'outros',    'outros',    0, datetime('now')),
+  -- A ausência, com nome próprio.
+  ('Sem categoria', 99, NULL, 'sem-categoria', 'sem-categoria', 'sem categoria', 1, datetime('now'));
 
 -- ----------------------------------------------------------------- produtos
 -- qtd é saldo MATERIALIZADO do estoque total. A verdade é a tabela
@@ -79,14 +107,35 @@ CREATE TABLE IF NOT EXISTS produtos (
   -- existir, ela é que vale — ver migracao-foto-url.sql.
   foto_url            TEXT,
   foto_url_em         TEXT,
+  -- Duas perguntas que o modelo antigo não separava (Fase 4.5):
+  --   origem_cadastro  de onde este cadastro VEIO? — fato histórico, imutável
+  --   autoridade       quem manda nele HOJE?       — decisão, pode migrar
+  -- Sem a separação, "veio da loja" era lido como "a loja manda nele", que é
+  -- exatamente o que deixou de ser verdade. NULL nos dois é "não sabemos", e
+  -- é o estado certo para as peças que já existiam.
+  origem_cadastro     TEXT,                      -- loja | planilha | marquesa
+  autoridade          TEXT,                      -- marquesa | loja
+  -- O id do produto NA NUVEMSHOP. Antes existia só por caminho indireto
+  -- (loja_variantes.produto_id), e peça sem variante espelhada não tinha como
+  -- ser endereçada lá.
+  produto_id_loja     TEXT,
   atualizado_em  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE INDEX IF NOT EXISTS idx_produtos_produto_loja ON produtos(produto_id_loja);
 
 -- -------------------------------- preparação/publicação do catálogo (P4)
 CREATE TABLE IF NOT EXISTS catalogo_publicacoes (
   sku TEXT PRIMARY KEY REFERENCES produtos(sku),
-  estado TEXT NOT NULL DEFAULT 'em_preparacao_agente'
-    CHECK (estado IN ('em_preparacao_agente','aguardando_aprovacao','aprovado_para_publicar','publicado','falhou_ao_publicar')),
+  -- Fase 4.5: o CHECK deixou de mentir. `publicado` e `falhou_ao_publicar`
+  -- estavam aqui sem nenhum caminho de código que os escrevesse; agora há
+  -- writer real (catalogo/publicador.js), e entraram os estados que faltavam
+  -- para o pipeline ser representável de ponta a ponta.
+  -- `falta_informacao` NÃO está aqui de propósito: ele é calculado pelo juiz
+  -- de completude e nunca persistido.
+  estado TEXT NOT NULL DEFAULT 'em_preparacao'
+    CHECK (estado IN ('em_preparacao','preparado','aguardando_aprovacao',
+                      'aprovado_para_publicar','publicando','publicado',
+                      'falhou_ao_publicar','despublicado')),
   nome_site TEXT,
   descricao_site TEXT,
   seo_titulo TEXT,
@@ -99,6 +148,12 @@ CREATE TABLE IF NOT EXISTS catalogo_publicacoes (
   aprovado_em TEXT,
   aprovado_por TEXT,
   publicado_em TEXT,
+  -- O que o writer de publicação precisa para ser idempotente, e para
+  -- "despublicado" ser um ato registrado em vez da ausência de url_loja.
+  publicando_em    TEXT,
+  despublicado_em  TEXT,
+  despublicado_por TEXT,
+  produto_id_loja  TEXT,
   atualizado_em TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_catalogo_publicacoes_estado ON catalogo_publicacoes(estado);
@@ -131,6 +186,150 @@ CREATE TABLE IF NOT EXISTS fotos_orfas (
   produto_id  TEXT,
   visto_em    TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ═══════════════════════════════════ FASE 4.5 · A GALERIA PRÓPRIA DA PEÇA
+--
+-- Antes: DUAS imagens por peça, em colunas de `produtos` — uma original e
+-- uma tratada, ambas com chave determinística no R2. Trocar a foto
+-- SOBRESCREVIA o objeto. Três coisas eram impossíveis: ter mais de uma
+-- foto, dizer qual é a principal, e manter o original depois de preparar.
+--
+-- Agora a foto é LINHA, e cada linha carrega as suas versões. O original
+-- nunca é sobrescrito: a chave passa a incluir o id da foto, então "trocar"
+-- é criar outra linha, e a anterior continua existindo até alguém mandar
+-- apagá-la.
+--
+-- As colunas `produtos.foto_*` NÃO são removidas e continuam válidas — elas
+-- são o que o painel legado lê hoje, e derrubá-las exigiria reconstruir
+-- `produtos`.
+CREATE TABLE IF NOT EXISTS produto_fotos (
+  id            TEXT PRIMARY KEY,                       -- uuid; entra na chave do R2
+  sku           TEXT NOT NULL REFERENCES produtos(sku),
+  -- A ordem da galeria é DADO, não a ordem em que as linhas foram inseridas.
+  -- Quem exibe não deveria precisar saber como a lista foi lida.
+  ordem         INTEGER NOT NULL DEFAULT 0,
+  principal     INTEGER NOT NULL DEFAULT 0,
+  -- upload | lote | nuvemshop | adocao — de onde esta imagem entrou aqui.
+  origem        TEXT NOT NULL DEFAULT 'upload',
+  -- O nome do arquivo como veio, preservado para a auditoria do lote poder
+  -- responder "de qual arquivo saiu esta foto?" sem adivinhação.
+  arquivo_nome  TEXT,
+  lote_id       TEXT,
+  -- Impressão digital dos bytes, para o mesmo arquivo não entrar duas vezes.
+  conteudo_hash TEXT,
+  -- ORIGINAL — o que a Sthefany fotografou. Nunca sobrescrito.
+  original_key  TEXT,
+  original_tipo TEXT,
+  original_tam  INTEGER,
+  original_em   TEXT,
+  -- PREPARADA — fundo branco, corte, o que o preparo produzir. Escrever esta
+  -- versão não encosta na de cima: é o ponto do desenho que garante que
+  -- preparar nunca perde o original.
+  preparada_key  TEXT,
+  preparada_tipo TEXT,
+  preparada_tam  INTEGER,
+  preparada_em   TEXT,
+  -- APROVADA — a humana olhou e disse que serve.
+  aprovada_em   TEXT,
+  aprovada_por  TEXT,
+  -- PUBLICADA — chegou à vitrine, e sabemos com que id lá.
+  publicada_em    TEXT,
+  imagem_id_loja  TEXT,
+  -- Quando a imagem é da loja e os bytes ainda não são nossos. É referência,
+  -- não posse — o mesmo papel de `produtos.foto_url`, agora por foto.
+  url_externa   TEXT,
+  -- original | preparada | aprovada | publicada. É o estado DA IMAGEM, e não
+  -- se confunde com o estado da publicação da peça.
+  estado        TEXT NOT NULL DEFAULT 'original'
+    CHECK (estado IN ('original','preparada','aprovada','publicada')),
+  erro          TEXT,
+  criado_em     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_produto_fotos_sku ON produto_fotos(sku, ordem);
+-- UMA principal por peça, garantida pelo banco e não pela disciplina de
+-- quem escreve. Índice parcial: as linhas com principal = 0 convivem à
+-- vontade, e duas principais no mesmo SKU passam a ser impossíveis.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_produto_fotos_principal
+  ON produto_fotos(sku) WHERE principal = 1;
+-- O mesmo arquivo não entra duas vezes no mesmo código.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_produto_fotos_conteudo
+  ON produto_fotos(sku, conteudo_hash) WHERE conteudo_hash IS NOT NULL;
+
+-- ═══════════════════════════════════════════════ FASE 4.5 · LOTE DE FOTOS
+--
+-- Muitas fotos de uma vez, casadas pelo NOME DO ARQUIVO. O lote existe como
+-- tabela — e não como resposta de uma chamada — por uma razão só: ele
+-- ANALISA antes de confirmar. A pessoa vê o casamento, e só então autoriza.
+--
+-- E um arquivo ruim nunca derruba o lote inteiro: ele vira linha com o
+-- motivo, e os outros seguem.
+CREATE TABLE IF NOT EXISTS fotos_lotes (
+  id          TEXT PRIMARY KEY,
+  estado      TEXT NOT NULL DEFAULT 'analisado'
+    CHECK (estado IN ('analisado','confirmado','cancelado')),
+  criado_em   TEXT NOT NULL DEFAULT (datetime('now')),
+  criado_por  TEXT,
+  confirmado_em TEXT,
+  arquivos    INTEGER NOT NULL DEFAULT 0,
+  vinculados  INTEGER NOT NULL DEFAULT 0,
+  pendentes   INTEGER NOT NULL DEFAULT 0,
+  erros       INTEGER NOT NULL DEFAULT 0,
+  resumo_json TEXT
+);
+
+CREATE TABLE IF NOT EXISTS fotos_lote_itens (
+  lote_id      TEXT NOT NULL REFERENCES fotos_lotes(id),
+  arquivo      TEXT NOT NULL,
+  -- O que o nome do arquivo sugeriu, e o que o catálogo confirmou. Os dois
+  -- ficam: quando não casa, saber o que foi tentado é metade do diagnóstico.
+  sku_extraido TEXT,
+  sku_casado   TEXT,
+  -- vinculado | multiplas | sku_nao_encontrado | nome_ambiguo |
+  -- nome_invalido | duplicado | erro_upload
+  situacao     TEXT NOT NULL,
+  detalhe      TEXT,
+  foto_id      TEXT,
+  ordem_no_sku INTEGER,
+  PRIMARY KEY (lote_id, arquivo)
+);
+CREATE INDEX IF NOT EXISTS idx_fotos_lote_itens_sit ON fotos_lote_itens(lote_id, situacao);
+
+-- ═══════════════════ FASE 4.5 · TAREFA DE PREPARAÇÃO DE CONTEÚDO
+--
+-- A fronteira que o ERP não atravessa. Ele abre a tarefa e recebe o
+-- resultado; QUEM prepara é problema de fora.
+--
+-- `executor` é rótulo livre de propósito ('humano', 'assistido',
+-- 'servico:<nome>'). Nenhuma coluna, nenhum CHECK e nenhuma consulta deste
+-- banco menciona fornecedor nenhum — hoje o executor é humano-assistido e
+-- amanhã pode ser uma API, sem que o domínio do catálogo precise mudar.
+CREATE TABLE IF NOT EXISTS preparacao_tarefas (
+  id            TEXT PRIMARY KEY,
+  sku           TEXT NOT NULL REFERENCES produtos(sku),
+  estado        TEXT NOT NULL DEFAULT 'pendente'
+    CHECK (estado IN ('pendente','entregue','concluida','falhou','cancelada')),
+  -- Quais campos foram pedidos: nome_site, descricao_site, seo_titulo,
+  -- seo_descricao. Lista, não colunas, porque o que se pede vai mudar.
+  campos_json   TEXT NOT NULL DEFAULT '[]',
+  -- O retrato da peça no momento em que a tarefa foi aberta. Serve para o
+  -- executor trabalhar sem precisar de outra leitura e para a revisão
+  -- humana ver o que ele viu.
+  contexto_json TEXT,
+  resultado_json TEXT,
+  executor      TEXT,
+  entregue_em   TEXT,
+  concluida_em  TEXT,
+  erro          TEXT,
+  tentativas    INTEGER NOT NULL DEFAULT 0,
+  criado_em     TEXT NOT NULL DEFAULT (datetime('now')),
+  atualizado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_preparacao_estado ON preparacao_tarefas(estado, criado_em);
+-- Uma tarefa ABERTA por peça. Fechadas convivem — o histórico é o que
+-- explica por que o texto é o que é.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_preparacao_aberta
+  ON preparacao_tarefas(sku) WHERE estado IN ('pendente','entregue');
+
 
 -- ------------------------------------------------------------- movimentos
 -- §18/§19: responde "por que o estoque deste SKU mudou?".
