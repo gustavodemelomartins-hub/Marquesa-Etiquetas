@@ -23,8 +23,8 @@ conversa, que sei de primeira mão serem meus. Commits feitos direto em
 | | |
 |---|---|
 | Branch | `claude/refactor-sistema-marquesa` |
-| Commits | 85, de `3204210` a `bfd5d6b` (log completo: `git log ae81c5b..claude/refactor-sistema-marquesa`) |
-| Status | **BACKEND PRONTO E TESTADO, NÃO MESCLADO, NÃO IMPLANTADO** — branch só existe neste disco, não está em nenhum remoto |
+| Commits | 75 sobre `ae81c5b`, de `6d6c58b` a `bfd5d6b` (log completo: `git log ae81c5b..claude/refactor-sistema-marquesa`). **Corrigido em 11/09 (tarde):** esta linha dizia 85; os 10 a mais eram os 4 commits de `main` fora do remoto, contados junto |
+| Status | **MESCLADO NA V2 EM 11/09/2026 (tarde)**, ainda não implantado. Quando esta entrada foi escrita a branch só existia neste disco; hoje está preservada em `backup/claude-refactor-sistema-marquesa-20260911` e integrada em 9 lotes — ver a entrada de 11/09 (tarde) |
 
 **Task IDs tocados:** `ARQ-001`, `ARQ-002`, `ARQ-003`, `CAT-001`, `CAT-111`
 a `CAT-115`, `INV-001`, `INV-105`-`107`, `MON-001`, `MON-101`.
@@ -174,6 +174,102 @@ instrução explícita. Próxima conversa decide o que priorizar a partir do
 acima na branch `codex/ui-system-marquesa` — cada um nomeado por conteúdo
 (docs/ux, docs/ui, .codex, docs/project) para permitir reverter uma parte
 sem reverter as outras.
+
+---
+
+## 2026-09-11 (tarde) — Reconciliação da branch Claude com a V2, e o painel do projeto
+
+| | |
+|---|---|
+| Branch | `codex/ui-system-marquesa` (a linha da V2) |
+| Commits | 9 merges de lote (`B1`–`B9`) + commits de documentação; base `ae81c5b` |
+| Status | **DONE** para integrar, testar e documentar. **NÃO implantado no Worker do DEV** — isso é botão manual, ver abaixo |
+
+**Task IDs tocados:** `ARQ-001`, `ARQ-002`, `ARQ-003`, `ARQ-005`, `ARQ-006`,
+`CAT-001`, `INV-001`, `MON-001`, `DOC-003`, `DR-001`, `DR-013`, `DR-014`.
+
+### O que estava errado no retrato anterior
+
+A entrada de 10/09 dizia "85 commits". O número real é **75** commits sobre a
+base `ae81c5b`; os outros 10 eram os 4 commits de `main` que ainda não tinham
+ido ao remoto, contados duas vezes, mais arredondamento. O `DR-001` também
+perguntava se mesclar em `main` — premissa errada, porque o destino da V2 não
+é produção.
+
+E o achado que mudou o plano: **a branch da V2 não tinha nenhum código.** Os
+8 commits de `codex/ui-system-marquesa` mexiam só em `docs/ux`, `docs/ui`,
+`docs/project` e `.codex/`. A interseção de arquivos entre os dois lados era
+**zero**. O que parecia um merge de risco era, no nível de arquivo, ortogonal.
+
+### Preservar antes de integrar
+
+Três branches não existiam em nenhum remoto — inclusive a de 79 commits. Dez
+refs `backup/*` foram empurradas antes de qualquer merge: as três branches sem
+upstream, `main` local, as três à frente do upstream, os dois stashes e a V2
+já integrada. Nenhum merge em `main`, nenhum force, nenhum deploy.
+
+### Os 9 lotes
+
+Como a história da branch é linear, cada lote foi um `git merge --no-ff` na
+ponta do grupo, testado antes do lote seguinte — integração incremental sem
+reescrever SHA nenhum.
+
+| Lote | Domínio | Prova que rodou |
+|---|---|---|
+| B1 | taxonomia de `docs/` | `docs-links` (falhou de propósito, ver abaixo) |
+| B2 | Fase 1 — os 142 contratos congelados | 142 preservados |
+| B3 | Fase 2 — rotas de leitura | roteador: ordem, método, parâmetro, fallback |
+| B4 | Fase 2 — escrita, 142/142 na tabela | 142 rotas, 31 com id restrito a dígitos |
+| B5 | Fase 3 — plataforma | erros, config, D1 helpers, correlação: 4 verdes |
+| B6 | SKU, razão contábil, rodada seca | uma definição de SKU em 61 módulos; um dono de `produtos.qtd` |
+| B7 | Monte seu Colar | saldo, estorno, venda, dupla contagem: 4 verdes |
+| B8 | Inventário 4.4 | 22 provas + 9 travas, razão fechando |
+| B9 | Catálogo 4.5 | 26 provas; contratos passam a 173 |
+
+**O lote B1 quebrou o gate de links de propósito, e isso foi informação.** As
+23 referências quebradas eram docs do Codex apontando para arquivos que só
+chegavam nos lotes seguintes — prova objetiva de que a UX do Codex foi escrita
+antecipando o backend do Claude. Sobraram 3 quebras reais, corrigidas à mão.
+
+### Resultado
+
+Suíte local inteira: **14/14 gates no nível `release`** (antes da integração o
+que existia eram 5). Frontend: 190 testes em 16 arquivos. `python src/build.py`
+regerou `dashboard.html` **byte a byte idêntico** ao commitado.
+
+Não rodou aqui, e isso não é regressão: `pacote1-shell-test`, `dry-run-test` e
+`e2e.mjs` são tier integration/browser e exigem Worker local em `:8787` e
+servidor em `:8000`.
+
+### Paridade
+
+Nenhum degrau da escada subiu por causa de merge — estar mesclado não é ter
+tela. O que mudou foi a evidência: onde a matriz dizia "branch paralela",
+agora diz "mesclado na V2". A contagem passou a ser gerada por máquina, com a
+regra do **menor degrau** (uma funcionalidade não está mais adiante que o seu
+pedaço mais atrasado), o que corrigiu a contagem manual anterior que inflava
+`TESTED`.
+
+**Achado novo:** existem **12** outras funcionalidades no mesmo estado do
+cadastro de produto — legado funcionando, backend pronto, e nem UX nem tela
+nova. Três mexem com dinheiro ou compromisso com cliente (`FIN-101`,
+`GAR-101`, `VEN-105`) e viraram a decisão `DR-014`.
+
+### Painel do projeto
+
+`docs/project/dashboard/` é gerado de `docs/project/*.md`, de
+`api/wrangler.toml` e do `git log` — nenhum dado digitado. O gate
+`projeto-painel` roda `--check` e falha se a tela divergir dos documentos, o
+que impede a segunda fonte de verdade que o `PROJECT-STATUS.md` proíbe. Ele
+sobe junto com o DEV, em `/projeto/`.
+
+### PROD
+
+Intocada, por construção e não por cuidado: não existe workflow de deploy de
+produção neste repositório. Os dois que existem publicam no DEV — um no Pages
+a cada push em `develop`, outro só por botão com confirmação digitada.
+`marquesa-api`, `marquesa-db-prod` e os secrets de produção não foram lidos
+nem escritos em momento nenhum desta sessão.
 
 ---
 

@@ -1,6 +1,6 @@
 # Painel Operacional — Sistema Marquesa
 
-**Atualizado em:** 2026-09-11
+**Atualizado em:** 2026-09-11 (revisão da tarde: reconciliação da branch Claude)
 **Fonte:** auditoria estrutural completa (branches locais/remotas, commits, docs/ux,
 docs/ui, docs/domains da branch paralela, código legado e React)
 **Não é:** um roadmap alternativo. O roadmap único é o
@@ -46,6 +46,9 @@ painel só diz **em que pé** cada pedaço dele está agora.
 | DOC-001 | Master Plan sincronizado com o real da Fase 4.4/4.5 e a lacuna de cadastro de produto registrada | commit `ef6f130`, `docs/architecture/MASTER-PLAN-SISTEMA-MARQUESA-2026-09.md` §2, §30, §50 |
 | DOC-002 | Auditoria estrutural completa + sistema permanente de acompanhamento (este arquivo + 2 worklogs + paridade do legado) | este commit — ver WORKLOG-CLAUDE.md |
 | ARQ-004 | Espelho de governança do Codex (`.codex/agents`, `.codex/hooks`) preservado no Git, replicando `.claude/` sem criar segunda política | commit de preservação desta sessão |
+| ARQ-005 | **Reconciliação e integração da branch Claude na V2** — 75 commits classificados por domínio e integrados em 9 lotes (`B1`–`B9`), cada lote testado antes do seguinte; suíte local inteira verde depois (**14/14 gates no nível `release`**, contra 5/5 antes) | merges `B1`–`B9` nesta branch; `node scripts/run-baseline-tests.mjs release` |
+| ARQ-006 | **Preservação de todo o trabalho local no remoto** — 10 refs `backup/*` empurradas (a branch Claude de 79 commits, a V2, `main` local, 2 stashes e 3 branches à frente do upstream). Nenhum merge em `main`, nenhum force, nenhum deploy | `git ls-remote origin 'refs/heads/backup/*'` |
+| DOC-003 | Painel visual do projeto (`docs/project/dashboard/`) gerado a partir dos `.md`, com gate `projeto-painel` que falha se a tela divergir dos documentos | `scripts/build-project-dashboard.mjs`, `docs/testing/test-suites.json` |
 
 Fora da janela de ontem/hoje, já em produção e estável (contexto, não tarefa
 ativa): Pacotes 0–4 do painel (checkpoint `69ac8ac`), 790 produtos / 1.428
@@ -57,12 +60,12 @@ movimentos / 19 vendas validados, reconciliação zero — ver Master Plan §2.
 
 | ID | Tarefa | Onde está | Bloqueio/próximo passo |
 |---|---|---|---|
-| ARQ-001 | Fase 2 — shell HTTP: 142/142 contratos extraídos para tabela de rotas, gate `api-contracts.test.mjs` | implementado e testado em `claude/refactor-sistema-marquesa` (85 commits, 2026-09-09/10); **não mesclado, não implantado** | decisão de merge (ver Decisions Required) |
-| ARQ-002 | Fase 3 — plataforma (config tipada, erros/logs, D1 helpers, correlação, adapters) | idem, mesma branch | idem |
-| ARQ-003 | Auditoria/unificação de normalização de SKU (8 pontos) e sufixo de compra | idem, mesma branch (`fadd06a`, `706bc0c`, `ca23f4e`) | idem |
-| CAT-001 | Backend Fase 4.5 — categoria (identidade/renomear), galeria/mídia, tarefa de preparação, publicação (writer + estados), 19 testes de schema | implementado e testado em `claude/refactor-sistema-marquesa`; contrato final em `docs/domains/CONTRATO-UX-API-4-5.md` | bloqueado por R2 desligado em PROD e por P13–P16 (ver Decisions Required) |
+| ARQ-001 | Fase 2 — shell HTTP: 142/142 contratos extraídos para tabela de rotas, gate `api-contracts.test.mjs` | **mesclado na V2** (lotes `B1`–`B9`), gate `api-contracts` verde com 173 contratos | falta publicar no DEV (Worker staging é botão manual) |
+| ARQ-002 | Fase 3 — plataforma (config tipada, erros/logs, D1 helpers, correlação, adapters) | **mesclado na V2**; 4 testes de plataforma verdes | falta publicar no DEV |
+| ARQ-003 | Auditoria/unificação de normalização de SKU (8 pontos) e sufixo de compra | **mesclado na V2**; `sku-normalizacao.test.mjs` verde — uma definição, 61 módulos varridos | falta publicar no DEV |
+| CAT-001 | Backend Fase 4.5 — categoria (identidade/renomear), galeria/mídia, tarefa de preparação, publicação (writer + estados), 19 testes de schema | **mesclado na V2**; 26 provas do `catalogo-4-5-test.mjs` verdes | R2 desligado e P13–P16 continuam bloqueando o uso real (ver Decisions Required) |
 | CAT-002 | UX da Fase 4.5 — 10 telas conceituais, 4 fluxos, matriz UX↔API | `docs/ux/03-screens/catalogo/`, `docs/ux/05-flows/catalogo-*.md`; estado do material: **domínio mapeado, aguardando mockups** | falta mockup visual; falta decisão de cadastro (CAT-003) |
-| INV-001 | Backend Fase 4.4 — inventário físico: 5 rotas preservadas + 7 novas, migration, 22+9 testes | implementado e testado em `claude/refactor-sistema-marquesa`; **migration não aplicada em produção** | 6 perguntas de negócio abertas (S1–S6 no domain doc) sobre saldo real de SKUs específicos antes de tocar produção |
+| INV-001 | Backend Fase 4.4 — inventário físico: 5 rotas preservadas + 7 novas, migration, 22+9 testes | **mesclado na V2**; 22 provas + 9 travas verdes, razão fechando | migration não aplicada em lugar nenhum; S1–S6 continuam abertas. PROD está congelada: o alvo é o D1 do DEV |
 | INV-002 | UX de Inventário — 9 blocos, 5 mockups, embutido em Estoque | `docs/ux/03-screens/estoque/`; estado: **descrito** (não é o degrau final) | fórmulas de "Saúde do estoque"/"valor estimado" ainda abertas (`EST-Q*`) |
 | MON-002 | UX de Personalização (Monte seu Colar) | `docs/ux/03-screens/personalizacao/`; estado: **recebendo** | posições/repetição de criança (`VEN-Q016`–`VEN-Q018`) |
 | VEN-001 | UX completa de Vendas — 13 blocos, 8 mockups, editor de desconto por peça, pagamento composto | `docs/ux/03-screens/vendas/`; estado: **descrito** | 35 decisões abertas (`VEN-Q001`–`VEN-Q035`) |
@@ -105,9 +108,17 @@ movimentos / 19 vendas validados, reconciliação zero — ver Master Plan §2.
 
 Só o que exige escolha do Gustavo — nada que o sistema possa inferir.
 
+**`DR-001` saiu desta lista em 11/09/2026.** Ela perguntava se a branch Claude
+devia ser mesclada em `main`. A pergunta tinha uma premissa errada: o destino
+não é `main`, é a **linha da V2**, que não vai para produção. Com esse destino,
+integrar deixou de ser decisão de negócio e virou trabalho verificável — feito
+em 9 lotes testados (ver `ARQ-005`), com a branch original preservada intacta
+em `backup/claude-refactor-sistema-marquesa-20260911`. A parte que *era*
+decisão sua — quando isso chega a produção — continua aberta, e agora tem nome
+próprio: `DR-013`.
+
 | ID | Pergunta | Trava o quê |
 |---|---|---|
-| DR-001 | Mesclar `claude/refactor-sistema-marquesa` (85 commits, Fases 0–4.5 parciais) em `main`? Branch nunca foi pro remoto e não está em nenhum outro lugar seguro além deste disco. | ARQ-001, ARQ-002, ARQ-003, CAT-001, INV-001, MON-001 inteiros |
 | DR-002 | Cadastro de produto: rota própria no domínio Catálogo ou continua exclusivo do fluxo de importação/Estoque? | CAT-003, CAT-005, e se a Fase 4.5 pode ser considerada com o fluxo de produto completo |
 | DR-003 | Habilitar R2 em produção — é decisão de custo/release, não técnica | CAT-001 (mídia), NUV-002, toda a cadeia de fotos |
 | DR-004 | Ligar `NUVEMSHOP_PUBLICACAO_ENABLED` — quando e com qual rodada seca de validação antes | NUV-002 |
@@ -119,12 +130,18 @@ Só o que exige escolha do Gustavo — nada que o sistema possa inferir.
 | DR-010 | Arquivar uma peça deve despublicá-la da loja automaticamente? (`P15`) | CAT-001 |
 | DR-011 | Categorias da Nuvemshop: mapear com as internas ou continuar ignorando? (`P16`) | NUV-001 |
 | DR-012 | Vale criar tela de gestão de categorias agora, já que a rota existe e nunca teve UI? (achado novo desta auditoria) | CAT-004 |
+| DR-013 | **Quando, e sob que critério, a V2 sai do DEV e entra em produção.** Hoje PROD está congelada por instrução sua e nada da reconstrução a alcança. Isto não trava nenhum trabalho — trava o fim da fila | toda a escada de `DEV` para cima |
+| DR-014 | Das 12 funcionalidades que só existem no legado e ainda **não têm nem desenho** (ver achado na auditoria de paridade), três mexem com dinheiro ou compromisso com cliente: `FIN-101` contas a receber, `GAR-101` garantias, `VEN-105` correção de item vendido. Elas entram na fila de UX fora da ordem de fase? | FIN-001, GAR-001, VEN-002 |
 
 ---
 
 ## Contagem
 
-DONE: 3 · IN PROGRESS: 13 · NEXT: 9 · BLOCKED: 3 · DECISIONS REQUIRED: 12
+DONE: 6 · IN PROGRESS: 14 · NEXT: 10 · BLOCKED: 3 · DECISIONS REQUIRED: 13
+
+Contagem gerada por `scripts/build-project-dashboard.mjs` a partir das
+tabelas acima — não a edite à mão. O painel visual
+([dashboard/](dashboard/index.html)) lê exatamente estes mesmos números.
 
 ## Relação com os outros documentos
 

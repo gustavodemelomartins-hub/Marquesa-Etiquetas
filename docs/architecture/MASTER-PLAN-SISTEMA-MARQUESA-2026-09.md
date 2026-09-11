@@ -69,9 +69,22 @@ depois dele — não altera os fatos do release nem os números acima.
 | 09–10/09/2026 | Criada área permanente de intake de produto/UX (`docs/ux/`) e inventário de telas/paridade React (`docs/ui/`) | commits `1d86337`, `1844739` | nova categoria de documentação fora da taxonomia de §16; ver nota lá |
 | 10–11/09/2026 | Preenchido o esqueleto de `docs/ux/` com regras, estados, métricas, fluxos e mapeamento reais para Estoque, Vendas, Personalização e Catálogo/Publicação; mapa completo da Fase 4.5 (10 telas conceituais, 4 fluxos, matriz UX↔API) | working tree desta sessão, ainda não commitado nesta branch | detalhado em §30 |
 | 10–11/09/2026 | Ao desenhar a Fase 4.5, identificada a ausência de contrato de criação de produto (cadastro) no domínio Catálogo | idem | pendência nova em §50; detalhe em §30 |
+| 11/09/2026 (tarde) | **Decisão de arquitetura: a reconstrução passa a ser uma linha V2 separada, cujo único destino é o DEV.** `main` deixa de ser o alvo de integração enquanto durar a reconstrução | instrução humana explícita desta data | muda o destino das fases, não o conteúdo delas — ver nota abaixo |
+| 11/09/2026 (tarde) | Os 75 commits de `claude/refactor-sistema-marquesa` (Fases 1–3, SKU, Monte seu Colar, Inventário 4.4, Catálogo 4.5) reconciliados e integrados na linha da V2 em 9 lotes testados | merges `B1`–`B9`; `ARQ-005` no PROJECT-STATUS | as Fases 1–3 saem de "existe numa branch" para "integrado e provado", sem sair de "fora de produção" |
+| 11/09/2026 (tarde) | Painel visual do projeto gerado dos próprios documentos, publicado junto ao DEV em `/projeto/` | `docs/project/dashboard/`, `DOC-003` | acompanhamento deixa de depender de conversa |
 
 Nenhuma destas entradas altera o baseline auditado, o estado de PROD ou
 autoriza deploy. Documentação e desenho não avançam gate de release.
+
+**Nota sobre o destino da V2 (11/09/2026).** Este plano descreve *o que* se
+constrói e *em que ordem*. A partir desta data, *para onde* isso vai tem uma
+regra própria, e ela é mais forte que qualquer fase daqui: **PROD está
+congelada para a reconstrução.** Toda integração converge para o DEV
+(`marquesa-dev.pages.dev` + `marquesa-api-staging` + `marquesa-db-dev`).
+Uma fase concluída nesta V2 chega, no máximo, ao degrau `DEV` da escada de
+paridade — nunca a `PROD`. Só correção crítica autorizada nominalmente pelo
+Gustavo toca produção enquanto isso valer; o quando dessa liberação é a
+decisão `DR-013`.
 
 ## 3. Método e fontes da auditoria
 

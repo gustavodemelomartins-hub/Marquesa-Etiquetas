@@ -3,9 +3,14 @@
 **Data:** 2026-09-11
 **Método:** varredura de `src/dashboard.tpl.html` (13.941 linhas) cruzada com
 todas as rotas de `api/src/index.js`, mais o estado real de `frontend/src/`
-e o backend implementado na branch não mesclada
-`claude/refactor-sistema-marquesa`. Nenhum arquivo de código foi alterado
-para produzir esta auditoria.
+e o backend implementado na branch `claude/refactor-sistema-marquesa`.
+
+**Revisão de 2026-09-11 (tarde):** aqueles 75 commits foram reconciliados e
+integrados na linha da V2 (`codex/ui-system-marquesa`) em 9 lotes, com a
+suíte local inteira verde (14/14 gates no nível `release`). As colunas
+abaixo foram atualizadas para dizer *mesclado na V2* onde antes diziam
+*branch paralela*. **Nenhum degrau da escada subiu por causa do merge**:
+estar mesclado não é ter tela, e a regra de leitura abaixo continua valendo.
 
 **Por que este documento existe:** ao desenhar a Fase 4.5 descobrimos que o
 cadastro de produto só existe no legado, escondido dentro do fluxo de
@@ -25,6 +30,8 @@ Um valor só, sem combinar:
 | `UX DESIGNED` | tela conceitual com regra/estado fechados, sem código de tela |
 | `IMPLEMENTED` | tela React existe e chama API real (pode ter lacuna conhecida) |
 | `TESTED` | implementado E com teste automatizado provando o caso |
+| `DEV` | publicado e verificado no ambiente DEV (`marquesa-dev.pages.dev` / `marquesa-api-staging`) |
+| `APPROVED` | aprovado pelo Gustavo no DEV, liberado para a fila de produção |
 | `PROD` | está no que os usuários realmente usam hoje (o legado conta como PROD dele mesmo) |
 | `LEGACY REMOVABLE` | paridade provada, uso real migrado — nada está aqui ainda |
 
@@ -40,18 +47,18 @@ numa branch" não é "redesenhada". "UX foi desenhada" não é "implementada".
 | CAT-101 | **Cadastro manual de produto** | sim — reaproveita o endpoint de peça nova (`:3589-3628`) | **não existe rota própria** (`POST /api/produtos` não existe) | mapeada com lacuna deliberada (`docs/ux/05-flows/catalogo-cadastrar-e-completar-produto.md`) | não | não | legado | `LEGACY ONLY` — gap crítico, ver seção abaixo |
 | CAT-102 | Importação em lote — peças novas | sim (`:12673-12936`) | `POST /api/produtos/novos/analisar`\|`cadastrar` (existente) | não | não | teste indireto via import | legado | `LEGACY ONLY` |
 | CAT-103 | Importação — Estoque Total (planilha, fonte máxima) | sim (`:12093-12468`) | `POST /api/estoque-total/analisar`\|`aplicar` | não | **sim, completo** — `frontend/src/features/estoque-total/` | **sim, 4 arquivos de teste** | legado ainda é a via oficial | `TESTED` (React) / `LEGACY ONLY` (produção real) |
-| CAT-104 | Geração/checagem de SKU (6 dígitos) | sim (`:3654-3746`) | `GET /api/produtos/sku/checar`, `POST /sku/gerar` | descrito em `docs/domains/SKU-NORMALIZACAO.md` (branch paralela) | não | `scripts/sku-normalizacao.test.mjs` (branch paralela) | legado | `LEGACY ONLY` (produção) / `BACKEND READY` (auditoria de regra) |
+| CAT-104 | Geração/checagem de SKU (6 dígitos) | sim (`:3654-3746`) | `GET /api/produtos/sku/checar`, `POST /sku/gerar` | descrito em `docs/domains/SKU-NORMALIZACAO.md` (mesclado na V2) | não | `scripts/sku-normalizacao.test.mjs` (mesclado na V2, verde) | legado | `LEGACY ONLY` (produção) / `BACKEND READY` (auditoria de regra) |
 | CAT-105 | Editar peça (descrição/categoria/preço) | sim (`:5046-5285`) | `PATCH /api/produtos/:sku` | não | não | não | legado | `LEGACY ONLY` |
 | CAT-106 | Variações — estrutura e distribuição de quantidade | sim (`:5074-5321`) | `PUT /variacoes`, `POST /variacoes/distribuir` | parcialmente coberto por `docs/ux/03-screens/estoque` (bloco 8, seleção de variação) | não | não | legado | `LEGACY ONLY` |
 | CAT-107 | Kits (montar/desfazer) | sim (`:4928-5012`) | `PUT /api/produtos/:sku/componentes` | não | não | não | legado | `LEGACY ONLY` — **fora de escopo por decisão** ([business-rules.md](../../.claude/rules/business-rules.md): "Kits: fora do escopo atual") |
 | CAT-108 | Excluir / arquivar / desarquivar produto | sim (`:5335-5456`) | `DELETE`, `POST /arquivar`\|`/desarquivar` | não | não | não | legado | `LEGACY ONLY` |
 | CAT-109 | Foto do produto (upload original/tratada, remover, fundo branco) | sim (`:4784-4918`) | `PUT/DELETE /foto/*`, `POST /foto/fundo-branco` | mapeada em `docs/ux/03-screens/catalogo` (bloco Galeria) | não | não | legado | `LEGACY ONLY` — **bloqueada estruturalmente**: R2 não habilitado em nenhum ambiente de produção |
 | CAT-110 | **Gestão de categorias (criar/editar)** | **nenhuma tela chama** | `POST/PATCH /api/categorias` existe | não | não | não | nenhuma | `BACKEND READY` — achado novo, ver seção abaixo |
-| CAT-111 | Fase 4.5 — categoria com identidade/renomear, "Outros" como categoria comum | não (legado usa lista solta) | implementado+testado, branch paralela (`0f06dda`) | mapeado (`docs/ux/03-screens/catalogo/rules.md`) | não | schema tests (branch paralela) | não mesclado | `BACKEND READY` |
-| CAT-112 | Fase 4.5 — galeria/mídia (múltiplas fotos, original+preparada, principal, ordem) | parcial (só uma foto original+tratada) | implementado+testado, branch paralela (`5e4209b`) | mapeado (10 telas conceituais) | não | 19 testes de schema (branch paralela) | não mesclado | `BACKEND READY` |
-| CAT-113 | Fase 4.5 — preparação de conteúdo (tarefa desacoplada de executor) | não (legado chama de "agente" direto) | implementado+testado, branch paralela (`0763ef6`) | mapeado | não | idem | não mesclado | `BACKEND READY` |
-| CAT-114 | Fase 4.5 — publicação (writer, estados publicando/publicado/falhou/despublicado) | sim, aba "Publicar na Nuvemshop" (`:6906-6970`) já funciona com fluxo próprio | implementado+testado, branch paralela (`7b7eefa`); escrita real desligada (`NUVEMSHOP_PUBLICACAO_ENABLED` ausente) | mapeado (blocos 7-9) | não | 19 testes de schema | não mesclado, escrita desligada | `BACKEND READY` |
-| CAT-115 | Divergência de preço local × Nuvemshop | não existe hoje (ninguém compara) | `GET /api/catalogo/precos/divergentes` mede, não corrige — branch paralela | mapeado (bloco 10) | não | não relatado | não mesclado | `BACKEND READY`, política pendente (`P13`) |
+| CAT-111 | Fase 4.5 — categoria com identidade/renomear, "Outros" como categoria comum | não (legado usa lista solta) | implementado+testado, mesclado na V2 (`0f06dda`) | mapeado (`docs/ux/03-screens/catalogo/rules.md`) | não | schema tests (mesclados na V2, verdes) | mesclado na V2, não implantado | `BACKEND READY` |
+| CAT-112 | Fase 4.5 — galeria/mídia (múltiplas fotos, original+preparada, principal, ordem) | parcial (só uma foto original+tratada) | implementado+testado, mesclado na V2 (`5e4209b`) | mapeado (10 telas conceituais) | não | 19 testes de schema (mesclados na V2, verdes) | mesclado na V2, não implantado | `BACKEND READY` |
+| CAT-113 | Fase 4.5 — preparação de conteúdo (tarefa desacoplada de executor) | não (legado chama de "agente" direto) | implementado+testado, mesclado na V2 (`0763ef6`) | mapeado | não | idem | mesclado na V2, não implantado | `BACKEND READY` |
+| CAT-114 | Fase 4.5 — publicação (writer, estados publicando/publicado/falhou/despublicado) | sim, aba "Publicar na Nuvemshop" (`:6906-6970`) já funciona com fluxo próprio | implementado+testado, mesclado na V2 (`7b7eefa`); escrita real desligada (`NUVEMSHOP_PUBLICACAO_ENABLED` ausente) | mapeado (blocos 7-9) | não | 19 testes de schema | mesclado na V2, escrita desligada | `BACKEND READY` |
+| CAT-115 | Divergência de preço local × Nuvemshop | não existe hoje (ninguém compara) | `GET /api/catalogo/precos/divergentes` mede, não corrige — mesclado na V2 | mapeado (bloco 10) | não | não relatado | mesclado na V2, não implantado | `BACKEND READY`, política pendente (`P13`) |
 
 ## Matriz — Inventário
 
@@ -61,7 +68,7 @@ numa branch" não é "redesenhada". "UX foi desenhada" não é "implementada".
 | INV-102 | Bipagem de contagem (sem limite) | sim (`:7472-7662`) | — | idem | não | não | legado | `LEGACY ONLY` |
 | INV-103 | Concluir contagem + relatório faltando/sobrando | sim (`:7804-7886`) | `POST /concluir` (comportamento muda na 4.4: recusa item não comparável) | bloco 6, fechamento/revisão | não | não (legado) | legado | `LEGACY ONLY` |
 | INV-104 | Corrigir divergência (individual/lote) | sim (`:7888-7906`) | `POST /ajustar` | idem | não | não | legado | `LEGACY ONLY` |
-| INV-105 | Fase 4.4 — contagem pausável, tri-estado (não contado/contado-N/contado-zero) | não (legado não pausa nem distingue zero explícito) | implementado+testado, branch paralela: 5 rotas mudadas + 7 novas, migration | mapeado, 5 mockups, bloco 4 "em andamento" | não | 22 cenários + 9 travas de código-fonte | não mesclado, migration não aplicada | `BACKEND READY` |
+| INV-105 | Fase 4.4 — contagem pausável, tri-estado (não contado/contado-N/contado-zero) | não (legado não pausa nem distingue zero explícito) | implementado+testado, mesclado na V2: 5 rotas mudadas + 7 novas, migration | mapeado, 5 mockups, bloco 4 "em andamento" | não | 22 cenários + 9 travas de código-fonte | mesclado na V2, migration não aplicada | `BACKEND READY` |
 | INV-106 | Fase 4.4 — histórico de inventários com cobertura/divergência | não | idem | mapeado, bloco 5 | não | idem | idem | `BACKEND READY` |
 | INV-107 | Fase 4.4 — seleção de variação durante contagem, "não sei a variação" vira pendência | não | idem | mapeado, blocos 5 e 8; cópia oficial já decidida | não | idem | idem | `UX DESIGNED` + `BACKEND READY` |
 
@@ -76,7 +83,7 @@ numa branch" não é "redesenhada". "UX foi desenhada" não é "implementada".
 | NUV-105 | Revisão de distribuição de variações (loja × físico) | sim (`:6272-6407`) | `GET /api/variacoes/revisao` | não | não | não | legado | `LEGACY ONLY` |
 | NUV-106 | Exportações manuais (CSV/XLSX pra subir na loja) | sim (`:12949-13027`) | client-side, sem rota | não | não | não | legado | `LEGACY ONLY` |
 | NUV-107 | Cron de sincronização automática | `crons=[]` — **desarmado deliberadamente** em `api/wrangler.toml` | handler `scheduled` existe no Worker | não | não | não | nenhum ambiente | `BACKEND READY` (código existe, não ligado) — decisão pendente (`P1`) |
-| NUV-108 | Publicação externa real (ligar) | aba "Publicar" já monta payload | writer pronto, branch paralela; flag ausente em todo ambiente | mapeado | não | 19 testes | desligado | `BLOCKED` — ver PROJECT-STATUS |
+| NUV-108 | Publicação externa real (ligar) | aba "Publicar" já monta payload | writer pronto, mesclado na V2; flag ausente em todo ambiente | mapeado | não | 19 testes | desligado | `BACKEND READY`, `BLOCKED` para operar — ver PROJECT-STATUS |
 
 ## Matriz — Vendas, Personalização e Saídas
 
@@ -88,7 +95,7 @@ numa branch" não é "redesenhada". "UX foi desenhada" não é "implementada".
 | VEN-104 | Histórico completo de vendas (filtros, exportação) | sim (`:8707-8934`) | leitura paginada parcial | descrito, bloco 12 | não | não | legado | `LEGACY ONLY` |
 | VEN-105 | Correção de item vendido (trocar SKU de uma venda) | sim (`:10689-10819`) | `POST /api/vendas/corrigir-item` | não mapeado ainda | não | não | legado | `LEGACY ONLY` |
 | VEN-106 | Painel/analytics de vendas (evolução, categorias, origem) | sim (`:9280-10186`) | `GET /api/analytics/*` | descrito, blocos 3-6 | não | não | legado | `LEGACY ONLY` |
-| MON-101 | Monte seu Colar — venda de composição personalizada | sim, atrás de flag (`:8119-8312`) | 11 SKUs, slots tipados, ~20 garantias testadas, branch paralela | 1 mockup, estado "recebendo" | não | 5 arquivos de teste (branch paralela) | `PERSONALIZACAO_ATIVA=false` em todo ambiente | `BACKEND READY`, `BLOCKED` para operar |
+| MON-101 | Monte seu Colar — venda de composição personalizada | sim, atrás de flag (`:8119-8312`) | 11 SKUs, slots tipados, ~20 garantias testadas, mesclado na V2 | 1 mockup, estado "recebendo" | não | 5 arquivos de teste (mesclados na V2, verdes) | `PERSONALIZACAO_ATIVA=false` em todo ambiente | `BACKEND READY`, `BLOCKED` para operar |
 | SAI-101 | Saída sem faturamento (brinde/uso próprio/perda) | sim (`:9099-9226`) | `POST /api/saidas`, `/estornar` (existente) | descrito, bloco 11 | não | não | legado | `LEGACY ONLY` |
 | SAI-102 | Categoria "sorteio" | não | schema+código prontos em `main` (`ae81c5b`) | descrito, decisão fechada (`DP-005` área) | não | testes unitários (`main`) | **migration não aplicada em produção** | `BACKEND READY`, não em PROD |
 
@@ -209,7 +216,7 @@ resolvido sem nunca ter sido desenhado ou migrado corretamente.
 
 **7. Preço divergente local × Nuvemshop sem política — baixo, sob controle**
 
-- `GET /api/catalogo/precos/divergentes` (branch paralela) já mede e não
+- `GET /api/catalogo/precos/divergentes` (mesclado na V2) já mede e não
   corrige nada sozinho — o desenho está certo, falta só a política de
   negócio (`P13`/`DR-008`).
 
@@ -219,23 +226,78 @@ resolvido sem nunca ter sido desenhado ou migrado corretamente.
   aqui só para constar na paridade. Risco real: limpar o navegador apaga a
   fila de etiquetas sem qualquer backup central.
 
+## Achado — os outros casos iguais ao Cadastro de Produto
+
+Este documento nasceu porque o cadastro de produto só existia no legado sem
+ninguém ter percebido. A pergunta seguinte é óbvia: **quantos outros existem?**
+
+Resposta, contada por máquina sobre a matriz acima: **12**. O critério é o
+mesmo do achado original — a coluna **Nova UX** diz "não" *e* a coluna **Novo
+frontend** diz "não", enquanto o legado funciona. São funcionalidades que o
+negócio usa todo dia e para as quais a V2 ainda não tem nem desenho.
+
+| ID | Domínio | Funcionalidade | Backend que já existe |
+|---|---|---|---|
+| `EST-101` | Estoque | Visão geral (KPIs, avisos, insights) | GET /api/state (existente) |
+| `CAT-102` | Catálogo | Importação em lote — peças novas | POST /api/produtos/novos/analisar|cadastrar (existente) |
+| `CAT-105` | Catálogo | Editar peça (descrição/categoria/preço) | PATCH /api/produtos/:sku |
+| `CAT-107` | Catálogo | Kits (montar/desfazer) | PUT /api/produtos/:sku/componentes |
+| `CAT-108` | Catálogo | Excluir / arquivar / desarquivar produto | DELETE, POST /arquivar|/desarquivar |
+| `NUV-104` | Nuvemshop | Vincular/importar fotos da loja, adotar foto órfã | POST /api/fotos/vincular-da-loja|importar-da-loja|/orfas/adotar |
+| `NUV-105` | Nuvemshop | Revisão de distribuição de variações (loja × físico) | GET /api/variacoes/revisao |
+| `NUV-106` | Nuvemshop | Exportações manuais (CSV/XLSX pra subir na loja) | client-side, sem rota |
+| `VEN-105` | Vendas | Correção de item vendido (trocar SKU de uma venda) | POST /api/vendas/corrigir-item |
+| `CLI-102` | Clientes | Ficha completa do cliente (histórico, preferências, garantias) | GET /api/clientes/perfil |
+| `GAR-101` | Garantias | Registrar garantia, troca, status | POST /api/garantias/* |
+| `FIN-101` | Financeiro | Contas a receber (listar, prazo, marcar paga) | GET/PATCH/POST /api/contas-receber/* |
+
+**O que isto quer dizer, e o que não quer.** Quase todas já têm rota de API
+funcionando — o buraco não é backend, é **desenho**. Repetir o erro do
+cadastro de produto aqui seria ler "a rota existe" como "está resolvido".
+Nenhuma destas pode virar `DEV` sem passar antes por `UX DESIGNED`.
+
+Três merecem atenção fora da ordem de fase, porque envolvem dinheiro ou
+compromisso com cliente e hoje só existem no legado: `FIN-101` (contas a
+receber), `GAR-101` (garantias) e `VEN-105` (correção de item vendido).
+
+Esta lista é gerada junto com a contagem; ela se atualiza sozinha conforme as
+colunas da matriz mudam.
+
 ## Contagem por situação
+
+**Como se conta (regra única, aplicada por máquina):** cada linha da matriz
+ocupa **um** degrau da escada, e quando a célula cita mais de um degrau vale
+o **menor** — uma funcionalidade não está mais adiante do que o seu pedaço
+mais atrasado. `CAT-103`, por exemplo, tem React testado *e* produção ainda
+no legado: ela conta como `LEGACY ONLY`, não como `TESTED`.
+
+Estes números são gerados por `scripts/build-project-dashboard.mjs` a partir
+da matriz acima; não os edite à mão. Se um número estiver errado, a linha da
+matriz é que está errada.
 
 | Situação | Linhas na matriz |
 |---|---|
-| `LEGACY ONLY` | 27 |
-| `BACKEND READY` | 11 |
-| `UX DESIGNED` | 3 |
+| `LEGACY ONLY` | 28 |
+| `MAPPED` | 0 |
+| `BACKEND READY` | 14 |
+| `UX DESIGNED` | 2 |
 | `IMPLEMENTED` | 1 |
-| `TESTED` | 6 |
-| `MAPPED` (documental, sem código) | 0 adicional (contido nas linhas acima) |
-| `PROD` (novo, substituindo legado) | 0 |
+| `TESTED` | 3 |
+| `DEV` | 0 |
+| `APPROVED` | 0 |
+| `PROD` | 0 |
 | `LEGACY REMOVABLE` | 0 |
 
-Nenhuma funcionalidade chegou a `PROD` ou `LEGACY REMOVABLE` ainda — o
-sistema novo não substituiu nada em produção real até esta data. Isso não é
-um problema por si só; é o retrato correto de "em construção" que este
-documento existe para não deixar ninguém esquecer.
+Total classificado: 48 de 48 linhas.
+
+A contagem manual anterior desta seção (27/11/3/1/6) usava o degrau **mais
+alto** citado em cada célula, o que inflava `TESTED`. A regra do menor degrau
+é a que combina com a regra de leitura no topo deste documento.
+
+Nada chegou a `DEV`, `APPROVED`, `PROD` ou `LEGACY REMOVABLE` — o sistema
+novo ainda não substituiu nada em produção real, e a V2 está deliberadamente
+fora de produção. Isso não é um problema por si só; é o retrato correto de
+"em construção" que este documento existe para não deixar ninguém esquecer.
 
 ## Como manter isto vivo
 

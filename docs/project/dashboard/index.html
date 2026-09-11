@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marquesa V2 — Painel do projeto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Serif:wght@600&display=swap">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<div class="folha">
+
+  <header class="topo">
+    <div>
+      <h1>Marquesa V2 — painel do projeto</h1>
+      <p>Estado da reconstrução, lido dos documentos versionados. Esta tela não
+         guarda nada: tudo que ela mostra vem de <code>docs/project/</code>,
+         de <code>api/wrangler.toml</code> e do próprio Git.</p>
+    </div>
+    <div class="carimbo" id="carimbo"></div>
+  </header>
+
+  <div class="ambientes" id="ambientes"></div>
+  <p class="alerta-prod">
+    <b>PROD está congelada para a V2.</b> Nenhuma tarefa desta reconstrução pode
+    aparecer como <code>PROD</code> nesta tela. O destino de tudo aqui é o DEV.
+  </p>
+
+  <section>
+    <h2>Visão geral</h2>
+    <p class="subtitulo">Tarefas do <code>PROJECT-STATUS.md</code>. Decisões pendentes
+      ficam fora do cálculo de progresso — elas não são trabalho, são espera.</p>
+    <div class="estados" id="estados"></div>
+    <div class="progresso">
+      <div class="progresso__trilho"><div class="progresso__barra" id="barra"></div></div>
+      <div class="progresso__legenda">
+        <span id="progresso-texto"></span>
+        <span id="progresso-nota"></span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Escada de paridade com o legado</h2>
+    <p class="subtitulo">As <span id="paridade-total"></span> funcionalidades da
+      auditoria, cada uma num degrau só. Quando uma linha cita mais de um degrau
+      vale o <b>menor</b>: nada está mais adiante do que o seu pedaço mais atrasado.</p>
+    <div class="escada">
+      <div class="escada__faixa" id="escada-faixa"></div>
+      <div class="escada__degraus" id="escada-degraus"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Decisões que dependem de você</h2>
+    <p class="subtitulo">Só o que exige escolha do Gustavo — nada que o sistema
+      possa inferir sozinho.</p>
+    <div class="rolagem">
+      <table>
+        <thead><tr><th>ID</th><th>Pergunta</th><th>Trava</th></tr></thead>
+        <tbody id="decisoes"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Por domínio</h2>
+    <p class="subtitulo">Cada domínio com suas tarefas em andamento e quantas
+      funcionalidades ainda dependem do legado.</p>
+    <div class="dominios" id="dominios"></div>
+  </section>
+
+  <section>
+    <h2>Tarefas</h2>
+    <p class="subtitulo">Todas as tarefas com Task ID. Filtre por estado.</p>
+    <div class="filtro" id="filtro"></div>
+    <div class="rolagem">
+      <table>
+        <thead><tr><th>ID</th><th>Estado</th><th>Tarefa</th><th>Onde está / o que trava</th></tr></thead>
+        <tbody id="tarefas"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Claude e Codex</h2>
+    <p class="subtitulo">Um roadmap só, worklogs separados. A atribuição vem do
+      prefixo da branch, que é sinal verificável — não de adivinhação sobre o
+      autor do commit.</p>
+    <div class="agentes" id="agentes"></div>
+  </section>
+
+  <section>
+    <h2>Últimas alterações</h2>
+    <p class="subtitulo">Direto do <code>git log</code> desta branch.</p>
+    <div class="rolagem">
+      <table>
+        <thead><tr><th>Data</th><th>Commit</th><th>Agente</th><th>Resumo</th></tr></thead>
+        <tbody id="commits"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="rodape">
+    <p><b>Como esta tela se atualiza.</b> Ela não tem dado digitado. Depois de
+      editar qualquer arquivo de <code>docs/project/</code>, rode
+      <code>node scripts/build-project-dashboard.mjs</code> e commite o resultado.
+      O gate <code>projeto-painel</code> da suíte roda
+      <code>--check</code> e falha se a tela divergir dos documentos.</p>
+    <p><b>Se um número aqui estiver errado</b>, o erro está no documento, não na
+      tela. Corrija o <code>.md</code> e regenere.</p>
+    <p id="rodape-fonte"></p>
+  </footer>
+
+</div>
+<script src="data.js"></script>
+<script src="painel.js"></script>
+</body>
+</html>
