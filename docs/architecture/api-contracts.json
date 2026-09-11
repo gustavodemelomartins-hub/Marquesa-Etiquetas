@@ -8,11 +8,15 @@
   "sem-bearer": "responde antes da porta de checarChave: health, callback OAuth e foto assinada por HMAC",
   "bearer": "exige Authorization: Bearer <API_KEY>"
  },
- "total": 151,
+ "total": 163,
  "contratos": [
   {
    "contrato": "ANY /api/health",
    "auth": "sem-bearer"
+  },
+  {
+   "contrato": "DELETE /api/galeria/:param",
+   "auth": "bearer"
   },
   {
    "contrato": "DELETE /api/historico/reclassificar/:param",
@@ -107,6 +111,10 @@
    "auth": "bearer"
   },
   {
+   "contrato": "GET /api/fotos/lotes/:param",
+   "auth": "bearer"
+  },
+  {
    "contrato": "GET /api/fotos/orfas",
    "auth": "bearer"
   },
@@ -172,6 +180,10 @@
   },
   {
    "contrato": "GET /api/produtos/:param/fotos",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/produtos/:param/galeria",
    "auth": "bearer"
   },
   {
@@ -335,6 +347,18 @@
    "auth": "bearer"
   },
   {
+   "contrato": "POST /api/fotos/lotes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/fotos/lotes/:param/cancelar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/fotos/lotes/:param/confirmar",
+   "auth": "bearer"
+  },
+  {
    "contrato": "POST /api/fotos/orfas/adotar",
    "auth": "bearer"
   },
@@ -344,6 +368,10 @@
   },
   {
    "contrato": "POST /api/fotos/vincular-da-loja",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/galeria/:param/aprovar",
    "auth": "bearer"
   },
   {
@@ -460,6 +488,18 @@
   },
   {
    "contrato": "POST /api/produtos/:param/foto/fundo-branco",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/produtos/:param/galeria",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/produtos/:param/galeria/ordem",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/produtos/:param/galeria/principal",
    "auth": "bearer"
   },
   {
@@ -596,6 +636,14 @@
   },
   {
    "contrato": "PUT /api/config",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PUT /api/fotos/lotes/:param/arquivo/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PUT /api/galeria/:param/preparada",
    "auth": "bearer"
   },
   {
