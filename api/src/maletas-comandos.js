@@ -11,7 +11,7 @@
  *  de apagar (28). O empurrao de saldo para a loja acontece depois de a
  *  transacao local ter fechado, e o resultado dele faz parte da resposta. */
 import { json } from './auth.js';
-import { movimentar, saldosDoSku } from './estoque.js';
+import { movimentar, saldosDoSku, semSaldoProprio } from './estoque.js';
 import { calcComissao } from './comissao.js';
 import { sincronizarSomenteEstoque } from './sync.js';
 import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
@@ -65,8 +65,13 @@ export async function adicionarItens(db, env, maletaId, { itens }) {
     // efeito 0 no saldo, e o disponível do kit vem só dos componentes) —
     // deixar entrar deixaria o mesmo componente "disponível" duas vezes.
     // Melhor recusar com uma explicação do que consignar errado em silêncio.
-    if (s.componentes) {
-      recusados.push({ sku, desc: s.desc, motivo: 'é uma peça montada (kit) — venda direto, ainda não vai para maleta' });
+    if (semSaldoProprio(s)) {
+      recusados.push({
+        sku, desc: s.desc,
+        motivo: s.montagem
+          ? 'é uma configuração montável — a maleta leva as peças, não a montagem'
+          : 'é uma peça montada (kit) — venda direto, ainda não vai para maleta',
+      });
       continue;
     }
     if (qtd > s.disponivel) {

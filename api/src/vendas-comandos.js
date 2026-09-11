@@ -164,6 +164,18 @@ export async function registrarVenda(db, env, {
     if (s.preco === null || s.preco === undefined) {
       return json({ erro: `${s.desc} está sem preço cadastrado. Defina o preço antes de vender.`, sku }, 409);
     }
+    /* §42 — a configuração montável não é peça avulsa. Aceitar esta linha
+       movimentaria o SKU comercial, que não tem saldo físico: o `qtd` dele
+       em `produtos` é resíduo de cadastro, e baixá-lo somaria uma segunda
+       camada de estoque sobre as mesmas venezianas e pingentes. Ela entra
+       por `personalizacoes`, com as peças escolhidas. */
+    if (s.montagem) {
+      return json({
+        erro: `${s.desc} é uma configuração montável — escolha as peças em `
+            + 'Colar personalizado em vez de vender o código direto.',
+        sku,
+      }, 409);
+    }
 
     let disp;
     if (s.componentes) {
@@ -511,6 +523,35 @@ export async function registrarPagamentoVenda(db, id, corpo = {}) {
 
 
 
+/** Os movimentos que devolvem UMA composição ao estoque.
+ *
+ *  Devolve exatamente o que saiu: cada componente pelo `componente_sku`
+ *  gravado em `venda_personalizacao_itens`, e a base com a MESMA identidade
+ *  de variação com que foi baixada. Devolver "uma veneziana qualquer" fecha
+ *  o total e desencontra a razão POR VARIAÇÃO — e o §2 do CLAUDE.md vale no
+ *  estorno tanto quanto na venda: a peça não volta sozinha para a caixinha
+ *  certa.
+ *
+ *  Composição de venda retroativa (§7.4) não devolve nada, pela mesma regra
+ *  que impediu a baixa original. */
+export function estornoDeComposicao(db, vendaId, p) {
+  if (p.estoqueJaRefletido) return [];
+  const stmts = movimentar(db, {
+    sku: p.baseSku, tipo: 'cancelamento', quantidade: 1, origem: 'cancelamento',
+    vendaId, obs: `Estorno da venda ${vendaId} · ${p.modeloNome} (base)`,
+    variacao: p.baseVariacao || null, varianteId: p.baseVarianteId || null,
+  });
+  for (const c of p.componentes || []) {
+    stmts.push(...movimentar(db, {
+      sku: c.sku, tipo: 'cancelamento', quantidade: Number(c.qtd || 1),
+      origem: 'cancelamento', vendaId,
+      obs: `Estorno da venda ${vendaId} · ${p.modeloNome} (componente)`,
+      variacao: c.variacao || null, varianteId: c.varianteId || null,
+    }));
+  }
+  return stmts;
+}
+
 /** §19 e §28: cancelar cria movimentação inversa, não apaga a venda. */
 export async function cancelarVenda(db, env, vendaId) {
   const v = await db.prepare(`SELECT * FROM vendas WHERE id = ?`).bind(vendaId).first();
@@ -528,19 +569,7 @@ export async function cancelarVenda(db, env, vendaId) {
   for (const p of personalizacoes) {
     const skuLinha = String(p.skuComercial || p.baseSku);
     linhasComerciais.set(skuLinha, (linhasComerciais.get(skuLinha) || 0) + 1);
-    if (p.estoqueJaRefletido) continue;
-    stmts.push(...movimentar(db, {
-      sku: p.baseSku, tipo: 'cancelamento', quantidade: 1, origem: 'cancelamento',
-      vendaId, obs: `Estorno da venda ${vendaId} · ${p.modeloNome} (base)`,
-    }));
-    for (const c of p.componentes || []) {
-      stmts.push(...movimentar(db, {
-        sku: c.sku, tipo: 'cancelamento', quantidade: Number(c.qtd || 1),
-        origem: 'cancelamento', vendaId,
-        obs: `Estorno da venda ${vendaId} · ${p.modeloNome} (componente)`,
-        variacao: c.variacao || null, varianteId: c.varianteId || null,
-      }));
-    }
+    stmts.push(...estornoDeComposicao(db, vendaId, p));
   }
   for (const i of itens) {
     const restantes = linhasComerciais.get(String(i.sku)) || 0;

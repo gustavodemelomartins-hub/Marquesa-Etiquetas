@@ -50,7 +50,7 @@
  *  `visaoGeral` soma `garantia_trocas.diferenca_valor_pago` e passa a somar
  *  só as trocas SEM `venda_id` — as antigas, de antes desta regra.
  */
-import { movimentar, saldosDoSku, componentesDoKit } from './estoque.js';
+import { movimentar, saldosDoSku, componentesDoKit, semSaldoProprio } from './estoque.js';
 import { carregarFeriados, prazoDaGarantia, somarDiasUteis } from './dias-uteis.js';
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import { parametros } from './plataforma/d1.js';
@@ -325,8 +325,15 @@ export async function registrarTroca(db, id, corpo = {}) {
 
   const s = await saldosDoSku(db, skuNovo);
   if (!s) return { ok: false, statusHttp: 400, erro: `Código ${skuNovo} não está no catálogo.`, sku: skuNovo };
-  if ((await componentesDoKit(db, skuNovo)).length) {
-    return { ok: false, statusHttp: 409, erro: `${s.desc} é um kit — troque por uma peça avulsa.`, sku: skuNovo };
+  /* Nem kit nem configuração montável: a troca movimenta o SKU trocado, e
+     nenhum dos dois tem saldo próprio para movimentar. */
+  if (semSaldoProprio(s) || (await componentesDoKit(db, skuNovo)).length) {
+    return {
+      ok: false, statusHttp: 409, sku: skuNovo,
+      erro: s.montagem
+        ? `${s.desc} é uma configuração montável — troque por uma peça avulsa.`
+        : `${s.desc} é um kit — troque por uma peça avulsa.`,
+    };
   }
   if (s.disponivel < 1) {
     return { ok: false, statusHttp: 409, erro: `${s.desc}: não há peça disponível para a troca.`, sku: skuNovo };

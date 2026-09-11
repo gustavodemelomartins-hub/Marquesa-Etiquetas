@@ -450,8 +450,17 @@ CREATE TABLE IF NOT EXISTS personalizacao_modelos (
   id        INTEGER PRIMARY KEY AUTOINCREMENT,
   slug      TEXT NOT NULL UNIQUE,
   nome      TEXT NOT NULL,
+  -- o SKU comercial da configuração (326660 = Colar Casal). É a identidade
+  -- que aparece na venda; ele NÃO tem saldo físico próprio, e a
+  -- disponibilidade dele é derivada dos componentes.
+  sku_comercial TEXT REFERENCES produtos(sku),
+  -- quantas posições ao todo. Sempre iguais e sempre = SUM(slots.qtd): a
+  -- faixa existia para a composição livre, que foi encerrada em 10/09/2026.
   slots_min INTEGER NOT NULL DEFAULT 1 CHECK (slots_min > 0),
   slots_max INTEGER NOT NULL DEFAULT 1 CHECK (slots_max > 0),
+  -- a base física obrigatória (a Veneziana), uma por montagem. NÃO é
+  -- sugestão: a decisão de 10/09/2026 revogou a troca de base, e a venda
+  -- recusa um `baseSku` diferente deste.
   base_sku_padrao TEXT REFERENCES produtos(sku),
   preco_sugerido REAL,
   ativo     INTEGER NOT NULL DEFAULT 1,
@@ -460,6 +469,22 @@ CREATE TABLE IF NOT EXISTS personalizacao_modelos (
   criado_em TEXT NOT NULL DEFAULT (datetime('now')),
   CHECK (slots_max >= slots_min)
 );
+
+-- Quantos slots de cada grupo a configuração tem. É o que `slots_min`/
+-- `slots_max` não conseguem dizer: Casal (1 Menino + 1 Menina) e Duas
+-- Meninas (2 Menina) são ambos "2 posições".
+--
+-- Uma linha por (configuração, grupo), e não por posição: as posições do
+-- mesmo grupo são intercambiáveis — repetir a mesma cor é permitido
+-- (decisão de 10/09/2026) —, então "2 Menino" é a informação inteira.
+CREATE TABLE IF NOT EXISTS personalizacao_slots (
+  modelo_id INTEGER NOT NULL REFERENCES personalizacao_modelos(id),
+  grupo     TEXT    NOT NULL,             -- 'Menino' | 'Menina'
+  qtd       INTEGER NOT NULL CHECK (qtd > 0),
+  ordem     INTEGER NOT NULL DEFAULT 0,   -- em que ordem a tela pergunta
+  PRIMARY KEY (modelo_id, grupo)
+);
+CREATE INDEX IF NOT EXISTS idx_pers_slots_modelo ON personalizacao_slots(modelo_id);
 
 CREATE TABLE IF NOT EXISTS personalizacao_opcoes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

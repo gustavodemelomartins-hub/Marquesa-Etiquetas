@@ -42,7 +42,11 @@ CREATE TABLE IF NOT EXISTS sync_execucoes ( id INTEGER PRIMARY KEY AUTOINCREMENT
 
 CREATE TABLE IF NOT EXISTS venda_itens ( venda_id INTEGER NOT NULL REFERENCES vendas(id), sku TEXT NOT NULL REFERENCES produtos(sku), desc TEXT NOT NULL, qtd INTEGER NOT NULL, preco REAL NOT NULL, motivo TEXT, variacao TEXT, variante_id TEXT, preco_tabela REAL, desconto_valor REAL, desconto_rotulo TEXT );
 
-CREATE TABLE IF NOT EXISTS personalizacao_modelos ( id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE, nome TEXT NOT NULL, slots_min INTEGER NOT NULL DEFAULT 1 CHECK (slots_min > 0), slots_max INTEGER NOT NULL DEFAULT 1 CHECK (slots_max > 0), base_sku_padrao TEXT REFERENCES produtos(sku), preco_sugerido REAL, ativo INTEGER NOT NULL DEFAULT 1, ordem INTEGER NOT NULL DEFAULT 0, obs TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')), CHECK (slots_max >= slots_min) );
+CREATE TABLE IF NOT EXISTS personalizacao_modelos ( id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE, nome TEXT NOT NULL, sku_comercial TEXT REFERENCES produtos(sku), slots_min INTEGER NOT NULL DEFAULT 1 CHECK (slots_min > 0), slots_max INTEGER NOT NULL DEFAULT 1 CHECK (slots_max > 0), base_sku_padrao TEXT REFERENCES produtos(sku), preco_sugerido REAL, ativo INTEGER NOT NULL DEFAULT 1, ordem INTEGER NOT NULL DEFAULT 0, obs TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')), CHECK (slots_max >= slots_min) );
+
+CREATE TABLE IF NOT EXISTS personalizacao_slots ( modelo_id INTEGER NOT NULL REFERENCES personalizacao_modelos(id), grupo TEXT NOT NULL, qtd INTEGER NOT NULL CHECK (qtd > 0), ordem INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (modelo_id, grupo) );
+
+CREATE INDEX IF NOT EXISTS idx_pers_slots_modelo ON personalizacao_slots(modelo_id);
 
 CREATE TABLE IF NOT EXISTS personalizacao_opcoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, modelo_id INTEGER NOT NULL REFERENCES personalizacao_modelos(id), componente_sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT, variante_id TEXT, rotulo TEXT NOT NULL, grupo TEXT, ordem INTEGER NOT NULL DEFAULT 0, ativo INTEGER NOT NULL DEFAULT 1 );
 

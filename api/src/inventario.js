@@ -19,7 +19,12 @@ import { movimentar } from './estoque.js';
 /** Kit fica de fora: ele nunca tem produtos.qtd próprio (é sempre 0, sem
  *  movimento nenhum), então "contar" um kit não diz nada sobre estoque —
  *  quem tem saldo de verdade para bipar são os componentes dele, que já
- *  aparecem aqui normalmente como qualquer outro produto. */
+ *  aparecem aqui normalmente como qualquer outro produto.
+ *
+ *  Configuração montável (§42) fica de fora pelo mesmo motivo, e por um a
+ *  mais: contá-la levaria a Sthefany a bipar um "Colar Casal" e a somá-lo
+ *  às venezianas e pingentes que ela já contou — a dupla contagem que o
+ *  modelo existe para impedir. */
 const SQL_ESPERADO = `
   SELECT p.sku, p.desc, p.cat, p.preco,
          p.qtd - COALESCE((
@@ -28,7 +33,9 @@ const SQL_ESPERADO = `
             WHERE mi.sku = p.sku AND m.status IN ('aberta', 'em_acerto')
          ), 0) AS esperado
     FROM produtos p
-   WHERE p.sku NOT IN (SELECT kit_sku FROM kit_componentes)`;
+   WHERE p.sku NOT IN (SELECT kit_sku FROM kit_componentes)
+     AND p.sku NOT IN (SELECT sku_comercial FROM personalizacao_modelos
+                        WHERE sku_comercial IS NOT NULL)`;
 
 export async function abrirInventario(db) {
   const aberto = await db.prepare(

@@ -17,11 +17,16 @@ Onde testar: aba **Vendas → + Colar personalizado**
 - [ ] Trocar de modelo troca as opções de componente disponíveis.
 - [ ] Modelo inativo (`ativo=0`) não aparece na lista.
 
-## 2. Escolha da base
+## 2. A base não é escolha
 
-- [ ] A base sugerida do modelo (`base_sku_padrao`) vem pré-selecionada,
-      mas pode ser trocada por outra peça do catálogo.
-- [ ] Base com saldo zerado é sinalizada (não impede escolher, mas avisa).
+Atualizado em 10/09/2026: a troca de base foi **revogada**.
+
+- [ ] A base da configuração (`baseSkuPadrao`) aparece travada, só como
+      informação — não é um campo escolhível.
+- [ ] Um pedido que mande outra base é recusado (409), dizendo qual é a base
+      da configuração.
+- [ ] Base com saldo zerado zera a disponibilidade da configuração inteira:
+      sem corrente não há montagem, por mais pingente que exista.
 
 ## 3. Quantidade de posições
 
@@ -62,10 +67,11 @@ Onde testar: aba **Vendas → + Colar personalizado**
       (ex.: modelo de R$ 149 cobra R$ 149, mesmo que a soma das peças avulsas
       desse outro valor).
 - [ ] Se o modelo tem `preco_sugerido`, ele vem pré-preenchido.
-- [ ] Vender por um valor diferente do sugerido é permitido, e a diferença
-      é tratada como desconto (mesma regra §27 do restante do sistema).
-- [ ] Sem preço nenhum, a tela recusa e pede o valor — não inventa um
-      padrão.
+- [ ] Atualizado em 10/09/2026: um valor **diferente** do da configuração é
+      recusado (409) dizendo quanto ela custa. O preço é decisão comercial da
+      configuração, e não desconto de venda.
+- [ ] Configuração sem preço cadastrado não vende (409) — a tela não inventa
+      um padrão nem pergunta o valor.
 
 ## 8. Carrinho
 
@@ -109,22 +115,21 @@ Onde testar: aba **Vendas → + Colar personalizado**
 - [ ] A composição retroativa fica marcada como tal no histórico, e
       **nada é empurrado para a Nuvemshop** para ela (`nao_aplicavel`).
 
-## 14. Edição / cancelamento — ⚠️ GAP ENCONTRADO
+## 14. Edição / cancelamento — GAP FECHADO
+
+O gap registrado aqui em 06/09/2026 — o estorno devolvia a base e podia não
+devolver os componentes — **está corrigido e coberto por teste automático**
+(`src/montagem-estorno-test.mjs`). Um segundo defeito, descoberto em
+10/09/2026, também foi corrigido: a base voltava **sem a variação** com que
+saiu, o que fechava o total e fazia a razão por variação mentir.
 
 - [ ] **NÃO existe edição** de uma venda com colar já registrada — só dá
       para cancelar e lançar de novo.
-- [ ] **Cancelamento existe**, mas **valide com atenção**: o cancelamento
-      de uma venda (`POST /api/vendas/{id}/cancelar`) hoje estorna pelo
-      `sku` gravado em `venda_itens` (a **base**), e não percorre
-      `venda_personalizacao_itens` (os componentes). Ou seja: **é possível
-      que cancelar um colar personalizado devolva ao estoque só a base, e
-      NÃO devolva os pingentes/componentes que saíram junto.**
-  - [ ] Teste manualmente: monte um colar, confirme a venda, anote o saldo
-        de cada componente, cancele a venda, confira se cada componente
-        voltou ao estoque (esperado) ou só a base voltou (bug confirmado).
-  - Não há teste automático cobrindo isso — se o comportamento for
-    confirmado como incorreto, é uma correção separada, fora do escopo
-    desta revisão.
+- [ ] Cancelar devolve **a base e cada componente**, pelo SKU exato que saiu.
+- [ ] A variação e a variante de cada peça voltam iguais às da venda —
+      inclusive as da base.
+- [ ] Cancelar **duas vezes** é recusado (409) e não devolve estoque de novo.
+- [ ] `GET /api/estoque/conferir` continua vazio depois do estorno.
 
 ## 15. Componente fica sem estoque durante a montagem
 
@@ -142,15 +147,22 @@ Onde testar: aba **Vendas → + Colar personalizado**
 ## O que já está provado por teste automático (não precisa reconferir)
 
 `src/pos-golive-1-test.mjs` (cenários N/O) e `src/pos-golive-1-ui-test.mjs`
-já cobrem, com asserção: cadastro de modelo, disponibilidade agregada,
-preço da composição, baixa de base + cada componente, recibo em uma linha,
-configuração preservada, peça insuficiente recusada, mais posições que o
-modelo recusado, venda retroativa sem baixa, flag gravada, mistura recusada,
-razão fechando em todos os casos. Rodados nesta revisão em banco local
-limpo: **todos passaram**.
+cobrem o caminho pelo Worker: cadastro, disponibilidade agregada, preço da
+composição, baixa de base + cada componente, recibo em uma linha,
+configuração preservada, peça insuficiente recusada, venda retroativa sem
+baixa, flag gravada, mistura recusada, razão fechando.
+
+Desde 10/09/2026, quatro provas **sem Worker**, que rodam no gate rápido:
+
+| Arquivo | O que prova |
+|---|---|
+| `src/montagem-saldo-test.mjs` | configuração com `qtd 0`, disponível derivado, Veneziana como teto, cor repetida valendo |
+| `src/montagem-venda-test.mjs` | slots exatos, cardápio do grupo, base fixa, preço da configuração, carrinho disputando a mesma peça |
+| `src/montagem-estorno-test.mjs` | estorno exato, com variação, inclusive a da base |
+| `scripts/montagem-dupla-contagem.test.mjs` | as quatro travas contra dupla contagem continuam no código |
 
 ## O que este checklist cobre e o automático não
 
-Cancelamento estornando componente por componente (seção 14) e o
-comportamento de "sem fila de espera" (seção 15) — são os dois pontos sem
-prova automatizada, por isso pedem o olho humano de vocês dois.
+O comportamento de "sem fila de espera" (seção 15) e a **tela**: rótulos,
+agrupamento visual, campo de base travado, dropdown desabilitado. São os
+pontos que pedem o olho humano de vocês dois.
