@@ -69,6 +69,7 @@ componente atual; isso é decisão da fase 9 do Master Plan.
 
 ## Ativo de interface
 
-O protótipo mestre de Vendas usa o ativo vetorial limpo
-[`logo_sistema-marquesa_horizontal.svg`](../../01-brand/logo_sistema-marquesa_horizontal.svg),
-sem o fundo decorativo do PNG de origem.
+O protótipo mestre de Vendas usa a
+[`logo_sistema-marquesa_principal.png`](../../01-brand/logo_sistema-marquesa_principal.png)
+original enviada por Gustavo. Não reconstruir nem substituir o desenho da
+marca por aproximação.

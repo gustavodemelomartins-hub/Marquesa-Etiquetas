@@ -12,7 +12,7 @@
       <header class="app-header">
         <div class="header-main">
           <a class="brand" href="#painel" aria-label="Sistema Marquesa — início">
-            <img src="../../01-brand/logo_sistema-marquesa_horizontal.svg" alt="Marquesa Semijoias" />
+            <img src="../../01-brand/logo_sistema-marquesa_principal.png" alt="Marquesa Semijoias" />
           </a>
 
           <nav class="primary-nav" aria-label="Áreas principais">
@@ -190,16 +190,61 @@
             </div>
 
             <div class="analytics-view" data-view-panel="month" hidden>
-              <div class="metric-row">
-                <article><span>Faturamento recebido</span><strong>R$ 9.891,59</strong><small>+12% sobre agosto</small></article>
-                <article><span>Vendas realizadas</span><strong>47</strong><small>pela data da venda</small></article>
-                <article><span>Peças vendidas</span><strong>86</strong><small>1,8 peça por venda</small></article>
-                <article><span>Clientes atendidas</span><strong>39</strong><small>6 novas no período</small></article>
+              <div class="month-selector" aria-label="Mês analisado">
+                <button type="button" class="month-current">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM8 3v6M16 3v6M4 10h16"/></svg>
+                  Setembro de 2026
+                </button>
+                <button type="button" aria-label="Mês anterior">‹</button>
+                <button type="button" aria-label="Próximo mês">›</button>
+                <button type="button" class="clear-month">Limpar mês</button>
               </div>
-              <div class="month-grid">
-                <section><h3>Movimento do mês</h3><div class="mini-chart"><i style="height:38%"></i><i style="height:56%"></i><i style="height:47%"></i><i style="height:73%"></i><i style="height:66%"></i><i style="height:84%"></i><i style="height:62%"></i><i style="height:92%"></i></div></section>
-                <section><h3>Destaques do mês</h3><dl class="highlights"><div><dt>Maior venda</dt><dd>R$ 777,00</dd></div><div><dt>Ticket médio</dt><dd>R$ 148,94</dd></div><div><dt>Dia mais forte</dt><dd>05/09</dd></div></dl><p class="pending-rule">Critérios finais desses destaques aguardam decisão de produto.</p></section>
+
+              <div class="metric-row monthly-metrics">
+                <article><span>Faturamento</span><strong>R$ 9.891,59</strong><small class="trend">↑ 12% em relação a agosto</small></article>
+                <article><span>Vendas</span><strong>47</strong></article>
+                <article><span>Peças vendidas</span><strong>86</strong></article>
+                <article><span>Clientes atendidas</span><strong>39</strong></article>
               </div>
+
+              <div class="month-grid faithful">
+                <section>
+                  <h3>Categorias mais vendidas</h3>
+                  <ul class="bars month-bars">
+                    <li><span>Brinco</span><i><b style="width:94%"></b></i><strong>24</strong></li>
+                    <li><span>Pulseira</span><i><b style="width:48%"></b></i><strong>12</strong></li>
+                    <li><span>Colar</span><i><b style="width:48%"></b></i><strong>12</strong></li>
+                    <li><span>Anel</span><i><b style="width:32%"></b></i><strong>8</strong></li>
+                    <li><span>Argola</span><i><b style="width:17%"></b></i><strong>4</strong></li>
+                    <li><span>Pingente</span><i><b style="width:13%"></b></i><strong>3</strong></li>
+                  </ul>
+                </section>
+                <section>
+                  <h3>Destaques do mês</h3>
+                  <dl class="highlights">
+                    <div><dt>Maior venda</dt><dd>R$ 777,00</dd></div>
+                    <div><dt>Ticket médio</dt><dd>R$ 148,94</dd></div>
+                    <div><dt>Dia mais forte</dt><dd>05/09</dd></div>
+                  </dl>
+                </section>
+              </div>
+
+              <section class="month-sales">
+                <h3>Vendas de setembro</h3>
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>Data</th><th>Cliente</th><th>Peças</th><th>Valor</th><th>Status</th><th aria-label="Ações"></th></tr></thead>
+                    <tbody>
+                      <tr><td>05/09/2026</td><td>Camila Ferreira</td><td>2</td><td>R$ 159,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
+                      <tr><td>04/09/2026</td><td>Juliana Prado</td><td>1</td><td>R$ 89,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
+                      <tr><td>03/09/2026</td><td>Ana Luiza Sedassari</td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
+                      <tr><td>02/09/2026</td><td>Zilma</td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
+                      <tr><td>01/09/2026</td><td>Adrielly Miguel</td><td>1</td><td>R$ 69,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="table-footer"><span>Mostrando 1 a 5 de 47 vendas</span><div><button type="button" aria-label="Página anterior">‹</button><button type="button" class="active">1</button><button type="button">2</button><button type="button">3</button><button type="button" aria-label="Próxima página">›</button></div></div>
+              </section>
             </div>
           </article>
         </section>

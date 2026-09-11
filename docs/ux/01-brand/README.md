@@ -41,10 +41,9 @@ O conjunto visual da marca — monograma `M` com diamante, assinatura
 
 Arquivo recebido: [logo_sistema-marquesa_principal.png](logo_sistema-marquesa_principal.png).
 
-Ativo vetorial preparado para interfaces:
-[logo_sistema-marquesa_horizontal.svg](logo_sistema-marquesa_horizontal.svg).
-Ele preserva a composição aprovada sem o fundo e os ornamentos do mockup,
-mantendo nitidez em qualquer escala.
+O protótipo deve usar este arquivo original. A reconstrução vetorial criada em
+11/09/2026 foi recusada por não preservar fielmente a logo enviada e foi
+removida.
 
 No cabeçalho usa-se a composição horizontal compacta, preservando proporção e
 área de respiro. O arquivo recebido é uma referência raster com fundo,
