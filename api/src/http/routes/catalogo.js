@@ -6,6 +6,7 @@
  *  o que a loja espelhou continua nos módulos de domínio. */
 import { json } from '../../auth.js';
 import { listarPendentes } from '../../catalogo.js';
+import { listarCategorias } from '../../catalogo/categorias.js';
 import { listarFotosOrfas, fotosDoSku } from '../../fotos.js';
 import { listarPublicacoes } from '../../publicacao-catalogo.js';
 import { variantesDoSku, variacoesParaRevisao, reconciliarVariacoes } from '../../variantes.js';
@@ -17,10 +18,14 @@ const sku = (params) => decodeURIComponent(params.sku);
 
 export const rotas = [
   {
+    /* Devolve a LISTA CRUA, como sempre devolveu — o painel legado itera o
+       array direto. Os campos novos (peças, órfã, podeRenomear) viajam em
+       cada item, e `_resumo` entra como um item marcado, para nenhuma tela
+       que faça `.map` sobre a resposta quebrar. */
     metodo: 'GET', caminho: '/api/categorias', auth: 'bearer',
     async handler({ db }) {
-      const r = await db.prepare(`SELECT * FROM categorias ORDER BY ordem, nome`).all();
-      return json(r.results);
+      const r = await listarCategorias(db);
+      return json(r.itens);
     },
   },
   {
