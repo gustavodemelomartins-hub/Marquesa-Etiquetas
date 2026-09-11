@@ -13,6 +13,14 @@
 **Última auditoria de progresso:** 2026-09-11 — ver §2 (o que mudou desde o
 baseline) e §30 (Fase 4.4/4.5).
 
+**Acompanhamento operacional diário:** este plano continua sendo o roteiro
+estrutural. O estado corrente de cada tarefa, tarefa por tarefa, com ID
+estável, mora em `docs/project/PROJECT-STATUS.md`; o histórico de execução
+de cada agente em `docs/project/WORKLOG-CLAUDE.md` e
+`docs/project/WORKLOG-CODEX.md`; a paridade funcional legado × sistema novo
+em `docs/project/LEGACY-PARITY-AUDIT.md`. Este documento não deve virar
+diário operacional — mudanças de progresso rotineiro vão para lá, não aqui.
+
 ---
 
 ## 1. Resumo executivo
@@ -682,6 +690,15 @@ implantada.
 |---|---|---|
 | Fase 4.4 | 4 — inventário | aprovada e provada na trilha paralela; sem deploy |
 | Fase 4.5 | 5 — categorias, fotos, personalização e publicação interna | contrato de API implementado e provado na trilha paralela (`docs/domains/CONTRATO-UX-API-4-5.md`), sem deploy; UX mapeada nesta branch em `docs/ux/03-screens/catalogo/` e `docs/ux/05-flows/catalogo-*.md` (10 telas conceituais, 4 fluxos); React não iniciado; escrita real na Nuvemshop desligada por padrão em todos os ambientes (`NUVEMSHOP_PUBLICACAO_ENABLED` ausente) |
+
+Achado da auditoria de 2026-09-11, independente desta ou de qualquer
+branch: **R2 não está habilitado em nenhum ambiente de produção**
+(`api/wrangler.toml` só declara o binding `FOTOS` em `[env.staging]`). Isso
+bloqueia estruturalmente toda escrita de foto própria — 158 das 160 peças
+ainda fora da loja não têm imagem em lugar nenhum, então "puxar da loja"
+não resolve. O código já responde a essa ausência com `503 { bloqueio:
+"sem_r2" }` em vez de erro — a trava está certa, falta o bucket. Ver
+`docs/project/LEGACY-PARITY-AUDIT.md` § "Legacy gaps discovered" item 1.
 
 O contrato da Fase 4.5 já formaliza os freios que a §50 deixava em aberto
 para "publicação externa de catálogo": chamadas secas por padrão, prévia com
