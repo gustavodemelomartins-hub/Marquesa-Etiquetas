@@ -510,18 +510,74 @@ console.log('\n=== 6. a diferença paga: as duas portas ===');
   assert.equal(g.troca.diferencaPagaEm, '2026-09-12');
   prova('e receber por ali fecha as duas linhas do mesmo jeito');
 
-  /* Defeito conhecido: esta porta — a normal — não escreve na linha do tempo
-     da garantia. O dinheiro fecha; o histórico do caso mente por omissão. */
-  assert.equal(g.eventos.some((e) => e.tipo === 'diferenca_paga'), false);
-  assert.deepEqual(g.eventos.map((e) => e.tipo), ['aberta', 'troca']);
-  caracteriza('pagar pelo A Receber NÃO entra na linha do tempo da garantia', '5.4c');
+  /* 5.4c — a porta normal passou a escrever na linha do tempo do caso. */
+  assert.equal(pg.eventoDeGarantiaRegistrado, true);
+  const pagos = g.eventos.filter((e) => e.tipo === 'diferenca_paga');
+  assert.equal(pagos.length, 1);
+  assert.equal(pagos[0].data, '2026-09-12');
+  assert.equal(pagos[0].dados.valor, 100.0);
+  assert.equal(pagos[0].dados.vendaId, t.vendaId);
+  assert.deepEqual(g.eventos.map((e) => e.tipo), ['aberta', 'troca', 'diferenca_paga']);
+  prova('5.4c: receber pelo A Receber entra na linha do tempo da garantia');
 
   const dup = await CR.receberConta(db, { chave: `venda:${t.vendaId}`, confirmar: true, pagaEm: '2026-09-12' });
   assert.equal(dup.ok, true);
   assert.equal(dup.jaEstavaPaga, true);
-  prova('receber a mesma conta duas vezes é inofensivo');
+  const depois = await G.lerGarantia(db, id);
+  assert.equal(depois.eventos.filter((e) => e.tipo === 'diferenca_paga').length, 1);
+  prova('receber a mesma conta duas vezes é inofensivo, e não duplica o evento');
 
   assert.equal(razaoFecha(raw), 0);
+}
+
+/* ════════════════════════════ 6b. o evento não vaza para conta que não é troca */
+console.log('\n=== 6b. o evento de garantia NAO vaza para conta comum ===');
+{
+  const raw = banco(); const db = adaptador(raw);
+  /* Uma garantia com troca paga existe no banco, para o cenário não passar
+     por falta de garantia nenhuma — e uma venda de balcão fiada ao lado. */
+  const r = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-09-01' });
+  const t = await G.registrarTroca(db, r.garantia.id, { skuNovo: '100002', data: '2026-09-10' });
+  assert.equal(t.ok, true);
+
+  raw.exec(`
+    INSERT INTO vendas (id, cliente_id, cliente_nome, cliente_nome_norm, origem, data, total, cancelada, pago, cobravel)
+      VALUES (99, 1, 'Vitoria', 'vitoria', 'balcao', '2026-09-02', 80.0, 0, 0, 1);
+    INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, id) VALUES
+      (99, '100004', 'Anel Igual', 1, 80.0, 'b0000000-0000-4000-8000-000000000099');
+    INSERT INTO movimentos (sku, tipo, qtd, origem, obs, venda_id)
+      VALUES ('100004', 'venda', -1, 'venda', 'venda 99', 99);
+    UPDATE produtos SET qtd = 49 WHERE sku = '100004';
+  `);
+
+  const eventosAntes = raw.prepare('SELECT COUNT(*) c FROM garantia_eventos').get().c;
+  const pg = await CR.receberConta(db, { chave: 'venda:99', confirmar: true, pagaEm: '2026-09-05' });
+  assert.equal(pg.ok, true, `recebimento falhou: ${pg.erro ?? ''}`);
+  assert.equal(pg.garantiaId, null);
+  assert.equal(pg.eventoDeGarantiaRegistrado, false);
+  assert.equal(raw.prepare('SELECT COUNT(*) c FROM garantia_eventos').get().c, eventosAntes);
+  prova('venda de balcão fiada recebe sem escrever evento em garantia nenhuma');
+
+  /* E a troca que continua em aberto não foi tocada de raspão. */
+  const g = await G.lerGarantia(db, r.garantia.id);
+  assert.equal(g.troca.diferencaStatus, 'a_receber');
+  assert.equal(g.eventos.some((e) => e.tipo === 'diferenca_paga'), false);
+  prova('e a diferença da garantia ao lado continua em aberto, intocada');
+
+  assert.equal(razaoFecha(raw), 0);
+}
+{
+  /* A conta HISTÓRICA nem chega ao trecho da venda: sai antes, por
+     `marcarContaPaga`. A prova é que nenhum evento nasce. */
+  const raw = banco(); const db = adaptador(raw);
+  const r = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-09-01' });
+  await G.registrarTroca(db, r.garantia.id, { skuNovo: '100002', data: '2026-09-10' });
+  const eventosAntes = raw.prepare('SELECT COUNT(*) c FROM garantia_eventos').get().c;
+
+  const pg = await CR.receberConta(db, { chave: 'historico:12345', confirmar: true, pagaEm: '2026-09-05' });
+  assert.equal(pg.ok, false, 'a operação histórica inventada não deveria existir');
+  assert.equal(raw.prepare('SELECT COUNT(*) c FROM garantia_eventos').get().c, eventosAntes);
+  prova('conta histórica não passa pelo caminho da garantia, nem para falhar');
 }
 
 /* ═══════════════════════════════════ 7. faturamento não conta duas vezes */

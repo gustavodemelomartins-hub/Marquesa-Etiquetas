@@ -34,7 +34,7 @@
  *  Nada aqui escreve em estoque. Receber dinheiro não faz peça sair.
  */
 import { listarContasReceber, definirVencimento, marcarContaPaga } from './historico-operacoes.js';
-import { pagarDiferencaTroca } from './garantias.js';
+import { pagarDiferencaTroca, registrarPagamentoDaDiferenca } from './garantias.js';
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const dataIsoValida = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
@@ -259,7 +259,7 @@ export async function receberConta(db, { chave, confirmar = false, versaoEsperad
      `garantia_trocas`. Fecham juntas, no mesmo batch, ou o Painel mostraria
      a diferença como paga num lugar e em aberto no outro. */
   const troca = await db.prepare(
-    'SELECT id, garantia_id, diferenca FROM garantia_trocas WHERE venda_id = ?',
+    'SELECT id, garantia_id, diferenca, diferenca_status FROM garantia_trocas WHERE venda_id = ?',
   ).bind(p.id).first().catch(() => null);
 
   const escritas = [
@@ -279,6 +279,33 @@ export async function receberConta(db, { chave, confirmar = false, versaoEsperad
   }
   await db.batch(escritas);
 
+  /* 5.4c — esta é a porta por onde a diferença de uma troca é recebida de
+     verdade: desde §36 ela aparece no A Receber como VENDA, e nenhuma tela
+     chama a rota da garantia. O dinheiro já fechava nos dois lugares; o que
+     faltava era a linha do tempo do CASO registrar o fato.
+   *
+   *  Só entra aqui o que é mesmo diferença de troca: `troca` só existe quando
+   *  há uma linha de `garantia_trocas` apontando para esta venda. Venda de
+   *  balcão e conta histórica passam direto — a histórica nem chega aqui,
+   *  sai antes por `marcarContaPaga`.
+   *
+   *  Escrever o evento NÃO pode derrubar um recebimento que já gravou: o
+   *  dinheiro está no banco, e um histórico incompleto é melhor que uma
+   *  cobrança perdida. §9 — a falha é dita, não engolida. */
+  let eventoGravado = false;
+  if (troca) {
+    try {
+      eventoGravado = await registrarPagamentoDaDiferenca(db, Number(troca.garantia_id), {
+        trocaId: Number(troca.id),
+        valor: dinheiro(troca.diferenca),
+        pagaEm: data,
+        vendaId: p.id,
+      });
+    } catch (e) {
+      console.error('receberConta: diferença paga, mas o evento da garantia não gravou', e);
+    }
+  }
+
   return {
     ok: true,
     chave,
@@ -286,6 +313,10 @@ export async function receberConta(db, { chave, confirmar = false, versaoEsperad
     pagaEm: data,
     faturamentoEm: data,
     garantiaId: troca ? Number(troca.garantia_id) : null,
+    /* Dito em voz alta para a tela não precisar deduzir se o caso foi
+       atualizado: `false` numa conta comum, e numa retentativa de uma
+       diferença que já tinha evento. */
+    eventoDeGarantiaRegistrado: eventoGravado,
     /* §29 dito na resposta, para nenhuma tela precisar deduzir. */
     estoqueTocado: false,
   };

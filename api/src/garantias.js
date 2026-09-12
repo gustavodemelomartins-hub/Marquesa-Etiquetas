@@ -337,6 +337,39 @@ async function evento(db, garantiaId, { tipo, data, statusNovo = null, observaca
   ).bind(garantiaId, tipo, data, statusNovo, observacao, JSON.stringify(dados ?? {})).run();
 }
 
+/** 5.4c — a diferença foi paga, e a linha do tempo da garantia tem de dizer.
+ *
+ *  Existem DUAS portas para esse mesmo fato: `pagarDiferencaTroca`, aqui, e a
+ *  tela A Receber, que desde §36 recebe a diferença como se fosse uma venda
+ *  qualquer — e é por ela que isso acontece de verdade, porque nenhuma tela
+ *  chama a rota da garantia. Só a primeira escrevia o evento. O dinheiro
+ *  fechava nos dois lugares e a história do caso ficava mentindo por omissão.
+ *
+ *  Esta função é o ponto único das duas portas. Ela é IDEMPOTENTE por
+ *  construção: o evento é único por TROCA, não por garantia. A distinção
+ *  importa — depois de um estorno a garantia pode receber uma troca nova, e
+ *  o pagamento dessa segunda troca é um fato novo, que merece a própria
+ *  linha. Repetir a chamada para a MESMA troca não escreve nada.
+ *
+ *  Devolve `true` quando gravou, `false` quando já havia. */
+export async function registrarPagamentoDaDiferenca(db, garantiaId, {
+  trocaId, valor, pagaEm, vendaId = null, observacao = null,
+}) {
+  const jaTem = await db.prepare(
+    `SELECT id FROM garantia_eventos
+      WHERE garantia_id = ? AND tipo = 'diferenca_paga'
+        AND json_extract(dados_json, '$.trocaId') = ?
+      LIMIT 1`,
+  ).bind(garantiaId, trocaId).first();
+  if (jaTem) return false;
+
+  await evento(db, garantiaId, {
+    tipo: 'diferenca_paga', data: pagaEm, observacao,
+    dados: { trocaId, valor, de: 'a_receber', para: 'paga', vendaId },
+  });
+  return true;
+}
+
 /* ═════════════════════════════════════════════════════════ mudança de status */
 
 export async function mudarStatusGarantia(db, id, corpo = {}) {
@@ -696,10 +729,9 @@ export async function pagarDiferencaTroca(db, id, corpo = {}) {
   }
   await db.batch(escritas);
 
-  await evento(db, id, {
-    tipo: 'diferenca_paga', data: pagaEm,
+  await registrarPagamentoDaDiferenca(db, id, {
+    trocaId: troca.id, valor, pagaEm, vendaId: troca.venda_id ?? null,
     observacao: String(corpo.observacao ?? '').trim() || null,
-    dados: { valor, de: 'a_receber', para: 'paga', vendaId: troca.venda_id ?? null },
   });
 
   return {
