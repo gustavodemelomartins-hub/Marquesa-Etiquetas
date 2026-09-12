@@ -255,15 +255,16 @@
             <div class="draft-tools"><span class="draft-indicator" data-draft-indicator><i></i> Rascunho vazio</span><button class="button ghost" type="button" data-clear-draft disabled>Limpar rascunho</button></div>
           </div>
           <div class="choice-grid" role="radiogroup" aria-label="Tipo de lançamento">
-            <button class="choice active" type="button" role="radio" aria-checked="true" data-launch-type="sale"><span>Venda normal</span><small>Peças com etiqueta</small></button>
+            <button class="choice" type="button" role="radio" aria-checked="false" data-launch-type="sale"><span>Venda normal</span><small>Peças com etiqueta</small></button>
             <button class="choice" type="button" role="radio" aria-checked="false" data-next-launch-flow="collar"><span>Monte seu Colar</span><small>Modelo e composição</small></button>
             <button class="choice" type="button" role="radio" aria-checked="false" data-launch-screen="saidas"><span>Saída sem faturamento</span><small>Brinde, uso próprio, perda ou sorteio</small></button>
           </div>
-          <div data-launch-workspace>
+          <div data-launch-workspace hidden>
             <section class="sale-composer" aria-label="Venda normal">
               <div class="launch-grid">
-              <section class="launch-pane launch-card">
-                <div class="section-heading"><div><h2>Itens da venda</h2><p>Leia a etiqueta ou busque por nome e SKU.</p></div><span class="item-count" data-item-count>0 peças</span></div>
+              <section class="launch-pane launch-card flow-step is-open" data-flow-step="items">
+                <button class="flow-step-toggle" type="button" data-step-toggle aria-expanded="true"><span class="step-index">1</span><span class="step-title"><strong>Itens da venda</strong><small>Leia a etiqueta ou busque por nome e SKU.</small></span><span class="step-summary" data-item-count>0 peças</span><span class="step-chevron" aria-hidden="true">⌃</span></button>
+                <div class="flow-step-body">
                 <form class="product-search" data-product-search-form>
                   <label class="visually-hidden" for="launch-product-search">Buscar produto</label>
                   <span aria-hidden="true">⌕</span>
@@ -273,10 +274,14 @@
                 <div class="product-results" data-product-results hidden></div>
                 <ul class="cart-list launch-cart" data-launch-cart hidden></ul>
                 <div class="cart-empty" data-cart-empty><span aria-hidden="true">◇</span><b>A venda ainda está vazia</b><small>Leia uma etiqueta ou busque uma peça para começar.</small></div>
+                <div class="step-next"><button class="button primary" type="button" data-open-step="customer" disabled>Continuar para cliente</button></div>
+                </div>
               </section>
 
-              <section class="launch-pane customer-card">
-                <div class="section-heading"><div><h2>Cliente da venda</h2><p>Quem comprou e onde a venda aconteceu.</p></div><button class="button primary compact-action" type="button" data-new-customer>+ Nova cliente</button></div>
+              <section class="launch-pane customer-card flow-step is-collapsed" data-flow-step="customer">
+                <button class="flow-step-toggle" type="button" data-step-toggle aria-expanded="false"><span class="step-index">2</span><span class="step-title"><strong>Cliente da venda</strong><small>Quem comprou e onde a venda aconteceu.</small></span><span class="step-summary" data-customer-step-summary>Não selecionada</span><span class="step-chevron" aria-hidden="true">⌄</span></button>
+                <div class="flow-step-body">
+                <div class="customer-step-actions"><button class="button primary compact-action" type="button" data-new-customer>+ Nova cliente</button></div>
                 <label class="field-label" for="launch-customer-search">Cliente</label>
                 <div class="customer-search"><span aria-hidden="true">⌕</span><input id="launch-customer-search" type="search" list="launch-customer-options" placeholder="Nome, WhatsApp ou CPF" data-customer-search /></div>
                 <datalist id="launch-customer-options"><option value="Thais Nania"></option><option value="Camila Ferreira"></option><option value="Juliana Prado"></option></datalist>
@@ -285,26 +290,31 @@
                 <div class="form-grid">
                   <label>Data da venda<input type="date" value="2026-09-12" max="2026-09-12" data-sale-date></label>
                   <label>Local ou canal<select data-sale-channel><option>Balcão</option><option>WhatsApp</option><option>Instagram</option><option>Feira ou evento</option></select></label>
-                  <label class="wide">Observação<textarea placeholder="Ex.: atendimento no grupo VIP" data-sale-note></textarea></label>
+                </div>
+                <div class="step-next"><button class="button primary" type="button" data-open-step="payment">Continuar para pagamento</button></div>
                 </div>
               </section>
-            </div>
 
-            <section class="payment">
-              <div class="section-heading"><div><h2>Pagamento</h2><p>O status acompanha os recebimentos registrados abaixo.</p></div></div>
+            <section class="payment flow-step is-collapsed" data-flow-step="payment">
+              <button class="flow-step-toggle" type="button" data-step-toggle aria-expanded="false"><span class="step-index">3</span><span class="step-title"><strong>Pagamento</strong><small>Registre o que entrou e o que ficou pendente.</small></span><span class="step-summary" data-payment-step-summary>Não informado</span><span class="step-chevron" aria-hidden="true">⌄</span></button>
+              <div class="flow-step-body">
               <div class="payment-overview">
                 <div class="payment-metric"><span>Valor da venda</span><strong data-sale-total>R$ 0,00</strong><small data-sale-piece-count>0 peças no carrinho</small></div>
                 <div class="payment-metric"><span>Valor recebido</span><strong data-sale-received>R$ 0,00</strong><small>dinheiro confirmado</small></div>
                 <div class="payment-metric"><span>Valor a receber</span><strong data-sale-receivable>R$ 0,00</strong><small>saldo cobrável</small></div>
                 <div class="financial-callout" data-financial-callout><span class="status neutral" data-financial-status>Sem itens</span><small data-financial-copy>Adicione uma peça para calcular.</small></div>
               </div>
-              <div class="payment-table">
+              <div class="payment-empty" data-payment-empty><span aria-hidden="true">◇</span><div><b>Nenhum pagamento informado</b><small>Adicione o primeiro recebimento ou valor pendente.</small></div></div>
+              <div class="payment-table" data-payment-table hidden>
                 <div class="payment-table-head"><span>Valor</span><span>Forma de pagamento</span><span>Status</span><span>Informações</span><span></span></div>
                 <div class="payment-list" data-payment-list></div>
               </div>
               <p class="payment-warning" role="alert" data-payment-warning hidden></p>
-              <div class="payment-actions"><button class="button primary" type="button" data-add-payment>+ Adicionar pagamento</button><button class="button quiet-action" type="button" data-show-parcel-help>↔ Parcelar</button><button class="button quiet-action" type="button" data-show-payment-help>••• Mais opções</button></div>
+              <div class="payment-actions"><button class="button primary" type="button" data-add-payment>+ Adicionar pagamento</button></div>
+              <label class="sale-note-field">Observação da venda <span>Opcional</span><textarea placeholder="Ex.: atendimento no grupo VIP" data-sale-note></textarea></label>
+              </div>
             </section>
+            </div>
             <footer class="sale-composer-footer"><strong data-footer-piece-count>0 peças</strong><div class="sale-totals"><span>Subtotal <b data-sale-subtotal>R$ 0,00</b></span><span>Desconto <b data-sale-discount>R$ 0,00</b></span><span>Total <b data-footer-total>R$ 0,00</b></span></div><button class="button primary" type="button" data-finalize-sale disabled>✓ Finalizar venda</button></footer>
             </section>
 
@@ -393,9 +403,14 @@
       const launchScreen = document.querySelector('#lancamentos');
       const launchWorkspace = launchScreen.querySelector('[data-launch-workspace]');
       const launchSuccess = launchScreen.querySelector('[data-launch-success]');
+      const saleChoice = launchScreen.querySelector('[data-launch-type="sale"]');
+      const flowSteps = [...launchScreen.querySelectorAll('[data-flow-step]')];
       const launchCart = launchScreen.querySelector('[data-launch-cart]');
       const cartEmpty = launchScreen.querySelector('[data-cart-empty]');
       const paymentList = launchScreen.querySelector('[data-payment-list]');
+      const paymentTable = launchScreen.querySelector('[data-payment-table]');
+      const paymentEmpty = launchScreen.querySelector('[data-payment-empty]');
+      const addPaymentButton = launchScreen.querySelector('[data-add-payment]');
       const paymentWarning = launchScreen.querySelector('[data-payment-warning]');
       const finalizeSaleButton = launchScreen.querySelector('[data-finalize-sale]');
       const productSearch = launchScreen.querySelector('[data-product-search]');
@@ -449,6 +464,45 @@
         launchScreen.querySelector(selector).textContent = value;
       }
 
+      function setFlowStep(stepName) {
+        flowSteps.forEach((step) => {
+          const open = step.dataset.flowStep === stepName;
+          step.classList.toggle('is-open', open);
+          step.classList.toggle('is-collapsed', !open);
+          step.querySelector('[data-step-toggle]').setAttribute('aria-expanded', String(open));
+          step.querySelector('.step-chevron').textContent = open ? '⌃' : '⌄';
+        });
+      }
+
+      flowSteps.forEach((step) => step.querySelector('[data-step-toggle]').addEventListener('click', () => {
+        if (step.classList.contains('is-open')) {
+          step.classList.remove('is-open');
+          step.classList.add('is-collapsed');
+          step.querySelector('[data-step-toggle]').setAttribute('aria-expanded', 'false');
+          step.querySelector('.step-chevron').textContent = '⌄';
+          return;
+        }
+        setFlowStep(step.dataset.flowStep);
+      }));
+
+      launchScreen.querySelectorAll('[data-open-step]').forEach((button) => button.addEventListener('click', () => {
+        const target = button.dataset.openStep;
+        setFlowStep(target);
+        launchScreen.querySelector(`[data-flow-step="${target}"]`).scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      }));
+
+      saleChoice.addEventListener('click', () => {
+        launchScreen.querySelectorAll('.choice').forEach((choice) => {
+          const selected = choice === saleChoice;
+          choice.classList.toggle('active', selected);
+          choice.setAttribute('aria-checked', String(selected));
+        });
+        launchWorkspace.hidden = false;
+        launchSuccess.hidden = true;
+        setFlowStep('items');
+        requestAnimationFrame(() => productSearch.focus());
+      });
+
       function updateLaunch() {
         const items = launchItems();
         const pieceCount = items.reduce((sum, item) => sum + Number(item.dataset.quantity), 0);
@@ -476,18 +530,25 @@
         setLaunchText('[data-footer-total]', launchMoney(totals.total));
         cartEmpty.hidden = items.length > 0;
         launchCart.hidden = items.length === 0;
+        launchScreen.querySelector('[data-open-step="customer"]').disabled = items.length === 0;
+        paymentTable.hidden = payments.length === 0;
+        paymentEmpty.hidden = payments.length > 0;
+        addPaymentButton.textContent = payments.length ? '+ Adicionar outro pagamento' : '+ Adicionar pagamento';
 
         let missingPendingDueDate = false;
         payments.forEach((entry) => {
           const info = entry.querySelector('[data-payment-info]');
           const dueField = entry.querySelector('[data-payment-due-field]');
           const dueInput = entry.querySelector('[data-payment-due-input]');
+          const installmentsField = entry.querySelector('[data-payment-installments]');
           const isPending = entry.querySelector('[data-payment-state]').value === 'pending';
+          const isCreditCard = entry.querySelector('[data-payment-method]').value === 'Cartão de crédito';
           if (info) {
-            info.hidden = isPending;
+            info.hidden = isPending || isCreditCard;
             info.textContent = 'Data do pagamento: 12/09/2026';
           }
           if (dueField) dueField.hidden = !isPending;
+          if (installmentsField) installmentsField.hidden = !isCreditCard;
           entry.classList.toggle('is-pending', isPending);
           const pendingWithoutDate = isPending && !dueInput?.value;
           entry.classList.toggle('payment-incomplete', pendingWithoutDate);
@@ -514,6 +575,9 @@
           status.textContent = 'Pago';
           financialCopy.textContent = 'O valor da venda foi recebido.';
         }
+        const customerName = selectedCustomer.hidden ? '' : launchScreen.querySelector('[data-customer-name]').textContent;
+        setLaunchText('[data-customer-step-summary]', customerName || 'Não selecionada');
+        setLaunchText('[data-payment-step-summary]', payments.length ? `${payments.length} ${payments.length === 1 ? 'pagamento' : 'pagamentos'}` : 'Não informado');
 
         paymentWarning.hidden = !totals.exceeded && !missingPendingDueDate;
         paymentWarning.textContent = totals.exceeded
@@ -648,7 +712,7 @@
         entry.className = 'payment-entry';
         entry.dataset.paymentEntry = '';
         entry.dataset.autoBalance = 'false';
-        entry.innerHTML = `<label><span>Valor</span><input type="number" min="0" step="0.01" value="${value.toFixed(2)}" data-payment-amount></label><label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label><label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label><span class="payment-info" data-payment-info>Data do pagamento: 12/09/2026</span><label class="payment-due-field" data-payment-due-field hidden><span>Vencimento</span><input type="date" min="2026-09-12" data-payment-due-input aria-label="Vencimento do pagamento pendente"></label><button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>`;
+        entry.innerHTML = `<label><span>Valor</span><input type="number" min="0" step="0.01" value="${value.toFixed(2)}" data-payment-amount></label><label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label><label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label><div class="payment-context"><span class="payment-info" data-payment-info>Data do pagamento: 12/09/2026</span><label class="payment-due-field" data-payment-due-field hidden><span>Vencimento</span><input type="date" min="2026-09-12" data-payment-due-input aria-label="Vencimento do pagamento pendente"></label><label class="payment-installments" data-payment-installments hidden><span>Parcelas</span><select aria-label="Quantidade de parcelas"><option>1x</option><option>2x</option><option>3x</option><option>4x</option><option>5x</option><option>6x</option><option>7x</option><option>8x</option><option>9x</option><option>10x</option><option>11x</option><option>12x</option></select></label></div><button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>`;
         return entry;
       }
 
@@ -663,15 +727,13 @@
         event.target.closest('[data-payment-entry]').remove();
         updateLaunch();
       });
-      launchScreen.querySelector('[data-add-payment]').addEventListener('click', () => {
+      addPaymentButton.addEventListener('click', () => {
         launchPayments().forEach((entry) => { entry.dataset.autoBalance = 'false'; });
         const totals = launchTotals();
         paymentList.append(paymentEntry(Math.max(0, totals.total - totals.planned)));
         updateLaunch();
         paymentList.lastElementChild.querySelector('[data-payment-amount]').focus();
       });
-      launchScreen.querySelector('[data-show-parcel-help]').addEventListener('click', () => showLaunchToast('O parcelamento será a próxima camada. Nesta versão, adicione os recebimentos separadamente e marque os futuros como pendentes.'));
-      launchScreen.querySelector('[data-show-payment-help]').addEventListener('click', () => showLaunchToast('Datas, vencimentos e observações serão abertos aqui conforme a forma e a situação escolhidas.'));
       launchScreen.querySelector('[data-open-today-sales]').addEventListener('click', () => activateScreen('painel'));
 
       function initialsFor(name) {
@@ -721,7 +783,17 @@
         launchScreen.querySelector('[data-sale-note]').value = '';
         launchWorkspace.hidden = false;
         launchSuccess.hidden = true;
+        setFlowStep('items');
         updateLaunch();
+      }
+
+      function resetLaunchTypePicker() {
+        launchWorkspace.hidden = true;
+        launchSuccess.hidden = true;
+        launchScreen.querySelectorAll('.choice').forEach((choice) => {
+          choice.classList.remove('active');
+          choice.setAttribute('aria-checked', 'false');
+        });
       }
 
       launchScreen.querySelector('[data-clear-draft]').addEventListener('click', () => clearDraftDialog.showModal());
@@ -753,9 +825,13 @@
           launchSuccess.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
         }, 420);
       });
-      launchScreen.querySelector('[data-new-sale]').addEventListener('click', clearLaunchDraft);
+      launchScreen.querySelector('[data-new-sale]').addEventListener('click', () => {
+        clearLaunchDraft();
+        resetLaunchTypePicker();
+      });
       launchScreen.querySelectorAll('[data-sale-date], [data-sale-channel], [data-sale-note]').forEach((field) => field.addEventListener('input', updateLaunch));
       clearLaunchDraft();
+      resetLaunchTypePicker();
 
       const viewButtons = [...document.querySelectorAll('[data-view]')];
       const viewPanels = [...document.querySelectorAll('[data-view-panel]')];

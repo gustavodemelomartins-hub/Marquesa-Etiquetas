@@ -17,6 +17,13 @@ try {
   const fileUrl = pathToFileURL(path.resolve('docs/ux/03-screens/vendas/master.html')).href;
   await page.goto(fileUrl);
   await page.locator('[data-screen="lancamentos"]').click();
+  check(await page.locator('[data-launch-workspace]').isHidden(), 'fluxo começa reduzido no seletor de tipo');
+  await page.screenshot({ path: 'docs/ux/03-screens/vendas/launch-mobile-start.png', fullPage: true });
+  await page.locator('[data-launch-type="sale"]').click();
+  check(await page.locator('[data-launch-workspace]').isVisible(), 'venda normal revela o fluxo');
+  check(await page.locator('[data-flow-step="items"] .flow-step-body').isVisible(), 'itens começa como etapa aberta');
+  check(await page.locator('[data-flow-step="customer"] .flow-step-body').isHidden(), 'cliente começa recolhida');
+  check(await page.locator('[data-flow-step="payment"] .flow-step-body').isHidden(), 'pagamento começa recolhido');
 
   check(await page.locator('[data-cart-item]').count() === 0, 'lançamento começa sem peças');
   check(await page.locator('[data-payment-entry]').count() === 0, 'lançamento começa sem pagamentos');
@@ -26,6 +33,7 @@ try {
 
   await page.locator('[data-product-search]').fill('122060');
   await page.locator('[data-product-sku="122060"]').click();
+  check(!(await page.locator('[data-open-step="customer"]').isDisabled()), 'peça adicionada libera próxima etapa');
   await page.locator('[data-edit-price]').click();
   check((await page.locator('[data-price-form]').textContent()).includes('Preço padrão'), 'modal usa preço padrão');
   await page.locator('[data-final-price]').fill('120');
@@ -34,7 +42,15 @@ try {
   check((await textOf(page.locator('.price-note'))).includes('Desconto de R$ 30,00 por peça'), 'desconto aparece no item');
   check(await textOf(page.locator('[data-sale-discount]')) === 'R$ 30,00', 'desconto aparece no fechamento');
 
+  await page.locator('[data-open-step="customer"]').click();
+  check(await page.locator('[data-flow-step="customer"] .flow-step-body').isVisible(), 'continuação abre cliente');
+  await page.locator('[data-open-step="payment"]').click();
+  check(await page.locator('[data-payment-empty]').isVisible(), 'pagamento vazio mostra convite em vez de tabela');
   await page.locator('[data-add-payment]').click();
+  check(await page.locator('[data-payment-table]').isVisible(), 'primeiro pagamento revela os campos');
+  check(await page.locator('[data-add-payment]').textContent() === '+ Adicionar outro pagamento', 'pagamento misto usa adicionar outro pagamento');
+  await page.locator('[data-payment-method]').selectOption('Cartão de crédito');
+  check(await page.locator('[data-payment-installments]').isVisible(), 'parcelas aparecem somente no cartão de crédito');
   await page.locator('[data-payment-state]').selectOption('pending');
   check(await page.locator('[data-payment-due-input]').isVisible(), 'pendente abre vencimento');
   check(await page.locator('[data-finalize-sale]').isDisabled(), 'pendente sem vencimento bloqueia finalização');
