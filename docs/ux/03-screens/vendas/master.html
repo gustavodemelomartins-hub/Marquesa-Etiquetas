@@ -268,9 +268,11 @@
                 <form class="product-search" data-product-search-form>
                   <label class="visually-hidden" for="launch-product-search">Buscar produto</label>
                   <span aria-hidden="true">⌕</span>
-                  <input id="launch-product-search" type="search" autocomplete="off" placeholder="Nome, SKU ou código da etiqueta" data-product-search />
+                  <input id="launch-product-search" type="search" autocomplete="off" placeholder="Digite o nome ou bipe a etiqueta" data-product-search />
+                  <button class="button camera-action" type="button" data-open-camera aria-label="Abrir câmera para ler etiqueta"><span class="camera-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M3.5 6.5h2.2l1.2-2h6.2l1.2 2h2.2a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 15V8a1.5 1.5 0 0 1 1.5-1.5Z"/><circle cx="10" cy="11.5" r="3.2"/></svg></span><span>Câmera</span></button>
                   <button class="button secondary" type="submit">Adicionar</button>
                 </form>
+                <p class="product-entry-hint">Digite para buscar, bipe com o leitor ou use a câmera do celular.</p>
                 <div class="product-results" data-product-results hidden></div>
                 <ul class="cart-list launch-cart" data-launch-cart hidden></ul>
                 <div class="cart-empty" data-cart-empty><span aria-hidden="true">◇</span><b>A venda ainda está vazia</b><small>Leia uma etiqueta ou busque uma peça para começar.</small></div>
@@ -335,6 +337,8 @@
           </section>
 
           <dialog class="launch-dialog" id="price-dialog"><form method="dialog" data-price-form><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Preço desta peça</p><h2 data-price-product>Editar preço final</h2><p>O preço padrão fica preservado. Informe quanto será cobrado nesta venda.</p><label>Preço padrão<input data-table-price-display readonly></label><label>Preço final<input type="number" min="0" step="0.01" required data-final-price></label><label>Motivo da alteração<input type="text" placeholder="Ex.: Grupo VIP" data-price-reason></label><p class="dialog-error" role="alert" data-price-error hidden>Informe o motivo quando o preço final for diferente.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button><button class="button primary" type="submit" value="default">Aplicar preço</button></div></form></dialog>
+
+          <dialog class="launch-dialog camera-dialog" id="camera-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar câmera">×</button><p class="context">Leitor de etiqueta</p><h2>Aponte a câmera para o código</h2><p>A câmera traseira será ativada somente depois da sua confirmação.</p><div class="camera-preview"><video playsinline muted data-camera-video hidden></video><span class="camera-placeholder" data-camera-placeholder aria-hidden="true">▣</span><i aria-hidden="true"></i></div><p class="camera-status" role="status" data-camera-status>Câmera desligada.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Fechar</button><button class="button primary" type="button" data-start-camera>Ativar câmera</button></div></form></dialog>
 
           <dialog class="launch-dialog compact-dialog" id="clear-draft-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Limpar rascunho</p><h2>Descartar esta venda?</h2><p>Itens, cliente e pagamentos preenchidos serão removidos deste protótipo.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Manter rascunho</button><button class="button primary" value="confirm" data-confirm-clear>Descartar</button></div></form></dialog>
 
@@ -417,6 +421,11 @@
       const productSearch = launchScreen.querySelector('[data-product-search]');
       const productResults = launchScreen.querySelector('[data-product-results]');
       const priceDialog = launchScreen.querySelector('#price-dialog');
+      const cameraDialog = launchScreen.querySelector('#camera-dialog');
+      const cameraVideo = launchScreen.querySelector('[data-camera-video]');
+      const cameraPlaceholder = launchScreen.querySelector('[data-camera-placeholder]');
+      const cameraStatus = launchScreen.querySelector('[data-camera-status]');
+      const startCameraButton = launchScreen.querySelector('[data-start-camera]');
       const clearDraftDialog = launchScreen.querySelector('#clear-draft-dialog');
       const finalizeSaleDialog = launchScreen.querySelector('#finalize-sale-dialog');
       const newCustomerDialog = launchScreen.querySelector('#new-customer-dialog');
@@ -438,6 +447,8 @@
       };
       let editingCartItem = null;
       let toastTimer = null;
+      let cameraStream = null;
+      let cameraScanTimer = null;
 
       function launchMoney(value) {
         return currency.format(Number.isFinite(value) ? value : 0);
@@ -634,6 +645,11 @@
 
       function renderProductResults() {
         const query = productSearch.value.trim().toLocaleLowerCase('pt-BR');
+        if (!query) {
+          productResults.innerHTML = '';
+          productResults.hidden = true;
+          return;
+        }
         const matches = catalog.filter((product) => !query || product.name.toLocaleLowerCase('pt-BR').includes(query) || product.sku.includes(query)).slice(0, 4);
         productResults.innerHTML = matches.length
           ? matches.map((product) => `<button class="product-result" type="button" data-product-sku="${product.sku}"><span><b>${product.name}</b><small>SKU ${product.sku} · ${product.detail}</small></span><strong>${launchMoney(product.price)}</strong></button>`).join('')
@@ -643,11 +659,20 @@
 
       launchScreen.querySelector('[data-product-search-form]').addEventListener('submit', (event) => {
         event.preventDefault();
+        if (!productSearch.value.trim()) {
+          productResults.hidden = true;
+          showLaunchToast('Digite o nome, bipe a etiqueta ou use a câmera para adicionar uma peça.');
+          productSearch.focus();
+          return;
+        }
         const firstResult = productResults.querySelector('[data-product-sku]');
         if (!firstResult) return renderProductResults();
         addCatalogProduct(catalog.find((product) => product.sku === firstResult.dataset.productSku));
       });
-      productSearch.addEventListener('focus', renderProductResults);
+      productSearch.addEventListener('focus', () => {
+        if (productSearch.value.trim()) renderProductResults();
+        else productResults.hidden = true;
+      });
       productSearch.addEventListener('input', renderProductResults);
       productResults.addEventListener('click', (event) => {
         const result = event.target.closest('[data-product-sku]');
@@ -662,6 +687,77 @@
           event.preventDefault();
           productSearch.focus();
         }
+      });
+
+      function stopCamera() {
+        clearTimeout(cameraScanTimer);
+        cameraScanTimer = null;
+        cameraStream?.getTracks().forEach((track) => track.stop());
+        cameraStream = null;
+        cameraVideo.srcObject = null;
+        cameraVideo.hidden = true;
+        cameraPlaceholder.hidden = false;
+        startCameraButton.disabled = false;
+        startCameraButton.textContent = 'Ativar câmera';
+      }
+
+      async function scanCamera(detector) {
+        if (!cameraStream || cameraDialog.open === false) return;
+        try {
+          const codes = await detector.detect(cameraVideo);
+          const rawCode = codes[0]?.rawValue?.trim();
+          if (rawCode) {
+            const product = catalog.find((item) => item.sku === rawCode);
+            if (product) {
+              cameraStatus.textContent = `${product.name} identificada.`;
+              cameraDialog.close();
+              addCatalogProduct(product);
+              return;
+            }
+            cameraStatus.textContent = `Código ${rawCode} não encontrado neste protótipo.`;
+          }
+        } catch (_) {
+          cameraStatus.textContent = 'Mantenha a etiqueta dentro da moldura.';
+        }
+        cameraScanTimer = setTimeout(() => scanCamera(detector), 320);
+      }
+
+      launchScreen.querySelector('[data-open-camera]').addEventListener('click', () => {
+        cameraStatus.textContent = 'Câmera desligada.';
+        cameraDialog.showModal();
+      });
+      startCameraButton.addEventListener('click', async () => {
+        startCameraButton.disabled = true;
+        startCameraButton.textContent = 'Abrindo…';
+        if (!navigator.mediaDevices?.getUserMedia) {
+          cameraStatus.textContent = 'A câmera não está disponível neste navegador. Digite ou bipe a etiqueta.';
+          startCameraButton.disabled = false;
+          startCameraButton.textContent = 'Tentar novamente';
+          return;
+        }
+        try {
+          cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+          cameraVideo.srcObject = cameraStream;
+          cameraVideo.hidden = false;
+          cameraPlaceholder.hidden = true;
+          await cameraVideo.play();
+          startCameraButton.textContent = 'Câmera ativa';
+          cameraStatus.textContent = 'Aponte para o código da etiqueta.';
+          if ('BarcodeDetector' in window) {
+            const detector = new BarcodeDetector({ formats: ['code_128', 'ean_13', 'ean_8', 'qr_code'] });
+            scanCamera(detector);
+          } else {
+            cameraStatus.textContent = 'Câmera ativa. A leitura automática não está disponível neste navegador.';
+          }
+        } catch (_) {
+          stopCamera();
+          cameraStatus.textContent = 'Não foi possível abrir a câmera. Digite ou bipe a etiqueta.';
+          startCameraButton.textContent = 'Tentar novamente';
+        }
+      });
+      cameraDialog.addEventListener('close', () => {
+        stopCamera();
+        cameraStatus.textContent = 'Câmera desligada.';
       });
 
       launchCart.addEventListener('click', (event) => {

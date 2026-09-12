@@ -61,6 +61,7 @@ limite de itens por página, o que não pode ser editado inline.
 | UX-VEN-024 | preço final abaixo do padrão aparece como `Desconto`; preço final acima aparece como `Acréscimo`; ambos são valores positivos e o motivo continua obrigatório | impedir desconto negativo e deixar explícito o sentido da alteração | sim · Gustavo, 12/09/2026 |
 | UX-VEN-025 | a confirmação final mostra cliente, data, local/canal, itens, pagamentos, vencimentos, observação, preço padrão, desconto/acréscimo, total, recebido e a receber | permitir conferência completa antes de registrar a venda | sim · Gustavo, 12/09/2026 |
 | UX-VEN-026 | `Local ou canal` oferece os termos já usados no sistema: Balcão, WhatsApp, Instagram, Grupo VIP, Feira, Maleta e Outro com texto livre; a distinção futura entre canal e origem estrutural continua em `VEN-Q013` | usar o vocabulário operacional existente sem fingir que a modelagem de origem já foi decidida | sim · Gustavo, 12/09/2026 |
+| UX-VEN-027 | ao abrir `Itens da venda`, a busca começa vazia e sem sugestões; produtos só aparecem depois de digitar, o leitor físico usa o mesmo campo e a câmera do celular só é ativada após toque e confirmação explícitos | evitar catálogo involuntário e reunir digitação, etiqueta e câmera numa entrada única | sim · Gustavo, 12/09/2026 |
 
 ## Desconto na Nova Venda
 

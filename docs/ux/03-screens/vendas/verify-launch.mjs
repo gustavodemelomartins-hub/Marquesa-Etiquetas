@@ -25,6 +25,16 @@ try {
   check(await page.locator('[data-flow-step="items"] .flow-step-body').isVisible(), 'itens começa como etapa aberta');
   check(await page.locator('[data-flow-step="customer"] .flow-step-body').isHidden(), 'cliente começa recolhida');
   check(await page.locator('[data-flow-step="payment"] .flow-step-body').isHidden(), 'pagamento começa recolhido');
+  await page.screenshot({ path: 'docs/ux/03-screens/vendas/launch-mobile-empty-sale.png', fullPage: true });
+  await page.locator('[data-product-search]').focus();
+  check(await page.locator('[data-product-results]').isHidden(), 'foco vazio não abre sugestões');
+  await page.locator('[data-product-search-form] button[type="submit"]').click();
+  check(await page.locator('[data-product-results]').isHidden(), 'adicionar vazio não abre catálogo');
+  check((await page.locator('[data-launch-toast]').textContent()).includes('Digite o nome'), 'entrada vazia explica digitar, bipar ou usar câmera');
+  await page.locator('[data-open-camera]').click();
+  check(await page.locator('#camera-dialog').isVisible(), 'botão abre leitor pela câmera');
+  check((await page.locator('[data-camera-status]').textContent()) === 'Câmera desligada.', 'câmera aguarda confirmação explícita');
+  await page.locator('#camera-dialog').getByRole('button', { name: 'Fechar', exact: true }).click();
 
   check(await page.locator('[data-cart-item]').count() === 0, 'lançamento começa sem peças');
   check(await page.locator('[data-payment-entry]').count() === 0, 'lançamento começa sem pagamentos');
