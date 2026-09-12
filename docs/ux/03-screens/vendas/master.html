@@ -289,7 +289,8 @@
                 <div class="customer-empty" data-customer-empty>Selecione uma cliente ou continue identificando os outros dados da venda.</div>
                 <div class="form-grid">
                   <label>Data da venda<input type="date" value="2026-09-12" max="2026-09-12" data-sale-date></label>
-                  <label>Local ou canal<select data-sale-channel><option>Balcão</option><option>WhatsApp</option><option>Instagram</option><option>Feira ou evento</option></select></label>
+                  <label>Local ou canal<select data-sale-channel><option>Balcão</option><option>WhatsApp</option><option>Instagram</option><option>Grupo VIP</option><option>Feira</option><option>Maleta</option><option>Outro</option></select></label>
+                  <label class="wide" data-sale-channel-other hidden>Qual local ou canal?<input type="text" maxlength="60" placeholder="Informe onde a venda aconteceu" data-sale-channel-other-input></label>
                 </div>
                 <div class="step-next"><button class="button primary" type="button" data-open-step="payment">Continuar para pagamento</button></div>
                 </div>
@@ -315,17 +316,7 @@
               </div>
             </section>
             </div>
-            <footer class="sale-composer-footer"><strong data-footer-piece-count>0 peças</strong><div class="sale-totals"><span>Subtotal <b data-sale-subtotal>R$ 0,00</b></span><span>Desconto <b data-sale-discount>R$ 0,00</b></span><span>Total <b data-footer-total>R$ 0,00</b></span></div><button class="button primary" type="button" data-finalize-sale disabled>✓ Finalizar venda</button></footer>
-            </section>
-
-            <section class="data-section today-sales">
-              <div class="section-heading"><div><h2>Vendas de hoje</h2><p>Balcão e outros lançamentos comerciais do dia.</p></div><button class="button ghost" type="button" data-open-today-sales>Ver todas ›</button></div>
-              <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Cliente</th><th>Tipo</th><th>Peças</th><th>Valor</th><th>Recebimento</th><th></th></tr></thead><tbody>
-                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1057" data-detail-scope="hoje"><td>10:32</td><td><button type="button" class="client-name-link" data-open-client="Juliana Prado">Juliana Prado</button></td><td><span class="tag rose">Balcão</span></td><td>1</td><td>R$ 89,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Juliana Prado">›</button></td></tr>
-                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1058" data-detail-scope="hoje"><td>09:15</td><td><button type="button" class="client-name-link" data-open-client="Camila Ferreira">Camila Ferreira</button></td><td><span class="tag rose">Balcão</span></td><td>2</td><td>R$ 159,00</td><td><span class="status receivable">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Camila Ferreira">›</button></td></tr>
-                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1056" data-detail-scope="hoje"><td>08:41</td><td><button type="button" class="client-name-link" data-open-client="Ana Luiza Sedassari">Ana Luiza Sedassari</button></td><td><span class="tag rose">Balcão</span></td><td>1</td><td>R$ 79,00</td><td><span class="status receivable">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Ana Luiza Sedassari">›</button></td></tr>
-                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1055" data-detail-scope="hoje"><td>08:12</td><td><button type="button" class="client-name-link" data-open-client="Zilma">Zilma</button></td><td><span class="tag blue">Maleta</span></td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Zilma">›</button></td></tr>
-              </tbody></table></div>
+            <footer class="sale-composer-footer"><strong data-footer-piece-count>0 peças</strong><div class="sale-totals"><span>Subtotal <b data-sale-subtotal>R$ 0,00</b></span><span><i data-sale-adjustment-label>Desconto</i> <b data-sale-discount>R$ 0,00</b></span><span>Total <b data-footer-total>R$ 0,00</b></span></div><button class="button primary" type="button" data-finalize-sale disabled>✓ Finalizar venda</button></footer>
             </section>
           </div>
 
@@ -333,11 +324,21 @@
             <span class="success-seal" aria-hidden="true">✓</span><p class="context">Venda confirmada no protótipo</p><h2>Pronto. O lançamento ficou claro.</h2><p>Nenhum dado real foi gravado. Esta tela demonstra o retorno seguro após a confirmação.</p><div class="success-totals"><span>Total <b data-success-total>R$ 0,00</b></span><span>Recebido <b data-success-received>R$ 0,00</b></span><span>A receber <b data-success-receivable>R$ 0,00</b></span></div><button class="button primary" type="button" data-new-sale>Começar nova venda</button>
           </section>
 
+          <section class="data-section today-sales">
+              <div class="section-heading"><div><h2>Vendas de hoje</h2><p>Balcão e outros lançamentos comerciais do dia.</p></div><button class="button ghost" type="button" data-open-today-sales>Ver todas ›</button></div>
+              <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Cliente</th><th>Tipo</th><th>Peças</th><th>Valor</th><th>Recebimento</th><th></th></tr></thead><tbody>
+                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1057" data-detail-scope="hoje"><td>10:32</td><td><button type="button" class="client-name-link" data-open-client="Juliana Prado">Juliana Prado</button></td><td><span class="tag rose">Balcão</span></td><td>1</td><td>R$ 89,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Juliana Prado">›</button></td></tr>
+                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1058" data-detail-scope="hoje"><td>09:15</td><td><button type="button" class="client-name-link" data-open-client="Camila Ferreira">Camila Ferreira</button></td><td><span class="tag rose">Balcão</span></td><td>2</td><td>R$ 159,00</td><td><span class="status receivable">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Camila Ferreira">›</button></td></tr>
+                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1056" data-detail-scope="hoje"><td>08:41</td><td><button type="button" class="client-name-link" data-open-client="Ana Luiza Sedassari">Ana Luiza Sedassari</button></td><td><span class="tag rose">Balcão</span></td><td>1</td><td>R$ 79,00</td><td><span class="status receivable">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Ana Luiza Sedassari">›</button></td></tr>
+                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1055" data-detail-scope="hoje"><td>08:12</td><td><button type="button" class="client-name-link" data-open-client="Zilma">Zilma</button></td><td><span class="tag blue">Maleta</span></td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Zilma">›</button></td></tr>
+              </tbody></table></div>
+          </section>
+
           <dialog class="launch-dialog" id="price-dialog"><form method="dialog" data-price-form><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Preço desta peça</p><h2 data-price-product>Editar preço final</h2><p>O preço padrão fica preservado. Informe quanto será cobrado nesta venda.</p><label>Preço padrão<input data-table-price-display readonly></label><label>Preço final<input type="number" min="0" step="0.01" required data-final-price></label><label>Motivo da alteração<input type="text" placeholder="Ex.: Grupo VIP" data-price-reason></label><p class="dialog-error" role="alert" data-price-error hidden>Informe o motivo quando o preço final for diferente.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button><button class="button primary" type="submit" value="default">Aplicar preço</button></div></form></dialog>
 
           <dialog class="launch-dialog compact-dialog" id="clear-draft-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Limpar rascunho</p><h2>Descartar esta venda?</h2><p>Itens, cliente e pagamentos preenchidos serão removidos deste protótipo.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Manter rascunho</button><button class="button primary" value="confirm" data-confirm-clear>Descartar</button></div></form></dialog>
 
-          <dialog class="launch-dialog compact-dialog" id="finalize-sale-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Revisão final</p><h2>Confirmar esta venda?</h2><p data-finalize-copy>Revise os valores antes de confirmar.</p><div class="review-values"><span>Total <b data-review-total></b></span><span>Recebido <b data-review-received></b></span><span>A receber <b data-review-receivable></b></span></div><div class="dialog-actions"><button class="button ghost" value="cancel">Voltar e revisar</button><button class="button primary" type="button" data-confirm-sale>Confirmar venda</button></div></form></dialog>
+          <dialog class="launch-dialog sale-review-dialog" id="finalize-sale-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Revisão final</p><h2>Confira antes de confirmar</h2><p data-finalize-copy>Cliente, peças, pagamentos e valores desta venda.</p><div class="review-sheet"><div class="review-meta"><div><span>Cliente</span><b data-review-customer>Não informada</b></div><div><span>Venda</span><b data-review-channel>Balcão</b><small data-review-date>12/09/2026</small></div></div><section class="review-section"><header><span>Itens da venda</span><b data-review-item-count>0 peças</b></header><ul data-review-items-list></ul></section><section class="review-section"><header><span>Pagamentos</span><b data-review-payment-count>Nenhum</b></header><ul data-review-payments-list></ul></section><div class="review-note" data-review-note-wrap hidden><span>Observação</span><p data-review-note></p></div><dl class="review-balance"><div><dt>Preço padrão</dt><dd data-review-standard></dd></div><div><dt data-review-adjustment-label>Desconto</dt><dd data-review-adjustment></dd></div><div class="review-total"><dt>Total</dt><dd data-review-total></dd></div><div><dt>Recebido</dt><dd data-review-received></dd></div><div><dt>A receber</dt><dd data-review-receivable></dd></div></dl></div><div class="dialog-actions"><button class="button ghost" value="cancel">Voltar e revisar</button><button class="button primary" type="button" data-confirm-sale>Confirmar venda</button></div></form></dialog>
 
           <dialog class="launch-dialog compact-dialog" id="new-customer-dialog"><form method="dialog" data-customer-form><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Cadastro rápido</p><h2>Nova cliente</h2><label>Nome<input type="text" required data-new-customer-name></label><label>WhatsApp<input type="tel" placeholder="(19) 9 0000-0000" data-new-customer-phone></label><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button><button class="button primary" type="submit">Usar nesta venda</button></div></form></dialog>
 
@@ -457,7 +458,7 @@
         const entries = launchPayments();
         const paid = entries.reduce((sum, entry) => entry.querySelector('[data-payment-state]').value === 'paid' ? sum + Number(entry.querySelector('[data-payment-amount]').value || 0) : sum, 0);
         const planned = entries.reduce((sum, entry) => sum + Number(entry.querySelector('[data-payment-amount]').value || 0), 0);
-        return { total, tableTotal, discount: tableTotal - total, paid, planned, receivable: Math.max(0, total - paid), exceeded: planned > total + .005 };
+        return { total, tableTotal, discount: Math.max(0, tableTotal - total), surcharge: Math.max(0, total - tableTotal), paid, planned, receivable: Math.max(0, total - paid), exceeded: planned > total + .005 };
       }
 
       function setLaunchText(selector, value) {
@@ -526,7 +527,9 @@
         setLaunchText('[data-sale-receivable]', launchMoney(totals.receivable));
         setLaunchText('[data-footer-piece-count]', `${pieceCount} ${pieceCount === 1 ? 'peça' : 'peças'}`);
         setLaunchText('[data-sale-subtotal]', launchMoney(totals.tableTotal));
-        setLaunchText('[data-sale-discount]', launchMoney(totals.discount));
+        const hasSurcharge = totals.surcharge > .005;
+        setLaunchText('[data-sale-adjustment-label]', hasSurcharge ? 'Acréscimo' : 'Desconto');
+        setLaunchText('[data-sale-discount]', launchMoney(hasSurcharge ? totals.surcharge : totals.discount));
         setLaunchText('[data-footer-total]', launchMoney(totals.total));
         cartEmpty.hidden = items.length > 0;
         launchCart.hidden = items.length === 0;
@@ -614,9 +617,15 @@
       }
 
       function addCatalogProduct(product) {
-        const existing = launchItems().find((item) => item.dataset.sku === product.sku && Number(item.dataset.price) === product.price);
-        if (existing) existing.dataset.quantity = String(Number(existing.dataset.quantity) + 1);
-        else launchCart.append(createCartItem(product));
+        const existing = launchItems().find((item) => item.dataset.sku === product.sku);
+        if (existing) {
+          productSearch.value = '';
+          productResults.hidden = true;
+          existing.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+          showLaunchToast(`${product.name} já está na venda. Use + para aumentar a quantidade.`);
+          return;
+        }
+        launchCart.append(createCartItem(product));
         productSearch.value = '';
         productResults.hidden = true;
         updateLaunch();
@@ -700,7 +709,7 @@
         note.hidden = !changed;
         note.textContent = !changed ? '' : discount > 0
           ? `Desconto de ${launchMoney(discount)} por peça · padrão ${launchMoney(tablePrice)} · ${reason}`
-          : `Preço ajustado · padrão ${launchMoney(tablePrice)} · ${reason}`;
+          : `Acréscimo de ${launchMoney(Math.abs(discount))} por peça · padrão ${launchMoney(tablePrice)} · ${reason}`;
         editingCartItem.classList.toggle('has-discount', discount > .005);
         editingCartItem.querySelector('.item-price small').textContent = discount > .005 ? 'Com desconto' : 'Preço final';
         priceDialog.close();
@@ -771,6 +780,17 @@
         event.target.reset();
       });
 
+      const saleChannel = launchScreen.querySelector('[data-sale-channel]');
+      const saleChannelOther = launchScreen.querySelector('[data-sale-channel-other]');
+      const saleChannelOtherInput = launchScreen.querySelector('[data-sale-channel-other-input]');
+      function updateSaleChannel() {
+        const other = saleChannel.value === 'Outro';
+        saleChannelOther.hidden = !other;
+        if (!other) saleChannelOtherInput.value = '';
+        updateLaunch();
+      }
+      saleChannel.addEventListener('change', updateSaleChannel);
+
       function clearLaunchDraft() {
         launchCart.innerHTML = '';
         paymentList.innerHTML = '';
@@ -780,6 +800,8 @@
         launchScreen.querySelector('[data-customer-search]').value = '';
         launchScreen.querySelector('[data-sale-date]').value = '2026-09-12';
         launchScreen.querySelector('[data-sale-channel]').selectedIndex = 0;
+        saleChannelOther.hidden = true;
+        saleChannelOtherInput.value = '';
         launchScreen.querySelector('[data-sale-note]').value = '';
         launchWorkspace.hidden = false;
         launchSuccess.hidden = true;
@@ -802,10 +824,44 @@
 
       finalizeSaleButton.addEventListener('click', () => {
         const totals = launchTotals();
+        const items = launchItems();
+        const payments = launchPayments();
+        const pieceCount = items.reduce((sum, item) => sum + Number(item.dataset.quantity), 0);
+        const customer = selectedCustomer.hidden ? 'Não informada' : launchScreen.querySelector('[data-customer-name]').textContent;
+        const channel = saleChannel.value === 'Outro' ? saleChannelOtherInput.value.trim() || 'Outro' : saleChannel.value;
+        const note = launchScreen.querySelector('[data-sale-note]').value.trim();
+        const formatDate = (iso) => iso ? iso.split('-').reverse().join('/') : 'Não informada';
+        setLaunchText('[data-review-customer]', customer);
+        setLaunchText('[data-review-channel]', channel);
+        setLaunchText('[data-review-date]', formatDate(launchScreen.querySelector('[data-sale-date]').value));
+        setLaunchText('[data-review-item-count]', `${pieceCount} ${pieceCount === 1 ? 'peça' : 'peças'}`);
+        setLaunchText('[data-review-payment-count]', payments.length ? `${payments.length} ${payments.length === 1 ? 'registro' : 'registros'}` : 'Nenhum');
+        const reviewItems = launchScreen.querySelector('[data-review-items-list]');
+        reviewItems.innerHTML = items.map((item) => {
+          const quantity = Number(item.dataset.quantity);
+          return `<li><span><b>${item.dataset.name}</b><small>${quantity} × ${launchMoney(Number(item.dataset.price))}</small></span><strong>${launchMoney(Number(item.dataset.price) * quantity)}</strong></li>`;
+        }).join('');
+        const reviewPayments = launchScreen.querySelector('[data-review-payments-list]');
+        reviewPayments.innerHTML = payments.length ? payments.map((entry) => {
+          const amount = Number(entry.querySelector('[data-payment-amount]').value || 0);
+          const method = entry.querySelector('[data-payment-method]').value;
+          const pending = entry.querySelector('[data-payment-state]').value === 'pending';
+          const due = entry.querySelector('[data-payment-due-input]').value;
+          const installments = entry.querySelector('[data-payment-installments] select').value;
+          const detail = pending ? `Pendente · vence ${formatDate(due)}` : `Pago hoje${method === 'Cartão de crédito' ? ` · ${installments}` : ''}`;
+          return `<li><span><b>${method}</b><small>${detail}</small></span><strong>${launchMoney(amount)}</strong></li>`;
+        }).join('') : '<li class="review-empty">Nenhum pagamento foi informado.</li>';
+        const reviewNoteWrap = launchScreen.querySelector('[data-review-note-wrap]');
+        reviewNoteWrap.hidden = !note;
+        setLaunchText('[data-review-note]', note);
+        const hasSurcharge = totals.surcharge > .005;
+        setLaunchText('[data-review-standard]', launchMoney(totals.tableTotal));
+        setLaunchText('[data-review-adjustment-label]', hasSurcharge ? 'Acréscimo' : 'Desconto');
+        setLaunchText('[data-review-adjustment]', launchMoney(hasSurcharge ? totals.surcharge : totals.discount));
         setLaunchText('[data-review-total]', launchMoney(totals.total));
         setLaunchText('[data-review-received]', launchMoney(totals.paid));
         setLaunchText('[data-review-receivable]', launchMoney(totals.receivable));
-        launchScreen.querySelector('[data-finalize-copy]').textContent = `${launchItems().length} ${launchItems().length === 1 ? 'item' : 'itens'} serão confirmados uma única vez. Esta demonstração não grava dados reais.`;
+        launchScreen.querySelector('[data-finalize-copy]').textContent = 'Confira os dados que serão confirmados nesta venda. Esta demonstração não grava dados reais.';
         finalizeSaleDialog.showModal();
       });
       launchScreen.querySelector('[data-confirm-sale]').addEventListener('click', (event) => {

@@ -468,6 +468,7 @@ td strong { color: var(--wine-700); }
 .sale-totals { display: flex; align-items: center; gap: 0; }
 .sale-totals span { padding: 0 18px; border-right: 1px solid var(--line); color: var(--muted); font-size: 10px; }
 .sale-totals span:first-child { padding-left: 0; }
+.sale-totals i { font-style: normal; }
 .sale-totals b { margin-left: 7px; color: var(--wine-700); font-size: 13px; }
 .sale-totals span:last-child { border-right: 0; }
 .sale-totals span:last-child b { color: var(--wine-900); font-size: 22px; font-weight: 550; }
@@ -503,6 +504,33 @@ td strong { color: var(--wine-700); }
 .dialog-error { padding: 8px 10px; border-radius: 7px; background: var(--warning-bg); color: var(--warning) !important; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 5px; }
 .compact-dialog { width: min(470px, calc(100% - 28px)); }
+.sale-review-dialog { width: min(720px, calc(100% - 28px)); }
+.sale-review-dialog form { max-height: min(88vh, 760px); overflow-y: auto; }
+.review-sheet { overflow: hidden; border: 1px solid var(--rose-200); border-radius: 11px; background: var(--paper); }
+.review-meta { display: grid; grid-template-columns: 1.25fr .75fr; gap: 1px; background: var(--line-soft); }
+.review-meta > div { padding: 12px 14px; background: var(--rose-050); }
+.review-meta span, .review-meta b, .review-meta small { display: block; }
+.review-meta span, .review-section header span, .review-note span { color: var(--muted); font-size: 9px; }
+.review-meta b { margin-top: 2px; color: var(--ink); font-size: 13px; }
+.review-meta small { margin-top: 2px; color: var(--muted); font-size: 9px; }
+.review-section, .review-note { padding: 12px 14px; border-top: 1px solid var(--line-soft); }
+.review-section header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.review-section header b { color: var(--wine-700); font-size: 10px; }
+.review-section ul { display: grid; gap: 7px; margin: 9px 0 0; padding: 0; list-style: none; }
+.review-section li { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.review-section li span, .review-section li b, .review-section li small { display: block; }
+.review-section li span { min-width: 0; }
+.review-section li b { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.review-section li small { margin-top: 1px; color: var(--muted); font-size: 9px; }
+.review-section li > strong { flex: 0 0 auto; color: var(--wine-700); font-size: 11px; }
+.review-section .review-empty { justify-content: flex-start; color: var(--muted); font-size: 10px; }
+.review-note p { margin-top: 3px; color: var(--ink); line-height: 1.4; }
+.review-balance { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; margin: 0; border-top: 1px solid var(--line-soft); background: var(--line-soft); }
+.review-balance > div { min-width: 0; padding: 11px 10px; background: white; }
+.review-balance dt { color: var(--muted); font-size: 8px; }
+.review-balance dd { margin: 3px 0 0; color: var(--wine-700); font-size: 13px; font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; }
+.review-balance .review-total { background: var(--rose-050); }
+.review-balance .review-total dd { color: var(--wine-900); font-size: 16px; }
 .launch-toast { position: fixed; z-index: 60; right: 24px; bottom: 24px; max-width: 360px; padding: 12px 15px; border-radius: 10px; background: var(--ink); color: white; box-shadow: 0 12px 32px rgba(36,29,32,.2); font-size: 12px; }
 
 .metric-row.compact { margin-bottom: 16px; }
@@ -917,6 +945,10 @@ td strong { color: var(--wine-700); }
   .success-totals span, .review-values span { display: flex; align-items: center; justify-content: space-between; }
   .success-totals b, .review-values b { margin: 0; }
   .launch-dialog form { padding: 22px 18px 18px; }
+  .sale-review-dialog form { max-height: 90vh; }
+  .review-meta { grid-template-columns: 1fr 1fr; }
+  .review-balance { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .review-balance .review-total { grid-column: 1 / -1; grid-row: 2; }
   .dialog-actions { flex-direction: column-reverse; }
   .dialog-actions .button { width: 100%; min-height: 44px; }
   .launch-toast { right: 12px; bottom: calc(80px + env(safe-area-inset-bottom)); left: 12px; max-width: none; }

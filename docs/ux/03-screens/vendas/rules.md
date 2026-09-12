@@ -55,14 +55,20 @@ limite de itens por página, o que não pode ser editado inline.
 | UX-VEN-018 | em `Vendas do período`, toda venda com saldo cobrável usa o rótulo `A RECEBER` em vinho; o quanto já foi recebido aparece nos valores do detalhe, e a ação `Pendente` permanece amarela | comunicar a ação necessária sem criar dois rótulos para vendas que ainda exigem cobrança | sim · Gustavo, 12/09/2026 |
 | UX-VEN-019 | os detalhes das vendas podem ser expandidos e recolhidos de forma independente, mantendo quantas linhas abertas forem úteis; trocar página ou contexto recolhe todos | permitir comparação entre vendas sem manter detalhes ligados a dados que acabaram de mudar | sim · Gustavo, 12/09/2026 |
 | UX-VEN-020 | `Vendas do período` mostra até 10 vendas por página | aumentar a visão comparativa sem transformar a lista em rolagem excessiva | sim · Gustavo, 12/09/2026 |
-| UX-VEN-021 | `Venda normal` usa uma superfície contínua: itens e cliente lado a lado no desktop, sequência vertical no celular e Pagamento como fechamento; no mobile, total e `Finalizar venda` permanecem alcançáveis acima da navegação | preservar velocidade de balcão sem esconder a relação entre peça, cliente, dinheiro e confirmação | sim · Gustavo, 12/09/2026 |
-| UX-VEN-022 | a estrutura visual aprovada para `Venda normal` é a do mockup de pagamento misto: uma única moldura com itens + cliente, pagamento integrado, rodapé de totais e `Vendas de hoje` logo abaixo; cores, tipografia, espaçamento e componentes usam a identidade nova do sistema | preservar o fluxo já compreendido sem voltar à identidade anterior nem fragmentar a operação em cartões independentes | sim · Gustavo, 12/09/2026 |
+| UX-VEN-021 | o lançamento começa reduzido no seletor de tipo; `Venda normal` revela uma superfície contínua com Itens, Cliente e Pagamento em etapas recolhíveis; no mobile, total e `Finalizar venda` permanecem alcançáveis acima da navegação | preservar velocidade de balcão sem expor um formulário vazio e longo | sim · Gustavo, 12/09/2026 |
+| UX-VEN-022 | `Vendas de hoje` permanece visível abaixo dos tipos de lançamento, mesmo antes de abrir `Venda normal`; cores, tipografia, espaçamento e componentes usam a identidade nova do sistema | manter o contexto do dia disponível sem obrigar a começar uma operação | sim · Gustavo, 12/09/2026 |
+| UX-VEN-023 | tentar adicionar novamente um SKU que já está no carrinho não cria linha nem aumenta quantidade; a interface orienta usar o controle `+` da peça | impedir aumento acidental por clique repetido em `Adicionar` | sim · Gustavo, 12/09/2026 |
+| UX-VEN-024 | preço final abaixo do padrão aparece como `Desconto`; preço final acima aparece como `Acréscimo`; ambos são valores positivos e o motivo continua obrigatório | impedir desconto negativo e deixar explícito o sentido da alteração | sim · Gustavo, 12/09/2026 |
+| UX-VEN-025 | a confirmação final mostra cliente, data, local/canal, itens, pagamentos, vencimentos, observação, preço padrão, desconto/acréscimo, total, recebido e a receber | permitir conferência completa antes de registrar a venda | sim · Gustavo, 12/09/2026 |
+| UX-VEN-026 | `Local ou canal` oferece os termos já usados no sistema: Balcão, WhatsApp, Instagram, Grupo VIP, Feira, Maleta e Outro com texto livre; a distinção futura entre canal e origem estrutural continua em `VEN-Q013` | usar o vocabulário operacional existente sem fingir que a modelagem de origem já foi decidida | sim · Gustavo, 12/09/2026 |
 
 ## Desconto na Nova Venda
 
 - a pessoa edita o `preço final por peça`; não digita simultaneamente preço e
   desconto;
-- `desconto unitário = preço de tabela congelado − preço final cobrado`;
+- quando `preço padrão > preço final`, `desconto unitário = preço padrão − preço final`;
+- quando `preço final > preço padrão`, `acréscimo unitário = preço final − preço padrão`;
+- desconto e acréscimo nunca são exibidos como valor negativo;
 - alterar o preço exige motivo antes da finalização;
 - preço de tabela continua pertencendo ao catálogo e não é alterado pela venda;
 - quantidade maior que um pode compartilhar o mesmo preço final e motivo;
