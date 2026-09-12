@@ -29,6 +29,7 @@
   --success-bg: #e6f3ec;
   --warning: #986b1e;
   --warning-bg: #fbf1dd;
+  --receivable: #9b3551;
   --shadow: 0 15px 40px rgba(83, 29, 48, 0.07);
   --serif: "Cormorant Garamond", Georgia, serif;
   --sans: "Jost", "Segoe UI", sans-serif;
@@ -250,6 +251,7 @@ td strong { color: var(--wine-700); }
 .tag.amber { background: #fff0d6; color: #9a6413; }
 .status.paid { background: var(--success-bg); color: var(--success); }
 .status.partial { background: var(--warning-bg); color: var(--warning); }
+.status.receivable { background: var(--receivable); color: white; box-shadow: 0 3px 9px rgba(116, 18, 56, .13); }
 .status.neutral { background: #eee9eb; color: var(--muted); }
 
 .breakdowns { display: grid; gap: 16px; }

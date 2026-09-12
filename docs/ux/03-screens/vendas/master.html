@@ -237,7 +237,7 @@
                     <tbody>
                       <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1058"><td data-sale-day="05">05/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Camila Ferreira">Camila Ferreira</button></td><td>2</td><td>R$ 159,00</td><td><span class="status partial">Parcial</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Camila Ferreira">›</button></td></tr>
                       <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1057"><td data-sale-day="04">04/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Juliana Prado">Juliana Prado</button></td><td>1</td><td>R$ 89,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Juliana Prado">›</button></td></tr>
-                      <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1056"><td data-sale-day="03">03/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Ana Luiza Sedassari">Ana Luiza Sedassari</button></td><td>1</td><td>R$ 79,00</td><td><span class="status neutral">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Ana Luiza Sedassari">›</button></td></tr>
+                      <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1056"><td data-sale-day="03">03/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Ana Luiza Sedassari">Ana Luiza Sedassari</button></td><td>1</td><td>R$ 79,00</td><td><span class="status receivable">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Ana Luiza Sedassari">›</button></td></tr>
                       <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1055"><td data-sale-day="02">02/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Zilma">Zilma</button></td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Zilma">›</button></td></tr>
                       <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1054"><td data-sale-day="01">01/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Adrielly Miguel">Adrielly Miguel</button></td><td>1</td><td>R$ 69,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Adrielly Miguel">›</button></td></tr>
                     </tbody>
@@ -705,7 +705,7 @@
           reference: 'Venda #1058', customer: 'Camila Ferreira', channel: 'Balcão', total: 159, received: 80, pending: 79,
           financial: 'Recebimento parcial', financialClass: 'partial',
           items: [['Brinco Ponto de Luz', 'SKU 122060 · Ouro 18k', 1, 89], ['Pulseira Elo Delicado', 'SKU 431280 · Ouro 18k', 1, 70]],
-          payments: [['PIX', 'R$ 80,00', 'Recebido em 05/09/2026', 'paid'], ['Saldo restante', 'R$ 79,00', 'Vence em 20/09/2026', 'neutral']]
+          payments: [['PIX', 'R$ 80,00', 'Recebido em 05/09/2026', 'paid'], ['Saldo restante', 'R$ 79,00', 'Vence em 20/09/2026', 'receivable']]
         },
         'venda-1057': {
           reference: 'Venda #1057', customer: 'Juliana Prado', channel: 'Balcão', total: 89, received: 89, pending: 0,
@@ -715,9 +715,9 @@
         },
         'venda-1056': {
           reference: 'Venda #1056', customer: 'Ana Luiza Sedassari', channel: 'Balcão', total: 79, received: 0, pending: 79,
-          financial: 'A receber', financialClass: 'neutral',
+          financial: 'A receber', financialClass: 'receivable',
           items: [['Argola Coração Lisa', 'SKU 548210 · Ouro 18k', 1, 79]],
-          payments: [['Pagamento pendente', 'R$ 79,00', 'Vence em 18/09/2026', 'neutral']]
+          payments: [['Pagamento pendente', 'R$ 79,00', 'Vence em 18/09/2026', 'receivable']]
         },
         'venda-1055': {
           reference: 'Venda #1055', customer: 'Zilma', channel: 'Maleta', total: 79, received: 79, pending: 0,
