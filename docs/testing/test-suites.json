@@ -494,6 +494,12 @@
         {
           "bin": "node",
           "args": [
+            "src/garantia-venda-item-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
             "src/reclassificacao-nao-venda-test.mjs"
           ]
         },

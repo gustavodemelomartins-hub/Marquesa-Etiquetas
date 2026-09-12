@@ -112,6 +112,10 @@ const MIGRACOES = [
      acrescenta a `venda_itens`, que já existe desde o schema original e não
      é reconstruída por nenhuma das migrations acima. */
   'api/migracao-venda-item-id.sql',
+  /* 5.2b — a garantia troca o trio (venda, sku, variante) pelo id da linha.
+     Depois de `migracao-venda-item-id.sql` obrigatoriamente: o backfill lê
+     `venda_itens.id`, que só existe a partir dela. */
+  'api/migracao-garantia-venda-item.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com
@@ -241,7 +245,10 @@ for (const i of SO_NO_SCHEMA.indices) {
     objetos(novo, 'index').includes(i) && !objetos(velho, 'index').includes(i), 'true');
 }
 
-for (const t of ['produtos', 'movimentos', 'produto_variacoes', 'loja_variantes', 'sku_reservas']) {
+for (const t of ['produtos', 'movimentos', 'produto_variacoes', 'loja_variantes', 'sku_reservas',
+  /* 5.2 e 5.2b acrescentaram coluna nas duas: se o schema e a migration
+     divergirem aí, a identidade do item some no banco criado do zero. */
+  'venda_itens', 'garantias']) {
   eq(`as mesmas colunas em ${t}`, colunas(velho, t).join(','), colunas(novo, t).join(','));
 }
 

@@ -599,3 +599,94 @@ aspas**, e um UUID ali viraria erro de sintaxe em vez de chamada.
    `NOT NULL` sem reconstruir. Nulo é inalcançável na prática — backfill mais
    gatilho —, mas quem um dia reconstruir a tabela por outro motivo deve
    aproveitar para declarar `NOT NULL`.
+
+---
+
+## 20. Fase 5.2b — a garantia aponta para a linha da venda
+
+`garantias` guardava a origem operacional como `(venda_id, sku,
+variante_id)`, e o comentário do schema afirmava que o trio identificava a
+linha "sem ambiguidade". Duas regras já haviam desmentido isso:
+
+- **§27** — o preço é por item. Duas unidades do mesmo código na mesma venda,
+  com preços diferentes, são duas linhas, e o trio casa as duas. `LIMIT 1`
+  decidia qual peça física voltou.
+- **§41** — corrigir o código de um item reescreve `venda_itens.sku` e
+  `variante_id`. O ponteiro da garantia passava a apontar para uma combinação
+  inexistente, em silêncio.
+
+### Consumidores encontrados
+
+| Onde | O que usava | Situação |
+|---|---|---|
+| `garantias.js › itemOperacional` | trio + `LIMIT 1` | migrado: aceita `vendaItemId`; sem id, **conta antes de escolher** e devolve as candidatas |
+| `garantias.js › abrirGarantia` (dedup) | `(venda_id, sku)` | preservado, **acrescido** de `venda_item_id` |
+| `garantias.js › INSERT` | só o trio | grava `venda_item_id` + `venda_item_vinculo` |
+| `garantias.js › publica` | não expunha identidade | expõe `vendaItemId` e `vendaItemVinculo` |
+| `analytics.js › perfilCliente` | `NULL AS item_id` no ramo operacional | devolve `i.id` |
+| `dashboard.tpl.html › garPorItem` | chave `v:<venda>:<sku>` | chave `i:<id>`, com a chave larga como rede para o que o backfill não resolveu |
+| `dashboard.tpl.html › salvarGarantia` | mandava `vendaId`+`sku` | manda `vendaItemId` quando existe |
+| `garantia_trocas`, `garantia_eventos` | `garantia_id` (PK real) | **não precisavam de mudança** |
+| origem `historico` | `historico_item_id` (PK real) | **não precisava de mudança**; marcada `nao_se_aplica` |
+
+### O desenho
+
+`garantias` ganha `venda_item_id TEXT REFERENCES venda_itens(id)` e
+`venda_item_vinculo TEXT`, que registra **como** o ponteiro foi obtido:
+`direto`, `backfill_unico`, `backfill_unico_valor`, `ambiguo`, `sem_match`,
+`nao_se_aplica`. Nenhuma coluna antiga foi removida — o trio continua sendo a
+prova de como a garantia foi aberta, e o único rastro dos casos que o backfill
+se recusou a adivinhar.
+
+Sem `CHECK` nas colunas novas: `ALTER TABLE` do SQLite não acrescenta
+restrição de tabela, e um `CHECK` que só existisse no banco criado do zero
+faria os dois caminhos divergirem em silêncio. A validação do vocabulário
+está na aplicação, e o gate `schema-migration-coerencia` passou a comparar
+`garantias` e `venda_itens` coluna a coluna.
+
+### O backfill não adivinha
+
+Quatro passos, nesta ordem, e cada um só age sobre o que sobrou do anterior:
+
+1. o trio casa **uma** linha → `backfill_unico`;
+2. o trio casa várias, mas exatamente uma foi cobrada pelo valor que a
+   garantia registrou ter sido pago → `backfill_unico_valor`. Não é chute:
+   `valor_pago_original` foi copiado de `venda_itens.preco` na abertura, e a
+   comparação é uma chave mais forte que o trio, não uma preferência;
+3. sobrou com **duas ou mais** candidatas → `ambiguo`, **sem ponteiro**;
+4. sobrou **sem nenhuma** → `sem_match`, **sem ponteiro**.
+
+`GET /api/garantias/vinculos` é o relatório auditável: conta as populações e
+lista cada pendência **com as candidatas** e o que as distingue (preço pago,
+variação, rótulo do desconto). "Ambíguo" sem as opções ao lado seria só uma
+reclamação.
+
+### Contagem
+
+O D1 local de desenvolvimento está **vazio** (`garantias: 0`,
+`venda_itens: 0`), e não existe fixture com dados reais no repositório. A
+contagem verdadeira de únicos/ambíguos/sem match só existe no banco de
+produção, que **permanece congelado e não foi tocado**. O caminho para
+obtê-la sem escrever nada está pronto: aplicar a migration e ler
+`GET /api/garantias/vinculos`, ou rodar as quatro contagens em `SELECT`.
+
+Nos cenários controlados do teste a classificação está provada nos três
+resultados (1 único, 1 ambíguo, 1 sem match no cenário 11).
+
+### O que 5.2b deliberadamente NÃO mudou
+
+A trava "a mesma peça da mesma compra não abre duas garantias abertas"
+continua sendo `(venda, código)`. Com identidade de linha seria defensável
+liberar duas unidades do mesmo código — são duas peças físicas —, mas
+afrouxar é **decisão de produto**, e esta fase é migração de identidade. O
+teste cobra o comportamento atual: quem afrouxar sem decidir quebra o gate.
+Fica para 5.4.
+
+### Pendências de 5.2b
+
+1. resolver os casos `ambiguo` e `sem_match` exige **gente olhando qual peça
+   voltou**. O caminho de gravação existe (abrir com `vendaItemId`); falta a
+   tela, que é UX e está `AGUARDANDO HANDOFF CODEX`;
+2. `vendas_historico_itens` não tem equivalente a migrar — `historico_item_id`
+   já é chave primária real;
+3. a trava por linha (item acima) fica para 5.4.

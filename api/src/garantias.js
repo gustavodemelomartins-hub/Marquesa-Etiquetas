@@ -78,31 +78,79 @@ const dinheiro = (v) => Math.round(Number(v) * 100) / 100;
 
    Duas populações de venda, duas maneiras de apontar o item:
 
-   operacional → `venda_itens` não tem chave própria, e `rowid` não é estável
-                 entre VACUUMs. A identidade é (venda_id, sku, variante_id):
-                 uma venda não tem duas linhas do mesmo código na mesma
-                 variante, então o trio identifica a linha sem ambiguidade.
+   operacional → `venda_itens.id` (Fase 5.2). É estável, imutável e não
+                 posicional, e é o caminho preferido: quem sabe QUAL linha
+                 está olhando manda o id e acabou.
    histórico   → `vendas_historico_itens.id` é chave primária de verdade.
 
-   Nos dois casos o que importa não é só achar o item: é achar o VALOR
+   O trio (venda_id, sku, variante_id) continua aceito, para quem ainda não
+   tem o id em mãos, mas NÃO é mais tratado como identidade. §27 permite duas
+   linhas do mesmo código na mesma venda com preços diferentes, e o trio casa
+   as duas. Quando isso acontece o sistema PARA e devolve as candidatas — a
+   peça que voltou é a cliente que sabe, não o `LIMIT 1`.
+
+   Nos três casos o que importa não é só achar o item: é achar o VALOR
    EFETIVAMENTE PAGO por ele. Usar o preço de tabela cobraria a mais numa
    troca de peça que saiu com desconto. */
 
-async function itemOperacional(db, { vendaId, sku, varianteId = null }) {
+async function itemOperacional(db, { vendaItemId = null, vendaId = null, sku = null, varianteId = null }) {
+  let item = null;
+  let vinculo = 'direto';
+
+  if (vendaItemId) {
+    item = await db.prepare('SELECT * FROM venda_itens WHERE id = ?').bind(String(vendaItemId)).first();
+    if (!item) return { erro: `O item ${vendaItemId} não existe em venda nenhuma.` };
+    if (vendaId != null && Number(item.venda_id) !== Number(vendaId)) {
+      return { erro: `O item ${vendaItemId} não é da venda ${vendaId}.` };
+    }
+    vendaId = item.venda_id;
+  }
+
   const venda = await db.prepare('SELECT * FROM vendas WHERE id = ?').bind(vendaId).first();
   if (!venda) return { erro: `Venda ${vendaId} não existe.` };
   if (venda.cancelada) return { erro: `A venda ${vendaId} está cancelada.` };
 
-  const item = await db.prepare(
-    `SELECT * FROM venda_itens
-      WHERE venda_id = ? AND sku = ?
-        AND (variante_id IS ? OR ? IS NULL)
-      LIMIT 1`,
-  ).bind(vendaId, sku, varianteId, varianteId).first();
-  if (!item) return { erro: `A venda ${vendaId} não tem o código ${sku}.` };
+  if (!item) {
+    /* Sem id: as candidatas do trio, TODAS, para poder contar antes de
+       escolher. `IS` e não `=` no variante_id — NULL = NULL é NULL, e a peça
+       sem variação sumiria da própria busca. Quando o chamador não disse a
+       variante, o filtro não é aplicado: aí as candidatas são todas as linhas
+       daquele código, e se houver mais de uma ele vai ter de dizer qual. */
+    const { results } = await db.prepare(
+      `SELECT * FROM venda_itens
+        WHERE venda_id = ? AND sku = ?
+          AND (? IS NULL OR variante_id IS ?)
+        ORDER BY id`,
+    ).bind(vendaId, sku, varianteId, varianteId).all();
+    const candidatas = results ?? [];
+
+    if (!candidatas.length) return { erro: `A venda ${vendaId} não tem o código ${sku}.` };
+    if (candidatas.length > 1) {
+      /* §2 e §9: o sistema não escolhe entre duas peças físicas, e não
+         engole a dúvida. Devolve as duas com o que as distingue. */
+      return {
+        erro: `A venda ${vendaId} tem ${candidatas.length} linhas do código ${sku}. `
+            + 'Diga qual delas voltou (vendaItemId).',
+        ambiguo: true,
+        candidatas: candidatas.map((c) => ({
+          vendaItemId: c.id,
+          sku: c.sku,
+          variacao: c.variacao ?? null,
+          varianteId: c.variante_id ?? null,
+          qtd: c.qtd,
+          precoPago: dinheiro(c.preco),
+          descontoRotulo: c.desconto_rotulo ?? null,
+        })),
+      };
+    }
+    item = candidatas[0];
+    vinculo = 'direto';
+  }
 
   return {
     origemFonte: 'operacional',
+    vendaItemId: item.id ?? null,
+    vendaItemVinculo: item.id ? vinculo : 'sem_match',
     vendaId: venda.id,
     historicoItemId: null,
     vendaHistoricaId: null,
@@ -141,6 +189,10 @@ async function itemHistorico(db, { historicoItemId }) {
 
   return {
     origemFonte: 'historico',
+    /* A planilha não tem linha em `venda_itens` — a pergunta não se aplica,
+       e dizer isso é diferente de deixar nulo sem explicação. */
+    vendaItemId: null,
+    vendaItemVinculo: 'nao_se_aplica',
     vendaId: null,
     historicoItemId: item.id,
     vendaHistoricaId: item.venda_historica_id ?? null,
@@ -171,33 +223,56 @@ export async function abrirGarantia(db, corpo = {}) {
     return { ok: false, statusHttp: 400, erro: 'Prazo tem que ser um número inteiro de dias úteis.' };
   }
 
+  const vendaItemId = corpo.vendaItemId == null || corpo.vendaItemId === ''
+    ? null : String(corpo.vendaItemId);
+
   let base;
   if (corpo.historicoItemId != null) {
     base = await itemHistorico(db, { historicoItemId: Number(corpo.historicoItemId) });
-  } else if (corpo.vendaId != null && corpo.sku) {
+  } else if (vendaItemId || (corpo.vendaId != null && corpo.sku)) {
     base = await itemOperacional(db, {
-      vendaId: Number(corpo.vendaId),
-      sku: normSku(corpo.sku),
+      vendaItemId,
+      vendaId: corpo.vendaId == null ? null : Number(corpo.vendaId),
+      sku: corpo.sku ? normSku(corpo.sku) : null,
       varianteId: corpo.varianteId == null || corpo.varianteId === '' ? null : String(corpo.varianteId),
     });
   } else {
     return {
       ok: false, statusHttp: 400,
-      erro: 'Diga qual item da compra: (vendaId + sku) ou historicoItemId.',
+      erro: 'Diga qual item da compra: vendaItemId, (vendaId + sku) ou historicoItemId.',
     };
   }
-  if (base.erro) return { ok: false, statusHttp: 404, erro: base.erro };
+  /* Ambiguidade não é "não encontrei": é "encontrei demais". 409 com as
+     candidatas na resposta, para a tela poder perguntar. */
+  if (base.erro) {
+    return base.ambiguo
+      ? { ok: false, statusHttp: 409, erro: base.erro, candidatas: base.candidatas }
+      : { ok: false, statusHttp: 404, erro: base.erro };
+  }
 
   /* A mesma peça da mesma compra não abre duas garantias ABERTAS. Duas
      linhas pendentes para o mesmo anel são sempre um clique repetido, e a
-     segunda ficaria pendurada no Painel para sempre. */
+     segunda ficaria pendurada no Painel para sempre.
+
+     5.2b NÃO afrouxa esta trava. Com a identidade de linha seria defensável
+     deixar duas unidades do mesmo código abrirem garantias separadas — são
+     duas peças físicas —, mas isso é mudança de REGRA DE PRODUTO, e esta
+     fase é migração de identidade. O par (venda, código) continua sendo o
+     que bloqueia; o `venda_item_id` só ACRESCENTA um caso, o da garantia
+     antiga cujo código foi corrigido depois (§41) e que por isso não casa
+     mais pelo par. Mais larga, nunca mais frouxa. Afrouxar fica para 5.4. */
   const jaAberta = await db.prepare(
     `SELECT id FROM garantias
       WHERE status IN ('em_reparo', 'reparada', 'sem_conserto')
         AND ((? IS NOT NULL AND venda_id = ? AND sku = ?)
+          OR (? IS NOT NULL AND venda_item_id = ?)
           OR (? IS NOT NULL AND historico_item_id = ?))
       LIMIT 1`,
-  ).bind(base.vendaId, base.vendaId, base.sku, base.historicoItemId, base.historicoItemId).first();
+  ).bind(
+    base.vendaId, base.vendaId, base.sku,
+    base.vendaItemId, base.vendaItemId,
+    base.historicoItemId, base.historicoItemId,
+  ).first();
   if (jaAberta) {
     return { ok: false, statusHttp: 409, erro: `Esta peça já tem a garantia ${jaAberta.id} em aberto.`, garantiaId: jaAberta.id };
   }
@@ -210,8 +285,9 @@ export async function abrirGarantia(db, corpo = {}) {
        (origem_fonte, venda_id, historico_item_id, venda_historica_id,
         cliente_id, cliente_nome_norm, cliente_nome,
         sku, variacao, variante_id, produto_nome, data_venda, valor_pago_original,
-        data_entrada, prazo_dias_uteis, previsao_retorno, motivo, observacao, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'em_reparo')
+        data_entrada, prazo_dias_uteis, previsao_retorno, motivo, observacao, status,
+        venda_item_id, venda_item_vinculo)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'em_reparo', ?, ?)
      RETURNING *`,
   ).bind(
     base.origemFonte, base.vendaId, base.historicoItemId, base.vendaHistoricaId,
@@ -219,6 +295,9 @@ export async function abrirGarantia(db, corpo = {}) {
     base.sku, base.variacao, base.varianteId, base.produtoNome, base.dataVenda, base.valorPagoOriginal,
     dataEntrada, prazo, previsao, motivo,
     String(corpo.observacao ?? '').trim() || null,
+    /* §31 — a garantia nasce apontando para a LINHA. O trio ao lado vira o
+       que sempre deveria ter sido: descrição, não identidade. */
+    base.vendaItemId ?? null, base.vendaItemVinculo ?? null,
   ).first();
 
   await evento(db, g.id, {
@@ -659,6 +738,11 @@ function publica(g, troca, eventos, prazo) {
     statusRotulo: ROTULO_STATUS[g.status] ?? g.status,
     pendente: PENDENTES.includes(g.status),
     origemFonte: g.origem_fonte,
+    /* 5.2b — o ponteiro oficial, e como ele foi obtido. `vendaItemVinculo`
+       nunca é escondido: `ambiguo` e `sem_match` são as garantias que o
+       backfill se recusou a adivinhar, e a tela precisa poder dizer isso. */
+    vendaItemId: g.venda_item_id ?? null,
+    vendaItemVinculo: g.venda_item_vinculo ?? null,
     vendaId: g.venda_id ?? null,
     historicoItemId: g.historico_item_id ?? null,
     vendaHistoricaId: g.venda_historica_id ?? null,
@@ -773,6 +857,82 @@ export async function listarGarantias(db, { status = null, limite = 200, offset 
   const hoje = hojeISO();
   const garantias = await Promise.all((results ?? []).map((r) => lerGarantia(db, r.id, { feriados, hoje })));
   return { ok: true, garantias, limite, offset };
+}
+
+/* ══════════════════════════════════════════ 5.2b — o que ficou sem ponteiro
+ *
+ *  O relatório da migração de identidade. Ele existe porque o backfill se
+ *  RECUSA a adivinhar: quando o trio antigo casava duas linhas, ou nenhuma,
+ *  a garantia ficou sem `venda_item_id` e com o motivo registrado. Isso não
+ *  pode virar dado esquecido no banco — §9, o que o sistema decidiu não
+ *  fazer é anunciado.
+ *
+ *  Somente leitura. Não conserta nada: quem resolve uma ambiguidade é gente
+ *  olhando qual peça voltou, e o caminho para gravar a decisão é abrir a
+ *  garantia com `vendaItemId`. */
+export async function vinculosDeGarantia(db, { limite = 200 } = {}) {
+  const { results: contagem } = await db.prepare(
+    `SELECT COALESCE(venda_item_vinculo, 'nao_classificado') AS vinculo, COUNT(*) AS total
+       FROM garantias GROUP BY 1 ORDER BY 1`,
+  ).all();
+
+  const porVinculo = Object.fromEntries((contagem ?? []).map((r) => [r.vinculo, Number(r.total)]));
+
+  /* As candidatas de cada caso ambíguo, para o relatório poder mostrar o que
+     distingue uma linha da outra — preço cobrado, variação, motivo. Sem
+     isso, "ambíguo" seria só uma reclamação. */
+  const { results: pendentes } = await db.prepare(
+    `SELECT g.id, g.venda_id, g.sku, g.variante_id, g.variacao, g.produto_nome,
+            g.valor_pago_original, g.data_entrada, g.status, g.venda_item_vinculo,
+            g.cliente_nome
+       FROM garantias g
+      WHERE g.origem_fonte = 'operacional'
+        AND g.venda_item_id IS NULL
+        AND COALESCE(g.venda_item_vinculo, 'nao_classificado') <> 'nao_se_aplica'
+      ORDER BY g.data_entrada DESC, g.id DESC
+      LIMIT ?`,
+  ).bind(limite).all();
+
+  const casos = [];
+  for (const p of pendentes ?? []) {
+    const { results: cands } = await db.prepare(
+      `SELECT id, sku, variacao, variante_id, qtd, preco, desconto_rotulo
+         FROM venda_itens WHERE venda_id = ? AND sku = ? ORDER BY id`,
+    ).bind(p.venda_id, p.sku).all();
+    casos.push({
+      garantiaId: p.id,
+      motivo: p.venda_item_vinculo ?? 'nao_classificado',
+      vendaId: p.venda_id,
+      sku: p.sku,
+      variacao: p.variacao ?? null,
+      varianteId: p.variante_id ?? null,
+      produtoNome: p.produto_nome ?? null,
+      clienteNome: p.cliente_nome ?? null,
+      dataEntrada: p.data_entrada,
+      status: p.status,
+      valorPagoOriginal: p.valor_pago_original == null ? null : Number(p.valor_pago_original),
+      candidatas: (cands ?? []).map((c) => ({
+        vendaItemId: c.id,
+        variacao: c.variacao ?? null,
+        varianteId: c.variante_id ?? null,
+        qtd: c.qtd,
+        precoPago: dinheiro(c.preco),
+        descontoRotulo: c.desconto_rotulo ?? null,
+      })),
+    });
+  }
+
+  return {
+    ok: true,
+    porVinculo,
+    ambiguas: porVinculo.ambiguo ?? 0,
+    semMatch: porVinculo.sem_match ?? 0,
+    resolvidas: (porVinculo.direto ?? 0) + (porVinculo.backfill_unico ?? 0)
+      + (porVinculo.backfill_unico_valor ?? 0),
+    naoSeAplica: porVinculo.nao_se_aplica ?? 0,
+    casos,
+    limite,
+  };
 }
 
 export { ROTULO_STATUS, PENDENTES as STATUS_PENDENTES };

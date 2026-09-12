@@ -1530,12 +1530,12 @@ CREATE TABLE IF NOT EXISTS garantias (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
 
   -- ─── o item de origem, nas duas populações de venda
-  -- `operacional` → venda do sistema. A identidade guardada aqui é
-  --                 (venda_id, sku, variante_id) porque era o que existia
-  --                 quando a garantia foi escrita. Desde a Fase 5.2
-  --                 `venda_itens.id` existe e é a identidade de verdade;
-  --                 migrar o ponteiro da garantia para ela é trabalho
-  --                 próprio, com dado a converter, e não foi feito aqui.
+  -- `operacional` → venda do sistema. O ponteiro de verdade é
+  --                 `venda_item_id` (Fase 5.2b). O trio (venda_id, sku,
+  --                 variante_id) permanece porque é a prova de como a
+  --                 garantia foi aberta e o único rastro das linhas que o
+  --                 backfill se recusou a adivinhar — não use mais como
+  --                 identidade: §27 casa duas linhas, §41 desfaz o trio.
   -- `historico`   → linha da planilha; `vendas_historico_itens.id` é PK real.
   origem_fonte TEXT NOT NULL CHECK (origem_fonte IN ('operacional', 'historico')),
   venda_id           INTEGER REFERENCES vendas(id),
@@ -1576,6 +1576,22 @@ CREATE TABLE IF NOT EXISTS garantias (
   criado_em     TEXT NOT NULL DEFAULT (datetime('now')),
   atualizado_em TEXT,
 
+  -- ─── Fase 5.2b: o ponteiro de verdade para a linha da venda.
+  --
+  -- Últimas para que uma instalação nova termine com a mesma ordem de
+  -- colunas do ALTER de `migracao-garantia-venda-item.sql`. Sem CHECK pelo
+  -- mesmo motivo: `ALTER TABLE` não acrescenta restrição de tabela, e um
+  -- CHECK só aqui faria os dois caminhos divergirem em silêncio.
+  --
+  -- `venda_item_vinculo` diz COMO o ponteiro foi obtido, e é o registro
+  -- auditável de quem ficou sem ele:
+  --   direto | backfill_unico | backfill_unico_valor
+  --   ambiguo   duas ou mais linhas possíveis — o sistema não escolheu
+  --   sem_match nenhuma linha encontrada — o sistema não inventou
+  --   nao_se_aplica  origem histórica: `historico_item_id` já é PK real
+  venda_item_id TEXT REFERENCES venda_itens(id),
+  venda_item_vinculo TEXT,
+
   CHECK (origem_fonte <> 'operacional' OR venda_id IS NOT NULL),
   CHECK (origem_fonte <> 'historico'   OR historico_item_id IS NOT NULL),
   CHECK (prazo_dias_uteis > 0)
@@ -1587,6 +1603,8 @@ CREATE INDEX IF NOT EXISTS idx_gar_norm     ON garantias(cliente_nome_norm);
 CREATE INDEX IF NOT EXISTS idx_gar_venda    ON garantias(venda_id);
 CREATE INDEX IF NOT EXISTS idx_gar_hist     ON garantias(historico_item_id);
 CREATE INDEX IF NOT EXISTS idx_gar_entrada  ON garantias(data_entrada);
+CREATE INDEX IF NOT EXISTS idx_gar_venda_item ON garantias(venda_item_id);
+CREATE INDEX IF NOT EXISTS idx_gar_vinculo    ON garantias(venda_item_vinculo);
 
 -- ─── a linha do tempo
 CREATE TABLE IF NOT EXISTS garantia_eventos (

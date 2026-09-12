@@ -10950,7 +10950,12 @@ async function abrirPerfilCliente(chave){
      lado do sistema, id da linha do lado da planilha. */
   const garPorItem=new Map();
   for(const g of (p.garantias||[])){
-    const k=g.historicoItemId!=null?('h:'+g.historicoItemId):('v:'+g.vendaId+':'+g.sku);
+    /* 5.2b: a chave é a LINHA da venda. Garantia antiga que o backfill não
+       conseguiu apontar (ambígua ou sem match) fica sem `vendaItemId` e cai
+       na chave larga de antes — aparece embaixo do código, como sempre
+       apareceu, em vez de sumir da ficha da cliente. */
+    const k=g.historicoItemId!=null?('h:'+g.historicoItemId)
+      :(g.vendaItemId?('i:'+g.vendaItemId):('v:'+g.vendaId+':'+g.sku));
     if(!garPorItem.has(k)) garPorItem.set(k,[]);
     garPorItem.get(k).push(g);
   }
@@ -11047,9 +11052,16 @@ async function abrirPerfilCliente(chave){
                que o banco guarda — não o nome do produto, não o SKU
                sozinho: a mesma cliente pode ter comprado o mesmo anel três
                vezes, e é a compra que diz qual deles voltou. */
-            const chave=i.fonte==='historico'?('h:'+i.item_id):('v:'+v.id+':'+i.sku);
-            const gs=garPorItem.get(chave)||[];
+            const chave=i.fonte==='historico'?('h:'+i.item_id)
+              :(i.item_id?('i:'+i.item_id):('v:'+v.id+':'+i.sku));
+            /* A garantia antiga que o backfill não conseguiu apontar ficou na
+               chave larga (venda, código). Ela some aqui também, senão
+               desapareceria da ficha da cliente no dia da migração. */
+            const gs=(garPorItem.get(chave)||[]).concat(
+              i.fonte==='operacional'&&i.item_id
+                ?(garPorItem.get('v:'+v.id+':'+i.sku)||[]):[]);
             const ctx={vendaId:v.id, historicoItemId:i.fonte==='historico'?i.item_id:null,
+              vendaItemId:i.fonte==='operacional'?(i.item_id||null):null,
               sku:i.sku, produto:i.nome, data:v.data, cliente:p.nomeExibicao,
               valorPago:i.qtd>0?Math.round((Number(i.valor)/Number(i.qtd))*100)/100:Number(i.valor)};
             return `
@@ -11356,11 +11368,15 @@ async function salvarGarantia(){
     prazoDiasUteis:+val('gr-prazo')||45,
     observacao:val('gr-obs')||undefined,
   };
-  /* As duas formas de apontar o ITEM. Histórico tem id de linha; a venda do
-     sistema é identificada pelo par (venda, código) — `venda_itens` não tem
-     chave própria. */
+  /* As formas de apontar o ITEM. Histórico tem id de linha; a venda do
+     sistema tem `venda_itens.id` desde a Fase 5.2, e é ele que a garantia
+     guarda. O par (venda, código) segue junto só para a venda antiga cujo
+     item ainda não traz id — e aí o servidor pergunta, se houver duas. */
   if(garContexto.historicoItemId) corpo.historicoItemId=garContexto.historicoItemId;
-  else { corpo.vendaId=garContexto.vendaId; corpo.sku=garContexto.sku; }
+  else {
+    corpo.vendaId=garContexto.vendaId; corpo.sku=garContexto.sku;
+    if(garContexto.vendaItemId) corpo.vendaItemId=garContexto.vendaItemId;
+  }
 
   const btn=document.getElementById('grConfirm');
   btn.disabled=true;

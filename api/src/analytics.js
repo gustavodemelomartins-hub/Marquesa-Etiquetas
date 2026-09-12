@@ -997,12 +997,14 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
           AND ((h.cliente_id IS NOT NULL AND h.cliente_id = ?)
             OR (h.cliente_id IS NULL AND ? IS NOT NULL AND h.cliente_nome_norm = ?))
         UNION ALL
-       -- O lado operacional não tem id de item: a tabela venda_itens não tem
-       -- chave própria. A identidade dele é (venda_id, sku, variante_id), e
-       -- é ela que a garantia guarda — por isso NULL aqui, e não um rowid,
-       -- que não sobrevive a um VACUUM. (Comentário em SQL, não em JS: isto
-       -- está dentro de um template literal, e uma crase fecharia a string.)
-       SELECT NULL, v.data, i.sku, UPPER(i.sku), i.desc, i.qtd, i.qtd * i.preco,
+       -- Desde a Fase 5.2 o lado operacional TEM id de item: venda_itens.id,
+       -- estavel e imutavel. E o que a garantia passa a guardar (5.2b), no
+       -- lugar do trio (venda_id, sku, variante_id), que casava duas linhas
+       -- quando a mesma peca saiu duas vezes na mesma venda com precos
+       -- diferentes. Nunca foi rowid: rowid nao sobrevive a um VACUUM.
+       -- (Comentario em SQL, nao em JS: isto esta dentro de um template
+       -- literal, e uma crase fecharia a string.)
+       SELECT i.id, v.data, i.sku, UPPER(i.sku), i.desc, i.qtd, i.qtd * i.preco,
               i.preco_tabela, i.desconto_valor * i.qtd, i.desconto_rotulo,
               v.origem, NULL, 1, NULL, v.id, 'operacional', p2.cat
          FROM vendas v JOIN venda_itens i ON i.venda_id = v.id

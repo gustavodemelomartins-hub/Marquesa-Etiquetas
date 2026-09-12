@@ -30,6 +30,7 @@ import { listarSaidas, registrarSaida, estornarSaida } from '../../saidas.js';
 import {
   listarGarantias, lerGarantia, garantiasPendentes, abrirGarantia,
   mudarStatusGarantia, registrarTroca, pagarDiferencaTroca, estornarTroca,
+  vinculosDeGarantia,
 } from '../../garantias.js';
 import {
   analisarHistoricoNaoVenda, listarReclassificacoes,
@@ -150,6 +151,18 @@ export const rotas = [
     async handler({ db, url }) {
       return json(await garantiasPendentes(db, {
         limite: Math.min(+(url.searchParams.get('limite') || 50), 200),
+      }));
+    },
+  },
+  {
+    /* 5.2b — o relatório da migração de identidade: quais garantias ficaram
+       sem apontar para a linha da venda, e por quê. Somente leitura; não
+       conserta nada. Antes de `/:id` só por organização — o padrão `[0-9]+`
+       daquela rota já impede a confusão. */
+    metodo: 'GET', caminho: '/api/garantias/vinculos', auth: 'bearer',
+    async handler({ db, url }) {
+      return json(await vinculosDeGarantia(db, {
+        limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
       }));
     },
   },
