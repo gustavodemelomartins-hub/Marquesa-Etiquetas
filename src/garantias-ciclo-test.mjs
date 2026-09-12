@@ -261,11 +261,13 @@ console.log('\n=== 2. estados: o que cada transição faz HOJE ===');
 
   /* As outras tres portas recusam data futura (abertura, troca, pagamento).
      A mudanca de status nao valida: da para carimbar um reparo que ainda nao
-     aconteceu. Defeito pequeno, mas da mesma familia. */
+     aconteceu. Achado ao escrever esta suite, e NAO corrigido: recusar data
+     futura aqui mudaria uma validacao que alguem pode estar usando de
+     proposito, e isso e decisao de quem opera o balcao. */
   const futuro = await G.mudarStatusGarantia(db, id, { status: 'reparada', data: '2099-01-01' });
   assert.equal(futuro.ok, true);
   assert.equal(futuro.garantia.eventos.at(-1).data, '2099-01-01');
-  caracteriza('mudar status aceita data no FUTURO; as outras tres portas recusam', '5.4b');
+  caracteriza('mudar status aceita data no FUTURO; as outras tres portas recusam', 'decisao pendente');
   await G.mudarStatusGarantia(db, id, { status: 'em_reparo', data: '2026-09-02' });
 
   const rep = await G.mudarStatusGarantia(db, id, { status: 'reparada', data: '2026-09-10' });
@@ -666,24 +668,77 @@ console.log('\n=== 9. estorno da troca (GAR-102) ===');
   assert.equal(ev.observacao, 'SKU digitado errado');
   prova('a garantia volta a não ter troca, e o evento guarda o motivo');
 
-  /* Defeito conhecido: a LINHA da troca é apagada. O que sobra é o evento,
-     com três campos. Somem valor_original, valor_novo, movimento_id e data —
-     e `saidas.js`, para o mesmo problema, diz em voz alta que estornar NÃO
-     apaga. */
-  assert.equal(raw.prepare('SELECT COUNT(*) c FROM garantia_trocas').get().c, 0);
-  assert.deepEqual(Object.keys(ev.dados).sort(), ['diferenca', 'skuNovo', 'vendaId']);
-  caracteriza('o estorno APAGA a linha da troca: valores, data e movimento somem', '5.4d');
+  /* 5.4d — ESTORNAR NÃO APAGA (§28). A linha fica, com o estado do caso.
+     Quem olhar daqui a um ano vê o que houve, e que foi desfeito. */
+  const linha = raw.prepare('SELECT * FROM garantia_trocas WHERE id = ?').get(e.trocaEstornadaId);
+  assert.ok(linha, 'a linha da troca foi apagada');
+  assert.equal(linha.estornada, 1);
+  assert.equal(linha.estorno_motivo, 'SKU digitado errado');
+  assert.ok(linha.estorno_em, 'sem data de estorno');
+  prova('a troca estornada CONTINUA na tabela, marcada, com motivo e data');
+
+  assert.equal(linha.sku_novo, '100002');
+  assert.equal(linha.valor_original, 100.0);
+  assert.equal(linha.valor_novo, 200.0);
+  assert.equal(linha.diferenca, 100.0);
+  assert.equal(linha.data, '2026-09-10');
+  assert.equal(linha.venda_id, t.vendaId);
+  prova('e o fato original inteiro sobrevive: SKU, os dois valores, a diferença, a data e a venda');
+
+  /* As duas pontas do estoque na mesma linha: um movimento tirou a peça, o
+     outro a trouxe de volta. A razão se explica sem consultar mais nada. */
+  assert.ok(linha.movimento_id, 'o movimento da troca se perdeu');
+  assert.ok(linha.estorno_movimento_id, 'o movimento do estorno não foi gravado');
+  assert.notEqual(linha.movimento_id, linha.estorno_movimento_id);
+  const saiu = raw.prepare('SELECT qtd, tipo FROM movimentos WHERE id = ?').get(linha.movimento_id);
+  const voltou = raw.prepare('SELECT qtd, tipo FROM movimentos WHERE id = ?').get(linha.estorno_movimento_id);
+  assert.equal(saiu.qtd, -1);
+  assert.equal(voltou.qtd, 1);
+  prova('as DUAS pontas do estoque ficam na linha: o movimento que tirou e o que devolveu');
+
+  assert.equal(ev.dados.trocaId, linha.id);
+  assert.equal(ev.dados.valorOriginal, 100.0);
+  assert.equal(ev.dados.dataDaTroca, '2026-09-10');
+  prova('e o evento aponta para a troca, em vez de ser o único rastro dela');
+
+  /* A troca estornada sai de toda soma: ninguém deve nada por ela. */
+  const contas = await CR.contasAReceber(db, { status: 'aberta' });
+  assert.equal((contas.contas ?? []).some((c) => c.chave === `venda:${t.vendaId}`), false);
+  assert.equal((contas.contas ?? []).some((c) => c.chave === `troca:${id}`), false);
+  prova('e some do A Receber: a peça voltou e a venda foi cancelada');
 
   const repetido = await G.estornarTroca(db, id, { motivo: 'de novo' });
   assert.equal(repetido.ok, false);
   assert.equal(repetido.statusHttp, 404);
   assert.equal(qtd(raw, '100002'), antes, 'o segundo estorno devolveu peça de novo');
-  prova('estornar duas vezes não devolve a peça duas vezes');
+  assert.equal(
+    raw.prepare(`SELECT COUNT(*) c FROM garantia_eventos WHERE tipo = 'troca_estornada'`).get().c, 1);
+  prova('estornar duas vezes não devolve a peça duas vezes, nem duplica o evento');
 
   const outra = await G.registrarTroca(db, id, { skuNovo: '100003', data: '2026-09-11' });
-  assert.equal(outra.ok, true);
+  assert.equal(outra.ok, true, `nova troca falhou: ${outra.erro ?? ''}`);
   assert.equal(qtd(raw, '100003'), 48);
   prova('e depois do estorno uma troca nova é possível — que é a razão de a rota existir');
+
+  /* O índice único parcial: uma troca VIVA por garantia, quantas estornadas
+     a história exigir. A trava contra o duplo clique não afrouxou. */
+  assert.equal(raw.prepare('SELECT COUNT(*) c FROM garantia_trocas WHERE garantia_id = ?').get(id).c, 2);
+  assert.equal(
+    raw.prepare('SELECT COUNT(*) c FROM garantia_trocas WHERE garantia_id = ? AND estornada = 0').get(id).c, 1);
+  let recusou = false;
+  try {
+    raw.prepare(
+      `INSERT INTO garantia_trocas (garantia_id, data, sku_novo, produto_novo_nome,
+         valor_original, valor_novo, diferenca, diferenca_status)
+       VALUES (?, '2026-09-11', '100004', 'Anel Igual', 100, 100, 0, 'nenhuma')`).run(id);
+  } catch { recusou = true; }
+  assert.equal(recusou, true, 'o índice deixou nascer uma SEGUNDA troca viva');
+  prova('o índice único parcial: uma troca viva por garantia, e o duplo clique continua barrado');
+
+  const dobrada = await G.registrarTroca(db, id, { skuNovo: '100004', data: '2026-09-11' });
+  assert.equal(dobrada.ok, false);
+  assert.equal(dobrada.statusHttp, 409);
+  prova('e a rota também recusa, antes de chegar ao índice');
 
   assert.equal(razaoFecha(raw), 0);
   prova('a razão fecha depois de troca, estorno e troca de novo');

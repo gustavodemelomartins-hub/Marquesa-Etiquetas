@@ -71,7 +71,8 @@ async function recebidoNoDia(db, data) {
   const t = await db.prepare(
     `SELECT ROUND(COALESCE(SUM(diferenca_valor_pago), 0), 2) AS entrou
        FROM garantia_trocas
-      WHERE diferenca_status = 'paga' AND diferenca_paga_em = ? AND venda_id IS NULL`,
+      WHERE diferenca_status = 'paga' AND diferenca_paga_em = ? AND venda_id IS NULL
+        AND estornada = 0`,
   ).bind(data).first().catch(() => ({ entrou: 0 }));
   return +(Number(r?.entrou ?? 0) + Number(t?.entrou ?? 0)).toFixed(2);
 }

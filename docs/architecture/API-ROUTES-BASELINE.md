@@ -274,7 +274,7 @@ Proprietário: Garantias; diferença financeira é consumida por Financeiro. A v
 | `POST /api/garantias/:id/status` | C | Transição controlada. |
 | `POST /api/garantias/:id/troca` | C/H | Registra troca/diferença. |
 | `POST /api/garantias/:id/troca/pagar` | C/H | Liquida apenas diferença. |
-| `POST /api/garantias/:id/troca/estornar` | C/H | Estorna liquidação. |
+| `POST /api/garantias/:id/troca/estornar` | C/H | Desfaz a troca: devolve a peça nova ao estoque, cancela a venda da diferença e MARCA a troca como estornada (5.4d — não apaga, §28). Recusa quando a diferença já foi paga. Sem call site: `AGUARDANDO HANDOFF CODEX`. |
 
 ### Auditoria e reclassificação histórica
 

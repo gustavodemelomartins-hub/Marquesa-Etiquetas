@@ -180,7 +180,7 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
       `SELECT t.garantia_id, t.sku_novo, t.diferenca, t.data, g.sku AS sku_original,
               g.cliente_nome
          FROM garantia_trocas t JOIN garantias g ON g.id = t.garantia_id
-        WHERE t.diferenca_status = 'pendente_regra'`,
+        WHERE t.diferenca_status = 'pendente_regra' AND t.estornada = 0`,
     ).all().catch(() => ({ results: [] })),
 
     db.prepare(

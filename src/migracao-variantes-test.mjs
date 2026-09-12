@@ -116,6 +116,9 @@ const MIGRACOES = [
      Depois de `migracao-venda-item-id.sql` obrigatoriamente: o backfill lê
      `venda_itens.id`, que só existe a partir dela. */
   'api/migracao-garantia-venda-item.sql',
+  /* 5.4d — estornar troca deixa de apagar a linha. Depois da de cima só
+     por ordem cronológica: as duas mexem em tabelas diferentes. */
+  'api/migracao-garantia-troca-estorno.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com

@@ -355,6 +355,10 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
               COUNT(*) AS trocas
          FROM garantia_trocas
         WHERE diferenca_status = 'paga'
+          -- 5.4d: a troca estornada continua na tabela (§28), mas nao e
+          -- faturamento. Estornar troca paga ja e recusado; o filtro esta
+          -- aqui para a soma nao depender daquela recusa.
+          AND estornada = 0
           -- §36: a troca com registro comercial fatura PELA VENDA, e a
           -- venda já está no CTE acima. Somar as duas contaria o mesmo real
           -- duas vezes. Sem venda ligada são as trocas anteriores à regra
@@ -458,6 +462,7 @@ export async function evolucao(db, { periodo = 'tudo', granularidade = 'mes' } =
                    COALESCE(diferenca_valor_pago, 0), 0, 0
               FROM garantia_trocas
              WHERE diferenca_status = 'paga' AND diferenca_paga_em IS NOT NULL
+               AND estornada = 0
                ${faixa.de ? 'AND diferenca_paga_em >= ? AND diferenca_paga_em <= ?' : ''}
           )
      SELECT chave,

@@ -382,7 +382,8 @@ export async function mudarStatusGarantia(db, id, corpo = {}) {
 
   /* Uma garantia que já trocou de peça não volta a "em reparo": a peça nova
      já saiu do estoque, e reabrir o caso deixaria a troca órfã. */
-  const troca = await db.prepare('SELECT id FROM garantia_trocas WHERE garantia_id = ?').bind(id).first();
+  const troca = await db.prepare(
+    'SELECT id FROM garantia_trocas WHERE garantia_id = ? AND estornada = 0').bind(id).first();
   if (troca && (novo === 'em_reparo' || novo === 'cancelada')) {
     return {
       ok: false, statusHttp: 409,
@@ -435,7 +436,8 @@ export async function registrarTroca(db, id, corpo = {}) {
   const g = await db.prepare('SELECT * FROM garantias WHERE id = ?').bind(id).first();
   if (!g) return { ok: false, statusHttp: 404, erro: 'Garantia não encontrada.' };
 
-  const jaTrocou = await db.prepare('SELECT * FROM garantia_trocas WHERE garantia_id = ?').bind(id).first();
+  const jaTrocou = await db.prepare(
+    'SELECT * FROM garantia_trocas WHERE garantia_id = ? AND estornada = 0').bind(id).first();
   if (jaTrocou) {
     return { ok: false, statusHttp: 409, erro: 'Esta garantia já teve a troca registrada.', trocaId: jaTrocou.id };
   }
@@ -677,7 +679,7 @@ export async function pagarDiferencaTroca(db, id, corpo = {}) {
   const troca = await db.prepare(
     `SELECT t.*, g.cliente_nome FROM garantia_trocas t
        JOIN garantias g ON g.id = t.garantia_id
-      WHERE t.garantia_id = ?`,
+      WHERE t.garantia_id = ? AND t.estornada = 0`,
   ).bind(id).first();
   if (!troca) return { ok: false, statusHttp: 404, erro: 'Esta garantia não tem troca registrada.' };
   if (troca.diferenca_status === 'paga') {
@@ -748,11 +750,20 @@ export async function pagarDiferencaTroca(db, id, corpo = {}) {
   };
 }
 
-/** Desfaz a troca: a peça nova volta ao estoque e a garantia volta a
- *  "sem conserto". Existe porque a troca baixa estoque, e um erro de
- *  digitação no SKU novo não pode ser corrigido apagando a linha. */
+/** Desfaz a troca: a peça nova volta ao estoque e a garantia continua em
+ *  "sem conserto", à espera de outra troca. Existe porque a troca baixa
+ *  estoque, e um erro de digitação no SKU novo não pode ser corrigido
+ *  apagando a linha.
+ *
+ *  5.4d — ESTORNAR NÃO APAGA O FATO (§28). Até aqui esta função dava
+ *  `DELETE` na linha: sumiam o SKU novo, o valor original, o valor da peça
+ *  nova, a data e o `movimento_id`, e sobrava um evento com três campos. A
+ *  mesma função já cancelava a VENDA em vez de apagá-la, citando §28, e
+ *  `saidas.js` diz a regra em voz alta para o caso gêmeo. A troca era o
+ *  outlier. Agora ela é marcada, e a história inteira fica legível. */
 export async function estornarTroca(db, id, { motivo = null } = {}) {
-  const troca = await db.prepare('SELECT * FROM garantia_trocas WHERE garantia_id = ?').bind(id).first();
+  const troca = await db.prepare(
+    'SELECT * FROM garantia_trocas WHERE garantia_id = ? AND estornada = 0').bind(id).first();
   if (!troca) return { ok: false, statusHttp: 404, erro: 'Esta garantia não tem troca registrada.' };
   if (troca.diferenca_status === 'paga') {
     return {
@@ -764,11 +775,17 @@ export async function estornarTroca(db, id, { motivo = null } = {}) {
   if (!razao) return { ok: false, statusHttp: 400, erro: 'Diga por que está estornando a troca.' };
 
   const antes = await saldosDoSku(db, troca.sku_novo);
+  const quando = hojeISO();
   const obsMov = `Estorno da troca de garantia ${id} · ${razao}`;
   await db.batch(movimentar(db, {
     sku: troca.sku_novo, tipo: 'ajuste', quantidade: 1, origem: 'estorno',
     obs: obsMov, variacao: troca.variacao_nova, varianteId: troca.variante_id_novo,
   }));
+  /* A outra ponta de `movimento_id`: um tirou a peça do estoque, este a
+     trouxe de volta. Com os dois na linha, a razão se explica sozinha. */
+  const mov = await db.prepare(
+    `SELECT id FROM movimentos WHERE sku = ? AND obs = ? ORDER BY id DESC LIMIT 1`,
+  ).bind(troca.sku_novo, obsMov).first();
 
   /* §36 — o registro comercial da peça nova é CANCELADO, não apagado
      (§28: cancela, não apaga). Ele sai de toda soma pelo mesmo caminho de
@@ -781,10 +798,32 @@ export async function estornarTroca(db, id, { motivo = null } = {}) {
         WHERE id = ?`,
     ).bind(razao, troca.venda_id).run();
   }
-  await db.prepare('DELETE FROM garantia_trocas WHERE id = ?').bind(troca.id).run();
+
+  /* A linha fica. `AND estornada = 0` para que duas chamadas simultâneas não
+     estornem duas vezes: a segunda muda zero linhas e não escreve evento. */
+  const marcada = await db.prepare(
+    `UPDATE garantia_trocas
+        SET estornada = 1, estorno_em = ?, estorno_motivo = ?, estorno_movimento_id = ?,
+            atualizado_em = datetime('now')
+      WHERE id = ? AND estornada = 0`,
+  ).bind(quando, razao, mov ? mov.id : null, troca.id).run();
+  if (marcada?.meta && marcada.meta.changes === 0) {
+    return { ok: false, statusHttp: 409, erro: 'Esta troca já tinha sido estornada.' };
+  }
+
   await evento(db, id, {
-    tipo: 'troca_estornada', data: hojeISO(), observacao: razao,
-    dados: { skuNovo: troca.sku_novo, diferenca: troca.diferenca, vendaId: troca.venda_id ?? null },
+    tipo: 'troca_estornada', data: quando, observacao: razao,
+    dados: {
+      trocaId: troca.id,
+      skuNovo: troca.sku_novo,
+      valorOriginal: Number(troca.valor_original),
+      valorNovo: Number(troca.valor_novo),
+      diferenca: troca.diferenca,
+      dataDaTroca: troca.data,
+      vendaId: troca.venda_id ?? null,
+      movimentoDaTroca: troca.movimento_id ?? null,
+      movimentoDoEstorno: mov ? mov.id : null,
+    },
   });
 
   const depois = await saldosDoSku(db, troca.sku_novo);
@@ -792,6 +831,9 @@ export async function estornarTroca(db, id, { motivo = null } = {}) {
     ok: true,
     garantia: await lerGarantia(db, id),
     estoque: { sku: troca.sku_novo, antes: antes.qtd, depois: depois.qtd },
+    /* A troca continua existindo, e a resposta diz onde. */
+    trocaEstornadaId: troca.id,
+    vendaCancelada: troca.venda_id ?? null,
   };
 }
 
@@ -860,7 +902,8 @@ export async function lerGarantia(db, id, { feriados = null, hoje = null } = {})
   const g = await db.prepare('SELECT * FROM garantias WHERE id = ?').bind(id).first();
   if (!g) return null;
   const [troca, ev] = await Promise.all([
-    db.prepare('SELECT * FROM garantia_trocas WHERE garantia_id = ?').bind(id).first(),
+    db.prepare(
+      'SELECT * FROM garantia_trocas WHERE garantia_id = ? AND estornada = 0').bind(id).first(),
     db.prepare('SELECT * FROM garantia_eventos WHERE garantia_id = ? ORDER BY id').bind(id).all(),
   ]);
   const fer = feriados ?? await carregarFeriados(db);

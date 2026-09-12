@@ -48,7 +48,8 @@ async function vendasEmAberto(db) {
     `SELECT v.id, v.data, v.total, v.valor_recebido, v.observacao, v.origem,
             v.vencimento_em, v.cliente_id, v.cliente_nome_norm, v.cliente_ambiguo,
             COALESCE(c.nome, v.cliente_nome) AS cliente,
-            (SELECT COUNT(*) FROM garantia_trocas gt WHERE gt.venda_id = v.id) AS de_troca
+            (SELECT COUNT(*) FROM garantia_trocas gt
+              WHERE gt.venda_id = v.id AND gt.estornada = 0) AS de_troca
        FROM vendas v
        LEFT JOIN clientes c ON c.id = v.cliente_id
       WHERE v.cancelada = 0
@@ -106,6 +107,9 @@ async function trocasEmAberto(db) {
        FROM garantia_trocas t
        JOIN garantias g ON g.id = t.garantia_id
       WHERE t.diferenca_status = 'a_receber' AND t.venda_id IS NULL
+        -- 5.4d: a troca estornada continua na tabela, mas ninguem deve nada
+        -- por ela. A peca voltou ao estoque e a venda foi cancelada.
+        AND t.estornada = 0
       ORDER BY t.data, t.id`,
   ).all().catch(() => ({ results: [] }));
   return (results ?? []).map((t) => ({
@@ -259,7 +263,8 @@ export async function receberConta(db, { chave, confirmar = false, versaoEsperad
      `garantia_trocas`. Fecham juntas, no mesmo batch, ou o Painel mostraria
      a diferença como paga num lugar e em aberto no outro. */
   const troca = await db.prepare(
-    'SELECT id, garantia_id, diferenca, diferenca_status FROM garantia_trocas WHERE venda_id = ?',
+    `SELECT id, garantia_id, diferenca, diferenca_status FROM garantia_trocas
+      WHERE venda_id = ? AND estornada = 0`,
   ).bind(p.id).first().catch(() => null);
 
   const escritas = [

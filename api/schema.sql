@@ -1676,13 +1676,33 @@ CREATE TABLE IF NOT EXISTS garantia_trocas (
   -- pós-go-live. NULL preserva as trocas anteriores a essa regra.
   venda_id INTEGER REFERENCES vendas(id),
 
+  -- ─── Fase 5.4d: estornar NÃO apaga (§28).
+  --
+  -- Antes o estorno fazia DELETE, e sumiam o SKU novo, os valores, a data e
+  -- o movimento. Agora a linha fica, com o estado do caso: quem olhar daqui
+  -- a um ano vê que houve uma troca, que ela foi desfeita, por quê, e qual
+  -- movimento devolveu a peça. `estorno_movimento_id` é a outra ponta de
+  -- `movimento_id`: um tirou a peça do estoque, o outro a trouxe de volta.
+  --
+  -- Sem CHECK pelo mesmo motivo das colunas de 5.2b em `garantias`.
+  estornada INTEGER NOT NULL DEFAULT 0,
+  estorno_em TEXT,
+  estorno_motivo TEXT,
+  estorno_movimento_id INTEGER REFERENCES movimentos(id),
+
   CHECK (diferenca_status <> 'paga' OR diferenca_paga_em IS NOT NULL)
 );
 
--- Uma garantia troca no máximo uma vez. Sem isto, dois cliques no botão
--- baixariam duas peças novas do estoque.
+-- Uma garantia tem no máximo uma troca VIVA. Sem isto, dois cliques no
+-- botão baixariam duas peças novas do estoque.
+--
+-- Parcial desde 5.4d: a troca estornada continua na tabela (§28), e um
+-- índice cheio proibiria a segunda troca legítima depois de um estorno —
+-- que é a razão de a rota de estorno existir. A trava contra o duplo
+-- clique continua exatamente tão forte quanto era.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_gar_troca_unica
-  ON garantia_trocas(garantia_id);
+  ON garantia_trocas(garantia_id) WHERE estornada = 0;
+CREATE INDEX IF NOT EXISTS idx_gar_troca_estornada ON garantia_trocas(estornada);
 CREATE INDEX IF NOT EXISTS idx_gar_troca_dif
   ON garantia_trocas(diferenca_status, diferenca_paga_em);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_gar_troca_venda
