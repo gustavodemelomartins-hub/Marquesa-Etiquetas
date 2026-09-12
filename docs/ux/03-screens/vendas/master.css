@@ -426,31 +426,163 @@ td strong { color: var(--wine-700); }
 }
 
 @media (max-width: 580px) {
-  .header-main { padding-inline: 13px; }
-  .brand { width: 176px; }
+  html { scroll-padding-top: 118px; }
+  body {
+    padding-bottom: calc(70px + env(safe-area-inset-bottom));
+    background:
+      radial-gradient(circle at 100% 0, rgba(243, 220, 228, .48), transparent 19rem),
+      linear-gradient(180deg, #fffaf9 0, #f9f1f3 100%);
+  }
+  .app-header {
+    position: sticky;
+    top: 0;
+    border-bottom-color: var(--line-soft);
+    background: rgba(255, 253, 252, .96);
+    box-shadow: 0 6px 22px rgba(83, 29, 48, .06);
+    backdrop-filter: none;
+  }
+  .header-main {
+    min-height: 64px;
+    flex-wrap: nowrap;
+    padding: 8px 14px;
+    background: rgba(255, 253, 252, .94);
+  }
+  .brand { width: 150px; }
+  .brand img { max-height: 46px; }
   .notification { display: none; }
-  .avatar { width: 42px; height: 42px; flex-basis: 42px; }
-  .page-heading h1 { font-size: 40px; }
-  .page-heading { margin-top: 0; }
-  .period-control button { min-width: 66px; flex: 1; padding-inline: 8px; font-size: 11px; }
-  .period-control .calendar-button { min-width: 40px; flex: 0 0 40px; }
+  .header-tools { gap: 2px; }
+  .profile { min-width: 44px; min-height: 44px; justify-content: center; padding: 0; }
+  .profile > svg { display: none; }
+  .avatar { width: 40px; height: 40px; flex-basis: 40px; font-size: 18px; }
+  .profile-menu { position: fixed; top: 58px; right: 12px; }
+  .primary-nav {
+    position: fixed;
+    z-index: 30;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    order: initial;
+    width: auto;
+    min-height: calc(68px + env(safe-area-inset-bottom));
+    align-items: flex-start;
+    gap: 0;
+    padding: 0 5px env(safe-area-inset-bottom);
+    overflow: visible;
+    border-top: 1px solid var(--line);
+    background: rgba(255, 253, 252, .97);
+    box-shadow: 0 -8px 28px rgba(83, 29, 48, .09);
+    backdrop-filter: blur(18px);
+  }
+  .primary-nav button {
+    min-width: 0;
+    min-height: 68px;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: 3px;
+    padding: 9px 2px 7px;
+    font-size: 10px;
+    line-height: 1.1;
+  }
+  .primary-nav button svg { display: block; width: 21px; height: 21px; }
+  .primary-nav button.active { background: transparent; box-shadow: none; }
+  .primary-nav button::after { top: 0; right: 24%; bottom: auto; left: 24%; height: 3px; border-radius: 0 0 3px 3px; }
+  .secondary-nav {
+    display: grid;
+    min-height: 48px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    padding: 0 10px;
+    overflow: visible;
+    border-top-color: var(--line-soft);
+  }
+  .secondary-nav button { min-height: 48px; padding: 0 6px; font-size: 13px; }
+  .secondary-nav button::after { right: 18%; left: 18%; }
+  .secondary-nav button span { margin-left: 4px; padding: 2px 7px; font-size: 10px; }
+  main { width: calc(100% - 24px); padding: 8px 0 28px; }
+  .page-heading { gap: 12px; margin: 14px 2px 16px; }
+  .page-heading h1 { font-size: 35px; line-height: 1; }
+  .page-heading p { margin-top: 7px; font-size: 13px; line-height: 1.45; }
+  .page-heading .context { margin-bottom: 6px; font-size: 11px; }
+  .page-heading > .button, .clients-heading-actions { width: 100%; }
+  .clients-heading-actions .button { min-height: 44px; flex: 1; }
+  .period-control { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 44px; overflow: visible; }
+  .period-control button { min-width: 0; min-height: 44px; padding-inline: 4px; font-size: 10px; }
+  .period-control .calendar-button { min-width: 0; }
   .headline-grid, .metric-row, .breakdowns { grid-template-columns: 1fr; }
-  .revenue-card, .receivable-card { min-height: 165px; padding: 22px; }
-  .receipt { opacity: .5; }
-  .chart-section, .period-details, .launch-card, .customer-card, .payment, .client-list, .output-list, .repair-list { padding: 16px; }
-  .sales-chart { grid-template-columns: repeat(4, 1fr); gap: 14px; padding-right: 35px; }
+  .headline-grid { gap: 10px; }
+  .revenue-card, .receivable-card { min-height: 148px; padding: 19px; border-radius: 15px; }
+  .revenue-card strong, .receivable-card strong { font-size: 33px; }
+  .revenue-meta { padding-top: 11px; }
+  .revenue-meta b { font-size: 16px; }
+  .spark { top: 24px; right: 18px; width: 70px; }
+  .receivable-card button { width: 100%; min-height: 44px; margin-top: 15px; }
+  .receipt { right: 18px; bottom: 66px; width: 58px; opacity: .42; }
+  .repair-alert { gap: 10px; margin: 10px 0; padding: 11px 13px; }
+  .repair-icon { width: 34px; height: 34px; flex: 0 0 34px; }
+  .data-section { border-radius: 14px; }
+  .chart-section, .period-details, .launch-card, .customer-card, .payment, .client-list, .output-list, .repair-list { padding: 14px; }
+  .section-heading { gap: 10px; }
+  .section-heading h2 { font-size: 23px; }
+  .section-heading p { font-size: 11px; }
+  .legend { align-self: center; font-size: 10px; }
+  .sales-chart { height: 210px; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 12px; padding: 8px 33px 34px 2px; }
   .sales-chart button:nth-of-type(-n+8) { display: none; }
+  .period-details { margin-top: 10px; }
+  .detail-heading { padding-bottom: 14px; }
   .view-toggle { width: 100%; }
-  .view-toggle button { min-width: 0; flex: 1; }
+  .view-toggle button { min-width: 0; min-height: 44px; flex: 1; padding-inline: 8px; font-size: 11px; }
+  .analytics-view { padding-top: 14px; }
+  .product-ranking, .breakdowns section, .month-grid section { padding: 13px; }
+  .mini-heading { align-items: center; }
+  .mini-heading button { min-height: 44px; padding: 6px 0 6px 10px; }
+  .product-ranking .table-wrap { overflow: visible; }
+  .product-ranking th:nth-child(3), .product-ranking td:nth-child(3),
+  .product-ranking th:nth-child(6), .product-ranking td:nth-child(6) { display: none; }
+  .product-ranking th, .product-ranking td { padding-inline: 5px; }
+  .product-ranking th:first-child, .product-ranking td:first-child { width: 24px; padding-left: 0; }
+  .product-ranking th:nth-child(4), .product-ranking td:nth-child(4),
+  .product-ranking th:nth-child(5), .product-ranking td:nth-child(5) { width: 58px; text-align: right; }
+  .bars li { grid-template-columns: 58px minmax(70px, 1fr) 62px; gap: 7px; }
+  .origins div { grid-template-columns: 1fr 34px 74px; }
+  .metric-row.compact { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .metric-row.compact article { min-height: 91px; padding: 12px; }
+  .metric-row.compact strong { font-size: 24px; }
+  #clientes .metric-row.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #clientes .metric-row.compact article { min-height: 102px; padding: 11px 9px; }
+  #clientes .metric-row.compact strong { font-size: 23px; }
+  #clientes .metric-row.compact small { line-height: 1.25; }
+  .choice-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+  .choice {
+    min-height: 106px;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 42px 7px 11px;
+    text-align: center;
+  }
+  .choice::before { top: 15px; left: 50%; transform: translateX(-50%); }
+  .choice span { font-size: 12px; line-height: 1.2; }
+  .choice small { margin-top: 4px; font-size: 9px; line-height: 1.25; }
+  .launch-grid { gap: 10px; }
+  .launch-card .section-heading .button, .customer-card .section-heading .button { padding: 8px 10px; font-size: 12px; }
   .cart-list li { grid-template-columns: 34px minmax(0, 1fr) auto; }
   .cart-list li > span:nth-last-of-type(1) { display: none; }
+  .cart-list li { gap: 8px; padding: 9px 8px; }
+  .cart-list li > strong { font-size: 13px; }
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .wide { grid-column: auto; }
-  .payment-summary { flex-direction: column; gap: 6px; }
+  .payment-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; padding: 10px; }
+  .payment-summary span { font-size: 10px; }
+  .payment-summary b { display: block; margin: 2px 0 0; font-size: 13px; white-space: nowrap; }
   .payment-line { grid-template-columns: 1fr auto; }
-  .payment-line span { display: none; }
+  .payment-line strong { grid-column: 1; }
+  .payment-line button { min-width: 44px; min-height: 44px; grid-row: 1; grid-column: 2; }
+  .payment-line span { display: block; grid-row: 2; font-size: 11px; }
+  .payment-line span:nth-of-type(1) { grid-column: 1; }
+  .payment-line span:nth-of-type(2) { grid-column: 2; text-align: right; }
   .payment-actions { flex-wrap: wrap; }
+  .payment-actions .ghost { flex: 1; padding-inline: 9px; font-size: 12px; }
   .payment-actions .primary { width: 100%; margin-left: 0; }
+  .selected-customer button, .sale-open { min-width: 44px; min-height: 44px; }
   .date-range-picker { right: auto; left: 0; }
   .date-range-fields { grid-template-columns: 1fr; }
   .sale-detail-row > td { padding: 0 7px 10px !important; }
@@ -468,6 +600,40 @@ td strong { color: var(--wine-700); }
   .month-sales .sale-detail-row > td { display: table-cell; width: auto; padding-left: 7px; }
   .search-field.narrow { width: 100%; }
   .client-list .section-heading, .output-list .section-heading, .repair-list .section-heading { align-items: stretch; flex-direction: column; }
-  .table-wrap, .client-list, .output-list, .repair-list { overflow-x: auto; }
+  .client-list, .output-list, .repair-list, .repair-list .table-wrap { overflow: visible; }
+  #clientes .client-list table, #clientes .client-list tbody,
+  #saidas .output-list table, #saidas .output-list tbody,
+  #reparos .repair-list table, #reparos .repair-list tbody { display: block; width: 100%; }
+  #clientes .client-list thead, #saidas .output-list thead, #reparos .repair-list thead { display: none; }
+  #clientes .client-list tbody, #saidas .output-list tbody, #reparos .repair-list tbody { display: grid; gap: 8px; margin-top: 12px; }
+  #clientes .client-list tr, #saidas .output-list tr, #reparos .repair-list tr {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px 12px;
+    padding: 12px;
+    border: 1px solid var(--line-soft);
+    border-radius: 11px;
+    background: #fff;
+  }
+  #clientes .client-list td, #saidas .output-list td, #reparos .repair-list td { display: block; padding: 0; border: 0; font-size: 12px; }
+  #clientes .client-list td::before, #saidas .output-list td::before, #reparos .repair-list td::before { display: block; margin-bottom: 2px; color: var(--muted); font-size: 9px; }
+  #clientes .client-list td:first-child, #reparos .repair-list td:first-child { grid-column: 1 / -1; padding-right: 22px; }
+  #clientes .client-list td:nth-child(2)::before { content: "Comprou"; }
+  #clientes .client-list td:nth-child(3)::before { content: "Pago"; }
+  #clientes .client-list td:nth-child(4)::before { content: "Em aberto"; }
+  #clientes .client-list td:nth-child(5)::before { content: "Última compra"; }
+  #clientes .client-list td:nth-child(6) { position: absolute; top: 12px; right: 12px; color: var(--wine-700); font-size: 20px; }
+  #saidas .output-list td:nth-child(1)::before { content: "Data"; }
+  #saidas .output-list td:nth-child(2)::before { content: "Motivo"; }
+  #saidas .output-list td:nth-child(3)::before { content: "Destino"; }
+  #saidas .output-list td:nth-child(4)::before { content: "Peças"; }
+  #saidas .output-list td:nth-child(5)::before { content: "Responsável"; }
+  #saidas .output-list td:nth-child(6)::before { content: "Estado"; }
+  #reparos .repair-list td:nth-child(2)::before { content: "Peça"; }
+  #reparos .repair-list td:nth-child(3)::before { content: "Andamento"; }
+  #reparos .repair-list td:nth-child(4)::before { content: "Entrada"; }
+  #reparos .repair-list td:nth-child(5)::before { content: "Prazo"; }
+  #reparos .repair-list td:nth-child(6)::before { content: "Tempo restante"; }
   .warning-banner { align-items: flex-start; flex-direction: column; gap: 4px; }
 }

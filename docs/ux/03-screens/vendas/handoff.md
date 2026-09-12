@@ -121,10 +121,18 @@ Fontes: [rules.md](rules.md), [open-questions.md](open-questions.md) e
 
 ## 12. Responsividade
 
-O protótipo já reorganiza o Painel e preserva rolagem de tabelas em largura
-estreita. Ainda faltam aceite específico de tablet/mobile, comportamento do
-header e submenu, densidade dos formulários, detalhe expandido, popover de
-datas e áreas de toque. `DP-001` e `DP-002` continuam abertas.
+O protótipo tem agora uma composição própria para celular em até `580px`: topo
+compacto, navegação principal fixa no rodapé, submenu de Vendas sem rolagem,
+conteúdo em uma coluna, seletores com áreas de toque adequadas e tabelas de
+Clientes, Reparos e Saídas convertidas em cartões legíveis. O Painel,
+Lançamentos e Pagamento também tiveram densidade e hierarquia ajustadas.
+
+A validação direcionada em Chromium cobriu larguras de `320px`, `360px` e
+`390px`, navegação entre as superfícies, barra inferior após rolagem, popover de
+datas e detalhe expandido sem overflow horizontal. O desktop foi conferido em
+`1440px` e permanece com a navegação original. Ainda faltam aceite humano no
+celular, validação específica de tablet e a rodada formal completa de
+acessibilidade. `DP-001` e `DP-002` continuam abertas.
 
 ## 13. Empty, loading e error
 
@@ -159,6 +167,7 @@ ao menos referências para:
 - [x] ranking, paginação e detalhe inline simulados;
 - [x] regras financeiras fundamentais documentadas;
 - [x] destinos futuros separados de interações locais;
+- [x] composição mobile validada tecnicamente entre 320px e 390px;
 - [ ] matriz revisada e aceita por Gustavo;
 - [ ] todos os controles locais relevantes definidos;
 - [ ] estados vazio/loading/error/confirmation validados;
@@ -167,4 +176,3 @@ ao menos referências para:
 - [ ] dados e contratos entregues à arquitetura sem suposição;
 - [ ] status promovido explicitamente para `UX/UI DESIGNED`;
 - [ ] implementação React iniciada — **não faz parte desta rodada**.
-

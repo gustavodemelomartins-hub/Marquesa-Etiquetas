@@ -250,3 +250,38 @@ houve teste integrado de React/backend porque essas camadas não foram alteradas
 **Governança desta rodada:** `PROJECT-STATUS.md` e o painel global não foram
 editados; a consolidação permanece com Claude ReviewV2. Nenhum commit foi
 criado, conforme solicitado para este primeiro alinhamento.
+
+---
+
+## 2026-09-12 — `VEN-001`: composição mobile da Vendas V2
+
+| | |
+|---|---|
+| Branch | `codex/ui-system-marquesa` |
+| HEAD de base | `a6d7c6b` |
+| Tela | Vendas |
+| Status | **UX/UI EM REFINAMENTO — mobile reorganizado e validado tecnicamente** |
+| Natureza | CSS responsivo do protótipo; sem React, backend ou ambiente externo |
+
+**Mudança:** o cabeçalho mobile foi compactado, a navegação principal passou
+para uma barra fixa no rodapé e as três abas de Vendas deixaram de competir por
+espaço com o menu global. Painel, lançamento, pagamento e métricas receberam
+densidade própria para celular. As tabelas de Clientes, Reparos e Saídas viraram
+cartões legíveis, e o ranking do Painel mostra apenas as colunas que cabem sem
+perder a comparação principal.
+
+**Correção encontrada durante a prova:** o `backdrop-filter` do cabeçalho criava
+um bloco de referência para a navegação `fixed`, prendendo a barra inferior no
+topo e cobrindo o submenu. O efeito foi removido somente no breakpoint mobile;
+a barra voltou a se fixar no viewport.
+
+**Validação:** Playwright/Chromium em `320px`, `360px` e `390px`: sem overflow
+horizontal, cabeçalho de `114px`, submenu com alvos de `48px`, barra inferior de
+`69px` fixa antes e depois da rolagem e navegação funcional entre Painel,
+Lançamentos e Clientes. Popover de datas, detalhe expandido, Reparos e Saídas
+também foram exercitados sem overflow. Em `1440px`, a navegação desktop
+permaneceu estática e sem overflow. `git diff --check` passou.
+
+**Limite:** esta rodada não promove Vendas para `UX/UI DESIGNED`. Ainda faltam
+aceite visual do Gustavo no celular, validação específica de tablet,
+acessibilidade completa e fechamento das interações locais pendentes.
