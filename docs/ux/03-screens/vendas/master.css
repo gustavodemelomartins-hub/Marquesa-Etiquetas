@@ -333,10 +333,14 @@ td strong { color: var(--wine-700); }
 .choice.active::before { border: 5px solid var(--wine-700); }
 .choice span { font-weight: 650; }
 .choice small { margin-top: 3px; color: var(--muted); }
-.launch-grid { display: grid; grid-template-columns: minmax(0, 1.16fr) minmax(320px, .84fr); align-items: start; gap: 16px; }
+.sale-composer { overflow: hidden; border: 1px solid var(--rose-200); border-radius: 16px; background: rgba(255,253,252,.96); box-shadow: 0 10px 34px rgba(83,29,48,.055); }
+.sale-composer .launch-grid { display: grid; grid-template-columns: minmax(0, 1.16fr) minmax(320px, .84fr); align-items: stretch; gap: 0; }
 .launch-grid > * { min-width: 0; }
 .launch-card, .customer-card, .payment, .client-list, .output-list, .repair-list { padding: 20px; }
-#lancamentos .launch-card, #lancamentos .customer-card { min-height: 430px; }
+#lancamentos .launch-card, #lancamentos .customer-card { min-height: 356px; }
+.sale-composer .launch-pane { padding: 18px 20px; }
+.sale-composer .launch-pane + .launch-pane { border-left: 1px solid var(--line); }
+.compact-action { padding: 9px 13px; }
 .item-count { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: var(--rose-100); color: var(--wine-700); font-size: 11px; font-weight: 650; }
 .search-field { display: flex; min-height: 44px; align-items: center; justify-content: space-between; margin: 16px 0 10px; padding: 0 13px; border: 1px solid var(--line); border-radius: 8px; background: white; color: #9b8e93; }
 .search-field kbd { padding: 2px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--canvas); box-shadow: 0 1px 0 var(--line); color: var(--muted); font: 11px var(--sans); }
@@ -389,7 +393,18 @@ td strong { color: var(--wine-700); }
 .form-grid input, .form-grid select, .form-grid textarea { width: 100%; margin-top: 5px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); }
 .form-grid textarea { min-height: 62px; resize: vertical; }
 .payment { margin-top: 16px; overflow: visible; }
-.payment-overview { display: grid; grid-template-columns: minmax(220px, .7fr) minmax(360px, 1.3fr); gap: 10px; margin: 16px 0 12px; }
+.sale-composer .payment { margin: 0; padding: 14px 20px 12px; border-top: 1px solid var(--line); }
+.payment-overview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 13px 0 10px; }
+.payment-metric { position: relative; min-height: 76px; padding: 12px 14px 11px 48px; border: 1px solid var(--line-soft); border-radius: 10px; background: var(--paper); }
+.payment-metric::before { position: absolute; top: 14px; left: 14px; display: grid; width: 26px; height: 26px; place-items: center; border-radius: 50%; background: var(--rose-100); color: var(--wine-700); content: "R$"; font-size: 8px; font-weight: 700; }
+.payment-metric span, .payment-metric small { display: block; color: var(--muted); font-size: 9px; }
+.payment-metric strong { display: block; margin: 2px 0; color: var(--wine-700); font-size: 20px; font-variant-numeric: tabular-nums; font-weight: 540; letter-spacing: -.02em; }
+.financial-callout { display: flex; min-height: 76px; flex-direction: column; align-items: center; justify-content: center; padding: 10px; border: 1px solid #ecd8b2; border-radius: 10px; background: var(--warning-bg); text-align: center; }
+.financial-callout small { max-width: 22ch; margin-top: 5px; color: var(--warning); font-size: 9px; line-height: 1.25; }
+.financial-callout:has(.status.paid) { border-color: #cce5d8; background: var(--success-bg); }
+.financial-callout:has(.status.paid) small { color: var(--success); }
+.financial-callout:has(.status.receivable) { border-color: var(--rose-200); background: var(--rose-100); }
+.financial-callout:has(.status.receivable) small { color: var(--wine-700); }
 .launch-total-anchor { position: relative; overflow: hidden; padding: 16px 18px; border-radius: 11px; background: linear-gradient(135deg, var(--wine-900), var(--wine-700)); color: white; }
 .launch-total-anchor::after { position: absolute; right: -32px; bottom: -52px; width: 120px; height: 92px; border: 1px solid rgba(255,255,255,.2); border-radius: 50%; content: ""; transform: rotate(-18deg); }
 .launch-total-anchor span, .launch-total-anchor small { display: block; opacity: .76; font-size: 10px; }
@@ -397,19 +412,41 @@ td strong { color: var(--wine-700); }
 .payment-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin: 0; padding: 0; overflow: hidden; border: 1px solid var(--line-soft); border-radius: 11px; background: var(--line-soft); }
 .payment-summary span { display: flex; flex-direction: column; justify-content: center; padding: 14px 18px; background: var(--rose-050); color: var(--muted); font-size: 11px; }
 .payment-summary b { display: block; margin: 4px 0 0; color: var(--ink); font-size: 20px; font-variant-numeric: tabular-nums; font-weight: 550; }
-.payment-list { display: grid; gap: 8px; }
-.payment-entry { display: grid; grid-template-columns: minmax(120px,.7fr) minmax(180px,1fr) minmax(150px,.8fr) 38px; align-items: end; gap: 10px; padding: 11px 12px; border: 1px solid var(--line-soft); border-radius: 10px; background: var(--paper); }
+.payment-table { overflow: hidden; border: 1px solid var(--line-soft); border-radius: 9px; }
+.payment-table-head { display: grid; grid-template-columns: minmax(120px,.65fr) minmax(180px,1fr) minmax(145px,.75fr) minmax(230px,1.2fr) 38px; gap: 8px; padding: 7px 11px; background: var(--rose-050); color: var(--muted); font-size: 9px; }
+.payment-list { display: grid; gap: 0; }
+.payment-entry { display: grid; grid-template-columns: minmax(120px,.65fr) minmax(180px,1fr) minmax(145px,.75fr) minmax(230px,1.2fr) 38px; align-items: center; gap: 8px; padding: 5px 8px 5px 11px; border-bottom: 1px solid var(--line-soft); background: var(--paper); }
+.payment-entry:last-child { border-bottom: 0; }
 .payment-entry label > span { display: block; margin-bottom: 4px; color: var(--muted); font-size: 10px; }
-.payment-entry input, .payment-entry select { width: 100%; min-height: 39px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); }
+.payment-table .payment-entry label > span { display: none; }
+.payment-entry input, .payment-entry select { width: 100%; min-height: 34px; padding: 5px 7px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--ink); }
+.payment-entry input:hover, .payment-entry select:hover, .payment-entry input:focus, .payment-entry select:focus { border-color: var(--line); background: white; }
+.payment-info { color: var(--muted); font-size: 10px; }
 .payment-remove { margin-bottom: 2px; }
 .payment-warning { margin: 9px 0 0; padding: 8px 11px; border-radius: 8px; background: var(--warning-bg); color: var(--warning); font-size: 11px; }
-.payment-actions { display: flex; gap: 9px; margin-top: 12px; }
+.payment-actions { display: flex; gap: 7px; margin-top: 9px; }
+.payment-actions .button { padding-block: 8px; }
+.quiet-action { border-color: transparent; background: transparent; color: var(--wine-700); box-shadow: none; }
+.quiet-action:hover { background: var(--rose-050); }
 .launch-checkout { display: flex; align-items: center; justify-content: flex-end; gap: 18px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 .launch-checkout > div { text-align: right; }
 .launch-checkout span, .launch-checkout strong { display: block; }
 .launch-checkout span { color: var(--muted); font-size: 10px; }
 .launch-checkout strong { font-size: 20px; font-variant-numeric: tabular-nums; }
 .launch-checkout .button { min-width: 210px; }
+.sale-composer-footer { display: flex; min-height: 64px; align-items: center; gap: 18px; padding: 10px 20px; border-top: 1px solid var(--line); background: var(--paper); }
+.sale-composer-footer > strong { margin-right: auto; font-size: 12px; }
+.sale-totals { display: flex; align-items: center; gap: 0; }
+.sale-totals span { padding: 0 18px; border-right: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+.sale-totals span:first-child { padding-left: 0; }
+.sale-totals b { margin-left: 7px; color: var(--wine-700); font-size: 13px; }
+.sale-totals span:last-child { border-right: 0; }
+.sale-totals span:last-child b { color: var(--wine-900); font-size: 22px; font-weight: 550; }
+.sale-composer-footer .button { min-width: 190px; }
+.today-sales { margin-top: 12px; padding: 14px 20px; }
+.today-sales .section-heading h2 { font-size: 24px; }
+.today-sales table { margin-top: 9px; }
+.today-sales th, .today-sales td { padding-block: 7px; }
 .button:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.15); }
 .launch-success { max-width: 720px; margin: 56px auto; padding: 44px; text-align: center; }
 .success-seal { display: grid; width: 58px; height: 58px; margin: 0 auto 18px; place-items: center; border-radius: 50%; background: var(--success-bg); color: var(--success); font-size: 28px; }
@@ -473,6 +510,8 @@ td strong { color: var(--wine-700); }
   .profile { min-width: 58px; }
   .profile-copy { display: none; }
   .detail-grid, .launch-grid { grid-template-columns: 1fr; }
+  .sale-composer .launch-grid { grid-template-columns: 1fr; }
+  .sale-composer .launch-pane + .launch-pane { border-top: 1px solid var(--line); border-left: 0; }
   .breakdowns { grid-template-columns: 1fr 1fr; }
 }
 
@@ -715,7 +754,12 @@ td strong { color: var(--wine-700); }
   #lancamentos .page-heading { align-items: stretch; }
   .draft-tools { justify-content: space-between; }
   #lancamentos .launch-card, #lancamentos .customer-card { min-height: 0; }
-  .payment-overview { grid-template-columns: minmax(190px, .7fr) minmax(300px, 1.3fr); }
+  .payment-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .payment-table-head { display: none; }
+  .payment-entry { grid-template-columns: minmax(110px,.65fr) minmax(160px,1fr) minmax(130px,.8fr) minmax(190px,1.2fr) 38px; }
+  .sale-composer-footer { flex-wrap: wrap; }
+  .sale-composer-footer > strong { width: 100%; margin: 0; }
+  .sale-totals { flex: 1; }
 }
 
 @media (max-width: 580px) {
@@ -725,6 +769,7 @@ td strong { color: var(--wine-700); }
   .draft-indicator { max-width: 130px; line-height: 1.2; }
   #lancamentos .choice { min-height: 96px; padding-top: 39px; }
   #lancamentos .launch-card, #lancamentos .customer-card, #lancamentos .payment { padding: 13px; }
+  .sale-composer { border-radius: 14px; }
   #lancamentos .section-heading { align-items: center; }
   .item-count { padding-inline: 7px; }
   .product-search { grid-template-columns: auto minmax(0, 1fr) 44px; padding: 5px 5px 5px 11px; }
@@ -747,14 +792,19 @@ td strong { color: var(--wine-700); }
   .launch-cart .item-price { grid-area: price; min-width: 84px; }
   .launch-cart .item-remove { grid-area: remove; width: 44px; height: 44px; }
   .customer-search { margin-top: 4px; }
-  .payment-overview { grid-template-columns: 1fr; }
+  .payment-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+  .payment-metric { min-height: 84px; padding: 11px 10px; }
+  .payment-metric::before { display: none; }
+  .payment-metric strong { font-size: 18px; }
+  .financial-callout { min-height: 84px; }
   .launch-total-anchor { padding: 14px 16px; }
   .payment-summary span { padding: 11px 12px; }
   .payment-summary b { font-size: 16px; }
   .payment-entry {
     grid-template-areas:
       "amount method remove"
-      "state state remove";
+      "state state remove"
+      "info info info";
     grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr) 38px;
     align-items: end;
     gap: 8px;
@@ -763,8 +813,14 @@ td strong { color: var(--wine-700); }
   .payment-entry label:nth-child(1) { grid-area: amount; }
   .payment-entry label:nth-child(2) { grid-area: method; }
   .payment-entry label:nth-child(3) { grid-area: state; }
+  .payment-entry .payment-info { grid-area: info; padding-top: 3px; }
   .payment-entry .payment-remove { grid-area: remove; align-self: center; }
-  .payment-actions .button { min-height: 42px; }
+  .payment-table .payment-entry label > span { display: block; }
+  .payment-entry input, .payment-entry select { min-height: 40px; border-color: var(--line); background: white; }
+  .payment-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .payment-actions .button { width: 100%; min-height: 42px; }
+  .payment-actions .primary { grid-column: 1 / -1; }
+  #lancamentos .sale-composer .payment { padding-bottom: 76px; }
   .launch-checkout {
     position: sticky;
     z-index: 24;
@@ -780,6 +836,37 @@ td strong { color: var(--wine-700); }
   .launch-checkout > div { text-align: left; }
   .launch-checkout strong { font-size: 17px; }
   .launch-checkout .button { min-width: 0; padding-inline: 14px; }
+  .sale-composer-footer {
+    position: sticky;
+    z-index: 24;
+    bottom: calc(68px + env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px 10px;
+    min-height: 0;
+    padding: 10px 13px;
+    background: rgba(255,253,252,.97);
+    box-shadow: 0 -8px 24px rgba(83,29,48,.08);
+    backdrop-filter: blur(14px);
+  }
+  .sale-composer-footer > strong { display: none; }
+  .sale-totals { display: block; }
+  .sale-totals span { display: none; }
+  .sale-totals span:last-child { display: block; padding: 0; border: 0; }
+  .sale-totals span:last-child::before { display: block; content: "A confirmar"; color: var(--muted); font-size: 9px; }
+  .sale-totals span:last-child b { display: block; margin: 0; font-size: 18px; }
+  .sale-composer-footer .button { min-width: 0; padding-inline: 14px; }
+  .today-sales { padding: 13px; }
+  .today-sales .section-heading { align-items: center; }
+  .today-sales .table-wrap { overflow: visible; }
+  .today-sales table, .today-sales tbody { display: block; width: 100%; }
+  .today-sales thead { display: none; }
+  .today-sales tbody { display: grid; gap: 8px; margin-top: 10px; }
+  .today-sales tr { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 7px 10px; padding: 10px; border: 1px solid var(--line-soft); border-radius: 10px; background: white; }
+  .today-sales td { display: none; padding: 0; border: 0; }
+  .today-sales td:nth-child(1), .today-sales td:nth-child(2), .today-sales td:nth-child(7) { display: block; }
+  .today-sales td:nth-child(2) { min-width: 0; }
+  .today-sales td:nth-child(2) b, .today-sales td:nth-child(2) small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .launch-success { margin: 18px 0; padding: 28px 18px; }
   .launch-success h2 { font-size: 30px; }
   .success-totals, .review-values { grid-template-columns: 1fr; }

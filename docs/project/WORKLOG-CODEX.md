@@ -344,3 +344,16 @@ JavaScript e zero overflow horizontal.
 **Limites:** Monte seu Colar, geração de parcelamento, formulário completo de
 Saída sem faturamento, persistência, API, React, deploy e produção não foram
 alterados nesta rodada.
+
+### Ajuste fiel ao mockup de pagamento misto
+
+Após revisar o mockup com o Gustavo, a Venda normal deixou de usar cartões
+independentes e adotou sua estrutura original: uma única moldura para itens,
+cliente, pagamento e totais, seguida de `Vendas de hoje`. A identidade nova foi
+mantida integralmente. O estado inicial ilustra R$ 500,00 em venda, R$ 350,00
+recebidos e R$ 150,00 a receber em três lançamentos independentes.
+
+**Validação complementar:** 30 verificações Playwright/Chromium em `320px`,
+`390px` e `1440px`, incluindo fidelidade estrutural, pagamento misto, situação
+derivada, desconto, bloqueio por excesso, revisão, sucesso, responsividade e
+ausência de erros JavaScript.

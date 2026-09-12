@@ -150,6 +150,15 @@ continuam fora desta etapa. A prova direcionada cobriu o fluxo em `390px`, a
 largura mínima de `320px` e o desktop em `1440px`, com 24 verificações verdes,
 sem erro JavaScript ou overflow horizontal.
 
+Por decisão do Gustavo, a composição foi então aproximada fielmente do mockup
+de pagamento misto: itens e cliente passaram a compartilhar a mesma moldura;
+Pagamento ganhou quatro indicadores, linhas compactas e ações progressivas; o
+rodapé reúne peças, subtotal, desconto, total e confirmação; `Vendas de hoje`
+fica imediatamente abaixo. A estrutura original foi preservada com a
+identidade nova, sem restaurar o cabeçalho, a paleta ou a tipografia antigas.
+Essa rodada passou em 30 verificações direcionadas entre `320px`, `390px` e
+`1440px`, incluindo excesso de pagamentos, desconto derivado e confirmação.
+
 ## 13. Empty, loading e error
 
 Os conceitos estão descritos em [states.md](states.md), mas não estão

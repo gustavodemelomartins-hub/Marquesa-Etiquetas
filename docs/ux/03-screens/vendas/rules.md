@@ -56,6 +56,7 @@ limite de itens por página, o que não pode ser editado inline.
 | UX-VEN-019 | os detalhes das vendas podem ser expandidos e recolhidos de forma independente, mantendo quantas linhas abertas forem úteis; trocar página ou contexto recolhe todos | permitir comparação entre vendas sem manter detalhes ligados a dados que acabaram de mudar | sim · Gustavo, 12/09/2026 |
 | UX-VEN-020 | `Vendas do período` mostra até 10 vendas por página | aumentar a visão comparativa sem transformar a lista em rolagem excessiva | sim · Gustavo, 12/09/2026 |
 | UX-VEN-021 | `Venda normal` usa uma superfície contínua: itens e cliente lado a lado no desktop, sequência vertical no celular e Pagamento como fechamento; no mobile, total e `Finalizar venda` permanecem alcançáveis acima da navegação | preservar velocidade de balcão sem esconder a relação entre peça, cliente, dinheiro e confirmação | sim · Gustavo, 12/09/2026 |
+| UX-VEN-022 | a estrutura visual aprovada para `Venda normal` é a do mockup de pagamento misto: uma única moldura com itens + cliente, pagamento integrado, rodapé de totais e `Vendas de hoje` logo abaixo; cores, tipografia, espaçamento e componentes usam a identidade nova do sistema | preservar o fluxo já compreendido sem voltar à identidade anterior nem fragmentar a operação em cartões independentes | sim · Gustavo, 12/09/2026 |
 
 ## Desconto na Nova Venda
 

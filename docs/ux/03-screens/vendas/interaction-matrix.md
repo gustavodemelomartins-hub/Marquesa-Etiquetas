@@ -53,7 +53,7 @@ registra um destino sem obrigar sua criação nesta rodada.
 | Elemento | Localização | Ação esperada | Tipo | Destino | Estado atual | Funcional no protótipo? | Depende de outra tela? | Observação |
 |---|---|---|---|---|---|---|---|---|
 | Limpar rascunho | cabeçalho de Lançamentos | confirmar e limpar dados preenchidos | MODAL | confirmação local | implementado no protótipo | Sim | Não | descarte explícito; não grava dados reais |
-| Venda normal | tipo de lançamento | mostrar formulário de venda normal | LOCAL | formulário de venda | implementado no protótipo | Sim | Não | superfície contínua em desktop e mobile |
+| Venda normal | tipo de lançamento | mostrar formulário de venda normal | LOCAL | formulário de venda | implementado no protótipo | Sim | Não | estrutura do mockup misto, em moldura única, com a identidade nova |
 | Monte seu Colar | tipo de lançamento | mostrar composição personalizada | LOCAL | fluxo Monte seu Colar | somente visual | Não | Não | base é fixa; demais decisões continuam abertas |
 | Saída sem faturamento | tipo de lançamento | abrir fluxo não comercial | NAVEGAÇÃO | superfície Saídas | implementado | Sim | Não | fica dentro de Lançamentos, não como aba do submenu |
 | Adicionar item / busca de item | itens da venda | localizar e incluir SKU disponível | LOCAL | resultados de produto | implementado com catálogo ilustrativo | Sim | Não | disponibilidade real e leitura física pertencem à implementação futura |
@@ -64,6 +64,7 @@ registra um destino sem obrigar sua criação nesta rodada.
 | Adicionar pagamento | Pagamento | criar recebimentos independentes | LOCAL | compositor de pagamentos | implementado no protótipo | Sim | Não | valores pagos atualizam recebido; pendentes permanecem em A receber |
 | Parcelar | Pagamento | configurar parcelas e vencimentos | MODAL | configuração de parcelas | orientação provisória | Não | Não | política de geração e vencimentos continua pendente |
 | Finalizar venda | rodapé de Pagamento | validar e confirmar venda uma vez | MODAL | confirmação / sucesso | implementado no protótipo | Sim | Não | simula confirmação idempotente; não salva nem integra |
+| Vendas de hoje / Ver todas | abaixo do lançamento | revisar operações recentes e seguir para o Painel | NAVEGAÇÃO | resumo do dia / Painel | implementado no protótipo | Sim | Parcial | dados ilustrativos; período exato do destino continua aberto em `VEN-Q009` |
 | Buscar / Nova cliente | superfície Clientes | filtrar ou cadastrar cliente | LOCAL / MODAL | lista ou cadastro | somente visual | Não | Sim | superfície é apenas contexto auxiliar atual |
 | Ver todas as clientes | contexto de recebíveis | voltar à lista geral | LOCAL | superfície Clientes | implementado | Sim | Não | desfaz o recorte contextual |
 | Novo reparo / busca / linha | superfície provisória Reparos | criar, filtrar ou abrir reparo | FUTURA TELA | Reparos | somente visual | Não | Sim | superfície não é design oficial de Reparos |

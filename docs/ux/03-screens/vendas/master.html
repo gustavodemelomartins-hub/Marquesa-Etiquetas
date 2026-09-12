@@ -260,9 +260,10 @@
             <button class="choice" type="button" role="radio" aria-checked="false" data-launch-screen="saidas"><span>Saída sem faturamento</span><small>Brinde, uso próprio, perda ou sorteio</small></button>
           </div>
           <div data-launch-workspace>
-            <div class="launch-grid">
-              <section class="data-section launch-card">
-                <div class="section-heading"><div><h2>Itens da venda</h2><p>Leia a etiqueta ou busque por nome e SKU.</p></div><span class="item-count" data-item-count>2 peças</span></div>
+            <section class="sale-composer" aria-label="Venda normal">
+              <div class="launch-grid">
+              <section class="launch-pane launch-card">
+                <div class="section-heading"><div><h2>Itens da venda</h2><p>Leia a etiqueta ou busque por nome e SKU.</p></div><span class="item-count" data-item-count>3 peças</span></div>
                 <form class="product-search" data-product-search-form>
                   <label class="visually-hidden" for="launch-product-search">Buscar produto</label>
                   <span aria-hidden="true">⌕</span>
@@ -271,26 +272,33 @@
                 </form>
                 <div class="product-results" data-product-results hidden></div>
                 <ul class="cart-list launch-cart" data-launch-cart>
-                  <li data-cart-item data-sku="122060" data-name="Argola Duas Linhas Cravejadas" data-table-price="72" data-price="72" data-quantity="1">
+                  <li data-cart-item data-sku="122060" data-name="Argola Duas Linhas Cravejadas" data-table-price="150" data-price="150" data-quantity="1">
                     <span class="jewel" aria-hidden="true">◌</span>
                     <div class="cart-product"><b>Argola Duas Linhas Cravejadas</b><small>SKU 122060 · Banho de Ouro 18k</small><small class="price-note" hidden></small></div>
                     <div class="quantity-control" aria-label="Quantidade de Argola Duas Linhas Cravejadas"><button type="button" data-quantity-action="decrease" aria-label="Diminuir quantidade">−</button><span data-item-quantity>1</span><button type="button" data-quantity-action="increase" aria-label="Aumentar quantidade">+</button></div>
-                    <button class="item-price" type="button" data-edit-price aria-label="Editar preço da Argola Duas Linhas Cravejadas"><small>Preço final</small><strong data-item-total>R$ 72,00</strong></button>
+                    <button class="item-price" type="button" data-edit-price aria-label="Editar preço da Argola Duas Linhas Cravejadas"><small>Preço final</small><strong data-item-total>R$ 150,00</strong></button>
                     <button class="item-remove" type="button" data-remove-item aria-label="Remover Argola Duas Linhas Cravejadas">×</button>
                   </li>
-                  <li data-cart-item data-sku="451109" data-name="Pulseira Medalha Salmo" data-table-price="136" data-price="136" data-quantity="1">
+                  <li data-cart-item data-sku="451109" data-name="Pulseira Medalha Salmo" data-table-price="200" data-price="200" data-quantity="1">
                     <span class="jewel" aria-hidden="true">◇</span>
                     <div class="cart-product"><b>Pulseira Medalha Salmo</b><small>SKU 451109 · Banho de Ouro 18k</small><small class="price-note" hidden></small></div>
                     <div class="quantity-control" aria-label="Quantidade de Pulseira Medalha Salmo"><button type="button" data-quantity-action="decrease" aria-label="Diminuir quantidade">−</button><span data-item-quantity>1</span><button type="button" data-quantity-action="increase" aria-label="Aumentar quantidade">+</button></div>
-                    <button class="item-price" type="button" data-edit-price aria-label="Editar preço da Pulseira Medalha Salmo"><small>Preço final</small><strong data-item-total>R$ 136,00</strong></button>
+                    <button class="item-price" type="button" data-edit-price aria-label="Editar preço da Pulseira Medalha Salmo"><small>Preço final</small><strong data-item-total>R$ 200,00</strong></button>
                     <button class="item-remove" type="button" data-remove-item aria-label="Remover Pulseira Medalha Salmo">×</button>
+                  </li>
+                  <li data-cart-item data-sku="326660" data-name="Monte seu Colar · Casal" data-table-price="150" data-price="150" data-quantity="1">
+                    <span class="jewel" aria-hidden="true">⌁</span>
+                    <div class="cart-product"><b>Monte seu Colar · Casal</b><small>SKU 326660 · composição confirmada</small><small class="price-note" hidden></small></div>
+                    <div class="quantity-control" aria-label="Quantidade de Monte seu Colar Casal"><button type="button" data-quantity-action="decrease" aria-label="Diminuir quantidade">−</button><span data-item-quantity>1</span><button type="button" data-quantity-action="increase" aria-label="Aumentar quantidade">+</button></div>
+                    <button class="item-price" type="button" data-edit-price aria-label="Editar preço de Monte seu Colar Casal"><small>Preço final</small><strong data-item-total>R$ 150,00</strong></button>
+                    <button class="item-remove" type="button" data-remove-item aria-label="Remover Monte seu Colar Casal">×</button>
                   </li>
                 </ul>
                 <div class="cart-empty" data-cart-empty hidden><span aria-hidden="true">◇</span><b>A venda ainda está vazia</b><small>Leia uma etiqueta ou busque uma peça para começar.</small></div>
               </section>
 
-              <section class="data-section customer-card">
-                <div class="section-heading"><div><h2>Cliente e venda</h2><p>Quem comprou e onde a venda aconteceu.</p></div><button class="button secondary" type="button" data-new-customer>Nova cliente</button></div>
+              <section class="launch-pane customer-card">
+                <div class="section-heading"><div><h2>Cliente da venda</h2><p>Quem comprou e onde a venda aconteceu.</p></div><button class="button primary compact-action" type="button" data-new-customer>+ Nova cliente</button></div>
                 <label class="field-label" for="launch-customer-search">Cliente</label>
                 <div class="customer-search"><span aria-hidden="true">⌕</span><input id="launch-customer-search" type="search" list="launch-customer-options" placeholder="Nome, WhatsApp ou CPF" data-customer-search /></div>
                 <datalist id="launch-customer-options"><option value="Thais Nania"></option><option value="Camila Ferreira"></option><option value="Juliana Prado"></option></datalist>
@@ -304,23 +312,49 @@
               </section>
             </div>
 
-            <section class="payment data-section">
-              <div class="section-heading"><div><h2>Pagamento</h2><p>Comece pelo caso simples. Abra outras formas somente quando precisar.</p></div><span class="status paid" data-financial-status>Pago</span></div>
+            <section class="payment">
+              <div class="section-heading"><div><h2>Pagamento</h2><p>O status acompanha os recebimentos registrados abaixo.</p></div></div>
               <div class="payment-overview">
-                <div class="launch-total-anchor"><span>Total da venda</span><strong data-sale-total>R$ 208,00</strong><small data-sale-piece-count>2 peças no carrinho</small></div>
-                <div class="payment-summary"><span>Recebido hoje <b data-sale-received>R$ 208,00</b></span><span>A receber <b data-sale-receivable>R$ 0,00</b></span></div>
+                <div class="payment-metric"><span>Valor da venda</span><strong data-sale-total>R$ 500,00</strong><small data-sale-piece-count>3 peças no carrinho</small></div>
+                <div class="payment-metric"><span>Valor recebido</span><strong data-sale-received>R$ 350,00</strong><small>dinheiro confirmado</small></div>
+                <div class="payment-metric"><span>Valor a receber</span><strong data-sale-receivable>R$ 150,00</strong><small>saldo cobrável</small></div>
+                <div class="financial-callout" data-financial-callout><span class="status partial" data-financial-status>Parcial</span><small data-financial-copy>Parte da venda já foi recebida.</small></div>
               </div>
-              <div class="payment-list" data-payment-list>
-                <div class="payment-entry" data-payment-entry data-auto-balance="true">
-                  <label><span>Valor</span><input type="number" min="0" step="0.01" value="208.00" data-payment-amount></label>
+              <div class="payment-table">
+                <div class="payment-table-head"><span>Valor</span><span>Forma de pagamento</span><span>Status</span><span>Informações</span><span></span></div>
+                <div class="payment-list" data-payment-list>
+                <div class="payment-entry" data-payment-entry data-auto-balance="false">
+                  <label><span>Valor</span><input type="number" min="0" step="0.01" value="150.00" data-payment-amount></label>
                   <label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label>
                   <label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label>
+                  <span class="payment-info" data-payment-info>Data do pagamento: 12/09/2026</span>
                   <button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>
+                </div>
+                <div class="payment-entry" data-payment-entry data-auto-balance="false">
+                  <label><span>Valor</span><input type="number" min="0" step="0.01" value="200.00" data-payment-amount></label>
+                  <label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option selected>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label>
+                  <label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label>
+                  <span class="payment-info" data-payment-info>Data do pagamento: 12/09/2026</span>
+                  <button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>
+                </div>
+                <div class="payment-entry" data-payment-entry data-auto-balance="false" data-payment-due="20/09/2026">
+                  <label><span>Valor</span><input type="number" min="0" step="0.01" value="150.00" data-payment-amount></label>
+                  <label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option selected>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label>
+                  <label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending" selected>Pendente</option></select></label>
+                  <span class="payment-info" data-payment-info>Vencimento: 20/09/2026</span>
+                  <button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>
+                </div>
                 </div>
               </div>
               <p class="payment-warning" role="alert" data-payment-warning hidden></p>
-              <div class="payment-actions"><button class="button ghost" type="button" data-add-payment>+ Adicionar pagamento</button><button class="button ghost" type="button" data-show-parcel-help>Parcelar</button></div>
-              <div class="launch-checkout"><div><span>A confirmar</span><strong data-checkout-total>R$ 208,00</strong></div><button class="button primary" type="button" data-finalize-sale>Finalizar venda</button></div>
+              <div class="payment-actions"><button class="button primary" type="button" data-add-payment>+ Adicionar pagamento</button><button class="button quiet-action" type="button" data-show-parcel-help>↔ Parcelar</button><button class="button quiet-action" type="button" data-show-payment-help>••• Mais opções</button></div>
+            </section>
+            <footer class="sale-composer-footer"><strong data-footer-piece-count>3 peças</strong><div class="sale-totals"><span>Subtotal <b data-sale-subtotal>R$ 500,00</b></span><span>Desconto <b data-sale-discount>R$ 0,00</b></span><span>Total <b data-footer-total>R$ 500,00</b></span></div><button class="button primary" type="button" data-finalize-sale>✓ Finalizar venda</button></footer>
+            </section>
+
+            <section class="data-section today-sales">
+              <div class="section-heading"><div><h2>Vendas de hoje</h2><p>Balcão e outros lançamentos comerciais do dia.</p></div><button class="button ghost" type="button" data-open-today-sales>Ver todas ›</button></div>
+              <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Cliente</th><th>Tipo</th><th>Itens</th><th>Total da venda</th><th>Recebido</th><th>Situação financeira</th><th></th></tr></thead><tbody><tr><td>10:32</td><td><b>Juliana Andrade</b><small>(11) 99999-8888</small></td><td><span class="tag rose">Balcão</span></td><td>3 peças</td><td>R$ 312,00</td><td>R$ 312,00</td><td><span class="status paid">Pago</span></td><td>•••</td></tr><tr><td>09:15</td><td><b>Mariana Souza</b><small>(11) 98888-7777</small></td><td><span class="tag rose">Balcão</span></td><td>2 peças</td><td>R$ 198,00</td><td>R$ 100,00</td><td><span class="status receivable">A receber</span></td><td>•••</td></tr><tr><td>08:41</td><td><b>Letícia Lopes</b><small>(19) 98765-4321</small></td><td><span class="tag blue">Revendedora</span></td><td>5 peças</td><td>R$ 546,00</td><td>R$ 0,00</td><td><span class="status receivable">A receber</span></td><td>•••</td></tr><tr><td>08:12</td><td><b>Camila Ferreira</b><small>(19) 98123-4567</small></td><td><span class="tag rose">Balcão</span></td><td>1 peça</td><td>R$ 89,00</td><td>R$ 89,00</td><td><span class="status paid">Pago</span></td><td>•••</td></tr></tbody></table></div>
             </section>
           </div>
 
@@ -413,8 +447,9 @@
       const customerEmpty = launchScreen.querySelector('[data-customer-empty]');
       const launchToast = launchScreen.querySelector('[data-launch-toast]');
       const catalog = [
-        { sku: '122060', name: 'Argola Duas Linhas Cravejadas', detail: 'Banho de Ouro 18k', price: 72, symbol: '◌' },
-        { sku: '451109', name: 'Pulseira Medalha Salmo', detail: 'Banho de Ouro 18k', price: 136, symbol: '◇' },
+        { sku: '122060', name: 'Argola Duas Linhas Cravejadas', detail: 'Banho de Ouro 18k', price: 150, symbol: '◌' },
+        { sku: '451109', name: 'Pulseira Medalha Salmo', detail: 'Banho de Ouro 18k', price: 200, symbol: '◇' },
+        { sku: '326660', name: 'Monte seu Colar · Casal', detail: 'Composição confirmada', price: 150, symbol: '⌁' },
         { sku: '640509', name: 'Pingente Menino Verde', detail: 'Coleção Filhos', price: 49, symbol: '♢' },
         { sku: '649597', name: 'Pingente Menina Rosa Pink', detail: 'Coleção Filhos', price: 49, symbol: '♢' },
         { sku: '405337', name: 'Colar Filha', detail: 'Banho de Ouro 18k', price: 89, symbol: '⌁' }
@@ -440,11 +475,13 @@
       }
 
       function launchTotals() {
-        const total = launchItems().reduce((sum, item) => sum + Number(item.dataset.price) * Number(item.dataset.quantity), 0);
+        const items = launchItems();
+        const total = items.reduce((sum, item) => sum + Number(item.dataset.price) * Number(item.dataset.quantity), 0);
+        const tableTotal = items.reduce((sum, item) => sum + Number(item.dataset.tablePrice) * Number(item.dataset.quantity), 0);
         const entries = launchPayments();
         const paid = entries.reduce((sum, entry) => entry.querySelector('[data-payment-state]').value === 'paid' ? sum + Number(entry.querySelector('[data-payment-amount]').value || 0) : sum, 0);
         const planned = entries.reduce((sum, entry) => sum + Number(entry.querySelector('[data-payment-amount]').value || 0), 0);
-        return { total, paid, planned, receivable: Math.max(0, total - paid), exceeded: planned > total + .005 };
+        return { total, tableTotal, discount: tableTotal - total, paid, planned, receivable: Math.max(0, total - paid), exceeded: planned > total + .005 };
       }
 
       function setLaunchText(selector, value) {
@@ -472,24 +509,40 @@
         setLaunchText('[data-sale-total]', launchMoney(totals.total));
         setLaunchText('[data-sale-received]', launchMoney(totals.paid));
         setLaunchText('[data-sale-receivable]', launchMoney(totals.receivable));
-        setLaunchText('[data-checkout-total]', launchMoney(totals.total));
+        setLaunchText('[data-footer-piece-count]', `${pieceCount} ${pieceCount === 1 ? 'peça' : 'peças'}`);
+        setLaunchText('[data-sale-subtotal]', launchMoney(totals.tableTotal));
+        setLaunchText('[data-sale-discount]', launchMoney(totals.discount));
+        setLaunchText('[data-footer-total]', launchMoney(totals.total));
         cartEmpty.hidden = items.length > 0;
         launchCart.hidden = items.length === 0;
 
+        payments.forEach((entry) => {
+          const info = entry.querySelector('[data-payment-info]');
+          if (!info) return;
+          info.textContent = entry.querySelector('[data-payment-state]').value === 'paid'
+            ? 'Data do pagamento: 12/09/2026'
+            : entry.dataset.paymentDue ? `Vencimento: ${entry.dataset.paymentDue}` : 'Vencimento a definir';
+        });
+
         const status = launchScreen.querySelector('[data-financial-status]');
         status.className = 'status';
+        const financialCopy = launchScreen.querySelector('[data-financial-copy]');
         if (!items.length) {
           status.classList.add('neutral');
           status.textContent = 'Sem itens';
+          financialCopy.textContent = 'Adicione uma peça para calcular.';
         } else if (totals.paid <= .005) {
           status.classList.add('receivable');
           status.textContent = 'A receber';
+          financialCopy.textContent = 'Nenhum valor foi recebido ainda.';
         } else if (totals.receivable > .005) {
           status.classList.add('partial');
           status.textContent = 'Parcial';
+          financialCopy.textContent = 'Parte da venda já foi recebida.';
         } else {
           status.classList.add('paid');
           status.textContent = 'Pago';
+          financialCopy.textContent = 'O valor da venda foi recebido.';
         }
 
         paymentWarning.hidden = !totals.exceeded;
@@ -618,7 +671,7 @@
         entry.className = 'payment-entry';
         entry.dataset.paymentEntry = '';
         entry.dataset.autoBalance = 'false';
-        entry.innerHTML = `<label><span>Valor</span><input type="number" min="0" step="0.01" value="${value.toFixed(2)}" data-payment-amount></label><label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label><label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label><button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>`;
+        entry.innerHTML = `<label><span>Valor</span><input type="number" min="0" step="0.01" value="${value.toFixed(2)}" data-payment-amount></label><label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label><label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label><span class="payment-info" data-payment-info>Data do pagamento: 12/09/2026</span><button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>`;
         return entry;
       }
 
@@ -641,6 +694,8 @@
         paymentList.lastElementChild.querySelector('[data-payment-amount]').focus();
       });
       launchScreen.querySelector('[data-show-parcel-help]').addEventListener('click', () => showLaunchToast('O parcelamento será a próxima camada. Nesta versão, adicione os recebimentos separadamente e marque os futuros como pendentes.'));
+      launchScreen.querySelector('[data-show-payment-help]').addEventListener('click', () => showLaunchToast('Datas, vencimentos e observações serão abertos aqui conforme a forma e a situação escolhidas.'));
+      launchScreen.querySelector('[data-open-today-sales]').addEventListener('click', () => activateScreen('painel'));
 
       function initialsFor(name) {
         return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
