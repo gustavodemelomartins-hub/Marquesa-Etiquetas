@@ -1293,7 +1293,10 @@ export async function listarVendasUnificado(db, {
        -- para a auditoria dizer a mesma coisa nas duas populações em vez de
        -- esconder metade. (Comentário em SQL, não em JS: isto está dentro de
        -- um template literal, e uma crase aqui fecharia a string.)
-       SELECT 'operacional', i.rowid, v.id, NULL, NULL, CAST(v.id AS TEXT), v.data,
+       -- 5.2 -- era i.rowid, que o SQLite pode reatribuir num VACUUM. Este
+       -- id e o contrato publico da linha: quem guardar para agir depois
+       -- guarda algo que nao se mexe.
+       SELECT 'operacional', i.id, v.id, NULL, NULL, CAST(v.id AS TEXT), v.data,
               COALESCE(c.nome, v.cliente_nome), v.cliente_nome_norm,
               i.sku, i.desc, i.qtd, i.qtd * i.preco, v.origem, NULL,
               CASE WHEN i.desconto_rotulo IS NOT NULL

@@ -90,14 +90,15 @@ async function corrigirOperacional(db, corpo, skuNovo, novo, motivo) {
   if (!venda) return ERRO(404, `Venda ${vendaId} não existe.`);
   if (venda.cancelada) return ERRO(409, 'Venda cancelada não é corrigida — ela já não conta em lugar nenhum.');
 
-  /* `venda_itens` não tem chave própria. O rowid identifica a LINHA dentro
-     desta escrita — é o que permite corrigir uma linha quando a venda tem
-     duas do mesmo código. Ele não é guardado nem comparado com nada de
-     outra requisição, que é a ressalva de §32 sobre rowid. */
+  /* 5.2 — a linha alvo pelo id próprio dela. Era o `rowid`, que servia por
+     não sair desta escrita; agora é uma identidade de verdade, e o mesmo
+     alvo pode ser nomeado de fora quando o fluxo de correção for desenhado.
+     `ORDER BY rowid` continua definindo QUAL linha quando o chamador não
+     diz: é a mais antiga, que é o comportamento de sempre. */
   const varianteAntes = corpo.varianteId == null || corpo.varianteId === ''
     ? null : String(corpo.varianteId);
   const item = await db.prepare(
-    `SELECT rowid AS linha, * FROM venda_itens
+    `SELECT id AS linha, * FROM venda_itens
       WHERE venda_id = ? AND sku = ?
         AND (? IS NULL OR variante_id = ?)
       ORDER BY rowid LIMIT 1`,
@@ -148,7 +149,7 @@ async function corrigirOperacional(db, corpo, skuNovo, novo, motivo) {
          código não reescreve quanto a peça custava naquele dia. */
       `UPDATE venda_itens
           SET sku = ?, desc = ?, variacao = ?, variante_id = ?
-        WHERE rowid = ?`,
+        WHERE id = ?`,
     ).bind(skuNovo, novo.desc, variacaoNova, varianteIdNovo, item.linha),
   ];
 
@@ -160,7 +161,7 @@ async function corrigirOperacional(db, corpo, skuNovo, novo, motivo) {
     /* Mudar o preço muda o TOTAL da venda — e é por isso que ele não muda
        sozinho. Quem pede o preço novo está pedindo os dois. */
     const totalNovo = dinheiro(Number(venda.total) - Number(item.preco) * qtd + precoDepois * qtd);
-    stmts.push(db.prepare('UPDATE venda_itens SET preco = ? WHERE rowid = ?')
+    stmts.push(db.prepare('UPDATE venda_itens SET preco = ? WHERE id = ?')
       .bind(precoDepois, item.linha));
     stmts.push(db.prepare('UPDATE vendas SET total = ? WHERE id = ?').bind(totalNovo, vendaId));
   }

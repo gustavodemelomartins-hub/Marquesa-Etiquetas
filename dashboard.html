@@ -7181,7 +7181,7 @@ function desenharResolucao(x){
     <div class="pend-acoes">
       <span class="cd-fb" id="pf-${esc(x.chave)}"></span>
       <button class="btn btn-gold btn-sm"
-        onclick="salvarVariacaoVenda('${esc(x.chave)}',${x.vendaId},'${esc(x.sku)}',${x.linha||'null'})"
+        onclick="salvarVariacaoVenda('${esc(x.chave)}',${x.vendaId},'${esc(x.sku)}','${esc(x.itemId||'')}')"
         >Salvar variação</button>
     </div>
   </div>`;
@@ -7204,13 +7204,17 @@ async function salvarDistribuicaoCentral(chave,sku,total,n){
   }catch(e){ if(fb) fb.textContent=e.message||'Não consegui salvar'; }
 }
 
-async function salvarVariacaoVenda(chave,vendaId,sku,linha){
+/* 5.2 — a linha da venda passou a ter id próprio. Era o `rowid`, que ia e
+   voltava entre duas requisições e o SQLite pode reatribuir num VACUUM. O id
+   é TEXTO, então vai entre aspas: sem elas o `onclick` acima viraria erro de
+   sintaxe em vez de chamada. */
+async function salvarVariacaoVenda(chave,vendaId,sku,itemId){
   const fb=document.getElementById('pf-'+chave);
   const escolhido=document.querySelector(`input[name="pv-${chave}"]:checked`);
   if(!escolhido){ if(fb) fb.textContent='Escolha a variação.'; return; }
   try{
     const r=await api('POST','/api/pendencias/variacao/venda',
-      {vendaId, sku, linha:linha===null?undefined:linha, variacao:escolhido.value});
+      {vendaId, sku, itemId:itemId||undefined, variacao:escolhido.value});
     centralAberta.delete(chave);
     toast(r.resumo||'Variação resolvida');
     await Promise.all([sincronizar(),carregarCentralPendencias(),carregarPendencias()]);

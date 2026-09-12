@@ -55,6 +55,7 @@ import { carregarFeriados, prazoDaGarantia, somarDiasUteis } from './dias-uteis.
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import { parametros } from './plataforma/d1.js';
 import { normSku } from './sku.js';
+import { novoVendaItemId } from './venda-item-id.js';
 
 const STATUS = new Set(['em_reparo', 'reparada', 'devolvida', 'sem_conserto', 'concluida', 'cancelada']);
 /** Os que ainda pedem alguma coisa de alguém. São estes que o Painel mostra;
@@ -497,8 +498,8 @@ async function registrarVendaDaTroca(db, {
 
     await db.prepare(
       `INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, motivo, variacao, variante_id,
-                                preco_tabela, desconto_valor, desconto_rotulo)
-       VALUES (?, ?, ?, 1, ?, 'troca', ?, ?, ?, ?, ?)`,
+                                preco_tabela, desconto_valor, desconto_rotulo, id)
+       VALUES (?, ?, ?, 1, ?, 'troca', ?, ?, ?, ?, ?, ?)`,
     ).bind(
       venda.id, skuNovo, descNovo, aCobrar, variacaoNova, varianteIdNovo,
       /* Os dois números lado a lado: o que a peça vale e o que foi cobrado.
@@ -507,6 +508,7 @@ async function registrarVendaDaTroca(db, {
       dinheiro(valorNovo),
       dinheiro(valorNovo) - aCobrar === 0 ? null : dinheiro(dinheiro(valorNovo) - aCobrar),
       `Crédito de garantia · ${garantia.sku} (${dinheiro(valorOriginal).toFixed(2)})`,
+      novoVendaItemId(),
     ).run();
 
     await db.prepare('UPDATE garantia_trocas SET venda_id = ? WHERE id = ?')

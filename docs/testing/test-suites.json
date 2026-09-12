@@ -488,6 +488,12 @@
         {
           "bin": "node",
           "args": [
+            "src/venda-item-id-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
             "src/reclassificacao-nao-venda-test.mjs"
           ]
         },

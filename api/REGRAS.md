@@ -1318,7 +1318,8 @@ que é a base da diferença de uma troca. Usar o preço de tabela cobraria a
 mais de quem comprou com desconto.
 
 A identidade do item é `(venda_id, sku, variante_id)` no lado operacional
-(`venda_itens` não tem chave própria, e `rowid` não sobrevive a um VACUUM) e
+(até a Fase 5.2 `venda_itens` não tinha chave própria, e `rowid` não sobrevive
+a um VACUUM; hoje `venda_itens.id` existe e a garantia ainda não migrou) e
 `vendas_historico_itens.id` no lado da planilha.
 
 O que a garantia **não** faz, em nenhum estado:

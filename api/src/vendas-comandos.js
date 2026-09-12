@@ -21,6 +21,7 @@ import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
    marcada. §21 do plano mestre já cobrou essa dívida uma vez. */
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import { normSku } from './sku.js';
+import { novoVendaItemId } from './venda-item-id.js';
 /* §43 — Monte seu Colar: base + componentes + configuração da venda. */
 import {
   prepararPersonalizacoes, gravarPersonalizacoes, personalizacoesDeVendas,
@@ -334,10 +335,15 @@ export async function registrarVenda(db, env, {
 
   const stmts = [];
   for (const l of linhas) {
+    /* §5.2 — o id nasce AQUI, antes da escrita. Dentro de um `db.batch` o
+       banco não devolveria id por instrução, e reler pelo trio
+       (venda_id, sku, variante_id) deixou de identificar desde que §27
+       passou a permitir duas linhas do mesmo código com preços diferentes. */
+    l.itemId = novoVendaItemId();
     stmts.push(db.prepare(
       `INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, motivo, variacao, variante_id,
-                                preco_tabela, desconto_valor, desconto_rotulo)
-       VALUES (?, ?, ?, ?, ?, 'venda', ?, ?, ?, ?, ?)`
+                                preco_tabela, desconto_valor, desconto_rotulo, id)
+       VALUES (?, ?, ?, ?, ?, 'venda', ?, ?, ?, ?, ?, ?)`
     ).bind(venda.id, l.sku, l.desc, l.qtd, l.preco, l.variacao, l.varianteId,
       /* `preco_tabela` é gravado SEMPRE, com ou sem desconto: sem ele, um
          reajuste de catálogo no mês que vem faria o desconto de hoje parecer
@@ -345,7 +351,7 @@ export async function registrarVenda(db, env, {
          zero diria "houve desconto, de zero", que é outra coisa. */
       l.precoTabela,
       l.preco === l.precoTabela ? null : Math.round((l.precoTabela - l.preco) * 100) / 100,
-      l.rotulo));
+      l.rotulo, l.itemId));
     // Kit: a baixa vai nos componentes, não no kit — ele não tem saldo
     // próprio. O recibo (venda_itens acima) continua mostrando o kit
     // inteiro, porque é assim que ela pensa na venda.

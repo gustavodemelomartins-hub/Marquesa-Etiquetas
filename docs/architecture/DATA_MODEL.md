@@ -127,6 +127,22 @@ confirma o saldo atual.
 `variante_id` congelam a caixinha exata da Nuvemshop que saiu: um SKU com
 mais de uma variação não pode ser enviado sem isso.
 
+`venda_itens.id` (Fase 5.2) é a identidade **própria** da linha: TEXT, UUID,
+gerada pela aplicação antes da escrita, única por índice e imutável por
+gatilho. Antes dela a identidade era o trio `(venda_id, sku, variante_id)` —
+que §27 quebrou ao permitir duas linhas do mesmo código na mesma venda com
+preços diferentes — e quem precisava de identidade de verdade usava o
+`rowid`, que o SQLite pode reatribuir. A aplicação gera porque os itens são
+escritos num `db.batch`, que não devolve id por instrução; um segundo gatilho
+preenche o id de qualquer caminho de escrita que esqueça, para que linha
+anônima não exista.
+
+Dois lugares ainda apontam para o item pelo caminho antigo, de propósito:
+`garantias` guarda o trio (migrar o ponteiro é trabalho com dado a converter)
+e `POST /api/pendencias/variacao/venda` ainda aceita `linha` (o rowid)
+enquanto o painel legado não sair. Nenhum dos dois deve ganhar consumidor
+novo.
+
 No acerto, todos os itens `vendida` pertencem à mesma venda ligada a
 `revendedora_id` e `maleta_id`. Nenhum pedido é criado na Nuvemshop: essas
 peças já estavam fora do estoque online desde a criação da maleta, portanto
@@ -235,7 +251,8 @@ motivo/observação e origem de inventário ainda é uma lacuna explícita.
 
 ### `garantias` / `garantia_eventos` / `garantia_trocas` / `feriados`
 §32. A garantia pertence ao **item** da compra. A identidade é
-`(venda_id, sku, variante_id)` do lado operacional — `venda_itens` não tem
+`(venda_id, sku, variante_id)` do lado operacional — quando a garantia foi
+escrita, `venda_itens` ainda não tinha
 chave própria, e `rowid` não sobrevive a um VACUUM — e
 `vendas_historico_itens.id` do lado da planilha. `valor_pago_original` é o
 que ela **pagou**, não o de tabela: é a base da diferença de uma troca.

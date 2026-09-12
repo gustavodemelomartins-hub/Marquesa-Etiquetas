@@ -638,8 +638,48 @@ CREATE TABLE IF NOT EXISTS venda_itens (
   -- ALTER TABLE, que sempre põe no fim. Os dois caminhos terminam iguais.
   preco_tabela    REAL,                             -- catálogo no momento da venda
   desconto_valor  REAL,                             -- preco_tabela - preco
-  desconto_rotulo TEXT                              -- "Grupo VIP"
+  desconto_rotulo TEXT,                             -- "Grupo VIP"
+  -- §5.2: a identidade PRÓPRIA da linha. Antes dela a identidade era o trio
+  -- (venda_id, sku, variante_id), que §27 quebra — duas linhas do mesmo
+  -- código com preços diferentes são legítimas —, e quem precisou de
+  -- identidade de verdade caiu no `rowid`, que não sobrevive a um VACUUM.
+  -- TEXT e gerada pela aplicação porque `ALTER TABLE` não sabe acrescentar
+  -- PRIMARY KEY, porque não há sequência no D1 para arbitrar `MAX(id)+1`
+  -- entre duas vendas simultâneas, e porque `registrarVenda` escreve os
+  -- itens num `db.batch`, que não devolve id por instrução: quem monta a
+  -- venda precisa saber o nome de cada linha ANTES de escrever.
+  -- Última de propósito: `migracao-venda-item-id.sql` a acrescenta com
+  -- ALTER TABLE, que sempre põe no fim. Os dois caminhos terminam iguais.
+  id              TEXT
 );
+
+-- Linha sem id não nasce, e id atribuído não muda. Os dois gatilhos são o
+-- que transforma a coluna em identidade: sem o primeiro, um caminho de
+-- escrita que esquecesse o id criaria linha anônima; sem o segundo,
+-- "corrigir o item" poderia trocar a identidade dele por baixo de quem já a
+-- guardou. Ver `api/migracao-venda-item-id.sql` para o raciocínio inteiro.
+CREATE TRIGGER IF NOT EXISTS venda_itens_id_ao_inserir
+AFTER INSERT ON venda_itens
+WHEN NEW.id IS NULL
+BEGIN
+  UPDATE venda_itens
+     SET id = lower(
+           hex(randomblob(4)) || '-' ||
+           hex(randomblob(2)) || '-4' ||
+           substr(hex(randomblob(2)), 2) || '-' ||
+           substr('89ab', abs(random()) % 4 + 1, 1) ||
+           substr(hex(randomblob(2)), 2) || '-' ||
+           hex(randomblob(6))
+         )
+   WHERE rowid = NEW.rowid;
+END;
+
+CREATE TRIGGER IF NOT EXISTS venda_itens_id_imutavel
+BEFORE UPDATE OF id ON venda_itens
+WHEN OLD.id IS NOT NULL AND NEW.id IS NOT OLD.id
+BEGIN
+  SELECT RAISE(ABORT, 'venda_itens.id e imutavel: corrigir a linha nao troca a identidade dela');
+END;
 
 -- ------------------------------------------------------- Monte seu Colar
 -- Os modelos confirmados da família de filhos vivem na regra de negócio de
@@ -1023,6 +1063,7 @@ CREATE INDEX IF NOT EXISTS idx_vendas_vencimento ON vendas(vencimento_em) WHERE 
 CREATE INDEX IF NOT EXISTS idx_venda_itens_v  ON venda_itens(venda_id);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_s  ON venda_itens(sku);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_variante ON venda_itens(variante_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_venda_itens_id ON venda_itens(id);
 CREATE INDEX IF NOT EXISTS idx_inv_status     ON inventarios(status);
 CREATE INDEX IF NOT EXISTS idx_inv_itens      ON inventario_itens(inventario_id);
 -- Sem cláusula WHERE de propósito: no SQLite vários NULL convivem num índice
@@ -1489,9 +1530,12 @@ CREATE TABLE IF NOT EXISTS garantias (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
 
   -- ─── o item de origem, nas duas populações de venda
-  -- `operacional` → venda do sistema; a identidade do item é
-  --                 (venda_id, sku, variante_id): `venda_itens` não tem
-  --                 chave própria, e rowid não é estável entre VACUUMs.
+  -- `operacional` → venda do sistema. A identidade guardada aqui é
+  --                 (venda_id, sku, variante_id) porque era o que existia
+  --                 quando a garantia foi escrita. Desde a Fase 5.2
+  --                 `venda_itens.id` existe e é a identidade de verdade;
+  --                 migrar o ponteiro da garantia para ela é trabalho
+  --                 próprio, com dado a converter, e não foi feito aqui.
   -- `historico`   → linha da planilha; `vendas_historico_itens.id` é PK real.
   origem_fonte TEXT NOT NULL CHECK (origem_fonte IN ('operacional', 'historico')),
   venda_id           INTEGER REFERENCES vendas(id),

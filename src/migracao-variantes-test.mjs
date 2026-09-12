@@ -108,6 +108,10 @@ const MIGRACOES = [
   'api/migracao-pos-golive-1.sql',
   'api/migracao-montagem-slots.sql',
   'api/migracao-pacote-2.sql',
+  /* 5.2 — identidade própria da linha de venda. No fim porque ela só
+     acrescenta a `venda_itens`, que já existe desde o schema original e não
+     é reconstruída por nenhuma das migrations acima. */
+  'api/migracao-venda-item-id.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com

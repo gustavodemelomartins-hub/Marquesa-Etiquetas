@@ -312,7 +312,10 @@ async function assinaturaOperacional(db, vendaId) {
   ).bind(vendaId).first();
   if (!venda || Number(venda.cancelada)) return null;
   const { results } = await db.prepare(
-    `SELECT sku, qtd, preco FROM venda_itens WHERE venda_id=? ORDER BY sku, rowid`,
+    /* 5.2 — ordenar por valor, e não por `rowid`: a assinatura é comparada
+       entre execuções, e o rowid pode ser reatribuído num VACUUM, o que
+       mudaria a ordem sem que nada da venda tivesse mudado. */
+    `SELECT sku, qtd, preco FROM venda_itens WHERE venda_id=? ORDER BY sku, preco, qtd`,
   ).bind(vendaId).all();
   return {
     data: venda.data,

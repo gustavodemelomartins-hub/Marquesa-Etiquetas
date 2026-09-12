@@ -110,12 +110,11 @@ export async function historicoDoDia(db, data) {
               i.preco_tabela AS preco_tabela, i.desconto_valor AS desconto_valor,
               i.desconto_rotulo AS desconto_rotulo, i.motivo AS motivo,
               i.variacao AS variacao,
-              /* Só para a deduplicação desta resposta, e por isso o rowid
-                 serve: ele não é gravado em lugar nenhum nem comparado com
-                 nada de outra requisição — é o número da linha DENTRO desta
-                 leitura. A identidade durável de um item continua sendo
-                 (venda_id, sku, variante_id), como §32 exige. */
-              i.rowid AS item_rowid
+              /* 5.2 — a identidade própria da linha. Era o `rowid`, com a
+                 ressalva de que servia por não sair desta leitura; agora não
+                 precisa de ressalva, e a `referencia` abaixo passa a ser
+                 estável entre requisições. */
+              i.id AS item_id
          FROM vendas v
          JOIN venda_itens i ON i.venda_id = v.id
          LEFT JOIN clientes c ON c.id = v.cliente_id
@@ -215,7 +214,7 @@ export async function historicoDoDia(db, data) {
          fossem repetições. Uma venda de R$ 110 com três peças aparecia
          como R$ 50 com uma peça, e o resumo do dia dizia
          `duplicadasRemovidas: 1` sobre uma peça que existia de verdade. */
-      referencia: `venda:${r.venda_id}:${r.item_rowid}`,
+      referencia: `venda:${r.venda_id}:${r.item_id}`,
       vendaId: r.venda_id,
       data: r.data,
       dataPagamento: r.data_pagamento ?? null,

@@ -107,7 +107,7 @@ Read model transversal; comandos pertencem aos domínios que corrigem. Lê venda
 | `GET /api/pendencias?tipo=&adiadas=1` | A | Projeção unificada. |
 | `POST /api/pendencias/adiar` | C | Adia por chave/data. |
 | `POST /api/pendencias/retomar` | C | Retoma por chave. |
-| `POST /api/pendencias/variacao/venda` | C/H | Corrige identidade sem segunda baixa. |
+| `POST /api/pendencias/variacao/venda` | C/H | Corrige identidade sem segunda baixa. Desde a Fase 5.2 aceita `itemId` (`venda_itens.id`, a identidade oficial); `linha` (o rowid) continua aceita só enquanto o painel legado a enviar, e não deve ganhar consumidor novo. |
 | `POST /api/pendencias/variacao/maleta` | C/H | Distribui identidade consignada. |
 
 ### Revendedoras e maletas
@@ -248,7 +248,7 @@ Proprietário: Analytics/read models. Somente leitura transversal; deve evitar d
 | `GET /api/analytics/categorias?periodo=` | A | Categorias. |
 | `GET /api/analytics/origem?periodo=` | A | Origem. |
 | `GET /api/analytics/clientes?periodo=&ordem=&limite=` | A | Clientes; máximo 500. |
-| `GET /api/vendas/lista?de=&ate=&busca=&canal=&origem=&canceladas=&limite=&offset=` | A | Lista paginada; máximo 1000. `canal` é o texto de cada população (`balcao` do operacional, `Site`/`Instagram`/`Maleta` do histórico); `origem` é o vocabulário comum `balcao\|acerto\|site`, nulo onde não há equivalente mecânico. `canceladas=nao` devolve só o recorte elegível; o padrão mostra a venda cancelada, marcada. |
+| `GET /api/vendas/lista?de=&ate=&busca=&canal=&origem=&canceladas=&limite=&offset=` | A | Lista paginada; máximo 1000. `canal` é o texto de cada população (`balcao` do operacional, `Site`/`Instagram`/`Maleta` do histórico); `origem` é o vocabulário comum `balcao\|acerto\|site`, nulo onde não há equivalente mecânico. Desde a Fase 5.2 `itens[].id` do lado operacional é `venda_itens.id` (UUID estável), não mais o `rowid`. `canceladas=nao` devolve só o recorte elegível; o padrão mostra a venda cancelada, marcada. |
 
 ### Saídas sem faturamento
 

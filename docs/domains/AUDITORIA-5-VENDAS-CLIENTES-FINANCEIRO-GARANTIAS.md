@@ -159,7 +159,7 @@ formato", e torna `API-VEN-001` (intervalo arbitrário) o gap analítico real.
 | Tabela | Papel na fase | Observação estrutural |
 |---|---|---|
 | `vendas` | a venda como ato | dinheiro em `REAL`; pagamento booleano |
-| `venda_itens` | itens, preço cobrado, preço de tabela, desconto | **sem chave primária própria** |
+| `venda_itens` | itens, preço cobrado, preço de tabela, desconto | `id` próprio desde a 5.2 (TEXT/UUID, único, imutável) |
 | `clientes` | identidade | `cpf` sem `UNIQUE`, de propósito |
 | `clientes_vinculo_revisao` | fila de vínculo em dúvida | tem rota, quase não tem tela |
 | contas a receber | não é tabela: é a união de `vendas` em aberto, `historico_operacoes` com `papel='cliente'` e `garantia_trocas` antigas | por isso cada linha carrega uma `chave` (`venda:45`, `historico:12`, `troca:7`) |
@@ -280,6 +280,13 @@ qualquer correção de item mais fina que a de SKU.
 **É o menor trabalho com o maior efeito destravante da fase**: uma migration
 aditiva que dá chave própria a `venda_itens`.
 
+**Corrigido na 5.2.** `venda_itens.id` é TEXT/UUID, gerado pela aplicação
+antes da escrita, único por índice e imutável por gatilho; um segundo gatilho
+preenche quem esquecer. A auditoria subestimou o alcance: além de
+`/api/vendas/lista`, o `rowid` também ia e voltava entre duas requisições na
+Central de Pendências — e a chave dessa pendência era **gravada** em
+`config`. Ver §19.
+
 ### A4 — `GET /api/vendas/lista` devolve toda venda operacional como paga
 
 No `UNION ALL` de `listarVendasUnificado`, a coluna `pago` do lado operacional
@@ -381,7 +388,7 @@ comportamento que a UX ainda vai definir.
 |---|---|---|
 | 5.0 | reconciliar as três linhas (esta branch, `develop`, Codex) e registrar o baseline de contratos do ciclo comercial | nada |
 | 5.1 | ~~corrigir A4, A5 e a parte mecânica de A6 em `GET /api/vendas/lista`, com teste~~ · **feita** — `src/vendas-lista-test.mjs`, 14 provas | nada |
-| 5.2 | chave primária própria para `venda_itens` (migration aditiva) e migrar quem usa `rowid` | nada |
+| 5.2 | ~~chave primária própria para `venda_itens` (migration aditiva) e migrar quem usa `rowid`~~ · **feita** — `src/venda-item-id-test.mjs`, 22 provas | nada |
 | 5.3 | `FIN-101` — recebíveis com paridade do legado, sem modelo novo | 5.2 |
 | 5.4 | `GAR-101` e `GAR-102` — garantias, trocas e o estorno que hoje é código morto | nada |
 | 5.5 | `VEN-105` — correção de item vendido · **`AGUARDANDO HANDOFF CODEX`** | 5.2 e o handoff (ver §17) |
@@ -518,3 +525,77 @@ modificação não commitada da árvore de trabalho, com cópia de segurança fo
 repositório. Decidir se o espelho versionado passa a acompanhar o local, ou se
 deixa de ser versionado, é decisão de governança — não efeito colateral de um
 merge.
+
+---
+
+## 19. Fase 5.2 — o mapa completo dos consumidores de `rowid`
+
+A auditoria original (§A3) achou **um** consumidor. A varredura da 5.2 achou
+**seis**, e o mais grave não era o que estava na rota pública.
+
+### A. Usavam o `rowid` explicitamente
+
+| Onde | O que fazia | Gravidade | Depois |
+|---|---|---|---|
+| `analytics.js` · `GET /api/vendas/lista` | devolvia `i.rowid` como `id` da linha | contrato público | devolve `i.id` |
+| `pendencias.js` · lista + resolução | devolvia `i.rowid` como `linha` e **recebia o número de volta** numa segunda requisição | **atravessa requisições** | devolve `itemId`; `linha` aceita só por compatibilidade |
+| `pendencias.js` · chave da pendência | `venda_variacao:<venda>:<rowid>`, **gravada em `config`** como pendência adiada | **persistida** | `venda_variacao:<venda>:<id>` |
+| `historico-dia.js` · `referencia` | chave de deduplicação da resposta, exposta | dentro de uma leitura | usa o `id` |
+| `venda-correcao.js` | alvo do `UPDATE` dentro de uma escrita | dentro de uma escrita | usa o `id` |
+| `historico-operacoes.js` | `ORDER BY sku, rowid` numa assinatura comparada entre execuções | ordenação instável | `ORDER BY sku, preco, qtd` |
+
+O caso da chave persistida é o que o comentário de §32 dizia não existir: o
+`rowid` não só saía da requisição como ficava **gravado**. Um VACUUM faria a
+pendência adiada voltar — ou, pior, esconderia outra.
+
+### B. Usavam chave composta por falta de id
+
+`garantias.js` identifica o item por `(venda_id, sku, variante_id)` com
+`LIMIT 1`, e `garantias` **guarda** esse trio em três colunas. Desde §27 o
+trio pode casar duas linhas, e o `LIMIT 1` escolhe em silêncio.
+
+**Não migrado nesta fase, de propósito.** Trocar o ponteiro da garantia exige
+converter dado existente e decidir para qual das duas linhas cada garantia
+antiga aponta — é trabalho próprio, com decisão dentro. Fica registrado como a
+próxima dívida do assunto.
+
+### C. Não precisam de identidade de item
+
+Os agregados de `analytics.js`, `vendas-estoque-nuvemshop.js`,
+`historico-dia.js` (soma), `produtos.js` (dependências) e
+`maletas-comandos.js`. Nenhum foi tocado.
+
+### D. Contratos que mudaram
+
+| Contrato | Antes | Depois | Quebra? |
+|---|---|---|---|
+| `GET /api/vendas/lista` → `itens[].id` (lado operacional) | inteiro (rowid) | UUID | **sim**, e deliberada: a rota não tem nenhuma tela, nem legada nem React |
+| `GET /api/pendencias` → `itens[].itemId` | não existia | UUID | aditivo |
+| `GET /api/pendencias` → `itens[].linha` | inteiro (rowid) | inteiro (rowid) | não — mantida até o legado sair |
+| `POST /api/pendencias/variacao/venda` | aceitava `linha` | aceita `itemId` **ou** `linha` | não |
+| `chave` da pendência de variação | `venda_variacao:<venda>:<rowid>` | `venda_variacao:<venda>:<id>` | **sim** — as pendências adiadas com a chave antiga reaparecem uma vez. Reaparecer é o lado seguro de errar, e o dado vive em `config`, não em dinheiro nem em peça |
+| `historico-dia` → `referencia` | `venda:<id>:<rowid>` | `venda:<id>:<itemId>` | não — é chave opaca de deduplicação |
+
+O painel legado foi migrado junto (`src/dashboard.tpl.html`): ele passa a
+mandar `itemId`. Era obrigatório — o `onclick` interpolava o valor **sem
+aspas**, e um UUID ali viraria erro de sintaxe em vez de chamada.
+
+### Opções de identidade consideradas
+
+| Opção | Por que não |
+|---|---|
+| `id INTEGER PRIMARY KEY AUTOINCREMENT` | `ALTER TABLE` do SQLite não acrescenta PRIMARY KEY: exigiria **reconstruir** a tabela que guarda faturamento. E um id do banco só é conhecido depois da escrita — os itens são escritos num `db.batch`, que não devolve id por instrução |
+| `MAX(id) + 1` na aplicação | duas vendas simultâneas leem o mesmo máximo. Não há sequência no D1 para arbitrar |
+| `rowid` persistido como coluna | congela hoje o número que o problema é justamente não poder confiar; e não resolve inserção nova |
+| reconstrução da tabela | a operação menos reversível disponível, para ganhar uma coluna que `ALTER TABLE` acrescenta. Só se justificaria se houvesse constraint impossível de outro jeito — e os dois gatilhos cobrem NOT NULL e imutabilidade sem reconstruir |
+| **TEXT/UUID gerado pela aplicação** | **escolhida.** Sem corrida por construção, conhecida antes da escrita, aditiva, e o rollback é largar dois gatilhos e um índice |
+
+### O que a 5.2 deixou pendente
+
+1. migrar o ponteiro de `garantias` do trio para `venda_itens.id` (item B);
+2. remover `linha` de `POST /api/pendencias/variacao/venda` quando o painel
+   legado sair de produção;
+3. `venda_itens.id` é nulável no schema porque `ALTER TABLE` não acrescenta
+   `NOT NULL` sem reconstruir. Nulo é inalcançável na prática — backfill mais
+   gatilho —, mas quem um dia reconstruir a tabela por outro motivo deve
+   aproveitar para declarar `NOT NULL`.
