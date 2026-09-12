@@ -54,6 +54,7 @@ regra corrente e não autoriza operação nenhuma hoje.
 | Contrato de UX/API da Fase 4.5 | [domains/CONTRATO-UX-API-4-5.md](domains/CONTRATO-UX-API-4-5.md) |
 | Importações relacionadas — auditoria e correção da Fase 4.6 | [domains/IMPORTACAO-4-6.md](domains/IMPORTACAO-4-6.md) |
 | Auditoria que originou a Fase 4.5 | [domains/AUDITORIA-4-5-CATALOGO-FOTOS-PUBLICACAO.md](domains/AUDITORIA-4-5-CATALOGO-FOTOS-PUBLICACAO.md) |
+| Vendas, clientes, financeiro e garantias — auditoria da Fase 5 | [domains/AUDITORIA-5-VENDAS-CLIENTES-FINANCEIRO-GARANTIAS.md](domains/AUDITORIA-5-VENDAS-CLIENTES-FINANCEIRO-GARANTIAS.md) |
 | Saídas sem faturamento | [domains/SAIDAS-SEM-FATURAMENTO.md](domains/SAIDAS-SEM-FATURAMENTO.md) |
 | Nuvemshop | [domains/NUVEMSHOP_INTEGRATION.md](domains/NUVEMSHOP_INTEGRATION.md) |
 | Sincronização | [domains/SYNC_ENGINE.md](domains/SYNC_ENGINE.md) |
