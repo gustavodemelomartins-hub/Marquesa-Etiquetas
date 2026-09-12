@@ -42,23 +42,51 @@ try {
   check(await textOf(page.locator('[data-sale-total]')) === 'R$ 0,00', 'lançamento começa zerado');
   check(await page.locator('[data-finalize-sale]').isDisabled(), 'venda vazia não pode ser finalizada');
 
+  await page.locator('[data-product-search]').fill('anel aurora');
+  check(await page.locator('[data-product-results] [data-product-sku="784231"]').count() === 1, 'produto com variações aparece uma única vez na busca');
+  await page.locator('[data-product-sku="784231"]').click();
+  const variationDialog = page.locator('#variation-dialog');
+  check(await variationDialog.isVisible(), 'produto com mais de uma variação exige escolha explícita');
+  check(await page.locator('[data-cart-item]').count() === 0, 'produto ambíguo não entra no carrinho antes da escolha');
+  check(await variationDialog.locator('[data-variant-id]').count() === 3, 'seletor mostra todos os aros reais');
+  check(await variationDialog.locator('[data-variant-id="784231-20"]').isDisabled(), 'variação sem estoque fica visível e bloqueada');
+  await page.screenshot({ path: 'docs/ux/03-screens/vendas/launch-mobile-variation.png', fullPage: true });
+  await variationDialog.getByRole('button', { name: /Aro 16/ }).click();
+  check(await textOf(page.locator('[data-cart-item][data-variant-id="784231-16"] .variant-pill')) === 'Aro 16', 'variação escolhida acompanha a linha do carrinho');
+
+  await page.locator('[data-product-search]').fill('784231');
+  await page.locator('[data-product-sku="784231"]').click();
+  await variationDialog.getByRole('button', { name: /Aro 18/ }).click();
+  check(await page.locator('[data-cart-item][data-sku="784231"]').count() === 2, 'aros diferentes do mesmo SKU ocupam linhas separadas');
+  const aro18 = page.locator('[data-cart-item][data-variant-id="784231-18"]');
+  await aro18.locator('[data-quantity-action="increase"]').click();
+  check(await aro18.locator('[data-item-quantity]').textContent() === '1', 'quantidade não ultrapassa o saldo da variação');
+  check((await page.locator('[data-launch-toast]').textContent()).includes('somente 1 disponível'), 'saldo da variação explica por que a quantidade foi bloqueada');
+
+  await page.locator('[data-product-search]').fill('784231');
+  await page.locator('[data-product-sku="784231"]').click();
+  await variationDialog.getByRole('button', { name: /Aro 16/ }).click();
+  check(await page.locator('[data-cart-item][data-sku="784231"]').count() === 2, 'mesmo SKU e mesmo aro não criam linha duplicada');
+  check((await page.locator('[data-launch-toast]').textContent()).includes('Use +'), 'aro repetido orienta aumentar pela linha existente');
+
   await page.locator('[data-product-search]').fill('122060');
   await page.locator('[data-product-sku="122060"]').click();
   check(!(await page.locator('[data-open-step="customer"]').isDisabled()), 'peça adicionada libera próxima etapa');
   await page.locator('[data-product-search]').fill('122060');
   await page.locator('[data-product-search-form] button[type="submit"]').click();
-  check(await page.locator('[data-cart-item]').count() === 1, 'item repetido não cria outra linha');
-  check(await page.locator('[data-item-quantity]').textContent() === '1', 'item repetido não aumenta quantidade sozinho');
+  const argolaItem = page.locator('[data-cart-item][data-sku="122060"]');
+  check(await argolaItem.count() === 1, 'item repetido não cria outra linha');
+  check(await argolaItem.locator('[data-item-quantity]').textContent() === '1', 'item repetido não aumenta quantidade sozinho');
   check((await page.locator('[data-launch-toast]').textContent()).includes('já está na venda'), 'item repetido orienta usar o controle de quantidade');
-  await page.locator('[data-edit-price]').click();
+  await argolaItem.locator('[data-edit-price]').click();
   check((await page.locator('[data-price-form]').textContent()).includes('Preço padrão'), 'modal usa preço padrão');
   await page.locator('[data-final-price]').fill('120');
   await page.locator('[data-price-reason]').fill('Grupo VIP');
   await page.locator('[data-price-form] button[type="submit"]').click();
-  check((await textOf(page.locator('.price-note'))).includes('Desconto de R$ 30,00 por peça'), 'desconto aparece no item');
+  check((await textOf(argolaItem.locator('.price-note'))).includes('Desconto de R$ 30,00 por peça'), 'desconto aparece no item');
   check(await textOf(page.locator('[data-sale-discount]')) === 'R$ 30,00', 'desconto aparece no fechamento');
 
-  await page.locator('[data-edit-price]').click();
+  await argolaItem.locator('[data-edit-price]').click();
   await page.locator('[data-final-price]').fill('180');
   await page.locator('[data-price-reason]').fill('Condição especial');
   await page.locator('[data-price-form] button[type="submit"]').click();
@@ -94,6 +122,7 @@ try {
   const reviewText = await textOf(reviewDialog);
   check(reviewText.includes('Camila Ferreira') && reviewText.includes('Grupo VIP'), 'revisão mostra cliente e canal');
   check(reviewText.includes('Argola Duas Linhas Cravejadas') && reviewText.includes('R$ 180,00'), 'revisão mostra peça e total');
+  check(reviewText.includes('Aro 16') && reviewText.includes('Aro 18'), 'revisão mostra a variação exata de cada peça');
   check(reviewText.includes('Cartão de crédito') && reviewText.includes('20/09/2026'), 'revisão mostra pagamento e vencimento');
   check(reviewText.includes('Acréscimo') && !reviewText.includes('-R$'), 'revisão mostra acréscimo sem desconto negativo');
   await page.screenshot({ path: 'docs/ux/03-screens/vendas/launch-mobile-review.png', fullPage: true });

@@ -336,6 +336,8 @@
               </tbody></table></div>
           </section>
 
+          <dialog class="launch-dialog variation-dialog" id="variation-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar variações">×</button><p class="context">Peça com variações</p><h2>Qual variação saiu?</h2><p>A etiqueta identifica o produto. Agora escolha a peça exata para baixar o estoque correto.</p><div class="variation-product"><span class="jewel" aria-hidden="true" data-variation-symbol>○</span><span><b data-variation-product></b><small data-variation-meta></small></span></div><div class="variation-options" role="list" data-variation-options></div><p class="variation-footnote">A opção sem estoque continua visível, mas não pode ser selecionada.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button></div></form></dialog>
+
           <dialog class="launch-dialog" id="price-dialog"><form method="dialog" data-price-form><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Preço desta peça</p><h2 data-price-product>Editar preço final</h2><p>O preço padrão fica preservado. Informe quanto será cobrado nesta venda.</p><label>Preço padrão<input data-table-price-display readonly></label><label>Preço final<input type="number" min="0" step="0.01" required data-final-price></label><label>Motivo da alteração<input type="text" placeholder="Ex.: Grupo VIP" data-price-reason></label><p class="dialog-error" role="alert" data-price-error hidden>Informe o motivo quando o preço final for diferente.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button><button class="button primary" type="submit" value="default">Aplicar preço</button></div></form></dialog>
 
           <dialog class="launch-dialog camera-dialog" id="camera-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar câmera">×</button><p class="context">Leitor de etiqueta</p><h2>Aponte a câmera para o código</h2><p>A câmera traseira será ativada somente depois da sua confirmação.</p><div class="camera-preview"><video playsinline muted data-camera-video hidden></video><span class="camera-placeholder" data-camera-placeholder aria-hidden="true">▣</span><i aria-hidden="true"></i></div><p class="camera-status" role="status" data-camera-status>Câmera desligada.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Fechar</button><button class="button primary" type="button" data-start-camera>Ativar câmera</button></div></form></dialog>
@@ -420,6 +422,8 @@
       const finalizeSaleButton = launchScreen.querySelector('[data-finalize-sale]');
       const productSearch = launchScreen.querySelector('[data-product-search]');
       const productResults = launchScreen.querySelector('[data-product-results]');
+      const variationDialog = launchScreen.querySelector('#variation-dialog');
+      const variationOptions = launchScreen.querySelector('[data-variation-options]');
       const priceDialog = launchScreen.querySelector('#price-dialog');
       const cameraDialog = launchScreen.querySelector('#camera-dialog');
       const cameraVideo = launchScreen.querySelector('[data-camera-video]');
@@ -434,6 +438,7 @@
       const launchToast = launchScreen.querySelector('[data-launch-toast]');
       const catalog = [
         { sku: '122060', name: 'Argola Duas Linhas Cravejadas', detail: 'Banho de Ouro 18k', price: 150, symbol: '◌' },
+        { sku: '784231', name: 'Anel Aurora Cravejado', detail: 'Banho de Ouro 18k', price: 129, symbol: '○', variantAttribute: 'Aro', variants: [{ id: '784231-16', name: '16', stock: 2 }, { id: '784231-18', name: '18', stock: 1 }, { id: '784231-20', name: '20', stock: 0 }] },
         { sku: '451109', name: 'Pulseira Medalha Salmo', detail: 'Banho de Ouro 18k', price: 200, symbol: '◇' },
         { sku: '326660', name: 'Monte seu Colar · Casal', detail: 'Composição confirmada', price: 150, symbol: '⌁' },
         { sku: '640509', name: 'Pingente Menino Verde', detail: 'Coleção Filhos', price: 49, symbol: '♢' },
@@ -446,6 +451,7 @@
         'Juliana Prado': { contact: '(19) 9 9211-1098' }
       };
       let editingCartItem = null;
+      let pendingVariantProduct = null;
       let toastTimer = null;
       let cameraStream = null;
       let cameraScanTimer = null;
@@ -610,37 +616,60 @@
         toastTimer = setTimeout(() => { launchToast.hidden = true; }, 3600);
       }
 
-      function createCartItem(product) {
+      function createCartItem(product, variant = null) {
         const item = document.createElement('li');
         item.dataset.cartItem = '';
         item.dataset.sku = product.sku;
         item.dataset.name = product.name;
+        item.dataset.variantId = variant?.id || '';
+        item.dataset.variantName = variant?.name || '';
+        item.dataset.variantAttribute = variant ? product.variantAttribute : '';
+        item.dataset.stock = variant ? String(variant.stock) : '';
         item.dataset.tablePrice = product.price;
         item.dataset.price = product.price;
         item.dataset.quantity = '1';
         item.innerHTML = `
           <span class="jewel" aria-hidden="true">${product.symbol}</span>
-          <div class="cart-product"><b>${product.name}</b><small>SKU ${product.sku} · ${product.detail}</small><small class="price-note" hidden></small></div>
+          <div class="cart-product"><b>${product.name}</b><small>SKU ${product.sku} · ${product.detail}</small>${variant ? `<span class="variant-pill">${product.variantAttribute} ${variant.name}</span>` : ''}<small class="price-note" hidden></small></div>
           <div class="quantity-control" aria-label="Quantidade de ${product.name}"><button type="button" data-quantity-action="decrease" aria-label="Diminuir quantidade">−</button><span data-item-quantity>1</span><button type="button" data-quantity-action="increase" aria-label="Aumentar quantidade">+</button></div>
           <button class="item-price" type="button" data-edit-price aria-label="Editar preço de ${product.name}"><small>Preço final</small><strong data-item-total>${launchMoney(product.price)}</strong></button>
           <button class="item-remove" type="button" data-remove-item aria-label="Remover ${product.name}">×</button>`;
         return item;
       }
 
-      function addCatalogProduct(product) {
-        const existing = launchItems().find((item) => item.dataset.sku === product.sku);
+      function addCatalogProduct(product, variant = null) {
+        const variantId = variant?.id || '';
+        const existing = launchItems().find((item) => item.dataset.sku === product.sku && item.dataset.variantId === variantId);
+        const itemName = variant ? `${product.name} · ${product.variantAttribute} ${variant.name}` : product.name;
         if (existing) {
           productSearch.value = '';
           productResults.hidden = true;
           existing.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-          showLaunchToast(`${product.name} já está na venda. Use + para aumentar a quantidade.`);
+          showLaunchToast(`${itemName} já está na venda. Use + para aumentar a quantidade.`);
           return;
         }
-        launchCart.append(createCartItem(product));
+        launchCart.append(createCartItem(product, variant));
         productSearch.value = '';
         productResults.hidden = true;
         updateLaunch();
-        showLaunchToast(`${product.name} adicionada à venda.`);
+        showLaunchToast(`${itemName} adicionado à venda.`);
+      }
+
+      function chooseCatalogProduct(product) {
+        const variants = product.variants || [];
+        if (!variants.length) return addCatalogProduct(product);
+        if (variants.length === 1) return addCatalogProduct(product, variants[0]);
+        pendingVariantProduct = product;
+        productSearch.value = '';
+        productResults.hidden = true;
+        setLaunchText('[data-variation-product]', product.name);
+        setLaunchText('[data-variation-meta]', `SKU ${product.sku} · ${product.variantAttribute}`);
+        setLaunchText('[data-variation-symbol]', product.symbol);
+        variationOptions.innerHTML = variants.map((variant) => {
+          const unavailable = variant.stock <= 0;
+          return `<button class="variation-option" type="button" data-variant-id="${variant.id}" ${unavailable ? 'disabled' : ''}><span><b>${product.variantAttribute} ${variant.name}</b><small>${unavailable ? 'Sem estoque' : `${variant.stock} ${variant.stock === 1 ? 'disponível' : 'disponíveis'}`}</small></span><strong>${unavailable ? 'Indisponível' : 'Selecionar'}</strong></button>`;
+        }).join('');
+        variationDialog.showModal();
       }
 
       function renderProductResults() {
@@ -652,7 +681,7 @@
         }
         const matches = catalog.filter((product) => !query || product.name.toLocaleLowerCase('pt-BR').includes(query) || product.sku.includes(query)).slice(0, 4);
         productResults.innerHTML = matches.length
-          ? matches.map((product) => `<button class="product-result" type="button" data-product-sku="${product.sku}"><span><b>${product.name}</b><small>SKU ${product.sku} · ${product.detail}</small></span><strong>${launchMoney(product.price)}</strong></button>`).join('')
+          ? matches.map((product) => `<button class="product-result" type="button" data-product-sku="${product.sku}"><span><b>${product.name}</b><small>SKU ${product.sku} · ${product.detail}${product.variants?.length ? ` · ${product.variants.length} ${product.variantAttribute.toLocaleLowerCase('pt-BR')}s` : ''}</small></span><strong>${launchMoney(product.price)}</strong></button>`).join('')
           : '<div class="product-result"><span><b>Nenhuma peça encontrada</b><small>Confira o nome, SKU ou código da etiqueta.</small></span></div>';
         productResults.hidden = false;
       }
@@ -667,7 +696,7 @@
         }
         const firstResult = productResults.querySelector('[data-product-sku]');
         if (!firstResult) return renderProductResults();
-        addCatalogProduct(catalog.find((product) => product.sku === firstResult.dataset.productSku));
+        chooseCatalogProduct(catalog.find((product) => product.sku === firstResult.dataset.productSku));
       });
       productSearch.addEventListener('focus', () => {
         if (productSearch.value.trim()) renderProductResults();
@@ -677,8 +706,17 @@
       productResults.addEventListener('click', (event) => {
         const result = event.target.closest('[data-product-sku]');
         if (!result) return;
-        addCatalogProduct(catalog.find((product) => product.sku === result.dataset.productSku));
+        chooseCatalogProduct(catalog.find((product) => product.sku === result.dataset.productSku));
       });
+      variationOptions.addEventListener('click', (event) => {
+        const option = event.target.closest('[data-variant-id]');
+        if (!option || option.disabled || !pendingVariantProduct) return;
+        const product = pendingVariantProduct;
+        const variant = product.variants.find((item) => item.id === option.dataset.variantId);
+        variationDialog.close();
+        addCatalogProduct(product, variant);
+      });
+      variationDialog.addEventListener('close', () => { pendingVariantProduct = null; });
       document.addEventListener('click', (event) => {
         if (!event.target.closest('[data-product-search-form]') && !event.target.closest('[data-product-results]')) productResults.hidden = true;
       });
@@ -711,7 +749,7 @@
             if (product) {
               cameraStatus.textContent = `${product.name} identificada.`;
               cameraDialog.close();
-              addCatalogProduct(product);
+              chooseCatalogProduct(product);
               return;
             }
             cameraStatus.textContent = `Código ${rawCode} não encontrado neste protótipo.`;
@@ -766,6 +804,11 @@
         const quantityAction = event.target.closest('[data-quantity-action]');
         if (quantityAction) {
           const nextQuantity = Number(item.dataset.quantity) + (quantityAction.dataset.quantityAction === 'increase' ? 1 : -1);
+          const stock = item.dataset.stock === '' ? Infinity : Number(item.dataset.stock);
+          if (nextQuantity > stock) {
+            showLaunchToast(`${item.dataset.name} · ${item.dataset.variantAttribute} ${item.dataset.variantName}: somente ${stock} disponível.`);
+            return;
+          }
           if (nextQuantity <= 0) item.remove();
           else item.dataset.quantity = String(nextQuantity);
           updateLaunch();
@@ -935,7 +978,8 @@
         const reviewItems = launchScreen.querySelector('[data-review-items-list]');
         reviewItems.innerHTML = items.map((item) => {
           const quantity = Number(item.dataset.quantity);
-          return `<li><span><b>${item.dataset.name}</b><small>${quantity} × ${launchMoney(Number(item.dataset.price))}</small></span><strong>${launchMoney(Number(item.dataset.price) * quantity)}</strong></li>`;
+          const variant = item.dataset.variantName ? ` · ${item.dataset.variantAttribute} ${item.dataset.variantName}` : '';
+          return `<li><span><b>${item.dataset.name}</b><small>${quantity} × ${launchMoney(Number(item.dataset.price))}${variant}</small></span><strong>${launchMoney(Number(item.dataset.price) * quantity)}</strong></li>`;
         }).join('');
         const reviewPayments = launchScreen.querySelector('[data-review-payments-list]');
         reviewPayments.innerHTML = payments.length ? payments.map((entry) => {
