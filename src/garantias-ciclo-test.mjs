@@ -259,16 +259,15 @@ console.log('\n=== 2. estados: o que cada transição faz HOJE ===');
   assert.equal(mesmo.statusHttp, 409);
   prova('mudar para o status em que já está é recusado');
 
-  /* As outras tres portas recusam data futura (abertura, troca, pagamento).
-     A mudanca de status nao valida: da para carimbar um reparo que ainda nao
-     aconteceu. Achado ao escrever esta suite, e NAO corrigido: recusar data
-     futura aqui mudaria uma validacao que alguem pode estar usando de
-     proposito, e isso e decisao de quem opera o balcao. */
+  /* 5.4e — mudar status é registrar um fato JÁ OCORRIDO. As outras três
+     portas (abertura, troca, pagamento) já recusavam data futura; esta
+     passou a recusar também. Agendar é outro conceito. */
   const futuro = await G.mudarStatusGarantia(db, id, { status: 'reparada', data: '2099-01-01' });
-  assert.equal(futuro.ok, true);
-  assert.equal(futuro.garantia.eventos.at(-1).data, '2099-01-01');
-  caracteriza('mudar status aceita data no FUTURO; as outras tres portas recusam', 'decisao pendente');
-  await G.mudarStatusGarantia(db, id, { status: 'em_reparo', data: '2026-09-02' });
+  assert.equal(futuro.ok, false);
+  assert.equal(futuro.statusHttp, 400);
+  assert.match(futuro.erro, /ainda não chegou/);
+  assert.equal((await G.lerGarantia(db, id)).status, 'em_reparo', 'a recusa mudou o status mesmo assim');
+  prova('5.4e: mudar status recusa data no FUTURO, como as outras três portas');
 
   const rep = await G.mudarStatusGarantia(db, id, { status: 'reparada', data: '2026-09-10' });
   assert.equal(rep.ok, true);
@@ -285,29 +284,36 @@ console.log('\n=== 2. estados: o que cada transição faz HOJE ===');
   assert.equal(dev.estoqueAlterado, false);
   prova('devolvida encerra o caso, sem gerar venda, estoque nem faturamento');
 
-  /* Defeito conhecido: não existe máquina de estados. Qualquer estado vai
-     para qualquer outro, e reabrir apaga a data de encerramento. A semântica
-     de `encerrada_em` depende da regra de estados, que ainda não foi
-     decidida — por isso 5.4b NÃO mexe nisto. */
+  /* 5.4e — A MATRIZ MÍNIMA: de estado ENCERRADO não se sai por mudança de
+     status. Antes `devolvida → em_reparo` era aceito e apagava a data da
+     entrega, fundindo dois atendimentos que aconteceram em momentos
+     diferentes. O caminho legítimo agora é outro, e a recusa o aponta. */
   const reabre = await G.mudarStatusGarantia(db, id, { status: 'em_reparo', data: '2026-09-06' });
-  assert.equal(reabre.ok, true, 'hoje reabrir um caso entregue é aceito');
-  assert.equal(reabre.garantia.encerradaEm, null, 'e a data da entrega é apagada');
-  caracteriza('caso entregue reabre, e o encerramento anterior some da coluna', 'BUG 2 / regra de estados');
+  assert.equal(reabre.ok, false);
+  assert.equal(reabre.statusHttp, 409);
+  assert.equal(reabre.encerradaEm, '2026-09-05');
+  assert.equal(reabre.caminho, 'POST /api/garantias/:id/reabrir');
+  prova('5.4e: caso encerrado não volta por mudança de status, e a recusa diz qual é o caminho');
 
-  /* O que JÁ é absoluto, decidido ou não: o histórico não perde o fato. */
-  const tipos = reabre.garantia.eventos.map((e) => e.tipo);
-  const encerramentos = reabre.garantia.eventos.filter((e) => e.statusNovo === 'devolvida');
-  assert.equal(encerramentos.length, 1, 'o encerramento sumiu também do histórico');
+  const aindaLa = await G.lerGarantia(db, id);
+  assert.equal(aindaLa.status, 'devolvida');
+  assert.equal(aindaLa.encerradaEm, '2026-09-05', 'a data da entrega foi apagada');
+  prova('e o encerramento continua onde estava — a recusa não mexeu em nada');
+
+  /* O que já era absoluto continua: o histórico guarda cada fato. */
+  const encerramentos = aindaLa.eventos.filter((e) => e.statusNovo === 'devolvida');
+  assert.equal(encerramentos.length, 1);
   assert.equal(encerramentos[0].data, '2026-09-05');
-  assert.deepEqual(tipos, ['aberta', 'status', 'status', 'status', 'devolvida', 'status']);
-  prova('mas a linha do tempo guarda o encerramento: a data está no evento, com a data certa');
+  assert.deepEqual(aindaLa.eventos.map((e) => e.tipo), ['aberta', 'status', 'devolvida']);
+  prova('a linha do tempo guarda o encerramento, com a data certa');
 
-  const conc = await G.mudarStatusGarantia(db, id, { status: 'concluida', data: '2026-09-07' });
-  assert.equal(conc.ok, true);
-  assert.equal(conc.garantia.encerradaEm, '2026-09-07');
+  /* E o outro trânsito absurdo: concluída virando cancelada meses depois,
+     reescrevendo o desfecho de um caso que já terminou. */
   const canc = await G.mudarStatusGarantia(db, id, { status: 'cancelada', data: '2026-09-08' });
-  assert.equal(canc.ok, true, 'hoje um caso concluído ainda pode virar cancelado');
-  caracteriza('concluída vira cancelada sem nenhuma trava', 'regra de estados');
+  assert.equal(canc.ok, false);
+  assert.equal(canc.statusHttp, 409);
+  assert.equal((await G.lerGarantia(db, id)).status, 'devolvida');
+  prova('5.4e: caso encerrado também não vira cancelado — o desfecho não se reescreve');
 }
 
 /* ═══════════════════════════════════ 3. troca: as recusas */
@@ -437,16 +443,35 @@ console.log('\n=== 5. diferença zero e diferença negativa ===');
   assert.equal(t.ok, true);
   assert.equal(t.diferenca, -20);
   assert.equal(t.diferencaStatus, 'pendente_regra');
-  assert.match(t.aviso, /ainda não é regra definida/);
-  prova('peça mais barata: o sistema registra, avisa e NÃO inventa crédito (§9)');
+  /* 5.4e — a REGRA fechou (12/09/2026): peça mais barata vira CRÉDITO DA
+     CLIENTE. Não se perde e não volta em dinheiro. O valor é dito em voz
+     alta, para nenhuma tela precisar deduzi-lo do sinal da diferença. */
+  assert.equal(t.creditoAoCliente, 20);
+  assert.match(t.aviso, /CRÉDITO da cliente/);
+  assert.match(t.aviso, /não se perde e não volta em dinheiro/);
+  prova('5.4e: a peça mais barata vira crédito de 20 para a cliente, dito explicitamente');
 
-  const v = raw.prepare('SELECT total, cobravel FROM vendas WHERE id = ?').get(t.vendaId);
+  const g = await G.lerGarantia(db, r.garantia.id);
+  assert.equal(g.troca.creditoAoCliente, 20);
+  assert.equal(g.troca.diferenca, -20);
+  prova('e a leitura da garantia devolve o mesmo crédito, sem recalcular sinal');
+
+  /* O que a regra fechada NÃO trouxe: o lugar onde o crédito mora. O sistema
+     não tem carteira, saldo de cliente nem conta a pagar. Nada é lançado, e
+     nada é simulado com desconto, pagamento negativo ou ajuste de estoque. */
+  const v = raw.prepare('SELECT total, cobravel, pago FROM vendas WHERE id = ?').get(t.vendaId);
   assert.equal(v.total, 0, 'a diferença negativa virou dinheiro em algum lugar');
   assert.equal(v.cobravel, 0);
+  const itens = raw.prepare('SELECT preco, desconto_valor FROM venda_itens WHERE venda_id = ?').all(t.vendaId);
+  assert.ok(itens.every((i) => Number(i.preco) >= 0), 'apareceu preço negativo simulando crédito');
+  const contas = await CR.contasAReceber(db, { status: 'aberta' });
+  assert.equal((contas.contas ?? []).some((c) => c.chave === `venda:${t.vendaId}`), false);
+  prova('mas nada é lançado: sem preço negativo, sem conta, sem ajuste — o crédito não foi simulado');
+
   const pg = await G.pagarDiferencaTroca(db, r.garantia.id, {});
   assert.equal(pg.ok, false);
-  assert.match(pg.erro, /crédito ou reembolso ainda não é regra definida/i);
-  prova('e ela não vira dívida, nem crédito, nem conta a receber');
+  assert.match(pg.erro, /crédito DA CLIENTE/i);
+  prova('e ninguém cobra dela um valor que é dela');
 
   assert.equal(razaoFecha(raw), 0);
 }
@@ -983,6 +1008,200 @@ console.log('\n=== 14. a compra que veio da planilha ===');
   assert.equal(razaoFecha(raw), 0);
 }
 
+/* ═══════════════════════════════════ 15. o novo atendimento (5.4e) */
+console.log('\n=== 15. novo atendimento da mesma peça: 7 dias úteis + etiqueta ===');
+{
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'a pedra soltou', dataEntrada: '2026-09-01' });
+  const id = a.garantia.id;
+
+  const cedo = await G.reabrirGarantia(db, id, { motivo: 'soltou de novo', etiquetaPreservada: true });
+  assert.equal(cedo.ok, false);
+  assert.equal(cedo.statusHttp, 409);
+  assert.match(cedo.erro, /não terminou/);
+  prova('não se reabre um caso que ainda está aberto — não há o que reabrir');
+
+  await G.mudarStatusGarantia(db, id, { status: 'devolvida', data: '2026-09-07' });
+
+  /* A etiqueta é o único dado que o sistema não tem como saber sozinho. Ele
+     não assume: exige a confirmação, e distingue "ninguém perguntou" de
+     "perguntaram e a etiqueta não estava". */
+  const semConfirmar = await G.reabrirGarantia(db, id, { motivo: 'soltou de novo' });
+  assert.equal(semConfirmar.ok, false);
+  assert.equal(semConfirmar.statusHttp, 400);
+  assert.equal(semConfirmar.precisaConfirmar, 'etiquetaPreservada');
+  prova('sem confirmar a etiqueta o backend PARA — ele não tem como saber, e não assume');
+
+  const semEtiqueta = await G.reabrirGarantia(db, id, { motivo: 'soltou', etiquetaPreservada: false });
+  assert.equal(semEtiqueta.ok, false);
+  assert.equal(semEtiqueta.statusHttp, 409);
+  assert.match(semEtiqueta.erro, /etiqueta foi removida/);
+  prova('etiqueta removida: a troca não é autorizada, e o motivo é dito');
+
+  assert.equal(raw.prepare('SELECT COUNT(*) c FROM garantias').get().c, 1);
+  prova('e nenhuma das recusas criou caso nenhum');
+
+  const r = await G.reabrirGarantia(db, id, {
+    motivo: 'a pedra soltou de novo', etiquetaPreservada: true, dataEntrada: '2026-09-10',
+  });
+  assert.equal(r.ok, true, `reabertura falhou: ${r.erro ?? ''}`);
+  assert.notEqual(r.garantia.id, id);
+  prova('dentro do prazo e com a etiqueta: nasce um caso NOVO, não uma edição do antigo');
+
+  /* O caso anterior permanece encerrado, inteiro. É o ponto da decisão. */
+  const antigo = await G.lerGarantia(db, id);
+  assert.equal(antigo.status, 'devolvida');
+  assert.equal(antigo.encerradaEm, '2026-09-07');
+  assert.equal(antigo.pendente, false);
+  assert.equal(antigo.relogioParado, true);
+  prova('o atendimento anterior continua encerrado, com a data da entrega intacta');
+
+  /* E os dois ciclos ficam ligados, legíveis dos dois lados. */
+  assert.equal(r.garantia.garantiaAnteriorId, id);
+  assert.equal(r.garantia.reabertura.deGarantiaId, id);
+  assert.equal(r.garantia.reabertura.etiquetaPreservada, true);
+  assert.equal(r.garantia.reabertura.diasUteisDesdeAEntrega, 3);
+  assert.ok(antigo.eventos.some((e) => e.tipo === 'reaberta_em_novo_caso'
+    && e.dados.novaGarantiaId === r.garantia.id));
+  prova('os dois ciclos ficam ligados: o novo diz de quem veio, o antigo diz para onde foi');
+
+  /* Cada ciclo tem o próprio prazo e os próprios eventos. */
+  assert.equal(r.garantia.status, 'em_reparo');
+  assert.equal(r.garantia.dataEntrada, '2026-09-10');
+  assert.equal(r.garantia.encerradaEm, null);
+  assert.deepEqual(r.garantia.eventos.map((e) => e.tipo), ['aberta']);
+  assert.equal(r.garantia.valorPagoOriginal, 100.0, 'o valor pago na compra se perdeu no caso novo');
+  assert.equal(r.garantia.vendaItemId, ITEM_A, 'o caso novo aponta para outra unidade');
+  prova('e o caso novo começa do zero: prazo próprio, eventos próprios, mesma peça e mesmo valor pago');
+
+  /* §31 vale para o caso novo tanto quanto para o primeiro. */
+  assert.equal(r.faturamento, 0);
+  assert.equal(r.estoqueAlterado, false);
+  assert.equal(r.vendaOriginalAlterada, false);
+  assert.equal(qtd(raw, '100001'), 48);
+  assert.equal(razaoFecha(raw), 0);
+  prova('reabrir não toca venda, estoque nem faturamento');
+
+  /* A unidade não tem dois casos abertos ao mesmo tempo. */
+  const outra = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'terceira vez', dataEntrada: '2026-09-11' });
+  assert.equal(outra.ok, false);
+  assert.equal(outra.statusHttp, 409);
+  prova('e a unidade continua com um caso aberto de cada vez');
+}
+{
+  /* O PRAZO. 7 dias ÚTEIS, não corridos, contados do dia da entrega. */
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-08-01' });
+  await G.mudarStatusGarantia(db, a.garantia.id, { status: 'devolvida', data: '2026-08-03' });
+
+  /* 03/08/2026 é uma segunda. 7 dias úteis depois é 12/08 (quarta): o fim de
+     semana de 08 e 09 não conta. Em dias CORRIDOS 12/08 seriam 9 dias, e é
+     essa a diferença que a regra exige. */
+  const noLimite = await G.reabrirGarantia(db, a.garantia.id, {
+    motivo: 'voltou', etiquetaPreservada: true, dataEntrada: '2026-08-12',
+  });
+  assert.equal(noLimite.ok, true, `no limite deveria passar: ${noLimite.erro ?? ''}`);
+  assert.equal(noLimite.diasUteisDesdeAEntrega, 7);
+  prova('7 dias úteis é o limite, e o fim de semana no meio não consome prazo');
+}
+{
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-08-01' });
+  await G.mudarStatusGarantia(db, a.garantia.id, { status: 'devolvida', data: '2026-08-03' });
+
+  const tarde = await G.reabrirGarantia(db, a.garantia.id, {
+    motivo: 'voltou', etiquetaPreservada: true, dataEntrada: '2026-08-13',
+  });
+  assert.equal(tarde.ok, false);
+  assert.equal(tarde.statusHttp, 409);
+  assert.equal(tarde.diasUteisDecorridos, 8);
+  assert.equal(tarde.prazoDiasUteis, 7);
+  assert.match(tarde.erro, /prazo para um novo atendimento/);
+  assert.equal(raw.prepare('SELECT COUNT(*) c FROM garantias').get().c, 1);
+  prova('um dia útil depois do limite já é recusado, e nenhum caso nasce');
+}
+{
+  /* Feriado cadastrado também não conta — a mesma régua do prazo de reparo,
+     e a prova de que a infraestrutura de dias úteis está sendo usada. */
+  const raw = banco(); const db = adaptador(raw);
+  raw.exec(`INSERT INTO feriados (data, nome) VALUES ('2026-08-12', 'Feriado de teste')`);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-08-01' });
+  await G.mudarStatusGarantia(db, a.garantia.id, { status: 'devolvida', data: '2026-08-03' });
+
+  const r = await G.reabrirGarantia(db, a.garantia.id, {
+    motivo: 'voltou', etiquetaPreservada: true, dataEntrada: '2026-08-13',
+  });
+  assert.equal(r.ok, true, `o feriado deveria ter devolvido um dia: ${r.erro ?? ''}`);
+  assert.equal(r.diasUteisDecorridos ?? r.diasUteisDesdeAEntrega, 7);
+  assert.equal(r.consideraFeriados, true);
+  prova('feriado cadastrado devolve um dia de prazo: dias úteis de verdade, não corridos');
+}
+{
+  /* Casos que não têm de onde contar. */
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'engano', dataEntrada: '2026-09-01' });
+  await G.mudarStatusGarantia(db, a.garantia.id, { status: 'cancelada', data: '2026-09-02' });
+  const r = await G.reabrirGarantia(db, a.garantia.id, { motivo: 'x', etiquetaPreservada: true });
+  assert.equal(r.ok, false);
+  assert.match(r.erro, /nunca foi um atendimento/);
+  prova('caso CANCELADO não reabre: ele nunca foi atendimento, e a peça abre garantia normal');
+
+  const nova = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'agora sim', dataEntrada: '2026-09-03' });
+  assert.equal(nova.ok, true, `nao abriu: ${nova.erro ?? ''}`);
+  prova('e a garantia normal daquela peça abre sem problema');
+}
+{
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-09-01' });
+  await G.mudarStatusGarantia(db, a.garantia.id, { status: 'devolvida', data: '2026-09-07' });
+  const antes = await G.reabrirGarantia(db, a.garantia.id, {
+    motivo: 'x', etiquetaPreservada: true, dataEntrada: '2026-09-05',
+  });
+  assert.equal(antes.ok, false);
+  assert.equal(antes.statusHttp, 400);
+  assert.match(antes.erro, /antes de ter sido entregue/);
+  prova('a peça não pode ter voltado antes de ter sido entregue');
+
+  const futuro = await G.reabrirGarantia(db, a.garantia.id, {
+    motivo: 'x', etiquetaPreservada: true, dataEntrada: '2099-01-01',
+  });
+  assert.equal(futuro.ok, false);
+  prova('nem numa data que ainda não chegou');
+}
+{
+  /* O ciclo completo: primeiro atendimento devolve a peça, o segundo troca.
+     Os dois existem, cada um com a própria história. */
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'pedra solta', dataEntrada: '2026-09-01' });
+  await G.mudarStatusGarantia(db, a.garantia.id, { status: 'reparada', data: '2026-09-04' });
+  await G.mudarStatusGarantia(db, a.garantia.id, { status: 'devolvida', data: '2026-09-07' });
+
+  const r = await G.reabrirGarantia(db, a.garantia.id, {
+    motivo: 'soltou de novo', etiquetaPreservada: true, dataEntrada: '2026-09-09',
+  });
+  const antesQtd = qtd(raw, '100002');
+  const t = await G.registrarTroca(db, r.garantia.id, { skuNovo: '100002', data: '2026-09-10' });
+  assert.equal(t.ok, true, `troca falhou: ${t.erro ?? ''}`);
+  assert.equal(qtd(raw, '100002'), antesQtd - 1);
+  assert.equal(t.diferenca, 100.0);
+  prova('o segundo atendimento troca normalmente, com o valor pago na compra original');
+
+  const antigo = await G.lerGarantia(db, a.garantia.id);
+  assert.equal(antigo.status, 'devolvida');
+  assert.equal(antigo.troca, null, 'a troca do caso novo vazou para o antigo');
+  assert.equal((await G.lerGarantia(db, r.garantia.id)).status, 'sem_conserto');
+  prova('e a troca fica no ciclo em que aconteceu — o anterior segue como terminou');
+
+  /* A cadeia inteira aparece na ficha da cliente. */
+  const daCliente = await G.garantiasDaCliente(db, { clienteId: 1, norm: 'vitoria' });
+  assert.equal(daCliente.length, 2);
+  assert.equal(daCliente.filter((g) => g.garantiaAnteriorId != null).length, 1);
+  prova('a ficha da cliente mostra os dois atendimentos, e qual deles veio do outro');
+
+  assert.equal(razaoFecha(raw), 0);
+  prova('a razão fecha depois do ciclo inteiro');
+}
+
 console.log(`\n✓ ${provas} provas — ciclo completo de Garantias (5.4a)`);
-console.log('     ~~ marcam comportamento ATUAL com defeito conhecido.');
-console.log('        Quando 5.4b–5.4d corrigirem, estas linhas quebram — de propósito.\n');
+console.log('     ~~ marcaria comportamento ATUAL com defeito conhecido.');
+console.log('        Nenhuma sobrou: 5.4b–5.4e fecharam as sete.\n');

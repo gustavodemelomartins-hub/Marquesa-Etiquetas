@@ -1367,6 +1367,76 @@ R$ 89 por um de R$ 99:
 - quando paga, entram **R$ 10** — pela data do pagamento (§30), nunca os
   R$ 99, e sem contar como uma segunda compra da cliente.
 
+### A peça nova mais barata vira CRÉDITO da cliente
+
+Decisão da Sthefany, **12/09/2026**. Trocar uma peça de R$ 100 por uma de
+R$ 80 deixa **R$ 20 de crédito para a cliente**. Esse valor:
+
+- **não se perde**;
+- **não volta em dinheiro**.
+
+A regra está fechada. O **mecanismo não existe**: o sistema não tem carteira,
+saldo de cliente nem qualquer lugar onde um crédito possa viver e ser
+consumido numa compra seguinte. `clientes` não tem coluna de saldo, e A
+Receber é de mão única — representa o que a cliente deve, nunca o contrário.
+
+Até a arquitetura financeira existir, a troca guarda o valor
+(`garantia_trocas.diferenca`, negativa) e a leitura o diz em voz alta em
+`creditoAoCliente`. `diferenca_status` continua `pendente_regra`, mas o que
+está pendente mudou de natureza: **era a regra, agora é a arquitetura**.
+
+**Nada é simulado.** Crédito não vira desconto, pagamento negativo, preço
+negativo nem ajuste de estoque. Inventar um lugar errado para o dinheiro é
+pior do que ainda não ter o lugar certo.
+
+### O novo atendimento: 7 dias úteis e a etiqueta
+
+Decisão da Sthefany, **12/09/2026**. Uma nova troca da mesma peça só acontece:
+
+- dentro de **7 DIAS ÚTEIS** contados da entrega da peça (o `encerrada_em` do
+  atendimento anterior) — sábado, domingo e feriado cadastrado não contam,
+  pela mesma régua do prazo de reparo. **Não são dias corridos**;
+- com a **ETIQUETA ainda na peça**.
+
+O atendimento anterior **permanece encerrado**. Reabrir não é mexer no caso
+antigo: é abrir um caso NOVO, apontando para a mesma unidade física e ligado
+ao anterior por `garantias.garantia_anterior_id`. Cada ciclo guarda o próprio
+prazo, os próprios eventos e a própria troca. O caso antigo ganha o evento
+`reaberta_em_novo_caso`, de modo que a ligação é legível dos dois lados.
+
+O sistema **não tem como saber** se a etiqueta está na peça — isso é alguém
+olhando a peça no balcão. `etiqueta_preservada` não inventa o dado: ela guarda
+a **confirmação** de quem olhou. Sem confirmação explícita a reabertura é
+recusada, e "ninguém perguntou" tem resposta diferente de "perguntaram e a
+etiqueta não estava".
+
+### Estados: o mínimo que já é seguro afirmar
+
+Seis estados. Três são **terminais**: `devolvida`, `concluida`, `cancelada`.
+
+| de \ para | em_reparo | reparada | sem_conserto | devolvida | concluida | cancelada |
+|---|:--:|:--:|:--:|:--:|:--:|:--:|
+| **em_reparo** | — | sim | sim | sim | sim | sim |
+| **reparada** | sim | — | sim | sim | sim | sim |
+| **sem_conserto** | sim¹ | sim | — | sim | sim | sim¹ |
+| **devolvida** | não | não | não | — | não | não |
+| **concluida** | não | não | não | não | — | não |
+| **cancelada** | não | não | não | não | não | — |
+
+¹ bloqueado enquanto houver troca viva registrada: a peça nova já saiu do
+estoque, e reabrir deixaria a troca órfã. Estorne a troca antes.
+
+**De estado terminal não se sai por mudança de status.** Se a peça voltou, o
+caminho é o novo atendimento acima. Isto é deliberadamente o mínimo: as
+transições entre os estados PENDENTES seguem livres, porque ninguém demonstrou
+ainda que alguma delas seja errada no balcão.
+
+### Mudar status registra um fato JÁ OCORRIDO
+
+Nada de data futura, pela mesma razão que a abertura, a troca e o pagamento
+já a recusavam. Agendamento é outro conceito e, se um dia for preciso, terá
+campo e fluxo próprios.
+
 A origem do dinheiro é declarada em
 `composicao.faturamentoDeDiferencaTroca`, separada do faturamento de vendas.
 

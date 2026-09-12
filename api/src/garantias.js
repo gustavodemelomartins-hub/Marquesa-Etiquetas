@@ -51,7 +51,7 @@
  *  só as trocas SEM `venda_id` — as antigas, de antes desta regra.
  */
 import { movimentar, saldosDoSku, componentesDoKit, semSaldoProprio } from './estoque.js';
-import { carregarFeriados, prazoDaGarantia, somarDiasUteis } from './dias-uteis.js';
+import { carregarFeriados, prazoDaGarantia, somarDiasUteis, diasUteisEntre } from './dias-uteis.js';
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import { parametros } from './plataforma/d1.js';
 import { normSku } from './sku.js';
@@ -61,6 +61,14 @@ const STATUS = new Set(['em_reparo', 'reparada', 'devolvida', 'sem_conserto', 'c
 /** Os que ainda pedem alguma coisa de alguém. São estes que o Painel mostra;
  *  os outros saem da tela e continuam inteiros no histórico da cliente. */
 const PENDENTES = ['em_reparo', 'reparada', 'sem_conserto'];
+/** Os estados TERMINAIS: o caso acabou. 5.4e — deles não se sai por mudança
+ *  de status; se a peça voltou, o caminho é um atendimento novo, ligado. */
+const ENCERRADOS = ['devolvida', 'concluida', 'cancelada'];
+/** A janela do novo atendimento, em DIAS ÚTEIS, contada do encerramento
+ *  anterior — é quando a peça voltou para a dona. Sábado e domingo não
+ *  contam, e feriado cadastrado também não: a mesma régua do prazo de
+ *  reparo, e não dias corridos. */
+const PRAZO_REABERTURA_DIAS_UTEIS = 7;
 const ROTULO_STATUS = {
   em_reparo: 'Em reparo',
   reparada: 'Reparada · aguardando entrega',
@@ -330,6 +338,183 @@ export async function abrirGarantia(db, corpo = {}) {
   };
 }
 
+/* ═══════════════════════════════════ 5.4e — o novo atendimento da mesma peça
+ *
+ *  REGRA (Sthefany, 12/09/2026): uma nova troca da mesma peça só acontece
+ *  dentro de 7 DIAS ÚTEIS e com a ETIQUETA ainda na peça.
+ *
+ *  E o atendimento anterior tem de continuar visível: ele existiu, terminou,
+ *  e isso não se apaga. Por isso reabrir NÃO é mexer no caso antigo — é
+ *  abrir um caso NOVO, apontando para a mesma unidade física e ligado ao
+ *  anterior por `garantia_anterior_id`. Cada ciclo guarda o próprio prazo,
+ *  os próprios eventos e a própria troca; a pergunta "quantas vezes esta
+ *  peça voltou?" passa a ter resposta.
+ *
+ *  A ETIQUETA é o único dado que o sistema não tem como saber sozinho —
+ *  alguém precisa olhar a peça. Ele não é inventado nem assumido: quem
+ *  chama TEM de confirmar, e a confirmação fica gravada para auditoria.
+ *  Sem ela a reabertura é recusada. */
+export async function reabrirGarantia(db, id, corpo = {}) {
+  const anterior = await db.prepare('SELECT * FROM garantias WHERE id = ?').bind(id).first();
+  if (!anterior) return { ok: false, statusHttp: 404, erro: 'Garantia não encontrada.' };
+
+  if (!ENCERRADOS.includes(anterior.status)) {
+    return {
+      ok: false, statusHttp: 409,
+      erro: `A garantia ${id} ainda está em "${ROTULO_STATUS[anterior.status]}" — o atendimento não terminou. `
+          + 'Não há o que reabrir.',
+    };
+  }
+  if (anterior.status === 'cancelada') {
+    /* Cancelada é "abriu por engano": não houve atendimento, e não existe
+       encerramento de onde contar os 7 dias. A peça pode abrir uma garantia
+       normal, pelo caminho normal. */
+    return {
+      ok: false, statusHttp: 409,
+      erro: `A garantia ${id} foi cancelada — ela nunca foi um atendimento. `
+          + 'Abra uma garantia nova para esta peça.',
+    };
+  }
+  if (!anterior.encerrada_em) {
+    return {
+      ok: false, statusHttp: 409,
+      erro: `A garantia ${id} está encerrada mas não tem data de encerramento gravada. `
+          + 'Sem ela não dá para contar os 7 dias úteis — corrija o caso antes.',
+    };
+  }
+
+  const motivo = String(corpo.motivo ?? '').trim();
+  if (!motivo) return { ok: false, statusHttp: 400, erro: 'Diga qual é o problema da peça desta vez.' };
+
+  /* A confirmação da etiqueta é EXPLÍCITA e booleana. `undefined` não é
+     "não", é "ninguém perguntou" — e as duas coisas precisam de respostas
+     diferentes (§9). */
+  if (corpo.etiquetaPreservada === undefined || corpo.etiquetaPreservada === null) {
+    return {
+      ok: false, statusHttp: 400,
+      erro: 'Confirme se a etiqueta ainda está na peça. O sistema não tem como saber isso sozinho.',
+      precisaConfirmar: 'etiquetaPreservada',
+    };
+  }
+  if (corpo.etiquetaPreservada !== true) {
+    return {
+      ok: false, statusHttp: 409,
+      erro: 'A etiqueta foi removida da peça. Sem ela a troca não é autorizada.',
+      etiquetaPreservada: false,
+    };
+  }
+
+  const dataEntrada = corpo.dataEntrada ? String(corpo.dataEntrada).trim() : hojeISO();
+  if (!dataValida(dataEntrada)) return { ok: false, statusHttp: 400, erro: 'Data de entrada inválida. Use AAAA-MM-DD.' };
+  if (dataEntrada > hojeISO()) return { ok: false, statusHttp: 400, erro: `${dataEntrada} ainda não chegou.` };
+  if (dataEntrada < anterior.encerrada_em) {
+    return {
+      ok: false, statusHttp: 400,
+      erro: `A peça teria voltado em ${dataEntrada}, antes de ter sido entregue (${anterior.encerrada_em}).`,
+    };
+  }
+
+  const feriados = await carregarFeriados(db);
+  /* Dias ÚTEIS, com a mesma régua do prazo de reparo — sábado, domingo e
+     feriado cadastrado não contam. Contados do dia em que a peça voltou
+     para a dona, que é quando o relógio dela começa. */
+  const decorridos = diasUteisEntre(anterior.encerrada_em, dataEntrada, feriados);
+  if (decorridos > PRAZO_REABERTURA_DIAS_UTEIS) {
+    return {
+      ok: false, statusHttp: 409,
+      erro: `Passaram-se ${decorridos} dias úteis desde a entrega (${anterior.encerrada_em}), `
+          + `e o prazo para um novo atendimento é de ${PRAZO_REABERTURA_DIAS_UTEIS}.`,
+      diasUteisDecorridos: decorridos,
+      prazoDiasUteis: PRAZO_REABERTURA_DIAS_UTEIS,
+      consideraFeriados: feriados.size > 0,
+    };
+  }
+
+  const prazo = Number(corpo.prazoDiasUteis ?? anterior.prazo_dias_uteis ?? 45);
+  if (!Number.isInteger(prazo) || prazo <= 0) {
+    return { ok: false, statusHttp: 400, erro: 'Prazo tem que ser um número inteiro de dias úteis.' };
+  }
+
+  /* A mesma trava de sempre: a unidade não tem dois casos abertos ao mesmo
+     tempo. Aqui ela alcança um caso que tenha sido aberto por outro caminho
+     enquanto este estava encerrado. */
+  const jaAberta = await db.prepare(
+    `SELECT id FROM garantias
+      WHERE status IN ('em_reparo', 'reparada', 'sem_conserto')
+        AND ((? IS NOT NULL AND historico_item_id = ?)
+          OR (? IS NOT NULL AND venda_item_id = ?)
+          OR (? IS NULL AND ? IS NOT NULL AND venda_id = ? AND sku = ?))
+      LIMIT 1`,
+  ).bind(
+    anterior.historico_item_id, anterior.historico_item_id,
+    anterior.venda_item_id, anterior.venda_item_id,
+    anterior.venda_item_id, anterior.venda_id, anterior.venda_id, anterior.sku,
+  ).first();
+  if (jaAberta) {
+    return {
+      ok: false, statusHttp: 409,
+      erro: `Esta peça já tem a garantia ${jaAberta.id} em aberto.`,
+      garantiaId: jaAberta.id,
+    };
+  }
+
+  const previsao = somarDiasUteis(dataEntrada, prazo, feriados);
+
+  /* O caso NOVO copia a origem do anterior — mesma peça, mesma compra, mesmo
+     valor pago. O que não se copia é o desfecho: ele começa do zero. */
+  const nova = await db.prepare(
+    `INSERT INTO garantias
+       (origem_fonte, venda_id, historico_item_id, venda_historica_id,
+        cliente_id, cliente_nome_norm, cliente_nome,
+        sku, variacao, variante_id, produto_nome, data_venda, valor_pago_original,
+        data_entrada, prazo_dias_uteis, previsao_retorno, motivo, observacao, status,
+        venda_item_id, venda_item_vinculo,
+        garantia_anterior_id, etiqueta_preservada, reabertura_dias_uteis)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'em_reparo', ?, ?, ?, 1, ?)
+     RETURNING *`,
+  ).bind(
+    anterior.origem_fonte, anterior.venda_id, anterior.historico_item_id, anterior.venda_historica_id,
+    anterior.cliente_id, anterior.cliente_nome_norm, anterior.cliente_nome,
+    anterior.sku, anterior.variacao, anterior.variante_id, anterior.produto_nome,
+    anterior.data_venda, anterior.valor_pago_original,
+    dataEntrada, prazo, previsao, motivo,
+    String(corpo.observacao ?? '').trim() || null,
+    anterior.venda_item_id, anterior.venda_item_vinculo,
+    anterior.id, decorridos,
+  ).first();
+
+  await evento(db, nova.id, {
+    tipo: 'aberta', data: dataEntrada, statusNovo: 'em_reparo', observacao: motivo,
+    dados: {
+      previsaoRetorno: previsao, prazoDiasUteis: prazo,
+      valorPagoOriginal: anterior.valor_pago_original,
+      reaberturaDe: anterior.id,
+      diasUteisDesdeAEntrega: decorridos,
+      etiquetaPreservada: true,
+    },
+  });
+
+  /* E o caso ANTIGO também registra que a peça voltou — sem mudar de estado.
+     Quem abrir a garantia encerrada vê para onde a história continuou. */
+  await evento(db, anterior.id, {
+    tipo: 'reaberta_em_novo_caso', data: dataEntrada, observacao: motivo,
+    dados: { novaGarantiaId: nova.id, diasUteisDesdeAEntrega: decorridos },
+  });
+
+  return {
+    ok: true,
+    garantia: await lerGarantia(db, nova.id),
+    garantiaAnterior: await lerGarantia(db, anterior.id),
+    diasUteisDesdeAEntrega: decorridos,
+    prazoDiasUteis: PRAZO_REABERTURA_DIAS_UTEIS,
+    consideraFeriados: feriados.size > 0,
+    /* §31 continua valendo para o caso novo tanto quanto para o primeiro. */
+    faturamento: 0,
+    estoqueAlterado: false,
+    vendaOriginalAlterada: false,
+  };
+}
+
 async function evento(db, garantiaId, { tipo, data, statusNovo = null, observacao = null, dados = {} }) {
   await db.prepare(
     `INSERT INTO garantia_eventos (garantia_id, tipo, data, status_novo, observacao, dados_json)
@@ -393,11 +578,42 @@ export async function mudarStatusGarantia(db, id, corpo = {}) {
 
   const data = corpo.data ? String(corpo.data).trim() : hojeISO();
   if (!dataValida(data)) return { ok: false, statusHttp: 400, erro: 'Data inválida. Use AAAA-MM-DD.' };
+  /* 5.4e — mudar status é registrar um fato JÁ OCORRIDO. A abertura, a troca
+     e o pagamento já recusavam data futura; esta porta não recusava, e dava
+     para carimbar um reparo que ainda não aconteceu. Agendar é outro
+     conceito, e quando existir terá campo próprio. */
+  if (data > hojeISO()) {
+    return {
+      ok: false, statusHttp: 400,
+      erro: `${data} ainda não chegou. O status registra o que já aconteceu.`,
+    };
+  }
+
+  /* 5.4e — CASO ENCERRADO NÃO VOLTA POR AQUI.
+   *
+   *  Antes qualquer estado ia para qualquer outro: uma garantia devolvida
+   *  voltava para "em reparo" apagando a data da entrega, e uma concluída
+   *  virava cancelada meses depois. Os dois fundem ciclos que aconteceram em
+   *  momentos diferentes, e o segundo reescreve o desfecho de um caso que já
+   *  terminou.
+   *
+   *  O caminho legítimo agora existe e é outro: `reabrirGarantia` cria um
+   *  atendimento NOVO ligado a este, dentro das 7 dias úteis e com a
+   *  etiqueta confirmada. O caso antigo permanece encerrado, inteiro. */
+  if (ENCERRADOS.includes(g.status)) {
+    return {
+      ok: false, statusHttp: 409,
+      erro: `Esta garantia está em "${ROTULO_STATUS[g.status]}" e o caso terminou. `
+          + 'Se a peça voltou, abra um novo atendimento ligado a este.',
+      encerradaEm: g.encerrada_em ?? null,
+      caminho: 'POST /api/garantias/:id/reabrir',
+    };
+  }
 
   /* "Peça devolvida" é o fim natural do reparo: registra a entrega e o caso
      sai do Painel. NÃO gera venda, NÃO gera faturamento e NÃO cria estoque
      — a peça consertada volta para a dona, não para a prateleira. */
-  const encerra = ['devolvida', 'concluida', 'cancelada'].includes(novo);
+  const encerra = ENCERRADOS.includes(novo);
 
   const atualizada = await db.prepare(
     `UPDATE garantias
@@ -510,10 +726,18 @@ export async function registrarTroca(db, id, corpo = {}) {
 
   const diferenca = dinheiro(valorNovo - valorOriginal);
 
-  /* A regra da diferença NEGATIVA não existe: ninguém definiu se vira
-     crédito, reembolso ou nada. O fluxo fica pronto e a linha é gravada,
-     mas com status próprio — o sistema anuncia o que decidiu não fazer (§9)
-     em vez de inventar um crédito. */
+  /* A DIFERENÇA NEGATIVA agora TEM regra (Sthefany, 12/09/2026): a peça mais
+     barata vira CRÉDITO DA CLIENTE. Não se perde e não volta em dinheiro.
+   *
+   *  O que ainda não existe é o MECANISMO: o sistema não tem carteira, saldo
+   *  de cliente nem qualquer lugar onde um crédito possa viver e ser
+   *  consumido depois. Inventar um agora — com desconto, pagamento negativo
+   *  ou ajuste — seria criar dinheiro fora do lugar.
+   *
+   *  Então o status continua `pendente_regra`, mas o que está pendente mudou
+   *  de natureza: era a REGRA, e agora é a ARQUITETURA FINANCEIRA. A linha
+   *  guarda o valor (a diferença negativa é o crédito), e a resposta o diz em
+   *  voz alta em `creditoAoCliente`, para nenhuma tela precisar deduzi-lo. */
   let diferencaStatus;
   if (diferenca > 0) diferencaStatus = 'a_receber';
   else if (diferenca === 0) diferencaStatus = 'nenhuma';
@@ -587,8 +811,14 @@ export async function registrarTroca(db, id, corpo = {}) {
     vendaId: venda ? venda.id : null,
     diferenca,
     diferencaStatus,
+    /* O crédito é o valor absoluto da diferença negativa. Positivo aqui
+       porque é o que a cliente TEM a receber em peça, não o que ela deve. */
+    creditoAoCliente: diferenca < 0 ? dinheiro(-diferenca) : 0,
     aviso: diferencaStatus === 'pendente_regra'
-      ? 'A peça nova custa menos que a original. Crédito ou reembolso ainda não é regra definida — a diferença ficou registrada e nada foi lançado.'
+      ? `A peça nova custa ${dinheiro(-diferenca).toFixed(2)} a menos. `
+        + 'Esse valor é CRÉDITO da cliente — não se perde e não volta em dinheiro. '
+        + 'O sistema ainda não tem onde guardar crédito de cliente, então o valor '
+        + 'ficou registrado na troca e nada foi lançado no financeiro.'
       : null,
   };
 }
@@ -608,8 +838,9 @@ export async function registrarTroca(db, id, corpo = {}) {
  *
  *  Diferença positiva nasce NÃO PAGA — é a conta a receber que o pacote
  *  pede. Diferença zero ou negativa nasce paga com total zero: não há o que
- *  cobrar, e o crédito de uma peça mais barata continua sendo regra que
- *  ninguém definiu (`pendente_regra`), anunciada em vez de inventada.
+ *  cobrar DELA. O crédito da peça mais barata é regra fechada desde
+ *  12/09/2026, mas não cabe aqui: uma venda de total zero não é lugar para
+ *  guardar saldo de cliente, e o sistema ainda não tem esse lugar.
  *
  *  Falhar aqui NÃO derruba a troca: a peça física já mudou de mãos, e o
  *  registro comercial é a parte que pode ser refeita. A troca fica gravada
@@ -623,7 +854,8 @@ async function registrarVendaDaTroca(db, {
     const nome = String(garantia.cliente_nome ?? '').trim();
     const norm = garantia.cliente_nome_norm ?? (nome ? normalizarNomeCliente(nome) : null);
     /* A diferença é o que ela ainda deve. Negativa não vira dívida nem
-       crédito: vira zero cobrado, e o caso fica marcado `pendente_regra`. */
+       crédito aqui: vira zero cobrado, e o crédito fica registrado na troca,
+       esperando a arquitetura financeira que saiba guardá-lo. */
     const aCobrar = diferenca > 0 ? dinheiro(diferenca) : 0;
     const pago = aCobrar > 0 ? 0 : 1;
 
@@ -690,7 +922,8 @@ export async function pagarDiferencaTroca(db, id, corpo = {}) {
       ok: false, statusHttp: 409,
       erro: troca.diferenca_status === 'nenhuma'
         ? 'Não há diferença a receber nesta troca.'
-        : 'A peça nova custa menos que a original: crédito ou reembolso ainda não é regra definida.',
+        : 'A peça nova custa menos que a original: o valor é crédito DA CLIENTE, '
+          + 'não algo a receber dela.',
     };
   }
 
@@ -851,6 +1084,15 @@ function publica(g, troca, eventos, prazo) {
        backfill se recusou a adivinhar, e a tela precisa poder dizer isso. */
     vendaItemId: g.venda_item_id ?? null,
     vendaItemVinculo: g.venda_item_vinculo ?? null,
+    /* 5.4e — os dois ciclos ficam ligados, e a ligação é legível dos dois
+       lados: o caso novo diz de quem veio, e o antigo guarda o evento
+       `reaberta_em_novo_caso` dizendo para onde a história continuou. */
+    garantiaAnteriorId: g.garantia_anterior_id ?? null,
+    reabertura: g.garantia_anterior_id == null ? null : {
+      deGarantiaId: g.garantia_anterior_id,
+      diasUteisDesdeAEntrega: g.reabertura_dias_uteis ?? null,
+      etiquetaPreservada: g.etiqueta_preservada === 1,
+    },
     vendaId: g.venda_id ?? null,
     historicoItemId: g.historico_item_id ?? null,
     vendaHistoricaId: g.venda_historica_id ?? null,
@@ -879,6 +1121,11 @@ function publica(g, troca, eventos, prazo) {
       diferenca: Number(troca.diferenca),
       diferencaStatus: troca.diferenca_status,
       diferencaPagaEm: troca.diferenca_paga_em ?? null,
+      /* Regra fechada em 12/09/2026: a peça mais barata vira crédito da
+         cliente. O valor fica dito aqui; onde ele vai morar depende da
+         arquitetura financeira, que ainda não existe. */
+      creditoAoCliente: Number(troca.diferenca) < 0
+        ? Math.round(-Number(troca.diferenca) * 100) / 100 : 0,
       diferencaValorPago: troca.diferenca_valor_pago == null ? null : Number(troca.diferenca_valor_pago),
       /* §36 — o registro comercial da peça nova. `null` nas trocas
          anteriores à regra, e é assim que toda soma distingue as duas

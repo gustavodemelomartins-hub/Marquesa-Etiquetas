@@ -918,3 +918,143 @@ ambíguo; qualquer redesenho da tela de Garantias.
    larga.
 
 Nenhum dos dois é conhecível sem dado real. PROD não foi consultado.
+
+---
+
+## 22. Fase 5.4e — as respostas da Sthefany, e o que coube implementar
+
+Rodada de 12/09/2026. Três decisões humanas chegaram fechadas; uma delas
+esbarra em infraestrutura que não existe, e isso está dito aqui em vez de
+contornado.
+
+### 22.1 Diferença negativa — a regra fechou, o mecanismo não existe
+
+**Regra (Sthefany):** trocar uma peça de R$ 100 por uma de R$ 80 deixa
+**R$ 20 de crédito para a cliente**. Não se perde, não volta em dinheiro.
+
+**Auditoria do mecanismo — o sistema não tem nenhum.**
+
+| Onde procurei | O que achei |
+|---|---|
+| tabela de crédito, carteira, saldo, vale, voucher | **nenhuma**, nem em `schema.sql` nem nas 33 migrations |
+| coluna de saldo em `clientes` | **nenhuma** — `id, nome, tel, email, instagram, cidade, nascimento, obs, origem, cpf` e os normalizados |
+| `historico_operacoes.saldo_centavos` | é o **saldo a receber** de uma operação histórica. Mão única: o que a cliente deve |
+| `movimentos.tipo = 'nota_credito'` | é **movimento de ESTOQUE** — uma peça saindo. Nada a ver com dinheiro de cliente |
+| A Receber (`contas-receber.js`) | representa exclusivamente o que a cliente **deve**. Não há o inverso |
+
+Não existe lugar onde um crédito possa viver, nem caminho por onde ele possa
+ser consumido numa compra seguinte.
+
+**Classificação: DEPENDÊNCIA DA ARQUITETURA FINANCEIRA.** A regra foi
+registrada em `api/REGRAS.md` como fechada. `diferenca_status` continua
+`pendente_regra` — mas o que está pendente **mudou de natureza**: era a
+regra, agora é a arquitetura.
+
+O que mudou no código, e só isso: o sistema **parou de dizer que a regra não
+existe**. As mensagens diziam "crédito ou reembolso ainda não é regra
+definida", o que passou a ser falso. Agora dizem que o valor é crédito da
+cliente e que falta onde guardá-lo. E a leitura expõe `creditoAoCliente`
+(positivo, o valor absoluto da diferença negativa) para nenhuma tela ter de
+deduzir isso do sinal.
+
+**Nada foi simulado.** Há prova dedicada de que não aparece preço negativo,
+não nasce conta a receber e nada é lançado no financeiro.
+
+### 22.2 Novo atendimento — caso novo, ligado ao anterior
+
+**Regra (Sthefany):** nova troca da mesma peça só dentro de **7 dias úteis**
+e com a **etiqueta ainda na peça**. E o histórico do atendimento anterior tem
+de continuar visível.
+
+**Modelo escolhido:** o caso anterior **permanece encerrado**. O novo
+atendimento é uma linha nova em `garantias`, apontando para a mesma unidade
+física (`venda_item_id`) e ligada por `garantia_anterior_id`.
+
+Foi a menor solução que preserva as seis coisas exigidas:
+
+| Exigência | Como |
+|---|---|
+| caso original | intocado |
+| encerramento original | `encerrada_em` permanece, e o relógio segue parado nele |
+| eventos originais | intocados, e ganha um a mais: `reaberta_em_novo_caso` |
+| nova abertura | linha nova, prazo próprio, evento `aberta` próprio |
+| vínculo entre ciclos | `garantia_anterior_id` de um lado, evento do outro — legível dos dois |
+| rastreabilidade | `reabertura_dias_uteis` congelado no momento da conferência |
+
+As alternativas descartadas: reutilizar a linha com `UPDATE status,
+encerrada_em = NULL` funde dois atendimentos que aconteceram em momentos
+diferentes e apaga a data da entrega; uma tabela de ciclos separada exigiria
+mover eventos e trocas, quando a própria `garantias` já é a unidade de ciclo.
+
+### 22.3 Os 7 dias úteis
+
+Contados de `encerrada_em` do caso anterior — o dia em que a peça voltou para
+a dona — até a data de entrada do novo atendimento, por `diasUteisEntre`, a
+mesma função do prazo de reparo. Sábado, domingo e **feriado cadastrado** não
+contam. Não são dias corridos, e há prova disso: 03/08 (segunda) + 7 dias
+úteis chega em 12/08, que em dias corridos seriam 9; com um feriado
+cadastrado no meio, 13/08 ainda passa.
+
+`reabertura_dias_uteis` fica **congelado** na linha. Recalcular depois daria
+outro número se a tabela de feriados mudar, e "isto foi autorizado
+corretamente na época?" precisa de resposta estável.
+
+### 22.4 A etiqueta
+
+O sistema **não tem como saber** se a etiqueta está na peça — é alguém
+olhando a peça no balcão. O dado não foi inventado.
+
+`etiqueta_preservada` guarda a **confirmação** de quem olhou. O backend está
+preparado para recebê-la: `reabrirGarantia` exige `etiquetaPreservada`
+explicitamente e distingue três respostas —
+
+- ausente → 400, com `precisaConfirmar: 'etiquetaPreservada'`;
+- `false` → 409, "a etiqueta foi removida";
+- `true` → segue, e a confirmação fica gravada e auditável.
+
+"Ninguém perguntou" nunca é tratado como "sim". **Requisito para a UX:** a
+tela do novo atendimento precisa fazer essa pergunta a quem está com a peça
+na mão. `AGUARDANDO HANDOFF CODEX`.
+
+### 22.5 A matriz mínima de estados
+
+Deliberadamente mínima: só o que já é seguro afirmar.
+
+Três estados são **terminais** — `devolvida`, `concluida`, `cancelada` — e
+**deles não se sai por mudança de status**. Se a peça voltou, o caminho é o
+novo atendimento. As transições entre os estados PENDENTES seguem livres,
+porque ninguém demonstrou ainda que alguma delas seja errada no balcão.
+
+Isso fecha as duas transições absurdas observadas na auditoria:
+`devolvida → em_reparo` apagando o encerramento, e `concluida → cancelada`
+reescrevendo o desfecho de um caso terminado. A recusa aponta o caminho certo
+em vez de só negar.
+
+A tabela completa está em `api/REGRAS.md`.
+
+### 22.6 Data futura
+
+`mudarStatusGarantia` passou a recusar data futura, como abertura, troca e
+pagamento já faziam. Mudança de status registra um fato **já ocorrido**.
+Agendamento é outro conceito e terá campo próprio se for preciso.
+
+### 22.7 O que 5.4e NÃO fez
+
+- não criou arquitetura de crédito, carteira ou saldo;
+- não simulou crédito com desconto, pagamento negativo ou ajuste de estoque;
+- não criou UI nenhuma;
+- não impôs máquina de estados além do mínimo;
+- não tocou em `ambiguo`/`sem_match`, que continua dependendo de auditoria
+  read-only futura em PROD;
+- não consultou PROD.
+
+### 22.8 Para declarar 5.4 tecnicamente encerrada
+
+| # | Pendência | Natureza |
+|---|---|---|
+| 1 | onde o crédito da cliente vive e como é consumido | arquitetura financeira, com FIN-101 e o modelo novo |
+| 2 | tela do novo atendimento, incluindo a pergunta da etiqueta | `AGUARDANDO HANDOFF CODEX` |
+| 3 | botão de estorno de troca (GAR-102) | `AGUARDANDO HANDOFF CODEX` |
+| 4 | caminho para cancelar garantia na tela | `AGUARDANDO HANDOFF CODEX` |
+| 5 | reconciliação de `ambiguo`/`sem_match` | `PRECISA DE AUDITORIA READ-ONLY FUTURA EM PROD` |
+| 6 | caso encerrado por engano não tem correção | **decisão pendente** — a matriz mínima fecha a saída dos terminais, e um `devolvida` digitado errado fica preso. Não inventei escape: prefiro a pergunta à porta dos fundos |

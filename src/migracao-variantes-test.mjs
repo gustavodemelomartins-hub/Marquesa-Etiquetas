@@ -119,6 +119,8 @@ const MIGRACOES = [
   /* 5.4d — estornar troca deixa de apagar a linha. Depois da de cima só
      por ordem cronológica: as duas mexem em tabelas diferentes. */
   'api/migracao-garantia-troca-estorno.sql',
+  /* 5.4e — o novo atendimento vira caso próprio, ligado ao anterior. */
+  'api/migracao-garantia-reabertura.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com

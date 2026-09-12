@@ -30,7 +30,7 @@ import { listarSaidas, registrarSaida, estornarSaida } from '../../saidas.js';
 import {
   listarGarantias, lerGarantia, garantiasPendentes, abrirGarantia,
   mudarStatusGarantia, registrarTroca, pagarDiferencaTroca, estornarTroca,
-  vinculosDeGarantia,
+  vinculosDeGarantia, reabrirGarantia,
 } from '../../garantias.js';
 import {
   analisarHistoricoNaoVenda, listarReclassificacoes,
@@ -214,6 +214,17 @@ export const rotas = [
     metodo: 'POST', caminho: '/api/garantias', auth: 'bearer',
     async handler({ db, request }) {
       const r = await abrirGarantia(db, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 201 : (r.statusHttp ?? 400));
+    },
+  },
+  {
+    /* 5.4e — a peça voltou depois do caso ter encerrado. NÃO reabre o caso
+       antigo: cria um atendimento NOVO ligado a ele, dentro de 7 dias úteis
+       e com a etiqueta confirmada por quem olhou a peça. O caso anterior
+       permanece encerrado, inteiro. */
+    metodo: 'POST', caminho: '/api/garantias/:id/reabrir', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params, request }) {
+      const r = await reabrirGarantia(db, +params.id, await request.json().catch(() => ({})));
       return json(r, r.ok ? 201 : (r.statusHttp ?? 400));
     },
   },

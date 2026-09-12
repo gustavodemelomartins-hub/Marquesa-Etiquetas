@@ -1606,6 +1606,25 @@ CREATE TABLE IF NOT EXISTS garantias (
   venda_item_id TEXT REFERENCES venda_itens(id),
   venda_item_vinculo TEXT,
 
+  -- ─── Fase 5.4e: o novo atendimento é um caso NOVO, ligado ao anterior.
+  --
+  -- Regra da Sthefany: nova troca da mesma peça só dentro de 7 dias úteis e
+  -- com a etiqueta ainda na peça. Reabrir apagando `encerrada_em` fundia os
+  -- dois ciclos e perdia a data da entrega; agora o caso anterior fica
+  -- encerrado, inteiro, e o novo aponta para ele.
+  --
+  -- `etiqueta_preservada` NÃO inventa o dado: o sistema não tem como saber
+  -- se a etiqueta está na peça. Ela guarda a CONFIRMAÇÃO de quem olhou, para
+  -- o caso poder ser auditado. NULL = primeira abertura, a pergunta não se
+  -- aplica.
+  --
+  -- `reabertura_dias_uteis` fica congelado: recalcular depois daria outro
+  -- número se a tabela de feriados mudar, e "isto foi autorizado
+  -- corretamente na época?" precisa de resposta estável.
+  garantia_anterior_id INTEGER REFERENCES garantias(id),
+  etiqueta_preservada INTEGER,
+  reabertura_dias_uteis INTEGER,
+
   CHECK (origem_fonte <> 'operacional' OR venda_id IS NOT NULL),
   CHECK (origem_fonte <> 'historico'   OR historico_item_id IS NOT NULL),
   CHECK (prazo_dias_uteis > 0)
@@ -1619,6 +1638,7 @@ CREATE INDEX IF NOT EXISTS idx_gar_hist     ON garantias(historico_item_id);
 CREATE INDEX IF NOT EXISTS idx_gar_entrada  ON garantias(data_entrada);
 CREATE INDEX IF NOT EXISTS idx_gar_venda_item ON garantias(venda_item_id);
 CREATE INDEX IF NOT EXISTS idx_gar_vinculo    ON garantias(venda_item_vinculo);
+CREATE INDEX IF NOT EXISTS idx_gar_anterior   ON garantias(garantia_anterior_id);
 
 -- ─── a linha do tempo
 CREATE TABLE IF NOT EXISTS garantia_eventos (
