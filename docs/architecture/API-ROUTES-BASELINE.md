@@ -248,7 +248,7 @@ Proprietário: Analytics/read models. Somente leitura transversal; deve evitar d
 | `GET /api/analytics/categorias?periodo=` | A | Categorias. |
 | `GET /api/analytics/origem?periodo=` | A | Origem. |
 | `GET /api/analytics/clientes?periodo=&ordem=&limite=` | A | Clientes; máximo 500. |
-| `GET /api/vendas/lista?de=&ate=&busca=&canal=&limite=&offset=` | A | Lista paginada; máximo 1000. |
+| `GET /api/vendas/lista?de=&ate=&busca=&canal=&origem=&canceladas=&limite=&offset=` | A | Lista paginada; máximo 1000. `canal` é o texto de cada população (`balcao` do operacional, `Site`/`Instagram`/`Maleta` do histórico); `origem` é o vocabulário comum `balcao\|acerto\|site`, nulo onde não há equivalente mecânico. `canceladas=nao` devolve só o recorte elegível; o padrão mostra a venda cancelada, marcada. |
 
 ### Saídas sem faturamento
 

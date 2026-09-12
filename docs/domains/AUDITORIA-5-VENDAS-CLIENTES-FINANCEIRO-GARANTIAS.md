@@ -291,7 +291,7 @@ O lado histórico usa o `pago` de verdade, então as duas populações discordam
 contradiz `vendas.pago` e contradiz a lista de contas a receber, que enxerga a
 mesma venda corretamente em aberto.
 
-**Correção pequena, testável e independente do handoff.**
+**Corrigido na 5.1**, provado em `src/vendas-lista-test.mjs`.
 
 ### A5 — a mesma rota não filtra venda cancelada
 
@@ -299,6 +299,10 @@ mesma venda corretamente em aberto.
 venda cancelada fica no histórico com estado e sai dos agregados elegíveis;
 cabe decidir se essa listagem é "histórico" (mostra, marcada) ou "agregado"
 (exclui). Hoje ela mostra sem que a decisão tenha sido tomada.
+
+**Corrigido na 5.1** pelo contrato vigente: a rota é histórico, então o padrão
+continua mostrando a venda cancelada **marcada**, e `canceladas=nao` devolve o
+recorte elegível — a mesma porta que `/api/saidas?estornadas=nao` já dá.
 
 ### A6 — `canal` significa duas coisas diferentes na mesma resposta
 
@@ -308,6 +312,13 @@ compara os dois contra o mesmo valor.
 
 Isto é `VEN-Q013` deixando de ser pergunta de UX e virando defeito de contrato:
 não existe vocabulário único de canal no sistema.
+
+**Corrigido na 5.1 só na parte mecânica.** `canal` passa a ser o texto de cada
+população, intacto e auditável; `origem` é o vocabulário comum já existente
+(`balcao|acerto|site`), preenchido apenas onde a correspondência é mecânica —
+`Site` e `site` são a mesma palavra. `Instagram`, `Grupo VIP`, `Encomendas` e
+`Maleta` não têm equivalente ali e ficam **nulos**: classificá-los seria decidir
+`VEN-Q013` dentro de uma consulta SQL, e essa decisão é de produto.
 
 ### A7 — analytics só aceita presets
 
@@ -369,7 +380,7 @@ comportamento que a UX ainda vai definir.
 | Subfase | Escopo | Depende de |
 |---|---|---|
 | 5.0 | reconciliar as três linhas (esta branch, `develop`, Codex) e registrar o baseline de contratos do ciclo comercial | nada |
-| 5.1 | corrigir A4 e A5 em `GET /api/vendas/lista`, com teste | nada |
+| 5.1 | ~~corrigir A4, A5 e a parte mecânica de A6 em `GET /api/vendas/lista`, com teste~~ · **feita** — `src/vendas-lista-test.mjs`, 14 provas | nada |
 | 5.2 | chave primária própria para `venda_itens` (migration aditiva) e migrar quem usa `rowid` | nada |
 | 5.3 | `FIN-101` — recebíveis com paridade do legado, sem modelo novo | 5.2 |
 | 5.4 | `GAR-101` e `GAR-102` — garantias, trocas e o estorno que hoje é código morto | nada |

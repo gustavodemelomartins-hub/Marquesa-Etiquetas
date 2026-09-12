@@ -482,6 +482,12 @@
         {
           "bin": "node",
           "args": [
+            "src/vendas-lista-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
             "src/reclassificacao-nao-venda-test.mjs"
           ]
         },

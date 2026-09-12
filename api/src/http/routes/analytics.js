@@ -99,6 +99,13 @@ export const rotas = [
       return json(await listarVendasUnificado(db, {
         de: url.searchParams.get('de'), ate: url.searchParams.get('ate'),
         busca: url.searchParams.get('busca'), canal: url.searchParams.get('canal'),
+        /* `canal` continua sendo o texto de cada população; `origem` é o
+           vocabulário comum (`balcao|acerto|site`). Os dois convivem porque
+           são perguntas diferentes — ver o comentário em analytics.js. */
+        origem: url.searchParams.get('origem'),
+        /* Mesma porta de `/api/saidas?estornadas=nao`: o padrão mostra a
+           venda cancelada, marcada; quem quer o recorte elegível pede. */
+        incluirCanceladas: url.searchParams.get('canceladas') !== 'nao',
         limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
         offset: +(url.searchParams.get('offset') || 0),
       }));

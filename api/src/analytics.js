@@ -1242,9 +1242,17 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
  *  (`vendaHistoricaId`) para poder navegar de uma para a outra. Agrupar aqui
  *  tiraria justamente o acesso ao dado de origem, que §7 exige preservar. */
 export async function listarVendasUnificado(db, {
-  de = null, ate = null, busca = null, canal = null, limite = 200, offset = 0,
+  de = null, ate = null, busca = null, canal = null, origem = null,
+  incluirCanceladas = true, limite = 200, offset = 0,
 } = {}) {
   const like = busca ? `%${String(busca).toLowerCase()}%` : null;
+  /* §28 — a venda cancelada continua NO HISTÓRICO, com o estado à vista; é
+     dos agregados que ela sai, e esta rota é histórico. Então o padrão
+     mostra e marca. `canceladas=nao` é a mesma porta que `/api/saidas` já dá
+     com `estornadas=nao`: quem quer o recorte elegível pede, em vez de somar
+     sem saber o que está somando. */
+  const semCanceladas = incluirCanceladas ? null : 1;
+  const origemPedida = origem ? String(origem).trim().toLowerCase() : null;
 
   const { results } = await db.prepare(
     `WITH juntos AS (
@@ -1254,7 +1262,20 @@ export async function listarVendasUnificado(db, {
               h.cliente_nome_original AS cliente, h.cliente_nome_norm AS cliente_norm,
               h.sku AS sku, h.nome_produto_historico AS produto, h.qtd AS qtd,
               h.valor_total AS valor, h.canal AS canal, h.contexto AS contexto,
-              h.observacao_original AS observacao, h.pago AS pago, 0 AS cancelada
+              h.observacao_original AS observacao, h.pago AS pago, 0 AS cancelada,
+              -- §36 -- canal nunca quis dizer a mesma coisa nos dois lados:
+              -- aqui e o texto da planilha (Site, Instagram, Maleta, Grupo
+              -- VIP...), la e vendas.origem. Uma coluna com dois vocabularios
+              -- faz ?canal=site achar metade da resposta e parecer completa.
+              -- origem e o vocabulario COMUM, e so recebe valor onde a
+              -- correspondencia e mecanica: Site e site sao a mesma palavra.
+              -- Instagram, Grupo VIP, Encomendas e Maleta nao tem equivalente
+              -- em balcao|acerto|site, e inventar um seria decidir VEN-Q013
+              -- aqui dentro. Ficam NULL -- indeterminado anunciado vale mais
+              -- que classificacao falsa. (Comentario em SQL, nao em JS: isto
+              -- esta dentro de um template literal.)
+              CASE WHEN LOWER(TRIM(COALESCE(h.canal, ''))) = 'site'
+                   THEN 'site' END AS origem
          FROM vendas_historico_itens h
          JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
          JOIN vendas_historicas vh ON vh.id=h.venda_historica_id
@@ -1278,7 +1299,13 @@ export async function listarVendasUnificado(db, {
               CASE WHEN i.desconto_rotulo IS NOT NULL
                    THEN 'Desconto ' || printf('%.2f', COALESCE(i.desconto_valor, 0))
                         || ' · ' || i.desconto_rotulo END,
-              1, v.cancelada
+              -- §29 -- era a constante 1. Toda venda de balcao saia desta
+              -- listagem como PAGA, inclusive a lancada A Receber:
+              -- vendas.pago existe desde §29 exatamente para dizer o
+              -- contrario, e a lista de contas a receber enxergava a mesma
+              -- venda corretamente em aberto. Duas leituras do mesmo banco
+              -- discordando e pior que nao ter a coluna.
+              v.pago, v.cancelada, v.origem
          FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
          LEFT JOIN clientes c ON c.id = v.cliente_id
         WHERE v.origem <> 'acerto' AND v.revendedora_id IS NULL
@@ -1291,10 +1318,15 @@ export async function listarVendasUnificado(db, {
       WHERE (? IS NULL OR data >= ?)
         AND (? IS NULL OR data <= ?)
         AND (? IS NULL OR canal = ?)
+        AND (? IS NULL OR origem = ?)
+        AND (? IS NULL OR cancelada = 0)
         AND (? IS NULL OR LOWER(cliente) LIKE ? OR LOWER(produto) LIKE ? OR LOWER(sku) LIKE ?)
       ORDER BY data DESC, id DESC
       LIMIT ? OFFSET ?`,
-  ).bind(de, de, ate, ate, canal, canal, like, like, like, like, limite, offset).all();
+  ).bind(
+    de, de, ate, ate, canal, canal, origemPedida, origemPedida, semCanceladas,
+    like, like, like, like, limite, offset,
+  ).all();
 
   return { itens: results ?? [], limite, offset };
 }
