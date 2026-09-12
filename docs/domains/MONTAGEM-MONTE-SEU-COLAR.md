@@ -369,22 +369,93 @@ Encontrados no catálogo de produção, **não** incorporados:
 Conjunto separado, a validar em outro momento. Nada de Ouro foi derivado para
 Prata nem o contrário.
 
-## 5. Os saldos legados (pergunta 12)
+## 5. Os saldos físicos confirmados, e os saldos legados (pergunta 12)
+
+### 5.1 O que a Sthefany confirmou em 11/09/2026 (`S1`, `S5`, `DR-005`)
+
+**As quantidades abaixo são estoque FÍSICO EM CASA.** Ela deixou explícito que
+**não** incluiu nelas os componentes que estão hoje com a Bruna, na maleta 12.
+Ler estes números como patrimônio total da Marquesa é o erro que este parágrafo
+existe para impedir.
+
+| SKU | Componente | **Em casa** | No colar da Bruna | **Patrimônio físico total** |
+|---|---|---:|---:|---:|
+| `263236` | Menina Zircônia Rosa Claro | 4 | +1 | **5** |
+| `273470` | Menina Zircônia Incolor | 5 | — | **5** |
+| `251551` | Menino Zircônia Azul | 2 | — | **2** |
+| `251552` | Menino Zircônia Incolor | 5 | — | **5** |
+| `329494` | Menino Zircônia Verde | 2 | +1 | **3** |
+| `444032` | Veneziana 45cm com extensor | 18 | +1 | **19** |
+
+A coluna do meio não é estimativa: é a composição do exemplar consignado,
+confirmada no §5.2. As três colunas são a mesma peça vista de lugares
+diferentes — **somar "em casa" com "total" seria contar duas vezes.**
+
+### 5.2 O exemplar consignado: identidade comercial × componentes físicos (`S2`)
+
+Quatro fatos distintos sobre o mesmo objeto, e confundi-los é o que produz
+dupla contagem:
+
+| | O quê | Valor |
+|---|---|---|
+| 1 | **Identidade comercial** | SKU `326660` — Colar Casal, R$ 129, 1 unidade |
+| 2 | **Componentes físicos deste exemplar** | 1 × `329494` Menino Verde · 1 × `263236` Menina Rosa · 1 × `444032` Veneziana 45cm com extensor |
+| 3 | **Localização** | consignado na **maleta 12**, aberta, com **Bruna Follei**, `preco_envio` 129, sem venda e sem devolução |
+| 4 | **Estoque** | `326660` **e** os três componentes **não** podem existir como patrimônios simultâneos no modelo novo |
+
+O **Menino Verde está confirmado** — era a peça da composição que ainda não
+tinha resposta humana. A composição deixa de ser suposição.
+
+Consequência de modelo, já era a regra do §3.7 e agora tem caso real: o SKU
+comercial `326660` **não** deve continuar sendo tratado como peça física
+independente. Ele é identidade comercial/configuração; o que existe fisicamente
+são os três componentes.
+
+### 5.3 O risco de dupla contagem, medido — e por que nada se escreve agora
+
+Confrontando o catálogo de produção com o que a Sthefany declarou:
+
+| SKU | Catálogo hoje | Em casa + Bruna | Leitura |
+|---|---:|---:|---|
+| `263236` | qtd **5** | 4 + 1 = **5** | o saldo cadastrado **já parece incluir** a peça que está no colar da Bruna |
+| `273470` | qtd **5** | 5 + 0 = **5** | bate, e não há consignado envolvido |
+| `329494` `444032` `251551` `251552` | **ausentes** | — | nada cadastrado; o Menino Verde e a Veneziana da Bruna só existem hoje **dentro** do `326660` |
+| `326660` | qtd **1** | — | representa os **mesmos** três componentes |
+
+Se a leitura da primeira linha estiver certa, **a Menina Rosa da Bruna é
+contada duas vezes hoje**: uma dentro do `qtd 5` de `263236` e outra como o
+`qtd 1` de `326660`. Cadastrar `329494` com 3 e `444032` com 19 sem resolver o
+`326660` estenderia o mesmo defeito ao Menino Verde e à Veneziana.
+
+**Isto é inferência, não prova.** A coincidência 4 + 1 = 5 é forte, mas o
+`qtd 5` de `263236` foi lido do catálogo sem que ninguém tenha declarado como
+ele foi formado. A regra nº 2 do projeto vale inteira: não se escreve saldo
+sobre um número que não se sabe explicar. **Nenhuma correção de saldo é
+executada agora**; o que a confirmação da Sthefany destrava é o direito de
+*planejar* a transformação, com conferência peça a peça antes de qualquer
+movimento.
+
+### 5.4 Os saldos legados e o plano
 
 Três configurações confirmadas ainda não existem no catálogo; duas existem, e
 uma delas tem saldo:
 
 | SKU | Estado em produção | O que falta |
 |---|---|---|
-| `326660` | qtd **1** · `entrada +1` de importação · `consignacao 0` para a **maleta 12, ABERTA** | resolver o saldo e a maleta |
+| `326660` | qtd **1** · `entrada +1` de importação · `consignacao 0` para a **maleta 12, ABERTA** | resolver o saldo e a maleta — composição física agora **confirmada** (§5.2) |
 | `399872` | qtd 0 · inativo · 0 movimentos | ativar |
 | `364945` `311066` `314161` | ausentes | cadastrar |
 
 **Nada destrutivo, e nada sem nova aprovação.** O plano, em ordem:
 
 1. **cadastrar** os 4 componentes físicos ausentes (`444032`, `251551`,
-   `251552`, `329494`) com o saldo que a Sthefany informar — entrada por
-   movimento, como qualquer peça nova;
+   `251552`, `329494`) — entrada por movimento, como qualquer peça nova. Os
+   números da Sthefany já existem (§5.1), e a escolha entre lançar **o saldo em
+   casa** ou **o patrimônio total** é exatamente a decisão que o §5.3 obriga a
+   tomar de propósito: lançar o total antes de zerar o `326660` cria a dupla
+   contagem; lançar só o "em casa" deixa a peça consignada representada
+   unicamente pelo `326660` até a maleta 12 se resolver. As duas são
+   defensáveis; nenhuma pode acontecer por acidente;
 2. **cadastrar** as 3 configurações ausentes com `qtd 0`;
 3. **definir** as cinco configurações (slots + cardápio), via a rota do §3.9;
 4. **resolver a maleta 12 antes de tocar em `326660`.** Existe uma peça física
@@ -395,7 +466,10 @@ uma delas tem saldo:
 5. **só então** o saldo de `326660` vai a zero — por **movimento de `ajuste`
    assinado** via `estoque.js › movimentar`, com `obs` dizendo que o código
    passou a ser configuração comercial. Nenhum `UPDATE produtos SET qtd`,
-   nenhum movimento apagado, a razão fecha antes e depois;
+   nenhum movimento apagado, a razão fecha antes e depois. O ajuste e a entrada
+   dos três componentes correspondentes são **o mesmo ato contábil** e têm de
+   ser planejados juntos: é o que impede a peça de sumir ou de duplicar no
+   caminho;
 6. o ajuste do passo 5 é **decisão de inventário** e pertence ao item 4 da
    Fase 4 — ver
    [HISTORICO-INCOMPLETO-E-INVENTARIO.md](HISTORICO-INCOMPLETO-E-INVENTARIO.md).
