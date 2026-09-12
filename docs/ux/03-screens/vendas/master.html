@@ -252,7 +252,7 @@
         <section class="screen" id="lancamentos" aria-labelledby="launch-title" hidden>
           <div class="page-heading">
             <div><p class="context">Operação do dia</p><h1 id="launch-title">Novo lançamento</h1><p>Adicione as peças, identifique a cliente e registre como o valor será recebido.</p></div>
-            <div class="draft-tools"><span class="draft-indicator" data-draft-indicator><i></i> Rascunho em andamento</span><button class="button ghost" type="button" data-clear-draft>Limpar rascunho</button></div>
+            <div class="draft-tools"><span class="draft-indicator" data-draft-indicator><i></i> Rascunho vazio</span><button class="button ghost" type="button" data-clear-draft disabled>Limpar rascunho</button></div>
           </div>
           <div class="choice-grid" role="radiogroup" aria-label="Tipo de lançamento">
             <button class="choice active" type="button" role="radio" aria-checked="true" data-launch-type="sale"><span>Venda normal</span><small>Peças com etiqueta</small></button>
@@ -263,7 +263,7 @@
             <section class="sale-composer" aria-label="Venda normal">
               <div class="launch-grid">
               <section class="launch-pane launch-card">
-                <div class="section-heading"><div><h2>Itens da venda</h2><p>Leia a etiqueta ou busque por nome e SKU.</p></div><span class="item-count" data-item-count>3 peças</span></div>
+                <div class="section-heading"><div><h2>Itens da venda</h2><p>Leia a etiqueta ou busque por nome e SKU.</p></div><span class="item-count" data-item-count>0 peças</span></div>
                 <form class="product-search" data-product-search-form>
                   <label class="visually-hidden" for="launch-product-search">Buscar produto</label>
                   <span aria-hidden="true">⌕</span>
@@ -271,30 +271,8 @@
                   <button class="button secondary" type="submit">Adicionar</button>
                 </form>
                 <div class="product-results" data-product-results hidden></div>
-                <ul class="cart-list launch-cart" data-launch-cart>
-                  <li data-cart-item data-sku="122060" data-name="Argola Duas Linhas Cravejadas" data-table-price="150" data-price="150" data-quantity="1">
-                    <span class="jewel" aria-hidden="true">◌</span>
-                    <div class="cart-product"><b>Argola Duas Linhas Cravejadas</b><small>SKU 122060 · Banho de Ouro 18k</small><small class="price-note" hidden></small></div>
-                    <div class="quantity-control" aria-label="Quantidade de Argola Duas Linhas Cravejadas"><button type="button" data-quantity-action="decrease" aria-label="Diminuir quantidade">−</button><span data-item-quantity>1</span><button type="button" data-quantity-action="increase" aria-label="Aumentar quantidade">+</button></div>
-                    <button class="item-price" type="button" data-edit-price aria-label="Editar preço da Argola Duas Linhas Cravejadas"><small>Preço final</small><strong data-item-total>R$ 150,00</strong></button>
-                    <button class="item-remove" type="button" data-remove-item aria-label="Remover Argola Duas Linhas Cravejadas">×</button>
-                  </li>
-                  <li data-cart-item data-sku="451109" data-name="Pulseira Medalha Salmo" data-table-price="200" data-price="200" data-quantity="1">
-                    <span class="jewel" aria-hidden="true">◇</span>
-                    <div class="cart-product"><b>Pulseira Medalha Salmo</b><small>SKU 451109 · Banho de Ouro 18k</small><small class="price-note" hidden></small></div>
-                    <div class="quantity-control" aria-label="Quantidade de Pulseira Medalha Salmo"><button type="button" data-quantity-action="decrease" aria-label="Diminuir quantidade">−</button><span data-item-quantity>1</span><button type="button" data-quantity-action="increase" aria-label="Aumentar quantidade">+</button></div>
-                    <button class="item-price" type="button" data-edit-price aria-label="Editar preço da Pulseira Medalha Salmo"><small>Preço final</small><strong data-item-total>R$ 200,00</strong></button>
-                    <button class="item-remove" type="button" data-remove-item aria-label="Remover Pulseira Medalha Salmo">×</button>
-                  </li>
-                  <li data-cart-item data-sku="326660" data-name="Monte seu Colar · Casal" data-table-price="150" data-price="150" data-quantity="1">
-                    <span class="jewel" aria-hidden="true">⌁</span>
-                    <div class="cart-product"><b>Monte seu Colar · Casal</b><small>SKU 326660 · composição confirmada</small><small class="price-note" hidden></small></div>
-                    <div class="quantity-control" aria-label="Quantidade de Monte seu Colar Casal"><button type="button" data-quantity-action="decrease" aria-label="Diminuir quantidade">−</button><span data-item-quantity>1</span><button type="button" data-quantity-action="increase" aria-label="Aumentar quantidade">+</button></div>
-                    <button class="item-price" type="button" data-edit-price aria-label="Editar preço de Monte seu Colar Casal"><small>Preço final</small><strong data-item-total>R$ 150,00</strong></button>
-                    <button class="item-remove" type="button" data-remove-item aria-label="Remover Monte seu Colar Casal">×</button>
-                  </li>
-                </ul>
-                <div class="cart-empty" data-cart-empty hidden><span aria-hidden="true">◇</span><b>A venda ainda está vazia</b><small>Leia uma etiqueta ou busque uma peça para começar.</small></div>
+                <ul class="cart-list launch-cart" data-launch-cart hidden></ul>
+                <div class="cart-empty" data-cart-empty><span aria-hidden="true">◇</span><b>A venda ainda está vazia</b><small>Leia uma etiqueta ou busque uma peça para começar.</small></div>
               </section>
 
               <section class="launch-pane customer-card">
@@ -302,8 +280,8 @@
                 <label class="field-label" for="launch-customer-search">Cliente</label>
                 <div class="customer-search"><span aria-hidden="true">⌕</span><input id="launch-customer-search" type="search" list="launch-customer-options" placeholder="Nome, WhatsApp ou CPF" data-customer-search /></div>
                 <datalist id="launch-customer-options"><option value="Thais Nania"></option><option value="Camila Ferreira"></option><option value="Juliana Prado"></option></datalist>
-                <div class="selected-customer" data-selected-customer><span data-customer-initials>TN</span><div><b data-customer-name>Thais Nania</b><small data-customer-contact>(19) 9 8888-7777 · CPF final 890-00</small></div><button type="button" aria-label="Remover cliente" data-remove-customer>×</button></div>
-                <div class="customer-empty" data-customer-empty hidden>Selecione uma cliente ou continue identificando os outros dados da venda.</div>
+                <div class="selected-customer" data-selected-customer hidden><span data-customer-initials></span><div><b data-customer-name></b><small data-customer-contact></small></div><button type="button" aria-label="Remover cliente" data-remove-customer>×</button></div>
+                <div class="customer-empty" data-customer-empty>Selecione uma cliente ou continue identificando os outros dados da venda.</div>
                 <div class="form-grid">
                   <label>Data da venda<input type="date" value="2026-09-12" max="2026-09-12" data-sale-date></label>
                   <label>Local ou canal<select data-sale-channel><option>Balcão</option><option>WhatsApp</option><option>Instagram</option><option>Feira ou evento</option></select></label>
@@ -315,46 +293,29 @@
             <section class="payment">
               <div class="section-heading"><div><h2>Pagamento</h2><p>O status acompanha os recebimentos registrados abaixo.</p></div></div>
               <div class="payment-overview">
-                <div class="payment-metric"><span>Valor da venda</span><strong data-sale-total>R$ 500,00</strong><small data-sale-piece-count>3 peças no carrinho</small></div>
-                <div class="payment-metric"><span>Valor recebido</span><strong data-sale-received>R$ 350,00</strong><small>dinheiro confirmado</small></div>
-                <div class="payment-metric"><span>Valor a receber</span><strong data-sale-receivable>R$ 150,00</strong><small>saldo cobrável</small></div>
-                <div class="financial-callout" data-financial-callout><span class="status partial" data-financial-status>Parcial</span><small data-financial-copy>Parte da venda já foi recebida.</small></div>
+                <div class="payment-metric"><span>Valor da venda</span><strong data-sale-total>R$ 0,00</strong><small data-sale-piece-count>0 peças no carrinho</small></div>
+                <div class="payment-metric"><span>Valor recebido</span><strong data-sale-received>R$ 0,00</strong><small>dinheiro confirmado</small></div>
+                <div class="payment-metric"><span>Valor a receber</span><strong data-sale-receivable>R$ 0,00</strong><small>saldo cobrável</small></div>
+                <div class="financial-callout" data-financial-callout><span class="status neutral" data-financial-status>Sem itens</span><small data-financial-copy>Adicione uma peça para calcular.</small></div>
               </div>
               <div class="payment-table">
                 <div class="payment-table-head"><span>Valor</span><span>Forma de pagamento</span><span>Status</span><span>Informações</span><span></span></div>
-                <div class="payment-list" data-payment-list>
-                <div class="payment-entry" data-payment-entry data-auto-balance="false">
-                  <label><span>Valor</span><input type="number" min="0" step="0.01" value="150.00" data-payment-amount></label>
-                  <label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label>
-                  <label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label>
-                  <span class="payment-info" data-payment-info>Data do pagamento: 12/09/2026</span>
-                  <button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>
-                </div>
-                <div class="payment-entry" data-payment-entry data-auto-balance="false">
-                  <label><span>Valor</span><input type="number" min="0" step="0.01" value="200.00" data-payment-amount></label>
-                  <label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option selected>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label>
-                  <label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label>
-                  <span class="payment-info" data-payment-info>Data do pagamento: 12/09/2026</span>
-                  <button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>
-                </div>
-                <div class="payment-entry" data-payment-entry data-auto-balance="false" data-payment-due="20/09/2026">
-                  <label><span>Valor</span><input type="number" min="0" step="0.01" value="150.00" data-payment-amount></label>
-                  <label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option selected>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label>
-                  <label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending" selected>Pendente</option></select></label>
-                  <span class="payment-info" data-payment-info>Vencimento: 20/09/2026</span>
-                  <button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>
-                </div>
-                </div>
+                <div class="payment-list" data-payment-list></div>
               </div>
               <p class="payment-warning" role="alert" data-payment-warning hidden></p>
               <div class="payment-actions"><button class="button primary" type="button" data-add-payment>+ Adicionar pagamento</button><button class="button quiet-action" type="button" data-show-parcel-help>↔ Parcelar</button><button class="button quiet-action" type="button" data-show-payment-help>••• Mais opções</button></div>
             </section>
-            <footer class="sale-composer-footer"><strong data-footer-piece-count>3 peças</strong><div class="sale-totals"><span>Subtotal <b data-sale-subtotal>R$ 500,00</b></span><span>Desconto <b data-sale-discount>R$ 0,00</b></span><span>Total <b data-footer-total>R$ 500,00</b></span></div><button class="button primary" type="button" data-finalize-sale>✓ Finalizar venda</button></footer>
+            <footer class="sale-composer-footer"><strong data-footer-piece-count>0 peças</strong><div class="sale-totals"><span>Subtotal <b data-sale-subtotal>R$ 0,00</b></span><span>Desconto <b data-sale-discount>R$ 0,00</b></span><span>Total <b data-footer-total>R$ 0,00</b></span></div><button class="button primary" type="button" data-finalize-sale disabled>✓ Finalizar venda</button></footer>
             </section>
 
             <section class="data-section today-sales">
               <div class="section-heading"><div><h2>Vendas de hoje</h2><p>Balcão e outros lançamentos comerciais do dia.</p></div><button class="button ghost" type="button" data-open-today-sales>Ver todas ›</button></div>
-              <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Cliente</th><th>Tipo</th><th>Itens</th><th>Total da venda</th><th>Recebido</th><th>Situação financeira</th><th></th></tr></thead><tbody><tr><td>10:32</td><td><b>Juliana Andrade</b><small>(11) 99999-8888</small></td><td><span class="tag rose">Balcão</span></td><td>3 peças</td><td>R$ 312,00</td><td>R$ 312,00</td><td><span class="status paid">Pago</span></td><td>•••</td></tr><tr><td>09:15</td><td><b>Mariana Souza</b><small>(11) 98888-7777</small></td><td><span class="tag rose">Balcão</span></td><td>2 peças</td><td>R$ 198,00</td><td>R$ 100,00</td><td><span class="status receivable">A receber</span></td><td>•••</td></tr><tr><td>08:41</td><td><b>Letícia Lopes</b><small>(19) 98765-4321</small></td><td><span class="tag blue">Revendedora</span></td><td>5 peças</td><td>R$ 546,00</td><td>R$ 0,00</td><td><span class="status receivable">A receber</span></td><td>•••</td></tr><tr><td>08:12</td><td><b>Camila Ferreira</b><small>(19) 98123-4567</small></td><td><span class="tag rose">Balcão</span></td><td>1 peça</td><td>R$ 89,00</td><td>R$ 89,00</td><td><span class="status paid">Pago</span></td><td>•••</td></tr></tbody></table></div>
+              <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Cliente</th><th>Tipo</th><th>Peças</th><th>Valor</th><th>Recebimento</th><th></th></tr></thead><tbody>
+                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1057" data-detail-scope="hoje"><td>10:32</td><td><button type="button" class="client-name-link" data-open-client="Juliana Prado">Juliana Prado</button></td><td><span class="tag rose">Balcão</span></td><td>1</td><td>R$ 89,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Juliana Prado">›</button></td></tr>
+                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1058" data-detail-scope="hoje"><td>09:15</td><td><button type="button" class="client-name-link" data-open-client="Camila Ferreira">Camila Ferreira</button></td><td><span class="tag rose">Balcão</span></td><td>2</td><td>R$ 159,00</td><td><span class="status receivable">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Camila Ferreira">›</button></td></tr>
+                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1056" data-detail-scope="hoje"><td>08:41</td><td><button type="button" class="client-name-link" data-open-client="Ana Luiza Sedassari">Ana Luiza Sedassari</button></td><td><span class="tag rose">Balcão</span></td><td>1</td><td>R$ 79,00</td><td><span class="status receivable">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Ana Luiza Sedassari">›</button></td></tr>
+                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1055" data-detail-scope="hoje"><td>08:12</td><td><button type="button" class="client-name-link" data-open-client="Zilma">Zilma</button></td><td><span class="tag blue">Maleta</span></td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Zilma">›</button></td></tr>
+              </tbody></table></div>
             </section>
           </div>
 
@@ -362,7 +323,7 @@
             <span class="success-seal" aria-hidden="true">✓</span><p class="context">Venda confirmada no protótipo</p><h2>Pronto. O lançamento ficou claro.</h2><p>Nenhum dado real foi gravado. Esta tela demonstra o retorno seguro após a confirmação.</p><div class="success-totals"><span>Total <b data-success-total>R$ 0,00</b></span><span>Recebido <b data-success-received>R$ 0,00</b></span><span>A receber <b data-success-receivable>R$ 0,00</b></span></div><button class="button primary" type="button" data-new-sale>Começar nova venda</button>
           </section>
 
-          <dialog class="launch-dialog" id="price-dialog"><form method="dialog" data-price-form><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Preço desta peça</p><h2 data-price-product>Editar preço final</h2><p>O preço de tabela fica preservado. Informe quanto será cobrado nesta venda.</p><label>Preço de tabela<input data-table-price-display readonly></label><label>Preço final<input type="number" min="0" step="0.01" required data-final-price></label><label>Motivo da alteração<input type="text" placeholder="Ex.: Grupo VIP" data-price-reason></label><p class="dialog-error" role="alert" data-price-error hidden>Informe o motivo quando o preço final for diferente.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button><button class="button primary" type="submit" value="default">Aplicar preço</button></div></form></dialog>
+          <dialog class="launch-dialog" id="price-dialog"><form method="dialog" data-price-form><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Preço desta peça</p><h2 data-price-product>Editar preço final</h2><p>O preço padrão fica preservado. Informe quanto será cobrado nesta venda.</p><label>Preço padrão<input data-table-price-display readonly></label><label>Preço final<input type="number" min="0" step="0.01" required data-final-price></label><label>Motivo da alteração<input type="text" placeholder="Ex.: Grupo VIP" data-price-reason></label><p class="dialog-error" role="alert" data-price-error hidden>Informe o motivo quando o preço final for diferente.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button><button class="button primary" type="submit" value="default">Aplicar preço</button></div></form></dialog>
 
           <dialog class="launch-dialog compact-dialog" id="clear-draft-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Limpar rascunho</p><h2>Descartar esta venda?</h2><p>Itens, cliente e pagamentos preenchidos serão removidos deste protótipo.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Manter rascunho</button><button class="button primary" value="confirm" data-confirm-clear>Descartar</button></div></form></dialog>
 
@@ -376,7 +337,7 @@
         <section class="screen" id="clientes" aria-labelledby="clients-title" hidden>
           <div class="page-heading"><div><p class="context" data-clients-context>Relacionamento</p><h1 id="clients-title" data-clients-title>Clientes</h1><p data-clients-copy>Compras, pagamentos e valores em aberto aparecem separados.</p></div><div class="clients-heading-actions"><button class="button ghost" type="button" data-show-all-clients hidden>Ver todas as clientes</button><button class="button primary" type="button">Nova cliente</button></div></div>
           <div class="metric-row compact"><article><span>Clientes ativas</span><strong>345</strong><small>cadastros com histórico</small></article><article><span>Compraram no mês</span><strong>39</strong><small>6 novas clientes</small></article><article><span>Com valor em aberto</span><strong>8</strong><small>R$ 12.269,90</small></article></div>
-          <section class="data-section client-list"><div class="section-heading"><div><h2 data-client-list-title>Lista de clientes</h2><p data-client-list-copy>Busque por nome, telefone ou CPF</p></div><div class="search-field narrow" data-client-search>Buscar cliente</div></div><table><thead><tr><th>Cliente</th><th>Comprou</th><th>Pago</th><th>Em aberto</th><th>Última compra</th><th></th></tr></thead><tbody><tr data-client-row="Camila Ferreira" data-has-receivable="true"><td><b>Camila Ferreira</b><small>(19) 9 8123-4567</small></td><td>R$ 1.284,00</td><td>R$ 1.125,00</td><td><span class="status partial">R$ 159,00</span></td><td>05/09/2026</td><td>›</td></tr><tr data-client-row="Juliana Prado" data-has-receivable="false"><td><b>Juliana Prado</b><small>(19) 9 9211-1098</small></td><td>R$ 898,00</td><td>R$ 898,00</td><td><span class="status paid">R$ 0,00</span></td><td>04/09/2026</td><td>›</td></tr><tr data-client-row="Ana Luiza Sedassari" data-has-receivable="true"><td><b>Ana Luiza Sedassari</b><small>(19) 9 7790-3112</small></td><td>R$ 2.044,00</td><td>R$ 1.704,00</td><td><span class="status partial">R$ 340,00</span></td><td>03/09/2026</td><td>›</td></tr></tbody></table></section>
+          <section class="data-section client-list"><div class="section-heading"><div><h2 data-client-list-title>Lista de clientes</h2><p data-client-list-copy>Busque por nome, telefone ou CPF</p></div><div class="search-field narrow" data-client-search>Buscar cliente</div></div><table><thead><tr><th>Cliente</th><th>Comprou</th><th>Pago</th><th>Em aberto</th><th>Última compra</th><th></th></tr></thead><tbody><tr data-client-row="Camila Ferreira" data-has-receivable="true"><td><b>Camila Ferreira</b><small>(19) 9 8123-4567</small></td><td>R$ 1.284,00</td><td>R$ 1.125,00</td><td><span class="status partial">R$ 159,00</span></td><td>05/09/2026</td><td>›</td></tr><tr data-client-row="Juliana Prado" data-has-receivable="false"><td><b>Juliana Prado</b><small>(19) 9 9211-1098</small></td><td>R$ 898,00</td><td>R$ 898,00</td><td><span class="status paid">R$ 0,00</span></td><td>04/09/2026</td><td>›</td></tr><tr data-client-row="Ana Luiza Sedassari" data-has-receivable="true"><td><b>Ana Luiza Sedassari</b><small>(19) 9 7790-3112</small></td><td>R$ 2.044,00</td><td>R$ 1.704,00</td><td><span class="status partial">R$ 340,00</span></td><td>03/09/2026</td><td>›</td></tr><tr data-client-row="Zilma" data-has-receivable="false"><td><b>Zilma</b><small>Contato não informado</small></td><td>R$ 79,00</td><td>R$ 79,00</td><td><span class="status paid">R$ 0,00</span></td><td>02/09/2026</td><td>›</td></tr></tbody></table></section>
         </section>
 
         <section class="screen" id="reparos" aria-labelledby="repairs-title" hidden>
@@ -516,12 +477,21 @@
         cartEmpty.hidden = items.length > 0;
         launchCart.hidden = items.length === 0;
 
+        let missingPendingDueDate = false;
         payments.forEach((entry) => {
           const info = entry.querySelector('[data-payment-info]');
-          if (!info) return;
-          info.textContent = entry.querySelector('[data-payment-state]').value === 'paid'
-            ? 'Data do pagamento: 12/09/2026'
-            : entry.dataset.paymentDue ? `Vencimento: ${entry.dataset.paymentDue}` : 'Vencimento a definir';
+          const dueField = entry.querySelector('[data-payment-due-field]');
+          const dueInput = entry.querySelector('[data-payment-due-input]');
+          const isPending = entry.querySelector('[data-payment-state]').value === 'pending';
+          if (info) {
+            info.hidden = isPending;
+            info.textContent = 'Data do pagamento: 12/09/2026';
+          }
+          if (dueField) dueField.hidden = !isPending;
+          entry.classList.toggle('is-pending', isPending);
+          const pendingWithoutDate = isPending && !dueInput?.value;
+          entry.classList.toggle('payment-incomplete', pendingWithoutDate);
+          missingPendingDueDate ||= pendingWithoutDate;
         });
 
         const status = launchScreen.querySelector('[data-financial-status]');
@@ -536,18 +506,20 @@
           status.textContent = 'A receber';
           financialCopy.textContent = 'Nenhum valor foi recebido ainda.';
         } else if (totals.receivable > .005) {
-          status.classList.add('partial');
-          status.textContent = 'Parcial';
-          financialCopy.textContent = 'Parte da venda já foi recebida.';
+          status.classList.add('receivable');
+          status.textContent = 'A receber';
+          financialCopy.textContent = `${launchMoney(totals.receivable)} ainda será recebido.`;
         } else {
           status.classList.add('paid');
           status.textContent = 'Pago';
           financialCopy.textContent = 'O valor da venda foi recebido.';
         }
 
-        paymentWarning.hidden = !totals.exceeded;
-        paymentWarning.textContent = totals.exceeded ? `Os pagamentos ultrapassam a venda em ${launchMoney(totals.planned - totals.total)}. Ajuste os valores antes de finalizar.` : '';
-        finalizeSaleButton.disabled = !items.length || totals.exceeded;
+        paymentWarning.hidden = !totals.exceeded && !missingPendingDueDate;
+        paymentWarning.textContent = totals.exceeded
+          ? `Os pagamentos ultrapassam a venda em ${launchMoney(totals.planned - totals.total)}. Ajuste os valores antes de finalizar.`
+          : missingPendingDueDate ? 'Defina o vencimento de cada pagamento pendente antes de finalizar.' : '';
+        finalizeSaleButton.disabled = !items.length || totals.exceeded || missingPendingDueDate;
         launchScreen.querySelector('[data-clear-draft]').disabled = !items.length && !payments.length && selectedCustomer.hidden;
         const draftIndicator = launchScreen.querySelector('[data-draft-indicator]');
         draftIndicator.lastChild.textContent = items.length ? ' Rascunho em andamento' : ' Rascunho vazio';
@@ -657,11 +629,16 @@
           launchScreen.querySelector('[data-price-reason]').focus();
           return;
         }
+        const discount = tablePrice - finalPrice;
         editingCartItem.dataset.price = String(finalPrice);
         editingCartItem.dataset.discountReason = changed ? reason : '';
         const note = editingCartItem.querySelector('.price-note');
         note.hidden = !changed;
-        note.textContent = changed ? `${reason} · tabela ${launchMoney(tablePrice)}` : '';
+        note.textContent = !changed ? '' : discount > 0
+          ? `Desconto de ${launchMoney(discount)} por peça · padrão ${launchMoney(tablePrice)} · ${reason}`
+          : `Preço ajustado · padrão ${launchMoney(tablePrice)} · ${reason}`;
+        editingCartItem.classList.toggle('has-discount', discount > .005);
+        editingCartItem.querySelector('.item-price small').textContent = discount > .005 ? 'Com desconto' : 'Preço final';
         priceDialog.close();
         updateLaunch();
       });
@@ -671,7 +648,7 @@
         entry.className = 'payment-entry';
         entry.dataset.paymentEntry = '';
         entry.dataset.autoBalance = 'false';
-        entry.innerHTML = `<label><span>Valor</span><input type="number" min="0" step="0.01" value="${value.toFixed(2)}" data-payment-amount></label><label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label><label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label><span class="payment-info" data-payment-info>Data do pagamento: 12/09/2026</span><button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>`;
+        entry.innerHTML = `<label><span>Valor</span><input type="number" min="0" step="0.01" value="${value.toFixed(2)}" data-payment-amount></label><label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label><label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label><span class="payment-info" data-payment-info>Data do pagamento: 12/09/2026</span><label class="payment-due-field" data-payment-due-field hidden><span>Vencimento</span><input type="date" min="2026-09-12" data-payment-due-input aria-label="Vencimento do pagamento pendente"></label><button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>`;
         return entry;
       }
 
@@ -778,7 +755,7 @@
       });
       launchScreen.querySelector('[data-new-sale]').addEventListener('click', clearLaunchDraft);
       launchScreen.querySelectorAll('[data-sale-date], [data-sale-channel], [data-sale-note]').forEach((field) => field.addEventListener('input', updateLaunch));
-      updateLaunch();
+      clearLaunchDraft();
 
       const viewButtons = [...document.querySelectorAll('[data-view]')];
       const viewPanels = [...document.querySelectorAll('[data-view-panel]')];
@@ -1227,7 +1204,7 @@
       while (salesTableBody.querySelectorAll('.sale-row').length < salesPageSize) {
         salesTableBody.append(salesRowTemplate.cloneNode(true));
       }
-      const salesRows = [...document.querySelectorAll('.sale-row')];
+      const salesRows = [...document.querySelectorAll('.month-sales .sale-row')];
       const salesPageButtons = [...document.querySelectorAll('[data-sales-page]')];
       const salesPagePrevious = document.querySelector('[data-sales-page-action="previous"]');
       const salesPageNext = document.querySelector('[data-sales-page-action="next"]');
@@ -1246,9 +1223,9 @@
       function buildSaleDetails(row, sale) {
         const detailRow = document.createElement('tr');
         detailRow.className = 'sale-detail-row';
-        detailRow.id = `detalhes-${row.dataset.saleId}`;
+        detailRow.id = `detalhes-${row.dataset.detailScope || 'periodo'}-${row.dataset.saleId}`;
         detailRow.innerHTML = `
-          <td colspan="6">
+          <td colspan="${row.cells.length}">
             <div class="inline-sale-detail">
               <div class="inline-sale-piece">
                 <span class="compact-label">Peças compradas</span>
@@ -1329,14 +1306,15 @@
       }
 
       function showAllClients(customer = '') {
+        const specificCustomer = Boolean(customer);
         clientsContext.textContent = 'Relacionamento';
-        clientsTitle.textContent = 'Clientes';
-        clientsCopy.textContent = 'Compras, pagamentos e valores em aberto aparecem separados.';
-        clientListTitle.textContent = 'Lista de clientes';
+        clientsTitle.textContent = specificCustomer ? customer : 'Clientes';
+        clientsCopy.textContent = specificCustomer ? `Histórico e situação financeira de ${customer}.` : 'Compras, pagamentos e valores em aberto aparecem separados.';
+        clientListTitle.textContent = specificCustomer ? 'Perfil da cliente' : 'Lista de clientes';
         clientListCopy.textContent = customer ? `Cliente selecionada: ${customer}` : 'Busque por nome, telefone ou CPF';
         clientSearch.textContent = customer || 'Buscar cliente';
-        showAllClientsButton.hidden = true;
-        clientRows.forEach((row) => { row.hidden = false; });
+        showAllClientsButton.hidden = !specificCustomer;
+        clientRows.forEach((row) => { row.hidden = specificCustomer && row.dataset.clientRow !== customer; });
         markTargetClient(customer);
       }
 
