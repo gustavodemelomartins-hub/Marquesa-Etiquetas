@@ -4,7 +4,8 @@
 das frentes paralelas; depois, mesmo dia: Fase 4.6 do Claude Refactor
 concluída e branch protegida, `data.workstreams` passa a alimentar o painel;
 por último: **as respostas da Sthefany chegaram** e `DR-005`, `DR-006`,
-`DR-015` e `DR-016` fecharam)
+`DR-015` e `DR-016` fecharam; e, por fim: **o checkpoint oficial do Codex
+`a6d7c6b` entrou no painel** — Vendas V2 em refinamento, não concluída)
 **Fonte:** auditoria estrutural completa (branches locais/remotas, commits, docs/ux,
 docs/ui, docs/domains da branch paralela, código legado e React), mais leitura
 read-only do D1 de produção e de `wrangler deployments` em 11/09/2026
@@ -81,7 +82,7 @@ movimentos / 19 vendas validados, reconciliação zero — ver Master Plan §2.
 | INV-001 | Backend Fase 4.4 — inventário físico: 5 rotas preservadas + 7 novas, migration, 22+9 testes | **mesclado na V2**; 22 provas + 9 travas verdes, razão fechando | **`S1`–`S6` fecharam** (`DR-006`): a régua de variação é o aro do anel, e o desenho de inventário pausado **fica** por decisão explícita. Resta o técnico — migration não aplicada em lugar nenhum. PROD está congelada: o alvo é o D1 do DEV |
 | INV-002 | UX de Inventário — 9 blocos, 5 mockups, embutido em Estoque | `docs/ux/03-screens/estoque/`; estado: **descrito** (não é o degrau final) | fórmulas de "Saúde do estoque"/"valor estimado" ainda abertas (`EST-Q*`) |
 | MON-002 | UX de Personalização (Monte seu Colar) | `docs/ux/03-screens/personalizacao/`; estado: **recebendo** | posições/repetição de criança (`VEN-Q016`–`VEN-Q018`) |
-| VEN-001 | UX completa de Vendas — 13 blocos, 8 mockups, editor de desconto por peça, pagamento composto | `docs/ux/03-screens/vendas/`; estado: **descrito** | 35 decisões abertas (`VEN-Q001`–`VEN-Q035`) |
+| VEN-001 | UX completa de Vendas — 13 blocos, 8 mockups, editor de desconto por peça, pagamento composto | `docs/ux/03-screens/vendas/`; estado: **UX/UI em refinamento** — checkpoint `a6d7c6b` traz protótipo parcialmente navegável, matriz de interações e handoff. **Não é `UX/UI DESIGNED`** e não é DONE | fechar as interações locais incompletas (lançamento, pagamento, estados, responsivo) e as 35 decisões abertas (`VEN-Q001`–`VEN-Q035`) |
 | CLI-001 | React de Clientes — só busca global implementada e testada, sem ficha/CRUD | `frontend/src/app/BuscaGlobalClientes.tsx` | ficha completa ainda não começou |
 | REV-001 | React de Maletas — criação em dois passos sem endpoint atômico (risco documentado no próprio código) | `frontend/src/features/maletas/` | endpoint atômico de criação, ou aceitar o risco por decisão explícita |
 | REV-002 | React de Revendedoras — visão geral + ficha completas e testadas | `frontend/src/features/revendedoras/` | paridade de acerto/comissão com o legado ainda não confirmada ponta a ponta |
@@ -227,23 +228,32 @@ as outras três dependem, e ela aparece aqui porque "o que está esperando
 resposta de pessoa" era justamente o que o painel não sabia dizer. A regra de
 propriedade abaixo vale só para as três primeiras.
 
-### Estado por frente (atualizado 11/09/2026, revisão da noite)
+### Estado por frente (atualizado 11/09/2026, revisão da noite; card do Codex
+sincronizado com o checkpoint `a6d7c6b`)
 
 #### CODEX — frontend / UX V2
 
 | | |
 |---|---|
 | Fase | redesign V2 das telas (sem numeração de fase de backend) |
-| Item/subetapa | painel/tela atual em refinamento visual |
-| Status | **EM ANDAMENTO** — trabalho visual local, Gustavo ainda refinando |
-| Progresso | não quantificado — não considerar o frontend encerrado |
-| Tarefa atual | concluir o trabalho visual da tela atual |
-| Último concluído | 9 mockups de Vendas, protótipo mestre (`9bbf712`), taxonomia de docs |
-| Próximo | concluir trabalho visual atual → aprovação do Gustavo → commit → revisão posterior |
-| Bloqueios | nenhum técnico conhecido |
-| Aguardando Gustavo | sim — aprovação visual |
+| Tela atual | **Vendas V2** |
+| Item/subetapa | checkpoint oficial do redesign de Vendas — protótipo HTML/CSS parcialmente navegável |
+| Status | **UX/UI EM REFINAMENTO** — design principal avançado, interações pendentes |
+| Progresso | não quantificado — a tela de Vendas **não** está concluída e `UX/UI DESIGNED` **não** foi atingido |
+| Tarefa atual | refinamento da tela de Vendas |
+| Último concluído | checkpoint visual de Vendas · matriz de interações · handoff inicial · padrões reutilizáveis · documentação do design system · `WORKLOG-CODEX.md` atualizado |
+| Interações já navegáveis no protótipo | tabs · presets · intervalo personalizado · sincronização das barras das análises · alternância entre análises · lista completa · paginação · expansão inline da venda · navegação por teclado · contexto da cliente · menu do perfil · acesso a Saídas sem faturamento |
+| Interações ainda incompletas | venda normal · Monte seu Colar · busca/inclusão de itens · edição de preço · cadastro rápido · pagamentos múltiplos · parcelamento · finalização · confirmações · registro/estorno de saídas · filtros auxiliares · empty/loading/error · comportamento final tablet/mobile |
+| Dependem de telas futuras | `Ver recebimentos` e `Pendente` → Clientes/Recebimentos · reparos → Reparos · Estoque · Revendedoras · Etiquetas · sino → Central de notificações · Meu perfil/Preferências → conta/configurações. **Esses destinos não são falha da tela de Vendas atual** |
+| Próximo | revisar e fechar as interações locais da própria tela → continuar a validação visual com o Gustavo → diferenciar interação local de navegação para tela futura → **só então** promover a `UX/UI DESIGNED` |
+| Bloqueios | nenhum técnico para continuar o refinamento visual local |
+| Aguardando Gustavo | sim — validação visual |
 | Aguardando Sthefany | não |
-| Último commit conhecido | `52f5f5f` — idêntico à V2; sem SHA final novo conhecido, tratar como trabalho local/em andamento |
+| Branch | `codex/ui-system-marquesa` |
+| Working tree no checkpoint | limpa |
+| Último commit conhecido | `a6d7c6b` — `docs(ux): checkpoint vendas v2 refinement`; **não pushado** |
+| O que este checkpoint **não** significa | Vendas concluída · `UX/UI DESIGNED` · React implementado · backend integrado · DEV atualizado · PROD atualizado |
+| Detalhe completo | [WORKLOG-CODEX.md](WORKLOG-CODEX.md) e `docs/ux/03-screens/vendas/` no commit `a6d7c6b` — este painel é o resumo operacional, o worklog é o registro detalhado |
 
 #### CLAUDE REFACTOR — backend / domínios
 
@@ -285,16 +295,16 @@ propriedade abaixo vale só para as três primeiras.
 | | |
 |---|---|
 | Fase | não numerada — governança/auditoria corre em paralelo às fases numeradas do Refactor |
-| Item/subetapa | consolidação das respostas finais da Sthefany nas fontes canônicas |
+| Item/subetapa | consolidação das respostas finais da Sthefany e sincronização do painel com o checkpoint `a6d7c6b` do Codex |
 | Status | **respostas de negócio consolidadas** — o que resta na frente é técnico: integração, review e verificação. PROD continua congelada |
 | Progresso | 15 decisões fechadas (11 em `DR-002`–`DR-014`, mais `DR-005`, `DR-006`, `DR-015`, `DR-016`); `P2` e a classe de `P17` fechadas; 2 decisões novas abertas para o Gustavo (`DR-017`, `DR-018`) |
-| Tarefa atual | este commit — consolidação documental + painel |
+| Tarefa atual | este commit — o card do Codex passa a refletir o checkpoint oficial `a6d7c6b` em vez de `52f5f5f` |
 | Último concluído | `DOC-005` — respostas da Sthefany integradas em `REGRAS.md`, `PENDENTES.md`, Master Plan e 3 documentos de domínio |
-| Próximo | revisar os commits do Codex quando chegarem; planejar (sem executar) a transformação do saldo legado de `326660` e a execução de `SAI-002` |
+| Próximo | revisar o conteúdo do checkpoint `a6d7c6b` (matriz de interações, handoff, padrões) quando o Codex pedir revisão; planejar (sem executar) a transformação do saldo legado de `326660` e a execução de `SAI-002` |
 | Bloqueios | nenhum |
 | Aguardando Gustavo | não |
 | Aguardando Sthefany | **não** — `DR-005`, `DR-006`, `DR-015` e `DR-016` fecharam em 11/09/2026 |
-| Último commit conhecido | `510afa5` |
+| Último commit conhecido | `8b306ad` — último estado confirmado antes desta rodada |
 
 ### Duas worktrees fora das três frentes oficiais
 

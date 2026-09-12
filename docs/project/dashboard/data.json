@@ -1,10 +1,18 @@
 {
-  "gerado": "2026-09-11",
+  "gerado": "2026-09-12",
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
   "atualizadoEm": "2026-09-11",
   "git": {
     "branch": "claude/review-marquesa-v2",
     "recentes": [
+      {
+        "commit": "8b306ad",
+        "data": "2026-09-11",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(decisoes): as respostas da Sthefany fecham DR-005/006/015/016",
+        "agente": "",
+        "taskIds": []
+      },
       {
         "commit": "510afa5",
         "data": "2026-09-11",
@@ -198,14 +206,6 @@
         "assunto": "test(catalogo): as dezenove provas da 4.5 contra o schema real",
         "agente": "",
         "taskIds": []
-      },
-      {
-        "commit": "7b7eefa",
-        "data": "2026-09-10",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(publicacao): os estados mortos ganham writer, e a escrita nasce desligada",
-        "agente": "",
-        "taskIds": []
       }
     ]
   },
@@ -370,8 +370,8 @@
       "estado": "IN PROGRESS",
       "dominio": "Vendas",
       "titulo": "UX completa de Vendas — 13 blocos, 8 mockups, editor de desconto por peça, pagamento composto",
-      "contexto": "docs/ux/03-screens/vendas/; estado: descrito",
-      "nota": "35 decisões abertas (VEN-Q001–VEN-Q035)"
+      "contexto": "docs/ux/03-screens/vendas/; estado: UX/UI em refinamento — checkpoint a6d7c6b traz protótipo parcialmente navegável, matriz de interações e handoff. Não é UX/UI DESIGNED e não é DONE",
+      "nota": "fechar as interações locais incompletas (lançamento, pagamento, estados, responsivo) e as 35 decisões abertas (VEN-Q001–VEN-Q035)"
     },
     {
       "id": "CLI-001",
@@ -1536,8 +1536,8 @@
           "estado": "IN PROGRESS",
           "dominio": "Vendas",
           "titulo": "UX completa de Vendas — 13 blocos, 8 mockups, editor de desconto por peça, pagamento composto",
-          "contexto": "docs/ux/03-screens/vendas/; estado: descrito",
-          "nota": "35 decisões abertas (VEN-Q001–VEN-Q035)"
+          "contexto": "docs/ux/03-screens/vendas/; estado: UX/UI em refinamento — checkpoint a6d7c6b traz protótipo parcialmente navegável, matriz de interações e handoff. Não é UX/UI DESIGNED e não é DONE",
+          "nota": "fechar as interações locais incompletas (lançamento, pagamento, estados, responsivo) e as 35 decisões abertas (VEN-Q001–VEN-Q035)"
         },
         {
           "id": "VEN-002",
@@ -2398,16 +2398,24 @@
       "titulo": "CODEX — frontend / UX V2",
       "campos": {
         "fase": "redesign V2 das telas (sem numeração de fase de backend)",
-        "item/subetapa": "painel/tela atual em refinamento visual",
-        "status": "EM ANDAMENTO — trabalho visual local, Gustavo ainda refinando",
-        "progresso": "não quantificado — não considerar o frontend encerrado",
-        "tarefa atual": "concluir o trabalho visual da tela atual",
-        "último concluído": "9 mockups de Vendas, protótipo mestre (9bbf712), taxonomia de docs",
-        "próximo": "concluir trabalho visual atual → aprovação do Gustavo → commit → revisão posterior",
-        "bloqueios": "nenhum técnico conhecido",
-        "aguardando gustavo": "sim — aprovação visual",
+        "tela atual": "Vendas V2",
+        "item/subetapa": "checkpoint oficial do redesign de Vendas — protótipo HTML/CSS parcialmente navegável",
+        "status": "UX/UI EM REFINAMENTO — design principal avançado, interações pendentes",
+        "progresso": "não quantificado — a tela de Vendas não está concluída e UX/UI DESIGNED não foi atingido",
+        "tarefa atual": "refinamento da tela de Vendas",
+        "último concluído": "checkpoint visual de Vendas · matriz de interações · handoff inicial · padrões reutilizáveis · documentação do design system · WORKLOG-CODEX.md atualizado",
+        "interações já navegáveis no protótipo": "tabs · presets · intervalo personalizado · sincronização das barras das análises · alternância entre análises · lista completa · paginação · expansão inline da venda · navegação por teclado · contexto da cliente · menu do perfil · acesso a Saídas sem faturamento",
+        "interações ainda incompletas": "venda normal · Monte seu Colar · busca/inclusão de itens · edição de preço · cadastro rápido · pagamentos múltiplos · parcelamento · finalização · confirmações · registro/estorno de saídas · filtros auxiliares · empty/loading/error · comportamento final tablet/mobile",
+        "dependem de telas futuras": "Ver recebimentos e Pendente → Clientes/Recebimentos · reparos → Reparos · Estoque · Revendedoras · Etiquetas · sino → Central de notificações · Meu perfil/Preferências → conta/configurações. Esses destinos não são falha da tela de Vendas atual",
+        "próximo": "revisar e fechar as interações locais da própria tela → continuar a validação visual com o Gustavo → diferenciar interação local de navegação para tela futura → só então promover a UX/UI DESIGNED",
+        "bloqueios": "nenhum técnico para continuar o refinamento visual local",
+        "aguardando gustavo": "sim — validação visual",
         "aguardando sthefany": "não",
-        "último commit conhecido": "52f5f5f — idêntico à V2; sem SHA final novo conhecido, tratar como trabalho local/em andamento"
+        "branch": "codex/ui-system-marquesa",
+        "working tree no checkpoint": "limpa",
+        "último commit conhecido": "a6d7c6b — docs(ux): checkpoint vendas v2 refinement; não pushado",
+        "o que este checkpoint não significa": "Vendas concluída · UX/UI DESIGNED · React implementado · backend integrado · DEV atualizado · PROD atualizado",
+        "detalhe completo": "WORKLOG-CODEX.md e docs/ux/03-screens/vendas/ no commit a6d7c6b — este painel é o resumo operacional, o worklog é o registro detalhado"
       }
     },
     {
@@ -2445,16 +2453,16 @@
       "titulo": "CLAUDE REVIEW — arquitetura / auditoria / governança",
       "campos": {
         "fase": "não numerada — governança/auditoria corre em paralelo às fases numeradas do Refactor",
-        "item/subetapa": "consolidação das respostas finais da Sthefany nas fontes canônicas",
+        "item/subetapa": "consolidação das respostas finais da Sthefany e sincronização do painel com o checkpoint a6d7c6b do Codex",
         "status": "respostas de negócio consolidadas — o que resta na frente é técnico: integração, review e verificação. PROD continua congelada",
         "progresso": "15 decisões fechadas (11 em DR-002–DR-014, mais DR-005, DR-006, DR-015, DR-016); P2 e a classe de P17 fechadas; 2 decisões novas abertas para o Gustavo (DR-017, DR-018)",
-        "tarefa atual": "este commit — consolidação documental + painel",
+        "tarefa atual": "este commit — o card do Codex passa a refletir o checkpoint oficial a6d7c6b em vez de 52f5f5f",
         "último concluído": "DOC-005 — respostas da Sthefany integradas em REGRAS.md, PENDENTES.md, Master Plan e 3 documentos de domínio",
-        "próximo": "revisar os commits do Codex quando chegarem; planejar (sem executar) a transformação do saldo legado de 326660 e a execução de SAI-002",
+        "próximo": "revisar o conteúdo do checkpoint a6d7c6b (matriz de interações, handoff, padrões) quando o Codex pedir revisão; planejar (sem executar) a transformação do saldo legado de 326660 e a execução de SAI-002",
         "bloqueios": "nenhum",
         "aguardando gustavo": "não",
         "aguardando sthefany": "não — DR-005, DR-006, DR-015 e DR-016 fecharam em 11/09/2026",
-        "último commit conhecido": "510afa5"
+        "último commit conhecido": "8b306ad — último estado confirmado antes desta rodada"
       }
     },
     {
