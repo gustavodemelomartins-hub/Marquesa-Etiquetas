@@ -24,7 +24,7 @@ Suíte inteira por reflexo é desperdício. Escolha pelo que mudou:\r
 \r
 Pré-requisitos: Worker local (`npx wrangler dev --local --port 8787`), banco\r
 **limpo**, e `python -m http.server 8000` para os testes de navegador.\r
-Catálogo: `docs/TESTING.md`.\r
+Catálogo: `docs/testing/TESTING.md`.\r
 \r
 ## Limites\r
 \r
