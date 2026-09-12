@@ -380,7 +380,8 @@
       "mode": "local",
       "description": "Regras puras sem Worker/navegador/rede",
       "gates": [
-        "domain"
+        "domain",
+        "release"
       ],
       "commands": [
         {
@@ -495,6 +496,12 @@
           "bin": "node",
           "args": [
             "src/garantia-venda-item-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/garantias-ciclo-test.mjs"
           ]
         },
         {
