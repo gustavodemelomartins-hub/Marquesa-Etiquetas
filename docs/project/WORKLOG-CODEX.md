@@ -305,3 +305,16 @@ recolhendo todos os detalhes para não deixar informação antiga na tela.
 simultâneos, fechamento independente, abertura por `Enter`, recolhimento na
 paginação, ausência do rótulo `Parcial`, ARIA e overflow horizontal. Foram 14
 verificações direcionadas, todas verdes.
+
+---
+
+## 2026-09-12 — `VEN-001`: 10 vendas por página
+
+`Evolução por mês → Vendas do período` passou de 5 para até 10 vendas por
+página. O protótipo agora mantém dez registros amostrais distintos, evitando
+repetição de identidade e colisão entre detalhes expandidos.
+
+**Validação:** Playwright/Chromium em `390px` e `1440px`: 10 linhas visíveis,
+10 identidades únicas, 10 detalhes simultâneos, rodapé `1 a 10`, segunda página
+`11 a 20`, recolhimento dos detalhes na paginação e zero overflow horizontal.
+Foram 14 verificações direcionadas, todas verdes.

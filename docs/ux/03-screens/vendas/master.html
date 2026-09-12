@@ -730,14 +730,49 @@
           financial: 'Pago', financialClass: 'paid',
           items: [['Pulseira Ponto de Luz', 'SKU 743102 · Ouro 18k', 1, 69]],
           payments: [['Cartão de crédito', 'R$ 69,00', 'Recebido em 01/09/2026', 'paid']]
+        },
+        'venda-1053': {
+          reference: 'Venda #1053', customer: 'Beatriz Rocha', channel: 'WhatsApp', total: 148, received: 0, pending: 148,
+          financial: 'A receber', financialClass: 'receivable',
+          items: [['Colar Coração Vazado', 'SKU 392441 · Ouro 18k', 1, 79], ['Pulseira Ponto de Luz', 'SKU 743102 · Ouro 18k', 1, 69]],
+          payments: [['Pagamento pendente', 'R$ 148,00', 'Vence em 16/09/2026', 'receivable']]
+        },
+        'venda-1052': {
+          reference: 'Venda #1052', customer: 'Maria Eduarda Lima', channel: 'Balcão', total: 198, received: 198, pending: 0,
+          financial: 'Pago', financialClass: 'paid',
+          items: [['Colar Cordão Baiano', 'SKU 996655 · Ouro 18k', 1, 129], ['Pulseira Ponto de Luz', 'SKU 743102 · Ouro 18k', 1, 69]],
+          payments: [['PIX', 'R$ 198,00', 'Recebido em 31/08/2026', 'paid']]
+        },
+        'venda-1051': {
+          reference: 'Venda #1051', customer: 'Fernanda Alves', channel: 'Balcão', total: 136, received: 136, pending: 0,
+          financial: 'Pago', financialClass: 'paid',
+          items: [['Pulseira Medalha Salmo', 'SKU 451109 · Ouro 18k', 1, 136]],
+          payments: [['Dinheiro', 'R$ 136,00', 'Recebido em 30/08/2026', 'paid']]
+        },
+        'venda-1050': {
+          reference: 'Venda #1050', customer: 'Patrícia Nunes', channel: 'Balcão', total: 218, received: 100, pending: 118,
+          financial: 'A receber', financialClass: 'receivable',
+          items: [['Brinco Ponto de Luz', 'SKU 122060 · Ouro 18k', 1, 89], ['Monte seu Colar · Casal', 'SKU 326660 · composição confirmada', 1, 129]],
+          payments: [['PIX', 'R$ 100,00', 'Recebido em 29/08/2026', 'paid'], ['Saldo restante', 'R$ 118,00', 'Vence em 15/09/2026', 'receivable']]
+        },
+        'venda-1049': {
+          reference: 'Venda #1049', customer: 'Isabela Martins', channel: 'Maleta', total: 89, received: 89, pending: 0,
+          financial: 'Pago', financialClass: 'paid',
+          items: [['Brinco Ponto de Luz', 'SKU 122060 · Ouro 18k', 1, 89]],
+          payments: [['PIX', 'R$ 89,00', 'Recebido em 28/08/2026', 'paid']]
         }
       };
 
+      const salesPageSize = 10;
+      const salesTableBody = document.querySelector('.month-sales tbody');
+      const salesRowTemplate = salesTableBody.querySelector('.sale-row:last-of-type');
+      while (salesTableBody.querySelectorAll('.sale-row').length < salesPageSize) {
+        salesTableBody.append(salesRowTemplate.cloneNode(true));
+      }
       const salesRows = [...document.querySelectorAll('.sale-row')];
       const salesPageButtons = [...document.querySelectorAll('[data-sales-page]')];
       const salesPagePrevious = document.querySelector('[data-sales-page-action="previous"]');
       const salesPageNext = document.querySelector('[data-sales-page-action="next"]');
-      const salesPageSize = salesRows.length;
       let salesCurrentPage = 1;
       let salesListState = null;
 

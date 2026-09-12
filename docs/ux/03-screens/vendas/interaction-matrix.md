@@ -41,7 +41,7 @@ registra um destino sem obrigar sua criação nesta rodada.
 | Barra do gráfico | Desempenho de vendas | selecionar o recorte e sincronizar o conteúdo inferior | LOCAL | Informações do período | implementado | Sim | Não | atualiza Análise detalhada e Evolução por mês |
 | Análise detalhada / Evolução por mês | Informações do período | alternar a apresentação da mesma seleção | LOCAL | painel analítico correspondente | implementado | Sim | Não | não cria recortes independentes |
 | Ver lista completa | Produtos mais vendidos | expandir/recolher ranking | LOCAL | própria tabela | implementado | Sim | Não | mostra 5 ou 10 linhas ilustrativas |
-| Paginação 1–3 e setas | Vendas do período | trocar página da seleção | LOCAL | própria tabela | implementado | Sim | Não | dados amostrais, não consulta API |
+| Paginação 1–3 e setas | Vendas do período | trocar página da seleção | LOCAL | própria tabela | implementado | Sim | Não | mostra até 10 vendas por página; dados amostrais, não consulta API |
 | Linha de venda / seta | Vendas do período | expandir detalhes compactos abaixo da linha | LOCAL | detalhe inline | implementado | Sim | Não | funciona por clique, Enter e Espaço; várias vendas podem permanecer abertas e cada uma recolhe independentemente |
 | Nome da cliente | linha da venda | abrir o contexto da cliente | NAVEGAÇÃO | Clientes | simulação contextual | Parcial | Sim | destino final da cliente ainda precisa ser desenhado |
 | Pendente | detalhe inline | abrir recebíveis da cliente | FUTURA TELA | Clientes / Recebimentos | simulação contextual | Parcial | Sim | destino oficial ainda não desenhado |
