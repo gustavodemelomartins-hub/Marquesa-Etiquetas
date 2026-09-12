@@ -690,3 +690,231 @@ Fica para 5.4.
 2. `vendas_historico_itens` não tem equivalente a migrar — `historico_item_id`
    já é chave primária real;
 3. a trava por linha (item acima) fica para 5.4.
+
+---
+
+## 21. Fase 5.4 — auditoria de GAR-101 / GAR-102
+
+Rodada de **diagnóstico**, 12/09/2026. Nada foi implementado aqui. O que
+segue foi apurado por leitura **e** por sonda de caracterização executada
+contra `api/schema.sql` real: os blocos marcados `sonda` são saída de
+execução, não inferência.
+
+### 21.1 O ciclo, item a item
+
+| # | Item | Estado |
+|---|---|---|
+| 1 | abertura | correto — valida motivo, data futura e prazo inteiro |
+| 2 | peça via `venda_item_id` | correto desde 5.2b; trio só como legado |
+| 3 | cliente | correto — §2 respeitado, venda ambígua não pendura na ficha errada |
+| 4 | data da venda | correto — copiada e congelada na abertura |
+| 5 | prazo de 45 dias úteis | cálculo correto, **exibição com defeito** (bug 1) |
+| 6 | estados | **não existe máquina de estados** (bug 2) |
+| 7 | eventos | incompleto — falta o evento do caminho normal (bug 3) |
+| 8 | envio para reparo | é o estado inicial; não há registro de quem levou |
+| 9 | retorno do reparo | `reparada` → `devolvida`, correto |
+| 10 | troca | correto — barra kit, montável e saldo zero; uma troca por garantia |
+| 11 | diferença de valor | correto, incluindo a recusa da negativa |
+| 12 | limite de troca | correto — `idx_gar_troca_unica` |
+| 13 | encerramento | correto, mas `encerrada_em` some ao reabrir (bug 2) |
+| 14 | histórico | evento nunca sobrescreve; ver bugs 3 e 4 |
+| 15 | cancelamento | backend pronto, **sem caminho na tela** |
+| 16 | impacto financeiro | correto — dupla contagem barrada dos dois lados |
+| 17 | impacto em estoque | correto — peça nova sai uma vez, defeituosa nunca volta |
+| 18 | Saída sem faturamento | **sem relação, por desenho** |
+| 19 | ficha da cliente | correto desde 5.2b |
+| 20 | vendas históricas | correto — abre sem valor, e a troca **exige** o valor |
+
+Sobre o item 18: `saidas_sem_faturamento.tipo` só aceita `brinde`,
+`uso_proprio`, `perda` e `sorteio`. A troca de garantia não passa por essa
+tabela — sai por `movimentos`, tipo `troca`, origem `troca_garantia`. A peça
+defeituosa nunca reentra no estoque, então também não há saída a registrar
+por ela. São dois mecanismos distintos para dois fatos distintos.
+
+### 21.2 Estados e transições reais
+
+Seis estados; `PENDENTES = em_reparo | reparada | sem_conserto`. Qualquer
+estado vai para qualquer outro: a única trava é "garantia com troca
+registrada não volta para `em_reparo` nem `cancelada`".
+
+```
+sonda:
+  devolvida -> em_reparo aceito?          true   (e encerrada_em vira null)
+  concluida -> cancelada aceito?          true
+  troca em garantia CONCLUIDA aceita?     true   (status volta a sem_conserto)
+```
+
+### 21.3 APIs e tabelas
+
+Oito rotas: `GET /api/garantias`, `/pendentes`, `/vinculos`, `/:id`;
+`POST /api/garantias`, `/:id/status`, `/:id/troca`, `/:id/troca/pagar`,
+`/:id/troca/estornar`.
+
+Tabelas próprias: `garantias`, `garantia_eventos`, `garantia_trocas`,
+`feriados`. Escreve também em `vendas`, `venda_itens` e `movimentos`.
+
+### 21.4 Testes existentes — o achado mais sério
+
+A cobertura HTTP existe e é boa (`pacote-vendas-test.mjs`,
+`pos-golive-1-test.mjs`, `revisao-pre-golive-test.mjs`). Mas todas vivem na
+suíte `worker-local`, que é `mode: catalog-only` e `gates: []` — **não roda
+em gate nenhum**.
+
+Os únicos testes de garantia que rodam em CI são os de 5.2 e 5.2b. Antes de
+5.2b, o domínio que mexe em estoque e faturamento tinha **zero** cobertura
+executada. `estornarTroca` nunca teve teste até 5.2b.
+
+### 21.5 Bugs
+
+**Bug 1 — o atraso nunca para de correr.** `prazoDaGarantia` compara com hoje
+e ignora `encerrada_em`.
+
+```
+sonda: status devolvida · encerradaEm 2026-01-20
+       atrasado true · atrasoDiasUteis 134 · diasUteisDecorridos 179
+```
+
+Caso entregue no prazo aparece "atrasada 134 dias úteis" para sempre na ficha
+da cliente. Não exige decisão de produto: caso encerrado não atrasa mais.
+
+**Bug 2 — reabrir apaga a data de encerramento.** `devolvida → em_reparo`
+grava `encerrada_em = NULL`. A data da entrega some, e §28 diz que histórico
+não se apaga. **AGUARDANDO REGRA DE ESTADOS** — o significado da coluna
+depende da máquina de estados, que ainda não foi decidida. O requisito que já
+é absoluto: nenhum encerramento histórico pode sumir.
+
+**Bug 3 — o pagamento normal não entra na linha do tempo.**
+
+```
+sonda (recebendo pela tela A Receber, o caminho de §36):
+  diferencaStatus              paga
+  tipos de evento              aberta,troca
+  tem evento diferenca_paga?   false
+```
+
+O dinheiro fecha nos dois lugares — `receberConta` cuida disso —, mas a linha
+do tempo da garantia mente por omissão. Só `POST /troca/pagar` gera o evento,
+e nenhuma tela usa essa rota.
+
+**Bug 4 — o estorno apaga a troca.** `estornarTroca` faz
+`DELETE FROM garantia_trocas`. Somem `valor_original`, `valor_novo`,
+`movimento_id` e `data`; sobra o evento com `{skuNovo, diferenca, vendaId}`.
+
+O repositório já tem a regra e o precedente, em `saidas.js`:
+
+> *Estornar NÃO apaga. Um segundo movimento devolve a peça, e a linha
+> continua no histórico dizendo que houve, e que foi desfeita. Soft delete
+> sem rastro deixaria o estoque certo e a explicação perdida.*
+
+Três linhas acima do `DELETE`, o mesmo arquivo **cancela** a venda em vez de
+apagá-la, citando §28. A troca é o outlier.
+
+**Bug 5 — garantia sobre venda cancelada depois.** `abrirGarantia` recusa
+venda cancelada; nada reconfere em seguida.
+
+```
+sonda: venda cancelada após a abertura -> troca ainda aceita: true
+```
+
+Sai peça do estoque por uma compra que não existe mais, sem aviso.
+
+### 21.6 A trava de garantia dupla
+
+Como funcionava até esta auditoria: `status IN (em_reparo, reparada,
+sem_conserto) AND venda_id = ? AND sku = ?` — **por código, não por unidade**.
+
+```
+sonda:
+  1a garantia (unidade A)                        true
+  2a unidade FISICA do mesmo codigo (B)          RECUSADA: ja tem a garantia 1
+  depois que a 1a encerra                        aceita
+  reabrir a unidade A (garantia de B em aberto)  RECUSADA: ja tem a garantia 2
+```
+
+Cenário bloqueado: a cliente compra dois anéis iguais, um solta a pedra em
+setembro e o outro descasca em outubro. O segundo caso não abre enquanto o
+primeiro estiver em reparo.
+
+A razão histórica era legítima: com o trio como identidade, duas linhas
+pendentes do mesmo código eram mesmo indistinguíveis, e a trava larga
+compensava a identidade fraca. 5.2b removeu a causa; a compensação ficou.
+
+**DECISÃO DE PRODUTO, fechada em 12/09/2026:** a garantia passa a ser por
+**unidade física**, por `venda_item_id`. Duas unidades com ids distintos na
+mesma venda podem ter garantias simultâneas.
+
+A compatibilidade é conservadora e não foi afrouxada: garantia antiga sem
+ponteiro confiável (`ambiguo`, `sem_match`, legado sem identidade) continua
+sob a trava larga por `(venda_id, sku)`. Distinguir unidades por suposição
+seria exatamente o chute que 5.2b se recusou a dar.
+
+### 21.7 GAR-102 — `POST /api/garantias/:id/troca/estornar`
+
+Veredito: **correta e necessária, nunca chamada pela UI, e com um defeito
+interno** (o `DELETE` do bug 4).
+
+| Aspecto | Achado |
+|---|---|
+| Rota | existe, `bearer`, inventariada |
+| Comando | `estornarTroca(db, id, { motivo })`, motivo obrigatório |
+| Tabelas | `movimentos` (+1), `vendas` (cancela), `garantia_trocas` (**DELETE**), `garantia_eventos` (+1) |
+| Estoque | devolve 1 da peça nova, tipo `ajuste`, origem `estorno` — correto, razão fecha |
+| Financeiro | cancela a venda de §36; recusa quando a diferença já foi paga |
+| Idempotência | segunda chamada devolve 404; não devolve estoque duas vezes |
+| Reversibilidade | não há "des-estornar"; registra-se a troca de novo |
+| Testes | nenhum até 5.2b; hoje duas provas |
+| Call site | **nenhum**, no legado e no React |
+| Documentação | `LEGACY-PARITY-AUDIT` linha 111 já o marcava `BACKEND READY` |
+
+É necessária porque a troca baixa estoque, e um SKU digitado errado não se
+corrige apagando linha. Sem ela, o único conserto é escrita manual no banco.
+Não foi removida nem ativada.
+
+### 21.8 Classificação
+
+**Corrigível sem decisão de produto:** bugs 1, 3, 4 e 5; trazer a cobertura
+de garantias para um gate que roda; `api/REGRAS.md` §31 dizendo que a
+garantia ainda não migrou (obsoleto desde 5.2b); comentário de
+`movimentos.tipo` no schema sem `troca_garantia` nem `estorno`.
+
+**Precisa de decisão humana:** trava de garantia dupla (**fechada**: por
+unidade); diferença negativa (**aberta** — crédito, reembolso ou nada);
+máquina de estados (**aberta**); resolver as garantias `ambiguo`/`sem_match`
+(**aberta**, exige gente olhando qual peça voltou).
+
+**Depende do Codex (`AGUARDANDO HANDOFF CODEX`):** botão de estorno de troca;
+caminho para cancelar garantia (o backend aceita `cancelada`, mas o estado
+sequer aparece no `GAR_STATUS` do painel); tela de resolução de vínculo
+ambíguo; qualquer redesenho da tela de Garantias.
+
+### 21.9 Subetapas
+
+| | Subetapa | Por que nesta ordem |
+|---|---|---|
+| 5.4a | caracterização do ciclo inteiro, **rodando em gate** | rede antes de mexer; sem isso qualquer correção é fé |
+| 5.4b | bugs 1 e 5 + as duas correções de documentação | os mais baratos, sem decisão de produto e sem contrato |
+| 5.4c | bug 3 — evento no caminho de `receberConta` | aditivo, mas atravessa `contas-receber.js` |
+| 5.4d | bug 4 / GAR-102 — estorno auditável | mexe em schema e em contrato de leitura |
+
+### 21.10 Riscos
+
+- **o maior**: mexer em garantias hoje é mexer sem rede, porque a suíte que
+  cobre o domínio não roda em gate nenhum. Daí 5.4a vir primeiro;
+- 5.4d toca `idx_gar_troca_unica`: índice único vira parcial, e isso é
+  mudança de schema com gate próprio;
+- 5.4c atravessa `contas-receber.js`, que serve também venda comum e
+  histórico — o risco é vazar evento para conta que não é de troca;
+- a trava por unidade é irreversível na prática: garantias abertas sob a
+  regra nova não voltam atrás;
+- nenhum risco em produção nesta rodada: nada foi executado lá.
+
+### 21.11 O que só o dado real responde
+
+**PRECISA DE AUDITORIA READ-ONLY FUTURA EM PROD**
+
+1. quantas garantias reais caem em `ambiguo` e `sem_match` no backfill de
+   5.2b;
+2. se alguma cliente já teve o segundo caso legítimo recusado pela trava
+   larga.
+
+Nenhum dos dois é conhecível sem dado real. PROD não foi consultado.
