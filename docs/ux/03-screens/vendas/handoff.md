@@ -35,7 +35,8 @@ ação em progresso, recusa, resultado incerto, confirmação e recuperação.
 
 As ações locais priorizadas são: alternar superfícies, selecionar período,
 selecionar barra, alternar análise, expandir ranking, paginar vendas e abrir
-detalhe inline. Lançar venda, compor produto, editar preço, distribuir
+quantos detalhes inline forem necessários, com recolhimento independente.
+Lançar venda, compor produto, editar preço, distribuir
 pagamentos, parcelar, finalizar e registrar saída ainda precisam de simulação
 ou especificação final.
 

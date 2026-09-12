@@ -52,6 +52,8 @@ limite de itens por página, o que não pode ser editado inline.
 | UX-VEN-015 | o caminho simples registra uma venda integral em poucos segundos; misto e parcelado usam expansão progressiva | manter velocidade no balcão sem eliminar casos avançados | sim · Gustavo, 10/09/2026 |
 | UX-VEN-016 | o preço unitário da linha abre a edição do preço final cobrado; desconto e percentual são derivados e o motivo é obrigatório | reproduzir a linguagem do balcão e impedir preço diferente sem explicação | sim · regra vigente + Gustavo, 10/09/2026 |
 | UX-VEN-017 | quando somente parte das unidades iguais recebe outro preço, a linha é separada automaticamente | preservar desconto realmente individual sem fingir que todas as unidades tiveram o mesmo preço | sim · Gustavo, 10/09/2026 |
+| UX-VEN-018 | em `Vendas do período`, toda venda com saldo cobrável usa o rótulo `A RECEBER` em vinho; o quanto já foi recebido aparece nos valores do detalhe, e a ação `Pendente` permanece amarela | comunicar a ação necessária sem criar dois rótulos para vendas que ainda exigem cobrança | sim · Gustavo, 12/09/2026 |
+| UX-VEN-019 | os detalhes das vendas podem ser expandidos e recolhidos de forma independente, mantendo quantas linhas abertas forem úteis; trocar página ou contexto recolhe todos | permitir comparação entre vendas sem manter detalhes ligados a dados que acabaram de mudar | sim · Gustavo, 12/09/2026 |
 
 ## Desconto na Nova Venda
 

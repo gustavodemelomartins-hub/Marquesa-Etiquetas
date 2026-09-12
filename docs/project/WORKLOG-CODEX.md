@@ -285,3 +285,23 @@ permaneceu estática e sem overflow. `git diff --check` passou.
 **Limite:** esta rodada não promove Vendas para `UX/UI DESIGNED`. Ainda faltam
 aceite visual do Gustavo no celular, validação específica de tablet,
 acessibilidade completa e fechamento das interações locais pendentes.
+
+---
+
+## 2026-09-12 — `VEN-001`: comparação entre vendas do período
+
+**Decisão visual:** em `Evolução por mês → Vendas do período`, qualquer venda
+com saldo cobrável aparece como `A receber` em vinho. O estado derivado parcial
+continua existindo nos valores (`Venda`, `Recebido`, `A receber`), mas deixa de
+competir com a ação operacional na lista. O botão `Pendente` do detalhe segue
+amarelo.
+
+**Interação:** cada linha passou a controlar seu próprio detalhe. É possível
+manter qualquer quantidade de vendas expandida, recolher somente uma delas por
+clique ou teclado e comparar os valores. Paginação e troca de contexto continuam
+recolhendo todos os detalhes para não deixar informação antiga na tela.
+
+**Validação:** Playwright/Chromium em `390px` e `1440px`, cobrindo três detalhes
+simultâneos, fechamento independente, abertura por `Enter`, recolhimento na
+paginação, ausência do rótulo `Parcial`, ARIA e overflow horizontal. Foram 14
+verificações direcionadas, todas verdes.

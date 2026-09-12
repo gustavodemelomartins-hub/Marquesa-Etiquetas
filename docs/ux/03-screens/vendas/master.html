@@ -235,7 +235,7 @@
                   <table>
                     <thead><tr><th>Data</th><th>Cliente</th><th>Peças</th><th>Valor</th><th>Recebimento</th><th aria-label="Ações"></th></tr></thead>
                     <tbody>
-                      <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1058"><td data-sale-day="05">05/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Camila Ferreira">Camila Ferreira</button></td><td>2</td><td>R$ 159,00</td><td><span class="status partial">Parcial</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Camila Ferreira">›</button></td></tr>
+                      <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1058"><td data-sale-day="05">05/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Camila Ferreira">Camila Ferreira</button></td><td>2</td><td>R$ 159,00</td><td><span class="status receivable">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Camila Ferreira">›</button></td></tr>
                       <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1057"><td data-sale-day="04">04/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Juliana Prado">Juliana Prado</button></td><td>1</td><td>R$ 89,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Juliana Prado">›</button></td></tr>
                       <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1056"><td data-sale-day="03">03/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Ana Luiza Sedassari">Ana Luiza Sedassari</button></td><td>1</td><td>R$ 79,00</td><td><span class="status receivable">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Ana Luiza Sedassari">›</button></td></tr>
                       <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1055"><td data-sale-day="02">02/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Zilma">Zilma</button></td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Zilma">›</button></td></tr>
@@ -607,7 +607,7 @@
           row.cells[3].textContent = currency.format(sale.total);
           const status = row.cells[4].querySelector('.status');
           status.className = `status ${sale.financialClass}`;
-          status.textContent = sale.financial === 'Recebimento parcial' ? 'Parcial' : sale.financial;
+          status.textContent = sale.financial;
           const openButton = row.querySelector('.sale-open');
           openButton.textContent = '›';
           openButton.setAttribute('aria-label', `Expandir detalhes da venda de ${sale.customer}`);
@@ -703,7 +703,7 @@
       const sales = {
         'venda-1058': {
           reference: 'Venda #1058', customer: 'Camila Ferreira', channel: 'Balcão', total: 159, received: 80, pending: 79,
-          financial: 'Recebimento parcial', financialClass: 'partial',
+          financial: 'A receber', financialClass: 'receivable',
           items: [['Brinco Ponto de Luz', 'SKU 122060 · Ouro 18k', 1, 89], ['Pulseira Elo Delicado', 'SKU 431280 · Ouro 18k', 1, 70]],
           payments: [['PIX', 'R$ 80,00', 'Recebido em 05/09/2026', 'paid'], ['Saldo restante', 'R$ 79,00', 'Vence em 20/09/2026', 'receivable']]
         },
@@ -750,8 +750,6 @@
       salesPagePrevious.addEventListener('click', () => goToSalesPage(salesCurrentPage - 1));
       salesPageNext.addEventListener('click', () => goToSalesPage(salesCurrentPage + 1));
 
-      let expandedSaleRow = null;
-
       function buildSaleDetails(row, sale) {
         const detailRow = document.createElement('tr');
         detailRow.className = 'sale-detail-row';
@@ -783,25 +781,26 @@
         return detailRow;
       }
 
-      function closeExpandedSale() {
-        document.querySelector('.sale-detail-row')?.remove();
-        if (!expandedSaleRow) return;
-        const sale = sales[expandedSaleRow.dataset.saleId];
-        const button = expandedSaleRow.querySelector('.sale-open');
-        expandedSaleRow.classList.remove('expanded');
-        expandedSaleRow.setAttribute('aria-expanded', 'false');
-        expandedSaleRow.removeAttribute('aria-controls');
-        button.textContent = '›';
-        button.setAttribute('aria-label', `Expandir detalhes da venda de ${sale.customer}`);
-        expandedSaleRow = null;
+      function closeExpandedSale(row = null) {
+        const expandedRows = row ? [row] : [...document.querySelectorAll('.sale-row.expanded')];
+        expandedRows.forEach((expandedRow) => {
+          const sale = sales[expandedRow.dataset.saleId];
+          const detailId = expandedRow.getAttribute('aria-controls');
+          if (detailId) document.getElementById(detailId)?.remove();
+          const button = expandedRow.querySelector('.sale-open');
+          expandedRow.classList.remove('expanded');
+          expandedRow.setAttribute('aria-expanded', 'false');
+          expandedRow.removeAttribute('aria-controls');
+          button.textContent = '›';
+          button.setAttribute('aria-label', `Expandir detalhes da venda de ${sale.customer}`);
+        });
       }
 
       function toggleSale(row) {
-        if (expandedSaleRow === row) {
-          closeExpandedSale();
+        if (row.classList.contains('expanded')) {
+          closeExpandedSale(row);
           return;
         }
-        closeExpandedSale();
         const sale = sales[row.dataset.saleId];
         const detailRow = buildSaleDetails(row, sale);
         row.after(detailRow);
@@ -811,7 +810,6 @@
         const button = row.querySelector('.sale-open');
         button.textContent = '⌃';
         button.setAttribute('aria-label', `Recolher detalhes da venda de ${sale.customer}`);
-        expandedSaleRow = row;
       }
 
       document.querySelectorAll('.sale-row').forEach((row) => {
