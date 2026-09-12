@@ -1202,6 +1202,223 @@ console.log('\n=== 15. novo atendimento da mesma peça: 7 dias úteis + etiqueta
   prova('a razão fecha depois do ciclo inteiro');
 }
 
+/* ═══════════════════════════════════ 16. corrigir status lançado errado (5.4f) */
+console.log('\n=== 16. correção de status: o operador clicou errado ===');
+{
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'a pedra soltou', dataEntrada: '2026-09-01' });
+  const id = a.garantia.id;
+  await G.mudarStatusGarantia(db, id, { status: 'reparada', data: '2026-09-04' });
+  await G.mudarStatusGarantia(db, id, { status: 'devolvida', data: '2026-09-05' });
+
+  const semMotivo = await G.corrigirStatusGarantia(db, id, {});
+  assert.equal(semMotivo.ok, false);
+  assert.equal(semMotivo.statusHttp, 400);
+  assert.equal((await G.lerGarantia(db, id)).status, 'devolvida');
+  prova('corrigir sem dizer por quê é recusado, e nada muda');
+
+  const antesEventos = (await G.lerGarantia(db, id)).eventos.length;
+  const c = await G.corrigirStatusGarantia(db, id, { motivo: 'cliquei em devolvida sem querer' });
+  assert.equal(c.ok, true, `correção falhou: ${c.erro ?? ''}`);
+  assert.equal(c.statusIncorreto, 'devolvida');
+  assert.equal(c.statusRestaurado, 'reparada');
+  assert.equal(c.encerradaEmDesfeita, '2026-09-05');
+  prova('o encerramento lançado por engano é corrigido, e a resposta diz o que era e o que voltou');
+
+  /* O ESTADO ATUAL volta atrás. */
+  const g = await G.lerGarantia(db, id);
+  assert.equal(g.status, 'reparada');
+  assert.equal(g.encerradaEm, null, 'o encerramento que nunca existiu continua na coluna');
+  assert.equal(g.pendente, true);
+  assert.equal(g.relogioParado, false);
+  prova('o estado atual volta para onde estava, e o caso volta a pendente com o relógio andando');
+
+  /* O HISTÓRICO não volta. É a linha divisória da fase inteira. */
+  const tipos = g.eventos.map((e) => e.tipo);
+  assert.deepEqual(tipos, ['aberta', 'status', 'devolvida', 'status_corrigido']);
+  assert.equal(g.eventos.length, antesEventos + 1, 'a correção apagou algum evento');
+  const errado = g.eventos.find((e) => e.tipo === 'devolvida');
+  assert.ok(errado, 'o evento do encerramento errado sumiu');
+  assert.equal(errado.data, '2026-09-05');
+  assert.equal(errado.statusNovo, 'devolvida');
+  prova('§28: o evento do encerramento errado PERMANECE, com a data em que foi lançado');
+
+  const corr = g.eventos.at(-1);
+  assert.equal(corr.tipo, 'status_corrigido');
+  assert.equal(corr.observacao, 'cliquei em devolvida sem querer');
+  assert.equal(corr.dados.statusIncorreto, 'devolvida');
+  assert.equal(corr.dados.statusRestaurado, 'reparada');
+  assert.equal(corr.dados.eventoCorrigidoId, errado.id);
+  assert.equal(corr.dados.lancadoEm, '2026-09-05');
+  assert.equal(corr.dados.encerradaEmDesfeita, '2026-09-05');
+  prova('e o evento de correção aponta para o que foi desfeito, com o encerramento que sumiu da coluna');
+
+  /* §31: correção de status é só status. */
+  assert.equal(c.faturamento, 0);
+  assert.equal(c.estoqueAlterado, false);
+  assert.equal(c.vendaOriginalAlterada, false);
+  assert.equal(qtd(raw, '100001'), 48);
+  assert.equal(raw.prepare('SELECT COUNT(*) c FROM garantia_trocas').get().c, 0);
+  assert.equal(razaoFecha(raw), 0);
+  prova('corrigir status não move peça nem dinheiro: estoque, trocas e razão intactos');
+
+  /* E o caso corrigido volta a andar normalmente. */
+  const dev = await G.mudarStatusGarantia(db, id, { status: 'devolvida', data: '2026-09-08' });
+  assert.equal(dev.ok, true, `nao seguiu: ${dev.erro ?? ''}`);
+  assert.equal(dev.garantia.encerradaEm, '2026-09-08');
+  prova('e depois de corrigido o caso segue o fluxo normal, encerrando quando for a hora');
+}
+{
+  /* A dupla tentativa. Depois da primeira correção o caso não está mais
+     encerrado, e a segunda não tem o que desfazer. */
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-09-01' });
+  const id = a.garantia.id;
+  await G.mudarStatusGarantia(db, id, { status: 'devolvida', data: '2026-09-05' });
+
+  const um = await G.corrigirStatusGarantia(db, id, { motivo: 'engano' });
+  assert.equal(um.ok, true);
+  const dois = await G.corrigirStatusGarantia(db, id, { motivo: 'engano de novo' });
+  assert.equal(dois.ok, false);
+  assert.equal(dois.statusHttp, 409);
+  assert.match(dois.erro, /não é um encerramento/);
+
+  const g = await G.lerGarantia(db, id);
+  assert.equal(g.status, 'em_reparo');
+  assert.equal(g.eventos.filter((e) => e.tipo === 'status_corrigido').length, 1);
+  assert.deepEqual(g.eventos.map((e) => e.tipo), ['aberta', 'devolvida', 'status_corrigido']);
+  prova('corrigir duas vezes não corrompe nada: a segunda é recusada e o histórico não duplica');
+}
+{
+  /* Cancelada por engano também se corrige — é o caso mais provável de
+     todos, porque cancelar é irreversível por qualquer outro caminho. */
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-09-01' });
+  const id = a.garantia.id;
+  await G.mudarStatusGarantia(db, id, { status: 'cancelada', data: '2026-09-02' });
+  const c = await G.corrigirStatusGarantia(db, id, { motivo: 'cancelei a garantia errada' });
+  assert.equal(c.ok, true, `correção falhou: ${c.erro ?? ''}`);
+  assert.equal(c.statusRestaurado, 'em_reparo');
+  const g = await G.lerGarantia(db, id);
+  assert.equal(g.status, 'em_reparo');
+  assert.ok(g.eventos.some((e) => e.tipo === 'cancelada'));
+  prova('cancelada por engano também se corrige, e o cancelamento continua no histórico');
+}
+{
+  /* O BLOQUEIO 1: já existe um novo atendimento nascido deste encerramento. */
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-09-01' });
+  const id = a.garantia.id;
+  await G.mudarStatusGarantia(db, id, { status: 'devolvida', data: '2026-09-05' });
+  const nova = await G.reabrirGarantia(db, id, {
+    motivo: 'voltou de verdade', etiquetaPreservada: true, dataEntrada: '2026-09-08',
+  });
+  assert.equal(nova.ok, true);
+
+  const c = await G.corrigirStatusGarantia(db, id, { motivo: 'na verdade foi engano' });
+  assert.equal(c.ok, false);
+  assert.equal(c.statusHttp, 409);
+  assert.equal((await G.lerGarantia(db, id)).status, 'devolvida', 'fez rollback mesmo com filho');
+  prova('bloqueio: encerramento que já gerou novo atendimento não se corrige em silêncio');
+  assert.ok(c.efeitosPosteriores || c.novaGarantiaId, 'a recusa não disse o que encontrou');
+}
+{
+  /* O BLOQUEIO 2: pagamento depois do encerramento. */
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-09-01' });
+  const id = a.garantia.id;
+  const t = await G.registrarTroca(db, id, { skuNovo: '100002', data: '2026-09-02' });
+  assert.equal(t.ok, true);
+  await G.mudarStatusGarantia(db, id, { status: 'concluida', data: '2026-09-03' });
+  const pg = await G.pagarDiferencaTroca(db, id, { pagaEm: '2026-09-04' });
+  assert.equal(pg.ok, true, `pagamento falhou: ${pg.erro ?? ''}`);
+
+  const c = await G.corrigirStatusGarantia(db, id, { motivo: 'conclui sem querer' });
+  assert.equal(c.ok, false);
+  assert.equal(c.statusHttp, 409);
+  assert.equal(c.efeitosPosteriores.length, 1);
+  assert.equal(c.efeitosPosteriores[0].tipo, 'diferenca_paga');
+  assert.equal((await G.lerGarantia(db, id)).status, 'concluida');
+  prova('bloqueio: dinheiro que entrou depois do encerramento impede a correção simples');
+  prova('e a recusa NOMEIA o efeito posterior, em vez de só negar');
+}
+{
+  /* O BLOQUEIO 3: estorno depois do encerramento. */
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-09-01' });
+  const id = a.garantia.id;
+  await G.registrarTroca(db, id, { skuNovo: '100002', data: '2026-09-02' });
+  await G.mudarStatusGarantia(db, id, { status: 'concluida', data: '2026-09-03' });
+  const e = await G.estornarTroca(db, id, { motivo: 'sku errado' });
+  assert.equal(e.ok, true, `estorno falhou: ${e.erro ?? ''}`);
+
+  const c = await G.corrigirStatusGarantia(db, id, { motivo: 'engano' });
+  assert.equal(c.ok, false);
+  assert.equal(c.efeitosPosteriores.map((x) => x.tipo).join(','), 'troca_estornada');
+  prova('bloqueio: estorno posterior ao encerramento também trava a correção');
+}
+{
+  /* A parede do terminal fechou a porta lateral: `concluida` não troca peça.
+     Antes a troca gravava `sem_conserto` por cima de um caso encerrado. */
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-09-01' });
+  const id = a.garantia.id;
+  await G.mudarStatusGarantia(db, id, { status: 'concluida', data: '2026-09-03' });
+  const antes = qtd(raw, '100002');
+  const t = await G.registrarTroca(db, id, { skuNovo: '100002', data: '2026-09-04' });
+  assert.equal(t.ok, false);
+  assert.equal(t.statusHttp, 409);
+  assert.equal((await G.lerGarantia(db, id)).status, 'concluida');
+  assert.equal(qtd(raw, '100002'), antes, 'a troca recusada baixou estoque');
+  prova('5.4f: caso CONCLUÍDO não troca peça — a porta lateral do terminal fechou');
+}
+{
+  /* Correção e reabertura continuam sendo fluxos diferentes, e nenhum dos
+     dois sabe fazer o trabalho do outro. */
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-08-01' });
+  const id = a.garantia.id;
+  await G.mudarStatusGarantia(db, id, { status: 'devolvida', data: '2026-08-03' });
+
+  /* Muito depois dos 7 dias úteis: a reabertura recusa... */
+  const reab = await G.reabrirGarantia(db, id, {
+    motivo: 'voltou', etiquetaPreservada: true, dataEntrada: '2026-09-01',
+  });
+  assert.equal(reab.ok, false);
+  assert.match(reab.erro, /prazo para um novo atendimento/);
+
+  /* ...e a correção NÃO aplica prazo nenhum, porque a peça nunca voltou:
+     o que se desfaz é o clique, e ele não tem validade de 7 dias. */
+  const c = await G.corrigirStatusGarantia(db, id, { motivo: 'aquele encerramento foi engano' });
+  assert.equal(c.ok, true, `correção falhou: ${c.erro ?? ''}`);
+  assert.equal(c.statusRestaurado, 'em_reparo');
+  prova('a regra dos 7 dias NÃO é acionada numa correção: ela não é um novo atendimento');
+
+  const g = await G.lerGarantia(db, id);
+  assert.equal(g.garantiaAnteriorId, null);
+  assert.equal(g.reabertura, null);
+  assert.equal(raw.prepare('SELECT COUNT(*) c FROM garantias').get().c, 1);
+  prova('e a correção não cria caso novo nem pede etiqueta — corrigir não é reabrir');
+}
+{
+  /* O caso que o sistema se recusa a adivinhar: evento antigo sem o estado
+     de origem gravado. Ele PARA em vez de escolher um estado plausível. */
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-09-01' });
+  const id = a.garantia.id;
+  await G.mudarStatusGarantia(db, id, { status: 'devolvida', data: '2026-09-05' });
+  raw.prepare(
+    `UPDATE garantia_eventos SET dados_json = '{}' WHERE garantia_id = ? AND status_novo = 'devolvida'`,
+  ).run(id);
+
+  const c = await G.corrigirStatusGarantia(db, id, { motivo: 'engano' });
+  assert.equal(c.ok, false);
+  assert.equal(c.statusHttp, 409);
+  assert.match(c.erro, /não vou adivinhar/);
+  assert.equal((await G.lerGarantia(db, id)).status, 'devolvida');
+  prova('§2: sem saber de onde o caso veio, a correção PARA em vez de chutar um estado');
+}
+
 console.log(`\n✓ ${provas} provas — ciclo completo de Garantias (5.4a)`);
 console.log('     ~~ marcaria comportamento ATUAL com defeito conhecido.');
 console.log('        Nenhuma sobrou: 5.4b–5.4e fecharam as sete.\n');

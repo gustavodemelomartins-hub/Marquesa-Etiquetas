@@ -271,6 +271,7 @@ Proprietário: Garantias; diferença financeira é consumida por Financeiro. A v
 | `GET /api/garantias/vinculos?limite=` | R | 5.2b: quais garantias ficaram sem apontar para a linha da venda, e por quê (`ambiguo`, `sem_match`), com as candidatas. Somente leitura. |
 | `POST /api/garantias` | C | Abre caso ligado à origem. Aceita `vendaItemId` (oficial), `vendaId`+`sku` (legado) ou `historicoItemId`. Devolve 409 com `candidatas` quando o par (venda, código) casa mais de uma linha. |
 | `GET /api/garantias/:id` | R | Caso e eventos. |
+| `POST /api/garantias/:id/corrigir-status` | C | 5.4f — desfaz um encerramento lançado por ENGANO. Não é reabertura: sem prazo de 7 dias e sem etiqueta. Exige motivo; o evento errado permanece e ganha um `status_corrigido` por cima. Recusa quando já há efeito posterior ao encerramento. Sem call site: `AGUARDANDO HANDOFF CODEX`. |
 | `POST /api/garantias/:id/reabrir` | C | 5.4e — novo atendimento da mesma peça: exige `etiquetaPreservada` explícito e no máximo 7 dias úteis desde a entrega. NÃO reabre o caso antigo; cria um caso NOVO ligado a ele. Sem call site: `AGUARDANDO HANDOFF CODEX`. |
 | `POST /api/garantias/:id/status` | C | Transição controlada. De estado terminal (`devolvida`, `concluida`, `cancelada`) não se sai; recusa data futura. |
 | `POST /api/garantias/:id/troca` | C/H | Registra troca/diferença. |

@@ -1431,6 +1431,47 @@ caminho é o novo atendimento acima. Isto é deliberadamente o mínimo: as
 transições entre os estados PENDENTES seguem livres, porque ninguém demonstrou
 ainda que alguma delas seja errada no balcão.
 
+### Corrigir um status lançado errado não é reabrir
+
+São duas operações, e a diferença não é técnica — é de significado:
+
+| | o que aconteceu | regra dos 7 dias / etiqueta | resultado |
+|---|---|---|---|
+| **reabertura** | a peça VOLTOU | sim | caso novo, ligado ao anterior |
+| **correção** | a peça nunca voltou; alguém clicou errado | **não** | o mesmo caso volta ao estado anterior |
+
+Se fossem a mesma porta, todo engano de digitação viraria um atendimento a
+mais na ficha da cliente, e toda peça que voltou de verdade poderia ser
+disfarçada de engano para escapar dos 7 dias.
+
+A correção exige **motivo**, registra data e hora, e **não apaga nada**: o
+evento do encerramento errado permanece, com a data em que foi lançado, e por
+cima dele entra um evento `status_corrigido` dizendo o que foi desfeito e por
+quê. O histórico mostra os três fatos em ordem — o encerramento, a correção,
+o estado restaurado.
+
+**Estado atual ≠ histórico imútavel.** `encerrada_em` volta a `NULL` porque o
+caso nunca foi encerrado; que o encerramento chegou a ser lançado continua
+escrito nos eventos, e é lá que essa verdade mora.
+
+**Autoria:** o sistema não tem autenticação por pessoa — o Bearer é um
+segredo compartilhado. O evento guarda `autorInformado`, que é o que quem
+chamou DISSE ser, sem verificação. O nome diz isso de propósito, para
+ninguém ler como identidade provada. Quando houver autenticação por pessoa,
+este é o lugar.
+
+**O bloqueio.** Corrigir só é seguro enquanto nada tiver acontecido DEPOIS do
+encerramento errado. A regra é uma só, e por isso não tem buraco: o evento do
+encerramento tem de ser o **último da linha do tempo**. Qualquer coisa depois
+dele — uma troca, um pagamento, um estorno, um novo atendimento — dependeu
+daquele estado, e desfazer o estado por baixo deixaria o efeito sem chão. O
+sistema recusa e **nomeia o que encontrou**, em vez de fazer rollback
+silencioso. A correção simples serve para erro operacional recente; cadeia
+posterior exige compensação pelo fluxo de cada fato.
+
+E o sistema **não adivinha para onde voltar**: se o evento do encerramento
+não registrou de qual estado o caso veio, a correção para (§2).
+
 ### Mudar status registra um fato JÁ OCORRIDO
 
 Nada de data futura, pela mesma razão que a abertura, a troca e o pagamento

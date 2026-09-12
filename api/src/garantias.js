@@ -338,6 +338,150 @@ export async function abrirGarantia(db, corpo = {}) {
   };
 }
 
+/* ═══════════════════════════════════ 5.4f — corrigir um status lançado errado
+ *
+ *  CORREÇÃO NÃO É REABERTURA, e a diferença não é de implementação: é de
+ *  significado.
+ *
+ *    reabertura  a peça VOLTOU. Houve um atendimento, ele terminou, e agora
+ *                há outro. Vale a regra dos 7 dias úteis e da etiqueta, e
+ *                nasce um caso novo.
+ *    correção    a peça NUNCA voltou. Alguém clicou errado e registrou um
+ *                encerramento que não aconteceu. Não há atendimento novo,
+ *                não há prazo a conferir, não há etiqueta a perguntar.
+ *
+ *  Por isso são portas separadas: se fossem a mesma, todo engano de digitação
+ *  viraria um atendimento a mais na ficha da cliente, e toda peça que voltou
+ *  de verdade poderia ser disfarçada de engano para escapar dos 7 dias.
+ *
+ *  O QUE A CORREÇÃO NÃO FAZ: fingir que o erro não aconteceu. O evento do
+ *  encerramento errado PERMANECE, com a data em que foi lançado. Por cima
+ *  dele entra um evento de correção dizendo o que foi desfeito e por quê. O
+ *  ESTADO ATUAL volta atrás; o HISTÓRICO não. São coisas diferentes, e §28
+ *  vale para a segunda.
+ *
+ *  O BLOQUEIO. Corrigir só é seguro enquanto nada tiver acontecido DEPOIS do
+ *  encerramento errado. A regra é uma só, e por isso não tem buraco: o evento
+ *  do encerramento tem de ser o ÚLTIMO da linha do tempo. Qualquer coisa
+ *  depois dele — uma troca, um pagamento, um estorno, a abertura de um novo
+ *  atendimento — é efeito que dependeu daquele estado, e desfazer o estado
+ *  por baixo deixaria o efeito sem chão. Nesses casos o sistema recusa e diz
+ *  o que encontrou, em vez de fazer rollback silencioso (§9). */
+export async function corrigirStatusGarantia(db, id, corpo = {}) {
+  const g = await db.prepare('SELECT * FROM garantias WHERE id = ?').bind(id).first();
+  if (!g) return { ok: false, statusHttp: 404, erro: 'Garantia não encontrada.' };
+
+  if (!ENCERRADOS.includes(g.status)) {
+    return {
+      ok: false, statusHttp: 409,
+      erro: `A garantia ${id} está em "${ROTULO_STATUS[g.status]}", que não é um encerramento. `
+          + 'A correção existe para desfazer um encerramento lançado por engano.',
+    };
+  }
+
+  const motivo = String(corpo.motivo ?? '').trim();
+  if (!motivo) {
+    return { ok: false, statusHttp: 400, erro: 'Diga por que este encerramento foi lançado por engano.' };
+  }
+
+  const { results } = await db.prepare(
+    'SELECT * FROM garantia_eventos WHERE garantia_id = ? ORDER BY id').bind(id).all();
+  const eventos = results ?? [];
+  const ultimo = eventos.at(-1) ?? null;
+  if (!ultimo || ultimo.status_novo !== g.status) {
+    /* Alguma coisa aconteceu depois do encerramento. Dizer O QUE, para quem
+       recebeu a recusa saber o que precisa ser compensado antes. */
+    const posteriores = [];
+    for (let i = eventos.length - 1; i >= 0; i -= 1) {
+      if (eventos[i].status_novo === g.status) break;
+      posteriores.unshift({ id: eventos[i].id, tipo: eventos[i].tipo, data: eventos[i].data });
+    }
+    return {
+      ok: false, statusHttp: 409,
+      erro: 'Depois deste encerramento já aconteceram outras coisas neste caso. '
+          + 'Desfazer o estado por baixo delas deixaria esses fatos sem explicação — '
+          + 'trate-os primeiro, pelo fluxo de cada um.',
+      efeitosPosteriores: posteriores,
+    };
+  }
+
+  /* A checagem do filho é feita à parte, e não só pelo evento: se a
+     reabertura tiver gravado o caso novo e falhado antes do evento, o
+     ponteiro ainda existe, e ele é a prova que manda. */
+  const filho = await db.prepare(
+    'SELECT id FROM garantias WHERE garantia_anterior_id = ? ORDER BY id LIMIT 1').bind(id).first();
+  if (filho) {
+    return {
+      ok: false, statusHttp: 409,
+      erro: `Este encerramento já gerou um novo atendimento (garantia ${filho.id}). `
+          + 'O caso novo existe porque este terminou; desfazer o encerramento o deixaria sem premissa.',
+      novaGarantiaId: filho.id,
+    };
+  }
+
+  /* De onde o caso veio está gravado no próprio evento. Se não estiver — dado
+     anterior a esta regra —, o sistema PARA em vez de chutar um estado (§2). */
+  let anterior = null;
+  try { anterior = JSON.parse(ultimo.dados_json || '{}').de ?? null; } catch { anterior = null; }
+  if (!anterior || !STATUS.has(anterior) || ENCERRADOS.includes(anterior)) {
+    return {
+      ok: false, statusHttp: 409,
+      erro: 'O evento deste encerramento não registrou de qual estado o caso veio, '
+          + 'e eu não vou adivinhar para qual estado ele deveria voltar.',
+      eventoId: ultimo.id,
+    };
+  }
+
+  const quando = hojeISO();
+  /* `encerrada_em` volta a NULL porque o caso NUNCA foi encerrado — o
+     encerramento é que não existiu. Antes de um terminal a coluna é sempre
+     nula (só transição terminal a preenche, e de terminal não se sai), então
+     não há valor anterior a restaurar: há um valor a desfazer.
+     Que ele existiu continua escrito nos eventos, e é lá que essa verdade
+     mora. Estado atual e histórico são coisas diferentes. */
+  const atualizada = await db.prepare(
+    `UPDATE garantias
+        SET status = ?, encerrada_em = NULL, atualizado_em = datetime('now')
+      WHERE id = ? AND status = ?
+      RETURNING *`,
+  ).bind(anterior, id, g.status).first();
+  if (!atualizada) {
+    /* Alguém corrigiu no meio do caminho. Duas correções simultâneas não
+       podem virar duas restaurações. */
+    return { ok: false, statusHttp: 409, erro: 'Este encerramento já tinha sido corrigido.' };
+  }
+
+  await evento(db, id, {
+    tipo: 'status_corrigido', data: quando, statusNovo: anterior,
+    observacao: motivo,
+    dados: {
+      statusIncorreto: g.status,
+      statusRestaurado: anterior,
+      eventoCorrigidoId: ultimo.id,
+      lancadoEm: ultimo.data,
+      encerradaEmDesfeita: g.encerrada_em ?? null,
+      /* Não há infraestrutura de autoria no sistema: o Bearer é um segredo
+         compartilhado, não uma pessoa. O campo aceita o que quem chamou
+         DISSE ser, sem verificar nada, e o nome diz isso em voz alta para
+         ninguém ler como identidade provada. Quando houver autenticação por
+         pessoa, este é o lugar. */
+      autorInformado: String(corpo.autor ?? '').trim() || null,
+    },
+  });
+
+  return {
+    ok: true,
+    garantia: await lerGarantia(db, id),
+    statusIncorreto: g.status,
+    statusRestaurado: anterior,
+    encerradaEmDesfeita: g.encerrada_em ?? null,
+    /* §31 dito em voz alta: corrigir um status não move peça nem dinheiro. */
+    faturamento: 0,
+    estoqueAlterado: false,
+    vendaOriginalAlterada: false,
+  };
+}
+
 /* ═══════════════════════════════════ 5.4e — o novo atendimento da mesma peça
  *
  *  REGRA (Sthefany, 12/09/2026): uma nova troca da mesma peça só acontece
@@ -657,8 +801,16 @@ export async function registrarTroca(db, id, corpo = {}) {
   if (jaTrocou) {
     return { ok: false, statusHttp: 409, erro: 'Esta garantia já teve a troca registrada.', trocaId: jaTrocou.id };
   }
-  if (g.status === 'cancelada' || g.status === 'devolvida') {
-    return { ok: false, statusHttp: 409, erro: `Garantia em "${ROTULO_STATUS[g.status]}" não troca peça.` };
+  /* 5.4f — caso TERMINAL não troca peça. Antes a lista era só `cancelada` e
+     `devolvida`, e `concluida` passava: a troca gravava `sem_conserto` por
+     cima, ressuscitando um caso encerrado por uma porta lateral. A matriz de
+     5.4e diz que de estado terminal não se sai; aqui é a mesma parede. */
+  if (ENCERRADOS.includes(g.status)) {
+    return {
+      ok: false, statusHttp: 409,
+      erro: `Garantia em "${ROTULO_STATUS[g.status]}" não troca peça — o caso terminou.`,
+      encerradaEm: g.encerrada_em ?? null,
+    };
   }
 
   /* 5.4b — a compra de origem pode ter sido cancelada DEPOIS da abertura.

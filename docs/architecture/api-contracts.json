@@ -8,7 +8,7 @@
   "sem-bearer": "responde antes da porta de checarChave: health, callback OAuth e foto assinada por HMAC",
   "bearer": "exige Authorization: Bearer <API_KEY>"
  },
- "total": 175,
+ "total": 176,
  "contratos": [
   {
    "contrato": "ANY /api/health",
@@ -420,6 +420,10 @@
   },
   {
    "contrato": "POST /api/garantias",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/garantias/:param/corrigir-status",
    "auth": "bearer"
   },
   {

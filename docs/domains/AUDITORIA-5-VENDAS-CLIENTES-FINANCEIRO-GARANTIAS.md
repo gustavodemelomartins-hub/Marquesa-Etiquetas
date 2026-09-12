@@ -1058,3 +1058,127 @@ Agendamento é outro conceito e terá campo próprio se for preciso.
 | 4 | caminho para cancelar garantia na tela | `AGUARDANDO HANDOFF CODEX` |
 | 5 | reconciliação de `ambiguo`/`sem_match` | `PRECISA DE AUDITORIA READ-ONLY FUTURA EM PROD` |
 | 6 | caso encerrado por engano não tem correção | **decisão pendente** — a matriz mínima fecha a saída dos terminais, e um `devolvida` digitado errado fica preso. Não inventei escape: prefiro a pergunta à porta dos fundos |
+
+---
+
+## 23. Fase 5.4f — corrigir um status lançado errado
+
+Última lacuna da 5.4, levantada pela própria 5.4e: a matriz mínima fechou a
+saída dos estados terminais, e um `devolvida` clicado por engano ficava preso.
+Decisão da Sthefany: existe uma operação explícita de **correção**, e ela não
+é reabertura.
+
+### 23.1 O desenho
+
+| | o que aconteceu | 7 dias / etiqueta | resultado |
+|---|---|---|---|
+| **reabertura** | a peça VOLTOU | sim | caso novo, ligado ao anterior |
+| **correção** | a peça nunca voltou; alguém clicou errado | **não** | o mesmo caso volta ao estado anterior |
+
+Portas separadas de propósito. Se fossem a mesma, todo engano de digitação
+viraria um atendimento a mais na ficha da cliente, e toda peça que voltou de
+verdade poderia ser disfarçada de engano para escapar dos 7 dias.
+
+`POST /api/garantias/:id/corrigir-status` exige **motivo**, restaura o estado
+de onde o caso veio (lido do próprio evento do encerramento), e devolve
+`encerrada_em` a `NULL` — porque o caso **nunca foi encerrado**.
+
+**Estado atual ≠ histórico imutável.** O evento do encerramento errado
+permanece, com a data em que foi lançado. Por cima dele entra
+`status_corrigido`, apontando para o evento corrigido (`eventoCorrigidoId`),
+guardando `statusIncorreto`, `statusRestaurado`, `lancadoEm` e
+`encerradaEmDesfeita`. A linha do tempo mostra os três fatos em ordem:
+
+```
+aberta · status · devolvida · status_corrigido
+```
+
+**Autoria:** não existe autenticação por pessoa — o Bearer é um segredo
+compartilhado. O evento guarda `autorInformado`, que é o que quem chamou
+**disse** ser, sem verificação. O nome diz isso de propósito, para ninguém
+ler como identidade provada. Quando houver autenticação por pessoa, é este o
+lugar. Data e hora já vinham de graça: `garantia_eventos.criado_em`.
+
+Nenhuma migration: o modelo existente já tinha tudo o que a correção precisa.
+
+### 23.2 O bloqueio — uma regra só, sem buraco
+
+A auditoria pedia sete verificações: nova garantia por reabertura, troca
+posterior, movimento de estoque, pagamento, estorno, outro encerramento e
+qualquer evento cuja validade dependa do status terminal.
+
+Enumerar sete condições seria frágil — a oitava apareceria depois. A regra
+implementada é **uma**, e cobre as sete por construção:
+
+> o evento do encerramento tem de ser o **último da linha do tempo**.
+
+Qualquer coisa depois dele dependeu daquele estado. Como troca, pagamento e
+estorno **todos** escrevem evento, e a reabertura escreve
+`reaberta_em_novo_caso` no caso antigo, não há efeito que escape. Movimento de
+estoque nunca acontece sozinho: quem o cria (troca, estorno) escreve evento
+junto.
+
+Duas verificações adicionais, por segurança e não por elegância:
+
+1. **filho explícito** — `SELECT ... WHERE garantia_anterior_id = ?`. Se a
+   reabertura tiver gravado o caso novo e falhado antes do evento, o ponteiro
+   ainda existe, e é ele que manda;
+2. **`UPDATE ... WHERE status = ?`** — duas correções simultâneas não viram
+   duas restaurações. A segunda muda zero linhas e é recusada.
+
+A recusa **nomeia o que encontrou** (`efeitosPosteriores`, `novaGarantiaId`),
+em vez de só negar: quem recebeu precisa saber o que compensar primeiro.
+
+E o sistema **não adivinha para onde voltar**: se o evento do encerramento
+não registrou de qual estado o caso veio — dado anterior a esta regra — a
+correção para (§2), em vez de escolher um estado plausível.
+
+### 23.3 A porta lateral que 5.4e deixou aberta
+
+Achado ao auditar os efeitos posteriores: `registrarTroca` barrava
+`cancelada` e `devolvida`, mas **não `concluida`**. Um caso concluído ainda
+trocava peça, e a troca gravava `sem_conserto` por cima — ressuscitando um
+caso encerrado por fora da matriz que 5.4e tinha acabado de escrever.
+
+Corrigido: caso terminal não troca peça, ponto. A parede virou uma só.
+
+### 23.4 Provas
+
+12 provas novas (127 no ciclo). Terminal corrigível; motivo obrigatório;
+evento original preservado com a data certa; evento de correção criado e
+apontando para o corrigido; estado corrente restaurado; `encerrada_em`
+desfeito e registrado no evento; histórico sem perda; dupla tentativa
+recusada sem duplicar evento; os três bloqueios (filho, pagamento, estorno)
+com a recusa nomeando o efeito; `concluida` não troca peça; os 7 dias **não**
+acionados numa correção; e estoque, trocas e razão intactos.
+
+---
+
+## 24. FASE 5.4 — BACKEND DE GARANTIAS: COMPLETA
+
+Fechada em 12/09/2026, com 127 provas rodando no gate `domain` e no
+`release`. Nenhuma caracterização de defeito sobrou: as sete que 5.4a
+registrou foram todas fechadas.
+
+| Subfase | O que entregou |
+|---|---|
+| 5.4a | a rede: caracterização do ciclo inteiro, num gate que roda |
+| 5.4b | relógio para no encerramento; troca sobre venda cancelada barrada; garantia por unidade física |
+| 5.4c | o pagamento pela porta normal entra na linha do tempo |
+| 5.4d | estorno de troca deixa de apagar o fato (GAR-102) |
+| 5.4e | crédito da cliente; novo atendimento em 7 dias úteis; matriz mínima de estados; data futura |
+| 5.4f | correção de status lançado errado, com bloqueio por efeito posterior |
+
+### Dependências externas registradas
+
+Nenhuma delas impede declarar o backend concluído.
+
+| Dependência | De quem depende |
+|---|---|
+| onde o crédito da cliente vive e como é consumido | **arquitetura financeira** — FIN-101 e o modelo novo |
+| UI do novo atendimento, com a pergunta da etiqueta | `AGUARDANDO HANDOFF CODEX` |
+| UI do estorno de troca (GAR-102) | `AGUARDANDO HANDOFF CODEX` |
+| UI de cancelar e de corrigir status | `AGUARDANDO HANDOFF CODEX` |
+| reconciliação de `ambiguo`/`sem_match` | `PRECISA DE AUDITORIA READ-ONLY FUTURA EM PROD` |
+
+O backend de Garantias não tem mais nada pendente que dependa só dele.

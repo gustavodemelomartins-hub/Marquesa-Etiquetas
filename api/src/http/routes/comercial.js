@@ -30,7 +30,7 @@ import { listarSaidas, registrarSaida, estornarSaida } from '../../saidas.js';
 import {
   listarGarantias, lerGarantia, garantiasPendentes, abrirGarantia,
   mudarStatusGarantia, registrarTroca, pagarDiferencaTroca, estornarTroca,
-  vinculosDeGarantia, reabrirGarantia,
+  vinculosDeGarantia, reabrirGarantia, corrigirStatusGarantia,
 } from '../../garantias.js';
 import {
   analisarHistoricoNaoVenda, listarReclassificacoes,
@@ -226,6 +226,17 @@ export const rotas = [
     async handler({ db, params, request }) {
       const r = await reabrirGarantia(db, +params.id, await request.json().catch(() => ({})));
       return json(r, r.ok ? 201 : (r.statusHttp ?? 400));
+    },
+  },
+  {
+    /* 5.4f — o encerramento foi lançado por engano. NÃO é reabertura: a peça
+       nunca voltou, e por isso não há prazo de 7 dias nem etiqueta a
+       perguntar. O estado atual volta atrás; o histórico não. Recusa quando
+       já existe efeito posterior ao encerramento. */
+    metodo: 'POST', caminho: '/api/garantias/:id/corrigir-status', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params, request }) {
+      const r = await corrigirStatusGarantia(db, +params.id, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
     },
   },
   {
