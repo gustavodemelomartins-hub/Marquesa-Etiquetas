@@ -18,6 +18,65 @@ conversa, que sei de primeira mão serem meus. Commits feitos direto em
 
 ---
 
+## 2026-09-12 — A Fase 5.4 do Refactor fecha, e o painel para de dizer Fase 4
+
+| | |
+|---|---|
+| Branch | `claude/review-marquesa-v2` |
+| Commits | 1, documental |
+| Status | **concluído**; nada implementado, nenhuma migration, nenhum deploy, PROD congelada |
+
+**Task IDs tocados:** `DOC-006`, `GAR-002`, `GAR-001`, `FIN-001`.
+
+**O que foi feito.** O card `CLAUDE REFACTOR` do painel ainda dizia "Fase 4 —
+COMPLETA / não iniciar a Fase 5 ainda". O remoto diz outra coisa, e é o remoto
+que vale: `claude/refactor-sistema-marquesa` está em `a989cc0`, com a Fase 5
+aberta e cinco blocos fechados dentro dela — 5.0 (reconciliação com
+`develop`), 5.1 (`GET /api/vendas/lista`), 5.2 (identidade estável de
+`venda_itens`), 5.2b (a garantia aponta para `venda_item_id`) e 5.4 (backend
+de garantias, seis subfases de `67c6288` a `a989cc0`).
+
+O card passou a **Fase 5 — EM ANDAMENTO**, com a **5.4 marcada COMPLETA** e a
+**5.3 / `FIN-101` marcada NÃO INICIADA, aguardando autorização**. A Fase 5
+inteira **não** foi declarada concluída, porque não está.
+
+**Prova, não relato.** Nenhum SHA foi digitado de memória:
+
+| O que | Comando | Resultado |
+|---|---|---|
+| Estado remoto do Refactor | `git ls-remote origin refs/heads/claude/refactor-sistema-marquesa` | `a989cc02882f9300264cd157fde4934ce841b27f` — bate com o informado |
+| As seis subfases da 5.4 | `git log a989cc0` | `67c6288` 5.4a · `e544bc3` 5.4b · `4c51bf9` 5.4c · `b715d4e` 5.4d · `a598793` 5.4e · `a989cc0` 5.4f |
+| A 5.3 não começou | mesmo log | nenhum commit de 5.3 / `FIN-101` entre `d83eb28` e `a989cc0` |
+| Estado remoto do Codex | `git ls-remote origin refs/heads/codex/ui-system-marquesa` | `52f5f5f` — `a6d7c6b` continua sem push; **nenhum commit novo do Codex confirmado**, então o checkpoint oficial não mudou |
+
+**As dependências externas da 5.4 foram registradas sem virar pendência do
+backend**: crédito da cliente (arquitetura financeira / `FIN-101`), UI de novo
+atendimento e confirmação da etiqueta, UI de `GAR-102`, UI de
+cancelar/corrigir garantia — as três de UI são frente do Codex — e
+`ambiguo`/`sem_match`, que vira auditoria read-only futura em PROD. Nenhuma
+delas torna o backend da 5.4 incompleto, e o painel diz isso com todas as
+letras em vez de deixar a leitura ambígua.
+
+**`GAR-002` nasceu** em `IN PROGRESS` pela régua deste painel: backend só é
+DONE quando está mesclado, implantado e verificado. A Fase 5.4 está completa
+na branch; a tarefa do projeto não está fechada porque falta mesclar e
+publicar. As duas coisas são verdadeiras ao mesmo tempo e o painel registra
+as duas.
+
+**Ownership inalterado.** O Codex segue com Vendas V2, responsividade/mobile,
+fechamento da tela e, depois, o fluxo completo de venda.
+
+**Verificação.**
+
+| Gate | Resultado |
+|---|---|
+| `projeto-painel --check` | **ok** — 42 tarefas, 48 linhas de paridade, em dia com os documentos |
+| `npm run test:fast` | **10/11 gates aprovados** |
+| `docs-links` | **FALHOU, e é anterior a esta sessão**: `docs/operations/DEVELOPMENT.md` aponta para `frontend/dist/index.html`, que é artefato de build ignorado pelo Git (`frontend/.gitignore`) e não existe nesta worktree porque `frontend/node_modules` também não existe. Nenhum arquivo tocado por este commit participa dessa referência |
+| `git diff --check` | limpo |
+
+---
+
 ## 2026-09-11 (noite) — Consolidação das decisões e das frentes paralelas
 
 | | |

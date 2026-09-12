@@ -1,11 +1,16 @@
 # Painel Operacional — Sistema Marquesa
 
-**Atualizado em:** 2026-09-11 (revisão da noite: consolidação das decisões e
-das frentes paralelas; depois, mesmo dia: Fase 4.6 do Claude Refactor
-concluída e branch protegida, `data.workstreams` passa a alimentar o painel;
-por último: **as respostas da Sthefany chegaram** e `DR-005`, `DR-006`,
-`DR-015` e `DR-016` fecharam; e, por fim: **o checkpoint oficial do Codex
-`a6d7c6b` entrou no painel** — Vendas V2 em refinamento, não concluída)
+**Atualizado em:** 2026-09-12 (**fechamento oficial da Fase 5.4 do Claude
+Refactor** — backend de garantias completo em `a989cc0`, confirmado no remoto;
+a Fase 5 segue **em andamento** e a 5.3 / `FIN-101` **não** começou. O card do
+Codex permanece no checkpoint `a6d7c6b`: nenhum commit novo dele está
+confirmado no Git. PROD continua congelada)
+
+Rodada anterior — 2026-09-11 (revisão da noite): consolidação das decisões e
+das frentes paralelas; Fase 4.6 do Claude Refactor concluída e branch
+protegida; `data.workstreams` passa a alimentar o painel; as respostas da
+Sthefany fecharam `DR-005`, `DR-006`, `DR-015` e `DR-016`; e o checkpoint
+oficial do Codex `a6d7c6b` entrou no painel.
 **Fonte:** auditoria estrutural completa (branches locais/remotas, commits, docs/ux,
 docs/ui, docs/domains da branch paralela, código legado e React), mais leitura
 read-only do D1 de produção e de `wrangler deployments` em 11/09/2026
@@ -62,6 +67,7 @@ painel só diz **em que pé** cada pedaço dele está agora.
 | DOC-003 | Painel visual do projeto (`docs/project/dashboard/`) gerado a partir dos `.md`, com gate `projeto-painel` que falha se a tela divergir dos documentos | `scripts/build-project-dashboard.mjs`, `docs/testing/test-suites.json` |
 | CAT-003 | Cadastro de produto — **decidido**: continua em Estoque → Cadastro de Produtos; Catálogo não ganha fluxo próprio | `DR-002`, 11/09/2026 |
 | DOC-004 | Consolidação das 11 decisões de 11/09/2026, separação de `P11`/`P17`, e registro das 3 frentes paralelas de trabalho | commits `3843297` e `510afa5` — ver `## WORKSTREAMS` e `## DECISIONS MADE` |
+| DOC-006 | **Estado global sincronizado com o fechamento da Fase 5.4 do Claude Refactor** — o card da frente sai da Fase 4 e passa à Fase 5 em andamento, com as subfases 5.0/5.1/5.2/5.2b/5.4 fechadas, a 5.3 (`FIN-101`) marcada como não iniciada e o Codex mantido em `a6d7c6b`. Nenhum backend implementado, nenhuma migration, nenhum deploy | este commit — `a989cc0` conferido por `git ls-remote`; `GAR-002` aberta em `IN PROGRESS` |
 | DOC-005 | **Consolidação das respostas finais da Sthefany** — saldos físicos do Monte seu Colar, composição do exemplar consignado, régua de variação, comissão com desconto e classe dos 2 casos históricos. `DR-005`, `DR-006`, `DR-015` e `DR-016` fechadas; nenhuma escrita, migration ou reclassificação executada | este commit — `api/REGRAS.md` §45, `MONTAGEM-MONTE-SEU-COLAR.md` §5, `INVENTARIO-4-4.md` §12, `SAIDAS-SEM-FATURAMENTO.md`, `PENDENTES.md` |
 
 Fora da janela de ontem/hoje, já em produção e estável (contexto, não tarefa
@@ -88,6 +94,7 @@ movimentos / 19 vendas validados, reconciliação zero — ver Master Plan §2.
 | REV-002 | React de Revendedoras — visão geral + ficha completas e testadas | `frontend/src/features/revendedoras/` | paridade de acerto/comissão com o legado ainda não confirmada ponta a ponta |
 | NUV-001 | React de Nuvemshop/sync — leitura completa e testada (panorama, saúde); escrita/aprovação só no legado | `frontend/src/features/nuvemshop/`, `frontend/src/features/reconciliacao/` | `reconciliacao/` autodeclarada "em construção": aprovar/aplicar não persiste ainda |
 | ARQ-007 | **Divergência entre `api/schema.sql` e as migrations** — `migracao-pos-golive-1.sql` cria `maleta_item_variacoes`, `venda_item_correcoes` e 5 índices que nunca foram escritos de volta no schema. Banco criado do zero não os tem; banco migrado (PROD e DEV) tem | achado em 11/09/2026 ao estender `src/migracao-variantes-test.mjs` das 8 migrations originais para as 30 reais. O teste hoje subtrai essa lista nomeada e falha se ela mudar | é anterior a esta sessão e não bloqueia nada hoje; fechar exige `safe-d1-change` e nunca em PROD congelada |
+| GAR-002 | **Backend de garantias — Fase 5.4 do Claude Refactor, COMPLETA na branch** (ciclo, relógio, garantia por unidade, pagamento na linha do tempo, estorno auditável `GAR-102`, crédito/novo atendimento, correção de status lançado errado) | branch `claude/refactor-sistema-marquesa`, commit `a989cc0`; gates no fechamento: release 17/17, domain 4/4, `schema-migration-coerencia` e razão/estoque PASSOU | a **Fase 5.4 está completa**; a tarefa só não é DONE pela régua de backend deste painel — falta mesclar e publicar. As dependências de UI (`GAR-102`, novo atendimento, cancelar/corrigir) são do Codex e **não** tornam o backend incompleto |
 | SAI-001 | Categoria "sorteio" (saída sem faturamento) — **só o schema**, depois da separação de `DR-007`. Código e `api/schema.sql` já têm os 4 tipos | `main` | produção ainda tem o `CHECK` de **3** tipos (lido do `sqlite_master` em 11/09); migration `api/migracao-sorteio-saida-sem-faturamento.sql` **não executada** e reconstrói 2 tabelas (`P11`) |
 
 ---
@@ -102,8 +109,8 @@ movimentos / 19 vendas validados, reconciliação zero — ver Master Plan §2.
 | INV-003 | React de Inventário — nenhuma pasta existe, só o design em `docs/ux` | INV-001 mesclado primeiro (contrato ainda pode mudar) |
 | VEN-002 | React de Vendas — `App.tsx` só mostra `AreaPendente`, zero tela real | VEN-001 fechar decisões abertas antes de implementar. **`VEN-105` (correção de item vendido) entra aqui por `DR-014`**, fora da ordem de fase — em curso no Codex |
 | VEN-003 | Recebimentos múltiplos/parcelados (`IF-009`) | ideia em detalhamento, sem contrato ainda |
-| GAR-001 | React de Garantias — não existe nenhuma pasta | **prioridade alta por `DR-014`** (`GAR-101` é paridade obrigatória). Atenção: `docs/ux/03-screens/reparos/` é domínio NOVO com material `vazio`, **não** é o desenho de `GAR-101` |
-| FIN-001 | React de Financeiro/Recebíveis — não existe nenhuma pasta | **prioridade alta por `DR-014`** (`FIN-101` é paridade obrigatória). Não existe pasta de UX para contas a receber em `docs/ux/03-screens/` |
+| GAR-001 | React de Garantias — não existe nenhuma pasta | **prioridade alta por `DR-014`** (`GAR-101` é paridade obrigatória). **O backend deixou de ser o gargalo**: `GAR-002` fechou a Fase 5.4 em `a989cc0`. O que falta é UI — novo atendimento + confirmação da etiqueta, `GAR-102`, cancelar/corrigir garantia — e isso é frente do Codex. Atenção: `docs/ux/03-screens/reparos/` é domínio NOVO com material `vazio`, **não** é o desenho de `GAR-101` |
+| FIN-001 | React de Financeiro/Recebíveis — não existe nenhuma pasta | **prioridade alta por `DR-014`** (`FIN-101` é paridade obrigatória). O backend correspondente é a **Fase 5.3 do Refactor, ainda NÃO INICIADA e aguardando autorização** — é também onde o crédito da cliente gerado por garantia deixa de ser dependência externa. Não existe pasta de UX para contas a receber em `docs/ux/03-screens/` |
 | MON-003 | React de Monte seu Colar — hoje é backend puro atrás de flag | ligar `PERSONALIZACAO_ATIVA` primeiro (ver Decisions Required) |
 
 ---
@@ -228,8 +235,9 @@ as outras três dependem, e ela aparece aqui porque "o que está esperando
 resposta de pessoa" era justamente o que o painel não sabia dizer. A regra de
 propriedade abaixo vale só para as três primeiras.
 
-### Estado por frente (atualizado 11/09/2026, revisão da noite; card do Codex
-sincronizado com o checkpoint `a6d7c6b`)
+### Estado por frente (atualizado 12/09/2026; card do Claude Refactor
+sincronizado com o fechamento da Fase 5.4 em `a989cc0`, card do Codex mantido
+no checkpoint `a6d7c6b`)
 
 #### CODEX — frontend / UX V2
 
@@ -252,6 +260,8 @@ sincronizado com o checkpoint `a6d7c6b`)
 | Branch | `codex/ui-system-marquesa` |
 | Working tree no checkpoint | limpa |
 | Último commit conhecido | `a6d7c6b` — `docs(ux): checkpoint vendas v2 refinement`; **não pushado** |
+| Conferência do remoto em 12/09/2026 | `git ls-remote origin refs/heads/codex/ui-system-marquesa` devolve `52f5f5f`. `a6d7c6b` continua sem push e **nenhum commit novo do Codex está confirmado no Git** — o checkpoint oficial segue sendo `a6d7c6b` |
+| Ownership | inalterado — Vendas V2, responsividade/mobile, fechamento da tela e, depois, o fluxo completo de venda continuam sendo do Codex |
 | O que este checkpoint **não** significa | Vendas concluída · `UX/UI DESIGNED` · React implementado · backend integrado · DEV atualizado · PROD atualizado |
 | Detalhe completo | [WORKLOG-CODEX.md](WORKLOG-CODEX.md) e `docs/ux/03-screens/vendas/` no commit `a6d7c6b` — este painel é o resumo operacional, o worklog é o registro detalhado |
 
@@ -259,24 +269,29 @@ sincronizado com o checkpoint `a6d7c6b`)
 
 | | |
 |---|---|
-| Fase | Fase 4 — Estoque e Catálogo |
-| Item/subetapa | 6/6 concluídas — último: 4.6 (Importações relacionadas) |
-| Status | **COMPLETA** — Fase 4 fechada nesta branch |
-| Progresso | 100% da fase |
-| Gate | Fase 4 PASSOU |
+| Fase | **Fase 5 — Vendas, Clientes, Financeiro e Garantias** |
+| Status | **EM ANDAMENTO** — a Fase 5 **não** está concluída |
+| Item/subetapa | concluídas: 5.0 (reconciliação com `develop`) · 5.1 (`GET /api/vendas/lista`) · 5.2 (identidade estável de `venda_itens`) · 5.2b (garantias apontam para `venda_item_id`) · **5.4 (backend de garantias)** |
+| Fase 5.4 — backend de garantias | **COMPLETA** |
+| Subfases da 5.4 | 5.4a cobertura/gate do ciclo · 5.4b relógio, venda cancelada, garantia por unidade · 5.4c pagamento na linha do tempo · 5.4d estorno auditável `GAR-102` · 5.4e crédito, novo atendimento, matriz mínima, data futura · 5.4f correção explícita de status lançado errado |
+| Último concluído | **5.4f** — correção auditável de status lançado errado (`a989cc0`) |
+| Gate no fechamento da 5.4 | release **17/17** · domain **4/4** · `schema-migration-coerencia` **PASSOU** · razão/estoque **PASSOU** |
+| Progresso | 5 blocos fechados dentro da Fase 5; não vira percentual porque a ordem restante depende de autorização |
 | Tarefa atual | nenhuma em andamento |
-| Último concluído | 4.6 — Importações relacionadas (`35fd51b` fix, `1bd0dd5` docs — auditoria vira registro canônico) |
-| Próximo | Fase 5 — vendas, clientes, financeiro e garantias |
-| Status da próxima fase | **AGUARDANDO ALINHAMENTO / NÃO INICIAR FASE 5 AINDA** |
-| Bloqueios | alinhar backend com o avanço do redesign do Codex antes de começar a Fase 5 |
-| Aguardando Gustavo | não |
-| Aguardando Sthefany | **não** para iniciar — `DR-005` e `DR-006` fecharam em 11/09/2026. A Fase 5 ainda cruza perguntas de UX marcadas "Gustavo + Sthefany" (`VEN-Q*`), que são da frente do Codex e não travam o backend |
-| Branch | `claude/refactor-sistema-marquesa` — protegida no remoto, upstream configurado; ponto inicial protegido `bfd5d6b` |
+| Próximo | **5.3 — `FIN-101` / Contas a Receber** |
+| Status do próximo | **NÃO INICIADO — AGUARDANDO AUTORIZAÇÃO** |
+| Dependências externas registradas pela 5.4 | crédito da cliente → arquitetura financeira / `FIN-101` / modelo financeiro · UI de novo atendimento + confirmação da etiqueta → Codex · UI `GAR-102` → Codex · UI cancelar/corrigir garantia → Codex · `ambiguo`/`sem_match` → auditoria read-only futura em PROD |
+| O que essas dependências **não** significam | que o backend da 5.4 está incompleto. Elas moram em outra frente ou em outra fase; a 5.4 fechou com gate verde |
+| Bloqueios | nenhum técnico |
+| Aguardando Gustavo | **sim** — autorização para iniciar a 5.3 |
+| Aguardando Sthefany | **não** — `DR-005`, `DR-006`, `DR-015` e `DR-016` fecharam em 11/09/2026. A Fase 5 ainda cruza perguntas de UX marcadas "Gustavo + Sthefany" (`VEN-Q*`), que são da frente do Codex e não travam o backend |
+| Branch | `claude/refactor-sistema-marquesa` — protegida no remoto, upstream configurado; ponto inicial protegido `bfd5d6b`. **Local = remoto** |
 | Working tree | limpa |
-| Integração | nada desta branch foi mesclado em `main` |
-| Último commit conhecido | `1bd0dd5` |
+| Integração | nada desta branch foi mesclado em `main`; **PROD continua congelada** |
+| Último commit conhecido | `a989cc0` |
+| Prova do estado remoto | `git ls-remote origin refs/heads/claude/refactor-sistema-marquesa` devolve `a989cc02882f9300264cd157fde4934ce841b27f`, conferido em 12/09/2026; o `git log` do mesmo SHA mostra `67c6288`–`a989cc0` como as seis subfases da 5.4, e **nenhum commit de 5.3** |
 | Pendência futura já identificada | Fase 7 deverá corrigir a exclusão de configuração montável no sync com Nuvemshop |
-| Sequência macro | Fases 0–4: concluídas nesta branch · Fase 5: próxima (vendas, clientes, financeiro, garantias) · Fase 6: revendedoras/maletas/comissão · Fase 7: Nuvemshop/sync/reconciliação · Fase 8: analytics/projeções |
+| Sequência macro | Fases 0–4: **completas** nesta branch · **Fase 5: em andamento** (5.0, 5.1, 5.2, 5.2b e 5.4 fechadas; 5.3 é a próxima candidata) · Fase 6: revendedoras/maletas/comissão · Fase 7: Nuvemshop/sync/reconciliação · Fase 8: analytics/projeções |
 
 #### STHEFANY — decisões de negócio e realidade física
 
@@ -295,16 +310,16 @@ sincronizado com o checkpoint `a6d7c6b`)
 | | |
 |---|---|
 | Fase | não numerada — governança/auditoria corre em paralelo às fases numeradas do Refactor |
-| Item/subetapa | consolidação das respostas finais da Sthefany e sincronização do painel com o checkpoint `a6d7c6b` do Codex |
-| Status | **respostas de negócio consolidadas** — o que resta na frente é técnico: integração, review e verificação. PROD continua congelada |
+| Item/subetapa | sincronização do estado global com o fechamento oficial da Fase 5.4 do Claude Refactor |
+| Status | **painel em dia com o remoto das três frentes** — o que resta na frente é técnico: integração, review e verificação. PROD continua congelada |
 | Progresso | 15 decisões fechadas (11 em `DR-002`–`DR-014`, mais `DR-005`, `DR-006`, `DR-015`, `DR-016`); `P2` e a classe de `P17` fechadas; 2 decisões novas abertas para o Gustavo (`DR-017`, `DR-018`) |
-| Tarefa atual | este commit — o card do Codex passa a refletir o checkpoint oficial `a6d7c6b` em vez de `52f5f5f` |
-| Último concluído | `DOC-005` — respostas da Sthefany integradas em `REGRAS.md`, `PENDENTES.md`, Master Plan e 3 documentos de domínio |
-| Próximo | revisar o conteúdo do checkpoint `a6d7c6b` (matriz de interações, handoff, padrões) quando o Codex pedir revisão; planejar (sem executar) a transformação do saldo legado de `326660` e a execução de `SAI-002` |
+| Tarefa atual | este commit — o card do Claude Refactor sai da Fase 4 e passa à Fase 5 em andamento, com a 5.4 marcada COMPLETA e a 5.3 explicitamente não iniciada |
+| Último concluído | `DOC-006` — estado global sincronizado com `a989cc0`; nada implementado, nenhuma migration, nenhum deploy |
+| Próximo | revisar o backend de garantias da 5.4 quando o Refactor pedir review; revisar o checkpoint `a6d7c6b` (matriz de interações, handoff, padrões) quando o Codex pedir; planejar (sem executar) a transformação do saldo legado de `326660` e a execução de `SAI-002` |
 | Bloqueios | nenhum |
 | Aguardando Gustavo | não |
 | Aguardando Sthefany | **não** — `DR-005`, `DR-006`, `DR-015` e `DR-016` fecharam em 11/09/2026 |
-| Último commit conhecido | `8b306ad` — último estado confirmado antes desta rodada |
+| Último commit conhecido | `847fe28` — último estado confirmado antes desta rodada |
 
 ### Duas worktrees fora das três frentes oficiais
 
@@ -437,7 +452,12 @@ nome em vez de `cliente_id` as pegaria junto. A documentação segue com
 
 ## Contagem
 
-DONE: 10 · IN PROGRESS: 15 · NEXT: 9 · BLOCKED: 4 · DECISIONS REQUIRED: 2
+DONE: 11 · IN PROGRESS: 16 · NEXT: 9 · BLOCKED: 4 · DECISIONS REQUIRED: 2
+
+A variação de 12/09/2026 é inteira documental: `DOC-006` (esta sincronização)
+entra em `DONE` e `GAR-002` (backend de garantias da Fase 5.4, completo em
+`a989cc0` e ainda não mesclado) entra em `IN PROGRESS`. Nenhuma tarefa mudou
+de estado por trabalho novo nesta worktree.
 
 As decisões pendentes caíram de 13 para 4 e depois para **2**, no mesmo dia.
 Quinze fecharam (`DR-002`–`DR-016`), sendo as quatro últimas — `DR-005`,

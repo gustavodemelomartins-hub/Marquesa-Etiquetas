@@ -1,10 +1,18 @@
 {
   "gerado": "2026-09-12",
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
-  "atualizadoEm": "2026-09-11",
+  "atualizadoEm": "2026-09-12",
   "git": {
     "branch": "claude/review-marquesa-v2",
     "recentes": [
+      {
+        "commit": "847fe28",
+        "data": "2026-09-11",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(painel): o card do Codex deixa de parar em 52f5f5f e passa a a6d7c6b",
+        "agente": "",
+        "taskIds": []
+      },
       {
         "commit": "8b306ad",
         "data": "2026-09-11",
@@ -198,27 +206,19 @@
         "assunto": "docs(catalogo): a regra alcança o que foi construído",
         "agente": "",
         "taskIds": []
-      },
-      {
-        "commit": "074d057",
-        "data": "2026-09-10",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "test(catalogo): as dezenove provas da 4.5 contra o schema real",
-        "agente": "",
-        "taskIds": []
       }
     ]
   },
   "visaoGeral": {
-    "progresso": 26,
+    "progresso": 28,
     "porEstado": {
-      "DONE": 10,
-      "IN PROGRESS": 15,
+      "DONE": 11,
+      "IN PROGRESS": 16,
       "NEXT": 9,
       "BLOCKED": 4,
       "DECISIONS REQUIRED": 2
     },
-    "totalTarefas": 40
+    "totalTarefas": 42
   },
   "tarefas": [
     {
@@ -291,6 +291,14 @@
       "dominio": "Documentação",
       "titulo": "Consolidação das 11 decisões de 11/09/2026, separação de P11/P17, e registro das 3 frentes paralelas de trabalho",
       "contexto": "commits 3843297 e 510afa5 — ver ## WORKSTREAMS e ## DECISIONS MADE",
+      "nota": ""
+    },
+    {
+      "id": "DOC-006",
+      "estado": "DONE",
+      "dominio": "Documentação",
+      "titulo": "Estado global sincronizado com o fechamento da Fase 5.4 do Claude Refactor — o card da frente sai da Fase 4 e passa à Fase 5 em andamento, com as subfases 5.0/5.1/5.2/5.2b/5.4 fechadas, a 5.3 (FIN-101) marcada como não iniciada e o Codex mantido em a6d7c6b. Nenhum backend implementado, nenhuma migration, nenhum deploy",
+      "contexto": "este commit — a989cc0 conferido por git ls-remote; GAR-002 aberta em IN PROGRESS",
       "nota": ""
     },
     {
@@ -414,6 +422,14 @@
       "nota": "é anterior a esta sessão e não bloqueia nada hoje; fechar exige safe-d1-change e nunca em PROD congelada"
     },
     {
+      "id": "GAR-002",
+      "estado": "IN PROGRESS",
+      "dominio": "Garantias",
+      "titulo": "Backend de garantias — Fase 5.4 do Claude Refactor, COMPLETA na branch (ciclo, relógio, garantia por unidade, pagamento na linha do tempo, estorno auditável GAR-102, crédito/novo atendimento, correção de status lançado errado)",
+      "contexto": "branch claude/refactor-sistema-marquesa, commit a989cc0; gates no fechamento: release 17/17, domain 4/4, schema-migration-coerencia e razão/estoque PASSOU",
+      "nota": "a Fase 5.4 está completa; a tarefa só não é DONE pela régua de backend deste painel — falta mesclar e publicar. As dependências de UI (GAR-102, novo atendimento, cancelar/corrigir) são do Codex e não tornam o backend incompleto"
+    },
+    {
       "id": "SAI-001",
       "estado": "IN PROGRESS",
       "dominio": "Saídas sem faturamento",
@@ -474,7 +490,7 @@
       "estado": "NEXT",
       "dominio": "Garantias",
       "titulo": "React de Garantias — não existe nenhuma pasta",
-      "contexto": "prioridade alta por DR-014 (GAR-101 é paridade obrigatória). Atenção: docs/ux/03-screens/reparos/ é domínio NOVO com material vazio, não é o desenho de GAR-101",
+      "contexto": "prioridade alta por DR-014 (GAR-101 é paridade obrigatória). O backend deixou de ser o gargalo: GAR-002 fechou a Fase 5.4 em a989cc0. O que falta é UI — novo atendimento + confirmação da etiqueta, GAR-102, cancelar/corrigir garantia — e isso é frente do Codex. Atenção: docs/ux/03-screens/reparos/ é domínio NOVO com material vazio, não é o desenho de GAR-101",
       "nota": ""
     },
     {
@@ -482,7 +498,7 @@
       "estado": "NEXT",
       "dominio": "Financeiro",
       "titulo": "React de Financeiro/Recebíveis — não existe nenhuma pasta",
-      "contexto": "prioridade alta por DR-014 (FIN-101 é paridade obrigatória). Não existe pasta de UX para contas a receber em docs/ux/03-screens/",
+      "contexto": "prioridade alta por DR-014 (FIN-101 é paridade obrigatória). O backend correspondente é a Fase 5.3 do Refactor, ainda NÃO INICIADA e aguardando autorização — é também onde o crédito da cliente gerado por garantia deixa de ser dependência externa. Não existe pasta de UX para contas a receber em docs/ux/03-screens/",
       "nota": ""
     },
     {
@@ -978,6 +994,14 @@
           "nota": ""
         },
         {
+          "id": "DOC-006",
+          "estado": "DONE",
+          "dominio": "Documentação",
+          "titulo": "Estado global sincronizado com o fechamento da Fase 5.4 do Claude Refactor — o card da frente sai da Fase 4 e passa à Fase 5 em andamento, com as subfases 5.0/5.1/5.2/5.2b/5.4 fechadas, a 5.3 (FIN-101) marcada como não iniciada e o Codex mantido em a6d7c6b. Nenhum backend implementado, nenhuma migration, nenhum deploy",
+          "contexto": "este commit — a989cc0 conferido por git ls-remote; GAR-002 aberta em IN PROGRESS",
+          "nota": ""
+        },
+        {
           "id": "DOC-005",
           "estado": "DONE",
           "dominio": "Documentação",
@@ -988,7 +1012,7 @@
       ],
       "paridade": [],
       "contagem": {
-        "DONE": 5
+        "DONE": 6
       }
     },
     {
@@ -1050,7 +1074,7 @@
           "estado": "NEXT",
           "dominio": "Financeiro",
           "titulo": "React de Financeiro/Recebíveis — não existe nenhuma pasta",
-          "contexto": "prioridade alta por DR-014 (FIN-101 é paridade obrigatória). Não existe pasta de UX para contas a receber em docs/ux/03-screens/",
+          "contexto": "prioridade alta por DR-014 (FIN-101 é paridade obrigatória). O backend correspondente é a Fase 5.3 do Refactor, ainda NÃO INICIADA e aguardando autorização — é também onde o crédito da cliente gerado por garantia deixa de ser dependência externa. Não existe pasta de UX para contas a receber em docs/ux/03-screens/",
           "nota": ""
         }
       ],
@@ -1077,11 +1101,19 @@
       "nome": "Garantias",
       "tarefas": [
         {
+          "id": "GAR-002",
+          "estado": "IN PROGRESS",
+          "dominio": "Garantias",
+          "titulo": "Backend de garantias — Fase 5.4 do Claude Refactor, COMPLETA na branch (ciclo, relógio, garantia por unidade, pagamento na linha do tempo, estorno auditável GAR-102, crédito/novo atendimento, correção de status lançado errado)",
+          "contexto": "branch claude/refactor-sistema-marquesa, commit a989cc0; gates no fechamento: release 17/17, domain 4/4, schema-migration-coerencia e razão/estoque PASSOU",
+          "nota": "a Fase 5.4 está completa; a tarefa só não é DONE pela régua de backend deste painel — falta mesclar e publicar. As dependências de UI (GAR-102, novo atendimento, cancelar/corrigir) são do Codex e não tornam o backend incompleto"
+        },
+        {
           "id": "GAR-001",
           "estado": "NEXT",
           "dominio": "Garantias",
           "titulo": "React de Garantias — não existe nenhuma pasta",
-          "contexto": "prioridade alta por DR-014 (GAR-101 é paridade obrigatória). Atenção: docs/ux/03-screens/reparos/ é domínio NOVO com material vazio, não é o desenho de GAR-101",
+          "contexto": "prioridade alta por DR-014 (GAR-101 é paridade obrigatória). O backend deixou de ser o gargalo: GAR-002 fechou a Fase 5.4 em a989cc0. O que falta é UI — novo atendimento + confirmação da etiqueta, GAR-102, cancelar/corrigir garantia — e isso é frente do Codex. Atenção: docs/ux/03-screens/reparos/ é domínio NOVO com material vazio, não é o desenho de GAR-101",
           "nota": ""
         }
       ],
@@ -1114,6 +1146,7 @@
         }
       ],
       "contagem": {
+        "IN PROGRESS": 1,
         "NEXT": 1
       }
     },
@@ -2297,6 +2330,20 @@
   "worklogs": [
     {
       "agente": "Claude",
+      "data": "2026-09-12",
+      "titulo": "A Fase 5.4 do Refactor fecha, e o painel para de dizer Fase 4",
+      "branch": "claude/review-marquesa-v2",
+      "commits": "1, documental",
+      "status": "concluído; nada implementado, nenhuma migration, nenhum deploy, PROD congelada",
+      "taskIds": [
+        "DOC-006",
+        "GAR-002",
+        "GAR-001",
+        "FIN-001"
+      ]
+    },
+    {
+      "agente": "Claude",
       "data": "2026-09-11 (tarde)",
       "titulo": "Reconciliação da branch Claude com a V2, e o painel do projeto",
       "branch": "codex/ui-system-marquesa (a linha da V2)",
@@ -2414,6 +2461,8 @@
         "branch": "codex/ui-system-marquesa",
         "working tree no checkpoint": "limpa",
         "último commit conhecido": "a6d7c6b — docs(ux): checkpoint vendas v2 refinement; não pushado",
+        "conferência do remoto em 12/09/2026": "git ls-remote origin refs/heads/codex/ui-system-marquesa devolve 52f5f5f. a6d7c6b continua sem push e nenhum commit novo do Codex está confirmado no Git — o checkpoint oficial segue sendo a6d7c6b",
+        "ownership": "inalterado — Vendas V2, responsividade/mobile, fechamento da tela e, depois, o fluxo completo de venda continuam sendo do Codex",
         "o que este checkpoint não significa": "Vendas concluída · UX/UI DESIGNED · React implementado · backend integrado · DEV atualizado · PROD atualizado",
         "detalhe completo": "WORKLOG-CODEX.md e docs/ux/03-screens/vendas/ no commit a6d7c6b — este painel é o resumo operacional, o worklog é o registro detalhado"
       }
@@ -2425,24 +2474,29 @@
       "branch": "claude/refactor-sistema-marquesa",
       "titulo": "CLAUDE REFACTOR — backend / domínios",
       "campos": {
-        "fase": "Fase 4 — Estoque e Catálogo",
-        "item/subetapa": "6/6 concluídas — último: 4.6 (Importações relacionadas)",
-        "status": "COMPLETA — Fase 4 fechada nesta branch",
-        "progresso": "100% da fase",
-        "gate": "Fase 4 PASSOU",
+        "fase": "Fase 5 — Vendas, Clientes, Financeiro e Garantias",
+        "status": "EM ANDAMENTO — a Fase 5 não está concluída",
+        "item/subetapa": "concluídas: 5.0 (reconciliação com develop) · 5.1 (GET /api/vendas/lista) · 5.2 (identidade estável de venda_itens) · 5.2b (garantias apontam para venda_item_id) · 5.4 (backend de garantias)",
+        "fase 5.4 — backend de garantias": "COMPLETA",
+        "subfases da 5.4": "5.4a cobertura/gate do ciclo · 5.4b relógio, venda cancelada, garantia por unidade · 5.4c pagamento na linha do tempo · 5.4d estorno auditável GAR-102 · 5.4e crédito, novo atendimento, matriz mínima, data futura · 5.4f correção explícita de status lançado errado",
+        "último concluído": "5.4f — correção auditável de status lançado errado (a989cc0)",
+        "gate no fechamento da 5.4": "release 17/17 · domain 4/4 · schema-migration-coerencia PASSOU · razão/estoque PASSOU",
+        "progresso": "5 blocos fechados dentro da Fase 5; não vira percentual porque a ordem restante depende de autorização",
         "tarefa atual": "nenhuma em andamento",
-        "último concluído": "4.6 — Importações relacionadas (35fd51b fix, 1bd0dd5 docs — auditoria vira registro canônico)",
-        "próximo": "Fase 5 — vendas, clientes, financeiro e garantias",
-        "status da próxima fase": "AGUARDANDO ALINHAMENTO / NÃO INICIAR FASE 5 AINDA",
-        "bloqueios": "alinhar backend com o avanço do redesign do Codex antes de começar a Fase 5",
-        "aguardando gustavo": "não",
-        "aguardando sthefany": "não para iniciar — DR-005 e DR-006 fecharam em 11/09/2026. A Fase 5 ainda cruza perguntas de UX marcadas \"Gustavo + Sthefany\" (VEN-Q*), que são da frente do Codex e não travam o backend",
-        "branch": "claude/refactor-sistema-marquesa — protegida no remoto, upstream configurado; ponto inicial protegido bfd5d6b",
+        "próximo": "5.3 — FIN-101 / Contas a Receber",
+        "status do próximo": "NÃO INICIADO — AGUARDANDO AUTORIZAÇÃO",
+        "dependências externas registradas pela 5.4": "crédito da cliente → arquitetura financeira / FIN-101 / modelo financeiro · UI de novo atendimento + confirmação da etiqueta → Codex · UI GAR-102 → Codex · UI cancelar/corrigir garantia → Codex · ambiguo/sem_match → auditoria read-only futura em PROD",
+        "o que essas dependências não significam": "que o backend da 5.4 está incompleto. Elas moram em outra frente ou em outra fase; a 5.4 fechou com gate verde",
+        "bloqueios": "nenhum técnico",
+        "aguardando gustavo": "sim — autorização para iniciar a 5.3",
+        "aguardando sthefany": "não — DR-005, DR-006, DR-015 e DR-016 fecharam em 11/09/2026. A Fase 5 ainda cruza perguntas de UX marcadas \"Gustavo + Sthefany\" (VEN-Q*), que são da frente do Codex e não travam o backend",
+        "branch": "claude/refactor-sistema-marquesa — protegida no remoto, upstream configurado; ponto inicial protegido bfd5d6b. Local = remoto",
         "working tree": "limpa",
-        "integração": "nada desta branch foi mesclado em main",
-        "último commit conhecido": "1bd0dd5",
+        "integração": "nada desta branch foi mesclado em main; PROD continua congelada",
+        "último commit conhecido": "a989cc0",
+        "prova do estado remoto": "git ls-remote origin refs/heads/claude/refactor-sistema-marquesa devolve a989cc02882f9300264cd157fde4934ce841b27f, conferido em 12/09/2026; o git log do mesmo SHA mostra 67c6288–a989cc0 como as seis subfases da 5.4, e nenhum commit de 5.3",
         "pendência futura já identificada": "Fase 7 deverá corrigir a exclusão de configuração montável no sync com Nuvemshop",
-        "sequência macro": "Fases 0–4: concluídas nesta branch · Fase 5: próxima (vendas, clientes, financeiro, garantias) · Fase 6: revendedoras/maletas/comissão · Fase 7: Nuvemshop/sync/reconciliação · Fase 8: analytics/projeções"
+        "sequência macro": "Fases 0–4: completas nesta branch · Fase 5: em andamento (5.0, 5.1, 5.2, 5.2b e 5.4 fechadas; 5.3 é a próxima candidata) · Fase 6: revendedoras/maletas/comissão · Fase 7: Nuvemshop/sync/reconciliação · Fase 8: analytics/projeções"
       }
     },
     {
@@ -2453,16 +2507,16 @@
       "titulo": "CLAUDE REVIEW — arquitetura / auditoria / governança",
       "campos": {
         "fase": "não numerada — governança/auditoria corre em paralelo às fases numeradas do Refactor",
-        "item/subetapa": "consolidação das respostas finais da Sthefany e sincronização do painel com o checkpoint a6d7c6b do Codex",
-        "status": "respostas de negócio consolidadas — o que resta na frente é técnico: integração, review e verificação. PROD continua congelada",
+        "item/subetapa": "sincronização do estado global com o fechamento oficial da Fase 5.4 do Claude Refactor",
+        "status": "painel em dia com o remoto das três frentes — o que resta na frente é técnico: integração, review e verificação. PROD continua congelada",
         "progresso": "15 decisões fechadas (11 em DR-002–DR-014, mais DR-005, DR-006, DR-015, DR-016); P2 e a classe de P17 fechadas; 2 decisões novas abertas para o Gustavo (DR-017, DR-018)",
-        "tarefa atual": "este commit — o card do Codex passa a refletir o checkpoint oficial a6d7c6b em vez de 52f5f5f",
-        "último concluído": "DOC-005 — respostas da Sthefany integradas em REGRAS.md, PENDENTES.md, Master Plan e 3 documentos de domínio",
-        "próximo": "revisar o conteúdo do checkpoint a6d7c6b (matriz de interações, handoff, padrões) quando o Codex pedir revisão; planejar (sem executar) a transformação do saldo legado de 326660 e a execução de SAI-002",
+        "tarefa atual": "este commit — o card do Claude Refactor sai da Fase 4 e passa à Fase 5 em andamento, com a 5.4 marcada COMPLETA e a 5.3 explicitamente não iniciada",
+        "último concluído": "DOC-006 — estado global sincronizado com a989cc0; nada implementado, nenhuma migration, nenhum deploy",
+        "próximo": "revisar o backend de garantias da 5.4 quando o Refactor pedir review; revisar o checkpoint a6d7c6b (matriz de interações, handoff, padrões) quando o Codex pedir; planejar (sem executar) a transformação do saldo legado de 326660 e a execução de SAI-002",
         "bloqueios": "nenhum",
         "aguardando gustavo": "não",
         "aguardando sthefany": "não — DR-005, DR-006, DR-015 e DR-016 fecharam em 11/09/2026",
-        "último commit conhecido": "8b306ad — último estado confirmado antes desta rodada"
+        "último commit conhecido": "847fe28 — último estado confirmado antes desta rodada"
       }
     },
     {
