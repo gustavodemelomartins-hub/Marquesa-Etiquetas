@@ -318,3 +318,29 @@ repetição de identidade e colisão entre detalhes expandidos.
 10 identidades únicas, 10 detalhes simultâneos, rodapé `1 a 10`, segunda página
 `11 a 20`, recolhimento dos detalhes na paginação e zero overflow horizontal.
 Foram 14 verificações direcionadas, todas verdes.
+
+---
+
+## 2026-09-12 — `VEN-001`: fluxo navegável de Venda normal
+
+O Painel principal foi considerado praticamente fechado pelo Gustavo e o foco
+passou para Lançamentos. A variante `Venda normal` foi reorganizada como uma
+superfície contínua: itens e cliente dividem a linha principal no desktop,
+Pagamento fecha o fluxo em largura total e, no celular, total e finalização
+permanecem alcançáveis acima da navegação fixa.
+
+O protótipo agora permite buscar e adicionar produtos ilustrativos, ajustar
+quantidade, remover peças, editar o preço final com motivo obrigatório, trocar
+ou cadastrar rapidamente uma cliente, editar data/canal/observação, combinar
+recebimentos pagos e pendentes, revisar e simular a confirmação. O retorno de
+sucesso declara explicitamente que nenhum dado real foi gravado.
+
+**Validação:** Playwright/Chromium executou 24 verificações em `320px`, `390px`
+e `1440px`: carrinho e totais reativos, trava de motivo, pagamento misto,
+estado financeiro derivado, troca de cliente, revisão, confirmação, reinício,
+duas colunas no desktop, ação alcançável na largura mínima, ausência de erros
+JavaScript e zero overflow horizontal.
+
+**Limites:** Monte seu Colar, geração de parcelamento, formulário completo de
+Saída sem faturamento, persistência, API, React, deploy e produção não foram
+alterados nesta rodada.

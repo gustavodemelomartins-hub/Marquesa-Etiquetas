@@ -135,6 +135,21 @@ datas e detalhe expandido sem overflow horizontal. O desktop foi conferido em
 celular, validação específica de tablet e a rodada formal completa de
 acessibilidade. `DP-001` e `DP-002` continuam abertas.
 
+### Venda normal navegável
+
+A primeira variante de Lançamentos agora percorre o rascunho completo no
+protótipo: busca e inclusão de produto, quantidade, remoção, edição do preço
+final com motivo obrigatório, seleção/cadastro rápido de cliente, data, canal,
+observação, vários recebimentos, situação financeira derivada, revisão final e
+retorno de sucesso. O total funciona como âncora visual e a ação final fica
+acima da navegação inferior no celular.
+
+A confirmação é deliberadamente local e declara que não gravou dados reais.
+Monte seu Colar, parcelamento com geração de vencimentos e a escrita integrada
+continuam fora desta etapa. A prova direcionada cobriu o fluxo em `390px`, a
+largura mínima de `320px` e o desktop em `1440px`, com 24 verificações verdes,
+sem erro JavaScript ou overflow horizontal.
+
 ## 13. Empty, loading e error
 
 Os conceitos estão descritos em [states.md](states.md), mas não estão
@@ -152,7 +167,7 @@ ao menos referências para:
 ## 14. Pendências
 
 - revisar e aprovar a matriz de interações;
-- concluir fluxos locais de Lançamentos e Saídas;
+- concluir Monte seu Colar, parcelamento e o formulário local de Saídas;
 - fechar decisões que mudam taxonomia, fórmulas, permissões e campos;
 - validar responsividade e acessibilidade;
 - decidir quando o histórico completo vira superfície própria;
@@ -169,6 +184,7 @@ ao menos referências para:
 - [x] regras financeiras fundamentais documentadas;
 - [x] destinos futuros separados de interações locais;
 - [x] composição mobile validada tecnicamente entre 320px e 390px;
+- [x] Venda normal navegável no protótipo, incluindo revisão e confirmação local;
 - [ ] matriz revisada e aceita por Gustavo;
 - [ ] todos os controles locais relevantes definidos;
 - [ ] estados vazio/loading/error/confirmation validados;

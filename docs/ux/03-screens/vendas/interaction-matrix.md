@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | Task ID | `VEN-001` |
-| Data do checkpoint | 11/09/2026 |
-| Status | **UX/UI EM REFINAMENTO — design principal avançado, interações pendentes** |
+| Data do checkpoint | 12/09/2026 |
+| Status | **UX/UI EM REFINAMENTO — Painel principal praticamente fechado; Venda normal navegável** |
 | Protótipo | [master.html](master.html) |
 
 Esta matriz separa o que precisa funcionar dentro do protótipo do que depende
@@ -52,17 +52,18 @@ registra um destino sem obrigar sua criação nesta rodada.
 
 | Elemento | Localização | Ação esperada | Tipo | Destino | Estado atual | Funcional no protótipo? | Depende de outra tela? | Observação |
 |---|---|---|---|---|---|---|---|---|
-| Limpar rascunho | cabeçalho de Lançamentos | confirmar e limpar dados preenchidos | MODAL | confirmação local | somente visual | Não | Não | precisa definir preservação e descarte |
-| Venda normal | tipo de lançamento | mostrar formulário de venda normal | LOCAL | formulário de venda | visualmente selecionado | Parcial | Não | não há alternância completa de formulário |
+| Limpar rascunho | cabeçalho de Lançamentos | confirmar e limpar dados preenchidos | MODAL | confirmação local | implementado no protótipo | Sim | Não | descarte explícito; não grava dados reais |
+| Venda normal | tipo de lançamento | mostrar formulário de venda normal | LOCAL | formulário de venda | implementado no protótipo | Sim | Não | superfície contínua em desktop e mobile |
 | Monte seu Colar | tipo de lançamento | mostrar composição personalizada | LOCAL | fluxo Monte seu Colar | somente visual | Não | Não | base é fixa; demais decisões continuam abertas |
 | Saída sem faturamento | tipo de lançamento | abrir fluxo não comercial | NAVEGAÇÃO | superfície Saídas | implementado | Sim | Não | fica dentro de Lançamentos, não como aba do submenu |
-| Adicionar item / busca de item | itens da venda | localizar e incluir SKU disponível | MODAL | seletor de produto | somente visual | Não | Não | depende de estados de estoque e indisponibilidade |
-| Editar preço final | linha do item | aplicar preço por peça e motivo | MODAL | editor ancorado | especificado, não simulado | Não | Não | ver componente `item-price-editor` |
-| Nova cliente / remover cliente | dados da venda | cadastrar ou retirar cliente do rascunho | MODAL | cadastro rápido de cliente | somente visual | Não | Parcial | cadastro completo de Clientes é futuro |
-| Data, canal e observação | dados da venda | editar metadados da operação | LOCAL | rascunho | controles parciais | Parcial | Não | data está somente leitura e canal tem uma opção |
-| Mais opções / adicionar pagamento | Pagamento | detalhar ou criar lançamento | LOCAL | compositor de pagamentos | somente visual | Não | Não | especificação existe; simulação ainda falta |
-| Parcelar | Pagamento | configurar parcelas e vencimentos | MODAL | configuração de parcelas | somente visual | Não | Não | estados e validações ainda pendentes |
-| Finalizar venda | rodapé de Pagamento | validar e confirmar venda uma vez | MODAL | confirmação / sucesso | somente visual | Não | Não | não salvar nem integrar nesta etapa |
+| Adicionar item / busca de item | itens da venda | localizar e incluir SKU disponível | LOCAL | resultados de produto | implementado com catálogo ilustrativo | Sim | Não | disponibilidade real e leitura física pertencem à implementação futura |
+| Quantidade / remover item | linha do item | ajustar o carrinho e recalcular totais | LOCAL | carrinho | implementado no protótipo | Sim | Não | remover a última unidade retira a linha |
+| Editar preço final | linha do item | aplicar preço por peça e motivo | MODAL | editor de preço | implementado no protótipo | Sim | Não | preço de tabela preservado e motivo obrigatório quando muda |
+| Nova cliente / remover cliente | dados da venda | cadastrar ou retirar cliente do rascunho | MODAL | cadastro rápido de cliente | implementado no protótipo | Sim | Parcial | sem persistência; cadastro completo de Clientes é futuro |
+| Data, canal e observação | dados da venda | editar metadados da operação | LOCAL | rascunho | implementado no protótipo | Sim | Não | data futura impedida pelo campo; opções são ilustrativas |
+| Adicionar pagamento | Pagamento | criar recebimentos independentes | LOCAL | compositor de pagamentos | implementado no protótipo | Sim | Não | valores pagos atualizam recebido; pendentes permanecem em A receber |
+| Parcelar | Pagamento | configurar parcelas e vencimentos | MODAL | configuração de parcelas | orientação provisória | Não | Não | política de geração e vencimentos continua pendente |
+| Finalizar venda | rodapé de Pagamento | validar e confirmar venda uma vez | MODAL | confirmação / sucesso | implementado no protótipo | Sim | Não | simula confirmação idempotente; não salva nem integra |
 | Buscar / Nova cliente | superfície Clientes | filtrar ou cadastrar cliente | LOCAL / MODAL | lista ou cadastro | somente visual | Não | Sim | superfície é apenas contexto auxiliar atual |
 | Ver todas as clientes | contexto de recebíveis | voltar à lista geral | LOCAL | superfície Clientes | implementado | Sim | Não | desfaz o recorte contextual |
 | Novo reparo / busca / linha | superfície provisória Reparos | criar, filtrar ou abrir reparo | FUTURA TELA | Reparos | somente visual | Não | Sim | superfície não é design oficial de Reparos |

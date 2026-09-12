@@ -251,19 +251,92 @@
 
         <section class="screen" id="lancamentos" aria-labelledby="launch-title" hidden>
           <div class="page-heading">
-            <div><p class="context">Operação do dia</p><h1 id="launch-title">Novo lançamento</h1><p>Escolha o tipo de operação e registre cada efeito com clareza.</p></div>
-            <button class="button ghost" type="button">Limpar rascunho</button>
+            <div><p class="context">Operação do dia</p><h1 id="launch-title">Novo lançamento</h1><p>Adicione as peças, identifique a cliente e registre como o valor será recebido.</p></div>
+            <div class="draft-tools"><span class="draft-indicator" data-draft-indicator><i></i> Rascunho em andamento</span><button class="button ghost" type="button" data-clear-draft>Limpar rascunho</button></div>
           </div>
           <div class="choice-grid" role="radiogroup" aria-label="Tipo de lançamento">
-            <button class="choice active" type="button" role="radio" aria-checked="true"><span>Venda normal</span><small>Produtos do estoque</small></button>
-            <button class="choice" type="button" role="radio" aria-checked="false"><span>Monte seu Colar</span><small>Modelo e composição</small></button>
+            <button class="choice active" type="button" role="radio" aria-checked="true" data-launch-type="sale"><span>Venda normal</span><small>Peças com etiqueta</small></button>
+            <button class="choice" type="button" role="radio" aria-checked="false" data-next-launch-flow="collar"><span>Monte seu Colar</span><small>Modelo e composição</small></button>
             <button class="choice" type="button" role="radio" aria-checked="false" data-launch-screen="saidas"><span>Saída sem faturamento</span><small>Brinde, uso próprio, perda ou sorteio</small></button>
           </div>
-          <div class="launch-grid">
-            <section class="data-section launch-card"><div class="section-heading"><div><h2>Itens da venda</h2><p>Nome, SKU ou código da etiqueta</p></div><button class="button secondary" type="button">Adicionar item</button></div><div class="search-field">Buscar produto <kbd>⌘ K</kbd></div><ul class="cart-list"><li><span class="jewel">◌</span><div><b>Argola Duas Linhas Cravejadas</b><small>SKU 122060 · Banho de Ouro 18k</small></div><span>1 × R$ 72,00</span><strong>R$ 72,00</strong></li><li><span class="jewel">◇</span><div><b>Pulseira Medalha Salmo</b><small>SKU 451109 · Banho de Ouro 18k</small></div><span>1 × R$ 136,00</span><strong>R$ 136,00</strong></li><li><span class="jewel">⌁</span><div><b>Monte seu Colar · Casal</b><small>SKU 326660 · composição confirmada</small></div><span>1 × R$ 129,00</span><strong>R$ 129,00</strong></li></ul></section>
-            <section class="data-section customer-card"><div class="section-heading"><div><h2>Cliente e venda</h2><p>Identificação e origem da operação</p></div><button class="button secondary" type="button">Nova cliente</button></div><div class="search-field">Buscar por nome, WhatsApp ou CPF</div><div class="selected-customer"><span>TN</span><div><b>Thais Nania</b><small>(19) 9 8888-7777 · CPF final 890-00</small></div><button aria-label="Remover cliente">×</button></div><div class="form-grid"><label>Data da venda<input value="11/09/2026" readonly></label><label>Local ou canal<select><option>Balcão</option></select></label><label class="wide">Observação<textarea placeholder="Informação útil para o histórico"></textarea></label></div></section>
+          <div data-launch-workspace>
+            <div class="launch-grid">
+              <section class="data-section launch-card">
+                <div class="section-heading"><div><h2>Itens da venda</h2><p>Leia a etiqueta ou busque por nome e SKU.</p></div><span class="item-count" data-item-count>2 peças</span></div>
+                <form class="product-search" data-product-search-form>
+                  <label class="visually-hidden" for="launch-product-search">Buscar produto</label>
+                  <span aria-hidden="true">⌕</span>
+                  <input id="launch-product-search" type="search" autocomplete="off" placeholder="Nome, SKU ou código da etiqueta" data-product-search />
+                  <button class="button secondary" type="submit">Adicionar</button>
+                </form>
+                <div class="product-results" data-product-results hidden></div>
+                <ul class="cart-list launch-cart" data-launch-cart>
+                  <li data-cart-item data-sku="122060" data-name="Argola Duas Linhas Cravejadas" data-table-price="72" data-price="72" data-quantity="1">
+                    <span class="jewel" aria-hidden="true">◌</span>
+                    <div class="cart-product"><b>Argola Duas Linhas Cravejadas</b><small>SKU 122060 · Banho de Ouro 18k</small><small class="price-note" hidden></small></div>
+                    <div class="quantity-control" aria-label="Quantidade de Argola Duas Linhas Cravejadas"><button type="button" data-quantity-action="decrease" aria-label="Diminuir quantidade">−</button><span data-item-quantity>1</span><button type="button" data-quantity-action="increase" aria-label="Aumentar quantidade">+</button></div>
+                    <button class="item-price" type="button" data-edit-price aria-label="Editar preço da Argola Duas Linhas Cravejadas"><small>Preço final</small><strong data-item-total>R$ 72,00</strong></button>
+                    <button class="item-remove" type="button" data-remove-item aria-label="Remover Argola Duas Linhas Cravejadas">×</button>
+                  </li>
+                  <li data-cart-item data-sku="451109" data-name="Pulseira Medalha Salmo" data-table-price="136" data-price="136" data-quantity="1">
+                    <span class="jewel" aria-hidden="true">◇</span>
+                    <div class="cart-product"><b>Pulseira Medalha Salmo</b><small>SKU 451109 · Banho de Ouro 18k</small><small class="price-note" hidden></small></div>
+                    <div class="quantity-control" aria-label="Quantidade de Pulseira Medalha Salmo"><button type="button" data-quantity-action="decrease" aria-label="Diminuir quantidade">−</button><span data-item-quantity>1</span><button type="button" data-quantity-action="increase" aria-label="Aumentar quantidade">+</button></div>
+                    <button class="item-price" type="button" data-edit-price aria-label="Editar preço da Pulseira Medalha Salmo"><small>Preço final</small><strong data-item-total>R$ 136,00</strong></button>
+                    <button class="item-remove" type="button" data-remove-item aria-label="Remover Pulseira Medalha Salmo">×</button>
+                  </li>
+                </ul>
+                <div class="cart-empty" data-cart-empty hidden><span aria-hidden="true">◇</span><b>A venda ainda está vazia</b><small>Leia uma etiqueta ou busque uma peça para começar.</small></div>
+              </section>
+
+              <section class="data-section customer-card">
+                <div class="section-heading"><div><h2>Cliente e venda</h2><p>Quem comprou e onde a venda aconteceu.</p></div><button class="button secondary" type="button" data-new-customer>Nova cliente</button></div>
+                <label class="field-label" for="launch-customer-search">Cliente</label>
+                <div class="customer-search"><span aria-hidden="true">⌕</span><input id="launch-customer-search" type="search" list="launch-customer-options" placeholder="Nome, WhatsApp ou CPF" data-customer-search /></div>
+                <datalist id="launch-customer-options"><option value="Thais Nania"></option><option value="Camila Ferreira"></option><option value="Juliana Prado"></option></datalist>
+                <div class="selected-customer" data-selected-customer><span data-customer-initials>TN</span><div><b data-customer-name>Thais Nania</b><small data-customer-contact>(19) 9 8888-7777 · CPF final 890-00</small></div><button type="button" aria-label="Remover cliente" data-remove-customer>×</button></div>
+                <div class="customer-empty" data-customer-empty hidden>Selecione uma cliente ou continue identificando os outros dados da venda.</div>
+                <div class="form-grid">
+                  <label>Data da venda<input type="date" value="2026-09-12" max="2026-09-12" data-sale-date></label>
+                  <label>Local ou canal<select data-sale-channel><option>Balcão</option><option>WhatsApp</option><option>Instagram</option><option>Feira ou evento</option></select></label>
+                  <label class="wide">Observação<textarea placeholder="Ex.: atendimento no grupo VIP" data-sale-note></textarea></label>
+                </div>
+              </section>
+            </div>
+
+            <section class="payment data-section">
+              <div class="section-heading"><div><h2>Pagamento</h2><p>Comece pelo caso simples. Abra outras formas somente quando precisar.</p></div><span class="status paid" data-financial-status>Pago</span></div>
+              <div class="payment-overview">
+                <div class="launch-total-anchor"><span>Total da venda</span><strong data-sale-total>R$ 208,00</strong><small data-sale-piece-count>2 peças no carrinho</small></div>
+                <div class="payment-summary"><span>Recebido hoje <b data-sale-received>R$ 208,00</b></span><span>A receber <b data-sale-receivable>R$ 0,00</b></span></div>
+              </div>
+              <div class="payment-list" data-payment-list>
+                <div class="payment-entry" data-payment-entry data-auto-balance="true">
+                  <label><span>Valor</span><input type="number" min="0" step="0.01" value="208.00" data-payment-amount></label>
+                  <label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label>
+                  <label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label>
+                  <button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>
+                </div>
+              </div>
+              <p class="payment-warning" role="alert" data-payment-warning hidden></p>
+              <div class="payment-actions"><button class="button ghost" type="button" data-add-payment>+ Adicionar pagamento</button><button class="button ghost" type="button" data-show-parcel-help>Parcelar</button></div>
+              <div class="launch-checkout"><div><span>A confirmar</span><strong data-checkout-total>R$ 208,00</strong></div><button class="button primary" type="button" data-finalize-sale>Finalizar venda</button></div>
+            </section>
           </div>
-          <section class="payment data-section"><div class="section-heading"><div><h2>Pagamento</h2><p>O status é calculado pelos recebimentos, nunca escolhido manualmente.</p></div><span class="status paid">Pago</span></div><div class="payment-summary"><span>Venda <b>R$ 337,00</b></span><span>Recebido <b>R$ 337,00</b></span><span>A receber <b>R$ 0,00</b></span></div><div class="payment-line"><strong>R$ 337,00</strong><span>PIX</span><span>Pago hoje</span><button type="button" aria-label="Mais opções">•••</button></div><div class="payment-actions"><button class="button ghost" type="button">+ Adicionar pagamento</button><button class="button ghost" type="button">Parcelar</button><button class="button primary" type="button">Finalizar venda · R$ 337,00</button></div></section>
+
+          <section class="launch-success data-section" data-launch-success hidden>
+            <span class="success-seal" aria-hidden="true">✓</span><p class="context">Venda confirmada no protótipo</p><h2>Pronto. O lançamento ficou claro.</h2><p>Nenhum dado real foi gravado. Esta tela demonstra o retorno seguro após a confirmação.</p><div class="success-totals"><span>Total <b data-success-total>R$ 0,00</b></span><span>Recebido <b data-success-received>R$ 0,00</b></span><span>A receber <b data-success-receivable>R$ 0,00</b></span></div><button class="button primary" type="button" data-new-sale>Começar nova venda</button>
+          </section>
+
+          <dialog class="launch-dialog" id="price-dialog"><form method="dialog" data-price-form><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Preço desta peça</p><h2 data-price-product>Editar preço final</h2><p>O preço de tabela fica preservado. Informe quanto será cobrado nesta venda.</p><label>Preço de tabela<input data-table-price-display readonly></label><label>Preço final<input type="number" min="0" step="0.01" required data-final-price></label><label>Motivo da alteração<input type="text" placeholder="Ex.: Grupo VIP" data-price-reason></label><p class="dialog-error" role="alert" data-price-error hidden>Informe o motivo quando o preço final for diferente.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button><button class="button primary" type="submit" value="default">Aplicar preço</button></div></form></dialog>
+
+          <dialog class="launch-dialog compact-dialog" id="clear-draft-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Limpar rascunho</p><h2>Descartar esta venda?</h2><p>Itens, cliente e pagamentos preenchidos serão removidos deste protótipo.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Manter rascunho</button><button class="button primary" value="confirm" data-confirm-clear>Descartar</button></div></form></dialog>
+
+          <dialog class="launch-dialog compact-dialog" id="finalize-sale-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Revisão final</p><h2>Confirmar esta venda?</h2><p data-finalize-copy>Revise os valores antes de confirmar.</p><div class="review-values"><span>Total <b data-review-total></b></span><span>Recebido <b data-review-received></b></span><span>A receber <b data-review-receivable></b></span></div><div class="dialog-actions"><button class="button ghost" value="cancel">Voltar e revisar</button><button class="button primary" type="button" data-confirm-sale>Confirmar venda</button></div></form></dialog>
+
+          <dialog class="launch-dialog compact-dialog" id="new-customer-dialog"><form method="dialog" data-customer-form><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Cadastro rápido</p><h2>Nova cliente</h2><label>Nome<input type="text" required data-new-customer-name></label><label>WhatsApp<input type="tel" placeholder="(19) 9 0000-0000" data-new-customer-phone></label><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button><button class="button primary" type="submit">Usar nesta venda</button></div></form></dialog>
+
+          <div class="launch-toast" role="status" aria-live="polite" data-launch-toast hidden></div>
         </section>
 
         <section class="screen" id="clientes" aria-labelledby="clients-title" hidden>
@@ -321,6 +394,336 @@
         activateScreen(tab.dataset.screen);
       }));
       document.querySelector('[data-launch-screen]').addEventListener('click', () => activateScreen('saidas', 'lancamentos'));
+
+      const launchScreen = document.querySelector('#lancamentos');
+      const launchWorkspace = launchScreen.querySelector('[data-launch-workspace]');
+      const launchSuccess = launchScreen.querySelector('[data-launch-success]');
+      const launchCart = launchScreen.querySelector('[data-launch-cart]');
+      const cartEmpty = launchScreen.querySelector('[data-cart-empty]');
+      const paymentList = launchScreen.querySelector('[data-payment-list]');
+      const paymentWarning = launchScreen.querySelector('[data-payment-warning]');
+      const finalizeSaleButton = launchScreen.querySelector('[data-finalize-sale]');
+      const productSearch = launchScreen.querySelector('[data-product-search]');
+      const productResults = launchScreen.querySelector('[data-product-results]');
+      const priceDialog = launchScreen.querySelector('#price-dialog');
+      const clearDraftDialog = launchScreen.querySelector('#clear-draft-dialog');
+      const finalizeSaleDialog = launchScreen.querySelector('#finalize-sale-dialog');
+      const newCustomerDialog = launchScreen.querySelector('#new-customer-dialog');
+      const selectedCustomer = launchScreen.querySelector('[data-selected-customer]');
+      const customerEmpty = launchScreen.querySelector('[data-customer-empty]');
+      const launchToast = launchScreen.querySelector('[data-launch-toast]');
+      const catalog = [
+        { sku: '122060', name: 'Argola Duas Linhas Cravejadas', detail: 'Banho de Ouro 18k', price: 72, symbol: '◌' },
+        { sku: '451109', name: 'Pulseira Medalha Salmo', detail: 'Banho de Ouro 18k', price: 136, symbol: '◇' },
+        { sku: '640509', name: 'Pingente Menino Verde', detail: 'Coleção Filhos', price: 49, symbol: '♢' },
+        { sku: '649597', name: 'Pingente Menina Rosa Pink', detail: 'Coleção Filhos', price: 49, symbol: '♢' },
+        { sku: '405337', name: 'Colar Filha', detail: 'Banho de Ouro 18k', price: 89, symbol: '⌁' }
+      ];
+      const customerBook = {
+        'Thais Nania': { contact: '(19) 9 8888-7777 · CPF final 890-00' },
+        'Camila Ferreira': { contact: '(19) 9 8123-4567' },
+        'Juliana Prado': { contact: '(19) 9 9211-1098' }
+      };
+      let editingCartItem = null;
+      let toastTimer = null;
+
+      function launchMoney(value) {
+        return currency.format(Number.isFinite(value) ? value : 0);
+      }
+
+      function launchItems() {
+        return [...launchCart.querySelectorAll('[data-cart-item]')];
+      }
+
+      function launchPayments() {
+        return [...paymentList.querySelectorAll('[data-payment-entry]')];
+      }
+
+      function launchTotals() {
+        const total = launchItems().reduce((sum, item) => sum + Number(item.dataset.price) * Number(item.dataset.quantity), 0);
+        const entries = launchPayments();
+        const paid = entries.reduce((sum, entry) => entry.querySelector('[data-payment-state]').value === 'paid' ? sum + Number(entry.querySelector('[data-payment-amount]').value || 0) : sum, 0);
+        const planned = entries.reduce((sum, entry) => sum + Number(entry.querySelector('[data-payment-amount]').value || 0), 0);
+        return { total, paid, planned, receivable: Math.max(0, total - paid), exceeded: planned > total + .005 };
+      }
+
+      function setLaunchText(selector, value) {
+        launchScreen.querySelector(selector).textContent = value;
+      }
+
+      function updateLaunch() {
+        const items = launchItems();
+        const pieceCount = items.reduce((sum, item) => sum + Number(item.dataset.quantity), 0);
+        const totalsBeforeBalance = launchTotals();
+        const payments = launchPayments();
+        if (payments.length === 1 && payments[0].dataset.autoBalance === 'true') {
+          payments[0].querySelector('[data-payment-amount]').value = totalsBeforeBalance.total.toFixed(2);
+        }
+
+        items.forEach((item) => {
+          const quantity = Number(item.dataset.quantity);
+          item.querySelector('[data-item-quantity]').textContent = quantity;
+          item.querySelector('[data-item-total]').textContent = launchMoney(Number(item.dataset.price) * quantity);
+        });
+
+        const totals = launchTotals();
+        setLaunchText('[data-item-count]', `${pieceCount} ${pieceCount === 1 ? 'peça' : 'peças'}`);
+        setLaunchText('[data-sale-piece-count]', `${pieceCount} ${pieceCount === 1 ? 'peça' : 'peças'} no carrinho`);
+        setLaunchText('[data-sale-total]', launchMoney(totals.total));
+        setLaunchText('[data-sale-received]', launchMoney(totals.paid));
+        setLaunchText('[data-sale-receivable]', launchMoney(totals.receivable));
+        setLaunchText('[data-checkout-total]', launchMoney(totals.total));
+        cartEmpty.hidden = items.length > 0;
+        launchCart.hidden = items.length === 0;
+
+        const status = launchScreen.querySelector('[data-financial-status]');
+        status.className = 'status';
+        if (!items.length) {
+          status.classList.add('neutral');
+          status.textContent = 'Sem itens';
+        } else if (totals.paid <= .005) {
+          status.classList.add('receivable');
+          status.textContent = 'A receber';
+        } else if (totals.receivable > .005) {
+          status.classList.add('partial');
+          status.textContent = 'Parcial';
+        } else {
+          status.classList.add('paid');
+          status.textContent = 'Pago';
+        }
+
+        paymentWarning.hidden = !totals.exceeded;
+        paymentWarning.textContent = totals.exceeded ? `Os pagamentos ultrapassam a venda em ${launchMoney(totals.planned - totals.total)}. Ajuste os valores antes de finalizar.` : '';
+        finalizeSaleButton.disabled = !items.length || totals.exceeded;
+        launchScreen.querySelector('[data-clear-draft]').disabled = !items.length && !payments.length && selectedCustomer.hidden;
+        const draftIndicator = launchScreen.querySelector('[data-draft-indicator]');
+        draftIndicator.lastChild.textContent = items.length ? ' Rascunho em andamento' : ' Rascunho vazio';
+      }
+
+      function showLaunchToast(message) {
+        clearTimeout(toastTimer);
+        launchToast.textContent = message;
+        launchToast.hidden = false;
+        toastTimer = setTimeout(() => { launchToast.hidden = true; }, 3600);
+      }
+
+      function createCartItem(product) {
+        const item = document.createElement('li');
+        item.dataset.cartItem = '';
+        item.dataset.sku = product.sku;
+        item.dataset.name = product.name;
+        item.dataset.tablePrice = product.price;
+        item.dataset.price = product.price;
+        item.dataset.quantity = '1';
+        item.innerHTML = `
+          <span class="jewel" aria-hidden="true">${product.symbol}</span>
+          <div class="cart-product"><b>${product.name}</b><small>SKU ${product.sku} · ${product.detail}</small><small class="price-note" hidden></small></div>
+          <div class="quantity-control" aria-label="Quantidade de ${product.name}"><button type="button" data-quantity-action="decrease" aria-label="Diminuir quantidade">−</button><span data-item-quantity>1</span><button type="button" data-quantity-action="increase" aria-label="Aumentar quantidade">+</button></div>
+          <button class="item-price" type="button" data-edit-price aria-label="Editar preço de ${product.name}"><small>Preço final</small><strong data-item-total>${launchMoney(product.price)}</strong></button>
+          <button class="item-remove" type="button" data-remove-item aria-label="Remover ${product.name}">×</button>`;
+        return item;
+      }
+
+      function addCatalogProduct(product) {
+        const existing = launchItems().find((item) => item.dataset.sku === product.sku && Number(item.dataset.price) === product.price);
+        if (existing) existing.dataset.quantity = String(Number(existing.dataset.quantity) + 1);
+        else launchCart.append(createCartItem(product));
+        productSearch.value = '';
+        productResults.hidden = true;
+        updateLaunch();
+        showLaunchToast(`${product.name} adicionada à venda.`);
+      }
+
+      function renderProductResults() {
+        const query = productSearch.value.trim().toLocaleLowerCase('pt-BR');
+        const matches = catalog.filter((product) => !query || product.name.toLocaleLowerCase('pt-BR').includes(query) || product.sku.includes(query)).slice(0, 4);
+        productResults.innerHTML = matches.length
+          ? matches.map((product) => `<button class="product-result" type="button" data-product-sku="${product.sku}"><span><b>${product.name}</b><small>SKU ${product.sku} · ${product.detail}</small></span><strong>${launchMoney(product.price)}</strong></button>`).join('')
+          : '<div class="product-result"><span><b>Nenhuma peça encontrada</b><small>Confira o nome, SKU ou código da etiqueta.</small></span></div>';
+        productResults.hidden = false;
+      }
+
+      launchScreen.querySelector('[data-product-search-form]').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const firstResult = productResults.querySelector('[data-product-sku]');
+        if (!firstResult) return renderProductResults();
+        addCatalogProduct(catalog.find((product) => product.sku === firstResult.dataset.productSku));
+      });
+      productSearch.addEventListener('focus', renderProductResults);
+      productSearch.addEventListener('input', renderProductResults);
+      productResults.addEventListener('click', (event) => {
+        const result = event.target.closest('[data-product-sku]');
+        if (!result) return;
+        addCatalogProduct(catalog.find((product) => product.sku === result.dataset.productSku));
+      });
+      document.addEventListener('click', (event) => {
+        if (!event.target.closest('[data-product-search-form]') && !event.target.closest('[data-product-results]')) productResults.hidden = true;
+      });
+      document.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k' && !launchScreen.hidden) {
+          event.preventDefault();
+          productSearch.focus();
+        }
+      });
+
+      launchCart.addEventListener('click', (event) => {
+        const item = event.target.closest('[data-cart-item]');
+        if (!item) return;
+        const quantityAction = event.target.closest('[data-quantity-action]');
+        if (quantityAction) {
+          const nextQuantity = Number(item.dataset.quantity) + (quantityAction.dataset.quantityAction === 'increase' ? 1 : -1);
+          if (nextQuantity <= 0) item.remove();
+          else item.dataset.quantity = String(nextQuantity);
+          updateLaunch();
+          return;
+        }
+        if (event.target.closest('[data-remove-item]')) {
+          item.remove();
+          updateLaunch();
+          return;
+        }
+        if (event.target.closest('[data-edit-price]')) {
+          editingCartItem = item;
+          setLaunchText('[data-price-product]', item.dataset.name);
+          launchScreen.querySelector('[data-table-price-display]').value = launchMoney(Number(item.dataset.tablePrice));
+          launchScreen.querySelector('[data-final-price]').value = Number(item.dataset.price).toFixed(2);
+          launchScreen.querySelector('[data-price-reason]').value = item.dataset.discountReason || '';
+          launchScreen.querySelector('[data-price-error]').hidden = true;
+          priceDialog.showModal();
+        }
+      });
+
+      launchScreen.querySelector('[data-price-form]').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const finalPrice = Number(launchScreen.querySelector('[data-final-price]').value);
+        const tablePrice = Number(editingCartItem.dataset.tablePrice);
+        const reason = launchScreen.querySelector('[data-price-reason]').value.trim();
+        const changed = Math.abs(finalPrice - tablePrice) > .005;
+        if (changed && !reason) {
+          launchScreen.querySelector('[data-price-error]').hidden = false;
+          launchScreen.querySelector('[data-price-reason]').focus();
+          return;
+        }
+        editingCartItem.dataset.price = String(finalPrice);
+        editingCartItem.dataset.discountReason = changed ? reason : '';
+        const note = editingCartItem.querySelector('.price-note');
+        note.hidden = !changed;
+        note.textContent = changed ? `${reason} · tabela ${launchMoney(tablePrice)}` : '';
+        priceDialog.close();
+        updateLaunch();
+      });
+
+      function paymentEntry(value = 0) {
+        const entry = document.createElement('div');
+        entry.className = 'payment-entry';
+        entry.dataset.paymentEntry = '';
+        entry.dataset.autoBalance = 'false';
+        entry.innerHTML = `<label><span>Valor</span><input type="number" min="0" step="0.01" value="${value.toFixed(2)}" data-payment-amount></label><label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label><label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label><button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>`;
+        return entry;
+      }
+
+      paymentList.addEventListener('input', (event) => {
+        const entry = event.target.closest('[data-payment-entry]');
+        if (entry) entry.dataset.autoBalance = 'false';
+        updateLaunch();
+      });
+      paymentList.addEventListener('change', updateLaunch);
+      paymentList.addEventListener('click', (event) => {
+        if (!event.target.closest('[data-remove-payment]')) return;
+        event.target.closest('[data-payment-entry]').remove();
+        updateLaunch();
+      });
+      launchScreen.querySelector('[data-add-payment]').addEventListener('click', () => {
+        launchPayments().forEach((entry) => { entry.dataset.autoBalance = 'false'; });
+        const totals = launchTotals();
+        paymentList.append(paymentEntry(Math.max(0, totals.total - totals.planned)));
+        updateLaunch();
+        paymentList.lastElementChild.querySelector('[data-payment-amount]').focus();
+      });
+      launchScreen.querySelector('[data-show-parcel-help]').addEventListener('click', () => showLaunchToast('O parcelamento será a próxima camada. Nesta versão, adicione os recebimentos separadamente e marque os futuros como pendentes.'));
+
+      function initialsFor(name) {
+        return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+      }
+
+      function chooseCustomer(name, contact = '') {
+        selectedCustomer.hidden = false;
+        customerEmpty.hidden = true;
+        setLaunchText('[data-customer-initials]', initialsFor(name));
+        setLaunchText('[data-customer-name]', name);
+        setLaunchText('[data-customer-contact]', contact || 'Contato não informado');
+        launchScreen.querySelector('[data-customer-search]').value = '';
+        updateLaunch();
+      }
+
+      launchScreen.querySelector('[data-customer-search]').addEventListener('change', (event) => {
+        const customer = customerBook[event.target.value.trim()];
+        if (customer) chooseCustomer(event.target.value.trim(), customer.contact);
+      });
+      launchScreen.querySelector('[data-remove-customer]').addEventListener('click', () => {
+        selectedCustomer.hidden = true;
+        customerEmpty.hidden = false;
+        updateLaunch();
+        launchScreen.querySelector('[data-customer-search]').focus();
+      });
+      launchScreen.querySelector('[data-new-customer]').addEventListener('click', () => newCustomerDialog.showModal());
+      launchScreen.querySelector('[data-customer-form]').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const name = launchScreen.querySelector('[data-new-customer-name]').value.trim();
+        if (!name) return;
+        const phone = launchScreen.querySelector('[data-new-customer-phone]').value.trim();
+        chooseCustomer(name, phone);
+        newCustomerDialog.close();
+        event.target.reset();
+      });
+
+      function clearLaunchDraft() {
+        launchCart.innerHTML = '';
+        paymentList.innerHTML = '';
+        selectedCustomer.hidden = true;
+        customerEmpty.hidden = false;
+        productSearch.value = '';
+        launchScreen.querySelector('[data-customer-search]').value = '';
+        launchScreen.querySelector('[data-sale-date]').value = '2026-09-12';
+        launchScreen.querySelector('[data-sale-channel]').selectedIndex = 0;
+        launchScreen.querySelector('[data-sale-note]').value = '';
+        launchWorkspace.hidden = false;
+        launchSuccess.hidden = true;
+        updateLaunch();
+      }
+
+      launchScreen.querySelector('[data-clear-draft]').addEventListener('click', () => clearDraftDialog.showModal());
+      launchScreen.querySelector('[data-confirm-clear]').addEventListener('click', clearLaunchDraft);
+      launchScreen.querySelector('[data-next-launch-flow]').addEventListener('click', () => showLaunchToast('Monte seu Colar será o próximo fluxo. Seu rascunho de venda normal foi preservado.'));
+
+      finalizeSaleButton.addEventListener('click', () => {
+        const totals = launchTotals();
+        setLaunchText('[data-review-total]', launchMoney(totals.total));
+        setLaunchText('[data-review-received]', launchMoney(totals.paid));
+        setLaunchText('[data-review-receivable]', launchMoney(totals.receivable));
+        launchScreen.querySelector('[data-finalize-copy]').textContent = `${launchItems().length} ${launchItems().length === 1 ? 'item' : 'itens'} serão confirmados uma única vez. Esta demonstração não grava dados reais.`;
+        finalizeSaleDialog.showModal();
+      });
+      launchScreen.querySelector('[data-confirm-sale]').addEventListener('click', (event) => {
+        const button = event.currentTarget;
+        const totals = launchTotals();
+        button.disabled = true;
+        button.textContent = 'Confirmando…';
+        setTimeout(() => {
+          finalizeSaleDialog.close();
+          button.disabled = false;
+          button.textContent = 'Confirmar venda';
+          setLaunchText('[data-success-total]', launchMoney(totals.total));
+          setLaunchText('[data-success-received]', launchMoney(totals.paid));
+          setLaunchText('[data-success-receivable]', launchMoney(totals.receivable));
+          launchWorkspace.hidden = true;
+          launchSuccess.hidden = false;
+          launchSuccess.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+        }, 420);
+      });
+      launchScreen.querySelector('[data-new-sale]').addEventListener('click', clearLaunchDraft);
+      launchScreen.querySelectorAll('[data-sale-date], [data-sale-channel], [data-sale-note]').forEach((field) => field.addEventListener('input', updateLaunch));
+      updateLaunch();
 
       const viewButtons = [...document.querySelectorAll('[data-view]')];
       const viewPanels = [...document.querySelectorAll('[data-view-panel]')];
