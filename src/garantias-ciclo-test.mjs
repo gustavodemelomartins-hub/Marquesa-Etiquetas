@@ -667,13 +667,23 @@ console.log('\n=== 10. a venda de origem cancelada ===');
   assert.ok(g, 'a garantia sumiu quando a venda foi cancelada');
   prova('a garantia aberta antes continua legível depois do cancelamento');
 
-  /* Defeito conhecido: nada reconfere a venda depois da abertura, e a troca
-     baixa estoque por uma compra que não existe mais. */
+  /* 5.4b — a compra sumiu depois da abertura. Trocar agora tiraria uma peça
+     nova do estoque por uma compra que não existe: recusado, e dito. */
   const antes = qtd(raw, '100002');
   const t = await G.registrarTroca(db, r.garantia.id, { skuNovo: '100002', data: '2026-09-10' });
-  assert.equal(t.ok, true, 'hoje a troca é aceita mesmo com a venda cancelada');
-  assert.equal(qtd(raw, '100002'), antes - 1);
-  caracteriza('a troca ainda sai do estoque com a venda de origem cancelada', '5.4b');
+  assert.equal(t.ok, false);
+  assert.equal(t.statusHttp, 409);
+  assert.equal(t.vendaCancelada, true);
+  assert.match(t.erro, /foi cancelada/);
+  assert.equal(qtd(raw, '100002'), antes, 'a recusa mexeu no estoque mesmo assim');
+  prova('a troca sobre venda de origem cancelada é recusada, e o estoque nem se mexe');
+
+  /* E o caso não é apagado: continua legível, com a história inteira. */
+  const ainda = await G.lerGarantia(db, r.garantia.id);
+  assert.equal(ainda.status, 'em_reparo');
+  assert.equal(ainda.eventos.length, 1);
+  prova('e a garantia continua lá, inteira — recusar a troca não apaga o caso');
+  assert.equal(razaoFecha(raw), 0);
 }
 
 /* ═══════════════════════════════════ 11. duas unidades iguais */
@@ -685,14 +695,20 @@ console.log('\n=== 11. duas unidades do mesmo código, com identidades distintas
   assert.equal(a.garantia.vendaItemId, ITEM_A);
   prova('a primeira unidade abre normalmente');
 
-  /* Defeito conhecido, e DECISÃO DE PRODUTO já tomada: a trava de hoje é por
-     (venda, código), não por unidade. Duas peças físicas distintas da mesma
-     compra não têm casos simultâneos. 5.4b passa a trava para `venda_item_id`. */
+  /* 5.4b — a trava passou a ser por UNIDADE. Duas peças físicas iguais na
+     mesma compra têm dois casos, porque são duas peças. */
   const b = await G.abrirGarantia(db, { vendaItemId: ITEM_B, motivo: 'o banho descascou', dataEntrada: '2026-09-02' });
-  assert.equal(b.ok, false);
-  assert.equal(b.statusHttp, 409);
-  assert.match(b.erro, /já tem a garantia/);
-  caracteriza('a segunda unidade FÍSICA é recusada pela trava por código', '5.4b');
+  assert.equal(b.ok, true, `nao abriu: ${b.erro ?? ''}`);
+  assert.notEqual(b.garantia.id, a.garantia.id);
+  assert.equal(b.garantia.vendaItemId, ITEM_B);
+  prova('a segunda unidade FÍSICA do mesmo código abre caso próprio');
+
+  /* O que continua valendo: a MESMA unidade não abre duas vezes. */
+  const repetida = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'de novo', dataEntrada: '2026-09-03' });
+  assert.equal(repetida.ok, false);
+  assert.equal(repetida.statusHttp, 409);
+  assert.equal(repetida.garantiaId, a.garantia.id);
+  prova('mas a mesma unidade continua recusando a segunda garantia — dois cliques não viram dois casos');
 
   /* O que já funciona hoje, e não pode regredir: peça de OUTRO código abre. */
   const c = await G.abrirGarantia(db, { vendaItemId: ITEM_C, motivo: 'entortou', dataEntrada: '2026-09-02' });
@@ -701,11 +717,59 @@ console.log('\n=== 11. duas unidades do mesmo código, com identidades distintas
   prova('outra peça da mesma compra abre caso próprio, sem interferência');
 
   await G.mudarStatusGarantia(db, a.garantia.id, { status: 'devolvida', data: '2026-09-03' });
-  const d = await G.abrirGarantia(db, { vendaItemId: ITEM_B, motivo: 'o banho descascou', dataEntrada: '2026-09-04' });
+  const d = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'soltou de novo', dataEntrada: '2026-09-04' });
   assert.equal(d.ok, true, `nao abriu: ${d.erro ?? ''}`);
-  prova('e depois que a primeira encerra, a segunda unidade passa');
+  prova('e a unidade cujo caso encerrou pode abrir um caso novo');
 
   assert.equal(razaoFecha(raw), 0);
+}
+{
+  /* O FALLBACK LEGADO, que 5.4b deliberadamente NÃO afrouxou.
+     A garantia antiga sem ponteiro confiável pode ser de QUALQUER uma das
+     duas unidades — ninguém sabe qual peça voltou. Ela continua travando
+     pelo código, como antes, porque distinguir unidades por suposição é
+     exatamente o chute que 5.2b se recusou a dar. */
+  const raw = banco(); const db = adaptador(raw);
+  const a = await G.abrirGarantia(db, { vendaItemId: ITEM_A, motivo: 'x', dataEntrada: '2026-09-01' });
+  assert.equal(a.ok, true);
+  raw.prepare(
+    `UPDATE garantias SET venda_item_id = NULL, venda_item_vinculo = 'ambiguo' WHERE id = ?`,
+  ).run(a.garantia.id);
+
+  const b = await G.abrirGarantia(db, { vendaItemId: ITEM_B, motivo: 'o banho descascou', dataEntrada: '2026-09-02' });
+  assert.equal(b.ok, false);
+  assert.equal(b.statusHttp, 409);
+  assert.equal(b.garantiaId, a.garantia.id);
+  prova('garantia antiga AMBÍGUA continua travando o código inteiro — o fallback não foi afrouxado');
+
+  /* E outro código da mesma compra segue livre: a trava larga alcança o
+     código da garantia ambígua, e só ele. */
+  const c = await G.abrirGarantia(db, { vendaItemId: ITEM_C, motivo: 'entortou', dataEntrada: '2026-09-02' });
+  assert.equal(c.ok, true, `nao abriu: ${c.erro ?? ''}`);
+  prova('mas ela não trava a compra inteira: outro código abre normalmente');
+}
+{
+  /* A planilha não entrou nessa: `historico_item_id` sempre foi PK real, e
+     a trava dela nunca dependeu do código. */
+  const raw = banco(); const db = adaptador(raw);
+  raw.exec(`
+    INSERT INTO vendas_historico_lotes (id, arquivo_nome, arquivo_hash, status)
+      VALUES (1, 'p.xlsx', 'h', 'importado');
+    INSERT INTO vendas_historicas (id, lote_id, chave, regra, data, cliente_nome, cliente_nome_norm, valor_total)
+      VALUES (1, 1, 'vitoria|2026-05-01', 'r', '2026-05-01', 'Vitoria', 'vitoria', 200.0);
+    INSERT INTO vendas_historico_itens
+      (id, lote_id, origem_linha, venda_historica_id, data, sku, sku_base, nome_produto_historico,
+       qtd, valor_total, cliente_nome_norm, cliente_nome_original) VALUES
+      (1, 1, '1', 1, '2026-05-01', '100001', '100001', 'Anel', 1, 100.0, 'vitoria', 'Vitoria'),
+      (2, 1, '2', 1, '2026-05-01', '100001', '100001', 'Anel', 1, 100.0, 'vitoria', 'Vitoria');
+  `);
+  const p1 = await G.abrirGarantia(db, { historicoItemId: 1, motivo: 'x', dataEntrada: '2026-09-01' });
+  const p2 = await G.abrirGarantia(db, { historicoItemId: 2, motivo: 'y', dataEntrada: '2026-09-01' });
+  assert.equal(p1.ok, true);
+  assert.equal(p2.ok, true, `nao abriu: ${p2.erro ?? ''}`);
+  const rep = await G.abrirGarantia(db, { historicoItemId: 1, motivo: 'de novo', dataEntrada: '2026-09-02' });
+  assert.equal(rep.ok, false);
+  prova('duas linhas iguais da planilha abrem casos próprios, e a mesma linha não abre duas vezes');
 }
 
 /* ═══════════════════════════════════ 12. o prazo, e o defeito dele */
@@ -721,9 +785,14 @@ console.log('\n=== 12. o relógio do prazo ===');
   assert.equal(g.encerradaEm, '2026-01-20');
   /* 05/01 a 20/01/2026 são 11 dias úteis — bem dentro dos 45. O caso foi
      entregue NO PRAZO, e mesmo assim: */
-  assert.equal(g.atrasado, true);
-  assert.ok(g.atrasoDiasUteis > 100, `atraso inesperado: ${g.atrasoDiasUteis}`);
-  caracteriza('caso entregue NO PRAZO aparece atrasado, e o atraso só cresce', '5.4b');
+  /* 05/01 a 20/01/2026 são 11 dias úteis, bem dentro dos 45. */
+  assert.equal(g.atrasado, false);
+  assert.equal(g.atrasoDiasUteis, 0);
+  assert.equal(g.diasUteisDecorridos, 11);
+  assert.equal(g.diasUteisRestantes, 34);
+  assert.equal(g.contadoAte, '2026-01-20');
+  assert.equal(g.relogioParado, true);
+  prova('5.4b: o relógio para no encerramento — entregue no prazo não atrasa, e o número não cresce mais');
 
   /* O que já está certo, e a correção de 5.4b não pode quebrar: enquanto o
      caso está aberto, o atraso é real e tem de aparecer. */
@@ -732,7 +801,9 @@ console.log('\n=== 12. o relógio do prazo ===');
   assert.equal(ga.status, 'em_reparo');
   assert.equal(ga.encerradaEm, null);
   assert.equal(ga.atrasado, true);
-  prova('caso AINDA ABERTO e fora do prazo continua atrasado — isso não pode mudar');
+  assert.equal(ga.relogioParado, false);
+  assert.ok(ga.atrasoDiasUteis > 100, `atraso inesperado: ${ga.atrasoDiasUteis}`);
+  prova('caso AINDA ABERTO e fora do prazo continua atrasado — o relógio só para quando encerra');
 }
 
 /* ═══════════════════════════════════ 13. painel e ficha da cliente */

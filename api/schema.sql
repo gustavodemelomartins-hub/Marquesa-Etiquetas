@@ -357,9 +357,23 @@ CREATE TABLE IF NOT EXISTS movimentos (
   -- Quem fecha a invariante continua sendo `qtd`; esta coluna não entra em
   -- conta nenhuma, só no casamento com a loja.
   variante_id    TEXT,
-  tipo           TEXT NOT NULL,   -- entrada|ajuste|consignacao|devolucao|venda|perda|quebra|dano|furto|brinde|troca|nota_credito|venda_conjunto|cancelamento
+  -- Nenhuma das duas colunas tem CHECK: o vocabulário cresceu com o sistema,
+  -- e um CHECK aqui teria de ser migrado a cada regra nova. As listas abaixo
+  -- são os valores COMUNS, não um contrato fechado — quem manda é quem
+  -- escreve, e todo mundo escreve por `estoque.js › movimentar`.
+  --
+  -- tipo diz O QUE aconteceu com a peça; origem diz POR QUE. É a dupla que
+  -- permite distinguir uma saída de venda de uma saída de troca de garantia
+  -- sem olhar o texto de `obs`.
+  tipo           TEXT NOT NULL,   -- entrada | ajuste | ajuste_qtd | consignacao | devolucao
+                                  -- venda | perda | troca | cancelamento
   qtd            INTEGER NOT NULL,
-  origem         TEXT,            -- importacao | manual | maleta | acerto | venda | inventario | cancelamento | kit
+  origem         TEXT,            -- importacao | manual | maleta | acerto | venda | inventario
+                                  -- cancelamento | kit | reconciliacao | variacao | personalizado
+                                  -- correcao_sku | site | nuvemshop_* (o estado do pedido)
+                                  -- troca_garantia  a peça nova de uma troca (§31/§37)
+                                  -- estorno         desfaz uma saída: troca estornada,
+                                  --                 saída sem faturamento estornada
   maleta_id      INTEGER,
   revendedora_id INTEGER,
   venda_id       INTEGER,

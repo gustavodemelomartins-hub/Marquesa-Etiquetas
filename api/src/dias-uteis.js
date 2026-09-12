@@ -80,10 +80,23 @@ export function diasUteisEntre(de, ate, feriados = new Set()) {
 
 /** O bloco de prazo que a tela mostra: previsão, decorridos, restantes.
  *  `restantes` pode ser 0 com `atrasado: true` — o prazo estourou, e dizer
- *  "−7 dias restantes" é mais confuso do que dizer que atrasou 7. */
-export function prazoDaGarantia({ dataEntrada, prazoDiasUteis = 45, hoje, feriados = new Set(), previsao = null }) {
+ *  "−7 dias restantes" é mais confuso do que dizer que atrasou 7.
+ *
+ *  O RELÓGIO PARA QUANDO O CASO ENCERRA (5.4b). Antes ele contava sempre até
+ *  hoje, e uma peça entregue dentro do prazo aparecia "atrasada 134 dias
+ *  úteis" meses depois, com o número crescendo sozinho na ficha da cliente.
+ *  Caso encerrado não atrasa mais: o que vale é quanto ele demorou, medido
+ *  até o dia em que terminou. Enquanto está aberto nada muda — o atraso é
+ *  real e continua contando. */
+export function prazoDaGarantia({
+  dataEntrada, prazoDiasUteis = 45, hoje, feriados = new Set(), previsao = null,
+  encerradaEm = null,
+}) {
   const previsaoRetorno = previsao || somarDiasUteis(dataEntrada, prazoDiasUteis, feriados);
-  const decorridos = diasUteisEntre(dataEntrada, hoje, feriados);
+  /* Encerramento anterior à entrada não existe no fluxo, mas se o dado vier
+     assim `diasUteisEntre` devolve 0 em vez de número negativo. */
+  const ate = encerradaEm || hoje;
+  const decorridos = diasUteisEntre(dataEntrada, ate, feriados);
   const restantes = Math.max(0, prazoDiasUteis - decorridos);
   const atrasoUteis = decorridos > prazoDiasUteis ? decorridos - prazoDiasUteis : 0;
   return {
@@ -94,5 +107,9 @@ export function prazoDaGarantia({ dataEntrada, prazoDiasUteis = 45, hoje, feriad
     atrasado: atrasoUteis > 0,
     atrasoDiasUteis: atrasoUteis,
     consideraFeriados: feriados.size > 0,
+    /* Qual foi a régua: o dia do encerramento, ou hoje. Quem lê o número
+       precisa saber se ele ainda anda. */
+    contadoAte: ate,
+    relogioParado: !!encerradaEm,
   };
 }

@@ -1317,10 +1317,26 @@ perde qual compra a originou — e perde junto o **valor efetivamente pago**,
 que é a base da diferença de uma troca. Usar o preço de tabela cobraria a
 mais de quem comprou com desconto.
 
-A identidade do item é `(venda_id, sku, variante_id)` no lado operacional
-(até a Fase 5.2 `venda_itens` não tinha chave própria, e `rowid` não sobrevive
-a um VACUUM; hoje `venda_itens.id` existe e a garantia ainda não migrou) e
-`vendas_historico_itens.id` no lado da planilha.
+A identidade do item é `venda_itens.id` no lado operacional e
+`vendas_historico_itens.id` no lado da planilha. Até a Fase 5.2 `venda_itens`
+não tinha chave própria e a identidade era o trio
+`(venda_id, sku, variante_id)`; a Fase 5.2b migrou o ponteiro da garantia. O
+trio permanece gravado como prova de como a garantia foi aberta, mas **não é
+mais identidade**: §27 permite duas linhas do mesmo código na mesma venda, e
+§41 reescreve o código do item.
+
+A garantia que o backfill não conseguiu apontar com certeza ficou marcada
+`ambiguo` ou `sem_match` em `venda_item_vinculo`, sem ponteiro — o sistema
+não escolheu entre duas peças possíveis. `GET /api/garantias/vinculos` lista
+esses casos com as candidatas ao lado.
+
+**A garantia é por UNIDADE FÍSICA** (decisão de 12/09/2026). Duas unidades do
+mesmo código na mesma compra têm `venda_itens.id` diferentes e podem ter
+garantias abertas ao mesmo tempo: são duas peças, e cada uma quebra por
+conta própria. A mesma unidade continua não abrindo duas vezes. A garantia
+antiga **sem ponteiro confiável** trava o código inteiro daquela compra, como
+antes da 5.2b — ela pode ser de qualquer uma das unidades, e adivinhar qual
+seria o chute que §2 proíbe.
 
 O que a garantia **não** faz, em nenhum estado:
 
@@ -1333,6 +1349,13 @@ Prazo: **45 dias úteis**. Sábado e domingo nunca contam. Feriado conta
 quando cadastrado em `feriados` — e quando a tabela está vazia a resposta diz
 `consideraFeriados: false` em vez de fingir precisão que não tem. Nenhum
 feriado é escrito no código.
+
+**O relógio para quando o caso encerra.** Enquanto a garantia está aberta o
+atraso é real e continua contando; a partir do encerramento o que vale é
+quanto o caso demorou, medido até o dia em que terminou. Sem isso uma peça
+entregue dentro do prazo aparecia "atrasada 134 dias úteis" meses depois, com
+o número crescendo sozinho na ficha da cliente. A resposta diz qual régua
+usou, em `contadoAte` e `relogioParado`.
 
 **A troca.** Sem conserto, sai uma peça nova do estoque — com movimento de
 tipo `troca` e origem `troca_garantia`, nunca `venda`. Trocar um anel de

@@ -250,28 +250,42 @@ export async function abrirGarantia(db, corpo = {}) {
       : { ok: false, statusHttp: 404, erro: base.erro };
   }
 
-  /* A mesma peça da mesma compra não abre duas garantias ABERTAS. Duas
-     linhas pendentes para o mesmo anel são sempre um clique repetido, e a
-     segunda ficaria pendurada no Painel para sempre.
-
-     5.2b NÃO afrouxa esta trava. Com a identidade de linha seria defensável
-     deixar duas unidades do mesmo código abrirem garantias separadas — são
-     duas peças físicas —, mas isso é mudança de REGRA DE PRODUTO, e esta
-     fase é migração de identidade. O par (venda, código) continua sendo o
-     que bloqueia; o `venda_item_id` só ACRESCENTA um caso, o da garantia
-     antiga cujo código foi corrigido depois (§41) e que por isso não casa
-     mais pelo par. Mais larga, nunca mais frouxa. Afrouxar fica para 5.4. */
+  /* A MESMA PEÇA não abre duas garantias ABERTAS. Duas linhas pendentes para
+     o mesmo anel são um clique repetido, e a segunda ficaria pendurada no
+     Painel para sempre.
+   *
+   *  5.4b — "a mesma peça" passa a significar a mesma UNIDADE FÍSICA, e não
+   *  o mesmo código. Decisão de produto de 12/09/2026. A trava larga por
+   *  (venda, código) existia para compensar a ausência de identidade da
+   *  unidade: com o trio como chave, duas unidades iguais na mesma compra
+   *  eram indistinguíveis, e recusar as duas era o único jeito seguro. A
+   *  Fase 5.2b deu identidade à linha, e a compensação deixou de fazer
+   *  sentido — a cliente que comprou dois anéis iguais e viu um soltar a
+   *  pedra em setembro e o outro descascar em outubro tem dois casos.
+   *
+   *  O que NÃO foi afrouxado, e é o ponto delicado: a garantia antiga sem
+   *  ponteiro confiável (`ambiguo`, `sem_match`, ou qualquer linha anterior
+   *  a 5.2b) pode ser desta unidade — ninguém sabe. Ela continua bloqueando
+   *  pelo código, como antes. Distinguir unidades por suposição seria
+   *  exatamente o chute que 5.2b se recusou a dar. */
   const jaAberta = await db.prepare(
     `SELECT id FROM garantias
       WHERE status IN ('em_reparo', 'reparada', 'sem_conserto')
-        AND ((? IS NOT NULL AND venda_id = ? AND sku = ?)
-          OR (? IS NOT NULL AND venda_item_id = ?)
-          OR (? IS NOT NULL AND historico_item_id = ?))
+        AND (
+          -- planilha: a chave primária de verdade resolve sozinha
+          (? IS NOT NULL AND historico_item_id = ?)
+          -- operacional COM ponteiro: a mesma unidade, e mais a garantia
+          -- antiga do mesmo código que não sabe a que unidade pertence
+          OR (? IS NOT NULL AND (venda_item_id = ?
+               OR (venda_id = ? AND sku = ? AND venda_item_id IS NULL)))
+          -- operacional SEM ponteiro: a trava larga de antes, intacta
+          OR (? IS NULL AND ? IS NOT NULL AND venda_id = ? AND sku = ?)
+        )
       LIMIT 1`,
   ).bind(
-    base.vendaId, base.vendaId, base.sku,
-    base.vendaItemId, base.vendaItemId,
     base.historicoItemId, base.historicoItemId,
+    base.vendaItemId, base.vendaItemId, base.vendaId, base.sku,
+    base.vendaItemId, base.vendaId, base.vendaId, base.sku,
   ).first();
   if (jaAberta) {
     return { ok: false, statusHttp: 409, erro: `Esta peça já tem a garantia ${jaAberta.id} em aberto.`, garantiaId: jaAberta.id };
@@ -394,6 +408,26 @@ export async function registrarTroca(db, id, corpo = {}) {
   }
   if (g.status === 'cancelada' || g.status === 'devolvida') {
     return { ok: false, statusHttp: 409, erro: `Garantia em "${ROTULO_STATUS[g.status]}" não troca peça.` };
+  }
+
+  /* 5.4b — a compra de origem pode ter sido cancelada DEPOIS da abertura.
+     `abrirGarantia` recusa venda cancelada, mas nada reconferia daí em
+     diante, e a troca baixava uma peça nova do estoque por uma compra que
+     não existe mais. O caso não é apagado — ele continua no histórico, e
+     quem decidir o que fazer com ele decide olhando (§9). */
+  if (g.origem_fonte === 'operacional' && g.venda_id != null) {
+    const venda = await db.prepare('SELECT cancelada FROM vendas WHERE id = ?').bind(g.venda_id).first();
+    if (!venda) {
+      return { ok: false, statusHttp: 409, erro: `A venda ${g.venda_id}, de onde esta peça saiu, não existe mais.` };
+    }
+    if (venda.cancelada) {
+      return {
+        ok: false, statusHttp: 409,
+        erro: `A venda ${g.venda_id}, de onde esta peça saiu, foi cancelada. `
+            + 'Trocar agora tiraria uma peça nova do estoque por uma compra que não existe.',
+        vendaCancelada: true,
+      };
+    }
   }
 
   const skuNovo = normSku(corpo.skuNovo);
@@ -804,6 +838,10 @@ export async function lerGarantia(db, id, { feriados = null, hoje = null } = {})
     hoje: hoje ?? hojeISO(),
     feriados: fer,
     previsao: g.previsao_retorno,
+    /* 5.4b — caso encerrado não atrasa mais. O relógio para no dia em que o
+       caso terminou; enquanto ele está aberto, `encerrada_em` é nulo e o
+       cálculo continua correndo até hoje, como sempre correu. */
+    encerradaEm: g.encerrada_em ?? null,
   });
   return publica(g, troca ?? null, ev.results ?? [], prazo);
 }
