@@ -110,10 +110,12 @@ export async function historicoDoDia(db, data) {
               i.preco_tabela AS preco_tabela, i.desconto_valor AS desconto_valor,
               i.desconto_rotulo AS desconto_rotulo, i.motivo AS motivo,
               i.variacao AS variacao,
-              /* 5.2 — a identidade própria da linha. Era o `rowid`, com a
-                 ressalva de que servia por não sair desta leitura; agora não
-                 precisa de ressalva, e a `referencia` abaixo passa a ser
-                 estável entre requisições. */
+              -- 5.2: a identidade propria da linha. Era o rowid, com a
+              -- ressalva de que servia por nao sair desta leitura; agora nao
+              -- precisa de ressalva, e a referencia abaixo passa a ser
+              -- estavel entre requisicoes. (Comentario em SQL, sem crase:
+              -- isto esta dentro de um template literal, e uma crase
+              -- fecharia a string.)
               i.id AS item_id
          FROM vendas v
          JOIN venda_itens i ON i.venda_id = v.id

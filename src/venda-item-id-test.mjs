@@ -162,6 +162,14 @@ INSERT INTO vendas (id, cliente_id, cliente_nome, cliente_nome_norm, origem, dat
     DROP TRIGGER IF EXISTS venda_itens_id_ao_inserir;
     DROP TRIGGER IF EXISTS venda_itens_id_imutavel;
     DROP INDEX   IF EXISTS idx_venda_itens_id;
+    -- A Fase 5.2b deu a garantias um ponteiro que REFERENCIA esta coluna.
+    -- Ele tem de cair primeiro, ou o SQLite recusa o DROP com
+    -- foreign key mismatch — e o ponto de partida desta prova e o banco
+    -- anterior à 5.2, que não tinha nem uma coisa nem a outra.
+    DROP INDEX IF EXISTS idx_gar_venda_item;
+    DROP INDEX IF EXISTS idx_gar_vinculo;
+    ALTER TABLE garantias DROP COLUMN venda_item_id;
+    ALTER TABLE garantias DROP COLUMN venda_item_vinculo;
     ALTER TABLE venda_itens DROP COLUMN id;
   `);
 
