@@ -191,7 +191,7 @@ formato", e torna `API-VEN-001` (intervalo arbitrário) o gap analítico real.
 | 8 | contas a receber | `PRONTO` | três fontes unidas e testadas. Falta **tela** — `FIN-101` |
 | 9 | status PAGO / NÃO PAGO | `PARCIAL` | hoje é binário. PARCIAL só chega pela importação; nenhuma rota o produz |
 | 10 | data real de pagamento | `PRONTO` | `data_pagamento` mais `pagamento_origem` com procedência (§36.1) |
-| 11 | correção / edição de venda | `PARCIAL` | só o SKU do item se corrige (§40). Não há correção de preço, cliente, data ou quantidade depois de salva |
+| 11 | correção / edição de venda | `PARCIAL` · `AGUARDANDO HANDOFF CODEX` | só o SKU do item se corrige (§40). Não há correção de preço, cliente, data ou quantidade depois de salva. O fluxo novo é do Codex — ver §17 |
 | 12 | estorno / cancelamento | `PRONTO` | contrapartida, nunca exclusão (§19, §28) |
 | 13 | impacto em estoque | `PRONTO` | toda baixa passa por `movimentar`; pagamento não move peça |
 | 14 | Monte seu Colar na venda | `BACKEND READY`, desligado | `PERSONALIZACAO_ATIVA=false`. Resta trabalho de cadastro (`MON-001`), não decisão |
@@ -227,9 +227,9 @@ Desfazer uma troca hoje só é possível por chamada direta à API.
 Backend íntegro (`api/src/venda-correcao.js`, §40), com auditoria própria.
 O legado chama na linha 10806. React: nada.
 
-O status do projeto registra que isso está **em curso no Codex** — o que torna
-esta a paridade com maior risco de trabalho duplicado. Precisa de combinação
-antes de qualquer linha de código nossa.
+O status do projeto registra que isso está **em curso no Codex**. A divisão de
+responsabilidade foi fechada em 12/09/2026 e está em §17: `VEN-105` fica
+**`AGUARDANDO HANDOFF CODEX`** para tudo que dependa do fluxo visual.
 
 ---
 
@@ -373,7 +373,7 @@ comportamento que a UX ainda vai definir.
 | 5.2 | chave primária própria para `venda_itens` (migration aditiva) e migrar quem usa `rowid` | nada |
 | 5.3 | `FIN-101` — recebíveis com paridade do legado, sem modelo novo | 5.2 |
 | 5.4 | `GAR-101` e `GAR-102` — garantias, trocas e o estorno que hoje é código morto | nada |
-| 5.5 | `VEN-105` — correção de item vendido | 5.2, **e combinação com o Codex** |
+| 5.5 | `VEN-105` — correção de item vendido · **`AGUARDANDO HANDOFF CODEX`** | 5.2 e o handoff (ver §17) |
 | 5.6 | vocabulário único de canal e intervalo arbitrário no analytics | 5.1 |
 | 5.7 | precisão monetária em centavos no ciclo comercial | 5.2 |
 | 5.8 | **modelo de recebimentos múltiplos, formas e parcelas** | 5.7 e handoff do Codex |
@@ -446,3 +446,64 @@ e `5.2`, que são pequenas, provadas por teste e destravam tudo que vem depois
 sem apostar em nenhuma decisão que o Codex ainda vai tomar.
 
 Nada de `5.8` antes do handoff. Nada de `5.5` antes de combinar com o Codex.
+
+---
+
+## 17. Decisões de 12/09/2026
+
+### VEN-105 — divisão de responsabilidade
+
+| Frente | O que é dela |
+|---|---|
+| Codex | UX/UI e fluxo de interação da correção de venda e de item vendido |
+| Claude Refactor | backend, contratos, invariantes, testes e implementação técnica **depois** que o handoff definir o comportamento final |
+
+Enquanto o handoff não chega, esta frente pode: auditar a implementação
+existente, mapear contratos, caracterizar o comportamento atual, escrever testes
+de regressão que **só provem o que já existe**, e apontar defeito técnico
+independente da UX.
+
+Não pode: inventar fluxo, mudar regra de negócio, ou duplicar o que o Codex está
+desenhando. Toda mudança que dependa do fluxo visual novo fica
+**`AGUARDANDO HANDOFF CODEX`**.
+
+### Fronteira financeira reafirmada
+
+`5.7` (centavos) e `5.8` (recebimentos múltiplos, parcelas, formas) **não
+começam** sem o handoff e sem decisão explícita sobre o modelo monetário.
+Também não se inventa forma de pagamento, parcelamento, múltiplos recebimentos
+nem correção financeira.
+
+### 5.0 — reconciliação executada
+
+`origin/develop` (`847fe28`) foi integrado em `claude/refactor-sistema-marquesa`
+por **merge normal**, sem rebase, sem reescrita de histórico e sem force push.
+Merge commit `1418e30`, pais `e4a35fd` e `847fe28`. `main` não foi tocada.
+
+O checkpoint do Codex `a6d7c6b` **continua fora do histórico desta branch** — foi
+apenas consultado por `git show`. Os arquivos exclusivos dele (handoff e matriz
+de interações de Vendas) seguem vazios aqui, e é assim que tem que ser.
+
+Um achado da reconciliação está registrado em §18.
+
+## 18. Achado da 5.0 — o espelho do Codex versionado está desatualizado
+
+O commit `f1820bc` de `develop` versionou uma cópia da configuração local do
+Codex. Seis dos oito arquivos dessa cópia divergem do que existe hoje nesta
+máquina, e a divergência não é cosmética:
+
+| Arquivo | O que a cópia versionada diz | O que a cópia local diz |
+|---|---|---|
+| `hooks.json` | aponta para o clone `Marquesa-Etiquetas` | aponta para este clone |
+| `agents/database-guardian.toml` | produção é `marquesa-db`; escrita "nunca por agente" | produção é `marquesa-db-prod` desde o go-live; `marquesa-db` é a cópia congelada de rollback; Classe C é autônoma com gates |
+| `hooks/protect-production.mjs` (+ teste) | bloqueio absoluto | proteção proporcional ao risco |
+| `agents/repo-explorer.toml`, `agents/verifier.toml` | versão anterior | versão atual |
+
+A cópia versionada contradiz a política vigente de `docs/SECURITY.md` e do
+roteador — e, pior, chama de produção um banco que hoje é o rollback congelado.
+
+Por isso a reconciliação **preservou os arquivos locais**: eles ficaram como
+modificação não commitada da árvore de trabalho, com cópia de segurança fora do
+repositório. Decidir se o espelho versionado passa a acompanhar o local, ou se
+deixa de ser versionado, é decisão de governança — não efeito colateral de um
+merge.
