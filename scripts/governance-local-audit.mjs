@@ -52,13 +52,25 @@ function decisao(hookRelativo, command) {
   return JSON.parse(r.stdout).hookSpecificOutput.permissionDecision;
 }
 
+/* O adaptador do Codex tem que decidir igual ao do Claude, inclusive quanto
+   ao DESTINO: DEV segue autônomo, produção congelada pede decisão humana, e
+   Classe D pede sempre. */
+const congelada = (() => {
+  try { return JSON.parse(ler('.claude/governanca.json')).prodCongelada !== false; }
+  catch { return true; }
+})();
+
 const matriz = [
-  ['git push origin main', 'allow'],
-  ['npx wrangler deploy', 'allow'],
-  ['npx wrangler d1 execute DB --remote --file=api/migracao-publicacao-catalogo.sql', 'allow'],
-  ['npx wrangler secret put API_KEY', 'allow'],
+  ['git push origin develop', 'allow'],
+  ['npx wrangler deploy --env staging', 'allow'],
+  ['npx wrangler d1 execute marquesa-db-dev --remote --file=api/migracao-publicacao-catalogo.sql', 'allow'],
+  ['npx wrangler secret put API_KEY --env staging', 'allow'],
+  ['git push origin main', congelada ? 'ask' : 'allow'],
+  ['npx wrangler deploy', congelada ? 'ask' : 'allow'],
+  ['npx wrangler d1 execute DB --remote --file=api/migracao-publicacao-catalogo.sql', congelada ? 'ask' : 'allow'],
+  ['npx wrangler secret put API_KEY', congelada ? 'ask' : 'allow'],
   ['git push --force origin main', 'ask'],
-  ['npx wrangler d1 execute DB --remote --command "DROP TABLE produtos"', 'ask'],
+  ['npx wrangler d1 execute DB --env staging --remote --command "DROP TABLE produtos"', 'ask'],
   ['cat api/.dev.vars', 'deny'],
 ];
 

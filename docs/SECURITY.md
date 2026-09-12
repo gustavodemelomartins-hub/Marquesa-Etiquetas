@@ -58,6 +58,36 @@ a mudança em funcionamento, desde que execute os gates aplicáveis:
 Use somente os gates que existem e fazem sentido para a mudança. Ausência de
 uma ferramenta que o projeto não usa não é falha burocrática.
 
+#### O freeze de produção estreita a Classe C — e só ela
+
+Enquanto a produção estiver **congelada** (`DR-013`: não há data de go-live; a
+entrada em produção depende de gate de qualidade, não de calendário), uma
+operação Classe C que atinja **produção** deixa de ser autônoma e passa a
+exigir instrução humana explícita. A mesma operação apontada para DEV/staging
+continua autônoma, com os mesmos gates de sempre.
+
+O estado é declarado em `.claude/governanca.json` e lido pelos hooks antes de
+cada decisão. Descongelar é trocar `prodCongelada` para `false` **em um commit
+próprio**, com a decisão humana citada na mensagem — não existe variável de
+ambiente que faça isso, porque destravar produção tem que deixar rastro no
+histórico. Arquivo ausente, ilegível ou inválido significa **congelada**: um
+arquivo perdido não pode destravar produção.
+
+O destino nunca é adivinhado pelo texto do comando:
+
+| Pergunta | Quem responde |
+|---|---|
+| este Worker/banco é de produção? | `api/wrangler.toml` — o ambiente raiz é produção; um ambiente nomeado só é DEV quando não reaproveita recurso da raiz |
+| este `git push` publica em produção? | o lado direito do refspec, comparado com `ramosProtegidos` |
+| este projeto Pages é DEV? | `pagesNaoProdutivos`, porque Pages não aparece no `wrangler.toml` |
+
+Alvo que **não pode ser provado** como DEV vale o mesmo que produção. É o caso
+de `marquesa-db`, a cópia congelada de rollback: ela não pertence a ambiente
+nenhum, e por isso nunca é "DEV por eliminação".
+
+O freeze não afrouxa nem endurece a Classe D, que continua pedindo instrução
+humana em qualquer ambiente, nem a negação de leitura de segredo.
+
 ### Classe D — destrutiva ou empresarial
 
 Exige instrução humana explícita para o alvo e o efeito concretos. Exemplos:
@@ -165,9 +195,16 @@ Claude está em `.claude/hooks/protect-production.mjs`; qualquer integração
 Codex em `.codex/` deve espelhar o mesmo contrato, sem criar outra política:
 
 - Classe C não é bloqueada por aprovação humana artificial;
-- Classe D retorna `ask` com o risco concreto;
+- Classe C **contra produção** retorna `ask` enquanto o freeze estiver
+  declarado, e continua `allow` contra DEV/staging;
+- alvo que não se consegue provar como DEV é tratado como produção;
+- Classe D retorna `ask` com o risco concreto, em qualquer ambiente;
 - leitura de segredo/dado real continua negada;
 - arquivos SQL são inspecionados para destruição extraordinária.
+
+O estado do freeze mora em **um** arquivo — `.claude/governanca.json`. O
+adaptador do Codex espelha o hook, nunca o estado: duas cópias do estado
+seriam duas políticas, que é exatamente o que esta seção proíbe.
 
 O antigo `.claude/approvals/production-release.json` não faz mais parte do
 fluxo. Segurança de release é comprovada pelo preflight, artefatos de

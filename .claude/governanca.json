@@ -1,0 +1,29 @@
+{
+  "$comentario": [
+    "Estado de governança que os hooks de PreToolUse leem antes de decidir.",
+    "Ficheiro ÚNICO: .codex/ espelha o hook, não este estado — duas cópias",
+    "seriam duas políticas.",
+    "",
+    "Ausente, ilegível ou inválido significa CONGELADA. A falha é para o lado",
+    "seguro de propósito: um arquivo corrompido não pode destravar produção.",
+    "",
+    "O que é produção NÃO está aqui: vem de api/wrangler.toml, que é quem",
+    "declara Workers e bancos de verdade. Repetir aquilo aqui criaria uma",
+    "segunda verdade que envelheceria sozinha. Aqui mora só o que nenhum",
+    "outro arquivo declara."
+  ],
+
+  "prodCongelada": true,
+  "congeladaPorque": "DR-013 (11/09/2026) — não há data de go-live; a entrada em produção depende de gate de qualidade, não de calendário. Ver docs/SECURITY.md e docs/decisions/PENDENTES.md.",
+  "comoDescongelar": "Trocar prodCongelada para false em um commit próprio, com a decisão humana citada na mensagem. Não existe variável de ambiente que faça isso — destravar produção precisa deixar rastro no histórico.",
+
+  "ramosProtegidos": ["main", "master"],
+
+  "$comentarioPages": [
+    "Cloudflare Pages não aparece em api/wrangler.toml, então o único projeto",
+    "comprovadamente não-produtivo precisa ser declarado. Ele sai de",
+    ".github/workflows/deploy-dev.yml. Projeto que não estiver nesta lista é",
+    "tratado como indeterminado, nunca como DEV."
+  ],
+  "pagesNaoProdutivos": ["marquesa-dev"]
+}

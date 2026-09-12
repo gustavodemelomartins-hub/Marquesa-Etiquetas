@@ -38,6 +38,9 @@ skills-lock.json
 .claude/*
 !.claude/README.md
 !.claude/settings.json
+# Estado de governança lido pelos hooks. Versionado de propósito: descongelar
+# produção tem que ser um commit, não um arquivo que só existe numa máquina.
+!.claude/governanca.json
 !.claude/agents/
 !.claude/skills/
 !.claude/rules/

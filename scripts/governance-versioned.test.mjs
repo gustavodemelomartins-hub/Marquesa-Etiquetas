@@ -45,12 +45,29 @@ function decisao(command) {
   return JSON.parse(r.stdout).hookSpecificOutput.permissionDecision;
 }
 
+/* Classe C continua autônoma — mas o destino passou a fazer parte da
+   pergunta. A regra em `settings.json` libera a ferramenta; o hook é quem
+   olha para onde ela aponta. */
 for (const command of [
-  'git push origin main',
-  'npx wrangler deploy',
-  'npx wrangler d1 execute DB --remote --file=api/migracao-publicacao-catalogo.sql',
-  'npx wrangler secret put API_KEY',
-]) t(`Classe C autônoma: ${command}`, decisao(command) === 'allow');
+  'git push origin develop',
+  'npx wrangler deploy --env staging',
+  'npx wrangler d1 execute marquesa-db-dev --remote --file=api/migracao-publicacao-catalogo.sql',
+  'npx wrangler secret put API_KEY --env staging',
+]) t(`Classe C autônoma em DEV: ${command}`, decisao(command) === 'allow');
+
+/* Enquanto `.claude/governanca.json` disser que a produção está congelada,
+   a mesma Classe C contra produção pede instrução humana. Descongelar é um
+   commit naquele arquivo, e o teste do hook prova os dois estados. */
+const governanca = JSON.parse(ler('.claude/governanca.json'));
+t('a governança versionada declara o estado da produção', typeof governanca.prodCongelada === 'boolean');
+if (governanca.prodCongelada) {
+  for (const command of [
+    'git push origin main',
+    'npx wrangler deploy',
+    'npx wrangler d1 execute DB --remote --file=api/migracao-publicacao-catalogo.sql',
+    'npx wrangler secret put API_KEY',
+  ]) t(`freeze: produção pede decisão humana: ${command}`, decisao(command) === 'ask');
+}
 
 for (const command of [
   'git push --force origin main',
