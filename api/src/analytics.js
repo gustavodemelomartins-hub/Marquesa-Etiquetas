@@ -457,12 +457,23 @@ export async function evolucao(db, { periodo = 'tudo', granularidade = 'mes' } =
                ${faixa.de ? 'AND data_faturamento >= ? AND data_faturamento <= ?' : ''}
             UNION ALL
             /* §31: a diferença de troca paga entra na série do mês em que
-               foi recebida, e sem virar uma venda a mais. */
+               foi recebida, e sem virar uma venda a mais.
+               5.3a: com os TRÊS filtros de visaoGeral, e não dois. O
+               venda_id IS NULL faltava aqui, e só aqui — o KPI o tem
+               (logo acima, na receita de troca) e o histórico do dia
+               também. A série somava a diferença de §36 duas vezes: uma
+               pela venda que a representa, outra por esta linha. O gráfico
+               de Evolução ficava maior que o cartão de Faturamento em todo
+               mês com troca paga, e nenhuma das duas leituras sabia disso
+               porque nenhum teste as comparava.
+               (Comentário em SQL dentro de um template literal: nenhuma
+               crase aqui, ela fecharia a string.) */
             SELECT strftime('${fmt}', diferenca_paga_em),
                    COALESCE(diferenca_valor_pago, 0), 0, 0
               FROM garantia_trocas
              WHERE diferenca_status = 'paga' AND diferenca_paga_em IS NOT NULL
                AND estornada = 0
+               AND venda_id IS NULL
                ${faixa.de ? 'AND diferenca_paga_em >= ? AND diferenca_paga_em <= ?' : ''}
           )
      SELECT chave,

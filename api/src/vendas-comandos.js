@@ -465,17 +465,61 @@ export async function registrarPagamentoVenda(db, id, corpo = {}) {
 
   if (!querPagar) {
     if (!v.pago) return json({ erro: 'Esta venda já está como NÃO PAGA.' }, 409);
+
+    /* §36.4 — PAGO e COBRÁVEL são duas dimensões, e desfazer só mexe na
+       primeira. A regra: **desfazer nunca ELEVA `cobravel`.**
+     *
+     *  Ele volta a 1 quando o pagamento desfeito tinha sido declarado por
+     *  uma PESSOA daqui (`informado`) — é o caminho de volta de quem marcou
+     *  pago por engano, e a mesma autoridade que declarou é a que agora se
+     *  corrige. A cliente volta a dever o que devia, e nada foi inventado.
+     *
+     *  Quando quem declarou foi a LOJA, não. O caminho real é este: o
+     *  pedido foi pago, a loja o reembolsou, e `atualizarPagamentoDaVenda`
+     *  RECUSOU aplicar o estorno sozinha — está escrito lá que isso
+     *  removeria faturamento já contado e que a política contábil para o
+     *  caso não existe. A pessoa então desfaz na mão. Tirar o dinheiro do
+     *  faturamento é exatamente o que esta rota serve para fazer; criar do
+     *  outro lado uma dívida de quem já foi reembolsado seria escrever
+     *  sozinho a metade cobrável daquela política que ninguém definiu.
+     *  §36.4 já diz a frase inteira: status técnico da loja não vira
+     *  dívida de ninguém.
+     *
+     *  Nesses casos `cobravel` já é 0, então "não elevar" é literalmente
+     *  preservar a coluna. A venda fica pago = 0 e cobravel = 0: fora do
+     *  faturamento e fora do A Receber, que é a mesma forma de
+     *  `indeterminado_site` — ausência de informação vira ausência de
+     *  número dos dois lados.
+     *
+     *  `pagamento_origem` volta a NULL como sempre voltou, e isso é o que
+     *  devolve a venda para a sincronização: sem o carimbo `informado`, a
+     *  rodada seguinte pode reescrever o estado verdadeiro da loja
+     *  (`nuvemshop_reembolsado`, ou `paid` de novo) em vez de ser recusada. */
+    const declaradoPorPessoa = v.pagamento_origem === 'informado';
+    const cobravel = declaradoPorPessoa ? 1 : Number(v.cobravel);
+
     const r = await db.prepare(
-      /* Desfazer devolve a venda para "o cliente ainda deve": é o caminho de
-         volta de quem marcou pago por engano, e o padrão de toda venda não
-         paga lançada por uma pessoa. */
       `UPDATE vendas SET pago = 0, data_pagamento = NULL, pagamento_origem = NULL,
-              valor_recebido = NULL, cobravel = 1
+              valor_recebido = NULL, cobravel = ?
         WHERE id = ? RETURNING *`,
-    ).bind(id).first();
+    ).bind(cobravel, id).first();
     return json({
-      ok: true, id: r.id, pago: false, data: r.data, dataPagamento: null,
-      aReceber: Number(r.total), estoqueAlterado: false,
+      ok: true,
+      id: r.id,
+      pago: false,
+      data: r.data,
+      dataPagamento: null,
+      /* Dito na resposta para nenhuma tela precisar deduzir por que o valor
+         saiu do faturamento sem aparecer no A Receber. §9. */
+      cobravel,
+      aReceber: cobravel ? Number(r.total) : 0,
+      porque: declaradoPorPessoa
+        ? 'o pagamento tinha sido registrado aqui por uma pessoa: desfazê-lo devolve a venda '
+          + 'para conta a receber, pelo valor inteiro'
+        : `o pagamento foi declarado pela loja (${v.pagamento_origem ?? 'sem carimbo'}), não por `
+          + 'uma pessoa. A venda sai do faturamento e NÃO vira conta a receber: §36.4 — estado '
+          + 'técnico da loja não é dívida de ninguém, e a política de reembolso ainda não existe.',
+      estoqueAlterado: false,
     });
   }
 

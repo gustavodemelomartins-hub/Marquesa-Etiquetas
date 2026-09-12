@@ -507,6 +507,18 @@
         {
           "bin": "node",
           "args": [
+            "src/fin-101-caracterizacao-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/fin-101-5-3a-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
             "src/reclassificacao-nao-venda-test.mjs"
           ]
         },
