@@ -256,8 +256,18 @@
           </div>
           <div class="choice-grid" role="radiogroup" aria-label="Tipo de lançamento">
             <button class="choice" type="button" role="radio" aria-checked="false" data-launch-type="sale"><span>Venda normal</span><small>Peças com etiqueta</small></button>
-            <button class="choice" type="button" role="radio" aria-checked="false" data-next-launch-flow="collar"><span>Monte seu Colar</span><small>Modelo e composição</small></button>
+            <button class="choice" type="button" role="radio" aria-checked="false" data-launch-type="collar"><span>Monte seu Colar</span><small>Modelo e composição</small></button>
             <button class="choice" type="button" role="radio" aria-checked="false" data-launch-screen="saidas"><span>Saída sem faturamento</span><small>Brinde, uso próprio, perda ou sorteio</small></button>
+          </div>
+          <div class="collar-workspace" data-collar-workspace hidden>
+            <section class="collar-composer" aria-label="Monte seu Colar">
+              <header class="collar-heading"><span class="necklace-mark" aria-hidden="true"><i></i></span><div><p class="context">Composição guiada</p><h2>Monte seu Colar</h2><p>Escolha o modelo e depois preencha cada posição.</p></div><button class="button ghost" type="button" data-cancel-collar>Voltar</button></header>
+              <div class="collar-layout">
+                <section class="collar-model-panel"><header class="collar-section-title"><span>1</span><div><h3>Escolha o modelo</h3><p>O modelo define o preço e quantos filhos entram.</p></div></header><div class="collar-model-list" data-collar-model-list></div></section>
+                <section class="collar-customizer" data-collar-customizer hidden><header class="collar-section-title"><span>2</span><div><h3>Escolha os pingentes</h3><p>Cada posição corresponde a uma peça física.</p></div></header><div class="necklace-preview" data-necklace-preview aria-label="Prévia da ordem dos pingentes"><i class="necklace-chain" aria-hidden="true"></i><div data-necklace-pendants></div></div><div class="fixed-collar-base"><span class="base-check" aria-hidden="true">✓</span><div><b>Corrente incluída automaticamente</b><small>Veneziana 45 cm com extensor · SKU 444032</small></div><span>1 un.</span></div><div class="collar-slot-list" data-collar-slot-list></div><p class="collar-stock-warning" role="alert" data-collar-stock-warning hidden></p></section>
+              </div>
+              <footer class="collar-footer"><div><span data-collar-footer-copy>Escolha um modelo para começar</span><strong data-collar-footer-price>R$ 0,00</strong></div><button class="button primary" type="button" data-add-collar disabled>Adicionar à venda</button></footer>
+            </section>
           </div>
           <div data-launch-workspace hidden>
             <section class="sale-composer" aria-label="Venda normal">
@@ -274,6 +284,7 @@
                 </form>
                 <p class="product-entry-hint">Digite para buscar, bipe com o leitor ou use a câmera do celular.</p>
                 <div class="product-results" data-product-results hidden></div>
+                <div class="collar-return" data-collar-return hidden><span><b>Composição personalizada</b><small>A corrente e os pingentes serão baixados juntos.</small></span><button class="button ghost" type="button" data-edit-collar>Alterar composição</button></div>
                 <ul class="cart-list launch-cart" data-launch-cart hidden></ul>
                 <div class="cart-empty" data-cart-empty><span aria-hidden="true">◇</span><b>A venda ainda está vazia</b><small>Leia uma etiqueta ou busque uma peça para começar.</small></div>
                 <div class="step-next"><button class="button primary" type="button" data-open-step="customer" disabled>Continuar para cliente</button></div>
@@ -335,6 +346,8 @@
                 <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1055" data-detail-scope="hoje"><td>08:12</td><td><button type="button" class="client-name-link" data-open-client="Zilma">Zilma</button></td><td><span class="tag blue">Maleta</span></td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Zilma">›</button></td></tr>
               </tbody></table></div>
           </section>
+
+          <dialog class="launch-dialog component-dialog" id="component-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar opções de pingente">×</button><p class="context" data-component-context>Posição do colar</p><h2 data-component-title>Escolha o pingente</h2><p>A mesma cor pode ser usada novamente quando houver quantidade disponível.</p><div class="component-options" data-component-options></div><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button></div></form></dialog>
 
           <dialog class="launch-dialog variation-dialog" id="variation-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar variações">×</button><p class="context">Peça com variações</p><h2>Qual variação saiu?</h2><p>A etiqueta identifica o produto. Agora escolha a peça exata para baixar o estoque correto.</p><div class="variation-product"><span class="jewel" aria-hidden="true" data-variation-symbol>○</span><span><b data-variation-product></b><small data-variation-meta></small></span></div><div class="variation-options" role="list" data-variation-options></div><p class="variation-footnote">A opção sem estoque continua visível, mas não pode ser selecionada.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button></div></form></dialog>
 
@@ -409,8 +422,11 @@
 
       const launchScreen = document.querySelector('#lancamentos');
       const launchWorkspace = launchScreen.querySelector('[data-launch-workspace]');
+      const collarWorkspace = launchScreen.querySelector('[data-collar-workspace]');
+      const collarComposer = launchScreen.querySelector('.collar-composer');
       const launchSuccess = launchScreen.querySelector('[data-launch-success]');
       const saleChoice = launchScreen.querySelector('[data-launch-type="sale"]');
+      const collarChoice = launchScreen.querySelector('[data-launch-type="collar"]');
       const flowSteps = [...launchScreen.querySelectorAll('[data-flow-step]')];
       const launchCart = launchScreen.querySelector('[data-launch-cart]');
       const cartEmpty = launchScreen.querySelector('[data-cart-empty]');
@@ -421,7 +437,17 @@
       const paymentWarning = launchScreen.querySelector('[data-payment-warning]');
       const finalizeSaleButton = launchScreen.querySelector('[data-finalize-sale]');
       const productSearch = launchScreen.querySelector('[data-product-search]');
+      const productSearchForm = launchScreen.querySelector('[data-product-search-form]');
+      const productEntryHint = launchScreen.querySelector('.product-entry-hint');
       const productResults = launchScreen.querySelector('[data-product-results]');
+      const collarReturn = launchScreen.querySelector('[data-collar-return]');
+      const collarModelList = launchScreen.querySelector('[data-collar-model-list]');
+      const collarCustomizer = launchScreen.querySelector('[data-collar-customizer]');
+      const collarSlotList = launchScreen.querySelector('[data-collar-slot-list]');
+      const necklacePendants = launchScreen.querySelector('[data-necklace-pendants]');
+      const componentDialog = launchScreen.querySelector('#component-dialog');
+      const componentOptions = launchScreen.querySelector('[data-component-options]');
+      const addCollarButton = launchScreen.querySelector('[data-add-collar]');
       const variationDialog = launchScreen.querySelector('#variation-dialog');
       const variationOptions = launchScreen.querySelector('[data-variation-options]');
       const priceDialog = launchScreen.querySelector('#price-dialog');
@@ -440,10 +466,23 @@
         { sku: '122060', name: 'Argola Duas Linhas Cravejadas', detail: 'Banho de Ouro 18k', price: 150, symbol: '◌' },
         { sku: '784231', name: 'Anel Aurora Cravejado', detail: 'Banho de Ouro 18k', price: 129, symbol: '○', variantAttribute: 'Aro', variants: [{ id: '784231-16', name: '16', stock: 2 }, { id: '784231-18', name: '18', stock: 1 }, { id: '784231-20', name: '20', stock: 0 }] },
         { sku: '451109', name: 'Pulseira Medalha Salmo', detail: 'Banho de Ouro 18k', price: 200, symbol: '◇' },
-        { sku: '326660', name: 'Monte seu Colar · Casal', detail: 'Composição confirmada', price: 150, symbol: '⌁' },
         { sku: '640509', name: 'Pingente Menino Verde', detail: 'Coleção Filhos', price: 49, symbol: '♢' },
         { sku: '649597', name: 'Pingente Menina Rosa Pink', detail: 'Coleção Filhos', price: 49, symbol: '♢' },
         { sku: '405337', name: 'Colar Filha', detail: 'Banho de Ouro 18k', price: 89, symbol: '⌁' }
+      ];
+      const collarModels = [
+        { slug: 'casal', sku: '326660', name: 'Colar Casal', price: 129, available: 5, slots: ['Menino', 'Menina'] },
+        { slug: 'duas-meninas', sku: '364945', name: 'Colar Filhas Duas Meninas', price: 129, available: 4, slots: ['Menina', 'Menina'] },
+        { slug: 'dois-meninos', sku: '311066', name: 'Colar Filhos Dois Meninos', price: 129, available: 3, slots: ['Menino', 'Menino'] },
+        { slug: 'dois-meninos-uma-menina', sku: '314161', name: 'Colar Filhos Dois Meninos e Uma Menina', price: 159, available: 2, slots: ['Menino', 'Menino', 'Menina'] },
+        { slug: 'duas-meninas-um-menino', sku: '399872', name: 'Colar Filhos Duas Meninas e Um Menino', price: 159, available: 2, slots: ['Menina', 'Menina', 'Menino'] }
+      ];
+      const collarComponents = [
+        { sku: '251551', group: 'Menino', label: 'Azul', name: 'Colar Menino Zircônia Azul', stock: 3, color: '#7ba7c9' },
+        { sku: '251552', group: 'Menino', label: 'Incolor', name: 'Colar Menino Zircônia Incolor', stock: 4, color: '#e7e1df' },
+        { sku: '329494', group: 'Menino', label: 'Verde', name: 'Colar Menino Zircônia Verde', stock: 2, color: '#70a98a' },
+        { sku: '263236', group: 'Menina', label: 'Rosa claro', name: 'Colar Menina Zircônia Rosa Claro', stock: 2, color: '#e9a8bd' },
+        { sku: '273470', group: 'Menina', label: 'Incolor', name: 'Colar Menina Zircônia Incolor', stock: 5, color: '#e7e1df' }
       ];
       const customerBook = {
         'Thais Nania': { contact: '(19) 9 8888-7777 · CPF final 890-00' },
@@ -452,6 +491,9 @@
       };
       let editingCartItem = null;
       let pendingVariantProduct = null;
+      let selectedCollarModel = null;
+      let collarSelections = [];
+      let activeCollarSlot = null;
       let toastTimer = null;
       let cameraStream = null;
       let cameraScanTimer = null;
@@ -509,16 +551,175 @@
         launchScreen.querySelector(`[data-flow-step="${target}"]`).scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
       }));
 
-      saleChoice.addEventListener('click', () => {
+      function activateLaunchChoice(activeChoice) {
         launchScreen.querySelectorAll('.choice').forEach((choice) => {
-          const selected = choice === saleChoice;
+          const selected = choice === activeChoice;
           choice.classList.toggle('active', selected);
           choice.setAttribute('aria-checked', String(selected));
         });
+      }
+
+      function setStandardProductEntry() {
+        productSearchForm.hidden = false;
+        productEntryHint.hidden = false;
+        collarReturn.hidden = !launchItems().some((item) => item.dataset.customCollar === 'true');
+      }
+
+      function pendantMarkup(component, compact = false) {
+        if (!component) return '';
+        return `<span class="pendant-icon ${component.group.toLocaleLowerCase('pt-BR')} ${compact ? 'compact' : ''}" style="--gem:${component.color}" aria-hidden="true"><i></i></span>`;
+      }
+
+      function slotName(index) {
+        const group = selectedCollarModel.slots[index];
+        const number = selectedCollarModel.slots.slice(0, index + 1).filter((item) => item === group).length;
+        return `${group} ${number}`;
+      }
+
+      function renderCollarModels() {
+        collarModelList.innerHTML = collarModels.map((model) => {
+          const selected = selectedCollarModel?.sku === model.sku;
+          const pendants = model.slots.map(() => '<i></i>').join('');
+          return `<button class="collar-model ${selected ? 'selected' : ''}" type="button" data-collar-model="${model.sku}" aria-pressed="${selected}"><span class="model-pendants" aria-hidden="true">${pendants}</span><span><b>${model.name}</b><small>SKU ${model.sku} · ${model.slots.join(' + ')}</small><small class="model-action">${selected ? 'Trocar modelo' : 'Escolher modelo'}</small></span><span class="model-value"><strong>${launchMoney(model.price)}</strong><small>${model.available} disp.</small></span></button>`;
+        }).join('');
+      }
+
+      function validateCollarStock() {
+        const counts = new Map();
+        collarSelections.filter(Boolean).forEach((component) => counts.set(component.sku, (counts.get(component.sku) || 0) + 1));
+        return [...counts].find(([sku, needed]) => needed > collarComponents.find((item) => item.sku === sku).stock) || null;
+      }
+
+      function renderCollarBuilder() {
+        renderCollarModels();
+        const chosen = collarSelections.filter(Boolean).length;
+        const total = selectedCollarModel?.slots.length || 0;
+        collarCustomizer.hidden = !selectedCollarModel;
+        necklacePendants.innerHTML = selectedCollarModel ? selectedCollarModel.slots.map((group, index) => {
+          const component = collarSelections[index];
+          return `<span class="preview-slot ${component ? 'filled' : ''}"><small>${index + 1}</small>${pendantMarkup(component)}</span>`;
+        }).join('') : '';
+        collarSlotList.innerHTML = selectedCollarModel ? selectedCollarModel.slots.map((group, index) => {
+          const component = collarSelections[index];
+          return `<button class="collar-slot ${component ? 'is-filled' : ''}" type="button" data-collar-slot="${index}"><span class="slot-number">${index + 1}</span><span>${pendantMarkup(component, true) || '<span class="jewel" aria-hidden="true">◇</span>'}</span><span class="slot-copy"><b>${slotName(index)}</b><small>${component ? `${component.label} · SKU ${component.sku}` : 'Nenhum pingente escolhido'}</small></span><span class="slot-action">${component ? 'Trocar' : 'Escolher'}</span></button>`;
+        }).join('') : '';
+        const stockConflict = validateCollarStock();
+        const warning = launchScreen.querySelector('[data-collar-stock-warning]');
+        warning.hidden = !stockConflict;
+        if (stockConflict) {
+          const component = collarComponents.find((item) => item.sku === stockConflict[0]);
+          warning.textContent = `${component.label}: a composição precisa de ${stockConflict[1]}, mas há ${component.stock} disponível.`;
+        }
+        setLaunchText('[data-collar-footer-copy]', selectedCollarModel ? `${selectedCollarModel.name} · ${chosen} de ${total} posições` : 'Escolha um modelo para começar');
+        setLaunchText('[data-collar-footer-price]', launchMoney(selectedCollarModel?.price || 0));
+        addCollarButton.disabled = !selectedCollarModel || chosen !== total || !!stockConflict;
+      }
+
+      function resetCollarBuilder() {
+        selectedCollarModel = null;
+        collarSelections = [];
+        activeCollarSlot = null;
+        collarComposer.classList.remove('has-model', 'models-expanded');
+        renderCollarBuilder();
+      }
+
+      function openComponentPicker(index) {
+        activeCollarSlot = index;
+        const group = selectedCollarModel.slots[index];
+        setLaunchText('[data-component-context]', `${selectedCollarModel.name} · posição ${index + 1}`);
+        setLaunchText('[data-component-title]', `Escolha ${slotName(index)}`);
+        componentOptions.innerHTML = collarComponents.filter((component) => component.group === group).map((component) => {
+          const usedElsewhere = collarSelections.reduce((sum, selected, selectedIndex) => sum + (selectedIndex !== index && selected?.sku === component.sku ? 1 : 0), 0);
+          const remaining = component.stock - usedElsewhere;
+          const unavailable = remaining <= 0;
+          return `<button class="component-option" type="button" data-component-sku="${component.sku}" ${unavailable ? 'disabled' : ''}>${pendantMarkup(component)}<span><b>${group} ${component.label}</b><small>${component.name}</small><small>SKU ${component.sku}</small></span><strong>${unavailable ? 'Sem saldo' : `${remaining} disp.`}</strong></button>`;
+        }).join('');
+        componentDialog.showModal();
+      }
+
+      saleChoice.addEventListener('click', () => {
+        activateLaunchChoice(saleChoice);
+        collarWorkspace.hidden = true;
         launchWorkspace.hidden = false;
         launchSuccess.hidden = true;
+        setStandardProductEntry();
         setFlowStep('items');
         requestAnimationFrame(() => productSearch.focus());
+      });
+
+      collarChoice.addEventListener('click', () => {
+        activateLaunchChoice(collarChoice);
+        launchWorkspace.hidden = true;
+        launchSuccess.hidden = true;
+        collarWorkspace.hidden = false;
+        resetCollarBuilder();
+        collarWorkspace.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      });
+
+      collarModelList.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-collar-model]');
+        if (!button) return;
+        const model = collarModels.find((item) => item.sku === button.dataset.collarModel);
+        if (selectedCollarModel?.sku === model.sku) {
+          collarComposer.classList.toggle('models-expanded');
+          return;
+        }
+        selectedCollarModel = model;
+        collarSelections = Array(model.slots.length).fill(null);
+        collarComposer.classList.add('has-model');
+        collarComposer.classList.remove('models-expanded');
+        renderCollarBuilder();
+      });
+
+      collarSlotList.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-collar-slot]');
+        if (button) openComponentPicker(Number(button.dataset.collarSlot));
+      });
+
+      componentOptions.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-component-sku]');
+        if (!button || button.disabled || activeCollarSlot == null) return;
+        collarSelections[activeCollarSlot] = collarComponents.find((item) => item.sku === button.dataset.componentSku);
+        componentDialog.close();
+        renderCollarBuilder();
+      });
+
+      addCollarButton.addEventListener('click', () => {
+        if (addCollarButton.disabled) return;
+        launchItems().filter((item) => item.dataset.customCollar === 'true').forEach((item) => item.remove());
+        const composition = `Veneziana 444032 · ${collarSelections.map((component, index) => `${slotName(index)} ${component.label}`).join(' · ')}`;
+        addCatalogProduct({
+          sku: selectedCollarModel.sku,
+          name: selectedCollarModel.name,
+          detail: `Veneziana 444032 + ${selectedCollarModel.slots.length} pingentes`,
+          price: selectedCollarModel.price,
+          symbol: '⌁',
+          composition
+        });
+        collarWorkspace.hidden = true;
+        launchWorkspace.hidden = false;
+        productSearchForm.hidden = true;
+        productEntryHint.hidden = true;
+        collarReturn.hidden = false;
+        setFlowStep('customer');
+        launchWorkspace.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      });
+
+      launchScreen.querySelector('[data-edit-collar]').addEventListener('click', () => {
+        activateLaunchChoice(collarChoice);
+        launchWorkspace.hidden = true;
+        collarWorkspace.hidden = false;
+        collarWorkspace.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      });
+
+      launchScreen.querySelector('[data-cancel-collar]').addEventListener('click', () => {
+        collarWorkspace.hidden = true;
+        if (launchItems().length) {
+          launchWorkspace.hidden = false;
+          setFlowStep('items');
+        } else {
+          resetLaunchTypePicker();
+        }
       });
 
       function updateLaunch() {
@@ -532,7 +733,8 @@
 
         items.forEach((item) => {
           const quantity = Number(item.dataset.quantity);
-          item.querySelector('[data-item-quantity]').textContent = quantity;
+          const quantityDisplay = item.querySelector('[data-item-quantity]');
+          if (quantityDisplay) quantityDisplay.textContent = quantity;
           item.querySelector('[data-item-total]').textContent = launchMoney(Number(item.dataset.price) * quantity);
         });
 
@@ -625,14 +827,22 @@
         item.dataset.variantName = variant?.name || '';
         item.dataset.variantAttribute = variant ? product.variantAttribute : '';
         item.dataset.stock = variant ? String(variant.stock) : '';
+        item.dataset.customCollar = product.composition ? 'true' : '';
+        item.dataset.composition = product.composition || '';
         item.dataset.tablePrice = product.price;
         item.dataset.price = product.price;
         item.dataset.quantity = '1';
+        const quantityControl = product.composition
+          ? '<span class="custom-quantity">1 composição</span>'
+          : `<div class="quantity-control" aria-label="Quantidade de ${product.name}"><button type="button" data-quantity-action="decrease" aria-label="Diminuir quantidade">−</button><span data-item-quantity>1</span><button type="button" data-quantity-action="increase" aria-label="Aumentar quantidade">+</button></div>`;
+        const priceControl = product.composition
+          ? `<span class="item-price fixed-price"><small>Preço do modelo</small><strong data-item-total>${launchMoney(product.price)}</strong></span>`
+          : `<button class="item-price" type="button" data-edit-price aria-label="Editar preço de ${product.name}"><small>Preço final</small><strong data-item-total>${launchMoney(product.price)}</strong></button>`;
         item.innerHTML = `
           <span class="jewel" aria-hidden="true">${product.symbol}</span>
-          <div class="cart-product"><b>${product.name}</b><small>SKU ${product.sku} · ${product.detail}</small>${variant ? `<span class="variant-pill">${product.variantAttribute} ${variant.name}</span>` : ''}<small class="price-note" hidden></small></div>
-          <div class="quantity-control" aria-label="Quantidade de ${product.name}"><button type="button" data-quantity-action="decrease" aria-label="Diminuir quantidade">−</button><span data-item-quantity>1</span><button type="button" data-quantity-action="increase" aria-label="Aumentar quantidade">+</button></div>
-          <button class="item-price" type="button" data-edit-price aria-label="Editar preço de ${product.name}"><small>Preço final</small><strong data-item-total>${launchMoney(product.price)}</strong></button>
+          <div class="cart-product"><b>${product.name}</b><small>SKU ${product.sku} · ${product.detail}</small>${variant ? `<span class="variant-pill">${product.variantAttribute} ${variant.name}</span>` : ''}${product.composition ? `<span class="composition-pill">${product.composition}</span>` : ''}<small class="price-note" hidden></small></div>
+          ${quantityControl}
+          ${priceControl}
           <button class="item-remove" type="button" data-remove-item aria-label="Remover ${product.name}">×</button>`;
         return item;
       }
@@ -942,6 +1152,11 @@
         saleChannelOther.hidden = true;
         saleChannelOtherInput.value = '';
         launchScreen.querySelector('[data-sale-note]').value = '';
+        productSearchForm.hidden = false;
+        productEntryHint.hidden = false;
+        collarReturn.hidden = true;
+        collarWorkspace.hidden = true;
+        resetCollarBuilder();
         launchWorkspace.hidden = false;
         launchSuccess.hidden = true;
         setFlowStep('items');
@@ -950,6 +1165,7 @@
 
       function resetLaunchTypePicker() {
         launchWorkspace.hidden = true;
+        collarWorkspace.hidden = true;
         launchSuccess.hidden = true;
         launchScreen.querySelectorAll('.choice').forEach((choice) => {
           choice.classList.remove('active');
@@ -959,7 +1175,6 @@
 
       launchScreen.querySelector('[data-clear-draft]').addEventListener('click', () => clearDraftDialog.showModal());
       launchScreen.querySelector('[data-confirm-clear]').addEventListener('click', clearLaunchDraft);
-      launchScreen.querySelector('[data-next-launch-flow]').addEventListener('click', () => showLaunchToast('Monte seu Colar será o próximo fluxo. Seu rascunho de venda normal foi preservado.'));
 
       finalizeSaleButton.addEventListener('click', () => {
         const totals = launchTotals();
@@ -979,7 +1194,8 @@
         reviewItems.innerHTML = items.map((item) => {
           const quantity = Number(item.dataset.quantity);
           const variant = item.dataset.variantName ? ` · ${item.dataset.variantAttribute} ${item.dataset.variantName}` : '';
-          return `<li><span><b>${item.dataset.name}</b><small>${quantity} × ${launchMoney(Number(item.dataset.price))}${variant}</small></span><strong>${launchMoney(Number(item.dataset.price) * quantity)}</strong></li>`;
+          const composition = item.dataset.composition ? ` · ${item.dataset.composition}` : '';
+          return `<li><span><b>${item.dataset.name}</b><small>${quantity} × ${launchMoney(Number(item.dataset.price))}${variant}${composition}</small></span><strong>${launchMoney(Number(item.dataset.price) * quantity)}</strong></li>`;
         }).join('');
         const reviewPayments = launchScreen.querySelector('[data-review-payments-list]');
         reviewPayments.innerHTML = payments.length ? payments.map((entry) => {
