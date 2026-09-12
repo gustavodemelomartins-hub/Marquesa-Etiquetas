@@ -48,7 +48,7 @@ AAAA-MM-DD_<tela>_<viewport>_<sequencia>.<ext>
 | Tela | Pasta | Referências | Estado do material |
 |---|---|---|---|
 | Dashboard | [03-screens/dashboard/](03-screens/dashboard/) | [02-references/dashboard/](02-references/dashboard/) | vazio |
-| Vendas | [03-screens/vendas/](03-screens/vendas/) | [02-references/vendas/](02-references/vendas/) | descrito |
+| Vendas | [03-screens/vendas/](03-screens/vendas/) | [02-references/vendas/](02-references/vendas/) | descrito · UX/UI em refinamento |
 | Clientes | [03-screens/clientes/](03-screens/clientes/) | [02-references/clientes/](02-references/clientes/) | vazio |
 | Revendedoras | [03-screens/revendedoras/](03-screens/revendedoras/) | [02-references/revendedoras/](02-references/revendedoras/) | vazio |
 | Estoque | [03-screens/estoque/](03-screens/estoque/) | [02-references/estoque/](02-references/estoque/) | descrito |

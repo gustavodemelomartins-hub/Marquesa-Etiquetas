@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Estado do material | descrito |
-| Última atualização | 10/09/2026 |
+| Estado do material | **UX/UI EM REFINAMENTO — design principal avançado, interações pendentes** |
+| Última atualização | 11/09/2026 |
 | Referências recebidas | 8 mockups próprios |
 | Existe hoje no legado? | sim |
 | Existe hoje no React? | ver [07-mapping/frontend-feature-map.md](../../07-mapping/frontend-feature-map.md) |
@@ -59,6 +59,8 @@ desconto, estorno, saída sem faturamento e exportação ainda estão abertas.
 | [metrics.md](metrics.md) | número exibido e como é calculado |
 | [api-needs.md](api-needs.md) | dado que a tela precisa e que a API ainda não dá |
 | [open-questions.md](open-questions.md) | decisão aberta, específica desta tela |
+| [interaction-matrix.md](interaction-matrix.md) | inventário oficial das ações, funcionamento e dependências |
+| [handoff.md](handoff.md) | handoff progressivo; ainda não liberado para implementação |
 
 Inspiração externa deste domínio: [02-references/vendas/](../../02-references/vendas/).
 

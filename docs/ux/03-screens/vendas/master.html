@@ -12,7 +12,7 @@
       <header class="app-header">
         <div class="header-main">
           <a class="brand" href="#painel" aria-label="Sistema Marquesa — início">
-            <img src="../../01-brand/logo_sistema-marquesa_principal.png" alt="Marquesa Semijoias" />
+            <img src="../../01-brand/logo_sistema-marquesa_preta-transparente.png" alt="Marquesa Semijoias" />
           </a>
 
           <nav class="primary-nav" aria-label="Áreas principais">
@@ -56,31 +56,36 @@
           <button type="button" data-screen="lancamentos">Lançamentos</button>
           <button type="button" class="active" data-screen="painel" aria-current="page">Painel</button>
           <button type="button" data-screen="clientes">Clientes <span>345</span></button>
-          <button type="button" data-screen="saidas">Saídas sem faturamento</button>
         </nav>
       </header>
 
       <main>
-        <div class="prototype-note" role="note">
-          <span>Protótipo de design</span>
-          Dados ilustrativos · referência visual e de interação
-        </div>
-
         <section class="screen active" id="painel" aria-labelledby="painel-title">
           <div class="page-heading">
             <div>
-              <p class="context">Visão financeira e comercial</p>
               <h1 id="painel-title">Painel de vendas</h1>
-              <p>Dinheiro recebido e vendas realizadas usam seus próprios recortes de data.</p>
             </div>
-            <div class="period-control" aria-label="Período do painel">
-              <button type="button">Tudo</button>
-              <button type="button" class="active">12 meses</button>
-              <button type="button">90 dias</button>
-              <button type="button">30 dias</button>
-              <button type="button" class="calendar-button" aria-label="Escolher intervalo personalizado">
-                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM8 3v6M16 3v6M4 10h16"/></svg>
-              </button>
+            <div class="period-picker-wrap">
+              <div class="period-control" aria-label="Período do painel">
+                <button type="button" data-period="all">Tudo</button>
+                <button type="button" class="active" data-period="12m">12 meses</button>
+                <button type="button" data-period="90d">90 dias</button>
+                <button type="button" data-period="30d">30 dias</button>
+                <button type="button" class="calendar-button" aria-label="Escolher intervalo personalizado" aria-expanded="false" aria-controls="date-range-picker">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM8 3v6M16 3v6M4 10h16"/></svg>
+                </button>
+              </div>
+              <div class="date-range-picker" id="date-range-picker" hidden>
+                <div class="date-range-fields">
+                  <label>Data inicial<input id="range-start" type="date" min="2023-01-01" max="2026-09-11" value="2026-09-01" /></label>
+                  <label>Data final<input id="range-end" type="date" min="2023-01-01" max="2026-09-11" value="2026-09-11" /></label>
+                </div>
+                <p class="date-range-error" role="alert" hidden>A data final precisa ser igual ou posterior à inicial.</p>
+                <div class="date-range-actions">
+                  <button type="button" class="button ghost" data-close-date-range>Cancelar</button>
+                  <button type="button" class="button primary" data-apply-date-range>Aplicar período</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -88,10 +93,10 @@
             <article class="revenue-card">
               <div>
                 <span>Faturamento recebido no período</span>
-                <strong>R$ 124.455,95</strong>
+                <strong data-dashboard-revenue>R$ 124.455,95</strong>
               </div>
               <div class="revenue-meta">
-                <span>Neste mês</span><b>R$ 9.891,59</b>
+                <span data-revenue-meta-label>Neste mês</span><b data-revenue-meta-value>R$ 9.891,59</b>
                 <small>pela data efetiva dos recebimentos</small>
               </div>
               <svg class="spark" aria-hidden="true" viewBox="0 0 90 46"><path d="M5 38 24 23l15 6 18-20 27 5"/><circle cx="84" cy="14" r="3"/></svg>
@@ -99,16 +104,16 @@
 
             <article class="receivable-card">
               <div>
-                <span>A receber em setembro</span>
-                <strong>R$ 12.269,90</strong>
-                <small>8 clientes com vencimento no mês</small>
+                <span data-receivable-label>A receber em setembro</span>
+                <strong data-dashboard-receivable>R$ 12.269,90</strong>
+                <small data-receivable-clients>8 clientes com vencimento no mês</small>
               </div>
-              <button type="button">Ver recebimentos <span aria-hidden="true">›</span></button>
+              <button type="button" data-open-receivables="Todas as clientes">Ver recebimentos <span aria-hidden="true">›</span></button>
               <svg class="receipt" aria-hidden="true" viewBox="0 0 80 80"><path d="M20 10h40v58l-8-6-8 6-8-6-8 6-8-6V10Z"/><path d="M29 26h22M29 36h22M29 46h16"/></svg>
             </article>
           </div>
 
-          <button class="repair-alert" type="button">
+          <button class="repair-alert" type="button" data-open-repairs aria-label="Abrir tela de Reparos: 21 ativos, 3 próximos do prazo">
             <span class="repair-icon">
               <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 7 3-3 3 3-3 3M13 8l-8 8-1 4 4-1 8-8M5 5l4 4M15 15l4 4"/></svg>
             </span>
@@ -118,7 +123,7 @@
 
           <article class="data-section chart-section">
             <div class="section-heading">
-              <div><h2>Desempenho de vendas</h2><p>Últimos 12 meses · valores pela data da venda</p></div>
+              <div><h2>Desempenho de vendas</h2><p id="chart-period-label">Últimos 12 meses · valores pela data da venda</p></div>
               <div class="legend"><i></i> Valor vendido</div>
             </div>
             <div class="sales-chart" role="img" aria-label="Gráfico de valor vendido por mês entre outubro de 2025 e setembro de 2026">
@@ -140,7 +145,7 @@
 
           <article class="data-section period-details">
             <div class="section-heading detail-heading">
-              <div><h2>Informações do período</h2><p><span class="date-chip">Setembro de 2026</span> seleção ativa no gráfico</p></div>
+              <div><h2>Informações do período</h2><p><span class="date-chip">Setembro de 2026</span> <span data-selection-context>seleção ativa no gráfico</span></p></div>
               <div class="view-toggle" aria-label="Visão do período">
                 <button type="button" class="active" data-view="detail">Análise detalhada</button>
                 <button type="button" data-view="month">Evolução por mês</button>
@@ -150,7 +155,7 @@
             <div class="analytics-view active" data-view-panel="detail">
               <div class="detail-grid">
                 <section class="product-ranking">
-                  <div class="mini-heading"><h3>Produtos mais vendidos</h3><button type="button">Ver lista completa</button></div>
+                  <div class="mini-heading"><h3>Produtos mais vendidos</h3><button type="button" data-product-list-toggle aria-expanded="false">Ver lista completa</button></div>
                   <div class="table-wrap">
                     <table>
                       <thead><tr><th>#</th><th>Produto</th><th>Categoria</th><th>Peças</th><th>Valor vendido</th><th>Participação</th></tr></thead>
@@ -160,6 +165,11 @@
                         <tr><td>3</td><td><b>Colar Borboleta Preta</b><small>SKU 376198 · Ouro 18k</small></td><td><span class="tag rose">Colar</span></td><td>6</td><td>R$ 534,00</td><td><strong>17,5%</strong></td></tr>
                         <tr><td>4</td><td><b>Argola Borboleta</b><small>SKU 185126 · Ouro 18k</small></td><td><span class="tag blue">Argola</span></td><td>6</td><td>R$ 474,00</td><td><strong>15,6%</strong></td></tr>
                         <tr><td>5</td><td><b>Brinco Ponto de Luz</b><small>SKU 122060 · Ouro 18k</small></td><td><span class="tag amber">Brinco</span></td><td>6</td><td>R$ 334,00</td><td><strong>11,0%</strong></td></tr>
+                        <tr data-ranking-extra hidden><td>6</td><td><b>Pulseira Elo Delicado</b><small>SKU 431280 · Ouro 18k</small></td><td><span class="tag green">Pulseira</span></td><td>5</td><td>R$ 320,00</td><td><strong>8,0%</strong></td></tr>
+                        <tr data-ranking-extra hidden><td>7</td><td><b>Anel Solitário Cristal</b><small>SKU 604192 · Ouro 18k</small></td><td><span class="tag blue">Anel</span></td><td>4</td><td>R$ 276,00</td><td><strong>6,0%</strong></td></tr>
+                        <tr data-ranking-extra hidden><td>8</td><td><b>Colar Coração Vazado</b><small>SKU 392441 · Ouro 18k</small></td><td><span class="tag rose">Colar</span></td><td>3</td><td>R$ 237,00</td><td><strong>5,0%</strong></td></tr>
+                        <tr data-ranking-extra hidden><td>9</td><td><b>Brinco Gota Cravejada</b><small>SKU 881420 · Ouro 18k</small></td><td><span class="tag amber">Brinco</span></td><td>3</td><td>R$ 207,00</td><td><strong>3,5%</strong></td></tr>
+                        <tr data-ranking-extra hidden><td>10</td><td><b>Pulseira Ponto de Luz</b><small>SKU 743102 · Ouro 18k</small></td><td><span class="tag green">Pulseira</span></td><td>2</td><td>R$ 138,00</td><td><strong>2,5%</strong></td></tr>
                       </tbody>
                     </table>
                   </div>
@@ -190,27 +200,17 @@
             </div>
 
             <div class="analytics-view" data-view-panel="month" hidden>
-              <div class="month-selector" aria-label="Mês analisado">
-                <button type="button" class="month-current">
-                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM8 3v6M16 3v6M4 10h16"/></svg>
-                  Setembro de 2026
-                </button>
-                <button type="button" aria-label="Mês anterior">‹</button>
-                <button type="button" aria-label="Próximo mês">›</button>
-                <button type="button" class="clear-month">Limpar mês</button>
-              </div>
-
               <div class="metric-row monthly-metrics">
-                <article><span>Faturamento</span><strong>R$ 9.891,59</strong><small class="trend">↑ 12% em relação a agosto</small></article>
-                <article><span>Vendas</span><strong>47</strong></article>
-                <article><span>Peças vendidas</span><strong>86</strong></article>
-                <article><span>Clientes atendidas</span><strong>39</strong></article>
+                <article><span>Faturamento</span><strong data-month-stat="revenue">R$ 9.891,59</strong><small class="trend" data-month-trend>↑ 12% em relação a agosto</small></article>
+                <article><span>Vendas</span><strong data-month-stat="sales">47</strong></article>
+                <article><span>Peças vendidas</span><strong data-month-stat="pieces">86</strong></article>
+                <article><span>Clientes atendidas</span><strong data-month-stat="clients">39</strong></article>
               </div>
 
               <div class="month-grid faithful">
                 <section>
                   <h3>Categorias mais vendidas</h3>
-                  <ul class="bars month-bars">
+                  <ul class="bars month-bars" data-period-categories>
                     <li><span>Brinco</span><i><b style="width:94%"></b></i><strong>24</strong></li>
                     <li><span>Pulseira</span><i><b style="width:48%"></b></i><strong>12</strong></li>
                     <li><span>Colar</span><i><b style="width:48%"></b></i><strong>12</strong></li>
@@ -220,30 +220,30 @@
                   </ul>
                 </section>
                 <section>
-                  <h3>Destaques do mês</h3>
+                  <h3>Destaques do período</h3>
                   <dl class="highlights">
-                    <div><dt>Maior venda</dt><dd>R$ 777,00</dd></div>
-                    <div><dt>Ticket médio</dt><dd>R$ 148,94</dd></div>
-                    <div><dt>Dia mais forte</dt><dd>05/09</dd></div>
+                    <div><dt>Maior venda</dt><dd data-period-highlight="largest">R$ 777,00</dd></div>
+                    <div><dt>Ticket médio</dt><dd data-period-highlight="ticket">R$ 148,94</dd></div>
+                    <div><dt>Dia mais forte</dt><dd data-period-highlight="day">05/09</dd></div>
                   </dl>
                 </section>
               </div>
 
               <section class="month-sales">
-                <h3>Vendas de setembro</h3>
+                <h3 data-month-sales-title>Vendas de setembro</h3>
                 <div class="table-wrap">
                   <table>
-                    <thead><tr><th>Data</th><th>Cliente</th><th>Peças</th><th>Valor</th><th>Status</th><th aria-label="Ações"></th></tr></thead>
+                    <thead><tr><th>Data</th><th>Cliente</th><th>Peças</th><th>Valor</th><th>Recebimento</th><th aria-label="Ações"></th></tr></thead>
                     <tbody>
-                      <tr><td>05/09/2026</td><td>Camila Ferreira</td><td>2</td><td>R$ 159,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
-                      <tr><td>04/09/2026</td><td>Juliana Prado</td><td>1</td><td>R$ 89,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
-                      <tr><td>03/09/2026</td><td>Ana Luiza Sedassari</td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
-                      <tr><td>02/09/2026</td><td>Zilma</td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
-                      <tr><td>01/09/2026</td><td>Adrielly Miguel</td><td>1</td><td>R$ 69,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
+                      <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1058"><td data-sale-day="05">05/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Camila Ferreira">Camila Ferreira</button></td><td>2</td><td>R$ 159,00</td><td><span class="status partial">Parcial</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Camila Ferreira">›</button></td></tr>
+                      <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1057"><td data-sale-day="04">04/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Juliana Prado">Juliana Prado</button></td><td>1</td><td>R$ 89,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Juliana Prado">›</button></td></tr>
+                      <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1056"><td data-sale-day="03">03/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Ana Luiza Sedassari">Ana Luiza Sedassari</button></td><td>1</td><td>R$ 79,00</td><td><span class="status neutral">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Ana Luiza Sedassari">›</button></td></tr>
+                      <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1055"><td data-sale-day="02">02/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Zilma">Zilma</button></td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Zilma">›</button></td></tr>
+                      <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1054"><td data-sale-day="01">01/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Adrielly Miguel">Adrielly Miguel</button></td><td>1</td><td>R$ 69,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Adrielly Miguel">›</button></td></tr>
                     </tbody>
                   </table>
                 </div>
-                <div class="table-footer"><span>Mostrando 1 a 5 de 47 vendas</span><div><button type="button" aria-label="Página anterior">‹</button><button type="button" class="active">1</button><button type="button">2</button><button type="button">3</button><button type="button" aria-label="Próxima página">›</button></div></div>
+                <div class="table-footer"><span data-sales-footer>Mostrando 1 a 5 de 47 vendas</span><div><button type="button" data-sales-page-action="previous" aria-label="Página anterior" disabled>‹</button><button type="button" class="active" data-sales-page="1" aria-current="page">1</button><button type="button" data-sales-page="2">2</button><button type="button" data-sales-page="3">3</button><button type="button" data-sales-page-action="next" aria-label="Próxima página">›</button></div></div>
               </section>
             </div>
           </article>
@@ -257,7 +257,7 @@
           <div class="choice-grid" role="radiogroup" aria-label="Tipo de lançamento">
             <button class="choice active" type="button" role="radio" aria-checked="true"><span>Venda normal</span><small>Produtos do estoque</small></button>
             <button class="choice" type="button" role="radio" aria-checked="false"><span>Monte seu Colar</span><small>Modelo e composição</small></button>
-            <button class="choice" type="button" role="radio" aria-checked="false"><span>Saída sem faturamento</span><small>Brinde, uso próprio, perda ou sorteio</small></button>
+            <button class="choice" type="button" role="radio" aria-checked="false" data-launch-screen="saidas"><span>Saída sem faturamento</span><small>Brinde, uso próprio, perda ou sorteio</small></button>
           </div>
           <div class="launch-grid">
             <section class="data-section launch-card"><div class="section-heading"><div><h2>Itens da venda</h2><p>Nome, SKU ou código da etiqueta</p></div><button class="button secondary" type="button">Adicionar item</button></div><div class="search-field">Buscar produto <kbd>⌘ K</kbd></div><ul class="cart-list"><li><span class="jewel">◌</span><div><b>Argola Duas Linhas Cravejadas</b><small>SKU 122060 · Banho de Ouro 18k</small></div><span>1 × R$ 72,00</span><strong>R$ 72,00</strong></li><li><span class="jewel">◇</span><div><b>Pulseira Medalha Salmo</b><small>SKU 451109 · Banho de Ouro 18k</small></div><span>1 × R$ 136,00</span><strong>R$ 136,00</strong></li><li><span class="jewel">⌁</span><div><b>Monte seu Colar · Casal</b><small>SKU 326660 · composição confirmada</small></div><span>1 × R$ 129,00</span><strong>R$ 129,00</strong></li></ul></section>
@@ -267,9 +267,26 @@
         </section>
 
         <section class="screen" id="clientes" aria-labelledby="clients-title" hidden>
-          <div class="page-heading"><div><p class="context">Relacionamento</p><h1 id="clients-title">Clientes</h1><p>Compras, pagamentos e valores em aberto aparecem separados.</p></div><button class="button primary" type="button">Nova cliente</button></div>
+          <div class="page-heading"><div><p class="context" data-clients-context>Relacionamento</p><h1 id="clients-title" data-clients-title>Clientes</h1><p data-clients-copy>Compras, pagamentos e valores em aberto aparecem separados.</p></div><div class="clients-heading-actions"><button class="button ghost" type="button" data-show-all-clients hidden>Ver todas as clientes</button><button class="button primary" type="button">Nova cliente</button></div></div>
           <div class="metric-row compact"><article><span>Clientes ativas</span><strong>345</strong><small>cadastros com histórico</small></article><article><span>Compraram no mês</span><strong>39</strong><small>6 novas clientes</small></article><article><span>Com valor em aberto</span><strong>8</strong><small>R$ 12.269,90</small></article></div>
-          <section class="data-section client-list"><div class="section-heading"><div><h2>Lista de clientes</h2><p>Busque por nome, telefone ou CPF</p></div><div class="search-field narrow">Buscar cliente</div></div><table><thead><tr><th>Cliente</th><th>Comprou</th><th>Pago</th><th>Em aberto</th><th>Última compra</th><th></th></tr></thead><tbody><tr><td><b>Camila Ferreira</b><small>(19) 9 8123-4567</small></td><td>R$ 1.284,00</td><td>R$ 1.125,00</td><td><span class="status partial">R$ 159,00</span></td><td>05/09/2026</td><td>›</td></tr><tr><td><b>Juliana Prado</b><small>(19) 9 9211-1098</small></td><td>R$ 898,00</td><td>R$ 898,00</td><td><span class="status paid">R$ 0,00</span></td><td>04/09/2026</td><td>›</td></tr><tr><td><b>Ana Luiza Sedassari</b><small>(19) 9 7790-3112</small></td><td>R$ 2.044,00</td><td>R$ 1.704,00</td><td><span class="status partial">R$ 340,00</span></td><td>03/09/2026</td><td>›</td></tr></tbody></table></section>
+          <section class="data-section client-list"><div class="section-heading"><div><h2 data-client-list-title>Lista de clientes</h2><p data-client-list-copy>Busque por nome, telefone ou CPF</p></div><div class="search-field narrow" data-client-search>Buscar cliente</div></div><table><thead><tr><th>Cliente</th><th>Comprou</th><th>Pago</th><th>Em aberto</th><th>Última compra</th><th></th></tr></thead><tbody><tr data-client-row="Camila Ferreira" data-has-receivable="true"><td><b>Camila Ferreira</b><small>(19) 9 8123-4567</small></td><td>R$ 1.284,00</td><td>R$ 1.125,00</td><td><span class="status partial">R$ 159,00</span></td><td>05/09/2026</td><td>›</td></tr><tr data-client-row="Juliana Prado" data-has-receivable="false"><td><b>Juliana Prado</b><small>(19) 9 9211-1098</small></td><td>R$ 898,00</td><td>R$ 898,00</td><td><span class="status paid">R$ 0,00</span></td><td>04/09/2026</td><td>›</td></tr><tr data-client-row="Ana Luiza Sedassari" data-has-receivable="true"><td><b>Ana Luiza Sedassari</b><small>(19) 9 7790-3112</small></td><td>R$ 2.044,00</td><td>R$ 1.704,00</td><td><span class="status partial">R$ 340,00</span></td><td>03/09/2026</td><td>›</td></tr></tbody></table></section>
+        </section>
+
+        <section class="screen" id="reparos" aria-labelledby="repairs-title" hidden>
+          <div class="page-heading">
+            <div><p class="context">Clientes</p><h1 id="repairs-title">Reparos</h1><p>Acompanhe as peças em conserto, os prazos e as devoluções.</p></div>
+            <button class="button primary" type="button">Novo reparo</button>
+          </div>
+          <div class="metric-row compact">
+            <article><span>Reparos ativos</span><strong>21</strong><small>em acompanhamento</small></article>
+            <article><span>Próximos do prazo</span><strong>3</strong><small>exigem atenção</small></article>
+            <article><span>Na oficina</span><strong>6</strong><small>aguardando retorno</small></article>
+            <article><span>Prontos</span><strong>4</strong><small>para devolução</small></article>
+          </div>
+          <section class="data-section repair-list">
+            <div class="section-heading"><div><h2>Reparos ativos</h2><p>Cliente, peça, andamento e prazo</p></div><div class="search-field narrow">Buscar reparo ou cliente</div></div>
+            <div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Peça</th><th>Andamento</th><th>Entrada</th><th>Prazo</th><th>Tempo restante</th></tr></thead><tbody><tr><td><b>Camila Ferreira</b><small>Reparo #021</small></td><td>Brinco Ponto de Luz</td><td><span class="status partial">Em conserto</span></td><td>02/09/2026</td><td>16/09/2026</td><td><strong>5 dias</strong></td></tr><tr><td><b>Ana Luiza Sedassari</b><small>Reparo #019</small></td><td>Colar Borboleta Preta</td><td><span class="status neutral">Aguardando oficina</span></td><td>29/08/2026</td><td>13/09/2026</td><td><strong>2 dias</strong></td></tr><tr><td><b>Juliana Prado</b><small>Reparo #018</small></td><td>Argola Borboleta</td><td><span class="status paid">Pronto</span></td><td>27/08/2026</td><td>12/09/2026</td><td><strong>1 dia</strong></td></tr></tbody></table></div>
+          </section>
         </section>
 
         <section class="screen" id="saidas" aria-labelledby="outputs-title" hidden>
@@ -282,14 +299,28 @@
     </div>
 
     <script>
+      const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+      const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+      const shortMonthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
       const tabs = [...document.querySelectorAll('[data-screen]')];
       const screens = [...document.querySelectorAll('.screen')];
-      tabs.forEach((tab) => tab.addEventListener('click', () => {
-        tabs.forEach((item) => { item.classList.toggle('active', item === tab); item.removeAttribute('aria-current'); });
-        tab.setAttribute('aria-current', 'page');
-        screens.forEach((screen) => { const active = screen.id === tab.dataset.screen; screen.classList.toggle('active', active); screen.hidden = !active; });
+      function activateScreen(screenId, navigationId = screenId) {
+        tabs.forEach((item) => {
+          const active = item.dataset.screen === navigationId;
+          item.classList.toggle('active', active);
+          item.toggleAttribute('aria-current', active);
+          if (active) item.setAttribute('aria-current', 'page');
+        });
+        screens.forEach((screen) => { const active = screen.id === screenId; screen.classList.toggle('active', active); screen.hidden = !active; });
         window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      }
+
+      tabs.forEach((tab) => tab.addEventListener('click', () => {
+        if (tab.dataset.screen === 'clientes') showAllClients();
+        activateScreen(tab.dataset.screen);
       }));
+      document.querySelector('[data-launch-screen]').addEventListener('click', () => activateScreen('saidas', 'lancamentos'));
 
       const viewButtons = [...document.querySelectorAll('[data-view]')];
       const viewPanels = [...document.querySelectorAll('[data-view-panel]')];
@@ -298,10 +329,552 @@
         viewPanels.forEach((panel) => { const active = panel.dataset.viewPanel === button.dataset.view; panel.classList.toggle('active', active); panel.hidden = !active; });
       }));
 
-      document.querySelectorAll('.period-control button:not(.calendar-button)').forEach((button) => button.addEventListener('click', () => {
-        document.querySelectorAll('.period-control button').forEach((item) => item.classList.remove('active'));
-        button.classList.add('active');
+      const chartPeriods = {
+        all: {
+          subtitle: 'Todo o histórico · valores pela data da venda',
+          aria: 'todo o histórico disponível, consolidado por trimestre',
+          points: [
+            ['4º tri 23', '4º trimestre de 2023', 28640], ['1º tri 24', '1º trimestre de 2024', 32110],
+            ['2º tri 24', '2º trimestre de 2024', 35490], ['3º tri 24', '3º trimestre de 2024', 33180],
+            ['4º tri 24', '4º trimestre de 2024', 41860], ['1º tri 25', '1º trimestre de 2025', 39720],
+            ['2º tri 25', '2º trimestre de 2025', 44950], ['3º tri 25', '3º trimestre de 2025', 42170],
+            ['4º tri 25', '4º trimestre de 2025', 43870], ['1º tri 26', '1º trimestre de 2026', 52150],
+            ['2º tri 26', '2º trimestre de 2026', 35700], ['3º tri 26', '3º trimestre de 2026', 39350]
+          ]
+        },
+        '12m': {
+          subtitle: 'Últimos 12 meses · valores pela data da venda',
+          aria: 'outubro de 2025 a setembro de 2026, por mês',
+          points: [
+            ['out 25', 'Outubro de 2025', 11640], ['nov 25', 'Novembro de 2025', 14510],
+            ['dez 25', 'Dezembro de 2025', 17720], ['jan 26', 'Janeiro de 2026', 22080],
+            ['fev 26', 'Fevereiro de 2026', 16490], ['mar 26', 'Março de 2026', 13580],
+            ['abr 26', 'Abril de 2026', 15420], ['mai 26', 'Maio de 2026', 10810],
+            ['jun 26', 'Junho de 2026', 9470], ['jul 26', 'Julho de 2026', 12820],
+            ['ago 26', 'Agosto de 2026', 8210], ['set 26', 'Setembro de 2026', 18320]
+          ]
+        },
+        '90d': {
+          subtitle: 'Últimos 90 dias · valores pela data da venda',
+          aria: 'últimos 90 dias, consolidados por semana',
+          points: [
+            ['13 jul', 'Semana de 13 de julho', 3120], ['20 jul', 'Semana de 20 de julho', 2860],
+            ['27 jul', 'Semana de 27 de julho', 3740], ['03 ago', 'Semana de 3 de agosto', 2410],
+            ['10 ago', 'Semana de 10 de agosto', 3290], ['17 ago', 'Semana de 17 de agosto', 2180],
+            ['24 ago', 'Semana de 24 de agosto', 3520], ['31 ago', 'Semana de 31 de agosto', 4160],
+            ['07 set', 'Semana de 7 de setembro', 3890], ['14 set', 'Semana de 14 de setembro', 4470],
+            ['21 set', 'Semana de 21 de setembro', 3750], ['28 set', 'Semana de 28 de setembro', 5010]
+          ]
+        },
+        '30d': {
+          subtitle: 'Últimos 30 dias · valores pela data da venda',
+          aria: 'últimos 30 dias, consolidados a cada três dias',
+          points: [
+            ['01 set', '1 a 3 de setembro', 920], ['04 set', '4 a 6 de setembro', 1380],
+            ['07 set', '7 a 9 de setembro', 1170], ['10 set', '10 a 12 de setembro', 1760],
+            ['13 set', '13 a 15 de setembro', 1490], ['16 set', '16 a 18 de setembro', 2080],
+            ['19 set', '19 a 21 de setembro', 1640], ['22 set', '22 a 24 de setembro', 2310],
+            ['25 set', '25 a 27 de setembro', 1960], ['28 set', '28 a 30 de setembro', 2470]
+          ]
+        }
+      };
+
+      const salesChart = document.querySelector('.sales-chart');
+      const chartPeriodLabel = document.querySelector('#chart-period-label');
+      const dateChip = document.querySelector('.date-chip');
+      const selectionContext = document.querySelector('[data-selection-context]');
+
+      function axisLabel(value) {
+        if (!value) return '0';
+        const thousands = value / 1000;
+        return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(1).replace('.', ',')} mil`;
+      }
+
+      function resolveChartPointRange(point) {
+        if (point[3] && point[4]) return { start: point[3], end: point[4] };
+
+        const detail = point[1];
+        const monthMatch = detail.match(/^(.+) de (\d{4})$/);
+        if (monthMatch) {
+          const monthIndex = monthNames.findIndex((name) => name.toLowerCase() === monthMatch[1].toLowerCase());
+          if (monthIndex >= 0) {
+            const year = Number(monthMatch[2]);
+            const start = new Date(Date.UTC(year, monthIndex, 1));
+            const end = new Date(Date.UTC(year, monthIndex + 1, 0));
+            return { start: toIsoDate(start), end: toIsoDate(end) };
+          }
+        }
+
+        const quarterMatch = detail.match(/^(\d)º trimestre de (\d{4})$/);
+        if (quarterMatch) {
+          const quarter = Number(quarterMatch[1]);
+          const year = Number(quarterMatch[2]);
+          const firstMonth = (quarter - 1) * 3;
+          const start = new Date(Date.UTC(year, firstMonth, 1));
+          const end = new Date(Date.UTC(year, firstMonth + 3, 0));
+          return { start: toIsoDate(start), end: toIsoDate(end) };
+        }
+
+        const activeYear = rangeEnd.value ? parseDate(rangeEnd.value).getUTCFullYear() : 2026;
+        const weekMatch = detail.match(/^Semana de (\d+) de (.+)$/);
+        if (weekMatch) {
+          const monthIndex = monthNames.findIndex((name) => name.toLowerCase() === weekMatch[2].toLowerCase());
+          if (monthIndex >= 0) {
+            const start = new Date(Date.UTC(activeYear, monthIndex, Number(weekMatch[1])));
+            const end = new Date(start.getTime() + 6 * 86400000);
+            return { start: toIsoDate(start), end: toIsoDate(end) };
+          }
+        }
+
+        const spanMatch = detail.match(/^(\d+) a (\d+) de (.+)$/);
+        if (spanMatch) {
+          const monthIndex = monthNames.findIndex((name) => name.toLowerCase() === spanMatch[3].toLowerCase());
+          if (monthIndex >= 0) {
+            const start = new Date(Date.UTC(activeYear, monthIndex, Number(spanMatch[1])));
+            const end = new Date(Date.UTC(activeYear, monthIndex, Number(spanMatch[2])));
+            return { start: toIsoDate(start), end: toIsoDate(end) };
+          }
+        }
+
+        return { start: rangeStart.value, end: rangeEnd.value };
+      }
+
+      function renderChart(period) {
+        const maximum = Math.ceil(Math.max(...period.points.map((point) => point[2])) / 5000) * 5000;
+        const axisValues = [1, .8, .6, .4, .2, 0].map((ratio) => Math.round(maximum * ratio));
+        salesChart.innerHTML = `
+          <div class="axis">${axisValues.map((value) => `<span>${axisLabel(value)}</span>`).join('')}</div>
+          ${period.points.map((point) => {
+            const range = resolveChartPointRange(point);
+            return `
+            <button type="button" data-chart-detail="${point[1]}" data-chart-start="${range.start}" data-chart-end="${range.end}" data-chart-value="${point[2]}" style="--value:${Math.max(8, Math.round(point[2] / maximum * 100))}%">
+              <i></i><span>${point[0]}</span><b>${currency.format(point[2])}</b>
+            </button>`;
+          }).join('')}`;
+        salesChart.setAttribute('aria-label', `Gráfico de valor vendido: ${period.aria}`);
+        chartPeriodLabel.textContent = period.subtitle;
+      }
+
+      document.querySelectorAll('.period-control [data-period]').forEach((button) => button.addEventListener('click', () => applyPreset(button.dataset.period)));
+
+      salesChart.addEventListener('click', (event) => {
+        const point = event.target.closest('button[data-chart-detail]');
+        if (!point) return;
+        salesChart.querySelectorAll('button').forEach((button) => button.classList.toggle('selected', button === point));
+        const stats = calculatePeriodStats(point.dataset.chartStart, point.dataset.chartEnd, Number(point.dataset.chartValue));
+        updateAnalyticsViews(point.dataset.chartStart, point.dataset.chartEnd, point.dataset.chartDetail, stats, 'seleção ativa no gráfico');
+      });
+
+      const calendarButton = document.querySelector('.calendar-button');
+      const dateRangePicker = document.querySelector('#date-range-picker');
+      const rangeStart = document.querySelector('#range-start');
+      const rangeEnd = document.querySelector('#range-end');
+      const dateRangeError = document.querySelector('.date-range-error');
+      const presetRanges = {
+        all: ['2023-10-01', '2026-09-11', 'Todo o histórico'],
+        '12m': ['2025-10-01', '2026-09-11', 'Últimos 12 meses'],
+        '90d': ['2026-06-14', '2026-09-11', 'Últimos 90 dias'],
+        '30d': ['2026-08-13', '2026-09-11', 'Últimos 30 dias']
+      };
+
+      function parseDate(value) {
+        return new Date(`${value}T12:00:00Z`);
+      }
+
+      function toIsoDate(date) {
+        return date.toISOString().slice(0, 10);
+      }
+
+      function periodDays(start, end) {
+        return Math.floor((parseDate(end) - parseDate(start)) / 86400000) + 1;
+      }
+
+      function formatRangeLabel(start, end) {
+        const startDate = parseDate(start);
+        const endDate = parseDate(end);
+        const day = (date) => date.getUTCDate();
+        const month = (date) => monthNames[date.getUTCMonth()].toLowerCase();
+        const year = (date) => date.getUTCFullYear();
+        if (start === end) return `${day(startDate)} de ${month(startDate)} de ${year(startDate)}`;
+        if (month(startDate) === month(endDate) && year(startDate) === year(endDate)) return `${day(startDate)}–${day(endDate)} de ${month(endDate)} de ${year(endDate)}`;
+        if (year(startDate) === year(endDate)) return `${day(startDate)} de ${month(startDate)}–${day(endDate)} de ${month(endDate)} de ${year(endDate)}`;
+        return `${day(startDate)} de ${month(startDate)} de ${year(startDate)}–${day(endDate)} de ${month(endDate)} de ${year(endDate)}`;
+      }
+
+      function buildCustomChart(start, end, label) {
+        const days = periodDays(start, end);
+        const bucketCount = Math.min(12, days);
+        const bucketSize = Math.ceil(days / bucketCount);
+        const startDate = parseDate(start);
+        const points = [];
+        for (let index = 0; index < bucketCount; index += 1) {
+          const bucketStart = new Date(startDate);
+          bucketStart.setUTCDate(bucketStart.getUTCDate() + index * bucketSize);
+          if (bucketStart > parseDate(end)) break;
+          const bucketEnd = new Date(bucketStart.getTime() + (bucketSize - 1) * 86400000);
+          if (bucketEnd > parseDate(end)) bucketEnd.setTime(parseDate(end).getTime());
+          const seed = bucketStart.getUTCFullYear() * 19 + (bucketStart.getUTCMonth() + 1) * 37 + bucketStart.getUTCDate() * 11;
+          const value = 720 + (seed % 24) * 93 + bucketSize * 128;
+          const shortLabel = bucketSize === 1
+            ? `${String(bucketStart.getUTCDate()).padStart(2, '0')} ${shortMonthNames[bucketStart.getUTCMonth()]}`
+            : `${String(bucketStart.getUTCDate()).padStart(2, '0')}–${String(bucketEnd.getUTCDate()).padStart(2, '0')} ${shortMonthNames[bucketEnd.getUTCMonth()]}`;
+          points.push([shortLabel, formatRangeLabel(toIsoDate(bucketStart), toIsoDate(bucketEnd)), value, toIsoDate(bucketStart), toIsoDate(bucketEnd)]);
+        }
+        return { subtitle: `${label} · valores pela data da venda`, aria: label.toLowerCase(), points };
+      }
+
+      function calculatePeriodStats(start, end, soldValue) {
+        const days = periodDays(start, end);
+        const startDate = parseDate(start);
+        const endDate = parseDate(end);
+        const seed = startDate.getUTCDate() + endDate.getUTCDate() * 3 + (endDate.getUTCMonth() + 1) * 17 + days;
+        const sold = Math.round(soldValue * 100) / 100;
+        const revenue = Math.round(sold * (.7 + (seed % 8) / 100) * 100) / 100;
+        const salesCount = Math.max(1, Math.round(sold / (145 + seed % 55)));
+        const pieces = Math.max(salesCount, Math.round(salesCount * (1.42 + (seed % 18) / 100)));
+        const clients = Math.max(1, Math.min(salesCount, Math.round(salesCount * (.68 + (seed % 12) / 100))));
+        const receivable = Math.round(sold * (.06 + (seed % 5) / 100) * 100) / 100;
+        const largest = Math.min(sold, 280 + (seed % 720));
+        const strongDate = new Date(endDate);
+        strongDate.setUTCDate(strongDate.getUTCDate() - (seed % days));
+        return { days, sold, revenue, sales: salesCount, pieces, clients, receivable, receivableClients: Math.max(1, Math.round(clients * .18)), largest, ticket: sold / salesCount, strongDate, seed };
+      }
+
+      function updateProductRanking(stats) {
+        const weights = [.21, .18, .14, .12, .10, .08, .06, .05, .035, .025];
+        document.querySelectorAll('.product-ranking tbody tr').forEach((row, index) => {
+          const quantity = Math.max(1, Math.round(stats.pieces * weights[index]));
+          row.cells[3].textContent = quantity;
+          row.cells[4].textContent = currency.format(stats.sold * weights[index]);
+          row.cells[5].querySelector('strong').textContent = `${(weights[index] * 100).toFixed(1).replace('.', ',')}%`;
+        });
+      }
+
+      function updateCategories(stats) {
+        const names = ['Brinco', 'Pulseira', 'Colar', 'Anel', 'Argola', 'Pingente'];
+        const weights = [.29, .2, .18, .14, .11, .08];
+        const values = weights.map((weight) => Math.max(1, Math.round(stats.pieces * weight)));
+        const maximum = Math.max(...values);
+        document.querySelector('[data-period-categories]').innerHTML = names.map((name, index) => `
+          <li><span>${name}</span><i><b style="width:${Math.round(values[index] / maximum * 100)}%"></b></i><strong>${values[index]}</strong></li>`).join('');
+        document.querySelectorAll('.breakdowns .bars li').forEach((item, index) => {
+          const value = values[index];
+          item.querySelector('b').style.width = `${Math.round(value / maximum * 100)}%`;
+          item.querySelector('strong').innerHTML = `${value} <small>peças</small>`;
+        });
+      }
+
+      function updateOrigins(stats) {
+        const first = 53 + stats.seed % 9;
+        const second = 22 - stats.seed % 4;
+        const third = 13 - stats.seed % 3;
+        const percentages = [first, second, third, 100 - first - second - third];
+        document.querySelectorAll('.stacked-bar i').forEach((bar, index) => { bar.style.width = `${percentages[index]}%`; });
+        document.querySelectorAll('.origins > div').forEach((item, index) => {
+          const values = item.querySelectorAll('dd');
+          values[0].textContent = `${percentages[index]}%`;
+          values[1].textContent = currency.format(stats.sold * percentages[index] / 100);
+        });
+      }
+
+      function updateSalesList(start, end, stats, page = 1) {
+        closeExpandedSale();
+        salesListState = { start, end, stats };
+        const totalPages = Math.min(3, Math.max(1, Math.ceil(stats.sales / salesPageSize)));
+        salesCurrentPage = Math.min(Math.max(1, page), totalPages);
+        const startIndex = (salesCurrentPage - 1) * salesPageSize;
+        const visibleCount = Math.max(0, Math.min(salesPageSize, stats.sales - startIndex));
+        const sampledSales = Math.min(stats.sales, salesPageSize * 3);
+        const totalSpan = Math.max(0, periodDays(start, end) - 1);
+        const saleEntries = Object.entries(sales);
+
+        salesRows.forEach((row, index) => {
+          row.hidden = index >= visibleCount;
+          if (row.hidden) return;
+          const globalIndex = startIndex + index;
+          const [saleId, sale] = saleEntries[(globalIndex + stats.seed) % saleEntries.length];
+          const date = parseDate(end);
+          const offset = sampledSales === 1 ? 0 : Math.round(globalIndex * totalSpan / Math.max(sampledSales - 1, 1));
+          date.setUTCDate(date.getUTCDate() - offset);
+          row.dataset.saleId = saleId;
+          row.setAttribute('aria-expanded', 'false');
+          row.classList.remove('expanded');
+          row.querySelector('[data-sale-day]').textContent = date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+          const clientButton = row.querySelector('[data-open-client]');
+          clientButton.dataset.openClient = sale.customer;
+          clientButton.textContent = sale.customer;
+          row.cells[2].textContent = sale.items.reduce((total, item) => total + item[2], 0);
+          row.cells[3].textContent = currency.format(sale.total);
+          const status = row.cells[4].querySelector('.status');
+          status.className = `status ${sale.financialClass}`;
+          status.textContent = sale.financial === 'Recebimento parcial' ? 'Parcial' : sale.financial;
+          const openButton = row.querySelector('.sale-open');
+          openButton.textContent = '›';
+          openButton.setAttribute('aria-label', `Expandir detalhes da venda de ${sale.customer}`);
+        });
+
+        salesPageButtons.forEach((button) => {
+          const buttonPage = Number(button.dataset.salesPage);
+          const active = buttonPage === salesCurrentPage;
+          button.hidden = buttonPage > totalPages;
+          button.classList.toggle('active', active);
+          if (active) button.setAttribute('aria-current', 'page');
+          else button.removeAttribute('aria-current');
+        });
+        salesPagePrevious.disabled = salesCurrentPage === 1;
+        salesPageNext.disabled = salesCurrentPage === totalPages;
+        document.querySelector('[data-month-sales-title]').textContent = 'Vendas do período';
+        document.querySelector('[data-sales-footer]').textContent = `Mostrando ${startIndex + 1} a ${startIndex + visibleCount} de ${stats.sales} vendas`;
+      }
+
+      function updateAnalyticsViews(start, end, label, stats, context) {
+        document.querySelector('[data-month-stat="revenue"]').textContent = currency.format(stats.revenue);
+        document.querySelector('[data-month-stat="sales"]').textContent = stats.sales;
+        document.querySelector('[data-month-stat="pieces"]').textContent = stats.pieces;
+        document.querySelector('[data-month-stat="clients"]').textContent = stats.clients;
+        document.querySelector('[data-month-trend]').textContent = `${stats.days} dia${stats.days === 1 ? '' : 's'} no período`;
+        document.querySelector('[data-period-highlight="largest"]').textContent = currency.format(stats.largest);
+        document.querySelector('[data-period-highlight="ticket"]').textContent = currency.format(stats.ticket);
+        document.querySelector('[data-period-highlight="day"]').textContent = stats.strongDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
+        dateChip.textContent = label;
+        selectionContext.textContent = context;
+        updateProductRanking(stats);
+        updateCategories(stats);
+        updateOrigins(stats);
+        updateSalesList(start, end, stats);
+      }
+
+      function updateDashboardPeriod(start, end, label, chart) {
+        renderChart(chart);
+        const soldValue = chart.points.reduce((total, point) => total + point[2], 0);
+        const stats = calculatePeriodStats(start, end, soldValue);
+        document.querySelector('[data-dashboard-revenue]').textContent = currency.format(stats.revenue);
+        document.querySelector('[data-revenue-meta-label]').textContent = 'Média recebida por dia';
+        document.querySelector('[data-revenue-meta-value]').textContent = currency.format(stats.revenue / stats.days);
+        document.querySelector('[data-receivable-label]').textContent = 'A receber no período';
+        document.querySelector('[data-dashboard-receivable]').textContent = currency.format(stats.receivable);
+        document.querySelector('[data-receivable-clients]').textContent = `${stats.receivableClients} cliente${stats.receivableClients === 1 ? '' : 's'} com vencimento no período`;
+        updateAnalyticsViews(start, end, label, stats, 'período ativo');
+      }
+
+      function toggleDateRangePicker(forceOpen) {
+        const open = typeof forceOpen === 'boolean' ? forceOpen : dateRangePicker.hidden;
+        dateRangePicker.hidden = !open;
+        calendarButton.setAttribute('aria-expanded', String(open));
+        if (open) rangeStart.focus();
+      }
+
+      function applyPreset(periodKey) {
+        const [start, end, label] = presetRanges[periodKey];
+        document.querySelectorAll('.period-control button').forEach((item) => item.classList.toggle('active', item.dataset.period === periodKey));
+        rangeStart.value = start;
+        rangeEnd.value = end;
+        dateRangeError.hidden = true;
+        toggleDateRangePicker(false);
+        updateDashboardPeriod(start, end, label, chartPeriods[periodKey]);
+      }
+
+      function applyCustomDateRange() {
+        if (!rangeStart.value || !rangeEnd.value || rangeStart.value > rangeEnd.value) {
+          dateRangeError.hidden = false;
+          return false;
+        }
+        dateRangeError.hidden = true;
+        const label = formatRangeLabel(rangeStart.value, rangeEnd.value);
+        document.querySelectorAll('.period-control button').forEach((item) => item.classList.toggle('active', item === calendarButton));
+        updateDashboardPeriod(rangeStart.value, rangeEnd.value, label, buildCustomChart(rangeStart.value, rangeEnd.value, label));
+        toggleDateRangePicker(false);
+        return true;
+      }
+
+      calendarButton.addEventListener('click', () => toggleDateRangePicker());
+      document.querySelector('[data-close-date-range]').addEventListener('click', () => toggleDateRangePicker(false));
+      document.querySelector('[data-apply-date-range]').addEventListener('click', applyCustomDateRange);
+
+      const productListToggle = document.querySelector('[data-product-list-toggle]');
+      const extraProductRows = [...document.querySelectorAll('[data-ranking-extra]')];
+      productListToggle.addEventListener('click', () => {
+        const expanded = productListToggle.getAttribute('aria-expanded') !== 'true';
+        productListToggle.setAttribute('aria-expanded', String(expanded));
+        productListToggle.textContent = expanded ? 'Recolher lista' : 'Ver lista completa';
+        extraProductRows.forEach((row) => { row.hidden = !expanded; });
+      });
+
+      const sales = {
+        'venda-1058': {
+          reference: 'Venda #1058', customer: 'Camila Ferreira', channel: 'Balcão', total: 159, received: 80, pending: 79,
+          financial: 'Recebimento parcial', financialClass: 'partial',
+          items: [['Brinco Ponto de Luz', 'SKU 122060 · Ouro 18k', 1, 89], ['Pulseira Elo Delicado', 'SKU 431280 · Ouro 18k', 1, 70]],
+          payments: [['PIX', 'R$ 80,00', 'Recebido em 05/09/2026', 'paid'], ['Saldo restante', 'R$ 79,00', 'Vence em 20/09/2026', 'neutral']]
+        },
+        'venda-1057': {
+          reference: 'Venda #1057', customer: 'Juliana Prado', channel: 'Balcão', total: 89, received: 89, pending: 0,
+          financial: 'Pago', financialClass: 'paid',
+          items: [['Brinco Ponto de Luz', 'SKU 122060 · Ouro 18k', 1, 89]],
+          payments: [['PIX', 'R$ 89,00', 'Recebido em 04/09/2026', 'paid']]
+        },
+        'venda-1056': {
+          reference: 'Venda #1056', customer: 'Ana Luiza Sedassari', channel: 'Balcão', total: 79, received: 0, pending: 79,
+          financial: 'A receber', financialClass: 'neutral',
+          items: [['Argola Coração Lisa', 'SKU 548210 · Ouro 18k', 1, 79]],
+          payments: [['Pagamento pendente', 'R$ 79,00', 'Vence em 18/09/2026', 'neutral']]
+        },
+        'venda-1055': {
+          reference: 'Venda #1055', customer: 'Zilma', channel: 'Maleta', total: 79, received: 79, pending: 0,
+          financial: 'Pago', financialClass: 'paid',
+          items: [['Brinco Gota Cravejada', 'SKU 881420 · Ouro 18k', 1, 79]],
+          payments: [['Dinheiro', 'R$ 79,00', 'Recebido em 02/09/2026', 'paid']]
+        },
+        'venda-1054': {
+          reference: 'Venda #1054', customer: 'Adrielly Miguel', channel: 'Site', total: 69, received: 69, pending: 0,
+          financial: 'Pago', financialClass: 'paid',
+          items: [['Pulseira Ponto de Luz', 'SKU 743102 · Ouro 18k', 1, 69]],
+          payments: [['Cartão de crédito', 'R$ 69,00', 'Recebido em 01/09/2026', 'paid']]
+        }
+      };
+
+      const salesRows = [...document.querySelectorAll('.sale-row')];
+      const salesPageButtons = [...document.querySelectorAll('[data-sales-page]')];
+      const salesPagePrevious = document.querySelector('[data-sales-page-action="previous"]');
+      const salesPageNext = document.querySelector('[data-sales-page-action="next"]');
+      const salesPageSize = salesRows.length;
+      let salesCurrentPage = 1;
+      let salesListState = null;
+
+      function goToSalesPage(page) {
+        if (!salesListState) return;
+        updateSalesList(salesListState.start, salesListState.end, salesListState.stats, page);
+      }
+
+      salesPageButtons.forEach((button) => button.addEventListener('click', () => goToSalesPage(Number(button.dataset.salesPage))));
+      salesPagePrevious.addEventListener('click', () => goToSalesPage(salesCurrentPage - 1));
+      salesPageNext.addEventListener('click', () => goToSalesPage(salesCurrentPage + 1));
+
+      let expandedSaleRow = null;
+
+      function buildSaleDetails(row, sale) {
+        const detailRow = document.createElement('tr');
+        detailRow.className = 'sale-detail-row';
+        detailRow.id = `detalhes-${row.dataset.saleId}`;
+        detailRow.innerHTML = `
+          <td colspan="6">
+            <div class="inline-sale-detail">
+              <div class="inline-sale-piece">
+                <span class="compact-label">Peças compradas</span>
+                <ul class="compact-sale-items">${sale.items.map((item) => `
+                  <li><span class="jewel">◇</span><div><b>${item[0]}</b><small>${item[1]} · ${item[2]} peça${item[2] > 1 ? 's' : ''}</small></div></li>`).join('')}</ul>
+              </div>
+              <dl class="inline-sale-values">
+                <div><dt>Venda</dt><dd>${currency.format(sale.total)}</dd></div>
+                <div><dt>Recebido</dt><dd>${currency.format(sale.received)}</dd></div>
+                <div><dt>A receber</dt><dd>${currency.format(sale.pending)}</dd></div>
+              </dl>
+              <div class="inline-sale-action">
+                ${sale.pending > 0
+                  ? `<button type="button" class="pending-action" data-open-receivables="${sale.customer}" aria-label="Abrir valor pendente de ${sale.customer} em A receber">Pendente</button><small>Abrir em A receber</small>`
+                  : '<span class="status paid">Pago</span><small>Pagamento concluído</small>'}
+              </div>
+            </div>
+          </td>`;
+        detailRow.querySelector('[data-open-receivables]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          navigateToClients('receivables', sale.customer);
+        });
+        return detailRow;
+      }
+
+      function closeExpandedSale() {
+        document.querySelector('.sale-detail-row')?.remove();
+        if (!expandedSaleRow) return;
+        const sale = sales[expandedSaleRow.dataset.saleId];
+        const button = expandedSaleRow.querySelector('.sale-open');
+        expandedSaleRow.classList.remove('expanded');
+        expandedSaleRow.setAttribute('aria-expanded', 'false');
+        expandedSaleRow.removeAttribute('aria-controls');
+        button.textContent = '›';
+        button.setAttribute('aria-label', `Expandir detalhes da venda de ${sale.customer}`);
+        expandedSaleRow = null;
+      }
+
+      function toggleSale(row) {
+        if (expandedSaleRow === row) {
+          closeExpandedSale();
+          return;
+        }
+        closeExpandedSale();
+        const sale = sales[row.dataset.saleId];
+        const detailRow = buildSaleDetails(row, sale);
+        row.after(detailRow);
+        row.classList.add('expanded');
+        row.setAttribute('aria-expanded', 'true');
+        row.setAttribute('aria-controls', detailRow.id);
+        const button = row.querySelector('.sale-open');
+        button.textContent = '⌃';
+        button.setAttribute('aria-label', `Recolher detalhes da venda de ${sale.customer}`);
+        expandedSaleRow = row;
+      }
+
+      document.querySelectorAll('.sale-row').forEach((row) => {
+        row.addEventListener('click', () => toggleSale(row));
+        row.addEventListener('keydown', (event) => {
+          if (event.target !== row) return;
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          toggleSale(row);
+        });
+      });
+
+      const clientRows = [...document.querySelectorAll('[data-client-row]')];
+      const clientsContext = document.querySelector('[data-clients-context]');
+      const clientsTitle = document.querySelector('[data-clients-title]');
+      const clientsCopy = document.querySelector('[data-clients-copy]');
+      const clientListTitle = document.querySelector('[data-client-list-title]');
+      const clientListCopy = document.querySelector('[data-client-list-copy]');
+      const clientSearch = document.querySelector('[data-client-search]');
+      const showAllClientsButton = document.querySelector('[data-show-all-clients]');
+
+      function markTargetClient(customer) {
+        clientRows.forEach((row) => row.classList.toggle('client-target', row.dataset.clientRow === customer));
+      }
+
+      function showAllClients(customer = '') {
+        clientsContext.textContent = 'Relacionamento';
+        clientsTitle.textContent = 'Clientes';
+        clientsCopy.textContent = 'Compras, pagamentos e valores em aberto aparecem separados.';
+        clientListTitle.textContent = 'Lista de clientes';
+        clientListCopy.textContent = customer ? `Cliente selecionada: ${customer}` : 'Busque por nome, telefone ou CPF';
+        clientSearch.textContent = customer || 'Buscar cliente';
+        showAllClientsButton.hidden = true;
+        clientRows.forEach((row) => { row.hidden = false; });
+        markTargetClient(customer);
+      }
+
+      function navigateToClients(destination, customer = '') {
+        closeExpandedSale();
+        if (destination === 'receivables') {
+          const specificCustomer = customer && customer !== 'Todas as clientes';
+          clientsContext.textContent = 'Clientes';
+          clientsTitle.textContent = 'A receber';
+          clientsCopy.textContent = specificCustomer ? `Valores pendentes de ${customer}.` : 'Clientes com valores pendentes.';
+          clientListTitle.textContent = 'Contas em aberto';
+          clientListCopy.textContent = specificCustomer ? `Mostrando a pendência de ${customer}` : 'Valores reais e cobráveis ainda não recebidos';
+          clientSearch.textContent = specificCustomer ? customer : 'Buscar em A receber';
+          showAllClientsButton.hidden = false;
+          clientRows.forEach((row) => { row.hidden = row.dataset.hasReceivable !== 'true'; });
+          markTargetClient(specificCustomer ? customer : '');
+        } else {
+          showAllClients(customer);
+        }
+        activateScreen('clientes');
+      }
+
+      document.querySelectorAll('[data-open-client]').forEach((button) => button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        navigateToClients('client', button.dataset.openClient);
       }));
+      document.querySelector('.receivable-card [data-open-receivables]').addEventListener('click', () => navigateToClients('receivables'));
+      document.querySelector('[data-open-repairs]').addEventListener('click', () => activateScreen('reparos', 'clientes'));
+      showAllClientsButton.addEventListener('click', () => showAllClients());
 
       const profile = document.querySelector('.profile');
       const menu = document.querySelector('#profile-menu');
@@ -310,6 +883,8 @@
         profile.setAttribute('aria-expanded', String(!open));
         menu.hidden = open;
       });
+
+      applyPreset('12m');
     </script>
   </body>
 </html>

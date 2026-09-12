@@ -23,7 +23,6 @@ pergunta.
 | VEN-Q015 | Quais ações existem no menu de cada venda: ver detalhes, recibo, corrigir SKU, registrar/estornar pagamento e cancelar/estornar venda? | Gustavo | detalhe e permissões por linha | 10/09/2026 |
 | VEN-Q016 | Uma venda pode misturar peças normais e um ou mais Monte seu Colar no mesmo carrinho, como sugere o primeiro mockup? | Gustavo | modelo do rascunho e finalização | 10/09/2026 |
 | VEN-Q017 | No Monte seu Colar, cada posição é escolhida separadamente e a ordem esquerda→direita precisa ser preservada? | Gustavo + Sthefany Marques | modelos com duas ou três crianças do mesmo tipo | 10/09/2026 |
-| VEN-Q018 | A base Veneziana 45 cm continua padrão, mas pode ser trocada durante a composição? | Gustavo + Sthefany Marques | estoque, preço e interface da personalização | 10/09/2026 |
 | VEN-Q019 | Confirmamos o seletor de saídas com quatro motivos estruturais (`brinde`, `uso próprio`, `perda`, `sorteio`) e retiramos `ajuste` deste fluxo? | Gustavo | coerência com estoque e inventário | 10/09/2026 |
 | VEN-Q020 | A observação da saída deixa de ser opcional, como exige a regra auditável atual, ou haverá outro campo obrigatório que já explique suficientemente o motivo? | Gustavo | validação de saída sem faturamento | 10/09/2026 |
 | VEN-Q021 | O que significa `Impacto estimado`: preço de tabela retirado, custo da peça ou outra medida? | Gustavo | fórmula, nome e fonte do indicador | 10/09/2026 |
@@ -48,7 +47,12 @@ pergunta.
 | VEN-D001 | Slots do mesmo grupo no Monte seu Colar podem repetir o mesmo SKU/cor? | Sim. A escolha é válida quando o estoque elegível do SKU cobre a soma das posições que o utilizam. | Gustavo | 10/09/2026 |
 | VEN-D002 | Como a condição de pagamento é informada na Nova Venda? | A venda recebe vários lançamentos de pagamento. PAGO, PARCIAL e A RECEBER são derivados da soma efetivamente recebida; não são opções manuais. | Gustavo | 10/09/2026 |
 | VEN-D003 | Situação da venda e situação financeira ficam separadas? | Sim. Estado operacional e status derivado dos recebimentos são dimensões visuais e conceituais diferentes. | Gustavo | 10/09/2026 |
+| VEN-Q018 | A base Veneziana 45 cm continua padrão, mas pode ser trocada durante a composição? | Não. A base Veneziana 45 cm com extensor é fixa e obrigatória na versão atual; não pode ser trocada durante a composição. | Sthefany Marques; consolidado no ReviewV2 (`8b306ad`) | 11/09/2026 |
 | VEN-D004 | Como o desconto é aplicado quando há uma ou várias unidades do mesmo SKU? | A edição acontece no preço unitário de cada item. Sthefany Marques informa o preço final e o motivo; desconto é derivado. Se apenas parte das unidades iguais receber outro preço, o sistema separa automaticamente essas unidades em nova linha. Não existe desconto geral distribuído. | Gustavo | 10/09/2026 |
+
+> Sincronização feita por leitura somente da frente
+> `claude/review-marquesa-v2`. Nenhum merge foi realizado. A decisão histórica
+> que previa troca de base foi revogada em 10/09/2026.
 
 Decisão que afeta mais de uma tela mora em
 [06-backlog/pending-decisions.md](../../06-backlog/pending-decisions.md), não aqui.

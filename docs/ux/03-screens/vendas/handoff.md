@@ -1,0 +1,170 @@
+# Handoff progressivo — Vendas
+
+> **Status: UX/UI EM REFINAMENTO.** Este documento não libera implementação.
+> O design principal está avançado, mas interações, estados, responsividade e
+> destinos relevantes continuam pendentes.
+
+## 1. Task ID
+
+`VEN-001` — reconstrução visual e especificação UX/UI de Vendas V2.
+
+## 2. Objetivo
+
+Definir uma referência visual navegável para Painel, Lançamentos, Clientes e
+Saídas sem faturamento; preservar a separação entre venda, recebimento e
+movimento não comercial; preparar um contrato de interface auditável para a
+futura implementação React.
+
+## 3. HTML/CSS de referência
+
+- [master.html](master.html): protótipo navegável com dados ilustrativos;
+- [master.css](master.css): estilos, tokens locais e responsividade do protótipo;
+- [README.md](README.md): objetivo, blocos, propostas e referências visuais;
+- [images/](images/): oito mockups recebidos e capturas do protótipo mestre.
+
+Não existe componente React derivado deste material, nem integração com API.
+
+## 4. Estados
+
+O inventário está em [states.md](states.md). O protótipo cobre principalmente
+sucesso ilustrativo, seleção de período, troca de visão, detalhe inline e
+paginação. Continuam incompletos: vazio, carregamento, erro, erro de permissão,
+ação em progresso, recusa, resultado incerto, confirmação e recuperação.
+
+## 5. Ações
+
+As ações locais priorizadas são: alternar superfícies, selecionar período,
+selecionar barra, alternar análise, expandir ranking, paginar vendas e abrir
+detalhe inline. Lançar venda, compor produto, editar preço, distribuir
+pagamentos, parcelar, finalizar e registrar saída ainda precisam de simulação
+ou especificação final.
+
+## 6. Matriz de interações
+
+A fonte oficial é [interaction-matrix.md](interaction-matrix.md). Ela distingue
+`LOCAL`, `NAVEGAÇÃO`, `MODAL` e `FUTURA TELA`, registra o que funciona e impede
+que uma simulação contextual seja confundida com uma tela concluída.
+
+## 7. Componentes reutilizáveis
+
+- App Shell e header desktop;
+- navegação principal e submenu;
+- Page Header;
+- Metric Card e resumo financeiro;
+- Alert;
+- Filter / Period Selector;
+- Chart Card e seleção de barra;
+- controle segmentado;
+- tabela, paginação e detalhe inline;
+- formulário, editor de preço e compositor de pagamentos;
+- botões, inputs, badges e estados semânticos.
+
+O inventário compartilhado fica em
+[COMPONENT-INVENTORY.md](../../../ui/COMPONENT-INVENTORY.md). Esses padrões não
+são componentes React nesta rodada.
+
+## 8. Dados necessários
+
+- vendas, peças e clientes distintas pela data da venda;
+- dinheiro efetivamente recebido pela data do recebimento;
+- dívida real e cobrável, sem tratá-la como complemento do faturamento;
+- produtos, categorias e origens do período;
+- série temporal e seleção contínua por datas;
+- venda, itens, preço de tabela congelado, preço final e motivo;
+- recebimentos/parcela, vencimento, situação e autoria;
+- saídas sem faturamento e sua trilha de estorno;
+- composição congelada do Monte seu Colar;
+- reparos apenas como resumo até a tela própria existir.
+
+Fórmulas e distinções estão em [metrics.md](metrics.md) e [rules.md](rules.md).
+
+## 9. APIs existentes conhecidas
+
+O mapeamento atual registra, sem autorizar integração:
+
+- `GET /api/analytics/mes?mes=AAAA-MM`;
+- `POST /api/vendas`;
+- `GET /api/vendas`, `GET /api/vendas/dia` e
+  `GET /api/vendas/lancamentos`;
+- `GET /api/vendas/lista`;
+- `POST /api/saidas`, `GET /api/saidas` e
+  `POST /api/saidas/:id/estornar`;
+- `GET /api/personalizacao/modelos`.
+
+Compatibilidade com a experiência proposta ainda precisa ser provada na Fase 5.
+
+## 10. APIs ausentes ou não comprovadas
+
+[api-needs.md](api-needs.md) registra `API-VEN-001` a `API-VEN-019`. Os grupos
+principais são: intervalo arbitrário, analytics coerente entre todos os blocos,
+série mensal, detalhe paginado, incerteza por métrica, filtros/totais/exportação,
+recebimentos múltiplos, parcelas, correção/estorno individual, idempotência e
+eventos financeiros por data efetiva.
+
+Nenhuma rota nova é proposta ou aprovada neste handoff.
+
+## 11. Regras legadas e decisões vigentes
+
+- faturamento é dinheiro recebido; venda é saída comercial;
+- data do recebimento e data da venda são eixos diferentes;
+- A Receber representa dívida real;
+- venda cancelada não entra nos agregados elegíveis;
+- preço final é por item e mudança exige motivo;
+- status de pagamento é derivado, nunca escolhido manualmente;
+- saída sem faturamento não é venda e é corrigida por estorno;
+- Monte seu Colar baixa base e componentes exatamente uma vez;
+- a base Veneziana 45 cm com extensor é fixa na versão atual;
+- estado operacional e estado financeiro permanecem separados.
+
+Fontes: [rules.md](rules.md), [open-questions.md](open-questions.md) e
+`api/REGRAS.md`.
+
+## 12. Responsividade
+
+O protótipo já reorganiza o Painel e preserva rolagem de tabelas em largura
+estreita. Ainda faltam aceite específico de tablet/mobile, comportamento do
+header e submenu, densidade dos formulários, detalhe expandido, popover de
+datas e áreas de toque. `DP-001` e `DP-002` continuam abertas.
+
+## 13. Empty, loading e error
+
+Os conceitos estão descritos em [states.md](states.md), mas não estão
+representados de ponta a ponta no HTML. Antes de `UX/UI DESIGNED`, devem existir
+ao menos referências para:
+
+- primeiro uso e ausência de vendas;
+- filtro sem resultado;
+- carregamento sem salto de layout;
+- falha parcial por bloco e nova tentativa;
+- permissão insuficiente;
+- escrita em andamento, recusada ou incerta;
+- sucesso/confirmacão sem duplicar a operação.
+
+## 14. Pendências
+
+- revisar e aprovar a matriz de interações;
+- concluir fluxos locais de Lançamentos e Saídas;
+- fechar decisões que mudam taxonomia, fórmulas, permissões e campos;
+- validar responsividade e acessibilidade;
+- decidir quando o histórico completo vira superfície própria;
+- desenhar futuramente Clientes / Recebimentos e Reparos;
+- comprovar contratos apenas na fase arquitetural apropriada;
+- realizar handoff final antes de iniciar React.
+
+## 15. Checklist de aceitação
+
+- [x] identidade, logo e cabeçalho desktop alinhados;
+- [x] hierarquia principal do Painel avançada;
+- [x] período, barra e duas análises sincronizados no protótipo;
+- [x] ranking, paginação e detalhe inline simulados;
+- [x] regras financeiras fundamentais documentadas;
+- [x] destinos futuros separados de interações locais;
+- [ ] matriz revisada e aceita por Gustavo;
+- [ ] todos os controles locais relevantes definidos;
+- [ ] estados vazio/loading/error/confirmation validados;
+- [ ] tablet/mobile e acessibilidade validados;
+- [ ] pendências de produto bloqueadoras fechadas;
+- [ ] dados e contratos entregues à arquitetura sem suposição;
+- [ ] status promovido explicitamente para `UX/UI DESIGNED`;
+- [ ] implementação React iniciada — **não faz parte desta rodada**.
+

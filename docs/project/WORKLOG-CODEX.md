@@ -182,3 +182,71 @@ Commitar no fim da sessão, mesmo que a implementação continue depois —
 conteúdo que só existe na working tree não aparece pra próxima sessão nem
 pro outro agente, como este próprio worklog teve que reconstruir por
 evidência em vez de relatar de primeira mão.
+
+---
+
+## 2026-09-11 — Checkpoint `VEN-001`: Vendas em refinamento
+
+| | |
+|---|---|
+| Branch | `codex/ui-system-marquesa` |
+| HEAD de base | `52f5f5f` |
+| Tela | Vendas |
+| Status | **UX/UI EM REFINAMENTO — design principal avançado, interações pendentes** |
+| Natureza | protótipo visual e documentação; sem implementação de produto |
+
+**Estado preservado:** esta rodada começou com alterações locais já existentes
+em `docs/ux/03-screens/vendas/master.html` e `master.css`. Elas não foram
+apagadas, revertidas nem substituídas. O protótipo mestre continua sendo a
+principal frente visual da V2.
+
+**Visualmente avançado:** logo original, header desktop, navegação principal e
+secundária, hierarquia do Painel, cartões financeiros, alerta, seletor de
+período, gráfico, Análise detalhada, Evolução por mês, tabelas, badges e detalhe
+compacto de venda já formam uma linguagem coerente. Isso não equivale ao aceite
+da tela completa.
+
+**Interações já simuladas:** tabs de Vendas; presets e intervalo por datas;
+seleção de barra com atualização dos dois painéis analíticos; alternância entre
+análises; expansão da lista de produtos; paginação das vendas; detalhe inline
+por clique/teclado; contexto de cliente/recebíveis; menu de perfil; acesso local
+a Saídas sem faturamento.
+
+**Interações ainda em revisão:** lançamento normal, Monte seu Colar, busca e
+inclusão de itens, edição de preço, cadastro rápido de cliente, pagamentos
+múltiplos, parcelamento, finalização, confirmação, registro/estorno de saídas,
+filtros e buscas das superfícies auxiliares, estados vazio/loading/error e
+comportamento final em tablet/mobile.
+
+**Destinos futuros:** `Ver recebimentos` e `Pendente` apontam para
+Clientes / Recebimentos; o alerta de Reparos aponta para Reparos; menu principal,
+notificações, perfil e preferências dependem de telas/rotas fora deste design.
+As superfícies contextuais atuais são simulações e não significam que esses
+destinos estejam desenhados.
+
+**Documentação criada/atualizada:** matriz oficial em
+`docs/ux/03-screens/vendas/interaction-matrix.md`, handoff progressivo em
+`docs/ux/03-screens/vendas/handoff.md`, status da tela, inventário de padrões
+reutilizáveis e sincronização read-only da decisão `VEN-Q018` a partir da frente
+Claude ReviewV2 (`8b306ad`). Nenhum merge entre branches foi feito.
+
+**Situação técnica:** não implementado em React; não integrado ao backend; não
+publicado em DEV; não publicado em PROD. Fase 5 de backend não foi iniciada.
+
+**Próximo passo:** Gustavo revisar a matriz; em seguida, refinar somente as
+interações locais confirmadas, completar estados e responsividade e fechar o
+checklist do handoff antes de qualquer promoção para `UX/UI DESIGNED`.
+
+**Bloqueios/pendências:** decisões de produto ainda abertas, destinos futuros
+sem tela, contratos analíticos/financeiros não comprovados e aceite responsivo.
+Não há bloqueio para continuar o refinamento visual local.
+
+**Validação desta rodada:** consistência documental, links relativos,
+integridade do diff e smoke test read-only no navegador. Foram exercitados
+presets, intervalo personalizado, seleção de barra, troca de análise, expansão
+do ranking, paginação, detalhe inline, menu de perfil e destinos simulados. Não
+houve teste integrado de React/backend porque essas camadas não foram alteradas.
+
+**Governança desta rodada:** `PROJECT-STATUS.md` e o painel global não foram
+editados; a consolidação permanece com Claude ReviewV2. Nenhum commit foi
+criado, conforme solicitado para este primeiro alinhamento.

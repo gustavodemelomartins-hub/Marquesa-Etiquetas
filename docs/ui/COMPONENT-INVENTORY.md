@@ -58,3 +58,24 @@ Componentes de domínio permanecem no domínio até existir reúso comprovado.
 
 Essa fundação é **estado atual**. Mockups futuros podem confirmá-la, ajustá-la
 ou substituí-la mediante decisão visual explícita.
+
+## Padrões visuais confirmados no protótipo de Vendas
+
+Ainda não são componentes React. São padrões reutilizáveis suficientemente
+estáveis para orientar o design das próximas telas sem criar CSS incompatível:
+
+| Padrão | Estado visual | Pendência antes do componente React |
+|---|---|---|
+| App Shell e header desktop | direção visual consolidada; logo original e perfil `Sthefany Marques` | navegação real, tablet e mobile |
+| Navegação principal e submenu | hierarquia e estado ativo consolidados | URLs, permissões e comportamento responsivo |
+| Page Header | composição compacta com título e ações | variantes com descrição, filtros e ações múltiplas |
+| Metric Card | hierarquia numérica e grade compacta consolidadas | loading, erro e ausência de dado |
+| Alert | chamada horizontal com ação e prioridade visual | severidades e destinos reais |
+| Filter / Period Selector | presets e intervalo personalizado simulados | contrato de dados e estados de consulta |
+| Chart Card | barras, legenda, seleção e vínculo com conteúdo inferior simulados | biblioteca React, loading, erro e teclado final |
+| Tabela, expansão e paginação | linguagem visual consolidada no painel | dados reais, grandes volumes e estados vazios/erro |
+| Botões, inputs e badges | linguagem coerente com os tokens atuais | matriz final de variantes e permissões |
+
+Fonte de validação e pendências:
+[`interaction-matrix.md`](../ux/03-screens/vendas/interaction-matrix.md) e
+[`handoff.md`](../ux/03-screens/vendas/handoff.md).
