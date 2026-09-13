@@ -48,6 +48,7 @@ async function vendasEmAberto(db) {
   const { results } = await db.prepare(
     `SELECT v.id, v.data, v.total, v.valor_recebido, v.observacao, v.origem,
             v.vencimento_em, v.cliente_id, v.cliente_nome_norm, v.cliente_ambiguo,
+            v.recebivel_versao,
             COALESCE(c.nome, v.cliente_nome) AS cliente,
             (SELECT COUNT(*) FROM garantia_trocas gt
               WHERE gt.venda_id = v.id AND gt.estornada = 0) AS de_troca
@@ -73,7 +74,11 @@ async function vendasEmAberto(db) {
       chave: `venda:${v.id}`,
       tipo: 'venda',
       id: Number(v.id),
-      versao: null,
+      /* 5.3c — a MESMA palavra para as três fontes. A tela devolve `versao`
+         ao escrever e não precisa saber que aqui ela é
+         `vendas.recebivel_versao`, ali `garantia_trocas.recebivel_versao` e
+         no histórico a `versao` da linha versionada. */
+      versao: Number(v.recebivel_versao ?? 1),
       vendaId: Number(v.id),
       data: v.data,
       /* §2 — a venda em que o sistema se recusou a escolher entre homônimas
@@ -104,6 +109,7 @@ async function vendasEmAberto(db) {
 async function trocasEmAberto(db) {
   const { results } = await db.prepare(
     `SELECT t.id, t.garantia_id, t.data, t.diferenca, t.sku_novo, t.produto_novo_nome,
+            t.recebivel_versao,
             g.sku AS sku_original, g.cliente_id, g.cliente_nome, g.cliente_nome_norm
        FROM garantia_trocas t
        JOIN garantias g ON g.id = t.garantia_id
@@ -117,7 +123,7 @@ async function trocasEmAberto(db) {
     chave: `troca:${t.garantia_id}`,
     tipo: 'troca',
     id: Number(t.id),
-    versao: null,
+    versao: Number(t.recebivel_versao ?? 1),
     garantiaId: Number(t.garantia_id),
     data: t.data,
     clienteId: t.cliente_id ?? null,
@@ -217,12 +223,36 @@ export async function definirPrazoDaConta(db, { chave, vencimentoEm = null, vers
     return definirVencimento(db, p.id, { vencimentoEm: prazo, versaoEsperada });
   }
   if (p.tipo === 'venda') {
-    const v = await db.prepare('SELECT id, pago, cancelada FROM vendas WHERE id = ?').bind(p.id).first();
+    const v = await db.prepare(
+      'SELECT id, pago, cancelada, recebivel_versao FROM vendas WHERE id = ?').bind(p.id).first();
     if (!v) return { ok: false, statusHttp: 404, erro: 'Venda não encontrada.' };
     if (v.cancelada) return { ok: false, statusHttp: 409, erro: 'Venda cancelada não recebe prazo.' };
     if (v.pago) return { ok: false, statusHttp: 409, erro: 'Esta venda já está paga.' };
-    await db.prepare('UPDATE vendas SET vencimento_em = ? WHERE id = ?').bind(prazo, p.id).run();
-    return { ok: true, chave, vencimentoEm: prazo };
+
+    /* 5.3c — mudar o prazo é escrever no recebível tanto quanto receber o
+       dinheiro. Proteger a quitação e deixar o vencimento passar sem versão
+       seria trancar uma porta e deixar a outra aberta: duas telas combinando
+       prazos diferentes, e vence a última sem ninguém saber. */
+    const v0 = versaoEsperada == null ? null : Number(versaoEsperada);
+    const r = await db.prepare(
+      `UPDATE vendas SET vencimento_em = ?
+        WHERE id = ?${v0 == null ? '' : ' AND recebivel_versao = ?'}`,
+    ).bind(...[prazo, p.id, ...(v0 == null ? [] : [v0])]).run();
+    if (Number(r?.meta?.changes ?? 1) === 0) {
+      const agora = await db.prepare(
+        'SELECT recebivel_versao FROM vendas WHERE id = ?').bind(p.id).first();
+      return {
+        ok: false, statusHttp: 409,
+        erro: 'A cobrança mudou em outra ação. Recarregue antes de definir o prazo.',
+        versaoAtual: agora ? Number(agora.recebivel_versao) : null,
+      };
+    }
+    const depois = await db.prepare(
+      'SELECT recebivel_versao FROM vendas WHERE id = ?').bind(p.id).first();
+    return {
+      ok: true, chave, vencimentoEm: prazo,
+      versao: depois ? Number(depois.recebivel_versao) : null,
+    };
   }
   return {
     ok: false, statusHttp: 409,
@@ -244,7 +274,7 @@ export async function receberConta(db, { chave, confirmar = false, versaoEsperad
   }
 
   if (p.tipo === 'historico') return marcarContaPaga(db, p.id, { confirmar, versaoEsperada });
-  if (p.tipo === 'troca') return pagarDiferencaTroca(db, p.id, { pagaEm: data });
+  if (p.tipo === 'troca') return pagarDiferencaTroca(db, p.id, { pagaEm: data, versaoEsperada });
 
   /* 5.3b — VENDA: esta porta deixou de ter SQL próprio.
    *
@@ -256,13 +286,14 @@ export async function receberConta(db, { chave, confirmar = false, versaoEsperad
    *  passam por ele. §29 continua valendo e continua dito na resposta: a peça
    *  saiu quando a venda foi registrada, e receber o dinheiro não a faz sair
    *  de novo. */
-  const r = await quitarVenda(db, p.id, { pagaEm: data });
+  const r = await quitarVenda(db, p.id, { pagaEm: data, versaoEsperada });
   if (!r.ok) return r;
-  if (r.jaEstavaPaga) return { ok: true, jaEstavaPaga: true, chave };
+  if (r.jaEstavaPaga) return { ok: true, jaEstavaPaga: true, chave, versao: r.versao };
 
   return {
     ok: true,
     chave,
+    versao: r.versao,
     vendaId: r.vendaId,
     pagaEm: r.pagaEm,
     faturamentoEm: r.pagaEm,

@@ -85,6 +85,15 @@ function notaDoParcial(valorAnterior, total, carimbo, data) {
     + `${carimbo ? ` (${carimbo})` : ''}. Registro de parcelas só existe a partir da 5.8.`;
 }
 
+/** A versão do recebível DEPOIS da escrita. Quem a incrementa é o trigger
+ *  `vendas_recebivel_versao`, então ela só se sabe relendo — e é isso que a
+ *  resposta devolve, para a tela seguir escrevendo sem recarregar a lista. */
+async function versaoDaVenda(db, vendaId) {
+  const r = await db.prepare('SELECT recebivel_versao FROM vendas WHERE id = ?')
+    .bind(vendaId).first();
+  return r ? Number(r.recebivel_versao) : null;
+}
+
 /** O DINHEIRO DA VENDA ENTROU. Ponto único de escrita.
  *
  *  Devolve sempre um objeto de resultado; nunca uma Response. Quem traduz
@@ -94,16 +103,39 @@ function notaDoParcial(valorAnterior, total, carimbo, data) {
  *  um retry. Cada porta decide se isso vira 200 ou 409 — o BANCO fica igual
  *  nos dois casos, que é o que a unificação existe para garantir. */
 export async function quitarVenda(db, vendaId, {
-  pagaEm = null, observacao = null, observacaoDoEvento = null,
+  pagaEm = null, observacao = null, observacaoDoEvento = null, versaoEsperada = null,
 } = {}) {
+  const v0 = versaoEsperada == null ? null : Number(versaoEsperada);
   const v = await db.prepare('SELECT * FROM vendas WHERE id = ?').bind(vendaId).first();
   if (!v) return ERRO(404, 'Venda não encontrada.');
   if (v.cancelada) return ERRO(409, 'Venda cancelada não recebe pagamento.');
   if (v.pago) {
+    /* 5.3c — a venda já está paga, e há dois motivos possíveis para isso, que
+       não podem receber a mesma resposta:
+     *
+     *   · o MESMO clique chegando duas vezes (retry de rede, duplo clique).
+     *     A tela segura a versão de antes do pagamento, que é a que ela viu;
+     *     mas ela não mandou versão nenhuma, ou mandou a que ainda vale. Nada
+     *     a escrever, e recusar com 409 faria a tela desfazer o que ela mesma
+     *     conseguiu. Devolve `jaEstavaPaga`.
+     *
+     *   · OUTRA tela pagou no meio, com outra data. A versão que esta segura
+       está velha, e responder "ok" faria ela acreditar que a SUA data entrou
+     *     no faturamento. Ela não entrou. Isso é 409.
+     *
+     *  Quem separa os dois é exatamente a versão — e é por isso que ela não
+     *  pode ser ignorada aqui só porque o resultado "já está pago" parece
+     *  inofensivo. */
+    if (v0 != null && Number(v.recebivel_versao) !== v0) {
+      return ERRO(409, 'A cobrança mudou em outra ação. Recarregue antes de continuar.', {
+        versaoAtual: Number(v.recebivel_versao),
+      });
+    }
     return {
       ok: true, jaEstavaPaga: true, vendaId: Number(v.id),
       pagaEm: v.data_pagamento ?? null, data: v.data,
-      total: dinheiro(v.total), estoqueTocado: false,
+      total: dinheiro(v.total), versao: Number(v.recebivel_versao ?? 1),
+      estoqueTocado: false,
     };
   }
 
@@ -141,23 +173,57 @@ export async function quitarVenda(db, vendaId, {
   /* As duas linhas fecham no MESMO batch, ou o Painel mostraria a diferença
      como paga num lugar e em aberto no outro. O `AND pago = 0` é a trava
      contra o clique duplo: a segunda escrita muda zero linhas. */
+  /* 5.3c — a versão viaja DENTRO do UPDATE, nunca num SELECT antes dele.
+     Ler a versão e depois escrever sem condição deixa uma janela em que a
+     outra tela grava no meio: o que se compara não é o que se escreve. */
   const escritas = [
     db.prepare(
       `UPDATE vendas
           SET pago = 1, data_pagamento = ?, pagamento_origem = 'informado',
               cobravel = 0, valor_recebido = ?, observacao = ?
-        WHERE id = ? AND pago = 0`,
-    ).bind(data, recebidoFinal, obs, vendaId),
+        WHERE id = ? AND pago = 0${v0 == null ? '' : ' AND recebivel_versao = ?'}`,
+    ).bind(...[data, recebidoFinal, obs, vendaId, ...(v0 == null ? [] : [v0])]),
   ];
   if (troca && troca.diferenca_status === 'a_receber') {
+    /* NENHUM EFEITO PARCIAL. As duas escritas estão no mesmo batch, e a
+       segunda só vale se a primeira valeu: sem este `EXISTS`, uma versão
+       velha recusaria a venda e mesmo assim fecharia a diferença — que é a
+       discordância entre tabelas que 5.3b acabou de eliminar. */
     escritas.push(db.prepare(
       `UPDATE garantia_trocas
           SET diferenca_status = 'paga', diferenca_paga_em = ?, diferenca_valor_pago = ?,
               atualizado_em = datetime('now')
-        WHERE id = ? AND diferenca_status = 'a_receber'`,
-    ).bind(data, dinheiro(troca.diferenca), troca.id));
+        WHERE id = ? AND diferenca_status = 'a_receber'
+          AND EXISTS (SELECT 1 FROM vendas WHERE id = ? AND pago = 1)`,
+    ).bind(data, dinheiro(troca.diferenca), troca.id, vendaId));
   }
-  await db.batch(escritas);
+  const resultado = await db.batch(escritas);
+
+  /* Zero linhas: ou a versão era velha, ou outra requisição pagou entre a
+     leitura e a escrita. Nos dois casos NADA foi escrito — nem aqui nem na
+     troca — e a resposta devolve a versão atual para a tela recarregar. */
+  if (Number(resultado?.[0]?.meta?.changes ?? 1) === 0) {
+    /* A linha foi lida como não paga e mesmo assim nada mudou: entre a
+       leitura e a escrita alguém chegou antes. NADA foi gravado — nem aqui
+       nem na troca, que depende deste UPDATE pelo `EXISTS`. */
+    const agora = await db.prepare(
+      'SELECT pago, data_pagamento, recebivel_versao FROM vendas WHERE id = ?',
+    ).bind(vendaId).first();
+    const versaoAtual = agora ? Number(agora.recebivel_versao) : null;
+    /* Sem versão pedida, "já está pago" é resposta honesta a um retry. Com
+       versão pedida, a que esta requisição segurava já não vale — e dizer
+       "ok" esconderia que a data dela não entrou. */
+    if (v0 == null && agora && Number(agora.pago) === 1) {
+      return {
+        ok: true, jaEstavaPaga: true, vendaId: Number(vendaId),
+        pagaEm: agora.data_pagamento ?? null, data: v.data,
+        total, versao: versaoAtual, estoqueTocado: false,
+      };
+    }
+    return ERRO(409, 'A cobrança mudou em outra ação. Recarregue antes de continuar.', {
+      versaoAtual,
+    });
+  }
 
   /* §9 — escrever o evento NÃO pode derrubar um recebimento que já gravou: o
      dinheiro está no banco, e um histórico incompleto é melhor que uma
@@ -177,12 +243,14 @@ export async function quitarVenda(db, vendaId, {
     }
   }
 
+  const versao = await versaoDaVenda(db, vendaId);
   return {
     ok: true,
     vendaId: Number(vendaId),
     data: v.data,
     pagaEm: data,
     total,
+    versao,
     /* Dito em voz alta, para nenhuma tela precisar deduzir. */
     valorRecebido: recebidoFinal,
     parcialAnteriorPreservadoEmObservacao: houveParcial ? parcialAnterior : null,
@@ -218,7 +286,7 @@ export async function quitarVenda(db, vendaId, {
  *  `pagamento_origem` volta a NULL como sempre voltou, e isso é o que devolve
  *  a venda à sincronização: sem o carimbo `informado`, a rodada seguinte pode
  *  reescrever o estado verdadeiro da loja em vez de ser recusada. */
-export async function desfazerPagamentoVenda(db, vendaId, { motivo = null } = {}) {
+export async function desfazerPagamentoVenda(db, vendaId, { motivo = null, versaoEsperada = null } = {}) {
   const v = await db.prepare('SELECT * FROM vendas WHERE id = ?').bind(vendaId).first();
   if (!v) return ERRO(404, 'Venda não encontrada.');
   if (v.cancelada) return ERRO(409, 'Venda cancelada não recebe pagamento.');
@@ -229,22 +297,34 @@ export async function desfazerPagamentoVenda(db, vendaId, { motivo = null } = {}
   const troca = await trocaDaVenda(db, vendaId);
   const quando = hojeISO();
 
+  /* 5.3c — a mesma trava do caminho de ida, pelo mesmo motivo. */
+  const v0 = versaoEsperada == null ? null : Number(versaoEsperada);
   const escritas = [
     db.prepare(
       `UPDATE vendas SET pago = 0, data_pagamento = NULL, pagamento_origem = NULL,
               valor_recebido = NULL, cobravel = ?
-        WHERE id = ? AND pago = 1`,
-    ).bind(cobravel, vendaId),
+        WHERE id = ? AND pago = 1${v0 == null ? '' : ' AND recebivel_versao = ?'}`,
+    ).bind(...[cobravel, vendaId, ...(v0 == null ? [] : [v0])]),
   ];
   if (troca && troca.diferenca_status === 'paga') {
+    /* Sem efeito parcial: a diferença só reabre se a venda realmente voltou. */
     escritas.push(db.prepare(
       `UPDATE garantia_trocas
           SET diferenca_status = 'a_receber', diferenca_paga_em = NULL,
               diferenca_valor_pago = NULL, atualizado_em = datetime('now')
-        WHERE id = ? AND diferenca_status = 'paga'`,
-    ).bind(troca.id));
+        WHERE id = ? AND diferenca_status = 'paga'
+          AND EXISTS (SELECT 1 FROM vendas WHERE id = ? AND pago = 0)`,
+    ).bind(troca.id, vendaId));
   }
-  await db.batch(escritas);
+  const resultado = await db.batch(escritas);
+
+  if (Number(resultado?.[0]?.meta?.changes ?? 1) === 0) {
+    const agora = await db.prepare(
+      'SELECT pago, recebivel_versao FROM vendas WHERE id = ?').bind(vendaId).first();
+    return ERRO(409, 'A cobrança mudou em outra ação. Recarregue antes de continuar.', {
+      versaoAtual: agora ? Number(agora.recebivel_versao) : null,
+    });
+  }
 
   let eventoGravado = false;
   if (troca && troca.diferenca_status === 'paga') {
@@ -266,6 +346,7 @@ export async function desfazerPagamentoVenda(db, vendaId, { motivo = null } = {}
     vendaId: Number(vendaId),
     data: v.data,
     total: dinheiro(v.total),
+    versao: await versaoDaVenda(db, vendaId),
     cobravel,
     /* O que volta a ser cobrável é o total — e zero quando não é cobrável,
        porque uma venda que ninguém deve não tem valor a receber. */

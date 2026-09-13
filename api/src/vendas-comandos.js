@@ -455,6 +455,12 @@ export async function registrarVenda(db, env, {
  *      pacote: "MARCAR VENDA COMO PAGA não baixa estoque novamente");
  *    · não mexe na Nuvemshop, nos itens nem no total.
  */
+/** O corpo de erro, com a versão atual quando o conflito foi de versão — é o
+ *  que a tela precisa para recarregar sem adivinhar. */
+const comVersao = (r) => (r.versaoAtual === undefined
+  ? { erro: r.erro }
+  : { erro: r.erro, versaoAtual: r.versaoAtual });
+
 export async function registrarPagamentoVenda(db, id, corpo = {}) {
   /* 5.3b — esta rota deixou de ter SQL próprio. Ela continua sendo a porta
      que o Painel legado chama (no dia e no perfil da cliente) e devolve
@@ -465,10 +471,12 @@ export async function registrarPagamentoVenda(db, id, corpo = {}) {
   if (!querPagar) {
     const r = await desfazerPagamentoVenda(db, id, {
       motivo: String(corpo.observacao ?? '').trim() || null,
+      versaoEsperada: corpo.versaoEsperada ?? null,
     });
-    if (!r.ok) return json({ erro: r.erro }, r.statusHttp);
+    if (!r.ok) return json(comVersao(r), r.statusHttp);
     return json({
       ok: true, id: r.vendaId, pago: false, data: r.data, dataPagamento: null,
+      versao: r.versao,
       cobravel: r.cobravel,
       aReceber: r.aReceber,
       porque: r.porque,
@@ -484,12 +492,17 @@ export async function registrarPagamentoVenda(db, id, corpo = {}) {
   const r = await quitarVenda(db, id, {
     pagaEm: corpo.dataPagamento ? String(corpo.dataPagamento).trim() : null,
     observacao: String(corpo.observacao ?? '').trim() || null,
+    /* 5.3c — OPCIONAL nesta subfase. Os call sites do painel legado não a
+       mandam, e exigi-la agora quebraria os três botões que existem hoje.
+       Mandada, é obrigatoriamente validada — não há meio-termo em que ela
+       viaje e não valha nada, que era justamente o defeito B7. */
+    versaoEsperada: corpo.versaoEsperada ?? null,
   });
   if (!r.ok) {
     /* A mensagem de data inválida desta rota sempre citou o formato por
        extenso; o núcleo usa uma redação só para as três portas. O código HTTP
        não mudou. */
-    return json({ erro: r.erro }, r.statusHttp);
+    return json(comVersao(r), r.statusHttp);
   }
   if (r.jaEstavaPaga) {
     /* Esta porta sempre recusou o segundo clique com 409 e a data, e continua
@@ -507,6 +520,8 @@ export async function registrarPagamentoVenda(db, id, corpo = {}) {
     ok: true,
     id: r.vendaId,
     pago: true,
+    /* 5.3c — o token para a próxima escrita, já atualizado. */
+    versao: r.versao,
     /* As duas datas, lado a lado, porque são duas coisas diferentes e é
        exatamente essa distinção que a rota existe para tornar possível. */
     data: r.data,

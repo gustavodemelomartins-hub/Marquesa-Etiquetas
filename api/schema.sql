@@ -616,7 +616,15 @@ CREATE TABLE IF NOT EXISTS vendas (
   cliente_ambiguo INTEGER NOT NULL DEFAULT 0,
   -- Prazo combinado de uma venda operacional ainda não paga. NULL significa
   -- honestamente "sem prazo"; não há data padrão inventada.
-  vencimento_em TEXT
+  vencimento_em TEXT,
+  -- 5.3c — quantas vezes o RECEBÍVEL desta venda mudou. É o token de
+  -- concorrência do A Receber: quem leu a lista devolve este número ao
+  -- escrever, e uma versão velha é recusada em vez de sobrescrever a decisão
+  -- de outra tela. Quem incrementa é o trigger `vendas_recebivel_versao`
+  -- logo abaixo — nenhum código de aplicação escreve esta coluna.
+  -- Última de propósito: `migracao-recebivel-versao.sql` a acrescenta com
+  -- ALTER TABLE, que sempre põe no fim. Os dois caminhos terminam iguais.
+  recebivel_versao INTEGER NOT NULL DEFAULT 1
 );
 
 -- Cada rodada da sincronização com a loja, para poder responder "o que o
@@ -693,6 +701,42 @@ BEFORE UPDATE OF id ON venda_itens
 WHEN OLD.id IS NOT NULL AND NEW.id IS NOT OLD.id
 BEGIN
   SELECT RAISE(ABORT, 'venda_itens.id e imutavel: corrigir a linha nao troca a identidade dela');
+END;
+
+-- ─── 5.3c: a versão do recebível
+--
+-- Oito colunas mudam o que a cliente deve; qualquer uma delas incrementa a
+-- versão. Nome, cliente e estado da Nuvemshop NÃO entram: o backfill de
+-- normalização reescreve `cliente_nome_norm` em massa, e isso não pode
+-- devolver 409 para telas abertas por uma mudança que não move um centavo.
+--
+-- `IS NOT` porque metade das colunas é anulável. `NEW.recebivel_versao =
+-- OLD.recebivel_versao` porque o próprio trigger escreve nessa coluna: a
+-- condição deixa de valer na reentrada, e por isso não há loop nem com
+-- `recursive_triggers` ligado. Raciocínio inteiro em
+-- `api/migracao-recebivel-versao.sql`.
+CREATE TRIGGER IF NOT EXISTS vendas_recebivel_versao
+AFTER UPDATE ON vendas
+WHEN (NEW.pago             IS NOT OLD.pago
+   OR NEW.data_pagamento   IS NOT OLD.data_pagamento
+   OR NEW.pagamento_origem IS NOT OLD.pagamento_origem
+   OR NEW.valor_recebido   IS NOT OLD.valor_recebido
+   OR NEW.cobravel         IS NOT OLD.cobravel
+   OR NEW.vencimento_em    IS NOT OLD.vencimento_em
+   OR NEW.total            IS NOT OLD.total
+   OR NEW.cancelada        IS NOT OLD.cancelada)
+  AND NEW.recebivel_versao = OLD.recebivel_versao
+BEGIN
+  UPDATE vendas SET recebivel_versao = OLD.recebivel_versao + 1 WHERE id = NEW.id;
+END;
+
+-- O item mudou de valor, então a DÍVIDA mudou de valor. Só `qtd` e `preco`:
+-- corrigir SKU ou descrição (§40) não muda um centavo.
+CREATE TRIGGER IF NOT EXISTS venda_itens_recebivel_versao
+AFTER UPDATE OF qtd, preco ON venda_itens
+WHEN NEW.qtd IS NOT OLD.qtd OR NEW.preco IS NOT OLD.preco
+BEGIN
+  UPDATE vendas SET recebivel_versao = recebivel_versao + 1 WHERE id = NEW.venda_id;
 END;
 
 -- ------------------------------------------------------- Monte seu Colar
@@ -1710,6 +1754,13 @@ CREATE TABLE IF NOT EXISTS garantia_trocas (
   estorno_motivo TEXT,
   estorno_movimento_id INTEGER REFERENCES movimentos(id),
 
+  -- 5.3c — a versão do recebível desta troca. Vale enquanto ela é recebível
+  -- PRÓPRIO, isto é, enquanto não tem `venda_id`: depois de §36 a diferença
+  -- nasce como venda e é a versão DELA que a tela devolve. Quem incrementa é
+  -- o trigger `garantia_trocas_recebivel_versao`.
+  -- Última de propósito, pelo mesmo motivo das colunas de 5.4d.
+  recebivel_versao INTEGER NOT NULL DEFAULT 1,
+
   CHECK (diferenca_status <> 'paga' OR diferenca_paga_em IS NOT NULL)
 );
 
@@ -1725,6 +1776,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_gar_troca_unica
 CREATE INDEX IF NOT EXISTS idx_gar_troca_estornada ON garantia_trocas(estornada);
 CREATE INDEX IF NOT EXISTS idx_gar_troca_dif
   ON garantia_trocas(diferenca_status, diferenca_paga_em);
+
+-- 5.3c — `venda_id` entra na lista porque ganhar uma venda ligada muda QUEM é
+-- o recebível: a linha deixa de ser cobrável por si.
+CREATE TRIGGER IF NOT EXISTS garantia_trocas_recebivel_versao
+AFTER UPDATE ON garantia_trocas
+WHEN (NEW.diferenca            IS NOT OLD.diferenca
+   OR NEW.diferenca_status     IS NOT OLD.diferenca_status
+   OR NEW.diferenca_paga_em    IS NOT OLD.diferenca_paga_em
+   OR NEW.diferenca_valor_pago IS NOT OLD.diferenca_valor_pago
+   OR NEW.estornada            IS NOT OLD.estornada
+   OR NEW.venda_id             IS NOT OLD.venda_id)
+  AND NEW.recebivel_versao = OLD.recebivel_versao
+BEGIN
+  UPDATE garantia_trocas SET recebivel_versao = OLD.recebivel_versao + 1 WHERE id = NEW.id;
+END;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_gar_troca_venda
   ON garantia_trocas(venda_id);
 

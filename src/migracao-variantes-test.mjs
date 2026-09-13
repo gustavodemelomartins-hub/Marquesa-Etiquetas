@@ -121,6 +121,10 @@ const MIGRACOES = [
   'api/migracao-garantia-troca-estorno.sql',
   /* 5.4e — o novo atendimento vira caso próprio, ligado ao anterior. */
   'api/migracao-garantia-reabertura.sql',
+  /* 5.3c — a versão do recebível em `vendas` e `garantia_trocas`, mais os
+     três triggers que a incrementam. Depois de todas as de cima porque ela
+     acrescenta coluna a duas tabelas que várias delas ainda alteram. */
+  'api/migracao-recebivel-versao.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com
@@ -253,7 +257,10 @@ for (const i of SO_NO_SCHEMA.indices) {
 for (const t of ['produtos', 'movimentos', 'produto_variacoes', 'loja_variantes', 'sku_reservas',
   /* 5.2 e 5.2b acrescentaram coluna nas duas: se o schema e a migration
      divergirem aí, a identidade do item some no banco criado do zero. */
-  'venda_itens', 'garantias']) {
+  'venda_itens', 'garantias',
+  /* 5.3c — as duas que ganharam `recebivel_versao`. Se ela existir só num
+     dos caminhos, a trava de concorrência do dinheiro some no banco novo. */
+  'vendas', 'garantia_trocas']) {
   eq(`as mesmas colunas em ${t}`, colunas(velho, t).join(','), colunas(novo, t).join(','));
 }
 
@@ -262,6 +269,29 @@ const idxNovo = semExcecoes(
 const idxVelho = semExcecoes(
   objetos(velho, 'index').filter((n) => n.startsWith('idx_')), SO_NO_MIGRADO.indices).join(',');
 eq('os mesmos índices, tirando as divergências conhecidas', idxVelho, idxNovo);
+
+/* 5.3c — TRIGGERS também. Este teste comparava tabelas, colunas e índices, e
+   um trigger que entrasse só num dos dois caminhos passaria despercebido até
+   o dia em que alguém criasse o banco do zero. Agora não passa: a versão do
+   recebível é incrementada POR TRIGGER, então ele deixou de ser detalhe de
+   implementação e virou a peça que segura a concorrência do dinheiro.
+   Comparar só os nomes não bastaria — um `WHEN` diferente entre os dois
+   caminhos daria versões diferentes para o mesmo fato —, então o corpo entra
+   na comparação, normalizado só no espaço em branco. */
+const gatilhos = (db) => Object.fromEntries(
+  db.prepare(`SELECT name, sql FROM sqlite_master WHERE type = 'trigger' ORDER BY name`)
+    .all().map((r) => [r.name, String(r.sql).replace(/\s+/g, ' ').trim()]));
+
+const gNovo = gatilhos(novo);
+const gVelho = gatilhos(velho);
+eq('os mesmos triggers', Object.keys(gVelho).join(','), Object.keys(gNovo).join(','));
+for (const nome of Object.keys(gNovo)) {
+  eq(`o trigger ${nome} tem o mesmo corpo nos dois caminhos`, gVelho[nome], gNovo[nome]);
+}
+for (const nome of ['vendas_recebivel_versao', 'venda_itens_recebivel_versao',
+  'garantia_trocas_recebivel_versao', 'venda_itens_id_ao_inserir', 'venda_itens_id_imutavel']) {
+  eq(`o trigger ${nome} existe nos dois`, !!(gNovo[nome] && gVelho[nome]), 'true');
+}
 
 console.log('\n=== 5. os índices que seguram as invariantes continuam de pé ===');
 for (const db of [['novo', novo], ['migrado', velho]]) {

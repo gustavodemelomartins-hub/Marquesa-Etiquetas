@@ -1073,6 +1073,10 @@ export async function pagarDiferencaTroca(db, id, corpo = {}) {
   if (troca.venda_id) {
     const r = await quitarVenda(db, troca.venda_id, {
       pagaEm,
+      /* 5.3c — a versão que a tela segura é a do RECEBÍVEL, e o recebível
+         desta troca é a venda. Quem lê o A Receber nem sabe que existe uma
+         linha de `garantia_trocas` atrás dela. */
+      versaoEsperada: corpo.versaoEsperada ?? null,
       /* A nota vai para o EVENTO, não para a venda: ela descreve o
          pagamento da diferença, e `vendas.observacao` já guarda o que a
          troca escreveu lá no dia — ou o que uma pessoa anotou depois. */
@@ -1092,12 +1096,24 @@ export async function pagarDiferencaTroca(db, id, corpo = {}) {
 
   /* A peça saiu no dia da troca; receber a diferença não a faz sair de novo
      (§29). Nada aqui toca estoque. */
-  await db.prepare(
+  /* Sem venda ligada, a própria linha é o recebível — e é a versão DELA que
+     a tela devolve. Mesma trava, outra tabela. */
+  const v0 = corpo.versaoEsperada == null ? null : Number(corpo.versaoEsperada);
+  const escrita = await db.prepare(
     `UPDATE garantia_trocas
         SET diferenca_status = 'paga', diferenca_paga_em = ?, diferenca_valor_pago = ?,
             atualizado_em = datetime('now')
-      WHERE id = ? AND diferenca_status = 'a_receber'`,
-  ).bind(pagaEm, valor, troca.id).run();
+      WHERE id = ? AND diferenca_status = 'a_receber'${v0 == null ? '' : ' AND recebivel_versao = ?'}`,
+  ).bind(...[pagaEm, valor, troca.id, ...(v0 == null ? [] : [v0])]).run();
+  if (Number(escrita?.meta?.changes ?? 1) === 0) {
+    const agora = await db.prepare(
+      'SELECT recebivel_versao FROM garantia_trocas WHERE id = ?').bind(troca.id).first();
+    return {
+      ok: false, statusHttp: 409,
+      erro: 'A cobrança mudou em outra ação. Recarregue antes de continuar.',
+      versaoAtual: agora ? Number(agora.recebivel_versao) : null,
+    };
+  }
 
   await registrarPagamentoDaDiferenca(db, id, {
     trocaId: troca.id, valor, pagaEm, vendaId: null,
@@ -1114,6 +1130,8 @@ export async function pagarDiferencaTroca(db, id, corpo = {}) {
     faturamento: valor,
     dataFaturamento: pagaEm,
     vendaId: null,
+    versao: (await db.prepare('SELECT recebivel_versao FROM garantia_trocas WHERE id = ?')
+      .bind(troca.id).first())?.recebivel_versao ?? null,
     porOndeFatura: 'diferenca_troca',
     estoqueAlterado: false,
   };

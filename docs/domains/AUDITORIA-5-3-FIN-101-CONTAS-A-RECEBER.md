@@ -17,6 +17,7 @@ corrigidos em 5.3a e viraram rede de regressão.
 ```
 node src/fin-101-5-3a-test.mjs   # B1 e B5, e a invariante KPI ≡ série
 node src/fin-101-5-3b-test.mjs   # B2, B3 e B4, e a convergência das três portas
+node src/fin-101-5-3c-test.mjs   # B7 — a versão do recebível e a corrida
 ```
 
 Os dois rodam nos gates `domain` e `release`. O teste de caracterização que
@@ -237,7 +238,7 @@ nem arredondo para zero"*). `contas-receber.js` faz `Math.max(0, …)` — uma v
 com `valor_recebido > total` vira saldo zero em silêncio. `vendas` não tem
 `CHECK` nenhum; `historico_operacoes` tem dez.
 
-### B7 · `versaoEsperada` só existe para uma das três fontes
+### B7 · `versaoEsperada` só existe para uma das três fontes · `CORRIGIDO EM 5.3c`
 
 `definirPrazoDaConta` e `receberConta` aceitam `versaoEsperada` e **o ignoram**
 para `venda` e `troca`. Duas telas abertas quitam a mesma venda sem conflito.
@@ -616,7 +617,7 @@ de quatro para um — senão 5.8 terá quatro migrações em vez de uma.
 |---|---|---|
 | ~~**5.3a**~~ | **FEITA.** B1 e B5 corrigidos, com a invariante KPI ≡ série virando teste. Ver §19 | — |
 | ~~**5.3b**~~ | **FEITA.** Um núcleo, três portas. B2, B3 e B4 fechados, e a semântica de `valor_recebido` definida. Ver §20 | — |
-| **5.3c** | paridade de concorrência e idempotência: `versaoEsperada` para `venda` e `troca`; `pagarDiferencaTroca` idempotente (B7, B10). `versao` da venda = `(pago, data_pagamento, valor_recebido, vencimento_em)` ou coluna própria — decidir em 5.3c | 5.3b |
+| ~~**5.3c**~~ | **FEITA.** `recebivel_versao` nas duas fontes que não tinham, incrementada por trigger, com CAS atômico. Ver §21 | — |
 | **5.3d** | contrato de leitura do FIN-101: `valorVenda`/`valorRecebido`/`valorAReceber`/`statusPagamento` **em centavos** no `GET /api/vendas/lista` (API-VEN-015, sem inventar recebimentos); `status=paga` completo nas três fontes ou recusa explícita; aposentar as rotas órfãs (B9) | 5.3c |
 | **5.3e** | **crédito da cliente.** Migration do ledger, emissão pela troca negativa, `GET /api/clientes/:id/credito`, `GET /api/credito/conferir`, `POST /api/credito/ajuste`. Sem consumo, sem UI | 5.3a |
 | **5.3f** | fechar G1–G10, especialmente G7 (arredondamento) e G10 (a invariante do dinheiro) | todas |
@@ -967,3 +968,195 @@ planejado, e não entrou neste commit.
 - não alterou a regra de cancelamento, de reembolso ou do acerto de maleta;
 - não mudou nenhum contrato HTTP;
 - não consultou PROD.
+
+---
+
+## 21. Fase 5.3c — executada
+
+`versaoEsperada` já existia no contrato, era obrigatória para `historico` e
+**aceita e ignorada** para `venda` e `troca` (B7). A trava `WHERE pago = 0`
+salvava o dinheiro; não salvava a **data** do pagamento — e é ela que decide o
+mês do faturamento. Duas telas combinando datas diferentes, vencia a última,
+em silêncio.
+
+### 21.1 O conceito
+
+**`recebivel_versao`** — inteiro, monotônico, começa em 1, e conta *quantas
+vezes o estado relevante deste recebível mudou*. Não é hash, não é timestamp,
+não é "updated_at": é um contador que só sobe, e é comparado por igualdade.
+
+Descartado o hash das quatro colunas sugerido no fim de 5.3b: um hash diz "é
+diferente", nunca "é mais novo", não sobrevive a uma coluna nova sem mudar de
+valor para todo mundo, e não dá à tela nada que ela possa exibir ou registrar.
+
+### 21.2 Onde a versão mora, por fonte
+
+| Fonte | Coluna física | Por quê |
+|---|---|---|
+| `historico` | `historico_operacoes.versao` (**já existia**) | é versionada por construção — cada mudança cria linha nova. Não ganhou `recebivel_versao`, e o teste cobra que continue assim |
+| `venda` | `vendas.recebivel_versao` (**nova**) | `vendas` não é append-only e não vai virar |
+| `troca` | `garantia_trocas.recebivel_versao` (**nova**) | vale enquanto a troca é recebível próprio, isto é, enquanto não tem `venda_id` |
+
+O contrato unificado não mudou de forma: `GET /api/contas-receber` devolve
+**`versao`** em toda linha, das três fontes. A tela devolve esse número ao
+escrever e nunca precisa saber qual coluna está atrás dele.
+
+### 21.3 O que invalida a versão — e o que deliberadamente não invalida
+
+**`vendas` — oito colunas:**
+
+| Coluna | Fato |
+|---|---|
+| `pago`, `data_pagamento`, `valor_recebido` | o dinheiro e quando entrou |
+| `cobravel`, `pagamento_origem` | se alguém deve, e quem disse |
+| `vencimento_em` | o prazo combinado |
+| `total` | quanto é a dívida |
+| `cancelada` | §28 — cancelar tira do A Receber |
+
+**`venda_itens` — `qtd` e `preco`.** Era a exigência explícita do pedido: um
+token não pode continuar válido depois que o total da dívida mudou. Hoje
+`venda-correcao.js` atualiza `vendas.total` no mesmo batch, então o trigger da
+tabela `vendas` já pegaria; este existe para o caminho futuro que mexa no item
+e esqueça o total. Quando os dois disparam a versão sobe duas vezes —
+monotônica não é sequencial, e pular um número não custa nada. Corrigir **SKU
+ou descrição** (§40) não incrementa: não muda um centavo.
+
+**`garantia_trocas` — seis colunas:** `diferenca`, `diferenca_status`,
+`diferenca_paga_em`, `diferenca_valor_pago`, `estornada` e `venda_id`. A
+última entra porque ganhar venda ligada muda **quem é o recebível**.
+
+**Fora de propósito:** `cliente_id`, `cliente_nome`, `cliente_nome_norm`,
+`observacao`, `nuvemshop_status` e as colunas de foto. O
+`backfillNormalizacao` reescreve `cliente_nome_norm` de milhares de vendas de
+uma vez; se isso bumpasse a versão, toda tela aberta receberia 409 por uma
+mudança que não moveu um centavo. Versão de recebível é sobre **dinheiro e
+cobrabilidade**, não sobre como o nome é exibido. É a cláusula "não gerar
+conflito à toa" do pedido, escrita no `WHEN` do trigger.
+
+### 21.4 Trigger × incremento explícito — a prova, não a preferência
+
+**Escolhido: trigger.** Três razões verificáveis:
+
+1. **Onze escritores, e nenhum pode esquecer** (inventário em §20.1). O
+   incremento explícito exigiria acerto em onze lugares hoje e em todo
+   escritor futuro. O defeito B1 desta mesma fase foi exatamente uma consulta
+   esquecendo um filtro que a irmã tinha.
+2. **`venda_itens` torna o incremento explícito inviável na prática.** O
+   caminho que muda o total do recebível (`venda-correcao.js`) não é um
+   escritor "de pagamento"; ninguém pensaria em incrementar uma versão de
+   recebível ali.
+3. **O sync prova o ponto sozinho.** `atualizarPagamentoDaVenda` não delega ao
+   núcleo (§20.2) e **não recebeu uma linha de código nesta subfase** — e a
+   versão cai corretamente quando ele muda o pagamento. Há teste para isso.
+
+**Suporte no D1 — provado, não suposto:** este repositório já manda triggers
+para o D1 de produção desde `migracao-venda-item-id.sql`
+(`venda_itens_id_ao_inserir`, `venda_itens_id_imutavel`), e a identidade de
+`venda_itens` depende deles em PROD desde a 5.2.
+
+**Sem loop, nos dois modos do PRAGMA.** Cada trigger escreve na mesma tabela
+que o disparou. Em SQLite `recursive_triggers` é OFF por padrão e isso já
+bastaria — mas depender de um PRAGMA cujo valor o D1 não documenta seria
+apostar. Por isso cada `WHEN` exige
+`NEW.recebivel_versao = OLD.recebivel_versao`: a escrita do próprio trigger
+muda essa coluna, então a condição não se satisfaz na reentrada. Há teste com
+`PRAGMA recursive_triggers = ON`.
+
+**`IS NOT`, não `<>`:** metade das colunas é anulável, e `NULL <> NULL` não é
+verdadeiro nem falso em SQL — seria um incremento perdido toda vez que uma
+data saísse de nula para preenchida.
+
+**Migrations reproduzíveis:** o gate `schema-migration-coerencia` passou a
+comparar **triggers**, e não só tabelas, colunas e índices — nome **e corpo**,
+normalizado no espaço em branco. Um `WHEN` diferente entre os dois caminhos
+daria versões diferentes para o mesmo fato, e isso passaria despercebido até o
+dia em que alguém criasse o banco do zero.
+
+### 21.5 A migration
+
+`api/migracao-recebivel-versao.sql` — **aditiva, idempotente, local**. Duas
+colunas com `DEFAULT 1 NOT NULL` e três triggers. Nada foi executado em PROD,
+nem em D1 remoto.
+
+**O backfill é o próprio default**, e isso é uma decisão, não uma omissão: a
+versão conta mudanças *a partir de agora*. Não há estado anterior a
+reconstruir — toda linha existente nasce em 1, e a primeira tela que ler a
+lista depois da migration recebe 1 e escreve com 1. Provado nas duas direções
+pelo gate: `schema.sql` do zero ≡ schema antigo + as 31 migrations, colunas e
+triggers inclusive.
+
+### 21.6 `versaoEsperada` — comportamento
+
+| Situação | Resposta |
+|---|---|
+| **ausente** | escreve como sempre escreveu — a trava é opt-in |
+| **enviada e correta** | escreve, incrementa, devolve `versao` já atualizada |
+| **enviada e velha** | `409`, `versaoAtual` no corpo, **nenhuma escrita** |
+| **enviada e velha, mas a venda já está paga** | `409` também — ver abaixo |
+
+A condição viaja **dentro do UPDATE**:
+
+```sql
+UPDATE vendas SET ... WHERE id = ? AND pago = 0 AND recebivel_versao = ?
+```
+
+Nunca `SELECT` da versão seguido de `UPDATE` sem condição: entre os dois há
+uma janela em que a outra tela grava, e o que se compara deixa de ser o que se
+escreve.
+
+**O caso sutil, e ele importa.** "A venda já está paga" tem dois motivos
+possíveis, e eles não podem receber a mesma resposta:
+
+- o **mesmo** clique chegando duas vezes (retry de rede, duplo clique) — nada
+  a escrever, e recusar faria a tela desfazer o que ela mesma conseguiu;
+- **outra** tela pagou no meio, com outra data — responder "ok" faria esta
+  acreditar que a SUA data entrou no faturamento. Ela não entrou.
+
+Quem separa os dois é exatamente a versão. Por isso ela é checada **antes** do
+atalho de idempotência, e não depois.
+
+### 21.7 Concorrência, sem efeito parcial
+
+A quitação de uma venda de troca escreve em **duas** tabelas no mesmo batch.
+Uma versão velha não pode recusar a venda e mesmo assim fechar a diferença —
+seria reintroduzir, pela porta da concorrência, a discordância entre tabelas
+que 5.3b acabou de eliminar. A segunda escrita depende da primeira:
+
+```sql
+UPDATE garantia_trocas SET ... WHERE id = ? AND diferenca_status = 'a_receber'
+  AND EXISTS (SELECT 1 FROM vendas WHERE id = ? AND pago = 1)
+```
+
+Testado: conflito não deixa venda paga, nem diferença fechada, nem evento na
+linha do tempo.
+
+### 21.8 `definirPrazoDaConta`
+
+Recebeu a mesma trava, pelo argumento do próprio pedido: trancar "marcar paga"
+e deixar "mudar vencimento" passar sem versão não protege nada — duas telas
+combinando prazos diferentes, e vence a última. A fonte `troca` continua
+recusando prazo (não tem coluna para guardá-lo, e inventar uma para um caso em
+extinção seria estrutura nova sem dono).
+
+### 21.9 Compatibilidade legada
+
+`versaoEsperada` é **opcional nesta subfase**. Os três botões do painel legado
+(`:8738`, `:9661`, `:11179`) não a mandam, e exigi-la agora quebraria todos no
+mesmo dia. Enviada, é obrigatoriamente validada — não existe meio-termo em que
+ela viaje e não valha nada, que era justamente o defeito B7.
+
+**A transição:** o React de FIN-101 (5.3d) nasce mandando `versao` em toda
+escrita, porque a lista já a entrega em toda linha. Quando o legado for
+aposentado, `versaoEsperada` pode virar obrigatória sem mudar uma linha do
+backend — só removendo os dois `== null` que hoje tornam a condição opcional.
+Até lá, o legado segue funcionando com a garantia mais fraca que sempre teve.
+
+### 21.10 O que 5.3c deliberadamente não fez
+
+- não tornou `versaoEsperada` obrigatória;
+- não mexeu no mecanismo de `historico_operacoes`;
+- não criou rota, não mudou contrato HTTP existente (só acrescentou campos);
+- não implementou 5.3d, 5.3e, 5.7 nem 5.8;
+- não tocou ledger de crédito, recebimentos múltiplos, parcelas, formas de
+  pagamento, centavos globais nem UI;
+- não executou migration remota, não tocou PROD, não fez deploy.

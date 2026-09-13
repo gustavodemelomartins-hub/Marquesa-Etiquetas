@@ -240,7 +240,7 @@
       "id": "schema-migration-coerencia",
       "level": "fast",
       "mode": "local",
-      "description": "schema.sql e as 30 migrations chegam ao mesmo banco",
+      "description": "schema.sql e as 31 migrations chegam ao mesmo banco, triggers inclusive",
       "gates": [
         "fast",
         "release"
@@ -514,6 +514,12 @@
           "bin": "node",
           "args": [
             "src/fin-101-5-3b-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/fin-101-5-3c-test.mjs"
           ]
         },
         {
