@@ -22,65 +22,68 @@ try {
   check(await page.locator('[data-collar-workspace]').isVisible(), 'Monte seu Colar abre o compositor próprio');
   check(await page.locator('[data-launch-workspace]').isHidden(), 'venda normal não disputa espaço com o compositor');
   check(await page.locator('.today-sales').isVisible(), 'vendas de hoje continua abaixo do lançamento');
-  check(await page.locator('[data-collar-customizer]').isHidden(), 'composição começa sem modelo e sem slots');
+  check(await page.locator('[data-collar-color-section]').isHidden(), 'composição começa sem peças e sem opções abertas');
   check(await page.locator('[data-add-collar]').isDisabled(), 'composição vazia não pode ser adicionada');
-  check(await page.locator('[data-collar-model]').count() === 5, 'lista usa as cinco configurações comerciais confirmadas');
-  check(!(await textOf(page.locator('[data-collar-workspace]'))).includes('MONTE-COLAR'), 'composição livre não aparece');
+  check(await textOf(page.locator('[data-collar-footer-copy]')) === 'Escolha a quantidade para começar', 'rodapé orienta o primeiro passo');
 
-  await page.locator('[data-collar-model="314161"]').click();
-  check(await page.locator('[data-collar-customizer]').isVisible(), 'modelo escolhido revela as posições');
-  check(await page.locator('[data-collar-slot]').count() === 3, 'modelo 314161 cria exatamente três posições');
-  check(await page.locator('.collar-model:visible').count() === 1, 'mobile recolhe os outros modelos depois da escolha');
+  await page.locator('[data-collar-quantity="Menino"][data-collar-delta="1"]').click({ clickCount: 2 });
+  await page.locator('[data-collar-quantity="Menina"][data-collar-delta="1"]').click();
+  check(await textOf(page.locator('[data-collar-count="Menino"]')) === '2', 'contador mantém dois meninos no mesmo bloco');
+  check(await textOf(page.locator('[data-collar-count="Menina"]')) === '1', 'contador mantém uma menina no mesmo bloco');
+  check(await page.locator('.collar-color-card').count() === 3, 'quantidade cria três mini-cards de cor');
+  check(await page.locator('[data-collar-commercial-section]').isVisible(), 'configuração revela confirmação comercial');
+  check(await page.locator('[data-collar-commercial-sku]').inputValue() === '314161', 'combinação conhecida reconhece SKU comercial');
+  check(await page.locator('[data-collar-commercial-name]').inputValue() === 'Colar Filhos Dois Meninos e Uma Menina', 'combinação conhecida reconhece o nome');
+  check(await page.locator('[data-collar-final-price]').inputValue() === '159.00', 'combinação conhecida traz o preço cadastrado');
+  check(await page.locator('[data-collar-commercial-sku]').isEditable() === false, 'SKU conhecido fica protegido');
   check((await textOf(page.locator('.fixed-collar-base'))).includes('SKU 444032'), 'Veneziana fixa aparece incluída automaticamente');
-  check(await textOf(page.locator('[data-collar-footer-price]')) === 'R$ 159,00', 'preço vem do modelo comercial');
 
-  const slots = page.locator('[data-collar-slot]');
-  await slots.nth(0).click();
-  const componentDialog = page.locator('#component-dialog');
-  check(await componentDialog.isVisible(), 'posição abre seletor de componente');
-  check(await componentDialog.locator('[data-component-sku]').count() === 3, 'posição Menino mostra somente componentes compatíveis');
-  check((await textOf(componentDialog)).includes('251551') && (await textOf(componentDialog)).includes('329494'), 'seletor usa SKUs físicos reais');
-  await componentDialog.locator('[data-component-sku="329494"]').click();
+  const boyColors = page.locator('[data-collar-color-group="Menino"]');
+  await boyColors.nth(0).selectOption('329494');
+  check(!(await boyColors.nth(1).locator('option[value="329494"]').isDisabled()), 'mesma cor pode repetir enquanto há saldo');
+  await boyColors.nth(1).selectOption('329494');
+  await page.locator('[data-collar-color-group="Menina"]').selectOption('263236');
+  check(!(await page.locator('[data-add-collar]').isDisabled()), 'cores válidas liberam adicionar à venda');
+  check(await page.locator('.preview-slot.filled').count() === 3, 'prévia mostra somente as peças escolhidas');
 
-  await slots.nth(1).click();
-  check(!(await componentDialog.locator('[data-component-sku="329494"]').isDisabled()), 'mesma cor continua disponível para outro slot quando o saldo cobre');
-  check((await textOf(componentDialog.locator('[data-component-sku="329494"]'))).includes('1 disp.'), 'repetição desconta o uso anterior do saldo exibido');
-  await componentDialog.locator('[data-component-sku="329494"]').click();
-
-  await slots.nth(2).click();
-  check(await componentDialog.locator('[data-component-sku]').count() === 2, 'posição Menina mostra somente as duas opções confirmadas');
-  await componentDialog.locator('[data-component-sku="263236"]').click();
-
-  check(!(await page.locator('[data-add-collar]').isDisabled()), 'todos os slots válidos liberam adicionar à venda');
-  check(await page.locator('.preview-slot.filled').count() === 3, 'prévia respeita as três posições escolhidas');
-  await page.locator('[data-collar-customizer]').scrollIntoViewIfNeeded();
+  await page.locator('[data-collar-final-price]').fill('169');
+  check(await page.locator('[data-collar-price-reason-field]').isVisible(), 'alterar preço conhecido exige motivo');
+  check(await page.locator('[data-add-collar]').isDisabled(), 'preço alterado sem motivo bloqueia inclusão');
+  await page.locator('[data-collar-price-reason]').fill('Condição especial no balcão');
+  check(!(await page.locator('[data-add-collar]').isDisabled()), 'motivo informado libera preço alterado');
+  await page.locator('[data-collar-commercial-section]').scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'docs/ux/03-screens/vendas/launch-mobile-collar.png' });
 
   await page.locator('[data-add-collar]').click();
-  check(await page.locator('[data-collar-workspace]').isHidden(), 'adicionar fecha o compositor');
-  check(await page.locator('[data-launch-workspace]').isVisible(), 'composição segue para o fluxo compartilhado da venda');
-  check(await page.locator('[data-flow-step="customer"] .flow-step-body').isVisible(), 'continuação abre a etapa de cliente');
   const collarItem = page.locator('[data-cart-item][data-custom-collar="true"]');
   check(await collarItem.count() === 1, 'colar entra como uma única linha comercial');
   const collarText = await textOf(collarItem);
   check(collarText.includes('Veneziana 444032') && collarText.match(/Verde/g)?.length === 2 && collarText.includes('Rosa claro'), 'linha congela base e escolhas, inclusive cor repetida');
-  check(await collarItem.locator('[data-quantity-action]').count() === 0, 'composição não usa quantidade genérica');
-  check(await collarItem.locator('[data-edit-price]').count() === 0, 'preço do modelo não vira soma ou edição avulsa');
-  check(await page.locator('[data-product-search-form]').isHidden(), 'modo Monte seu Colar não expõe catálogo avulso após a composição');
+  check(collarText.includes('Acréscimo de R$ 10,00') && collarText.includes('Condição especial'), 'linha explica o acréscimo e seu motivo');
+  check(await textOf(collarItem.locator('[data-item-total]')) === 'R$ 169,00', 'linha usa o preço final confirmado');
+  check(await page.locator('[data-flow-step="customer"] .flow-step-body').isVisible(), 'continuação abre a etapa de cliente');
 
-  await page.locator('[data-customer-search]').fill('Camila Ferreira');
-  await page.locator('[data-customer-search]').dispatchEvent('change');
-  await page.locator('[data-open-step="payment"]').click();
-  await page.locator('[data-add-payment]').click();
-  check(await textOf(page.locator('[data-sale-total]')) === 'R$ 159,00', 'pagamento recebe o valor da composição inteira');
-  check(!(await page.locator('[data-finalize-sale]').isDisabled()), 'venda personalizada completa pode seguir à revisão');
-  await page.locator('[data-finalize-sale]').click();
-  const review = page.locator('#finalize-sale-dialog');
-  const reviewText = await textOf(review);
-  check(reviewText.includes('Colar Filhos') && reviewText.includes('Veneziana 444032'), 'revisão mostra modelo e base fixa');
-  check(reviewText.match(/Verde/g)?.length === 2 && reviewText.includes('Rosa claro'), 'revisão preserva a ordem e cada escolha');
-  check(reviewText.includes('R$ 159,00'), 'revisão mostra o preço comercial da composição');
-  await page.screenshot({ path: 'docs/ux/03-screens/vendas/launch-mobile-collar-review.png' });
+  await page.locator('[data-flow-step="items"] [data-step-toggle]').click();
+  await page.locator('[data-edit-collar]').click();
+  await page.locator('[data-collar-extra-trigger]').click();
+  check((await textOf(page.locator('[data-collar-match]'))).includes('Combinação nova'), 'pingente extra transforma o conjunto em combinação nova');
+  check(/^\d{6}$/.test(await page.locator('[data-collar-commercial-sku]').inputValue()), 'combinação nova recebe SKU automático de seis dígitos');
+  check(await page.locator('[data-collar-commercial-sku]').isEditable(), 'SKU sugerido de combinação nova pode ser revisado');
+  check((await page.locator('[data-collar-commercial-name]').inputValue()).includes('Pingente Extra'), 'nome sugerido descreve a nova composição');
+  check(await page.locator('[data-collar-final-price]').inputValue() === '189.00', 'quatro pingentes recebem sugestão de R$ 189');
+  const suggestionText = await textOf(page.locator('[data-collar-price-suggestion]'));
+  check(suggestionText.includes('R$ 99,00') && suggestionText.includes('R$ 30,00'), 'fórmula da sugestão fica visível');
+  check(await page.locator('[data-add-collar]').isDisabled(), 'pingente extra vazio bloqueia inclusão');
+  await page.locator('[data-collar-extra-sku]').fill('Coração incolor · SKU 123456');
+  check(!(await page.locator('[data-add-collar]').isDisabled()), 'pingente extra identificado libera inclusão');
+  await page.locator('[data-collar-commercial-section]').scrollIntoViewIfNeeded();
+  await page.locator('[data-launch-toast]').evaluate((toast) => { toast.hidden = true; });
+  await page.screenshot({ path: 'docs/ux/03-screens/vendas/launch-mobile-collar-new.png' });
+
+  await page.locator('[data-add-collar]').click();
+  check(await page.locator('[data-cart-item][data-custom-collar="true"]').count() === 1, 'editar substitui a composição anterior sem duplicar');
+  check((await textOf(page.locator('[data-cart-item][data-custom-collar="true"]'))).includes('Coração incolor'), 'linha comercial preserva o pingente extra');
+  check(await textOf(page.locator('[data-sale-total]')) === 'R$ 189,00', 'pagamento recebe o preço final da combinação nova');
 
   console.log(`ok ${checks.length} verificações`);
 } finally {

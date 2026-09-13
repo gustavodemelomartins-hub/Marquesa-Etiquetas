@@ -1,8 +1,7 @@
-# Conceitos de Vendas em avaliação
+# Conceitos de Vendas
 
-Estas propostas são protótipos locais isolados. Não substituem
-[`master.html`](../master.html), não alteram regra de negócio e não representam
-comportamento ativo em produção.
+Estas propostas são protótipos locais. Não alteram regra de negócio e não
+representam comportamento ativo em produção.
 
 ## Monte seu Colar simplificado
 
@@ -19,5 +18,8 @@ pingente extra e preço. Combinações novas recebem uma simulação de SKU
 automático com seis dígitos e uma sugestão de preço baseada na faixa dos cinco
 modelos conhecidos; ambos permanecem editáveis.
 
-A adoção depende de fechar `DP-006`: composição livre e preço manual são
-recusados pela regra vigente em `api/REGRAS.md` §42.
+O desenho foi aprovado por Gustavo em 13/09/2026 e promovido para o
+[`master.html`](../master.html). Este arquivo permanece como registro da
+exploração. A promoção vale para o protótipo de UX; composição livre e preço
+manual continuam recusados pela regra vigente em `api/REGRAS.md` §42 até uma
+decisão própria de implementação transacional.

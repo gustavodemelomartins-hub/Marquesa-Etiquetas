@@ -351,6 +351,53 @@ td strong { color: var(--wine-700); }
 .collar-section-title h3, .collar-section-title p { margin: 0; }
 .collar-section-title h3 { font-family: var(--serif); font-size: 23px; font-weight: 620; line-height: 1; }
 .collar-section-title p { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.collar-simple-body { display: grid; gap: 14px; padding: 18px 20px 20px; background: linear-gradient(145deg, rgba(255,247,249,.58), var(--paper) 42%); }
+.collar-simple-section { padding: 16px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,255,255,.86); }
+.collar-quantity-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+.collar-quantity-card { display: grid; grid-template-columns: 40px minmax(0,1fr) auto; align-items: center; gap: 10px; min-height: 74px; padding: 10px 12px; border: 1px solid var(--rose-200); border-radius: 11px; background: var(--rose-050); }
+.collar-quantity-card b, .collar-quantity-card small { display: block; }
+.collar-quantity-card b { font-size: 12px; }
+.collar-quantity-card small { margin-top: 2px; color: var(--muted); font-size: 9px; }
+.collar-stepper { display: grid; grid-template-columns: 30px 30px 30px; align-items: center; overflow: hidden; border: 1px solid var(--rose-200); border-radius: 999px; background: white; }
+.collar-stepper button { display: grid; width: 30px; height: 36px; place-items: center; border: 0; background: transparent; color: var(--wine-700); cursor: pointer; font-size: 17px; }
+.collar-stepper button:hover { background: var(--rose-100); }
+.collar-stepper output { color: var(--wine-900); font-size: 12px; font-weight: 700; text-align: center; }
+.collar-color-groups { display: grid; gap: 14px; }
+.collar-color-group > header { display: flex; align-items: baseline; gap: 7px; margin-bottom: 7px; }
+.collar-color-group > header b { color: var(--wine-700); font-size: 11px; }
+.collar-color-group > header small { color: var(--muted); font-size: 9px; }
+.collar-color-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px; }
+.collar-color-card { display: grid; grid-template-columns: 24px 30px minmax(0,1fr); align-items: center; gap: 6px; min-width: 0; padding: 7px; border: 1px solid var(--line); border-radius: 10px; background: white; }
+.collar-color-card.is-selected { border-color: var(--rose-200); background: var(--rose-050); }
+.collar-color-card > span:first-child { display: grid; width: 22px; height: 22px; place-items: center; border: 1px solid var(--rose-200); border-radius: 50%; color: var(--wine-700); font-size: 8px; font-weight: 700; }
+.collar-color-card .pendant-icon { width: 28px; height: 36px; transform: scale(.76); transform-origin: center; }
+.collar-color-card b { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.collar-color-card select { grid-column: 1 / -1; width: 100%; min-height: 34px; padding: 5px 7px; border: 1px solid var(--rose-200); border-radius: 7px; background: white; color: var(--ink); font-size: 9px; }
+.collar-extra-section { overflow: hidden; border: 1px dashed var(--rose-200); border-radius: 12px; background: white; }
+.collar-extra-trigger { display: grid; width: 100%; grid-template-columns: 34px minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 12px 14px; border: 0; background: transparent; color: var(--ink); cursor: pointer; text-align: left; }
+.collar-extra-trigger > span:first-child { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid var(--wine-600); border-radius: 50%; color: var(--wine-700); font-size: 18px; }
+.collar-extra-trigger b, .collar-extra-trigger small { display: block; }
+.collar-extra-trigger b { font-size: 11px; }
+.collar-extra-trigger small { margin-top: 2px; color: var(--muted); font-size: 9px; }
+.collar-extra-trigger strong { color: var(--wine-700); font-size: 10px; }
+.collar-extra-trigger[aria-expanded="true"] { display: none; }
+.collar-extra-fields { display: flex; align-items: end; gap: 10px; padding: 12px 14px; background: var(--rose-050); }
+.collar-extra-fields label { flex: 1; color: var(--muted); font-size: 10px; }
+.collar-extra-fields input, .collar-commercial-grid input { width: 100%; min-height: 38px; margin-top: 5px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); }
+.collar-commercial-grid { display: grid; grid-template-columns: minmax(150px,.7fr) minmax(150px,.7fr) minmax(220px,1fr); gap: 10px; }
+.collar-commercial-grid label { color: var(--muted); font-size: 10px; }
+.collar-commercial-grid .wide { grid-column: span 2; }
+.collar-commercial-grid input[readonly] { background: var(--canvas); color: var(--muted); }
+.collar-match { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; padding: 9px 11px; border-radius: 9px; }
+.collar-match > span { display: grid; width: 27px; height: 27px; flex: 0 0 27px; place-items: center; border-radius: 50%; background: white; font-weight: 700; }
+.collar-match b, .collar-match small { display: block; }
+.collar-match b { font-size: 11px; }
+.collar-match small { margin-top: 2px; font-size: 9px; }
+.collar-match.is-known { background: var(--success-bg); color: var(--success); }
+.collar-match.is-new { background: var(--warning-bg); color: var(--warning); }
+.collar-sku-help, .collar-price-suggestion, .collar-new-help { margin: 8px 0 0; color: var(--muted); font-size: 9px; line-height: 1.4; }
+.collar-price-suggestion { color: var(--wine-700); font-weight: 650; }
+.collar-preview-empty { align-self: center; margin: 0; color: var(--muted); font-size: 10px; }
 .collar-model-list { display: grid; gap: 7px; }
 .collar-model { display: grid; grid-template-columns: 48px minmax(0,1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 66px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: white; cursor: pointer; text-align: left; }
 .collar-model:hover, .collar-model:focus-visible { border-color: var(--wine-600); background: var(--rose-050); }
@@ -460,6 +507,7 @@ td strong { color: var(--wine-700); }
 .cart-list .price-note { width: max-content; max-width: 100%; margin-top: 5px; padding: 3px 7px; overflow: visible; border-radius: 999px; background: var(--rose-100); color: var(--wine-700); font-weight: 650; line-height: 1.35; text-overflow: clip; white-space: normal; }
 .variant-pill { display: inline-flex; width: max-content; max-width: 100%; margin-top: 6px; padding: 4px 8px; border: 1px solid var(--rose-200); border-radius: 999px; background: var(--rose-050); color: var(--wine-700); font-size: 10px; font-weight: 700; line-height: 1; }
 .cart-list li.has-discount { border-color: var(--rose-200); background: var(--rose-050); }
+.cart-list li.has-surcharge { border-color: #dfc27d; background: var(--warning-bg); }
 .jewel { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 8px; background: var(--rose-100); color: var(--wine-700); font-family: var(--serif); font-size: 23px; }
 .quantity-control { display: grid; grid-template-columns: 28px 25px 28px; align-items: center; text-align: center; }
 .quantity-control button { display: grid; width: 28px; height: 30px; place-items: center; border: 1px solid var(--line); background: white; cursor: pointer; }
@@ -952,6 +1000,21 @@ td strong { color: var(--wine-700); }
   .collar-heading p:last-child { line-height: 1.25; }
   .collar-heading .button { min-width: 54px; min-height: 40px; padding: 7px 10px; }
   .necklace-mark { width: 40px; height: 40px; flex-basis: 40px; }
+  .collar-simple-body { gap: 10px; padding: 12px 10px 90px; }
+  .collar-simple-section { padding: 12px 9px; }
+  .collar-quantity-grid { grid-template-columns: 1fr; gap: 7px; }
+  .collar-quantity-card { min-height: 66px; padding: 7px 9px; }
+  .collar-color-grid { grid-template-columns: repeat(3, minmax(0,1fr)); gap: 5px; }
+  .collar-color-card { grid-template-columns: 20px minmax(0,1fr); gap: 4px; padding: 6px 5px; }
+  .collar-color-card > span:first-child { width: 19px; height: 19px; }
+  .collar-color-card .pendant-icon { display: none; }
+  .collar-color-card b { font-size: 8px; }
+  .collar-color-card select { min-height: 32px; padding-inline: 4px; font-size: 8px; }
+  .collar-extra-fields { align-items: stretch; flex-direction: column; }
+  .collar-extra-fields .button { width: 100%; }
+  .collar-commercial-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .collar-commercial-grid .wide { grid-column: 1 / -1; }
+  .collar-match { align-items: flex-start; }
   .collar-model-panel { padding: 14px 12px; }
   .collar-customizer { padding: 14px 12px 92px; }
   .collar-section-title { margin-bottom: 10px; }

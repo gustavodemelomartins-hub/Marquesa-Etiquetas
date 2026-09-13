@@ -261,12 +261,46 @@
           </div>
           <div class="collar-workspace" data-collar-workspace hidden>
             <section class="collar-composer" aria-label="Monte seu Colar">
-              <header class="collar-heading"><span class="necklace-mark" aria-hidden="true"><i></i></span><div><p class="context">Composição guiada</p><h2>Monte seu Colar</h2><p>Escolha o modelo e depois preencha cada posição.</p></div><button class="button ghost" type="button" data-cancel-collar>Voltar</button></header>
-              <div class="collar-layout">
-                <section class="collar-model-panel"><header class="collar-section-title"><span>1</span><div><h3>Escolha o modelo</h3><p>O modelo define o preço e quantos filhos entram.</p></div></header><div class="collar-model-list" data-collar-model-list></div></section>
-                <section class="collar-customizer" data-collar-customizer hidden><header class="collar-section-title"><span>2</span><div><h3>Escolha os pingentes</h3><p>Cada posição corresponde a uma peça física.</p></div></header><div class="necklace-preview" data-necklace-preview aria-label="Prévia da ordem dos pingentes"><i class="necklace-chain" aria-hidden="true"></i><div data-necklace-pendants></div></div><div class="fixed-collar-base"><span class="base-check" aria-hidden="true">✓</span><div><b>Corrente incluída automaticamente</b><small>Veneziana 45 cm com extensor · SKU 444032</small></div><span>1 un.</span></div><div class="collar-slot-list" data-collar-slot-list></div><p class="collar-stock-warning" role="alert" data-collar-stock-warning hidden></p></section>
+              <header class="collar-heading"><span class="necklace-mark" aria-hidden="true"><i></i></span><div><p class="context">Composição rápida</p><h2>Escolha seus pingentes</h2><p>Informe as quantidades, escolha cada cor e confirme o conjunto.</p></div><button class="button ghost" type="button" data-cancel-collar>Voltar</button></header>
+              <div class="collar-simple-body">
+                <div class="necklace-preview" data-necklace-preview aria-label="Prévia dos pingentes escolhidos"><i class="necklace-chain" aria-hidden="true"></i><div data-necklace-pendants><p class="collar-preview-empty">Seu colar começa vazio</p></div></div>
+                <div class="fixed-collar-base"><span class="base-check" aria-hidden="true">✓</span><div><b>Corrente incluída automaticamente</b><small>Veneziana 45 cm com extensor · SKU 444032</small></div><span>1 un.</span></div>
+
+                <section class="collar-simple-section" aria-labelledby="collar-quantity-title">
+                  <header class="collar-section-title"><span>1</span><div><h3 id="collar-quantity-title">Quantos pingentes?</h3><p>Repita menino ou menina quantas vezes precisar.</p></div></header>
+                  <div class="collar-quantity-grid">
+                    <article class="collar-quantity-card"><span class="pendant-icon menino compact" style="--gem:#7ba7c9" aria-hidden="true"><i></i></span><div><b>Menino</b><small>Azul, incolor ou verde</small></div><div class="collar-stepper" aria-label="Quantidade de meninos"><button type="button" data-collar-quantity="Menino" data-collar-delta="-1" aria-label="Diminuir meninos">−</button><output data-collar-count="Menino">0</output><button type="button" data-collar-quantity="Menino" data-collar-delta="1" aria-label="Aumentar meninos">+</button></div></article>
+                    <article class="collar-quantity-card"><span class="pendant-icon menina compact" style="--gem:#e9a8bd" aria-hidden="true"><i></i></span><div><b>Menina</b><small>Rosa claro ou incolor</small></div><div class="collar-stepper" aria-label="Quantidade de meninas"><button type="button" data-collar-quantity="Menina" data-collar-delta="-1" aria-label="Diminuir meninas">−</button><output data-collar-count="Menina">0</output><button type="button" data-collar-quantity="Menina" data-collar-delta="1" aria-label="Aumentar meninas">+</button></div></article>
+                  </div>
+                </section>
+
+                <section class="collar-simple-section" data-collar-color-section hidden>
+                  <header class="collar-section-title"><span>2</span><div><h3>Escolha as cores</h3><p>Um mini-card para cada peça física.</p></div></header>
+                  <div class="collar-color-groups" data-collar-color-list></div>
+                </section>
+
+                <section class="collar-extra-section">
+                  <button class="collar-extra-trigger" type="button" data-collar-extra-trigger aria-expanded="false"><span>+</span><span><b>Adicionar outro pingente</b><small>Inclua uma peça do catálogo no conjunto</small></span><strong>Adicionar</strong></button>
+                  <div class="collar-extra-fields" data-collar-extra-fields hidden><label>SKU ou nome do pingente<input type="text" maxlength="80" placeholder="Ex.: Coração incolor · SKU 123456" data-collar-extra-sku></label><button class="button ghost" type="button" data-remove-collar-extra>Remover</button></div>
+                </section>
+
+                <section class="collar-simple-section collar-commercial" data-collar-commercial-section hidden>
+                  <header class="collar-section-title"><span>3</span><div><h3>Confirme o conjunto</h3><p>Reconhecemos o modelo ou preparamos o cadastro da combinação nova.</p></div></header>
+                  <div class="collar-match" data-collar-match></div>
+                  <div class="collar-commercial-grid">
+                    <label>SKU comercial<input type="text" inputmode="numeric" maxlength="6" data-collar-commercial-sku></label>
+                    <label class="wide">Nome da peça<input type="text" maxlength="100" data-collar-commercial-name></label>
+                    <label>Preço de referência<input type="text" readonly data-collar-reference></label>
+                    <label>Preço final<input type="number" min="0.01" step="0.01" data-collar-final-price></label>
+                    <label class="wide" data-collar-price-reason-field hidden>Motivo da alteração<input type="text" maxlength="100" placeholder="Ex.: condição especial no balcão" data-collar-price-reason></label>
+                  </div>
+                  <p class="collar-sku-help" data-collar-sku-help hidden></p>
+                  <p class="collar-price-suggestion" data-collar-price-suggestion hidden></p>
+                  <p class="collar-new-help" data-collar-new-help hidden>Na implementação real, o SKU será reservado com segurança antes de concluir o cadastro.</p>
+                </section>
+                <p class="collar-stock-warning" role="alert" data-collar-stock-warning hidden></p>
               </div>
-              <footer class="collar-footer"><div><span data-collar-footer-copy>Escolha um modelo para começar</span><strong data-collar-footer-price>R$ 0,00</strong></div><button class="button primary" type="button" data-add-collar disabled>Adicionar à venda</button></footer>
+              <footer class="collar-footer"><div><span data-collar-footer-copy>Escolha a quantidade para começar</span><strong data-collar-footer-price>R$ 0,00</strong></div><button class="button primary" type="button" data-add-collar disabled>Adicionar à venda</button></footer>
             </section>
           </div>
           <div data-launch-workspace hidden>
@@ -346,8 +380,6 @@
                 <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1055" data-detail-scope="hoje"><td>08:12</td><td><button type="button" class="client-name-link" data-open-client="Zilma">Zilma</button></td><td><span class="tag blue">Maleta</span></td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Zilma">›</button></td></tr>
               </tbody></table></div>
           </section>
-
-          <dialog class="launch-dialog component-dialog" id="component-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar opções de pingente">×</button><p class="context" data-component-context>Posição do colar</p><h2 data-component-title>Escolha o pingente</h2><p>A mesma cor pode ser usada novamente quando houver quantidade disponível.</p><div class="component-options" data-component-options></div><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button></div></form></dialog>
 
           <dialog class="launch-dialog variation-dialog" id="variation-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar variações">×</button><p class="context">Peça com variações</p><h2>Qual variação saiu?</h2><p>A etiqueta identifica o produto. Agora escolha a peça exata para baixar o estoque correto.</p><div class="variation-product"><span class="jewel" aria-hidden="true" data-variation-symbol>○</span><span><b data-variation-product></b><small data-variation-meta></small></span></div><div class="variation-options" role="list" data-variation-options></div><p class="variation-footnote">A opção sem estoque continua visível, mas não pode ser selecionada.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button></div></form></dialog>
 
@@ -441,12 +473,18 @@
       const productEntryHint = launchScreen.querySelector('.product-entry-hint');
       const productResults = launchScreen.querySelector('[data-product-results]');
       const collarReturn = launchScreen.querySelector('[data-collar-return]');
-      const collarModelList = launchScreen.querySelector('[data-collar-model-list]');
-      const collarCustomizer = launchScreen.querySelector('[data-collar-customizer]');
-      const collarSlotList = launchScreen.querySelector('[data-collar-slot-list]');
       const necklacePendants = launchScreen.querySelector('[data-necklace-pendants]');
-      const componentDialog = launchScreen.querySelector('#component-dialog');
-      const componentOptions = launchScreen.querySelector('[data-component-options]');
+      const collarColorSection = launchScreen.querySelector('[data-collar-color-section]');
+      const collarColorList = launchScreen.querySelector('[data-collar-color-list]');
+      const collarCommercialSection = launchScreen.querySelector('[data-collar-commercial-section]');
+      const collarCommercialSku = launchScreen.querySelector('[data-collar-commercial-sku]');
+      const collarCommercialName = launchScreen.querySelector('[data-collar-commercial-name]');
+      const collarReference = launchScreen.querySelector('[data-collar-reference]');
+      const collarFinalPrice = launchScreen.querySelector('[data-collar-final-price]');
+      const collarPriceReasonField = launchScreen.querySelector('[data-collar-price-reason-field]');
+      const collarPriceReason = launchScreen.querySelector('[data-collar-price-reason]');
+      const collarExtraFields = launchScreen.querySelector('[data-collar-extra-fields]');
+      const collarExtraSku = launchScreen.querySelector('[data-collar-extra-sku]');
       const addCollarButton = launchScreen.querySelector('[data-add-collar]');
       const variationDialog = launchScreen.querySelector('#variation-dialog');
       const variationOptions = launchScreen.querySelector('[data-variation-options]');
@@ -492,8 +530,9 @@
       let editingCartItem = null;
       let pendingVariantProduct = null;
       let selectedCollarModel = null;
-      let collarSelections = [];
-      let activeCollarSlot = null;
+      let collarCounts = { Menino: 0, Menina: 0 };
+      let collarSelections = { Menino: [], Menina: [] };
+      let collarHasExtra = false;
       let toastTimer = null;
       let cameraStream = null;
       let cameraScanTimer = null;
@@ -570,71 +609,158 @@
         return `<span class="pendant-icon ${component.group.toLocaleLowerCase('pt-BR')} ${compact ? 'compact' : ''}" style="--gem:${component.color}" aria-hidden="true"><i></i></span>`;
       }
 
-      function slotName(index) {
-        const group = selectedCollarModel.slots[index];
-        const number = selectedCollarModel.slots.slice(0, index + 1).filter((item) => item === group).length;
-        return `${group} ${number}`;
+      function collarModelForCounts() {
+        if (collarHasExtra) return null;
+        return collarModels.find((model) => model.slots.filter((group) => group === 'Menino').length === collarCounts.Menino
+          && model.slots.filter((group) => group === 'Menina').length === collarCounts.Menina) || null;
       }
 
-      function renderCollarModels() {
-        collarModelList.innerHTML = collarModels.map((model) => {
-          const selected = selectedCollarModel?.sku === model.sku;
-          const pendants = model.slots.map(() => '<i></i>').join('');
-          return `<button class="collar-model ${selected ? 'selected' : ''}" type="button" data-collar-model="${model.sku}" aria-pressed="${selected}"><span class="model-pendants" aria-hidden="true">${pendants}</span><span><b>${model.name}</b><small>SKU ${model.sku} · ${model.slots.join(' + ')}</small><small class="model-action">${selected ? 'Trocar modelo' : 'Escolher modelo'}</small></span><span class="model-value"><strong>${launchMoney(model.price)}</strong><small>${model.available} disp.</small></span></button>`;
+      function collarSelectedComponents() {
+        return ['Menino', 'Menina'].flatMap((group) => collarSelections[group].filter(Boolean));
+      }
+
+      function collarSuggestedPrice() {
+        const pieces = collarCounts.Menino + collarCounts.Menina + (collarHasExtra ? 1 : 0);
+        return pieces ? 99 + Math.max(0, pieces - 1) * 30 : 0;
+      }
+
+      function collarGeneratedSku() {
+        const seed = 510000 + collarCounts.Menino * 701 + collarCounts.Menina * 113 + (collarHasExtra ? 37 : 0);
+        return String(seed % 900000 + 100000).slice(0, 6);
+      }
+
+      function collarGeneratedName() {
+        const parts = [];
+        if (collarCounts.Menino) parts.push(`${collarCounts.Menino} ${collarCounts.Menino === 1 ? 'Menino' : 'Meninos'}`);
+        if (collarCounts.Menina) parts.push(`${collarCounts.Menina} ${collarCounts.Menina === 1 ? 'Menina' : 'Meninas'}`);
+        if (collarHasExtra) parts.push('Pingente Extra');
+        return `Colar Filhos · ${parts.join(' + ')}`;
+      }
+
+      function syncCollarSelection(group) {
+        collarSelections[group] = collarSelections[group].slice(0, collarCounts[group]);
+        while (collarSelections[group].length < collarCounts[group]) collarSelections[group].push(null);
+      }
+
+      function collarSlotName(group, index) {
+        return `${group} ${index + 1}`;
+      }
+
+      function renderCollarColors() {
+        collarColorList.innerHTML = ['Menino', 'Menina'].filter((group) => collarCounts[group]).map((group) => {
+          const cards = collarSelections[group].map((selected, index) => {
+            const choices = collarComponents.filter((component) => component.group === group).map((component) => {
+              const usedElsewhere = collarSelectedComponents().reduce((sum, used) => sum + (used?.sku === component.sku ? 1 : 0), 0) - (selected?.sku === component.sku ? 1 : 0);
+              const remaining = component.stock - usedElsewhere;
+              const unavailable = remaining <= 0 && selected?.sku !== component.sku;
+              return `<option value="${component.sku}" ${selected?.sku === component.sku ? 'selected' : ''} ${unavailable ? 'disabled' : ''}>${component.label} · SKU ${component.sku} · ${Math.max(0, remaining)} disp.</option>`;
+            }).join('');
+            return `<label class="collar-color-card ${selected ? 'is-selected' : ''}"><span>${index + 1}</span>${pendantMarkup(selected, true) || `<span class="pendant-icon ${group.toLocaleLowerCase('pt-BR')} compact" aria-hidden="true"><i></i></span>`}<b>${collarSlotName(group, index)}</b><select data-collar-color-group="${group}" data-collar-color-index="${index}" aria-label="Cor de ${collarSlotName(group, index)}"><option value="">Escolha a cor</option>${choices}</select></label>`;
+          }).join('');
+          return `<div class="collar-color-group"><header><b>${group}</b><small>${collarCounts[group]} ${collarCounts[group] === 1 ? 'peça física' : 'peças físicas'}</small></header><div class="collar-color-grid">${cards}</div></div>`;
         }).join('');
       }
 
       function validateCollarStock() {
         const counts = new Map();
-        collarSelections.filter(Boolean).forEach((component) => counts.set(component.sku, (counts.get(component.sku) || 0) + 1));
+        collarSelectedComponents().forEach((component) => counts.set(component.sku, (counts.get(component.sku) || 0) + 1));
         return [...counts].find(([sku, needed]) => needed > collarComponents.find((item) => item.sku === sku).stock) || null;
       }
 
-      function renderCollarBuilder() {
-        renderCollarModels();
-        const chosen = collarSelections.filter(Boolean).length;
-        const total = selectedCollarModel?.slots.length || 0;
-        collarCustomizer.hidden = !selectedCollarModel;
-        necklacePendants.innerHTML = selectedCollarModel ? selectedCollarModel.slots.map((group, index) => {
-          const component = collarSelections[index];
-          return `<span class="preview-slot ${component ? 'filled' : ''}"><small>${index + 1}</small>${pendantMarkup(component)}</span>`;
-        }).join('') : '';
-        collarSlotList.innerHTML = selectedCollarModel ? selectedCollarModel.slots.map((group, index) => {
-          const component = collarSelections[index];
-          return `<button class="collar-slot ${component ? 'is-filled' : ''}" type="button" data-collar-slot="${index}"><span class="slot-number">${index + 1}</span><span>${pendantMarkup(component, true) || '<span class="jewel" aria-hidden="true">◇</span>'}</span><span class="slot-copy"><b>${slotName(index)}</b><small>${component ? `${component.label} · SKU ${component.sku}` : 'Nenhum pingente escolhido'}</small></span><span class="slot-action">${component ? 'Trocar' : 'Escolher'}</span></button>`;
-        }).join('') : '';
+      function updateCollarPriceState() {
+        const finalPrice = Number(collarFinalPrice.value || 0);
+        const standardPrice = selectedCollarModel?.price || finalPrice;
+        const priceChanged = !!selectedCollarModel && Math.abs(finalPrice - standardPrice) > .005;
+        collarPriceReasonField.hidden = !priceChanged;
+        const total = collarCounts.Menino + collarCounts.Menina;
+        const allColorsChosen = collarSelectedComponents().length === total;
+        const validIdentity = /^\d{6}$/.test(collarCommercialSku.value.trim()) && collarCommercialName.value.trim().length >= 3;
+        const validExtra = !collarHasExtra || collarExtraSku.value.trim().length >= 3;
+        addCollarButton.disabled = !total || !allColorsChosen || !!validateCollarStock() || !validIdentity || !validExtra || finalPrice <= 0 || (priceChanged && !collarPriceReason.value.trim());
+        setLaunchText('[data-collar-footer-price]', launchMoney(finalPrice));
+      }
+
+      function renderCollarCommercial(resetFields = false) {
+        selectedCollarModel = collarModelForCounts();
+        const hasPendants = collarCounts.Menino + collarCounts.Menina > 0;
+        collarCommercialSection.hidden = !hasPendants;
+        if (!hasPendants) return;
+        const match = launchScreen.querySelector('[data-collar-match]');
+        const skuHelp = launchScreen.querySelector('[data-collar-sku-help]');
+        const suggestion = launchScreen.querySelector('[data-collar-price-suggestion]');
+        const newHelp = launchScreen.querySelector('[data-collar-new-help]');
+        if (selectedCollarModel) {
+          match.className = 'collar-match is-known';
+          match.innerHTML = `<span>✓</span><div><b>Combinação já cadastrada</b><small>${selectedCollarModel.name} · SKU ${selectedCollarModel.sku}</small></div>`;
+          collarCommercialSku.value = selectedCollarModel.sku;
+          collarCommercialName.value = selectedCollarModel.name;
+          collarCommercialSku.readOnly = true;
+          collarCommercialName.readOnly = true;
+          collarReference.value = launchMoney(selectedCollarModel.price);
+          if (resetFields || !collarFinalPrice.value) collarFinalPrice.value = selectedCollarModel.price.toFixed(2);
+          skuHelp.hidden = true;
+          suggestion.hidden = true;
+          newHelp.hidden = true;
+        } else {
+          const suggestedPrice = collarSuggestedPrice();
+          match.className = 'collar-match is-new';
+          match.innerHTML = '<span>＋</span><div><b>Combinação nova</b><small>Já deixamos uma identificação e um preço sugeridos para você revisar.</small></div>';
+          collarCommercialSku.readOnly = false;
+          collarCommercialName.readOnly = false;
+          collarReference.value = 'Sugestão';
+          if (resetFields) {
+            collarCommercialSku.value = collarGeneratedSku();
+            collarCommercialName.value = collarGeneratedName();
+            collarFinalPrice.value = suggestedPrice.toFixed(2);
+            collarPriceReason.value = '';
+          }
+          skuHelp.hidden = false;
+          skuHelp.textContent = `SKU ${collarCommercialSku.value}: sugestão automática deste protótipo.`;
+          suggestion.hidden = false;
+          suggestion.textContent = `Preço sugerido: ${launchMoney(suggestedPrice)} · base de ${launchMoney(99)} + ${launchMoney(30)} por pingente adicional. Você pode alterar.`;
+          newHelp.hidden = false;
+        }
+        updateCollarPriceState();
+      }
+
+      function renderCollarBuilder(resetCommercial = false) {
+        const total = collarCounts.Menino + collarCounts.Menina;
+        const chosen = collarSelectedComponents();
+        launchScreen.querySelectorAll('[data-collar-count]').forEach((output) => { output.value = collarCounts[output.dataset.collarCount]; });
+        collarColorSection.hidden = !total;
+        renderCollarColors();
+        necklacePendants.innerHTML = chosen.length
+          ? chosen.map((component, index) => `<span class="preview-slot filled"><small>${index + 1}</small>${pendantMarkup(component)}</span>`).join('')
+          : '<p class="collar-preview-empty">Seu colar começa vazio</p>';
         const stockConflict = validateCollarStock();
         const warning = launchScreen.querySelector('[data-collar-stock-warning]');
         warning.hidden = !stockConflict;
         if (stockConflict) {
           const component = collarComponents.find((item) => item.sku === stockConflict[0]);
-          warning.textContent = `${component.label}: a composição precisa de ${stockConflict[1]}, mas há ${component.stock} disponível.`;
+          warning.textContent = `${component.label}: você escolheu ${stockConflict[1]}, mas há ${component.stock} disponível.`;
         }
-        setLaunchText('[data-collar-footer-copy]', selectedCollarModel ? `${selectedCollarModel.name} · ${chosen} de ${total} posições` : 'Escolha um modelo para começar');
-        setLaunchText('[data-collar-footer-price]', launchMoney(selectedCollarModel?.price || 0));
-        addCollarButton.disabled = !selectedCollarModel || chosen !== total || !!stockConflict;
+        renderCollarCommercial(resetCommercial);
+        const copy = total ? `${chosen.length} de ${total} cores escolhidas${collarHasExtra ? ' · 1 pingente extra' : ''}` : 'Escolha a quantidade para começar';
+        setLaunchText('[data-collar-footer-copy]', copy);
+        if (!total) {
+          setLaunchText('[data-collar-footer-price]', launchMoney(0));
+          addCollarButton.disabled = true;
+        }
       }
 
       function resetCollarBuilder() {
         selectedCollarModel = null;
-        collarSelections = [];
-        activeCollarSlot = null;
-        collarComposer.classList.remove('has-model', 'models-expanded');
-        renderCollarBuilder();
-      }
-
-      function openComponentPicker(index) {
-        activeCollarSlot = index;
-        const group = selectedCollarModel.slots[index];
-        setLaunchText('[data-component-context]', `${selectedCollarModel.name} · posição ${index + 1}`);
-        setLaunchText('[data-component-title]', `Escolha ${slotName(index)}`);
-        componentOptions.innerHTML = collarComponents.filter((component) => component.group === group).map((component) => {
-          const usedElsewhere = collarSelections.reduce((sum, selected, selectedIndex) => sum + (selectedIndex !== index && selected?.sku === component.sku ? 1 : 0), 0);
-          const remaining = component.stock - usedElsewhere;
-          const unavailable = remaining <= 0;
-          return `<button class="component-option" type="button" data-component-sku="${component.sku}" ${unavailable ? 'disabled' : ''}>${pendantMarkup(component)}<span><b>${group} ${component.label}</b><small>${component.name}</small><small>SKU ${component.sku}</small></span><strong>${unavailable ? 'Sem saldo' : `${remaining} disp.`}</strong></button>`;
-        }).join('');
-        componentDialog.showModal();
+        collarCounts = { Menino: 0, Menina: 0 };
+        collarSelections = { Menino: [], Menina: [] };
+        collarHasExtra = false;
+        collarExtraFields.hidden = true;
+        collarExtraSku.value = '';
+        launchScreen.querySelector('[data-collar-extra-trigger]').setAttribute('aria-expanded', 'false');
+        collarCommercialSku.value = '';
+        collarCommercialName.value = '';
+        collarFinalPrice.value = '';
+        collarPriceReason.value = '';
+        renderCollarBuilder(true);
       }
 
       saleChoice.addEventListener('click', () => {
@@ -656,43 +782,61 @@
         collarWorkspace.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
       });
 
-      collarModelList.addEventListener('click', (event) => {
-        const button = event.target.closest('[data-collar-model]');
-        if (!button) return;
-        const model = collarModels.find((item) => item.sku === button.dataset.collarModel);
-        if (selectedCollarModel?.sku === model.sku) {
-          collarComposer.classList.toggle('models-expanded');
+      collarComposer.addEventListener('click', (event) => {
+        const quantityButton = event.target.closest('[data-collar-quantity]');
+        if (quantityButton) {
+          const group = quantityButton.dataset.collarQuantity;
+          const availableComponents = collarComponents.filter((component) => component.group === group).reduce((sum, component) => sum + component.stock, 0);
+          collarCounts[group] = Math.max(0, Math.min(availableComponents, collarCounts[group] + Number(quantityButton.dataset.collarDelta)));
+          syncCollarSelection(group);
+          renderCollarBuilder(true);
           return;
         }
-        selectedCollarModel = model;
-        collarSelections = Array(model.slots.length).fill(null);
-        collarComposer.classList.add('has-model');
-        collarComposer.classList.remove('models-expanded');
-        renderCollarBuilder();
+        const extraTrigger = event.target.closest('[data-collar-extra-trigger]');
+        if (extraTrigger) {
+          collarHasExtra = true;
+          collarExtraFields.hidden = false;
+          extraTrigger.setAttribute('aria-expanded', 'true');
+          renderCollarBuilder(true);
+          requestAnimationFrame(() => collarExtraSku.focus());
+          return;
+        }
+        if (event.target.closest('[data-remove-collar-extra]')) {
+          collarHasExtra = false;
+          collarExtraSku.value = '';
+          collarExtraFields.hidden = true;
+          launchScreen.querySelector('[data-collar-extra-trigger]').setAttribute('aria-expanded', 'false');
+          renderCollarBuilder(true);
+        }
       });
 
-      collarSlotList.addEventListener('click', (event) => {
-        const button = event.target.closest('[data-collar-slot]');
-        if (button) openComponentPicker(Number(button.dataset.collarSlot));
+      collarColorList.addEventListener('change', (event) => {
+        const select = event.target.closest('[data-collar-color-group]');
+        if (!select) return;
+        const group = select.dataset.collarColorGroup;
+        collarSelections[group][Number(select.dataset.collarColorIndex)] = collarComponents.find((component) => component.sku === select.value) || null;
+        renderCollarBuilder(false);
       });
 
-      componentOptions.addEventListener('click', (event) => {
-        const button = event.target.closest('[data-component-sku]');
-        if (!button || button.disabled || activeCollarSlot == null) return;
-        collarSelections[activeCollarSlot] = collarComponents.find((item) => item.sku === button.dataset.componentSku);
-        componentDialog.close();
-        renderCollarBuilder();
-      });
+      [collarCommercialSku, collarCommercialName, collarFinalPrice, collarPriceReason, collarExtraSku].forEach((input) => input.addEventListener('input', () => {
+        if (!selectedCollarModel) launchScreen.querySelector('[data-collar-sku-help]').textContent = `SKU ${collarCommercialSku.value || '—'}: sugestão automática deste protótipo.`;
+        updateCollarPriceState();
+      }));
 
       addCollarButton.addEventListener('click', () => {
         if (addCollarButton.disabled) return;
         launchItems().filter((item) => item.dataset.customCollar === 'true').forEach((item) => item.remove());
-        const composition = `Veneziana 444032 · ${collarSelections.map((component, index) => `${slotName(index)} ${component.label}`).join(' · ')}`;
+        const pieces = ['Menino', 'Menina'].flatMap((group) => collarSelections[group].map((component, index) => `${collarSlotName(group, index)} ${component.label} (SKU ${component.sku})`));
+        if (collarHasExtra) pieces.push(`Extra ${collarExtraSku.value.trim()}`);
+        const composition = `Veneziana 444032 · ${pieces.join(' · ')}`;
+        const finalPrice = Number(collarFinalPrice.value);
         addCatalogProduct({
-          sku: selectedCollarModel.sku,
-          name: selectedCollarModel.name,
-          detail: `Veneziana 444032 + ${selectedCollarModel.slots.length} pingentes`,
-          price: selectedCollarModel.price,
+          sku: collarCommercialSku.value.trim(),
+          name: collarCommercialName.value.trim(),
+          detail: `Veneziana 444032 + ${collarCounts.Menino + collarCounts.Menina + (collarHasExtra ? 1 : 0)} pingentes`,
+          price: finalPrice,
+          tablePrice: selectedCollarModel?.price || finalPrice,
+          discountReason: collarPriceReason.value.trim(),
           symbol: '⌁',
           composition
         });
@@ -829,14 +973,15 @@
         item.dataset.stock = variant ? String(variant.stock) : '';
         item.dataset.customCollar = product.composition ? 'true' : '';
         item.dataset.composition = product.composition || '';
-        item.dataset.tablePrice = product.price;
+        item.dataset.tablePrice = product.tablePrice ?? product.price;
         item.dataset.price = product.price;
+        item.dataset.discountReason = product.discountReason || '';
         item.dataset.quantity = '1';
         const quantityControl = product.composition
           ? '<span class="custom-quantity">1 composição</span>'
           : `<div class="quantity-control" aria-label="Quantidade de ${product.name}"><button type="button" data-quantity-action="decrease" aria-label="Diminuir quantidade">−</button><span data-item-quantity>1</span><button type="button" data-quantity-action="increase" aria-label="Aumentar quantidade">+</button></div>`;
         const priceControl = product.composition
-          ? `<span class="item-price fixed-price"><small>Preço do modelo</small><strong data-item-total>${launchMoney(product.price)}</strong></span>`
+          ? `<span class="item-price fixed-price"><small>Preço final</small><strong data-item-total>${launchMoney(product.price)}</strong></span>`
           : `<button class="item-price" type="button" data-edit-price aria-label="Editar preço de ${product.name}"><small>Preço final</small><strong data-item-total>${launchMoney(product.price)}</strong></button>`;
         item.innerHTML = `
           <span class="jewel" aria-hidden="true">${product.symbol}</span>
@@ -844,6 +989,14 @@
           ${quantityControl}
           ${priceControl}
           <button class="item-remove" type="button" data-remove-item aria-label="Remover ${product.name}">×</button>`;
+        const priceDifference = Number(item.dataset.tablePrice) - Number(item.dataset.price);
+        if (Math.abs(priceDifference) > .005) {
+          const note = item.querySelector('.price-note');
+          note.hidden = false;
+          note.textContent = `${priceDifference > 0 ? 'Desconto' : 'Acréscimo'} de ${launchMoney(Math.abs(priceDifference))} · ${item.dataset.discountReason}`;
+          item.classList.toggle('has-discount', priceDifference > 0);
+          item.classList.toggle('has-surcharge', priceDifference < 0);
+        }
         return item;
       }
 
