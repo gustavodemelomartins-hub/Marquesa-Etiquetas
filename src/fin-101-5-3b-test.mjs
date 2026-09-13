@@ -397,6 +397,41 @@ const C = (garantiaId) => (db) => pagarDiferencaTroca(db, garantiaId, { pagaEm: 
   prova('a troca anterior a §36 continua fechando, e igual pelas duas portas que a alcançam');
 }
 
+/* ═════════ 6b. a nota do EVENTO não encosta na observação da VENDA ══════ */
+{
+  const raw = banco();
+  const db = adaptador(raw);
+  raw.exec("UPDATE vendas SET observacao = 'ANOTACAO HUMANA IMPORTANTE' WHERE id = 2");
+
+  /* A rota da garantia aceita uma observação, e ela descreve o PAGAMENTO da
+     diferença — pertence à linha do tempo do caso, não à venda. Confundir as
+     duas apagava o que uma pessoa tinha escrito na venda. */
+  await pagarDiferencaTroca(db, 1, { pagaEm: QUITAR, observacao: 'pagou em pix' });
+
+  assert.equal(raw.prepare('SELECT observacao FROM vendas WHERE id = 2').get().observacao,
+    'ANOTACAO HUMANA IMPORTANTE', 'a anotação humana da venda continua intacta');
+  assert.equal(
+    raw.prepare("SELECT observacao FROM garantia_eventos WHERE tipo = 'diferenca_paga'").get().observacao,
+    'pagou em pix', 'e a nota do pagamento foi para o evento, que é o lugar dela');
+  raw.close();
+  prova('a observação do pagamento vai para o evento e nunca sobrescreve a da venda');
+}
+
+{
+  /* e a nota do parcial APENAS acrescenta — nunca substitui. */
+  const raw = banco();
+  const db = adaptador(raw);
+  raw.exec("UPDATE vendas SET observacao = 'cliente pediu embrulho de presente',"
+    + " valor_recebido = 40.0, pagamento_origem = 'nuvemshop_parcial' WHERE id = 3");
+  await receberConta(db, { chave: 'venda:3', confirmar: true, pagaEm: QUITAR });
+  const obs = String(raw.prepare('SELECT observacao FROM vendas WHERE id = 3').get().observacao);
+  assert.match(obs, /^cliente pediu embrulho de presente · /,
+    'a observação existente vem primeiro e inteira');
+  assert.match(obs, /parcial conhecido de 40\.00 de 250\.00/, 'e a nota é acrescentada');
+  raw.close();
+  prova('a nota do parcial é aditiva: a observação que já existia não é sobrescrita');
+}
+
 /* ═══════════════════ 7. nada disso mexeu em estoque nem em dívida ═══════ */
 {
   const raw = banco();

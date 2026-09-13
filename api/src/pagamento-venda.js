@@ -93,7 +93,9 @@ function notaDoParcial(valorAnterior, total, carimbo, data) {
  *  `jaEstavaPaga: true` não é erro e não escreve nada: é a resposta honesta a
  *  um retry. Cada porta decide se isso vira 200 ou 409 — o BANCO fica igual
  *  nos dois casos, que é o que a unificação existe para garantir. */
-export async function quitarVenda(db, vendaId, { pagaEm = null, observacao = null } = {}) {
+export async function quitarVenda(db, vendaId, {
+  pagaEm = null, observacao = null, observacaoDoEvento = null,
+} = {}) {
   const v = await db.prepare('SELECT * FROM vendas WHERE id = ?').bind(vendaId).first();
   if (!v) return ERRO(404, 'Venda não encontrada.');
   if (v.cancelada) return ERRO(409, 'Venda cancelada não recebe pagamento.');
@@ -121,6 +123,13 @@ export async function quitarVenda(db, vendaId, { pagaEm = null, observacao = nul
   /* Só escreve número quando já havia número. Ver a nota de semântica acima. */
   const recebidoFinal = parcialAnterior == null ? null : total;
 
+  /* `observacao` é a nota DA VENDA, e segue o contrato que
+     `/api/vendas/:id/pagamento` sempre teve: substitui quando vem, preserva
+     quando não vem. `observacaoDoEvento` é outra coisa — é a nota do
+     PAGAMENTO na linha do tempo da garantia, e nunca encosta na venda.
+     Confundir as duas foi um defeito de 5.3b: a nota do pagamento da
+     diferença ia parar em `vendas.observacao`, apagando a anotação de quem
+     tinha escrito ali antes, e sumia do evento, que era o lugar dela. */
   let obs = observacao != null ? observacao : (v.observacao ?? null);
   if (houveParcial) {
     const nota = notaDoParcial(parcialAnterior, total, v.pagamento_origem, data);
@@ -161,6 +170,7 @@ export async function quitarVenda(db, vendaId, { pagaEm = null, observacao = nul
         valor: dinheiro(troca.diferenca),
         pagaEm: data,
         vendaId: Number(vendaId),
+        observacao: observacaoDoEvento,
       });
     } catch (e) {
       console.error('quitarVenda: diferença paga, mas o evento da garantia não gravou', e);

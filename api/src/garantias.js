@@ -1073,7 +1073,10 @@ export async function pagarDiferencaTroca(db, id, corpo = {}) {
   if (troca.venda_id) {
     const r = await quitarVenda(db, troca.venda_id, {
       pagaEm,
-      observacao: String(corpo.observacao ?? '').trim() || null,
+      /* A nota vai para o EVENTO, não para a venda: ela descreve o
+         pagamento da diferença, e `vendas.observacao` já guarda o que a
+         troca escreveu lá no dia — ou o que uma pessoa anotou depois. */
+      observacaoDoEvento: String(corpo.observacao ?? '').trim() || null,
     });
     if (!r.ok) return r;
     return {
