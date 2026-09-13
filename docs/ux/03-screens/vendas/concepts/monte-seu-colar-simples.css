@@ -147,10 +147,12 @@ main { width: min(1040px, calc(100% - 32px)); margin: 18px auto 32px; }
 .commercial-fields .wide { grid-column: 1 / -1; }
 .commercial-fields input[readonly] { background: #f6f1f2; color: var(--muted); }
 .commercial-fields input:disabled { background: #f6f1f2; color: var(--muted); }
+.field-help { display: block; margin-top: 5px; color: var(--muted); font-size: 8px; line-height: 1.35; }
 .money-input { position: relative; display: block; }
 .money-input b { position: absolute; top: 11px; left: 11px; color: var(--wine); font-size: 11px; }
 .money-input input { padding-left: 34px; }
 .new-model-help { margin: 11px 0 0; padding: 9px 11px; border-radius: 8px; background: var(--warning-soft); color: var(--warning); font-size: 10px; }
+.price-suggestion { margin: 11px 0 0; padding: 9px 11px; border: 1px solid var(--petal); border-radius: 8px; background: var(--blush); color: var(--wine); font-size: 10px; }
 
 .sale-footer { position: fixed; z-index: 12; right: 0; bottom: 0; left: 0; display: flex; min-height: 88px; align-items: center; justify-content: center; gap: 24px; padding: 12px max(18px, calc((100vw - 1000px) / 2)); border-top: 1px solid var(--line); background: rgba(255, 253, 252, .96); box-shadow: 0 -12px 35px rgba(80, 28, 47, .09); backdrop-filter: blur(18px); }
 .sale-footer > div { min-width: 0; }

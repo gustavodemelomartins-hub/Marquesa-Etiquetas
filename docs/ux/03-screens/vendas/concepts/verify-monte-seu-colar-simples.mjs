@@ -62,12 +62,15 @@ try {
   check((await compactText(page.locator('[data-match-banner]'))).includes('Nova combinação'), 'pingente extra muda o fluxo para nova configuração');
   check(await page.locator('[data-commercial-sku]').getAttribute('readonly') === null, 'nova configuração aceita um SKU novo');
   check(!(await page.locator('[data-commercial-name]').getAttribute('readonly')), 'nova configuração permite alterar o nome');
+  check(/^\d{6}$/.test(await page.locator('[data-commercial-sku]').inputValue()), 'nova configuração recebe SKU automático de seis dígitos');
+  check(await page.locator('[data-final-price]').inputValue() === '189.00', 'nova combinação recebe sugestão de preço pela faixa atual');
+  check((await compactText(page.locator('[data-price-suggestion]'))).includes('R$ 30,00 por pingente adicional'), 'interface explica como chegou ao preço sugerido');
   check(await page.locator('[data-add-sale]').isDisabled(), 'nova configuração incompleta não pode ser vendida');
   await page.locator('[data-extra-sku]').fill('SKU-EXTRA');
-  await page.locator('[data-commercial-sku]').fill('NOVO-SKU');
   await page.locator('[data-commercial-name]').fill('Colar Filhos com Pingente Extra');
-  await page.locator('[data-final-price]').fill('189');
   check(!(await page.locator('[data-add-sale]').isDisabled()), 'SKU, nome, preço e peça extra completos liberam a nova configuração');
+  await page.addStyleTag({ content: '.concept-header{position:relative!important}.sale-footer{position:static!important}body{padding-bottom:0!important}' });
+  await page.screenshot({ path: 'docs/ux/03-screens/vendas/concepts/monte-seu-colar-nova-combinacao-mobile.png', fullPage: true });
 
   console.log(`ok ${checks.length} verificações`);
 } finally {

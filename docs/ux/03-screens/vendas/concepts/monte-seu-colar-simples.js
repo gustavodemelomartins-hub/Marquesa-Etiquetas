@@ -33,6 +33,8 @@ const standardPrice = $('[data-standard-price]');
 const finalPrice = $('[data-final-price]');
 const priceReasonField = $('[data-price-reason-field]');
 const priceReason = $('[data-price-reason]');
+const skuHelp = $('[data-sku-help]');
+const priceSuggestion = $('[data-price-suggestion]');
 const newModelHelp = $('[data-new-model-help]');
 const extraSku = $('[data-extra-sku]');
 const addSale = $('[data-add-sale]');
@@ -53,6 +55,16 @@ function quantityLabel() {
 function generatedName() {
   const label = quantityLabel();
   return label ? `Monte seu Colar — ${label}` : '';
+}
+
+function generatedSku() {
+  const check = (state.boy * 37 + state.girl * 17 + (state.extra ? 53 : 0)) % 100;
+  return String(610000 + state.boy * 10000 + state.girl * 1000 + (state.extra ? 100 : 0) + check);
+}
+
+function suggestedPrice() {
+  const pieces = state.boy + state.girl + (state.extra ? 1 : 0);
+  return pieces ? 99 + Math.max(0, pieces - 1) * 30 : 0;
 }
 
 function syncArray(type) {
@@ -113,19 +125,25 @@ function renderCommercial(resetFields = false) {
     commercialName.readOnly = true;
     standardPrice.value = money(model.price);
     if (resetFields || !finalPrice.value) finalPrice.value = model.price.toFixed(2);
+    skuHelp.hidden = true;
+    priceSuggestion.hidden = true;
     newModelHelp.hidden = true;
   } else {
+    const suggestion = suggestedPrice();
     matchBanner.className = 'match-banner new';
-    matchBanner.innerHTML = '<strong>Nova combinação</strong><span>precisa de um SKU comercial</span>';
+    matchBanner.innerHTML = '<strong>Nova combinação</strong><span>SKU e preço sugeridos automaticamente</span>';
     commercialSku.readOnly = false;
     commercialName.readOnly = false;
-    standardPrice.value = 'Novo cadastro';
+    standardPrice.value = money(suggestion);
     if (resetFields) {
-      commercialSku.value = '';
+      commercialSku.value = generatedSku();
       commercialName.value = generatedName();
-      finalPrice.value = '';
+      finalPrice.value = suggestion.toFixed(2);
       priceReason.value = '';
     }
+    skuHelp.hidden = false;
+    priceSuggestion.hidden = false;
+    priceSuggestion.textContent = `Sugestão pela faixa atual: R$ 129,00 para dois pingentes e R$ 30,00 por pingente adicional. Para um pingente, a estimativa é R$ 99,00. O valor pode ser alterado.`;
     newModelHelp.hidden = false;
   }
 }
@@ -151,7 +169,7 @@ function updateFooter() {
   const componentCount = selectedComponents().length;
   const expected = state.boy + state.girl;
   const allColors = expected > 0 && componentCount === expected;
-  const hasCommercialData = model || (commercialSku.value.trim() && commercialName.value.trim());
+  const hasCommercialData = model || (/^\d{6}$/.test(commercialSku.value.trim()) && commercialName.value.trim());
   const hasPrice = Number(finalPrice.value) > 0;
   const changedPriceNeedsReason = !priceReasonField.hidden && !priceReason.value.trim();
   const extraComplete = !state.extra || extraSku.value.trim();
