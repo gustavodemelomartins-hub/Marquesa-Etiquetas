@@ -438,6 +438,70 @@ CREATE INDEX idx_credito_cliente ON credito_movimentos(cliente_id, criado_em);
 | compatível com FIN-101 | crédito **não entra** em `contasAReceber`. São eixos opostos: um é dívida da cliente, outro é dívida da loja |
 | compatível com 5.8 | um recebimento futuro com `forma='credito'` grava um consumo. Nenhum retrabalho |
 
+### As quatro decisões da Sthefany — 13/09/2026, fechadas
+
+A direção arquitetural abaixo deixou de ser proposta em aberto: o ledger está
+**aprovado como direção**, e as duas perguntas comerciais que faltavam foram
+respondidas. Elas não são detalhe de implementação — mudam o que a tabela
+precisa garantir.
+
+**1 · O crédito NÃO EXPIRA.**
+
+Não há 30, 60 nem 90 dias. Não há vencimento automático. O crédito permanece
+disponível até ser **consumido** ou **estornado por um fato válido**.
+
+Consequência para o desenho: o ledger **não ganha coluna de validade**, e
+nenhuma rotina varre saldo para expirá-lo. Uma coluna `expira_em` que nunca
+expira seria pior que a ausência dela — alguém acabaria escrevendo o cron.
+Quando (e se) a regra mudar, ela nasce como um `tipo` novo de movimento
+(`expiracao`), com o fato registrado e explicável, como todo o resto.
+
+**2 · Crédito sempre pertence a uma CLIENTE IDENTIFICADA.**
+
+No fluxo novo não existe "crédito sem cliente". A cadeia inteira já carrega
+identidade, e o crédito é o último elo dela:
+
+```
+venda → cliente
+garantia → venda → cliente
+troca → garantia → cliente
+crédito → cliente
+```
+
+Consequência: `credito_movimentos.cliente_id` é **`NOT NULL`**, e a recusa é
+explícita quando a identidade não existe. Não é uma trava defensiva — é a
+regra de negócio escrita no schema.
+
+**3 · O crédito aparece no PERFIL DA CLIENTE — como projeção, não como fonte.**
+
+Isto é o que a decisão diz, e é preciso lê-lo com cuidado, porque a leitura
+fácil é a errada: "aparecer no perfil" **não** autoriza
+`clientes.saldo_credito` a virar a verdade. A arquitetura continua:
+
+```
+credito_movimentos   = razão / ledger  (a verdade)
+saldo                = SUM(movimentos) (derivado, nunca gravado)
+perfil da cliente    = projeção desse saldo (leitura)
+```
+
+É o que permite explicar, e não apenas exibir: **crédito gerado · crédito
+consumido · crédito estornado · saldo atual**. Um número no cadastro sabe
+dizer "R$ 20"; só a razão sabe dizer de onde vieram e para onde foram. É a
+Regra Fundamental nº 1 aplicada a dinheiro: o que vale para
+`produtos.qtd == SUM(movimentos.qtd)` vale aqui.
+
+**4 · Legado sem cliente confiável vira pendência, não crédito.**
+
+Se houver registro histórico sem cliente identificado com segurança:
+
+- **não** inventar cliente;
+- **não** gerar crédito anônimo;
+- **não** escolher pelo nome (§2 — nome não é identidade).
+
+Classificar como **pendência de reconciliação**, e parar. Isso não abre
+exceção na regra do fluxo novo: crédito exige `cliente_id`. Quantos casos
+assim existem é `PRECISA DE AUDITORIA READ-ONLY FUTURA EM PROD`.
+
 ### Três travas que a proposta impõe
 
 1. **`cliente_id NOT NULL`.** Crédito sem dona é dinheiro perdido. Troca de
@@ -454,7 +518,7 @@ CREATE INDEX idx_credito_cliente ON credito_movimentos(cliente_id, criado_em);
 | Entrega em 5.3e | Fica fora |
 |---|---|
 | migration da tabela | consumo pela tela de venda (`AGUARDANDO HANDOFF CODEX`) |
-| emissão a partir da troca negativa (`pendente_regra` → `credito_emitido`) | validade/expiração do crédito (**decisão de negócio — perguntar à Sthefany**) |
+| emissão a partir da troca negativa (`pendente_regra` → `credito_emitido`) | validade/expiração do crédito — **decidida: não existe** (13/09/2026) |
 | `GET /api/clientes/:id/credito` — saldo derivado + extrato | crédito transferível entre clientes (não pedido) |
 | `GET /api/credito/conferir` — a invariante | crédito como forma de pagamento (5.8) |
 | `POST /api/credito/ajuste` com motivo obrigatório | UI (`AGUARDANDO HANDOFF CODEX`) |
@@ -609,8 +673,9 @@ existente. A única costura é a troca negativa deixar de parar em
 
 | Pendência | Natureza |
 |---|---|
-| o crédito da cliente expira? tem validade? | **decisão de negócio — perguntar à Sthefany** |
-| troca de cliente sem cadastro ou ambígua gera crédito de quem? | **decisão de negócio** — a proposta recusa e anuncia |
+| ~~o crédito da cliente expira?~~ | **RESPONDIDA 13/09/2026 — não expira.** Ver §11 |
+| ~~troca de cliente sem cadastro ou ambígua gera crédito de quem?~~ | **RESPONDIDA 13/09/2026 — crédito exige cliente identificada; o resto é pendência de reconciliação.** Ver §11 |
+| registros históricos sem cliente confiável: quantos são | `PRECISA DE AUDITORIA READ-ONLY FUTURA EM PROD` |
 | quantas vendas reais estão hoje com `valor_recebido` preenchido, e quantas trocas em `pendente_regra` | `PRECISA DE AUDITORIA READ-ONLY FUTURA EM PROD` |
 | quantos meses de faturamento o B1 já distorceu no gráfico | `PRECISA DE AUDITORIA READ-ONLY FUTURA EM PROD` |
 | formas de pagamento, parcelamento, recebimentos múltiplos, layout, fluxo visual do crédito | `AGUARDANDO HANDOFF CODEX` |
