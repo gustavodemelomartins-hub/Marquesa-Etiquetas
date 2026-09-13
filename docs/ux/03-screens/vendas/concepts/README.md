@@ -8,6 +8,7 @@ comportamento ativo em produção.
 
 - [Abrir o protótipo](monte-seu-colar-simples.html)
 - [Captura mobile](monte-seu-colar-simples-mobile.png)
+- [Captura das cores compactas](monte-seu-colar-cores-compactas.png)
 - [Captura de combinação nova](monte-seu-colar-nova-combinacao-mobile.png)
 - [Teste de navegador](verify-monte-seu-colar-simples.mjs)
 

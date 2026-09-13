@@ -74,16 +74,19 @@ function syncArray(type) {
 }
 
 function renderColorRows() {
-  const rows = [];
+  const groups = [];
   ['boy', 'girl'].forEach((type) => {
     const title = type === 'boy' ? 'Menino' : 'Menina';
-    state[`${type}Colors`].forEach((value, index) => {
+    const plural = type === 'boy' ? 'Meninos' : 'Meninas';
+    const cards = state[`${type}Colors`].map((value, index) => {
+      const selected = colors[type].find((color) => color.sku === value);
       const options = colors[type].map((color) => `<option value="${color.sku}" ${color.sku === value ? 'selected' : ''}>${color.label} · SKU ${color.sku} · ${color.stock} disp.</option>`).join('');
-      rows.push(`<div class="color-row"><span>${rows.length + 1}</span><label><strong>${title} ${index + 1}</strong><small>Peça física</small></label><select data-color-type="${type}" data-color-index="${index}" aria-label="Cor de ${title} ${index + 1}"><option value="">Escolha a cor</option>${options}</select></div>`);
+      return `<article class="color-card ${selected ? 'is-selected' : ''}" style="--gem:${selected?.gem || '#e7dadd'}"><header><i class="mini-child ${type === 'girl' ? 'girl' : ''}" aria-hidden="true"></i><div><strong>${title} ${index + 1}</strong><small>${selected?.label || 'Sem cor'}</small></div></header><select data-color-type="${type}" data-color-index="${index}" aria-label="Cor de ${title} ${index + 1}"><option value="">Escolha a cor</option>${options}</select></article>`;
     });
+    if (cards.length) groups.push(`<section class="color-group" data-color-group="${type}"><div class="color-group-title"><strong>${plural}</strong><span>${cards.length} ${cards.length === 1 ? 'peça' : 'peças'}</span></div><div class="color-card-grid">${cards.join('')}</div></section>`);
   });
-  colorList.innerHTML = rows.join('');
-  colorSection.hidden = rows.length === 0;
+  colorList.innerHTML = groups.join('');
+  colorSection.hidden = groups.length === 0;
 }
 
 function selectedComponents() {
@@ -236,6 +239,11 @@ colorList.addEventListener('change', (event) => {
   const select = event.target.closest('[data-color-type]');
   if (!select) return;
   state[`${select.dataset.colorType}Colors`][Number(select.dataset.colorIndex)] = select.value;
+  const selected = colors[select.dataset.colorType].find((item) => item.sku === select.value);
+  const card = select.closest('.color-card');
+  card.classList.toggle('is-selected', !!selected);
+  card.style.setProperty('--gem', selected?.gem || '#e7dadd');
+  card.querySelector('header small').textContent = selected?.label || 'Sem cor';
   renderPreview();
   updateFooter();
 });

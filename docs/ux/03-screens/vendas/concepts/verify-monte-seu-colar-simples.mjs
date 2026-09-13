@@ -31,6 +31,9 @@ try {
   check(await compactText(page.locator('[data-count="boy"]')) === '2', 'contador escolhe duas unidades de menino');
   check(await compactText(page.locator('[data-count="girl"]')) === '1', 'contador escolhe uma unidade de menina');
   check(await page.locator('[data-color-type]').count() === 3, 'quantidades geram uma escolha de cor por peça');
+  check(await page.locator('[data-color-group]').count() === 2, 'cores ficam agrupadas entre Meninos e Meninas');
+  check((await page.locator('.color-card-grid').first().evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)) === 3, 'mobile preserva três mini-cards por linha');
+  check((await page.locator('.color-card').first().boundingBox()).height <= 110, 'mini-card mobile permanece compacto');
   check(await page.locator('[data-commercial-sku]').inputValue() === '314161', 'combinação reconhece o SKU comercial existente');
   check(await page.locator('[data-commercial-sku]').getAttribute('readonly') !== null, 'SKU conhecido não pode ser rebatizado por engano');
   check((await compactText(page.locator('[data-match-banner]'))).includes('Modelo reconhecido'), 'interface explica o reconhecimento');
@@ -71,6 +74,22 @@ try {
   check(!(await page.locator('[data-add-sale]').isDisabled()), 'SKU, nome, preço e peça extra completos liberam a nova configuração');
   await page.addStyleTag({ content: '.concept-header{position:relative!important}.sale-footer{position:static!important}body{padding-bottom:0!important}' });
   await page.screenshot({ path: 'docs/ux/03-screens/vendas/concepts/monte-seu-colar-nova-combinacao-mobile.png', fullPage: true });
+
+  const widePage = await browser.newPage({ viewport: { width: 858, height: 800 }, deviceScaleFactor: 1 });
+  await widePage.goto(fileUrl);
+  const wideBoy = widePage.locator('[data-quantity="boy"][data-delta="1"]');
+  const wideGirl = widePage.locator('[data-quantity="girl"][data-delta="1"]');
+  await wideBoy.click({ clickCount: 2 });
+  await wideGirl.click({ clickCount: 4 });
+  check(await widePage.locator('.color-card').count() === 6, 'seis peças viram seis mini-cards, sem linhas gigantes');
+  check(await widePage.locator('[data-color-group="boy"] .color-card').count() === 2, 'grupo Meninos mantém duas escolhas independentes');
+  check(await widePage.locator('[data-color-group="girl"] .color-card').count() === 4, 'grupo Meninas mantém quatro escolhas independentes');
+  check((await widePage.locator('.color-card-grid').last().evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)) === 3, 'largura da referência usa três mini-cards por linha');
+  await widePage.locator('[data-color-type="boy"][data-color-index="0"]').selectOption('329494');
+  await widePage.locator('[data-color-type="girl"][data-color-index="0"]').selectOption('263236');
+  await widePage.addStyleTag({ content: '.concept-header{position:relative!important}.sale-footer{position:static!important}body{padding-bottom:0!important}' });
+  await widePage.screenshot({ path: 'docs/ux/03-screens/vendas/concepts/monte-seu-colar-cores-compactas.png', fullPage: true });
+  await widePage.close();
 
   console.log(`ok ${checks.length} verificações`);
 } finally {

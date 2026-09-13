@@ -121,13 +121,23 @@ main { width: min(1040px, calc(100% - 32px)); margin: 18px auto 32px; }
 .stepper button { width: 32px; height: 36px; padding: 0; border: 0; background: transparent; color: var(--wine); cursor: pointer; font-size: 20px; }
 .stepper output { text-align: center; font-size: 13px; font-weight: 700; }
 
-.color-list { display: grid; gap: 8px; }
-.color-row { display: grid; grid-template-columns: 34px minmax(95px, .7fr) minmax(140px, 1.3fr); align-items: center; gap: 9px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px; background: white; }
-.color-row > span { display: grid; width: 28px; height: 28px; place-items: center; border: 1px solid var(--petal); border-radius: 50%; color: var(--wine); font-size: 10px; font-weight: 700; }
-.color-row label strong, .color-row label small { display: block; }
-.color-row label strong { font-size: 11px; }
-.color-row label small { color: var(--muted); font-size: 9px; }
-.color-row select { width: 100%; height: 40px; padding: 0 32px 0 11px; border: 1px solid var(--petal); border-radius: 8px; background: var(--blush); color: var(--ink); font-size: 11px; }
+.color-list { display: grid; gap: 14px; }
+.color-group-title { display: flex; align-items: baseline; justify-content: space-between; margin: 0 2px 7px; }
+.color-group-title strong { font-size: 11px; }
+.color-group-title span { color: var(--muted); font-size: 9px; }
+.color-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.color-card { min-width: 0; min-height: 112px; padding: 9px; border: 1px solid var(--line); border-radius: 11px; background: white; }
+.color-card.is-selected { border-color: var(--petal); background: var(--blush); box-shadow: inset 0 3px var(--gem); }
+.color-card header { display: flex; min-width: 0; align-items: center; gap: 7px; margin-bottom: 8px; }
+.color-card header div { min-width: 0; }
+.color-card header strong, .color-card header small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.color-card header strong { font-size: 10px; }
+.color-card header small { margin-top: 1px; color: var(--muted); font-size: 8px; }
+.mini-child { position: relative; width: 27px; height: 31px; flex: 0 0 27px; }
+.mini-child::before { position: absolute; top: 1px; left: 9px; width: 8px; height: 8px; border: 1px solid var(--gold); border-radius: 50%; background: var(--gem); content: ""; }
+.mini-child::after { position: absolute; top: 12px; left: 5px; width: 16px; height: 16px; border: 1px solid var(--gold); border-radius: 6px 6px 4px 4px; background: color-mix(in srgb, var(--gem) 72%, white); content: ""; }
+.mini-child.girl::after { left: 3px; width: 20px; border-radius: 6px 6px 9px 9px; clip-path: polygon(29% 0, 71% 0, 100% 100%, 0 100%); }
+.color-card select { width: 100%; height: 38px; padding: 0 24px 0 8px; border: 1px solid var(--petal); border-radius: 7px; background: white; color: var(--ink); font-size: 9px; }
 
 .extra-section { padding: 14px 22px; border-bottom: 1px solid var(--line); }
 .extra-trigger { display: grid; grid-template-columns: 34px minmax(0, 1fr); width: 100%; align-items: center; gap: 0 10px; padding: 6px 0; border: 0; background: transparent; cursor: pointer; text-align: left; }
@@ -208,8 +218,12 @@ main { width: min(1040px, calc(100% - 32px)); margin: 18px auto 32px; }
   .section-copy h2 { font-size: 22px; }
   .quantity-grid { grid-template-columns: 1fr; gap: 7px; }
   .quantity-choice { min-height: 68px; padding: 8px 9px; }
-  .color-row { grid-template-columns: 31px 82px minmax(0, 1fr); gap: 6px; padding: 7px; }
-  .color-row select { padding-inline: 8px 24px; font-size: 10px; }
+  .color-list { gap: 12px; }
+  .color-card-grid { gap: 6px; }
+  .color-card { min-height: 104px; padding: 7px; }
+  .color-card header { display: block; margin-bottom: 6px; }
+  .mini-child { display: none; }
+  .color-card select { height: 36px; padding-left: 6px; font-size: 8px; }
   .extra-section { padding: 12px; }
   .extra-fields { grid-template-columns: 1fr; }
   .commercial-fields { grid-template-columns: 1fr 1fr; gap: 8px; }
