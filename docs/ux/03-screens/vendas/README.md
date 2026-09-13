@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Estado do material | **UX/UI EM REFINAMENTO — design principal avançado, interações pendentes** |
-| Última atualização | 11/09/2026 |
+| Última atualização | 13/09/2026 |
 | Referências recebidas | 8 mockups próprios |
 | Existe hoje no legado? | sim |
 | Existe hoje no React? | ver [07-mapping/frontend-feature-map.md](../../07-mapping/frontend-feature-map.md) |
@@ -54,6 +54,7 @@ desconto, estorno, saída sem faturamento e exportação ainda estão abertas.
 | Arquivo | Guarda |
 |---|---|
 | `images/` | prints, mockups e protótipos desta tela |
+| [`concepts/`](concepts/) | propostas isoladas em avaliação; não substituem o protótipo mestre nem regras vigentes |
 | [states.md](states.md) | estados de UI: vazio, carregando, erro, parcial, sucesso |
 | [rules.md](rules.md) | regra de negócio que a tela precisa respeitar |
 | [metrics.md](metrics.md) | número exibido e como é calculado |
