@@ -507,13 +507,13 @@
         {
           "bin": "node",
           "args": [
-            "src/fin-101-caracterizacao-test.mjs"
+            "src/fin-101-5-3a-test.mjs"
           ]
         },
         {
           "bin": "node",
           "args": [
-            "src/fin-101-5-3a-test.mjs"
+            "src/fin-101-5-3b-test.mjs"
           ]
         },
         {

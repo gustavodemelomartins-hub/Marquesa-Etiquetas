@@ -22,6 +22,8 @@ import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import { normSku } from './sku.js';
 import { novoVendaItemId } from './venda-item-id.js';
+/* 5.3b — "a venda foi paga" tem um dono só. Ver `pagamento-venda.js`. */
+import { quitarVenda, desfazerPagamentoVenda } from './pagamento-venda.js';
 /* §43 — Monte seu Colar: base + componentes + configuração da venda. */
 import {
   prepararPersonalizacoes, gravarPersonalizacoes, personalizacoesDeVendas,
@@ -454,123 +456,74 @@ export async function registrarVenda(db, env, {
  *    · não mexe na Nuvemshop, nos itens nem no total.
  */
 export async function registrarPagamentoVenda(db, id, corpo = {}) {
-  const v = await db.prepare('SELECT * FROM vendas WHERE id = ?').bind(id).first();
-  if (!v) return json({ erro: 'Venda não encontrada' }, 404);
-  if (v.cancelada) return json({ erro: 'Venda cancelada não recebe pagamento.' }, 409);
-
-  /* `pago: false` desfaz — é o caminho de volta de quem marcou por engano.
-     Ele limpa a data junto, senão sobraria uma data de pagamento numa venda
-     que não foi paga, e o faturamento continuaria a enxergá-la. */
+  /* 5.3b — esta rota deixou de ter SQL próprio. Ela continua sendo a porta
+     que o Painel legado chama (no dia e no perfil da cliente) e devolve
+     exatamente o mesmo corpo de sempre; o que mudou é que quem escreve é o
+     núcleo, o mesmo de `receberConta` e de `pagarDiferencaTroca`. */
   const querPagar = corpo.pago === undefined ? true : !!corpo.pago;
 
   if (!querPagar) {
-    if (!v.pago) return json({ erro: 'Esta venda já está como NÃO PAGA.' }, 409);
-
-    /* §36.4 — PAGO e COBRÁVEL são duas dimensões, e desfazer só mexe na
-       primeira. A regra: **desfazer nunca ELEVA `cobravel`.**
-     *
-     *  Ele volta a 1 quando o pagamento desfeito tinha sido declarado por
-     *  uma PESSOA daqui (`informado`) — é o caminho de volta de quem marcou
-     *  pago por engano, e a mesma autoridade que declarou é a que agora se
-     *  corrige. A cliente volta a dever o que devia, e nada foi inventado.
-     *
-     *  Quando quem declarou foi a LOJA, não. O caminho real é este: o
-     *  pedido foi pago, a loja o reembolsou, e `atualizarPagamentoDaVenda`
-     *  RECUSOU aplicar o estorno sozinha — está escrito lá que isso
-     *  removeria faturamento já contado e que a política contábil para o
-     *  caso não existe. A pessoa então desfaz na mão. Tirar o dinheiro do
-     *  faturamento é exatamente o que esta rota serve para fazer; criar do
-     *  outro lado uma dívida de quem já foi reembolsado seria escrever
-     *  sozinho a metade cobrável daquela política que ninguém definiu.
-     *  §36.4 já diz a frase inteira: status técnico da loja não vira
-     *  dívida de ninguém.
-     *
-     *  Nesses casos `cobravel` já é 0, então "não elevar" é literalmente
-     *  preservar a coluna. A venda fica pago = 0 e cobravel = 0: fora do
-     *  faturamento e fora do A Receber, que é a mesma forma de
-     *  `indeterminado_site` — ausência de informação vira ausência de
-     *  número dos dois lados.
-     *
-     *  `pagamento_origem` volta a NULL como sempre voltou, e isso é o que
-     *  devolve a venda para a sincronização: sem o carimbo `informado`, a
-     *  rodada seguinte pode reescrever o estado verdadeiro da loja
-     *  (`nuvemshop_reembolsado`, ou `paid` de novo) em vez de ser recusada. */
-    const declaradoPorPessoa = v.pagamento_origem === 'informado';
-    const cobravel = declaradoPorPessoa ? 1 : Number(v.cobravel);
-
-    const r = await db.prepare(
-      `UPDATE vendas SET pago = 0, data_pagamento = NULL, pagamento_origem = NULL,
-              valor_recebido = NULL, cobravel = ?
-        WHERE id = ? RETURNING *`,
-    ).bind(cobravel, id).first();
+    const r = await desfazerPagamentoVenda(db, id, {
+      motivo: String(corpo.observacao ?? '').trim() || null,
+    });
+    if (!r.ok) return json({ erro: r.erro }, r.statusHttp);
     return json({
-      ok: true,
-      id: r.id,
-      pago: false,
-      data: r.data,
-      dataPagamento: null,
-      /* Dito na resposta para nenhuma tela precisar deduzir por que o valor
-         saiu do faturamento sem aparecer no A Receber. §9. */
-      cobravel,
-      aReceber: cobravel ? Number(r.total) : 0,
-      porque: declaradoPorPessoa
-        ? 'o pagamento tinha sido registrado aqui por uma pessoa: desfazê-lo devolve a venda '
-          + 'para conta a receber, pelo valor inteiro'
-        : `o pagamento foi declarado pela loja (${v.pagamento_origem ?? 'sem carimbo'}), não por `
-          + 'uma pessoa. A venda sai do faturamento e NÃO vira conta a receber: §36.4 — estado '
-          + 'técnico da loja não é dívida de ninguém, e a política de reembolso ainda não existe.',
+      ok: true, id: r.vendaId, pago: false, data: r.data, dataPagamento: null,
+      cobravel: r.cobravel,
+      aReceber: r.aReceber,
+      porque: r.porque,
+      /* §36 — quando esta venda representa a diferença de uma troca, desfazer
+         o pagamento REABRE a diferença. As duas tabelas voltam juntas ou
+         voltam mentindo uma sobre a outra. */
+      garantiaId: r.garantiaId,
+      diferencaReaberta: r.diferencaReaberta,
       estoqueAlterado: false,
     });
   }
 
-  if (v.pago) {
+  const r = await quitarVenda(db, id, {
+    pagaEm: corpo.dataPagamento ? String(corpo.dataPagamento).trim() : null,
+    observacao: String(corpo.observacao ?? '').trim() || null,
+  });
+  if (!r.ok) {
+    /* A mensagem de data inválida desta rota sempre citou o formato por
+       extenso; o núcleo usa uma redação só para as três portas. O código HTTP
+       não mudou. */
+    return json({ erro: r.erro }, r.statusHttp);
+  }
+  if (r.jaEstavaPaga) {
+    /* Esta porta sempre recusou o segundo clique com 409 e a data, e continua
+       recusando: quem aperta um botão merece saber que o fato já estava
+       gravado. `receberConta` devolve 200 com `jaEstavaPaga` porque é uma
+       lista que pode ser reprocessada. A diferença é de CONTRATO HTTP; o
+       banco fica idêntico nos dois caminhos, e nenhum dos dois escreve. */
     return json({
-      erro: `Esta venda já está paga${v.data_pagamento ? ` em ${v.data_pagamento}` : ''}.`,
-      dataPagamento: v.data_pagamento ?? null,
+      erro: `Esta venda já está paga${r.pagaEm ? ` em ${r.pagaEm}` : ''}.`,
+      dataPagamento: r.pagaEm,
     }, 409);
   }
 
-  const dataPagamento = corpo.dataPagamento ? String(corpo.dataPagamento).trim() : hoje();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataPagamento)) {
-    return json({ erro: 'Data do pagamento inválida. Use o formato AAAA-MM-DD.' }, 400);
-  }
-  if (dataPagamento > hoje()) {
-    return json({ erro: `${dataPagamento} ainda não chegou.` }, 400);
-  }
-  if (dataPagamento < v.data) {
-    return json({
-      erro: `O pagamento (${dataPagamento}) é anterior à venda (${v.data}). Confira as duas datas.`,
-    }, 400);
-  }
-
-  const r = await db.prepare(
-    /* §36.4: pago por inteiro zera o que se tem a receber, e limpa qualquer
-       parcial que existisse — o saldo virou zero, não sobra metade. */
-    `UPDATE vendas SET pago = 1, data_pagamento = ?, pagamento_origem = 'informado',
-            valor_recebido = NULL, cobravel = 0,
-            observacao = COALESCE(?, observacao)
-      WHERE id = ? RETURNING *`,
-  ).bind(dataPagamento, String(corpo.observacao ?? '').trim() || null, id).first();
-
   return json({
     ok: true,
-    id: r.id,
+    id: r.vendaId,
     pago: true,
     /* As duas datas, lado a lado, porque são duas coisas diferentes e é
        exatamente essa distinção que a rota existe para tornar possível. */
     data: r.data,
-    dataPagamento: r.data_pagamento,
-    faturamentoEm: r.data_pagamento,
+    dataPagamento: r.pagaEm,
+    faturamentoEm: r.pagaEm,
     /* A data foi DITA por alguém, não deduzida. É a distinção que §1 da
        revisão exige que nunca se perca. */
-    pagamentoOrigem: r.pagamento_origem,
-    valor: Number(r.total),
+    pagamentoOrigem: 'informado',
+    valor: r.total,
     aReceber: 0,
+    /* 5.3b — o que o núcleo fez além de marcar a venda, dito em voz alta. */
+    garantiaId: r.garantiaId,
+    eventoDeGarantiaRegistrado: r.eventoDeGarantiaRegistrado,
+    parcialAnteriorPreservadoEmObservacao: r.parcialAnteriorPreservadoEmObservacao,
     estoqueAlterado: false,
   });
 }
-
-
 
 
 /** Os movimentos que devolvem UMA composição ao estoque.

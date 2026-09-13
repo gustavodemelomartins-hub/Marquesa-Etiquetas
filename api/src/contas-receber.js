@@ -34,7 +34,8 @@
  *  Nada aqui escreve em estoque. Receber dinheiro não faz peça sair.
  */
 import { listarContasReceber, definirVencimento, marcarContaPaga } from './historico-operacoes.js';
-import { pagarDiferencaTroca, registrarPagamentoDaDiferenca } from './garantias.js';
+import { pagarDiferencaTroca } from './garantias.js';
+import { quitarVenda } from './pagamento-venda.js';
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const dataIsoValida = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
@@ -245,83 +246,35 @@ export async function receberConta(db, { chave, confirmar = false, versaoEsperad
   if (p.tipo === 'historico') return marcarContaPaga(db, p.id, { confirmar, versaoEsperada });
   if (p.tipo === 'troca') return pagarDiferencaTroca(db, p.id, { pagaEm: data });
 
-  /* Venda: a MESMA regra de §29 — grava a data do pagamento, não toca em
-     `data`, não chama `movimentar`. A peça saiu quando a venda foi
-     registrada; receber o dinheiro não a faz sair de novo. */
-  const v = await db.prepare('SELECT * FROM vendas WHERE id = ?').bind(p.id).first();
-  if (!v) return { ok: false, statusHttp: 404, erro: 'Venda não encontrada.' };
-  if (v.cancelada) return { ok: false, statusHttp: 409, erro: 'Venda cancelada não recebe pagamento.' };
-  if (v.pago) return { ok: true, jaEstavaPaga: true, chave };
-  if (data < v.data) {
-    return {
-      ok: false, statusHttp: 400,
-      erro: `O pagamento (${data}) é anterior à venda (${v.data}). Confira as duas datas.`,
-    };
-  }
-
-  /* A venda que nasceu de uma troca tem duas linhas para fechar: a venda e a
-     `garantia_trocas`. Fecham juntas, no mesmo batch, ou o Painel mostraria
-     a diferença como paga num lugar e em aberto no outro. */
-  const troca = await db.prepare(
-    `SELECT id, garantia_id, diferenca, diferenca_status FROM garantia_trocas
-      WHERE venda_id = ? AND estornada = 0`,
-  ).bind(p.id).first().catch(() => null);
-
-  const escritas = [
-    db.prepare(
-      `UPDATE vendas
-          SET pago = 1, data_pagamento = ?, pagamento_origem = 'informado', cobravel = 0
-        WHERE id = ? AND pago = 0`,
-    ).bind(data, p.id),
-  ];
-  if (troca) {
-    escritas.push(db.prepare(
-      `UPDATE garantia_trocas
-          SET diferenca_status = 'paga', diferenca_paga_em = ?, diferenca_valor_pago = ?,
-              atualizado_em = datetime('now')
-        WHERE id = ? AND diferenca_status = 'a_receber'`,
-    ).bind(data, dinheiro(troca.diferenca), troca.id));
-  }
-  await db.batch(escritas);
-
-  /* 5.4c — esta é a porta por onde a diferença de uma troca é recebida de
-     verdade: desde §36 ela aparece no A Receber como VENDA, e nenhuma tela
-     chama a rota da garantia. O dinheiro já fechava nos dois lugares; o que
-     faltava era a linha do tempo do CASO registrar o fato.
+  /* 5.3b — VENDA: esta porta deixou de ter SQL próprio.
    *
-   *  Só entra aqui o que é mesmo diferença de troca: `troca` só existe quando
-   *  há uma linha de `garantia_trocas` apontando para esta venda. Venda de
-   *  balcão e conta histórica passam direto — a histórica nem chega aqui,
-   *  sai antes por `marcarContaPaga`.
-   *
-   *  Escrever o evento NÃO pode derrubar um recebimento que já gravou: o
-   *  dinheiro está no banco, e um histórico incompleto é melhor que uma
-   *  cobrança perdida. §9 — a falha é dita, não engolida. */
-  let eventoGravado = false;
-  if (troca) {
-    try {
-      eventoGravado = await registrarPagamentoDaDiferenca(db, Number(troca.garantia_id), {
-        trocaId: Number(troca.id),
-        valor: dinheiro(troca.diferenca),
-        pagaEm: data,
-        vendaId: p.id,
-      });
-    } catch (e) {
-      console.error('receberConta: diferença paga, mas o evento da garantia não gravou', e);
-    }
-  }
+   *  Ela escrevia `vendas` e `garantia_trocas` com o seu batch, e
+   *  `registrarPagamentoVenda` escrevia `vendas` com outro. As duas eram
+   *  corretas cada uma por si e discordavam entre si: uma fechava a troca, a
+   *  outra não; uma preservava um parcial conhecido, a outra o apagava. O
+   *  núcleo em `pagamento-venda.js` é o dono do fato agora, e as três portas
+   *  passam por ele. §29 continua valendo e continua dito na resposta: a peça
+   *  saiu quando a venda foi registrada, e receber o dinheiro não a faz sair
+   *  de novo. */
+  const r = await quitarVenda(db, p.id, { pagaEm: data });
+  if (!r.ok) return r;
+  if (r.jaEstavaPaga) return { ok: true, jaEstavaPaga: true, chave };
 
   return {
     ok: true,
     chave,
-    vendaId: p.id,
-    pagaEm: data,
-    faturamentoEm: data,
-    garantiaId: troca ? Number(troca.garantia_id) : null,
+    vendaId: r.vendaId,
+    pagaEm: r.pagaEm,
+    faturamentoEm: r.pagaEm,
+    garantiaId: r.garantiaId,
     /* Dito em voz alta para a tela não precisar deduzir se o caso foi
        atualizado: `false` numa conta comum, e numa retentativa de uma
        diferença que já tinha evento. */
-    eventoDeGarantiaRegistrado: eventoGravado,
+    eventoDeGarantiaRegistrado: r.eventoDeGarantiaRegistrado,
+    /* 5.3b — quando havia um parcial conhecido, ele foi levado ao total e a
+       nota ficou na observação da venda. Não há coleção de recebimentos até
+       a 5.8, e o sistema não finge que há. */
+    parcialAnteriorPreservadoEmObservacao: r.parcialAnteriorPreservadoEmObservacao,
     /* §29 dito na resposta, para nenhuma tela precisar deduzir. */
     estoqueTocado: false,
   };

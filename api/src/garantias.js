@@ -56,6 +56,12 @@ import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import { parametros } from './plataforma/d1.js';
 import { normSku } from './sku.js';
 import { novoVendaItemId } from './venda-item-id.js';
+/* 5.3b — a linha do tempo da garantia mora em `garantia-eventos.js`, e o
+   "a venda foi paga" mora em `pagamento-venda.js`. As duas saídas existem
+   para que as TRÊS portas de pagamento escrevam pelo mesmo código; ver o
+   cabeçalho de `pagamento-venda.js` para o grafo de dependências. */
+import { evento, registrarPagamentoDaDiferenca } from './garantia-eventos.js';
+import { quitarVenda } from './pagamento-venda.js';
 
 const STATUS = new Set(['em_reparo', 'reparada', 'devolvida', 'sem_conserto', 'concluida', 'cancelada']);
 /** Os que ainda pedem alguma coisa de alguém. São estes que o Painel mostra;
@@ -659,46 +665,6 @@ export async function reabrirGarantia(db, id, corpo = {}) {
   };
 }
 
-async function evento(db, garantiaId, { tipo, data, statusNovo = null, observacao = null, dados = {} }) {
-  await db.prepare(
-    `INSERT INTO garantia_eventos (garantia_id, tipo, data, status_novo, observacao, dados_json)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).bind(garantiaId, tipo, data, statusNovo, observacao, JSON.stringify(dados ?? {})).run();
-}
-
-/** 5.4c — a diferença foi paga, e a linha do tempo da garantia tem de dizer.
- *
- *  Existem DUAS portas para esse mesmo fato: `pagarDiferencaTroca`, aqui, e a
- *  tela A Receber, que desde §36 recebe a diferença como se fosse uma venda
- *  qualquer — e é por ela que isso acontece de verdade, porque nenhuma tela
- *  chama a rota da garantia. Só a primeira escrevia o evento. O dinheiro
- *  fechava nos dois lugares e a história do caso ficava mentindo por omissão.
- *
- *  Esta função é o ponto único das duas portas. Ela é IDEMPOTENTE por
- *  construção: o evento é único por TROCA, não por garantia. A distinção
- *  importa — depois de um estorno a garantia pode receber uma troca nova, e
- *  o pagamento dessa segunda troca é um fato novo, que merece a própria
- *  linha. Repetir a chamada para a MESMA troca não escreve nada.
- *
- *  Devolve `true` quando gravou, `false` quando já havia. */
-export async function registrarPagamentoDaDiferenca(db, garantiaId, {
-  trocaId, valor, pagaEm, vendaId = null, observacao = null,
-}) {
-  const jaTem = await db.prepare(
-    `SELECT id FROM garantia_eventos
-      WHERE garantia_id = ? AND tipo = 'diferenca_paga'
-        AND json_extract(dados_json, '$.trocaId') = ?
-      LIMIT 1`,
-  ).bind(garantiaId, trocaId).first();
-  if (jaTem) return false;
-
-  await evento(db, garantiaId, {
-    tipo: 'diferenca_paga', data: pagaEm, observacao,
-    dados: { trocaId, valor, de: 'a_receber', para: 'paga', vendaId },
-  });
-  return true;
-}
-
 /* ═════════════════════════════════════════════════════════ mudança de status */
 
 export async function mudarStatusGarantia(db, id, corpo = {}) {
@@ -1094,44 +1060,59 @@ export async function pagarDiferencaTroca(db, id, corpo = {}) {
     };
   }
 
-  /* §36 — a troca com registro comercial tem DUAS linhas para fechar, e
-     elas fecham juntas ou o dinheiro fica contado pela metade. O `batch`
-     é o que garante isso: ou as duas gravam, ou nenhuma.
-     A venda NÃO tem estoque tocado aqui — a peça saiu no dia da troca, e
-     receber a diferença não a faz sair de novo (§29). */
-  const escritas = [
-    db.prepare(
-      `UPDATE garantia_trocas
-          SET diferenca_status = 'paga', diferenca_paga_em = ?, diferenca_valor_pago = ?,
-              atualizado_em = datetime('now')
-        WHERE id = ?`,
-    ).bind(pagaEm, valor, troca.id),
-  ];
+  /* 5.3b — a troca COM registro comercial (§36) não é fechada aqui.
+   *
+   *  Ela é uma venda, e "a venda foi paga" tem um dono só desde 5.3b:
+   *  `quitarVenda`. Era esta função uma das três que escreviam o mesmo fato
+   *  com SQL próprio — e a única razão de elas concordarem hoje era alguém
+   *  ter lembrado de copiar a regra nas três. Agora ela chama o núcleo, que
+   *  fecha `vendas` e `garantia_trocas` no mesmo batch e escreve o evento.
+   *
+   *  A troca ANTERIOR a §36 — sem `venda_id` — não tem venda para quitar, e
+   *  continua fechando por aqui, que é o único lugar que sabe fazê-lo. */
   if (troca.venda_id) {
-    escritas.push(db.prepare(
-      `UPDATE vendas
-          SET pago = 1, data_pagamento = ?, pagamento_origem = 'informado', cobravel = 0
-        WHERE id = ? AND pago = 0`,
-    ).bind(pagaEm, troca.venda_id));
+    const r = await quitarVenda(db, troca.venda_id, {
+      pagaEm,
+      observacao: String(corpo.observacao ?? '').trim() || null,
+    });
+    if (!r.ok) return r;
+    return {
+      ok: true,
+      garantia: await lerGarantia(db, id),
+      faturamento: valor,
+      dataFaturamento: pagaEm,
+      vendaId: troca.venda_id,
+      porOndeFatura: 'venda',
+      estoqueAlterado: false,
+    };
   }
-  await db.batch(escritas);
+
+  /* A peça saiu no dia da troca; receber a diferença não a faz sair de novo
+     (§29). Nada aqui toca estoque. */
+  await db.prepare(
+    `UPDATE garantia_trocas
+        SET diferenca_status = 'paga', diferenca_paga_em = ?, diferenca_valor_pago = ?,
+            atualizado_em = datetime('now')
+      WHERE id = ? AND diferenca_status = 'a_receber'`,
+  ).bind(pagaEm, valor, troca.id).run();
 
   await registrarPagamentoDaDiferenca(db, id, {
-    trocaId: troca.id, valor, pagaEm, vendaId: troca.venda_id ?? null,
+    trocaId: troca.id, valor, pagaEm, vendaId: null,
     observacao: String(corpo.observacao ?? '').trim() || null,
   });
 
   return {
     ok: true,
     garantia: await lerGarantia(db, id),
-    /* O número que entra no faturamento de `pagaEm`: só a diferença.
-       Quando a troca tem registro comercial, ele entra PELA VENDA — o
-       `receitaDiferencaTroca` de analytics.js ignora estas, justamente para
-       o mesmo real não ser somado duas vezes. */
+    /* O número que entra no faturamento de `pagaEm`: só a diferença. Esta é
+       a troca SEM venda ligada, e é a única que `receitaDiferencaTroca` de
+       analytics.js soma — as de §36 faturam pela venda, e somar as duas
+       contaria o mesmo real duas vezes. */
     faturamento: valor,
     dataFaturamento: pagaEm,
-    vendaId: troca.venda_id ?? null,
-    porOndeFatura: troca.venda_id ? 'venda' : 'diferenca_troca',
+    vendaId: null,
+    porOndeFatura: 'diferenca_troca',
+    estoqueAlterado: false,
   };
 }
 

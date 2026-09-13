@@ -15,11 +15,15 @@ rodando**. Cinco foram caracterizados; dois deles (B1 e B5) já foram
 corrigidos em 5.3a e viraram rede de regressão.
 
 ```
-node src/fin-101-caracterizacao-test.mjs   # o que ainda está errado — B2, B3, B4
-node src/fin-101-5-3a-test.mjs             # o que foi consertado, e não volta
+node src/fin-101-5-3a-test.mjs   # B1 e B5, e a invariante KPI ≡ série
+node src/fin-101-5-3b-test.mjs   # B2, B3 e B4, e a convergência das três portas
 ```
 
-Os dois rodam nos gates `domain` e `release`.
+Os dois rodam nos gates `domain` e `release`. O teste de caracterização que
+provou os cinco defeitos foi **aposentado em 5.3b**, quando o último deles
+deixou de existir: um defeito consertado não fica caracterizado em lugar
+nenhum — ou vira regra testada, ou não é nada. Ele continua no histórico do
+Git, no commit da 5.3a.
 
 ---
 
@@ -182,7 +186,9 @@ loja. Um clique errado é irreversível pelo lado do sync.
 
 ## 6. Bugs encontrados
 
-Todos com prova executável em `src/fin-101-caracterizacao-test.mjs`.
+Todos foram provados rodando, num teste de caracterização escrito antes de
+qualquer correção. À medida que cada defeito foi consertado, a prova dele
+migrou para a suíte de regressão da subfase correspondente (§19, §20).
 
 ### B1 · `evolucao()` conta a diferença de troca duas vezes — **monetário** · `CORRIGIDO EM 5.3a`
 
@@ -329,7 +335,7 @@ centavo que não existe. É exatamente o que a especificação do Codex
 | `src/migracao-pagamento-test.mjs` | backfill `pago`/`data_pagamento` |
 | `src/sync-pagamento-test.mjs` · `src/pagamento-nuvemshop-test.mjs` | `pagamentoDoPedido`, carimbos, parcial, `atualizarPagamentoDaVenda` |
 | `src/revisao-pre-golive-test.mjs` | `auditoriaPagamentos` |
-| `src/fin-101-caracterizacao-test.mjs` | **novo** — B1 a B5 |
+| `src/fin-101-5-3a-test.mjs` · `src/fin-101-5-3b-test.mjs` | as regressões que nasceram daquelas caracterizações |
 
 A cobertura por fonte é boa. A cobertura **entre** fontes e **entre leituras**
 é o que não existe.
@@ -545,7 +551,7 @@ de quatro para um — senão 5.8 terá quatro migrações em vez de uma.
 | Subfase | Escopo | Depende de |
 |---|---|---|
 | ~~**5.3a**~~ | **FEITA.** B1 e B5 corrigidos, com a invariante KPI ≡ série virando teste. Ver §19 | — |
-| **5.3b** | **uma porta só.** `registrarPagamentoVenda` delega a `receberConta`; o contrato HTTP de `/api/vendas/:id/pagamento` fica idêntico. Fecha B2, B3, B4. Preserva `valor_recebido` e grava `valor_recebido_anterior` no caminho do parcial | 5.3a |
+| ~~**5.3b**~~ | **FEITA.** Um núcleo, três portas. B2, B3 e B4 fechados, e a semântica de `valor_recebido` definida. Ver §20 | — |
 | **5.3c** | paridade de concorrência e idempotência: `versaoEsperada` para `venda` e `troca`; `pagarDiferencaTroca` idempotente (B7, B10). `versao` da venda = `(pago, data_pagamento, valor_recebido, vencimento_em)` ou coluna própria — decidir em 5.3c | 5.3b |
 | **5.3d** | contrato de leitura do FIN-101: `valorVenda`/`valorRecebido`/`valorAReceber`/`statusPagamento` **em centavos** no `GET /api/vendas/lista` (API-VEN-015, sem inventar recebimentos); `status=paga` completo nas três fontes ou recusa explícita; aposentar as rotas órfãs (B9) | 5.3c |
 | **5.3e** | **crédito da cliente.** Migration do ledger, emissão pela troca negativa, `GET /api/clientes/:id/credito`, `GET /api/credito/conferir`, `POST /api/credito/ajuste`. Sem consumo, sem UI | 5.3a |
@@ -701,9 +707,198 @@ sai junto com ele em 5.3b, na porta única.
 | Arquivo | Papel |
 |---|---|
 | `src/fin-101-5-3a-test.mjs` | **rede de regressão** de B1 e B5 — 11 provas |
-| `src/fin-101-caracterizacao-test.mjs` | os defeitos que **restam** (B2, B3, B4) — 3 caracterizações |
+| `src/fin-101-5-3b-test.mjs` | **rede de regressão** de B2, B3 e B4 — 11 provas |
 
 Um defeito consertado não fica caracterizado em lugar nenhum: ou vira regra
 testada, ou não é nada. Os dois arquivos entraram em `domain-pure`, então
 rodam nos gates `domain` e `release` — o domínio do dinheiro deixa de ter
 prova que não é executada.
+
+---
+
+## 20. Fase 5.3b — executada
+
+O objetivo não era "corrigir três bugs". Era acabar com a condição que os
+produziu: **"a venda foi paga" era um fato com três escritores, cada um com o
+seu SQL.** Eles concordavam só enquanto alguém lembrasse de copiar a regra nos
+três — e B2, B3 e B4 são exatamente as três vezes em que ninguém lembrou.
+
+### 20.1 O inventário completo dos escritores financeiros
+
+Colunas rastreadas: `vendas.pago`, `data_pagamento`, `pagamento_origem`,
+`valor_recebido`, `cobravel`; `garantia_trocas.diferenca_status`,
+`diferenca_paga_em`, `diferenca_valor_pago`.
+
+A auditoria de §3 dizia "quatro portas". São **onze escritores**, e um deles
+escreve sem citar nenhuma das colunas.
+
+| # | Escritor | Rota / gatilho | Escreve | Depois de 5.3b |
+|---|---|---|---|---|
+| 1 | `vendas-comandos.js › registrarVenda` | `POST /api/vendas` | INSERT: `pago`, `data_pagamento`, `pagamento_origem`, `cobravel` | inalterado — é o nascimento da venda, não a quitação |
+| 2 | `vendas-comandos.js › registrarPagamentoVenda` (quitar) | `POST /api/vendas/:id/pagamento` | `pago`, `data_pagamento`, `pagamento_origem`, `valor_recebido`, `cobravel` | **delega** a `quitarVenda` |
+| 3 | `vendas-comandos.js › registrarPagamentoVenda` (desfazer) | mesma rota, `{pago:false}` | as mesmas | **delega** a `desfazerPagamentoVenda` |
+| 4 | `contas-receber.js › receberConta` | `POST /api/contas-receber/receber` com `venda:N` | `vendas` + `garantia_trocas` | **delega** a `quitarVenda` |
+| 5 | `garantias.js › pagarDiferencaTroca` | `POST /api/garantias/:id/troca/pagar` | `garantia_trocas` + `vendas` | **delega** a `quitarVenda` quando há `venda_id`; sem venda ligada, continua sendo o dono |
+| 6 | `garantias.js › registrarVendaDaTroca` | `POST /api/garantias/:id/troca` | INSERT: `pago`, `data_pagamento`, `pagamento_origem`, `cobravel` | inalterado — nascimento |
+| 7 | `garantias.js › trocarPeca` | idem | INSERT `diferenca_status` | inalterado — nascimento |
+| 8 | `garantias.js › estornarTroca` | `POST /api/garantias/:id/troca/estornar` | `cobravel = 0` junto com `cancelada = 1` | inalterado — é cancelamento, não pagamento |
+| 9 | `sync.js › puxarPedidos` | cron · `POST /api/sync` | INSERT: as cinco colunas de `vendas` | inalterado — ver 20.2 |
+| 10 | `sync.js › atualizarPagamentoDaVenda` | cron · `POST /api/sync` | `pago`, `data_pagamento`, `pagamento_origem`, `valor_recebido`, `cobravel` | inalterado — ver 20.2 |
+| 11 | `maletas-comandos.js` (acerto) | `POST /api/maletas/:id/acerto` | INSERT **sem citar** `pago`/`cobravel` — cai nos defaults `1` e `1` | inalterado — ver 20.6 |
+
+Não são escritores financeiros, apesar do nome: `vendas-nuvemshop.js` (só
+colunas `nuvemshop_*`), `venda-correcao.js` (`total` e item), `cancelarVenda`
+(só `cancelada`), `definirPrazoDaConta` (só `vencimento_em`).
+
+### 20.2 Por que a sincronização NÃO delega
+
+Ela é o canal da LOJA, não de uma pessoa, e as duas semânticas são diferentes
+de propósito: `quitarVenda` carimba `informado`, e a loja nunca deve carimbar
+isso — é justamente esse carimbo que faz `atualizarPagamentoDaVenda` se
+recusar a sobrescrever o que um humano decidiu.
+
+E ela não consegue produzir a inconsistência que 5.3b existe para eliminar:
+`atualizarPagamentoDaVenda` só alcança vendas casadas por `externo_id`, e a
+venda que representa uma diferença de troca nasce com `origem = 'troca'`,
+`nuvemshop_status = 'nao_aplicavel'` e **sem `externo_id`**. A loja não a vê.
+
+### 20.3 A autoridade única
+
+Módulo novo: **`api/src/pagamento-venda.js`**, com `quitarVenda` e
+`desfazerPagamentoVenda`. Ele não importa `garantias.js`, `contas-receber.js`
+nem `vendas-comandos.js` — todos são chamadores dele.
+
+Para que isso fosse possível sem ciclo, `evento` e
+`registrarPagamentoDaDiferenca` saíram de `garantias.js` para um módulo folha,
+**`api/src/garantia-eventos.js`**. O grafo ficou numa direção só:
+
+```
+garantia-eventos.js  ←  pagamento-venda.js  ←  garantias.js
+                                             ←  contas-receber.js
+                                             ←  vendas-comandos.js
+```
+
+Três portas, um núcleo. **Cada porta manteve o seu contrato HTTP**; o estado
+que elas deixam no banco é, por construção, o mesmo — e o teste compara os
+retratos de `vendas`, `garantia_trocas` e `garantia_eventos` para provar.
+
+A única divergência que sobrou é deliberada, e é de HTTP, não de banco: no
+segundo clique, `receberConta` devolve `200` com `jaEstavaPaga` (é uma lista
+que pode ser reprocessada) e `/api/vendas/:id/pagamento` devolve `409` com a
+data (quem apertou um botão merece saber que o fato já estava gravado).
+**Nenhum dos dois escreve.**
+
+### 20.4 B2 — antes e depois
+
+| | antes | depois |
+|---|---|---|
+| `receberConta` fecha a troca | sim | sim |
+| `/api/vendas/:id/pagamento` fecha a troca | **não** | sim |
+| `pagarDiferencaTroca` fecha a venda | sim, com SQL próprio | sim, pelo núcleo |
+| evento `diferenca_paga` na linha do tempo | só por duas portas | pelas três |
+| desfazer o pagamento reabre a diferença | **não — `vendas` dizia "não paga" e `garantia_trocas` dizia "paga"** | sim, com evento `diferenca_pagamento_desfeito` (§28: não apaga, desfaz) |
+
+O caminho de volta era o espelho de B2, e não estava no diagnóstico: nenhuma
+das portas reabria a diferença. Agora reabre, e o evento novo entra no
+vocabulário de `garantia_eventos`.
+
+### 20.5 B3 e B4 — o que foi feito, e o que explicitamente NÃO foi
+
+Antes de decidir, auditei se já existia infraestrutura canônica para preservar
+o valor anterior. **Não existe:**
+
+| Candidata | Por que não serve |
+|---|---|
+| `historico_operacoes` | versionada e em centavos, mas a identidade dela é `(lote_id, venda_chave)` — uma linha de planilha importada. Venda operacional não tem lote nem chave histórica |
+| `venda_item_correcoes` | audita SKU, descrição, variação e preço de um ITEM. A forma inteira é sobre correção de código de peça |
+| `garantia_eventos` | pertence ao caso de garantia |
+| `movimentos` | estoque. Regra Fundamental nº 1 |
+
+Então **nenhuma tabela foi criada.** O que 5.3b fez:
+
+1. **Estado corrente correto.** `valor_recebido` vai ao total na quitação. A
+   invariante nova — `pago = 1` nunca coexiste com `valor_recebido < total` —
+   elimina B4, que era exatamente essa coexistência.
+2. **A evidência não é apagada.** Onde havia parcial conhecido, a quitação
+   escreve em `observacao` uma nota com valor, total, data e carimbo de
+   origem — do mesmo modo que `estornarTroca` já anota o estorno. É legível
+   por uma pessoa e **não é histórico estruturado**, e a própria nota diz
+   isso: "Registro de parcelas só existe a partir da 5.8."
+3. **A resposta anuncia.** `parcialAnteriorPreservadoEmObservacao` volta nas
+   duas portas, para nenhuma tela precisar deduzir.
+
+**O que NÃO foi resolvido, e é honesto dizer:** a HISTÓRIA dos recebimentos.
+"Entraram 40 no dia 2 e 60 no dia 10" continua sem lugar estruturado. Isso é
+5.8 — a coleção de recebimentos (API-VEN-013). Até lá o sistema tem **estado
+corrente**, não **extrato**, e não afirma o contrário em lugar nenhum.
+
+### 20.6 A semântica de `valor_recebido`, definida
+
+> **`valor_recebido` é o TOTAL JÁ RECEBIDO que o sistema conhece.**
+> `NULL` significa "não há parcial conhecido" — e aí quem responde é `pago`:
+> `pago = 1` quer dizer recebido igual ao `total`; `pago = 0`, recebido zero.
+
+É a opção A do pedido, com uma precisão que ela não trazia: a quitação **só
+escreve número onde já havia número**. Se `valor_recebido` era `NULL`,
+continua `NULL` — "o sistema nunca soube um número aqui" e "o número é o
+total" são fatos diferentes, e os dois satisfazem a invariante. Isso também
+evita reescrever a forma de toda venda paga que já existe.
+
+Regras que decorrem, todas testadas:
+
+- `pago = 1` implica `valor_recebido` `NULL` ou igual ao `total`;
+- desfazer devolve `valor_recebido` a `NULL` — **não inventa** um parcial
+  anterior que o sistema não consegue provar;
+- o A Receber continua cobrando o saldo (`total` menos recebido) enquanto a
+  conta está aberta.
+
+Caso conhecido e não tratado (20.1, linha 11): o acerto de maleta insere sem
+citar as colunas e cai em `pago = 1, cobravel = 1`, um par que se contradiz.
+Hoje é inofensivo — acerto é excluído do A Receber por `origem` e
+`revendedora_id` —, mas é uma linha esperando para confundir alguém.
+Registrado, não corrigido: mexer no acerto não é 5.3b.
+
+### 20.7 Desfazer, definido
+
+| Garantia | Como |
+|---|---|
+| cobrabilidade preservada | `cobravel` só volta a 1 quando o pagamento desfeito era `informado` (5.3a, agora dentro do núcleo) |
+| troca relacionada preservada | a diferença **reabre** para `a_receber`, no mesmo batch, com evento |
+| nenhum recebível inventado | pedido não-cobrável desfeito não aparece no A Receber |
+| nenhum parcial inventado | `valor_recebido` volta a `NULL` |
+| idempotência | `WHERE id = ? AND pago = 1`; e `registrarPagamentoDaDiferencaDesfeito` só escreve se o último evento da troca for um pagamento |
+
+Um efeito de 5.3b que merece nome: a idempotência do evento da diferença
+deixou de ser "existe algum `diferenca_paga`?" e passou a ser "o ÚLTIMO evento
+desta troca é um pagamento?". Sem isso, pagar, desfazer e pagar de novo
+ficaria mudo na terceira etapa — idempotência viraria amnésia.
+
+### 20.8 `versaoEsperada` — auditado, adiado
+
+A porta única tornou a pergunta respondível, e a resposta é **não é
+mecânico**:
+
+- `historico_operacoes` tem `versao` porque é versionada por construção —
+  cada mudança cria linha nova. `vendas` não tem coluna de versão e não é
+  append-only;
+- daria para derivar uma versão do quarteto
+  `(pago, data_pagamento, valor_recebido, vencimento_em)`, mas isso é escolher
+  uma definição de "mudou" que hoje não existe, e ela precisaria valer também
+  para `definirPrazoDaConta`;
+- `garantia_trocas` tem o mesmo problema.
+
+O risco real já está contido: `quitarVenda` grava sob `WHERE id = ? AND
+pago = 0`, então duas telas não pagam duas vezes. O que ainda se perde num
+empate é a DATA do pagamento — vence a última. **Fica para 5.3c**, como
+planejado, e não entrou neste commit.
+
+### 20.9 O que 5.3b deliberadamente não fez
+
+- não criou tabela, coluna, migration nem rota;
+- não implementou recebimentos múltiplos, parcelas ou formas de pagamento;
+- não implementou o ledger de crédito nem o consumo dele;
+- não converteu nada para centavos;
+- não tocou o `Math.max` do saldo, as rotas órfãs, nem a UX;
+- não alterou a regra de cancelamento, de reembolso ou do acerto de maleta;
+- não mudou nenhum contrato HTTP;
+- não consultou PROD.
