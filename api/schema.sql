@@ -1719,12 +1719,16 @@ CREATE TABLE IF NOT EXISTS garantia_trocas (
   -- nenhuma         diferença zero: nada a cobrar
   -- a_receber       positiva e em aberto
   -- paga            positiva e recebida — SÓ ELA vira faturamento
-  -- pendente_regra  NEGATIVA: crédito/reembolso é regra de negócio que
-  --                 ainda não existe. O sistema registra e PARA, em vez de
-  --                 inventar um crédito que ninguém definiu.
+  -- pendente_regra  NEGATIVA sem crédito lançado. Até 5.3e era o único
+  --                 destino possível de uma diferença negativa: o crédito
+  --                 era regra sem lugar onde morar. Continua existindo para
+  --                 o legado anterior e para a troca cuja cliente não está
+  --                 identificada — o sistema recusa emitir em vez de
+  --                 inventar dona (§11, trava 1).
+  -- credito_emitido NEGATIVA COM linha em `credito_movimentos` (5.3e).
   diferenca_status TEXT NOT NULL
-                   CHECK (diferenca_status IN ('nenhuma', 'a_receber',
-                                               'paga', 'pendente_regra')),
+                   CHECK (diferenca_status IN ('nenhuma', 'a_receber', 'paga',
+                                               'pendente_regra', 'credito_emitido')),
   diferenca_paga_em    TEXT,          -- a data que governa o faturamento
   diferenca_valor_pago REAL,
 
@@ -1793,6 +1797,62 @@ BEGIN
 END;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_gar_troca_venda
   ON garantia_trocas(venda_id);
+
+-- ─── 5.3e: a razão de crédito da cliente
+--
+-- Troca com peça nova mais barata vira CRÉDITO (Sthefany, 12/09/2026). Não
+-- volta em dinheiro, e NÃO EXPIRA (13/09/2026).
+--
+-- Mesma forma de `movimentos`, e pelo mesmo motivo: o saldo é `SUM`, nunca
+-- coluna. `clientes.saldo_credito` foi descartado de propósito — um número
+-- no cadastro não diz de onde veio, quando, nem quem mexeu, e duas
+-- requisições concorrentes num `UPDATE saldo = saldo - ?` perdem uma. É a
+-- Regra Fundamental nº 1, a mesma que proíbe `produtos.qtd` sem razão.
+--
+-- Crédito NÃO entra em `contasAReceber`: são eixos opostos. A conta a
+-- receber é dívida da cliente com a loja; o crédito é dívida da loja com a
+-- cliente. Somá-los num total só daria um número que não significa nada.
+CREATE TABLE IF NOT EXISTS credito_movimentos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  -- NOT NULL: crédito sem dona é dinheiro perdido. `garantias.cliente_id` é
+  -- anulável, então a emissão RECUSA e anuncia (§11, trava 1) em vez de
+  -- gravar NULL aqui — e §2 vale inteiro: nome não é identidade, ninguém
+  -- escolhe a dona pelo nome.
+  cliente_id INTEGER NOT NULL REFERENCES clientes(id),
+
+  -- credito  ganhou saldo (+) · consumo  usou (−)
+  -- estorno  contrapartida de uma linha, sinal oposto ao que desfaz
+  -- ajuste   correção manual, com motivo obrigatório (+ ou −)
+  tipo TEXT NOT NULL CHECK (tipo IN ('credito', 'consumo', 'estorno', 'ajuste')),
+
+  -- CENTAVOS INTEIROS desde o nascimento: tabela nova não tem legado, e
+  -- nascer em REAL seria criar dívida de 5.7 de propósito. `<> 0` porque
+  -- linha de valor zero não é movimento, é ruído.
+  valor_centavos INTEGER NOT NULL CHECK (valor_centavos <> 0),
+
+  origem    TEXT NOT NULL,   -- troca_garantia | venda | ajuste_manual | estorno
+  origem_id TEXT NOT NULL,   -- 'troca:7', 'venda:45'
+
+  -- Preenchido no consumo. O consumo é SEMPRE explícito: o sistema não
+  -- desconta crédito sozinho numa venda (§11, trava 3).
+  venda_id INTEGER REFERENCES vendas(id),
+
+  motivo    TEXT NOT NULL,
+  criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- A idempotência mora no banco, não na lógica que pode falhar: `troca:7`
+-- emite no máximo UMA linha de crédito, rode o que rodar.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_credito_origem
+  ON credito_movimentos(tipo, origem, origem_id);
+CREATE INDEX IF NOT EXISTS idx_credito_cliente
+  ON credito_movimentos(cliente_id, criado_em);
+
+-- SQLite não tem CHECK agregado, então "saldo nunca negativo" não cabe aqui:
+-- vira `GET /api/credito/conferir`, irmã de `GET /api/estoque/conferir`.
+-- Invariante que o banco não pode aplicar é melhor declarada como prova
+-- consultável do que fingida como constraint.
 
 -- ─── feriados, num lugar só
 -- O prazo da garantia é em DIAS ÚTEIS. Sábado e domingo o calendário

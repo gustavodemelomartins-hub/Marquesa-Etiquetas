@@ -62,6 +62,7 @@ import { novoVendaItemId } from './venda-item-id.js';
    cabeçalho de `pagamento-venda.js` para o grafo de dependências. */
 import { evento, registrarPagamentoDaDiferenca } from './garantia-eventos.js';
 import { quitarVenda } from './pagamento-venda.js';
+import { emitirCreditoDaTroca, estornarCreditoDaTroca } from './credito.js';
 
 const STATUS = new Set(['em_reparo', 'reparada', 'devolvida', 'sem_conserto', 'concluida', 'cancelada']);
 /** Os que ainda pedem alguma coisa de alguém. São estes que o Painel mostra;
@@ -844,18 +845,19 @@ export async function registrarTroca(db, id, corpo = {}) {
 
   const diferenca = dinheiro(valorNovo - valorOriginal);
 
-  /* A DIFERENÇA NEGATIVA agora TEM regra (Sthefany, 12/09/2026): a peça mais
-     barata vira CRÉDITO DA CLIENTE. Não se perde e não volta em dinheiro.
+  /* A DIFERENÇA NEGATIVA tem regra desde 12/09/2026 (Sthefany): a peça mais
+     barata vira CRÉDITO DA CLIENTE, não se perde e não volta em dinheiro.
    *
-   *  O que ainda não existe é o MECANISMO: o sistema não tem carteira, saldo
-   *  de cliente nem qualquer lugar onde um crédito possa viver e ser
-   *  consumido depois. Inventar um agora — com desconto, pagamento negativo
-   *  ou ajuste — seria criar dinheiro fora do lugar.
+   *  Até 5.3e faltava o MECANISMO — não havia lugar onde um crédito pudesse
+   *  viver —, e o status parava em `pendente_regra`. Agora existe a razão
+   *  `credito_movimentos`, e a troca negativa EMITE.
    *
-   *  Então o status continua `pendente_regra`, mas o que está pendente mudou
-   *  de natureza: era a REGRA, e agora é a ARQUITETURA FINANCEIRA. A linha
-   *  guarda o valor (a diferença negativa é o crédito), e a resposta o diz em
-   *  voz alta em `creditoAoCliente`, para nenhuma tela precisar deduzi-lo. */
+   *  `pendente_regra` não foi aposentado, e não é sobra: continua sendo o
+   *  destino da diferença negativa cuja cliente não está identificada. A
+   *  decisão 4 da Sthefany é explícita — legado sem cliente confiável vira
+   *  PENDÊNCIA, não crédito anônimo, e §2 vale inteiro: ninguém escolhe a
+   *  dona pelo nome. Por isso o status definitivo só é decidido DEPOIS da
+   *  emissão, que é quem sabe se havia dona. */
   let diferencaStatus;
   if (diferenca > 0) diferencaStatus = 'a_receber';
   else if (diferenca === 0) diferencaStatus = 'nenhuma';
@@ -902,6 +904,32 @@ export async function registrarTroca(db, id, corpo = {}) {
     troca.movimento_id = mov.id;
   }
 
+  /* 5.3e — a emissão do crédito. Depois da venda e do movimento, e de
+     propósito: a peça física já mudou de mãos, e o crédito é a parte que
+     pode ser refeita sem desfazer nada. Se falhar, a troca fica em
+     `pendente_regra` — que é exatamente o estado de toda troca negativa
+     anterior a esta subfase, já tratado em todo lugar.
+
+     A emissão é idempotente pelo índice único `(tipo, origem, origem_id)`:
+     `troca:N` gera no máximo uma linha de crédito. */
+  let credito = null;
+  if (diferenca < 0) {
+    credito = await emitirCreditoDaTroca(db, {
+      trocaId: troca.id,
+      clienteId: g.cliente_id ?? null,
+      diferenca,
+      descricao: `garantia ${id} · ${g.sku} → ${skuNovo}`,
+    });
+    if (credito.emitido) {
+      diferencaStatus = 'credito_emitido';
+      await db.prepare(
+        `UPDATE garantia_trocas SET diferenca_status = 'credito_emitido',
+                atualizado_em = datetime('now') WHERE id = ?`,
+      ).bind(troca.id).run();
+      troca.diferenca_status = 'credito_emitido';
+    }
+  }
+
   /* A peça DEFEITUOSA não volta ao estoque. Ela está quebrada: somá-la ao
      disponível a colocaria à venda de novo. */
   await db.prepare(
@@ -932,12 +960,26 @@ export async function registrarTroca(db, id, corpo = {}) {
     /* O crédito é o valor absoluto da diferença negativa. Positivo aqui
        porque é o que a cliente TEM a receber em peça, não o que ela deve. */
     creditoAoCliente: diferenca < 0 ? dinheiro(-diferenca) : 0,
-    aviso: diferencaStatus === 'pendente_regra'
-      ? `A peça nova custa ${dinheiro(-diferenca).toFixed(2)} a menos. `
-        + 'Esse valor é CRÉDITO da cliente — não se perde e não volta em dinheiro. '
-        + 'O sistema ainda não tem onde guardar crédito de cliente, então o valor '
-        + 'ficou registrado na troca e nada foi lançado no financeiro.'
+    /* 5.3e — o que a razão registrou, sem obrigar a tela a deduzir. */
+    credito: credito && diferenca < 0
+      ? {
+        emitido: !!credito.emitido,
+        motivo: credito.motivo ?? null,
+        valorCentavos: credito.valorCentavos ?? Math.round(-diferenca * 100),
+        movimentoId: credito.movimentoId ?? null,
+        clienteId: credito.emitido ? (g.cliente_id ?? null) : null,
+      }
       : null,
+    aviso: diferencaStatus === 'credito_emitido'
+      ? `A peça nova custa ${dinheiro(-diferenca).toFixed(2)} a menos. `
+        + 'Esse valor virou CRÉDITO da cliente na razão de crédito — não expira, '
+        + 'não volta em dinheiro e só sai por consumo explícito numa compra.'
+      : diferencaStatus === 'pendente_regra'
+        ? `A peça nova custa ${dinheiro(-diferenca).toFixed(2)} a menos, e esse valor é `
+          + 'CRÉDITO da cliente. Nenhum crédito foi lançado porque esta garantia não tem '
+          + 'cliente identificada, e o sistema não cria crédito sem dona: o caso fica '
+          + 'como PENDÊNCIA DE RECONCILIAÇÃO, registrado na troca.'
+        : null,
   };
 }
 
@@ -1198,6 +1240,17 @@ export async function estornarTroca(db, id, { motivo = null } = {}) {
     return { ok: false, statusHttp: 409, erro: 'Esta troca já tinha sido estornada.' };
   }
 
+  /* 5.3e — o crédito segue a peça. Se a troca emitiu crédito, estorná-la sem
+     desfazer o crédito deixaria a cliente com saldo de uma compra que não
+     aconteceu.
+
+     CONTRAPARTIDA, nunca DELETE (§28): uma linha de sinal oposto, que explica
+     o que houve. Apagar a linha original faria o extrato da cliente mentir
+     sobre o próprio passado dela. Depois do UPDATE que marca `estornada = 1`
+     de propósito — duas chamadas simultâneas só chegam aqui uma vez, e o
+     índice único da razão fecha o resto. */
+  const creditoEstornado = await estornarCreditoDaTroca(db, { trocaId: troca.id, motivo: razao });
+
   await evento(db, id, {
     tipo: 'troca_estornada', data: quando, observacao: razao,
     dados: {
@@ -1210,6 +1263,7 @@ export async function estornarTroca(db, id, { motivo = null } = {}) {
       vendaId: troca.venda_id ?? null,
       movimentoDaTroca: troca.movimento_id ?? null,
       movimentoDoEstorno: mov ? mov.id : null,
+      creditoEstornadoCentavos: creditoEstornado.estornado ? creditoEstornado.valorCentavos : 0,
     },
   });
 
@@ -1221,6 +1275,13 @@ export async function estornarTroca(db, id, { motivo = null } = {}) {
     /* A troca continua existindo, e a resposta diz onde. */
     trocaEstornadaId: troca.id,
     vendaCancelada: troca.venda_id ?? null,
+    /* `estornado: false` com `SEM_CREDITO_EMITIDO` é o caso comum, não uma
+       falha: só a troca negativa de cliente identificada emitiu algo. */
+    credito: {
+      estornado: !!creditoEstornado.estornado,
+      motivo: creditoEstornado.motivo ?? null,
+      valorCentavos: creditoEstornado.estornado ? creditoEstornado.valorCentavos : 0,
+    },
   };
 }
 

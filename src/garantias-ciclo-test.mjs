@@ -442,23 +442,35 @@ console.log('\n=== 5. diferença zero e diferença negativa ===');
   const t = await G.registrarTroca(db, r.garantia.id, { skuNovo: '100003', data: '2026-09-10' });
   assert.equal(t.ok, true);
   assert.equal(t.diferenca, -20);
-  assert.equal(t.diferencaStatus, 'pendente_regra');
-  /* 5.4e — a REGRA fechou (12/09/2026): peça mais barata vira CRÉDITO DA
-     CLIENTE. Não se perde e não volta em dinheiro. O valor é dito em voz
-     alta, para nenhuma tela precisar deduzi-lo do sinal da diferença. */
+  /* 5.4e fechou a REGRA (12/09/2026): peça mais barata vira CRÉDITO DA
+     CLIENTE. 5.3e deu a ela um LUGAR — a razão `credito_movimentos` —, e
+     por isso a troca deixou de parar em `pendente_regra`. A frase antiga
+     deste teste ("o sistema não tem onde guardar crédito") era verdade e
+     deixou de ser; mantê-la seria fixar a ausência como se fosse contrato. */
+  assert.equal(t.diferencaStatus, 'credito_emitido');
   assert.equal(t.creditoAoCliente, 20);
   assert.match(t.aviso, /CRÉDITO da cliente/);
-  assert.match(t.aviso, /não se perde e não volta em dinheiro/);
-  prova('5.4e: a peça mais barata vira crédito de 20 para a cliente, dito explicitamente');
+  assert.match(t.aviso, /não expira/);
+  prova('5.3e: a peça mais barata vira crédito de 20, e a troca fica credito_emitido');
+
+  assert.equal(t.credito.emitido, true);
+  assert.equal(t.credito.valorCentavos, 2000, 'o crédito precisa nascer em centavos inteiros');
+  assert.equal(t.credito.clienteId, 1);
+  const razao = raw.prepare(
+    `SELECT tipo, valor_centavos, origem, origem_id FROM credito_movimentos WHERE cliente_id = 1`,
+  ).all();
+  assert.deepEqual(razao.map((m) => [m.tipo, m.valor_centavos, m.origem_id]),
+    [['credito', 2000, `troca:${t.trocaId ?? 1}`]]);
+  prova('e a razão de crédito tem UMA linha, com origem nomeada e valor em centavos');
 
   const g = await G.lerGarantia(db, r.garantia.id);
   assert.equal(g.troca.creditoAoCliente, 20);
   assert.equal(g.troca.diferenca, -20);
   prova('e a leitura da garantia devolve o mesmo crédito, sem recalcular sinal');
 
-  /* O que a regra fechada NÃO trouxe: o lugar onde o crédito mora. O sistema
-     não tem carteira, saldo de cliente nem conta a pagar. Nada é lançado, e
-     nada é simulado com desconto, pagamento negativo ou ajuste de estoque. */
+  /* O que 5.3e NÃO fez, e continua valendo: o crédito não é simulado com
+     desconto, preço negativo, pagamento negativo nem conta a receber. Ele
+     mora na razão dele, e em lugar nenhum além dela. */
   const v = raw.prepare('SELECT total, cobravel, pago FROM vendas WHERE id = ?').get(t.vendaId);
   assert.equal(v.total, 0, 'a diferença negativa virou dinheiro em algum lugar');
   assert.equal(v.cobravel, 0);
@@ -466,12 +478,30 @@ console.log('\n=== 5. diferença zero e diferença negativa ===');
   assert.ok(itens.every((i) => Number(i.preco) >= 0), 'apareceu preço negativo simulando crédito');
   const contas = await CR.contasAReceber(db, { status: 'aberta' });
   assert.equal((contas.contas ?? []).some((c) => c.chave === `venda:${t.vendaId}`), false);
-  prova('mas nada é lançado: sem preço negativo, sem conta, sem ajuste — o crédito não foi simulado');
+  prova('e o crédito NÃO entra em contas a receber: são eixos opostos, não se somam');
 
   const pg = await G.pagarDiferencaTroca(db, r.garantia.id, {});
   assert.equal(pg.ok, false);
   assert.match(pg.erro, /crédito DA CLIENTE/i);
   prova('e ninguém cobra dela um valor que é dela');
+
+  /* 5.3e ponta a ponta: o crédito segue a peça. Estornar a troca sem desfazer
+     o crédito deixaria a cliente com saldo de uma compra que não aconteceu —
+     e o saldo é derivado, então o furo apareceria como dinheiro, não como
+     inconsistência de status. */
+  const e = await G.estornarTroca(db, r.garantia.id, { motivo: 'peça errada' });
+  assert.equal(e.ok, true, `estorno falhou: ${e.erro ?? ''}`);
+  assert.equal(e.credito.estornado, true);
+  assert.equal(e.credito.valorCentavos, -2000);
+
+  const depois = raw.prepare(
+    `SELECT tipo, valor_centavos FROM credito_movimentos WHERE cliente_id = 1 ORDER BY id`,
+  ).all();
+  assert.deepEqual(depois.map((m) => m.tipo), ['credito', 'estorno'],
+    'o estorno apagou a linha do crédito — §28 proíbe reescrever histórico');
+  assert.equal(depois.reduce((soma, m) => soma + m.valor_centavos, 0), 0,
+    'a cliente ficou com saldo de uma troca que foi desfeita');
+  prova('5.3e: estornar a troca estorna o crédito por contrapartida, e o saldo zera');
 
   assert.equal(razaoFecha(raw), 0);
 }

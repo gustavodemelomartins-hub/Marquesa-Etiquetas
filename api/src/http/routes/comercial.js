@@ -23,6 +23,7 @@ import {
   aplicarOperacoesHistoricas,
 } from '../../historico-operacoes.js';
 import { perfilCliente } from '../../analytics.js';
+import { saldoDeCredito, conferirCredito, registrarAjuste } from '../../credito.js';
 import {
   buscarClientes, criarCliente, atualizarCliente, decidirVinculoCliente,
 } from '../../clientes.js';
@@ -300,6 +301,41 @@ export const rotas = [
    *  chama agora é `contas-receber.js`, por `chave`. O que foi aposentado é a
    *  superfície HTTP por id, não a capacidade.
    */
+  /* ═════════════════════════════════════════ 5.3e · crédito da cliente
+   *
+   *  Três rotas, e nenhuma delas consome crédito: o sistema não desconta
+   *  saldo sozinho numa venda (§11, trava 3). Consumo é decisão de tela, e a
+   *  tela é do Codex.
+   */
+  {
+    /* O saldo é DERIVADO da razão, e vem com o extrato que o explica. Um
+       número sozinho não permite dizer de onde veio nem defendê-lo. */
+    metodo: 'GET', caminho: '/api/clientes/:id/credito', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, url, params }) {
+      const r = await saldoDeCredito(db, +params.id, {
+        limite: url.searchParams.get('limite') ?? undefined,
+      });
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
+    },
+  },
+  {
+    /* Irmã de `GET /api/estoque/conferir`. SQLite não tem CHECK agregado, e
+       uma invariante que o banco não aplica é melhor consultável do que
+       fingida: aqui ela é medida, não prometida. */
+    metodo: 'GET', caminho: '/api/credito/conferir', auth: 'bearer',
+    async handler({ db }) {
+      return json(await conferirCredito(db));
+    },
+  },
+  {
+    /* Correção humana. Motivo obrigatório, e recusa se o saldo resultante
+       ficaria negativo — a invariante aplicada na escrita, onde é barata. */
+    metodo: 'POST', caminho: '/api/credito/ajuste', auth: 'bearer',
+    async handler({ db, request }) {
+      const r = await registrarAjuste(db, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
+    },
+  },
   {
     /* Busca por nome, telefone ou CPF. Nome não é identidade: homônimo não é
        fundido sozinho — quem decide isso é a revisão de vínculo. */

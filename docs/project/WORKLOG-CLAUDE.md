@@ -435,3 +435,51 @@ exige.
 dentro de `contas-receber.js` continua onde estava; 5.3e/5.3f/5.7/5.8 não foram
 tocadas; nenhum escritor mudou; sem migration, sem DEV, sem PROD, sem deploy,
 sem push.
+
+---
+
+## 2026-09-14 — Fase 5.3e: a razão de crédito da cliente
+
+**Task IDs tocados:** `FIN-101` (subfase 5.3e).
+
+A regra é de 12/09/2026 e não tinha onde morar: troca com peça nova mais
+barata vira crédito da cliente, e o sistema registrava e parava. Agora existe
+`credito_movimentos` — razão por eventos, mesma forma de `movimentos`, saldo
+por `SUM` e nunca coluna. `clientes.saldo_credito` segue descartado.
+
+As quatro decisões da Sthefany viraram trava: sem coluna de validade (não
+expira), `cliente_id NOT NULL` com recusa nomeada em vez de crédito anônimo,
+saldo derivado, e legado sem cliente confiável continua em `pendente_regra`.
+Os dois estados dizem coisas diferentes e os dois continuam existindo:
+`pendente_regra` é diferença negativa SEM crédito lançado; `credito_emitido` é
+COM linha na razão.
+
+**Não estava no plano e apareceu ao ligar as pontas:** estornar uma troca que
+emitiu crédito precisa estornar o crédito. Sem isso a cliente ficaria com saldo
+de uma compra que não aconteceu, e como o saldo é derivado o furo apareceria
+como dinheiro. Contrapartida, nunca DELETE (§28).
+
+Três rotas novas: `GET /api/clientes/:id/credito` (saldo + extrato),
+`GET /api/credito/conferir` (a invariante `SUM >= 0`, irmã de
+`/api/estoque/conferir`) e `POST /api/credito/ajuste` (motivo obrigatório,
+recusa saldo negativo na escrita).
+
+**Migration `api/migracao-credito-cliente.sql`.** Parte 1 aditiva. Parte 2
+RECONSTRÓI `garantia_trocas` porque SQLite não altera CHECK — destrutiva no
+schema, mesmo caminho da migration de sorteio. **Escrita e provada localmente;
+não foi aplicada em ambiente nenhum.** Aplicar em DEV ou PROD exige backup,
+Time Travel e aprovação do Gustavo.
+
+**Validação:** suíte nova `src/credito-ledger-test.mjs` (19 provas), registrada
+em `docs/testing/test-suites.json` no mesmo commit. `garantias-ciclo` foi para
+129 provas, com duas novas de ponta a ponta — a troca negativa emitindo e o
+estorno devolvendo. `migracao-variantes-test` ganhou a comparação de DDL entre
+os dois caminhos (o CHECK escapava da conferência) e uma troca plantada na
+véspera, conferida campo a campo depois da reconstrução. Regressão local verde:
+28 suítes de `domain-pure`, 9 gates `fast`, `inventario-4-4`, `catalogo-4-5`,
+painel do projeto e build do legado.
+
+**Limites:** consumo de crédito não existe (é 5.8, e a tela é do Codex);
+nenhum crédito foi criado para o legado; `contasAReceber` não foi tocada;
+nenhuma coluna virou centavos (é 5.7); sem migration aplicada, sem DEV, sem
+PROD, sem deploy, sem push.

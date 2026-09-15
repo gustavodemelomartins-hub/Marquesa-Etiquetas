@@ -531,6 +531,12 @@
         {
           "bin": "node",
           "args": [
+            "src/credito-ledger-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
             "src/reclassificacao-nao-venda-test.mjs"
           ]
         },

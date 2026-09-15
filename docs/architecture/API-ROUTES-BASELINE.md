@@ -229,6 +229,9 @@ Proprietário: Financeiro. Une vendas operacionais, diferenças de troca e hist�
 | `GET /api/contas-receber?status=` | A | Lista unificada. |
 | `PATCH /api/contas-receber/prazo` | C/H | Prazo com controle concorrente. |
 | `POST /api/contas-receber/receber` | C/H | Liquidação; não toca estoque. Porta única desde 5.3d: `historico:<id>` delega a `marcarContaPaga`. |
+| `GET /api/clientes/:id/credito` | C/H | 5.3e — saldo derivado da razão de crédito + extrato. Não consome. |
+| `GET /api/credito/conferir` | A | 5.3e — a invariante `SUM >= 0` por cliente. Irmã de `/api/estoque/conferir`. |
+| `POST /api/credito/ajuste` | C/H | 5.3e — correção manual, motivo obrigatório, recusa saldo negativo. |
 
 ### Analytics e lista comercial
 

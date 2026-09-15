@@ -125,6 +125,12 @@ const MIGRACOES = [
      três triggers que a incrementam. Depois de todas as de cima porque ela
      acrescenta coluna a duas tabelas que várias delas ainda alteram. */
   'api/migracao-recebivel-versao.sql',
+  /* 5.3e — a razão de crédito, mais `credito_emitido` no CHECK de
+     `garantia_trocas.diferenca_status`. Por último porque a parte 2
+     RECONSTRÓI `garantia_trocas` e precisa copiar as colunas que
+     `garantia-troca-estorno`, `garantia-reabertura` e `recebivel-versao`
+     acrescentaram. Fora de ordem, a cópia perde coluna. */
+  'api/migracao-credito-cliente.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com
@@ -174,10 +180,35 @@ velho.exec(`INSERT INTO produto_variacoes (sku, nome, atributo, variante_id, pro
             VALUES ('ANTIGO', '16', 'Aro', '4242', '99', 7, 0)`);
 
 const antesProdutos = velho.prepare(`SELECT COUNT(*) n FROM produtos`).get().n;
+/* 5.3e — preenchidos no meio do laço abaixo. `garantias` não existe no
+   schema base: ela nasce de uma das migrations, então a troca só pode ser
+   plantada depois dessa e antes da que reconstrói a tabela. */
+let contagemTrocasAntes = null;
+let trocaAntes = null;
 const antesMovimentos = velho.prepare(`SELECT COUNT(*) n FROM movimentos`).get().n;
 const antesVariacoes = velho.prepare(`SELECT COUNT(*) n FROM produto_variacoes`).get().n;
 
 for (const arq of MIGRACOES) {
+  /* 5.3e — uma TROCA de verdade, plantada NA VÉSPERA da migration que
+     reconstrói `garantia_trocas`. SQLite não altera CHECK, então a parte 2
+     cria tabela nova, copia, dropa e renomeia; uma cópia errada perde
+     histórico financeiro em silêncio. Com zero linha, a reconstrução
+     passaria no teste sem ter copiado nada. */
+  if (arq === 'api/migracao-credito-cliente.sql') {
+    /* A garantia tem CHECK por origem: `operacional` exige `venda_id`,
+       `historico` exige `historico_item_id`. A venda mínima é o caminho mais
+       curto que não afrouxa nada — o alvo da prova é a CÓPIA da troca. */
+    velho.exec(`INSERT INTO vendas (id, cliente_nome, origem, data, total)
+                VALUES (1, 'Vitoria', 'balcao', '2026-07-01', 100.0)`);
+    velho.exec(`INSERT INTO garantias
+                  (origem_fonte, venda_id, sku, cliente_nome, motivo, data_entrada, status)
+                VALUES ('operacional', 1, 'ANTIGO', 'Vitoria', 'pedra caiu', '2026-08-01', 'sem_conserto')`);
+    velho.exec(`INSERT INTO garantia_trocas
+                  (garantia_id, data, sku_novo, valor_original, valor_novo, diferenca, diferenca_status)
+                VALUES (1, '2026-08-02', 'ANTIGO', 100.0, 70.0, -30.0, 'pendente_regra')`);
+    contagemTrocasAntes = velho.prepare(`SELECT COUNT(*) n FROM garantia_trocas`).get().n;
+    trocaAntes = velho.prepare(`SELECT * FROM garantia_trocas WHERE id = 1`).get();
+  }
   /* Várias destas são aditivas e idempotentes: reclamam de coluna duplicada
      quando a coluna já veio do schema anterior. Isso é sucesso, não falha —
      a mesma ressalva que o cenário 8 documenta. */
@@ -291,6 +322,47 @@ for (const nome of Object.keys(gNovo)) {
 for (const nome of ['vendas_recebivel_versao', 'venda_itens_recebivel_versao',
   'garantia_trocas_recebivel_versao', 'venda_itens_id_ao_inserir', 'venda_itens_id_imutavel']) {
   eq(`o trigger ${nome} existe nos dois`, !!(gNovo[nome] && gVelho[nome]), 'true');
+}
+
+/* 5.3e — o CORPO das tabelas que têm CHECK de vocabulário.
+ *
+ *  A comparação acima pega tabela, coluna, índice e trigger. Não pega CHECK:
+ *  `diferenca_status IN (…)` pode listar um estado a mais num caminho e não
+ *  no outro, e os dois bancos continuariam com as mesmas colunas. O defeito
+ *  apareceria só quando alguém gravasse o estado novo no banco errado — em
+ *  produção, com a escrita falhando por "constraint failed".
+ *
+ *  Normalizado só no comentário e no espaço em branco: indentação não é
+ *  contrato, o CHECK é. */
+const ddl = (db, nome) => String(
+  db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`).get(nome)?.sql ?? '',
+)
+  .replace(/--[^\n]*/g, ' ')
+  /* `ALTER TABLE … RENAME TO` faz o SQLite reescrever o DDL com o nome entre
+     aspas: `CREATE TABLE "garantia_trocas"`. É artefato da reconstrução, não
+     divergência — e sem normalizar isso o teste acusaria diferença em toda
+     tabela que alguma migration tenha renomeado. */
+  .replace(/^CREATE TABLE "([^"]+)"/i, 'CREATE TABLE $1')
+  .replace(/\s+/g, ' ').trim();
+
+for (const t of ['garantia_trocas', 'credito_movimentos']) {
+  eq(`o CHECK de ${t} é o mesmo nos dois caminhos`, ddl(velho, t), ddl(novo, t));
+}
+for (const estado of ['pendente_regra', 'credito_emitido']) {
+  eq(`banco migrado aceita diferenca_status = ${estado}`,
+    ddl(velho, 'garantia_trocas').includes(estado), 'true');
+  eq(`banco novo aceita diferenca_status = ${estado}`,
+    ddl(novo, 'garantia_trocas').includes(estado), 'true');
+}
+
+/* A reconstrução copia linha por linha. Perder uma é perder histórico
+   financeiro, e o histórico não se reescreve (§28). */
+eq('a reconstrução de garantia_trocas não perdeu linha',
+  velho.prepare(`SELECT COUNT(*) n FROM garantia_trocas`).get().n, contagemTrocasAntes);
+const trocaDepois = velho.prepare(`SELECT * FROM garantia_trocas WHERE id = 1`).get();
+for (const campo of ['garantia_id', 'data', 'sku_novo', 'valor_original', 'valor_novo',
+  'diferenca', 'diferenca_status', 'recebivel_versao', 'estornada']) {
+  eq(`a troca preservou ${campo} na reconstrução`, String(trocaDepois[campo]), String(trocaAntes[campo]));
 }
 
 console.log('\n=== 5. os índices que seguram as invariantes continuam de pé ===');

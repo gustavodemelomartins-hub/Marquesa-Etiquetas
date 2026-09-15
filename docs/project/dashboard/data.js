@@ -7,6 +7,16 @@ window.MARQUESA_V2 = {
     "branch": "claude/refactor-sistema-marquesa",
     "recentes": [
       {
+        "commit": "828f84a",
+        "data": "2026-09-14",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(financeiro): 5.3d — o contrato de leitura do FIN-101, sem inventar recebimento",
+        "agente": "",
+        "taskIds": [
+          "FIN-101"
+        ]
+      },
+      {
         "commit": "ade8810",
         "data": "2026-09-13",
         "autor": "gustavodemelomartins-hub",
@@ -200,14 +210,6 @@ window.MARQUESA_V2 = {
         "data": "2026-09-11",
         "autor": "gustavodemelomartins-hub",
         "assunto": "docs(painel): tres frentes reais viram data.workstreams, nao texto na tela",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "1bd0dd5",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(importacao): the Fase 4.6 audit becomes the canonical record",
         "agente": "",
         "taskIds": []
       }
@@ -2303,6 +2305,17 @@ window.MARQUESA_V2 = {
       "agente": "Claude",
       "data": "2026-09-14",
       "titulo": "Fase 5.3d: o contrato de leitura do FIN-101",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": [
+        "FIN-101"
+      ]
+    },
+    {
+      "agente": "Claude",
+      "data": "2026-09-14",
+      "titulo": "Fase 5.3e: a razão de crédito da cliente",
       "branch": "",
       "commits": "",
       "status": "",

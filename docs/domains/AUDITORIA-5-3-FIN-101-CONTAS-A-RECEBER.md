@@ -397,8 +397,9 @@ pasta `financeiro`. `FIN-001` continua aberto e `DR-014` o mantém prioritário.
 ### A regra (Sthefany, 12/09/2026)
 
 Troca com peça nova mais barata → a diferença vira **crédito da cliente**. Não
-volta em dinheiro. Hoje o sistema registra e **para**: `diferenca_status =
-'pendente_regra'`, `creditoAoCliente` anunciado na resposta, nada lançado
+volta em dinheiro. **Implementado em 5.3e (ver §23).** Até lá o sistema
+registrava e **parava**: `diferenca_status = 'pendente_regra'`,
+`creditoAoCliente` anunciado na resposta, nada lançado
 ([garantias.js:889-970](../../api/src/garantias.js#L889)). O que falta não é a
 regra — é o lugar onde um crédito possa viver e ser consumido.
 
@@ -619,7 +620,7 @@ de quatro para um — senão 5.8 terá quatro migrações em vez de uma.
 | ~~**5.3b**~~ | **FEITA.** Um núcleo, três portas. B2, B3 e B4 fechados, e a semântica de `valor_recebido` definida. Ver §20 | — |
 | ~~**5.3c**~~ | **FEITA.** `recebivel_versao` nas duas fontes que não tinham, incrementada por trigger, com CAS atômico. Ver §21 | — |
 | ~~**5.3d**~~ | **FEITA.** Resumo financeiro da venda em centavos no `GET /api/vendas/lista`, sem inventar recebimento; `status=paga` passou a declarar cobertura; B9 fechado. Ver §22 | 5.3c |
-| **5.3e** | **crédito da cliente.** Migration do ledger, emissão pela troca negativa, `GET /api/clientes/:id/credito`, `GET /api/credito/conferir`, `POST /api/credito/ajuste`. Sem consumo, sem UI | 5.3a |
+| ~~**5.3e**~~ | **FEITA.** `credito_movimentos`, emissão pela troca negativa (`credito_emitido`), estorno por contrapartida, as três rotas. Sem consumo, sem UI. Ver §23 | 5.3a |
 | **5.3f** | fechar G1–G10, especialmente G7 (arredondamento) e G10 (a invariante do dinheiro) | todas |
 
 **Fora de 5.3:** recebimentos múltiplos, formas, parcelamento, conversão para
@@ -1274,3 +1275,106 @@ manifesto, em `aposentados[]`, com motivo e ponteiro para B9.
 - não tocou `pagamento-venda.js` nem nenhum escritor;
 - não criou rota, não mudou autenticação de rota existente;
 - não executou migration, não tocou PROD, não fez deploy, não deu push.
+
+---
+
+## 23. Fase 5.3e — executada
+
+A regra era de 12/09/2026 e não tinha onde morar. §11 recomendou a **opção C —
+razão de crédito por eventos**, e é ela que está no banco.
+
+### 23.1 `credito_movimentos`: a razão, não o saldo
+
+Mesma forma de `movimentos`, e pelo mesmo motivo: o saldo é `SUM`, nunca
+coluna. `clientes.saldo_credito` (opção A) continua descartado — um número no
+cadastro não diz de onde veio, e dois `UPDATE saldo = saldo - ?` concorrentes
+perdem um.
+
+As quatro decisões da Sthefany viraram trava, e não comentário:
+
+| Decisão (13/09) | Onde ela vive |
+|---|---|
+| o crédito **não expira** | não existe coluna de validade em lugar nenhum |
+| crédito é de **cliente identificada** | `cliente_id NOT NULL`, e a emissão recusa com `CLIENTE_NAO_IDENTIFICADA` |
+| o saldo é **projeção** | `saldoDeCredito()` deriva por `SUM`; nada é armazenado |
+| legado sem cliente confiável é **pendência** | a troca fica em `pendente_regra`, com o valor dito e nada lançado |
+
+A idempotência é do BANCO: `UNIQUE (tipo, origem, origem_id)`. `troca:7` emite
+no máximo uma linha de crédito, rode o que rodar — um retry depois de timeout
+de rede não duplica dinheiro. O teste chama a emissão duas vezes e conta as
+linhas.
+
+### 23.2 `pendente_regra` não foi aposentado
+
+Seria a leitura preguiçosa: "agora existe crédito, logo toda diferença negativa
+vira `credito_emitido`". Não vira. Os dois estados dizem coisas diferentes, e a
+diferença é justamente a decisão 4:
+
+- `pendente_regra` — diferença negativa **sem** crédito lançado: o legado
+  anterior a 5.3e, e a troca cuja cliente não está identificada;
+- `credito_emitido` — diferença negativa **com** linha na razão.
+
+Por isso o status definitivo só é decidido **depois** da emissão: quem sabe se
+havia dona é ela.
+
+### 23.3 A parte 2 da migration reconstrói `garantia_trocas`
+
+SQLite não altera `CHECK`. Acrescentar `credito_emitido` ao vocabulário de
+`diferenca_status` exige criar tabela nova, copiar, dropar e renomear — o mesmo
+caminho que `migracao-sorteio-saida-sem-faturamento.sql` já percorreu aqui.
+
+**É destrutiva no schema, e não roda sozinha.** Em qualquer ambiente que
+alguém use, exige backup conferido, bookmark de Time Travel, contagem
+antes/depois e aprovação humana. Este arquivo foi escrito e provado
+**localmente**; aplicá-lo em DEV ou PROD é decisão do Gustavo.
+
+O teste de coerência ganhou o que faltava para isso ser seguro:
+
+- os dois caminhos (schema do zero × banco migrado) passam a comparar o **DDL
+  das tabelas com `CHECK` de vocabulário**, não só colunas e índices. Um estado
+  a mais num caminho e a menos no outro passava despercebido até alguém gravar
+  o estado novo no banco errado, e falhar com "constraint failed" em produção;
+- uma troca de verdade é plantada **na véspera** da migration e conferida campo
+  a campo depois: reconstrução que copia errado perde histórico financeiro em
+  silêncio, e com zero linha a cópia não provaria nada.
+
+### 23.4 O estorno da troca estorna o crédito
+
+Descoberto ao ligar as pontas, e não estava escrito em §11: se uma troca que
+emitiu crédito for estornada, deixar o crédito de pé dá à cliente saldo de uma
+compra que não aconteceu. E como o saldo é derivado, o furo apareceria como
+**dinheiro**, não como inconsistência de status.
+
+**Contrapartida, nunca `DELETE`** (§28): uma linha de sinal oposto, com o
+motivo do estorno. Apagar a original faria o extrato da cliente mentir sobre o
+próprio passado dela. Idempotente pelo mesmo índice único.
+
+### 23.5 As três rotas
+
+| Rota | O que faz |
+|---|---|
+| `GET /api/clientes/:id/credito` | saldo derivado + extrato que o explica: gerado, consumido, estornado, ajuste líquido |
+| `GET /api/credito/conferir` | a invariante `SUM >= 0` por cliente |
+| `POST /api/credito/ajuste` | correção manual, motivo obrigatório |
+
+`/conferir` é irmã de `/api/estoque/conferir` e existe por um motivo estrutural:
+SQLite não tem `CHECK` agregado, então "saldo nunca negativo" **não cabe no
+schema**. Invariante que o banco não pode aplicar é melhor declarada como prova
+consultável do que fingida como constraint. O ajuste aplica a mesma invariante
+na ESCRITA, onde ela é barata: recusar ali custa um 409; descobrir depois em
+`/conferir` é arqueologia.
+
+### 23.6 O que 5.3e deliberadamente não fez
+
+- **não implementou consumo.** Crédito como forma de pagamento é 5.8, e a tela
+  que decide gastar é do Codex (`AGUARDANDO HANDOFF CODEX`). O sistema não
+  desconta crédito sozinho;
+- não criou crédito para o legado: quantas trocas negativas antigas existem sem
+  cliente identificada continua sendo `PRECISA DE AUDITORIA READ-ONLY EM PROD`;
+- não tornou o crédito transferível entre clientes (não foi pedido);
+- não mexeu em `contasAReceber`: crédito e conta a receber são eixos opostos, e
+  somá-los daria um número que não significa nada;
+- não converteu coluna nenhuma de REAL para centavos — a razão nasce em
+  centavos, o resto é 5.7;
+- **não aplicou a migration em ambiente nenhum**, não tocou PROD, não fez
+  deploy, não deu push.
