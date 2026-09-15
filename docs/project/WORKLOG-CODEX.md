@@ -456,3 +456,21 @@ futuras de API.
 Validação do checkpoint: 57 verificações de Venda normal, 37 de Monte seu
 Colar, 176 de Saídas e 39 verificações móveis em 320/390/430 px. Nenhum backend,
 banco, ambiente DEV ou produção foi alterado.
+
+### 15/09 — Hub do protótipo e cobertura de Estoque
+
+Criada a entrada central navegável do Sistema Marquesa V2 e a matriz de
+cobertura por superfície, separando requisitos, estrutura, desktop, mobile,
+interações, fluxo, aprovação humana, contrato de backend e implementação.
+
+Estoque ganhou um protótipo mestre no padrão visual de Vendas, com resumo de
+distribuição, categorias, produtos com foto em primeiro lugar e o ciclo de
+inventário dentro da mesma área. O fluxo demonstra início, persistência
+incremental, pausa e retomada, conflito de variação, fechamento sem ajuste
+automático, revisão apenas de divergências elegíveis, histórico e detalhe.
+`Não conferido` e `Não comparável` permanecem sem checkbox ou sugestão de
+ajuste. Todos os dados e aplicações são explicitamente simulados.
+
+Validação: 92 verificações em 320, 390, 768 e 1440 pixels, cobrindo o hub, os
+estados do inventário, as invariantes de revisão, busca de produtos e ausência
+de overflow horizontal. Nenhum React, backend, banco ou deploy foi alterado.

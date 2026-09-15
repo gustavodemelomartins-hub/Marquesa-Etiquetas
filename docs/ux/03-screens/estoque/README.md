@@ -56,6 +56,20 @@ começar, pausar, concluir e aplicar divergências ainda precisam ser definidas.
 | [api-needs.md](api-needs.md) | dado que a tela precisa e que a API ainda não dá |
 | [open-questions.md](open-questions.md) | decisão aberta, específica desta tela |
 
+## Protótipo navegável
+
+O arquivo [master.html](master.html) reúne a cobertura visual atual da área de
+Estoque no mesmo padrão do protótipo de Vendas. Ele inclui visão geral,
+produtos e o fluxo completo demonstrativo de inventário: iniciar, contar,
+pausar, retomar, escolher variação, finalizar a contagem, revisar divergências,
+simular aplicações, consultar histórico e abrir detalhe.
+
+O protótipo não grava dados. Valores, produtos, sessões e aplicações são
+demonstrativos. Os estados desktop e mobile foram verificados em 320, 390, 768
+e 1440 pixels pelo roteiro [verify-master.mjs](verify-master.mjs). A cobertura
+visual está **READY FOR GUSTAVO REVIEW**; isso não equivale a aprovação humana
+nem autoriza implementação em React, API ou banco.
+
 Inspiração externa deste domínio: [02-references/estoque/](../../02-references/estoque/).
 
 ## Blocos da tela
