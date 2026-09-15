@@ -18,6 +18,76 @@ conversa, que sei de primeira mão serem meus. Commits feitos direto em
 
 ---
 
+## 2026-09-15 — A fila real de migrations, provada contra uma cópia de produção
+
+Autorizado pelo Gustavo: sandbox D1 novo e descartável, carregado de um export
+**read-only** de produção, para provar a fila de migrations pendentes e a
+preservação de dados. PROD sem uma única escrita — toda consulta voltou
+`rows_written: 0` e `changed_db: false`.
+
+### O que a cópia mostrou
+
+Produção está **11 migrations atrás** de `api/schema.sql`, não duas. A ordem
+autorizada inicialmente (sorteio, depois crédito) estava incompleta: as duas
+quebram na primeira instrução sem as nove anteriores, e `recebivel-versao` é
+pré-condição declarada da de crédito.
+
+O `marquesa-db-dev` não serve de prova: é o "DEV congelado" do go-live de
+22/08, 22 tabelas atrás. Ficou intacto.
+
+### Duas rodadas
+
+**Fase A** — a fila sobre a cópia fiel (42/42 tabelas batendo com produção,
+6.220 linhas). As 11 aplicadas uma a uma, conferência entre cada. Nenhuma
+linha perdida, nenhum campo preexistente alterado.
+
+**Fase B** — o teste de estresse. Produção tem UMA linha em `garantia_trocas`
+e ZERO em `saidas_sem_faturamento`: uma reconstrução que copia zero linha não
+prova preservação nenhuma. Zerei o sandbox, reimportei, plantei linhas
+sintéticas cobrindo todos os estados que o CHECK anterior aceitava, e rodei a
+fila inteira de novo.
+
+Resultado das três tabelas reconstruídas, campo a campo:
+
+| tabela | linhas | campos por linha | colunas acrescentadas |
+|---|---|---|---|
+| `garantia_trocas` | 6 → 6 | 17/17 iguais | `estornada`, `estorno_em`, `estorno_motivo`, `estorno_movimento_id`, `recebivel_versao` |
+| `saidas_sem_faturamento` | 3 → 3 | 21/21 iguais | `inventario_id` |
+| `historico_reclassificacao` | 2 → 2 | 10/10 iguais | — |
+
+Schema final contra `schema.sql`: **zero divergências** em tabelas, colunas,
+índices, triggers e CHECKs.
+
+### O conferidor pegou a minha própria semente
+
+`GET /api/financeiro/conferir` acusou uma divergência em
+`troca_a_receber_com_venda_paga`. Era semente minha: liguei uma troca
+`a_receber` a uma venda que já estava paga. Não é defeito de migration — e é a
+prova de que a verificação de 5.3f funciona sobre dado real. Ficou como está;
+consertar o dado para o painel ficar verde seria apagar a evidência.
+
+### Dois achados
+
+**`schema.sql` estava incompleto.** `maleta_item_variacoes` e
+`venda_item_correcoes` existem em produção, nascem em
+`migracao-pos-golive-1.sql` e são consultadas por seis módulos — e não estavam
+no schema. Banco novo nascia sem elas. O DDL que entrou foi derivado:
+comparado instrução a instrução contra produção e contra a migration, os três
+idênticos. Junto vieram os sete índices. A lista `SO_NO_MIGRADO` de
+`src/migracao-variantes-test.mjs` foi a zero — e a estrutura ficou de pé,
+vazia, porque é ela que obriga a próxima divergência a ser declarada por nome.
+
+**Produção não tem trigger nenhum.** Não é aplicação parcial: de
+`migracao-venda-item-id.sql` estão presentes 0 de 4 partes, e de
+`migracao-recebivel-versao.sql`, 0 de 5. Nenhuma das duas rodou. Não há drift
+e não é preciso migration corretiva — as duas são idempotentes e já estão na
+fila. Corrigida também a frase de `migracao-recebivel-versao.sql` que afirmava
+que os triggers de `venda-item-id` "vivem lá" em produção. Não vivem.
+
+Evidência completa em `state/dev-migrations/2026-09-15/` no Harness.
+
+---
+
 ## 2026-09-11 (noite) — Consolidação das decisões e das frentes paralelas
 
 | | |

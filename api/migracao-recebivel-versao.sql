@@ -26,9 +26,20 @@
 -- pensaria em incrementar uma versão de recebível ali. Um token que continua
 -- válido depois que a dívida mudou de valor é pior que nenhum token.
 --
--- O trigger não pode esquecer. E ele é a ferramenta que este repositório já
--- manda para o D1 em produção: `venda_itens_id_ao_inserir` e
--- `venda_itens_id_imutavel` vivem lá desde `migracao-venda-item-id.sql`.
+-- O trigger não pode esquecer.
+--
+-- CORREÇÃO (15/09/2026). A versão anterior deste parágrafo dizia que o
+-- trigger "é a ferramenta que este repositório já manda para o D1 em
+-- produção" e que `venda_itens_id_ao_inserir` e `venda_itens_id_imutavel`
+-- "vivem lá desde `migracao-venda-item-id.sql`". Não vivem: uma cópia real
+-- de produção mostrou ZERO triggers, e `migracao-venda-item-id.sql` não
+-- tinha sido aplicada — nem parcialmente (0 de 4 partes presentes). O autor
+-- supôs que uma migration existir no repositório significava estar aplicada.
+--
+-- O argumento técnico continua de pé, e agora com evidência de verdade: as
+-- duas migrations foram aplicadas sobre uma cópia de produção em
+-- 15/09/2026, num sandbox descartável, e os cinco triggers subiram e
+-- funcionaram. Ver `state/dev-migrations/2026-09-15/` no Harness.
 --
 -- ─────────────────────────────────────────────────────── por que não entra
 --                                                         em loop

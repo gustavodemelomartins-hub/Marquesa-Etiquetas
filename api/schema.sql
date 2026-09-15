@@ -1865,3 +1865,111 @@ CREATE TABLE IF NOT EXISTS feriados (
   escopo    TEXT NOT NULL DEFAULT 'nacional',
   criado_em TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- O QUE `migracao-pos-golive-1.sql` CRIOU E NUNCA VOLTOU PARA CÁ
+--
+-- Estas duas tabelas e estes sete índices existem em produção desde o
+-- pós-go-live e são lidos por `produtos.js`, `inventario.js`, `variantes.js`,
+-- `pendencias.js`, `venda-correcao.js` e `pagamento-venda.js`. Não estavam
+-- neste arquivo. Consequência prática: um banco criado do zero pelo schema
+-- nascia sem duas tabelas que o código consulta — e só quem migrasse teria
+-- um banco completo.
+--
+-- `src/migracao-variantes-test.mjs` já declarava a divergência e a subtraía
+-- por nome, de propósito, para não escondê-la. Confirmada em 15/09/2026
+-- contra uma cópia real de produção: o DDL abaixo é IDÊNTICO ao que produção
+-- tem hoje e ao que a migration escreve — comparado instrução a instrução,
+-- não transcrito de memória. Com isto a lista de exceções daquele teste vai
+-- a zero.
+--
+-- Chegam no fim do arquivo porque referenciam `maletas`, `produtos`,
+-- `vendas`, `vendas_historico_itens` e `movimentos`, todas definidas acima.
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- ─── qual variação saiu na maleta
+--
+-- Tabela filha, e não uma coluna em `maleta_itens`: a chave de lá é
+-- (maleta_id, sku), uma linha por código. Uma coluna `variacao` obrigaria
+-- toda maleta a levar UMA variação por código — e uma maleta com dois anéis
+-- do mesmo código, um 16 e um 18, é o caso normal, não a exceção.
+--
+-- É tabela de IDENTIDADE, não de quantidade nova: a soma de `qtd` aqui nunca
+-- pode passar da `qtd` da linha em `maleta_itens`, e dizer qual variação saiu
+-- NÃO movimenta estoque. A peça já saiu quando a maleta foi aberta.
+CREATE TABLE IF NOT EXISTS maleta_item_variacoes (
+  maleta_id   INTEGER NOT NULL REFERENCES maletas(id),
+  sku         TEXT NOT NULL REFERENCES produtos(sku),
+  -- o NOME da variação, como em produto_variacoes.nome ("16", "45cm")
+  variacao    TEXT NOT NULL,
+  -- o id da variante na Nuvemshop, quando conhecido. NULL é honesto:
+  -- variação local que ainda não existe na loja não tem id nenhum.
+  variante_id TEXT,
+  qtd         INTEGER NOT NULL CHECK (qtd > 0),
+  -- quem disse, e quando. Identificação é decisão humana e fica registrada.
+  origem      TEXT NOT NULL DEFAULT 'humana',   -- humana | reconciliacao
+  observacao  TEXT,
+  definida_em TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (maleta_id, sku, variacao)
+);
+
+-- ─── auditoria da correção de SKU de uma venda já registrada
+--
+-- Esta tabela é a AUDITORIA da correção, não o dado corrigido: o SKU novo é
+-- gravado na própria linha da venda (é ela que a tela lê), e aqui fica
+-- registrado o que era antes, o que passou a ser, quem mexeu e o que
+-- aconteceu com o estoque. Sem isto, uma correção seria indistinguível de um
+-- erro de digitação novo.
+--
+-- `estoque_movido` responde à distinção que o pacote exige: venda OPERACIONAL
+-- baixou estoque pelo sistema e a correção precisa devolver uma unidade ao
+-- código errado e tirar uma do certo; linha HISTÓRICA importada já veio com o
+-- estoque refletido e corrigir o código não pode movimentar nada.
+CREATE TABLE IF NOT EXISTS venda_item_correcoes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  -- em qual população a venda vive
+  fonte TEXT NOT NULL CHECK (fonte IN ('operacional', 'historico')),
+  venda_id          INTEGER REFERENCES vendas(id),
+  historico_item_id INTEGER REFERENCES vendas_historico_itens(id),
+
+  sku_antes TEXT NOT NULL,
+  sku_depois TEXT NOT NULL,
+  desc_antes TEXT,
+  desc_depois TEXT,
+  variacao_antes TEXT,
+  variacao_depois TEXT,
+  variante_id_antes TEXT,
+  variante_id_depois TEXT,
+  -- preço só muda se alguém pedir explicitamente; NULL = não mexeu
+  preco_antes REAL,
+  preco_depois REAL,
+
+  -- 1 = houve devolução ao SKU errado e baixa no certo, uma vez cada.
+  -- 0 = histórico cujo estoque já estava refletido; nada foi movimentado.
+  estoque_movido INTEGER NOT NULL DEFAULT 0,
+  movimento_estorno_id INTEGER REFERENCES movimentos(id),
+  movimento_baixa_id   INTEGER REFERENCES movimentos(id),
+
+  motivo    TEXT,
+  criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+
+  CHECK (fonte <> 'operacional' OR venda_id IS NOT NULL),
+  CHECK (fonte <> 'historico'   OR historico_item_id IS NOT NULL)
+);
+
+CREATE INDEX IF NOT EXISTS idx_mitem_var_sku    ON maleta_item_variacoes(sku);
+CREATE INDEX IF NOT EXISTS idx_mitem_var_maleta ON maleta_item_variacoes(maleta_id);
+CREATE INDEX IF NOT EXISTS idx_vic_venda ON venda_item_correcoes(venda_id);
+CREATE INDEX IF NOT EXISTS idx_vic_hist  ON venda_item_correcoes(historico_item_id);
+CREATE INDEX IF NOT EXISTS idx_vic_data  ON venda_item_correcoes(criado_em);
+
+-- `maleta_itens` tem PRIMARY KEY (maleta_id, sku) e um índice por maleta_id —
+-- mas nenhum por sku. Toda consulta que pergunta "quanto deste código está em
+-- maleta aberta?" varria a tabela inteira, uma vez por produto.
+CREATE INDEX IF NOT EXISTS idx_maleta_itens_sku ON maleta_itens(sku);
+
+-- `SELECT * FROM produtos ORDER BY desc` é a primeira consulta de /api/state,
+-- que 50 pontos do painel chamam. Sem índice, o SQLite monta uma B-tree
+-- temporária e a leitura conta em dobro (1.544 linhas para 772 produtos).
+CREATE INDEX IF NOT EXISTS idx_produtos_desc ON produtos(desc);

@@ -248,23 +248,24 @@ eq('produtos.qtd == SUM(movimentos.qtd) em todo SKU', divergentes, 0);
 console.log('\n=== 4. os dois caminhos chegam ao MESMO banco ===');
 /* O que este teste existe para pegar: schema e migration divergindo em
    silêncio. Quem cria do zero e quem migra têm de terminar iguais. */
-/* DIVERGÊNCIA CONHECIDA, e deliberadamente não escondida.
+/* DIVERGÊNCIA FECHADA em 15/09/2026 — a lista está vazia, e continua aqui.
  *
- * `migracao-pos-golive-1.sql` cria objetos que nunca foram escritos de volta
- * em `api/schema.sql`. Consequência prática: um banco criado do zero pelo
- * schema NÃO tem estas coisas, e um banco migrado (que é o caso de produção
- * e do DEV) tem. A divergência é anterior a 11/09/2026 — ela só ficou
- * invisível enquanto `migracao-pos-golive-1.sql` estava fora da lista acima.
+ * `migracao-pos-golive-1.sql` criava duas tabelas e sete índices que nunca
+ * tinham sido escritos de volta em `api/schema.sql`: um banco criado do zero
+ * nascia sem `maleta_item_variacoes` e `venda_item_correcoes`, que
+ * `produtos.js`, `inventario.js`, `variantes.js`, `pendencias.js`,
+ * `venda-correcao.js` e `pagamento-venda.js` consultam.
  *
- * Fechar isso mexe em `schema.sql`, o que é mudança de banco e tem gate
- * próprio (`safe-d1-change`). Está registrado como tarefa; até lá, o teste
- * subtrai EXATAMENTE estes nomes e mais nenhum. Se a lista crescer, encolher
- * ou mudar, o teste falha — que é o ponto. */
-const SO_NO_MIGRADO = {
-  tabelas: ['maleta_item_variacoes', 'venda_item_correcoes'],
-  indices: ['idx_maleta_itens_sku', 'idx_mitem_var_maleta', 'idx_mitem_var_sku',
-            'idx_produtos_desc', 'idx_vic_data', 'idx_vic_hist', 'idx_vic_venda'],
-};
+ * O DDL que entrou no schema foi DERIVADO, não redigido: comparado instrução
+ * a instrução contra uma cópia real de produção e contra a própria migration,
+ * e os três são idênticos.
+ *
+ * A estrutura fica de pé vazia de propósito. Ela é o lugar onde uma
+ * divergência nova teria de ser declarada por nome para o teste passar — e
+ * declarar por nome é caro o bastante para ninguém fazer por distração. Se
+ * alguém acrescentar objeto numa migration e esquecer o schema, o teste falha
+ * em vez de crescer uma exceção em silêncio. */
+const SO_NO_MIGRADO = { tabelas: [], indices: [] };
 const SO_NO_SCHEMA = { tabelas: [], indices: [] };
 
 const semExcecoes = (lista, fora) => lista.filter((n) => !fora.includes(n));
