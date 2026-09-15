@@ -6,6 +6,22 @@
     "branch": "claude/refactor-sistema-marquesa",
     "recentes": [
       {
+        "commit": "b6d6ed7",
+        "data": "2026-09-15",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(schema): as duas tabelas que producao usa e o schema nao tinha",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "f5a4bd6",
+        "data": "2026-09-14",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(analytics): 5.6 — vocabulario unico de canal e intervalo arbitrario",
+        "agente": "",
+        "taskIds": []
+      },
+      {
         "commit": "b97d88b",
         "data": "2026-09-14",
         "autor": "gustavodemelomartins-hub",
@@ -195,22 +211,6 @@
         "taskIds": [
           "VEN-105"
         ]
-      },
-      {
-        "commit": "1418e30",
-        "data": "2026-09-12",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "Merge remote-tracking branch 'origin/develop' into claude/refactor-sistema-marquesa",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "e4a35fd",
-        "data": "2026-09-12",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(vendas): a Fase 5 começa por auditoria, não por implementação",
-        "agente": "",
-        "taskIds": []
       }
     ]
   },
@@ -414,9 +414,9 @@
       "id": "ARQ-007",
       "estado": "IN PROGRESS",
       "dominio": "Arquitetura",
-      "titulo": "Divergência entre api/schema.sql e as migrations — migracao-pos-golive-1.sql cria maleta_item_variacoes, venda_item_correcoes e 5 índices que nunca foram escritos de volta no schema. Banco criado do zero não os tem; banco migrado (PROD e DEV) tem",
-      "contexto": "achado em 11/09/2026 ao estender src/migracao-variantes-test.mjs das 8 migrations originais para as 30 reais. O teste hoje subtrai essa lista nomeada e falha se ela mudar",
-      "nota": "é anterior a esta sessão e não bloqueia nada hoje; fechar exige safe-d1-change e nunca em PROD congelada"
+      "titulo": "~~Divergência entre api/schema.sql e as migrations~~ — RESOLVIDA em 15/09/2026 (b6d6ed7). migracao-pos-golive-1.sql criava maleta_item_variacoes, venda_item_correcoes e 7 índices (não 5) que nunca voltaram ao schema",
+      "contexto": "DDL derivado de uma cópia read-only de produção e comparado instrução a instrução com a migration — os três idênticos. SO_NO_MIGRADO em src/migracao-variantes-test.mjs foi a zero, estrutura mantida vazia para obrigar a próxima divergência a ser declarada por nome",
+      "nota": "fechada só em schema.sql e no teste; PROD continua congelada e não foi tocada"
     },
     {
       "id": "SAI-001",
@@ -611,9 +611,9 @@
           "id": "ARQ-007",
           "estado": "IN PROGRESS",
           "dominio": "Arquitetura",
-          "titulo": "Divergência entre api/schema.sql e as migrations — migracao-pos-golive-1.sql cria maleta_item_variacoes, venda_item_correcoes e 5 índices que nunca foram escritos de volta no schema. Banco criado do zero não os tem; banco migrado (PROD e DEV) tem",
-          "contexto": "achado em 11/09/2026 ao estender src/migracao-variantes-test.mjs das 8 migrations originais para as 30 reais. O teste hoje subtrai essa lista nomeada e falha se ela mudar",
-          "nota": "é anterior a esta sessão e não bloqueia nada hoje; fechar exige safe-d1-change e nunca em PROD congelada"
+          "titulo": "~~Divergência entre api/schema.sql e as migrations~~ — RESOLVIDA em 15/09/2026 (b6d6ed7). migracao-pos-golive-1.sql criava maleta_item_variacoes, venda_item_correcoes e 7 índices (não 5) que nunca voltaram ao schema",
+          "contexto": "DDL derivado de uma cópia read-only de produção e comparado instrução a instrução com a migration — os três idênticos. SO_NO_MIGRADO em src/migracao-variantes-test.mjs foi a zero, estrutura mantida vazia para obrigar a próxima divergência a ser declarada por nome",
+          "nota": "fechada só em schema.sql e no teste; PROD continua congelada e não foi tocada"
         }
       ],
       "paridade": [],
@@ -2300,6 +2300,15 @@
     ]
   },
   "worklogs": [
+    {
+      "agente": "Claude",
+      "data": "2026-09-15",
+      "titulo": "A fila real de migrations, provada contra uma cópia de produção",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": []
+    },
     {
       "agente": "Claude",
       "data": "2026-09-14",
