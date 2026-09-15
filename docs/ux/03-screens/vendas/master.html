@@ -397,9 +397,19 @@
         </section>
 
         <section class="screen" id="clientes" aria-labelledby="clients-title" hidden>
-          <div class="page-heading"><div><p class="context" data-clients-context>Relacionamento</p><h1 id="clients-title" data-clients-title>Clientes</h1><p data-clients-copy>Compras, pagamentos e valores em aberto aparecem separados.</p></div><div class="clients-heading-actions"><button class="button ghost" type="button" data-show-all-clients hidden>Ver todas as clientes</button><button class="button primary" type="button">Nova cliente</button></div></div>
+          <div class="page-heading"><div><p class="context" data-clients-context>Relacionamento</p><h1 id="clients-title" data-clients-title>Clientes</h1><p data-clients-copy>Compras, pagamentos e valores em aberto aparecem separados.</p></div><div class="clients-heading-actions"><button class="button ghost" type="button" data-show-all-clients hidden>Ver todas as clientes</button><button class="button primary" type="button" data-client-new>Nova cliente</button></div></div>
           <div class="metric-row compact"><article><span>Clientes ativas</span><strong>345</strong><small>cadastros com histórico</small></article><article><span>Compraram no mês</span><strong>39</strong><small>6 novas clientes</small></article><article><span>Com valor em aberto</span><strong>8</strong><small>R$ 12.269,90</small></article></div>
           <section class="data-section client-list"><div class="section-heading"><div><h2 data-client-list-title>Lista de clientes</h2><p data-client-list-copy>Busque por nome, telefone ou CPF</p></div><div class="search-field narrow" data-client-search>Buscar cliente</div></div><table><thead><tr><th>Cliente</th><th>Comprou</th><th>Pago</th><th>Em aberto</th><th>Última compra</th><th></th></tr></thead><tbody><tr data-client-row="Camila Ferreira" data-has-receivable="true"><td><b>Camila Ferreira</b><small>(19) 9 8123-4567</small></td><td>R$ 1.284,00</td><td>R$ 1.125,00</td><td><span class="status partial">R$ 159,00</span></td><td>05/09/2026</td><td>›</td></tr><tr data-client-row="Juliana Prado" data-has-receivable="false"><td><b>Juliana Prado</b><small>(19) 9 9211-1098</small></td><td>R$ 898,00</td><td>R$ 898,00</td><td><span class="status paid">R$ 0,00</span></td><td>04/09/2026</td><td>›</td></tr><tr data-client-row="Ana Luiza Sedassari" data-has-receivable="true"><td><b>Ana Luiza Sedassari</b><small>(19) 9 7790-3112</small></td><td>R$ 2.044,00</td><td>R$ 1.704,00</td><td><span class="status partial">R$ 340,00</span></td><td>03/09/2026</td><td>›</td></tr><tr data-client-row="Zilma" data-has-receivable="false"><td><b>Zilma</b><small>Contato não informado</small></td><td>R$ 79,00</td><td>R$ 79,00</td><td><span class="status paid">R$ 0,00</span></td><td>02/09/2026</td><td>›</td></tr></tbody></table></section>
+          <section class="client-profile-view" data-client-profile hidden>
+            <div class="client-profile-grid">
+              <article class="data-section client-identity"><div class="client-avatar" data-client-initials>CF</div><div><p class="context">Perfil da cliente</p><h2 data-profile-name>Camila Ferreira</h2><p data-profile-phone>(19) 9 8123-4567</p><small>Cliente desde 18/02/2025 · dados demonstrativos</small></div><button class="button ghost" type="button" data-edit-client>Editar cadastro</button></article>
+              <article class="data-section client-financial"><p class="context">Situação financeira</p><dl><div><dt>Total comprado</dt><dd data-profile-bought>R$ 1.284,00</dd></div><div><dt>Total recebido</dt><dd data-profile-paid>R$ 1.125,00</dd></div><div class="open"><dt>A receber</dt><dd data-profile-open>R$ 159,00</dd><small>Sem geração de parcelas</small></div></dl><button class="button primary" type="button" data-register-receipt>Registrar recebimento</button></article>
+            </div>
+            <div class="client-history-grid">
+              <section class="data-section client-purchases"><div class="section-heading"><div><p class="context">Linha do tempo</p><h2>Compras e recebimentos</h2><p>Venda e situação financeira aparecem separadas.</p></div><button class="button ghost" type="button" data-new-client-sale>Nova venda</button></div><div class="client-timeline"><article><span class="timeline-icon sale">↗</span><div><b>Venda #1058</b><small>05/09/2026 · Balcão · 2 peças</small><p>Argola Duas Linhas e Pulseira Medalha Salmo</p></div><strong>R$ 159,00</strong><em class="status receivable">A receber</em></article><article><span class="timeline-icon money">R$</span><div><b>Recebimento por PIX</b><small>28/08/2026 · recebido na data efetiva</small><p>Referente à venda #1041</p></div><strong>R$ 220,00</strong><em class="status paid">Pago</em></article><article><span class="timeline-icon sale">↗</span><div><b>Venda #1041</b><small>25/08/2026 · WhatsApp · 3 peças</small><p>Colar Coração Vazado e 2 brincos</p></div><strong>R$ 220,00</strong><em class="status paid">Pago</em></article></div></section>
+              <aside class="data-section client-notes"><p class="context">Relacionamento</p><h2>Contato e observações</h2><dl><div><dt>WhatsApp</dt><dd data-profile-phone-copy>(19) 9 8123-4567</dd></div><div><dt>Última compra</dt><dd data-profile-last>05/09/2026</dd></div><div><dt>Canal mais usado</dt><dd>Balcão</dd></div></dl><label>Observação<textarea rows="4" placeholder="Preferências, tamanho ou contexto útil…">Prefere peças douradas e contato pelo WhatsApp.</textarea></label><button class="button ghost" type="button" data-save-client-note>Salvar observação</button></aside>
+            </div>
+          </section>
         </section>
 
         <section class="screen" id="reparos" aria-labelledby="repairs-title" hidden>
@@ -1936,6 +1946,27 @@
       const clientListCopy = document.querySelector('[data-client-list-copy]');
       const clientSearch = document.querySelector('[data-client-search]');
       const showAllClientsButton = document.querySelector('[data-show-all-clients]');
+      const clientProfile = document.querySelector('[data-client-profile]');
+      const clientData = {
+        'Camila Ferreira': { phone: '(19) 9 8123-4567', bought: 'R$ 1.284,00', paid: 'R$ 1.125,00', open: 'R$ 159,00', last: '05/09/2026' },
+        'Juliana Prado': { phone: '(19) 9 9211-1098', bought: 'R$ 898,00', paid: 'R$ 898,00', open: 'R$ 0,00', last: '04/09/2026' },
+        'Ana Luiza Sedassari': { phone: '(19) 9 7790-3112', bought: 'R$ 2.044,00', paid: 'R$ 1.704,00', open: 'R$ 340,00', last: '03/09/2026' },
+        'Zilma': { phone: 'Contato não informado', bought: 'R$ 79,00', paid: 'R$ 79,00', open: 'R$ 0,00', last: '02/09/2026' }
+      };
+
+      function updateClientProfile(customer) {
+        clientProfile.hidden = !customer;
+        if (!customer) return;
+        const data = clientData[customer] || clientData['Camila Ferreira'];
+        document.querySelector('[data-client-initials]').textContent = customer.split(' ').map((part) => part[0]).slice(0, 2).join('');
+        document.querySelector('[data-profile-name]').textContent = customer;
+        document.querySelector('[data-profile-phone]').textContent = data.phone;
+        document.querySelector('[data-profile-phone-copy]').textContent = data.phone;
+        document.querySelector('[data-profile-bought]').textContent = data.bought;
+        document.querySelector('[data-profile-paid]').textContent = data.paid;
+        document.querySelector('[data-profile-open]').textContent = data.open;
+        document.querySelector('[data-profile-last]').textContent = data.last;
+      }
 
       function markTargetClient(customer) {
         clientRows.forEach((row) => row.classList.toggle('client-target', row.dataset.clientRow === customer));
@@ -1952,6 +1983,7 @@
         showAllClientsButton.hidden = !specificCustomer;
         clientRows.forEach((row) => { row.hidden = specificCustomer && row.dataset.clientRow !== customer; });
         markTargetClient(customer);
+        updateClientProfile(customer);
       }
 
       function navigateToClients(destination, customer = '') {
@@ -1967,6 +1999,7 @@
           showAllClientsButton.hidden = false;
           clientRows.forEach((row) => { row.hidden = row.dataset.hasReceivable !== 'true'; });
           markTargetClient(specificCustomer ? customer : '');
+          updateClientProfile('');
         } else {
           showAllClients(customer);
         }
@@ -1980,6 +2013,17 @@
       document.querySelector('.receivable-card [data-open-receivables]').addEventListener('click', () => navigateToClients('receivables'));
       document.querySelector('[data-open-repairs]').addEventListener('click', () => activateScreen('reparos', 'clientes'));
       showAllClientsButton.addEventListener('click', () => showAllClients());
+      clientRows.forEach((row) => {
+        row.tabIndex = 0;
+        row.setAttribute('role', 'button');
+        const open = () => navigateToClients('client', row.dataset.clientRow);
+        row.addEventListener('click', open);
+        row.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
+      });
+      document.querySelector('[data-new-client-sale]').addEventListener('click', () => activateScreen('lancamentos'));
+      document.querySelector('[data-client-new]').addEventListener('click', () => newCustomerDialog.showModal());
+      document.querySelector('[data-register-receipt]').addEventListener('click', () => navigateToClients('receivables', document.querySelector('[data-profile-name]').textContent));
+      ['[data-edit-client]', '[data-save-client-note]'].forEach((selector) => document.querySelector(selector).addEventListener('click', () => showLaunchToast('Alteração demonstrativa. Nenhum dado real foi gravado.')));
 
       const profile = document.querySelector('.profile');
       const menu = document.querySelector('#profile-menu');
@@ -1993,6 +2037,7 @@
       });
 
       applyPreset('12m');
+      if (window.location.hash === '#clientes') activateScreen('clientes');
     </script>
     <script src="outputs.js?v=20260914-mobile"></script>
   </body>

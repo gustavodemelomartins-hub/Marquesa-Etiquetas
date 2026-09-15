@@ -489,3 +489,17 @@ que nenhuma ação de etiquetas movimenta estoque. Validação: 72 verificaçõe
 320, 390, 768 e 1440 pixels, cobrindo edição de texto, totais, composição da
 folha, calibração, impressão honesta, histórico, reimpressão e overflow. Sem
 React, API, banco, arquivo físico ou deploy.
+
+### 15/09 — Cobertura de Clientes dentro de Vendas
+
+Clientes passou de lista demonstrativa para uma experiência navegável com
+perfil, contato, situação financeira e linha do tempo. Total comprado, total
+recebido e `A receber` ficam separados; o saldo aberto não gera parcelas. A
+linha do tempo apresenta vendas e recebimentos como fatos diferentes, com a
+data efetiva do recebimento, e oferece entradas para nova venda, cadastro,
+observação e registro de recebimento.
+
+Como não existe mockup próprio recebido para esta família, o desenho foi
+registrado como proposta pronta para revisão humana, sem aprovação presumida.
+Validação: 52 verificações em 320, 390, 768 e 1440 pixels, mais 39 verificações
+de regressão mobile de Vendas. Nenhuma persistência, API, banco ou deploy.
