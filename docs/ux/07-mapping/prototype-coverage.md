@@ -46,10 +46,10 @@ integração real.
 | Catálogo · Preparar / revisar conteúdo | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | contrato técnico pronto | legado em produção |
 | Catálogo · Publicar / despublicar | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | contrato técnico pronto | legado em produção |
 | Catálogo · Divergências com Nuvemshop | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | contrato técnico pronto | React parcial |
-| Revendedoras · Visão geral / lista | IN PROGRESS | IN PROGRESS | NOT STARTED | NOT STARTED | NOT STARTED | IN PROGRESS | NOT STARTED | existente | React parcial |
-| Revendedoras · Perfil / editar / arquivar | IN PROGRESS | IN PROGRESS | NOT STARTED | NOT STARTED | NOT STARTED | IN PROGRESS | NOT STARTED | existente | React parcial |
-| Maletas · Sugestão / criar / adicionar | IN PROGRESS | IN PROGRESS | NOT STARTED | NOT STARTED | NOT STARTED | IN PROGRESS | NOT STARTED | existente | React parcial |
-| Maletas · Importar / acertar / cancelar | IN PROGRESS | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | IN PROGRESS | NOT STARTED | existente | legado em produção |
+| Revendedoras · Visão geral / lista | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | React parcial |
+| Revendedoras · Perfil / editar / arquivar | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | React parcial |
+| Maletas · Sugestão / criar / adicionar | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | React parcial |
+| Maletas · Importar / acertar / cancelar | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado em produção |
 | Etiquetas · Preparar | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | APPROVED | UI NEEDS API | legado em produção |
 | Etiquetas · Revisar / imprimir / PDF | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | APPROVED | UI NEEDS API | legado em produção |
 | Etiquetas · Histórico / reimpressão | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | APPROVED | UI NEEDS API | legado em produção |

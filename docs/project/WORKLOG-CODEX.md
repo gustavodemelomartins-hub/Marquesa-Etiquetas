@@ -530,3 +530,15 @@ Validação: 56 verificações em 320, 390, 768 e 1440 pixels, cobrindo dimensõ
 pipeline, estoque somente leitura, análise seca, aprovação separada,
 divergências sem correção automática, bloqueio de publicação e overflow. Sem
 React, API, armazenamento, Nuvemshop, banco ou deploy.
+
+### 15/09 — Cobertura de Revendedoras e Maletas
+
+A sétima família do hub propõe visão geral, agenda de acertos, capacidade,
+lista, perfil, maleta em aberto e histórico. O fluxo de criação mantém sugestão
+revisável e só retira peças de casa após confirmação. O perfil usa o preço
+congelado no envio; o acerto separa vendidas e devolvidas, comissão e líquido.
+
+Validação: 56 verificações em 320, 390, 768 e 1440 pixels, cobrindo sugestão,
+confirmação, perfil, itens, snapshot de preço, abertura de acerto, efeito de
+vendidas/devolvidas e overflow. Como não há mockup próprio, segue pronta para
+revisão do Gustavo. Sem React, API, banco ou deploy.
