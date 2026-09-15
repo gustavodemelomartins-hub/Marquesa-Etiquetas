@@ -567,3 +567,14 @@ continuam fora de qualquer correção automática.
 Validação: 40 verificações em 320, 390, 768 e 1440 pixels, cobrindo filtros,
 diagnóstico, freios, análise seca, plano sem aplicação e overflow. A tela segue
 pronta para revisão do Gustavo. Sem React, API, Nuvemshop, banco ou deploy.
+
+### 15/09 — Central navegável de Notificações
+
+A décima família do hub reúne acontecimentos do sistema com origem, tempo,
+gravidade e destino. O fluxo permite separar não lidas e prioridades, marcar a
+central como lida e configurar quais grupos merecem destaque. Cada alerta leva
+à área que permite agir, sem criar uma segunda operação dentro da central.
+
+Validação: 32 verificações em 320, 390, 768 e 1440 pixels, cobrindo filtros,
+contadores, leitura, preferências e overflow. Envio por canais externos segue
+marcado como necessidade de API. Sem React, API, mensagem externa ou deploy.
