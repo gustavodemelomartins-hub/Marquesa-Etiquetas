@@ -392,7 +392,7 @@ comportamento que a UX ainda vai definir.
 | ~~5.3~~ | ~~`FIN-101` — recebíveis com paridade do legado, sem modelo novo~~ · **feita** — 5.3a–5.3f; ver `AUDITORIA-5-3-FIN-101-CONTAS-A-RECEBER.md` §25 | 5.2 |
 | ~~5.4~~ | ~~`GAR-101` e `GAR-102` — garantias, trocas e o estorno que era código morto~~ · **feita** — 5.4a–5.4f (§21–§23), `src/garantias-ciclo-test.mjs` | nada |
 | 5.5 | `VEN-105` — correção de item vendido · **`AGUARDANDO HANDOFF CODEX`** | 5.2 e o handoff (ver §17) |
-| 5.6 | vocabulário único de canal e intervalo arbitrário no analytics | 5.1 |
+| ~~5.6~~ | ~~vocabulário único de canal e intervalo arbitrário no analytics~~ · **feita** — ver §24; `src/analytics-recorte-canal-test.mjs` | 5.1 |
 | 5.7 | precisão monetária em centavos no ciclo comercial | 5.2 |
 | 5.8 | **modelo de recebimentos múltiplos, formas e parcelas** | 5.7 e handoff do Codex |
 | 5.9 | custo histórico auditável | `P12` e `DR-017` |
@@ -1182,3 +1182,64 @@ Nenhuma delas impede declarar o backend concluído.
 | reconciliação de `ambiguo`/`sem_match` | `PRECISA DE AUDITORIA READ-ONLY FUTURA EM PROD` |
 
 O backend de Garantias não tem mais nada pendente que dependa só dele.
+
+---
+
+## 24. Fase 5.6 — executada
+
+Duas metades independentes, as duas vindas de §A6 e §A7.
+
+### 24.1 A6 — `canal` parou de significar duas coisas
+
+5.1 corrigiu isso em `GET /api/vendas/lista`. O analytics continuava somando
+vocabulários diferentes na mesma coluna: do lado operacional `canal` é rótulo
+de tela (`Balcão`, `Site`, `Acerto de maleta`), do histórico é o texto da
+planilha (`Site`, `Instagram`, `Maleta`).
+
+`cteVendas` ganhou **`origem`** ao lado de `canal`, com a mesma regra de 5.1:
+
+- `canal` continua o **bruto de cada população** — é ele que permite auditar a
+  classificação depois, e é onde `Instagram` aparece como a Sthefany escreveu;
+- `origem` é o **vocabulário comum** (`balcao|acerto|site|troca`), preenchido
+  só onde a correspondência é **mecânica**. Do lado operacional ele já existia:
+  é `vendas.origem`, cru. Do histórico, só `Site` casa;
+- o que não tem equivalente fica **`null`**, e `GET /api/analytics/origem`
+  devolve essa fatia como `indeterminado: true`, com valor e participação.
+
+`Instagram`, `Grupo VIP`, `Encomendas` e `Maleta` continuam sem gaveta, e é
+essa a questão: classificá-los é decidir **`VEN-Q013`**, que é de produto e
+segue em aberto. Um teste prova que a fatia indeterminada **fecha o total** —
+nada desaparece por não ter nome —, e a resposta declara por escrito o que cada
+eixo significa, para os dois não parecerem intercambiáveis.
+
+### 24.2 A7 — intervalo arbitrário, e a recusa que faltava
+
+`faixaDePeriodo()` aceitava só presets. Agora aceita `{ de, ate }`, o intervalo
+que a UX já simula com um popover e que não tinha contrato atrás
+(`API-VEN-001`). O intervalo **vence** o preset, e a faixa devolvida declara
+`periodo: 'personalizado'`: a resposta diz o recorte que usou, em vez de deixar
+quem lê deduzir pelas datas.
+
+**A parte que importa é a recusa.** `faixaDePeriodo` sempre caiu em `tudo`
+diante de valor desconhecido. Para preset isso é razoável — só a tela escreve
+preset. **Data vem de gente**, e cair em `tudo` diante de `de=2026-13-01`
+devolveria o faturamento inteiro da loja com aparência de recorte pedido: o
+pior tipo de erro, porque o número é plausível e ninguém desconfia.
+
+Quatro casos recusados com motivo, em 400, na porta HTTP: meia faixa (só `de`
+ou só `ate`), mês inexistente, `2026-02-31` (casa com a regex e não existe no
+calendário) e início depois do fim.
+
+E o intervalo **desce para todos os blocos** de `GET /api/analytics/painel`.
+Passar só `periodo` aos sub-blocos faria o cabeçalho dizer "1 a 15 de agosto"
+enquanto os cartões somavam o ano — a divergência entre cartão e tabela que §12
+nomeia como o alvo de 5.6, e que é B1 voltando por outra porta. Há teste para
+isso.
+
+### 24.3 O que 5.6 deliberadamente não fez
+
+- **não decidiu `VEN-Q013`.** Nenhum canal sem equivalente mecânico foi
+  classificado;
+- não mexeu em `resumoDoMes` nem em `historico-dia`, que têm recorte próprio;
+- não tocou `GET /api/vendas/lista` (já corrigida em 5.1) nem em nada de 5.7;
+- sem migration, sem DEV, sem PROD, sem deploy, sem push.

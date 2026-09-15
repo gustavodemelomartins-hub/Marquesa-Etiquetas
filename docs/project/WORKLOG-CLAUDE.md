@@ -522,3 +522,35 @@ mesmo commit. Regressão local verde nas 30 suítes de `domain-pure`, nos gates
 continuam lá, agora visíveis; o `Math.max(0, …)` de `contas-receber.js`
 permanece; 5.7 e 5.8 não foram tocadas; sem migration, sem DEV, sem PROD, sem
 deploy, sem push.
+
+---
+
+## 2026-09-14 — Fase 5.6: vocabulário de canal e intervalo arbitrário
+
+**Task IDs tocados:** `VEN-101` / analytics (subfase 5.6).
+
+**A6.** O analytics ainda somava dois vocabulários na mesma coluna: `canal` era
+rótulo de tela do lado operacional (`Balcão`, `Site`) e texto de planilha do
+lado histórico (`Site`, `Instagram`, `Maleta`). `cteVendas` ganhou `origem` ao
+lado de `canal`, com a mesma regra de 5.1: bruto preservado, comum preenchido
+só onde a correspondência é mecânica, e `null` onde não é.
+`GET /api/analytics/origem` devolve os dois eixos e anuncia a fatia
+`indeterminado` com valor e participação. **`VEN-Q013` continua em aberto e não
+foi decidido** — classificar Instagram dentro de um SELECT seria decidir por
+produto.
+
+**A7.** `faixaDePeriodo()` passa a aceitar `{ de, ate }` além dos presets, e a
+faixa declara `periodo: 'personalizado'`. O que faltava mesmo era a recusa: ela
+caía em `tudo` diante de qualquer valor desconhecido, e para data isso devolve
+o faturamento inteiro da loja com cara de recorte pedido. Agora meia faixa, mês
+13, `2026-02-31` e ordem invertida são 400 com motivo, na porta.
+
+O intervalo desce para **todos** os blocos do painel. Sem isso, cabeçalho e
+cartões responderiam sobre recortes diferentes — B1 voltando por outra porta.
+
+**Validação:** suíte nova `src/analytics-recorte-canal-test.mjs` (11 provas),
+registrada no mesmo commit. Regressão local verde: 31 suítes de `domain-pure`,
+gates `fast`, `inventario-4-4`, `catalogo-4-5`, painel e build do legado.
+
+**Limites:** `resumoDoMes` e `historico-dia` têm recorte próprio e não foram
+tocados; nada de 5.7; sem migration, sem DEV, sem PROD, sem deploy, sem push.

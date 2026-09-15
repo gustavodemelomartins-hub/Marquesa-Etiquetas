@@ -7,6 +7,22 @@ window.MARQUESA_V2 = {
     "branch": "claude/refactor-sistema-marquesa",
     "recentes": [
       {
+        "commit": "b97d88b",
+        "data": "2026-09-14",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(vendas): §12 reconciliado — 5.0, 5.3 e 5.4 marcadas feitas",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "e6f1775",
+        "data": "2026-09-14",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(financeiro): 5.3f — a rede de G7/G9/G10, e a razao contabil do dinheiro",
+        "agente": "",
+        "taskIds": []
+      },
+      {
         "commit": "3b9793c",
         "data": "2026-09-14",
         "autor": "gustavodemelomartins-hub",
@@ -194,22 +210,6 @@ window.MARQUESA_V2 = {
         "data": "2026-09-12",
         "autor": "gustavodemelomartins-hub",
         "assunto": "docs(vendas): a Fase 5 começa por auditoria, não por implementação",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "847fe28",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(painel): o card do Codex deixa de parar em 52f5f5f e passa a a6d7c6b",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "8b306ad",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(decisoes): as respostas da Sthefany fecham DR-005/006/015/016",
         "agente": "",
         "taskIds": []
       }
@@ -2332,6 +2332,17 @@ window.MARQUESA_V2 = {
       "status": "",
       "taskIds": [
         "FIN-101"
+      ]
+    },
+    {
+      "agente": "Claude",
+      "data": "2026-09-14",
+      "titulo": "Fase 5.6: vocabulário de canal e intervalo arbitrário",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": [
+        "VEN-101"
       ]
     },
     {

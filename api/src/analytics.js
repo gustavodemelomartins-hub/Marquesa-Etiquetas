@@ -59,17 +59,59 @@ const PERIODOS = new Set(['7d', '30d', '90d', '12m', 'tudo']);
 /* O papel pertence à operação histórica, não ao nome atual da pessoa.
    `cteVendas` é o único ponto que decide cliente x acerto x revisão. */
 
+const ISO_DATA = /^\d{4}-\d{2}-\d{2}$/;
+/** `2026-02-31` casa com a regex e não existe no calendário. Um recorte por
+ *  uma data que não existe devolveria conjunto vazio com cara de resposta. */
+export const dataIsoValida = (v) => typeof v === 'string' && ISO_DATA.test(v)
+  && !Number.isNaN(Date.parse(`${v}T00:00:00Z`))
+  && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v;
+
+/** 5.6 · A7 — valida um intervalo arbitrário ANTES de ele virar SQL.
+ *
+ *  `faixaDePeriodo` sempre caiu em `tudo` diante de um valor que não conhece,
+ *  e para um PRESET isso é razoável: só a tela escreve preset. Data vem de
+ *  gente, e cair em `tudo` diante de `2026-13-01` devolveria o faturamento
+ *  inteiro da loja com aparência de recorte pedido — o pior tipo de erro,
+ *  porque é plausível. Aqui o intervalo inválido é RECUSADO, com o motivo. */
+export function validarIntervalo({ de = null, ate = null } = {}) {
+  if (de == null && ate == null) return { ok: true, de: null, ate: null };
+  if (de == null || ate == null) {
+    return { ok: false, erro: 'Intervalo personalizado precisa de `de` E `ate` — meia faixa não é recorte.' };
+  }
+  if (!dataIsoValida(de) || !dataIsoValida(ate)) {
+    return { ok: false, erro: 'Datas inválidas. Use AAAA-MM-DD, com dia que existe no calendário.' };
+  }
+  if (de > ate) return { ok: false, erro: `O início (${de}) é depois do fim (${ate}).` };
+  return { ok: true, de, ate };
+}
+
 /** Traduz o filtro da tela em recorte de data. `tudo` devolve null e a
- *  consulta sai sem WHERE de período. */
-export function faixaDePeriodo(periodo = 'tudo', hoje = new Date()) {
-  if (!PERIODOS.has(periodo)) periodo = 'tudo';
-  if (periodo === 'tudo') return { de: null, ate: null, periodo };
-  const dias = { '7d': 7, '30d': 30, '90d': 90, '12m': 365 }[periodo];
+ *  consulta sai sem WHERE de período.
+ *
+ *  5.6 — aceita também `{ de, ate }`: o intervalo personalizado que a UX já
+ *  simula com um popover de datas e que não tinha contrato nenhum atrás
+ *  (A7 · `API-VEN-001`). O intervalo VENCE o preset quando os dois vêm, e a
+ *  faixa devolvida diz `periodo: 'personalizado'` — a resposta declara o
+ *  recorte que usou, em vez de deixar quem lê deduzir pelas datas. */
+export function faixaDePeriodo(periodo = 'tudo', hoje = new Date(), intervalo = null) {
+  const p = (periodo && typeof periodo === 'object') ? periodo : { periodo, ...(intervalo || {}) };
+  const nome = p.periodo ?? 'tudo';
+  if (p.de != null || p.ate != null) {
+    const v = validarIntervalo(p);
+    /* Chamador que não validou antes não recebe um recorte silenciosamente
+       errado: recebe `tudo` com o período declarado como inválido, e a rota
+       o barra em 400 antes de chegar aqui. */
+    if (!v.ok) return { de: null, ate: null, periodo: 'invalido', erro: v.erro };
+    return { de: v.de, ate: v.ate, periodo: 'personalizado' };
+  }
+  const preset = PERIODOS.has(nome) ? nome : 'tudo';
+  if (preset === 'tudo') return { de: null, ate: null, periodo: preset };
+  const dias = { '7d': 7, '30d': 30, '90d': 90, '12m': 365 }[preset];
   const ate = new Date(hoje);
   const de = new Date(hoje);
   de.setDate(de.getDate() - dias);
   const iso = (d) => d.toISOString().slice(0, 10);
-  return { de: iso(de), ate: iso(ate), periodo };
+  return { de: iso(de), ate: iso(ate), periodo: preset };
 }
 
 function recorte(coluna, { de, ate }) {
@@ -166,6 +208,17 @@ export function cteVendas(faixa, { incluirAjuste = false } = {}) {
                   WHEN ho.cobranca_status='aberta' THEN 0
                   ELSE vh.elegivel_ticket END AS elegivel,
              COALESCE(ho.canal, vh.canal) AS canal,
+             -- 5.6 -- o vocabulario COMUM, ao lado do texto bruto. Mesma
+             -- regra de 5.1 em /api/vendas/lista: so onde a correspondencia e
+             -- mecanica. Site e site sao a mesma palavra; Instagram, Grupo
+             -- VIP, Encomendas e Maleta nao tem equivalente em
+             -- balcao|acerto|site, e classifica-los aqui seria decidir
+             -- VEN-Q013 dentro de um SELECT. Ficam NULL: indeterminado
+             -- anunciado vale mais que classificacao falsa.
+             -- (Sem crase aqui dentro: isto e um template literal.)
+             CASE WHEN LOWER(TRIM(COALESCE(ho.canal, vh.canal, ''))) = 'site'
+                  THEN 'site'
+                  WHEN COALESCE(ho.papel, 'cliente') = 'acerto' THEN 'acerto' END AS origem,
              COALESCE(ho.contexto, vh.contexto) AS contexto,
              vh.classe AS classe,
              COALESCE(ho.papel, 'cliente') AS papel,
@@ -213,6 +266,12 @@ export function cteVendas(faixa, { incluirAjuste = false } = {}) {
                            WHEN 'acerto' THEN 'Acerto de maleta'
                            WHEN 'troca' THEN 'Troca de garantia'
                            ELSE v.origem END,
+             -- 5.6 -- do lado operacional o vocabulario comum ja EXISTE: e
+             -- vendas.origem, cru. A coluna canal acima e rotulo de tela
+             -- (Balcao, Site...) e sempre foi; o defeito A6 era essa linha
+             -- ser comparada com o texto da planilha do outro lado da UNION.
+             -- troca nao vira venda de canal nenhum: e origem propria.
+             v.origem,
              NULL, 'venda',
              CASE WHEN v.origem='acerto' OR v.revendedora_id IS NOT NULL THEN 'acerto' ELSE 'cliente' END,
              NULL, NULL,
@@ -272,8 +331,8 @@ const VALOR_RECEBIDO_ITEM_HISTORICO = `CASE
 
 /* ═══════════════════════════════════════════════════════ visão geral (KPIs) */
 
-export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function visaoGeral(db, { periodo = 'tudo', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const V = cteVendas(faixa);
   const h = recorte('h.data', faixa);
   const v = recorte('v.data', faixa);
@@ -427,8 +486,8 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
 
 /* ═══════════════════════════════════════════════════════════ série temporal */
 
-export async function evolucao(db, { periodo = 'tudo', granularidade = 'mes' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function evolucao(db, { periodo = 'tudo', granularidade = 'mes', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const fmt = granularidade === 'dia' ? '%Y-%m-%d' : '%Y-%m';
   const V = cteVendas(faixa);
 
@@ -502,8 +561,8 @@ export async function evolucao(db, { periodo = 'tudo', granularidade = 'mes' } =
  *  nunca pelo nome, que muda de estação para estação — e traz a foto quando
  *  ela existe. Produto fora do catálogo continua no ranking, sem foto: a
  *  ausência de imagem não pode esconder o que mais vendeu. */
-export async function produtosMaisVendidos(db, { periodo = 'tudo', limite = 20, por = 'faturamento' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function produtosMaisVendidos(db, { periodo = 'tudo', limite = 20, por = 'faturamento', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const h = recorte('h.data', faixa);
   const v = recorte('v.data', faixa);
   const ordem = por === 'quantidade' ? 'pecas' : 'faturamento';
@@ -648,8 +707,8 @@ async function fichasDoCatalogo(db, chaves) {
  *  (`categoria-nome.js`) — reescrevê-la em SQL criaria a segunda
  *  implementação que §33 proíbe. São ~1.400 linhas: cabe na memória do
  *  Worker sem cerimônia. */
-export async function categoriasMaisVendidas(db, { periodo = 'tudo' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function categoriasMaisVendidas(db, { periodo = 'tudo', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const h = recorte('h.data', faixa);
   const v = recorte('v.data', faixa);
 
@@ -711,12 +770,12 @@ export async function categoriasMaisVendidas(db, { periodo = 'tudo' } = {}) {
  *  Devolve SEMPRE o bruto ao lado do classificado: "Maleta (Feira
  *  Franceschini)" é o dado, e canal=Maleta/contexto=Feira Franceschini é a
  *  leitura dele. A leitura precisa continuar conferível por quem escreveu. */
-export async function porOrigem(db, { periodo = 'tudo' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function porOrigem(db, { periodo = 'tudo', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const V = cteVendas(faixa);
   const h = recorte('h.data', faixa);
 
-  const [canais, contextos, brutos] = await Promise.all([
+  const [canais, contextos, origens, brutos] = await Promise.all([
     db.prepare(
       `WITH vd AS (${V.sql})
        SELECT COALESCE(canal, '(não classificado)') AS canal,
@@ -732,6 +791,22 @@ export async function porOrigem(db, { periodo = 'tudo' } = {}) {
               ROUND(SUM(faturamento), 2) AS faturamento
          FROM vd WHERE contexto IS NOT NULL
         GROUP BY canal, contexto ORDER BY faturamento DESC`,
+    ).bind(...V.binds).all(),
+
+    /* 5.6 · A6 — o mesmo recorte no vocabulário COMUM.
+       `canais` agrupa o texto bruto de cada população, e continua sendo a
+       auditoria da leitura: é lá que `Instagram` e `Grupo VIP` aparecem como
+       a Sthefany escreveu. Mas somar `Balcão` (rótulo do lado operacional)
+       com `Site` (texto da planilha) na mesma coluna era comparar dois
+       vocabulários, que é o defeito A6.
+       `origens` responde a pergunta comparável — e o que não tem equivalente
+       mecânico cai em `indeterminado`, nunca numa gaveta escolhida aqui. */
+    db.prepare(
+      `WITH vd AS (${V.sql})
+       SELECT origem, COUNT(*) AS vendas, SUM(pecas) AS pecas,
+              ROUND(SUM(faturamento), 2) AS faturamento,
+              COUNT(DISTINCT COALESCE(norm,'sem-nome')) AS clientes
+         FROM vd GROUP BY origem ORDER BY faturamento DESC`,
     ).bind(...V.binds).all(),
 
     /* o texto exatamente como a Sthefany escreveu — a auditoria da leitura */
@@ -757,6 +832,24 @@ export async function porOrigem(db, { periodo = 'tudo' } = {}) {
       clientes: Number(r.clientes),
       participacao: total > 0 ? +(Number(r.faturamento) / total * 100).toFixed(1) : 0,
     })),
+    /* 5.6 — o eixo comparável, ao lado do bruto. `indeterminado` é contado e
+       nomeado: quem soma participação precisa saber quanto do total ainda não
+       tem vocabulário comum, em vez de ver uma fatia sumir. Decidir a
+       taxonomia é `VEN-Q013`, e é de produto. */
+    origens: (origens.results ?? []).map((r) => ({
+      origem: r.origem ?? null,
+      indeterminado: r.origem == null,
+      vendas: Number(r.vendas),
+      pecas: Number(r.pecas ?? 0),
+      faturamento: Number(r.faturamento ?? 0),
+      clientes: Number(r.clientes),
+      participacao: total > 0 ? +(Number(r.faturamento ?? 0) / total * 100).toFixed(1) : 0,
+    })),
+    vocabulario: {
+      canal: 'texto bruto de cada população, como foi escrito — auditoria da leitura',
+      origem: 'vocabulário comum (balcao|acerto|site|troca), preenchido só onde a '
+        + 'correspondência é mecânica; null = indeterminado, e classificar seria decidir VEN-Q013',
+    },
     contextos: (contextos.results ?? []).map((r) => ({
       canal: r.canal,
       contexto: r.contexto,
@@ -892,8 +985,8 @@ async function baseDeClientes(db, faixa) {
   return { intervaloBase, hoje, clientes: todos };
 }
 
-export async function clientesRanking(db, { periodo = 'tudo', limite = 50, ordem = 'faturamento' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function clientesRanking(db, { periodo = 'tudo', limite = 50, ordem = 'faturamento', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const { clientes, intervaloBase } = await baseDeClientes(db, faixa);
   const chave = { faturamento: 'faturamento', pecas: 'pecas', compras: 'vendas' }[ordem] ?? 'faturamento';
   const lista = [...clientes].sort((a, b) => b[chave] - a[chave]);
@@ -1439,18 +1532,23 @@ export function comFinanceiroDaVenda(linha) {
 /* ══════════════════════════════════════════════════ ROTA AGREGADA: o painel */
 
 /** Tudo o que o Painel de Vendas desenha, numa resposta só. */
-export async function painel(db, { periodo = 'tudo' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function painel(db, { periodo = 'tudo', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const mes = new Date().toISOString().slice(0, 7);
   const faixaMes = { de: `${mes}-01`, ate: `${mes}-31` };
   const VMes = cteVendas(faixaMes);
   const [geral, evo, cat, prod, orig, rank, mesAtual, contasReceber, reparos, saidasMes] = await Promise.all([
-    visaoGeral(db, { periodo }),
-    evolucao(db, { periodo, granularidade: 'mes' }),
-    categoriasMaisVendidas(db, { periodo }),
-    produtosMaisVendidos(db, { periodo, limite: 5, por: 'quantidade' }),
-    porOrigem(db, { periodo }),
-    clientesRanking(db, { periodo, limite: 5, ordem: 'faturamento' }),
+    /* 5.6 — o intervalo desce para TODOS os blocos. Passar só `periodo`
+       aqui faria o cartão e a tabela do mesmo painel responderem sobre
+       recortes diferentes: o cabeçalho diria "1 a 15 de agosto" e os blocos
+       somariam o ano inteiro. É o risco que §12 nomeia para 5.6 — o mesmo
+       recorte em todos os blocos, sem divergência entre cartão e tabela. */
+    visaoGeral(db, { periodo, de, ate }),
+    evolucao(db, { periodo, granularidade: 'mes', de, ate }),
+    categoriasMaisVendidas(db, { periodo, de, ate }),
+    produtosMaisVendidos(db, { periodo, limite: 5, por: 'quantidade', de, ate }),
+    porOrigem(db, { periodo, de, ate }),
+    clientesRanking(db, { periodo, limite: 5, ordem: 'faturamento', de, ate }),
     db.prepare(
       `WITH vd AS (${VMes.sql})
        SELECT ROUND(COALESCE(SUM(CASE WHEN ${naFaixa('data_faturamento', faixaMes)}
@@ -1573,8 +1671,8 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
 
 /** Acertos documentais do histórico + acertos efetivamente fechados no
  * sistema. Nenhum valor é estimado: se não há documento, não entra. */
-export async function acertosDeMaleta(db, { periodo = 'tudo' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function acertosDeMaleta(db, { periodo = 'tudo', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const h = recorte('vh.data', faixa);
   const m = recorte('m.encerrada_em', faixa);
   const [historicos, operacionais, revisoes] = await Promise.all([
@@ -1667,8 +1765,8 @@ export async function acertosDeMaleta(db, { periodo = 'tudo' } = {}) {
 /* ═══════════════════════════════════════════════════ ROTA AGREGADA: o CRM */
 
 /** Tudo o que a aba Clientes desenha, numa resposta só. */
-export async function crm(db, { periodo = 'tudo' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function crm(db, { periodo = 'tudo', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const { clientes, intervaloBase, hoje } = await baseDeClientes(db, faixa);
 
   const porFaturamento = [...clientes].sort((a, b) => b.faturamento - a.faturamento);
