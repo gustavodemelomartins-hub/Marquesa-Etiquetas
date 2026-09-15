@@ -31,8 +31,8 @@ integração real.
 | Clientes · Cadastro rápido | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | IN PROGRESS | READY FOR GUSTAVO REVIEW | UI NEEDS API | protótipo em Vendas |
 | Financeiro · A receber | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
 | Financeiro · Registrar/corrigir recebimento | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
-| Garantias / Reparos / Trocas · Lista | IN PROGRESS | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | BLOCKED | legado parcial / domínio novo |
-| Garantias / Reparos / Trocas · Caso e eventos | IN PROGRESS | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | UI NEEDS API | legado parcial |
+| Garantias / Reparos / Trocas · Lista | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado parcial / domínio novo |
+| Garantias / Reparos / Trocas · Caso e eventos | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado parcial |
 | Estoque · Visão geral | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | IN PROGRESS | React parcial |
 | Estoque · Todos os produtos | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente parcial | legado em produção |
 | Inventário · Sem sessão / iniciar | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado em produção |
@@ -72,6 +72,7 @@ integração real.
 | Nuvemshop | panorama, saúde, filtros de pendência, diagnóstico, análise seca e plano sem aplicação |
 | Notificações | filtros, estados lida/não lida, destinos e preferências locais |
 | Perfil e configurações | dados da conta, preferências, permissões informativas e conexão mascarada |
+| Garantias / Reparos / Trocas | busca, detalhe, prazo, linha do tempo, abertura e simulação da diferença de troca |
 
 ## Decisões que permanecem humanas
 

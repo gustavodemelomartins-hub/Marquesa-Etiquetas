@@ -590,3 +590,15 @@ solução de autenticação já existente.
 Validação: 36 verificações em 320, 390, 768 e 1440 pixels, cobrindo as três
 abas, segredo mascarado, teste demonstrativo e overflow. Perfil e matriz fina
 de permissões seguem como necessidade de API. Sem React, credencial real ou deploy.
+
+### 15/09 — Cobertura visual completa com Garantias e Trocas
+
+A décima segunda família do hub cobre lista de casos, detalhe por item, linha
+do tempo, prazo de 45 dias úteis, histórico, abertura demonstrativa e simulação
+de troca. O desenho preserva a venda original, mantém a peça defeituosa fora do
+estoque vendável e calcula somente a diferença a partir do valor pago.
+
+Validação: 36 verificações em 320, 390, 768 e 1440 pixels, cobrindo prazo,
+feriados não cadastrados, abertura, troca e invariantes financeiras. Com essa
+entrega, as 12 famílias do hub têm protótipo desktop e mobile navegável. A
+execução real de Garantias segue `UI NEEDS API`. Sem React, API, banco ou deploy.

@@ -43,9 +43,11 @@ a.area-card:hover { transform: translateY(-3px); border-color: #d9a9b9; box-shad
 .area-card::after { content: ""; position: absolute; right: -25px; bottom: -48px; width: 130px; height: 130px; border-radius: 50%; background: #faf1f4; }
 .area-card.ready { border-color: #badfca; background: linear-gradient(145deg, white, #f4fbf7); }
 .area-card.working { border-color: #e6adc0; background: linear-gradient(145deg, white, #fff3f7); }
+.area-card.blocked { border-color: #ead8aa; background: linear-gradient(145deg, white, #fff9eb); }
 .area-icon { display: grid; width: 40px; height: 40px; place-items: center; margin-bottom: 25px; border: 1px solid var(--line); border-radius: 12px; color: var(--wine); background: white; font: 600 16px var(--serif); }
 .area-card .status { position: absolute; top: 26px; right: 24px; padding: 5px 9px; border-radius: 999px; color: var(--muted); background: #f3edef; font-size: 9px; font-weight: 700; text-transform: uppercase; }
 .area-card.ready .status { color: var(--green); background: var(--green-bg); }.area-card.working .status { color: var(--wine); background: var(--rose-soft); }
+.area-card.blocked .status { color: #7b5a13; background: #fff0c9; }
 .area-card h2 { margin-bottom: 7px; font: 600 29px var(--serif); color: var(--wine-dark); }
 .area-card p { position: relative; z-index: 1; max-width: 310px; color: var(--muted); font-size: 13px; line-height: 1.55; }
 .area-card > strong { position: absolute; z-index: 1; bottom: 22px; color: var(--wine); font-size: 12px; }.area-card > strong span { margin-left: 5px; }
