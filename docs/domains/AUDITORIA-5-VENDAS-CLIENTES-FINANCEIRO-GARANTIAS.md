@@ -386,11 +386,11 @@ comportamento que a UX ainda vai definir.
 
 | Subfase | Escopo | Depende de |
 |---|---|---|
-| 5.0 | reconciliar as três linhas (esta branch, `develop`, Codex) e registrar o baseline de contratos do ciclo comercial | nada |
+| ~~5.0~~ | ~~reconciliar as três linhas e registrar o baseline de contratos do ciclo comercial~~ · **feita** — `d83eb28` | nada |
 | 5.1 | ~~corrigir A4, A5 e a parte mecânica de A6 em `GET /api/vendas/lista`, com teste~~ · **feita** — `src/vendas-lista-test.mjs`, 14 provas | nada |
 | 5.2 | ~~chave primária própria para `venda_itens` (migration aditiva) e migrar quem usa `rowid`~~ · **feita** — `src/venda-item-id-test.mjs`, 22 provas | nada |
-| 5.3 | `FIN-101` — recebíveis com paridade do legado, sem modelo novo | 5.2 |
-| 5.4 | `GAR-101` e `GAR-102` — garantias, trocas e o estorno que hoje é código morto | nada |
+| ~~5.3~~ | ~~`FIN-101` — recebíveis com paridade do legado, sem modelo novo~~ · **feita** — 5.3a–5.3f; ver `AUDITORIA-5-3-FIN-101-CONTAS-A-RECEBER.md` §25 | 5.2 |
+| ~~5.4~~ | ~~`GAR-101` e `GAR-102` — garantias, trocas e o estorno que era código morto~~ · **feita** — 5.4a–5.4f (§21–§23), `src/garantias-ciclo-test.mjs` | nada |
 | 5.5 | `VEN-105` — correção de item vendido · **`AGUARDANDO HANDOFF CODEX`** | 5.2 e o handoff (ver §17) |
 | 5.6 | vocabulário único de canal e intervalo arbitrário no analytics | 5.1 |
 | 5.7 | precisão monetária em centavos no ciclo comercial | 5.2 |
