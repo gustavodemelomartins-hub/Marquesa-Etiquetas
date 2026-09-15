@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Protótipo mestre da área de Vendas do Sistema Marquesa" />
     <title>Sistema Marquesa · Vendas</title>
-    <link rel="stylesheet" href="master.css" />
+    <link rel="stylesheet" href="master.css?v=20260914-mobile" />
   </head>
   <body>
     <div class="app-shell">
@@ -450,7 +450,6 @@
         if (tab.dataset.screen === 'clientes') showAllClients();
         activateScreen(tab.dataset.screen);
       }));
-      document.querySelector('[data-launch-screen]').addEventListener('click', () => activateScreen('saidas', 'lancamentos'));
 
       const launchScreen = document.querySelector('#lancamentos');
       const launchWorkspace = launchScreen.querySelector('[data-launch-workspace]');
@@ -906,15 +905,12 @@
           const info = entry.querySelector('[data-payment-info]');
           const dueField = entry.querySelector('[data-payment-due-field]');
           const dueInput = entry.querySelector('[data-payment-due-input]');
-          const installmentsField = entry.querySelector('[data-payment-installments]');
           const isPending = entry.querySelector('[data-payment-state]').value === 'pending';
-          const isCreditCard = entry.querySelector('[data-payment-method]').value === 'Cartão de crédito';
           if (info) {
-            info.hidden = isPending || isCreditCard;
+            info.hidden = isPending;
             info.textContent = 'Data do pagamento: 12/09/2026';
           }
           if (dueField) dueField.hidden = !isPending;
-          if (installmentsField) installmentsField.hidden = !isCreditCard;
           entry.classList.toggle('is-pending', isPending);
           const pendingWithoutDate = isPending && !dueInput?.value;
           entry.classList.toggle('payment-incomplete', pendingWithoutDate);
@@ -1223,7 +1219,7 @@
         entry.className = 'payment-entry';
         entry.dataset.paymentEntry = '';
         entry.dataset.autoBalance = 'false';
-        entry.innerHTML = `<label><span>Valor</span><input type="number" min="0" step="0.01" value="${value.toFixed(2)}" data-payment-amount></label><label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label><label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label><div class="payment-context"><span class="payment-info" data-payment-info>Data do pagamento: 12/09/2026</span><label class="payment-due-field" data-payment-due-field hidden><span>Vencimento</span><input type="date" min="2026-09-12" data-payment-due-input aria-label="Vencimento do pagamento pendente"></label><label class="payment-installments" data-payment-installments hidden><span>Parcelas</span><select aria-label="Quantidade de parcelas"><option>1x</option><option>2x</option><option>3x</option><option>4x</option><option>5x</option><option>6x</option><option>7x</option><option>8x</option><option>9x</option><option>10x</option><option>11x</option><option>12x</option></select></label></div><button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>`;
+        entry.innerHTML = `<label><span>Valor</span><input type="number" min="0" step="0.01" value="${value.toFixed(2)}" data-payment-amount></label><label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label><label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label><div class="payment-context"><span class="payment-info" data-payment-info>Data do pagamento: 12/09/2026</span><label class="payment-due-field" data-payment-due-field hidden><span>Vencimento</span><input type="date" min="2026-09-12" data-payment-due-input aria-label="Vencimento do pagamento pendente"></label></div><button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>`;
         return entry;
       }
 
@@ -1356,8 +1352,7 @@
           const method = entry.querySelector('[data-payment-method]').value;
           const pending = entry.querySelector('[data-payment-state]').value === 'pending';
           const due = entry.querySelector('[data-payment-due-input]').value;
-          const installments = entry.querySelector('[data-payment-installments] select').value;
-          const detail = pending ? `Pendente · vence ${formatDate(due)}` : `Pago hoje${method === 'Cartão de crédito' ? ` · ${installments}` : ''}`;
+          const detail = pending ? `Pendente · vence ${formatDate(due)}` : 'Pago hoje';
           return `<li><span><b>${method}</b><small>${detail}</small></span><strong>${launchMoney(amount)}</strong></li>`;
         }).join('') : '<li class="review-empty">Nenhum pagamento foi informado.</li>';
         const reviewNoteWrap = launchScreen.querySelector('[data-review-note-wrap]');
@@ -1996,5 +1991,6 @@
 
       applyPreset('12m');
     </script>
+    <script src="outputs.js?v=20260914-mobile"></script>
   </body>
 </html>

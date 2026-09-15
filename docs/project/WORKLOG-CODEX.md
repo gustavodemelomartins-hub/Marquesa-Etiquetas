@@ -357,3 +357,102 @@ recebidos e R$ 150,00 a receber em três lançamentos independentes.
 `390px` e `1440px`, incluindo fidelidade estrutural, pagamento misto, situação
 derivada, desconto, bloqueio por excesso, revisão, sucesso, responsividade e
 ausência de erros JavaScript.
+
+## 2026-09-14 — Saída sem faturamento em Lançamentos
+
+Reconstruído o protótipo do registro com a identidade visual de Vendas: busca
+por nome/SKU, escolha explícita de aro, quantidades limitadas ao saldo amostral,
+quatro motivos (Brinde, Uso próprio, Perda e Sorteio), contexto, explicação
+obrigatória e revisão antes da confirmação. O rascunho é preservado ao alternar
+o tipo de lançamento. Histórico da sessão com filtro e estorno motivado,
+preservando o original e impedindo segundo estorno.
+
+Referências: mockups de registro e histórico de saídas recebidos em 10/09.
+O preço de tabela não é apresentado como prejuízo. Data retroativa/futura
+permanece decisão de UX aberta; este protótipo não impõe nova regra temporal.
+
+Validação: 64 verificações Playwright em 320, 390, 768 e 1440 pixels;
+regressão de Venda normal com 57 verificações aprovadas; diff sem erros.
+Escopo: protótipo local com dados ilustrativos; sem API, persistência ou deploy.
+
+
+### 14/09 — Histórico de saídas com exemplos e refinamento visual
+
+A pedido do Gustavo, o histórico ganhou seis exemplos fictícios, incluindo
+brinde, uso próprio, perda, sorteio e um estorno. Resumo por motivo, tabela
+compacta no desktop, cartões no celular e detalhes expansíveis com peças, SKU
+e explicação. Valores rotulados como referência de tabela, sem inferir custo.
+Os exemplos não alteram o saldo do formulário. Link direto pelo hash `#saida`.
+Validação: 80 verificações Playwright em quatro larguras, captura visual
+conferida e `git diff --check` sem erros. Sem backend ou deploy.
+
+
+### 14/09 — Custo real por peça e histórico financeiro de saídas
+
+Gustavo aprovou o custo unitário de aquisição editável somente no lançamento,
+pré-preenchido quando conhecido, sem assumir zero quando ausente, com snapshot
+na saída para não alterar o histórico ao mudar o cadastro. Implementado apenas
+no protótipo local; não é contrato publicado de API ou banco.
+
+Detalhes passam a uma linha de largura completa (colspan 7), com múltiplas
+expansões independentes. Removidos os quatro cards: resumo compacto de custo
+bruto, estornado e líquido, com discriminação por motivo e filtros de datas e
+situação. Preço de venda fica secundário. Custos desconhecidos tornam os totais
+explicitamente parciais. Dinheiro de aquisição calculado em centavos.
+
+Validação: 144 verificações de saídas em 320/390/768/1440 px, incluindo soma,
+quantidade, custo ausente, zero explícito, snapshot, estorno, filtros e expansão
+em largura completa; 57 de regressão de Venda normal. Sem API, banco ou deploy.
+
+### 14/09 — Saídas alinhadas ao padrão visual do Painel
+
+O histórico deixou a composição financeira própria e passou a reutilizar a
+linguagem de `Evolução por mês`: controle de período, quatro métricas compactas,
+análise em duas colunas com barras e destaques, e tabela `Saídas do período`.
+As linhas e detalhes agora seguem a interação das vendas do período: linha
+clicável, seta circular, fundo rosado ao expandir e detalhe compacto ocupando
+toda a largura. Filtros de motivo e situação continuam disponíveis.
+
+Validação: 148 verificações de Saídas em 320/390/768/1440 px e 57 verificações
+de regressão de Venda normal. Capturas desktop e mobile revisadas; sem API,
+banco ou deploy.
+
+### 14/09 — Custo preenchível pelo histórico da saída
+
+O detalhe expandido agora oferece `Informar custo` quando alguma peça não tem
+custo e `Editar custo` quando todos os valores já estão preenchidos. A janela
+lista cada item da saída com SKU, quantidade e custo unitário. Ao salvar, o
+snapshot daquela saída e toda a análise financeira são recalculados, sem mudar
+o preço de venda da peça. Continua sendo comportamento demonstrativo local.
+
+Validação: 176 verificações de Saídas nas quatro larguras, cobrindo abertura,
+custo inicialmente vazio, gravação, troca do rótulo e recálculo financeiro;
+57 verificações de regressão de Venda normal.
+
+### 14/09 — Revisão móvel do sistema de Vendas
+
+O protótipo recebeu uma composição específica para celular. O histórico de
+saídas deixou de comprimir colunas de tabela e passou a empilhar destino, data,
+motivo, situação, peças e custo real em linhas legíveis, mantendo o detalhe
+logo abaixo do lançamento. As análises ficam em uma coluna, textos financeiros
+podem quebrar linha e os indicadores de Clientes se reorganizam em duas
+colunas. Os arquivos da prévia ganharam versão na URL para evitar CSS antigo
+no cache do celular.
+
+Validação: 39 verificações móveis em 320/390/430 px cobrindo Painel, Clientes,
+Lançamentos, Saídas, detalhe expandido, ausência de sobreposição e zero
+overflow horizontal; 176 verificações de Saídas, 57 de Venda normal e 37 de
+Monte seu Colar aprovadas. Escopo local e demonstrativo, sem API ou deploy.
+
+### 15/09 — Checkpoint de cobertura de Vendas
+
+Fechado o bloco navegável de Vendas para iniciar a cobertura do restante do
+produto. Gustavo decidiu que esta versão não gera parcelas: pagamentos pagos e
+pendentes continuam independentes, e toda diferença ainda não recebida aparece
+como `A receber`. O seletor de parcelas foi removido do protótipo e a decisão
+foi propagada para regras, estados, fluxos, matriz de interações e necessidades
+futuras de API.
+
+Validação do checkpoint: 57 verificações de Venda normal, 37 de Monte seu
+Colar, 176 de Saídas e 39 verificações móveis em 320/390/430 px. Nenhum backend,
+banco, ambiente DEV ou produção foi alterado.

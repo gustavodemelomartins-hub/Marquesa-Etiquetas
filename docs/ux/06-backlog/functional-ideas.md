@@ -25,7 +25,7 @@ reaproveitados, mesmo depois de recusa.
 | IF-006 | Histórico completo filtrável e exportável de vendas | vendas / analytics / financeiro | investigar vendas além do resumo diário | banco: leitura; estoque: não | em detalhamento | 10/09/2026 |
 | IF-007 | Compositor guiado de Monte seu Colar dentro da venda | personalização / vendas / estoque | montar composição válida sem controlar componentes manualmente | banco e estoque: baixa de base/componentes | em detalhamento | 10/09/2026 |
 | IF-008 | Registro e histórico completo de saídas sem faturamento | estoque / saídas / auditoria | retirar peças sem contaminar vendas ou faturamento | banco e estoque: escrita crítica pela razão | em detalhamento | 10/09/2026 |
-| IF-009 | Recebimentos múltiplos, mistos e parcelados por venda | vendas / financeiro / pagamentos | representar como o dinheiro realmente entra sem transformar o status em campo manual | banco: provável evolução de persistência; estoque: não movimenta | em detalhamento | 10/09/2026 |
+| IF-009 | Recebimentos múltiplos e mistos por venda | vendas / financeiro / pagamentos | representar como o dinheiro realmente entra sem transformar o status em campo manual | banco: provável evolução de persistência; estoque: não movimenta | em detalhamento; parcelamento fora desta versão | 14/09/2026 |
 
 **Status:** `registrada` · `em detalhamento` · `pronta para avaliação` ·
 `encaixada na fase N` · `recusada`. Só o Gustavo move para `encaixada` ou
@@ -304,15 +304,14 @@ pagamento, comissão ou Nuvemshop.
 **Referências:** [Registrar saída](../03-screens/vendas/images/2026-09-10_vendas-saida-sem-faturamento_desktop_01.jpg)
 e [Histórico de saídas](../03-screens/vendas/images/2026-09-10_vendas-historico-saidas_desktop_01.jpg).
 
-### IF-009 — Recebimentos múltiplos, mistos e parcelados por venda
+### IF-009 — Recebimentos múltiplos e mistos por venda
 
 **O que é:** uma venda possui um valor total e zero ou mais recebimentos. Cada
 recebimento registra valor, forma, situação paga ou pendente, data efetiva
-quando pago, vencimento quando pendente, observação opcional e, quando houver,
-número da parcela.
+quando pago, vencimento quando pendente e observação opcional.
 
-**Problema que resolve:** representa PIX + dinheiro + cartão, entrada mais
-saldo futuro e parcelamento sem pedir que a pessoa escolha manualmente um
+**Problema que resolve:** representa PIX + dinheiro + cartão e entrada mais
+saldo futuro sem pedir que a pessoa escolha manualmente um
 estado financeiro que pode ficar incoerente com os valores.
 
 **Telas afetadas:** Nova Venda, detalhe e histórico da venda, Clientes,
@@ -320,9 +319,9 @@ recebíveis, Painel de Vendas, filtros, cards e exportações financeiras.
 
 **Comportamento esperado:** a Nova Venda começa com uma linha compacta cujo
 valor é o saldo restante. Uma venda integral por PIX exige apenas confirmar
-`PIX` e `Pago hoje`. `+ Adicionar pagamento` cria outra linha; `Parcelar` gera
-parcelas editáveis; datas, vencimento e observação aparecem sob demanda. Cada
-parcela continua independente depois da venda.
+`PIX` e `Pago hoje`. `+ Adicionar pagamento` cria outra linha; datas,
+vencimento e observação aparecem sob demanda. O saldo não recebido permanece
+como `A receber`, sem geração de parcelas nesta versão.
 
 **Regra de negócio:** `valorRecebido` é a soma dos recebimentos pagos;
 `valorAReceber = max(valorVenda - valorRecebido, 0)`. O status derivado é `A
@@ -341,10 +340,10 @@ derivado e faturamento por data efetiva. Venda e estoque continuam vinculados
 
 **Dependências:** ciclo auditável para liquidar, corrigir e estornar cada
 recebimento; idempotência e concorrência; decisões sobre excedente/troco,
-crédito da cliente, datas de cartão, taxas e geração de vencimentos.
+crédito da cliente, datas de cartão e taxas.
 
 **Necessidade futura de API:** coleção de recebimentos por venda e comandos
-individuais para seu ciclo de vida, parcelas e resumos derivados. O contrato
+individuais para seu ciclo de vida e resumos derivados. O contrato
 atual não comprova esse modelo. Nenhuma rota, tabela ou migration está aprovada
 por esta especificação.
 
@@ -352,7 +351,8 @@ por esta especificação.
 registrar ou liquidar recebimento; comissão só muda se regra futura usar data
 de pagamento; não altera sincronização ou estoque da Nuvemshop.
 
-**Decisões abertas:** `VEN-Q029` a `VEN-Q035`.
+**Decisões abertas:** `VEN-Q029` a `VEN-Q031` e `VEN-Q033` a `VEN-Q035`.
+Parcelamento foi retirado da versão atual por `VEN-D005`.
 
 **Referências:** [proposta da Nova Venda](../03-screens/vendas/README.md#proposta-de-ux--pagamento),
 [regras](../03-screens/vendas/rules.md),

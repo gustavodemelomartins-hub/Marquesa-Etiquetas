@@ -33,7 +33,7 @@ Uma linha por indicador.
 | Valor recebido da venda | soma dos lançamentos de recebimento com estado pago | recebimentos da venda | por venda | moeda em centavos; 2 casas | sim · Gustavo, 10/09/2026 |
 | Valor a receber da venda | `máximo(valor da venda − valor recebido, 0)` | venda + recebimentos pagos | por venda | moeda em centavos; 2 casas | sim · Gustavo, 10/09/2026 |
 | Status de pagamento | recebido `= 0`: A RECEBER; `0 < recebido < total`: PARCIAL; recebido `>= total`: PAGO | valores derivados da venda | estado atual | sem arredondamento; cálculo em centavos | sim · Gustavo, 10/09/2026 |
-| Valor pendente planejado | soma dos lançamentos pendentes | recebimentos/parcelas pendentes | por venda | moeda em centavos; 2 casas | sim, operacional |
+| Valor pendente planejado | soma dos lançamentos pendentes | recebimentos pendentes | por venda | moeda em centavos; 2 casas | sim, operacional |
 
 ## Regras de cálculo que valem para todos os indicadores
 
@@ -56,7 +56,7 @@ Uma linha por indicador.
   `Impacto estimado` não for definida, o indicador não pode ser calculado.
 - lançamento pendente não entra em valor recebido nem em faturamento;
 - cada lançamento pago entra no faturamento pela sua data efetiva, mesmo quando
-  pertence à mesma venda ou a outra parcela;
+  pertence à mesma venda;
 - forma de pagamento não muda a fórmula do recebido; taxas e valor líquido são
   assunto ainda aberto;
 - todos os cálculos usam centavos inteiros, sem comparar moeda por ponto flutuante.

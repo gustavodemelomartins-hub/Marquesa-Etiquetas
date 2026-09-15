@@ -36,9 +36,9 @@ ação em progresso, recusa, resultado incerto, confirmação e recuperação.
 As ações locais priorizadas são: alternar superfícies, selecionar período,
 selecionar barra, alternar análise, expandir ranking, paginar vendas e abrir
 quantos detalhes inline forem necessários, com recolhimento independente.
-Lançar venda, compor produto, editar preço, distribuir
-pagamentos, parcelar, finalizar e registrar saída ainda precisam de simulação
-ou especificação final.
+Lançar venda, compor produto, editar preço, distribuir pagamentos, finalizar e
+registrar saída estão simulados no protótipo. Parcelamento saiu desta versão:
+qualquer diferença permanece como `A receber`, conforme `VEN-D005`.
 
 ## 6. Matriz de interações
 
@@ -72,7 +72,7 @@ são componentes React nesta rodada.
 - produtos, categorias e origens do período;
 - série temporal e seleção contínua por datas;
 - venda, itens, preço de tabela congelado, preço final e motivo;
-- recebimentos/parcela, vencimento, situação e autoria;
+- recebimentos, vencimento, situação e autoria;
 - saídas sem faturamento e sua trilha de estorno;
 - composição congelada do Monte seu Colar;
 - reparos apenas como resumo até a tela própria existir.
@@ -99,7 +99,7 @@ Compatibilidade com a experiência proposta ainda precisa ser provada na Fase 5.
 [api-needs.md](api-needs.md) registra `API-VEN-001` a `API-VEN-019`. Os grupos
 principais são: intervalo arbitrário, analytics coerente entre todos os blocos,
 série mensal, detalhe paginado, incerteza por métrica, filtros/totais/exportação,
-recebimentos múltiplos, parcelas, correção/estorno individual, idempotência e
+recebimentos múltiplos, correção/estorno individual, idempotência e
 eventos financeiros por data efetiva.
 
 Nenhuma rota nova é proposta ou aprovada neste handoff.
@@ -145,8 +145,8 @@ retorno de sucesso. O total funciona como âncora visual e a ação final fica
 acima da navegação inferior no celular.
 
 A confirmação é deliberadamente local e declara que não gravou dados reais.
-Monte seu Colar, parcelamento com geração de vencimentos e a escrita integrada
-continuam fora desta etapa. A prova direcionada cobriu o fluxo em `390px`, a
+A escrita integrada continua fora desta etapa. A prova direcionada cobriu o
+fluxo em `390px`, a
 largura mínima de `320px` e o desktop em `1440px`, com 24 verificações verdes,
 sem erro JavaScript ou overflow horizontal.
 
@@ -176,7 +176,7 @@ ao menos referências para:
 ## 14. Pendências
 
 - revisar e aprovar a matriz de interações;
-- concluir Monte seu Colar, parcelamento e o formulário local de Saídas;
+- representar os estados vazio, carregando, erro e recuperação dos fluxos principais;
 - fechar decisões que mudam taxonomia, fórmulas, permissões e campos;
 - validar responsividade e acessibilidade;
 - decidir quando o histórico completo vira superfície própria;

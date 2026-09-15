@@ -108,7 +108,7 @@ try {
   check(await page.locator('[data-payment-table]').isVisible(), 'primeiro pagamento revela os campos');
   check(await page.locator('[data-add-payment]').textContent() === '+ Adicionar outro pagamento', 'pagamento misto usa adicionar outro pagamento');
   await page.locator('[data-payment-method]').selectOption('Cartão de crédito');
-  check(await page.locator('[data-payment-installments]').isVisible(), 'parcelas aparecem somente no cartão de crédito');
+  check(await page.locator('[data-payment-installments]').count() === 0, 'parcelamento não aparece nesta versão');
   await page.locator('[data-payment-state]').selectOption('pending');
   check(await page.locator('[data-payment-due-input]').isVisible(), 'pendente abre vencimento');
   check(await page.locator('[data-finalize-sale]').isDisabled(), 'pendente sem vencimento bloqueia finalização');

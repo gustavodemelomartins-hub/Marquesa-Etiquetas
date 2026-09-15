@@ -49,7 +49,7 @@ limite de itens por página, o que não pode ser editado inline.
 | UX-VEN-012 | a baixa de estoque só é tratada como concluída depois da confirmação da operação | não exibir sucesso enquanto a escrita está incerta | sim · regra de segurança |
 | UX-VEN-013 | `PAGO`, `PARCIAL` e `A RECEBER` são estados derivados dos recebimentos, nunca opções manuais | impedir que o rótulo financeiro contradiga os valores registrados | sim · Gustavo, 10/09/2026 |
 | UX-VEN-014 | uma venda aceita vários recebimentos e várias formas de pagamento | suportar PIX + dinheiro + cartão, pagamentos parciais e outros mistos | sim · Gustavo, 10/09/2026 |
-| UX-VEN-015 | o caminho simples registra uma venda integral em poucos segundos; misto e parcelado usam expansão progressiva | manter velocidade no balcão sem eliminar casos avançados | sim · Gustavo, 10/09/2026 |
+| UX-VEN-015 | o caminho simples registra uma venda integral em poucos segundos; pagamentos mistos usam expansão progressiva e qualquer saldo não recebido permanece em `A receber`, sem parcelamento automático nesta versão | manter velocidade no balcão e uma cobrança simples | atualizado · Gustavo, 14/09/2026 |
 | UX-VEN-016 | o preço unitário da linha abre a edição do preço final cobrado; desconto e percentual são derivados e o motivo é obrigatório | reproduzir a linguagem do balcão e impedir preço diferente sem explicação | sim · regra vigente + Gustavo, 10/09/2026 |
 | UX-VEN-017 | quando somente parte das unidades iguais recebe outro preço, a linha é separada automaticamente | preservar desconto realmente individual sem fingir que todas as unidades tiveram o mesmo preço | sim · Gustavo, 10/09/2026 |
 | UX-VEN-018 | em `Vendas do período`, toda venda com saldo cobrável usa o rótulo `A RECEBER` em vinho; o quanto já foi recebido aparece nos valores do detalhe, e a ação `Pendente` permanece amarela | comunicar a ação necessária sem criar dois rótulos para vendas que ainda exigem cobrança | sim · Gustavo, 12/09/2026 |
@@ -88,15 +88,15 @@ limite de itens por página, o que não pode ser editado inline.
 ### Estrutura
 
 - a venda possui um `valor total` e zero ou mais lançamentos de recebimento;
-- cada lançamento contém valor, forma, estado `pago` ou `pendente`, observação
-  opcional e, quando aplicável, parcela;
+- cada lançamento contém valor, forma, estado `pago` ou `pendente` e observação
+  opcional;
 - lançamento pago exige data efetiva do pagamento;
 - lançamento pendente exige vencimento;
 - uma venda pode combinar PIX, Dinheiro, Cartão de débito, Cartão de crédito,
   Transferência, Boleto, Link de pagamento, Crédito da cliente e Outro;
 - pagamento misto é a coexistência de lançamentos de formas diferentes;
-- parcelamento é uma sequência de lançamentos/parcela, cada qual com valor,
-  estado, vencimento e data de pagamento próprios;
+- esta versão não gera parcelas; o saldo que ainda não entrou permanece em
+  `A receber` até um recebimento posterior;
 - qualquer recebimento posterior não movimenta estoque novamente.
 
 ### Valores derivados
@@ -118,7 +118,7 @@ troco e valores não distribuídos permanecem decisões abertas.
 
 - cada lançamento pago entra no faturamento pela sua própria data efetiva;
 - a data da venda não substitui a data do recebimento;
-- converter uma parcela de pendente para paga registra a data efetiva e não
+- converter um recebimento pendente para pago registra a data efetiva e não
   rebaixa estoque;
 - corrigir ou estornar recebimento precisa preservar trilha auditável e
   recalcular os três valores derivados.

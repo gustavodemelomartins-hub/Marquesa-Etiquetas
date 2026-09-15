@@ -35,7 +35,6 @@ pergunta.
 | VEN-Q029 | Se os pagamentos pagos/planejados ultrapassarem o valor da venda, o sistema bloqueia, registra troco ou cria crédito para a cliente? | Gustavo | validação do total e estado PAGO com excesso | 10/09/2026 |
 | VEN-Q030 | Como funciona `Crédito da cliente`: de onde nasce o saldo, quando ele foi faturado e consumir o crédito evita faturar o mesmo dinheiro novamente? | Gustavo | regra financeira da forma Crédito da cliente | 10/09/2026 |
 | VEN-Q031 | Em cartão e link, a data efetiva é o dia da cobrança aprovada ou o dia do repasse; faturamento usa valor bruto ou líquido de taxa? | Gustavo + Sthefany Marques | data e valor do faturamento | 10/09/2026 |
-| VEN-Q032 | Ao parcelar, qual padrão gera vencimentos: mensal a partir de uma primeira data, dia fixo do mês ou preenchimento manual? | Gustavo + Sthefany Marques | ação Parcelar e geração das linhas | 10/09/2026 |
 | VEN-Q033 | A venda só pode finalizar quando pagos + pendentes distribuírem 100% do total? | Gustavo | tratamento de saldo ainda não planejado | 10/09/2026 |
 | VEN-Q034 | Como corrigir um recebimento já salvo: editar com histórico, estornar e recriar, ou ações diferentes conforme o campo? | Gustavo | auditoria financeira e permissões | 10/09/2026 |
 | VEN-Q035 | A forma `Outro` exige uma descrição curta obrigatória? | Gustavo | qualidade dos filtros e histórico | 10/09/2026 |
@@ -49,6 +48,7 @@ pergunta.
 | VEN-D003 | Situação da venda e situação financeira ficam separadas? | Sim. Estado operacional e status derivado dos recebimentos são dimensões visuais e conceituais diferentes. | Gustavo | 10/09/2026 |
 | VEN-Q018 | A base Veneziana 45 cm continua padrão, mas pode ser trocada durante a composição? | Não. A base Veneziana 45 cm com extensor é fixa e obrigatória na versão atual; não pode ser trocada durante a composição. | Sthefany Marques; consolidado no ReviewV2 (`8b306ad`) | 11/09/2026 |
 | VEN-D004 | Como o desconto é aplicado quando há uma ou várias unidades do mesmo SKU? | A edição acontece no preço unitário de cada item. Sthefany Marques informa o preço final e o motivo; desconto é derivado. Se apenas parte das unidades iguais receber outro preço, o sistema separa automaticamente essas unidades em nova linha. Não existe desconto geral distribuído. | Gustavo | 10/09/2026 |
+| VEN-D005 | Haverá geração de parcelas nesta versão? | Não. Por enquanto não existe ação `Parcelar` nem sequência automática de vencimentos. Qualquer valor ainda não recebido permanece como saldo `A receber`; recebimentos posteriores são registrados nesse saldo. | Gustavo | 14/09/2026 |
 
 > Sincronização feita por leitura somente da frente
 > `claude/review-marquesa-v2`. Nenhum merge foi realizado. A decisão histórica
