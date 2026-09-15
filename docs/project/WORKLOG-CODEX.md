@@ -503,3 +503,16 @@ Como não existe mockup próprio recebido para esta família, o desenho foi
 registrado como proposta pronta para revisão humana, sem aprovação presumida.
 Validação: 52 verificações em 320, 390, 768 e 1440 pixels, mais 39 verificações
 de regressão mobile de Vendas. Nenhuma persistência, API, banco ou deploy.
+
+### 15/09 — Proposta navegável de Financeiro
+
+Criada a quinta família do hub com `A receber`, recebimentos e histórico
+auditável. A lista separa total, recebido e saldo; o detalhe registra forma e
+data efetiva, deriva o estado financeiro e demonstra correção sem apagar o
+evento anterior. O fluxo não gera parcelas: o valor restante continua como um
+saldo único em `A receber`.
+
+Como não há mockup próprio nesta branch, a composição permanece proposta pronta
+para revisão do Gustavo. Validação: 44 verificações em 320, 390, 768 e 1440
+pixels, incluindo recalculo do saldo, estado derivado, correção auditável,
+histórico, proteção do estoque e overflow. Sem React, API, banco ou deploy.

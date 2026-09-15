@@ -11,7 +11,7 @@ try {
   await hub.goto(pathToFileURL(path.resolve('docs/ux/prototype/index.html')).href);
   check(await hub.getByRole('heading', { name: 'Sistema Marquesa V2' }).isVisible(), 'hub abre no mobile');
   check(await hub.locator('.area-card').count() === 12, 'hub cobre doze famílias visuais');
-  check((await hub.locator('a.area-card').count()) === 4, 'somente áreas navegáveis recebem link');
+  check((await hub.locator('a.area-card').count()) === 5, 'somente áreas navegáveis recebem link');
   check(await hub.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'hub sem overflow mobile');
   await hub.close();
 
