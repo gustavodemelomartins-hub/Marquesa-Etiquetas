@@ -474,3 +474,18 @@ ajuste. Todos os dados e aplicações são explicitamente simulados.
 Validação: 92 verificações em 320, 390, 768 e 1440 pixels, cobrindo o hub, os
 estados do inventário, as invariantes de revisão, busca de produtos e ausência
 de overflow horizontal. Nenhum React, backend, banco ou deploy foi alterado.
+
+### 15/09 — Cobertura navegável de Etiquetas
+
+As três referências aprovadas de Etiquetas foram consolidadas no padrão global
+do protótipo: Preparar, Impressão e Histórico. A fila demonstra busca, origem,
+seleção, quantidade e edição exclusiva do texto impresso; a revisão apresenta
+folha proporcional de 126 posições, múltiplas folhas, calibração horizontal e
+vertical, PDF e envio ao diálogo; o histórico preserva autoria, origem, itens e
+o lote anterior durante a preparação de uma reimpressão.
+
+Os estados deixam explícito que abrir o diálogo não prova impressão física e
+que nenhuma ação de etiquetas movimenta estoque. Validação: 72 verificações em
+320, 390, 768 e 1440 pixels, cobrindo edição de texto, totais, composição da
+folha, calibração, impressão honesta, histórico, reimpressão e overflow. Sem
+React, API, banco, arquivo físico ou deploy.

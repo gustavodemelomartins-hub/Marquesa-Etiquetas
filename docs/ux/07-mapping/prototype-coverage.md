@@ -50,9 +50,9 @@ integração real.
 | Revendedoras · Perfil / editar / arquivar | IN PROGRESS | IN PROGRESS | NOT STARTED | NOT STARTED | NOT STARTED | IN PROGRESS | NOT STARTED | existente | React parcial |
 | Maletas · Sugestão / criar / adicionar | IN PROGRESS | IN PROGRESS | NOT STARTED | NOT STARTED | NOT STARTED | IN PROGRESS | NOT STARTED | existente | React parcial |
 | Maletas · Importar / acertar / cancelar | IN PROGRESS | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | IN PROGRESS | NOT STARTED | existente | legado em produção |
-| Etiquetas · Preparar | APPROVED | APPROVED | NOT STARTED | NOT STARTED | NOT STARTED | READY FOR REVIEW | APPROVED | UI NEEDS API | legado em produção |
-| Etiquetas · Revisar / imprimir / PDF | APPROVED | APPROVED | NOT STARTED | NOT STARTED | NOT STARTED | READY FOR REVIEW | APPROVED | UI NEEDS API | legado em produção |
-| Etiquetas · Histórico / reimpressão | APPROVED | APPROVED | NOT STARTED | NOT STARTED | NOT STARTED | READY FOR REVIEW | APPROVED | UI NEEDS API | legado em produção |
+| Etiquetas · Preparar | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | APPROVED | UI NEEDS API | legado em produção |
+| Etiquetas · Revisar / imprimir / PDF | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | APPROVED | UI NEEDS API | legado em produção |
+| Etiquetas · Histórico / reimpressão | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | APPROVED | UI NEEDS API | legado em produção |
 | Nuvemshop · Panorama / saúde | IN PROGRESS | IN PROGRESS | NOT STARTED | NOT STARTED | NOT STARTED | IN PROGRESS | NOT STARTED | existente | React parcial |
 | Pendências / Reconciliação | IN PROGRESS | IN PROGRESS | NOT STARTED | NOT STARTED | NOT STARTED | IN PROGRESS | NOT STARTED | existente | React parcial |
 | Notificações | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | UI NEEDS API | NOT STARTED |

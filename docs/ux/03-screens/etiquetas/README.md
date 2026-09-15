@@ -42,6 +42,22 @@ O conteúdo da área está aprovado, mas o símbolo alternativo mostrado à esqu
 nestes mockups **não substitui** a identidade já definida: Etiquetas deve usar o
 [cabeçalho global e a logo principal aprovados](../../04-components/header/README.md).
 
+## Protótipo navegável
+
+O arquivo [master.html](master.html) reúne Preparar, Impressão e Histórico em
+uma única experiência navegável do Sistema Marquesa V2. A fila permite buscar,
+filtrar, selecionar, quantificar e editar somente o texto impresso. A revisão
+compõe uma folha proporcional de 126 posições, demonstra calibração nos dois
+eixos e mantém estados honestos para PDF e envio ao diálogo de impressão. O
+histórico mostra autoria, origem e conteúdo do lote e prepara uma reimpressão
+sem alterar o registro anterior.
+
+Os dados são demonstrativos e nenhuma ação grava, imprime fisicamente ou move
+estoque. Desktop e mobile foram verificados em 320, 390, 768 e 1440 pixels pelo
+roteiro [verify-master.mjs](verify-master.mjs). A cobertura visual está pronta
+para revisão; as decisões de conteúdo registradas como aprovadas continuam
+sendo as aprovações humanas de 10/09/2026.
+
 ## Blocos da tela
 
 | # | Bloco | O que mostra | Origem do dado | Referência |
