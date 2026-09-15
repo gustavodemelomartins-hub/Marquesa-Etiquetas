@@ -555,3 +555,15 @@ Como não há mockup próprio da Home, a composição segue pronta para revisão
 Gustavo. Validação: 32 verificações em 320, 390, 768 e 1440 pixels, cobrindo
 navegação interna, destinos, mobile e ausência de overflow. Sem React, API,
 banco ou deploy.
+
+### 15/09 — Nuvemshop e Pendências com análise segura
+
+A nona família do hub cobre panorama da loja, saúde das rodadas, presença do
+catálogo, histórico, pendências humanas e análise em modo seco. A hierarquia
+separa divergência que a próxima rodada corrige dos casos que precisam de uma
+pessoa. Duplicidade e variante sem vínculo explicam o bloqueio; produto e preço
+continuam fora de qualquer correção automática.
+
+Validação: 40 verificações em 320, 390, 768 e 1440 pixels, cobrindo filtros,
+diagnóstico, freios, análise seca, plano sem aplicação e overflow. A tela segue
+pronta para revisão do Gustavo. Sem React, API, Nuvemshop, banco ou deploy.
