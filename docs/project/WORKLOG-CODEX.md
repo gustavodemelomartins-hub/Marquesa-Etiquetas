@@ -542,3 +542,16 @@ Validação: 56 verificações em 320, 390, 768 e 1440 pixels, cobrindo sugestã
 confirmação, perfil, itens, snapshot de preço, abertura de acerto, efeito de
 vendidas/devolvidas e overflow. Como não há mockup próprio, segue pronta para
 revisão do Gustavo. Sem React, API, banco ou deploy.
+
+### 15/09 — Home operacional do Sistema Marquesa V2
+
+A oitava família do hub ganhou uma abertura orientada ao trabalho do dia. Ela
+separa vendido, recebido e `A receber`, mostra peças em casa, ordena prioridades
+com destino para a área responsável e reúne movimento, atalhos e atividade
+recente. As abas Hoje, Esta semana e Alertas permitem validar a hierarquia sem
+simular persistência.
+
+Como não há mockup próprio da Home, a composição segue pronta para revisão do
+Gustavo. Validação: 32 verificações em 320, 390, 768 e 1440 pixels, cobrindo
+navegação interna, destinos, mobile e ausência de overflow. Sem React, API,
+banco ou deploy.

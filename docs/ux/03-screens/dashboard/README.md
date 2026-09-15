@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Estado do material | vazio |
-| Última atualização | — |
-| Referências recebidas | 0 |
+| Estado do material | protótipo navegável pronto para revisão |
+| Última atualização | 15/09/2026 |
+| Referências recebidas | 0 — proposta derivada do sistema e das regras atuais |
 | Existe hoje no legado? | sim — `view-geral` |
 | Existe hoje no React? | ver [07-mapping/frontend-feature-map.md](../../07-mapping/frontend-feature-map.md) |
 
@@ -13,11 +13,23 @@
 
 ## Objetivo da tela
 
-Visão de abertura do sistema: o que exige atenção hoje e o panorama do negócio. Ainda não definido quais indicadores entram, nem para qual perfil a tela abre.
+Visão de abertura operacional para a administradora: o que exige atenção hoje,
+o movimento recente e os atalhos para as tarefas mais frequentes. Os valores
+são demonstrativos e preservam a separação entre vendido, recebido e a receber.
 
 ## Para quem
 
-— ainda não definido — (Gustavo, Sthefany, revendedora, operação de estoque?)
+Administradora e operação interna da Marquesa.
+
+## Protótipo navegável
+
+- [Abrir Home](master.html)
+- [Captura desktop](home-desktop.png)
+- [Captura mobile](home-mobile.png)
+
+O protótipo cobre Hoje, Esta semana e Alertas; prioridades com destino claro;
+indicadores operacionais; movimento do dia; atalhos; e atividade recente.
+Nenhum dado é persistido.
 
 ## Conteúdo da pasta
 
@@ -34,14 +46,16 @@ Inspiração externa deste domínio: [02-references/dashboard/](../../02-referen
 
 ## Blocos da tela
 
-Preencher quando houver mockup. Um bloco por seção visível.
-
 | # | Bloco | O que mostra | Origem do dado | Referência |
 |---|---|---|---|---|
-| | | | | |
+| 1 | Resumo do dia | vendido, recebido, a receber e peças em casa | contratos atuais + dados demonstrativos | `master.html` |
+| 2 | Prioridades | acerto atrasado, recebimentos e cadastro incompleto | regras e backlog atuais | `master.html` |
+| 3 | Movimento | distribuição das entradas do dia | proposta visual | `master.html` |
+| 4 | Atalhos | venda, etiquetas e maleta | fluxos já cobertos | `master.html` |
+| 5 | Atividade recente | eventos comerciais e operacionais | regras atuais | `master.html` |
 
 ## Log de material recebido
 
 | Data | O que chegou | Arquivo | Quem enviou |
 |---|---|---|---|
-| | | | |
+| 15/09/2026 | proposta navegável desktop e mobile | `master.html` | Codex |
