@@ -80,3 +80,15 @@ publicado e despublicado são variantes da publicação.
 
 Ainda não há mockup da Fase 4.5 salvo. Quando chegar, usar
 `images/AAAA-MM-DD_catalogo-<visao>_<viewport>_<sequencia>.<ext>`.
+
+## Protótipo navegável
+
+O arquivo [master.html](master.html) consolida a primeira proposta navegável da
+Central, cadastro, galeria, fotos em lote, preparação/revisão e publicação. A
+interface mantém `falta[]`, `bloqueios[]` e presença na loja como dimensões
+separadas; quantidade fica somente leitura; upload é analisado antes de bytes;
+preparo não publica; aprovação é humana; publicação real permanece bloqueada.
+
+Como ainda não há mockup recebido, a composição está **READY FOR GUSTAVO
+REVIEW**. Foram executadas 56 verificações em 320, 390, 768 e 1440 pixels. O
+protótipo não publica, não envia fotos, não altera catálogo, estoque ou banco.

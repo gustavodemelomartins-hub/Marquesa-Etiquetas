@@ -516,3 +516,17 @@ Como não há mockup próprio nesta branch, a composição permanece proposta pr
 para revisão do Gustavo. Validação: 44 verificações em 320, 390, 768 e 1440
 pixels, incluindo recalculo do saldo, estado derivado, correção auditável,
 histórico, proteção do estoque e overflow. Sem React, API, banco ou deploy.
+
+### 15/09 — Primeira cobertura navegável de Catálogo
+
+A sexta família do hub reúne Central, cadastro, fotos em lote, conteúdo e
+publicação como contextos internos de Estoque. A proposta separa pendência
+humana, bloqueio técnico e presença na loja; deixa quantidades somente leitura;
+analisa casamento de fotos antes de bytes; exige aprovação humana depois do
+preparo; mantém simulação seca e bloqueia publicação real enquanto a capacidade
+está desligada.
+
+Validação: 56 verificações em 320, 390, 768 e 1440 pixels, cobrindo dimensões do
+pipeline, estoque somente leitura, análise seca, aprovação separada,
+divergências sem correção automática, bloqueio de publicação e overflow. Sem
+React, API, armazenamento, Nuvemshop, banco ou deploy.
