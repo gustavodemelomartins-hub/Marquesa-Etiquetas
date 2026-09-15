@@ -159,9 +159,21 @@ export async function contasAReceber(db, { status = 'aberta' } = {}) {
   }));
 
   /* Venda e troca só têm o estado "em aberto" para mostrar: quitadas, elas
-     saem daqui e continuam inteiras no histórico da cliente. Pedir
-     `status=paga` devolve só a metade histórica, e a resposta diz isso. */
-  const [vendas, trocas] = status === 'paga'
+     saem daqui e continuam inteiras no histórico da cliente.
+
+     5.3d — o comentário anterior dizia que "a resposta diz isso". **Não dizia.**
+     `status=paga` devolvia a metade histórica com a mesma forma de uma resposta
+     completa, e nada no payload distinguia "não há venda paga" de "vendas pagas
+     não são representáveis aqui". Quem somasse este total acharia que somou as
+     três fontes.
+
+     Completar as três fontes exigiria inventar o conceito de "conta paga" para
+     venda e para troca, que o banco não guarda: quitada, a venda deixa de ser
+     um recebível e vira um fato do histórico da cliente. Inventar isso é 5.3e/5.8,
+     não leitura. Então a resposta RECUSA a alegação de completude, por escrito e
+     em campo próprio, em vez de calar. */
+  const somenteHistorico = status === 'paga';
+  const [vendas, trocas] = somenteHistorico
     ? [[], []]
     : await Promise.all([vendasEmAberto(db), trocasEmAberto(db)]);
 
@@ -184,6 +196,18 @@ export async function contasAReceber(db, { status = 'aberta' } = {}) {
 
   return {
     ok: true,
+    cobertura: {
+      completa: !somenteHistorico,
+      fontes: {
+        historico: 'incluida',
+        venda: somenteHistorico ? 'nao_representavel' : 'incluida',
+        troca: somenteHistorico ? 'nao_representavel' : 'incluida',
+      },
+      porque: somenteHistorico
+        ? 'venda e troca quitadas deixam de ser recebiveis e nao guardam estado de conta paga; '
+          + 'este total cobre apenas a fonte historica'
+        : null,
+    },
     resumo: {
       quantidade: abertas.length,
       total: somar(abertas),

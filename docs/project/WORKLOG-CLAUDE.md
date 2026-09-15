@@ -393,3 +393,45 @@ Toda vez que Claude realizar trabalho significativo neste projeto:
 Uma tarefa some da lista de pendências de uma conversa de IA só quando
 está aqui, com data, commit e resultado. O que não está commitado não
 existe pra próxima sessão.
+
+---
+
+## 2026-09-14 — Fase 5.3d: o contrato de leitura do FIN-101
+
+**Task IDs tocados:** `FIN-101` (subfase 5.3d), `B9`.
+
+`GET /api/vendas/lista` passou a devolver o resumo financeiro **da venda** em
+centavos inteiros — `valorVenda`, `valorRecebido`, `valorAReceber`,
+`statusPagamento` — aninhado em `financeiro`, com `escopo: "venda"`. A rota
+devolve itens: a mesma venda aparece em várias linhas, e quatro chaves soltas
+convidariam a somar a coluna e obter o total multiplicado pelas peças.
+
+**O que a leitura se recusa a fazer.** `pago = 1` sem `valor_recebido`
+registrado devolve `valorRecebido: null` com a lacuna nomeada, e não
+`valorRecebido = valorVenda`: inventar isso seria reproduzir, na leitura, a
+contradição que B4 achou no banco. Saldo negativo aparece com `sobra: true` em
+vez de virar zero (B6). O status operacional é derivado de forma conservadora —
+sem recebimento conhecido, `nao_paga`, nunca `parcial`.
+
+`GET /api/contas-receber?status=paga` parou de devolver a metade histórica com
+forma de resposta completa: ganhou `cobertura`, que declara fonte por fonte e
+diz por que não é completa. O chamador existente não quebrou.
+
+**B9 fechado.** `PATCH /api/contas-receber/:id/vencimento` (zero call sites) e
+`POST /api/contas-receber/:id/marcar-paga` (duplicata de `/receber` com
+`chave: historico:<id>`, que delega para a mesma função) saíram. Os quatro
+chamadores foram migrados no mesmo commit; as funções continuam vivas. O
+inventário de contratos registra a aposentadoria com motivo, como ele mesmo
+exige.
+
+**Validação:** suíte nova `src/fin-101-5-3d-test.mjs`, 10 provas, registrada em
+`docs/testing/test-suites.json` no mesmo commit. Regressão local verde em
+`vendas-lista`, `vendas-reconstrucao`, `venda-item-id`, `garantia-venda-item`,
+`garantias-ciclo`, `fin-101-5-3a/b/c`, `reclassificacao-nao-venda`,
+`estoque-razao`, `phase0-artifacts`, `api-contracts`, `docs-links` e
+`governance-versioned`.
+
+**Limites:** nenhuma coluna virou centavos no banco (é 5.7); o `Math.max(0, …)`
+dentro de `contas-receber.js` continua onde estava; 5.3e/5.3f/5.7/5.8 não foram
+tocadas; nenhum escritor mudou; sem migration, sem DEV, sem PROD, sem deploy,
+sem push.

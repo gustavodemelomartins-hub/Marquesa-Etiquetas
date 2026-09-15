@@ -228,9 +228,7 @@ Proprietário: Financeiro. Une vendas operacionais, diferenças de troca e hist�
 |---|---:|---|
 | `GET /api/contas-receber?status=` | A | Lista unificada. |
 | `PATCH /api/contas-receber/prazo` | C/H | Prazo com controle concorrente. |
-| `POST /api/contas-receber/receber` | C/H | Liquidação; não toca estoque. |
-| `POST /api/contas-receber/:id/marcar-paga` | C/H | Liquida item histórico. |
-| `PATCH /api/contas-receber/:id/vencimento` | C/H | Altera vencimento histórico. |
+| `POST /api/contas-receber/receber` | C/H | Liquidação; não toca estoque. Porta única desde 5.3d: `historico:<id>` delega a `marcarContaPaga`. |
 
 ### Analytics e lista comercial
 

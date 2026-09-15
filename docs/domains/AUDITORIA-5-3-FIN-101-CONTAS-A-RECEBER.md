@@ -251,7 +251,7 @@ vence a última.
 só define prazo. Receber só é possível pelo **perfil da cliente**. É paridade
 que o React precisa **corrigir**, não copiar.
 
-### B9 · Rotas órfãs
+### B9 · Rotas órfãs · `CORRIGIDO EM 5.3d`
 
 `PATCH /api/contas-receber/:id/vencimento` não tem call site. `POST
 /api/contas-receber/:id/marcar-paga` é chamada pelo legado (`:9676`) para
@@ -618,7 +618,7 @@ de quatro para um — senão 5.8 terá quatro migrações em vez de uma.
 | ~~**5.3a**~~ | **FEITA.** B1 e B5 corrigidos, com a invariante KPI ≡ série virando teste. Ver §19 | — |
 | ~~**5.3b**~~ | **FEITA.** Um núcleo, três portas. B2, B3 e B4 fechados, e a semântica de `valor_recebido` definida. Ver §20 | — |
 | ~~**5.3c**~~ | **FEITA.** `recebivel_versao` nas duas fontes que não tinham, incrementada por trigger, com CAS atômico. Ver §21 | — |
-| **5.3d** | contrato de leitura do FIN-101: `valorVenda`/`valorRecebido`/`valorAReceber`/`statusPagamento` **em centavos** no `GET /api/vendas/lista` (API-VEN-015, sem inventar recebimentos); `status=paga` completo nas três fontes ou recusa explícita; aposentar as rotas órfãs (B9) | 5.3c |
+| ~~**5.3d**~~ | **FEITA.** Resumo financeiro da venda em centavos no `GET /api/vendas/lista`, sem inventar recebimento; `status=paga` passou a declarar cobertura; B9 fechado. Ver §22 | 5.3c |
 | **5.3e** | **crédito da cliente.** Migration do ledger, emissão pela troca negativa, `GET /api/clientes/:id/credito`, `GET /api/credito/conferir`, `POST /api/credito/ajuste`. Sem consumo, sem UI | 5.3a |
 | **5.3f** | fechar G1–G10, especialmente G7 (arredondamento) e G10 (a invariante do dinheiro) | todas |
 
@@ -1160,3 +1160,117 @@ Até lá, o legado segue funcionando com a garantia mais fraca que sempre teve.
 - não tocou ledger de crédito, recebimentos múltiplos, parcelas, formas de
   pagamento, centavos globais nem UI;
 - não executou migration remota, não tocou PROD, não fez deploy.
+
+---
+
+## 22. Fase 5.3d — executada
+
+5.3a–5.3c trataram da **escrita**: um lugar só para dizer "esta venda foi
+paga", e uma versão para impedir que duas telas discordem. 5.3d trata da
+**leitura**, e o risco dela é outro: uma leitura que preenche o que não sabe.
+
+### 22.1 O resumo financeiro é da VENDA, e sai em centavos
+
+`GET /api/vendas/lista` devolve **itens** — a mesma venda aparece em tantas
+linhas quantas forem as peças. O resumo de API-VEN-015 é da venda, não da
+linha, então ele não entrou como quatro chaves soltas:
+
+```json
+"financeiro": {
+  "escopo": "venda", "moeda": "centavos",
+  "valorVenda": 10000, "valorRecebido": null,
+  "valorAReceber": null, "statusPagamento": "paga",
+  "indeterminado": ["valorRecebido"], "sobra": false
+}
+```
+
+Quatro chaves soltas na linha convidariam a `SUM()` da coluna, e a soma daria
+o total da venda **multiplicado pelo número de peças**. Aninhar não impede o
+erro; para de sugeri-lo. `escopo: 'venda'` diz em palavras de quem é o número,
+e o teste tem uma prova só para isso (venda 5, duas peças, `2 × 30000`).
+
+Centavos **inteiros**, e não REAL: é a recomendação de §7.3, e é o que impede
+que `0.1 + 0.2 >= 0.3` decida PAGO/PARCIAL quando 5.8 chegar.
+
+### 22.2 Recebimento não se inventa
+
+`vendas.valor_recebido` é anulável, e `pago = 1` sem valor registrado é o
+estado real de quase toda venda antiga. A leitura devolve `valorRecebido:
+null` e **nomeia a lacuna** em `indeterminado`.
+
+A alternativa tentadora — `pago = 1`, logo `valorRecebido = valorVenda` —
+produziria, do lado da leitura, exatamente a contradição que **B4** achou no
+banco (`pago=1` com `valor_recebido=40` num total de 100). Um número inventado
+que parece completo é pior que um `null` que se anuncia.
+
+O status operacional é derivado, e o derivado é **conservador**: sem valor
+recebido conhecido, `pago = 0` é `nao_paga` e nunca `parcial` — parcial
+afirmaria um recebimento que ninguém registrou.
+
+O lado histórico não deriva nada: `vendas_historicas.status` já é autoridade,
+com o vocabulário `paga|nao_paga|parcial|indefinida`, e `valor_total` NULL
+continua NULL — planilha sem valor não é venda de R$ 0.
+
+### 22.3 A sobra aparece
+
+`contas-receber.js` faz `Math.max(0, …)`: uma venda que recebeu a mais vira
+saldo zero em silêncio (**B6**). `historico-operacoes.js` recusa explicitamente
+saldo negativo, e está certo. Na leitura nova o número sai como é — `-3000`,
+com `sobra: true`. Quem lê decide; ninguém arredonda a diferença para fora da
+tela.
+
+### 22.4 `status=paga` parou de dar meia resposta calada
+
+O comentário anterior dizia que "a resposta diz isso". **Não dizia.**
+`status=paga` devolvia só a metade histórica com a mesma forma de uma resposta
+completa, e nada no payload distinguia *"não há venda paga"* de *"venda paga
+não é representável aqui"*. Quem somasse o total acharia que somou as três
+fontes.
+
+Completar as três fontes exigiria inventar o conceito de "conta paga" para
+venda e para troca, que o banco não guarda: quitada, a venda deixa de ser
+recebível e vira fato do histórico da cliente. Isso é 5.3e/5.8, não leitura.
+Então a resposta **recusa a alegação de completude, por escrito**:
+
+```json
+"cobertura": {
+  "completa": false,
+  "fontes": { "historico": "incluida", "venda": "nao_representavel", "troca": "nao_representavel" },
+  "porque": "venda e troca quitadas deixam de ser recebiveis e nao guardam estado de conta paga; …"
+}
+```
+
+O chamador existente não quebrou: `ok` continua `true` e `contas` continua no
+mesmo lugar. O que mudou é que a resposta deixou de afirmar o que não sabe.
+
+### 22.5 B9 — as duas rotas órfãs
+
+| Rota | Por que saiu |
+|---|---|
+| `PATCH /api/contas-receber/:id/vencimento` | nenhum call site em lugar nenhum — legado, React ou teste. `PATCH /api/contas-receber/prazo` faz o mesmo por `chave` |
+| `POST /api/contas-receber/:id/marcar-paga` | duplicata: `receberConta({ chave: 'historico:<id>' })` delega para a **mesma** `marcarContaPaga`, com os mesmos `confirmar` e `versaoEsperada` |
+
+As **funções** continuam vivas em `historico-operacoes.js`; o que foi
+aposentado é a superfície HTTP por id, não a capacidade. Os quatro chamadores
+— um botão do legado (`dashboard.tpl.html`) e três asserções de integração —
+foram migrados para `/receber` no mesmo commit, e as asserções não mudaram,
+porque o corpo devolvido é o mesmo objeto.
+
+`docs/architecture/api-contracts.json` diz que mudar este conjunto "precisa de
+decisão explícita". A decisão é esta subfase, e está registrada no próprio
+manifesto, em `aposentados[]`, com motivo e ponteiro para B9.
+
+### 22.6 O que 5.3d deliberadamente não fez
+
+- não converteu coluna nenhuma para centavos no banco — a conversão acontece
+  na borda da leitura, que é a recomendação 2 de §7.3; `vendas` e
+  `venda_itens` continuam REAL, e isso é 5.7;
+- não inverteu `resumo.total` × `resumo.totalCentavos` em `contasAReceber`
+  (recomendação 3 de §7.3) — é outra superfície e outro conjunto de
+  chamadores;
+- não corrigiu o `Math.max(0, …)` de **B6** dentro de `contas-receber.js`:
+  a leitura nova mostra a sobra, a lista de cobrança continua como estava;
+- não implementou 5.3e, 5.3f, 5.7 nem 5.8;
+- não tocou `pagamento-venda.js` nem nenhum escritor;
+- não criou rota, não mudou autenticação de rota existente;
+- não executou migration, não tocou PROD, não fez deploy, não deu push.

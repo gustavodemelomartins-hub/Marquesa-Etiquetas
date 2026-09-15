@@ -212,8 +212,11 @@ const contasAbertas = await api('GET', '/api/contas-receber');
 const aQuitar = contasAbertas.corpo.contas.find((c) => c.vendaChave === 'cliente duplicada|2026-08-19');
 eq('a conta com vínculo está aberta', aQuitar.cobrancaStatus, 'aberta');
 
-const paga = await api('POST', `/api/contas-receber/${aQuitar.id}/marcar-paga`, {
-  confirmar: true, versaoEsperada: aQuitar.versao,
+// 5.3d/B9 — a rota por id foi aposentada. A porta por chave delega para a
+// MESMA marcarContaPaga, com os mesmos confirmar e versaoEsperada, e devolve
+// o mesmo corpo: é por isso que as asserções abaixo não mudaram.
+const paga = await api('POST', '/api/contas-receber/receber', {
+  chave: `historico:${aQuitar.id}`, confirmar: true, versaoEsperada: aQuitar.versao,
 });
 eq('quitação aceita', paga.status, 200);
 eq('e criou uma versão nova', paga.corpo.conta.versao, aQuitar.versao + 1);

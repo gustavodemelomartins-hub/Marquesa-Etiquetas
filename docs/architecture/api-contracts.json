@@ -8,7 +8,21 @@
   "sem-bearer": "responde antes da porta de checarChave: health, callback OAuth e foto assinada por HMAC",
   "bearer": "exige Authorization: Bearer <API_KEY>"
  },
- "total": 176,
+ "aposentados": [
+  {
+   "contrato": "PATCH /api/contas-receber/:param/vencimento",
+   "em": "5.3d",
+   "porque": "sem call site em lugar nenhum — legado, React ou teste. PATCH /api/contas-receber/prazo faz o mesmo por chave.",
+   "decisao": "docs/domains/AUDITORIA-5-3-FIN-101-CONTAS-A-RECEBER.md §6 B9 e §15 subfase 5.3d"
+  },
+  {
+   "contrato": "POST /api/contas-receber/:param/marcar-paga",
+   "em": "5.3d",
+   "porque": "duplicata: receberConta({ chave: 'historico:<id>' }) delega para a MESMA marcarContaPaga, com os mesmos confirmar e versaoEsperada. Chamadores migrados no mesmo commit.",
+   "decisao": "docs/domains/AUDITORIA-5-3-FIN-101-CONTAS-A-RECEBER.md §6 B9 e §15 subfase 5.3d"
+  }
+ ],
+ "total": 174,
  "contratos": [
   {
    "contrato": "ANY /api/health",
@@ -283,10 +297,6 @@
    "auth": "bearer"
   },
   {
-   "contrato": "PATCH /api/contas-receber/:param/vencimento",
-   "auth": "bearer"
-  },
-  {
    "contrato": "PATCH /api/contas-receber/prazo",
    "auth": "bearer"
   },
@@ -368,10 +378,6 @@
   },
   {
    "contrato": "POST /api/clientes/revisao/:param",
-   "auth": "bearer"
-  },
-  {
-   "contrato": "POST /api/contas-receber/:param/marcar-paga",
    "auth": "bearer"
   },
   {

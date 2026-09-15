@@ -20,7 +20,7 @@ import {
   contasAReceber, definirPrazoDaConta, receberConta,
 } from '../../contas-receber.js';
 import {
-  marcarContaPaga, definirVencimento, aplicarOperacoesHistoricas,
+  aplicarOperacoesHistoricas,
 } from '../../historico-operacoes.js';
 import { perfilCliente } from '../../analytics.js';
 import {
@@ -284,20 +284,22 @@ export const rotas = [
       return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
     },
   },
-  {
-    metodo: 'POST', caminho: '/api/contas-receber/:id/marcar-paga', auth: 'bearer', padroes: { id: '[0-9]+' },
-    async handler({ db, request, params }) {
-      const r = await marcarContaPaga(db, +params.id, await request.json().catch(() => ({})));
-      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
-    },
-  },
-  {
-    metodo: 'PATCH', caminho: '/api/contas-receber/:id/vencimento', auth: 'bearer', padroes: { id: '[0-9]+' },
-    async handler({ db, request, params }) {
-      const r = await definirVencimento(db, +params.id, await request.json().catch(() => ({})));
-      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
-    },
-  },
+  /* 5.3d · B9 — duas rotas saíram daqui, e por motivos diferentes.
+   *
+   *  `PATCH /api/contas-receber/:id/vencimento` não tinha call site nenhum:
+   *  nem legado, nem React, nem teste. `PATCH /api/contas-receber/prazo`
+   *  faz o mesmo por `chave`, e é a que todo mundo chama.
+   *
+   *  `POST /api/contas-receber/:id/marcar-paga` tinha um só, e era duplicata:
+   *  `receberConta({ chave: 'historico:<id>' })` DELEGA para o mesmo
+   *  `marcarContaPaga`, com os mesmos `confirmar` e `versaoEsperada`. Duas
+   *  portas para um fato é a condição que 5.3b passou a subfase inteira
+   *  eliminando do lado da escrita; manter uma sobra aqui só adiava.
+   *
+   *  As duas FUNÇÕES continuam vivas em `historico-operacoes.js` — quem as
+   *  chama agora é `contas-receber.js`, por `chave`. O que foi aposentado é a
+   *  superfície HTTP por id, não a capacidade.
+   */
   {
     /* Busca por nome, telefone ou CPF. Nome não é identidade: homônimo não é
        fundido sozinho — quem decide isso é a revisão de vínculo. */

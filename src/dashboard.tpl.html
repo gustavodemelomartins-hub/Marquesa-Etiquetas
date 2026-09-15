@@ -9673,7 +9673,10 @@ async function marcarContaPaga(id,versao,norm,cliente,valor){
   norm=decodeURIComponent(norm); cliente=decodeURIComponent(cliente);
   if(!confirm(`${cliente} pagou ${money(valor)}?\n\nAo confirmar, a cobrança será quitada. Isso não altera o estoque.`)) return;
   try{
-    await api('POST',`/api/contas-receber/${id}/marcar-paga`,{confirmar:true,versaoEsperada:versao});
+    /* 5.3d/B9 — era `/api/contas-receber/${id}/marcar-paga`, que apenas
+       delegava. A porta por `chave` é a mesma função do outro lado, com os
+       mesmos `confirmar` e `versaoEsperada`. */
+    await api('POST','/api/contas-receber/receber',{chave:`historico:${id}`,confirmar:true,versaoEsperada:versao});
     await carregarPainelVendas();
     toast('Pagamento confirmado');
     await abrirPerfilCliente(norm);

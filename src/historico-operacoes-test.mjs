@@ -118,14 +118,16 @@ const prazo = await api('PATCH', `/api/contas-receber/${conta.id}/vencimento`, {
 eq('prazo definido', prazo.status, 200);
 eq('versão avançou', prazo.corpo.conta.versao, conta.versao + 1);
 
-const paga = await api('POST', `/api/contas-receber/${prazo.corpo.conta.id}/marcar-paga`, {
-  confirmar: true, versaoEsperada: prazo.corpo.conta.versao,
+// 5.3d/B9 — era `/api/contas-receber/:id/marcar-paga`, aposentada por ser
+// duplicata da porta por chave, que delega para a mesma função.
+const paga = await api('POST', '/api/contas-receber/receber', {
+  chave: `historico:${prazo.corpo.conta.id}`, confirmar: true, versaoEsperada: prazo.corpo.conta.versao,
 });
 eq('pagamento confirmado', paga.status, 200);
 eq('saldo zerado', paga.corpo.conta.valorReceber, 0);
 
-const retry = await api('POST', `/api/contas-receber/${prazo.corpo.conta.id}/marcar-paga`, {
-  confirmar: true, versaoEsperada: prazo.corpo.conta.versao,
+const retry = await api('POST', '/api/contas-receber/receber', {
+  chave: `historico:${prazo.corpo.conta.id}`, confirmar: true, versaoEsperada: prazo.corpo.conta.versao,
 });
 eq('retry do clique é idempotente', retry.status, 200);
 eq('avisa que já estava paga', retry.corpo.jaEstavaPaga, true);

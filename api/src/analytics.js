@@ -1293,7 +1293,16 @@ export async function listarVendasUnificado(db, {
               -- que classificacao falsa. (Comentario em SQL, nao em JS: isto
               -- esta dentro de um template literal.)
               CASE WHEN LOWER(TRIM(COALESCE(h.canal, ''))) = 'site'
-                   THEN 'site' END AS origem
+                   THEN 'site' END AS origem,
+              -- 5.3d -- o resumo financeiro e da VENDA, nao da linha. Do lado
+              -- historico ele ja existe inteiro em vendas_historicas: valor
+              -- total (NULL quando algum item nao tem valor), valor pago, e um
+              -- status que ja usa o vocabulario paga|nao_paga|parcial|
+              -- indefinida. Nada aqui e inventado: a coluna que nao sabe
+              -- responde NULL, e o JS a repassa como indeterminada.
+              vh.valor_total AS venda_valor,
+              vh.valor_pago  AS venda_recebido,
+              vh.status      AS venda_status
          FROM vendas_historico_itens h
          JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
          JOIN vendas_historicas vh ON vh.id=h.venda_historica_id
@@ -1326,7 +1335,17 @@ export async function listarVendasUnificado(db, {
               -- contrario, e a lista de contas a receber enxergava a mesma
               -- venda corretamente em aberto. Duas leituras do mesmo banco
               -- discordando e pior que nao ter a coluna.
-              v.pago, v.cancelada, v.origem
+              v.pago, v.cancelada, v.origem,
+              -- 5.3d -- do lado operacional nao existe coluna de status: ela e
+              -- DERIVADA em JS de pago + valor_recebido. E valor_recebido e
+              -- anulavel de proposito: uma venda marcada paga sem valor
+              -- registrado nao autoriza ninguem a escrever recebido = total.
+              -- Ver B4/B6 -- foi exatamente assim que pago=1 com
+              -- valor_recebido=40 num total de 100 chegou ao banco.
+              -- (Sem crase aqui dentro: isto esta num template literal.)
+              v.total AS venda_valor,
+              v.valor_recebido AS venda_recebido,
+              NULL AS venda_status
          FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
          LEFT JOIN clientes c ON c.id = v.cliente_id
         WHERE v.origem <> 'acerto' AND v.revendedora_id IS NULL
@@ -1349,7 +1368,72 @@ export async function listarVendasUnificado(db, {
     like, like, like, like, limite, offset,
   ).all();
 
-  return { itens: results ?? [], limite, offset };
+  return { itens: (results ?? []).map(comFinanceiroDaVenda), limite, offset };
+}
+
+/* ═════════════════════════════════════ 5.3d — o contrato de leitura do FIN-101
+
+   API-VEN-015 pede `valorVenda`, `valorRecebido`, `valorAReceber` e
+   `statusPagamento` em CENTAVOS INTEIROS. Três decisões, e cada uma existe por
+   causa de um defeito nomeado na auditoria de 5.3:
+
+   1. **É `financeiro`, aninhado, e não quatro campos soltos na linha.** Esta
+      rota devolve ITENS: a mesma venda aparece em várias linhas. Quatro chaves
+      soltas convidariam a `SUM()` da coluna, e a soma daria o total da venda
+      multiplicado pelo número de peças. Aninhar não impede o erro, mas para de
+      sugeri-lo — e `escopo: 'venda'` diz em palavras de quem é o número.
+
+   2. **Recebimento não se inventa.** `valor_recebido` é anulável, e `pago = 1`
+      sem valor registrado é o estado real de quase toda venda antiga. A
+      resposta devolve `valorRecebido: null` e nomeia a lacuna em
+      `indeterminado` — nunca `valorRecebido = valorVenda`, que é a
+      contradição de B4 (`pago=1` com `valor_recebido=40` num total de 100)
+      escrita agora pelo lado da leitura.
+
+   3. **Saldo negativo aparece.** `contas-receber.js` faz `Math.max(0, …)` e
+      transforma uma venda que recebeu a mais em saldo zero, em silêncio (B6).
+      `historico-operacoes.js` recusa explicitamente, e está certo. Aqui o
+      número sai como é, negativo, com `sobra: true` — quem lê decide, ninguém
+      arredonda a diferença para fora da tela.
+
+   O status operacional é DERIVADO, e o derivado é conservador: sem valor
+   recebido conhecido, `pago = 0` é `nao_paga` e não `parcial`, porque parcial
+   afirmaria um recebimento que ninguém registrou. */
+const emCentavos = (v) => (v == null || v === '' || Number.isNaN(Number(v))
+  ? null : Math.round(Number(v) * 100));
+
+export function comFinanceiroDaVenda(linha) {
+  const valor = emCentavos(linha.venda_valor);
+  const recebido = emCentavos(linha.venda_recebido);
+  const indeterminado = [];
+  if (valor == null) indeterminado.push('valorVenda');
+  if (recebido == null) indeterminado.push('valorRecebido');
+
+  const aReceber = (valor == null || recebido == null) ? null : valor - recebido;
+
+  let status = linha.venda_status ?? null;
+  if (!status) {
+    /* derivação do lado operacional. `pago` é o fato escrito; o resto só
+       refina quando há valor para refinar. */
+    if (Number(linha.pago) === 1) status = 'paga';
+    else if (recebido != null && recebido > 0) status = valor != null && recebido >= valor ? 'paga' : 'parcial';
+    else if (recebido != null) status = 'nao_paga';
+    else status = 'nao_paga';
+  }
+
+  return {
+    ...linha,
+    financeiro: {
+      escopo: 'venda',
+      moeda: 'centavos',
+      valorVenda: valor,
+      valorRecebido: recebido,
+      valorAReceber: aReceber,
+      statusPagamento: status,
+      indeterminado,
+      sobra: aReceber != null && aReceber < 0,
+    },
+  };
 }
 
 /* ══════════════════════════════════════════════════ ROTA AGREGADA: o painel */
