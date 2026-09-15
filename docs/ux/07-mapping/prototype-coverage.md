@@ -56,8 +56,8 @@ integração real.
 | Nuvemshop · Panorama / saúde | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | React parcial |
 | Pendências / Reconciliação | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente; Apply bloqueado em PROD | React parcial |
 | Notificações | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | protótipo |
-| Perfil | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | NOT STARTED | UI NEEDS API | shell parcial |
-| Configurações / conexão | IN PROGRESS | IN PROGRESS | NOT STARTED | NOT STARTED | NOT STARTED | IN PROGRESS | NOT STARTED | existente parcial | React parcial |
+| Perfil | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | shell parcial |
+| Configurações / conexão | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente parcial | React parcial |
 
 ## Modais, drawers e estados conhecidos
 
@@ -71,6 +71,7 @@ integração real.
 | Financeiro | registrar recebimento, corrigir/estornar, resolver resposta incerta |
 | Nuvemshop | panorama, saúde, filtros de pendência, diagnóstico, análise seca e plano sem aplicação |
 | Notificações | filtros, estados lida/não lida, destinos e preferências locais |
+| Perfil e configurações | dados da conta, preferências, permissões informativas e conexão mascarada |
 
 ## Decisões que permanecem humanas
 

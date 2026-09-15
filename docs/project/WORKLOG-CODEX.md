@@ -578,3 +578,15 @@ central como lida e configurar quais grupos merecem destaque. Cada alerta leva
 Validação: 32 verificações em 320, 390, 768 e 1440 pixels, cobrindo filtros,
 contadores, leitura, preferências e overflow. Envio por canais externos segue
 marcado como necessidade de API. Sem React, API, mensagem externa ou deploy.
+
+### 15/09 — Perfil e Configurações navegáveis
+
+A décima primeira família do hub cobre dados da conta, preferências da
+experiência e estado da conexão. A proposta mantém permissões apenas
+informativas, mascara a chave por padrão e separa saúde do ambiente do
+diagnóstico da Nuvemshop. Alterações são demonstrativas e não representam uma
+solução de autenticação já existente.
+
+Validação: 36 verificações em 320, 390, 768 e 1440 pixels, cobrindo as três
+abas, segredo mascarado, teste demonstrativo e overflow. Perfil e matriz fina
+de permissões seguem como necessidade de API. Sem React, credencial real ou deploy.
