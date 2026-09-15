@@ -7,6 +7,14 @@ window.MARQUESA_V2 = {
     "branch": "claude/refactor-sistema-marquesa",
     "recentes": [
       {
+        "commit": "3b9793c",
+        "data": "2026-09-14",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(financeiro): 5.3e — a razao de credito da cliente, e o lugar que faltava",
+        "agente": "",
+        "taskIds": []
+      },
+      {
         "commit": "828f84a",
         "data": "2026-09-14",
         "autor": "gustavodemelomartins-hub",
@@ -202,14 +210,6 @@ window.MARQUESA_V2 = {
         "data": "2026-09-11",
         "autor": "gustavodemelomartins-hub",
         "assunto": "docs(decisoes): as respostas da Sthefany fecham DR-005/006/015/016",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "510afa5",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(painel): tres frentes reais viram data.workstreams, nao texto na tela",
         "agente": "",
         "taskIds": []
       }
@@ -2316,6 +2316,17 @@ window.MARQUESA_V2 = {
       "agente": "Claude",
       "data": "2026-09-14",
       "titulo": "Fase 5.3e: a razão de crédito da cliente",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": [
+        "FIN-101"
+      ]
+    },
+    {
+      "agente": "Claude",
+      "data": "2026-09-14",
+      "titulo": "Fase 5.3f: a rede, e a razão contábil do dinheiro",
       "branch": "",
       "commits": "",
       "status": "",

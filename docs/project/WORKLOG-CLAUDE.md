@@ -483,3 +483,42 @@ painel do projeto e build do legado.
 nenhum crédito foi criado para o legado; `contasAReceber` não foi tocada;
 nenhuma coluna virou centavos (é 5.7); sem migration aplicada, sem DEV, sem
 PROD, sem deploy, sem push.
+
+---
+
+## 2026-09-14 — Fase 5.3f: a rede, e a razão contábil do dinheiro
+
+**Task IDs tocados:** `FIN-101` (subfase 5.3f). **Fase 5.3 fechada.**
+
+Dos dez gaps de teste de §9, sete já tinham caído nas subfases anteriores.
+Documentei ONDE cada um mora antes de escrever qualquer coisa — sem isso o
+próximo a passar por aqui reescreve o mesmo teste com outro nome. Sobraram G7,
+G9 e G10.
+
+**G7 — arredondamento.** Dinheiro ainda é REAL, e `0.1 + 0.2 !== 0.3`. Hoje o
+risco é contido porque `pago` é escrito, não comparado; ele nasce em 5.8,
+quando `PAGO` virar `SUM >= total`. A rede foi escrita antes: 137 contas de um
+centavo somando 137 centavos, resumo batendo com a soma das linhas, e a
+tolerância de um centavo provada nos dois sentidos — a conferência não acusa
+`0.1 + 0.2` de pagamento incompleto, porque régua que grita à toa é desligada.
+
+**G9 — a conta sem dona.** Venda `cliente_ambiguo = 1` continua na lista e no
+total, marcada, com o nome visível e **sem vínculo**: oferecer navegação seria
+escolher entre homônimas pela porta da tela.
+
+**G10 — `GET /api/financeiro/conferir`.** O gap estrutural: estoque tinha razão
+contábil verificável, recebíveis não tinham nada. Seis verificações, cada uma
+nascida de um defeito real desta auditoria (B4, B6, §28/B5, 5.3b, §29, 5.3e),
+cada uma carregando a origem na resposta. Ela **mede e não conserta** — e isso
+tem teste: consertar exige decidir quem pagou quanto e quando, e nenhum script
+decide isso sem inventar dinheiro. Todas as verificações voltam, inclusive as
+limpas: "nada apareceu" tem de ser distinguível de "nada foi olhado".
+
+**Validação:** suíte nova `src/fin-101-5-3f-test.mjs` (15 provas), registrada no
+mesmo commit. Regressão local verde nas 30 suítes de `domain-pure`, nos gates
+`fast`, `inventario-4-4`, `catalogo-4-5`, painel e build do legado.
+
+**Limites:** nada foi consertado — os defeitos que a conferência encontra
+continuam lá, agora visíveis; o `Math.max(0, …)` de `contas-receber.js`
+permanece; 5.7 e 5.8 não foram tocadas; sem migration, sem DEV, sem PROD, sem
+deploy, sem push.

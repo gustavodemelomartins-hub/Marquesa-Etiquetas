@@ -232,6 +232,7 @@ Proprietário: Financeiro. Une vendas operacionais, diferenças de troca e hist�
 | `GET /api/clientes/:id/credito` | C/H | 5.3e — saldo derivado da razão de crédito + extrato. Não consome. |
 | `GET /api/credito/conferir` | A | 5.3e — a invariante `SUM >= 0` por cliente. Irmã de `/api/estoque/conferir`. |
 | `POST /api/credito/ajuste` | C/H | 5.3e — correção manual, motivo obrigatório, recusa saldo negativo. |
+| `GET /api/financeiro/conferir` | A | 5.3f — a razão contábil do dinheiro. Mede e não conserta. |
 
 ### Analytics e lista comercial
 

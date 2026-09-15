@@ -347,19 +347,20 @@ A cobertura por fonte é boa. A cobertura **entre** fontes e **entre leituras**
 
 | # | Gap | Severidade |
 |---|---|---|
-| G1 | nenhum teste cruza `visaoGeral.faturamento` com `evolucao.pontos[].faturamento` | **causou B1** |
-| G2 | nenhum teste compara o estado do banco depois das duas portas de quitação | **causou B2/B4** |
-| G3 | nenhum teste cobre uma venda PARCIAL sendo quitada | **causou B3** |
-| G4 | nenhum teste cobre `pago:false` sobre `cobravel=0` | **causou B5** |
-| G5 | `versaoEsperada` não é testado para `venda`/`troca` (porque não é implementado) | alta |
-| G6 | nenhum teste de `status=paga` provando que a resposta é parcial e **diz** que é | média |
-| G7 | nenhum teste de arredondamento: `valor_recebido > total`, centavo fracionado, soma de 100+ contas | alta antes de 5.7 |
-| G8 | nenhum teste de idempotência comparada entre as três portas (B10) | média |
-| G9 | nenhum teste do A Receber com `cliente_ambiguo = 1` (§2) — a conta existe e não tem dona | média |
-| G10 | nenhuma invariante executável do tipo `GET /api/estoque/conferir` para dinheiro | alta |
+| G1 | nenhum teste cruza `visaoGeral.faturamento` com `evolucao.pontos[].faturamento` | **causou B1** · **FECHADO em 5.3a** |
+| G2 | nenhum teste compara o estado do banco depois das duas portas de quitação | **causou B2/B4** · **FECHADO em 5.3b** |
+| G3 | nenhum teste cobre uma venda PARCIAL sendo quitada | **causou B3** · **FECHADO em 5.3b** |
+| G4 | nenhum teste cobre `pago:false` sobre `cobravel=0` | **causou B5** · **FECHADO em 5.3a** |
+| G5 | `versaoEsperada` não é testado para `venda`/`troca` (porque não é implementado) | alta · **FECHADO em 5.3c** |
+| G6 | nenhum teste de `status=paga` provando que a resposta é parcial e **diz** que é | média · **FECHADO em 5.3d** |
+| G7 | nenhum teste de arredondamento: `valor_recebido > total`, centavo fracionado, soma de 100+ contas | alta antes de 5.7 · **FECHADO em 5.3f** |
+| G8 | nenhum teste de idempotência comparada entre as três portas (B10) | média · **FECHADO em 5.3b** |
+| G9 | nenhum teste do A Receber com `cliente_ambiguo = 1` (§2) — a conta existe e não tem dona | média · **FECHADO em 5.3f** |
+| G10 | nenhuma invariante executável do tipo `GET /api/estoque/conferir` para dinheiro | alta · **FECHADO em 5.3f** |
 
-**G10 é o gap estrutural.** Estoque tem razão contábil verificável; recebíveis
-não têm nada equivalente.
+**G10 era o gap estrutural.** Estoque tinha razão contábil verificável;
+recebíveis não tinham nada equivalente. `GET /api/financeiro/conferir` fechou
+isso em 5.3f — ver §24.
 
 ---
 
@@ -621,7 +622,7 @@ de quatro para um — senão 5.8 terá quatro migrações em vez de uma.
 | ~~**5.3c**~~ | **FEITA.** `recebivel_versao` nas duas fontes que não tinham, incrementada por trigger, com CAS atômico. Ver §21 | — |
 | ~~**5.3d**~~ | **FEITA.** Resumo financeiro da venda em centavos no `GET /api/vendas/lista`, sem inventar recebimento; `status=paga` passou a declarar cobertura; B9 fechado. Ver §22 | 5.3c |
 | ~~**5.3e**~~ | **FEITA.** `credito_movimentos`, emissão pela troca negativa (`credito_emitido`), estorno por contrapartida, as três rotas. Sem consumo, sem UI. Ver §23 | 5.3a |
-| **5.3f** | fechar G1–G10, especialmente G7 (arredondamento) e G10 (a invariante do dinheiro) | todas |
+| ~~**5.3f**~~ | **FEITA.** G7, G9 e G10 fechados; G1–G6 e G8 já tinham caído em 5.3a–5.3d, e §24 diz onde. `GET /api/financeiro/conferir` existe | todas |
 
 **Fora de 5.3:** recebimentos múltiplos, formas, parcelamento, conversão para
 centavos das tabelas legadas, consumo de crédito, qualquer tela.
@@ -1378,3 +1379,114 @@ na ESCRITA, onde ela é barata: recusar ali custa um 409; descobrir depois em
   centavos, o resto é 5.7;
 - **não aplicou a migration em ambiente nenhum**, não tocou PROD, não fez
   deploy, não deu push.
+
+---
+
+## 24. Fase 5.3f — executada
+
+§9 listou dez gaps. **Sete já tinham caído** como efeito colateral das subfases
+anteriores, e dizer ONDE importa tanto quanto fechar os que faltavam — senão
+alguém reescreve o mesmo teste com outro nome:
+
+| Gap | Fechado em | Onde a prova mora |
+|---|---|---|
+| G1 · KPI × série mensal | 5.3a | `src/fin-101-5-3a-test.mjs` |
+| G2 · estado do banco pelas duas portas | 5.3b | `src/fin-101-5-3b-test.mjs` |
+| G3 · venda parcial sendo quitada | 5.3b | `src/fin-101-5-3b-test.mjs` |
+| G4 · `pago:false` sobre `cobravel = 0` | 5.3a | `src/fin-101-5-3a-test.mjs` |
+| G5 · `versaoEsperada` nas três fontes | 5.3c | `src/fin-101-5-3c-test.mjs` |
+| G6 · `status=paga` declara que é parcial | 5.3d | `src/fin-101-5-3d-test.mjs` |
+| G8 · idempotência comparada das três portas | 5.3b | `src/fin-101-5-3b-test.mjs` |
+
+Sobraram três, e 5.3f é sobre eles.
+
+### 24.1 G7 — arredondamento
+
+Dinheiro ainda mora em REAL (converter é 5.7), e `0.1 + 0.2 !== 0.3` em ponto
+flutuante. Hoje o risco é contido porque `pago` é **escrito**, não comparado. O
+risco nasce em **5.8**, no instante em que `PAGO` virar
+`SUM(recebimentos) >= total`: nesse dia uma venda pode ficar eternamente
+parcial por um centavo que não existe.
+
+A rede foi escrita antes desse dia:
+
+- 0,30 recebido contra 0,30 devido não deixa resto;
+- saldo parcial fecha no centavo exato, sem cauda decimal;
+- **137 contas de um centavo** somam 137 centavos, e o resumo bate com a soma
+  das linhas — se o resumo e a tabela discordarem, quem confere a tela conclui
+  que faltou dinheiro;
+- `0.1 + 0.2` pagando 0,30 **não** é acusado de pagamento incompleto: a
+  conferência tolera um centavo de propósito. Verificação que grita à toa é
+  desligada pela primeira pessoa que a vê, e aí não protege mais nada.
+
+### 24.2 G9 — a conta sem dona
+
+A venda com `cliente_ambiguo = 1` é a que §2 se recusou a atribuir entre
+homônimas. A cobrança **existe** — alguém levou a peça —, e o que não existe é
+a dona.
+
+O que ficou provado: ela continua na lista, entra no total, é marcada
+`clienteAmbiguo`, mostra o nome escrito na venda, e **não oferece vínculo** —
+`clienteId` e `clienteNorm` são nulos. Oferecer navegação seria escolher entre
+homônimas pelo caminho da tela, que é o mesmo erro por outra porta.
+
+### 24.3 G10 — a razão contábil do dinheiro
+
+`GET /api/financeiro/conferir`, irmã de `GET /api/estoque/conferir`.
+
+Estoque tem uma igualdade única. Dinheiro não tem: tem um conjunto de estados
+que **não podem coexistir**. Cada verificação nasceu de um defeito real desta
+auditoria, e carrega a origem na resposta:
+
+| Verificação | Origem |
+|---|---|
+| `venda_paga_com_recebido_menor` | B4 |
+| `venda_recebido_maior_que_total` | B6 |
+| `venda_cancelada_ainda_cobravel` | §28 · B5 |
+| `troca_a_receber_com_venda_paga` | 5.3b |
+| `troca_paga_sem_data` | §29 |
+| `credito_saldo_negativo` | 5.3e |
+
+Três escolhas que não são detalhe:
+
+1. **Ela MEDE e não conserta.** Consertar exige decidir quem pagou quanto e
+   quando — e é exatamente a decisão que um script não toma sozinho sem
+   inventar dinheiro. A resposta nomeia a linha e o valor para que alguém
+   decida. Um teste prova que nada é escrito.
+2. **Todas as verificações voltam, inclusive as limpas.** "Nada apareceu"
+   precisa ser distinguível de "nada foi olhado".
+3. **O crédito entra no mesmo painel.** Quem pergunta "o dinheiro está
+   consistente?" não deveria precisar saber que a resposta mora em duas rotas.
+
+E a sobra de B6 deixou de ser invisível: a lista de cobrança continua zerando
+com `Math.max(0, …)` — decisão registrada em 5.3d —, mas agora existe um lugar
+do sistema que **a encontra**.
+
+### 24.4 O que 5.3f deliberadamente não fez
+
+- não consertou nenhum dos defeitos que a conferência encontra;
+- não removeu o `Math.max(0, …)` de `contas-receber.js`;
+- não converteu coluna nenhuma para centavos (5.7);
+- não tocou em 5.8: `pago` continua escrito, não derivado;
+- não criou tela: `FIN-001` continua aberto e a UX é do Codex;
+- sem migration, sem DEV, sem PROD, sem deploy, sem push.
+
+---
+
+## 25. Fase 5.3 — fechada
+
+As seis subfases estão feitas. B1–B10 e G1–G10 têm destino escrito, e o que
+sobrou vivo é o que depende de decisão ou de outra fase:
+
+- **B6 (`Math.max(0, …)`)** continua na lista de cobrança por decisão, e agora
+  é visível por `GET /api/financeiro/conferir`;
+- **B8** (a tela do legado não recebe da lista) é paridade que o React precisa
+  **corrigir**, não copiar — `FIN-001`;
+- **B10** (idempotência divergente entre as portas) ficou sendo divergência de
+  HTTP, deliberada e testada em 5.3b;
+- **crédito sem dona no legado** exige `AUDITORIA READ-ONLY EM PROD`;
+- **REAL → centavos** é 5.7; **recebimentos múltiplos e `pago` derivado** são
+  5.8.
+
+A migration de 5.3e está escrita, provada localmente e **não aplicada em
+ambiente nenhum**.

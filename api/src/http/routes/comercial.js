@@ -24,6 +24,7 @@ import {
 } from '../../historico-operacoes.js';
 import { perfilCliente } from '../../analytics.js';
 import { saldoDeCredito, conferirCredito, registrarAjuste } from '../../credito.js';
+import { conferirFinanceiro } from '../../financeiro-conferir.js';
 import {
   buscarClientes, criarCliente, atualizarCliente, decidirVinculoCliente,
 } from '../../clientes.js';
@@ -325,6 +326,15 @@ export const rotas = [
     metodo: 'GET', caminho: '/api/credito/conferir', auth: 'bearer',
     async handler({ db }) {
       return json(await conferirCredito(db));
+    },
+  },
+  {
+    /* 5.3f · G10 — a razão contábil do dinheiro, que não existia. Estoque
+       tem `/api/estoque/conferir`; recebíveis não tinham nada equivalente.
+       MEDE e não conserta: consertar exige decidir quem pagou quanto. */
+    metodo: 'GET', caminho: '/api/financeiro/conferir', auth: 'bearer',
+    async handler({ db }) {
+      return json(await conferirFinanceiro(db));
     },
   },
   {

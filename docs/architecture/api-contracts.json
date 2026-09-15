@@ -22,7 +22,7 @@
    "decisao": "docs/domains/AUDITORIA-5-3-FIN-101-CONTAS-A-RECEBER.md §6 B9 e §15 subfase 5.3d"
   }
  ],
- "total": 177,
+ "total": 178,
  "contratos": [
   {
    "contrato": "ANY /api/health",
@@ -126,6 +126,10 @@
   },
   {
    "contrato": "GET /api/credito/conferir",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/financeiro/conferir",
    "auth": "bearer"
   },
   {
