@@ -615,3 +615,23 @@ por dia para preservar leitura e toque. O protótipo abre detalhes e demonstra a
 criação de um compromisso recorrente, sem persistência. Validação: 68
 verificações em 320, 390, 768 e 1440 pixels, incluindo recorrência, detalhes,
 novo evento, ausência de erros e overflow.
+
+### 15/09 — Checkpoint da primeira versão coerente do protótipo V2 (`ARQ-009`)
+
+O estado acumulado foi consolidado como uma primeira versão de produto para
+revisão. O hub agora explica a navegação proposta em Home, Vendas, Clientes,
+Estoque, Revendedoras e Mais; ganhou acesso ao inventário completo e a uma
+vitrine navegável do design system. Foram documentados o inventário real de
+superfícies, arquitetura de navegação, 17 fluxos críticos e o handoff UI ↔ API
+com necessidades numeradas, criticidade e decisões de negócio separadas.
+
+O perfil da cliente virou um painel operacional com comprado, recebido, em
+aberto, ticket, garantias, recebimentos, pós-venda e relacionamento. Crédito da
+cliente permanece visível como `Regra pendente`, sem inventar valor. A Agenda
+ficou restrita a compromissos próprios e eventos operacionais desta versão;
+fornecedores/compras foram retirados.
+
+Validação final: 111 verificações globais nas 12 famílias e no design system,
+51 verificações de regressão mobile em Vendas e 28 verificações específicas do
+perfil da cliente, cobrindo 320, 390, 768 e 1440 pixels. Painel do projeto
+regenerado a partir dos documentos. Sem React, API, banco, push ou deploy.

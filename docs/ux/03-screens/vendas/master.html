@@ -401,12 +401,21 @@
           <div class="metric-row compact"><article><span>Clientes ativas</span><strong>345</strong><small>cadastros com histórico</small></article><article><span>Compraram no mês</span><strong>39</strong><small>6 novas clientes</small></article><article><span>Com valor em aberto</span><strong>8</strong><small>R$ 12.269,90</small></article></div>
           <section class="data-section client-list"><div class="section-heading"><div><h2 data-client-list-title>Lista de clientes</h2><p data-client-list-copy>Busque por nome, telefone ou CPF</p></div><div class="search-field narrow" data-client-search>Buscar cliente</div></div><table><thead><tr><th>Cliente</th><th>Comprou</th><th>Pago</th><th>Em aberto</th><th>Última compra</th><th></th></tr></thead><tbody><tr data-client-row="Camila Ferreira" data-has-receivable="true"><td><b>Camila Ferreira</b><small>(19) 9 8123-4567</small></td><td>R$ 1.284,00</td><td>R$ 1.125,00</td><td><span class="status partial">R$ 159,00</span></td><td>05/09/2026</td><td>›</td></tr><tr data-client-row="Juliana Prado" data-has-receivable="false"><td><b>Juliana Prado</b><small>(19) 9 9211-1098</small></td><td>R$ 898,00</td><td>R$ 898,00</td><td><span class="status paid">R$ 0,00</span></td><td>04/09/2026</td><td>›</td></tr><tr data-client-row="Ana Luiza Sedassari" data-has-receivable="true"><td><b>Ana Luiza Sedassari</b><small>(19) 9 7790-3112</small></td><td>R$ 2.044,00</td><td>R$ 1.704,00</td><td><span class="status partial">R$ 340,00</span></td><td>03/09/2026</td><td>›</td></tr><tr data-client-row="Zilma" data-has-receivable="false"><td><b>Zilma</b><small>Contato não informado</small></td><td>R$ 79,00</td><td>R$ 79,00</td><td><span class="status paid">R$ 0,00</span></td><td>02/09/2026</td><td>›</td></tr></tbody></table></section>
           <section class="client-profile-view" data-client-profile hidden>
-            <div class="client-profile-grid">
-              <article class="data-section client-identity"><div class="client-avatar" data-client-initials>CF</div><div><p class="context">Perfil da cliente</p><h2 data-profile-name>Camila Ferreira</h2><p data-profile-phone>(19) 9 8123-4567</p><small>Cliente desde 18/02/2025 · dados demonstrativos</small></div><button class="button ghost" type="button" data-edit-client>Editar cadastro</button></article>
-              <article class="data-section client-financial"><p class="context">Situação financeira</p><dl><div><dt>Total comprado</dt><dd data-profile-bought>R$ 1.284,00</dd></div><div><dt>Total recebido</dt><dd data-profile-paid>R$ 1.125,00</dd></div><div class="open"><dt>A receber</dt><dd data-profile-open>R$ 159,00</dd><small>Sem geração de parcelas</small></div></dl><button class="button primary" type="button" data-register-receipt>Registrar recebimento</button></article>
+            <article class="data-section client-identity"><div class="client-avatar" data-client-initials>CF</div><div><p class="context">Perfil da cliente</p><h2 data-profile-name>Camila Ferreira</h2><p data-profile-phone>(19) 9 8123-4567</p><small>Cliente desde 18/02/2025 · dados demonstrativos</small></div><div class="client-identity-actions"><button class="button ghost" type="button" data-edit-client>Editar cadastro</button><button class="button primary" type="button" data-new-client-sale>Nova venda</button></div></article>
+            <section class="client-kpi-grid" aria-label="Resumo da cliente">
+              <article><span>Total comprado</span><strong data-profile-bought>R$ 1.284,00</strong><small>histórico de vendas</small></article>
+              <article><span>Total recebido</span><strong data-profile-paid>R$ 1.125,00</strong><small>pagamentos confirmados</small></article>
+              <article class="open"><span>A receber</span><strong data-profile-open>R$ 159,00</strong><small>sem geração de parcelas</small></article>
+              <article><span>Ticket médio</span><strong data-profile-ticket>R$ 321,00</strong><small>por venda concluída</small></article>
+              <article><span>Garantias ativas</span><strong data-profile-warranties>1</strong><small>caso em acompanhamento</small></article>
+            </section>
+            <div class="client-command-grid">
+              <article class="data-section client-financial"><div><p class="context">Situação financeira</p><h2>Recebimentos</h2><p>O saldo aberto permanece a receber até a confirmação do pagamento.</p></div><button class="button primary" type="button" data-register-receipt>Registrar recebimento</button></article>
+              <article class="data-section client-credit"><div><p class="context">Crédito da cliente</p><h2>Regra pendente</h2><p>A origem, validade e uso do crédito ainda precisam de decisão de negócio.</p></div><span class="decision-pill">Decisão necessária</span></article>
             </div>
+            <section class="data-section client-aftercare"><div class="section-heading"><div><p class="context">Pós-venda</p><h2>Garantias, trocas e reparos</h2><p>Ocorrências ligadas às peças compradas aparecem junto do relacionamento.</p></div><a class="button ghost" href="../reparos/master.html">Abrir Garantias</a></div><div class="aftercare-grid"><article><span class="aftercare-icon active">01</span><div><b>Garantia #G-142 · em análise</b><small>Argola Duas Linhas · venda #1058</small><p>Aberta em 09/09 · retorno previsto para 17/09</p></div><em class="status receivable">Em andamento</em></article><article><span class="aftercare-icon done">✓</span><div><b>Troca concluída</b><small>Pulseira Medalha Salmo · venda #0987</small><p>Diferença de R$ 18,00 recebida por PIX em 12/07</p></div><em class="status paid">Resolvida</em></article></div></section>
             <div class="client-history-grid">
-              <section class="data-section client-purchases"><div class="section-heading"><div><p class="context">Linha do tempo</p><h2>Compras e recebimentos</h2><p>Venda e situação financeira aparecem separadas.</p></div><button class="button ghost" type="button" data-new-client-sale>Nova venda</button></div><div class="client-timeline"><article><span class="timeline-icon sale">↗</span><div><b>Venda #1058</b><small>05/09/2026 · Balcão · 2 peças</small><p>Argola Duas Linhas e Pulseira Medalha Salmo</p></div><strong>R$ 159,00</strong><em class="status receivable">A receber</em></article><article><span class="timeline-icon money">R$</span><div><b>Recebimento por PIX</b><small>28/08/2026 · recebido na data efetiva</small><p>Referente à venda #1041</p></div><strong>R$ 220,00</strong><em class="status paid">Pago</em></article><article><span class="timeline-icon sale">↗</span><div><b>Venda #1041</b><small>25/08/2026 · WhatsApp · 3 peças</small><p>Colar Coração Vazado e 2 brincos</p></div><strong>R$ 220,00</strong><em class="status paid">Pago</em></article></div></section>
+              <section class="data-section client-purchases"><div class="section-heading"><div><p class="context">Linha do tempo</p><h2>Compras e recebimentos</h2><p>Venda e situação financeira aparecem separadas.</p></div><button class="button ghost" type="button">Ver histórico completo</button></div><div class="client-timeline"><article><span class="timeline-icon sale">↗</span><div><b>Venda #1058</b><small>05/09/2026 · Balcão · 2 peças</small><p>Argola Duas Linhas e Pulseira Medalha Salmo</p></div><strong>R$ 159,00</strong><em class="status receivable">A receber</em></article><article><span class="timeline-icon money">R$</span><div><b>Recebimento por PIX</b><small>28/08/2026 · recebido na data efetiva</small><p>Referente à venda #1041</p></div><strong>R$ 220,00</strong><em class="status paid">Pago</em></article><article><span class="timeline-icon sale">↗</span><div><b>Venda #1041</b><small>25/08/2026 · WhatsApp · 3 peças</small><p>Colar Coração Vazado e 2 brincos</p></div><strong>R$ 220,00</strong><em class="status paid">Pago</em></article></div></section>
               <aside class="data-section client-notes"><p class="context">Relacionamento</p><h2>Contato e observações</h2><dl><div><dt>WhatsApp</dt><dd data-profile-phone-copy>(19) 9 8123-4567</dd></div><div><dt>Última compra</dt><dd data-profile-last>05/09/2026</dd></div><div><dt>Canal mais usado</dt><dd>Balcão</dd></div></dl><label>Observação<textarea rows="4" placeholder="Preferências, tamanho ou contexto útil…">Prefere peças douradas e contato pelo WhatsApp.</textarea></label><button class="button ghost" type="button" data-save-client-note>Salvar observação</button></aside>
             </div>
           </section>
@@ -1948,10 +1957,10 @@
       const showAllClientsButton = document.querySelector('[data-show-all-clients]');
       const clientProfile = document.querySelector('[data-client-profile]');
       const clientData = {
-        'Camila Ferreira': { phone: '(19) 9 8123-4567', bought: 'R$ 1.284,00', paid: 'R$ 1.125,00', open: 'R$ 159,00', last: '05/09/2026' },
-        'Juliana Prado': { phone: '(19) 9 9211-1098', bought: 'R$ 898,00', paid: 'R$ 898,00', open: 'R$ 0,00', last: '04/09/2026' },
-        'Ana Luiza Sedassari': { phone: '(19) 9 7790-3112', bought: 'R$ 2.044,00', paid: 'R$ 1.704,00', open: 'R$ 340,00', last: '03/09/2026' },
-        'Zilma': { phone: 'Contato não informado', bought: 'R$ 79,00', paid: 'R$ 79,00', open: 'R$ 0,00', last: '02/09/2026' }
+        'Camila Ferreira': { phone: '(19) 9 8123-4567', bought: 'R$ 1.284,00', paid: 'R$ 1.125,00', open: 'R$ 159,00', ticket: 'R$ 321,00', warranties: '1', last: '05/09/2026' },
+        'Juliana Prado': { phone: '(19) 9 9211-1098', bought: 'R$ 898,00', paid: 'R$ 898,00', open: 'R$ 0,00', ticket: 'R$ 224,50', warranties: '0', last: '04/09/2026' },
+        'Ana Luiza Sedassari': { phone: '(19) 9 7790-3112', bought: 'R$ 2.044,00', paid: 'R$ 1.704,00', open: 'R$ 340,00', ticket: 'R$ 292,00', warranties: '2', last: '03/09/2026' },
+        'Zilma': { phone: 'Contato não informado', bought: 'R$ 79,00', paid: 'R$ 79,00', open: 'R$ 0,00', ticket: 'R$ 79,00', warranties: '0', last: '02/09/2026' }
       };
 
       function updateClientProfile(customer) {
@@ -1965,6 +1974,8 @@
         document.querySelector('[data-profile-bought]').textContent = data.bought;
         document.querySelector('[data-profile-paid]').textContent = data.paid;
         document.querySelector('[data-profile-open]').textContent = data.open;
+        document.querySelector('[data-profile-ticket]').textContent = data.ticket;
+        document.querySelector('[data-profile-warranties]').textContent = data.warranties;
         document.querySelector('[data-profile-last]').textContent = data.last;
       }
 
@@ -2004,6 +2015,9 @@
           showAllClients(customer);
         }
         activateScreen('clientes');
+        if (destination === 'client' && customer) {
+          requestAnimationFrame(() => clientProfile.scrollIntoView({ block: 'start', behavior: 'auto' }));
+        }
       }
 
       document.querySelectorAll('[data-open-client]').forEach((button) => button.addEventListener('click', (event) => {

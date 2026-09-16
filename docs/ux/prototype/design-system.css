@@ -1,0 +1,34 @@
+.system-catalog { min-height: 100vh; background: linear-gradient(180deg,#fff,var(--rose-050)); }
+.catalog-header { display: grid; grid-template-columns: 180px minmax(0,1fr) auto; align-items: center; gap: 28px; padding: 34px max(24px,calc((100vw - 1180px)/2)); border-bottom: 1px solid var(--line); background: rgba(255,255,255,.92); }
+.catalog-header > a { color: var(--wine-700); font-size: 11px; font-weight: 700; text-decoration: none; }
+.catalog-header h1 { margin: 0; font-family: var(--serif); font-size: 42px; font-weight: 550; }
+.catalog-header p:last-child { margin-top: 4px; color: var(--muted); font-size: 10px; }
+.catalog-header > span { padding: 7px 10px; border-radius: 999px; background: var(--rose-100); color: var(--wine-700); font-size: 9px; font-weight: 700; }
+.catalog-main { display: grid; gap: 18px; width: min(1180px,calc(100% - 48px)); margin: 28px auto 60px; }
+.catalog-section { min-width: 0; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); box-shadow: 0 14px 36px rgba(76,16,40,.04); }
+.catalog-title h2 { margin: 2px 0 18px; font-family: var(--serif); font-size: 27px; font-weight: 550; }
+.swatch-grid,.sample-grid,.state-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.swatch-grid { grid-template-columns: repeat(6,minmax(0,1fr)); }
+.swatch-grid article { overflow: hidden; border: 1px solid var(--line-soft); border-radius: 10px; }
+.swatch-grid i { display: block; height: 68px; background: var(--swatch); }
+.swatch-grid b,.swatch-grid small { display: block; padding: 0 10px; }
+.swatch-grid b { margin-top: 9px; font-size: 10px; }
+.swatch-grid small { margin: 2px 0 9px; color: var(--muted); font-size: 8px; }
+.type-sample { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+.type-sample > div { padding: 18px; border-radius: 10px; background: var(--rose-050); }
+.type-sample span { color: var(--muted); font-size: 9px; }
+.type-sample h3 { margin: 6px 0 0; font-family: var(--serif); font-size: 32px; font-weight: 550; }
+.type-sample p { margin: 8px 0 0; font-size: 12px; }
+.component-row { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 10px; margin-top: 16px; }
+.field-grid label span { display: block; margin-bottom: 5px; color: var(--muted); font-size: 9px; }
+.field-grid input,.field-grid select,.field-grid textarea { width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; background: white; font: inherit; font-size: 10px; }
+.sample-card { padding: 18px; border: 1px solid var(--line-soft); border-radius: 11px; background: linear-gradient(145deg,#fff,var(--rose-050)); }
+.sample-card span,.sample-card small { display: block; color: var(--muted); font-size: 9px; }
+.sample-card strong { display: block; margin: 7px 0 3px; color: var(--wine-900); font-family: var(--serif); font-size: 26px; }
+.table-frame { max-width: 100%; margin: 16px 0 12px; overflow-x: auto; border: 1px solid var(--line-soft); border-radius: 10px; }
+.table-frame table { margin: 0; }.table-frame small { display: block; color: var(--muted); }
+.pagination-v2 > span { color: var(--muted); font-size: 9px; }.pagination-v2 > div { display: flex; gap: 5px; }
+.state-grid { min-width: 0; }.state-grid .system-state { min-width: 0; min-height: 250px; }.state-grid .system-state b { color: var(--wine-700); font-size: 20px; }.state-grid .skeleton-line { width: 100%; }
+@media(max-width:800px){.catalog-header{grid-template-columns:1fr auto}.catalog-header>a{grid-column:1/-1}.swatch-grid{grid-template-columns:repeat(3,1fr)}.sample-grid,.state-grid{grid-template-columns:1fr}.field-grid{grid-template-columns:1fr}.type-sample{grid-template-columns:1fr}}
+@media(max-width:520px){.catalog-header{padding:22px 16px}.catalog-header h1{font-size:34px}.catalog-main{width:calc(100% - 24px);margin-top:12px}.catalog-section{padding:16px}.swatch-grid{grid-template-columns:repeat(2,1fr)}.state-grid .system-state{padding:18px}}

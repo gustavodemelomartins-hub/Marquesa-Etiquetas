@@ -37,8 +37,9 @@ Inspiração externa deste domínio: [02-references/clientes/](../../02-referenc
 A cobertura atual vive no módulo compartilhado de Vendas em
 [`../vendas/master.html#clientes`](../vendas/master.html#clientes), preservando
 a navegação contextual já consolidada. Ela cobre lista, abertura de perfil,
-contato, totais comprado/recebido/em aberto, linha do tempo de vendas e
-recebimentos, observações e entrada para registrar um recebimento.
+contato, painel de indicadores, linha do tempo de vendas e recebimentos,
+pós-venda, observações e entrada para registrar um recebimento. O bloco de
+crédito explicita que a regra ainda depende de decisão.
 
 Esta composição é uma proposta **READY FOR GUSTAVO REVIEW**, pois esta família
 ainda não recebeu mockup próprio. Dados e ações são demonstrativos; não há
@@ -52,9 +53,10 @@ Preencher quando houver mockup. Um bloco por seção visível.
 |---|---|---|---|---|
 | 1 | indicadores | clientes ativas, compras do mês e valores em aberto | agregação futura | proposta atual |
 | 2 | lista | contato, comprado, recebido, em aberto e última compra | clientes + vendas + recebimentos | proposta atual |
-| 3 | perfil | identidade, contato e situação financeira | cliente selecionada | proposta atual |
-| 4 | linha do tempo | vendas e recebimentos como fatos separados | histórico comercial e financeiro | proposta atual |
-| 5 | relacionamento | contato, observações e preferências | cadastro da cliente | proposta atual |
+| 3 | painel do perfil | comprado, recebido, aberto, ticket e garantias | perfil agregado | proposta atual |
+| 4 | pós-venda | garantia ativa e troca resolvida ligadas às peças | garantias e itens de venda | proposta atual |
+| 5 | linha do tempo | vendas e recebimentos como fatos separados | histórico comercial e financeiro | proposta atual |
+| 6 | relacionamento | contato, observações e preferências | cadastro da cliente | proposta atual |
 
 ## Log de material recebido
 

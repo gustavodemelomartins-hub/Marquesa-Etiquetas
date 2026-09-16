@@ -14,6 +14,10 @@ Ligação entre o material de produto desta pasta e o código real.
 
 | Arquivo | Responde |
 |---|---|
+| [navigation-architecture-v2.md](navigation-architecture-v2.md) | como módulos, subáreas, perfil e atalhos se organizam |
+| [product-screen-inventory-v2.md](product-screen-inventory-v2.md) | quais superfícies existem e o estado real de cada camada |
+| [prototype-coverage.md](prototype-coverage.md) | cobertura visual consolidada por família |
+| [ui-api-handoff-v2.md](ui-api-handoff-v2.md) | o que a UI já consegue consumir e quais contratos/decisões faltam |
 | [frontend-feature-map.md](frontend-feature-map.md) | onde cada tela vive hoje no legado e no React |
 | [backend-feature-map.md](backend-feature-map.md) | qual módulo da API sustenta cada tela |
 | [integration-status.md](integration-status.md) | o que já está ligado ponta a ponta |

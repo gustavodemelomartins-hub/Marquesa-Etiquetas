@@ -5,6 +5,11 @@ legado/React, fluxos, backlog, Master Plan, regras e handoffs. Esta matriz mede
 o protótipo navegável de UX/UI; não confunde mockup com implementação React ou
 integração real.
 
+O inventário detalhado por superfície está em
+[product-screen-inventory-v2.md](product-screen-inventory-v2.md), a navegação
+proposta em [navigation-architecture-v2.md](navigation-architecture-v2.md) e o
+handoff em [ui-api-handoff-v2.md](ui-api-handoff-v2.md).
+
 ## Estados usados
 
 - `NOT STARTED`
@@ -21,18 +26,18 @@ integração real.
 |---|---|---|---|---|---|---|---|---|---|
 | Hub / navegação mestre | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | não se aplica | protótipo |
 | Home / Dashboard geral + Agenda | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
-| Vendas · Painel | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
-| Vendas · Nova venda | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
-| Vendas · Monte seu Colar | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado parcial; desligado |
-| Vendas · Saída sem faturamento | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
+| Vendas · Painel | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente parcial | legado em produção |
+| Vendas · Nova venda | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente parcial | legado em produção |
+| Vendas · Monte seu Colar | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | BLOCKED por regra | legado parcial; desligado |
+| Vendas · Saída sem faturamento | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente parcial | legado em produção |
 | Vendas · Histórico completo | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | IN PROGRESS | IN PROGRESS | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
 | Clientes · Lista / CRM | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado em produção |
 | Clientes · Perfil | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado em produção |
-| Clientes · Cadastro rápido | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | IN PROGRESS | READY FOR GUSTAVO REVIEW | UI NEEDS API | protótipo em Vendas |
+| Clientes · Cadastro rápido | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | IN PROGRESS | READY FOR GUSTAVO REVIEW | existente | protótipo em Vendas |
 | Financeiro · A receber | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
 | Financeiro · Registrar/corrigir recebimento | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
-| Garantias / Reparos / Trocas · Lista | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado parcial / domínio novo |
-| Garantias / Reparos / Trocas · Caso e eventos | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado parcial |
+| Garantias / Reparos / Trocas · Lista | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado parcial / domínio novo |
+| Garantias / Reparos / Trocas · Caso e eventos | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado parcial |
 | Estoque · Visão geral | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | IN PROGRESS | React parcial |
 | Estoque · Todos os produtos | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente parcial | legado em produção |
 | Inventário · Sem sessão / iniciar | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado em produção |

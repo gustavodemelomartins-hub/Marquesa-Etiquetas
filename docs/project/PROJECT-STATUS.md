@@ -1,6 +1,6 @@
 # Painel Operacional — Sistema Marquesa
 
-**Atualizado em:** 2026-09-11 (revisão da tarde: reconciliação da branch Claude)
+**Atualizado em:** 2026-09-15 (checkpoint da primeira versão coerente do protótipo V2)
 **Fonte:** auditoria estrutural completa (branches locais/remotas, commits, docs/ux,
 docs/ui, docs/domains da branch paralela, código legado e React)
 **Não é:** um roadmap alternativo. O roadmap único é o
@@ -75,6 +75,7 @@ movimentos / 19 vendas validados, reconciliação zero — ver Master Plan §2.
 | REV-002 | React de Revendedoras — visão geral + ficha completas e testadas | `frontend/src/features/revendedoras/` | paridade de acerto/comissão com o legado ainda não confirmada ponta a ponta |
 | NUV-001 | React de Nuvemshop/sync — leitura completa e testada (panorama, saúde); escrita/aprovação só no legado | `frontend/src/features/nuvemshop/`, `frontend/src/features/reconciliacao/` | `reconciliacao/` autodeclarada "em construção": aprovar/aplicar não persiste ainda |
 | ARQ-007 | **Divergência entre `api/schema.sql` e as migrations** — `migracao-pos-golive-1.sql` cria `maleta_item_variacoes`, `venda_item_correcoes` e 5 índices que nunca foram escritos de volta no schema. Banco criado do zero não os tem; banco migrado (PROD e DEV) tem | achado em 11/09/2026 ao estender `src/migracao-variantes-test.mjs` das 8 migrations originais para as 30 reais. O teste hoje subtrai essa lista nomeada e falha se ela mudar | é anterior a esta sessão e não bloqueia nada hoje; fechar exige `safe-d1-change` e nunca em PROD congelada |
+| ARQ-009 | **Arquitetura UX V2** — hub navegável, navegação global, inventário de superfícies, design system, fluxos críticos e handoff UI ↔ API | `docs/ux/prototype/`, `docs/ux/04-components/design-system-v2.md`, `docs/ux/05-flows/product-flow-map-v2.md`, `docs/ux/07-mapping/` | checkpoint pronto para revisão cruzada; aguarda decisões do Gustavo e validação do Claude |
 | SAI-001 | Categoria "sorteio" (saída sem faturamento) — schema e código prontos (`ae81c5b`, `8055732`), migration escrita | `main` | migration `api/migracao-sorteio-saida-sem-faturamento.sql` **não executada em produção** (P11) |
 
 ---
@@ -139,7 +140,7 @@ próprio: `DR-013`.
 
 ## Contagem
 
-DONE: 7 · IN PROGRESS: 15 · NEXT: 10 · BLOCKED: 3 · DECISIONS REQUIRED: 13
+DONE: 7 · IN PROGRESS: 16 · NEXT: 10 · BLOCKED: 3 · DECISIONS REQUIRED: 13
 
 Contagem gerada por `scripts/build-project-dashboard.mjs` a partir das
 tabelas acima — não a edite à mão. O painel visual

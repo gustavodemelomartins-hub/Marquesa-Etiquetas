@@ -37,6 +37,11 @@ try {
     await page.locator('[data-screen="clientes"]').click();
     check(!await hasHorizontalOverflow(page), `Clientes sem rolagem lateral em ${width}px`);
     check(await page.locator('#clientes .client-list tbody').evaluate((element) => getComputedStyle(element).display === 'grid'), `Clientes usa cartões móveis em ${width}px`);
+    await page.locator('[data-client-row]').first().click();
+    check(await page.locator('.client-kpi-grid article').count() === 5, `Perfil mostra cinco indicadores em ${width}px`);
+    check(await page.locator('.client-aftercare').isVisible(), `Perfil mostra pós-venda em ${width}px`);
+    check(await page.locator('.client-credit').getByText('Regra pendente').isVisible(), `Crédito não inventa valor em ${width}px`);
+    check(!await hasHorizontalOverflow(page), `Perfil da cliente sem rolagem lateral em ${width}px`);
 
     await page.locator('[data-screen="lancamentos"]').click();
     check(!await hasHorizontalOverflow(page), `Lançamentos sem rolagem lateral em ${width}px`);
@@ -62,6 +67,7 @@ try {
       await page.locator('[data-screen="painel"]').click();
       await page.screenshot({ path: 'docs/ux/03-screens/vendas/mobile-painel.png', fullPage: true });
       await page.locator('[data-screen="clientes"]').click();
+      await page.locator('[data-client-row]').first().click();
       await page.screenshot({ path: 'docs/ux/03-screens/vendas/mobile-clientes.png', fullPage: true });
     }
 

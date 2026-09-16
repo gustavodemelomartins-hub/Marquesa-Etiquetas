@@ -1,225 +1,239 @@
 // Gerado por scripts/build-project-dashboard.mjs — não edite à mão.
 window.MARQUESA_V2 = {
-  "gerado": "2026-09-11",
+  "gerado": "2026-09-16",
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
-  "atualizadoEm": "2026-09-11",
+  "atualizadoEm": "2026-09-15",
   "git": {
     "branch": "codex/ui-system-marquesa",
     "recentes": [
       {
-        "commit": "2ad2ca9",
-        "data": "2026-09-11",
+        "commit": "787b2ff",
+        "data": "2026-09-15",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(project): visual dashboard, parity ladder, and the reconciled V2 status",
+        "assunto": "feat(ux): adiciona agenda semanal na home",
         "agente": "",
         "taskIds": []
       },
       {
-        "commit": "9806d98",
-        "data": "2026-09-11",
+        "commit": "f20da82",
+        "data": "2026-09-15",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(docs): repoint two links the taxonomy move left behind",
+        "assunto": "feat(ux): completa cobertura com garantias",
         "agente": "",
         "taskIds": []
       },
       {
-        "commit": "c42e824",
-        "data": "2026-09-11",
+        "commit": "9e3252e",
+        "data": "2026-09-15",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B9 - Catalogo 4.5 (category identity, gallery, preparation, publisher)",
-        "agente": "Claude",
+        "assunto": "feat(ux): cobre perfil e configuracoes",
+        "agente": "",
         "taskIds": []
       },
       {
-        "commit": "ac9b6f2",
-        "data": "2026-09-11",
+        "commit": "a171d9e",
+        "data": "2026-09-15",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B8 - Inventario 4.4, a count that can be paused and never guesses a variation",
-        "agente": "Claude",
+        "assunto": "feat(ux): adiciona central de notificacoes",
+        "agente": "",
         "taskIds": []
       },
       {
-        "commit": "80e3b69",
-        "data": "2026-09-11",
+        "commit": "da4dc37",
+        "data": "2026-09-15",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B7 - Monte seu Colar, the slot-typed composition model",
-        "agente": "Claude",
+        "assunto": "feat(ux): cobre nuvemshop e pendencias",
+        "agente": "",
         "taskIds": []
       },
       {
-        "commit": "6ef956c",
-        "data": "2026-09-11",
+        "commit": "1217885",
+        "data": "2026-09-15",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B6 - one SKU normalisation, the ledger invariant gate, and a dry run that writes nothing",
-        "agente": "Claude",
+        "assunto": "feat(ux): adiciona home operacional",
+        "agente": "",
         "taskIds": []
       },
       {
-        "commit": "c1fa2eb",
-        "data": "2026-09-11",
+        "commit": "025eeaa",
+        "data": "2026-09-15",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B5 - platform layer (error policy, typed config, D1 helpers, correlation id)",
-        "agente": "Claude",
+        "assunto": "feat(ux): cobre revendedoras e acerto de maletas",
+        "agente": "",
         "taskIds": []
       },
       {
-        "commit": "3c412f4",
-        "data": "2026-09-11",
+        "commit": "b12071c",
+        "data": "2026-09-15",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B4 - all 142 contracts on the route table (phase 2, writes)",
-        "agente": "Claude",
+        "assunto": "feat(ux): cobre catalogo e publicacao segura",
+        "agente": "",
         "taskIds": []
       },
       {
-        "commit": "66da840",
-        "data": "2026-09-11",
+        "commit": "e82c3dd",
+        "data": "2026-09-15",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B3 - HTTP router and the read-only routes (phase 2, reads)",
-        "agente": "Claude",
+        "assunto": "feat(ux): adiciona fluxo financeiro auditavel",
+        "agente": "",
         "taskIds": []
       },
       {
-        "commit": "bc7e9d5",
-        "data": "2026-09-11",
+        "commit": "ce3edfb",
+        "data": "2026-09-15",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B2 - freeze the 142 HTTP contracts as an executable inventory",
-        "agente": "Claude",
+        "assunto": "feat(ux): completa perfil e historico de clientes",
+        "agente": "",
         "taskIds": []
       },
       {
-        "commit": "cfab977",
-        "data": "2026-09-11",
+        "commit": "e1af445",
+        "data": "2026-09-15",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B1 — docs taxonomy from the Claude refactor line",
-        "agente": "Claude",
+        "assunto": "feat(ux): cobre fluxo completo de etiquetas",
+        "agente": "",
         "taskIds": []
       },
       {
-        "commit": "9bbf712",
-        "data": "2026-09-11",
+        "commit": "14d506e",
+        "data": "2026-09-15",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(ux): refine vendas master prototype and reject the traced logo",
-        "agente": "Codex",
+        "assunto": "feat(ux): adiciona hub e prototipo de estoque",
+        "agente": "",
         "taskIds": []
       },
       {
-        "commit": "bc3539c",
-        "data": "2026-09-11",
+        "commit": "d90c2ab",
+        "data": "2026-09-15",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(project): DOC-002 — permanent status system (PROJECT-STATUS, worklogs, legacy parity audit)",
+        "assunto": "feat(ux): consolida vendas responsiva e saidas",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "94ba939",
+        "data": "2026-09-13",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(ux): promove monte seu colar simplificado",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "bcd8cf9",
+        "data": "2026-09-13",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "refactor(ux): compacta escolha de cores do colar",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "c45dc9b",
+        "data": "2026-09-13",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(ux): sugere sku e preco na composicao",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "9ecbde9",
+        "data": "2026-09-13",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(ux): explora monte seu colar simplificado",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "20c2951",
+        "data": "2026-09-12",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(ux): VEN-001 compoe monte seu colar",
         "agente": "",
         "taskIds": [
-          "DOC-002"
+          "VEN-001"
         ]
       },
       {
-        "commit": "8cc5ce9",
-        "data": "2026-09-11",
+        "commit": "671be63",
+        "data": "2026-09-12",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(architecture): point Master Plan at the new permanent status system",
+        "assunto": "feat(ux): VEN-001 escolhe variacao na venda",
         "agente": "",
-        "taskIds": []
+        "taskIds": [
+          "VEN-001"
+        ]
       },
       {
-        "commit": "f1820bc",
-        "data": "2026-09-11",
+        "commit": "9f0632c",
+        "data": "2026-09-12",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "chore(codex): commit local Codex governance mirror",
-        "agente": "Codex",
-        "taskIds": []
-      },
-      {
-        "commit": "8dc932e",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(ui): preserve screen/component inventory and legacy-React parity trail",
-        "agente": "Codex",
-        "taskIds": []
-      },
-      {
-        "commit": "2b6c0e4",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(ux): preserve filled-in product/UX intake content",
-        "agente": "Codex",
-        "taskIds": []
-      },
-      {
-        "commit": "ef6f130",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(architecture): sync master plan with real progress on Fase 4.4/4.5 and the product-registration gap",
+        "assunto": "fix(ux): VEN-001 limpa entrada de itens",
         "agente": "",
-        "taskIds": []
+        "taskIds": [
+          "VEN-001"
+        ]
       },
       {
-        "commit": "bfd5d6b",
-        "data": "2026-09-10",
+        "commit": "1e5bf68",
+        "data": "2026-09-12",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(decisoes): o que a 4.5 respondeu, e o que ela deixou em aberto",
+        "assunto": "feat(ux): VEN-001 corrige fluxo e revisao da venda",
         "agente": "",
-        "taskIds": []
+        "taskIds": [
+          "VEN-001"
+        ]
       },
       {
-        "commit": "d1637e6",
-        "data": "2026-09-10",
+        "commit": "6dcbdca",
+        "data": "2026-09-12",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(catalogo): a regra alcança o que foi construído",
+        "assunto": "feat(ux): VEN-001 compacta fluxo de lancamento",
         "agente": "",
-        "taskIds": []
+        "taskIds": [
+          "VEN-001"
+        ]
       },
       {
-        "commit": "074d057",
-        "data": "2026-09-10",
+        "commit": "b7ff3e6",
+        "data": "2026-09-12",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "test(catalogo): as dezenove provas da 4.5 contra o schema real",
+        "assunto": "feat(ux): VEN-001 refina fluxo de lancamento",
         "agente": "",
-        "taskIds": []
+        "taskIds": [
+          "VEN-001"
+        ]
       },
       {
-        "commit": "7b7eefa",
-        "data": "2026-09-10",
+        "commit": "b93cb6a",
+        "data": "2026-09-12",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(publicacao): os estados mortos ganham writer, e a escrita nasce desligada",
+        "assunto": "refactor(ux): VEN-001 alinha venda ao mockup misto",
         "agente": "",
-        "taskIds": []
+        "taskIds": [
+          "VEN-001"
+        ]
       },
       {
-        "commit": "0763ef6",
-        "data": "2026-09-10",
+        "commit": "2a99e7e",
+        "data": "2026-09-12",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(preparacao): tarefa em vez de fornecedor",
+        "assunto": "feat(ux): VEN-001 estrutura fluxo de venda normal",
         "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "5e4209b",
-        "data": "2026-09-10",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(midia): a peça passa a ter galeria, e o original sobrevive ao preparo",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "0f06dda",
-        "data": "2026-09-10",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(categorias): renomear passa a ser possível, e 'Outros' volta a ser só uma categoria",
-        "agente": "",
-        "taskIds": []
+        "taskIds": [
+          "VEN-001"
+        ]
       }
     ]
   },
   "visaoGeral": {
-    "progresso": 20,
+    "progresso": 19,
     "porEstado": {
       "DONE": 7,
-      "IN PROGRESS": 15,
+      "IN PROGRESS": 16,
       "NEXT": 10,
       "BLOCKED": 3,
       "DECISIONS REQUIRED": 13
     },
-    "totalTarefas": 48
+    "totalTarefas": 49
   },
   "tarefas": [
     {
@@ -389,6 +403,14 @@ window.MARQUESA_V2 = {
       "titulo": "Divergência entre api/schema.sql e as migrations — migracao-pos-golive-1.sql cria maleta_item_variacoes, venda_item_correcoes e 5 índices que nunca foram escritos de volta no schema. Banco criado do zero não os tem; banco migrado (PROD e DEV) tem",
       "contexto": "achado em 11/09/2026 ao estender src/migracao-variantes-test.mjs das 8 migrations originais para as 30 reais. O teste hoje subtrai essa lista nomeada e falha se ela mudar",
       "nota": "é anterior a esta sessão e não bloqueia nada hoje; fechar exige safe-d1-change e nunca em PROD congelada"
+    },
+    {
+      "id": "ARQ-009",
+      "estado": "IN PROGRESS",
+      "dominio": "Arquitetura",
+      "titulo": "Arquitetura UX V2 — hub navegável, navegação global, inventário de superfícies, design system, fluxos críticos e handoff UI ↔ API",
+      "contexto": "docs/ux/prototype/, docs/ux/04-components/design-system-v2.md, docs/ux/05-flows/product-flow-map-v2.md, docs/ux/07-mapping/",
+      "nota": "checkpoint pronto para revisão cruzada; aguarda decisões do Gustavo e validação do Claude"
     },
     {
       "id": "SAI-001",
@@ -674,12 +696,20 @@ window.MARQUESA_V2 = {
           "titulo": "Divergência entre api/schema.sql e as migrations — migracao-pos-golive-1.sql cria maleta_item_variacoes, venda_item_correcoes e 5 índices que nunca foram escritos de volta no schema. Banco criado do zero não os tem; banco migrado (PROD e DEV) tem",
           "contexto": "achado em 11/09/2026 ao estender src/migracao-variantes-test.mjs das 8 migrations originais para as 30 reais. O teste hoje subtrai essa lista nomeada e falha se ela mudar",
           "nota": "é anterior a esta sessão e não bloqueia nada hoje; fechar exige safe-d1-change e nunca em PROD congelada"
+        },
+        {
+          "id": "ARQ-009",
+          "estado": "IN PROGRESS",
+          "dominio": "Arquitetura",
+          "titulo": "Arquitetura UX V2 — hub navegável, navegação global, inventário de superfícies, design system, fluxos críticos e handoff UI ↔ API",
+          "contexto": "docs/ux/prototype/, docs/ux/04-components/design-system-v2.md, docs/ux/05-flows/product-flow-map-v2.md, docs/ux/07-mapping/",
+          "nota": "checkpoint pronto para revisão cruzada; aguarda decisões do Gustavo e validação do Claude"
         }
       ],
       "paridade": [],
       "contagem": {
         "DONE": 4,
-        "IN PROGRESS": 4
+        "IN PROGRESS": 5
       }
     },
     {
@@ -2423,6 +2453,51 @@ window.MARQUESA_V2 = {
   },
   "worklogs": [
     {
+      "agente": "Codex",
+      "data": "2026-09-14",
+      "titulo": "Saída sem faturamento em Lançamentos",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": []
+    },
+    {
+      "agente": "Codex",
+      "data": "2026-09-12",
+      "titulo": "VEN-001: composição mobile da Vendas V2",
+      "branch": "codex/ui-system-marquesa",
+      "commits": "",
+      "status": "UX/UI EM REFINAMENTO — mobile reorganizado e validado tecnicamente",
+      "taskIds": []
+    },
+    {
+      "agente": "Codex",
+      "data": "2026-09-12",
+      "titulo": "VEN-001: comparação entre vendas do período",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": []
+    },
+    {
+      "agente": "Codex",
+      "data": "2026-09-12",
+      "titulo": "VEN-001: 10 vendas por página",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": []
+    },
+    {
+      "agente": "Codex",
+      "data": "2026-09-12",
+      "titulo": "VEN-001: fluxo navegável de Venda normal",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": []
+    },
+    {
       "agente": "Claude",
       "data": "2026-09-11 (tarde)",
       "titulo": "Reconciliação da branch Claude com a V2, e o painel do projeto",
@@ -2459,6 +2534,15 @@ window.MARQUESA_V2 = {
       "branch": "codex/ui-system-marquesa",
       "commits": "ver lista no fim desta entrada (feita em várias partes — docs/ux, docs/ui, .codex, Master Plan, docs/project)",
       "status": "DONE para o escopo \"criar o sistema\"; as lacunas que ele revela continuam abertas",
+      "taskIds": []
+    },
+    {
+      "agente": "Codex",
+      "data": "2026-09-11",
+      "titulo": "Checkpoint VEN-001: Vendas em refinamento",
+      "branch": "codex/ui-system-marquesa",
+      "commits": "",
+      "status": "UX/UI EM REFINAMENTO — design principal avançado, interações pendentes",
       "taskIds": []
     },
     {
