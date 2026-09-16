@@ -602,3 +602,16 @@ Validação: 36 verificações em 320, 390, 768 e 1440 pixels, cobrindo prazo,
 feriados não cadastrados, abertura, troca e invariantes financeiras. Com essa
 entrega, as 12 famílias do hub têm protótipo desktop e mobile navegável. A
 execução real de Garantias segue `UI NEEDS API`. Sem React, API, banco ou deploy.
+
+### 15/09 — Agenda semanal dentro da Home
+
+A Home ganhou uma Agenda inspirada na leitura semanal do Google Agenda. Ela
+combina compromissos próprios, como a feira recorrente de sexta às 19h, com
+eventos operacionais derivados do sistema, como acertos de maleta e vencimentos
+financeiros. Cores e origem deixam claro qual área responde por cada evento.
+
+No desktop, a agenda usa grade semanal por horário. No celular, vira uma lista
+por dia para preservar leitura e toque. O protótipo abre detalhes e demonstra a
+criação de um compromisso recorrente, sem persistência. Validação: 68
+verificações em 320, 390, 768 e 1440 pixels, incluindo recorrência, detalhes,
+novo evento, ausência de erros e overflow.

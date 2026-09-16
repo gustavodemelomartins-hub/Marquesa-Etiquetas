@@ -26,9 +26,12 @@ Administradora e operação interna da Marquesa.
 - [Abrir Home](master.html)
 - [Captura desktop](home-desktop.png)
 - [Captura mobile](home-mobile.png)
+- [Agenda desktop](agenda-desktop.png)
+- [Agenda mobile](agenda-mobile.png)
 
-O protótipo cobre Hoje, Esta semana e Alertas; prioridades com destino claro;
-indicadores operacionais; movimento do dia; atalhos; e atividade recente.
+O protótipo cobre Hoje, Agenda e Alertas; prioridades com destino claro;
+indicadores operacionais; movimento do dia; atalhos; atividade recente; e uma
+agenda semanal com compromissos recorrentes, acertos e prazos financeiros.
 Nenhum dado é persistido.
 
 ## Conteúdo da pasta
@@ -53,6 +56,7 @@ Inspiração externa deste domínio: [02-references/dashboard/](../../02-referen
 | 3 | Movimento | distribuição das entradas do dia | proposta visual | `master.html` |
 | 4 | Atalhos | venda, etiquetas e maleta | fluxos já cobertos | `master.html` |
 | 5 | Atividade recente | eventos comerciais e operacionais | regras atuais | `master.html` |
+| 6 | Agenda | semana, recorrências, acertos e compromissos | agenda local + prazos do sistema | `master.html` |
 
 ## Log de material recebido
 

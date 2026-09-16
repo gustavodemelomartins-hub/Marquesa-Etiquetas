@@ -20,7 +20,7 @@ integração real.
 | Área / superfície | Requirements | UX structure | Desktop | Mobile | Interactions | Flow | Human approval | Backend contract | Implementation |
 |---|---|---|---|---|---|---|---|---|---|
 | Hub / navegação mestre | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | não se aplica | protótipo |
-| Home / Dashboard geral | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
+| Home / Dashboard geral + Agenda | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
 | Vendas · Painel | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
 | Vendas · Nova venda | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
 | Vendas · Monte seu Colar | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado parcial; desligado |
@@ -73,6 +73,7 @@ integração real.
 | Notificações | filtros, estados lida/não lida, destinos e preferências locais |
 | Perfil e configurações | dados da conta, preferências, permissões informativas e conexão mascarada |
 | Garantias / Reparos / Trocas | busca, detalhe, prazo, linha do tempo, abertura e simulação da diferença de troca |
+| Home / Agenda | semana, detalhe, novo compromisso, recorrência e eventos operacionais |
 
 ## Decisões que permanecem humanas
 
