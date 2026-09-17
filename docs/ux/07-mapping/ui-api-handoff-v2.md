@@ -1,7 +1,7 @@
 # Handoff técnico UI ↔ API — Sistema Marquesa V2
 
-**Tarefa:** `ARQ-009` · **Estado:** pronto para revisão cruzada  
-**Data:** 15/09/2026 · Não autoriza implementação de backend.
+**Tarefa:** `ARQ-009` · **Estado:** pronto para revisão cruzada
+**Data:** 16/09/2026 · Não autoriza implementação de backend.
 
 ## Classificação por módulo
 
@@ -66,3 +66,37 @@ operacional não.
 3. Estado parcial, aproximação e ausência de fonte permanecem visíveis.
 4. Handoff não muda método/caminho do baseline: contrato novo nasce com teste.
 
+
+## UI NEEDS CONTRACT CHECK — auditoria desta rodada
+
+Antes de criar APIs novas, confrontar os gaps anteriores com o backend atual.
+Os IDs API acima são necessidades de UI, não prova de ausência de endpoints.
+Não houve mudança ou chamada ao backend nesta rodada.
+
+| ID | Superfície | Evidência e verificação necessária |
+|---|---|---|
+| CC-001 | Venda / pagamento / recebimento | `data` da venda e `data_pagamento` são conceitos distintos já documentados. Conferir payload, validação e leitura de data efetiva por evento, inclusive múltiplos pagamentos. Default hoje editável; venda em 10/09 e pagamento em 12/09 não viram data do cadastro em 16/09. Revisão exibe ambas. |
+| CC-002 | Aprovar e publicar | Decisão explícita de Gustavo em 16/09: a última aprovação humana autoriza o sistema a publicar automaticamente. Contrato 4.5 tem comandos separados `POST /api/catalogo/publicacao/:sku/aprovar`, `/publicar` e `/repetir`. Auditar encadeamento, idempotência, assinatura aprovada, falha parcial, retomada e permissão; não pedir uma segunda confirmação de UX. Sucesso de aprovação não equivale a publicação concluída. |
+| CC-003 | Fila e preparação | `GET /api/catalogo/publicacao`, `GET /api/produtos/pendentes` e tarefas de preparação existem no contrato 4.5. Conferir entrada de produto ainda ausente da loja, pré-requisitos, atualização de estado e executor desacoplado. Mock não aciona Codex/serviço externo. |
+| CC-004 | Conteúdo, SEO e fotos | Conferir quais campos são persistidos/enviados: título, descrição, resumo, SEO e termos de busca. Galeria, principal e ordem já têm rotas no contrato 4.5; validar R2, aprovação de mídia e invalidação de aprovação após edição. Limite visual de 8 MB é demonstrativo e precisa casar com o limite real. Upload de várias fotos deste painel pertence a um SKU já selecionado; importação de fotos de vários SKUs continua no fluxo de análise em lote do Catálogo. |
+| CC-005 | Disponibilidade real de publicação | Documento 4.5 descreve seco por padrão, flag de publicação e dependência de R2. Verificar configuração atual antes de integração. Nenhuma dessas flags foi alterada e não foi consultado PROD. Não deduzir capacidade real do sucesso do mock. |
+
+### Decisão fechada de UX
+
+Preparação → revisão humana → **Aprovar e publicar** → Publicando → Publicado.
+Uma falha de envio preserva a aprovação válida e oferece tentar novamente.
+Se conteúdo/fotos mudarem, a revisão volta a ser necessária. Bloqueios e
+aprovação invalidada recebidos do servidor prevalecem sobre o mock.
+
+### FUTURE adicional
+
+Tratamento de imagem, remoção de fundo e geração de mídia: apenas indicação
+`Em breve` desabilitada. Sem executor obrigatório, API inventada ou processamento real.
+
+### Critérios para o Claude
+
+1. Validar CC-001 a CC-005 contra código, testes e configuração aplicável.
+2. Classificar cada necessidade como suportada/parcial/nova, sem promover mock
+   a contrato por conveniência de frontend.
+3. Preservar freios de estoque, vínculo exato de variante e preço observado.
+4. Não implementar parcelamento: saldo continua A Receber nesta etapa.

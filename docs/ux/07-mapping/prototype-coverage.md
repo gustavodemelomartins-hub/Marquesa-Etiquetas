@@ -1,93 +1,14 @@
-# Cobertura do protótipo — Sistema Marquesa V2
+# Cobertura do protótipo V2
 
-Estado reconstruído em **15/09/2026** a partir de `docs/ux/`, inventário
-legado/React, fluxos, backlog, Master Plan, regras e handoffs. Esta matriz mede
-o protótipo navegável de UX/UI; não confunde mockup com implementação React ou
-integração real.
+A matriz única vigente é [product-screen-inventory-v2.md](product-screen-inventory-v2.md).
+Ela reúne tela, módulo, rota, desktop, mobile, interações, fluxo, backend,
+aprovação e observações. A tabela duplicada anterior foi consolidada para evitar
+estados conflitantes; seu histórico continua no Git.
 
-O inventário detalhado por superfície está em
-[product-screen-inventory-v2.md](product-screen-inventory-v2.md), a navegação
-proposta em [navigation-architecture-v2.md](navigation-architecture-v2.md) e o
-handoff em [ui-api-handoff-v2.md](ui-api-handoff-v2.md).
+- [Navegação implementada](navigation-architecture-v2.md)
+- [Handoff para auditoria do Claude](ui-api-handoff-v2.md)
+- [Fluxos](../05-flows/product-flow-map-v2.md)
+- [Design system aplicado](../04-components/design-system-v2.md)
 
-## Estados usados
-
-- `NOT STARTED`
-- `IN PROGRESS`
-- `READY FOR REVIEW`
-- `READY FOR GUSTAVO REVIEW`
-- `APPROVED` — somente quando existe aprovação humana registrada
-- `BLOCKED`
-- `UI NEEDS API` — necessidade registrada, sem atribuir backend à trilha de UX
-
-## Matriz de cobertura
-
-| Área / superfície | Requirements | UX structure | Desktop | Mobile | Interactions | Flow | Human approval | Backend contract | Implementation |
-|---|---|---|---|---|---|---|---|---|---|
-| Hub / navegação mestre | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | não se aplica | protótipo |
-| Home / Dashboard geral + Agenda | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
-| Vendas · Painel | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente parcial | legado em produção |
-| Vendas · Nova venda | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente parcial | legado em produção |
-| Vendas · Monte seu Colar | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | BLOCKED por regra | legado parcial; desligado |
-| Vendas · Saída sem faturamento | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente parcial | legado em produção |
-| Vendas · Histórico completo | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | IN PROGRESS | IN PROGRESS | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
-| Clientes · Lista / CRM | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado em produção |
-| Clientes · Perfil | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado em produção |
-| Clientes · Cadastro rápido | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | IN PROGRESS | READY FOR GUSTAVO REVIEW | existente | protótipo em Vendas |
-| Financeiro · A receber | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
-| Financeiro · Registrar/corrigir recebimento | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
-| Garantias / Reparos / Trocas · Lista | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado parcial / domínio novo |
-| Garantias / Reparos / Trocas · Caso e eventos | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado parcial |
-| Estoque · Visão geral | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | IN PROGRESS | React parcial |
-| Estoque · Todos os produtos | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente parcial | legado em produção |
-| Inventário · Sem sessão / iniciar | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado em produção |
-| Inventário · Contar / pausar / retomar | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado em produção |
-| Inventário · Escolha de variação | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado em produção |
-| Inventário · Revisão de divergências | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado em produção |
-| Inventário · Histórico / detalhe | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado em produção |
-| Cadastro / edição de produto | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | legado em produção |
-| Catálogo · Central e categorias | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | contrato técnico pronto | legado em produção |
-| Catálogo · Galeria / fotos em lote | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | contrato técnico pronto | legado em produção |
-| Catálogo · Preparar / revisar conteúdo | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | contrato técnico pronto | legado em produção |
-| Catálogo · Publicar / despublicar | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | contrato técnico pronto | legado em produção |
-| Catálogo · Divergências com Nuvemshop | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | contrato técnico pronto | React parcial |
-| Revendedoras · Visão geral / lista | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | React parcial |
-| Revendedoras · Perfil / editar / arquivar | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | React parcial |
-| Maletas · Sugestão / criar / adicionar | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | React parcial |
-| Maletas · Importar / acertar / cancelar | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | legado em produção |
-| Etiquetas · Preparar | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | APPROVED | UI NEEDS API | legado em produção |
-| Etiquetas · Revisar / imprimir / PDF | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | APPROVED | UI NEEDS API | legado em produção |
-| Etiquetas · Histórico / reimpressão | APPROVED | APPROVED | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | APPROVED | UI NEEDS API | legado em produção |
-| Nuvemshop · Panorama / saúde | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente | React parcial |
-| Pendências / Reconciliação | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente; Apply bloqueado em PROD | React parcial |
-| Notificações | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | protótipo |
-| Perfil | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | UI NEEDS API | shell parcial |
-| Configurações / conexão | IN PROGRESS | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR REVIEW | READY FOR GUSTAVO REVIEW | existente parcial | React parcial |
-
-## Modais, drawers e estados conhecidos
-
-| Família | Elementos conhecidos |
-|---|---|
-| Vendas | editor de preço, escolha de variação, cadastro rápido de cliente, revisão da venda, sucesso, revisão/estorno de saída, custo histórico |
-| Inventário | iniciar, confirmar contagem zero, escolha de variação, não sei a variação, finalizar, revisar/aplicar divergências |
-| Produtos / Catálogo | novo/editar produto, galeria, upload em lote, casamento de fotos, aprovação, pedido de ajuste, ensaio de publicação |
-| Revendedoras / Maletas | nova revendedora, sugestões, criação, adicionar itens, importar Anexo I, acerto, cancelamento |
-| Etiquetas | configurar folha, calibrar alinhamento, revisar impressão, baixar PDF, reimprimir lote |
-| Financeiro | registrar recebimento, corrigir/estornar, resolver resposta incerta |
-| Nuvemshop | panorama, saúde, filtros de pendência, diagnóstico, análise seca e plano sem aplicação |
-| Notificações | filtros, estados lida/não lida, destinos e preferências locais |
-| Perfil e configurações | dados da conta, preferências, permissões informativas e conexão mascarada |
-| Garantias / Reparos / Trocas | busca, detalhe, prazo, linha do tempo, abertura e simulação da diferença de troca |
-| Home / Agenda | semana, detalhe, novo compromisso, recorrência e eventos operacionais |
-
-## Decisões que permanecem humanas
-
-- métricas exatas do Dashboard geral;
-- fórmula de Saúde e valor econômico do Estoque;
-- permissões para inventário, ajuste, custo, estorno e exportação;
-- tratamento financeiro de excesso, crédito da cliente, cartão e taxas;
-- escopo final de Reparos, Garantias e Trocas;
-- navegação definitiva entre Catálogo, Estoque, Nuvemshop e Pendências.
-
-As dúvidas não bloqueiam a cobertura visual das demais superfícies; cada tela
-deve marcar o dado incerto ou demonstrativo sem inventar regra.
+Checkpoint visual: **FULL V2 UX PROTOTYPE — READY FOR CROSS-REVIEW**.
+Não é aprovação de produto nem autorização de deploy.

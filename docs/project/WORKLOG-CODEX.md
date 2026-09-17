@@ -635,3 +635,36 @@ Validação final: 111 verificações globais nas 12 famílias e no design syste
 51 verificações de regressão mobile em Vendas e 28 verificações específicas do
 perfil da cliente, cobrindo 320, 390, 768 e 1440 pixels. Painel do projeto
 regenerado a partir dos documentos. Sem React, API, banco, push ou deploy.
+
+### 16/09 — Fechamento global visual V2 e nova fila de publicação (`ARQ-009`)
+
+Preservado o checkpoint anterior `ab8951b`; trabalho na mesma branch, sem reset.
+Aplicado shell compartilhado às 12 páginas de produto, com cabeçalho, menu Mais
+com 19 entradas, rotas diretas e navegação mobile. Inventário único consolidado
+por superfície; estilos de números, campos, foco, bordas e diálogos normalizados.
+A inspeção visual também corrigiu corte no saldo financeiro, indicador de reparo
+esticado, barras da Home invisíveis e quantidade de etiquetas cortada no mobile.
+
+Nuvemshop passou a lista de produtos com saldos e situação. Publicar ganhou
+rota operacional própria, baseada na referência de Gustavo e comparada com os
+baselines históricos: busca, filtros, etapas, mensagens e próxima ação por peça.
+A revisão reúne conteúdo/SEO, galeria múltipla, principal, ordem e prévia. A
+última aprovação humana inicia publicação automática demonstrativa, conforme
+clarificação explícita do Gustavo. Falha permite repetir com aprovação válida;
+edição posterior exige revisão. Nenhuma chamada à Nuvemshop ou a um agente real.
+
+Venda agora permite data real de cada pagamento recebido, independente da data
+da venda e do cadastro; revisão mostra ambas. Financeiro local corrige alvo do
+recebimento, saldo parcial, excesso, data efetiva e histórico auditável. Perfil
+da cliente oculta a lista ao abrir, preserva observações na sessão e abre a conta
+correta; outros exemplos não herdam o histórico demonstrativo de Camila.
+
+Validação: 209 verificações de fechamento (menu/links HTTP, deep links, publicação,
+fotos, datas e financeiro), 111 globais do hub/DS e suites focadas de todos os
+módulos. Larguras 320, 390, 768 e 1440. Capturas desktop/mobile inspecionadas.
+Limite explícito: edição completa de cliente ainda IN PROGRESS; contrato de
+publicação e pagamentos requer cross-review do Claude. Matriz/handoff detalham
+as dependências. DS, navegação, fluxos, API needs e README atualizados.
+
+Checkpoint: **FULL V2 UX PROTOTYPE — READY FOR CROSS-REVIEW**. Aprovação visual
+continua com Gustavo. Sem React, backend, banco, push, deploy ou PROD.

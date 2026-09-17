@@ -136,7 +136,7 @@ try {
 
   await todayRows.nth(1).locator('[data-open-client]').click();
   check(await page.locator('[data-clients-title]').textContent() === 'Camila Ferreira', 'clique abre a cliente específica');
-  check(await page.locator('[data-client-row]:visible').count() === 1, 'perfil mostra somente a cliente escolhida');
+  check(await page.locator('[data-client-profile]').isVisible() && await page.locator('.client-list').isHidden(), 'perfil mostra a cliente escolhida sem repetir a lista');
 
   await page.locator('[data-screen="lancamentos"]').click();
   await page.screenshot({ path: 'docs/ux/03-screens/vendas/launch-mobile.png', fullPage: true });

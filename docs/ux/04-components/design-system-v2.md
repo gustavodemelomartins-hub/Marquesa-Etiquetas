@@ -1,8 +1,9 @@
 # Design System Marquesa V2
 
-**Estado:** `READY FOR GUSTAVO REVIEW` · **Data:** 15/09/2026  
+**Estado:** `READY FOR GUSTAVO REVIEW` · **Data:** 16/09/2026
 Fonte visual corrente: `03-screens/vendas/master.css`, reutilizada pelos
-protótipos de todos os módulos.
+protótipos de todos os módulos. `prototype/system.css` e `system.js` aplicam
+o shell, a navegação, a tipografia operacional e os estados compartilhados.
 
 ## Direção
 
@@ -77,3 +78,28 @@ Protótipos mostram exemplos para validar hierarquia. Dado não confirmado deve
 ser rotulado como `dados demonstrativos`, `UI NEEDS API`, `UI NEEDS BUSINESS
 DECISION` ou `FUTURE IDEA`. O design system não transforma exemplo em contrato.
 
+
+## Consolidação aplicada nesta rodada
+
+- Cabeçalho único, menu de 19 destinos e navegação mobile de cinco itens.
+- Jost com `font-variant-numeric: tabular-nums` em dinheiro, datas, SKU,
+  quantidades e indicadores; Cormorant reservada aos títulos editoriais.
+- Dicionário SVG consistente: Pix, dinheiro, cartão, cliente, garantia, estoque,
+  etiqueta, nuvem, upload, busca, relógio e navegação. Métodos de pagamento
+  recebem o ícone correspondente ao lado do select nativo.
+- Tokens únicos: controles 8 px, painéis 14 px, diálogos 18 px; bordas e cores
+  continuam usando o arquivo-base, sem paleta paralela na publicação.
+- Tabs com rolagem horizontal; foco visível; diálogos nativos com Escape;
+  safe area e espaço inferior para navegação; redução de movimento.
+- Leitura de números corrigida em listas de definição: sem recuo de navegador,
+  valores sem corte no resumo financeiro; textos auxiliares com 11 px.
+- Fluxo horizontal de publicação com concluído/atual/futuro; cor sempre com
+  rótulo. Na lista mobile, produto → dados → etapas → ação.
+- Revisão de publicação: conteúdo, fotos, prévia, ação final; mesma família de
+  campos, botões, bordas, estados e modal aplicada ao restante do sistema.
+- Upload múltiplo com erro explicativo; vazio com limpar filtros; toast acompanhado
+  de estado persistente na linha; falha com repetição. Loading de envio é estado
+  explícito, sem inventar progresso percentual.
+
+A vitrine agora usa os mesmos valores de cores reais dos tokens. O DS continua
+sendo a camada do protótipo HTML, não uma declaração de biblioteca React pronta.

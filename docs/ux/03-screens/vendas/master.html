@@ -6,7 +6,7 @@
     <meta name="description" content="Protótipo mestre da área de Vendas do Sistema Marquesa" />
     <title>Sistema Marquesa · Vendas</title>
     <link rel="stylesheet" href="master.css?v=20260914-mobile" />
-  </head>
+  <link rel="stylesheet" href="../../prototype/system.css"><script defer src="../../prototype/system.js"></script></head>
   <body>
     <div class="app-shell">
       <header class="app-header">
@@ -335,7 +335,7 @@
                 <div class="selected-customer" data-selected-customer hidden><span data-customer-initials></span><div><b data-customer-name></b><small data-customer-contact></small></div><button type="button" aria-label="Remover cliente" data-remove-customer>×</button></div>
                 <div class="customer-empty" data-customer-empty>Selecione uma cliente ou continue identificando os outros dados da venda.</div>
                 <div class="form-grid">
-                  <label>Data da venda<input type="date" value="2026-09-12" max="2026-09-12" data-sale-date></label>
+                  <label>Data da venda<input type="date" value="2026-09-12"  data-sale-date></label>
                   <label>Local ou canal<select data-sale-channel><option>Balcão</option><option>WhatsApp</option><option>Instagram</option><option>Grupo VIP</option><option>Feira</option><option>Maleta</option><option>Outro</option></select></label>
                   <label class="wide" data-sale-channel-other hidden>Qual local ou canal?<input type="text" maxlength="60" placeholder="Informe onde a venda aconteceu" data-sale-channel-other-input></label>
                 </div>
@@ -399,7 +399,7 @@
         <section class="screen" id="clientes" aria-labelledby="clients-title" hidden>
           <div class="page-heading"><div><p class="context" data-clients-context>Relacionamento</p><h1 id="clients-title" data-clients-title>Clientes</h1><p data-clients-copy>Compras, pagamentos e valores em aberto aparecem separados.</p></div><div class="clients-heading-actions"><button class="button ghost" type="button" data-show-all-clients hidden>Ver todas as clientes</button><button class="button primary" type="button" data-client-new>Nova cliente</button></div></div>
           <div class="metric-row compact"><article><span>Clientes ativas</span><strong>345</strong><small>cadastros com histórico</small></article><article><span>Compraram no mês</span><strong>39</strong><small>6 novas clientes</small></article><article><span>Com valor em aberto</span><strong>8</strong><small>R$ 12.269,90</small></article></div>
-          <section class="data-section client-list"><div class="section-heading"><div><h2 data-client-list-title>Lista de clientes</h2><p data-client-list-copy>Busque por nome, telefone ou CPF</p></div><div class="search-field narrow" data-client-search>Buscar cliente</div></div><table><thead><tr><th>Cliente</th><th>Comprou</th><th>Pago</th><th>Em aberto</th><th>Última compra</th><th></th></tr></thead><tbody><tr data-client-row="Camila Ferreira" data-has-receivable="true"><td><b>Camila Ferreira</b><small>(19) 9 8123-4567</small></td><td>R$ 1.284,00</td><td>R$ 1.125,00</td><td><span class="status partial">R$ 159,00</span></td><td>05/09/2026</td><td>›</td></tr><tr data-client-row="Juliana Prado" data-has-receivable="false"><td><b>Juliana Prado</b><small>(19) 9 9211-1098</small></td><td>R$ 898,00</td><td>R$ 898,00</td><td><span class="status paid">R$ 0,00</span></td><td>04/09/2026</td><td>›</td></tr><tr data-client-row="Ana Luiza Sedassari" data-has-receivable="true"><td><b>Ana Luiza Sedassari</b><small>(19) 9 7790-3112</small></td><td>R$ 2.044,00</td><td>R$ 1.704,00</td><td><span class="status partial">R$ 340,00</span></td><td>03/09/2026</td><td>›</td></tr><tr data-client-row="Zilma" data-has-receivable="false"><td><b>Zilma</b><small>Contato não informado</small></td><td>R$ 79,00</td><td>R$ 79,00</td><td><span class="status paid">R$ 0,00</span></td><td>02/09/2026</td><td>›</td></tr></tbody></table></section>
+          <section class="data-section client-list"><div class="section-heading"><div><h2 data-client-list-title>Lista de clientes</h2><p data-client-list-copy>Busque por nome, telefone ou CPF</p></div><div class="search-field narrow" data-client-search>Buscar cliente</div></div><table><thead><tr><th>Cliente</th><th>Comprou</th><th>Pago</th><th>Em aberto</th><th>Última compra</th><th></th></tr></thead><tbody><tr data-client-row="Camila Ferreira" data-has-receivable="true"><td><b>Camila Ferreira</b><small>(19) 9 8123-4567</small></td><td>R$ 1.284,00</td><td>R$ 1.125,00</td><td><span class="status partial">R$ 159,00</span></td><td>05/09/2026</td><td>›</td></tr><tr data-client-row="Juliana Prado" data-has-receivable="false"><td><b>Juliana Prado</b><small>(19) 9 9211-1098</small></td><td>R$ 898,00</td><td>R$ 898,00</td><td><span class="status paid">R$ 0,00</span></td><td>04/09/2026</td><td>›</td></tr><tr data-client-row="Ana Luiza Sedassari" data-has-receivable="true"><td><b>Ana Luiza Sedassari</b><small>(19) 9 7790-3112</small></td><td>R$ 2.044,00</td><td>R$ 1.804,00</td><td><span class="status partial">R$ 240,00</span></td><td>03/09/2026</td><td>›</td></tr><tr data-client-row="Zilma" data-has-receivable="false"><td><b>Zilma</b><small>Contato não informado</small></td><td>R$ 79,00</td><td>R$ 79,00</td><td><span class="status paid">R$ 0,00</span></td><td>02/09/2026</td><td>›</td></tr></tbody></table></section>
           <section class="client-profile-view" data-client-profile hidden>
             <article class="data-section client-identity"><div class="client-avatar" data-client-initials>CF</div><div><p class="context">Perfil da cliente</p><h2 data-profile-name>Camila Ferreira</h2><p data-profile-phone>(19) 9 8123-4567</p><small>Cliente desde 18/02/2025 · dados demonstrativos</small></div><div class="client-identity-actions"><button class="button ghost" type="button" data-edit-client>Editar cadastro</button><button class="button primary" type="button" data-new-client-sale>Nova venda</button></div></article>
             <section class="client-kpi-grid" aria-label="Resumo da cliente">
@@ -415,7 +415,7 @@
             </div>
             <section class="data-section client-aftercare"><div class="section-heading"><div><p class="context">Pós-venda</p><h2>Garantias, trocas e reparos</h2><p>Ocorrências ligadas às peças compradas aparecem junto do relacionamento.</p></div><a class="button ghost" href="../reparos/master.html">Abrir Garantias</a></div><div class="aftercare-grid"><article><span class="aftercare-icon active">01</span><div><b>Garantia #G-142 · em análise</b><small>Argola Duas Linhas · venda #1058</small><p>Aberta em 09/09 · retorno previsto para 17/09</p></div><em class="status receivable">Em andamento</em></article><article><span class="aftercare-icon done">✓</span><div><b>Troca concluída</b><small>Pulseira Medalha Salmo · venda #0987</small><p>Diferença de R$ 18,00 recebida por PIX em 12/07</p></div><em class="status paid">Resolvida</em></article></div></section>
             <div class="client-history-grid">
-              <section class="data-section client-purchases"><div class="section-heading"><div><p class="context">Linha do tempo</p><h2>Compras e recebimentos</h2><p>Venda e situação financeira aparecem separadas.</p></div><button class="button ghost" type="button">Ver histórico completo</button></div><div class="client-timeline"><article><span class="timeline-icon sale">↗</span><div><b>Venda #1058</b><small>05/09/2026 · Balcão · 2 peças</small><p>Argola Duas Linhas e Pulseira Medalha Salmo</p></div><strong>R$ 159,00</strong><em class="status receivable">A receber</em></article><article><span class="timeline-icon money">R$</span><div><b>Recebimento por PIX</b><small>28/08/2026 · recebido na data efetiva</small><p>Referente à venda #1041</p></div><strong>R$ 220,00</strong><em class="status paid">Pago</em></article><article><span class="timeline-icon sale">↗</span><div><b>Venda #1041</b><small>25/08/2026 · WhatsApp · 3 peças</small><p>Colar Coração Vazado e 2 brincos</p></div><strong>R$ 220,00</strong><em class="status paid">Pago</em></article></div></section>
+              <section class="data-section client-purchases"><div class="section-heading"><div><p class="context">Linha do tempo</p><h2>Compras e recebimentos</h2><p>Venda e situação financeira aparecem separadas.</p></div><a class="button ghost" href="../financeiro/master.html#receipts">Ver recebimentos</a></div><div class="client-timeline"><article><span class="timeline-icon sale">↗</span><div><b>Venda #1058</b><small>05/09/2026 · Balcão · 2 peças</small><p>Argola Duas Linhas e Pulseira Medalha Salmo</p></div><strong>R$ 159,00</strong><em class="status receivable">A receber</em></article><article><span class="timeline-icon money">R$</span><div><b>Recebimento por PIX</b><small>28/08/2026 · recebido na data efetiva</small><p>Referente à venda #1041</p></div><strong>R$ 220,00</strong><em class="status paid">Pago</em></article><article><span class="timeline-icon sale">↗</span><div><b>Venda #1041</b><small>25/08/2026 · WhatsApp · 3 peças</small><p>Colar Coração Vazado e 2 brincos</p></div><strong>R$ 220,00</strong><em class="status paid">Pago</em></article></div></section>
               <aside class="data-section client-notes"><p class="context">Relacionamento</p><h2>Contato e observações</h2><dl><div><dt>WhatsApp</dt><dd data-profile-phone-copy>(19) 9 8123-4567</dd></div><div><dt>Última compra</dt><dd data-profile-last>05/09/2026</dd></div><div><dt>Canal mais usado</dt><dd>Balcão</dd></div></dl><label>Observação<textarea rows="4" placeholder="Preferências, tamanho ou contexto útil…">Prefere peças douradas e contato pelo WhatsApp.</textarea></label><button class="button ghost" type="button" data-save-client-note>Salvar observação</button></aside>
             </div>
           </section>
@@ -920,6 +920,7 @@
         addPaymentButton.textContent = payments.length ? '+ Adicionar outro pagamento' : '+ Adicionar pagamento';
 
         let missingPendingDueDate = false;
+        let missingPaymentDate = false;
         payments.forEach((entry) => {
           const info = entry.querySelector('[data-payment-info]');
           const dueField = entry.querySelector('[data-payment-due-field]');
@@ -927,9 +928,12 @@
           const isPending = entry.querySelector('[data-payment-state]').value === 'pending';
           if (info) {
             info.hidden = isPending;
-            info.textContent = 'Data do pagamento: 12/09/2026';
+            info.textContent = 'Data em que o dinheiro foi recebido';
           }
           if (dueField) dueField.hidden = !isPending;
+          const paidDate = entry.querySelector('[data-payment-date]');
+          entry.querySelector('[data-payment-date-field]').hidden = isPending;
+          missingPaymentDate ||= !isPending && (!paidDate.value || !paidDate.checkValidity());
           entry.classList.toggle('is-pending', isPending);
           const pendingWithoutDate = isPending && !dueInput?.value;
           entry.classList.toggle('payment-incomplete', pendingWithoutDate);
@@ -960,11 +964,11 @@
         setLaunchText('[data-customer-step-summary]', customerName || 'Não selecionada');
         setLaunchText('[data-payment-step-summary]', payments.length ? `${payments.length} ${payments.length === 1 ? 'pagamento' : 'pagamentos'}` : 'Não informado');
 
-        paymentWarning.hidden = !totals.exceeded && !missingPendingDueDate;
+        paymentWarning.hidden = !totals.exceeded && !missingPendingDueDate && !missingPaymentDate;
         paymentWarning.textContent = totals.exceeded
           ? `Os pagamentos ultrapassam a venda em ${launchMoney(totals.planned - totals.total)}. Ajuste os valores antes de finalizar.`
-          : missingPendingDueDate ? 'Defina o vencimento de cada pagamento pendente antes de finalizar.' : '';
-        finalizeSaleButton.disabled = !items.length || totals.exceeded || missingPendingDueDate;
+          : missingPaymentDate ? 'Informe a data real de cada pagamento recebido, até hoje.' : missingPendingDueDate ? 'Defina o vencimento de cada pagamento pendente antes de finalizar.' : '';
+        finalizeSaleButton.disabled = !items.length || totals.exceeded || missingPendingDueDate || missingPaymentDate;
         launchScreen.querySelector('[data-clear-draft]').disabled = !items.length && !payments.length && selectedCustomer.hidden;
         const draftIndicator = launchScreen.querySelector('[data-draft-indicator]');
         draftIndicator.lastChild.textContent = items.length ? ' Rascunho em andamento' : ' Rascunho vazio';
@@ -1233,12 +1237,13 @@
         updateLaunch();
       });
 
+      const localToday = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; };
       function paymentEntry(value = 0) {
         const entry = document.createElement('div');
         entry.className = 'payment-entry';
         entry.dataset.paymentEntry = '';
         entry.dataset.autoBalance = 'false';
-        entry.innerHTML = `<label><span>Valor</span><input type="number" min="0" step="0.01" value="${value.toFixed(2)}" data-payment-amount></label><label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label><label><span>Situação</span><select data-payment-state><option value="paid">Pago hoje</option><option value="pending">Pendente</option></select></label><div class="payment-context"><span class="payment-info" data-payment-info>Data do pagamento: 12/09/2026</span><label class="payment-due-field" data-payment-due-field hidden><span>Vencimento</span><input type="date" min="2026-09-12" data-payment-due-input aria-label="Vencimento do pagamento pendente"></label></div><button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>`;
+        entry.innerHTML = `<label><span>Valor</span><input type="number" min="0" step="0.01" value="${value.toFixed(2)}" data-payment-amount></label><label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label><label><span>Situação</span><select data-payment-state><option value="paid">Recebido</option><option value="pending">Pendente</option></select></label><div class="payment-context"><label data-payment-date-field><span>Data do pagamento</span><input type="date" value="${localToday()}" max="${localToday()}" data-payment-date aria-label="Data real do pagamento"></label><span class="payment-info" data-payment-info>Data em que o dinheiro foi recebido</span><label class="payment-due-field" data-payment-due-field hidden><span>Vencimento</span><input type="date" data-payment-due-input aria-label="Vencimento do pagamento pendente"></label></div><button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>`;
         return entry;
       }
 
@@ -1315,7 +1320,7 @@
         customerEmpty.hidden = false;
         productSearch.value = '';
         launchScreen.querySelector('[data-customer-search]').value = '';
-        launchScreen.querySelector('[data-sale-date]').value = '2026-09-12';
+        launchScreen.querySelector('[data-sale-date]').value = localToday();
         launchScreen.querySelector('[data-sale-channel]').selectedIndex = 0;
         saleChannelOther.hidden = true;
         saleChannelOtherInput.value = '';
@@ -1371,7 +1376,7 @@
           const method = entry.querySelector('[data-payment-method]').value;
           const pending = entry.querySelector('[data-payment-state]').value === 'pending';
           const due = entry.querySelector('[data-payment-due-input]').value;
-          const detail = pending ? `Pendente · vence ${formatDate(due)}` : 'Pago hoje';
+          const detail = pending ? `Pendente · vence ${formatDate(due)}` : `Pago em ${formatDate(entry.querySelector('[data-payment-date]').value)}`;
           return `<li><span><b>${method}</b><small>${detail}</small></span><strong>${launchMoney(amount)}</strong></li>`;
         }).join('') : '<li class="review-empty">Nenhum pagamento foi informado.</li>';
         const reviewNoteWrap = launchScreen.querySelector('[data-review-note-wrap]');
@@ -1959,12 +1964,19 @@
       const clientData = {
         'Camila Ferreira': { phone: '(19) 9 8123-4567', bought: 'R$ 1.284,00', paid: 'R$ 1.125,00', open: 'R$ 159,00', ticket: 'R$ 321,00', warranties: '1', last: '05/09/2026' },
         'Juliana Prado': { phone: '(19) 9 9211-1098', bought: 'R$ 898,00', paid: 'R$ 898,00', open: 'R$ 0,00', ticket: 'R$ 224,50', warranties: '0', last: '04/09/2026' },
-        'Ana Luiza Sedassari': { phone: '(19) 9 7790-3112', bought: 'R$ 2.044,00', paid: 'R$ 1.704,00', open: 'R$ 340,00', ticket: 'R$ 292,00', warranties: '2', last: '03/09/2026' },
+        'Ana Luiza Sedassari': { phone: '(19) 9 7790-3112', bought: 'R$ 2.044,00', paid: 'R$ 1.804,00', open: 'R$ 240,00', ticket: 'R$ 292,00', warranties: '2', last: '03/09/2026' },
         'Zilma': { phone: 'Contato não informado', bought: 'R$ 79,00', paid: 'R$ 79,00', open: 'R$ 0,00', ticket: 'R$ 79,00', warranties: '0', last: '02/09/2026' }
       };
 
+      const clientProfileSamples = {
+        purchases: document.querySelector('.client-timeline').innerHTML,
+        aftercare: document.querySelector('.aftercare-grid').innerHTML
+      };
+      const clientNotes = { 'Camila Ferreira': 'Prefere peças douradas e contato pelo WhatsApp.' };
       function updateClientProfile(customer) {
         clientProfile.hidden = !customer;
+        document.querySelector('#clientes > .metric-row').hidden = Boolean(customer);
+        document.querySelector('.client-list').hidden = Boolean(customer);
         if (!customer) return;
         const data = clientData[customer] || clientData['Camila Ferreira'];
         document.querySelector('[data-client-initials]').textContent = customer.split(' ').map((part) => part[0]).slice(0, 2).join('');
@@ -1977,6 +1989,11 @@
         document.querySelector('[data-profile-ticket]').textContent = data.ticket;
         document.querySelector('[data-profile-warranties]').textContent = data.warranties;
         document.querySelector('[data-profile-last]').textContent = data.last;
+        document.querySelector('.client-notes textarea').value = clientNotes[customer] || '';
+        document.querySelector('.client-identity small').textContent = 'Perfil demonstrativo · histórico da cliente selecionada';
+        document.querySelector('.client-timeline').innerHTML = customer === 'Camila Ferreira' ? clientProfileSamples.purchases : '<p class="profile-empty">O resumo está disponível. O histórico detalhado desta cliente ainda não foi incluído na demonstração.</p>';
+        document.querySelector('.aftercare-grid').innerHTML = customer === 'Camila Ferreira' ? clientProfileSamples.aftercare : '<p class="profile-empty">'+(data.warranties === '0' ? 'Nenhuma garantia ativa neste exemplo.' : 'Detalhes das garantias pendentes de integração.')+'</p>';
+        document.querySelector('[data-register-receipt]').disabled = data.open === 'R$ 0,00';
       }
 
       function markTargetClient(customer) {
@@ -2034,10 +2051,11 @@
         row.addEventListener('click', open);
         row.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
       });
-      document.querySelector('[data-new-client-sale]').addEventListener('click', () => activateScreen('lancamentos'));
+      document.querySelector('[data-new-client-sale]').addEventListener('click', () => { activateScreen('lancamentos'); saleChoice.click(); chooseCustomer(document.querySelector('[data-profile-name]').textContent, document.querySelector('[data-profile-phone]').textContent); });
       document.querySelector('[data-client-new]').addEventListener('click', () => newCustomerDialog.showModal());
-      document.querySelector('[data-register-receipt]').addEventListener('click', () => navigateToClients('receivables', document.querySelector('[data-profile-name]').textContent));
-      ['[data-edit-client]', '[data-save-client-note]'].forEach((selector) => document.querySelector(selector).addEventListener('click', () => showLaunchToast('Alteração demonstrativa. Nenhum dado real foi gravado.')));
+      document.querySelector('[data-register-receipt]').addEventListener('click', () => { const ids = {'Camila Ferreira':'camila', 'Ana Luiza Sedassari':'ana'}; location.href = '../financeiro/master.html?cliente=' + (ids[document.querySelector('[data-profile-name]').textContent] || ''); });
+      document.querySelector('[data-save-client-note]').addEventListener('click', () => { clientNotes[document.querySelector('[data-profile-name]').textContent] = document.querySelector('.client-notes textarea').value; showLaunchToast('Observação salva nesta sessão.'); });
+      document.querySelector('[data-edit-client]').addEventListener('click', () => showLaunchToast('Edição cadastral em preparação. Abra Nova cliente para testar o cadastro.'));
 
       const profile = document.querySelector('.profile');
       const menu = document.querySelector('#profile-menu');

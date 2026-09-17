@@ -2,14 +2,20 @@
 
 | | |
 |---|---|
-| Estado do material | domínio mapeado; aguardando mockups |
-| Última atualização | 10/09/2026 |
+| Estado do material | protótipo navegável; READY FOR GUSTAVO REVIEW |
+| Última atualização | 16/09/2026 |
 | Fonte técnica | `docs/domains/CONTRATO-UX-API-4-5.md` |
 | Backend | implementado e provado na branch paralela; sem deploy |
 | React | não implementado nesta trilha |
 
 > Este arquivo descreve o produto futuro. Não autoriza implementação, deploy
 > ou publicação na Nuvemshop.
+
+## Revisão atual
+
+Cadastro e fotos em lote permanecem aqui. Conteúdo e publicação abrem
+[Publicar na Nuvemshop](../nuvemshop/publicar.html), uma fila única com revisão e
+aprovação final que autoriza publicação automática. Nenhum envio real é feito.
 
 ## Princípio do domínio
 

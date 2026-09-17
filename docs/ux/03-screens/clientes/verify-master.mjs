@@ -20,13 +20,14 @@ try {
     check((await page.locator('[data-profile-name]').textContent()) === 'Camila Ferreira', `identidade preservada ${width}`);
     check((await page.locator('[data-profile-open]').textContent()) === 'R$ 159,00', `saldo em aberto separado ${width}`);
     check(await page.locator('.client-timeline article').count() === 3, `linha do tempo completa ${width}`);
-    check((await page.locator('.client-financial').textContent()).includes('Sem geração de parcelas'), `sem parcelamento ${width}`);
+    check((await page.locator('[data-client-profile]').textContent()).includes('sem geração de parcelas'), `sem parcelamento ${width}`);
     check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `perfil sem overflow ${width}`);
     await page.locator('[data-register-receipt]').click();
-    check((await page.locator('[data-clients-title]').textContent()) === 'A receber', `recebimento abre A receber ${width}`);
-    check(await page.locator('[data-client-profile]').isHidden(), `perfil fecha no financeiro ${width}`);
-    await page.locator('[data-show-all-clients]').click();
-    check((await page.locator('[data-clients-title]').textContent()) === 'Clientes', `volta à lista ${width}`);
+    await page.waitForURL('**/financeiro/master.html?cliente=camila');
+    check((await page.locator('[data-detail-client]').textContent()) === 'Camila Ferreira', `recebimento abre a conta da cliente ${width}`);
+    check(await page.getByRole('heading', {name:'A receber',exact:true}).isVisible(), `financeiro abre ${width}`);
+    await page.goto(`${pathToFileURL(path.resolve('docs/ux/03-screens/vendas/master.html')).href}#clientes`);
+    check(await page.locator('[data-client-row]:visible').count() === 4, `volta à lista ${width}`);
     check(errors.length === 0, `sem erro JavaScript ${width}`);
     if (width === 390) {
       await page.locator('[data-client-row="Camila Ferreira"]').click();

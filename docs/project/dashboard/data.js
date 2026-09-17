@@ -1,11 +1,19 @@
 // Gerado por scripts/build-project-dashboard.mjs — não edite à mão.
 window.MARQUESA_V2 = {
-  "gerado": "2026-09-16",
+  "gerado": "2026-09-17",
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
   "atualizadoEm": "2026-09-15",
   "git": {
     "branch": "codex/ui-system-marquesa",
     "recentes": [
+      {
+        "commit": "ab8951b",
+        "data": "2026-09-15",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(ux): checkpoint da primeira versao coerente V2",
+        "agente": "Codex",
+        "taskIds": []
+      },
       {
         "commit": "787b2ff",
         "data": "2026-09-15",
@@ -211,16 +219,6 @@ window.MARQUESA_V2 = {
         "taskIds": [
           "VEN-001"
         ]
-      },
-      {
-        "commit": "2a99e7e",
-        "data": "2026-09-12",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(ux): VEN-001 estrutura fluxo de venda normal",
-        "agente": "",
-        "taskIds": [
-          "VEN-001"
-        ]
       }
     ]
   },
@@ -410,7 +408,7 @@ window.MARQUESA_V2 = {
       "dominio": "Arquitetura",
       "titulo": "Arquitetura UX V2 — hub navegável, navegação global, inventário de superfícies, design system, fluxos críticos e handoff UI ↔ API",
       "contexto": "docs/ux/prototype/, docs/ux/04-components/design-system-v2.md, docs/ux/05-flows/product-flow-map-v2.md, docs/ux/07-mapping/",
-      "nota": "checkpoint pronto para revisão cruzada; aguarda decisões do Gustavo e validação do Claude"
+      "nota": "fechamento global de 16/09 pronto para cross-review; navegação aplicada e publicação pós-aprovação no mock; edição completa de cliente IN PROGRESS; aguarda Gustavo e auditoria CC-001–005 do Claude"
     },
     {
       "id": "SAI-001",
@@ -703,7 +701,7 @@ window.MARQUESA_V2 = {
           "dominio": "Arquitetura",
           "titulo": "Arquitetura UX V2 — hub navegável, navegação global, inventário de superfícies, design system, fluxos críticos e handoff UI ↔ API",
           "contexto": "docs/ux/prototype/, docs/ux/04-components/design-system-v2.md, docs/ux/05-flows/product-flow-map-v2.md, docs/ux/07-mapping/",
-          "nota": "checkpoint pronto para revisão cruzada; aguarda decisões do Gustavo e validação do Claude"
+          "nota": "fechamento global de 16/09 pronto para cross-review; navegação aplicada e publicação pós-aprovação no mock; edição completa de cliente IN PROGRESS; aguarda Gustavo e auditoria CC-001–005 do Claude"
         }
       ],
       "paridade": [],
