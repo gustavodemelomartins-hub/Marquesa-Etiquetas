@@ -263,13 +263,47 @@ async function criarNovaVersao(db, atual, mudancas) {
   return { ok: true, conta: operacaoPublica(row) };
 }
 
-export async function marcarContaPaga(db, id, { confirmar = false, versaoEsperada = null } = {}) {
+/** §30 — o dia em que o dinheiro entrou NÃO é o dia em que alguém lançou.
+ *
+ *  `paga_em` governa o faturamento de toda cobrança histórica que nasceu
+ *  aberta e foi paga depois. Carimbar `agora()` sem alternativa fazia esta
+ *  porta afirmar que o pagamento aconteceu no relógio do servidor: quem
+ *  vendeu em 10/09, recebeu em 12/09 e só lançou em 16/09 via o dinheiro
+ *  entrar no faturamento do dia 16 — e as outras duas portas da mesma
+ *  frase (`quitarVenda` e `pagarDiferencaTroca`) já aceitavam a data real.
+ *  `receberConta` chegou a VALIDAR `pagaEm` e a descartá-lo aqui.
+ *
+ *  Sem `pagaEm` nada muda: continua sendo o carimbo de agora, que é a
+ *  resposta certa para quem recebeu neste instante. */
+export async function marcarContaPaga(db, id, {
+  confirmar = false, versaoEsperada = null, pagaEm = null,
+} = {}) {
   if (!confirmar) return { ok: false, statusHttp: 400, erro: 'Confirme explicitamente que o valor foi pago.' };
   const atual = await contaAtiva(db, id);
   if (!atual) return { ok: false, statusHttp: 404, erro: 'Cobrança não encontrada.' };
   if (atual.papel !== 'cliente') return { ok: false, statusHttp: 409, erro: 'Acerto de revendedora não é dívida de cliente.' };
   if (atual.cobranca_status === 'paga') return { ok: true, jaEstavaPaga: true, conta: operacaoPublica(atual) };
   if (atual.cobranca_status !== 'aberta') return { ok: false, statusHttp: 409, erro: 'Esta operação não está aberta para recebimento.' };
+
+  /* As três recusas são as mesmas de `quitarVenda`, palavra por palavra: uma
+     data que não existe no calendário, uma que ainda não chegou, e um
+     recebimento anterior à própria venda — que inverteria os dois números em
+     qualquer relatório mensal. `atual.data` vem de `vendas_historicas` pelo
+     `SQL_CONTA`, então a terceira comparação não custa consulta nenhuma. */
+  let quando = agora();
+  if (pagaEm != null && String(pagaEm).trim() !== '') {
+    const data = String(pagaEm).trim();
+    if (!dataIsoValida(data)) return ERRO(400, 'Data de pagamento inválida. Use AAAA-MM-DD.');
+    if (data > hoje()) return ERRO(400, `${data} ainda não chegou.`);
+    if (atual.data && data < String(atual.data)) {
+      return ERRO(400, `O pagamento (${data}) é anterior à venda (${atual.data}). Confira as duas datas.`);
+    }
+    /* A coluna guarda timestamp ISO completo, e toda leitura de faturamento
+       já passa por `date(ho.paga_em)`. Gravar a data pura preserva o fato
+       informado sem inventar uma hora que ninguém disse. */
+    quando = data;
+  }
+
   if (Number(versaoEsperada) !== Number(atual.versao)) {
     return { ok: false, statusHttp: 409, erro: 'A cobrança mudou. Recarregue antes de confirmar.', conta: operacaoPublica(atual) };
   }
@@ -277,7 +311,7 @@ export async function marcarContaPaga(db, id, { confirmar = false, versaoEsperad
     cobranca_status: 'paga',
     valor_recebido_centavos: atual.valor_efetivo_centavos,
     saldo_centavos: 0,
-    paga_em: agora(),
+    paga_em: quando,
   });
 }
 

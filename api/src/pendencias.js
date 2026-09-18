@@ -173,12 +173,17 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
         WHERE status = 'pendente' ORDER BY linhas DESC LIMIT 100`,
     ).all().catch(() => ({ results: [] })),
 
-    /* §31 — troca cuja diferença é NEGATIVA. Crédito ou reembolso nunca foi
-       definido como regra: o caso fica aqui, esperando decisão humana, em
-       vez de virar um crédito que ninguém combinou. */
+    /* §32 / 5.3e — troca negativa que NÃO virou crédito.
+       A regra existe desde 12/09/2026 — a peça nova mais barata vira crédito
+       da cliente — e `credito.js` a executa. `pendente_regra` deixou de
+       significar "a regra não existe" e passou a significar, como a própria
+       migration escreve, diferença negativa SEM crédito lançado: ou a troca é
+       anterior à regra, ou a cliente não está identificada. São dois motivos
+       diferentes com duas saídas diferentes, então `cliente_id` vem junto e
+       cada linha diz o seu. */
     db.prepare(
       `SELECT t.garantia_id, t.sku_novo, t.diferenca, t.data, g.sku AS sku_original,
-              g.cliente_nome
+              g.cliente_nome, g.cliente_id
          FROM garantia_trocas t JOIN garantias g ON g.id = t.garantia_id
         WHERE t.diferenca_status = 'pendente_regra' AND t.estornada = 0`,
     ).all().catch(() => ({ results: [] })),
@@ -456,7 +461,7 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
     });
   }
 
-  /* ─── 6. troca cuja regra não existe */
+  /* ─── 6. troca negativa cujo crédito não foi lançado */
   for (const r of trocas.results ?? []) {
     juntar({
       chave: `troca:${r.garantia_id}`,
@@ -465,9 +470,19 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
       cliente: r.cliente_nome ?? null,
       data: r.data,
       valor: Number(r.diferenca ?? 0),
+      /* A CHAVE do motivo não muda: o painel legado tem um rótulo indexado
+         por ela, e renomear aqui apagaria a explicação de lá sem trocar o
+         fato. O que estava errado era a FRASE — ela anunciava como indefinida
+         uma regra já decidida (§9: o que o sistema não faz é anunciado, e
+         anunciado com o motivo verdadeiro). */
       motivo: 'credito_sem_regra',
       explicacao: `A peça nova (${r.sku_novo}) custa menos que a original (${r.sku_original}). `
-        + 'Crédito ou reembolso ainda não é regra definida — nada foi lançado.',
+        + 'A diferença vira crédito da cliente desde 12/09/2026, e este caso '
+        + (r.cliente_id == null
+          ? 'não tem cliente identificada — crédito sem dona não é lançado. '
+            + 'Vincule a cliente para o crédito ser emitido.'
+          : 'é anterior à regra: o crédito não foi lançado retroativamente, '
+            + 'e emitir agora é decisão de gente.'),
       acoes: ['revisar_depois'],
     });
   }

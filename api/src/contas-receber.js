@@ -297,7 +297,17 @@ export async function receberConta(db, { chave, confirmar = false, versaoEsperad
     return { ok: false, statusHttp: 400, erro: `${data} ainda não chegou.` };
   }
 
-  if (p.tipo === 'historico') return marcarContaPaga(db, p.id, { confirmar, versaoEsperada });
+  /* §30 — a data informada vale para as TRÊS fontes. Passá-la só para venda
+     e troca deixava a cobrança da planilha faturando no relógio do servidor:
+     esta porta VALIDAVA `pagaEm` e o descartava aqui.
+     `pagaEm ? data : null` e não `data`: sem data informada, o lado
+     histórico continua gravando o timestamp completo de agora, que é o
+     carimbo de quem recebeu neste instante. `data` já nasce com `hojeISO()`
+     no lugar do nulo, e passá-la direto trocaria esse carimbo por uma data
+     seca — mudança silenciosa num campo que ninguém pediu para mudar. */
+  if (p.tipo === 'historico') {
+    return marcarContaPaga(db, p.id, { confirmar, versaoEsperada, pagaEm: pagaEm ? data : null });
+  }
   if (p.tipo === 'troca') return pagarDiferencaTroca(db, p.id, { pagaEm: data, versaoEsperada });
 
   /* 5.3b — VENDA: esta porta deixou de ter SQL próprio.

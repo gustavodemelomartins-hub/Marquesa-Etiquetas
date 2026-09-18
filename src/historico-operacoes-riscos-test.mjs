@@ -186,7 +186,10 @@ await recusa('data em outro formato', { ...base, vencimentoEm: '19/08/2026' }, '
 await recusa('evidência que não é objeto', { ...base, evidencia: 'só um texto' }, 'JSON válido');
 await recusa('evidência em lista', { ...base, evidencia: ['a'] }, 'JSON válido');
 
-const prazoRuim = await api('PATCH', '/api/contas-receber/1/vencimento', { vencimentoEm: '2026-02-31', versaoEsperada: 1 });
+// 5.3d/B9 — a porta por id foi aposentada; `PATCH /api/contas-receber/prazo`
+// delega para a MESMA `definirVencimento`. A asserção não muda: o que se
+// prova aqui é a recusa da data, não o caminho até ela.
+const prazoRuim = await api('PATCH', '/api/contas-receber/prazo', { chave: 'historico:1', vencimentoEm: '2026-02-31', versaoEsperada: 1 });
 eq('e o prazo pela tela também recusa data que não existe', prazoRuim.status, 400);
 
 /* ────────────────────────────────────────────────────────────────────────── */
