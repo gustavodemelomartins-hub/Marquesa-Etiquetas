@@ -1,105 +1,117 @@
 # Design System Marquesa V2
 
-**Estado:** `READY FOR GUSTAVO REVIEW` · **Data:** 16/09/2026
-Fonte visual corrente: `03-screens/vendas/master.css`, reutilizada pelos
-protótipos de todos os módulos. `prototype/system.css` e `system.js` aplicam
-o shell, a navegação, a tipografia operacional e os estados compartilhados.
+**Estado:** `READY FOR GUSTAVO REVIEW` · **Atualização:** 19/09/2026
+**Fonte canônica:** [`prototype/marquesa.css`](../prototype/marquesa.css) (tokens e
+componentes) e [`prototype/system.css`](../prototype/system.css) (casco do
+aplicativo e normalização das telas escritas antes do sistema).
+**Vitrine aplicada:** [`prototype/design-system.html`](../prototype/design-system.html).
+
+O design system deixou de ser uma página que mostra componentes e passou a ser a
+folha que as 18 rotas carregam. `marquesa.css` é a primeira folha de estilo de
+toda superfície; `system.css` é a última. O que estiver fora dessas duas é
+exceção de tela e precisa se justificar.
 
 ## Direção
 
-Premium, elegante e operacional. Bordô comunica marca, ação e seleção. Fundos
-brancos/rosados criam calor sem reduzir contraste. Títulos editoriais usam
-serif; controles, números e texto de trabalho usam sans. A interface é feminina
-sem recorrer a ilustrações infantis ou excesso de rosa.
+Premium, elegante e operacional — e, acima de tudo, um só programa.
+
+**Bordô é tinta, não preenchimento.** Ele mora no trilho de navegação (presente
+em toda tela), na ação primária, na seleção e no número que exige decisão.
+Dinheiro e quantidade são escritos em tinta escura; a marca só toma o número
+quando há algo a fazer com ele. Fundo branco/off-white quente, linha fina no
+lugar de sombra, sombra apenas em sobreposição. Feminina pela tipografia e pela
+temperatura da paleta, não por excesso de rosa.
 
 ## Tokens
 
-| Grupo | Token | Valor / regra |
+| Grupo | Token | Valor |
 |---|---|---|
-| Marca | `wine-900 / 700 / 600` | `#741238 / #9f1748 / #b32659` |
-| Superfície | `paper / canvas / rose-050` | `#fffdfc / #f9f5f3 / #fff7f9` |
-| Texto | `ink / muted` | `#241d20 / #6e6267` |
-| Linha | `line / line-soft` | `#eadcdf / #f2e9eb` |
-| Estados | sucesso | verde `#33735a` sobre `#e6f3ec` |
-| Estados | atenção | âmbar `#986b1e` sobre `#fbf1dd` |
-| Estados | a receber | bordô sólido; não confundir com erro |
-| Tipografia | títulos | Cormorant Garamond, 600 |
-| Tipografia | interface | Jost, 300–700 |
-| Espaço | escala | 4, 8, 12, 16, 24, 32 e 48 px |
-| Radius | controles / cards / modais | 8–10 / 12–16 / 16–18 px |
-| Sombra | card / sobreposição | leve no conteúdo; forte apenas em modal/toast |
-| Grid | conteúdo | até 1480 px; margem fluida de 3–4 vw |
+| Marca | `--mq-wine-050/100/200/300` | `#FFF5F8 · #FBE7EE · #F2CFDB · #E0A6BC` |
+| Marca | `--mq-wine-500/600/700/800` | `#B32659 · #9F1748 · #86123C · #6A0E30` |
+| Marca | `--mq-wine-900/950` | `#4A0B22 · #320717` (trilho) |
+| Texto | `--mq-ink · --mq-ink-2 · --mq-muted · --mq-faint` | `#1E1A1C · #453C40 · #7B6E73 · #A2969A` |
+| Superfície | `--mq-paper · --mq-paper-2 · --mq-canvas` | `#FFFFFF · #FFFBFC · #FAF7F6` |
+| Linha | `--mq-line · --mq-line-2 · --mq-line-3` | `#E8DDE1 · #F2EAEC · #F8F3F4` |
+| Estado | `--mq-ok · --mq-warn · --mq-risk · --mq-info · --mq-gold` | `#2E6B51 · #8A6116 · #A83226 · #455C6B · #96702A` |
+| Tipografia | `--mq-serif` | Cormorant Garamond — só título de página e de seção |
+| Tipografia | `--mq-sans` | Jost — interface, dado, dinheiro, data, SKU, quantidade |
+| Espaço | `--mq-1 … --mq-10` | 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64 |
+| Raio | `--mq-r-xs … --mq-r-pill` | 6 · 8 · 12 · 16 · 20 · 999 |
+| Sombra | `--mq-sh-1/2/3` | cartão · dropdown · modal e toast |
+| Foco | `--mq-ring` | halo bordô de 3 px, além do `outline` do navegador |
+| Grade | `--mq-max · --mq-gutter` | 1420 px · `clamp(16px, 2.6vw, 36px)` |
+| Casco | `--mq-rail · --mq-rail-mini · --mq-topbar` | 250 · 76 · 64 px |
 
-## Componentes
+Quebras de referência: **320 · 390 · 768 · 1024 · 1440**, verificadas a cada rodada.
 
-| Componente | Padrão V2 |
-|---|---|
-| Card | uma pergunta por card; título escuro, número tabular, bordô pontual |
-| Tabela | cabeçalho discreto; linha inteira abre detalhe; no mobile vira card |
-| Filtro | chips para recorte curto; formulário para busca/data; seleção persistente |
-| Input/select | 40–44 px; label sempre visível; foco com halo bordô |
-| Tabs | contexto irmão dentro do módulo; sublinhado bordô; rolagem horizontal segura |
-| Chip/tag | categoria ou atributo; nunca representa sucesso/erro |
-| Badge/status | semântica + texto; cor nunca é o único sinal |
-| Botão | `primary`, `secondary`, `ghost`; uma ação primária por superfície |
-| Dropdown | ações secundárias; item destrutivo separado e nomeado |
-| Modal | decisão curta ou revisão; no mobile pode virar bottom sheet |
-| Drawer | detalhe lateral preservando lista; mobile ocupa a tela |
-| Toast | confirmação transitória; nunca é a única prova de operação crítica |
-| Date picker | data visível em pt-BR; prazo e data efetiva não se misturam |
-| Paginação | total + página + anterior/próxima; filtro não muda silenciosamente |
-| Chart | responde pergunta e oferece alternativa textual/tabela |
-| Header | módulos globais; sino e perfil à direita |
-| Mobile nav | cinco destinos no máximo, com safe area e alvo de 44 px |
-| Skeleton | preserva forma da tela e usa `aria-busy`; sem spinner infinito |
-| Empty state | explica por que está vazio e oferece próxima ação possível |
-| Error state | causa compreensível, impacto e tentativa segura |
-| Confirmação | resume fatos, efeitos financeiros/estoque e ação irreversível |
+## Componentes oficiais
+
+Todos existem como classe `.mq-*` em `marquesa.css` e aparecem na vitrine.
+
+| Componente | Classe | Regra que o define |
+|---|---|---|
+| Page header | `.mq-pagehead` | sobrancelha, título editorial, uma frase, ações à direita |
+| Card | `.mq-card` (`__head`, `__body`, `__foot`) | uma pergunta por cartão; linha fina, sem sombra |
+| KPI | `.mq-kpi` / `.mq-kpis` | número em tinta; `--accent`, `--risk` e `--ok` só quando há decisão |
+| Botão | `.mq-btn` | `--primary`, `--secondary`, `--ghost`, `--link`, `--danger`; uma primária por superfície |
+| Campo | `.mq-field` + `.mq-input` / `.mq-select` / `.mq-textarea` | rótulo sempre visível, 40 px (44 no telefone) |
+| Busca | `.mq-search` | ícone dentro do campo, nunca acima |
+| Dinheiro | `.mq-money`, `.mq-money-input` | `R$` menor e em cinza; valor tabular; `--risk` quando vencido |
+| Data | `.mq-date` | data em pt-BR e, abaixo, o que ela significa |
+| Quantidade / SKU | `.mq-qty`, `.mq-sku` | número em destaque, unidade em cinza |
+| Filtro | `.mq-filters` + `.mq-chipset` | chip para recorte curto; contagem à direita |
+| Tabs | `.mq-tabs`, `.mq-tabs--pill` | irmãos dentro do módulo; sublinhado bordô; rolagem segura |
+| Chip | `.mq-chip` | atributo (categoria, material). Nunca comunica sucesso ou erro |
+| Badge | `.mq-badge` | contagem |
+| Status | `.mq-status` | **ponto + texto**; cor nunca é o único sinal |
+| Tabela | `.mq-table` / `.mq-tr` / `.mq-cell` | linha inteira abre o detalhe; vira cartão abaixo de 860 px |
+| Lista | `.mq-list` / `.mq-item` | ícone, assunto, apoio, situação e ação |
+| Timeline | `.mq-timeline` | fato por fato, com data e origem |
+| Stepper | `.mq-steps` / `.mq-step` | concluído · atual · futuro · falhou |
+| Medidor | `.mq-meter`, `.mq-bars` | proporção com o número ao lado |
+| Gráfico | `.mq-chart`, `.mq-donut` | barra clara, destaque no pico, leitura textual obrigatória |
+| Modal | `.mq-modal` | decisão curta; vira folha inferior no telefone |
+| Drawer | `.mq-drawer` | detalhe lateral sem perder a lista |
+| Toast | `.mq-toast` | confirmação transitória; nunca é a única prova |
+| Dropdown | `.mq-menu` | ações secundárias; destrutiva separada e nomeada |
+| Tooltip | `.mq-tip` | apoio, nunca informação essencial |
+| Paginação | `.mq-pagination` | total + página; filtro não muda sozinho |
+| Skeleton | `.mq-skel` | preserva a forma da tela, com `aria-busy` |
+| Empty / Error | `.mq-state`, `.mq-state--error` | explica a causa, preserva filtro e oferece saída |
+| Nota | `.mq-note` | regra de negócio, aviso, falha, sucesso e informação |
+| Confirmação | `.mq-confirm` | o efeito em dinheiro ou peça, em número, antes do sim |
+| Navegação | `.mq-rail`, `.mq-topbar`, `.mq-bottomnav` | ver [arquitetura de navegação](../07-mapping/navigation-architecture-v2.md) |
+
+## Iconografia
+
+Dicionário único servido por `MarquesaUI.icon(nome)` em
+[`prototype/system.js`](../prototype/system.js): traço 1.6, grade 24×24, sem
+emoji. Cobre o domínio da Marquesa — `pix`, `card`, `cash`, `credit`, `receipt`,
+`person`, `people`, `sale`, `box`, `inventory`, `bag`, `shield`, `repair`,
+`swap`, `label`, `tag`, `cloud`, `settings`, `bell`, `calendar`, `clock` — além
+do vocabulário de interface. A vitrine lista todos com o nome do token.
 
 ## Densidade e responsividade
 
-- Desktop usa comparação lado a lado quando há relação direta.
-- Tablet reduz colunas antes de esconder informação.
-- Mobile transforma tabelas em cartões, mantém ações primárias alcançáveis e
-  usa navegação inferior; nenhuma informação depende de hover.
-- Gráficos podem rolar ou virar lista; nunca são espremidos até perder leitura.
-- `prefers-reduced-motion` remove animação não essencial.
+- **1440** — trilho aberto (250 px), conteúdo até 1420 px, comparação lado a lado.
+- **1024** — trilho reduzido a ícones (76 px) com monograma; tabelas mantêm colunas.
+- **768** — indicadores em duas colunas; tabelas ainda são tabelas.
+- **390 / 320** — trilho vira gaveta, navegação inferior de cinco destinos,
+  tabela vira cartão com rótulo por campo, alvo de toque de 44 px, campo com
+  16 px para não haver zoom automático no iOS.
+- Nenhuma informação depende de `hover`. `prefers-reduced-motion` remove animação.
 
 ## Estados obrigatórios
 
-Toda tela implementável precisa especificar: carregando, vazio, erro,
-permissão insuficiente, resultado parcial/incerto e sucesso. Comando financeiro,
-estoque ou integração exige ainda confirmação, tentativa idempotente e retorno
-autoritativo do servidor.
+Toda tela implementável especifica carregando, vazio, erro, permissão
+insuficiente, resultado parcial e sucesso. No protótipo, `?state=loading`,
+`?state=error`, `?state=empty` e `?state=partial` demonstram os quatro primeiros
+em qualquer módulo. Comando financeiro, de estoque ou de integração exige ainda
+confirmação com o efeito em número, tentativa idempotente e retorno autoritativo
+do servidor — a interface nunca presume sucesso.
 
 ## Uso de dados demonstrativos
 
-Protótipos mostram exemplos para validar hierarquia. Dado não confirmado deve
-ser rotulado como `dados demonstrativos`, `UI NEEDS API`, `UI NEEDS BUSINESS
-DECISION` ou `FUTURE IDEA`. O design system não transforma exemplo em contrato.
-
-
-## Consolidação aplicada nesta rodada
-
-- Cabeçalho único, menu de 19 destinos e navegação mobile de cinco itens.
-- Jost com `font-variant-numeric: tabular-nums` em dinheiro, datas, SKU,
-  quantidades e indicadores; Cormorant reservada aos títulos editoriais.
-- Dicionário SVG consistente: Pix, dinheiro, cartão, cliente, garantia, estoque,
-  etiqueta, nuvem, upload, busca, relógio e navegação. Métodos de pagamento
-  recebem o ícone correspondente ao lado do select nativo.
-- Tokens únicos: controles 8 px, painéis 14 px, diálogos 18 px; bordas e cores
-  continuam usando o arquivo-base, sem paleta paralela na publicação.
-- Tabs com rolagem horizontal; foco visível; diálogos nativos com Escape;
-  safe area e espaço inferior para navegação; redução de movimento.
-- Leitura de números corrigida em listas de definição: sem recuo de navegador,
-  valores sem corte no resumo financeiro; textos auxiliares com 11 px.
-- Fluxo horizontal de publicação com concluído/atual/futuro; cor sempre com
-  rótulo. Na lista mobile, produto → dados → etapas → ação.
-- Revisão de publicação: conteúdo, fotos, prévia, ação final; mesma família de
-  campos, botões, bordas, estados e modal aplicada ao restante do sistema.
-- Upload múltiplo com erro explicativo; vazio com limpar filtros; toast acompanhado
-  de estado persistente na linha; falha com repetição. Loading de envio é estado
-  explícito, sem inventar progresso percentual.
-
-A vitrine agora usa os mesmos valores de cores reais dos tokens. O DS continua
-sendo a camada do protótipo HTML, não uma declaração de biblioteca React pronta.
+Protótipos mostram exemplos para validar hierarquia. Dado não confirmado é
+rotulado `dados demonstrativos`, `UI NEEDS API`, `UI NEEDS BUSINESS DECISION` ou
+`FUTURE IDEA`. O design system não transforma exemplo em contrato.

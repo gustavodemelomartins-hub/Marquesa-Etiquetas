@@ -1,11 +1,11 @@
 {
   "version": 2,
   "approval": "READY FOR GUSTAVO REVIEW",
-  "counts": {"publicRoutes":18,"documentedSurfaces":49,"futureCapabilities":2},
+  "counts": {"publicRoutes":18,"documentedSurfaces":49,"goldenScreens":7,"officialComponents":26,"futureCapabilities":2},
   "pages": [
     {"id":"home","label":"Home","path":"/prototype/","source":"03-screens/dashboard/master.html","icon":"home","nav":true,"view":"today"},
     {"id":"vendas","label":"Vendas","path":"/prototype/vendas/","source":"03-screens/vendas/master.html","icon":"sale","nav":true,"view":"painel"},
-    {"id":"clientes","label":"Clientes","path":"/prototype/clientes/","source":"03-screens/vendas/master.html","icon":"person","nav":true,"view":"clientes"},
+    {"id":"clientes","label":"Clientes","path":"/prototype/clientes/","source":"03-screens/clientes/master.html","icon":"people","nav":true},
     {"id":"financeiro","label":"Financeiro","path":"/prototype/financeiro/","source":"03-screens/financeiro/master.html","icon":"money","nav":true},
     {"id":"estoque","label":"Estoque","path":"/prototype/estoque/","source":"03-screens/estoque/master.html","icon":"box","nav":true},
     {"id":"catalogo","label":"Catálogo","path":"/prototype/catalogo/","source":"03-screens/catalogo/master.html","icon":"tag","nav":true},

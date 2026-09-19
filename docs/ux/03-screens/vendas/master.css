@@ -1682,3 +1682,50 @@ td strong { color: var(--wine-700); }
   .client-kpi-grid article:last-child:nth-child(odd) { grid-column: auto; }
   .client-identity-actions { grid-template-columns: 1fr; }
 }
+
+
+/* =========================================================================
+   NORMALIZAÇÃO V2 — Vendas fala a língua do Design System Marquesa.
+   Bordô vira tinta: o número é escuro e a marca marca só o que pede decisão.
+   ====================================================================== */
+body.mq-app .headline-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:var(--mq-3);margin:0}
+body.mq-app :is(.revenue-card,.receivable-card){position:relative;display:flex;flex-direction:column;gap:var(--mq-1);
+  padding:var(--mq-5) var(--mq-6);border:1px solid var(--mq-line);border-radius:var(--mq-r-lg);
+  background:var(--mq-paper);color:var(--mq-ink);box-shadow:var(--mq-sh-1);overflow:hidden}
+body.mq-app .revenue-card{border-color:var(--mq-wine-200);
+  background:linear-gradient(180deg,var(--mq-wine-050),var(--mq-paper) 70%)}
+body.mq-app :is(.revenue-card,.receivable-card)>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+body.mq-app :is(.revenue-card,.receivable-card) span{font:500 11px/1.2 var(--mq-sans);letter-spacing:.08em;
+  text-transform:uppercase;color:var(--mq-muted)}
+body.mq-app :is(.revenue-card,.receivable-card) strong{font:500 clamp(24px,2.4vw,32px)/1.08 var(--mq-sans);
+  font-variant-numeric:tabular-nums;letter-spacing:-.015em;color:var(--mq-ink)}
+body.mq-app .receivable-card strong{color:var(--mq-wine-700)}
+body.mq-app :is(.revenue-card,.receivable-card) small{font-size:11.5px;color:var(--mq-muted);text-transform:none;letter-spacing:0}
+body.mq-app .revenue-meta{flex-direction:row!important;align-items:baseline;gap:var(--mq-2)!important;flex-wrap:wrap;
+  padding-top:var(--mq-3);margin-top:var(--mq-2);border-top:1px solid var(--mq-line-2)}
+body.mq-app .revenue-meta b{font:500 15px var(--mq-sans);font-variant-numeric:tabular-nums;color:var(--mq-ink)}
+body.mq-app .revenue-meta small{flex:1 1 100%}
+body.mq-app .spark{position:absolute;top:var(--mq-5);right:var(--mq-6);width:88px;height:44px;
+  fill:none;stroke:var(--mq-wine-300);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.9}
+body.mq-app .spark circle{fill:var(--mq-wine-600);stroke:none}
+body.mq-app .receivable-card svg:not(.spark){position:absolute;right:var(--mq-6);bottom:var(--mq-5);
+  width:52px;height:52px;stroke:var(--mq-wine-200);fill:none;opacity:.8}
+@media(max-width:860px){body.mq-app .headline-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* Seletor de período: mesma forma do chipset do sistema. */
+body.mq-app .period-control{display:inline-flex;gap:var(--mq-1);padding:3px;background:var(--mq-line-3);
+  border:0;border-radius:var(--mq-r-pill);box-shadow:none}
+body.mq-app .period-control button{border:0;background:none;border-radius:var(--mq-r-pill);padding:0 var(--mq-4);
+  min-height:32px;font:500 12px var(--mq-sans);color:var(--mq-muted);cursor:pointer;box-shadow:none}
+body.mq-app .period-control button.active{background:var(--mq-paper);color:var(--mq-wine-700);box-shadow:var(--mq-sh-1)}
+body.mq-app .period-control .calendar-button{padding:0 var(--mq-2);min-width:34px}
+body.mq-app .period-control .calendar-button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6}
+
+/* Gráfico: barra clara por padrão, bordô só na leitura ativa. */
+body.mq-app .sales-chart button i{background:var(--mq-wine-200);border-radius:var(--mq-r-xs) var(--mq-r-xs) 0 0;transition:background .15s}
+body.mq-app .sales-chart button:is(:hover,:focus-visible,.active) i{background:var(--mq-wine-600)}
+body.mq-app .legend i{background:var(--mq-wine-600);border-radius:2px}
+
+/* Faixa de atalho (reparos, avisos) vira item de lista do sistema. */
+body.mq-app .repair-strip,body.mq-app .panel-shortcut{border:1px solid var(--mq-line);border-radius:var(--mq-r-md);
+  background:var(--mq-paper);box-shadow:var(--mq-sh-1)}

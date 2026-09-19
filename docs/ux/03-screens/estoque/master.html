@@ -1,66 +1,82 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Protótipo mestre da área de Estoque do Sistema Marquesa V2" />
-    <title>Sistema Marquesa · Estoque</title>
-    <link rel="stylesheet" href="../vendas/master.css?v=20260915-shared" />
-    <link rel="stylesheet" href="master.css?v=20260915" />
-  <link rel="stylesheet" href="../../prototype/system.css"><script defer src="../../prototype/system.js"></script></head>
-  <body>
-    <div class="app-shell stock-shell">
-      <header class="app-header">
-        <div class="header-main">
-          <a class="brand" href="../../prototype/index.html" aria-label="Abrir entrada do protótipo Marquesa V2">
-            <img src="../../01-brand/logo_sistema-marquesa_preta-transparente.png" alt="Marquesa Semijoias" />
-          </a>
-          <nav class="primary-nav" aria-label="Áreas principais">
-            <button type="button" class="active" aria-current="page">
-              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 7 8-4 8 4-8 4-8-4Zm0 0v10l8 4 8-4V7M12 11v10"/></svg>Estoque
-            </button>
-            <button type="button" data-href="../revendedoras/master.html">
-              <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Revendedoras
-            </button>
-            <button type="button" data-href="../vendas/master.html">
-              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M7 15l4-4 3 2 5-7"/></svg>Vendas
-            </button>
-            <button type="button" data-href="../etiquetas/master.html">
-              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 13 11 22 2 13V4h9l9 9Z"/><circle cx="7" cy="9" r="1"/></svg>Etiquetas
-            </button>
-          </nav>
-          <div class="header-tools">
-            <button class="icon-button notification" type="button" data-href="../../prototype/index.html#notificacoes" aria-label="3 notificações">
-              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span>3</span>
-            </button>
-            <button class="profile" type="button" aria-expanded="false" aria-controls="stock-profile-menu"><span class="avatar">SM</span><span class="profile-copy"><strong>Sthefany Marques</strong><small>Administradora</small></span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></button>
-            <div class="profile-menu" id="stock-profile-menu" hidden><a href="../../prototype/index.html#perfil">Meu perfil</a><a href="../../prototype/index.html#configuracoes">Configurações</a><button type="button">Sair</button></div>
-          </div>
-        </div>
-        <nav class="secondary-nav stock-secondary" aria-label="Navegação de Estoque">
-          <button type="button" class="active" aria-current="page">Visão geral</button>
-          <button type="button" data-href="../catalogo/master.html">Cadastro de produtos</button>
-          <button type="button" data-href="../../prototype/index.html#nuvemshop">Nuvemshop <span>140</span></button>
-          <button type="button" data-href="../../prototype/index.html#nuvemshop">Pendências <span>27</span></button>
-        </nav>
-      </header>
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Estoque do Sistema Marquesa V2 — patrimônio, distribuição, inventário e produtos">
+<title>Sistema Marquesa · Estoque</title>
+<link rel="stylesheet" href="../../prototype/marquesa.css">
+<link rel="stylesheet" href="../vendas/master.css?v=20260919-shared">
+<link rel="stylesheet" href="master.css?v=20260919">
+<link rel="stylesheet" href="../../prototype/system.css"><script defer src="../../prototype/system.js"></script></head>
+<body><div class="app-shell stock-shell">
+<header class="app-header">
+  <nav class="secondary-nav stock-secondary" aria-label="Seções do Estoque">
+    <button type="button" class="active" aria-current="page">Visão geral</button>
+    <button type="button" data-href="../catalogo/master.html">Cadastro de produtos</button>
+    <button type="button" data-href="../nuvemshop/master.html">Na loja <span>140</span></button>
+    <button type="button" data-href="../nuvemshop/master.html#pending">Pendências <span>27</span></button>
+  </nav>
+</header>
+<main>
 
-      <main>
-        <section class="page-heading stock-page-heading">
-          <div><p class="context">Operação e distribuição</p><h1>Estoque</h1><p>Acompanhe onde estão as peças e confira o estoque físico com segurança.</p></div>
-          <p class="last-update"><span class="live-dot"></span>Dados demonstrativos · atualizados às 14:32</p>
-        </section>
+<div class="mq-pagehead">
+  <div class="mq-pagehead__text">
+    <p class="mq-eyebrow">Operação e distribuição</p>
+    <h1 class="mq-display">Estoque</h1>
+    <p class="mq-lede">Onde estão as peças, quanto vale o que está parado e o que precisa de conferência ou cadastro.</p>
+  </div>
+  <div class="mq-pagehead__actions">
+    <button class="mq-btn mq-btn--secondary" type="button" data-start-inventory><span data-icon="inventory"></span>Conferir estoque</button>
+    <button class="mq-btn mq-btn--primary" type="button" data-href="../catalogo/master.html"><span data-icon="plus"></span>Novo produto</button>
+  </div>
+</div>
 
-        <section class="data-section stock-overview" aria-labelledby="stock-overview-title">
-          <div class="stock-donut" aria-label="1.487 peças em estoque"><div><strong>1.487</strong><span>peças</span><small>estoque total</small></div></div>
-          <div class="stock-value">
-            <span id="stock-overview-title">Valor de referência do estoque</span><strong>R$ 141.469</strong><small>Preço cadastrado · não representa custo real</small>
-            <dl><div><dt><i class="total"></i>Em estoque</dt><dd><b>1.487</b> peças</dd></div><div><dt><i class="home"></i>Em casa</dt><dd><b>1.121</b> peças</dd></div><div><dt><i class="bags"></i>Com revendedoras</dt><dd><b>366</b> peças</dd></div></dl>
-          </div>
-          <div class="stock-categories"><header><strong>Principais categorias</strong><small>por quantidade</small></header><ul><li><span>Brinco</span><i><b style="width:100%"></b></i><strong>421</strong></li><li><span>Colar</span><i><b style="width:68%"></b></i><strong>287</strong></li><li><span>Pulseira</span><i><b style="width:61%"></b></i><strong>255</strong></li><li><span>Anel</span><i><b style="width:42%"></b></i><strong>176</strong></li><li><span>Argola</span><i><b style="width:32%"></b></i><strong>135</strong></li></ul></div>
-        </section>
+<div class="mq-kpis">
+  <div class="mq-kpi mq-kpi--accent"><span class="mq-kpi__label">Valor de referência</span>
+    <strong class="mq-kpi__value"><i>R$</i>141.469</strong>
+    <span class="mq-kpi__foot">Preço cadastrado · não é custo real</span></div>
+  <div class="mq-kpi"><span class="mq-kpi__label">Peças em estoque</span>
+    <strong class="mq-kpi__value">1.487</strong><span class="mq-kpi__foot">Saldo da razão de movimentos</span></div>
+  <div class="mq-kpi"><span class="mq-kpi__label">Em casa</span>
+    <strong class="mq-kpi__value">1.121</strong><span class="mq-kpi__foot">75% do total · conferíveis no inventário</span></div>
+  <a class="mq-kpi" href="../revendedoras/master.html"><span class="mq-kpi__label">Com revendedoras</span>
+    <strong class="mq-kpi__value">366</strong><span class="mq-kpi__foot">25% do total · em 7 maletas abertas</span></a>
+  <a class="mq-kpi mq-kpi--risk" href="../catalogo/master.html"><span class="mq-kpi__label">Precisam de atenção</span>
+    <strong class="mq-kpi__value">27</strong><span class="mq-kpi__foot">Produtos sem foto, categoria ou preço</span></a>
+</div>
 
-        <section class="data-section inventory-section" aria-labelledby="inventory-title">
+<section class="mq-card">
+  <div class="mq-card__head">
+    <div><p class="mq-eyebrow">Distribuição</p><h2 class="mq-title">Onde está o patrimônio</h2>
+      <p class="mq-lede">A peça está em casa ou circulando com uma revendedora. O inventário só compara o que deveria estar em casa.</p></div>
+    <span class="mq-demo">Dados demonstrativos · atualizados às 14:32</span>
+  </div>
+  <div class="mq-card__body stock-overview">
+    <div class="stock-overview__where">
+      <div class="mq-donut" style="--a:75.4%;--b:100%" role="img" aria-label="1.121 peças em casa e 366 com revendedoras, de 1.487 no total">
+        <span class="mq-donut__label"><b>1.487</b><small>peças no total</small></span>
+      </div>
+      <dl class="mq-dl stock-split">
+        <div><dt><i class="dot dot--home"></i>Em casa</dt><dd>1.121 <span class="mq-muted">peças</span></dd></div>
+        <div><dt><i class="dot dot--bags"></i>Com revendedoras</dt><dd>366 <span class="mq-muted">peças</span></dd></div>
+        <div><dt><i class="dot dot--store"></i>Anunciadas na loja</dt><dd>140 <span class="mq-muted">produtos</span></dd></div>
+      </dl>
+    </div>
+    <div class="stock-overview__cats">
+      <p class="mq-eyebrow">Principais categorias · por quantidade</p>
+      <div class="mq-bars">
+        <div class="mq-bars__row"><span>Brinco</span><span class="mq-meter"><i style="width:100%"></i></span><b>421</b></div>
+        <div class="mq-bars__row"><span>Colar</span><span class="mq-meter"><i style="width:68%"></i></span><b>287</b></div>
+        <div class="mq-bars__row"><span>Pulseira</span><span class="mq-meter"><i style="width:61%"></i></span><b>255</b></div>
+        <div class="mq-bars__row"><span>Anel</span><span class="mq-meter"><i style="width:42%"></i></span><b>176</b></div>
+        <div class="mq-bars__row"><span>Argola</span><span class="mq-meter"><i style="width:32%"></i></span><b>135</b></div>
+      </div>
+      <p class="mq-note mq-mt-4"><span data-icon="alert"></span><span>O valor de referência usa o <b>preço cadastrado</b>. Enquanto o custo real não existir no sistema, ele não representa patrimônio contábil.</span></p>
+    </div>
+  </div>
+</section>
+
+<section class="data-section inventory-section" aria-labelledby="inventory-title">
           <div class="section-heading"><div><p class="context">Conferência física</p><h2 id="inventory-title">Inventário</h2><p>Contagem e correção permanecem etapas separadas.</p></div><span class="prototype-badge">Protótipo · não grava</span></div>
           <div class="inventory-contexts" role="tablist" aria-label="Contextos do inventário">
             <button type="button" class="inventory-context active" role="tab" aria-selected="true" data-inventory-tab="health"><span class="context-icon success">▥</span><span><small>Saúde do estoque</small><strong>Situação geral</strong><em>Ver diagnóstico</em></span></button>
@@ -112,27 +128,46 @@
           </div>
         </section>
 
-        <section class="data-section products-section" aria-labelledby="products-title">
-          <div class="products-heading"><div><p class="context">Catálogo físico</p><h2 id="products-title">Todos os produtos</h2><p><span data-product-count>6 produtos demonstrativos</span> · foto sempre aparece primeiro</p></div><div class="product-actions"><label class="product-search"><span class="sr-only">Buscar produto</span><input type="search" placeholder="Buscar produto, SKU ou categoria…" data-product-search></label><button class="button primary" type="button" data-href="../../prototype/index.html#catalogo">+ Novo produto</button></div></div>
-          <div class="products-table" role="table" aria-label="Produtos do estoque">
-            <div class="product-row product-head" role="row"><span>Foto</span><span>Produto</span><span>Categoria</span><span>Total</span><span>Em casa</span><span>Revendedoras</span><span>Disponível loja</span><span>Valor ref.</span><span></span></div>
-            <article class="product-row" data-product="230076 anel abaulado ouro"><span class="product-photo gold">◇</span><span><b>230076 · Anel Abaulado</b><small>Círculos · Zircônia incolor · Ouro 18k</small></span><span><em class="category">Anel</em></span><span data-label="Total">5</span><span data-label="Em casa">3</span><span data-label="Revendedoras">2</span><span data-label="Loja">3</span><span data-label="Valor">R$ 99</span><button type="button" aria-label="Abrir Anel Abaulado">›</button></article>
-            <article class="product-row" data-product="291572 anel aparador prata"><span class="product-photo silver">◇</span><span><b>291572 · Anel Aparador de Aliança</b><small>Cravejado · Prata 925</small></span><span><em class="category">Anel</em></span><span data-label="Total">3</span><span data-label="Em casa">2</span><span data-label="Revendedoras">1</span><span data-label="Loja">2</span><span data-label="Valor">R$ 119</span><button type="button" aria-label="Abrir Anel Aparador">›</button></article>
-            <article class="product-row" data-product="347801 colar coracao ouro"><span class="product-photo gold">♡</span><span><b>347801 · Colar Coração Vazado</b><small>Banho de Ouro 18k</small></span><span><em class="category">Colar</em></span><span data-label="Total">4</span><span data-label="Em casa">2</span><span data-label="Revendedoras">2</span><span data-label="Loja">4</span><span data-label="Valor">R$ 69</span><button type="button" aria-label="Abrir Colar Coração">›</button></article>
-            <article class="product-row" data-product="310928 anel solitario zirconia"><span class="product-photo gold">♢</span><span><b>310928 · Anel Solitário Zircônia</b><small>Variações: Aro 16, 17, 18 e 19</small></span><span><em class="category">Anel</em></span><span data-label="Total">9</span><span data-label="Em casa">6</span><span data-label="Revendedoras">3</span><span data-label="Loja">5</span><span data-label="Valor">R$ 129</span><button type="button" aria-label="Abrir Anel Solitário">›</button></article>
-            <article class="product-row" data-product="428015 pulseira elo portugues"><span class="product-photo gold">○</span><span><b>428015 · Pulseira Elo Português</b><small>Ouro 18k · 18 cm</small></span><span><em class="category">Pulseira</em></span><span data-label="Total">6</span><span data-label="Em casa">5</span><span data-label="Revendedoras">1</span><span data-label="Loja">5</span><span data-label="Valor">R$ 89</span><button type="button" aria-label="Abrir Pulseira">›</button></article>
-            <article class="product-row" data-product="122060 argola duas linhas cravejadas"><span class="product-photo gold">◯</span><span><b>122060 · Argola Duas Linhas</b><small>Cravejadas · Ouro 18k</small></span><span><em class="category">Argola</em></span><span data-label="Total">2</span><span data-label="Em casa">2</span><span data-label="Revendedoras">0</span><span data-label="Loja">2</span><span data-label="Valor">R$ 89</span><button type="button" aria-label="Abrir Argola Duas Linhas">›</button></article>
-          </div>
-          <p class="empty-products" data-product-empty hidden>Nenhum produto encontrado. Ajuste a busca para continuar.</p>
-        </section>
-      </main>
-
-      <dialog class="launch-dialog start-dialog" aria-labelledby="start-title"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Nova conferência</p><h2 id="start-title">Iniciar inventário?</h2><p>O sistema criará uma sessão para contar somente o estoque esperado em casa. Esta demonstração não grava dados reais.</p><div class="dialog-note"><strong>Ao iniciar</strong><span>Você poderá pausar, retomar e finalizar a contagem. Finalizar abre a revisão e não aplica ajustes.</span></div><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button><button class="button primary" type="button" data-confirm-start>Iniciar inventário</button></div></form></dialog>
+        <section class="mq-card products-section">
+  <div class="mq-card__head">
+    <div><p class="mq-eyebrow">Catálogo físico</p><h2 class="mq-title">Todos os produtos</h2>
+      <p class="mq-lede"><span data-product-count>6 produtos demonstrativos</span> · a foto sempre aparece primeiro</p></div>
+  </div>
+  <div class="mq-filters">
+    <label class="mq-search product-search"><span class="sr-only">Buscar produto</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10.6" cy="10.6" r="6.4"/><path d="m15.4 15.4 4.4 4.4"/></svg>
+      <input class="mq-input" type="search" placeholder="Buscar produto, SKU ou categoria…" data-product-search></label>
+    <div class="mq-chipset">
+      <button type="button" class="active">Todos</button>
+      <button type="button">Com revendedoras</button>
+      <button type="button">Sem foto</button>
+    </div>
+    <span class="mq-filters__count">6 de 6</span>
+  </div>
+  <div class="products-table mq-table" role="table" aria-label="Produtos do estoque">
+    <div class="product-row product-head mq-tr mq-tr--head" role="row">
+      <span>Peça</span><span>Produto</span><span>Categoria</span><span class="mq-cell--num">Total</span><span class="mq-cell--num">Em casa</span><span class="mq-cell--num">Revend.</span><span class="mq-cell--num">Na loja</span><span class="mq-cell--num">Valor ref.</span><span></span>
+    </div>
+    <article class="product-row mq-tr" data-product="230076 anel abaulado ouro"><span class="mq-thumb product-photo gold">◇</span><span class="mq-cell"><b>Anel Abaulado</b><small class="mq-sku">SKU 230076 · Círculos · Zircônia · Ouro 18k</small></span><span><em class="mq-chip mq-chip--soft category">Anel</em></span><span class="mq-cell mq-cell--num" data-label="Total"><b>5</b></span><span class="mq-cell mq-cell--num" data-label="Em casa"><b>3</b></span><span class="mq-cell mq-cell--num" data-label="Revendedoras"><b>2</b></span><span class="mq-cell mq-cell--num" data-label="Na loja"><b>3</b></span><span class="mq-cell mq-cell--num" data-label="Valor"><b class="mq-money">R$ 99,00</b></span><button class="mq-tr__chev" type="button" aria-label="Abrir Anel Abaulado" data-icon="chevron"></button></article>
+    <article class="product-row mq-tr" data-product="291572 anel aparador prata"><span class="mq-thumb product-photo silver">◇</span><span class="mq-cell"><b>Anel Aparador de Aliança</b><small class="mq-sku">SKU 291572 · Cravejado · Prata 925</small></span><span><em class="mq-chip mq-chip--soft category">Anel</em></span><span class="mq-cell mq-cell--num" data-label="Total"><b>3</b></span><span class="mq-cell mq-cell--num" data-label="Em casa"><b>2</b></span><span class="mq-cell mq-cell--num" data-label="Revendedoras"><b>1</b></span><span class="mq-cell mq-cell--num" data-label="Na loja"><b>2</b></span><span class="mq-cell mq-cell--num" data-label="Valor"><b class="mq-money">R$ 119,00</b></span><button class="mq-tr__chev" type="button" aria-label="Abrir Anel Aparador" data-icon="chevron"></button></article>
+    <article class="product-row mq-tr" data-product="347801 colar coracao ouro"><span class="mq-thumb product-photo gold">♡</span><span class="mq-cell"><b>Colar Coração Vazado</b><small class="mq-sku">SKU 347801 · Banho de Ouro 18k</small></span><span><em class="mq-chip mq-chip--soft category">Colar</em></span><span class="mq-cell mq-cell--num" data-label="Total"><b>4</b></span><span class="mq-cell mq-cell--num" data-label="Em casa"><b>2</b></span><span class="mq-cell mq-cell--num" data-label="Revendedoras"><b>2</b></span><span class="mq-cell mq-cell--num" data-label="Na loja"><b>4</b></span><span class="mq-cell mq-cell--num" data-label="Valor"><b class="mq-money">R$ 69,00</b></span><button class="mq-tr__chev" type="button" aria-label="Abrir Colar Coração" data-icon="chevron"></button></article>
+    <article class="product-row mq-tr" data-product="310928 anel solitario zirconia"><span class="mq-thumb product-photo gold">♢</span><span class="mq-cell"><b>Anel Solitário Zircônia</b><small class="mq-sku">SKU 310928 · variações: Aro 16, 17, 18 e 19</small></span><span><em class="mq-chip mq-chip--soft category">Anel</em></span><span class="mq-cell mq-cell--num" data-label="Total"><b>9</b></span><span class="mq-cell mq-cell--num" data-label="Em casa"><b>6</b></span><span class="mq-cell mq-cell--num" data-label="Revendedoras"><b>3</b></span><span class="mq-cell mq-cell--num" data-label="Na loja"><b>5</b></span><span class="mq-cell mq-cell--num" data-label="Valor"><b class="mq-money">R$ 129,00</b></span><button class="mq-tr__chev" type="button" aria-label="Abrir Anel Solitário" data-icon="chevron"></button></article>
+    <article class="product-row mq-tr" data-product="428015 pulseira elo portugues"><span class="mq-thumb product-photo gold">○</span><span class="mq-cell"><b>Pulseira Elo Português</b><small class="mq-sku">SKU 428015 · Ouro 18k · 18 cm</small></span><span><em class="mq-chip mq-chip--soft category">Pulseira</em></span><span class="mq-cell mq-cell--num" data-label="Total"><b>6</b></span><span class="mq-cell mq-cell--num" data-label="Em casa"><b>5</b></span><span class="mq-cell mq-cell--num" data-label="Revendedoras"><b>1</b></span><span class="mq-cell mq-cell--num" data-label="Na loja"><b>5</b></span><span class="mq-cell mq-cell--num" data-label="Valor"><b class="mq-money">R$ 89,00</b></span><button class="mq-tr__chev" type="button" aria-label="Abrir Pulseira" data-icon="chevron"></button></article>
+    <article class="product-row mq-tr" data-product="122060 argola duas linhas cravejadas"><span class="mq-thumb product-photo gold">◯</span><span class="mq-cell"><b>Argola Duas Linhas</b><small class="mq-sku">SKU 122060 · Cravejadas · Ouro 18k</small></span><span><em class="mq-chip mq-chip--soft category">Argola</em></span><span class="mq-cell mq-cell--num" data-label="Total"><b>2</b></span><span class="mq-cell mq-cell--num" data-label="Em casa"><b>2</b></span><span class="mq-cell mq-cell--num" data-label="Revendedoras"><b>0</b></span><span class="mq-cell mq-cell--num" data-label="Na loja"><b>2</b></span><span class="mq-cell mq-cell--num" data-label="Valor"><b class="mq-money">R$ 89,00</b></span><button class="mq-tr__chev" type="button" aria-label="Abrir Argola Duas Linhas" data-icon="chevron"></button></article>
+  </div>
+  <div class="mq-state" data-product-empty hidden>
+    <span class="mq-state__icon" data-icon="search"></span>
+    <h3>Nenhum produto encontrado</h3>
+    <p>Ajuste a busca para continuar. Nenhum filtro foi perdido.</p>
+  </div>
+  <div class="mq-pagination"><span>1–6 de 6 produtos</span><nav aria-label="Paginação"><a href="#" aria-current="page">1</a></nav></div>
+</section>
+</main>
+<dialog class="launch-dialog start-dialog" aria-labelledby="start-title"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Nova conferência</p><h2 id="start-title">Iniciar inventário?</h2><p>O sistema criará uma sessão para contar somente o estoque esperado em casa. Esta demonstração não grava dados reais.</p><div class="dialog-note"><strong>Ao iniciar</strong><span>Você poderá pausar, retomar e finalizar a contagem. Finalizar abre a revisão e não aplica ajustes.</span></div><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button><button class="button primary" type="button" data-confirm-start>Iniciar inventário</button></div></form></dialog>
 
       <dialog class="launch-dialog variation-dialog" aria-labelledby="variation-title"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Identidade da peça</p><h2 id="variation-title">Qual variação você está contando?</h2><p>O SKU 310928 possui mais de uma variação. Escolha a identidade física exata.</p><div class="variation-product"><span class="product-photo gold">♢</span><span><strong>310928 · Anel Solitário Zircônia</strong><small>4 variações disponíveis</small></span></div><fieldset><legend>Selecione a variação</legend><div class="variation-options"><label><input type="radio" name="variation" value="Aro 16"><span>Aro 16</span></label><label><input type="radio" name="variation" value="Aro 17"><span>Aro 17</span></label><label><input type="radio" name="variation" value="Aro 18"><span>Aro 18</span></label><label><input type="radio" name="variation" value="Aro 19"><span>Aro 19</span></label></div><label class="unknown-variation"><input type="radio" name="variation" value="Não sei a variação"><span><strong>Não sei a variação</strong><small>Registra uma pendência sem comparar ou ajustar.</small></span></label></fieldset><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button><button class="button primary" type="button" data-confirm-variation disabled>Confirmar variação</button></div></form></dialog>
 
       <div class="launch-toast" role="status" aria-live="polite" data-stock-toast hidden></div>
-    </div>
-    <script src="master.js?v=20260915"></script>
-  </body>
-</html>
+</div>
+<script src="master.js?v=20260919"></script>
+</body></html>

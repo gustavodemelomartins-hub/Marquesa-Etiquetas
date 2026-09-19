@@ -37,12 +37,51 @@
     return `<div class="product-art"><svg viewBox="0 0 100 110" role="img" aria-label="Ilustração da peça">${shapes[p.shape]}</svg><small>Ilustração</small></div>`;
   };
   function notice(message){$('[data-toast]').textContent=message;$('[data-toast]').hidden=false;clearTimeout(notice.timer);notice.timer=setTimeout(()=>$('[data-toast]').hidden=true,4000)}
-  function pipeline(p){const stage=states[p.state][1];return `<ol class="publication-pipeline ${p.state==='published'?'complete':''}" aria-label="Etapas da publicação">${['Cadastro','Preparação','Revisão','Publicando','Publicado'].map((s,i)=>`<li class="${i<stage||p.state==='published'?'done':i===stage?'current':''}" ${i===stage?'aria-current="step"':''}><i>${i<stage||p.state==='published'?'✓':''}</i>${s}</li>`).join('')}</ol>`}
+  const tick='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.4 4.6 4.6L19 7.6"/></svg>';
+  const bang='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 6v7"/><path d="M12 17.4h.01"/></svg>';
+  function pipeline(p){
+    const stage=states[p.state][1], failed=p.state==='failed', ended=p.state==='published';
+    return `<div class="mq-steps" role="img" aria-label="Etapa atual: ${['Cadastro','Preparo','Revisão','Envio','Publicado'][Math.min(stage,4)]}">`
+      +['Cadastro','Preparo','Revisão','Envio','Publicado'].map((label,i)=>{
+        const done=ended||i<stage, current=i===stage;
+        const cls=failed&&current?'is-failed':done?'is-done':current?'is-current':'';
+        return `<div class="mq-step ${cls}"${current?' aria-current="step"':''}><span class="mq-step__dot">${failed&&current?bang:done?tick:''}</span><span class="mq-step__label">${label}</span></div>`;
+      }).join('')+`</div>`;
+  }
   function render(){
-    $('[data-filters]').innerHTML=[['all','Todos'],['waiting','Aguardando publicação'],['preparing','Preparação'],['review','Revisão'],['publishing','Publicando'],['published','Publicados'],['failed','Falha']].map(([id,label])=>`<button type="button" data-filter="${id}" aria-pressed="${filter===id}">${label}<b>${products.filter(p=>id==='all'||p.state===id).length}</b></button>`).join('');
+    $('[data-filters]').innerHTML=[['all','Todos'],['waiting','Aguardando ação'],['preparing','Preparando'],['review','Para aprovar'],['publishing','Publicando'],['published','Publicados'],['failed','Falha']].map(([id,label])=>`<button type="button" data-filter="${id}" aria-pressed="${filter===id}">${label}<b class="mq-badge">${products.filter(p=>id==='all'||p.state===id).length}</b></button>`).join('');
     const term=$('[data-search]').value.toLocaleLowerCase('pt-BR').trim(), status=$('[data-status]').value;
     const visible=products.filter(p=>(filter==='all'||p.state===filter)&&(status==='all'||p.state===status)&&($('[data-missing]').value==='all'||($('[data-missing]').value==='photos'&&!p.photos.length)||($('[data-missing]').value==='category'&&!p.category)||($('[data-missing]').value==='price'&&!(p.price>0)))&&`${p.name} ${p.sku}`.toLocaleLowerCase('pt-BR').includes(term));
-    $('[data-products]').innerHTML=visible.map(p=>`<article class="publication-row" data-sku="${p.sku}"><div class="publication-product">${art(p)}<div><h2>${escape(p.name)}</h2><p>SKU ${p.sku} · ${escape(p.category||'Sem categoria')}</p><span class="publication-status ${p.state}">${states[p.state][0]}</span><p class="publication-checks">${p.photos.length} imagem(ns) · ${missing(p).length?'Pendente: '+missing(p).join(', '):'Conteúdo completo'}</p><p>Presença na loja: ${p.observedPresence||(['published'].includes(p.state)?'publicado (exemplo)':'não confirmada')}</p></div></div><dl class="publication-meta"><div><dt>Cadastrado em</dt><dd>${date(p.date)}</dd></div><div><dt>Estoque</dt><dd>${p.stock} peças</dd></div><div><dt>Preço</dt><dd class="money">${money(p.price)}</dd></div></dl><div>${pipeline(p)}<p class="publication-context ${p.state}">${states[p.state][2]}${p.state==='failed'?' Bloqueio técnico: conexão interrompida (simulada).':''}</p></div><div class="publication-actions"><button class="button ${['waiting','review'].includes(p.state)?'primary':'ghost'}" data-action="${p.sku}" ${p.state==='publishing'?'disabled':''}>${states[p.state][3]}</button><button class="button detail-button" data-details="${p.sku}">Ver detalhes →</button></div></article>`).join('');
+    $('[data-products]').innerHTML=visible.map(p=>{
+      const gaps=missing(p), presence=p.observedPresence||(p.state==='published'?'publicado (exemplo)':'não confirmada');
+      const tone={waiting:'open',preparing:'info',review:'warn',publishing:'info',published:'ok',failed:'risk'}[p.state]||'open';
+      return `<article class="publication-row" data-sku="${p.sku}">
+        <div class="publication-row__piece">${art(p)}</div>
+        <div class="publication-row__id">
+          <h2>${escape(p.name)}</h2>
+          <p class="mq-sku">SKU ${p.sku}</p>
+          <div class="publication-row__tags">
+            <span class="mq-chip mq-chip--soft">${escape(p.category||'Sem categoria')}</span>
+            <em class="mq-status mq-status--${tone}">${states[p.state][0]}</em>
+          </div>
+          <p class="publication-checks">${p.photos.length} imagem(ns) · ${gaps.length?`<b class="mq-warn">falta ${gaps.join(', ').toLowerCase()}</b>`:'conteúdo completo'}</p>
+          <p class="publication-presence">Na loja: ${escape(presence)}</p>
+        </div>
+        <dl class="publication-meta">
+          <div><dt>Cadastrado</dt><dd>${date(p.date)}</dd></div>
+          <div><dt>Estoque</dt><dd>${p.stock} <span>peças</span></dd></div>
+          <div><dt>Preço</dt><dd class="money">${money(p.price)}</dd></div>
+        </dl>
+        <div class="publication-row__flow">
+          ${pipeline(p)}
+          <p class="publication-context ${p.state}">${states[p.state][2]}${p.state==='failed'?' Bloqueio técnico: conexão interrompida (simulada).':''}</p>
+        </div>
+        <div class="publication-actions">
+          <button class="mq-btn ${['waiting','review','failed'].includes(p.state)?'mq-btn--primary':'mq-btn--secondary'}" data-action="${p.sku}" ${p.state==='publishing'?'disabled':''}>${states[p.state][3]}</button>
+          <button class="mq-btn mq-btn--link detail-button" data-details="${p.sku}">Ver detalhes →</button>
+        </div>
+      </article>`;
+    }).join('');
     $('[data-empty]').hidden=visible.length>0;$('[data-result-count]').textContent=`${visible.length} ${visible.length===1?'produto':'produtos'}`;$('[data-page-count]').textContent=`${visible.length} de ${products.length} produtos`;
   }
   $('[data-filters]').onclick=e=>{const button=e.target.closest('[data-filter]');if(button){filter=button.dataset.filter;$('[data-status]').value='all';render()}};

@@ -35,13 +35,7 @@ root.querySelectorAll('[data-href]').forEach((control) => {
   control.addEventListener('click', () => { window.location.href = control.dataset.href; });
 });
 
-const profile = root.querySelector('.profile');
-const profileMenu = root.querySelector('#stock-profile-menu');
-profile.addEventListener('click', () => {
-  const open = profile.getAttribute('aria-expanded') === 'true';
-  profile.setAttribute('aria-expanded', String(!open));
-  profileMenu.hidden = open;
-});
+/* O menu de perfil agora vive no casco do aplicativo (prototype/system.js). */
 
 tabs.forEach((tab) => tab.addEventListener('click', () => {
   const name = tab.dataset.inventoryTab;

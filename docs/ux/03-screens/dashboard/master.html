@@ -1,38 +1,308 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Sistema Marquesa · Hoje</title>
-  <link rel="stylesheet" href="../vendas/master.css?v=20260915-shared"><link rel="stylesheet" href="master.css?v=20260915-agenda">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Home operacional do Sistema Marquesa V2">
+<title>Sistema Marquesa · Hoje</title>
+<link rel="stylesheet" href="../../prototype/marquesa.css">
+<link rel="stylesheet" href="../vendas/master.css?v=20260919-shared">
+<link rel="stylesheet" href="master.css?v=20260919-home">
 <link rel="stylesheet" href="../../prototype/system.css"><script defer src="../../prototype/system.js"></script></head>
 <body><div class="app-shell home-shell">
 <header class="app-header">
-  <div class="header-main"><a class="brand" href="../../prototype/index.html"><img src="../../01-brand/logo_sistema-marquesa_preta-transparente.png" alt="Marquesa Semijoias"></a>
-    <nav class="primary-nav">
-      <button type="button" data-href="../estoque/master.html"><svg viewBox="0 0 24 24"><path d="m4 7 8-4 8 4-8 4-8-4Zm0 0v10l8 4 8-4V7M12 11v10"/></svg>Estoque</button>
-      <button type="button" data-href="../revendedoras/master.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Revendedoras</button>
-      <button type="button" data-href="../vendas/master.html"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M7 15l4-4 3 2 5-7"/></svg>Vendas</button>
-      <button type="button" data-href="../etiquetas/master.html"><svg viewBox="0 0 24 24"><path d="M20 13 11 22 2 13V4h9l9 9Z"/><circle cx="7" cy="9" r="1"/></svg>Etiquetas</button>
-    </nav>
-    <div class="header-tools"><button class="icon-button notification" type="button" data-href="../notificacoes/master.html" aria-label="3 notificações"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span>3</span></button><button class="profile" type="button" data-href="../configuracoes/master.html"><span class="avatar">SM</span><span class="profile-copy"><strong>Sthefany Marques</strong><small>Administradora</small></span></button></div>
-  </div>
-  <nav class="secondary-nav"><button class="active" type="button" data-home-tab="today">Hoje</button><button type="button" data-home-tab="calendar">Agenda</button><button type="button" data-href="../notificacoes/master.html">Alertas <span>5</span></button></nav>
+  <nav class="secondary-nav" aria-label="Seções da Home">
+    <button class="active" type="button" data-home-tab="today">Hoje</button>
+    <button type="button" data-home-tab="calendar">Agenda</button>
+    <button type="button" data-href="../notificacoes/master.html">Alertas <span>5</span></button>
+  </nav>
 </header>
 <main>
-<section data-home-view="today">
-  <div class="page-heading home-heading"><div><p class="context">Terça-feira · 15 de setembro</p><h1>Boa tarde, Sthefany</h1><p>Veja o que aconteceu e o que precisa da sua atenção.</p></div><button class="button primary" type="button" data-href="../vendas/master.html#lancamentos">+ Novo lançamento</button></div>
-  <div class="metric-row compact home-metrics"><article><span>Vendas hoje</span><strong>R$ 1.284</strong><small>8 vendas · 13 peças</small></article><article><span>Recebido hoje</span><strong>R$ 1.036</strong><small>por data efetiva</small></article><article><span>A receber</span><strong>R$ 12.269</strong><small>8 clientes</small></article><article><span>Peças em casa</span><strong>1.121</strong><small>366 com revendedoras</small></article></div>
-  <section class="data-section attention"><div class="section-heading"><div><p class="context">Prioridades</p><h2>Precisa da sua atenção</h2><p>Ações ordenadas por prazo e impacto operacional.</p></div><span class="attention-count">5 pendências</span></div><div class="attention-list"><button type="button" data-href="../revendedoras/master.html"><span class="attention-icon urgent">!</span><div><b>Acerto de Mariana está 3 dias atrasado</b><small>Maleta com 51 peças · R$ 5.480,00</small></div><em class="state danger">Atrasado</em><strong>Ver maleta ›</strong></button><button type="button" data-href="../financeiro/master.html"><span class="attention-icon">R$</span><div><b>Três recebimentos vencem hoje</b><small>R$ 499,00 em aberto</small></div><em class="state partial">Hoje</em><strong>Abrir financeiro ›</strong></button><button type="button" data-href="../catalogo/master.html"><span class="attention-icon">□</span><div><b>8 produtos aguardam aprovação</b><small>Conteúdo preparado, ainda não publicado</small></div><em class="state info">Revisar</em><strong>Abrir catálogo ›</strong></button><button type="button" data-href="../estoque/master.html"><span class="attention-icon">◇</span><div><b>27 produtos precisam de informação</b><small>Foto, categoria ou preço ausente</small></div><em class="state neutral">Cadastro</em><strong>Ver estoque ›</strong></button></div></section>
-  <div class="home-grid"><section class="data-section today-flow"><div class="section-heading"><div><h2>Movimento de hoje</h2><p>Entradas comerciais e operacionais</p></div><button class="button ghost" type="button" data-href="../vendas/master.html">Abrir Vendas</button></div><div class="flow-chart"><div><span>08h</span><i style="--h:24%"></i><b>R$ 89</b></div><div><span>10h</span><i style="--h:48%"></i><b>R$ 230</b></div><div><span>12h</span><i style="--h:35%"></i><b>R$ 159</b></div><div><span>14h</span><i style="--h:82%"></i><b>R$ 516</b></div><div><span>16h</span><i style="--h:46%"></i><b>R$ 290</b></div></div></section><aside class="data-section quick-actions"><p class="context">Atalhos</p><h2>Começar uma tarefa</h2><button type="button" data-href="../vendas/master.html#lancamentos"><span>↗</span><b>Registrar venda</b><small>Venda normal ou Monte seu Colar</small></button><button type="button" data-href="../etiquetas/master.html"><span>◇</span><b>Preparar etiquetas</b><small>Fila e revisão da folha</small></button><button type="button" data-href="../revendedoras/master.html"><span>○</span><b>Criar maleta</b><small>Sugestão revisável</small></button></aside></div>
-  <section class="data-section activity"><div class="section-heading"><div><h2>Atividade recente</h2><p>Fatos registrados nas áreas do sistema</p></div></div><div><article><span>14:32</span><i class="sale">↗</i><div><b>Venda #1064 confirmada</b><small>Camila Ferreira · 2 peças · R$ 159,00</small></div><em class="state receivable">A receber</em></article><article><span>13:10</span><i>◇</i><div><b>Saída sem faturamento</b><small>Campanha Primavera · 3 peças · Sorteio</small></div><em class="state success">Concluída</em></article><article><span>11:08</span><i>R$</i><div><b>Recebimento por PIX</b><small>Ana Luiza Sedassari · R$ 100,00</small></div><em class="state paid">Pago</em></article></div></section>
+
+<!-- ======================= HOJE ======================= -->
+<section data-home-view="today" class="mq-stack">
+
+  <div class="mq-pagehead">
+    <div class="mq-pagehead__text">
+      <p class="mq-eyebrow">Terça-feira · 15 de setembro</p>
+      <h1 class="mq-display">Boa tarde, Sthefany</h1>
+      <p class="mq-lede">O que já aconteceu hoje, o que precisa de decisão e onde continuar o trabalho.</p>
+    </div>
+    <div class="mq-pagehead__actions">
+      <button class="mq-btn mq-btn--secondary" type="button" data-home-tab="calendar"><span data-icon="calendar"></span>Agenda</button>
+      <button class="mq-btn mq-btn--primary" type="button" data-href="../vendas/master.html#lancamentos"><span data-icon="plus"></span>Novo lançamento</button>
+    </div>
+  </div>
+
+  <!-- KPIs: quatro perguntas, quatro respostas. Bordô só onde há decisão. -->
+  <div class="mq-kpis">
+    <a class="mq-kpi" href="../vendas/master.html#painel">
+      <span class="mq-kpi__label">Vendas hoje</span>
+      <strong class="mq-kpi__value"><i>R$</i>1.284</strong>
+      <span class="mq-kpi__foot">8 vendas · 13 peças · <b class="mq-kpi__trend mq-kpi__trend--up">+12% vs. ontem</b></span>
+    </a>
+    <a class="mq-kpi" href="../financeiro/master.html#receipts">
+      <span class="mq-kpi__label">Recebido hoje</span>
+      <strong class="mq-kpi__value"><i>R$</i>1.036</strong>
+      <span class="mq-kpi__foot">Pela data efetiva do pagamento</span>
+    </a>
+    <a class="mq-kpi mq-kpi--accent" href="../financeiro/master.html">
+      <span class="mq-kpi__label">A receber</span>
+      <strong class="mq-kpi__value"><i>R$</i>12.269</strong>
+      <span class="mq-kpi__foot">8 clientes · <b class="mq-risk">R$ 820 vencidos</b></span>
+    </a>
+    <a class="mq-kpi" href="../estoque/master.html">
+      <span class="mq-kpi__label">Peças em casa</span>
+      <strong class="mq-kpi__value">1.121</strong>
+      <span class="mq-kpi__foot">366 peças com revendedoras</span>
+    </a>
+  </div>
+
+  <!-- Fila de decisão: ordenada por prazo e impacto. -->
+  <section class="mq-card">
+    <div class="mq-card__head">
+      <div>
+        <p class="mq-eyebrow">Prioridades</p>
+        <h2 class="mq-title">Precisa da sua atenção</h2>
+        <p class="mq-lede">Ordenado por prazo e por impacto em dinheiro ou peça.</p>
+      </div>
+      <span class="mq-status mq-status--warn">5 pendências</span>
+    </div>
+    <div class="mq-list mq-card__body--flush">
+      <button class="mq-item" type="button" data-href="../revendedoras/master.html#maletas">
+        <span class="mq-item__icon mq-item__icon--risk" data-icon="alert"></span>
+        <span class="mq-item__main"><b>Acerto de Mariana está 3 dias atrasado</b><small>Maleta 51 · 51 peças consignadas · R$ 5.480,00</small></span>
+        <span class="mq-item__side"><em class="mq-status mq-status--risk">Atrasado</em><span class="mq-hide@sm mq-muted">Ver maleta</span><span data-icon="chevron" class="mq-tr__chev"></span></span>
+      </button>
+      <button class="mq-item" type="button" data-href="../financeiro/master.html">
+        <span class="mq-item__icon mq-item__icon--warn" data-icon="receipt"></span>
+        <span class="mq-item__main"><b>Três recebimentos vencem hoje</b><small>R$ 499,00 em aberto · Camila, Juliana e Ana Luiza</small></span>
+        <span class="mq-item__side"><em class="mq-status mq-status--warn">Vence hoje</em><span class="mq-hide@sm mq-muted">Abrir financeiro</span><span data-icon="chevron" class="mq-tr__chev"></span></span>
+      </button>
+      <button class="mq-item" type="button" data-href="../nuvemshop/publicar.html">
+        <span class="mq-item__icon mq-item__icon--info" data-icon="cloud"></span>
+        <span class="mq-item__main"><b>8 produtos aguardam sua aprovação</b><small>Conteúdo preparado pelo agente, ainda não publicado na loja</small></span>
+        <span class="mq-item__side"><em class="mq-status mq-status--info">Revisar</em><span class="mq-hide@sm mq-muted">Abrir publicação</span><span data-icon="chevron" class="mq-tr__chev"></span></span>
+      </button>
+      <button class="mq-item" type="button" data-href="../catalogo/master.html">
+        <span class="mq-item__icon" data-icon="image"></span>
+        <span class="mq-item__main"><b>27 produtos precisam de informação</b><small>Foto, categoria ou preço ausente no cadastro</small></span>
+        <span class="mq-item__side"><em class="mq-status mq-status--open">Cadastro</em><span class="mq-hide@sm mq-muted">Abrir catálogo</span><span data-icon="chevron" class="mq-tr__chev"></span></span>
+      </button>
+      <button class="mq-item" type="button" data-href="../reparos/master.html">
+        <span class="mq-item__icon" data-icon="shield"></span>
+        <span class="mq-item__main"><b>Garantia #G-142 tem retorno previsto para 17/09</b><small>Argola Duas Linhas · venda #1058 · Camila Ferreira</small></span>
+        <span class="mq-item__side"><em class="mq-status mq-status--open">Em análise</em><span class="mq-hide@sm mq-muted">Abrir caso</span><span data-icon="chevron" class="mq-tr__chev"></span></span>
+      </button>
+    </div>
+  </section>
+
+  <div class="mq-grid mq-grid--main">
+
+    <!-- Movimento do dia: gráfico responde a pergunta e o texto repete a resposta. -->
+    <section class="mq-card">
+      <div class="mq-card__head">
+        <div>
+          <p class="mq-eyebrow">Movimento de hoje</p>
+          <h2 class="mq-title">Quando o dia vendeu</h2>
+          <p class="mq-lede">Entradas comerciais por faixa de horário, pela data da venda.</p>
+        </div>
+        <button class="mq-btn mq-btn--secondary mq-btn--sm" type="button" data-href="../vendas/master.html#painel">Abrir Vendas</button>
+      </div>
+      <div class="mq-card__body">
+        <div class="mq-chart" role="img" aria-label="Vendas por hora: 08h R$ 89, 10h R$ 230, 12h R$ 159, 14h R$ 516, 16h R$ 290">
+          <div class="mq-chart__grid" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <div class="mq-chart__col"><b class="mq-chart__val">R$ 89</b><i class="mq-chart__bar" style="--h:17%"></i><span class="mq-chart__key">08h</span></div>
+          <div class="mq-chart__col"><b class="mq-chart__val">R$ 230</b><i class="mq-chart__bar" style="--h:45%"></i><span class="mq-chart__key">10h</span></div>
+          <div class="mq-chart__col"><b class="mq-chart__val">R$ 159</b><i class="mq-chart__bar" style="--h:31%"></i><span class="mq-chart__key">12h</span></div>
+          <div class="mq-chart__col is-peak"><b class="mq-chart__val">R$ 516</b><i class="mq-chart__bar" style="--h:100%"></i><span class="mq-chart__key">14h</span></div>
+          <div class="mq-chart__col"><b class="mq-chart__val">R$ 290</b><i class="mq-chart__bar" style="--h:56%"></i><span class="mq-chart__key">16h</span></div>
+        </div>
+        <dl class="mq-figures mq-mt-6">
+          <div><dt>Total do dia</dt><dd>R$ 1.284,00</dd><small>8 vendas registradas</small></div>
+          <div><dt>Ticket médio</dt><dd>R$ 160,50</dd><small>1,6 peça por venda</small></div>
+          <div class="is-brand"><dt>Melhor faixa</dt><dd>14h</dd><small>R$ 516,00 · 40% do dia</small></div>
+        </dl>
+      </div>
+      <div class="mq-card__foot"><span class="mq-demo">Dados demonstrativos · fórmula ainda a confirmar</span></div>
+    </section>
+
+    <aside class="mq-stack mq-stack--tight">
+      <section class="mq-card">
+        <div class="mq-card__head"><div><p class="mq-eyebrow">Atalhos</p><h2 class="mq-title">Começar uma tarefa</h2></div></div>
+        <div class="mq-list">
+          <button class="mq-item" type="button" data-href="../vendas/master.html#nova-venda">
+            <span class="mq-item__icon mq-item__icon--brand" data-icon="sale"></span>
+            <span class="mq-item__main"><b>Registrar venda</b><small>Venda normal ou Monte seu Colar</small></span>
+            <span data-icon="chevron" class="mq-tr__chev"></span>
+          </button>
+          <button class="mq-item" type="button" data-href="../etiquetas/master.html">
+            <span class="mq-item__icon mq-item__icon--brand" data-icon="label"></span>
+            <span class="mq-item__main"><b>Preparar etiquetas</b><small>Fila, revisão da folha e impressão</small></span>
+            <span data-icon="chevron" class="mq-tr__chev"></span>
+          </button>
+          <button class="mq-item" type="button" data-href="../revendedoras/master.html#maletas">
+            <span class="mq-item__icon mq-item__icon--brand" data-icon="bag"></span>
+            <span class="mq-item__main"><b>Criar maleta</b><small>Sugestão revisável antes de confirmar</small></span>
+            <span data-icon="chevron" class="mq-tr__chev"></span>
+          </button>
+          <button class="mq-item" type="button" data-href="../estoque/master.html#inventario">
+            <span class="mq-item__icon mq-item__icon--brand" data-icon="inventory"></span>
+            <span class="mq-item__main"><b>Conferir estoque</b><small>Inventário físico em etapas separadas</small></span>
+            <span data-icon="chevron" class="mq-tr__chev"></span>
+          </button>
+        </div>
+      </section>
+
+      <section class="mq-card">
+        <div class="mq-card__head"><div><p class="mq-eyebrow">Próximos dias</p><h2 class="mq-title">Na agenda</h2></div>
+          <button class="mq-btn mq-btn--link" type="button" data-home-tab="calendar">Ver semana</button></div>
+        <div class="mq-card__body mq-stack mq-stack--tight">
+          <div class="mq-timeline">
+            <div class="mq-timeline__row"><span class="mq-timeline__dot" data-icon="clock"></span>
+              <div class="mq-timeline__body"><b>Recebimentos do dia</b><small>Hoje · 11:00 · Financeiro</small></div></div>
+            <div class="mq-timeline__row"><span class="mq-timeline__dot" data-icon="bag"></span>
+              <div class="mq-timeline__body"><b>Acerto · Camila Ferreira</b><small>Quinta · 17/09 · 15:00 · maleta 47</small></div></div>
+            <div class="mq-timeline__row"><span class="mq-timeline__dot" data-icon="star"></span>
+              <div class="mq-timeline__body"><b>Feira de sexta</b><small>Sexta · 18/09 · 19:00 · compromisso recorrente</small></div></div>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <section class="mq-card">
+    <div class="mq-card__head">
+      <div><p class="mq-eyebrow">Linha do tempo</p><h2 class="mq-title">Atividade recente</h2>
+        <p class="mq-lede">Fatos registrados nas áreas do sistema, com a situação de cada um.</p></div>
+      <button class="mq-btn mq-btn--secondary mq-btn--sm" type="button" data-href="../vendas/master.html#historico">Ver histórico</button>
+    </div>
+    <div class="mq-list">
+      <button class="mq-item" type="button" data-href="../clientes/master.html">
+        <span class="mq-item__time">14:32</span>
+        <span class="mq-item__icon mq-item__icon--brand" data-icon="sale"></span>
+        <span class="mq-item__main"><b>Venda #1064 confirmada</b><small>Camila Ferreira · 2 peças · balcão</small></span>
+        <span class="mq-item__side"><b class="mq-money">R$ 159,00</b><em class="mq-status mq-status--open">A receber</em></span>
+      </button>
+      <button class="mq-item" type="button" data-href="../vendas/master.html#saida">
+        <span class="mq-item__time">13:10</span>
+        <span class="mq-item__icon" data-icon="box"></span>
+        <span class="mq-item__main"><b>Saída sem faturamento</b><small>Campanha Primavera · 3 peças · sorteio</small></span>
+        <span class="mq-item__side"><b class="mq-money mq-money--muted">custo R$ 72,00</b><em class="mq-status mq-status--ok">Concluída</em></span>
+      </button>
+      <button class="mq-item" type="button" data-href="../financeiro/master.html#receipts">
+        <span class="mq-item__time">11:08</span>
+        <span class="mq-item__icon mq-item__icon--ok" data-icon="pix"></span>
+        <span class="mq-item__main"><b>Recebimento por PIX</b><small>Ana Luiza Sedassari · venda #1056 · data efetiva 15/09</small></span>
+        <span class="mq-item__side"><b class="mq-money">R$ 100,00</b><em class="mq-status mq-status--ok">Pago</em></span>
+      </button>
+      <button class="mq-item" type="button" data-href="../nuvemshop/publicar.html">
+        <span class="mq-item__time">09:47</span>
+        <span class="mq-item__icon mq-item__icon--info" data-icon="cloud"></span>
+        <span class="mq-item__main"><b>Pulseira Pérolas e Coração publicada</b><small>SKU 337421 · enviada para a Nuvemshop após aprovação</small></span>
+        <span class="mq-item__side"><em class="mq-status mq-status--ok">Publicado</em></span>
+      </button>
+    </div>
+  </section>
 </section>
-<section data-home-view="calendar" hidden>
-  <div class="page-heading calendar-heading"><div><p class="context">Agenda operacional</p><h1>Semana de 14 a 20 de setembro</h1><p>Compromissos, feiras, acertos e prazos em uma única visão.</p></div><button class="button primary" type="button" data-new-event>+ Novo compromisso</button></div>
-  <div class="calendar-toolbar"><div><button type="button" aria-label="Semana anterior">‹</button><button type="button" class="today-button">Hoje</button><button type="button" aria-label="Próxima semana">›</button></div><strong>Setembro de 2026</strong><div class="calendar-legend"><span><i class="personal"></i>Compromisso</span><span><i class="settlement"></i>Acerto</span><span><i class="financial"></i>Financeiro</span></div></div>
-  <section class="data-section week-calendar" aria-label="Agenda semanal"><div class="week-head"><span></span><b>SEG<small>14</small></b><b class="today">TER<small>15</small></b><b>QUA<small>16</small></b><b>QUI<small>17</small></b><b>SEX<small>18</small></b><b>SÁB<small>19</small></b><b>DOM<small>20</small></b></div><div class="week-body"><div class="time-scale"><span>07h</span><span>09h</span><span>11h</span><span>13h</span><span>15h</span><span>17h</span><span>19h</span><span>21h</span></div><div class="day-column"><button class="calendar-event settlement" style="--start:2;--span:2" data-event="mariana"><time>09:00</time><b>Acerto · Mariana</b><small>Maleta 51</small></button></div><div class="day-column today"><button class="calendar-event financial" style="--start:3;--span:2" data-event="recebimentos"><time>11:00</time><b>Recebimentos</b><small>3 vencem hoje</small></button></div><div class="day-column"><button class="calendar-event personal" style="--start:2;--span:2" data-event="preparacao"><time>09:00</time><b>Preparar feira</b><small>Separar peças</small></button></div><div class="day-column"><button class="calendar-event settlement" style="--start:5;--span:2" data-event="camila"><time>15:00</time><b>Acerto · Camila</b><small>Maleta 47</small></button></div><div class="day-column"><button class="calendar-event financial" style="--start:4;--span:2" data-event="pix"><time>13:00</time><b>Conferir PIX</b><small>Fechamento semanal</small></button><button class="calendar-event personal recurring" style="--start:7;--span:2" data-event="feira"><time>19:00</time><b>Feira de sexta</b><small>Toda sexta-feira</small></button></div><div class="day-column"></div><div class="day-column"></div></div></section>
-  <section class="data-section upcoming"><div class="section-heading"><div><p class="context">Próximos compromissos</p><h2>Depois desta semana</h2></div></div><article><span>25<small>SET</small></span><div><b>Feira de sexta</b><small>19:00 · evento recorrente</small></div><em class="event-type personal">Compromisso</em></article><article><span>28<small>SET</small></span><div><b>Acerto · Juliana Prado</b><small>10:00 · maleta 55</small></div><em class="event-type settlement">Acerto</em></article></section>
+
+<!-- ======================= AGENDA ======================= -->
+<section data-home-view="calendar" class="mq-stack" hidden>
+  <div class="mq-pagehead">
+    <div class="mq-pagehead__text">
+      <p class="mq-eyebrow">Agenda operacional</p>
+      <h1 class="mq-display">Semana de 14 a 20 de setembro</h1>
+      <p class="mq-lede">Compromissos, acertos e prazos financeiros em uma visão só, sem perder a origem de cada um.</p>
+    </div>
+    <div class="mq-pagehead__actions">
+      <button class="mq-btn mq-btn--primary" type="button" data-new-event><span data-icon="plus"></span>Novo compromisso</button>
+    </div>
+  </div>
+
+  <section class="mq-card">
+    <div class="mq-card__head calendar-toolbar">
+      <div class="mq-row">
+        <button class="mq-btn mq-btn--secondary mq-btn--icon" type="button" aria-label="Semana anterior">‹</button>
+        <button class="mq-btn mq-btn--secondary mq-btn--sm today-button" type="button">Hoje</button>
+        <button class="mq-btn mq-btn--secondary mq-btn--icon" type="button" aria-label="Próxima semana">›</button>
+        <strong class="mq-subtitle">Setembro de 2026</strong>
+      </div>
+      <div class="mq-legend calendar-legend">
+        <span><i class="personal"></i>Compromisso</span>
+        <span><i class="settlement"></i>Acerto</span>
+        <span><i class="financial"></i>Financeiro</span>
+      </div>
+    </div>
+    <div class="mq-card__body mq-card__body--flush">
+      <div class="week-calendar mq-scroll-x" aria-label="Agenda semanal">
+        <div class="week-head"><span></span><b>SEG<small>14</small></b><b class="today">TER<small>15</small></b><b>QUA<small>16</small></b><b>QUI<small>17</small></b><b>SEX<small>18</small></b><b>SÁB<small>19</small></b><b>DOM<small>20</small></b></div>
+        <div class="week-body">
+          <div class="time-scale"><span>07h</span><span>09h</span><span>11h</span><span>13h</span><span>15h</span><span>17h</span><span>19h</span><span>21h</span></div>
+          <div class="day-column"><button class="calendar-event settlement" style="--start:2;--span:2" data-event="mariana"><time>09:00</time><b>Acerto · Mariana</b><small>Maleta 51</small></button></div>
+          <div class="day-column today"><button class="calendar-event financial" style="--start:3;--span:2" data-event="recebimentos"><time>11:00</time><b>Recebimentos</b><small>3 vencem hoje</small></button></div>
+          <div class="day-column"><button class="calendar-event personal" style="--start:2;--span:2" data-event="preparacao"><time>09:00</time><b>Preparar feira</b><small>Separar peças</small></button></div>
+          <div class="day-column"><button class="calendar-event settlement" style="--start:5;--span:2" data-event="camila"><time>15:00</time><b>Acerto · Camila</b><small>Maleta 47</small></button></div>
+          <div class="day-column"><button class="calendar-event financial" style="--start:4;--span:2" data-event="pix"><time>13:00</time><b>Conferir PIX</b><small>Fechamento semanal</small></button><button class="calendar-event personal recurring" style="--start:7;--span:2" data-event="feira"><time>19:00</time><b>Feira de sexta</b><small>Toda sexta-feira</small></button></div>
+          <div class="day-column"></div>
+          <div class="day-column"></div>
+        </div>
+      </div>
+    </div>
+    <div class="mq-card__foot"><span class="mq-demo">Agenda demonstrativa · persistência ainda depende de API</span></div>
+  </section>
+
+  <section class="mq-card">
+    <div class="mq-card__head"><div><p class="mq-eyebrow">Próximos compromissos</p><h2 class="mq-title">Depois desta semana</h2></div></div>
+    <div class="mq-list">
+      <div class="mq-item"><span class="mq-item__icon" data-icon="star"></span>
+        <span class="mq-item__main"><b>Feira de sexta</b><small>25/09 · 19:00 · evento recorrente</small></span>
+        <span class="mq-item__side"><em class="mq-status mq-status--open">Compromisso</em></span></div>
+      <div class="mq-item"><span class="mq-item__icon" data-icon="bag"></span>
+        <span class="mq-item__main"><b>Acerto · Juliana Prado</b><small>28/09 · 10:00 · maleta 55</small></span>
+        <span class="mq-item__side"><em class="mq-status mq-status--ok">Acerto</em></span></div>
+    </div>
+  </section>
 </section>
+
 </main></div>
-<dialog class="calendar-dialog" data-event-dialog><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context" data-dialog-context>Compromisso</p><h2 data-dialog-title>Feira de sexta</h2><p data-dialog-copy>Toda sexta-feira, às 19:00.</p><dl><div><dt>Quando</dt><dd data-dialog-date>Sexta-feira · 18/09 · 19:00</dd></div><div><dt>Origem</dt><dd data-dialog-origin>Agenda da Sthefany</dd></div></dl><button class="button primary" value="cancel">Fechar</button></form></dialog>
-<dialog class="calendar-dialog" data-new-event-dialog><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Agenda</p><h2>Novo compromisso</h2><label>Título<input value="Feira"></label><div class="event-form-grid"><label>Data<input type="date" value="2026-09-18"></label><label>Horário<input type="time" value="19:00"></label></div><label>Repetição<select><option>Não repetir</option><option selected>Toda semana</option><option>Todo mês</option></select></label><label>Observação<textarea rows="2" placeholder="Local, contato ou lembrete"></textarea></label><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button><button class="button primary" type="button" data-save-event>Adicionar à agenda</button></div></form></dialog>
-<div class="launch-toast" data-calendar-toast hidden></div><script src="master.js?v=20260915-agenda"></script></body></html>
+
+<dialog class="mq-modal calendar-dialog" data-event-dialog>
+  <form method="dialog">
+    <div class="mq-modal__head">
+      <div><p class="mq-eyebrow" data-dialog-context>Compromisso</p><h2 class="mq-title" data-dialog-title>Feira de sexta</h2></div>
+      <button class="mq-modal__close" value="cancel" aria-label="Fechar" data-icon="close"></button>
+    </div>
+    <div class="mq-modal__body">
+      <p class="mq-lede" data-dialog-copy>Toda sexta-feira, às 19:00.</p>
+      <dl class="mq-dl">
+        <div><dt>Quando</dt><dd data-dialog-date>Sexta-feira · 18/09 · 19:00</dd></div>
+        <div><dt>Origem</dt><dd data-dialog-origin>Agenda da Sthefany</dd></div>
+      </dl>
+    </div>
+    <div class="mq-modal__foot"><button class="mq-btn mq-btn--primary" value="cancel">Fechar</button></div>
+  </form>
+</dialog>
+
+<dialog class="mq-modal calendar-dialog" data-new-event-dialog>
+  <form method="dialog">
+    <div class="mq-modal__head">
+      <div><p class="mq-eyebrow">Agenda</p><h2 class="mq-title">Novo compromisso</h2></div>
+      <button class="mq-modal__close" value="cancel" aria-label="Fechar" data-icon="close"></button>
+    </div>
+    <div class="mq-modal__body">
+      <label class="mq-field"><span>Título</span><input class="mq-input" value="Feira"></label>
+      <div class="mq-formgrid">
+        <label class="mq-field"><span>Data</span><input class="mq-input" type="date" value="2026-09-18"></label>
+        <label class="mq-field"><span>Horário</span><input class="mq-input" type="time" value="19:00"></label>
+      </div>
+      <label class="mq-field"><span>Repetição</span><select class="mq-select"><option>Não repetir</option><option selected>Toda semana</option><option>Todo mês</option></select></label>
+      <label class="mq-field"><span>Observação</span><textarea class="mq-textarea" rows="2" placeholder="Local, contato ou lembrete"></textarea></label>
+    </div>
+    <div class="mq-modal__foot">
+      <button class="mq-btn mq-btn--ghost" value="cancel">Cancelar</button>
+      <button class="mq-btn mq-btn--primary" type="button" data-save-event>Adicionar à agenda</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="launch-toast" role="status" aria-live="polite" data-calendar-toast hidden></div>
+<script src="master.js?v=20260919-home"></script></body></html>

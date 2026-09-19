@@ -1,34 +1,362 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Sistema Marquesa V2 · Design system</title>
-  <link rel="stylesheet" href="../03-screens/vendas/master.css?v=20260915-system">
-  <link rel="stylesheet" href="design-system.css?v=20260915">
-<link rel="stylesheet" href="system.css"><script defer src="system.js"></script></head>
-<body class="system-catalog">
-  <header class="catalog-header"><a href="index.html">← Voltar ao hub</a><div><p class="context">Sistema Marquesa V2</p><h1>Design system</h1><p>Referência visual para protótipos e implementação. Estado: pronto para revisão.</p></div><span>ARQ-009</span></header>
-  <main class="catalog-main">
-    <section class="catalog-section">
-      <div class="catalog-title"><p class="context">Fundação</p><h2>Cores e tipografia</h2></div>
-      <div class="swatch-grid"><article style="--swatch:#9f1748"><i></i><b>Vinho 700</b><small>#9F1748</small></article><article style="--swatch:#741238"><i></i><b>Vinho 900</b><small>#741238</small></article><article style="--swatch:#b32659"><i></i><b>Rosa 600</b><small>#B32659</small></article><article style="--swatch:#f9f5f3"><i></i><b>Fundo</b><small>#F9F5F3</small></article><article style="--swatch:#33735a"><i></i><b>Sucesso</b><small>#33735A</small></article><article style="--swatch:#986b1e"><i></i><b>Atenção</b><small>#986B1E</small></article></div>
-      <div class="type-sample"><div><span>Títulos · Cormorant</span><h3>Clareza para decidir</h3></div><div><span>Interface · Jost</span><p>Informação operacional curta, direta e legível em qualquer tela.</p><p class="v2-number">R$ 1.250,00 · 17 unidades · 12/09/2026 · SKU 132721</p></div></div>
-    </section>
-    <section class="catalog-section">
-      <div class="catalog-title"><p class="context">Ações</p><h2>Botões, campos e estados</h2></div>
-      <div class="component-row"><button class="button primary">Ação principal</button><button class="button ghost">Ação secundária</button><button class="button ghost" disabled>Indisponível</button><span class="status paid">Concluída</span><span class="status receivable">A receber</span><span class="decision-pill">Decisão necessária</span></div>
-      <div class="field-grid"><label><span>Buscar</span><input value="Argola" aria-label="Exemplo de busca"></label><label><span>Categoria</span><select><option>Brincos</option></select></label><label><span>Observação</span><textarea rows="2">Peça demonstrativa</textarea></label></div>
-    </section>
-    <section class="catalog-section">
-      <div class="catalog-title"><p class="context">Estrutura</p><h2>Cards, tabela e paginação</h2></div>
-      <div class="sample-grid"><article class="sample-card"><span>Vendido no período</span><strong>R$ 18.420,00</strong><small>+12% no período</small></article><article class="sample-card"><span>A receber</span><strong>R$ 2.340,00</strong><small>8 clientes com saldo aberto</small></article><article class="sample-card"><span>Garantias ativas</span><strong>7</strong><small>2 próximas do prazo</small></article></div>
-      <div class="table-frame"><table><thead><tr><th>Cliente</th><th>Última compra</th><th>Situação</th></tr></thead><tbody><tr><td><b>Camila Ferreira</b><small>4 compras</small></td><td>05/09/2026</td><td><span class="status receivable">A receber</span></td></tr><tr><td><b>Juliana Prado</b><small>3 compras</small></td><td>04/09/2026</td><td><span class="status paid">Em dia</span></td></tr></tbody></table></div>
-      <nav class="pagination-v2" aria-label="Paginação de exemplo"><span>1–20 de 48</span><div><button aria-current="page">1</button><button>2</button><button>3</button></div></nav>
-    </section>
-    <section class="catalog-section">
-      <div class="catalog-title"><p class="context">Feedback</p><h2>Vazio, carregamento e erro</h2></div>
-      <div class="state-grid"><div class="system-state"><div><b>◇</b><h3>Nenhum resultado</h3><p>Ajuste os filtros ou cadastre um novo item.</p><button class="button ghost">Limpar filtros</button></div></div><div class="system-state"><div><span class="skeleton-line"></span><span class="skeleton-line short"></span><p>Carregando informações…</p></div></div><div class="system-state"><div><b>!</b><h3>Não foi possível carregar</h3><p>Preservamos seus filtros. Tente novamente.</p><button class="button primary">Tentar novamente</button></div></div></div>
-    </section>
-  </main>
-</body>
-</html>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Design System Marquesa V2 — tokens e componentes oficiais do sistema">
+<title>Marquesa · Design System V2</title>
+<link rel="stylesheet" href="marquesa.css">
+<link rel="stylesheet" href="design-system.css">
+<link rel="stylesheet" href="system.css">
+<script defer src="system.js"></script>
+</head>
+<body><div class="app-shell ds-shell">
+<header class="app-header">
+  <nav class="secondary-nav" aria-label="Seções do Design System">
+    <a href="#fundacao" class="active">Fundação</a>
+    <a href="#acoes">Ações e campos</a>
+    <a href="#dados">Dados</a>
+    <a href="#navegacao">Navegação</a>
+    <a href="#sobreposicao">Sobreposições</a>
+    <a href="#estados">Estados</a>
+    <a href="#icones">Ícones</a>
+  </nav>
+</header>
+<main>
+
+<div class="mq-pagehead">
+  <div class="mq-pagehead__text">
+    <p class="mq-eyebrow">Marquesa V2</p>
+    <h1 class="mq-display">Design System</h1>
+    <p class="mq-lede">A linguagem única do Sistema Marquesa: bordô como tinta, números em Jost tabular, títulos em Cormorant, linha fina no lugar de sombra. Tudo o que aparece aqui é usado no produto inteiro — não é vitrine.</p>
+  </div>
+  <div class="mq-pagehead__meta"><span class="mq-status mq-status--brand">Pronto para revisão</span></div>
+</div>
+
+<!-- ===================== FUNDAÇÃO ===================== -->
+<section class="mq-card" id="fundacao">
+  <div class="mq-card__head"><div><p class="mq-eyebrow">Fundação</p><h2 class="mq-title">Cor</h2>
+    <p class="mq-lede">Bordô identifica a marca, a ação primária e a seleção. Nunca preenche um número inteiro sem motivo.</p></div></div>
+  <div class="mq-card__body">
+    <p class="mq-label">Marca</p>
+    <div class="swatches">
+      <figure><i style="background:#fff5f8"></i><b>wine-050</b><span>#FFF5F8</span><small>fundo de seleção</small></figure>
+      <figure><i style="background:#fbe7ee"></i><b>wine-100</b><span>#FBE7EE</span><small>realce suave</small></figure>
+      <figure><i style="background:#f2cfdb"></i><b>wine-200</b><span>#F2CFDB</span><small>borda de destaque</small></figure>
+      <figure><i style="background:#e0a6bc"></i><b>wine-300</b><span>#E0A6BC</span><small>barra de gráfico</small></figure>
+      <figure><i style="background:#9f1748"></i><b>wine-600</b><span>#9F1748</span><small>ação primária</small></figure>
+      <figure><i style="background:#86123c"></i><b>wine-700</b><span>#86123C</span><small>hover e número em foco</small></figure>
+      <figure><i style="background:#4a0b22"></i><b>wine-900</b><span>#4A0B22</span><small>trilho de navegação</small></figure>
+    </div>
+    <p class="mq-label mq-mt-6">Superfície e texto</p>
+    <div class="swatches">
+      <figure><i style="background:#ffffff;box-shadow:inset 0 0 0 1px #e8dde1"></i><b>paper</b><span>#FFFFFF</span><small>cartão</small></figure>
+      <figure><i style="background:#faf7f6"></i><b>canvas</b><span>#FAF7F6</span><small>fundo da página</small></figure>
+      <figure><i style="background:#e8dde1"></i><b>line</b><span>#E8DDE1</span><small>borda</small></figure>
+      <figure><i style="background:#1e1a1c"></i><b>ink</b><span>#1E1A1C</span><small>texto e número</small></figure>
+      <figure><i style="background:#7b6e73"></i><b>muted</b><span>#7B6E73</span><small>apoio</small></figure>
+    </div>
+    <p class="mq-label mq-mt-6">Estado — cor nunca é o único sinal</p>
+    <div class="swatches">
+      <figure><i style="background:#2e6b51"></i><b>ok</b><span>#2E6B51</span><small>pago, concluído</small></figure>
+      <figure><i style="background:#8a6116"></i><b>warn</b><span>#8A6116</span><small>parcial, vence hoje</small></figure>
+      <figure><i style="background:#a83226"></i><b>risk</b><span>#A83226</span><small>atrasado, falha</small></figure>
+      <figure><i style="background:#455c6b"></i><b>info</b><span>#455C6B</span><small>em andamento</small></figure>
+      <figure><i style="background:#96702a"></i><b>gold</b><span>#96702A</span><small>peça e material</small></figure>
+    </div>
+    <p class="mq-note mq-mt-6"><span data-icon="alert"></span><span><b>Decisão de design.</b> “A receber” deixou de ser bordô sólido: um saldo normal é estado neutro. Bordô sólido passou a significar ação da marca, e vermelho-terracota passou a significar atraso ou falha.</span></p>
+  </div>
+</section>
+
+<section class="mq-card">
+  <div class="mq-card__head"><div><p class="mq-eyebrow">Fundação</p><h2 class="mq-title">Tipografia</h2>
+    <p class="mq-lede">Cormorant só no momento editorial. Jost em tudo que é interface e dado, sempre com <code>tabular-nums</code>.</p></div></div>
+  <div class="mq-card__body type-grid">
+    <div><span class="mq-eyebrow">Display · Cormorant 400</span><p class="mq-display">Clareza para decidir</p></div>
+    <div><span class="mq-eyebrow">Title · Cormorant 500</span><p class="mq-title">Precisa da sua atenção</p></div>
+    <div><span class="mq-eyebrow">Subtitle · Jost 500</span><p class="mq-subtitle">Recebimentos da venda</p></div>
+    <div><span class="mq-eyebrow">Eyebrow · Jost 500 · 11/.09em</span><p class="mq-eyebrow">Controle financeiro</p></div>
+    <div><span class="mq-eyebrow">Body · Jost 400</span><p class="mq-lede">O faturamento considera a data efetiva de cada recebimento pago, não a data em que ele foi digitado no sistema.</p></div>
+    <div><span class="mq-eyebrow">Dado · Jost 500 tabular</span>
+      <p><b class="mq-money mq-money--lg"><i>R$</i>1.284,00</b> · <b class="mq-qty"><b>1.121</b><span>peças</span></b> · <b class="mq-date">16/09/2026<small>vence hoje</small></b> · <b class="mq-sku">SKU 230076</b></p></div>
+  </div>
+</section>
+
+<section class="mq-card">
+  <div class="mq-card__head"><div><p class="mq-eyebrow">Fundação</p><h2 class="mq-title">Espaço, raio, borda, sombra e grade</h2>
+    <p class="mq-lede">Escala de 4. Linha fina no conteúdo; sombra só em sobreposição.</p></div></div>
+  <div class="mq-card__body">
+    <p class="mq-label">Espaço</p>
+    <div class="scale-row">
+      <span style="--s:4px"><i></i>4</span><span style="--s:8px"><i></i>8</span><span style="--s:12px"><i></i>12</span>
+      <span style="--s:16px"><i></i>16</span><span style="--s:24px"><i></i>24</span><span style="--s:32px"><i></i>32</span>
+      <span style="--s:48px"><i></i>48</span><span style="--s:64px"><i></i>64</span>
+    </div>
+    <p class="mq-label mq-mt-6">Raio</p>
+    <div class="radius-row">
+      <span><i style="border-radius:6px"></i>6 · chip interno</span>
+      <span><i style="border-radius:8px"></i>8 · controle</span>
+      <span><i style="border-radius:12px"></i>12 · indicador</span>
+      <span><i style="border-radius:16px"></i>16 · cartão</span>
+      <span><i style="border-radius:20px"></i>20 · diálogo</span>
+      <span><i style="border-radius:999px"></i>999 · pílula</span>
+    </div>
+    <p class="mq-label mq-mt-6">Elevação</p>
+    <div class="shadow-row">
+      <span><i style="box-shadow:var(--mq-sh-1)"></i>sh-1 · cartão</span>
+      <span><i style="box-shadow:var(--mq-sh-2)"></i>sh-2 · dropdown</span>
+      <span><i style="box-shadow:var(--mq-sh-3)"></i>sh-3 · modal e toast</span>
+    </div>
+    <p class="mq-label mq-mt-6">Grade e pontos de quebra</p>
+    <dl class="mq-figures">
+      <div><dt>Conteúdo</dt><dd>1420 px</dd><small>margem fluida 16–36 px</small></div>
+      <div><dt>Trilho</dt><dd>250 px</dd><small>76 px reduzido · gaveta no telefone</small></div>
+      <div><dt>Quebras</dt><dd>320 · 390 · 768 · 1024 · 1440</dd><small>testadas a cada rodada</small></div>
+      <div><dt>Alvo de toque</dt><dd>44 px</dd><small>mínimo em telefone</small></div>
+    </dl>
+  </div>
+</section>
+
+<!-- ===================== AÇÕES E CAMPOS ===================== -->
+<section class="mq-card" id="acoes">
+  <div class="mq-card__head"><div><p class="mq-eyebrow">Componentes</p><h2 class="mq-title">Botão</h2>
+    <p class="mq-lede">Uma ação primária por superfície. Destrutiva é nomeada e separada.</p></div></div>
+  <div class="mq-card__body mq-stack mq-stack--tight">
+    <div class="mq-btns">
+      <button class="mq-btn mq-btn--primary" type="button"><span data-icon="plus"></span>Ação principal</button>
+      <button class="mq-btn mq-btn--secondary" type="button">Ação secundária</button>
+      <button class="mq-btn mq-btn--ghost" type="button">Ação discreta</button>
+      <button class="mq-btn mq-btn--danger" type="button">Estornar lançamento</button>
+      <button class="mq-btn mq-btn--secondary" type="button" disabled>Indisponível</button>
+      <button class="mq-btn mq-btn--link" type="button">Ver detalhes →</button>
+    </div>
+    <div class="mq-btns">
+      <button class="mq-btn mq-btn--primary mq-btn--sm" type="button">Pequeno</button>
+      <button class="mq-btn mq-btn--primary" type="button">Padrão</button>
+      <button class="mq-btn mq-btn--primary mq-btn--lg" type="button">Grande</button>
+      <button class="mq-btn mq-btn--secondary mq-btn--icon" type="button" aria-label="Buscar"><span data-icon="search"></span></button>
+    </div>
+  </div>
+</section>
+
+<section class="mq-card">
+  <div class="mq-card__head"><div><p class="mq-eyebrow">Componentes</p><h2 class="mq-title">Campo, busca, dinheiro e data</h2>
+    <p class="mq-lede">Rótulo sempre visível, 40 px no desktop e 44 px no telefone, foco com halo bordô.</p></div></div>
+  <div class="mq-card__body mq-stack mq-stack--tight">
+    <div class="mq-formgrid">
+      <label class="mq-field"><span>Nome da cliente</span><input class="mq-input" value="Camila Ferreira"></label>
+      <label class="mq-field"><span>Categoria</span><select class="mq-select"><option>Brincos</option><option>Colares</option></select></label>
+      <label class="mq-field"><span>Valor recebido</span><span class="mq-money-input"><input class="mq-input" type="number" value="159.00"></span></label>
+      <label class="mq-field"><span>Data efetiva do pagamento</span><input class="mq-input" type="date" value="2026-09-15"><small>Quando o dinheiro entrou, não quando foi digitado.</small></label>
+      <label class="mq-search"><span class="sr-only">Buscar</span><span data-icon="search"></span><input class="mq-input" type="search" placeholder="Buscar produto, SKU ou categoria"></label>
+      <label class="mq-field"><span>Observação</span><textarea class="mq-textarea" rows="2">Prefere peças douradas.</textarea></label>
+    </div>
+    <div class="mq-filters mq-filters--plain">
+      <div class="mq-chipset"><button type="button" class="active">Todos</button><button type="button">Vence hoje</button><button type="button">Em atraso</button></div>
+      <span class="mq-chip mq-chip--soft">Anel</span>
+      <span class="mq-chip mq-chip--brand">Prefere dourado</span>
+      <span class="mq-chip">Ouro 18k</span>
+      <span class="mq-filters__count">3 de 48</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== DADOS ===================== -->
+<section class="mq-card" id="dados">
+  <div class="mq-card__head"><div><p class="mq-eyebrow">Componentes</p><h2 class="mq-title">Indicador, tabela e lista</h2>
+    <p class="mq-lede">Um indicador responde uma pergunta. A linha inteira abre o detalhe. No telefone a tabela vira cartão.</p></div></div>
+  <div class="mq-card__body mq-stack mq-stack--tight">
+    <div class="mq-kpis">
+      <div class="mq-kpi"><span class="mq-kpi__label">Vendas hoje</span><strong class="mq-kpi__value"><i>R$</i>1.284</strong><span class="mq-kpi__foot">8 vendas · <b class="mq-kpi__trend mq-kpi__trend--up">+12%</b></span></div>
+      <div class="mq-kpi mq-kpi--accent"><span class="mq-kpi__label">A receber</span><strong class="mq-kpi__value"><i>R$</i>12.269</strong><span class="mq-kpi__foot">8 clientes</span></div>
+      <div class="mq-kpi mq-kpi--risk"><span class="mq-kpi__label">Em atraso</span><strong class="mq-kpi__value"><i>R$</i>820</strong><span class="mq-kpi__foot">2 clientes</span></div>
+      <div class="mq-kpi mq-kpi--ok"><span class="mq-kpi__label">Recebido no mês</span><strong class="mq-kpi__value"><i>R$</i>18.420</strong><span class="mq-kpi__foot">pela data efetiva</span></div>
+    </div>
+  </div>
+  <div class="mq-table ds-table">
+    <div class="mq-tr mq-tr--head"><span>Cliente</span><span>Última compra</span><span class="mq-cell--num">Total</span><span class="mq-cell--num">A receber</span><span>Situação</span><span></span></div>
+    <button class="mq-tr is-selected" type="button">
+      <span class="mq-cell"><b>Camila Ferreira</b><small>4 compras · WhatsApp</small></span>
+      <span class="mq-cell"><b class="mq-date">05/09/2026</b><small>venda #1058</small></span>
+      <span class="mq-cell mq-cell--num" data-label="Total"><b class="mq-money">R$ 1.284,00</b></span>
+      <span class="mq-cell mq-cell--num" data-label="A receber"><b class="mq-money mq-money--risk">R$ 159,00</b></span>
+      <span><em class="mq-status mq-status--open">A receber</em></span>
+      <span class="mq-tr__chev" data-icon="chevron"></span>
+    </button>
+    <button class="mq-tr" type="button">
+      <span class="mq-cell"><b>Juliana Prado</b><small>3 compras · balcão</small></span>
+      <span class="mq-cell"><b class="mq-date">04/09/2026</b><small>venda #1057</small></span>
+      <span class="mq-cell mq-cell--num" data-label="Total"><b class="mq-money">R$ 898,00</b></span>
+      <span class="mq-cell mq-cell--num" data-label="A receber"><b class="mq-money mq-money--muted">R$ 0,00</b></span>
+      <span><em class="mq-status mq-status--ok">Em dia</em></span>
+      <span class="mq-tr__chev" data-icon="chevron"></span>
+    </button>
+  </div>
+  <div class="mq-pagination"><span>1–20 de 48</span><nav aria-label="Paginação"><a href="#dados" aria-current="page">1</a><a href="#dados">2</a><a href="#dados">3</a><a href="#dados">→</a></nav></div>
+  <div class="mq-list">
+    <div class="mq-item"><span class="mq-item__time">14:32</span><span class="mq-item__icon mq-item__icon--brand" data-icon="sale"></span>
+      <span class="mq-item__main"><b>Venda #1064 confirmada</b><small>Camila Ferreira · 2 peças · balcão</small></span>
+      <span class="mq-item__side"><b class="mq-money">R$ 159,00</b><em class="mq-status mq-status--open">A receber</em></span></div>
+    <div class="mq-item"><span class="mq-item__time">11:08</span><span class="mq-item__icon mq-item__icon--ok" data-icon="pix"></span>
+      <span class="mq-item__main"><b>Recebimento por PIX</b><small>Ana Luiza · data efetiva 15/09</small></span>
+      <span class="mq-item__side"><b class="mq-money">R$ 100,00</b><em class="mq-status mq-status--ok">Pago</em></span></div>
+  </div>
+</section>
+
+<section class="mq-card">
+  <div class="mq-card__head"><div><p class="mq-eyebrow">Componentes</p><h2 class="mq-title">Gráfico, medidor e etapas</h2>
+    <p class="mq-lede">Todo gráfico responde uma pergunta e oferece a mesma resposta em texto ao lado.</p></div></div>
+  <div class="mq-card__body mq-grid mq-grid--2">
+    <div>
+      <div class="mq-chart">
+        <div class="mq-chart__grid" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <div class="mq-chart__col"><b class="mq-chart__val">R$ 89</b><i class="mq-chart__bar" style="--h:17%"></i><span class="mq-chart__key">08h</span></div>
+        <div class="mq-chart__col"><b class="mq-chart__val">R$ 230</b><i class="mq-chart__bar" style="--h:45%"></i><span class="mq-chart__key">10h</span></div>
+        <div class="mq-chart__col is-peak"><b class="mq-chart__val">R$ 516</b><i class="mq-chart__bar" style="--h:100%"></i><span class="mq-chart__key">14h</span></div>
+        <div class="mq-chart__col"><b class="mq-chart__val">R$ 290</b><i class="mq-chart__bar" style="--h:56%"></i><span class="mq-chart__key">16h</span></div>
+      </div>
+      <div class="mq-bars mq-mt-6">
+        <div class="mq-bars__row"><span>Brinco</span><span class="mq-meter"><i style="width:100%"></i></span><b>421</b></div>
+        <div class="mq-bars__row"><span>Colar</span><span class="mq-meter mq-meter--quiet"><i style="width:68%"></i></span><b>287</b></div>
+      </div>
+    </div>
+    <div class="mq-stack mq-stack--tight">
+      <div class="mq-row"><span class="mq-donut" style="--a:75.4%;--b:100%"><span class="mq-donut__label"><b>1.487</b><small>peças</small></span></span>
+        <dl class="mq-dl" style="flex:1">
+          <div><dt>Em casa</dt><dd>1.121</dd></div>
+          <div><dt>Com revendedoras</dt><dd>366</dd></div>
+        </dl></div>
+      <div class="mq-steps">
+        <div class="mq-step is-done"><span class="mq-step__dot" data-icon="check"></span><span class="mq-step__label">Cadastro</span></div>
+        <div class="mq-step is-done"><span class="mq-step__dot" data-icon="check"></span><span class="mq-step__label">Preparo</span></div>
+        <div class="mq-step is-current"><span class="mq-step__dot"></span><span class="mq-step__label">Revisão</span></div>
+        <div class="mq-step"><span class="mq-step__dot"></span><span class="mq-step__label">Envio</span></div>
+        <div class="mq-step"><span class="mq-step__dot"></span><span class="mq-step__label">Publicado</span></div>
+      </div>
+      <div class="mq-timeline">
+        <div class="mq-timeline__row"><span class="mq-timeline__dot" data-icon="sale"></span>
+          <div class="mq-timeline__body"><b>Venda #1058 registrada</b><small>05/09/2026 · por Sthefany</small></div></div>
+        <div class="mq-timeline__row"><span class="mq-timeline__dot" data-icon="shield"></span>
+          <div class="mq-timeline__body"><b>Garantia #G-142 aberta</b><small>09/09/2026</small></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== NAVEGAÇÃO ===================== -->
+<section class="mq-card" id="navegacao">
+  <div class="mq-card__head"><div><p class="mq-eyebrow">Componentes</p><h2 class="mq-title">Navegação e abas</h2>
+    <p class="mq-lede">O trilho responde “onde estou”. As abas respondem “que recorte deste módulo”. Nunca se misturam.</p></div></div>
+  <div class="mq-card__body mq-stack mq-stack--tight">
+    <div class="mq-tabs"><button class="active" type="button">A receber <b class="mq-badge">3</b></button><button type="button">Recebimentos</button><button type="button">Histórico</button></div>
+    <div class="mq-tabs mq-tabs--pill"><button class="active" type="button">Tudo</button><button type="button">Compras</button><button type="button">Dinheiro</button></div>
+    <div class="mq-row">
+      <span class="mq-badge">12</span><span class="mq-badge mq-badge--brand">5</span><span class="mq-badge mq-badge--risk">2</span>
+      <span class="mq-tip"><button class="mq-btn mq-btn--secondary mq-btn--sm" type="button">Passe o mouse</button><span class="mq-tip__bubble">Dica curta, nunca essencial</span></span>
+    </div>
+    <div class="ds-menu-demo">
+      <div class="mq-menu" style="position:static">
+        <a href="#navegacao"><span data-icon="doc"></span>Ver detalhes da venda</a>
+        <a href="#navegacao"><span data-icon="receipt"></span>Registrar recebimento</a>
+        <hr>
+        <button class="is-danger" type="button"><span data-icon="alert"></span>Estornar lançamento</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== SOBREPOSIÇÕES ===================== -->
+<section class="mq-card" id="sobreposicao">
+  <div class="mq-card__head"><div><p class="mq-eyebrow">Componentes</p><h2 class="mq-title">Modal, gaveta e aviso</h2>
+    <p class="mq-lede">Modal decide. Gaveta detalha sem perder a lista. Aviso confirma — e nunca é a única prova de uma operação crítica.</p></div>
+    <div class="mq-btns">
+      <button class="mq-btn mq-btn--secondary mq-btn--sm" type="button" data-open="ds-modal">Abrir modal</button>
+      <button class="mq-btn mq-btn--secondary mq-btn--sm" type="button" data-open="ds-drawer">Abrir gaveta</button>
+      <button class="mq-btn mq-btn--secondary mq-btn--sm" type="button" data-toast>Mostrar aviso</button>
+    </div>
+  </div>
+  <div class="mq-card__body mq-stack mq-stack--tight">
+    <p class="mq-note mq-note--brand"><span data-icon="alert"></span><span><b>Confirmação.</b> Toda ação que move dinheiro ou peça mostra antes o que muda, em número, e espera o retorno do servidor — a interface não presume sucesso.</span></p>
+    <p class="mq-note mq-note--warn"><span data-icon="alert"></span><span>Aviso: decisão de negócio pendente.</span></p>
+    <p class="mq-note mq-note--risk"><span data-icon="alert"></span><span>Falha: o envio não foi concluído. A aprovação continua válida.</span></p>
+    <p class="mq-note mq-note--ok"><span data-icon="check"></span><span>Concluído: a razão de estoque fechou sem divergência.</span></p>
+    <p class="mq-note mq-note--info"><span data-icon="clock"></span><span>Em andamento: o agente está preparando o conteúdo.</span></p>
+  </div>
+</section>
+
+<!-- ===================== ESTADOS ===================== -->
+<section class="mq-card" id="estados">
+  <div class="mq-card__head"><div><p class="mq-eyebrow">Componentes</p><h2 class="mq-title">Situação, vazio, carregando e erro</h2>
+    <p class="mq-lede">Situação é ponto mais texto. Vazio explica o motivo e oferece saída. Erro diz a causa e preserva o filtro.</p></div></div>
+  <div class="mq-card__body mq-stack mq-stack--tight">
+    <div class="mq-row">
+      <em class="mq-status mq-status--ok">Pago</em>
+      <em class="mq-status mq-status--warn">Parcial</em>
+      <em class="mq-status mq-status--open">A receber</em>
+      <em class="mq-status mq-status--risk">Em atraso</em>
+      <em class="mq-status mq-status--info">Em análise</em>
+      <em class="mq-status mq-status--brand">Publicado por você</em>
+      <em class="mq-status mq-status--strong">Bloqueado</em>
+    </div>
+    <div class="mq-grid mq-grid--3 ds-states">
+      <div class="mq-card mq-card--quiet"><div class="mq-state">
+        <span class="mq-state__icon" data-icon="search"></span><h3>Nenhum resultado</h3>
+        <p>Nenhuma conta corresponde à busca ou ao filtro ativo.</p>
+        <button class="mq-btn mq-btn--secondary mq-btn--sm" type="button">Limpar filtros</button></div></div>
+      <div class="mq-card mq-card--quiet"><div class="mq-skel-stack" aria-busy="true">
+        <span class="mq-skel mq-skel--title"></span><span class="mq-skel mq-skel--line"></span>
+        <span class="mq-skel mq-skel--short"></span><span class="mq-skel mq-skel--block"></span></div></div>
+      <div class="mq-card mq-card--quiet"><div class="mq-state mq-state--error">
+        <span class="mq-state__icon" data-icon="alert"></span><h3>Não foi possível carregar</h3>
+        <p>Seus filtros e seu rascunho foram preservados. Tente novamente.</p>
+        <button class="mq-btn mq-btn--primary mq-btn--sm" type="button">Tentar novamente</button></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== ÍCONES ===================== -->
+<section class="mq-card" id="icones">
+  <div class="mq-card__head"><div><p class="mq-eyebrow">Fundação</p><h2 class="mq-title">Iconografia</h2>
+    <p class="mq-lede">Um só traço, 24×24, sem emoji. O vocabulário cobre o domínio da Marquesa e é servido por <code>MarquesaUI.icon()</code>.</p></div></div>
+  <div class="mq-card__body"><div class="icon-grid" data-icon-grid></div></div>
+</section>
+
+</main></div>
+
+<dialog class="mq-modal" id="ds-modal">
+  <form method="dialog">
+    <div class="mq-modal__head">
+      <div><p class="mq-eyebrow">Novo recebimento</p><h2 class="mq-title">Registrar recebimento</h2></div>
+      <button class="mq-modal__close" value="cancel" aria-label="Fechar" data-icon="close"></button>
+    </div>
+    <div class="mq-modal__body">
+      <p class="mq-lede">O valor entra no faturamento pela data efetiva informada. O estoque não muda.</p>
+      <dl class="mq-confirm"><dt>A receber nesta venda</dt><dd>R$ 159,00</dd></dl>
+      <div class="mq-formgrid">
+        <label class="mq-field"><span>Valor recebido</span><span class="mq-money-input"><input class="mq-input" type="number" value="159.00"></span></label>
+        <label class="mq-field"><span>Data efetiva</span><input class="mq-input" type="date" value="2026-09-15"></label>
+      </div>
+    </div>
+    <div class="mq-modal__foot"><button class="mq-btn mq-btn--ghost" value="cancel">Cancelar</button><button class="mq-btn mq-btn--primary" value="ok">Confirmar</button></div>
+  </form>
+</dialog>
+
+<dialog class="mq-drawer" id="ds-drawer">
+  <form method="dialog">
+    <div class="mq-drawer__head">
+      <div><p class="mq-eyebrow">Detalhe</p><h2 class="mq-title">Anel Solitário Zircônia</h2><p class="mq-sku">SKU 310928</p></div>
+      <button class="mq-modal__close" value="cancel" aria-label="Fechar" data-icon="close"></button>
+    </div>
+    <div class="mq-drawer__body">
+      <dl class="mq-figures">
+        <div><dt>Total</dt><dd>9</dd></div><div><dt>Em casa</dt><dd>6</dd></div>
+        <div><dt>Revendedoras</dt><dd>3</dd></div><div class="is-brand"><dt>Valor ref.</dt><dd>R$ 129</dd></div>
+      </dl>
+      <p class="mq-note"><span data-icon="alert"></span><span>Quatro variações de aro. O sistema nunca distribui a saída entre variações sem identificação.</span></p>
+      <button class="mq-btn mq-btn--primary mq-btn--block" value="cancel">Fechar</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="mq-toast mq-toast--ok" data-ds-toast hidden><span data-icon="check"></span>Recebimento demonstrativo registrado. Estoque preservado.</div>
+<script src="design-system.js"></script>
+</body></html>

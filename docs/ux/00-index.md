@@ -49,7 +49,7 @@ AAAA-MM-DD_<tela>_<viewport>_<sequencia>.<ext>
 |---|---|---|---|
 | Home e Agenda | [03-screens/dashboard/](03-screens/dashboard/) | [02-references/dashboard/](02-references/dashboard/) | protótipo pronto para revisão |
 | Vendas | [03-screens/vendas/](03-screens/vendas/) | [02-references/vendas/](02-references/vendas/) | protótipo pronto para revisão |
-| Clientes | [03-screens/clientes/](03-screens/clientes/) | [02-references/clientes/](02-references/clientes/) | perfil/dashboard pronto para revisão |
+| Clientes | [03-screens/clientes/](03-screens/clientes/) | [02-references/clientes/](02-references/clientes/) | módulo próprio (lista + painel) pronto para revisão |
 | Financeiro | [03-screens/financeiro/](03-screens/financeiro/) | — | protótipo pronto para revisão |
 | Garantias, Reparos e Trocas | [03-screens/reparos/](03-screens/reparos/) | [02-references/reparos/](02-references/reparos/) | protótipo pronto para revisão |
 | Revendedoras e Maletas | [03-screens/revendedoras/](03-screens/revendedoras/) | [02-references/revendedoras/](02-references/revendedoras/) | protótipo pronto para revisão |
@@ -65,14 +65,21 @@ AAAA-MM-DD_<tela>_<viewport>_<sequencia>.<ext>
 avaliação arquitetural`. Ninguém promove sozinho o estado de uma tela para o
 último degrau.
 
-## Primeira versão coerente V2
+## Proposta de design final V2
 
-- [Hub navegável](prototype/index.html)
-- [Design system visual](prototype/design-system.html)
-- [Inventário completo de superfícies](07-mapping/product-screen-inventory-v2.md)
+- [Hub de revisão](prototype/index.html) — comece por aqui
+- [Design System aplicado](prototype/design-system.html) — tokens e componentes
+- [Decisões de design desta rodada](04-components/redesign-decisions-v2.md)
+- [Design System — documento](04-components/design-system-v2.md)
 - [Arquitetura de navegação](07-mapping/navigation-architecture-v2.md)
+- [Inventário completo de superfícies](07-mapping/product-screen-inventory-v2.md)
 - [Mapa dos fluxos críticos](05-flows/product-flow-map-v2.md)
 - [Handoff UI ↔ API](07-mapping/ui-api-handoff-v2.md)
+
+A camada visual é uma só: `prototype/marquesa.css` (tokens e componentes) carrega
+primeiro em toda rota, `prototype/system.css` (casco e normalização) carrega por
+último, e `prototype/system.js` monta o trilho, a barra superior e a navegação de
+telefone. Uma tela nova começa por esses três arquivos, não por CSS próprio.
 
 ## Mapa da pasta
 

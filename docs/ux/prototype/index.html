@@ -1,66 +1,94 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Entrada central do protótipo navegável do Sistema Marquesa V2" />
-    <title>Sistema Marquesa V2 · Protótipo</title>
-    <link rel="stylesheet" href="prototype.css?v=20260915" />
-  </head>
-  <body>
-    <header class="hub-header">
-      <a href="index.html" class="hub-brand" aria-label="Sistema Marquesa V2">
-        <img src="../01-brand/logo_sistema-marquesa_preta-transparente.png" alt="Marquesa Semijoias" />
-      </a>
-      <div class="hub-profile"><span>GM</span><div><strong>Gustavo</strong><small>Revisão do protótipo</small></div></div>
-    </header>
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Hub de revisão do protótipo Marquesa V2">
+<title>Marquesa · Hub de revisão</title>
+<link rel="stylesheet" href="marquesa.css">
+<link rel="stylesheet" href="prototype.css">
+<link rel="stylesheet" href="system.css">
+<script defer src="system.js"></script>
+</head>
+<body><div class="app-shell hub-shell">
+<header class="app-header">
+  <nav class="secondary-nav" aria-label="Seções do hub">
+    <a href="#golden" class="active">Golden screens</a>
+    <a href="#modulos">Módulos</a>
+    <a href="#linguagem">Linguagem</a>
+    <a href="#inventory">Todos os destinos</a>
+  </nav>
+</header>
+<main>
 
-    <main>
-      <section class="hub-hero">
-        <div>
-          <p class="eyebrow">Prototype hub · cobertura do produto</p>
-          <h1>Sistema Marquesa V2</h1>
-          <p>Navegue pelo desenho real de cada área. O protótipo usa dados demonstrativos e não altera o sistema em produção.</p>
-        </div>
-        <aside aria-label="Resumo da cobertura">
-          <strong>12</strong><span>áreas navegáveis</span>
-          <small>Todas as famílias disponíveis para revisão</small>
-        </aside>
-      </section>
+<div class="mq-pagehead">
+  <div class="mq-pagehead__text">
+    <p class="mq-eyebrow">Sistema Marquesa · protótipo de design V2</p>
+    <h1 class="mq-display">Hub de revisão</h1>
+    <p class="mq-lede">Uma proposta de design final para o sistema inteiro: um Design System canônico, um casco de aplicativo único e cinco telas de referência que definem a linguagem das demais. Nada aqui grava dado real e nada está aprovado.</p>
+  </div>
+  <div class="mq-pagehead__meta"><span class="mq-status mq-status--brand">Ready for Gustavo review</span></div>
+</div>
 
-      <section class="hub-progress" aria-labelledby="coverage-title">
-        <div class="section-title"><div><p class="eyebrow">Camada 1</p><h2 id="coverage-title">Cobertura visual</h2></div><div class="hub-links"><a href="design-system.html">Ver design system</a><a href="../07-mapping/product-screen-inventory-v2.md">Abrir inventário</a></div></div>
-        <div class="progress-track" aria-label="Doze das doze famílias já navegáveis"><span style="width:100%"></span></div>
-        <div class="progress-legend"><span><i class="ready"></i>Pronta para revisão</span><span><i class="working"></i>Em andamento</span><span><i></i>Não iniciada</span></div>
-      </section>
+<div class="mq-kpis">
+  <div class="mq-kpi"><span class="mq-kpi__label">Rotas públicas</span><strong class="mq-kpi__value">18</strong><span class="mq-kpi__foot">Todas com o mesmo casco</span></div>
+  <div class="mq-kpi"><span class="mq-kpi__label">Superfícies documentadas</span><strong class="mq-kpi__value">49</strong><span class="mq-kpi__foot">Telas, abas e diálogos</span></div>
+  <div class="mq-kpi mq-kpi--accent"><span class="mq-kpi__label">Golden screens</span><strong class="mq-kpi__value">5</strong><span class="mq-kpi__foot">Home, Clientes, Financeiro, Estoque, Nuvemshop</span></div>
+  <div class="mq-kpi"><span class="mq-kpi__label">Componentes oficiais</span><strong class="mq-kpi__value">26</strong><span class="mq-kpi__foot">Usados no produto, não só na vitrine</span></div>
+</div>
 
-      <section class="architecture-strip" aria-labelledby="architecture-title">
-        <div><p class="eyebrow">Navegação proposta</p><h2 id="architecture-title">Uma entrada simples para a operação</h2><p>O hub continua mostrando toda a cobertura do protótipo. No produto, as áreas se organizam em seis entradas principais.</p></div>
-        <nav aria-label="Arquitetura principal"><a href="../03-screens/dashboard/master.html">Home</a><a href="../03-screens/vendas/master.html">Vendas</a><a href="../03-screens/vendas/master.html#clientes">Clientes</a><a href="../03-screens/estoque/master.html">Estoque</a><a href="../03-screens/revendedoras/master.html">Revendedoras</a><span>Mais <small>Financeiro · Garantias · Etiquetas · Nuvemshop</small></span></nav>
-      </section>
+<section class="mq-card" id="golden">
+  <div class="mq-card__head"><div><p class="mq-eyebrow">Comece por aqui</p><h2 class="mq-title">Golden screens</h2>
+    <p class="mq-lede">As cinco telas que definem como o sistema inteiro se comporta. Se algo aqui estiver errado, está errado em todo lugar.</p></div></div>
+  <div class="mq-list">
+    <a class="mq-item" href="/prototype/"><span class="mq-item__icon mq-item__icon--brand" data-icon="home"></span>
+      <span class="mq-item__main"><b>Home · como está a operação?</b><small>Indicadores, fila de decisão, movimento do dia e atividade recente</small></span>
+      <span class="mq-item__side"><span data-icon="chevron" class="mq-tr__chev"></span></span></a>
+    <a class="mq-item" href="/prototype/clientes/"><span class="mq-item__icon mq-item__icon--brand" data-icon="people"></span>
+      <span class="mq-item__main"><b>Clientes · como está a relação desta cliente?</b><small>Lista, identidade, dinheiro, pós-venda, observações e atividade</small></span>
+      <span class="mq-item__side"><span data-icon="chevron" class="mq-tr__chev"></span></span></a>
+    <a class="mq-item" href="/prototype/financeiro/"><span class="mq-item__icon mq-item__icon--brand" data-icon="money"></span>
+      <span class="mq-item__main"><b>Financeiro · quanto entrou e quanto falta receber?</b><small>Três datas distintas, saldo por venda e auditoria de correção</small></span>
+      <span class="mq-item__side"><span data-icon="chevron" class="mq-tr__chev"></span></span></a>
+    <a class="mq-item" href="/prototype/estoque/"><span class="mq-item__icon mq-item__icon--brand" data-icon="box"></span>
+      <span class="mq-item__main"><b>Estoque · onde está o patrimônio?</b><small>Distribuição, categorias, inventário em etapas e catálogo físico</small></span>
+      <span class="mq-item__side"><span data-icon="chevron" class="mq-tr__chev"></span></span></a>
+    <a class="mq-item" href="/prototype/nuvemshop/"><span class="mq-item__icon mq-item__icon--brand" data-icon="cloud"></span>
+      <span class="mq-item__main"><b>Nuvemshop · o que está em andamento na loja?</b><small>A lista é a protagonista: peça, dados, etapa e próxima ação</small></span>
+      <span class="mq-item__side"><span data-icon="chevron" class="mq-tr__chev"></span></span></a>
+  </div>
+</section>
 
-      <section class="area-grid" aria-label="Áreas do Sistema Marquesa">
-        <a class="area-card ready" href="../03-screens/vendas/master.html">
-          <span class="area-icon">↗</span><span class="status">Pronta para revisão</span>
-          <h2>Vendas</h2><p>Painel, lançamentos, Venda normal, Monte seu Colar e Saída sem faturamento.</p><strong>Abrir Vendas <span>→</span></strong>
-        </a>
-        <a class="area-card ready" href="../03-screens/estoque/master.html">
-          <span class="area-icon">◇</span><span class="status">Pronta para revisão</span>
-          <h2>Estoque</h2><p>Visão geral, distribuição, inventário, divergências e produtos.</p><strong>Abrir Estoque <span>→</span></strong>
-        </a>
-        <a class="area-card ready" id="clientes" href="../03-screens/vendas/master.html#clientes"><span class="area-icon">○</span><span class="status">Pronta para revisão</span><h2>Clientes</h2><p>Lista, perfil, cadastro, histórico e relacionamento financeiro.</p><strong>Abrir Clientes <span>→</span></strong></a>
-        <a class="area-card ready" id="financeiro" href="../03-screens/financeiro/master.html"><span class="area-icon">R$</span><span class="status">Pronta para revisão</span><h2>Financeiro</h2><p>A receber, registro de recebimentos, correções e histórico.</p><strong>Abrir Financeiro <span>→</span></strong></a>
-        <a class="area-card ready" id="garantias" href="../03-screens/reparos/master.html"><span class="area-icon">✧</span><span class="status">Pronta para revisão</span><h2>Garantias e reparos</h2><p>Casos, prazos, eventos, consertos, trocas e devoluções.</p><strong>Abrir Garantias <span>→</span></strong></a>
-        <a class="area-card ready" id="revendedoras" href="../03-screens/revendedoras/master.html"><span class="area-icon">♙</span><span class="status">Pronta para revisão</span><h2>Revendedoras</h2><p>Visão geral, perfis, maletas, consignação e acertos.</p><strong>Abrir Revendedoras <span>→</span></strong></a>
-        <a class="area-card ready" id="catalogo" href="../03-screens/catalogo/master.html"><span class="area-icon">□</span><span class="status">Pronta para revisão</span><h2>Catálogo</h2><p>Produtos, galeria, conteúdo, aprovação e publicação.</p><strong>Abrir Catálogo <span>→</span></strong></a>
-        <a class="area-card ready" id="etiquetas" href="../03-screens/etiquetas/master.html"><span class="area-icon">◇</span><span class="status">Pronta para revisão</span><h2>Etiquetas</h2><p>Preparação, revisão da folha, impressão e histórico.</p><strong>Abrir Etiquetas <span>→</span></strong></a>
-        <a class="area-card ready" id="nuvemshop" href="../03-screens/nuvemshop/master.html"><span class="area-icon">N</span><span class="status">Pronta para revisão</span><h2>Nuvemshop</h2><p>Produtos na loja, fila de publicação, aprovação, sincronização e divergências.</p><strong>Abrir Nuvemshop <span>→</span></strong></a>
-        <a class="area-card ready" id="dashboard" href="../03-screens/dashboard/master.html"><span class="area-icon">⌂</span><span class="status">Pronta para revisão</span><h2>Home</h2><p>Resumo da operação, prioridades, atalhos e movimento do dia.</p><strong>Abrir Home <span>→</span></strong></a>
-        <a class="area-card ready" id="notificacoes" href="../03-screens/notificacoes/master.html"><span class="area-icon">!</span><span class="status">Pronta para revisão</span><h2>Notificações</h2><p>Central de alertas, prioridades, leitura e destinos.</p><strong>Abrir Notificações <span>→</span></strong></a>
-        <a class="area-card ready" id="configuracoes" href="../03-screens/configuracoes/master.html"><span class="area-icon">⚙</span><span class="status">Pronta para revisão</span><h2>Perfil e configurações</h2><p>Conta, permissões, preferências e conexão do sistema.</p><strong>Abrir Configurações <span>→</span></strong></a>
-      </section>
+<div class="mq-grid mq-grid--2" id="modulos">
+  <section class="mq-card">
+    <div class="mq-card__head"><div><p class="mq-eyebrow">Normalizadas</p><h2 class="mq-title">Demais módulos</h2>
+      <p class="mq-lede">Mesmo casco, mesmos tokens e mesmos componentes; a estrutura interna foi preservada.</p></div></div>
+    <div class="mq-card__body"><div class="mq-grid mq-grid--2">
+      <a class="mq-btn mq-btn--secondary" href="/prototype/vendas/">Vendas</a>
+      <a class="mq-btn mq-btn--secondary" href="/prototype/catalogo/">Catálogo</a>
+      <a class="mq-btn mq-btn--secondary" href="/prototype/revendedoras/">Revendedoras</a>
+      <a class="mq-btn mq-btn--secondary" href="/prototype/garantias/">Garantias e reparos</a>
+      <a class="mq-btn mq-btn--secondary" href="/prototype/etiquetas/">Etiquetas</a>
+      <a class="mq-btn mq-btn--secondary" href="/prototype/agenda/">Agenda</a>
+      <a class="mq-btn mq-btn--secondary" href="/prototype/notificacoes/">Notificações</a>
+      <a class="mq-btn mq-btn--secondary" href="/prototype/configuracoes/">Configurações</a>
+    </div></div>
+  </section>
 
-      <p class="hub-footnote"><a href="../03-screens/nuvemshop/publicar.html">Revisar Publicar na Nuvemshop →</a></p><p class="hub-footnote">Estado do protótipo em 16/09/2026 · aprovação visual pertence ao Gustavo · nenhuma tela desta entrada grava dados reais.</p>
-    </main>
-  </body>
-</html>
+  <section class="mq-card" id="linguagem">
+    <div class="mq-card__head"><div><p class="mq-eyebrow">Referência</p><h2 class="mq-title">A linguagem</h2>
+      <p class="mq-lede">Tokens, componentes, estados e ícones — a fonte da verdade visual.</p></div></div>
+    <div class="mq-card__body mq-stack mq-stack--tight">
+      <a class="mq-btn mq-btn--primary mq-btn--block" href="/prototype/design-system/">Abrir o Design System</a>
+      <dl class="mq-dl">
+        <div><dt>Identidade</dt><dd>Bordô como tinta</dd></div>
+        <div><dt>Títulos</dt><dd>Cormorant Garamond</dd></div>
+        <div><dt>Interface e dado</dt><dd>Jost tabular</dd></div>
+        <div><dt>Quebras testadas</dt><dd>320 · 390 · 768 · 1024 · 1440</dd></div>
+      </dl>
+      <p class="mq-note"><span data-icon="alert"></span><span>Estados de carregamento, erro e dado parcial podem ser vistos em qualquer módulo acrescentando <code>?state=loading</code>, <code>?state=error</code> ou <code>?state=partial</code> à rota.</span></p>
+    </div>
+  </section>
+</div>
+
+</main></div>
+</body></html>

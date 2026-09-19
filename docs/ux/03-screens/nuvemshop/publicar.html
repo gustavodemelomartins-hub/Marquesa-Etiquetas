@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Marquesa · Publicar na Nuvemshop</title>
-  <link rel="stylesheet" href="../vendas/master.css">
+  <link rel="stylesheet" href="../../prototype/marquesa.css"><link rel="stylesheet" href="../vendas/master.css">
   <link rel="stylesheet" href="publicar.css">
   <link rel="stylesheet" href="../../prototype/system.css">
   <script defer src="../../prototype/system.js"></script>
@@ -11,15 +11,50 @@
   <script defer src="publicar.js"></script>
 </head>
 <body><div class="app-shell publish-shell">
-  <header class="app-header"><div class="header-main"></div><nav class="secondary-nav" aria-label="Nuvemshop"><a href="master.html">Produtos na loja</a><a href="publicar.html" aria-current="page">Publicar na Nuvemshop</a><a href="master.html#pending">Pendências</a><a href="master.html#analysis">Sincronização</a></nav></header>
+  <header class="app-header">
+    <nav class="secondary-nav" aria-label="Nuvemshop">
+      <a href="publicar.html" aria-current="page">Publicação</a>
+      <a href="master.html">Produtos na loja</a>
+      <a href="master.html#pending">Pendências</a>
+      <a href="master.html#analysis">Divergências</a>
+    </nav>
+  </header>
   <main>
-    <div class="page-heading"><div><p class="context">Nuvemshop · publicação</p><h1>Publicar na Nuvemshop</h1><p>Prepare o conteúdo, revise os detalhes e aprove para publicar.</p></div><span class="demo-note" data-persistence>Demonstração · carregando exemplos</span></div>
-    <section class="publication-workspace" aria-label="Fila de publicação">
-      <nav class="publication-filters" aria-label="Etapa da publicação" data-filters></nav>
-      <div class="publication-tools"><label class="publication-search"><span data-icon="search"></span><input type="search" aria-label="Buscar produto ou SKU" placeholder="Buscar produto ou SKU" data-search></label><label><span class="sr-only">Status da publicação</span><select data-status><option value="all">Todos os status</option><option value="waiting">Aguardando ação</option><option value="preparing">Agente preparando</option><option value="review">Aguardando aprovação</option><option value="publishing">Publicando</option><option value="published">Publicado</option><option value="failed">Falha na publicação</option></select></label><span data-result-count aria-live="polite"></span></div>
-      <div class="publication-missing"><label>Pendência <select data-missing><option value="all">Todas as pendências</option><option value="photos">Sem imagens</option><option value="category">Sem categoria</option><option value="price">Sem preço válido</option></select></label><span>Presença na loja e bloqueios técnicos são verificados separadamente.</span></div><div class="publication-list" data-products></div>
-      <div class="publication-empty" data-empty hidden><span data-icon="search"></span><h2>Nenhum produto encontrado</h2><p>Tente outro nome, SKU ou etapa.</p><button class="button ghost" data-reset>Limpar filtros</button></div>
-      <footer class="publication-footer"><span>Dados e imagens ilustrativos. Nenhuma publicação real.</span><span data-page-count></span></footer>
+    <div class="mq-pagehead">
+      <div class="mq-pagehead__text">
+        <p class="mq-eyebrow">Nuvemshop · central de publicação</p>
+        <h1 class="mq-display">Publicar na loja</h1>
+        <p class="mq-lede">Prepare o conteúdo, revise as fotos e aprove. A aprovação é a autorização humana — não existe confirmação extra depois dela.</p>
+      </div>
+      <div class="mq-pagehead__meta"><span class="mq-demo" data-persistence>Demonstração · carregando exemplos</span></div>
+    </div>
+    <p class="mq-note mq-note--brand publish-flow-key"><span data-icon="cloud"></span>
+      <span><b>Preparar → Revisar → Aprovar e publicar → Publicando → Publicado.</b>
+        Falha de envio mantém a aprovação e oferece repetição; alterar o conteúdo depois da falha devolve o produto à revisão.</span></p>
+<section class="mq-card publication-workspace" aria-label="Fila de publicação">
+      <div class="mq-card__head">
+        <div><p class="mq-eyebrow">Fila</p><h2 class="mq-title">O que está em andamento</h2>
+          <p class="mq-lede">Cada linha mostra a peça, os dados da loja, a etapa e a próxima ação possível.</p></div>
+        <span class="mq-filters__count" data-result-count aria-live="polite"></span>
+      </div>
+      <nav class="mq-chipset publication-filters" aria-label="Etapa da publicação" data-filters></nav>
+      <div class="mq-filters publication-tools">
+        <label class="mq-search publication-search"><span class="sr-only">Buscar produto ou SKU</span><span data-icon="search"></span>
+          <input class="mq-input" type="search" placeholder="Buscar produto ou SKU" data-search></label>
+        <label class="mq-field publication-select"><span class="sr-only">Status da publicação</span>
+          <select class="mq-select" data-status><option value="all">Todos os status</option><option value="waiting">Aguardando ação</option><option value="preparing">Agente preparando</option><option value="review">Aguardando aprovação</option><option value="publishing">Publicando</option><option value="published">Publicado</option><option value="failed">Falha na publicação</option></select></label>
+        <label class="mq-field publication-select"><span class="sr-only">Pendência</span>
+          <select class="mq-select" data-missing><option value="all">Todas as pendências</option><option value="photos">Sem imagens</option><option value="category">Sem categoria</option><option value="price">Sem preço válido</option></select></label>
+        <span class="mq-hint publication-hint">Presença na loja e bloqueios técnicos são verificados separadamente.</span>
+      </div>
+<div class="publication-list" data-products></div>
+      <div class="mq-state publication-empty" data-empty hidden>
+        <span class="mq-state__icon" data-icon="search"></span>
+        <h3>Nenhum produto nesta etapa</h3>
+        <p>Nenhum produto corresponde ao nome, SKU, status ou pendência selecionados.</p>
+        <button class="mq-btn mq-btn--secondary" data-reset>Limpar filtros</button>
+      </div>
+      <div class="mq-card__foot"><span>Dados e imagens ilustrativos · nenhuma publicação real</span><span data-page-count></span></div>
     </section>
   </main>
 </div>

@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Clientes do Sistema Marquesa V2 — lista e painel de relacionamento">
+<title>Sistema Marquesa · Clientes</title>
+<link rel="stylesheet" href="../../prototype/marquesa.css">
+<link rel="stylesheet" href="../vendas/master.css?v=20260919-shared">
+<link rel="stylesheet" href="master.css?v=20260919">
+<link rel="stylesheet" href="../../prototype/system.css">
+<script src="../../prototype/demo-store.js"></script>
+<script defer src="../../prototype/system.js"></script></head>
+<body><div class="app-shell clients-shell">
+<header class="app-header">
+  <nav class="secondary-nav" aria-label="Seções de Clientes">
+    <button class="active" type="button" data-client-tab="lista">Todas as clientes <span data-client-count>5</span></button>
+    <button type="button" data-client-tab="perfil">Painel da cliente</button>
+  </nav>
+</header>
+<main>
+
+<!-- ======================= LISTA ======================= -->
+<section data-client-view="lista" class="mq-stack">
+  <div class="mq-pagehead">
+    <div class="mq-pagehead__text">
+      <p class="mq-eyebrow">Relacionamento</p>
+      <h1 class="mq-display">Clientes</h1>
+      <p class="mq-lede">Quem compra, quanto já comprou e o que ainda está em aberto. Abra uma cliente para ver a relação inteira.</p>
+    </div>
+    <div class="mq-pagehead__actions">
+      <button class="mq-btn mq-btn--secondary" type="button" data-href="../financeiro/master.html">Ver a receber</button>
+      <button class="mq-btn mq-btn--primary" type="button" data-new-client><span data-icon="plus"></span>Nova cliente</button>
+    </div>
+  </div>
+
+  <div class="mq-kpis">
+    <div class="mq-kpi"><span class="mq-kpi__label">Clientes cadastradas</span><strong class="mq-kpi__value" data-kpi-clients>5</strong><span class="mq-kpi__foot">Base demonstrativa</span></div>
+    <div class="mq-kpi"><span class="mq-kpi__label">Compraram no mês</span><strong class="mq-kpi__value">3</strong><span class="mq-kpi__foot">De 5 clientes ativas</span></div>
+    <div class="mq-kpi mq-kpi--accent"><span class="mq-kpi__label">Com saldo em aberto</span><strong class="mq-kpi__value" data-kpi-open>3</strong><span class="mq-kpi__foot" data-kpi-open-value>R$ 528,00 a receber</span></div>
+    <div class="mq-kpi"><span class="mq-kpi__label">Ticket médio da base</span><strong class="mq-kpi__value"><i>R$</i>196</strong><span class="mq-kpi__foot">Por venda concluída</span></div>
+  </div>
+
+  <section class="mq-card">
+    <div class="mq-card__head">
+      <div><p class="mq-eyebrow">Base</p><h2 class="mq-title">Todas as clientes</h2>
+        <p class="mq-lede">Busque por nome ou telefone. A linha inteira abre o painel da cliente.</p></div>
+    </div>
+    <div class="mq-filters">
+      <label class="mq-search"><span class="sr-only">Buscar cliente</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10.6" cy="10.6" r="6.4"/><path d="m15.4 15.4 4.4 4.4"/></svg>
+        <input class="mq-input" type="search" placeholder="Buscar por nome ou telefone" data-client-search></label>
+      <div class="mq-chipset" data-client-filters>
+        <button type="button" class="active" data-client-filter="all">Todas</button>
+        <button type="button" data-client-filter="open">Com saldo aberto</button>
+        <button type="button" data-client-filter="warranty">Com pós-venda</button>
+      </div>
+      <span class="mq-filters__count" data-client-visible>5 clientes</span>
+    </div>
+    <div class="mq-table client-table" role="table" aria-label="Clientes">
+      <div class="mq-tr mq-tr--head client-row" role="row">
+        <span>Cliente</span><span>Contato</span><span>Compras</span><span class="mq-cell--num">Total comprado</span>
+        <span class="mq-cell--num">A receber</span><span>Situação</span><span></span>
+      </div>
+      <div data-client-rows></div>
+    </div>
+    <div class="mq-state" data-client-empty hidden>
+      <span class="mq-state__icon" data-icon="search"></span>
+      <h3>Nenhuma cliente encontrada</h3>
+      <p>Ajuste a busca ou limpe o filtro para ver a base inteira.</p>
+      <button class="mq-btn mq-btn--secondary" type="button" data-client-clear>Limpar filtros</button>
+    </div>
+    <div class="mq-pagination"><span data-client-range>1–5 de 5 clientes</span>
+      <nav aria-label="Paginação"><a href="#" aria-current="page">1</a></nav></div>
+  </section>
+</section>
+
+<!-- ======================= PAINEL DA CLIENTE ======================= -->
+<section data-client-view="perfil" class="mq-stack" hidden>
+  <div class="mq-pagehead">
+    <div class="mq-pagehead__text">
+      <p class="mq-eyebrow">Relacionamento</p>
+      <h1 class="mq-display" data-profile-name>Camila Ferreira</h1>
+      <p class="mq-lede" data-profile-lede>Histórico de compras, situação financeira e pós-venda desta cliente.</p>
+    </div>
+    <div class="mq-pagehead__actions">
+      <button class="mq-btn mq-btn--ghost" type="button" data-client-tab="lista">← Todas as clientes</button>
+      <button class="mq-btn mq-btn--secondary" type="button" data-edit-client>Editar cadastro</button>
+      <button class="mq-btn mq-btn--primary" type="button" data-href="../vendas/master.html#nova-venda"><span data-icon="plus"></span>Nova venda</button>
+    </div>
+  </div>
+
+  <!-- Identidade: quem é, por onde fala, desde quando. -->
+  <section class="mq-card identity">
+    <div class="mq-card__body identity__body">
+      <span class="mq-avatar mq-avatar--lg" data-profile-initials>CF</span>
+      <div class="identity__text">
+        <h2 class="mq-title" data-profile-name-2>Camila Ferreira</h2>
+        <p class="mq-hint"><span data-profile-phone>(19) 9 8123-4567</span> · <span data-profile-channel>WhatsApp</span></p>
+        <div class="mq-row identity__tags">
+          <span class="mq-chip mq-chip--soft">Cliente desde 03/2025</span>
+          <span class="mq-chip mq-chip--soft" data-profile-purchases>4 compras</span>
+          <span class="mq-chip mq-chip--brand">Prefere dourado</span>
+        </div>
+      </div>
+      <dl class="mq-dl identity__facts">
+        <div><dt>Última compra</dt><dd data-profile-last>05/09/2026</dd></div>
+        <div><dt>Canal mais usado</dt><dd>Balcão</dd></div>
+        <div><dt>Forma preferida</dt><dd>PIX</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- A relação em números. Bordô só no que pede decisão. -->
+  <div class="mq-kpis profile-kpis">
+    <div class="mq-kpi"><span class="mq-kpi__label">Total comprado</span><strong class="mq-kpi__value" data-profile-bought><i>R$</i>1.284</strong><span class="mq-kpi__foot">Histórico de vendas</span></div>
+    <div class="mq-kpi mq-kpi--ok"><span class="mq-kpi__label">Total recebido</span><strong class="mq-kpi__value" data-profile-received><i>R$</i>1.125</strong><span class="mq-kpi__foot">Pagamentos confirmados</span></div>
+    <div class="mq-kpi mq-kpi--accent"><span class="mq-kpi__label">A receber</span><strong class="mq-kpi__value" data-profile-open><i>R$</i>159</strong><span class="mq-kpi__foot" data-profile-open-foot>Vence em 16/09 · saldo simples</span></div>
+    <div class="mq-kpi"><span class="mq-kpi__label">Ticket médio</span><strong class="mq-kpi__value" data-profile-ticket><i>R$</i>321</strong><span class="mq-kpi__foot">Por venda concluída</span></div>
+    <div class="mq-kpi"><span class="mq-kpi__label">Crédito disponível</span><strong class="mq-kpi__value"><i>R$</i>0</strong><span class="mq-kpi__foot">Regra ainda não decidida</span></div>
+  </div>
+
+  <div class="mq-grid mq-grid--main">
+    <!-- Compra e dinheiro na mesma linha do tempo, mas nunca no mesmo fato. -->
+    <section class="mq-card">
+      <div class="mq-card__head">
+        <div><p class="mq-eyebrow">Linha do tempo</p><h2 class="mq-title">Compras e recebimentos</h2>
+          <p class="mq-lede">A venda e o pagamento são fatos separados, com datas próprias.</p></div>
+        <div class="mq-chipset" data-timeline-filters>
+          <button type="button" class="active" data-timeline-filter="all">Tudo</button>
+          <button type="button" data-timeline-filter="sale">Compras</button>
+          <button type="button" data-timeline-filter="money">Dinheiro</button>
+        </div>
+      </div>
+      <div class="mq-list" data-profile-timeline></div>
+      <div class="mq-card__foot"><span class="mq-demo">Histórico demonstrativo da cliente selecionada</span>
+        <button class="mq-btn mq-btn--link" type="button" data-href="../financeiro/master.html">Abrir no Financeiro</button></div>
+    </section>
+
+    <aside class="mq-stack mq-stack--tight">
+      <section class="mq-card">
+        <div class="mq-card__head"><div><p class="mq-eyebrow">Situação financeira</p><h2 class="mq-title">O que falta receber</h2></div></div>
+        <div class="mq-card__body mq-stack mq-stack--tight">
+          <dl class="mq-dl">
+            <div><dt>Vendas em aberto</dt><dd data-profile-open-count>1 venda</dd></div>
+            <div><dt>Próximo vencimento</dt><dd data-profile-due>16/09/2026</dd></div>
+            <div><dt>Em atraso</dt><dd class="mq-ok" data-profile-late>Nenhum</dd></div>
+          </dl>
+          <button class="mq-btn mq-btn--primary mq-btn--block" type="button" data-href="../financeiro/master.html">Registrar recebimento</button>
+          <p class="mq-note"><span data-icon="box"></span><span>Receber não movimenta estoque. O saldo permanece a receber até a confirmação do pagamento.</span></p>
+        </div>
+      </section>
+
+      <section class="mq-card">
+        <div class="mq-card__head">
+          <div><p class="mq-eyebrow">Crédito da cliente</p><h2 class="mq-title">Regra pendente</h2></div>
+          <span class="mq-status mq-status--warn">Decisão necessária</span>
+        </div>
+        <div class="mq-card__body">
+          <p class="mq-lede">A origem, a validade e o uso do crédito — inclusive em troca com diferença negativa — ainda precisam de decisão de negócio antes de virar tela.</p>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <!-- Pós-venda: garantia, reparo e troca no mesmo lugar. -->
+  <section class="mq-card">
+    <div class="mq-card__head">
+      <div><p class="mq-eyebrow">Pós-venda</p><h2 class="mq-title">Garantias, reparos e trocas</h2>
+        <p class="mq-lede">Ocorrências ligadas às peças que esta cliente comprou.</p></div>
+      <button class="mq-btn mq-btn--secondary mq-btn--sm" type="button" data-href="../reparos/master.html">Abrir Garantias</button>
+    </div>
+    <div class="mq-list">
+      <button class="mq-item" type="button" data-href="../reparos/master.html">
+        <span class="mq-item__icon mq-item__icon--info" data-icon="shield"></span>
+        <span class="mq-item__main"><b>Garantia #G-142 · Argola Duas Linhas</b><small>Venda #1058 · aberta em 09/09 · retorno previsto 17/09</small></span>
+        <span class="mq-item__side"><em class="mq-status mq-status--info">Em análise</em><span data-icon="chevron" class="mq-tr__chev"></span></span>
+      </button>
+      <button class="mq-item" type="button" data-href="../reparos/master.html">
+        <span class="mq-item__icon mq-item__icon--ok" data-icon="swap"></span>
+        <span class="mq-item__main"><b>Troca concluída · Pulseira Medalha Salmo</b><small>Venda #0987 · diferença de R$ 18,00 recebida por PIX em 12/07</small></span>
+        <span class="mq-item__side"><em class="mq-status mq-status--ok">Resolvida</em><span data-icon="chevron" class="mq-tr__chev"></span></span>
+      </button>
+      <button class="mq-item" type="button" data-href="../reparos/master.html">
+        <span class="mq-item__icon" data-icon="repair"></span>
+        <span class="mq-item__main"><b>Reparo · Colar Coração Vazado</b><small>Venda #1041 · devolvido à cliente em 28/08</small></span>
+        <span class="mq-item__side"><em class="mq-status mq-status--ok">Entregue</em><span data-icon="chevron" class="mq-tr__chev"></span></span>
+      </button>
+    </div>
+  </section>
+
+  <div class="mq-grid mq-grid--2">
+    <section class="mq-card">
+      <div class="mq-card__head"><div><p class="mq-eyebrow">Relacionamento</p><h2 class="mq-title">Contato e observações</h2></div></div>
+      <div class="mq-card__body mq-stack mq-stack--tight">
+        <dl class="mq-dl">
+          <div><dt>WhatsApp</dt><dd data-profile-phone-2>(19) 9 8123-4567</dd></div>
+          <div><dt>Instagram</dt><dd class="mq-muted">— ainda não informado —</dd></div>
+          <div><dt>Cidade</dt><dd class="mq-muted">— ainda não informado —</dd></div>
+        </dl>
+        <label class="mq-field"><span>Observação</span>
+          <textarea class="mq-textarea" rows="3" data-profile-notes placeholder="Preferências, tamanho de aro, combinados">Prefere peças douradas e contato pelo WhatsApp.</textarea></label>
+        <button class="mq-btn mq-btn--secondary" type="button" data-save-notes>Salvar observação</button>
+      </div>
+    </section>
+
+    <section class="mq-card">
+      <div class="mq-card__head"><div><p class="mq-eyebrow">Atividade</p><h2 class="mq-title">O que mudou nesta ficha</h2></div></div>
+      <div class="mq-card__body">
+        <div class="mq-timeline">
+          <div class="mq-timeline__row"><span class="mq-timeline__dot" data-icon="sale"></span>
+            <div class="mq-timeline__body"><b>Venda #1058 registrada</b><small>05/09/2026 · 2 peças · balcão · por Sthefany</small></div></div>
+          <div class="mq-timeline__row"><span class="mq-timeline__dot" data-icon="shield"></span>
+            <div class="mq-timeline__body"><b>Garantia #G-142 aberta</b><small>09/09/2026 · Argola Duas Linhas</small></div></div>
+          <div class="mq-timeline__row"><span class="mq-timeline__dot" data-icon="doc"></span>
+            <div class="mq-timeline__body"><b>Observação atualizada</b><small>10/09/2026 · preferência por peças douradas</small></div></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</section>
+
+</main></div>
+
+<dialog class="mq-modal" data-client-dialog>
+  <form method="dialog">
+    <div class="mq-modal__head">
+      <div><p class="mq-eyebrow" data-client-dialog-context>Cadastro</p><h2 class="mq-title" data-client-dialog-title>Nova cliente</h2></div>
+      <button class="mq-modal__close" value="cancel" aria-label="Fechar" data-icon="close"></button>
+    </div>
+    <div class="mq-modal__body">
+      <p class="mq-lede">Nome e telefone bastam para registrar uma venda. O resto pode ser completado depois.</p>
+      <div class="mq-formgrid">
+        <label class="mq-field"><span>Nome</span><input class="mq-input" data-form-name placeholder="Nome completo"></label>
+        <label class="mq-field"><span>Telefone</span><input class="mq-input" data-form-phone placeholder="(19) 9 0000-0000"></label>
+        <label class="mq-field"><span>Cidade</span><input class="mq-input" data-form-city placeholder="Hortolândia"></label>
+        <label class="mq-field"><span>Instagram</span><input class="mq-input" data-form-instagram placeholder="@"></label>
+      </div>
+      <label class="mq-field"><span>Observação</span><textarea class="mq-textarea" rows="2" data-form-notes placeholder="Preferências e combinados"></textarea></label>
+      <p class="mq-note mq-note--info"><span data-icon="alert"></span><span>Cadastro demonstrativo: fica salvo neste navegador e não vai para nenhum servidor.</span></p>
+    </div>
+    <div class="mq-modal__foot">
+      <button class="mq-btn mq-btn--ghost" value="cancel">Cancelar</button>
+      <button class="mq-btn mq-btn--primary" type="button" data-save-client>Salvar cliente</button>
+    </div>
+  </form>
+</dialog>
+<div class="launch-toast" role="status" aria-live="polite" data-client-toast hidden></div>
+<script src="master.js?v=20260919"></script></body></html>
