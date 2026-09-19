@@ -1,5 +1,15 @@
 @import './fonts.css';
+/* A ORDEM IMPORTA, e é esta:
+     marquesa.css  o Design System V2 — tokens e componentes `.mq-*`.
+     tokens.css    a ponte, que faz os nomes antigos apontarem para os novos.
+     shell.css     o casco React, que usa os dois.
+     painel.css    o que ainda é específico deste painel.
+   Design System primeiro porque ele define os tokens que todo o resto lê;
+   a ponte logo depois porque ela os consome; o específico por último, que é
+   quem tem direito de discordar. */
+@import './marquesa.css';
 @import './tokens.css';
+@import './shell.css';
 @import './painel.css';
 
 /* ------------------------------------------------------------- base */
@@ -33,20 +43,19 @@ body {
     env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
-/* Um brilho blush no alto, que morre antes de chegar ao conteúdo.
-   É o calor da marca sem custar legibilidade. */
-body::before {
-  content: '';
-  position: fixed; inset: 0 0 auto 0; height: 340px;
-  background: linear-gradient(180deg, var(--rose-tint) 0%, rgba(246,227,226,0) 100%);
-  z-index: -1;
-  pointer-events: none;
-}
-
-h1, h2, h3 { font-family: var(--serif); font-weight: 500; margin: 0; letter-spacing: .01em; }
-h1 { font-size: 30px; color: var(--bordo); line-height: 1.15; }
-h2 { font-size: 21px; color: var(--bordo); }
-h3 { font-size: 17px; color: var(--bordo); }
+/* O brilho blush que cobria o alto da página saiu na travessia para a V2.
+   Ele era da paleta antiga, onde o rosa era o fundo; aqui o rosa é decisão
+   — seleção, ação principal, o número que precisa de resposta — e um véu
+   rosa atrás de tudo tira dele exatamente o que o torna legível. */
+/* Cormorant é o momento editorial — título de página e de seção — e nunca
+   carrega dado. Dinheiro, data, SKU e quantidade são Jost com `tabular-nums`,
+   porque coluna de número que dança entre uma linha e outra não se lê.
+   A cor saiu dos títulos: bordô em todo cabeçalho transforma a marca em
+   ruído e rouba o destaque de quem precisa dele. */
+h1, h2, h3 { font-family: var(--serif); font-weight: 500; margin: 0; letter-spacing: 0; color: var(--mq-ink); }
+h1 { font: 400 clamp(26px, 3vw, 34px)/1.1 var(--mq-serif); }
+h2 { font: 500 clamp(18px, 1.6vw, 21px)/1.25 var(--mq-serif); }
+h3 { font: 500 16px/1.3 var(--mq-serif); }
 p { margin: 0; }
 
 a { color: var(--bordo); }
@@ -65,27 +74,34 @@ a { color: var(--bordo); }
   }
 }
 
-/* --------------------------------------------------------- estrutura */
+/* ------------------------------------------------------- casco e entrada
+ *
+ * O casco mora em `shell.css` e é montado por `app/AppShell.tsx`, uma vez
+ * só. O que existia aqui — `.shell`, `.shell-cabecalho`, `.marca`, `.nav`,
+ * `.conteudo`, `.rodape` — era o cabeçalho antigo, e foi retirado junto com
+ * ele: duas folhas descrevendo o mesmo cabeçalho é como se chega a duas
+ * páginas do mesmo sistema parecendo dois sistemas.
+ *
+ * Fica aqui só a tela de ENTRADA, que é a única superfície do produto sem
+ * casco: quem ainda não conectou não tem módulos para navegar. */
 
-.shell { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+.mq-entrada {
+  min-height: 100dvh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--mq-7); padding: var(--mq-7) var(--mq-gutter);
+  background:
+    radial-gradient(120% 80% at 50% -10%, var(--mq-wine-050), transparent 60%),
+    var(--mq-canvas);
+}
+.mq-entrada__marca { font: 400 34px/1 var(--mq-serif); color: var(--mq-wine-800); text-align: center; }
+.mq-entrada__marca small {
+  display: block; margin-top: var(--mq-2);
+  font: 500 10px/1 var(--mq-sans); letter-spacing: .22em; text-transform: uppercase;
+  color: var(--mq-muted);
+}
+.mq-entrada > form, .mq-entrada > section { width: min(420px, 100%); }
 
-.shell-cabecalho {
-  position: relative; z-index: 20;
-  background: rgba(251, 246, 244, .92);
-  border-bottom: 1px solid var(--line);
-}
-.shell-topo {
-  display: flex; align-items: center; gap: var(--r5);
-  padding: var(--r4) var(--r5) var(--r3);
-  max-width: 1180px; width: 100%; margin: 0 auto;
-}
-.shell-identidade { display: flex; align-items: center; gap: var(--r3); flex: 0 0 auto; }
-.marca { font-family: var(--serif); font-size: 26px; color: var(--bordo); letter-spacing: .02em; }
-.marca span { color: var(--rose); }
-.shell-utilidades {
-  display: flex; align-items: center; justify-content: flex-end; gap: var(--r2);
-  flex: 1 1 auto; min-width: 0;
-}
+/* ------------------------------------------------------- busca global */
 
 .busca-global { position: relative; flex: 1 1 320px; max-width: 410px; }
 .busca-global-campo {
@@ -120,55 +136,6 @@ a { color: var(--bordo); }
   display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   color: var(--muted); font-size: 10.5px;
 }
-.perfil-placeholder {
-  display: flex; align-items: center; gap: 7px; min-height: 38px;
-  padding: 4px 9px 4px 5px; border: 1px solid var(--line); border-radius: var(--raio-sm);
-  background: rgba(255, 255, 255, .62); white-space: nowrap;
-}
-.perfil-avatar {
-  display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;
-  border-radius: 50%; background: var(--bordo-tint); color: var(--bordo);
-}
-.perfil-avatar svg { width: 14px; height: 14px; }
-.perfil-texto { color: var(--ink); font-size: 11.5px; font-weight: 600; line-height: 1.15; }
-.perfil-texto small { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; font-weight: 500; }
-
-.nav {
-  display: flex; gap: var(--r1); flex-wrap: wrap;
-  padding: 0 var(--r5);
-  max-width: 1180px; width: 100%; margin: 0 auto;
-}
-.nav-item {
-  appearance: none; border: 0; background: transparent;
-  font: inherit; font-size: 14px; color: var(--muted);
-  padding: var(--r2) var(--r3) var(--r3);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-}
-.nav-item:hover { color: var(--bordo); }
-.nav-item[aria-current='page'] { color: var(--bordo); border-bottom-color: var(--rose); }
-.nav-item .conta {
-  display: inline-block; margin-left: var(--r2);
-  background: var(--bordo-tint); color: var(--bordo);
-  border-radius: 999px; font-size: 11px; padding: 1px 7px;
-}
-
-.conteudo {
-  flex: 1;
-  padding: var(--r5);
-  max-width: 1180px; width: 100%; margin: 0 auto;
-}
-
-/* O preto quente da marca vive aqui, e só aqui: uma faixa com texto claro
-   por cima dela, em vez de um degradê por baixo do conteúdo inteiro. */
-.rodape-faixa { background: var(--darkbg); margin-top: var(--r6); }
-.rodape {
-  padding: var(--r5);
-  max-width: 1180px; width: 100%; margin: 0 auto;
-  color: var(--ondark-soft); font-size: 12.5px;
-}
-.rodape a { color: var(--ondark); }
 
 /* ------------------------------------------------------- cabeçalho */
 
@@ -439,22 +406,10 @@ table.tabela tbody tr[data-conflito]:hover { background: var(--danger-tint); }
 
 /* ------------------------------------------------------------ telas estreitas */
 
+/* O casco já se reorganiza sozinho em `shell.css` (trilho → gaveta, barra
+   inferior, respiro do conteúdo). O que sobra para cá é o que é DA TELA e
+   não do casco. */
 @media (max-width: 640px) {
-  .shell-topo, .nav, .conteudo, .rodape { padding-left: var(--r4); padding-right: var(--r4); }
-  .shell-topo { display: block; padding-top: var(--r3); }
-  .shell-identidade { justify-content: space-between; }
-  .shell-utilidades {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
-    width: 100%; margin-top: var(--r3);
-  }
   .busca-global { min-width: 0; max-width: none; }
-  .perfil-placeholder { min-height: 36px; padding-right: 5px; }
-  .perfil-texto { display: none; }
-  .shell-utilidades > .btn { min-height: 36px; }
-  .nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .nav::-webkit-scrollbar { display: none; }
-  .nav-item { flex: 0 0 auto; padding-left: var(--r2); padding-right: var(--r2); }
-  h1 { font-size: 25px; }
   .metric .valor { font-size: 27px; }
-  .conteudo { padding-top: var(--r4); }
 }

@@ -1,27 +1,50 @@
-import { PageHeader } from '../components/PageHeader';
-import { EmptyState } from '../components/EmptyState';
+import { Icone } from '../components/Icone';
+import { NO_PAINEL_CLASSICO, acharModulo, type ModuloId } from './modulos';
 
 interface Props {
-  titulo: string;
-  descricao: string;
+  modulo: ModuloId;
 }
 
-/** Placeholder para uma área principal que já tem lugar reservado na
- *  navegação, mas cuja tela em React ainda não foi construída — a
- *  funcionalidade real continua no painel clássico enquanto isso. */
-export function AreaPendente({ titulo, descricao }: Props) {
+/** A tela de um módulo que já tem lugar no trilho mas ainda não tem tela
+ *  própria em React.
+ *
+ *  Ela é honesta de propósito e diz três coisas, nesta ordem: qual é a
+ *  pergunta que este módulo vai responder, que ele ainda não foi migrado, e
+ *  onde a tarefa se resolve HOJE. O que ela não faz é desenhar caixas
+ *  vazias com números falsos — uma tela que finge estar pronta custa mais
+ *  caro do que uma que assume que não está. */
+export function AreaPendente({ modulo }: Props) {
+  const m = acharModulo(modulo);
   return (
     <>
-      <PageHeader kicker="Em construção" titulo={titulo} />
-      <EmptyState
-        titulo="Esta área ainda não tem tela própria aqui"
-        descricao={descricao}
-        acoes={
-          <a className="btn btn-leitura" href="../../dashboard.html">
-            Abrir no painel clássico
-          </a>
-        }
-      />
+      <div className="mq-pagehead">
+        <div className="mq-pagehead__text">
+          <p className="mq-eyebrow">{m.rotulo}</p>
+          <h1 className="mq-display">{m.pergunta ?? m.rotulo}</h1>
+          <p className="mq-lede">
+            É esta a pergunta que {m.rotulo} responde. A tela em React ainda não
+            foi construída — até lá, a tarefa continua inteira no painel clássico.
+          </p>
+        </div>
+      </div>
+
+      <section className="mq-card">
+        <div className="mq-state">
+          <span className="mq-state__icon"><Icone nome={m.icone} /></span>
+          <h3>Módulo ainda não migrado</h3>
+          <p>
+            Nada se perdeu: {m.rotulo} funciona hoje no painel clássico, com os
+            mesmos dados. Este lugar no menu existe para que ele não seja
+            procurado em outro canto quando chegar aqui.
+          </p>
+          <p>
+            <a className="mq-btn mq-btn--primary" href={NO_PAINEL_CLASSICO}>
+              Abrir no painel clássico
+              <Icone nome="arrow" />
+            </a>
+          </p>
+        </div>
+      </section>
     </>
   );
 }

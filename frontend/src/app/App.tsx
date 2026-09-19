@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import type { ReconciliationAnalysis } from '../types/reconciliation';
 import { useConnection } from '../hooks/useConnection';
-import { AppShell, type AreaPrincipal } from './AppShell';
+import { AppShell } from './AppShell';
+import type { ModuloId } from './modulos';
 import { ConnectionForm } from './ConnectionForm';
 import { AreaPendente } from './AreaPendente';
+import { ClientesArea } from '../features/clientes/ClientesArea';
 import { EstoqueArea, type SubRotaEstoque } from '../features/estoque/EstoqueArea';
 import {
   RevendedorasArea,
@@ -18,15 +20,11 @@ export function App() {
 
   if (!conexao) {
     return (
-      <div className="shell">
-        <div className="shell-topo">
-          <div className="marca">
-            Marquesa <span>·</span> Painel
-          </div>
+      <div className="mq-entrada">
+        <div className="mq-entrada__marca">
+          Marquesa <small>Sistema</small>
         </div>
-        <main className="conteudo">
-          <ConnectionForm aoConectar={conectar} />
-        </main>
+        <ConnectionForm aoConectar={conectar} />
       </div>
     );
   }
@@ -43,7 +41,7 @@ function AppConectado({
   conexao: Connection;
   aoDesconectar: () => void;
 }) {
-  const [area, setArea] = useState<AreaPrincipal>('estoque');
+  const [modulo, setModulo] = useState<ModuloId>('estoque');
   const [subEstoque, setSubEstoque] = useState<SubRotaEstoque>('estoque-total');
   const [subRev, setSubRev] = useState<SubRotaRevendedoras>('visao-geral');
   /* A análise é cara — lê a loja inteira a 2 requisições por segundo. Ela
@@ -56,47 +54,54 @@ function AppConectado({
   const estado = useEstado(conexao);
   const planejamento = usePlanejamento(estado.dados);
 
+  /* Nuvemshop é módulo de primeiro nível no trilho E aba dentro de Estoque,
+     porque é assim que se chega nela pelos dois caminhos reais: pelo menu,
+     quando o assunto é publicar; pela aba, quando já se está olhando peça.
+     São duas PORTAS, não duas telas — e estas duas funções existem para
+     que o trilho e a faixa de abas nunca discordem sobre onde se está. */
+  const navegar = (m: ModuloId) => {
+    setModulo(m);
+    if (m === 'nuvemshop') setSubEstoque('nuvemshop');
+    if (m === 'estoque' && subEstoque === 'nuvemshop') setSubEstoque('estoque-total');
+  };
+  const navegarSubEstoque = (r: SubRotaEstoque) => {
+    setSubEstoque(r);
+    setModulo(r === 'nuvemshop' ? 'nuvemshop' : 'estoque');
+  };
+
+  const emEstoque = modulo === 'estoque' || modulo === 'nuvemshop';
+
   return (
     <AppShell
       conexao={conexao}
-      area={area}
-      aoNavegar={setArea}
+      modulo={modulo}
+      aoNavegar={navegar}
+      contagens={analise?.itens.length ? { estoque: analise.itens.length } : undefined}
       aoDesconectar={() => {
         setAnalise(null);
         aoDesconectar();
       }}
-      itens={[
-        { area: 'etiqueta', rotulo: 'Etiqueta' },
-        { area: 'estoque', rotulo: 'Estoque' },
-        { area: 'revendedoras', rotulo: 'Revendedoras' },
-        { area: 'vendas', rotulo: 'Vendas' },
-      ]}
     >
-      {area === 'etiqueta' && (
-        <AreaPendente
-          titulo="Etiqueta"
-          descricao="Geração e impressão de etiquetas seguem no painel clássico por enquanto."
-        />
-      )}
+      {modulo === 'clientes' && <ClientesArea conexao={conexao} />}
 
-      {area === 'estoque' && (
+      {emEstoque && (
         <EstoqueArea
           conexao={conexao}
           sub={subEstoque}
-          aoNavegarSub={setSubEstoque}
+          aoNavegarSub={navegarSubEstoque}
           analise={analise}
           aoAnalisar={setAnalise}
           estado={estado.dados}
           planejamento={planejamento}
           aoVerPlanejamento={() => {
             setSubRev('visao-geral');
-            setArea('revendedoras');
+            setModulo('revendedoras');
           }}
           aoMudarEstoque={estado.recarregar}
         />
       )}
 
-      {area === 'revendedoras' && (
+      {modulo === 'revendedoras' && (
         <RevendedorasArea
           conexao={conexao}
           estado={estado.dados}
@@ -109,11 +114,8 @@ function AppConectado({
         />
       )}
 
-      {area === 'vendas' && (
-        <AreaPendente
-          titulo="Vendas"
-          descricao="Registros de vendas, clientes e histórico seguem no painel clássico por enquanto."
-        />
+      {modulo !== 'clientes' && !emEstoque && modulo !== 'revendedoras' && (
+        <AreaPendente modulo={modulo} />
       )}
     </AppShell>
   );

@@ -1,77 +1,90 @@
-/* Identidade da Marquesa.
+/* Identidade da Marquesa — a ponte entre os nomes antigos e a linguagem V2.
  *
- * Os valores saem do CSS do app legado (index.html, bloco `:root`) — não de
- * uma paleta nova. Os dois frontends precisam parecer o mesmo produto
- * enquanto conviverem, e a marca não muda porque a stack mudou.
+ * A fonte da verdade mudou de lugar. Antes, esta folha ERA a paleta, copiada
+ * do `:root` do app legado. Agora a paleta é `marquesa.css`, o Design System
+ * V2, e esta folha existe só para que os nomes que o código já escreveu
+ * — `var(--bordo)`, `var(--r4)`, `var(--line)` — continuem valendo, apontando
+ * para os tokens novos.
  *
- * O que NÃO veio junto: a hierarquia visual. No app legado quase tudo é um
- * aviso, e avisos com a mesma severidade deixam de ser avisos. Aqui a
- * severidade é escassa de propósito — ver --tom-*. */
+ * É de propósito que não se tenha reescrito as 98 telas: um alias resolvido
+ * no navegador re-veste o produto inteiro de uma vez e sem diff, e telas que
+ * ninguém tocou passam a falar a língua nova em vez de ficarem para trás.
+ * Código NOVO escreve `--mq-*` direto; código antigo migra quando for
+ * mexido por outro motivo.
+ *
+ * O que mudou de verdade na travessia:
+ *
+ *   bordô deixou de ser o mauve #8E4A5E e virou #9F1748 — a tinta da marca,
+ *   com contraste de texto sobre o marfim;
+ *   o fundo deixou de ser blush e virou o marfim frio `--mq-canvas`, para
+ *   que o rosa apareça onde é decisão e não como papel de parede;
+ *   a régua de espaço virou base 4 de verdade (4·8·12·16·20·24·32·40·48·64),
+ *   e `--r5` passou de 24 para 20 para caber nela — o degrau de 24 é `--r6`.
+ */
 
 :root {
-  /* ---------------------------------------------------------- marca */
-  --ivory: #FBF6F4;          /* fundo blush-claro */
-  --paper: #FFFFFF;
-  --bordo: #8E4A5E;          /* mauve profundo: títulos e texto-marca */
-  --bordo-soft: #A85F74;
-  --bordo-tint: #F8E7EB;
-  --rose: #D88399;           /* rosé assinatura */
-  --rose-soft: #EAAFAB;
-  --rose-tint: #F6E3E2;
-  --darkbg: #16100F;         /* preto quente: fundo do app inteiro */
-  --ondark: #F4EBE9;
-  --ondark-soft: rgba(244, 235, 233, .62);
-  --hair: rgba(251, 246, 244, .16);
+  /* ----------------------------------------------------- marca (aliases) */
+  --ivory: var(--mq-canvas);
+  --paper: var(--mq-paper);
+  --bordo: var(--mq-wine-600);
+  --bordo-soft: var(--mq-wine-500);
+  --bordo-tint: var(--mq-wine-100);
+  --rose: var(--mq-wine-300);
+  --rose-soft: var(--mq-wine-200);
+  --rose-tint: var(--mq-wine-050);
+  --darkbg: var(--mq-wine-950);
+  --ondark: #f3e6ea;
+  --ondark-soft: rgba(243, 230, 234, .62);
+  --hair: rgba(255, 255, 255, .08);
 
-  --ink: #2C2428;
-  /* Escurecido em relação ao app legado, de propósito: #9E8A90 sobre o
-     marfim dá 2,9:1 de contraste, e este tom dá 4,7:1 — acima do mínimo
-     para texto pequeno. A cor decorativa continua disponível abaixo. */
-  --muted: #755C64;
-  --muted-claro: #9E8A90;
-  --line: #EFE0E2;
-  --line-soft: #F7EEEF;
+  --ink: var(--mq-ink);
+  --muted: var(--mq-muted);
+  --muted-claro: var(--mq-faint);
+  --line: var(--mq-line);
+  --line-soft: var(--mq-line-2);
 
-  --ok: #2F7D5B;
-  --ok-tint: #E6F1EB;
-  --danger: #C0566A;
-  --danger-tint: #F8E9EB;
-  --atencao: #A8791F;
-  --atencao-tint: #FBF1DC;
+  --ok: var(--mq-ok);
+  --ok-tint: var(--mq-ok-bg);
+  --danger: var(--mq-risk);
+  --danger-tint: var(--mq-risk-bg);
+  --atencao: var(--mq-warn);
+  --atencao-tint: var(--mq-warn-bg);
 
-  --shadow: 0 1px 2px rgba(142, 74, 94, .05), 0 8px 26px rgba(142, 74, 94, .08);
-  --shadow-sm: 0 1px 2px rgba(142, 74, 94, .06);
+  --shadow: var(--mq-sh-2);
+  --shadow-sm: var(--mq-sh-1);
 
-  --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
-  --sans: 'Jost', 'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  --serif: var(--mq-serif);
+  --sans: var(--mq-sans);
   --mono: 'Consolas', 'SF Mono', Menlo, monospace;
 
-  /* --------------------------------------------------------- ritmo */
-  --r1: 4px;  --r2: 8px;  --r3: 12px; --r4: 16px;
-  --r5: 24px; --r6: 32px; --r7: 48px; --r8: 64px;
+  /* ------------------------------------------------------- ritmo (base 4) */
+  --r1: var(--mq-1);  --r2: var(--mq-2);  --r3: var(--mq-3); --r4: var(--mq-4);
+  --r5: var(--mq-5);  --r6: var(--mq-6);  --r7: var(--mq-9); --r8: var(--mq-10);
 
-  --raio: 12px;
-  --raio-sm: 8px;
-  --raio-lg: 18px;
+  --raio: var(--mq-r-md);
+  --raio-sm: var(--mq-r-sm);
+  --raio-lg: var(--mq-r-xl);
 
-  /* ------------------------------------------------------ severidade
-   * Quatro tons, e só quatro. A regra que o app legado não tem: um
-   * tom mais forte só entra quando a consequência é mais forte.
+  /* -------------------------------------------------------- severidade
+   * Quatro tons, e só quatro — a regra sobreviveu à travessia, e agora ela
+   * e os `.mq-status` do Design System saem do MESMO par cor/fundo.
    *
    *   neutro   informação. A maior parte da tela.
    *   positivo está como deveria.
    *   atencao  precisa de uma pessoa, mas nada quebra hoje.
    *   critico  alguém pode perder venda ou dinheiro. Escasso. */
-  --tom-neutro: var(--muted);
-  --tom-neutro-bg: var(--line-soft);
-  --tom-positivo: var(--ok);
-  --tom-positivo-bg: var(--ok-tint);
-  --tom-atencao: var(--atencao);
-  --tom-atencao-bg: var(--atencao-tint);
-  --tom-critico: var(--danger);
-  --tom-critico-bg: var(--danger-tint);
+  --tom-neutro: var(--mq-muted);
+  --tom-neutro-bg: var(--mq-line-3);
+  --tom-positivo: var(--mq-ok);
+  --tom-positivo-bg: var(--mq-ok-bg);
+  --tom-atencao: var(--mq-warn);
+  --tom-atencao-bg: var(--mq-warn-bg);
+  --tom-critico: var(--mq-risk);
+  --tom-critico-bg: var(--mq-risk-bg);
 
-  /* ------------------------------------------------------- camadas */
+  /* ---------------------------------------------------------- camadas
+   * Alinhadas com o casco: trilho 50, cortina 55, barra superior 40,
+   * abas de módulo 30. Diálogo fica acima de tudo. */
   --z-topo: 10;
   --z-dialogo: 100;
 }

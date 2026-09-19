@@ -1,4 +1,5 @@
 import { ApiError } from '../types/api';
+import { Icone } from './Icone';
 
 interface Props {
   erro: unknown;
@@ -23,12 +24,13 @@ export function ErrorState({ erro, aoTentarDeNovo }: Props) {
   const chaveRuim = erro instanceof ApiError && erro.naoAutorizado;
 
   return (
-    <div className="estado" data-tom="critico" role="alert">
+    <div className="mq-state mq-state--error" role="alert">
+      <span className="mq-state__icon"><Icone nome="alert" /></span>
       <h3>{chaveRuim ? 'A chave não foi aceita' : 'Não consegui carregar'}</h3>
       <p>{mensagem}</p>
       {aoTentarDeNovo && (
-        <div className="acoes">
-          <button type="button" className="btn btn-leitura" onClick={aoTentarDeNovo}>
+        <div className="mq-btns">
+          <button type="button" className="mq-btn mq-btn--secondary" onClick={aoTentarDeNovo}>
             Tentar de novo
           </button>
         </div>

@@ -27,10 +27,19 @@ function comEstado() {
   );
 }
 
-/** Prova a arquitetura de navegação: só as quatro áreas que a usuária
- *  pensa no negócio aparecem como abas principais — os nomes internos de
- *  engenharia (Nuvemshop, Reconciliação, Estoque Total, uma revendedora
- *  específica) não competem com elas. */
+const railDe = () => screen.getByRole('navigation', { name: 'Módulos do sistema' });
+/* Sempre pelo trilho: no telefone os mesmos destinos existem também na
+   barra inferior, e uma busca global acharia os dois. */
+const irNoTrilho = (nome: RegExp) =>
+  fireEvent.click(within(railDe()).getByRole('button', { name: nome }));
+
+/** A arquitetura de navegação V2: treze módulos, quatro grupos, um casco.
+ *
+ *  A versão anterior provava o contrário — que só quatro áreas apareciam e
+ *  que "Nuvemshop" não podia ser destino de primeiro nível. Essa regra foi
+ *  substituída pelo desenho V2, onde o produto inteiro é visível no trilho
+ *  e o que ainda não migrou aparece marcado em vez de escondido. Este
+ *  arquivo prova a regra NOVA; a antiga não vale mais. */
 describe('navegação principal', () => {
   beforeEach(() => {
     localStorage.setItem(
@@ -39,21 +48,47 @@ describe('navegação principal', () => {
     );
   });
 
-  it('mostra só as quatro áreas: Etiqueta, Estoque, Revendedoras, Vendas', () => {
+  it('mostra os treze módulos, nos quatro grupos da V2', () => {
     render(<App />);
-    const nav = screen.getByRole('navigation', { name: 'Áreas principais' });
-    const abas = nav.querySelectorAll('.nav-item');
-    const rotulos = [...abas].map((b) => b.textContent);
-    expect(rotulos).toEqual(['Etiqueta', 'Estoque', 'Revendedoras', 'Vendas']);
+    const rotulos = [...railDe().querySelectorAll('.mq-rail__item')].map((b) =>
+      (b.querySelector('span')?.textContent ?? '').trim());
+    expect(rotulos).toEqual([
+      'Home', 'Vendas', 'Clientes', 'Financeiro',
+      'Estoque', 'Catálogo', 'Etiquetas', 'Nuvemshop',
+      'Revendedoras', 'Garantias e reparos',
+      'Agenda', 'Notificações', 'Configurações',
+    ]);
+    const grupos = [...railDe().querySelectorAll('.mq-rail__group')].map((g) => g.textContent);
+    expect(grupos).toEqual(['Operação', 'Produto', 'Rede', 'Sistema']);
   });
 
-  it('não usa termos internos como aba principal', () => {
+  it('existe UM casco, e nenhuma tela desenha outro cabeçalho', () => {
     render(<App />);
-    const nav = screen.getByRole('navigation', { name: 'Áreas principais' });
-    const texto = nav.textContent ?? '';
-    for (const termo of ['Nuvemshop', 'Reconciliação', 'Estoque Total']) {
-      expect(texto).not.toContain(termo);
-    }
+    expect(document.querySelectorAll('.mq-topbar')).toHaveLength(1);
+    expect(document.querySelectorAll('.mq-rail')).toHaveLength(1);
+    expect(screen.getAllByRole('navigation', { name: 'Módulos do sistema' })).toHaveLength(1);
+  });
+
+  it('a barra superior diz sempre ONDE ESTOU', () => {
+    render(<App />);
+    const onde = document.querySelector('.mq-topbar__where');
+    expect(onde?.textContent).toContain('Estoque');
+    expect(onde?.textContent).toContain('Produto');
+
+    irNoTrilho(/Revendedoras/);
+    expect(document.querySelector('.mq-topbar__where')?.textContent).toContain('Rede');
+  });
+
+  it('módulo ainda não migrado aparece marcado, não escondido', () => {
+    render(<App />);
+    const financeiro = [...railDe().querySelectorAll('.mq-rail__item')]
+      .find((b) => b.textContent?.includes('Financeiro'));
+    expect(financeiro?.className).toContain('mq-rail__item--pendente');
+
+    fireEvent.click(financeiro as HTMLElement);
+    expect(screen.getByRole('heading', { level: 1 }).textContent)
+      .toBe('Quanto entrou e quanto ainda falta receber?');
+    expect(screen.getByText('Módulo ainda não migrado')).toBeTruthy();
   });
 
   it('reserva o cabeçalho para busca e perfil sem fingir autenticação', () => {
@@ -65,13 +100,26 @@ describe('navegação principal', () => {
   it('Estoque → Estoque Total continua acessível', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Estoque' }));
+    irNoTrilho(/^Estoque$/);
     const subAbas = screen.getByRole('tablist', { name: 'Estoque' });
-    const rotuloEstoqueTotal = subAbas.querySelector('.pill');
-    expect(rotuloEstoqueTotal).not.toBeNull();
+    expect(subAbas.querySelector('.pill')).not.toBeNull();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Estoque Total' }));
     expect(await screen.findByText(/Atualizar Estoque Total/)).toBeTruthy();
+  });
+
+  /** Duas PORTAS para a mesma tela, e elas não podem discordar sobre onde
+   *  se está: pelo trilho ou pela aba, o resultado é o mesmo lugar. */
+  it('Nuvemshop acende no trilho quando aberta pela aba de Estoque', () => {
+    comEstado();
+    render(<App />);
+    irNoTrilho(/^Estoque$/);
+    fireEvent.click(screen.getByRole('tab', { name: 'Nuvemshop' }));
+
+    const nuvem = [...railDe().querySelectorAll('.mq-rail__item')]
+      .find((b) => b.textContent?.includes('Nuvemshop'));
+    expect(nuvem?.getAttribute('aria-current')).toBe('page');
+    expect(document.querySelector('.mq-topbar__where')?.textContent).toContain('Nuvemshop');
   });
 });
 
@@ -87,7 +135,7 @@ describe('cada área abre na tela certa', () => {
 
   it('Estoque abre direto em Estoque Total — Visão Geral não é mais subaba', () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Estoque' }));
+    irNoTrilho(/^Estoque$/);
 
     const abas = screen.getByRole('tablist', { name: 'Estoque' });
     const rotulos = [...abas.querySelectorAll('[role="tab"]')].map((b) => b.textContent);
@@ -101,7 +149,7 @@ describe('cada área abre na tela certa', () => {
 
   it('o dashboard do Estoque Total carrega em cima das ações', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Estoque' }));
+    irNoTrilho(/^Estoque$/);
 
     const kpis = await screen.findByText('Disponível para Nuvemshop');
     expect(kpis).toBeTruthy();
@@ -121,7 +169,7 @@ describe('cada área abre na tela certa', () => {
 
   it('Revendedoras abre na Visão Geral', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Revendedoras' }));
+    irNoTrilho(/Revendedoras/);
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Visão Geral' })).toBeTruthy();
     const abas = screen.getByRole('tablist', { name: 'Revendedoras' });
@@ -133,7 +181,7 @@ describe('cada área abre na tela certa', () => {
 
   it('"Ver planejamento" no Estoque Total leva para Revendedoras › Visão Geral', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Estoque' }));
+    irNoTrilho(/^Estoque$/);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Ver planejamento' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Visão Geral' })).toBeTruthy();

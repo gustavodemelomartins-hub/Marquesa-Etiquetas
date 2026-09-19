@@ -1,0 +1,177 @@
+/* =============================================================================
+   O CASCO — uma implementação, e só uma
+   -----------------------------------------------------------------------------
+   Trilho fixo à esquerda, barra superior grudada no topo, conteúdo no meio.
+   Nenhuma tela do produto desenha cabeçalho global: quem monta isto é
+   `app/AppShell.tsx`, e uma tela que redesenhasse a marca ou a busca criaria
+   um segundo cabeçalho na mesma página — foi exatamente esse o defeito que a
+   V2 veio consertar.
+
+   As três larguras que mudam o casco:
+     ≥ 1181px  trilho inteiro, 250px, com rótulo ao lado do ícone
+     901–1180  trilho mínimo, 76px, só ícone e o monograma no lugar do logo
+     ≤ 900px   trilho vira gaveta sobre cortina + barra inferior de 5 itens
+   ========================================================================== */
+
+.mq-shell {
+  min-height: 100dvh;
+  padding-left: var(--mq-rail);
+  background: var(--mq-canvas);
+}
+.mq-shell__frame { min-height: 100dvh; display: flex; flex-direction: column; }
+
+/* ---- Trilho: é aqui que a marca mora, em todas as telas ------------------ */
+.mq-rail {
+  position: fixed; left: 0; top: 0; bottom: 0; width: var(--mq-rail); z-index: 50;
+  display: flex; flex-direction: column;
+  background: linear-gradient(180deg, var(--mq-wine-900), var(--mq-wine-950));
+  color: #f3e6ea; border-right: 1px solid rgba(255, 255, 255, .06);
+}
+.mq-rail__brand {
+  display: flex; align-items: center; gap: var(--mq-2);
+  padding: var(--mq-5) var(--mq-5) var(--mq-4);
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  text-decoration: none; flex: none; background: none; border-left: 0; border-right: 0; border-top: 0;
+  color: inherit; cursor: pointer; width: 100%; text-align: left;
+}
+.mq-rail__wordmark { font: 400 23px/1 var(--mq-serif); color: #fff; letter-spacing: .02em; }
+.mq-rail__wordmark small {
+  display: block; margin-top: 3px;
+  font: 500 9.5px/1 var(--mq-sans); letter-spacing: .18em; text-transform: uppercase;
+  color: rgba(243, 230, 234, .5);
+}
+.mq-rail__mark { display: none; }
+.mq-rail__nav {
+  flex: 1; overflow-y: auto; padding: var(--mq-4) var(--mq-3) var(--mq-6);
+  display: flex; flex-direction: column; gap: var(--mq-1); scrollbar-width: thin;
+}
+.mq-rail__nav::-webkit-scrollbar { width: 4px; }
+.mq-rail__nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .14); border-radius: 4px; }
+.mq-rail__group {
+  font: 500 10px/1 var(--mq-sans); letter-spacing: .13em; text-transform: uppercase;
+  color: rgba(243, 230, 234, .42); padding: var(--mq-4) var(--mq-3) var(--mq-2);
+}
+.mq-rail__group:first-child { padding-top: 0; }
+.mq-rail__item {
+  display: flex; align-items: center; gap: var(--mq-3); padding: 9px var(--mq-3);
+  border: 0; border-radius: var(--mq-r-sm); background: none; width: 100%; text-align: left;
+  color: rgba(243, 230, 234, .82); text-decoration: none; cursor: pointer;
+  font: 400 13px/1.25 var(--mq-sans); position: relative; transition: background .14s, color .14s;
+}
+.mq-rail__item svg { width: 17px; height: 17px; flex: none; opacity: .8; }
+.mq-rail__item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mq-rail__item:hover { background: rgba(255, 255, 255, .07); color: #fff; }
+.mq-rail__item:hover svg { opacity: 1; }
+.mq-rail__item[aria-current='page'] { background: rgba(255, 255, 255, .11); color: #fff; font-weight: 500; }
+.mq-rail__item[aria-current='page'] svg { opacity: 1; color: var(--mq-wine-300); }
+.mq-rail__item[aria-current='page']::before {
+  content: ''; position: absolute; left: -12px; top: 7px; bottom: 7px; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--mq-wine-300);
+}
+/* Módulo que ainda não existe em React não se disfarça de pronto. */
+.mq-rail__item--pendente { color: rgba(243, 230, 234, .52); }
+.mq-rail__item--pendente svg { opacity: .55; }
+.mq-rail__dot {
+  flex: none; width: 5px; height: 5px; border-radius: 50%;
+  background: rgba(243, 230, 234, .34);
+}
+.mq-rail__conta {
+  flex: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--mq-r-pill);
+  background: rgba(255, 255, 255, .16); color: #fff;
+  font: 500 10px/18px var(--mq-sans); text-align: center;
+}
+.mq-rail__item[aria-current='page'] .mq-rail__conta { background: var(--mq-wine-300); color: var(--mq-wine-950); }
+.mq-rail__foot {
+  flex: none; padding: var(--mq-3) var(--mq-5) calc(var(--mq-4) + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255, 255, 255, .08);
+  font-size: 11px; color: rgba(243, 230, 234, .5); display: flex; flex-direction: column; gap: var(--mq-1);
+}
+.mq-rail__foot a { color: rgba(243, 230, 234, .62); }
+.mq-rail__foot a:hover { color: #fff; }
+
+/* ---- Barra superior: onde estou, onde busco, o que me avisa ------------- */
+.mq-topbar {
+  position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: var(--mq-3);
+  height: var(--mq-topbar); padding: 0 var(--mq-gutter);
+  background: rgba(255, 255, 255, .9); backdrop-filter: saturate(1.2) blur(8px);
+  border-bottom: 1px solid var(--mq-line); flex: none;
+}
+.mq-topbar__where { display: flex; align-items: center; gap: var(--mq-2); min-width: 0; font-size: 13px; color: var(--mq-muted); }
+.mq-topbar__where b { font-weight: 500; color: var(--mq-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mq-topbar__where svg { width: 14px; height: 14px; color: var(--mq-faint); flex: none; }
+.mq-topbar__grupo { color: var(--mq-faint); }
+.mq-topbar__search { margin-left: auto; width: min(320px, 34vw); }
+.mq-topbar__tools { display: flex; align-items: center; gap: var(--mq-1); flex: none; margin-left: auto; }
+.mq-topbar__search ~ .mq-topbar__tools { margin-left: 0; }
+.mq-burger { display: none; }
+
+/* ---- Conteúdo ----------------------------------------------------------- */
+.mq-shell__main {
+  flex: 1; width: 100%; max-width: var(--mq-max); margin: 0 auto;
+  padding: var(--mq-6) var(--mq-gutter) var(--mq-10);
+  display: flex; flex-direction: column; gap: var(--mq-6);
+}
+.mq-shell__main > * { min-width: 0; }
+
+/* ---- Cortina e barra inferior ------------------------------------------- */
+.mq-scrim {
+  position: fixed; inset: 0; z-index: 55; background: rgba(30, 16, 22, .5);
+  backdrop-filter: blur(2px); border: 0; padding: 0;
+}
+.mq-bottomnav { display: none; }
+
+/* ---- Rodapé ------------------------------------------------------------- */
+.mq-shell__foot {
+  padding: var(--mq-5) var(--mq-gutter) calc(var(--mq-6) + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--mq-line);
+  font: 400 12px var(--mq-sans); color: var(--mq-muted); background: var(--mq-paper-2);
+  text-align: center;
+}
+
+/* ---- Respiro responsivo -------------------------------------------------- */
+@media (max-width: 1180px) {
+  .mq-shell { --mq-rail: var(--mq-rail-mini); }
+  .mq-rail__brand { justify-content: center; padding-inline: var(--mq-2); }
+  .mq-rail__wordmark { display: none; }
+  .mq-rail__mark {
+    display: grid; place-items: center; width: 42px; height: 42px; border-radius: var(--mq-r-md);
+    border: 1px solid rgba(255, 255, 255, .22); font: 400 24px/1 var(--mq-serif); color: #fff; letter-spacing: .02em;
+  }
+  .mq-rail__group { text-align: center; letter-spacing: .06em; font-size: 9px; padding-inline: 0; }
+  .mq-rail__item { justify-content: center; padding: 11px 0; }
+  .mq-rail__item span { display: none; }
+  .mq-rail__item[aria-current='page']::before { left: -8px; }
+  .mq-rail__conta { position: absolute; top: 4px; right: 12px; min-width: 16px; height: 16px; font-size: 9px; line-height: 16px; }
+  .mq-rail__dot { position: absolute; top: 9px; right: 17px; }
+  .mq-rail__foot { display: none; }
+}
+@media (max-width: 900px) {
+  .mq-shell { padding-left: 0; padding-bottom: calc(72px + env(safe-area-inset-bottom)); --mq-rail: 274px; }
+  .mq-rail { transform: translateX(-100%); transition: transform .22s ease; box-shadow: var(--mq-sh-3); width: var(--mq-rail); }
+  .mq-rail.is-open { transform: none; }
+  .mq-rail__brand { justify-content: flex-start; padding: var(--mq-5); }
+  .mq-rail__wordmark { display: block; }
+  .mq-rail__mark { display: none; }
+  .mq-rail__group { text-align: left; font-size: 10px; letter-spacing: .13em; padding: var(--mq-4) var(--mq-3) var(--mq-2); }
+  .mq-rail__item { justify-content: flex-start; padding: 11px var(--mq-3); }
+  .mq-rail__item span { display: block; }
+  .mq-rail__conta, .mq-rail__dot { position: static; }
+  .mq-rail__foot { display: flex; }
+  .mq-burger { display: grid; }
+  .mq-topbar__search { display: none; }
+  .mq-bottomnav {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
+    padding: var(--mq-1) var(--mq-1) calc(var(--mq-1) + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, .96); backdrop-filter: blur(10px); border-top: 1px solid var(--mq-line);
+  }
+  .mq-bottomnav button {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    min-height: 56px; border: 0; background: none; color: var(--mq-muted);
+    font: 500 10px/1.2 var(--mq-sans); cursor: pointer;
+  }
+  .mq-bottomnav svg { width: 20px; height: 20px; }
+  .mq-bottomnav [aria-current='page'] { color: var(--mq-wine-700); }
+  .mq-shell__main { gap: var(--mq-5); }
+}
+@media (min-width: 901px) { .mq-scrim { display: none !important; } }

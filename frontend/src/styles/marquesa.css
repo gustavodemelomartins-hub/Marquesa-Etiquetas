@@ -1,12 +1,19 @@
 /* =============================================================================
-   MARQUESA DESIGN SYSTEM · V2
-   Fonte canônica de tokens e componentes do Sistema Marquesa.
-   Carregada como PRIMEIRA folha de estilo em toda superfície do produto.
+   MARQUESA DESIGN SYSTEM · V2 — a linguagem, dentro do app React
+   -----------------------------------------------------------------------------
+   Esta folha é a MESMA do protótipo (`docs/ux/prototype/marquesa.css`), trazida
+   para dentro do frontend para que o painel novo e o protótipo falem a mesma
+   língua sem que um dependa do build do outro. Enquanto os dois existirem, uma
+   mudança aqui precisa descer para lá — e quando o protótipo se aposentar, esta
+   passa a ser a única cópia.
+
+   O que NÃO veio junto: as @font-face (moram em `fonts.css`, e duas declarações
+   da mesma família divergem no dia em que uma mudar) e a seção de normalização
+   do casco antigo (`system.css` B), que traduz vocabulário de classe do painel
+   legado e não tem nada a fazer em React.
+
    Nada aqui descreve uma tela: descreve a linguagem que todas as telas falam.
    ========================================================================== */
-
-@font-face{font-family:"Cormorant Garamond";src:url("../../../brand/fonts/cormorant.woff2") format("woff2");font-weight:300 700;font-display:swap}
-@font-face{font-family:"Jost";src:url("../../../brand/fonts/jost.woff2") format("woff2");font-weight:300 700;font-display:swap}
 
 /* ---------------------------------------------------------------- 1. TOKENS */
 :root{
