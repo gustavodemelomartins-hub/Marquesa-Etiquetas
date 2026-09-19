@@ -90,7 +90,9 @@ jobs:
 
       - name: Instalar navegador dos testes do protótipo
         working-directory: src
-        run: npm ci
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
 
       - name: Testes do painel novo
         working-directory: frontend
