@@ -543,6 +543,12 @@
         {
           "bin": "node",
           "args": [
+            "src/data-pagamento-historico-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
             "src/analytics-recorte-canal-test.mjs"
           ]
         },

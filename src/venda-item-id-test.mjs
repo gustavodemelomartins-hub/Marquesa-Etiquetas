@@ -43,6 +43,24 @@ const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ler = (p) => readFileSync(join(raiz, p), 'utf8');
 const mod = (p) => import(pathToFileURL(join(raiz, p)).href);
 
+/** O SQLite reescreve o texto do CREATE TABLE ao executar `DROP COLUMN`, e
+ *  recorta o trecho da coluna contando bytes. Comentário de linha entre a
+ *  coluna anterior e a que cai envenena essa conta em dois casos provados
+ *  contra o SQLite 3.51 embutido no Node 22: parêntese dentro do comentário
+ *  (o contador de parênteses não pula comentário) e byte multibyte de
+ *  acento. Em `venda_itens`, o bloco que explica §5.2 tem os dois, e o
+ *  `DROP COLUMN id` abaixo morre com "incomplete input" — um defeito do
+ *  recorte, não do schema. Comentário não é estrutura: a cirurgia roda
+ *  sobre o schema REAL sem os comentários, e o SQLite continua sendo quem
+ *  diz que a coluna sumiu. */
+const schemaCru = () => ler('api/schema.sql')
+  .split('\n')
+  .map((linha) => {
+    const corte = linha.indexOf('--');
+    return corte === -1 ? linha : linha.slice(0, corte).trimEnd();
+  })
+  .join('\n');
+
 let provas = 0;
 const prova = (t) => { provas += 1; console.log(`  ok   ${t}`); };
 
@@ -157,7 +175,7 @@ INSERT INTO vendas (id, cliente_id, cliente_nome, cliente_nome_norm, origem, dat
      regular: o SQLite dizendo "a coluna sumiu" é prova, um `replace` que
      casou é só esperança. Ler do histórico do git também não serve — o
      teste passaria a se comparar consigo mesmo no commit seguinte. */
-  raw.exec(ler('api/schema.sql'));
+  raw.exec(schemaCru());
   raw.exec(`
     DROP TRIGGER IF EXISTS venda_itens_id_ao_inserir;
     DROP TRIGGER IF EXISTS venda_itens_id_imutavel;
@@ -245,7 +263,7 @@ INSERT INTO vendas (id, cliente_id, cliente_nome, cliente_nome_norm, origem, dat
 /* ══════════════════════════════ 2. a prova que justifica a fase: o VACUUM */
 {
   const raw = new DatabaseSync(':memory:');
-  raw.exec(ler('api/schema.sql'));
+  raw.exec(schemaCru());
   raw.exec(SEED);
   raw.exec(`
     INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, id) VALUES
@@ -292,7 +310,7 @@ INSERT INTO vendas (id, cliente_id, cliente_nome, cliente_nome_norm, origem, dat
 /* ═══════════ 3. o caso que o trio (venda, sku, variante) não distinguia */
 {
   const raw = new DatabaseSync(':memory:');
-  raw.exec(ler('api/schema.sql'));
+  raw.exec(schemaCru());
   raw.exec(SEED);
   const db = adaptador(raw);
   const { registrarVenda } = await mod('api/src/vendas-comandos.js');
@@ -335,7 +353,7 @@ INSERT INTO vendas (id, cliente_id, cliente_nome, cliente_nome_norm, origem, dat
 /* ══════════════════ 4. a rota pública devolve o id estável, não o rowid */
 {
   const raw = new DatabaseSync(':memory:');
-  raw.exec(ler('api/schema.sql'));
+  raw.exec(schemaCru());
   raw.exec(SEED);
   raw.exec(`
     INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, id)
@@ -355,7 +373,7 @@ INSERT INTO vendas (id, cliente_id, cliente_nome, cliente_nome_norm, origem, dat
 /* ════════ 5. variação, Monte seu Colar, correção e garantia continuam ok */
 {
   const raw = new DatabaseSync(':memory:');
-  raw.exec(ler('api/schema.sql'));
+  raw.exec(schemaCru());
   raw.exec(SEED);
   raw.exec(`
     INSERT INTO produtos (sku, desc, cat, preco, qtd) VALUES ('100003', 'Anel Aro', 'Anel', 90.0, 10);
@@ -435,7 +453,7 @@ INSERT INTO vendas (id, cliente_id, cliente_nome, cliente_nome_norm, origem, dat
 /* ═══════════════════════════ 6. correção de item vendido não regride */
 {
   const raw = new DatabaseSync(':memory:');
-  raw.exec(ler('api/schema.sql'));
+  raw.exec(schemaCru());
   /* `venda_item_correcoes` — a trilha de auditoria de §40 — só existe na
      migration pós-go-live; `schema.sql` não a cria. Sem ela a correção
      falharia por tabela ausente, e não pela regra que se quer provar. */
@@ -484,7 +502,7 @@ INSERT INTO vendas (id, cliente_id, cliente_nome, cliente_nome_norm, origem, dat
 /* ══════════════════════════════════ 7. garantia continua achando o item */
 {
   const raw = new DatabaseSync(':memory:');
-  raw.exec(ler('api/schema.sql'));
+  raw.exec(schemaCru());
   raw.exec(SEED);
   const db = adaptador(raw);
   const { registrarVenda } = await mod('api/src/vendas-comandos.js');

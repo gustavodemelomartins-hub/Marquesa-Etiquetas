@@ -48,6 +48,24 @@ const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ler = (p) => readFileSync(join(raiz, p), 'utf8');
 const mod = (p) => import(pathToFileURL(join(raiz, p)).href);
 
+/** O SQLite reescreve o texto do CREATE TABLE ao executar `DROP COLUMN`, e
+ *  recorta o trecho da coluna contando bytes. Comentário de linha entre a
+ *  coluna anterior e a que cai envenena essa conta em dois casos provados
+ *  contra o SQLite 3.51 embutido no Node 22: parêntese dentro do comentário
+ *  (o contador de parênteses não pula comentário) e byte multibyte de
+ *  acento. Em `venda_itens`, o bloco que explica §5.2 tem os dois, e o
+ *  `DROP COLUMN id` abaixo morre com "incomplete input" — um defeito do
+ *  recorte, não do schema. Comentário não é estrutura: a cirurgia roda
+ *  sobre o schema REAL sem os comentários, e o SQLite continua sendo quem
+ *  diz que a coluna sumiu. */
+const schemaCru = () => ler('api/schema.sql')
+  .split('\n')
+  .map((linha) => {
+    const corte = linha.indexOf('--');
+    return corte === -1 ? linha : linha.slice(0, corte).trimEnd();
+  })
+  .join('\n');
+
 let provas = 0;
 const prova = (t) => { provas += 1; console.log(`  ok   ${t}`); };
 
@@ -154,7 +172,7 @@ INSERT INTO vendas (id, cliente_id, cliente_nome, cliente_nome_norm, origem, dat
  *  esperança, e ler do git faria o teste se comparar consigo mesmo. */
 function bancoAntesDe52b() {
   const raw = new DatabaseSync(':memory:');
-  raw.exec(ler('api/schema.sql'));
+  raw.exec(schemaCru());
   aplicar(raw, 'api/migracao-pos-golive-1.sql');
   raw.exec(`
     DROP INDEX IF EXISTS idx_gar_venda_item;
@@ -371,7 +389,7 @@ console.log('\n=== 6. origem histórica: a pergunta não se aplica ===');
 console.log('\n=== 7. garantia NOVA nasce apontando para a linha ===');
 {
   const raw = new DatabaseSync(':memory:');
-  raw.exec(ler('api/schema.sql'));
+  raw.exec(schemaCru());
   aplicar(raw, 'api/migracao-pos-golive-1.sql');
   raw.exec(SEED);
   raw.exec(`
@@ -424,7 +442,7 @@ console.log('\n=== 7. garantia NOVA nasce apontando para a linha ===');
 console.log('\n=== 8. o id vale mais que o código: §41 não solta o ponteiro ===');
 {
   const raw = new DatabaseSync(':memory:');
-  raw.exec(ler('api/schema.sql'));
+  raw.exec(schemaCru());
   aplicar(raw, 'api/migracao-pos-golive-1.sql');
   raw.exec(SEED);
   raw.exec(`
@@ -470,7 +488,7 @@ console.log('\n=== 8. o id vale mais que o código: §41 não solta o ponteiro =
 console.log('\n=== 9. troca, diferença e estorno continuam inteiros ===');
 {
   const raw = new DatabaseSync(':memory:');
-  raw.exec(ler('api/schema.sql'));
+  raw.exec(schemaCru());
   aplicar(raw, 'api/migracao-pos-golive-1.sql');
   raw.exec(SEED);
   raw.exec(`
@@ -592,7 +610,7 @@ console.log('\n=== 10. Monte seu Colar: composições não colidem ===');
   /* Sem garantia anterior no caminho, o id da linha resolve sozinho QUAL das
      duas montagens idênticas voltou. */
   const raw = new DatabaseSync(':memory:');
-  raw.exec(ler('api/schema.sql'));
+  raw.exec(schemaCru());
   aplicar(raw, 'api/migracao-pos-golive-1.sql');
   raw.exec(SEED);
   raw.exec(`
