@@ -82,8 +82,12 @@ do contrato documentado, sem confirmação de disponibilidade em produção.
   44 links, 5 larguras (320 · 390 · 768 · 1024 · 1440), sem erro de console,
   sem transbordo horizontal e sem requisição externa.
 - **Telas que ainda pedem revisão sua:** Vendas (Nova venda, Monte seu Colar e
-  Saída sem faturamento continuam com o layout anterior sob a pele nova) e
-  Catálogo · fotos em lote.
+  Saída sem faturamento continuam com o layout anterior sob a pele nova),
+  Catálogo · fotos em lote, e a **divisão de Clientes**: o painel de
+  relacionamento vive no módulo novo, mas o cadastro completo e o "nova venda a
+  partir da cliente" continuam na aba *Cadastro de clientes* dentro de Vendas.
+  Unificar os dois é decisão sua — ver
+  [decisões de design](../04-components/redesign-decisions-v2.md).
 
 ## Limites explícitos
 

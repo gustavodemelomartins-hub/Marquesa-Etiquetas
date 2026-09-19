@@ -155,3 +155,12 @@
 .unknown-variation span{display:flex;flex-direction:column;gap:1px}
 .unknown-variation small{font-size:11px;color:var(--mq-muted)}
 @media(max-width:600px){.variation-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Revisão do inventário no telefone: rótulo em cima, ajuste e situação abaixo. */
+@media(max-width:860px){
+  .review-list>*{grid-template-columns:26px minmax(0,1fr) auto;row-gap:var(--mq-1)}
+  .review-list>* em{grid-column:2/-1;justify-self:start}
+  .review-list article{grid-template-columns:minmax(0,1fr)}
+  .review-list article>*{grid-column:1/-1}
+  .review-list strong{text-align:right}
+}

@@ -309,3 +309,8 @@ body.mq-app main :where(img,svg,canvas,video){max-width:100%}
 body.mq-app .reseller-cards>div:last-child{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:1024px){body.mq-app .reseller-cards>div:last-child{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){body.mq-app .reseller-cards>div:last-child{grid-template-columns:minmax(0,1fr)}}
+
+@media(max-width:600px){
+  body.mq-app :is(.status,.state,.stage,.event-type){white-space:normal;text-align:left}
+  body.mq-app :is(.detail-title,.panel-title,.active-inventory-head,.section-heading){flex-wrap:wrap}
+}

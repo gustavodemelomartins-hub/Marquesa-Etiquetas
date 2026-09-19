@@ -46,6 +46,15 @@ identidade, cinco indicadores, linha do tempo que separa compra de pagamento,
 situação financeira, crédito, pós-venda (garantia, reparo e troca), observações
 e atividade da ficha. A rota `/prototype/clientes/` passou a apontar para ele.
 
+**Pendência que isto cria — a mais importante desta rodada.** O cadastro
+completo da cliente (e-mail, CPF, nascimento), o botão "nova venda a partir da
+cliente" e a persistência que o teste de dados demonstrativos cobre continuam
+vivendo dentro de `vendas/master.html`, agora na aba **Cadastro de clientes**.
+O módulo novo é o painel da relação; o antigo é o cadastro operacional. Manter
+os dois é um remendo consciente: unificá-los significa mover esse fluxo inteiro
+para `03-screens/clientes/`, e essa é uma decisão sua, não minha. Enquanto isso,
+a aba de Vendas tem um link explícito para o módulo Clientes.
+
 ## 6. Três datas ditas de uma vez, no Financeiro
 
 Data da venda, data efetiva do pagamento e data do registro passaram a ter uma
@@ -93,6 +102,16 @@ sistema não foram reescritas: `system.css` traduz o vocabulário antigo
 (`.data-section`, `.metric-row`, `.status`, `.account-row`, …) para os tokens
 novos, então Catálogo, Revendedoras, Garantias, Etiquetas, Notificações e
 Configurações mudaram de língua sem mudar de estrutura.
+
+## Decisões que dependem de você
+
+1. **Unificar Clientes.** Mover cadastro completo e "nova venda a partir da
+   cliente" para o módulo novo, ou manter a divisão atual.
+2. **"A receber" deixar de ser bordô** (item 2) contraria o design system
+   anterior — vale confirmar.
+3. **Busca global** da barra superior: busca de verdade ou atalho por módulo.
+4. Fórmulas dos indicadores, matriz de permissões e regra de crédito continuam
+   abertas, como já estavam.
 
 ## O que **não** mudou
 

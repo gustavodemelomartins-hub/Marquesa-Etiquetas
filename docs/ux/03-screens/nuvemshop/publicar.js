@@ -62,10 +62,10 @@
           <p class="mq-sku">SKU ${p.sku}</p>
           <div class="publication-row__tags">
             <span class="mq-chip mq-chip--soft">${escape(p.category||'Sem categoria')}</span>
-            <em class="mq-status mq-status--${tone}">${states[p.state][0]}</em>
+            <em class="mq-status mq-status--${tone} publication-status ${p.state}">${states[p.state][0]}</em>
           </div>
           <p class="publication-checks">${p.photos.length} imagem(ns) · ${gaps.length?`<b class="mq-warn">falta ${gaps.join(', ').toLowerCase()}</b>`:'conteúdo completo'}</p>
-          <p class="publication-presence">Na loja: ${escape(presence)}</p>
+          <p class="publication-presence">Presença na loja: ${escape(presence)}</p>
         </div>
         <dl class="publication-meta">
           <div><dt>Cadastrado</dt><dd>${date(p.date)}</dd></div>

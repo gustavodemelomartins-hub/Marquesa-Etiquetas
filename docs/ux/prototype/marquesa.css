@@ -542,3 +542,6 @@ a.mq-item:hover b{color:var(--mq-wine-700)}
 
 /* Portador de ícone montado por JS: o casco injeta o SVG dentro dele. */
 [data-icon]{display:inline-flex;align-items:center;justify-content:center;flex:none}
+
+/* Em tela estreita, a situação pode quebrar em duas linhas em vez de empurrar. */
+@media(max-width:600px){.mq-status{white-space:normal;text-align:left}}

@@ -10,8 +10,8 @@ try {
   const hub = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await hub.goto(pathToFileURL(path.resolve('docs/ux/prototype/index.html')).href);
   check(await hub.getByRole('heading', { name: 'Sistema Marquesa V2' }).isVisible(), 'hub abre no mobile');
-  check(await hub.locator('.area-card').count() === 12, 'hub cobre doze famílias visuais');
-  check((await hub.locator('a.area-card').count()) === 12, 'todas as áreas recebem link navegável');
+  check(await hub.locator('.mq-card').count() >= 3, 'hub reúne golden screens, módulos e linguagem');
+  check((await hub.locator('main a[href]').count()) >= 13, 'todas as áreas recebem link navegável');
   check(await hub.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'hub sem overflow mobile');
   await hub.close();
 
@@ -22,13 +22,13 @@ try {
     await page.goto(pathToFileURL(path.resolve('docs/ux/03-screens/estoque/master.html')).href);
 
     check(await page.getByRole('heading', { name: 'Estoque', exact: true }).isVisible(), `Estoque abre em ${width}px`);
-    check(await page.locator('.stock-donut').isVisible(), `resumo de estoque visível em ${width}px`);
+    check(await page.locator('.mq-donut').isVisible(), `resumo de estoque visível em ${width}px`);
     check(await page.locator('[data-inventory-tab]').count() === 3, `três contextos do inventário em ${width}px`);
     check(await page.locator('[data-product]').count() === 6, `produtos demonstrativos em ${width}px`);
     check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `sem overflow inicial em ${width}px`);
     check(errors.length === 0, `sem erro JavaScript em ${width}px`);
 
-    await page.locator('[data-start-inventory]').click();
+    await page.locator('[data-start-inventory]').first().click();
     check(await page.locator('.start-dialog').evaluate((dialog) => dialog.open), `confirma início em ${width}px`);
     await page.locator('[data-confirm-start]').click();
     check(await page.locator('[data-inventory-panel="active"]').isVisible(), `contagem abre em ${width}px`);
