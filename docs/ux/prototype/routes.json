@@ -1,0 +1,36 @@
+{
+  "version": 2,
+  "approval": "READY FOR GUSTAVO REVIEW",
+  "counts": {"publicRoutes":18,"documentedSurfaces":49,"futureCapabilities":2},
+  "pages": [
+    {"id":"home","label":"Home","path":"/prototype/","source":"03-screens/dashboard/master.html","icon":"home","nav":true,"view":"today"},
+    {"id":"vendas","label":"Vendas","path":"/prototype/vendas/","source":"03-screens/vendas/master.html","icon":"sale","nav":true,"view":"painel"},
+    {"id":"clientes","label":"Clientes","path":"/prototype/clientes/","source":"03-screens/vendas/master.html","icon":"person","nav":true,"view":"clientes"},
+    {"id":"financeiro","label":"Financeiro","path":"/prototype/financeiro/","source":"03-screens/financeiro/master.html","icon":"money","nav":true},
+    {"id":"estoque","label":"Estoque","path":"/prototype/estoque/","source":"03-screens/estoque/master.html","icon":"box","nav":true},
+    {"id":"catalogo","label":"Catálogo","path":"/prototype/catalogo/","source":"03-screens/catalogo/master.html","icon":"tag","nav":true},
+    {"id":"revendedoras","label":"Revendedoras","path":"/prototype/revendedoras/","source":"03-screens/revendedoras/master.html","icon":"bag","nav":true},
+    {"id":"garantias","label":"Garantias / Reparos","path":"/prototype/garantias/","source":"03-screens/reparos/master.html","icon":"shield","nav":true},
+    {"id":"etiquetas","label":"Etiquetas","path":"/prototype/etiquetas/","source":"03-screens/etiquetas/master.html","icon":"tag","nav":true},
+    {"id":"nuvemshop","label":"Nuvemshop","path":"/prototype/nuvemshop/","source":"03-screens/nuvemshop/publicar.html","icon":"cloud","nav":true},
+    {"id":"agenda","label":"Agenda","path":"/prototype/agenda/","source":"03-screens/dashboard/master.html","icon":"clock","nav":true,"view":"calendar"},
+    {"id":"notificacoes","label":"Notificações","path":"/prototype/notificacoes/","source":"03-screens/notificacoes/master.html","icon":"bell","nav":true},
+    {"id":"configuracoes","label":"Configurações","path":"/prototype/configuracoes/","source":"03-screens/configuracoes/master.html","icon":"settings","nav":true,"view":"preferences"},
+    {"id":"loja","label":"Produtos na loja","path":"/prototype/nuvemshop/loja/","source":"03-screens/nuvemshop/master.html"},
+    {"id":"pendencias","label":"Pendências","path":"/prototype/nuvemshop/pendencias/","source":"03-screens/nuvemshop/master.html","view":"pending"},
+    {"id":"sincronizacao","label":"Divergências / Sincronização","path":"/prototype/nuvemshop/sincronizacao/","source":"03-screens/nuvemshop/master.html","view":"analysis"},
+    {"id":"hub","label":"Hub de revisão","path":"/prototype/hub/","source":"prototype/index.html"},
+    {"id":"design-system","label":"Design system","path":"/prototype/design-system/","source":"prototype/design-system.html"}
+  ],
+  "flows": [
+    {"label":"Nova venda","page":"vendas","hash":"nova-venda"},
+    {"label":"Monte seu Colar","page":"vendas","hash":"colar"},
+    {"label":"Saída sem faturamento","page":"vendas","hash":"saida"},
+    {"label":"Histórico de vendas","page":"vendas","hash":"historico"},
+    {"label":"Inventário","page":"estoque","hash":"inventario"},
+    {"label":"Maletas e acertos","page":"revendedoras","hash":"maletas"},
+    {"label":"Meu perfil","page":"configuracoes","hash":"profile"},
+    {"label":"Conexão demonstrativa","page":"configuracoes","hash":"connection"}
+  ],
+  "future": ["Tratamento automático de imagem", "Backend autenticado e snapshot staging"]
+}

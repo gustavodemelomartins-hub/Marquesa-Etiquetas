@@ -5,22 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Protótipo mestre da área de Vendas do Sistema Marquesa" />
     <title>Sistema Marquesa · Vendas</title>
-    <link rel="stylesheet" href="master.css" />
-  </head>
+    <link rel="stylesheet" href="master.css?v=20260914-mobile" />
+  <link rel="stylesheet" href="../../prototype/system.css"><script src="../../prototype/demo-store.js"></script><script defer src="../../prototype/system.js"></script></head>
   <body>
     <div class="app-shell">
       <header class="app-header">
         <div class="header-main">
-          <a class="brand" href="#painel" aria-label="Sistema Marquesa — início">
-            <img src="../../01-brand/logo_sistema-marquesa_principal.png" alt="Marquesa Semijoias" />
+          <a class="brand" href="../../prototype/index.html" aria-label="Abrir entrada do protótipo Marquesa V2">
+            <img src="../../01-brand/logo_sistema-marquesa_preta-transparente.png" alt="Marquesa Semijoias" />
           </a>
 
           <nav class="primary-nav" aria-label="Áreas principais">
-            <button type="button">
+            <button type="button" data-href="../estoque/master.html">
               <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 7 8-4 8 4-8 4-8-4Zm0 0v10l8 4 8-4V7M12 11v10"/></svg>
               Estoque
             </button>
-            <button type="button">
+            <button type="button" data-href="../revendedoras/master.html">
               <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
               Revendedoras
             </button>
@@ -28,7 +28,7 @@
               <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M7 15l4-4 3 2 5-7"/></svg>
               Vendas
             </button>
-            <button type="button">
+            <button type="button" data-href="../etiquetas/master.html">
               <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 13 11 22 2 13V4h9l9 9Z"/><circle cx="7" cy="9" r="1"/></svg>
               Etiquetas
             </button>
@@ -56,31 +56,36 @@
           <button type="button" data-screen="lancamentos">Lançamentos</button>
           <button type="button" class="active" data-screen="painel" aria-current="page">Painel</button>
           <button type="button" data-screen="clientes">Clientes <span>345</span></button>
-          <button type="button" data-screen="saidas">Saídas sem faturamento</button>
         </nav>
       </header>
 
       <main>
-        <div class="prototype-note" role="note">
-          <span>Protótipo de design</span>
-          Dados ilustrativos · referência visual e de interação
-        </div>
-
         <section class="screen active" id="painel" aria-labelledby="painel-title">
           <div class="page-heading">
             <div>
-              <p class="context">Visão financeira e comercial</p>
               <h1 id="painel-title">Painel de vendas</h1>
-              <p>Dinheiro recebido e vendas realizadas usam seus próprios recortes de data.</p>
             </div>
-            <div class="period-control" aria-label="Período do painel">
-              <button type="button">Tudo</button>
-              <button type="button" class="active">12 meses</button>
-              <button type="button">90 dias</button>
-              <button type="button">30 dias</button>
-              <button type="button" class="calendar-button" aria-label="Escolher intervalo personalizado">
-                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM8 3v6M16 3v6M4 10h16"/></svg>
-              </button>
+            <div class="period-picker-wrap">
+              <div class="period-control" aria-label="Período do painel">
+                <button type="button" data-period="all">Tudo</button>
+                <button type="button" class="active" data-period="12m">12 meses</button>
+                <button type="button" data-period="90d">90 dias</button>
+                <button type="button" data-period="30d">30 dias</button>
+                <button type="button" class="calendar-button" aria-label="Escolher intervalo personalizado" aria-expanded="false" aria-controls="date-range-picker">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM8 3v6M16 3v6M4 10h16"/></svg>
+                </button>
+              </div>
+              <div class="date-range-picker" id="date-range-picker" hidden>
+                <div class="date-range-fields">
+                  <label>Data inicial<input id="range-start" type="date" min="2023-01-01" max="2026-09-11" value="2026-09-01" /></label>
+                  <label>Data final<input id="range-end" type="date" min="2023-01-01" max="2026-09-11" value="2026-09-11" /></label>
+                </div>
+                <p class="date-range-error" role="alert" hidden>A data final precisa ser igual ou posterior à inicial.</p>
+                <div class="date-range-actions">
+                  <button type="button" class="button ghost" data-close-date-range>Cancelar</button>
+                  <button type="button" class="button primary" data-apply-date-range>Aplicar período</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -88,10 +93,10 @@
             <article class="revenue-card">
               <div>
                 <span>Faturamento recebido no período</span>
-                <strong>R$ 124.455,95</strong>
+                <strong data-dashboard-revenue>R$ 124.455,95</strong>
               </div>
               <div class="revenue-meta">
-                <span>Neste mês</span><b>R$ 9.891,59</b>
+                <span data-revenue-meta-label>Neste mês</span><b data-revenue-meta-value>R$ 9.891,59</b>
                 <small>pela data efetiva dos recebimentos</small>
               </div>
               <svg class="spark" aria-hidden="true" viewBox="0 0 90 46"><path d="M5 38 24 23l15 6 18-20 27 5"/><circle cx="84" cy="14" r="3"/></svg>
@@ -99,16 +104,16 @@
 
             <article class="receivable-card">
               <div>
-                <span>A receber em setembro</span>
-                <strong>R$ 12.269,90</strong>
-                <small>8 clientes com vencimento no mês</small>
+                <span data-receivable-label>A receber em setembro</span>
+                <strong data-dashboard-receivable>R$ 12.269,90</strong>
+                <small data-receivable-clients>8 clientes com vencimento no mês</small>
               </div>
-              <button type="button">Ver recebimentos <span aria-hidden="true">›</span></button>
+              <button type="button" data-open-receivables="Todas as clientes">Ver recebimentos <span aria-hidden="true">›</span></button>
               <svg class="receipt" aria-hidden="true" viewBox="0 0 80 80"><path d="M20 10h40v58l-8-6-8 6-8-6-8 6-8-6V10Z"/><path d="M29 26h22M29 36h22M29 46h16"/></svg>
             </article>
           </div>
 
-          <button class="repair-alert" type="button">
+          <button class="repair-alert" type="button" data-open-repairs aria-label="Abrir tela de Reparos: 21 ativos, 3 próximos do prazo">
             <span class="repair-icon">
               <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 7 3-3 3 3-3 3M13 8l-8 8-1 4 4-1 8-8M5 5l4 4M15 15l4 4"/></svg>
             </span>
@@ -118,7 +123,7 @@
 
           <article class="data-section chart-section">
             <div class="section-heading">
-              <div><h2>Desempenho de vendas</h2><p>Últimos 12 meses · valores pela data da venda</p></div>
+              <div><h2>Desempenho de vendas</h2><p id="chart-period-label">Últimos 12 meses · valores pela data da venda</p></div>
               <div class="legend"><i></i> Valor vendido</div>
             </div>
             <div class="sales-chart" role="img" aria-label="Gráfico de valor vendido por mês entre outubro de 2025 e setembro de 2026">
@@ -140,7 +145,7 @@
 
           <article class="data-section period-details">
             <div class="section-heading detail-heading">
-              <div><h2>Informações do período</h2><p><span class="date-chip">Setembro de 2026</span> seleção ativa no gráfico</p></div>
+              <div><h2>Informações do período</h2><p><span class="date-chip">Setembro de 2026</span> <span data-selection-context>seleção ativa no gráfico</span></p></div>
               <div class="view-toggle" aria-label="Visão do período">
                 <button type="button" class="active" data-view="detail">Análise detalhada</button>
                 <button type="button" data-view="month">Evolução por mês</button>
@@ -150,7 +155,7 @@
             <div class="analytics-view active" data-view-panel="detail">
               <div class="detail-grid">
                 <section class="product-ranking">
-                  <div class="mini-heading"><h3>Produtos mais vendidos</h3><button type="button">Ver lista completa</button></div>
+                  <div class="mini-heading"><h3>Produtos mais vendidos</h3><button type="button" data-product-list-toggle aria-expanded="false">Ver lista completa</button></div>
                   <div class="table-wrap">
                     <table>
                       <thead><tr><th>#</th><th>Produto</th><th>Categoria</th><th>Peças</th><th>Valor vendido</th><th>Participação</th></tr></thead>
@@ -160,6 +165,11 @@
                         <tr><td>3</td><td><b>Colar Borboleta Preta</b><small>SKU 376198 · Ouro 18k</small></td><td><span class="tag rose">Colar</span></td><td>6</td><td>R$ 534,00</td><td><strong>17,5%</strong></td></tr>
                         <tr><td>4</td><td><b>Argola Borboleta</b><small>SKU 185126 · Ouro 18k</small></td><td><span class="tag blue">Argola</span></td><td>6</td><td>R$ 474,00</td><td><strong>15,6%</strong></td></tr>
                         <tr><td>5</td><td><b>Brinco Ponto de Luz</b><small>SKU 122060 · Ouro 18k</small></td><td><span class="tag amber">Brinco</span></td><td>6</td><td>R$ 334,00</td><td><strong>11,0%</strong></td></tr>
+                        <tr data-ranking-extra hidden><td>6</td><td><b>Pulseira Elo Delicado</b><small>SKU 431280 · Ouro 18k</small></td><td><span class="tag green">Pulseira</span></td><td>5</td><td>R$ 320,00</td><td><strong>8,0%</strong></td></tr>
+                        <tr data-ranking-extra hidden><td>7</td><td><b>Anel Solitário Cristal</b><small>SKU 604192 · Ouro 18k</small></td><td><span class="tag blue">Anel</span></td><td>4</td><td>R$ 276,00</td><td><strong>6,0%</strong></td></tr>
+                        <tr data-ranking-extra hidden><td>8</td><td><b>Colar Coração Vazado</b><small>SKU 392441 · Ouro 18k</small></td><td><span class="tag rose">Colar</span></td><td>3</td><td>R$ 237,00</td><td><strong>5,0%</strong></td></tr>
+                        <tr data-ranking-extra hidden><td>9</td><td><b>Brinco Gota Cravejada</b><small>SKU 881420 · Ouro 18k</small></td><td><span class="tag amber">Brinco</span></td><td>3</td><td>R$ 207,00</td><td><strong>3,5%</strong></td></tr>
+                        <tr data-ranking-extra hidden><td>10</td><td><b>Pulseira Ponto de Luz</b><small>SKU 743102 · Ouro 18k</small></td><td><span class="tag green">Pulseira</span></td><td>2</td><td>R$ 138,00</td><td><strong>2,5%</strong></td></tr>
                       </tbody>
                     </table>
                   </div>
@@ -190,27 +200,17 @@
             </div>
 
             <div class="analytics-view" data-view-panel="month" hidden>
-              <div class="month-selector" aria-label="Mês analisado">
-                <button type="button" class="month-current">
-                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM8 3v6M16 3v6M4 10h16"/></svg>
-                  Setembro de 2026
-                </button>
-                <button type="button" aria-label="Mês anterior">‹</button>
-                <button type="button" aria-label="Próximo mês">›</button>
-                <button type="button" class="clear-month">Limpar mês</button>
-              </div>
-
               <div class="metric-row monthly-metrics">
-                <article><span>Faturamento</span><strong>R$ 9.891,59</strong><small class="trend">↑ 12% em relação a agosto</small></article>
-                <article><span>Vendas</span><strong>47</strong></article>
-                <article><span>Peças vendidas</span><strong>86</strong></article>
-                <article><span>Clientes atendidas</span><strong>39</strong></article>
+                <article><span>Faturamento</span><strong data-month-stat="revenue">R$ 9.891,59</strong><small class="trend" data-month-trend>↑ 12% em relação a agosto</small></article>
+                <article><span>Vendas</span><strong data-month-stat="sales">47</strong></article>
+                <article><span>Peças vendidas</span><strong data-month-stat="pieces">86</strong></article>
+                <article><span>Clientes atendidas</span><strong data-month-stat="clients">39</strong></article>
               </div>
 
               <div class="month-grid faithful">
                 <section>
                   <h3>Categorias mais vendidas</h3>
-                  <ul class="bars month-bars">
+                  <ul class="bars month-bars" data-period-categories>
                     <li><span>Brinco</span><i><b style="width:94%"></b></i><strong>24</strong></li>
                     <li><span>Pulseira</span><i><b style="width:48%"></b></i><strong>12</strong></li>
                     <li><span>Colar</span><i><b style="width:48%"></b></i><strong>12</strong></li>
@@ -220,30 +220,30 @@
                   </ul>
                 </section>
                 <section>
-                  <h3>Destaques do mês</h3>
+                  <h3>Destaques do período</h3>
                   <dl class="highlights">
-                    <div><dt>Maior venda</dt><dd>R$ 777,00</dd></div>
-                    <div><dt>Ticket médio</dt><dd>R$ 148,94</dd></div>
-                    <div><dt>Dia mais forte</dt><dd>05/09</dd></div>
+                    <div><dt>Maior venda</dt><dd data-period-highlight="largest">R$ 777,00</dd></div>
+                    <div><dt>Ticket médio</dt><dd data-period-highlight="ticket">R$ 148,94</dd></div>
+                    <div><dt>Dia mais forte</dt><dd data-period-highlight="day">05/09</dd></div>
                   </dl>
                 </section>
               </div>
 
               <section class="month-sales">
-                <h3>Vendas de setembro</h3>
+                <h3 data-month-sales-title>Vendas de setembro</h3>
                 <div class="table-wrap">
                   <table>
-                    <thead><tr><th>Data</th><th>Cliente</th><th>Peças</th><th>Valor</th><th>Status</th><th aria-label="Ações"></th></tr></thead>
+                    <thead><tr><th>Data</th><th>Cliente</th><th>Peças</th><th>Valor</th><th>Recebimento</th><th aria-label="Ações"></th></tr></thead>
                     <tbody>
-                      <tr><td>05/09/2026</td><td>Camila Ferreira</td><td>2</td><td>R$ 159,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
-                      <tr><td>04/09/2026</td><td>Juliana Prado</td><td>1</td><td>R$ 89,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
-                      <tr><td>03/09/2026</td><td>Ana Luiza Sedassari</td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
-                      <tr><td>02/09/2026</td><td>Zilma</td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
-                      <tr><td>01/09/2026</td><td>Adrielly Miguel</td><td>1</td><td>R$ 69,00</td><td><span class="status paid">Concluída</span></td><td>⋮</td></tr>
+                      <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1058"><td data-sale-day="05">05/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Camila Ferreira">Camila Ferreira</button></td><td>2</td><td>R$ 159,00</td><td><span class="status receivable">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Camila Ferreira">›</button></td></tr>
+                      <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1057"><td data-sale-day="04">04/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Juliana Prado">Juliana Prado</button></td><td>1</td><td>R$ 89,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Juliana Prado">›</button></td></tr>
+                      <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1056"><td data-sale-day="03">03/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Ana Luiza Sedassari">Ana Luiza Sedassari</button></td><td>1</td><td>R$ 79,00</td><td><span class="status receivable">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Ana Luiza Sedassari">›</button></td></tr>
+                      <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1055"><td data-sale-day="02">02/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Zilma">Zilma</button></td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Zilma">›</button></td></tr>
+                      <tr class="sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1054"><td data-sale-day="01">01/09/2026</td><td><button type="button" class="client-name-link" data-open-client="Adrielly Miguel">Adrielly Miguel</button></td><td>1</td><td>R$ 69,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Adrielly Miguel">›</button></td></tr>
                     </tbody>
                   </table>
                 </div>
-                <div class="table-footer"><span>Mostrando 1 a 5 de 47 vendas</span><div><button type="button" aria-label="Página anterior">‹</button><button type="button" class="active">1</button><button type="button">2</button><button type="button">3</button><button type="button" aria-label="Próxima página">›</button></div></div>
+                <div class="table-footer"><span data-sales-footer>Mostrando 1 a 5 de 47 vendas</span><div><button type="button" data-sales-page-action="previous" aria-label="Página anterior" disabled>‹</button><button type="button" class="active" data-sales-page="1" aria-current="page">1</button><button type="button" data-sales-page="2">2</button><button type="button" data-sales-page="3">3</button><button type="button" data-sales-page-action="next" aria-label="Próxima página">›</button></div></div>
               </section>
             </div>
           </article>
@@ -251,25 +251,191 @@
 
         <section class="screen" id="lancamentos" aria-labelledby="launch-title" hidden>
           <div class="page-heading">
-            <div><p class="context">Operação do dia</p><h1 id="launch-title">Novo lançamento</h1><p>Escolha o tipo de operação e registre cada efeito com clareza.</p></div>
-            <button class="button ghost" type="button">Limpar rascunho</button>
+            <div><p class="context">Operação do dia</p><h1 id="launch-title">Novo lançamento</h1><p>Adicione as peças, identifique a cliente e registre como o valor será recebido.</p></div>
+            <div class="draft-tools"><span class="draft-indicator" data-draft-indicator><i></i> Rascunho vazio</span><button class="button ghost" type="button" data-clear-draft disabled>Limpar rascunho</button></div>
           </div>
           <div class="choice-grid" role="radiogroup" aria-label="Tipo de lançamento">
-            <button class="choice active" type="button" role="radio" aria-checked="true"><span>Venda normal</span><small>Produtos do estoque</small></button>
-            <button class="choice" type="button" role="radio" aria-checked="false"><span>Monte seu Colar</span><small>Modelo e composição</small></button>
-            <button class="choice" type="button" role="radio" aria-checked="false"><span>Saída sem faturamento</span><small>Brinde, uso próprio, perda ou sorteio</small></button>
+            <button class="choice" type="button" role="radio" aria-checked="false" data-launch-type="sale"><span>Venda normal</span><small>Peças com etiqueta</small></button>
+            <button class="choice" type="button" role="radio" aria-checked="false" data-launch-type="collar"><span>Monte seu Colar</span><small>Modelo e composição</small></button>
+            <button class="choice" type="button" role="radio" aria-checked="false" data-launch-screen="saidas"><span>Saída sem faturamento</span><small>Brinde, uso próprio, perda ou sorteio</small></button>
           </div>
-          <div class="launch-grid">
-            <section class="data-section launch-card"><div class="section-heading"><div><h2>Itens da venda</h2><p>Nome, SKU ou código da etiqueta</p></div><button class="button secondary" type="button">Adicionar item</button></div><div class="search-field">Buscar produto <kbd>⌘ K</kbd></div><ul class="cart-list"><li><span class="jewel">◌</span><div><b>Argola Duas Linhas Cravejadas</b><small>SKU 122060 · Banho de Ouro 18k</small></div><span>1 × R$ 72,00</span><strong>R$ 72,00</strong></li><li><span class="jewel">◇</span><div><b>Pulseira Medalha Salmo</b><small>SKU 451109 · Banho de Ouro 18k</small></div><span>1 × R$ 136,00</span><strong>R$ 136,00</strong></li><li><span class="jewel">⌁</span><div><b>Monte seu Colar · Casal</b><small>SKU 326660 · composição confirmada</small></div><span>1 × R$ 129,00</span><strong>R$ 129,00</strong></li></ul></section>
-            <section class="data-section customer-card"><div class="section-heading"><div><h2>Cliente e venda</h2><p>Identificação e origem da operação</p></div><button class="button secondary" type="button">Nova cliente</button></div><div class="search-field">Buscar por nome, WhatsApp ou CPF</div><div class="selected-customer"><span>TN</span><div><b>Thais Nania</b><small>(19) 9 8888-7777 · CPF final 890-00</small></div><button aria-label="Remover cliente">×</button></div><div class="form-grid"><label>Data da venda<input value="11/09/2026" readonly></label><label>Local ou canal<select><option>Balcão</option></select></label><label class="wide">Observação<textarea placeholder="Informação útil para o histórico"></textarea></label></div></section>
+          <div class="collar-workspace" data-collar-workspace hidden>
+            <section class="collar-composer" aria-label="Monte seu Colar">
+              <header class="collar-heading"><span class="necklace-mark" aria-hidden="true"><i></i></span><div><p class="context">Composição rápida</p><h2>Escolha seus pingentes</h2><p>Informe as quantidades, escolha cada cor e confirme o conjunto.</p></div><button class="button ghost" type="button" data-cancel-collar>Voltar</button></header>
+              <div class="collar-simple-body">
+                <div class="necklace-preview" data-necklace-preview aria-label="Prévia dos pingentes escolhidos"><i class="necklace-chain" aria-hidden="true"></i><div data-necklace-pendants><p class="collar-preview-empty">Seu colar começa vazio</p></div></div>
+                <div class="fixed-collar-base"><span class="base-check" aria-hidden="true">✓</span><div><b>Corrente incluída automaticamente</b><small>Veneziana 45 cm com extensor · SKU 444032</small></div><span>1 un.</span></div>
+
+                <section class="collar-simple-section" aria-labelledby="collar-quantity-title">
+                  <header class="collar-section-title"><span>1</span><div><h3 id="collar-quantity-title">Quantos pingentes?</h3><p>Repita menino ou menina quantas vezes precisar.</p></div></header>
+                  <div class="collar-quantity-grid">
+                    <article class="collar-quantity-card"><span class="pendant-icon menino compact" style="--gem:#7ba7c9" aria-hidden="true"><i></i></span><div><b>Menino</b><small>Azul, incolor ou verde</small></div><div class="collar-stepper" aria-label="Quantidade de meninos"><button type="button" data-collar-quantity="Menino" data-collar-delta="-1" aria-label="Diminuir meninos">−</button><output data-collar-count="Menino">0</output><button type="button" data-collar-quantity="Menino" data-collar-delta="1" aria-label="Aumentar meninos">+</button></div></article>
+                    <article class="collar-quantity-card"><span class="pendant-icon menina compact" style="--gem:#e9a8bd" aria-hidden="true"><i></i></span><div><b>Menina</b><small>Rosa claro ou incolor</small></div><div class="collar-stepper" aria-label="Quantidade de meninas"><button type="button" data-collar-quantity="Menina" data-collar-delta="-1" aria-label="Diminuir meninas">−</button><output data-collar-count="Menina">0</output><button type="button" data-collar-quantity="Menina" data-collar-delta="1" aria-label="Aumentar meninas">+</button></div></article>
+                  </div>
+                </section>
+
+                <section class="collar-simple-section" data-collar-color-section hidden>
+                  <header class="collar-section-title"><span>2</span><div><h3>Escolha as cores</h3><p>Um mini-card para cada peça física.</p></div></header>
+                  <div class="collar-color-groups" data-collar-color-list></div>
+                </section>
+
+                <section class="collar-extra-section">
+                  <button class="collar-extra-trigger" type="button" data-collar-extra-trigger aria-expanded="false"><span>+</span><span><b>Adicionar outro pingente</b><small>Inclua uma peça do catálogo no conjunto</small></span><strong>Adicionar</strong></button>
+                  <div class="collar-extra-fields" data-collar-extra-fields hidden><label>SKU ou nome do pingente<input type="text" maxlength="80" placeholder="Ex.: Coração incolor · SKU 123456" data-collar-extra-sku></label><button class="button ghost" type="button" data-remove-collar-extra>Remover</button></div>
+                </section>
+
+                <section class="collar-simple-section collar-commercial" data-collar-commercial-section hidden>
+                  <header class="collar-section-title"><span>3</span><div><h3>Confirme o conjunto</h3><p>Reconhecemos o modelo ou preparamos o cadastro da combinação nova.</p></div></header>
+                  <div class="collar-match" data-collar-match></div>
+                  <div class="collar-commercial-grid">
+                    <label>SKU comercial<input type="text" inputmode="numeric" maxlength="6" data-collar-commercial-sku></label>
+                    <label class="wide">Nome da peça<input type="text" maxlength="100" data-collar-commercial-name></label>
+                    <label>Preço de referência<input type="text" readonly data-collar-reference></label>
+                    <label>Preço final<input type="number" min="0.01" step="0.01" data-collar-final-price></label>
+                    <label class="wide" data-collar-price-reason-field hidden>Motivo da alteração<input type="text" maxlength="100" placeholder="Ex.: condição especial no balcão" data-collar-price-reason></label>
+                  </div>
+                  <p class="collar-sku-help" data-collar-sku-help hidden></p>
+                  <p class="collar-price-suggestion" data-collar-price-suggestion hidden></p>
+                  <p class="collar-new-help" data-collar-new-help hidden>Na implementação real, o SKU será reservado com segurança antes de concluir o cadastro.</p>
+                </section>
+                <p class="collar-stock-warning" role="alert" data-collar-stock-warning hidden></p>
+              </div>
+              <footer class="collar-footer"><div><span data-collar-footer-copy>Escolha a quantidade para começar</span><strong data-collar-footer-price>R$ 0,00</strong></div><button class="button primary" type="button" data-add-collar disabled>Adicionar à venda</button></footer>
+            </section>
           </div>
-          <section class="payment data-section"><div class="section-heading"><div><h2>Pagamento</h2><p>O status é calculado pelos recebimentos, nunca escolhido manualmente.</p></div><span class="status paid">Pago</span></div><div class="payment-summary"><span>Venda <b>R$ 337,00</b></span><span>Recebido <b>R$ 337,00</b></span><span>A receber <b>R$ 0,00</b></span></div><div class="payment-line"><strong>R$ 337,00</strong><span>PIX</span><span>Pago hoje</span><button type="button" aria-label="Mais opções">•••</button></div><div class="payment-actions"><button class="button ghost" type="button">+ Adicionar pagamento</button><button class="button ghost" type="button">Parcelar</button><button class="button primary" type="button">Finalizar venda · R$ 337,00</button></div></section>
+          <div data-launch-workspace hidden>
+            <section class="sale-composer" aria-label="Venda normal">
+              <div class="launch-grid">
+              <section class="launch-pane launch-card flow-step is-open" data-flow-step="items">
+                <button class="flow-step-toggle" type="button" data-step-toggle aria-expanded="true"><span class="step-index">1</span><span class="step-title"><strong>Itens da venda</strong><small>Leia a etiqueta ou busque por nome e SKU.</small></span><span class="step-summary" data-item-count>0 peças</span><span class="step-chevron" aria-hidden="true">⌃</span></button>
+                <div class="flow-step-body">
+                <form class="product-search" data-product-search-form>
+                  <label class="visually-hidden" for="launch-product-search">Buscar produto</label>
+                  <span aria-hidden="true">⌕</span>
+                  <input id="launch-product-search" type="search" autocomplete="off" placeholder="Digite o nome ou bipe a etiqueta" data-product-search />
+                  <button class="button camera-action" type="button" data-open-camera aria-label="Abrir câmera para ler etiqueta"><span class="camera-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M3.5 6.5h2.2l1.2-2h6.2l1.2 2h2.2a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 15V8a1.5 1.5 0 0 1 1.5-1.5Z"/><circle cx="10" cy="11.5" r="3.2"/></svg></span><span>Câmera</span></button>
+                  <button class="button secondary" type="submit">Adicionar</button>
+                </form>
+                <p class="product-entry-hint">Digite para buscar, bipe com o leitor ou use a câmera do celular.</p>
+                <div class="product-results" data-product-results hidden></div>
+                <div class="collar-return" data-collar-return hidden><span><b>Composição personalizada</b><small>A corrente e os pingentes serão baixados juntos.</small></span><button class="button ghost" type="button" data-edit-collar>Alterar composição</button></div>
+                <ul class="cart-list launch-cart" data-launch-cart hidden></ul>
+                <div class="cart-empty" data-cart-empty><span aria-hidden="true">◇</span><b>A venda ainda está vazia</b><small>Leia uma etiqueta ou busque uma peça para começar.</small></div>
+                <div class="step-next"><button class="button primary" type="button" data-open-step="customer" disabled>Continuar para cliente</button></div>
+                </div>
+              </section>
+
+              <section class="launch-pane customer-card flow-step is-collapsed" data-flow-step="customer">
+                <button class="flow-step-toggle" type="button" data-step-toggle aria-expanded="false"><span class="step-index">2</span><span class="step-title"><strong>Cliente da venda</strong><small>Quem comprou e onde a venda aconteceu.</small></span><span class="step-summary" data-customer-step-summary>Não selecionada</span><span class="step-chevron" aria-hidden="true">⌄</span></button>
+                <div class="flow-step-body">
+                <div class="customer-step-actions"><button class="button primary compact-action" type="button" data-new-customer>+ Nova cliente</button></div>
+                <label class="field-label" for="launch-customer-search">Cliente</label>
+                <div class="customer-search"><span aria-hidden="true">⌕</span><input id="launch-customer-search" type="search" list="launch-customer-options" placeholder="Nome, WhatsApp ou CPF" data-customer-search /></div>
+                <datalist id="launch-customer-options"><option value="Thais Nania"></option><option value="Camila Ferreira"></option><option value="Juliana Prado"></option></datalist>
+                <div class="selected-customer" data-selected-customer hidden><span data-customer-initials></span><div><b data-customer-name></b><small data-customer-contact></small></div><button type="button" aria-label="Remover cliente" data-remove-customer>×</button></div>
+                <div class="customer-empty" data-customer-empty>Selecione uma cliente ou continue identificando os outros dados da venda.</div>
+                <div class="form-grid">
+                  <label>Data da venda<input type="date" value="2026-09-12"  data-sale-date></label>
+                  <label>Local ou canal<select data-sale-channel><option>Balcão</option><option>WhatsApp</option><option>Instagram</option><option>Grupo VIP</option><option>Feira</option><option>Maleta</option><option>Outro</option></select></label>
+                  <label class="wide" data-sale-channel-other hidden>Qual local ou canal?<input type="text" maxlength="60" placeholder="Informe onde a venda aconteceu" data-sale-channel-other-input></label>
+                </div>
+                <div class="step-next"><button class="button primary" type="button" data-open-step="payment">Continuar para pagamento</button></div>
+                </div>
+              </section>
+
+            <section class="payment flow-step is-collapsed" data-flow-step="payment">
+              <button class="flow-step-toggle" type="button" data-step-toggle aria-expanded="false"><span class="step-index">3</span><span class="step-title"><strong>Pagamento</strong><small>Registre o que entrou e o que ficou pendente.</small></span><span class="step-summary" data-payment-step-summary>Não informado</span><span class="step-chevron" aria-hidden="true">⌄</span></button>
+              <div class="flow-step-body">
+              <div class="payment-overview">
+                <div class="payment-metric"><span>Valor da venda</span><strong data-sale-total>R$ 0,00</strong><small data-sale-piece-count>0 peças no carrinho</small></div>
+                <div class="payment-metric"><span>Valor recebido</span><strong data-sale-received>R$ 0,00</strong><small>dinheiro confirmado</small></div>
+                <div class="payment-metric"><span>Valor a receber</span><strong data-sale-receivable>R$ 0,00</strong><small>saldo cobrável</small></div>
+                <div class="financial-callout" data-financial-callout><span class="status neutral" data-financial-status>Sem itens</span><small data-financial-copy>Adicione uma peça para calcular.</small></div>
+              </div>
+              <div class="payment-empty" data-payment-empty><span aria-hidden="true">◇</span><div><b>Nenhum pagamento informado</b><small>Adicione o primeiro recebimento ou valor pendente.</small></div></div>
+              <div class="payment-table" data-payment-table hidden>
+                <div class="payment-table-head"><span>Valor</span><span>Forma de pagamento</span><span>Status</span><span>Informações</span><span></span></div>
+                <div class="payment-list" data-payment-list></div>
+              </div>
+              <p class="payment-warning" role="alert" data-payment-warning hidden></p>
+              <div class="payment-actions"><button class="button primary" type="button" data-add-payment>+ Adicionar pagamento</button></div>
+              <label class="sale-note-field">Observação da venda <span>Opcional</span><textarea placeholder="Ex.: atendimento no grupo VIP" data-sale-note></textarea></label>
+              </div>
+            </section>
+            </div>
+            <footer class="sale-composer-footer"><strong data-footer-piece-count>0 peças</strong><div class="sale-totals"><span>Subtotal <b data-sale-subtotal>R$ 0,00</b></span><span><i data-sale-adjustment-label>Desconto</i> <b data-sale-discount>R$ 0,00</b></span><span>Total <b data-footer-total>R$ 0,00</b></span></div><button class="button primary" type="button" data-finalize-sale disabled>✓ Finalizar venda</button></footer>
+            </section>
+          </div>
+
+          <section class="launch-success data-section" data-launch-success hidden>
+            <span class="success-seal" aria-hidden="true">✓</span><p class="context">Venda confirmada no protótipo</p><h2>Pronto. O lançamento ficou claro.</h2><p>Nenhum dado real foi gravado. Esta tela demonstra o retorno seguro após a confirmação.</p><div class="success-totals"><span>Total <b data-success-total>R$ 0,00</b></span><span>Recebido <b data-success-received>R$ 0,00</b></span><span>A receber <b data-success-receivable>R$ 0,00</b></span></div><button class="button primary" type="button" data-new-sale>Começar nova venda</button>
+          </section>
+
+          <section class="data-section today-sales">
+              <div class="section-heading"><div><h2>Vendas de hoje</h2><p>Balcão e outros lançamentos comerciais do dia.</p></div><button class="button ghost" type="button" data-open-today-sales>Ver todas ›</button></div>
+              <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Cliente</th><th>Tipo</th><th>Peças</th><th>Valor</th><th>Recebimento</th><th></th></tr></thead><tbody>
+                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1057" data-detail-scope="hoje"><td>10:32</td><td><button type="button" class="client-name-link" data-open-client="Juliana Prado">Juliana Prado</button></td><td><span class="tag rose">Balcão</span></td><td>1</td><td>R$ 89,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Juliana Prado">›</button></td></tr>
+                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1058" data-detail-scope="hoje"><td>09:15</td><td><button type="button" class="client-name-link" data-open-client="Camila Ferreira">Camila Ferreira</button></td><td><span class="tag rose">Balcão</span></td><td>2</td><td>R$ 159,00</td><td><span class="status receivable">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Camila Ferreira">›</button></td></tr>
+                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1056" data-detail-scope="hoje"><td>08:41</td><td><button type="button" class="client-name-link" data-open-client="Ana Luiza Sedassari">Ana Luiza Sedassari</button></td><td><span class="tag rose">Balcão</span></td><td>1</td><td>R$ 79,00</td><td><span class="status receivable">A receber</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Ana Luiza Sedassari">›</button></td></tr>
+                <tr class="sale-row today-sale-row" tabindex="0" aria-expanded="false" data-sale-id="venda-1055" data-detail-scope="hoje"><td>08:12</td><td><button type="button" class="client-name-link" data-open-client="Zilma">Zilma</button></td><td><span class="tag blue">Maleta</span></td><td>1</td><td>R$ 79,00</td><td><span class="status paid">Pago</span></td><td><button type="button" class="sale-open" aria-label="Expandir detalhes da venda de Zilma">›</button></td></tr>
+              </tbody></table></div>
+          </section>
+
+          <dialog class="launch-dialog variation-dialog" id="variation-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar variações">×</button><p class="context">Peça com variações</p><h2>Qual variação saiu?</h2><p>A etiqueta identifica o produto. Agora escolha a peça exata para baixar o estoque correto.</p><div class="variation-product"><span class="jewel" aria-hidden="true" data-variation-symbol>○</span><span><b data-variation-product></b><small data-variation-meta></small></span></div><div class="variation-options" role="list" data-variation-options></div><p class="variation-footnote">A opção sem estoque continua visível, mas não pode ser selecionada.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button></div></form></dialog>
+
+          <dialog class="launch-dialog" id="price-dialog"><form method="dialog" data-price-form><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Preço desta peça</p><h2 data-price-product>Editar preço final</h2><p>O preço padrão fica preservado. Informe quanto será cobrado nesta venda.</p><label>Preço padrão<input data-table-price-display readonly></label><label>Preço final<input type="number" min="0" step="0.01" required data-final-price></label><label>Motivo da alteração<input type="text" placeholder="Ex.: Grupo VIP" data-price-reason></label><p class="dialog-error" role="alert" data-price-error hidden>Informe o motivo quando o preço final for diferente.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button><button class="button primary" type="submit" value="default">Aplicar preço</button></div></form></dialog>
+
+          <dialog class="launch-dialog camera-dialog" id="camera-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar câmera">×</button><p class="context">Leitor de etiqueta</p><h2>Aponte a câmera para o código</h2><p>A câmera traseira será ativada somente depois da sua confirmação.</p><div class="camera-preview"><video playsinline muted data-camera-video hidden></video><span class="camera-placeholder" data-camera-placeholder aria-hidden="true">▣</span><i aria-hidden="true"></i></div><p class="camera-status" role="status" data-camera-status>Câmera desligada.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Fechar</button><button class="button primary" type="button" data-start-camera>Ativar câmera</button></div></form></dialog>
+
+          <dialog class="launch-dialog compact-dialog" id="clear-draft-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Limpar rascunho</p><h2>Descartar esta venda?</h2><p>Itens, cliente e pagamentos preenchidos serão removidos deste protótipo.</p><div class="dialog-actions"><button class="button ghost" value="cancel">Manter rascunho</button><button class="button primary" value="confirm" data-confirm-clear>Descartar</button></div></form></dialog>
+
+          <dialog class="launch-dialog sale-review-dialog" id="finalize-sale-dialog"><form method="dialog"><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Revisão final</p><h2>Confira antes de confirmar</h2><p data-finalize-copy>Cliente, peças, pagamentos e valores desta venda.</p><div class="review-sheet"><div class="review-meta"><div><span>Cliente</span><b data-review-customer>Não informada</b></div><div><span>Venda</span><b data-review-channel>Balcão</b><small data-review-date>12/09/2026</small></div></div><section class="review-section"><header><span>Itens da venda</span><b data-review-item-count>0 peças</b></header><ul data-review-items-list></ul></section><section class="review-section"><header><span>Pagamentos</span><b data-review-payment-count>Nenhum</b></header><ul data-review-payments-list></ul></section><div class="review-note" data-review-note-wrap hidden><span>Observação</span><p data-review-note></p></div><dl class="review-balance"><div><dt>Preço padrão</dt><dd data-review-standard></dd></div><div><dt data-review-adjustment-label>Desconto</dt><dd data-review-adjustment></dd></div><div class="review-total"><dt>Total</dt><dd data-review-total></dd></div><div><dt>Recebido</dt><dd data-review-received></dd></div><div><dt>A receber</dt><dd data-review-receivable></dd></div></dl></div><div class="dialog-actions"><button class="button ghost" value="cancel">Voltar e revisar</button><button class="button primary" type="button" data-confirm-sale>Confirmar venda</button></div></form></dialog>
+
+          <dialog class="launch-dialog compact-dialog" id="new-customer-dialog"><form method="dialog" data-customer-form><button class="dialog-close" value="cancel" aria-label="Fechar">×</button><p class="context">Cadastro rápido</p><h2>Nova cliente</h2><label>Nome<input type="text" required data-new-customer-name></label><label>WhatsApp<input type="tel" placeholder="(19) 9 0000-0000" data-new-customer-phone></label><div class="dialog-actions"><button class="button ghost" value="cancel">Cancelar</button><button class="button primary" type="submit">Usar nesta venda</button></div></form></dialog>
+
+          <div class="launch-toast" role="status" aria-live="polite" data-launch-toast hidden></div>
         </section>
 
         <section class="screen" id="clientes" aria-labelledby="clients-title" hidden>
-          <div class="page-heading"><div><p class="context">Relacionamento</p><h1 id="clients-title">Clientes</h1><p>Compras, pagamentos e valores em aberto aparecem separados.</p></div><button class="button primary" type="button">Nova cliente</button></div>
+          <div class="page-heading"><div><p class="context" data-clients-context>Relacionamento</p><h1 id="clients-title" data-clients-title>Clientes</h1><p data-clients-copy>Compras, pagamentos e valores em aberto aparecem separados.</p></div><div class="clients-heading-actions"><button class="button ghost" type="button" data-show-all-clients hidden>Ver todas as clientes</button><button class="button primary" type="button" data-client-new>Nova cliente</button></div></div>
           <div class="metric-row compact"><article><span>Clientes ativas</span><strong>345</strong><small>cadastros com histórico</small></article><article><span>Compraram no mês</span><strong>39</strong><small>6 novas clientes</small></article><article><span>Com valor em aberto</span><strong>8</strong><small>R$ 12.269,90</small></article></div>
-          <section class="data-section client-list"><div class="section-heading"><div><h2>Lista de clientes</h2><p>Busque por nome, telefone ou CPF</p></div><div class="search-field narrow">Buscar cliente</div></div><table><thead><tr><th>Cliente</th><th>Comprou</th><th>Pago</th><th>Em aberto</th><th>Última compra</th><th></th></tr></thead><tbody><tr><td><b>Camila Ferreira</b><small>(19) 9 8123-4567</small></td><td>R$ 1.284,00</td><td>R$ 1.125,00</td><td><span class="status partial">R$ 159,00</span></td><td>05/09/2026</td><td>›</td></tr><tr><td><b>Juliana Prado</b><small>(19) 9 9211-1098</small></td><td>R$ 898,00</td><td>R$ 898,00</td><td><span class="status paid">R$ 0,00</span></td><td>04/09/2026</td><td>›</td></tr><tr><td><b>Ana Luiza Sedassari</b><small>(19) 9 7790-3112</small></td><td>R$ 2.044,00</td><td>R$ 1.704,00</td><td><span class="status partial">R$ 340,00</span></td><td>03/09/2026</td><td>›</td></tr></tbody></table></section>
+          <section class="data-section client-list"><div class="section-heading"><div><h2 data-client-list-title>Lista de clientes</h2><p data-client-list-copy>Busque por nome, telefone ou CPF</p></div><div class="search-field narrow" data-client-search>Buscar cliente</div></div><table><thead><tr><th>Cliente</th><th>Comprou</th><th>Pago</th><th>Em aberto</th><th>Última compra</th><th></th></tr></thead><tbody><tr data-client-row="Camila Ferreira" data-has-receivable="true"><td><b>Camila Ferreira</b><small>(19) 9 8123-4567</small></td><td>R$ 1.284,00</td><td>R$ 1.125,00</td><td><span class="status partial">R$ 159,00</span></td><td>05/09/2026</td><td>›</td></tr><tr data-client-row="Juliana Prado" data-has-receivable="false"><td><b>Juliana Prado</b><small>(19) 9 9211-1098</small></td><td>R$ 898,00</td><td>R$ 898,00</td><td><span class="status paid">R$ 0,00</span></td><td>04/09/2026</td><td>›</td></tr><tr data-client-row="Ana Luiza Sedassari" data-has-receivable="true"><td><b>Ana Luiza Sedassari</b><small>(19) 9 7790-3112</small></td><td>R$ 2.044,00</td><td>R$ 1.804,00</td><td><span class="status partial">R$ 240,00</span></td><td>03/09/2026</td><td>›</td></tr><tr data-client-row="Zilma" data-has-receivable="false"><td><b>Zilma</b><small>Contato não informado</small></td><td>R$ 79,00</td><td>R$ 79,00</td><td><span class="status paid">R$ 0,00</span></td><td>02/09/2026</td><td>›</td></tr></tbody></table></section>
+          <section class="client-profile-view" data-client-profile hidden>
+            <article class="data-section client-identity"><div class="client-avatar" data-client-initials>CF</div><div><p class="context">Perfil da cliente</p><h2 data-profile-name>Camila Ferreira</h2><p data-profile-phone>(19) 9 8123-4567</p><small>Cliente desde 18/02/2025 · dados demonstrativos</small></div><div class="client-identity-actions"><button class="button ghost" type="button" data-edit-client>Editar cadastro</button><button class="button primary" type="button" data-new-client-sale>Nova venda</button></div></article>
+            <section class="client-kpi-grid" aria-label="Resumo da cliente">
+              <article><span>Total comprado</span><strong data-profile-bought>R$ 1.284,00</strong><small>histórico de vendas</small></article>
+              <article><span>Total recebido</span><strong data-profile-paid>R$ 1.125,00</strong><small>pagamentos confirmados</small></article>
+              <article class="open"><span>A receber</span><strong data-profile-open>R$ 159,00</strong><small>sem geração de parcelas</small></article>
+              <article><span>Ticket médio</span><strong data-profile-ticket>R$ 321,00</strong><small>por venda concluída</small></article>
+              <article><span>Garantias ativas</span><strong data-profile-warranties>1</strong><small>caso em acompanhamento</small></article>
+            </section>
+            <div class="client-command-grid">
+              <article class="data-section client-financial"><div><p class="context">Situação financeira</p><h2>Recebimentos</h2><p>O saldo aberto permanece a receber até a confirmação do pagamento.</p></div><button class="button primary" type="button" data-register-receipt>Registrar recebimento</button></article>
+              <article class="data-section client-credit"><div><p class="context">Crédito da cliente</p><h2>Regra pendente</h2><p>A origem, validade e uso do crédito ainda precisam de decisão de negócio.</p></div><span class="decision-pill">Decisão necessária</span></article>
+            </div>
+            <section class="data-section client-aftercare"><div class="section-heading"><div><p class="context">Pós-venda</p><h2>Garantias, trocas e reparos</h2><p>Ocorrências ligadas às peças compradas aparecem junto do relacionamento.</p></div><a class="button ghost" href="../reparos/master.html">Abrir Garantias</a></div><div class="aftercare-grid"><article><span class="aftercare-icon active">01</span><div><b>Garantia #G-142 · em análise</b><small>Argola Duas Linhas · venda #1058</small><p>Aberta em 09/09 · retorno previsto para 17/09</p></div><em class="status receivable">Em andamento</em></article><article><span class="aftercare-icon done">✓</span><div><b>Troca concluída</b><small>Pulseira Medalha Salmo · venda #0987</small><p>Diferença de R$ 18,00 recebida por PIX em 12/07</p></div><em class="status paid">Resolvida</em></article></div></section>
+            <div class="client-history-grid">
+              <section class="data-section client-purchases"><div class="section-heading"><div><p class="context">Linha do tempo</p><h2>Compras e recebimentos</h2><p>Venda e situação financeira aparecem separadas.</p></div><a class="button ghost" href="../financeiro/master.html#receipts">Ver recebimentos</a></div><div class="client-timeline"><article><span class="timeline-icon sale">↗</span><div><b>Venda #1058</b><small>05/09/2026 · Balcão · 2 peças</small><p>Argola Duas Linhas e Pulseira Medalha Salmo</p></div><strong>R$ 159,00</strong><em class="status receivable">A receber</em></article><article><span class="timeline-icon money">R$</span><div><b>Recebimento por PIX</b><small>28/08/2026 · recebido na data efetiva</small><p>Referente à venda #1041</p></div><strong>R$ 220,00</strong><em class="status paid">Pago</em></article><article><span class="timeline-icon sale">↗</span><div><b>Venda #1041</b><small>25/08/2026 · WhatsApp · 3 peças</small><p>Colar Coração Vazado e 2 brincos</p></div><strong>R$ 220,00</strong><em class="status paid">Pago</em></article></div></section>
+              <aside class="data-section client-notes"><p class="context">Relacionamento</p><h2>Contato e observações</h2><dl><div><dt>WhatsApp</dt><dd data-profile-phone-copy>(19) 9 8123-4567</dd></div><div><dt>Última compra</dt><dd data-profile-last>05/09/2026</dd></div><div><dt>Canal mais usado</dt><dd>Balcão</dd></div></dl><label>Observação<textarea rows="4" placeholder="Preferências, tamanho ou contexto útil…">Prefere peças douradas e contato pelo WhatsApp.</textarea></label><button class="button ghost" type="button" data-save-client-note>Salvar observação</button></aside>
+            </div>
+          </section>
+        </section>
+
+        <section class="screen" id="reparos" aria-labelledby="repairs-title" hidden>
+          <div class="page-heading">
+            <div><p class="context">Clientes</p><h1 id="repairs-title">Reparos</h1><p>Acompanhe as peças em conserto, os prazos e as devoluções.</p></div>
+            <button class="button primary" type="button">Novo reparo</button>
+          </div>
+          <div class="metric-row compact">
+            <article><span>Reparos ativos</span><strong>21</strong><small>em acompanhamento</small></article>
+            <article><span>Próximos do prazo</span><strong>3</strong><small>exigem atenção</small></article>
+            <article><span>Na oficina</span><strong>6</strong><small>aguardando retorno</small></article>
+            <article><span>Prontos</span><strong>4</strong><small>para devolução</small></article>
+          </div>
+          <section class="data-section repair-list">
+            <div class="section-heading"><div><h2>Reparos ativos</h2><p>Cliente, peça, andamento e prazo</p></div><div class="search-field narrow">Buscar reparo ou cliente</div></div>
+            <div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Peça</th><th>Andamento</th><th>Entrada</th><th>Prazo</th><th>Tempo restante</th></tr></thead><tbody><tr><td><b>Camila Ferreira</b><small>Reparo #021</small></td><td>Brinco Ponto de Luz</td><td><span class="status partial">Em conserto</span></td><td>02/09/2026</td><td>16/09/2026</td><td><strong>5 dias</strong></td></tr><tr><td><b>Ana Luiza Sedassari</b><small>Reparo #019</small></td><td>Colar Borboleta Preta</td><td><span class="status neutral">Aguardando oficina</span></td><td>29/08/2026</td><td>13/09/2026</td><td><strong>2 dias</strong></td></tr><tr><td><b>Juliana Prado</b><small>Reparo #018</small></td><td>Argola Borboleta</td><td><span class="status paid">Pronto</span></td><td>27/08/2026</td><td>12/09/2026</td><td><strong>1 dia</strong></td></tr></tbody></table></div>
+          </section>
         </section>
 
         <section class="screen" id="saidas" aria-labelledby="outputs-title" hidden>
@@ -282,14 +448,999 @@
     </div>
 
     <script>
+    (async () => {
+      await window.MarquesaDemo.ready;
+      const demo = window.MarquesaDemo;
+      const demoEscape = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+      const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+      const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+      const shortMonthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
       const tabs = [...document.querySelectorAll('[data-screen]')];
       const screens = [...document.querySelectorAll('.screen')];
-      tabs.forEach((tab) => tab.addEventListener('click', () => {
-        tabs.forEach((item) => { item.classList.toggle('active', item === tab); item.removeAttribute('aria-current'); });
-        tab.setAttribute('aria-current', 'page');
-        screens.forEach((screen) => { const active = screen.id === tab.dataset.screen; screen.classList.toggle('active', active); screen.hidden = !active; });
+      function activateScreen(screenId, navigationId = screenId) {
+        tabs.forEach((item) => {
+          const active = item.dataset.screen === navigationId;
+          item.classList.toggle('active', active);
+          item.toggleAttribute('aria-current', active);
+          if (active) item.setAttribute('aria-current', 'page');
+        });
+        screens.forEach((screen) => { const active = screen.id === screenId; screen.classList.toggle('active', active); screen.hidden = !active; });
         window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      }
+      window.activateScreen = activateScreen;
+
+      tabs.forEach((tab) => tab.addEventListener('click', () => {
+        if (tab.dataset.screen === 'clientes') showAllClients();
+        activateScreen(tab.dataset.screen);
       }));
+
+      const launchScreen = document.querySelector('#lancamentos');
+      const launchWorkspace = launchScreen.querySelector('[data-launch-workspace]');
+      const collarWorkspace = launchScreen.querySelector('[data-collar-workspace]');
+      const collarComposer = launchScreen.querySelector('.collar-composer');
+      const launchSuccess = launchScreen.querySelector('[data-launch-success]');
+      const saleChoice = launchScreen.querySelector('[data-launch-type="sale"]');
+      const collarChoice = launchScreen.querySelector('[data-launch-type="collar"]');
+      const flowSteps = [...launchScreen.querySelectorAll('[data-flow-step]')];
+      const launchCart = launchScreen.querySelector('[data-launch-cart]');
+      const cartEmpty = launchScreen.querySelector('[data-cart-empty]');
+      const paymentList = launchScreen.querySelector('[data-payment-list]');
+      const paymentTable = launchScreen.querySelector('[data-payment-table]');
+      const paymentEmpty = launchScreen.querySelector('[data-payment-empty]');
+      const addPaymentButton = launchScreen.querySelector('[data-add-payment]');
+      const paymentWarning = launchScreen.querySelector('[data-payment-warning]');
+      const finalizeSaleButton = launchScreen.querySelector('[data-finalize-sale]');
+      const productSearch = launchScreen.querySelector('[data-product-search]');
+      const productSearchForm = launchScreen.querySelector('[data-product-search-form]');
+      const productEntryHint = launchScreen.querySelector('.product-entry-hint');
+      const productResults = launchScreen.querySelector('[data-product-results]');
+      const collarReturn = launchScreen.querySelector('[data-collar-return]');
+      const necklacePendants = launchScreen.querySelector('[data-necklace-pendants]');
+      const collarColorSection = launchScreen.querySelector('[data-collar-color-section]');
+      const collarColorList = launchScreen.querySelector('[data-collar-color-list]');
+      const collarCommercialSection = launchScreen.querySelector('[data-collar-commercial-section]');
+      const collarCommercialSku = launchScreen.querySelector('[data-collar-commercial-sku]');
+      const collarCommercialName = launchScreen.querySelector('[data-collar-commercial-name]');
+      const collarReference = launchScreen.querySelector('[data-collar-reference]');
+      const collarFinalPrice = launchScreen.querySelector('[data-collar-final-price]');
+      const collarPriceReasonField = launchScreen.querySelector('[data-collar-price-reason-field]');
+      const collarPriceReason = launchScreen.querySelector('[data-collar-price-reason]');
+      const collarExtraFields = launchScreen.querySelector('[data-collar-extra-fields]');
+      const collarExtraSku = launchScreen.querySelector('[data-collar-extra-sku]');
+      const addCollarButton = launchScreen.querySelector('[data-add-collar]');
+      const variationDialog = launchScreen.querySelector('#variation-dialog');
+      const variationOptions = launchScreen.querySelector('[data-variation-options]');
+      const priceDialog = launchScreen.querySelector('#price-dialog');
+      const cameraDialog = launchScreen.querySelector('#camera-dialog');
+      const cameraVideo = launchScreen.querySelector('[data-camera-video]');
+      const cameraPlaceholder = launchScreen.querySelector('[data-camera-placeholder]');
+      const cameraStatus = launchScreen.querySelector('[data-camera-status]');
+      const startCameraButton = launchScreen.querySelector('[data-start-camera]');
+      const clearDraftDialog = launchScreen.querySelector('#clear-draft-dialog');
+      const finalizeSaleDialog = launchScreen.querySelector('#finalize-sale-dialog');
+      const newCustomerDialog = launchScreen.querySelector('#new-customer-dialog');
+      const selectedCustomer = launchScreen.querySelector('[data-selected-customer]');
+      const customerEmpty = launchScreen.querySelector('[data-customer-empty]');
+      const launchToast = launchScreen.querySelector('[data-launch-toast]');
+      const catalog = [
+        { sku: '122060', name: 'Argola Duas Linhas Cravejadas', detail: 'Banho de Ouro 18k', price: 150, symbol: '◌' },
+        { sku: '784231', name: 'Anel Aurora Cravejado', detail: 'Banho de Ouro 18k', price: 129, symbol: '○', variantAttribute: 'Aro', variants: [{ id: '784231-16', name: '16', stock: 2 }, { id: '784231-18', name: '18', stock: 1 }, { id: '784231-20', name: '20', stock: 0 }] },
+        { sku: '451109', name: 'Pulseira Medalha Salmo', detail: 'Banho de Ouro 18k', price: 200, symbol: '◇' },
+        { sku: '640509', name: 'Pingente Menino Verde', detail: 'Coleção Filhos', price: 49, symbol: '♢' },
+        { sku: '649597', name: 'Pingente Menina Rosa Pink', detail: 'Coleção Filhos', price: 49, symbol: '♢' },
+        { sku: '405337', name: 'Colar Filha', detail: 'Banho de Ouro 18k', price: 89, symbol: '⌁' }
+      ];
+      const collarModels = [
+        { slug: 'casal', sku: '326660', name: 'Colar Casal', price: 129, available: 5, slots: ['Menino', 'Menina'] },
+        { slug: 'duas-meninas', sku: '364945', name: 'Colar Filhas Duas Meninas', price: 129, available: 4, slots: ['Menina', 'Menina'] },
+        { slug: 'dois-meninos', sku: '311066', name: 'Colar Filhos Dois Meninos', price: 129, available: 3, slots: ['Menino', 'Menino'] },
+        { slug: 'dois-meninos-uma-menina', sku: '314161', name: 'Colar Filhos Dois Meninos e Uma Menina', price: 159, available: 2, slots: ['Menino', 'Menino', 'Menina'] },
+        { slug: 'duas-meninas-um-menino', sku: '399872', name: 'Colar Filhos Duas Meninas e Um Menino', price: 159, available: 2, slots: ['Menina', 'Menina', 'Menino'] }
+      ];
+      const collarComponents = [
+        { sku: '251551', group: 'Menino', label: 'Azul', name: 'Colar Menino Zircônia Azul', stock: 3, color: '#7ba7c9' },
+        { sku: '251552', group: 'Menino', label: 'Incolor', name: 'Colar Menino Zircônia Incolor', stock: 4, color: '#e7e1df' },
+        { sku: '329494', group: 'Menino', label: 'Verde', name: 'Colar Menino Zircônia Verde', stock: 2, color: '#70a98a' },
+        { sku: '263236', group: 'Menina', label: 'Rosa claro', name: 'Colar Menina Zircônia Rosa Claro', stock: 2, color: '#e9a8bd' },
+        { sku: '273470', group: 'Menina', label: 'Incolor', name: 'Colar Menina Zircônia Incolor', stock: 5, color: '#e7e1df' }
+      ];
+      const customerBook = {
+        'Thais Nania': { contact: '(19) 9 8888-7777 · CPF final 890-00' },
+        'Camila Ferreira': { contact: '(19) 9 8123-4567' },
+        'Juliana Prado': { contact: '(19) 9 9211-1098' }
+      };
+      let editingCartItem = null;
+      let pendingVariantProduct = null;
+      let selectedCollarModel = null;
+      let collarCounts = { Menino: 0, Menina: 0 };
+      let collarSelections = { Menino: [], Menina: [] };
+      let collarHasExtra = false;
+      let toastTimer = null;
+      let cameraStream = null;
+      let cameraScanTimer = null;
+
+      function launchMoney(value) {
+        return currency.format(Number.isFinite(value) ? value : 0);
+      }
+
+      function launchItems() {
+        return [...launchCart.querySelectorAll('[data-cart-item]')];
+      }
+
+      function launchPayments() {
+        return [...paymentList.querySelectorAll('[data-payment-entry]')];
+      }
+
+      function launchTotals() {
+        const items = launchItems();
+        const total = items.reduce((sum, item) => sum + Number(item.dataset.price) * Number(item.dataset.quantity), 0);
+        const tableTotal = items.reduce((sum, item) => sum + Number(item.dataset.tablePrice) * Number(item.dataset.quantity), 0);
+        const entries = launchPayments();
+        const paid = entries.reduce((sum, entry) => entry.querySelector('[data-payment-state]').value === 'paid' ? sum + Number(entry.querySelector('[data-payment-amount]').value || 0) : sum, 0);
+        const planned = entries.reduce((sum, entry) => sum + Number(entry.querySelector('[data-payment-amount]').value || 0), 0);
+        return { total, tableTotal, discount: Math.max(0, tableTotal - total), surcharge: Math.max(0, total - tableTotal), paid, planned, receivable: Math.max(0, total - paid), exceeded: planned > total + .005 };
+      }
+
+      function setLaunchText(selector, value) {
+        launchScreen.querySelector(selector).textContent = value;
+      }
+
+      function setFlowStep(stepName) {
+        flowSteps.forEach((step) => {
+          const open = step.dataset.flowStep === stepName;
+          step.classList.toggle('is-open', open);
+          step.classList.toggle('is-collapsed', !open);
+          step.querySelector('[data-step-toggle]').setAttribute('aria-expanded', String(open));
+          step.querySelector('.step-chevron').textContent = open ? '⌃' : '⌄';
+        });
+      }
+
+      flowSteps.forEach((step) => step.querySelector('[data-step-toggle]').addEventListener('click', () => {
+        if (step.classList.contains('is-open')) {
+          step.classList.remove('is-open');
+          step.classList.add('is-collapsed');
+          step.querySelector('[data-step-toggle]').setAttribute('aria-expanded', 'false');
+          step.querySelector('.step-chevron').textContent = '⌄';
+          return;
+        }
+        setFlowStep(step.dataset.flowStep);
+      }));
+
+      launchScreen.querySelectorAll('[data-open-step]').forEach((button) => button.addEventListener('click', () => {
+        const target = button.dataset.openStep;
+        setFlowStep(target);
+        launchScreen.querySelector(`[data-flow-step="${target}"]`).scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      }));
+
+      function activateLaunchChoice(activeChoice) {
+        launchScreen.querySelectorAll('.choice').forEach((choice) => {
+          const selected = choice === activeChoice;
+          choice.classList.toggle('active', selected);
+          choice.setAttribute('aria-checked', String(selected));
+        });
+      }
+      window.activateLaunchChoice = activateLaunchChoice;
+
+      function setStandardProductEntry() {
+        productSearchForm.hidden = false;
+        productEntryHint.hidden = false;
+        collarReturn.hidden = !launchItems().some((item) => item.dataset.customCollar === 'true');
+      }
+
+      function pendantMarkup(component, compact = false) {
+        if (!component) return '';
+        return `<span class="pendant-icon ${component.group.toLocaleLowerCase('pt-BR')} ${compact ? 'compact' : ''}" style="--gem:${component.color}" aria-hidden="true"><i></i></span>`;
+      }
+
+      function collarModelForCounts() {
+        if (collarHasExtra) return null;
+        return collarModels.find((model) => model.slots.filter((group) => group === 'Menino').length === collarCounts.Menino
+          && model.slots.filter((group) => group === 'Menina').length === collarCounts.Menina) || null;
+      }
+
+      function collarSelectedComponents() {
+        return ['Menino', 'Menina'].flatMap((group) => collarSelections[group].filter(Boolean));
+      }
+
+      function collarSuggestedPrice() {
+        const pieces = collarCounts.Menino + collarCounts.Menina + (collarHasExtra ? 1 : 0);
+        return pieces ? 99 + Math.max(0, pieces - 1) * 30 : 0;
+      }
+
+      function collarGeneratedSku() {
+        const seed = 510000 + collarCounts.Menino * 701 + collarCounts.Menina * 113 + (collarHasExtra ? 37 : 0);
+        return String(seed % 900000 + 100000).slice(0, 6);
+      }
+
+      function collarGeneratedName() {
+        const parts = [];
+        if (collarCounts.Menino) parts.push(`${collarCounts.Menino} ${collarCounts.Menino === 1 ? 'Menino' : 'Meninos'}`);
+        if (collarCounts.Menina) parts.push(`${collarCounts.Menina} ${collarCounts.Menina === 1 ? 'Menina' : 'Meninas'}`);
+        if (collarHasExtra) parts.push('Pingente Extra');
+        return `Colar Filhos · ${parts.join(' + ')}`;
+      }
+
+      function syncCollarSelection(group) {
+        collarSelections[group] = collarSelections[group].slice(0, collarCounts[group]);
+        while (collarSelections[group].length < collarCounts[group]) collarSelections[group].push(null);
+      }
+
+      function collarSlotName(group, index) {
+        return `${group} ${index + 1}`;
+      }
+
+      function renderCollarColors() {
+        collarColorList.innerHTML = ['Menino', 'Menina'].filter((group) => collarCounts[group]).map((group) => {
+          const cards = collarSelections[group].map((selected, index) => {
+            const choices = collarComponents.filter((component) => component.group === group).map((component) => {
+              const usedElsewhere = collarSelectedComponents().reduce((sum, used) => sum + (used?.sku === component.sku ? 1 : 0), 0) - (selected?.sku === component.sku ? 1 : 0);
+              const remaining = component.stock - usedElsewhere;
+              const unavailable = remaining <= 0 && selected?.sku !== component.sku;
+              return `<option value="${component.sku}" ${selected?.sku === component.sku ? 'selected' : ''} ${unavailable ? 'disabled' : ''}>${component.label} · SKU ${component.sku} · ${Math.max(0, remaining)} disp.</option>`;
+            }).join('');
+            return `<label class="collar-color-card ${selected ? 'is-selected' : ''}"><span>${index + 1}</span>${pendantMarkup(selected, true) || `<span class="pendant-icon ${group.toLocaleLowerCase('pt-BR')} compact" aria-hidden="true"><i></i></span>`}<b>${collarSlotName(group, index)}</b><select data-collar-color-group="${group}" data-collar-color-index="${index}" aria-label="Cor de ${collarSlotName(group, index)}"><option value="">Escolha a cor</option>${choices}</select></label>`;
+          }).join('');
+          return `<div class="collar-color-group"><header><b>${group}</b><small>${collarCounts[group]} ${collarCounts[group] === 1 ? 'peça física' : 'peças físicas'}</small></header><div class="collar-color-grid">${cards}</div></div>`;
+        }).join('');
+      }
+
+      function validateCollarStock() {
+        const counts = new Map();
+        collarSelectedComponents().forEach((component) => counts.set(component.sku, (counts.get(component.sku) || 0) + 1));
+        return [...counts].find(([sku, needed]) => needed > collarComponents.find((item) => item.sku === sku).stock) || null;
+      }
+
+      function updateCollarPriceState() {
+        const finalPrice = Number(collarFinalPrice.value || 0);
+        const standardPrice = selectedCollarModel?.price || finalPrice;
+        const priceChanged = !!selectedCollarModel && Math.abs(finalPrice - standardPrice) > .005;
+        collarPriceReasonField.hidden = !priceChanged;
+        const total = collarCounts.Menino + collarCounts.Menina;
+        const allColorsChosen = collarSelectedComponents().length === total;
+        const validIdentity = /^\d{6}$/.test(collarCommercialSku.value.trim()) && collarCommercialName.value.trim().length >= 3;
+        const validExtra = !collarHasExtra || collarExtraSku.value.trim().length >= 3;
+        addCollarButton.disabled = !total || !allColorsChosen || !!validateCollarStock() || !validIdentity || !validExtra || finalPrice <= 0 || (priceChanged && !collarPriceReason.value.trim());
+        setLaunchText('[data-collar-footer-price]', launchMoney(finalPrice));
+      }
+
+      function renderCollarCommercial(resetFields = false) {
+        selectedCollarModel = collarModelForCounts();
+        const hasPendants = collarCounts.Menino + collarCounts.Menina > 0;
+        collarCommercialSection.hidden = !hasPendants;
+        if (!hasPendants) return;
+        const match = launchScreen.querySelector('[data-collar-match]');
+        const skuHelp = launchScreen.querySelector('[data-collar-sku-help]');
+        const suggestion = launchScreen.querySelector('[data-collar-price-suggestion]');
+        const newHelp = launchScreen.querySelector('[data-collar-new-help]');
+        if (selectedCollarModel) {
+          match.className = 'collar-match is-known';
+          match.innerHTML = `<span>✓</span><div><b>Combinação já cadastrada</b><small>${selectedCollarModel.name} · SKU ${selectedCollarModel.sku}</small></div>`;
+          collarCommercialSku.value = selectedCollarModel.sku;
+          collarCommercialName.value = selectedCollarModel.name;
+          collarCommercialSku.readOnly = true;
+          collarCommercialName.readOnly = true;
+          collarReference.value = launchMoney(selectedCollarModel.price);
+          if (resetFields || !collarFinalPrice.value) collarFinalPrice.value = selectedCollarModel.price.toFixed(2);
+          skuHelp.hidden = true;
+          suggestion.hidden = true;
+          newHelp.hidden = true;
+        } else {
+          const suggestedPrice = collarSuggestedPrice();
+          match.className = 'collar-match is-new';
+          match.innerHTML = '<span>＋</span><div><b>Combinação nova</b><small>Já deixamos uma identificação e um preço sugeridos para você revisar.</small></div>';
+          collarCommercialSku.readOnly = false;
+          collarCommercialName.readOnly = false;
+          collarReference.value = 'Sugestão';
+          if (resetFields) {
+            collarCommercialSku.value = collarGeneratedSku();
+            collarCommercialName.value = collarGeneratedName();
+            collarFinalPrice.value = suggestedPrice.toFixed(2);
+            collarPriceReason.value = '';
+          }
+          skuHelp.hidden = false;
+          skuHelp.textContent = `SKU ${collarCommercialSku.value}: sugestão automática deste protótipo.`;
+          suggestion.hidden = false;
+          suggestion.textContent = `Preço sugerido: ${launchMoney(suggestedPrice)} · base de ${launchMoney(99)} + ${launchMoney(30)} por pingente adicional. Você pode alterar.`;
+          newHelp.hidden = false;
+        }
+        updateCollarPriceState();
+      }
+
+      function renderCollarBuilder(resetCommercial = false) {
+        const total = collarCounts.Menino + collarCounts.Menina;
+        const chosen = collarSelectedComponents();
+        launchScreen.querySelectorAll('[data-collar-count]').forEach((output) => { output.value = collarCounts[output.dataset.collarCount]; });
+        collarColorSection.hidden = !total;
+        renderCollarColors();
+        necklacePendants.innerHTML = chosen.length
+          ? chosen.map((component, index) => `<span class="preview-slot filled"><small>${index + 1}</small>${pendantMarkup(component)}</span>`).join('')
+          : '<p class="collar-preview-empty">Seu colar começa vazio</p>';
+        const stockConflict = validateCollarStock();
+        const warning = launchScreen.querySelector('[data-collar-stock-warning]');
+        warning.hidden = !stockConflict;
+        if (stockConflict) {
+          const component = collarComponents.find((item) => item.sku === stockConflict[0]);
+          warning.textContent = `${component.label}: você escolheu ${stockConflict[1]}, mas há ${component.stock} disponível.`;
+        }
+        renderCollarCommercial(resetCommercial);
+        const copy = total ? `${chosen.length} de ${total} cores escolhidas${collarHasExtra ? ' · 1 pingente extra' : ''}` : 'Escolha a quantidade para começar';
+        setLaunchText('[data-collar-footer-copy]', copy);
+        if (!total) {
+          setLaunchText('[data-collar-footer-price]', launchMoney(0));
+          addCollarButton.disabled = true;
+        }
+      }
+
+      function resetCollarBuilder() {
+        selectedCollarModel = null;
+        collarCounts = { Menino: 0, Menina: 0 };
+        collarSelections = { Menino: [], Menina: [] };
+        collarHasExtra = false;
+        collarExtraFields.hidden = true;
+        collarExtraSku.value = '';
+        launchScreen.querySelector('[data-collar-extra-trigger]').setAttribute('aria-expanded', 'false');
+        collarCommercialSku.value = '';
+        collarCommercialName.value = '';
+        collarFinalPrice.value = '';
+        collarPriceReason.value = '';
+        renderCollarBuilder(true);
+      }
+
+      saleChoice.addEventListener('click', () => {
+        activateLaunchChoice(saleChoice);
+        collarWorkspace.hidden = true;
+        launchWorkspace.hidden = false;
+        launchSuccess.hidden = true;
+        setStandardProductEntry();
+        setFlowStep('items');
+        requestAnimationFrame(() => productSearch.focus());
+      });
+
+      collarChoice.addEventListener('click', () => {
+        activateLaunchChoice(collarChoice);
+        launchWorkspace.hidden = true;
+        launchSuccess.hidden = true;
+        collarWorkspace.hidden = false;
+        resetCollarBuilder();
+        collarWorkspace.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      });
+
+      collarComposer.addEventListener('click', (event) => {
+        const quantityButton = event.target.closest('[data-collar-quantity]');
+        if (quantityButton) {
+          const group = quantityButton.dataset.collarQuantity;
+          const availableComponents = collarComponents.filter((component) => component.group === group).reduce((sum, component) => sum + component.stock, 0);
+          collarCounts[group] = Math.max(0, Math.min(availableComponents, collarCounts[group] + Number(quantityButton.dataset.collarDelta)));
+          syncCollarSelection(group);
+          renderCollarBuilder(true);
+          return;
+        }
+        const extraTrigger = event.target.closest('[data-collar-extra-trigger]');
+        if (extraTrigger) {
+          collarHasExtra = true;
+          collarExtraFields.hidden = false;
+          extraTrigger.setAttribute('aria-expanded', 'true');
+          renderCollarBuilder(true);
+          requestAnimationFrame(() => collarExtraSku.focus());
+          return;
+        }
+        if (event.target.closest('[data-remove-collar-extra]')) {
+          collarHasExtra = false;
+          collarExtraSku.value = '';
+          collarExtraFields.hidden = true;
+          launchScreen.querySelector('[data-collar-extra-trigger]').setAttribute('aria-expanded', 'false');
+          renderCollarBuilder(true);
+        }
+      });
+
+      collarColorList.addEventListener('change', (event) => {
+        const select = event.target.closest('[data-collar-color-group]');
+        if (!select) return;
+        const group = select.dataset.collarColorGroup;
+        collarSelections[group][Number(select.dataset.collarColorIndex)] = collarComponents.find((component) => component.sku === select.value) || null;
+        renderCollarBuilder(false);
+      });
+
+      [collarCommercialSku, collarCommercialName, collarFinalPrice, collarPriceReason, collarExtraSku].forEach((input) => input.addEventListener('input', () => {
+        if (!selectedCollarModel) launchScreen.querySelector('[data-collar-sku-help]').textContent = `SKU ${collarCommercialSku.value || '—'}: sugestão automática deste protótipo.`;
+        updateCollarPriceState();
+      }));
+
+      addCollarButton.addEventListener('click', () => {
+        if (addCollarButton.disabled) return;
+        launchItems().filter((item) => item.dataset.customCollar === 'true').forEach((item) => item.remove());
+        const pieces = ['Menino', 'Menina'].flatMap((group) => collarSelections[group].map((component, index) => `${collarSlotName(group, index)} ${component.label} (SKU ${component.sku})`));
+        if (collarHasExtra) pieces.push(`Extra ${collarExtraSku.value.trim()}`);
+        const composition = `Veneziana 444032 · ${pieces.join(' · ')}`;
+        const finalPrice = Number(collarFinalPrice.value);
+        addCatalogProduct({
+          sku: collarCommercialSku.value.trim(),
+          name: collarCommercialName.value.trim(),
+          detail: `Veneziana 444032 + ${collarCounts.Menino + collarCounts.Menina + (collarHasExtra ? 1 : 0)} pingentes`,
+          price: finalPrice,
+          tablePrice: selectedCollarModel?.price || finalPrice,
+          discountReason: collarPriceReason.value.trim(),
+          symbol: '⌁',
+          composition
+        });
+        collarWorkspace.hidden = true;
+        launchWorkspace.hidden = false;
+        productSearchForm.hidden = true;
+        productEntryHint.hidden = true;
+        collarReturn.hidden = false;
+        setFlowStep('customer');
+        launchWorkspace.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      });
+
+      launchScreen.querySelector('[data-edit-collar]').addEventListener('click', () => {
+        activateLaunchChoice(collarChoice);
+        launchWorkspace.hidden = true;
+        collarWorkspace.hidden = false;
+        collarWorkspace.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      });
+
+      launchScreen.querySelector('[data-cancel-collar]').addEventListener('click', () => {
+        collarWorkspace.hidden = true;
+        if (launchItems().length) {
+          launchWorkspace.hidden = false;
+          setFlowStep('items');
+        } else {
+          resetLaunchTypePicker();
+        }
+      });
+
+      function updateLaunch() {
+        const items = launchItems();
+        const pieceCount = items.reduce((sum, item) => sum + Number(item.dataset.quantity), 0);
+        const totalsBeforeBalance = launchTotals();
+        const payments = launchPayments();
+        if (payments.length === 1 && payments[0].dataset.autoBalance === 'true') {
+          payments[0].querySelector('[data-payment-amount]').value = totalsBeforeBalance.total.toFixed(2);
+        }
+
+        items.forEach((item) => {
+          const quantity = Number(item.dataset.quantity);
+          const quantityDisplay = item.querySelector('[data-item-quantity]');
+          if (quantityDisplay) quantityDisplay.textContent = quantity;
+          item.querySelector('[data-item-total]').textContent = launchMoney(Number(item.dataset.price) * quantity);
+        });
+
+        const totals = launchTotals();
+        setLaunchText('[data-item-count]', `${pieceCount} ${pieceCount === 1 ? 'peça' : 'peças'}`);
+        setLaunchText('[data-sale-piece-count]', `${pieceCount} ${pieceCount === 1 ? 'peça' : 'peças'} no carrinho`);
+        setLaunchText('[data-sale-total]', launchMoney(totals.total));
+        setLaunchText('[data-sale-received]', launchMoney(totals.paid));
+        setLaunchText('[data-sale-receivable]', launchMoney(totals.receivable));
+        setLaunchText('[data-footer-piece-count]', `${pieceCount} ${pieceCount === 1 ? 'peça' : 'peças'}`);
+        setLaunchText('[data-sale-subtotal]', launchMoney(totals.tableTotal));
+        const hasSurcharge = totals.surcharge > .005;
+        setLaunchText('[data-sale-adjustment-label]', hasSurcharge ? 'Acréscimo' : 'Desconto');
+        setLaunchText('[data-sale-discount]', launchMoney(hasSurcharge ? totals.surcharge : totals.discount));
+        setLaunchText('[data-footer-total]', launchMoney(totals.total));
+        cartEmpty.hidden = items.length > 0;
+        launchCart.hidden = items.length === 0;
+        launchScreen.querySelector('[data-open-step="customer"]').disabled = items.length === 0;
+        paymentTable.hidden = payments.length === 0;
+        paymentEmpty.hidden = payments.length > 0;
+        addPaymentButton.textContent = payments.length ? '+ Adicionar outro pagamento' : '+ Adicionar pagamento';
+
+        let missingPendingDueDate = false;
+        let missingPaymentDate = false;
+        payments.forEach((entry) => {
+          const info = entry.querySelector('[data-payment-info]');
+          const dueField = entry.querySelector('[data-payment-due-field]');
+          const dueInput = entry.querySelector('[data-payment-due-input]');
+          const isPending = entry.querySelector('[data-payment-state]').value === 'pending';
+          if (info) {
+            info.hidden = isPending;
+            info.textContent = 'Data em que o dinheiro foi recebido';
+          }
+          if (dueField) dueField.hidden = !isPending;
+          const paidDate = entry.querySelector('[data-payment-date]');
+          entry.querySelector('[data-payment-date-field]').hidden = isPending;
+          missingPaymentDate ||= !isPending && (!paidDate.value || !paidDate.checkValidity());
+          entry.classList.toggle('is-pending', isPending);
+          const pendingWithoutDate = isPending && !dueInput?.value;
+          entry.classList.toggle('payment-incomplete', pendingWithoutDate);
+          missingPendingDueDate ||= pendingWithoutDate;
+        });
+
+        const status = launchScreen.querySelector('[data-financial-status]');
+        status.className = 'status';
+        const financialCopy = launchScreen.querySelector('[data-financial-copy]');
+        if (!items.length) {
+          status.classList.add('neutral');
+          status.textContent = 'Sem itens';
+          financialCopy.textContent = 'Adicione uma peça para calcular.';
+        } else if (totals.paid <= .005) {
+          status.classList.add('receivable');
+          status.textContent = 'A receber';
+          financialCopy.textContent = 'Nenhum valor foi recebido ainda.';
+        } else if (totals.receivable > .005) {
+          status.classList.add('receivable');
+          status.textContent = 'A receber';
+          financialCopy.textContent = `${launchMoney(totals.receivable)} ainda será recebido.`;
+        } else {
+          status.classList.add('paid');
+          status.textContent = 'Pago';
+          financialCopy.textContent = 'O valor da venda foi recebido.';
+        }
+        const customerName = selectedCustomer.hidden ? '' : launchScreen.querySelector('[data-customer-name]').textContent;
+        setLaunchText('[data-customer-step-summary]', customerName || 'Não selecionada');
+        setLaunchText('[data-payment-step-summary]', payments.length ? `${payments.length} ${payments.length === 1 ? 'pagamento' : 'pagamentos'}` : 'Não informado');
+
+        paymentWarning.hidden = !totals.exceeded && !missingPendingDueDate && !missingPaymentDate;
+        paymentWarning.textContent = totals.exceeded
+          ? `Os pagamentos ultrapassam a venda em ${launchMoney(totals.planned - totals.total)}. Ajuste os valores antes de finalizar.`
+          : missingPaymentDate ? 'Informe a data real de cada pagamento recebido, até hoje.' : missingPendingDueDate ? 'Defina o vencimento de cada pagamento pendente antes de finalizar.' : '';
+        finalizeSaleButton.disabled = !items.length || totals.exceeded || missingPendingDueDate || missingPaymentDate;
+        launchScreen.querySelector('[data-clear-draft]').disabled = !items.length && !payments.length && selectedCustomer.hidden;
+        const draftIndicator = launchScreen.querySelector('[data-draft-indicator]');
+        draftIndicator.lastChild.textContent = items.length ? ' Rascunho em andamento' : ' Rascunho vazio';
+      }
+
+      function showLaunchToast(message) {
+        clearTimeout(toastTimer);
+        launchToast.textContent = message;
+        launchToast.hidden = false;
+        toastTimer = setTimeout(() => { launchToast.hidden = true; }, 3600);
+      }
+
+      function createCartItem(product, variant = null) {
+        const item = document.createElement('li');
+        item.dataset.cartItem = '';
+        item.dataset.sku = product.sku;
+        item.dataset.name = product.name;
+        item.dataset.variantId = variant?.id || '';
+        item.dataset.variantName = variant?.name || '';
+        item.dataset.variantAttribute = variant ? product.variantAttribute : '';
+        item.dataset.stock = variant ? String(variant.stock) : '';
+        item.dataset.customCollar = product.composition ? 'true' : '';
+        item.dataset.composition = product.composition || '';
+        item.dataset.tablePrice = product.tablePrice ?? product.price;
+        item.dataset.price = product.price;
+        item.dataset.discountReason = product.discountReason || '';
+        item.dataset.quantity = '1';
+        const quantityControl = product.composition
+          ? '<span class="custom-quantity">1 composição</span>'
+          : `<div class="quantity-control" aria-label="Quantidade de ${product.name}"><button type="button" data-quantity-action="decrease" aria-label="Diminuir quantidade">−</button><span data-item-quantity>1</span><button type="button" data-quantity-action="increase" aria-label="Aumentar quantidade">+</button></div>`;
+        const priceControl = product.composition
+          ? `<span class="item-price fixed-price"><small>Preço final</small><strong data-item-total>${launchMoney(product.price)}</strong></span>`
+          : `<button class="item-price" type="button" data-edit-price aria-label="Editar preço de ${product.name}"><small>Preço final</small><strong data-item-total>${launchMoney(product.price)}</strong></button>`;
+        item.innerHTML = `
+          <span class="jewel" aria-hidden="true">${product.symbol}</span>
+          <div class="cart-product"><b>${product.name}</b><small>SKU ${product.sku} · ${product.detail}</small>${variant ? `<span class="variant-pill">${product.variantAttribute} ${variant.name}</span>` : ''}${product.composition ? `<span class="composition-pill">${product.composition}</span>` : ''}<small class="price-note" hidden></small></div>
+          ${quantityControl}
+          ${priceControl}
+          <button class="item-remove" type="button" data-remove-item aria-label="Remover ${product.name}">×</button>`;
+        const priceDifference = Number(item.dataset.tablePrice) - Number(item.dataset.price);
+        if (Math.abs(priceDifference) > .005) {
+          const note = item.querySelector('.price-note');
+          note.hidden = false;
+          note.textContent = `${priceDifference > 0 ? 'Desconto' : 'Acréscimo'} de ${launchMoney(Math.abs(priceDifference))} · ${item.dataset.discountReason}`;
+          item.classList.toggle('has-discount', priceDifference > 0);
+          item.classList.toggle('has-surcharge', priceDifference < 0);
+        }
+        return item;
+      }
+
+      function addCatalogProduct(product, variant = null) {
+        const variantId = variant?.id || '';
+        const existing = launchItems().find((item) => item.dataset.sku === product.sku && item.dataset.variantId === variantId);
+        const itemName = variant ? `${product.name} · ${product.variantAttribute} ${variant.name}` : product.name;
+        if (existing) {
+          productSearch.value = '';
+          productResults.hidden = true;
+          existing.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+          showLaunchToast(`${itemName} já está na venda. Use + para aumentar a quantidade.`);
+          return;
+        }
+        launchCart.append(createCartItem(product, variant));
+        productSearch.value = '';
+        productResults.hidden = true;
+        updateLaunch();
+        showLaunchToast(`${itemName} adicionado à venda.`);
+      }
+
+      function chooseCatalogProduct(product) {
+        const variants = product.variants || [];
+        if (!variants.length) return addCatalogProduct(product);
+        if (variants.length === 1) return addCatalogProduct(product, variants[0]);
+        pendingVariantProduct = product;
+        productSearch.value = '';
+        productResults.hidden = true;
+        setLaunchText('[data-variation-product]', product.name);
+        setLaunchText('[data-variation-meta]', `SKU ${product.sku} · ${product.variantAttribute}`);
+        setLaunchText('[data-variation-symbol]', product.symbol);
+        variationOptions.innerHTML = variants.map((variant) => {
+          const unavailable = variant.stock <= 0;
+          return `<button class="variation-option" type="button" data-variant-id="${variant.id}" ${unavailable ? 'disabled' : ''}><span><b>${product.variantAttribute} ${variant.name}</b><small>${unavailable ? 'Sem estoque' : `${variant.stock} ${variant.stock === 1 ? 'disponível' : 'disponíveis'}`}</small></span><strong>${unavailable ? 'Indisponível' : 'Selecionar'}</strong></button>`;
+        }).join('');
+        variationDialog.showModal();
+      }
+
+      function renderProductResults() {
+        const query = productSearch.value.trim().toLocaleLowerCase('pt-BR');
+        if (!query) {
+          productResults.innerHTML = '';
+          productResults.hidden = true;
+          return;
+        }
+        const matches = catalog.filter((product) => !query || product.name.toLocaleLowerCase('pt-BR').includes(query) || product.sku.includes(query)).slice(0, 4);
+        productResults.innerHTML = matches.length
+          ? matches.map((product) => `<button class="product-result" type="button" data-product-sku="${product.sku}"><span><b>${product.name}</b><small>SKU ${product.sku} · ${product.detail}${product.variants?.length ? ` · ${product.variants.length} ${product.variantAttribute.toLocaleLowerCase('pt-BR')}s` : ''}</small></span><strong>${launchMoney(product.price)}</strong></button>`).join('')
+          : '<div class="product-result"><span><b>Nenhuma peça encontrada</b><small>Confira o nome, SKU ou código da etiqueta.</small></span></div>';
+        productResults.hidden = false;
+      }
+
+      launchScreen.querySelector('[data-product-search-form]').addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (!productSearch.value.trim()) {
+          productResults.hidden = true;
+          showLaunchToast('Digite o nome, bipe a etiqueta ou use a câmera para adicionar uma peça.');
+          productSearch.focus();
+          return;
+        }
+        const firstResult = productResults.querySelector('[data-product-sku]');
+        if (!firstResult) return renderProductResults();
+        chooseCatalogProduct(catalog.find((product) => product.sku === firstResult.dataset.productSku));
+      });
+      productSearch.addEventListener('focus', () => {
+        if (productSearch.value.trim()) renderProductResults();
+        else productResults.hidden = true;
+      });
+      productSearch.addEventListener('input', renderProductResults);
+      productResults.addEventListener('click', (event) => {
+        const result = event.target.closest('[data-product-sku]');
+        if (!result) return;
+        chooseCatalogProduct(catalog.find((product) => product.sku === result.dataset.productSku));
+      });
+      variationOptions.addEventListener('click', (event) => {
+        const option = event.target.closest('[data-variant-id]');
+        if (!option || option.disabled || !pendingVariantProduct) return;
+        const product = pendingVariantProduct;
+        const variant = product.variants.find((item) => item.id === option.dataset.variantId);
+        variationDialog.close();
+        addCatalogProduct(product, variant);
+      });
+      variationDialog.addEventListener('close', () => { pendingVariantProduct = null; });
+      document.addEventListener('click', (event) => {
+        if (!event.target.closest('[data-product-search-form]') && !event.target.closest('[data-product-results]')) productResults.hidden = true;
+      });
+      document.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k' && !launchScreen.hidden) {
+          event.preventDefault();
+          productSearch.focus();
+        }
+      });
+
+      function stopCamera() {
+        clearTimeout(cameraScanTimer);
+        cameraScanTimer = null;
+        cameraStream?.getTracks().forEach((track) => track.stop());
+        cameraStream = null;
+        cameraVideo.srcObject = null;
+        cameraVideo.hidden = true;
+        cameraPlaceholder.hidden = false;
+        startCameraButton.disabled = false;
+        startCameraButton.textContent = 'Ativar câmera';
+      }
+
+      async function scanCamera(detector) {
+        if (!cameraStream || cameraDialog.open === false) return;
+        try {
+          const codes = await detector.detect(cameraVideo);
+          const rawCode = codes[0]?.rawValue?.trim();
+          if (rawCode) {
+            const product = catalog.find((item) => item.sku === rawCode);
+            if (product) {
+              cameraStatus.textContent = `${product.name} identificada.`;
+              cameraDialog.close();
+              chooseCatalogProduct(product);
+              return;
+            }
+            cameraStatus.textContent = `Código ${rawCode} não encontrado neste protótipo.`;
+          }
+        } catch (_) {
+          cameraStatus.textContent = 'Mantenha a etiqueta dentro da moldura.';
+        }
+        cameraScanTimer = setTimeout(() => scanCamera(detector), 320);
+      }
+
+      launchScreen.querySelector('[data-open-camera]').addEventListener('click', () => {
+        cameraStatus.textContent = 'Câmera desligada.';
+        cameraDialog.showModal();
+      });
+      startCameraButton.addEventListener('click', async () => {
+        startCameraButton.disabled = true;
+        startCameraButton.textContent = 'Abrindo…';
+        if (!navigator.mediaDevices?.getUserMedia) {
+          cameraStatus.textContent = 'A câmera não está disponível neste navegador. Digite ou bipe a etiqueta.';
+          startCameraButton.disabled = false;
+          startCameraButton.textContent = 'Tentar novamente';
+          return;
+        }
+        try {
+          cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+          cameraVideo.srcObject = cameraStream;
+          cameraVideo.hidden = false;
+          cameraPlaceholder.hidden = true;
+          await cameraVideo.play();
+          startCameraButton.textContent = 'Câmera ativa';
+          cameraStatus.textContent = 'Aponte para o código da etiqueta.';
+          if ('BarcodeDetector' in window) {
+            const detector = new BarcodeDetector({ formats: ['code_128', 'ean_13', 'ean_8', 'qr_code'] });
+            scanCamera(detector);
+          } else {
+            cameraStatus.textContent = 'Câmera ativa. A leitura automática não está disponível neste navegador.';
+          }
+        } catch (_) {
+          stopCamera();
+          cameraStatus.textContent = 'Não foi possível abrir a câmera. Digite ou bipe a etiqueta.';
+          startCameraButton.textContent = 'Tentar novamente';
+        }
+      });
+      cameraDialog.addEventListener('close', () => {
+        stopCamera();
+        cameraStatus.textContent = 'Câmera desligada.';
+      });
+
+      launchCart.addEventListener('click', (event) => {
+        const item = event.target.closest('[data-cart-item]');
+        if (!item) return;
+        const quantityAction = event.target.closest('[data-quantity-action]');
+        if (quantityAction) {
+          const nextQuantity = Number(item.dataset.quantity) + (quantityAction.dataset.quantityAction === 'increase' ? 1 : -1);
+          const stock = item.dataset.stock === '' ? Infinity : Number(item.dataset.stock);
+          if (nextQuantity > stock) {
+            showLaunchToast(`${item.dataset.name} · ${item.dataset.variantAttribute} ${item.dataset.variantName}: somente ${stock} disponível.`);
+            return;
+          }
+          if (nextQuantity <= 0) item.remove();
+          else item.dataset.quantity = String(nextQuantity);
+          updateLaunch();
+          return;
+        }
+        if (event.target.closest('[data-remove-item]')) {
+          item.remove();
+          updateLaunch();
+          return;
+        }
+        if (event.target.closest('[data-edit-price]')) {
+          editingCartItem = item;
+          setLaunchText('[data-price-product]', item.dataset.name);
+          launchScreen.querySelector('[data-table-price-display]').value = launchMoney(Number(item.dataset.tablePrice));
+          launchScreen.querySelector('[data-final-price]').value = Number(item.dataset.price).toFixed(2);
+          launchScreen.querySelector('[data-price-reason]').value = item.dataset.discountReason || '';
+          launchScreen.querySelector('[data-price-error]').hidden = true;
+          priceDialog.showModal();
+        }
+      });
+
+      launchScreen.querySelector('[data-price-form]').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const finalPrice = Number(launchScreen.querySelector('[data-final-price]').value);
+        const tablePrice = Number(editingCartItem.dataset.tablePrice);
+        const reason = launchScreen.querySelector('[data-price-reason]').value.trim();
+        const changed = Math.abs(finalPrice - tablePrice) > .005;
+        if (changed && !reason) {
+          launchScreen.querySelector('[data-price-error]').hidden = false;
+          launchScreen.querySelector('[data-price-reason]').focus();
+          return;
+        }
+        const discount = tablePrice - finalPrice;
+        editingCartItem.dataset.price = String(finalPrice);
+        editingCartItem.dataset.discountReason = changed ? reason : '';
+        const note = editingCartItem.querySelector('.price-note');
+        note.hidden = !changed;
+        note.textContent = !changed ? '' : discount > 0
+          ? `Desconto de ${launchMoney(discount)} por peça · padrão ${launchMoney(tablePrice)} · ${reason}`
+          : `Acréscimo de ${launchMoney(Math.abs(discount))} por peça · padrão ${launchMoney(tablePrice)} · ${reason}`;
+        editingCartItem.classList.toggle('has-discount', discount > .005);
+        editingCartItem.querySelector('.item-price small').textContent = discount > .005 ? 'Com desconto' : 'Preço final';
+        priceDialog.close();
+        updateLaunch();
+      });
+
+      const localToday = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; };
+      function paymentEntry(value = 0) {
+        const entry = document.createElement('div');
+        entry.className = 'payment-entry';
+        entry.dataset.paymentEntry = '';
+        entry.dataset.autoBalance = 'false';
+        entry.innerHTML = `<label><span>Valor</span><input type="number" min="0" step="0.01" value="${value.toFixed(2)}" data-payment-amount></label><label><span>Forma</span><select data-payment-method><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência</option><option>Boleto</option><option>Link de pagamento</option><option>Crédito da cliente</option><option>Outro</option></select></label><label><span>Situação</span><select data-payment-state><option value="paid">Recebido</option><option value="pending">Pendente</option></select></label><div class="payment-context"><label data-payment-date-field><span>Data do pagamento</span><input type="date" value="${localToday()}" max="${localToday()}" data-payment-date aria-label="Data real do pagamento"></label><span class="payment-info" data-payment-info>Data em que o dinheiro foi recebido</span><label class="payment-due-field" data-payment-due-field hidden><span>Vencimento</span><input type="date" data-payment-due-input aria-label="Vencimento do pagamento pendente"></label></div><button class="payment-remove" type="button" data-remove-payment aria-label="Remover pagamento">×</button>`;
+        return entry;
+      }
+
+      paymentList.addEventListener('input', (event) => {
+        const entry = event.target.closest('[data-payment-entry]');
+        if (entry) entry.dataset.autoBalance = 'false';
+        updateLaunch();
+      });
+      paymentList.addEventListener('change', updateLaunch);
+      paymentList.addEventListener('click', (event) => {
+        if (!event.target.closest('[data-remove-payment]')) return;
+        event.target.closest('[data-payment-entry]').remove();
+        updateLaunch();
+      });
+      addPaymentButton.addEventListener('click', () => {
+        launchPayments().forEach((entry) => { entry.dataset.autoBalance = 'false'; });
+        const totals = launchTotals();
+        paymentList.append(paymentEntry(Math.max(0, totals.total - totals.planned)));
+        updateLaunch();
+        paymentList.lastElementChild.querySelector('[data-payment-amount]').focus();
+      });
+      launchScreen.querySelector('[data-open-today-sales]').addEventListener('click', () => activateScreen('painel'));
+
+      function initialsFor(name) {
+        return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+      }
+
+      function chooseCustomer(name, contact = '', clientId = '') {
+        selectedCustomer.dataset.clientId = clientId || demo.get("clients", []).find(c => c.name === name)?.id || "";
+        selectedCustomer.hidden = false;
+        customerEmpty.hidden = true;
+        setLaunchText('[data-customer-initials]', initialsFor(name));
+        setLaunchText('[data-customer-name]', name);
+        setLaunchText('[data-customer-contact]', contact || 'Contato não informado');
+        launchScreen.querySelector('[data-customer-search]').value = '';
+        updateLaunch();
+      }
+
+      launchScreen.querySelector('[data-customer-search]').addEventListener('change', (event) => {
+        const customer = demo.get('clients', []).find(c => c.name === event.target.value.trim());
+        if (customer) chooseCustomer(customer.name, customer.phone, customer.id);
+      });
+      launchScreen.querySelector('[data-remove-customer]').addEventListener('click', () => {
+        selectedCustomer.hidden = true;
+        customerEmpty.hidden = false;
+        updateLaunch();
+        launchScreen.querySelector('[data-customer-search]').focus();
+      });
+      launchScreen.querySelector('[data-new-customer]').addEventListener('click', () => newCustomerDialog.showModal());
+      newCustomerDialog.querySelector('[data-customer-form]').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (event.submitter?.value === 'cancel') { newCustomerDialog.close(); return; }
+        const name = newCustomerDialog.querySelector('[data-new-customer-name]').value.trim();
+        if (!name) return;
+        const phone = newCustomerDialog.querySelector('[data-new-customer-phone]').value.trim();
+        const clients = demo.get('clients', []);
+        if (clients.some(c => c.name.toLocaleLowerCase() === name.toLocaleLowerCase())) { showLaunchToast('Já existe uma cliente com este nome. Selecione o cadastro existente para esta demonstração.'); return; }
+        const client = {id: 'client-' + crypto.randomUUID(), name, phone, cpf:'', email:'', city:'', instagram:'', birth:'', notes:'', historicalPaid:0};
+        await demo.set('clients', [...clients, client]);
+        refreshDemoClients();
+        chooseCustomer(name, phone, client.id);
+        newCustomerDialog.close();
+        event.target.reset();
+      });
+
+      const saleChannel = launchScreen.querySelector('[data-sale-channel]');
+      const saleChannelOther = launchScreen.querySelector('[data-sale-channel-other]');
+      const saleChannelOtherInput = launchScreen.querySelector('[data-sale-channel-other-input]');
+      function updateSaleChannel() {
+        const other = saleChannel.value === 'Outro';
+        saleChannelOther.hidden = !other;
+        if (!other) saleChannelOtherInput.value = '';
+        updateLaunch();
+      }
+      saleChannel.addEventListener('change', updateSaleChannel);
+
+      function clearLaunchDraft() {
+        launchCart.innerHTML = '';
+        paymentList.innerHTML = '';
+        selectedCustomer.hidden = true;
+        customerEmpty.hidden = false;
+        productSearch.value = '';
+        launchScreen.querySelector('[data-customer-search]').value = '';
+        launchScreen.querySelector('[data-sale-date]').value = localToday();
+        launchScreen.querySelector('[data-sale-channel]').selectedIndex = 0;
+        saleChannelOther.hidden = true;
+        saleChannelOtherInput.value = '';
+        launchScreen.querySelector('[data-sale-note]').value = '';
+        productSearchForm.hidden = false;
+        productEntryHint.hidden = false;
+        collarReturn.hidden = true;
+        collarWorkspace.hidden = true;
+        resetCollarBuilder();
+        launchWorkspace.hidden = false;
+        launchSuccess.hidden = true;
+        setFlowStep('items');
+        updateLaunch();
+      }
+
+      function resetLaunchTypePicker() {
+        launchWorkspace.hidden = true;
+        collarWorkspace.hidden = true;
+        launchSuccess.hidden = true;
+        launchScreen.querySelectorAll('.choice').forEach((choice) => {
+          choice.classList.remove('active');
+          choice.setAttribute('aria-checked', 'false');
+        });
+      }
+
+      launchScreen.querySelector('[data-clear-draft]').addEventListener('click', () => clearDraftDialog.showModal());
+      launchScreen.querySelector('[data-confirm-clear]').addEventListener('click', clearLaunchDraft);
+
+      finalizeSaleButton.addEventListener('click', () => {
+        const totals = launchTotals();
+        const items = launchItems();
+        const payments = launchPayments();
+        const pieceCount = items.reduce((sum, item) => sum + Number(item.dataset.quantity), 0);
+        const customer = selectedCustomer.hidden ? 'Não informada' : launchScreen.querySelector('[data-customer-name]').textContent;
+        const channel = saleChannel.value === 'Outro' ? saleChannelOtherInput.value.trim() || 'Outro' : saleChannel.value;
+        const note = launchScreen.querySelector('[data-sale-note]').value.trim();
+        const formatDate = (iso) => iso ? iso.split('-').reverse().join('/') : 'Não informada';
+        setLaunchText('[data-review-customer]', customer);
+        setLaunchText('[data-review-channel]', channel);
+        setLaunchText('[data-review-date]', formatDate(launchScreen.querySelector('[data-sale-date]').value));
+        setLaunchText('[data-review-item-count]', `${pieceCount} ${pieceCount === 1 ? 'peça' : 'peças'}`);
+        setLaunchText('[data-review-payment-count]', payments.length ? `${payments.length} ${payments.length === 1 ? 'registro' : 'registros'}` : 'Nenhum');
+        const reviewItems = launchScreen.querySelector('[data-review-items-list]');
+        reviewItems.innerHTML = items.map((item) => {
+          const quantity = Number(item.dataset.quantity);
+          const variant = item.dataset.variantName ? ` · ${item.dataset.variantAttribute} ${item.dataset.variantName}` : '';
+          const composition = item.dataset.composition ? ` · ${item.dataset.composition}` : '';
+          return `<li><span><b>${item.dataset.name}</b><small>${quantity} × ${launchMoney(Number(item.dataset.price))}${variant}${composition}</small></span><strong>${launchMoney(Number(item.dataset.price) * quantity)}</strong></li>`;
+        }).join('');
+        const reviewPayments = launchScreen.querySelector('[data-review-payments-list]');
+        reviewPayments.innerHTML = payments.length ? payments.map((entry) => {
+          const amount = Number(entry.querySelector('[data-payment-amount]').value || 0);
+          const method = entry.querySelector('[data-payment-method]').value;
+          const pending = entry.querySelector('[data-payment-state]').value === 'pending';
+          const due = entry.querySelector('[data-payment-due-input]').value;
+          const detail = pending ? `Pendente · vence ${formatDate(due)}` : `Pago em ${formatDate(entry.querySelector('[data-payment-date]').value)}`;
+          return `<li><span><b>${method}</b><small>${detail}</small></span><strong>${launchMoney(amount)}</strong></li>`;
+        }).join('') : '<li class="review-empty">Nenhum pagamento foi informado.</li>';
+        const reviewNoteWrap = launchScreen.querySelector('[data-review-note-wrap]');
+        reviewNoteWrap.hidden = !note;
+        setLaunchText('[data-review-note]', note);
+        const hasSurcharge = totals.surcharge > .005;
+        setLaunchText('[data-review-standard]', launchMoney(totals.tableTotal));
+        setLaunchText('[data-review-adjustment-label]', hasSurcharge ? 'Acréscimo' : 'Desconto');
+        setLaunchText('[data-review-adjustment]', launchMoney(hasSurcharge ? totals.surcharge : totals.discount));
+        setLaunchText('[data-review-total]', launchMoney(totals.total));
+        setLaunchText('[data-review-received]', launchMoney(totals.paid));
+        setLaunchText('[data-review-receivable]', launchMoney(totals.receivable));
+        launchScreen.querySelector('[data-finalize-copy]').textContent = 'Confira os dados que serão confirmados nesta venda. Esta demonstração não grava dados reais.';
+        finalizeSaleDialog.showModal();
+      });
+      launchScreen.querySelector('[data-confirm-sale]').addEventListener('click', async (event) => {
+        const button = event.currentTarget;
+        const totals = launchTotals();
+        button.disabled = true;
+        button.textContent = 'Confirmando…';
+        const date = launchScreen.querySelector('[data-sale-date]').value;
+        if (!date || date > localToday()) { button.disabled = false; button.textContent = 'Confirmar venda'; showLaunchToast('A data da venda deve ser hoje ou uma data passada.'); return; }
+        const id = 'demo-' + crypto.randomUUID();
+        const clientId = selectedCustomer.hidden ? null : selectedCustomer.dataset.clientId;
+        const customer = selectedCustomer.hidden ? 'Cliente não informada' : launchScreen.querySelector('[data-customer-name]').textContent;
+        const payments = launchPayments().map(entry => ({id:crypto.randomUUID(),value:Number(entry.querySelector('[data-payment-amount]').value||0),method:entry.querySelector('[data-payment-method]').value,date:entry.querySelector('[data-payment-date]').value,due:entry.querySelector('[data-payment-due-input]').value,pending:entry.querySelector('[data-payment-state]').value==='pending'}));
+        const due = payments.find(p=>p.pending)?.due || date;
+        const sale = {id,clientId,customer,date,total:totals.total,paid:totals.paid,due,items:launchItems().map(item=>({sku:item.dataset.sku,name:item.dataset.name,quantity:Number(item.dataset.quantity),price:Number(item.dataset.price),variantId:item.dataset.variantId||null})),payments};
+        const accounts = demo.get('accounts',{});
+        accounts[id] = {clientId,saleId:id,name:customer,sale:'Venda '+id.slice(0,13)+' · '+date.split('-').reverse().join('/'),total:totals.total,paid:totals.paid,due,events:payments.filter(p=>!p.pending)};
+        await demo.setMany({sales:[sale,...demo.get('sales',[])], accounts});
+        refreshDemoClients(); renderDemoSales();
+        setTimeout(() => {
+          finalizeSaleDialog.close();
+          button.disabled = false;
+          button.textContent = 'Confirmar venda';
+          setLaunchText('[data-success-total]', launchMoney(totals.total));
+          setLaunchText('[data-success-received]', launchMoney(totals.paid));
+          setLaunchText('[data-success-receivable]', launchMoney(totals.receivable));
+          launchWorkspace.hidden = true;
+          launchSuccess.hidden = false;
+          launchSuccess.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+        }, 420);
+      });
+      launchScreen.querySelector('[data-new-sale]').addEventListener('click', () => {
+        clearLaunchDraft();
+        resetLaunchTypePicker();
+      });
+      launchScreen.querySelectorAll('[data-sale-date], [data-sale-channel], [data-sale-note]').forEach((field) => field.addEventListener('input', updateLaunch));
+      clearLaunchDraft();
+      resetLaunchTypePicker();
 
       const viewButtons = [...document.querySelectorAll('[data-view]')];
       const viewPanels = [...document.querySelectorAll('[data-view-panel]')];
@@ -298,18 +1449,680 @@
         viewPanels.forEach((panel) => { const active = panel.dataset.viewPanel === button.dataset.view; panel.classList.toggle('active', active); panel.hidden = !active; });
       }));
 
-      document.querySelectorAll('.period-control button:not(.calendar-button)').forEach((button) => button.addEventListener('click', () => {
-        document.querySelectorAll('.period-control button').forEach((item) => item.classList.remove('active'));
-        button.classList.add('active');
+      const chartPeriods = {
+        all: {
+          subtitle: 'Todo o histórico · valores pela data da venda',
+          aria: 'todo o histórico disponível, consolidado por trimestre',
+          points: [
+            ['4º tri 23', '4º trimestre de 2023', 28640], ['1º tri 24', '1º trimestre de 2024', 32110],
+            ['2º tri 24', '2º trimestre de 2024', 35490], ['3º tri 24', '3º trimestre de 2024', 33180],
+            ['4º tri 24', '4º trimestre de 2024', 41860], ['1º tri 25', '1º trimestre de 2025', 39720],
+            ['2º tri 25', '2º trimestre de 2025', 44950], ['3º tri 25', '3º trimestre de 2025', 42170],
+            ['4º tri 25', '4º trimestre de 2025', 43870], ['1º tri 26', '1º trimestre de 2026', 52150],
+            ['2º tri 26', '2º trimestre de 2026', 35700], ['3º tri 26', '3º trimestre de 2026', 39350]
+          ]
+        },
+        '12m': {
+          subtitle: 'Últimos 12 meses · valores pela data da venda',
+          aria: 'outubro de 2025 a setembro de 2026, por mês',
+          points: [
+            ['out 25', 'Outubro de 2025', 11640], ['nov 25', 'Novembro de 2025', 14510],
+            ['dez 25', 'Dezembro de 2025', 17720], ['jan 26', 'Janeiro de 2026', 22080],
+            ['fev 26', 'Fevereiro de 2026', 16490], ['mar 26', 'Março de 2026', 13580],
+            ['abr 26', 'Abril de 2026', 15420], ['mai 26', 'Maio de 2026', 10810],
+            ['jun 26', 'Junho de 2026', 9470], ['jul 26', 'Julho de 2026', 12820],
+            ['ago 26', 'Agosto de 2026', 8210], ['set 26', 'Setembro de 2026', 18320]
+          ]
+        },
+        '90d': {
+          subtitle: 'Últimos 90 dias · valores pela data da venda',
+          aria: 'últimos 90 dias, consolidados por semana',
+          points: [
+            ['13 jul', 'Semana de 13 de julho', 3120], ['20 jul', 'Semana de 20 de julho', 2860],
+            ['27 jul', 'Semana de 27 de julho', 3740], ['03 ago', 'Semana de 3 de agosto', 2410],
+            ['10 ago', 'Semana de 10 de agosto', 3290], ['17 ago', 'Semana de 17 de agosto', 2180],
+            ['24 ago', 'Semana de 24 de agosto', 3520], ['31 ago', 'Semana de 31 de agosto', 4160],
+            ['07 set', 'Semana de 7 de setembro', 3890], ['14 set', 'Semana de 14 de setembro', 4470],
+            ['21 set', 'Semana de 21 de setembro', 3750], ['28 set', 'Semana de 28 de setembro', 5010]
+          ]
+        },
+        '30d': {
+          subtitle: 'Últimos 30 dias · valores pela data da venda',
+          aria: 'últimos 30 dias, consolidados a cada três dias',
+          points: [
+            ['01 set', '1 a 3 de setembro', 920], ['04 set', '4 a 6 de setembro', 1380],
+            ['07 set', '7 a 9 de setembro', 1170], ['10 set', '10 a 12 de setembro', 1760],
+            ['13 set', '13 a 15 de setembro', 1490], ['16 set', '16 a 18 de setembro', 2080],
+            ['19 set', '19 a 21 de setembro', 1640], ['22 set', '22 a 24 de setembro', 2310],
+            ['25 set', '25 a 27 de setembro', 1960], ['28 set', '28 a 30 de setembro', 2470]
+          ]
+        }
+      };
+
+      const salesChart = document.querySelector('.sales-chart');
+      const chartPeriodLabel = document.querySelector('#chart-period-label');
+      const dateChip = document.querySelector('.date-chip');
+      const selectionContext = document.querySelector('[data-selection-context]');
+
+      function axisLabel(value) {
+        if (!value) return '0';
+        const thousands = value / 1000;
+        return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(1).replace('.', ',')} mil`;
+      }
+
+      function resolveChartPointRange(point) {
+        if (point[3] && point[4]) return { start: point[3], end: point[4] };
+
+        const detail = point[1];
+        const monthMatch = detail.match(/^(.+) de (\d{4})$/);
+        if (monthMatch) {
+          const monthIndex = monthNames.findIndex((name) => name.toLowerCase() === monthMatch[1].toLowerCase());
+          if (monthIndex >= 0) {
+            const year = Number(monthMatch[2]);
+            const start = new Date(Date.UTC(year, monthIndex, 1));
+            const end = new Date(Date.UTC(year, monthIndex + 1, 0));
+            return { start: toIsoDate(start), end: toIsoDate(end) };
+          }
+        }
+
+        const quarterMatch = detail.match(/^(\d)º trimestre de (\d{4})$/);
+        if (quarterMatch) {
+          const quarter = Number(quarterMatch[1]);
+          const year = Number(quarterMatch[2]);
+          const firstMonth = (quarter - 1) * 3;
+          const start = new Date(Date.UTC(year, firstMonth, 1));
+          const end = new Date(Date.UTC(year, firstMonth + 3, 0));
+          return { start: toIsoDate(start), end: toIsoDate(end) };
+        }
+
+        const activeYear = rangeEnd.value ? parseDate(rangeEnd.value).getUTCFullYear() : 2026;
+        const weekMatch = detail.match(/^Semana de (\d+) de (.+)$/);
+        if (weekMatch) {
+          const monthIndex = monthNames.findIndex((name) => name.toLowerCase() === weekMatch[2].toLowerCase());
+          if (monthIndex >= 0) {
+            const start = new Date(Date.UTC(activeYear, monthIndex, Number(weekMatch[1])));
+            const end = new Date(start.getTime() + 6 * 86400000);
+            return { start: toIsoDate(start), end: toIsoDate(end) };
+          }
+        }
+
+        const spanMatch = detail.match(/^(\d+) a (\d+) de (.+)$/);
+        if (spanMatch) {
+          const monthIndex = monthNames.findIndex((name) => name.toLowerCase() === spanMatch[3].toLowerCase());
+          if (monthIndex >= 0) {
+            const start = new Date(Date.UTC(activeYear, monthIndex, Number(spanMatch[1])));
+            const end = new Date(Date.UTC(activeYear, monthIndex, Number(spanMatch[2])));
+            return { start: toIsoDate(start), end: toIsoDate(end) };
+          }
+        }
+
+        return { start: rangeStart.value, end: rangeEnd.value };
+      }
+
+      function renderChart(period) {
+        const maximum = Math.ceil(Math.max(...period.points.map((point) => point[2])) / 5000) * 5000;
+        const axisValues = [1, .8, .6, .4, .2, 0].map((ratio) => Math.round(maximum * ratio));
+        salesChart.innerHTML = `
+          <div class="axis">${axisValues.map((value) => `<span>${axisLabel(value)}</span>`).join('')}</div>
+          ${period.points.map((point) => {
+            const range = resolveChartPointRange(point);
+            return `
+            <button type="button" data-chart-detail="${point[1]}" data-chart-start="${range.start}" data-chart-end="${range.end}" data-chart-value="${point[2]}" style="--value:${Math.max(8, Math.round(point[2] / maximum * 100))}%">
+              <i></i><span>${point[0]}</span><b>${currency.format(point[2])}</b>
+            </button>`;
+          }).join('')}`;
+        salesChart.setAttribute('aria-label', `Gráfico de valor vendido: ${period.aria}`);
+        chartPeriodLabel.textContent = period.subtitle;
+      }
+
+      document.querySelectorAll('.period-control [data-period]').forEach((button) => button.addEventListener('click', () => applyPreset(button.dataset.period)));
+
+      salesChart.addEventListener('click', (event) => {
+        const point = event.target.closest('button[data-chart-detail]');
+        if (!point) return;
+        salesChart.querySelectorAll('button').forEach((button) => button.classList.toggle('selected', button === point));
+        const stats = calculatePeriodStats(point.dataset.chartStart, point.dataset.chartEnd, Number(point.dataset.chartValue));
+        updateAnalyticsViews(point.dataset.chartStart, point.dataset.chartEnd, point.dataset.chartDetail, stats, 'seleção ativa no gráfico');
+      });
+
+      const calendarButton = document.querySelector('.calendar-button');
+      const dateRangePicker = document.querySelector('#date-range-picker');
+      const rangeStart = document.querySelector('#range-start');
+      const rangeEnd = document.querySelector('#range-end');
+      const dateRangeError = document.querySelector('.date-range-error');
+      const presetRanges = {
+        all: ['2023-10-01', '2026-09-11', 'Todo o histórico'],
+        '12m': ['2025-10-01', '2026-09-11', 'Últimos 12 meses'],
+        '90d': ['2026-06-14', '2026-09-11', 'Últimos 90 dias'],
+        '30d': ['2026-08-13', '2026-09-11', 'Últimos 30 dias']
+      };
+
+      function parseDate(value) {
+        return new Date(`${value}T12:00:00Z`);
+      }
+
+      function toIsoDate(date) {
+        return date.toISOString().slice(0, 10);
+      }
+
+      function periodDays(start, end) {
+        return Math.floor((parseDate(end) - parseDate(start)) / 86400000) + 1;
+      }
+
+      function formatRangeLabel(start, end) {
+        const startDate = parseDate(start);
+        const endDate = parseDate(end);
+        const day = (date) => date.getUTCDate();
+        const month = (date) => monthNames[date.getUTCMonth()].toLowerCase();
+        const year = (date) => date.getUTCFullYear();
+        if (start === end) return `${day(startDate)} de ${month(startDate)} de ${year(startDate)}`;
+        if (month(startDate) === month(endDate) && year(startDate) === year(endDate)) return `${day(startDate)}–${day(endDate)} de ${month(endDate)} de ${year(endDate)}`;
+        if (year(startDate) === year(endDate)) return `${day(startDate)} de ${month(startDate)}–${day(endDate)} de ${month(endDate)} de ${year(endDate)}`;
+        return `${day(startDate)} de ${month(startDate)} de ${year(startDate)}–${day(endDate)} de ${month(endDate)} de ${year(endDate)}`;
+      }
+
+      function buildCustomChart(start, end, label) {
+        const days = periodDays(start, end);
+        const bucketCount = Math.min(12, days);
+        const bucketSize = Math.ceil(days / bucketCount);
+        const startDate = parseDate(start);
+        const points = [];
+        for (let index = 0; index < bucketCount; index += 1) {
+          const bucketStart = new Date(startDate);
+          bucketStart.setUTCDate(bucketStart.getUTCDate() + index * bucketSize);
+          if (bucketStart > parseDate(end)) break;
+          const bucketEnd = new Date(bucketStart.getTime() + (bucketSize - 1) * 86400000);
+          if (bucketEnd > parseDate(end)) bucketEnd.setTime(parseDate(end).getTime());
+          const seed = bucketStart.getUTCFullYear() * 19 + (bucketStart.getUTCMonth() + 1) * 37 + bucketStart.getUTCDate() * 11;
+          const value = 720 + (seed % 24) * 93 + bucketSize * 128;
+          const shortLabel = bucketSize === 1
+            ? `${String(bucketStart.getUTCDate()).padStart(2, '0')} ${shortMonthNames[bucketStart.getUTCMonth()]}`
+            : `${String(bucketStart.getUTCDate()).padStart(2, '0')}–${String(bucketEnd.getUTCDate()).padStart(2, '0')} ${shortMonthNames[bucketEnd.getUTCMonth()]}`;
+          points.push([shortLabel, formatRangeLabel(toIsoDate(bucketStart), toIsoDate(bucketEnd)), value, toIsoDate(bucketStart), toIsoDate(bucketEnd)]);
+        }
+        return { subtitle: `${label} · valores pela data da venda`, aria: label.toLowerCase(), points };
+      }
+
+      function calculatePeriodStats(start, end, soldValue) {
+        const days = periodDays(start, end);
+        const startDate = parseDate(start);
+        const endDate = parseDate(end);
+        const seed = startDate.getUTCDate() + endDate.getUTCDate() * 3 + (endDate.getUTCMonth() + 1) * 17 + days;
+        const sold = Math.round(soldValue * 100) / 100;
+        const revenue = Math.round(sold * (.7 + (seed % 8) / 100) * 100) / 100;
+        const salesCount = Math.max(1, Math.round(sold / (145 + seed % 55)));
+        const pieces = Math.max(salesCount, Math.round(salesCount * (1.42 + (seed % 18) / 100)));
+        const clients = Math.max(1, Math.min(salesCount, Math.round(salesCount * (.68 + (seed % 12) / 100))));
+        const receivable = Math.round(sold * (.06 + (seed % 5) / 100) * 100) / 100;
+        const largest = Math.min(sold, 280 + (seed % 720));
+        const strongDate = new Date(endDate);
+        strongDate.setUTCDate(strongDate.getUTCDate() - (seed % days));
+        return { days, sold, revenue, sales: salesCount, pieces, clients, receivable, receivableClients: Math.max(1, Math.round(clients * .18)), largest, ticket: sold / salesCount, strongDate, seed };
+      }
+
+      function updateProductRanking(stats) {
+        const weights = [.21, .18, .14, .12, .10, .08, .06, .05, .035, .025];
+        document.querySelectorAll('.product-ranking tbody tr').forEach((row, index) => {
+          const quantity = Math.max(1, Math.round(stats.pieces * weights[index]));
+          row.cells[3].textContent = quantity;
+          row.cells[4].textContent = currency.format(stats.sold * weights[index]);
+          row.cells[5].querySelector('strong').textContent = `${(weights[index] * 100).toFixed(1).replace('.', ',')}%`;
+        });
+      }
+
+      function updateCategories(stats) {
+        const names = ['Brinco', 'Pulseira', 'Colar', 'Anel', 'Argola', 'Pingente'];
+        const weights = [.29, .2, .18, .14, .11, .08];
+        const values = weights.map((weight) => Math.max(1, Math.round(stats.pieces * weight)));
+        const maximum = Math.max(...values);
+        document.querySelector('[data-period-categories]').innerHTML = names.map((name, index) => `
+          <li><span>${name}</span><i><b style="width:${Math.round(values[index] / maximum * 100)}%"></b></i><strong>${values[index]}</strong></li>`).join('');
+        document.querySelectorAll('.breakdowns .bars li').forEach((item, index) => {
+          const value = values[index];
+          item.querySelector('b').style.width = `${Math.round(value / maximum * 100)}%`;
+          item.querySelector('strong').innerHTML = `${value} <small>peças</small>`;
+        });
+      }
+
+      function updateOrigins(stats) {
+        const first = 53 + stats.seed % 9;
+        const second = 22 - stats.seed % 4;
+        const third = 13 - stats.seed % 3;
+        const percentages = [first, second, third, 100 - first - second - third];
+        document.querySelectorAll('.stacked-bar i').forEach((bar, index) => { bar.style.width = `${percentages[index]}%`; });
+        document.querySelectorAll('.origins > div').forEach((item, index) => {
+          const values = item.querySelectorAll('dd');
+          values[0].textContent = `${percentages[index]}%`;
+          values[1].textContent = currency.format(stats.sold * percentages[index] / 100);
+        });
+      }
+
+      function updateSalesList(start, end, stats, page = 1) {
+        closeExpandedSale();
+        salesListState = { start, end, stats };
+        const totalPages = Math.min(3, Math.max(1, Math.ceil(stats.sales / salesPageSize)));
+        salesCurrentPage = Math.min(Math.max(1, page), totalPages);
+        const startIndex = (salesCurrentPage - 1) * salesPageSize;
+        const visibleCount = Math.max(0, Math.min(salesPageSize, stats.sales - startIndex));
+        const sampledSales = Math.min(stats.sales, salesPageSize * 3);
+        const totalSpan = Math.max(0, periodDays(start, end) - 1);
+        const saleEntries = Object.entries(sales);
+
+        salesRows.forEach((row, index) => {
+          row.hidden = index >= visibleCount;
+          if (row.hidden) return;
+          const globalIndex = startIndex + index;
+          const [saleId, sale] = saleEntries[(globalIndex + stats.seed) % saleEntries.length];
+          const date = parseDate(end);
+          const offset = sampledSales === 1 ? 0 : Math.round(globalIndex * totalSpan / Math.max(sampledSales - 1, 1));
+          date.setUTCDate(date.getUTCDate() - offset);
+          row.dataset.saleId = saleId;
+          row.setAttribute('aria-expanded', 'false');
+          row.classList.remove('expanded');
+          row.querySelector('[data-sale-day]').textContent = date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+          const clientButton = row.querySelector('[data-open-client]');
+          clientButton.dataset.openClient = sale.customer;
+          clientButton.textContent = sale.customer;
+          row.cells[2].textContent = sale.items.reduce((total, item) => total + item[2], 0);
+          row.cells[3].textContent = currency.format(sale.total);
+          const status = row.cells[4].querySelector('.status');
+          status.className = `status ${sale.financialClass}`;
+          status.textContent = sale.financial;
+          const openButton = row.querySelector('.sale-open');
+          openButton.textContent = '›';
+          openButton.setAttribute('aria-label', `Expandir detalhes da venda de ${sale.customer}`);
+        });
+
+        salesPageButtons.forEach((button) => {
+          const buttonPage = Number(button.dataset.salesPage);
+          const active = buttonPage === salesCurrentPage;
+          button.hidden = buttonPage > totalPages;
+          button.classList.toggle('active', active);
+          if (active) button.setAttribute('aria-current', 'page');
+          else button.removeAttribute('aria-current');
+        });
+        salesPagePrevious.disabled = salesCurrentPage === 1;
+        salesPageNext.disabled = salesCurrentPage === totalPages;
+        document.querySelector('[data-month-sales-title]').textContent = 'Vendas do período';
+        document.querySelector('[data-sales-footer]').textContent = `Mostrando ${startIndex + 1} a ${startIndex + visibleCount} de ${stats.sales} vendas`;
+      }
+
+      function updateAnalyticsViews(start, end, label, stats, context) {
+        document.querySelector('[data-month-stat="revenue"]').textContent = currency.format(stats.revenue);
+        document.querySelector('[data-month-stat="sales"]').textContent = stats.sales;
+        document.querySelector('[data-month-stat="pieces"]').textContent = stats.pieces;
+        document.querySelector('[data-month-stat="clients"]').textContent = stats.clients;
+        document.querySelector('[data-month-trend]').textContent = `${stats.days} dia${stats.days === 1 ? '' : 's'} no período`;
+        document.querySelector('[data-period-highlight="largest"]').textContent = currency.format(stats.largest);
+        document.querySelector('[data-period-highlight="ticket"]').textContent = currency.format(stats.ticket);
+        document.querySelector('[data-period-highlight="day"]').textContent = stats.strongDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
+        dateChip.textContent = label;
+        selectionContext.textContent = context;
+        updateProductRanking(stats);
+        updateCategories(stats);
+        updateOrigins(stats);
+        updateSalesList(start, end, stats);
+      }
+
+      function updateDashboardPeriod(start, end, label, chart) {
+        renderChart(chart);
+        const soldValue = chart.points.reduce((total, point) => total + point[2], 0);
+        const stats = calculatePeriodStats(start, end, soldValue);
+        document.querySelector('[data-dashboard-revenue]').textContent = currency.format(stats.revenue);
+        document.querySelector('[data-revenue-meta-label]').textContent = 'Média recebida por dia';
+        document.querySelector('[data-revenue-meta-value]').textContent = currency.format(stats.revenue / stats.days);
+        document.querySelector('[data-receivable-label]').textContent = 'A receber no período';
+        document.querySelector('[data-dashboard-receivable]').textContent = currency.format(stats.receivable);
+        document.querySelector('[data-receivable-clients]').textContent = `${stats.receivableClients} cliente${stats.receivableClients === 1 ? '' : 's'} com vencimento no período`;
+        updateAnalyticsViews(start, end, label, stats, 'período ativo');
+      }
+
+      function toggleDateRangePicker(forceOpen) {
+        const open = typeof forceOpen === 'boolean' ? forceOpen : dateRangePicker.hidden;
+        dateRangePicker.hidden = !open;
+        calendarButton.setAttribute('aria-expanded', String(open));
+        if (open) rangeStart.focus();
+      }
+
+      function applyPreset(periodKey) {
+        const [start, end, label] = presetRanges[periodKey];
+        document.querySelectorAll('.period-control button').forEach((item) => item.classList.toggle('active', item.dataset.period === periodKey));
+        rangeStart.value = start;
+        rangeEnd.value = end;
+        dateRangeError.hidden = true;
+        toggleDateRangePicker(false);
+        updateDashboardPeriod(start, end, label, chartPeriods[periodKey]);
+      }
+
+      function applyCustomDateRange() {
+        if (!rangeStart.value || !rangeEnd.value || rangeStart.value > rangeEnd.value) {
+          dateRangeError.hidden = false;
+          return false;
+        }
+        dateRangeError.hidden = true;
+        const label = formatRangeLabel(rangeStart.value, rangeEnd.value);
+        document.querySelectorAll('.period-control button').forEach((item) => item.classList.toggle('active', item === calendarButton));
+        updateDashboardPeriod(rangeStart.value, rangeEnd.value, label, buildCustomChart(rangeStart.value, rangeEnd.value, label));
+        toggleDateRangePicker(false);
+        return true;
+      }
+
+      calendarButton.addEventListener('click', () => toggleDateRangePicker());
+      document.querySelector('[data-close-date-range]').addEventListener('click', () => toggleDateRangePicker(false));
+      document.querySelector('[data-apply-date-range]').addEventListener('click', applyCustomDateRange);
+
+      const productListToggle = document.querySelector('[data-product-list-toggle]');
+      const extraProductRows = [...document.querySelectorAll('[data-ranking-extra]')];
+      productListToggle.addEventListener('click', () => {
+        const expanded = productListToggle.getAttribute('aria-expanded') !== 'true';
+        productListToggle.setAttribute('aria-expanded', String(expanded));
+        productListToggle.textContent = expanded ? 'Recolher lista' : 'Ver lista completa';
+        extraProductRows.forEach((row) => { row.hidden = !expanded; });
+      });
+
+      const sales = {
+        'venda-1058': {
+          reference: 'Venda #1058', customer: 'Camila Ferreira', channel: 'Balcão', total: 159, received: 80, pending: 79,
+          financial: 'A receber', financialClass: 'receivable',
+          items: [['Brinco Ponto de Luz', 'SKU 122060 · Ouro 18k', 1, 89], ['Pulseira Elo Delicado', 'SKU 431280 · Ouro 18k', 1, 70]],
+          payments: [['PIX', 'R$ 80,00', 'Recebido em 05/09/2026', 'paid'], ['Saldo restante', 'R$ 79,00', 'Vence em 20/09/2026', 'receivable']]
+        },
+        'venda-1057': {
+          reference: 'Venda #1057', customer: 'Juliana Prado', channel: 'Balcão', total: 89, received: 89, pending: 0,
+          financial: 'Pago', financialClass: 'paid',
+          items: [['Brinco Ponto de Luz', 'SKU 122060 · Ouro 18k', 1, 89]],
+          payments: [['PIX', 'R$ 89,00', 'Recebido em 04/09/2026', 'paid']]
+        },
+        'venda-1056': {
+          reference: 'Venda #1056', customer: 'Ana Luiza Sedassari', channel: 'Balcão', total: 79, received: 0, pending: 79,
+          financial: 'A receber', financialClass: 'receivable',
+          items: [['Argola Coração Lisa', 'SKU 548210 · Ouro 18k', 1, 79]],
+          payments: [['Pagamento pendente', 'R$ 79,00', 'Vence em 18/09/2026', 'receivable']]
+        },
+        'venda-1055': {
+          reference: 'Venda #1055', customer: 'Zilma', channel: 'Maleta', total: 79, received: 79, pending: 0,
+          financial: 'Pago', financialClass: 'paid',
+          items: [['Brinco Gota Cravejada', 'SKU 881420 · Ouro 18k', 1, 79]],
+          payments: [['Dinheiro', 'R$ 79,00', 'Recebido em 02/09/2026', 'paid']]
+        },
+        'venda-1054': {
+          reference: 'Venda #1054', customer: 'Adrielly Miguel', channel: 'Site', total: 69, received: 69, pending: 0,
+          financial: 'Pago', financialClass: 'paid',
+          items: [['Pulseira Ponto de Luz', 'SKU 743102 · Ouro 18k', 1, 69]],
+          payments: [['Cartão de crédito', 'R$ 69,00', 'Recebido em 01/09/2026', 'paid']]
+        },
+        'venda-1053': {
+          reference: 'Venda #1053', customer: 'Beatriz Rocha', channel: 'WhatsApp', total: 148, received: 0, pending: 148,
+          financial: 'A receber', financialClass: 'receivable',
+          items: [['Colar Coração Vazado', 'SKU 392441 · Ouro 18k', 1, 79], ['Pulseira Ponto de Luz', 'SKU 743102 · Ouro 18k', 1, 69]],
+          payments: [['Pagamento pendente', 'R$ 148,00', 'Vence em 16/09/2026', 'receivable']]
+        },
+        'venda-1052': {
+          reference: 'Venda #1052', customer: 'Maria Eduarda Lima', channel: 'Balcão', total: 198, received: 198, pending: 0,
+          financial: 'Pago', financialClass: 'paid',
+          items: [['Colar Cordão Baiano', 'SKU 996655 · Ouro 18k', 1, 129], ['Pulseira Ponto de Luz', 'SKU 743102 · Ouro 18k', 1, 69]],
+          payments: [['PIX', 'R$ 198,00', 'Recebido em 31/08/2026', 'paid']]
+        },
+        'venda-1051': {
+          reference: 'Venda #1051', customer: 'Fernanda Alves', channel: 'Balcão', total: 136, received: 136, pending: 0,
+          financial: 'Pago', financialClass: 'paid',
+          items: [['Pulseira Medalha Salmo', 'SKU 451109 · Ouro 18k', 1, 136]],
+          payments: [['Dinheiro', 'R$ 136,00', 'Recebido em 30/08/2026', 'paid']]
+        },
+        'venda-1050': {
+          reference: 'Venda #1050', customer: 'Patrícia Nunes', channel: 'Balcão', total: 218, received: 100, pending: 118,
+          financial: 'A receber', financialClass: 'receivable',
+          items: [['Brinco Ponto de Luz', 'SKU 122060 · Ouro 18k', 1, 89], ['Monte seu Colar · Casal', 'SKU 326660 · composição confirmada', 1, 129]],
+          payments: [['PIX', 'R$ 100,00', 'Recebido em 29/08/2026', 'paid'], ['Saldo restante', 'R$ 118,00', 'Vence em 15/09/2026', 'receivable']]
+        },
+        'venda-1049': {
+          reference: 'Venda #1049', customer: 'Isabela Martins', channel: 'Maleta', total: 89, received: 89, pending: 0,
+          financial: 'Pago', financialClass: 'paid',
+          items: [['Brinco Ponto de Luz', 'SKU 122060 · Ouro 18k', 1, 89]],
+          payments: [['PIX', 'R$ 89,00', 'Recebido em 28/08/2026', 'paid']]
+        }
+      };
+
+      const salesPageSize = 10;
+      const salesTableBody = document.querySelector('.month-sales tbody');
+      const salesRowTemplate = salesTableBody.querySelector('.sale-row:last-of-type');
+      while (salesTableBody.querySelectorAll('.sale-row').length < salesPageSize) {
+        salesTableBody.append(salesRowTemplate.cloneNode(true));
+      }
+      const salesRows = [...document.querySelectorAll('.month-sales .sale-row')];
+      const salesPageButtons = [...document.querySelectorAll('[data-sales-page]')];
+      const salesPagePrevious = document.querySelector('[data-sales-page-action="previous"]');
+      const salesPageNext = document.querySelector('[data-sales-page-action="next"]');
+      let salesCurrentPage = 1;
+      let salesListState = null;
+
+      function goToSalesPage(page) {
+        if (!salesListState) return;
+        updateSalesList(salesListState.start, salesListState.end, salesListState.stats, page);
+      }
+
+      salesPageButtons.forEach((button) => button.addEventListener('click', () => goToSalesPage(Number(button.dataset.salesPage))));
+      salesPagePrevious.addEventListener('click', () => goToSalesPage(salesCurrentPage - 1));
+      salesPageNext.addEventListener('click', () => goToSalesPage(salesCurrentPage + 1));
+
+      function buildSaleDetails(row, sale) {
+        const detailRow = document.createElement('tr');
+        detailRow.className = 'sale-detail-row';
+        detailRow.id = `detalhes-${row.dataset.detailScope || 'periodo'}-${row.dataset.saleId}`;
+        detailRow.innerHTML = `
+          <td colspan="${row.cells.length}">
+            <div class="inline-sale-detail">
+              <div class="inline-sale-piece">
+                <span class="compact-label">Peças compradas</span>
+                <ul class="compact-sale-items">${sale.items.map((item) => `
+                  <li><span class="jewel">◇</span><div><b>${item[0]}</b><small>${item[1]} · ${item[2]} peça${item[2] > 1 ? 's' : ''}</small></div></li>`).join('')}</ul>
+              </div>
+              <dl class="inline-sale-values">
+                <div><dt>Venda</dt><dd>${currency.format(sale.total)}</dd></div>
+                <div><dt>Recebido</dt><dd>${currency.format(sale.received)}</dd></div>
+                <div><dt>A receber</dt><dd>${currency.format(sale.pending)}</dd></div>
+              </dl>
+              <div class="inline-sale-action">
+                ${sale.pending > 0
+                  ? `<button type="button" class="pending-action" data-open-receivables="${sale.customer}" aria-label="Abrir valor pendente de ${sale.customer} em A receber">Pendente</button><small>Abrir em A receber</small>`
+                  : '<span class="status paid">Pago</span><small>Pagamento concluído</small>'}
+              </div>
+            </div>
+          </td>`;
+        detailRow.querySelector('[data-open-receivables]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          navigateToClients('receivables', sale.customer);
+        });
+        return detailRow;
+      }
+
+      function closeExpandedSale(row = null) {
+        const expandedRows = row ? [row] : [...document.querySelectorAll('.sale-row.expanded')];
+        expandedRows.forEach((expandedRow) => {
+          const sale = sales[expandedRow.dataset.saleId];
+          const detailId = expandedRow.getAttribute('aria-controls');
+          if (detailId) document.getElementById(detailId)?.remove();
+          const button = expandedRow.querySelector('.sale-open');
+          expandedRow.classList.remove('expanded');
+          expandedRow.setAttribute('aria-expanded', 'false');
+          expandedRow.removeAttribute('aria-controls');
+          button.textContent = '›';
+          button.setAttribute('aria-label', `Expandir detalhes da venda de ${sale.customer}`);
+        });
+      }
+
+      function toggleSale(row) {
+        if (row.classList.contains('expanded')) {
+          closeExpandedSale(row);
+          return;
+        }
+        const sale = sales[row.dataset.saleId];
+        const detailRow = buildSaleDetails(row, sale);
+        row.after(detailRow);
+        row.classList.add('expanded');
+        row.setAttribute('aria-expanded', 'true');
+        row.setAttribute('aria-controls', detailRow.id);
+        const button = row.querySelector('.sale-open');
+        button.textContent = '⌃';
+        button.setAttribute('aria-label', `Recolher detalhes da venda de ${sale.customer}`);
+      }
+
+      document.querySelectorAll('.sale-row').forEach((row) => {
+        row.addEventListener('click', () => toggleSale(row));
+        row.addEventListener('keydown', (event) => {
+          if (event.target !== row) return;
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          toggleSale(row);
+        });
+      });
+
+      let clientRows = [...document.querySelectorAll('[data-client-row]')];
+      const clientsContext = document.querySelector('[data-clients-context]');
+      const clientsTitle = document.querySelector('[data-clients-title]');
+      const clientsCopy = document.querySelector('[data-clients-copy]');
+      const clientListTitle = document.querySelector('[data-client-list-title]');
+      const clientListCopy = document.querySelector('[data-client-list-copy]');
+      const originalClientSearch = document.querySelector('[data-client-search]');
+      const clientSearch = document.createElement('input'); clientSearch.type='search';clientSearch.dataset.clientSearch='';clientSearch.className='search-field narrow';clientSearch.placeholder='Nome, telefone ou CPF';clientSearch.setAttribute('aria-label','Buscar cliente por nome, telefone ou CPF');originalClientSearch.replaceWith(clientSearch);
+      clientSearch.addEventListener('input',()=>{const term=clientSearch.value.trim().toLocaleLowerCase();const clients=demo.get('clients',[]);clientRows.forEach(row=>{const c=clients.find(c=>c.name===row.dataset.clientRow);row.hidden=!`${c?.name} ${c?.phone} ${c?.cpf}`.toLocaleLowerCase().includes(term);});});
+      const showAllClientsButton = document.querySelector('[data-show-all-clients]');
+      const clientProfile = document.querySelector('[data-client-profile]');
+      const clientData = {
+        'Camila Ferreira': { phone: '(19) 9 8123-4567', bought: 'R$ 1.284,00', paid: 'R$ 1.125,00', open: 'R$ 159,00', ticket: 'R$ 321,00', warranties: '1', last: '05/09/2026' },
+        'Juliana Prado': { phone: '(19) 9 9211-1098', bought: 'R$ 898,00', paid: 'R$ 898,00', open: 'R$ 0,00', ticket: 'R$ 224,50', warranties: '0', last: '04/09/2026' },
+        'Ana Luiza Sedassari': { phone: '(19) 9 7790-3112', bought: 'R$ 2.044,00', paid: 'R$ 1.804,00', open: 'R$ 240,00', ticket: 'R$ 292,00', warranties: '2', last: '03/09/2026' },
+        'Zilma': { phone: 'Contato não informado', bought: 'R$ 79,00', paid: 'R$ 79,00', open: 'R$ 0,00', ticket: 'R$ 79,00', warranties: '0', last: '02/09/2026' }
+      };
+
+      const clientProfileSamples = {
+        purchases: document.querySelector('.client-timeline').innerHTML,
+        aftercare: document.querySelector('.aftercare-grid').innerHTML
+      };
+      const clientNotes = { 'Camila Ferreira': 'Prefere peças douradas e contato pelo WhatsApp.' };
+      function updateClientProfile(customer) {
+        clientProfile.hidden = !customer;
+        document.querySelector('#clientes > .metric-row').hidden = Boolean(customer);
+        document.querySelector('.client-list').hidden = Boolean(customer);
+        if (!customer) return;
+        const data = clientData[customer] || {phone:'',bought:'R$ 0,00',paid:'R$ 0,00',open:'R$ 0,00',ticket:'R$ 0,00',warranties:'0',last:'—'};
+        const client = demo.get('clients',[]).find(c=>c.name===customer);
+        clientProfile.dataset.clientId = client?.id || '';
+        document.querySelector('[data-client-initials]').textContent = customer.split(' ').map((part) => part[0]).slice(0, 2).join('');
+        document.querySelector('[data-profile-name]').textContent = customer;
+        document.querySelector('[data-profile-phone]').textContent = data.phone;
+        document.querySelector('[data-profile-phone-copy]').textContent = data.phone;
+        document.querySelector('[data-profile-bought]').textContent = data.bought;
+        document.querySelector('[data-profile-paid]').textContent = data.paid;
+        document.querySelector('[data-profile-open]').textContent = data.open;
+        document.querySelector('[data-profile-ticket]').textContent = data.ticket;
+        document.querySelector('[data-profile-warranties]').textContent = data.warranties;
+        document.querySelector('[data-profile-last]').textContent = data.last;
+        document.querySelector('.client-notes textarea').value = client?.notes || '';
+        document.querySelector('.client-identity small').textContent = 'Perfil demonstrativo · histórico da cliente selecionada';
+        document.querySelector('.client-timeline').innerHTML = customer === 'Camila Ferreira' ? clientProfileSamples.purchases : '<p class="profile-empty">O resumo está disponível. O histórico detalhado desta cliente ainda não foi incluído na demonstração.</p>';
+        document.querySelector('.aftercare-grid').innerHTML = customer === 'Camila Ferreira' ? clientProfileSamples.aftercare : '<p class="profile-empty">'+(data.warranties === '0' ? 'Nenhuma garantia ativa neste exemplo.' : 'Detalhes das garantias pendentes de integração.')+'</p>';
+        const accounts = Object.values(demo.get('accounts',{})).filter(a=>a.clientId===client?.id);
+        const sales = demo.get('sales',[]).filter(a=>a.clientId===client?.id);
+        if (sales.length) document.querySelector('.client-timeline').innerHTML = sales.map(s=>`<article><span class="timeline-icon sale">↗</span><div><b>Venda ${demoEscape(s.id.slice(0,13))}</b><small>${demoEscape(s.date.split('-').reverse().join('/'))}</small><p>${s.items.map(i=>demoEscape(i.name)).join(', ')}</p></div><strong>${launchMoney(s.total)}</strong></article>`).join('') + document.querySelector('.client-timeline').innerHTML;
+        document.querySelector('.client-timeline').innerHTML += accounts.flatMap(a=>a.events.filter(e=>!e.correction).map(e=>`<article><span class="timeline-icon money">R$</span><div><b>Recebimento por ${demoEscape(e.method)}</b><small>${demoEscape(e.date.split('-').reverse().join('/'))} · data efetiva</small></div><strong>${launchMoney(e.value)}</strong></article>`)).join('');
+        document.querySelector('[data-register-receipt]').disabled = !accounts.some(a=>a.total>a.paid);
+
+      }
+
+      function markTargetClient(customer) {
+        clientRows.forEach((row) => row.classList.toggle('client-target', row.dataset.clientRow === customer));
+      }
+
+      function showAllClients(customer = '') {
+        const specificCustomer = Boolean(customer);
+        clientsContext.textContent = 'Relacionamento';
+        clientsTitle.textContent = specificCustomer ? customer : 'Clientes';
+        clientsCopy.textContent = specificCustomer ? `Histórico e situação financeira de ${customer}.` : 'Compras, pagamentos e valores em aberto aparecem separados.';
+        clientListTitle.textContent = specificCustomer ? 'Perfil da cliente' : 'Lista de clientes';
+        clientListCopy.textContent = customer ? `Cliente selecionada: ${customer}` : 'Busque por nome, telefone ou CPF';
+        clientSearch.value = '';
+        showAllClientsButton.hidden = !specificCustomer;
+        clientRows.forEach((row) => { row.hidden = specificCustomer && row.dataset.clientRow !== customer; });
+        markTargetClient(customer);
+        updateClientProfile(customer);
+      }
+
+      function navigateToClients(destination, customer = '') {
+        closeExpandedSale();
+        if (destination === 'receivables') {
+          const specificCustomer = customer && customer !== 'Todas as clientes';
+          clientsContext.textContent = 'Clientes';
+          clientsTitle.textContent = 'A receber';
+          clientsCopy.textContent = specificCustomer ? `Valores pendentes de ${customer}.` : 'Clientes com valores pendentes.';
+          clientListTitle.textContent = 'Contas em aberto';
+          clientListCopy.textContent = specificCustomer ? `Mostrando a pendência de ${customer}` : 'Valores reais e cobráveis ainda não recebidos';
+          clientSearch.value = '';
+          showAllClientsButton.hidden = false;
+          clientRows.forEach((row) => { row.hidden = row.dataset.hasReceivable !== 'true'; });
+          markTargetClient(specificCustomer ? customer : '');
+          updateClientProfile('');
+        } else {
+          showAllClients(customer);
+        }
+        activateScreen('clientes');
+        if (destination === 'client' && customer) {
+          requestAnimationFrame(() => clientProfile.scrollIntoView({ block: 'start', behavior: 'auto' }));
+        }
+      }
+
+      document.querySelectorAll('[data-open-client]').forEach((button) => button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        navigateToClients('client', button.dataset.openClient);
       }));
+      document.querySelector('.receivable-card [data-open-receivables]').addEventListener('click', () => navigateToClients('receivables'));
+      document.querySelector('[data-open-repairs]').addEventListener('click', () => activateScreen('reparos', 'clientes'));
+      showAllClientsButton.addEventListener('click', () => showAllClients());
+      clientRows.forEach((row) => {
+        row.tabIndex = 0;
+        row.setAttribute('role', 'button');
+        const open = () => navigateToClients('client', row.dataset.clientRow);
+        row.addEventListener('click', open);
+        row.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
+      });
+      document.querySelector('[data-new-client-sale]').addEventListener('click', () => { activateScreen('lancamentos'); saleChoice.click(); chooseCustomer(document.querySelector('[data-profile-name]').textContent, document.querySelector('[data-profile-phone]').textContent); });
+      document.querySelector('[data-client-new]').addEventListener('click', () => newCustomerDialog.showModal());
+      document.querySelector('[data-register-receipt]').addEventListener('click', () => { location.href = '../financeiro/master.html?cliente=' + encodeURIComponent(clientProfile.dataset.clientId); });
+      document.querySelector('[data-save-client-note]').addEventListener('click', async () => { const clients=demo.get('clients',[]), client=clients.find(c=>c.id===clientProfile.dataset.clientId); if (!client) return; client.notes=document.querySelector('.client-notes textarea').value; await demo.set('clients',clients); showLaunchToast('Observação salva na demonstração.'); });
+      const editDialog = document.createElement('dialog'); editDialog.className='launch-dialog compact-dialog'; editDialog.dataset.editClientDialog=''; document.body.append(editDialog);
+      const editFields=[['name','Nome','text'],['phone','WhatsApp','tel'],['cpf','CPF','text'],['email','Email','email'],['city','Cidade','text'],['instagram','Instagram','text'],['birth','Nascimento','date']];
+      editDialog.innerHTML='<form><h2>Editar cadastro</h2>'+editFields.map(([key,label,type])=>`<label>${label}<input name="${key}" type="${type}" ${key==='name'?'required':''}></label>`).join('')+'<label>Observação<textarea name="notes" rows="3"></textarea></label><div class="dialog-actions"><button type="button" class="button ghost" data-cancel-edit>Cancelar</button><button class="button primary" type="submit">Salvar cadastro</button></div></form>';
+      editDialog.querySelector('[data-cancel-edit]').onclick=()=>editDialog.close();
+      document.querySelector('[data-edit-client]').onclick=()=>{const client=demo.get('clients',[]).find(c=>c.id===clientProfile.dataset.clientId); if(!client)return; [...editFields.map(f=>f[0]),'notes'].forEach(key=>editDialog.querySelector(`[name="${key}"]`).value=client[key]||'');editDialog.showModal();};
+      editDialog.querySelector('form').onsubmit=async event=>{event.preventDefault(); const clients=demo.get('clients',[]), client=clients.find(c=>c.id===clientProfile.dataset.clientId); const oldName=client.name; for(const [key,value] of new FormData(event.target)) client[key]=String(value).trim(); if(!client.name)return; const accounts=demo.get('accounts',{}); Object.values(accounts).filter(a=>a.clientId===client.id).forEach(a=>a.name=client.name); const sales=demo.get('sales',[]);sales.filter(s=>s.clientId===client.id).forEach(s=>s.customer=client.name);await demo.setMany({clients,accounts,sales}); if(oldName!==client.name) delete clientData[oldName]; refreshDemoClients();showAllClients(client.name);editDialog.close();showLaunchToast('Cadastro atualizado. Identidade e histórico preservados.');};
+      function refreshDemoClients(){
+        const clients=demo.get('clients',[]),accounts=Object.values(demo.get('accounts',{}));
+        document.querySelector('.client-list tbody').innerHTML=clients.map(c=>{const owned=accounts.filter(a=>a.clientId===c.id),bought=(c.historicalPaid||0)+owned.reduce((n,a)=>n+a.total,0),paid=(c.historicalPaid||0)+owned.reduce((n,a)=>n+a.paid,0),open=owned.reduce((n,a)=>n+a.total-a.paid,0),last=demo.get('sales',[]).find(s=>s.clientId===c.id)?.date,historicalSales=c.historicalSales??({camila:3,ana:6,juliana:4,zilma:1}[c.id]||0);clientData[c.name]={phone:c.phone||'Contato não informado',bought:launchMoney(bought),paid:launchMoney(paid),open:launchMoney(open),ticket:launchMoney(bought/Math.max(1,historicalSales+owned.length)),warranties:c.id==='camila'?'1':'0',last:last?last.split('-').reverse().join('/'):'—'};return `<tr data-client-row="${demoEscape(c.name)}" data-has-receivable="${open>0}" tabindex="0" role="button"><td><b>${demoEscape(c.name)}</b><small>${demoEscape(c.phone)}</small></td><td>${launchMoney(bought)}</td><td>${launchMoney(paid)}</td><td><span class="status ${open?'partial':'paid'}">${launchMoney(open)}</span></td><td>${clientData[c.name].last}</td><td>›</td></tr>`;}).join('');
+        clientRows=[...document.querySelectorAll('[data-client-row]')];clientRows.forEach(row=>{row.onclick=()=>navigateToClients('client',row.dataset.clientRow);row.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();row.click();}};});
+        const list=launchScreen.querySelector('datalist');if(list)list.innerHTML=clients.map(c=>`<option value="${demoEscape(c.name)}">${demoEscape(c.phone)}</option>`).join('');
+        const metrics=document.querySelectorAll('#clientes > .metric-row strong');if(metrics[0])metrics[0].textContent=clients.length;if(metrics[1])metrics[1].textContent=new Set(demo.get('sales',[]).filter(s=>s.date.startsWith(localToday().slice(0,7))).map(s=>s.clientId).filter(Boolean)).size;if(metrics[2])metrics[2].textContent=new Set(accounts.filter(a=>a.paid<a.total).map(a=>a.clientId)).size;
+      }
+      const savedSales=document.createElement('section');savedSales.className='data-section';savedSales.dataset.demoSales='';document.querySelector('#painel').append(savedSales);
+      function renderDemoSales(){const sales=demo.get('sales',[]);savedSales.hidden=!sales.length;savedSales.innerHTML='<div class="section-heading"><div><h2>Vendas desta demonstração</h2><p>Persistidas neste navegador e disponíveis em Clientes e Financeiro.</p></div></div>'+sales.map(s=>`<article class="account-row"><b>${demoEscape(s.customer)}</b><span>${demoEscape(s.date.split('-').reverse().join('/'))}</span><strong>${launchMoney(s.total)}</strong><span>${s.items.reduce((n,i)=>n+i.quantity,0)} peças</span></article>`).join('');}
+      document.body.append(newCustomerDialog);
+      refreshDemoClients();renderDemoSales();
+
 
       const profile = document.querySelector('.profile');
       const menu = document.querySelector('#profile-menu');
-      profile.addEventListener('click', () => {
+      document.querySelectorAll('[data-href]').forEach((control) => control.addEventListener('click', () => {
+        window.location.href = control.dataset.href;
+      }));
+      profile?.addEventListener('click', () => {
         const open = profile.getAttribute('aria-expanded') === 'true';
         profile.setAttribute('aria-expanded', String(!open));
         menu.hidden = open;
       });
+
+      applyPreset('12m');
+      if (window.location.hash === '#clientes') activateScreen('clientes');
+    })();
     </script>
+    <script src="outputs.js?v=20260914-mobile"></script>
   </body>
 </html>

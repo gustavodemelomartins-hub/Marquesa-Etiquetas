@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Conceito mobile simplificado do Monte seu Colar" />
+    <title>Marquesa · Escolha seus pingentes</title>
+    <link rel="stylesheet" href="monte-seu-colar-simples.css" />
+  </head>
+  <body>
+    <header class="concept-header">
+      <img src="../../../01-brand/logo_sistema-marquesa_preta-transparente.png" alt="Marquesa Semijoias" />
+      <span>SM</span>
+    </header>
+
+    <main>
+      <div class="concept-note">
+        <span>Conceito em avaliação</span>
+        <p>Protótipo local. Não altera o fluxo oficial nem consulta estoque real.</p>
+      </div>
+
+      <a class="back-link" href="../master.html">← Voltar para Lançamentos</a>
+
+      <section class="composer" aria-labelledby="concept-title">
+        <header class="composer-heading">
+          <div class="necklace-seal" aria-hidden="true"><i></i></div>
+          <div>
+            <p>Monte seu Colar</p>
+            <h1 id="concept-title">Escolha seus pingentes</h1>
+            <span>Informe quantos meninos e meninas. Depois escolha uma cor para cada um.</span>
+          </div>
+        </header>
+
+        <div class="necklace-preview" aria-label="Prévia da composição">
+          <div class="preview-chain"></div>
+          <div class="preview-pendants" data-preview-pendants>
+            <p>Seu colar começa vazio</p>
+          </div>
+          <div class="fixed-base"><strong>Corrente incluída</strong><span>Veneziana 45 cm com extensor · SKU 444032</span></div>
+        </div>
+
+        <section class="quantity-section" aria-labelledby="quantity-title">
+          <div class="section-copy">
+            <span>1</span>
+            <div><h2 id="quantity-title">Quantos pingentes?</h2><p>Você pode repetir menino, menina e cor.</p></div>
+          </div>
+
+          <div class="quantity-grid">
+            <article class="quantity-choice boy-choice">
+              <div class="child-icon boy" aria-hidden="true"><i></i></div>
+              <div><strong>Menino</strong><small>Azul, incolor ou verde</small></div>
+              <div class="stepper" aria-label="Quantidade de meninos">
+                <button type="button" data-quantity="boy" data-delta="-1" aria-label="Diminuir meninos">−</button>
+                <output data-count="boy">0</output>
+                <button type="button" data-quantity="boy" data-delta="1" aria-label="Aumentar meninos">+</button>
+              </div>
+            </article>
+
+            <article class="quantity-choice girl-choice">
+              <div class="child-icon girl" aria-hidden="true"><i></i></div>
+              <div><strong>Menina</strong><small>Rosa claro ou incolor</small></div>
+              <div class="stepper" aria-label="Quantidade de meninas">
+                <button type="button" data-quantity="girl" data-delta="-1" aria-label="Diminuir meninas">−</button>
+                <output data-count="girl">0</output>
+                <button type="button" data-quantity="girl" data-delta="1" aria-label="Aumentar meninas">+</button>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="color-section" data-color-section hidden aria-labelledby="color-title">
+          <div class="section-copy">
+            <span>2</span>
+            <div><h2 id="color-title">Escolha as cores</h2><p>Cada card corresponde a uma peça física.</p></div>
+          </div>
+          <div class="color-list" data-color-list></div>
+        </section>
+
+        <section class="extra-section">
+          <button class="extra-trigger" type="button" data-extra-trigger aria-expanded="false">
+            <span>+</span><strong>Adicionar outro pingente</strong><small>Inclua outra peça do catálogo no conjunto</small>
+          </button>
+          <div class="extra-fields" data-extra-fields hidden>
+            <label><span>SKU ou nome da peça extra</span><input type="text" data-extra-sku placeholder="Digite ou bipe a etiqueta" /></label>
+            <button type="button" data-remove-extra>Remover peça extra</button>
+          </div>
+        </section>
+
+        <section class="commercial-section" data-commercial-section hidden aria-labelledby="commercial-title">
+          <div class="section-copy">
+            <span>3</span>
+            <div><h2 id="commercial-title">Como será vendido</h2><p>O sistema reconhece a combinação antes de adicionar.</p></div>
+          </div>
+
+          <div class="match-banner" data-match-banner></div>
+
+          <div class="commercial-fields">
+            <label><span>SKU comercial</span><input type="text" inputmode="numeric" maxlength="6" data-commercial-sku /><small class="field-help" data-sku-help hidden>Gerado automaticamente. Na implementação, o número será reservado antes de aparecer.</small></label>
+            <label class="wide"><span>Nome da peça</span><input type="text" data-commercial-name /></label>
+            <label><span>Referência</span><input type="text" data-standard-price readonly /></label>
+            <label><span>Preço final</span><span class="money-input"><b>R$</b><input type="number" min="0.01" step="0.01" data-final-price /></span></label>
+            <label class="wide price-reason" data-price-reason-field hidden><span>Motivo da alteração</span><input type="text" data-price-reason placeholder="Ex.: condição combinada com a cliente" /></label>
+          </div>
+
+          <p class="price-suggestion" data-price-suggestion hidden></p>
+          <p class="new-model-help" data-new-model-help hidden>Esta combinação ainda não existe. Confira SKU, nome e preço antes de cadastrar a nova configuração.</p>
+        </section>
+      </section>
+    </main>
+
+    <footer class="sale-footer">
+      <div><span data-footer-label>Nenhum pingente</span><strong data-footer-price>R$ 0,00</strong></div>
+      <button type="button" data-add-sale disabled>Adicionar à venda</button>
+    </footer>
+
+    <dialog class="review-dialog" data-review-dialog>
+      <button class="dialog-close" type="button" data-close-review aria-label="Fechar">×</button>
+      <p>Resumo da composição</p>
+      <h2>Confira antes de adicionar</h2>
+      <div data-review-content></div>
+      <button class="primary-button" type="button" data-confirm-concept>Adicionar à venda</button>
+      <small>Simulação local: nenhum dado será gravado.</small>
+    </dialog>
+
+    <div class="toast" data-toast hidden>Composição adicionada ao rascunho.</div>
+    <script src="monte-seu-colar-simples.js"></script>
+  </body>
+</html>

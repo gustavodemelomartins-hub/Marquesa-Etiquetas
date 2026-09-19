@@ -33,13 +33,13 @@ Baseline de contratos existentes:
 | API-VEN-008 | exportação de todas as linhas filtradas com limite, formato e auditoria definidos | não confirmado | Exportar | avaliar após decisão de produto |
 | API-VEN-009 | filtros e agregações de saídas por responsável/destino, estado e quatro motivos | lista atual cobre período, tipo e estornadas | Histórico completo de saídas | avaliar na fase de Saídas/Estoque |
 | API-VEN-010 | identidade do perfil que registrou, corrigiu ou estornou cada operação | parcial/não mapeado | autoria e permissões | depende da solução futura de perfis |
-| API-VEN-011 | composição por posições ordenadas e troca de base no Monte seu Colar | modelo atual cobre composição; compatibilidade exata do mockup a confirmar | personalização guiada | avaliar antes de reativar a funcionalidade |
+| API-VEN-011 | composição por posições ordenadas no Monte seu Colar, mantendo a base fixa obrigatória | modelo atual cobre composição; compatibilidade exata da ordem dos slots com o mockup ainda precisa ser confirmada | personalização guiada | avaliar antes de reativar a funcionalidade |
 | API-VEN-012 | medida econômica auditável para `Impacto estimado` | custo histórico próprio não existe de forma confiável | cards de saídas | bloqueado até decisão e fonte de dado |
-| API-VEN-013 | coleção de recebimentos da venda, cada um com valor, forma, pago/pendente, data efetiva, vencimento, observação e parcela | não confirmado no contrato atual | pagamento misto, parcial e parcelado | avaliar na fase de Vendas/Financeiro |
+| API-VEN-013 | coleção de recebimentos da venda, cada um com valor, forma, pago/pendente, data efetiva, vencimento e observação | não confirmado no contrato atual | pagamento misto e parcial | avaliar na fase de Vendas/Financeiro |
 | API-VEN-014 | comandos auditáveis para adicionar, liquidar, corrigir e estornar um recebimento individual | há liquidação da venda, mas granularidade por recebimento não foi comprovada | ciclo de vida depois da venda | avaliar na fase de Financeiro |
 | API-VEN-015 | resumo derivado `valorVenda`, `valorRecebido`, `valorAReceber` e `statusPagamento` | existe semântica financeira parcial; novo formato a avaliar | cards, tabela, detalhe e recibo | avaliar na fase de Vendas/Analytics |
 | API-VEN-016 | catálogo extensível de formas de pagamento | lista inicial definida no produto; autoridade atual não mapeada | seletor consistente e filtros | avaliar sem fixar enum em UI |
-| API-VEN-017 | parcelas ordenadas com número/total, valor, vencimento, status e data efetiva | não confirmado | parcelamento e histórico | avaliar na fase de Financeiro |
+| API-VEN-017 | geração de parcelas | não confirmado | fora do escopo desta versão por `VEN-D005` | preservar como possibilidade futura, sem orientar a UI atual |
 | API-VEN-018 | idempotência e controle de concorrência por recebimento | venda/liquidação atuais têm proteções; novo nível não confirmado | impedir pagamento duplicado em retry ou duas telas | obrigatório antes de implementação |
 | API-VEN-019 | evento financeiro por data efetiva para analytics | regra existe para pagamento; múltiplos eventos por venda ainda não comprovados | faturamento diário/mensal correto | avaliar na fase de Analytics |
 
@@ -51,7 +51,7 @@ faltando, paginação ausente, campo derivado que a tela teria de recalcular).
 | # | Rota | Problema | Alternativa possível |
 |---|---|---|---|
 | API-VEN-I01 | rotas analíticas atuais | ainda não foi provado que aceitam intervalo personalizado e devolvem todos os blocos do mockup com a mesma seleção | compor leituras existentes só se não criar divergência nem cálculo duplicado no navegador |
-| API-VEN-I02 | `POST /api/vendas` e rotas de pagamento atuais | o baseline registra pagamento/liquidação, mas não prova múltiplos recebimentos, formas mistas e parcelas independentes | preservar o contrato atual e introduzir evolução somente na fase arquitetural apropriada |
+| API-VEN-I02 | `POST /api/vendas` e rotas de pagamento atuais | o baseline registra pagamento/liquidação, mas não prova múltiplos recebimentos e formas mistas | preservar o contrato atual e introduzir evolução somente na fase arquitetural apropriada |
 
 As necessidades `API-VEN-013` a `API-VEN-019` incluem escrita financeira e
 provável persistência nova. Elas **não** aprovam rota, tabela, migration ou

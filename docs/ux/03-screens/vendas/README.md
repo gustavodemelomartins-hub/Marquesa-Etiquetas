@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Estado do material | descrito |
-| Última atualização | 10/09/2026 |
+| Estado do material | **UX/UI EM REFINAMENTO — design principal avançado, interações pendentes** |
+| Última atualização | 13/09/2026 |
 | Referências recebidas | 8 mockups próprios |
 | Existe hoje no legado? | sim |
 | Existe hoje no React? | ver [07-mapping/frontend-feature-map.md](../../07-mapping/frontend-feature-map.md) |
@@ -54,11 +54,14 @@ desconto, estorno, saída sem faturamento e exportação ainda estão abertas.
 | Arquivo | Guarda |
 |---|---|
 | `images/` | prints, mockups e protótipos desta tela |
+| [`concepts/`](concepts/) | propostas isoladas em avaliação; não substituem o protótipo mestre nem regras vigentes |
 | [states.md](states.md) | estados de UI: vazio, carregando, erro, parcial, sucesso |
 | [rules.md](rules.md) | regra de negócio que a tela precisa respeitar |
 | [metrics.md](metrics.md) | número exibido e como é calculado |
 | [api-needs.md](api-needs.md) | dado que a tela precisa e que a API ainda não dá |
 | [open-questions.md](open-questions.md) | decisão aberta, específica desta tela |
+| [interaction-matrix.md](interaction-matrix.md) | inventário oficial das ações, funcionamento e dependências |
+| [handoff.md](handoff.md) | handoff progressivo; ainda não liberado para implementação |
 
 Inspiração externa deste domínio: [02-references/vendas/](../../02-references/vendas/).
 
@@ -159,7 +162,7 @@ Venda R$ 500,00   Recebido R$ 0,00   A receber R$ 500,00
 
 [ R$ 500,00 ]  [ PIX ▾ ]  [ Pago hoje ▾ ]                 [•••]
 
-+ Adicionar pagamento                         Parcelar · Mais opções
++ Adicionar pagamento
 ```
 
 O valor da primeira linha e de cada nova linha vem preenchido com o saldo que
@@ -179,12 +182,11 @@ R$ 150,00  Boleto             Pendente · vence 20/09/2026
 Venda R$ 500,00   Recebido R$ 350,00   A receber R$ 150,00   PARCIAL
 ```
 
-### Quando houver parcelamento
+### Quando restar valor a receber
 
-`Parcelar` abre uma configuração curta — número de parcelas e regra de datas —
-e gera linhas `1/3`, `2/3`, `3/3`. Depois disso, cada parcela é independente:
-valor, forma, vencimento, estado e data efetiva podem ser vistos e alterados
-conforme as permissões.
+Esta versão não gera parcelas. A diferença entre o valor da venda e o que já
+foi recebido permanece como `A receber`. Quando o dinheiro entrar, um novo
+recebimento é registrado sem movimentar o estoque novamente.
 
 ### Campos avançados
 
@@ -216,3 +218,52 @@ em todo momento apenas três números: **valor da venda**, **valor recebido** e
 | Painel · evolução por mês | [desktop](images/2026-09-11_vendas-master-mes_desktop_01.png) | variação analítica |
 | Lançamentos | [desktop](images/2026-09-11_vendas-master-lancamentos_desktop_01.png) | operação, cliente e pagamento |
 | Painel responsivo | [mobile](images/2026-09-11_vendas-master_mobile_01.png) | referência de reorganização em tela estreita |
+
+## Saída sem faturamento — protótipo de 14/09/2026
+
+O registro foi reconstruído dentro de Lançamentos em `master.html`, com
+comportamento em `outputs.js`. Usa os dois mockups de saídas de 10/09 como
+referência. Inclui busca, variação explícita, quantidade, quatro motivos,
+explicação, revisão, histórico da sessão, filtro e estorno motivado.
+Dados e saldos são ilustrativos e só vivem na sessão. Não há escrita real.
+O preço de tabela não representa custo/prejuízo. As decisões temporais e de
+obrigatoriedade do destino continuam abertas; não foram promovidas a contrato.
+Prova: `node docs/ux/03-screens/vendas/verify-outputs.mjs` (64 verificações).
+
+
+### Custo real — decisão de UX aprovada em 14/09/2026
+
+Gustavo autorizou custo unitário de aquisição por peça, pré-preenchido quando
+conhecido e editável apenas para aquela saída. O protótipo congela esse custo
+no lançamento, sem modificar o catálogo amostral. Ausência permanece vazia;
+zero só é usado quando informado explicitamente. Totais incompletos aparecem
+como parciais. O histórico mostra custo das saídas, estornado e líquido; preço
+de venda é secundário. Detalhes abrem em toda a largura. Prova: 144 verificações
+de saídas e 57 de regressão de Venda normal. Persistência/API ainda não implementadas.
+
+### Alinhamento ao Painel — 14/09/2026
+
+A análise de saídas passou a usar o padrão visual já consolidado em `Evolução
+por mês`: métricas compactas, barras por motivo, destaques do período e tabela
+com expansão transversal. A interação da lista replica `Vendas do período`,
+inclusive no comportamento responsivo. O protótipo mantém filtros de período,
+situação e motivo. Prova: 148 verificações de Saídas e 57 de Venda normal.
+
+### Complementar custo pelo histórico — 14/09/2026
+
+Uma saída com custo ausente pode ser completada diretamente pelo detalhe do
+histórico. A edição trabalha por item, preserva o valor naquela saída e
+recalcula métricas e análises imediatamente. Custos já preenchidos também podem
+ser corrigidos. Esta interação ainda é demonstrativa e não define persistência
+ou autorização no backend. Prova: 176 verificações de Saídas e 57 de Venda
+normal.
+
+### Layout móvel — 14/09/2026
+
+Painel, Lançamentos, Clientes e Saídas foram revistos em 320, 390 e 430 px. No
+histórico de saídas, cada registro usa uma hierarquia móvel própria em vez de
+colunas comprimidas; o detalhe expansível permanece na sequência. Análises e
+filtros se empilham, os indicadores de Clientes se reorganizam e não há
+rolagem horizontal. A prévia usa versão nos arquivos CSS/JS para atualizar o
+cache do telefone. Prova: `verify-mobile-system.mjs` (39 verificações), além
+das regressões de Saídas, Venda normal e Monte seu Colar.

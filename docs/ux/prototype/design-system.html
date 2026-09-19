@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sistema Marquesa V2 · Design system</title>
+  <link rel="stylesheet" href="../03-screens/vendas/master.css?v=20260915-system">
+  <link rel="stylesheet" href="design-system.css?v=20260915">
+<link rel="stylesheet" href="system.css"><script defer src="system.js"></script></head>
+<body class="system-catalog">
+  <header class="catalog-header"><a href="index.html">← Voltar ao hub</a><div><p class="context">Sistema Marquesa V2</p><h1>Design system</h1><p>Referência visual para protótipos e implementação. Estado: pronto para revisão.</p></div><span>ARQ-009</span></header>
+  <main class="catalog-main">
+    <section class="catalog-section">
+      <div class="catalog-title"><p class="context">Fundação</p><h2>Cores e tipografia</h2></div>
+      <div class="swatch-grid"><article style="--swatch:#9f1748"><i></i><b>Vinho 700</b><small>#9F1748</small></article><article style="--swatch:#741238"><i></i><b>Vinho 900</b><small>#741238</small></article><article style="--swatch:#b32659"><i></i><b>Rosa 600</b><small>#B32659</small></article><article style="--swatch:#f9f5f3"><i></i><b>Fundo</b><small>#F9F5F3</small></article><article style="--swatch:#33735a"><i></i><b>Sucesso</b><small>#33735A</small></article><article style="--swatch:#986b1e"><i></i><b>Atenção</b><small>#986B1E</small></article></div>
+      <div class="type-sample"><div><span>Títulos · Cormorant</span><h3>Clareza para decidir</h3></div><div><span>Interface · Jost</span><p>Informação operacional curta, direta e legível em qualquer tela.</p><p class="v2-number">R$ 1.250,00 · 17 unidades · 12/09/2026 · SKU 132721</p></div></div>
+    </section>
+    <section class="catalog-section">
+      <div class="catalog-title"><p class="context">Ações</p><h2>Botões, campos e estados</h2></div>
+      <div class="component-row"><button class="button primary">Ação principal</button><button class="button ghost">Ação secundária</button><button class="button ghost" disabled>Indisponível</button><span class="status paid">Concluída</span><span class="status receivable">A receber</span><span class="decision-pill">Decisão necessária</span></div>
+      <div class="field-grid"><label><span>Buscar</span><input value="Argola" aria-label="Exemplo de busca"></label><label><span>Categoria</span><select><option>Brincos</option></select></label><label><span>Observação</span><textarea rows="2">Peça demonstrativa</textarea></label></div>
+    </section>
+    <section class="catalog-section">
+      <div class="catalog-title"><p class="context">Estrutura</p><h2>Cards, tabela e paginação</h2></div>
+      <div class="sample-grid"><article class="sample-card"><span>Vendido no período</span><strong>R$ 18.420,00</strong><small>+12% no período</small></article><article class="sample-card"><span>A receber</span><strong>R$ 2.340,00</strong><small>8 clientes com saldo aberto</small></article><article class="sample-card"><span>Garantias ativas</span><strong>7</strong><small>2 próximas do prazo</small></article></div>
+      <div class="table-frame"><table><thead><tr><th>Cliente</th><th>Última compra</th><th>Situação</th></tr></thead><tbody><tr><td><b>Camila Ferreira</b><small>4 compras</small></td><td>05/09/2026</td><td><span class="status receivable">A receber</span></td></tr><tr><td><b>Juliana Prado</b><small>3 compras</small></td><td>04/09/2026</td><td><span class="status paid">Em dia</span></td></tr></tbody></table></div>
+      <nav class="pagination-v2" aria-label="Paginação de exemplo"><span>1–20 de 48</span><div><button aria-current="page">1</button><button>2</button><button>3</button></div></nav>
+    </section>
+    <section class="catalog-section">
+      <div class="catalog-title"><p class="context">Feedback</p><h2>Vazio, carregamento e erro</h2></div>
+      <div class="state-grid"><div class="system-state"><div><b>◇</b><h3>Nenhum resultado</h3><p>Ajuste os filtros ou cadastre um novo item.</p><button class="button ghost">Limpar filtros</button></div></div><div class="system-state"><div><span class="skeleton-line"></span><span class="skeleton-line short"></span><p>Carregando informações…</p></div></div><div class="system-state"><div><b>!</b><h3>Não foi possível carregar</h3><p>Preservamos seus filtros. Tente novamente.</p><button class="button primary">Tentar novamente</button></div></div></div>
+    </section>
+  </main>
+</body>
+</html>

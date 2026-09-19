@@ -5,10 +5,11 @@
 > Este arquivo descreve as necessidades da UX. Ele não substitui a regra de
 > domínio.
 
-O documento canônico está na branch paralela `claude/refactor-sistema-marquesa`
-e ainda não é visível nesta branch. O conteúdo abaixo usa o espelho integral
-aprovado fornecido por Gustavo em 10/09/2026. O backend foi implementado e
-provado naquela branch, mas não foi publicado.
+O contrato `docs/domains/CONTRATO-UX-API-4-5.md` já está disponível neste checkout.
+Sua descrição de implementação e flags é evidência documental, não confirmação
+de disponibilidade atual em produção. Nesta rodada somente UX foi alterada.
+A publicação foi consolidada em `../nuvemshop/publicar.html` e o encadeamento
+após a aprovação final está registrado em CC-002 do handoff global.
 
 ## Limite
 

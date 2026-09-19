@@ -7,23 +7,20 @@ Master Plan, com contract test — não nesta pasta.
 Baseline de contratos existentes:
 `docs/architecture/API-ROUTES-BASELINE.md` (trilha de refatoração).
 
-## Já atendido
+## Já atendido / parcial
 
-| Dado | Rota atual | Observação |
+| Superfície | Base atual | Gap |
 |---|---|---|
-| | | |
+| prioridades | `GET /api/pendencias?tipo=&adiadas=1` | incluir prioridade, prazo, rota de destino, entidade e `observadoEm` |
+| movimento do dia | analytics e contas a receber existentes | definir métricas e fonte autoritativa de cada card |
+| atalhos | rotas existentes dos domínios | confirmar permissões por ação |
 
-## Falta
+## UI NEEDS API
 
-| # | Dado necessário | Existe em algum lugar? | Bloqueia o quê | Fase provável |
-|---|---|---|---|---|
-| | | | | |
-
-## Incompatibilidade conhecida
-
-Caso em que a API responde, mas no formato errado para a tela (agregação
-faltando, paginação ausente, campo derivado que a tela teria de recalcular).
-
-| # | Rota | Problema | Alternativa possível |
+| ID | Ação | Contrato mínimo esperado | Criticidade |
 |---|---|---|---|
-| | | | |
+| V2-API-001 | listar/criar/editar compromisso e recorrência | `{id,titulo,inicio,fim,recorrencia,origem,destinoId,estado}` e comandos idempotentes | média |
+| V2-API-002 | ordenar prioridades operacionais | acrescentar `prioridade,prazo,rotaDestino,entidadeId,observadoEm` à projeção | alta |
+
+Agenda de fornecedores e compras ficou fora desta primeira versão. O protótipo
+usa compromissos próprios, feiras, acertos e prazos operacionais.

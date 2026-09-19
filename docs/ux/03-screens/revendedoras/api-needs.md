@@ -11,13 +11,17 @@ Baseline de contratos existentes:
 
 | Dado | Rota atual | Observação |
 |---|---|---|
-| | | |
+| cadastro/ficha/status | `POST /api/revendedoras`, `PATCH /api/revendedoras/:id` | núcleo do perfil |
+| arquivar | `POST /api/revendedoras/:id/arquivar` | recusa com maleta aberta |
+| abrir/editar maleta | `POST /api/maletas`, `PATCH /api/maletas/:id` | cabeçalho/metadados |
+| consignar itens | `POST /api/maletas/:id/itens` | movimento e sincronização |
+| acerto/cancelamento | `POST /api/maletas/:id/acerto`, `/cancelar` | contrapartidas auditáveis |
 
 ## Falta
 
 | # | Dado necessário | Existe em algum lugar? | Bloqueia o quê | Fase provável |
 |---|---|---|---|---|
-| | | | | |
+| V2-API-011 | criar maleta com cabeçalho e itens de forma atômica | hoje exige mais de uma chamada | confirmação única sem maleta incompleta | decisão arquitetural |
 
 ## Incompatibilidade conhecida
 
@@ -26,4 +30,4 @@ faltando, paginação ausente, campo derivado que a tela teria de recalcular).
 
 | # | Rota | Problema | Alternativa possível |
 |---|---|---|---|
-| | | | |
+| 1 | criação + itens | uma falha intermediária pode deixar rascunho incompleto | comando atômico ou token de rascunho com rollback |

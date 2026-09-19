@@ -1,0 +1,61 @@
+import { chromium } from '../../../../src/node_modules/playwright/index.mjs';
+import { pathToFileURL } from 'node:url';
+import path from 'node:path';
+import fs from 'node:fs/promises';
+const base=process.env.PROTOTYPE_BASE_URL;
+const url=(name)=>base?new URL(name==='master'?'nuvemshop/loja/':'nuvemshop/',base.endsWith('/')?base:base+'/').href:pathToFileURL(path.resolve(`docs/ux/03-screens/nuvemshop/${name}.html`)).href;
+const browser=await chromium.launch({headless:true});let n=0;
+const check=(value,label)=>{if(!value)throw new Error(label);n++};
+const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
+await fs.mkdir('.tmp/nuvemshop-v2',{recursive:true});
+try{
+ for(const width of [320,390,768,1024,1440]){
+  const context=await browser.newContext({viewport:{width,height:960}});
+  const page=await context.newPage(),errors=[],external=[];
+  page.on('pageerror',e=>errors.push(e.message));
+  page.on('request',r=>{if(r.method()!=='GET'||/\/api\//.test(r.url()))external.push(r.url())});
+  await page.goto(url('master'));await page.locator('.store-table-row').first().waitFor();
+  check(await page.locator('.store-table-row').count()===5,'store examples '+width);
+  await page.locator('[data-store-status]').selectOption('divergent');check(await page.locator('.store-table-row').count()===2,'divergence filter');
+  await page.locator('[data-store-search]').fill('inexistente');check(await page.locator('[data-store-empty]').isVisible(),'store empty');
+  await page.goto(url('master')+'#pending');check(await page.locator('[data-cloud-view="pending"]').isVisible(),'direct pending fragment');
+  await page.locator('[data-detail="variant"]').click();check(await page.locator('[data-cloud-dialog]').evaluate(d=>d.open),'variant diagnosis');
+  await page.getByRole('button',{name:'Entendi'}).click();
+  await page.locator('[data-cloud-tab="analysis"]').click();await page.locator('[data-cloud-view="analysis"] [data-run-analysis]').click();
+  check((await page.locator('[data-analysis-result]').textContent()).includes('Não empurrar'),'analysis preserves blocks');
+  check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'analysis overflow '+width);
+  await page.goto(url('publicar'));await page.locator('.publication-row').first().waitFor();
+  check(await page.locator('.publication-row').count()===5,'publication examples');
+  check(await page.locator('[data-filters] button').count()===7,'all six stages + all');
+  for(const missing of ['photos','category','price']){await page.locator('[data-missing]').selectOption(missing);check(await page.locator('.publication-row').count()===1,'missing '+missing)}
+  await page.locator('[data-missing]').selectOption('all');
+  await page.locator('[data-action="132721"]').click();await page.locator('[data-ready]').click();await page.locator('[data-action="132721"]').click();
+  await page.locator('[data-approve]').click();await page.locator('[data-feedback]').filter({hasText:'Complete antes'}).waitFor();check(await page.locator('[data-feedback]').innerText().then(t=>t.includes('Complete antes')),'incomplete publication blocked');
+  await page.locator('[data-close]').click();
+  await page.locator('[data-action="191620"]').click();await page.locator('[name="category"]').fill('Brincos');await page.locator('[name="price"]').fill('139.90');
+  await page.locator('[data-review-tab="photos"]').click();
+  await page.locator('[data-upload]').setInputFiles([{name:'frente.png',mimeType:'image/png',buffer:png},{name:'verso.png',mimeType:'image/png',buffer:png}]);
+  await page.locator('.photo-card').nth(2).waitFor();await page.locator('[data-photo-action="principal"][data-index="2"]').click();
+  check((await page.locator('.photo-card').first().innerText()).includes('verso.png'),'photo principal');
+  await page.locator('[data-simulate-failure]').check();await page.locator('[data-approve]').click();
+  await page.locator('[data-sku="191620"] .publication-status').filter({hasText:'Falha'}).waitFor();
+  check((await page.locator('[data-sku="191620"]').innerText()).includes('Bloqueio técnico'),'technical failure explicit');
+  await page.locator('[data-action="191620"]').click();await page.locator('[data-sku="191620"] .publication-status').filter({hasText:'Publicado'}).waitFor();
+  check(true,'retry without reapproval');
+  await page.reload();await page.locator('[data-action="191620"]').waitFor();
+  check((await page.locator('[data-sku="191620"] .publication-status').innerText())==='Publicado','published survives reload');
+  await page.locator('[data-action="191620"]').click();check(await page.locator('[data-review-panel="preview"]').isVisible(),'published preview');
+  await page.locator('[data-review-tab="photos"]').click();check(await page.locator('.photo-card').count()===3,'photos survive reload');
+  check(await page.locator('.photo-card img').first().getAttribute('src').then(src=>src.startsWith('data:image/png')),'durable uploaded bytes');
+  await page.locator('[data-review-tab="content"]').click();await page.locator('[name="title"]').fill('Brinco revisado <teste>');await page.locator('[data-save]').click();
+  await page.locator('[data-review]').waitFor({state:'hidden'});
+  check((await page.locator('[data-sku="191620"] .publication-status').innerText())==='Aguardando aprovação','edit invalidates approval');
+  check((await page.locator('[data-sku="191620"]').innerText()).includes('Presença na loja: publicado'),'observed presence separate');
+  check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'publication overflow '+width);
+  check(!errors.length,'JavaScript '+errors.join(';'));check(!external.length,'no API or writes');
+  if(width===390||width===1440)await page.screenshot({path:`.tmp/nuvemshop-v2/publication-${width}.png`,fullPage:true});
+  await page.goto(url('master'));await page.locator('.store-table-row').first().waitFor();await page.locator('[data-store-search]').fill('191620');check((await page.locator('.store-table-row').innerText()).includes('Brinco Corações Pendurados'),'store keeps published snapshot instead of unapproved title');
+  await context.close();
+ }
+ console.log(`${n} verificações Nuvemshop V2 aprovadas`);
+}finally{await browser.close()}

@@ -47,19 +47,32 @@ AAAA-MM-DD_<tela>_<viewport>_<sequencia>.<ext>
 
 | Tela | Pasta | Referências | Estado do material |
 |---|---|---|---|
-| Dashboard | [03-screens/dashboard/](03-screens/dashboard/) | [02-references/dashboard/](02-references/dashboard/) | vazio |
-| Vendas | [03-screens/vendas/](03-screens/vendas/) | [02-references/vendas/](02-references/vendas/) | descrito |
-| Clientes | [03-screens/clientes/](03-screens/clientes/) | [02-references/clientes/](02-references/clientes/) | vazio |
-| Revendedoras | [03-screens/revendedoras/](03-screens/revendedoras/) | [02-references/revendedoras/](02-references/revendedoras/) | vazio |
-| Estoque | [03-screens/estoque/](03-screens/estoque/) | [02-references/estoque/](02-references/estoque/) | descrito |
-| Catálogo, Mídia e Publicação | [03-screens/catalogo/](03-screens/catalogo/) | — | domínio mapeado; aguardando mockups |
-| Etiquetas | [03-screens/etiquetas/](03-screens/etiquetas/) | — | descrito |
-| Reparos | [03-screens/reparos/](03-screens/reparos/) | [02-references/reparos/](02-references/reparos/) | vazio |
+| Home e Agenda | [03-screens/dashboard/](03-screens/dashboard/) | [02-references/dashboard/](02-references/dashboard/) | protótipo pronto para revisão |
+| Vendas | [03-screens/vendas/](03-screens/vendas/) | [02-references/vendas/](02-references/vendas/) | protótipo pronto para revisão |
+| Clientes | [03-screens/clientes/](03-screens/clientes/) | [02-references/clientes/](02-references/clientes/) | perfil/dashboard pronto para revisão |
+| Financeiro | [03-screens/financeiro/](03-screens/financeiro/) | — | protótipo pronto para revisão |
+| Garantias, Reparos e Trocas | [03-screens/reparos/](03-screens/reparos/) | [02-references/reparos/](02-references/reparos/) | protótipo pronto para revisão |
+| Revendedoras e Maletas | [03-screens/revendedoras/](03-screens/revendedoras/) | [02-references/revendedoras/](02-references/revendedoras/) | protótipo pronto para revisão |
+| Estoque e Inventário | [03-screens/estoque/](03-screens/estoque/) | [02-references/estoque/](02-references/estoque/) | protótipo pronto para revisão |
+| Catálogo, Mídia e Publicação | [03-screens/catalogo/](03-screens/catalogo/) | — | protótipo pronto para revisão; publicação bloqueada |
+| Etiquetas | [03-screens/etiquetas/](03-screens/etiquetas/) | — | protótipo aprovado no domínio; implementação pendente |
+| Nuvemshop | [03-screens/nuvemshop/](03-screens/nuvemshop/) | — | protótipo pronto para revisão |
+| Notificações | [03-screens/notificacoes/](03-screens/notificacoes/) | — | protótipo pronto para revisão |
+| Perfil e Configurações | [03-screens/configuracoes/](03-screens/configuracoes/) | — | protótipo pronto para revisão |
 | Personalização | [03-screens/personalizacao/](03-screens/personalizacao/) | [02-references/personalizacao/](02-references/personalizacao/) | recebendo |
 
 "Estado do material": `vazio` → `recebendo` → `descrito` → `pronto para
 avaliação arquitetural`. Ninguém promove sozinho o estado de uma tela para o
 último degrau.
+
+## Primeira versão coerente V2
+
+- [Hub navegável](prototype/index.html)
+- [Design system visual](prototype/design-system.html)
+- [Inventário completo de superfícies](07-mapping/product-screen-inventory-v2.md)
+- [Arquitetura de navegação](07-mapping/navigation-architecture-v2.md)
+- [Mapa dos fluxos críticos](05-flows/product-flow-map-v2.md)
+- [Handoff UI ↔ API](07-mapping/ui-api-handoff-v2.md)
 
 ## Mapa da pasta
 

@@ -24,6 +24,7 @@ depois do que a decisão em si.
 | ID | Pergunta | Decisão | Quem | Data | Onde ficou registrada |
 |---|---|---|---|---|---|
 | DP-005 | Estado da venda e estado financeiro aparecem separados em toda lista? | Sim. A venda mantém seu estado operacional; PAGO, PARCIAL e A RECEBER são derivados dos recebimentos e aparecem como dimensão financeira separada. | Gustavo | 10/09/2026 | `03-screens/vendas/rules.md` e `metrics.md` |
+| DP-006 | O Monte seu Colar passa de `modelo → slots` para `quantidades de Menino/Menina → cores`? | Sim, no protótipo mestre. Quantidades geram mini-cards de cor; as cinco combinações atuais são reconhecidas; uma combinação nova recebe SKU de seis dígitos, nome e preço sugeridos editáveis, podendo incluir pingente extra. A sugestão parte de R$ 99 e soma R$ 30 por pingente adicional. Esta aprovação fecha o desenho de UX, não autoriza backend, banco ou produção; `api/REGRAS.md` §42 permanece canônico até uma implementação de negócio própria. | Gustavo | 13/09/2026 | `03-screens/vendas/master.html` e `rules.md` UX-VEN-030 |
 
 Decisão que muda regra de negócio não fica só aqui: vai para
 [api/REGRAS.md](../../../api/REGRAS.md), que continua a fonte única. Decisão

@@ -12,7 +12,7 @@
 | 2 | Itens/Personalização | buscar ou escanear peças; configurar cada posição quando montável | itens válidos e totais preliminares | não |
 | 3 | Dados da venda | identificar cliente, data, canal/local e observação | contexto comercial completo | cliente novo pode escrever; rascunho ainda não |
 | 4 | Preço | ativar o preço unitário, informar preço final e justificar a diferença; separar automaticamente unidades quando só parte recebe outro preço | desconto individual e auditável, com subtotal recalculado | não |
-| 5 | Pagamento | adicionar um ou mais lançamentos pagos/pendentes ou gerar parcelas | recebido, a receber e status são derivados em tempo real | ainda não; grava com a venda na finalização |
+| 5 | Pagamento | adicionar um ou mais lançamentos pagos/pendentes; manter a diferença como `A receber` | recebido, a receber e status são derivados em tempo real | ainda não; grava com a venda na finalização |
 | 6 | Finalização | revisar e confirmar uma vez | venda, itens, baixa física e recebimentos iniciais são registrados | sim; escrita crítica e idempotente |
 | 7 | Vendas do dia | conferir a nova operação | linha aparece com estados operacional e financeiro | não, leitura |
 | 8 | Histórico completo | abrir período, filtrar e selecionar uma linha | detalhe, recibo e ações autorizadas | leitura; correções/estorno escrevem separadamente |
@@ -32,7 +32,7 @@
 
 - a baixa ocorre uma vez; pagamento posterior nunca baixa de novo;
 - PAGO, PARCIAL e A RECEBER derivam dos recebimentos, não de seleção manual;
-- cada parcela paga entra no faturamento por sua data efetiva;
+- cada recebimento pago entra no faturamento por sua data efetiva;
 - valor vendido e faturamento usam datas e significados diferentes;
 - preço final diferente da tabela exige motivo; desconto parcial numa quantidade
   separa as unidades sem alterar a quantidade total nem o estoque;

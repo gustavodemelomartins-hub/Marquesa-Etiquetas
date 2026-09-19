@@ -49,15 +49,30 @@ limite de itens por página, o que não pode ser editado inline.
 | UX-VEN-012 | a baixa de estoque só é tratada como concluída depois da confirmação da operação | não exibir sucesso enquanto a escrita está incerta | sim · regra de segurança |
 | UX-VEN-013 | `PAGO`, `PARCIAL` e `A RECEBER` são estados derivados dos recebimentos, nunca opções manuais | impedir que o rótulo financeiro contradiga os valores registrados | sim · Gustavo, 10/09/2026 |
 | UX-VEN-014 | uma venda aceita vários recebimentos e várias formas de pagamento | suportar PIX + dinheiro + cartão, pagamentos parciais e outros mistos | sim · Gustavo, 10/09/2026 |
-| UX-VEN-015 | o caminho simples registra uma venda integral em poucos segundos; misto e parcelado usam expansão progressiva | manter velocidade no balcão sem eliminar casos avançados | sim · Gustavo, 10/09/2026 |
+| UX-VEN-015 | o caminho simples registra uma venda integral em poucos segundos; pagamentos mistos usam expansão progressiva e qualquer saldo não recebido permanece em `A receber`, sem parcelamento automático nesta versão | manter velocidade no balcão e uma cobrança simples | atualizado · Gustavo, 14/09/2026 |
 | UX-VEN-016 | o preço unitário da linha abre a edição do preço final cobrado; desconto e percentual são derivados e o motivo é obrigatório | reproduzir a linguagem do balcão e impedir preço diferente sem explicação | sim · regra vigente + Gustavo, 10/09/2026 |
 | UX-VEN-017 | quando somente parte das unidades iguais recebe outro preço, a linha é separada automaticamente | preservar desconto realmente individual sem fingir que todas as unidades tiveram o mesmo preço | sim · Gustavo, 10/09/2026 |
+| UX-VEN-018 | em `Vendas do período`, toda venda com saldo cobrável usa o rótulo `A RECEBER` em vinho; o quanto já foi recebido aparece nos valores do detalhe, e a ação `Pendente` permanece amarela | comunicar a ação necessária sem criar dois rótulos para vendas que ainda exigem cobrança | sim · Gustavo, 12/09/2026 |
+| UX-VEN-019 | os detalhes das vendas podem ser expandidos e recolhidos de forma independente, mantendo quantas linhas abertas forem úteis; trocar página ou contexto recolhe todos | permitir comparação entre vendas sem manter detalhes ligados a dados que acabaram de mudar | sim · Gustavo, 12/09/2026 |
+| UX-VEN-020 | `Vendas do período` mostra até 10 vendas por página | aumentar a visão comparativa sem transformar a lista em rolagem excessiva | sim · Gustavo, 12/09/2026 |
+| UX-VEN-021 | o lançamento começa reduzido no seletor de tipo; `Venda normal` revela uma superfície contínua com Itens, Cliente e Pagamento em etapas recolhíveis; no mobile, total e `Finalizar venda` permanecem alcançáveis acima da navegação | preservar velocidade de balcão sem expor um formulário vazio e longo | sim · Gustavo, 12/09/2026 |
+| UX-VEN-022 | `Vendas de hoje` permanece visível abaixo dos tipos de lançamento, mesmo antes de abrir `Venda normal`; cores, tipografia, espaçamento e componentes usam a identidade nova do sistema | manter o contexto do dia disponível sem obrigar a começar uma operação | sim · Gustavo, 12/09/2026 |
+| UX-VEN-023 | tentar adicionar novamente um SKU que já está no carrinho não cria linha nem aumenta quantidade; a interface orienta usar o controle `+` da peça | impedir aumento acidental por clique repetido em `Adicionar` | sim · Gustavo, 12/09/2026 |
+| UX-VEN-024 | preço final abaixo do padrão aparece como `Desconto`; preço final acima aparece como `Acréscimo`; ambos são valores positivos e o motivo continua obrigatório | impedir desconto negativo e deixar explícito o sentido da alteração | sim · Gustavo, 12/09/2026 |
+| UX-VEN-025 | a confirmação final mostra cliente, data, local/canal, itens, pagamentos, vencimentos, observação, preço padrão, desconto/acréscimo, total, recebido e a receber | permitir conferência completa antes de registrar a venda | sim · Gustavo, 12/09/2026 |
+| UX-VEN-026 | `Local ou canal` oferece os termos já usados no sistema: Balcão, WhatsApp, Instagram, Grupo VIP, Feira, Maleta e Outro com texto livre; a distinção futura entre canal e origem estrutural continua em `VEN-Q013` | usar o vocabulário operacional existente sem fingir que a modelagem de origem já foi decidida | sim · Gustavo, 12/09/2026 |
+| UX-VEN-027 | ao abrir `Itens da venda`, a busca começa vazia e sem sugestões; produtos só aparecem depois de digitar, o leitor físico usa o mesmo campo e a câmera do celular só é ativada após toque e confirmação explícitos | evitar catálogo involuntário e reunir digitação, etiqueta e câmera numa entrada única | sim · Gustavo, 12/09/2026 |
+| UX-VEN-028 | a busca mostra uma peça com variações uma única vez; se houver mais de uma opção, digitar, bipar ou usar a câmera abre uma escolha explícita com os nomes reais e o saldo de cada variação; a variação escolhida acompanha a linha e a revisão final, e opções sem estoque não podem ser selecionadas | a etiqueta é igual entre variações e não identifica sozinha qual peça física saiu; a venda nunca escolhe por aproximação | sim · Gustavo, 12/09/2026 |
+| UX-VEN-029 | `Monte seu Colar` começa sem seleção; o modelo comercial define preço e posições exatas, a base Veneziana SKU `444032` entra automaticamente e cada posição aceita somente os componentes físicos compatíveis; o mesmo SKU pode ocupar posições repetidas enquanto o saldo agregado permitir; ao adicionar, a composição segue como uma única linha comercial com base, ordem e escolhas congeladas | separar a configuração vendida dos componentes que baixam estoque, impedir composição livre e conservar uma conferência curta no celular | substituída por UX-VEN-030 · Gustavo, 13/09/2026 |
+| UX-VEN-030 | `Monte seu Colar` começa zerado por quantidades de Menino e Menina; cada unidade recebe sua cor em mini-card compacto; as cinco configurações atuais preenchem SKU, nome e preço conhecidos; outra configuração recebe SKU de seis dígitos, nome e preço sugeridos editáveis, com opção de pingente extra; a base Veneziana SKU `444032` permanece automática e a composição segue como uma única linha comercial | tornar o balcão mais rápido no celular sem perder a identificação de cada peça física, o reconhecimento do produto comercial nem a conferência do valor | sim · Gustavo, 13/09/2026 · aprovado para o protótipo; implementação transacional ainda depende da regra canônica |
 
 ## Desconto na Nova Venda
 
 - a pessoa edita o `preço final por peça`; não digita simultaneamente preço e
   desconto;
-- `desconto unitário = preço de tabela congelado − preço final cobrado`;
+- quando `preço padrão > preço final`, `desconto unitário = preço padrão − preço final`;
+- quando `preço final > preço padrão`, `acréscimo unitário = preço final − preço padrão`;
+- desconto e acréscimo nunca são exibidos como valor negativo;
 - alterar o preço exige motivo antes da finalização;
 - preço de tabela continua pertencendo ao catálogo e não é alterado pela venda;
 - quantidade maior que um pode compartilhar o mesmo preço final e motivo;
@@ -73,15 +88,15 @@ limite de itens por página, o que não pode ser editado inline.
 ### Estrutura
 
 - a venda possui um `valor total` e zero ou mais lançamentos de recebimento;
-- cada lançamento contém valor, forma, estado `pago` ou `pendente`, observação
-  opcional e, quando aplicável, parcela;
+- cada lançamento contém valor, forma, estado `pago` ou `pendente` e observação
+  opcional;
 - lançamento pago exige data efetiva do pagamento;
 - lançamento pendente exige vencimento;
 - uma venda pode combinar PIX, Dinheiro, Cartão de débito, Cartão de crédito,
   Transferência, Boleto, Link de pagamento, Crédito da cliente e Outro;
 - pagamento misto é a coexistência de lançamentos de formas diferentes;
-- parcelamento é uma sequência de lançamentos/parcela, cada qual com valor,
-  estado, vencimento e data de pagamento próprios;
+- esta versão não gera parcelas; o saldo que ainda não entrou permanece em
+  `A receber` até um recebimento posterior;
 - qualquer recebimento posterior não movimenta estoque novamente.
 
 ### Valores derivados
@@ -103,7 +118,7 @@ troco e valores não distribuídos permanecem decisões abertas.
 
 - cada lançamento pago entra no faturamento pela sua própria data efetiva;
 - a data da venda não substitui a data do recebimento;
-- converter uma parcela de pendente para paga registra a data efetiva e não
+- converter um recebimento pendente para pago registra a data efetiva e não
   rebaixa estoque;
 - corrigir ou estornar recebimento precisa preservar trilha auditável e
   recalcular os três valores derivados.

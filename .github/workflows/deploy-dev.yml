@@ -11,6 +11,7 @@ name: Deploy DEV (Cloudflare Pages)
 #   /index.html        → o app de etiquetas autônomo, mantido como
 #                        referência; não é mais destino de navegação
 #   /painel-novo/      → o frontend React, em construção, no mesmo domínio
+#   /prototype/        → o protótipo estático navegável do Sistema Marquesa V2
 #
 # Um DEV só. Nada aqui toca main, marquesa-api ou marquesa-db — o Worker
 # staging (marquesa-api-staging) é publicado por outro caminho, à parte
@@ -37,6 +38,12 @@ on:
       # nenhum além dele — produção publica por outro caminho, que não lê
       # este diretório.
       - 'docs/project/dashboard/**'
+      # Protótipo V2: somente o pacote explicitamente montado pelo gerador
+      # entra no Pages. Markdown, testes e imagens de evidência ficam no Git.
+      - 'docs/ux/**'
+      - 'scripts/build-prototype.mjs'
+      - 'scripts/serve-prototype.mjs'
+      - 'scripts/verify-prototype.mjs'
       # O schema e as migrations não publicam nada no Pages, mas o passo
       # "Schema e migration continuam dizendo a mesma coisa" mora aqui — e um
       # teste que só roda quando alguém por acaso mexe no painel é um teste
@@ -73,10 +80,16 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: |
+            frontend/package-lock.json
+            src/package-lock.json
 
       - name: Instalar dependências do painel novo
         working-directory: frontend
+        run: npm ci
+
+      - name: Instalar navegador dos testes do protótipo
+        working-directory: src
         run: npm ci
 
       - name: Testes do painel novo
@@ -110,6 +123,22 @@ jobs:
       - name: Regerar os dados do painel do projeto
         run: node scripts/build-project-dashboard.mjs
 
+      - name: Montar e verificar o protótipo V2
+        run: |
+          set -e
+          node scripts/build-prototype.mjs .tmp/prototype-ci
+          node scripts/serve-prototype.mjs .tmp/prototype-ci 8878 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..20}; do
+            curl -fsS http://127.0.0.1:8878/prototype/ >/dev/null && break
+            sleep 0.25
+          done
+          curl -fsS http://127.0.0.1:8878/prototype/ >/dev/null
+          node scripts/verify-prototype.mjs
+          DEMO_BASE_URL=http://127.0.0.1:8878 DEMO_BUNDLED=1 node docs/ux/prototype/verify-demo-data.mjs
+          PROTOTYPE_BASE_URL=http://127.0.0.1:8878/prototype/ node docs/ux/03-screens/nuvemshop/verify-master.mjs
+
       - name: Juntar o site do DEV num diretório só
         run: |
           set -e
@@ -118,8 +147,9 @@ jobs:
           cp -r brand icons vendor publicar/
           cp -r frontend/dist/. publicar/painel-novo/
           cp docs/project/dashboard/index.html docs/project/dashboard/estilo.css docs/project/dashboard/painel.js docs/project/dashboard/data.js publicar/projeto/
+          node scripts/build-prototype.mjs publicar
           echo "--- o que vai ao ar ---"
-          find publicar -maxdepth 2 -type f | sort
+          find publicar -maxdepth 3 -type f | sort
 
       - name: Publicar no Cloudflare Pages
         uses: cloudflare/wrangler-action@v3

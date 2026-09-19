@@ -70,12 +70,28 @@ de espaçamento, três raios e quatro tons semânticos (`neutro`, `positivo`,
 `atencao`, `critico`). Esses tokens são o **estado atual**, derivados da marca
 e do legado; não são o redesign aprovado.
 
+## Referência visual em consolidação
+
+O protótipo mestre de Vendas em
+[`docs/ux/03-screens/vendas/master.html`](../ux/03-screens/vendas/master.html)
+já consolida uma direção visual avançada para o App Shell desktop: marca
+original, cabeçalho, navegação principal e secundária, tipografia, paleta,
+cartões, alertas, seletor de período, gráficos, tabelas e badges. Esses padrões
+podem orientar as próximas telas, mas **Vendas continua em refinamento** e não
+está liberada para implementação React.
+
+O aceite de um elemento específico — como logo e cabeçalho desktop — não
+transforma automaticamente toda a tela nem os viewports móvel/tablet em alvo
+aprovado. Interações, estados e destinos futuros continuam registrados no
+handoff e na matriz da própria tela.
+
 ## Pendências abertas
 
 - A ordem principal diverge: o legado usa `Estoque → Revendedoras → Vendas →
   Etiquetas`; o React usa `Etiqueta → Estoque → Revendedoras → Vendas`.
 - O rótulo diverge entre `Etiquetas` no legado e `Etiqueta` no React.
 - Não há decisão aprovada sobre deep links ou biblioteca de rotas.
-- Não há referência visual recebida nem tela com alvo aprovado nesta trilha.
+- Vendas possui referência visual e aspectos aprovados, mas ainda não há tela
+  completa com status `UX/UI DESIGNED` nem handoff final aceito.
 
 Esses conflitos permanecem registrados; não serão resolvidos silenciosamente.

@@ -2,14 +2,20 @@
 
 | | |
 |---|---|
-| Estado do material | domínio mapeado; aguardando mockups |
-| Última atualização | 10/09/2026 |
+| Estado do material | protótipo navegável; READY FOR GUSTAVO REVIEW |
+| Última atualização | 16/09/2026 |
 | Fonte técnica | `docs/domains/CONTRATO-UX-API-4-5.md` |
 | Backend | implementado e provado na branch paralela; sem deploy |
 | React | não implementado nesta trilha |
 
 > Este arquivo descreve o produto futuro. Não autoriza implementação, deploy
 > ou publicação na Nuvemshop.
+
+## Revisão atual
+
+Cadastro e fotos em lote permanecem aqui. Conteúdo e publicação abrem
+[Publicar na Nuvemshop](../nuvemshop/publicar.html), uma fila única com revisão e
+aprovação final que autoriza publicação automática. Nenhum envio real é feito.
 
 ## Princípio do domínio
 
@@ -80,3 +86,15 @@ publicado e despublicado são variantes da publicação.
 
 Ainda não há mockup da Fase 4.5 salvo. Quando chegar, usar
 `images/AAAA-MM-DD_catalogo-<visao>_<viewport>_<sequencia>.<ext>`.
+
+## Protótipo navegável
+
+O arquivo [master.html](master.html) consolida a primeira proposta navegável da
+Central, cadastro, galeria, fotos em lote, preparação/revisão e publicação. A
+interface mantém `falta[]`, `bloqueios[]` e presença na loja como dimensões
+separadas; quantidade fica somente leitura; upload é analisado antes de bytes;
+preparo não publica; aprovação é humana; publicação real permanece bloqueada.
+
+Como ainda não há mockup recebido, a composição está **READY FOR GUSTAVO
+REVIEW**. Foram executadas 56 verificações em 320, 390, 768 e 1440 pixels. O
+protótipo não publica, não envia fotos, não altera catálogo, estoque ou banco.

@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Estado do material | vazio |
-| Última atualização | — |
+| Estado do material | protótipo navegável pronto para revisão |
+| Última atualização | 15/09/2026 |
 | Referências recebidas | 0 |
 | Existe hoje no legado? | sim |
 | Existe hoje no React? | ver [07-mapping/frontend-feature-map.md](../../07-mapping/frontend-feature-map.md) |
@@ -32,13 +32,31 @@ Quem compra, histórico de compra e dado de contato. Cliente **não** é revende
 
 Inspiração externa deste domínio: [02-references/clientes/](../../02-references/clientes/).
 
+## Protótipo navegável
+
+A cobertura atual vive no módulo compartilhado de Vendas em
+[`../vendas/master.html#clientes`](../vendas/master.html#clientes), preservando
+a navegação contextual já consolidada. Ela cobre lista, abertura de perfil,
+contato, painel de indicadores, linha do tempo de vendas e recebimentos,
+pós-venda, observações e entrada para registrar um recebimento. O bloco de
+crédito explicita que a regra ainda depende de decisão.
+
+Esta composição é uma proposta **READY FOR GUSTAVO REVIEW**, pois esta família
+ainda não recebeu mockup próprio. Dados e ações são demonstrativos; não há
+gravação, React, API ou banco envolvidos.
+
 ## Blocos da tela
 
 Preencher quando houver mockup. Um bloco por seção visível.
 
 | # | Bloco | O que mostra | Origem do dado | Referência |
 |---|---|---|---|---|
-| | | | | |
+| 1 | indicadores | clientes ativas, compras do mês e valores em aberto | agregação futura | proposta atual |
+| 2 | lista | contato, comprado, recebido, em aberto e última compra | clientes + vendas + recebimentos | proposta atual |
+| 3 | painel do perfil | comprado, recebido, aberto, ticket e garantias | perfil agregado | proposta atual |
+| 4 | pós-venda | garantia ativa e troca resolvida ligadas às peças | garantias e itens de venda | proposta atual |
+| 5 | linha do tempo | vendas e recebimentos como fatos separados | histórico comercial e financeiro | proposta atual |
+| 6 | relacionamento | contato, observações e preferências | cadastro da cliente | proposta atual |
 
 ## Log de material recebido
 

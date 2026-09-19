@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Marquesa · Publicar na Nuvemshop</title>
+  <link rel="stylesheet" href="../vendas/master.css">
+  <link rel="stylesheet" href="publicar.css">
+  <link rel="stylesheet" href="../../prototype/system.css">
+  <script defer src="../../prototype/system.js"></script>
+  <script defer src="../../prototype/demo-store.js"></script>
+  <script defer src="publicar.js"></script>
+</head>
+<body><div class="app-shell publish-shell">
+  <header class="app-header"><div class="header-main"></div><nav class="secondary-nav" aria-label="Nuvemshop"><a href="master.html">Produtos na loja</a><a href="publicar.html" aria-current="page">Publicar na Nuvemshop</a><a href="master.html#pending">Pendências</a><a href="master.html#analysis">Sincronização</a></nav></header>
+  <main>
+    <div class="page-heading"><div><p class="context">Nuvemshop · publicação</p><h1>Publicar na Nuvemshop</h1><p>Prepare o conteúdo, revise os detalhes e aprove para publicar.</p></div><span class="demo-note" data-persistence>Demonstração · carregando exemplos</span></div>
+    <section class="publication-workspace" aria-label="Fila de publicação">
+      <nav class="publication-filters" aria-label="Etapa da publicação" data-filters></nav>
+      <div class="publication-tools"><label class="publication-search"><span data-icon="search"></span><input type="search" aria-label="Buscar produto ou SKU" placeholder="Buscar produto ou SKU" data-search></label><label><span class="sr-only">Status da publicação</span><select data-status><option value="all">Todos os status</option><option value="waiting">Aguardando ação</option><option value="preparing">Agente preparando</option><option value="review">Aguardando aprovação</option><option value="publishing">Publicando</option><option value="published">Publicado</option><option value="failed">Falha na publicação</option></select></label><span data-result-count aria-live="polite"></span></div>
+      <div class="publication-missing"><label>Pendência <select data-missing><option value="all">Todas as pendências</option><option value="photos">Sem imagens</option><option value="category">Sem categoria</option><option value="price">Sem preço válido</option></select></label><span>Presença na loja e bloqueios técnicos são verificados separadamente.</span></div><div class="publication-list" data-products></div>
+      <div class="publication-empty" data-empty hidden><span data-icon="search"></span><h2>Nenhum produto encontrado</h2><p>Tente outro nome, SKU ou etapa.</p><button class="button ghost" data-reset>Limpar filtros</button></div>
+      <footer class="publication-footer"><span>Dados e imagens ilustrativos. Nenhuma publicação real.</span><span data-page-count></span></footer>
+    </section>
+  </main>
+</div>
+<dialog class="publication-dialog" data-review aria-labelledby="review-title">
+  <form data-review-form>
+    <header class="review-heading"><div><p class="context" data-review-context>Revisão do conteúdo</p><h2 id="review-title">Revisar produto</h2><p data-review-subtitle></p></div><button type="button" class="button ghost" data-close aria-label="Fechar revisão"><span data-icon="close"></span></button></header>
+    <nav class="review-tabs" aria-label="Detalhes do produto"><button type="button" data-review-tab="content" aria-selected="true">Conteúdo</button><button type="button" data-review-tab="photos" aria-selected="false">Fotos</button><button type="button" data-review-tab="preview" aria-selected="false">Prévia</button></nav>
+    <div class="review-body">
+      <section data-review-panel="content"><div class="review-basics" data-basics></div><div class="review-section-title"><h3>Conteúdo da loja</h3><span class="agent-hint">Gerado pelo agente · exemplo editável</span></div><div class="review-fields"><label>Categoria<input name="category" maxlength="80" placeholder="Ex.: Brincos"></label><label>Preço (R$)<input name="price" type="number" min="0" step="0.01" inputmode="decimal"></label><label class="wide">Título do produto<input name="title" required maxlength="180"></label><label class="wide">Descrição<textarea name="description" rows="5" required></textarea></label><label class="wide">Resumo<textarea name="summary" rows="2"></textarea></label><label>Título para buscadores<input name="seoTitle" maxlength="70"></label><label>Termos de busca<input name="keywords" placeholder="Separe os termos por vírgula"></label><label class="wide">Descrição para buscadores<textarea name="seoDescription" rows="2" maxlength="160"></textarea></label></div></section>
+      <section data-review-panel="photos" hidden><div class="review-section-title"><div><h3>Fotos do produto</h3><p>Escolha a principal e organize a ordem em que aparecem na loja.</p></div><label class="button ghost upload-control"><span data-icon="upload"></span>Adicionar fotos<input type="file" accept="image/jpeg,image/png,image/webp" multiple data-upload></label></div><p class="photo-help">JPG, PNG ou WebP · até 8 MB por foto. Os arquivos ficam neste navegador. Nenhum upload é enviado à loja.</p><div class="photo-gallery" data-gallery></div><div class="future-treatment"><span data-icon="image"></span><div><strong>Tratamento de imagem</strong><p>Remover fundo e melhorar a foto · disponível em uma próxima etapa.</p></div><button type="button" class="button ghost" disabled>Em breve</button></div></section>
+      <section data-review-panel="preview" hidden><p class="preview-note">Prévia demonstrativa · a aparência final depende do tema da loja.</p><div class="store-preview" data-preview></div></section>
+      <label class="simulate-failure"><input type="checkbox" data-simulate-failure> Simular falha técnica na próxima publicação</label><p class="review-feedback" data-feedback role="status"></p>
+    </div>
+    <footer class="review-footer"><div><strong data-review-state></strong><p data-approval-copy>Ao aprovar, você inicia a publicação demonstrativa. Nenhum dado é enviado à loja.</p></div><div class="review-actions"><button type="button" class="button ghost" data-save>Salvar revisão</button><button type="submit" class="button primary" data-approve>Aprovar e publicar</button></div></footer>
+  </form>
+</dialog>
+<dialog class="publication-progress" data-progress aria-labelledby="progress-title"><button class="button ghost" data-close-progress aria-label="Fechar andamento">×</button><p class="context">Preparação de conteúdo</p><h2 id="progress-title">Agente preparando</h2><p data-progress-name></p><ol><li>Dados do cadastro recebidos</li><li>Título, descrição e SEO em preparação</li><li>Em seguida: revisão da Sthefany</li></ol><p class="preview-note">Demonstração: avance abaixo para experimentar a revisão. Nenhum agente externo foi acionado.</p><button class="button primary" data-ready>Simular conteúdo pronto</button></dialog>
+<div class="publication-toast" role="status" data-toast hidden></div>
+</body></html>

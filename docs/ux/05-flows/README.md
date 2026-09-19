@@ -10,6 +10,7 @@ nome `AAAA-MM-DD_fluxo-<nome>_<sequencia>.<ext>`.
 
 | Fluxo | Arquivo | Telas envolvidas | Estado |
 |---|---|---|---|
+| Mapa crítico V2 | [product-flow-map-v2.md](product-flow-map-v2.md) | 17 fluxos do produto | pronto para revisão do Gustavo |
 | Preparar, imprimir e reimprimir etiquetas | [etiquetas-preparar-imprimir-reimprimir.md](etiquetas-preparar-imprimir-reimprimir.md) | Catálogo/importação → Etiquetas: Preparar, Impressão e Histórico | descrito |
 | Lançar venda e consultar histórico | [lancar-venda-e-consultar-historico.md](lancar-venda-e-consultar-historico.md) | Vendas, Personalização, Clientes e Financeiro | em detalhamento |
 | Registrar recebimentos da venda | [registrar-recebimentos-da-venda.md](registrar-recebimentos-da-venda.md) | Nova Venda, Histórico e Financeiro | descrito |

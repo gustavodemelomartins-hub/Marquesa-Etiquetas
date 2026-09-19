@@ -49,7 +49,6 @@ uma só é o erro mais comum nesta família de telas.
 | pagamento simples | um lançamento pago cobre o total | resumo compacto, estado derivado PAGO e finalização imediata |
 | pagamento misto | dois ou mais lançamentos cobrem a venda | linhas por forma, recebido, a receber e estado derivado atualizados |
 | parcial | recebimentos pagos somam mais que zero e menos que o total | estado derivado PARCIAL e saldo restante destacado |
-| parcelado | a venda foi distribuída em parcelas | sequência, valor, vencimento e estado individual de cada parcela |
 | lançamento incompleto | falta forma, valor, data efetiva ou vencimento exigido | linha identifica o campo pendente e bloqueia finalização |
 | valor não distribuído | pagos + pendentes não cobrem todo o valor da venda | saldo ainda sem recebimento planejado e ação para completar |
 | distribuição excedente | soma dos lançamentos ultrapassa o valor da venda | excesso destacado; comportamento depende de decisão sobre troco/crédito |
@@ -57,7 +56,7 @@ uma só é o erro mais comum nesta família de telas.
 | concluído | venda e movimentos foram confirmados | mostra resumo/recibo conforme decisão e limpa o rascunho uma vez |
 | resultado incerto | conexão caiu sem resposta conclusiva | preserva rascunho e consulta o resultado antes de permitir repetir |
 
-## Estados de cada recebimento/parcela
+## Estados de cada recebimento
 
 | Estado | Campos exigidos | Efeito financeiro | Ação principal |
 |---|---|---|---|
@@ -77,7 +76,7 @@ uma só é o erro mais comum nesta família de telas.
   e manter `Pago hoje` é suficiente para uma venda integral;
 - `Mais opções` expande data, observação e demais formas sem poluir o caminho
   comum;
-- `Parcelar` gera as linhas numeradas e mantém cada parcela editável;
+- o valor não recebido permanece em `A receber`, sem geração automática de parcelas nesta versão;
 - lançamentos concluídos podem recolher para uma linha-resumo, sem esconder
   forma, valor e estado.
 
