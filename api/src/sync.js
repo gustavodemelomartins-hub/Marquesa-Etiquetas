@@ -23,6 +23,7 @@ import { movimentar, saldosDoSku } from './estoque.js';
 import { resolverVariantes, saldosDeVariacao, salvarVariantesDaLoja } from './variantes.js';
 import { vincularPedidoCriadoAqui } from './vendas-nuvemshop.js';
 import { consultarEmLotes, somenteLeitura } from './plataforma/d1.js';
+import { novoVendaItemId } from './venda-item-id.js';
 import { comExecucao } from './plataforma/execucao.js';
 import { normSku } from './sku.js';
 
@@ -658,8 +659,9 @@ async function puxarPedidos(db, loja, relato, seco) {
     const stmts = [];
     for (const l of linhas) {
       stmts.push(db.prepare(
-        `INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, motivo) VALUES (?,?,?,?,?, 'venda')`
-      ).bind(venda.id, l.sku, l.desc, l.qtd, l.preco));
+        `INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, motivo, id)
+         VALUES (?,?,?,?,?, 'venda', ?)`
+      ).bind(venda.id, l.sku, l.desc, l.qtd, l.preco, novoVendaItemId()));
       stmts.push(...movimentar(db, {
         sku: l.sku, tipo: 'venda', quantidade: l.qtd, origem: 'site',
         vendaId: venda.id, obs: `Pedido ${pedido.number || pedido.id} da loja`,

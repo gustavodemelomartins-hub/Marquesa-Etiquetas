@@ -21,6 +21,9 @@ import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
    marcada. §21 do plano mestre já cobrou essa dívida uma vez. */
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import { normSku } from './sku.js';
+import { novoVendaItemId } from './venda-item-id.js';
+/* 5.3b — "a venda foi paga" tem um dono só. Ver `pagamento-venda.js`. */
+import { quitarVenda, desfazerPagamentoVenda } from './pagamento-venda.js';
 /* §43 — Monte seu Colar: base + componentes + configuração da venda. */
 import {
   prepararPersonalizacoes, gravarPersonalizacoes, personalizacoesDeVendas,
@@ -334,10 +337,15 @@ export async function registrarVenda(db, env, {
 
   const stmts = [];
   for (const l of linhas) {
+    /* §5.2 — o id nasce AQUI, antes da escrita. Dentro de um `db.batch` o
+       banco não devolveria id por instrução, e reler pelo trio
+       (venda_id, sku, variante_id) deixou de identificar desde que §27
+       passou a permitir duas linhas do mesmo código com preços diferentes. */
+    l.itemId = novoVendaItemId();
     stmts.push(db.prepare(
       `INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, motivo, variacao, variante_id,
-                                preco_tabela, desconto_valor, desconto_rotulo)
-       VALUES (?, ?, ?, ?, ?, 'venda', ?, ?, ?, ?, ?)`
+                                preco_tabela, desconto_valor, desconto_rotulo, id)
+       VALUES (?, ?, ?, ?, ?, 'venda', ?, ?, ?, ?, ?, ?)`
     ).bind(venda.id, l.sku, l.desc, l.qtd, l.preco, l.variacao, l.varianteId,
       /* `preco_tabela` é gravado SEMPRE, com ou sem desconto: sem ele, um
          reajuste de catálogo no mês que vem faria o desconto de hoje parecer
@@ -345,7 +353,7 @@ export async function registrarVenda(db, env, {
          zero diria "houve desconto, de zero", que é outra coisa. */
       l.precoTabela,
       l.preco === l.precoTabela ? null : Math.round((l.precoTabela - l.preco) * 100) / 100,
-      l.rotulo));
+      l.rotulo, l.itemId));
     // Kit: a baixa vai nos componentes, não no kit — ele não tem saldo
     // próprio. O recibo (venda_itens acima) continua mostrando o kit
     // inteiro, porque é assim que ela pensa na venda.
@@ -447,80 +455,90 @@ export async function registrarVenda(db, env, {
  *      pacote: "MARCAR VENDA COMO PAGA não baixa estoque novamente");
  *    · não mexe na Nuvemshop, nos itens nem no total.
  */
-export async function registrarPagamentoVenda(db, id, corpo = {}) {
-  const v = await db.prepare('SELECT * FROM vendas WHERE id = ?').bind(id).first();
-  if (!v) return json({ erro: 'Venda não encontrada' }, 404);
-  if (v.cancelada) return json({ erro: 'Venda cancelada não recebe pagamento.' }, 409);
+/** O corpo de erro, com a versão atual quando o conflito foi de versão — é o
+ *  que a tela precisa para recarregar sem adivinhar. */
+const comVersao = (r) => (r.versaoAtual === undefined
+  ? { erro: r.erro }
+  : { erro: r.erro, versaoAtual: r.versaoAtual });
 
-  /* `pago: false` desfaz — é o caminho de volta de quem marcou por engano.
-     Ele limpa a data junto, senão sobraria uma data de pagamento numa venda
-     que não foi paga, e o faturamento continuaria a enxergá-la. */
+export async function registrarPagamentoVenda(db, id, corpo = {}) {
+  /* 5.3b — esta rota deixou de ter SQL próprio. Ela continua sendo a porta
+     que o Painel legado chama (no dia e no perfil da cliente) e devolve
+     exatamente o mesmo corpo de sempre; o que mudou é que quem escreve é o
+     núcleo, o mesmo de `receberConta` e de `pagarDiferencaTroca`. */
   const querPagar = corpo.pago === undefined ? true : !!corpo.pago;
 
   if (!querPagar) {
-    if (!v.pago) return json({ erro: 'Esta venda já está como NÃO PAGA.' }, 409);
-    const r = await db.prepare(
-      /* Desfazer devolve a venda para "o cliente ainda deve": é o caminho de
-         volta de quem marcou pago por engano, e o padrão de toda venda não
-         paga lançada por uma pessoa. */
-      `UPDATE vendas SET pago = 0, data_pagamento = NULL, pagamento_origem = NULL,
-              valor_recebido = NULL, cobravel = 1
-        WHERE id = ? RETURNING *`,
-    ).bind(id).first();
+    const r = await desfazerPagamentoVenda(db, id, {
+      motivo: String(corpo.observacao ?? '').trim() || null,
+      versaoEsperada: corpo.versaoEsperada ?? null,
+    });
+    if (!r.ok) return json(comVersao(r), r.statusHttp);
     return json({
-      ok: true, id: r.id, pago: false, data: r.data, dataPagamento: null,
-      aReceber: Number(r.total), estoqueAlterado: false,
+      ok: true, id: r.vendaId, pago: false, data: r.data, dataPagamento: null,
+      versao: r.versao,
+      cobravel: r.cobravel,
+      aReceber: r.aReceber,
+      porque: r.porque,
+      /* §36 — quando esta venda representa a diferença de uma troca, desfazer
+         o pagamento REABRE a diferença. As duas tabelas voltam juntas ou
+         voltam mentindo uma sobre a outra. */
+      garantiaId: r.garantiaId,
+      diferencaReaberta: r.diferencaReaberta,
+      estoqueAlterado: false,
     });
   }
 
-  if (v.pago) {
+  const r = await quitarVenda(db, id, {
+    pagaEm: corpo.dataPagamento ? String(corpo.dataPagamento).trim() : null,
+    observacao: String(corpo.observacao ?? '').trim() || null,
+    /* 5.3c — OPCIONAL nesta subfase. Os call sites do painel legado não a
+       mandam, e exigi-la agora quebraria os três botões que existem hoje.
+       Mandada, é obrigatoriamente validada — não há meio-termo em que ela
+       viaje e não valha nada, que era justamente o defeito B7. */
+    versaoEsperada: corpo.versaoEsperada ?? null,
+  });
+  if (!r.ok) {
+    /* A mensagem de data inválida desta rota sempre citou o formato por
+       extenso; o núcleo usa uma redação só para as três portas. O código HTTP
+       não mudou. */
+    return json(comVersao(r), r.statusHttp);
+  }
+  if (r.jaEstavaPaga) {
+    /* Esta porta sempre recusou o segundo clique com 409 e a data, e continua
+       recusando: quem aperta um botão merece saber que o fato já estava
+       gravado. `receberConta` devolve 200 com `jaEstavaPaga` porque é uma
+       lista que pode ser reprocessada. A diferença é de CONTRATO HTTP; o
+       banco fica idêntico nos dois caminhos, e nenhum dos dois escreve. */
     return json({
-      erro: `Esta venda já está paga${v.data_pagamento ? ` em ${v.data_pagamento}` : ''}.`,
-      dataPagamento: v.data_pagamento ?? null,
+      erro: `Esta venda já está paga${r.pagaEm ? ` em ${r.pagaEm}` : ''}.`,
+      dataPagamento: r.pagaEm,
     }, 409);
   }
 
-  const dataPagamento = corpo.dataPagamento ? String(corpo.dataPagamento).trim() : hoje();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataPagamento)) {
-    return json({ erro: 'Data do pagamento inválida. Use o formato AAAA-MM-DD.' }, 400);
-  }
-  if (dataPagamento > hoje()) {
-    return json({ erro: `${dataPagamento} ainda não chegou.` }, 400);
-  }
-  if (dataPagamento < v.data) {
-    return json({
-      erro: `O pagamento (${dataPagamento}) é anterior à venda (${v.data}). Confira as duas datas.`,
-    }, 400);
-  }
-
-  const r = await db.prepare(
-    /* §36.4: pago por inteiro zera o que se tem a receber, e limpa qualquer
-       parcial que existisse — o saldo virou zero, não sobra metade. */
-    `UPDATE vendas SET pago = 1, data_pagamento = ?, pagamento_origem = 'informado',
-            valor_recebido = NULL, cobravel = 0,
-            observacao = COALESCE(?, observacao)
-      WHERE id = ? RETURNING *`,
-  ).bind(dataPagamento, String(corpo.observacao ?? '').trim() || null, id).first();
-
   return json({
     ok: true,
-    id: r.id,
+    id: r.vendaId,
     pago: true,
+    /* 5.3c — o token para a próxima escrita, já atualizado. */
+    versao: r.versao,
     /* As duas datas, lado a lado, porque são duas coisas diferentes e é
        exatamente essa distinção que a rota existe para tornar possível. */
     data: r.data,
-    dataPagamento: r.data_pagamento,
-    faturamentoEm: r.data_pagamento,
+    dataPagamento: r.pagaEm,
+    faturamentoEm: r.pagaEm,
     /* A data foi DITA por alguém, não deduzida. É a distinção que §1 da
        revisão exige que nunca se perca. */
-    pagamentoOrigem: r.pagamento_origem,
-    valor: Number(r.total),
+    pagamentoOrigem: 'informado',
+    valor: r.total,
     aReceber: 0,
+    /* 5.3b — o que o núcleo fez além de marcar a venda, dito em voz alta. */
+    garantiaId: r.garantiaId,
+    eventoDeGarantiaRegistrado: r.eventoDeGarantiaRegistrado,
+    parcialAnteriorPreservadoEmObservacao: r.parcialAnteriorPreservadoEmObservacao,
     estoqueAlterado: false,
   });
 }
-
-
 
 
 /** Os movimentos que devolvem UMA composição ao estoque.

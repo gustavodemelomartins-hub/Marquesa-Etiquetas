@@ -20,9 +20,11 @@ import {
   contasAReceber, definirPrazoDaConta, receberConta,
 } from '../../contas-receber.js';
 import {
-  marcarContaPaga, definirVencimento, aplicarOperacoesHistoricas,
+  aplicarOperacoesHistoricas,
 } from '../../historico-operacoes.js';
 import { perfilCliente } from '../../analytics.js';
+import { saldoDeCredito, conferirCredito, registrarAjuste } from '../../credito.js';
+import { conferirFinanceiro } from '../../financeiro-conferir.js';
 import {
   buscarClientes, criarCliente, atualizarCliente, decidirVinculoCliente,
 } from '../../clientes.js';
@@ -30,6 +32,7 @@ import { listarSaidas, registrarSaida, estornarSaida } from '../../saidas.js';
 import {
   listarGarantias, lerGarantia, garantiasPendentes, abrirGarantia,
   mudarStatusGarantia, registrarTroca, pagarDiferencaTroca, estornarTroca,
+  vinculosDeGarantia, reabrirGarantia, corrigirStatusGarantia,
 } from '../../garantias.js';
 import {
   analisarHistoricoNaoVenda, listarReclassificacoes,
@@ -154,6 +157,18 @@ export const rotas = [
     },
   },
   {
+    /* 5.2b — o relatório da migração de identidade: quais garantias ficaram
+       sem apontar para a linha da venda, e por quê. Somente leitura; não
+       conserta nada. Antes de `/:id` só por organização — o padrão `[0-9]+`
+       daquela rota já impede a confusão. */
+    metodo: 'GET', caminho: '/api/garantias/vinculos', auth: 'bearer',
+    async handler({ db, url }) {
+      return json(await vinculosDeGarantia(db, {
+        limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
+      }));
+    },
+  },
+  {
     metodo: 'GET', caminho: '/api/garantias/:id', auth: 'bearer', padroes: { id: '[0-9]+' },
     async handler({ db, params }) {
       const g = await lerGarantia(db, +params.id);
@@ -205,6 +220,28 @@ export const rotas = [
     },
   },
   {
+    /* 5.4e — a peça voltou depois do caso ter encerrado. NÃO reabre o caso
+       antigo: cria um atendimento NOVO ligado a ele, dentro de 7 dias úteis
+       e com a etiqueta confirmada por quem olhou a peça. O caso anterior
+       permanece encerrado, inteiro. */
+    metodo: 'POST', caminho: '/api/garantias/:id/reabrir', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params, request }) {
+      const r = await reabrirGarantia(db, +params.id, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 201 : (r.statusHttp ?? 400));
+    },
+  },
+  {
+    /* 5.4f — o encerramento foi lançado por engano. NÃO é reabertura: a peça
+       nunca voltou, e por isso não há prazo de 7 dias nem etiqueta a
+       perguntar. O estado atual volta atrás; o histórico não. Recusa quando
+       já existe efeito posterior ao encerramento. */
+    metodo: 'POST', caminho: '/api/garantias/:id/corrigir-status', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params, request }) {
+      const r = await corrigirStatusGarantia(db, +params.id, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
+    },
+  },
+  {
     metodo: 'POST', caminho: '/api/garantias/:id/status', auth: 'bearer', padroes: { id: '[0-9]+' },
     async handler({ db, request, params }) {
       const r = await mudarStatusGarantia(db, +params.id, await request.json().catch(() => ({})));
@@ -249,18 +286,64 @@ export const rotas = [
       return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
     },
   },
+  /* 5.3d · B9 — duas rotas saíram daqui, e por motivos diferentes.
+   *
+   *  `PATCH /api/contas-receber/:id/vencimento` não tinha call site nenhum:
+   *  nem legado, nem React, nem teste. `PATCH /api/contas-receber/prazo`
+   *  faz o mesmo por `chave`, e é a que todo mundo chama.
+   *
+   *  `POST /api/contas-receber/:id/marcar-paga` tinha um só, e era duplicata:
+   *  `receberConta({ chave: 'historico:<id>' })` DELEGA para o mesmo
+   *  `marcarContaPaga`, com os mesmos `confirmar` e `versaoEsperada`. Duas
+   *  portas para um fato é a condição que 5.3b passou a subfase inteira
+   *  eliminando do lado da escrita; manter uma sobra aqui só adiava.
+   *
+   *  As duas FUNÇÕES continuam vivas em `historico-operacoes.js` — quem as
+   *  chama agora é `contas-receber.js`, por `chave`. O que foi aposentado é a
+   *  superfície HTTP por id, não a capacidade.
+   */
+  /* ═════════════════════════════════════════ 5.3e · crédito da cliente
+   *
+   *  Três rotas, e nenhuma delas consome crédito: o sistema não desconta
+   *  saldo sozinho numa venda (§11, trava 3). Consumo é decisão de tela, e a
+   *  tela é do Codex.
+   */
   {
-    metodo: 'POST', caminho: '/api/contas-receber/:id/marcar-paga', auth: 'bearer', padroes: { id: '[0-9]+' },
-    async handler({ db, request, params }) {
-      const r = await marcarContaPaga(db, +params.id, await request.json().catch(() => ({})));
-      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+    /* O saldo é DERIVADO da razão, e vem com o extrato que o explica. Um
+       número sozinho não permite dizer de onde veio nem defendê-lo. */
+    metodo: 'GET', caminho: '/api/clientes/:id/credito', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, url, params }) {
+      const r = await saldoDeCredito(db, +params.id, {
+        limite: url.searchParams.get('limite') ?? undefined,
+      });
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
     },
   },
   {
-    metodo: 'PATCH', caminho: '/api/contas-receber/:id/vencimento', auth: 'bearer', padroes: { id: '[0-9]+' },
-    async handler({ db, request, params }) {
-      const r = await definirVencimento(db, +params.id, await request.json().catch(() => ({})));
-      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+    /* Irmã de `GET /api/estoque/conferir`. SQLite não tem CHECK agregado, e
+       uma invariante que o banco não aplica é melhor consultável do que
+       fingida: aqui ela é medida, não prometida. */
+    metodo: 'GET', caminho: '/api/credito/conferir', auth: 'bearer',
+    async handler({ db }) {
+      return json(await conferirCredito(db));
+    },
+  },
+  {
+    /* 5.3f · G10 — a razão contábil do dinheiro, que não existia. Estoque
+       tem `/api/estoque/conferir`; recebíveis não tinham nada equivalente.
+       MEDE e não conserta: consertar exige decidir quem pagou quanto. */
+    metodo: 'GET', caminho: '/api/financeiro/conferir', auth: 'bearer',
+    async handler({ db }) {
+      return json(await conferirFinanceiro(db));
+    },
+  },
+  {
+    /* Correção humana. Motivo obrigatório, e recusa se o saldo resultante
+       ficaria negativo — a invariante aplicada na escrita, onde é barata. */
+    metodo: 'POST', caminho: '/api/credito/ajuste', auth: 'bearer',
+    async handler({ db, request }) {
+      const r = await registrarAjuste(db, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
     },
   },
   {

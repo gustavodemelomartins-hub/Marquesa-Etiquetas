@@ -240,7 +240,7 @@
       "id": "schema-migration-coerencia",
       "level": "fast",
       "mode": "local",
-      "description": "schema.sql e as 30 migrations chegam ao mesmo banco",
+      "description": "schema.sql e as 31 migrations chegam ao mesmo banco, triggers inclusive",
       "gates": [
         "fast",
         "release"
@@ -380,7 +380,8 @@
       "mode": "local",
       "description": "Regras puras sem Worker/navegador/rede",
       "gates": [
-        "domain"
+        "domain",
+        "release"
       ],
       "commands": [
         {
@@ -477,6 +478,72 @@
           "bin": "node",
           "args": [
             "src/vendas-reconstrucao-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/vendas-lista-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/venda-item-id-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/garantia-venda-item-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/garantias-ciclo-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/fin-101-5-3a-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/fin-101-5-3b-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/fin-101-5-3c-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/fin-101-5-3d-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/credito-ledger-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/fin-101-5-3f-test.mjs"
+          ]
+        },
+        {
+          "bin": "node",
+          "args": [
+            "src/analytics-recorte-canal-test.mjs"
           ]
         },
         {

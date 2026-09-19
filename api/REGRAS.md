@@ -1317,9 +1317,26 @@ perde qual compra a originou — e perde junto o **valor efetivamente pago**,
 que é a base da diferença de uma troca. Usar o preço de tabela cobraria a
 mais de quem comprou com desconto.
 
-A identidade do item é `(venda_id, sku, variante_id)` no lado operacional
-(`venda_itens` não tem chave própria, e `rowid` não sobrevive a um VACUUM) e
-`vendas_historico_itens.id` no lado da planilha.
+A identidade do item é `venda_itens.id` no lado operacional e
+`vendas_historico_itens.id` no lado da planilha. Até a Fase 5.2 `venda_itens`
+não tinha chave própria e a identidade era o trio
+`(venda_id, sku, variante_id)`; a Fase 5.2b migrou o ponteiro da garantia. O
+trio permanece gravado como prova de como a garantia foi aberta, mas **não é
+mais identidade**: §27 permite duas linhas do mesmo código na mesma venda, e
+§41 reescreve o código do item.
+
+A garantia que o backfill não conseguiu apontar com certeza ficou marcada
+`ambiguo` ou `sem_match` em `venda_item_vinculo`, sem ponteiro — o sistema
+não escolheu entre duas peças possíveis. `GET /api/garantias/vinculos` lista
+esses casos com as candidatas ao lado.
+
+**A garantia é por UNIDADE FÍSICA** (decisão de 12/09/2026). Duas unidades do
+mesmo código na mesma compra têm `venda_itens.id` diferentes e podem ter
+garantias abertas ao mesmo tempo: são duas peças, e cada uma quebra por
+conta própria. A mesma unidade continua não abrindo duas vezes. A garantia
+antiga **sem ponteiro confiável** trava o código inteiro daquela compra, como
+antes da 5.2b — ela pode ser de qualquer uma das unidades, e adivinhar qual
+seria o chute que §2 proíbe.
 
 O que a garantia **não** faz, em nenhum estado:
 
@@ -1333,6 +1350,13 @@ quando cadastrado em `feriados` — e quando a tabela está vazia a resposta diz
 `consideraFeriados: false` em vez de fingir precisão que não tem. Nenhum
 feriado é escrito no código.
 
+**O relógio para quando o caso encerra.** Enquanto a garantia está aberta o
+atraso é real e continua contando; a partir do encerramento o que vale é
+quanto o caso demorou, medido até o dia em que terminou. Sem isso uma peça
+entregue dentro do prazo aparecia "atrasada 134 dias úteis" meses depois, com
+o número crescendo sozinho na ficha da cliente. A resposta diz qual régua
+usou, em `contadoAte` e `relogioParado`.
+
 **A troca.** Sem conserto, sai uma peça nova do estoque — com movimento de
 tipo `troca` e origem `troca_garantia`, nunca `venda`. Trocar um anel de
 R$ 89 por um de R$ 99:
@@ -1342,6 +1366,117 @@ R$ 89 por um de R$ 99:
 - a diferença de **R$ 10** fica a receber;
 - quando paga, entram **R$ 10** — pela data do pagamento (§30), nunca os
   R$ 99, e sem contar como uma segunda compra da cliente.
+
+### A peça nova mais barata vira CRÉDITO da cliente
+
+Decisão da Sthefany, **12/09/2026**. Trocar uma peça de R$ 100 por uma de
+R$ 80 deixa **R$ 20 de crédito para a cliente**. Esse valor:
+
+- **não se perde**;
+- **não volta em dinheiro**.
+
+A regra está fechada. O **mecanismo não existe**: o sistema não tem carteira,
+saldo de cliente nem qualquer lugar onde um crédito possa viver e ser
+consumido numa compra seguinte. `clientes` não tem coluna de saldo, e A
+Receber é de mão única — representa o que a cliente deve, nunca o contrário.
+
+Até a arquitetura financeira existir, a troca guarda o valor
+(`garantia_trocas.diferenca`, negativa) e a leitura o diz em voz alta em
+`creditoAoCliente`. `diferenca_status` continua `pendente_regra`, mas o que
+está pendente mudou de natureza: **era a regra, agora é a arquitetura**.
+
+**Nada é simulado.** Crédito não vira desconto, pagamento negativo, preço
+negativo nem ajuste de estoque. Inventar um lugar errado para o dinheiro é
+pior do que ainda não ter o lugar certo.
+
+### O novo atendimento: 7 dias úteis e a etiqueta
+
+Decisão da Sthefany, **12/09/2026**. Uma nova troca da mesma peça só acontece:
+
+- dentro de **7 DIAS ÚTEIS** contados da entrega da peça (o `encerrada_em` do
+  atendimento anterior) — sábado, domingo e feriado cadastrado não contam,
+  pela mesma régua do prazo de reparo. **Não são dias corridos**;
+- com a **ETIQUETA ainda na peça**.
+
+O atendimento anterior **permanece encerrado**. Reabrir não é mexer no caso
+antigo: é abrir um caso NOVO, apontando para a mesma unidade física e ligado
+ao anterior por `garantias.garantia_anterior_id`. Cada ciclo guarda o próprio
+prazo, os próprios eventos e a própria troca. O caso antigo ganha o evento
+`reaberta_em_novo_caso`, de modo que a ligação é legível dos dois lados.
+
+O sistema **não tem como saber** se a etiqueta está na peça — isso é alguém
+olhando a peça no balcão. `etiqueta_preservada` não inventa o dado: ela guarda
+a **confirmação** de quem olhou. Sem confirmação explícita a reabertura é
+recusada, e "ninguém perguntou" tem resposta diferente de "perguntaram e a
+etiqueta não estava".
+
+### Estados: o mínimo que já é seguro afirmar
+
+Seis estados. Três são **terminais**: `devolvida`, `concluida`, `cancelada`.
+
+| de \ para | em_reparo | reparada | sem_conserto | devolvida | concluida | cancelada |
+|---|:--:|:--:|:--:|:--:|:--:|:--:|
+| **em_reparo** | — | sim | sim | sim | sim | sim |
+| **reparada** | sim | — | sim | sim | sim | sim |
+| **sem_conserto** | sim¹ | sim | — | sim | sim | sim¹ |
+| **devolvida** | não | não | não | — | não | não |
+| **concluida** | não | não | não | não | — | não |
+| **cancelada** | não | não | não | não | não | — |
+
+¹ bloqueado enquanto houver troca viva registrada: a peça nova já saiu do
+estoque, e reabrir deixaria a troca órfã. Estorne a troca antes.
+
+**De estado terminal não se sai por mudança de status.** Se a peça voltou, o
+caminho é o novo atendimento acima. Isto é deliberadamente o mínimo: as
+transições entre os estados PENDENTES seguem livres, porque ninguém demonstrou
+ainda que alguma delas seja errada no balcão.
+
+### Corrigir um status lançado errado não é reabrir
+
+São duas operações, e a diferença não é técnica — é de significado:
+
+| | o que aconteceu | regra dos 7 dias / etiqueta | resultado |
+|---|---|---|---|
+| **reabertura** | a peça VOLTOU | sim | caso novo, ligado ao anterior |
+| **correção** | a peça nunca voltou; alguém clicou errado | **não** | o mesmo caso volta ao estado anterior |
+
+Se fossem a mesma porta, todo engano de digitação viraria um atendimento a
+mais na ficha da cliente, e toda peça que voltou de verdade poderia ser
+disfarçada de engano para escapar dos 7 dias.
+
+A correção exige **motivo**, registra data e hora, e **não apaga nada**: o
+evento do encerramento errado permanece, com a data em que foi lançado, e por
+cima dele entra um evento `status_corrigido` dizendo o que foi desfeito e por
+quê. O histórico mostra os três fatos em ordem — o encerramento, a correção,
+o estado restaurado.
+
+**Estado atual ≠ histórico imútavel.** `encerrada_em` volta a `NULL` porque o
+caso nunca foi encerrado; que o encerramento chegou a ser lançado continua
+escrito nos eventos, e é lá que essa verdade mora.
+
+**Autoria:** o sistema não tem autenticação por pessoa — o Bearer é um
+segredo compartilhado. O evento guarda `autorInformado`, que é o que quem
+chamou DISSE ser, sem verificação. O nome diz isso de propósito, para
+ninguém ler como identidade provada. Quando houver autenticação por pessoa,
+este é o lugar.
+
+**O bloqueio.** Corrigir só é seguro enquanto nada tiver acontecido DEPOIS do
+encerramento errado. A regra é uma só, e por isso não tem buraco: o evento do
+encerramento tem de ser o **último da linha do tempo**. Qualquer coisa depois
+dele — uma troca, um pagamento, um estorno, um novo atendimento — dependeu
+daquele estado, e desfazer o estado por baixo deixaria o efeito sem chão. O
+sistema recusa e **nomeia o que encontrou**, em vez de fazer rollback
+silencioso. A correção simples serve para erro operacional recente; cadeia
+posterior exige compensação pelo fluxo de cada fato.
+
+E o sistema **não adivinha para onde voltar**: se o evento do encerramento
+não registrou de qual estado o caso veio, a correção para (§2).
+
+### Mudar status registra um fato JÁ OCORRIDO
+
+Nada de data futura, pela mesma razão que a abertura, a troca e o pagamento
+já a recusavam. Agendamento é outro conceito e, se um dia for preciso, terá
+campo e fluxo próprios.
 
 A origem do dinheiro é declarada em
 `composicao.faturamentoDeDiferencaTroca`, separada do faturamento de vendas.

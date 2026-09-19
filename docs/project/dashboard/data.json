@@ -1,10 +1,52 @@
 {
-  "gerado": "2026-09-12",
+  "gerado": "2026-09-19",
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
   "atualizadoEm": "2026-09-12",
   "git": {
-    "branch": "claude/review-marquesa-v2",
+    "branch": "claude/integration-v2-real",
     "recentes": [
+      {
+        "commit": "7893fa0",
+        "data": "2026-09-19",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "test(design): roteiros de verificação acompanham a linguagem nova",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "3c0417b",
+        "data": "2026-09-19",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(design): Marquesa V2 ganha um design system canônico e um casco único",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "31c9caf",
+        "data": "2026-09-19",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(ci): install Chromium for prototype checks",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "7b6fa54",
+        "data": "2026-09-19",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(ux): publish complete V2 prototype on DEV",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "750bc5a",
+        "data": "2026-09-12",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(painel): DOC-006 — o Refactor sai da Fase 4 e a 5.4 fecha com nome",
+        "agente": "",
+        "taskIds": [
+          "DOC-006"
+        ]
+      },
       {
         "commit": "847fe28",
         "data": "2026-09-11",
@@ -165,46 +207,6 @@
         "autor": "gustavodemelomartins-hub",
         "assunto": "chore(codex): commit local Codex governance mirror",
         "agente": "Codex",
-        "taskIds": []
-      },
-      {
-        "commit": "8dc932e",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(ui): preserve screen/component inventory and legacy-React parity trail",
-        "agente": "Codex",
-        "taskIds": []
-      },
-      {
-        "commit": "2b6c0e4",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(ux): preserve filled-in product/UX intake content",
-        "agente": "Codex",
-        "taskIds": []
-      },
-      {
-        "commit": "ef6f130",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(architecture): sync master plan with real progress on Fase 4.4/4.5 and the product-registration gap",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "bfd5d6b",
-        "data": "2026-09-10",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(decisoes): o que a 4.5 respondeu, e o que ela deixou em aberto",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "d1637e6",
-        "data": "2026-09-10",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(catalogo): a regra alcança o que foi construído",
-        "agente": "",
         "taskIds": []
       }
     ]
@@ -417,9 +419,9 @@
       "id": "ARQ-007",
       "estado": "IN PROGRESS",
       "dominio": "Arquitetura",
-      "titulo": "Divergência entre api/schema.sql e as migrations — migracao-pos-golive-1.sql cria maleta_item_variacoes, venda_item_correcoes e 5 índices que nunca foram escritos de volta no schema. Banco criado do zero não os tem; banco migrado (PROD e DEV) tem",
-      "contexto": "achado em 11/09/2026 ao estender src/migracao-variantes-test.mjs das 8 migrations originais para as 30 reais. O teste hoje subtrai essa lista nomeada e falha se ela mudar",
-      "nota": "é anterior a esta sessão e não bloqueia nada hoje; fechar exige safe-d1-change e nunca em PROD congelada"
+      "titulo": "~~Divergência entre api/schema.sql e as migrations~~ — RESOLVIDA em 15/09/2026 (b6d6ed7). migracao-pos-golive-1.sql criava maleta_item_variacoes, venda_item_correcoes e 7 índices (não 5) que nunca voltaram ao schema",
+      "contexto": "DDL derivado de uma cópia read-only de produção e comparado instrução a instrução com a migration — os três idênticos. SO_NO_MIGRADO em src/migracao-variantes-test.mjs foi a zero, estrutura mantida vazia para obrigar a próxima divergência a ser declarada por nome",
+      "nota": "fechada só em schema.sql e no teste; PROD continua congelada e não foi tocada"
     },
     {
       "id": "GAR-002",
@@ -622,9 +624,9 @@
           "id": "ARQ-007",
           "estado": "IN PROGRESS",
           "dominio": "Arquitetura",
-          "titulo": "Divergência entre api/schema.sql e as migrations — migracao-pos-golive-1.sql cria maleta_item_variacoes, venda_item_correcoes e 5 índices que nunca foram escritos de volta no schema. Banco criado do zero não os tem; banco migrado (PROD e DEV) tem",
-          "contexto": "achado em 11/09/2026 ao estender src/migracao-variantes-test.mjs das 8 migrations originais para as 30 reais. O teste hoje subtrai essa lista nomeada e falha se ela mudar",
-          "nota": "é anterior a esta sessão e não bloqueia nada hoje; fechar exige safe-d1-change e nunca em PROD congelada"
+          "titulo": "~~Divergência entre api/schema.sql e as migrations~~ — RESOLVIDA em 15/09/2026 (b6d6ed7). migracao-pos-golive-1.sql criava maleta_item_variacoes, venda_item_correcoes e 7 índices (não 5) que nunca voltaram ao schema",
+          "contexto": "DDL derivado de uma cópia read-only de produção e comparado instrução a instrução com a migration — os três idênticos. SO_NO_MIGRADO em src/migracao-variantes-test.mjs foi a zero, estrutura mantida vazia para obrigar a próxima divergência a ser declarada por nome",
+          "nota": "fechada só em schema.sql e no teste; PROD continua congelada e não foi tocada"
         }
       ],
       "paridade": [],
@@ -2328,6 +2330,59 @@
     ]
   },
   "worklogs": [
+    {
+      "agente": "Claude",
+      "data": "2026-09-15",
+      "titulo": "A fila real de migrations, provada contra uma cópia de produção",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": []
+    },
+    {
+      "agente": "Claude",
+      "data": "2026-09-14",
+      "titulo": "Fase 5.3d: o contrato de leitura do FIN-101",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": [
+        "FIN-101"
+      ]
+    },
+    {
+      "agente": "Claude",
+      "data": "2026-09-14",
+      "titulo": "Fase 5.3e: a razão de crédito da cliente",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": [
+        "FIN-101"
+      ]
+    },
+    {
+      "agente": "Claude",
+      "data": "2026-09-14",
+      "titulo": "Fase 5.3f: a rede, e a razão contábil do dinheiro",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": [
+        "FIN-101"
+      ]
+    },
+    {
+      "agente": "Claude",
+      "data": "2026-09-14",
+      "titulo": "Fase 5.6: vocabulário de canal e intervalo arbitrário",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": [
+        "VEN-101"
+      ]
+    },
     {
       "agente": "Claude",
       "data": "2026-09-12",

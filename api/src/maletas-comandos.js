@@ -16,6 +16,7 @@ import { calcComissao } from './comissao.js';
 import { sincronizarSomenteEstoque } from './sync.js';
 import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
 import { FAIXAS_PADRAO } from './state.js';
+import { novoVendaItemId } from './venda-item-id.js';
 
 /* Copia deliberada do helper do despachante: uma linha vale menos que um
    modulo de utilidades criado antes de haver terceiro caso. */
@@ -173,8 +174,9 @@ export async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas }) 
     vendaId = v.id;
     for (const it of itensVenda) {
       stmts.push(db.prepare(
-        `INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, motivo) VALUES (?, ?, ?, ?, ?, ?)`
-      ).bind(vendaId, it.sku, it.desc, it.qtd, it.preco || 0, it.motivo));
+        `INSERT INTO venda_itens (venda_id, sku, desc, qtd, preco, motivo, id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).bind(vendaId, it.sku, it.desc, it.qtd, it.preco || 0, it.motivo, novoVendaItemId()));
       stmts.push(...movimentar(db, {
         sku: it.sku, tipo: it.tipo, quantidade: it.qtd, origem: 'acerto',
         maletaId, revendedoraId: maleta.rev_id, vendaId,

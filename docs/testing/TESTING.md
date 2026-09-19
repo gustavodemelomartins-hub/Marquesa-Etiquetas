@@ -109,6 +109,35 @@ Chama `Nuvemshop` (`api/src/nuvemshop.js`) direto, sem subir
 6. `"true"` libera de verdade, e a loja falsa registra a escrita;
 7. espaço em volta de `"true"` é tolerado (resto de copiar/colar num secret).
 
+### `src/garantias-ciclo-test.mjs` — o ciclo inteiro de Garantias (5.4a)
+**72 provas · ~2 s · contra o `api/schema.sql` real, sem Worker**
+
+A rede antes das correções. A auditoria de 5.4 achou que toda a cobertura
+HTTP de Garantias vivia na suíte `worker-local`, que é `catalog-only` e não
+roda em gate nenhum: o domínio que mexe em estoque e em faturamento não tinha
+uma única prova executada. Este teste caracteriza o que o código **faz hoje**.
+
+Cobre abertura e prazo de 45 dias úteis com a previsão em data concreta;
+estados e o efeito real de cada transição; eventos e a ordem deles; as três
+recusas da troca (kit, montável, sem saldo); diferença positiva, zero e
+negativa; pagamento pelas **duas** portas (a rota da garantia e a tela A
+Receber); cancelamento; estorno; a peça nova saindo uma vez e a defeituosa
+nunca voltando; o mesmo real nunca entrando duas vezes no faturamento; venda
+de origem cancelada depois da abertura; duas unidades do mesmo código com
+`venda_item_id` distintos; e a razão fechando em todos os cenários.
+
+Linhas marcadas `~~` são **caracterização de defeito conhecido**, não de
+acerto: elas asseveram o comportamento errado exatamente como ele é hoje, com
+a subfase que vai corrigi-lo escrita ao lado. Quando a correção chegar, essas
+linhas **quebram de propósito** — a mudança tem de passar por aqui e dizer o
+que mudou, em vez de escorregar sem ninguém notar.
+
+Hoje há seis: o atraso que não para de correr num caso encerrado; reabrir
+apagando a data de encerramento; concluída virando cancelada sem trava;
+mudança de status aceitando data futura; o pagamento pelo A Receber que não
+entra na linha do tempo; a troca saindo do estoque com a venda de origem
+cancelada; e a segunda unidade física recusada pela trava por código.
+
 ### `src/vendas-reconstrucao-test.mjs` — a regra que vira linha em venda
 **50 asserções · <1 s · teste PURO, sem Worker e sem banco**
 

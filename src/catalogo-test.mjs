@@ -327,5 +327,117 @@ eq('e o que está pronto nunca aparece também como pendente',
   r.prontos.some(x => r.semFoto.some(y => y.sku === x.sku)), 'false');
 
 await loja.fechar();
+
+/* ------------------------------------------------------------------ */
+console.log('\n=== 13. Fase 4.6 — kit e configuração montável nunca recebem ajuste de importação ===');
+/* §42: uma configuração montável (Monte seu Colar) é uma linha comum em
+   `produtos`, mas o `qtd` dela é residual e deliberadamente ignorado
+   (estoque.js › saldosDaConfiguracao). Antes da 4.6, nem catalogo.js nem
+   catalogo-comandos.js sabiam disso: uma planilha de Estoque Total que
+   citasse o SKU comercial de uma configuração — ou um kit — gravava um
+   `ajuste` de verdade em cima desse resíduo. É o defeito real observado em
+   produção: 326660 (Colar Casal) tem 1 no `qtd`, herdado de uma importação
+   antiga (ver montagem-saldo-test.mjs). */
+
+await api('POST', '/api/produtos/novos/cadastrar', {
+  produtos: [
+    { sku: 'NEWCOMP1', desc: 'Componente 1', cat: 'Colar', qtd: 10, preco: 20 },
+    { sku: 'NEWCOMP2', desc: 'Componente 2', cat: 'Colar', qtd: 10, preco: 20 },
+    { sku: 'NEWKIT', desc: 'Kit de teste', cat: 'Colar', qtd: 0, preco: 50 },
+    { sku: 'NEWBASE', desc: 'Base de teste', cat: 'Colar', qtd: 10, preco: 30 },
+    { sku: 'NEWOPT1', desc: 'Opção 1', cat: 'Colar', qtd: 10, preco: 15 },
+    // Residual deliberado — o mesmo cenário de 326660 em produção.
+    { sku: 'NEWCOLAR', desc: 'Config de teste', cat: 'Colar', qtd: 1, preco: 90 },
+  ],
+});
+
+r = await api('PUT', '/api/produtos/NEWKIT/componentes', {
+  componentes: [{ sku: 'NEWCOMP1', qtd: 1 }, { sku: 'NEWCOMP2', qtd: 1 }],
+});
+eq('kit de teste montado', r.ok, 'true');
+
+r = await api('POST', '/api/personalizacao/modelos', {
+  nome: 'Config de teste', skuComercial: 'NEWCOLAR', baseSkuPadrao: 'NEWBASE',
+  slots: [{ grupo: 'Grupo', qtd: 1 }],
+  opcoes: [{ componenteSku: 'NEWOPT1', grupo: 'Grupo', rotulo: 'Opção 1' }],
+});
+eq('configuração montável de teste criada', r.ok, 'true');
+
+console.log('\n--- 13a. analisar não trata como mudança, e sim como revisão ---');
+r = await api('POST', '/api/estoque-total/analisar', {
+  modo: 'total',
+  produtos: [{ sku: 'NEWKIT', desc: 'Kit', qtd: 7 }, { sku: 'NEWCOLAR', desc: 'Config', qtd: 99 }],
+});
+eq('nenhum dos dois entra em "vai mudar"', r.resumo.vaoMudar, 0);
+eq('os dois caem em revisão', r.resumo.revisao, 2);
+eq('o kit é apontado como kit', r.revisao.itens.find(x => x.sku === 'NEWKIT').motivo, 'kit');
+eq('a configuração é apontada como montagem', r.revisao.itens.find(x => x.sku === 'NEWCOLAR').motivo, 'montagem');
+
+console.log('\n--- 13b. o grupo D (ausentes) também os ignora ---');
+/* A lista de "ausentes" corta em 500 itens ordenados por quantidade — com
+   o lote de 782 peças da seção 11, procurar NEWKIT/NEWCOLAR nela seria
+   procurar agulha ordenada por critério errado. Em vez disso, a planilha
+   cobre TUDO que existe, exceto os dois: se a exclusão do kit e da
+   configuração falhar, os dois aparecem como "sumiram", e a contagem
+   (nunca truncada) sai de 0. */
+const catalogoAtual = (await estado()).produtos.filter(
+  p => p.status === 'ativo' && p.sku !== 'NEWKIT' && p.sku !== 'NEWCOLAR');
+r = await api('POST', '/api/estoque-total/analisar', {
+  modo: 'total',
+  produtos: catalogoAtual.map(p => ({ sku: p.sku, desc: p.desc, qtd: p.qtd })),
+});
+eq('cobrindo todo o resto do catálogo, ninguém "sumiu" — kit e configuração não contam',
+  r.resumo.ausentes, 0);
+
+console.log('\n--- 13c. aplicar recusa os dois, e o saldo residual não muda ---');
+r = await api('POST', '/api/estoque-total/aplicar', {
+  itens: [{ sku: 'NEWKIT', para: 7 }, { sku: 'NEWCOLAR', para: 99 }],
+});
+eq('nada foi aplicado', r.aplicados, 0);
+eq('o kit foi recusado como kit', r.recusados.find(x => x.sku === 'NEWKIT').motivo, 'kit');
+eq('a configuração foi recusada como montagem', r.recusados.find(x => x.sku === 'NEWCOLAR').motivo, 'montagem');
+eq('o kit continua com saldo zero', await saldo('NEWKIT'), 0);
+eq('o resíduo da configuração não foi tocado — nem para 99, nem para outro número', await saldo('NEWCOLAR'), 1);
+
+console.log('\n--- 13d. o caminho antigo (/api/produtos/importar) também recusa ---');
+r = await api('POST', '/api/produtos/importar', {
+  produtos: [
+    { sku: 'NEWKIT', desc: 'Kit renomeado', cat: 'Colar', preco: 55, qtd: 55 },
+    { sku: 'NEWCOLAR', desc: 'Config renomeada', cat: 'Colar', preco: 95, qtd: 42 },
+  ],
+});
+eq('nenhum ajuste de saldo contado', r.ajustados, 0);
+eq('e os dois vêm com o aviso de que não têm saldo próprio',
+  r.avisos.filter(a => a.tipo === 'sem_saldo_proprio').length, 2);
+eq('a ficha do kit foi atualizada mesmo assim (desc/preço)',
+  (await estado()).produtos.find(p => p.sku === 'NEWKIT').desc, 'Kit renomeado');
+eq('mas o saldo do kit continua zero', await saldo('NEWKIT'), 0);
+eq('e o resíduo da configuração continua 1', await saldo('NEWCOLAR'), 1);
+
+r = await api('GET', '/api/estoque/conferir');
+eq('a razão continua fechando depois de tudo isso (§19)', (r.divergentes || []).length, 0);
+
+/* ------------------------------------------------------------------ */
+console.log('\n=== 14. Fase 4.6 — categoria desconhecida cai na sentinela, nunca em "Outros" (§5 da 4.5) ===');
+/* Antes da 4.6, peça nova sem categoria informada virava "Outros" — a
+   mesma categoria REAL que uma peça legitimamente "Outros" usa. Depois da
+   Fase 4.5, ausência de categoria tem nome próprio: "Sem categoria". */
+r = await api('POST', '/api/produtos/novos/analisar', {
+  produtos: [
+    { sku: 'SEMCAT1', desc: 'Peça sem categoria', qtd: 1, preco: 10 },
+    { sku: 'COLARMINUSC', desc: 'Peça com categoria em minúscula', cat: 'colar', qtd: 1, preco: 10 },
+  ],
+});
+eq('nenhuma das duas precisa de revisão', r.resumo.revisao, 0);
+eq('sem categoria informada entra com a sentinela', r.prontos.itens.find(x => x.sku === 'SEMCAT1').cat, 'Sem categoria');
+eq('"colar" em minúscula reconhece a categoria "Colar" (nome_norm)',
+  r.prontos.itens.find(x => x.sku === 'COLARMINUSC').cat, 'Colar');
+
+await api('POST', '/api/produtos/novos/cadastrar', {
+  produtos: [{ sku: 'SEMCAT1', desc: 'Peça sem categoria', qtd: 1, preco: 10 }],
+});
+eq('e é isso mesmo que fica gravado — nunca "Outros"',
+  (await estado()).produtos.find(p => p.sku === 'SEMCAT1').cat, 'Sem categoria');
+
 console.log(falhas ? `\n${falhas} FALHA(S)\n` : '\nTudo certo.\n');
 process.exit(falhas ? 1 : 0);

@@ -107,7 +107,7 @@ Read model transversal; comandos pertencem aos domínios que corrigem. Lê venda
 | `GET /api/pendencias?tipo=&adiadas=1` | A | Projeção unificada. |
 | `POST /api/pendencias/adiar` | C | Adia por chave/data. |
 | `POST /api/pendencias/retomar` | C | Retoma por chave. |
-| `POST /api/pendencias/variacao/venda` | C/H | Corrige identidade sem segunda baixa. |
+| `POST /api/pendencias/variacao/venda` | C/H | Corrige identidade sem segunda baixa. Desde a Fase 5.2 aceita `itemId` (`venda_itens.id`, a identidade oficial); `linha` (o rowid) continua aceita só enquanto o painel legado a enviar, e não deve ganhar consumidor novo. |
 | `POST /api/pendencias/variacao/maleta` | C/H | Distribui identidade consignada. |
 
 ### Revendedoras e maletas
@@ -228,9 +228,11 @@ Proprietário: Financeiro. Une vendas operacionais, diferenças de troca e hist�
 |---|---:|---|
 | `GET /api/contas-receber?status=` | A | Lista unificada. |
 | `PATCH /api/contas-receber/prazo` | C/H | Prazo com controle concorrente. |
-| `POST /api/contas-receber/receber` | C/H | Liquidação; não toca estoque. |
-| `POST /api/contas-receber/:id/marcar-paga` | C/H | Liquida item histórico. |
-| `PATCH /api/contas-receber/:id/vencimento` | C/H | Altera vencimento histórico. |
+| `POST /api/contas-receber/receber` | C/H | Liquidação; não toca estoque. Porta única desde 5.3d: `historico:<id>` delega a `marcarContaPaga`. |
+| `GET /api/clientes/:id/credito` | C/H | 5.3e — saldo derivado da razão de crédito + extrato. Não consome. |
+| `GET /api/credito/conferir` | A | 5.3e — a invariante `SUM >= 0` por cliente. Irmã de `/api/estoque/conferir`. |
+| `POST /api/credito/ajuste` | C/H | 5.3e — correção manual, motivo obrigatório, recusa saldo negativo. |
+| `GET /api/financeiro/conferir` | A | 5.3f — a razão contábil do dinheiro. Mede e não conserta. |
 
 ### Analytics e lista comercial
 
@@ -248,7 +250,7 @@ Proprietário: Analytics/read models. Somente leitura transversal; deve evitar d
 | `GET /api/analytics/categorias?periodo=` | A | Categorias. |
 | `GET /api/analytics/origem?periodo=` | A | Origem. |
 | `GET /api/analytics/clientes?periodo=&ordem=&limite=` | A | Clientes; máximo 500. |
-| `GET /api/vendas/lista?de=&ate=&busca=&canal=&limite=&offset=` | A | Lista paginada; máximo 1000. |
+| `GET /api/vendas/lista?de=&ate=&busca=&canal=&origem=&canceladas=&limite=&offset=` | A | Lista paginada; máximo 1000. `canal` é o texto de cada população (`balcao` do operacional, `Site`/`Instagram`/`Maleta` do histórico); `origem` é o vocabulário comum `balcao\|acerto\|site`, nulo onde não há equivalente mecânico. Desde a Fase 5.2 `itens[].id` do lado operacional é `venda_itens.id` (UUID estável), não mais o `rowid`. `canceladas=nao` devolve só o recorte elegível; o padrão mostra a venda cancelada, marcada. |
 
 ### Saídas sem faturamento
 
@@ -268,12 +270,15 @@ Proprietário: Garantias; diferença financeira é consumida por Financeiro. A v
 |---|---:|---|
 | `GET /api/garantias?status=&limite=&offset=` | R | Lista. |
 | `GET /api/garantias/pendentes?limite=` | A | Pendências. |
-| `POST /api/garantias` | C | Abre caso ligado à origem. |
+| `GET /api/garantias/vinculos?limite=` | R | 5.2b: quais garantias ficaram sem apontar para a linha da venda, e por quê (`ambiguo`, `sem_match`), com as candidatas. Somente leitura. |
+| `POST /api/garantias` | C | Abre caso ligado à origem. Aceita `vendaItemId` (oficial), `vendaId`+`sku` (legado) ou `historicoItemId`. Devolve 409 com `candidatas` quando o par (venda, código) casa mais de uma linha. |
 | `GET /api/garantias/:id` | R | Caso e eventos. |
-| `POST /api/garantias/:id/status` | C | Transição controlada. |
+| `POST /api/garantias/:id/corrigir-status` | C | 5.4f — desfaz um encerramento lançado por ENGANO. Não é reabertura: sem prazo de 7 dias e sem etiqueta. Exige motivo; o evento errado permanece e ganha um `status_corrigido` por cima. Recusa quando já há efeito posterior ao encerramento. Sem call site: `AGUARDANDO HANDOFF CODEX`. |
+| `POST /api/garantias/:id/reabrir` | C | 5.4e — novo atendimento da mesma peça: exige `etiquetaPreservada` explícito e no máximo 7 dias úteis desde a entrega. NÃO reabre o caso antigo; cria um caso NOVO ligado a ele. Sem call site: `AGUARDANDO HANDOFF CODEX`. |
+| `POST /api/garantias/:id/status` | C | Transição controlada. De estado terminal (`devolvida`, `concluida`, `cancelada`) não se sai; recusa data futura. |
 | `POST /api/garantias/:id/troca` | C/H | Registra troca/diferença. |
 | `POST /api/garantias/:id/troca/pagar` | C/H | Liquida apenas diferença. |
-| `POST /api/garantias/:id/troca/estornar` | C/H | Estorna liquidação. |
+| `POST /api/garantias/:id/troca/estornar` | C/H | Desfaz a troca: devolve a peça nova ao estoque, cancela a venda da diferença e MARCA a troca como estornada (5.4d — não apaga, §28). Recusa quando a diferença já foi paga. Sem call site: `AGUARDANDO HANDOFF CODEX`. |
 
 ### Auditoria e reclassificação histórica
 

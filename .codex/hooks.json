@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node 'c:\\Users\\User\\Desktop\\Marquesa-Etiquetas\\.codex\\hooks\\protect-production.mjs'",
+            "command": "node .codex/hooks/protect-production.mjs",
             "timeout": 10
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node 'c:\\Users\\User\\Desktop\\Marquesa-Etiquetas\\.codex\\hooks\\verify-before-stop.mjs'",
+            "command": "node .codex/hooks/verify-before-stop.mjs",
             "timeout": 10
           }
         ]

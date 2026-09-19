@@ -59,17 +59,59 @@ const PERIODOS = new Set(['7d', '30d', '90d', '12m', 'tudo']);
 /* O papel pertence à operação histórica, não ao nome atual da pessoa.
    `cteVendas` é o único ponto que decide cliente x acerto x revisão. */
 
+const ISO_DATA = /^\d{4}-\d{2}-\d{2}$/;
+/** `2026-02-31` casa com a regex e não existe no calendário. Um recorte por
+ *  uma data que não existe devolveria conjunto vazio com cara de resposta. */
+export const dataIsoValida = (v) => typeof v === 'string' && ISO_DATA.test(v)
+  && !Number.isNaN(Date.parse(`${v}T00:00:00Z`))
+  && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v;
+
+/** 5.6 · A7 — valida um intervalo arbitrário ANTES de ele virar SQL.
+ *
+ *  `faixaDePeriodo` sempre caiu em `tudo` diante de um valor que não conhece,
+ *  e para um PRESET isso é razoável: só a tela escreve preset. Data vem de
+ *  gente, e cair em `tudo` diante de `2026-13-01` devolveria o faturamento
+ *  inteiro da loja com aparência de recorte pedido — o pior tipo de erro,
+ *  porque é plausível. Aqui o intervalo inválido é RECUSADO, com o motivo. */
+export function validarIntervalo({ de = null, ate = null } = {}) {
+  if (de == null && ate == null) return { ok: true, de: null, ate: null };
+  if (de == null || ate == null) {
+    return { ok: false, erro: 'Intervalo personalizado precisa de `de` E `ate` — meia faixa não é recorte.' };
+  }
+  if (!dataIsoValida(de) || !dataIsoValida(ate)) {
+    return { ok: false, erro: 'Datas inválidas. Use AAAA-MM-DD, com dia que existe no calendário.' };
+  }
+  if (de > ate) return { ok: false, erro: `O início (${de}) é depois do fim (${ate}).` };
+  return { ok: true, de, ate };
+}
+
 /** Traduz o filtro da tela em recorte de data. `tudo` devolve null e a
- *  consulta sai sem WHERE de período. */
-export function faixaDePeriodo(periodo = 'tudo', hoje = new Date()) {
-  if (!PERIODOS.has(periodo)) periodo = 'tudo';
-  if (periodo === 'tudo') return { de: null, ate: null, periodo };
-  const dias = { '7d': 7, '30d': 30, '90d': 90, '12m': 365 }[periodo];
+ *  consulta sai sem WHERE de período.
+ *
+ *  5.6 — aceita também `{ de, ate }`: o intervalo personalizado que a UX já
+ *  simula com um popover de datas e que não tinha contrato nenhum atrás
+ *  (A7 · `API-VEN-001`). O intervalo VENCE o preset quando os dois vêm, e a
+ *  faixa devolvida diz `periodo: 'personalizado'` — a resposta declara o
+ *  recorte que usou, em vez de deixar quem lê deduzir pelas datas. */
+export function faixaDePeriodo(periodo = 'tudo', hoje = new Date(), intervalo = null) {
+  const p = (periodo && typeof periodo === 'object') ? periodo : { periodo, ...(intervalo || {}) };
+  const nome = p.periodo ?? 'tudo';
+  if (p.de != null || p.ate != null) {
+    const v = validarIntervalo(p);
+    /* Chamador que não validou antes não recebe um recorte silenciosamente
+       errado: recebe `tudo` com o período declarado como inválido, e a rota
+       o barra em 400 antes de chegar aqui. */
+    if (!v.ok) return { de: null, ate: null, periodo: 'invalido', erro: v.erro };
+    return { de: v.de, ate: v.ate, periodo: 'personalizado' };
+  }
+  const preset = PERIODOS.has(nome) ? nome : 'tudo';
+  if (preset === 'tudo') return { de: null, ate: null, periodo: preset };
+  const dias = { '7d': 7, '30d': 30, '90d': 90, '12m': 365 }[preset];
   const ate = new Date(hoje);
   const de = new Date(hoje);
   de.setDate(de.getDate() - dias);
   const iso = (d) => d.toISOString().slice(0, 10);
-  return { de: iso(de), ate: iso(ate), periodo };
+  return { de: iso(de), ate: iso(ate), periodo: preset };
 }
 
 function recorte(coluna, { de, ate }) {
@@ -166,6 +208,17 @@ export function cteVendas(faixa, { incluirAjuste = false } = {}) {
                   WHEN ho.cobranca_status='aberta' THEN 0
                   ELSE vh.elegivel_ticket END AS elegivel,
              COALESCE(ho.canal, vh.canal) AS canal,
+             -- 5.6 -- o vocabulario COMUM, ao lado do texto bruto. Mesma
+             -- regra de 5.1 em /api/vendas/lista: so onde a correspondencia e
+             -- mecanica. Site e site sao a mesma palavra; Instagram, Grupo
+             -- VIP, Encomendas e Maleta nao tem equivalente em
+             -- balcao|acerto|site, e classifica-los aqui seria decidir
+             -- VEN-Q013 dentro de um SELECT. Ficam NULL: indeterminado
+             -- anunciado vale mais que classificacao falsa.
+             -- (Sem crase aqui dentro: isto e um template literal.)
+             CASE WHEN LOWER(TRIM(COALESCE(ho.canal, vh.canal, ''))) = 'site'
+                  THEN 'site'
+                  WHEN COALESCE(ho.papel, 'cliente') = 'acerto' THEN 'acerto' END AS origem,
              COALESCE(ho.contexto, vh.contexto) AS contexto,
              vh.classe AS classe,
              COALESCE(ho.papel, 'cliente') AS papel,
@@ -213,6 +266,12 @@ export function cteVendas(faixa, { incluirAjuste = false } = {}) {
                            WHEN 'acerto' THEN 'Acerto de maleta'
                            WHEN 'troca' THEN 'Troca de garantia'
                            ELSE v.origem END,
+             -- 5.6 -- do lado operacional o vocabulario comum ja EXISTE: e
+             -- vendas.origem, cru. A coluna canal acima e rotulo de tela
+             -- (Balcao, Site...) e sempre foi; o defeito A6 era essa linha
+             -- ser comparada com o texto da planilha do outro lado da UNION.
+             -- troca nao vira venda de canal nenhum: e origem propria.
+             v.origem,
              NULL, 'venda',
              CASE WHEN v.origem='acerto' OR v.revendedora_id IS NOT NULL THEN 'acerto' ELSE 'cliente' END,
              NULL, NULL,
@@ -272,8 +331,8 @@ const VALOR_RECEBIDO_ITEM_HISTORICO = `CASE
 
 /* ═══════════════════════════════════════════════════════ visão geral (KPIs) */
 
-export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function visaoGeral(db, { periodo = 'tudo', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const V = cteVendas(faixa);
   const h = recorte('h.data', faixa);
   const v = recorte('v.data', faixa);
@@ -355,6 +414,10 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
               COUNT(*) AS trocas
          FROM garantia_trocas
         WHERE diferenca_status = 'paga'
+          -- 5.4d: a troca estornada continua na tabela (§28), mas nao e
+          -- faturamento. Estornar troca paga ja e recusado; o filtro esta
+          -- aqui para a soma nao depender daquela recusa.
+          AND estornada = 0
           -- §36: a troca com registro comercial fatura PELA VENDA, e a
           -- venda já está no CTE acima. Somar as duas contaria o mesmo real
           -- duas vezes. Sem venda ligada são as trocas anteriores à regra
@@ -423,8 +486,8 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
 
 /* ═══════════════════════════════════════════════════════════ série temporal */
 
-export async function evolucao(db, { periodo = 'tudo', granularidade = 'mes' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function evolucao(db, { periodo = 'tudo', granularidade = 'mes', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const fmt = granularidade === 'dia' ? '%Y-%m-%d' : '%Y-%m';
   const V = cteVendas(faixa);
 
@@ -453,11 +516,23 @@ export async function evolucao(db, { periodo = 'tudo', granularidade = 'mes' } =
                ${faixa.de ? 'AND data_faturamento >= ? AND data_faturamento <= ?' : ''}
             UNION ALL
             /* §31: a diferença de troca paga entra na série do mês em que
-               foi recebida, e sem virar uma venda a mais. */
+               foi recebida, e sem virar uma venda a mais.
+               5.3a: com os TRÊS filtros de visaoGeral, e não dois. O
+               venda_id IS NULL faltava aqui, e só aqui — o KPI o tem
+               (logo acima, na receita de troca) e o histórico do dia
+               também. A série somava a diferença de §36 duas vezes: uma
+               pela venda que a representa, outra por esta linha. O gráfico
+               de Evolução ficava maior que o cartão de Faturamento em todo
+               mês com troca paga, e nenhuma das duas leituras sabia disso
+               porque nenhum teste as comparava.
+               (Comentário em SQL dentro de um template literal: nenhuma
+               crase aqui, ela fecharia a string.) */
             SELECT strftime('${fmt}', diferenca_paga_em),
                    COALESCE(diferenca_valor_pago, 0), 0, 0
               FROM garantia_trocas
              WHERE diferenca_status = 'paga' AND diferenca_paga_em IS NOT NULL
+               AND estornada = 0
+               AND venda_id IS NULL
                ${faixa.de ? 'AND diferenca_paga_em >= ? AND diferenca_paga_em <= ?' : ''}
           )
      SELECT chave,
@@ -486,8 +561,8 @@ export async function evolucao(db, { periodo = 'tudo', granularidade = 'mes' } =
  *  nunca pelo nome, que muda de estação para estação — e traz a foto quando
  *  ela existe. Produto fora do catálogo continua no ranking, sem foto: a
  *  ausência de imagem não pode esconder o que mais vendeu. */
-export async function produtosMaisVendidos(db, { periodo = 'tudo', limite = 20, por = 'faturamento' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function produtosMaisVendidos(db, { periodo = 'tudo', limite = 20, por = 'faturamento', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const h = recorte('h.data', faixa);
   const v = recorte('v.data', faixa);
   const ordem = por === 'quantidade' ? 'pecas' : 'faturamento';
@@ -632,8 +707,8 @@ async function fichasDoCatalogo(db, chaves) {
  *  (`categoria-nome.js`) — reescrevê-la em SQL criaria a segunda
  *  implementação que §33 proíbe. São ~1.400 linhas: cabe na memória do
  *  Worker sem cerimônia. */
-export async function categoriasMaisVendidas(db, { periodo = 'tudo' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function categoriasMaisVendidas(db, { periodo = 'tudo', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const h = recorte('h.data', faixa);
   const v = recorte('v.data', faixa);
 
@@ -695,12 +770,12 @@ export async function categoriasMaisVendidas(db, { periodo = 'tudo' } = {}) {
  *  Devolve SEMPRE o bruto ao lado do classificado: "Maleta (Feira
  *  Franceschini)" é o dado, e canal=Maleta/contexto=Feira Franceschini é a
  *  leitura dele. A leitura precisa continuar conferível por quem escreveu. */
-export async function porOrigem(db, { periodo = 'tudo' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function porOrigem(db, { periodo = 'tudo', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const V = cteVendas(faixa);
   const h = recorte('h.data', faixa);
 
-  const [canais, contextos, brutos] = await Promise.all([
+  const [canais, contextos, origens, brutos] = await Promise.all([
     db.prepare(
       `WITH vd AS (${V.sql})
        SELECT COALESCE(canal, '(não classificado)') AS canal,
@@ -716,6 +791,22 @@ export async function porOrigem(db, { periodo = 'tudo' } = {}) {
               ROUND(SUM(faturamento), 2) AS faturamento
          FROM vd WHERE contexto IS NOT NULL
         GROUP BY canal, contexto ORDER BY faturamento DESC`,
+    ).bind(...V.binds).all(),
+
+    /* 5.6 · A6 — o mesmo recorte no vocabulário COMUM.
+       `canais` agrupa o texto bruto de cada população, e continua sendo a
+       auditoria da leitura: é lá que `Instagram` e `Grupo VIP` aparecem como
+       a Sthefany escreveu. Mas somar `Balcão` (rótulo do lado operacional)
+       com `Site` (texto da planilha) na mesma coluna era comparar dois
+       vocabulários, que é o defeito A6.
+       `origens` responde a pergunta comparável — e o que não tem equivalente
+       mecânico cai em `indeterminado`, nunca numa gaveta escolhida aqui. */
+    db.prepare(
+      `WITH vd AS (${V.sql})
+       SELECT origem, COUNT(*) AS vendas, SUM(pecas) AS pecas,
+              ROUND(SUM(faturamento), 2) AS faturamento,
+              COUNT(DISTINCT COALESCE(norm,'sem-nome')) AS clientes
+         FROM vd GROUP BY origem ORDER BY faturamento DESC`,
     ).bind(...V.binds).all(),
 
     /* o texto exatamente como a Sthefany escreveu — a auditoria da leitura */
@@ -741,6 +832,24 @@ export async function porOrigem(db, { periodo = 'tudo' } = {}) {
       clientes: Number(r.clientes),
       participacao: total > 0 ? +(Number(r.faturamento) / total * 100).toFixed(1) : 0,
     })),
+    /* 5.6 — o eixo comparável, ao lado do bruto. `indeterminado` é contado e
+       nomeado: quem soma participação precisa saber quanto do total ainda não
+       tem vocabulário comum, em vez de ver uma fatia sumir. Decidir a
+       taxonomia é `VEN-Q013`, e é de produto. */
+    origens: (origens.results ?? []).map((r) => ({
+      origem: r.origem ?? null,
+      indeterminado: r.origem == null,
+      vendas: Number(r.vendas),
+      pecas: Number(r.pecas ?? 0),
+      faturamento: Number(r.faturamento ?? 0),
+      clientes: Number(r.clientes),
+      participacao: total > 0 ? +(Number(r.faturamento ?? 0) / total * 100).toFixed(1) : 0,
+    })),
+    vocabulario: {
+      canal: 'texto bruto de cada população, como foi escrito — auditoria da leitura',
+      origem: 'vocabulário comum (balcao|acerto|site|troca), preenchido só onde a '
+        + 'correspondência é mecânica; null = indeterminado, e classificar seria decidir VEN-Q013',
+    },
     contextos: (contextos.results ?? []).map((r) => ({
       canal: r.canal,
       contexto: r.contexto,
@@ -876,8 +985,8 @@ async function baseDeClientes(db, faixa) {
   return { intervaloBase, hoje, clientes: todos };
 }
 
-export async function clientesRanking(db, { periodo = 'tudo', limite = 50, ordem = 'faturamento' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function clientesRanking(db, { periodo = 'tudo', limite = 50, ordem = 'faturamento', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const { clientes, intervaloBase } = await baseDeClientes(db, faixa);
   const chave = { faturamento: 'faturamento', pecas: 'pecas', compras: 'vendas' }[ordem] ?? 'faturamento';
   const lista = [...clientes].sort((a, b) => b[chave] - a[chave]);
@@ -997,12 +1106,14 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
           AND ((h.cliente_id IS NOT NULL AND h.cliente_id = ?)
             OR (h.cliente_id IS NULL AND ? IS NOT NULL AND h.cliente_nome_norm = ?))
         UNION ALL
-       -- O lado operacional não tem id de item: a tabela venda_itens não tem
-       -- chave própria. A identidade dele é (venda_id, sku, variante_id), e
-       -- é ela que a garantia guarda — por isso NULL aqui, e não um rowid,
-       -- que não sobrevive a um VACUUM. (Comentário em SQL, não em JS: isto
-       -- está dentro de um template literal, e uma crase fecharia a string.)
-       SELECT NULL, v.data, i.sku, UPPER(i.sku), i.desc, i.qtd, i.qtd * i.preco,
+       -- Desde a Fase 5.2 o lado operacional TEM id de item: venda_itens.id,
+       -- estavel e imutavel. E o que a garantia passa a guardar (5.2b), no
+       -- lugar do trio (venda_id, sku, variante_id), que casava duas linhas
+       -- quando a mesma peca saiu duas vezes na mesma venda com precos
+       -- diferentes. Nunca foi rowid: rowid nao sobrevive a um VACUUM.
+       -- (Comentario em SQL, nao em JS: isto esta dentro de um template
+       -- literal, e uma crase fecharia a string.)
+       SELECT i.id, v.data, i.sku, UPPER(i.sku), i.desc, i.qtd, i.qtd * i.preco,
               i.preco_tabela, i.desconto_valor * i.qtd, i.desconto_rotulo,
               v.origem, NULL, 1, NULL, v.id, 'operacional', p2.cat
          FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
@@ -1242,9 +1353,17 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
  *  (`vendaHistoricaId`) para poder navegar de uma para a outra. Agrupar aqui
  *  tiraria justamente o acesso ao dado de origem, que §7 exige preservar. */
 export async function listarVendasUnificado(db, {
-  de = null, ate = null, busca = null, canal = null, limite = 200, offset = 0,
+  de = null, ate = null, busca = null, canal = null, origem = null,
+  incluirCanceladas = true, limite = 200, offset = 0,
 } = {}) {
   const like = busca ? `%${String(busca).toLowerCase()}%` : null;
+  /* §28 — a venda cancelada continua NO HISTÓRICO, com o estado à vista; é
+     dos agregados que ela sai, e esta rota é histórico. Então o padrão
+     mostra e marca. `canceladas=nao` é a mesma porta que `/api/saidas` já dá
+     com `estornadas=nao`: quem quer o recorte elegível pede, em vez de somar
+     sem saber o que está somando. */
+  const semCanceladas = incluirCanceladas ? null : 1;
+  const origemPedida = origem ? String(origem).trim().toLowerCase() : null;
 
   const { results } = await db.prepare(
     `WITH juntos AS (
@@ -1254,7 +1373,29 @@ export async function listarVendasUnificado(db, {
               h.cliente_nome_original AS cliente, h.cliente_nome_norm AS cliente_norm,
               h.sku AS sku, h.nome_produto_historico AS produto, h.qtd AS qtd,
               h.valor_total AS valor, h.canal AS canal, h.contexto AS contexto,
-              h.observacao_original AS observacao, h.pago AS pago, 0 AS cancelada
+              h.observacao_original AS observacao, h.pago AS pago, 0 AS cancelada,
+              -- §36 -- canal nunca quis dizer a mesma coisa nos dois lados:
+              -- aqui e o texto da planilha (Site, Instagram, Maleta, Grupo
+              -- VIP...), la e vendas.origem. Uma coluna com dois vocabularios
+              -- faz ?canal=site achar metade da resposta e parecer completa.
+              -- origem e o vocabulario COMUM, e so recebe valor onde a
+              -- correspondencia e mecanica: Site e site sao a mesma palavra.
+              -- Instagram, Grupo VIP, Encomendas e Maleta nao tem equivalente
+              -- em balcao|acerto|site, e inventar um seria decidir VEN-Q013
+              -- aqui dentro. Ficam NULL -- indeterminado anunciado vale mais
+              -- que classificacao falsa. (Comentario em SQL, nao em JS: isto
+              -- esta dentro de um template literal.)
+              CASE WHEN LOWER(TRIM(COALESCE(h.canal, ''))) = 'site'
+                   THEN 'site' END AS origem,
+              -- 5.3d -- o resumo financeiro e da VENDA, nao da linha. Do lado
+              -- historico ele ja existe inteiro em vendas_historicas: valor
+              -- total (NULL quando algum item nao tem valor), valor pago, e um
+              -- status que ja usa o vocabulario paga|nao_paga|parcial|
+              -- indefinida. Nada aqui e inventado: a coluna que nao sabe
+              -- responde NULL, e o JS a repassa como indeterminada.
+              vh.valor_total AS venda_valor,
+              vh.valor_pago  AS venda_recebido,
+              vh.status      AS venda_status
          FROM vendas_historico_itens h
          JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
          JOIN vendas_historicas vh ON vh.id=h.venda_historica_id
@@ -1272,13 +1413,32 @@ export async function listarVendasUnificado(db, {
        -- para a auditoria dizer a mesma coisa nas duas populações em vez de
        -- esconder metade. (Comentário em SQL, não em JS: isto está dentro de
        -- um template literal, e uma crase aqui fecharia a string.)
-       SELECT 'operacional', i.rowid, v.id, NULL, NULL, CAST(v.id AS TEXT), v.data,
+       -- 5.2 -- era i.rowid, que o SQLite pode reatribuir num VACUUM. Este
+       -- id e o contrato publico da linha: quem guardar para agir depois
+       -- guarda algo que nao se mexe.
+       SELECT 'operacional', i.id, v.id, NULL, NULL, CAST(v.id AS TEXT), v.data,
               COALESCE(c.nome, v.cliente_nome), v.cliente_nome_norm,
               i.sku, i.desc, i.qtd, i.qtd * i.preco, v.origem, NULL,
               CASE WHEN i.desconto_rotulo IS NOT NULL
                    THEN 'Desconto ' || printf('%.2f', COALESCE(i.desconto_valor, 0))
                         || ' · ' || i.desconto_rotulo END,
-              1, v.cancelada
+              -- §29 -- era a constante 1. Toda venda de balcao saia desta
+              -- listagem como PAGA, inclusive a lancada A Receber:
+              -- vendas.pago existe desde §29 exatamente para dizer o
+              -- contrario, e a lista de contas a receber enxergava a mesma
+              -- venda corretamente em aberto. Duas leituras do mesmo banco
+              -- discordando e pior que nao ter a coluna.
+              v.pago, v.cancelada, v.origem,
+              -- 5.3d -- do lado operacional nao existe coluna de status: ela e
+              -- DERIVADA em JS de pago + valor_recebido. E valor_recebido e
+              -- anulavel de proposito: uma venda marcada paga sem valor
+              -- registrado nao autoriza ninguem a escrever recebido = total.
+              -- Ver B4/B6 -- foi exatamente assim que pago=1 com
+              -- valor_recebido=40 num total de 100 chegou ao banco.
+              -- (Sem crase aqui dentro: isto esta num template literal.)
+              v.total AS venda_valor,
+              v.valor_recebido AS venda_recebido,
+              NULL AS venda_status
          FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
          LEFT JOIN clientes c ON c.id = v.cliente_id
         WHERE v.origem <> 'acerto' AND v.revendedora_id IS NULL
@@ -1291,29 +1451,104 @@ export async function listarVendasUnificado(db, {
       WHERE (? IS NULL OR data >= ?)
         AND (? IS NULL OR data <= ?)
         AND (? IS NULL OR canal = ?)
+        AND (? IS NULL OR origem = ?)
+        AND (? IS NULL OR cancelada = 0)
         AND (? IS NULL OR LOWER(cliente) LIKE ? OR LOWER(produto) LIKE ? OR LOWER(sku) LIKE ?)
       ORDER BY data DESC, id DESC
       LIMIT ? OFFSET ?`,
-  ).bind(de, de, ate, ate, canal, canal, like, like, like, like, limite, offset).all();
+  ).bind(
+    de, de, ate, ate, canal, canal, origemPedida, origemPedida, semCanceladas,
+    like, like, like, like, limite, offset,
+  ).all();
 
-  return { itens: results ?? [], limite, offset };
+  return { itens: (results ?? []).map(comFinanceiroDaVenda), limite, offset };
+}
+
+/* ═════════════════════════════════════ 5.3d — o contrato de leitura do FIN-101
+
+   API-VEN-015 pede `valorVenda`, `valorRecebido`, `valorAReceber` e
+   `statusPagamento` em CENTAVOS INTEIROS. Três decisões, e cada uma existe por
+   causa de um defeito nomeado na auditoria de 5.3:
+
+   1. **É `financeiro`, aninhado, e não quatro campos soltos na linha.** Esta
+      rota devolve ITENS: a mesma venda aparece em várias linhas. Quatro chaves
+      soltas convidariam a `SUM()` da coluna, e a soma daria o total da venda
+      multiplicado pelo número de peças. Aninhar não impede o erro, mas para de
+      sugeri-lo — e `escopo: 'venda'` diz em palavras de quem é o número.
+
+   2. **Recebimento não se inventa.** `valor_recebido` é anulável, e `pago = 1`
+      sem valor registrado é o estado real de quase toda venda antiga. A
+      resposta devolve `valorRecebido: null` e nomeia a lacuna em
+      `indeterminado` — nunca `valorRecebido = valorVenda`, que é a
+      contradição de B4 (`pago=1` com `valor_recebido=40` num total de 100)
+      escrita agora pelo lado da leitura.
+
+   3. **Saldo negativo aparece.** `contas-receber.js` faz `Math.max(0, …)` e
+      transforma uma venda que recebeu a mais em saldo zero, em silêncio (B6).
+      `historico-operacoes.js` recusa explicitamente, e está certo. Aqui o
+      número sai como é, negativo, com `sobra: true` — quem lê decide, ninguém
+      arredonda a diferença para fora da tela.
+
+   O status operacional é DERIVADO, e o derivado é conservador: sem valor
+   recebido conhecido, `pago = 0` é `nao_paga` e não `parcial`, porque parcial
+   afirmaria um recebimento que ninguém registrou. */
+const emCentavos = (v) => (v == null || v === '' || Number.isNaN(Number(v))
+  ? null : Math.round(Number(v) * 100));
+
+export function comFinanceiroDaVenda(linha) {
+  const valor = emCentavos(linha.venda_valor);
+  const recebido = emCentavos(linha.venda_recebido);
+  const indeterminado = [];
+  if (valor == null) indeterminado.push('valorVenda');
+  if (recebido == null) indeterminado.push('valorRecebido');
+
+  const aReceber = (valor == null || recebido == null) ? null : valor - recebido;
+
+  let status = linha.venda_status ?? null;
+  if (!status) {
+    /* derivação do lado operacional. `pago` é o fato escrito; o resto só
+       refina quando há valor para refinar. */
+    if (Number(linha.pago) === 1) status = 'paga';
+    else if (recebido != null && recebido > 0) status = valor != null && recebido >= valor ? 'paga' : 'parcial';
+    else if (recebido != null) status = 'nao_paga';
+    else status = 'nao_paga';
+  }
+
+  return {
+    ...linha,
+    financeiro: {
+      escopo: 'venda',
+      moeda: 'centavos',
+      valorVenda: valor,
+      valorRecebido: recebido,
+      valorAReceber: aReceber,
+      statusPagamento: status,
+      indeterminado,
+      sobra: aReceber != null && aReceber < 0,
+    },
+  };
 }
 
 /* ══════════════════════════════════════════════════ ROTA AGREGADA: o painel */
 
 /** Tudo o que o Painel de Vendas desenha, numa resposta só. */
-export async function painel(db, { periodo = 'tudo' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function painel(db, { periodo = 'tudo', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const mes = new Date().toISOString().slice(0, 7);
   const faixaMes = { de: `${mes}-01`, ate: `${mes}-31` };
   const VMes = cteVendas(faixaMes);
   const [geral, evo, cat, prod, orig, rank, mesAtual, contasReceber, reparos, saidasMes] = await Promise.all([
-    visaoGeral(db, { periodo }),
-    evolucao(db, { periodo, granularidade: 'mes' }),
-    categoriasMaisVendidas(db, { periodo }),
-    produtosMaisVendidos(db, { periodo, limite: 5, por: 'quantidade' }),
-    porOrigem(db, { periodo }),
-    clientesRanking(db, { periodo, limite: 5, ordem: 'faturamento' }),
+    /* 5.6 — o intervalo desce para TODOS os blocos. Passar só `periodo`
+       aqui faria o cartão e a tabela do mesmo painel responderem sobre
+       recortes diferentes: o cabeçalho diria "1 a 15 de agosto" e os blocos
+       somariam o ano inteiro. É o risco que §12 nomeia para 5.6 — o mesmo
+       recorte em todos os blocos, sem divergência entre cartão e tabela. */
+    visaoGeral(db, { periodo, de, ate }),
+    evolucao(db, { periodo, granularidade: 'mes', de, ate }),
+    categoriasMaisVendidas(db, { periodo, de, ate }),
+    produtosMaisVendidos(db, { periodo, limite: 5, por: 'quantidade', de, ate }),
+    porOrigem(db, { periodo, de, ate }),
+    clientesRanking(db, { periodo, limite: 5, ordem: 'faturamento', de, ate }),
     db.prepare(
       `WITH vd AS (${VMes.sql})
        SELECT ROUND(COALESCE(SUM(CASE WHEN ${naFaixa('data_faturamento', faixaMes)}
@@ -1436,8 +1671,8 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
 
 /** Acertos documentais do histórico + acertos efetivamente fechados no
  * sistema. Nenhum valor é estimado: se não há documento, não entra. */
-export async function acertosDeMaleta(db, { periodo = 'tudo' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function acertosDeMaleta(db, { periodo = 'tudo', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const h = recorte('vh.data', faixa);
   const m = recorte('m.encerrada_em', faixa);
   const [historicos, operacionais, revisoes] = await Promise.all([
@@ -1530,8 +1765,8 @@ export async function acertosDeMaleta(db, { periodo = 'tudo' } = {}) {
 /* ═══════════════════════════════════════════════════ ROTA AGREGADA: o CRM */
 
 /** Tudo o que a aba Clientes desenha, numa resposta só. */
-export async function crm(db, { periodo = 'tudo' } = {}) {
-  const faixa = faixaDePeriodo(periodo);
+export async function crm(db, { periodo = 'tudo', de = null, ate = null } = {}) {
+  const faixa = faixaDePeriodo({ periodo, de, ate });
   const { clientes, intervaloBase, hoje } = await baseDeClientes(db, faixa);
 
   const porFaturamento = [...clientes].sort((a, b) => b.faturamento - a.faturamento);

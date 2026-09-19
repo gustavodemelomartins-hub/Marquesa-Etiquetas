@@ -131,7 +131,12 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
     /* Item vendido de um código que TEM mais de uma variação e saiu sem
        dizer qual. É a pendência no nível da VENDA — resolvível por §8.1. */
     db.prepare(
-      `SELECT v.id AS venda_id, v.data, i.rowid AS linha, i.sku, i.desc, i.qtd,
+      /* 5.2 — `itemId` é a identidade oficial da linha. `linha` (o rowid)
+         continua sendo devolvida enquanto o painel legado a usar: ela
+         atravessa DUAS requisições (a lista aqui, a resolução depois), e
+         é justamente esse ida-e-volta que o rowid nunca pôde sustentar. */
+      `SELECT v.id AS venda_id, v.data, i.rowid AS linha, i.id AS item_id,
+              i.sku, i.desc, i.qtd,
               COALESCE(c.nome, v.cliente_nome) AS cliente, r.nome AS revendedora,
               (SELECT COUNT(*) FROM produto_variacoes pv WHERE pv.sku = i.sku) AS n_variacoes
          FROM vendas v
@@ -168,14 +173,19 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
         WHERE status = 'pendente' ORDER BY linhas DESC LIMIT 100`,
     ).all().catch(() => ({ results: [] })),
 
-    /* §31 — troca cuja diferença é NEGATIVA. Crédito ou reembolso nunca foi
-       definido como regra: o caso fica aqui, esperando decisão humana, em
-       vez de virar um crédito que ninguém combinou. */
+    /* §32 / 5.3e — troca negativa que NÃO virou crédito.
+       A regra existe desde 12/09/2026 — a peça nova mais barata vira crédito
+       da cliente — e `credito.js` a executa. `pendente_regra` deixou de
+       significar "a regra não existe" e passou a significar, como a própria
+       migration escreve, diferença negativa SEM crédito lançado: ou a troca é
+       anterior à regra, ou a cliente não está identificada. São dois motivos
+       diferentes com duas saídas diferentes, então `cliente_id` vem junto e
+       cada linha diz o seu. */
     db.prepare(
       `SELECT t.garantia_id, t.sku_novo, t.diferenca, t.data, g.sku AS sku_original,
-              g.cliente_nome
+              g.cliente_nome, g.cliente_id
          FROM garantia_trocas t JOIN garantias g ON g.id = t.garantia_id
-        WHERE t.diferenca_status = 'pendente_regra'`,
+        WHERE t.diferenca_status = 'pendente_regra' AND t.estornada = 0`,
     ).all().catch(() => ({ results: [] })),
 
     db.prepare(
@@ -368,7 +378,13 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
   /* ─── 2. item de venda sem variação (§8.1) */
   for (const r of itensSemVariacao.results ?? []) {
     juntar({
-      chave: `venda_variacao:${r.venda_id}:${r.linha}`,
+      /* 5.2 — a chave da pendência é PERSISTIDA em `config`
+         (`pendencias_adiadas`), então ela era o pior lugar de todos para um
+         `rowid`: um VACUUM reatribuiria o número e a pendência adiada
+         voltaria, ou pior, esconderia outra. Agora é o id da linha. As
+         chaves antigas deixam de casar e aquelas pendências reaparecem —
+         reaparecer é o lado seguro de errar. */
+      chave: `venda_variacao:${r.venda_id}:${r.item_id}`,
       tipo: 'venda',
       sku: r.sku,
       produto: r.desc,
@@ -376,6 +392,8 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
       cliente: r.cliente ?? null,
       revendedora: r.revendedora ?? null,
       vendaId: Number(r.venda_id),
+      itemId: r.item_id ?? null,
+      /* Só enquanto o painel legado mandar de volta. Sem consumidor novo. */
       linha: Number(r.linha),
       data: r.data,
       qtd: Number(r.qtd ?? 0),
@@ -443,7 +461,7 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
     });
   }
 
-  /* ─── 6. troca cuja regra não existe */
+  /* ─── 6. troca negativa cujo crédito não foi lançado */
   for (const r of trocas.results ?? []) {
     juntar({
       chave: `troca:${r.garantia_id}`,
@@ -452,9 +470,19 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
       cliente: r.cliente_nome ?? null,
       data: r.data,
       valor: Number(r.diferenca ?? 0),
+      /* A CHAVE do motivo não muda: o painel legado tem um rótulo indexado
+         por ela, e renomear aqui apagaria a explicação de lá sem trocar o
+         fato. O que estava errado era a FRASE — ela anunciava como indefinida
+         uma regra já decidida (§9: o que o sistema não faz é anunciado, e
+         anunciado com o motivo verdadeiro). */
       motivo: 'credito_sem_regra',
       explicacao: `A peça nova (${r.sku_novo}) custa menos que a original (${r.sku_original}). `
-        + 'Crédito ou reembolso ainda não é regra definida — nada foi lançado.',
+        + 'A diferença vira crédito da cliente desde 12/09/2026, e este caso '
+        + (r.cliente_id == null
+          ? 'não tem cliente identificada — crédito sem dona não é lançado. '
+            + 'Vincule a cliente para o crédito ser emitido.'
+          : 'é anterior à regra: o crédito não foi lançado retroativamente, '
+            + 'e emitir agora é decisão de gente.'),
       acoes: ['revisar_depois'],
     });
   }
@@ -525,14 +553,20 @@ export async function resolverVariacaoDaVenda(db, corpo = {}) {
   /* A linha exata, quando quem chama a identificou. Sem ela, a primeira sem
      variação — é o caso normal, e resolver a errada não existe: elas são
      idênticas em tudo, inclusive no que falta. */
+  const itemId = corpo.itemId != null && corpo.itemId !== '' ? String(corpo.itemId) : null;
+  /* `linha` é o rowid, e continua aceita só para não derrubar o painel legado
+     enquanto ele não manda `itemId`. Ela não deve ganhar consumidor novo: o
+     valor viaja entre duas requisições, e no intervalo um VACUUM pode
+     reatribuí-lo. Quando o legado sair, esta metade sai junto. */
   const linha = corpo.linha != null ? Number(corpo.linha) : null;
   const item = await db.prepare(
-    `SELECT rowid AS linha, * FROM venda_itens
+    `SELECT id AS item_id, rowid AS linha, * FROM venda_itens
       WHERE venda_id = ? AND sku = ?
+        AND (? IS NULL OR id = ?)
         AND (? IS NULL OR rowid = ?)
         AND (variacao IS NULL AND variante_id IS NULL)
       ORDER BY rowid LIMIT 1`,
-  ).bind(vendaId, sku, linha, linha).first();
+  ).bind(vendaId, sku, itemId, itemId, linha, linha).first();
   if (!item) {
     return ERRO(409, `A venda ${vendaId} não tem linha de ${sku} esperando variação.`);
   }
@@ -547,8 +581,8 @@ export async function resolverVariacaoDaVenda(db, corpo = {}) {
     : null;
 
   await db.batch([
-    db.prepare('UPDATE venda_itens SET variacao = ?, variante_id = ? WHERE rowid = ?')
-      .bind(escolha.nome, escolha.varianteId, item.linha),
+    db.prepare('UPDATE venda_itens SET variacao = ?, variante_id = ? WHERE id = ?')
+      .bind(escolha.nome, escolha.varianteId, item.item_id),
     /* O movimento da venda passa a dizer de qual caixinha a peça saiu.
        `qtd` NÃO é tocado — é identidade, não quantidade. */
     db.prepare(
@@ -559,8 +593,9 @@ export async function resolverVariacaoDaVenda(db, corpo = {}) {
 
   return {
     ok: true,
-    chave: `venda_variacao:${vendaId}:${item.linha}`,
+    chave: `venda_variacao:${vendaId}:${item.item_id}`,
     vendaId,
+    itemId: item.item_id ?? null,
     sku,
     variacao: escolha.nome,
     varianteId: escolha.varianteId,

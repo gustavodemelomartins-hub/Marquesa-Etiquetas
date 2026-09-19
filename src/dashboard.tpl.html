@@ -6735,7 +6735,7 @@ function desenharResolucao(x){
     <div class="pend-acoes">
       <span class="cd-fb" id="pf-${esc(x.chave)}"></span>
       <button class="btn btn-gold btn-sm"
-        onclick="salvarVariacaoVenda('${esc(x.chave)}',${x.vendaId},'${esc(x.sku)}',${x.linha||'null'})"
+        onclick="salvarVariacaoVenda('${esc(x.chave)}',${x.vendaId},'${esc(x.sku)}','${esc(x.itemId||'')}')"
         >Salvar variação</button>
     </div>
   </div>`;
@@ -6758,13 +6758,17 @@ async function salvarDistribuicaoCentral(chave,sku,total,n){
   }catch(e){ if(fb) fb.textContent=e.message||'Não consegui salvar'; }
 }
 
-async function salvarVariacaoVenda(chave,vendaId,sku,linha){
+/* 5.2 — a linha da venda passou a ter id próprio. Era o `rowid`, que ia e
+   voltava entre duas requisições e o SQLite pode reatribuir num VACUUM. O id
+   é TEXTO, então vai entre aspas: sem elas o `onclick` acima viraria erro de
+   sintaxe em vez de chamada. */
+async function salvarVariacaoVenda(chave,vendaId,sku,itemId){
   const fb=document.getElementById('pf-'+chave);
   const escolhido=document.querySelector(`input[name="pv-${chave}"]:checked`);
   if(!escolhido){ if(fb) fb.textContent='Escolha a variação.'; return; }
   try{
     const r=await api('POST','/api/pendencias/variacao/venda',
-      {vendaId, sku, linha:linha===null?undefined:linha, variacao:escolhido.value});
+      {vendaId, sku, itemId:itemId||undefined, variacao:escolhido.value});
     centralAberta.delete(chave);
     toast(r.resumo||'Variação resolvida');
     await Promise.all([sincronizar(),carregarCentralPendencias(),carregarPendencias()]);
@@ -9669,7 +9673,10 @@ async function marcarContaPaga(id,versao,norm,cliente,valor){
   norm=decodeURIComponent(norm); cliente=decodeURIComponent(cliente);
   if(!confirm(`${cliente} pagou ${money(valor)}?\n\nAo confirmar, a cobrança será quitada. Isso não altera o estoque.`)) return;
   try{
-    await api('POST',`/api/contas-receber/${id}/marcar-paga`,{confirmar:true,versaoEsperada:versao});
+    /* 5.3d/B9 — era `/api/contas-receber/${id}/marcar-paga`, que apenas
+       delegava. A porta por `chave` é a mesma função do outro lado, com os
+       mesmos `confirmar` e `versaoEsperada`. */
+    await api('POST','/api/contas-receber/receber',{chave:`historico:${id}`,confirmar:true,versaoEsperada:versao});
     await carregarPainelVendas();
     toast('Pagamento confirmado');
     await abrirPerfilCliente(norm);
@@ -10500,7 +10507,12 @@ async function abrirPerfilCliente(chave){
      lado do sistema, id da linha do lado da planilha. */
   const garPorItem=new Map();
   for(const g of (p.garantias||[])){
-    const k=g.historicoItemId!=null?('h:'+g.historicoItemId):('v:'+g.vendaId+':'+g.sku);
+    /* 5.2b: a chave é a LINHA da venda. Garantia antiga que o backfill não
+       conseguiu apontar (ambígua ou sem match) fica sem `vendaItemId` e cai
+       na chave larga de antes — aparece embaixo do código, como sempre
+       apareceu, em vez de sumir da ficha da cliente. */
+    const k=g.historicoItemId!=null?('h:'+g.historicoItemId)
+      :(g.vendaItemId?('i:'+g.vendaItemId):('v:'+g.vendaId+':'+g.sku));
     if(!garPorItem.has(k)) garPorItem.set(k,[]);
     garPorItem.get(k).push(g);
   }
@@ -10597,9 +10609,16 @@ async function abrirPerfilCliente(chave){
                que o banco guarda — não o nome do produto, não o SKU
                sozinho: a mesma cliente pode ter comprado o mesmo anel três
                vezes, e é a compra que diz qual deles voltou. */
-            const chave=i.fonte==='historico'?('h:'+i.item_id):('v:'+v.id+':'+i.sku);
-            const gs=garPorItem.get(chave)||[];
+            const chave=i.fonte==='historico'?('h:'+i.item_id)
+              :(i.item_id?('i:'+i.item_id):('v:'+v.id+':'+i.sku));
+            /* A garantia antiga que o backfill não conseguiu apontar ficou na
+               chave larga (venda, código). Ela some aqui também, senão
+               desapareceria da ficha da cliente no dia da migração. */
+            const gs=(garPorItem.get(chave)||[]).concat(
+              i.fonte==='operacional'&&i.item_id
+                ?(garPorItem.get('v:'+v.id+':'+i.sku)||[]):[]);
             const ctx={vendaId:v.id, historicoItemId:i.fonte==='historico'?i.item_id:null,
+              vendaItemId:i.fonte==='operacional'?(i.item_id||null):null,
               sku:i.sku, produto:i.nome, data:v.data, cliente:p.nomeExibicao,
               valorPago:i.qtd>0?Math.round((Number(i.valor)/Number(i.qtd))*100)/100:Number(i.valor)};
             return `
@@ -10906,11 +10925,15 @@ async function salvarGarantia(){
     prazoDiasUteis:+val('gr-prazo')||45,
     observacao:val('gr-obs')||undefined,
   };
-  /* As duas formas de apontar o ITEM. Histórico tem id de linha; a venda do
-     sistema é identificada pelo par (venda, código) — `venda_itens` não tem
-     chave própria. */
+  /* As formas de apontar o ITEM. Histórico tem id de linha; a venda do
+     sistema tem `venda_itens.id` desde a Fase 5.2, e é ele que a garantia
+     guarda. O par (venda, código) segue junto só para a venda antiga cujo
+     item ainda não traz id — e aí o servidor pergunta, se houver duas. */
   if(garContexto.historicoItemId) corpo.historicoItemId=garContexto.historicoItemId;
-  else { corpo.vendaId=garContexto.vendaId; corpo.sku=garContexto.sku; }
+  else {
+    corpo.vendaId=garContexto.vendaId; corpo.sku=garContexto.sku;
+    if(garContexto.vendaItemId) corpo.vendaItemId=garContexto.vendaItemId;
+  }
 
   const btn=document.getElementById('grConfirm');
   btn.disabled=true;

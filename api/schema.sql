@@ -357,9 +357,23 @@ CREATE TABLE IF NOT EXISTS movimentos (
   -- Quem fecha a invariante continua sendo `qtd`; esta coluna não entra em
   -- conta nenhuma, só no casamento com a loja.
   variante_id    TEXT,
-  tipo           TEXT NOT NULL,   -- entrada|ajuste|consignacao|devolucao|venda|perda|quebra|dano|furto|brinde|troca|nota_credito|venda_conjunto|cancelamento
+  -- Nenhuma das duas colunas tem CHECK: o vocabulário cresceu com o sistema,
+  -- e um CHECK aqui teria de ser migrado a cada regra nova. As listas abaixo
+  -- são os valores COMUNS, não um contrato fechado — quem manda é quem
+  -- escreve, e todo mundo escreve por `estoque.js › movimentar`.
+  --
+  -- tipo diz O QUE aconteceu com a peça; origem diz POR QUE. É a dupla que
+  -- permite distinguir uma saída de venda de uma saída de troca de garantia
+  -- sem olhar o texto de `obs`.
+  tipo           TEXT NOT NULL,   -- entrada | ajuste | ajuste_qtd | consignacao | devolucao
+                                  -- venda | perda | troca | cancelamento
   qtd            INTEGER NOT NULL,
-  origem         TEXT,            -- importacao | manual | maleta | acerto | venda | inventario | cancelamento | kit
+  origem         TEXT,            -- importacao | manual | maleta | acerto | venda | inventario
+                                  -- cancelamento | kit | reconciliacao | variacao | personalizado
+                                  -- correcao_sku | site | nuvemshop_* (o estado do pedido)
+                                  -- troca_garantia  a peça nova de uma troca (§31/§37)
+                                  -- estorno         desfaz uma saída: troca estornada,
+                                  --                 saída sem faturamento estornada
   maleta_id      INTEGER,
   revendedora_id INTEGER,
   venda_id       INTEGER,
@@ -602,7 +616,15 @@ CREATE TABLE IF NOT EXISTS vendas (
   cliente_ambiguo INTEGER NOT NULL DEFAULT 0,
   -- Prazo combinado de uma venda operacional ainda não paga. NULL significa
   -- honestamente "sem prazo"; não há data padrão inventada.
-  vencimento_em TEXT
+  vencimento_em TEXT,
+  -- 5.3c — quantas vezes o RECEBÍVEL desta venda mudou. É o token de
+  -- concorrência do A Receber: quem leu a lista devolve este número ao
+  -- escrever, e uma versão velha é recusada em vez de sobrescrever a decisão
+  -- de outra tela. Quem incrementa é o trigger `vendas_recebivel_versao`
+  -- logo abaixo — nenhum código de aplicação escreve esta coluna.
+  -- Última de propósito: `migracao-recebivel-versao.sql` a acrescenta com
+  -- ALTER TABLE, que sempre põe no fim. Os dois caminhos terminam iguais.
+  recebivel_versao INTEGER NOT NULL DEFAULT 1
 );
 
 -- Cada rodada da sincronização com a loja, para poder responder "o que o
@@ -638,8 +660,84 @@ CREATE TABLE IF NOT EXISTS venda_itens (
   -- ALTER TABLE, que sempre põe no fim. Os dois caminhos terminam iguais.
   preco_tabela    REAL,                             -- catálogo no momento da venda
   desconto_valor  REAL,                             -- preco_tabela - preco
-  desconto_rotulo TEXT                              -- "Grupo VIP"
+  desconto_rotulo TEXT,                             -- "Grupo VIP"
+  -- §5.2: a identidade PRÓPRIA da linha. Antes dela a identidade era o trio
+  -- (venda_id, sku, variante_id), que §27 quebra — duas linhas do mesmo
+  -- código com preços diferentes são legítimas —, e quem precisou de
+  -- identidade de verdade caiu no `rowid`, que não sobrevive a um VACUUM.
+  -- TEXT e gerada pela aplicação porque `ALTER TABLE` não sabe acrescentar
+  -- PRIMARY KEY, porque não há sequência no D1 para arbitrar `MAX(id)+1`
+  -- entre duas vendas simultâneas, e porque `registrarVenda` escreve os
+  -- itens num `db.batch`, que não devolve id por instrução: quem monta a
+  -- venda precisa saber o nome de cada linha ANTES de escrever.
+  -- Última de propósito: `migracao-venda-item-id.sql` a acrescenta com
+  -- ALTER TABLE, que sempre põe no fim. Os dois caminhos terminam iguais.
+  id              TEXT
 );
+
+-- Linha sem id não nasce, e id atribuído não muda. Os dois gatilhos são o
+-- que transforma a coluna em identidade: sem o primeiro, um caminho de
+-- escrita que esquecesse o id criaria linha anônima; sem o segundo,
+-- "corrigir o item" poderia trocar a identidade dele por baixo de quem já a
+-- guardou. Ver `api/migracao-venda-item-id.sql` para o raciocínio inteiro.
+CREATE TRIGGER IF NOT EXISTS venda_itens_id_ao_inserir
+AFTER INSERT ON venda_itens
+WHEN NEW.id IS NULL
+BEGIN
+  UPDATE venda_itens
+     SET id = lower(
+           hex(randomblob(4)) || '-' ||
+           hex(randomblob(2)) || '-4' ||
+           substr(hex(randomblob(2)), 2) || '-' ||
+           substr('89ab', abs(random()) % 4 + 1, 1) ||
+           substr(hex(randomblob(2)), 2) || '-' ||
+           hex(randomblob(6))
+         )
+   WHERE rowid = NEW.rowid;
+END;
+
+CREATE TRIGGER IF NOT EXISTS venda_itens_id_imutavel
+BEFORE UPDATE OF id ON venda_itens
+WHEN OLD.id IS NOT NULL AND NEW.id IS NOT OLD.id
+BEGIN
+  SELECT RAISE(ABORT, 'venda_itens.id e imutavel: corrigir a linha nao troca a identidade dela');
+END;
+
+-- ─── 5.3c: a versão do recebível
+--
+-- Oito colunas mudam o que a cliente deve; qualquer uma delas incrementa a
+-- versão. Nome, cliente e estado da Nuvemshop NÃO entram: o backfill de
+-- normalização reescreve `cliente_nome_norm` em massa, e isso não pode
+-- devolver 409 para telas abertas por uma mudança que não move um centavo.
+--
+-- `IS NOT` porque metade das colunas é anulável. `NEW.recebivel_versao =
+-- OLD.recebivel_versao` porque o próprio trigger escreve nessa coluna: a
+-- condição deixa de valer na reentrada, e por isso não há loop nem com
+-- `recursive_triggers` ligado. Raciocínio inteiro em
+-- `api/migracao-recebivel-versao.sql`.
+CREATE TRIGGER IF NOT EXISTS vendas_recebivel_versao
+AFTER UPDATE ON vendas
+WHEN (NEW.pago             IS NOT OLD.pago
+   OR NEW.data_pagamento   IS NOT OLD.data_pagamento
+   OR NEW.pagamento_origem IS NOT OLD.pagamento_origem
+   OR NEW.valor_recebido   IS NOT OLD.valor_recebido
+   OR NEW.cobravel         IS NOT OLD.cobravel
+   OR NEW.vencimento_em    IS NOT OLD.vencimento_em
+   OR NEW.total            IS NOT OLD.total
+   OR NEW.cancelada        IS NOT OLD.cancelada)
+  AND NEW.recebivel_versao = OLD.recebivel_versao
+BEGIN
+  UPDATE vendas SET recebivel_versao = OLD.recebivel_versao + 1 WHERE id = NEW.id;
+END;
+
+-- O item mudou de valor, então a DÍVIDA mudou de valor. Só `qtd` e `preco`:
+-- corrigir SKU ou descrição (§40) não muda um centavo.
+CREATE TRIGGER IF NOT EXISTS venda_itens_recebivel_versao
+AFTER UPDATE OF qtd, preco ON venda_itens
+WHEN NEW.qtd IS NOT OLD.qtd OR NEW.preco IS NOT OLD.preco
+BEGIN
+  UPDATE vendas SET recebivel_versao = recebivel_versao + 1 WHERE id = NEW.venda_id;
+END;
 
 -- ------------------------------------------------------- Monte seu Colar
 -- Os modelos confirmados da família de filhos vivem na regra de negócio de
@@ -1023,6 +1121,7 @@ CREATE INDEX IF NOT EXISTS idx_vendas_vencimento ON vendas(vencimento_em) WHERE 
 CREATE INDEX IF NOT EXISTS idx_venda_itens_v  ON venda_itens(venda_id);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_s  ON venda_itens(sku);
 CREATE INDEX IF NOT EXISTS idx_venda_itens_variante ON venda_itens(variante_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_venda_itens_id ON venda_itens(id);
 CREATE INDEX IF NOT EXISTS idx_inv_status     ON inventarios(status);
 CREATE INDEX IF NOT EXISTS idx_inv_itens      ON inventario_itens(inventario_id);
 -- Sem cláusula WHERE de propósito: no SQLite vários NULL convivem num índice
@@ -1489,9 +1588,12 @@ CREATE TABLE IF NOT EXISTS garantias (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
 
   -- ─── o item de origem, nas duas populações de venda
-  -- `operacional` → venda do sistema; a identidade do item é
-  --                 (venda_id, sku, variante_id): `venda_itens` não tem
-  --                 chave própria, e rowid não é estável entre VACUUMs.
+  -- `operacional` → venda do sistema. O ponteiro de verdade é
+  --                 `venda_item_id` (Fase 5.2b). O trio (venda_id, sku,
+  --                 variante_id) permanece porque é a prova de como a
+  --                 garantia foi aberta e o único rastro das linhas que o
+  --                 backfill se recusou a adivinhar — não use mais como
+  --                 identidade: §27 casa duas linhas, §41 desfaz o trio.
   -- `historico`   → linha da planilha; `vendas_historico_itens.id` é PK real.
   origem_fonte TEXT NOT NULL CHECK (origem_fonte IN ('operacional', 'historico')),
   venda_id           INTEGER REFERENCES vendas(id),
@@ -1532,6 +1634,41 @@ CREATE TABLE IF NOT EXISTS garantias (
   criado_em     TEXT NOT NULL DEFAULT (datetime('now')),
   atualizado_em TEXT,
 
+  -- ─── Fase 5.2b: o ponteiro de verdade para a linha da venda.
+  --
+  -- Últimas para que uma instalação nova termine com a mesma ordem de
+  -- colunas do ALTER de `migracao-garantia-venda-item.sql`. Sem CHECK pelo
+  -- mesmo motivo: `ALTER TABLE` não acrescenta restrição de tabela, e um
+  -- CHECK só aqui faria os dois caminhos divergirem em silêncio.
+  --
+  -- `venda_item_vinculo` diz COMO o ponteiro foi obtido, e é o registro
+  -- auditável de quem ficou sem ele:
+  --   direto | backfill_unico | backfill_unico_valor
+  --   ambiguo   duas ou mais linhas possíveis — o sistema não escolheu
+  --   sem_match nenhuma linha encontrada — o sistema não inventou
+  --   nao_se_aplica  origem histórica: `historico_item_id` já é PK real
+  venda_item_id TEXT REFERENCES venda_itens(id),
+  venda_item_vinculo TEXT,
+
+  -- ─── Fase 5.4e: o novo atendimento é um caso NOVO, ligado ao anterior.
+  --
+  -- Regra da Sthefany: nova troca da mesma peça só dentro de 7 dias úteis e
+  -- com a etiqueta ainda na peça. Reabrir apagando `encerrada_em` fundia os
+  -- dois ciclos e perdia a data da entrega; agora o caso anterior fica
+  -- encerrado, inteiro, e o novo aponta para ele.
+  --
+  -- `etiqueta_preservada` NÃO inventa o dado: o sistema não tem como saber
+  -- se a etiqueta está na peça. Ela guarda a CONFIRMAÇÃO de quem olhou, para
+  -- o caso poder ser auditado. NULL = primeira abertura, a pergunta não se
+  -- aplica.
+  --
+  -- `reabertura_dias_uteis` fica congelado: recalcular depois daria outro
+  -- número se a tabela de feriados mudar, e "isto foi autorizado
+  -- corretamente na época?" precisa de resposta estável.
+  garantia_anterior_id INTEGER REFERENCES garantias(id),
+  etiqueta_preservada INTEGER,
+  reabertura_dias_uteis INTEGER,
+
   CHECK (origem_fonte <> 'operacional' OR venda_id IS NOT NULL),
   CHECK (origem_fonte <> 'historico'   OR historico_item_id IS NOT NULL),
   CHECK (prazo_dias_uteis > 0)
@@ -1543,6 +1680,9 @@ CREATE INDEX IF NOT EXISTS idx_gar_norm     ON garantias(cliente_nome_norm);
 CREATE INDEX IF NOT EXISTS idx_gar_venda    ON garantias(venda_id);
 CREATE INDEX IF NOT EXISTS idx_gar_hist     ON garantias(historico_item_id);
 CREATE INDEX IF NOT EXISTS idx_gar_entrada  ON garantias(data_entrada);
+CREATE INDEX IF NOT EXISTS idx_gar_venda_item ON garantias(venda_item_id);
+CREATE INDEX IF NOT EXISTS idx_gar_vinculo    ON garantias(venda_item_vinculo);
+CREATE INDEX IF NOT EXISTS idx_gar_anterior   ON garantias(garantia_anterior_id);
 
 -- ─── a linha do tempo
 CREATE TABLE IF NOT EXISTS garantia_eventos (
@@ -1579,12 +1719,16 @@ CREATE TABLE IF NOT EXISTS garantia_trocas (
   -- nenhuma         diferença zero: nada a cobrar
   -- a_receber       positiva e em aberto
   -- paga            positiva e recebida — SÓ ELA vira faturamento
-  -- pendente_regra  NEGATIVA: crédito/reembolso é regra de negócio que
-  --                 ainda não existe. O sistema registra e PARA, em vez de
-  --                 inventar um crédito que ninguém definiu.
+  -- pendente_regra  NEGATIVA sem crédito lançado. Até 5.3e era o único
+  --                 destino possível de uma diferença negativa: o crédito
+  --                 era regra sem lugar onde morar. Continua existindo para
+  --                 o legado anterior e para a troca cuja cliente não está
+  --                 identificada — o sistema recusa emitir em vez de
+  --                 inventar dona (§11, trava 1).
+  -- credito_emitido NEGATIVA COM linha em `credito_movimentos` (5.3e).
   diferenca_status TEXT NOT NULL
-                   CHECK (diferenca_status IN ('nenhuma', 'a_receber',
-                                               'paga', 'pendente_regra')),
+                   CHECK (diferenca_status IN ('nenhuma', 'a_receber', 'paga',
+                                               'pendente_regra', 'credito_emitido')),
   diferenca_paga_em    TEXT,          -- a data que governa o faturamento
   diferenca_valor_pago REAL,
 
@@ -1600,17 +1744,115 @@ CREATE TABLE IF NOT EXISTS garantia_trocas (
   -- pós-go-live. NULL preserva as trocas anteriores a essa regra.
   venda_id INTEGER REFERENCES vendas(id),
 
+  -- ─── Fase 5.4d: estornar NÃO apaga (§28).
+  --
+  -- Antes o estorno fazia DELETE, e sumiam o SKU novo, os valores, a data e
+  -- o movimento. Agora a linha fica, com o estado do caso: quem olhar daqui
+  -- a um ano vê que houve uma troca, que ela foi desfeita, por quê, e qual
+  -- movimento devolveu a peça. `estorno_movimento_id` é a outra ponta de
+  -- `movimento_id`: um tirou a peça do estoque, o outro a trouxe de volta.
+  --
+  -- Sem CHECK pelo mesmo motivo das colunas de 5.2b em `garantias`.
+  estornada INTEGER NOT NULL DEFAULT 0,
+  estorno_em TEXT,
+  estorno_motivo TEXT,
+  estorno_movimento_id INTEGER REFERENCES movimentos(id),
+
+  -- 5.3c — a versão do recebível desta troca. Vale enquanto ela é recebível
+  -- PRÓPRIO, isto é, enquanto não tem `venda_id`: depois de §36 a diferença
+  -- nasce como venda e é a versão DELA que a tela devolve. Quem incrementa é
+  -- o trigger `garantia_trocas_recebivel_versao`.
+  -- Última de propósito, pelo mesmo motivo das colunas de 5.4d.
+  recebivel_versao INTEGER NOT NULL DEFAULT 1,
+
   CHECK (diferenca_status <> 'paga' OR diferenca_paga_em IS NOT NULL)
 );
 
--- Uma garantia troca no máximo uma vez. Sem isto, dois cliques no botão
--- baixariam duas peças novas do estoque.
+-- Uma garantia tem no máximo uma troca VIVA. Sem isto, dois cliques no
+-- botão baixariam duas peças novas do estoque.
+--
+-- Parcial desde 5.4d: a troca estornada continua na tabela (§28), e um
+-- índice cheio proibiria a segunda troca legítima depois de um estorno —
+-- que é a razão de a rota de estorno existir. A trava contra o duplo
+-- clique continua exatamente tão forte quanto era.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_gar_troca_unica
-  ON garantia_trocas(garantia_id);
+  ON garantia_trocas(garantia_id) WHERE estornada = 0;
+CREATE INDEX IF NOT EXISTS idx_gar_troca_estornada ON garantia_trocas(estornada);
 CREATE INDEX IF NOT EXISTS idx_gar_troca_dif
   ON garantia_trocas(diferenca_status, diferenca_paga_em);
+
+-- 5.3c — `venda_id` entra na lista porque ganhar uma venda ligada muda QUEM é
+-- o recebível: a linha deixa de ser cobrável por si.
+CREATE TRIGGER IF NOT EXISTS garantia_trocas_recebivel_versao
+AFTER UPDATE ON garantia_trocas
+WHEN (NEW.diferenca            IS NOT OLD.diferenca
+   OR NEW.diferenca_status     IS NOT OLD.diferenca_status
+   OR NEW.diferenca_paga_em    IS NOT OLD.diferenca_paga_em
+   OR NEW.diferenca_valor_pago IS NOT OLD.diferenca_valor_pago
+   OR NEW.estornada            IS NOT OLD.estornada
+   OR NEW.venda_id             IS NOT OLD.venda_id)
+  AND NEW.recebivel_versao = OLD.recebivel_versao
+BEGIN
+  UPDATE garantia_trocas SET recebivel_versao = OLD.recebivel_versao + 1 WHERE id = NEW.id;
+END;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_gar_troca_venda
   ON garantia_trocas(venda_id);
+
+-- ─── 5.3e: a razão de crédito da cliente
+--
+-- Troca com peça nova mais barata vira CRÉDITO (Sthefany, 12/09/2026). Não
+-- volta em dinheiro, e NÃO EXPIRA (13/09/2026).
+--
+-- Mesma forma de `movimentos`, e pelo mesmo motivo: o saldo é `SUM`, nunca
+-- coluna. `clientes.saldo_credito` foi descartado de propósito — um número
+-- no cadastro não diz de onde veio, quando, nem quem mexeu, e duas
+-- requisições concorrentes num `UPDATE saldo = saldo - ?` perdem uma. É a
+-- Regra Fundamental nº 1, a mesma que proíbe `produtos.qtd` sem razão.
+--
+-- Crédito NÃO entra em `contasAReceber`: são eixos opostos. A conta a
+-- receber é dívida da cliente com a loja; o crédito é dívida da loja com a
+-- cliente. Somá-los num total só daria um número que não significa nada.
+CREATE TABLE IF NOT EXISTS credito_movimentos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  -- NOT NULL: crédito sem dona é dinheiro perdido. `garantias.cliente_id` é
+  -- anulável, então a emissão RECUSA e anuncia (§11, trava 1) em vez de
+  -- gravar NULL aqui — e §2 vale inteiro: nome não é identidade, ninguém
+  -- escolhe a dona pelo nome.
+  cliente_id INTEGER NOT NULL REFERENCES clientes(id),
+
+  -- credito  ganhou saldo (+) · consumo  usou (−)
+  -- estorno  contrapartida de uma linha, sinal oposto ao que desfaz
+  -- ajuste   correção manual, com motivo obrigatório (+ ou −)
+  tipo TEXT NOT NULL CHECK (tipo IN ('credito', 'consumo', 'estorno', 'ajuste')),
+
+  -- CENTAVOS INTEIROS desde o nascimento: tabela nova não tem legado, e
+  -- nascer em REAL seria criar dívida de 5.7 de propósito. `<> 0` porque
+  -- linha de valor zero não é movimento, é ruído.
+  valor_centavos INTEGER NOT NULL CHECK (valor_centavos <> 0),
+
+  origem    TEXT NOT NULL,   -- troca_garantia | venda | ajuste_manual | estorno
+  origem_id TEXT NOT NULL,   -- 'troca:7', 'venda:45'
+
+  -- Preenchido no consumo. O consumo é SEMPRE explícito: o sistema não
+  -- desconta crédito sozinho numa venda (§11, trava 3).
+  venda_id INTEGER REFERENCES vendas(id),
+
+  motivo    TEXT NOT NULL,
+  criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- A idempotência mora no banco, não na lógica que pode falhar: `troca:7`
+-- emite no máximo UMA linha de crédito, rode o que rodar.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_credito_origem
+  ON credito_movimentos(tipo, origem, origem_id);
+CREATE INDEX IF NOT EXISTS idx_credito_cliente
+  ON credito_movimentos(cliente_id, criado_em);
+
+-- SQLite não tem CHECK agregado, então "saldo nunca negativo" não cabe aqui:
+-- vira `GET /api/credito/conferir`, irmã de `GET /api/estoque/conferir`.
+-- Invariante que o banco não pode aplicar é melhor declarada como prova
+-- consultável do que fingida como constraint.
 
 -- ─── feriados, num lugar só
 -- O prazo da garantia é em DIAS ÚTEIS. Sábado e domingo o calendário
@@ -1623,3 +1865,111 @@ CREATE TABLE IF NOT EXISTS feriados (
   escopo    TEXT NOT NULL DEFAULT 'nacional',
   criado_em TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- O QUE `migracao-pos-golive-1.sql` CRIOU E NUNCA VOLTOU PARA CÁ
+--
+-- Estas duas tabelas e estes sete índices existem em produção desde o
+-- pós-go-live e são lidos por `produtos.js`, `inventario.js`, `variantes.js`,
+-- `pendencias.js`, `venda-correcao.js` e `pagamento-venda.js`. Não estavam
+-- neste arquivo. Consequência prática: um banco criado do zero pelo schema
+-- nascia sem duas tabelas que o código consulta — e só quem migrasse teria
+-- um banco completo.
+--
+-- `src/migracao-variantes-test.mjs` já declarava a divergência e a subtraía
+-- por nome, de propósito, para não escondê-la. Confirmada em 15/09/2026
+-- contra uma cópia real de produção: o DDL abaixo é IDÊNTICO ao que produção
+-- tem hoje e ao que a migration escreve — comparado instrução a instrução,
+-- não transcrito de memória. Com isto a lista de exceções daquele teste vai
+-- a zero.
+--
+-- Chegam no fim do arquivo porque referenciam `maletas`, `produtos`,
+-- `vendas`, `vendas_historico_itens` e `movimentos`, todas definidas acima.
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- ─── qual variação saiu na maleta
+--
+-- Tabela filha, e não uma coluna em `maleta_itens`: a chave de lá é
+-- (maleta_id, sku), uma linha por código. Uma coluna `variacao` obrigaria
+-- toda maleta a levar UMA variação por código — e uma maleta com dois anéis
+-- do mesmo código, um 16 e um 18, é o caso normal, não a exceção.
+--
+-- É tabela de IDENTIDADE, não de quantidade nova: a soma de `qtd` aqui nunca
+-- pode passar da `qtd` da linha em `maleta_itens`, e dizer qual variação saiu
+-- NÃO movimenta estoque. A peça já saiu quando a maleta foi aberta.
+CREATE TABLE IF NOT EXISTS maleta_item_variacoes (
+  maleta_id   INTEGER NOT NULL REFERENCES maletas(id),
+  sku         TEXT NOT NULL REFERENCES produtos(sku),
+  -- o NOME da variação, como em produto_variacoes.nome ("16", "45cm")
+  variacao    TEXT NOT NULL,
+  -- o id da variante na Nuvemshop, quando conhecido. NULL é honesto:
+  -- variação local que ainda não existe na loja não tem id nenhum.
+  variante_id TEXT,
+  qtd         INTEGER NOT NULL CHECK (qtd > 0),
+  -- quem disse, e quando. Identificação é decisão humana e fica registrada.
+  origem      TEXT NOT NULL DEFAULT 'humana',   -- humana | reconciliacao
+  observacao  TEXT,
+  definida_em TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (maleta_id, sku, variacao)
+);
+
+-- ─── auditoria da correção de SKU de uma venda já registrada
+--
+-- Esta tabela é a AUDITORIA da correção, não o dado corrigido: o SKU novo é
+-- gravado na própria linha da venda (é ela que a tela lê), e aqui fica
+-- registrado o que era antes, o que passou a ser, quem mexeu e o que
+-- aconteceu com o estoque. Sem isto, uma correção seria indistinguível de um
+-- erro de digitação novo.
+--
+-- `estoque_movido` responde à distinção que o pacote exige: venda OPERACIONAL
+-- baixou estoque pelo sistema e a correção precisa devolver uma unidade ao
+-- código errado e tirar uma do certo; linha HISTÓRICA importada já veio com o
+-- estoque refletido e corrigir o código não pode movimentar nada.
+CREATE TABLE IF NOT EXISTS venda_item_correcoes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  -- em qual população a venda vive
+  fonte TEXT NOT NULL CHECK (fonte IN ('operacional', 'historico')),
+  venda_id          INTEGER REFERENCES vendas(id),
+  historico_item_id INTEGER REFERENCES vendas_historico_itens(id),
+
+  sku_antes TEXT NOT NULL,
+  sku_depois TEXT NOT NULL,
+  desc_antes TEXT,
+  desc_depois TEXT,
+  variacao_antes TEXT,
+  variacao_depois TEXT,
+  variante_id_antes TEXT,
+  variante_id_depois TEXT,
+  -- preço só muda se alguém pedir explicitamente; NULL = não mexeu
+  preco_antes REAL,
+  preco_depois REAL,
+
+  -- 1 = houve devolução ao SKU errado e baixa no certo, uma vez cada.
+  -- 0 = histórico cujo estoque já estava refletido; nada foi movimentado.
+  estoque_movido INTEGER NOT NULL DEFAULT 0,
+  movimento_estorno_id INTEGER REFERENCES movimentos(id),
+  movimento_baixa_id   INTEGER REFERENCES movimentos(id),
+
+  motivo    TEXT,
+  criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+
+  CHECK (fonte <> 'operacional' OR venda_id IS NOT NULL),
+  CHECK (fonte <> 'historico'   OR historico_item_id IS NOT NULL)
+);
+
+CREATE INDEX IF NOT EXISTS idx_mitem_var_sku    ON maleta_item_variacoes(sku);
+CREATE INDEX IF NOT EXISTS idx_mitem_var_maleta ON maleta_item_variacoes(maleta_id);
+CREATE INDEX IF NOT EXISTS idx_vic_venda ON venda_item_correcoes(venda_id);
+CREATE INDEX IF NOT EXISTS idx_vic_hist  ON venda_item_correcoes(historico_item_id);
+CREATE INDEX IF NOT EXISTS idx_vic_data  ON venda_item_correcoes(criado_em);
+
+-- `maleta_itens` tem PRIMARY KEY (maleta_id, sku) e um índice por maleta_id —
+-- mas nenhum por sku. Toda consulta que pergunta "quanto deste código está em
+-- maleta aberta?" varria a tabela inteira, uma vez por produto.
+CREATE INDEX IF NOT EXISTS idx_maleta_itens_sku ON maleta_itens(sku);
+
+-- `SELECT * FROM produtos ORDER BY desc` é a primeira consulta de /api/state,
+-- que 50 pontos do painel chamam. Sem índice, o SQLite monta uma B-tree
+-- temporária e a leitura conta em dobro (1.544 linhas para 772 produtos).
+CREATE INDEX IF NOT EXISTS idx_produtos_desc ON produtos(desc);

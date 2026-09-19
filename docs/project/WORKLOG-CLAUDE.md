@@ -18,6 +18,76 @@ conversa, que sei de primeira mão serem meus. Commits feitos direto em
 
 ---
 
+## 2026-09-15 — A fila real de migrations, provada contra uma cópia de produção
+
+Autorizado pelo Gustavo: sandbox D1 novo e descartável, carregado de um export
+**read-only** de produção, para provar a fila de migrations pendentes e a
+preservação de dados. PROD sem uma única escrita — toda consulta voltou
+`rows_written: 0` e `changed_db: false`.
+
+### O que a cópia mostrou
+
+Produção está **11 migrations atrás** de `api/schema.sql`, não duas. A ordem
+autorizada inicialmente (sorteio, depois crédito) estava incompleta: as duas
+quebram na primeira instrução sem as nove anteriores, e `recebivel-versao` é
+pré-condição declarada da de crédito.
+
+O `marquesa-db-dev` não serve de prova: é o "DEV congelado" do go-live de
+22/08, 22 tabelas atrás. Ficou intacto.
+
+### Duas rodadas
+
+**Fase A** — a fila sobre a cópia fiel (42/42 tabelas batendo com produção,
+6.220 linhas). As 11 aplicadas uma a uma, conferência entre cada. Nenhuma
+linha perdida, nenhum campo preexistente alterado.
+
+**Fase B** — o teste de estresse. Produção tem UMA linha em `garantia_trocas`
+e ZERO em `saidas_sem_faturamento`: uma reconstrução que copia zero linha não
+prova preservação nenhuma. Zerei o sandbox, reimportei, plantei linhas
+sintéticas cobrindo todos os estados que o CHECK anterior aceitava, e rodei a
+fila inteira de novo.
+
+Resultado das três tabelas reconstruídas, campo a campo:
+
+| tabela | linhas | campos por linha | colunas acrescentadas |
+|---|---|---|---|
+| `garantia_trocas` | 6 → 6 | 17/17 iguais | `estornada`, `estorno_em`, `estorno_motivo`, `estorno_movimento_id`, `recebivel_versao` |
+| `saidas_sem_faturamento` | 3 → 3 | 21/21 iguais | `inventario_id` |
+| `historico_reclassificacao` | 2 → 2 | 10/10 iguais | — |
+
+Schema final contra `schema.sql`: **zero divergências** em tabelas, colunas,
+índices, triggers e CHECKs.
+
+### O conferidor pegou a minha própria semente
+
+`GET /api/financeiro/conferir` acusou uma divergência em
+`troca_a_receber_com_venda_paga`. Era semente minha: liguei uma troca
+`a_receber` a uma venda que já estava paga. Não é defeito de migration — e é a
+prova de que a verificação de 5.3f funciona sobre dado real. Ficou como está;
+consertar o dado para o painel ficar verde seria apagar a evidência.
+
+### Dois achados
+
+**`schema.sql` estava incompleto.** `maleta_item_variacoes` e
+`venda_item_correcoes` existem em produção, nascem em
+`migracao-pos-golive-1.sql` e são consultadas por seis módulos — e não estavam
+no schema. Banco novo nascia sem elas. O DDL que entrou foi derivado:
+comparado instrução a instrução contra produção e contra a migration, os três
+idênticos. Junto vieram os sete índices. A lista `SO_NO_MIGRADO` de
+`src/migracao-variantes-test.mjs` foi a zero — e a estrutura ficou de pé,
+vazia, porque é ela que obriga a próxima divergência a ser declarada por nome.
+
+**Produção não tem trigger nenhum.** Não é aplicação parcial: de
+`migracao-venda-item-id.sql` estão presentes 0 de 4 partes, e de
+`migracao-recebivel-versao.sql`, 0 de 5. Nenhuma das duas rodou. Não há drift
+e não é preciso migration corretiva — as duas são idempotentes e já estão na
+fila. Corrigida também a frase de `migracao-recebivel-versao.sql` que afirmava
+que os triggers de `venda-item-id` "vivem lá" em produção. Não vivem.
+
+Evidência completa em `state/dev-migrations/2026-09-15/` no Harness.
+
+---
+
 ## 2026-09-12 — A Fase 5.4 do Refactor fecha, e o painel para de dizer Fase 4
 
 | | |
@@ -452,3 +522,164 @@ Toda vez que Claude realizar trabalho significativo neste projeto:
 Uma tarefa some da lista de pendências de uma conversa de IA só quando
 está aqui, com data, commit e resultado. O que não está commitado não
 existe pra próxima sessão.
+
+---
+
+## 2026-09-14 — Fase 5.3d: o contrato de leitura do FIN-101
+
+**Task IDs tocados:** `FIN-101` (subfase 5.3d), `B9`.
+
+`GET /api/vendas/lista` passou a devolver o resumo financeiro **da venda** em
+centavos inteiros — `valorVenda`, `valorRecebido`, `valorAReceber`,
+`statusPagamento` — aninhado em `financeiro`, com `escopo: "venda"`. A rota
+devolve itens: a mesma venda aparece em várias linhas, e quatro chaves soltas
+convidariam a somar a coluna e obter o total multiplicado pelas peças.
+
+**O que a leitura se recusa a fazer.** `pago = 1` sem `valor_recebido`
+registrado devolve `valorRecebido: null` com a lacuna nomeada, e não
+`valorRecebido = valorVenda`: inventar isso seria reproduzir, na leitura, a
+contradição que B4 achou no banco. Saldo negativo aparece com `sobra: true` em
+vez de virar zero (B6). O status operacional é derivado de forma conservadora —
+sem recebimento conhecido, `nao_paga`, nunca `parcial`.
+
+`GET /api/contas-receber?status=paga` parou de devolver a metade histórica com
+forma de resposta completa: ganhou `cobertura`, que declara fonte por fonte e
+diz por que não é completa. O chamador existente não quebrou.
+
+**B9 fechado.** `PATCH /api/contas-receber/:id/vencimento` (zero call sites) e
+`POST /api/contas-receber/:id/marcar-paga` (duplicata de `/receber` com
+`chave: historico:<id>`, que delega para a mesma função) saíram. Os quatro
+chamadores foram migrados no mesmo commit; as funções continuam vivas. O
+inventário de contratos registra a aposentadoria com motivo, como ele mesmo
+exige.
+
+**Validação:** suíte nova `src/fin-101-5-3d-test.mjs`, 10 provas, registrada em
+`docs/testing/test-suites.json` no mesmo commit. Regressão local verde em
+`vendas-lista`, `vendas-reconstrucao`, `venda-item-id`, `garantia-venda-item`,
+`garantias-ciclo`, `fin-101-5-3a/b/c`, `reclassificacao-nao-venda`,
+`estoque-razao`, `phase0-artifacts`, `api-contracts`, `docs-links` e
+`governance-versioned`.
+
+**Limites:** nenhuma coluna virou centavos no banco (é 5.7); o `Math.max(0, …)`
+dentro de `contas-receber.js` continua onde estava; 5.3e/5.3f/5.7/5.8 não foram
+tocadas; nenhum escritor mudou; sem migration, sem DEV, sem PROD, sem deploy,
+sem push.
+
+---
+
+## 2026-09-14 — Fase 5.3e: a razão de crédito da cliente
+
+**Task IDs tocados:** `FIN-101` (subfase 5.3e).
+
+A regra é de 12/09/2026 e não tinha onde morar: troca com peça nova mais
+barata vira crédito da cliente, e o sistema registrava e parava. Agora existe
+`credito_movimentos` — razão por eventos, mesma forma de `movimentos`, saldo
+por `SUM` e nunca coluna. `clientes.saldo_credito` segue descartado.
+
+As quatro decisões da Sthefany viraram trava: sem coluna de validade (não
+expira), `cliente_id NOT NULL` com recusa nomeada em vez de crédito anônimo,
+saldo derivado, e legado sem cliente confiável continua em `pendente_regra`.
+Os dois estados dizem coisas diferentes e os dois continuam existindo:
+`pendente_regra` é diferença negativa SEM crédito lançado; `credito_emitido` é
+COM linha na razão.
+
+**Não estava no plano e apareceu ao ligar as pontas:** estornar uma troca que
+emitiu crédito precisa estornar o crédito. Sem isso a cliente ficaria com saldo
+de uma compra que não aconteceu, e como o saldo é derivado o furo apareceria
+como dinheiro. Contrapartida, nunca DELETE (§28).
+
+Três rotas novas: `GET /api/clientes/:id/credito` (saldo + extrato),
+`GET /api/credito/conferir` (a invariante `SUM >= 0`, irmã de
+`/api/estoque/conferir`) e `POST /api/credito/ajuste` (motivo obrigatório,
+recusa saldo negativo na escrita).
+
+**Migration `api/migracao-credito-cliente.sql`.** Parte 1 aditiva. Parte 2
+RECONSTRÓI `garantia_trocas` porque SQLite não altera CHECK — destrutiva no
+schema, mesmo caminho da migration de sorteio. **Escrita e provada localmente;
+não foi aplicada em ambiente nenhum.** Aplicar em DEV ou PROD exige backup,
+Time Travel e aprovação do Gustavo.
+
+**Validação:** suíte nova `src/credito-ledger-test.mjs` (19 provas), registrada
+em `docs/testing/test-suites.json` no mesmo commit. `garantias-ciclo` foi para
+129 provas, com duas novas de ponta a ponta — a troca negativa emitindo e o
+estorno devolvendo. `migracao-variantes-test` ganhou a comparação de DDL entre
+os dois caminhos (o CHECK escapava da conferência) e uma troca plantada na
+véspera, conferida campo a campo depois da reconstrução. Regressão local verde:
+28 suítes de `domain-pure`, 9 gates `fast`, `inventario-4-4`, `catalogo-4-5`,
+painel do projeto e build do legado.
+
+**Limites:** consumo de crédito não existe (é 5.8, e a tela é do Codex);
+nenhum crédito foi criado para o legado; `contasAReceber` não foi tocada;
+nenhuma coluna virou centavos (é 5.7); sem migration aplicada, sem DEV, sem
+PROD, sem deploy, sem push.
+
+---
+
+## 2026-09-14 — Fase 5.3f: a rede, e a razão contábil do dinheiro
+
+**Task IDs tocados:** `FIN-101` (subfase 5.3f). **Fase 5.3 fechada.**
+
+Dos dez gaps de teste de §9, sete já tinham caído nas subfases anteriores.
+Documentei ONDE cada um mora antes de escrever qualquer coisa — sem isso o
+próximo a passar por aqui reescreve o mesmo teste com outro nome. Sobraram G7,
+G9 e G10.
+
+**G7 — arredondamento.** Dinheiro ainda é REAL, e `0.1 + 0.2 !== 0.3`. Hoje o
+risco é contido porque `pago` é escrito, não comparado; ele nasce em 5.8,
+quando `PAGO` virar `SUM >= total`. A rede foi escrita antes: 137 contas de um
+centavo somando 137 centavos, resumo batendo com a soma das linhas, e a
+tolerância de um centavo provada nos dois sentidos — a conferência não acusa
+`0.1 + 0.2` de pagamento incompleto, porque régua que grita à toa é desligada.
+
+**G9 — a conta sem dona.** Venda `cliente_ambiguo = 1` continua na lista e no
+total, marcada, com o nome visível e **sem vínculo**: oferecer navegação seria
+escolher entre homônimas pela porta da tela.
+
+**G10 — `GET /api/financeiro/conferir`.** O gap estrutural: estoque tinha razão
+contábil verificável, recebíveis não tinham nada. Seis verificações, cada uma
+nascida de um defeito real desta auditoria (B4, B6, §28/B5, 5.3b, §29, 5.3e),
+cada uma carregando a origem na resposta. Ela **mede e não conserta** — e isso
+tem teste: consertar exige decidir quem pagou quanto e quando, e nenhum script
+decide isso sem inventar dinheiro. Todas as verificações voltam, inclusive as
+limpas: "nada apareceu" tem de ser distinguível de "nada foi olhado".
+
+**Validação:** suíte nova `src/fin-101-5-3f-test.mjs` (15 provas), registrada no
+mesmo commit. Regressão local verde nas 30 suítes de `domain-pure`, nos gates
+`fast`, `inventario-4-4`, `catalogo-4-5`, painel e build do legado.
+
+**Limites:** nada foi consertado — os defeitos que a conferência encontra
+continuam lá, agora visíveis; o `Math.max(0, …)` de `contas-receber.js`
+permanece; 5.7 e 5.8 não foram tocadas; sem migration, sem DEV, sem PROD, sem
+deploy, sem push.
+
+---
+
+## 2026-09-14 — Fase 5.6: vocabulário de canal e intervalo arbitrário
+
+**Task IDs tocados:** `VEN-101` / analytics (subfase 5.6).
+
+**A6.** O analytics ainda somava dois vocabulários na mesma coluna: `canal` era
+rótulo de tela do lado operacional (`Balcão`, `Site`) e texto de planilha do
+lado histórico (`Site`, `Instagram`, `Maleta`). `cteVendas` ganhou `origem` ao
+lado de `canal`, com a mesma regra de 5.1: bruto preservado, comum preenchido
+só onde a correspondência é mecânica, e `null` onde não é.
+`GET /api/analytics/origem` devolve os dois eixos e anuncia a fatia
+`indeterminado` com valor e participação. **`VEN-Q013` continua em aberto e não
+foi decidido** — classificar Instagram dentro de um SELECT seria decidir por
+produto.
+
+**A7.** `faixaDePeriodo()` passa a aceitar `{ de, ate }` além dos presets, e a
+faixa declara `periodo: 'personalizado'`. O que faltava mesmo era a recusa: ela
+caía em `tudo` diante de qualquer valor desconhecido, e para data isso devolve
+o faturamento inteiro da loja com cara de recorte pedido. Agora meia faixa, mês
+13, `2026-02-31` e ordem invertida são 400 com motivo, na porta.
+
+O intervalo desce para **todos** os blocos do painel. Sem isso, cabeçalho e
+cartões responderiam sobre recortes diferentes — B1 voltando por outra porta.
+
+**Validação:** suíte nova `src/analytics-recorte-canal-test.mjs` (11 provas),
+registrada no mesmo commit. Regressão local verde: 31 suítes de `domain-pure`,
+gates `fast`, `inventario-4-4`, `catalogo-4-5`, painel e build do legado.
+
+**Limites:** `resumoDoMes` e `historico-dia` têm recorte próprio e não foram
+tocados; nada de 5.7; sem migration, sem DEV, sem PROD, sem deploy, sem push.
