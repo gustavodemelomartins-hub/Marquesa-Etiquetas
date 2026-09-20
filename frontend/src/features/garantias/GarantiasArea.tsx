@@ -4,50 +4,26 @@ import { chamar, type Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { money, fmtData, hojeISO } from '../../domain/formato';
-import type { GarantiaDoPerfil } from '../clientes/tipos';
+import { AbrirGarantia } from './AbrirGarantia';
+import { PainelDaTroca } from './PainelDaTroca';
+import { ENCERRADOS, PENDENTES, STATUS, type Garantia } from './tipos';
+import type { AppState } from '../../types/api';
+import type { ProdutoDoEstado } from '../vendas/tipos';
 
-/** A garantia como o backend a projeta, com o relógio já calculado. */
-export interface Garantia extends GarantiaDoPerfil {
-  origemFonte: string;
-  vendaItemId: string | null;
-  /** 5.2b — `ambiguo` e `sem_match` são as garantias que o backfill se
-   *  recusou a adivinhar. A tela precisa poder dizer isso. */
-  vendaItemVinculo: string | null;
-  garantiaAnteriorId: number | null;
-  reabertura: { deGarantiaId: number; diasUteisDesdeAEntrega: number | null } | null;
-  clienteId: number | null;
-  clienteNome: string | null;
-  clienteNomeNorm: string | null;
-  valorPagoOriginal: number | null;
-  previsaoRetorno: string | null;
-  prazoDiasUteis: number | null;
-  diasUteisDecorridos: number | null;
-  diasUteisRestantes: number | null;
-  atrasado: boolean;
-  atrasoDiasUteis: number;
-  relogioParado: boolean;
-  eventos: {
-    id: number; tipo: string; data: string; statusNovo: string | null;
-    statusRotulo: string | null; observacao: string | null;
-  }[];
-}
-
-const STATUS: { id: string; rotulo: string }[] = [
-  { id: 'em_reparo', rotulo: 'Em reparo' },
-  { id: 'reparada', rotulo: 'Reparada · aguardando entrega' },
-  { id: 'sem_conserto', rotulo: 'Sem conserto · troca autorizada' },
-  { id: 'devolvida', rotulo: 'Peça devolvida' },
-  { id: 'concluida', rotulo: 'Concluída' },
-  { id: 'cancelada', rotulo: 'Cancelada' },
-];
-const PENDENTES = ['em_reparo', 'reparada', 'sem_conserto'];
-const ENCERRADOS = ['devolvida', 'concluida', 'cancelada'];
+/* A forma da garantia, os rótulos de status e as duas listas de estado moram
+   em `./tipos.ts`: a ficha da cliente lê a MESMA resposta, e um contrato
+   descrito dentro de um componente é um contrato que a próxima tela
+   redescreve. */
 
 interface Props {
   conexao: Connection;
   sub: string | null;
   aoNavegar: (sub: string | null) => void;
   aoAbrirCliente: (chave: { id: number } | { norm: string }) => void;
+  /** `GET /api/state`, que o App já leu. A troca escolhe a peça nova nele —
+   *  e só peça ativa com saldo, porque trocar por algo que não existe
+   *  deixaria o estoque negativo. */
+  estado: AppState | null;
 }
 
 /** GARANTIAS, REPAROS E TROCAS — o que está em andamento e o que espera
@@ -61,9 +37,11 @@ interface Props {
  *  atendimento novo ligado ao anterior, e não trocar o status do caso
  *  antigo, que apagaria a história.
  */
-export function GarantiasArea({ conexao, sub, aoNavegar, aoAbrirCliente }: Props) {
+export function GarantiasArea({ conexao, sub, aoNavegar, aoAbrirCliente, estado }: Props) {
   const filtro = sub && STATUS.some((s) => s.id === sub) ? sub : (sub === 'todas' ? null : 'pendentes');
   const [aberta, setAberta] = useState<number | null>(null);
+  const [abrindo, setAbrindo] = useState(false);
+  const produtos = (estado?.produtos ?? []) as unknown as ProdutoDoEstado[];
 
   const lista = useApi(
     (s) => chamar<{ garantias: Garantia[] }>(
@@ -91,6 +69,12 @@ export function GarantiasArea({ conexao, sub, aoNavegar, aoAbrirCliente }: Props
             O que está em andamento e o que espera uma ação nossa. O prazo é
             em dias úteis, e ele para quando o caso encerra.
           </p>
+        </div>
+        <div className="mq-pagehead__actions">
+          <button type="button" className="mq-btn mq-btn--primary" onClick={() => setAbrindo(true)}>
+            <Icone nome="plus" />
+            A peça voltou
+          </button>
         </div>
       </div>
 
@@ -174,10 +158,23 @@ export function GarantiasArea({ conexao, sub, aoNavegar, aoAbrirCliente }: Props
         )}
       </section>
 
+      {abrindo && (
+        <AbrirGarantia
+          conexao={conexao}
+          aoFechar={() => setAbrindo(false)}
+          aoAbrir={(id) => {
+            setAbrindo(false);
+            lista.recarregar();
+            setAberta(id);
+          }}
+        />
+      )}
+
       {aberta !== null && (
         <Caso
           conexao={conexao}
           id={aberta}
+          produtos={produtos}
           aoFechar={() => setAberta(null)}
           aoMudar={lista.recarregar}
           aoAbrirCliente={aoAbrirCliente}
@@ -190,10 +187,11 @@ export function GarantiasArea({ conexao, sub, aoNavegar, aoAbrirCliente }: Props
 /* ───────────────────────────────────────────────────────────── o caso */
 
 function Caso({
-  conexao, id, aoFechar, aoMudar, aoAbrirCliente,
+  conexao, id, produtos, aoFechar, aoMudar, aoAbrirCliente,
 }: {
   conexao: Connection;
   id: number;
+  produtos: ProdutoDoEstado[];
   aoFechar: () => void;
   aoMudar: () => void;
   aoAbrirCliente: (chave: { id: number } | { norm: string }) => void;
@@ -355,6 +353,13 @@ function Caso({
                   </span>
                 </p>
               )}
+
+              <PainelDaTroca
+                conexao={conexao}
+                garantia={g}
+                produtos={produtos}
+                aoMudar={() => { caso.recarregar(); aoMudar(); }}
+              />
 
               <section>
                 <h3 className="mq-subtitle">O que aconteceu</h3>

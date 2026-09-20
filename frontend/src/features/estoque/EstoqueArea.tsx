@@ -42,6 +42,12 @@ interface Props {
   planejamento: UsoPlanejamento;
   aoVerPlanejamento: () => void;
   aoMudarEstoque: () => void;
+  /** A sub-rota DENTRO da Nuvemshop (`publicacao`). Ela desce até aqui
+   *  porque Nuvemshop é módulo de primeiro nível no trilho E aba de
+   *  Estoque: são duas PORTAS para a mesma tela, e o endereço tem de
+   *  funcionar pelas duas. */
+  subNuvemshop?: string | null;
+  aoNavegarNuvemshop?: (sub: string | null) => void;
 }
 
 /** A área "Estoque" — as telas que hoje mexem em quantidade física: a
@@ -61,6 +67,8 @@ export function EstoqueArea({
   planejamento,
   aoVerPlanejamento,
   aoMudarEstoque,
+  subNuvemshop,
+  aoNavegarNuvemshop,
 }: Props) {
   const [contagemPendencias] = useState<number | undefined>(
     analise ? analise.itens.length : undefined,
@@ -112,7 +120,14 @@ export function EstoqueArea({
         />
       )}
 
-      {sub === 'nuvemshop' && <NuvemshopPage conexao={conexao} aoAnalisar={aoAnalisar} />}
+      {sub === 'nuvemshop' && (
+        <NuvemshopPage
+          conexao={conexao}
+          aoAnalisar={aoAnalisar}
+          sub={subNuvemshop ?? null}
+          aoNavegarSub={aoNavegarNuvemshop}
+        />
+      )}
 
       {sub === 'pendencias' && (
         <ReconciliacaoPage

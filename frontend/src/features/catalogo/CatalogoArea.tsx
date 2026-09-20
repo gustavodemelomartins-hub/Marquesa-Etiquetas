@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { chamar, type Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
+import { PainelDeVariacoes } from './PainelDeVariacoes';
 import { money } from '../../domain/formato';
 import type { AppState } from '../../types/api';
 import type { ProdutoDoEstado } from '../vendas/tipos';
 
 const COLUNAS = {
-  gridTemplateColumns: 'minmax(0,2.2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)',
+  gridTemplateColumns: 'minmax(0,2.2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto',
 };
 const STATUS = ['ativo', 'inativo', 'arquivado'];
 
@@ -32,6 +33,7 @@ export function CatalogoArea({ conexao, estado, aoMudar }: Props) {
   const [busca, setBusca] = useState('');
   const [status, setStatus] = useState('ativo');
   const [editando, setEditando] = useState<ProdutoDoEstado | null>(null);
+  const [vendoVariacoes, setVendoVariacoes] = useState<string | null>(null);
 
   const produtos = (estado?.produtos ?? []) as unknown as ProdutoDoEstado[];
   const categorias = useMemo(
@@ -117,13 +119,14 @@ export function CatalogoArea({ conexao, estado, aoMudar }: Props) {
               <span>Categoria</span>
               <span>Preço</span>
               <span>Situação</span>
+              <span>Variações</span>
             </div>
             {lista.map((p) => (
-              <button type="button" className="mq-tr" key={p.sku} style={COLUNAS} onClick={() => setEditando(p)}>
-                <span className="mq-cell">
+              <div className="mq-tr" role="row" key={p.sku} style={COLUNAS}>
+                <button type="button" className="mq-cell" onClick={() => setEditando(p)}>
                   <b>{p.desc}</b>
                   <small>{p.sku}</small>
-                </span>
+                </button>
                 <span className="mq-cell"><b>{p.cat}</b></span>
                 <span className="mq-cell mq-cell--num" data-label="Preço">
                   <b className="mq-money">{p.preco === null ? '—' : money(p.preco)}</b>
@@ -135,11 +138,29 @@ export function CatalogoArea({ conexao, estado, aoMudar }: Props) {
                   </span>
                   {p.fotoStatus === 'sem_foto' && <small>sem foto</small>}
                 </span>
-              </button>
+                <span className="mq-cell">
+                  <button
+                    type="button"
+                    className="mq-btn mq-btn--link mq-btn--sm"
+                    onClick={() => setVendoVariacoes(p.sku)}
+                  >
+                    Ver variações
+                  </button>
+                </span>
+              </div>
             ))}
           </div>
         )}
       </section>
+
+      {vendoVariacoes && (
+        <PainelDeVariacoes
+          conexao={conexao}
+          sku={vendoVariacoes}
+          aoFechar={() => setVendoVariacoes(null)}
+          aoMudarEstoque={aoMudar}
+        />
+      )}
 
       {editando && (
         <EditarPeca

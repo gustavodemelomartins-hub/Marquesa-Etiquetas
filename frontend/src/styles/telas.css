@@ -1,0 +1,105 @@
+/* =============================================================================
+   TELAS — o que é DA TELA e não do casco nem da linguagem
+   -----------------------------------------------------------------------------
+   `marquesa.css` é a linguagem, e ela é byte a byte a mesma do protótipo: uma
+   classe nova escrita lá divergiria das duas cópias no dia seguinte. `shell.css`
+   é o casco. O que sobra — o passo dobrável da venda, o rodapé de totais, o
+   cartão de escolha de lançamento — mora aqui.
+
+   Tudo abaixo usa SÓ os tokens da linguagem. Nenhum hex solto: uma cor escrita
+   à mão é a forma mais rápida de uma tela deixar de parecer o mesmo produto.
+
+   As cinco larguras de referência da V2 são 320, 390, 768, 1024 e 1440, e o
+   390 manda — é o telefone em que a venda é lançada de pé, no balcão.
+   ========================================================================== */
+
+/* ------------------------------------------- cartão de escolha (hub) --- */
+
+.mq-escolha {
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--mq-2);
+  text-align: left; cursor: pointer; border: 1px solid var(--mq-line);
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+.mq-escolha:hover, .mq-escolha:focus-visible {
+  border-color: var(--mq-wine-300);
+  box-shadow: var(--mq-sh-2);
+}
+.mq-escolha .mq-lede { flex: 1; }
+.mq-escolha .mq-btn { pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .mq-escolha:hover { transform: translateY(-1px); }
+}
+
+/* ------------------------------------------------- o passo dobrável --- */
+
+/* O passo FECHADO continua mostrando o resumo dele. É o que permite conferir
+   o carrinho estando no pagamento, sem desfazer dois passos. */
+.mq-passo { overflow: hidden; }
+.mq-passo__cabeca {
+  display: flex; align-items: center; gap: var(--mq-3); width: 100%;
+  padding: var(--mq-4) var(--mq-5); background: none; border: 0; cursor: pointer;
+  text-align: left; color: inherit; font: inherit;
+}
+.mq-passo__cabeca:hover { background: var(--mq-line-3); }
+.mq-passo__cabeca .mq-item__side { margin-left: auto; text-align: right; }
+.mq-passo__cabeca > svg:last-child { color: var(--mq-faint); flex: none; transition: transform .15s; }
+.mq-passo.is-open > .mq-passo__cabeca { border-bottom: 1px solid var(--mq-line-2); }
+.mq-passo.is-open > .mq-passo__cabeca > svg:last-child { transform: rotate(180deg); }
+.mq-passo > .mq-card__body { padding: var(--mq-5); }
+@media (max-width: 600px) {
+  .mq-passo__cabeca { padding: var(--mq-3) var(--mq-4); }
+  .mq-passo > .mq-card__body { padding: var(--mq-4); }
+  /* O resumo do passo compete com o título numa tela de 390px: ele desce. */
+  .mq-passo__cabeca { flex-wrap: wrap; }
+  .mq-passo__cabeca .mq-item__side { width: 100%; text-align: left; margin-left: 0; }
+}
+
+/* ----------------------------------------- rodapé de totais da venda --- */
+
+/* Grudado embaixo: no telefone, o total e o botão de finalizar não podem
+   depender de rolar até o fim de um carrinho de doze peças. */
+.mq-venda-rodape {
+  position: sticky; bottom: 0; z-index: 30;
+  display: flex; align-items: center; gap: var(--mq-4); flex-wrap: wrap;
+  padding: var(--mq-3) var(--mq-5);
+  margin-top: var(--mq-4);
+  background: var(--mq-paper); border: 1px solid var(--mq-line);
+  border-radius: var(--mq-r-md); box-shadow: var(--mq-sh-2);
+}
+.mq-venda-rodape > .mq-spread { flex: 1; gap: var(--mq-5); flex-wrap: wrap; }
+.mq-venda-rodape .mq-btn { margin-left: auto; }
+/* A barra inferior do telefone nasce em 900px (`shell.css`), e é aí que o
+   rodapé grudado precisa subir — senão ele fica DEBAIXO dela e o botão de
+   finalizar a venda some atrás da navegação. 62px é a altura da barra: 56 de
+   botão mais os dois respiros de 3px. */
+@media (max-width: 900px) {
+  .mq-venda-rodape {
+    bottom: calc(62px + env(safe-area-inset-bottom, 0px));
+  }
+}
+@media (max-width: 600px) {
+  .mq-venda-rodape { padding: var(--mq-3) var(--mq-4); }
+  .mq-venda-rodape > .mq-spread { width: 100%; gap: var(--mq-3); font-size: 12.5px; }
+  .mq-venda-rodape .mq-btn { margin-left: 0; width: 100%; }
+}
+
+/* ------------------------------------------------ cartões acionáveis --- */
+
+/* Um KPI que leva a algum lugar precisa PARECER que leva. Sem isto, o cartão
+   de "a receber" que abre o Financeiro fica indistinguível dos que não abrem
+   nada, e ninguém clica. */
+.mq-kpi--acionavel {
+  cursor: pointer; text-align: left; font: inherit; color: inherit;
+  transition: border-color .15s, box-shadow .15s;
+}
+.mq-kpi--acionavel:hover, .mq-kpi--acionavel:focus-visible {
+  border-color: var(--mq-wine-300); box-shadow: var(--mq-sh-2);
+}
+.mq-kpi--acionavel .mq-kpi__foot::after { content: " ›"; color: var(--mq-wine-600); }
+
+.mq-note--acionavel {
+  width: 100%; cursor: pointer; text-align: left; font: inherit;
+  align-items: center;
+}
+.mq-note--acionavel > svg:last-child { margin-left: auto; flex: none; }
+

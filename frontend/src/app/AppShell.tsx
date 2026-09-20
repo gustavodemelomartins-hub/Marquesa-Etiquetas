@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { DevBadge } from './DevBadge';
-import { BuscaGlobalClientes } from './BuscaGlobalClientes';
+import { BuscaGlobal } from './BuscaGlobal';
 import { Icone } from '../components/Icone';
 import { LogoMarquesa } from '../components/LogoMarquesa';
 import { GRUPOS, NO_TELEFONE, acharModulo, grupoDe, type ModuloId } from './modulos';
 import type { Connection } from '../services/client';
+import type { AppState } from '../types/api';
 
 /** Nome antigo do tipo, mantido porque o resto do código já o escreve. O
  *  conceito é o mesmo: a área principal onde a usuária está. */
@@ -14,6 +15,12 @@ interface Props {
   conexao: Connection;
   modulo: ModuloId;
   aoNavegar: (m: ModuloId) => void;
+  /** Ir para um módulo E uma sub-rota — é o que a busca global precisa para
+   *  abrir a ficha de uma cliente, e não só o módulo Clientes. */
+  aoNavegarPara?: (destino: { modulo: ModuloId; sub: string | null }) => void;
+  /** `GET /api/state`, que o App já leu. A busca procura peça e revendedora
+   *  nele sem uma requisição a mais. */
+  estado?: AppState | null;
   /** Contagens que o trilho mostra ao lado do módulo — pendências, avisos.
    *  Só entram as que alguém precisa ver de longe. */
   contagens?: Partial<Record<ModuloId, number>>;
@@ -35,15 +42,20 @@ interface Props {
  *  não é.
  */
 export function AppShell({
-  conexao, modulo, aoNavegar, contagens, aoDesconectar, children,
+  conexao, modulo, aoNavegar, aoNavegarPara, estado, contagens, aoDesconectar, children,
 }: Props) {
   const atual = acharModulo(modulo);
   const [gavetaAberta, setGavetaAberta] = useState(false);
+  /* No telefone a busca não cabe ao lado do nome do módulo — ela era
+     escondida por CSS, e o resultado é que quem usa o sistema DE PÉ, no
+     balcão, não tinha busca nenhuma. Agora ela abre numa faixa que ocupa a
+     barra inteira, e o botão que a abre fica onde o polegar alcança. */
+  const [buscaAberta, setBuscaAberta] = useState(false);
   const burger = useRef<HTMLButtonElement>(null);
 
   /* Navegar fecha a gaveta: no telefone ela cobre a tela inteira, e deixá-la
      aberta em cima do destino esconde exatamente o que se foi buscar. */
-  useEffect(() => { setGavetaAberta(false); }, [modulo]);
+  useEffect(() => { setGavetaAberta(false); setBuscaAberta(false); }, [modulo]);
 
   /* Esc fecha, e o foco volta para o botão que abriu — senão ele cai no
      começo da página e quem navega por teclado se perde. */
@@ -140,11 +152,29 @@ export function AppShell({
             <span className="mq-topbar__grupo">· {grupoDe(modulo)}</span>
           </div>
 
-          <div className="mq-topbar__search">
-            <BuscaGlobalClientes conexao={conexao} />
+          <div className={buscaAberta ? 'mq-topbar__search is-aberta' : 'mq-topbar__search'}>
+            <BuscaGlobal
+              conexao={conexao}
+              estado={estado ?? null}
+              aoNavegar={(d) => {
+                setBuscaAberta(false);
+                if (aoNavegarPara) aoNavegarPara(d);
+                else aoNavegar(d.modulo);
+              }}
+            />
           </div>
 
           <div className="mq-topbar__tools">
+            {/* Só no telefone: acima da gaveta, a busca já está aberta. */}
+            <button
+              type="button"
+              className="mq-iconbtn mq-busca-botao"
+              aria-label={buscaAberta ? 'Fechar busca' : 'Buscar'}
+              aria-expanded={buscaAberta}
+              onClick={() => setBuscaAberta((v) => !v)}
+            >
+              <Icone nome={buscaAberta ? 'close' : 'search'} />
+            </button>
             <DevBadge />
             <button
               type="button"

@@ -1,4 +1,6 @@
 import { chamar, type Connection } from '../../services/client';
+import { buscarPainelAnalytics } from '../../domain/analytics';
+import { listarSaidas } from '../saidas/api';
 import type {
   Conferencia, ConferenciaCredito, ContasAReceber, LancamentosDoDia,
   PainelFinanceiro, Recorte, Saidas, VendasDoDia,
@@ -17,21 +19,14 @@ import type {
  *    GET  /api/saidas                               §30, o que saiu sem faturar
  */
 
-function comRecorte(base: string, r: Recorte): string {
-  const q = new URLSearchParams();
-  if (r.de && r.ate) {
-    q.set('de', r.de);
-    q.set('ate', r.ate);
-  } else {
-    q.set('periodo', r.periodo);
-  }
-  return `${base}?${q}`;
-}
+/* `comRecorte` e o painel agregado moram em `domain/analytics.ts`: Vendas
+   faz as MESMAS perguntas sobre o MESMO recorte, e duas montagens da mesma
+   query string é a forma mais barata de as duas telas discordarem. */
 
 export function buscarPainel(
   conexao: Connection, recorte: Recorte, sinal?: AbortSignal,
 ): Promise<PainelFinanceiro> {
-  return chamar(conexao, 'GET', comRecorte('/api/analytics/painel', recorte), undefined, { signal: sinal });
+  return buscarPainelAnalytics(conexao, recorte, sinal);
 }
 
 export function buscarAReceber(
@@ -60,8 +55,10 @@ export function buscarVendasDoDia(
   return chamar(conexao, 'GET', `/api/vendas/dia?data=${data}`, undefined, { signal: sinal });
 }
 
+/** §30. O adaptador canônico mora em `features/saidas/api.ts` — Financeiro
+ *  só reexporta o recorte que ele usa. */
 export function buscarSaidas(conexao: Connection, sinal?: AbortSignal): Promise<Saidas> {
-  return chamar(conexao, 'GET', '/api/saidas?limite=200', undefined, { signal: sinal });
+  return listarSaidas(conexao, { limite: 200 }, sinal);
 }
 
 /** Marcar a conta como recebida.
