@@ -14,13 +14,13 @@ consegue fazer.
 
 | | capacidades |
 |---|---|
-| 🟢 pronta | 93 |
-| 🟡 parcial | 2 |
-| ⚪ pendente — o backend tem, a tela não | 8 |
+| 🟢 pronta | 99 |
+| 🟡 parcial | 3 |
+| ⚪ pendente — o backend tem, a tela não | 5 |
 | ⛔ indisponível — o backend não sustenta | 12 |
-| **total** | **115** |
+| **total** | **119** |
 
-**93 de 103** capacidades que o backend sustenta já estão
+**99 de 107** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
@@ -159,16 +159,20 @@ Autoridade de UX: `/prototype/revendedoras/` · 🟢 7 · 🟡 1 · ⚪ 0 · ⛔
 
 ## Garantias, reparos e trocas
 
-Autoridade de UX: `/prototype/garantias/` · 🟢 3 · 🟡 0 · ⚪ 3 · ⛔ 0
+Autoridade de UX: `/prototype/garantias/` · 🟢 9 · 🟡 1 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
 | Casos, com filtro por status | 🟢 pronta | `#/garantias` | — |
-| Abrir garantia | ⚪ pendente | — | `POST /api/garantias` existe no Worker e a V2 nao o chama: ela LE os casos e muda o status deles, mas um caso novo so nasce hoje pelo painel classico. E o buraco mais caro do modulo, porque e o comeco do fluxo inteiro. |
+| Abrir garantia, a partir da compra | 🟢 pronta | `features/garantias/AbrirGarantia.tsx` | — |
+| Duas peças iguais na compra: a tela pergunta | 🟢 pronta | `features/garantias/AbrirGarantia.tsx` | — |
 | Mudar status, com observação | 🟢 pronta | `features/garantias/GarantiasArea.tsx` | — |
 | Prazo em dias úteis | 🟢 pronta | `features/garantias/GarantiasArea.tsx` | — |
-| Troca, diferença e estorno | ⚪ pendente | — | `POST /api/garantias/:id/troca`, `/troca/pagar` e `/troca/estornar` existem (Fase 5.4). A V2 mostra o caso e muda status, mas ainda não registra a troca. |
-| Vínculo com o item da venda | ⚪ pendente | — | `GET /api/garantias/vinculos` devolve o `venda_item_id`. A tela ainda não o usa para amarrar o caso à peça vendida. |
+| Registrar a troca | 🟢 pronta | `features/garantias/PainelDaTroca.tsx` | — |
+| Receber a diferença, com a data efetiva | 🟢 pronta | `features/garantias/PainelDaTroca.tsx` | — |
+| Peça mais barata vira crédito, não cobrança | 🟢 pronta | `features/garantias/PainelDaTroca.tsx` | — |
+| Estornar a troca, com motivo | 🟢 pronta | `features/garantias/PainelDaTroca.tsx` | — |
+| Vínculo com o item da venda | 🟡 parcial | `features/garantias/api.ts` | O caso ABRE amarrado à linha da compra, e a tela diz quando o vínculo é `ambiguo` ou `sem_match`. Falta a tela de MUTIRÃO — `GET /api/garantias/vinculos` lista os casos antigos sem ponteiro, e resolvê-los em lote ainda é trabalho do painel clássico. |
 
 ## Nuvemshop
 

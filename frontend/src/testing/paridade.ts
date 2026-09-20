@@ -496,14 +496,15 @@ export const PARIDADE: ModuloDeParidade[] = [
     capacidades: [
       {
         id: 'garantias.lista', rotulo: 'Casos, com filtro por status', estado: 'pronta', rota: '#/garantias',
-        prova: { arquivo: `${F}/features/garantias/GarantiasArea.tsx`, contem: 'em_reparo' },
+        prova: { arquivo: `${F}/features/garantias/tipos.ts`, contem: 'em_reparo' },
       },
       {
-        id: 'garantias.abrir', rotulo: 'Abrir garantia', estado: 'pendente',
-        porque: '`POST /api/garantias` existe no Worker e a V2 nao o chama: ela '
-          + 'LE os casos e muda o status deles, mas um caso novo so nasce hoje '
-          + 'pelo painel classico. E o buraco mais caro do modulo, porque e o '
-          + 'comeco do fluxo inteiro.',
+        id: 'garantias.abrir', rotulo: 'Abrir garantia, a partir da compra', estado: 'pronta',
+        prova: { arquivo: `${F}/features/garantias/AbrirGarantia.tsx`, contem: 'A peça voltou' },
+      },
+      {
+        id: 'garantias.ambiguidade', rotulo: 'Duas peças iguais na compra: a tela pergunta', estado: 'pronta',
+        prova: { arquivo: `${F}/features/garantias/AbrirGarantia.tsx`, contem: 'Qual peça voltou?' },
       },
       {
         id: 'garantias.status', rotulo: 'Mudar status, com observação', estado: 'pronta',
@@ -514,15 +515,36 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/garantias/GarantiasArea.tsx`, contem: 'prazo' },
       },
       {
-        id: 'garantias.troca', rotulo: 'Troca, diferença e estorno', estado: 'pendente',
-        porque: '`POST /api/garantias/:id/troca`, `/troca/pagar` e `/troca/estornar` '
-          + 'existem (Fase 5.4). A V2 mostra o caso e muda status, mas ainda não '
-          + 'registra a troca.',
+        id: 'garantias.troca', rotulo: 'Registrar a troca', estado: 'pronta',
+        prova: { arquivo: `${F}/features/garantias/PainelDaTroca.tsx`, contem: 'Registrar troca' },
       },
       {
-        id: 'garantias.vinculo', rotulo: 'Vínculo com o item da venda', estado: 'pendente',
-        porque: '`GET /api/garantias/vinculos` devolve o `venda_item_id`. A tela '
-          + 'ainda não o usa para amarrar o caso à peça vendida.',
+        id: 'garantias.diferenca', rotulo: 'Receber a diferença, com a data efetiva', estado: 'pronta',
+        prova: { arquivo: `${F}/features/garantias/PainelDaTroca.tsx`, contem: 'Recebi a diferença' },
+      },
+      {
+        id: 'garantias.credito', rotulo: 'Peça mais barata vira crédito, não cobrança', estado: 'pronta',
+        prova: { arquivo: `${F}/features/garantias/PainelDaTroca.tsx`, contem: 'crédito <b>da cliente</b>' },
+      },
+      {
+        id: 'garantias.estorno', rotulo: 'Estornar a troca, com motivo', estado: 'pronta',
+        prova: { arquivo: `${F}/features/garantias/PainelDaTroca.tsx`, contem: 'Estornar troca' },
+      },
+      {
+        id: 'garantias.vinculo', rotulo: 'Vínculo com o item da venda', estado: 'parcial',
+        porque: 'O caso ABRE amarrado à linha da compra, e a tela diz quando o '
+          + 'vínculo é `ambiguo` ou `sem_match`. Falta a tela de MUTIRÃO — '
+          + '`GET /api/garantias/vinculos` lista os casos antigos sem ponteiro, e '
+          + 'resolvê-los em lote ainda é trabalho do painel clássico.',
+        prova: { arquivo: `${F}/features/garantias/api.ts`, contem: 'buscarVinculos' },
+      },
+      {
+        id: 'garantias.credito-destino', rotulo: 'Lançar o crédito da troca na conta da cliente',
+        estado: 'indisponivel',
+        porque: 'O servidor CALCULA o crédito (`creditoAoCliente`) e não o lança em '
+          + 'lugar nenhum: onde ele mora depende da arquitetura financeira, que '
+          + 'ainda não existe. A tela mostra o valor e diz exatamente isso.',
+        prova: { arquivo: `${F}/features/garantias/PainelDaTroca.tsx`, contem: 'arquitetura' },
       },
     ],
   },

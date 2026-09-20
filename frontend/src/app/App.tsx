@@ -142,6 +142,7 @@ function AppConectado({
           sub={rota.sub}
           aoNavegar={(sub) => trocar({ modulo: 'garantias', sub })}
           aoAbrirCliente={abrirCliente}
+          estado={estado.dados}
         />
       )}
 
