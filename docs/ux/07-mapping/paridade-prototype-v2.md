@@ -14,13 +14,13 @@ consegue fazer.
 
 | | capacidades |
 |---|---|
-| 🟢 pronta | 102 |
+| 🟢 pronta | 108 |
 | 🟡 parcial | 3 |
-| ⚪ pendente — o backend tem, a tela não | 4 |
-| ⛔ indisponível — o backend não sustenta | 12 |
-| **total** | **121** |
+| ⚪ pendente — o backend tem, a tela não | 3 |
+| ⛔ indisponível — o backend não sustenta | 14 |
+| **total** | **128** |
 
-**102 de 109** capacidades que o backend sustenta já estão
+**108 de 114** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
@@ -116,7 +116,7 @@ Autoridade de UX: `/prototype/estoque/` · 🟢 7 · 🟡 0 · ⚪ 0 · ⛔ 2
 
 ## Inventário
 
-Autoridade de UX: `/prototype/estoque/#inventario` · 🟢 8 · 🟡 0 · ⚪ 0 · ⛔ 0
+Autoridade de UX: `/prototype/estoque/#inventario` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -125,20 +125,23 @@ Autoridade de UX: `/prototype/estoque/#inventario` · 🟢 8 · 🟡 0 · ⚪ 0 
 | Desfazer contagem — voltar a não contado | 🟢 pronta | `features/inventario/InventarioArea.tsx` | — |
 | Pausar e continuar | 🟢 pronta | `features/inventario/InventarioArea.tsx` | — |
 | Concluir e congelar o retrato | 🟢 pronta | `features/inventario/InventarioArea.tsx` | — |
+| Resultado: faltando, sobrando, não conferido, não comparável | 🟢 pronta | `features/inventario/resultado.ts` | — |
 | Aplicar os ajustes escolhidos | 🟢 pronta | `features/inventario/resultado.ts` | — |
 | Zero explícito ≠ não contado | 🟢 pronta | `features/inventario/resultado.ts` | — |
 | Histórico de contagens | 🟢 pronta | `features/inventario/InventarioArea.tsx` | — |
 
 ## Catálogo
 
-Autoridade de UX: `/prototype/catalogo/` · 🟢 3 · 🟡 0 · ⚪ 3 · ⛔ 0
+Autoridade de UX: `/prototype/catalogo/` · 🟢 5 · 🟡 0 · ⚪ 2 · ⛔ 1
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
 | Produtos com busca e filtro | 🟢 pronta | `#/catalogo` | — |
 | Editar nome, preço, categoria e situação | 🟢 pronta | `features/catalogo/CatalogoArea.tsx` | — |
-| Galeria de fotos da peça | ⚪ pendente | — | `GET/POST /api/produtos/:sku/galeria`, ordem, principal e aprovação existem no Worker inteiros. A tela da V2 ainda não os consome — é o maior buraco do módulo. |
-| Variações da peça | ⚪ pendente | — | `PUT /api/produtos/:sku/variacoes` e `GET /api/variacoes/revisao` existem. A V2 ainda não tem a tela. |
+| Galeria de fotos da peça | ⛔ indisponível | — | As rotas de gerir a galeria existem (`GET/POST /api/produtos/:sku/galeria`, ordem, principal, aprovar), mas NENHUMA ROTA SERVE OS BYTES dela: `/api/produtos/:sku/foto/:versao` lê `produtos.foto_original_key`/`foto_tratada_key`, e as fotos da galeria moram em `produto_fotos.original_key`/`preparada_key`, sem link assinado que um `<img>` possa abrir. Uma galeria que lista e não mostra imagem é pior que nenhuma. Destravar isto é uma rota nova no servidor, não uma tela. |
+| Variações da peça, com o saldo de cada uma | 🟢 pronta | `features/catalogo/PainelDeVariacoes.tsx` | — |
+| Distribuir o saldo entre variações | 🟢 pronta | `features/catalogo/variacoes.ts` | — |
+| Redefinir a estrutura de variações | ⚪ pendente | — | `PUT /api/produtos/:sku/variacoes` existe e REESCREVE saldo: uma variação que deixa de existir devolve o saldo dela para "sem variação", e desvincular da Nuvemshop para a sincronização da peça inteira. É Classe C com efeito em peça física, e a V2 mostra a estrutura sem oferecer o botão que a reescreve. |
 | Preparar → revisar → aprovar | 🟢 pronta | `#/nuvemshop/publicacao` | — |
 | Operações em lote | ⚪ pendente | — | `POST /api/fotos/lotes` (subir várias fotos e casá-las por nome) existe e a tela ainda não. A outra rota de lote, `POST /api/catalogo/publicacao/rodada`, ESCREVE na loja real e continua fora desta trilha por decisão, não por falta de tela. |
 
@@ -159,7 +162,7 @@ Autoridade de UX: `/prototype/revendedoras/` · 🟢 7 · 🟡 1 · ⚪ 0 · ⛔
 
 ## Garantias, reparos e trocas
 
-Autoridade de UX: `/prototype/garantias/` · 🟢 9 · 🟡 1 · ⚪ 0 · ⛔ 0
+Autoridade de UX: `/prototype/garantias/` · 🟢 9 · 🟡 1 · ⚪ 0 · ⛔ 1
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -173,10 +176,11 @@ Autoridade de UX: `/prototype/garantias/` · 🟢 9 · 🟡 1 · ⚪ 0 · ⛔ 0
 | Peça mais barata vira crédito, não cobrança | 🟢 pronta | `features/garantias/PainelDaTroca.tsx` | — |
 | Estornar a troca, com motivo | 🟢 pronta | `features/garantias/PainelDaTroca.tsx` | — |
 | Vínculo com o item da venda | 🟡 parcial | `features/garantias/api.ts` | O caso ABRE amarrado à linha da compra, e a tela diz quando o vínculo é `ambiguo` ou `sem_match`. Falta a tela de MUTIRÃO — `GET /api/garantias/vinculos` lista os casos antigos sem ponteiro, e resolvê-los em lote ainda é trabalho do painel clássico. |
+| Lançar o crédito da troca na conta da cliente | ⛔ indisponível | `features/garantias/PainelDaTroca.tsx` | O servidor CALCULA o crédito (`creditoAoCliente`) e não o lança em lugar nenhum: onde ele mora depende da arquitetura financeira, que ainda não existe. A tela mostra o valor e diz exatamente isso. |
 
 ## Nuvemshop
 
-Autoridade de UX: `/prototype/nuvemshop/` · 🟢 6 · 🟡 0 · ⚪ 0 · ⛔ 1
+Autoridade de UX: `/prototype/nuvemshop/` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 1
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -184,6 +188,9 @@ Autoridade de UX: `/prototype/nuvemshop/` · 🟢 6 · 🟡 0 · ⚪ 0 · ⛔ 1
 | Pendências | 🟢 pronta | `features/nuvemshop/PendenciasList.tsx` | — |
 | Análise da sincronização e divergências | 🟢 pronta | `features/nuvemshop/NuvemshopPage.tsx` | — |
 | Saúde da conexão e das falhas | 🟢 pronta | `features/nuvemshop/saude.ts` | — |
+| Fila de publicação: preparar → revisar → aprovar → publicado | 🟢 pronta | `#/nuvemshop/publicacao` | — |
+| O funil é o filtro: cada degrau é uma fila de trabalho | 🟢 pronta | `features/publicacao/tipos.ts` | — |
+| O que falta na peça ≠ o que o servidor não faz | 🟢 pronta | `features/publicacao/FilaArea.tsx` | — |
 | Revisar e salvar a prévia do site | 🟢 pronta | `features/publicacao/FilaArea.tsx` | — |
 | Aprovar, reabrir e repetir | 🟢 pronta | `features/publicacao/api.ts` | — |
 | Publicar na loja real | ⛔ indisponível | — | ESCRITA NA LOJA REAL CONTINUA PROIBIDA nesta trilha. `POST /api/catalogo/publicacao/:sku/publicar` existe e NÃO é chamado pela V2. A análise usa `POST /api/sync {"seco": true}`, que lê tudo e não escreve. |

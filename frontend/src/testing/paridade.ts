@@ -421,15 +421,34 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/catalogo/CatalogoArea.tsx`, contem: 'Editar peça' },
       },
       {
-        id: 'catalogo.fotos', rotulo: 'Galeria de fotos da peça', estado: 'pendente',
-        porque: '`GET/POST /api/produtos/:sku/galeria`, ordem, principal e '
-          + 'aprovação existem no Worker inteiros. A tela da V2 ainda não os '
-          + 'consome — é o maior buraco do módulo.',
+        id: 'catalogo.fotos', rotulo: 'Galeria de fotos da peça', estado: 'indisponivel',
+        porque: 'As rotas de gerir a galeria existem (`GET/POST '
+          + '/api/produtos/:sku/galeria`, ordem, principal, aprovar), mas NENHUMA '
+          + 'ROTA SERVE OS BYTES dela: `/api/produtos/:sku/foto/:versao` lê '
+          + '`produtos.foto_original_key`/`foto_tratada_key`, e as fotos da galeria '
+          + 'moram em `produto_fotos.original_key`/`preparada_key`, sem link '
+          + 'assinado que um `<img>` possa abrir. Uma galeria que lista e não '
+          + 'mostra imagem é pior que nenhuma. Destravar isto é uma rota nova no '
+          + 'servidor, não uma tela.',
       },
       {
-        id: 'catalogo.variacoes', rotulo: 'Variações da peça', estado: 'pendente',
-        porque: '`PUT /api/produtos/:sku/variacoes` e `GET /api/variacoes/revisao` '
-          + 'existem. A V2 ainda não tem a tela.',
+        id: 'catalogo.variacoes', rotulo: 'Variações da peça, com o saldo de cada uma',
+        estado: 'pronta',
+        prova: { arquivo: `${F}/features/catalogo/PainelDeVariacoes.tsx`, contem: 'Variações da peça' },
+      },
+      {
+        id: 'catalogo.variacoes-distribuir', rotulo: 'Distribuir o saldo entre variações',
+        estado: 'pronta',
+        prova: { arquivo: `${F}/features/catalogo/variacoes.ts`, contem: 'distribuir' },
+      },
+      {
+        id: 'catalogo.variacoes-estrutura', rotulo: 'Redefinir a estrutura de variações',
+        estado: 'pendente',
+        porque: '`PUT /api/produtos/:sku/variacoes` existe e REESCREVE saldo: uma '
+          + 'variação que deixa de existir devolve o saldo dela para "sem '
+          + 'variação", e desvincular da Nuvemshop para a sincronização da peça '
+          + 'inteira. É Classe C com efeito em peça física, e a V2 mostra a '
+          + 'estrutura sem oferecer o botão que a reescreve.',
       },
       {
         id: 'catalogo.publicacao', rotulo: 'Preparar → revisar → aprovar', estado: 'pronta',

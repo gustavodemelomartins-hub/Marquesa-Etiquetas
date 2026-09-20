@@ -48,21 +48,37 @@ function ateOFecha(texto, abre) {
 
 function extrairCapacidades(corpo) {
   const out = [];
-  const re = /id: '([^']+)', rotulo: '((?:[^'\\]|\\.)*)', estado: '([a-z]+)'/g;
+  /* `\s*` entre os campos, e não um espaço literal: um rótulo comprido quebra
+     a linha, e uma expressão de uma linha só DEIXAVA A CAPACIDADE DE FORA em
+     silêncio — a matriz publicada dizia 120 onde o manifesto tinha 128. Era
+     exatamente a divergência que este gerador existe para impedir, cometida
+     por ele mesmo. Daí a conferência de contagem no fim. */
+  const re = /id:\s*'([^']+)',\s*rotulo:\s*'((?:[^'\\]|\\.)*)',\s*estado:\s*'([a-z]+)'/g;
   let m;
   while ((m = re.exec(corpo))) {
     const [, id, rotulo, estado] = m;
     /* O trecho desta capacidade vai até o id seguinte (ou o fim). */
-    const fim = corpo.indexOf("id: '", re.lastIndex);
-    const trecho = corpo.slice(m.index, fim === -1 ? corpo.length : fim);
+    const fim = corpo.slice(re.lastIndex).search(/\n\s*id:\s*'/);
+    const trecho = corpo.slice(m.index, fim === -1 ? corpo.length : re.lastIndex + fim);
     out.push({
       id,
       rotulo: rotulo.replace(/\\'/g, "'"),
       estado,
-      rota: (trecho.match(/rota: '([^']+)'/) || [])[1] ?? null,
+      rota: (trecho.match(/rota:\s*'([^']+)'/) || [])[1] ?? null,
       porque: juntar(trecho, 'porque'),
-      arquivo: (trecho.match(/arquivo: `\$\{F\}([^`]+)`/) || [])[1] ?? null,
+      arquivo: (trecho.match(/arquivo:\s*`\$\{F\}([^`]+)`/) || [])[1] ?? null,
     });
+  }
+
+  /* Uma capacidade que o padrão não casar sairia da matriz sem reclamar.
+     Contar os `id:` declarados e comparar é o que torna esse silêncio
+     impossível. */
+  const declarados = (corpo.match(/\n\s*id:\s*'/g) || []).length;
+  if (declarados !== out.length) {
+    throw new Error(
+      `O bloco tem ${declarados} capacidades e o padrão leu ${out.length}. `
+      + 'Alguma linha do manifesto está num formato que o gerador não entende.',
+    );
   }
   return out;
 }

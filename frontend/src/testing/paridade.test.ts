@@ -105,6 +105,25 @@ describe('a matriz prototype → V2', () => {
     }
   });
 
+  /* O documento publicado é GERADO, e um gerado que alguém esqueceu de
+     regerar é pior que documento nenhum: ele tem cara de atual. Este teste é
+     o mesmo `--check` do script, dentro da suíte — e ele já pegou o gerador
+     lendo 120 das 128 linhas por causa de um rótulo que quebrava a linha. */
+  it('a matriz publicada está em dia com o manifesto', () => {
+    const doc = raiz + 'docs/ux/07-mapping/paridade-prototype-v2.md';
+    expect(existsSync(doc), 'rode: node scripts/build-paridade.mjs').toBe(true);
+    const texto = readFileSync(doc, 'utf8');
+    const p = placar();
+    expect(texto, 'rode: node scripts/build-paridade.mjs')
+      .toContain(`| **total** | **${p.total}** |`);
+    expect(texto).toContain(`| 🟢 pronta | ${p.pronta} |`);
+    expect(texto).toContain(`| 🟡 parcial | ${p.parcial} |`);
+    expect(texto).toContain(`| ⛔ indisponível — o backend não sustenta | ${p.indisponivel} |`);
+    for (const c of todas) {
+      expect(texto.includes(c.rotulo), `"${c.rotulo}" não está na matriz publicada`).toBe(true);
+    }
+  });
+
   it('o placar conta o que a régua honesta manda contar', () => {
     const p = placar();
     expect(p.total).toBe(todas.length);
