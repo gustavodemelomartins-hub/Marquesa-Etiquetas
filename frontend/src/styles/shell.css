@@ -9,7 +9,7 @@
 
    As três larguras que mudam o casco:
      ≥ 1181px  trilho inteiro, 250px, com rótulo ao lado do ícone
-     901–1180  trilho mínimo, 76px, só ícone e o monograma no lugar do logo
+     901–1180  trilho mínimo, 76px, só ícone e a marca recortada do logo
      ≤ 900px   trilho vira gaveta sobre cortina + barra inferior de 5 itens
    ========================================================================== */
 
@@ -34,13 +34,33 @@
   text-decoration: none; flex: none; background: none; border-left: 0; border-right: 0; border-top: 0;
   color: inherit; cursor: pointer; width: 100%; text-align: left;
 }
-.mq-rail__wordmark { font: 400 23px/1 var(--mq-serif); color: #fff; letter-spacing: .02em; }
-.mq-rail__wordmark small {
-  display: block; margin-top: 3px;
-  font: 500 9.5px/1 var(--mq-sans); letter-spacing: .18em; text-transform: uppercase;
-  color: rgba(243, 230, 234, .5);
+/* O LOGO OFICIAL. Uma imagem, um arquivo: `brand/logo.webp`, empacotado
+   por `components/LogoMarquesa.tsx`. Nenhuma tela escreve o caminho dele à
+   mão — o wordmark em texto que existia aqui era um desenho parecido com a
+   marca, e é por isso que ele saiu. */
+.mq-logo { display: block; height: auto; max-width: 100%; }
+
+/* O arquivo é traço preto sobre transparência. Sobre o bordô do trilho ele
+   desaparecia — era esse o defeito do preview. `brightness(0)` achata
+   qualquer cor do traço em preto, `invert(1)` o leva a branco puro, e a
+   transparência não é tocada. Funciona porque o desenho é monocromático. */
+.mq-logo--claro { filter: brightness(0) invert(1); }
+
+.mq-rail__logo { height: 30px; width: auto; }
+
+/* A MARCA do trilho mínimo: a MESMA imagem, com uma janela por cima.
+   Medido no canal alpha, não no olho: o traço ocupa x 16–95 e y 24–103 dos
+   320x128 do arquivo, e a primeira lacuna entre glifos (o fim do M, antes
+   do A) começa exatamente em x=95. Levar essa janela de 95px para os 42px
+   da caixa dá escala 0,442 — daí os 141x57 da imagem inteira e o
+   deslocamento de -4/-7 que traz o recorte para o canto.
+   Recortar em vez de gerar um PNG do monograma é deliberado: um segundo
+   arquivo poderia divergir do oficial, e ninguém perceberia. */
+.mq-rail__marca {
+  display: none; width: 42px; height: 42px; overflow: hidden;
+  border-radius: var(--mq-r-md); border: 1px solid rgba(255, 255, 255, .22);
 }
-.mq-rail__mark { display: none; }
+.mq-rail__marca .mq-logo { width: 141px; height: 57px; max-width: none; margin: -7px 0 0 -4px; }
 .mq-rail__nav {
   flex: 1; overflow-y: auto; padding: var(--mq-4) var(--mq-3) var(--mq-6);
   display: flex; flex-direction: column; gap: var(--mq-1); scrollbar-width: thin;
@@ -132,11 +152,8 @@
 @media (max-width: 1180px) {
   .mq-shell { --mq-rail: var(--mq-rail-mini); }
   .mq-rail__brand { justify-content: center; padding-inline: var(--mq-2); }
-  .mq-rail__wordmark { display: none; }
-  .mq-rail__mark {
-    display: grid; place-items: center; width: 42px; height: 42px; border-radius: var(--mq-r-md);
-    border: 1px solid rgba(255, 255, 255, .22); font: 400 24px/1 var(--mq-serif); color: #fff; letter-spacing: .02em;
-  }
+  .mq-rail__logo { display: none; }
+  .mq-rail__marca { display: block; }
   .mq-rail__group { text-align: center; letter-spacing: .06em; font-size: 9px; padding-inline: 0; }
   .mq-rail__item { justify-content: center; padding: 11px 0; }
   .mq-rail__item span { display: none; }
@@ -150,8 +167,8 @@
   .mq-rail { transform: translateX(-100%); transition: transform .22s ease; box-shadow: var(--mq-sh-3); width: var(--mq-rail); }
   .mq-rail.is-open { transform: none; }
   .mq-rail__brand { justify-content: flex-start; padding: var(--mq-5); }
-  .mq-rail__wordmark { display: block; }
-  .mq-rail__mark { display: none; }
+  .mq-rail__logo { display: block; }
+  .mq-rail__marca { display: none; }
   .mq-rail__group { text-align: left; font-size: 10px; letter-spacing: .13em; padding: var(--mq-4) var(--mq-3) var(--mq-2); }
   .mq-rail__item { justify-content: flex-start; padding: 11px var(--mq-3); }
   .mq-rail__item span { display: block; }

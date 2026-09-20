@@ -93,7 +93,9 @@ a { color: var(--bordo); }
     radial-gradient(120% 80% at 50% -10%, var(--mq-wine-050), transparent 60%),
     var(--mq-canvas);
 }
-.mq-entrada__marca { font: 400 34px/1 var(--mq-serif); color: var(--mq-wine-800); text-align: center; }
+/* A marca da entrada é o logo oficial, não um texto parecido com ele.
+   Fundo claro aqui, então entra no tom escuro, como o arquivo nasceu. */
+.mq-entrada__marca { display: flex; flex-direction: column; align-items: center; text-align: center; }
 .mq-entrada__marca small {
   display: block; margin-top: var(--mq-2);
   font: 500 10px/1 var(--mq-sans); letter-spacing: .22em; text-transform: uppercase;

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { DevBadge } from './DevBadge';
 import { BuscaGlobalClientes } from './BuscaGlobalClientes';
 import { Icone } from '../components/Icone';
+import { LogoMarquesa } from '../components/LogoMarquesa';
 import { GRUPOS, NO_TELEFONE, acharModulo, grupoDe, type ModuloId } from './modulos';
 import type { Connection } from '../services/client';
 
@@ -67,11 +68,13 @@ export function AppShell({
         aria-label="Módulos do sistema"
       >
         <button type="button" className="mq-rail__brand" onClick={irPara('home')}>
-          <span className="mq-rail__wordmark">
-            Marquesa
-            <small>Sistema</small>
+          <LogoMarquesa tom="claro" altura={30} className="mq-rail__logo" />
+          {/* Trilho mínimo (901–1180px): o logo inteiro em 76px vira borrão.
+              A janela abaixo recorta o MESMO arquivo no ornamento + M — não
+              é um segundo desenho, e por isso não pode divergir do oficial. */}
+          <span className="mq-rail__marca" aria-hidden="true">
+            <LogoMarquesa tom="claro" altura={57} />
           </span>
-          <span className="mq-rail__mark" aria-hidden="true">M</span>
         </button>
 
         <div className="mq-rail__nav">
@@ -103,7 +106,7 @@ export function AppShell({
 
         <div className="mq-rail__foot">
           <span>Painel novo · em migração</span>
-          <a href="../../dashboard.html">Abrir o painel clássico</a>
+          <a href="/dashboard.html">Abrir o painel clássico</a>
         </div>
       </nav>
 
@@ -171,7 +174,7 @@ export function AppShell({
 
         <footer className="mq-shell__foot">
           Painel novo, em migração. Os módulos marcados seguem em{' '}
-          <a href="../../dashboard.html">dashboard.html</a>.
+          <a href="/dashboard.html">dashboard.html</a>.
         </footer>
       </div>
 

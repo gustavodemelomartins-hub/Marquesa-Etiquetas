@@ -18,6 +18,7 @@ import {
   RevendedorasArea,
   type SubRotaRevendedoras,
 } from '../features/revendedoras/RevendedorasArea';
+import { LogoMarquesa } from '../components/LogoMarquesa';
 import type { Connection } from '../services/client';
 import { useEstado } from '../hooks/useEstado';
 import { usePlanejamento } from '../hooks/usePlanejamento';
@@ -29,7 +30,8 @@ export function App() {
     return (
       <div className="mq-entrada">
         <div className="mq-entrada__marca">
-          Marquesa <small>Sistema</small>
+          <LogoMarquesa altura={46} />
+          <small>Sistema</small>
         </div>
         <ConnectionForm aoConectar={conectar} />
       </div>

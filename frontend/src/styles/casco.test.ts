@@ -32,10 +32,11 @@ describe('o casco muda de forma nas três larguras', () => {
   const mini = blocoDaMedia('1180px');
   const telefone = blocoDaMedia('900px');
 
-  it('no trilho mínimo o rótulo some e o monograma entra no lugar do logo', () => {
+  it('no trilho mínimo o rótulo some e a marca recortada entra no lugar do logo', () => {
     expect(mini).toContain('--mq-rail: var(--mq-rail-mini)');
     expect(mini).toMatch(/\.mq-rail__item span\s*\{\s*display:\s*none/);
-    expect(mini).toMatch(/\.mq-rail__mark\s*\{\s*display:\s*grid/);
+    expect(mini).toMatch(/\.mq-rail__logo\s*\{\s*display:\s*none/);
+    expect(mini).toMatch(/\.mq-rail__marca\s*\{\s*display:\s*block/);
   });
 
   it('no telefone o trilho vira gaveta e a barra inferior aparece', () => {
