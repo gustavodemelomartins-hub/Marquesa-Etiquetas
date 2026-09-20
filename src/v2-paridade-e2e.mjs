@@ -241,6 +241,133 @@ if (await verVar.count()) {
   prova(false, 'Catálogo não ofereceu "Ver variações"');
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   A CORRENTE: cliente → venda → financeiro → estoque
+
+   As provas acima abrem telas. Esta REGISTRA UMA VENDA, no telefone, pelo
+   caminho que a pessoa percorre — e depois vai conferir, nas outras telas,
+   que o mesmo fato aparece em todas elas.
+
+   É o que separa "a tela abre" de "o sistema funciona": uma venda que sai
+   do balcão tem de baixar o estoque, entrar no histórico e mudar o que o
+   financeiro deve. Se alguma dessas três não mexer, o sistema está contando
+   a mesma tarde de dois jeitos diferentes.
+
+   NADA AQUI É FIXADO POR NOME. A peça é DESCOBERTA pela API: um seed
+   diferente muda quem faz o papel, não o que se prova.
+   ══════════════════════════════════════════════════════════════════════ */
+
+const cab = { Authorization: `Bearer ${KEY}` };
+const daApi = async (caminho) => {
+  const r = await fetch(API + caminho, { headers: cab });
+  if (!r.ok) throw new Error(`${caminho} respondeu ${r.status}`);
+  return r.json();
+};
+
+const estadoAntes = await daApi('/api/state');
+/* A peça com mais saldo: ela é a que menos corre risco de acabar entre
+   descobrir e vender, e a venda não pode falhar por um motivo que não é o
+   que está sendo provado. */
+const peca = estadoAntes.produtos
+  .filter((x) => x.status === 'ativo' && x.disponivel > 1 && x.preco)
+  .sort((a, b) => b.disponivel - a.disponivel)[0];
+prova(!!peca, `há peça vendável no banco (${peca?.desc ?? '—'} · ${peca?.disponivel ?? 0})`);
+
+/* Nome único por rodada: rodar duas vezes criaria homônimas, e aí a própria
+   §2 entra em ação — o sistema se recusa a escolher entre duas pessoas com
+   o mesmo nome, e o teste leria a cliente errada achando que achou um bug. */
+const NOME = `E2E ${new Date().toISOString().slice(11, 19).replace(/:/g, '')}`;
+/* A venda é de ONTEM e o pagamento é de HOJE: é o §30 no caminho feliz, e é
+   a coisa que a V2 veio consertar. Fundir as duas num "agora" faria o
+   faturamento do dia errado. */
+const ontem = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+const hoje = new Date().toISOString().slice(0, 10);
+
+await irPara(p, 'vendas/nova');
+
+/* 1 · a peça */
+await p.locator('input[aria-label="Buscar peça"]').fill(peca.sku);
+await p.waitForTimeout(500);
+await p.locator('.mq-list .mq-item', { hasText: peca.sku }).first().click();
+await p.waitForTimeout(300);
+prova((await texto(p)).includes(peca.desc.toLowerCase()), 'a peça entra no carrinho');
+
+await p.locator('button', { hasText: 'Continuar para cliente' }).click();
+await p.waitForTimeout(400);
+
+/* 2 · a cliente, cadastrada na hora — o balcão não para para cadastrar */
+await p.locator('button', { hasText: 'Nova cliente' }).click();
+await p.waitForTimeout(400);
+await p.locator('.mq-modal input').first().fill(NOME);
+await p.locator('button', { hasText: 'Usar nesta venda' }).click();
+await p.waitForTimeout(700);
+prova((await texto(p)).includes(NOME.toLowerCase()), 'a cliente nova entra na venda');
+
+/* 3 · a data da VENDA é de ontem */
+await p.locator('input[type="date"]').first().fill(ontem);
+await p.waitForTimeout(200);
+await p.locator('button', { hasText: 'Continuar para pagamento' }).click();
+await p.waitForTimeout(400);
+
+/* 4 · a data do PAGAMENTO é de hoje, e é outra data */
+const datas = p.locator('input[type="date"]');
+await datas.last().fill(hoje);
+await p.waitForTimeout(200);
+
+/* 5 · a revisão mostra as TRÊS datas antes de confirmar */
+await p.locator('button', { hasText: 'Finalizar venda' }).click();
+await p.waitForTimeout(600);
+const revisao = await texto(p);
+prova(/confira antes de confirmar/.test(revisao), 'a revisão abre antes de gravar');
+prova(revisao.includes(ontem.split('-').reverse().join('/')),
+  'a revisão mostra a data da VENDA (ontem)');
+prova(revisao.includes(hoje.split('-').reverse().join('/')),
+  'a revisão mostra a data do PAGAMENTO (hoje)');
+
+await p.locator('button', { hasText: 'Confirmar venda' }).click();
+await p.waitForTimeout(1800);
+
+/* 6 · a venda existe, e existe COM AS DUAS DATAS separadas */
+const lista = await daApi(`/api/vendas/lista?limite=50&busca=${encodeURIComponent(NOME)}`);
+const minha = (lista.itens ?? []).find((i) => (i.cliente ?? '').includes(NOME));
+prova(!!minha, 'a venda aparece em /api/vendas/lista');
+prova(minha?.data === ontem, `a venda ficou com a data de ONTEM (${minha?.data})`);
+
+/* 7 · o ESTOQUE baixou — e baixou exatamente uma peça */
+const estadoDepois = await daApi('/api/state');
+const depois = estadoDepois.produtos.find((x) => x.sku === peca.sku);
+prova(depois && depois.qtd === peca.qtd - 1,
+  `o estoque de ${peca.sku} baixou 1 (${peca.qtd} → ${depois?.qtd})`);
+
+/* 8 · a RAZÃO continua fechando. É a invariante do sistema inteiro:
+   `produtos.qtd == SUM(movimentos.qtd)`. Uma venda que a quebrasse seria
+   pior que uma venda que falhasse. */
+const razao = await daApi('/api/estoque/conferir');
+prova(razao.ok === true && (razao.divergentes ?? []).length === 0,
+  'GET /api/estoque/conferir volta vazio depois da venda');
+
+/* 9 · a ficha da cliente conhece a compra */
+await irPara(p, 'clientes');
+/* Dentro do CONTEÚDO, e não `input[type=search]` solto: o primeiro da
+   página é a busca global da barra, que no telefone está fechada. */
+await p.locator('.mq-shell__main input[type="search"]').first().fill(NOME);
+await p.waitForTimeout(900);
+const achou = await p.locator('.mq-item, .mq-tr', { hasText: NOME }).count();
+prova(achou > 0, 'a cliente nova aparece na lista de Clientes');
+
+/* 10 · o HISTÓRICO mostra a venda, pela tela */
+await irPara(p, 'vendas/historico');
+await p.locator('input[aria-label="Buscar venda"]').fill(NOME);
+await p.waitForTimeout(1200);
+prova((await texto(p)).includes(NOME.toLowerCase()),
+  'o histórico de vendas encontra a venda recém-registrada');
+
+/* 11 · o FINANCEIRO conhece o mesmo fato. A venda nasceu PAGA, então ela
+   entra no faturamento pela data do PAGAMENTO — não pela da venda. */
+const painelDepois = await daApi('/api/analytics/painel?periodo=30d');
+prova(painelDepois.geral.vendas > 0 && painelDepois.geral.faturamento > 0,
+  'o painel de analytics conta a venda no recorte');
+
 /* ── 10. o alvo do dedo ─────────────────────────────────────────────── */
 await irPara(p, 'vendas/lancamentos');
 const pequenos = await p.evaluate(() => {

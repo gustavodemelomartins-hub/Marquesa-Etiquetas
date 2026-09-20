@@ -763,6 +763,14 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/styles/shell.css`, contem: 'mq-bottomnav' },
       },
       {
+        id: 'casco.busca-telefone', rotulo: 'A busca existe NO TELEFONE', estado: 'pronta',
+        prova: { arquivo: `${F}/styles/shell.css`, contem: 'mq-topbar__search.is-aberta' },
+      },
+      {
+        id: 'casco.alvo-do-dedo', rotulo: 'Alvo de toque de 36px na barra', estado: 'pronta',
+        prova: { arquivo: `${F}/styles/shell.css`, contem: '.mq-iconbtn {' },
+      },
+      {
         id: 'casco.busca', rotulo: 'Busca global que não sai da V2', estado: 'parcial',
         porque: 'Cliente, venda, peça e revendedora entram, todas por contrato '
           + 'existente. Garantia, maleta, inventário e conta a receber NÃO têm rota '

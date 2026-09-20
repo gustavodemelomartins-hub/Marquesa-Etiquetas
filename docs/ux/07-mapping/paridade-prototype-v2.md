@@ -14,13 +14,13 @@ consegue fazer.
 
 | | capacidades |
 |---|---|
-| 🟢 pronta | 108 |
+| 🟢 pronta | 110 |
 | 🟡 parcial | 3 |
 | ⚪ pendente — o backend tem, a tela não | 3 |
 | ⛔ indisponível — o backend não sustenta | 14 |
-| **total** | **128** |
+| **total** | **130** |
 
-**108 de 114** capacidades que o backend sustenta já estão
+**110 de 116** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
@@ -237,7 +237,7 @@ Autoridade de UX: `/prototype/configuracoes/` · 🟢 3 · 🟡 0 · ⚪ 0 · �
 
 ## Casco, marca e navegação
 
-Autoridade de UX: `/prototype/design-system/` · 🟢 8 · 🟡 1 · ⚪ 0 · ⛔ 0
+Autoridade de UX: `/prototype/design-system/` · 🟢 10 · 🟡 1 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -249,5 +249,7 @@ Autoridade de UX: `/prototype/design-system/` · 🟢 8 · 🟡 1 · ⚪ 0 · �
 | Os treze módulos, em quatro grupos | 🟢 pronta | `app/modulos.ts` | — |
 | Deep-link, reload e voltar/avançar | 🟢 pronta | `app/rota.ts` | — |
 | Gaveta e barra inferior no telefone | 🟢 pronta | `styles/shell.css` | — |
+| A busca existe NO TELEFONE | 🟢 pronta | `styles/shell.css` | — |
+| Alvo de toque de 36px na barra | 🟢 pronta | `styles/shell.css` | — |
 | Busca global que não sai da V2 | 🟡 parcial | `app/BuscaGlobal.tsx` | Cliente, venda, peça e revendedora entram, todas por contrato existente. Garantia, maleta, inventário e conta a receber NÃO têm rota de busca por termo no servidor, e a lista diz isso em vez de deixar alguém procurar em silêncio. |
 
