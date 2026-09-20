@@ -47,6 +47,24 @@ export interface EventoRelacao {
 
 const soData = (v: string) => String(v).slice(0, 10);
 
+/** O vocabulário de `garantia_trocas.diferenca_status`, em português.
+ *  `pendente_regra` é o caso que o backend deixa em aberto de propósito:
+ *  a peça nova saiu mais barata e o destino da diferença é decisão, não
+ *  automatismo. */
+const DIFERENCA: Record<string, string> = {
+  a_receber: 'Diferença a receber da cliente',
+  nenhuma: 'Sem diferença de valor',
+  credito_emitido: 'Diferença virou crédito da cliente',
+  pendente_regra: 'Diferença a favor da cliente, destino a definir',
+  paga: 'Diferença já paga',
+};
+
+/** A peça que sai numa troca de garantia vira um registro comercial de
+ *  valor zero (§36): é assim que o sistema guarda QUAL peça foi entregue.
+ *  Chamar isso de "compra de R$ 0" na linha do tempo confundiria — ela não
+ *  comprou nada ali. Quem diz que é troca é o canal, que o backend carimba. */
+const ehTroca = (v: VendaDoPerfil) => v.canal === 'Troca de garantia';
+
 function daVenda(v: VendaDoPerfil): EventoRelacao[] {
   const pecas = `${v.pecas} ${v.pecas === 1 ? 'peça' : 'peças'}`;
   const canal = v.canal ? ` · ${v.canal}` : '';
@@ -56,9 +74,9 @@ function daVenda(v: VendaDoPerfil): EventoRelacao[] {
     origem: 'venda',
     origemId: v.id,
     data: soData(v.data),
-    titulo: `Compra de ${pecas}`,
+    titulo: ehTroca(v) ? `Peça entregue na troca · ${pecas}` : `Compra de ${pecas}`,
     detalhe: `${v.fonte === 'historico' ? 'Histórico' : 'Venda'} #${v.id}${canal}`,
-    valor: v.valor,
+    valor: ehTroca(v) ? null : v.valor,
     tom: 'neutro',
   }];
 
@@ -103,9 +121,10 @@ function daGarantia(g: GarantiaDoPerfil): EventoRelacao[] {
       origemId: g.id,
       data: soData(g.troca.data),
       titulo: `Troca por ${g.troca.produtoNovoNome ?? g.troca.skuNovo}`,
-      /* A diferença é dita como o backend a classificou. Quem decide o que
-         fazer com ela é a regra de 12/09, não esta linha. */
-      detalhe: `Diferença ${g.troca.diferencaStatus}`,
+      /* A diferença é dita como o backend a classificou — só que em
+         português. `credito_emitido` é vocabulário de banco de dados, e
+         quem lê a ficha não tem por que aprendê-lo. */
+      detalhe: DIFERENCA[g.troca.diferencaStatus] ?? `Diferença ${g.troca.diferencaStatus}`,
       valor: g.troca.diferenca,
       tom: 'neutro',
     });

@@ -17,7 +17,7 @@ body.mq-app .app-shell{min-height:100dvh;display:flex;flex-direction:column}
 
 /* ---- Trilho lateral: é aqui que a marca mora, em todas as telas. --------- */
 .mq-rail{
-  position:fixed;left:0;top:0;bottom:0;width:var(--mq-rail);z-index:50;
+  position:fixed;left:0;top:0;bottom:0;width:var(--mq-rail);z-index:60;
   display:flex;flex-direction:column;
   background:linear-gradient(180deg,var(--mq-wine-900),var(--mq-wine-950));
   color:#f3e6ea;border-right:1px solid rgba(255,255,255,.06)

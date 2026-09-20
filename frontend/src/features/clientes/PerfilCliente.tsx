@@ -197,7 +197,10 @@ function EstadoDaRelacao({ estado, dias }: { estado: string; dias: number | null
     <>
       <span className={`mq-status mq-status--${tom}`}>{estado}</span>
       {dias !== null && (
-        <span className="mq-hint"> · {dias === 0 ? 'comprou hoje' : `há ${dias} dias sem comprar`}</span>
+        <span className="mq-hint">
+          {' · '}
+          {dias === 0 ? 'comprou hoje' : `há ${dias} ${dias === 1 ? 'dia' : 'dias'} sem comprar`}
+        </span>
       )}
     </>
   );
