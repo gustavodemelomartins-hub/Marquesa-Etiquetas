@@ -117,6 +117,11 @@ export function VendasArea({
           produtos={produtos}
           clienteInicial={clienteDaRota(sub)}
           abrirColar={atual === 'colar'}
+          aoAbrirColar={() => aoNavegar('colar')}
+          /* Voltar do composer é voltar para a VENDA, e não para o hub: o
+             carrinho continua lá, e mandar a pessoa para Lançamentos a faria
+             pensar que perdeu tudo. */
+          aoFecharColar={() => aoNavegar('nova')}
           aoFechar={() => aoNavegar('lancamentos')}
           aoRegistrar={() => {
             aoNavegar('historico');

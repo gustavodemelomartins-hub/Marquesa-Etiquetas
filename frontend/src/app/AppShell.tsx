@@ -46,11 +46,16 @@ export function AppShell({
 }: Props) {
   const atual = acharModulo(modulo);
   const [gavetaAberta, setGavetaAberta] = useState(false);
+  /* No telefone a busca não cabe ao lado do nome do módulo — ela era
+     escondida por CSS, e o resultado é que quem usa o sistema DE PÉ, no
+     balcão, não tinha busca nenhuma. Agora ela abre numa faixa que ocupa a
+     barra inteira, e o botão que a abre fica onde o polegar alcança. */
+  const [buscaAberta, setBuscaAberta] = useState(false);
   const burger = useRef<HTMLButtonElement>(null);
 
   /* Navegar fecha a gaveta: no telefone ela cobre a tela inteira, e deixá-la
      aberta em cima do destino esconde exatamente o que se foi buscar. */
-  useEffect(() => { setGavetaAberta(false); }, [modulo]);
+  useEffect(() => { setGavetaAberta(false); setBuscaAberta(false); }, [modulo]);
 
   /* Esc fecha, e o foco volta para o botão que abriu — senão ele cai no
      começo da página e quem navega por teclado se perde. */
@@ -147,15 +152,29 @@ export function AppShell({
             <span className="mq-topbar__grupo">· {grupoDe(modulo)}</span>
           </div>
 
-          <div className="mq-topbar__search">
+          <div className={buscaAberta ? 'mq-topbar__search is-aberta' : 'mq-topbar__search'}>
             <BuscaGlobal
               conexao={conexao}
               estado={estado ?? null}
-              aoNavegar={(d) => (aoNavegarPara ? aoNavegarPara(d) : aoNavegar(d.modulo))}
+              aoNavegar={(d) => {
+                setBuscaAberta(false);
+                if (aoNavegarPara) aoNavegarPara(d);
+                else aoNavegar(d.modulo);
+              }}
             />
           </div>
 
           <div className="mq-topbar__tools">
+            {/* Só no telefone: acima da gaveta, a busca já está aberta. */}
+            <button
+              type="button"
+              className="mq-iconbtn mq-busca-botao"
+              aria-label={buscaAberta ? 'Fechar busca' : 'Buscar'}
+              aria-expanded={buscaAberta}
+              onClick={() => setBuscaAberta((v) => !v)}
+            >
+              <Icone nome={buscaAberta ? 'close' : 'search'} />
+            </button>
             <DevBadge />
             <button
               type="button"

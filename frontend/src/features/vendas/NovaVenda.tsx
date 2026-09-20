@@ -20,8 +20,18 @@ interface Props {
   /** Quando a venda vem da ficha de uma cliente, ela já chega escolhida. */
   clienteInicial?: { id: number | null; nome: string } | null;
   /** `colar` abre a composição por cima do passo 1 — é o destino de
-   *  `#/vendas/colar`, e por estar no endereço ele sobrevive ao recarregar. */
+   *  `#/vendas/colar`, e por estar no endereço ele sobrevive ao recarregar.
+   *
+   *  Ele é PROPRIEDADE e não estado: enquanto era `useState(abrirColar)`, o
+   *  valor inicial só valia na montagem, e o componente não remonta ao ir de
+   *  `#/vendas/colar` para `#/vendas/nova` — as duas rotas renderizam este
+   *  mesmo elemento. O resultado era a venda normal continuar mostrando o
+   *  composer do colar, com a URL dizendo outra coisa. */
   abrirColar?: boolean;
+  aoAbrirColar?: () => void;
+  /** Fechar o composer é NAVEGAR, não mudar estado local. É isto que mantém
+   *  a URL e a tela dizendo a mesma coisa. */
+  aoFecharColar?: () => void;
   aoFechar: () => void;
   aoRegistrar: (id: number) => void;
 }
@@ -47,7 +57,8 @@ type Passo = 'itens' | 'cliente' | 'pagamento';
  *  simulado: canal por venda e recebimento em partes. Ver `LIMITES`.
  */
 export function NovaVenda({
-  conexao, produtos, clienteInicial, abrirColar = false, aoFechar, aoRegistrar,
+  conexao, produtos, clienteInicial, abrirColar = false,
+  aoAbrirColar, aoFecharColar, aoFechar, aoRegistrar,
 }: Props) {
   const hoje = hojeISO();
   const [passo, setPasso] = useState<Passo>(clienteInicial ? 'itens' : 'itens');
@@ -57,7 +68,6 @@ export function NovaVenda({
   const [cadastrando, setCadastrando] = useState(false);
   const [linhas, setLinhas] = useState<LinhaDoCarrinho[]>([]);
   const [composicoes, setComposicoes] = useState<ComposicaoDoColar[]>([]);
-  const [montandoColar, setMontandoColar] = useState(abrirColar);
   const [buscaPeca, setBuscaPeca] = useState('');
   const [data, setData] = useState(hoje);
   const [pago, setPago] = useState(true);
@@ -117,14 +127,19 @@ export function NovaVenda({
     else aoFechar();
   }
 
-  if (montandoColar) {
+  /* O carrinho NÃO é perdido ao entrar e sair do composer: este componente
+     continua montado, e só o que ele mostra muda. Uma composição adicionada
+     volta para a venda que já estava sendo feita. */
+  const fecharColar = () => aoFecharColar?.();
+
+  if (abrirColar) {
     return (
       <MonteSeuColar
         conexao={conexao}
-        aoCancelar={() => setMontandoColar(false)}
+        aoCancelar={fecharColar}
         aoAdicionar={(c) => {
           setComposicoes((a) => [...a, c]);
-          setMontandoColar(false);
+          fecharColar();
         }}
       />
     );
@@ -183,7 +198,11 @@ export function NovaVenda({
               onChange={(e) => setBuscaPeca(e.target.value)}
             />
           </label>
-          <button type="button" className="mq-btn mq-btn--secondary" onClick={() => setMontandoColar(true)}>
+          <button
+            type="button"
+            className="mq-btn mq-btn--secondary"
+            onClick={() => aoAbrirColar?.()}
+          >
             <Icone nome="star" />
             Monte seu Colar
           </button>

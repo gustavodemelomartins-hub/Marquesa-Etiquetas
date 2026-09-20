@@ -116,7 +116,12 @@
   border-top: 1px solid rgba(255, 255, 255, .08);
   font-size: 11px; color: rgba(243, 230, 234, .5); display: flex; flex-direction: column; gap: var(--mq-1);
 }
-.mq-rail__foot a { color: rgba(243, 230, 234, .62); }
+/* Na gaveta do telefone este link é um alvo de toque como qualquer outro —
+   e ele leva para FORA da V2, que é o clique mais caro de errar aqui. */
+.mq-rail__foot a {
+  color: rgba(243, 230, 234, .62);
+  display: inline-flex; align-items: center; min-height: 32px;
+}
 .mq-rail__foot a:hover { color: #fff; }
 
 /* ---- Barra superior: onde estou, onde busco, o que me avisa ------------- */
@@ -127,10 +132,32 @@
   border-bottom: 1px solid var(--mq-line); flex: none;
 }
 .mq-topbar__where { display: flex; align-items: center; gap: var(--mq-2); min-width: 0; font-size: 13px; color: var(--mq-muted); }
+
+/* O BOTÃO DE ÍCONE da barra. Ele não tinha regra nenhuma: era um `<button>`
+   cru com um SVG dentro, e o navegador lhe dava a altura do conteúdo — 20px
+   num aparelho onde o dedo cobre 40. Menu, busca, notificações e perfil
+   ficavam todos abaixo do alvo mínimo, e errar o toque na barra superior é
+   onde se abre a gaveta sem querer.
+
+   36px é o mínimo desta barra, que tem 56 de altura; o alvo confortável de
+   44 não cabe aqui sem empurrar o nome do módulo para fora. */
+.mq-iconbtn {
+  flex: none;
+  display: grid; place-items: center;
+  width: 36px; height: 36px;
+  border: 0; border-radius: var(--mq-r-sm);
+  background: none; color: var(--mq-muted); cursor: pointer;
+}
+.mq-iconbtn:hover { background: var(--mq-line-3); color: var(--mq-ink); }
+.mq-iconbtn:focus-visible { outline: 2px solid var(--mq-wine-600); outline-offset: 1px; }
+.mq-iconbtn svg { width: 18px; height: 18px; }
 .mq-topbar__where b { font-weight: 500; color: var(--mq-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mq-topbar__where svg { width: 14px; height: 14px; color: var(--mq-faint); flex: none; }
 .mq-topbar__grupo { color: var(--mq-faint); }
 .mq-topbar__search { margin-left: auto; width: min(320px, 34vw); }
+/* O botão que abre a busca existe só onde ela está fechada — no desktop ela
+   já está na barra, e um botão para "abrir o que está aberto" é ruído. */
+.mq-busca-botao { display: none; }
 .mq-topbar__tools { display: flex; align-items: center; gap: var(--mq-1); flex: none; margin-left: auto; }
 .mq-topbar__search ~ .mq-topbar__tools { margin-left: 0; }
 .mq-burger { display: none; }
@@ -156,6 +183,13 @@
   border-top: 1px solid var(--mq-line);
   font: 400 12px var(--mq-sans); color: var(--mq-muted); background: var(--mq-paper-2);
   text-align: center;
+}
+/* Este link SAI da V2 — é o clique mais caro de errar no rodapé. Uma linha
+   de 12px no meio de uma frase dá um alvo de 15px de altura, metade do que
+   um dedo cobre, e acertá-lo por engano tira a pessoa do sistema novo. */
+.mq-shell__foot a {
+  display: inline-flex; align-items: center; min-height: 28px;
+  padding-inline: 2px;
 }
 
 /* ---- Respiro responsivo -------------------------------------------------- */
@@ -185,7 +219,20 @@
   .mq-rail__conta, .mq-rail__dot { position: static; }
   .mq-rail__foot { display: flex; }
   .mq-burger { display: grid; }
+  .mq-busca-botao { display: grid; }
+  /* A busca não cabe ao lado do nome do módulo em 390px, mas SUMIR não é
+     resposta: quem usa o sistema de pé, no balcão, é exatamente quem mais
+     precisa achar uma cliente por nome. Ela fica fechada e abre por cima da
+     barra inteira, com a largura toda. */
   .mq-topbar__search { display: none; }
+  .mq-topbar__search.is-aberta {
+    display: block;
+    position: absolute; inset: 0; z-index: 2;
+    width: auto; padding: 0 var(--mq-4);
+    background: var(--mq-paper);
+    align-content: center;
+  }
+  .mq-topbar__search.is-aberta .busca-global { max-width: none; width: 100%; }
   /* ONDE ESTOU não pode virar "Clien…". No telefone o grupo sai e o nome do
      módulo fica com a largura inteira — saber o módulo importa mais do que
      saber a gaveta em que ele está, e o trilho aberto já diz as duas. */
