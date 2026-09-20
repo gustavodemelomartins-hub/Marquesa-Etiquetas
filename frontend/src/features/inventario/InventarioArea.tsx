@@ -3,7 +3,11 @@ import { useApi } from '../../hooks/useApi';
 import { chamar, type Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
-import { fmtData } from '../../domain/formato';
+import { fmtData, plural } from '../../domain/formato';
+import {
+  aplicaveis, aplicarAjustes, buscarResultado, pedidoDaLinha, temResultado,
+  type LinhaDeDiferenca,
+} from './resultado';
 import type { AppState } from '../../types/api';
 import type { ProdutoDoEstado } from '../vendas/tipos';
 
@@ -346,94 +350,247 @@ function Contagem({
 
 /* ──────────────────────────────────────────────────────── o resultado */
 
-interface LinhaResultado {
-  sku: string;
-  desc?: string;
-  sistema: number;
-  contado: number | null;
-  diferenca: number | null;
-  comparavel?: boolean;
-}
-
+/** O RESULTADO da contagem.
+ *
+ *  O adaptador anterior lia `{ itens: [{ sistema, diferenca }] }` — três
+ *  nomes que não existem na resposta. A tela dizia "Sem resultado para
+ *  mostrar" em TODO inventário concluído, e o botão de ajustar mandava
+ *  `POST /aplicar {}`, que aplica lista vazia e volta sem erro. O contrato
+ *  real está em `./resultado.ts`; o backend não mudou uma linha.
+ *
+ *  As quatro listas são quatro coisas diferentes, e é por isso que elas não
+ *  viram uma tabela só com uma coluna de diferença:
+ *
+ *    faltando/sobrando  têm diferença e PODEM ser corrigidas;
+ *    não conferido      não foi contado — e não contado não é zero (D3);
+ *    não comparável     foi contado sem dizer qual variação (D5).
+ */
 function Resultado({
   conexao, id, aoAplicar,
 }: { conexao: Connection; id: number; aoAplicar: () => void }) {
-  const r = useApi(
-    (s) => chamar<{ itens?: LinhaResultado[]; erro?: string }>(
-      conexao, 'GET', `/api/inventarios/${id}/resultado`, undefined, { signal: s },
-    ),
-    [conexao, id],
-  );
+  const r = useApi((s) => buscarResultado(conexao, id, s), [conexao, id]);
   const [erro, setErro] = useState('');
   const [aplicando, setAplicando] = useState(false);
+  const [escolhidas, setEscolhidas] = useState<Set<string> | null>(null);
 
-  const itens = r.dados?.itens ?? [];
-  const divergentes = itens.filter((i) => i.diferenca !== null && i.diferenca !== 0);
+  const dados = r.dados;
+  const pronto = temResultado(dados);
+  const podeAjustar = pronto ? aplicaveis(dados) : [];
+  const chave = (l: LinhaDeDiferenca) => `${l.sku}|${l.variacao ?? ''}`;
+
+  /* Tudo marcado por padrão: o caminho comum é aceitar o retrato inteiro.
+     Desmarcar é a exceção, e ela precisa existir — uma linha que a pessoa
+     quer conferir de novo não pode obrigar a deixar todas as outras de fora. */
+  const marcadas = escolhidas ?? new Set(podeAjustar.map(chave));
+  const alvos = podeAjustar.filter((l) => marcadas.has(chave(l)));
+
+  function alternar(l: LinhaDeDiferenca) {
+    const nova = new Set(marcadas);
+    if (nova.has(chave(l))) nova.delete(chave(l));
+    else nova.add(chave(l));
+    setEscolhidas(nova);
+  }
 
   async function aplicar() {
+    if (!alvos.length) return;
     if (!confirm(
-      `Ajustar o estoque de ${divergentes.length} ${divergentes.length === 1 ? 'peça' : 'peças'}?\n\n`
-      + 'Cada ajuste vira um movimento na razão, com o inventário como origem. Nada é apagado.',
+      `Ajustar o estoque de ${alvos.length} ${plural(alvos.length, 'peça', 'peças')}?\n\n`
+      + 'Cada ajuste vira uma saída sem faturamento amarrada a este inventário, '
+      + 'com movimento na razão e estorno possível. Nada é apagado.',
     )) return;
     setAplicando(true);
     setErro('');
-    const resposta = await chamar<{ erro?: string }>(conexao, 'POST', `/api/inventarios/${id}/aplicar`, {})
+    const resposta = await aplicarAjustes(conexao, id, alvos.map(pedidoDaLinha))
       .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui aplicar.' }));
     setAplicando(false);
     if (resposta && 'erro' in resposta && resposta.erro) setErro(String(resposta.erro));
-    else { r.recarregar(); aoAplicar(); }
+    else { setEscolhidas(null); r.recarregar(); aoAplicar(); }
   }
 
+  if (r.erro) return <div className="mq-card__body"><ErrorState erro={r.erro} aoTentarDeNovo={r.recarregar} /></div>;
+
   return (
-    <div className="mq-card__body">
-      {r.dados?.erro && <p className="mq-note mq-note--warn"><span>{r.dados.erro}</span></p>}
+    <div className="mq-card__body mq-stack">
+      {dados && !pronto && (
+        <p className="mq-note mq-note--warn"><span>{(dados as { erro: string }).erro}</span></p>
+      )}
       {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
 
-      {itens.length === 0 ? (
-        <p className="mq-hint">Sem resultado para mostrar.</p>
-      ) : (
+      {pronto && (
         <>
-          <p className="mq-lede">
-            {divergentes.length === 0
-              ? 'Nenhuma divergência: o que foi contado bate com o que o sistema diz.'
-              : `${divergentes.length} ${divergentes.length === 1 ? 'peça diverge' : 'peças divergem'} do sistema.`}
-          </p>
+          <dl className="mq-figures">
+            <div className="is-ok">
+              <dt>Conferido</dt>
+              <dd>{dados.conferido}</dd>
+              <small>bateram exatamente</small>
+            </div>
+            <div className={dados.faltando.length ? 'is-risk' : ''}>
+              <dt>Faltando</dt>
+              <dd>{dados.faltando.length}</dd>
+              <small>contou menos que o sistema</small>
+            </div>
+            <div className={dados.sobrando.length ? 'is-brand' : ''}>
+              <dt>Sobrando</dt>
+              <dd>{dados.sobrando.length}</dd>
+              <small>contou mais que o sistema</small>
+            </div>
+            <div>
+              <dt>Peças contadas</dt>
+              <dd>{dados.pecasContadas}</dd>
+              <small>
+                {dados.cobertura.conferidos} de {dados.cobertura.total} códigos
+              </small>
+            </div>
+          </dl>
 
-          <div className="mq-list">
-            {itens.map((i) => (
-              <div className="mq-item" key={i.sku}>
-                <span className={`mq-item__icon ${i.diferenca ? (i.diferenca > 0 ? 'mq-item__icon--info' : 'mq-item__icon--risk') : 'mq-item__icon--ok'}`}>
-                  <Icone nome={i.diferenca ? 'alert' : 'check'} />
-                </span>
-                <span className="mq-item__main">
-                  <b>{i.desc ?? i.sku}</b>
-                  <small>
-                    sistema {i.sistema} ·{' '}
-                    {i.contado === null ? 'não contado' : `contado ${i.contado}`}
-                  </small>
-                </span>
-                <span className="mq-item__side">
-                  {i.diferenca === null ? (
-                    <span className="mq-status">fora da conta</span>
-                  ) : (
-                    <b className={i.diferenca === 0 ? 'mq-qty' : i.diferenca > 0 ? 'mq-qty mq-money--ok' : 'mq-qty mq-money--risk'}>
-                      {i.diferenca > 0 ? '+' : ''}{i.diferenca}
-                    </b>
-                  )}
-                </span>
+          <ListaDeDiferenca
+            titulo="Faltando"
+            explica="Contou menos do que o sistema diz. O ajuste tira a diferença do estoque."
+            linhas={dados.faltando}
+            marcadas={marcadas}
+            chave={chave}
+            aoAlternar={alternar}
+          />
+          <ListaDeDiferenca
+            titulo="Sobrando"
+            explica="Contou mais do que o sistema diz. O ajuste devolve a diferença ao estoque."
+            linhas={dados.sobrando}
+            marcadas={marcadas}
+            chave={chave}
+            aoAlternar={alternar}
+          />
+
+          {dados.naoConferido.length > 0 && (
+            <section>
+              <h3 className="mq-subtitle">
+                Não conferido · {dados.naoConferido.length}
+              </h3>
+              <p className="mq-hint">
+                Estes códigos não foram contados. <b>Não contado não é zero</b>:
+                o servidor recusa transformá-los em diferença, e é essa trava
+                que impede um inventário parado pela metade de zerar meio
+                catálogo.
+              </p>
+              <div className="mq-list">
+                {dados.naoConferido.map((l) => (
+                  <div className="mq-item" key={`${l.sku}|${l.variacao ?? ''}`}>
+                    <span className="mq-item__icon"><Icone nome="box" /></span>
+                    <span className="mq-item__main">
+                      <b>{l.desc}</b>
+                      <small>{l.sku}{l.variacao ? ` · ${l.variacao}` : ''}</small>
+                    </span>
+                    <span className="mq-item__side">
+                      <b className="mq-qty">{l.esperado}</b>
+                      <small>no sistema</small>
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </section>
+          )}
 
-          {divergentes.length > 0 && (
-            <p style={{ marginTop: 16 }}>
-              <button type="button" className="mq-btn mq-btn--primary" disabled={aplicando} onClick={aplicar}>
-                {aplicando ? 'Ajustando…' : `Ajustar ${divergentes.length} ${divergentes.length === 1 ? 'peça' : 'peças'}`}
+          {dados.naoComparavel.length > 0 && (
+            <section>
+              <h3 className="mq-subtitle">
+                Não comparável · {dados.naoComparavel.length}
+              </h3>
+              <p className="mq-hint">
+                Contadas sem identidade suficiente. O código inteiro fica
+                bloqueado até alguém dizer qual variação era — não se escreve
+                estoque sobre uma dúvida.
+              </p>
+              <div className="mq-list">
+                {dados.naoComparavel.map((l) => (
+                  <div className="mq-item" key={`${l.sku}|${l.variacao ?? ''}|${l.naoIdentificado}`}>
+                    <span className="mq-item__icon mq-item__icon--warn"><Icone nome="alert" /></span>
+                    <span className="mq-item__main">
+                      <b>{l.desc}</b>
+                      <small>{l.sku}{l.variacao ? ` · ${l.variacao}` : ''} · {l.motivo}</small>
+                    </span>
+                    <span className="mq-item__side"><b className="mq-qty">{l.contado}</b></span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {podeAjustar.length > 0 ? (
+            <div className="mq-btns">
+              <button
+                type="button"
+                className="mq-btn mq-btn--primary"
+                disabled={aplicando || alvos.length === 0}
+                onClick={aplicar}
+              >
+                {aplicando
+                  ? 'Ajustando…'
+                  : `Ajustar ${alvos.length} ${plural(alvos.length, 'peça', 'peças')}`}
               </button>
+              {alvos.length !== podeAjustar.length && (
+                <button type="button" className="mq-btn mq-btn--ghost" onClick={() => setEscolhidas(null)}>
+                  Marcar todas
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="mq-hint">
+              {dados.faltando.length + dados.sobrando.length === 0
+                ? 'Nenhuma divergência: o que foi contado bate com o que o sistema diz.'
+                : 'Todas as diferenças deste inventário já foram corrigidas.'}
             </p>
           )}
         </>
       )}
     </div>
+  );
+}
+
+/** Uma das duas listas corrigíveis. Elas têm a mesma forma e significados
+ *  opostos, então compartilham o desenho e nunca o rótulo. */
+function ListaDeDiferenca({
+  titulo, explica, linhas, marcadas, chave, aoAlternar,
+}: {
+  titulo: string;
+  explica: string;
+  linhas: LinhaDeDiferenca[];
+  marcadas: Set<string>;
+  chave: (l: LinhaDeDiferenca) => string;
+  aoAlternar: (l: LinhaDeDiferenca) => void;
+}) {
+  if (!linhas.length) return null;
+  return (
+    <section>
+      <h3 className="mq-subtitle">{titulo} · {linhas.length}</h3>
+      <p className="mq-hint">{explica}</p>
+      <div className="mq-list">
+        {linhas.map((l) => (
+          <label className="mq-item" key={chave(l)}>
+            <span className="mq-item__icon">
+              <input
+                type="checkbox"
+                checked={l.aplicado ? false : marcadas.has(chave(l))}
+                disabled={l.aplicado}
+                aria-label={`Corrigir ${l.desc}`}
+                onChange={() => aoAlternar(l)}
+              />
+            </span>
+            <span className="mq-item__main">
+              <b>{l.desc}</b>
+              <small>
+                {l.sku}{l.variacao ? ` · ${l.variacao}` : ''} · sistema {l.esperado} ·
+                {' '}contado {l.contado}
+                {l.aviso ? ` · ${l.aviso}` : ''}
+              </small>
+            </span>
+            <span className="mq-item__side">
+              <b className={l.dif < 0 ? 'mq-qty mq-money--risk' : 'mq-qty mq-money--ok'}>
+                {l.dif > 0 ? '+' : ''}{l.dif}
+              </b>
+              {l.aplicado && <span className="mq-status mq-status--ok">corrigida</span>}
+            </span>
+          </label>
+        ))}
+      </div>
+    </section>
   );
 }
