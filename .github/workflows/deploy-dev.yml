@@ -10,8 +10,14 @@ name: Deploy DEV (Cloudflare Pages)
 #   /dashboard.html    → o painel: Etiqueta · Estoque · Revendedoras · Vendas
 #   /index.html        → o app de etiquetas autônomo, mantido como
 #                        referência; não é mais destino de navegação
-#   /painel-novo/      → o frontend React, em construção, no mesmo domínio
-#   /prototype/        → o protótipo estático navegável do Sistema Marquesa V2
+#   /painel-novo/      → o frontend React, no endereço em que ele nasceu;
+#                        mantido para não quebrar link antigo
+#   /v2/               → O SISTEMA MARQUESA V2: o MESMO bundle React de
+#                        /painel-novo/, publicado no endereço definitivo.
+#                        Dois caminhos, um build — não há como um ficar
+#                        para trás do outro
+#   /prototype/        → o protótipo estático navegável, preservado como
+#                        REFERÊNCIA VISUAL; não é o sistema
 #
 # Um DEV só. Nada aqui toca main, marquesa-api ou marquesa-db — o Worker
 # staging (marquesa-api-staging) é publicado por outro caminho, à parte
@@ -98,8 +104,18 @@ jobs:
         working-directory: frontend
         run: npm test
 
+      # O endereço da API entra como sugestão no formulário de conexão —
+      # o app NÃO conecta sozinho, e a chave continua sendo digitada por
+      # quem abre. Sem isto, validar pelo telefone começa por digitar uma
+      # URL de 58 caracteres numa tela de 390px.
+      #
+      # `marquesa-api-staging-v2` fala com `marquesa-db-staging-v2`, a cópia
+      # da operação. Nenhum endereço de produção aparece aqui.
       - name: Build do painel novo (inclui tsc --noEmit)
         working-directory: frontend
+        env:
+          VITE_API_URL: https://marquesa-api-staging-v2.marquesaasemijoias.workers.dev
+          VITE_APP_ENV: dev
         run: npm run build
 
       # O único teste de backend que cabe no CI: não precisa de Worker, de D1
@@ -144,10 +160,16 @@ jobs:
       - name: Juntar o site do DEV num diretório só
         run: |
           set -e
-          mkdir -p publicar/painel-novo publicar/projeto
+          mkdir -p publicar/painel-novo publicar/v2 publicar/projeto
           cp index.html dashboard.html manifest.json sw.js _redirects publicar/
           cp -r brand icons vendor publicar/
+          # O MESMO bundle nos dois endereços. `base: './'` no vite.config.ts
+          # é o que permite isso: os assets são relativos ao index.html, então
+          # a cópia funciona em qualquer prefixo sem rebuild. O logo oficial
+          # nem chega a ser um arquivo separado — o Vite o embute como data
+          # URI, e por isso ele não tem caminho que possa quebrar.
           cp -r frontend/dist/. publicar/painel-novo/
+          cp -r frontend/dist/. publicar/v2/
           cp docs/project/dashboard/index.html docs/project/dashboard/estilo.css docs/project/dashboard/painel.js docs/project/dashboard/data.js publicar/projeto/
           node scripts/build-prototype.mjs publicar
           echo "--- o que vai ao ar ---"

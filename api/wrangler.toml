@@ -152,3 +152,69 @@ PERSONALIZACAO_ATIVA = "true"
 # quando dá errado — e o DEV não deveria escrever em loja nenhuma sozinho.
 [env.staging.triggers]
 crons = []
+
+# ------------------------------------------------- ambiente STAGING V2
+# Terceiro ambiente, criado em 20/09/2026 para a validação da V2 com dados
+# reais. Existe porque `marquesa-db-dev` é um snapshot CONGELADO de agosto,
+# 12 tabelas atrás de produção — validar a V2 contra ele validaria o sistema
+# errado. Este banco é uma cópia SOMENTE-LEITURA de `marquesa-db-prod`
+# tirada com `wrangler d1 export`, importada aqui, e daqui em diante segue
+# vida própria: o que se escreve na validação NUNCA volta para produção.
+#
+#   D1   marquesa-db-staging-v2  db76e50a-af76-4228-bcad-6be161a61344
+#   de   marquesa-db-prod        51dd629b-52dc-46d0-a1af-fa37f0a79533
+#
+# Nenhum nome de produção aparece neste bloco, e é isso que o hook
+# `.claude/hooks/protect-production.mjs` usa para provar que `--env
+# staging-v2` é DEV: um ambiente nomeado só é DEV quando não reaproveita
+# NENHUM recurso do ambiente raiz.
+[env.staging-v2]
+name = "marquesa-api-staging-v2"
+workers_dev = true
+
+# Este ambiente serve CPF, telefone e histórico de compra de cliente real.
+# As Preview URLs (um endereço público por versão publicada) ficam ligadas
+# por padrão quando `workers_dev = true`, e cada uma seria mais um endereço
+# servindo esses dados. A chave protegeria todas elas — mas um endereço que
+# não precisa existir é melhor que um endereço bem protegido.
+preview_urls = false
+
+[[env.staging-v2.d1_databases]]
+binding = "DB"
+database_name = "marquesa-db-staging-v2"
+database_id = "db76e50a-af76-4228-bcad-6be161a61344"
+
+# SEM binding R2, e não por esquecimento: a conta responde 10042 ("enable R2
+# through the Cloudflare Dashboard"), e um `wrangler deploy --env staging-v2`
+# com `[[r2_buckets]]` falha ANTES de publicar — verificado em 20/09/2026,
+# exatamente o mesmo erro que tirou o bucket do bloco raiz no go-live.
+# Consequência, que é a documentada e não uma surpresa: `env.FOTOS` é
+# opcional em `fotos-storage.js`. Foto por URL externa (`foto_url`) continua
+# aparecendo normalmente; o que precisa dos BYTES — upload, recorte, lote —
+# recusa com `bloqueio: "sem_r2"`, que é uma recusa explícita e não um 500
+# nem um sucesso falso. Para habilitar: ligar R2 na conta, criar o bucket e
+# repor este bloco.
+
+[env.staging-v2.vars]
+# O /v2/ é servido pelo mesmo Pages do DEV.
+ORIGENS_PERMITIDAS = "https://marquesa-dev.pages.dev"
+
+# A trava estrutural de escrita na Nuvemshop, em "false" como no outro
+# staging: qualquer POST/PUT/PATCH/DELETE para a loja real é recusado ANTES
+# do fetch sair do Worker (api/src/nuvemshop.js > chamar). Ler catálogo
+# continua possível; escrever não, em rota nenhuma.
+NUVEMSHOP_WRITES_ENABLED = "false"
+
+# NUVEMSHOP_PUBLICACAO_ENABLED continua DELIBERADAMENTE AUSENTE aqui, como
+# em produção. Ausente vale como desligada: preparar e aprovar publicação
+# funcionam, a escrita externa não sai.
+
+# Espelha produção. A V2 mostra a tela de Monte seu Colar indisponível em
+# vez de fingir que ela funciona — ligar isto aqui daria à validação um
+# comportamento que a operação real não tem.
+PERSONALIZACAO_ATIVA = "false"
+
+# Sem cron. Um ambiente de validação não sincroniza com loja nenhuma
+# sozinho, de madrugada, sem ninguém olhando.
+[env.staging-v2.triggers]
+crons = []
