@@ -14,13 +14,13 @@ consegue fazer.
 
 | | capacidades |
 |---|---|
-| 🟢 pronta | 99 |
+| 🟢 pronta | 102 |
 | 🟡 parcial | 3 |
-| ⚪ pendente — o backend tem, a tela não | 5 |
+| ⚪ pendente — o backend tem, a tela não | 4 |
 | ⛔ indisponível — o backend não sustenta | 12 |
-| **total** | **119** |
+| **total** | **121** |
 
-**99 de 107** capacidades que o backend sustenta já estão
+**102 de 109** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
@@ -131,7 +131,7 @@ Autoridade de UX: `/prototype/estoque/#inventario` · 🟢 8 · 🟡 0 · ⚪ 0 
 
 ## Catálogo
 
-Autoridade de UX: `/prototype/catalogo/` · 🟢 2 · 🟡 0 · ⚪ 4 · ⛔ 0
+Autoridade de UX: `/prototype/catalogo/` · 🟢 3 · 🟡 0 · ⚪ 3 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -139,8 +139,8 @@ Autoridade de UX: `/prototype/catalogo/` · 🟢 2 · 🟡 0 · ⚪ 4 · ⛔ 0
 | Editar nome, preço, categoria e situação | 🟢 pronta | `features/catalogo/CatalogoArea.tsx` | — |
 | Galeria de fotos da peça | ⚪ pendente | — | `GET/POST /api/produtos/:sku/galeria`, ordem, principal e aprovação existem no Worker inteiros. A tela da V2 ainda não os consome — é o maior buraco do módulo. |
 | Variações da peça | ⚪ pendente | — | `PUT /api/produtos/:sku/variacoes` e `GET /api/variacoes/revisao` existem. A V2 ainda não tem a tela. |
-| Preparar → revisar → aprovar | ⚪ pendente | — | `/api/catalogo/publicacao/:sku/{preparar,previa,aprovar,reabrir}` existem. A V2 ainda não tem a fila. |
-| Operações em lote | ⚪ pendente | — | `POST /api/fotos/lotes` e `POST /api/catalogo/publicacao/rodada` existem. A tela ainda não. |
+| Preparar → revisar → aprovar | 🟢 pronta | `#/nuvemshop/publicacao` | — |
+| Operações em lote | ⚪ pendente | — | `POST /api/fotos/lotes` (subir várias fotos e casá-las por nome) existe e a tela ainda não. A outra rota de lote, `POST /api/catalogo/publicacao/rodada`, ESCREVE na loja real e continua fora desta trilha por decisão, não por falta de tela. |
 
 ## Revendedoras e maletas
 
@@ -176,7 +176,7 @@ Autoridade de UX: `/prototype/garantias/` · 🟢 9 · 🟡 1 · ⚪ 0 · ⛔ 0
 
 ## Nuvemshop
 
-Autoridade de UX: `/prototype/nuvemshop/` · 🟢 4 · 🟡 0 · ⚪ 0 · ⛔ 1
+Autoridade de UX: `/prototype/nuvemshop/` · 🟢 6 · 🟡 0 · ⚪ 0 · ⛔ 1
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -184,6 +184,8 @@ Autoridade de UX: `/prototype/nuvemshop/` · 🟢 4 · 🟡 0 · ⚪ 0 · ⛔ 1
 | Pendências | 🟢 pronta | `features/nuvemshop/PendenciasList.tsx` | — |
 | Análise da sincronização e divergências | 🟢 pronta | `features/nuvemshop/NuvemshopPage.tsx` | — |
 | Saúde da conexão e das falhas | 🟢 pronta | `features/nuvemshop/saude.ts` | — |
+| Revisar e salvar a prévia do site | 🟢 pronta | `features/publicacao/FilaArea.tsx` | — |
+| Aprovar, reabrir e repetir | 🟢 pronta | `features/publicacao/api.ts` | — |
 | Publicar na loja real | ⛔ indisponível | — | ESCRITA NA LOJA REAL CONTINUA PROIBIDA nesta trilha. `POST /api/catalogo/publicacao/:sku/publicar` existe e NÃO é chamado pela V2. A análise usa `POST /api/sync {"seco": true}`, que lê tudo e não escreve. |
 
 ## Home

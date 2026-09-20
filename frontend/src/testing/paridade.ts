@@ -432,14 +432,16 @@ export const PARIDADE: ModuloDeParidade[] = [
           + 'existem. A V2 ainda não tem a tela.',
       },
       {
-        id: 'catalogo.publicacao', rotulo: 'Preparar → revisar → aprovar', estado: 'pendente',
-        porque: '`/api/catalogo/publicacao/:sku/{preparar,previa,aprovar,reabrir}` '
-          + 'existem. A V2 ainda não tem a fila.',
+        id: 'catalogo.publicacao', rotulo: 'Preparar → revisar → aprovar', estado: 'pronta',
+        rota: '#/nuvemshop/publicacao',
+        prova: { arquivo: `${F}/features/publicacao/FilaArea.tsx`, contem: 'Fila de publicação' },
       },
       {
         id: 'catalogo.lote', rotulo: 'Operações em lote', estado: 'pendente',
-        porque: '`POST /api/fotos/lotes` e `POST /api/catalogo/publicacao/rodada` '
-          + 'existem. A tela ainda não.',
+        porque: '`POST /api/fotos/lotes` (subir várias fotos e casá-las por nome) '
+          + 'existe e a tela ainda não. A outra rota de lote, '
+          + '`POST /api/catalogo/publicacao/rodada`, ESCREVE na loja real e '
+          + 'continua fora desta trilha por decisão, não por falta de tela.',
       },
     ],
   },
@@ -573,10 +575,26 @@ export const PARIDADE: ModuloDeParidade[] = [
       },
       {
         id: 'nuvemshop.fila', rotulo: 'Fila de publicação: preparar → revisar → aprovar → publicado',
-        estado: 'pendente',
-        porque: '`GET /api/catalogo/publicacao` e as rotas de preparar/aprovar '
-          + 'existem inteiras. A V2 ainda não tem a central operacional que o '
-          + 'protótipo desenha — é o maior buraco deste módulo.',
+        estado: 'pronta', rota: '#/nuvemshop/publicacao',
+        prova: { arquivo: `${F}/features/publicacao/FilaArea.tsx`, contem: 'Fila de publicação' },
+      },
+      {
+        id: 'nuvemshop.funil', rotulo: 'O funil é o filtro: cada degrau é uma fila de trabalho',
+        estado: 'pronta',
+        prova: { arquivo: `${F}/features/publicacao/tipos.ts`, contem: 'degrauDoEstado' },
+      },
+      {
+        id: 'nuvemshop.falta-vs-bloqueio', rotulo: 'O que falta na peça ≠ o que o servidor não faz',
+        estado: 'pronta',
+        prova: { arquivo: `${F}/features/publicacao/FilaArea.tsx`, contem: 'Bloqueio do ambiente' },
+      },
+      {
+        id: 'nuvemshop.previa', rotulo: 'Revisar e salvar a prévia do site', estado: 'pronta',
+        prova: { arquivo: `${F}/features/publicacao/FilaArea.tsx`, contem: 'O texto do site' },
+      },
+      {
+        id: 'nuvemshop.aprovar', rotulo: 'Aprovar, reabrir e repetir', estado: 'pronta',
+        prova: { arquivo: `${F}/features/publicacao/api.ts`, contem: 'aprovarPublicacao' },
       },
       {
         id: 'nuvemshop.publicar', rotulo: 'Publicar na loja real', estado: 'indisponivel',

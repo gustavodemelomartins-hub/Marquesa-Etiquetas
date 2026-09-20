@@ -14,12 +14,17 @@ import { diagnosticarSync } from './saude';
 import { analisarRelato } from '../reconciliacao/classificar';
 import { ReconciliationSummary } from '../reconciliacao/ReconciliationSummary';
 import { ReconciliationTable } from '../reconciliacao/ReconciliationTable';
+import { FilaArea } from '../publicacao/FilaArea';
 
 interface Props {
   conexao: Connection;
   /** Deixa a análise disponível para a aba de reconciliação, sem
    *  rebuscá-la: ler a loja inteira custa caro. */
   aoAnalisar: (a: ReturnType<typeof analisarRelato>) => void;
+  /** `publicacao` abre a fila. Ela mora no endereço para o link de
+   *  "3 peças esperando aprovação" poder ser mandado para alguém. */
+  sub?: string | null;
+  aoNavegarSub?: (sub: string | null) => void;
 }
 
 /** A tela da Nuvemshop.
@@ -32,7 +37,8 @@ interface Props {
  *  Nada nesta tela escreve. O único botão que fala com a Nuvemshop é
  *  "Analisar sincronização", e ele usa a rodada SECA que o backend já tem:
  *  lê a loja inteira, calcula o que mudaria, e não toca no estoque de lá. */
-export function NuvemshopPage({ conexao, aoAnalisar }: Props) {
+export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props) {
+  const naFila = sub === 'publicacao';
   const estado = useApi((signal) => buscarEstado(conexao, signal), [conexao]);
 
   const analise = useAcao(async () => {
@@ -77,8 +83,32 @@ export function NuvemshopPage({ conexao, aoAnalisar }: Props) {
 
   const { sync } = estado.dados;
 
+  /* As duas perguntas da Nuvemshop são diferentes, e por isso são duas abas:
+     "o que está acontecendo entre nós e a loja" (panorama, divergências,
+     pendências) e "o que está esperando para entrar na loja" (a fila). */
+  const abas = aoNavegarSub ? (
+    <nav className="mq-tabs" aria-label="Nuvemshop">
+      <button type="button" aria-selected={!naFila} onClick={() => aoNavegarSub(null)}>
+        Panorama e divergências
+      </button>
+      <button type="button" aria-selected={naFila} onClick={() => aoNavegarSub('publicacao')}>
+        Fila de publicação
+      </button>
+    </nav>
+  ) : null;
+
+  if (naFila) {
+    return (
+      <>
+        {abas}
+        <FilaArea conexao={conexao} />
+      </>
+    );
+  }
+
   return (
     <>
+      {abas}
       <PageHeader
         kicker="Integração"
         titulo="Nuvemshop"

@@ -170,6 +170,8 @@ function AppConectado({
           planejamento={planejamento}
           aoVerPlanejamento={() => ir({ modulo: 'revendedoras' })}
           aoMudarEstoque={estado.recarregar}
+          subNuvemshop={modulo === 'nuvemshop' ? rota.sub : null}
+          aoNavegarNuvemshop={(s) => ir({ modulo: 'nuvemshop', sub: s })}
         />
       )}
 
