@@ -276,7 +276,7 @@ a.mq-kpi:hover,button.mq-kpi:hover{border-color:var(--mq-wine-300)}
 /* -------------------------------------------------------------- 12. TABELA */
 /* Desktop: grade densa e alinhada. Mobile: a mesma linha vira cartão.        */
 .mq-table{width:100%;display:block}
-.mq-tr{display:grid;align-items:center;gap:var(--mq-4);padding:var(--mq-3) var(--mq-5);
+.mq-tr{display:grid;align-items:center;gap:var(--mq-4);padding:var(--mq-3) var(--mq-5);width:100%;
   border-bottom:1px solid var(--mq-line-2);text-align:left;background:none;border-left:0;border-right:0;border-top:0;
   width:100%;font:inherit;color:inherit;min-width:0}
 a.mq-tr,button.mq-tr{cursor:pointer;transition:background .12s}
@@ -296,7 +296,7 @@ a.mq-tr:hover,button.mq-tr:hover{background:var(--mq-wine-050)}
 @media(max-width:860px){
   .mq-tr--head{display:none}
   .mq-table{padding:0 var(--mq-4) var(--mq-4)}
-  .mq-tr{width:auto;grid-template-columns:minmax(0,1fr) auto!important;gap:var(--mq-2) var(--mq-3);
+  .mq-tr{width:100%;grid-template-columns:minmax(0,1fr) auto!important;gap:var(--mq-2) var(--mq-3);
     padding:var(--mq-4);border:1px solid var(--mq-line);border-radius:var(--mq-r-md);background:var(--mq-paper);
     margin:0 0 var(--mq-2)}
   .mq-tr.is-selected{box-shadow:inset 3px 0 var(--mq-wine-600)}
@@ -304,7 +304,7 @@ a.mq-tr:hover,button.mq-tr:hover{background:var(--mq-wine-050)}
   .mq-tr>.mq-cell--num{flex-direction:row;align-items:baseline;justify-content:space-between;text-align:left;width:100%}
   .mq-tr .mq-cell--num::before{content:attr(data-label);font:500 11px var(--mq-sans);color:var(--mq-muted);text-transform:uppercase;letter-spacing:.07em}
   .mq-tr>.mq-cell:first-child{grid-column:1;grid-row:1}
-  .mq-tr__chev{display:none}
+  .mq-tr>.mq-tr__chev{display:none}
 }
 
 /* ------------------------------------------------------------ 13. LISTAS */

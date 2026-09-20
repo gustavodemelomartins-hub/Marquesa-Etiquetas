@@ -159,6 +159,12 @@
   .mq-rail__foot { display: flex; }
   .mq-burger { display: grid; }
   .mq-topbar__search { display: none; }
+  /* ONDE ESTOU não pode virar "Clien…". No telefone o grupo sai e o nome do
+     módulo fica com a largura inteira — saber o módulo importa mais do que
+     saber a gaveta em que ele está, e o trilho aberto já diz as duas. */
+  .mq-topbar { gap: var(--mq-2); padding-inline: var(--mq-4); }
+  .mq-topbar__grupo { display: none; }
+  .mq-topbar__where { flex: 1; }
   .mq-bottomnav {
     display: grid; grid-template-columns: repeat(5, 1fr);
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
