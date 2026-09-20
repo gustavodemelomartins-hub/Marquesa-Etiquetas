@@ -49,18 +49,28 @@
 .mq-rail__logo { height: 30px; width: auto; }
 
 /* A MARCA do trilho mínimo: a MESMA imagem, com uma janela por cima.
-   Medido no canal alpha, não no olho: o traço ocupa x 16–95 e y 24–103 dos
-   320x128 do arquivo, e a primeira lacuna entre glifos (o fim do M, antes
-   do A) começa exatamente em x=95. Levar essa janela de 95px para os 42px
-   da caixa dá escala 0,442 — daí os 141x57 da imagem inteira e o
-   deslocamento de -4/-7 que traz o recorte para o canto.
-   Recortar em vez de gerar um PNG do monograma é deliberado: um segundo
-   arquivo poderia divergir do oficial, e ninguém perceberia. */
-.mq-rail__marca {
-  display: none; width: 42px; height: 42px; overflow: hidden;
-  border-radius: var(--mq-r-md); border: 1px solid rgba(255, 255, 255, .22);
-}
-.mq-rail__marca .mq-logo { width: 141px; height: 57px; max-width: none; margin: -7px 0 0 -4px; }
+   Recortar em vez de gerar um PNG do monograma é deliberado — um segundo
+   arquivo poderia divergir do oficial, e ninguém perceberia.
+
+   Os números vêm do canal alpha do arquivo, não do olho. Varrendo coluna a
+   coluna, a tinta forma nove blocos: o primeiro (x 16–70) é o ornamento
+   junto com o M, o segundo (x 71–95) já é o A. A folga entre os dois tem
+   UM pixel — medir com tolerância de 2px funde os dois num bloco só e a
+   janela aparece no ar com "MA" dentro, que foi o que aconteceu na
+   primeira tentativa.
+
+   A janela mostra exatamente esse primeiro bloco: x 16–70, y 24–103. Não
+   sobra folga à direita — o A encosta —, e é por isso que aqui NÃO há
+   caixa com borda em volta. A versão com borda existiu e foi descartada:
+   `overflow` recorta na borda do PADDING, não na do conteúdo, então o
+   padding que daria respiro ao M não recorta nada, e o traço encostava na
+   moldura. Sem moldura não há o que encostar, e quem dá o respiro é o
+   espaço do próprio trilho.
+
+   Conta: 44/54 dá escala 0,8156, logo a imagem inteira fica 261x104 e o
+   deslocamento -13/-20 traz a janela para o monograma. */
+.mq-rail__marca { display: none; width: 44px; height: 64px; overflow: hidden; }
+.mq-rail__marca .mq-logo { width: 261px; height: 104px; max-width: none; margin: -20px 0 0 -13px; }
 .mq-rail__nav {
   flex: 1; overflow-y: auto; padding: var(--mq-4) var(--mq-3) var(--mq-6);
   display: flex; flex-direction: column; gap: var(--mq-1); scrollbar-width: thin;
