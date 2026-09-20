@@ -5,6 +5,9 @@ import type { ReconciliationAnalysis } from '../../types/reconciliation';
 import { NuvemshopPage } from '../nuvemshop/NuvemshopPage';
 import { ReconciliacaoPage } from '../reconciliacao/ReconciliacaoPage';
 import { EstoqueTotalPage } from '../estoque-total/EstoqueTotalPage';
+import { PecasArea } from './PecasArea';
+import { InventarioArea } from '../inventario/InventarioArea';
+import { SaidasArea } from '../saidas/SaidasArea';
 import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
 
 /** Três telas, e Estoque Total é a porta.
@@ -14,10 +17,17 @@ import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
  *  painel abre EM CIMA de Estoque Total — quem chega vê o estado do
  *  estoque e as ações que o mudam na mesma tela, sem escolher entre olhar e
  *  agir. */
-export type SubRotaEstoque = 'estoque-total' | 'nuvemshop' | 'pendencias';
+export type SubRotaEstoque =
+  | 'estoque-total' | 'pecas' | 'inventario' | 'saidas' | 'nuvemshop' | 'pendencias';
 
 const ABAS: { rota: SubRotaEstoque; rotulo: string }[] = [
   { rota: 'estoque-total', rotulo: 'Estoque Total' },
+  /* As peças e a contagem entram AQUI, e não em módulos próprios: quem abre
+     Estoque quer saber onde está o patrimônio, e "onde está" se responde
+     olhando a peça e conferindo o que existe de verdade. */
+  { rota: 'pecas', rotulo: 'Peças' },
+  { rota: 'inventario', rotulo: 'Inventário' },
+  { rota: 'saidas', rotulo: 'Saiu sem faturar' },
   { rota: 'nuvemshop', rotulo: 'Nuvemshop' },
   { rota: 'pendencias', rotulo: 'Pendências' },
 ];
@@ -73,6 +83,24 @@ export function EstoqueArea({
           </button>
         ))}
       </div>
+
+      {sub === 'pecas' && (
+        <PecasArea
+          conexao={conexao}
+          estado={estado}
+          carregando={!estado}
+          erro={null}
+          recarregar={aoMudarEstoque}
+        />
+      )}
+
+      {sub === 'inventario' && (
+        <InventarioArea conexao={conexao} estado={estado} aoMudarEstoque={aoMudarEstoque} />
+      )}
+
+      {sub === 'saidas' && (
+        <SaidasArea conexao={conexao} estado={estado} aoMudarEstoque={aoMudarEstoque} />
+      )}
 
       {sub === 'estoque-total' && (
         <EstoqueTotalPage

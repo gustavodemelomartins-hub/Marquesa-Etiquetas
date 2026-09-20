@@ -45,13 +45,13 @@ export const GRUPOS: GrupoModulos[] = [
   {
     titulo: 'Operação',
     modulos: [
-      { id: 'home', rotulo: 'Home', icone: 'home', pendente: true,
+      { id: 'home', rotulo: 'Home', icone: 'home',
         pergunta: 'Como está a operação hoje?' },
-      { id: 'vendas', rotulo: 'Vendas', icone: 'sale', pendente: true,
+      { id: 'vendas', rotulo: 'Vendas', icone: 'sale',
         pergunta: 'O que foi vendido, para quem, e o que ainda falta receber?' },
       { id: 'clientes', rotulo: 'Clientes', icone: 'people',
         pergunta: 'Como está a relação com esta cliente?' },
-      { id: 'financeiro', rotulo: 'Financeiro', icone: 'money', pendente: true,
+      { id: 'financeiro', rotulo: 'Financeiro', icone: 'money',
         pergunta: 'Quanto entrou e quanto ainda falta receber?' },
     ],
   },
@@ -60,7 +60,7 @@ export const GRUPOS: GrupoModulos[] = [
     modulos: [
       { id: 'estoque', rotulo: 'Estoque', icone: 'box',
         pergunta: 'Onde está o patrimônio e o que precisa de atenção?' },
-      { id: 'catalogo', rotulo: 'Catálogo', icone: 'tag', pendente: true,
+      { id: 'catalogo', rotulo: 'Catálogo', icone: 'tag',
         pergunta: 'Como a peça se chama, quanto custa e onde ela aparece?' },
       { id: 'etiquetas', rotulo: 'Etiquetas', icone: 'label', pendente: true,
         pergunta: 'O que precisa ser impresso agora?' },
@@ -73,7 +73,7 @@ export const GRUPOS: GrupoModulos[] = [
     modulos: [
       { id: 'revendedoras', rotulo: 'Revendedoras', icone: 'bag',
         pergunta: 'O que está circulando, com quem, e desde quando?' },
-      { id: 'garantias', rotulo: 'Garantias e reparos', icone: 'shield', pendente: true,
+      { id: 'garantias', rotulo: 'Garantias e reparos', icone: 'shield',
         pergunta: 'O que está em andamento e o que espera uma ação nossa?' },
     ],
   },
@@ -84,7 +84,7 @@ export const GRUPOS: GrupoModulos[] = [
         pergunta: 'O que vence, acerta ou fecha nos próximos dias?' },
       { id: 'notificacoes', rotulo: 'Notificações', icone: 'bell', pendente: true,
         pergunta: 'O que o sistema precisa me contar?' },
-      { id: 'configuracoes', rotulo: 'Configurações', icone: 'settings', pendente: true,
+      { id: 'configuracoes', rotulo: 'Configurações', icone: 'settings',
         pergunta: 'Como a casa está configurada?' },
     ],
   },

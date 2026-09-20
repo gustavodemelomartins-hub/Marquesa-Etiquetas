@@ -180,4 +180,104 @@
   .mq-bottomnav [aria-current='page'] { color: var(--mq-wine-700); }
   .mq-shell__main { gap: var(--mq-5); }
 }
-@media (min-width: 901px) { .mq-scrim { display: none !important; } }
+@media (min-width: 901px) { .mq-scrim--menu { display: none !important; } }
+
+/* ------------------------------------------------- filtro de intervalo
+ *
+ * O intervalo livre abre abaixo dos atalhos e some quando não é usado: ele
+ * responde uma pergunta de fechamento de mês, e ocupar a barra todo dia por
+ * causa dela custaria mais do que vale. */
+.mq-filters__livre {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--mq-3);
+  flex-wrap: wrap;
+  width: 100%;
+  padding-top: var(--mq-3);
+  border-top: 1px solid var(--mq-line-2);
+}
+.mq-filters__livre .mq-field { flex: 1 1 150px; min-width: 0; }
+@media (max-width: 600px) {
+  .mq-filters__livre .mq-btn { width: 100%; }
+}
+
+/* ------------------------------------------------- a linha da nova venda
+ *
+ * Cada peça do carrinho é um bloco, não uma linha de tabela: no balcão se
+ * mexe em quantidade e preço com o dedo, e campo de 32px numa grade
+ * apertada é onde se erra o valor de uma venda. */
+.mq-venda-linha {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mq-3);
+  padding: var(--mq-4) 0;
+  border-bottom: 1px solid var(--mq-line-2);
+}
+.mq-venda-linha:last-child { border-bottom: 0; }
+.mq-venda-linha__topo { display: flex; align-items: flex-start; gap: var(--mq-3); }
+.mq-venda-linha__topo .mq-cell { flex: 1; min-width: 0; }
+.mq-venda-linha__campos {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) auto;
+  gap: var(--mq-3);
+  align-items: end;
+}
+.mq-venda-linha__campos > .mq-field:last-child { text-align: right; }
+@media (max-width: 480px) {
+  .mq-venda-linha__campos { grid-template-columns: 80px minmax(0, 1fr); }
+  .mq-venda-linha__campos > .mq-field:last-child { grid-column: 1 / -1; text-align: left; }
+}
+
+/* A gaveta da venda precisa de mais largura que a de um cadastro: ela
+   carrega cliente, carrinho e fechamento ao mesmo tempo. */
+.mq-drawer--larga { width: min(620px, 100vw); }
+
+/* Lista de resultado de busca dentro de um formulário: mais curta que a
+   lista de uma tela inteira, senão ela empurra o resto para fora da vista. */
+.mq-list--compacta {
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--mq-line);
+  border-radius: var(--mq-r-md);
+}
+.mq-list--compacta .mq-item { padding: var(--mq-3) var(--mq-4); }
+
+/* ------------------------------------------------- sobreposições
+ *
+ * O protótipo usa `<dialog>`, que o navegador promove sozinho para a camada
+ * de topo. Em React são `div`s comuns, e elas precisam dizer onde ficam —
+ * acima da cortina, nunca embaixo dela. Sem isto o formulário abre, aparece
+ * inteiro, e nenhum clique chega nele: a cortina come todos. É o mesmo
+ * defeito que a gaveta do trilho tinha, na outra ponta do produto.
+ *
+ * A cortina do MENU é outra coisa da cortina de um diálogo: aquela só
+ * existe onde a gaveta existe (telefone), esta existe em qualquer largura.
+ * Duas cortinas, dois comportamentos, e por isso um modificador. */
+.mq-modal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 56;
+}
+.mq-drawer { z-index: 56; }
+@media (max-width: 600px) {
+  /* No telefone a folha sobe de baixo, como o sistema operacional faz. */
+  .mq-modal { top: auto; bottom: 0; transform: translateX(-50%); margin: 0; }
+}
+
+/* ------------------------------------------------- contagem de inventário
+ *
+ * O campo da contagem é grande de propósito: quem conta está de pé, com a
+ * peça numa mão e o telefone na outra, e errar o número aqui vira ajuste
+ * de estoque errado. */
+.mq-inv-acoes { display: flex; align-items: center; gap: var(--mq-2); }
+.mq-inv-contagem {
+  width: 84px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+@media (max-width: 600px) {
+  .mq-inv-acoes { width: 100%; justify-content: flex-end; }
+}

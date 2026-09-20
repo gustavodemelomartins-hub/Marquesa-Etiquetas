@@ -19,7 +19,7 @@ export function AreaPendente({ modulo }: Props) {
     <>
       <div className="mq-pagehead">
         <div className="mq-pagehead__text">
-          <p className="mq-eyebrow">{m.rotulo}</p>
+          <p className="mq-eyebrow">{m.rotulo} · em desenvolvimento</p>
           <h1 className="mq-display">{m.pergunta ?? m.rotulo}</h1>
           <p className="mq-lede">
             É esta a pergunta que {m.rotulo} responde. A tela em React ainda não
@@ -31,7 +31,7 @@ export function AreaPendente({ modulo }: Props) {
       <section className="mq-card">
         <div className="mq-state">
           <span className="mq-state__icon"><Icone nome={m.icone} /></span>
-          <h3>Módulo ainda não migrado</h3>
+          <h3>Em desenvolvimento</h3>
           <p>
             Nada se perdeu: {m.rotulo} funciona hoje no painel clássico, com os
             mesmos dados. Este lugar no menu existe para que ele não seja

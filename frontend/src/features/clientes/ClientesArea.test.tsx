@@ -1,10 +1,19 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { ClientesArea } from './ClientesArea';
 import type { Connection } from '../../services/client';
 
 const conexao: Connection = { url: 'http://localhost:8787', key: 'chave-de-teste' };
+
+/** A área agora recebe o endereço de fora — quem guarda a rota é o App, e
+ *  é isso que faz recarregar a página voltar para a mesma ficha. Nos testes
+ *  este casulo faz o papel do App: guarda o `sub` e o devolve. */
+function Area() {
+  const [sub, setSub] = useState<string | null>(null);
+  return <ClientesArea conexao={conexao} sub={sub} aoNavegar={setSub} aoNovaVenda={() => {}} />;
+}
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -95,7 +104,7 @@ function comBackend(extra: Record<string, unknown> = {}) {
 describe('Clientes, ponta a ponta', () => {
   it('a lista busca no SERVIDOR, com o termo digitado', async () => {
     const chamadas = comBackend();
-    render(<ClientesArea conexao={conexao} />);
+    render(<Area />);
 
     expect(await screen.findByText('Vitória Prado')).toBeTruthy();
     fireEvent.change(screen.getByLabelText(/Buscar cliente/), { target: { value: 'camila' } });
@@ -107,7 +116,7 @@ describe('Clientes, ponta a ponta', () => {
 
   it('abrir uma cliente pede o perfil por ID e mostra os TRÊS números de §38', async () => {
     const chamadas = comBackend();
-    render(<ClientesArea conexao={conexao} />);
+    render(<Area />);
 
     fireEvent.click(await screen.findByText('Vitória Prado'));
 
@@ -127,7 +136,7 @@ describe('Clientes, ponta a ponta', () => {
    *  pagamento são colunas diferentes, com valores diferentes. */
   it('a aba Compras mostra a data da venda e a do pagamento separadas', async () => {
     comBackend();
-    render(<ClientesArea conexao={conexao} />);
+    render(<Area />);
     fireEvent.click(await screen.findByText('Vitória Prado'));
     fireEvent.click(await screen.findByRole('button', { name: 'Compras' }));
 
@@ -145,7 +154,7 @@ describe('Clientes, ponta a ponta', () => {
 
   it('Financeiro lista o que falta receber, venda a venda', async () => {
     comBackend();
-    render(<ClientesArea conexao={conexao} />);
+    render(<Area />);
     fireEvent.click(await screen.findByText('Vitória Prado'));
     fireEvent.click(await screen.findByRole('button', { name: 'Financeiro' }));
 
@@ -155,7 +164,7 @@ describe('Clientes, ponta a ponta', () => {
 
   it('Crédito mostra saldo e extrato, e não oferece consumir', async () => {
     comBackend();
-    render(<ClientesArea conexao={conexao} />);
+    render(<Area />);
     fireEvent.click(await screen.findByText('Vitória Prado'));
     fireEvent.click(await screen.findByRole('button', { name: 'Crédito' }));
 
@@ -165,7 +174,7 @@ describe('Clientes, ponta a ponta', () => {
 
   it('Atividade junta compra, pagamento e crédito numa linha do tempo só', async () => {
     comBackend();
-    render(<ClientesArea conexao={conexao} />);
+    render(<Area />);
     fireEvent.click(await screen.findByText('Vitória Prado'));
     fireEvent.click(await screen.findByRole('button', { name: 'Atividade' }));
 
@@ -177,7 +186,7 @@ describe('Clientes, ponta a ponta', () => {
 
   it('editar manda PATCH para a rota real e volta para a ficha', async () => {
     const chamadas = comBackend();
-    render(<ClientesArea conexao={conexao} />);
+    render(<Area />);
     fireEvent.click(await screen.findByText('Vitória Prado'));
     fireEvent.click(await screen.findByRole('button', { name: 'Editar dados' }));
 
@@ -201,7 +210,7 @@ describe('Clientes, ponta a ponta', () => {
         status: 200, headers: { 'Content-Type': 'application/json' },
       });
     }));
-    render(<ClientesArea conexao={conexao} />);
+    render(<Area />);
     fireEvent.click(await screen.findByText('Vitória Prado'));
     fireEvent.click(await screen.findByRole('button', { name: 'Crédito' }));
 

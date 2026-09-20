@@ -9,6 +9,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/* O endereço agora é estado do app, e o jsdom o carrega de um teste para o
+   outro. Zerar aqui é o equivalente a abrir uma aba nova. */
+beforeEach(() => {
+  history.replaceState(null, '', '/');
+});
+
 /** `GET /api/state` sobe até o App agora. Um `fetch` que nunca responde
  *  deixaria as telas em "carregando" para sempre — este devolve um estado
  *  pequeno e real, no formato de `api/src/state.js`. */
@@ -72,8 +78,8 @@ describe('navegação principal', () => {
   it('a barra superior diz sempre ONDE ESTOU', () => {
     render(<App />);
     const onde = document.querySelector('.mq-topbar__where');
-    expect(onde?.textContent).toContain('Estoque');
-    expect(onde?.textContent).toContain('Produto');
+    expect(onde?.textContent).toContain('Home');
+    expect(onde?.textContent).toContain('Operação');
 
     irNoTrilho(/Revendedoras/);
     expect(document.querySelector('.mq-topbar__where')?.textContent).toContain('Rede');
@@ -81,14 +87,23 @@ describe('navegação principal', () => {
 
   it('módulo ainda não migrado aparece marcado, não escondido', () => {
     render(<App />);
-    const financeiro = [...railDe().querySelectorAll('.mq-rail__item')]
-      .find((b) => b.textContent?.includes('Financeiro'));
-    expect(financeiro?.className).toContain('mq-rail__item--pendente');
+    const agenda = [...railDe().querySelectorAll('.mq-rail__item')]
+      .find((b) => b.textContent?.includes('Agenda'));
+    expect(agenda?.className).toContain('mq-rail__item--pendente');
 
-    fireEvent.click(financeiro as HTMLElement);
+    fireEvent.click(agenda as HTMLElement);
     expect(screen.getByRole('heading', { level: 1 }).textContent)
-      .toBe('Quanto entrou e quanto ainda falta receber?');
-    expect(screen.getByText('Módulo ainda não migrado')).toBeTruthy();
+      .toBe('O que vence, acerta ou fecha nos próximos dias?');
+    expect(screen.getByText('Em desenvolvimento')).toBeTruthy();
+  });
+
+  /* O endereço é o estado: recarregar volta para a mesma tela, e o voltar
+     do navegador desfaz a navegação em vez de sair do app. */
+  it('a tela vive na URL', () => {
+    render(<App />);
+    expect(location.hash).toBe('#/home');
+    irNoTrilho(/Financeiro/);
+    expect(location.hash.startsWith('#/financeiro')).toBe(true);
   });
 
   it('reserva o cabeçalho para busca e perfil sem fingir autenticação', () => {
@@ -139,7 +154,7 @@ describe('cada área abre na tela certa', () => {
 
     const abas = screen.getByRole('tablist', { name: 'Estoque' });
     const rotulos = [...abas.querySelectorAll('[role="tab"]')].map((b) => b.textContent);
-    expect(rotulos).toEqual(['Estoque Total', 'Nuvemshop', 'Pendências']);
+    expect(rotulos).toEqual(['Estoque Total', 'Peças', 'Inventário', 'Saiu sem faturar', 'Nuvemshop', 'Pendências']);
     expect(within(abas).getByRole('tab', { name: 'Estoque Total' })).toHaveProperty(
       'ariaPressed',
       'true',

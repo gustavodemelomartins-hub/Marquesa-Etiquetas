@@ -110,7 +110,7 @@ export function AppShell({
       {gavetaAberta && (
         <button
           type="button"
-          className="mq-scrim"
+          className="mq-scrim mq-scrim--menu"
           aria-label="Fechar menu"
           onClick={() => setGavetaAberta(false)}
         />

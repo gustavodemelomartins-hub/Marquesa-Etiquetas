@@ -50,10 +50,24 @@ describe('o casco muda de forma nas três larguras', () => {
     expect(telefone).toContain('env(safe-area-inset-bottom)');
   });
 
-  /* A cortina só faz sentido onde a gaveta existe. Acima disso ela precisa
-     sumir de verdade, ou fica um retângulo invisível comendo cliques. */
-  it('a cortina não sobrevive acima da largura da gaveta', () => {
-    expect(css).toMatch(/@media \(min-width: 901px\)[^}]*\.mq-scrim\s*\{\s*display:\s*none\s*!important/);
+  /* A cortina DO MENU só faz sentido onde a gaveta existe; acima disso ela
+     vira um retângulo invisível comendo cliques. A cortina de um diálogo é
+     outra coisa e existe em qualquer largura — por isso o modificador, e
+     por isso a regra tem de citá-lo, e não a classe base. */
+  it('só a cortina do menu some acima da largura da gaveta', () => {
+    expect(css).toMatch(/@media \(min-width: 901px\)[^}]*\.mq-scrim--menu\s*\{\s*display:\s*none\s*!important/);
+    expect(css).not.toMatch(/@media \(min-width: 901px\)[^}]*\.mq-scrim\s*\{\s*display:\s*none/);
+  });
+
+  /* Diálogo e gaveta ficam ACIMA da cortina. Abaixo dela, eles aparecem
+     inteiros e não recebem um clique sequer. */
+  it('diálogo e gaveta ficam acima da cortina', () => {
+    const z = (sel: string) => {
+      const m = css.match(new RegExp(`\\${sel}\\s*\\{[^}]*z-index:\\s*(\\d+)`));
+      return m ? Number(m[1]) : 0;
+    };
+    expect(z('.mq-modal')).toBeGreaterThan(z('.mq-scrim'));
+    expect(z('.mq-drawer')).toBeGreaterThan(z('.mq-scrim'));
   });
 
   /* O trilho é fixo: sem largura reservada, o conteúdo nasce por baixo dele

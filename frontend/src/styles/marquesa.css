@@ -186,6 +186,7 @@ a.mq-kpi:hover,button.mq-kpi:hover{border-color:var(--mq-wine-300)}
 .mq-btn--ghost:hover{background:var(--mq-line-3);color:var(--mq-wine-700)}
 .mq-btn--link{background:none;border:0;padding:0;min-height:0;color:var(--mq-wine-700);font-weight:500}
 .mq-btn--link:hover{text-decoration:underline}
+.mq-cell>.mq-btn--link,.mq-item__main>.mq-btn--link{align-self:flex-start;text-align:left;justify-content:flex-start}
 .mq-btn--danger{background:var(--mq-paper);color:var(--mq-risk);border-color:var(--mq-risk-line)}
 .mq-btn--danger:hover{background:var(--mq-risk-bg)}
 .mq-btn--sm{min-height:32px;padding:0 var(--mq-3);font-size:12px}
