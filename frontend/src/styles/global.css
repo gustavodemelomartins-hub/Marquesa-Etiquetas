@@ -4,6 +4,7 @@
      tokens.css    a ponte, que faz os nomes antigos apontarem para os novos.
      shell.css     o casco React, que usa os dois.
      painel.css    o que ainda é específico deste painel.
+     telas.css     o que é DE UMA TELA — passo dobrável, rodapé de totais.
    Design System primeiro porque ele define os tokens que todo o resto lê;
    a ponte logo depois porque ela os consome; o específico por último, que é
    quem tem direito de discordar. */
@@ -11,6 +12,7 @@
 @import './tokens.css';
 @import './shell.css';
 @import './painel.css';
+@import './telas.css';
 
 /* ------------------------------------------------------------- base */
 

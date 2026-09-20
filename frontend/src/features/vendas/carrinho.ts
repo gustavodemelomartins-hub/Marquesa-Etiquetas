@@ -1,3 +1,4 @@
+import { corpoDaComposicao, type ComposicaoDoColar } from './colar';
 import type { ProdutoDoEstado } from './tipos';
 
 /** O carrinho de uma venda nova — as contas, sem tela.
@@ -68,11 +69,16 @@ export function impedimentos(
   clienteNome: string,
   data: string,
   hoje: string,
+  /* §43 — uma venda só de composição é venda cheia. Ignorá-las aqui faria a
+     tela dizer "sem nenhuma peça" com um colar montado no carrinho. */
+  composicoes: ComposicaoDoColar[] = [],
 ): string[] {
   const erros: string[] = [];
 
   if (!clienteNome.trim()) erros.push('Diga para quem é esta venda.');
-  if (linhas.length === 0) erros.push('A venda está sem nenhuma peça.');
+  if (linhas.length === 0 && composicoes.length === 0) {
+    erros.push('A venda está sem nenhuma peça.');
+  }
   if (data > hoje) erros.push(`${data.split('-').reverse().join('/')} ainda não chegou.`);
 
   for (const l of linhas) {
@@ -103,11 +109,22 @@ export function impedimentos(
   return [...new Set(erros)];
 }
 
-/** O corpo que `POST /api/vendas` espera. Só os campos que ele aceita. */
+/** O corpo que `POST /api/vendas` espera. Só os campos que ele aceita.
+ *
+ *  O que ele NÃO aceita, e por isso não viaja daqui:
+ *    `canal`/`origem`  — `INSERT INTO vendas` grava `'balcao'` fixo. A tela
+ *                        diz isso em vez de mandar um campo que se perde.
+ *    `pagamentos[]`    — a quitação é integral (§29). Recebimento em partes
+ *                        é a decisão D2, que continua fechada.
+ *
+ *  §43 — as composições do "Monte seu Colar" viajam no MESMO corpo, em
+ *  `personalizacoes`. A venda é uma só: separá-las criaria duas vendas para
+ *  uma compra, e o histórico da cliente mostraria a mesma tarde duas vezes. */
 export function corpoDaVenda({
-  linhas, clienteId, clienteNome, data, pago, dataPagamento, observacao,
+  linhas, composicoes = [], clienteId, clienteNome, data, pago, dataPagamento, observacao,
 }: {
   linhas: LinhaDoCarrinho[];
+  composicoes?: ComposicaoDoColar[];
   clienteId: number | null;
   clienteNome: string;
   data: string;
@@ -130,5 +147,20 @@ export function corpoDaVenda({
       preco: l.preco,
       ...(temDesconto(l) ? { descontoRotulo: l.descontoRotulo.trim() } : {}),
     })),
+    ...(composicoes.length ? { personalizacoes: composicoes.map(corpoDaComposicao) } : {}),
   };
 }
+
+/* ─────────────────────────────────── o carrinho com composições dentro */
+
+/** O total da venda inteira: as peças avulsas mais as composições. O preço
+ *  de uma composição é o da CONFIGURAÇÃO, não a soma dos componentes — por
+ *  isso ele entra inteiro, uma vez, e não item a item. */
+export const totalDaVenda = (
+  linhas: LinhaDoCarrinho[], composicoes: ComposicaoDoColar[],
+) => Math.round((totalDoCarrinho(linhas)
+  + composicoes.reduce((s, c) => s + c.preco, 0)) * 100) / 100;
+
+export const pecasDaVenda = (
+  linhas: LinhaDoCarrinho[], composicoes: ComposicaoDoColar[],
+) => pecasDoCarrinho(linhas) + composicoes.length;

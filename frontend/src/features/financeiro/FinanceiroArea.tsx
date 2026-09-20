@@ -3,7 +3,7 @@ import { useApi } from '../../hooks/useApi';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { money, fmtData, hojeISO } from '../../domain/formato';
-import { FiltroPeriodo } from './FiltroPeriodo';
+import { FiltroPeriodo } from '../../components/FiltroPeriodo';
 import { AReceber } from './AReceber';
 import {
   buscarAReceber, buscarLancamentos, buscarPainel, buscarSaidas,

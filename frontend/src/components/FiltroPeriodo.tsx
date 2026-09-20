@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Icone } from '../../components/Icone';
-import { PERIODOS, ROTULOS, intervaloValido } from './periodo';
-import type { Recorte } from './tipos';
+import { Icone } from './Icone';
+import { PERIODOS, ROTULOS, intervaloValido } from '../domain/periodo';
+import type { Recorte } from '../domain/analytics';
 
 interface Props {
   recorte: Recorte;

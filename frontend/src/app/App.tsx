@@ -115,6 +115,7 @@ function AppConectado({
           estado={estado.dados}
           aoMudarEstoque={estado.recarregar}
           aoAbrirCliente={abrirCliente}
+          aoAbrirModulo={(m) => ir({ modulo: m })}
         />
       )}
 

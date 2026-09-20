@@ -1,244 +1,149 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useApi } from '../../hooks/useApi';
 import { Icone } from '../../components/Icone';
-import { ErrorState } from '../../components/ErrorState';
-import { money, fmtData, hojeISO } from '../../domain/formato';
-import { agrupar, cancelarVenda, listarVendas, pagarVenda } from './api';
+import { PainelVendas } from './PainelVendas';
+import { HistoricoVendas } from './HistoricoVendas';
+import { Lancamentos, type TipoDeLancamento } from './Lancamentos';
 import { NovaVenda } from './NovaVenda';
+import { SaidasArea } from '../saidas/SaidasArea';
 import type { Connection } from '../../services/client';
 import type { AppState } from '../../types/api';
-import type { ProdutoDoEstado, VendaAgrupada } from './tipos';
+import type { ProdutoDoEstado } from './tipos';
 
 interface Props {
   conexao: Connection;
-  /** `nova` abre o balcão direto — é o destino de "Nova venda para esta
-   *  cliente", e por estar no endereço ele sobrevive a um recarregamento. */
+  /** O segundo segmento da rota. Ele é o que faz recarregar, voltar e
+   *  mandar o link por mensagem funcionarem — nenhuma destas cinco telas
+   *  mora só na memória do componente. */
   sub: string | null;
   aoNavegar: (sub: string | null) => void;
   estado: AppState | null;
   aoMudarEstoque: () => void;
   aoAbrirCliente: (chave: { id: number } | { norm: string }) => void;
+  aoAbrirModulo: (modulo: 'garantias' | 'financeiro') => void;
 }
 
-const COLUNAS = {
-  gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) auto',
-};
-
-/** VENDAS — o que foi vendido, para quem, e o que falta receber.
+/** As cinco superfícies de Vendas, e o endereço de cada uma:
  *
- *  A lista vem de `/api/vendas/lista`, que é uma visão de ITEM: a tela
- *  agrupa as linhas pela referência da venda, que é como o backend as
- *  amarra. Agrupar é factual; somar entre vendas não seria, e não é feito.
+ *    #/vendas                 PAINEL — como foi o período
+ *    #/vendas/lancamentos     as três portas do dia
+ *    #/vendas/nova            venda normal (aceita `nova:<id>:<nome>`)
+ *    #/vendas/colar           venda normal com a composição já aberta
+ *    #/vendas/saida           saída sem faturamento
+ *    #/vendas/historico       a lista, venda a venda
+ *
+ *  A arquitetura é a do protótipo: PAINEL e LANÇAMENTOS são coisas
+ *  diferentes, e o que estava no React era só a lista. Quem abre Vendas
+ *  quer saber como foi o mês; quem abre Lançamentos está com a cliente na
+ *  frente. Uma tela só servia mal às duas.
  */
+export type SubRotaVendas = 'painel' | 'lancamentos' | 'nova' | 'colar' | 'saida' | 'historico';
+
+const ABAS: { id: SubRotaVendas; rotulo: string; rota: string | null }[] = [
+  { id: 'painel', rotulo: 'Painel', rota: null },
+  { id: 'lancamentos', rotulo: 'Lançamentos', rota: 'lancamentos' },
+  { id: 'historico', rotulo: 'Histórico', rota: 'historico' },
+];
+
+export function lerSubRota(sub: string | null): SubRotaVendas {
+  if (!sub) return 'painel';
+  if (sub === 'lancamentos') return 'lancamentos';
+  if (sub === 'historico') return 'historico';
+  if (sub === 'saida') return 'saida';
+  if (sub === 'colar') return 'colar';
+  if (sub === 'nova' || sub.startsWith('nova:')) return 'nova';
+  return 'painel';
+}
+
+/** `nova:<id>:<nome>` — o id pode vir vazio quando a ficha foi aberta pelo
+ *  histórico da planilha e não existe cadastro. */
+export function clienteDaRota(sub: string | null): { id: number | null; nome: string } | null {
+  if (!sub?.startsWith('nova:')) return null;
+  const resto = sub.slice(5);
+  const corte = resto.indexOf(':');
+  if (corte === -1) return { id: null, nome: decodeURIComponent(resto) };
+  const id = Number(resto.slice(0, corte));
+  return {
+    id: Number.isSafeInteger(id) && id > 0 ? id : null,
+    nome: decodeURIComponent(resto.slice(corte + 1)),
+  };
+}
+
 export function VendasArea({
-  conexao, sub, aoNavegar, estado, aoMudarEstoque, aoAbrirCliente,
+  conexao, sub, aoNavegar, estado, aoMudarEstoque, aoAbrirCliente, aoAbrirModulo,
 }: Props) {
-  const [busca, setBusca] = useState('');
-  const [buscaAtiva, setBuscaAtiva] = useState('');
-  const [incluirCanceladas, setIncluirCanceladas] = useState(true);
-  const [ocupada, setOcupada] = useState<string | null>(null);
-  const [recusa, setRecusa] = useState<{ chave: string; texto: string } | null>(null);
-
-  useEffect(() => {
-    const t = setTimeout(() => setBuscaAtiva(busca), 280);
-    return () => clearTimeout(t);
-  }, [busca]);
-
-  const lista = useApi(
-    (s) => listarVendas(conexao, { busca: buscaAtiva, incluirCanceladas }, s),
-    [conexao, buscaAtiva, incluirCanceladas],
-  );
-
-  const vendas = useMemo(() => agrupar(lista.dados?.itens ?? []), [lista.dados]);
+  const atual = lerSubRota(sub);
   const produtos = (estado?.produtos ?? []) as unknown as ProdutoDoEstado[];
 
-  const abrindoNova = sub === 'nova' || !!sub?.startsWith('nova:');
-  /* `nova:<id>:<nome>` — o id pode vir vazio quando a ficha foi aberta pelo
-     histórico da planilha e não existe cadastro. */
-  const clienteInicial = (() => {
-    if (!sub?.startsWith('nova:')) return null;
-    const resto = sub.slice(5);
-    const corte = resto.indexOf(':');
-    if (corte === -1) return { id: null, nome: decodeURIComponent(resto) };
-    const id = Number(resto.slice(0, corte));
-    return {
-      id: Number.isSafeInteger(id) && id > 0 ? id : null,
-      nome: decodeURIComponent(resto.slice(corte + 1)),
-    };
-  })();
-
-  async function marcarPaga(v: VendaAgrupada) {
-    if (!v.id) return;
-    const data = prompt('Em que dia o dinheiro entrou? (AAAA-MM-DD)', hojeISO());
-    if (!data) return;
-    setOcupada(v.chave);
-    setRecusa(null);
-    const r = await pagarVenda(conexao, v.id, data.trim())
-      .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui registrar.' }));
-    setOcupada(null);
-    if (r && 'erro' in r && r.erro) setRecusa({ chave: v.chave, texto: String(r.erro) });
-    else lista.recarregar();
-  }
-
-  async function cancelar(v: VendaAgrupada) {
-    if (!v.id) return;
-    if (!confirm(
-      `Cancelar a venda de ${fmtData(v.data)} para ${v.cliente ?? 'cliente sem nome'}?\n\n`
-      + 'A peça volta para o estoque e a venda continua no histórico, marcada como cancelada.',
-    )) return;
-    setOcupada(v.chave);
-    setRecusa(null);
-    const r = await cancelarVenda(conexao, v.id)
-      .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui cancelar.' }));
-    setOcupada(null);
-    if (r && 'erro' in r && r.erro) setRecusa({ chave: v.chave, texto: String(r.erro) });
-    else { lista.recarregar(); aoMudarEstoque(); }
-  }
+  const irPara = (tipo: TipoDeLancamento) => {
+    if (tipo === 'venda') aoNavegar('nova');
+    else if (tipo === 'colar') aoNavegar('colar');
+    else aoNavegar('saida');
+  };
 
   return (
     <>
-      <div className="mq-pagehead">
-        <div className="mq-pagehead__text">
-          <p className="mq-eyebrow">Operação</p>
-          <h1 className="mq-display">Vendas</h1>
-          <p className="mq-lede">
-            O que foi vendido, para quem, e o que ainda falta receber.
-          </p>
-        </div>
-        <div className="mq-pagehead__actions">
-          <button type="button" className="mq-btn mq-btn--primary" onClick={() => aoNavegar('nova')}>
-            <Icone nome="plus" />
-            Nova venda
-          </button>
-        </div>
-      </div>
+      {/* As abas acompanham a tela em todas as superfícies de leitura. Nos
+          formulários elas somem: no meio de uma venda, um clique fora do
+          fluxo perde o rascunho. */}
+      {(atual === 'painel' || atual === 'lancamentos' || atual === 'historico') && (
+        <nav className="mq-tabs" aria-label="Vendas">
+          {ABAS.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              aria-selected={atual === a.id}
+              onClick={() => aoNavegar(a.rota)}
+            >
+              {a.rotulo}
+            </button>
+          ))}
+        </nav>
+      )}
 
-      <div className="mq-filters">
-        <label className="mq-search">
-          <Icone nome="search" />
-          <input
-            className="mq-input"
-            type="search"
-            placeholder="Buscar por cliente, peça ou código"
-            aria-label="Buscar venda"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-          />
-        </label>
-        <div className="mq-chipset" role="group" aria-label="Canceladas">
-          <button type="button" aria-pressed={incluirCanceladas} onClick={() => setIncluirCanceladas(true)}>
-            Todas
-          </button>
-          <button type="button" aria-pressed={!incluirCanceladas} onClick={() => setIncluirCanceladas(false)}>
-            Sem canceladas
-          </button>
-        </div>
-        <span className="mq-filters__count">
-          {lista.carregando ? 'buscando…' : `${vendas.length} ${vendas.length === 1 ? 'venda' : 'vendas'}`}
-        </span>
-      </div>
+      {atual === 'painel' && (
+        <PainelVendas
+          conexao={conexao}
+          aoIrPara={(d) => aoNavegar(d === 'historico' ? 'historico' : 'lancamentos')}
+          aoAbrirReparos={() => aoAbrirModulo('garantias')}
+          aoAbrirAReceber={() => aoAbrirModulo('financeiro')}
+          aoAbrirCliente={aoAbrirCliente}
+        />
+      )}
 
-      <section className="mq-card mq-card--flush">
-        {lista.erro ? (
-          <ErrorState erro={lista.erro} aoTentarDeNovo={lista.recarregar} />
-        ) : vendas.length === 0 && !lista.carregando ? (
-          <div className="mq-state">
-            <span className="mq-state__icon"><Icone nome="sale" /></span>
-            <h3>{buscaAtiva ? 'Nenhuma venda com esse termo' : 'Nenhuma venda registrada'}</h3>
-            <p>Registre a primeira e ela aparece aqui, na ficha da cliente e no financeiro.</p>
-          </div>
-        ) : (
-          <div className="mq-table" role="table" aria-label="Vendas">
-            <div className="mq-tr mq-tr--head" role="row" style={COLUNAS}>
-              <span>Data da venda</span>
-              <span>Cliente e peças</span>
-              <span>Valor</span>
-              <span>Situação</span>
-              <span>Ações</span>
-            </div>
-            {vendas.map((v) => (
-              <div className="mq-tr" role="row" key={v.chave} style={COLUNAS}>
-                <span className="mq-cell">
-                  <b className="mq-date">{fmtData(v.data)}</b>
-                  <small>
-                    {v.fonte === 'historico' ? 'planilha' : `venda #${v.referencia}`}
-                    {v.canal ? ` · ${v.canal}` : ''}
-                  </small>
-                </span>
-                <span className="mq-cell">
-                  {v.clienteNorm || v.cliente ? (
-                    <button
-                      type="button"
-                      className="mq-btn mq-btn--link"
-                      onClick={() => aoAbrirCliente({ norm: v.clienteNorm ?? '' })}
-                    >
-                      {v.cliente ?? 'Cliente não identificada'}
-                    </button>
-                  ) : <b>Cliente não identificada</b>}
-                  <small>
-                    {v.pecas} {v.pecas === 1 ? 'peça' : 'peças'} ·{' '}
-                    {v.itens.map((i) => i.produto ?? i.sku).slice(0, 3).join(', ')}
-                    {v.itens.length > 3 ? '…' : ''}
-                  </small>
-                </span>
-                <span className="mq-cell mq-cell--num">
-                  <b className="mq-money">{money(v.valor)}</b>
-                  {v.indeterminado.length > 0 && <small>recebido indeterminado</small>}
-                </span>
-                <span className="mq-cell">
-                  {v.cancelada ? (
-                    <span className="mq-status">cancelada</span>
-                  ) : v.pago ? (
-                    <span className="mq-status mq-status--ok">paga</span>
-                  ) : (
-                    <>
-                      <span className="mq-status mq-status--risk">a receber</span>
-                      {v.aReceber !== null && <small>{money(v.aReceber)}</small>}
-                    </>
-                  )}
-                </span>
-                <span className="mq-cell">
-                  {v.fonte === 'operacional' && !v.cancelada && (
-                    <span className="mq-btns">
-                      {!v.pago && (
-                        <button
-                          type="button"
-                          className="mq-btn mq-btn--primary mq-btn--sm"
-                          disabled={ocupada === v.chave}
-                          onClick={() => marcarPaga(v)}
-                        >
-                          Recebi
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="mq-btn mq-btn--ghost mq-btn--sm"
-                        disabled={ocupada === v.chave}
-                        onClick={() => cancelar(v)}
-                      >
-                        Cancelar
-                      </button>
-                    </span>
-                  )}
-                  {recusa?.chave === v.chave && <small className="mq-money--risk">{recusa.texto}</small>}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {atual === 'lancamentos' && <Lancamentos aoEscolher={irPara} />}
 
-      {abrindoNova && (
+      {(atual === 'nova' || atual === 'colar') && (
         <NovaVenda
           conexao={conexao}
           produtos={produtos}
-          clienteInicial={clienteInicial}
-          aoFechar={() => aoNavegar(null)}
+          clienteInicial={clienteDaRota(sub)}
+          abrirColar={atual === 'colar'}
+          aoFechar={() => aoNavegar('lancamentos')}
           aoRegistrar={() => {
-            aoNavegar(null);
-            lista.recarregar();
+            aoNavegar('historico');
             aoMudarEstoque();
           }}
+        />
+      )}
+
+      {atual === 'saida' && (
+        <>
+          <button
+            type="button"
+            className="mq-btn mq-btn--link"
+            onClick={() => aoNavegar('lancamentos')}
+          >
+            <Icone nome="arrow" /> Voltar para Lançamentos
+          </button>
+          <SaidasArea conexao={conexao} estado={estado} aoMudarEstoque={aoMudarEstoque} />
+        </>
+      )}
+
+      {atual === 'historico' && (
+        <HistoricoVendas
+          conexao={conexao}
+          aoMudarEstoque={aoMudarEstoque}
+          aoAbrirCliente={aoAbrirCliente}
+          aoNovaVenda={() => aoNavegar('nova')}
         />
       )}
     </>
