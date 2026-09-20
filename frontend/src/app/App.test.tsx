@@ -108,7 +108,9 @@ describe('navegação principal', () => {
 
   it('reserva o cabeçalho para busca e perfil sem fingir autenticação', () => {
     render(<App />);
-    expect(screen.getByRole('combobox', { name: 'Buscar cliente por nome ou telefone' })).toBeTruthy();
+    expect(screen.getByRole('combobox', {
+      name: 'Buscar cliente, peça, venda ou revendedora',
+    })).toBeTruthy();
     expect(screen.getByLabelText('Perfil do usuário, disponível em breve')).toBeTruthy();
   });
 
@@ -199,6 +201,33 @@ describe('cada área abre na tela certa', () => {
     irNoTrilho(/^Estoque$/);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Ver planejamento' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Visão Geral' })).toBeTruthy();
+  });
+
+  /* A aba da revendedora era um `useState` no App: recarregar em cima da
+     ficha de alguém devolvia a Visão Geral, o voltar do navegador saía do
+     módulo inteiro, e não havia link para mandar. */
+  it('a ficha da revendedora sobrevive ao recarregar e ao voltar', async () => {
+    render(<App />);
+    irNoTrilho(/Revendedoras/);
+
+    const abas = await screen.findByRole('tablist', { name: 'Revendedoras' });
+    fireEvent.click(within(abas).getByRole('tab', { name: /Andreia/ }));
+    expect(location.hash).toBe('#/revendedoras/1');
+
+    /* Recarregar = montar do zero com o mesmo endereço. */
+    cleanup();
+    render(<App />);
+    const depois = await screen.findByRole('tablist', { name: 'Revendedoras' });
+    expect(within(depois).getByRole('tab', { name: /Andreia/ }))
+      .toHaveProperty('ariaPressed', 'true');
+  });
+
+  /* Um endereço apontando para alguém que não existe mais não pode virar
+     tela vazia: ele volta para a Visão Geral. */
+  it('ficha de revendedora inexistente cai na Visão Geral', async () => {
+    history.replaceState(null, '', '#/revendedoras/9999');
+    render(<App />);
     expect(await screen.findByRole('heading', { level: 1, name: 'Visão Geral' })).toBeTruthy();
   });
 });

@@ -1,39 +1,17 @@
 import { useMemo, useState } from 'react';
 import { useApi } from '../../hooks/useApi';
-import { chamar, type Connection } from '../../services/client';
+import type { Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
-import { fmtData, hojeISO } from '../../domain/formato';
+import { fmtData, hojeISO, plural } from '../../domain/formato';
+import { estornarSaida, listarSaidas, registrarSaida } from './api';
+import { TIPOS_DE_SAIDA as TIPOS, type SaidaSemFaturamento, type TipoDeSaida } from './tipos';
 import type { AppState } from '../../types/api';
 import type { ProdutoDoEstado } from '../vendas/tipos';
 
-interface Saida {
-  id: number;
-  data: string;
-  tipo: string;
-  sentido: string;
-  sku: string;
-  produto: string | null;
-  qtd: number;
-  motivo: string | null;
-  observacao: string | null;
-  estornada: number;
-}
-
-interface RespostaSaidas {
-  ok: true;
-  saidas: Saida[];
-  resumo: Record<string, number>;
-}
-
-/** Os quatro tipos que o backend aceita. Não há um quinto, e a tela não
- *  inventa um: um tipo novo é decisão de negócio, não campo de texto. */
-const TIPOS = [
-  { id: 'brinde', rotulo: 'Brinde', explica: 'saiu de presente, para cliente ou parceira' },
-  { id: 'uso_proprio', rotulo: 'Uso próprio', explica: 'ficou com a casa — foto, vitrine, uso pessoal' },
-  { id: 'perda', rotulo: 'Perda', explica: 'quebrou, sumiu, ou a contagem não achou' },
-  { id: 'sorteio', rotulo: 'Sorteio', explica: 'saiu numa ação de divulgação' },
-];
+/* Os quatro tipos, a forma da resposta e o adaptador moram em `./tipos.ts` e
+   `./api.ts` desde a consolidacao: eram duas descricoes do mesmo JSON, uma
+   aqui e outra no Financeiro, e elas ja divergiam em `estornada`. */
 
 interface Props {
   conexao: Connection;
@@ -52,11 +30,37 @@ interface Props {
  *  ranking de clientes — e isso é regra do backend, não escolha da tela.
  */
 export function SaidasArea({ conexao, estado, aoMudarEstoque }: Props) {
+  const [filtro, setFiltro] = useState<TipoDeSaida | null>(null);
+  const [incluirEstornadas, setIncluirEstornadas] = useState(true);
   const lista = useApi(
-    (s) => chamar<RespostaSaidas>(conexao, 'GET', '/api/saidas?limite=200', undefined, { signal: s }),
-    [conexao],
+    (s) => listarSaidas(conexao, { tipo: filtro, incluirEstornadas }, s),
+    [conexao, filtro, incluirEstornadas],
   );
   const [registrando, setRegistrando] = useState(false);
+  const [estornando, setEstornando] = useState<number | null>(null);
+  const [recusa, setRecusa] = useState<{ id: number; texto: string } | null>(null);
+
+  /** O estorno NÃO apaga a saída: ele grava o movimento inverso e deixa a
+   *  original no histórico, marcada. Quem estorna precisa saber disso antes
+   *  de clicar — e precisa dizer por quê. */
+  async function estornar(sa: SaidaSemFaturamento) {
+    const aviso = sa.estoqueRefletido
+      ? 'A peça volta para o estoque e a saída continua no histórico, marcada.'
+      : 'Esta linha só CLASSIFICA uma saída que já tinha acontecido — o estorno '
+        + 'não devolve peça nenhuma ao estoque.';
+    const motivo = prompt(
+      `Estornar a ${sa.tipoRotulo.toLowerCase()} de ${sa.produto ?? sa.sku}?`
+      + `\n\n${aviso}\n\nPor quê?`,
+    );
+    if (!motivo?.trim()) return;
+    setEstornando(sa.id);
+    setRecusa(null);
+    const r = await estornarSaida(conexao, sa.id, motivo.trim())
+      .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui estornar.' }));
+    setEstornando(null);
+    if (r && 'erro' in r && r.erro) setRecusa({ id: sa.id, texto: String(r.erro) });
+    else { lista.recarregar(); aoMudarEstoque(); }
+  }
 
   const produtos = (estado?.produtos ?? []) as unknown as ProdutoDoEstado[];
   const saidas = lista.dados?.saidas ?? [];
@@ -88,6 +92,40 @@ export function SaidasArea({ conexao, estado, aoMudarEstoque }: Props) {
             <span className="mq-kpi__foot">{t.explica}</span>
           </div>
         ))}
+        <div className="mq-kpi mq-kpi--accent">
+          <span className="mq-kpi__label">Total sem faturar</span>
+          <span className="mq-kpi__value">{lista.dados?.resumo?.total ?? 0}</span>
+          <span className="mq-kpi__foot">
+            peças · {lista.dados?.resumo?.estornadas ?? 0}{' '}
+            {plural(lista.dados?.resumo?.estornadas ?? 0, 'estornada', 'estornadas')} fora da conta
+          </span>
+        </div>
+      </div>
+
+      <div className="mq-filters">
+        <div className="mq-chipset" role="group" aria-label="Motivo">
+          <button type="button" aria-pressed={filtro === null} onClick={() => setFiltro(null)}>
+            Todos
+          </button>
+          {TIPOS.map((t) => (
+            <button key={t.id} type="button" aria-pressed={filtro === t.id} onClick={() => setFiltro(t.id)}>
+              {t.rotulo}
+            </button>
+          ))}
+        </div>
+        <div className="mq-chipset" role="group" aria-label="Estornadas">
+          <button type="button" aria-pressed={incluirEstornadas} onClick={() => setIncluirEstornadas(true)}>
+            Com estornadas
+          </button>
+          <button type="button" aria-pressed={!incluirEstornadas} onClick={() => setIncluirEstornadas(false)}>
+            Só as que valem
+          </button>
+        </div>
+        <span className="mq-filters__count">
+          {lista.carregando
+            ? 'buscando…'
+            : `${saidas.length} ${plural(saidas.length, 'lançamento', 'lançamentos')}`}
+        </span>
       </div>
 
       <section className="mq-card mq-card--flush">
@@ -110,25 +148,63 @@ export function SaidasArea({ conexao, estado, aoMudarEstoque }: Props) {
             <p>Quando uma peça sair sem virar venda, registre aqui — é o que evita procurar um furo que não existe.</p>
           </div>
         ) : (
-          <div className="mq-list">
-            {saidas.map((s) => (
-              <div className="mq-item" key={s.id}>
-                <span className={`mq-item__icon ${s.estornada ? '' : 'mq-item__icon--warn'}`}>
-                  <Icone nome={s.tipo === 'perda' ? 'alert' : 'box'} />
-                </span>
-                <span className="mq-item__main">
-                  <b>{s.produto ?? s.sku}</b>
-                  <small>
-                    {TIPOS.find((t) => t.id === s.tipo)?.rotulo ?? s.tipo} · {fmtData(s.data)}
-                    {s.motivo ? ` · ${s.motivo}` : ''}
-                  </small>
-                </span>
-                <span className="mq-item__side">
-                  <b className="mq-qty">{s.qtd}</b>
-                  {s.estornada ? <span className="mq-status">estornada</span> : null}
-                </span>
+          <div className="mq-scroll-x">
+            <div className="mq-table" role="table" aria-label="Saídas sem faturamento">
+              <div className="mq-tr mq-tr--head" role="row" style={COLUNAS}>
+                <span>Data</span><span>Motivo</span><span>Peça e explicação</span>
+                <span>Peças</span><span>Estado</span><span>Ações</span>
               </div>
-            ))}
+              {saidas.map((s) => (
+                <div className="mq-tr" role="row" key={s.id} style={COLUNAS}>
+                  <span className="mq-cell"><b className="mq-date">{fmtData(s.data)}</b></span>
+                  <span className="mq-cell">
+                    <span className={s.tipo === 'perda' ? 'mq-chip' : 'mq-chip mq-chip--soft'}>
+                      {s.tipoRotulo}
+                    </span>
+                    {s.sentido === 'entrada' && <small>devolução de sobra</small>}
+                  </span>
+                  <span className="mq-cell">
+                    <b>{s.produto ?? s.sku}</b>
+                    <small>
+                      {s.sku}
+                      {s.motivo ? ` · ${s.motivo}` : ''}
+                      {s.inventarioId != null ? ` · contagem #${s.inventarioId}` : ''}
+                      {s.origemUsuario ? ` · ${s.origemUsuario}` : ''}
+                    </small>
+                  </span>
+                  <span className="mq-cell mq-cell--num"><b className="mq-qty">{s.qtd}</b></span>
+                  <span className="mq-cell">
+                    {s.estornada ? (
+                      <>
+                        <span className="mq-status">estornada</span>
+                        <small>
+                          {fmtData(s.estornoEm)}
+                          {s.estornoMotivo ? ` · ${s.estornoMotivo}` : ''}
+                        </small>
+                      </>
+                    ) : (
+                      <>
+                        <span className="mq-status mq-status--warn">concluída</span>
+                        {!s.estoqueRefletido && <small>só classifica — não baixou estoque</small>}
+                      </>
+                    )}
+                  </span>
+                  <span className="mq-cell">
+                    {!s.estornada && (
+                      <button
+                        type="button"
+                        className="mq-btn mq-btn--ghost mq-btn--sm"
+                        disabled={estornando === s.id}
+                        onClick={() => estornar(s)}
+                      >
+                        Estornar
+                      </button>
+                    )}
+                    {recusa?.id === s.id && <small className="mq-money--risk">{recusa.texto}</small>}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </section>
@@ -149,6 +225,10 @@ export function SaidasArea({ conexao, estado, aoMudarEstoque }: Props) {
   );
 }
 
+const COLUNAS = {
+  gridTemplateColumns: 'minmax(0,0.8fr) minmax(0,1fr) minmax(0,1.8fr) 64px minmax(0,1fr) auto',
+};
+
 function FormSaida({
   conexao, produtos, aoFechar, aoRegistrar,
 }: {
@@ -157,7 +237,7 @@ function FormSaida({
   aoFechar: () => void;
   aoRegistrar: () => void;
 }) {
-  const [tipo, setTipo] = useState('brinde');
+  const [tipo, setTipo] = useState<TipoDeSaida>('brinde');
   const [busca, setBusca] = useState('');
   const [peca, setPeca] = useState<ProdutoDoEstado | null>(null);
   const [qtd, setQtd] = useState(1);
@@ -184,7 +264,7 @@ function FormSaida({
     if (!peca) return;
     setEnviando(true);
     setErro('');
-    const r = await chamar<{ erro?: string }>(conexao, 'POST', '/api/saidas', {
+    const r = await registrarSaida(conexao, {
       tipo, sku: peca.sku, qtd, data, motivo: motivo.trim(),
     }).catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui registrar.' }));
     setEnviando(false);

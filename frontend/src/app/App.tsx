@@ -54,7 +54,6 @@ function AppConectado({
      a página volta para onde se estava, o voltar do navegador funciona, e
      um link de ficha pode ser mandado para alguém. */
   const { rota, ir, trocar } = useRota();
-  const [subRev, setSubRev] = useState<SubRotaRevendedoras>('visao-geral');
   /* A análise é cara — lê a loja inteira a 2 requisições por segundo. Ela
      sobe até aqui para Nuvemshop e Pendências (dentro de Estoque)
      compartilharem o mesmo resultado em vez de cada uma pedir o seu. */
@@ -75,6 +74,14 @@ function AppConectado({
     ? 'nuvemshop'
     : (ABAS_ESTOQUE.find((a) => a === rota.sub) ?? 'estoque-total');
 
+  /* A aba da revendedora mora no ENDEREÇO, não num `useState`. Enquanto ela
+     era estado local, recarregar a página em cima da ficha de alguém
+     devolvia a Visão Geral, o voltar do navegador saía do módulo inteiro, e
+     não havia link para mandar "abre a maleta da Fulana". */
+  const subRev: SubRotaRevendedoras = rota.sub && /^\d+$/.test(rota.sub)
+    ? Number(rota.sub)
+    : 'visao-geral';
+
   const abrirCliente = (chave: { id: number } | { norm: string }) => {
     ir({ modulo: 'clientes', sub: 'id' in chave ? String(chave.id) : `norm:${chave.norm}` });
   };
@@ -84,6 +91,8 @@ function AppConectado({
       conexao={conexao}
       modulo={modulo}
       aoNavegar={(m: ModuloId) => ir({ modulo: m })}
+      aoNavegarPara={(d) => ir({ modulo: d.modulo, sub: d.sub })}
+      estado={estado.dados}
       contagens={analise?.itens.length ? { estoque: analise.itens.length } : undefined}
       aoDesconectar={() => {
         setAnalise(null);
@@ -158,10 +167,7 @@ function AppConectado({
           aoAnalisar={setAnalise}
           estado={estado.dados}
           planejamento={planejamento}
-          aoVerPlanejamento={() => {
-            setSubRev('visao-geral');
-            ir({ modulo: 'revendedoras' });
-          }}
+          aoVerPlanejamento={() => ir({ modulo: 'revendedoras' })}
           aoMudarEstoque={estado.recarregar}
         />
       )}
@@ -175,7 +181,10 @@ function AppConectado({
           recarregar={estado.recarregar}
           planejamento={planejamento}
           sub={subRev}
-          aoNavegarSub={setSubRev}
+          aoNavegarSub={(r) => ir({
+            modulo: 'revendedoras',
+            sub: r === 'visao-geral' ? null : String(r),
+          })}
         />
       )}
 

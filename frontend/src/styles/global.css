@@ -129,16 +129,36 @@ a { color: var(--bordo); }
   box-shadow: 0 14px 36px rgba(44, 36, 40, .17);
 }
 .busca-global-resultados p { padding: 10px 11px; color: var(--muted); font-size: 12px; }
-.busca-global-resultados a {
-  display: block; padding: 9px 10px; border-radius: var(--r2);
-  color: var(--ink); text-decoration: none;
+/* `button`, e não `a`: o resultado navega DENTRO da V2 — trocar a rota em
+   memória — em vez de carregar outro documento. Enquanto ele era um link
+   para `dashboard.html`, um clique na busca saía do sistema novo. */
+.busca-global-resultados :is(a, button) {
+  display: grid; width: 100%; gap: 0 9px;
+  grid-template-columns: 16px minmax(0, 1fr);
+  padding: 9px 10px; border: 0; border-radius: var(--r2);
+  background: none; text-align: left; cursor: pointer;
+  color: var(--ink); text-decoration: none; font: inherit;
 }
-.busca-global-resultados a:hover,
-.busca-global-resultados a[aria-selected='true'] { background: var(--bordo-tint); }
-.busca-global-resultados b { display: block; font-size: 12.5px; font-weight: 650; }
+.busca-global-resultados :is(a, button):hover,
+.busca-global-resultados :is(a, button)[aria-selected='true'] { background: var(--bordo-tint); }
+.busca-global-resultados svg {
+  width: 15px; height: 15px; grid-row: 1 / span 2; align-self: center; color: var(--rose);
+}
+.busca-global-resultados b {
+  display: block; font-size: 12.5px; font-weight: 650;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .busca-global-resultados small {
   display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   color: var(--muted); font-size: 10.5px;
+}
+/* O que a busca NÃO alcança fica escrito no fim da lista, e não escondido:
+   procurar uma garantia aqui e não achar nada é pior do que ler que ela não
+   é buscável por termo. */
+.busca-global-nota {
+  border-top: 1px solid var(--line);
+  margin-top: 4px; padding-top: 8px !important;
+  font-size: 10.5px !important; line-height: 1.4;
 }
 
 /* ------------------------------------------------------- cabeçalho */
