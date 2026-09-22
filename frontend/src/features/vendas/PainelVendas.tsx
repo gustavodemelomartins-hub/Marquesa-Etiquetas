@@ -367,8 +367,8 @@ function AnaliseDetalhada({
         {carregandoCompleta ? <LoadingState /> : produtos.length === 0 ? (
           <p className="mq-hint">Nenhuma peça vendida no recorte.</p>
         ) : (
-          <div className="mq-scroll-x">
-            <div className="mq-table" role="table" aria-label="Produtos mais vendidos">
+          <div className="mq-scroll-x" tabIndex={0} aria-label="Tabela de produtos, deslize para ver as colunas">
+            <div className="mq-table mq-table--scroll" role="table" aria-label="Produtos mais vendidos">
               <div className="mq-tr mq-tr--head" role="row" style={COL_PRODUTO}>
                 <span>#</span><span>Produto</span><span>Categoria</span>
                 <span>Peças</span><span>Valor vendido</span><span>Participação</span>
@@ -550,8 +550,8 @@ function EvolucaoPorMes({
       <section>
         <h3 className="mq-subtitle">Vendas de {resumo.rotulo}</h3>
         {resumo.vendas.length === 0 ? <p className="mq-hint">Nenhuma venda registrada no mês.</p> : (
-          <div className="mq-scroll-x">
-            <div className="mq-table" role="table" aria-label={`Vendas de ${resumo.rotulo}`}>
+          <div className="mq-scroll-x" tabIndex={0} aria-label="Tabela de vendas, deslize para ver as colunas">
+            <div className="mq-table mq-table--scroll" role="table" aria-label={`Vendas de ${resumo.rotulo}`}>
               <div className="mq-tr mq-tr--head" role="row" style={COL_MES}>
                 <span>Data</span><span>Cliente</span><span>Peças</span>
                 <span>Valor</span><span>Recebimento</span>
