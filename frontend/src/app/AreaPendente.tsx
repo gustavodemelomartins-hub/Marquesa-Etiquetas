@@ -15,6 +15,7 @@ interface Props {
  *  caro do que uma que assume que não está. */
 export function AreaPendente({ modulo }: Props) {
   const m = acharModulo(modulo);
+  const existeNoClassico = modulo === 'etiquetas';
   return (
     <>
       <div className="mq-pagehead">
@@ -22,8 +23,9 @@ export function AreaPendente({ modulo }: Props) {
           <p className="mq-eyebrow">{m.rotulo} · em desenvolvimento</p>
           <h1 className="mq-display">{m.pergunta ?? m.rotulo}</h1>
           <p className="mq-lede">
-            É esta a pergunta que {m.rotulo} responde. A tela em React ainda não
-            foi construída — até lá, a tarefa continua inteira no painel clássico.
+            {existeNoClassico
+              ? 'A impressão de etiquetas ainda funciona no painel clássico. Estamos trazendo esse fluxo para a V2.'
+              : 'Este módulo está em construção. Os dados operacionais existentes continuam nas telas da V2.'}
           </p>
         </div>
       </div>
@@ -33,16 +35,20 @@ export function AreaPendente({ modulo }: Props) {
           <span className="mq-state__icon"><Icone nome={m.icone} /></span>
           <h3>Em desenvolvimento</h3>
           <p>
-            Nada se perdeu: {m.rotulo} funciona hoje no painel clássico, com os
-            mesmos dados. Este lugar no menu existe para que ele não seja
-            procurado em outro canto quando chegar aqui.
+            {existeNoClassico
+              ? 'Prepare e imprima as etiquetas no painel clássico enquanto a versão conectada ao catálogo é construída.'
+              : modulo === 'agenda'
+                ? 'Prazos e vencimentos já aparecem nas áreas de Maletas, Financeiro e Garantias. A visão de agenda ainda será construída.'
+                : 'Os alertas operacionais já aparecem nas áreas correspondentes. A central de notificações ainda será construída.'}
           </p>
-          <p>
-            <a className="mq-btn mq-btn--primary" href={NO_PAINEL_CLASSICO}>
-              Abrir no painel clássico
-              <Icone nome="arrow" />
-            </a>
-          </p>
+          {existeNoClassico && (
+            <p>
+              <a className="mq-btn mq-btn--primary" href={NO_PAINEL_CLASSICO}>
+                Abrir no painel clássico
+                <Icone nome="arrow" />
+              </a>
+            </p>
+          )}
         </div>
       </section>
     </>

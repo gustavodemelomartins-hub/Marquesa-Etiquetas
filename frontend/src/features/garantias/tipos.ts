@@ -29,8 +29,7 @@ export interface Garantia extends GarantiaDoPerfil {
    *  mínima dela — a que a ficha da cliente mostra — e `Troca` é o
    *  SUPERCONJUNTO daquela: uma só forma, não duas.
    *
-   *  `diferencaStatus` diz de quem é o dinheiro, e `credito` NÃO é "a
-   *  receber": é crédito DA CLIENTE, e o servidor recusa cobrá-lo. */
+   *  `diferencaStatus` distingue crédito emitido de crédito ainda pendente. */
   troca: Troca | null;
   eventos: {
     id: number; tipo: string; data: string; statusNovo: string | null;
@@ -51,13 +50,11 @@ export interface Troca {
   valorNovo: number;
   /** Positivo: a cliente deve. Negativo: nós devemos a ela. */
   diferenca: number;
-  /** `credito` NÃO é "a receber": é crédito DA CLIENTE, e o servidor recusa
-   *  cobrá-lo. A tela precisa dizer a diferença, porque as duas situações
-   *  têm o mesmo número e donos opostos. */
-  diferencaStatus: 'nenhuma' | 'a_receber' | 'credito' | 'paga';
+  /** Estados atuais do servidor e `credito` legado. Nunca tratar um crédito
+   *  pendente como saldo já lançado na conta da cliente. */
+  diferencaStatus: 'nenhuma' | 'a_receber' | 'credito' | 'credito_emitido' | 'pendente_regra' | 'paga';
   diferencaPagaEm: string | null;
-  /** Regra de 12/09/2026: peça mais barata vira crédito. O valor fica dito;
-   *  onde ele mora depende da arquitetura financeira, que ainda não existe. */
+  /** Valor a favor da cliente. O lançamento efetivo depende de diferencaStatus. */
   creditoAoCliente: number;
   diferencaValorPago: number | null;
   /** §36 — o registro comercial da peça nova. `null` nas trocas anteriores

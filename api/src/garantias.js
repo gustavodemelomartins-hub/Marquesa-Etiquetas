@@ -1336,9 +1336,8 @@ function publica(g, troca, eventos, prazo) {
       diferenca: Number(troca.diferenca),
       diferencaStatus: troca.diferenca_status,
       diferencaPagaEm: troca.diferenca_paga_em ?? null,
-      /* Regra fechada em 12/09/2026: a peça mais barata vira crédito da
-         cliente. O valor fica dito aqui; onde ele vai morar depende da
-         arquitetura financeira, que ainda não existe. */
+      /* Valor a favor da cliente. O status distingue emissão no extrato de
+         pendência por vínculo sem cliente identificada. */
       creditoAoCliente: Number(troca.diferenca) < 0
         ? Math.round(-Number(troca.diferenca) * 100) / 100 : 0,
       diferencaValorPago: troca.diferenca_valor_pago == null ? null : Number(troca.diferenca_valor_pago),

@@ -1,7 +1,7 @@
 /** MATRIZ PROTÓTIPO → V2
  *  ===========================================================================
  *
- *  O protótipo em `docs/ux/prototype/` é a autoridade de UX. Esta folha diz,
+ *  O protótipo em `docs/ux/prototype/` é referência visual; o contrato real governa comportamento e dados. Esta folha diz,
  *  capacidade a capacidade, o que a V2 real faz com ela — e `paridade.test.ts`
  *  CONFERE cada linha contra o código, para que a matriz não vire um documento
  *  que envelhece sozinho.
@@ -47,7 +47,7 @@ export interface Capacidade {
 export interface ModuloDeParidade {
   id: string;
   rotulo: string;
-  /** A tela do protótipo que é a autoridade desta linha. */
+  /** A tela do protótipo usada como referência visual desta linha. */
   prototipo: string;
   capacidades: Capacidade[];
 }
@@ -561,11 +561,8 @@ export const PARIDADE: ModuloDeParidade[] = [
       },
       {
         id: 'garantias.credito-destino', rotulo: 'Lançar o crédito da troca na conta da cliente',
-        estado: 'indisponivel',
-        porque: 'O servidor CALCULA o crédito (`creditoAoCliente`) e não o lança em '
-          + 'lugar nenhum: onde ele mora depende da arquitetura financeira, que '
-          + 'ainda não existe. A tela mostra o valor e diz exatamente isso.',
-        prova: { arquivo: `${F}/features/garantias/PainelDaTroca.tsx`, contem: 'arquitetura' },
+        estado: 'pronta',
+        prova: { arquivo: `${F}/features/garantias/PainelDaTroca.tsx`, contem: 'já lançado no extrato da ficha da cliente' },
       },
     ],
   },

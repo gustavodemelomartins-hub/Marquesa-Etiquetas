@@ -1,5 +1,5 @@
 import { chamar, type Connection } from '../../services/client';
-import type { Garantia } from './tipos';
+import type { Garantia, Troca } from './tipos';
 
 /** GARANTIAS, REPAROS E TROCAS — o adaptador único (Fase 5.4).
  *
@@ -121,7 +121,7 @@ export interface RespostaDaTroca extends Recusa {
   ok?: boolean;
   trocaId?: number;
   diferenca?: number;
-  diferencaStatus?: 'nenhuma' | 'a_receber' | 'credito' | 'paga';
+  diferencaStatus?: Troca['diferencaStatus'];
   vendaId?: number | null;
 }
 

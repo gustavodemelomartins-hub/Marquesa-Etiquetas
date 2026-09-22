@@ -154,7 +154,7 @@ for (const m of modulos) {
   const p = (e) => m.capacidades.filter((c) => c.estado === e).length;
   linhas.push(`## ${m.rotulo}`);
   linhas.push('');
-  linhas.push(`Autoridade de UX: \`${m.prototipo}\` · `
+  linhas.push(`Referência visual: \`${m.prototipo}\` · `
     + `🟢 ${p('pronta')} · 🟡 ${p('parcial')} · ⚪ ${p('pendente')} · ⛔ ${p('indisponivel')}`);
   linhas.push('');
   linhas.push('| Capacidade | Estado | Onde | Observação |');

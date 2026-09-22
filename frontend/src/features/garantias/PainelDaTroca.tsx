@@ -230,14 +230,15 @@ function ResumoDaTroca({
   aoPagar: () => void;
   aoEstornar: () => void;
 }) {
-  /* As quatro situações da diferença, e cada uma é uma frase diferente
-     porque cada uma tem um DONO diferente. */
+  /* O estado diz também se o crédito já entrou no extrato da cliente. */
   const situacao = {
     nenhuma: { rotulo: 'sem diferença', tom: 'mq-status--ok' },
     a_receber: { rotulo: 'a receber da cliente', tom: 'mq-status--risk' },
-    credito: { rotulo: 'crédito da cliente', tom: 'mq-status--info' },
+    credito: { rotulo: 'crédito anterior', tom: 'mq-status--info' },
+    credito_emitido: { rotulo: 'crédito lançado', tom: 'mq-status--ok' },
+    pendente_regra: { rotulo: 'crédito pendente', tom: 'mq-status--risk' },
     paga: { rotulo: 'diferença paga', tom: 'mq-status--ok' },
-  }[troca.diferencaStatus];
+  }[troca.diferencaStatus] ?? { rotulo: 'situação a conferir', tom: 'mq-status--risk' };
 
   return (
     <>
@@ -274,15 +275,31 @@ function ResumoDaTroca({
         )}
       </dl>
 
-      {troca.diferencaStatus === 'credito' && (
+      {troca.diferencaStatus === 'credito_emitido' && (
         <p className="mq-note mq-note--info">
           <Icone nome="alert" />
           <span>
             A peça nova custou <b>menos</b>: {money(troca.creditoAoCliente)} são
-            crédito <b>da cliente</b>, não algo a receber dela. O servidor recusa
-            cobrá-lo. Onde esse crédito vai morar depende da arquitetura
-            financeira, que ainda não existe — por enquanto ele fica <b>dito</b>{' '}
-            aqui, e não lançado em lugar nenhum.
+            crédito <b>da cliente</b>, já lançado no extrato da ficha da cliente.
+          </span>
+        </p>
+      )}
+      {troca.diferencaStatus === 'pendente_regra' && (
+        <p className="mq-note mq-note--risk">
+          <Icone nome="alert" />
+          <span>
+            {money(troca.creditoAoCliente)} são a favor da cliente, mas o crédito
+            ainda não foi lançado: é preciso confirmar o vínculo com a cliente.
+            Não cobre esse valor dela.
+          </span>
+        </p>
+      )}
+      {troca.diferencaStatus === 'credito' && (
+        <p className="mq-note mq-note--info">
+          <Icone nome="alert" />
+          <span>
+            Registro anterior de crédito a favor da cliente. Confira o extrato
+            da ficha antes de considerar esse valor disponível.
           </span>
         </p>
       )}

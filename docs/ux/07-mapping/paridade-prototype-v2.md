@@ -14,20 +14,20 @@ consegue fazer.
 
 | | capacidades |
 |---|---|
-| 🟢 pronta | 110 |
+| 🟢 pronta | 111 |
 | 🟡 parcial | 3 |
 | ⚪ pendente — o backend tem, a tela não | 3 |
-| ⛔ indisponível — o backend não sustenta | 14 |
+| ⛔ indisponível — o backend não sustenta | 13 |
 | **total** | **130** |
 
-**110 de 116** capacidades que o backend sustenta já estão
+**111 de 117** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
 
 ## Vendas
 
-Autoridade de UX: `/prototype/vendas/` · 🟢 28 · 🟡 0 · ⚪ 1 · ⛔ 4
+Referência visual: `/prototype/vendas/` · 🟢 28 · 🟡 0 · ⚪ 1 · ⛔ 4
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -67,7 +67,7 @@ Autoridade de UX: `/prototype/vendas/` · 🟢 28 · 🟡 0 · ⚪ 1 · ⛔ 4
 
 ## Clientes
 
-Autoridade de UX: `/prototype/clientes/` · 🟢 10 · 🟡 0 · ⚪ 0 · ⛔ 0
+Referência visual: `/prototype/clientes/` · 🟢 10 · 🟡 0 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -84,7 +84,7 @@ Autoridade de UX: `/prototype/clientes/` · 🟢 10 · 🟡 0 · ⚪ 0 · ⛔ 0
 
 ## Financeiro
 
-Autoridade de UX: `/prototype/financeiro/` · 🟢 8 · 🟡 0 · ⚪ 0 · ⛔ 1
+Referência visual: `/prototype/financeiro/` · 🟢 8 · 🟡 0 · ⚪ 0 · ⛔ 1
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -100,7 +100,7 @@ Autoridade de UX: `/prototype/financeiro/` · 🟢 8 · 🟡 0 · ⚪ 0 · ⛔ 1
 
 ## Estoque
 
-Autoridade de UX: `/prototype/estoque/` · 🟢 7 · 🟡 0 · ⚪ 0 · ⛔ 2
+Referência visual: `/prototype/estoque/` · 🟢 7 · 🟡 0 · ⚪ 0 · ⛔ 2
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -116,7 +116,7 @@ Autoridade de UX: `/prototype/estoque/` · 🟢 7 · 🟡 0 · ⚪ 0 · ⛔ 2
 
 ## Inventário
 
-Autoridade de UX: `/prototype/estoque/#inventario` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 0
+Referência visual: `/prototype/estoque/#inventario` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -132,7 +132,7 @@ Autoridade de UX: `/prototype/estoque/#inventario` · 🟢 9 · 🟡 0 · ⚪ 0 
 
 ## Catálogo
 
-Autoridade de UX: `/prototype/catalogo/` · 🟢 5 · 🟡 0 · ⚪ 2 · ⛔ 1
+Referência visual: `/prototype/catalogo/` · 🟢 5 · 🟡 0 · ⚪ 2 · ⛔ 1
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -147,7 +147,7 @@ Autoridade de UX: `/prototype/catalogo/` · 🟢 5 · 🟡 0 · ⚪ 2 · ⛔ 1
 
 ## Revendedoras e maletas
 
-Autoridade de UX: `/prototype/revendedoras/` · 🟢 7 · 🟡 1 · ⚪ 0 · ⛔ 0
+Referência visual: `/prototype/revendedoras/` · 🟢 7 · 🟡 1 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -162,7 +162,7 @@ Autoridade de UX: `/prototype/revendedoras/` · 🟢 7 · 🟡 1 · ⚪ 0 · ⛔
 
 ## Garantias, reparos e trocas
 
-Autoridade de UX: `/prototype/garantias/` · 🟢 9 · 🟡 1 · ⚪ 0 · ⛔ 1
+Referência visual: `/prototype/garantias/` · 🟢 10 · 🟡 1 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -176,11 +176,11 @@ Autoridade de UX: `/prototype/garantias/` · 🟢 9 · 🟡 1 · ⚪ 0 · ⛔ 1
 | Peça mais barata vira crédito, não cobrança | 🟢 pronta | `features/garantias/PainelDaTroca.tsx` | — |
 | Estornar a troca, com motivo | 🟢 pronta | `features/garantias/PainelDaTroca.tsx` | — |
 | Vínculo com o item da venda | 🟡 parcial | `features/garantias/api.ts` | O caso ABRE amarrado à linha da compra, e a tela diz quando o vínculo é `ambiguo` ou `sem_match`. Falta a tela de MUTIRÃO — `GET /api/garantias/vinculos` lista os casos antigos sem ponteiro, e resolvê-los em lote ainda é trabalho do painel clássico. |
-| Lançar o crédito da troca na conta da cliente | ⛔ indisponível | `features/garantias/PainelDaTroca.tsx` | O servidor CALCULA o crédito (`creditoAoCliente`) e não o lança em lugar nenhum: onde ele mora depende da arquitetura financeira, que ainda não existe. A tela mostra o valor e diz exatamente isso. |
+| Lançar o crédito da troca na conta da cliente | 🟢 pronta | `features/garantias/PainelDaTroca.tsx` | — |
 
 ## Nuvemshop
 
-Autoridade de UX: `/prototype/nuvemshop/` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 1
+Referência visual: `/prototype/nuvemshop/` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 1
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -197,7 +197,7 @@ Autoridade de UX: `/prototype/nuvemshop/` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 1
 
 ## Home
 
-Autoridade de UX: `/prototype/` · 🟢 5 · 🟡 0 · ⚪ 0 · ⛔ 0
+Referência visual: `/prototype/` · 🟢 5 · 🟡 0 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -209,7 +209,7 @@ Autoridade de UX: `/prototype/` · 🟢 5 · 🟡 0 · ⚪ 0 · ⛔ 0
 
 ## Etiquetas
 
-Autoridade de UX: `/prototype/etiquetas/` · 🟢 0 · 🟡 0 · ⚪ 0 · ⛔ 1
+Referência visual: `/prototype/etiquetas/` · 🟢 0 · 🟡 0 · ⚪ 0 · ⛔ 1
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -217,7 +217,7 @@ Autoridade de UX: `/prototype/etiquetas/` · 🟢 0 · 🟡 0 · ⚪ 0 · ⛔ 1
 
 ## Agenda e notificações
 
-Autoridade de UX: `/prototype/agenda/` · 🟢 0 · 🟡 0 · ⚪ 0 · ⛔ 2
+Referência visual: `/prototype/agenda/` · 🟢 0 · 🟡 0 · ⚪ 0 · ⛔ 2
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -226,7 +226,7 @@ Autoridade de UX: `/prototype/agenda/` · 🟢 0 · 🟡 0 · ⚪ 0 · ⛔ 2
 
 ## Configurações
 
-Autoridade de UX: `/prototype/configuracoes/` · 🟢 3 · 🟡 0 · ⚪ 0 · ⛔ 1
+Referência visual: `/prototype/configuracoes/` · 🟢 3 · 🟡 0 · ⚪ 0 · ⛔ 1
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -237,7 +237,7 @@ Autoridade de UX: `/prototype/configuracoes/` · 🟢 3 · 🟡 0 · ⚪ 0 · �
 
 ## Casco, marca e navegação
 
-Autoridade de UX: `/prototype/design-system/` · 🟢 10 · 🟡 1 · ⚪ 0 · ⛔ 0
+Referência visual: `/prototype/design-system/` · 🟢 10 · 🟡 1 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
