@@ -19,7 +19,7 @@ export function FiltroPeriodo({ recorte, aoMudar }: Props) {
   const [ate, setAte] = useState(recorte.ate ?? '');
 
   return (
-    <div className="mq-filters">
+    <div className="mq-filters mq-filters--plain">
       <div className="mq-chipset" role="group" aria-label="Período">
         {PERIODOS.map((p) => (
           <button

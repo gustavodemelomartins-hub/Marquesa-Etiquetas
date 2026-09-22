@@ -205,7 +205,7 @@ function Cabeca({
           </button>
         </div>
       </div>
-      <div className="mq-sales-toolbar"><FiltroPeriodo recorte={recorte} aoMudar={aoMudar} /></div>
+      <FiltroPeriodo recorte={recorte} aoMudar={aoMudar} />
     </>
   );
 }
@@ -374,7 +374,7 @@ function AnaliseDetalhada({
                 <span>Peças</span><span>Valor vendido</span><span>Participação</span>
               </div>
               {produtos.map((p, i) => (
-                <div className="mq-tr" role="row" key={p.sku}>
+                <div className="mq-tr" role="row" key={p.sku} style={COL_PRODUTO}>
                   <span className="mq-cell mq-cell--center"><b>{i + 1}</b></span>
                   <span className="mq-cell">
                     <b>{p.nomeAtual ?? p.nomeHistorico ?? p.sku}</b>
@@ -387,9 +387,9 @@ function AnaliseDetalhada({
                   <span className="mq-cell">
                     <span className="mq-chip mq-chip--soft">{p.categoria ?? 'sem categoria'}</span>
                   </span>
-                  <span className="mq-cell mq-cell--num"><b>{p.pecas}</b></span>
-                  <span className="mq-cell mq-cell--num"><b className="mq-money">{money(p.faturamento)}</b></span>
-                  <span className="mq-cell mq-cell--num"><b>{p.participacao}%</b></span>
+                  <span className="mq-cell mq-cell--num" data-label="Peças"><b>{p.pecas}</b></span>
+                  <span className="mq-cell mq-cell--num" data-label="Valor vendido"><b className="mq-money">{money(p.faturamento)}</b></span>
+                  <span className="mq-cell mq-cell--num" data-label="Participação"><b>{p.participacao}%</b></span>
                 </div>
               ))}
             </div>
@@ -557,7 +557,7 @@ function EvolucaoPorMes({
                 <span>Valor</span><span>Recebimento</span>
               </div>
               {resumo.vendas.map((v) => (
-                <div className="mq-tr" role="row" key={v.chave}>
+                <div className="mq-tr" role="row" key={v.chave} style={COL_MES}>
                   <span className="mq-cell"><b className="mq-date">{fmtData(v.data)}</b>
                     <small>{v.canal ?? v.fonte}</small>
                   </span>
@@ -572,8 +572,8 @@ function EvolucaoPorMes({
                       {v.cliente}
                     </button>
                   </span>
-                  <span className="mq-cell mq-cell--num"><b>{v.pecas}</b></span>
-                  <span className="mq-cell mq-cell--num"><b className="mq-money">{money(v.valor)}</b></span>
+                  <span className="mq-cell mq-cell--num" data-label="Peças"><b>{v.pecas}</b></span>
+                  <span className="mq-cell mq-cell--num" data-label="Valor"><b className="mq-money">{money(v.valor)}</b></span>
                   <span className="mq-cell">
                     {v.aindaNaoPaga ? (
                       <><span className="mq-status mq-status--risk">a receber</span>

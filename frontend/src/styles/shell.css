@@ -168,7 +168,6 @@
   padding: var(--mq-6) var(--mq-gutter) var(--mq-10);
   display: flex; flex-direction: column; gap: var(--mq-6);
 }
-.mq-sales-toolbar .mq-filters{padding:0;background:transparent;border:0}
 .mq-shell__main > * { min-width: 0; }
 
 /* ---- Cortina e barra inferior ------------------------------------------- */
