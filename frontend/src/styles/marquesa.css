@@ -281,6 +281,7 @@ a.mq-kpi:hover,button.mq-kpi:hover{border-color:var(--mq-wine-300)}
 .mq-tabs--pill>:is(a,button){border:0;margin:0;border-radius:var(--mq-r-pill);padding:0 var(--mq-4);min-height:32px}
 .mq-tabs--pill>:is(a,button).active,.mq-tabs--pill>[aria-selected=true]{background:var(--mq-paper);box-shadow:var(--mq-sh-1);color:var(--mq-wine-700)}
 @media(max-width:768px){.mq-tabs>:is(a,button){padding:var(--mq-3);font-size:12.5px;min-height:44px}}
+@media(max-width:600px){.mq-sales-details>.mq-card__head{flex-wrap:wrap}.mq-sales-details>.mq-card__head>.mq-tabs{width:100%}}
 
 /* -------------------------------------------------------------- 12. TABELA */
 /* Desktop: grade densa e alinhada. Mobile: a mesma linha vira cartão.        */

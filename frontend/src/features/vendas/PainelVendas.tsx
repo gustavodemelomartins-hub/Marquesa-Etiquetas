@@ -127,7 +127,7 @@ export function PainelVendas({
             recorte={recorte}
           />
 
-          <section className="mq-card">
+          <section className="mq-card mq-sales-details">
             <div className="mq-card__head">
               <div>
                 <h2 className="mq-title">Informações do período</h2>
