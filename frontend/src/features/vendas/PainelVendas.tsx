@@ -433,8 +433,9 @@ function AnaliseDetalhada({
             </p>
           )}
         </section>
+      </aside>
 
-        <section>
+      <section className="mq-sales-composition">
           <h3 className="mq-subtitle">Composição</h3>
           <dl className="mq-figures">
             <div>
@@ -460,8 +461,7 @@ function AnaliseDetalhada({
             </div>
           </dl>
           <p className="mq-hint">{d.geral.composicao.regraFaturamento}</p>
-        </section>
-      </aside>
+      </section>
     </div>
   );
 }

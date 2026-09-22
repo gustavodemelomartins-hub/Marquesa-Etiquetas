@@ -113,6 +113,7 @@ a{color:var(--mq-wine-700)}
 .mq-grid--3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .mq-grid--4{grid-template-columns:repeat(4,minmax(0,1fr))}
 .mq-grid--main{grid-template-columns:minmax(0,1fr) 360px;align-items:start}
+.mq-sales-composition{grid-column:1/-1}
 .mq-grid--aside{grid-template-columns:340px minmax(0,1fr);align-items:start}
 @media(max-width:1180px){.mq-grid--main,.mq-grid--aside{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:1024px){.mq-grid--4{grid-template-columns:repeat(2,minmax(0,1fr))}}
