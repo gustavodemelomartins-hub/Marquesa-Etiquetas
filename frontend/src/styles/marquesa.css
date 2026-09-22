@@ -296,6 +296,8 @@ a.mq-tr:hover,button.mq-tr:hover{background:var(--mq-wine-050)}
 .mq-tr--head>*{font:500 10.5px/1.3 var(--mq-sans);letter-spacing:.09em;text-transform:uppercase;color:var(--mq-muted)}
 .mq-tr>*{min-width:0}
 .mq-cell{display:flex;flex-direction:column;gap:2px;min-width:0}
+button.mq-cell{width:100%;padding:0;border:0;background:none;text-align:left;color:inherit;cursor:pointer;font:inherit}
+button.mq-cell:hover>b{color:var(--mq-wine-700)}
 .mq-cell>b{font:500 13.5px/1.35 var(--mq-sans);color:var(--mq-ink);overflow-wrap:anywhere}
 .mq-cell>small{font-size:11.5px;color:var(--mq-muted);line-height:1.4}
 .mq-cell--num{align-items:flex-end;text-align:right;font-variant-numeric:tabular-nums}
@@ -476,16 +478,26 @@ a.mq-item:hover,button.mq-item:hover{background:var(--mq-wine-050)}
 
 /* ------------------------------------------------------------ 19. GRÁFICO */
 /* Gráfico responde uma pergunta e sempre oferece leitura textual ao lado.   */
-.mq-chart{display:flex;align-items:flex-end;gap:var(--mq-2);height:180px;padding-top:var(--mq-4);
-  border-bottom:1px solid var(--mq-line);position:relative}
-.mq-chart__col{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;min-width:0;height:100%}
-.mq-chart__bar{width:100%;max-width:54px;border-radius:var(--mq-r-xs) var(--mq-r-xs) 0 0;
-  background:var(--mq-wine-200);height:var(--h,10%);min-height:3px;transition:background .15s}
+.mq-chart{--mq-chart-height:184px;display:grid;grid-template-columns:minmax(0,1fr) 54px;gap:var(--mq-2);width:100%;min-width:0}
+.mq-chart__scroll{min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+.mq-chart__plot{height:calc(var(--mq-chart-height) + 28px);min-width:max(100%,620px);position:relative}
+.mq-chart__grid{position:absolute;inset:0 0 28px;pointer-events:none}
+.mq-chart__grid i{position:absolute;left:0;right:0;border-top:1px solid var(--mq-line-2)}
+.mq-chart__grid i:last-child{border-color:var(--mq-line)}
+.mq-chart__columns{position:relative;z-index:1;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(40px,1fr);gap:var(--mq-2);height:100%}
+.mq-chart__col{position:relative;display:block;min-width:0;height:100%;padding:0;border:0;background:transparent;color:var(--mq-muted);font:400 11px/1.2 var(--mq-sans);cursor:pointer;text-align:center}
+.mq-chart__track{position:absolute;top:0;bottom:28px;left:0;right:0}
+.mq-chart__bar{position:absolute;left:50%;transform:translateX(-50%);width:min(48px,72%);min-height:2px;border-radius:var(--mq-r-xs) var(--mq-r-xs) 0 0;background:var(--mq-wine-200);transition:background .15s}
+.mq-chart__bar.is-negative{border-radius:0 0 var(--mq-r-xs) var(--mq-r-xs);background:var(--mq-risk-bg);box-shadow:inset 0 0 0 1px var(--mq-risk-line)}
 .mq-chart__col:hover .mq-chart__bar,.mq-chart__col.is-peak .mq-chart__bar{background:var(--mq-wine-600)}
-.mq-chart__val{font:500 11.5px var(--mq-sans);font-variant-numeric:tabular-nums;color:var(--mq-ink);white-space:nowrap}
-.mq-chart__key{font-size:11px;color:var(--mq-muted);white-space:nowrap}
-.mq-chart__grid{position:absolute;inset:var(--mq-4) 0 0;z-index:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between}
-.mq-chart__grid i{display:block;border-top:1px dashed var(--mq-line-2)}
+.mq-chart__col:hover .mq-chart__bar.is-negative,.mq-chart__col.is-peak .mq-chart__bar.is-negative{background:var(--mq-risk)}
+.mq-chart__key{position:absolute;left:0;right:0;bottom:0;height:22px;display:grid;place-items:center;white-space:nowrap}
+.mq-chart__col.is-peak .mq-chart__key{color:var(--mq-wine-700);font-weight:500}
+.mq-chart__axis{position:relative;height:var(--mq-chart-height);font:400 10px/1.1 var(--mq-sans);font-variant-numeric:tabular-nums;color:var(--mq-muted);white-space:nowrap}
+.mq-chart__axis span{position:absolute;left:0;transform:translateY(-50%)}
+.mq-chart__axis span:first-child{transform:none}
+.mq-chart__axis span:last-child{transform:translateY(-100%)}
+@media(max-width:600px){.mq-chart{--mq-chart-height:160px;grid-template-columns:minmax(0,1fr) 48px}.mq-chart__plot{min-width:560px}}
 .mq-legend{display:flex;gap:var(--mq-4);flex-wrap:wrap;font-size:12px;color:var(--mq-muted)}
 .mq-legend span{display:inline-flex;align-items:center;gap:6px}
 .mq-legend i{width:9px;height:9px;border-radius:2px;background:var(--mq-wine-600);flex:none}

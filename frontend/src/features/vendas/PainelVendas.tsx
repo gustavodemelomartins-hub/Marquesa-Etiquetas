@@ -10,6 +10,7 @@ import {
   type PainelAnalytics, type PontoDaEvolucao, type Recorte,
 } from '../../domain/analytics';
 import { descreverRecorte } from '../../domain/periodo';
+import { escalaDeVendas, rotuloDaBarra, rotuloDaEscala } from './graficoVendas';
 import type { Connection } from '../../services/client';
 
 /** O que o backend NÃO calcula, e por isso a tela não mostra.
@@ -21,8 +22,7 @@ import type { Connection } from '../../services/client';
  *  lugar dela diz por quê. Isto NÃO é um buraco a preencher no frontend:
  *  preencher exigiria somar o período anterior, que é conta do servidor.
  */
-const SEM_TENDENCIA = 'a comparação com o período anterior ainda não é '
-  + 'calculada pelo servidor — nenhuma variação percentual é exibida';
+const SEM_TENDENCIA = 'sem comparação com o período anterior';
 
 interface Props {
   conexao: Connection;
@@ -185,26 +185,28 @@ function Cabeca({
   aoIrPara: (d: 'historico' | 'lancamentos') => void;
 }) {
   return (
-    <div className="mq-pagehead">
-      <div className="mq-pagehead__text">
-        <p className="mq-eyebrow">Operação comercial</p>
-        <h1 className="mq-display">Painel de vendas</h1>
-        <p className="mq-lede">
-          Quanto entrou no período, quanto ainda falta receber e o que sustenta
-          o resultado.
-        </p>
+    <>
+      <div className="mq-pagehead">
+        <div className="mq-pagehead__text">
+          <p className="mq-eyebrow">Operação comercial</p>
+          <h1 className="mq-display">Painel de vendas</h1>
+          <p className="mq-lede">
+            Quanto entrou no período, quanto ainda falta receber e o que sustenta
+            o resultado.
+          </p>
+        </div>
+        <div className="mq-pagehead__actions">
+          <button type="button" className="mq-btn mq-btn--ghost" onClick={() => aoIrPara('historico')}>
+            Histórico
+          </button>
+          <button type="button" className="mq-btn mq-btn--primary" onClick={() => aoIrPara('lancamentos')}>
+            <Icone nome="plus" />
+            Novo lançamento
+          </button>
+        </div>
       </div>
-      <div className="mq-pagehead__actions">
-        <FiltroPeriodo recorte={recorte} aoMudar={aoMudar} />
-        <button type="button" className="mq-btn mq-btn--ghost" onClick={() => aoIrPara('historico')}>
-          Histórico
-        </button>
-        <button type="button" className="mq-btn mq-btn--primary" onClick={() => aoIrPara('lancamentos')}>
-          <Icone nome="plus" />
-          Novo lançamento
-        </button>
-      </div>
-    </div>
+      <div className="mq-sales-toolbar"><FiltroPeriodo recorte={recorte} aoMudar={aoMudar} /></div>
+    </>
   );
 }
 
@@ -266,8 +268,8 @@ function GraficoDeEvolucao({
   aoSelecionar: (chave: string) => void;
   recorte: Recorte;
 }) {
-  const teto = useMemo(
-    () => Math.max(1, ...pontos.map((p) => p.faturamento)),
+  const escala = useMemo(
+    () => escalaDeVendas(pontos.map((p) => p.faturamento)),
     [pontos],
   );
 
@@ -289,24 +291,42 @@ function GraficoDeEvolucao({
           </div>
         ) : (
           <div className="mq-chart" role="group" aria-label="Faturamento por mês">
-            <div className="mq-chart__grid" aria-hidden="true"><i /><i /><i /><i /><i /></div>
-            {pontos.map((p) => (
-              <button
-                key={p.chave}
-                type="button"
-                className={p.chave === selecionado ? 'mq-chart__col is-peak' : 'mq-chart__col'}
-                aria-pressed={p.chave === selecionado}
-                onClick={() => aoSelecionar(p.chave)}
-                title={`${p.chave}: ${money(p.faturamento)} · ${p.vendas} ${plural(p.vendas, 'venda', 'vendas')}`}
-              >
-                <span className="mq-chart__val">{money(p.faturamento)}</span>
-                <i
-                  className="mq-chart__bar"
-                  style={{ height: `${Math.max(2, (p.faturamento / teto) * 100)}%` }}
-                />
-                <span className="mq-chart__key">{p.chave}</span>
-              </button>
-            ))}
+            <div className="mq-chart__scroll">
+              <div className="mq-chart__plot">
+                <div className="mq-chart__grid" aria-hidden="true">
+                  {escala.marcas.map((marca) => (
+                    <i key={marca} style={{ top: `${((escala.teto - marca) / (escala.teto - escala.piso)) * 100}%` }} />
+                  ))}
+                </div>
+                <div className="mq-chart__columns">
+                  {pontos.map((p) => {
+                    const barra = escala.barra(p.faturamento);
+                    const valor = barra ? money(p.faturamento) : 'valor indisponível';
+                    return (
+                      <button
+                        key={p.chave}
+                        type="button"
+                        className={p.chave === selecionado ? 'mq-chart__col is-peak' : 'mq-chart__col'}
+                        aria-pressed={p.chave === selecionado}
+                        aria-label={`${p.chave}: ${valor} · ${p.vendas} ${plural(p.vendas, 'venda', 'vendas')}`}
+                        onClick={() => aoSelecionar(p.chave)}
+                        title={`${p.chave}: ${valor} · ${p.vendas} ${plural(p.vendas, 'venda', 'vendas')}`}
+                      >
+                        <span className="mq-chart__track" aria-hidden="true">
+                          {barra && <i className={barra.negativa ? 'mq-chart__bar is-negative' : 'mq-chart__bar'} style={{ top: `${barra.topo}%`, height: `${barra.altura}%` }} />}
+                        </span>
+                        <span className="mq-chart__key">{rotuloDaBarra(p.chave)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className="mq-chart__axis" aria-hidden="true">
+              {escala.marcas.map((marca) => (
+                <span key={marca} style={{ top: `${((escala.teto - marca) / (escala.teto - escala.piso)) * 100}%` }}>{rotuloDaEscala(marca)}</span>
+              ))}
+            </div>
           </div>
         )}
       </div>

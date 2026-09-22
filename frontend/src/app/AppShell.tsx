@@ -80,7 +80,7 @@ export function AppShell({
         aria-label="Módulos do sistema"
       >
         <button type="button" className="mq-rail__brand" onClick={irPara('home')}>
-          <LogoMarquesa tom="claro" altura={30} className="mq-rail__logo" />
+          <LogoMarquesa tom="claro" altura={60} className="mq-rail__logo" />
           {/* Trilho mínimo (901–1180px): o logo inteiro em 76px vira borrão.
               A janela abaixo recorta o MESMO arquivo no ornamento + M — não
               é um segundo desenho, e por isso não pode divergir do oficial. */}
