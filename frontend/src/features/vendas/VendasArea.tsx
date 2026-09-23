@@ -1,7 +1,9 @@
-import { Icone } from '../../components/Icone';
+import { useCallback, useState } from 'react';
 import { PainelVendas } from './PainelVendas';
 import { HistoricoVendas } from './HistoricoVendas';
-import { Lancamentos, type TipoDeLancamento } from './Lancamentos';
+import {
+  SeletorDeLancamento, CabecalhoDoLancamento, type TipoDeLancamento,
+} from './Lancamentos';
 import { NovaVenda } from './NovaVenda';
 import { SaidasArea } from '../saidas/SaidasArea';
 import type { Connection } from '../../services/client';
@@ -79,25 +81,50 @@ export function VendasArea({
     else aoNavegar('saida');
   };
 
+  /* As quatro superfícies de LANÇAMENTO são uma tela só. O endereço muda
+     para o link continuar funcionando; o cabeçalho e o seletor, não. */
+  const lancando = atual === 'lancamentos' || atual === 'nova'
+    || atual === 'colar' || atual === 'saida';
+
+  /* `NovaVenda` avisa quando há carrinho. O `useCallback` é necessário: a
+     função entra num `useEffect` lá dentro, e uma identidade nova a cada
+     render faria o efeito rodar em laço. */
+  const [temRascunho, setTemRascunho] = useState(false);
+  const aoMudarRascunho = useCallback((v: boolean) => setTemRascunho(v), []);
+
+  const tipoAtivo: TipoDeLancamento | null =
+    atual === 'nova' ? 'venda'
+      : atual === 'colar' ? 'colar'
+        : atual === 'saida' ? 'saida'
+          : null;
+
+  /* As abas ficam visíveis TAMBÉM durante o lançamento, como no protótipo.
+     Elas sumiam para proteger o rascunho — e o efeito era que, começada uma
+     venda, não havia mais como voltar ao Painel sem descobrir sozinho que o
+     botão tinha ido embora. A proteção continua, mas como AVISO: sair com
+     carrinho cheio pergunta antes. */
+  const sair = (destino: string | null) => {
+    if (temRascunho && !confirm(
+      'Sair do lançamento? As peças que você já adicionou não foram '
+      + 'registradas e serão perdidas.',
+    )) return;
+    aoNavegar(destino);
+  };
+
   return (
     <>
-      {/* As abas acompanham a tela em todas as superfícies de leitura. Nos
-          formulários elas somem: no meio de uma venda, um clique fora do
-          fluxo perde o rascunho. */}
-      {(atual === 'painel' || atual === 'lancamentos' || atual === 'historico') && (
-        <nav className="mq-tabs" aria-label="Vendas">
-          {ABAS.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              aria-selected={atual === a.id}
-              onClick={() => aoNavegar(a.rota)}
-            >
-              {a.rotulo}
-            </button>
-          ))}
-        </nav>
-      )}
+      <nav className="mq-tabs" aria-label="Vendas">
+        {ABAS.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            aria-selected={a.id === 'lancamentos' ? lancando : atual === a.id}
+            onClick={() => sair(a.rota)}
+          >
+            {a.rotulo}
+          </button>
+        ))}
+      </nav>
 
       {atual === 'painel' && (
         <PainelVendas
@@ -109,37 +136,46 @@ export function VendasArea({
         />
       )}
 
-      {atual === 'lancamentos' && <Lancamentos aoEscolher={irPara} />}
-
-      {(atual === 'nova' || atual === 'colar') && (
-        <NovaVenda
-          conexao={conexao}
-          produtos={produtos}
-          clienteInicial={clienteDaRota(sub)}
-          abrirColar={atual === 'colar'}
-          aoAbrirColar={() => aoNavegar('colar')}
-          /* Voltar do composer é voltar para a VENDA, e não para o hub: o
-             carrinho continua lá, e mandar a pessoa para Lançamentos a faria
-             pensar que perdeu tudo. */
-          aoFecharColar={() => aoNavegar('nova')}
-          aoFechar={() => aoNavegar('lancamentos')}
-          aoRegistrar={() => {
-            aoNavegar('historico');
-            aoMudarEstoque();
-          }}
-        />
-      )}
-
-      {atual === 'saida' && (
+      {lancando && (
         <>
-          <button
-            type="button"
-            className="mq-btn mq-btn--link"
-            onClick={() => aoNavegar('lancamentos')}
-          >
-            <Icone nome="arrow" /> Voltar para Lançamentos
-          </button>
-          <SaidasArea conexao={conexao} estado={estado} aoMudarEstoque={aoMudarEstoque} />
+          <CabecalhoDoLancamento />
+          <SeletorDeLancamento ativo={tipoAtivo} aoEscolher={irPara} />
+
+          {/* A região operacional. Ela é a ÚNICA coisa que troca quando o
+              tipo troca — o cabeçalho e o seletor acima continuam onde
+              estavam, e é isso que mantém a coerência da tela. */}
+          {tipoAtivo === null && (
+            <section className="mq-card mq-card--pad mq-card--quiet">
+              <p className="mq-lede">
+                Escolha acima o que aconteceu. As três tiram peça do estoque;
+                só as duas primeiras viram dinheiro.
+              </p>
+            </section>
+          )}
+
+          {(atual === 'nova' || atual === 'colar') && (
+            <NovaVenda
+              conexao={conexao}
+              produtos={produtos}
+              clienteInicial={clienteDaRota(sub)}
+              abrirColar={atual === 'colar'}
+              aoAbrirColar={() => aoNavegar('colar')}
+              /* Voltar do composer é voltar para a VENDA, e não para o
+                 hub: o carrinho continua lá, e mandar a pessoa para
+                 Lançamentos a faria pensar que perdeu tudo. */
+              aoFecharColar={() => aoNavegar('nova')}
+              aoFechar={() => aoNavegar('lancamentos')}
+              aoMudarRascunho={aoMudarRascunho}
+              aoRegistrar={() => {
+                aoNavegar('historico');
+                aoMudarEstoque();
+              }}
+            />
+          )}
+
+          {atual === 'saida' && (
+            <SaidasArea conexao={conexao} estado={estado} aoMudarEstoque={aoMudarEstoque} />
+          )}
         </>
       )}
 

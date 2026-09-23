@@ -105,13 +105,22 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/vendas/PainelVendas.tsx`, contem: 'SEM_TENDENCIA' },
       },
       {
-        id: 'vendas.lancamentos', rotulo: 'Lançamentos: as três portas', estado: 'pronta',
+        id: 'vendas.lancamentos',
+        rotulo: 'Lançamentos: as três portas, na mesma tela', estado: 'pronta',
         rota: '#/vendas/lancamentos',
         prova: { arquivo: `${F}/features/vendas/Lancamentos.tsx`, contem: 'Novo lançamento' },
       },
       {
+        id: 'vendas.seletor',
+        rotulo: 'Trocar de modo sem sair da tela', estado: 'pronta',
+        prova: {
+          arquivo: `${F}/features/vendas/Lancamentos.tsx`,
+          contem: 'export function SeletorDeLancamento',
+        },
+      },
+      {
         id: 'vendas.normal', rotulo: 'Venda normal', estado: 'pronta', rota: '#/vendas/nova',
-        prova: { arquivo: `${F}/features/vendas/NovaVenda.tsx`, contem: 'Venda normal' },
+        prova: { arquivo: `${F}/features/vendas/NovaVenda.tsx`, contem: 'Itens da venda' },
       },
       {
         id: 'vendas.passos', rotulo: 'Itens → Cliente → Pagamento, em passos', estado: 'pronta',

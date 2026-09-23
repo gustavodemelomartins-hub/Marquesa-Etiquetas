@@ -14,20 +14,20 @@ consegue fazer.
 
 | | capacidades |
 |---|---|
-| 🟢 pronta | 113 |
+| 🟢 pronta | 114 |
 | 🟡 parcial | 3 |
 | ⚪ pendente — o backend tem, a tela não | 3 |
 | ⛔ indisponível — o backend não sustenta | 13 |
-| **total** | **132** |
+| **total** | **133** |
 
-**113 de 119** capacidades que o backend sustenta já estão
+**114 de 120** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
 
 ## Vendas
 
-Referência visual: `/prototype/vendas/` · 🟢 28 · 🟡 0 · ⚪ 1 · ⛔ 4
+Referência visual: `/prototype/vendas/` · 🟢 29 · 🟡 0 · ⚪ 1 · ⛔ 4
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -41,7 +41,8 @@ Referência visual: `/prototype/vendas/` · 🟢 28 · 🟡 0 · ⚪ 1 · ⛔ 4
 | Análise detalhada: produtos, categorias, origem | 🟢 pronta | `features/vendas/PainelVendas.tsx` | — |
 | Resumo do mês selecionado | 🟢 pronta | `features/vendas/PainelVendas.tsx` | — |
 | Variação contra o período anterior | ⛔ indisponível | `features/vendas/PainelVendas.tsx` | §19 — `analytics.js › painel()` não calcula o período anterior, e recusa explicitamente inventar um percentual. A tela diz isso no rodapé do cartão de faturamento em vez de desenhar uma seta. |
-| Lançamentos: as três portas | 🟢 pronta | `#/vendas/lancamentos` | — |
+| Lançamentos: as três portas, na mesma tela | 🟢 pronta | `#/vendas/lancamentos` | — |
+| Trocar de modo sem sair da tela | 🟢 pronta | `features/vendas/Lancamentos.tsx` | — |
 | Venda normal | 🟢 pronta | `#/vendas/nova` | — |
 | Itens → Cliente → Pagamento, em passos | 🟢 pronta | `features/vendas/NovaVenda.tsx` | — |
 | Busca de produto por nome e SKU | 🟢 pronta | `features/vendas/NovaVenda.tsx` | — |

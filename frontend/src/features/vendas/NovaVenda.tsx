@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Icone } from '../../components/Icone';
 import { money, fmtData, hojeISO, plural } from '../../domain/formato';
 import { criarCliente, listarClientes } from '../clientes/api';
@@ -33,6 +33,10 @@ interface Props {
    *  a URL e a tela dizendo a mesma coisa. */
   aoFecharColar?: () => void;
   aoFechar: () => void;
+  /** Avisa o pai quando há carrinho. As abas de Vendas continuam visíveis
+   *  durante o lançamento — como no protótipo — e sair delas com peças já
+   *  adicionadas precisa perguntar antes. */
+  aoMudarRascunho?: (tem: boolean) => void;
   aoRegistrar: (id: number) => void;
 }
 
@@ -58,7 +62,7 @@ type Passo = 'itens' | 'cliente' | 'pagamento';
  */
 export function NovaVenda({
   conexao, produtos, clienteInicial, abrirColar = false,
-  aoAbrirColar, aoFecharColar, aoFechar, aoRegistrar,
+  aoAbrirColar, aoFecharColar, aoFechar, aoRegistrar, aoMudarRascunho,
 }: Props) {
   const hoje = hojeISO();
   const [passo, setPasso] = useState<Passo>(clienteInicial ? 'itens' : 'itens');
@@ -132,6 +136,13 @@ export function NovaVenda({
      volta para a venda que já estava sendo feita. */
   const fecharColar = () => aoFecharColar?.();
 
+  /* O pai precisa saber que há rascunho para poder AVISAR antes de uma
+     navegação que o perderia — as abas voltaram a ficar visíveis durante o
+     lançamento, como no protótipo, e sair delas com carrinho cheio não
+     pode ser silencioso. */
+  useEffect(() => { aoMudarRascunho?.(pecas > 0); }, [pecas, aoMudarRascunho]);
+  useEffect(() => () => { aoMudarRascunho?.(false); }, [aoMudarRascunho]);
+
   if (abrirColar) {
     return (
       <MonteSeuColar
@@ -147,20 +158,10 @@ export function NovaVenda({
 
   return (
     <>
-      <div className="mq-pagehead">
-        <div className="mq-pagehead__text">
-          <p className="mq-eyebrow">Operação do dia</p>
-          <h1 className="mq-display">Venda normal</h1>
-          <p className="mq-lede">
-            Adicione as peças, identifique a cliente e registre como o valor
-            será recebido.
-          </p>
-        </div>
-        <div className="mq-pagehead__actions">
-          <button type="button" className="mq-btn mq-btn--ghost" onClick={aoFechar}>Cancelar</button>
-        </div>
-      </div>
-
+      {/* Sem `mq-pagehead` aqui: quem desenha "Operação do dia · Novo
+          lançamento" é `VendasArea`, uma vez só, acima do seletor dos três
+          modos. Dois cabeçalhos na mesma tela dizendo a mesma coisa era o
+          que fazia a venda parecer outra página. */}
       <ol className="mq-steps" aria-label="Passos da venda">
         {(['itens', 'cliente', 'pagamento'] as Passo[]).map((p, i) => {
           const feito = p === 'itens' ? pecas > 0
