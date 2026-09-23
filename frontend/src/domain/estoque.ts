@@ -7,6 +7,7 @@
  *  `disponivel` que vem dos componentes. */
 import type { AppState, Product } from '../types/api';
 import { corDaCategoria, ordemDasCategorias } from './categorias';
+import { fotoDaPeca } from './foto';
 import { maletasAbertas } from './maletas';
 
 /** Quanto de cada SKU está fora, somando todas as maletas abertas.
@@ -175,9 +176,14 @@ export function precisamDeAtencao(estado: AppState): PecaSemCadastro[] {
   for (const p of estado.produtos) {
     if (p.status !== 'ativo') continue;
     const falta: FaltaNaPeca[] = [];
-    /* `fotoStatus` ausente é banco sem a migração do catálogo, e não uma
-       peça sem foto — não dá para acusar falta que não se sabe medir. */
-    if (p.fotoStatus === 'sem_foto') falta.push('foto');
+    /* SEM FOTO é não ter NENHUMA imagem para mostrar — nem a nossa, nem a
+       da vitrine. `fotoStatus === 'sem_foto'` diz outra coisa: que não
+       temos os BYTES no R2. Enquanto a conta não tiver R2, isso vale para
+       quase todo o catálogo, e o KPI marcava 787 de 790 produtos — um
+       número verdadeiro e inútil, que é o mesmo que um número errado numa
+       fila de trabalho. O que interessa aqui é a peça que aparece vazia na
+       tela, e quem sabe disso é `fotoDaPeca`. */
+    if (!fotoDaPeca(p)) falta.push('foto');
     if (!String(p.cat ?? '').trim()) falta.push('categoria');
     if (p.preco === null) falta.push('preco');
     if (falta.length) out.push({ sku: p.sku, desc: p.desc, falta });

@@ -60,7 +60,12 @@ export function PainelEstoque({
   const atencao = precisamDeAtencao(estado);
   const maletas = maletasCirculando(estado);
   const cap = calcularCapacidade(estado, planejamento.config);
-  const categorias = porCategoria(estado, 'total');
+  /* O cartão diz "POR QUANTIDADE", então ele ordena POR QUANTIDADE.
+     `porCategoria` devolve na ordem do catálogo — que é o que o donut
+     precisa, para a cor de cada fatia não trocar entre uma leitura e
+     outra. Aqui a leitura é comparativa, e uma barra de 421 embaixo de
+     uma de 287 faz o rótulo do cartão mentir. */
+  const categorias = [...porCategoria(estado, 'total')].sort((a, b) => b.qtd - a.qtd);
 
   /* Nem tudo que está em casa pode ir para a loja: a sincronização recusa
      código duplicado, código com peça em maleta e código sem repartição de

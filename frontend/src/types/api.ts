@@ -51,11 +51,18 @@ export interface Product {
   /** total − consignado. Para kit, é o mínimo entre os componentes. */
   disponivel: number;
   status: 'ativo' | 'inativo';
-  /** `state.js` › o que existe da imagem desta peça, já resolvido pelo
-   *  servidor: `sem_foto`, `original`, `fundo_gerado`, `pronta`. `null` ou
-   *  ausente = banco sem a migração do catálogo, o que NÃO é o mesmo que
-   *  "peça sem foto" — ver `domain/estoque.ts › precisamDeAtencao`. */
+  /** `state.js` › o que existe dos NOSSOS bytes no R2: `sem_foto`,
+   *  `original`, `fundo_gerado`, `pronta`. Não é o mesmo que "a peça não
+   *  tem imagem para mostrar": enquanto a conta não tiver R2, isto vale
+   *  `sem_foto` para quase todo o catálogo, e a foto da vitrine continua
+   *  existindo. Quem responde "há o que mostrar?" é `domain/foto.ts`. */
   fotoStatus?: string | null;
+  /** Os quatro endereços da foto, na precedência que `state.js` documenta
+   *  e que `domain/foto.ts › fotoDaPeca` aplica. */
+  fotoTratadaUrl?: string | null;
+  fotoOriginalUrl?: string | null;
+  fotoUrl?: string | null;
+  fotoLojaUrl?: string | null;
 
   /* --- retrato da loja, reescrito a cada rodada de sincronização --- */
   urlLoja?: string;
