@@ -70,28 +70,49 @@ export function MonteSeuColar({ conexao, aoAdicionar, aoCancelar }: Props) {
 
   return (
     <>
-      <div className="mq-pagehead">
-        <div className="mq-pagehead__text">
+      {/* O cabeçalho da SEÇÃO, não da página: "Operação do dia · Novo
+          lançamento" já está acima, junto com o seletor dos três modos. O
+          título é o do protótipo. */}
+      <div className="mq-card__head collar-heading">
+        <div>
           <p className="mq-eyebrow">Composição rápida</p>
-          <h1 className="mq-display">Monte seu Colar</h1>
+          <h2 className="mq-title mq-display">Escolha seus pingentes</h2>
           <p className="mq-lede">
-            Escolha as peças, confira o conjunto e adicione à venda. A corrente
-            entra automaticamente.
+            Informe as quantidades, escolha cada cor e confirme o conjunto. A
+            corrente entra automaticamente.
           </p>
         </div>
-        <div className="mq-pagehead__actions">
-          <button type="button" className="mq-btn mq-btn--ghost" onClick={aoCancelar}>Voltar</button>
-        </div>
+        <button type="button" className="mq-btn mq-btn--ghost" onClick={aoCancelar}>Voltar</button>
       </div>
 
       {recusa?.desativada && (
         <div className="mq-note mq-note--warn" role="alert">
           <Icone nome="alert" />
           <span>
-            <b>Operação bloqueada.</b> {recusa.mensagem} A tela continua aqui
-            para ser conferida; nenhuma composição pode ser registrada
-            enquanto <code>PERSONALIZACAO_ATIVA</code> estiver desligada, e o
-            servidor recusaria o registro do mesmo jeito.
+            <b>Operação bloqueada — e o que falta não é ligar uma chave.</b>{' '}
+            A tela, os contratos e as travas do servidor estão prontos. O que
+            impede a operação é <b>cadastro</b>, e o cadastro está parado por
+            um risco de estoque medido, não por esquecimento:
+            <br />
+            <br />
+            · Quatro componentes <b>não existem no catálogo</b> —{' '}
+            <code>251551</code>, <code>251552</code>, <code>329494</code> e{' '}
+            <code>444032</code>. Hoje eles só existem <i>dentro</i> do{' '}
+            <code>326660</code>.
+            <br />
+            · O <code>326660</code> (Colar Casal, 1 un., consignado) representa
+            os <b>mesmos</b> três componentes que seriam cadastrados. Cadastrar
+            os dois lados contaria a mesma peça física duas vezes e quebraria a
+            razão contábil.
+            <br />
+            · Nenhuma configuração está registrada em{' '}
+            <code>personalizacao_modelos</code>.
+            <br />
+            <br />
+            Ligar <code>PERSONALIZACAO_ATIVA</code> agora trocaria este aviso
+            por uma tela vazia sem explicação. O caminho está em{' '}
+            <b>MONTAGEM-MONTE-SEU-COLAR §5.3</b>: conferência peça a peça,
+            depois cadastro, depois a chave.
           </span>
         </div>
       )}

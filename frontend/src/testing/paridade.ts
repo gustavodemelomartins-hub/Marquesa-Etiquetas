@@ -182,7 +182,7 @@ export const PARIDADE: ModuloDeParidade[] = [
       },
       {
         id: 'vendas.colar', rotulo: 'Monte seu Colar', estado: 'pronta', rota: '#/vendas/colar',
-        prova: { arquivo: `${F}/features/vendas/MonteSeuColar.tsx`, contem: 'Monte seu Colar' },
+        prova: { arquivo: `${F}/features/vendas/MonteSeuColar.tsx`, contem: 'Escolha seus pingentes' },
       },
       {
         id: 'vendas.colar-composicao', rotulo: 'Composição por grupo, com corrente fixa', estado: 'pronta',
@@ -191,6 +191,23 @@ export const PARIDADE: ModuloDeParidade[] = [
       {
         id: 'vendas.colar-desligado', rotulo: 'Colar bloqueado quando a feature está desligada', estado: 'pronta',
         prova: { arquivo: `${F}/features/vendas/colar.ts`, contem: 'PERSONALIZACAO_DESATIVADA' },
+      },
+      {
+        id: 'vendas.colar-operar',
+        rotulo: 'REGISTRAR uma composição de verdade', estado: 'indisponivel',
+        porque: 'MON-001 — não é a chave, é o CADASTRO. Quatro componentes '
+          + '(`251551`, `251552`, `329494`, `444032`) não existem no catálogo e '
+          + 'hoje só existem DENTRO do `326660`, que é 1 unidade consignada '
+          + 'representando os mesmos três. Cadastrar os dois lados contaria a '
+          + 'mesma peça física duas vezes e quebraria a razão. E '
+          + '`personalizacao_modelos` está vazia em PROD e no DEV da V2. Ligar '
+          + '`PERSONALIZACAO_ATIVA` trocaria um aviso honesto por uma tela vazia. '
+          + 'O caminho é MONTAGEM-MONTE-SEU-COLAR §5.3: conferência peça a peça, '
+          + 'depois cadastro, depois a chave.',
+        prova: {
+          arquivo: `${F}/features/vendas/MonteSeuColar.tsx`,
+          contem: 'o que falta não é ligar uma chave',
+        },
       },
       {
         id: 'vendas.colar-preco', rotulo: 'Preço final editável no colar', estado: 'indisponivel',

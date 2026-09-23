@@ -17,8 +17,8 @@ consegue fazer.
 | 🟢 pronta | 114 |
 | 🟡 parcial | 3 |
 | ⚪ pendente — o backend tem, a tela não | 3 |
-| ⛔ indisponível — o backend não sustenta | 13 |
-| **total** | **133** |
+| ⛔ indisponível — o backend não sustenta | 14 |
+| **total** | **134** |
 
 **114 de 120** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
@@ -27,7 +27,7 @@ fingir.
 
 ## Vendas
 
-Referência visual: `/prototype/vendas/` · 🟢 29 · 🟡 0 · ⚪ 1 · ⛔ 4
+Referência visual: `/prototype/vendas/` · 🟢 29 · 🟡 0 · ⚪ 1 · ⛔ 5
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -59,6 +59,7 @@ Referência visual: `/prototype/vendas/` · 🟢 29 · 🟡 0 · ⚪ 1 · ⛔ 4
 | Monte seu Colar | 🟢 pronta | `#/vendas/colar` | — |
 | Composição por grupo, com corrente fixa | 🟢 pronta | `features/vendas/MonteSeuColar.tsx` | — |
 | Colar bloqueado quando a feature está desligada | 🟢 pronta | `features/vendas/colar.ts` | — |
+| REGISTRAR uma composição de verdade | ⛔ indisponível | `features/vendas/MonteSeuColar.tsx` | MON-001 — não é a chave, é o CADASTRO. Quatro componentes (`251551`, `251552`, `329494`, `444032`) não existem no catálogo e hoje só existem DENTRO do `326660`, que é 1 unidade consignada representando os mesmos três. Cadastrar os dois lados contaria a mesma peça física duas vezes e quebraria a razão. E `personalizacao_modelos` está vazia em PROD e no DEV da V2. Ligar `PERSONALIZACAO_ATIVA` trocaria um aviso honesto por uma tela vazia. O caminho é MONTAGEM-MONTE-SEU-COLAR §5.3: conferência peça a peça, depois cadastro, depois a chave. |
 | Preço final editável no colar | ⛔ indisponível | `features/vendas/MonteSeuColar.tsx` | O servidor recusa: `prepararPersonalizacoes` compara o preço pedido com o da configuração e devolve 409 com o valor certo na mensagem. Um campo que sempre volta recusado é pior que campo nenhum, então ele não existe — e a tela diz por quê. |
 | Saída sem faturamento, dentro de Lançamentos | 🟢 pronta | `#/vendas/saida` | — |
 | Histórico de vendas | 🟢 pronta | `#/vendas/historico` | — |

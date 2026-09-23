@@ -134,3 +134,18 @@
 }
 .mq-note--acionavel > svg:last-child { margin-left: auto; flex: none; }
 
+
+/* ---------------------------------------- Monte seu Colar, na venda ---
+ *
+ * A composição é uma SEÇÃO do lançamento, não uma página: o cabeçalho
+ * "Operação do dia · Novo lançamento" e o seletor dos três modos ficam
+ * acima dela. Este bloco só dá ao título de seção o peso que o protótipo
+ * lhe dá (`collar-heading`), sem promovê-lo de novo a `h1`.
+ */
+.collar-heading { align-items: flex-start; }
+.collar-heading .mq-display {
+  font-size: clamp(24px, 2.4vw, 30px);
+  line-height: 1.05;
+  margin: 0;
+}
+.collar-heading .mq-eyebrow { color: var(--mq-wine-700); }
