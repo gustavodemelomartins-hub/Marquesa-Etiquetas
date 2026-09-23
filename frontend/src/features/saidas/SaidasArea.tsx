@@ -17,6 +17,11 @@ interface Props {
   conexao: Connection;
   estado: AppState | null;
   aoMudarEstoque: () => void;
+  /** EMBUTIDA em "Novo lançamento", que é onde o protótipo a põe. Nesse
+   *  modo ela não desenha cabeçalho próprio — "Operação do dia · Novo
+   *  lançamento" já está acima, junto com o seletor dos três modos — e
+   *  abre direto no formulário, que é o que a pessoa foi fazer ali. */
+  embutida?: boolean;
 }
 
 /** SAÍDAS SEM FATURAMENTO — a peça que saiu e não virou dinheiro.
@@ -29,14 +34,16 @@ interface Props {
  *  Nenhuma delas entra em faturamento, ticket médio, peças vendidas ou
  *  ranking de clientes — e isso é regra do backend, não escolha da tela.
  */
-export function SaidasArea({ conexao, estado, aoMudarEstoque }: Props) {
+export function SaidasArea({
+  conexao, estado, aoMudarEstoque, embutida = false,
+}: Props) {
   const [filtro, setFiltro] = useState<TipoDeSaida | null>(null);
   const [incluirEstornadas, setIncluirEstornadas] = useState(true);
   const lista = useApi(
     (s) => listarSaidas(conexao, { tipo: filtro, incluirEstornadas }, s),
     [conexao, filtro, incluirEstornadas],
   );
-  const [registrando, setRegistrando] = useState(false);
+  const [registrando, setRegistrando] = useState(embutida);
   const [estornando, setEstornando] = useState<number | null>(null);
   const [recusa, setRecusa] = useState<{ id: number; texto: string } | null>(null);
 
@@ -67,22 +74,24 @@ export function SaidasArea({ conexao, estado, aoMudarEstoque }: Props) {
 
   return (
     <>
-      <div className="mq-pagehead">
-        <div className="mq-pagehead__text">
-          <p className="mq-eyebrow">Estoque</p>
-          <h1 className="mq-display">Saiu sem faturar</h1>
-          <p className="mq-lede">
-            Brinde, uso próprio, perda e sorteio. É o que explica a diferença
-            entre o que saiu do estoque e o que foi vendido.
-          </p>
+      {!embutida && (
+        <div className="mq-pagehead">
+          <div className="mq-pagehead__text">
+            <p className="mq-eyebrow">Estoque</p>
+            <h1 className="mq-display">Saiu sem faturar</h1>
+            <p className="mq-lede">
+              Brinde, uso próprio, perda e sorteio. É o que explica a diferença
+              entre o que saiu do estoque e o que foi vendido.
+            </p>
+          </div>
+          <div className="mq-pagehead__actions">
+            <button type="button" className="mq-btn mq-btn--primary" onClick={() => setRegistrando(true)}>
+              <Icone nome="plus" />
+              Registrar saída
+            </button>
+          </div>
         </div>
-        <div className="mq-pagehead__actions">
-          <button type="button" className="mq-btn mq-btn--primary" onClick={() => setRegistrando(true)}>
-            <Icone nome="plus" />
-            Registrar saída
-          </button>
-        </div>
-      </div>
+      )}
 
       <div className="mq-kpis">
         {TIPOS.map((t) => (

@@ -37,3 +37,38 @@
   .stock-overview__where { flex-direction: column; align-items: stretch; gap: var(--mq-4); }
   .stock-overview__where .mq-donut { align-self: center; }
 }
+
+/* ------------------------------------------------- análise de saídas */
+
+.saidas-filtros { align-items: flex-end; gap: var(--mq-3); }
+.saidas-filtros .mq-field { min-width: 150px; }
+
+/* Data · Destino · Motivo · Peças · Custo real · Situação — as colunas do
+   protótipo, nesta ordem. */
+.saidas-tabela .mq-tr {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1.8fr) minmax(0, 1.1fr) 82px 120px 132px;
+  align-items: center; gap: var(--mq-3);
+}
+
+/* O número que o sistema NÃO tem. Ele ocupa o lugar do valor, no tamanho
+   de um rótulo — nunca no corpo de um número, para ninguém o ler de longe
+   como se fosse um. */
+.mq-kpi__value--vazio {
+  font-size: 15px; font-weight: 400; color: var(--mq-muted);
+  letter-spacing: 0;
+}
+
+@media (max-width: 900px) {
+  .saidas-tabela .mq-tr { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--mq-1); }
+  .saidas-tabela .mq-tr:not(.mq-tr--head) > span:not(:nth-child(2)) {
+    display: flex; justify-content: space-between; align-items: center;
+    grid-column: 1 / -1;
+  }
+  .saidas-tabela .mq-tr--head { display: none; }
+  .saidas-tabela [data-label]::before {
+    content: attr(data-label);
+    font: 500 11px var(--mq-sans); letter-spacing: .07em;
+    text-transform: uppercase; color: var(--mq-muted);
+  }
+}

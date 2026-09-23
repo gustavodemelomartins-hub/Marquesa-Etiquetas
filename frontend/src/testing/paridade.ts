@@ -382,6 +382,27 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/saidas/SaidasArea.tsx`, contem: 'Saiu sem faturar' },
       },
       {
+        id: 'estoque.saidas-analise',
+        rotulo: 'Análise de saídas: período, motivo, situação e distribuição',
+        estado: 'pronta', rota: '#/estoque/saidas',
+        prova: {
+          arquivo: `${F}/features/saidas/AnaliseDeSaidas.tsx`,
+          contem: 'export function AnaliseDeSaidas',
+        },
+      },
+      {
+        id: 'estoque.saidas-custo',
+        rotulo: 'Custo real das saídas', estado: 'indisponivel',
+        porque: 'D6 de novo, e aqui ele dói mais: o protótipo desenha quatro '
+          + 'cartões de CUSTO — líquido, estornado, das saídas e por peça — e '
+          + 'nenhum existe. Não há coluna de custo em `produtos` nem em '
+          + '`saidas_sem_faturamento`, e nenhuma rota devolve uma. O que existe '
+          + 'é `produtos.preco`, que é preço de VENDA: somá-lo faria uma peça '
+          + 'dada de brinde "custar" o valor que ela teria rendido. A tela '
+          + 'mantém a composição e escreve "Não informado" nos quatro.',
+        prova: { arquivo: `${F}/features/saidas/analise.ts`, contem: 'custoLiquido: null' },
+      },
+      {
         id: 'estoque.custo', rotulo: 'Custo e margem da peça', estado: 'indisponivel',
         porque: 'D6 — não há coluna de custo em `produtos`, e nenhuma rota devolve '
           + 'uma. Um valor de estoque calculado sobre preço de VENDA não é '

@@ -7,7 +7,7 @@ import { ReconciliacaoPage } from '../reconciliacao/ReconciliacaoPage';
 import { EstoqueTotalPage } from '../estoque-total/EstoqueTotalPage';
 import { PecasArea } from './PecasArea';
 import { InventarioArea } from '../inventario/InventarioArea';
-import { SaidasArea } from '../saidas/SaidasArea';
+import { AnaliseDeSaidas } from '../saidas/AnaliseDeSaidas';
 import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
 
 /** Três telas, e Estoque Total é a porta.
@@ -162,9 +162,11 @@ export function EstoqueArea({
         <InventarioArea conexao={conexao} estado={estado} aoMudarEstoque={aoMudarEstoque} />
       )}
 
-      {sub === 'saidas' && (
-        <SaidasArea conexao={conexao} estado={estado} aoMudarEstoque={aoMudarEstoque} />
-      )}
+      {/* `#/estoque/saidas` é a tela de LEITURA — a "Análise de saídas" do
+          protótipo. REGISTRAR uma saída é um lançamento, e mora em
+          Vendas › Novo lançamento, junto com as outras duas maneiras de
+          uma peça sair do estoque. */}
+      {sub === 'saidas' && <AnaliseDeSaidas conexao={conexao} />}
 
       {sub === 'estoque-total' && (
         <EstoqueTotalPage

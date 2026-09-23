@@ -174,7 +174,12 @@ export function VendasArea({
           )}
 
           {atual === 'saida' && (
-            <SaidasArea conexao={conexao} estado={estado} aoMudarEstoque={aoMudarEstoque} />
+            <SaidasArea
+              conexao={conexao}
+              estado={estado}
+              aoMudarEstoque={aoMudarEstoque}
+              embutida
+            />
           )}
         </>
       )}

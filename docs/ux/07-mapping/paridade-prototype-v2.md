@@ -14,13 +14,13 @@ consegue fazer.
 
 | | capacidades |
 |---|---|
-| 🟢 pronta | 114 |
+| 🟢 pronta | 115 |
 | 🟡 parcial | 3 |
 | ⚪ pendente — o backend tem, a tela não | 3 |
-| ⛔ indisponível — o backend não sustenta | 14 |
-| **total** | **134** |
+| ⛔ indisponível — o backend não sustenta | 15 |
+| **total** | **136** |
 
-**114 de 120** capacidades que o backend sustenta já estão
+**115 de 121** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
@@ -102,7 +102,7 @@ Referência visual: `/prototype/financeiro/` · 🟢 8 · 🟡 0 · ⚪ 0 · ⛔
 
 ## Estoque
 
-Referência visual: `/prototype/estoque/` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 2
+Referência visual: `/prototype/estoque/` · 🟢 10 · 🟡 0 · ⚪ 0 · ⛔ 3
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -115,6 +115,8 @@ Referência visual: `/prototype/estoque/` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 2
 | A razão de uma peça, movimento a movimento | 🟢 pronta | `features/estoque/PecasArea.tsx` | — |
 | Atualizar Estoque Total por planilha, com diff | 🟢 pronta | `features/estoque-total/EstoqueTotalPage.tsx` | — |
 | Saiu sem faturar | 🟢 pronta | `#/estoque/saidas` | — |
+| Análise de saídas: período, motivo, situação e distribuição | 🟢 pronta | `#/estoque/saidas` | — |
+| Custo real das saídas | ⛔ indisponível | `features/saidas/analise.ts` | D6 de novo, e aqui ele dói mais: o protótipo desenha quatro cartões de CUSTO — líquido, estornado, das saídas e por peça — e nenhum existe. Não há coluna de custo em `produtos` nem em `saidas_sem_faturamento`, e nenhuma rota devolve uma. O que existe é `produtos.preco`, que é preço de VENDA: somá-lo faria uma peça dada de brinde "custar" o valor que ela teria rendido. A tela mantém a composição e escreve "Não informado" nos quatro. |
 | Custo e margem da peça | ⛔ indisponível | — | D6 — não há coluna de custo em `produtos`, e nenhuma rota devolve uma. Um valor de estoque calculado sobre preço de VENDA não é patrimônio, e chamá-lo assim seria inventar um número de balanço. |
 | Indicador de saúde do estoque | ⛔ indisponível | — | D8 — "saúde" exigiria giro, cobertura e ponto de reposição, e nenhum dos três é calculado pelo servidor. Um semáforo verde sem conta atrás é pior que semáforo nenhum. |
 
