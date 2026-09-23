@@ -9,7 +9,6 @@ import {
   type LinhaDeDiferenca,
 } from './resultado';
 import type { AppState } from '../../types/api';
-import type { ProdutoDoEstado } from '../vendas/tipos';
 
 interface InventarioResumo {
   id: number;
@@ -30,6 +29,24 @@ interface LinhaContada {
   contadoEm: string;
 }
 
+/** O QUE SE ESPERA ENCONTRAR EM CASA, código a código, direto do servidor
+ *  (`api/src/inventario.js › SQL_ESPERADO`).
+ *
+ *  A tela NÃO recalcula isso. `esperado` já é total menos consignado, e a
+ *  lista já exclui kit e configuração montável. A versão anterior comparava
+ *  contra `produtos.qtd` — o TOTAL —, e o efeito era a regra mais cara do
+ *  inventário sendo violada em silêncio: peça que está na maleta de uma
+ *  revendedora aparecia como FALTANDO na contagem da casa. */
+interface Esperado {
+  sku: string;
+  desc: string;
+  cat: string | null;
+  preco: number | null;
+  total: number;
+  consignado: number;
+  esperado: number;
+}
+
 interface DetalheInventario {
   id: number;
   status: string;
@@ -39,6 +56,8 @@ interface DetalheInventario {
   contagem: LinhaContada[];
   naoIdentificado: unknown[];
   cobertura: { conferidos: number; total: number };
+  /** Vem preenchido só enquanto o inventário está em andamento. */
+  esperados?: Esperado[];
 }
 
 interface Props {
@@ -74,6 +93,18 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque }: Props) {
   const emAndamento = (lista.dados ?? []).find((i) => i.status === 'aberto' || i.status === 'pausado');
   const idAtual = abertoId ?? emAndamento?.id ?? null;
 
+  /* O último inventário CONCLUÍDO — não o último criado. Um cancelado não
+     é uma conferência que aconteceu, e mostrá-lo como "último inventário"
+     daria a impressão de que a loja foi contada quando não foi. */
+  const ultimoConcluido = (lista.dados ?? []).find((i) => i.status === 'concluido');
+
+  /* `GET /api/state › inventario` — o resumo que o servidor já monta, com
+     o prazo de `config.inventarioDias` aplicado. A tela não recalcula
+     "está vencido": quem sabe disso é quem guarda o prazo. */
+  const resumoDoEstado = estado?.inventario as
+    | { abertoId?: number | null; diasDesde?: number | null; vencido?: boolean; ultimoEm?: string | null }
+    | undefined;
+
   async function abrir() {
     setErroAcao('');
     const r = await chamar<{ id?: number; erro?: string }>(conexao, 'POST', '/api/inventarios', {})
@@ -104,12 +135,69 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque }: Props) {
         )}
       </div>
 
+      {/* OS TRÊS CONTEXTOS do protótipo. Não são abas: são três fatos
+          sobre a mesma coisa, e quem chega precisa dos três de uma vez —
+          "como está o estoque", "quando foi a última vez" e "há algo
+          aberto agora". */}
+      <div className="inventory-contexts">
+        <article className="inventory-context">
+          <span className="context-icon success"><Icone nome="check" /></span>
+          <span>
+            <small>Saúde do estoque</small>
+            <strong>
+              {resumoDoEstado?.vencido ? 'Conferência vencida' : 'Situação geral'}
+            </strong>
+            <em>
+              {resumoDoEstado?.diasDesde == null
+                ? 'Nunca conferido'
+                : `${resumoDoEstado.diasDesde} ${plural(resumoDoEstado.diasDesde, 'dia', 'dias')} desde a última`}
+            </em>
+          </span>
+        </article>
+
+        <article className="inventory-context">
+          <span className="context-icon"><Icone nome="inventory" /></span>
+          <span>
+            <small>Último inventário</small>
+            <strong>
+              {ultimoConcluido ? fmtData(ultimoConcluido.concluidoEm ?? '') : 'Nenhum ainda'}
+            </strong>
+            <em className={ultimoConcluido ? 'positive' : ''}>
+              {ultimoConcluido
+                ? (ultimoConcluido.divergentes
+                  ? `${ultimoConcluido.divergentes} ${plural(ultimoConcluido.divergentes, 'divergência', 'divergências')}`
+                  : 'Finalizado sem divergência')
+                : 'Nenhuma conferência concluída'}
+            </em>
+          </span>
+        </article>
+
+        <article className={emAndamento ? 'inventory-context active' : 'inventory-context'}>
+          <span className="context-icon"><Icone nome="box" /></span>
+          <span>
+            <small>Inventário em aberto</small>
+            <strong>
+              {emAndamento
+                ? (emAndamento.status === 'pausado' ? 'Pausado' : 'Em andamento')
+                : 'Nenhum aberto'}
+            </strong>
+            <em>
+              {emAndamento
+                ? `aberto em ${fmtData(emAndamento.iniciadoEm)}`
+                : 'Pronto para iniciar'}
+            </em>
+          </span>
+        </article>
+      </div>
+
       <p className="mq-note mq-note--info">
         <Icone nome="alert" />
         <span>
-          <b>Não contado não é zero.</b> Peça que ninguém conferiu fica de
-          fora da conta; peça conferida e ausente vale zero, e isso é um
-          resultado. Dá para pausar e continuar depois sem perder nada.
+          <b>Só conta o que deveria estar em casa.</b> Peça que saiu na maleta
+          de uma revendedora NÃO aparece como faltante — o número da coluna
+          "Sistema" já é o total menos o consignado. E <b>não contado não é
+          zero</b>: peça que ninguém conferiu fica de fora da conta, e dá para
+          pausar e continuar depois sem perder nada.
         </span>
       </p>
 
@@ -120,7 +208,6 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque }: Props) {
         <Contagem
           conexao={conexao}
           id={idAtual}
-          estado={estado}
           aoMudar={() => { lista.recarregar(); aoMudarEstoque(); }}
           aoSair={() => setAbertoId(null)}
         />
@@ -167,12 +254,18 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque }: Props) {
 
 /* ───────────────────────────────────────────────────────── a contagem */
 
+/** A CONTAGEM.
+ *
+ *  Não recebe mais o `AppState`: a lista do que se espera encontrar em casa
+ *  vem de `GET /api/inventarios/:id › esperados`, já com a regra do
+ *  servidor aplicada (total menos consignado, sem kit e sem configuração
+ *  montável). Enquanto ela era derivada aqui de `produtos.qtd`, peça em
+ *  maleta aparecia como FALTANDO. */
 function Contagem({
-  conexao, id, estado, aoMudar, aoSair,
+  conexao, id, aoMudar, aoSair,
 }: {
   conexao: Connection;
   id: number;
-  estado: AppState | null;
   aoMudar: () => void;
   aoSair: () => void;
 }) {
@@ -184,7 +277,9 @@ function Contagem({
   const [erro, setErro] = useState('');
   const [ocupado, setOcupado] = useState<string | null>(null);
 
-  const produtos = (estado?.produtos ?? []) as unknown as ProdutoDoEstado[];
+  /* A LISTA DA CONTAGEM vem do servidor, não do `GET /api/state`: é ela
+     que carrega a regra do "em casa". Ver o comentário de `Esperado`. */
+  const esperados = detalhe.dados?.esperados ?? [];
   const contados = useMemo(
     () => new Map((detalhe.dados?.contagem ?? []).map((c) => [c.sku, c])),
     [detalhe.dados],
@@ -192,14 +287,43 @@ function Contagem({
 
   const lista = useMemo(() => {
     const t = busca.trim().toLowerCase();
-    return produtos
-      .filter((p) => !t || p.sku.toLowerCase().includes(t) || p.desc.toLowerCase().includes(t))
-      .sort((a, b) => a.desc.localeCompare(b.desc));
-  }, [produtos, busca]);
+    if (!t) return esperados;
+    return esperados.filter(
+      (p) => p.sku.toLowerCase().includes(t) || p.desc.toLowerCase().includes(t),
+    );
+  }, [esperados, busca]);
 
   const status = detalhe.dados?.status ?? 'aberto';
   const pausado = status === 'pausado';
   const encerrado = status === 'concluido' || status === 'cancelado';
+
+  /** O resumo que o protótipo mostra no rodapé da contagem, e que a
+   *  finalização repete antes de encerrar. São CONTAGENS DE CÓDIGO, e
+   *  "não conferido" é a maior delas no começo — por construção. */
+  const resumo = useMemo(() => {
+    let conferido = 0, faltando = 0, sobrando = 0;
+    for (const p of esperados) {
+      const c = contados.get(p.sku);
+      if (!c) continue;
+      if (c.contado === p.esperado) conferido += 1;
+      else if (c.contado < p.esperado) faltando += 1;
+      else sobrando += 1;
+    }
+    return {
+      conferido, faltando, sobrando,
+      naoConferido: Math.max(0, esperados.length - contados.size),
+    };
+  }, [esperados, contados]);
+
+  /** A última gravação — o que diz a quem voltou depois do almoço que a
+   *  contagem da manhã está lá. */
+  const ultimaGravacao = useMemo(() => {
+    let maior: string | null = null;
+    for (const c of detalhe.dados?.contagem ?? []) {
+      if (!maior || c.contadoEm > maior) maior = c.contadoEm;
+    }
+    return maior;
+  }, [detalhe.dados]);
 
   async function acao(caminho: string, corpo?: unknown) {
     setOcupado(caminho);
@@ -211,6 +335,41 @@ function Contagem({
     detalhe.recarregar();
     aoMudar();
     return true;
+  }
+
+  /** FINALIZAR não pode ser um clique a seco.
+   *
+   *  Concluir congela o retrato — depois dele a contagem não muda mais — e
+   *  tudo o que ficou sem contar entra como "não conferido". Quem para no
+   *  meio precisa ver o tamanho disso ANTES, e não descobrir depois. O que
+   *  concluir NÃO faz é mexer em estoque: o ajuste é o passo seguinte, e
+   *  tem confirmação própria. */
+  async function finalizar() {
+    const resumoTexto = [
+      `Faltando: ${resumo.faltando}`,
+      `Sobrando: ${resumo.sobrando}`,
+      `Conferidos e batendo: ${resumo.conferido}`,
+      `NAO conferidos: ${resumo.naoConferido}`,
+    ].join('\n');
+
+    const sobreOsNaoConferidos = resumo.naoConferido > 0
+      ? `Os ${resumo.naoConferido} codigos nao conferidos continuam como `
+        + 'incognita: nao contado nao e zero, e nenhum deles vira diferenca.'
+      : 'Todos os codigos esperados foram conferidos.';
+
+    const aviso = [
+      'Finalizar a contagem?',
+      '',
+      resumoTexto,
+      '',
+      'Finalizar CONGELA o retrato e NAO altera estoque nenhum.',
+      'Os ajustes vem depois, um a um, com confirmacao propria.',
+      '',
+      sobreOsNaoConferidos,
+    ].join('\n');
+
+    if (!confirm(aviso)) return;
+    await acao(`/api/inventarios/${id}/concluir`);
   }
 
   async function contar(sku: string, contado: number) {
@@ -233,119 +392,220 @@ function Contagem({
   }
 
   const cobertura = detalhe.dados?.cobertura;
+  const pct = cobertura && cobertura.total > 0
+    ? Math.round((cobertura.conferidos / cobertura.total) * 100)
+    : 0;
 
-  return (
-    <section className="mq-card mq-card--flush">
-      <div className="mq-card__head">
-        <div>
-          <h2 className="mq-title">Inventário #{id}</h2>
-          <p className="mq-lede">
-            {cobertura
-              ? `${cobertura.conferidos} de ${cobertura.total} códigos conferidos`
-              : 'carregando…'}
-            {pausado ? ' · pausado' : ''}
-          </p>
-        </div>
-        <div className="mq-btns">
-          {!encerrado && !pausado && (
-            <button type="button" className="mq-btn mq-btn--secondary mq-btn--sm"
-              disabled={!!ocupado} onClick={() => acao(`/api/inventarios/${id}/pausar`)}>
-              Pausar
-            </button>
-          )}
-          {pausado && (
-            <button type="button" className="mq-btn mq-btn--secondary mq-btn--sm"
-              disabled={!!ocupado} onClick={() => acao(`/api/inventarios/${id}/retomar`)}>
-              Continuar
-            </button>
-          )}
-          {!encerrado && (
-            <button type="button" className="mq-btn mq-btn--primary mq-btn--sm"
-              disabled={!!ocupado} onClick={() => acao(`/api/inventarios/${id}/concluir`)}>
-              Concluir
-            </button>
-          )}
+  if (encerrado) {
+    return (
+      <section className="mq-card">
+        <div className="mq-card__head">
+          <div>
+            <p className="mq-eyebrow">Contagem encerrada</p>
+            <h2 className="mq-title">Revisão do inventário #{id}</h2>
+            <p className="mq-lede">
+              O retrato está congelado. Selecione as divergências comparáveis
+              — o sistema calcula o ajuste, e nenhum é aplicado sem você.
+            </p>
+          </div>
           <button type="button" className="mq-btn mq-btn--ghost mq-btn--sm" onClick={aoSair}>
             Fechar
           </button>
         </div>
+        {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
+        <Resultado conexao={conexao} id={id} aoAplicar={aoMudar} />
+      </section>
+    );
+  }
+
+  return (
+    <section className="mq-card mq-card--flush inventario-ativo">
+      <header className="mq-card__head active-inventory-head">
+        <div>
+          <p className="mq-eyebrow">
+            {pausado ? 'Inventário pausado' : 'Inventário em andamento'}
+          </p>
+          <h2 className="mq-title">Conferência do estoque em casa</h2>
+          <p className="mq-lede">
+            {cobertura
+              ? `${cobertura.conferidos} de ${cobertura.total} itens conferidos`
+              : 'carregando…'}
+            {ultimaGravacao ? ` · última gravação ${fmtHora(ultimaGravacao)}` : ''}
+          </p>
+        </div>
+        <div className="active-actions">
+          {!pausado ? (
+            <button
+              type="button"
+              className="mq-btn mq-btn--secondary"
+              disabled={!!ocupado}
+              onClick={() => acao(`/api/inventarios/${id}/pausar`)}
+            >
+              Pausar
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="mq-btn mq-btn--secondary"
+              disabled={!!ocupado}
+              onClick={() => acao(`/api/inventarios/${id}/retomar`)}
+            >
+              Continuar
+            </button>
+          )}
+          <button
+            type="button"
+            className="mq-btn mq-btn--primary"
+            disabled={!!ocupado}
+            onClick={finalizar}
+          >
+            Finalizar inventário
+          </button>
+          <button type="button" className="mq-btn mq-btn--ghost" onClick={aoSair}>
+            Fechar
+          </button>
+        </div>
+      </header>
+
+      <div className="mq-card__body inventory-progress">
+        <span>
+          <b style={{ width: `${pct}%` }} />
+        </span>
+        <strong>{pct}%</strong>
       </div>
+
+      {pausado && (
+        <p className="mq-note mq-note--warn">
+          <Icone nome="alert" />
+          <span>
+            <b>Pausado.</b> Nada se perde — a contagem continua exatamente
+            onde parou, e ninguém pode abrir um segundo inventário por cima
+            dela.
+          </span>
+        </p>
+      )}
 
       {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
 
-      {encerrado ? (
-        <Resultado conexao={conexao} id={id} aoAplicar={aoMudar} />
-      ) : (
-        <>
-          <div className="mq-filters">
-            <label className="mq-search">
-              <Icone nome="search" />
-              <input
-                className="mq-input"
-                type="search"
-                placeholder="Buscar a peça que está na mão"
-                aria-label="Buscar peça para contar"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-              />
-            </label>
-            <span className="mq-filters__count">{lista.length} códigos</span>
-          </div>
+      <div className="mq-filters inventory-capture">
+        <label className="mq-search">
+          <Icone nome="search" />
+          <input
+            className="mq-input"
+            type="search"
+            placeholder="SKU ou nome da peça — bipe a etiqueta ou digite"
+            aria-label="SKU ou nome da peça"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+        </label>
+        <span className="mq-filters__count">
+          {lista.length} de {esperados.length} {plural(esperados.length, 'código', 'códigos')}
+        </span>
+      </div>
 
-          <div className="mq-list">
-            {lista.map((p) => {
-              const c = contados.get(p.sku);
-              const divergente = c && c.contado !== p.qtd;
-              return (
-                <div className="mq-item" key={p.sku}>
-                  <span className={`mq-item__icon ${c ? (divergente ? 'mq-item__icon--warn' : 'mq-item__icon--ok') : ''}`}>
-                    <Icone nome={c ? (divergente ? 'alert' : 'check') : 'box'} />
-                  </span>
-                  <span className="mq-item__main">
-                    <b>{p.desc}</b>
-                    <small>
-                      {p.sku} · sistema diz {p.qtd}
-                      {c ? ` · contado ${c.contado}` : ' · ainda não contado'}
-                      {divergente ? ` · diferença ${c.contado - p.qtd > 0 ? '+' : ''}${c.contado - p.qtd}` : ''}
-                    </small>
-                  </span>
-                  <span className="mq-item__side mq-inv-acoes">
-                    <input
-                      className="mq-input mq-inv-contagem"
-                      type="number"
-                      min={0}
-                      inputMode="numeric"
-                      aria-label={`Contagem de ${p.desc}`}
-                      defaultValue={c ? c.contado : ''}
-                      placeholder="—"
-                      disabled={pausado || ocupado === p.sku}
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v === '') return;
-                        const n = Number(v);
-                        if (Number.isInteger(n) && n >= 0 && (!c || c.contado !== n)) contar(p.sku, n);
-                      }}
-                    />
-                    {c && (
-                      <button
-                        type="button"
-                        className="mq-btn mq-btn--ghost mq-btn--sm"
-                        disabled={pausado || ocupado === p.sku}
-                        title="Voltar para não contado — que não é zero"
-                        onClick={() => descontar(p.sku)}
-                      >
-                        Desfazer
-                      </button>
-                    )}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
+      <div className="mq-table inventory-count-list" role="table" aria-label="Itens contados">
+        <div className="mq-tr mq-tr--head count-row" role="row">
+          <span>Peça</span>
+          <span className="mq-cell--num">Sistema</span>
+          <span className="mq-cell--num">Contado</span>
+          <span>Status</span>
+          <span />
+        </div>
+
+        {lista.map((p) => {
+          const c = contados.get(p.sku);
+          const situacao = situacaoDaLinha(p, c?.contado);
+          return (
+            <div className="mq-tr count-row" role="row" key={p.sku}>
+              <span className="mq-cell">
+                <b>{p.sku} · {p.desc}</b>
+                <small className="mq-sku">
+                  {p.cat || 'sem categoria'}
+                  {/* A frase que impede a dúvida mais cara da contagem: o
+                      número da coluna "Sistema" NÃO é o estoque total. */}
+                  {p.consignado > 0
+                    ? ` · ${p.total} no total, ${p.consignado} com revendedoras`
+                    : ''}
+                </small>
+              </span>
+
+              <span className="mq-cell mq-cell--num" data-label="Sistema">
+                <b className="mq-qty">{p.esperado}</b>
+              </span>
+
+              <span className="mq-cell mq-cell--num" data-label="Contado">
+                <input
+                  className="mq-input mq-inv-contagem"
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  aria-label={`Contagem de ${p.desc}`}
+                  defaultValue={c ? c.contado : ''}
+                  placeholder="—"
+                  disabled={pausado || ocupado === p.sku}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim();
+                    if (v === '') return;
+                    const n = Number(v);
+                    if (Number.isInteger(n) && n >= 0 && (!c || c.contado !== n)) contar(p.sku, n);
+                  }}
+                />
+              </span>
+
+              <span className="mq-cell" data-label="Status">
+                <span className={situacao.classe}>{situacao.rotulo}</span>
+              </span>
+
+              <span className="mq-cell mq-cell--center">
+                {c && (
+                  <button
+                    type="button"
+                    className="mq-btn mq-btn--ghost mq-btn--sm"
+                    disabled={pausado || ocupado === p.sku}
+                    title="Voltar para não contado — que não é zero"
+                    onClick={() => descontar(p.sku)}
+                  >
+                    Desfazer
+                  </button>
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mq-card__foot count-summary">
+        <span><small>Faltando</small><strong>{resumo.faltando}</strong></span>
+        <span><small>Sobrando</small><strong>{resumo.sobrando}</strong></span>
+        <span><small>Conferidos</small><strong>{resumo.conferido}</strong></span>
+        <span><small>Não conferidos</small><strong>{resumo.naoConferido}</strong></span>
+      </div>
     </section>
   );
+}
+
+/** A hora da gravação, curta. A data não entra: quem lê isto está contando
+ *  AGORA, e quer saber se o que gravou há dez minutos continua lá. */
+function fmtHora(iso: string): string {
+  const d = new Date(iso.includes('T') ? iso : `${iso.replace(' ', 'T')}Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+/** Os quatro estados que o protótipo desenha, e o que cada um significa.
+ *
+ *  A diferença que importa é a última: NÃO CONFERIDO não é zero. Uma peça
+ *  que ninguém contou é uma incógnita, e o servidor recusa transformá-la em
+ *  diferença — é essa trava que impede um inventário parado pela metade de
+ *  zerar meio catálogo. */
+export function situacaoDaLinha(
+  p: { esperado: number }, contado: number | undefined,
+): { rotulo: string; classe: string } {
+  if (contado === undefined) return { rotulo: 'Não conferido', classe: 'mq-status mq-status--open' };
+  if (contado === p.esperado) return { rotulo: 'Conferido', classe: 'mq-status mq-status--ok' };
+  if (contado < p.esperado) return { rotulo: 'Faltando', classe: 'mq-status mq-status--risk' };
+  return { rotulo: 'Sobrando', classe: 'mq-status mq-status--warn' };
 }
 
 /* ──────────────────────────────────────────────────────── o resultado */

@@ -1007,6 +1007,30 @@ export async function detalheInventario(db, id) {
     }
   }
 
+  /* `esperados` — O QUE SE ESPERA ENCONTRAR EM CASA, código a código, já
+     com a regra do servidor aplicada: total menos o consignado, sem kit e
+     sem configuração montável (ver SQL_ESPERADO).
+
+     Existe porque a tela de contagem precisa comparar contra ALGUMA coisa
+     enquanto o inventário está aberto, e `itens` só fala dos códigos já
+     contados. Sem isto a tela tinha de refazer a conta por fora — e a
+     versão dela usava `produtos.qtd`, o total, o que fazia peça em maleta
+     aparecer como FALTANDO. A regra vive em um lugar só, e é este.
+
+     Só quando o inventário está em andamento: fechado, quem manda é o
+     retrato congelado em `inventario_resultado`, e mandar o esperado de
+     HOJE junto com um retrato de ontem convidaria a comparar os dois. */
+  const emAndamento = inv.status === 'aberto';
+  const esperados = emAndamento
+    ? ((await db.prepare(
+        `${SQL_ESPERADO} ORDER BY p.desc`).all()).results ?? []).map((p) => ({
+          sku: p.sku, desc: p.desc, cat: p.cat, preco: p.preco,
+          /* Os três separados de propósito: `esperado` é o que se conta,
+             e os outros dois explicam POR QUE ele não é o total. */
+          total: p.qtd, consignado: p.consignado, esperado: p.esperado,
+        }))
+    : [];
+
   return json({
     id: inv.id,
     status: statusVisivel(inv),
@@ -1014,6 +1038,7 @@ export async function detalheInventario(db, id) {
     desconhecidos: JSON.parse(inv.desconhecidos_json || '[]'),
     historico,
     itens,
+    esperados,
     contagem: contagem.map((c) => ({
       sku: c.sku, desc: c.desc, variacao: c.variacao || null, varianteId: c.variante_id,
       contado: c.contado, contadoEm: c.contado_em, origem: c.origem,

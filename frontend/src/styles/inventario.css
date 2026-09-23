@@ -1,0 +1,124 @@
+/* INVENTÁRIO — o que é desta tela e não do Design System.
+ *
+ *  Portado de `docs/ux/03-screens/estoque/master.css`, a referência visual
+ *  aprovada. São arranjos de `.mq-*` que só a conferência física faz.
+ */
+
+/* ------------------------------------------------- os três contextos */
+
+/* Não são abas: são três fatos sobre a mesma coisa, lado a lado. Quem
+   chega precisa dos três de uma vez — "como está", "quando foi a última
+   vez" e "há algo aberto agora". */
+.inventory-contexts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--mq-3);
+}
+.inventory-context {
+  display: flex; align-items: center; gap: var(--mq-3);
+  padding: var(--mq-4); text-align: left;
+  border: 1px solid var(--mq-line); border-radius: var(--mq-r-md);
+  background: var(--mq-paper);
+}
+/* O acento à esquerda é o que diz "é AQUI que há trabalho aberto". */
+.inventory-context.active {
+  border-color: var(--mq-wine-600);
+  background: var(--mq-wine-050);
+  box-shadow: inset 3px 0 var(--mq-wine-600);
+}
+.context-icon {
+  width: 34px; height: 34px; flex: none;
+  display: grid; place-items: center;
+  border-radius: var(--mq-r-sm);
+  background: var(--mq-line-3); color: var(--mq-muted);
+}
+.context-icon svg { width: 17px; height: 17px; }
+.context-icon.success { background: var(--mq-ok-bg); color: var(--mq-ok); }
+.inventory-context > span:last-child {
+  display: flex; flex-direction: column; gap: 1px; min-width: 0;
+}
+.inventory-context small {
+  font: 500 10.5px/1.2 var(--mq-sans); letter-spacing: .07em;
+  text-transform: uppercase; color: var(--mq-muted);
+}
+.inventory-context strong { font: 500 14px/1.25 var(--mq-sans); color: var(--mq-ink); }
+.inventory-context em { font-style: normal; font-size: 11.5px; color: var(--mq-muted); }
+.inventory-context em.positive { color: var(--mq-ok); }
+
+@media (max-width: 860px) {
+  .inventory-contexts { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------------------------------------------- a contagem em curso */
+
+.active-inventory-head { align-items: flex-start; flex-wrap: wrap; }
+.active-actions { display: flex; gap: var(--mq-2); flex-wrap: wrap; }
+
+/* A barra de progresso. Ela responde à única pergunta que quem conta faz
+   depois de vinte minutos: quanto falta. */
+.inventory-progress { display: flex; align-items: center; gap: var(--mq-3); }
+.inventory-progress > span {
+  flex: 1; height: 6px; border-radius: var(--mq-r-pill);
+  background: var(--mq-line-2); overflow: hidden;
+}
+.inventory-progress b {
+  display: block; height: 100%;
+  background: var(--mq-wine-600); border-radius: inherit;
+  transition: width .2s;
+}
+.inventory-progress > strong {
+  font: 500 13px var(--mq-sans); color: var(--mq-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.inventory-capture label { flex: 1 1 280px; }
+
+/* A linha da contagem. As três colunas numéricas têm largura fixa para os
+   números ficarem alinhados entre si — é assim que se lê uma coluna de
+   contagem sem conferir duas vezes. */
+.count-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) 92px 104px 150px 96px;
+  align-items: center; gap: var(--mq-3);
+}
+.inventory-count-list .mq-inv-contagem {
+  width: 88px; min-height: 34px; text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* O rodapé do resumo. Quatro números, e o quarto — "não conferidos" — é o
+   que impede alguém de finalizar achando que contou tudo. */
+.count-summary {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--mq-3); padding: var(--mq-4) var(--mq-6);
+}
+.count-summary span {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--mq-3) var(--mq-4);
+  border: 1px solid var(--mq-line); border-radius: var(--mq-r-md);
+  background: var(--mq-paper-2);
+}
+.count-summary small {
+  font: 500 10.5px var(--mq-sans); letter-spacing: .07em;
+  text-transform: uppercase; color: var(--mq-muted);
+}
+.count-summary strong {
+  font: 500 19px var(--mq-sans); color: var(--mq-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 860px) {
+  /* No telefone a linha vira um bloco, e cada número passa a dizer o
+     próprio nome — senão "5" e "3" empilhados não significam nada. */
+  .count-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--mq-1); }
+  .count-row > span:not(:first-child) {
+    display: flex; justify-content: space-between; align-items: center;
+    grid-column: 1 / -1;
+  }
+  .count-row [data-label]::before {
+    content: attr(data-label);
+    font: 500 11px var(--mq-sans); letter-spacing: .07em;
+    text-transform: uppercase; color: var(--mq-muted);
+  }
+  .count-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

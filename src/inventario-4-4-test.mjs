@@ -538,6 +538,59 @@ assert.equal(status(await inv.ajustarInventario(db, inv5, { itens: [{ sku: '7488
 assert.equal(saldos()['748801'], antesAgregada['748801']);
 prova('4b — a contagem agregada da tela legada é registrada e nunca vira movimento sem variação');
 
+/* ══════════════════════ 14 — o que se espera em casa NÃO é o estoque total
+
+   A regra mais cara do inventário: peça que saiu na maleta de uma
+   revendedora não está em casa, e cobrá-la da contagem faria a conferência
+   acusar falta de algo que ninguém perdeu.
+
+   `GET /api/inventarios/:id › esperados` é onde essa regra vive para a
+   tela. Enquanto a V2 derivava o número por fora — de `produtos.qtd`, o
+   TOTAL — toda peça consignada aparecia como FALTANDO. */
+
+const invMaleta = (await corpo(await inv.abrirInventario(db))).id;
+
+/* `100001` tem 5 peças. Três saem numa maleta ABERTA. */
+raw.prepare("INSERT INTO revendedoras (nome,status) VALUES ('Teste da Maleta','ativa')").run();
+const revId = raw.prepare('SELECT id FROM revendedoras ORDER BY id DESC LIMIT 1').get().id;
+raw.prepare("INSERT INTO maletas (rev_id,status,aberta_em) VALUES (?,'aberta',?)")
+  .run(revId, ONTEM);
+const maletaId = raw.prepare('SELECT id FROM maletas ORDER BY id DESC LIMIT 1').get().id;
+raw.prepare('INSERT INTO maleta_itens (maleta_id,sku,qtd,devolvida,preco_envio) VALUES (?,?,?,0,?)')
+  .run(maletaId, '100001', 3, 99);
+
+const comMaleta = await corpo(await inv.detalheInventario(db, invMaleta));
+const linha100001 = comMaleta.esperados.find((e) => e.sku === '100001');
+assert.ok(linha100001, '`esperados` não veio no detalhe do inventário aberto');
+
+const totalDe100001 = saldos()['100001'];
+assert.equal(linha100001.total, totalDe100001, 'o total mudou sem movimento');
+assert.equal(linha100001.consignado, 3, 'a consignação não foi contada');
+assert.equal(linha100001.esperado, totalDe100001 - 3,
+  'o esperado em casa incluiu as peças que estão com a revendedora');
+
+/* E o inverso: peça sem maleta nenhuma tem esperado igual ao total. */
+const semMaleta = comMaleta.esperados.find((e) => e.sku === '100002');
+assert.equal(semMaleta.consignado, 0);
+assert.equal(semMaleta.esperado, semMaleta.total);
+
+/* A lista é EXATAMENTE a cobertura: o denominador do "X de Y conferidos"
+   e as linhas que a tela mostra são a mesma consulta, e divergirem faria a
+   barra de progresso nunca chegar a 100%. (Kit e configuração montável
+   registrada ficam de fora dos dois, por `SQL_ESPERADO`.) */
+assert.equal(comMaleta.esperados.length, comMaleta.cobertura.total,
+  'a lista da contagem e a cobertura discordam sobre quantos códigos existem');
+
+/* Fechado, `esperados` vem VAZIO: quem manda num inventário concluído é o
+   retrato congelado, e mandar o esperado de hoje junto convidaria a
+   comparar dois momentos diferentes. */
+await inv.concluirInventario(db, invMaleta);
+const fechado = await corpo(await inv.detalheInventario(db, invMaleta));
+assert.deepEqual(fechado.esperados, [],
+  'inventário concluído devolveu o esperado de hoje junto com o retrato de ontem');
+
+prova('14 — o esperado em casa é total menos consignado, e some quando o retrato congela');
+
 assert.equal(razaoAberta(), 0, 'a razão terminou aberta');
 assert.deepEqual(retratoDosMovimentos().slice(0, MOVIMENTOS_ANTES.length), MOVIMENTOS_ANTES,
   'um movimento histórico foi reescrito no fim');
