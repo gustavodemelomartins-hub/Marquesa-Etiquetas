@@ -701,7 +701,8 @@
         "stephanie-reconciliation-test.mjs",
         "stephanie-production-apply.mjs",
         "reset-e-testar.sh",
-        "v2-staging-e2e.mjs"
+        "v2-staging-e2e.mjs",
+        "v2-smoke-operacional.mjs"
       ]
     }
   ]
