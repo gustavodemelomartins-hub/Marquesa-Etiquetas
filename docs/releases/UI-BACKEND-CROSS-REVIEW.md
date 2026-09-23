@@ -507,7 +507,7 @@ anterior falhou em 8 asserções, que é exatamente o que
 | `node src/historico-operacoes-test.mjs` (Worker local, banco limpo) | **passou** — *"Tudo certo — papéis, acertos, duplicidade, cobrança e estoque fecham"* |
 | `node src/historico-operacoes-riscos-test.mjs` (idem) | **passou** — *"Tudo certo — troca, fingerprint, versionamento, validação e estoque"* |
 | `node src/pendencias-nuvemshop-test.mjs` (loja de mentira + Playwright) | **passou** — `✓ TUDO PASSOU`; ver a correção em §4 |
-| `node src/fin-101-5-3a/b/c/d/f-test.mjs` | **passaram** (11, 13, 16, 10, 15 provas) — rodada de 16/09 |
+| `src/fin-101-5-3a-test.mjs` … `-3f-test.mjs` (cinco) | **passaram** (11, 13, 16, 10, 15 provas) — rodada de 16/09 |
 | `node src/credito-ledger-test.mjs` | **passou** (19 provas) — rodada de 16/09 |
 | razão contábil (`GET /api/estoque/conferir`) | `[]` dentro dos três primeiros testes |
 

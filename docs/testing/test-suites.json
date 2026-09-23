@@ -676,7 +676,8 @@
         "pacote4-ui-test.mjs",
         "editar-peca-ui-test.mjs",
         "erro-detalhe-test.mjs",
-        "stephanie-ui-test.mjs"
+        "stephanie-ui-test.mjs",
+        "v2-paridade-e2e.mjs"
       ]
     },
     {
@@ -699,7 +700,8 @@
         "stephanie-inventory-reconciliation-test.mjs",
         "stephanie-reconciliation-test.mjs",
         "stephanie-production-apply.mjs",
-        "reset-e-testar.sh"
+        "reset-e-testar.sh",
+        "v2-staging-e2e.mjs"
       ]
     }
   ]
