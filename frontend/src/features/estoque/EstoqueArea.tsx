@@ -125,8 +125,12 @@ export function EstoqueArea({
     else aoAbrirModulo(a.destino.modulo, a.destino.sub ?? null);
   };
 
+  /* Fragmento, e não `<div>`: a faixa de abas precisa ser filha DIRETA do
+     `main` para o casco poder encostá-la na barra superior e atravessá-la
+     de ponta a ponta, como o protótipo faz. Um invólucro no meio
+     transformava a faixa num controle solto dentro da página. */
   return (
-    <div>
+    <>
       {/* `.mq-tabs` — a faixa sublinhada do protótipo, com a contagem ao
           lado do rótulo. Era `.filtros`/`.pill`, que desenhava pílulas: a
           mesma navegação com outra aparência, em duas telas do mesmo
@@ -197,6 +201,6 @@ export function EstoqueArea({
           aoIrParaNuvemshop={() => aoNavegarSub('nuvemshop')}
         />
       )}
-    </div>
+    </>
   );
 }

@@ -207,6 +207,24 @@
 .mq-topbar__search ~ .mq-topbar__tools { margin-left: 0; }
 .mq-burger { display: none; }
 
+/* ---- A FAIXA DE ABAS DO MÓDULO ------------------------------------------
+ *
+ * No protótipo a faixa de abas não flutua dentro do conteúdo: ela encosta
+ * na barra superior e atravessa a largura inteira, com uma linha embaixo.
+ * É o que a faz parecer parte do casco, e não um controle solto no meio
+ * da página.
+ *
+ * As margens negativas cancelam o `padding` do `main` para o fundo e a
+ * borda irem de ponta a ponta; o conteúdo dentro continua alinhado com o
+ * resto da página.
+ */
+.mq-shell__main > .mq-tabs:first-child {
+  position: sticky; top: var(--mq-topbar); z-index: 30;
+  margin: calc(var(--mq-6) * -1) calc(var(--mq-gutter) * -1) 0;
+  padding-inline: var(--mq-gutter);
+  background: var(--mq-canvas);
+}
+
 /* ---- Conteúdo ----------------------------------------------------------- */
 .mq-shell__main {
   flex: 1; width: 100%; max-width: var(--mq-max); margin: 0 auto;
