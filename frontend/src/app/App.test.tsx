@@ -126,15 +126,18 @@ describe('navegação principal', () => {
     expect(screen.getByText(/a autenticação é uma chave só/i)).toBeTruthy();
   });
 
-  it('Estoque → Estoque Total continua acessível', async () => {
+  it('Estoque abre na Visão geral, e a importação continua alcançável', async () => {
     render(<App />);
 
     irNoTrilho(/^Estoque$/);
+    /* A faixa é `.mq-tabs` — a do protótipo. Era `.pill`, que desenhava
+       pílulas: a mesma navegação com outra aparência. */
     const subAbas = screen.getByRole('tablist', { name: 'Estoque' });
-    expect(subAbas.querySelector('.pill')).not.toBeNull();
+    expect(subAbas.classList.contains('mq-tabs')).toBe(true);
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Estoque Total' }));
-    expect(await screen.findByText(/Atualizar Estoque Total/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Visão geral' }));
+    /* O cartão da importação, com o nome dela — e não o do módulo. */
+    expect(await screen.findByText('Referência de estoque')).toBeTruthy();
   });
 
   /** Duas PORTAS para a mesma tela, e elas não podem discordar sobre onde
@@ -143,7 +146,7 @@ describe('navegação principal', () => {
     comEstado();
     render(<App />);
     irNoTrilho(/^Estoque$/);
-    fireEvent.click(screen.getByRole('tab', { name: 'Nuvemshop' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Na loja' }));
 
     const nuvem = [...railDe().querySelectorAll('.mq-rail__item')]
       .find((b) => b.textContent?.includes('Nuvemshop'));
@@ -162,38 +165,64 @@ describe('cada área abre na tela certa', () => {
     comEstado();
   });
 
-  it('Estoque abre direto em Estoque Total — Visão Geral não é mais subaba', () => {
+  /** A FAIXA DO PROTÓTIPO, nesta ordem. Duas das seis levam para outro
+   *  módulo (Catálogo e a fila da Nuvemshop) — a usuária não precisa saber
+   *  qual delas mora onde. */
+  it('Estoque abre na Visão geral, com as seis abas do protótipo', async () => {
     render(<App />);
     irNoTrilho(/^Estoque$/);
+    /* O painel só desenha com `GET /api/state` na mão — ele é feito dos
+       números reais, e não tem versão vazia para mostrar antes. */
+    await screen.findByText('Operação e distribuição');
 
     const abas = screen.getByRole('tablist', { name: 'Estoque' });
     const rotulos = [...abas.querySelectorAll('[role="tab"]')].map((b) => b.textContent);
-    expect(rotulos).toEqual(['Estoque Total', 'Peças', 'Inventário', 'Saiu sem faturar', 'Nuvemshop', 'Pendências']);
-    expect(within(abas).getByRole('tab', { name: 'Estoque Total' })).toHaveProperty(
-      'ariaPressed',
+    expect(rotulos).toEqual([
+      'Visão geral', 'Cadastro de produtos', 'Na loja',
+      'Pendências', 'Inventário', 'Publicar na loja',
+    ]);
+    expect(within(abas).getByRole('tab', { name: 'Visão geral' })).toHaveProperty(
+      'ariaSelected',
       'true',
     );
-    expect(screen.getByRole('heading', { level: 1, name: 'Estoque Total' })).toBeTruthy();
+    /* O título é o do protótipo — "Estoque", com a sobrancelha
+       "Operação e distribuição". Era "Estoque Total", o nome do
+       IMPORTADOR, e isso fazia a porta do módulo parecer uma tela de
+       importação de planilha. */
+    expect(screen.getByRole('heading', { level: 1, name: 'Estoque' })).toBeTruthy();
   });
 
-  it('o dashboard do Estoque Total carrega em cima das ações', async () => {
+  it('a Visão geral traz os cinco KPIs do protótipo, e as ações continuam abaixo', async () => {
     render(<App />);
     irNoTrilho(/^Estoque$/);
 
-    const kpis = await screen.findByText('Disponível para Nuvemshop');
-    expect(kpis).toBeTruthy();
-    const rotulos = [...document.querySelectorAll('.kpis .k-lbl')].map((e) => e.textContent);
+    expect(await screen.findByText('Precisam de atenção')).toBeTruthy();
+    const rotulos = [...document.querySelectorAll('.mq-kpi__label')].map((e) => e.textContent);
     expect(rotulos).toEqual([
-      'Estoque total',
+      'Valor de referência',
+      'Peças em estoque',
       'Em casa',
       'Com revendedoras',
-      'Disponível para Nuvemshop',
+      'Precisam de atenção',
     ]);
-    expect(screen.getByRole('heading', { name: 'Por categoria' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Onde está o patrimônio' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Potencial para consignação' })).toBeTruthy();
-    /* E as ações continuam logo abaixo, intactas. */
+    /* As duas ações do cabeçalho do protótipo. */
+    expect(screen.getByRole('button', { name: /Conferir estoque/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Novo produto/ })).toBeTruthy();
+    /* E a importação continua logo abaixo, intacta. */
     expect(screen.getByRole('button', { name: /Atualizar Estoque Total/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Adicionar Peças Novas/ })).toBeTruthy();
+  });
+
+  /** O NÚMERO que nunca pode virar zero por engano. "Anunciadas na loja"
+   *  só aparece quando a loja FOI lida; sem retrato, a tela diz que não
+   *  sabe em vez de afirmar que não há nada anunciado. */
+  it('sem retrato da loja, o patrimônio não afirma zero anunciados', async () => {
+    render(<App />);
+    irNoTrilho(/^Estoque$/);
+    await screen.findByText('Precisam de atenção');
+    expect(screen.getByText('loja ainda não lida')).toBeTruthy();
   });
 
   it('Revendedoras abre na Visão Geral', async () => {

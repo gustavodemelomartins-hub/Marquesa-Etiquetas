@@ -1,0 +1,39 @@
+/* ESTOQUE — o que é desta tela e não do Design System.
+ *
+ *  Portado de `docs/ux/03-screens/estoque/master.css`, que é a referência
+ *  visual aprovada. Nada aqui inventa forma nova: são os arranjos de
+ *  `.mq-*` que só esta tela faz, e por isso não cabem em marquesa.css.
+ */
+
+/* ------------------------------------------------------- distribuição */
+
+/* O donut e a legenda de um lado, as categorias do outro. A segunda
+   coluna é a maior porque as barras precisam de comprimento para serem
+   comparáveis — um gráfico de barras espremido não compara nada. */
+.stock-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: var(--mq-8);
+  align-items: center;
+}
+.stock-overview__where { display: flex; align-items: center; gap: var(--mq-6); min-width: 0; }
+.stock-split { flex: 1; min-width: 0; }
+.stock-split dt { display: flex; align-items: center; gap: 8px; }
+.stock-split .dot { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+
+/* As três cores são as MESMAS paradas do `conic-gradient` de `.mq-donut`,
+   nesta ordem. Se divergirem, a legenda passa a apontar para a fatia
+   errada — e uma legenda errada é pior que legenda nenhuma. */
+.dot--home  { background: var(--mq-wine-600); }
+.dot--bags  { background: var(--mq-wine-300); }
+.dot--store { background: var(--mq-wine-100); border: 1px solid var(--mq-wine-200); }
+
+.stock-overview__cats { min-width: 0; }
+
+@media (max-width: 1024px) {
+  .stock-overview { grid-template-columns: minmax(0, 1fr); gap: var(--mq-6); }
+}
+@media (max-width: 600px) {
+  .stock-overview__where { flex-direction: column; align-items: stretch; gap: var(--mq-4); }
+  .stock-overview__where .mq-donut { align-self: center; }
+}

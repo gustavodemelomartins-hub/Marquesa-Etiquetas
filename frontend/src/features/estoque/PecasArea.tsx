@@ -4,6 +4,7 @@ import { chamar, type Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { money, fmtData } from '../../domain/formato';
+import { fotoDaPeca } from '../../domain/foto';
 import type { AppState } from '../../types/api';
 import type { ProdutoDoEstado } from '../vendas/tipos';
 
@@ -26,8 +27,13 @@ interface RazaoDoSku {
   movimentos: Movimento[];
 }
 
+/* As colunas de `docs/ux/03-screens/estoque/master.html › products-table`,
+   nesta ordem. A FOTO é a primeira — regra do projeto para qualquer
+   listagem de estoque, e no protótipo ela é o que identifica a peça antes
+   do nome. */
 const COLUNAS = {
-  gridTemplateColumns: 'minmax(0,2fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.8fr) minmax(0,1fr)',
+  gridTemplateColumns:
+    '44px minmax(0,2.2fr) minmax(0,.9fr) 64px 72px 74px 68px minmax(0,1fr)',
 };
 
 interface Props {
@@ -36,6 +42,11 @@ interface Props {
   carregando: boolean;
   erro: unknown;
   recarregar: () => void;
+  /** EMBUTIDA na Visão geral, que é onde o protótipo a põe ("Todos os
+   *  produtos"). Nesse modo ela não desenha os próprios KPIs nem a nota
+   *  sobre custo: quem está acima dela já disse as duas coisas, e repetir
+   *  faria a mesma tela responder duas vezes à mesma pergunta. */
+  embutida?: boolean;
 }
 
 /** AS PEÇAS — onde está o patrimônio.
@@ -54,7 +65,9 @@ interface Props {
  *  PREÇO CADASTRADO, que é um fato do catálogo, e está rotulado como tal.
  *  Chamar isso de patrimônio seria inventar margem.
  */
-export function PecasArea({ conexao, estado, carregando, erro, recarregar }: Props) {
+export function PecasArea({
+  conexao, estado, carregando, erro, recarregar, embutida = false,
+}: Props) {
   const [busca, setBusca] = useState('');
   const [categoria, setCategoria] = useState<string>('');
   const [aberta, setAberta] = useState<string | null>(null);
@@ -89,6 +102,7 @@ export function PecasArea({ conexao, estado, carregando, erro, recarregar }: Pro
 
   return (
     <>
+      {!embutida && (
       <div className="mq-kpis">
         <div className="mq-kpi">
           <span className="mq-kpi__label">Peças</span>
@@ -114,15 +128,18 @@ export function PecasArea({ conexao, estado, carregando, erro, recarregar }: Pro
           </span>
         </div>
       </div>
+      )}
 
-      <p className="mq-note mq-note--info">
-        <Icone nome="alert" />
-        <span>
-          <b>Este valor não é patrimônio.</b> Ele é a soma do preço de venda
-          cadastrado, que é um fato do catálogo. O sistema não guarda custo
-          histórico confiável, e inventar um transformaria margem em chute.
-        </span>
-      </p>
+      {!embutida && (
+        <p className="mq-note mq-note--info">
+          <Icone nome="alert" />
+          <span>
+            <b>Este valor não é patrimônio.</b> Ele é a soma do preço de venda
+            cadastrado, que é um fato do catálogo. O sistema não guarda custo
+            histórico confiável, e inventar um transformaria margem em chute.
+          </span>
+        </p>
+      )}
 
       <div className="mq-filters">
         <label className="mq-search">
@@ -160,11 +177,14 @@ export function PecasArea({ conexao, estado, carregando, erro, recarregar }: Pro
         ) : (
           <div className="mq-table" role="table" aria-label="Peças">
             <div className="mq-tr mq-tr--head" role="row" style={COLUNAS}>
-              <span>Peça</span>
-              <span>Preço</span>
-              <span>Em casa</span>
-              <span>Na rua</span>
-              <span>Total</span>
+              <span aria-label="Foto" />
+              <span>Produto</span>
+              <span>Categoria</span>
+              <span className="mq-cell--num">Total</span>
+              <span className="mq-cell--num">Em casa</span>
+              <span className="mq-cell--num">Revend.</span>
+              <span className="mq-cell--num">Na loja</span>
+              <span className="mq-cell--num">Valor ref.</span>
             </div>
             {lista.map((p) => (
               <button
@@ -174,23 +194,45 @@ export function PecasArea({ conexao, estado, carregando, erro, recarregar }: Pro
                 style={COLUNAS}
                 onClick={() => setAberta(p.sku)}
               >
+                {/* A FOTO primeiro — regra do projeto para qualquer
+                    listagem de estoque, e no protótipo é o que identifica
+                    a peça antes do nome. Sem imagem, o losango da marca:
+                    um `<img>` quebrado é pior que um vazio desenhado. */}
+                <span className="mq-thumb" aria-hidden="true">
+                  {fotoDaPeca(p) ? <img src={fotoDaPeca(p)!} alt="" loading="lazy" /> : '◇'}
+                </span>
                 <span className="mq-cell">
                   <b>{p.desc}</b>
-                  <small>{p.sku} · {p.cat}</small>
+                  <small className="mq-sku">SKU {p.sku}</small>
                 </span>
-                <span className="mq-cell mq-cell--num">
-                  <b className="mq-money">{p.preco === null ? '—' : money(p.preco)}</b>
-                  {p.semPreco && <small>sem preço</small>}
-                </span>
-                <span className="mq-cell mq-cell--num" data-label="Em casa">
-                  <b className="mq-qty">{p.qtd - p.consignado}</b>
-                </span>
-                <span className="mq-cell mq-cell--num" data-label="Na rua">
-                  <b className="mq-qty">{p.consignado}</b>
+                <span className="mq-cell">
+                  {p.cat ? (
+                    <em className="mq-chip mq-chip--soft">{p.cat}</em>
+                  ) : (
+                    <small className="mq-sku">sem categoria</small>
+                  )}
                 </span>
                 <span className="mq-cell mq-cell--num" data-label="Total">
                   <b className="mq-qty">{p.qtd}</b>
                   {p.status !== 'ativo' && <small>{p.status}</small>}
+                </span>
+                <span className="mq-cell mq-cell--num" data-label="Em casa">
+                  <b className="mq-qty">{p.qtd - p.consignado}</b>
+                </span>
+                <span className="mq-cell mq-cell--num" data-label="Revendedoras">
+                  <b className="mq-qty">{p.consignado}</b>
+                </span>
+                <span className="mq-cell mq-cell--num" data-label="Na loja">
+                  {/* `estoqueLoja` só existe depois de uma sincronização.
+                      Sem ela, a coluna diz que não sabe — e não "0", que
+                      afirmaria que a loja não anuncia esta peça. */}
+                  {p.estoqueLoja == null
+                    ? <small className="mq-sku">—</small>
+                    : <b className="mq-qty">{p.estoqueLoja}</b>}
+                </span>
+                <span className="mq-cell mq-cell--num" data-label="Valor de referência">
+                  <b className="mq-money">{p.preco === null ? '—' : money(p.preco)}</b>
+                  {p.semPreco && <small>sem preço</small>}
                 </span>
               </button>
             ))}

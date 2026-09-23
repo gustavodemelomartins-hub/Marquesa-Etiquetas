@@ -51,6 +51,11 @@ export interface Product {
   /** total − consignado. Para kit, é o mínimo entre os componentes. */
   disponivel: number;
   status: 'ativo' | 'inativo';
+  /** `state.js` › o que existe da imagem desta peça, já resolvido pelo
+   *  servidor: `sem_foto`, `original`, `fundo_gerado`, `pronta`. `null` ou
+   *  ausente = banco sem a migração do catálogo, o que NÃO é o mesmo que
+   *  "peça sem foto" — ver `domain/estoque.ts › precisamDeAtencao`. */
+  fotoStatus?: string | null;
 
   /* --- retrato da loja, reescrito a cada rodada de sincronização --- */
   urlLoja?: string;

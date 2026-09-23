@@ -14,13 +14,13 @@ consegue fazer.
 
 | | capacidades |
 |---|---|
-| 🟢 pronta | 111 |
+| 🟢 pronta | 113 |
 | 🟡 parcial | 3 |
 | ⚪ pendente — o backend tem, a tela não | 3 |
 | ⛔ indisponível — o backend não sustenta | 13 |
-| **total** | **130** |
+| **total** | **132** |
 
-**111 de 117** capacidades que o backend sustenta já estão
+**113 de 119** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
@@ -100,13 +100,15 @@ Referência visual: `/prototype/financeiro/` · 🟢 8 · 🟡 0 · ⚪ 0 · ⛔
 
 ## Estoque
 
-Referência visual: `/prototype/estoque/` · 🟢 7 · 🟡 0 · ⚪ 0 · ⛔ 2
+Referência visual: `/prototype/estoque/` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 2
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
 | Painel do estoque | 🟢 pronta | `#/estoque` | — |
 | Total · em casa · com revendedoras | 🟢 pronta | `features/estoque-total/PainelEstoque.tsx` | — |
-| Por categoria | 🟢 pronta | `features/estoque-total/PainelEstoque.tsx` | — |
+| Onde está o patrimônio: casa · revendedoras · loja | 🟢 pronta | `features/estoque-total/PainelEstoque.tsx` | — |
+| Principais categorias, por quantidade | 🟢 pronta | `features/estoque-total/PainelEstoque.tsx` | — |
+| Precisam de atenção: sem foto, categoria ou preço | 🟢 pronta | `domain/estoque.ts` | — |
 | Peças, com filtro | 🟢 pronta | `#/estoque/pecas` | — |
 | A razão de uma peça, movimento a movimento | 🟢 pronta | `features/estoque/PecasArea.tsx` | — |
 | Atualizar Estoque Total por planilha, com diff | 🟢 pronta | `features/estoque-total/EstoqueTotalPage.tsx` | — |

@@ -326,8 +326,18 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/estoque-total/PainelEstoque.tsx`, contem: 'Com revendedoras' },
       },
       {
-        id: 'estoque.categorias', rotulo: 'Por categoria', estado: 'pronta',
-        prova: { arquivo: `${F}/features/estoque-total/PainelEstoque.tsx`, contem: 'Por categoria' },
+        id: 'estoque.patrimonio', rotulo: 'Onde está o patrimônio: casa · revendedoras · loja',
+        estado: 'pronta',
+        prova: { arquivo: `${F}/features/estoque-total/PainelEstoque.tsx`, contem: 'Onde está o patrimônio' },
+      },
+      {
+        id: 'estoque.categorias', rotulo: 'Principais categorias, por quantidade', estado: 'pronta',
+        prova: { arquivo: `${F}/features/estoque-total/PainelEstoque.tsx`, contem: 'Principais categorias' },
+      },
+      {
+        id: 'estoque.atencao', rotulo: 'Precisam de atenção: sem foto, categoria ou preço',
+        estado: 'pronta',
+        prova: { arquivo: `${F}/domain/estoque.ts`, contem: 'export function precisamDeAtencao' },
       },
       {
         id: 'estoque.pecas', rotulo: 'Peças, com filtro', estado: 'pronta', rota: '#/estoque/pecas',

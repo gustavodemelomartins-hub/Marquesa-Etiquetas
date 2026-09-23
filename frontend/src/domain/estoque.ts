@@ -145,3 +145,50 @@ export function inconsistencias(estado: AppState): Inconsistencia[] {
 export function semPreco(estado: AppState): Product[] {
   return estado.produtos.filter((p) => p.preco === null && (p.qtd || 0) > 0);
 }
+
+/** O que falta numa peça para ela poder ser anunciada e vendida. */
+export type FaltaNaPeca = 'foto' | 'categoria' | 'preco';
+
+export interface PecaSemCadastro {
+  sku: string;
+  desc: string;
+  falta: FaltaNaPeca[];
+}
+
+/** "PRECISAM DE ATENÇÃO" — o quinto KPI do protótipo: produtos sem foto,
+ *  sem categoria ou sem preço.
+ *
+ *  Os três vêm do MESMO `GET /api/state`, e cada um trava uma coisa
+ *  diferente:
+ *
+ *    preço      §24 — sem preço não dá para vender nem encerrar acerto.
+ *    foto       a publicação na loja recusa peça sem imagem.
+ *    categoria  sem ela a peça some de filtro, ranking e gráfico.
+ *
+ *  Conta CÓDIGOS, não peças: é uma fila de trabalho de cadastro, e o que a
+ *  pessoa abre é o código. Código inativo fica de fora — ele não está à
+ *  venda, e cobrar cadastro dele encheria a fila de trabalho que ninguém
+ *  vai fazer.
+ */
+export function precisamDeAtencao(estado: AppState): PecaSemCadastro[] {
+  const out: PecaSemCadastro[] = [];
+  for (const p of estado.produtos) {
+    if (p.status !== 'ativo') continue;
+    const falta: FaltaNaPeca[] = [];
+    /* `fotoStatus` ausente é banco sem a migração do catálogo, e não uma
+       peça sem foto — não dá para acusar falta que não se sabe medir. */
+    if (p.fotoStatus === 'sem_foto') falta.push('foto');
+    if (!String(p.cat ?? '').trim()) falta.push('categoria');
+    if (p.preco === null) falta.push('preco');
+    if (falta.length) out.push({ sku: p.sku, desc: p.desc, falta });
+  }
+  return out;
+}
+
+/** Quantas maletas estão CIRCULANDO — abertas ou em acerto. É o número que
+ *  explica o "com revendedoras" do painel: peça na rua está numa delas. */
+export function maletasCirculando(estado: AppState): number {
+  return (estado.maletas ?? []).filter(
+    (m) => m.status === 'aberta' || m.status === 'em_acerto',
+  ).length;
+}

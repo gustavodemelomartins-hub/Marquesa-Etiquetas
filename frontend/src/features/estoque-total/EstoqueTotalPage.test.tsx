@@ -42,6 +42,9 @@ function renderPagina() {
       estado={null}
       planejamento={planejamento}
       aoVerPlanejamento={() => {}}
+      aoConferirEstoque={() => {}}
+      aoNovoProduto={() => {}}
+      aoVerPendencias={() => {}}
       aoMudarEstoque={() => {}}
     />,
   );

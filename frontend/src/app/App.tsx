@@ -169,6 +169,10 @@ function AppConectado({
           estado={estado.dados}
           planejamento={planejamento}
           aoVerPlanejamento={() => ir({ modulo: 'revendedoras' })}
+          /* As abas "Cadastro de produtos" e "Publicar na loja" do
+             protótipo levam para MÓDULOS, não para sub-rotas de Estoque —
+             e o mesmo vale para o KPI "Precisam de atenção". */
+          aoAbrirModulo={(m, sub) => ir({ modulo: m, sub: sub ?? null })}
           aoMudarEstoque={estado.recarregar}
           subNuvemshop={modulo === 'nuvemshop' ? rota.sub : null}
           aoNavegarNuvemshop={(s) => ir({ modulo: 'nuvemshop', sub: s })}

@@ -14,7 +14,18 @@ export interface ProdutoDoEstado {
   consignado: number;
   disponivel: number;
   status: string;
+  /** Quanto a LOJA mostra deste código. `undefined`/`null` = nunca houve
+   *  sincronização que o dissesse — e isso não é zero. */
+  estoqueLoja?: number | null;
   fotoStatus: string | null;
+  /* Os quatro endereços da foto, na ordem de precedência que `state.js`
+     documenta. Os dois primeiros são links ASSINADOS e temporários para
+     os bytes no R2; os dois últimos são endereços de terceiro. Ver
+     `domain/foto.ts › fotoDaPeca`. */
+  fotoTratadaUrl?: string | null;
+  fotoOriginalUrl?: string | null;
+  fotoUrl?: string | null;
+  fotoLojaUrl?: string | null;
 }
 
 /** Uma linha de `GET /api/vendas/lista` — o nível do ITEM, não da venda.

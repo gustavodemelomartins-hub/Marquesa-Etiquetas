@@ -11,6 +11,7 @@ import { TabelaItensSessao } from './TabelaItensSessao';
 import { ConfirmarAplicar } from './ConfirmarAplicar';
 import { ResultadoAplicacao } from './ResultadoAplicacao';
 import { PainelEstoque } from './PainelEstoque';
+import { PecasArea } from '../estoque/PecasArea';
 import { useSessaoPlanilha } from './useSessaoPlanilha';
 import { itensAprovados, itensPendentes } from './itens';
 import type { ModoPlanilha } from './tipos';
@@ -28,6 +29,11 @@ interface Props {
   planejamento: UsoPlanejamento;
   /** Leva para Revendedoras › Visão Geral. */
   aoVerPlanejamento: () => void;
+  /** As duas ações do cabeçalho do protótipo e a saída do KPI de
+   *  pendências. Quem navega é `EstoqueArea`. */
+  aoConferirEstoque: () => void;
+  aoNovoProduto: () => void;
+  aoVerPendencias: () => void;
   /** Aplicar estoque muda produtos — o estado compartilhado precisa ser
    *  relido, senão o painel do topo passa a mentir. */
   aoMudarEstoque: () => void;
@@ -45,6 +51,9 @@ export function EstoqueTotalPage({
   estado,
   planejamento,
   aoVerPlanejamento,
+  aoConferirEstoque,
+  aoNovoProduto,
+  aoVerPendencias,
   aoMudarEstoque,
 }: Props) {
   const [etapa, setEtapa] = useState<Etapa>('escolha');
@@ -95,25 +104,76 @@ export function EstoqueTotalPage({
 
   return (
     <>
-      <PageHeader
-        kicker="Estoque"
-        titulo="Estoque Total"
-        sub="A planilha de referência da Stéfane, comparada com o que o sistema tem hoje. Nada muda até você aprovar e aplicar."
-      />
-
+      {/* Na etapa de escolha quem manda no cabeçalho é a VISÃO GERAL, com
+          o `mq-pagehead` do protótipo. O antigo `PageHeader` chamava esta
+          tela de "Estoque Total" — o nome do importador — e fazia a porta
+          do módulo parecer uma tela de importação de planilha. A
+          importação continua aqui, logo abaixo, como o que ela é: uma
+          ação sobre o estoque, não a identidade dele. */}
       {etapa === 'escolha' && estado && (
         <PainelEstoque
           estado={estado}
           planejamento={planejamento}
           aoVerPlanejamento={aoVerPlanejamento}
+          aoConferirEstoque={aoConferirEstoque}
+          aoNovoProduto={aoNovoProduto}
+          aoVerPendencias={aoVerPendencias}
         />
       )}
 
+      {/* "TODOS OS PRODUTOS" — no protótipo esta tabela é uma SEÇÃO da
+          Visão geral, e não uma aba à parte. Embutida, ela não repete os
+          KPIs nem a nota sobre custo que o painel acima já deu. A rota
+          `#/estoque/pecas` continua válida para quem tiver o link. */}
       {etapa === 'escolha' && (
-        <section className="secao">
-          <h2 className="secao-titulo">O que você quer atualizar</h2>
-          <EscolhaModo aoEscolher={escolher} />
+        <section className="mq-card mq-card--flush">
+          <div className="mq-card__head">
+            <div>
+              <p className="mq-eyebrow">Catálogo físico</p>
+              <h2 className="mq-title">Todos os produtos</h2>
+              <p className="mq-lede">
+                A foto sempre aparece primeiro. Clique numa linha para abrir a
+                razão da peça, movimento a movimento.
+              </p>
+            </div>
+          </div>
+          <PecasArea
+            conexao={conexao}
+            estado={estado}
+            carregando={!estado}
+            erro={null}
+            recarregar={aoMudarEstoque}
+            embutida
+          />
         </section>
+      )}
+
+      {etapa === 'escolha' && (
+        <section className="mq-card">
+          <div className="mq-card__head">
+            <div>
+              <p className="mq-eyebrow">Referência de estoque</p>
+              <h2 className="mq-title">Atualizar Estoque Total</h2>
+              <p className="mq-lede">
+                A planilha de referência da Stéfane, comparada com o que o
+                sistema tem hoje. Nada muda até você aprovar e aplicar.
+              </p>
+            </div>
+          </div>
+          <div className="mq-card__body">
+            <EscolhaModo aoEscolher={escolher} />
+          </div>
+        </section>
+      )}
+
+      {/* Fora da escolha, a tela É o importador — e aí ela se apresenta
+          como tal. */}
+      {etapa !== 'escolha' && (
+        <PageHeader
+          kicker="Estoque"
+          titulo="Atualizar Estoque Total"
+          sub="A planilha de referência da Stéfane, comparada com o que o sistema tem hoje. Nada muda até você aprovar e aplicar."
+        />
       )}
 
       {etapa === 'upload' && (
