@@ -4,7 +4,7 @@ import { chamar, type Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { money, fmtData } from '../../domain/formato';
-import { fotoDaPeca } from '../../domain/foto';
+import { FotoDaPeca } from '../../components/FotoDaPeca';
 import type { AppState } from '../../types/api';
 import type { ProdutoDoEstado } from '../vendas/tipos';
 
@@ -196,11 +196,11 @@ export function PecasArea({
               >
                 {/* A FOTO primeiro — regra do projeto para qualquer
                     listagem de estoque, e no protótipo é o que identifica
-                    a peça antes do nome. Sem imagem, o losango da marca:
-                    um `<img>` quebrado é pior que um vazio desenhado. */}
-                <span className="mq-thumb" aria-hidden="true">
-                  {fotoDaPeca(p) ? <img src={fotoDaPeca(p)!} alt="" loading="lazy" /> : '◇'}
-                </span>
+                    a peça antes do nome. Quem monta a imagem é
+                    `FotoDaPeca`, e só ele: miniatura da CDN em vez da
+                    imagem inteira, e dois degraus de erro antes de desistir
+                    para o losango da marca. */}
+                <FotoDaPeca peca={p} alt={p.desc} />
                 <span className="mq-cell">
                   <b>{p.desc}</b>
                   <small className="mq-sku">SKU {p.sku}</small>

@@ -54,6 +54,18 @@ const secao = (t) => console.log(`\n═══ ${t}`);
 
 const navegador = await chromium.launch({ headless: true });
 const erros = [];
+/* Duas listas, porque são duas coisas.
+
+   `fotosDaVitrine` — `<img>` de uma imagem que a loja JÁ publica. É
+   leitura, não manda dado nosso a lugar nenhum, e a trava de ESCRITA na
+   Nuvemshop é do Worker, não do navegador. Enquanto a conta não tiver R2,
+   esta é a única foto que existe. O painel legado faz o mesmo em produção
+   desde o go-live. Conta, mostra, não reprova.
+
+   `externas` — qualquer OUTRA saída. API da Nuvemshop, produção, um
+   terceiro qualquer. Isso continua sendo falha. */
+const CDN_VITRINE = /(?:tiendanube|nuvemshop)\.com/;
+const fotosDaVitrine = new Set();
 const externas = [];
 const origemApp = new URL(APP).origin;
 
@@ -77,6 +89,7 @@ async function abrir(w = 1440, h = 900, movel = false) {
     const u = r.url();
     if (u.startsWith('data:') || u.startsWith('blob:')) return;
     if (u.startsWith(origemApp) || u.startsWith(API)) return;
+    if (r.resourceType() === 'image' && CDN_VITRINE.test(u)) { fotosDaVitrine.add(u); return; }
     externas.push(`${r.method()} ${u}`);
   });
   return { ctx, p };
@@ -425,8 +438,18 @@ secao('fechamento');
 prova(erros.length === 0, `nenhum erro de JavaScript no console (${erros.length})`);
 for (const e of erros.slice(0, 8)) console.log('       ', e);
 prova(externas.length === 0,
-  `nenhuma requisição para fora do DEV (${externas.length})`);
+  `nenhuma requisição para fora do DEV além da foto da vitrine (${externas.length})`);
 for (const e of externas.slice(0, 8)) console.log('       ', e);
+
+/* As fotos da vitrine são DECLARADAS, não escondidas — e a miniatura é
+   conferida: pedir a imagem de 1024px para uma célula de 46px é o que faz
+   uma tabela de mil linhas travar no 4G. */
+const cheias = [...fotosDaVitrine].filter((u) => !/-240-0\.[a-z]{3,4}(\?|$)/i.test(u));
+console.log(`\n[vitrine] ${fotosDaVitrine.size} imagem(ns) da loja carregadas pelo navegador `
+  + '(leitura de foto pública; a trava de escrita é do Worker e continua intocada)');
+prova(cheias.length === 0,
+  `todas pedidas como MINIATURA da CDN, não em tamanho cheio (${cheias.length} cheia(s))`);
+for (const u of cheias.slice(0, 4)) console.log('       ', u);
 
 console.log(`\nSmoke da V2: ${falhas} falha(s), ${pulados} pulada(s).`);
 console.log(`evidências em ${FOTOS}/`);
