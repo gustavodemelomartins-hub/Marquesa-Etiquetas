@@ -136,12 +136,17 @@ export function BuscaGlobal({ conexao, estado, aoNavegar }: Props) {
         if (!evento.currentTarget.contains(evento.relatedTarget)) setAberta(false);
       }}
     >
-      <label className="busca-global-campo">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-          <circle cx="11" cy="11" r="7" />
-          <path d="m20 20-4-4" />
+      {/* `mq-search` + `mq-input`: a MESMA forma do campo do protótipo —
+          ícone dentro, à esquerda, e a pílula do design system. Estava num
+          par de classes próprias (`busca-global-campo`) que desenhava um
+          campo parecido, e "parecido" é o que fazia o cabeçalho não bater. */}
+      <label className="mq-search busca-global-campo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+          <circle cx="10.6" cy="10.6" r="6.4" />
+          <path d="m15.4 15.4 4.4 4.4" />
         </svg>
         <input
+          className="mq-input"
           type="search"
           value={termo}
           onChange={(evento) => {
@@ -164,7 +169,10 @@ export function BuscaGlobal({ conexao, estado, aoNavegar }: Props) {
               if (a) escolher(a);
             }
           }}
-          placeholder="Buscar cliente, peça, venda ou revendedora"
+          /* O texto do protótipo. O `aria-label` continua dizendo as
+             quatro coisas que a busca ACHA de verdade — encurtar a dica
+             visual não encurta a capacidade. */
+          placeholder="Buscar cliente, peça ou venda"
           aria-label="Buscar cliente, peça, venda ou revendedora"
           role="combobox"
           aria-autocomplete="list"

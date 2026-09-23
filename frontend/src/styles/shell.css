@@ -151,6 +151,51 @@
 .mq-iconbtn:hover { background: var(--mq-line-3); color: var(--mq-ink); }
 .mq-iconbtn:focus-visible { outline: 2px solid var(--mq-wine-600); outline-offset: 1px; }
 .mq-iconbtn svg { width: 18px; height: 18px; }
+
+/* O BADGE do sino — a contagem do protótipo, com um número real atrás.
+   Posicionado sobre o ícone, e por isso o botão precisa de `position`. */
+.mq-iconbtn { position: relative; }
+.mq-iconbtn__dot {
+  position: absolute; top: 3px; right: 3px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: var(--mq-r-pill);
+  background: var(--mq-wine-600); color: #fff;
+  font: 500 9.5px/16px var(--mq-sans); text-align: center;
+  /* A borda separa o badge do ícone quando os dois se encostam; sem ela,
+     o "5" gruda no desenho do sino e vira um borrão. */
+  box-shadow: 0 0 0 1.5px var(--mq-paper);
+}
+
+/* ---- Avatar e o menu atrás dele ----------------------------------------- */
+.mq-perfil { position: relative; flex: none; }
+.mq-perfil > .mq-avatar { border: 0; cursor: pointer; font: inherit; }
+.mq-perfil > .mq-avatar:focus-visible { outline: 2px solid var(--mq-wine-600); outline-offset: 2px; }
+.mq-perfil__menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 60;
+  width: min(260px, calc(100vw - 2 * var(--mq-gutter)));
+  display: flex; flex-direction: column; gap: 2px; padding: var(--mq-2);
+  background: var(--mq-paper); border: 1px solid var(--mq-line);
+  border-radius: var(--mq-r-sm); box-shadow: 0 14px 36px rgba(44, 36, 40, .17);
+}
+.mq-perfil__quem { display: flex; flex-direction: column; gap: 2px; padding: var(--mq-2); margin: 0; }
+.mq-perfil__quem b { font: 500 13px/1.3 var(--mq-sans); color: var(--mq-ink); }
+.mq-perfil__quem small { font: 400 11.5px/1.35 var(--mq-sans); color: var(--mq-muted); }
+.mq-perfil__menu [role='menuitem'] {
+  display: flex; align-items: center; gap: var(--mq-2);
+  width: 100%; padding: var(--mq-2); border: 0; border-radius: var(--mq-r-sm);
+  background: none; color: var(--mq-ink); cursor: pointer;
+  font: 500 12.5px/1.3 var(--mq-sans); text-align: left;
+}
+.mq-perfil__menu [role='menuitem']:hover { background: var(--mq-line-3); }
+.mq-perfil__menu [role='menuitem'] svg { width: 16px; height: 16px; flex: none; color: var(--mq-muted); }
+/* A frase que diz o que o sistema NÃO tem. Fica aqui, e não numa tela de
+   perfil vazia que fingiria ter perfis. */
+.mq-perfil__limite {
+  margin: var(--mq-1) var(--mq-2); padding-top: var(--mq-2);
+  border-top: 1px solid var(--mq-line-2);
+  font: 400 11px/1.4 var(--mq-sans); color: var(--mq-faint);
+}
+.mq-perfil__sair { color: var(--mq-wine-700) !important; }
 .mq-topbar__where b { font-weight: 500; color: var(--mq-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mq-topbar__where svg { width: 14px; height: 14px; color: var(--mq-faint); flex: none; }
 .mq-topbar__grupo { color: var(--mq-faint); }

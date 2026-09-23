@@ -45,7 +45,12 @@ export const rotas = [
                               opera, tomada uma vez, e por isso entra por uma
                               rota autenticada e auditável em vez de SQL solto
                               na produção. Ver sync.js › corteDePedidos. */
-                           'syncCorteEm']) {
+                           'syncCorteEm',
+                           /* O nome de quem opera. Não cria usuário nem
+                              sessão: é rótulo, e o cabeçalho tira as
+                              iniciais dele. Entra na lista porque a tela de
+                              Configurações precisa poder escrevê-lo. */
+                           'operadorNome']) {
         if (b[chave] !== undefined) {
           stmts.push(db.prepare(
             `INSERT INTO config (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`

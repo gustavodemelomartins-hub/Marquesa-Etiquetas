@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { DevBadge } from './DevBadge';
 import { BuscaGlobal } from './BuscaGlobal';
+import { SinoNotificacoes } from './SinoNotificacoes';
+import { MenuPerfil } from './MenuPerfil';
 import { Icone } from '../components/Icone';
 import { LogoMarquesa } from '../components/LogoMarquesa';
 import { GRUPOS, NO_TELEFONE, acharModulo, grupoDe, type ModuloId } from './modulos';
@@ -176,27 +178,16 @@ export function AppShell({
               <Icone nome={buscaAberta ? 'close' : 'search'} />
             </button>
             <DevBadge />
-            <button
-              type="button"
-              className="mq-iconbtn"
-              aria-label="Notificações"
-              onClick={irPara('notificacoes')}
-            >
-              <Icone nome="bell" />
-            </button>
-            <button
-              type="button"
-              className="mq-iconbtn"
-              aria-label="Perfil do usuário, disponível em breve"
-              title="Perfis e permissões serão implementados em uma etapa futura"
-            >
-              <Icone nome="person" />
-            </button>
-            {aoDesconectar && (
-              <button type="button" className="mq-btn mq-btn--ghost mq-btn--sm" onClick={aoDesconectar}>
-                Desconectar
-              </button>
-            )}
+            {/* Sino e avatar, na composição do protótipo. O badge do sino é
+                um número REAL (`GET /api/pendencias`), e "Desconectar" mora
+                dentro do menu do avatar em vez de ficar solto na barra —
+                era o botão de texto que deformava o lado direito. */}
+            <SinoNotificacoes conexao={conexao} aoAbrir={irPara('notificacoes')} />
+            <MenuPerfil
+              nome={estado?.config?.operadorNome ?? null}
+              aoAbrirConfiguracoes={irPara('configuracoes')}
+              aoDesconectar={aoDesconectar}
+            />
           </div>
         </header>
 

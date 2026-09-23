@@ -111,7 +111,19 @@ describe('navegação principal', () => {
     expect(screen.getByRole('combobox', {
       name: 'Buscar cliente, peça, venda ou revendedora',
     })).toBeTruthy();
-    expect(screen.getByLabelText('Perfil do usuário, disponível em breve')).toBeTruthy();
+    /* O avatar do protótipo, com as iniciais. Sem `config.operadorNome`
+       gravado ele mostra a MARCA — "MQ" — e o rótulo diz que ninguém foi
+       identificado. Um avatar com nome de gente aqui seria inventar um
+       usuário que o servidor não tem. */
+    const avatar = screen.getByLabelText('Perfil — ninguém identificado');
+    expect(avatar.textContent).toBe('MQ');
+  });
+
+  it('o avatar guarda o Desconectar, e diz que não há perfis por pessoa', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByLabelText('Perfil — ninguém identificado'));
+    expect(screen.getByRole('menuitem', { name: /Configurações/ })).toBeTruthy();
+    expect(screen.getByText(/a autenticação é uma chave só/i)).toBeTruthy();
   });
 
   it('Estoque → Estoque Total continua acessível', async () => {

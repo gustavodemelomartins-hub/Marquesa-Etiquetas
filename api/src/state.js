@@ -190,6 +190,13 @@ export async function montarState(db, env) {
        banco: quem mudou precisa provar o valor de antes e o de depois, e
        `null` é a resposta honesta para "ainda não há corte". */
     syncCorteEm: c.syncCorteEm ?? null,
+    /* Quem opera o sistema. NÃO é usuário: a autenticação continua sendo UMA
+       chave Bearer compartilhada, e não existe tabela de pessoas. É o nome
+       que a operação escolheu para si, guardado como qualquer outro
+       parâmetro — o casco tira as iniciais dele para o avatar do cabeçalho.
+       `null` significa "ninguém disse", e o avatar mostra a marca em vez de
+       inventar uma pessoa. */
+    operadorNome: c.operadorNome ?? null,
   };
 
   const inventario = await resumoInventario(db, config.inventarioDias);

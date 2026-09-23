@@ -182,6 +182,10 @@ export interface AppConfig {
   prataPct: number;
   inventarioDias: number;
   faixas: CommissionTier[];
+  /** Quem opera. NÃO é usuário — a autenticação é uma chave Bearer só, e
+   *  não existe tabela de pessoas. É rótulo, e o casco tira as iniciais
+   *  dele. `null` = ninguém disse, e o avatar mostra a marca. */
+  operadorNome?: string | null;
 }
 
 export interface Category {
