@@ -54,6 +54,15 @@ const secao = (t) => console.log(`\n═══ ${t}`);
 
 const navegador = await chromium.launch({ headless: true });
 const erros = [];
+/* Respostas HTTP >= 400 que o navegador recebeu, com rota e status. O
+   console do Chromium as anuncia como "Failed to load resource", que NÃO
+   é erro de JavaScript — é o status ecoado. Guardar a rota é o que
+   permite separar a recusa esperada de um 500 de verdade. */
+const respostasRuins = [];
+/* A ÚNICA recusa que este roteiro provoca de propósito: contar um código
+   com variação cadastrada sem dizer qual. O servidor responde 409 com a
+   lista, e a tela abre o diálogo. Ver `DialogoDeVariacao`. */
+const ESPERADAS = [{ status: 409, rota: /\/api\/inventarios\/\d+\/itens$/ }];
 /* Duas listas, porque são duas coisas.
 
    `fotosDaVitrine` — `<img>` de uma imagem que a loja JÁ publica. É
@@ -82,7 +91,17 @@ async function abrir(w = 1440, h = 900, movel = false) {
   }
   const p = await ctx.newPage();
   p.on('pageerror', (e) => erros.push(`${w}px · ${e.message}`));
-  p.on('console', (m) => { if (m.type() === 'error') erros.push(`${w}px · ${m.text()}`); });
+  p.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    /* O eco de um status HTTP não é erro de JavaScript. Ele é contado em
+       `respostasRuins`, com a rota, por `p.on('response')`. */
+    if (/Failed to load resource/i.test(m.text())) return;
+    erros.push(`${w}px · ${m.text()}`);
+  });
+  p.on('response', (r) => {
+    if (r.status() < 400) return;
+    respostasRuins.push({ status: r.status(), url: r.url() });
+  });
   /* Nenhuma saída para fora do Pages do DEV e do Worker de staging. Se uma
      linha tentasse falar com produção ou com a Nuvemshop, apareceria aqui. */
   p.on('request', (r) => {
@@ -486,6 +505,21 @@ try {
 secao('fechamento');
 prova(erros.length === 0, `nenhum erro de JavaScript no console (${erros.length})`);
 for (const e of erros.slice(0, 8)) console.log('       ', e);
+
+/* Toda resposta >= 400 tem de ser uma que este roteiro provocou de
+   propósito. Um 500 escondido atrás de "Failed to load resource" era
+   exatamente o que a checagem antiga não distinguia. */
+const inesperadas = respostasRuins.filter(
+  (r) => !ESPERADAS.some((e) => e.status === r.status && e.rota.test(new URL(r.url).pathname)),
+);
+prova(inesperadas.length === 0,
+  `nenhuma resposta HTTP inesperada (${respostasRuins.length} >= 400, `
+  + `${inesperadas.length} sem explicação)`);
+for (const r of inesperadas.slice(0, 8)) console.log('       ', r.status, r.url);
+for (const r of respostasRuins.filter((x) => !inesperadas.includes(x)).slice(0, 3)) {
+  console.log(`       (esperada) ${r.status} ${new URL(r.url).pathname} — `
+    + 'o servidor recusando contar sem saber a variação');
+}
 prova(externas.length === 0,
   `nenhuma requisição para fora do DEV além da foto da vitrine (${externas.length})`);
 for (const e of externas.slice(0, 8)) console.log('       ', e);
