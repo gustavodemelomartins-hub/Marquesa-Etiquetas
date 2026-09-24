@@ -1,0 +1,135 @@
+name: Deploy PRODUÇÃO (Cloudflare Pages)
+
+# ┌─────────────────────────────────────────────────────────────────────┐
+# │  ESTE WORKFLOW PUBLICA PARA A OPERAÇÃO REAL.                        │
+# │                                                                      │
+# │  Ele NÃO tem gatilho por push. Não existe commit, merge ou rebase   │
+# │  que o dispare. A única forma de rodá-lo é abrir a aba Actions,     │
+# │  escolher "Run workflow" e DIGITAR a palavra de confirmação.         │
+# │                                                                      │
+# │  Isso é deliberado: `develop` publica no DEV sozinho justamente     │
+# │  para que publicar no DEV seja barato. Publicar em produção tem de  │
+# │  custar uma decisão, e uma decisão que alguém digitou.              │
+# └─────────────────────────────────────────────────────────────────────┘
+#
+# O QUE ELE PUBLICA — e o que NÃO publica:
+#
+#   publica  → o site estático (V2 React + painel clássico + etiquetas)
+#              no projeto Pages de produção
+#   NÃO faz  → migration no D1 de produção
+#   NÃO faz  → deploy do Worker `marquesa-api`
+#   NÃO faz  → backup
+#
+# Os três de fora são atos com consequência no banco e na loja, e seguem
+# o roteiro de docs/releases/RC-V2-2026-09-24.md, executados à mão, na
+# ordem, com conferência entre um e outro. Um workflow que fizesse tudo
+# tornaria impossível parar no meio — e parar no meio é a única defesa que
+# existe quando a contagem de depois não bate.
+#
+# PRÉ-REQUISITO, uma vez só: o projeto Pages de produção precisa existir e
+# ser Direct Upload (como o marquesa-dev). Criar em
+# Cloudflare → Workers & Pages → Create → Pages → Upload assets.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmacao:
+        description: 'Digite PUBLICAR EM PRODUCAO para confirmar'
+        required: true
+        type: string
+      projeto:
+        description: 'Nome do projeto no Cloudflare Pages'
+        required: true
+        default: marquesa
+        type: string
+
+concurrency:
+  group: deploy-prod-frontend
+  cancel-in-progress: false      # nunca cancelar um deploy de produção no meio
+
+jobs:
+  publicar:
+    name: Publicar o site de produção
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      # A confirmação é o primeiro passo e falha o job inteiro. Um "Run
+      # workflow" clicado por engano morre aqui, antes de instalar nada.
+      - name: Conferir a confirmação digitada
+        run: |
+          if [ "${{ inputs.confirmacao }}" != "PUBLICAR EM PRODUCAO" ]; then
+            echo "Confirmação ausente ou diferente. Nada foi publicado."
+            exit 1
+          fi
+
+      # Produção publica o que está em `develop` DEPOIS de ele ter passado
+      # pelo DEV. Publicar de outro ramo seria publicar algo que o DEV
+      # nunca viu.
+      - name: Checkout de develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Node 22 com cache do npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependências do painel novo
+        working-directory: frontend
+        run: npm ci
+
+      # Os mesmos testes do DEV. Um build de produção que não passa pelos
+      # testes é um build que ninguém conferiu.
+      - name: Testes do painel novo
+        working-directory: frontend
+        run: npm test
+
+      # A ÚNICA diferença real entre este build e o do DEV: o endereço da
+      # API. Aqui ele é o Worker de produção, que fala com o banco da
+      # operação. A chave continua sendo digitada por quem abre.
+      - name: Build do painel novo (inclui tsc --noEmit)
+        working-directory: frontend
+        env:
+          VITE_API_URL: https://marquesa-api.marquesaasemijoias.workers.dev
+          VITE_APP_ENV: prod
+        run: npm run build
+
+      - name: Schema e migration continuam dizendo a mesma coisa
+        run: node src/migracao-variantes-test.mjs
+
+      - name: Montar o painel clássico a partir do template
+        run: python3 src/build.py
+
+      # Produção NÃO recebe o protótipo nem o painel do projeto: os dois são
+      # material de trabalho interno, e um protótipo publicado ao lado do
+      # sistema real é um convite a confundir os dois.
+      - name: Juntar o site de produção num diretório só
+        run: |
+          set -e
+          mkdir -p publicar/v2
+          cp index.html dashboard.html manifest.json sw.js _redirects publicar/
+          cp -r brand icons vendor publicar/
+          cp -r frontend/dist/. publicar/v2/
+          echo "--- o que vai ao ar ---"
+          find publicar -maxdepth 2 -type f | sort
+
+      - name: Publicar no Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy publicar --project-name ${{ inputs.projeto }} --branch main
+
+      # O id do deployment é o que se usa para voltar. Ele fica no log, e o
+      # roteiro de release manda anotá-lo antes de seguir para o smoke.
+      - name: Listar os deployments (o anterior é o rollback)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler pages deployment list --project-name ${{ inputs.projeto }}

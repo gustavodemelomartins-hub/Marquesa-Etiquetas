@@ -86,3 +86,16 @@ api/.tmp/
 # Evidências de smoke: screenshots de um ambiente com dado real de cliente.
 # O roteiro que as produz é versionado; as imagens não.
 evidencias-smoke/
+
+# ------------------------------------------------- evidência com dado real
+# Capturas da V2 contra o staging mostram nome de cliente, valor devido e o
+# catálogo inteiro com preço. O staging é uma cópia da operação, então o
+# dado é real mesmo o banco sendo descartável — e este repositório é
+# público.
+#
+# A regra: a captura que prova COMPOSIÇÃO usa dado de mentira e é
+# versionada; a que só existe porque o banco real respondeu fica local. As
+# duas abaixo já foram removidas do índice uma vez, e este bloco existe
+# para que não voltem por um `git add -A` distraído.
+evidencias-paridade/11-no-estoque.png
+evidencias-paridade/12-a-receber-real.png
