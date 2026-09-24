@@ -203,6 +203,56 @@ frontend: deployment Pages anterior `27e66776-0394-4292-a226-98d494b1604d`.
 
 ---
 
+## 2026-09-24 — REV-002 · nova rodada de paridade estrutural
+
+| | |
+|---|---|
+| Branch | `develop` |
+| Commits | `2e16b65`, `5156379` |
+| Status | **PERFIL E VISÃO GERAL PUBLICADOS E VALIDADOS NO DEV** |
+
+**Motivo da rodada:** a primeira versão funcional ainda divergia demais da
+composição do protótipo. O perfil usava uma tabela muito alta e um donut grande,
+e a visão geral precisava recuperar a densidade, a ordem e as proporções da
+referência sem trocar dados nem contratos reais.
+
+**Implementação:** o perfil agora segue a sequência navegação estável, voltar,
+eyebrow, identidade e edição, quatro KPIs, maleta grande à esquerda, distribuição
+compacta à direita e histórico abaixo. A maleta real de 94 SKUs usa busca e
+rolagem interna; cada linha preserva código, nome, categoria, preço de envio,
+quantidade e subtotal. O mix foi refeito com total e barras ordenadas, quantidade
+e percentual. `Editar cadastro` usa o `PATCH` real e `Adicionar itens` usa o
+`POST` real, mantendo as ações condicionadas ao estado da maleta. A visão geral
+mantém os quatro KPIs, agenda densa, capacidade lateral e cartões de revendedoras
+com dados do DEV.
+
+**Validação:** suíte React completa verde com **328/328** testes e 33 arquivos;
+os 14 testes focados da rodada também passaram depois do ajuste visual final;
+build React verde (157 módulos, apenas o aviso preexistente de chunk grande).
+Smoke HTTP confirmou frontend `200` e `GET /api/health` do Worker `staging-v2`
+respondeu `ok`. O teste integrado genérico continua com um seletor legado
+`.nav-item`, problema do harness sem relação com a tela; a prova de navegador
+foi feita diretamente no DEV publicado.
+
+**QA visual:** comparação lado a lado em 1265×712 entre
+`/prototype/revendedoras/` e `/v2/?v=f93a23a#/revendedoras/4`, além da visão geral
+em `/v2/?v=f93a23a#/revendedoras`. Foram capturadas telas das duas versões na
+tarefa Codex. No perfil publicado ficaram visíveis os quatro KPIs, a maleta #12
+com 94 peças em lista interna, o mix compacto com seis categorias e o histórico;
+na visão geral ficaram visíveis agenda e capacidade na proporção da referência.
+
+**Deploy e limites:** deployment direto da correção final
+`60a83ad3-a7f0-47e2-b773-a54ef48903f5`; deployment mais recente contendo os
+commits `73d8a831-4bcd-4c43-898b-8ea509149c86` (source `f93a23a`), workflow
+`35975957103` verde. A skill versionada impede o agente de executar
+`wrangler deploy`; por isso as travas de backend do commit `c59bfc3` ainda
+dependem de uma pessoa executar, dentro de `api/`,
+`npx wrangler deploy --env staging-v2`. Nenhuma migration, dado real ou recurso
+de PROD foi alterado. Rollback visual desta rodada: deployment Pages anterior
+`3fd8fcbd` (source `bfa1229`).
+
+---
+
 ## Protocolo permanente Claude/Codex
 
 Toda vez que Codex realizar trabalho significativo neste projeto:
