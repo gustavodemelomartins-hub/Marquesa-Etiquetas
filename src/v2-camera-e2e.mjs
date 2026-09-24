@@ -93,11 +93,15 @@ try {
   const esperados = detalhe.json?.esperados ?? [];
   prova(esperados.length > 0, `o servidor manda ${esperados.length} códigos esperados em casa`);
 
+  /* `temVariacao` é o campo que a própria rota calcula, e é o mesmo que
+     `contarItem` consulta para decidir se pergunta o aro. Contar
+     `variacoes.length` daria falso positivo: a lista traz também as
+     variantes que existem só na Nuvemshop, e essas não fazem a contagem
+     perguntar nada. */
   let alvo = null;
-  for (const p of esperados.slice(0, 40)) {
+  for (const p of esperados.slice(0, 60)) {
     const v = await api(`/api/produtos/${encodeURIComponent(p.sku)}/variacoes`);
-    const temVariacao = Array.isArray(v.json?.variacoes) && v.json.variacoes.length > 0;
-    if (!temVariacao) { alvo = p; break; }
+    if (v.status === 200 && v.json?.temVariacao === false) { alvo = p; break; }
   }
   prova(!!alvo, alvo ? `a peça da prova é ${alvo.sku} · ${alvo.desc}` : 'nenhuma peça sem variação');
   if (!alvo) throw new Error('sem peça utilizável');

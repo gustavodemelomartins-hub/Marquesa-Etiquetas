@@ -242,8 +242,23 @@ export function LeitorDeEtiquetas({
 
   const semCamera = !temCamera();
 
+  /* No telefone o leitor nasce ABAIXO da dobra: entre o cabeçalho da
+     contagem, os botões e a barra de progresso, a imagem da câmera fica
+     fora da tela, e quem apertou "Abrir câmera" vê a página parada. Rolar
+     até ele é a diferença entre a câmera funcionar e parecer que não
+     abriu. */
+  const moldura = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    /* Rolar é conveniência. Um ambiente que não implementa
+       `scrollIntoView` — jsdom, um navegador antigo — não pode derrubar o
+       leitor por causa disso: a câmera funciona sem a rolagem, e o
+       contrário não é verdade. */
+    try { moldura.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }); }
+    catch { /* sem rolagem: a pessoa rola com o dedo */ }
+  }, []);
+
   return (
-    <section className="mq-cam" aria-label="Leitor de etiquetas">
+    <section className="mq-cam" aria-label="Leitor de etiquetas" ref={moldura}>
       <div className="mq-cam__head">
         <div>
           <p className="mq-eyebrow">Leitura por câmera</p>
