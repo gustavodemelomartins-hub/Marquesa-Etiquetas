@@ -295,7 +295,7 @@ export function NovoProduto({ conexao, categorias, aoCancelar, aoCriado }: Props
               <span>Código</span>
               <div className="mq-row">
                 <input
-                  className="mq-input"
+                  className="mq-input mq-input--grow"
                   value={sku}
                   inputMode="numeric"
                   maxLength={12}

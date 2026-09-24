@@ -180,7 +180,11 @@
   .mq-form-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
-.mq-input--grow { flex: 1 1 auto; }
+/* `.mq-input` é `width:100%`, e dentro de uma linha com um botão isso
+   empurra o botão para baixo — foi o que aconteceu com "Gerar código".
+   Aqui o campo passa a dividir a linha em vez de tomá-la. */
+.mq-row > .mq-input--grow { width: auto; flex: 1 1 180px; min-width: 0; }
+.mq-row > .mq-btn { flex: none; }
 .mq-input--num { width: 88px; text-align: center; }
 
 /* O recado do código, enquanto se digita. Três estados, três cores, e o

@@ -173,6 +173,12 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = fal
     </div>
   );
 
+  /* O nível do título do histórico segue o do cabeçalho: embutido, a
+     seção já é `h2` e o histórico é `h3`; em tela inteira o cabeçalho é
+     `h1` e o histórico é `h2`. Pular um nível é o tipo de coisa que só
+     atrapalha quem navega por leitor de tela. */
+  const TituloHistorico = embutida ? 'h3' : 'h2';
+
   const miolo = (
     <>
       {/* OS TRÊS CONTEXTOS do protótipo. Não são abas: são três fatos
@@ -253,9 +259,18 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = fal
         />
       ) : null}
 
+      {/* O histórico, com a mesma legenda da tela aprovada: o registro do
+          que foi conferido não se apaga, e é por ele que se responde
+          "quando foi a última vez" sem ter de confiar na memória. */}
       <section className="mq-card mq-card--flush">
         <div className="mq-card__head">
-          <div><h2 className="mq-title">Inventários</h2></div>
+          <div>
+            <p className="mq-eyebrow">Registro preservado</p>
+            <TituloHistorico className="mq-title">Histórico de inventários</TituloHistorico>
+            <p className="mq-lede">
+              Cobertura, divergências e ajustes efetivamente aplicados.
+            </p>
+          </div>
         </div>
         {inventarios.length === 0 ? (
           <div className="mq-state">
