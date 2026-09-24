@@ -3,8 +3,42 @@
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
   "atualizadoEm": "2026-09-12",
   "git": {
-    "branch": "claude/review-marquesa-v2",
+    "branch": "develop",
     "recentes": [
+      {
+        "commit": "7ade6b6",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(revendedoras): REV-002 integrar scanner no acerto",
+        "agente": "",
+        "taskIds": [
+          "REV-002"
+        ]
+      },
+      {
+        "commit": "abfa3ff",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "test(inventario): provar o caminho do iPhone na V2, e não só no clássico",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "9b40f67",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(inventario): a câmera rola até ficar à vista quando abre",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "aea1378",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "test(inventario): bipar uma etiqueta de verdade na V2 publicada",
+        "agente": "",
+        "taskIds": []
+      },
       {
         "commit": "b2cbc1d",
         "data": "2026-09-24",
@@ -176,38 +210,6 @@
         "data": "2026-09-23",
         "autor": "gustavodemelomartins-hub",
         "assunto": "test(v2): cover production-critical operational flows",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "b494205",
-        "data": "2026-09-23",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "data(nonrevenue): prepare legacy exit backfill",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "b0fc63d",
-        "data": "2026-09-23",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(nonrevenue): integrate non-revenue stock exits",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "6e1302a",
-        "data": "2026-09-23",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(custom-products): name the real blocker of Monte seu Colar",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "eb566b0",
-        "data": "2026-09-23",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(sales): unify launch modes in v2",
         "agente": "",
         "taskIds": []
       }
@@ -407,7 +409,7 @@
       "dominio": "Revendedoras",
       "titulo": "React de Revendedoras — paridade estrutural do perfil e da visão geral com o protótipo, usando dados reais; acerto seguro (ownership Codex; frontend publicado e validado no DEV)",
       "contexto": "frontend/src/features/revendedoras/, frontend/src/features/maletas/, api/src/maletas-comandos.js",
-      "nota": "Perfil e visão geral publicados nos commits 2e16b65 + 5156379; Pages 73d8a831-4bcd-4c43-898b-8ea509149c86 validado visualmente. Resta uma pessoa publicar o Worker com npx wrangler deploy --env staging-v2 para ativar as travas novas do acerto"
+      "nota": "Conferência física do acerto reutiliza o scanner compartilhado e está no DEV: commit 7ade6b6, Pages daf25ae1-f793-49eb-bf7a-e3b1a945723c, QA móvel 390×844. O bip altera só contagem local; contratos REV-002 seguem intactos. Resta uma pessoa publicar o Worker com npx wrangler deploy --env staging-v2 para ativar as travas novas do backend"
     },
     {
       "id": "NUV-001",
@@ -1477,7 +1479,7 @@
           "dominio": "Revendedoras",
           "titulo": "React de Revendedoras — paridade estrutural do perfil e da visão geral com o protótipo, usando dados reais; acerto seguro (ownership Codex; frontend publicado e validado no DEV)",
           "contexto": "frontend/src/features/revendedoras/, frontend/src/features/maletas/, api/src/maletas-comandos.js",
-          "nota": "Perfil e visão geral publicados nos commits 2e16b65 + 5156379; Pages 73d8a831-4bcd-4c43-898b-8ea509149c86 validado visualmente. Resta uma pessoa publicar o Worker com npx wrangler deploy --env staging-v2 para ativar as travas novas do acerto"
+          "nota": "Conferência física do acerto reutiliza o scanner compartilhado e está no DEV: commit 7ade6b6, Pages daf25ae1-f793-49eb-bf7a-e3b1a945723c, QA móvel 390×844. O bip altera só contagem local; contratos REV-002 seguem intactos. Resta uma pessoa publicar o Worker com npx wrangler deploy --env staging-v2 para ativar as travas novas do backend"
         }
       ],
       "paridade": [
@@ -2357,6 +2359,15 @@
       "branch": "develop",
       "commits": "2e16b65, 5156379",
       "status": "PERFIL E VISÃO GERAL PUBLICADOS E VALIDADOS NO DEV",
+      "taskIds": []
+    },
+    {
+      "agente": "Codex",
+      "data": "2026-09-24",
+      "titulo": "REV-002 · scanner compartilhado na conferência do acerto",
+      "branch": "develop",
+      "commits": "7ade6b6",
+      "status": "FRONTEND PUBLICADO E VALIDADO NO DEV — Worker manual pendente",
       "taskIds": []
     },
     {

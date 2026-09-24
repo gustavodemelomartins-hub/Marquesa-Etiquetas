@@ -253,6 +253,62 @@ de PROD foi alterado. Rollback visual desta rodada: deployment Pages anterior
 
 ---
 
+## 2026-09-24 — REV-002 · scanner compartilhado na conferência do acerto
+
+| | |
+|---|---|
+| Branch | `develop` |
+| Commit | `7ade6b6` |
+| Status | **FRONTEND PUBLICADO E VALIDADO NO DEV — Worker manual pendente** |
+
+**Origem e integração:** o leitor clássico foi localizado em
+`src/dashboard.tpl.html` (câmera traseira, `BarcodeDetector`, fallback ZXing,
+laço contínuo, antirrepique de 1.800 ms e encerramento das tracks). A extração
+compartilhada entrou em `develop` pelo commit `b2cbc1d`, com ajustes até
+`abfa3ff`. Revendedoras consome `LeitorDeEtiquetas` e `resolverSku` em
+`AcertoMaletaFluxo`; nenhuma câmera ou decodificação paralela foi criada e
+nenhum arquivo de Inventário foi alterado nesta frente.
+
+**Semântica preservada:** cada leitura incrementa somente
+`conferidos[sku]`, estado local separado do `DocumentoAcerto`. Leituras
+intencionais do mesmo SKU contam novas unidades até a quantidade enviada; a
+camada compartilhada suprime a mesma imagem durante 1.800 ms. SKU válido fora
+da maleta recebe aviso não bloqueante; código desconhecido também não conta.
+Nenhum bip chama API, registra venda, devolução, movimento, baixa ou ajuste.
+O envio final continua pela rota e pelo documento REV-002 existentes.
+
+**Fallback e ciclo de vida:** a conferência manual anterior continua inteira.
+O próprio leitor compartilhado mantém entrada digitada quando a câmera não está
+disponível ou a permissão falha. Fechar o leitor, fechar o drawer ou avançar
+para revisão desmonta o componente; a camada compartilhada encerra as tracks.
+Nenhum frame, foto ou vídeo é armazenado.
+
+**Validação:** 19/19 testes focados de Revendedoras/conferência e suíte React
+completa verde com **364/364** testes em 37 arquivos. O teste da integração
+prova que dois bipes do mesmo SKU incrementam duas unidades, que SKU fora da
+maleta não altera o estado, que o leitor é desmontado na revisão e que o payload
+final de `encerrarAcerto` permanece idêntico. Build React verde com 161 módulos;
+permanece apenas o aviso conhecido de chunk grande. Os testes do scanner
+compartilhado cobrem iPhone/ZXing, antirrepique, leitura contínua e liberação do
+stream.
+
+**Deploy e QA:** workflow DEV `36028484199` verde; Pages
+`daf25ae1-f793-49eb-bf7a-e3b1a945723c`, source `7ade6b6`. Smoke confirmou
+frontend `200` e `GET /api/health` do Worker staging-v2 com `ok: true`. No QA
+publicado em 390×844, o drawer mostrou a câmera no topo, alvo legível, botões
+grandes, fallback manual e feedback imediato para o SKU `326660` (`Colar Casal`,
+`1 de 1 conferidos`). A tela capturada nesta tarefa registra o estado móvel.
+Desligar a câmera e fechar o drawer removeram o leitor sem concluir o acerto.
+
+**Pendência explícita:** o frontend desta rodada independe de novo backend, mas
+as travas REV-002 já versionadas continuam fora do Worker staging-v2 até uma
+pessoa executar, dentro de `api/`, `npx wrangler deploy --env staging-v2`. A
+skill versionada proíbe o agente de executar esse deploy. PROD não foi tocada.
+Rollback do frontend: deployment anterior
+`4538e914-4c3b-4876-9e63-fc79af9c5c5e` (source `9b40f67`).
+
+---
+
 ## Protocolo permanente Claude/Codex
 
 Toda vez que Codex realizar trabalho significativo neste projeto:
