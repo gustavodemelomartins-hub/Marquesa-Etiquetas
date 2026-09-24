@@ -211,3 +211,62 @@
 
 /* A foto é a primeira coluna de qualquer listagem de estoque ou catálogo. */
 .mq-cell--foto { padding-right: 0; }
+
+/* ============================================ FINANCEIRO · A RECEBER
+ *
+ * Portado de `docs/ux/03-screens/financeiro/master.css`, que é a tela
+ * aprovada. Aqui está só o que é DESTA tela; o resto são arranjos de
+ * `.mq-*` que o Design System já dá.
+ */
+
+/* AS TRÊS DATAS. Elas ficam no topo da aba onde se trabalha com dinheiro
+   porque confundir a data da venda com a do pagamento é o erro que move o
+   faturamento de mês sem ninguém perceber. */
+.date-key { align-items: flex-start; }
+.date-key__item {
+  display: block; font-style: normal; margin-top: 3px;
+  font-size: 12px; color: var(--mq-wine-800);
+}
+.date-key__item i {
+  font-style: normal; font-weight: 500;
+  display: inline-block; min-width: 80px; color: var(--mq-wine-700);
+}
+@media (max-width: 600px) {
+  .date-key__item i { min-width: 0; margin-right: 4px; }
+}
+
+/* A LINHA ABERTA. O painel da direita mostra UMA conta, e a lista tem de
+   dizer qual — senão os dois lados da tela falam de coisas diferentes. */
+.mq-tr--ativa { background: var(--mq-wine-050); box-shadow: inset 3px 0 var(--mq-wine-600); }
+
+.sale-detail { position: sticky; top: var(--mq-4); }
+.sale-figures { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 600px) { .sale-figures { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1180px) { .sale-detail { position: static; } }
+
+.sale-receipts h3 { margin-bottom: var(--mq-2); }
+.sale-receipts .recebimento {
+  display: grid; grid-template-columns: 76px minmax(0, 1fr) auto;
+  align-items: center; gap: var(--mq-3);
+  padding: var(--mq-3); margin-bottom: var(--mq-2);
+  border: 1px dashed var(--mq-line-2); border-radius: var(--mq-r-md);
+  background: var(--mq-paper);
+}
+/* O que JÁ entrou é um fato; o que falta é uma promessa. A borda cheia
+   contra a tracejada é a diferença entre as duas, sem precisar ler. */
+.sale-receipts .recebimento.is-ok {
+  border-style: solid; background: var(--mq-paper-2);
+}
+.sale-receipts .recebimento:last-child { margin-bottom: 0; }
+.sale-receipts .recebimento > span {
+  font: 500 10.5px/1.2 var(--mq-sans); letter-spacing: .07em;
+  text-transform: uppercase; color: var(--mq-muted);
+}
+.sale-receipts .recebimento b {
+  display: block; font: 500 13.5px var(--mq-sans); color: var(--mq-ink);
+  font-variant-numeric: tabular-nums;
+}
+.sale-receipts .recebimento small {
+  display: block; font-size: 11px; color: var(--mq-muted); line-height: 1.4;
+}
+.sale-actions .mq-btn { flex: 1 1 150px; }

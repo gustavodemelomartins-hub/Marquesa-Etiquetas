@@ -95,6 +95,10 @@ export function FinanceiroArea({ conexao, sub, aoNavegar, aoAbrirCliente }: Prop
           aoAbrirCliente={(c: ContaAReceber) => aoAbrirCliente(
             c.clienteId ? { id: c.clienteId } : { norm: c.clienteNorm ?? '' },
           )}
+          /* "Recebido" é o único número desta aba que não sai de
+             `contas-receber`: aquela rota só sabe o que FALTA. */
+          painel={painel.dados}
+          recorte={recorte}
         />
       )}
       {aba === 'recebimentos' && <Recebimentos conexao={conexao} />}
