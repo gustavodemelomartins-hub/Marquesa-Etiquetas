@@ -222,6 +222,7 @@ export function SaidasArea({
         <FormSaida
           conexao={conexao}
           produtos={produtos}
+          embutida={embutida}
           aoFechar={() => setRegistrando(false)}
           aoRegistrar={() => {
             setRegistrando(false);
@@ -239,12 +240,19 @@ const COLUNAS = {
 };
 
 function FormSaida({
-  conexao, produtos, aoFechar, aoRegistrar,
+  conexao, produtos, aoFechar, aoRegistrar, embutida = false,
 }: {
   conexao: Connection;
   produtos: ProdutoDoEstado[];
   aoFechar: () => void;
   aoRegistrar: () => void;
+  /** EMBUTIDA em Lançamentos: cartão no fluxo, e não gaveta modal.
+   *
+   *  A gaveta cobria o seletor dos três modos com um scrim — justamente o
+   *  que o protótipo mantém na tela para quem quiser trocar de ideia. Fora
+   *  de Lançamentos (Estoque, Financeiro) ela continua gaveta, porque ali
+   *  é uma ação sobre uma lista que fica atrás. */
+  embutida?: boolean;
 }) {
   const [tipo, setTipo] = useState<TipoDeSaida>('brinde');
   const [busca, setBusca] = useState('');
@@ -281,19 +289,25 @@ function FormSaida({
     else aoRegistrar();
   }
 
-  return (
+  const cabeca = (
+    <div className="mq-drawer__head">
+      <div>
+        <p className="mq-eyebrow">Estoque</p>
+        <h2 className="mq-title">Registrar saída</h2>
+      </div>
+      {/* Embutida não tem "fechar": não há nada por baixo para voltar.
+          Quem desiste troca de modo no seletor, que está logo acima. */}
+      {!embutida && (
+        <button type="button" className="mq-modal__close" aria-label="Fechar" onClick={aoFechar}>
+          <Icone nome="close" />
+        </button>
+      )}
+    </div>
+  );
+
+  const corpo = (
     <>
-      <button type="button" className="mq-scrim" aria-label="Fechar" onClick={aoFechar} />
-      <div className="mq-drawer" role="dialog" aria-modal="true" aria-label="Registrar saída sem faturamento">
-        <div className="mq-drawer__head">
-          <div>
-            <p className="mq-eyebrow">Estoque</p>
-            <h2 className="mq-title">Registrar saída</h2>
-          </div>
-          <button type="button" className="mq-modal__close" aria-label="Fechar" onClick={aoFechar}>
-            <Icone nome="close" />
-          </button>
-        </div>
+      {cabeca}
 
         <div className="mq-drawer__body">
           <fieldset className="mq-fieldset">
@@ -403,9 +417,27 @@ function FormSaida({
             >
               {enviando ? 'Registrando…' : 'Registrar saída'}
             </button>
-            <button type="button" className="mq-btn mq-btn--ghost" onClick={aoFechar}>Cancelar</button>
+            {!embutida && (
+              <button type="button" className="mq-btn mq-btn--ghost" onClick={aoFechar}>
+                Cancelar
+              </button>
+            )}
           </div>
         </div>
+    </>
+  );
+
+  if (embutida) return <section className="mq-card saida-embutida">{corpo}</section>;
+  return (
+    <>
+      <button type="button" className="mq-scrim" aria-label="Fechar" onClick={aoFechar} />
+      <div
+        className="mq-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Registrar saída sem faturamento"
+      >
+        {corpo}
       </div>
     </>
   );

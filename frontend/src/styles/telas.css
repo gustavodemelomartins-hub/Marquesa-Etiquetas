@@ -149,3 +149,15 @@
   margin: 0;
 }
 .collar-heading .mq-eyebrow { color: var(--mq-wine-700); }
+
+/* A SAÍDA SEM FATURAMENTO embutida em "Novo lançamento".
+ *
+ * Ela reaproveita a casca da gaveta (`mq-drawer__head`, `__body`), porque
+ * é o mesmo formulário — só que dentro do fluxo da tela, sem scrim por
+ * cima do seletor dos três modos. Estes dois seletores desfazem o que só
+ * fazia sentido dentro de uma gaveta. */
+.saida-embutida .mq-drawer__head {
+  padding: var(--mq-5) var(--mq-6) 0;
+  border-bottom: 0;
+}
+.saida-embutida .mq-drawer__body { padding: var(--mq-5) var(--mq-6) var(--mq-6); }
