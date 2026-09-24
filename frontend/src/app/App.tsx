@@ -131,7 +131,13 @@ function AppConectado({
       )}
 
       {modulo === 'catalogo' && (
-        <CatalogoArea conexao={conexao} estado={estado.dados} aoMudar={estado.recarregar} />
+        <CatalogoArea
+          conexao={conexao}
+          estado={estado.dados}
+          aoMudar={estado.recarregar}
+          sub={rota.sub}
+          aoNavegar={(sub) => trocar({ modulo: 'catalogo', sub })}
+        />
       )}
 
       {modulo === 'configuracoes' && (

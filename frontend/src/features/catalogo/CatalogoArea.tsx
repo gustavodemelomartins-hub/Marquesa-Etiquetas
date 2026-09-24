@@ -2,12 +2,17 @@ import { useMemo, useState } from 'react';
 import { chamar, type Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { PainelDeVariacoes } from './PainelDeVariacoes';
+import { NovoProduto } from './NovoProduto';
+import { FotoDaPeca } from '../../components/FotoDaPeca';
 import { money } from '../../domain/formato';
 import type { AppState } from '../../types/api';
 import type { ProdutoDoEstado } from '../vendas/tipos';
 
+/* A FOTO É A PRIMEIRA COLUNA. Não é estética: quem confere o catálogo
+   reconhece a peça pela imagem antes de ler o código, e uma tabela de
+   semijoia sem foto obriga a abrir cada linha para saber do que se trata. */
 const COLUNAS = {
-  gridTemplateColumns: 'minmax(0,2.2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto',
+  gridTemplateColumns: 'auto minmax(0,2fr) minmax(0,1fr) minmax(0,.7fr) minmax(0,1fr) minmax(0,1fr) auto',
 };
 const STATUS = ['ativo', 'inativo', 'arquivado'];
 
@@ -15,6 +20,11 @@ interface Props {
   conexao: Connection;
   estado: AppState | null;
   aoMudar: () => void;
+  /** `#/catalogo/novo` abre o formulário de cadastro. O endereço existe
+   *  para que "Novo produto" no Estoque seja UMA navegação, e não um
+   *  estado que só quem já está nesta tela consegue alcançar. */
+  sub?: string | null;
+  aoNavegar?: (sub: string | null) => void;
 }
 
 /** CATÁLOGO — como a peça se chama, quanto custa e onde ela aparece.
@@ -29,10 +39,13 @@ interface Props {
  *  vendável e não sobe para a loja; a tela mostra isso como um estado, não
  *  como um zero que se soma sem perceber.
  */
-export function CatalogoArea({ conexao, estado, aoMudar }: Props) {
+export function CatalogoArea({ conexao, estado, aoMudar, sub = null, aoNavegar }: Props) {
   const [busca, setBusca] = useState('');
   const [status, setStatus] = useState('ativo');
   const [editando, setEditando] = useState<ProdutoDoEstado | null>(null);
+  const criando = sub === 'novo';
+  const abrirNovo = () => (aoNavegar ? aoNavegar('novo') : undefined);
+  const fecharNovo = () => (aoNavegar ? aoNavegar(null) : undefined);
   const [vendoVariacoes, setVendoVariacoes] = useState<string | null>(null);
 
   const produtos = (estado?.produtos ?? []) as unknown as ProdutoDoEstado[];
@@ -62,6 +75,12 @@ export function CatalogoArea({ conexao, estado, aoMudar }: Props) {
             Como a peça se chama, quanto custa e onde ela aparece. Quantidade
             é outra coisa, e mora no Estoque.
           </p>
+        </div>
+        <div className="mq-pagehead__actions">
+          <button type="button" className="mq-btn mq-btn--primary" onClick={abrirNovo}>
+            <Icone nome="plus" />
+            Novo produto
+          </button>
         </div>
       </div>
 
@@ -110,24 +129,39 @@ export function CatalogoArea({ conexao, estado, aoMudar }: Props) {
           <div className="mq-state">
             <span className="mq-state__icon"><Icone nome="tag" /></span>
             <h3>Nenhuma peça com esse filtro</h3>
-            <p>Peças novas entram pela importação de planilha, em Estoque.</p>
+            <p>
+              Peças novas entram uma a uma por "Novo produto", ou em lote pela
+              importação de planilha, em Estoque.
+            </p>
           </div>
         ) : (
           <div className="mq-table" role="table" aria-label="Catálogo">
             <div className="mq-tr mq-tr--head" role="row" style={COLUNAS}>
+              <span aria-label="Foto" />
               <span>Peça</span>
               <span>Categoria</span>
+              <span>Quantidade</span>
               <span>Preço</span>
               <span>Situação</span>
               <span>Variações</span>
             </div>
             {lista.map((p) => (
               <div className="mq-tr" role="row" key={p.sku} style={COLUNAS}>
+                <span className="mq-cell mq-cell--foto">
+                  <FotoDaPeca peca={p} alt={p.desc} />
+                </span>
                 <button type="button" className="mq-cell" onClick={() => setEditando(p)}>
                   <b>{p.desc}</b>
                   <small>{p.sku}</small>
                 </button>
                 <span className="mq-cell"><b>{p.cat}</b></span>
+                <span className="mq-cell mq-cell--num" data-label="Quantidade">
+                  <b>{p.qtd}</b>
+                  {/* O que está em maleta é da loja e não está aqui. Dizer só
+                      o total esconde a diferença entre "tenho 9" e "tenho 9,
+                      mas 3 estão na rua". */}
+                  {p.consignado > 0 && <small>{p.consignado} em maleta</small>}
+                </span>
                 <span className="mq-cell mq-cell--num" data-label="Preço">
                   <b className="mq-money">{p.preco === null ? '—' : money(p.preco)}</b>
                   {p.semPreco && <small>sem preço</small>}
@@ -159,6 +193,23 @@ export function CatalogoArea({ conexao, estado, aoMudar }: Props) {
           sku={vendoVariacoes}
           aoFechar={() => setVendoVariacoes(null)}
           aoMudarEstoque={aoMudar}
+        />
+      )}
+
+      {criando && (
+        <NovoProduto
+          conexao={conexao}
+          categorias={categorias}
+          aoCancelar={fecharNovo}
+          aoCriado={(sku) => {
+            fecharNovo();
+            /* Volta para a lista COM a peça recém-criada à vista. Criar
+               algo e cair numa lista de 800 linhas onde ele pode estar em
+               qualquer lugar é o mesmo que não ter criado. */
+            setBusca(sku);
+            setStatus('todos');
+            aoMudar();
+          }}
         />
       )}
 

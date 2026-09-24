@@ -161,3 +161,53 @@
   border-bottom: 0;
 }
 .saida-embutida .mq-drawer__body { padding: var(--mq-5) var(--mq-6) var(--mq-6); }
+
+/* ==================================================== NOVO PRODUTO
+ *
+ * Portado da composição do protótipo (`docs/ux/03-screens/catalogo/master.html`
+ * › `.form-grid.catalog-form`): os campos em duas colunas, cada um com o
+ * rótulo em cima e a explicação embaixo — porque quase todo campo deste
+ * formulário carrega uma regra (§17 o código, §24 o preço, §19 a
+ * quantidade), e regra escondida é regra que ninguém segue.
+ */
+.mq-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mq-4);
+}
+.mq-field--wide { grid-column: 1 / -1; }
+@media (max-width: 600px) {
+  .mq-form-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.mq-input--grow { flex: 1 1 auto; }
+.mq-input--num { width: 88px; text-align: center; }
+
+/* O recado do código, enquanto se digita. Três estados, três cores, e o
+   texto diz ONDE o código já está — "ocupado" sem dizer onde obriga a
+   caçar o duplicado à mão no meio de centenas de peças. */
+.sku-recado { font-size: 11.5px; color: var(--mq-muted); }
+.sku-recado.checando { color: var(--mq-faint); }
+.sku-recado.livre { color: var(--mq-ok); }
+.sku-recado.aviso { color: var(--mq-warn, var(--mq-ink-2)); }
+.sku-recado.ocupado { color: var(--mq-risk); }
+
+/* A pergunta "esta peça tem variações?" é uma decisão, não um campo: ela
+   muda de onde vem a quantidade. Por isso tem a moldura de uma escolha. */
+.mq-check {
+  display: flex; align-items: flex-start; gap: var(--mq-3);
+  padding: var(--mq-4); cursor: pointer;
+  border: 1px solid var(--mq-line); border-radius: var(--mq-r-md);
+  background: var(--mq-paper-2);
+}
+.mq-check input { margin-top: 2px; flex: none; }
+.mq-check > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mq-check small { font-size: 11.5px; color: var(--mq-muted); }
+
+.variacoes-novo .mq-tr {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--mq-3);
+}
+
+/* A foto é a primeira coluna de qualquer listagem de estoque ou catálogo. */
+.mq-cell--foto { padding-right: 0; }

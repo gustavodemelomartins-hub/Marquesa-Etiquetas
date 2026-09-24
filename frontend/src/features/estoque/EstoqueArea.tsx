@@ -189,7 +189,10 @@ export function EstoqueArea({
             if (secao) secao.scrollIntoView({ behavior: 'smooth', block: 'start' });
             else aoNavegarSub('inventario');
           }}
-          aoNovoProduto={() => aoAbrirModulo('catalogo')}
+          /* Abre o FORMULÁRIO, não a lista. O botão prometia cadastrar
+             uma peça e entregava uma tela onde não havia por onde
+             começar. */
+          aoNovoProduto={() => aoAbrirModulo('catalogo', 'novo')}
           /* Foto, categoria e preço se resolvem no CADASTRO da peça. */
           aoVerPendencias={() => aoAbrirModulo('catalogo')}
           aoMudarEstoque={aoMudarEstoque}
