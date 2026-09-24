@@ -437,6 +437,13 @@ input.qtd {
 .rev-adicionar-item small { color: var(--muted); font-size: 11px; }
 .acerto-resumo { display: flex; align-items: center; gap: var(--r3); flex-wrap: wrap; padding: var(--r3) var(--r4); border: 1px solid var(--line); border-radius: 10px; background: var(--ivory); font-size: 13px; }
 .acerto-resumo b { color: var(--bordo); }
+.acerto-scanner { display: grid; gap: var(--r3); padding: var(--r4); border: 1px solid var(--rose-soft); border-radius: 12px; background: var(--rose-tint); }
+.acerto-scanner__cabeca { display: flex; align-items: center; justify-content: space-between; gap: var(--r4); }
+.acerto-scanner__cabeca > div { display: grid; gap: 3px; }
+.acerto-scanner__cabeca small { color: var(--muted); line-height: 1.45; }
+.acerto-scanner__cabeca .btn { min-height: 44px; flex: 0 0 auto; }
+.acerto-conferido { color: var(--muted); font-weight: 650; }
+.acerto-conferido.completo { color: var(--ok); }
 .acerto-itens { display: grid; gap: var(--r3); }
 .acerto-item { border: 1px solid var(--line); border-radius: 12px; padding: var(--r4); display: grid; gap: var(--r3); }
 .acerto-item__topo { display: flex; align-items: center; justify-content: space-between; gap: var(--r3); }
@@ -461,6 +468,8 @@ input.qtd {
   .rev-maleta-cabeca, .rev-maleta-acoes { flex-wrap: wrap; }
   .acerto-destino { grid-template-columns: 90px 1fr; }
   .acerto-destino .btn { grid-column: 1 / -1; justify-self: start; }
+  .acerto-scanner__cabeca { align-items: stretch; flex-direction: column; }
+  .acerto-scanner__cabeca .btn { width: 100%; min-height: 48px; }
   .acerto-resumo-financeiro { grid-template-columns: 1fr; }
 }
 

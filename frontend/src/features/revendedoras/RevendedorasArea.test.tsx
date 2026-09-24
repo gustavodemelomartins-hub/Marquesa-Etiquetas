@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RevendedorasArea, type SubRotaRevendedoras } from './RevendedorasArea';
 import type { Connection } from '../../services/client';
 import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
 import { emCasa, estadoDeTeste, maleta, revendedora } from '../../testing/fixtures';
+import type {
+  IntegracaoScannerAcerto,
+  LeitorEtiquetaProps,
+} from '../maletas/AcertoMaletaFluxo';
 
 vi.mock('../maletas/api');
 import * as api from '../maletas/api';
@@ -16,6 +20,7 @@ afterEach(() => {
 });
 
 const conexao: Connection = { url: 'http://api.local', key: 'chave' };
+const liberarScanner = vi.fn();
 
 const planejamento: UsoPlanejamento = {
   config: { modo: 'equilibrado', tamanhoAlvo: 8, tamanhoAlvoConfirmado: true },
@@ -40,7 +45,13 @@ const estado = estadoDeTeste({
 
 /** A navegação de subaba mora no `App`; aqui ela é simulada para o teste
  *  poder clicar numa aba e ver a tela mudar de verdade. */
-function Area({ inicial = 'visao-geral' as SubRotaRevendedoras }) {
+function Area({
+  inicial = 'visao-geral' as SubRotaRevendedoras,
+  scannerCompartilhado,
+}: {
+  inicial?: SubRotaRevendedoras;
+  scannerCompartilhado?: IntegracaoScannerAcerto;
+}) {
   const [sub, setSub] = useState<SubRotaRevendedoras>(inicial);
   return (
     <RevendedorasArea
@@ -52,9 +63,27 @@ function Area({ inicial = 'visao-geral' as SubRotaRevendedoras }) {
       planejamento={planejamento}
       sub={sub}
       aoNavegarSub={setSub}
+      scannerCompartilhado={scannerCompartilhado}
     />
   );
 }
+
+function LeitorDeTeste({ aoLer, aoFechar }: LeitorEtiquetaProps) {
+  const [resultado, setResultado] = useState('');
+  useEffect(() => liberarScanner, []);
+  const ler = async (codigo: string) => setResultado((await aoLer(codigo)).texto);
+  return <div>
+    <button type="button" onClick={() => void ler('C1')}>Bipar C1</button>
+    <button type="button" onClick={() => void ler('B1')}>Bipar B1</button>
+    <button type="button" onClick={aoFechar}>Desligar a câmera</button>
+    {resultado && <p role="status">{resultado}</p>}
+  </div>;
+}
+
+const scannerDeTeste: IntegracaoScannerAcerto = {
+  Leitor: LeitorDeTeste,
+  resolverSku: (codigo, conhecidos) => conhecidos.has(String(codigo)) ? String(codigo) : null,
+};
 
 describe('navegação de Revendedoras', () => {
   it('abre na Visão Geral', () => {
@@ -222,6 +251,54 @@ describe('criar maleta exige confirmação', () => {
 });
 
 describe('acerto da maleta', () => {
+  it('usa o leitor compartilhado por padrão e mantém a digitação como fallback', async () => {
+    render(<Area inicial={1} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Fazer acerto' }));
+    const painel = screen.getByRole('dialog', { name: 'Acerto da maleta 7' });
+
+    fireEvent.click(within(painel).getByRole('button', { name: 'Abrir câmera' }));
+    expect(within(painel).getByRole('region', { name: 'Leitor de etiquetas' })).toBeTruthy();
+    fireEvent.change(within(painel).getByLabelText('Código da etiqueta'), { target: { value: 'C1' } });
+    fireEvent.click(within(painel).getByRole('button', { name: 'Contar' }));
+
+    await waitFor(() => expect(within(painel).getByRole('status').textContent).toContain('1 de 3 conferidos'));
+    expect(api.encerrarAcerto).not.toHaveBeenCalled();
+  });
+
+  it('recebe onScan(SKU), conta unidades e não muda o documento do REV-002', async () => {
+    vi.mocked(api.encerrarAcerto).mockResolvedValue({
+      ok: true, vendaId: 23, novaMaletaId: null,
+      acerto: { enviadas: 3, devolvidas: 1, vendidas: 2, perdas: 0, baixas: 2, totalVendido: 300, comissao: 90, liquido: 210 },
+    });
+    render(<Area inicial={1} scannerCompartilhado={scannerDeTeste} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Fazer acerto' }));
+    const painel = screen.getByRole('dialog', { name: 'Acerto da maleta 7' });
+
+    expect(within(painel).getByRole('button', { name: 'Abrir câmera' })).toBeTruthy();
+    fireEvent.click(within(painel).getByRole('button', { name: 'Abrir câmera' }));
+    fireEvent.change(within(painel).getByLabelText('Devolvidas de C1'), { target: { value: '1' } });
+
+    fireEvent.click(within(painel).getByRole('button', { name: 'Bipar C1' }));
+    fireEvent.click(within(painel).getByRole('button', { name: 'Bipar C1' }));
+    await waitFor(() => expect(within(painel).getByRole('status').textContent).toContain('2 de 3 conferidos'));
+    expect(api.encerrarAcerto).not.toHaveBeenCalled();
+
+    fireEvent.click(within(painel).getByRole('button', { name: 'Bipar B1' }));
+    await waitFor(() => expect(within(painel).getByRole('status').textContent).toContain('Esta peça não pertence a esta maleta'));
+    fireEvent.click(within(painel).getByRole('button', { name: 'Bipar C1' }));
+    fireEvent.click(within(painel).getByRole('button', { name: 'Bipar C1' }));
+    await waitFor(() => expect(within(painel).getByRole('status').textContent).toContain('3 de 3 conferidos'));
+
+    fireEvent.click(within(painel).getByRole('button', { name: 'Revisar acerto' }));
+    expect(liberarScanner).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(painel).getByRole('button', { name: 'Confirmar e encerrar maleta' }));
+    await waitFor(() => expect(api.encerrarAcerto).toHaveBeenCalledWith(
+      conexao,
+      7,
+      { devolvidas: { C1: 1 }, faltas: [{ sku: 'C1', linhas: [{ qtd: 2, destino: 'vendida' }] }] },
+    ));
+  });
+
   it('só grava depois de fechar todas as quantidades e confirmar', async () => {
     vi.mocked(api.encerrarAcerto).mockResolvedValue({
       ok: true, vendaId: 22, novaMaletaId: null,

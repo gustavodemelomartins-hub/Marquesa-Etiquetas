@@ -15,9 +15,16 @@ import { EditarRevendedora } from './EditarRevendedora';
 import { AdicionarItensMaleta } from './AdicionarItensMaleta';
 import { TodasRevendedoras } from './TodasRevendedoras';
 import { ConfiguracoesRevendedoras } from './ConfiguracoesRevendedoras';
-import { AcertoMaletaFluxo } from '../maletas/AcertoMaletaFluxo';
+import { AcertoMaletaFluxo, type IntegracaoScannerAcerto } from '../maletas/AcertoMaletaFluxo';
 import { maletaAbertaDe } from '../../domain/maletas';
 import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
+import { LeitorDeEtiquetas } from '../../components/scanner/LeitorDeEtiquetas';
+import { resolverSku } from '../../components/scanner/codigoDaEtiqueta';
+
+const scannerPadrao: IntegracaoScannerAcerto = {
+  Leitor: LeitorDeEtiquetas,
+  resolverSku,
+};
 
 /** 'visao-geral' ou o id de uma revendedora. Os nomes das abas vêm do
  *  banco — nenhum nome de pessoa aparece escrito no código. */
@@ -32,6 +39,7 @@ interface Props {
   planejamento: UsoPlanejamento;
   sub: SubRotaRevendedoras;
   aoNavegarSub: (r: SubRotaRevendedoras) => void;
+  scannerCompartilhado?: IntegracaoScannerAcerto;
 }
 
 /** A área "Revendedoras": a Visão Geral primeiro, e uma aba por pessoa.
@@ -48,6 +56,7 @@ export function RevendedorasArea({
   planejamento,
   sub,
   aoNavegarSub,
+  scannerCompartilhado = scannerPadrao,
 }: Props) {
   const [sugestoesAbertas, setSugestoesAbertas] = useState(false);
   const [novaAberta, setNovaAberta] = useState(false);
@@ -192,6 +201,7 @@ export function RevendedorasArea({
         revendedora={atual}
         aoFechar={() => setAcertoAberto(false)}
         aoConcluir={recarregar}
+        scannerCompartilhado={scannerCompartilhado}
       />}
 
       {typeof rota === 'number' && atual && <EditarRevendedora
