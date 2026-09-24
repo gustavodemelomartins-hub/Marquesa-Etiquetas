@@ -306,6 +306,14 @@ try {
       prova(depois.json.contagem.length === relido.json.contagem.length,
         'retomar devolveu a contagem inteira');
 
+      /* Quais códigos têm variação cadastrada, descoberto na própria API.
+         Nada fixado por SKU: um banco diferente só muda quem faz o papel. */
+      const estado = await api('/api/state');
+      const VARIADOS = new Set((estado.json.produtos || [])
+        .filter((x) => Array.isArray(x.variacoes) && x.variacoes.length > 0)
+        .map((x) => x.sku));
+      prova(VARIADOS.size > 0, `o catálogo tem código com variação (${VARIADOS.size})`);
+
       /* 3.6 — a TELA: progresso, estados e o diálogo antes de finalizar. */
       const { ctx, p } = await abrir();
       await ir(p, '#/estoque/inventario');
@@ -331,6 +339,47 @@ try {
         .some((t) => /com revendedoras/.test(t));
       prova(temAviso || !comMaleta.length,
         'a linha diz quando o número da coluna Sistema não é o total');
+
+      /* 3.6b — O CÓDIGO COM VARIAÇÃO. 27 dos 790, e eram impossíveis de
+         contar: o servidor recusa com 409 (não chuta de qual aro a peça
+         é) e a tela tratava a recusa como erro genérico. Agora ela
+         pergunta. */
+      const comVariacao = esperados.find((e) => VARIADOS.has(e.sku));
+      if (!comVariacao) {
+        pulo('nenhum código com variação cadastrada — a prova do diálogo não tem sujeito');
+      } else {
+        await p.getByRole('searchbox', { name: 'SKU ou nome da peça' })
+          .fill(comVariacao.sku);
+        await p.waitForTimeout(700);
+        const campo = p.locator('.count-row .mq-inv-contagem').first();
+        await campo.fill(String(Math.max(1, comVariacao.esperado)));
+        await campo.blur();
+        await p.waitForTimeout(1500);
+
+        prova(await p.locator('.mq-variacao').count() === 1,
+          `código com variação (${comVariacao.sku}) abre o diálogo em vez de dar erro`);
+
+        const opcoes = await p.locator('.mq-variacao__opcao').count();
+        prova(opcoes >= 2, `o diálogo oferece as variações + "não sei" (${opcoes} opções)`);
+        prova((await p.locator('.mq-variacao').textContent() || '').includes('Não sei a variação'),
+          '"Não sei a variação" é uma das respostas, e não uma saída escondida');
+
+        /* Escolhe a PRIMEIRA variação de verdade e confirma. */
+        await p.locator('.mq-variacao__opcao input').first().check();
+        await p.getByRole('button', { name: 'Confirmar variação' }).click();
+        await p.waitForTimeout(1800);
+
+        prova(await p.locator('.mq-variacao').count() === 0, 'o diálogo fecha ao confirmar');
+        const depoisDaVariacao = await api(`/api/inventarios/${inventarioAberto}`);
+        const gravou = (depoisDaVariacao.json.contagem || [])
+          .some((c) => c.sku === comVariacao.sku && c.variacao);
+        prova(gravou,
+          `a contagem GRAVOU com a variação escolhida (${comVariacao.sku})`);
+
+        await foto(p, '03b-dialogo-variacao');
+        await p.getByRole('searchbox', { name: 'SKU ou nome da peça' }).fill('');
+        await p.waitForTimeout(900);
+      }
 
       /* 3.7 — FINALIZAR pede confirmação, e NÓS RECUSAMOS. A base
          definitiva ainda não foi importada; congelar um retrato agora

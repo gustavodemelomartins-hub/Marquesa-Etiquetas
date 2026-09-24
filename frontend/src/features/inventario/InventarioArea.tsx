@@ -8,6 +8,11 @@ import {
   aplicaveis, aplicarAjustes, buscarResultado, pedidoDaLinha, temResultado,
   type LinhaDeDiferenca,
 } from './resultado';
+import {
+  DialogoDeVariacao,
+  type EscolhaDaVariacao,
+  type PedidoDeVariacao,
+} from './DialogoDeVariacao';
 import type { AppState } from '../../types/api';
 
 interface InventarioResumo {
@@ -276,6 +281,8 @@ function Contagem({
   const [busca, setBusca] = useState('');
   const [erro, setErro] = useState('');
   const [ocupado, setOcupado] = useState<string | null>(null);
+  /* O 409 do servidor vira uma PERGUNTA, não uma mensagem de erro. */
+  const [perguntandoVariacao, setPerguntandoVariacao] = useState<PedidoDeVariacao | null>(null);
 
   /* A LISTA DA CONTAGEM vem do servidor, não do `GET /api/state`: é ela
      que carrega a regra do "em casa". Ver o comentário de `Esperado`. */
@@ -372,12 +379,60 @@ function Contagem({
     await acao(`/api/inventarios/${id}/concluir`);
   }
 
-  async function contar(sku: string, contado: number) {
+  /** Grava uma contagem. `escolha` só existe quando o servidor já pediu a
+   *  variação e a pessoa respondeu.
+   *
+   *  O 409 "tem variação cadastrada" NÃO é erro: é o servidor se recusando
+   *  a chutar de qual aro a peça é (regra 2 do projeto), e mandando junto
+   *  a lista para alguém responder. Enquanto a tela o tratava como erro, os
+   *  27 códigos com variação eram impossíveis de contar — a mensagem
+   *  aparecia e a contagem nunca gravava. */
+  async function contar(sku: string, contado: number, escolha?: EscolhaDaVariacao) {
     setOcupado(sku);
     setErro('');
-    const r = await chamar<{ erro?: string }>(conexao, 'POST', `/api/inventarios/${id}/itens`, { sku, contado })
-      .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui gravar a contagem.' }));
+
+    if (escolha?.tipo === 'nao-sei') {
+      /* §4.4/D5 — "não sei" é resposta, não desistência: registra a
+         pendência, bloqueia o código para ajuste, não movimenta nada. */
+      const r = await chamar<{ erro?: string }>(
+        conexao, 'POST', `/api/inventarios/${id}/nao-identificado`, { sku, qtd: contado },
+      ).catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui registrar.' }));
+      setOcupado(null);
+      if (r && 'erro' in r && r.erro) setErro(String(r.erro));
+      else detalhe.recarregar();
+      return;
+    }
+
+    const corpo: Record<string, unknown> = { sku, contado };
+    if (escolha?.tipo === 'variacao') {
+      corpo.variacao = escolha.variacao;
+      corpo.varianteId = escolha.varianteId;
+    }
+
+    const r = await chamar<{ erro?: string }>(
+      conexao, 'POST', `/api/inventarios/${id}/itens`, corpo,
+    ).catch((e: unknown) => {
+      /* `chamar` embrulha o corpo da resposta em `corpo` — é de lá que sai
+         a lista de variações que o servidor ofereceu. */
+      const det = e as { status?: number; corpo?: { erro?: string; variacoes?: unknown } };
+      const vs = det?.corpo?.variacoes;
+      if (det?.status === 409 && Array.isArray(vs) && vs.length) {
+        return { pedirVariacao: vs as PedidoDeVariacao['variacoes'] };
+      }
+      return { erro: e instanceof Error ? e.message : 'Não consegui gravar a contagem.' };
+    });
     setOcupado(null);
+
+    if (r && 'pedirVariacao' in r && r.pedirVariacao) {
+      const linha = esperados.find((e) => e.sku === sku);
+      setPerguntandoVariacao({
+        sku,
+        desc: linha?.desc ?? sku,
+        contado,
+        variacoes: r.pedirVariacao,
+      });
+      return;
+    }
     if (r && 'erro' in r && r.erro) setErro(String(r.erro));
     else detalhe.recarregar();
   }
@@ -574,6 +629,18 @@ function Contagem({
           );
         })}
       </div>
+
+      {perguntandoVariacao && (
+        <DialogoDeVariacao
+          pedido={perguntandoVariacao}
+          aoCancelar={() => setPerguntandoVariacao(null)}
+          aoConfirmar={(escolha) => {
+            const pedido = perguntandoVariacao;
+            setPerguntandoVariacao(null);
+            contar(pedido.sku, pedido.contado, escolha);
+          }}
+        />
+      )}
 
       <div className="mq-card__foot count-summary">
         <span><small>Faltando</small><strong>{resumo.faltando}</strong></span>
