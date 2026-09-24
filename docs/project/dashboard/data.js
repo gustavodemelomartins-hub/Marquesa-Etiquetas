@@ -7,6 +7,32 @@ window.MARQUESA_V2 = {
     "branch": "claude/review-marquesa-v2",
     "recentes": [
       {
+        "commit": "b2cbc1d",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(inventario): a câmera do painel clássico, agora dentro da V2",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "e839aba",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(harness): REV-002 registrar paridade final",
+        "agente": "",
+        "taskIds": [
+          "REV-002"
+        ]
+      },
+      {
+        "commit": "f93a23a",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(release): o roteiro de produção, medido contra o banco real",
+        "agente": "",
+        "taskIds": []
+      },
+      {
         "commit": "3fbe0ca",
         "data": "2026-09-24",
         "autor": "gustavodemelomartins-hub",
@@ -183,30 +209,6 @@ window.MARQUESA_V2 = {
         "data": "2026-09-23",
         "autor": "gustavodemelomartins-hub",
         "assunto": "feat(sales): unify launch modes in v2",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "3f3ee8c",
-        "data": "2026-09-23",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(inventory): complete persistent physical inventory flow",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "6a26e2b",
-        "data": "2026-09-23",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(stock): bring stock overview to prototype parity",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "d68b076",
-        "data": "2026-09-23",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(shell): align v2 header with approved prototype",
         "agente": "",
         "taskIds": []
       }
@@ -404,9 +406,9 @@ window.MARQUESA_V2 = {
       "id": "REV-002",
       "estado": "IN PROGRESS",
       "dominio": "Revendedoras",
-      "titulo": "React de Revendedoras — convergência com o protótipo e acerto seguro (ownership Codex; frontend publicado no DEV)",
+      "titulo": "React de Revendedoras — paridade estrutural do perfil e da visão geral com o protótipo, usando dados reais; acerto seguro (ownership Codex; frontend publicado e validado no DEV)",
       "contexto": "frontend/src/features/revendedoras/, frontend/src/features/maletas/, api/src/maletas-comandos.js",
-      "nota": "Pages c59bfc3 validado com dados reais; falta uma pessoa publicar o Worker com npx wrangler deploy --env staging-v2 para ativar as travas novas do acerto"
+      "nota": "Perfil e visão geral publicados nos commits 2e16b65 + 5156379; Pages 73d8a831-4bcd-4c43-898b-8ea509149c86 validado visualmente. Resta uma pessoa publicar o Worker com npx wrangler deploy --env staging-v2 para ativar as travas novas do acerto"
     },
     {
       "id": "NUV-001",
@@ -1474,9 +1476,9 @@ window.MARQUESA_V2 = {
           "id": "REV-002",
           "estado": "IN PROGRESS",
           "dominio": "Revendedoras",
-          "titulo": "React de Revendedoras — convergência com o protótipo e acerto seguro (ownership Codex; frontend publicado no DEV)",
+          "titulo": "React de Revendedoras — paridade estrutural do perfil e da visão geral com o protótipo, usando dados reais; acerto seguro (ownership Codex; frontend publicado e validado no DEV)",
           "contexto": "frontend/src/features/revendedoras/, frontend/src/features/maletas/, api/src/maletas-comandos.js",
-          "nota": "Pages c59bfc3 validado com dados reais; falta uma pessoa publicar o Worker com npx wrangler deploy --env staging-v2 para ativar as travas novas do acerto"
+          "nota": "Perfil e visão geral publicados nos commits 2e16b65 + 5156379; Pages 73d8a831-4bcd-4c43-898b-8ea509149c86 validado visualmente. Resta uma pessoa publicar o Worker com npx wrangler deploy --env staging-v2 para ativar as travas novas do acerto"
         }
       ],
       "paridade": [
@@ -2347,6 +2349,15 @@ window.MARQUESA_V2 = {
       "branch": "develop",
       "commits": "c59bfc3",
       "status": "FRONTEND PUBLICADO NO DEV — Worker preparado, publicação humana pendente",
+      "taskIds": []
+    },
+    {
+      "agente": "Codex",
+      "data": "2026-09-24",
+      "titulo": "REV-002 · nova rodada de paridade estrutural",
+      "branch": "develop",
+      "commits": "2e16b65, 5156379",
+      "status": "PERFIL E VISÃO GERAL PUBLICADOS E VALIDADOS NO DEV",
       "taskIds": []
     },
     {

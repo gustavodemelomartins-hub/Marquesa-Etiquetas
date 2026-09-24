@@ -98,6 +98,59 @@ O roteiro de amanhã, com a ordem exata, o backup, o rollback e o smoke, está
 em [`docs/releases/RC-V2-2026-09-24.md`](../releases/RC-V2-2026-09-24.md).
 Produção não recebeu uma única escrita nesta sessão.
 
+### A câmera — migrada, não reinventada
+
+Descoberta no meio da rodada: a mecânica de bipar etiqueta pela câmera já
+existia no painel clássico, em produção, e está ajustada na mão da
+Sthefany. A tarefa deixou de ser "escrever um scanner" e virou "migrar sem
+perder as decisões".
+
+O que se perderia num scanner novo não aparece em diff nenhum: a resolução
+pedida explicitamente (em 640×480 a etiqueta de bijuteria não tem barras
+suficientes), a ordem das quatro tentativas por quadro (o quadro inteiro
+ANTES da mira, porque recortar corta as marcas de início e fim do código
+quando a peça está perto), o giro de 90° (etiqueta de bijuteria cai deitada
+no quadro com o celular em pé), as `hints` passadas em toda chamada de
+`decode` (sem isso o ZXing redefine as configurações e perde o
+`TRY_HARDER`), e a janela de 1800 ms do antirrepique.
+
+Tudo isso foi portado com os comentários. O ZXing é o MESMO arquivo —
+`/vendor/zxing.min.js`, que o navegador dela já tem em cache de quando abriu
+o painel antigo.
+
+**O que precisou mudar, e por quê.** O clássico acumulava a contagem em
+memória e mandava o retrato inteiro no fim, por `PUT /contagem`. A V2 grava
+cada leitura na hora, por `POST /itens` — a mesma rota do `+` da lista. Não
+é preferência: `/itens` grava valor ABSOLUTO, então a bipada lê o contado
+atual e manda o próximo. Mandar sempre `1` transformaria dez peças iguais
+em uma. E `/contagem` não conhece variação.
+
+A camada ficou compartilhável de propósito — captura → decodificação →
+antirrepique → `aoLer(codigo)` —, com README para o Codex consumir em
+Revendedoras sem escrever um segundo leitor.
+
+**Dois problemas estruturais achados, documentados em vez de contornados:**
+
+1. `findProd` aplica as três transformações de código de forma
+   independente. Uma etiqueta antiga de peça com aro (`0230076-17`) não
+   resolve por nenhum caminho — hoje, em produção, ela não é encontrada. A
+   V2 acrescenta um quarto candidato que entra por último e só alcança
+   leituras que antes não achavam nada. O clássico continua com o buraco.
+2. `PUT /contagem` começa com `DELETE` e reescreve tudo com `variacao: ''`.
+   Se o painel clássico salvar sobre um inventário que a V2 contou por
+   variação, a contagem por variação some. Enquanto os dois painéis
+   existirem, **um inventário aberto pertence a um painel só** — e há uma
+   prova que falha se alguém introduzir essa rota na V2.
+
+E uma perda registrada: a V2 não tem onde anotar um código fora do
+catálogo. `desconhecidos_json` só é escrito pela rota em lote, e
+`/nao-identificado` recusa SKU inexistente. A V2 mostra a recusa do
+servidor e não bloqueia a contagem, mas não anota. Fechar isso é uma rota
+nova.
+
+Detalhe completo em
+[docs/domains/SCANNER_ETIQUETAS.md](../domains/SCANNER_ETIQUETAS.md).
+
 ### Convivência com o Codex
 
 `develop` carrega as duas frentes sem perda. O rebase foi limpo porque os
