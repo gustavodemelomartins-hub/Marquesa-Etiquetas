@@ -269,6 +269,14 @@ uma fila de gravações concorrentes sobre a mesma linha.
 | **sem câmera** | o botão não aparece (`temCamera()`), e a digitação continua |
 | **permissão negada** | frase explícita mandando liberar nos ajustes, e a digitação continua |
 
-A prova de que o caminho do iPhone funciona está em `src/e2e.mjs`: ele
-**apaga** `window.BarcodeDetector`, força o ZXing e decodifica uma etiqueta
-gerada pelo próprio app — reta, em pé, de cabeça para baixo e de longe.
+A prova de que o caminho do iPhone funciona existe nos dois painéis, e nos
+dois ela **apaga** `window.BarcodeDetector` para forçar o ZXing:
+
+- **clássico** — `src/e2e.mjs`: decodifica uma etiqueta gerada pelo próprio
+  app, reta, em pé, de cabeça para baixo e de longe;
+- **V2** — `src/v2-camera-e2e.mjs`: alimenta a câmera do Chromium com um
+  Y4M feito do CODE128 real da peça e conta pelo bundle **publicado**,
+  primeiro com o detector nativo e depois sem ele.
+
+Um roteiro que provasse só o caminho comum e dissesse "funciona no iPhone"
+seria esperança, não prova — e o iPhone é o aparelho dela.

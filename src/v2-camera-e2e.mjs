@@ -256,6 +256,63 @@ try {
     `reabrir continuou o mesmo inventário #${invId}, com ${aindaLa?.contado} já contado`);
 
   prova(errosJs.length === 0, `nenhum erro de JavaScript${errosJs.length ? `: ${errosJs[0]}` : ''}`);
+  await p.close();
+
+  /* ══════════════════════════════ 6. O CAMINHO DO IPHONE, à força
+   *
+   *  Tudo acima rodou no Chromium, que tem `BarcodeDetector` nativo — o
+   *  caminho do Android. O Safari do iPhone NÃO tem, e é o aparelho que ela
+   *  usa: lá quem lê é o ZXing, baixado de `/vendor/zxing.min.js`.
+   *
+   *  Provar o caminho comum e chamar de "funciona no iPhone" seria
+   *  esperança, não prova. Então o detector nativo é APAGADO antes de a
+   *  página carregar, exatamente como o e2e do painel clássico faz, e a
+   *  bipada é refeita com o outro leitor. */
+  const ctxIphone = await navegador.newContext({
+    viewport: { width: 390, height: 844 },
+    permissions: ['camera'],
+    isMobile: true, hasTouch: true, deviceScaleFactor: 2,
+  });
+  await ctxIphone.addInitScript(([url, key]) => {
+    localStorage.setItem('marquesa_conexao_v1', JSON.stringify({ url, key }));
+    // eslint-disable-next-line no-delete-var
+    delete window.BarcodeDetector;
+  }, [API, KEY]);
+
+  const pi = await ctxIphone.newPage();
+  const errosIphone = [];
+  pi.on('pageerror', (e) => errosIphone.push(e.message));
+  await pi.goto(`${APP}#/estoque/inventario`, { waitUntil: 'networkidle' });
+  await pi.waitForTimeout(2500);
+  prova(
+    await pi.evaluate(() => !('BarcodeDetector' in window)),
+    'o detector nativo foi apagado — daqui para a frente é o caminho do iPhone',
+  );
+
+  await pi.getByRole('button', { name: /Abrir câmera/ }).click();
+  await pi.getByRole('region', { name: 'Leitor de etiquetas' }).waitFor({ timeout: 20000 });
+  await pi.waitForTimeout(3000);
+  prova(
+    await pi.evaluate(() => !!window.ZXing),
+    'o ZXing foi baixado de /vendor/zxing.min.js, como no painel clássico',
+  );
+
+  /* A contagem estava em 3 e o inventário é o mesmo. Se o ZXing ler, ela
+     sobe — e é isso que se quer saber. */
+  const antesIphone = (await api(`/api/inventarios/${invId}`)).json?.contagem
+    ?.find((c) => c.sku === alvo.sku)?.contado ?? 0;
+  let depoisIphone = null;
+  for (let i = 0; i < 40 && depoisIphone === null; i += 1) {
+    await pi.waitForTimeout(500);
+    const d = await api(`/api/inventarios/${invId}`);
+    const linha = (d.json?.contagem ?? []).find((c) => c.sku === alvo.sku);
+    if (linha && linha.contado > antesIphone) depoisIphone = linha.contado;
+  }
+  prova(depoisIphone !== null,
+    `o ZXing leu a etiqueta e contou (${antesIphone} → ${depoisIphone}) — o caminho do iPhone funciona`);
+  await pi.screenshot({ path: `${FOTOS}/15-caminho-iphone.png` });
+  prova(errosIphone.length === 0,
+    `nenhum erro de JavaScript no caminho do ZXing${errosIphone.length ? `: ${errosIphone[0]}` : ''}`);
 } catch (e) {
   prova(false, `roteiro interrompido: ${e.message}`);
 } finally {
