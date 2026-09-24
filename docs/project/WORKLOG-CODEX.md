@@ -164,8 +164,8 @@ Plan §17).
 | | |
 |---|---|
 | Branch | `develop` |
-| Commit | **em andamento** |
-| Status | **EM ANDAMENTO — ownership Codex; somente DEV** |
+| Commit | `c59bfc3` |
+| Status | **FRONTEND PUBLICADO NO DEV — Worker preparado, publicação humana pendente** |
 
 **Estado inicial:** a V2 usava nomes de pessoas como abas, a composição da
 visão geral já lia dados reais mas divergia do protótipo, e a ficha ainda
@@ -184,15 +184,22 @@ de maleta. O servidor agora exige `devolvidas + destinadas = enviadas` por SKU
 e usa `acerto:maleta:<id>` como identidade única da venda para impedir retry ou
 duplo clique de criar venda duplicada.
 
-**Validações já executadas:** 27 testes React de Revendedoras/rotas verdes,
-4 testes puros da distribuição do acerto verdes e build React verde. O teste
-integrado `src/revendedoras-test.mjs` foi tentado sem Worker local e recusou
-conexão em `127.0.0.1:8787`; será repetido pelo runner integrado que sobe D1 e
-Worker descartáveis.
+**Validações executadas:** 293/293 testes React verdes; 27 testes focados de
+Revendedoras/rotas; 5 provas puras de distribuição, identidade e limpeza de
+órfãos do acerto; build React verde; baseline fast 11/11. O catálogo do runner
+integrado não possui gate automático de Worker. A tentativa manual do teste
+integrado sem Worker aberto recusou conexão em `127.0.0.1:8787`, sem executar
+escrita alguma.
 
-**Evidência/blockers:** nenhum dado real foi alterado e PROD não foi tocada.
-O protótipo continua em edição externa; por isso o acabamento visual final
-depende de uma última sincronização e releitura imediatamente antes do deploy.
+**Evidência/blockers:** Pages DEV `d3688d59-888d-4edf-a97b-e91d80a66b3d`
+publicou o commit `c59bfc3`. Comparação visual final feita contra o protótipo
+mais recente e `/v2/?v=c59bfc3#/revendedoras`, com dados reais: visão geral,
+lista, ficha e abertura da conferência de acerto verificadas. `GET /api/health`
+do Worker `staging-v2` responde `ok`; ele continua na versão
+`d4cb570b-6954-4126-91cd-7838024898ce` até uma pessoa executar
+`npx wrangler deploy --env staging-v2`, exigência das skills versionadas de
+deploy. Nenhum dado real foi alterado e PROD não foi tocada. Rollback do
+frontend: deployment Pages anterior `27e66776-0394-4292-a226-98d494b1604d`.
 
 ---
 

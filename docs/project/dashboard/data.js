@@ -7,6 +7,16 @@ window.MARQUESA_V2 = {
     "branch": "develop",
     "recentes": [
       {
+        "commit": "c59bfc3",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(revendedoras): REV-002 concluir módulo e acerto seguro",
+        "agente": "",
+        "taskIds": [
+          "REV-002"
+        ]
+      },
+      {
         "commit": "588a22b",
         "data": "2026-09-24",
         "autor": "gustavodemelomartins-hub",
@@ -195,14 +205,6 @@ window.MARQUESA_V2 = {
         "data": "2026-09-20",
         "autor": "gustavodemelomartins-hub",
         "assunto": "merge: V2 com a arquitetura do protótipo — Vendas inteira, fila de publicação, garantias e o manifesto de paridade",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "049c1e2",
-        "data": "2026-09-20",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "test(v2): a corrente cliente → venda → financeiro → estoque, no telefone",
         "agente": "",
         "taskIds": []
       }
@@ -400,9 +402,9 @@ window.MARQUESA_V2 = {
       "id": "REV-002",
       "estado": "IN PROGRESS",
       "dominio": "Revendedoras",
-      "titulo": "React de Revendedoras — convergência com o protótipo e acerto seguro (ownership Codex; em andamento)",
+      "titulo": "React de Revendedoras — convergência com o protótipo e acerto seguro (ownership Codex; frontend publicado no DEV)",
       "contexto": "frontend/src/features/revendedoras/, frontend/src/features/maletas/, api/src/maletas-comandos.js",
-      "nota": "arquitetura, contratos e testes focados implementados; falta validação integrada/local, comparação visual final e publicação DEV"
+      "nota": "Pages c59bfc3 validado com dados reais; falta uma pessoa publicar o Worker com npx wrangler deploy --env staging-v2 para ativar as travas novas do acerto"
     },
     {
       "id": "NUV-001",
@@ -1470,9 +1472,9 @@ window.MARQUESA_V2 = {
           "id": "REV-002",
           "estado": "IN PROGRESS",
           "dominio": "Revendedoras",
-          "titulo": "React de Revendedoras — convergência com o protótipo e acerto seguro (ownership Codex; em andamento)",
+          "titulo": "React de Revendedoras — convergência com o protótipo e acerto seguro (ownership Codex; frontend publicado no DEV)",
           "contexto": "frontend/src/features/revendedoras/, frontend/src/features/maletas/, api/src/maletas-comandos.js",
-          "nota": "arquitetura, contratos e testes focados implementados; falta validação integrada/local, comparação visual final e publicação DEV"
+          "nota": "Pages c59bfc3 validado com dados reais; falta uma pessoa publicar o Worker com npx wrangler deploy --env staging-v2 para ativar as travas novas do acerto"
         }
       ],
       "paridade": [
@@ -2332,8 +2334,8 @@ window.MARQUESA_V2 = {
       "data": "2026-09-24",
       "titulo": "REV-002 · Revendedoras V2 e acerto seguro",
       "branch": "develop",
-      "commits": "em andamento",
-      "status": "EM ANDAMENTO — ownership Codex; somente DEV",
+      "commits": "c59bfc3",
+      "status": "FRONTEND PUBLICADO NO DEV — Worker preparado, publicação humana pendente",
       "taskIds": []
     },
     {
