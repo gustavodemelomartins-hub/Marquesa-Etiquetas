@@ -84,17 +84,17 @@ problema que resolvia.
 
 **Colocar tudo no `CLAUDE.md`.** Descartada: ele entra em toda conversa, e
 cada linha é paga em toda tarefa. Ver
-[CLAUDE_CONTEXT_STRATEGY.md](../CLAUDE_CONTEXT_STRATEGY.md).
+[CLAUDE_CONTEXT_STRATEGY.md](../operations/CLAUDE_CONTEXT_STRATEGY.md).
 
 **Instalar um conjunto amplo de skills externas.** Descartada: cada skill
 custa contexto em toda sessão, e várias mandam código para serviços
 externos. Foram recomendadas duas, e nove **removidas** —
-[CLAUDE_SKILLS.md](../CLAUDE_SKILLS.md).
+[CLAUDE_SKILLS.md](../operations/CLAUDE_SKILLS.md).
 
 **Corrigir de passagem os problemas encontrados** (o `executablePath` fixo
 dos testes, o CRLF do `build.py`, o `python3` no `package.json`). Descartada
 por ser alteração de código, fora do escopo declarado. Registrados em
-[TECH_DEBT.md](../TECH_DEBT.md) com a correção já escrita, prontos para
+[TECH_DEBT.md](../architecture/TECH_DEBT.md) com a correção já escrita, prontos para
 serem aplicados quando alguém autorizar.
 
 ---

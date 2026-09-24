@@ -8,6 +8,8 @@
  *
  *  Fluxo: https://tiendanube.github.io/api-documentation/authentication
  */
+import { lerConfig } from './plataforma/config.js';
+
 const USER_AGENT = 'Marquesa Semijoias (contato via github.com/gustavodemelomartins-hub/Marquesa-Etiquetas)';
 
 /** GET /api/nuvemshop/callback?code=...
@@ -23,8 +25,9 @@ const USER_AGENT = 'Marquesa Semijoias (contato via github.com/gustavodemelomart
  *  aqui vale o mesmo princípio do resto do sistema: chave de acesso não é
  *  algo que se move sozinho de um lugar para o outro. */
 export async function trocarCodigoPorToken(env, code) {
-  const clientId = String(env.NUVEMSHOP_CLIENT_ID || '').trim();
-  const clientSecret = String(env.NUVEMSHOP_CLIENT_SECRET || '').trim();
+  const cfg = lerConfig(env).nuvemshop;
+  const clientId = cfg.clientId;
+  const clientSecret = cfg.clientSecret;
   if (!clientId || !clientSecret) {
     return html(erroPagina('Faltam NUVEMSHOP_CLIENT_ID e/ou NUVEMSHOP_CLIENT_SECRET nos Secrets do Worker. '
       + 'Eles vêm da tela "Chaves de acesso" do app, no painel de parceiro — App ID e Client Secret.'));
@@ -36,7 +39,7 @@ export async function trocarCodigoPorToken(env, code) {
 
   // NUVEMSHOP_AUTH_BASE existe só para o teste apontar para uma loja de
   // mentira local; fora do teste ninguém define e vale o endereço real.
-  const base = String(env.NUVEMSHOP_AUTH_BASE || 'https://www.tiendanube.com').replace(/\/+$/, '');
+  const base = cfg.authBase;
   const resp = await fetch(`${base}/apps/authorize/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },

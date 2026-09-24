@@ -121,7 +121,7 @@ eq('com o valor vendido de verdade (30 × R$ 50)', /R\$ 1\.500\b/.test(top), 'tr
    corrigido aqui de propósito: exige decidir o que fazer com acertos
    históricos importados, que não guardam "enviadas" (schema.sql não tem
    essa coluna em historico_operacoes) — decisão de negócio, não bug de
-   uma linha. Ver PRE_STAGING_GATE.md § Revendedoras. */
+   uma linha. Ver docs/releases/PRE_STAGING_GATE.md § Revendedoras. */
 eq('e o giro em cima do que saiu (30 de 40)', /75%/.test(top), 'true');
 eq('Ana continua fora, porque não tem ciclo fechado',
   /revendedora ainda n[ãa]o tem acerto fechado|revendedoras ainda n[ãa]o t[êe]m acerto fechado/.test(top), 'true');

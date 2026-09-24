@@ -6,6 +6,9 @@
  *  Documentação: https://tiendanube.github.io/api-documentation/intro
  */
 
+import { lerConfig } from './plataforma/config.js';
+import { normSku } from './sku.js';
+
 const VERSAO_API = '2025-03';
 
 /** O User-Agent é obrigatório: sem ele a API responde 400, não 401 — o que
@@ -75,12 +78,16 @@ export class NuvemshopEscritaDesativada extends Error {
 
 export class Nuvemshop {
   constructor(env) {
-    this.loja = String(env.NUVEMSHOP_STORE_ID || '').trim();
-    this.token = String(env.NUVEMSHOP_TOKEN || '').trim();
+    /* A leitura e a normalização do ambiente moram em
+       plataforma/config.js — um lugar só, para que nenhum módulo entenda a
+       mesma variável de um jeito diferente. */
+    const cfg = lerConfig(env).nuvemshop;
+    this.loja = cfg.loja;
+    this.token = cfg.token;
     // NUVEMSHOP_BASE existe para o teste poder subir uma loja de mentira no
     // próprio computador. Fora do teste ninguém define, e vale o endereço
     // de verdade.
-    const raiz = String(env.NUVEMSHOP_BASE || 'https://api.nuvemshop.com.br').replace(/\/+$/, '');
+    const raiz = cfg.base;
     this.base = `${raiz}/${VERSAO_API}/${this.loja}`;
     // A API de pedidos 2025-03 ainda é liberada loja por loja. Esta loja já
     // usa 2025-03 para catálogo/estoque, mas /orders responde 404 nela. O v1
@@ -105,7 +112,7 @@ export class Nuvemshop {
     // Fail-closed de propósito (não fail-open): qualquer coisa que não seja
     // exatamente a string "true" — ausente, "false", "1", "TRUE" — mantém a
     // escrita desligada. Só um "true" exato liga. Ver docs/SECURITY.md.
-    this.escritaHabilitada = String(env.NUVEMSHOP_WRITES_ENABLED || '').trim() === 'true';
+    this.escritaHabilitada = cfg.escritaHabilitada;
   }
 
   configurada() { return !!(this.loja && this.token); }
@@ -196,6 +203,66 @@ export class Nuvemshop {
     return this.listarTudo('/orders', p, 40, { apiPedidos: true });
   }
 
+  /* ================================================================== */
+  /* CATÁLOGO — escrita (Fase 4.5)                                       */
+  /* ================================================================== */
+  /*
+   *  Antes desta fase o cliente tinha TRÊS operações: ler produtos, ler
+   *  pedidos e escrever estoque. `analisarSincronizacao` produzia uma lista
+   *  `criarNaLoja` que era relatório, não comando — não havia com o que
+   *  executá-la.
+   *
+   *  Estes métodos são o transporte que faltava, e nada mais: quem decide o
+   *  que publicar, quando e com qual freio é `catalogo/publicador.js`. Todos
+   *  passam por `chamar`, logo todos param antes do fetch se
+   *  `NUVEMSHOP_WRITES_ENABLED` não for exatamente "true".
+   */
+
+  /** As categorias da loja. Leitura apenas — hoje as categorias daqui e as
+   *  de lá não se falam, e decidir quem manda é decisão comercial pendente
+   *  (§ 15 do desenho da 4.5). Existe para a decisão ter dado. */
+  categorias() { return this.listarTudo('/categories'); }
+
+  produto(id) { return this.chamar(`/products/${id}`); }
+
+  criarProduto(corpo) {
+    return this.chamar('/products', { method: 'POST', body: JSON.stringify(corpo) });
+  }
+
+  atualizarProduto(id, corpo) {
+    return this.chamar(`/products/${id}`, { method: 'PUT', body: JSON.stringify(corpo) });
+  }
+
+  /** Publicar e despublicar são o MESMO campo (`published`), e por isso os
+   *  dois métodos existem separados: no código de quem chama, "tirar do ar"
+   *  precisa ser um ato com nome, não um booleano invertido no meio de um
+   *  objeto. */
+  publicarProduto(id) {
+    return this.atualizarProduto(id, { published: true });
+  }
+
+  despublicarProduto(id) {
+    return this.atualizarProduto(id, { published: false });
+  }
+
+  criarVariante(produtoId, corpo) {
+    return this.chamar(`/products/${produtoId}/variants`, { method: 'POST', body: JSON.stringify(corpo) });
+  }
+
+  atualizarVariante(produtoId, varianteId, corpo) {
+    return this.chamar(`/products/${produtoId}/variants/${varianteId}`,
+      { method: 'PUT', body: JSON.stringify(corpo) });
+  }
+
+  /** Imagem por base64 — a foto original mora no R2 atrás da chave da API,
+   *  então a loja não consegue baixar uma URL nossa. */
+  enviarImagem(produtoId, { base64, filename, position }) {
+    return this.chamar(`/products/${produtoId}/images`, {
+      method: 'POST',
+      body: JSON.stringify({ attachment: base64, filename, position }),
+    });
+  }
+
   /** Escrita em lote de estoque. Um PATCH resolve vários produtos de uma
    *  vez, o que importa muito com 2 requisições por segundo: mandar um por
    *  produto levaria 5 minutos para os 600 da loja. */
@@ -235,7 +302,7 @@ export function mapearSkus(produtos) {
   for (const p of produtos || []) {
     const variantes = p.variants || [];
     const comSku = variantes
-      .map(v => ({ v, sku: String(v.sku || '').trim().toUpperCase() }))
+      .map(v => ({ v, sku: normSku(v.sku) }))
       .filter(x => x.sku);
     const semSku = variantes.length - comSku.length;
 

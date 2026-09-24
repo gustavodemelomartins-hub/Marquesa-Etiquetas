@@ -23,6 +23,7 @@ const EFEITO = {
   dano: -1,
   furto: -1,
   brinde: -1,
+  sorteio: -1,
   /* §30: retirada pessoal. Sai do estoque exatamente como um brinde sai —
      o que muda não é o efeito, é o que a saída SIGNIFICA: ela não é venda,
      não tem cliente e não entra em faturamento nenhum. Existe como tipo
@@ -37,7 +38,7 @@ const EFEITO = {
 /** Os tipos que representam saída SEM faturamento (§30). Nenhum deles é
  *  venda; nenhum deles pode aparecer numa soma de dinheiro. Está aqui, e
  *  não espalhado em cada consulta, para a lista ter um dono só. */
-export const TIPOS_SEM_FATURAMENTO = new Set(['brinde', 'uso_proprio', 'perda']);
+export const TIPOS_SEM_FATURAMENTO = new Set(['brinde', 'uso_proprio', 'perda', 'sorteio']);
 
 export function efeitoDe(tipo, quantidade) {
   const sinal = EFEITO[tipo];
@@ -88,10 +89,104 @@ export async function consignadoDoSku(db, sku) {
 export async function saldosDoSku(db, sku) {
   const p = await db.prepare(`SELECT sku, desc, preco, qtd FROM produtos WHERE sku = ?`).bind(sku).first();
   if (!p) return null;
+  const montagem = await saldosDaConfiguracao(db, sku, p);
+  if (montagem) return montagem;
   const kit = await saldosDoKit(db, sku, p);
   if (kit) return kit;
   const consignado = await consignadoDoSku(db, sku);
   return { ...p, consignado, disponivel: p.qtd - consignado };
+}
+
+/** Os dois jeitos de um SKU não ter saldo próprio: kit e configuração
+ *  montável. Existe como função porque três lugares precisam recusar os
+ *  dois — maleta, troca de garantia e inventário —, e três cópias da
+ *  condição viram duas cópias na primeira vez que alguém esquecer uma. */
+export const semSaldoProprio = (s) => !!(s && (s.componentes || s.montagem));
+
+/** ----------------------------------------------- configurações montáveis
+ *  §42 — Monte seu Colar. Uma configuração comercial (o "Colar Casal") é
+ *  identidade de venda, não peça: ela tem SKU, nome, preço e foto, e NÃO
+ *  tem saldo físico próprio. Contá-la como estoque somaria uma segunda vez
+ *  as mesmas venezianas e pingentes que já estão contados.
+ *
+ *  A diferença para um kit é a composição: o kit nomeia SKUs fixos, e a
+ *  configuração declara SLOTS TIPADOS — "duas peças do grupo Menino" —,
+ *  preenchidos na venda com as cores que existirem.
+ *
+ *      disponível(configuração) = min(
+ *          disponível(veneziana),
+ *          para cada grupo G com k slots:  floor( Σ disponível(G) / k )
+ *      )
+ *
+ *  A soma dentro do grupo, e não o mínimo, porque repetir a mesma cor é
+ *  permitido (decisão de 2026-09-10): dois pingentes azuis montam um "Dois
+ *  Meninos" tanto quanto um azul e um verde.
+ */
+export async function configuracaoDoSku(db, sku) {
+  /* Sem filtrar por `ativo`: uma configuração desativada continua sendo
+     configuração. Filtrar aqui faria o SKU voltar a ser lido como produto
+     comum e o saldo legado dele virar estoque vendável — exatamente a dupla
+     contagem que este caminho existe para impedir. */
+  const m = await db.prepare(
+    `SELECT id, slug, nome, base_sku_padrao, preco_sugerido, ativo
+       FROM personalizacao_modelos
+      WHERE sku_comercial = ? LIMIT 1`
+  ).bind(sku).first();
+  if (!m) return null;
+  const slots = (await db.prepare(
+    `SELECT grupo, qtd, ordem FROM personalizacao_slots WHERE modelo_id = ? ORDER BY ordem, grupo`
+  ).bind(m.id).all()).results || [];
+  const opcoes = (await db.prepare(
+    `SELECT componente_sku, grupo FROM personalizacao_opcoes
+      WHERE modelo_id = ? AND ativo = 1 ORDER BY ordem, id`
+  ).bind(m.id).all()).results || [];
+  return {
+    id: Number(m.id), slug: m.slug, nome: m.nome,
+    ativo: !!m.ativo,
+    skuComercial: sku,
+    baseSku: m.base_sku_padrao,
+    preco: m.preco_sugerido == null ? null : Number(m.preco_sugerido),
+    slots: slots.map((s) => ({ grupo: s.grupo, qtd: Number(s.qtd), ordem: Number(s.ordem) })),
+    opcoes: opcoes.map((o) => ({ componenteSku: o.componente_sku, grupo: o.grupo })),
+  };
+}
+
+/** Quantas montagens os componentes sustentam. `disponivelDe` existe para o
+ *  chamador poder descontar o que OUTRAS linhas do mesmo carrinho já
+ *  reservaram — validar contra o banco aprovaria as duas, porque o banco só
+ *  muda no batch, lá no fim. */
+export async function montagensPossiveis(db, cfg, disponivelDe = null) {
+  const saldo = async (sku) => {
+    const s = await saldosDoSku(db, sku);
+    const bruto = s ? s.disponivel : 0;
+    return disponivelDe ? disponivelDe(sku, bruto) : bruto;
+  };
+  /* Configuração sem base ou sem slots é cadastro pela metade. Zero é a
+     resposta honesta: ela não pode ser montada, e devolver o saldo da base
+     diria que dá para vender um colar sem pingente nenhum. */
+  if (!cfg.baseSku || !cfg.slots.length) return 0;
+  let limite = await saldo(cfg.baseSku);
+  for (const slot of cfg.slots) {
+    const elegiveis = cfg.opcoes.filter((o) => o.grupo === slot.grupo);
+    let soma = 0;
+    for (const o of elegiveis) soma += Math.max(0, await saldo(o.componenteSku));
+    limite = Math.min(limite, Math.floor(soma / slot.qtd));
+  }
+  return Math.max(0, limite);
+}
+
+/** O saldo de uma configuração: `qtd` e `consignado` são SEMPRE 0, porque
+ *  ela não é peça. `produtos.qtd` é deliberadamente ignorado — um saldo
+ *  legado ali é resíduo a reconciliar, nunca estoque a vender. */
+export async function saldosDaConfiguracao(db, sku, produto) {
+  const cfg = await configuracaoDoSku(db, sku);
+  if (!cfg) return null;
+  return {
+    sku, desc: produto.desc, preco: produto.preco,
+    qtd: 0, consignado: 0,
+    disponivel: cfg.ativo ? await montagensPossiveis(db, cfg) : 0,
+    montagem: cfg,
+  };
 }
 
 /** ------------------------------------------------------------------ kits

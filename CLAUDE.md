@@ -55,24 +55,26 @@ política revogada nem contradizer as duas fontes canônicas do item 3.
 ## Onde procurar informação
 
 ```
-Plano mestre       → docs/PLANO-MESTRE-MARQUESA.md   (estado, go-live, backlog)
+Índice da documentação → docs/README.md   (taxonomia e precedência)
+Plano mestre       → docs/architecture/MASTER-PLAN-SISTEMA-MARQUESA-2026-09.md
+Plano do go-live   → docs/archive/PLANO-MESTRE-MARQUESA.md   (histórico)
 Regras de negócio  → api/REGRAS.md
-Arquitetura        → docs/ARCHITECTURE.md
-Frontend React/TS  → docs/FRONTEND_ARCHITECTURE.md
-Banco              → docs/DATA_MODEL.md
-Nuvemshop          → docs/NUVEMSHOP_INTEGRATION.md
-Sincronização      → docs/SYNC_ENGINE.md
-Reconciliação      → docs/RECONCILIATION_ENGINE.md   (backend do Apply existe, tela ainda não)
+Arquitetura        → docs/architecture/ARCHITECTURE.md
+Frontend React/TS  → docs/architecture/FRONTEND_ARCHITECTURE.md
+Banco              → docs/architecture/DATA_MODEL.md
+Nuvemshop          → docs/domains/NUVEMSHOP_INTEGRATION.md
+Sincronização      → docs/domains/SYNC_ENGINE.md
+Reconciliação      → docs/domains/RECONCILIATION_ENGINE.md   (backend do Apply existe, tela ainda não)
 Segurança          → docs/SECURITY.md
-Backup / restore   → docs/BACKUP_RECOVERY.md
-Testes             → docs/TESTING.md   (baseline em docs/BASELINE.md)
-Ambiente local     → docs/DEVELOPMENT.md
-Dívida técnica     → docs/TECH_DEBT.md
-Próxima fase       → docs/ROADMAP_RECONCILIATION.md
+Backup / restore   → docs/operations/BACKUP_RECOVERY.md
+Testes             → docs/testing/TESTING.md   (baseline em docs/testing/BASELINE.md)
+Ambiente local     → docs/operations/DEVELOPMENT.md
+Dívida técnica     → docs/architecture/TECH_DEBT.md
+Próxima fase       → docs/domains/ROADMAP_RECONCILIATION.md
 Publicar a API     → api/DEPLOY.md
 Montar o dashboard → src/README.md
 Camada agentic     → .claude/README.md   (permissões, hooks, modelos)
-WSL2 / sandbox     → docs/WSL2_MIGRATION.md
+WSL2 / sandbox     → docs/operations/WSL2_MIGRATION.md
 ```
 
 ## Regra de contexto
@@ -86,12 +88,12 @@ o resto é token gasto sem retorno.
   só lê CSS e SheetJS de dentro dele, não o escreve.
 - Tarefa no painel **novo** (React/TS/Vite) mora em `frontend/` e não precisa
   do `dashboard.tpl.html` — os dois convivem e o backend é o mesmo.
-- **Nunca** abra `src/dashboard.tpl.html` inteiro (3.802 linhas). Ache com
+- **Nunca** abra `src/dashboard.tpl.html` inteiro (13.948 linhas). Ache com
   `grep -n`, leia a faixa com `sed -n`.
 - Use o subagente `repo-explorer` para "onde acontece X?" — ele responde em
   contexto próprio e devolve só a conclusão.
 
-Estratégia completa: [docs/CLAUDE_CONTEXT_STRATEGY.md](docs/CLAUDE_CONTEXT_STRATEGY.md)
+Estratégia completa: [docs/operations/CLAUDE_CONTEXT_STRATEGY.md](docs/operations/CLAUDE_CONTEXT_STRATEGY.md)
 
 ## Skills deste projeto
 
@@ -168,7 +170,7 @@ por cima de uma produção mais nova; reconcilie primeiro.
 ```
 
 Comandos, variáveis do `.dev.vars` e as particularidades de Windows estão em
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+[docs/operations/DEVELOPMENT.md](docs/operations/DEVELOPMENT.md).
 
 ## Definição de pronto
 
@@ -177,7 +179,7 @@ proporcional à mudança — direcionada, nunca a suíte inteira por reflexo:
 
 | Mudou | Prova |
 |---|---|
-| `api/src/**` | o teste do assunto (`docs/TESTING.md`) + `GET /api/estoque/conferir` vazio |
+| `api/src/**` | o teste do assunto (`docs/testing/TESTING.md`) + `GET /api/estoque/conferir` vazio |
 | `src/dashboard.tpl.html` | `python src/build.py` e depois `node src/e2e.mjs` |
 | foto, variação, SKU | `src/editar-peca-test.mjs` · `src/editar-peca-ui-test.mjs` · `src/fotos-catalogo-test.mjs` · `src/sku-auditoria-test.mjs` · `src/sku-gerador-test.mjs` |
 | Pendências / Nuvemshop | `src/pendencias-nuvemshop-test.mjs` |
@@ -195,4 +197,4 @@ diga sempre o que ficou de fora.
 
 Tag local `checkpoint/pre-bootstrap-claude` (commit `f3f08cb`, o último antes
 do bootstrap) + tarball em `../Marquesa-Etiquetas-backups/`. Como voltar:
-[docs/BACKUP_RECOVERY.md](docs/BACKUP_RECOVERY.md).
+[docs/operations/BACKUP_RECOVERY.md](docs/operations/BACKUP_RECOVERY.md).

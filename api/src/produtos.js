@@ -23,24 +23,82 @@
  */
 import { movimentar } from './estoque.js';
 
-export const normSku = (v) => String(v == null ? '' : v).trim().replace(/[\s ]+/g, '').toUpperCase();
+export { normSku } from './sku.js';
+import { normSku } from './sku.js';
 
 /* ==================================================================== */
 /* 1. DEPENDÊNCIAS — a pergunta que decide                              */
 /* ==================================================================== */
 
+/** Quem ACOMPANHA a peca quando ela e apagada, em vez de impedir.
+ *
+ *  A lista e curta de proposito, e cada entrada precisa satisfazer o mesmo
+ *  criterio: a linha so existe por causa DESTA peca e nao explica nenhum
+ *  numero de outra. Uma linha de `movimentos` descreve o estoque dela;
+ *  apagando os dois juntos, a invariante §19 continua fechando. Uma linha de
+ *  `venda_itens` nao — ela explica o faturamento de um mes.
+ *
+ *  A ORDEM importa: o D1 forca chave estrangeira em toda query e nao aceita
+ *  `PRAGMA foreign_keys`. Filho antes de pai, sempre.
+ */
+const LEVA_JUNTO = [
+  { tabela: 'produto_fotos', coluna: 'sku' },
+  { tabela: 'catalogo_publicacoes', coluna: 'sku' },
+  { tabela: 'preparacao_tarefas', coluna: 'sku' },
+  { tabela: 'produto_variacoes', coluna: 'sku' },
+  { tabela: 'produtos_pendentes', coluna: 'sku' },   // sem FK; some junto assim mesmo
+  { tabela: 'movimentos', coluna: 'sku' },
+];
+const LEVA_JUNTO_NOMES = new Set(LEVA_JUNTO.map(x => x.tabela));
+
+/** Como a tela explica cada bloqueio. Tabela que nao estiver aqui ainda
+ *  bloqueia — so aparece com o nome cru, que e infinitamente melhor que
+ *  passar batido. */
+const FRASES = {
+  venda_itens: (n) => `${n} ${n === 1 ? 'venda registrada' : 'vendas registradas'}`,
+  maleta_itens: (n) => `${n} ${n === 1 ? 'saída em maleta' : 'saídas em maleta'}`,
+  maleta_item_variacoes: (n) => `${n} ${n === 1 ? 'variação enviada em maleta' : 'variações enviadas em maleta'}`,
+  inventario_itens: (n) => `${n} ${n === 1 ? 'contagem de inventário' : 'contagens de inventário'}`,
+  inventario_contagem: (n) => `${n} ${n === 1 ? 'linha de contagem' : 'linhas de contagem'}`,
+  inventario_resultado: (n) => `${n} ${n === 1 ? 'diferença de inventário' : 'diferenças de inventário'}`,
+  reconciliacao_itens: (n) => `${n} ${n === 1 ? 'item de reconciliação' : 'itens de reconciliação'}`,
+  saidas_sem_faturamento: (n) => `${n} ${n === 1 ? 'saída sem faturamento' : 'saídas sem faturamento'}`,
+  garantia_trocas: (n) => `${n} ${n === 1 ? 'troca de garantia' : 'trocas de garantia'}`,
+  personalizacao_modelos: (n) => `é a base de ${n} ${n === 1 ? 'modelo de personalização' : 'modelos de personalização'}`,
+  personalizacao_opcoes: (n) => `é opção de ${n} ${n === 1 ? 'modelo de personalização' : 'modelos de personalização'}`,
+  venda_personalizacoes: (n) => `${n} ${n === 1 ? 'venda personalizada' : 'vendas personalizadas'}`,
+  venda_personalizacao_itens: (n) => `${n} ${n === 1 ? 'componente usado em venda' : 'componentes usados em vendas'}`,
+  venda_item_correcoes: (n) => `${n} ${n === 1 ? 'correção de item de venda' : 'correções de item de venda'}`,
+};
+
+/** TODAS as tabelas que referenciam `produtos`, perguntadas ao BANCO.
+ *
+ *  Esta funcao existe porque a versao anterior listava cinco tabelas a mao,
+ *  e o banco tem dezesseis referencias em quatorze tabelas. As tres que a
+ *  Fase 4.4 criou ficaram de fora, e o resultado nao era um bloqueio que
+ *  falhava: era um `podeExcluir: true` mentiroso. O batch apagava
+ *  `movimentos` e so entao o `DELETE FROM produtos` batia na FK — a peca
+ *  perdia a razao e continuava existindo, quebrando
+ *  `produtos.qtd == SUM(movimentos.qtd)` para sempre.
+ *
+ *  Derivando do schema, uma fase futura que acrescente tabela passa a ser
+ *  coberta sozinha, sem ninguem lembrar de atualizar uma lista.
+ */
+export async function referenciasAProdutos(db) {
+  const { results } = await db.prepare(`
+    SELECT m.name AS tabela, f."from" AS coluna
+      FROM sqlite_master m
+      JOIN pragma_foreign_key_list(m.name) f
+     WHERE m.type = 'table' AND f."table" = 'produtos'
+     ORDER BY m.name, f."from"`).all();
+  return results ?? [];
+}
+
 /** Tudo que existe em outro lugar por causa desta peça.
  *
- *  Os `movimentos` ficam de FORA dos bloqueios de propósito, e é a decisão
- *  mais delicada daqui: todo produto tem pelo menos um movimento (a entrada
- *  do saldo inicial), então contá-los como histórico tornaria a exclusão
- *  impossível para qualquer peça — inclusive a de teste que este fluxo
- *  existe para limpar. O movimento de uma peça só descreve o estoque DELA;
- *  apagando os dois juntos, a invariante §19 continua fechando.
- *
- *  O que bloqueia é o que amarra a peça a OUTRA coisa: uma venda, uma
- *  maleta, um inventário, um kit, uma sessão de reconciliação. Aí o
- *  movimento deixa de ser só dela.
+ *  O criterio nao e uma preferencia, e uma pergunta que o banco responde:
+ *  **existe alguma linha em outro lugar que so faz sentido por causa desta
+ *  peca?** Havendo, arquiva. Nao havendo, apaga.
  */
 export async function dependenciasDoProduto(db, sku) {
   const k = normSku(sku);
@@ -49,32 +107,45 @@ export async function dependenciasDoProduto(db, sku) {
        FROM produtos WHERE sku = ?`).bind(k).first();
   if (!p) return { erro: `Código ${sku} não está no catálogo`, status: 404 };
 
-  const conta = async (sql) => (await db.prepare(sql).bind(k).first()).n;
-
-  const vendas = await conta(`SELECT COUNT(*) n FROM venda_itens WHERE sku = ?`);
-  const maletas = await conta(`SELECT COUNT(*) n FROM maleta_itens WHERE sku = ?`);
-  const inventarios = await conta(`SELECT COUNT(*) n FROM inventario_itens WHERE sku = ?`);
-  // Duas perguntas diferentes: "esta peça É um kit?" e "esta peça compõe um
-  // kit de outra?". As duas bloqueiam, mas por motivos que a tela explica
-  // com frases diferentes.
-  const ehKit = await conta(`SELECT COUNT(*) n FROM kit_componentes WHERE kit_sku = ?`);
-  const compoeKit = await conta(`SELECT COUNT(*) n FROM kit_componentes WHERE componente_sku = ?`);
-  const reconciliacao = await conta(`SELECT COUNT(*) n FROM reconciliacao_itens WHERE sku = ?`);
-
-  // Não bloqueiam — vão junto na exclusão. Contados para a confirmação
-  // poder dizer o que vai sumir, em vez de sumir em silêncio.
-  const movimentos = await conta(`SELECT COUNT(*) n FROM movimentos WHERE sku = ?`);
-  const variacoes = await conta(`SELECT COUNT(*) n FROM produto_variacoes WHERE sku = ?`);
-  const pendentes = await conta(`SELECT COUNT(*) n FROM produtos_pendentes WHERE sku = ?`);
-  const naLoja = await conta(`SELECT COUNT(*) n FROM loja_variantes WHERE sku_norm = ?`);
+  const conta = async (tabela, coluna) => {
+    try {
+      const r = await db.prepare(
+        `SELECT COUNT(*) n FROM "${tabela}" WHERE "${coluna}" = ?`).bind(p.sku).first();
+      return r ? r.n : 0;
+    } catch {
+      /* Tabela que ainda nao existe neste banco (migration pendente) conta
+         zero. Ela nao pode ter linha desta peca se nao existe. */
+      return 0;
+    }
+  };
 
   const bloqueios = [];
-  if (vendas) bloqueios.push({ tipo: 'vendas', quantas: vendas, frase: `${vendas} ${vendas === 1 ? 'venda registrada' : 'vendas registradas'}` });
-  if (maletas) bloqueios.push({ tipo: 'maletas', quantas: maletas, frase: `${maletas} ${maletas === 1 ? 'saída em maleta' : 'saídas em maleta'}` });
-  if (inventarios) bloqueios.push({ tipo: 'inventarios', quantas: inventarios, frase: `${inventarios} ${inventarios === 1 ? 'contagem de inventário' : 'contagens de inventário'}` });
-  if (ehKit) bloqueios.push({ tipo: 'kit', quantas: ehKit, frase: 'é um kit, montado a partir de outras peças' });
-  if (compoeKit) bloqueios.push({ tipo: 'componente', quantas: compoeKit, frase: `é componente de ${compoeKit} ${compoeKit === 1 ? 'kit' : 'kits'}` });
-  if (reconciliacao) bloqueios.push({ tipo: 'reconciliacao', quantas: reconciliacao, frase: `${reconciliacao} ${reconciliacao === 1 ? 'item de reconciliação' : 'itens de reconciliação'}` });
+  for (const { tabela, coluna } of await referenciasAProdutos(db)) {
+    if (LEVA_JUNTO_NOMES.has(tabela)) continue;
+    const n = await conta(tabela, coluna);
+    if (!n) continue;
+    const frase = FRASES[tabela] ? FRASES[tabela](n) : `${n} ${n === 1 ? 'registro' : 'registros'} em ${tabela}`;
+    bloqueios.push({ tipo: tabela, coluna, quantas: n, frase });
+  }
+
+  /* Kit e as duas pontas da mesma tabela, e as duas bloqueiam por motivos
+     que a tela explica com frases diferentes. O laco acima ja conta
+     `kit_componentes` por cada coluna, entao aqui so o nome e ajustado. */
+  for (const b of bloqueios) {
+    if (b.tipo !== 'kit_componentes') continue;
+    b.tipo = b.coluna === 'kit_sku' ? 'kit' : 'componente';
+    b.frase = b.coluna === 'kit_sku'
+      ? 'é um kit, montado a partir de outras peças'
+      : `é componente de ${b.quantas} ${b.quantas === 1 ? 'kit' : 'kits'}`;
+  }
+
+  const levaJunto = {};
+  for (const { tabela, coluna } of LEVA_JUNTO) levaJunto[tabela] = await conta(tabela, coluna);
+
+  // Informativo: existir na loja não impede nada aqui, porque excluir
+  // localmente NÃO mexe na Nuvemshop.
+  const naLoja = (await db.prepare(
+    `SELECT COUNT(*) n FROM loja_variantes WHERE sku_norm = ?`).bind(k).first()).n;
 
   /* `status` aqui é o do PRODUTO ('ativo' | 'inativo' | 'arquivado'), não um
      código HTTP — a rota só usa `status` como HTTP quando há `erro`. Trocar
@@ -86,9 +157,13 @@ export async function dependenciasDoProduto(db, sku) {
     podeExcluir: bloqueios.length === 0,
     bloqueios,
     // O que a confirmação precisa dizer que vai junto
-    levaJunto: { movimentos, variacoes, pendentes },
-    // Informativo: existir na loja não impede nada aqui, porque excluir
-    // localmente NÃO mexe na Nuvemshop.
+    levaJunto: {
+      ...levaJunto,
+      // nomes antigos, para a tela que já os lê não quebrar
+      movimentos: levaJunto.movimentos,
+      variacoes: levaJunto.produto_variacoes,
+      pendentes: levaJunto.produtos_pendentes,
+    },
     naLoja,
   };
 }
@@ -102,7 +177,7 @@ export async function dependenciasDoProduto(db, sku) {
  *  A ordem das exclusões não é estilo: o D1 força chave estrangeira em toda
  *  query e não aceita `PRAGMA foreign_keys`. Apagar `produtos` antes dos
  *  filhos falharia, e falharia no meio do batch. */
-export async function excluirProduto(db, sku) {
+export async function excluirProduto(db, sku, env = null) {
   const dep = await dependenciasDoProduto(db, sku);
   if (dep.erro) return dep;
 
@@ -122,12 +197,39 @@ export async function excluirProduto(db, sku) {
   }
 
   const k = normSku(sku);
-  await db.batch([
-    db.prepare(`DELETE FROM produto_variacoes WHERE sku = ?`).bind(k),
-    db.prepare(`DELETE FROM produtos_pendentes WHERE sku = ?`).bind(k),
-    db.prepare(`DELETE FROM movimentos WHERE sku = ?`).bind(k),
-    db.prepare(`DELETE FROM produtos WHERE sku = ?`).bind(k),
-  ]);
+
+  /* Os bytes das fotos proprias saem ANTES das linhas: apagar a referencia
+     primeiro deixaria objeto orfao no bucket sem ninguem para reencontra-lo.
+     Sem `env` (chamada interna, teste puro) os bytes ficam — e a resposta
+     diz isso em vez de fingir que limpou. */
+  let fotosNoArmazenamento = 0;
+  if (env && env.FOTOS) {
+    try {
+      const { results } = await db.prepare(
+        `SELECT original_key, preparada_key FROM produto_fotos WHERE sku = ?`).bind(k).all();
+      for (const f of results ?? []) {
+        for (const chave of [f.original_key, f.preparada_key]) {
+          if (!chave) continue;
+          await env.FOTOS.delete(chave);
+          fotosNoArmazenamento++;
+        }
+      }
+    } catch { /* banco sem a tabela: nao ha byte proprio para apagar */ }
+  }
+
+  /* A ordem vem de LEVA_JUNTO, filho antes de pai — o D1 forca FK em toda
+     query e falharia no meio do batch. Uma tabela que ainda nao existe
+     neste banco derrubaria o batch inteiro, entao cada DELETE so entra se a
+     tabela responder. */
+  const stmts = [];
+  for (const { tabela, coluna } of LEVA_JUNTO) {
+    try {
+      await db.prepare(`SELECT 1 FROM "${tabela}" LIMIT 1`).first();
+    } catch { continue; }
+    stmts.push(db.prepare(`DELETE FROM "${tabela}" WHERE "${coluna}" = ?`).bind(k));
+  }
+  stmts.push(db.prepare(`DELETE FROM produtos WHERE sku = ?`).bind(k));
+  await db.batch(stmts);
 
   /* `loja_variantes` NÃO é tocada: ela é o espelho do que a Nuvemshop tem, e
      a Nuvemshop continua tendo. Apagar a linha faria o espelho mentir até a
@@ -135,6 +237,7 @@ export async function excluirProduto(db, sku) {
   return {
     ok: true, excluido: dep.sku, desc: dep.desc,
     apagou: dep.levaJunto,
+    fotosNoArmazenamento,
     naLojaAinda: dep.naLoja > 0,
   };
 }

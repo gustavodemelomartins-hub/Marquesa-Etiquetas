@@ -1,6 +1,6 @@
 /** Motor de reconciliação — Review → Apply.
  *
- *  Schema e invariantes: docs/RECONCILIATION_ENGINE.md. Este módulo é a
+ *  Schema e invariantes: docs/domains/RECONCILIATION_ENGINE.md. Este módulo é a
  *  primeira implementação do fluxo:
  *
  *    análise (sync seco) → sessão em revisão → aprovar/rejeitar itens
@@ -19,6 +19,7 @@ import { json } from './auth.js';
 import { movimentar, saldosDoSku, ehKit, consignadoDoSku } from './estoque.js';
 import { sincronizar } from './sync.js';
 import { Nuvemshop, mapearSkus } from './nuvemshop.js';
+import { comExecucao } from './plataforma/execucao.js';
 
 /* ----------------------------------------------------------- base_json ---
  * A mesma leitura serve dois papéis: no momento da análise, vira o
@@ -68,13 +69,13 @@ function intSeguro(v) {
  * geram itens de formas bem diferentes, mas todas terminam aqui: um só
  * lugar que cria a sessão, supera a anterior da mesma origem, e grava os
  * itens — para sessão, estados, auditoria e idempotência serem sempre os
- * mesmos, não um motor por origem (docs/RECONCILIATION_ENGINE.md § Três
+ * mesmos, não um motor por origem (docs/domains/RECONCILIATION_ENGINE.md § Três
  * origens, um motor). */
 async function criarSessaoComItens(db, origem, itens, resumoExtra = {}) {
   // No máximo uma sessão 'revisao' por origem — o índice único garante.
   // A antiga é marcada 'superada' no MESMO batch em que a nova nasce:
   // "uma prévia velha nunca sobrescreve a realidade porque alguém voltou
-  // nela depois" (docs/RECONCILIATION_ENGINE.md § Sessões concorrentes).
+  // nela depois" (docs/domains/RECONCILIATION_ENGINE.md § Sessões concorrentes).
   await db.batch([
     db.prepare(`UPDATE reconciliacao_sessoes SET status = 'superada' WHERE origem = ? AND status = 'revisao'`).bind(origem),
     db.prepare(`INSERT INTO reconciliacao_sessoes (origem, status, resumo_json) VALUES (?, 'revisao', ?)`)
@@ -150,7 +151,7 @@ export async function abrirSessao(db, env, origem = 'nuvemshop') {
 /** Origem `planilha_estoque_total`: a planilha da Stéfane é a fonte da
  *  verdade TEMPORÁRIA do físico total por SKU (produtos.qtd) — nunca do
  *  disponível para a Nuvemshop, que continua sendo derivado (total menos
- *  consignado). Ver docs/RECONCILIATION_ENGINE.md § Fonte da verdade.
+ *  consignado). Ver docs/domains/RECONCILIATION_ENGINE.md § Fonte da verdade.
  *
  *  `produtos` chega já normalizado (SKU, sufixo consolidado, casa/total
  *  resolvido) — o mesmo formato que `POST /api/produtos/importar` sempre
@@ -214,7 +215,7 @@ export async function analisarPlanilhaEstoqueTotal(db, produtos) {
   // regra 4) para o importador atual, e mantida aqui pelo mesmo motivo:
   // a planilha pode legitimamente não cobrir kit, código técnico ou linha
   // que a própria Stéfane já não relaciona. Só anunciado — nunca vira
-  // item, nunca é tocado. Ver docs/RECONCILIATION_ENGINE.md § decisões
+  // item, nunca é tocado. Ver docs/domains/RECONCILIATION_ENGINE.md § decisões
   // abertas para o que precisa de confirmação humana antes de mudar isso.
   const ausentes = [...existentes.keys()].filter(sku => !vistos.has(sku));
 
@@ -376,7 +377,7 @@ function mensagemSeguraDeErro(e) {
  *  Ordem por item: Precondition A (destino) → Precondition B (origem) →
  *  só então a escrita. Nenhuma escrita acontece antes das duas passarem.
  *
- *  RETOMADA (docs/RECONCILIATION_ENGINE.md § Sessão aplicando): se o Worker
+ *  RETOMADA (docs/domains/RECONCILIATION_ENGINE.md § Sessão aplicando): se o Worker
  *  morre no meio de um Apply anterior, a sessão fica presa em 'aplicando'
  *  para sempre — não existe um segundo processo (cron, timeout) que a
  *  destrave sozinha, e não é este o lugar para inventar um. Em vez disso,
@@ -389,7 +390,16 @@ function mensagemSeguraDeErro(e) {
  *  para progredir — as duas processam, e a proteção por item garante que
  *  o efeito acontece uma vez só. O que continua proibido é reabrir sessão
  *  TERMINADA (aplicada, aplicada_parcial, cancelada, superada, erro). */
-export async function aplicarSessao(db, env, sessaoId) {
+/** O apply de uma sessão é a operação mais delicada deste módulo: escreve
+ *  na loja e move estoque. O identificador liga todas as linhas dela. */
+export function aplicarSessao(db, env, sessaoId) {
+  return comExecucao('reconciliacao', {
+    dados: { sessao: sessaoId },
+    resumir: (r) => ({ status: r && r.status }),
+  }, () => aplicarSessaoRodada(db, env, sessaoId));
+}
+
+async function aplicarSessaoRodada(db, env, sessaoId) {
   const sessaoInicial = await db.prepare(`SELECT * FROM reconciliacao_sessoes WHERE id = ?`).bind(sessaoId).first();
   if (!sessaoInicial) return json({ erro: 'Sessão não encontrada' }, 404);
 
@@ -608,7 +618,7 @@ async function checarPreconditionsInternas(db, item) {
       return { ok: false, motivo: `${item.sku} está com ${p.qtd} agora; a análise viu ${item.de}. Estoque mudou desde então.` };
     }
     // ajuste_qtd não tem base_json (a origem é o arquivo importado — ver
-    // docs/RECONCILIATION_ENGINE.md § base_json): a Precondition A já cobre
+    // docs/domains/RECONCILIATION_ENGINE.md § base_json): a Precondition A já cobre
     // a deriva possível.
 
     // Precondition extra, só para ajuste_qtd: a planilha nunca autoriza
@@ -661,7 +671,7 @@ async function checarBaseAtual(db, item) {
 /* ------------------------------------------------------------ execuções -- */
 
 /** Classifica o destino de um item `estoque_loja` frente ao estado atual —
- *  a peça central da recuperação de PATCH (docs/RECONCILIATION_ENGINE.md §
+ *  a peça central da recuperação de PATCH (docs/domains/RECONCILIATION_ENGINE.md §
  *  Idempotência externa). Três respostas possíveis, nunca uma heurística
  *  frouxa: só `de`, `para`, `base_json` atual e destino atual decidem.
  *

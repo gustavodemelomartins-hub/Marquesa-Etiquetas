@@ -37,9 +37,22 @@ export function validarBytes(bytes, tipo) {
  *  (erro 10042) e o binding `FOTOS` foi removido do `wrangler.toml` de
  *  produção por causa disso. Controlada — nunca deixa a chamada virar
  *  exceção não tratada nem sucesso falso. */
-const SEM_R2 = 'Upload e edição de foto exigem R2, que não está habilitado '
+export const SEM_R2 = 'Upload e edição de foto exigem R2, que não está habilitado '
              + 'nesta conta Cloudflare ainda. Fotos existentes por URL '
              + 'externa continuam funcionando normalmente.';
+
+/** Grava um objeto numa chave ARBITRARIA.
+ *
+ *  A galeria propria (Fase 4.5) precisa de uma chave por FOTO, nao por SKU:
+ *  `produtos/<sku>/<fotoId>/original`. Com a chave deterministica por SKU, a
+ *  segunda foto da mesma peca escrevia por cima da primeira sem erro nenhum.
+ *  `salvarFoto` continua existindo com a chave antiga, porque e o que o
+ *  painel legado e as colunas `produtos.foto_*_key` usam. */
+export async function salvarObjeto(env, key, bytes, tipo) {
+  if (!env || !env.FOTOS) throw new Error(SEM_R2);
+  await env.FOTOS.put(key, bytes, { httpMetadata: { contentType: tipo } });
+  return { key, tipo, tamanho: bytes.byteLength };
+}
 
 /** Grava e devolve o que o D1 precisa guardar como referência.
  *  Sem o binding `FOTOS` (conta sem R2 habilitado), recusa de forma

@@ -1,7 +1,7 @@
 /** Motor de reconciliação — backend do fluxo Review → Apply, para as três
  *  origens: `nuvemshop`, `planilha_estoque_total`, `planilha_produtos_novos`.
  *
- *  Prova o que docs/RECONCILIATION_ENGINE.md promete: as duas preconditions,
+ *  Prova o que docs/domains/RECONCILIATION_ENGINE.md promete: as duas preconditions,
  *  a diferença entre `obsoleto` e `erro`, a aplicação parcial, a
  *  idempotência (sessão E item), pendente e rejeitado nunca aplicados, que
  *  `forcar` nunca é usado por este motor, e as regras novas da planilha

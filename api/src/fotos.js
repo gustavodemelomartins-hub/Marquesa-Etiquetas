@@ -24,6 +24,13 @@
 
 import { Nuvemshop } from './nuvemshop.js';
 import { salvarFoto, lerFoto, apagarFoto, tipoValido } from './fotos-storage.js';
+import { lerConfig } from './plataforma/config.js';
+import { normSku } from './sku.js';
+/* O juiz UNICO de completude (Fase 4.5). Esta funcao tinha a sua propria
+   regra — preco NULL bloqueava, preco 0 passava — e discordava da de
+   publicacao-catalogo.js sobre a mesma peca. */
+import { faltasDaPeca, sentinelasDeCategoria } from './catalogo/completude.js';
+import { skusComFotoPropria } from './catalogo/galeria.js';
 
 /* Os cinco estados da foto, que é o que a tela mostra na peça. */
 export const FOTO = {
@@ -39,7 +46,6 @@ const texto = (v) => {
   if (typeof v === 'string') return v.trim();
   return String(v.pt || v.pt_BR || Object.values(v)[0] || '').trim();
 };
-const normSku = (v) => String(v == null ? '' : v).trim().toUpperCase();
 
 /** Busca os bytes de uma URL de fora (Nuvemshop) para copiar ao R2.
  *  Devolve `null` em vez de lançar — uma foto que não baixou não pode
@@ -87,9 +93,15 @@ async function baixar(url) {
  *    orfas          a loja tem imagem de um código que não existe aqui
  */
 async function lerFotosDaLoja(db, env) {
+  /* Indexado pela forma CANONICA, porque a chave do outro lado (`mapa` de
+     `mapearSkus`, e o `normSku(v.sku)` logo abaixo) tambem e canonica.
+     Comparar chave normalizada com chave crua fazia um produto gravado fora
+     da forma sumir do casamento EM SILENCIO: ele virava "so na loja", a foto
+     dele virava orfa, e o estoque nunca era empurrado — sintoma
+     indistinguivel de "a peca realmente nao esta na loja". */
   const nossos = new Map((await db.prepare(
     `SELECT sku, desc, foto_original_key, foto_tratada_key, foto_status, foto_url FROM produtos`
-  ).all()).results.map(p => [p.sku, p]));
+  ).all()).results.map(p => [normSku(p.sku), p]));
 
   const produtosLoja = await new Nuvemshop(env).produtos();
 
@@ -418,6 +430,28 @@ export async function removerFotos(db, env, sku) {
 /* 3. Fundo branco                                                      */
 /* ==================================================================== */
 
+/** Bytes para base64 sem espalhar um argumento por byte.
+ *
+ *  `String.fromCharCode(...new Uint8Array(bytes))` passa UM ARGUMENTO POR
+ *  BYTE para a funcao. Com o limite de 8 MB de `fotos-storage.js`, isso e
+ *  oito milhoes de argumentos e o runtime responde
+ *  `RangeError: Maximum call stack size exceeded` — capturado pelo `catch`
+ *  de quem chama e gravado como `foto_status='erro'`. A peca ficava marcada
+ *  como erro de TRATAMENTO quando o erro era de CODIFICACAO, e a foto boa
+ *  parecia defeituosa.
+ *
+ *  32 mil bytes por bloco fica folgado abaixo de qualquer limite de pilha e
+ *  ainda faz poucas voltas numa foto de celular. */
+function paraBase64(bytes) {
+  const vista = new Uint8Array(bytes);
+  const BLOCO = 32768;
+  let s = '';
+  for (let i = 0; i < vista.length; i += BLOCO) {
+    s += String.fromCharCode(...vista.subarray(i, i + BLOCO));
+  }
+  return btoa(s);
+}
+
 /** Manda a foto original para tratamento e guarda o resultado.
  *
  *  O tratamento em si é um serviço de fora (o ChatGPT gerando a versão com
@@ -444,7 +478,8 @@ export async function gerarFundoBranco(db, env, sku) {
   if (!p) return { erro: 'Produto não encontrado' };
   if (!p.foto_original_key) return { erro: 'Esta peça ainda não tem foto original para tratar' };
 
-  const endereco = String(env.FOTO_FUNDO_URL || '').trim();
+  const fundo = lerConfig(env).fotos;
+  const endereco = fundo.fundoUrl;
   if (!endereco) {
     await db.prepare(
       `UPDATE produtos SET foto_status=?, foto_erro=NULL, foto_em=datetime('now') WHERE sku=?`
@@ -460,13 +495,13 @@ export async function gerarFundoBranco(db, env, sku) {
     const original = await lerFoto(env, p.foto_original_key);
     if (!original) throw new Error('a foto original não foi encontrada no armazenamento');
     const bytesOriginais = await new Response(original.corpo).arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(bytesOriginais)));
+    const base64 = paraBase64(bytesOriginais);
 
     const resp = await fetch(endereco, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(env.FOTO_FUNDO_TOKEN ? { Authorization: `Bearer ${env.FOTO_FUNDO_TOKEN}` } : {}),
+        ...(fundo.fundoToken ? { Authorization: `Bearer ${fundo.fundoToken}` } : {}),
       },
       body: JSON.stringify({
         sku: p.sku, descricao: p.desc, fundo: 'branco',
@@ -513,8 +548,10 @@ export async function gerarFundoBranco(db, env, sku) {
  *  para ser um detalhe menor entre os outros.
  */
 export async function pendenciasDePublicacao(db) {
+  const sentinelas = await sentinelasDeCategoria(db);
+  const galeria = await skusComFotoPropria(db);
   const r = await db.prepare(`
-    SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja,
+    SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.url_loja, p.foto_url,
            p.foto_original_key, p.foto_tratada_key, p.foto_status,
            p.qtd - COALESCE((
              SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
@@ -555,15 +592,27 @@ export async function pendenciasDePublicacao(db) {
       variacoes: vars.map(v => v.nome),
       temVariacao: vars.length > 1,
     };
+    /* A regra nao mora mais aqui. O juiz unico decide, e esta funcao so
+       agrupa o veredito com os nomes que a tela conhece. `quantidade` nunca
+       aparece porque o filtro acima ja exigiu peca em casa. */
+    p.temFotoPropria = galeria.com.has(p.sku);
+    p.temFotoPreparadaPropria = galeria.preparadas.has(p.sku);
+    const { faltas, bloqueios } = faltasDaPeca(p, { sentinelas });
     const falta = [];
-    if (!p.foto_original_key) { falta.push('foto'); semFoto.push(item); }
-    else if (!p.foto_tratada_key) { falta.push('fundo_branco'); semFundoBranco.push(item); }
-    /* "Descrição" aqui é a descrição comercial. A da etiqueta é curta por
-       natureza — quando ela é só o próprio código, não há texto nenhum. */
-    if (!p.desc || p.desc.trim() === p.sku) { falta.push('descricao'); semDescricao.push(item); }
-    if (!p.cat || p.cat === 'Outros') { falta.push('categoria'); semCategoria.push(item); }
-    // §24: sem preço NUNCA é "pronto", ponto — não é uma pendência opcional
-    if (p.preco == null) { falta.push('preco'); semPreco.push(item); }
+    for (const f of faltas) {
+      if (f === 'foto') { falta.push('foto'); semFoto.push(item); }
+      /* "Descricao" aqui e a descricao comercial. A da etiqueta e curta por
+         natureza — quando ela e so o proprio codigo, nao ha texto nenhum. */
+      else if (f === 'nome') { falta.push('descricao'); semDescricao.push(item); }
+      else if (f === 'categoria') { falta.push('categoria'); semCategoria.push(item); }
+      // §24 mais a decisao de 10/09/2026: preco 0 tambem nao e "pronto".
+      else if (f === 'preco') { falta.push('preco'); semPreco.push(item); }
+    }
+    /* Fundo branco e BLOQUEIO, nao falta: sem R2 no ambiente, ninguem
+       consegue produzi-lo, e cobrar isso da Sthefany era o defeito. Entra
+       na lista da tela so quando nao ha mais nada a fazer antes. */
+    item.bloqueios = bloqueios;
+    if (!falta.length && bloqueios.length) semFundoBranco.push(item);
 
     /* `falta` vai DENTRO do item, e não só implícito na lista em que ele
        caiu: uma peça sem foto e sem preço aparece em duas listas, e em

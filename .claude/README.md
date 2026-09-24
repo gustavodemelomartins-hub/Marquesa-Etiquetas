@@ -45,7 +45,7 @@ rules e skills entram somente quando o caminho ou o assunto as aciona.
 
 `marquesa-reconciliation` e `marquesa-sync` **são** as skills de
 reconciliação e de Nuvemshop. Os nomes ficaram como estavam porque
-`docs/CLAUDE_SKILLS.md` e o `CLAUDE.md` já apontam para eles — renomear
+`docs/operations/CLAUDE_SKILLS.md` e o `CLAUDE.md` já apontam para eles — renomear
 custaria mais do que resolveria.
 
 O que **não** entra aqui: skills instaladas por `npx skills add` (~39 MB,
@@ -106,10 +106,10 @@ onde a regra mora.
 
 Nenhum, de propósito. `git`, `gh` e `wrangler` cobrem o que precisamos, e
 cada MCP declarado custa contexto em toda sessão mesmo sem ser usado. A
-avaliação está em [docs/WSL2_MIGRATION.md](../docs/WSL2_MIGRATION.md).
+avaliação está em [docs/operations/WSL2_MIGRATION.md](../docs/operations/WSL2_MIGRATION.md).
 
 ## Economia de contexto
 
-Ver [docs/CLAUDE_CONTEXT_STRATEGY.md](../docs/CLAUDE_CONTEXT_STRATEGY.md).
+Ver [docs/operations/CLAUDE_CONTEXT_STRATEGY.md](../docs/operations/CLAUDE_CONTEXT_STRATEGY.md).
 Em uma frase: `CLAUDE.md` curto como roteador, regras por caminho, skills sob
 demanda, e exploração num subagente que não polui o contexto principal.

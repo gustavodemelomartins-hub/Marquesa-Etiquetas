@@ -49,4 +49,4 @@ framework, de propósito.
 `node src/shot.mjs` tira screenshots (celular + computador) para conferir
 visual — complemento, nunca substituto do teste.
 
-Catálogo completo e o que cada um prova: [docs/TESTING.md](../../../docs/TESTING.md).
+Catálogo completo e o que cada um prova: [docs/testing/TESTING.md](../../../docs/testing/TESTING.md).

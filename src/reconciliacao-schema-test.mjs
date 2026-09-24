@@ -127,7 +127,7 @@ const fSchemaAntigo = arquivoSql(schemaAntigo);
 aplicar(fSchemaAntigo, { rotulo: 'schema de f3f08cb (produção antes desta fase) aplica limpo' });
 
 const tabelasAntes = tabelas();
-eq('16 tabelas no schema antigo (docs/DATA_MODEL.md)', tabelasAntes.length, 16);
+eq('16 tabelas no schema antigo (docs/architecture/DATA_MODEL.md)', tabelasAntes.length, 16);
 eq('reconciliacao_sessoes NÃO existe ainda', tabelasAntes.includes('reconciliacao_sessoes'), 'false');
 eq('reconciliacao_itens NÃO existe ainda', tabelasAntes.includes('reconciliacao_itens'), 'false');
 eq('sync_execucoes ainda NÃO tem a coluna seco', colunas('sync_execucoes').includes('seco'), 'false');

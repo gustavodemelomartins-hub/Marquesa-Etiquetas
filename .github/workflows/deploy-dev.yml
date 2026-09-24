@@ -32,6 +32,11 @@ on:
       - 'icons/**'
       - 'vendor/**'
       - '.github/workflows/deploy-dev.yml'
+      # O painel do projeto (docs/project/dashboard) sobe junto, em /projeto/.
+      # Ele é uma tela de acompanhamento interna: existe no DEV e em lugar
+      # nenhum além dele — produção publica por outro caminho, que não lê
+      # este diretório.
+      - 'docs/project/dashboard/**'
       # O schema e as migrations não publicam nada no Pages, mas o passo
       # "Schema e migration continuam dizendo a mesma coisa" mora aqui — e um
       # teste que só roda quando alguém por acaso mexe no painel é um teste
@@ -99,13 +104,20 @@ jobs:
       - name: Montar o painel a partir do template
         run: python3 src/build.py
 
+      # O painel do projeto lê os .md de docs/project. Regerar aqui garante
+      # que a tela publicada no DEV nunca mostre um número mais velho que o
+      # documento — e o --check falharia antes, no gate `projeto-painel`.
+      - name: Regerar os dados do painel do projeto
+        run: node scripts/build-project-dashboard.mjs
+
       - name: Juntar o site do DEV num diretório só
         run: |
           set -e
-          mkdir -p publicar/painel-novo
+          mkdir -p publicar/painel-novo publicar/projeto
           cp index.html dashboard.html manifest.json sw.js _redirects publicar/
           cp -r brand icons vendor publicar/
           cp -r frontend/dist/. publicar/painel-novo/
+          cp docs/project/dashboard/index.html docs/project/dashboard/estilo.css docs/project/dashboard/painel.js docs/project/dashboard/data.js publicar/projeto/
           echo "--- o que vai ao ar ---"
           find publicar -maxdepth 2 -type f | sort
 

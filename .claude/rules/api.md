@@ -41,4 +41,4 @@ Suíte direcionada, nunca tudo por reflexo:
 | reconciliação | `node src/reconciliacao-test.mjs` |
 
 Regras de negócio: [api/REGRAS.md](../../api/REGRAS.md). Motor:
-[docs/SYNC_ENGINE.md](../../docs/SYNC_ENGINE.md).
+[docs/domains/SYNC_ENGINE.md](../../docs/domains/SYNC_ENGINE.md).
