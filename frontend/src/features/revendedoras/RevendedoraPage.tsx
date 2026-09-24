@@ -82,7 +82,9 @@ export function RevendedoraPage({
             <div>
               <span className="rev-eyebrow">{aberta.status === 'em_acerto' ? 'Maleta em acerto' : 'Maleta em aberto'}</span>
               <h2 id="rev-maleta-titulo">Maleta #{aberta.id}</h2>
-              <p>Preços preservados desde o envio em {fmtData(aberta.abertaEm)}</p>
+              <p>{aberta.abertaEm
+                ? `Preços preservados desde o envio em ${fmtData(aberta.abertaEm)}`
+                : 'Preços preservados conforme o registro desta maleta.'}</p>
             </div>
             {situacao && <StatusBadge tom={situacao.tom}>{situacao.texto}</StatusBadge>}
           </header>
