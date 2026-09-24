@@ -172,3 +172,54 @@
 
 /* Uma seção tem respiro de seção, não de parágrafo. */
 .inventory-section { gap: var(--mq-4); scroll-margin-top: var(--mq-6); }
+
+/* ------------------------------------------------ o leitor de etiquetas
+ *
+ * Portado de `.camwrap` / `.cam-alvo` do painel clássico, inclusive as
+ * proporções da mira: 76% da largura e 36% da altura, no centro. Elas não
+ * são estéticas — `leitorDeEtiqueta.ts › mirar` recorta exatamente essa
+ * região para a segunda tentativa de decodificação. Mudar uma sem a outra
+ * faz o leitor procurar o código onde a pessoa não está apontando.
+ */
+.mq-cam {
+  display: flex; flex-direction: column; gap: var(--mq-4);
+  padding: var(--mq-5);
+  border: 1px solid var(--mq-wine-200); border-radius: var(--mq-r-lg);
+  background: var(--mq-wine-050);
+}
+.mq-cam__head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--mq-4); flex-wrap: wrap;
+}
+.mq-cam__head > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.mq-cam__palco {
+  position: relative; overflow: hidden;
+  border-radius: var(--mq-r-md); background: #000;
+}
+.mq-cam__palco video {
+  width: 100%; max-height: 280px; object-fit: cover; display: block;
+}
+/* A mira. O vazado escuro em volta é o que diz onde apontar sem precisar
+   de legenda — e é a mesma região que o leitor amplia. */
+.mq-cam__alvo {
+  position: absolute; left: 12%; right: 12%; top: 32%; bottom: 32%;
+  border: 2px solid rgba(255, 255, 255, .85);
+  border-radius: var(--mq-r-sm); pointer-events: none;
+  box-shadow: 0 0 0 2000px rgba(0, 0, 0, .28);
+}
+.mq-cam__estado {
+  position: absolute; inset: auto 0 0 0; margin: 0;
+  padding: var(--mq-2) var(--mq-4);
+  background: rgba(0, 0, 0, .55); color: #fff;
+  font: 500 12px/1.4 var(--mq-sans); text-align: center;
+}
+
+.mq-cam__manual { display: flex; align-items: flex-end; gap: var(--mq-2); }
+.mq-cam__manual .mq-field { flex: 1 1 auto; min-width: 0; }
+.mq-cam__manual .mq-btn { flex: none; }
+
+@media (max-width: 600px) {
+  .mq-cam { padding: var(--mq-4); }
+  .mq-cam__palco video { max-height: 340px; }
+}

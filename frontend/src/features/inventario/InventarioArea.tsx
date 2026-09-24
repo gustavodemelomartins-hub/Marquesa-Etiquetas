@@ -14,6 +14,9 @@ import {
   type PedidoDeVariacao,
 } from './DialogoDeVariacao';
 import type { AppState } from '../../types/api';
+import { LeitorDeEtiquetas, type ResultadoDaLeitura } from '../../components/scanner/LeitorDeEtiquetas';
+import { resolverSku } from '../../components/scanner/codigoDaEtiqueta';
+import { temCamera } from '../../components/scanner/leitorDeEtiqueta';
 
 interface InventarioResumo {
   id: number;
@@ -350,6 +353,7 @@ function Contagem({
   const [ocupado, setOcupado] = useState<string | null>(null);
   /* O 409 do servidor vira uma PERGUNTA, não uma mensagem de erro. */
   const [perguntandoVariacao, setPerguntandoVariacao] = useState<PedidoDeVariacao | null>(null);
+  const [camera, setCamera] = useState(false);
 
   /* A LISTA DA CONTAGEM vem do servidor, não do `GET /api/state`: é ela
      que carrega a regra do "em casa". Ver o comentário de `Esperado`. */
@@ -357,6 +361,14 @@ function Contagem({
   const contados = useMemo(
     () => new Map((detalhe.dados?.contagem ?? []).map((c) => [c.sku, c])),
     [detalhe.dados],
+  );
+
+  /* O índice que a câmera consulta a cada leitura. `Map` e não `Array`
+     porque isto roda cinco vezes por segundo: varrer 790 linhas por quadro
+     esquentaria o telefone para responder a mesma pergunta. */
+  const esperadosPorSku = useMemo(
+    () => new Map(esperados.map((p) => [p.sku, p])),
+    [esperados],
   );
 
   const lista = useMemo(() => {
@@ -454,9 +466,25 @@ function Contagem({
    *  a lista para alguém responder. Enquanto a tela o tratava como erro, os
    *  27 códigos com variação eram impossíveis de contar — a mensagem
    *  aparecia e a contagem nunca gravava. */
-  async function contar(sku: string, contado: number, escolha?: EscolhaDaVariacao) {
+  /** `contar` agora DEVOLVE o que aconteceu, além de mexer na tela.
+   *
+   *  Quem clica no `+` vê o resultado na própria linha e ignora o retorno.
+   *  Quem bipa não está olhando a lista — está com uma peça na mão e o
+   *  telefone na outra —, e precisa de uma frase. É a mesma gravação, pela
+   *  mesma rota: o que muda é só quem conta a história de volta. */
+  async function contar(
+    sku: string, contado: number, escolha?: EscolhaDaVariacao,
+    /* A bipada já mostra a recusa dentro do leitor, na linha que ela está
+       olhando. Repeti-la no alto da tela poria a mesma frase em dois
+       lugares, e a de cima ficaria lá depois de resolvida. */
+    silencioso = false,
+  ): Promise<ResultadoDaLeitura> {
     setOcupado(sku);
     setErro('');
+    const falhou = (texto: string) => {
+      if (!silencioso) setErro(texto);
+      return { ok: false, texto };
+    };
 
     if (escolha?.tipo === 'nao-sei') {
       /* §4.4/D5 — "não sei" é resposta, não desistência: registra a
@@ -465,9 +493,9 @@ function Contagem({
         conexao, 'POST', `/api/inventarios/${id}/nao-identificado`, { sku, qtd: contado },
       ).catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui registrar.' }));
       setOcupado(null);
-      if (r && 'erro' in r && r.erro) setErro(String(r.erro));
-      else detalhe.recarregar();
-      return;
+      if (r && 'erro' in r && r.erro) return falhou(String(r.erro));
+      detalhe.recarregar();
+      return { ok: true, texto: `${sku} — anotado como "não sei a variação"` };
     }
 
     const corpo: Record<string, unknown> = { sku, contado };
@@ -491,17 +519,61 @@ function Contagem({
     setOcupado(null);
 
     if (r && 'pedirVariacao' in r && r.pedirVariacao) {
-      const linha = esperados.find((e) => e.sku === sku);
+      const linha = esperadosPorSku.get(sku);
       setPerguntandoVariacao({
         sku,
         desc: linha?.desc ?? sku,
         contado,
         variacoes: r.pedirVariacao,
       });
-      return;
+      /* Não é erro, e o leitor não deve tocar o som de recusa: a peça foi
+         reconhecida, e o que falta é uma resposta humana. */
+      return { ok: true, texto: `${linha?.desc ?? sku} tem variação — diga qual você contou` };
     }
-    if (r && 'erro' in r && r.erro) setErro(String(r.erro));
-    else detalhe.recarregar();
+    if (r && 'erro' in r && r.erro) return falhou(String(r.erro));
+    detalhe.recarregar();
+    const linha = esperadosPorSku.get(sku);
+    return {
+      ok: true,
+      texto: linha
+        ? `${linha.desc} ✓ ${contado} de ${linha.esperado}`
+        : `${sku} ✓ contado ${contado}`,
+    };
+  }
+
+  /** UMA LEITURA DA CÂMERA.
+   *
+   *  Aqui mora a única regra desta integração, e ela é curta: a bipada
+   *  SOMA UM ao que já estava contado naquela linha.
+   *
+   *  Isso não é detalhe de implementação — é o que faz a segunda unidade da
+   *  mesma peça ser contada como segunda unidade. `POST /itens` grava um
+   *  valor ABSOLUTO (`contado`), então quem bipa precisa ler o valor atual
+   *  e mandar o próximo. Mandar sempre `1` transformaria dez peças iguais
+   *  em uma.
+   *
+   *  O painel clássico acumulava em memória (`scan.itens[sku]++`) e mandava
+   *  o retrato inteiro no fim, por `PUT /contagem`. Aqui não: cada leitura
+   *  grava na hora, pela mesma rota que o `+` da lista usa. É por isso que
+   *  fechar a câmera, pausar ou perder a conexão não perde contagem — e é
+   *  também por isso que NÃO existe rota de escrita nova nesta entrega. */
+  async function aoBipar(codigoCru: string): Promise<ResultadoDaLeitura> {
+    if (pausado) {
+      return { ok: false, texto: 'O inventário está pausado. Toque em "Continuar" para contar.' };
+    }
+    /* Resolve contra o que se espera em casa. Não achou ali, manda o código
+       normalizado assim mesmo: quem decide se ele existe é o SERVIDOR, e a
+       recusa dele diz o motivo exato — fora do catálogo, kit sem saldo
+       próprio, peça só de maleta. A tela chutando o motivo erraria. */
+    const sku = resolverSku(codigoCru, esperadosPorSku);
+    if (!sku) {
+      const tentativa = String(codigoCru ?? '').trim().toUpperCase();
+      if (!tentativa) return { ok: false, texto: 'Leitura vazia.' };
+      const atual = contados.get(tentativa)?.contado ?? 0;
+      return contar(tentativa, atual + 1, undefined, true);
+    }
+    const atual = contados.get(sku)?.contado ?? 0;
+    return contar(sku, atual + 1, undefined, true);
   }
 
   async function descontar(sku: string) {
@@ -556,6 +628,21 @@ function Contagem({
           </p>
         </div>
         <div className="active-actions">
+          {/* A CÂMERA é a primeira ação da contagem, e não um extra no
+              rodapé: contar de pé, com o telefone, é o jeito normal de
+              fazer isto — o teclado é a exceção. Some quando o inventário
+              está pausado, porque pausado nada conta. */}
+          {temCamera() && !pausado && (
+            <button
+              type="button"
+              className={camera ? 'mq-btn mq-btn--secondary is-ativo' : 'mq-btn mq-btn--secondary'}
+              aria-pressed={camera}
+              onClick={() => setCamera((v) => !v)}
+            >
+              <Icone nome="camera" />
+              {camera ? 'Fechar câmera' : 'Abrir câmera'}
+            </button>
+          )}
           {!pausado ? (
             <button
               type="button"
@@ -608,6 +695,26 @@ function Contagem({
       )}
 
       {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
+
+      {/* O leitor fica ACIMA da lista porque é de lá que a contagem entra
+          quando ela está de pé. A lista continua inteira embaixo, e o
+          número de cada linha muda sozinho a cada bipada. */}
+      {camera && !pausado && (
+        <div className="mq-card__body">
+          <LeitorDeEtiquetas
+            aoLer={aoBipar}
+            aoFechar={() => setCamera(false)}
+            /* Enquanto o servidor pergunta qual variação foi contada, a
+               câmera para de ler. Sem isto ela continuaria bipando por trás
+               do diálogo e enfileiraria respostas para uma pergunta que
+               ainda não foi respondida. */
+            pausado={!!perguntandoVariacao}
+            titulo="Bipe cada peça que estiver aí"
+            dica={'Cada leitura soma UMA unidade à peça. Pode bipar a mesma peça '
+              + 'de novo para contar a segunda unidade — espere o bipe.'}
+          />
+        </div>
+      )}
 
       <div className="mq-filters inventory-capture">
         <label className="mq-search">

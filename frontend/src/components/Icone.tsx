@@ -44,6 +44,7 @@ export const ICONES = {
   plus: <path d="M12 5v14M5 12h14" />,
   alert: <><path d="M12 4.2 21 19.5H3Z" /><path d="M12 10v4" /><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none" /></>,
   image: <><rect x="3.4" y="4.4" width="17.2" height="15.2" rx="2" /><circle cx="8.6" cy="9.4" r="1.8" /><path d="m4 17.6 5-4.6 3.4 3 3-2.6 4.6 4.2" /></>,
+  camera: <><path d="M3.4 8.2h3.4l1.6-2.6h7.2l1.6 2.6h3.4v10.6H3.4Z" /><circle cx="12" cy="13" r="3.4" /></>,
   upload: <><path d="M12 16.4V3.8m-4.6 4.6L12 3.8l4.6 4.6" /><path d="M4 14.4v5.8h16v-5.8" /></>,
   doc: <><path d="M6 3.4h8l4 4v13.2H6Z" /><path d="M14 3.4v4h4M9 12.4h6M9 16h4" /></>,
   filter: <path d="M4 6h16l-6.2 7.2v5.4l-3.6 1.8v-7.2Z" />,

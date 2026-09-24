@@ -51,6 +51,7 @@ regra corrente e não autoriza operação nenhuma hoje.
 |---|---|
 | Estoque e catálogo | [domains/ESTOQUE-CATALOGO-BASELINE.md](domains/ESTOQUE-CATALOGO-BASELINE.md) |
 | Inventário — desenho canônico da Fase 4.4 | [domains/INVENTARIO-4-4.md](domains/INVENTARIO-4-4.md) |
+| Leitura de etiqueta pela câmera — clássico e V2 | [domains/SCANNER_ETIQUETAS.md](domains/SCANNER_ETIQUETAS.md) |
 | Catálogo, mídia e publicação — desenho canônico da Fase 4.5 | [domains/CATALOGO-MIDIA-PUBLICACAO-4-5.md](domains/CATALOGO-MIDIA-PUBLICACAO-4-5.md) |
 | Contrato de UX/API da Fase 4.5 | [domains/CONTRATO-UX-API-4-5.md](domains/CONTRATO-UX-API-4-5.md) |
 | Importações relacionadas — auditoria e correção da Fase 4.6 | [domains/IMPORTACAO-4-6.md](domains/IMPORTACAO-4-6.md) |
