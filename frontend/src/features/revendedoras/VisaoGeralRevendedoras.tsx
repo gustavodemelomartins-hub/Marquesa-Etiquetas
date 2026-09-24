@@ -37,6 +37,7 @@ export function VisaoGeralRevendedoras({
   const t = totaisEstoque(estado);
   const agenda = agendaDeAcertos(estado);
   const resumo = resumoDasRevendedoras(estado);
+  const cadastros = new Map(estado.revendedoras.map((r) => [r.id, r]));
   const cap = calcularCapacidade(estado, planejamento.config);
   const atrasadas = agenda.filter((a) => a.situacao.atrasada);
   const proximo = agenda.find((a) => !!a.prazo);
@@ -149,35 +150,16 @@ export function VisaoGeralRevendedoras({
               {resumo.slice(0, 3).map((r) => (
                 <li key={r.id}>
                   <button type="button" onClick={() => aoAbrirRevendedora(r.id)}>
-                    <span className="nome">{r.nome}</span>
-                    <span className="meta">
-                      {r.maletaAberta
-                        ? r.prazo
-                          ? `Acerto marcado para ${fmtData(r.prazo)}`
-                          : 'Maleta aberta, sem data marcada'
-                        : r.maletasFechadas
-                          ? `${r.maletasFechadas} ${plural(r.maletasFechadas, 'maleta fechada', 'maletas fechadas')}`
-                          : 'Sem maleta aberta'}
+                    <span className="rev-card-identidade">
+                      <span className="rev-card-avatar" aria-hidden="true">{r.nome.split(/\s+/).slice(0, 2).map((n) => n[0]).join('').toUpperCase()}</span>
+                      <span><b>{r.nome}</b><small>{[
+                        cadastros.get(r.id)?.cidade,
+                        r.maletaAberta && r.prazo ? `acerto ${fmtData(r.prazo)}` : null,
+                        !r.maletaAberta && r.maletasFechadas ? `${r.maletasFechadas} ${plural(r.maletasFechadas, 'maleta fechada', 'maletas fechadas')}` : null,
+                      ].filter(Boolean).join(' · ') || 'Cadastro ativo'}</small></span>
+                      <StatusBadge tom={r.maletaAberta ? r.situacao!.tom : 'neutro'}>{r.maletaAberta ? 'Maleta aberta' : 'Sem maleta'}</StatusBadge>
                     </span>
-                    {r.maletaAberta ? (
-                      <>
-                        <span className="linha">
-                          <span className="stat">
-                            Peças<b>{r.pecas}</b>
-                          </span>
-                          <span className="stat">
-                            Valor<b>{money(r.valor)}</b>
-                          </span>
-                        </span>
-                        <span className="selo-linha">
-                          <StatusBadge tom={r.situacao!.tom}>{r.situacao!.texto}</StatusBadge>
-                        </span>
-                      </>
-                    ) : (
-                      <span className="selo-linha">
-                        <StatusBadge tom="neutro">Sem maleta</StatusBadge>
-                      </span>
-                    )}
+                    <strong className="rev-card-resumo">{r.maletaAberta ? `${r.pecas} peças · ${money(r.valor)}` : 'Nenhuma maleta aberta'}</strong>
                   </button>
                 </li>
               ))}

@@ -109,3 +109,11 @@ export function criarRevendedora(
 ): Promise<Reseller> {
   return chamar<Reseller>(conexao, 'POST', '/api/revendedoras', dados);
 }
+
+export function atualizarRevendedora(
+  conexao: Connection,
+  id: number,
+  dados: Partial<Pick<Reseller, 'nome' | 'tel' | 'cidade' | 'cpf' | 'endereco' | 'obs'>>,
+): Promise<{ ok: true }> {
+  return chamar<{ ok: true }>(conexao, 'PATCH', `/api/revendedoras/${id}`, dados);
+}

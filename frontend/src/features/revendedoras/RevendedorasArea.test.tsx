@@ -84,7 +84,40 @@ describe('navegação de Revendedoras', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Todas as revendedoras/ }));
     fireEvent.click(screen.getByRole('button', { name: /Andreia Souza/ }));
     expect(screen.getByRole('heading', { level: 1, name: 'Andreia Souza' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Maleta 7' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Maleta #7' })).toBeTruthy();
+  });
+
+  it('perfil com maleta aberta segue a hierarquia do protótipo e não oferece outra maleta', () => {
+    render(<Area inicial={1} />);
+    expect(screen.getByText('Perfil da revendedora')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Editar cadastro' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '+ Criar maleta' })).toBeNull();
+    expect(screen.getByRole('region', { name: 'Maleta #7' })).toBeTruthy();
+    expect(screen.getByRole('complementary', { name: 'Mix da maleta' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Histórico de maletas' })).toBeTruthy();
+  });
+
+  it('permite editar o cadastro pelo contrato real da revendedora', async () => {
+    vi.mocked(api.atualizarRevendedora).mockResolvedValue({ ok: true });
+    render(<Area inicial={1} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar cadastro' }));
+    const painel = screen.getByRole('dialog', { name: 'Editar cadastro' });
+    fireEvent.change(within(painel).getByLabelText('Telefone'), { target: { value: '(14) 99999-0000' } });
+    fireEvent.click(within(painel).getByRole('button', { name: 'Salvar alterações' }));
+    await waitFor(() => expect(api.atualizarRevendedora).toHaveBeenCalledWith(
+      conexao, 1, expect.objectContaining({ nome: 'Andreia Souza', tel: '(14) 99999-0000' }),
+    ));
+  });
+
+  it('adiciona peças à maleta aberta sem iniciar uma nova maleta', async () => {
+    vi.mocked(api.adicionarItens).mockResolvedValue({ ok: true, adicionados: 1, recusados: [] });
+    render(<Area inicial={1} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar itens' }));
+    const painel = screen.getByRole('dialog', { name: 'Adicionar itens à maleta #7' });
+    fireEvent.change(within(painel).getByLabelText('Quantidade de B1'), { target: { value: '2' } });
+    fireEvent.click(within(painel).getByRole('button', { name: 'Adicionar à maleta' }));
+    await waitFor(() => expect(api.adicionarItens).toHaveBeenCalledWith(conexao, 7, { B1: 2 }));
+    expect(api.criarMaleta).not.toHaveBeenCalled();
   });
 
   it('a Visão Geral mostra a agenda de acertos e a capacidade', () => {

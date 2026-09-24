@@ -11,6 +11,8 @@ import { CriarMaletaFluxo } from '../maletas/CriarMaletaFluxo';
 import { VisaoGeralRevendedoras } from './VisaoGeralRevendedoras';
 import { RevendedoraPage } from './RevendedoraPage';
 import { NovaRevendedora } from './NovaRevendedora';
+import { EditarRevendedora } from './EditarRevendedora';
+import { AdicionarItensMaleta } from './AdicionarItensMaleta';
 import { TodasRevendedoras } from './TodasRevendedoras';
 import { ConfiguracoesRevendedoras } from './ConfiguracoesRevendedoras';
 import { AcertoMaletaFluxo } from '../maletas/AcertoMaletaFluxo';
@@ -52,6 +54,8 @@ export function RevendedorasArea({
   const [criando, setCriando] = useState(false);
   const [sugestaoEscolhida, setSugestaoEscolhida] = useState<Sugestao | null>(null);
   const [acertoAberto, setAcertoAberto] = useState(false);
+  const [edicaoAberta, setEdicaoAberta] = useState(false);
+  const [adicaoAberta, setAdicaoAberta] = useState(false);
 
   if (erro) return <ErrorState erro={erro} aoTentarDeNovo={recarregar} />;
   if (!estado) return <LoadingState>Lendo estoque, maletas e revendedoras…</LoadingState>;
@@ -117,14 +121,14 @@ export function RevendedorasArea({
 
       {typeof rota === 'number' && atual && (
         <>
-          <button type="button" className="voltar-link" onClick={() => aoNavegarSub('todas')}>← Todas as revendedoras</button>
+          <button type="button" className="voltar-link" onClick={() => aoNavegarSub('todas')}>← Voltar para revendedoras</button>
           <PageHeader
-            kicker="Revendedora"
+            kicker="Perfil da revendedora"
             titulo={atual.nome}
-            sub={[atual.cidade, atual.tel].filter(Boolean).join(' · ') || undefined}
+            sub={[atual.cidade, atual.tel].filter(Boolean).join(' · ') || 'Contato, maleta em aberto e histórico de acertos.'}
             acoes={
-              <button type="button" className="btn btn-escrita btn-sm" onClick={() => abrirCriacao(null)}>
-                + Criar maleta
+              <button type="button" className="btn btn-leitura" onClick={() => setEdicaoAberta(true)}>
+                Editar cadastro
               </button>
             }
           />
@@ -132,6 +136,7 @@ export function RevendedorasArea({
             estado={estado}
             revendedora={atual}
             aoCriarMaleta={() => abrirCriacao(null)}
+            aoAdicionarItens={() => setAdicaoAberta(true)}
             aoFazerAcerto={() => setAcertoAberto(true)}
           />
         </>
@@ -186,6 +191,23 @@ export function RevendedorasArea({
         maleta={maletaAbertaDe(estado, atual.id)}
         revendedora={atual}
         aoFechar={() => setAcertoAberto(false)}
+        aoConcluir={recarregar}
+      />}
+
+      {typeof rota === 'number' && atual && <EditarRevendedora
+        aberto={edicaoAberta}
+        conexao={conexao}
+        revendedora={atual}
+        aoFechar={() => setEdicaoAberta(false)}
+        aoSalvar={recarregar}
+      />}
+
+      {typeof rota === 'number' && atual && <AdicionarItensMaleta
+        aberto={adicaoAberta}
+        conexao={conexao}
+        estado={estado}
+        maleta={maletaAbertaDe(estado, atual.id)}
+        aoFechar={() => setAdicaoAberta(false)}
         aoConcluir={recarregar}
       />}
     </div>

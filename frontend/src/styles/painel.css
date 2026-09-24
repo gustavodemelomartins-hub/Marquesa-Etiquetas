@@ -163,9 +163,9 @@
 
 .cartoes-rev { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--r3); }
 .cartoes-rev li > button {
-  width: 100%; height: 100%; display: flex; flex-direction: column; gap: 2px;
+  width: 100%; height: 100%; display: flex; flex-direction: column; gap: 10px;
   background: var(--paper); border: 1px solid var(--line); border-radius: 13px;
-  padding: var(--r4); font: inherit; text-align: left; cursor: pointer; transition: .15s;
+  padding: 13px; font: inherit; text-align: left; cursor: pointer; transition: .15s;
 }
 .cartoes-rev li > button:hover { border-color: var(--rose); box-shadow: var(--shadow); }
 .cartoes-rev .nome {
@@ -177,6 +177,13 @@
   padding-top: 11px; border-top: 1px solid var(--line-soft);
 }
 .cartoes-rev .selo-linha { margin-top: 11px; }
+.rev-card-identidade { width: 100%; display: flex; align-items: center; gap: 11px; }
+.rev-card-identidade > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.rev-card-identidade > span:nth-child(2) b { color: var(--ink); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rev-card-identidade > span:nth-child(2) small { color: var(--muted); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rev-card-avatar { width: 38px; height: 38px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--bordo); color: #fff; font-size: 12px; font-weight: 700; }
+.rev-card-identidade .selo { flex: none; }
+.rev-card-resumo { color: var(--ink); font-size: 12.5px; padding-left: 49px; }
 
 /* --------------------------------------------------------- capacidade */
 
@@ -346,6 +353,84 @@ input.qtd {
 .rev-capacidade-anel span { margin-top: 7px; color: var(--muted); font-size: 10px; line-height: 1.35; }
 .rev-capacidade-compacta p { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
 .rev-capacidade-compacta > strong { color: var(--bordo); }
+
+/* Perfil de revendedora — mesma arquitetura do protótipo: maleta dominante,
+   distribuição compacta ao lado e histórico abaixo. */
+.rev-profile-grid {
+  display: grid; grid-template-columns: minmax(0, 3fr) minmax(280px, 1fr);
+  gap: var(--r4); align-items: stretch; margin-bottom: var(--r4);
+}
+.rev-profile-grid > .painel { margin: 0; }
+.rev-eyebrow {
+  display: block; color: var(--muted); font-size: 10px; font-weight: 700;
+  letter-spacing: .11em; text-transform: uppercase; margin-bottom: 4px;
+}
+.rev-maleta-card { display: flex; flex-direction: column; min-width: 0; }
+.rev-maleta-cabeca {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: var(--r4);
+  padding: var(--r4) var(--r5); border-bottom: 1px solid var(--line-soft);
+}
+.rev-maleta-cabeca h2, .rev-mix-card h2 { font: 500 21px/1.2 var(--serif); color: var(--ink); }
+.rev-maleta-cabeca p { color: var(--muted); font-size: 12px; margin-top: 5px; }
+.rev-maleta-busca {
+  display: flex; align-items: center; gap: var(--r3); padding: 9px var(--r5);
+  background: var(--ivory); border-bottom: 1px solid var(--line-soft);
+}
+.rev-maleta-busca input { flex: 1; min-width: 0; padding-top: 7px; padding-bottom: 7px; }
+.rev-maleta-busca small { color: var(--muted); white-space: nowrap; }
+.rev-maleta-lista { max-height: 356px; overflow-y: auto; overscroll-behavior: contain; }
+.rev-maleta-lista:focus-visible { outline: 2px solid var(--rose); outline-offset: -2px; }
+.rev-maleta-item {
+  display: grid; grid-template-columns: 38px minmax(0, 1fr) 58px 96px;
+  gap: var(--r3); align-items: center; min-height: 60px; padding: 9px var(--r4);
+  border-bottom: 1px solid var(--line-soft);
+}
+.rev-maleta-item:last-child { border-bottom: 0; }
+.rev-maleta-icone {
+  width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center;
+  color: #C4802A; background: var(--bordo-tint); font-size: 18px;
+}
+.rev-maleta-produto { min-width: 0; display: grid; gap: 2px; }
+.rev-maleta-produto b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--ink); }
+.rev-maleta-produto small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 11.5px; }
+.rev-maleta-item > strong { text-align: right; color: var(--ink); font-size: 13px; }
+.rev-maleta-valor { color: var(--ink); font-size: 13px; text-align: right; white-space: nowrap; }
+.rev-maleta-vazia { color: var(--muted); font-size: 13px; padding: var(--r5); text-align: center; }
+.rev-maleta-acoes {
+  display: flex; align-items: center; justify-content: flex-end; gap: var(--r2);
+  padding: 12px var(--r4); border-top: 1px solid var(--line-soft); margin-top: auto;
+}
+.rev-maleta-acoes > span { margin-right: auto; color: var(--muted); font-size: 11.5px; }
+.rev-mix-card { padding: var(--r4) var(--r5); display: flex; flex-direction: column; min-width: 0; }
+.rev-mix-card > header { padding-bottom: var(--r4); }
+.rev-mix-total { display: grid; justify-items: center; padding: var(--r4) 0 var(--r5); }
+.rev-mix-total b { font: 700 38px/1 var(--serif); color: var(--ink); }
+.rev-mix-total span { color: var(--muted); font-size: 11.5px; margin-top: 5px; }
+.rev-mix-lista { list-style: none; margin: auto 0 0; padding: 0; display: grid; gap: 15px; }
+.rev-mix-lista li > div { display: grid; grid-template-columns: minmax(0, 1fr) 30px 34px; gap: 6px; align-items: baseline; }
+.rev-mix-lista li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-size: 12px; }
+.rev-mix-lista li b { color: var(--ink); font-size: 12px; text-align: right; }
+.rev-mix-lista li small { color: var(--muted); font-size: 10.5px; text-align: right; }
+.rev-mix-barra { display: block; height: 6px; margin-top: 5px; background: var(--line-soft); border-radius: 99px; overflow: hidden; }
+.rev-mix-barra i { display: block; height: 100%; border-radius: inherit; background: var(--mix-cor, var(--bordo)); }
+.rev-historico-card { margin-bottom: var(--r5); }
+.rev-historico-card .painel-cabeca > div { display: flex; align-items: baseline; gap: var(--r3); flex-wrap: wrap; }
+.rev-historico-tabela { overflow-x: auto; }
+.rev-historico-linha {
+  display: grid; grid-template-columns: minmax(150px, 1.25fr) repeat(4, minmax(88px, .75fr)) auto;
+  gap: var(--r4); align-items: center; min-width: 780px; padding: 11px var(--r5);
+  border-top: 1px solid var(--line-soft);
+}
+.rev-historico-linha:first-child { border-top: 0; }
+.rev-historico-linha > span:not(.status-badge) { display: grid; gap: 2px; }
+.rev-historico-linha b { color: var(--ink); font-size: 12.5px; }
+.rev-historico-linha small { color: var(--muted); font-size: 10.5px; }
+.rev-adicionar-lista { border: 1px solid var(--line); border-radius: var(--raio-sm); max-height: 450px; overflow-y: auto; }
+.rev-adicionar-item { display: flex; align-items: center; gap: var(--r4); padding: 10px var(--r3); border-top: 1px solid var(--line-soft); }
+.rev-adicionar-item:first-child { border-top: 0; }
+.rev-adicionar-item > span { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.rev-adicionar-item b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.rev-adicionar-item small { color: var(--muted); font-size: 11px; }
 .acerto-resumo { display: flex; align-items: center; gap: var(--r3); flex-wrap: wrap; padding: var(--r3) var(--r4); border: 1px solid var(--line); border-radius: 10px; background: var(--ivory); font-size: 13px; }
 .acerto-resumo b { color: var(--bordo); }
 .acerto-itens { display: grid; gap: var(--r3); }
@@ -365,6 +450,11 @@ input.qtd {
 .acerto-resumo-financeiro dd { margin: 4px 0 0; color: var(--bordo); font: 600 22px/1.2 var(--serif); }
 @media (max-width: 760px) {
   .rev-overview-grid { grid-template-columns: 1fr; }
+  .rev-profile-grid { grid-template-columns: 1fr; }
+  .rev-mix-card { min-height: 320px; }
+  .rev-maleta-item { grid-template-columns: 32px minmax(0, 1fr) 45px 78px; gap: var(--r2); }
+  .rev-maleta-icone { width: 32px; height: 32px; }
+  .rev-maleta-cabeca, .rev-maleta-acoes { flex-wrap: wrap; }
   .acerto-destino { grid-template-columns: 90px 1fr; }
   .acerto-destino .btn { grid-column: 1 / -1; justify-self: start; }
   .acerto-resumo-financeiro { grid-template-columns: 1fr; }
