@@ -20,6 +20,7 @@ interface Props {
   estado: AppState;
   revendedora: Reseller;
   aoCriarMaleta: () => void;
+  aoFazerAcerto: () => void;
 }
 
 /** A tela de uma revendedora: a maleta que está com ela e o histórico.
@@ -27,7 +28,7 @@ interface Props {
  *  Os números saem das mesmas funções da Visão Geral — §6.1 inclusive, o
  *  preço congelado no envio. Duas contas diferentes para o mesmo valor é
  *  como a tela e o acerto passam a discordar. */
-export function RevendedoraPage({ estado, revendedora, aoCriarMaleta }: Props) {
+export function RevendedoraPage({ estado, revendedora, aoCriarMaleta, aoFazerAcerto }: Props) {
   const produtos = new Map(estado.produtos.map((p) => [p.sku, p]));
   const aberta = maletaAbertaDe(estado, revendedora.id);
   const fechadas = estado.maletas
@@ -150,7 +151,10 @@ export function RevendedoraPage({ estado, revendedora, aoCriarMaleta }: Props) {
       {aberta && (
         <p className="rodape-acao">
           <StatusBadge tom={situacao!.tom}>{situacao!.texto}</StatusBadge>{' '}
-          O acerto e a devolução seguem no painel clássico. Aqui você monta a próxima maleta.
+          Confira o destino de todas as peças antes de encerrar esta maleta.
+          <button type="button" className="btn btn-escrita btn-sm" onClick={aoFazerAcerto}>
+            Fazer acerto
+          </button>
           <button type="button" className="btn btn-leitura btn-sm" onClick={aoCriarMaleta}>
             + Criar outra maleta
           </button>

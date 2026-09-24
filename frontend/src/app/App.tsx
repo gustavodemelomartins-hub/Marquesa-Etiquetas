@@ -80,7 +80,9 @@ function AppConectado({
      não havia link para mandar "abre a maleta da Fulana". */
   const subRev: SubRotaRevendedoras = rota.sub && /^\d+$/.test(rota.sub)
     ? Number(rota.sub)
-    : 'visao-geral';
+    : rota.sub === 'todas' || rota.sub === 'configuracoes'
+      ? rota.sub
+      : 'visao-geral';
 
   const abrirCliente = (chave: { id: number } | { norm: string }) => {
     ir({ modulo: 'clientes', sub: 'id' in chave ? String(chave.id) : `norm:${chave.norm}` });

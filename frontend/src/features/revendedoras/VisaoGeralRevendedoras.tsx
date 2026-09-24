@@ -1,14 +1,13 @@
+import type { CSSProperties } from 'react';
 import type { AppState } from '../../types/api';
 import { Kpi, Kpis } from '../../components/Kpi';
-import { Colunas, Painel } from '../../components/Painel';
-import { Donut } from '../../components/Donut';
+import { Painel } from '../../components/Painel';
 import { EmptyState } from '../../components/EmptyState';
 import { StatusBadge } from '../../components/StatusBadge';
 import { fmtData, money, plural } from '../../domain/formato';
-import { porCategoria, totaisEstoque } from '../../domain/estoque';
+import { totaisEstoque } from '../../domain/estoque';
 import { agendaDeAcertos, resumoDasRevendedoras } from '../../domain/maletas';
 import { calcularCapacidade } from '../../domain/capacidade';
-import { CapacidadeMaletas } from '../maletas/CapacidadeMaletas';
 import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
 
 interface Props {
@@ -16,8 +15,8 @@ interface Props {
   planejamento: UsoPlanejamento;
   aoAbrirRevendedora: (id: number) => void;
   aoVerSugestoes: () => void;
-  aoCriarMaleta: () => void;
   aoNovaRevendedora: () => void;
+  aoVerTodas: () => void;
 }
 
 /** A Visão Geral de Revendedoras: a operação de consignação inteira em uma
@@ -32,8 +31,8 @@ export function VisaoGeralRevendedoras({
   planejamento,
   aoAbrirRevendedora,
   aoVerSugestoes,
-  aoCriarMaleta,
   aoNovaRevendedora,
+  aoVerTodas,
 }: Props) {
   const t = totaisEstoque(estado);
   const agenda = agendaDeAcertos(estado);
@@ -88,11 +87,8 @@ export function VisaoGeralRevendedoras({
         />
       </Kpis>
 
-      <Painel
-        titulo="Agenda de acertos"
-        dica="Quem vem, quando, e com quanto na mão"
-        semPadding
-      >
+      <div className="rev-overview-grid">
+      <Painel titulo="Agenda de acertos" dica="Quem vem, quando, e com quanto na mão" semPadding>
         {!agenda.length ? (
           <EmptyState
             titulo="Nenhuma maleta na rua"
@@ -123,26 +119,20 @@ export function VisaoGeralRevendedoras({
           </ul>
         )}
       </Painel>
-
-      <CapacidadeMaletas
-        estado={estado}
-        planejamento={planejamento}
-        aoVerSugestoes={aoVerSugestoes}
-        aoCriarMaleta={aoCriarMaleta}
-      />
-
-      <Colunas>
-        <Painel titulo="Por categoria, na rua" dica="O que está com as revendedoras agora">
-          <Donut
-            dados={porCategoria(estado, 'fora')}
-            legendaCentro="na rua"
-            textoVazio="Nenhuma peça está com revendedoras no momento."
-          />
-        </Painel>
+      <Painel titulo="Capacidade para novas maletas" dica="Planejamento">
+        <div className="rev-capacidade-compacta">
+          <div className="rev-capacidade-anel" style={{ '--cap-pct': `${cap.emCasa ? Math.round(cap.consignavel / cap.emCasa * 100) : 0}%` } as CSSProperties}><b>{cap.consignavel}</b><span>peças liberadas<br />em casa</span></div>
+          <p>Premissa atual: {cap.tamanhoAlvo} peças por maleta, com reserva de {cap.reservaPct}% por código.</p>
+          <strong>{cap.maletas} {plural(cap.maletas, 'maleta nova', 'maletas novas')}</strong>
+          <button type="button" className="btn btn-escrita" onClick={aoVerSugestoes}>Ver sugestões</button>
+        </div>
+      </Painel>
+      </div>
 
         <Painel
           titulo="Revendedoras"
-          dica="Toque em uma para abrir a maleta dela"
+          dica="Abra uma pessoa para ver a maleta e o histórico"
+          acoes={<button type="button" className="btn btn-leitura btn-sm" onClick={aoVerTodas}>Ver todas</button>}
         >
           {!resumo.length ? (
             <EmptyState
@@ -156,7 +146,7 @@ export function VisaoGeralRevendedoras({
             />
           ) : (
             <ul className="cartoes-rev">
-              {resumo.map((r) => (
+              {resumo.slice(0, 3).map((r) => (
                 <li key={r.id}>
                   <button type="button" onClick={() => aoAbrirRevendedora(r.id)}>
                     <span className="nome">{r.nome}</span>
@@ -194,7 +184,6 @@ export function VisaoGeralRevendedoras({
             </ul>
           )}
         </Painel>
-      </Colunas>
     </>
   );
 }

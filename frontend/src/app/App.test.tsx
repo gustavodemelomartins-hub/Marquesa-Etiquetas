@@ -229,10 +229,10 @@ describe('cada área abre na tela certa', () => {
     render(<App />);
     irNoTrilho(/Revendedoras/);
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Visão Geral' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Revendedoras' })).toBeTruthy();
     const abas = screen.getByRole('tablist', { name: 'Revendedoras' });
-    expect(within(abas).getByRole('tab', { name: 'Visão Geral' })).toHaveProperty(
-      'ariaPressed',
+    expect(within(abas).getByRole('tab', { name: 'Visão geral' })).toHaveProperty(
+      'ariaSelected',
       'true',
     );
   });
@@ -242,7 +242,7 @@ describe('cada área abre na tela certa', () => {
     irNoTrilho(/^Estoque$/);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Ver planejamento' }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Visão Geral' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Revendedoras' })).toBeTruthy();
   });
 
   /* A aba da revendedora era um `useState` no App: recarregar em cima da
@@ -253,15 +253,14 @@ describe('cada área abre na tela certa', () => {
     irNoTrilho(/Revendedoras/);
 
     const abas = await screen.findByRole('tablist', { name: 'Revendedoras' });
-    fireEvent.click(within(abas).getByRole('tab', { name: /Andreia/ }));
+    fireEvent.click(within(abas).getByRole('tab', { name: /Todas as revendedoras/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Andreia Souza/ }));
     expect(location.hash).toBe('#/revendedoras/1');
 
     /* Recarregar = montar do zero com o mesmo endereço. */
     cleanup();
     render(<App />);
-    const depois = await screen.findByRole('tablist', { name: 'Revendedoras' });
-    expect(within(depois).getByRole('tab', { name: /Andreia/ }))
-      .toHaveProperty('ariaPressed', 'true');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Andreia Souza' })).toBeTruthy();
   });
 
   /* Um endereço apontando para alguém que não existe mais não pode virar
@@ -269,6 +268,6 @@ describe('cada área abre na tela certa', () => {
   it('ficha de revendedora inexistente cai na Visão Geral', async () => {
     history.replaceState(null, '', '#/revendedoras/9999');
     render(<App />);
-    expect(await screen.findByRole('heading', { level: 1, name: 'Visão Geral' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Revendedoras' })).toBeTruthy();
   });
 });

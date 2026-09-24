@@ -60,18 +60,18 @@ describe('navegação de Revendedoras', () => {
   it('abre na Visão Geral', () => {
     render(<Area />);
     const abas = screen.getByRole('tablist', { name: 'Revendedoras' });
-    expect(within(abas).getByRole('tab', { name: 'Visão Geral' })).toHaveProperty(
-      'ariaPressed',
+    expect(within(abas).getByRole('tab', { name: 'Visão geral' })).toHaveProperty(
+      'ariaSelected',
       'true',
     );
-    expect(screen.getByRole('heading', { level: 1, name: 'Visão Geral' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Revendedoras' })).toBeTruthy();
   });
 
-  it('os nomes das abas vêm dos dados, não do código', () => {
+  it('usa a navegação estável do módulo, sem transformar pessoas em abas', () => {
     render(<Area />);
     const abas = screen.getByRole('tablist', { name: 'Revendedoras' });
     const rotulos = [...abas.querySelectorAll('[role="tab"]')].map((b) => b.textContent);
-    expect(rotulos).toEqual(['Visão Geral', 'Andreia', 'Graciele']);
+    expect(rotulos).toEqual(['Visão geral', 'Todas as revendedoras 2', 'Configurações']);
   });
 
   it('revendedora arquivada não vira aba', () => {
@@ -79,9 +79,10 @@ describe('navegação de Revendedoras', () => {
     expect(screen.queryByRole('tab', { name: 'Bruna' })).toBeNull();
   });
 
-  it('cada revendedora continua acessível pela aba dela', () => {
+  it('cada revendedora continua acessível por Todas as revendedoras', () => {
     render(<Area />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Andreia' }));
+    fireEvent.click(screen.getByRole('tab', { name: /Todas as revendedoras/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Andreia Souza/ }));
     expect(screen.getByRole('heading', { level: 1, name: 'Andreia Souza' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Maleta 7' })).toBeTruthy();
   });
@@ -115,7 +116,7 @@ describe('sugestões', () => {
 describe('criar maleta exige confirmação', () => {
   it('clicar em "+ Criar maleta" não cria nada — abre a sequência', () => {
     render(<Area />);
-    fireEvent.click(screen.getByRole('button', { name: '+ Criar maleta' }));
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Criar maleta' })[0]!);
     expect(api.criarMaleta).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog', { name: 'Criar maleta' })).toBeTruthy();
     expect(screen.getByText(/nada é gravado até você confirmar/)).toBeTruthy();
@@ -133,7 +134,7 @@ describe('criar maleta exige confirmação', () => {
     vi.mocked(api.adicionarItens).mockResolvedValue({ ok: true, adicionados: 2, recusados: [] });
 
     render(<Area />);
-    fireEvent.click(screen.getByRole('button', { name: '+ Criar maleta' }));
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Criar maleta' })[0]!);
     const painel = screen.getByRole('dialog', { name: 'Criar maleta' });
 
     fireEvent.click(within(painel).getByRole('button', { name: /Graciele/ }));
@@ -166,7 +167,7 @@ describe('criar maleta exige confirmação', () => {
     vi.mocked(api.adicionarItens).mockResolvedValue({ ok: true, adicionados: 2, recusados: [] });
 
     render(<Area />);
-    fireEvent.click(screen.getByRole('button', { name: '+ Criar maleta' }));
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Criar maleta' })[0]!);
     const painel = screen.getByRole('dialog', { name: 'Criar maleta' });
     fireEvent.click(within(painel).getByRole('button', { name: /Graciele/ }));
     fireEvent.click(within(painel).getByRole('button', { name: 'Continuar' }));
@@ -184,5 +185,27 @@ describe('criar maleta exige confirmação', () => {
     /* 20 em casa, 30% de reserva → no máximo 14 do C1. */
     expect(enviados.C1).toBeLessThanOrEqual(14);
     for (const [, qtd] of Object.entries(enviados)) expect(qtd).toBeGreaterThan(0);
+  });
+});
+
+describe('acerto da maleta', () => {
+  it('só grava depois de fechar todas as quantidades e confirmar', async () => {
+    vi.mocked(api.encerrarAcerto).mockResolvedValue({
+      ok: true, vendaId: 22, novaMaletaId: null,
+      acerto: { enviadas: 3, devolvidas: 1, vendidas: 2, perdas: 0, baixas: 2, totalVendido: 300, comissao: 90, liquido: 210 },
+    });
+    render(<Area inicial={1} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Fazer acerto' }));
+    const painel = screen.getByRole('dialog', { name: 'Acerto da maleta 7' });
+    fireEvent.change(within(painel).getByLabelText('Devolvidas de C1'), { target: { value: '1' } });
+    expect(api.encerrarAcerto).not.toHaveBeenCalled();
+    fireEvent.click(within(painel).getByRole('button', { name: 'Revisar acerto' }));
+    fireEvent.click(within(painel).getByRole('button', { name: 'Confirmar e encerrar maleta' }));
+    await waitFor(() => expect(api.encerrarAcerto).toHaveBeenCalledWith(
+      conexao,
+      7,
+      { devolvidas: { C1: 1 }, faltas: [{ sku: 'C1', linhas: [{ qtd: 2, destino: 'vendida' }] }] },
+    ));
+    expect(await within(painel).findByRole('heading', { name: 'Acerto concluído' })).toBeTruthy();
   });
 });

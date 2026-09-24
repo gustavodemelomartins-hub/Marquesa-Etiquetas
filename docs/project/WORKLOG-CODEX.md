@@ -159,6 +159,43 @@ Plan §17).
 
 ---
 
+## 2026-09-24 — REV-002 · Revendedoras V2 e acerto seguro
+
+| | |
+|---|---|
+| Branch | `develop` |
+| Commit | **em andamento** |
+| Status | **EM ANDAMENTO — ownership Codex; somente DEV** |
+
+**Estado inicial:** a V2 usava nomes de pessoas como abas, a composição da
+visão geral já lia dados reais mas divergia do protótipo, e a ficha ainda
+mandava o acerto para o painel clássico. O endpoint aceitava uma distribuição
+parcial e criava a venda antes do lote atômico sem identidade estável de retry.
+
+**Dependências verificadas:** protótipo versionado em
+`docs/ux/03-screens/revendedoras/`, contratos reais de `GET /api/state` e
+`POST /api/maletas/:id/acerto`, regra de comissão do servidor, regra existente
+de capacidade/reserva e índice único já existente de `vendas.externo_id`.
+
+**Trabalho nesta continuação:** navegação estável `Visão geral | Todas as
+revendedoras | Configurações`, cabeçalho e composição do protótipo com dados
+reais, listagem pesquisável, ficha preservada e fluxo de conferência/encerramento
+de maleta. O servidor agora exige `devolvidas + destinadas = enviadas` por SKU
+e usa `acerto:maleta:<id>` como identidade única da venda para impedir retry ou
+duplo clique de criar venda duplicada.
+
+**Validações já executadas:** 27 testes React de Revendedoras/rotas verdes,
+4 testes puros da distribuição do acerto verdes e build React verde. O teste
+integrado `src/revendedoras-test.mjs` foi tentado sem Worker local e recusou
+conexão em `127.0.0.1:8787`; será repetido pelo runner integrado que sobe D1 e
+Worker descartáveis.
+
+**Evidência/blockers:** nenhum dado real foi alterado e PROD não foi tocada.
+O protótipo continua em edição externa; por isso o acabamento visual final
+depende de uma última sincronização e releitura imediatamente antes do deploy.
+
+---
+
 ## Protocolo permanente Claude/Codex
 
 Toda vez que Codex realizar trabalho significativo neste projeto:

@@ -1,212 +1,208 @@
 {
-  "gerado": "2026-09-19",
+  "gerado": "2026-09-24",
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
   "atualizadoEm": "2026-09-12",
   "git": {
-    "branch": "claude/integration-v2-real",
+    "branch": "develop",
     "recentes": [
       {
-        "commit": "7893fa0",
-        "data": "2026-09-19",
+        "commit": "588a22b",
+        "data": "2026-09-24",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "test(design): roteiros de verificação acompanham a linguagem nova",
+        "assunto": "test(v2): tell a deliberate refusal apart from a defect",
         "agente": "",
         "taskIds": []
       },
       {
-        "commit": "3c0417b",
-        "data": "2026-09-19",
+        "commit": "5a74f03",
+        "data": "2026-09-24",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(design): Marquesa V2 ganha um design system canônico e um casco único",
+        "assunto": "fix(nonrevenue): the embedded exit form is a card, not a modal",
         "agente": "",
         "taskIds": []
       },
       {
-        "commit": "31c9caf",
-        "data": "2026-09-19",
+        "commit": "042bcea",
+        "data": "2026-09-24",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(ci): install Chromium for prototype checks",
+        "assunto": "fix(inventory): the screen can finally answer \"which variation?\"",
         "agente": "",
         "taskIds": []
       },
       {
-        "commit": "7b6fa54",
-        "data": "2026-09-19",
+        "commit": "c62f98f",
+        "data": "2026-09-23",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(ux): publish complete V2 prototype on DEV",
+        "assunto": "fix(stock): two numbers the published screen was getting wrong",
         "agente": "",
         "taskIds": []
       },
       {
-        "commit": "750bc5a",
-        "data": "2026-09-12",
+        "commit": "c1abdcf",
+        "data": "2026-09-23",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(painel): DOC-006 — o Refactor sai da Fase 4 e a 5.4 fecha com nome",
-        "agente": "",
-        "taskIds": [
-          "DOC-006"
-        ]
-      },
-      {
-        "commit": "847fe28",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(painel): o card do Codex deixa de parar em 52f5f5f e passa a a6d7c6b",
+        "assunto": "fix(stock): ask the CDN for a thumbnail, not the whole photo",
         "agente": "",
         "taskIds": []
       },
       {
-        "commit": "8b306ad",
-        "data": "2026-09-11",
+        "commit": "f310058",
+        "data": "2026-09-23",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(decisoes): as respostas da Sthefany fecham DR-005/006/015/016",
+        "assunto": "test(v2): smoke script for the published DEV surfaces",
         "agente": "",
         "taskIds": []
       },
       {
-        "commit": "510afa5",
-        "data": "2026-09-11",
+        "commit": "2e169df",
+        "data": "2026-09-23",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(painel): tres frentes reais viram data.workstreams, nao texto na tela",
+        "assunto": "fix(shell): the module tab strip belongs to the shell, not to the page",
         "agente": "",
         "taskIds": []
       },
       {
-        "commit": "3843297",
-        "data": "2026-09-11",
+        "commit": "b0e2ab9",
+        "data": "2026-09-23",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(decisoes): onze decisões fecham, e o projeto passa a ter três frentes com nome",
+        "assunto": "test(v2): cover production-critical operational flows",
         "agente": "",
         "taskIds": []
       },
       {
-        "commit": "52f5f5f",
-        "data": "2026-09-11",
+        "commit": "b494205",
+        "data": "2026-09-23",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(schema): test all 30 migrations against the schema, in a proven order",
+        "assunto": "data(nonrevenue): prepare legacy exit backfill",
         "agente": "",
         "taskIds": []
       },
       {
-        "commit": "2ad2ca9",
-        "data": "2026-09-11",
+        "commit": "b0fc63d",
+        "data": "2026-09-23",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(project): visual dashboard, parity ladder, and the reconciled V2 status",
+        "assunto": "feat(nonrevenue): integrate non-revenue stock exits",
         "agente": "",
         "taskIds": []
       },
       {
-        "commit": "9806d98",
-        "data": "2026-09-11",
+        "commit": "6e1302a",
+        "data": "2026-09-23",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(docs): repoint two links the taxonomy move left behind",
+        "assunto": "fix(custom-products): name the real blocker of Monte seu Colar",
         "agente": "",
         "taskIds": []
       },
       {
-        "commit": "c42e824",
-        "data": "2026-09-11",
+        "commit": "eb566b0",
+        "data": "2026-09-23",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B9 - Catalogo 4.5 (category identity, gallery, preparation, publisher)",
-        "agente": "Claude",
-        "taskIds": []
-      },
-      {
-        "commit": "ac9b6f2",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B8 - Inventario 4.4, a count that can be paused and never guesses a variation",
-        "agente": "Claude",
-        "taskIds": []
-      },
-      {
-        "commit": "80e3b69",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B7 - Monte seu Colar, the slot-typed composition model",
-        "agente": "Claude",
-        "taskIds": []
-      },
-      {
-        "commit": "6ef956c",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B6 - one SKU normalisation, the ledger invariant gate, and a dry run that writes nothing",
-        "agente": "Claude",
-        "taskIds": []
-      },
-      {
-        "commit": "c1fa2eb",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B5 - platform layer (error policy, typed config, D1 helpers, correlation id)",
-        "agente": "Claude",
-        "taskIds": []
-      },
-      {
-        "commit": "3c412f4",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B4 - all 142 contracts on the route table (phase 2, writes)",
-        "agente": "Claude",
-        "taskIds": []
-      },
-      {
-        "commit": "66da840",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B3 - HTTP router and the read-only routes (phase 2, reads)",
-        "agente": "Claude",
-        "taskIds": []
-      },
-      {
-        "commit": "bc7e9d5",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B2 - freeze the 142 HTTP contracts as an executable inventory",
-        "agente": "Claude",
-        "taskIds": []
-      },
-      {
-        "commit": "cfab977",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "merge(v2): B1 — docs taxonomy from the Claude refactor line",
-        "agente": "Claude",
-        "taskIds": []
-      },
-      {
-        "commit": "9bbf712",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(ux): refine vendas master prototype and reject the traced logo",
-        "agente": "Codex",
-        "taskIds": []
-      },
-      {
-        "commit": "bc3539c",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(project): DOC-002 — permanent status system (PROJECT-STATUS, worklogs, legacy parity audit)",
-        "agente": "",
-        "taskIds": [
-          "DOC-002"
-        ]
-      },
-      {
-        "commit": "8cc5ce9",
-        "data": "2026-09-11",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(architecture): point Master Plan at the new permanent status system",
+        "assunto": "feat(sales): unify launch modes in v2",
         "agente": "",
         "taskIds": []
       },
       {
-        "commit": "f1820bc",
-        "data": "2026-09-11",
+        "commit": "3f3ee8c",
+        "data": "2026-09-23",
         "autor": "gustavodemelomartins-hub",
-        "assunto": "chore(codex): commit local Codex governance mirror",
-        "agente": "Codex",
+        "assunto": "feat(inventory): complete persistent physical inventory flow",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "6a26e2b",
+        "data": "2026-09-23",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(stock): bring stock overview to prototype parity",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "d68b076",
+        "data": "2026-09-23",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(shell): align v2 header with approved prototype",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "d0aa716",
+        "data": "2026-09-18",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(review): a cross-review fecha como checkpoint, com o SHA do Refactor",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "53bade5",
+        "data": "2026-09-22",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(v2): reflect issued guarantee credits and map remaining work",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "454eca4",
+        "data": "2026-09-22",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "Wrap sales detail tabs on small screens",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "5915c55",
+        "data": "2026-09-21",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "use full width for sales composition",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "764a57b",
+        "data": "2026-09-21",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "keep sales tables compact on narrow screens",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "6cb95d9",
+        "data": "2026-09-21",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "align V2 sales tables and compact period filters",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "3e62095",
+        "data": "2026-09-21",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "refine V2 sales dashboard and shared UI density",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "d44bb45",
+        "data": "2026-09-20",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "test(v2): o smoke do que está NO AR, sem chave nenhuma",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "e14c292",
+        "data": "2026-09-20",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "merge: V2 com a arquitetura do protótipo — Vendas inteira, fila de publicação, garantias e o manifesto de paridade",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "049c1e2",
+        "data": "2026-09-20",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "test(v2): a corrente cliente → venda → financeiro → estoque, no telefone",
+        "agente": "",
         "taskIds": []
       }
     ]
@@ -403,9 +399,9 @@
       "id": "REV-002",
       "estado": "IN PROGRESS",
       "dominio": "Revendedoras",
-      "titulo": "React de Revendedoras — visão geral + ficha completas e testadas",
-      "contexto": "frontend/src/features/revendedoras/",
-      "nota": "paridade de acerto/comissão com o legado ainda não confirmada ponta a ponta"
+      "titulo": "React de Revendedoras — convergência com o protótipo e acerto seguro (ownership Codex; em andamento)",
+      "contexto": "frontend/src/features/revendedoras/, frontend/src/features/maletas/, api/src/maletas-comandos.js",
+      "nota": "arquitetura, contratos e testes focados implementados; falta validação integrada/local, comparação visual final e publicação DEV"
     },
     {
       "id": "NUV-001",
@@ -1473,9 +1469,9 @@
           "id": "REV-002",
           "estado": "IN PROGRESS",
           "dominio": "Revendedoras",
-          "titulo": "React de Revendedoras — visão geral + ficha completas e testadas",
-          "contexto": "frontend/src/features/revendedoras/",
-          "nota": "paridade de acerto/comissão com o legado ainda não confirmada ponta a ponta"
+          "titulo": "React de Revendedoras — convergência com o protótipo e acerto seguro (ownership Codex; em andamento)",
+          "contexto": "frontend/src/features/revendedoras/, frontend/src/features/maletas/, api/src/maletas-comandos.js",
+          "nota": "arquitetura, contratos e testes focados implementados; falta validação integrada/local, comparação visual final e publicação DEV"
         }
       ],
       "paridade": [
@@ -2330,6 +2326,15 @@
     ]
   },
   "worklogs": [
+    {
+      "agente": "Codex",
+      "data": "2026-09-24",
+      "titulo": "REV-002 · Revendedoras V2 e acerto seguro",
+      "branch": "develop",
+      "commits": "em andamento",
+      "status": "EM ANDAMENTO — ownership Codex; somente DEV",
+      "taskIds": []
+    },
     {
       "agente": "Claude",
       "data": "2026-09-15",

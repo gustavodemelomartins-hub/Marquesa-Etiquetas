@@ -52,6 +52,29 @@ export interface RespostaItens {
   recusados: ItemRecusado[];
 }
 
+export type DestinoAcerto = 'vendida' | 'perdida' | 'quebra' | 'dano' | 'brinde' | 'troca' | 'ficou';
+
+export interface DocumentoAcerto {
+  devolvidas: Record<string, number>;
+  faltas: Array<{ sku: string; linhas: Array<{ qtd: number; destino: DestinoAcerto }> }>;
+}
+
+export interface RespostaAcerto {
+  ok: true;
+  vendaId: number | null;
+  novaMaletaId: number | null;
+  acerto: {
+    enviadas: number;
+    devolvidas: number;
+    vendidas: number;
+    perdas: number;
+    baixas: number;
+    totalVendido: number;
+    comissao: number;
+    liquido: number;
+  };
+}
+
 export function criarMaleta(
   conexao: Connection,
   dados: { revId: number; abertaEm?: string | null; acertoEm?: string | null; obs?: string | null },
@@ -70,6 +93,14 @@ export function adicionarItens(
   itens: Record<string, number>,
 ): Promise<RespostaItens> {
   return chamar<RespostaItens>(conexao, 'POST', `/api/maletas/${maletaId}/itens`, { itens });
+}
+
+export function encerrarAcerto(
+  conexao: Connection,
+  maletaId: number,
+  documento: DocumentoAcerto,
+): Promise<RespostaAcerto> {
+  return chamar<RespostaAcerto>(conexao, 'POST', `/api/maletas/${maletaId}/acerto`, documento);
 }
 
 export function criarRevendedora(

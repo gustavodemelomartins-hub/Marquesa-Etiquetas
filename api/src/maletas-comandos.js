@@ -96,6 +96,53 @@ export async function adicionarItens(db, env, maletaId, { itens }) {
   return json({ ok: true, adicionados, recusados, nuvemshop });
 }
 
+const DESTINOS_ACERTO = new Set([
+  'vendida', 'perdida', 'quebra', 'dano', 'danificada', 'brinde', 'troca', 'ficou',
+]);
+
+/** Nenhuma peça pode sumir nem ser contabilizada duas vezes no acerto.
+ *  Valida o documento inteiro antes de qualquer INSERT ou movimento. */
+export function validarDistribuicaoAcerto(itens, devolvidas, faltas) {
+  if (!devolvidas || typeof devolvidas !== 'object' || Array.isArray(devolvidas)) {
+    return 'Informe as quantidades devolvidas por código.';
+  }
+  if (!Array.isArray(faltas)) return 'Informe o destino das peças não devolvidas.';
+  const porSku = new Map(itens.map(i => [i.sku, Number(i.qtd)]));
+  if (!porSku.size) return 'Esta maleta está vazia.';
+  const destinados = new Map();
+  const vistos = new Set();
+  for (const [sku, qtd] of Object.entries(devolvidas)) {
+    if (!porSku.has(sku)) return 'Código ' + sku + ' não está nesta maleta.';
+    if (!Number.isInteger(qtd) || qtd < 0 || qtd > porSku.get(sku)) {
+      return 'Quantidade devolvida inválida para ' + sku + '.';
+    }
+  }
+  for (const falta of faltas) {
+    const sku = falta?.sku;
+    if (!porSku.has(sku)) return 'Código ' + String(sku) + ' não está nesta maleta.';
+    if (vistos.has(sku)) return 'Código ' + sku + ' aparece mais de uma vez no acerto.';
+    vistos.add(sku);
+    if (!Array.isArray(falta.linhas) || !falta.linhas.length) {
+      return 'Informe o destino das peças de ' + sku + '.';
+    }
+    let total = 0;
+    for (const linha of falta.linhas) {
+      if (!Number.isInteger(linha?.qtd) || linha.qtd <= 0
+          || !DESTINOS_ACERTO.has(linha.destino)) {
+        return 'Quantidade ou destino inválido para ' + sku + '.';
+      }
+      total += linha.qtd;
+    }
+    destinados.set(sku, total);
+  }
+  for (const [sku, qtd] of porSku) {
+    if ((devolvidas[sku] || 0) + (destinados.get(sku) || 0) !== qtd) {
+      return 'Confira ' + sku + ': devolvidas e destinadas devem somar ' + qtd + '.';
+    }
+  }
+  return null;
+}
+
 /** §7, §8, §9, §13 — conferência, motivo, venda gerada e resumo financeiro. */
 export async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas }) {
   const maleta = await db.prepare(`SELECT * FROM maletas WHERE id = ?`).bind(maletaId).first();
@@ -110,6 +157,8 @@ export async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas }) 
       WHERE mi.maleta_id = ?`).bind(maletaId).all()).results;
   const porSku = new Map(itens.map(i => [i.sku, i]));
   const enviadas = itens.reduce((s, i) => s + i.qtd, 0);
+  const distribuicaoInvalida = validarDistribuicaoAcerto(itens, devolvidas, faltas);
+  if (distribuicaoInvalida) return json({ erro: distribuicaoInvalida }, 400);
 
   // §24: sem preço não dá para vender nem calcular comissão — para antes de gravar
   const semPreco = [];
@@ -151,8 +200,8 @@ export async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas }) 
       if (!(l.qtd > 0)) continue;
       if (l.destino === 'ficou') { ficam[f.sku] = (ficam[f.sku] || 0) + l.qtd; continue; }
       baixas += l.qtd;
-      if (l.destino === 'perdida' || l.destino === 'quebra' || l.destino === 'dano') perdas += l.qtd;
-      const tipo = { vendida: 'venda', perdida: 'perda', danificada: 'dano', brinde: 'brinde', troca: 'troca' }[l.destino] || 'venda';
+      if (['perdida', 'quebra', 'dano', 'danificada'].includes(l.destino)) perdas += l.qtd;
+      const tipo = { vendida: 'venda', perdida: 'perda', quebra: 'quebra', dano: 'dano', danificada: 'dano', brinde: 'brinde', troca: 'troca' }[l.destino];
       itensVenda.push({ sku: f.sku, desc: item.desc, qtd: l.qtd, preco: item.preco_envio, motivo: l.destino, tipo });
       if (l.destino === 'vendida') {
         vendidos.push({ qtd: l.qtd, preco: item.preco_envio, desc: item.desc });
@@ -167,10 +216,35 @@ export async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas }) 
   // na mesma tabela da venda de balcão, marcada com origem='acerto'.
   let vendaId = null;
   if (itensVenda.length) {
-    const v = await db.prepare(
-      `INSERT INTO vendas (cliente_nome, revendedora_id, maleta_id, origem, data, total, nuvemshop_status)
-       VALUES (NULL, ?, ?, 'acerto', ?, ?, 'pendente') RETURNING id`
-    ).bind(maleta.rev_id, maletaId, dataAcerto, c.totalVendido).first();
+    /* `externo_id` já é protegido por índice UNIQUE. A identidade estável
+       fecha a janela de dois cliques/retries criarem duas vendas para a
+       mesma maleta. Se uma queda dura acontecer depois do INSERT e antes do
+       batch, a venda órfã fica exposta como conflito para revisão; uma nova
+       venda nunca é criada silenciosamente por cima dela. */
+    const chaveAcerto = `acerto:maleta:${maletaId}`;
+    let v = await db.prepare(
+      `SELECT v.id,
+              (SELECT COUNT(*) FROM venda_itens vi WHERE vi.venda_id = v.id) AS itens,
+              (SELECT COUNT(*) FROM movimentos mv WHERE mv.venda_id = v.id) AS movimentos
+         FROM vendas v WHERE v.externo_id = ? LIMIT 1`
+    ).bind(chaveAcerto).first();
+    if (v) return json({
+      erro: Number(v.itens) > 0 || Number(v.movimentos) > 0
+        ? 'Este acerto já possui gravações. Atualize a tela antes de tentar novamente.'
+        : 'Há um acerto interrompido para esta maleta. Nenhuma nova venda foi criada; revise antes de continuar.',
+    }, 409);
+    try {
+      v = await db.prepare(
+        `INSERT INTO vendas (cliente_nome, revendedora_id, maleta_id, origem, data, total,
+                             externo_id, nuvemshop_status)
+         VALUES (NULL, ?, ?, 'acerto', ?, ?, ?, 'pendente') RETURNING id, 0 AS itens, 0 AS movimentos`
+      ).bind(maleta.rev_id, maletaId, dataAcerto, c.totalVendido, chaveAcerto).first();
+    } catch (erro) {
+      if (/unique|externo/i.test(String(erro))) {
+        return json({ erro: 'Este acerto já está sendo processado. Atualize a tela.' }, 409);
+      }
+      throw erro;
+    }
     vendaId = v.id;
     for (const it of itensVenda) {
       stmts.push(db.prepare(
@@ -218,7 +292,24 @@ export async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas }) 
     }
   }
 
-  await db.batch(stmts);
+  try {
+    await db.batch(stmts);
+  } catch (erro) {
+    /* O batch é atômico. Estes dois INSERTs precisaram ocorrer antes dele
+       para obter seus ids; se o batch recusar, removemos somente os
+       registros ainda órfãos. Um crash duro continua visível como conflito
+       na próxima tentativa, em vez de produzir uma segunda venda. */
+    if (novaMaletaId) await db.prepare(
+      `DELETE FROM maletas WHERE id=? AND NOT EXISTS
+       (SELECT 1 FROM maleta_itens WHERE maleta_id=?)`
+    ).bind(novaMaletaId, novaMaletaId).run();
+    if (vendaId) await db.prepare(
+      `DELETE FROM vendas WHERE id=? AND externo_id=?
+         AND NOT EXISTS (SELECT 1 FROM venda_itens WHERE venda_id=?)
+         AND NOT EXISTS (SELECT 1 FROM movimentos WHERE venda_id=?)`
+    ).bind(vendaId, `acerto:maleta:${maletaId}`, vendaId, vendaId).run();
+    throw erro;
+  }
   // Mesmo um acerto sem venda pode devolver todas as peças para casa e,
   // portanto, precisa aumentar o estoque online imediatamente.
   const nuvemshop = vendaId

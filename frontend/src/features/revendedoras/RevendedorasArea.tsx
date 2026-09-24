@@ -5,18 +5,21 @@ import { PageHeader } from '../../components/PageHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
-import { nomeCurto } from '../../domain/formato';
 import { pesosDaRevendedora, type Sugestao } from '../../domain/sugestoes';
 import { SugestoesDrawer } from '../maletas/SugestoesDrawer';
 import { CriarMaletaFluxo } from '../maletas/CriarMaletaFluxo';
 import { VisaoGeralRevendedoras } from './VisaoGeralRevendedoras';
 import { RevendedoraPage } from './RevendedoraPage';
 import { NovaRevendedora } from './NovaRevendedora';
+import { TodasRevendedoras } from './TodasRevendedoras';
+import { ConfiguracoesRevendedoras } from './ConfiguracoesRevendedoras';
+import { AcertoMaletaFluxo } from '../maletas/AcertoMaletaFluxo';
+import { maletaAbertaDe } from '../../domain/maletas';
 import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
 
 /** 'visao-geral' ou o id de uma revendedora. Os nomes das abas vêm do
  *  banco — nenhum nome de pessoa aparece escrito no código. */
-export type SubRotaRevendedoras = 'visao-geral' | number;
+export type SubRotaRevendedoras = 'visao-geral' | 'todas' | 'configuracoes' | number;
 
 interface Props {
   conexao: Connection;
@@ -48,6 +51,7 @@ export function RevendedorasArea({
   const [novaAberta, setNovaAberta] = useState(false);
   const [criando, setCriando] = useState(false);
   const [sugestaoEscolhida, setSugestaoEscolhida] = useState<Sugestao | null>(null);
+  const [acertoAberto, setAcertoAberto] = useState(false);
 
   if (erro) return <ErrorState erro={erro} aoTentarDeNovo={recarregar} />;
   if (!estado) return <LoadingState>Lendo estoque, maletas e revendedoras…</LoadingState>;
@@ -71,56 +75,49 @@ export function RevendedorasArea({
 
   return (
     <div>
-      <div className="filtros" role="tablist" aria-label="Revendedoras">
+      <nav className="mq-tabs" role="tablist" aria-label="Revendedoras">
         <button
           type="button"
           role="tab"
-          className="pill"
-          aria-pressed={rota === 'visao-geral'}
+          aria-selected={rota === 'visao-geral'}
           onClick={() => aoNavegarSub('visao-geral')}
         >
-          Visão Geral
+          Visão geral
         </button>
-        {ativas.map((r) => (
-          <button
-            key={r.id}
-            type="button"
-            role="tab"
-            className="pill"
-            aria-pressed={rota === r.id}
-            onClick={() => aoNavegarSub(r.id)}
-            title={r.nome}
-          >
-            {nomeCurto(r.nome)}
-          </button>
-        ))}
-        <button type="button" className="pill pill-acao" onClick={() => setNovaAberta(true)}>
-          + Nova
+        <button type="button" role="tab" aria-selected={rota === 'todas'} onClick={() => aoNavegarSub('todas')}>
+          Todas as revendedoras <span className="mq-badge">{ativas.length}</span>
         </button>
-      </div>
+        <button type="button" role="tab" aria-selected={rota === 'configuracoes'} onClick={() => aoNavegarSub('configuracoes')}>Configurações</button>
+      </nav>
 
       {carregando && <LoadingState>Atualizando…</LoadingState>}
 
       {rota === 'visao-geral' && (
         <>
           <PageHeader
-            kicker="Revendedoras"
-            titulo="Visão Geral"
-            sub="O que está na rua, quando volta, e quanto ainda cabe montar com o estoque de casa."
+            kicker="Consignação"
+            titulo="Revendedoras"
+            sub="Maletas na rua, agenda de acertos e capacidade para novos envios."
+            acoes={<><button type="button" className="btn btn-leitura" onClick={() => setNovaAberta(true)}>Nova revendedora</button><button type="button" className="btn btn-escrita" onClick={() => abrirCriacao(null)}>+ Criar maleta</button></>}
           />
           <VisaoGeralRevendedoras
             estado={estado}
             planejamento={planejamento}
             aoAbrirRevendedora={aoNavegarSub}
             aoVerSugestoes={() => setSugestoesAbertas(true)}
-            aoCriarMaleta={() => abrirCriacao(null)}
             aoNovaRevendedora={() => setNovaAberta(true)}
+            aoVerTodas={() => aoNavegarSub('todas')}
           />
         </>
       )}
 
+      {rota === 'todas' && <><PageHeader kicker="Consignação" titulo="Todas as revendedoras" sub="Maleta atual, próximo acerto e histórico de cada pessoa." acoes={<><button type="button" className="btn btn-leitura" onClick={() => setNovaAberta(true)}>Nova revendedora</button><button type="button" className="btn btn-escrita" onClick={() => abrirCriacao(null)}>+ Criar maleta</button></>} /><TodasRevendedoras estado={estado} aoAbrir={aoNavegarSub} /></>}
+
+      {rota === 'configuracoes' && <><PageHeader kicker="Consignação" titulo="Configurações" sub="Premissas transparentes para capacidade e montagem de maletas." /><ConfiguracoesRevendedoras estado={estado} planejamento={planejamento} aoVerSugestoes={() => setSugestoesAbertas(true)} aoCriarMaleta={() => abrirCriacao(null)} /></>}
+
       {typeof rota === 'number' && atual && (
         <>
+          <button type="button" className="voltar-link" onClick={() => aoNavegarSub('todas')}>← Todas as revendedoras</button>
           <PageHeader
             kicker="Revendedora"
             titulo={atual.nome}
@@ -135,6 +132,7 @@ export function RevendedorasArea({
             estado={estado}
             revendedora={atual}
             aoCriarMaleta={() => abrirCriacao(null)}
+            aoFazerAcerto={() => setAcertoAberto(true)}
           />
         </>
       )}
@@ -179,6 +177,17 @@ export function RevendedorasArea({
           aoNavegarSub(id);
         }}
       />
+
+      {typeof rota === 'number' && atual && <AcertoMaletaFluxo
+        key={`${rota}-${acertoAberto ? 'aberto' : 'fechado'}`}
+        aberto={acertoAberto}
+        conexao={conexao}
+        estado={estado}
+        maleta={maletaAbertaDe(estado, atual.id)}
+        revendedora={atual}
+        aoFechar={() => setAcertoAberto(false)}
+        aoConcluir={recarregar}
+      />}
     </div>
   );
 }
