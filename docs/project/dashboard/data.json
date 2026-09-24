@@ -3,8 +3,82 @@
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
   "atualizadoEm": "2026-09-12",
   "git": {
-    "branch": "develop",
+    "branch": "claude/review-marquesa-v2",
     "recentes": [
+      {
+        "commit": "3fbe0ca",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "test(v2): provar o cadastro contra o banco, com o recarregar no meio",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "d8199e6",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "chore(v2): devolver LF aos arquivos que uma edição em Windows converteu",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "56f6ca9",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(v2): três acertos vistos na tela publicada, e o roteiro que os viu",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "5156379",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(revendedoras): ajustar densidade no QA visual",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "2e16b65",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(revendedoras): alinhar perfil ao prototipo",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "cc19202",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(financeiro): \"A receber\" ganha a arquitetura da tela aprovada",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "998c34e",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(catalogo): a V2 passa a cadastrar produto de verdade",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "69a2810",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(estoque): o inventário volta para dentro da tela de Estoque",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "bfa1229",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(harness): REV-002 registrar deploy DEV e pendência do Worker",
+        "agente": "",
+        "taskIds": [
+          "REV-002"
+        ]
+      },
       {
         "commit": "c59bfc3",
         "data": "2026-09-24",
@@ -132,78 +206,6 @@
         "data": "2026-09-23",
         "autor": "gustavodemelomartins-hub",
         "assunto": "feat(shell): align v2 header with approved prototype",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "d0aa716",
-        "data": "2026-09-18",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(review): a cross-review fecha como checkpoint, com o SHA do Refactor",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "53bade5",
-        "data": "2026-09-22",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(v2): reflect issued guarantee credits and map remaining work",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "454eca4",
-        "data": "2026-09-22",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "Wrap sales detail tabs on small screens",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "5915c55",
-        "data": "2026-09-21",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "use full width for sales composition",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "764a57b",
-        "data": "2026-09-21",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "keep sales tables compact on narrow screens",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "6cb95d9",
-        "data": "2026-09-21",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "align V2 sales tables and compact period filters",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "3e62095",
-        "data": "2026-09-21",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "refine V2 sales dashboard and shared UI density",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "d44bb45",
-        "data": "2026-09-20",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "test(v2): o smoke do que está NO AR, sem chave nenhuma",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "e14c292",
-        "data": "2026-09-20",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "merge: V2 com a arquitetura do protótipo — Vendas inteira, fila de publicação, garantias e o manifesto de paridade",
         "agente": "",
         "taskIds": []
       }
@@ -449,8 +451,8 @@
       "id": "CAT-005",
       "estado": "NEXT",
       "dominio": "Catálogo",
-      "titulo": "React de Catálogo/Cadastro — nenhuma pasta existe ainda",
-      "contexto": "destravada por DR-002: o cadastro não é dela; reutiliza o fluxo de Estoque",
+      "titulo": "React de Catálogo/Cadastro — existe e cadastra (frontend/src/features/catalogo/, com NovoProduto)",
+      "contexto": "feito em 24/09/2026. Usa as MESMAS rotas da importação (novos/analisar → novos/cadastrar, origem: 'manual'), sem abrir caminho novo de escrita. 21 provas contra o banco real, com recarregar no meio. DR-002 continua valendo: a porta também está em Estoque",
       "nota": ""
     },
     {
@@ -497,7 +499,7 @@
       "id": "FIN-001",
       "estado": "NEXT",
       "dominio": "Financeiro",
-      "titulo": "React de Financeiro/Recebíveis — não existe nenhuma pasta",
+      "titulo": "React de Financeiro/Recebíveis — existe (frontend/src/features/financeiro/), e em 24/09/2026 \"A receber\" ganhou a composição do protótipo: quatro números em dinheiro, busca, filtros, sete colunas e o painel da venda ao lado da lista. D2 (receber em partes, estornar) segue aberta e a tela ANUNCIA a ausência",
       "contexto": "prioridade alta por DR-014 (FIN-101 é paridade obrigatória). O backend correspondente é a Fase 5.3 do Refactor, ainda NÃO INICIADA e aguardando autorização — é também onde o crédito da cliente gerado por garantia deixa de ser dependência externa. Não existe pasta de UX para contas a receber em docs/ux/03-screens/",
       "nota": ""
     },
@@ -672,8 +674,8 @@
           "id": "CAT-005",
           "estado": "NEXT",
           "dominio": "Catálogo",
-          "titulo": "React de Catálogo/Cadastro — nenhuma pasta existe ainda",
-          "contexto": "destravada por DR-002: o cadastro não é dela; reutiliza o fluxo de Estoque",
+          "titulo": "React de Catálogo/Cadastro — existe e cadastra (frontend/src/features/catalogo/, com NovoProduto)",
+          "contexto": "feito em 24/09/2026. Usa as MESMAS rotas da importação (novos/analisar → novos/cadastrar, origem: 'manual'), sem abrir caminho novo de escrita. 21 provas contra o banco real, com recarregar no meio. DR-002 continua valendo: a porta também está em Estoque",
           "nota": ""
         },
         {
@@ -1073,7 +1075,7 @@
           "id": "FIN-001",
           "estado": "NEXT",
           "dominio": "Financeiro",
-          "titulo": "React de Financeiro/Recebíveis — não existe nenhuma pasta",
+          "titulo": "React de Financeiro/Recebíveis — existe (frontend/src/features/financeiro/), e em 24/09/2026 \"A receber\" ganhou a composição do protótipo: quatro números em dinheiro, busca, filtros, sete colunas e o painel da venda ao lado da lista. D2 (receber em partes, estornar) segue aberta e a tela ANUNCIA a ausência",
           "contexto": "prioridade alta por DR-014 (FIN-101 é paridade obrigatória). O backend correspondente é a Fase 5.3 do Refactor, ainda NÃO INICIADA e aguardando autorização — é também onde o crédito da cliente gerado por garantia deixa de ser dependência externa. Não existe pasta de UX para contas a receber em docs/ux/03-screens/",
           "nota": ""
         }
@@ -2328,6 +2330,15 @@
     ]
   },
   "worklogs": [
+    {
+      "agente": "Claude",
+      "data": "2026-09-24",
+      "titulo": "Paridade com a tela aprovada, e o cadastro que faltava",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": []
+    },
     {
       "agente": "Codex",
       "data": "2026-09-24",

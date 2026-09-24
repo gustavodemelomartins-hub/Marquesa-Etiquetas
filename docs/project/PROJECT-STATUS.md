@@ -1,5 +1,14 @@
 # Painel Operacional — Sistema Marquesa
 
+**Rodada de 2026-09-24 (Claude Review):** a V2 ganhou paridade com a tela
+aprovada nas cinco superfícies P0 — o Inventário voltou para dentro de
+Estoque, o cadastro de produto passou a existir de verdade e "A receber"
+ganhou a composição do protótipo. Publicado e provado no DEV; **PROD sem uma
+única escrita**. A leitura de produção mostrou que ela está **10 migrations
+atrás**, e que sem elas o Inventário e o "A receber" da V2 não têm onde ler
+lá. O roteiro de publicação, com backup, ordem e rollback, está em
+[docs/releases/RC-V2-2026-09-24.md](../releases/RC-V2-2026-09-24.md).
+
 **Atualizado em:** 2026-09-12 (**fechamento oficial da Fase 5.4 do Claude
 Refactor** — backend de garantias completo em `a989cc0`, confirmado no remoto;
 a Fase 5 segue **em andamento** e a 5.3 / `FIN-101` **não** começou. O card do
@@ -104,13 +113,13 @@ movimentos / 19 vendas validados, reconciliação zero — ver Master Plan §2.
 | ID | Tarefa | Depende de |
 |---|---|---|
 | CAT-004 | Gestão de categorias (criar/editar) — hoje `POST /api/categorias` existe e **nenhuma tela chama**, nem legado nem React | **despriorizada por `DR-012`**: roadmap pós-validação |
-| CAT-005 | React de Catálogo/Cadastro — nenhuma pasta existe ainda | **destravada por `DR-002`**: o cadastro não é dela; reutiliza o fluxo de Estoque |
+| CAT-005 | React de Catálogo/Cadastro — **existe e cadastra** (`frontend/src/features/catalogo/`, com `NovoProduto`) | **feito em 24/09/2026.** Usa as MESMAS rotas da importação (`novos/analisar` → `novos/cadastrar`, `origem: 'manual'`), sem abrir caminho novo de escrita. 21 provas contra o banco real, com recarregar no meio. `DR-002` continua valendo: a porta também está em Estoque |
 | EST-002 | React de Editar peça/variações/kits/fotos/arquivar — só existe no legado | fatia vertical de Estoque na Fase 9 |
 | INV-003 | React de Inventário — nenhuma pasta existe, só o design em `docs/ux` | INV-001 mesclado primeiro (contrato ainda pode mudar) |
 | VEN-002 | React de Vendas — `App.tsx` só mostra `AreaPendente`, zero tela real | VEN-001 fechar decisões abertas antes de implementar. **`VEN-105` (correção de item vendido) entra aqui por `DR-014`**, fora da ordem de fase — em curso no Codex |
 | VEN-003 | Recebimentos múltiplos/parcelados (`IF-009`) | ideia em detalhamento, sem contrato ainda |
 | GAR-001 | React de Garantias — não existe nenhuma pasta | **prioridade alta por `DR-014`** (`GAR-101` é paridade obrigatória). **O backend deixou de ser o gargalo**: `GAR-002` fechou a Fase 5.4 em `a989cc0`. O que falta é UI — novo atendimento + confirmação da etiqueta, `GAR-102`, cancelar/corrigir garantia — e isso é frente do Codex. Atenção: `docs/ux/03-screens/reparos/` é domínio NOVO com material `vazio`, **não** é o desenho de `GAR-101` |
-| FIN-001 | React de Financeiro/Recebíveis — não existe nenhuma pasta | **prioridade alta por `DR-014`** (`FIN-101` é paridade obrigatória). O backend correspondente é a **Fase 5.3 do Refactor, ainda NÃO INICIADA e aguardando autorização** — é também onde o crédito da cliente gerado por garantia deixa de ser dependência externa. Não existe pasta de UX para contas a receber em `docs/ux/03-screens/` |
+| FIN-001 | React de Financeiro/Recebíveis — **existe** (`frontend/src/features/financeiro/`), e em 24/09/2026 "A receber" ganhou a composição do protótipo: quatro números em dinheiro, busca, filtros, sete colunas e o painel da venda ao lado da lista. D2 (receber em partes, estornar) segue aberta e a tela ANUNCIA a ausência | **prioridade alta por `DR-014`** (`FIN-101` é paridade obrigatória). O backend correspondente é a **Fase 5.3 do Refactor, ainda NÃO INICIADA e aguardando autorização** — é também onde o crédito da cliente gerado por garantia deixa de ser dependência externa. Não existe pasta de UX para contas a receber em `docs/ux/03-screens/` |
 | MON-003 | React de Monte seu Colar — hoje é backend puro atrás de flag | ligar `PERSONALIZACAO_ATIVA` primeiro (ver Decisions Required) |
 
 ---

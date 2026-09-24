@@ -18,6 +18,95 @@ conversa, que sei de primeira mão serem meus. Commits feitos direto em
 
 ---
 
+## 2026-09-24 — Paridade com a tela aprovada, e o cadastro que faltava
+
+A sessão anterior provou o backend: gates, domínio, release, centenas de
+testes e a razão fechando. Nada disso respondia a pergunta que sobrou: **a
+operadora consegue fazer, na tela publicada, o que a tela aprovada mostra?**
+Hoje a resposta era não em três pontos.
+
+### O inventário existia e a tela não
+
+No protótipo, a conferência física é uma **seção** da página de Estoque,
+entre "Onde está o patrimônio" e "Todos os produtos". Na V2 ela virou rota
+separada: a funcionalidade estava inteira e a tela aprovada não existia em
+lugar nenhum. `InventarioArea` ganhou `embutida` — muda só o cabeçalho, o
+miolo é o mesmo componente nos dois, porque dois inventários que divergem é
+o defeito que essa tela existe para não ter. `#/estoque/inventario` continua
+valendo.
+
+### "Novo produto" era um botão cenográfico
+
+Ele levava para uma lista onde não havia por onde começar. O backend nunca
+foi o gargalo: `novos/analisar`, `novos/cadastrar`, `sku/gerar`,
+`sku/checar`, `variacoes` e `distribuir` já estavam publicados e em uso pelo
+painel clássico. Faltava a tela, e a ausência não aparecia em teste nenhum —
+nada falhava, só não dava para trabalhar.
+
+O formulário usa as **mesmas rotas da importação de planilha**, com
+`origem: 'manual'`. Nenhum caminho novo de escrita: um segundo `INSERT` em
+`produtos` seria uma segunda regra de cadastro convivendo com a primeira.
+§17 no código (gerar reserva no banco; digitar é conferido contra produtos,
+fila, loja e reservas, e o recado diz **onde** o código já está), §24 no
+preço, §19 na quantidade.
+
+### "A receber" tinha os dados certos na composição errada
+
+Três números, dois deles contagem, sem busca, sem filtro, cinco colunas sem
+Total nem Recebido, e um diálogo tapando a lista a cada clique. Agora é a
+arquitetura do protótipo: as três datas ditas nesta aba, quatro números em
+dinheiro, busca e chips, sete colunas, e o painel da venda ao lado da lista.
+
+Duas diferenças **deliberadas**: o KPI diz o recorte real ("últimos 30
+dias") em vez de "no mês", porque o recorte é escolhido no Resumo; e
+"Corrigir lançamento" **não virou botão** — o backend não tem estorno de
+recebimento, e a tela anuncia isso no lugar onde a ação estaria.
+
+### Como isso foi provado
+
+Um roteiro novo abre o **bundle publicado** num navegador e intercepta a API
+com um retrato conhecido (`src/v2-paridade-publicada.mjs`, 38 provas): ele
+prova composição, ordem no documento e o **corpo** que cada formulário monta.
+Ele pegou três defeitos que os testes de unidade não veem — "Gerar código"
+quebrando de linha, o histórico do inventário sem contexto, e um nível de
+título pulado.
+
+E um segundo roteiro fecha o que só o banco responde
+(`src/v2-cadastro-persistencia.mjs`, 21 provas, contra `marquesa-db-staging-v2`):
+clicar → preencher → salvar → **recarregar a página** → achar de novo.
+Recarregar no meio é o ponto: uma tela que guarda o que criou em memória
+passa em qualquer teste que não recarregue. O catálogo ganhou exatamente um
+código e o estoque exatamente duas peças; a razão fecha antes e depois.
+
+| prova | resultado |
+|---|---|
+| suíte do frontend | 328/328 |
+| bundle publicado, sem chave | 7/7 |
+| as cinco superfícies na tela publicada | 38/38 |
+| as seis superfícies contra o staging real | 0 falhas, 1 pulada |
+| cadastrar → recarregar → achar, no banco real | 21/21 |
+
+### O que produção mostrou quando foi lida
+
+Leitura pura, `rows_written: 0` em toda resposta. PROD tem **43 tabelas**;
+`schema.sql` descreve 52. Faltam nove tabelas e colunas em cinco outras — e a
+consequência que importa: **sem as dez migrations, o Inventário e o "A
+receber" da V2 não têm onde ler em produção.** Não é "funciona pior", é
+`no such table`.
+
+O roteiro de amanhã, com a ordem exata, o backup, o rollback e o smoke, está
+em [`docs/releases/RC-V2-2026-09-24.md`](../releases/RC-V2-2026-09-24.md).
+Produção não recebeu uma única escrita nesta sessão.
+
+### Convivência com o Codex
+
+`develop` carrega as duas frentes sem perda. O rebase foi limpo porque os
+arquivos não se cruzam: Codex em `features/revendedoras/**` e
+`styles/painel.css`, Claude em `features/{inventario,catalogo,estoque-total,financeiro}/**`
+e `styles/{telas,inventario}.css`. Nenhum commit de Revendedoras foi tocado.
+
+---
+
 ## 2026-09-15 — A fila real de migrations, provada contra uma cópia de produção
 
 Autorizado pelo Gustavo: sandbox D1 novo e descartável, carregado de um export
