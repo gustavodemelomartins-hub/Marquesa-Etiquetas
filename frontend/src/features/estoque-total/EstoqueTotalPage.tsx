@@ -12,6 +12,7 @@ import { ConfirmarAplicar } from './ConfirmarAplicar';
 import { ResultadoAplicacao } from './ResultadoAplicacao';
 import { PainelEstoque } from './PainelEstoque';
 import { PecasArea } from '../estoque/PecasArea';
+import { InventarioArea } from '../inventario/InventarioArea';
 import { useSessaoPlanilha } from './useSessaoPlanilha';
 import { itensAprovados, itensPendentes } from './itens';
 import type { ModoPlanilha } from './tipos';
@@ -118,6 +119,22 @@ export function EstoqueTotalPage({
           aoConferirEstoque={aoConferirEstoque}
           aoNovoProduto={aoNovoProduto}
           aoVerPendencias={aoVerPendencias}
+        />
+      )}
+
+      {/* "CONFERÊNCIA FÍSICA · INVENTÁRIO" — a posição é a do protótipo:
+          entre a distribuição do patrimônio e o catálogo físico, no mesmo
+          documento. O inventário deixou de ser um lugar aonde se vai e
+          voltou a ser uma coisa que se faz de dentro do Estoque.
+
+          A aba "Inventário" e a rota `#/estoque/inventario` continuam
+          existindo e renderizam O MESMO componente em tela cheia. */}
+      {etapa === 'escolha' && (
+        <InventarioArea
+          conexao={conexao}
+          estado={estado}
+          aoMudarEstoque={aoMudarEstoque}
+          embutida
         />
       )}
 

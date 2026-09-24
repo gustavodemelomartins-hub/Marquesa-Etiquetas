@@ -155,3 +155,20 @@
   margin-top: var(--mq-2); padding-top: var(--mq-4);
   border-style: dashed;
 }
+
+/* ------------------------------------- o inventário como SEÇÃO da Visão geral */
+
+/* No protótipo (`docs/ux/03-screens/estoque/master.html`) a conferência
+   física não é uma tela à parte: é uma seção do Estoque, entre "Onde está o
+   patrimônio" e "Todos os produtos". Aqui ela reusa `.mq-card__head` pelo
+   título, mas fora de um cartão — então devolve a moldura que aquele
+   seletor pressupõe: sem borda inferior e sem o recuo lateral do cartão,
+   porque o alinhamento é o da PÁGINA. */
+.inventory-heading {
+  padding: 0;
+  border-bottom: 0;
+}
+.inventory-heading .mq-btns { flex: none; }
+
+/* Uma seção tem respiro de seção, não de parágrafo. */
+.inventory-section { gap: var(--mq-4); scroll-margin-top: var(--mq-6); }

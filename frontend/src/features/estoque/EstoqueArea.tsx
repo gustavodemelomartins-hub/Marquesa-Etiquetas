@@ -178,7 +178,17 @@ export function EstoqueArea({
           estado={estado}
           planejamento={planejamento}
           aoVerPlanejamento={aoVerPlanejamento}
-          aoConferirEstoque={() => aoNavegarSub('inventario')}
+          /* O inventário agora está NESTA tela, algumas seções abaixo.
+             "Conferir estoque" rola até ele em vez de trocar de página —
+             sair da Visão geral para conferir era justamente o passo que o
+             protótipo não tem. Se por algum motivo a seção não estiver
+             montada, a aba continua sendo o destino, e ninguém fica preso
+             num botão que não faz nada. */
+          aoConferirEstoque={() => {
+            const secao = document.getElementById('inventario');
+            if (secao) secao.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            else aoNavegarSub('inventario');
+          }}
           aoNovoProduto={() => aoAbrirModulo('catalogo')}
           /* Foto, categoria e preço se resolvem no CADASTRO da peça. */
           aoVerPendencias={() => aoAbrirModulo('catalogo')}

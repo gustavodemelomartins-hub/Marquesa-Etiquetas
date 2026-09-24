@@ -328,3 +328,65 @@ describe('EstoqueTotalPage — Adicionar Peças Novas', () => {
     expect(screen.getByText(/[Jj]á existem e serão ignorados/)).toBeTruthy();
   });
 });
+
+/** A COMPOSIÇÃO DA VISÃO GERAL, na ordem do protótipo.
+ *
+ *  `docs/ux/03-screens/estoque/master.html` põe a conferência física DENTRO
+ *  da página de Estoque, entre "Onde está o patrimônio" e "Todos os
+ *  produtos". Enquanto o inventário morava só em `#/estoque/inventario`, a
+ *  funcionalidade existia e a tela aprovada não. Estas provas são sobre a
+ *  TELA, não sobre o inventário: o inventário tem as provas dele.
+ */
+describe('Visão geral do Estoque — composição do protótipo', () => {
+  /* `GET /api/inventarios` sem resposta deixaria a seção em "carregando"
+     para sempre. Uma lista vazia é o estado normal de quem nunca contou. */
+  function semInventarios() {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('[]', {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      })),
+    );
+  }
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('mostra a conferência física como SEÇÃO, sem sair da tela', async () => {
+    semInventarios();
+    renderPagina();
+
+    const secao = await screen.findByRole('region', { name: 'Inventário' });
+    expect(secao.id).toBe('inventario');
+    /* Dentro dela, os três contextos do protótipo. */
+    expect(within(secao).getByText('Saúde do estoque')).toBeTruthy();
+    expect(within(secao).getByText('Último inventário')).toBeTruthy();
+    expect(within(secao).getByText('Inventário em aberto')).toBeTruthy();
+    /* E a ação que começa a contagem, ali mesmo. */
+    expect(within(secao).getByRole('button', { name: /Abrir inventário/ })).toBeTruthy();
+  });
+
+  it('põe o inventário ANTES do catálogo físico, como a tela aprovada', async () => {
+    semInventarios();
+    const { container } = renderPagina();
+
+    const inventario = await screen.findByRole('region', { name: 'Inventário' });
+    const catalogo = screen.getByText('Todos os produtos');
+    /* `DOCUMENT_POSITION_FOLLOWING` = o catálogo vem DEPOIS do inventário.
+       A ordem é o conteúdo desta prova: os dois existirem na mesma página
+       em qualquer ordem não reproduz a tela aprovada. */
+    expect(inventario.compareDocumentPosition(catalogo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.querySelectorAll('#inventario')).toHaveLength(1);
+  });
+
+  it('não repete o título de página do inventário dentro da Visão geral', async () => {
+    semInventarios();
+    renderPagina();
+
+    await screen.findByRole('region', { name: 'Inventário' });
+    /* A página já tem um `h1` — "Estoque". O inventário embutido é uma
+       seção dela, e seção tem `h2`. Dois `h1` na mesma tela é a marca de
+       uma tela colada dentro de outra. */
+    expect(screen.queryByRole('heading', { level: 1, name: 'Inventário' })).toBeNull();
+    expect(screen.getByRole('heading', { level: 2, name: 'Inventário' })).toBeTruthy();
+  });
+});

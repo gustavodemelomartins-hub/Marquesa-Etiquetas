@@ -69,6 +69,17 @@ interface Props {
   conexao: Connection;
   estado: AppState | null;
   aoMudarEstoque: () => void;
+  /** EMBUTIDA — o inventário como SEÇÃO da Visão geral, que é onde o
+   *  protótipo o coloca: entre "Onde está o patrimônio" e "Todos os
+   *  produtos", no mesmo documento, sem trocar de tela.
+   *
+   *  Fora daqui ele continua sendo uma tela inteira em `#/estoque/inventario`
+   *  — o endereço não quebra, e quem vem de um link antigo chega no mesmo
+   *  lugar. A diferença é só o cabeçalho: seção tem `mq-card__head`, tela
+   *  tem `mq-pagehead`. O miolo é literalmente o mesmo código, porque dois
+   *  inventários que divergem é exatamente o defeito que esta tela existe
+   *  para não ter. */
+  embutida?: boolean;
 }
 
 /** INVENTÁRIO — contar o que existe de verdade.
@@ -87,7 +98,7 @@ interface Props {
  *  atendimento e outro, e um inventário que não pode ser interrompido é um
  *  inventário que ninguém termina.
  */
-export function InventarioArea({ conexao, estado, aoMudarEstoque }: Props) {
+export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = false }: Props) {
   const lista = useApi(
     (s) => chamar<InventarioResumo[]>(conexao, 'GET', '/api/inventarios', undefined, { signal: s }),
     [conexao],
@@ -95,13 +106,20 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque }: Props) {
   const [abertoId, setAbertoId] = useState<number | null>(null);
   const [erroAcao, setErroAcao] = useState('');
 
-  const emAndamento = (lista.dados ?? []).find((i) => i.status === 'aberto' || i.status === 'pausado');
+  /* `GET /api/inventarios` devolve uma lista. Se um dia devolver outra
+     coisa — erro serializado como objeto, resposta truncada, rota ainda
+     não publicada naquele ambiente —, a Visão geral inteira não pode cair
+     junto: o inventário é UMA seção dela agora, e uma seção que não sabe
+     o que mostrar mostra o estado vazio, não uma tela branca. */
+  const inventarios = Array.isArray(lista.dados) ? lista.dados : [];
+
+  const emAndamento = inventarios.find((i) => i.status === 'aberto' || i.status === 'pausado');
   const idAtual = abertoId ?? emAndamento?.id ?? null;
 
   /* O último inventário CONCLUÍDO — não o último criado. Um cancelado não
      é uma conferência que aconteceu, e mostrá-lo como "último inventário"
      daria a impressão de que a loja foi contada quando não foi. */
-  const ultimoConcluido = (lista.dados ?? []).find((i) => i.status === 'concluido');
+  const ultimoConcluido = inventarios.find((i) => i.status === 'concluido');
 
   /* `GET /api/state › inventario` — o resumo que o servidor já monta, com
      o prazo de `config.inventarioDias` aplicado. A tela não recalcula
@@ -119,27 +137,44 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque }: Props) {
     if (r && 'id' in r && r.id) setAbertoId(r.id);
   }
 
-  return (
-    <>
-      <div className="mq-pagehead">
-        <div className="mq-pagehead__text">
-          <p className="mq-eyebrow">Conferência física</p>
-          <h1 className="mq-display">Inventário</h1>
-          <p className="mq-lede">
-            Contar o que existe de verdade, e comparar com o que o sistema
-            acha que existe.
-          </p>
-        </div>
-        {!emAndamento && (
-          <div className="mq-pagehead__actions">
-            <button type="button" className="mq-btn mq-btn--primary" onClick={abrir}>
-              <Icone nome="plus" />
-              Abrir inventário
-            </button>
-          </div>
-        )}
-      </div>
+  /* Abrir é o MESMO ato nos dois cabeçalhos. Ele só muda de lugar: canto
+     do `mq-pagehead` quando a tela é inteira, canto da seção quando ela
+     mora dentro da Visão geral. */
+  const acaoAbrir = emAndamento ? null : (
+    <button type="button" className="mq-btn mq-btn--primary" onClick={abrir}>
+      <Icone nome="plus" />
+      Abrir inventário
+    </button>
+  );
 
+  const cabecalho = embutida ? (
+    <div className="mq-card__head inventory-heading">
+      <div>
+        <p className="mq-eyebrow">Conferência física</p>
+        <h2 className="mq-title" id="inventario-titulo">Inventário</h2>
+        <p className="mq-lede">
+          Contar o que existe de verdade, e comparar com o que o sistema acha
+          que existe. Contagem e correção permanecem etapas separadas.
+        </p>
+      </div>
+      {acaoAbrir && <div className="mq-btns">{acaoAbrir}</div>}
+    </div>
+  ) : (
+    <div className="mq-pagehead">
+      <div className="mq-pagehead__text">
+        <p className="mq-eyebrow">Conferência física</p>
+        <h1 className="mq-display" id="inventario-titulo">Inventário</h1>
+        <p className="mq-lede">
+          Contar o que existe de verdade, e comparar com o que o sistema
+          acha que existe.
+        </p>
+      </div>
+      {acaoAbrir && <div className="mq-pagehead__actions">{acaoAbrir}</div>}
+    </div>
+  );
+
+  const miolo = (
+    <>
       {/* OS TRÊS CONTEXTOS do protótipo. Não são abas: são três fatos
           sobre a mesma coisa, e quem chega precisa dos três de uma vez —
           "como está o estoque", "quando foi a última vez" e "há algo
@@ -222,7 +257,7 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque }: Props) {
         <div className="mq-card__head">
           <div><h2 className="mq-title">Inventários</h2></div>
         </div>
-        {(lista.dados ?? []).length === 0 ? (
+        {inventarios.length === 0 ? (
           <div className="mq-state">
             <span className="mq-state__icon"><Icone nome="inventory" /></span>
             <h3>Nenhum inventário ainda</h3>
@@ -230,7 +265,7 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque }: Props) {
           </div>
         ) : (
           <div className="mq-list">
-            {(lista.dados ?? []).map((i) => (
+            {inventarios.map((i) => (
               <button type="button" className="mq-item" key={i.id} onClick={() => setAbertoId(i.id)}>
                 <span className={`mq-item__icon ${i.divergentes ? 'mq-item__icon--warn' : 'mq-item__icon--ok'}`}>
                   <Icone nome="inventory" />
@@ -253,6 +288,23 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque }: Props) {
           </div>
         )}
       </section>
+    </>
+  );
+
+  /* Embutida, o inventário é uma SEÇÃO com um título — não uma tela
+     dentro de outra. Por isso não ganha mais um `mq-card` por fora: os
+     cartões que ele já tem dentro (a contagem, o histórico) ficariam
+     aninhados dentro de outro cartão, e dois quadros concêntricos é
+     exatamente o que o protótipo não faz. */
+  return embutida ? (
+    <section className="mq-stack inventory-section" id="inventario" aria-labelledby="inventario-titulo">
+      {cabecalho}
+      {miolo}
+    </section>
+  ) : (
+    <>
+      {cabecalho}
+      {miolo}
     </>
   );
 }
