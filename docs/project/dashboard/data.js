@@ -4,8 +4,34 @@ window.MARQUESA_V2 = {
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
   "atualizadoEm": "2026-09-12",
   "git": {
-    "branch": "develop",
+    "branch": "HEAD",
     "recentes": [
+      {
+        "commit": "7a1e1b6",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(estoque): \"Saúde do estoque\" em uma linha, não numa coluna de 340px",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "4399bfe",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(inventario): o inventário passa a ter um fim — conciliação e progresso",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "65d3239",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(harness): REV-002 registrar acerto zerado",
+        "agente": "",
+        "taskIds": [
+          "REV-002"
+        ]
+      },
       {
         "commit": "ef6878c",
         "data": "2026-09-24",
@@ -191,43 +217,19 @@ window.MARQUESA_V2 = {
         "assunto": "fix(inventory): the screen can finally answer \"which variation?\"",
         "agente": "",
         "taskIds": []
-      },
-      {
-        "commit": "c62f98f",
-        "data": "2026-09-23",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(stock): two numbers the published screen was getting wrong",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "c1abdcf",
-        "data": "2026-09-23",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(stock): ask the CDN for a thumbnail, not the whole photo",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "f310058",
-        "data": "2026-09-23",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "test(v2): smoke script for the published DEV surfaces",
-        "agente": "",
-        "taskIds": []
       }
     ]
   },
   "visaoGeral": {
-    "progresso": 28,
+    "progresso": 27,
     "porEstado": {
       "DONE": 11,
       "IN PROGRESS": 16,
-      "NEXT": 9,
+      "NEXT": 10,
       "BLOCKED": 4,
       "DECISIONS REQUIRED": 2
     },
-    "totalTarefas": 42
+    "totalTarefas": 43
   },
   "tarefas": [
     {
@@ -474,8 +476,16 @@ window.MARQUESA_V2 = {
       "id": "INV-003",
       "estado": "NEXT",
       "dominio": "Inventário",
-      "titulo": "React de Inventário — nenhuma pasta existe, só o design em docs/ux",
-      "contexto": "INV-001 mesclado primeiro (contrato ainda pode mudar)",
+      "titulo": "React de Inventário — existe e conta de verdade (frontend/src/features/inventario/), embutido em Estoque, com leitor de etiquetas compartilhado",
+      "contexto": "feito. A contagem grava bipe a bipe por POST /itens; pausar e retomar não perdem nada",
+      "nota": ""
+    },
+    {
+      "id": "INV-004",
+      "estado": "NEXT",
+      "dominio": "Inventário",
+      "titulo": "Conciliação do inventário — o fim que não existia. POST /concluir {\"contagemCompleta\": true}, motivos obrigatórios em /aplicar, revisão reorganizada pela decisão e progresso por categoria durante a contagem",
+      "contexto": "código feito e provado em 25/09/2026 (45 provas novas: 17 de domínio, 28 de frontend; release 18/18). Desenho em INVENTARIO-4-4.md §14. Pendente de publicação: a branch divergiu de develop e o rebase não foi autorizado — ver Worklog de 25/09. A migration migracao-inventario-conciliacao.sql não foi aplicada em lugar nenhum, nem DEV",
       "nota": ""
     },
     {
@@ -1182,8 +1192,16 @@ window.MARQUESA_V2 = {
           "id": "INV-003",
           "estado": "NEXT",
           "dominio": "Inventário",
-          "titulo": "React de Inventário — nenhuma pasta existe, só o design em docs/ux",
-          "contexto": "INV-001 mesclado primeiro (contrato ainda pode mudar)",
+          "titulo": "React de Inventário — existe e conta de verdade (frontend/src/features/inventario/), embutido em Estoque, com leitor de etiquetas compartilhado",
+          "contexto": "feito. A contagem grava bipe a bipe por POST /itens; pausar e retomar não perdem nada",
+          "nota": ""
+        },
+        {
+          "id": "INV-004",
+          "estado": "NEXT",
+          "dominio": "Inventário",
+          "titulo": "Conciliação do inventário — o fim que não existia. POST /concluir {\"contagemCompleta\": true}, motivos obrigatórios em /aplicar, revisão reorganizada pela decisão e progresso por categoria durante a contagem",
+          "contexto": "código feito e provado em 25/09/2026 (45 provas novas: 17 de domínio, 28 de frontend; release 18/18). Desenho em INVENTARIO-4-4.md §14. Pendente de publicação: a branch divergiu de develop e o rebase não foi autorizado — ver Worklog de 25/09. A migration migracao-inventario-conciliacao.sql não foi aplicada em lugar nenhum, nem DEV",
           "nota": ""
         }
       ],
@@ -1282,7 +1300,7 @@ window.MARQUESA_V2 = {
       ],
       "contagem": {
         "IN PROGRESS": 2,
-        "NEXT": 1
+        "NEXT": 2
       }
     },
     {
@@ -2337,6 +2355,15 @@ window.MARQUESA_V2 = {
     ]
   },
   "worklogs": [
+    {
+      "agente": "Claude",
+      "data": "2026-09-25",
+      "titulo": "O inventário ganhou um fim",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": []
+    },
     {
       "agente": "Claude",
       "data": "2026-09-24",

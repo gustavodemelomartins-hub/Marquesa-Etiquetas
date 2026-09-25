@@ -1,5 +1,14 @@
 # Painel Operacional — Sistema Marquesa
 
+**Rodada de 2026-09-25 (Claude Review):** o inventário ganhou um FIM. Até
+aqui "não conferido" era um estado permanente — 659 códigos sem ação e sem
+caminho —, e a trava que impedia isso de virar zero (D3) não tinha gesto
+para ser desligada. Agora `POST /concluir` aceita a **declaração** de que a
+conferência terminou, e só ela transforma um código não bipado em divergência
+candidata — sem aplicar movimento nenhum. A revisão foi reorganizada pela
+decisão, com motivo obrigatório que sobrevive na razão. **PROD sem escrita;
+DEV também não — nada foi publicado nesta rodada.** Ver `INV-004`.
+
 **Rodada de 2026-09-24 (Claude Review):** a V2 ganhou paridade com a tela
 aprovada nas cinco superfícies P0 — o Inventário voltou para dentro de
 Estoque, o cadastro de produto passou a existir de verdade e "A receber"
@@ -115,7 +124,8 @@ movimentos / 19 vendas validados, reconciliação zero — ver Master Plan §2.
 | CAT-004 | Gestão de categorias (criar/editar) — hoje `POST /api/categorias` existe e **nenhuma tela chama**, nem legado nem React | **despriorizada por `DR-012`**: roadmap pós-validação |
 | CAT-005 | React de Catálogo/Cadastro — **existe e cadastra** (`frontend/src/features/catalogo/`, com `NovoProduto`) | **feito em 24/09/2026.** Usa as MESMAS rotas da importação (`novos/analisar` → `novos/cadastrar`, `origem: 'manual'`), sem abrir caminho novo de escrita. 21 provas contra o banco real, com recarregar no meio. `DR-002` continua valendo: a porta também está em Estoque |
 | EST-002 | React de Editar peça/variações/kits/fotos/arquivar — só existe no legado | fatia vertical de Estoque na Fase 9 |
-| INV-003 | React de Inventário — nenhuma pasta existe, só o design em `docs/ux` | INV-001 mesclado primeiro (contrato ainda pode mudar) |
+| INV-003 | React de Inventário — **existe e conta de verdade** (`frontend/src/features/inventario/`), embutido em Estoque, com leitor de etiquetas compartilhado | **feito.** A contagem grava bipe a bipe por `POST /itens`; pausar e retomar não perdem nada |
+| INV-004 | **Conciliação do inventário** — o fim que não existia. `POST /concluir {"contagemCompleta": true}`, motivos obrigatórios em `/aplicar`, revisão reorganizada pela decisão e progresso por categoria durante a contagem | **código feito e provado em 25/09/2026** (45 provas novas: 17 de domínio, 28 de frontend; release 18/18). Desenho em [INVENTARIO-4-4.md §14](../domains/INVENTARIO-4-4.md). **Pendente de publicação:** a branch divergiu de `develop` e o rebase não foi autorizado — ver Worklog de 25/09. A migration `migracao-inventario-conciliacao.sql` **não foi aplicada em lugar nenhum**, nem DEV |
 | VEN-002 | React de Vendas — `App.tsx` só mostra `AreaPendente`, zero tela real | VEN-001 fechar decisões abertas antes de implementar. **`VEN-105` (correção de item vendido) entra aqui por `DR-014`**, fora da ordem de fase — em curso no Codex |
 | VEN-003 | Recebimentos múltiplos/parcelados (`IF-009`) | ideia em detalhamento, sem contrato ainda |
 | GAR-001 | React de Garantias — não existe nenhuma pasta | **prioridade alta por `DR-014`** (`GAR-101` é paridade obrigatória). **O backend deixou de ser o gargalo**: `GAR-002` fechou a Fase 5.4 em `a989cc0`. O que falta é UI — novo atendimento + confirmação da etiqueta, `GAR-102`, cancelar/corrigir garantia — e isso é frente do Codex. Atenção: `docs/ux/03-screens/reparos/` é domínio NOVO com material `vazio`, **não** é o desenho de `GAR-101` |

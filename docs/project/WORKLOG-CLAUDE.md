@@ -18,6 +18,119 @@ conversa, que sei de primeira mão serem meus. Commits feitos direto em
 
 ---
 
+## 2026-09-25 — O inventário ganhou um fim
+
+A rodada anterior fechou o scanner: a contagem entrou de verdade na V2,
+bipe a bipe, com variação, antirrepique e iPhone. O que ela não respondeu
+foi o que acontece **depois** — e a tela publicada terminava assim:
+
+```
+Não conferido · 659
+    Estes códigos não foram contados. Não contado não é zero.
+```
+
+Correto, e sem saída. A frase é a trava D3 da Fase 4.4, e ela é o que
+impede um inventário parado pela metade de zerar meio catálogo. O defeito
+não estava nela: estava em **não existir gesto para desligá-la**. Quando a
+Sthefany termina de olhar o estoque, uma peça que o sistema diz ter e que
+ela procurou e não achou deixa de ser incógnita — e uma divergência que
+ninguém pode resolver vale o mesmo que um estoque que ninguém confere.
+
+### A declaração, e o que ela não faz
+
+`POST /concluir` passou a aceitar `{"contagemCompleta": true}`. Colhido num
+diálogo de **três** saídas — continuar conferindo, encerrar parcial,
+terminei tudo — com o número repetido em voz alta e, acima de trinta
+códigos, um segundo gesto. Sem corpo, o fechamento é o de sempre: o
+dashboard clássico não mudou uma linha.
+
+Três coisas que a declaração **não** faz, e são elas que a tornam segura:
+
+- não aplica movimento nenhum. Muda a situação no retrato congelado; a
+  resolução continua item a item;
+- não alcança código com peça na razão sem identidade de variação. Dizer
+  que a contagem terminou não diz de qual aro é a falta, e converter essa
+  linha produziria movimento sem variação — o defeito D4 voltando pela
+  porta dos fundos. A linha continua não conferida, **com o motivo dito**;
+- não toca o consignado. `SQL_ESPERADO` já desconta a maleta aberta, então
+  peça que está na rua tem `esperado = 0` em casa e nunca gera linha, nem
+  sob a declaração. É a regra mais cara desta tela e tem prova própria.
+
+### Motivos: procurar antes de criar
+
+A investigação veio antes do código, e achou o que precisava:
+`saidas_sem_faturamento.motivo` já existe, o schema já o descreve como
+*"rótulo curto e agrupável"*, e ele já chega à razão dentro de
+`movimentos.obs`. Não faltava estrutura — faltava a **lista**.
+
+Então nenhuma tabela nova e nenhum enum de banco. `MOTIVOS_DE_DIFERENCA`
+vive em `api/src/inventario.js` e viaja dentro de `GET /resultado`, para
+não existirem duas listas divergindo em silêncio. O precedente é o do
+desconto na venda (§27): lista curta porque texto livre puro faz cada
+grafia virar um motivo diferente, e "Outro" aberto porque a vida não cabe
+em seis opções.
+
+`POST /aplicar` — rota nova, consumidor único — passou a **exigir** o
+motivo. `POST /ajustar`, que é a rota do painel clássico e não tem o campo,
+continua com o rótulo genérico: exigir ali quebraria uma tela em produção
+para cobrar algo que ela não tem como coletar.
+
+### O progresso, enquanto conta
+
+A barra era um traço de 6px. Ela respondia "quanto falta" e nada mais — e a
+pergunta seguinte de quem está de pé na frente das gavetas é *qual parte eu
+ainda não abri*.
+
+A medida nova é **cobertura, em códigos**, com filtro por categoria (vinda
+de `produtos.cat`, nunca de uma lista escrita na tela) e uma curva
+acumulada da sessão. A escolha da unidade é o ponto: uma barra de "peças
+encontradas ÷ peças esperadas" começaria em 0% e o vazio ao lado pareceria
+perda — depois de vinte minutos a tela estaria dizendo *"você perdeu 94% do
+estoque"*. Não há vermelho nenhum nessa seção, em estado nenhum.
+
+### A revisão, reorganizada pela decisão
+
+Conciliação no topo ("12 de 16 resolvidas"), o que precisa de ação aberto e
+com o motivo na própria linha, e o que bateu recolhido em `<details>`.
+Resolução em lote que respeita o lado da diferença — "não encontrada na
+casa" não é escrito numa sobra.
+
+A conciliação é **derivada** de `aplicado_em`. Não há coluna `conciliado`, e
+não precisa haver: uma segunda contabilidade de estado só teria como
+divergir da primeira. O estorno devolve a linha para pendente sozinho.
+
+### Fora do escopo, mas na frente dos olhos
+
+O cartão "Saúde do estoque" da Visão geral vivia numa coluna de 340px com
+quatro parágrafos dentro — e o protótipo não tem esse cartão. Virou uma
+linha, com os números preservados e cada um dizendo em qual aba está o
+detalhe. Apagá-los porque o cartão ficou feio seria engolir o que o sistema
+decidiu não resolver.
+
+Também apareceu no caminho: `v2-camera-e2e.mjs`, da rodada anterior
+(`abfa3ff`), nunca foi registrado em `test-suites.json` e deixava o gate
+`phase0-artifacts` vermelho desde então. Registrado.
+
+### Provas
+
+45 novas. `src/inventario-conciliacao-test.mjs` (17, contra o schema real,
+razão fechando), `progresso.test.ts` (14) e `conciliacao.test.tsx` (14).
+`inventario-4-4-test.mjs` continua com 23 — ajustado onde o motivo passou a
+ser obrigatório. Release: **18/18 gates**.
+
+### O que NÃO foi feito
+
+**Nada foi publicado.** A branch `claude/review-marquesa-v2` divergiu de
+`origin/develop`, que ganhou quatro commits de Revendedoras durante a
+rodada. Reconciliar exigia rebase, e o rebase **não foi autorizado** — então
+não houve push, não houve deploy de DEV, não houve QA na tela publicada e a
+migration `migracao-inventario-conciliacao.sql` **não foi aplicada em lugar
+nenhum**, nem no `marquesa-db-dev`. O código está commitado localmente em
+`d5f811a` e `e8795ee`, verde na suíte inteira, esperando decisão sobre como
+reconciliar.
+
+---
+
 ## 2026-09-24 — Paridade com a tela aprovada, e o cadastro que faltava
 
 A sessão anterior provou o backend: gates, domínio, release, centenas de
