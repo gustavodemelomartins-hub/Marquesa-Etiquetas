@@ -118,16 +118,52 @@ razão fechando), `progresso.test.ts` (14) e `conciliacao.test.tsx` (14).
 `inventario-4-4-test.mjs` continua com 23 — ajustado onde o motivo passou a
 ser obrigatório. Release: **18/18 gates**.
 
-### O que NÃO foi feito
+### Publicado e provado no DEV
 
-**Nada foi publicado.** A branch `claude/review-marquesa-v2` divergiu de
-`origin/develop`, que ganhou quatro commits de Revendedoras durante a
-rodada. Reconciliar exigia rebase, e o rebase **não foi autorizado** — então
-não houve push, não houve deploy de DEV, não houve QA na tela publicada e a
-migration `migracao-inventario-conciliacao.sql` **não foi aplicada em lugar
-nenhum**, nem no `marquesa-db-dev`. O código está commitado localmente em
-`d5f811a` e `e8795ee`, verde na suíte inteira, esperando decisão sobre como
-reconciliar.
+Rebase sobre `origin/develop` (que ganhou quatro commits de Revendedoras
+durante a rodada), suíte inteira verde de novo em cima do reconciliado, e
+push. O CI falhou uma vez em `2b541f7` e passou em `c89eb86`; a suíte roda
+396/396 localmente em três execuções seguidas.
+
+**O banco.** A migration foi aplicada em `marquesa-db-staging-v2`
+(`db76e50a-…`), com contagens idênticas antes e depois — 792 produtos,
+1.436 movimentos, 19 inventários — e os 19 inventários existentes ficaram
+com `contagem_completa = 0`, que é o comportamento anterior preservado. A
+razão fecha: 0 divergentes, `SUM(produtos.qtd)` = `SUM(movimentos.qtd)` =
+1.485.
+
+**O alvo demorou a aparecer, e vale registrar.** `marquesa-db-dev` tem 29
+tabelas contra as 44 de PROD e **não tem `saidas_sem_faturamento`** — é o
+retrato congelado de agosto que o `V2-DEV-READY-2026-09-20.md` já descrevia.
+Nada foi escrito nele. O DEV de verdade para esta frente é o `staging-v2`,
+que é cópia fiel de PROD com as 10 migrations aplicadas.
+
+**PROD foi lida, e só lida**, para confirmar que ela também está pré-4.4.
+Nenhuma escrita, nenhuma migration.
+
+### O QA
+
+Dois roteiros novos, e eles cobrem coisas diferentes de propósito:
+
+- `src/v2-conciliacao-ui.mjs` — 21 provas contra o **bundle publicado**,
+  desktop (1440px) e telefone (390px), com a API interceptada. Não precisa
+  de chave: o que se prova é composição e fluxo, e uma chave de staging num
+  roteiro de layout é um segredo a mais circulando sem motivo. Sem rolagem
+  horizontal no telefone nas duas telas; o seletor de motivo continua com
+  34px de alvo;
+- `src/v2-conciliacao-e2e.mjs` — 28 provas contra o **Worker e o D1
+  publicados**. Ele abriu o inventário #20 no staging, contou duas peças,
+  declarou a contagem completa e viu **633 códigos que ninguém bipou virarem
+  diferença candidata** — o caso dos 659, para valer. E o que mais importa:
+  **a razão continuou fechada depois da declaração**, porque declarar não
+  movimenta nada.
+
+  Depois ele resolveu UMA diferença com motivo, conferiu que
+  "Não encontrada na casa" e `inventário #20` aparecem no histórico da peça,
+  e **estornou**, devolvendo a peça e a divergência para pendente. Resíduo no
+  staging: o inventário #20, concluído e com as diferenças em aberto —
+  concluir congela o retrato e não existe "desconcluir", de propósito. A
+  razão voltou exatamente como estava.
 
 ---
 

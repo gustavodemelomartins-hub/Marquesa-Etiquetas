@@ -4,8 +4,24 @@ window.MARQUESA_V2 = {
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
   "atualizadoEm": "2026-09-12",
   "git": {
-    "branch": "HEAD",
+    "branch": "claude/review-marquesa-v2",
     "recentes": [
+      {
+        "commit": "c89eb86",
+        "data": "2026-09-25",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "refactor(inventario): a revisão reusa `aplicaveis` em vez de refazer o filtro",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "2b541f7",
+        "data": "2026-09-25",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(harness): registrar a conciliação do inventário e o que ficou por publicar",
+        "agente": "",
+        "taskIds": []
+      },
       {
         "commit": "7a1e1b6",
         "data": "2026-09-24",
@@ -199,22 +215,6 @@ window.MARQUESA_V2 = {
         "data": "2026-09-24",
         "autor": "gustavodemelomartins-hub",
         "assunto": "test(v2): tell a deliberate refusal apart from a defect",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "5a74f03",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(nonrevenue): the embedded exit form is a card, not a modal",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "042bcea",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(inventory): the screen can finally answer \"which variation?\"",
         "agente": "",
         "taskIds": []
       }
@@ -485,7 +485,7 @@ window.MARQUESA_V2 = {
       "estado": "NEXT",
       "dominio": "Inventário",
       "titulo": "Conciliação do inventário — o fim que não existia. POST /concluir {\"contagemCompleta\": true}, motivos obrigatórios em /aplicar, revisão reorganizada pela decisão e progresso por categoria durante a contagem",
-      "contexto": "código feito e provado em 25/09/2026 (45 provas novas: 17 de domínio, 28 de frontend; release 18/18). Desenho em INVENTARIO-4-4.md §14. Pendente de publicação: a branch divergiu de develop e o rebase não foi autorizado — ver Worklog de 25/09. A migration migracao-inventario-conciliacao.sql não foi aplicada em lugar nenhum, nem DEV",
+      "contexto": "código feito e provado em 25/09/2026 (45 provas novas: 17 de domínio, 28 de frontend; release 18/18). Desenho em INVENTARIO-4-4.md §14. Publicado e provado no DEV: migration aplicada em marquesa-db-staging-v2 com contagens idênticas e razão fechando (1.485 = 1.485); 21 provas de QA visual no bundle publicado (desktop e 390px) e 28 provas ponta a ponta contra o Worker/D1 publicados — inclusive 633 códigos não bipados virando divergência candidata sem mover a razão. marquesa-db-dev não foi tocado: ele tem 29 tabelas contra 44 de PROD e nem saidas_sem_faturamento tem. PROD apenas lida",
       "nota": ""
     },
     {
@@ -1201,7 +1201,7 @@ window.MARQUESA_V2 = {
           "estado": "NEXT",
           "dominio": "Inventário",
           "titulo": "Conciliação do inventário — o fim que não existia. POST /concluir {\"contagemCompleta\": true}, motivos obrigatórios em /aplicar, revisão reorganizada pela decisão e progresso por categoria durante a contagem",
-          "contexto": "código feito e provado em 25/09/2026 (45 provas novas: 17 de domínio, 28 de frontend; release 18/18). Desenho em INVENTARIO-4-4.md §14. Pendente de publicação: a branch divergiu de develop e o rebase não foi autorizado — ver Worklog de 25/09. A migration migracao-inventario-conciliacao.sql não foi aplicada em lugar nenhum, nem DEV",
+          "contexto": "código feito e provado em 25/09/2026 (45 provas novas: 17 de domínio, 28 de frontend; release 18/18). Desenho em INVENTARIO-4-4.md §14. Publicado e provado no DEV: migration aplicada em marquesa-db-staging-v2 com contagens idênticas e razão fechando (1.485 = 1.485); 21 provas de QA visual no bundle publicado (desktop e 390px) e 28 provas ponta a ponta contra o Worker/D1 publicados — inclusive 633 códigos não bipados virando divergência candidata sem mover a razão. marquesa-db-dev não foi tocado: ele tem 29 tabelas contra 44 de PROD e nem saidas_sem_faturamento tem. PROD apenas lida",
           "nota": ""
         }
       ],
