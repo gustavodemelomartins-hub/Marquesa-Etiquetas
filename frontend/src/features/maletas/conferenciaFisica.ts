@@ -1,33 +1,32 @@
-/** Estado local da conferência física da maleta.
+/** Quantidades devolvidas ainda locais ao acerto.
  *
- * Um bip só afirma que uma unidade foi encontrada. Ele não decide se a peça
- * voltou, foi vendida ou teve outro destino e, por isso, nunca entra no
- * DocumentoAcerto enviado ao servidor. */
-export type ConferidosPorSku = Record<string, number>;
+ * Um bip marca uma unidade fisicamente devolvida na conferência em andamento.
+ * Nada é persistido antes da revisão e confirmação do DocumentoAcerto. */
+export type DevolvidasPorSku = Record<string, number>;
 
 export type ResultadoConferenciaFisica =
-  | { tipo: 'conferida'; sku: string; quantidade: number; enviadas: number; conferidos: ConferidosPorSku }
-  | { tipo: 'completa'; sku: string; quantidade: number; enviadas: number; conferidos: ConferidosPorSku }
-  | { tipo: 'fora_da_maleta'; sku: string; conferidos: ConferidosPorSku };
+  | { tipo: 'conferida'; sku: string; quantidade: number; enviadas: number; devolvidas: DevolvidasPorSku }
+  | { tipo: 'completa'; sku: string; quantidade: number; enviadas: number; devolvidas: DevolvidasPorSku }
+  | { tipo: 'fora_da_maleta'; sku: string; devolvidas: DevolvidasPorSku };
 
 /** Recebe o SKU já resolvido pela camada compartilhada de leitura.
  *
- * O mesmo SKU pode entrar várias vezes porque duas unidades físicas iguais
+ * O mesmo SKU pode entrar várias vezes porque duas unidades físicas devolvidas
  * precisam de dois bipes. A supressão temporal da mesma imagem pertence ao
  * scanner compartilhado; aqui o único limite é o que foi enviado na maleta. */
 export function registrarConferenciaFisica(
   itensDaMaleta: Record<string, number>,
-  atual: ConferidosPorSku,
+  atual: DevolvidasPorSku,
   sku: string,
 ): ResultadoConferenciaFisica {
   const enviadas = itensDaMaleta[sku];
   if (typeof enviadas !== 'number' || !Number.isInteger(enviadas) || enviadas <= 0) {
-    return { tipo: 'fora_da_maleta', sku, conferidos: atual };
+    return { tipo: 'fora_da_maleta', sku, devolvidas: atual };
   }
 
   const quantidade = atual[sku] ?? 0;
   if (quantidade >= enviadas) {
-    return { tipo: 'completa', sku, quantidade, enviadas, conferidos: atual };
+    return { tipo: 'completa', sku, quantidade, enviadas, devolvidas: atual };
   }
 
   const proxima = quantidade + 1;
@@ -36,6 +35,6 @@ export function registrarConferenciaFisica(
     sku,
     quantidade: proxima,
     enviadas,
-    conferidos: { ...atual, [sku]: proxima },
+    devolvidas: { ...atual, [sku]: proxima },
   };
 }

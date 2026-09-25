@@ -256,16 +256,22 @@ describe('acerto da maleta', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Fazer acerto' }));
     const painel = screen.getByRole('dialog', { name: 'Acerto da maleta 7' });
 
-    fireEvent.click(within(painel).getByRole('button', { name: 'Abrir câmera' }));
-    expect(within(painel).getByRole('region', { name: 'Leitor de etiquetas' })).toBeTruthy();
     fireEvent.change(within(painel).getByLabelText('Código da etiqueta'), { target: { value: 'C1' } });
-    fireEvent.click(within(painel).getByRole('button', { name: 'Contar' }));
+    fireEvent.click(within(painel).getByRole('button', { name: 'Registrar devolução' }));
 
-    await waitFor(() => expect(within(painel).getByRole('status').textContent).toContain('1 de 3 conferidos'));
+    await waitFor(() => expect(within(painel).getByRole('status').textContent).toContain('1 de 3 devolvidas'));
+    expect(within(painel).getByLabelText('Devolvidas de C1')).toHaveProperty('value', '1');
+
+    fireEvent.click(within(painel).getByRole('button', { name: 'Abrir câmera' }));
+    const leitor = within(painel).getByRole('region', { name: 'Leitor de etiquetas' });
+    fireEvent.change(within(leitor).getByLabelText('Código da etiqueta'), { target: { value: 'C1' } });
+    fireEvent.click(within(leitor).getByRole('button', { name: 'Contar' }));
+    await waitFor(() => expect(within(leitor).getByRole('status').textContent).toContain('2 de 3 devolvidas'));
+    expect(within(painel).getByLabelText('Devolvidas de C1')).toHaveProperty('value', '2');
     expect(api.encerrarAcerto).not.toHaveBeenCalled();
   });
 
-  it('recebe onScan(SKU), conta unidades e não muda o documento do REV-002', async () => {
+  it('começa zerado, usa o bip como devolução e só grava o documento REV-002 ao confirmar', async () => {
     vi.mocked(api.encerrarAcerto).mockResolvedValue({
       ok: true, vendaId: 23, novaMaletaId: null,
       acerto: { enviadas: 3, devolvidas: 1, vendidas: 2, perdas: 0, baixas: 2, totalVendido: 300, comissao: 90, liquido: 210 },
@@ -275,19 +281,23 @@ describe('acerto da maleta', () => {
     const painel = screen.getByRole('dialog', { name: 'Acerto da maleta 7' });
 
     expect(within(painel).getByRole('button', { name: 'Abrir câmera' })).toBeTruthy();
+    expect(within(painel).getByLabelText('Devolvidas de C1')).toHaveProperty('value', '0');
+    expect(within(painel).getByLabelText('Quantidade destinada de C1 1')).toHaveProperty('value', '3');
+    expect(within(painel).getByLabelText('Destino de C1 1')).toHaveProperty('value', 'vendida');
     fireEvent.click(within(painel).getByRole('button', { name: 'Abrir câmera' }));
-    fireEvent.change(within(painel).getByLabelText('Devolvidas de C1'), { target: { value: '1' } });
 
     fireEvent.click(within(painel).getByRole('button', { name: 'Bipar C1' }));
     fireEvent.click(within(painel).getByRole('button', { name: 'Bipar C1' }));
-    await waitFor(() => expect(within(painel).getByRole('status').textContent).toContain('2 de 3 conferidos'));
+    await waitFor(() => expect(within(painel).getByRole('status').textContent).toContain('2 de 3 devolvidas'));
+    expect(within(painel).getByLabelText('Devolvidas de C1')).toHaveProperty('value', '2');
+    expect(within(painel).getByLabelText('Quantidade destinada de C1 1')).toHaveProperty('value', '1');
     expect(api.encerrarAcerto).not.toHaveBeenCalled();
 
     fireEvent.click(within(painel).getByRole('button', { name: 'Bipar B1' }));
     await waitFor(() => expect(within(painel).getByRole('status').textContent).toContain('Esta peça não pertence a esta maleta'));
-    fireEvent.click(within(painel).getByRole('button', { name: 'Bipar C1' }));
-    fireEvent.click(within(painel).getByRole('button', { name: 'Bipar C1' }));
-    await waitFor(() => expect(within(painel).getByRole('status').textContent).toContain('3 de 3 conferidos'));
+    expect(within(painel).getByLabelText('Devolvidas de C1')).toHaveProperty('value', '2');
+
+    fireEvent.change(within(painel).getByLabelText('Devolvidas de C1'), { target: { value: '1' } });
 
     fireEvent.click(within(painel).getByRole('button', { name: 'Revisar acerto' }));
     expect(liberarScanner).toHaveBeenCalledTimes(1);
@@ -299,6 +309,24 @@ describe('acerto da maleta', () => {
     ));
   });
 
+  it('preserva destinos excepcionais quando outra devolução é registrada', async () => {
+    render(<Area inicial={1} scannerCompartilhado={scannerDeTeste} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Fazer acerto' }));
+    const painel = screen.getByRole('dialog', { name: 'Acerto da maleta 7' });
+
+    fireEvent.click(within(painel).getByRole('button', { name: 'Dividir em outro destino' }));
+    const destinos = within(painel).getAllByLabelText(/Destino de C1/);
+    fireEvent.change(destinos[1]!, { target: { value: 'troca' } });
+
+    fireEvent.change(within(painel).getByLabelText('Código da etiqueta'), { target: { value: 'C1' } });
+    fireEvent.click(within(painel).getByRole('button', { name: 'Registrar devolução' }));
+
+    await waitFor(() => expect(within(painel).getByLabelText('Devolvidas de C1')).toHaveProperty('value', '1'));
+    expect(within(painel).getAllByLabelText(/Quantidade destinada de C1/).map((campo) => (campo as HTMLInputElement).value)).toEqual(['1', '1']);
+    expect((within(painel).getAllByLabelText(/Destino de C1/)[1] as HTMLSelectElement).value).toBe('troca');
+    expect(api.encerrarAcerto).not.toHaveBeenCalled();
+  });
+
   it('só grava depois de fechar todas as quantidades e confirmar', async () => {
     vi.mocked(api.encerrarAcerto).mockResolvedValue({
       ok: true, vendaId: 22, novaMaletaId: null,
@@ -307,6 +335,8 @@ describe('acerto da maleta', () => {
     render(<Area inicial={1} />);
     fireEvent.click(screen.getByRole('button', { name: 'Fazer acerto' }));
     const painel = screen.getByRole('dialog', { name: 'Acerto da maleta 7' });
+    expect(within(painel).getByText('0 devolvidas')).toBeTruthy();
+    expect(within(painel).getByText('3 vendidas provisórias')).toBeTruthy();
     fireEvent.change(within(painel).getByLabelText('Devolvidas de C1'), { target: { value: '1' } });
     expect(api.encerrarAcerto).not.toHaveBeenCalled();
     fireEvent.click(within(painel).getByRole('button', { name: 'Revisar acerto' }));

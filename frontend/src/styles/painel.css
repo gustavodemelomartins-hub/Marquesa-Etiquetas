@@ -437,24 +437,45 @@ input.qtd {
 .rev-adicionar-item small { color: var(--muted); font-size: 11px; }
 .acerto-resumo { display: flex; align-items: center; gap: var(--r3); flex-wrap: wrap; padding: var(--r3) var(--r4); border: 1px solid var(--line); border-radius: 10px; background: var(--ivory); font-size: 13px; }
 .acerto-resumo b { color: var(--bordo); }
+.acerto-guia { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--r2); padding: 0; margin: 0; list-style: none; counter-reset: passo; }
+.acerto-guia li { position: relative; display: grid; gap: 2px; min-height: 70px; padding: var(--r3) var(--r3) var(--r3) 42px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); counter-increment: passo; }
+.acerto-guia li::before { content: counter(passo); position: absolute; top: var(--r3); left: var(--r3); display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--rose-soft); color: var(--bordo); font-weight: 750; font-size: 11px; }
+.acerto-guia b { font-size: 12px; }
+.acerto-guia span { color: var(--muted); font-size: 11.5px; line-height: 1.4; }
 .acerto-scanner { display: grid; gap: var(--r3); padding: var(--r4); border: 1px solid var(--rose-soft); border-radius: 12px; background: var(--rose-tint); }
 .acerto-scanner__cabeca { display: flex; align-items: center; justify-content: space-between; gap: var(--r4); }
 .acerto-scanner__cabeca > div { display: grid; gap: 3px; }
 .acerto-scanner__cabeca small { color: var(--muted); line-height: 1.45; }
 .acerto-scanner__cabeca .btn { min-height: 44px; flex: 0 0 auto; }
+.acerto-entrada { display: grid; grid-template-columns: minmax(180px, 1fr) auto 44px; align-items: end; gap: var(--r2); }
+.acerto-entrada .campo { max-width: none; margin: 0; }
+.acerto-entrada .btn { min-height: 42px; }
+.acerto-camera { width: 44px; padding: 0; display: grid; place-items: center; }
+.acerto-camera .mq-ico { width: 19px; height: 19px; }
+.acerto-retorno { display: flex; align-items: center; min-height: 38px; margin: 0; padding: 8px 10px; border-radius: 8px; font-size: 12.5px; font-weight: 650; }
+.acerto-retorno.sucesso { background: var(--ok-tint); color: var(--ok); }
+.acerto-retorno.erro { background: var(--danger-tint); color: var(--danger); }
 .acerto-conferido { color: var(--muted); font-weight: 650; }
 .acerto-conferido.completo { color: var(--ok); }
+.acerto-filtros { display: grid; grid-template-columns: minmax(240px, 1fr) auto; align-items: end; gap: var(--r4); }
+.acerto-filtros .campo { margin: 0; }
+.acerto-check { display: flex; align-items: center; gap: var(--r2); min-height: 42px; color: var(--muted); font-size: 12px; cursor: pointer; }
+.acerto-check input { width: 18px; height: 18px; accent-color: var(--bordo); }
 .acerto-itens { display: grid; gap: var(--r3); }
 .acerto-item { border: 1px solid var(--line); border-radius: 12px; padding: var(--r4); display: grid; gap: var(--r3); }
 .acerto-item__topo { display: flex; align-items: center; justify-content: space-between; gap: var(--r3); }
 .acerto-item__topo div { display: grid; gap: 2px; }
 .acerto-item__topo small { color: var(--muted); }
+.acerto-status { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: var(--ivory); color: var(--muted); font-size: 11px; font-weight: 700; }
+.acerto-status.completo { background: var(--ok-tint); color: var(--ok); }
 .acerto-item .campo { max-width: 220px; margin: 0; }
 .acerto-destino { display: grid; grid-template-columns: 120px minmax(190px, 1fr) auto; align-items: end; gap: var(--r3); }
 .acerto-destino label { display: grid; gap: 5px; font-size: 11.5px; color: var(--muted); }
 .acerto-destino input, .acerto-destino select { width: 100%; }
 .acerto-fecha { color: var(--ok); font-weight: 700; }
 .acerto-diverge { color: var(--danger); font-weight: 650; }
+.acerto-atencao { border-color: var(--mq-warn-line); background: var(--atencao-tint); color: var(--ink); }
+.acerto-vazio { margin: 0; padding: var(--r6); border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); text-align: center; }
 .acerto-resumo-financeiro { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--r3); margin: 0; }
 .acerto-resumo-financeiro div { border: 1px solid var(--line); border-radius: 10px; padding: var(--r4); }
 .acerto-resumo-financeiro dt { color: var(--muted); font-size: 12px; }
@@ -468,8 +489,15 @@ input.qtd {
   .rev-maleta-cabeca, .rev-maleta-acoes { flex-wrap: wrap; }
   .acerto-destino { grid-template-columns: 90px 1fr; }
   .acerto-destino .btn { grid-column: 1 / -1; justify-self: start; }
+  .acerto-guia { grid-template-columns: 1fr; }
+  .acerto-guia li { min-height: 0; }
+  .acerto-filtros { grid-template-columns: 1fr; gap: var(--r2); }
   .acerto-scanner__cabeca { align-items: stretch; flex-direction: column; }
   .acerto-scanner__cabeca .btn { width: 100%; min-height: 48px; }
+  .acerto-entrada { grid-template-columns: minmax(0, 1fr) 48px; }
+  .acerto-entrada .campo { grid-column: 1 / -1; }
+  .acerto-entrada .btn-escrita { min-height: 48px; }
+  .acerto-entrada .acerto-camera { width: 48px; min-height: 48px; }
   .acerto-resumo-financeiro { grid-template-columns: 1fr; }
 }
 

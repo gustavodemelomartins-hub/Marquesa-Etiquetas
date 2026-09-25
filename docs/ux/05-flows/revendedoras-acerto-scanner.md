@@ -14,10 +14,12 @@ components/scanner/LeitorDeEtiquetas
   impede releitura acidental conforme o comportamento do clássico
         ↓ aoLer(código cru)
 AcertoMaletaFluxo
+  começa com 0 devolvidas por SKU
+  aceita digitação direta sem abrir a câmera
   chama o resolverSku compartilhado contra o catálogo
   confirma que o SKU pertence à maleta
-  soma uma unidade em conferidos[SKU]
-  mostra produto e X de Y conferidos
+  soma uma unidade em devolvidas[SKU]
+  mostra produto e X de Y devolvidas
         ↓ somente quando a pessoa confirma o acerto
 POST /api/maletas/:id/acerto
 ```
@@ -49,7 +51,10 @@ volta ao componente compartilhado, que mostra o texto e toca o bipe correto.
 
 ## Semântica do bip
 
-- bip válido da maleta: incrementa somente o contador local de conferência;
+- o acerto abre com `0` devolvidas; toda quantidade não devolvida começa como
+  venda provisória e pode ser reclassificada antes da revisão;
+- digitação direta e câmera entram no mesmo `aoLer`: um código válido da maleta
+  incrementa uma unidade devolvida no documento ainda local;
 - mesmo SKU: pode incrementar novamente até a quantidade enviada, porque podem
   existir várias unidades físicas com a mesma etiqueta;
 - mesma imagem parada: a camada compartilhada aplica a janela temporal portada
@@ -60,8 +65,18 @@ volta ao componente compartilhado, que mostra o texto e toca o bipe correto.
 - quantidade já completa: não ultrapassa o enviado e informa que o SKU já está
   completo;
 - nenhum bip chama API, grava venda, cria movimento ou altera estoque;
-- a conferência manual e o `DocumentoAcerto` continuam independentes dos
-  contadores físicos.
+- cada leitura apenas atualiza o `DocumentoAcerto` provisório em memória; a
+  persistência continua acontecendo uma única vez, depois de revisar e confirmar;
+- se já houver destino excepcional, uma nova devolução reduz primeiro a parte
+  provisoriamente vendida e preserva a exceção sempre que possível.
+
+## Entrada operacional
+
+O campo “Código da etiqueta” aparece antes da câmera. Ele aceita digitação e
+leitor USB e devolve o foco ao campo após cada registro. O botão adjacente com o
+ícone de câmera abre o leitor contínuo quando a pessoa preferir. Ao abrir a
+câmera, o componente compartilhado mantém sua própria entrada manual como
+fallback para permissão negada, etiqueta danificada ou aparelho incompatível.
 
 ## Ciclo de vida
 
