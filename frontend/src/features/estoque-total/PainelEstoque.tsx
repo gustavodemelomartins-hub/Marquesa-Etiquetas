@@ -254,136 +254,73 @@ export function PainelEstoque({
         </div>
       </section>
 
-      <div className="mq-grid mq-grid--aside">
-        <section className="mq-card">
-          <div className="mq-card__head">
-            <div>
-              <p className="mq-eyebrow">O que precisa de uma pessoa</p>
-              <h2 className="mq-title">Saúde do estoque</h2>
-            </div>
-          </div>
-          <div className="mq-card__body">
-            {pendencias === 0 ? (
-              <p className="mq-note mq-note--ok">
-                <Icone nome="check" />
-                <span>
-                  <b>Nada pendente.</b> A razão fecha e nenhum código está travado
-                  para a loja.
-                </span>
-              </p>
-            ) : (
-              <ul className="mq-list">
-                {inc.length > 0 && (
-                  <li className="mq-item">
-                    <span className="mq-item__icon mq-item__icon--risk">{inc.length}</span>
-                    <div className="mq-item__main">
-                      <b>
-                        {plural(inc.length, 'código tem', 'códigos têm')} mais peças na
-                        rua do que no cadastro
-                      </b>
-                      <p>
-                        Costuma ser código com sufixo (
-                        {inc.slice(0, 3).map((i) => i.sku).join(', ')}
-                        {inc.length > 3 ? '…' : ''}) que saiu na maleta pelo
-                        código-base. Corrija o total em Atualizar Estoque Total.
-                      </p>
-                    </div>
-                  </li>
-                )}
-                {sp.length > 0 && (
-                  <li className="mq-item">
-                    <span className="mq-item__icon mq-item__icon--warn">{sp.length}</span>
-                    <div className="mq-item__main">
-                      <b>{plural(sp.length, 'código sem preço', 'códigos sem preço')}</b>
-                      <p>
-                        §24: sem preço não dá para vender nem encerrar acerto. Estas
-                        peças ficam fora de qualquer sugestão de maleta.
-                      </p>
-                    </div>
-                  </li>
-                )}
-                {duplicados.length > 0 && (
-                  <li className="mq-item">
-                    <span className="mq-item__icon mq-item__icon--risk">
-                      {duplicados.length}
-                    </span>
-                    <div className="mq-item__main">
-                      <b>
-                        {plural(
-                          duplicados.length,
-                          'código duplicado na loja',
-                          'códigos duplicados na loja',
-                        )}
-                      </b>
-                      <p>
-                        O mesmo SKU em mais de um anúncio — a sincronização não sabe
-                        em qual mexer e não mexe em nenhum.
-                      </p>
-                    </div>
-                  </li>
-                )}
-                {travados.length > 0 && (
-                  <li className="mq-item">
-                    <span className="mq-item__icon mq-item__icon--warn">
-                      {travados.length}
-                    </span>
-                    <div className="mq-item__main">
-                      <b>
-                        {plural(
-                          travados.length,
-                          'código não empurrado para a loja',
-                          'códigos não empurrados para a loja',
-                        )}
-                      </b>
-                      <p>
-                        Variação sem repartição, peça em maleta ou cadastro
-                        duplicado. Os detalhes estão na aba Na loja.
-                      </p>
-                    </div>
-                  </li>
-                )}
-              </ul>
-            )}
-          </div>
-        </section>
+      {/* A SAÚDE DO ESTOQUE, em UMA linha.
+          Ela era um cartão inteiro numa coluna de 340px ao lado do resumo
+          (`.mq-grid--aside`), e o protótipo desta tela
+          (`docs/ux/03-screens/estoque/master.html`) simplesmente não tem esse
+          cartão: depois do panorama vem a conferência física, direto. Quatro
+          parágrafos espremidos em 280px de largura é o que aquela coluna
+          produzia — muito espaço para pouca informação, e a tela perdia o
+          fio justamente onde ela deveria acelerar.
 
-        <section className="mq-card">
-          <div className="mq-card__head">
+          O que NÃO foi feito: apagar os números. Eles continuam aqui, na
+          mesma linha em que o protótipo põe as suas ressalvas, cada um
+          dizendo em qual aba está o detalhe. Sumir com um código sem preço
+          porque o cartão ficou feio seria engolir o que o sistema decidiu
+          não resolver (regra 9). */}
+      {pendencias > 0 && (
+        <p className="mq-note mq-note--warn stock-health">
+          <Icone nome="alert" />
+          <span>
+            <b>Precisam de uma pessoa:</b>{' '}
+            {[
+              inc.length && `${inc.length} ${plural(inc.length, 'código com mais peças na rua do que no cadastro', 'códigos com mais peças na rua do que no cadastro')}`,
+              sp.length && `${sp.length} ${plural(sp.length, 'código sem preço', 'códigos sem preço')}`,
+              duplicados.length && `${duplicados.length} ${plural(duplicados.length, 'código duplicado na loja', 'códigos duplicados na loja')}`,
+              travados.length && `${travados.length} ${plural(travados.length, 'código não empurrado para a loja', 'códigos não empurrados para a loja')}`,
+            ].filter(Boolean).join(' · ')}
+            . O detalhe de cada um está nas abas <b>Na loja</b> e{' '}
+            <b>Pendências</b>; o preço, em Cadastro de produtos.
+          </span>
+        </p>
+      )}
+
+      <section className="mq-card">
+        <div className="mq-card__head">
+          <div>
+            <p className="mq-eyebrow">Resumo</p>
+            <h2 className="mq-title">Potencial para consignação</h2>
+          </div>
+          <button type="button" className="mq-btn mq-btn--ghost mq-btn--sm" onClick={aoVerPlanejamento}>
+            Ver planejamento
+          </button>
+        </div>
+        <div className="mq-card__body">
+          <p className="mq-figures">
+            <strong>{cap.maletas}</strong>
+          </p>
+          <p className="mq-lede">
+            {plural(cap.maletas, 'nova maleta', 'novas maletas')} de{' '}
+            {cap.tamanhoAlvo} peças, mantendo {cap.reservaPct}% de cada código em
+            casa.
+          </p>
+          <p className="mq-hint">
+            {cap.consignavel} de {cap.emCasa} peças liberadas · premissa
+            configurável, não regra do sistema. O planejamento mora em
+            Revendedoras.
+          </p>
+          <dl className="mq-dl">
             <div>
-              <p className="mq-eyebrow">Resumo</p>
-              <h2 className="mq-title">Potencial para consignação</h2>
+              <dt>Valor em casa</dt>
+              <dd>{money(t.valCasa)}</dd>
             </div>
-            <button type="button" className="mq-btn mq-btn--ghost mq-btn--sm" onClick={aoVerPlanejamento}>
-              Ver planejamento
-            </button>
-          </div>
-          <div className="mq-card__body">
-            <p className="mq-figures">
-              <strong>{cap.maletas}</strong>
-            </p>
-            <p className="mq-lede">
-              {plural(cap.maletas, 'nova maleta', 'novas maletas')} de{' '}
-              {cap.tamanhoAlvo} peças, mantendo {cap.reservaPct}% de cada código em
-              casa.
-            </p>
-            <p className="mq-hint">
-              {cap.consignavel} de {cap.emCasa} peças liberadas · premissa
-              configurável, não regra do sistema. O planejamento mora em
-              Revendedoras.
-            </p>
-            <dl className="mq-dl">
-              <div>
-                <dt>Valor em casa</dt>
-                <dd>{money(t.valCasa)}</dd>
-              </div>
-              <div>
-                <dt>Valor na rua</dt>
-                <dd>{money(t.valFora)}</dd>
-              </div>
-            </dl>
-          </div>
-        </section>
-      </div>
+            <div>
+              <dt>Valor na rua</dt>
+              <dd>{money(t.valFora)}</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
     </>
   );
 }
