@@ -69,9 +69,16 @@ export const rotas = [
     },
   },
   {
+    /* O corpo é OPCIONAL, e o dashboard clássico manda nenhum: sem ele o
+       fechamento é o de sempre — tudo que ninguém bipou continua incógnita.
+       `{"contagemCompleta": true}` é a AFIRMAÇÃO de quem contou de que olhou
+       todo o estoque abrangido por este inventário, e é só ela que faz uma
+       peça não encontrada virar divergência candidata. Continua sem tocar em
+       estoque: o ajuste é o passo seguinte, item a item, com motivo. */
     metodo: 'POST', caminho: '/api/inventarios/:id/concluir', auth: 'bearer', padroes: { id: '[0-9]+' },
-    async handler({ db, params }) {
-      return await concluirInventario(db, +params.id);
+    async handler({ db, request, params }) {
+      return await concluirInventario(db, +params.id,
+        await request.json().catch(() => ({})));
     },
   },
   {

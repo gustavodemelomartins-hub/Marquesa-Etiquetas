@@ -154,6 +154,28 @@
       "duration": "<3s"
     },
     {
+      "id": "inventario-conciliacao",
+      "level": "domain",
+      "mode": "local",
+      "description": "Conciliação do inventário: declaração de contagem completa, motivos e pendências",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/inventario-conciliacao-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<3s"
+    },
+    {
       "id": "catalogo-4-5",
       "level": "domain",
       "mode": "local",
@@ -677,7 +699,8 @@
         "editar-peca-ui-test.mjs",
         "erro-detalhe-test.mjs",
         "stephanie-ui-test.mjs",
-        "v2-paridade-e2e.mjs"
+        "v2-paridade-e2e.mjs",
+        "v2-camera-e2e.mjs"
       ]
     },
     {

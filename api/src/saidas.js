@@ -222,7 +222,13 @@ export async function registrarSaida(db, corpo = {}) {
     };
   }
 
+  /* A linha que a razão vai mostrar no histórico da peça. A referência ao
+     inventário entra aqui porque é ela que responde "de onde saiu isto" sem
+     obrigar quem lê a saltar para outra tabela: `origem = 'inventario'` diz
+     que o fato nasceu de uma contagem, e `#19` diz de QUAL. O motivo dela
+     vem logo depois, que é o que a coluna sempre carregou. */
   const obsMov = `${ROTULO[tipo]} ${linha.id}`
+    + (inventarioId != null ? ` · inventário #${inventarioId}` : '')
     + (motivo ? ` · ${motivo}` : '')
     + (data === hojeISO() ? '' : ` · de ${data}`);
 

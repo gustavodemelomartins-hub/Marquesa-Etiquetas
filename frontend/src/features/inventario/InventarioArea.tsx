@@ -5,14 +5,14 @@ import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { fmtData, plural } from '../../domain/formato';
 import {
-  aplicaveis, aplicarAjustes, buscarResultado, pedidoDaLinha, temResultado,
-  type LinhaDeDiferenca,
-} from './resultado';
-import {
   DialogoDeVariacao,
   type EscolhaDaVariacao,
   type PedidoDeVariacao,
 } from './DialogoDeVariacao';
+import { DialogoDeEncerramento, type EscolhaDoEncerramento } from './DialogoDeEncerramento';
+import { ProgressoDaContagem } from './ProgressoDaContagem';
+import { RevisaoDoInventario } from './RevisaoDoInventario';
+import { TODAS, filtrarPorCategoria } from './progresso';
 import type { AppState } from '../../types/api';
 import { LeitorDeEtiquetas, type ResultadoDaLeitura } from '../../components/scanner/LeitorDeEtiquetas';
 import { resolverSku } from '../../components/scanner/codigoDaEtiqueta';
@@ -354,6 +354,12 @@ function Contagem({
   /* O 409 do servidor vira uma PERGUNTA, não uma mensagem de erro. */
   const [perguntandoVariacao, setPerguntandoVariacao] = useState<PedidoDeVariacao | null>(null);
   const [camera, setCamera] = useState(false);
+  /* A categoria filtrada vive AQUI, e não dentro do progresso, porque a
+     lista da contagem segue o mesmo filtro: escolher "Brincos" no gráfico e
+     continuar rolando 790 linhas seria oferecer meio filtro. */
+  const [categoria, setCategoria] = useState<string>(TODAS);
+  /* Finalizar deixou de ser um `confirm()`: ele não tem três saídas. */
+  const [encerrando, setEncerrando] = useState(false);
 
   /* A LISTA DA CONTAGEM vem do servidor, não do `GET /api/state`: é ela
      que carrega a regra do "em casa". Ver o comentário de `Esperado`. */
@@ -371,13 +377,16 @@ function Contagem({
     [esperados],
   );
 
+  /* A busca e o filtro de categoria se somam, nesta ordem: a categoria
+     recorta a prateleira, o texto acha a peça dentro dela. */
   const lista = useMemo(() => {
+    const porCat = filtrarPorCategoria(esperados, categoria);
     const t = busca.trim().toLowerCase();
-    if (!t) return esperados;
-    return esperados.filter(
+    if (!t) return porCat;
+    return porCat.filter(
       (p) => p.sku.toLowerCase().includes(t) || p.desc.toLowerCase().includes(t),
     );
-  }, [esperados, busca]);
+  }, [esperados, busca, categoria]);
 
   const status = detalhe.dados?.status ?? 'aberto';
   const pausado = status === 'pausado';
@@ -385,18 +394,23 @@ function Contagem({
 
   /** O resumo que o protótipo mostra no rodapé da contagem, e que a
    *  finalização repete antes de encerrar. São CONTAGENS DE CÓDIGO, e
-   *  "não conferido" é a maior delas no começo — por construção. */
+   *  "não conferido" é a maior delas no começo — por construção.
+   *
+   *  `pecasContadas` é a única em PEÇAS, e vai junto porque o diálogo de
+   *  encerramento precisa dizer o tamanho do trabalho que está sendo
+   *  congelado: "184 peças" é o que a pessoa reconhece como a tarde dela. */
   const resumo = useMemo(() => {
-    let conferido = 0, faltando = 0, sobrando = 0;
+    let conferido = 0, faltando = 0, sobrando = 0, pecasContadas = 0;
     for (const p of esperados) {
       const c = contados.get(p.sku);
       if (!c) continue;
+      pecasContadas += c.contado;
       if (c.contado === p.esperado) conferido += 1;
       else if (c.contado < p.esperado) faltando += 1;
       else sobrando += 1;
     }
     return {
-      conferido, faltando, sobrando,
+      conferido, faltando, sobrando, pecasContadas,
       naoConferido: Math.max(0, esperados.length - contados.size),
     };
   }, [esperados, contados]);
@@ -423,39 +437,25 @@ function Contagem({
     return true;
   }
 
-  /** FINALIZAR não pode ser um clique a seco.
+  /** FINALIZAR não pode ser um clique a seco — e não pode ser só um aviso.
    *
-   *  Concluir congela o retrato — depois dele a contagem não muda mais — e
-   *  tudo o que ficou sem contar entra como "não conferido". Quem para no
-   *  meio precisa ver o tamanho disso ANTES, e não descobrir depois. O que
-   *  concluir NÃO faz é mexer em estoque: o ajuste é o passo seguinte, e
-   *  tem confirmação própria. */
-  async function finalizar() {
-    const resumoTexto = [
-      `Faltando: ${resumo.faltando}`,
-      `Sobrando: ${resumo.sobrando}`,
-      `Conferidos e batendo: ${resumo.conferido}`,
-      `NAO conferidos: ${resumo.naoConferido}`,
-    ].join('\n');
-
-    const sobreOsNaoConferidos = resumo.naoConferido > 0
-      ? `Os ${resumo.naoConferido} codigos nao conferidos continuam como `
-        + 'incognita: nao contado nao e zero, e nenhum deles vira diferenca.'
-      : 'Todos os codigos esperados foram conferidos.';
-
-    const aviso = [
-      'Finalizar a contagem?',
-      '',
-      resumoTexto,
-      '',
-      'Finalizar CONGELA o retrato e NAO altera estoque nenhum.',
-      'Os ajustes vem depois, um a um, com confirmacao propria.',
-      '',
-      sobreOsNaoConferidos,
-    ].join('\n');
-
-    if (!confirm(aviso)) return;
-    await acao(`/api/inventarios/${id}/concluir`);
+   *  Concluir congela o retrato: depois dele a contagem não muda mais. O
+   *  que a versão anterior fazia era avisar, num `confirm()`, que os não
+   *  conferidos continuariam incógnitas, e encerrar o assunto. O aviso
+   *  estava certo e o fluxo estava incompleto: quem terminou de conferir a
+   *  loja INTEIRA não tinha como dizer isso, e centenas de códigos ficavam
+   *  sem resolução e sem caminho nenhum.
+   *
+   *  Agora a pergunta tem TRÊS saídas, desenhadas como escolhas com
+   *  consequências diferentes — ver `DialogoDeEncerramento`. O que NENHUMA
+   *  delas faz é mexer em estoque: mesmo declarar a contagem completa só
+   *  muda o significado das linhas no retrato, e a resolução continua sendo
+   *  um segundo ato, item a item, com motivo obrigatório. */
+  async function finalizar(escolha: EscolhaDoEncerramento) {
+    const ok = await acao(`/api/inventarios/${id}/concluir`, {
+      contagemCompleta: escolha.contagemCompleta,
+    });
+    if (ok) setEncerrando(false);
   }
 
   /** Grava uma contagem. `escolha` só existe quando o servidor já pediu a
@@ -585,10 +585,11 @@ function Contagem({
     detalhe.recarregar();
   }
 
+  /* A COBERTURA continua vindo do servidor e continua sendo o texto do
+     cabeçalho. A porcentagem saiu daqui: ela agora é calculada dentro de
+     `ProgressoDaContagem`, junto com a fatia por categoria, para o número
+     grande e as barras nunca discordarem por serem duas contas. */
   const cobertura = detalhe.dados?.cobertura;
-  const pct = cobertura && cobertura.total > 0
-    ? Math.round((cobertura.conferidos / cobertura.total) * 100)
-    : 0;
 
   if (encerrado) {
     return (
@@ -607,7 +608,7 @@ function Contagem({
           </button>
         </div>
         {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
-        <Resultado conexao={conexao} id={id} aoAplicar={aoMudar} />
+        <RevisaoDoInventario conexao={conexao} id={id} aoAplicar={aoMudar} />
       </section>
     );
   }
@@ -666,7 +667,7 @@ function Contagem({
             type="button"
             className="mq-btn mq-btn--primary"
             disabled={!!ocupado}
-            onClick={finalizar}
+            onClick={() => setEncerrando(true)}
           >
             Finalizar inventário
           </button>
@@ -676,12 +677,16 @@ function Contagem({
         </div>
       </header>
 
-      <div className="mq-card__body inventory-progress">
-        <span>
-          <b style={{ width: `${pct}%` }} />
-        </span>
-        <strong>{pct}%</strong>
-      </div>
+      {/* O PROGRESSO DA CONFERÊNCIA. Era uma barra de 6px com um número ao
+          lado, que respondia "quanto falta" e mais nada: ela não sabia dizer
+          QUAL parte do estoque ainda não tinha sido percorrida, e é essa a
+          pergunta de quem está de pé na frente das gavetas. */}
+      <ProgressoDaContagem
+        esperados={esperados}
+        contados={contados}
+        categoria={categoria}
+        aoFiltrar={setCategoria}
+      />
 
       {pausado && (
         <p className="mq-note mq-note--warn">
@@ -804,6 +809,15 @@ function Contagem({
         })}
       </div>
 
+      {encerrando && (
+        <DialogoDeEncerramento
+          resumo={resumo}
+          ocupado={!!ocupado}
+          aoConfirmar={finalizar}
+          aoCancelar={() => setEncerrando(false)}
+        />
+      )}
+
       {perguntandoVariacao && (
         <DialogoDeVariacao
           pedido={perguntandoVariacao}
@@ -849,249 +863,13 @@ export function situacaoDaLinha(
   return { rotulo: 'Sobrando', classe: 'mq-status mq-status--warn' };
 }
 
-/* ──────────────────────────────────────────────────────── o resultado */
-
-/** O RESULTADO da contagem.
+/* ──────────────────────────────────────────────────────── o resultado
  *
- *  O adaptador anterior lia `{ itens: [{ sistema, diferenca }] }` — três
- *  nomes que não existem na resposta. A tela dizia "Sem resultado para
- *  mostrar" em TODO inventário concluído, e o botão de ajustar mandava
- *  `POST /aplicar {}`, que aplica lista vazia e volta sem erro. O contrato
- *  real está em `./resultado.ts`; o backend não mudou uma linha.
+ *  A REVISÃO saiu deste arquivo. Ela era uma função `Resultado` com quatro
+ *  listas do mesmo tamanho e quatro números do mesmo peso, e virou uma etapa
+ *  de conciliação com prioridade própria — o que precisa de decisão na
+ *  frente, o que está certo recolhido, e o motivo obrigatório na linha.
  *
- *  As quatro listas são quatro coisas diferentes, e é por isso que elas não
- *  viram uma tabela só com uma coluna de diferença:
- *
- *    faltando/sobrando  têm diferença e PODEM ser corrigidas;
- *    não conferido      não foi contado — e não contado não é zero (D3);
- *    não comparável     foi contado sem dizer qual variação (D5).
+ *  Mora em `./RevisaoDoInventario.tsx`, que é onde o raciocínio dela está
+ *  escrito por extenso. Aqui ficou só a contagem.
  */
-function Resultado({
-  conexao, id, aoAplicar,
-}: { conexao: Connection; id: number; aoAplicar: () => void }) {
-  const r = useApi((s) => buscarResultado(conexao, id, s), [conexao, id]);
-  const [erro, setErro] = useState('');
-  const [aplicando, setAplicando] = useState(false);
-  const [escolhidas, setEscolhidas] = useState<Set<string> | null>(null);
-
-  const dados = r.dados;
-  const pronto = temResultado(dados);
-  const podeAjustar = pronto ? aplicaveis(dados) : [];
-  const chave = (l: LinhaDeDiferenca) => `${l.sku}|${l.variacao ?? ''}`;
-
-  /* Tudo marcado por padrão: o caminho comum é aceitar o retrato inteiro.
-     Desmarcar é a exceção, e ela precisa existir — uma linha que a pessoa
-     quer conferir de novo não pode obrigar a deixar todas as outras de fora. */
-  const marcadas = escolhidas ?? new Set(podeAjustar.map(chave));
-  const alvos = podeAjustar.filter((l) => marcadas.has(chave(l)));
-
-  function alternar(l: LinhaDeDiferenca) {
-    const nova = new Set(marcadas);
-    if (nova.has(chave(l))) nova.delete(chave(l));
-    else nova.add(chave(l));
-    setEscolhidas(nova);
-  }
-
-  async function aplicar() {
-    if (!alvos.length) return;
-    if (!confirm(
-      `Ajustar o estoque de ${alvos.length} ${plural(alvos.length, 'peça', 'peças')}?\n\n`
-      + 'Cada ajuste vira uma saída sem faturamento amarrada a este inventário, '
-      + 'com movimento na razão e estorno possível. Nada é apagado.',
-    )) return;
-    setAplicando(true);
-    setErro('');
-    const resposta = await aplicarAjustes(conexao, id, alvos.map(pedidoDaLinha))
-      .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui aplicar.' }));
-    setAplicando(false);
-    if (resposta && 'erro' in resposta && resposta.erro) setErro(String(resposta.erro));
-    else { setEscolhidas(null); r.recarregar(); aoAplicar(); }
-  }
-
-  if (r.erro) return <div className="mq-card__body"><ErrorState erro={r.erro} aoTentarDeNovo={r.recarregar} /></div>;
-
-  return (
-    <div className="mq-card__body mq-stack">
-      {dados && !pronto && (
-        <p className="mq-note mq-note--warn"><span>{(dados as { erro: string }).erro}</span></p>
-      )}
-      {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
-
-      {pronto && (
-        <>
-          <dl className="mq-figures">
-            <div className="is-ok">
-              <dt>Conferido</dt>
-              <dd>{dados.conferido}</dd>
-              <small>bateram exatamente</small>
-            </div>
-            <div className={dados.faltando.length ? 'is-risk' : ''}>
-              <dt>Faltando</dt>
-              <dd>{dados.faltando.length}</dd>
-              <small>contou menos que o sistema</small>
-            </div>
-            <div className={dados.sobrando.length ? 'is-brand' : ''}>
-              <dt>Sobrando</dt>
-              <dd>{dados.sobrando.length}</dd>
-              <small>contou mais que o sistema</small>
-            </div>
-            <div>
-              <dt>Peças contadas</dt>
-              <dd>{dados.pecasContadas}</dd>
-              <small>
-                {dados.cobertura.conferidos} de {dados.cobertura.total} códigos
-              </small>
-            </div>
-          </dl>
-
-          <ListaDeDiferenca
-            titulo="Faltando"
-            explica="Contou menos do que o sistema diz. O ajuste tira a diferença do estoque."
-            linhas={dados.faltando}
-            marcadas={marcadas}
-            chave={chave}
-            aoAlternar={alternar}
-          />
-          <ListaDeDiferenca
-            titulo="Sobrando"
-            explica="Contou mais do que o sistema diz. O ajuste devolve a diferença ao estoque."
-            linhas={dados.sobrando}
-            marcadas={marcadas}
-            chave={chave}
-            aoAlternar={alternar}
-          />
-
-          {dados.naoConferido.length > 0 && (
-            <section>
-              <h3 className="mq-subtitle">
-                Não conferido · {dados.naoConferido.length}
-              </h3>
-              <p className="mq-hint">
-                Estes códigos não foram contados. <b>Não contado não é zero</b>:
-                o servidor recusa transformá-los em diferença, e é essa trava
-                que impede um inventário parado pela metade de zerar meio
-                catálogo.
-              </p>
-              <div className="mq-list">
-                {dados.naoConferido.map((l) => (
-                  <div className="mq-item" key={`${l.sku}|${l.variacao ?? ''}`}>
-                    <span className="mq-item__icon"><Icone nome="box" /></span>
-                    <span className="mq-item__main">
-                      <b>{l.desc}</b>
-                      <small>{l.sku}{l.variacao ? ` · ${l.variacao}` : ''}</small>
-                    </span>
-                    <span className="mq-item__side">
-                      <b className="mq-qty">{l.esperado}</b>
-                      <small>no sistema</small>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {dados.naoComparavel.length > 0 && (
-            <section>
-              <h3 className="mq-subtitle">
-                Não comparável · {dados.naoComparavel.length}
-              </h3>
-              <p className="mq-hint">
-                Contadas sem identidade suficiente. O código inteiro fica
-                bloqueado até alguém dizer qual variação era — não se escreve
-                estoque sobre uma dúvida.
-              </p>
-              <div className="mq-list">
-                {dados.naoComparavel.map((l) => (
-                  <div className="mq-item" key={`${l.sku}|${l.variacao ?? ''}|${l.naoIdentificado}`}>
-                    <span className="mq-item__icon mq-item__icon--warn"><Icone nome="alert" /></span>
-                    <span className="mq-item__main">
-                      <b>{l.desc}</b>
-                      <small>{l.sku}{l.variacao ? ` · ${l.variacao}` : ''} · {l.motivo}</small>
-                    </span>
-                    <span className="mq-item__side"><b className="mq-qty">{l.contado}</b></span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {podeAjustar.length > 0 ? (
-            <div className="mq-btns">
-              <button
-                type="button"
-                className="mq-btn mq-btn--primary"
-                disabled={aplicando || alvos.length === 0}
-                onClick={aplicar}
-              >
-                {aplicando
-                  ? 'Ajustando…'
-                  : `Ajustar ${alvos.length} ${plural(alvos.length, 'peça', 'peças')}`}
-              </button>
-              {alvos.length !== podeAjustar.length && (
-                <button type="button" className="mq-btn mq-btn--ghost" onClick={() => setEscolhidas(null)}>
-                  Marcar todas
-                </button>
-              )}
-            </div>
-          ) : (
-            <p className="mq-hint">
-              {dados.faltando.length + dados.sobrando.length === 0
-                ? 'Nenhuma divergência: o que foi contado bate com o que o sistema diz.'
-                : 'Todas as diferenças deste inventário já foram corrigidas.'}
-            </p>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-/** Uma das duas listas corrigíveis. Elas têm a mesma forma e significados
- *  opostos, então compartilham o desenho e nunca o rótulo. */
-function ListaDeDiferenca({
-  titulo, explica, linhas, marcadas, chave, aoAlternar,
-}: {
-  titulo: string;
-  explica: string;
-  linhas: LinhaDeDiferenca[];
-  marcadas: Set<string>;
-  chave: (l: LinhaDeDiferenca) => string;
-  aoAlternar: (l: LinhaDeDiferenca) => void;
-}) {
-  if (!linhas.length) return null;
-  return (
-    <section>
-      <h3 className="mq-subtitle">{titulo} · {linhas.length}</h3>
-      <p className="mq-hint">{explica}</p>
-      <div className="mq-list">
-        {linhas.map((l) => (
-          <label className="mq-item" key={chave(l)}>
-            <span className="mq-item__icon">
-              <input
-                type="checkbox"
-                checked={l.aplicado ? false : marcadas.has(chave(l))}
-                disabled={l.aplicado}
-                aria-label={`Corrigir ${l.desc}`}
-                onChange={() => aoAlternar(l)}
-              />
-            </span>
-            <span className="mq-item__main">
-              <b>{l.desc}</b>
-              <small>
-                {l.sku}{l.variacao ? ` · ${l.variacao}` : ''} · sistema {l.esperado} ·
-                {' '}contado {l.contado}
-                {l.aviso ? ` · ${l.aviso}` : ''}
-              </small>
-            </span>
-            <span className="mq-item__side">
-              <b className={l.dif < 0 ? 'mq-qty mq-money--risk' : 'mq-qty mq-money--ok'}>
-                {l.dif > 0 ? '+' : ''}{l.dif}
-              </b>
-              {l.aplicado && <span className="mq-status mq-status--ok">corrigida</span>}
-            </span>
-          </label>
-        ))}
-      </div>
-    </section>
-  );
-}

@@ -318,8 +318,20 @@ assert.equal(sobra, undefined, 'não deveria haver sobra ainda');
    contra 3 — também bate. Então a sobra é fabricada onde ela é legítima:
    `100002` falta, e a entrada é provada pelo ESTORNO, mais abaixo. */
 
+/* A rota NOVA exige o motivo: uma baixa de estoque sem explicação é
+   indistinguível de erro de lançamento seis meses depois (a mesma regra de
+   §27 e §30). A recusa vem com a lista de motivos dentro, para a tela poder
+   perguntar sem inventar uma lista própria. */
+const semMotivo = await inv.aplicarInventario(db, ID, { itens: [{ sku: '100002' }] });
+assert.equal(status(semMotivo), 409, 'aplicou uma diferença sem dizer o motivo');
+const recusaSemMotivo = await corpo(semMotivo);
+assert.match(recusaSemMotivo.erro, /motivo/i);
+assert.ok(Array.isArray(recusaSemMotivo.motivos) && recusaSemMotivo.motivos.length,
+  'a recusa não devolveu a lista de motivos');
+assert.equal(saldos()['100002'], antesAplicar['100002'], 'a recusa mexeu no saldo');
+
 const aplicado = await corpo(await inv.aplicarInventario(db, ID, {
-  itens: [{ sku: '100002', observacao: 'caiu atrás da gaveta' }],
+  itens: [{ sku: '100002', motivo: 'Não encontrada na casa', observacao: 'caiu atrás da gaveta' }],
 }));
 assert.ok(aplicado.ok, `a aplicação falhou: ${aplicado.erro}`);
 assert.equal(aplicado.aplicados[0].qtd, -2);
@@ -331,10 +343,16 @@ assert.equal(saida.tipo, 'perda', 'a diferença negativa não virou perda');
 assert.equal(saida.sentido, 'saida');
 assert.equal(saida.inventario_id, ID, 'a saída não ficou vinculada ao inventário');
 assert.equal(saida.observacao, 'caiu atrás da gaveta');
-assert.match(saida.motivo, new RegExp(`Diferença de inventário #${ID}`));
+/* O motivo que ELA escolheu é o que fica na coluna agrupável — não mais um
+   rótulo genérico igual para toda diferença. */
+assert.equal(saida.motivo, 'Não encontrada na casa');
 
 const mov = raw.prepare('SELECT * FROM movimentos WHERE id = ?').get(saida.movimento_id);
 assert.equal(mov.origem, 'inventario', 'a origem do movimento não é `inventario` (D9)');
+/* E ele CHEGA à razão: o histórico da peça mostra o motivo e de qual
+   inventário a diferença nasceu, sem precisar abrir outra tabela. */
+assert.match(mov.obs, /Não encontrada na casa/, 'o motivo não chegou à razão');
+assert.match(mov.obs, new RegExp(`inventário #${ID}`), 'a razão não diz de qual inventário veio');
 assert.equal(mov.tipo, 'perda');
 assert.equal(mov.qtd, -2);
 assert.equal(saldos()['100002'], antesAplicar['100002'] - 2);
@@ -343,7 +361,9 @@ prova('8 — a diferença negativa vira perda/saída, com inventario_id e origem
 
 /* ══════════════════════════ 9 — a segunda aplicação é recusada pelo índice */
 
-const segunda = await inv.aplicarInventario(db, ID, { itens: [{ sku: '100002' }] });
+const segunda = await inv.aplicarInventario(db, ID, {
+  itens: [{ sku: '100002', motivo: 'Não encontrada na casa' }],
+});
 assert.equal(status(segunda), 409, 'aplicou a mesma diferença duas vezes');
 assert.match((await corpo(segunda)).erro, /já foi corrigido/);
 
@@ -362,7 +382,7 @@ assert.equal(razaoAberta(), 0);
    isso, e é deliberada — uma diferença estornada pode ser relançada com o
    valor certo. */
 const relancado = await corpo(await inv.aplicarInventario(db, ID, {
-  itens: [{ sku: '100002', observacao: 'agora sim' }],
+  itens: [{ sku: '100002', motivo: 'Não encontrada na casa', observacao: 'agora sim' }],
 }));
 assert.ok(relancado.ok, `o relançamento depois do estorno falhou: ${relancado.erro}`);
 assert.equal(saldos()['100002'], antesAplicar['100002'] - 2);
@@ -379,7 +399,9 @@ const sobrando = acha(rel2.sobrando, '100001');
 assert.equal(sobrando.dif, 1, 'a sobra não foi calculada');
 
 const antesSobra = saldos();
-const aplicadaSobra = await corpo(await inv.aplicarInventario(db, inv2, { itens: [{ sku: '100001' }] }));
+const aplicadaSobra = await corpo(await inv.aplicarInventario(db, inv2, {
+  itens: [{ sku: '100001', motivo: 'Entrou sem lançamento' }],
+}));
 assert.ok(aplicadaSobra.ok, `a sobra não foi aplicada: ${aplicadaSobra.erro}`);
 const linhaSobra = raw.prepare('SELECT * FROM saidas_sem_faturamento WHERE id = ?')
   .get(aplicadaSobra.aplicados[0].saidaId);
@@ -403,7 +425,9 @@ prova('8b — a sobra usa o mesmo mecanismo: perda/entrada, ajuste assinado, ori
    disponível, então o único obstáculo que resta é o índice único. */
 raw.prepare('UPDATE inventario_resultado SET aplicado_em = NULL, saida_id = NULL WHERE inventario_id = ? AND sku = ?')
   .run(inv2, '100001');
-const concorrente = await inv.aplicarInventario(db, inv2, { itens: [{ sku: '100001' }] });
+const concorrente = await inv.aplicarInventario(db, inv2, {
+  itens: [{ sku: '100001', motivo: 'Entrou sem lançamento' }],
+});
 assert.equal(status(concorrente), 409, 'a trava era só o flag da aplicação, não o índice');
 assert.match((await corpo(concorrente)).erro, /já foi lançada/);
 assert.equal(saldos()['100001'], antesSobra['100001'] + 1, 'a segunda aba somou a peça de novo');

@@ -575,3 +575,167 @@ O que **não** existe e este item não cria: inventário de maleta. A conferênc
 de devolução do acerto é outro mecanismo — o que não volta vira **venda**, não
 diferença de inventário. Os 43 movimentos incompletos ligados a maleta seguem
 sendo assunto da Fase 6, não deste item.
+
+---
+
+## 14. Conciliação — a declaração de contagem completa (24/09/2026)
+
+### 14.1 O que estava faltando
+
+A seção 7.3 acertou ao criar a lista **Não conferido** e ao proibir correção em
+lote sobre ela: foi o que impediu um inventário parado pela metade de zerar
+meio catálogo. O que ela não previu foi o outro lado.
+
+Na conferência real de setembro, a tela terminou assim:
+
+```
+Não conferido · 659
+    Estes códigos não foram contados. Não contado não é zero.
+```
+
+Sem ação, sem caminho e sem fim. A afirmação está correta **durante** a
+contagem. Depois que a pessoa diz "terminei de olhar o estoque", ela passa a
+estar errada: uma peça que o sistema diz ter e que ela procurou e não achou
+não é uma incógnita — é uma divergência. E uma divergência que ninguém pode
+resolver equivale a um estoque que ninguém confere.
+
+O erro não estava na trava. Estava em não existir **gesto para desligá-la**.
+
+### 14.2 A decisão
+
+`inventarios.contagem_completa` — uma coluna, aditiva, default `0`.
+
+| Fechamento | `contagem_completa` | O que acontece com quem não recebeu bipe |
+|---|---|---|
+| `POST /concluir` sem corpo (dashboard clássico) | 0 | continua `nao_conferido`. Comportamento de sempre |
+| `POST /concluir {"contagemCompleta": false}` | 0 | idem — o inventário parcial explícito |
+| `POST /concluir {"contagemCompleta": true}` | 1 | vira `faltando`, `contado = 0`, `dif = -esperado` |
+
+O `=== true` literal é deliberado: o padrão tem de ser o comportamento
+anterior, e só uma afirmação explícita muda de caminho.
+
+**A declaração não aplica movimento nenhum.** Ela muda a SITUAÇÃO no retrato
+congelado. O ajuste continua sendo um segundo ato, item a item, agora com
+motivo obrigatório (14.4).
+
+### 14.3 O que a declaração NÃO alcança
+
+Duas recusas, anunciadas e não engolidas (regra 9):
+
+1. **Código sem endereço de variação.** SKU com variação cadastrada cuja razão
+   tem peça sem identidade sai no nível do CÓDIGO — é o único número provável
+   ali. Declarar que a contagem terminou não responde *de qual variação* é a
+   falta, e converter essa linha produziria movimento sem variação num código
+   que tem variação: o defeito D4 voltando pela porta dos fundos. A linha
+   continua `nao_conferido`, com o motivo escrito;
+2. **`esperado <= 0`.** Não há falta de uma peça que o sistema também não tem.
+
+E o **consignado** continua onde sempre esteve: `SQL_ESPERADO` já desconta a
+maleta aberta, então peça que está na rua tem `esperado = 0` em casa e nunca
+gera linha — nem sob a declaração. É a regra mais cara desta tela, e ela é
+provada em `src/inventario-conciliacao-test.mjs` (seção H).
+
+### 14.4 Motivos — reúso, não modelo novo
+
+Nenhuma tabela nova, nenhum enum de banco. `saidas_sem_faturamento.motivo` já
+existe e o schema já o descreve como **"rótulo curto e agrupável"**; ele já
+chega à razão dentro de `movimentos.obs` (`saidas.js › obsMov`). O que faltava
+não era estrutura — era a lista.
+
+`MOTIVOS_DE_DIFERENCA`, em `api/src/inventario.js`, com `sentido` para cada um
+aparecer só do lado que ele explica:
+
+| id | rótulo | sentido |
+|---|---|---|
+| `nao_encontrada` | Não encontrada na casa | saída |
+| `quebrada` | Quebrada ou danificada | saída |
+| `saiu_sem_lancar` | Saiu sem lançamento | saída |
+| `entrou_sem_lancar` | Entrou sem lançamento | entrada |
+| `devolucao_nao_lancada` | Devolução não lançada | entrada |
+| `erro_de_contagem` | Erro de contagem anterior | ambos |
+| `outro` | *texto livre, ≤ 60* | ambos |
+
+A lista curta existe pelo mesmo motivo do desconto na venda (§27): texto livre
+puro faz cada grafia virar um motivo diferente e nada agrupa. "Outro" continua
+aberto, e — como lá — o texto escrito **vira** o rótulo.
+
+O servidor manda a lista dentro de `GET /resultado`, para não existirem duas
+listas divergindo em silêncio.
+
+**Duas portas, duas regras:**
+
+- `POST /aplicar` (rota nova, consumidor único, a V2) **exige** o motivo. Sem
+  ele: 409, com a lista de motivos dentro da recusa;
+- `POST /ajustar` (rota preservada do dashboard clássico, que manda `{sku,
+  qtd}` e não tem campo de motivo) continua usando o rótulo genérico
+  `Diferença de inventário #<id>`. Exigir ali quebraria a tela em produção
+  para cobrar algo que ela não tem como coletar.
+
+`movimentos.obs` passou a carregar a referência do inventário:
+
+```
+Diferença de inventário / Perda 42 · inventário #19 · Não encontrada na casa
+```
+
+### 14.5 A máquina de estados, agora
+
+```
+aberto ──pausar──▶ pausado ──retomar──▶ aberto
+   │                   │
+   ├──── concluir {contagemCompleta:false} ──▶ concluido   (não conferido = incógnita)
+   ├──── concluir {contagemCompleta:true}  ──▶ concluido   (não conferido = falta candidata)
+   └──── cancelar ────────────────────────────▶ cancelado
+
+concluido ──resolver (item a item, com motivo)──▶ concluido
+              │
+              └─ conciliação = pendentes === 0   (DERIVADA, não guardada)
+```
+
+**Não existe coluna `conciliado`, e não precisa existir.** "Resolvida" já é um
+fato do banco — `inventario_resultado.aplicado_em`, com o estorno devolvendo a
+linha para pendente pelo índice único da seção 4. Uma segunda contabilidade de
+estado só teria como divergir da primeira.
+
+`relatorio()` devolve o bloco `conciliacao`:
+
+```json
+{ "divergencias": 16, "resolvidas": 12, "pendentes": 4,
+  "bloqueadas": 3, "naoConferidos": 0, "conciliado": false }
+```
+
+`bloqueadas` (não comparáveis) fica **fora** de `pendentes` de propósito: elas
+esperam alguém dizer de qual variação são, não uma decisão de estoque. Somá-las
+faria o inventário parecer inacabável por um motivo que não é o dele.
+
+### 14.6 Como o retrato separa os dois zeros
+
+`contado = 0` significa duas coisas diferentes:
+
+- **bipado** — "conferi, não tem nenhuma" (D2). Existe linha em
+  `inventario_contagem`;
+- **declarado** — "não achei". NÃO existe linha em `inventario_contagem`.
+
+`resultadoInventario` deriva `declarado` da ausência dessa linha. A contagem
+nunca é apagada no fechamento, então a distinção sobrevive ao tempo — e a
+revisão diz qual foi, mesmo três meses depois.
+
+### 14.7 Rotas — nenhuma nova
+
+| Rota | Mudança |
+|---|---|
+| `POST /api/inventarios/:id/concluir` | passa a aceitar corpo `{contagemCompleta?: boolean}`. Sem corpo = comportamento anterior |
+| `POST /api/inventarios/:id/aplicar` | cada item aceita `motivo` (obrigatório) |
+| `GET /api/inventarios/:id/resultado` | campos novos: `conferidosItens`, `contagemCompleta`, `motivos`, `conciliacao`; nas linhas, `declarado`, `motivo`, `motivoAplicado` |
+
+Campo novo em resposta é ignorado por quem não o conhece: o dashboard clássico
+não mudou uma linha.
+
+### 14.8 Provas
+
+- `src/inventario-conciliacao-test.mjs` — 17 provas contra o schema real
+  (A–J: declarar e não declarar, falta parcial, bate, sobra, consignado,
+  variação sem identidade, motivo na razão, conciliação e estorno);
+- `frontend/src/features/inventario/progresso.test.ts` — 14 provas das contas
+  do progresso;
+- `frontend/src/features/inventario/conciliacao.test.tsx` — 14 provas de tela
+  (as três saídas do encerramento, o filtro, o motivo obrigatório e o lote).

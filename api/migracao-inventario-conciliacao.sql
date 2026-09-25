@@ -1,0 +1,30 @@
+-- Marquesa — Conciliação do inventário: a declaração de contagem completa
+-- Data: 2026-09-24
+-- Desenho: docs/domains/INVENTARIO-4-4.md §14 (acrescentado nesta rodada)
+--
+-- Migration ADITIVA, Classe C. UMA `ADD COLUMN`. Nenhum `DROP`, nenhuma
+-- tabela reconstruída, nenhum backfill, nenhuma linha existente reescrita.
+--
+-- O QUE ELA EXISTE PARA GUARDAR
+--
+-- Até aqui, "não conferido" era um estado permanente: um código que ninguém
+-- bipou nunca virava diferença, nem depois do fechamento. A trava está certa
+-- DURANTE a contagem — e é o que impede um inventário parado pela metade de
+-- zerar meio catálogo (D3).
+--
+-- O que faltava era o outro lado: quando a pessoa afirma "terminei de olhar
+-- fisicamente todo o estoque deste inventário", uma peça que o sistema diz
+-- ter e que ela não achou É uma divergência, e deixar 659 códigos sem
+-- resolução e sem ação não é proteção, é abandono.
+--
+-- Essa afirmação é um FATO HUMANO, com hora e autor implícitos no
+-- fechamento, e precisa sobreviver ao retrato. Sem esta coluna, reabrir o
+-- inventário #19 em três meses mostraria "contado 0, sistema 3" sem dizer se
+-- aquele zero foi bipado ou declarado — dois gestos diferentes com o mesmo
+-- número, que é exatamente a confusão que a Fase 4.4 existe para não ter.
+--
+-- `duplicate column name` aqui significa "já foi aplicada". Pode ignorar.
+--
+-- Rollback: api/migracao-inventario-conciliacao-rollback.sql (que não derruba
+-- a coluna, pelo mesmo motivo da 4.4 — ver lá).
+ALTER TABLE inventarios ADD COLUMN contagem_completa INTEGER NOT NULL DEFAULT 0;

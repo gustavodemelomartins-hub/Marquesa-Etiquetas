@@ -46,6 +46,17 @@ export interface LinhaDeDiferenca {
   /** Já corrigido neste inventário. Estorno devolve para `false` (D12). */
   aplicado: boolean;
   saidaId: number | null;
+  /** O rótulo com que a diferença FOI resolvida, relido da saída. `null`
+   *  enquanto ela não foi resolvida — e de novo `null` depois de um estorno,
+   *  porque a resolução deixou de valer. */
+  motivoAplicado: string | null;
+  /** O zero desta linha veio de uma DECLARAÇÃO, não de um bipe: ninguém a
+   *  contou, e a pessoa afirmou no fechamento ter terminado a conferência.
+   *  Os dois casos têm `contado: 0` e significam gestos diferentes. */
+  declarado: boolean;
+  /** Por extenso, quando a linha precisa se explicar — hoje só nas
+   *  declaradas. */
+  motivo: string | null;
 }
 
 export interface LinhaNaoConferida {
@@ -54,6 +65,53 @@ export interface LinhaNaoConferida {
   cat: string | null;
   variacao: string | null;
   esperado: number;
+  /** Preenchido só quando a contagem FOI declarada completa e este código
+   *  ficou de fora mesmo assim — é a recusa do servidor dita em voz alta,
+   *  em vez de a linha sumir da lista sem explicação. */
+  motivo: string | null;
+}
+
+/** Uma linha que BATEU. Não pede decisão nenhuma, e por isso a revisão a
+ *  mantém recolhida — mas existir é a diferença entre "642 códigos OK" ser
+ *  um resumo e ser uma afirmação que ninguém pode conferir. */
+export interface LinhaConferida {
+  sku: string;
+  desc: string;
+  cat: string | null;
+  variacao: string | null;
+  contado: number;
+  esperado: number;
+  aviso: string | null;
+}
+
+/** UM MOTIVO de diferença, como o servidor o define
+ *  (`api/src/inventario.js › MOTIVOS_DE_DIFERENCA`).
+ *
+ *  A lista NÃO é escrita aqui. Ela vem dentro do resultado porque
+ *  `saidas_sem_faturamento.motivo` é um rótulo agrupável, e duas listas —
+ *  uma no servidor e outra na tela — divergiriam na primeira mudança,
+ *  transformando "quantas peças perdi por saída sem lançamento" numa
+ *  pergunta sem resposta. */
+export interface MotivoDeDiferenca {
+  id: string;
+  rotulo: string;
+  /** Em qual das duas listas ele aparece. `ambos` vale para as duas. */
+  sentido: 'saida' | 'entrada' | 'ambos';
+  explica: string;
+  /** `true` no "Outro": o texto que ela escrever VIRA o rótulo. */
+  livre?: boolean;
+}
+
+/** Quanto da conciliação já foi feito. Derivado no servidor a partir do que
+ *  está aplicado — não existe coluna `conciliado`, e não precisa existir. */
+export interface Conciliacao {
+  divergencias: number;
+  resolvidas: number;
+  pendentes: number;
+  /** Não comparáveis: esperam uma variação, não uma decisão de estoque. */
+  bloqueadas: number;
+  naoConferidos: number;
+  conciliado: boolean;
 }
 
 export interface LinhaNaoComparavel {
@@ -74,12 +132,19 @@ export interface ResultadoDoInventario {
   /** Quantas linhas bateram exatamente. */
   conferido: number;
   conferidos: number;
+  /** A lista de quem bateu. Campo novo; o número antigo continua ao lado. */
+  conferidosItens: LinhaConferida[];
   pecasContadas: number;
   faltando: LinhaDeDiferenca[];
   sobrando: LinhaDeDiferenca[];
   naoConferido: LinhaNaoConferida[];
   naoComparavel: LinhaNaoComparavel[];
   desconhecidos: unknown[];
+  /** A pessoa AFIRMOU, no fechamento, ter conferido todo o estoque deste
+   *  inventário. É o que explica um faltante que ninguém bipou. */
+  contagemCompleta: boolean;
+  motivos: MotivoDeDiferenca[];
+  conciliacao: Conciliacao;
 }
 
 /** 409 quando o inventário ainda não foi concluído — é resposta esperada,
@@ -110,6 +175,11 @@ export const temResultado = (
 export interface PedidoDeAjuste {
   sku: string;
   variacao?: string | null;
+  /** OBRIGATÓRIO nesta rota. Uma baixa de estoque sem explicação é
+   *  indistinguível de erro de lançamento seis meses depois — a mesma regra
+   *  que §27 e §30 já aplicam ao desconto e à saída. O servidor recusa sem
+   *  ele, e devolve a lista de motivos dentro da recusa. */
+  motivo: string;
   observacao?: string;
 }
 
@@ -129,10 +199,20 @@ export function aplicarAjustes(
   return chamar(conexao, 'POST', `/api/inventarios/${id}/aplicar`, { itens });
 }
 
-export const pedidoDaLinha = (l: LinhaDeDiferenca): PedidoDeAjuste => ({
+export const pedidoDaLinha = (l: LinhaDeDiferenca, motivo: string): PedidoDeAjuste => ({
   sku: l.sku,
+  motivo,
   ...(l.variacao ? { variacao: l.variacao } : {}),
 });
+
+/** Os motivos que fazem sentido para ESTA linha. Oferecer um motivo de
+ *  sobra numa falta seria um caminho que não explica nada. */
+export const motivosDaLinha = (
+  motivos: MotivoDeDiferenca[], dif: number,
+): MotivoDeDiferenca[] => {
+  const sentido = dif < 0 ? 'saida' : 'entrada';
+  return motivos.filter((m) => m.sentido === sentido || m.sentido === 'ambos');
+};
 
 /** As linhas que AINDA podem ser corrigidas. Uma já aplicada e não
  *  estornada é recusada pelo índice do banco — filtrar aqui evita mandar um

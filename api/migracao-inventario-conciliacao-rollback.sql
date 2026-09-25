@@ -1,0 +1,18 @@
+-- Rollback de api/migracao-inventario-conciliacao.sql
+--
+-- Não há o que derrubar. A migration acrescenta UMA coluna com default 0, e
+-- coluna aditiva com default não muda leitura nenhuma: o código anterior a
+-- esta rodada nunca a seleciona, e o banco a preenche sozinho.
+--
+-- Removê-la em SQLite exigiria RECONSTRUIR `inventarios` — a operação
+-- sensível que a 4.4 evitou de propósito, e que aqui seria feita para
+-- desfazer uma coluna inofensiva.
+--
+-- Para voltar ao comportamento anterior basta o código: sem a leitura de
+-- `contagem_completa`, `POST /concluir` volta a congelar todo não conferido
+-- como não conferido, e a aplicação continua recusando essas linhas.
+--
+-- As linhas já congeladas como `faltando` por declaração CONTINUAM válidas:
+-- elas são o retrato de uma conferência que aconteceu. O que se perde é
+-- saber, pelo banco, que o zero veio de uma declaração e não de um bipe.
+SELECT 'nada a desfazer — ver o comentário acima' AS rollback;

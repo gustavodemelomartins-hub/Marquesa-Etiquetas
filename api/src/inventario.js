@@ -96,6 +96,75 @@ const statusVisivel = (inv) => (inv.status === 'aberto' && inv.pausado_em ? 'pau
  *  colidiria com "748801 Aro" + "16". */
 const CHAVE = (sku, variacao) => `${sku}\u0000${variacao || ''}`;
 
+/* ═══════════════════════════════════ a declaração de contagem completa */
+
+/** O texto que uma linha ganha quando ela virou diferença por DECLARAÇÃO,
+ *  e não por bipe.
+ *
+ *  "Não conferido" é permanente enquanto o inventário está aberto: a peça
+ *  não bipada é uma incógnita, e a incógnita não vira falta (D3). Essa
+ *  trava é o que impede uma contagem interrompida de zerar meio catálogo, e
+ *  ela continua exatamente onde estava.
+ *
+ *  O que faltava era o outro lado. Quando a pessoa afirma, no fechamento,
+ *  ter olhado TODO o estoque abrangido por este inventário, uma peça que o
+ *  sistema diz ter e que ela não achou deixa de ser incógnita: é uma
+ *  divergência, e uma divergência que ninguém pode resolver é a mesma coisa
+ *  que um estoque que ninguém confere. Deixar 659 códigos sem resolução e
+ *  sem ação não é proteção — é abandono com uma frase bonita em cima.
+ *
+ *  Três coisas que a declaração NÃO faz, e é por elas que ela é segura:
+ *
+ *   · não aplica movimento nenhum. Ela muda a SITUAÇÃO no retrato; o ajuste
+ *     continua sendo um segundo ato, item a item, com motivo obrigatório;
+ *   · não alcança código cuja falta não dá para atribuir a uma variação
+ *     (ver `conferivel`). A regra 2 do projeto não tem exceção por
+ *     declaração: quem não sabe de qual aro a peça é continua não sabendo;
+ *   · não é o caminho padrão. `contagemCompleta` só chega aqui quando o
+ *     corpo da requisição o diz, e a tela só o manda depois de repetir
+ *     quantos códigos ficaram de fora. */
+const DECLARADA_FALTA = 'Não foi bipada, e a contagem foi declarada completa: '
+  + 'a peça deveria estar em casa e não estava quando a conferência terminou.';
+
+/** E o contrário: o código que a declaração NÃO consegue resolver, com o
+ *  motivo dito em voz alta em vez de sumir da lista (regra 9). */
+const DECLARADA_SEM_IDENTIDADE = 'A razão deste código tem peça sem identidade de variação. '
+  + 'Dizer que a contagem terminou não diz de qual variação é a falta, e o inventário não chuta.';
+
+/** OS MOTIVOS de uma diferença de inventário.
+ *
+ *  Não é tabela nova e não é enum de banco: `saidas_sem_faturamento.motivo`
+ *  já existe e já é descrito no schema como "rótulo curto e agrupável", e é
+ *  ele que chega à razão dentro de `movimentos.obs` (ver
+ *  `saidas.js › obsMov`). O que faltava não era estrutura — era a lista.
+ *
+ *  A lista curta existe pelo mesmo motivo do desconto na venda (§27): texto
+ *  livre puro faz cada grafia virar um motivo diferente e nada agrupa, e
+ *  "quantas peças eu perdi por saída sem lançamento este ano" vira uma
+ *  pergunta sem resposta. "Outro" continua aberto porque a vida não cabe
+ *  numa lista de seis — e, como lá, o texto que ela escreve VIRA o rótulo.
+ *
+ *  `sentido` diz em qual das duas listas o motivo aparece. Um motivo de
+ *  sobra oferecido numa falta seria um caminho que não explica nada. */
+export const MOTIVOS_DE_DIFERENCA = [
+  { id: 'nao_encontrada', rotulo: 'Não encontrada na casa', sentido: 'saida',
+    explica: 'procurei e não achei — o destino dela é desconhecido' },
+  { id: 'quebrada', rotulo: 'Quebrada ou danificada', sentido: 'saida',
+    explica: 'existe, mas não vende mais' },
+  { id: 'saiu_sem_lancar', rotulo: 'Saiu sem lançamento', sentido: 'saida',
+    explica: 'foi para maleta, brinde ou venda e ninguém lançou' },
+  { id: 'entrou_sem_lancar', rotulo: 'Entrou sem lançamento', sentido: 'entrada',
+    explica: 'chegou do fornecedor e ninguém deu entrada' },
+  { id: 'devolucao_nao_lancada', rotulo: 'Devolução não lançada', sentido: 'entrada',
+    explica: 'voltou de maleta, troca ou garantia sem baixa' },
+  { id: 'erro_de_contagem', rotulo: 'Erro de contagem anterior', sentido: 'ambos',
+    explica: 'o número do sistema é que estava errado' },
+  { id: 'outro', rotulo: 'Outro', sentido: 'ambos', livre: true,
+    explica: 'escreva o que aconteceu — vai para o histórico da peça assim mesmo' },
+];
+
+const LIMITE_MOTIVO = 60;
+
 /* ═══════════════════════════════════════════════════ abrir, pausar, cancelar */
 
 export async function abrirInventario(db) {
@@ -455,7 +524,7 @@ export async function salvarContagem(db, id, { contados, desconhecidos }) {
 /** A comparação de um inventário, linha a linha, com a retroação já feita.
  *  Devolve linhas puras — quem chama decide se congela (concluir) ou só
  *  mostra (resultado). */
-async function comparar(db, id) {
+async function comparar(db, id, { completa = false } = {}) {
   const produtos = (await db.prepare(SQL_ESPERADO).all()).results;
   const contagens = (await db.prepare(
     `SELECT sku, variacao, variante_id, contado, contado_em
@@ -523,8 +592,12 @@ async function comparar(db, id) {
       // nem tinha nem apareceu: fora do relatório, como sempre foi
       if (!c && !p.esperado) continue;
       if (!c) {
+        /* `conferivel` — esta falta tem endereço. O código não tem variação
+           cadastrada, então "não estava em casa" é uma frase completa, e a
+           declaração de contagem completa pode transformá-la em diferença. */
         linhas.push({ ...base, variacao: '', varianteId: null, contado: null,
-          esperado: p.esperado, deltaPos: 0, dif: null, situacao: 'nao_conferido', motivo: null });
+          esperado: p.esperado, deltaPos: 0, dif: null, situacao: 'nao_conferido',
+          motivo: null, conferivel: true });
         continue;
       }
       const deltaPos = await deltaSku(p.sku, c.contado_em);
@@ -580,8 +653,14 @@ async function comparar(db, id) {
     if (!contadas.length && !naoIdent) {
       if (razaoCega !== 0 || consignadoCego !== 0) {
         if (p.esperado) {
+          /* `conferivel: false` — a linha sai no nível do CÓDIGO porque é o
+             único número que dá para provar ali, e por isso nem a declaração
+             de contagem completa a transforma em diferença: ela viraria um
+             movimento sem variação num código que tem variação cadastrada,
+             que é o defeito D4 voltando pela porta dos fundos. */
           linhas.push({ ...base, variacao: '', varianteId: null, contado: null,
-            esperado: p.esperado, deltaPos: 0, dif: null, situacao: 'nao_conferido', motivo: null });
+            esperado: p.esperado, deltaPos: 0, dif: null, situacao: 'nao_conferido',
+            motivo: null, conferivel: false });
         }
         continue;
       }
@@ -589,7 +668,8 @@ async function comparar(db, id) {
         const esperadoHoje = v.saldo - consignadaDe(consignadas, v);
         if (!esperadoHoje) continue;
         linhas.push({ ...base, variacao: v.nome, varianteId: v.varianteId, contado: null,
-          esperado: esperadoHoje, deltaPos: 0, dif: null, situacao: 'nao_conferido', motivo: null });
+          esperado: esperadoHoje, deltaPos: 0, dif: null, situacao: 'nao_conferido',
+          motivo: null, conferivel: true });
       }
       continue;
     }
@@ -626,8 +706,11 @@ async function comparar(db, id) {
       const esperadoHoje = v.saldo - consignadaDela;
       if (!c && !esperadoHoje) continue;
       if (!c) {
+        /* Ela contou o Aro 16 e não contou o Aro 17. A variação está dita:
+           se a conferência terminou, a falta do Aro 17 tem endereço. */
         linhas.push({ ...base, variacao: v.nome, varianteId: v.varianteId, contado: null,
-          esperado: esperadoHoje, deltaPos: 0, dif: null, situacao: 'nao_conferido', motivo: null });
+          esperado: esperadoHoje, deltaPos: 0, dif: null, situacao: 'nao_conferido',
+          motivo: null, conferivel: true });
         continue;
       }
       const deltaPos = await deltaVariacao(p.sku, v, c.contado_em);
@@ -639,22 +722,69 @@ async function comparar(db, id) {
         motivo: null, aviso: avisoDelta(deltaPos) });
     }
   }
-  return linhas;
+  return completa ? declararContagemCompleta(linhas) : linhas;
+}
+
+/** A DECLARAÇÃO aplicada ao retrato, e só a ele.
+ *
+ *  Nada aqui escreve estoque. O que muda é o significado de uma linha: um
+ *  código conferível que ninguém bipou deixa de ser incógnita e passa a ser
+ *  uma falta de `esperado` peças — a mesma falta que a tela vai pedir para
+ *  resolver, uma a uma, com motivo.
+ *
+ *  Duas recusas, ditas em voz alta em vez de engolidas:
+ *
+ *   · `conferivel: false` continua não conferido. É o código com peça na
+ *     razão sem identidade de variação: declarar que a contagem terminou não
+ *     responde de qual variação é a falta, e chutar é a única coisa que este
+ *     módulo nunca faz;
+ *   · `esperado <= 0` não vira nada. Não há falta de uma peça que o sistema
+ *     também não tem — seria fabricar divergência de zero. */
+function declararContagemCompleta(linhas) {
+  return linhas.map((l) => {
+    if (l.situacao !== 'nao_conferido') return l;
+    if (!l.conferivel) return { ...l, motivo: DECLARADA_SEM_IDENTIDADE };
+    if (!(l.esperado > 0)) return l;
+    return {
+      ...l,
+      contado: 0,
+      dif: -l.esperado,
+      situacao: 'faltando',
+      declarado: true,
+      motivo: DECLARADA_FALTA,
+    };
+  });
 }
 
 /** As cinco listas do §7.3. `faltando` e `sobrando` mantêm exatamente o
  *  formato antigo — inclusive `sugestao` —, porque é o que a tela legada
  *  lê. As três listas novas são campos novos: quem não as conhece as
  *  ignora, e nada quebra. */
-function relatorio(id, linhas, desconhecidos, cob, concluidoEm) {
+function relatorio(id, linhas, desconhecidos, cob, concluidoEm, extra = {}) {
   const faltando = [], sobrando = [], naoConferido = [], naoComparavel = [];
+  const conferidos = [];
   let conferido = 0;
 
   for (const l of linhas) {
-    if (l.situacao === 'conferido') { conferido += 1; continue; }
+    if (l.situacao === 'conferido') {
+      conferido += 1;
+      /* A lista de quem BATEU. Ela não existia, e por isso "642 códigos OK"
+         era um número sem nada atrás: quem quisesse conferir o que bateu não
+         tinha onde olhar. Ela não pede decisão nenhuma — a tela a mantém
+         fechada —, mas existir é a diferença entre um resumo e uma
+         afirmação que ninguém pode checar. */
+      conferidos.push({ sku: l.sku, desc: l.desc, cat: l.cat,
+        variacao: l.variacao || null, contado: l.contado, esperado: l.esperado,
+        aviso: l.aviso ?? null });
+      continue;
+    }
     if (l.situacao === 'nao_conferido') {
       naoConferido.push({ sku: l.sku, desc: l.desc, cat: l.cat,
-        variacao: l.variacao || null, esperado: l.esperado });
+        variacao: l.variacao || null, esperado: l.esperado,
+        /* Preenchido só quando a contagem foi declarada completa e ESTE
+           código ficou de fora mesmo assim. Sem o motivo, a linha pareceria
+           esquecimento do sistema em vez de recusa dele. */
+        motivo: l.motivo ?? null });
       continue;
     }
     if (l.situacao === 'nao_comparavel') {
@@ -670,27 +800,72 @@ function relatorio(id, linhas, desconhecidos, cob, concluidoEm) {
       contado: l.contado, esperado: l.esperado, dif: l.dif, sugestao: l.dif,
       deltaPos: l.deltaPos, aviso: l.aviso ?? null,
       valor: (l.preco || 0) * Math.abs(l.dif),
-      aplicado: false,
+      aplicado: !!l.aplicado,
+      /* `declarado` — esta falta NÃO foi bipada como zero: ela nasceu da
+         declaração de que a conferência terminou. Os dois casos têm o mesmo
+         `contado: 0` e significam gestos diferentes, e a tela precisa poder
+         dizer qual foi. */
+      declarado: !!l.declarado,
+      motivo: l.motivo ?? null,
     };
     (l.dif < 0 ? faltando : sobrando).push(linha);
   }
 
   const ordena = (a, b) => b.valor - a.valor || String(a.desc).localeCompare(String(b.desc), 'pt');
   const ordenaSimples = (a, b) => String(a.desc).localeCompare(String(b.desc), 'pt');
-  return {
+  const rel = {
     ok: true, id,
     concluidoEm,
     cobertura: cob,
     conferido,
     /* `conferidos` no nome antigo continua significando o que significava
-       para a tela legada: quantas linhas bateram exatamente. */
+       para a tela legada: quantas linhas bateram exatamente. Mudar o
+       significado dele quebraria o dashboard clássico em silêncio. */
     conferidos: conferido,
+    /* A LISTA, em campo novo. Quem não a conhece a ignora. */
+    conferidosItens: conferidos.sort(ordenaSimples),
     pecasContadas: linhas.reduce((s, l) => s + (l.contado || 0), 0),
     faltando: faltando.sort(ordena),
     sobrando: sobrando.sort(ordena),
     naoConferido: naoConferido.sort(ordenaSimples),
     naoComparavel: naoComparavel.sort(ordenaSimples),
     desconhecidos,
+    /* A declaração, dita em voz alta no relatório: é ela que explica por que
+       um código que ninguém bipou está na lista de faltantes. */
+    contagemCompleta: !!extra.contagemCompleta,
+    /* A lista de motivos vive num lugar só, e o servidor a manda junto: sem
+       isso a tela inventaria a sua, e "quantas peças eu perdi por saída sem
+       lançamento" voltaria a depender da grafia de quem digitou. */
+    motivos: MOTIVOS_DE_DIFERENCA,
+  };
+  rel.conciliacao = contarConciliacao(rel);
+  return rel;
+}
+
+/** ONDE ESTÁ A CONCILIAÇÃO — derivada, nunca guardada.
+ *
+ *  Não existe coluna `conciliado`, e não precisa existir: "resolvida" já é
+ *  um fato do banco (`inventario_resultado.aplicado_em`, com o estorno
+ *  devolvendo a linha para pendente pelo índice único). Uma segunda
+ *  contabilidade de estado só teria como divergir da primeira.
+ *
+ *  `bloqueadas` fica FORA de `pendentes` de propósito: uma linha não
+ *  comparável não está esperando uma decisão sobre estoque — está esperando
+ *  alguém dizer de qual variação ela é. Somá-la às pendências faria o
+ *  inventário parecer inacabável por um motivo que não é o dela. */
+function contarConciliacao(rel) {
+  const divergencias = rel.faltando.length + rel.sobrando.length;
+  const resolvidas = [...rel.faltando, ...rel.sobrando].filter((l) => l.aplicado).length;
+  const pendentes = divergencias - resolvidas;
+  return {
+    divergencias,
+    resolvidas,
+    pendentes,
+    bloqueadas: rel.naoComparavel.length,
+    naoConferidos: rel.naoConferido.length,
+    /* "Posso concluir este inventário agora?" — a pergunta 6 da revisão,
+       respondida com um booleano em vez de uma conta que a tela refaria. */
+    conciliado: pendentes === 0,
   };
 }
 
@@ -702,12 +877,18 @@ function relatorio(id, linhas, desconhecidos, cob, concluidoEm) {
  *  que muda de resultado depois de fechado não prova nada. A partir da
  *  4.4 o congelamento é por VARIAÇÃO, e é dele que a aplicação lê a
  *  quantidade — nunca do cliente. */
-export async function concluirInventario(db, id) {
+export async function concluirInventario(db, id, corpo = {}) {
   const inv = await db.prepare(`SELECT * FROM inventarios WHERE id = ?`).bind(id).first();
   if (!inv) return json({ erro: 'Inventário não encontrado' }, 404);
   if (inv.status !== 'aberto') return json({ erro: 'Este inventário já foi fechado' }, 409);
 
-  const linhas = await comparar(db, id);
+  /* `=== true` e não um valor verdadeiro qualquer: esta é a chave que
+     transforma "ninguém olhou" em "não estava lá", e o dashboard legado
+     fecha inventário mandando corpo NENHUM. O padrão tem de ser o
+     comportamento de sempre, e só um `true` literal muda de caminho. */
+  const contagemCompleta = corpo?.contagemCompleta === true;
+
+  const linhas = await comparar(db, id, { completa: contagemCompleta });
   const cob = await cobertura(db, id);
 
   const stmts = [db.prepare(`DELETE FROM inventario_resultado WHERE inventario_id = ?`).bind(id)];
@@ -724,12 +905,13 @@ export async function concluirInventario(db, id) {
       l.contado, l.esperado, l.deltaPos, l.dif, l.situacao, l.motivo ?? null));
   }
   stmts.push(db.prepare(
-    `UPDATE inventarios SET status = 'concluido', pausado_em = NULL, concluido_em = datetime('now')
-      WHERE id = ?`).bind(id));
+    `UPDATE inventarios SET status = 'concluido', pausado_em = NULL, concluido_em = datetime('now'),
+            contagem_completa = ?
+      WHERE id = ?`).bind(contagemCompleta ? 1 : 0, id));
   await db.batch(stmts);
 
   return json(relatorio(id, linhas, JSON.parse(inv.desconhecidos_json || '[]'), cob,
-    new Date().toISOString().slice(0, 10)));
+    new Date().toISOString().slice(0, 10), { contagemCompleta }));
 }
 
 /** O retrato congelado, relido. É o que a tela abre depois de fechar a aba
@@ -743,16 +925,29 @@ export async function resultadoInventario(db, id) {
 
   const { results } = await db.prepare(
     `SELECT r.*, p.desc, p.cat, p.preco,
-            s.estornada AS saida_estornada
+            s.estornada AS saida_estornada,
+            s.motivo AS saida_motivo
        FROM inventario_resultado r
        JOIN produtos p ON p.sku = r.sku
        LEFT JOIN saidas_sem_faturamento s ON s.id = r.saida_id
       WHERE r.inventario_id = ?`).bind(id).all();
 
+  /* QUEM FOI BIPADO. A contagem nunca é apagada no fechamento — ela é o
+     rastro de quem contou o quê e quando —, e é ela que separa os dois
+     zeros: `contado = 0` com linha de contagem é "conferi, não tem nenhuma";
+     `contado = 0` SEM linha de contagem é a declaração de que a conferência
+     terminou. Mesmo número, gestos diferentes, e o retrato tem de saber
+     dizer qual foi mesmo três meses depois. */
+  const bipadas = new Set((((await db.prepare(
+    `SELECT sku, variacao FROM inventario_contagem WHERE inventario_id = ?`)
+    .bind(id).all()).results) ?? []).map((c) => CHAVE(c.sku, c.variacao)));
+
   const linhas = (results ?? []).map((r) => ({
     sku: r.sku, desc: r.desc, cat: r.cat, preco: r.preco,
     variacao: r.variacao,
     naoIdentificado: false,
+    declarado: r.situacao === 'faltando' && r.contado === 0
+      && !bipadas.has(CHAVE(r.sku, r.variacao)),
     varianteId: r.variante_id, contado: r.contado, esperado: r.esperado,
     deltaPos: r.delta_pos, dif: r.dif, situacao: r.situacao, motivo: r.motivo,
     aviso: r.delta_pos
@@ -760,6 +955,8 @@ export async function resultadoInventario(db, id) {
         + `${Math.abs(r.delta_pos) === 1 ? (r.delta_pos < 0 ? 'saída' : 'entrada') : (r.delta_pos < 0 ? 'saídas' : 'entradas')}`
       : null,
     aplicadoEm: r.aplicado_em, saidaId: r.saida_id,
+    /* O rótulo curto com que ELA explicou a diferença, relido da saída. */
+    motivoAplicado: r.saida_estornada ? null : (r.saida_motivo ?? null),
     /* Estornada volta a ser aplicável: o índice único libera o relançamento
        depois do estorno (D12), e a tela precisa dizer isso. */
     aplicado: !!r.aplicado_em && !r.saida_estornada,
@@ -789,7 +986,8 @@ export async function resultadoInventario(db, id) {
        porque um código conferido e sem diferença não gera linha de retrato e
        sumiria da conta. */
     await cobertura(db, id),
-    String(inv.concluido_em || '').slice(0, 10));
+    String(inv.concluido_em || '').slice(0, 10),
+    { contagemCompleta: !!inv.contagem_completa });
 
   /* O relatório recém-montado não sabe o que já foi aplicado; o retrato
      sabe. Marcar aqui evita duplicar a regra dentro de `relatorio`. */
@@ -799,8 +997,16 @@ export async function resultadoInventario(db, id) {
       const fonte = aplicados.get(CHAVE(linha.sku, linha.variacao || ''));
       linha.aplicado = !!(fonte && fonte.aplicado);
       linha.saidaId = fonte ? fonte.saidaId : null;
+      /* O motivo COM QUE a diferença foi resolvida, relido da saída que a
+         aplicou. Sem isto a revisão não teria como responder "quais
+         diferenças eu já resolvi, e por quê" depois de fechar a aba — e um
+         motivo que só existe até o recarregar não é auditoria, é enfeite. */
+      linha.motivoAplicado = fonte ? (fonte.motivoAplicado ?? null) : null;
     }
   }
+  /* Recontado DEPOIS da marcação: antes dela `aplicado` é sempre falso, e a
+     conciliação diria que nada foi resolvido em todo inventário já corrigido. */
+  rel.conciliacao = contarConciliacao(rel);
   return json(rel);
 }
 
@@ -824,7 +1030,7 @@ const rotuloVariacao = (v) => (v ? ` (${v})` : '');
  *
  *  Nada é escrito antes de todos os itens passarem na validação: um lote
  *  com um item inválido não aplica metade e reclama depois. */
-async function aplicarDiferenca(db, id, pedidos) {
+async function aplicarDiferenca(db, id, pedidos, { exigirMotivo = false } = {}) {
   const inv = await db.prepare(`SELECT * FROM inventarios WHERE id = ?`).bind(id).first();
   if (!inv) return json({ erro: 'Inventário não encontrado' }, 404);
   if (inv.status !== 'concluido') {
@@ -898,13 +1104,46 @@ async function aplicarDiferenca(db, id, pedidos) {
         sku, saidaId: linha.saida_id,
       }, 409);
     }
-    alvos.push({ linha, observacao: String(pedido.observacao ?? '').trim() || null });
+
+    /* O MOTIVO, quando quem chama sabe dizê-lo.
+     *
+     *  `exigirMotivo` separa as duas portas. `/aplicar` é a rota nova e tem
+     *  um único consumidor — a revisão da V2 —, e lá o motivo é obrigatório:
+     *  uma peça que sumiu sem ninguém dizer o que aconteceu vira uma baixa
+     *  de estoque que ninguém consegue explicar seis meses depois, que é o
+     *  mesmo defeito que §27 e §30 já fecharam para desconto e para saída.
+     *
+     *  `/ajustar` é a rota PRESERVADA do dashboard clássico, que manda
+     *  `{sku, qtd}` e não tem campo de motivo. Exigir ali quebraria a tela
+     *  em produção para cobrar uma informação que ela não tem como coletar —
+     *  então lá o motivo continua sendo o rótulo genérico de sempre. */
+    const motivo = String(pedido.motivo ?? '').trim();
+    if (exigirMotivo && !motivo) {
+      return json({
+        erro: `Diga o que aconteceu com ${sku}${rotuloVariacao(linha.variacao)}. `
+          + 'Diferença aplicada sem motivo não se audita depois.',
+        sku, variacao: linha.variacao || null,
+        motivos: MOTIVOS_DE_DIFERENCA,
+      }, 409);
+    }
+    if (motivo.length > LIMITE_MOTIVO) {
+      return json({
+        erro: `O motivo de ${sku} é longo demais (máximo ${LIMITE_MOTIVO} caracteres). `
+          + 'O texto comprido cabe na observação.',
+        sku,
+      }, 400);
+    }
+    alvos.push({
+      linha,
+      motivo: motivo || null,
+      observacao: String(pedido.observacao ?? '').trim() || null,
+    });
   }
 
   /* ── escrita, item a item. */
   const data = String(inv.concluido_em || '').slice(0, 10).split('-').reverse().join('/');
   const aplicados = [];
-  for (const { linha, observacao } of alvos) {
+  for (const { linha, motivo, observacao } of alvos) {
     const r = await registrarSaida(db, {
       tipo: 'perda',
       sentido: linha.dif < 0 ? 'saida' : 'entrada',
@@ -912,9 +1151,15 @@ async function aplicarDiferenca(db, id, pedidos) {
       variacao: linha.variacao || null,
       varianteId: linha.variante_id,
       qtd: Math.abs(linha.dif),
-      motivo: `Diferença de inventário #${id}`,
+      /* O motivo QUE ELA ESCOLHEU vai para a coluna que o schema chama de
+         "rótulo curto e agrupável", e de lá entra na razão dentro de
+         `movimentos.obs` (`saidas.js › obsMov`). Sem motivo dito — o caminho
+         do dashboard clássico — fica o rótulo genérico de sempre, que é o
+         que aquela tela sempre gravou. */
+      motivo: motivo ?? `Diferença de inventário #${id}`,
       observacao: observacao
-        ?? `Inventário de ${data}: contado ${linha.contado}, sistema dizia ${linha.esperado}`,
+        ?? `Inventário #${id}, de ${data}: contado ${linha.contado}, `
+          + `sistema dizia ${linha.esperado}`,
       inventarioId: id,
     });
     if (!r.ok) {
@@ -933,7 +1178,7 @@ async function aplicarDiferenca(db, id, pedidos) {
     aplicados.push({
       sku: linha.sku, variacao: linha.variacao || null,
       qtd: linha.dif, saidaId: r.saida.id, movimentoId: r.saida.movimentoId,
-      sentido: r.saida.sentido,
+      sentido: r.saida.sentido, motivo: r.saida.motivo,
     });
   }
   return json({ ok: true, aplicados });
@@ -943,7 +1188,9 @@ async function aplicarDiferenca(db, id, pedidos) {
  *  congelada (§8 do desenho). */
 export async function aplicarInventario(db, id, { itens } = {}) {
   const pedidos = (itens || []).filter((i) => i && i.sku);
-  return aplicarDiferenca(db, id, pedidos);
+  /* Rota nova, consumidor único (a revisão da V2): aqui o motivo é
+     obrigatório. Ver o comentário em `aplicarDiferenca`. */
+  return aplicarDiferenca(db, id, pedidos, { exigirMotivo: true });
 }
 
 /** Rota PRESERVADA para o dashboard legado, que manda `{sku, qtd}`.

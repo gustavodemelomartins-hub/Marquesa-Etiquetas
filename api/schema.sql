@@ -853,7 +853,18 @@ CREATE TABLE IF NOT EXISTS inventarios (
   -- continua 'aberto' enquanto pausado, de propósito — é o que mantém o
   -- dashboard legado retomando a contagem sem alteração nenhuma, e o que
   -- impede abrir um segundo inventário por cima do que está parado.
-  pausado_em         TEXT
+  pausado_em         TEXT,
+  -- A DECLARAÇÃO de que a conferência física terminou (conciliação, 24/09/2026).
+  -- 0 = a contagem foi encerrada cobrindo só o que ela bipou: o resto continua
+  --     incógnita, e não vira diferença nenhuma (D3, o comportamento de sempre);
+  -- 1 = ela afirmou, no fechamento, ter olhado todo o estoque abrangido por
+  --     este inventário. Só então um código que o sistema tem e que ninguém
+  --     achou vira divergência candidata — e mesmo assim nenhum movimento é
+  --     aplicado sozinho: a conciliação é o passo seguinte, item a item.
+  -- A coluna existe para o retrato saber DIZER de onde veio um `contado = 0`:
+  -- bipado ("conferi, não tem nenhuma") e declarado ("não achei") são dois
+  -- gestos diferentes com o mesmo número.
+  contagem_completa  INTEGER NOT NULL DEFAULT 0 CHECK (contagem_completa IN (0, 1))
 );
 
 -- `esperado` é congelado no fechamento, do mesmo jeito que maleta_itens

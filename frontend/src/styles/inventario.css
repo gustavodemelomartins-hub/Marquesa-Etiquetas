@@ -223,3 +223,259 @@
   .mq-cam { padding: var(--mq-4); }
   .mq-cam__palco video { max-height: 340px; }
 }
+
+/* ═════════════════════════════════ progresso da conferência
+ *
+ * A barra antiga era um traço de 6px com um número ao lado. Ela respondia
+ * "quanto falta" e mais nada — e a pergunta seguinte de quem está de pé na
+ * frente das gavetas é "QUAL parte eu ainda não abri".
+ *
+ * A regra visual que governa esta seção inteira: ela mede COBERTURA, não
+ * divergência. Nenhum vermelho aqui, em nenhum estado. Durante a contagem o
+ * que não foi bipado não sumiu — só não foi olhado —, e pintar o vazio de
+ * vermelho diria "você perdeu 94% do estoque" depois de vinte minutos de
+ * trabalho. O vermelho desta tela mora na revisão, depois do fechamento.
+ */
+.inventory-progress-panel {
+  display: flex; flex-direction: column; gap: var(--mq-4);
+  border-bottom: 1px solid var(--mq-line-2);
+}
+.progress-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--mq-4); flex-wrap: wrap;
+}
+.progress-head > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+/* O número grande, e embaixo dele DE QUÊ. "72%" sozinho não distingue
+   código de peça, que é a confusão mais cara desta tela. */
+.progress-figure {
+  margin: 0; display: flex; flex-direction: column; align-items: flex-end; flex: none;
+}
+.progress-figure strong {
+  font: 500 clamp(26px, 3vw, 34px)/1 var(--mq-sans);
+  font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+  color: var(--mq-wine-700);
+}
+.progress-figure small { font-size: 11.5px; color: var(--mq-muted); }
+
+.progress-bar { display: flex; align-items: center; }
+.progress-bar .mq-meter { height: 8px; }
+
+.progress-figures { border: 1px solid var(--mq-line); }
+
+.progress-filtro { max-width: 100%; overflow-x: auto; scrollbar-width: thin; }
+.progress-filtro button { white-space: nowrap; }
+.progress-filtro .mq-badge { margin-left: 5px; }
+
+/* As barras por categoria são BOTÕES: clicar numa é filtrar por ela. A
+   filtrada fica acesa em vez de as outras sumirem — esconder o resto tiraria
+   justamente a comparação que faz a barra valer a pena. */
+.progress-bars { gap: var(--mq-2); }
+.progress-row {
+  border: 1px solid transparent; border-radius: var(--mq-r-sm);
+  background: none; cursor: pointer; text-align: left;
+  padding: var(--mq-1) var(--mq-2); width: 100%;
+  font: inherit; color: inherit;
+}
+.progress-row:hover { background: var(--mq-line-3); }
+.progress-row.is-on { border-color: var(--mq-wine-200); background: var(--mq-wine-050); }
+.progress-row > b { display: flex; align-items: baseline; gap: 5px; justify-content: flex-end; }
+.progress-row > b small { font-weight: 400; font-size: 11px; color: var(--mq-muted); }
+
+/* A evolução da sessão. Discreta de propósito: ela é a confirmação de que a
+   contagem está andando, não um painel analítico. */
+.progress-spark { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.progress-spark figcaption {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--mq-3); flex-wrap: wrap;
+}
+.progress-spark figcaption .mq-hint { font-variant-numeric: tabular-nums; }
+.progress-spark figcaption i { font-style: normal; color: var(--mq-faint); margin: 0 4px; }
+.progress-spark svg {
+  width: 100%; height: 46px; display: block;
+  background: var(--mq-paper-2); border-radius: var(--mq-r-sm);
+  padding: 4px 0;
+}
+.progress-spark path { fill: none; stroke: var(--mq-wine-500); stroke-width: 1.5; }
+.progress-spark__eixo {
+  display: flex; justify-content: space-between;
+  font: 400 10.5px var(--mq-sans); color: var(--mq-faint);
+}
+
+.progress-regra { margin: 0; }
+
+@media (max-width: 720px) {
+  .progress-head { flex-direction: column; }
+  .progress-figure { align-items: flex-start; flex-direction: row; gap: var(--mq-2); align-self: stretch; }
+  .progress-figure small { align-self: flex-end; padding-bottom: 3px; }
+  /* No telefone o rótulo da categoria não cabe em 110px fixos. */
+  .progress-row { grid-template-columns: minmax(0, 1fr) minmax(70px, 1.2fr) auto; }
+}
+
+/* ═══════════════════════════════════ revisão / conciliação
+ *
+ * A regra da tela: o que está certo fica resumido, o que está errado recebe
+ * atenção. Antes, "642 códigos bateram" — que não pede nada de ninguém —
+ * ocupava o mesmo espaço que "14 peças sumiram".
+ */
+.revisao { gap: var(--mq-5); }
+
+/* A primeira coisa da página responde à última pergunta da pessoa: posso
+   concluir este inventário agora? */
+.revisao-conciliacao {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--mq-5); flex-wrap: wrap;
+  padding: var(--mq-5);
+  border: 1px solid var(--mq-wine-200); border-radius: var(--mq-r-lg);
+  background: linear-gradient(180deg, var(--mq-wine-050), var(--mq-paper) 70%);
+}
+.revisao-conciliacao.is-pronta {
+  border-color: var(--mq-ok-line);
+  background: linear-gradient(180deg, var(--mq-ok-bg), var(--mq-paper) 70%);
+}
+.revisao-conciliacao__texto {
+  display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 280px;
+}
+.revisao-conciliacao__barra {
+  display: flex; align-items: center; gap: var(--mq-3);
+  flex: 1 1 200px; min-width: 160px;
+}
+.revisao-conciliacao__barra .mq-meter { height: 10px; }
+.revisao-conciliacao__barra strong {
+  font: 500 17px var(--mq-sans); font-variant-numeric: tabular-nums;
+  color: var(--mq-ink); flex: none;
+}
+
+.revisao-secoes { display: flex; flex-direction: column; gap: var(--mq-5); }
+
+.revisao-lista {
+  border: 1px solid var(--mq-line); border-radius: var(--mq-r-md);
+  overflow: hidden; background: var(--mq-paper);
+}
+/* O acento à esquerda diz de que lado da diferença esta lista é, sem
+   depender de ler o título. */
+.revisao-lista--risk { box-shadow: inset 3px 0 var(--mq-risk); }
+.revisao-lista--brand { box-shadow: inset 3px 0 var(--mq-wine-600); }
+.revisao-lista > header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--mq-4); flex-wrap: wrap;
+  padding: var(--mq-4) var(--mq-5);
+  border-bottom: 1px solid var(--mq-line-2); background: var(--mq-paper-2);
+}
+.revisao-lista > header > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.revisao-todas {
+  display: flex; align-items: center; gap: var(--mq-2); flex: none;
+  font: 500 12px var(--mq-sans); color: var(--mq-ink-2); cursor: pointer;
+}
+
+/* A LINHA da revisão. Três blocos: a peça (com a caixa), a diferença, e o
+   motivo. O motivo fica NA LINHA, e não atrás de um clique, porque com
+   centenas de itens abrir um modal por peça seria a tarde inteira. */
+.revisao-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 68px minmax(200px, 260px);
+  align-items: center; gap: var(--mq-3);
+  padding: var(--mq-3) var(--mq-5);
+  border-bottom: 1px solid var(--mq-line-2);
+}
+.revisao-linha:last-child { border-bottom: 0; }
+.revisao-linha.is-on { background: var(--mq-wine-050); }
+.revisao-linha__peca {
+  display: flex; align-items: flex-start; gap: var(--mq-3); min-width: 0; cursor: pointer;
+}
+.revisao-linha__peca input { margin-top: 3px; flex: none; }
+.revisao-linha__peca > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.revisao-linha__peca b { font: 500 13.5px/1.35 var(--mq-sans); color: var(--mq-ink); }
+.revisao-linha__peca small { font-size: 11.5px; color: var(--mq-muted); line-height: 1.45; }
+/* A diferença de uma peça que ninguém bipou tem uma história diferente da
+   de uma peça contada a menos. A linha diz qual é qual. */
+.revisao-linha__declarado {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--mq-warn) !important;
+}
+.revisao-linha__declarado svg { width: 13px; height: 13px; flex: none; }
+.revisao-linha__dif { text-align: right; font-variant-numeric: tabular-nums; }
+.revisao-linha__motivo { display: flex; flex-direction: column; gap: var(--mq-1); min-width: 0; }
+.revisao-linha__motivo .mq-select,
+.revisao-linha__motivo .mq-input { min-height: 34px; font-size: 12.5px; }
+
+/* A BARRA DE AÇÃO, colada no rodapé: com centenas de linhas o botão estaria
+   a três telas de distância do que a pessoa acabou de marcar. */
+.revisao-acao {
+  position: sticky; bottom: 0; z-index: 3;
+  display: flex; align-items: flex-end; gap: var(--mq-3); flex-wrap: wrap;
+  padding: var(--mq-4);
+  border: 1px solid var(--mq-line); border-radius: var(--mq-r-md);
+  background: var(--mq-paper); box-shadow: 0 -2px 12px rgba(30, 16, 22, .08);
+}
+.revisao-acao__conta { margin: 0; display: flex; flex-direction: column; gap: 1px; flex: none; }
+.revisao-acao__conta strong {
+  font: 500 22px var(--mq-sans); font-variant-numeric: tabular-nums; color: var(--mq-ink);
+}
+.revisao-acao__conta small { font-size: 11.5px; color: var(--mq-muted); }
+.revisao-acao__conta b { color: var(--mq-warn); }
+.revisao-acao__motivo { flex: 1 1 220px; min-width: 0; }
+.revisao-acao__livre { flex: 1 1 180px; min-width: 0; }
+.revisao-acao > .mq-btn { flex: none; }
+
+/* O que não pede decisão: presente, conferível, recolhido. */
+.revisao-resumos { display: flex; flex-direction: column; gap: var(--mq-2); }
+.revisao-resumo {
+  border: 1px solid var(--mq-line-2); border-radius: var(--mq-r-md);
+  background: var(--mq-paper-2); overflow: hidden;
+}
+.revisao-resumo > summary {
+  display: flex; align-items: center; gap: var(--mq-3);
+  padding: var(--mq-3) var(--mq-4); cursor: pointer;
+  font: 400 13px var(--mq-sans); color: var(--mq-ink-2);
+}
+.revisao-resumo > summary::-webkit-details-marker { display: none; }
+.revisao-resumo > summary::after {
+  content: "+"; margin-left: auto; color: var(--mq-muted); font-size: 15px; line-height: 1;
+}
+.revisao-resumo[open] > summary::after { content: "\2212"; }
+.revisao-resumo[open] > summary {
+  border-bottom: 1px solid var(--mq-line-2); background: var(--mq-paper);
+}
+.revisao-resumo > .mq-hint { padding: var(--mq-3) var(--mq-4) 0; }
+/* Lista longa não empurra o resto da página para fora da tela. */
+.revisao-resumo .mq-list { max-height: 420px; overflow-y: auto; background: var(--mq-paper); }
+
+@media (max-width: 760px) {
+  /* No telefone a linha vira bloco: a peça em cima, e a diferença ao lado
+     do motivo embaixo — o alvo do seletor continua grande. */
+  .revisao-linha { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--mq-2); }
+  .revisao-linha__peca { grid-column: 1 / -1; }
+  .revisao-linha__motivo { grid-column: 1 / -1; }
+  .revisao-acao { position: static; }
+  .revisao-acao__conta { flex: 1 1 100%; flex-direction: row; align-items: baseline; gap: var(--mq-2); }
+}
+
+/* ═══════════════════════════════ o diálogo de encerramento
+ *
+ * As duas saídas com consequência são desenhadas como ESCOLHAS, e não como
+ * botões empilhados: elas fazem coisas diferentes com centenas de códigos, e
+ * um par "Cancelar / OK" não teria como dizer isso.
+ */
+.mq-encerrar { width: min(520px, 100vw); }
+.encerrar-opcoes { gap: var(--mq-3); padding-top: 0; }
+.encerrar-opcao {
+  display: flex; flex-direction: column; gap: var(--mq-3);
+  padding: var(--mq-4);
+  border: 1px solid var(--mq-line); border-radius: var(--mq-r-md);
+  background: var(--mq-paper);
+}
+.encerrar-opcao > div { display: flex; flex-direction: column; gap: var(--mq-2); }
+.encerrar-opcao b { font: 500 14px var(--mq-sans); color: var(--mq-ink); }
+.encerrar-opcao p { margin: 0; font: 400 12.5px/1.55 var(--mq-sans); color: var(--mq-muted); }
+/* A saída cara: ela não é o botão primário, e acima de trinta códigos exige
+   um segundo gesto. Um clique acidental em "Finalizar" não pode declarar o
+   estoque inteiro conferido. */
+.encerrar-opcao--forte { border-color: var(--mq-risk-line); background: var(--mq-risk-bg); }
+.encerrar-ciente {
+  display: flex; align-items: flex-start; gap: var(--mq-2);
+  padding: var(--mq-3); border-radius: var(--mq-r-sm);
+  background: var(--mq-paper); border: 1px solid var(--mq-risk-line);
+  font: 400 12.5px/1.45 var(--mq-sans); color: var(--mq-ink-2); cursor: pointer;
+}
+.encerrar-ciente input { margin-top: 2px; flex: none; }
