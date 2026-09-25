@@ -49,5 +49,13 @@ export default defineConfig({
        no topo — o padrão 'node' abaixo não muda para o resto da suíte. */
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    /* Só dá tempo — ver `src/testing/setup.ts` para o porquê, que é uma
+       história de CI intermitente e não uma pregúiça de configuração. */
+    setupFiles: ['./src/testing/setup.ts'],
+    /* O teto do teste inteiro, acima do teto de cada espera. O leitor de
+       etiquetas roda um laço de quadros e chega a 1,2s numa máquina rápida;
+       os 5s padrão do Vitest não sobram num runner compartilhado. */
+    testTimeout: 20000,
+    hookTimeout: 20000,
   },
 });
