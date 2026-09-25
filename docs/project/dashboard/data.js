@@ -1,11 +1,29 @@
 // Gerado por scripts/build-project-dashboard.mjs — não edite à mão.
 window.MARQUESA_V2 = {
-  "gerado": "2026-09-24",
+  "gerado": "2026-09-25",
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
   "atualizadoEm": "2026-09-12",
   "git": {
     "branch": "develop",
     "recentes": [
+      {
+        "commit": "ef6878c",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(revendedoras): iniciar acerto sem devoluções",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "7c9e58c",
+        "data": "2026-09-24",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(harness): REV-002 registrar scanner no acerto",
+        "agente": "",
+        "taskIds": [
+          "REV-002"
+        ]
+      },
       {
         "commit": "7ade6b6",
         "data": "2026-09-24",
@@ -195,22 +213,6 @@ window.MARQUESA_V2 = {
         "data": "2026-09-23",
         "autor": "gustavodemelomartins-hub",
         "assunto": "test(v2): smoke script for the published DEV surfaces",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "2e169df",
-        "data": "2026-09-23",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(shell): the module tab strip belongs to the shell, not to the page",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "b0e2ab9",
-        "data": "2026-09-23",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "test(v2): cover production-critical operational flows",
         "agente": "",
         "taskIds": []
       }
@@ -410,7 +412,7 @@ window.MARQUESA_V2 = {
       "dominio": "Revendedoras",
       "titulo": "React de Revendedoras — paridade estrutural do perfil e da visão geral com o protótipo, usando dados reais; acerto seguro (ownership Codex; frontend publicado e validado no DEV)",
       "contexto": "frontend/src/features/revendedoras/, frontend/src/features/maletas/, api/src/maletas-comandos.js",
-      "nota": "Conferência física do acerto reutiliza o scanner compartilhado e está no DEV: commit 7ade6b6, Pages daf25ae1-f793-49eb-bf7a-e3b1a945723c, QA móvel 390×844. O bip altera só contagem local; contratos REV-002 seguem intactos. Resta uma pessoa publicar o Worker com npx wrangler deploy --env staging-v2 para ativar as travas novas do backend"
+      "nota": "Acerto corrigido no DEV: começa com 0 devolvidas; digitação direta e câmera opcional alimentam a mesma conferência provisória; o que não voltou começa como venda provisória e só persiste na confirmação final. Commit ef6878c, Pages cf852740-460b-40a9-9405-36f5094fca70, QA real e móvel 390×844, 365 testes. Contratos REV-002 seguem intactos. Resta uma pessoa publicar o Worker com npx wrangler deploy --env staging-v2 para ativar as travas novas do backend"
     },
     {
       "id": "NUV-001",
@@ -1480,7 +1482,7 @@ window.MARQUESA_V2 = {
           "dominio": "Revendedoras",
           "titulo": "React de Revendedoras — paridade estrutural do perfil e da visão geral com o protótipo, usando dados reais; acerto seguro (ownership Codex; frontend publicado e validado no DEV)",
           "contexto": "frontend/src/features/revendedoras/, frontend/src/features/maletas/, api/src/maletas-comandos.js",
-          "nota": "Conferência física do acerto reutiliza o scanner compartilhado e está no DEV: commit 7ade6b6, Pages daf25ae1-f793-49eb-bf7a-e3b1a945723c, QA móvel 390×844. O bip altera só contagem local; contratos REV-002 seguem intactos. Resta uma pessoa publicar o Worker com npx wrangler deploy --env staging-v2 para ativar as travas novas do backend"
+          "nota": "Acerto corrigido no DEV: começa com 0 devolvidas; digitação direta e câmera opcional alimentam a mesma conferência provisória; o que não voltou começa como venda provisória e só persiste na confirmação final. Commit ef6878c, Pages cf852740-460b-40a9-9405-36f5094fca70, QA real e móvel 390×844, 365 testes. Contratos REV-002 seguem intactos. Resta uma pessoa publicar o Worker com npx wrangler deploy --env staging-v2 para ativar as travas novas do backend"
         }
       ],
       "paridade": [
@@ -2368,6 +2370,15 @@ window.MARQUESA_V2 = {
       "titulo": "REV-002 · scanner compartilhado na conferência do acerto",
       "branch": "develop",
       "commits": "7ade6b6",
+      "status": "FRONTEND PUBLICADO E VALIDADO NO DEV — Worker manual pendente",
+      "taskIds": []
+    },
+    {
+      "agente": "Codex",
+      "data": "2026-09-24",
+      "titulo": "REV-002 · acerto começa zerado e aceita código sem câmera",
+      "branch": "develop",
+      "commits": "ef6878c",
       "status": "FRONTEND PUBLICADO E VALIDADO NO DEV — Worker manual pendente",
       "taskIds": []
     },

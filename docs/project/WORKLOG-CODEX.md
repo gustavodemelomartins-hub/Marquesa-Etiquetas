@@ -309,6 +309,63 @@ Rollback do frontend: deployment anterior
 
 ---
 
+## 2026-09-24 — REV-002 · acerto começa zerado e aceita código sem câmera
+
+| | |
+|---|---|
+| Branch | `develop` |
+| Commit | `ef6878c` |
+| Status | **FRONTEND PUBLICADO E VALIDADO NO DEV — Worker manual pendente** |
+
+**Correção de semântica:** esta rodada substitui a interpretação registrada na
+entrada anterior. O acerto agora nasce com `0` devolvidas por SKU. Cada código
+digitado ou lido pela câmera incrementa uma unidade devolvida no
+`DocumentoAcerto` ainda provisório; a quantidade restante começa como venda
+provisória e pode ser reclassificada para troca, brinde, perda, quebra, dano ou
+permanência com a revendedora. Nenhuma leitura chama API, movimenta estoque ou
+grava venda. A única persistência continua no botão final de confirmação do
+REV-002.
+
+**Operação e UX:** o campo “Código da etiqueta” fica visível sem abrir a câmera,
+aceita teclado/leitor USB e recupera o foco após cada registro. O botão de câmera
+virou uma ação opcional por ícone e continua usando o scanner compartilhado. A
+tela explica o processo em três passos, distingue vendas provisórias, permite
+buscar por nome/SKU, filtrar peças ainda não devolvidas e nomeia explicitamente
+o “Destino das não devolvidas”. A revisão alerta quando nenhuma devolução foi
+marcada. Alterar a quantidade devolvida preserva destinos excepcionais sempre
+que possível, reduzindo primeiro a parte vendida.
+
+**Validação automatizada:** 20/20 provas focadas verdes e suíte React completa
+com **365/365** testes em 37 arquivos. Os casos cobrem início em zero, digitação
+sem câmera, câmera opcional, mesmo SKU, limite enviado, SKU fora da maleta,
+preservação de destino excepcional, fallback manual e payload final único do
+REV-002. `npm run build` passou (`tsc --noEmit` + Vite, 161 módulos); permanece
+somente o aviso conhecido do chunk principal.
+
+**QA como operadora:** em `/v2/?v=ef6878c#/revendedoras/4`, a maleta #12 abriu
+com `94 enviadas · 0 devolvidas · 94 vendidas provisórias`. Digitar `326660`
+registrou `Colar Casal` como `1 de 1 devolvidas` e devolveu o foco ao campo; a
+segunda tentativa ficou limitada em 1. O SKU válido `230076`, fora da maleta,
+mostrou aviso não bloqueante e não alterou a contagem. Busca, filtro de não
+devolvidas e revisão (`1 devolvida · 93 vendidas`) funcionaram. O drawer foi
+fechado sem confirmar, portanto nenhum dado real foi gravado. Em 390×844, campo,
+botão principal, ícone de câmera, feedback e rodapé permaneceram legíveis e
+operáveis com uma mão; a captura visual foi feita durante o QA.
+
+**Deploy e smoke:** workflow DEV `36083237226` verde; Pages
+`cf852740-460b-40a9-9405-36f5094fca70`, source `ef6878c`. O frontend respondeu
+`200` e `GET /api/health` do Worker staging respondeu `{"ok":true}`. Nenhum
+arquivo de Inventário e nenhum alvo de PROD foram alterados. Rollback do
+frontend: deployment anterior `1d75bbea-c6d2-4bd8-8743-e7528cb9ac10`
+(source `7c9e58c`).
+
+**Pendência explícita:** as travas de backend já versionadas continuam fora do
+Worker staging-v2 até uma pessoa executar, dentro de `api/`,
+`npx wrangler deploy --env staging-v2`. A skill versionada proíbe o agente de
+executar esse deploy.
+
+---
+
 ## Protocolo permanente Claude/Codex
 
 Toda vez que Codex realizar trabalho significativo neste projeto:
