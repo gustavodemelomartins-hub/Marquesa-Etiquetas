@@ -5,7 +5,7 @@ import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { plural } from '../../domain/formato';
 import {
-  aplicarAjustes, buscarResultado, motivosDaLinha, pedidoDaLinha, temResultado,
+  aplicaveis, aplicarAjustes, buscarResultado, motivosDaLinha, pedidoDaLinha, temResultado,
   type LinhaDeDiferenca, type MotivoDeDiferenca, type ResultadoDoInventario,
 } from './resultado';
 
@@ -69,10 +69,11 @@ export function RevisaoDoInventario({
   const dados = r.dados;
   const pronto = temResultado(dados);
 
-  const pendentes = useMemo(
-    () => (pronto ? [...dados.faltando, ...dados.sobrando].filter((l) => !l.aplicado) : []),
-    [pronto, dados],
-  );
+  /* `aplicaveis` mora no contrato porque a REGRA mora lá: uma linha já
+     aplicada e não estornada é recusada pelo índice do banco, e mandá-la faria
+     o servidor recusar o lote inteiro por causa dela. Refazer esse filtro
+     aqui daria duas definições de "pendente" para divergirem. */
+  const pendentes = useMemo(() => (pronto ? aplicaveis(dados) : []), [pronto, dados]);
   const resolvidas = useMemo(
     () => (pronto ? [...dados.faltando, ...dados.sobrando].filter((l) => l.aplicado) : []),
     [pronto, dados],
