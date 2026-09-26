@@ -139,6 +139,48 @@ console.log('\n=== 6. repetir ===');
 eq('repetir é recusado', (await api('POST', url, certo)).status, 409);
 eq('e o total não se move de novo', qtd(await estado(), '111111'), qtd(antes, '111111') - 1);
 
+console.log('\n=== 7. a planilha que repete um acerto FECHADO NO SISTEMA não o conta de novo ===');
+// O caso real: a maleta foi acertada pela tela (venda de origem acerto), e
+// depois a Sthefany lançou as mesmas peças na planilha. A decisão documental
+// vinculada àquela venda como duplicata tira a linha de Clientes; o acerto
+// que conta é o do sistema, uma vez.
+const m2 = (await api('POST', '/api/maletas', { revId: outra.id, abertaEm: '2026-09-01' })).corpo;
+eq('segunda maleta', (await api('POST', `/api/maletas/${m2.id}/itens`, { itens: { 333333: 1 } })).status, 200);
+const acertoSistema = await api('POST', `/api/maletas/${m2.id}/acerto`, {
+  devolvidas: {}, faltas: [{ sku: '333333', linhas: [{ qtd: 1, destino: 'vendida' }] }],
+});
+eq('acerto pelo sistema', acertoSistema.status, 200);
+const vendaAcerto = acertoSistema.corpo?.vendaId;
+const acertosComSistema = (await api('GET', '/api/analytics/revendedoras?periodo=tudo')).corpo?.acertos?.length;
+const planilha2 = await api('POST', '/api/vendas/historico/substituir', {
+  arquivo: 'acerto-2.xlsx',
+  linhas: [
+    CAB,
+    [1, '2026-09-22', 'Bruna Teste', '111111', 'Colar A', 'Banhada', 1, 100, 'Revendedora', 70, 'Pix', 'PAGO', 'Maleta'],
+    [2, '2026-09-22', 'Bruna Teste', '222222', 'Brinco B', 'Banhada', 1, 50, 'Revendedora', 35, 'Pix', 'PAGO', 'Maleta'],
+    [3, '2026-09-10', 'Outra Teste', '333333', 'Anel C', 'Banhada', 1, 80, 'Revendedora', 56, 'Pix', 'PAGO', 'Maleta'],
+    [4, '2026-09-26', 'Outra Teste', '333333', 'Anel C', 'Banhada', 1, 80, null, 80, 'Pix', 'PAGO', 'Maleta'],
+  ],
+});
+eq('a planilha nova entra, com as decisões', planilha2.corpo?.ok, true);
+const chaveDup = 'outra teste|2026-09-26';
+const vinc = await api('POST', '/api/vendas/historico/operacoes', {
+  operacoes: [{
+    vendaChave: chaveDup, papel: 'acerto', revendedoraId: outra.id, pecas: 1,
+    brutoCentavos: 8000, comissaoCentavos: Math.round((acertoSistema.corpo?.acerto?.comissao ?? 0) * 100),
+    liquidoCentavos: 8000 - Math.round((acertoSistema.corpo?.acerto?.comissao ?? 0) * 100),
+    evidencia: { fonte: 'teste' },
+    vendasDuplicadas: [{
+      vendaId: vendaAcerto, confirmado: true, dataDiferenteConfirmada: true,
+      clienteDiferenteConfirmado: true, evidencia: { mesmo: 'acerto' },
+    }],
+  }],
+});
+eq('decisão vinculada ao acerto do sistema', vinc.status, 200);
+const acertosFinal = (await api('GET', '/api/analytics/revendedoras?periodo=tudo')).corpo?.acertos?.length;
+eq('o acerto continua contado uma vez só', acertosFinal, acertosComSistema);
+eq('razão fecha', await razao(), '[]');
+
 if (falhas) {
   console.error(`\n${falhas} falha(s).`);
   process.exit(1);

@@ -1687,7 +1687,14 @@ export async function acertosDeMaleta(db, { periodo = 'tudo', de = null, ate = n
          JOIN vendas_historico_lotes l ON l.id=ho.lote_id AND l.status='importado'
          JOIN vendas_historicas vh ON vh.lote_id=ho.lote_id AND vh.chave=ho.venda_chave
          JOIN revendedoras r ON r.id=ho.revendedora_id
-        WHERE ho.status_registro='ativa' AND ho.papel='acerto'${h.sql}
+        WHERE ho.status_registro='ativa' AND ho.papel='acerto'
+           /* A mesma venda, já fechada pelo acerto DO SISTEMA e vinculada a
+              esta decisão como duplicata: quem conta é o acerto do sistema. */
+           AND NOT EXISTS (
+             SELECT 1 FROM historico_operacao_vendas hov
+               JOIN vendas vd ON vd.id = hov.venda_id
+              WHERE hov.operacao_id = ho.id AND hov.status_registro = 'ativa'
+                AND vd.origem = 'acerto')${h.sql}
         ORDER BY vh.data DESC`,
     ).bind(...h.binds).all(),
     db.prepare(

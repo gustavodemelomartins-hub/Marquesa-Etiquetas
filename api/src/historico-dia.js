@@ -441,7 +441,14 @@ async function acertosDaData(db, data) {
          JOIN vendas_historico_lotes l ON l.id = ho.lote_id AND l.status = 'importado'
          JOIN vendas_historicas vh ON vh.lote_id = ho.lote_id AND vh.chave = ho.venda_chave
          LEFT JOIN revendedoras r ON r.id = ho.revendedora_id
-        WHERE ho.status_registro = 'ativa' AND ho.papel = 'acerto' AND vh.data = ?`,
+        WHERE ho.status_registro = 'ativa' AND ho.papel = 'acerto' AND vh.data = ?
+           /* A mesma venda, já fechada pelo acerto DO SISTEMA e vinculada a
+              esta decisão como duplicata: quem conta é o acerto do sistema. */
+           AND NOT EXISTS (
+             SELECT 1 FROM historico_operacao_vendas hov
+               JOIN vendas vd ON vd.id = hov.venda_id
+              WHERE hov.operacao_id = ho.id AND hov.status_registro = 'ativa'
+                AND vd.origem = 'acerto')`,
     ).bind(data).all(),
     db.prepare(
       `SELECT 'sistema:' || m.id AS id, m.rev_id AS revendedora_id, r.nome AS revendedora,
