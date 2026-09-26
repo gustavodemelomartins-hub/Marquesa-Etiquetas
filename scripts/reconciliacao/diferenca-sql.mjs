@@ -55,8 +55,16 @@ const lit = (v) => {
 const q = (c) => `"${c}"`;
 
 const resumo = {};
-const ins = [];
-const upd = [];
+/* A ORDEM é parte da correção, não estética: o import do D1 não honra
+   `defer_foreign_keys` (visto em 26/09/2026 — o arquivo inteiro volta com
+   D1_RESET_DO). Então cada instrução precisa ser válida no instante em que
+   roda:
+     - tabela por tabela, pai antes de filho;
+     - dentro da tabela, UPDATE antes de INSERT — a decisão antiga vira
+       `substituida` antes de a nova `ativa` nascer (índice único parcial);
+     - todos os DELETE no fim, filho antes de pai, depois que ninguém mais
+       aponta para a linha que sai. */
+const escritas = [];
 const del = [];
 for (const t of ordem) {
   const cols = depois.prepare(`PRAGMA table_info("${t}")`).all();
@@ -68,6 +76,8 @@ for (const t of ordem) {
   const iguais = (x, y) => nomes.every((n) => (x[n] ?? null) === (y[n] ?? null)
     || (typeof x[n] === 'number' && typeof y[n] === 'number' && x[n] === y[n]));
   let ni = 0; let nu = 0; let nd = 0;
+  const ins = [];
+  const upd = [];
   for (const [k, r] of b) {
     if (!a.has(k)) {
       ins.push(`INSERT INTO ${q(t)} (${nomes.map(q).join(', ')}) VALUES (${nomes.map((n) => lit(r[n])).join(', ')});`);
@@ -83,6 +93,7 @@ for (const t of ordem) {
   const apagar = [];
   for (const [k, r] of a) if (!b.has(k)) { apagar.push(`DELETE FROM ${q(t)} WHERE ${pk.map((c) => `${q(c)} = ${lit(r[c])}`).join(' AND ')};`); nd++; }
   if ((ni || nu || nd) && !pk.length) { console.error(`tabela ${t} mudou e não tem chave primária`); process.exit(1); }
+  escritas.push(...upd, ...ins);
   del.unshift(...apagar);
   if (ni || nu || nd) resumo[t] = { inserir: ni, atualizar: nu, apagar: nd };
 }
@@ -112,7 +123,7 @@ const linhas = [
   'CREATE TABLE _reconciliacao_precondicao (ok INTEGER NOT NULL CHECK (ok = 1));',
   `INSERT INTO _reconciliacao_precondicao (ok) SELECT CASE WHEN ${condicoes.join('\n  AND ')} THEN 1 ELSE 0 END;`,
   'DROP TABLE _reconciliacao_precondicao;',
-  ...del, ...upd, ...ins,
+  ...escritas, ...del,
 ];
 writeFileSync(saida, linhas.join('\n') + '\n');
 console.log(JSON.stringify({ saida, resumo, instrucoes: linhas.length, precondicoes: condicoes.length }, null, 1));
