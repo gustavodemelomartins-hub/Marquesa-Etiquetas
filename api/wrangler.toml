@@ -31,13 +31,13 @@ database_id = "51dd629b-52dc-46d0-a1af-fa37f0a79533"
 # declaradas aqui. (Segredos, como a API_KEY, não são afetados.)
 # Para liberar mais de um endereço, separe por vírgula.
 [vars]
-# A V2 vai para um projeto Pages próprio, e o navegador recusa a chamada de
-# qualquer origem que não esteja nesta lista — a tela abriria e nenhum dado
-# chegaria. Quando o projeto for criado, troque a linha ativa pela de baixo
-# com o nome real: o painel clássico CONTINUA na lista, porque ele não sai
-# do ar. Ver docs/releases/RC-V2-2026-09-24.md § E.
-ORIGENS_PERMITIDAS = "https://gustavodemelomartins-hub.github.io"
-# ORIGENS_PERMITIDAS = "https://gustavodemelomartins-hub.github.io,https://marquesa.pages.dev"
+# A V2 mora no projeto Pages `marquesa`, criado em 26/09/2026. O subdomínio
+# `marquesa.pages.dev` já pertencia a outra conta, e a Cloudflare atribuiu
+# `marquesa-9da.pages.dev` — é ESTE o endereço que precisa estar aqui, senão
+# o navegador recusa toda chamada e a tela abre sem dado nenhum. O painel
+# clássico continua na lista: ele não sai do ar. Ver
+# docs/releases/RC-V2-2026-09-24.md § E.
+ORIGENS_PERMITIDAS = "https://gustavodemelomartins-hub.github.io,https://marquesa-9da.pages.dev"
 
 # Trava central de escrita na Nuvemshop (api/src/nuvemshop.js › chamar).
 # Produção precisa desta linha em "true": sem ela, o padrão seguro do
