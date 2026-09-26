@@ -392,3 +392,133 @@ export async function atualizarMaleta(db, id, request) {
   await db.prepare(`UPDATE maletas SET ${campos.join(', ')} WHERE id = ?`).bind(...vals, id).run();
   return json({ ok: true });
 }
+
+/** Acerto que ACONTECEU fora do sistema e já está no histórico de vendas.
+ *
+ *  O caso real: a maleta foi acertada com a revendedora, as vendas entraram
+ *  na planilha (cliente = revendedora, desconto "Revendedora") e o acerto
+ *  virou decisão documental em `historico_operacoes` (papel `acerto`, bruto
+ *  − comissão = líquido). O faturamento já existe, uma vez. O que falta é a
+ *  maleta: ela continua aberta no sistema, contando como consignado peças
+ *  que voltaram para casa ou foram vendidas.
+ *
+ *  `encerrarAcerto` não serve: ele cria uma SEGUNDA venda (origem acerto)
+ *  para as mesmas peças. Este encerramento não cria venda nenhuma. Ele:
+ *
+ *    - exige a decisão documental ativa da MESMA revendedora, e que as peças
+ *      vendidas batam SKU a SKU, quantidade a quantidade, com as linhas do
+ *      histórico daquela venda — não há o que adivinhar;
+ *    - devolve o resto (movimento de devolução, efeito zero no total);
+ *    - baixa as vendidas com movimento `venda` de origem `acerto`, apontando
+ *      a maleta e a revendedora, e a chave da venda histórica na observação;
+ *    - encerra a maleta na data do acerto, sem `acerto_json`: os números do
+ *      acerto moram na decisão documental, e duplicá-los aqui faria o mesmo
+ *      acerto aparecer duas vezes em Revendedoras.
+ *
+ *  `seco: true` devolve o plano inteiro sem escrever. Não empurra estoque
+ *  para a loja: é o registro de um fato passado, e a loja segue o fluxo dela. */
+export async function encerrarAcertoDocumental(db, maletaId, {
+  vendaChave, devolvidas = {}, vendidas = {}, data = null, seco = false,
+} = {}) {
+  const maleta = await db.prepare(`SELECT * FROM maletas WHERE id = ?`).bind(maletaId).first();
+  if (!maleta) return json({ erro: 'Maleta não encontrada' }, 404);
+  if (!['aberta', 'em_acerto'].includes(maleta.status)) {
+    return json({ erro: `Maleta já está "${maleta.status}"` }, 409);
+  }
+  const chave = String(vendaChave ?? '').trim();
+  if (!chave) return json({ erro: 'Informe a venda histórica que documenta o acerto.' }, 400);
+  if (data != null && !/^\d{4}-\d{2}-\d{2}$/.test(String(data))) {
+    return json({ erro: 'Data do acerto inválida. Use AAAA-MM-DD.' }, 400);
+  }
+
+  const op = await db.prepare(
+    `SELECT ho.id, ho.lote_id, ho.papel, ho.revendedora_id, ho.pecas, vh.data
+       FROM historico_operacoes ho
+       JOIN vendas_historico_lotes l ON l.id = ho.lote_id AND l.status = 'importado'
+       JOIN vendas_historicas vh ON vh.lote_id = ho.lote_id AND vh.chave = ho.venda_chave
+      WHERE ho.venda_chave = ? AND ho.status_registro = 'ativa'`,
+  ).bind(chave).first();
+  if (!op || op.papel !== 'acerto') {
+    return json({ erro: `Não há acerto documental ativo para ${chave}.` }, 409);
+  }
+  if (Number(op.revendedora_id) !== Number(maleta.rev_id)) {
+    return json({ erro: `O acerto ${chave} é de outra revendedora.` }, 409);
+  }
+
+  const itens = (await db.prepare(
+    `SELECT sku, qtd, devolvida FROM maleta_itens WHERE maleta_id = ?`,
+  ).bind(maletaId).all()).results ?? [];
+  const porSku = new Map(itens.map((i) => [i.sku, Number(i.qtd)]));
+  const inteiro = (v) => Number.isInteger(v) && v >= 0;
+  for (const [sku, q] of [...Object.entries(devolvidas), ...Object.entries(vendidas)]) {
+    if (!porSku.has(sku)) return json({ erro: `Código ${sku} não está nesta maleta.` }, 400);
+    if (!inteiro(q)) return json({ erro: `Quantidade inválida para ${sku}.` }, 400);
+  }
+  for (const [sku, qtd] of porSku) {
+    if ((devolvidas[sku] || 0) + (vendidas[sku] || 0) !== qtd) {
+      return json({ erro: `Confira ${sku}: devolvidas e vendidas devem somar ${qtd}.` }, 400);
+    }
+  }
+
+  /* A prova de que a maleta é a do acerto: as linhas da venda histórica são
+     exatamente as vendidas, pelo código-base. */
+  const linhas = (await db.prepare(
+    `SELECT sku_base AS sku, SUM(qtd) AS qtd FROM vendas_historico_itens
+      WHERE lote_id = ? AND pedido_chave = ? GROUP BY sku_base`,
+  ).bind(op.lote_id, chave).all()).results ?? [];
+  const doDocumento = new Map(linhas.map((l) => [String(l.sku), Number(l.qtd)]));
+  const vendidasPositivas = Object.entries(vendidas).filter(([, q]) => q > 0);
+  const divergentes = [];
+  for (const [sku, q] of vendidasPositivas) {
+    if (doDocumento.get(sku) !== q) divergentes.push({ sku, maleta: q, documento: doDocumento.get(sku) ?? 0 });
+  }
+  for (const [sku, q] of doDocumento) {
+    if (!(vendidas[sku] > 0)) divergentes.push({ sku, maleta: 0, documento: q });
+  }
+  if (divergentes.length) {
+    return json({
+      erro: `As peças vendidas não batem com a venda histórica ${chave}. Nada foi gravado.`,
+      divergentes,
+    }, 409);
+  }
+
+  const dataAcerto = data ?? op.data ?? hoje();
+  const totDev = Object.values(devolvidas).reduce((s, q) => s + q, 0);
+  const totVend = vendidasPositivas.reduce((s, [, q]) => s + q, 0);
+  const plano = {
+    maletaId, revendedoraId: maleta.rev_id, vendaChave: chave, data: dataAcerto,
+    enviadas: [...porSku.values()].reduce((s, q) => s + q, 0),
+    devolvidas: totDev, vendidas: totVend,
+    vendaNova: false,
+    nuvemshop: 'não publicado: registro de fato passado',
+  };
+  if (seco) return json({ ok: true, seco: true, plano });
+
+  const stmts = [];
+  for (const [sku, q] of Object.entries(devolvidas)) {
+    if (!(q > 0)) continue;
+    stmts.push(db.prepare(`UPDATE maleta_itens SET devolvida = ? WHERE maleta_id = ? AND sku = ?`)
+      .bind(q, maletaId, sku));
+    stmts.push(...movimentar(db, {
+      sku, tipo: 'devolucao', quantidade: q, origem: 'acerto',
+      maletaId, revendedoraId: maleta.rev_id,
+      obs: `${q} un. devolvidas no acerto documental ${chave}`,
+    }));
+  }
+  for (const [sku, q] of vendidasPositivas) {
+    stmts.push(...movimentar(db, {
+      sku, tipo: 'venda', quantidade: q, origem: 'acerto',
+      maletaId, revendedoraId: maleta.rev_id,
+      obs: `Vendida no acerto documental ${chave} (faturamento no histórico de vendas)`,
+    }));
+  }
+  const nota = `Encerrada pelo acerto documental ${chave} em ${dataAcerto}: `
+    + `${totVend} vendida(s), ${totDev} devolvida(s). A venda está no histórico.`;
+  stmts.push(db.prepare(
+    `UPDATE maletas SET status = 'encerrada', encerrada_em = ?,
+            obs = CASE WHEN obs IS NULL OR TRIM(obs) = '' THEN ? ELSE obs || ' | ' || ? END
+      WHERE id = ? AND status IN ('aberta', 'em_acerto')`,
+  ).bind(dataAcerto, nota, nota, maletaId));
+  await db.batch(stmts);
+  return json({ ok: true, plano, estoqueTocado: totVend > 0 });
+}

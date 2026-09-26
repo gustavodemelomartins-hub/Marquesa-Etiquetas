@@ -12,6 +12,7 @@
 import {
   criarRevendedora, atualizarRevendedora, arquivarRevendedora,
   criarMaleta, atualizarMaleta, adicionarItens, encerrarAcerto, cancelarMaleta,
+  encerrarAcertoDocumental,
 } from '../../maletas-comandos.js';
 
 export const rotas = [
@@ -56,6 +57,14 @@ export const rotas = [
     metodo: 'POST', caminho: '/api/maletas/:id/acerto', auth: 'bearer', padroes: { id: '[0-9]+' },
     async handler({ db, env, request, params }) {
       return await encerrarAcerto(db, env, +params.id, await request.json());
+    },
+  },
+  {
+    /* Acerto feito fora do sistema e já documentado no histórico: encerra a
+       maleta sem criar segunda venda. Ver `encerrarAcertoDocumental`. */
+    metodo: 'POST', caminho: '/api/maletas/:id/acerto-documental', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      return await encerrarAcertoDocumental(db, +params.id, await request.json().catch(() => ({})));
     },
   },
   {
