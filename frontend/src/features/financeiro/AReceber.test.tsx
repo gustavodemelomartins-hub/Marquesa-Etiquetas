@@ -174,14 +174,57 @@ describe('A receber — paridade com o protótipo', () => {
     expect(within(recebimentos).getByText(/data efetiva/)).toBeTruthy();
   });
 
-  it('anuncia o que o sistema NÃO faz em vez de um botão que mente', () => {
+  it('conta em aberto não oferece corrigir: não há recebimento para corrigir', () => {
     abrir([conta()]);
-    /* O protótipo tem "Corrigir lançamento". O backend não tem estorno
-       nem correção de recebimento — e um botão desses seria exatamente o
-       defeito que "Novo produto" tinha. */
     expect(screen.queryByRole('button', { name: /Corrigir lançamento/ })).toBeNull();
-    expect(screen.getByText(/Corrigir ou estornar um recebimento ainda não existe/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Registrar recebimento' })).toBeTruthy();
+    /* O que continua fora é dito, no lugar onde a ação estaria. */
+    expect(screen.getByText(/Receber em partes continua fora do sistema/)).toBeTruthy();
+  });
+
+  it('em Recebidas, "Corrigir lançamento" pede motivo e chama o estorno com a versão', async () => {
+    const paga = conta({
+      chave: 'historico:9', tipo: 'historico', id: 9, versao: 3, vendaId: null,
+      cliente: 'Iris Melo', valorRecebido: 120, valorReceber: 0, valorTotal: 120,
+      pagaEm: '2026-09-10', cobrancaStatus: 'paga', podeDefinirPrazo: false,
+    });
+    const chamadas: { url: string; corpo: unknown }[] = [];
+    const fetchFalso = vi.fn(async (url: string, init?: RequestInit) => {
+      chamadas.push({ url: String(url), corpo: init?.body ? JSON.parse(String(init.body)) : null });
+      if (String(url).includes('/api/contas-receber?status=paga')) {
+        return new Response(JSON.stringify(resposta([paga])), { status: 200 });
+      }
+      return new Response(JSON.stringify({ ok: true, versao: 4 }), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchFalso);
+    const recarregar = vi.fn();
+    render(
+      <AReceber
+        conexao={conexao}
+        dados={resposta([conta()])}
+        erro={null}
+        recarregar={recarregar}
+        aoAbrirCliente={() => {}}
+        painel={painel}
+        recorte={recorte}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Recebidas' }));
+    const botao = await screen.findByRole('button', { name: 'Corrigir lançamento' });
+    fireEvent.click(botao);
+
+    const dialogo = screen.getByRole('dialog', { name: 'Corrigir lançamento' });
+    const confirmar = within(dialogo).getByRole('button', { name: /Voltar a conta para em aberto/ });
+    expect(confirmar.hasAttribute('disabled')).toBe(true);
+    fireEvent.change(within(dialogo).getByRole('textbox'), { target: { value: 'lançado na cliente errada' } });
+    expect(confirmar.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(confirmar);
+
+    await vi.waitFor(() => expect(recarregar).toHaveBeenCalled());
+    const estorno = chamadas.find((c) => c.url.endsWith('/api/contas-receber/estornar'));
+    expect(estorno?.corpo).toEqual({ chave: 'historico:9', motivo: 'lançado na cliente errada', versaoEsperada: 3 });
+    vi.unstubAllGlobals();
   });
 
   it('não oferece receber uma conta que não tem saldo', () => {

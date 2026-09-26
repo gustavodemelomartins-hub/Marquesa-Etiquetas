@@ -33,9 +33,11 @@
  *
  *  Nada aqui escreve em estoque. Receber dinheiro não faz peça sair.
  */
-import { listarContasReceber, definirVencimento, marcarContaPaga } from './historico-operacoes.js';
+import {
+  listarContasReceber, definirVencimento, marcarContaPaga, estornarRecebimentoHistorico,
+} from './historico-operacoes.js';
 import { pagarDiferencaTroca } from './garantias.js';
-import { quitarVenda } from './pagamento-venda.js';
+import { quitarVenda, desfazerPagamentoVenda } from './pagamento-venda.js';
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const dataIsoValida = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
@@ -343,4 +345,49 @@ export async function receberConta(db, { chave, confirmar = false, versaoEsperad
     /* §29 dito na resposta, para nenhuma tela precisar deduzir. */
     estoqueTocado: false,
   };
+}
+
+/** "Corrigir lançamento" de A Receber: o recebimento registrado aqui estava
+ *  errado e precisa voltar a ser dívida. Uma porta, despachada pela mesma
+ *  `chave` de `receberConta`, e em nenhum dos ramos algo é apagado:
+ *
+ *    historico   versão nova da cobrança, de volta a `aberta`; a versão paga
+ *                fica como `substituida`, e o motivo vai para a evidência;
+ *    venda       o núcleo de `pagamento-venda.js` desfaz o pagamento, e a
+ *                nota com a data e o motivo entra no MESMO UPDATE;
+ *    troca       diferença antiga, sem venda própria, não tem onde guardar
+ *                a trilha — a recusa diz isso em vez de estornar sem rastro.
+ *
+ *  O recebimento certo entra depois pela porta de sempre. Estoque: nada. */
+export async function estornarRecebimento(db, { chave, motivo = null, versaoEsperada = null } = {}) {
+  const p = partes(chave);
+  if (!p) return { ok: false, statusHttp: 400, erro: 'Conta inválida.' };
+  const texto = String(motivo ?? '').trim();
+  if (texto.length < 3) {
+    return { ok: false, statusHttp: 400, erro: 'Diga por que o recebimento está sendo corrigido.' };
+  }
+  if (p.tipo === 'historico') {
+    const r = await estornarRecebimentoHistorico(db, p.id, { motivo: texto, versaoEsperada });
+    return r.ok ? { ...r, chave, estoqueTocado: false } : r;
+  }
+  if (p.tipo === 'troca') {
+    return {
+      ok: false,
+      statusHttp: 409,
+      erro: 'Esta diferença de troca é anterior à venda própria da troca e não tem onde guardar a '
+        + 'correção. Nada foi alterado.',
+    };
+  }
+  const antes = await db.prepare(
+    'SELECT pago, data_pagamento, pagamento_origem FROM vendas WHERE id = ?',
+  ).bind(p.id).first();
+  if (!antes) return { ok: false, statusHttp: 404, erro: 'Venda não encontrada.' };
+  const nota = `Recebimento estornado em ${hojeISO()}: ${texto.slice(0, 300)} `
+    + `(estava pago em ${antes.data_pagamento ?? 'data não registrada'}`
+    + `${antes.pagamento_origem ? `, origem ${antes.pagamento_origem}` : ''}).`;
+  const r = await desfazerPagamentoVenda(db, p.id, {
+    motivo: texto, versaoEsperada, notaDeTrilha: nota,
+  });
+  if (!r.ok) return r;
+  return { ...r, chave, trilha: nota, estoqueTocado: false };
 }

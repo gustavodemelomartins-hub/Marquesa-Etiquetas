@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { money, fmtData } from '../../domain/formato';
 import { hojeISO } from '../../domain/formato';
 import { descreverRecorte } from './periodo';
-import { definirPrazo, receberConta } from './api';
+import { buscarAReceber, definirPrazo, estornarRecebimento, receberConta } from './api';
 import type { Connection } from '../../services/client';
 import type { ContaAReceber, ContasAReceber, PainelFinanceiro, Recorte } from './tipos';
 
@@ -52,10 +52,11 @@ const FILTROS: { id: Filtro; rotulo: string }[] = [
  *  completa a tela repete isso em letra em vez de deixar alguém somar um
  *  total pela metade.
  *
- *  Duas ações, e só as duas que o backend sustenta hoje: receber e definir
- *  o prazo. Receber é INTEGRAL. Corrigir ou estornar um recebimento não
- *  existe, e a tela diz isso no lugar onde a ação estaria — anunciar o que
- *  o sistema não faz é mais barato que um botão que mente.
+ *  Três ações, as três que o backend sustenta: receber, definir o prazo e
+ *  corrigir um recebimento lançado errado. Receber é INTEGRAL — em partes
+ *  continua sendo a decisão D2, e a tela diz isso. Corrigir vive em
+ *  "Recebidas": a conta paga volta a ficar em aberto, com o motivo gravado,
+ *  e o recebimento certo entra de novo pela porta de sempre.
  */
 export function AReceber({
   conexao, dados, erro, recarregar, aoAbrirCliente, painel, recorte,
@@ -66,9 +67,33 @@ export function AReceber({
   const [selecionada, setSelecionada] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState<Filtro>('todos');
+  const [modo, setModo] = useState<'abertas' | 'recebidas'>('abertas');
+  const [recebidas, setRecebidas] = useState<ContasAReceber | null>(null);
+  const [erroRecebidas, setErroRecebidas] = useState<string | null>(null);
+  const [corrigindo, setCorrigindo] = useState<ContaAReceber | null>(null);
+  const [versaoRecebidas, setVersaoRecebidas] = useState(0);
+
+  /* As recebidas só são lidas quando alguém pede. É a lista de CORREÇÃO,
+     não a de trabalho: quem abre A Receber quer saber quem deve. */
+  useEffect(() => {
+    if (modo !== 'recebidas') return undefined;
+    const ctl = new AbortController();
+    setErroRecebidas(null);
+    buscarAReceber(conexao, 'paga', ctl.signal)
+      .then(setRecebidas)
+      .catch((e: unknown) => {
+        if (!ctl.signal.aborted) {
+          setErroRecebidas(e instanceof Error ? e.message : 'Não consegui ler as recebidas.');
+        }
+      });
+    return () => ctl.abort();
+  }, [conexao, modo, versaoRecebidas]);
 
   const hoje = hojeISO();
-  const contas = useMemo(() => dados?.contas ?? [], [dados]);
+  const contas = useMemo(
+    () => (modo === 'recebidas' ? recebidas?.contas ?? [] : dados?.contas ?? []),
+    [dados, recebidas, modo],
+  );
 
   /* Os dois números que o protótipo pede e que `resumo` não traz: eles são
      sobre o VENCIMENTO, e o backend resume por status. Somar aqui é
@@ -194,11 +219,26 @@ export function AReceber({
         <section className="mq-card mq-card--flush">
           <div className="mq-card__head">
             <div>
-              <p className="mq-eyebrow">Contas abertas</p>
-              <h2 className="mq-title">Quem ainda deve</h2>
-              <p className="mq-lede">{dados.regra}</p>
+              <p className="mq-eyebrow">{modo === 'abertas' ? 'Contas abertas' : 'Contas recebidas'}</p>
+              <h2 className="mq-title">{modo === 'abertas' ? 'Quem ainda deve' : 'O que já foi recebido'}</h2>
+              <p className="mq-lede">
+                {modo === 'abertas'
+                  ? dados.regra
+                  : 'Recebimentos lançados aqui. Um lançamento errado se corrige daqui, com motivo.'}
+              </p>
+            </div>
+            <div className="mq-chipset" role="group" aria-label="Abertas ou recebidas">
+              <button type="button" aria-pressed={modo === 'abertas'} onClick={() => setModo('abertas')}>
+                Em aberto
+              </button>
+              <button type="button" aria-pressed={modo === 'recebidas'} onClick={() => setModo('recebidas')}>
+                Recebidas
+              </button>
             </div>
           </div>
+          {modo === 'recebidas' && erroRecebidas && (
+            <p className="mq-note mq-note--risk" role="alert"><span>{erroRecebidas}</span></p>
+          )}
 
           <div className="mq-filters">
             <label className="mq-search">
@@ -229,7 +269,13 @@ export function AReceber({
             </span>
           </div>
 
-          {contas.length === 0 ? (
+          {contas.length === 0 && modo === 'recebidas' ? (
+            <div className="mq-state">
+              <span className="mq-state__icon"><Icone nome="money" /></span>
+              <h3>{recebidas ? 'Nenhum recebimento lançado' : 'Carregando recebidas…'}</h3>
+              <p>Quando uma conta for recebida aqui, ela aparece nesta lista.</p>
+            </div>
+          ) : contas.length === 0 ? (
             <div className="mq-state">
               <span className="mq-state__icon"><Icone nome="check" /></span>
               <h3>Nada em aberto</h3>
@@ -385,15 +431,26 @@ export function AReceber({
                   >
                     {conta.vencimentoEm ? 'Mudar o prazo' : 'Definir prazo'}
                   </button>
+                  {conta.cobrancaStatus === 'paga' && (
+                    <button
+                      type="button"
+                      className="mq-btn mq-btn--secondary"
+                      disabled={ocupada === conta.chave}
+                      onClick={() => setCorrigindo(conta)}
+                    >
+                      Corrigir lançamento
+                    </button>
+                  )}
                 </div>
 
                 <p className="mq-note">
                   <Icone nome="box" />
                   <span>
-                    Receber <b>não movimenta estoque</b>. Corrigir ou estornar um
-                    recebimento ainda não existe no sistema: hoje o recebimento
-                    quita a conta inteira, e desfazer isso depende de uma decisão
-                    de negócio que não foi tomada.
+                    Receber <b>não movimenta estoque</b> e quita a conta inteira.
+                    Recebimento lançado errado se corrige em <b>Recebidas</b>: a
+                    conta volta a ficar em aberto, com o motivo registrado, e o
+                    recebimento certo entra de novo. Receber em partes continua
+                    fora do sistema.
                   </span>
                 </p>
               </div>
@@ -407,6 +464,22 @@ export function AReceber({
           )}
         </aside>
       </div>
+
+      {corrigindo && (
+        <DialogoCorrigir
+          conexao={conexao}
+          conta={corrigindo}
+          aoFechar={() => setCorrigindo(null)}
+          aoCorrigido={() => {
+            const chave = corrigindo.chave;
+            setCorrigindo(null);
+            setVersaoRecebidas((v) => v + 1);
+            recarregar();
+            setModo('abertas');
+            setSelecionada(chave);
+          }}
+        />
+      )}
 
       {recebendo && (
         <DialogoReceber
@@ -520,6 +593,97 @@ function DialogoReceber({
           <button type="button" className="mq-btn mq-btn--ghost" onClick={aoFechar}>Cancelar</button>
           <button type="button" className="mq-btn mq-btn--primary" disabled={salvando} onClick={confirmar}>
             {salvando ? 'Registrando…' : `Recebi ${money(conta.valorReceber)}`}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** "Corrigir lançamento". O motivo é obrigatório porque é a única coisa que
+ *  explica, meses depois, por que um dinheiro que entrou deixou de ter
+ *  entrado. Nada é apagado: a conta volta a ficar em aberto e o lançamento
+ *  errado continua no histórico dela. */
+function DialogoCorrigir({
+  conexao, conta, aoFechar, aoCorrigido,
+}: {
+  conexao: Connection;
+  conta: ContaAReceber;
+  aoFechar: () => void;
+  aoCorrigido: () => void;
+}) {
+  const [motivo, setMotivo] = useState('');
+  const [erro, setErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const valido = motivo.trim().length >= 3;
+
+  async function confirmar() {
+    setSalvando(true);
+    setErro('');
+    const r = await estornarRecebimento(conexao, {
+      chave: conta.chave, motivo: motivo.trim(), versaoEsperada: conta.versao,
+    }).catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui corrigir.' }));
+    setSalvando(false);
+    if (r && 'erro' in r && r.erro) setErro(String(r.erro));
+    else aoCorrigido();
+  }
+
+  return (
+    <>
+      <button type="button" className="mq-scrim" aria-label="Fechar" onClick={aoFechar} />
+      <div className="mq-modal" role="dialog" aria-modal="true" aria-label="Corrigir lançamento">
+        <div className="mq-modal__head">
+          <div>
+            <p className="mq-eyebrow">Corrigir lançamento</p>
+            <h2 className="mq-title">{conta.cliente ?? 'Conta recebida'}</h2>
+          </div>
+          <button type="button" className="mq-modal__close" aria-label="Fechar" onClick={aoFechar}>
+            <Icone nome="close" />
+          </button>
+        </div>
+
+        <div className="mq-modal__body">
+          <dl className="mq-confirm">
+            <dt>Recebimento lançado</dt>
+            <dd>
+              {money(conta.valorRecebido || conta.valorTotal)}
+              {conta.pagaEm ? ` em ${fmtData(conta.pagaEm)}` : ''}
+            </dd>
+          </dl>
+
+          <label className="mq-field">
+            <span>Por que este recebimento está errado?</span>
+            <textarea
+              className="mq-input"
+              rows={3}
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Ex.: lançado na cliente errada, pix não caiu"
+            />
+            <small>O motivo fica registrado junto da conta. Nada é apagado.</small>
+          </label>
+
+          <p className="mq-note mq-note--info">
+            <Icone nome="alert" />
+            <span>
+              A conta volta para <b>Em aberto</b> pelo valor inteiro. Se o dinheiro
+              entrou em outra data, registre o recebimento de novo com a data certa.
+              Estoque não é tocado.
+            </span>
+          </p>
+
+          {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
+        </div>
+
+        <div className="mq-modal__foot">
+          <button type="button" className="mq-btn mq-btn--ghost" onClick={aoFechar}>Cancelar</button>
+          <button
+            type="button"
+            className="mq-btn mq-btn--primary"
+            disabled={salvando || !valido}
+            onClick={confirmar}
+          >
+            {salvando ? 'Corrigindo…' : 'Voltar a conta para em aberto'}
           </button>
         </div>
       </div>

@@ -17,7 +17,7 @@ import {
   estadoReconstrucao, reconstruir, backfillNormalizacao,
 } from '../../vendas-historicas.js';
 import {
-  contasAReceber, definirPrazoDaConta, receberConta,
+  contasAReceber, definirPrazoDaConta, receberConta, estornarRecebimento,
 } from '../../contas-receber.js';
 import {
   aplicarOperacoesHistoricas,
@@ -283,6 +283,15 @@ export const rotas = [
     metodo: 'POST', caminho: '/api/contas-receber/receber', auth: 'bearer',
     async handler({ db, request }) {
       const r = await receberConta(db, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+    },
+  },
+  {
+    /* "Corrigir lançamento": desfaz um recebimento registrado aqui, com motivo
+       obrigatório e trilha. Nunca apaga; nunca toca estoque. */
+    metodo: 'POST', caminho: '/api/contas-receber/estornar', auth: 'bearer',
+    async handler({ db, request }) {
+      const r = await estornarRecebimento(db, await request.json().catch(() => ({})));
       return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
     },
   },

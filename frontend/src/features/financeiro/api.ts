@@ -92,6 +92,21 @@ export function definirPrazo(
   });
 }
 
+/** "Corrigir lançamento": o recebimento registrado aqui estava errado.
+ *
+ *  O backend não apaga nada: a cobrança histórica ganha uma versão nova, de
+ *  volta a aberta, e a paga fica como substituída; a venda leva a nota com o
+ *  motivo e a data que estava lançada. O recebimento certo entra depois pela
+ *  porta de sempre. `motivo` é obrigatório no servidor. */
+export function estornarRecebimento(
+  conexao: Connection,
+  { chave, motivo, versaoEsperada }: { chave: string; motivo: string; versaoEsperada: number },
+): Promise<{ ok?: boolean; erro?: string; versao?: number; trilha?: string }> {
+  return chamar(conexao, 'POST', '/api/contas-receber/estornar', {
+    chave, motivo, versaoEsperada,
+  });
+}
+
 /** Desfazer o pagamento de uma venda, com motivo.
  *
  *  Existe porque marcar pago errado acontece, e a alternativa — cancelar a

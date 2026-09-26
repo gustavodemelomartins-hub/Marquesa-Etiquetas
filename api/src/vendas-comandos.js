@@ -469,9 +469,20 @@ export async function registrarPagamentoVenda(db, id, corpo = {}) {
   const querPagar = corpo.pago === undefined ? true : !!corpo.pago;
 
   if (!querPagar) {
+    const motivo = String(corpo.observacao ?? '').trim() || null;
+    const antes = await db.prepare(
+      'SELECT data_pagamento, pagamento_origem FROM vendas WHERE id = ?',
+    ).bind(id).first();
+    /* A mesma trilha que A Receber deixa: desfazer um pagamento sem dizer
+       quando ele estava lançado e por que saiu apaga um fato em silêncio. */
+    const notaDeTrilha = antes ? `Pagamento desfeito em ${new Date().toISOString().slice(0, 10)}`
+      + `${motivo ? `: ${motivo.slice(0, 300)}` : ''} (estava pago em `
+      + `${antes.data_pagamento ?? 'data não registrada'}`
+      + `${antes.pagamento_origem ? `, origem ${antes.pagamento_origem}` : ''}).` : null;
     const r = await desfazerPagamentoVenda(db, id, {
-      motivo: String(corpo.observacao ?? '').trim() || null,
+      motivo,
       versaoEsperada: corpo.versaoEsperada ?? null,
+      notaDeTrilha,
     });
     if (!r.ok) return json(comVersao(r), r.statusHttp);
     return json({

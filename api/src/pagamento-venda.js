@@ -286,7 +286,9 @@ export async function quitarVenda(db, vendaId, {
  *  `pagamento_origem` volta a NULL como sempre voltou, e isso é o que devolve
  *  a venda à sincronização: sem o carimbo `informado`, a rodada seguinte pode
  *  reescrever o estado verdadeiro da loja em vez de ser recusada. */
-export async function desfazerPagamentoVenda(db, vendaId, { motivo = null, versaoEsperada = null } = {}) {
+export async function desfazerPagamentoVenda(db, vendaId, {
+  motivo = null, versaoEsperada = null, notaDeTrilha = null,
+} = {}) {
   const v = await db.prepare('SELECT * FROM vendas WHERE id = ?').bind(vendaId).first();
   if (!v) return ERRO(404, 'Venda não encontrada.');
   if (v.cancelada) return ERRO(409, 'Venda cancelada não recebe pagamento.');
@@ -299,12 +301,19 @@ export async function desfazerPagamentoVenda(db, vendaId, { motivo = null, versa
 
   /* 5.3c — a mesma trava do caminho de ida, pelo mesmo motivo. */
   const v0 = versaoEsperada == null ? null : Number(versaoEsperada);
+  /* A nota vai no MESMO UPDATE que desfaz o pagamento: um estorno sem a
+     trilha dele, por uma falha entre duas escritas, seria exatamente o
+     "alterar histórico sem deixar rastro" que a correção existe para evitar. */
   const escritas = [
     db.prepare(
       `UPDATE vendas SET pago = 0, data_pagamento = NULL, pagamento_origem = NULL,
-              valor_recebido = NULL, cobravel = ?
+              valor_recebido = NULL, cobravel = ?,
+              observacao = CASE WHEN ? IS NULL THEN observacao
+                                WHEN observacao IS NULL OR TRIM(observacao) = '' THEN ?
+                                ELSE observacao || ' | ' || ? END
         WHERE id = ? AND pago = 1${v0 == null ? '' : ' AND recebivel_versao = ?'}`,
-    ).bind(...[cobravel, vendaId, ...(v0 == null ? [] : [v0])]),
+    ).bind(...[cobravel, notaDeTrilha, notaDeTrilha, notaDeTrilha, vendaId,
+      ...(v0 == null ? [] : [v0])]),
   ];
   if (troca && troca.diferenca_status === 'paga') {
     /* Sem efeito parcial: a diferença só reabre se a venda realmente voltou. */
