@@ -1,11 +1,179 @@
 // Gerado por scripts/build-project-dashboard.mjs — não edite à mão.
 window.MARQUESA_V2 = {
-  "gerado": "2026-09-25",
+  "gerado": "2026-09-26",
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
   "atualizadoEm": "2026-09-12",
   "git": {
-    "branch": "claude/review-marquesa-v2",
+    "branch": "develop",
     "recentes": [
+      {
+        "commit": "039e281",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(reconciliacao): a marca em config é JSON, como toda linha de config",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "613c2fa",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "chore(api): liberar a origem da V2 de produção no CORS",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "24d23d1",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(reconciliacao): o SQL não depende de FK adiada, que o import do D1 ignora",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "1f5b8a0",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(migracao): sorteio preserva o vínculo do inventário com a saída",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "5b97000",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "test: classificar as quatro suítes integradas novas no manifesto",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "ba03572",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(reconciliacao): reconciliador das fontes operacionais de 26/09/2026",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "49d207f",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(historico): a troca da planilha leva as garantias e as correções de item",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "49d13db",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(saidas): histórico com busca, período, origem e registros antigos",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "01a6387",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(revendedoras): ficha mostra o histórico da relação inteira",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "0448fd2",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(revendedoras): histórico da relação inteira, derivado dos fatos",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "1d6ed75",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(saidas): a linha histórica reclassificada aparece em Saídas sem faturamento",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "66e8e36",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(estoque): o ajuste de estoque total diz de qual arquivo veio",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "177ede9",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(historico): a troca da planilha também leva as reclassificações",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "62cb81c",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(revendedoras): acerto do sistema repetido na planilha conta uma vez",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "605e65d",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(maletas): encerrar maleta pelo acerto documental, sem segunda venda",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "2b0fc6e",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(migracao): sorteio reconstrói saídas sem perder inventario_id",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "11c2774",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(financeiro): Corrigir lançamento estorna recebimento com trilha",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "bc78ffd",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(historico): a troca da planilha transporta as decisões humanas",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "03ac805",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(historico): ler 27/062026 e não gravar #NAME?/#N/A como nome de peça",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "9ba12e2",
+        "data": "2026-09-25",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(testes): a suíte do painel novo parava de passar por relógio, não por regra",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "b964037",
+        "data": "2026-09-25",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "test(inventario): provar a conciliação no bundle e no banco publicados",
+        "agente": "",
+        "taskIds": []
+      },
       {
         "commit": "c89eb86",
         "data": "2026-09-25",
@@ -35,186 +203,6 @@ window.MARQUESA_V2 = {
         "data": "2026-09-24",
         "autor": "gustavodemelomartins-hub",
         "assunto": "feat(inventario): o inventário passa a ter um fim — conciliação e progresso",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "65d3239",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(harness): REV-002 registrar acerto zerado",
-        "agente": "",
-        "taskIds": [
-          "REV-002"
-        ]
-      },
-      {
-        "commit": "ef6878c",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(revendedoras): iniciar acerto sem devoluções",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "7c9e58c",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(harness): REV-002 registrar scanner no acerto",
-        "agente": "",
-        "taskIds": [
-          "REV-002"
-        ]
-      },
-      {
-        "commit": "7ade6b6",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(revendedoras): REV-002 integrar scanner no acerto",
-        "agente": "",
-        "taskIds": [
-          "REV-002"
-        ]
-      },
-      {
-        "commit": "abfa3ff",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "test(inventario): provar o caminho do iPhone na V2, e não só no clássico",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "9b40f67",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(inventario): a câmera rola até ficar à vista quando abre",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "aea1378",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "test(inventario): bipar uma etiqueta de verdade na V2 publicada",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "b2cbc1d",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(inventario): a câmera do painel clássico, agora dentro da V2",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "e839aba",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(harness): REV-002 registrar paridade final",
-        "agente": "",
-        "taskIds": [
-          "REV-002"
-        ]
-      },
-      {
-        "commit": "f93a23a",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(release): o roteiro de produção, medido contra o banco real",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "3fbe0ca",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "test(v2): provar o cadastro contra o banco, com o recarregar no meio",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "d8199e6",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "chore(v2): devolver LF aos arquivos que uma edição em Windows converteu",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "56f6ca9",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(v2): três acertos vistos na tela publicada, e o roteiro que os viu",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "5156379",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(revendedoras): ajustar densidade no QA visual",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "2e16b65",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(revendedoras): alinhar perfil ao prototipo",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "cc19202",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(financeiro): \"A receber\" ganha a arquitetura da tela aprovada",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "998c34e",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(catalogo): a V2 passa a cadastrar produto de verdade",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "69a2810",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(estoque): o inventário volta para dentro da tela de Estoque",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "bfa1229",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(harness): REV-002 registrar deploy DEV e pendência do Worker",
-        "agente": "",
-        "taskIds": [
-          "REV-002"
-        ]
-      },
-      {
-        "commit": "c59bfc3",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(revendedoras): REV-002 concluir módulo e acerto seguro",
-        "agente": "",
-        "taskIds": [
-          "REV-002"
-        ]
-      },
-      {
-        "commit": "588a22b",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "test(v2): tell a deliberate refusal apart from a defect",
         "agente": "",
         "taskIds": []
       }
@@ -2355,6 +2343,15 @@ window.MARQUESA_V2 = {
     ]
   },
   "worklogs": [
+    {
+      "agente": "Claude",
+      "data": "2026-09-26",
+      "titulo": "A V2 em produção, com os dados reais",
+      "branch": "",
+      "commits": "",
+      "status": "",
+      "taskIds": []
+    },
     {
       "agente": "Claude",
       "data": "2026-09-25",

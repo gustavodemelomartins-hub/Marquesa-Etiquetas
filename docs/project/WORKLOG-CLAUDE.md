@@ -18,6 +18,39 @@ conversa, que sei de primeira mão serem meus. Commits feitos direto em
 
 ---
 
+## 2026-09-26 — A V2 em produção, com os dados reais
+
+Commits `03ac805`…`613c2fa` em `develop`, mais a correção da marca de
+config. O registro completo, com números e rollback, está em
+[V2-PRODUCAO-2026-09-26.md](../releases/V2-PRODUCAO-2026-09-26.md).
+
+**O que o banco real ensinou, e que nenhum teste tinha pego:**
+
+- a troca da planilha de vendas era impossível depois da primeira decisão
+  humana, e — pior — as 22 garantias apontavam para o lote antigo: a
+  limpeza falhava por chave estrangeira e a falha ficava escondida em
+  `limpezaPendente`. Agora decisões, reclassificações e garantias
+  atravessam a troca pelo conteúdo;
+- a migration do sorteio recriaria `saidas_sem_faturamento` sem uma coluna
+  e, no D1, o `DROP` de uma tabela referenciada conta violação que o
+  `RENAME` não desconta;
+- o import do D1 (`--file`) é atômico, mas **não** honra
+  `defer_foreign_keys`: a ordem das instruções tem de valer sozinha;
+- `config.valor` é JSON para todo leitor: uma marca gravada como texto cru
+  derrubou `/api/state` em produção por 27 minutos.
+
+**Como a produção foi escrita:** as rotas reais do Worker rodaram sobre uma
+cópia do banco (reconciliador), a diferença virou SQL com precondição e
+marca, o SQL foi ensaiado num D1 descartável e no staging (export depois =
+banco esperado), e só então aplicado. O reconciliador sobre a produção de
+depois não escreve nada.
+
+**O que não foi possível:** entrar com a chave de produção (o agente não a
+lê) e disparar o `deploy-prod.yml` pelo botão (sem `gh`); os passos do
+workflow foram executados iguais numa worktree limpa.
+
+---
+
 ## 2026-09-25 — O inventário ganhou um fim
 
 A rodada anterior fechou o scanner: a contagem entrou de verdade na V2,

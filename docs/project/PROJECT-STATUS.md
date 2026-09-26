@@ -1,5 +1,19 @@
 # Painel Operacional — Sistema Marquesa
 
+**Rodada de 2026-09-26 (Claude): a V2 está em PRODUÇÃO.** Doze migrations
+aplicadas em `marquesa-db-prod`, Worker `marquesa-api` na versão `1cc11597`
+e a V2 publicada em https://marquesa-9da.pages.dev/v2/ (commit `613c2fa`).
+Os dados reais foram reconciliados com as fontes da Sthefany: casa = 2.064
+peças (`Estoque (1).xlsx`), maletas Bruna 92 · Evelyn 84 · Graciele 123 ·
+Luciana 90 (intacta), histórico de vendas 1–1463 com as decisões, garantias
+e cobranças transportadas, e 30 linhas antigas reclassificadas como saídas
+sem faturamento (12 positivas PAGAS preservadas como venda). Entraram também
+o estorno de recebimento ("Corrigir lançamento"), o encerramento de maleta
+por acerto documental, o histórico da revendedora e o histórico completo de
+Saídas. `REV-002`, `INV-003`, `INV-004`, `FIN-001` e `SAI-002` passam de
+`DEV ONLY` para **PROD**. Registro completo, números, incidente de 27 min e
+rollback: [V2-PRODUCAO-2026-09-26.md](../releases/V2-PRODUCAO-2026-09-26.md).
+
 **Rodada de 2026-09-25 (Claude Review):** o inventário ganhou um FIM. Até
 aqui "não conferido" era um estado permanente — 659 códigos sem ação e sem
 caminho —, e a trava que impedia isso de virar zero (D3) não tinha gesto
