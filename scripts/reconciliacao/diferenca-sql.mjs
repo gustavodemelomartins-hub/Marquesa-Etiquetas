@@ -119,7 +119,9 @@ const linhas = [
   `-- gerado de ${arqAntes.split(/[\\/]/).pop()} -> ${arqDepois.split(/[\\/]/).pop()}`,
   ...Object.entries(resumo).map(([t, r]) => `--   ${t}: +${r.inserir} ~${r.atualizar} -${r.apagar}`),
   'PRAGMA defer_foreign_keys = true;',
-  `INSERT INTO config (chave, valor) VALUES (${lit(marca)}, ${lit(new Date().toISOString())});`,
+  /* `config.valor` é JSON — `/api/state` faz JSON.parse de cada linha, e um
+     texto cru aqui derruba a tela principal inteira (aconteceu em 26/09). */
+  `INSERT INTO config (chave, valor) VALUES (${lit(marca)}, ${lit(JSON.stringify(new Date().toISOString()))});`,
   'CREATE TABLE _reconciliacao_precondicao (ok INTEGER NOT NULL CHECK (ok = 1));',
   `INSERT INTO _reconciliacao_precondicao (ok) SELECT CASE WHEN ${condicoes.join('\n  AND ')} THEN 1 ELSE 0 END;`,
   'DROP TABLE _reconciliacao_precondicao;',
