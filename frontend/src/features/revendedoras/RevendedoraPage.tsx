@@ -1,5 +1,7 @@
 import { useMemo, useState, type CSSProperties } from 'react';
-import type { AppState, Reseller, Suitcase } from '../../types/api';
+import type { AppState, Reseller } from '../../types/api';
+import type { Connection } from '../../services/client';
+import { HistoricoRevendedora } from './HistoricoRevendedora';
 import { Kpi, Kpis } from '../../components/Kpi';
 import { EmptyState } from '../../components/EmptyState';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -11,6 +13,7 @@ import {
 } from '../../domain/maletas';
 
 interface Props {
+  conexao: Connection;
   estado: AppState;
   revendedora: Reseller;
   aoCriarMaleta: () => void;
@@ -18,17 +21,10 @@ interface Props {
   aoFazerAcerto: () => void;
 }
 
-interface Acerto {
-  enviadas?: number;
-  vendidas?: number;
-  totalVendido?: number;
-  comissao?: number;
-}
-
 /** Perfil operacional da revendedora. A composição acompanha o protótipo,
  * enquanto números, preços e estados continuam vindo do domínio real. */
 export function RevendedoraPage({
-  estado, revendedora, aoCriarMaleta, aoAdicionarItens, aoFazerAcerto,
+  conexao, estado, revendedora, aoCriarMaleta, aoAdicionarItens, aoFazerAcerto,
 }: Props) {
   const [busca, setBusca] = useState('');
   const produtos = useMemo(() => new Map(estado.produtos.map((p) => [p.sku, p])), [estado.produtos]);
@@ -131,25 +127,6 @@ export function RevendedoraPage({
       </div>
     )}
 
-    <section className="painel rev-historico-card" aria-labelledby="rev-historico-titulo">
-      <header className="painel-cabeca"><div><h2 id="rev-historico-titulo">Histórico de maletas</h2><p className="dica">Acertos encerrados e valores efetivos</p></div></header>
-      {!fechadas.length ? <EmptyState titulo="Nenhuma maleta encerrada ainda" /> : (
-        <div className="rev-historico-tabela" role="table" aria-label="Histórico de maletas">
-          {fechadas.map((maleta) => <LinhaHistorico key={maleta.id} maleta={maleta} />)}
-        </div>
-      )}
-    </section>
+    <HistoricoRevendedora conexao={conexao} revendedoraId={revendedora.id} />
   </>;
-}
-
-function LinhaHistorico({ maleta }: { maleta: Suitcase }) {
-  const acerto = (maleta.acerto ?? null) as Acerto | null;
-  return <div className="rev-historico-linha" role="row">
-    <span><b>Maleta #{maleta.id}</b><small>Fechada em {fmtData(maleta.encerradaEm)}</small></span>
-    <span><small>Enviadas</small><b>{acerto?.enviadas ?? '—'}</b></span>
-    <span><small>Vendidas</small><b>{acerto?.vendidas ?? '—'}</b></span>
-    <span><small>Vendido</small><b>{acerto?.totalVendido === undefined ? '—' : money(acerto.totalVendido)}</b></span>
-    <span><small>Comissão</small><b>{acerto?.comissao === undefined ? '—' : money(acerto.comissao)}</b></span>
-    <StatusBadge tom="positivo">Encerrada</StatusBadge>
-  </div>;
 }

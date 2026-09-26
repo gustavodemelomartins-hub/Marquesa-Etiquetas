@@ -123,7 +123,7 @@ describe('navegação de Revendedoras', () => {
     expect(screen.queryByRole('button', { name: '+ Criar maleta' })).toBeNull();
     expect(screen.getByRole('region', { name: 'Maleta #7' })).toBeTruthy();
     expect(screen.getByRole('complementary', { name: 'Mix da maleta' })).toBeTruthy();
-    expect(screen.getByRole('region', { name: 'Histórico de maletas' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Histórico da revendedora' })).toBeTruthy();
   });
 
   it('permite editar o cadastro pelo contrato real da revendedora', async () => {

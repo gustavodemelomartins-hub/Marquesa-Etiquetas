@@ -142,6 +142,7 @@ export function RevendedorasArea({
             }
           />
           <RevendedoraPage
+            conexao={conexao}
             estado={estado}
             revendedora={atual}
             aoCriarMaleta={() => abrirCriacao(null)}
