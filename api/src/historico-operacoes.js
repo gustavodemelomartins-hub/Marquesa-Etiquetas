@@ -846,9 +846,65 @@ async function planejarReclassificacoes(db, lotesAntigos, loteNovo, plano) {
   }
 }
 
+/* Garantia e correção de item apontam para a LINHA da planilha (e a
+   garantia também para a venda derivada). Não são decisões sobre o
+   conteúdo — são fatos posteriores à venda — então o par é a linha com o
+   mesmo conteúdo, tolerando só o status de pagamento, que a planilha nova
+   pode ter atualizado. Sem par único, a troca não acontece: uma garantia
+   presa a um lote invisível é uma garantia que some da tela. */
+const CONTEUDO_SEM_PAGAMENTO = `COALESCE(data,'') || '|' || COALESCE(cliente_nome_original,'') || '|'
+  || COALESCE(sku_base,'') || '|' || COALESCE(qtd,'') || '|' || COALESCE(valor_total,'') || '|'
+  || COALESCE(observacao_original,'')`;
+
+/* Duas linhas idênticas (mesma cliente, dia, peça e valor) são casadas pela
+   ORDEM em que aparecem: a k-ésima igual do lote antigo vira a k-ésima igual
+   do novo. Quantidades diferentes de iguais entre os lotes é conflito. */
+async function parDaLinha(db, itemId, loteNovo) {
+  for (const expr of [CONTEUDO_DA_LINHA, CONTEUDO_SEM_PAGAMENTO]) {
+    const alvo = await db.prepare(
+      `SELECT ${expr} AS c, lote_id FROM vendas_historico_itens WHERE id = ?`,
+    ).bind(itemId).first();
+    if (!alvo) return null;
+    const { results: antigos } = await db.prepare(
+      `SELECT id FROM vendas_historico_itens WHERE lote_id = ? AND ${expr} = ? ORDER BY id`,
+    ).bind(alvo.lote_id, alvo.c).all();
+    const { results: novos } = await db.prepare(
+      `SELECT id, venda_historica_id FROM vendas_historico_itens WHERE lote_id = ? AND ${expr} = ? ORDER BY id`,
+    ).bind(loteNovo, alvo.c).all();
+    if (!(novos ?? []).length) continue;
+    if ((novos ?? []).length !== (antigos ?? []).length) return null;
+    const k = (antigos ?? []).findIndex((x) => Number(x.id) === Number(itemId));
+    const par = novos[k];
+    return par ? { id: Number(par.id), venda: par.venda_historica_id } : null;
+  }
+  return null;
+}
+
+async function planejarVinculosDeLinha(db, lotesAntigos, loteNovo, plano) {
+  for (const loteId of lotesAntigos) {
+    for (const [tabela, rotulo] of [['garantias', 'garantia'], ['venda_item_correcoes', 'correção de item']]) {
+      const { results } = await db.prepare(
+        `SELECT t.id, t.historico_item_id FROM ${tabela} t
+           JOIN vendas_historico_itens h ON h.id = t.historico_item_id
+          WHERE h.lote_id = ? ORDER BY t.id`,
+      ).bind(loteId).all();
+      for (const r of results ?? []) {
+        const par = await parDaLinha(db, r.historico_item_id, loteNovo);
+        if (!par) {
+          plano.conflitos.push({ [tabela === 'garantias' ? 'garantiaId' : 'correcaoId']: Number(r.id),
+            motivo: `a linha da planilha ligada a esta ${rotulo} não tem um par único na planilha nova` });
+          continue;
+        }
+        plano.vinculos.push({ tabela, id: Number(r.id), deItem: Number(r.historico_item_id), paraItem: par.id, paraVenda: par.venda });
+      }
+    }
+  }
+}
+
 export async function planejarTransporteDeDecisoes(db, { lotesAntigos = [], loteNovo }) {
-  const plano = { transportar: [], quitadasNaFonte: [], reclassificacoes: [], conflitos: [] };
+  const plano = { transportar: [], quitadasNaFonte: [], reclassificacoes: [], vinculos: [], conflitos: [] };
   await planejarReclassificacoes(db, lotesAntigos, loteNovo, plano);
+  await planejarVinculosDeLinha(db, lotesAntigos, loteNovo, plano);
   for (const loteId of lotesAntigos) {
     const { results } = await db.prepare(
       `SELECT * FROM historico_operacoes
@@ -939,10 +995,19 @@ export async function aplicarTransporteDeDecisoes(db, plano, { loteNovo, arquivo
       'UPDATE saidas_sem_faturamento SET historico_item_id = ? WHERE historico_item_id = ?',
     ).bind(rc.para, rc.de));
   }
+  for (const v of plano.vinculos ?? []) {
+    stmts.push(v.tabela === 'garantias'
+      ? db.prepare('UPDATE garantias SET historico_item_id = ?, venda_historica_id = ? WHERE id = ? AND historico_item_id = ?')
+        .bind(v.paraItem, v.paraVenda, v.id, v.deItem)
+      : db.prepare('UPDATE venda_item_correcoes SET historico_item_id = ? WHERE id = ? AND historico_item_id = ?')
+        .bind(v.paraItem, v.id, v.deItem));
+  }
   if (stmts.length) await db.batch(stmts);
   return {
     transportadas: plano.transportar.length,
     quitadasNaFonte: plano.quitadasNaFonte.length,
     reclassificacoes: (plano.reclassificacoes ?? []).length,
+    garantias: (plano.vinculos ?? []).filter((v) => v.tabela === 'garantias').length,
+    correcoesDeItem: (plano.vinculos ?? []).filter((v) => v.tabela === 'venda_item_correcoes').length,
   };
 }

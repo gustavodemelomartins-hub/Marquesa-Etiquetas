@@ -796,7 +796,7 @@ export async function substituirHistorico(db, { linhas, arquivo = 'Vendas Marque
      e é só neste momento que dá para comparar venda com venda. Uma decisão
      que não encontra o mesmo conteúdo do outro lado derruba a troca inteira:
      o lote novo sai, o antigo volta, e a resposta diz qual decisão travou. */
-  let transporte = { transportadas: 0, quitadasNaFonte: 0, reclassificacoes: 0 };
+  let transporte = { transportadas: 0, quitadasNaFonte: 0, reclassificacoes: 0, garantias: 0, correcoesDeItem: 0 };
   try {
     const plano = await planejarTransporteDeDecisoes(db, {
       lotesAntigos: desativados.map((d) => d.id), loteNovo: imp.loteId,

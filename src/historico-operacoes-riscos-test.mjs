@@ -369,6 +369,32 @@ eq('a linha segue decidida, não volta a ser proposta',
   (aud2.corpo.candidatos ?? []).some((c) => /brinde/i.test(c.nomeAtual ?? '')), false);
 eq('e aparece entre as já decididas', (aud2.corpo.jaDecididos ?? []).length, 1);
 
+console.log('\n=== 7e. a garantia aberta sobre uma linha da planilha atravessa a troca ===');
+// A garantia aponta para o ITEM e para a venda derivada. Sem transporte, a
+// limpeza do lote antigo esbarra na chave estrangeira e a garantia fica
+// presa a um lote que ninguém mais lê.
+const itens = await api('GET', '/api/vendas/lista?periodo=tudo');
+const itemHist = (itens.corpo?.itens ?? []).find((i) => i.fonte === 'historico' && /primeira/i.test(i.cliente ?? ''));
+eq('a linha histórica existe na lista', !!itemHist, true);
+const g = await api('POST', '/api/garantias', {
+  historicoItemId: Number(itemHist?.id), motivo: 'fecho quebrou', dataEntrada: '2026-09-01',
+});
+eq('garantia aberta sobre a linha', g.status, 201);
+const PLANILHA_G = [
+  CAB,
+  [1, '2026-07-01', 'Cliente Zero', 'DUP001', 'Colar', 'Banhada', 1, 100, null, 100, 'Pix', 'PAGO', 'Feira'],
+  ...PLANILHA_F.slice(1).map((l) => [l[0] + 1, ...l.slice(1)]),
+];
+const comGarantia = await api('POST', '/api/vendas/historico/substituir', { arquivo: 'G.xlsx', linhas: PLANILHA_G });
+eq('a troca passa', comGarantia.corpo.ok, true);
+eq('e leva a garantia junto', comGarantia.corpo.decisoes?.garantias, 1);
+eq('sem limpeza pendente', comGarantia.corpo.limpezaPendente, undefined);
+const garantias = (await api('GET', '/api/garantias')).corpo;
+const lista = garantias?.garantias ?? garantias?.itens ?? [];
+const aberta = lista.find((x) => Number(x.id) === Number(g.corpo?.garantia?.id ?? g.corpo?.id));
+eq('a garantia continua listada', !!aberta, true);
+eq('apontando para uma linha que existe', !!aberta?.historicoItemId, true);
+
 /* ────────────────────────────────────────────────────────────────────────── */
 console.log('\n=== 8. nada disso encostou no estoque ===');
 eq('a quantidade não mudou', await estoqueDe('DUP001'), estoqueInicial);
