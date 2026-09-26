@@ -13,11 +13,18 @@
 -- deixaria de existir. Corrigido em 26/09/2026, antes de rodar em qualquer
 -- banco — nenhum ambiente chegou a receber a versão antiga.
 --
--- `inventario_resultado.saida_id` aponta para esta tabela pelo NOME. O DROP
--- faz um DELETE implícito e o D1 não desliga chave estrangeira; adiar a
--- conferência para o fim da migration é o que permite trocar a tabela sem
--- que uma linha filha (se existir) seja julgada no meio da troca.
+-- `inventario_resultado.saida_id` aponta para esta tabela. O D1 não desliga
+-- chave estrangeira, e o DROP faz um DELETE implícito: cada resultado de
+-- inventário que aponta para uma saída vira uma violação contada, que o
+-- RENAME seguinte NÃO desconta — mesmo com a conferência adiada, o D1
+-- desfaz tudo no fim ("FOREIGN KEY constraint failed", visto no staging em
+-- 26/09/2026). Por isso o vínculo é guardado, solto antes da troca e
+-- religado depois, com a contagem conferida.
 PRAGMA defer_foreign_keys = true;
+
+CREATE TABLE _sorteio_vinculo_inventario AS
+  SELECT inventario_id, sku, variacao, saida_id FROM inventario_resultado WHERE saida_id IS NOT NULL;
+UPDATE inventario_resultado SET saida_id = NULL WHERE saida_id IS NOT NULL;
 
 CREATE TABLE saidas_sem_faturamento_sorteio_nova (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,6 +110,21 @@ DROP TABLE historico_reclassificacao;
 DROP TABLE saidas_sem_faturamento;
 ALTER TABLE saidas_sem_faturamento_sorteio_nova RENAME TO saidas_sem_faturamento;
 ALTER TABLE historico_reclassificacao_sorteio_nova RENAME TO historico_reclassificacao;
+
+UPDATE inventario_resultado
+   SET saida_id = (SELECT v.saida_id FROM _sorteio_vinculo_inventario v
+                    WHERE v.inventario_id = inventario_resultado.inventario_id
+                      AND v.sku = inventario_resultado.sku AND v.variacao = inventario_resultado.variacao)
+ WHERE EXISTS (SELECT 1 FROM _sorteio_vinculo_inventario v
+                WHERE v.inventario_id = inventario_resultado.inventario_id
+                  AND v.sku = inventario_resultado.sku AND v.variacao = inventario_resultado.variacao);
+CREATE TABLE migration_sorteio_guard_vinculo (ok INTEGER NOT NULL CHECK (ok = 1));
+INSERT INTO migration_sorteio_guard_vinculo (ok)
+SELECT CASE WHEN (SELECT COUNT(*) FROM inventario_resultado WHERE saida_id IS NOT NULL)
+               = (SELECT COUNT(*) FROM _sorteio_vinculo_inventario)
+            THEN 1 ELSE 0 END;
+DROP TABLE migration_sorteio_guard_vinculo;
+DROP TABLE _sorteio_vinculo_inventario;
 
 CREATE INDEX idx_ssf_data ON saidas_sem_faturamento(data);
 CREATE INDEX idx_ssf_tipo ON saidas_sem_faturamento(tipo, estornada);
