@@ -339,6 +339,36 @@ eq('a cliente nova sai de A Receber', abertasDepois.some((c) => /nova/i.test(c.c
 const todasD = await api('GET', '/api/contas-receber?status=todas');
 eq('as outras decisões continuam', todasD.corpo.contas.length >= 2, true);
 
+console.log('\n=== 7d. a linha reclassificada como não-venda continua reclassificada ===');
+// A reclassificação aponta para o id do ITEM, e o item morre com o lote.
+// Sem transporte, a troca apagaria a decisão (ou quebraria na chave
+// estrangeira) e o brinde voltaria a ser venda sem ninguém ver.
+const PLANILHA_E = [
+  ...PLANILHA_D,
+  [5, '2026-08-25', 'Brinde Dia das Mães', 'DUP001', 'Colar', 'Banhada', 1, 100, null, 0, null, 'PAGO', 'Brinde'],
+];
+eq('planilha com o brinde entra', (await api('POST', '/api/vendas/historico/substituir', {
+  arquivo: 'E.xlsx', linhas: PLANILHA_E,
+})).corpo.ok, true);
+const aud = await api('GET', '/api/historico/auditoria');
+const brinde = (aud.corpo.candidatos ?? []).find((c) => /brinde/i.test(c.nomeAtual ?? ''));
+eq('a auditoria propõe o brinde', brinde?.classificacaoProposta, 'brinde');
+eq('reclassificar a linha', (await api('POST', '/api/historico/reclassificar', {
+  decisoes: [{ historicoItemId: brinde.historicoItemId, classe: 'brinde', decisao: 'aplicar', motivo: 'teste' }],
+})).status, 200);
+const PLANILHA_F = [
+  CAB,
+  [1, '2026-08-01', 'Cliente Primeira', 'DUP001', 'Colar', 'Banhada', 1, 100, null, 100, 'Pix', 'PAGO', 'Feira'],
+  ...PLANILHA_E.slice(1).map((l) => [l[0] + 1, ...l.slice(1)]),
+];
+const comBrinde = await api('POST', '/api/vendas/historico/substituir', { arquivo: 'F.xlsx', linhas: PLANILHA_F });
+eq('a troca renumerada passa', comBrinde.corpo.ok, true);
+eq('e leva a reclassificação junto', comBrinde.corpo.decisoes?.reclassificacoes, 1);
+const aud2 = await api('GET', '/api/historico/auditoria');
+eq('a linha segue decidida, não volta a ser proposta',
+  (aud2.corpo.candidatos ?? []).some((c) => /brinde/i.test(c.nomeAtual ?? '')), false);
+eq('e aparece entre as já decididas', (aud2.corpo.jaDecididos ?? []).length, 1);
+
 /* ────────────────────────────────────────────────────────────────────────── */
 console.log('\n=== 8. nada disso encostou no estoque ===');
 eq('a quantidade não mudou', await estoqueDe('DUP001'), estoqueInicial);

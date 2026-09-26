@@ -808,8 +808,47 @@ async function conteudoSemLinha(db, loteId, chave, { semPagamento = false } = {}
   });
 }
 
+/* A reclassificação (§30) é decisão sobre uma LINHA, não sobre a venda, e
+   aponta para o id do item — que morre com o lote. O par dela no lote novo
+   é a linha com o mesmo conteúdo: data, cliente, código, quantidade, valor e
+   observação, exatamente como estavam escritos. Mais de um par possível, ou
+   nenhum, é conflito: escolher entre duas linhas iguais seria palpite. */
+const CONTEUDO_DA_LINHA = `COALESCE(data,'') || '|' || COALESCE(cliente_nome_original,'') || '|'
+  || COALESCE(sku_base,'') || '|' || COALESCE(qtd,'') || '|' || COALESCE(valor_total,'') || '|'
+  || COALESCE(observacao_original,'') || '|' || COALESCE(status_pagamento_original,'')`;
+
+async function planejarReclassificacoes(db, lotesAntigos, loteNovo, plano) {
+  for (const loteId of lotesAntigos) {
+    const { results } = await db.prepare(
+      `SELECT rc.id, rc.historico_item_id, rc.classe_nova, rc.status, ${CONTEUDO_DA_LINHA} AS conteudo
+         FROM historico_reclassificacao rc
+         JOIN vendas_historico_itens h ON h.id = rc.historico_item_id
+        WHERE h.lote_id = ?`,
+    ).bind(loteId).all();
+    const usados = new Set();
+    for (const rc of results ?? []) {
+      const { results: pares } = await db.prepare(
+        `SELECT id FROM vendas_historico_itens
+          WHERE lote_id = ? AND ${CONTEUDO_DA_LINHA} = ? ORDER BY id`,
+      ).bind(loteNovo, rc.conteudo).all();
+      const livres = (pares ?? []).map((x) => Number(x.id)).filter((id) => !usados.has(id));
+      if (livres.length !== 1) {
+        plano.conflitos.push({
+          reclassificacaoId: Number(rc.id), classe: rc.classe_nova, loteAntigo: Number(loteId),
+          motivo: livres.length ? 'a linha reclassificada tem mais de um par igual na planilha nova'
+            : 'a linha reclassificada não existe na planilha nova',
+        });
+        continue;
+      }
+      usados.add(livres[0]);
+      plano.reclassificacoes.push({ id: Number(rc.id), de: Number(rc.historico_item_id), para: livres[0] });
+    }
+  }
+}
+
 export async function planejarTransporteDeDecisoes(db, { lotesAntigos = [], loteNovo }) {
-  const plano = { transportar: [], quitadasNaFonte: [], conflitos: [] };
+  const plano = { transportar: [], quitadasNaFonte: [], reclassificacoes: [], conflitos: [] };
+  await planejarReclassificacoes(db, lotesAntigos, loteNovo, plano);
   for (const loteId of lotesAntigos) {
     const { results } = await db.prepare(
       `SELECT * FROM historico_operacoes
@@ -887,9 +926,23 @@ export async function aplicarTransporteDeDecisoes(db, plano, { loteNovo, arquivo
     }
     stmts.push(...escritasDaNovaVersao(db, op, mudancas));
   }
+  for (const rc of plano.reclassificacoes ?? []) {
+    /* A saída que a reclassificação criou (quando criou) aponta para o mesmo
+       item e anda junto; o motivo guarda de onde a decisão veio. */
+    stmts.push(db.prepare(
+      `UPDATE historico_reclassificacao
+          SET historico_item_id = ?,
+              motivo = motivo || ' [transportada na troca da planilha: item ' || ? || ' → ' || ? || ']'
+        WHERE id = ? AND historico_item_id = ?`,
+    ).bind(rc.para, rc.de, rc.para, rc.id, rc.de));
+    stmts.push(db.prepare(
+      'UPDATE saidas_sem_faturamento SET historico_item_id = ? WHERE historico_item_id = ?',
+    ).bind(rc.para, rc.de));
+  }
   if (stmts.length) await db.batch(stmts);
   return {
     transportadas: plano.transportar.length,
     quitadasNaFonte: plano.quitadasNaFonte.length,
+    reclassificacoes: (plano.reclassificacoes ?? []).length,
   };
 }
