@@ -99,12 +99,34 @@ export interface ResumoDeSaidas {
   estornadas: number;
 }
 
+/** Linha da planilha reclassificada como não-venda que NÃO pôde virar
+ *  saída (sem data, ou código fora do catálogo). Não some: vem à parte. */
+export interface SaidaLegada {
+  reclassificacaoId: number;
+  tipo: string;
+  tipoRotulo: string;
+  data: string | null;
+  sku: string | null;
+  produto: string | null;
+  qtd: number | null;
+  valorPlanilha: number | null;
+  pessoa: string | null;
+  observacao: string | null;
+  motivo: string;
+  linhaPlanilha: string | number | null;
+  historicoItemId: number;
+  decididoEm: string | null;
+  decididoPor: string | null;
+  porque: string;
+}
+
 export interface Saidas {
   ok: true;
   saidas: SaidaSemFaturamento[];
   resumo: ResumoDeSaidas;
   limite?: number;
   offset?: number;
+  legado?: SaidaLegada[];
 }
 
 export interface NovaSaida {

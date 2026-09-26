@@ -26,7 +26,7 @@ const resposta: HistoricoDaRevendedora = {
 };
 
 function abrir() {
-  const fetchFalso = vi.fn(async () => new Response(JSON.stringify(resposta), { status: 200 }));
+  const fetchFalso = vi.fn(async (_url: string) => new Response(JSON.stringify(resposta), { status: 200 }));
   vi.stubGlobal('fetch', fetchFalso);
   render(<HistoricoRevendedora conexao={conexao} revendedoraId={4} />);
   return fetchFalso;
@@ -36,7 +36,7 @@ describe('Histórico da revendedora', () => {
   it('lê a rota real da revendedora', async () => {
     const f = abrir();
     await screen.findByText('Acertos e vendas');
-    expect(String(f.mock.calls[0][0])).toBe('http://api.local/api/revendedoras/4/historico');
+    expect(String(f.mock.calls[0]?.[0])).toBe('http://api.local/api/revendedoras/4/historico');
   });
 
   it('mostra o acerto e abre as peças vendidas e devolvidas', async () => {
@@ -61,8 +61,8 @@ describe('Histórico da revendedora', () => {
     expect(within(filtrada).getByText(/Envio de peças/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Tudo' }));
     const itens = within(screen.getByRole('list', { name: 'Linha do tempo' })).getAllByRole('listitem');
-    expect(itens[0].textContent).toMatch(/Envio/);
-    expect(itens[2].textContent).toMatch(/Cadastro/);
+    expect(itens[0]?.textContent).toMatch(/Envio/);
+    expect(itens[2]?.textContent).toMatch(/Cadastro/);
   });
 
   it('diz o que o sistema não sabe', async () => {

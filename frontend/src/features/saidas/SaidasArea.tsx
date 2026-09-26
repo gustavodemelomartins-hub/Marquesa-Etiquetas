@@ -39,9 +39,14 @@ export function SaidasArea({
 }: Props) {
   const [filtro, setFiltro] = useState<TipoDeSaida | null>(null);
   const [incluirEstornadas, setIncluirEstornadas] = useState(true);
+  const [busca, setBusca] = useState('');
+  const [de, setDe] = useState('');
+  const [ate, setAte] = useState('');
   const lista = useApi(
-    (s) => listarSaidas(conexao, { tipo: filtro, incluirEstornadas }, s),
-    [conexao, filtro, incluirEstornadas],
+    (s) => listarSaidas(conexao, {
+      tipo: filtro, incluirEstornadas, busca, de: de || null, ate: ate || null,
+    }, s),
+    [conexao, filtro, incluirEstornadas, busca, de, ate],
   );
   const [registrando, setRegistrando] = useState(embutida);
   const [estornando, setEstornando] = useState<number | null>(null);
@@ -130,6 +135,27 @@ export function SaidasArea({
             Só as que valem
           </button>
         </div>
+        <label className="mq-search">
+          <Icone nome="search" />
+          <input
+            className="mq-input"
+            type="search"
+            placeholder="Código, peça ou motivo"
+            aria-label="Buscar saída"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+        </label>
+        <label className="saida-periodo">
+          <span>De</span>
+          <input className="mq-input" type="date" aria-label="Desde" value={de} max={ate || undefined}
+            onChange={(e) => setDe(e.target.value)} />
+        </label>
+        <label className="saida-periodo">
+          <span>Até</span>
+          <input className="mq-input" type="date" aria-label="Até" value={ate} min={de || undefined}
+            onChange={(e) => setAte(e.target.value)} />
+        </label>
         <span className="mq-filters__count">
           {lista.carregando
             ? 'buscando…'
@@ -142,8 +168,8 @@ export function SaidasArea({
           <div>
             <h2 className="mq-title">Lançamentos</h2>
             <p className="mq-lede">
-              Cada um vira um movimento na razão do estoque, e nenhum entra em
-              faturamento.
+              Nenhum entra em faturamento. O lançado aqui vira movimento na razão;
+              o que veio da planilha antiga só classifica uma peça que já tinha saído.
             </p>
           </div>
         </div>
@@ -178,8 +204,13 @@ export function SaidasArea({
                       {s.sku}
                       {s.motivo ? ` · ${s.motivo}` : ''}
                       {s.inventarioId != null ? ` · contagem #${s.inventarioId}` : ''}
-                      {s.origemUsuario ? ` · ${s.origemUsuario}` : ''}
                     </small>
+                    <small className="saida-origem">
+                      {origemDaSaida(s)}
+                      {s.origemUsuario ? ` · por ${s.origemUsuario}` : ''}
+                      {s.movimentoId ? ` · movimento #${s.movimentoId}` : ''}
+                    </small>
+                    {s.observacao && <small className="saida-obs">{s.observacao}</small>}
                   </span>
                   <span className="mq-cell mq-cell--num"><b className="mq-qty">{s.qtd}</b></span>
                   <span className="mq-cell">
@@ -218,6 +249,37 @@ export function SaidasArea({
         )}
       </section>
 
+      {(lista.dados?.legado?.length ?? 0) > 0 && (
+        <section className="mq-card mq-card--flush" aria-labelledby="saidas-legado">
+          <div className="mq-card__head">
+            <div>
+              <h2 className="mq-title" id="saidas-legado">Registros antigos sem saída</h2>
+              <p className="mq-lede">
+                Linhas da planilha de vendas que não eram venda e já saíram do
+                faturamento, mas não viraram saída porque falta a data ou o código
+                não está no catálogo. Ficam aqui com o que a planilha registrou.
+              </p>
+            </div>
+          </div>
+          <ul className="saida-legado" aria-label="Registros antigos sem saída">
+            {lista.dados!.legado!.map((l) => (
+              <li key={l.reclassificacaoId}>
+                <span className="mq-chip mq-chip--soft">{l.tipoRotulo}</span>
+                <span>
+                  <b>{l.produto ?? l.sku ?? 'peça sem código'}</b>
+                  <small>
+                    {l.data ? fmtData(l.data) : 'sem data'} · {l.sku ?? '—'} · {l.qtd ?? '?'} peça(s)
+                    {l.pessoa ? ` · ${l.pessoa}` : ''} · planilha Nº {l.linhaPlanilha ?? '—'}
+                  </small>
+                  {l.observacao && <small>{l.observacao}</small>}
+                </span>
+                <small className="saida-legado__porque">{l.porque}</small>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {registrando && (
         <FormSaida
           conexao={conexao}
@@ -233,6 +295,13 @@ export function SaidasArea({
       )}
     </>
   );
+}
+
+/** De onde a saída veio — é o que responde "quem lançou isto?" meses depois. */
+function origemDaSaida(s: SaidaSemFaturamento): string {
+  if (s.origemRegistro === 'migracao_historico') return 'Planilha de vendas antiga';
+  if (s.inventarioId != null) return 'Inventário';
+  return 'Lançada no sistema';
 }
 
 const COLUNAS = {

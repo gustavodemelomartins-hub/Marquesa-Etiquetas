@@ -16,6 +16,8 @@ export interface FiltroDeSaidas {
    *  elegível pede — mesma porta de `/api/vendas/lista?canceladas=nao`. */
   incluirEstornadas?: boolean;
   limite?: number;
+  /** Código, nome da peça, motivo ou observação. */
+  busca?: string | null;
 }
 
 export function listarSaidas(
@@ -26,6 +28,7 @@ export function listarSaidas(
   if (filtro.ate) q.set('ate', filtro.ate);
   if (filtro.tipo) q.set('tipo', filtro.tipo);
   if (filtro.incluirEstornadas === false) q.set('estornadas', 'nao');
+  if (filtro.busca && filtro.busca.trim()) q.set('busca', filtro.busca.trim());
   return chamar(conexao, 'GET', `/api/saidas?${q}`, undefined, { signal: sinal });
 }
 
