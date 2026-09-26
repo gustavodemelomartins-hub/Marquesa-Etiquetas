@@ -14,6 +14,8 @@ import {
   criarMaleta, atualizarMaleta, adicionarItens, encerrarAcerto, cancelarMaleta,
   encerrarAcertoDocumental,
 } from '../../maletas-comandos.js';
+import { historicoDaRevendedora } from '../../revendedora-historico.js';
+import { json } from '../../auth.js';
 
 export const rotas = [
   {
@@ -26,6 +28,15 @@ export const rotas = [
     metodo: 'PATCH', caminho: '/api/revendedoras/:id', auth: 'bearer', padroes: { id: '[0-9]+' },
     async handler({ db, request, params }) {
       return await atualizarRevendedora(db, +params.id, request);
+    },
+  },
+  {
+    /* A relação inteira da revendedora: leitura das tabelas que registram
+       cada fato, com a origem de cada evento. Não grava nada. */
+    metodo: 'GET', caminho: '/api/revendedoras/:id/historico', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params }) {
+      const r = await historicoDaRevendedora(db, +params.id);
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
     },
   },
   {
