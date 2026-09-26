@@ -23,7 +23,7 @@ import {
   reconstruirVendas, classificarLinha, statusDaVenda,
 } from '../api/src/vendas-historicas.js';
 import {
-  normalizarData, normalizarNomeCliente,
+  normalizarData, normalizarNomeCliente, mapearColunas, normalizarLinha,
 } from '../api/src/vendas-historico-normalizar.js';
 
 let falhas = 0;
@@ -55,6 +55,33 @@ function linha({ cliente, data = '2026-06-13', qtd = 1, valor = 100, pago = 1,
 console.log('\n── 0. serial de data do Excel não muda de dia por causa do fuso');
 eq('21/08/2026 continua 21/08/2026', normalizarData(46255), '2026-08-21');
 eq('14/08/2026 continua 14/08/2026', normalizarData(46248), '2026-08-14');
+
+console.log('\n── 0b. data digitada sem a segunda barra só é lida quando é inequívoca');
+eq('27/062026 é 27/06/2026', normalizarData('27/062026'), '2026-06-27');
+eq('27/132026 não existe', normalizarData('27/132026'), null);
+eq('27062026 continua sem data', normalizarData('27062026'), null);
+eq('2706/2026 continua sem data', normalizarData('2706/2026'), null);
+eq('"-" continua sem data', normalizarData('-'), null);
+eq('"Não lembro" continua sem data', normalizarData('Não lembro'), null);
+
+console.log('\n── 0c. erro de fórmula do Excel não vira nome de peça');
+{
+  const { indices } = mapearColunas(['Nº', 'Data de Venda', 'Nome do Cliente', 'ID Produto Marquesa',
+    'Nome Produto', 'Tipo', 'Quantidade Vendida', 'Preço Unit. Venda', 'Desconto',
+    'Valor Total Venda', 'Forma de Pagamento', 'Status Pagamento', 'Observação Venda']);
+  for (const erro of ['#NAME?', '#N/A']) {
+    const r = normalizarLinha([592, '10/05/2026', 'Cliente', 109310, erro, 'Banhada', 1, 89, null, 89,
+      'Pix', 'PAGO', 'Maleta'], indices);
+    eq(`${erro}: nome some`, r.nome_produto_historico, null);
+    eq(`${erro}: o SKU da linha continua`, r.sku, '109310');
+    eq(`${erro}: a linha continua valendo dinheiro`, r.valor_total, 89);
+    eq(`${erro}: o problema fica anotado`, r.problemas.includes('nome_com_erro_excel'), true);
+  }
+  const normal = normalizarLinha([1, '10/05/2026', 'Cliente', 109310, 'Brinco Gota', 'Banhada', 1, 89,
+    null, 89, 'Pix', 'PAGO', 'Maleta'], indices);
+  eq('nome normal continua', normal.nome_produto_historico, 'Brinco Gota');
+  eq('nome normal não ganha problema', normal.problemas.includes('nome_com_erro_excel'), false);
+}
 
 console.log('\n── 1. mesmo cliente + mesma data = uma venda');
 {

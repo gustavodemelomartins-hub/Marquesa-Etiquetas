@@ -31,6 +31,16 @@ export function limpar(v) {
   return s;
 }
 
+/** Erro de fórmula do Excel copiado como valor (`#N/A`, `#NAME?`, `#REF!`).
+ *  Não é texto de ninguém: é o PROCV que falhou. Na coluna do nome do
+ *  produto ele virava o nome da peça no histórico; o SKU da mesma linha é
+ *  quem identifica a peça, e o catálogo resolve o nome a partir dele. */
+const ERRO_EXCEL = /^#(N\/A|NAME\?|REF!|VALUE!|DIV\/0!|NUM!|NULL!)$/i;
+export function ehErroDoExcel(v) {
+  const s = limpar(v);
+  return s !== null && ERRO_EXCEL.test(s);
+}
+
 /** Devolve null para as grafias de "sem informação". O cru continua sendo
  *  guardado pelo chamador — isto é só a leitura semântica. */
 export function limparSemantico(v) {
@@ -103,6 +113,17 @@ export function normalizarData(v) {
 
   let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+
+  /* `27/062026`: a barra entre mês e ano foi esquecida na digitação. Só é
+     aceito o formato que não admite outra leitura — dia com dois dígitos,
+     barra, mês com dois dígitos e ano com quatro, colados. `2706/2026` ou
+     `27062026` continuam sem data, porque aí a divisão seria palpite. */
+  m = s.match(/^(\d{2})[/.-](\d{2})(\d{4})$/);
+  if (m) {
+    const dia = +m[1], mes = +m[2];
+    if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+    return `${m[3]}-${m[2]}-${m[1]}`;
+  }
 
   m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
   if (m) {
@@ -404,6 +425,10 @@ export function normalizarLinha(linha, indices, { origemLinhaFallback = null } =
   if (clienteOriginal === null) problemas.push('sem_cliente');
   if (qtdCrua === null || qtdCrua <= 0) problemas.push('sem_quantidade');
   if (origem.revisar) problemas.push('origem_a_revisar');
+  /* O nome some, mas a linha não: ela continua uma venda do SKU que está
+     escrito nela. O problema fica anotado para a conferência saber quantas
+     linhas dependem do catálogo para ter nome. */
+  if (ehErroDoExcel(em('produto'))) problemas.push('nome_com_erro_excel');
 
   return {
     origem_linha: numero ?? origemLinhaFallback,
@@ -411,7 +436,7 @@ export function normalizarLinha(linha, indices, { origemLinhaFallback = null } =
     data_original: em('data') instanceof Date ? isoDeData(em('data')) : limpar(em('data')),
     cliente_nome_original: clienteOriginal,
     sku_original: skuOriginal,
-    nome_produto_historico: limpar(em('produto')),
+    nome_produto_historico: ehErroDoExcel(em('produto')) ? null : limpar(em('produto')),
     tipo_original: limpar(em('tipo')),
     preco_unit_original: limpar(em('precoUnit')),
     desconto_original: desconto.original,
