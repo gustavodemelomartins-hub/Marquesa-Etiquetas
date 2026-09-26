@@ -286,7 +286,7 @@ export async function analisarEstoqueTotal(db, { produtos, modo = 'total' } = {}
  *  §19: a diferença vira um movimento de ajuste rastreável, nunca um
  *  UPDATE direto no saldo.
  */
-export async function aplicarEstoqueTotal(db, { itens } = {}) {
+export async function aplicarEstoqueTotal(db, { itens, fonte = null } = {}) {
   if (!Array.isArray(itens) || !itens.length) return { erro: 'Nada para aplicar' };
 
   const { existentes, kits, montagem, consignado } = await retrato(db);
@@ -310,7 +310,10 @@ export async function aplicarEstoqueTotal(db, { itens } = {}) {
 
     stmts.push(...movimentar(db, {
       sku, tipo: 'ajuste', quantidade: delta, origem: 'importacao',
-      obs: `Estoque total: planilha diz ${alvo}, sistema tinha ${ex.qtd}`,
+      /* `fonte` diz DE QUAL arquivo veio o alvo — a razão é lida meses depois,
+         e "planilha diz 4" sem dizer qual planilha não reconstitui nada. */
+      obs: `Estoque total${fonte ? ` (${String(fonte).slice(0, 120)})` : ''}: `
+        + `planilha diz ${alvo}, sistema tinha ${ex.qtd}`,
     }));
     aplicados.push({ sku, de: ex.qtd, para: alvo, delta });
   }
