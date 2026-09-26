@@ -83,9 +83,11 @@ const MIGRACOES = [
      se alguém reordenar por estética:
        · `migracao-montagem-slots.sql` precisa de `personalizacao_modelos`,
          que quem cria é `migracao-pos-golive-1.sql`;
-       · `migracao-inventario-4-4.sql` precisa vir DEPOIS de
-         `migracao-sorteio-saida-sem-faturamento.sql` — invertido, o
-         `idx_saida_inventario_unica` se perde no caminho. */
+       · `migracao-sorteio-saida-sem-faturamento.sql` vem DEPOIS de
+         `migracao-inventario-4-4.sql`, que é a ordem real de produção: a
+         reconstrução copia `inventario_id` e recria
+         `idx_saida_inventario_unica`. Até 26/09/2026 era o contrário, e a
+         versão antiga do sorteio reconstruía a tabela sem a coluna. */
   'api/migracao-catalogo-4-5.sql',
   'api/migracao-catalogo.sql',
   'api/migracao-foto-url.sql',
@@ -98,8 +100,8 @@ const MIGRACOES = [
   'api/migracao-catalogo-4-5-publicacao.sql',
   'api/migracao-reconciliacao.sql',
   'api/migracao-saidas-sem-faturamento.sql',
-  'api/migracao-sorteio-saida-sem-faturamento.sql',
   'api/migracao-inventario-4-4.sql',
+  'api/migracao-sorteio-saida-sem-faturamento.sql',
   'api/migracao-sync-seco.sql',
   'api/migracao-sync.sql',
   'api/migracao-variacoes.sql',

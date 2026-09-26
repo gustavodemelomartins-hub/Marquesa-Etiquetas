@@ -5,7 +5,19 @@
 -- colunas antes da troca. Não executar automaticamente. Produção exige backup
 -- conferido, bookmark de Time Travel, contagens antes/depois e aprovação humana.
 --
--- Pré-condição: `migracao-saidas-sem-faturamento.sql` já aplicada.
+-- Pré-condição: `migracao-saidas-sem-faturamento.sql` já aplicada, e também
+-- `migracao-inventario-4-4.sql` — que acrescentou `inventario_id` e o índice
+-- `idx_saida_inventario_unica`. A primeira versão deste arquivo foi escrita
+-- antes dela e reconstruiria a tabela SEM a coluna: a saída gerada por um
+-- inventário perderia o vínculo, e a trava "uma saída por inventário e SKU"
+-- deixaria de existir. Corrigido em 26/09/2026, antes de rodar em qualquer
+-- banco — nenhum ambiente chegou a receber a versão antiga.
+--
+-- `inventario_resultado.saida_id` aponta para esta tabela pelo NOME. O DROP
+-- faz um DELETE implícito e o D1 não desliga chave estrangeira; adiar a
+-- conferência para o fim da migration é o que permite trocar a tabela sem
+-- que uma linha filha (se existir) seja julgada no meio da troca.
+PRAGMA defer_foreign_keys = true;
 
 CREATE TABLE saidas_sem_faturamento_sorteio_nova (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,6 +40,7 @@ CREATE TABLE saidas_sem_faturamento_sorteio_nova (
   origem_registro TEXT NOT NULL DEFAULT 'manual'
                   CHECK (origem_registro IN ('manual', 'migracao_historico')),
   historico_item_id INTEGER REFERENCES vendas_historico_itens(id),
+  inventario_id INTEGER REFERENCES inventarios(id),
   criado_em TEXT NOT NULL DEFAULT (datetime('now')),
   atualizado_em TEXT,
   CHECK (sentido = 'saida' OR tipo = 'perda'),
@@ -54,13 +67,13 @@ INSERT INTO saidas_sem_faturamento_sorteio_nova (
   id, tipo, sentido, data, sku, variacao, variante_id, qtd, motivo, observacao,
   movimento_id, estoque_refletido, origem_usuario, estornada, estorno_em,
   estorno_motivo, estorno_movimento_id, origem_registro, historico_item_id,
-  criado_em, atualizado_em
+  inventario_id, criado_em, atualizado_em
 )
 SELECT
   id, tipo, sentido, data, sku, variacao, variante_id, qtd, motivo, observacao,
   movimento_id, estoque_refletido, origem_usuario, estornada, estorno_em,
   estorno_motivo, estorno_movimento_id, origem_registro, historico_item_id,
-  criado_em, atualizado_em
+  inventario_id, criado_em, atualizado_em
 FROM saidas_sem_faturamento;
 
 INSERT INTO historico_reclassificacao_sorteio_nova (
@@ -97,6 +110,9 @@ CREATE INDEX idx_ssf_sku ON saidas_sem_faturamento(sku);
 CREATE UNIQUE INDEX idx_ssf_historico
   ON saidas_sem_faturamento(historico_item_id)
   WHERE historico_item_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_saida_inventario_unica
+  ON saidas_sem_faturamento (inventario_id, sku, COALESCE(variacao, ''))
+  WHERE inventario_id IS NOT NULL AND estornada = 0;
 CREATE UNIQUE INDEX idx_hrec_item
   ON historico_reclassificacao(historico_item_id);
 CREATE INDEX idx_hrec_status ON historico_reclassificacao(status);
