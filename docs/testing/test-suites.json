@@ -649,7 +649,11 @@
         "pagamento-nuvemshop-test.mjs",
         "troca-historico-atomica-test.mjs",
         "historico-operacoes-test.mjs",
-        "historico-operacoes-riscos-test.mjs"
+        "historico-operacoes-riscos-test.mjs",
+        "estorno-recebimento-test.mjs",
+        "acerto-documental-test.mjs",
+        "saidas-historico-test.mjs",
+        "revendedora-historico-test.mjs"
       ]
     },
     {
