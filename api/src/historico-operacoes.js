@@ -220,35 +220,43 @@ const CAMPOS_VERSAO = [
   'vencimento_origem', 'paga_em', 'canal', 'contexto', 'observacao', 'evidencia_json',
 ];
 
-async function criarNovaVersao(db, atual, mudancas) {
+/** As três escritas de uma versão nova, sem executá-las. Existem separadas
+ *  porque a troca da planilha transporta várias decisões num batch só, e
+ *  cada uma precisa exatamente da mesma sequência que o recebimento usa. */
+function escritasDaNovaVersao(db, atual, mudancas) {
   const proxima = { ...atual, ...mudancas };
   const versao = Number(atual.versao) + 1;
   const valores = CAMPOS_VERSAO.map((campo) => proxima[campo]);
+  return [
+    db.prepare(
+      `UPDATE historico_operacoes
+          SET status_registro='substituida', atualizado_em=datetime('now')
+        WHERE id=? AND versao=? AND status_registro='ativa'`,
+    ).bind(atual.id, atual.versao),
+    db.prepare(
+      `INSERT INTO historico_operacoes
+        (${CAMPOS_VERSAO.join(',')}, versao, status_registro, substitui_id, atualizado_em)
+       VALUES (${parametros(CAMPOS_VERSAO.length)}, ?, 'ativa', ?, datetime('now'))`,
+    ).bind(...valores, versao, atual.id),
+    /* O vínculo de duplicata é fato sobre a VENDA, não sobre a versão da
+     * cobrança. Sem esta linha, receber o dinheiro criaria uma versão nova
+     * e deixaria o vínculo pendurado no registro substituído: a retomada
+     * do backfill leria "nenhuma duplicata gravada" e recusaria a operação
+     * como se alguém a tivesse revisado com outra decisão. A chave é
+     * estável, então o vínculo acompanha quem está ativo agora. */
+    db.prepare(
+      `UPDATE historico_operacao_vendas
+          SET operacao_id = (SELECT id FROM historico_operacoes
+                              WHERE venda_chave=? AND status_registro='ativa')
+        WHERE operacao_id=? AND status_registro='ativa'`,
+    ).bind(atual.venda_chave, atual.id),
+  ];
+}
+
+async function criarNovaVersao(db, atual, mudancas) {
+  const proxima = { ...atual, ...mudancas };
   try {
-    await db.batch([
-      db.prepare(
-        `UPDATE historico_operacoes
-            SET status_registro='substituida', atualizado_em=datetime('now')
-          WHERE id=? AND versao=? AND status_registro='ativa'`,
-      ).bind(atual.id, atual.versao),
-      db.prepare(
-        `INSERT INTO historico_operacoes
-          (${CAMPOS_VERSAO.join(',')}, versao, status_registro, substitui_id, atualizado_em)
-         VALUES (${parametros(CAMPOS_VERSAO.length)}, ?, 'ativa', ?, datetime('now'))`,
-      ).bind(...valores, versao, atual.id),
-      /* O vínculo de duplicata é fato sobre a VENDA, não sobre a versão da
-       * cobrança. Sem esta linha, receber o dinheiro criaria uma versão nova
-       * e deixaria o vínculo pendurado no registro substituído: a retomada
-       * do backfill leria "nenhuma duplicata gravada" e recusaria a operação
-       * como se alguém a tivesse revisado com outra decisão. A chave é
-       * estável, então o vínculo acompanha quem está ativo agora. */
-      db.prepare(
-        `UPDATE historico_operacao_vendas
-            SET operacao_id = (SELECT id FROM historico_operacoes
-                                WHERE venda_chave=? AND status_registro='ativa')
-          WHERE operacao_id=? AND status_registro='ativa'`,
-      ).bind(atual.venda_chave, atual.id),
-    ]);
+    await db.batch(escritasDaNovaVersao(db, atual, mudancas));
   } catch (erro) {
     const corrente = await db.prepare(
       `SELECT id, versao, cobranca_status, saldo_centavos, vencimento_em, paga_em
@@ -312,6 +320,54 @@ export async function marcarContaPaga(db, id, {
     valor_recebido_centavos: atual.valor_efetivo_centavos,
     saldo_centavos: 0,
     paga_em: quando,
+  });
+}
+
+/** "Corrigir lançamento": o recebimento registrado AQUI estava errado.
+ *
+ *  Nada é apagado. A cobrança ganha uma versão nova, de volta a `aberta`, e
+ *  a versão paga continua no banco como `substituida` — com a nova apontando
+ *  para ela por `substitui_id`. O motivo é obrigatório e fica na evidência,
+ *  junto com a data e o valor que estavam lançados. Corrigido o engano, o
+ *  recebimento certo entra pela porta de sempre (`receberConta`).
+ *
+ *  O que a PLANILHA registrou como recebido não é desfeito: não foi lançado
+ *  aqui, e corrigir a fonte é trocar a planilha. Nada disto toca estoque. */
+export async function estornarRecebimentoHistorico(db, id, { motivo = null, versaoEsperada = null } = {}) {
+  const texto = String(motivo ?? '').trim();
+  if (texto.length < 3) return ERRO(400, 'Diga por que o recebimento está sendo corrigido.');
+  const atual = await contaAtiva(db, id);
+  if (!atual) return ERRO(404, 'Cobrança não encontrada.');
+  if (atual.papel !== 'cliente') return ERRO(409, 'Acerto de revendedora não é dívida de cliente.');
+  if (atual.cobranca_status !== 'paga') return ERRO(409, 'Só um recebimento registrado pode ser corrigido.');
+  if (Number(versaoEsperada) !== Number(atual.versao)) {
+    return { ok: false, statusHttp: 409, erro: 'A cobrança mudou. Recarregue antes de corrigir.', conta: operacaoPublica(atual) };
+  }
+  const efetivo = Number(atual.valor_efetivo_centavos ?? 0);
+  const daFonte = Number(atual.valor_recebido_fonte_centavos ?? 0);
+  const saldo = efetivo - daFonte;
+  if (!(saldo > 0)) {
+    return ERRO(409, 'A planilha já registra este valor como recebido. Corrigir isso é trocar a '
+      + 'planilha, não estornar aqui.');
+  }
+  const evidencia = jsonSeguro(atual.evidencia_json, {});
+  const estornos = Array.isArray(evidencia.estornosDeRecebimento) ? evidencia.estornosDeRecebimento : [];
+  estornos.push({
+    em: agora(),
+    motivo: texto.slice(0, 500),
+    pagaEmAnterior: atual.paga_em,
+    recebidoAnteriorCentavos: atual.valor_recebido_centavos,
+    versaoEstornada: Number(atual.versao),
+  });
+  evidencia.estornosDeRecebimento = estornos;
+  const ev = jsonDeEvidencia(evidencia);
+  if (!ev.ok) return ERRO(409, 'A trilha de correções desta cobrança ficou grande demais para registrar.');
+  return criarNovaVersao(db, atual, {
+    cobranca_status: 'aberta',
+    valor_recebido_centavos: daFonte,
+    saldo_centavos: saldo,
+    paga_em: null,
+    evidencia_json: ev.texto,
   });
 }
 
@@ -693,4 +749,147 @@ export async function operacoesAtivasDoLote(db, loteId) {
       WHERE lote_id=? AND status_registro='ativa' ORDER BY venda_chave`,
   ).bind(loteId).all();
   return results ?? [];
+}
+
+/* ═══════════════════════════════════ a troca da planilha leva as decisões
+
+   `vendas_historicas` é derivada e morre junto com o lote; a decisão humana
+   sobre ela (papel, acerto documental, duplicata, cobrança) não pode morrer.
+   Até aqui a troca simplesmente recusava um lote com decisão ativa — e a
+   planilha nunca mais podia ser corrigida depois da primeira decisão.
+
+   A identidade da decisão é a CHAVE da venda (cliente normalizado + data),
+   e a prova de que ela ainda vale é o CONTEÚDO. O fingerprint gravado leva o
+   `Nº` de cada linha, e o `Nº` é número de linha, não identidade: seis linhas
+   inseridas no meio da planilha renumeram tudo que vem depois sem mudar uma
+   venda sequer. Por isso a comparação aqui é o mesmo conteúdo SEM o `Nº`, e
+   o fingerprint novo é recalculado da forma de sempre, sobre o lote novo.
+
+   Três saídas, e só três:
+     transportar       mesmo conteúdo — a decisão vira uma versão nova,
+                       apontando para o lote novo;
+     quitada_na_fonte  cobrança aberta cuja única diferença é a planilha
+                       registrar agora o pagamento — a versão nova fecha a
+                       cobrança, porque a fonte da venda passou a dizer PAGO;
+     conflito          qualquer outra diferença, ou a venda sumiu. A troca
+                       inteira é recusada e o histórico antigo volta ao ar.
+                       Decidir de novo é trabalho de pessoa, não de import. */
+
+async function conteudoSemLinha(db, loteId, chave, { semPagamento = false } = {}) {
+  const venda = await db.prepare(
+    `SELECT chave, classe, cliente_nome_norm, data, pecas, valor_total, valor_pago, status,
+            canal, contexto
+       FROM vendas_historicas WHERE lote_id = ? AND chave = ?`,
+  ).bind(loteId, chave).first();
+  if (!venda) return null;
+  const { results } = await db.prepare(
+    `SELECT sku_base, qtd, valor_total, pago, desconto_original, observacao_original
+       FROM vendas_historico_itens WHERE lote_id = ? AND pedido_chave = ?`,
+  ).bind(loteId, chave).all();
+  const linhas = (results ?? []).map((i) => ({
+    sku: i.sku_base,
+    qtd: Number(i.qtd),
+    valor: centavos(i.valor_total),
+    ...(semPagamento ? {} : { pago: i.pago }),
+    desconto: i.desconto_original,
+    observacao: i.observacao_original,
+  })).map((l) => JSON.stringify(l)).sort();
+  return JSON.stringify({
+    chave: venda.chave,
+    classe: venda.classe,
+    nome: venda.cliente_nome_norm,
+    data: venda.data,
+    pecas: Number(venda.pecas),
+    valorTotal: centavos(venda.valor_total),
+    ...(semPagamento ? {} : { valorPago: centavos(venda.valor_pago), status: venda.status }),
+    canal: venda.canal,
+    contexto: venda.contexto,
+    linhas,
+  });
+}
+
+export async function planejarTransporteDeDecisoes(db, { lotesAntigos = [], loteNovo }) {
+  const plano = { transportar: [], quitadasNaFonte: [], conflitos: [] };
+  for (const loteId of lotesAntigos) {
+    const { results } = await db.prepare(
+      `SELECT * FROM historico_operacoes
+        WHERE lote_id = ? AND status_registro = 'ativa' ORDER BY venda_chave`,
+    ).bind(loteId).all();
+    for (const op of results ?? []) {
+      const resumo = {
+        id: Number(op.id), vendaChave: op.venda_chave, papel: op.papel,
+        cobranca: op.cobranca_status, loteAntigo: Number(loteId),
+      };
+      const novo = await db.prepare(
+        'SELECT status FROM vendas_historicas WHERE lote_id = ? AND chave = ?',
+      ).bind(loteNovo, op.venda_chave).first();
+      if (!novo) {
+        plano.conflitos.push({ ...resumo, motivo: 'a venda não existe na planilha nova' });
+        continue;
+      }
+      const antes = await conteudoSemLinha(db, loteId, op.venda_chave);
+      const depois = await conteudoSemLinha(db, loteNovo, op.venda_chave);
+      if (antes === depois) {
+        plano.transportar.push({ ...resumo, op });
+        continue;
+      }
+      const soPagamento = (await conteudoSemLinha(db, loteId, op.venda_chave, { semPagamento: true }))
+        === (await conteudoSemLinha(db, loteNovo, op.venda_chave, { semPagamento: true }));
+      if (soPagamento && op.papel === 'cliente' && novo.status === 'paga') {
+        if (op.cobranca_status === 'aberta') {
+          plano.quitadasNaFonte.push({ ...resumo, op });
+          continue;
+        }
+        /* Já quitada aqui dentro: a planilha só alcançou o que o sistema
+           sabia. A decisão segue inteira — inclusive `paga_em`, que é quando
+           o dinheiro entrou de verdade. */
+        if (op.cobranca_status === 'paga' || op.cobranca_status === 'nenhuma') {
+          plano.transportar.push({ ...resumo, op });
+          continue;
+        }
+      }
+      plano.conflitos.push({
+        ...resumo,
+        motivo: soPagamento
+          ? 'mudou só o pagamento, mas a decisão não é uma cobrança que a fonte possa fechar'
+          : 'o conteúdo da venda mudou (item, quantidade, valor ou observação)',
+      });
+    }
+  }
+  return plano;
+}
+
+export async function aplicarTransporteDeDecisoes(db, plano, { loteNovo, arquivo }) {
+  const quando = agora();
+  const stmts = [];
+  const itens = [
+    ...plano.transportar.map((x) => ({ ...x, acao: 'transportar' })),
+    ...plano.quitadasNaFonte.map((x) => ({ ...x, acao: 'quitada_na_fonte' })),
+  ];
+  for (const item of itens) {
+    const op = item.op;
+    const fingerprint = await fingerprintDaVendaHistorica(db, loteNovo, op.venda_chave);
+    const evidencia = jsonSeguro(op.evidencia_json, {});
+    evidencia.transporte = {
+      acao: item.acao, deLote: Number(op.lote_id), paraLote: Number(loteNovo), arquivo, em: quando,
+    };
+    const mudancas = { lote_id: loteNovo, fingerprint, evidencia_json: JSON.stringify(evidencia) };
+    if (item.acao === 'quitada_na_fonte') {
+      const venda = await db.prepare(
+        'SELECT valor_total, valor_pago FROM vendas_historicas WHERE lote_id = ? AND chave = ?',
+      ).bind(loteNovo, op.venda_chave).first();
+      Object.assign(mudancas, {
+        cobranca_status: 'nenhuma',
+        valor_recebido_fonte_centavos: centavos(venda?.valor_pago ?? venda?.valor_total),
+        valor_recebido_centavos: centavos(venda?.valor_pago ?? venda?.valor_total),
+        saldo_centavos: 0,
+      });
+    }
+    stmts.push(...escritasDaNovaVersao(db, op, mudancas));
+  }
+  if (stmts.length) await db.batch(stmts);
+  return {
+    transportadas: plano.transportar.length,
+    quitadasNaFonte: plano.quitadasNaFonte.length,
+  };
 }

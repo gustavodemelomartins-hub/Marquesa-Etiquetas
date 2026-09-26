@@ -29,7 +29,9 @@ import {
 import {
   reconstruirVendas, reconstruir, backfillNormalizacao, REGRA_DESCRITA,
 } from './vendas-historicas.js';
-import { operacoesAtivasDoLote } from './historico-operacoes.js';
+import {
+  operacoesAtivasDoLote, planejarTransporteDeDecisoes, aplicarTransporteDeDecisoes,
+} from './historico-operacoes.js';
 
 /* --------------------------------------------------------------- utilidades */
 
@@ -470,13 +472,16 @@ export async function reconciliar(db, loteId, analise) {
  *  PENDENTES e não conhece lote, então as pendências do lote velho
  *  colidiriam com as do lote novo. Elas saem, mas voltam inteiras se a troca
  *  for desfeita — por isso são devolvidas aqui. */
-async function desativarLote(db, loteId) {
+async function desativarLote(db, loteId, { decisoesSeguemATroca = false } = {}) {
   const lote = await db.prepare(
     'SELECT id, status FROM vendas_historico_lotes WHERE id = ?',
   ).bind(loteId).first();
   if (!lote) return { ok: false, erro: 'Lote não encontrado.' };
   if (lote.status === 'revertido') return { ok: false, erro: 'Lote já revertido.' };
-  const protegidas = await operacoesAtivasDoLote(db, loteId);
+  /* Reverter de verdade (sem planilha nova) continua recusando lote com
+     decisão: ela não teria para onde ir. Na TROCA ela tem — o lote novo — e
+     `substituirHistorico` só apaga o antigo depois de transportar cada uma. */
+  const protegidas = decisoesSeguemATroca ? [] : await operacoesAtivasDoLote(db, loteId);
   if (protegidas.length) {
     return {
       ok: false,
@@ -563,6 +568,7 @@ async function limparLoteRevertido(db, loteId) {
       WHERE origem = 'historico'
         AND id NOT IN (SELECT cliente_id FROM vendas_historico_itens WHERE cliente_id IS NOT NULL)
         AND id NOT IN (SELECT cliente_id FROM vendas WHERE cliente_id IS NOT NULL)
+        AND id NOT IN (SELECT cliente_id FROM historico_operacoes WHERE cliente_id IS NOT NULL)
         AND COALESCE(NULLIF(TRIM(tel), ''), NULLIF(TRIM(cpf), ''),
                      NULLIF(TRIM(cidade), ''), NULLIF(TRIM(email), ''),
                      NULLIF(TRIM(instagram), ''), NULLIF(TRIM(nascimento), ''),
@@ -712,7 +718,7 @@ export async function substituirHistorico(db, { linhas, arquivo = 'Vendas Marque
     for (const d of [...desativados].reverse()) await reativarLote(db, d.id, d.pendentesRemovidas);
   };
   for (const l of antes.lotes) {
-    const r = await desativarLote(db, l.id);
+    const r = await desativarLote(db, l.id, { decisoesSeguemATroca: true });
     if (!r.ok) {
       await desfazer();
       return {
@@ -785,6 +791,48 @@ export async function substituirHistorico(db, { linhas, arquivo = 'Vendas Marque
     };
   }
 
+  /* ── 2b. as decisões humanas atravessam a troca ─────────────────────────
+     Os dois lotes estão no banco agora — o antigo invisível, o novo no ar —
+     e é só neste momento que dá para comparar venda com venda. Uma decisão
+     que não encontra o mesmo conteúdo do outro lado derruba a troca inteira:
+     o lote novo sai, o antigo volta, e a resposta diz qual decisão travou. */
+  let transporte = { transportadas: 0, quitadasNaFonte: 0 };
+  try {
+    const plano = await planejarTransporteDeDecisoes(db, {
+      lotesAntigos: desativados.map((d) => d.id), loteNovo: imp.loteId,
+    });
+    if (plano.conflitos.length) {
+      const parciais = await limparTentativa();
+      await desfazer();
+      return {
+        ok: false,
+        etapa: 'decisoes',
+        antes,
+        revertidos: [],
+        restaurado: true,
+        loteParcialDescartado: parciais,
+        conflitos: plano.conflitos,
+        erro: `${plano.conflitos.length} decisão(ões) já tomada(s) sobre o histórico não `
+          + 'encontram o mesmo conteúdo na planilha nova. Nada foi trocado: o histórico anterior '
+          + 'continua no ar, com as decisões intactas.',
+      };
+    }
+    transporte = await aplicarTransporteDeDecisoes(db, plano, { loteNovo: imp.loteId, arquivo });
+  } catch (erro) {
+    const parciais = await limparTentativa();
+    await desfazer();
+    return {
+      ok: false,
+      etapa: 'decisoes',
+      antes,
+      revertidos: [],
+      restaurado: true,
+      loteParcialDescartado: parciais,
+      erro: `Não consegui transportar as decisões (${erro?.message ?? erro}). O histórico `
+        + 'anterior foi devolvido ao ar exatamente como estava.',
+    };
+  }
+
   /* ── 3. só agora apagar o antigo ─────────────────────────────────────────
      O lote novo já está de pé. A cliente que aparece nas duas planilhas
      continua tendo item e escapa do DELETE, mantendo o mesmo `id` — e com ele
@@ -813,6 +861,7 @@ export async function substituirHistorico(db, { linhas, arquivo = 'Vendas Marque
     depois,
     revertidos,
     loteId: imp.loteId,
+    decisoes: transporte,
     analise: imp.analise,
     conferencia: imp.conferencia,
     reconstrucao: imp.reconstrucao,

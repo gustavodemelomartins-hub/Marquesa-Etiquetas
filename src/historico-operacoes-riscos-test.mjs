@@ -281,19 +281,63 @@ eq('reconstruir com o MESMO conteúdo continua permitido', recon.status, 200);
 eq('e não reporta quebra', recon.corpo.decisoesInvalidadas, undefined);
 
 // Trocar a planilha por uma em que a venda decidida MUDA de conteúdo tem de
-// esbarrar na proteção do lote — a decisão ativa segura a troca.
+// esbarrar na decisão — ela foi tomada sobre OUTRO conteúdo, e reaproveitá-la
+// seria decidir por quem não viu. A troca volta inteira.
 const trocaQuebrando = await api('POST', '/api/vendas/historico/substituir', {
   arquivo: 'C.xlsx', linhas: PLANILHA_A,
 });
-eq('a troca é recusada porque há decisão ativa', trocaQuebrando.corpo.ok, false);
-eq('e para na reversão', trocaQuebrando.corpo.etapa, 'reversao');
-eq('dizendo quantas decisões protegem o lote',
-  trocaQuebrando.corpo.operacoesProtegidas.length > 0, true);
+eq('a troca é recusada porque a decisão foi sobre outro conteúdo', trocaQuebrando.corpo.ok, false);
+eq('e para nas decisões', trocaQuebrando.corpo.etapa, 'decisoes');
+eq('dizendo qual decisão travou',
+  (trocaQuebrando.corpo.conflitos ?? []).some((c) => c.vendaChave === 'cliente devedora|2026-08-21'), true);
+eq('e devolvendo o histórico antigo', trocaQuebrando.corpo.restaurado, true);
 const lotesDepois = await api('GET', '/api/vendas/historico/lotes');
 eq('e o lote continua no ar, não meio-revertido',
   lotesDepois.corpo.lotes.filter((l) => l.status === 'importado').length, 1);
 const aindaLa = await api('GET', '/api/contas-receber?status=todas');
 eq('as decisões continuam todas lá', aindaLa.corpo.contas.length, 2);
+
+/* ────────────────────────────────────────────────────────────────────────── */
+console.log('\n=== 7b. renumerar a planilha não derruba decisão nenhuma ===');
+// O `Nº` é número de LINHA. Uma venda nova inserida no topo renumera tudo o
+// que vem depois sem mudar venda nenhuma — e antes disso a troca era
+// recusada para sempre depois da primeira decisão tomada.
+const PLANILHA_C = [
+  CAB,
+  [1, '2026-08-10', 'Cliente Nova', 'DUP001', 'Colar', 'Banhada', 1, 100, null, 100, null, 'NÃO PAGO', 'Feira'],
+  ...PLANILHA_B.slice(1).map((l) => [l[0] + 1, ...l.slice(1)]),
+];
+const pagasAntes = (await api('GET', '/api/contas-receber?status=paga')).corpo.contas;
+const renumerada = await api('POST', '/api/vendas/historico/substituir', { arquivo: 'C.xlsx', linhas: PLANILHA_C });
+eq('a troca com linhas renumeradas passa', renumerada.corpo.ok, true);
+eq('as duas decisões atravessam para o lote novo', renumerada.corpo.decisoes?.transportadas, 2);
+eq('nenhuma é tratada como quitada', renumerada.corpo.decisoes?.quitadasNaFonte, 0);
+const pagasDepois = (await api('GET', '/api/contas-receber?status=paga')).corpo.contas;
+eq('a conta paga continua paga', pagasDepois.length, pagasAntes.length);
+eq('com a mesma data de pagamento', pagasDepois[0]?.pagaEm, pagasAntes[0]?.pagaEm);
+const todasC = await api('GET', '/api/contas-receber?status=todas');
+eq('e nenhuma decisão se perdeu', todasC.corpo.contas.length, 2);
+
+console.log('\n=== 7c. a planilha que passa a dizer PAGO fecha a cobrança aberta ===');
+const abrir = await api('POST', '/api/vendas/historico/operacoes', {
+  operacoes: [{
+    vendaChave: 'cliente nova|2026-08-10', papel: 'cliente', cobrancaStatus: 'aberta',
+    valorEfetivoCentavos: 10000, valorRecebidoFonteCentavos: 0, evidencia: { fonte: 'teste' },
+  }],
+});
+eq('a cobrança da cliente nova abre', abrir.status, 200);
+const abertasAntes = (await api('GET', '/api/contas-receber')).corpo.contas
+  .filter((c) => c.tipo === 'historico' || String(c.chave).startsWith('historico:'));
+eq('e aparece em A Receber', abertasAntes.some((c) => /nova/i.test(c.cliente ?? '')), true);
+const PLANILHA_D = PLANILHA_C.map((l, i) => (i === 1 ? [...l.slice(0, 11), 'PAGO', l[12]] : l));
+const quitadaNaFonte = await api('POST', '/api/vendas/historico/substituir', { arquivo: 'D.xlsx', linhas: PLANILHA_D });
+eq('a troca passa', quitadaNaFonte.corpo.ok, true);
+eq('duas decisões atravessam iguais', quitadaNaFonte.corpo.decisoes?.transportadas, 2);
+eq('e a cobrança aberta fecha pela fonte', quitadaNaFonte.corpo.decisoes?.quitadasNaFonte, 1);
+const abertasDepois = (await api('GET', '/api/contas-receber')).corpo.contas;
+eq('a cliente nova sai de A Receber', abertasDepois.some((c) => /nova/i.test(c.cliente ?? '')), false);
+const todasD = await api('GET', '/api/contas-receber?status=todas');
+eq('as outras decisões continuam', todasD.corpo.contas.length >= 2, true);
 
 /* ────────────────────────────────────────────────────────────────────────── */
 console.log('\n=== 8. nada disso encostou no estoque ===');
