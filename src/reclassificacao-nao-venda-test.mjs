@@ -42,6 +42,7 @@ function bancoFalso() {
 
   return {
     estado,
+    async batch(stmts) { for (const st of stmts) await st.run(); return []; },
     prepare(sql) {
       let args = [];
       const stmt = {
@@ -59,6 +60,16 @@ function bancoFalso() {
               : null;
           }
           if (sql.includes('SELECT classe FROM vendas_historicas')) return { classe: 'ajuste' };
+          if (sql.includes('INSERT INTO historico_reclassificacao')) {
+            estado.reclassificacao = {
+              id: 1, historico_item_id: args[0], classe_nova: args[1], confianca: args[2],
+              motivo: args[3], status: args[4], decidido_por: args[5], saida_id: null,
+            };
+            return { id: 1 };
+          }
+          if (sql.includes('SELECT * FROM historico_reclassificacao WHERE historico_item_id')) {
+            return estado.reclassificacao ? { ...estado.reclassificacao } : null;
+          }
           if (sql.includes('DELETE FROM historico_reclassificacao')) {
             if (!estado.reclassificacao) return null;
             const removida = estado.reclassificacao;
@@ -68,6 +79,10 @@ function bancoFalso() {
           throw new Error(`SQL inesperado em first(): ${sql}`);
         },
         async run() {
+          if (sql.includes('DELETE FROM historico_reclassificacao WHERE id')) {
+            estado.reclassificacao = null;
+            return { success: true };
+          }
           if (!sql.includes('INSERT INTO historico_reclassificacao')) {
             throw new Error(`SQL inesperado em run(): ${sql}`);
           }

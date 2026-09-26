@@ -29,6 +29,7 @@
  *  └────────────────────────────────────────────────────────────────────┘
  */
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
+import { registrarSaida, ROTULO_SAIDA } from './saidas.js';
 
 /* ── os padrões, e o que cada um vale
  *
@@ -318,10 +319,10 @@ export async function aplicarReclassificacao(db, { decisoes = [], usuario = null
     const motivo = String(d.motivo ?? '').trim()
       || (recusa ? 'confirmada como venda por decisão humana' : 'reclassificada por decisão humana');
 
-    await db.prepare(
+    const rc = await db.prepare(
       `INSERT INTO historico_reclassificacao
          (historico_item_id, classe_nova, confianca, motivo, status, decidido_em, decidido_por)
-       VALUES (?, ?, ?, ?, ?, datetime('now'), ?)`,
+       VALUES (?, ?, ?, ?, ?, datetime('now'), ?) RETURNING id`,
     ).bind(
       id,
       /* Uma recusa também precisa de `classe_nova` por causa do CHECK, e
@@ -332,7 +333,17 @@ export async function aplicarReclassificacao(db, { decisoes = [], usuario = null
       motivo,
       recusa ? 'recusada' : 'aplicada',
       usuario,
-    ).run();
+    ).first();
+
+    /* A linha reclassificada passa a EXISTIR em Saídas sem faturamento — é
+       para isso que `origem_registro = 'migracao_historico'` e `saida_id`
+       foram desenhados. Ela entra classificatória: `estoque_refletido = 0`,
+       sem movimento, porque a baixa física é da linha da planilha. Sem data
+       conhecida ou sem o código no catálogo não há como registrá-la ali
+       (data e peça são obrigatórias numa saída): a decisão vale do mesmo
+       jeito, e a listagem de saídas a mostra como registro legado. */
+    let saida = null;
+    if (!recusa) saida = await saidaDaLinha(db, linha, classe, motivo, usuario, rc.id);
 
     /* Mesma honestidade do relatório: a linha que a planilha já tratava como
        ajuste não estava no faturamento, e contar o valor dela aqui inflaria
@@ -344,6 +355,7 @@ export async function aplicarReclassificacao(db, { decisoes = [], usuario = null
     (recusa ? recusadas : aplicadas).push({
       historicoItemId: id, classe, valor: linha.valor_total, qtd: linha.qtd,
       jaFora: venda?.classe === 'ajuste',
+      ...(recusa ? {} : { saidaId: saida?.id ?? null, semSaidaPorque: saida?.porque ?? null }),
     });
   }
 
@@ -373,10 +385,24 @@ export async function aplicarReclassificacao(db, { decisoes = [], usuario = null
  *  Somar +1 aqui inventaria uma unidade que nunca voltou para a gaveta —
  *  o defeito simétrico do que §3 da revisão manda impedir. */
 export async function desfazerReclassificacao(db, historicoItemId) {
-  const r = await db.prepare(
-    'DELETE FROM historico_reclassificacao WHERE historico_item_id = ? RETURNING *',
+  const atual = await db.prepare(
+    'SELECT * FROM historico_reclassificacao WHERE historico_item_id = ?',
   ).bind(Number(historicoItemId)).first();
-  if (!r) return { ok: false, statusHttp: 404, erro: 'Não há decisão registrada para esta linha.' };
+  if (!atual) return { ok: false, statusHttp: 404, erro: 'Não há decisão registrada para esta linha.' };
+  /* A saída que a decisão criou não é apagada: ela é ESTORNADA, com o
+     motivo, e continua no histórico de saídas dizendo que existiu. */
+  const stmts = [];
+  if (atual.saida_id) {
+    stmts.push(db.prepare(
+      `UPDATE saidas_sem_faturamento
+          SET estornada = 1, estorno_em = datetime('now'), atualizado_em = datetime('now'),
+              estorno_motivo = 'reclassificação desfeita: a linha da planilha voltou a ser venda'
+        WHERE id = ? AND estornada = 0`,
+    ).bind(atual.saida_id));
+  }
+  stmts.push(db.prepare('DELETE FROM historico_reclassificacao WHERE id = ?').bind(atual.id));
+  await db.batch(stmts);
+  const r = atual;
   return {
     ok: true,
     desfeita: { historicoItemId: r.historico_item_id, classeAnterior: r.classe_nova },
@@ -385,6 +411,37 @@ export async function desfazerReclassificacao(db, historicoItemId) {
       'a baixa desta peça é da linha da planilha, não desta decisão — devolver aqui somaria '
       + 'ao estoque uma unidade que nunca saiu por causa dela',
   };
+}
+
+/** A saída classificatória de uma linha reclassificada, ou o motivo de não
+ *  haver uma. Nunca movimenta estoque (ver `registrarSaida`). */
+async function saidaDaLinha(db, linha, classe, motivo, usuario, rcId) {
+  if (!linha.data) return { id: null, porque: 'a linha da planilha não tem data' };
+  const anterior = await db.prepare(
+    'SELECT id, estornada FROM saidas_sem_faturamento WHERE historico_item_id = ?',
+  ).bind(linha.id).first();
+  if (anterior) {
+    return { id: null, porque: `a linha já teve uma saída (${anterior.id}), estornada — ela continua no histórico` };
+  }
+  const noCatalogo = async (sku) => sku && await db.prepare('SELECT sku FROM produtos WHERE sku = ?').bind(sku).first();
+  const sku = (await noCatalogo(linha.sku)) ? linha.sku : (await noCatalogo(linha.sku_base)) ? linha.sku_base : null;
+  if (!sku) return { id: null, porque: `o código ${linha.sku ?? '—'} não está no catálogo` };
+  const texto = [linha.desconto_original, linha.observacao_original]
+    .map((t) => String(t ?? '').trim()).filter((t) => t && t !== '-').join(' · ');
+  const r = await registrarSaida(db, {
+    tipo: classe,
+    data: linha.data,
+    sku,
+    qtd: Math.max(1, Number(linha.qtd ?? 1)),
+    motivo: (texto || ROTULO_SAIDA[classe] || classe).slice(0, 120),
+    observacao: `Planilha de vendas, Nº ${linha.origem_linha} — "cliente" ${linha.cliente_nome_original ?? '—'}. ${motivo}`.slice(0, 1000),
+    origemRegistro: 'migracao_historico',
+    historicoItemId: linha.id,
+    origemUsuario: usuario,
+  });
+  if (!r.ok || !r.saida) return { id: null, porque: r.erro ?? 'a saída não pôde ser registrada' };
+  await db.prepare('UPDATE historico_reclassificacao SET saida_id = ? WHERE id = ?').bind(r.saida.id, rcId).run();
+  return { id: r.saida.id };
 }
 
 export async function listarReclassificacoes(db, { status = null } = {}) {

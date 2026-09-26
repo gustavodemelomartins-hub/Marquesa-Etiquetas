@@ -135,6 +135,7 @@ export const rotas = [
         incluirEstornadas: url.searchParams.get('estornadas') !== 'nao',
         limite: Math.min(+(url.searchParams.get('limite') || 200), 1000),
         offset: +(url.searchParams.get('offset') || 0),
+        busca: url.searchParams.get('busca') || null,
       }));
     },
   },

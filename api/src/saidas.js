@@ -291,12 +291,20 @@ export async function estornarSaida(db, id, { motivo = null } = {}) {
      dela — a peça saiu na importação da planilha, e continua fora. O
      estorno existe mesmo assim: ele desfaz a CLASSIFICAÇÃO. */
   if (!linha.estoque_refletido) {
-    const atualizada = await db.prepare(
-      `UPDATE saidas_sem_faturamento
-          SET estornada = 1, estorno_em = datetime('now'), estorno_motivo = ?,
-              atualizado_em = datetime('now')
-        WHERE id = ? RETURNING *`,
-    ).bind(razao, id).first();
+    /* Estornar a saída histórica é dizer que a linha da planilha ERA venda:
+       a decisão de reclassificação que a criou sai junto, no mesmo batch,
+       senão o dinheiro continuaria fora do faturamento sem saída nenhuma
+       que o explicasse. A saída estornada fica, com o motivo. */
+    await db.batch([
+      db.prepare(
+        `UPDATE saidas_sem_faturamento
+            SET estornada = 1, estorno_em = datetime('now'), estorno_motivo = ?,
+                atualizado_em = datetime('now')
+          WHERE id = ?`,
+      ).bind(razao, id),
+      db.prepare('DELETE FROM historico_reclassificacao WHERE saida_id = ?').bind(id),
+    ]);
+    const atualizada = await db.prepare('SELECT * FROM saidas_sem_faturamento WHERE id = ?').bind(id).first();
     return {
       ok: true,
       saida: publica(atualizada),
@@ -347,6 +355,7 @@ export async function estornarSaida(db, id, { motivo = null } = {}) {
 
 export async function listarSaidas(db, {
   de = null, ate = null, tipo = null, incluirEstornadas = true, limite = 200, offset = 0,
+  busca = null,
 } = {}) {
   const t = tipo && TIPOS.has(tipo) ? tipo : null;
   const { results } = await db.prepare(
@@ -357,9 +366,13 @@ export async function listarSaidas(db, {
         AND (? IS NULL OR s.data <= ?)
         AND (? IS NULL OR s.tipo = ?)
         AND (? = 1 OR s.estornada = 0)
+        AND (? IS NULL OR s.sku LIKE ? OR LOWER(COALESCE(p.desc, '')) LIKE ?
+             OR LOWER(COALESCE(s.motivo, '') || ' ' || COALESCE(s.observacao, '')) LIKE ?)
       ORDER BY s.data DESC, s.id DESC
       LIMIT ? OFFSET ?`,
-  ).bind(de, de, ate, ate, t, t, incluirEstornadas ? 1 : 0, limite, offset).all();
+  ).bind(de, de, ate, ate, t, t, incluirEstornadas ? 1 : 0,
+    ...(() => { const b = busca ? `%${String(busca).trim().toLowerCase()}%` : null; return [b, b, b, b]; })(),
+    limite, offset).all();
 
   const linhas = (results ?? []).map(publica);
   /* O resumo diz, na mesma resposta, quantas PEÇAS saíram sem virar venda.
@@ -372,7 +385,41 @@ export async function listarSaidas(db, {
     resumo[l.tipo] += n;
     resumo.total += n;
   }
-  return { ok: true, saidas: linhas, resumo, limite, offset };
+  /* §30 — linha da planilha reclassificada como não-venda que NÃO virou
+     saída (sem data, ou código fora do catálogo). Ela não some: aparece aqui,
+     marcada como legado, com o que a planilha registrou. */
+  const { results: semSaida } = await db.prepare(
+    `SELECT rc.id, rc.classe_nova, rc.motivo, rc.decidido_em, rc.decidido_por,
+            h.id AS item_id, h.origem_linha, h.data, h.sku, h.qtd, h.valor_total,
+            h.cliente_nome_original, h.nome_produto_historico, h.observacao_original, h.desconto_original,
+            p.desc AS produto
+       FROM historico_reclassificacao rc
+       JOIN vendas_historico_itens h ON h.id = rc.historico_item_id
+       JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
+       LEFT JOIN produtos p ON p.sku = h.sku_base
+      WHERE rc.status = 'aplicada' AND rc.saida_id IS NULL
+        AND (? IS NULL OR rc.classe_nova = ?)
+      ORDER BY h.data DESC, rc.id DESC`,
+  ).bind(t, t).all();
+  const legado = (semSaida ?? []).map((r) => ({
+    reclassificacaoId: r.id,
+    tipo: r.classe_nova,
+    tipoRotulo: ROTULO[r.classe_nova] ?? r.classe_nova,
+    data: r.data ?? null,
+    sku: r.sku ?? null,
+    produto: r.produto ?? r.nome_produto_historico ?? null,
+    qtd: r.qtd == null ? null : Number(r.qtd),
+    valorPlanilha: r.valor_total == null ? null : Number(r.valor_total),
+    pessoa: r.cliente_nome_original ?? null,
+    observacao: [r.desconto_original, r.observacao_original].filter(Boolean).join(' · ') || null,
+    motivo: r.motivo,
+    linhaPlanilha: r.origem_linha,
+    historicoItemId: r.item_id,
+    decididoEm: r.decidido_em,
+    decididoPor: r.decidido_por ?? null,
+    porque: !r.data ? 'sem data na planilha' : 'código fora do catálogo',
+  }));
+  return { ok: true, saidas: linhas, resumo, limite, offset, legado };
 }
 
 export { ROTULO as ROTULO_SAIDA, TIPOS as TIPOS_SAIDA };
