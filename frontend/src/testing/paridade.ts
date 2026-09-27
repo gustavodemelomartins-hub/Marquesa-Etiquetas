@@ -545,6 +545,20 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/revendedoras/NovaRevendedora.tsx`, contem: 'export function NovaRevendedora' },
       },
       {
+        id: 'revendedoras.historico-acertos', rotulo: 'Histórico consolidado de acertos (vendido, comissão, líquido, SKUs)',
+        estado: 'pronta', rota: '#/revendedoras/historico',
+        prova: { arquivo: `${F}/features/revendedoras/HistoricoDeAcertos.tsx`, contem: 'export function HistoricoDeAcertos' },
+      },
+      {
+        id: 'revendedoras.top', rotulo: 'Top revendedoras (ticket e giro da REGRAS §19)', estado: 'pronta',
+        prova: { arquivo: `${F}/features/revendedoras/PainelAcertos.tsx`, contem: 'export function TopRevendedoras' },
+      },
+      {
+        id: 'revendedoras.inativas', rotulo: 'Revendedoras inativas: lista, filtro e ficha com histórico', estado: 'pronta',
+        rota: '#/revendedoras/todas',
+        prova: { arquivo: `${F}/features/revendedoras/TodasRevendedoras.tsx`, contem: "'inativas'" },
+      },
+      {
         id: 'maletas.criar', rotulo: 'Montar maleta', estado: 'pronta',
         prova: { arquivo: `${F}/features/maletas/CriarMaletaFluxo.tsx`, contem: 'export function CriarMaletaFluxo' },
       },

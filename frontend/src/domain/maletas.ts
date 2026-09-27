@@ -147,12 +147,17 @@ export interface ResumoRevendedora {
 }
 
 /** Uma linha por revendedora ativa, com a maleta aberta dela se houver. */
-export function resumoDasRevendedoras(estado: AppState, hoje = hojeISO()): ResumoRevendedora[] {
+export function resumoDasRevendedoras(
+  estado: AppState, hoje = hojeISO(), { incluirInativas = false } = {},
+): ResumoRevendedora[] {
   const produtos = new Map(estado.produtos.map((p) => [p.sku, p]));
   const prazoDias = estado.config.prazoDias;
 
+  /* Inativa não é excluída: o cadastro e o histórico continuam. Quem pede
+     a lista completa (Todas as revendedoras) recebe todo mundo; a lista
+     operacional (quem pode receber maleta) continua só com as ativas. */
   return estado.revendedoras
-    .filter((r) => r.status !== 'inativa')
+    .filter((r) => incluirInativas || r.status !== 'inativa')
     .map((r) => {
       const m = maletaAbertaDe(estado, r.id);
       return {

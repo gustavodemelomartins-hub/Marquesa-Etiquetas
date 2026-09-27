@@ -16,7 +16,8 @@ interface Props {
   conexao: Connection;
   estado: AppState;
   revendedora: Reseller;
-  aoCriarMaleta: () => void;
+  /** Nulo para cadastro inativo: a ficha consulta, não reativa ninguém. */
+  aoCriarMaleta: (() => void) | null;
   aoAdicionarItens: () => void;
   aoFazerAcerto: () => void;
 }
@@ -67,9 +68,13 @@ export function RevendedoraPage({
 
     {!aberta ? (
       <EmptyState
-        titulo={`${revendedora.nome} não está com nenhuma maleta`}
-        descricao="Monte uma nova maleta com as peças disponíveis no estoque de casa."
-        acoes={<button type="button" className="btn btn-escrita" onClick={aoCriarMaleta}>+ Criar maleta</button>}
+        titulo="Nenhuma maleta ativa"
+        descricao={aoCriarMaleta
+          ? `${revendedora.nome} não está com mercadoria agora. Monte uma nova maleta com as peças disponíveis em casa.`
+          : `Cadastro inativo: ${revendedora.nome} não está com mercadoria. O histórico completo (maletas, acertos, vendas e comissões) continua abaixo.`}
+        acoes={aoCriarMaleta
+          ? <button type="button" className="btn btn-escrita" onClick={aoCriarMaleta}>+ Criar maleta</button>
+          : undefined}
       />
     ) : (
       <div className="rev-profile-grid">

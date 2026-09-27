@@ -80,7 +80,7 @@ function AppConectado({
      não havia link para mandar "abre a maleta da Fulana". */
   const subRev: SubRotaRevendedoras = rota.sub && /^\d+$/.test(rota.sub)
     ? Number(rota.sub)
-    : rota.sub === 'todas' || rota.sub === 'configuracoes'
+    : rota.sub === 'todas' || rota.sub === 'historico' || rota.sub === 'configuracoes'
       ? rota.sub
       : 'visao-geral';
 

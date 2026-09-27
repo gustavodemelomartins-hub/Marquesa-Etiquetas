@@ -9,6 +9,8 @@ import { totaisEstoque } from '../../domain/estoque';
 import { agendaDeAcertos, resumoDasRevendedoras } from '../../domain/maletas';
 import { calcularCapacidade } from '../../domain/capacidade';
 import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
+import type { AcertoResumo, AcertosDeMaleta } from './acertos';
+import { ListaDeAcertos, ResumoDeAcertos, TopRevendedoras } from './PainelAcertos';
 
 interface Props {
   estado: AppState;
@@ -17,6 +19,11 @@ interface Props {
   aoVerSugestoes: () => void;
   aoNovaRevendedora: () => void;
   aoVerTodas: () => void;
+  /** `GET /api/analytics/revendedoras` — nulo enquanto carrega. */
+  acertos: AcertosDeMaleta | null;
+  erroAcertos: string | null;
+  aoAbrirAcerto: (a: AcertoResumo) => void;
+  aoVerHistorico: () => void;
 }
 
 /** A Visão Geral de Revendedoras: a operação de consignação inteira em uma
@@ -33,10 +40,19 @@ export function VisaoGeralRevendedoras({
   aoVerSugestoes,
   aoNovaRevendedora,
   aoVerTodas,
+  acertos,
+  erroAcertos,
+  aoAbrirAcerto,
+  aoVerHistorico,
 }: Props) {
   const t = totaisEstoque(estado);
   const agenda = agendaDeAcertos(estado);
-  const resumo = resumoDasRevendedoras(estado);
+  /* A parte de baixo desta tela é OPERACIONAL: quem está com mercadoria
+     agora. O cadastro inteiro mora em Todas as revendedoras, e o passado
+     no Histórico de acertos — o título diz qual das três coisas é esta. */
+  const comMaleta = resumoDasRevendedoras(estado).filter((r) => r.maletaAberta);
+  const comHistorico = new Set((acertos?.revendedoras ?? []).map((r) => r.revendedoraId));
+  const semHistorico = estado.revendedoras.filter((r) => !comHistorico.has(r.id)).map((r) => r.nome);
   const cadastros = new Map(estado.revendedoras.map((r) => [r.id, r]));
   const cap = calcularCapacidade(estado, planejamento.config);
   const atrasadas = agenda.filter((a) => a.situacao.atrasada);
@@ -130,42 +146,72 @@ export function VisaoGeralRevendedoras({
       </Painel>
       </div>
 
-        <Painel
-          titulo="Revendedoras"
-          dica="Abra uma pessoa para ver a maleta e o histórico"
-          acoes={<button type="button" className="btn btn-leitura btn-sm" onClick={aoVerTodas}>Ver todas</button>}
-        >
-          {!resumo.length ? (
-            <EmptyState
-              titulo="Nenhuma revendedora ainda"
-              descricao="Crie uma aba para cada pessoa que leva maleta."
-              acoes={
-                <button type="button" className="btn btn-escrita" onClick={aoNovaRevendedora}>
-                  + Nova revendedora
+      <Painel
+        titulo="Maletas ativas"
+        dica="Quem está com mercadoria agora"
+        acoes={<button type="button" className="btn btn-leitura btn-sm" onClick={aoVerTodas}>Ver todas as revendedoras</button>}
+      >
+        {!comMaleta.length ? (
+          <EmptyState
+            titulo="Nenhuma maleta na rua"
+            descricao={estado.revendedoras.length ? 'O cadastro e o histórico de cada revendedora continuam em Todas as revendedoras.' : 'Crie uma aba para cada pessoa que leva maleta.'}
+            acoes={estado.revendedoras.length ? undefined : (
+              <button type="button" className="btn btn-escrita" onClick={aoNovaRevendedora}>+ Nova revendedora</button>
+            )}
+          />
+        ) : (
+          <ul className="cartoes-rev">
+            {comMaleta.map((r) => (
+              <li key={r.id}>
+                <button type="button" onClick={() => aoAbrirRevendedora(r.id)}>
+                  <span className="rev-card-identidade">
+                    <span className="rev-card-avatar" aria-hidden="true">{r.nome.split(/\s+/).slice(0, 2).map((n) => n[0]).join('').toUpperCase()}</span>
+                    <span><b>{r.nome}</b><small>{[
+                      cadastros.get(r.id)?.cidade,
+                      r.prazo ? `acerto ${fmtData(r.prazo)}` : null,
+                    ].filter(Boolean).join(' · ') || 'Maleta aberta'}</small></span>
+                    <StatusBadge tom={r.situacao!.tom}>{`Maleta #${r.maletaAberta!.id}`}</StatusBadge>
+                  </span>
+                  <strong className="rev-card-resumo">{r.pecas} peças · {money(r.valor)}</strong>
                 </button>
-              }
-            />
-          ) : (
-            <ul className="cartoes-rev">
-              {resumo.slice(0, 3).map((r) => (
-                <li key={r.id}>
-                  <button type="button" onClick={() => aoAbrirRevendedora(r.id)}>
-                    <span className="rev-card-identidade">
-                      <span className="rev-card-avatar" aria-hidden="true">{r.nome.split(/\s+/).slice(0, 2).map((n) => n[0]).join('').toUpperCase()}</span>
-                      <span><b>{r.nome}</b><small>{[
-                        cadastros.get(r.id)?.cidade,
-                        r.maletaAberta && r.prazo ? `acerto ${fmtData(r.prazo)}` : null,
-                        !r.maletaAberta && r.maletasFechadas ? `${r.maletasFechadas} ${plural(r.maletasFechadas, 'maleta fechada', 'maletas fechadas')}` : null,
-                      ].filter(Boolean).join(' · ') || 'Cadastro ativo'}</small></span>
-                      <StatusBadge tom={r.maletaAberta ? r.situacao!.tom : 'neutro'}>{r.maletaAberta ? 'Maleta aberta' : 'Sem maleta'}</StatusBadge>
-                    </span>
-                    <strong className="rev-card-resumo">{r.maletaAberta ? `${r.pecas} peças · ${money(r.valor)}` : 'Nenhuma maleta aberta'}</strong>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Painel>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Painel>
+
+      <Painel
+        titulo="Histórico de acertos"
+        dica="Só acertos concluídos — maleta aberta e acerto cancelado não entram"
+        acoes={<button type="button" className="btn btn-leitura btn-sm" onClick={aoVerHistorico}>Ver histórico completo</button>}
+        semPadding
+      >
+        {erroAcertos ? (
+          <p className="rev-historico-aviso" role="alert">Não consegui ler os acertos: {erroAcertos}</p>
+        ) : !acertos ? (
+          <p className="rev-historico-aviso" aria-busy="true">Lendo os acertos…</p>
+        ) : (
+          <>
+            <ResumoDeAcertos totais={acertos.totais} />
+            <ListaDeAcertos acertos={acertos.acertos.slice(0, 5)} aoAbrir={aoAbrirAcerto} compacta rotulo="Acertos recentes" />
+            {acertos.acertos.length > 5 && (
+              <button type="button" className="acertos-mais" onClick={aoVerHistorico}>
+                Ver os outros {acertos.acertos.length - 5} {plural(acertos.acertos.length - 5, 'acerto', 'acertos')} ›
+              </button>
+            )}
+          </>
+        )}
+      </Painel>
+
+      <Painel titulo="Top revendedoras" dica="Desempenho dos ciclos encerrados, ativas e inativas" semPadding>
+        {erroAcertos ? (
+          <p className="rev-historico-aviso" role="alert">Não consegui ler os acertos: {erroAcertos}</p>
+        ) : !acertos ? (
+          <p className="rev-historico-aviso" aria-busy="true">Lendo os acertos…</p>
+        ) : (
+          <TopRevendedoras revendedoras={acertos.revendedoras} aoAbrir={aoAbrirRevendedora} semHistorico={semHistorico} />
+        )}
+      </Painel>
     </>
   );
 }

@@ -274,8 +274,8 @@ function acharLocais(termo: string, estado: AppState | null): Achado[] {
       destino: { modulo: 'estoque' as ModuloId, sub: 'pecas' },
     }));
 
+  /* Inativa também é achada: a ficha dela guarda o histórico inteiro. */
   const revendedoras: Achado[] = estado.revendedoras
-    .filter((r) => r.status !== 'inativa')
     .filter((r) => dobrar(r.nome).includes(t) || dobrar(r.cidade ?? '').includes(t))
     .slice(0, LIMITE_POR_TIPO)
     .map((r) => ({
@@ -283,7 +283,7 @@ function acharLocais(termo: string, estado: AppState | null): Achado[] {
       tipo: 'revendedora' as const,
       rotulo: 'Revendedora',
       titulo: r.nome,
-      detalhe: [r.cidade, r.tel].filter(Boolean).join(' · ') || 'sem contato',
+      detalhe: [r.status === 'inativa' ? 'inativa' : null, r.cidade, r.tel].filter(Boolean).join(' · ') || 'sem contato',
       icone: 'bag' as NomeIcone,
       destino: { modulo: 'revendedoras' as ModuloId, sub: String(r.id) },
     }));

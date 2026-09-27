@@ -45,9 +45,11 @@ describe('Histórico da revendedora', () => {
     expect(within(tabela).getByText(/Maleta #12/)).toBeTruthy();
     expect(within(tabela).getByText('94 · 79 · 15')).toBeTruthy();
     fireEvent.click(within(tabela).getByRole('button', { name: 'Ver peças' }));
-    expect(within(tabela).getByText('Vendidas (1)')).toBeTruthy();
-    expect(within(tabela).getByText('Devolvidas (1)')).toBeTruthy();
-    expect(within(tabela).getByText(/Linhas da planilha de vendas: 1422, 1423/)).toBeTruthy();
+    const vendidas = within(tabela).getByRole('region', { name: 'Peças vendidas' });
+    expect(within(vendidas).getByText('429300')).toBeTruthy();
+    const devolvidas = within(tabela).getByRole('region', { name: 'Peças devolvidas' });
+    expect(within(devolvidas).getByText('566355')).toBeTruthy();
+    expect(within(tabela).getByText(/linhas da planilha 1422, 1423/)).toBeTruthy();
     expect(within(tabela).getByText(/não registrado/)).toBeTruthy();
   });
 

@@ -1,0 +1,197 @@
+/* Revendedoras — histórico de acertos, Top revendedoras e o detalhe de um
+   acerto. Densidade do painel clássico, linguagem visual da V2: linhas
+   finas, números alinhados, tipografia fazendo a hierarquia em vez de
+   caixas. No telefone cada linha vira um cartão com rótulo por valor. */
+
+/* Rótulo só para leitor de tela. A classe já era usada em oito lugares
+   (a busca da maleta, o período do histórico…) e nunca tinha sido
+   definida: o rótulo aparecia na tela, em cima do campo. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* As listas medem o PAINEL, não a janela: com o menu lateral aberto, uma
+   janela de 1280 deixa ~860px para elas. */
+.acertos-caixa { container-type: inline-size; }
+
+/* ── resumo: uma faixa, três números ─────────────────────────────── */
+.acertos-resumo {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0; border-bottom: 1px solid var(--line-soft);
+}
+.acertos-resumo > div { display: grid; gap: 3px; padding: var(--r4) var(--r5); min-width: 0; }
+.acertos-resumo > div + div { border-left: 1px solid var(--line-soft); }
+.acertos-resumo dt { color: var(--muted); font-size: 10.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.acertos-resumo dd { margin: 0; color: var(--ink); font: 600 23px/1.15 var(--serif); font-variant-numeric: tabular-nums; }
+.acertos-resumo small { color: var(--muted); font-size: 11px; }
+.acertos-resumo__destaque { background: linear-gradient(180deg, var(--rose-tint), transparent 85%); }
+.acertos-resumo__destaque dd { color: var(--bordo); }
+
+/* ── filtros ─────────────────────────────────────────────────────── */
+.acertos-filtros {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--r2) var(--r3);
+  padding: var(--r3) var(--r5); border-bottom: 1px solid var(--line-soft); background: var(--ivory);
+}
+.acertos-filtros select, .acertos-filtros input {
+  min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper);
+  color: var(--ink); font: inherit; font-size: 12.5px; padding: 0 var(--r2);
+}
+.acertos-filtros__busca { flex: 1 1 180px; }
+.acertos-filtros__busca input { width: 100%; }
+
+/* ── lista de acertos ────────────────────────────────────────────── */
+.acertos-lista { display: block; }
+.acertos-lista__linha {
+  display: grid; align-items: center; gap: var(--r3);
+  grid-template-columns: 78px minmax(120px, 1.5fr) 62px 72px 70px 84px 82px 86px 78px;
+  width: 100%; padding: 10px var(--r4); column-gap: 10px; border: 0; border-bottom: 1px solid var(--line-soft);
+  background: none; text-align: left; font: inherit; color: var(--ink); font-size: 12.5px;
+}
+button.acertos-lista__linha { cursor: pointer; transition: background .12s; }
+button.acertos-lista__linha:hover { background: var(--rose-tint); }
+button.acertos-lista__linha:focus-visible { outline: 2px solid var(--rose); outline-offset: -2px; }
+.acertos-lista__linha:last-child { border-bottom: 0; }
+.acertos-lista__cabeca {
+  padding-top: 8px; padding-bottom: 8px; background: var(--ivory);
+  color: var(--muted); font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+}
+.acertos-lista__linha > span { min-width: 0; }
+.acertos-lista__linha .num { text-align: right; font-variant-numeric: tabular-nums; }
+.acertos-lista__linha .forte { color: var(--bordo); font-weight: 700; }
+.acertos-lista__linha small { color: var(--muted); font-size: 11px; }
+.acertos-lista__data { color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; }
+.acertos-lista__quem { display: flex; align-items: center; gap: var(--r2); flex-wrap: wrap; }
+.acertos-lista__quem b { font-weight: 650; overflow: hidden; text-overflow: ellipsis; }
+.acertos-lista__situacao { justify-self: end; }
+.acertos-mais {
+  display: block; width: 100%; padding: 10px var(--r5); border: 0; border-top: 1px solid var(--line-soft);
+  background: none; color: var(--bordo); font: inherit; font-size: 12.5px; font-weight: 650; text-align: left; cursor: pointer;
+}
+.acertos-mais:hover { background: var(--rose-tint); }
+
+/* ── Top revendedoras ────────────────────────────────────────────── */
+.top-rev { list-style: none; margin: 0; padding: 0; }
+.top-rev > li { border-bottom: 1px solid var(--line-soft); }
+.top-rev > li:last-child { border-bottom: 0; }
+.top-rev__linha {
+  display: grid; align-items: center; gap: var(--r3);
+  grid-template-columns: 18px minmax(140px, 1.7fr) 84px 44px 46px 72px 42px 84px 88px 78px;
+  width: 100%; padding: 11px var(--r4); column-gap: 10px; border: 0; background: none; text-align: left;
+  font: inherit; font-size: 12.5px; color: var(--ink);
+}
+button.top-rev__linha { cursor: pointer; transition: background .12s; }
+button.top-rev__linha:hover { background: var(--rose-tint); }
+button.top-rev__linha:focus-visible { outline: 2px solid var(--rose); outline-offset: -2px; }
+.top-rev__cabeca {
+  padding-top: 8px; padding-bottom: 8px; background: var(--rose-tint);
+  color: var(--bordo); font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+}
+.top-rev__linha > span { min-width: 0; }
+.top-rev__linha .num { text-align: right; font-variant-numeric: tabular-nums; }
+.top-rev__linha .forte { color: var(--bordo); font-weight: 700; }
+.top-rev__pos { color: var(--muted); font: 600 15px/1 var(--serif); }
+.top-rev__quem { display: flex; align-items: center; gap: var(--r2); flex-wrap: wrap; }
+.top-rev__quem b { font-weight: 650; }
+.top-rev__nota { margin: 0; padding: var(--r3) var(--r5) var(--r4); color: var(--muted); font-size: 11px; line-height: 1.5; border-top: 1px solid var(--line-soft); }
+
+/* ── Todas as revendedoras ───────────────────────────────────────── */
+.rev-lista-busca { display: flex; flex-wrap: wrap; align-items: center; gap: var(--r3); }
+.rev-lista-busca label { flex: 1 1 200px; max-width: 360px; }
+.rev-lista-busca input {
+  min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper);
+  color: var(--ink); font: inherit; font-size: 12.5px; padding: 0 var(--r3);
+}
+.rev-lista__linha { grid-template-columns: minmax(170px, 1.4fr) minmax(150px, 1fr) minmax(120px, .9fr) minmax(110px, .8fr) minmax(140px, 1fr) 110px 18px; }
+.rev-lista__selos { flex-direction: row; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+/* os nomes dos cartões de maleta não cortam mais ("Evelyn Ve…") */
+.cartoes-rev .rev-card-identidade > span:nth-child(2) b { white-space: normal; }
+
+/* ── detalhe de um acerto ────────────────────────────────────────── */
+.rev-acerto-detalhe { display: block; }
+.acerto-detalhe { display: grid; gap: var(--r4); }
+.acerto-detalhe__selos { display: flex; gap: var(--r2); flex-wrap: wrap; margin-bottom: var(--r3); }
+.acerto-detalhe__numeros, .acerto-detalhe__dinheiro {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--paper); overflow: hidden;
+}
+.acerto-detalhe__dinheiro { grid-template-columns: repeat(3, minmax(0, 1fr)); background: var(--rose-tint); border-color: var(--rose-soft); }
+.acerto-detalhe__numeros > div, .acerto-detalhe__dinheiro > div { display: grid; gap: 2px; padding: 10px var(--r3); }
+.acerto-detalhe__numeros > div + div, .acerto-detalhe__dinheiro > div + div { border-left: 1px solid var(--line-soft); }
+.acerto-detalhe dt { color: var(--muted); font-size: 10.5px; }
+.acerto-detalhe dd { margin: 0; color: var(--ink); font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+.acerto-detalhe__dinheiro dd { color: var(--bordo); font: 600 18px/1.2 var(--serif); }
+.acerto-detalhe__bloco h4, .acerto-detalhe__origem h4 { margin: 0 0 var(--r2); font-size: 12.5px; color: var(--ink); }
+.acerto-detalhe__bloco h4 small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+.acerto-detalhe__itens {
+  list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto;
+  border: 1px solid var(--line-soft); border-radius: 8px;
+}
+.acerto-detalhe__itens li {
+  display: grid; grid-template-columns: 64px minmax(0, 1fr) 44px 78px; gap: var(--r2); align-items: baseline;
+  padding: 6px var(--r3); border-bottom: 1px solid var(--line-soft); font-size: 12px;
+}
+.acerto-detalhe__itens li:last-child { border-bottom: 0; }
+.acerto-detalhe__itens code { font-family: var(--mono); font-size: 11.5px; color: var(--bordo); }
+.acerto-detalhe__itens span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.acerto-detalhe__itens b { text-align: right; }
+.acerto-detalhe__itens small { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.acerto-detalhe__correcoes { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.6; color: var(--ink); }
+.acerto-detalhe__origem p { margin: 0 0 4px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.acerto-detalhe .dica { margin: 6px 0 0; font-size: 11px; color: var(--muted); }
+
+/* ── lista estreita (telefone, ou painel apertado) ───────────────── */
+@container (max-width: 760px) {
+  .acertos-lista__cabeca, .top-rev__cabeca { display: none; }
+  .acertos-lista__linha {
+    grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 8px; column-gap: var(--r3);
+    padding: var(--r3) var(--r4);
+  }
+  .acertos-lista__data { grid-column: 1; grid-row: 1; }
+  .acertos-lista__situacao { grid-column: 2 / -1; grid-row: 1; }
+  .acertos-lista__quem { grid-column: 1 / -1; grid-row: 2; }
+  .acertos-lista__quem b { font-size: 14px; }
+  .acertos-lista__linha [data-rotulo], .top-rev__linha [data-rotulo] {
+    display: grid; gap: 1px; text-align: left; align-content: start;
+  }
+  .acertos-lista__linha [data-rotulo]::before, .top-rev__linha [data-rotulo]::before {
+    content: attr(data-rotulo); color: var(--muted); font-size: 10px; font-weight: 700;
+    letter-spacing: .06em; text-transform: uppercase;
+  }
+  .acertos-lista--compacta [data-rotulo="Devolvidas"], .acertos-lista--compacta [data-rotulo="Maleta"] { display: none; }
+
+  .top-rev__linha { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 8px; padding: var(--r3) var(--r4); }
+  .top-rev__pos { grid-row: 1; grid-column: 1; align-self: center; }
+  .top-rev__quem { grid-row: 1; grid-column: 1 / -1; padding-left: 22px; }
+}
+
+@media (max-width: 900px) {
+  .rev-lista__linha { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; }
+  .rev-lista__linha > .mq-cell:first-child { grid-column: 1; }
+  .rev-lista__linha > .rev-lista__selos { grid-column: 2; grid-row: 1; justify-content: flex-end; }
+  .rev-lista__linha > [data-rotulo] { grid-column: 1 / -1; display: flex; flex-direction: row; justify-content: space-between; align-items: baseline; gap: var(--r3); }
+  .rev-lista__linha > [data-rotulo]::before {
+    content: attr(data-rotulo); color: var(--muted); font-size: 10px; font-weight: 700;
+    letter-spacing: .06em; text-transform: uppercase; margin-right: auto;
+  }
+  .rev-lista__linha > [data-rotulo] > b, .rev-lista__linha > [data-rotulo] > small { text-align: right; }
+  .rev-lista__linha > .mq-tr__chev { display: none; }
+}
+@media (max-width: 640px) {
+  .acertos-resumo { grid-template-columns: 1fr 1fr; }
+  .acertos-resumo > div { padding: var(--r3) var(--r4); }
+  .acertos-resumo > div + div { border-left: 0; }
+  .acertos-resumo > div:nth-child(2) { border-left: 1px solid var(--line-soft); }
+  .acertos-resumo__destaque { grid-column: 1 / -1; border-top: 1px solid var(--line-soft); }
+  .acertos-resumo dd { font-size: 19px; }
+  .acertos-filtros { padding: var(--r3) var(--r4); }
+  .acertos-filtros label:not(.acertos-filtros__busca) { flex: 1 1 140px; }
+  .acertos-filtros select { width: 100%; min-height: 42px; }
+  .acertos-filtros input { min-height: 42px; }
+  .acertos-mais, .top-rev__nota { padding-left: var(--r4); padding-right: var(--r4); }
+  .acerto-detalhe__numeros { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .acerto-detalhe__numeros > div:nth-child(4) { border-left: 0; }
+  .acerto-detalhe__numeros > div:nth-child(n+4) { border-top: 1px solid var(--line-soft); }
+  .acerto-detalhe__itens li { grid-template-columns: 58px minmax(0, 1fr) 36px 66px; padding: 6px var(--r2); }
+}

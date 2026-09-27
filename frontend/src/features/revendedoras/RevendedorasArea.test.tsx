@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useEffect, useState } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RevendedorasArea, type SubRotaRevendedoras } from './RevendedorasArea';
 import type { Connection } from '../../services/client';
 import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
@@ -17,6 +17,24 @@ import * as api from '../maletas/api';
 afterEach(() => {
   cleanup();
   vi.resetAllMocks();
+  vi.unstubAllGlobals();
+});
+
+/* As leituras de acertos (`/api/analytics/revendedoras`) saem por `fetch`:
+   aqui ninguém tem acerto fechado, e a área tem de funcionar assim. */
+const semAcertos = {
+  exato: true, pendentesRevisao: 0, revendedoras: [], acertos: [],
+  totais: { acertos: 0, pecas: 0, vendido: 0, comissao: 0, liquido: 0 },
+};
+const historicoVazio = {
+  ok: true, acertos: [], eventos: [], limites: [],
+  resumo: { acertos: 0, pecasVendidas: 0, vendido: 0, comissao: 0, liquido: 0, aReceber: 0, maletas: 1, maletasAbertas: 1, pecasComEla: 3 },
+};
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(
+    JSON.stringify(/\/historico$/.test(String(url)) ? historicoVazio : semAcertos),
+    { status: 200, headers: { 'Content-Type': 'application/json' } },
+  )));
 });
 
 const conexao: Connection = { url: 'http://api.local', key: 'chave' };
@@ -96,11 +114,14 @@ describe('navegação de Revendedoras', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Revendedoras' })).toBeTruthy();
   });
 
-  it('usa a navegação estável do módulo, sem transformar pessoas em abas', () => {
+  it('usa a navegação estável do módulo, sem transformar pessoas em abas', async () => {
     render(<Area />);
     const abas = screen.getByRole('tablist', { name: 'Revendedoras' });
-    const rotulos = [...abas.querySelectorAll('[role="tab"]')].map((b) => b.textContent);
-    expect(rotulos).toEqual(['Visão geral', 'Todas as revendedoras 2', 'Configurações']);
+    /* Todas = o cadastro inteiro, inativa inclusive (3, não 2). */
+    await waitFor(() => {
+      const rotulos = [...abas.querySelectorAll('[role="tab"]')].map((b) => b.textContent);
+      expect(rotulos).toEqual(['Visão geral', 'Todas as revendedoras 3', 'Histórico de acertos 0', 'Configurações']);
+    });
   });
 
   it('revendedora arquivada não vira aba', () => {

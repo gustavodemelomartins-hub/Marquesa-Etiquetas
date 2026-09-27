@@ -2,7 +2,6 @@ import { useState } from 'react';
 import type { AppState } from '../../types/api';
 import type { Connection } from '../../services/client';
 import { PageHeader } from '../../components/PageHeader';
-import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { pesosDaRevendedora, type Sugestao } from '../../domain/sugestoes';
@@ -20,6 +19,11 @@ import { maletaAbertaDe } from '../../domain/maletas';
 import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
 import { LeitorDeEtiquetas } from '../../components/scanner/LeitorDeEtiquetas';
 import { resolverSku } from '../../components/scanner/codigoDaEtiqueta';
+import { StatusBadge } from '../../components/StatusBadge';
+import { useApi } from '../../hooks/useApi';
+import { buscarAcertos, type AcertoResumo } from './acertos';
+import { HistoricoDeAcertos } from './HistoricoDeAcertos';
+import { AcertoDrawer } from './DetalheDoAcerto';
 
 const scannerPadrao: IntegracaoScannerAcerto = {
   Leitor: LeitorDeEtiquetas,
@@ -28,7 +32,7 @@ const scannerPadrao: IntegracaoScannerAcerto = {
 
 /** 'visao-geral' ou o id de uma revendedora. Os nomes das abas vêm do
  *  banco — nenhum nome de pessoa aparece escrito no código. */
-export type SubRotaRevendedoras = 'visao-geral' | 'todas' | 'configuracoes' | number;
+export type SubRotaRevendedoras = 'visao-geral' | 'todas' | 'historico' | 'configuracoes' | number;
 
 interface Props {
   conexao: Connection;
@@ -65,15 +69,25 @@ export function RevendedorasArea({
   const [acertoAberto, setAcertoAberto] = useState(false);
   const [edicaoAberta, setEdicaoAberta] = useState(false);
   const [adicaoAberta, setAdicaoAberta] = useState(false);
+  const [acertoEmFoco, setAcertoEmFoco] = useState<AcertoResumo | null>(null);
+  /* Os acertos concluídos — Histórico, Top e a coluna "Acertos" de Todas.
+     Relê quando o estado muda (um acerto novo acabou de fechar). */
+  const acertos = useApi((sinal) => buscarAcertos(conexao, sinal), [conexao, estado]);
+  const erroAcertos = acertos.erro
+    ? (acertos.erro instanceof Error ? acertos.erro.message : 'falha na leitura')
+    : null;
 
   if (erro) return <ErrorState erro={erro} aoTentarDeNovo={recarregar} />;
   if (!estado) return <LoadingState>Lendo estoque, maletas e revendedoras…</LoadingState>;
 
-  const ativas = estado.revendedoras.filter((r) => r.status !== 'inativa');
-  const atual = typeof sub === 'number' ? ativas.find((r) => r.id === sub) : null;
-  /* Uma aba que aponta para alguém arquivada (ou removida entre duas
-     leituras) volta para a Visão Geral em vez de mostrar tela vazia. */
+  /* A ficha abre para QUALQUER cadastro — inativa inclusive. Inativa não é
+     excluída: tem histórico, acertos e comissão para consultar. */
+  const atual = typeof sub === 'number' ? estado.revendedoras.find((r) => r.id === sub) ?? null : null;
+  const inativa = atual?.status === 'inativa';
+  /* Um endereço que aponta para alguém removido entre duas leituras volta
+     para a Visão Geral em vez de mostrar tela vazia. */
   const rota: SubRotaRevendedoras = typeof sub === 'number' && !atual ? 'visao-geral' : sub;
+  const abrirRevendedora = (id: number) => { setAcertoEmFoco(null); aoNavegarSub(id); };
 
   function abrirCriacao(s: Sugestao | null) {
     setSugestaoEscolhida(s);
@@ -98,7 +112,10 @@ export function RevendedorasArea({
           Visão geral
         </button>
         <button type="button" role="tab" aria-selected={rota === 'todas'} onClick={() => aoNavegarSub('todas')}>
-          Todas as revendedoras <span className="mq-badge">{ativas.length}</span>
+          Todas as revendedoras <span className="mq-badge">{estado.revendedoras.length}</span>
+        </button>
+        <button type="button" role="tab" aria-selected={rota === 'historico'} onClick={() => aoNavegarSub('historico')}>
+          Histórico de acertos{acertos.dados ? <> <span className="mq-badge">{acertos.dados.acertos.length}</span></> : null}
         </button>
         <button type="button" role="tab" aria-selected={rota === 'configuracoes'} onClick={() => aoNavegarSub('configuracoes')}>Configurações</button>
       </nav>
@@ -120,11 +137,22 @@ export function RevendedorasArea({
             aoVerSugestoes={() => setSugestoesAbertas(true)}
             aoNovaRevendedora={() => setNovaAberta(true)}
             aoVerTodas={() => aoNavegarSub('todas')}
+            acertos={acertos.dados}
+            erroAcertos={erroAcertos}
+            aoAbrirAcerto={setAcertoEmFoco}
+            aoVerHistorico={() => aoNavegarSub('historico')}
           />
         </>
       )}
 
-      {rota === 'todas' && <><PageHeader kicker="Consignação" titulo="Todas as revendedoras" sub="Maleta atual, próximo acerto e histórico de cada pessoa." acoes={<><button type="button" className="btn btn-leitura" onClick={() => setNovaAberta(true)}>Nova revendedora</button><button type="button" className="btn btn-escrita" onClick={() => abrirCriacao(null)}>+ Criar maleta</button></>} /><TodasRevendedoras estado={estado} aoAbrir={aoNavegarSub} /></>}
+      {rota === 'todas' && <><PageHeader kicker="Consignação" titulo="Todas as revendedoras" sub="Maleta atual, próximo acerto e histórico de cada pessoa." acoes={<><button type="button" className="btn btn-leitura" onClick={() => setNovaAberta(true)}>Nova revendedora</button><button type="button" className="btn btn-escrita" onClick={() => abrirCriacao(null)}>+ Criar maleta</button></>} /><TodasRevendedoras estado={estado} acertos={acertos.dados} aoAbrir={aoNavegarSub} /></>}
+
+      {rota === 'historico' && <>
+        <PageHeader kicker="Consignação" titulo="Histórico de acertos" sub="Todo acerto concluído, de todas as revendedoras: o que foi vendido e devolvido, a comissão e o que ficou para a Marquesa." />
+        {erroAcertos ? <ErrorState erro={acertos.erro} aoTentarDeNovo={acertos.recarregar} />
+          : !acertos.dados ? <LoadingState>Lendo os acertos…</LoadingState>
+            : <HistoricoDeAcertos estado={estado} dados={acertos.dados} aoAbrirAcerto={setAcertoEmFoco} />}
+      </>}
 
       {rota === 'configuracoes' && <><PageHeader kicker="Consignação" titulo="Configurações" sub="Premissas transparentes para capacidade e montagem de maletas." /><ConfiguracoesRevendedoras estado={estado} planejamento={planejamento} aoVerSugestoes={() => setSugestoesAbertas(true)} aoCriarMaleta={() => abrirCriacao(null)} /></>}
 
@@ -132,32 +160,33 @@ export function RevendedorasArea({
         <>
           <button type="button" className="voltar-link" onClick={() => aoNavegarSub('todas')}>← Voltar para revendedoras</button>
           <PageHeader
-            kicker="Perfil da revendedora"
+            kicker={inativa ? 'Perfil da revendedora · cadastro inativo' : 'Perfil da revendedora'}
             titulo={atual.nome}
             sub={[atual.cidade, atual.tel].filter(Boolean).join(' · ') || 'Contato, maleta em aberto e histórico de acertos.'}
-            acoes={
+            acoes={<>
+              <StatusBadge tom={inativa ? 'neutro' : 'positivo'}>{inativa ? 'Inativa' : 'Ativa'}</StatusBadge>
               <button type="button" className="btn btn-leitura" onClick={() => setEdicaoAberta(true)}>
                 Editar cadastro
               </button>
-            }
+            </>}
           />
           <RevendedoraPage
             conexao={conexao}
             estado={estado}
             revendedora={atual}
-            aoCriarMaleta={() => abrirCriacao(null)}
+            aoCriarMaleta={inativa ? null : () => abrirCriacao(null)}
             aoAdicionarItens={() => setAdicaoAberta(true)}
             aoFazerAcerto={() => setAcertoAberto(true)}
           />
         </>
       )}
 
-      {typeof rota === 'number' && !atual && (
-        <EmptyState
-          titulo="Esta revendedora não está mais ativa"
-          descricao="Ela pode ter sido arquivada. O histórico de maletas dela continua no painel clássico."
-        />
-      )}
+      <AcertoDrawer
+        conexao={conexao}
+        acerto={acertoEmFoco}
+        aoFechar={() => setAcertoEmFoco(null)}
+        aoAbrirRevendedora={abrirRevendedora}
+      />
 
       <SugestoesDrawer
         aberto={sugestoesAbertas}

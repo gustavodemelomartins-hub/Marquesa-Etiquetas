@@ -1,11 +1,27 @@
 // Gerado por scripts/build-project-dashboard.mjs — não edite à mão.
 window.MARQUESA_V2 = {
-  "gerado": "2026-09-26",
+  "gerado": "2026-09-27",
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
   "atualizadoEm": "2026-09-12",
   "git": {
     "branch": "develop",
     "recentes": [
+      {
+        "commit": "bdec693",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(release): a V2 em produção, com os dados reais reconciliados",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "789fed8",
+        "data": "2026-09-26",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "test(v2): smoke dos fluxos da rodada de produção, com dados reais",
+        "agente": "",
+        "taskIds": []
+      },
       {
         "commit": "039e281",
         "data": "2026-09-26",
@@ -187,22 +203,6 @@ window.MARQUESA_V2 = {
         "data": "2026-09-25",
         "autor": "gustavodemelomartins-hub",
         "assunto": "docs(harness): registrar a conciliação do inventário e o que ficou por publicar",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "7a1e1b6",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(estoque): \"Saúde do estoque\" em uma linha, não numa coluna de 340px",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "4399bfe",
-        "data": "2026-09-24",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(inventario): o inventário passa a ter um fim — conciliação e progresso",
         "agente": "",
         "taskIds": []
       }

@@ -1,58 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { chamar, type Connection } from '../../services/client';
+import type { Connection } from '../../services/client';
 import { EmptyState } from '../../components/EmptyState';
 import { StatusBadge } from '../../components/StatusBadge';
 import { fmtData, money } from '../../domain/formato';
+import {
+  buscarHistorico, ROTULO_SITUACAO, TOM_SITUACAO, type EventoHistorico, type HistoricoDaRevendedora,
+} from './acertos';
+import { DetalheDoAcerto } from './DetalheDoAcerto';
 
-/** A resposta de `GET /api/revendedoras/:id/historico`. Tudo aqui é leitura
- *  das tabelas que registram cada fato — nenhum número é somado na tela que
- *  o backend não tenha somado da mesma fonte da Visão geral. */
-export interface ItemDoAcerto { sku: string; desc: string | null; qtd: number; valor?: number; destino?: string }
-export interface AcertoHistorico {
-  id: string;
-  fonte: 'documento' | 'sistema';
-  data: string | null;
-  maletaId: number | null;
-  enviadas: number | null;
-  devolvidas: number | null;
-  pecasVendidas: number;
-  vendido: number;
-  comissao: number;
-  liquido: number;
-  situacaoFinanceira: 'paga' | 'a_receber';
-  conferidoPor: string | null;
-  vendaId?: number | null;
-  vendaChave?: string | null;
-  linhasPlanilha?: string[] | null;
-  itensVendidos: ItemDoAcerto[];
-  itensDevolvidos: ItemDoAcerto[];
-}
-export interface EventoHistorico {
-  quando: string | null;
-  data: string | null;
-  tipo: string;
-  grupo: 'cadastro' | 'maleta' | 'envio' | 'devolucao' | 'acerto' | 'ajuste' | 'financeiro';
-  titulo: string;
-  detalhe?: string | null;
-  pecas?: number;
-  valor?: number;
-  maletaId?: number | null;
-  acertoId?: string;
-}
-export interface HistoricoDaRevendedora {
-  ok: boolean;
-  resumo: {
-    acertos: number; pecasVendidas: number; vendido: number; comissao: number; liquido: number;
-    aReceber: number; maletas: number; maletasAbertas: number; pecasComEla: number;
-  };
-  acertos: AcertoHistorico[];
-  eventos: EventoHistorico[];
-  limites: string[];
-}
-
-export function buscarHistorico(conexao: Connection, id: number, sinal?: AbortSignal) {
-  return chamar<HistoricoDaRevendedora>(conexao, 'GET', `/api/revendedoras/${id}/historico`, undefined, { signal: sinal });
-}
+export type {
+  ItemDoAcerto, AcertoHistorico, EventoHistorico, HistoricoDaRevendedora,
+} from './acertos';
+export { buscarHistorico } from './acertos';
 
 type Filtro = 'todos' | 'acerto' | 'movimento' | 'maleta' | 'ajuste' | 'financeiro';
 const FILTROS: { id: Filtro; rotulo: string; grupos: EventoHistorico['grupo'][] }[] = [
@@ -146,8 +105,8 @@ export function HistoricoRevendedora({ conexao, revendedoraId }: { conexao: Conn
                     <span role="cell"><small>Vendido</small><b>{money(a.vendido)}</b></span>
                     <span role="cell"><small>Comissão</small><b>{money(a.comissao)}</b></span>
                     <span role="cell"><small>Líquido</small><b>{money(a.liquido)}</b></span>
-                    <StatusBadge tom={a.situacaoFinanceira === 'paga' ? 'positivo' : 'atencao'}>
-                      {a.situacaoFinanceira === 'paga' ? 'Pago' : 'A receber'}
+                    <StatusBadge tom={TOM_SITUACAO[a.situacaoFinanceira]}>
+                      {ROTULO_SITUACAO[a.situacaoFinanceira]}
                     </StatusBadge>
                     <button type="button" className="btn btn-leitura" aria-expanded={aberto === a.id}
                       onClick={() => setAberto(aberto === a.id ? null : a.id)}>
@@ -155,26 +114,7 @@ export function HistoricoRevendedora({ conexao, revendedoraId }: { conexao: Conn
                     </button>
                   </div>
                   {aberto === a.id && (
-                    <div className="rev-acerto-detalhe">
-                      <div>
-                        <h4>Vendidas ({a.itensVendidos.reduce((s, i) => s + i.qtd, 0)})</h4>
-                        <ul>{a.itensVendidos.map((i) => (
-                          <li key={`v${i.sku}${i.destino ?? ''}`}><b>{i.sku}</b> {i.desc ?? ''} × {i.qtd}
-                            {i.valor != null ? ` · ${money(i.valor)}` : ''}{i.destino && i.destino !== 'vendida' ? ` · ${i.destino}` : ''}</li>
-                        ))}</ul>
-                      </div>
-                      <div>
-                        <h4>Devolvidas ({a.itensDevolvidos.reduce((s, i) => s + i.qtd, 0)})</h4>
-                        {a.itensDevolvidos.length ? (
-                          <ul>{a.itensDevolvidos.map((i) => <li key={`d${i.sku}`}><b>{i.sku}</b> {i.desc ?? ''} × {i.qtd}</li>)}</ul>
-                        ) : <p className="dica">{a.maletaId ? 'Nenhuma peça devolvida.' : 'Acerto anterior ao sistema: a maleta dele não está registrada aqui.'}</p>}
-                      </div>
-                      <p className="dica rev-acerto-origem">
-                        {a.vendaId ? `Venda #${a.vendaId} gerada pelo acerto. ` : ''}
-                        {a.linhasPlanilha?.length ? `Linhas da planilha de vendas: ${a.linhasPlanilha.join(', ')}. ` : ''}
-                        Conferido por: {a.conferidoPor ?? 'não registrado (o sistema ainda não tem usuários)'}.
-                      </p>
-                    </div>
+                    <div className="rev-acerto-detalhe"><DetalheDoAcerto acerto={a} /></div>
                   )}
                 </div>
               ))}

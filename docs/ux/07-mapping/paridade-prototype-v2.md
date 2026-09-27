@@ -14,13 +14,13 @@ consegue fazer.
 
 | | capacidades |
 |---|---|
-| 🟢 pronta | 115 |
+| 🟢 pronta | 118 |
 | 🟡 parcial | 3 |
 | ⚪ pendente — o backend tem, a tela não | 3 |
 | ⛔ indisponível — o backend não sustenta | 15 |
-| **total** | **136** |
+| **total** | **139** |
 
-**115 de 121** capacidades que o backend sustenta já estão
+**118 de 124** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
@@ -153,7 +153,7 @@ Referência visual: `/prototype/catalogo/` · 🟢 5 · 🟡 0 · ⚪ 2 · ⛔ 1
 
 ## Revendedoras e maletas
 
-Referência visual: `/prototype/revendedoras/` · 🟢 7 · 🟡 1 · ⚪ 0 · ⛔ 0
+Referência visual: `/prototype/revendedoras/` · 🟢 10 · 🟡 1 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -161,6 +161,9 @@ Referência visual: `/prototype/revendedoras/` · 🟢 7 · 🟡 1 · ⚪ 0 · �
 | Ficha da revendedora | 🟢 pronta | `#/revendedoras/<id>` | — |
 | A ficha sobrevive a recarregar e ao voltar | 🟢 pronta | `app/App.tsx` | — |
 | Cadastrar revendedora | 🟢 pronta | `features/revendedoras/NovaRevendedora.tsx` | — |
+| Histórico consolidado de acertos (vendido, comissão, líquido, SKUs) | 🟢 pronta | `#/revendedoras/historico` | — |
+| Top revendedoras (ticket e giro da REGRAS §19) | 🟢 pronta | `features/revendedoras/PainelAcertos.tsx` | — |
+| Revendedoras inativas: lista, filtro e ficha com histórico | 🟢 pronta | `#/revendedoras/todas` | — |
 | Montar maleta | 🟢 pronta | `features/maletas/CriarMaletaFluxo.tsx` | — |
 | Sugestão de peças para a maleta | 🟢 pronta | `features/maletas/SugestoesDrawer.tsx` | — |
 | Capacidade e planejamento | 🟢 pronta | `features/maletas/CapacidadeMaletas.tsx` | — |
