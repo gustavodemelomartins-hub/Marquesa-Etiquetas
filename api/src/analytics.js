@@ -1682,7 +1682,8 @@ export async function acertosDeMaleta(db, { periodo = 'tudo', de = null, ate = n
               ho.bruto_centavos / 100.0 AS vendido,
               ho.comissao_centavos / 100.0 AS comissao,
               ho.liquido_centavos / 100.0 AS liquido,
-              'documento da maleta' AS fonte
+              'documento da maleta' AS fonte,
+              ho.venda_chave, ho.evidencia_json, vh.status AS pagamento
          FROM historico_operacoes ho
          JOIN vendas_historico_lotes l ON l.id=ho.lote_id AND l.status='importado'
          JOIN vendas_historicas vh ON vh.lote_id=ho.lote_id AND vh.chave=ho.venda_chave
@@ -1704,7 +1705,13 @@ export async function acertosDeMaleta(db, { periodo = 'tudo', de = null, ate = n
               COALESCE(json_extract(m.acerto_json, '$.totalVendido'), 0) AS vendido,
               COALESCE(json_extract(m.acerto_json, '$.comissao'), 0) AS comissao,
               COALESCE(json_extract(m.acerto_json, '$.liquido'), 0) AS liquido,
-              'acerto do sistema' AS fonte
+              'acerto do sistema' AS fonte,
+              m.id AS maleta_id,
+              json_extract(m.acerto_json, '$.enviadas') AS enviadas,
+              json_extract(m.acerto_json, '$.devolvidas') AS devolvidas,
+              json_extract(m.acerto_json, '$.vendaId') AS venda_id,
+              (SELECT vd.pago FROM vendas vd
+                WHERE vd.id = json_extract(m.acerto_json, '$.vendaId')) AS venda_paga
          FROM maletas m JOIN revendedoras r ON r.id=m.rev_id
         WHERE m.status='encerrada' AND m.acerto_json IS NOT NULL${m.sql}
         ORDER BY m.encerrada_em DESC`,
@@ -1716,8 +1723,47 @@ export async function acertosDeMaleta(db, { periodo = 'tudo', de = null, ate = n
     ).first(),
   ]);
 
-  const acertos = [...(historicos.results ?? []), ...(operacionais.results ?? [])]
-    .map((v) => ({
+  /* A maleta de cada acerto, e quantas peças ela levou e trouxe de volta.
+     Acerto do sistema: o próprio `acerto_json` da maleta. Acerto documental:
+     a evidência nomeia a maleta, ou a observação da maleta que ele encerrou
+     cita a chave da venda. Sem nenhum dos dois (acerto anterior ao sistema),
+     a maleta fica nula e enviadas/devolvidas também — nunca estimadas. */
+  const historicosLidos = historicos.results ?? [];
+  const maletasDoc = historicosLidos.length ? ((await db.prepare(
+    `SELECT m.id, m.rev_id, m.obs,
+            (SELECT COALESCE(SUM(mi.qtd), 0) FROM maleta_itens mi WHERE mi.maleta_id = m.id) AS enviadas,
+            (SELECT COALESCE(SUM(mi.devolvida), 0) FROM maleta_itens mi WHERE mi.maleta_id = m.id) AS devolvidas
+       FROM maletas m WHERE m.status = 'encerrada' AND m.acerto_json IS NULL`,
+  ).all()).results ?? []) : [];
+  const maletaDoDocumento = (v) => {
+    const ev = (() => { try { return JSON.parse(v.evidencia_json ?? '{}') ?? {}; } catch { return {}; } })();
+    const daRev = maletasDoc.filter((m) => Number(m.rev_id) === Number(v.revendedora_id));
+    return daRev.find((m) => ev.maleta != null && Number(m.id) === Number(ev.maleta))
+      ?? daRev.find((m) => String(m.obs ?? '').includes(`acerto documental ${v.venda_chave} `))
+      ?? null;
+  };
+  const numeroOuNulo = (x) => (x == null ? null : Number(x));
+
+  const acertos = [
+    ...historicosLidos.map((v) => {
+      const m = maletaDoDocumento(v);
+      return {
+        v, maletaId: m ? Number(m.id) : null,
+        enviadas: m ? Number(m.enviadas) : null, devolvidas: m ? Number(m.devolvidas) : null,
+        vendaId: null, vendaChave: v.venda_chave ?? null,
+        /* o status que a planilha de vendas dá à venda do acerto */
+        situacaoFinanceira: v.pagamento === 'paga' ? 'paga'
+          : v.pagamento === 'parcial' ? 'parcial' : 'a_receber',
+      };
+    }),
+    ...(operacionais.results ?? []).map((v) => ({
+      v, maletaId: Number(v.maleta_id),
+      enviadas: numeroOuNulo(v.enviadas), devolvidas: numeroOuNulo(v.devolvidas),
+      vendaId: numeroOuNulo(v.venda_id), vendaChave: null,
+      situacaoFinanceira: v.venda_id == null ? 'sem_venda' : Number(v.venda_paga) ? 'paga' : 'a_receber',
+    })),
+  ]
+    .map(({ v, ...extra }) => ({
       id: v.id,
       data: v.data ?? null,
       revendedoraId: Number(v.revendedora_id),
@@ -1729,6 +1775,7 @@ export async function acertosDeMaleta(db, { periodo = 'tudo', de = null, ate = n
       liquido: +Number(v.liquido ?? 0).toFixed(2),
       fonte: v.fonte,
       exato: true,
+      ...extra,
     }))
     .sort((a, b) => String(b.data ?? '').localeCompare(String(a.data ?? '')));
 
@@ -1739,9 +1786,12 @@ export async function acertosDeMaleta(db, { periodo = 'tudo', de = null, ate = n
     const r = porRev.get(k) ?? {
       revendedoraId: a.revendedoraId, nome: a.revendedora, status: a.status,
       acertos: 0, pecas: 0, vendido: 0, comissao: 0, liquido: 0, ultimo: null,
+      enviadas: 0, vendidasComEnvio: 0, ciclosSemEnvio: 0,
     };
     r.acertos += 1; r.pecas += a.pecas;
     r.vendido += a.vendido; r.comissao += a.comissao; r.liquido += a.liquido;
+    if (a.enviadas == null) r.ciclosSemEnvio += 1;
+    else { r.enviadas += a.enviadas; r.vendidasComEnvio += a.pecas; }
     if (a.data && (!r.ultimo || a.data > r.ultimo)) r.ultimo = a.data;
     porRev.set(k, r);
   }
@@ -1751,11 +1801,17 @@ export async function acertosDeMaleta(db, { periodo = 'tudo', de = null, ate = n
     exato: true,
     pendentesRevisao: Number(revisoes?.n ?? 0),
     revendedoras: [...porRev.values()]
-      .map((r) => ({
+      .map(({ vendidasComEnvio, ...r }) => ({
         ...r,
         vendido: +r.vendido.toFixed(2),
         comissao: +r.comissao.toFixed(2),
         liquido: +r.liquido.toFixed(2),
+        /* REGRAS §19: ticket = vendido ÷ peças vendidas; giro = vendidas ÷
+           enviadas. Giro só existe quando TODO ciclo sabe quantas peças
+           levou — um ciclo antigo sem maleta faria a razão mentir. */
+        ticket: r.pecas ? +(r.vendido / r.pecas).toFixed(2) : null,
+        enviadas: r.ciclosSemEnvio ? null : r.enviadas,
+        giro: !r.ciclosSemEnvio && r.enviadas ? +(vendidasComEnvio / r.enviadas).toFixed(4) : null,
       }))
       .sort((a, b) => b.vendido - a.vendido),
     acertos,

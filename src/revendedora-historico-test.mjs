@@ -98,7 +98,13 @@ const m2 = (await api('POST', '/api/maletas', { revId: rev.id, abertaEm: '2026-0
 await api('POST', `/api/maletas/${m2.id}/itens`, { itens: { 610002: 2 } });
 await api('POST', '/api/vendas/historico/importar', {
   arquivo: 'hist.xlsx',
-  linhas: [CAB, [1, '2026-09-25', 'Hist Teste', '610002', 'Brinco Dois', 'Banhada', 1, 50, 'Revendedora', 37.5, 'Pix', 'PAGO', 'Maleta']],
+  linhas: [
+    CAB,
+    [1, '2026-09-25', 'Hist Teste', '610002', 'Brinco Dois', 'Banhada', 1, 50, 'Revendedora', 37.5, 'Pix', 'PAGO', 'Maleta'],
+    /* um acerto antigo, sem maleta no sistema, com uma linha que é troca */
+    [2, '2026-08-10', 'Hist Teste', '610001', 'Colar Um', 'Banhada', 1, 100, 'Revendedora', 75, 'Pix', 'PAGO', 'Maleta'],
+    [3, '2026-08-10', 'Hist Teste', '610002', 'Brinco Dois', 'Banhada', 1, 10, null, 10, 'Pix', 'PAGO', 'Maleta'],
+  ],
 });
 eq('decisão documental', (await api('POST', '/api/vendas/historico/operacoes', {
   operacoes: [{
@@ -128,6 +134,45 @@ const visao = (await api('GET', '/api/analytics/revendedoras?periodo=tudo')).cor
 eq('mesmos acertos', visao.length, h5.acertos.length);
 eq('mesmo líquido', +visao.reduce((s, x) => s + x.liquido, 0).toFixed(2), h5.resumo.liquido);
 eq('razão fecha', JSON.stringify((await api('GET', '/api/estoque/conferir')).corpo?.divergentes), '[]');
+
+console.log('\n=== 8. o Histórico de acertos e o Top saem da mesma leitura ===');
+const lerVisao = async () => (await api('GET', '/api/analytics/revendedoras?periodo=tudo')).corpo;
+const v8 = await lerVisao();
+const doSistema = v8.acertos.find((x) => x.id === a.id);
+const doDoc = v8.acertos.find((x) => x.id === doc.id);
+eq('o acerto do sistema diz a maleta', doSistema?.maletaId, m1.id);
+eq('e quanto ela levou e trouxe', `${doSistema?.enviadas}/${doSistema?.devolvidas}`, '5/4');
+eq('e a venda que gerou', doSistema?.vendaId, acerto.corpo.vendaId);
+eq('o documental diz a maleta que encerrou', doDoc?.maletaId, m2.id);
+eq('e quanto ela levou e trouxe', `${doDoc?.enviadas}/${doDoc?.devolvidas}`, '2/1');
+eq('a planilha diz PAGO', doDoc?.situacaoFinanceira, 'paga');
+const top = () => v8.revendedoras.find((r) => Number(r.revendedoraId) === Number(rev.id));
+eq('o Top conta os dois ciclos', top()?.acertos, 2);
+eq('ticket = vendido ÷ peças (REGRAS §19)', top()?.ticket, 75);
+eq('giro = vendidas ÷ enviadas (REGRAS §19)', top()?.giro, +(2 / 7).toFixed(4));
+eq('o Top soma o mesmo que a ficha', top()?.vendido, h5.resumo.vendido);
+
+eq('acerto antigo, com uma linha de troca excluída', (await api('POST', '/api/vendas/historico/operacoes', {
+  operacoes: [{
+    vendaChave: 'hist teste|2026-08-10', papel: 'acerto', revendedoraId: rev.id, pecas: 1,
+    brutoCentavos: 10000, comissaoCentavos: 2500, liquidoCentavos: 7500,
+    linhasExcluidas: ['3'], evidencia: { linha3: 'troca de R$ 10, nao venda' },
+  }],
+})).status, 200);
+const h8 = await hist();
+const antigo = h8.acertos.find((x) => x.data === '2026-08-10');
+eq('a linha excluída não é peça vendida', antigo?.itensVendidos.map((i) => `${i.sku}x${i.qtd}`).join(','), '610001x1');
+eq('ela aparece à parte, com o motivo', antigo?.linhasExcluidas?.map((l) => `${l.linha}:${l.motivo}`).join(','),
+  '3:troca de R$ 10, nao venda');
+eq('sem maleta no sistema, enviadas não é inventada', antigo?.enviadas, null);
+const v9 = await lerVisao();
+const top9 = v9.revendedoras.find((r) => Number(r.revendedoraId) === Number(rev.id));
+eq('três ciclos', top9?.acertos, 3);
+eq('um ciclo sem maleta: giro não é estimado', top9?.giro, null);
+eq('e a tela sabe por quê', top9?.ciclosSemEnvio, 1);
+eq('o total geral soma cada acerto uma vez', v9.totais.vendido,
+  +v9.acertos.reduce((s, x) => s + x.vendido, 0).toFixed(2));
+eq('razão fecha no fim', JSON.stringify((await api('GET', '/api/estoque/conferir')).corpo?.divergentes), '[]');
 
 if (falhas) {
   console.error(`\n${falhas} falha(s).`);

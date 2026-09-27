@@ -908,7 +908,16 @@ O Top Revendedoras agrega os ciclos ENCERRADOS de cada pessoa:
 - **ciclos** e **último acerto**.
 
 Quem não tem ciclo encerrado **não entra no ranking**, e a tela diz isso com
-todas as letras. Ordenar pelo valor da maleta atual mediria quem recebeu a
+todas as letras.
+
+Os ciclos são os de `acertosDeMaleta`: acerto do sistema (`acerto_json`) e
+acerto documental (histórico de vendas), cada um contado uma vez. O
+documental só sabe quantas peças foram enviadas quando a maleta que ele
+encerrou está registrada; um acerto anterior ao sistema não diz. Por isso o
+**giro só aparece quando TODO ciclo da revendedora tem a maleta** — uma
+razão calculada sobre parte dos ciclos seria outro número com o mesmo nome.
+Revendedora **inativa continua no ranking e no histórico**: inativa é o
+estado do cadastro, não apaga o que ela vendeu (27/09/2026). Ordenar pelo valor da maleta atual mediria quem recebeu a
 maleta maior, não quem vende — e um ranking assim é pior que nenhum, porque
 parece informação.
 

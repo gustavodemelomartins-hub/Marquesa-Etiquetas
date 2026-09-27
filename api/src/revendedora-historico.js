@@ -148,8 +148,8 @@ export async function historicoDaRevendedora(db, id) {
       id: a.id, fonte: fonte === 'historico' ? 'documento' : 'sistema', data: a.data,
       pecasVendidas: a.pecas, vendido: a.vendido, comissao: a.comissao, liquido: a.liquido,
       conferidoPor: null,
-      itensVendidos: [], itensDevolvidos: [], maletaId: null, enviadas: null, devolvidas: null,
-      situacaoFinanceira: 'paga',
+      itensVendidos: [], itensDevolvidos: [], maletaId: a.maletaId ?? null, enviadas: null, devolvidas: null,
+      situacaoFinanceira: a.situacaoFinanceira,
     };
     if (fonte === 'historico') {
       const op = await db.prepare(
@@ -161,28 +161,57 @@ export async function historicoDaRevendedora(db, id) {
       acerto.vendaChave = op?.venda_chave ?? null;
       acerto.linhasPlanilha = ev.linhas ?? null;
       acerto.documento = ev.arquivo ?? ev.fonte ?? null;
-      acerto.itensVendidos = ((await db.prepare(
-        `SELECT h.sku_base AS sku, COALESCE(p.desc, h.nome_produto_historico) AS desc,
-                SUM(h.qtd) AS qtd, SUM(h.valor_total) AS valor
+      /* As linhas que a decisão excluiu (uma troca registrada na mesma
+         venda, por exemplo) não são peça vendida no acerto: ficam fora da
+         lista e aparecem à parte, com o motivo da evidência. */
+      const excluidas = new Set((() => {
+        try { return JSON.parse(op?.linhas_excluidas_json ?? '[]') ?? []; } catch { return []; }
+      })().map(String));
+      const linhas = (await db.prepare(
+        `SELECT h.origem_linha, h.sku_base AS sku, COALESCE(p.desc, h.nome_produto_historico) AS desc,
+                h.qtd, h.valor_total
            FROM vendas_historico_itens h LEFT JOIN produtos p ON p.sku = h.sku_base
-          WHERE h.lote_id = ? AND h.pedido_chave = ? GROUP BY h.sku_base ORDER BY h.sku_base`,
-      ).bind(op.lote_id, op.venda_chave).all()).results ?? []).map((i) => ({
-        sku: i.sku, desc: i.desc, qtd: Number(i.qtd), valor: +Number(i.valor ?? 0).toFixed(2),
+          WHERE h.lote_id = ? AND h.pedido_chave = ? ORDER BY h.sku_base, h.origem_linha`,
+      ).bind(op.lote_id, op.venda_chave).all()).results ?? [];
+      const porSku = new Map();
+      for (const l of linhas.filter((x) => !excluidas.has(String(x.origem_linha)))) {
+        const i = porSku.get(l.sku) ?? { sku: l.sku, desc: l.desc, qtd: 0, valor: 0 };
+        i.qtd += Number(l.qtd); i.valor += Number(l.valor_total ?? 0);
+        porSku.set(l.sku, i);
+      }
+      acerto.itensVendidos = [...porSku.values()].map((i) => ({ ...i, valor: +i.valor.toFixed(2) }));
+      acerto.linhasExcluidas = linhas.filter((x) => excluidas.has(String(x.origem_linha))).map((l) => ({
+        linha: String(l.origem_linha), sku: l.sku, desc: l.desc, qtd: Number(l.qtd),
+        valor: +Number(l.valor_total ?? 0).toFixed(2),
+        motivo: typeof ev[`linha${l.origem_linha}`] === 'string' ? ev[`linha${l.origem_linha}`] : null,
       }));
-      /* A maleta que esse acerto encerrou, quando foi encerrada pelo acerto
-         documental: a evidência nomeia a maleta, e a observação da maleta
-         cita a chave da venda. Sem isso, não se associa — e é dito. */
-      const m = maletas.find((x) => Number(x.id) === Number(ev.maleta))
-        ?? maletas.find((x) => String(x.obs ?? '').includes(`acerto documental ${op.venda_chave}`));
-      if (m) acerto.maletaId = m.id;
+      acerto.observacoes = [op?.observacao].filter(Boolean);
+      /* Correções: cada versão anterior desta decisão, pela cadeia
+         `substitui_id`. O número que vale é o da versão ativa; as antigas
+         ficam visíveis, com o que diziam. */
+      acerto.versao = Number(op?.versao ?? 1);
+      acerto.correcoes = [];
+      for (let ant = op?.substitui_id; ant;) {
+        const v = await db.prepare(
+          `SELECT id, versao, status_registro, bruto_centavos, comissao_centavos, liquido_centavos,
+                  pecas, criado_em, substitui_id FROM historico_operacoes WHERE id = ?`,
+        ).bind(ant).first();
+        if (!v) break;
+        acerto.correcoes.push({
+          id: v.id, versao: Number(v.versao), situacao: v.status_registro, pecas: Number(v.pecas ?? 0),
+          vendido: v.bruto_centavos / 100, comissao: v.comissao_centavos / 100,
+          liquido: v.liquido_centavos / 100, registradaEm: v.criado_em,
+        });
+        ant = v.substitui_id;
+      }
+      /* A maleta que esse acerto encerrou vem de `acertosDeMaleta` — a
+         mesma associação da Visão geral (evidência ou observação da maleta).
+         Sem ela, não se associa — e é dito. */
     } else {
       const m = maletas.find((x) => Number(x.id) === Number(ref));
-      acerto.maletaId = m?.id ?? null;
       const aj = (() => { try { return JSON.parse(m?.acerto_json ?? '{}'); } catch { return {}; } })();
       acerto.vendaId = aj.vendaId ?? null;
       if (aj.vendaId) {
-        const v = await db.prepare('SELECT pago, valor_recebido, total FROM vendas WHERE id = ?').bind(aj.vendaId).first();
-        acerto.situacaoFinanceira = v?.pago ? 'paga' : 'a_receber';
         acerto.itensVendidos = ((await db.prepare(
           `SELECT vi.sku, vi.desc, SUM(vi.qtd) AS qtd, SUM(vi.qtd * vi.preco) AS valor, vi.motivo
              FROM venda_itens vi WHERE vi.venda_id = ? GROUP BY vi.sku, vi.motivo ORDER BY vi.sku`,
@@ -191,7 +220,11 @@ export async function historicoDaRevendedora(db, id) {
         }));
       }
     }
+    acerto.observacoes ??= [];
+    acerto.correcoes ??= [];
     if (acerto.maletaId) {
+      const obs = maletas.find((x) => Number(x.id) === Number(acerto.maletaId))?.obs;
+      if (obs) acerto.observacoes.push(obs);
       const itens = itensDaMaleta.get(acerto.maletaId) ?? [];
       acerto.enviadas = itens.reduce((s, i) => s + Number(i.qtd), 0);
       acerto.devolvidas = itens.reduce((s, i) => s + Number(i.devolvida), 0);
