@@ -88,7 +88,8 @@ describe('busca global', () => {
 
     const peca = await screen.findByRole('option', { name: /Pingente Filho Verde/ });
     fireEvent.click(peca);
-    expect(aoNavegar).toHaveBeenCalledWith({ modulo: 'estoque', sub: 'pecas' });
+    /* Abre a FICHA da peça achada, e não a lista inteira. */
+    expect(aoNavegar).toHaveBeenCalledWith({ modulo: 'estoque', sub: 'peca:214299' });
   });
 
   it('não consulta antes de dois caracteres e anda pelo teclado', async () => {
@@ -116,6 +117,6 @@ describe('busca global', () => {
     fireEvent.change(screen.getByRole('combobox', { name: CAMPO }), { target: { value: 'ana' } });
 
     await screen.findByRole('option', { name: /Ana Lima/ });
-    expect(screen.getByText(/Garantia, maleta, inventário e conta a receber/)).toBeTruthy();
+    expect(screen.getByText(/Garantias, maletas e contas a receber se procuram dentro/)).toBeTruthy();
   });
 });

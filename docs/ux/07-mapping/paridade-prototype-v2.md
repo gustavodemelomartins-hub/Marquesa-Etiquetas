@@ -15,12 +15,12 @@ consegue fazer.
 | | capacidades |
 |---|---|
 | 🟢 pronta | 118 |
-| 🟡 parcial | 3 |
+| 🟡 parcial | 4 |
 | ⚪ pendente — o backend tem, a tela não | 3 |
 | ⛔ indisponível — o backend não sustenta | 15 |
-| **total** | **139** |
+| **total** | **140** |
 
-**118 de 124** capacidades que o backend sustenta já estão
+**118 de 125** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
@@ -31,7 +31,7 @@ Referência visual: `/prototype/vendas/` · 🟢 29 · 🟡 0 · ⚪ 1 · ⛔ 5
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
-| Painel de vendas | 🟢 pronta | `#/vendas` | — |
+| Relatório de vendas (aba Relatório) | 🟢 pronta | `#/vendas/relatorio` | — |
 | Filtro de período e intervalo livre | 🟢 pronta | `features/vendas/PainelVendas.tsx` | — |
 | Faturamento do período | 🟢 pronta | `features/vendas/PainelVendas.tsx` | — |
 | Neste mês | 🟢 pronta | `features/vendas/PainelVendas.tsx` | — |
@@ -97,7 +97,7 @@ Referência visual: `/prototype/financeiro/` · 🟢 8 · 🟡 0 · ⚪ 0 · ⛔
 | Definir vencimento | 🟢 pronta | `features/financeiro/api.ts` | — |
 | Desfazer pagamento, com motivo | 🟢 pronta | `features/financeiro/api.ts` | — |
 | Saiu sem faturar | 🟢 pronta | `features/financeiro/FinanceiroArea.tsx` | — |
-| Conferência da razão do dinheiro | 🟢 pronta | `features/financeiro/api.ts` | — |
+| Conferência da razão do dinheiro (em Configurações › Avançado) | 🟢 pronta | `features/configuracoes/ConfiguracoesArea.tsx` | — |
 | Recebimento parcial de uma conta | ⛔ indisponível | `features/financeiro/api.ts` | O backend quita a conta INTEIRA (`marcarContaPaga`). Parcial é a decisão D2, ainda fechada. Está dito no próprio adaptador. |
 
 ## Estoque
@@ -111,8 +111,8 @@ Referência visual: `/prototype/estoque/` · 🟢 10 · 🟡 0 · ⚪ 0 · ⛔ 3
 | Onde está o patrimônio: casa · revendedoras · loja | 🟢 pronta | `features/estoque-total/PainelEstoque.tsx` | — |
 | Principais categorias, por quantidade | 🟢 pronta | `features/estoque-total/PainelEstoque.tsx` | — |
 | Precisam de atenção: sem foto, categoria ou preço | 🟢 pronta | `domain/estoque.ts` | — |
-| Peças, com filtro | 🟢 pronta | `#/estoque/pecas` | — |
-| A razão de uma peça, movimento a movimento | 🟢 pronta | `features/estoque/PecasArea.tsx` | — |
+| Peças, com filtro | 🟢 pronta | `#/estoque` | — |
+| A razão de uma peça, movimento a movimento (na ficha) | 🟢 pronta | `features/estoque/FichaDaPeca.tsx` | — |
 | Atualizar Estoque Total por planilha, com diff | 🟢 pronta | `features/estoque-total/EstoqueTotalPage.tsx` | — |
 | Saiu sem faturar | 🟢 pronta | `#/estoque/saidas` | — |
 | Análise de saídas: período, motivo, situação e distribuição | 🟢 pronta | `#/estoque/saidas` | — |
@@ -142,8 +142,8 @@ Referência visual: `/prototype/catalogo/` · 🟢 5 · 🟡 0 · ⚪ 2 · ⛔ 1
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
-| Produtos com busca e filtro | 🟢 pronta | `#/catalogo` | — |
-| Editar nome, preço, categoria e situação | 🟢 pronta | `features/catalogo/CatalogoArea.tsx` | — |
+| Produtos com busca e filtro (em Peças) | 🟢 pronta | `#/estoque` | — |
+| Editar nome, preço, categoria e situação | 🟢 pronta | `features/catalogo/EditarPeca.tsx` | — |
 | Galeria de fotos da peça | ⛔ indisponível | — | As rotas de gerir a galeria existem (`GET/POST /api/produtos/:sku/galeria`, ordem, principal, aprovar), mas NENHUMA ROTA SERVE OS BYTES dela: `/api/produtos/:sku/foto/:versao` lê `produtos.foto_original_key`/`foto_tratada_key`, e as fotos da galeria moram em `produto_fotos.original_key`/`preparada_key`, sem link assinado que um `<img>` possa abrir. Uma galeria que lista e não mostra imagem é pior que nenhuma. Destravar isto é uma rota nova no servidor, não uma tela. |
 | Variações da peça, com o saldo de cada uma | 🟢 pronta | `features/catalogo/PainelDeVariacoes.tsx` | — |
 | Distribuir o saldo entre variações | 🟢 pronta | `features/catalogo/variacoes.ts` | — |
@@ -206,15 +206,16 @@ Referência visual: `/prototype/nuvemshop/` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 
 
 ## Home
 
-Referência visual: `/prototype/` · 🟢 5 · 🟡 0 · ⚪ 0 · ⛔ 0
+Referência visual: `/prototype/` · 🟢 5 · 🟡 1 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
 | Precisa da sua atenção | 🟢 pronta | `#/home` | — |
-| Entrou por mês | 🟢 pronta | `features/home/HomeArea.tsx` | — |
-| Quem mais trouxe | 🟢 pronta | `features/home/HomeArea.tsx` | — |
+| Entrou por mês (no Financeiro › Resumo) | 🟢 pronta | `features/financeiro/FinanceiroArea.tsx` | — |
+| Quem mais trouxe (no Financeiro › Resumo) | 🟢 pronta | `features/financeiro/FinanceiroArea.tsx` | — |
 | Peças em reparo | 🟢 pronta | `features/home/HomeArea.tsx` | — |
-| Atalhos do dia | 🟢 pronta | `features/home/HomeArea.tsx` | — |
+| Ações rápidas do dia | 🟢 pronta | `features/home/HomeArea.tsx` | — |
+| Central de pendências (lista do sino) | 🟡 parcial | `#/home/pendencias` | A lista mostra todas as pendências de `GET /api/pendencias`, agrupadas, e leva à peça ou à publicação quando a V2 resolve. Resolver variação de venda/maleta, vínculo de cliente e venda travada ainda é no painel clássico. |
 
 ## Etiquetas
 
@@ -241,8 +242,8 @@ Referência visual: `/prototype/configuracoes/` · 🟢 3 · 🟡 0 · ⚪ 0 · 
 |---|---|---|---|
 | Parâmetros da operação | 🟢 pronta | `#/configuracoes` | — |
 | Faixas de comissão | 🟢 pronta | `features/configuracoes/ConfiguracoesArea.tsx` | — |
-| Corte do go-live | 🟢 pronta | `features/configuracoes/ConfiguracoesArea.tsx` | — |
-| Perfis e permissões | ⛔ indisponível | `features/configuracoes/ConfiguracoesArea.tsx` | Não há usuários no sistema: a autenticação é UMA chave Bearer compartilhada (`auth.js › checarChave`). Perfil por pessoa exigiria tabela de usuários e sessão, que não existem. A tela diz isso. |
+| Corte do go-live (em Avançado) | 🟢 pronta | `features/configuracoes/ConfiguracoesArea.tsx` | — |
+| Perfis e permissões | ⛔ indisponível | `app/MenuPerfil.tsx` | Não há usuários no sistema: a autenticação é UMA chave Bearer compartilhada (`auth.js › checarChave`). Perfil por pessoa exigiria tabela de usuários e sessão, que não existem. O menu do avatar diz isso. |
 
 ## Casco, marca e navegação
 
@@ -255,7 +256,7 @@ Referência visual: `/prototype/design-system/` · 🟢 10 · 🟡 1 · ⚪ 0 ·
 | Os mesmos tokens do protótipo | 🟢 pronta | `styles/marquesa.css` | — |
 | Cormorant e Jost | 🟢 pronta | `styles/fonts.css` | — |
 | Números tabulares | 🟢 pronta | `styles/marquesa.css` | — |
-| Os treze módulos, em quatro grupos | 🟢 pronta | `app/modulos.ts` | — |
+| O menu simplificado: oito destinos e Configurações, em quatro grupos | 🟢 pronta | `app/modulos.ts` | — |
 | Deep-link, reload e voltar/avançar | 🟢 pronta | `app/rota.ts` | — |
 | Gaveta e barra inferior no telefone | 🟢 pronta | `styles/shell.css` | — |
 | A busca existe NO TELEFONE | 🟢 pronta | `styles/shell.css` | — |

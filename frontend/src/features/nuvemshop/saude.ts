@@ -60,7 +60,7 @@ export function diagnosticarSync(sync: SyncSummary, agora: Date): DiagnosticoSyn
       autoCorrige: false,
       rotulo: 'Loja não conectada',
       motivo:
-        'Falta o token da Nuvemshop nos Secrets do Worker. Sem ele não existe rodada nenhuma, nem automática nem manual — nada que estiver divergente se resolve sozinho, e a atualização continua sendo por arquivo.',
+        'O sistema ainda não está autorizado a falar com a Nuvemshop. Enquanto isso, nenhuma diferença entre a loja e o estoque se corrige sozinha, e a loja é atualizada por arquivo.',
     };
   }
 

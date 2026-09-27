@@ -289,3 +289,73 @@
   .saida-legado li { grid-template-columns: 1fr; padding: 10px var(--mq-3); }
   .saida-legado__porque { white-space: normal; }
 }
+
+/* ── Simplificação de 27/09/2026 ─────────────────────────────────────── */
+
+.mq-row--center { justify-content: center; }
+
+/* A ficha da peça: foto grande à esquerda, preço e situação ao lado. */
+.mq-ficha { display: flex; gap: var(--mq-4); align-items: center; }
+.mq-ficha__foto {
+  width: 120px; height: 120px; flex: none; object-fit: cover;
+  border-radius: var(--mq-r-md, 12px); border: 1px solid var(--mq-line);
+  background: var(--mq-paper);
+}
+.mq-ficha__foto--vazia { display: grid; place-items: center; font-size: 32px; color: var(--mq-muted); }
+.mq-ficha__dados { display: grid; gap: 6px; align-content: start; justify-items: start; }
+.mq-ficha__preco { font-size: 22px; }
+
+/* Ações rápidas do Início: quatro botões grandes, dois por linha no
+   telefone. */
+.mq-atalhos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--mq-3); }
+.mq-atalho {
+  display: flex; align-items: center; gap: var(--mq-3);
+  min-height: 64px; padding: var(--mq-3) var(--mq-4);
+  border: 1px solid var(--mq-line); border-radius: var(--mq-r-lg, 16px);
+  background: #fff; color: inherit; font: 600 14px/1.25 var(--mq-sans); text-align: left; cursor: pointer;
+}
+.mq-atalho:hover { border-color: var(--mq-wine-700); }
+.mq-atalho svg { width: 22px; height: 22px; color: var(--mq-wine-700); flex: none; }
+.mq-atalho--primario { background: var(--mq-wine-700); border-color: var(--mq-wine-700); color: #fff; }
+.mq-atalho--primario svg { color: #fff; }
+@media (max-width: 900px) {
+  .mq-atalhos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* O seletor de tipo de lançamento, compacto: três pílulas numa linha em vez
+   de três cartões grandes — a busca da peça tem de aparecer sem rolar. */
+.mq-escolhas.mq-escolhas--compacta { display: flex; flex-wrap: wrap; gap: var(--mq-2); }
+.mq-escolhas.mq-escolhas--compacta > .mq-escolha {
+  min-height: 40px; padding: 8px 16px 8px 40px; border-radius: 999px;
+}
+.mq-escolhas.mq-escolhas--compacta > .mq-escolha::before { left: 14px; }
+.mq-escolhas.mq-escolhas--compacta > .mq-escolha > small { display: none; }
+
+/* A central de pendências, agrupada. */
+.mq-pend__grupo + .mq-pend__grupo { margin-top: var(--mq-5); }
+.mq-pend__acao { white-space: nowrap; }
+@media (max-width: 720px) { .mq-cell--vazia { display: none; } }
+
+/* Peças no telefone: foto, nome e o que importa no balcão (em casa e
+   preço) numa linha só. O cartão genérico da tabela empilhava cinco
+   números por peça, e sessenta peças viravam dezoito mil pixels. */
+@media (max-width: 860px) {
+  .mq-table.mq-table--pecas:not(.mq-table--scroll) .mq-tr {
+    grid-template-columns: 46px minmax(0, 1fr) auto !important;
+    align-items: center; row-gap: 2px;
+  }
+  .mq-table.mq-table--pecas:not(.mq-table--scroll) .mq-tr > * { grid-column: auto; }
+  .mq-table.mq-table--pecas:not(.mq-table--scroll) .mq-tr > :nth-child(1) { grid-column: 1; grid-row: 1 / span 2; }
+  .mq-table.mq-table--pecas:not(.mq-table--scroll) .mq-tr > :nth-child(2) { grid-column: 2; grid-row: 1; }
+  .mq-table.mq-table--pecas:not(.mq-table--scroll) .mq-tr > :nth-child(5) {
+    grid-column: 2; grid-row: 2; width: auto; justify-content: flex-start; gap: 6px;
+  }
+  .mq-table.mq-table--pecas:not(.mq-table--scroll) .mq-tr > :nth-child(8) {
+    grid-column: 3; grid-row: 1 / span 2; width: auto; flex-direction: column; align-items: flex-end;
+  }
+  .mq-table.mq-table--pecas:not(.mq-table--scroll) .mq-tr > :nth-child(8)::before { content: none; }
+  .mq-table.mq-table--pecas:not(.mq-table--scroll) .mq-tr > :nth-child(3),
+  .mq-table.mq-table--pecas:not(.mq-table--scroll) .mq-tr > :nth-child(4),
+  .mq-table.mq-table--pecas:not(.mq-table--scroll) .mq-tr > :nth-child(6),
+  .mq-table.mq-table--pecas:not(.mq-table--scroll) .mq-tr > :nth-child(7) { display: none; }
+}

@@ -207,8 +207,8 @@ export function BuscaGlobal({ conexao, estado, aoNavegar }: Props) {
 
           {achados.length > 0 && (
             <p className="busca-global-nota">
-              Garantia, maleta, inventário e conta a receber não têm busca por
-              termo no servidor — procure dentro do módulo.
+              Garantias, maletas e contas a receber se procuram dentro de cada
+              módulo.
             </p>
           )}
         </div>
@@ -271,7 +271,9 @@ function acharLocais(termo: string, estado: AppState | null): Achado[] {
       titulo: p.desc,
       detalhe: `${p.sku} · ${p.disponivel} disponível · ${p.semPreco ? 'sem preço' : money(p.preco)}`,
       icone: 'box' as NomeIcone,
-      destino: { modulo: 'estoque' as ModuloId, sub: 'pecas' },
+      /* Abre a FICHA da peça achada. Antes caía na lista inteira, e a
+         peça que se buscou se perdia entre quase mil. */
+      destino: { modulo: 'estoque' as ModuloId, sub: `peca:${p.sku}` },
     }));
 
   /* Inativa também é achada: a ficha dela guarda o histórico inteiro. */

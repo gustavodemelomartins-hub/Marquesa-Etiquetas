@@ -120,7 +120,7 @@ describe('navegação de Revendedoras', () => {
     /* Todas = o cadastro inteiro, inativa inclusive (3, não 2). */
     await waitFor(() => {
       const rotulos = [...abas.querySelectorAll('[role="tab"]')].map((b) => b.textContent);
-      expect(rotulos).toEqual(['Visão geral', 'Todas as revendedoras 3', 'Histórico de acertos 0', 'Configurações']);
+      expect(rotulos).toEqual(['Visão geral', 'Revendedoras 3', 'Acertos 0', 'Planejamento']);
     });
   });
 
@@ -129,9 +129,9 @@ describe('navegação de Revendedoras', () => {
     expect(screen.queryByRole('tab', { name: 'Bruna' })).toBeNull();
   });
 
-  it('cada revendedora continua acessível por Todas as revendedoras', () => {
+  it('cada revendedora continua acessível pela aba Revendedoras', () => {
     render(<Area />);
-    fireEvent.click(screen.getByRole('tab', { name: /Todas as revendedoras/ }));
+    fireEvent.click(screen.getByRole('tab', { name: /^Revendedoras/ }));
     fireEvent.click(screen.getByRole('button', { name: /Andreia Souza/ }));
     expect(screen.getByRole('heading', { level: 1, name: 'Andreia Souza' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Maleta #7' })).toBeTruthy();

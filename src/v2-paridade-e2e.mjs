@@ -110,9 +110,15 @@ const src = await p.locator('.mq-rail__logo').first().getAttribute('src');
 prova(!!src && !src.includes('..'), `o logo vem do bundle (${String(src).slice(0, 28)}…)`);
 
 /* ── 2. Vendas: as cinco superfícies ────────────────────────────────── */
+/* Desde 27/09/2026 Vendas abre PRONTA PARA VENDER: quem abre Vendas no
+   balcão está com a cliente na frente. O painel virou a aba Relatório. */
 await irPara(p, 'vendas');
 let t = await texto(p);
-prova(t.includes('painel de vendas'), 'Vendas abre no PAINEL, não numa tabela');
+prova(/itens da venda/.test(t), 'Vendas abre na NOVA VENDA');
+
+await irPara(p, 'vendas/relatorio');
+t = await texto(p);
+prova(t.includes('relatório de vendas'), 'o relatório de vendas abre pela rota');
 prova(/faturamento recebido no per/.test(t), 'o painel mostra o faturamento do recorte');
 prova(/ticket m[eé]dio/.test(t), 'o painel mostra o ticket médio');
 /* §19 — a tela diz que a comparação com o período anterior não existe, em
@@ -139,7 +145,7 @@ await p.locator('.mq-passo__cabeca', { hasText: 'Pagamento' }).click();
 await p.waitForTimeout(400);
 t = await texto(p);
 prova(/data efetiva do pagamento/.test(t), 'a data do PAGAMENTO é um campo separado');
-prova(/um recebimento, n[aã]o v[aá]rios/.test(t),
+prova(/pagamento [eé] registrado de uma vez/.test(t),
   'a tela ANUNCIA que não há recebimento em partes');
 
 await irPara(p, 'vendas/colar');
@@ -147,7 +153,7 @@ t = await texto(p);
 prova(/monte seu colar/.test(t), 'Monte seu Colar abre pela rota');
 /* PERSONALIZACAO_ATIVA não está ligada no Worker local: a tela tem de
    continuar visível e dizer que a operação está bloqueada. */
-prova(/desativad|bloquead/i.test(t), 'com a feature desligada, a tela diz que está bloqueada');
+prova(/n[aã]o est[aá] liberado|desativad|bloquead/i.test(t), 'com a feature desligada, a tela diz que está bloqueada');
 
 await irPara(p, 'vendas/saida');
 t = await texto(p);
@@ -194,16 +200,17 @@ if (opcoes > 0) {
 /* ── 6. Financeiro, Estoque, Inventário ─────────────────────────────── */
 for (const [hash, esperado, nome] of [
   ['financeiro', /A receber|Resumo|Recebimentos/i, 'Financeiro'],
-  ['estoque', /Estoque/i, 'Estoque'],
+  ['estoque', /Peças/i, 'Peças'],
   ['estoque/inventario', /Inventário|contagem/i, 'Inventário'],
   ['estoque/pecas', /Peças|peça/i, 'Peças'],
-  ['catalogo', /Catálogo/i, 'Catálogo'],
+  ['catalogo', /Peças/i, 'endereço antigo do Catálogo cai em Peças'],
   ['revendedoras', /Revendedora|Visão Geral/i, 'Revendedoras'],
   ['garantias', /Garantias|reparo/i, 'Garantias'],
-  ['nuvemshop', /Nuvemshop/i, 'Nuvemshop'],
+  ['nuvemshop', /Loja online/i, 'Loja online'],
   ['nuvemshop/publicacao', /Fila de publicação/i, 'Fila de publicação'],
   ['configuracoes', /Configurações/i, 'Configurações'],
-  ['agenda', /desenvolvimento/i, 'Agenda diz "em desenvolvimento"'],
+  ['agenda', /Revendedora/i, 'endereço antigo da Agenda cai em Revendedoras'],
+  ['home/pendencias', /Pendências/i, 'a central de pendências'],
 ]) {
   await irPara(p, hash);
   prova(esperado.test(await texto(p)), `${nome} abre em #/${hash}`);
@@ -230,15 +237,22 @@ if (await abrir.count()) {
 }
 
 /* ── 9. variações: a regra 2 na tela ────────────────────────────────── */
-await irPara(p, 'catalogo');
-const verVar = p.locator('button', { hasText: 'Ver variações' });
-if (await verVar.count()) {
-  await verVar.first().click();
+/* As variações moram na FICHA da peça, em Peças. */
+await irPara(p, 'estoque');
+const primeira = p.locator('.mq-table--pecas button.mq-tr').first();
+if (await primeira.count()) {
+  await primeira.click();
   await p.waitForTimeout(700);
-  prova(/varia[cç][oõ]es da pe[cç]a/.test(await texto(p)), 'a tela de variações abre pela peça');
-  await p.locator('.mq-modal__close').first().click();
+  const ficha = p.locator('[role="dialog"][aria-label^="Ficha da peça"]');
+  prova(await ficha.count() === 1, 'tocar numa peça abre a ficha dela');
+  await ficha.locator('button', { hasText: 'Variações' }).click();
+  await p.waitForTimeout(700);
+  prova(/varia[cç][oõ]es da pe[cç]a/.test(await texto(p)), 'a tela de variações abre pela ficha da peça');
+  await p.locator('.mq-modal__close').last().click();
+  await p.waitForTimeout(300);
+  await p.keyboard.press('Escape');
 } else {
-  prova(false, 'Catálogo não ofereceu "Ver variações"');
+  prova(false, 'Peças não mostrou nenhuma peça');
 }
 
 /* ══════════════════════════════════════════════════════════════════════

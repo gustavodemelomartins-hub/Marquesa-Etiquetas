@@ -14,7 +14,11 @@ import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 // ------------------------------------------------------------ clientes
 export async function buscarClientes(db, url) {
   const busca = (url.searchParams.get('busca') || '').trim();
-  const limite = Math.min(+(url.searchParams.get('limite') || 25), 100);
+  /* O teto era 100, e a lista da V2 parava na letra B dizendo "100
+     clientes" quando havia 353. A lista inteira (sem busca) cabe com folga
+     numa resposta; o teto continua existindo para uma chamada errada não
+     pedir um milhão de linhas. */
+  const limite = Math.min(+(url.searchParams.get('limite') || 25), 2000);
   let r;
   if (busca) {
     const norm = `%${normalizarNomeCliente(busca) ?? ''}%`;

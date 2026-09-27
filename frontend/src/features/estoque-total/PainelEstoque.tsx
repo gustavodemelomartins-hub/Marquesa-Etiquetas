@@ -92,11 +92,10 @@ export function PainelEstoque({
     <>
       <div className="mq-pagehead">
         <div className="mq-pagehead__text">
-          <p className="mq-eyebrow">Operação e distribuição</p>
-          <h1 className="mq-display">Estoque</h1>
+          <p className="mq-eyebrow">Peças</p>
+          <h1 className="mq-display">Resumo do estoque</h1>
           <p className="mq-lede">
-            Onde estão as peças, quanto vale o que está parado e o que precisa
-            de conferência ou cadastro.
+            Onde estão as peças e quanto vale o que está parado.
           </p>
         </div>
         <div className="mq-pagehead__actions">
@@ -125,7 +124,7 @@ export function PainelEstoque({
           <span className="mq-kpi__label">Peças em estoque</span>
           <strong className="mq-kpi__value">{t.total.toLocaleString('pt-BR')}</strong>
           <span className="mq-kpi__foot">
-            Saldo da razão de movimentos · {t.codigos} {plural(t.codigos, 'código', 'códigos')}
+            {t.codigos} {plural(t.codigos, 'código', 'códigos')}
           </span>
         </div>
 
@@ -153,9 +152,9 @@ export function PainelEstoque({
           className={atencao.length > 0 ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}
           onClick={aoVerPendencias}
         >
-          <span className="mq-kpi__label">Precisam de atenção</span>
+          <span className="mq-kpi__label">Cadastro incompleto</span>
           <strong className="mq-kpi__value">{atencao.length}</strong>
-          <span className="mq-kpi__foot">Produtos sem foto, categoria ou preço</span>
+          <span className="mq-kpi__foot">Peças sem foto, categoria ou preço</span>
         </button>
       </div>
 
@@ -279,8 +278,8 @@ export function PainelEstoque({
               duplicados.length && `${duplicados.length} ${plural(duplicados.length, 'código duplicado na loja', 'códigos duplicados na loja')}`,
               travados.length && `${travados.length} ${plural(travados.length, 'código não empurrado para a loja', 'códigos não empurrados para a loja')}`,
             ].filter(Boolean).join(' · ')}
-            . O detalhe de cada um está nas abas <b>Na loja</b> e{' '}
-            <b>Pendências</b>; o preço, em Cadastro de produtos.
+            . O que é da loja está em <b>Loja online</b>; o preço se
+            corrige na ficha da peça, em <b>Peças</b>.
           </span>
         </p>
       )}

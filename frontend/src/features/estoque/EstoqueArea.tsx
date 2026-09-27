@@ -1,219 +1,131 @@
 import type { Connection } from '../../services/client';
-import type { ModuloId } from '../../app/modulos';
 import type { AppState } from '../../types/api';
-import type { ReconciliationAnalysis } from '../../types/reconciliation';
-import { NuvemshopPage } from '../nuvemshop/NuvemshopPage';
-import { ReconciliacaoPage } from '../reconciliacao/ReconciliacaoPage';
 import { EstoqueTotalPage } from '../estoque-total/EstoqueTotalPage';
+import { PainelEstoque } from '../estoque-total/PainelEstoque';
 import { PecasArea } from './PecasArea';
 import { InventarioArea } from '../inventario/InventarioArea';
 import { AnaliseDeSaidas } from '../saidas/AnaliseDeSaidas';
 import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
 
-/** Três telas, e Estoque Total é a porta.
+/** As telas do módulo Peças, e o endereço de cada uma:
  *
- *  "Visão Geral" deixou de ser uma subaba: ela era um lugar separado para
- *  ler números sobre a mesma coisa que Estoque Total já governa. Agora o
- *  painel abre EM CIMA de Estoque Total — quem chega vê o estado do
- *  estoque e as ações que o mudam na mesma tela, sem escolher entre olhar e
- *  agir. */
-export type SubRotaEstoque =
-  | 'estoque-total' | 'pecas' | 'inventario' | 'saidas' | 'nuvemshop' | 'pendencias';
-
-/** As abas do PROTÓTIPO, nesta ordem, com o destino real de cada uma.
+ *    #/estoque                 a lista de peças (a porta)
+ *    #/estoque/peca:<sku>      a lista com a ficha de uma peça aberta
+ *    #/estoque/novo            a lista com o cadastro de peça nova aberto
+ *    #/estoque/incompletas     a lista filtrada no cadastro incompleto
+ *    #/estoque/resumo          onde está o patrimônio
+ *    #/estoque/entrada         peça nova, uma a uma ou por planilha
+ *    #/estoque/inventario      a contagem física
+ *    #/estoque/saidas          análise do que saiu sem faturar (sem aba)
  *
- *  Duas delas não são sub-rotas de Estoque: "Cadastro de produtos" é o
- *  módulo Catálogo e "Publicar na loja" é a fila de publicação da
- *  Nuvemshop. No protótipo elas são links para outro documento; aqui são
- *  navegação de módulo. A usuária vê a mesma faixa dos dois lados, que é
- *  o ponto — ela não deveria precisar saber qual das seis mora onde.
- *
- *  "Peças" e "Saiu sem faturar" saíram da faixa: no protótipo a lista de
- *  peças é uma SEÇÃO da Visão geral ("Todos os produtos"), e a saída sem
- *  faturamento é um dos três lançamentos de Vendas. As rotas
- *  `#/estoque/pecas` e `#/estoque/saidas` continuam válidas — link antigo
- *  não quebra —, elas só deixaram de ser porta principal. */
-/** Os módulos que a faixa de Estoque alcança. Lista fechada de propósito:
- *  a aba de um módulo é uma decisão de navegação, não um `ModuloId` solto
- *  que qualquer um pode passar daqui. */
-type DestinoModulo = Extract<ModuloId, 'catalogo' | 'nuvemshop'>;
+ *  Até 27/09/2026 este módulo se chamava Estoque e tinha seis abas, duas
+ *  das quais pulavam para OUTROS módulos (Catálogo e Nuvemshop) e levavam
+ *  as abas junto. Agora são quatro, todas daqui: a loja online é um item
+ *  próprio do menu, e o cadastro da peça mora na ficha dela. */
+export type SubRotaEstoque = 'pecas' | 'resumo' | 'entrada' | 'inventario' | 'saidas';
 
-type DestinoAba =
-  | { tipo: 'sub'; rota: SubRotaEstoque }
-  | { tipo: 'modulo'; modulo: DestinoModulo; sub?: string };
-
-interface Aba {
-  id: string;
-  rotulo: string;
-  destino: DestinoAba;
-}
-
-const ABAS: Aba[] = [
-  { id: 'estoque-total', rotulo: 'Visão geral', destino: { tipo: 'sub', rota: 'estoque-total' } },
-  { id: 'catalogo', rotulo: 'Cadastro de produtos', destino: { tipo: 'modulo', modulo: 'catalogo' } },
-  { id: 'nuvemshop', rotulo: 'Na loja', destino: { tipo: 'sub', rota: 'nuvemshop' } },
-  { id: 'pendencias', rotulo: 'Pendências', destino: { tipo: 'sub', rota: 'pendencias' } },
-  { id: 'inventario', rotulo: 'Inventário', destino: { tipo: 'sub', rota: 'inventario' } },
-  {
-    id: 'publicacao',
-    rotulo: 'Publicar na loja',
-    destino: { tipo: 'modulo', modulo: 'nuvemshop', sub: 'publicacao' },
-  },
+const ABAS: { id: SubRotaEstoque; rotulo: string; rota: string | null }[] = [
+  { id: 'pecas', rotulo: 'Peças', rota: null },
+  { id: 'resumo', rotulo: 'Resumo', rota: 'resumo' },
+  { id: 'entrada', rotulo: 'Entrada de peças', rota: 'entrada' },
+  { id: 'inventario', rotulo: 'Inventário', rota: 'inventario' },
 ];
+
+/** Lê o segundo segmento do endereço. Os nomes antigos continuam valendo
+ *  para link mandado antes da mudança não quebrar. */
+export function lerSubEstoque(sub: string | null): {
+  aba: SubRotaEstoque;
+  peca: string | null;
+  criando: boolean;
+  incompletas: boolean;
+} {
+  const s = sub ?? '';
+  const base = { peca: null, criando: false, incompletas: false };
+  if (s.startsWith('peca:')) return { ...base, aba: 'pecas', peca: s.slice(5) || null };
+  if (s === 'novo') return { ...base, aba: 'pecas', criando: true };
+  if (s === 'incompletas') return { ...base, aba: 'pecas', incompletas: true };
+  if (s === 'resumo' || s === 'estoque-total') return { ...base, aba: 'resumo' };
+  if (s === 'entrada') return { ...base, aba: 'entrada' };
+  if (s === 'inventario') return { ...base, aba: 'inventario' };
+  if (s === 'saidas') return { ...base, aba: 'saidas' };
+  return { ...base, aba: 'pecas' };
+}
 
 interface Props {
   conexao: Connection;
-  sub: SubRotaEstoque;
-  aoNavegarSub: (r: SubRotaEstoque) => void;
-  analise: ReconciliationAnalysis | null;
-  aoAnalisar: (a: ReconciliationAnalysis) => void;
+  /** O segundo segmento do endereço, cru. */
+  sub: string | null;
+  aoNavegar: (sub: string | null) => void;
   estado: AppState | null;
   planejamento: UsoPlanejamento;
   aoVerPlanejamento: () => void;
-  /** Sair de Estoque para um módulo — é o que "Cadastro de produtos",
-   *  "Publicar na loja" e o KPI "Precisam de atenção" fazem. */
-  aoAbrirModulo: (modulo: DestinoModulo, sub?: string | null) => void;
   aoMudarEstoque: () => void;
-  /** A sub-rota DENTRO da Nuvemshop (`publicacao`). Ela desce até aqui
-   *  porque Nuvemshop é módulo de primeiro nível no trilho E aba de
-   *  Estoque: são duas PORTAS para a mesma tela, e o endereço tem de
-   *  funcionar pelas duas. */
-  subNuvemshop?: string | null;
-  aoNavegarNuvemshop?: (sub: string | null) => void;
 }
 
-/** A área "Estoque" — as telas que hoje mexem em quantidade física: a
- *  importação por planilha, a sincronização com a Nuvemshop, e o que está
- *  pendente de revisão.
- *
- *  Nuvemshop e Pendências (reconciliação) não são abas principais do
- *  sistema — a usuária pensa em "Estoque", não nos nomes internos das
- *  peças que o resolvem por baixo. */
+/** PEÇAS — onde está cada peça, como ela se chama e quanto custa. */
 export function EstoqueArea({
-  conexao,
-  sub,
-  aoNavegarSub,
-  analise,
-  aoAnalisar,
-  estado,
-  planejamento,
-  aoVerPlanejamento,
-  aoAbrirModulo,
-  aoMudarEstoque,
-  subNuvemshop,
-  aoNavegarNuvemshop,
+  conexao, sub, aoNavegar, estado, planejamento, aoVerPlanejamento, aoMudarEstoque,
 }: Props) {
-  /* As contagens da faixa. São as MESMAS do resto da tela — `loja` é o
-     retrato da última sincronização e `analise` é a revisão pendente —, e
-     por isso a aba nunca pode discordar do conteúdo dela.
-
-     `undefined` significa "ainda não sei", e o badge some. Um "0" ali
-     afirmaria que não há nada na loja, e essa afirmação depende de uma
-     leitura que pode nunca ter acontecido nesta base. */
-  const contagens: Record<string, number | undefined> = {
-    nuvemshop: estado?.loja?.lidoEm ? estado.loja.produtosNaLoja : undefined,
-    pendencias: analise ? analise.itens.length : undefined,
-  };
-
-  /* A aba acesa. Pelo módulo Nuvemshop com `sub=publicacao` quem acende é
-     "Publicar na loja", e não "Na loja": são duas telas, e a faixa tem de
-     dizer em qual se está. */
-  const abaAtiva = sub === 'nuvemshop' && subNuvemshop === 'publicacao' ? 'publicacao' : sub;
-
-  const navegar = (a: Aba) => () => {
-    if (a.destino.tipo === 'sub') aoNavegarSub(a.destino.rota);
-    else aoAbrirModulo(a.destino.modulo, a.destino.sub ?? null);
-  };
+  const rota = lerSubEstoque(sub);
 
   /* Fragmento, e não `<div>`: a faixa de abas precisa ser filha DIRETA do
-     `main` para o casco poder encostá-la na barra superior e atravessá-la
-     de ponta a ponta, como o protótipo faz. Um invólucro no meio
-     transformava a faixa num controle solto dentro da página. */
+     `main` para o casco poder encostá-la na barra superior. */
   return (
     <>
-      {/* `.mq-tabs` — a faixa sublinhada do protótipo, com a contagem ao
-          lado do rótulo. Era `.filtros`/`.pill`, que desenhava pílulas: a
-          mesma navegação com outra aparência, em duas telas do mesmo
-          sistema. */}
-      <nav className="mq-tabs" role="tablist" aria-label="Estoque">
+      <nav className="mq-tabs" role="tablist" aria-label="Peças">
         {ABAS.map((a) => (
           <button
             key={a.id}
             type="button"
             role="tab"
-            aria-selected={abaAtiva === a.id}
-            onClick={navegar(a)}
+            aria-selected={rota.aba === a.id}
+            onClick={() => aoNavegar(a.rota)}
           >
             {a.rotulo}
-            {contagens[a.id] !== undefined && contagens[a.id]! > 0 && (
-              <span className="mq-badge">{contagens[a.id]}</span>
-            )}
           </button>
         ))}
       </nav>
 
-      {sub === 'pecas' && (
+      {rota.aba === 'pecas' && (
         <PecasArea
           conexao={conexao}
           estado={estado}
           carregando={!estado}
           erro={null}
           recarregar={aoMudarEstoque}
+          pecaAberta={rota.peca}
+          aoAbrirPeca={(sku) => aoNavegar(sku ? `peca:${sku}` : null)}
+          criando={rota.criando}
+          aoCriar={(abrir) => aoNavegar(abrir ? 'novo' : null)}
+          filtroInicial={rota.incompletas ? 'incompleto' : 'ativo'}
         />
       )}
 
-      {sub === 'inventario' && (
-        <InventarioArea conexao={conexao} estado={estado} aoMudarEstoque={aoMudarEstoque} />
-      )}
-
-      {/* `#/estoque/saidas` é a tela de LEITURA — a "Análise de saídas" do
-          protótipo. REGISTRAR uma saída é um lançamento, e mora em
-          Vendas › Novo lançamento, junto com as outras duas maneiras de
-          uma peça sair do estoque. */}
-      {sub === 'saidas' && <AnaliseDeSaidas conexao={conexao} />}
-
-      {sub === 'estoque-total' && (
-        <EstoqueTotalPage
-          conexao={conexao}
+      {rota.aba === 'resumo' && estado && (
+        <PainelEstoque
           estado={estado}
           planejamento={planejamento}
           aoVerPlanejamento={aoVerPlanejamento}
-          /* O inventário agora está NESTA tela, algumas seções abaixo.
-             "Conferir estoque" rola até ele em vez de trocar de página —
-             sair da Visão geral para conferir era justamente o passo que o
-             protótipo não tem. Se por algum motivo a seção não estiver
-             montada, a aba continua sendo o destino, e ninguém fica preso
-             num botão que não faz nada. */
-          aoConferirEstoque={() => {
-            const secao = document.getElementById('inventario');
-            if (secao) secao.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            else aoNavegarSub('inventario');
-          }}
-          /* Abre o FORMULÁRIO, não a lista. O botão prometia cadastrar
-             uma peça e entregava uma tela onde não havia por onde
-             começar. */
-          aoNovoProduto={() => aoAbrirModulo('catalogo', 'novo')}
-          /* Foto, categoria e preço se resolvem no CADASTRO da peça. */
-          aoVerPendencias={() => aoAbrirModulo('catalogo')}
+          aoConferirEstoque={() => aoNavegar('inventario')}
+          aoNovoProduto={() => aoNavegar('novo')}
+          aoVerPendencias={() => aoNavegar('incompletas')}
+        />
+      )}
+
+      {rota.aba === 'entrada' && (
+        <EstoqueTotalPage
+          conexao={conexao}
+          estado={estado}
+          aoNovoProduto={() => aoNavegar('novo')}
           aoMudarEstoque={aoMudarEstoque}
         />
       )}
 
-      {sub === 'nuvemshop' && (
-        <NuvemshopPage
-          conexao={conexao}
-          aoAnalisar={aoAnalisar}
-          sub={subNuvemshop ?? null}
-          aoNavegarSub={aoNavegarNuvemshop}
-        />
+      {rota.aba === 'inventario' && (
+        <InventarioArea conexao={conexao} estado={estado} aoMudarEstoque={aoMudarEstoque} />
       )}
 
-      {sub === 'pendencias' && (
-        <ReconciliacaoPage
-          analise={analise}
-          aoIrParaNuvemshop={() => aoNavegarSub('nuvemshop')}
-        />
-      )}
+      {rota.aba === 'saidas' && <AnaliseDeSaidas conexao={conexao} />}
     </>
   );
 }

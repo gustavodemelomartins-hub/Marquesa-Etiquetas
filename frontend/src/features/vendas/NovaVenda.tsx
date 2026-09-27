@@ -327,8 +327,8 @@ export function NovaVenda({
                       onChange={(e) => mudar(l.sku, { descontoRotulo: e.target.value })}
                     />
                     <small>
-                      Sem motivo, um desconto é indistinguível de erro de
-                      digitação — e o backend recusa.
+                      Diga o motivo do desconto — sem ele, a venda não é
+                      registrada.
                     </small>
                   </label>
                 )}
@@ -444,12 +444,11 @@ export function NovaVenda({
           </label>
           <div className="mq-field">
             <span>Local ou canal</span>
+            {/* Canal por venda ainda não existe no servidor: toda venda
+                registrada aqui é gravada como balcão. */}
             <p className="mq-hint">
-              <b>Balcão.</b> O registro de venda do sistema grava sempre
-              <code> origem = &apos;balcao&apos;</code>; canal por venda ainda
-              não é aceito por <code>POST /api/vendas</code>. O canal que
-              aparece no histórico vem da planilha importada. Anote o local na
-              observação se ele importar para esta venda.
+              <b>Balcão.</b> Se a venda foi por outro lugar (Instagram,
+              evento…), anote na observação.
             </p>
           </div>
         </div>
@@ -510,15 +509,11 @@ export function NovaVenda({
           )}
         </div>
 
-        <p className="mq-note mq-note--info">
-          <Icone nome="alert" />
-          <span>
-            <b>Um recebimento, não vários.</b> O protótipo prevê uma tabela de
-            pagamentos; o backend quita a venda por INTEIRO
-            (<code>POST /api/vendas/:id/pagamento</code>) e recebimento em
-            partes é a decisão D2, ainda fechada. Registrar dois pagamentos
-            aqui seria simular uma capacidade que o servidor não tem.
-          </span>
+        {/* O servidor quita a venda por inteiro; recebimento em partes
+            ainda não existe (decisão D2). */}
+        <p className="mq-hint">
+          O pagamento é registrado de uma vez, pelo valor total. Se a cliente
+          vai pagar depois, escolha "Fica a receber".
         </p>
 
         <label className="mq-field">
@@ -684,7 +679,7 @@ function Revisao({
             <div>
               <dt>Registro</dt>
               <dd>{fmtData(hojeISO())}</dd>
-              <small>hoje — guardado pelo servidor, não editável</small>
+              <small>hoje</small>
             </div>
           </dl>
 

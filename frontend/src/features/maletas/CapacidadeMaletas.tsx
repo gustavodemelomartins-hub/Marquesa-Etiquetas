@@ -135,12 +135,12 @@ export function CapacidadeMaletas({ estado, planejamento, aoVerSugestoes, aoCria
       </div>
 
       <div className="aviso" data-tom="atencao">
-        <b>Estes dois números ainda não são regra do sistema.</b>
+        {/* api/REGRAS.md não define reserva mínima nem tamanho de maleta:
+            a premissa vive no navegador até essa decisão ser tomada. */}
+        <b>Isto é uma estimativa.</b>
         <div className="corpo">
-          <code>api/REGRAS.md</code> não define reserva mínima em casa nem tamanho de maleta. O
-          backend só garante que nada saia além do disponível. Enquanto a decisão de negócio não
-          for tomada, a configuração vive neste navegador e o número acima é uma projeção sob a
-          premissa mostrada — não um fato do estoque.
+          O número depende do tamanho de maleta e da reserva que você escolher
+          aqui. Serve para planejar — não é uma contagem do estoque.
         </div>
       </div>
 
@@ -148,7 +148,7 @@ export function CapacidadeMaletas({ estado, planejamento, aoVerSugestoes, aoCria
         <p className="cap-nota">
           {cap.pecasSemPreco} {plural(cap.pecasSemPreco, 'peça liberada está', 'peças liberadas estão')}{' '}
           sem preço e {plural(cap.pecasSemPreco, 'fica', 'ficam')} fora das sugestões: sem preço
-          não dá para encerrar o acerto (§24).
+          não dá para encerrar o acerto.
         </p>
       )}
     </Painel>

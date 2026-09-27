@@ -10,38 +10,32 @@ import { ResumoSessao } from './ResumoSessao';
 import { TabelaItensSessao } from './TabelaItensSessao';
 import { ConfirmarAplicar } from './ConfirmarAplicar';
 import { ResultadoAplicacao } from './ResultadoAplicacao';
-import { PainelEstoque } from './PainelEstoque';
-import { PecasArea } from '../estoque/PecasArea';
-import { InventarioArea } from '../inventario/InventarioArea';
+import { Icone } from '../../components/Icone';
 import { useSessaoPlanilha } from './useSessaoPlanilha';
 import { itensAprovados, itensPendentes } from './itens';
 import type { ModoPlanilha } from './tipos';
 import type { ResultadoParse } from './parsePlanilha';
-import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
 
 type Etapa = 'escolha' | 'upload' | 'revisao' | 'confirmando' | 'resultado';
 
 interface Props {
   conexao: Connection;
-  /** `GET /api/state`, buscado uma vez no `App` e compartilhado. `null`
-   *  enquanto carrega ou quando a leitura falhou — o painel some, e o
-   *  fluxo de importação abaixo continua funcionando sem ele. */
+  /** `GET /api/state`, buscado uma vez no `App` e compartilhado. */
   estado: AppState | null;
-  planejamento: UsoPlanejamento;
-  /** Leva para Revendedoras › Visão Geral. */
-  aoVerPlanejamento: () => void;
-  /** As duas ações do cabeçalho do protótipo e a saída do KPI de
-   *  pendências. Quem navega é `EstoqueArea`. */
-  aoConferirEstoque: () => void;
+  /** Abre o cadastro de UMA peça, em Peças. */
   aoNovoProduto: () => void;
-  aoVerPendencias: () => void;
   /** Aplicar estoque muda produtos — o estado compartilhado precisa ser
    *  relido, senão o painel do topo passa a mentir. */
   aoMudarEstoque: () => void;
 }
 
-/** A tela "Estoque Total": duas importações independentes, o mesmo motor
- *  de reconciliação por baixo das duas.
+/** ENTRADA DE PEÇAS — os dois jeitos de peça entrar no sistema: uma a uma
+ *  ("Novo produto") ou em lote, por planilha. As duas importações por
+ *  planilha usam o mesmo motor de reconciliação por baixo.
+ *
+ *  Até 27/09/2026 esta tela ficava no FIM da Visão geral do Estoque,
+ *  depois da lista inteira de quase mil peças — na prática, ninguém chegava
+ *  nela. Agora ela é uma aba própria de Peças.
  *
  *  A pessoa não está "importando uma planilha" — está dizendo ao sistema
  *  qual é a referência atual, e o sistema mostra o que seria diferente
@@ -49,12 +43,7 @@ interface Props {
  *  "confirmando". */
 export function EstoqueTotalPage({
   conexao,
-  estado,
-  planejamento,
-  aoVerPlanejamento,
-  aoConferirEstoque,
   aoNovoProduto,
-  aoVerPendencias,
   aoMudarEstoque,
 }: Props) {
   const [etapa, setEtapa] = useState<Etapa>('escolha');
@@ -105,72 +94,40 @@ export function EstoqueTotalPage({
 
   return (
     <>
-      {/* Na etapa de escolha quem manda no cabeçalho é a VISÃO GERAL, com
-          o `mq-pagehead` do protótipo. O antigo `PageHeader` chamava esta
-          tela de "Estoque Total" — o nome do importador — e fazia a porta
-          do módulo parecer uma tela de importação de planilha. A
-          importação continua aqui, logo abaixo, como o que ela é: uma
-          ação sobre o estoque, não a identidade dele. */}
-      {etapa === 'escolha' && estado && (
-        <PainelEstoque
-          estado={estado}
-          planejamento={planejamento}
-          aoVerPlanejamento={aoVerPlanejamento}
-          aoConferirEstoque={aoConferirEstoque}
-          aoNovoProduto={aoNovoProduto}
-          aoVerPendencias={aoVerPendencias}
-        />
-      )}
-
-      {/* "CONFERÊNCIA FÍSICA · INVENTÁRIO" — a posição é a do protótipo:
-          entre a distribuição do patrimônio e o catálogo físico, no mesmo
-          documento. O inventário deixou de ser um lugar aonde se vai e
-          voltou a ser uma coisa que se faz de dentro do Estoque.
-
-          A aba "Inventário" e a rota `#/estoque/inventario` continuam
-          existindo e renderizam O MESMO componente em tela cheia. */}
       {etapa === 'escolha' && (
-        <InventarioArea
-          conexao={conexao}
-          estado={estado}
-          aoMudarEstoque={aoMudarEstoque}
-          embutida
-        />
-      )}
-
-      {/* "TODOS OS PRODUTOS" — no protótipo esta tabela é uma SEÇÃO da
-          Visão geral, e não uma aba à parte. Embutida, ela não repete os
-          KPIs nem a nota sobre custo que o painel acima já deu. A rota
-          `#/estoque/pecas` continua válida para quem tiver o link. */}
-      {etapa === 'escolha' && (
-        <section className="mq-card mq-card--flush">
-          <div className="mq-card__head">
-            <div>
-              <p className="mq-eyebrow">Catálogo físico</p>
-              <h2 className="mq-title">Todos os produtos</h2>
+        <>
+          <div className="mq-pagehead">
+            <div className="mq-pagehead__text">
+              <p className="mq-eyebrow">Peças</p>
+              <h1 className="mq-display">Entrada de peças</h1>
               <p className="mq-lede">
-                A foto sempre aparece primeiro. Clique numa linha para abrir a
-                razão da peça, movimento a movimento.
+                Cadastre uma peça nova, ou atualize muitas de uma vez por
+                planilha. Nada muda no estoque antes de você conferir.
               </p>
             </div>
           </div>
-          <PecasArea
-            conexao={conexao}
-            estado={estado}
-            carregando={!estado}
-            erro={null}
-            recarregar={aoMudarEstoque}
-            embutida
-          />
-        </section>
+
+          <section className="mq-card mq-card--pad">
+            <div className="mq-row">
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <h2 className="mq-title">Uma peça</h2>
+                <p className="mq-lede">Código, nome, preço e a quantidade que você tem hoje.</p>
+              </div>
+              <button type="button" className="mq-btn mq-btn--primary" onClick={aoNovoProduto}>
+                <Icone nome="plus" />
+                Novo produto
+              </button>
+            </div>
+          </section>
+        </>
       )}
 
       {etapa === 'escolha' && (
         <section className="mq-card">
           <div className="mq-card__head">
             <div>
-              <p className="mq-eyebrow">Referência de estoque</p>
-              <h2 className="mq-title">Atualizar Estoque Total</h2>
+              <p className="mq-eyebrow">Muitas peças</p>
+              <h2 className="mq-title">Por planilha</h2>
               <p className="mq-lede">
                 A planilha de referência da Stéfane, comparada com o que o
                 sistema tem hoje. Nada muda até você aprovar e aplicar.
@@ -187,7 +144,7 @@ export function EstoqueTotalPage({
           como tal. */}
       {etapa !== 'escolha' && (
         <PageHeader
-          kicker="Estoque"
+          kicker="Entrada de peças"
           titulo="Atualizar Estoque Total"
           sub="A planilha de referência da Stéfane, comparada com o que o sistema tem hoje. Nada muda até você aprovar e aplicar."
         />

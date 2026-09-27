@@ -1,40 +1,38 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useApi } from '../../hooks/useApi';
-import { chamar, type Connection } from '../../services/client';
+import type { Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
-import { money, fmtData } from '../../domain/formato';
+import { money } from '../../domain/formato';
+import { precisamDeAtencao } from '../../domain/estoque';
 import { FotoDaPeca } from '../../components/FotoDaPeca';
+import { NovoProduto } from '../catalogo/NovoProduto';
+import { NO_PAINEL_CLASSICO } from '../../app/modulos';
+import { FichaDaPeca } from './FichaDaPeca';
 import type { AppState } from '../../types/api';
 import type { ProdutoDoEstado } from '../vendas/tipos';
 
-interface Movimento {
-  id: number;
-  sku: string;
-  variacao: string | null;
-  tipo: string;
-  qtd: number;
-  origem: string | null;
-  venda_id: number | null;
-  maleta_id: number | null;
-  obs: string | null;
-  criado_em: string;
-}
-
-interface RazaoDoSku {
-  sku: string;
-  saldos: { desc: string; preco: number | null; qtd: number; consignado: number; disponivel: number };
-  movimentos: Movimento[];
-}
-
-/* As colunas de `docs/ux/03-screens/estoque/master.html › products-table`,
-   nesta ordem. A FOTO é a primeira — regra do projeto para qualquer
-   listagem de estoque, e no protótipo ela é o que identifica a peça antes
-   do nome. */
+/* A FOTO é a primeira coluna — regra do projeto para qualquer listagem de
+   estoque: a peça se reconhece pela imagem antes do código. */
 const COLUNAS = {
   gridTemplateColumns:
     '44px minmax(0,2.2fr) minmax(0,.9fr) 64px 72px 74px 68px minmax(0,1fr)',
 };
+
+/** Quantas linhas aparecem antes do "Mostrar mais". A lista inteira tem
+ *  quase mil peças: desenhar todas de uma vez fazia a página ter cem telas
+ *  de altura, e no telefone mais de trezentas. Quem procura uma peça usa a
+ *  busca; quem quer olhar, pede mais. */
+const POR_PAGINA = 60;
+
+export type FiltroSituacao = 'ativo' | 'inativo' | 'arquivado' | 'todos' | 'incompleto';
+
+const FILTROS: { id: FiltroSituacao; rotulo: string }[] = [
+  { id: 'ativo', rotulo: 'Ativas' },
+  { id: 'incompleto', rotulo: 'Cadastro incompleto' },
+  { id: 'inativo', rotulo: 'Inativas' },
+  { id: 'arquivado', rotulo: 'Arquivadas' },
+  { id: 'todos', rotulo: 'Todas' },
+];
 
 interface Props {
   conexao: Connection;
@@ -42,35 +40,45 @@ interface Props {
   carregando: boolean;
   erro: unknown;
   recarregar: () => void;
-  /** EMBUTIDA na Visão geral, que é onde o protótipo a põe ("Todos os
-   *  produtos"). Nesse modo ela não desenha os próprios KPIs nem a nota
-   *  sobre custo: quem está acima dela já disse as duas coisas, e repetir
-   *  faria a mesma tela responder duas vezes à mesma pergunta. */
-  embutida?: boolean;
+  /** A peça cuja ficha está aberta. Mora no endereço (`#/estoque/peca:<sku>`)
+   *  para a busca do topo poder abrir a ficha, e o voltar do navegador
+   *  fechá-la. */
+  pecaAberta?: string | null;
+  aoAbrirPeca?: (sku: string | null) => void;
+  /** `#/estoque/novo` abre o cadastro de peça nova. */
+  criando?: boolean;
+  aoCriar?: (abrir: boolean) => void;
+  filtroInicial?: FiltroSituacao;
 }
 
-/** AS PEÇAS — onde está o patrimônio.
+/** PEÇAS — a lista única do que a Marquesa tem.
  *
- *  O saldo mostrado aqui é o que a RAZÃO diz, não um campo digitado:
- *  `produtos.qtd` só muda por um movimento, e é por isso que toda linha
- *  abre num extrato. A pergunta "por que tem 54 e não 56" tem resposta, e
- *  ela está a um toque.
+ *  Estoque e Catálogo eram dois lugares para a mesma peça: um mostrava
+ *  quantidade, o outro nome e preço, e a usuária tinha de saber qual abrir.
+ *  Agora é uma lista só, e cada linha abre a FICHA da peça, onde estão os
+ *  dois lados — onde ela está e como ela está cadastrada.
  *
- *  Três números, e eles não são o mesmo: TOTAL é tudo o que existe, EM CASA
- *  é o que está aqui, COM REVENDEDORA é o que saiu em maleta e ainda é
- *  nosso. Vender o que está na maleta de alguém é como o estoque fica
- *  negativo, e por isso o número que o balcão usa é o disponível.
- *
- *  §D6 — NÃO existe custo confiável no sistema. O valor mostrado é o do
- *  PREÇO CADASTRADO, que é um fato do catálogo, e está rotulado como tal.
- *  Chamar isso de patrimônio seria inventar margem.
- */
+ *  Três números por peça, e eles não são o mesmo: EM CASA é o que está
+ *  aqui, COM REVENDEDORA é o que saiu em maleta e ainda é nosso, e TOTAL é
+ *  a soma. O valor é o do PREÇO cadastrado — o sistema não guarda custo. */
 export function PecasArea({
-  conexao, estado, carregando, erro, recarregar, embutida = false,
+  conexao, estado, carregando, erro, recarregar,
+  pecaAberta = null, aoAbrirPeca, criando = false, aoCriar, filtroInicial = 'ativo',
 }: Props) {
   const [busca, setBusca] = useState('');
   const [categoria, setCategoria] = useState<string>('');
-  const [aberta, setAberta] = useState<string | null>(null);
+  const [situacao, setSituacao] = useState<FiltroSituacao>(filtroInicial);
+  const [limite, setLimite] = useState(POR_PAGINA);
+  /* Sem rota (uso isolado, testes), a ficha e o cadastro vivem aqui. */
+  const [abertaLocal, setAbertaLocal] = useState<string | null>(null);
+  const [criandoLocal, setCriandoLocal] = useState(false);
+  const aberta = aoAbrirPeca ? pecaAberta : abertaLocal;
+  const abrir = aoAbrirPeca ?? setAbertaLocal;
+  const novo = aoCriar ? criando : criandoLocal;
+  const setNovo = aoCriar ?? setCriandoLocal;
+
+  useEffect(() => { setSituacao(filtroInicial); }, [filtroInicial]);
+  useEffect(() => { setLimite(POR_PAGINA); }, [busca, categoria, situacao]);
 
   const produtos = (estado?.produtos ?? []) as unknown as ProdutoDoEstado[];
 
@@ -79,67 +87,86 @@ export function PecasArea({
     [produtos],
   );
 
+  const incompletas = useMemo(
+    () => new Set(estado ? precisamDeAtencao(estado).map((p) => p.sku) : []),
+    [estado],
+  );
+
   const lista = useMemo(() => {
     const t = busca.trim().toLowerCase();
     return produtos
+      .filter((p) => (situacao === 'todos' ? true
+        : situacao === 'incompleto' ? incompletas.has(p.sku)
+          : p.status === situacao))
       .filter((p) => (categoria ? p.cat === categoria : true))
       .filter((p) => !t || p.sku.toLowerCase().includes(t) || p.desc.toLowerCase().includes(t))
       .sort((a, b) => a.desc.localeCompare(b.desc));
-  }, [produtos, busca, categoria]);
+  }, [produtos, busca, categoria, situacao, incompletas]);
 
-  const totais = useMemo(() => lista.reduce(
+  /* Os números do topo são do estoque INTEIRO, não do filtro: "quantas
+     peças eu tenho" não muda porque a lista está mostrando só anéis. */
+  const totais = useMemo(() => produtos.reduce(
     (s, p) => ({
       pecas: s.pecas + p.qtd,
       emCasa: s.emCasa + (p.qtd - p.consignado),
       consignado: s.consignado + p.consignado,
-      referencia: s.referencia + (p.preco ?? 0) * p.qtd,
-      semPreco: s.semPreco + (p.semPreco ? 1 : 0),
     }),
-    { pecas: 0, emCasa: 0, consignado: 0, referencia: 0, semPreco: 0 },
-  ), [lista]);
+    { pecas: 0, emCasa: 0, consignado: 0 },
+  ), [produtos]);
+
+  const pecaDaFicha = aberta ? produtos.find((p) => p.sku === aberta) ?? null : null;
 
   if (erro) return <section className="mq-card"><ErrorState erro={erro} aoTentarDeNovo={recarregar} /></section>;
 
   return (
     <>
-      {!embutida && (
+      <div className="mq-pagehead">
+        <div className="mq-pagehead__text">
+          <p className="mq-eyebrow">Peças</p>
+          <h1 className="mq-display">Peças</h1>
+          <p className="mq-lede">
+            Toque numa peça para ver onde ela está, corrigir o cadastro e ver o
+            histórico.
+          </p>
+        </div>
+        <div className="mq-pagehead__actions">
+          <a className="mq-btn mq-btn--secondary" href={NO_PAINEL_CLASSICO}>
+            <Icone nome="label" />
+            Imprimir etiquetas
+          </a>
+          <button type="button" className="mq-btn mq-btn--primary" onClick={() => setNovo(true)}>
+            <Icone nome="plus" />
+            Novo produto
+          </button>
+        </div>
+      </div>
+
       <div className="mq-kpis">
         <div className="mq-kpi">
           <span className="mq-kpi__label">Peças</span>
-          <span className="mq-kpi__value">{totais.pecas}</span>
-          <span className="mq-kpi__foot">{lista.length} códigos</span>
+          <span className="mq-kpi__value">{totais.pecas.toLocaleString('pt-BR')}</span>
+          <span className="mq-kpi__foot">{produtos.length} códigos</span>
         </div>
         <div className="mq-kpi">
           <span className="mq-kpi__label">Em casa</span>
-          <span className="mq-kpi__value">{totais.emCasa}</span>
+          <span className="mq-kpi__value">{totais.emCasa.toLocaleString('pt-BR')}</span>
           <span className="mq-kpi__foot">aqui, prontas para vender</span>
         </div>
         <div className="mq-kpi">
           <span className="mq-kpi__label">Com revendedoras</span>
-          <span className="mq-kpi__value">{totais.consignado}</span>
-          <span className="mq-kpi__foot">na rua, e ainda nossas</span>
+          <span className="mq-kpi__value">{totais.consignado.toLocaleString('pt-BR')}</span>
+          <span className="mq-kpi__foot">nas maletas, e ainda nossas</span>
         </div>
-        <div className="mq-kpi">
-          <span className="mq-kpi__label">Valor de referência</span>
-          <span className="mq-kpi__value"><i>R$</i>{money(totais.referencia).replace('R$ ', '')}</span>
-          <span className="mq-kpi__foot">
-            pelo preço cadastrado — não é custo
-            {totais.semPreco > 0 ? `, e ${totais.semPreco} sem preço` : ''}
-          </span>
-        </div>
+        <button
+          type="button"
+          className={incompletas.size > 0 ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}
+          onClick={() => setSituacao('incompleto')}
+        >
+          <span className="mq-kpi__label">Cadastro incompleto</span>
+          <span className="mq-kpi__value">{incompletas.size}</span>
+          <span className="mq-kpi__foot">sem foto, categoria ou preço</span>
+        </button>
       </div>
-      )}
-
-      {!embutida && (
-        <p className="mq-note mq-note--info">
-          <Icone nome="alert" />
-          <span>
-            <b>Este valor não é patrimônio.</b> Ele é a soma do preço de venda
-            cadastrado, que é um fato do catálogo. O sistema não guarda custo
-            histórico confiável, e inventar um transformaria margem em chute.
-          </span>
-        </p>
-      )}
 
       <div className="mq-filters">
         <label className="mq-search">
@@ -162,6 +189,13 @@ export function PecasArea({
           <option value="">Todas as categorias</option>
           {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
+        <div className="mq-chipset" role="group" aria-label="Situação">
+          {FILTROS.map((f) => (
+            <button key={f.id} type="button" aria-pressed={situacao === f.id} onClick={() => setSituacao(f.id)}>
+              {f.rotulo}
+            </button>
+          ))}
+        </div>
         <span className="mq-filters__count">
           {carregando ? 'carregando…' : `${lista.length} ${lista.length === 1 ? 'peça' : 'peças'}`}
         </span>
@@ -172,38 +206,36 @@ export function PecasArea({
           <div className="mq-state">
             <span className="mq-state__icon"><Icone nome="box" /></span>
             <h3>Nenhuma peça com esse filtro</h3>
-            <p>Tente outro termo, ou limpe a categoria.</p>
+            <p>Tente outro termo, ou escolha "Todas".</p>
           </div>
         ) : (
-          <div className="mq-table" role="table" aria-label="Peças">
+          <div className="mq-table mq-table--pecas" role="table" aria-label="Peças">
             <div className="mq-tr mq-tr--head" role="row" style={COLUNAS}>
               <span aria-label="Foto" />
-              <span>Produto</span>
+              <span>Peça</span>
               <span>Categoria</span>
               <span className="mq-cell--num">Total</span>
               <span className="mq-cell--num">Em casa</span>
               <span className="mq-cell--num">Revend.</span>
               <span className="mq-cell--num">Na loja</span>
-              <span className="mq-cell--num">Valor ref.</span>
+              <span className="mq-cell--num">Preço</span>
             </div>
-            {lista.map((p) => (
+            {lista.slice(0, limite).map((p) => (
               <button
                 type="button"
                 className="mq-tr"
                 key={p.sku}
                 style={COLUNAS}
-                onClick={() => setAberta(p.sku)}
+                onClick={() => abrir(p.sku)}
               >
-                {/* A FOTO primeiro — regra do projeto para qualquer
-                    listagem de estoque, e no protótipo é o que identifica
-                    a peça antes do nome. Quem monta a imagem é
-                    `FotoDaPeca`, e só ele: miniatura da CDN em vez da
-                    imagem inteira, e dois degraus de erro antes de desistir
-                    para o losango da marca. */}
                 <FotoDaPeca peca={p} alt={p.desc} />
                 <span className="mq-cell">
                   <b>{p.desc}</b>
-                  <small className="mq-sku">SKU {p.sku}</small>
+                  <small className="mq-sku">
+                    {p.sku}
+                    {p.status !== 'ativo' ? ` · ${p.status}` : ''}
+                    {incompletas.has(p.sku) ? ' · cadastro incompleto' : ''}
+                  </small>
                 </span>
                 <span className="mq-cell">
                   {p.cat ? (
@@ -214,7 +246,6 @@ export function PecasArea({
                 </span>
                 <span className="mq-cell mq-cell--num" data-label="Total">
                   <b className="mq-qty">{p.qtd}</b>
-                  {p.status !== 'ativo' && <small>{p.status}</small>}
                 </span>
                 <span className="mq-cell mq-cell--num" data-label="Em casa">
                   <b className="mq-qty">{p.qtd - p.consignado}</b>
@@ -223,14 +254,13 @@ export function PecasArea({
                   <b className="mq-qty">{p.consignado}</b>
                 </span>
                 <span className="mq-cell mq-cell--num" data-label="Na loja">
-                  {/* `estoqueLoja` só existe depois de uma sincronização.
-                      Sem ela, a coluna diz que não sabe — e não "0", que
-                      afirmaria que a loja não anuncia esta peça. */}
+                  {/* Sem uma sincronização, a coluna diz que não sabe — e
+                      não "0", que afirmaria que a loja não anuncia a peça. */}
                   {p.estoqueLoja == null
                     ? <small className="mq-sku">—</small>
                     : <b className="mq-qty">{p.estoqueLoja}</b>}
                 </span>
-                <span className="mq-cell mq-cell--num" data-label="Valor de referência">
+                <span className="mq-cell mq-cell--num" data-label="Preço">
                   <b className="mq-money">{p.preco === null ? '—' : money(p.preco)}</b>
                   {p.semPreco && <small>sem preço</small>}
                 </span>
@@ -238,98 +268,46 @@ export function PecasArea({
             ))}
           </div>
         )}
+        {lista.length > limite && (
+          <div className="mq-row mq-row--center" style={{ padding: 'var(--mq-4)' }}>
+            <button type="button" className="mq-btn mq-btn--secondary" onClick={() => setLimite((n) => n + POR_PAGINA * 2)}>
+              Mostrar mais ({lista.length - limite} restantes)
+            </button>
+          </div>
+        )}
       </section>
 
-      {aberta && <Razao conexao={conexao} sku={aberta} aoFechar={() => setAberta(null)} />}
-    </>
-  );
-}
+      {pecaDaFicha && (
+        <FichaDaPeca
+          conexao={conexao}
+          peca={pecaDaFicha}
+          categorias={categorias}
+          aoFechar={() => abrir(null)}
+          aoMudar={recarregar}
+        />
+      )}
 
-/** O extrato de uma peça: a razão contábil dela, movimento a movimento.
- *
- *  É esta gaveta que responde "por que o saldo é este". Cada linha diz o
- *  que aconteceu, quanto mudou e de onde veio — e a soma delas É o saldo,
- *  por construção. */
-function Razao({ conexao, sku, aoFechar }: { conexao: Connection; sku: string; aoFechar: () => void }) {
-  const razao = useApi(
-    (s) => chamar<RazaoDoSku>(conexao, 'GET', `/api/estoque/${encodeURIComponent(sku)}/movimentos`, undefined, { signal: s }),
-    [conexao, sku],
-  );
+      {aberta && !pecaDaFicha && estado && (
+        <p className="mq-note mq-note--warn" role="alert">
+          <Icone nome="alert" />
+          <span>Não achei a peça {aberta}. Ela pode ter sido excluída — use a busca.</span>
+        </p>
+      )}
 
-  useEffect(() => {
-    const aoTeclar = (e: KeyboardEvent) => { if (e.key === 'Escape') aoFechar(); };
-    document.addEventListener('keydown', aoTeclar);
-    return () => document.removeEventListener('keydown', aoTeclar);
-  }, [aoFechar]);
-
-  const soma = (razao.dados?.movimentos ?? []).reduce((s, m) => s + Number(m.qtd), 0);
-  const fecha = razao.dados ? soma === razao.dados.saldos.qtd : true;
-
-  return (
-    <>
-      <button type="button" className="mq-scrim" aria-label="Fechar" onClick={aoFechar} />
-      <div className="mq-drawer" role="dialog" aria-modal="true" aria-label={`Movimentos de ${sku}`}>
-        <div className="mq-drawer__head">
-          <div>
-            <p className="mq-eyebrow">{sku}</p>
-            <h2 className="mq-title">{razao.dados?.saldos.desc ?? 'Movimentos'}</h2>
-          </div>
-          <button type="button" className="mq-modal__close" aria-label="Fechar" onClick={aoFechar}>
-            <Icone nome="close" />
-          </button>
-        </div>
-
-        <div className="mq-drawer__body">
-          {razao.erro ? <ErrorState erro={razao.erro} aoTentarDeNovo={razao.recarregar} /> : null}
-
-          {razao.dados && (
-            <>
-              <dl className="mq-dl">
-                <div><dt>Total</dt><dd className="mq-qty">{razao.dados.saldos.qtd}</dd></div>
-                <div><dt>Com revendedoras</dt><dd className="mq-qty">{razao.dados.saldos.consignado}</dd></div>
-                <div><dt>Disponível para vender</dt><dd className="mq-qty">{razao.dados.saldos.disponivel}</dd></div>
-                <div>
-                  <dt>Preço cadastrado</dt>
-                  <dd className="mq-money">
-                    {razao.dados.saldos.preco === null ? '—' : money(razao.dados.saldos.preco)}
-                  </dd>
-                </div>
-              </dl>
-
-              <p className={fecha ? 'mq-note mq-note--ok' : 'mq-note mq-note--risk'}>
-                <Icone nome={fecha ? 'check' : 'alert'} />
-                <span>
-                  {fecha
-                    ? `Os ${razao.dados.movimentos.length} movimentos somam ${soma}, que é o saldo. A razão fecha.`
-                    : `Os movimentos somam ${soma}, e o saldo diz ${razao.dados.saldos.qtd}. Isto é um defeito, não um estado.`}
-                </span>
-              </p>
-
-              <div className="mq-timeline">
-                {razao.dados.movimentos.slice().reverse().map((m) => (
-                  <div className="mq-timeline__row" key={m.id}>
-                    <span className="mq-timeline__dot">
-                      <Icone nome={m.qtd < 0 ? 'sale' : 'box'} />
-                    </span>
-                    <span className="mq-timeline__body">
-                      <b>
-                        {m.tipo} {m.qtd > 0 ? '+' : ''}{m.qtd}
-                        {m.variacao ? ` · ${m.variacao}` : ''}
-                      </b>
-                      <small>
-                        {fmtData(m.criado_em)} · {m.origem ?? 'sem origem'}
-                        {m.venda_id ? ` · venda #${m.venda_id}` : ''}
-                        {m.maleta_id ? ` · maleta #${m.maleta_id}` : ''}
-                        {m.obs ? ` · ${m.obs}` : ''}
-                      </small>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+      {novo && (
+        <NovoProduto
+          conexao={conexao}
+          categorias={categorias}
+          aoCancelar={() => setNovo(false)}
+          aoCriado={(sku) => {
+            setNovo(false);
+            /* Volta para a lista COM a peça recém-criada à vista. */
+            setBusca(sku);
+            setSituacao('todos');
+            recarregar();
+          }}
+        />
+      )}
     </>
   );
 }

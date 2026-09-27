@@ -281,7 +281,8 @@
   .mq-rail__item span { display: block; }
   .mq-rail__conta, .mq-rail__dot { position: static; }
   .mq-rail__foot { display: flex; }
-  .mq-burger { display: grid; }
+  /* O menu do telefone é o botão "Menu" da barra de baixo, onde o polegar
+     alcança. Um segundo botão de menu no topo era a mesma porta duas vezes. */
   .mq-busca-botao { display: grid; }
   /* A busca não cabe ao lado do nome do módulo em 390px, mas SUMIR não é
      resposta: quem usa o sistema de pé, no balcão, é exatamente quem mais

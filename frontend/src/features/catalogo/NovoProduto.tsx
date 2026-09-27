@@ -166,7 +166,7 @@ export function NovoProduto({ conexao, categorias, aoCancelar, aoCriado }: Props
     setErro('');
     const codigo = sku.trim().toUpperCase();
     if (!codigo || !desc.trim()) { setErro('Preencha o código e o nome da peça.'); return; }
-    if (!formatoOk) { setErro('O código digitado à mão precisa ter 6 números (§17).'); return; }
+    if (!formatoOk) { setErro('O código precisa ter 6 números.'); return; }
     if (temVariacao && !combinacoes.length) {
       setErro('Escreva um atributo com pelo menos um valor, ou desligue "Variações".');
       return;
@@ -341,7 +341,7 @@ export function NovoProduto({ conexao, categorias, aoCancelar, aoCriado }: Props
                 placeholder="em branco = sem preço"
                 onChange={(e) => { setPreco(e.target.value); setLaudo(null); }}
               />
-              <small>§24: em branco entra como SEM PREÇO, nunca R$ 0.</small>
+              <small>Em branco, a peça fica sem preço (e não pode ser vendida até ter um).</small>
             </label>
 
             {!temVariacao && (
@@ -354,7 +354,7 @@ export function NovoProduto({ conexao, categorias, aoCancelar, aoCriado }: Props
                   placeholder="0"
                   onChange={(e) => { setQtd(e.target.value); setLaudo(null); }}
                 />
-                <small>§19: entra como movimento de entrada, não como número digitado.</small>
+                <small>Quantas peças você tem hoje, em casa.</small>
               </label>
             )}
           </div>

@@ -177,8 +177,10 @@ export function PainelVendas({
 
 /* ═════════════════════════════════════════════════════════════ cabeçalho */
 
+/* `aoIrPara` não desenha mais botão: "Histórico" e "Novo lançamento"
+   repetiam as abas logo acima. */
 function Cabeca({
-  recorte, aoMudar, aoIrPara,
+  recorte, aoMudar,
 }: {
   recorte: Recorte;
   aoMudar: (r: Recorte) => void;
@@ -188,21 +190,11 @@ function Cabeca({
     <>
       <div className="mq-pagehead">
         <div className="mq-pagehead__text">
-          <p className="mq-eyebrow">Operação comercial</p>
-          <h1 className="mq-display">Painel de vendas</h1>
+          <p className="mq-eyebrow">Vendas</p>
+          <h1 className="mq-display">Relatório de vendas</h1>
           <p className="mq-lede">
-            Quanto entrou no período, quanto ainda falta receber e o que sustenta
-            o resultado.
+            Como foi o período: quanto entrou, o que mais vendeu e quem comprou.
           </p>
-        </div>
-        <div className="mq-pagehead__actions">
-          <button type="button" className="mq-btn mq-btn--ghost" onClick={() => aoIrPara('historico')}>
-            Histórico
-          </button>
-          <button type="button" className="mq-btn mq-btn--primary" onClick={() => aoIrPara('lancamentos')}>
-            <Icone nome="plus" />
-            Novo lançamento
-          </button>
         </div>
       </div>
       <FiltroPeriodo recorte={recorte} aoMudar={aoMudar} />
@@ -250,7 +242,7 @@ function CartoesDeTopo({ d, aoAbrirAReceber }: { d: PainelAnalytics; aoAbrirARec
         </span>
         <span className="mq-kpi__foot">
           {g.ticketMedio.valor === null
-            ? 'nenhuma venda elegível no recorte — o servidor recusa dividir por zero'
+            ? 'nenhuma venda no período'
             : `${g.ticketMedio.vendasElegiveis} ${plural(g.ticketMedio.vendasElegiveis, 'venda elegível', 'vendas elegíveis')}`}
         </span>
       </div>

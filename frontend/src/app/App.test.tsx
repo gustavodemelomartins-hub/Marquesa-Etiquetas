@@ -39,12 +39,12 @@ const railDe = () => screen.getByRole('navigation', { name: 'Módulos do sistema
 const irNoTrilho = (nome: RegExp) =>
   fireEvent.click(within(railDe()).getByRole('button', { name: nome }));
 
-/** A arquitetura de navegação V2: treze módulos, quatro grupos, um casco.
+/** O menu simplificado de 27/09/2026: oito destinos e Configurações, em
+ *  quatro grupos, organizados pelo que a usuária FAZ.
  *
- *  A versão anterior provava o contrário — que só quatro áreas apareciam e
- *  que "Nuvemshop" não podia ser destino de primeiro nível. Essa regra foi
- *  substituída pelo desenho V2, onde o produto inteiro é visível no trilho
- *  e o que ainda não migrou aparece marcado em vez de escondido. Este
+ *  A versão anterior provava treze módulos, três deles levando a telas "Em
+ *  desenvolvimento", e Estoque/Catálogo/Nuvemshop se misturando. A
+ *  Sthefany achou o sistema confuso, e a auditoria mostrou por quê. Este
  *  arquivo prova a regra NOVA; a antiga não vale mais. */
 describe('navegação principal', () => {
   beforeEach(() => {
@@ -54,18 +54,27 @@ describe('navegação principal', () => {
     );
   });
 
-  it('mostra os treze módulos, nos quatro grupos da V2', () => {
+  it('mostra os módulos do menu, nos quatro grupos', () => {
     render(<App />);
     const rotulos = [...railDe().querySelectorAll('.mq-rail__item')].map((b) =>
       (b.querySelector('span')?.textContent ?? '').trim());
     expect(rotulos).toEqual([
-      'Home', 'Vendas', 'Clientes', 'Financeiro',
-      'Estoque', 'Catálogo', 'Etiquetas', 'Nuvemshop',
-      'Revendedoras', 'Garantias e reparos',
-      'Agenda', 'Notificações', 'Configurações',
+      'Início', 'Vendas', 'Clientes', 'Financeiro',
+      'Peças', 'Loja online',
+      'Revendedoras', 'Garantias',
+      'Configurações',
     ]);
     const grupos = [...railDe().querySelectorAll('.mq-rail__group')].map((g) => g.textContent);
-    expect(grupos).toEqual(['Operação', 'Produto', 'Rede', 'Sistema']);
+    expect(grupos).toEqual(['Dia a dia', 'Peças', 'Rede', 'Sistema']);
+  });
+
+  it('nenhum item do menu leva a uma tela "Em desenvolvimento"', () => {
+    render(<App />);
+    expect(railDe().querySelectorAll('.mq-rail__item--pendente')).toHaveLength(0);
+    for (const item of [...railDe().querySelectorAll('.mq-rail__item')]) {
+      fireEvent.click(item as HTMLElement);
+      expect(screen.queryByText('Em desenvolvimento')).toBeNull();
+    }
   });
 
   it('existe UM casco, e nenhuma tela desenha outro cabeçalho', () => {
@@ -78,23 +87,35 @@ describe('navegação principal', () => {
   it('a barra superior diz sempre ONDE ESTOU', () => {
     render(<App />);
     const onde = document.querySelector('.mq-topbar__where');
-    expect(onde?.textContent).toContain('Home');
-    expect(onde?.textContent).toContain('Operação');
+    expect(onde?.textContent).toContain('Início');
+    expect(onde?.textContent).toContain('Dia a dia');
 
     irNoTrilho(/Revendedoras/);
     expect(document.querySelector('.mq-topbar__where')?.textContent).toContain('Rede');
   });
 
-  it('módulo ainda não migrado aparece marcado, não escondido', () => {
+  /* Link salvo antes da mudança continua levando ao lugar certo. */
+  it('endereços antigos caem na tela que os substituiu', () => {
+    history.replaceState(null, '', '#/catalogo');
     render(<App />);
-    const agenda = [...railDe().querySelectorAll('.mq-rail__item')]
-      .find((b) => b.textContent?.includes('Agenda'));
-    expect(agenda?.className).toContain('mq-rail__item--pendente');
+    expect(location.hash).toBe('#/estoque');
+    cleanup();
 
-    fireEvent.click(agenda as HTMLElement);
-    expect(screen.getByRole('heading', { level: 1 }).textContent)
-      .toBe('O que vence, acerta ou fecha nos próximos dias?');
-    expect(screen.getByText('Em desenvolvimento')).toBeTruthy();
+    history.replaceState(null, '', '#/notificacoes');
+    render(<App />);
+    expect(location.hash).toBe('#/home/pendencias');
+    cleanup();
+
+    history.replaceState(null, '', '#/estoque/pendencias');
+    render(<App />);
+    expect(location.hash).toBe('#/nuvemshop');
+  });
+
+  it('o sino abre a lista de pendências', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /^Pendências/ }));
+    expect(location.hash).toBe('#/home/pendencias');
+    expect(screen.getByRole('heading', { level: 1, name: 'Pendências' })).toBeTruthy();
   });
 
   /* O endereço é o estado: recarregar volta para a mesma tela, e o voltar
@@ -126,32 +147,30 @@ describe('navegação principal', () => {
     expect(screen.getByText(/a autenticação é uma chave só/i)).toBeTruthy();
   });
 
-  it('Estoque abre na Visão geral, e a importação continua alcançável', async () => {
+  it('Peças tem quatro abas, todas do próprio módulo', async () => {
     render(<App />);
+    irNoTrilho(/^Peças$/);
+    const abas = screen.getByRole('tablist', { name: 'Peças' });
+    expect(abas.classList.contains('mq-tabs')).toBe(true);
+    expect([...abas.querySelectorAll('[role="tab"]')].map((b) => b.textContent))
+      .toEqual(['Peças', 'Resumo', 'Entrada de peças', 'Inventário']);
 
-    irNoTrilho(/^Estoque$/);
-    /* A faixa é `.mq-tabs` — a do protótipo. Era `.pill`, que desenhava
-       pílulas: a mesma navegação com outra aparência. */
-    const subAbas = screen.getByRole('tablist', { name: 'Estoque' });
-    expect(subAbas.classList.contains('mq-tabs')).toBe(true);
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Visão geral' }));
-    /* O cartão da importação, com o nome dela — e não o do módulo. */
-    expect(await screen.findByText('Referência de estoque')).toBeTruthy();
+    /* A importação por planilha tem aba própria agora. */
+    fireEvent.click(screen.getByRole('tab', { name: 'Entrada de peças' }));
+    expect(await screen.findByText('Por planilha')).toBeTruthy();
+    /* E trocar de aba não tira ninguém do módulo. */
+    expect(location.hash.startsWith('#/estoque')).toBe(true);
+    expect(document.querySelector('.mq-topbar__where')?.textContent).toContain('Peças');
   });
 
-  /** Duas PORTAS para a mesma tela, e elas não podem discordar sobre onde
-   *  se está: pelo trilho ou pela aba, o resultado é o mesmo lugar. */
-  it('Nuvemshop acende no trilho quando aberta pela aba de Estoque', () => {
+  it('Loja online é um item próprio do menu, sem as abas de Peças', () => {
     comEstado();
     render(<App />);
-    irNoTrilho(/^Estoque$/);
-    fireEvent.click(screen.getByRole('tab', { name: 'Na loja' }));
-
-    const nuvem = [...railDe().querySelectorAll('.mq-rail__item')]
-      .find((b) => b.textContent?.includes('Nuvemshop'));
-    expect(nuvem?.getAttribute('aria-current')).toBe('page');
-    expect(document.querySelector('.mq-topbar__where')?.textContent).toContain('Nuvemshop');
+    irNoTrilho(/Loja online/);
+    const loja = [...railDe().querySelectorAll('.mq-rail__item')]
+      .find((b) => b.textContent?.includes('Loja online'));
+    expect(loja?.getAttribute('aria-current')).toBe('page');
+    expect(screen.queryByRole('tablist', { name: 'Peças' })).toBeNull();
   });
 });
 
@@ -165,63 +184,46 @@ describe('cada área abre na tela certa', () => {
     comEstado();
   });
 
-  /** A FAIXA DO PROTÓTIPO, nesta ordem. Duas das seis levam para outro
-   *  módulo (Catálogo e a fila da Nuvemshop) — a usuária não precisa saber
-   *  qual delas mora onde. */
-  it('Estoque abre na Visão geral, com as seis abas do protótipo', async () => {
+  it('Peças abre na lista, com a ficha a um toque', async () => {
     render(<App />);
-    irNoTrilho(/^Estoque$/);
-    /* O painel só desenha com `GET /api/state` na mão — ele é feito dos
-       números reais, e não tem versão vazia para mostrar antes. */
-    await screen.findByText('Operação e distribuição');
+    irNoTrilho(/^Peças$/);
+    expect(screen.getByRole('heading', { level: 1, name: 'Peças' })).toBeTruthy();
+    const abas = screen.getByRole('tablist', { name: 'Peças' });
+    expect(within(abas).getByRole('tab', { name: 'Peças' })).toHaveProperty('ariaSelected', 'true');
 
-    const abas = screen.getByRole('tablist', { name: 'Estoque' });
-    const rotulos = [...abas.querySelectorAll('[role="tab"]')].map((b) => b.textContent);
-    expect(rotulos).toEqual([
-      'Visão geral', 'Cadastro de produtos', 'Na loja',
-      'Pendências', 'Inventário', 'Publicar na loja',
-    ]);
-    expect(within(abas).getByRole('tab', { name: 'Visão geral' })).toHaveProperty(
-      'ariaSelected',
-      'true',
-    );
-    /* O título é o do protótipo — "Estoque", com a sobrancelha
-       "Operação e distribuição". Era "Estoque Total", o nome do
-       IMPORTADOR, e isso fazia a porta do módulo parecer uma tela de
-       importação de planilha. */
-    expect(screen.getByRole('heading', { level: 1, name: 'Estoque' })).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: /C1/ }));
+    expect(location.hash).toBe('#/estoque/peca%3AC1');
+    const ficha = screen.getByRole('dialog', { name: 'Ficha da peça C1' });
+    expect(within(ficha).getByText('Em casa')).toBeTruthy();
+    expect(within(ficha).getByRole('button', { name: 'Editar dados' })).toBeTruthy();
+    expect(within(ficha).getByRole('button', { name: 'Variações' })).toBeTruthy();
   });
 
-  it('a Visão geral traz os cinco KPIs do protótipo, e as ações continuam abaixo', async () => {
+  it('o Resumo traz os números do estoque, sem a lista inteira embaixo', async () => {
     render(<App />);
-    irNoTrilho(/^Estoque$/);
+    irNoTrilho(/^Peças$/);
+    fireEvent.click(screen.getByRole('tab', { name: 'Resumo' }));
 
-    expect(await screen.findByText('Precisam de atenção')).toBeTruthy();
+    expect(await screen.findByText('Cadastro incompleto')).toBeTruthy();
     const rotulos = [...document.querySelectorAll('.mq-kpi__label')].map((e) => e.textContent);
     expect(rotulos).toEqual([
       'Valor de referência',
       'Peças em estoque',
       'Em casa',
       'Com revendedoras',
-      'Precisam de atenção',
+      'Cadastro incompleto',
     ]);
     expect(screen.getByRole('heading', { name: 'Onde está o patrimônio' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Potencial para consignação' })).toBeTruthy();
-    /* As duas ações do cabeçalho do protótipo. */
-    expect(screen.getByRole('button', { name: /Conferir estoque/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Novo produto/ })).toBeTruthy();
-    /* E a importação continua logo abaixo, intacta. */
-    expect(screen.getByRole('button', { name: /Atualizar Estoque Total/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Adicionar Peças Novas/ })).toBeTruthy();
+    expect(screen.queryByText('Todos os produtos')).toBeNull();
   });
 
   /** O NÚMERO que nunca pode virar zero por engano. "Anunciadas na loja"
    *  só aparece quando a loja FOI lida; sem retrato, a tela diz que não
    *  sabe em vez de afirmar que não há nada anunciado. */
   it('sem retrato da loja, o patrimônio não afirma zero anunciados', async () => {
+    history.replaceState(null, '', '#/estoque/resumo');
     render(<App />);
-    irNoTrilho(/^Estoque$/);
-    await screen.findByText('Precisam de atenção');
+    await screen.findByText('Cadastro incompleto');
     expect(screen.getByText('loja ainda não lida')).toBeTruthy();
   });
 
@@ -237,12 +239,13 @@ describe('cada área abre na tela certa', () => {
     );
   });
 
-  it('"Ver planejamento" no Estoque Total leva para Revendedoras › Visão Geral', async () => {
+  it('"Ver planejamento" no Resumo leva para Revendedoras › Planejamento', async () => {
+    history.replaceState(null, '', '#/estoque/resumo');
     render(<App />);
-    irNoTrilho(/^Estoque$/);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Ver planejamento' }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Revendedoras' })).toBeTruthy();
+    const abas = await screen.findByRole('tablist', { name: 'Revendedoras' });
+    expect(within(abas).getByRole('tab', { name: 'Planejamento' })).toHaveProperty('ariaSelected', 'true');
   });
 
   /* A aba da revendedora era um `useState` no App: recarregar em cima da
@@ -253,7 +256,7 @@ describe('cada área abre na tela certa', () => {
     irNoTrilho(/Revendedoras/);
 
     const abas = await screen.findByRole('tablist', { name: 'Revendedoras' });
-    fireEvent.click(within(abas).getByRole('tab', { name: /Todas as revendedoras/ }));
+    fireEvent.click(within(abas).getByRole('tab', { name: /^Revendedoras/ }));
     fireEvent.click(await screen.findByRole('button', { name: /Andreia Souza/ }));
     expect(location.hash).toBe('#/revendedoras/1');
 

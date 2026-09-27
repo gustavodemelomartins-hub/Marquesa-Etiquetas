@@ -40,7 +40,8 @@ interface Props {
 export function GarantiasArea({ conexao, sub, aoNavegar, aoAbrirCliente, estado }: Props) {
   const filtro = sub && STATUS.some((s) => s.id === sub) ? sub : (sub === 'todas' ? null : 'pendentes');
   const [aberta, setAberta] = useState<number | null>(null);
-  const [abrindo, setAbrindo] = useState(false);
+  /* `#/garantias/nova` é o atalho "A peça voltou" do Início. */
+  const [abrindo, setAbrindo] = useState(sub === 'nova');
   const produtos = (estado?.produtos ?? []) as unknown as ProdutoDoEstado[];
 
   const lista = useApi(

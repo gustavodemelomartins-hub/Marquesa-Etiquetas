@@ -135,7 +135,7 @@ export function FilaArea({ conexao }: Props) {
             <div className="mq-kpi">
               <span className="mq-kpi__label">Sem preço</span>
               <span className="mq-kpi__value">{d.resumo.semPreco}</span>
-              <span className="mq-kpi__foot">§24 — sem preço não publica e não vende</span>
+              <span className="mq-kpi__foot">sem preço não publica e não vende</span>
             </div>
           </div>
 

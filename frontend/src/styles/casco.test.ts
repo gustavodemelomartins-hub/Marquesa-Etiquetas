@@ -43,7 +43,9 @@ describe('o casco muda de forma nas três larguras', () => {
     expect(telefone).toContain('transform: translateX(-100%)');
     expect(telefone).toMatch(/\.mq-rail\.is-open\s*\{\s*transform:\s*none/);
     expect(telefone).toMatch(/\.mq-bottomnav\s*\{[^}]*display:\s*grid/);
-    expect(telefone).toMatch(/\.mq-burger\s*\{\s*display:\s*grid/);
+    /* O menu do telefone é o "Menu" da barra de baixo; o botão de menu do
+       topo saiu em 27/09/2026 — era a mesma porta duas vezes. */
+    expect(telefone).not.toMatch(/\.mq-burger\s*\{\s*display:\s*grid/);
   });
 
   it('o conteúdo deixa de ter trilho à esquerda e ganha espaço para a barra', () => {

@@ -89,13 +89,14 @@ const p = await ctx.newPage();
 const errosJs = [];
 p.on('pageerror', (e) => errosJs.push(e.message));
 
-await p.goto(`${APP}#/catalogo`, { waitUntil: 'networkidle' });
+/* Desde 27/09/2026 o cadastro mora em Peças (o Catálogo virou parte dela). */
+await p.goto(`${APP}#/estoque`, { waitUntil: 'networkidle' });
 await p.waitForTimeout(1500);
 
 await p.getByRole('button', { name: /Novo produto/ }).click();
 await p.waitForTimeout(600);
 const dialogo = p.getByRole('dialog', { name: 'Novo produto' });
-prova(await dialogo.count() === 1, 'o formulário de cadastro abre a partir do Catálogo');
+prova(await dialogo.count() === 1, 'o formulário de cadastro abre a partir de Peças');
 
 /* O código vem do SERVIDOR, e ele RESERVA antes de responder (§17). Gerar
    aqui é o que garante que este roteiro não colida com um código real. */
@@ -135,9 +136,9 @@ await p.screenshot({ path: `${FOTOS}/09-criado-real.png`, fullPage: true });
 
 /* ──────────────────────────────── o RECARREGAR, que é o ponto do roteiro */
 
-await p.goto(`${APP}#/catalogo`, { waitUntil: 'networkidle' });
+await p.goto(`${APP}#/estoque`, { waitUntil: 'networkidle' });
 await p.waitForTimeout(2000);
-await p.getByLabel('Buscar no catálogo').fill(sku);
+await p.getByLabel('Buscar peça').fill(sku);
 await p.waitForTimeout(800);
 
 const naTela = await p.locator('.mq-table').innerText().catch(() => '');
@@ -151,7 +152,7 @@ await p.waitForTimeout(2500);
 await p.getByLabel('Buscar peça').fill(sku);
 await p.waitForTimeout(800);
 const noEstoque = await p.locator('.mq-table').last().innerText().catch(() => '');
-prova(noEstoque.includes(sku), `${sku} aparece também em Estoque › Todos os produtos`);
+prova(noEstoque.includes(sku), `${sku} aparece na lista de Peças`);
 prova(/\b2\b/.test(noEstoque), 'com o saldo inicial de 2 peças');
 /* A captura é da LINHA, não da página: um `fullPage` aqui fotografa o
    catálogo real inteiro — 790 peças com preço — e este repositório é

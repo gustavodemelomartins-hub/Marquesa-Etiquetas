@@ -7,8 +7,8 @@ export function ConfiguracoesRevendedoras({ estado, planejamento, aoVerSugestoes
   estado: AppState; planejamento: UsoPlanejamento; aoVerSugestoes: () => void; aoCriarMaleta: () => void;
 }) {
   return <>
-    <Painel titulo="Planejamento de maletas" dica="Premissas usadas na capacidade e nas sugestões">
-      <p className="texto-apoio">A reserva mínima e o tamanho alvo permanecem visíveis e editáveis. Eles são premissas de planejamento guardadas neste navegador; o servidor continua garantindo que nenhuma peça saia além do estoque disponível.</p>
+    <Painel titulo="Planejamento de maletas" dica="Usado na capacidade e nas sugestões de maleta">
+      <p className="texto-apoio">Escolha o tamanho das maletas e quanto deixar em casa. Estas escolhas valem para este aparelho e só servem para planejar: o sistema nunca deixa sair mais peça do que existe.</p>
     </Painel>
     <CapacidadeMaletas estado={estado} planejamento={planejamento} aoVerSugestoes={aoVerSugestoes} aoCriarMaleta={aoCriarMaleta} />
   </>;

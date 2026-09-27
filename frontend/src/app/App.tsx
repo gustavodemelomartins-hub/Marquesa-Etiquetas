@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import type { ReconciliationAnalysis } from '../types/reconciliation';
+import { useEffect } from 'react';
 import { useConnection } from '../hooks/useConnection';
 import { AppShell } from './AppShell';
 import { useRota } from './rota';
@@ -12,8 +11,9 @@ import { VendasArea } from '../features/vendas/VendasArea';
 import { GarantiasArea } from '../features/garantias/GarantiasArea';
 import { HomeArea } from '../features/home/HomeArea';
 import { ConfiguracoesArea } from '../features/configuracoes/ConfiguracoesArea';
-import { CatalogoArea } from '../features/catalogo/CatalogoArea';
-import { EstoqueArea, type SubRotaEstoque } from '../features/estoque/EstoqueArea';
+import { EstoqueArea } from '../features/estoque/EstoqueArea';
+import { NuvemshopPage } from '../features/nuvemshop/NuvemshopPage';
+import { PendenciasArea } from '../features/home/PendenciasArea';
 import {
   RevendedorasArea,
   type SubRotaRevendedoras,
@@ -54,10 +54,6 @@ function AppConectado({
      a página volta para onde se estava, o voltar do navegador funciona, e
      um link de ficha pode ser mandado para alguém. */
   const { rota, ir, trocar } = useRota();
-  /* A análise é cara — lê a loja inteira a 2 requisições por segundo. Ela
-     sobe até aqui para Nuvemshop e Pendências (dentro de Estoque)
-     compartilharem o mesmo resultado em vez de cada uma pedir o seu. */
-  const [analise, setAnalise] = useState<ReconciliationAnalysis | null>(null);
 
   /* `GET /api/state` também sobe: Estoque e Revendedoras contam as MESMAS
      peças, e duas leituras independentes podem discordar. */
@@ -65,14 +61,22 @@ function AppConectado({
   const planejamento = usePlanejamento(estado.dados);
 
   const modulo = rota.modulo;
-  /* Nuvemshop é módulo de primeiro nível no trilho E aba dentro de Estoque,
-     porque é assim que se chega nela pelos dois caminhos reais. São duas
-     PORTAS, não duas telas. */
-  const emEstoque = modulo === 'estoque' || modulo === 'nuvemshop';
-  const ABAS_ESTOQUE: SubRotaEstoque[] = ['estoque-total', 'pecas', 'inventario', 'saidas', 'pendencias'];
-  const subEstoque: SubRotaEstoque = modulo === 'nuvemshop'
-    ? 'nuvemshop'
-    : (ABAS_ESTOQUE.find((a) => a === rota.sub) ?? 'estoque-total');
+
+  /* ENDEREÇOS ANTIGOS. Desde 27/09/2026 o menu tem menos portas, e cada
+     endereço que perdeu a sua é trocado (sem empilhar no voltar) pelo da
+     tela que o substituiu — link salvo ou mandado antes continua levando
+     ao lugar certo. Os dois últimos são atalhos de uma vez só do Início:
+     a tela já abriu o formulário, e o endereço volta ao normal para
+     recarregar a página não abri-lo de novo. */
+  useEffect(() => {
+    const { modulo: m, sub } = rota;
+    if (m === 'catalogo') trocar({ modulo: 'estoque', sub: sub === 'novo' ? 'novo' : null });
+    else if (m === 'notificacoes') trocar({ modulo: 'home', sub: 'pendencias' });
+    else if (m === 'agenda') trocar({ modulo: 'revendedoras' });
+    else if (m === 'estoque' && sub === 'pendencias') trocar({ modulo: 'nuvemshop' });
+    else if (m === 'garantias' && sub === 'nova') trocar({ modulo: 'garantias' });
+    else if (m === 'revendedoras' && sub === 'nova-maleta') trocar({ modulo: 'revendedoras' });
+  }, [rota, trocar]);
 
   /* A aba da revendedora mora no ENDEREÇO, não num `useState`. Enquanto ela
      era estado local, recarregar a página em cima da ficha de alguém
@@ -95,13 +99,17 @@ function AppConectado({
       aoNavegar={(m: ModuloId) => ir({ modulo: m })}
       aoNavegarPara={(d) => ir({ modulo: d.modulo, sub: d.sub })}
       estado={estado.dados}
-      contagens={analise?.itens.length ? { estoque: analise.itens.length } : undefined}
-      aoDesconectar={() => {
-        setAnalise(null);
-        aoDesconectar();
-      }}
+      aoDesconectar={aoDesconectar}
     >
-      {modulo === 'home' && (
+      {modulo === 'home' && rota.sub === 'pendencias' && (
+        <PendenciasArea
+          conexao={conexao}
+          aoIr={(m, sub) => ir({ modulo: m, sub: sub ?? null })}
+          aoVoltar={() => ir({ modulo: 'home' })}
+        />
+      )}
+
+      {modulo === 'home' && rota.sub !== 'pendencias' && (
         <HomeArea
           conexao={conexao}
           aoIr={(m, sub) => ir({ modulo: m, sub: sub ?? null })}
@@ -130,16 +138,6 @@ function AppConectado({
         />
       )}
 
-      {modulo === 'catalogo' && (
-        <CatalogoArea
-          conexao={conexao}
-          estado={estado.dados}
-          aoMudar={estado.recarregar}
-          sub={rota.sub}
-          aoNavegar={(sub) => trocar({ modulo: 'catalogo', sub })}
-        />
-      )}
-
       {modulo === 'configuracoes' && (
         <ConfiguracoesArea conexao={conexao} estado={estado.dados} aoMudar={estado.recarregar} />
       )}
@@ -163,27 +161,27 @@ function AppConectado({
         />
       )}
 
-      {emEstoque && (
+      {modulo === 'estoque' && (
         <EstoqueArea
           conexao={conexao}
-          sub={subEstoque}
-          aoNavegarSub={(r) => ir(
-            r === 'nuvemshop'
-              ? { modulo: 'nuvemshop' }
-              : { modulo: 'estoque', sub: r === 'estoque-total' ? null : r },
-          )}
-          analise={analise}
-          aoAnalisar={setAnalise}
+          sub={rota.sub}
+          /* Trocar de aba e abrir/fechar a ficha substituem o endereço: o
+             voltar do navegador sai do módulo, em vez de desfazer cada
+             ficha aberta uma a uma. */
+          aoNavegar={(sub) => trocar({ modulo: 'estoque', sub })}
           estado={estado.dados}
           planejamento={planejamento}
-          aoVerPlanejamento={() => ir({ modulo: 'revendedoras' })}
-          /* As abas "Cadastro de produtos" e "Publicar na loja" do
-             protótipo levam para MÓDULOS, não para sub-rotas de Estoque —
-             e o mesmo vale para o KPI "Precisam de atenção". */
-          aoAbrirModulo={(m, sub) => ir({ modulo: m, sub: sub ?? null })}
+          aoVerPlanejamento={() => ir({ modulo: 'revendedoras', sub: 'configuracoes' })}
           aoMudarEstoque={estado.recarregar}
-          subNuvemshop={modulo === 'nuvemshop' ? rota.sub : null}
-          aoNavegarNuvemshop={(s) => ir({ modulo: 'nuvemshop', sub: s })}
+        />
+      )}
+
+      {modulo === 'nuvemshop' && (
+        <NuvemshopPage
+          conexao={conexao}
+          aoAnalisar={() => undefined}
+          sub={rota.sub}
+          aoNavegarSub={(s) => trocar({ modulo: 'nuvemshop', sub: s })}
         />
       )}
 
@@ -196,6 +194,7 @@ function AppConectado({
           recarregar={estado.recarregar}
           planejamento={planejamento}
           sub={subRev}
+          criarAoEntrar={rota.sub === 'nova-maleta'}
           aoNavegarSub={(r) => ir({
             modulo: 'revendedoras',
             sub: r === 'visao-geral' ? null : String(r),
@@ -203,9 +202,7 @@ function AppConectado({
         />
       )}
 
-      {!['home', 'clientes', 'financeiro', 'revendedoras', 'vendas', 'garantias', 'configuracoes', 'catalogo'].includes(modulo) && !emEstoque && (
-        <AreaPendente modulo={modulo} />
-      )}
+      {modulo === 'etiquetas' && <AreaPendente modulo={modulo} />}
     </AppShell>
   );
 }

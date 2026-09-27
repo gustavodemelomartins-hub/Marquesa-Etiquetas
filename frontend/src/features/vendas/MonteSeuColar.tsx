@@ -89,30 +89,15 @@ export function MonteSeuColar({ conexao, aoAdicionar, aoCancelar }: Props) {
         <div className="mq-note mq-note--warn" role="alert">
           <Icone nome="alert" />
           <span>
-            <b>Operação bloqueada — e o que falta não é ligar uma chave.</b>{' '}
-            A tela, os contratos e as travas do servidor estão prontos. O que
-            impede a operação é <b>cadastro</b>, e o cadastro está parado por
-            um risco de estoque medido, não por esquecimento:
-            <br />
-            <br />
-            · Quatro componentes <b>não existem no catálogo</b> —{' '}
-            <code>251551</code>, <code>251552</code>, <code>329494</code> e{' '}
-            <code>444032</code>. Hoje eles só existem <i>dentro</i> do{' '}
-            <code>326660</code>.
-            <br />
-            · O <code>326660</code> (Colar Casal, 1 un., consignado) representa
-            os <b>mesmos</b> três componentes que seriam cadastrados. Cadastrar
-            os dois lados contaria a mesma peça física duas vezes e quebraria a
-            razão contábil.
-            <br />
-            · Nenhuma configuração está registrada em{' '}
-            <code>personalizacao_modelos</code>.
-            <br />
-            <br />
-            Ligar <code>PERSONALIZACAO_ATIVA</code> agora trocaria este aviso
-            por uma tela vazia sem explicação. O caminho está em{' '}
-            <b>MONTAGEM-MONTE-SEU-COLAR §5.3</b>: conferência peça a peça,
-            depois cadastro, depois a chave.
+            {/* O que trava, para quem mantém o sistema: quatro componentes
+                (251551, 251552, 329494, 444032) só existem dentro do 326660
+                (Colar Casal), nenhuma configuração em personalizacao_modelos,
+                e PERSONALIZACAO_ATIVA desligada. Cadastrar os componentes sem
+                desmontar o 326660 contaria a mesma peça duas vezes. Caminho:
+                MONTAGEM-MONTE-SEU-COLAR §5.3. */}
+            <b>O Monte seu Colar ainda não está liberado.</b>{' '}
+            Faltam cadastrar no sistema as peças que compõem o colar. Enquanto
+            isso, registre a venda do colar como <b>Venda normal</b>.
           </span>
         </div>
       )}

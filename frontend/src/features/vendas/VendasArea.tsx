@@ -1,9 +1,7 @@
 import { useCallback, useState } from 'react';
 import { PainelVendas } from './PainelVendas';
 import { HistoricoVendas } from './HistoricoVendas';
-import {
-  SeletorDeLancamento, CabecalhoDoLancamento, type TipoDeLancamento,
-} from './Lancamentos';
+import { SeletorDeLancamento, type TipoDeLancamento } from './Lancamentos';
 import { NovaVenda } from './NovaVenda';
 import { SaidasArea } from '../saidas/SaidasArea';
 import type { Connection } from '../../services/client';
@@ -23,36 +21,36 @@ interface Props {
   aoAbrirModulo: (modulo: 'garantias' | 'financeiro') => void;
 }
 
-/** As cinco superfícies de Vendas, e o endereço de cada uma:
+/** As superfícies de Vendas, e o endereço de cada uma:
  *
- *    #/vendas                 PAINEL — como foi o período
- *    #/vendas/lancamentos     as três portas do dia
+ *    #/vendas                 NOVA VENDA — a porta (venda normal)
  *    #/vendas/nova            venda normal (aceita `nova:<id>:<nome>`)
  *    #/vendas/colar           venda normal com a composição já aberta
  *    #/vendas/saida           saída sem faturamento
- *    #/vendas/historico       a lista, venda a venda
+ *    #/vendas/historico       as vendas feitas, venda a venda
+ *    #/vendas/relatorio       RELATÓRIO — como foi o período
  *
- *  A arquitetura é a do protótipo: PAINEL e LANÇAMENTOS são coisas
- *  diferentes, e o que estava no React era só a lista. Quem abre Vendas
- *  quer saber como foi o mês; quem abre Lançamentos está com a cliente na
- *  frente. Uma tela só servia mal às duas.
+ *  Até 27/09/2026 a porta era o painel de gráficos, e vender pedia dois
+ *  cliques a mais (Lançamentos › escolher o tipo). Quem abre Vendas no
+ *  balcão está com a cliente na frente: a tela abre pronta para vender.
+ *  `#/vendas/lancamentos` e `#/vendas/painel` continuam valendo.
  */
 export type SubRotaVendas = 'painel' | 'lancamentos' | 'nova' | 'colar' | 'saida' | 'historico';
 
 const ABAS: { id: SubRotaVendas; rotulo: string; rota: string | null }[] = [
-  { id: 'painel', rotulo: 'Painel', rota: null },
-  { id: 'lancamentos', rotulo: 'Lançamentos', rota: 'lancamentos' },
-  { id: 'historico', rotulo: 'Histórico', rota: 'historico' },
+  { id: 'lancamentos', rotulo: 'Nova venda', rota: null },
+  { id: 'historico', rotulo: 'Vendas feitas', rota: 'historico' },
+  { id: 'painel', rotulo: 'Relatório', rota: 'relatorio' },
 ];
 
 export function lerSubRota(sub: string | null): SubRotaVendas {
-  if (!sub) return 'painel';
-  if (sub === 'lancamentos') return 'lancamentos';
+  if (!sub || sub === 'lancamentos') return 'nova';
   if (sub === 'historico') return 'historico';
   if (sub === 'saida') return 'saida';
   if (sub === 'colar') return 'colar';
   if (sub === 'nova' || sub.startsWith('nova:')) return 'nova';
-  return 'painel';
+  if (sub === 'relatorio' || sub === 'painel') return 'painel';
+  return 'nova';
 }
 
 /** `nova:<id>:<nome>` — o id pode vir vazio quando a ficha foi aberta pelo
@@ -129,7 +127,7 @@ export function VendasArea({
       {atual === 'painel' && (
         <PainelVendas
           conexao={conexao}
-          aoIrPara={(d) => aoNavegar(d === 'historico' ? 'historico' : 'lancamentos')}
+          aoIrPara={(d) => aoNavegar(d === 'historico' ? 'historico' : null)}
           aoAbrirReparos={() => aoAbrirModulo('garantias')}
           aoAbrirAReceber={() => aoAbrirModulo('financeiro')}
           aoAbrirCliente={aoAbrirCliente}
@@ -138,8 +136,10 @@ export function VendasArea({
 
       {lancando && (
         <>
-          <CabecalhoDoLancamento />
-          <SeletorDeLancamento ativo={tipoAtivo} aoEscolher={irPara} />
+          {/* Sem cabeçalho grande: a aba "Nova venda" já diz onde se está, e
+              os 250px que ele ocupava empurravam a busca da peça para fora
+              da tela do notebook. */}
+          <SeletorDeLancamento ativo={tipoAtivo} aoEscolher={irPara} compacto />
 
           {/* A região operacional. Ela é a ÚNICA coisa que troca quando o
               tipo troca — o cabeçalho e o seletor acima continuam onde

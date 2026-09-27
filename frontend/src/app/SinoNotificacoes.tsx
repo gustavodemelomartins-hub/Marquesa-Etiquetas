@@ -42,8 +42,8 @@ export function SinoNotificacoes({ conexao, aoAbrir }: Props) {
       className="mq-iconbtn"
       aria-label={
         temBadge
-          ? `Notificações — ${total} ${total === 1 ? 'pendência' : 'pendências'}`
-          : 'Notificações'
+          ? `Pendências — ${total} para revisar`
+          : 'Pendências'
       }
       onClick={aoAbrir}
     >

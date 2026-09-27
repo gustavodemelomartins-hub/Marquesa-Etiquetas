@@ -15,7 +15,9 @@ import type {
 export function listarClientes(
   conexao: Connection, busca: string, sinal?: AbortSignal,
 ): Promise<ClienteLista[]> {
-  const q = new URLSearchParams({ limite: '100' });
+  /* Sem busca, a lista INTEIRA: ela é a agenda da casa, e cortar em 100
+     escondia todo mundo depois da letra B. Com busca, 100 bastam. */
+  const q = new URLSearchParams({ limite: busca.trim() ? '100' : '2000' });
   if (busca.trim()) q.set('busca', busca.trim());
   return chamar<ClienteLista[]>(conexao, 'GET', `/api/clientes?${q}`, undefined, { signal: sinal });
 }

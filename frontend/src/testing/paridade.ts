@@ -62,8 +62,8 @@ export const PARIDADE: ModuloDeParidade[] = [
     prototipo: '/prototype/vendas/',
     capacidades: [
       {
-        id: 'vendas.painel', rotulo: 'Painel de vendas', estado: 'pronta', rota: '#/vendas',
-        prova: { arquivo: `${F}/features/vendas/PainelVendas.tsx`, contem: 'Painel de vendas' },
+        id: 'vendas.painel', rotulo: 'Relatório de vendas (aba Relatório)', estado: 'pronta', rota: '#/vendas/relatorio',
+        prova: { arquivo: `${F}/features/vendas/PainelVendas.tsx`, contem: 'Relatório de vendas' },
       },
       {
         id: 'vendas.periodo', rotulo: 'Filtro de período e intervalo livre', estado: 'pronta',
@@ -159,7 +159,7 @@ export const PARIDADE: ModuloDeParidade[] = [
       },
       {
         id: 'vendas.tres-datas', rotulo: 'Venda ≠ pagamento ≠ registro, na revisão', estado: 'pronta',
-        prova: { arquivo: `${F}/features/vendas/NovaVenda.tsx`, contem: 'hoje — guardado pelo servidor' },
+        prova: { arquivo: `${F}/features/vendas/NovaVenda.tsx`, contem: '<dt>Registro</dt>' },
       },
       {
         id: 'vendas.canal', rotulo: 'Local ou canal da venda', estado: 'indisponivel',
@@ -174,7 +174,7 @@ export const PARIDADE: ModuloDeParidade[] = [
         porque: '§29 — a quitação é INTEGRAL: `POST /api/vendas/:id/pagamento` '
           + 'quita a venda inteira. Recebimento em partes é a decisão D2, que '
           + 'continua fechada. A tela mostra um recebimento e explica a limitação.',
-        prova: { arquivo: `${F}/features/vendas/NovaVenda.tsx`, contem: 'Um recebimento, não vários' },
+        prova: { arquivo: `${F}/features/vendas/NovaVenda.tsx`, contem: 'O pagamento é registrado de uma vez' },
       },
       {
         id: 'vendas.revisao', rotulo: 'Revisão antes de confirmar', estado: 'pronta',
@@ -206,7 +206,7 @@ export const PARIDADE: ModuloDeParidade[] = [
           + 'depois cadastro, depois a chave.',
         prova: {
           arquivo: `${F}/features/vendas/MonteSeuColar.tsx`,
-          contem: 'o que falta não é ligar uma chave',
+          contem: 'O Monte seu Colar ainda não está liberado',
         },
       },
       {
@@ -325,8 +325,8 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/financeiro/FinanceiroArea.tsx`, contem: 'SaiuSemFaturar' },
       },
       {
-        id: 'financeiro.conferencia', rotulo: 'Conferência da razão do dinheiro', estado: 'pronta',
-        prova: { arquivo: `${F}/features/financeiro/api.ts`, contem: 'conferirFinanceiro' },
+        id: 'financeiro.conferencia', rotulo: 'Conferência da razão do dinheiro (em Configurações › Avançado)', estado: 'pronta',
+        prova: { arquivo: `${F}/features/configuracoes/ConfiguracoesArea.tsx`, contem: '<Conferencia conexao={conexao} />' },
       },
       {
         id: 'financeiro.recebimento-parcial', rotulo: 'Recebimento parcial de uma conta', estado: 'indisponivel',
@@ -366,12 +366,12 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/domain/estoque.ts`, contem: 'export function precisamDeAtencao' },
       },
       {
-        id: 'estoque.pecas', rotulo: 'Peças, com filtro', estado: 'pronta', rota: '#/estoque/pecas',
+        id: 'estoque.pecas', rotulo: 'Peças, com filtro', estado: 'pronta', rota: '#/estoque',
         prova: { arquivo: `${F}/features/estoque/PecasArea.tsx`, contem: 'export function PecasArea' },
       },
       {
-        id: 'estoque.movimentos', rotulo: 'A razão de uma peça, movimento a movimento', estado: 'pronta',
-        prova: { arquivo: `${F}/features/estoque/PecasArea.tsx`, contem: '/movimentos' },
+        id: 'estoque.movimentos', rotulo: 'A razão de uma peça, movimento a movimento (na ficha)', estado: 'pronta',
+        prova: { arquivo: `${F}/features/estoque/FichaDaPeca.tsx`, contem: '/movimentos' },
       },
       {
         id: 'estoque.planilha', rotulo: 'Atualizar Estoque Total por planilha, com diff', estado: 'pronta',
@@ -470,12 +470,12 @@ export const PARIDADE: ModuloDeParidade[] = [
     prototipo: '/prototype/catalogo/',
     capacidades: [
       {
-        id: 'catalogo.lista', rotulo: 'Produtos com busca e filtro', estado: 'pronta', rota: '#/catalogo',
-        prova: { arquivo: `${F}/features/catalogo/CatalogoArea.tsx`, contem: 'Buscar no catálogo' },
+        id: 'catalogo.lista', rotulo: 'Produtos com busca e filtro (em Peças)', estado: 'pronta', rota: '#/estoque',
+        prova: { arquivo: `${F}/features/estoque/PecasArea.tsx`, contem: 'Buscar por código ou nome' },
       },
       {
         id: 'catalogo.editar', rotulo: 'Editar nome, preço, categoria e situação', estado: 'pronta',
-        prova: { arquivo: `${F}/features/catalogo/CatalogoArea.tsx`, contem: 'Editar peça' },
+        prova: { arquivo: `${F}/features/catalogo/EditarPeca.tsx`, contem: 'export function EditarPeca' },
       },
       {
         id: 'catalogo.fotos', rotulo: 'Galeria de fotos da peça', estado: 'indisponivel',
@@ -654,7 +654,7 @@ export const PARIDADE: ModuloDeParidade[] = [
       },
       {
         id: 'nuvemshop.sincronizacao', rotulo: 'Análise da sincronização e divergências', estado: 'pronta',
-        prova: { arquivo: `${F}/features/nuvemshop/NuvemshopPage.tsx`, contem: 'Análise da sincronização' },
+        prova: { arquivo: `${F}/features/nuvemshop/NuvemshopPage.tsx`, contem: 'Analisar sincronização' },
       },
       {
         id: 'nuvemshop.saude', rotulo: 'Saúde da conexão e das falhas', estado: 'pronta',
@@ -704,20 +704,27 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/home/HomeArea.tsx`, contem: 'Precisa da sua atenção' },
       },
       {
-        id: 'home.entrou', rotulo: 'Entrou por mês', estado: 'pronta',
-        prova: { arquivo: `${F}/features/home/HomeArea.tsx`, contem: 'Entrou por mês' },
+        id: 'home.entrou', rotulo: 'Entrou por mês (no Financeiro › Resumo)', estado: 'pronta',
+        prova: { arquivo: `${F}/features/financeiro/FinanceiroArea.tsx`, contem: 'Entrou por mês' },
       },
       {
-        id: 'home.clientes', rotulo: 'Quem mais trouxe', estado: 'pronta',
-        prova: { arquivo: `${F}/features/home/HomeArea.tsx`, contem: 'Quem mais trouxe' },
+        id: 'home.clientes', rotulo: 'Quem mais trouxe (no Financeiro › Resumo)', estado: 'pronta',
+        prova: { arquivo: `${F}/features/financeiro/FinanceiroArea.tsx`, contem: 'Quem mais trouxe' },
       },
       {
         id: 'home.reparos', rotulo: 'Peças em reparo', estado: 'pronta',
         prova: { arquivo: `${F}/features/home/HomeArea.tsx`, contem: 'Peças em reparo' },
       },
       {
-        id: 'home.atalhos', rotulo: 'Atalhos do dia', estado: 'pronta',
-        prova: { arquivo: `${F}/features/home/HomeArea.tsx`, contem: 'Atalhos' },
+        id: 'home.atalhos', rotulo: 'Ações rápidas do dia', estado: 'pronta',
+        prova: { arquivo: `${F}/features/home/HomeArea.tsx`, contem: 'Ações rápidas' },
+      },
+      {
+        id: 'home.pendencias', rotulo: 'Central de pendências (lista do sino)', estado: 'parcial', rota: '#/home/pendencias',
+        porque: 'A lista mostra todas as pendências de `GET /api/pendencias`, agrupadas, '
+          + 'e leva à peça ou à publicação quando a V2 resolve. Resolver variação '
+          + 'de venda/maleta, vínculo de cliente e venda travada ainda é no painel clássico.',
+        prova: { arquivo: `${F}/features/home/PendenciasArea.tsx`, contem: 'export function PendenciasArea' },
       },
     ],
   },
@@ -779,15 +786,15 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/configuracoes/ConfiguracoesArea.tsx`, contem: 'Faixas de comissão' },
       },
       {
-        id: 'config.corte', rotulo: 'Corte do go-live', estado: 'pronta',
-        prova: { arquivo: `${F}/features/configuracoes/ConfiguracoesArea.tsx`, contem: 'Corte do go-live' },
+        id: 'config.corte', rotulo: 'Corte do go-live (em Avançado)', estado: 'pronta',
+        prova: { arquivo: `${F}/features/configuracoes/ConfiguracoesArea.tsx`, contem: 'Início da integração com a loja' },
       },
       {
         id: 'config.perfis', rotulo: 'Perfis e permissões', estado: 'indisponivel',
         porque: 'Não há usuários no sistema: a autenticação é UMA chave Bearer '
           + 'compartilhada (`auth.js › checarChave`). Perfil por pessoa exigiria '
-          + 'tabela de usuários e sessão, que não existem. A tela diz isso.',
-        prova: { arquivo: `${F}/features/configuracoes/ConfiguracoesArea.tsx`, contem: 'Perfis e permissões' },
+          + 'tabela de usuários e sessão, que não existem. O menu do avatar diz isso.',
+        prova: { arquivo: `${F}/app/MenuPerfil.tsx`, contem: 'chave só' },
       },
     ],
   },
@@ -819,8 +826,8 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/styles/marquesa.css`, contem: 'font-variant-numeric:tabular-nums' },
       },
       {
-        id: 'casco.modulos', rotulo: 'Os treze módulos, em quatro grupos', estado: 'pronta',
-        prova: { arquivo: `${F}/app/modulos.ts`, contem: 'Os treze módulos' },
+        id: 'casco.modulos', rotulo: 'O menu simplificado: oito destinos e Configurações, em quatro grupos', estado: 'pronta',
+        prova: { arquivo: `${F}/app/modulos.ts`, contem: 'FORA_DO_MENU' },
       },
       {
         id: 'casco.deeplink', rotulo: 'Deep-link, reload e voltar/avançar', estado: 'pronta',

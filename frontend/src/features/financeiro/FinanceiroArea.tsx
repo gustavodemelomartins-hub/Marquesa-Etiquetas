@@ -13,14 +13,17 @@ import { descreverRecorte, recorteDaSub, subDoRecorte } from './periodo';
 import type { Connection } from '../../services/client';
 import type { ContaAReceber, PainelFinanceiro, Recorte } from './tipos';
 
-type Aba = 'resumo' | 'a-receber' | 'recebimentos' | 'saidas' | 'conferencia';
+type Aba = 'resumo' | 'a-receber' | 'recebimentos' | 'saidas';
 
+/* "A receber" é a porta: é o que se abre o Financeiro para FAZER (cobrar,
+   registrar um pagamento). A "Conferência" das contas do sistema saiu
+   daqui em 27/09/2026 e foi para Configurações › Avançado — é verificação
+   técnica, não tarefa do dia. `#/financeiro/conferencia` cai em A receber. */
 const ABAS: { id: Aba; rotulo: string }[] = [
-  { id: 'resumo', rotulo: 'Resumo' },
   { id: 'a-receber', rotulo: 'A receber' },
-  { id: 'recebimentos', rotulo: 'Recebimentos' },
+  { id: 'recebimentos', rotulo: 'Recebido' },
+  { id: 'resumo', rotulo: 'Resumo' },
   { id: 'saidas', rotulo: 'Saiu sem faturar' },
-  { id: 'conferencia', rotulo: 'Conferência' },
 ];
 
 interface Props {
@@ -62,15 +65,10 @@ export function FinanceiroArea({ conexao, sub, aoNavegar, aoAbrirCliente }: Prop
         <div className="mq-pagehead__text">
           <p className="mq-eyebrow">Dinheiro</p>
           <h1 className="mq-display">Financeiro</h1>
-          <p className="mq-lede">
-            Quanto entrou e quanto ainda falta receber — dois números, duas
-            datas, e a tela nunca os confunde.
-          </p>
+          <p className="mq-lede">Quanto falta receber e quanto já entrou.</p>
         </div>
-        <div className="mq-pagehead__meta">{descreverRecorte(recorte)}</div>
+        {aba !== 'recebimentos' && <div className="mq-pagehead__meta">{descreverRecorte(recorte)}</div>}
       </div>
-
-      <FiltroPeriodo recorte={recorte} aoMudar={trocarRecorte} />
 
       <nav className="mq-tabs" aria-label="Seções do financeiro">
         {ABAS.map((a) => (
@@ -82,6 +80,9 @@ export function FinanceiroArea({ conexao, sub, aoNavegar, aoAbrirCliente }: Prop
           </button>
         ))}
       </nav>
+
+      {/* O período não vale para "Recebido", que é lido dia a dia. */}
+      {aba !== 'recebimentos' && <FiltroPeriodo recorte={recorte} aoMudar={trocarRecorte} />}
 
       {aba === 'resumo' && (
         <Resumo estado={painel} recorte={recorte} aoAbrirCliente={aoAbrirCliente} />
@@ -103,14 +104,13 @@ export function FinanceiroArea({ conexao, sub, aoNavegar, aoAbrirCliente }: Prop
       )}
       {aba === 'recebimentos' && <Recebimentos conexao={conexao} />}
       {aba === 'saidas' && <SaiuSemFaturar conexao={conexao} painel={painel.dados} />}
-      {aba === 'conferencia' && <Conferencia conexao={conexao} />}
     </>
   );
 }
 
 function lerSub(sub: string | null): [Aba, Recorte] {
   const [abaCrua, recorteCru] = String(sub ?? '').split('~');
-  const aba = ABAS.find((a) => a.id === abaCrua)?.id ?? 'resumo';
+  const aba = ABAS.find((a) => a.id === abaCrua)?.id ?? 'a-receber';
   return [aba, recorteDaSub(recorteCru ?? null)];
 }
 
@@ -413,7 +413,8 @@ function SaiuSemFaturar({
 
 /* ────────────────────────────────────────────────────── conferência */
 
-function Conferencia({ conexao }: { conexao: Connection }) {
+/** A conferência das contas do sistema. Mora em Configurações › Avançado. */
+export function Conferencia({ conexao }: { conexao: Connection }) {
   const fin = useApi((s) => conferirFinanceiro(conexao, s), [conexao]);
   const cred = useApi((s) => conferirCredito(conexao, s), [conexao]);
 
@@ -425,9 +426,9 @@ function Conferencia({ conexao }: { conexao: Connection }) {
       <p className="mq-note mq-note--info">
         <Icone nome="alert" />
         <span>
-          O SQLite não aplica invariante agregada, então ela é <b>medida</b>, não
-          prometida. Esta tela mostra a medição — e ela mede, não conserta:
-          consertar exigiria decidir quem pagou quanto.
+          Confere se as contas do sistema batem entre si. Ela só olha — não
+          corrige nada. Se algo aparecer divergente, não lance nada por cima:
+          peça para investigarem.
         </span>
       </p>
 
@@ -436,7 +437,7 @@ function Conferencia({ conexao }: { conexao: Connection }) {
           <span className="mq-kpi__label">Razão do dinheiro</span>
           <span className="mq-kpi__value">{fin.dados ? String(quebradas.length || 'ok') : '—'}</span>
           <span className="mq-kpi__foot">
-            {quebradas.length ? 'invariantes divergindo' : `${checagens.length} invariantes conferidas`}
+            {quebradas.length ? 'conferências com diferença' : `${checagens.length} conferências em dia`}
           </span>
         </div>
         <div className={cred.dados && cred.dados.ok === false ? 'mq-kpi mq-kpi--risk' : 'mq-kpi mq-kpi--ok'}>
@@ -448,7 +449,7 @@ function Conferencia({ conexao }: { conexao: Connection }) {
 
       <section className="mq-card mq-card--flush">
         <div className="mq-card__head">
-          <div><h2 className="mq-title">As invariantes, uma a uma</h2></div>
+          <div><h2 className="mq-title">Cada conferência</h2></div>
         </div>
         {fin.erro ? <ErrorState erro={fin.erro} aoTentarDeNovo={fin.recarregar} /> : null}
         <div className="mq-list">

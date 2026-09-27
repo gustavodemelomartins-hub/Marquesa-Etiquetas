@@ -488,7 +488,8 @@ function Credito({
           </dl>
           {dados.saldoNegativo && (
             <p className="mq-note mq-note--risk" style={{ marginTop: 12 }}>
-              Saldo negativo é defeito, não estado. Confira em <code>/api/credito/conferir</code>.
+              O crédito desta cliente ficou negativo, o que não deveria acontecer.
+              Não lance nada por cima: isto precisa ser conferido.
             </p>
           )}
           <p className="mq-hint" style={{ marginTop: 12 }}>{dados.regra}</p>

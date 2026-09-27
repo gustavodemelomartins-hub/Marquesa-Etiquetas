@@ -147,9 +147,9 @@ export function PendenciasList({
     <>
       <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 'var(--r3)' }}>
         {total === 1
-          ? '1 item precisa da sua atenção.'
-          : `${total} itens precisam da sua atenção.`}{' '}
-        Nenhum deles é resolvido pela sincronização.
+          ? '1 diferença entre a loja e o estoque.'
+          : `${total} diferenças entre a loja e o estoque.`}{' '}
+        Nenhuma delas se corrige sozinha.
       </p>
 
       <div className="cartao">

@@ -116,12 +116,13 @@ export function ListaClientes({ conexao, aoAbrir, aoCadastrar }: Props) {
               >
                 <span className="mq-cell">
                   <b>{c.nome}</b>
-                  <small>#{c.id}</small>
                 </span>
-                <span className="mq-cell">
+                {/* Vazio vira "—" na tabela, e some no telefone: dois
+                    traços por cartão era ruído, não informação. */}
+                <span className={c.tel ? 'mq-cell' : 'mq-cell mq-cell--vazia'}>
                   <b className="mq-num">{c.tel || '—'}</b>
                 </span>
-                <span className="mq-cell">
+                <span className={c.cidade ? 'mq-cell' : 'mq-cell mq-cell--vazia'}>
                   <b>{c.cidade || '—'}</b>
                 </span>
                 <Icone nome="chevron" className="mq-ico mq-tr__chev" />

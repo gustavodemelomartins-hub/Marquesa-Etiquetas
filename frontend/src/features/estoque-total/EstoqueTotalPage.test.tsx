@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EstoqueTotalPage } from './EstoqueTotalPage';
 import type { Connection } from '../../services/client';
-import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
 import type { ResultadoParse } from './parsePlanilha';
 import type { RespostaAplicar, ResumoEstoqueTotal, ResumoProdutosNovos, SessaoReconciliacao } from './tipos';
 
@@ -27,24 +26,12 @@ const conexao: Connection = { url: 'http://api.local', key: 'chave' };
    FLUXO de importação, então entram com `estado: null` — a página então
    mostra só as ações, que é exatamente o que eles exercitam. O painel tem
    os testes dele em domain/. */
-const planejamento: UsoPlanejamento = {
-  config: { modo: 'equilibrado', tamanhoAlvo: 40, tamanhoAlvoConfirmado: false },
-  origemAlvo: { valor: 40, origem: 'padrao', amostra: 0 },
-  definirModo: () => {},
-  definirTamanhoAlvo: () => {},
-  restaurarPadrao: () => {},
-};
-
 function renderPagina() {
   return render(
     <EstoqueTotalPage
       conexao={conexao}
       estado={null}
-      planejamento={planejamento}
-      aoVerPlanejamento={() => {}}
-      aoConferirEstoque={() => {}}
       aoNovoProduto={() => {}}
-      aoVerPendencias={() => {}}
       aoMudarEstoque={() => {}}
     />,
   );
@@ -329,64 +316,32 @@ describe('EstoqueTotalPage — Adicionar Peças Novas', () => {
   });
 });
 
-/** A COMPOSIÇÃO DA VISÃO GERAL, na ordem do protótipo.
+/** ENTRADA DE PEÇAS — a tela de hoje.
  *
- *  `docs/ux/03-screens/estoque/master.html` põe a conferência física DENTRO
- *  da página de Estoque, entre "Onde está o patrimônio" e "Todos os
- *  produtos". Enquanto o inventário morava só em `#/estoque/inventario`, a
- *  funcionalidade existia e a tela aprovada não. Estas provas são sobre a
- *  TELA, não sobre o inventário: o inventário tem as provas dele.
+ *  Até 27/09/2026 a importação ficava no fim da "Visão geral", depois do
+ *  inventário e da lista inteira de peças, e ninguém chegava nela. Agora
+ *  ela é uma aba própria: só os dois jeitos de peça entrar, e nada mais.
  */
-describe('Visão geral do Estoque — composição do protótipo', () => {
-  /* `GET /api/inventarios` sem resposta deixaria a seção em "carregando"
-     para sempre. Uma lista vazia é o estado normal de quem nunca contou. */
-  function semInventarios() {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response('[]', {
-        status: 200, headers: { 'Content-Type': 'application/json' },
-      })),
+describe('Entrada de peças', () => {
+  it('abre com o título da tela e os dois caminhos: uma peça e planilha', () => {
+    renderPagina();
+    expect(screen.getByRole('heading', { level: 1, name: 'Entrada de peças' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Uma peça' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Por planilha' })).toBeTruthy();
+  });
+
+  it('"Novo produto" pede o cadastro de uma peça a quem navega', () => {
+    const aoNovoProduto = vi.fn();
+    render(
+      <EstoqueTotalPage conexao={conexao} estado={null} aoNovoProduto={aoNovoProduto} aoMudarEstoque={() => {}} />,
     );
-  }
-
-  afterEach(() => vi.unstubAllGlobals());
-
-  it('mostra a conferência física como SEÇÃO, sem sair da tela', async () => {
-    semInventarios();
-    renderPagina();
-
-    const secao = await screen.findByRole('region', { name: 'Inventário' });
-    expect(secao.id).toBe('inventario');
-    /* Dentro dela, os três contextos do protótipo. */
-    expect(within(secao).getByText('Saúde do estoque')).toBeTruthy();
-    expect(within(secao).getByText('Último inventário')).toBeTruthy();
-    expect(within(secao).getByText('Inventário em aberto')).toBeTruthy();
-    /* E a ação que começa a contagem, ali mesmo. */
-    expect(within(secao).getByRole('button', { name: /Abrir inventário/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Novo produto/ }));
+    expect(aoNovoProduto).toHaveBeenCalledTimes(1);
   });
 
-  it('põe o inventário ANTES do catálogo físico, como a tela aprovada', async () => {
-    semInventarios();
+  it('não embute mais o inventário nem a lista de peças', () => {
     const { container } = renderPagina();
-
-    const inventario = await screen.findByRole('region', { name: 'Inventário' });
-    const catalogo = screen.getByText('Todos os produtos');
-    /* `DOCUMENT_POSITION_FOLLOWING` = o catálogo vem DEPOIS do inventário.
-       A ordem é o conteúdo desta prova: os dois existirem na mesma página
-       em qualquer ordem não reproduz a tela aprovada. */
-    expect(inventario.compareDocumentPosition(catalogo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(container.querySelectorAll('#inventario')).toHaveLength(1);
-  });
-
-  it('não repete o título de página do inventário dentro da Visão geral', async () => {
-    semInventarios();
-    renderPagina();
-
-    await screen.findByRole('region', { name: 'Inventário' });
-    /* A página já tem um `h1` — "Estoque". O inventário embutido é uma
-       seção dela, e seção tem `h2`. Dois `h1` na mesma tela é a marca de
-       uma tela colada dentro de outra. */
-    expect(screen.queryByRole('heading', { level: 1, name: 'Inventário' })).toBeNull();
-    expect(screen.getByRole('heading', { level: 2, name: 'Inventário' })).toBeTruthy();
+    expect(container.querySelector('#inventario')).toBeNull();
+    expect(screen.queryByText('Todos os produtos')).toBeNull();
   });
 });

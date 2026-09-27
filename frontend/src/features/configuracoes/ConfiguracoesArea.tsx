@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { chamar, type Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { money } from '../../domain/formato';
+import { Conferencia } from '../financeiro/FinanceiroArea';
 import type { AppState } from '../../types/api';
 
 interface ConfigDaCasa {
@@ -37,6 +38,9 @@ export function ConfiguracoesArea({ conexao, estado, aoMudar }: Props) {
   const [erro, setErro] = useState('');
   const [salvo, setSalvo] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  /* A conferência lê o banco inteiro: só roda quando alguém abre
+     "Avançado", e não a cada visita às Configurações. */
+  const [avancadoAberto, setAvancadoAberto] = useState(false);
 
   const valor = <K extends keyof ConfigDaCasa>(k: K): ConfigDaCasa[K] | undefined =>
     (form[k] !== undefined ? form[k] : original?.[k]);
@@ -76,7 +80,7 @@ export function ConfiguracoesArea({ conexao, estado, aoMudar }: Props) {
         <div className="mq-pagehead__text">
           <p className="mq-eyebrow">Sistema</p>
           <h1 className="mq-display">Configurações</h1>
-          <p className="mq-lede">Os números que a operação usa como padrão.</p>
+          <p className="mq-lede">Os números que o sistema usa como padrão.</p>
         </div>
       </div>
 
@@ -92,10 +96,18 @@ export function ConfiguracoesArea({ conexao, estado, aoMudar }: Props) {
             <div className="mq-grid mq-grid--2">
               {campo('prazoDias', 'Prazo de acerto', 'quantos dias a maleta fica com a revendedora antes do acerto', 'dias')}
               {campo('inventarioDias', 'Lembrete de inventário', 'de quantos em quantos dias a contagem é sugerida', 'dias')}
-              {campo('maletaAlvoPecas', 'Peças por maleta', 'quantas peças uma maleta costuma levar', 'peças')}
-              {campo('reservaMinima', 'Reserva mínima em casa', 'quanto tem de sobrar aqui depois de montar as maletas', 'peças')}
               {campo('prataPct', 'Percentual da prata', 'usado no cálculo de comissão das peças de prata', '%')}
             </div>
+            {/* "Peças por maleta" e "Reserva mínima" (maletaAlvoPecas,
+                reservaMinima) saíram daqui: a V2 não os usa — o
+                planejamento de maletas tem a própria configuração em
+                Revendedoras › Planejamento — e dois lugares para o mesmo
+                número deixavam a usuária sem saber qual vale. O painel
+                clássico ainda os lê e edita. */}
+            <p className="mq-hint" style={{ marginTop: 10 }}>
+              O tamanho das maletas e quanto deixar em casa se ajustam em
+              Revendedoras › Planejamento.
+            </p>
           </section>
 
           <section className="mq-card mq-card--pad">
@@ -114,31 +126,9 @@ export function ConfiguracoesArea({ conexao, estado, aoMudar }: Props) {
               ))}
             </dl>
             <p className="mq-hint" style={{ marginTop: 10 }}>
-              As faixas são editáveis pela API, mas ainda não por esta tela —
-              mexer nelas muda o dinheiro de todo mundo, e a edição merece
-              uma confirmação desenhada para isso.
+              As faixas ainda não se mudam por aqui: mexer nelas muda a
+              comissão de todas as revendedoras.
             </p>
-          </section>
-
-          <section className="mq-card mq-card--pad">
-            <h2 className="mq-subtitle">Corte do go-live</h2>
-            <p className="mq-lede">
-              Pedido da loja anterior a esta data é história e não vira venda
-              aqui. Vazio significa sem corte.
-            </p>
-            <label className="mq-field">
-              <span>Data e hora ISO</span>
-              <input
-                className="mq-input"
-                placeholder="2026-08-23T12:00:00Z"
-                value={String(valor('syncCorteEm') ?? '')}
-                onChange={(e) => setForm((f) => ({ ...f, syncCorteEm: e.target.value.trim() || null }))}
-              />
-              <small>
-                Uma data ilegível aqui derruba a sincronização inteira depois —
-                o backend recusa na entrada, enquanto alguém ainda está olhando.
-              </small>
-            </label>
           </section>
 
           {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
@@ -157,15 +147,48 @@ export function ConfiguracoesArea({ conexao, estado, aoMudar }: Props) {
             )}
           </div>
 
-          <section className="mq-card mq-card--pad mq-card--quiet">
-            <h2 className="mq-subtitle">Perfis e permissões</h2>
+          {/* Perfis e permissões não existem no sistema (o acesso é uma chave
+              só); a seção que dizia isso saiu, porque anunciar o que não
+              existe numa tela de uso diário só confunde. */}
+          <details
+            className="mq-card mq-card--pad"
+            onToggle={(e) => setAvancadoAberto((e.currentTarget as HTMLDetailsElement).open)}
+          >
+            <summary className="mq-subtitle">Avançado</summary>
+            <p className="mq-lede">Ajustes técnicos. Mexa só se souber o que está fazendo.</p>
+            <div className="mq-stack" style={{ marginTop: 12 }}>
+          <div>
+            <h3 className="mq-subtitle">Início da integração com a loja</h3>
             <p className="mq-lede">
-              Ainda não existem no sistema: o acesso é uma chave só,
-              compartilhada. Uma tela de usuários sem backend prometeria um
-              controle que ninguém tem — quando a arquitetura de identidade
-              for decidida, ela aparece aqui.
+              Pedido da Nuvemshop anterior a esta data não vira venda aqui.
+              Vazio significa sem corte.
             </p>
-          </section>
+            <label className="mq-field">
+              <span>Data e hora (formato 2026-08-23T12:00:00Z)</span>
+              <input
+                className="mq-input"
+                placeholder="2026-08-23T12:00:00Z"
+                value={String(valor('syncCorteEm') ?? '')}
+                onChange={(e) => setForm((f) => ({ ...f, syncCorteEm: e.target.value.trim() || null }))}
+              />
+              <small>
+                Uma data escrita errado é recusada ao salvar.
+              </small>
+            </label>
+            {form.syncCorteEm !== undefined && (
+              <div className="mq-btns">
+                <button type="button" className="mq-btn mq-btn--primary" disabled={salvando} onClick={salvar}>
+                  {salvando ? 'Salvando…' : 'Salvar alterações'}
+                </button>
+              </div>
+            )}
+          </div>
+              <div>
+                <h3 className="mq-subtitle">Conferência das contas</h3>
+                {avancadoAberto && <Conferencia conexao={conexao} />}
+              </div>
+            </div>
+          </details>
         </>
       )}
     </>

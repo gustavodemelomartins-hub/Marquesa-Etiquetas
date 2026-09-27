@@ -137,7 +137,7 @@ try {
     if (bundle) {
       const js = await (await fetch(new URL(bundle, APP).href)).text();
       for (const [marca, onde] of [
-        ['Onde está o patrimônio', 'Estoque'],
+        ['Onde está o patrimônio', 'Peças › Resumo'],
         ['Conferência do estoque em casa', 'Inventário'],
         ['Escolha seus pingentes', 'Monte seu Colar'],
         ['Análise de saídas', 'Saídas'],
@@ -175,8 +175,8 @@ try {
       'o avatar circular está no lugar do ícone genérico');
     const iniciais = (await p.locator('.mq-topbar__tools .mq-avatar').textContent() || '').trim();
     prova(/^[A-Z]{1,2}$/.test(iniciais), `o avatar mostra iniciais ("${iniciais}")`);
-    prova(await p.locator('.mq-topbar__tools button[aria-label^="Notificações"]').count() === 1,
-      'o sino está no cabeçalho');
+    prova(await p.locator('.mq-topbar__tools button[aria-label^="Pendências"]').count() === 1,
+      'o sino (pendências) está no cabeçalho');
     /* "Desconectar" saiu da barra: o protótipo não tem um botão de texto ali. */
     const textoBarra = (await topo.textContent()) || '';
     prova(!textoBarra.includes('Desconectar'),
@@ -206,34 +206,35 @@ try {
     await ctx.close();
   }
 
-  /* ══════════════════════════════════ 2 · Estoque */
-  secao('2 · Estoque');
+  /* ══════════════════════════════════ 2 · Peças (era Estoque) */
+  /* Desde 27/09/2026: quatro abas, todas do próprio módulo. A lista é a
+     porta; os números e o patrimônio moram em Resumo. */
+  secao('2 · Peças');
   if (!KEY) {
-    pulo('Estoque inteiro — a tela só existe depois da conexão');
+    pulo('Peças inteiro — a tela só existe depois da conexão');
   } else {
     const { ctx, p } = await abrir();
     await ir(p, '#/estoque');
 
-    const abas = await p.locator('[role="tablist"][aria-label="Estoque"] [role="tab"]')
+    const abas = await p.locator('[role="tablist"][aria-label="Peças"] [role="tab"]')
       .allTextContents();
-    const esperadas = ['Visão geral', 'Cadastro de produtos', 'Na loja',
-      'Pendências', 'Inventário', 'Publicar na loja'];
-    prova(JSON.stringify(abas.map((t) => t.replace(/\d+$/, '').trim())) === JSON.stringify(esperadas),
-      `as seis abas do protótipo, nesta ordem (${abas.join(' · ')})`);
-
-    prova((await p.locator('.mq-pagehead').first().textContent() || '')
-      .includes('Operação e distribuição'), 'a sobrancelha é a do protótipo');
-    prova(await p.getByRole('heading', { level: 1, name: 'Estoque' }).count() === 1,
-      'o título é "Estoque", e não "Estoque Total"');
-    prova(await p.getByRole('button', { name: /Conferir estoque/ }).count() === 1,
-      'ação "Conferir estoque" presente');
+    const esperadas = ['Peças', 'Resumo', 'Entrada de peças', 'Inventário'];
+    prova(JSON.stringify(abas.map((t) => t.trim())) === JSON.stringify(esperadas),
+      `as quatro abas, nesta ordem (${abas.join(' · ')})`);
+    prova(await p.getByRole('heading', { level: 1, name: 'Peças' }).count() === 1,
+      'Peças abre na lista');
+    prova(await p.locator('.mq-thumb').count() > 0, 'a FOTO é a primeira coluna da lista');
     prova(await p.getByRole('button', { name: /Novo produto/ }).count() === 1,
       'ação "Novo produto" presente');
+
+    await ir(p, '#/estoque/resumo');
+    prova(await p.getByRole('button', { name: /Conferir estoque/ }).count() === 1,
+      'ação "Conferir estoque" presente no Resumo');
 
     if (KEY) {
       const rotulos = await p.locator('.mq-kpi__label').allTextContents();
       const cinco = ['Valor de referência', 'Peças em estoque', 'Em casa',
-        'Com revendedoras', 'Precisam de atenção'];
+        'Com revendedoras', 'Cadastro incompleto'];
       prova(cinco.every((r) => rotulos.includes(r)),
         `os cinco KPIs do protótipo (${rotulos.slice(0, 5).join(' · ')})`);
 
@@ -246,9 +247,8 @@ try {
 
       prova(await p.locator('.mq-bars__row').count() > 0,
         'as categorias aparecem como barras horizontais');
-      prova(await p.getByRole('heading', { name: 'Todos os produtos' }).count() === 1,
-        'a tabela de produtos é seção da Visão geral');
-      prova(await p.locator('.mq-thumb').count() > 0, 'a FOTO é a primeira coluna da tabela');
+      prova(await p.getByRole('heading', { name: 'Todos os produtos' }).count() === 0,
+        'o Resumo não arrasta mais a lista inteira de peças embaixo');
     } else {
       pulo('KPIs, donut, barras e tabela de produtos — precisam de MQ_KEY');
     }
@@ -342,8 +342,10 @@ try {
         'os três cartões de contexto do protótipo');
       prova(await p.getByRole('heading', { name: 'Conferência do estoque em casa' }).count() === 1,
         'o cabeçalho da contagem em andamento');
-      prova(await p.locator('.inventory-progress b').count() === 1, 'a barra de progresso existe');
-      const pct = await p.locator('.inventory-progress > strong').textContent();
+      /* O painel de progresso mudou de marcação em 4399bfe; o seletor antigo
+         (.inventory-progress) deixou de existir e esta prova travava. */
+      prova(await p.locator('.inventory-progress-panel .progress-bar').count() === 1, 'a barra de progresso existe');
+      const pct = await p.locator('.inventory-progress-panel .progress-figure > strong').textContent();
       prova(/%$/.test((pct || '').trim()), `o progresso em % (${pct})`);
 
       const estados = await p.locator('.count-row .mq-status').allTextContents();
@@ -403,17 +405,24 @@ try {
       /* 3.7 — FINALIZAR pede confirmação, e NÓS RECUSAMOS. A base
          definitiva ainda não foi importada; congelar um retrato agora
          seria congelar o errado. */
-      let dialogo = null;
-      p.once('dialog', async (d) => { dialogo = d.message(); await d.dismiss(); });
+      /* Desde 4399bfe a confirmação é um diálogo da própria tela
+         (DialogoDeEncerramento), e não mais o `confirm()` do navegador. */
       await p.getByRole('button', { name: 'Finalizar inventário' }).click();
       await p.waitForTimeout(600);
-      prova(!!dialogo, 'finalizar NÃO é um clique a seco: abriu confirmação');
-      if (dialogo) {
-        prova(/Faltando|Sobrando|NAO conferidos/i.test(dialogo),
+      const encerrar = p.locator('[role="dialog"][aria-labelledby="titulo-encerrar"]');
+      const abriu = await encerrar.count() === 1;
+      prova(abriu, 'finalizar NÃO é um clique a seco: abriu confirmação');
+      if (abriu) {
+        const dialogo = await encerrar.innerText();
+        prova(/Faltando|Sobrando/i.test(dialogo),
           'a confirmação mostra o resumo das divergências antes de congelar');
-        prova(/NAO altera estoque/i.test(dialogo),
-          'e diz que finalizar não altera estoque nenhum');
-        console.log('       diálogo:', dialogo.replace(/\n/g, ' | ').slice(0, 220));
+        /* Com contagem incompleta (o caso deste roteiro), o diálogo não
+           promete nada: ele diz quantos códigos faltam e pergunta. A frase
+           "não altera estoque" só aparece quando tudo foi bipado. */
+        prova(/n[aã]o altera estoque|ainda n[aã]o rec/i.test(dialogo),
+          'e diz o que acontece antes de congelar (nada no estoque, ou quantos faltam)');
+        await encerrar.getByRole('button', { name: 'Voltar para a contagem' }).click();
+        await p.waitForTimeout(400);
       }
       const aindaAberto = await api(`/api/inventarios/${inventarioAberto}`);
       prova(aindaAberto.json.status === 'aberto',
@@ -435,8 +444,10 @@ try {
       'os TRÊS lançamentos estão na tela, juntos');
     const marcado = await p.locator('[role="radio"][aria-checked="true"]').textContent();
     prova(/Venda normal/.test(marcado || ''), `"Venda normal" está marcado (${marcado})`);
-    prova(await p.getByRole('heading', { level: 1, name: 'Novo lançamento' }).count() === 1,
-      'o cabeçalho é "Novo lançamento", uma vez só');
+    /* Desde 27/09/2026 não há cabeçalho grande: a aba "Nova venda" diz onde
+       se está, e a busca da peça sobe para dentro da tela do notebook. */
+    prova(await p.locator('nav[aria-label="Vendas"] button[aria-selected="true"]', { hasText: 'Nova venda' }).count() === 1,
+      'a aba "Nova venda" está acesa');
     prova(await p.locator('.mq-steps .mq-step').count() === 3,
       'os três passos: Itens → Cliente → Pagamento');
     /* Trocar de modo sem sair da tela é o ponto do protótipo. */

@@ -32,7 +32,7 @@ interface Props {
 
 /** O CASCO — a única implementação de cabeçalho global do produto.
  *
- *  Trilho bordô à esquerda com os treze módulos em quatro grupos, barra
+ *  Trilho bordô à esquerda com os módulos do menu em quatro grupos, barra
  *  superior dizendo onde estou, conteúdo, rodapé. Nenhuma tela desenha
  *  marca, busca ou perfil por conta própria: era isso que fazia duas
  *  páginas do mesmo sistema parecerem dois sistemas, e é por isso que a
@@ -119,7 +119,6 @@ export function AppShell({
         </div>
 
         <div className="mq-rail__foot">
-          <span>Painel novo · em migração</span>
           <a href="/dashboard.html">Abrir o painel clássico</a>
         </div>
       </nav>
@@ -182,7 +181,16 @@ export function AppShell({
                 um número REAL (`GET /api/pendencias`), e "Desconectar" mora
                 dentro do menu do avatar em vez de ficar solto na barra —
                 era o botão de texto que deformava o lado direito. */}
-            <SinoNotificacoes conexao={conexao} aoAbrir={irPara('notificacoes')} />
+            {/* O sino abre a lista de pendências do Início — a mesma contagem
+                que ele mostra. Antes ele levava a uma tela "Em
+                desenvolvimento", e um "99+" que não leva a lugar nenhum só
+                assusta. */}
+            <SinoNotificacoes
+              conexao={conexao}
+              aoAbrir={() => (aoNavegarPara
+                ? aoNavegarPara({ modulo: 'home', sub: 'pendencias' })
+                : aoNavegar('home'))}
+            />
             <MenuPerfil
               nome={estado?.config?.operadorNome ?? null}
               aoAbrirConfiguracoes={irPara('configuracoes')}
@@ -194,8 +202,8 @@ export function AppShell({
         <main className="mq-shell__main">{children}</main>
 
         <footer className="mq-shell__foot">
-          Painel novo, em migração. Os módulos marcados seguem em{' '}
-          <a href="/dashboard.html">dashboard.html</a>.
+          Procurando algo que ainda não está aqui?{' '}
+          <a href="/dashboard.html">Abrir o painel clássico</a>.
         </footer>
       </div>
 

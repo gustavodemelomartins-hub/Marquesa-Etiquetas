@@ -44,6 +44,9 @@ interface Props {
   sub: SubRotaRevendedoras;
   aoNavegarSub: (r: SubRotaRevendedoras) => void;
   scannerCompartilhado?: IntegracaoScannerAcerto;
+  /** Abre "Criar maleta" assim que a tela monta — é o atalho "Nova maleta"
+   *  do Início. */
+  criarAoEntrar?: boolean;
 }
 
 /** A área "Revendedoras": a Visão Geral primeiro, e uma aba por pessoa.
@@ -61,10 +64,11 @@ export function RevendedorasArea({
   sub,
   aoNavegarSub,
   scannerCompartilhado = scannerPadrao,
+  criarAoEntrar = false,
 }: Props) {
   const [sugestoesAbertas, setSugestoesAbertas] = useState(false);
   const [novaAberta, setNovaAberta] = useState(false);
-  const [criando, setCriando] = useState(false);
+  const [criando, setCriando] = useState(criarAoEntrar);
   const [sugestaoEscolhida, setSugestaoEscolhida] = useState<Sugestao | null>(null);
   const [acertoAberto, setAcertoAberto] = useState(false);
   const [edicaoAberta, setEdicaoAberta] = useState(false);
@@ -112,12 +116,12 @@ export function RevendedorasArea({
           Visão geral
         </button>
         <button type="button" role="tab" aria-selected={rota === 'todas'} onClick={() => aoNavegarSub('todas')}>
-          Todas as revendedoras <span className="mq-badge">{estado.revendedoras.length}</span>
+          Revendedoras <span className="mq-badge">{estado.revendedoras.length}</span>
         </button>
         <button type="button" role="tab" aria-selected={rota === 'historico'} onClick={() => aoNavegarSub('historico')}>
-          Histórico de acertos{acertos.dados ? <> <span className="mq-badge">{acertos.dados.acertos.length}</span></> : null}
+          Acertos{acertos.dados ? <> <span className="mq-badge">{acertos.dados.acertos.length}</span></> : null}
         </button>
-        <button type="button" role="tab" aria-selected={rota === 'configuracoes'} onClick={() => aoNavegarSub('configuracoes')}>Configurações</button>
+        <button type="button" role="tab" aria-selected={rota === 'configuracoes'} onClick={() => aoNavegarSub('configuracoes')}>Planejamento</button>
       </nav>
 
       {carregando && <LoadingState>Atualizando…</LoadingState>}

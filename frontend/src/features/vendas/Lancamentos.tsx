@@ -32,13 +32,19 @@ interface Props {
    *  com o convite para escolher. */
   ativo: TipoDeLancamento | null;
   aoEscolher: (tipo: TipoDeLancamento) => void;
+  /** Três pílulas numa linha, em vez de três cartões grandes. */
+  compacto?: boolean;
 }
 
 /** O SELETOR de tipo de lançamento — a faixa de três que fica no topo de
  *  "Novo lançamento" e acompanha a operação inteira. */
-export function SeletorDeLancamento({ ativo, aoEscolher }: Props) {
+export function SeletorDeLancamento({ ativo, aoEscolher, compacto = false }: Props) {
   return (
-    <div className="mq-escolhas" role="radiogroup" aria-label="Tipo de lançamento">
+    <div
+      className={compacto ? 'mq-escolhas mq-escolhas--compacta' : 'mq-escolhas'}
+      role="radiogroup"
+      aria-label="Tipo de lançamento"
+    >
       {LANCAMENTOS.map((o) => (
         <button
           type="button"

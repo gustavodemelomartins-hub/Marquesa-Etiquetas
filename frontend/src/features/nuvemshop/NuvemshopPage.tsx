@@ -64,7 +64,7 @@ export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props)
   if (estado.carregando && !estado.dados) {
     return (
       <>
-        <PageHeader kicker="Integração" titulo="Nuvemshop" />
+        <PageHeader kicker="Nuvemshop" titulo="Loja online" />
         <LoadingState>Lendo o estado do sistema…</LoadingState>
       </>
     );
@@ -73,7 +73,7 @@ export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props)
   if (estado.erro) {
     return (
       <>
-        <PageHeader kicker="Integração" titulo="Nuvemshop" />
+        <PageHeader kicker="Nuvemshop" titulo="Loja online" />
         <ErrorState erro={estado.erro} aoTentarDeNovo={estado.recarregar} />
       </>
     );
@@ -87,12 +87,12 @@ export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props)
      "o que está acontecendo entre nós e a loja" (panorama, divergências,
      pendências) e "o que está esperando para entrar na loja" (a fila). */
   const abas = aoNavegarSub ? (
-    <nav className="mq-tabs" aria-label="Nuvemshop">
+    <nav className="mq-tabs" aria-label="Loja online">
       <button type="button" aria-selected={!naFila} onClick={() => aoNavegarSub(null)}>
-        Panorama e divergências
+        Situação da loja
       </button>
       <button type="button" aria-selected={naFila} onClick={() => aoNavegarSub('publicacao')}>
-        Fila de publicação
+        Publicar peças
       </button>
     </nav>
   ) : null;
@@ -110,9 +110,9 @@ export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props)
     <>
       {abas}
       <PageHeader
-        kicker="Integração"
-        titulo="Nuvemshop"
-        sub="O que a loja publica hoje, o que diverge do estoque daqui, e o que só uma pessoa resolve."
+        kicker="Nuvemshop"
+        titulo="Loja online"
+        sub="O que a loja mostra hoje e o que está diferente do estoque daqui."
         acoes={
           <button
             type="button"
@@ -183,13 +183,13 @@ export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props)
 
       {/* ----------------------------------------------- PENDÊNCIAS */}
       <section className="secao">
-        <h2 className="secao-titulo">Pendências</h2>
+        <h2 className="secao-titulo">Diferenças com o estoque</h2>
         <PendenciasList panorama={panorama} diagnostico={diagnostico} />
       </section>
 
       {/* ------------------------------------------- ANÁLISE (leitura) */}
       <section className="secao">
-        <h2 className="secao-titulo">Análise da sincronização</h2>
+        <h2 className="secao-titulo">Conferir a loja agora</h2>
 
         {/* `erro` é `unknown`: sem o `!!`, o TypeScript não aceita o
             resultado como algo que o React saiba desenhar. */}
@@ -206,12 +206,12 @@ export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props)
 
         {!analise.rodando && !analise.erro && !analise.dados && (
           <div className="aviso" data-tom="neutro">
-            <b>Nenhuma análise nesta sessão.</b>
+            <b>Nenhuma conferência feita agora.</b>
             <div className="corpo">
-              &quot;Analisar sincronização&quot; roda a mesma leitura que o robô faz
-              de madrugada, em modo seco: ela lê a loja, calcula o que mudaria e{' '}
-              <strong>não escreve nada na Nuvemshop</strong>. Aplicar as mudanças
-              ainda é feito pelo painel atual.
+              &quot;Analisar sincronização&quot; lê a loja inteira e mostra o que
+              está diferente do estoque daqui —{' '}
+              <strong>sem mudar nada na Nuvemshop</strong>. Corrigir as
+              diferenças ainda é feito pelo painel clássico.
             </div>
           </div>
         )}

@@ -6,41 +6,25 @@ import { money, fmtData } from '../../domain/formato';
 import { buscarPainel } from '../financeiro/api';
 import type { ModuloId } from '../../app/modulos';
 import type { PainelFinanceiro } from '../financeiro/tipos';
-
-interface Pendencia {
-  chave: string;
-  tipo: string;
-  sku: string | null;
-  produto: string | null;
-  origem: string;
-  informacaoFaltante: string | null;
-  efeito: string | null;
-  proximoPasso: string | null;
-  explicacao: string | null;
-}
-
-interface Pendencias {
-  ok: true;
-  resumo: { total: number; adiadas: number; porTipo: Record<string, { grupo: string; total: number }> };
-  pendencias: Pendencia[];
-}
+import type { RespostaPendencias as Pendencias } from './PendenciasArea';
 
 interface Props {
   conexao: Connection;
   aoIr: (modulo: ModuloId, sub?: string) => void;
-  aoAbrirCliente: (chave: { id: number } | { norm: string }) => void;
+  /** Mantido para quem já passa; o Início não lista mais clientes — o
+   *  ranking de quem mais comprou mora no Financeiro. */
+  aoAbrirCliente?: (chave: { id: number } | { norm: string }) => void;
 }
 
-/** HOME — como está a operação hoje.
+/** INÍCIO — o que precisa de mim hoje.
  *
- *  A tela abre pelo que PRECISA DE UMA PESSOA, não pelo que é bonito de
- *  mostrar. O painel antigo abria por gráficos; quem chega de manhã não
- *  quer um gráfico, quer saber o que está parado esperando por ela.
- *
- *  Por isso a ordem é: o que trava dinheiro ou peça → os números do mês →
- *  o que aconteceu. E cada bloco leva ao módulo onde a coisa se resolve.
+ *  A tela abre pelas quatro coisas que mais se faz (vender, receber, a peça
+ *  que voltou, montar maleta) e depois pelo que PRECISA DE UMA PESSOA. Os
+ *  gráficos saíram daqui: "Entrou por mês" e "Quem mais trouxe" repetiam o
+ *  Financeiro, e quem chega de manhã não quer um gráfico, quer saber o que
+ *  está parado esperando por ela.
  */
-export function HomeArea({ conexao, aoIr, aoAbrirCliente }: Props) {
+export function HomeArea({ conexao, aoIr }: Props) {
   const painel = useApi(
     (s) => buscarPainel(conexao, { periodo: '30d', de: null, ate: null }, s),
     [conexao],
@@ -64,19 +48,29 @@ export function HomeArea({ conexao, aoIr, aoAbrirCliente }: Props) {
       <div className="mq-pagehead">
         <div className="mq-pagehead__text">
           <p className="mq-eyebrow">Hoje</p>
-          <h1 className="mq-display">Como está a operação</h1>
-          <p className="mq-lede">
-            O que precisa de você primeiro, e depois os números dos últimos
-            30 dias.
-          </p>
-        </div>
-        <div className="mq-pagehead__actions">
-          <button type="button" className="mq-btn mq-btn--primary" onClick={() => aoIr('vendas', 'nova')}>
-            <Icone nome="plus" />
-            Nova venda
-          </button>
+          <h1 className="mq-display">Início</h1>
+          <p className="mq-lede">O que você quer fazer, e o que está esperando por você.</p>
         </div>
       </div>
+
+      <nav className="mq-atalhos" aria-label="Ações rápidas">
+        <button type="button" className="mq-atalho mq-atalho--primario" onClick={() => aoIr('vendas', 'nova')}>
+          <Icone nome="plus" />
+          Nova venda
+        </button>
+        <button type="button" className="mq-atalho" onClick={() => aoIr('financeiro', 'a-receber')}>
+          <Icone nome="money" />
+          Receber pagamento
+        </button>
+        <button type="button" className="mq-atalho" onClick={() => aoIr('garantias', 'nova')}>
+          <Icone nome="shield" />
+          A peça voltou
+        </button>
+        <button type="button" className="mq-atalho" onClick={() => aoIr('revendedoras', 'nova-maleta')}>
+          <Icone nome="bag" />
+          Nova maleta
+        </button>
+      </nav>
 
       {/* ─────────────────────────────── o que precisa de uma pessoa */}
       <section className="mq-card mq-card--flush">
@@ -123,10 +117,10 @@ export function HomeArea({ conexao, aoIr, aoAbrirCliente }: Props) {
             quando={(pend.dados?.resumo.total ?? 0) > 0}
             tom="info"
             icone="cloud"
-            titulo={`${pend.dados?.resumo.total} pendências de catálogo e loja`}
+            titulo={`${pend.dados?.resumo.total} ${pend.dados?.resumo.total === 1 ? 'pendência para revisar' : 'pendências para revisar'}`}
             detalhe={Object.values(pend.dados?.resumo.porTipo ?? {})
               .map((t) => `${t.grupo}: ${t.total}`).join(' · ')}
-            aoIr={() => aoIr('estoque', 'pendencias')}
+            aoIr={() => aoIr('home', 'pendencias')}
           />
 
           {vencidas.length === 0
@@ -167,82 +161,6 @@ export function HomeArea({ conexao, aoIr, aoAbrirCliente }: Props) {
               <span className="mq-kpi__value">{p.saidasSemFaturamento.pecas}</span>
               <span className="mq-kpi__foot">brinde, uso próprio, perda e sorteio no mês</span>
             </div>
-          </div>
-
-          <div className="mq-grid mq-grid--main">
-            <section className="mq-card mq-card--flush">
-              <div className="mq-card__head">
-                <div>
-                  <h2 className="mq-title">Entrou por mês</h2>
-                  <p className="mq-lede">Recortado pela data do pagamento.</p>
-                </div>
-                <button type="button" className="mq-btn mq-btn--link" onClick={() => aoIr('financeiro')}>
-                  Ver financeiro
-                </button>
-              </div>
-              <div className="mq-card__body">
-                {p.evolucao.pontos.length === 0 ? (
-                  <p className="mq-hint">Sem movimento no período.</p>
-                ) : (
-                  <div className="mq-bars">
-                    {p.evolucao.pontos.map((x) => {
-                      const maior = Math.max(1, ...p.evolucao.pontos.map((y) => y.faturamento));
-                      return (
-                        <div className="mq-bars__row" key={x.chave}>
-                          <span className="mq-date">{x.chave}</span>
-                          <span className="mq-meter">
-                            <i style={{ width: `${Math.round((x.faturamento / maior) * 100)}%` }} />
-                          </span>
-                          <b className="mq-money">{money(x.faturamento)}</b>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <aside className="mq-stack">
-              {p.topClientes.length > 0 && (
-                <section className="mq-card mq-card--flush">
-                  <div className="mq-card__head"><div><h2 className="mq-subtitle">Quem mais trouxe</h2></div></div>
-                  <div className="mq-list">
-                    {p.topClientes.slice(0, 4).map((c) => (
-                      <button
-                        type="button"
-                        className="mq-item"
-                        key={c.norm ?? c.nome}
-                        onClick={() => c.norm && aoAbrirCliente({ norm: c.norm })}
-                      >
-                        <span className="mq-item__main">
-                          <b>{c.nome}</b>
-                          <small>{c.vendas} {c.vendas === 1 ? 'compra' : 'compras'}</small>
-                        </span>
-                        <span className="mq-item__side"><b className="mq-money">{money(c.faturamento)}</b></span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              <section className="mq-card mq-card--pad">
-                <h2 className="mq-subtitle">Atalhos</h2>
-                <div className="mq-btns">
-                  <button type="button" className="mq-btn mq-btn--secondary mq-btn--sm" onClick={() => aoIr('clientes')}>
-                    Clientes
-                  </button>
-                  <button type="button" className="mq-btn mq-btn--secondary mq-btn--sm" onClick={() => aoIr('estoque', 'pecas')}>
-                    Peças
-                  </button>
-                  <button type="button" className="mq-btn mq-btn--secondary mq-btn--sm" onClick={() => aoIr('estoque', 'inventario')}>
-                    Inventário
-                  </button>
-                  <button type="button" className="mq-btn mq-btn--secondary mq-btn--sm" onClick={() => aoIr('revendedoras')}>
-                    Revendedoras
-                  </button>
-                </div>
-              </section>
-            </aside>
           </div>
 
           {reparos && reparos.itens.length > 0 && (

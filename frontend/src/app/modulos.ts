@@ -1,17 +1,26 @@
 import type { NomeIcone } from '../components/Icone';
 
-/** Os treze módulos do Sistema Marquesa, na ordem e nos grupos da
- *  arquitetura de navegação V2 (`docs/ux/07-mapping/navigation-architecture-v2.md`).
+/** Os módulos do Sistema Marquesa, e o menu que a usuária vê.
  *
- *  A regra que o agrupamento serve: a usuária tem que saber, sem pensar,
- *  ONDE ESTOU, O QUE POSSO FAZER AQUI e PARA ONDE POSSO IR. Os grupos são
- *  o "para onde posso ir" — quatro blocos curtos batem uma lista de treze
- *  nomes, porque treze nomes viram uma parede que ninguém lê.
+ *  A regra que o menu serve: a usuária tem que saber, sem pensar, ONDE
+ *  ESTOU, O QUE POSSO FAZER AQUI e PARA ONDE POSSO IR. Em 27/09/2026 a
+ *  Sthefany achou o sistema confuso, e a auditoria mostrou por quê: eram
+ *  treze itens, três deles levavam a uma tela "Em desenvolvimento", e
+ *  Estoque, Catálogo e Nuvemshop se misturavam em abas que pulavam de um
+ *  módulo para outro.
  *
- *    Operação  o dia acontecendo: o que vendeu, para quem, e quanto entrou.
- *    Produto   a peça e o patrimônio: onde está, como se chama, onde é publicada.
- *    Rede      quem carrega peça nossa e o que volta de lá.
- *    Sistema   o que o sistema avisa e o que a casa configura.
+ *  O menu agora é organizado pelo que ela FAZ, e cada coisa mora num lugar
+ *  só:
+ *
+ *    Dia a dia  vender, a cliente, o dinheiro.
+ *    Peças      a peça (estoque e cadastro juntos) e a loja online.
+ *    Rede       quem leva peça nossa e o que volta de lá.
+ *    Sistema    como a casa está configurada.
+ *
+ *  Os módulos FORA_DO_MENU continuam respondendo pelo endereço — link
+ *  antigo não quebra —, mas não aparecem no menu: Catálogo virou parte de
+ *  Peças, Notificações virou a lista de pendências do Início, Agenda já
+ *  existe dentro de Revendedoras, e Etiquetas é um botão dentro de Peças.
  */
 export type ModuloId =
   | 'home' | 'vendas' | 'clientes' | 'financeiro'
@@ -23,16 +32,11 @@ export interface Modulo {
   id: ModuloId;
   rotulo: string;
   icone: NomeIcone;
-  /** O módulo já existe em React, ou ainda vive no painel clássico?
-   *
-   *  Um módulo pendente CONTINUA no trilho, e de propósito: esconder o que
-   *  falta deixa o produto parecendo menor do que é e faz a usuária procurar
-   *  em outro lugar o que ela sabe que existe. Ele aparece apagado, diz que
-   *  ainda não migrou, e leva para onde a tarefa se resolve hoje. O que não
-   *  se faz é desenhar uma tela vazia e chamar de pronta. */
+  /** O módulo ainda não tem tela própria em React. Só vale para quem está
+   *  FORA do menu: um item de menu que leva a "Em desenvolvimento" foi
+   *  exatamente o que deixou o sistema confuso. */
   pendente?: boolean;
-  /** A pergunta que o módulo responde. É o subtítulo da tela pendente e a
-   *  régua do que entra nela quando ela for construída de verdade. */
+  /** A pergunta que o módulo responde. */
   pergunta?: string;
 }
 
@@ -43,12 +47,12 @@ export interface GrupoModulos {
 
 export const GRUPOS: GrupoModulos[] = [
   {
-    titulo: 'Operação',
+    titulo: 'Dia a dia',
     modulos: [
-      { id: 'home', rotulo: 'Home', icone: 'home',
-        pergunta: 'Como está a operação hoje?' },
+      { id: 'home', rotulo: 'Início', icone: 'home',
+        pergunta: 'O que precisa de mim hoje?' },
       { id: 'vendas', rotulo: 'Vendas', icone: 'sale',
-        pergunta: 'O que foi vendido, para quem, e o que ainda falta receber?' },
+        pergunta: 'O que foi vendido, e para quem?' },
       { id: 'clientes', rotulo: 'Clientes', icone: 'people',
         pergunta: 'Como está a relação com esta cliente?' },
       { id: 'financeiro', rotulo: 'Financeiro', icone: 'money',
@@ -56,16 +60,12 @@ export const GRUPOS: GrupoModulos[] = [
     ],
   },
   {
-    titulo: 'Produto',
+    titulo: 'Peças',
     modulos: [
-      { id: 'estoque', rotulo: 'Estoque', icone: 'box',
-        pergunta: 'Onde está o patrimônio e o que precisa de atenção?' },
-      { id: 'catalogo', rotulo: 'Catálogo', icone: 'tag',
-        pergunta: 'Como a peça se chama, quanto custa e onde ela aparece?' },
-      { id: 'etiquetas', rotulo: 'Etiquetas', icone: 'label', pendente: true,
-        pergunta: 'O que precisa ser impresso agora?' },
-      { id: 'nuvemshop', rotulo: 'Nuvemshop', icone: 'cloud',
-        pergunta: 'O que está pronto para publicar e o que travou?' },
+      { id: 'estoque', rotulo: 'Peças', icone: 'box',
+        pergunta: 'Onde está cada peça, quanto custa e como ela se chama?' },
+      { id: 'nuvemshop', rotulo: 'Loja online', icone: 'cloud',
+        pergunta: 'O que a loja mostra e o que falta publicar?' },
     ],
   },
   {
@@ -73,24 +73,30 @@ export const GRUPOS: GrupoModulos[] = [
     modulos: [
       { id: 'revendedoras', rotulo: 'Revendedoras', icone: 'bag',
         pergunta: 'O que está circulando, com quem, e desde quando?' },
-      { id: 'garantias', rotulo: 'Garantias e reparos', icone: 'shield',
+      { id: 'garantias', rotulo: 'Garantias', icone: 'shield',
         pergunta: 'O que está em andamento e o que espera uma ação nossa?' },
     ],
   },
   {
     titulo: 'Sistema',
     modulos: [
-      { id: 'agenda', rotulo: 'Agenda', icone: 'calendar', pendente: true,
-        pergunta: 'O que vence, acerta ou fecha nos próximos dias?' },
-      { id: 'notificacoes', rotulo: 'Notificações', icone: 'bell', pendente: true,
-        pergunta: 'O que o sistema precisa me contar?' },
       { id: 'configuracoes', rotulo: 'Configurações', icone: 'settings',
         pergunta: 'Como a casa está configurada?' },
     ],
   },
 ];
 
-export const MODULOS: Modulo[] = GRUPOS.flatMap((g) => g.modulos);
+/** Endereços que continuam valendo, mas que não são porta no menu. O
+ *  `App` redireciona cada um para a tela que o substituiu. */
+export const FORA_DO_MENU: Modulo[] = [
+  { id: 'catalogo', rotulo: 'Peças', icone: 'tag' },
+  { id: 'etiquetas', rotulo: 'Etiquetas', icone: 'label', pendente: true,
+    pergunta: 'O que precisa ser impresso agora?' },
+  { id: 'agenda', rotulo: 'Agenda', icone: 'calendar' },
+  { id: 'notificacoes', rotulo: 'Pendências', icone: 'bell' },
+];
+
+export const MODULOS: Modulo[] = [...GRUPOS.flatMap((g) => g.modulos), ...FORA_DO_MENU];
 
 export function acharModulo(id: ModuloId): Modulo {
   const m = MODULOS.find((x) => x.id === id);
@@ -107,7 +113,6 @@ export function grupoDe(id: ModuloId): string {
  *  usuária abre todo dia, não os quatro primeiros da lista. */
 export const NO_TELEFONE: ModuloId[] = ['home', 'vendas', 'clientes', 'estoque'];
 
-/** Onde a tarefa de um módulo pendente se resolve hoje. O painel clássico
- *  continua sendo o sistema de verdade enquanto a migração não termina, e
- *  mandar a usuária para lá é mais honesto do que uma tela vazia. */
+/** O painel clássico, para o que ainda só existe lá (etiquetas e a
+ *  resolução de algumas pendências). */
 export const NO_PAINEL_CLASSICO = '../../dashboard.html';
