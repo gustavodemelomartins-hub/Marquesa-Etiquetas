@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
-import { money, fmtData } from '../../domain/formato';
+import { money, fmtData, dataDigitada } from '../../domain/formato';
 import { hojeISO } from '../../domain/formato';
 import { descreverRecorte } from './periodo';
 import { buscarAReceber, definirPrazo, estornarRecebimento, receberConta } from './api';
@@ -138,15 +138,15 @@ export function AReceber({
 
   async function prazo(alvo: ContaAReceber) {
     const valor = prompt(
-      `Vencimento de ${alvo.cliente ?? 'esta conta'} (AAAA-MM-DD, vazio para tirar o prazo):`,
-      alvo.vencimentoEm ?? '',
+      `Vencimento de ${alvo.cliente ?? 'esta conta'} (dia/mês/ano, vazio para tirar o prazo):`,
+      alvo.vencimentoEm ? fmtData(alvo.vencimentoEm) : '',
     );
     if (valor === null) return;
     setOcupada(alvo.chave);
     setFalha(null);
     const r = await definirPrazo(conexao, {
       chave: alvo.chave,
-      vencimentoEm: valor.trim() || null,
+      vencimentoEm: valor.trim() ? dataDigitada(valor) : null,
       versaoEsperada: alvo.versao,
     }).catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui salvar o prazo.' }));
     setOcupada(null);

@@ -132,6 +132,6 @@ export function RevendedoraPage({
       </div>
     )}
 
-    <HistoricoRevendedora conexao={conexao} revendedoraId={revendedora.id} />
+    <HistoricoRevendedora conexao={conexao} revendedoraId={revendedora.id} versao={estado} />
   </>;
 }

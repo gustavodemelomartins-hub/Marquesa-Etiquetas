@@ -1,0 +1,19 @@
+# Cloudflare Pages — cabeçalhos do site de produção (painel clássico + /v2/).
+#
+# SAMEORIGIN e não DENY: o index.html (Etiquetas) ainda pode ser aberto
+# dentro do próprio site. De FORA, ninguém emoldura o painel (clickjacking).
+# Câmera só para o próprio site: o leitor de etiqueta usa, nada mais.
+#
+# CSP ainda NÃO: o leitor de etiqueta do iPhone carrega /vendor/zxing.min.js
+# e ninguém provou num iPhone que uma política restritiva não o quebra.
+# Ligar depois de testar a câmera no aparelho da Sthefany.
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=()
+
+# O Vite põe o hash do conteúdo no nome do arquivo: o mesmo nome é sempre o
+# mesmo arquivo. Sem isto o telefone baixava ~300 KB de novo a cada visita.
+/v2/assets/*
+  Cache-Control: public, max-age=31536000, immutable

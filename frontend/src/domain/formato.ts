@@ -26,6 +26,20 @@ export function fmtData(iso: string | null | undefined): string {
   return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : String(iso);
 }
 
+/** A data como a pessoa DIGITA → ISO curto. Aceita "28/09/2026", "28/9/26",
+ *  "28-09-2026" e o próprio "2026-09-28". O que não reconhece volta como
+ *  veio (aparado): quem valida é o servidor, e a frase dele aparece na tela.
+ *  Existe porque os prompts de data pediam AAAA-MM-DD e recusavam o jeito
+ *  brasileiro de escrever — atrito de todo dia no "Recebi". */
+export function dataDigitada(texto: string): string {
+  const t = String(texto ?? '').trim();
+  const br = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/.exec(t);
+  if (!br) return t;
+  const [, dia = '', mes = '', a = ''] = br;
+  const ano = a.length === 2 ? `20${a}` : a;
+  return `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+}
+
 /** "0%" para uma fatia que tem peças é mentira; abaixo de 1% mostra "<1%". */
 export function pctTexto(qtd: number, total: number): string {
   if (!total) return '0%';

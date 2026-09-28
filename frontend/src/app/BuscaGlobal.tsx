@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { chamar, type Connection } from '../services/client';
 import { Icone } from '../components/Icone';
 import { money, fmtData } from '../domain/formato';
@@ -32,6 +32,9 @@ interface Props {
    *  aqui não custa uma requisição a mais. */
   estado: AppState | null;
   aoNavegar: (destino: { modulo: ModuloId; sub: string | null }) => void;
+  /** No telefone, a lupa abre a busca: o cursor tem que ir junto. Sem isto
+   *  eram dois toques — um na lupa, outro no campo. */
+  focar?: boolean;
 }
 
 type EstadoBusca = 'inicial' | 'buscando' | 'pronto' | 'erro';
@@ -57,8 +60,10 @@ const LIMITE_POR_TIPO = 4;
  *  listas inteiras a cada tecla — e §34 (o limite de leitura do D1 é da
  *  conta, e derruba DEV e produção juntos) é razão suficiente para não.
  */
-export function BuscaGlobal({ conexao, estado, aoNavegar }: Props) {
+export function BuscaGlobal({ conexao, estado, aoNavegar, focar = false }: Props) {
   const listaId = useId();
+  const campo = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (focar) campo.current?.focus(); }, [focar]);
   const [termo, setTermo] = useState('');
   const [remotos, setRemotos] = useState<Achado[]>([]);
   const [estadoBusca, setEstadoBusca] = useState<EstadoBusca>('inicial');
@@ -112,7 +117,12 @@ export function BuscaGlobal({ conexao, estado, aoNavegar }: Props) {
     };
   }, [conexao, termo]);
 
-  const achados = [...remotos, ...locais];
+  /* Código de peça digitado INTEIRO é a peça, antes de tudo: quem digita
+     "100201" está com a etiqueta na mão. Antes, as vendas que citavam o
+     código vinham primeiro e a própria peça aparecia por último. */
+  const exato = termo.trim().toLowerCase();
+  const pecaExata = locais.filter((a) => a.tipo === 'peca' && a.chave.toLowerCase() === `peca:${exato}`);
+  const achados = [...pecaExata, ...remotos, ...locais.filter((a) => !pecaExata.includes(a))];
 
   function mover(direcao: 1 | -1) {
     if (!achados.length) return;
@@ -146,6 +156,7 @@ export function BuscaGlobal({ conexao, estado, aoNavegar }: Props) {
           <path d="m15.4 15.4 4.4 4.4" />
         </svg>
         <input
+          ref={campo}
           className="mq-input"
           type="search"
           value={termo}

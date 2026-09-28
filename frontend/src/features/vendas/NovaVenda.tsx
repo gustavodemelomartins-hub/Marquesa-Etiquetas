@@ -4,10 +4,11 @@ import { money, fmtData, hojeISO, plural } from '../../domain/formato';
 import { criarCliente, listarClientes } from '../clientes/api';
 import { useApi } from '../../hooks/useApi';
 import { registrarVenda } from './api';
+import { buscarEstrutura } from '../catalogo/variacoes';
 import { MonteSeuColar } from './MonteSeuColar';
 import { descricaoDaComposicao, type ComposicaoDoColar } from './colar';
 import {
-  corpoDaVenda, descontoDoCarrinho, impedimentos, linhaDoProduto,
+  corpoDaVenda, descontoDoCarrinho, impedimentos, linhaDoProduto, opcoesDaEstrutura,
   pecasDaVenda, pecasDoCarrinho, temDesconto, totalDaLinha, totalDaVenda,
   type LinhaDoCarrinho,
 } from './carrinho';
@@ -102,18 +103,49 @@ export function NovaVenda({
   const recebido = pago ? total : 0;
   const aReceber = Math.round((total - recebido) * 100) / 100;
 
-  function mudar(sku: string, mudanca: Partial<LinhaDoCarrinho>) {
-    setLinhas((atual) => atual.map((l) => (l.sku === sku ? { ...l, ...mudanca } : l)));
+  function mudar(chave: string, mudanca: Partial<LinhaDoCarrinho>) {
+    setLinhas((atual) => atual.map((l) => (l.chave === chave ? { ...l, ...mudanca } : l)));
   }
 
   function acrescentar(p: ProdutoDoEstado) {
     setBuscaPeca('');
     setLinhas((atual) => {
       const existe = atual.find((l) => l.sku === p.sku);
-      if (existe) return atual.map((l) => (l.sku === p.sku ? { ...l, qtd: l.qtd + 1 } : l));
-      return [...atual, linhaDoProduto(p)];
+      /* Peça COM variação ganha linha nova a cada leitura: o segundo anel
+         pode ser de outro aro, e somar na mesma linha diria que os dois
+         saíram do mesmo. */
+      const temVariacao = !!existe?.variacoes && existe.variacoes.length > 1;
+      if (existe && !temVariacao) {
+        return atual.map((l) => (l.chave === existe.chave ? { ...l, qtd: l.qtd + 1 } : l));
+      }
+      const usadas = new Set(atual.map((l) => l.chave));
+      let chave = p.sku;
+      for (let n = 2; usadas.has(chave); n++) chave = `${p.sku}#${n}`;
+      const nova = linhaDoProduto(p, chave);
+      /* A estrutura já conhecida de outra linha do mesmo código vale aqui. */
+      return [...atual, existe?.variacoes ? { ...nova, variacoes: existe.variacoes } : nova];
     });
   }
+
+  /* As variações de cada código que entrou no carrinho. Uma falha de leitura
+     não trava a venda: a linha fica sem opção, e se o código exigir, o
+     servidor recusa com a frase dele — que aparece na revisão. */
+  useEffect(() => {
+    const pendentes = [...new Set(linhas.filter((l) => l.variacoes === null).map((l) => l.sku))];
+    if (!pendentes.length) return undefined;
+    const ctl = new AbortController();
+    for (const sku of pendentes) {
+      buscarEstrutura(conexao, sku, ctl.signal)
+        .then((e) => opcoesDaEstrutura(e?.variacoes))
+        .catch(() => (ctl.signal.aborted ? null : []))
+        .then((opcoes) => {
+          if (opcoes === null) return;
+          setLinhas((atual) => atual.map((l) => (l.sku === sku && l.variacoes === null
+            ? { ...l, variacoes: opcoes } : l)));
+        });
+    }
+    return () => ctl.abort();
+  }, [conexao, linhas]);
 
   async function registrar() {
     setEnviando(true);
@@ -126,7 +158,10 @@ export function NovaVenda({
     const r = await registrarVenda(conexao, corpo)
       .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui registrar a venda.' }));
     setEnviando(false);
-    if (r && 'erro' in r && r.erro) { setRevisando(false); setRecusa(String(r.erro)); return; }
+    /* A recusa fica NA revisão, onde a pessoa está olhando. Fechar a revisão
+       e escrever a frase no fim da página fazia o "Confirmar" parecer não
+       ter feito nada — no telefone ela ficava abaixo da dobra. */
+    if (r && 'erro' in r && r.erro) { setRecusa(String(r.erro)); return; }
     if (r && 'id' in r && typeof r.id === 'number') aoRegistrar(r.id);
     else aoFechar();
   }
@@ -267,7 +302,7 @@ export function NovaVenda({
         ) : (
           <div className="mq-list">
             {linhas.map((l) => (
-              <div className="mq-venda-linha" key={l.sku}>
+              <div className="mq-venda-linha" key={l.chave}>
                 <div className="mq-venda-linha__topo">
                   <span className="mq-cell">
                     <b>{l.desc}</b>
@@ -277,7 +312,7 @@ export function NovaVenda({
                     type="button"
                     className="mq-btn mq-btn--ghost mq-btn--sm"
                     aria-label={`Tirar ${l.desc}`}
-                    onClick={() => setLinhas((a) => a.filter((x) => x.sku !== l.sku))}
+                    onClick={() => setLinhas((a) => a.filter((x) => x.chave !== l.chave))}
                   >
                     <Icone nome="close" />
                   </button>
@@ -293,7 +328,8 @@ export function NovaVenda({
                       max={l.disponivel}
                       inputMode="numeric"
                       value={l.qtd}
-                      onChange={(e) => mudar(l.sku, { qtd: Math.max(1, Number(e.target.value) || 1) })}
+                      step={1}
+                      onChange={(e) => mudar(l.chave, { qtd: Math.max(1, Math.floor(Number(e.target.value)) || 1) })}
                     />
                   </label>
                   <label className="mq-field">
@@ -306,7 +342,7 @@ export function NovaVenda({
                         step="0.01"
                         inputMode="decimal"
                         value={l.preco}
-                        onChange={(e) => mudar(l.sku, { preco: Number(e.target.value) })}
+                        onChange={(e) => mudar(l.chave, { preco: Number(e.target.value) })}
                       />
                     </span>
                     <small>tabela {money(l.precoTabela)}</small>
@@ -317,6 +353,33 @@ export function NovaVenda({
                   </span>
                 </div>
 
+                {l.variacoes && l.variacoes.length > 1 && (
+                  <label className="mq-field">
+                    <span>Qual variação saiu?</span>
+                    <select
+                      className="mq-select"
+                      value={l.varianteId ?? ''}
+                      onChange={(e) => mudar(l.chave, { varianteId: e.target.value || null })}
+                    >
+                      <option value="">Escolha o aro, a cor ou o banho…</option>
+                      {l.variacoes.map((v) => (
+                        <option key={v.varianteId} value={v.varianteId}>
+                          {v.nome} · {v.saldo} {plural(v.saldo, 'disponível', 'disponíveis')}
+                        </option>
+                      ))}
+                    </select>
+                    {l.variacoes.every((v) => v.saldo <= 0) && (
+                      <small>
+                        O estoque deste código ainda não foi repartido entre as variações.{' '}
+                        <a href={`#/estoque/peca:${encodeURIComponent(l.sku)}`} target="_blank" rel="noreferrer">
+                          Repartir na ficha da peça
+                        </a>{' '}
+                        (abre em outra aba; esta venda continua aqui).
+                      </small>
+                    )}
+                  </label>
+                )}
+
                 {temDesconto(l) && (
                   <label className="mq-field">
                     <span>Motivo do preço diferente</span>
@@ -324,7 +387,7 @@ export function NovaVenda({
                       className="mq-input"
                       placeholder='ex.: "Grupo VIP", "peça com marca"'
                       value={l.descontoRotulo}
-                      onChange={(e) => mudar(l.sku, { descontoRotulo: e.target.value })}
+                      onChange={(e) => mudar(l.chave, { descontoRotulo: e.target.value })}
                     />
                     <small>
                       Diga o motivo do desconto — sem ele, a venda não é
@@ -552,7 +615,7 @@ export function NovaVenda({
           type="button"
           className="mq-btn mq-btn--primary mq-btn--lg"
           disabled={erros.length > 0}
-          onClick={() => setRevisando(true)}
+          onClick={() => { setRecusa(''); setRevisando(true); }}
         >
           <Icone nome="check" />
           Finalizar venda
@@ -573,6 +636,7 @@ export function NovaVenda({
           aReceber={aReceber}
           observacao={observacao}
           enviando={enviando}
+          recusa={recusa}
           aoVoltar={() => setRevisando(false)}
           aoConfirmar={registrar}
         />
@@ -627,7 +691,7 @@ function PainelDoPasso({
 
 function Revisao({
   clienteNome, clienteId, data, dataPagamento, linhas, composicoes,
-  total, desconto, recebido, aReceber, observacao, enviando, aoVoltar, aoConfirmar,
+  total, desconto, recebido, aReceber, observacao, enviando, recusa, aoVoltar, aoConfirmar,
 }: {
   clienteNome: string;
   clienteId: number | null;
@@ -641,6 +705,7 @@ function Revisao({
   aReceber: number;
   observacao: string;
   enviando: boolean;
+  recusa: string;
   aoVoltar: () => void;
   aoConfirmar: () => void;
 }) {
@@ -687,9 +752,10 @@ function Revisao({
             <h3 className="mq-subtitle">Itens · {pecas} {plural(pecas, 'peça', 'peças')}</h3>
             <dl className="mq-dl">
               {linhas.map((l) => (
-                <div key={l.sku}>
+                <div key={l.chave}>
                   <dt>
                     {l.qtd}× {l.desc}
+                    {l.varianteId ? ` · ${l.variacoes?.find((v) => v.varianteId === l.varianteId)?.nome ?? ''}` : ''}
                     {temDesconto(l) ? ` · ${l.descontoRotulo}` : ''}
                   </dt>
                   <dd>{money(totalDaLinha(l))}</dd>
@@ -718,6 +784,13 @@ function Revisao({
             <div><dt>Recebido</dt><dd>{money(recebido)}</dd></div>
             <div><dt>A receber</dt><dd>{money(aReceber)}</dd></div>
           </dl>
+
+          {recusa && (
+            <p className="mq-note mq-note--risk" role="alert">
+              <Icone nome="alert" />
+              <span>A venda NÃO foi registrada. {recusa}</span>
+            </p>
+          )}
         </div>
 
         <div className="mq-modal__foot">

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
-import { money, fmtData, hojeISO, plural } from '../../domain/formato';
+import { money, fmtData, hojeISO, plural, dataDigitada } from '../../domain/formato';
 import { agrupar, cancelarVenda, listarVendas, pagarVenda } from './api';
 import type { Connection } from '../../services/client';
 import type { VendaAgrupada } from './tipos';
@@ -54,11 +54,11 @@ export function HistoricoVendas({
     if (!v.id) return;
     /* §30 — a data EFETIVA do pagamento, não a de hoje. Sem ela, quem vendeu
        em 10/09 e recebeu em 12/09 vê o dinheiro entrar no dia do clique. */
-    const data = prompt('Em que dia o dinheiro entrou? (AAAA-MM-DD)', hojeISO());
+    const data = prompt('Em que dia o dinheiro entrou? (dia/mês/ano)', fmtData(hojeISO()));
     if (!data) return;
     setOcupada(v.chave);
     setRecusa(null);
-    const r = await pagarVenda(conexao, v.id, data.trim())
+    const r = await pagarVenda(conexao, v.id, dataDigitada(data))
       .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui registrar.' }));
     setOcupada(null);
     if (r && 'erro' in r && r.erro) setRecusa({ chave: v.chave, texto: String(r.erro) });

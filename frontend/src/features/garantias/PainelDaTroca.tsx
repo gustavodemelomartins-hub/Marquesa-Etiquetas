@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Icone } from '../../components/Icone';
-import { money, fmtData, hojeISO } from '../../domain/formato';
+import { money, fmtData, hojeISO, dataDigitada } from '../../domain/formato';
 import {
   estornarTroca, motivoDaRecusa, pagarDiferenca, registrarTroca,
 } from './api';
@@ -70,15 +70,15 @@ export function PainelDaTroca({ conexao, garantia, produtos, aoMudar }: Props) {
 
   async function pagar() {
     const quando = prompt(
-      'Em que dia a diferença entrou? (AAAA-MM-DD)\n\n'
+      'Em que dia a diferença entrou? (dia/mês/ano)\n\n'
       + 'É a data EFETIVA do pagamento — é ela que manda no faturamento, e '
       + 'pagamento parcial não é tratado aqui.',
-      hojeISO(),
+      fmtData(hojeISO()),
     );
     if (!quando?.trim()) return;
     setOcupado(true);
     setErro('');
-    const r = await pagarDiferenca(conexao, garantia.id, quando.trim())
+    const r = await pagarDiferenca(conexao, garantia.id, dataDigitada(quando))
       .catch((e: unknown) => ({ erro: motivoDaRecusa(e, 'Não consegui registrar o pagamento.') }));
     setOcupado(false);
     if (r && 'erro' in r && r.erro) setErro(String(r.erro));

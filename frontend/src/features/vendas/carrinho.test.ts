@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  corpoDaVenda, descontoDoCarrinho, impedimentos, linhaDoProduto,
+  corpoDaVenda, descontoDoCarrinho, impedimentos, linhaDoProduto, opcoesDaEstrutura,
   totalDaLinha, totalDoCarrinho, type LinhaDoCarrinho,
 } from './carrinho';
 import type { ProdutoDoEstado } from './tipos';
@@ -117,5 +117,57 @@ describe('o corpo que sobe para o backend', () => {
       pago: false, dataPagamento: null, observacao: '',
     });
     expect(c.itens[0]).toEqual({ sku: '100101', qtd: 1, preco: 150, descontoRotulo: 'Grupo VIP' });
+  });
+});
+
+/* QA 28/09/2026 — com os dados reais de PROD, 27 códigos (154 peças) têm
+   mais de uma variação na loja, e a V2 não tinha como dizer qual saiu: o
+   servidor recusava ("tem mais de uma variação") e a tela não oferecia a
+   escolha. Venda de 1,5 peça passava e deixava "14,5 disponível". */
+describe('peça inteira e variação escolhida', () => {
+  const ARO17 = { varianteId: '17', nome: 'n°17', saldo: 2 };
+  const ARO18 = { varianteId: '18', nome: 'n°18', saldo: 0 };
+
+  it('quantidade fracionada é recusada', () => {
+    const e = impedimentos([linha({ qtd: 1.5 })], 'Vitória', HOJE, HOJE);
+    expect(e.some((x) => /número inteiro/.test(x))).toBe(true);
+  });
+
+  it('código com duas variações exige dizer qual saiu', () => {
+    const e = impedimentos([linha({ variacoes: [ARO17, ARO18] })], 'Vitória', HOJE, HOJE);
+    expect(e.some((x) => /escolha qual variação/.test(x))).toBe(true);
+  });
+
+  it('variação escolhida com saldo passa, e o varianteId viaja no corpo', () => {
+    const l = linha({ variacoes: [ARO17, ARO18], varianteId: '17' });
+    expect(impedimentos([l], 'Vitória', HOJE, HOJE)).toEqual([]);
+    const c = corpoDaVenda({
+      linhas: [l], clienteId: null, clienteNome: 'Bruna', data: HOJE,
+      pago: true, dataPagamento: HOJE, observacao: '',
+    });
+    expect(c.itens[0]).toEqual({ sku: '100101', qtd: 1, preco: 189, varianteId: '17' });
+  });
+
+  it('variação sem saldo repartido é dita antes de finalizar', () => {
+    const e = impedimentos([linha({ variacoes: [ARO17, ARO18], varianteId: '18' })], 'Vitória', HOJE, HOJE);
+    expect(e.some((x) => /n°18: só tem 0 nesta variação/.test(x))).toBe(true);
+  });
+
+  it('duas linhas do mesmo aro somam contra o saldo dele', () => {
+    const a = linha({ chave: 'a', variacoes: [ARO17, ARO18], varianteId: '17', qtd: 2 });
+    const b = linha({ chave: 'b', variacoes: [ARO17, ARO18], varianteId: '17', qtd: 1 });
+    const e = impedimentos([a, b], 'Vitória', HOJE, HOJE);
+    expect(e.some((x) => /n°17: só tem 2/.test(x))).toBe(true);
+  });
+
+  it('variações ainda carregando não travam a venda — o servidor é a autoridade', () => {
+    expect(impedimentos([linha({ variacoes: null })], 'Vitória', HOJE, HOJE)).toEqual([]);
+  });
+
+  it('só variação da loja vira opção, e uma só não é pergunta', () => {
+    const v = (id: string | null, daLoja = true) => ({ varianteId: id, nome: `v${id}`, saldo: 1, daLoja });
+    expect(opcoesDaEstrutura([v('1'), v('2'), v(null, false)]).map((o) => o.varianteId)).toEqual(['1', '2']);
+    expect(opcoesDaEstrutura([v('1'), v(null, false)])).toEqual([]);
+    expect(opcoesDaEstrutura(undefined)).toEqual([]);
   });
 });

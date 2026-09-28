@@ -70,6 +70,21 @@ async function rotear(request, env, contador = null) {
 
   if (!checarChave(request, env)) return respostaNaoAutorizada();
 
+  /* Corpo declarado JSON que não é JSON é erro de QUEM MANDOU: 400, e não o
+     500 "Falha interna" que o `request.json()` do handler produzia. A
+     conferência é AQUI, na entrada, e não em http/erros.js: lá um
+     `SyntaxError` também pode vir de um JSON quebrado guardado no banco (o
+     `config` que derrubou /api/state), e esse precisa continuar sendo 500. */
+  if (!['GET', 'HEAD'].includes(met)
+    && (request.headers.get('Content-Type') || '').includes('application/json')) {
+    const texto = await request.clone().text();
+    if (texto.trim()) {
+      try { JSON.parse(texto); } catch {
+        return json({ erro: 'O corpo do pedido não é um JSON válido.' }, 400);
+      }
+    }
+  }
+
   const db = medirD1(env.DB, contador);
   try {
     const resposta = await despacharRota({ request, env, url, db, path, metodo: met });

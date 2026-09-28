@@ -22,7 +22,11 @@ export default defineConfig({
 
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    /* `hidden`: o mapa continua sendo gerado (para ler um erro de produção
+       aqui), mas o bundle não aponta para ele, e o deploy não o publica —
+       antes, 4 MB com o código-fonte inteiro e todos os comentários ficavam
+       abertos para qualquer um em /v2/assets/*.js.map. */
+    sourcemap: 'hidden',
     /* O Worker responde JSON pequeno; o peso aqui é só o React. Um aviso em
        500 kB só ensinaria a ignorar avisos. */
     chunkSizeWarningLimit: 700,

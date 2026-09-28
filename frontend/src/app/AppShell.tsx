@@ -157,6 +157,7 @@ export function AppShell({
             <BuscaGlobal
               conexao={conexao}
               estado={estado ?? null}
+              focar={buscaAberta}
               aoNavegar={(d) => {
                 setBuscaAberta(false);
                 if (aoNavegarPara) aoNavegarPara(d);

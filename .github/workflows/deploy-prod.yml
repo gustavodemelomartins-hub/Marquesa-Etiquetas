@@ -113,9 +113,12 @@ jobs:
         run: |
           set -e
           mkdir -p publicar/v2
-          cp index.html dashboard.html manifest.json sw.js _redirects publicar/
+          cp index.html dashboard.html manifest.json sw.js _redirects _headers publicar/
           cp -r brand icons vendor publicar/
           cp -r frontend/dist/. publicar/v2/
+          # O mapa do bundle é para ler erro aqui, não para publicar: ele
+          # carrega o código-fonte inteiro, com os comentários.
+          find publicar -name '*.map' -delete
           echo "--- o que vai ao ar ---"
           find publicar -maxdepth 2 -type f | sort
 

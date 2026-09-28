@@ -36,8 +36,14 @@ const TOM: Record<EventoHistorico['grupo'], 'neutro' | 'positivo' | 'atencao' | 
 
 /** Histórico da revendedora: os acertos (cada um consultável depois) e a
  *  linha do tempo inteira da relação. Uma seção, duas leituras — o acerto
- *  é a pergunta mais comum ("o que vendeu da última vez?") e fica em cima. */
-export function HistoricoRevendedora({ conexao, revendedoraId }: { conexao: Connection; revendedoraId: number }) {
+ *  é a pergunta mais comum ("o que vendeu da última vez?") e fica em cima.
+ *
+ *  `versao` muda quando o estado do app é relido — um acerto que acabou de
+ *  fechar, por exemplo. Sem ela o histórico ficava com a leitura de antes:
+ *  a aba dizia "Acertos 9" e a ficha, "Nenhum acerto registrado". */
+export function HistoricoRevendedora({ conexao, revendedoraId, versao }: {
+  conexao: Connection; revendedoraId: number; versao?: unknown;
+}) {
   const [dados, setDados] = useState<HistoricoDaRevendedora | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Filtro>('todos');
@@ -54,7 +60,7 @@ export function HistoricoRevendedora({ conexao, revendedoraId }: { conexao: Conn
         if (!ctl.signal.aborted) setErro(e instanceof Error ? e.message : 'Não consegui ler o histórico.');
       });
     return () => ctl.abort();
-  }, [conexao, revendedoraId]);
+  }, [conexao, revendedoraId, versao]);
 
   const eventos = useMemo(() => {
     if (!dados) return [];

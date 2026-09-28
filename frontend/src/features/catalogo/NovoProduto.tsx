@@ -167,6 +167,12 @@ export function NovoProduto({ conexao, categorias, aoCancelar, aoCriado }: Props
     const codigo = sku.trim().toUpperCase();
     if (!codigo || !desc.trim()) { setErro('Preencha o código e o nome da peça.'); return; }
     if (!formatoOk) { setErro('O código precisa ter 6 números.'); return; }
+    /* `parseInt` transformava "2,5" em 2 sem avisar — o cadastro nascia com
+       uma peça a menos do que a pessoa disse. Peça é unidade inteira. */
+    if (!temVariacao && qtd.trim() !== '' && !/^\d+$/.test(qtd.trim())) {
+      setErro('A quantidade inicial precisa ser um número inteiro de peças (ex.: 3).');
+      return;
+    }
     if (temVariacao && !combinacoes.length) {
       setErro('Escreva um atributo com pelo menos um valor, ou desligue "Variações".');
       return;

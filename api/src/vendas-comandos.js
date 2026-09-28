@@ -21,6 +21,8 @@ import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
    marcada. §21 do plano mestre já cobrou essa dívida uma vez. */
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
 import { normSku } from './sku.js';
+/* AAAA-MM-DD que EXISTE no calendário: o formato sozinho aceitava 2026-02-30. */
+import { dataIsoValida as dataDeCalendario } from './analytics.js';
 import { novoVendaItemId } from './venda-item-id.js';
 /* 5.3b — "a venda foi paga" tem um dono só. Ver `pagamento-venda.js`. */
 import { quitarVenda, desfazerPagamentoVenda } from './pagamento-venda.js';
@@ -66,6 +68,13 @@ export async function registrarVenda(db, env, {
   pago: pagoPedido, dataPagamento: dataPagamentoPedida, observacao: observacaoPedida,
 }) {
   const entradas = (itens || []).filter(i => i.qtd > 0);
+  /* Peça é unidade física. `qtd: 0.5` passava e deixava "14,5 disponível"
+     na razão — um número que não corresponde a nada na gaveta. Entrada,
+     saída, maleta e inventário já exigiam inteiro; a venda era a exceção. */
+  const fracionada = entradas.find(i => !Number.isInteger(Number(i.qtd)));
+  if (fracionada) {
+    return json({ erro: `Quantidade de ${fracionada.sku} precisa ser um número inteiro de peças.`, sku: fracionada.sku }, 400);
+  }
   const composicoes = Array.isArray(personalizacoesPedidas) ? personalizacoesPedidas : [];
   /* Desligado no lançamento de 2026-09-06 — ver personalizacaoAtiva(). Falha
      antes de tocar catálogo ou D1: uma venda comum (sem composições) não
@@ -104,7 +113,7 @@ export async function registrarVenda(db, env, {
    * venda aconteceu no sábado, o sistema soube na segunda. As duas datas
    * são verdadeiras e dizem coisas diferentes. */
   const data = dataPedida ? String(dataPedida).trim() : hoje();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+  if (!dataDeCalendario(data)) {
     return json({ erro: 'Data da venda inválida. Use o formato AAAA-MM-DD.' }, 400);
   }
   if (data > hoje()) {
@@ -130,7 +139,7 @@ export async function registrarVenda(db, env, {
   let dataPagamento = null;
   if (pago) {
     dataPagamento = dataPagamentoPedida ? String(dataPagamentoPedida).trim() : data;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataPagamento)) {
+    if (!dataDeCalendario(dataPagamento)) {
       return json({ erro: 'Data do pagamento inválida. Use o formato AAAA-MM-DD.' }, 400);
     }
     if (dataPagamento > hoje()) {

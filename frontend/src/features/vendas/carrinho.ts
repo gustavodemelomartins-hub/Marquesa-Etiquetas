@@ -18,7 +18,19 @@ import type { ProdutoDoEstado } from './tipos';
  *      para quem, e por quê.
  */
 
+/** Uma variação vendável do código (aro, cor, banho) — a da LOJA, que é a
+ *  que `POST /api/vendas` aceita em `varianteId`. `saldo` é a NOSSA razão:
+ *  quanto desta variação existe de verdade, depois de repartido. */
+export interface OpcaoDeVariacao {
+  varianteId: string;
+  nome: string;
+  saldo: number;
+}
+
 export interface LinhaDoCarrinho {
+  /** Identidade da LINHA, não da peça: o mesmo anel em dois aros são duas
+   *  linhas do mesmo SKU. */
+  chave: string;
   sku: string;
   /** O nome de catálogo, congelado no momento em que a linha entrou. */
   desc: string;
@@ -31,10 +43,19 @@ export interface LinhaDoCarrinho {
   descontoRotulo: string;
   /** Quanto ainda existe para vender, no momento em que a linha entrou. */
   disponivel: number;
+  /** As variações do código. `null` = ainda não se sabe (carregando);
+   *  `[]` = o código não pede variação. Com mais de uma, a venda precisa
+   *  dizer qual saiu — o servidor recusa sem isso (§ regra 2: nunca chutar
+   *  a distribuição de uma variante). */
+  variacoes: OpcaoDeVariacao[] | null;
+  varianteId: string | null;
 }
 
-export function linhaDoProduto(p: ProdutoDoEstado): LinhaDoCarrinho {
+export function linhaDoProduto(p: ProdutoDoEstado, chave: string = p.sku): LinhaDoCarrinho {
   return {
+    chave,
+    variacoes: null,
+    varianteId: null,
     sku: p.sku,
     desc: p.desc,
     qtd: 1,
@@ -45,7 +66,20 @@ export function linhaDoProduto(p: ProdutoDoEstado): LinhaDoCarrinho {
   };
 }
 
-export const totalDaLinha = (l: LinhaDoCarrinho) => Math.round(l.preco * l.qtd * 100) / 100;
+/** As opções que a venda precisa oferecer, a partir da estrutura da peça.
+ *  Só variação da LOJA entra: é ela que `POST /api/vendas` reconhece por
+ *  `varianteId`. Com uma só, o servidor escolhe sozinho — não há o que
+ *  perguntar, e a lista volta vazia. */
+export function opcoesDaEstrutura(
+  variacoes: { varianteId: string | null; nome: string; saldo: number; daLoja: boolean }[] | undefined,
+): OpcaoDeVariacao[] {
+  const daLoja = (variacoes ?? [])
+    .filter((v) => v.daLoja && v.varianteId)
+    .map((v) => ({ varianteId: String(v.varianteId), nome: v.nome, saldo: Number(v.saldo) || 0 }));
+  return daLoja.length > 1 ? daLoja : [];
+}
+
+export const totalDaLinha =(l: LinhaDoCarrinho) => Math.round(l.preco * l.qtd * 100) / 100;
 
 export const totalDoCarrinho = (linhas: LinhaDoCarrinho[]) =>
   Math.round(linhas.reduce((s, l) => s + totalDaLinha(l), 0) * 100) / 100;
@@ -83,6 +117,12 @@ export function impedimentos(
 
   for (const l of linhas) {
     if (l.qtd <= 0) erros.push(`${l.desc}: quantidade tem que ser pelo menos 1.`);
+    /* Peça é unidade física: "1,5 anel" não existe, e o estoque que sobra
+       dela ("14,5 disponível") não corresponde a nada na gaveta. */
+    if (!Number.isInteger(l.qtd)) erros.push(`${l.desc}: quantidade tem que ser um número inteiro de peças.`);
+    if (l.variacoes && l.variacoes.length > 1 && !l.varianteId) {
+      erros.push(`${l.desc}: escolha qual variação saiu (aro, cor, banho).`);
+    }
     if (l.qtd > l.disponivel) {
       erros.push(`${l.desc}: só tem ${l.disponivel} disponível.`);
     }
@@ -103,6 +143,24 @@ export function impedimentos(
     const linha = linhas.find((l) => l.sku === sku) as LinhaDoCarrinho;
     if (qtd > linha.disponivel) {
       erros.push(`${linha.desc}: as linhas somam ${qtd}, e só tem ${linha.disponivel}.`);
+    }
+  }
+
+  /* O saldo da VARIAÇÃO, somado entre linhas. Zero aqui quase sempre quer
+     dizer "o código ainda não foi repartido entre as variações" — e vender
+     assim seria escolher, por ela, de qual aro a peça saiu. */
+  const porVariante = new Map<string, { l: LinhaDoCarrinho; v: OpcaoDeVariacao; qtd: number }>();
+  for (const l of linhas) {
+    const v = l.varianteId ? l.variacoes?.find((x) => x.varianteId === l.varianteId) : undefined;
+    if (!v) continue;
+    const k = `${l.sku}|${v.varianteId}`;
+    const atual = porVariante.get(k);
+    porVariante.set(k, { l, v, qtd: (atual?.qtd ?? 0) + l.qtd });
+  }
+  for (const { l, v, qtd } of porVariante.values()) {
+    if (qtd > v.saldo) {
+      erros.push(`${l.desc} · ${v.nome}: só tem ${v.saldo} nesta variação. `
+        + 'Reparta o estoque do código entre as variações (Pendências ou ficha da peça) antes de vender.');
     }
   }
 
@@ -145,6 +203,7 @@ export function corpoDaVenda({
       sku: l.sku,
       qtd: l.qtd,
       preco: l.preco,
+      ...(l.varianteId ? { varianteId: l.varianteId } : {}),
       ...(temDesconto(l) ? { descontoRotulo: l.descontoRotulo.trim() } : {}),
     })),
     ...(composicoes.length ? { personalizacoes: composicoes.map(corpoDaComposicao) } : {}),
