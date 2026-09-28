@@ -83,7 +83,11 @@ NUVEMSHOP_WRITES_ENABLED = "true"
 # Fail-closed como a linha acima: só "true" exato liga. `api/src/index.js` e
 # `api/src/personalizacao.js` recusam com 503 enquanto isto não for "true";
 # nenhuma rota normal de venda depende desta linha.
-PERSONALIZACAO_ATIVA = "false"
+#
+# LIGADO em 27/09/2026, a pedido da operação: o modelo passa a nascer na
+# venda (api/REGRAS.md §47) e deixa de precisar de cadastro prévio. Voltar
+# para "false" desliga a tela e a rota sem mexer em dado nenhum.
+PERSONALIZACAO_ATIVA = "true"
 
 # Sincronização automática com a Nuvemshop.
 #

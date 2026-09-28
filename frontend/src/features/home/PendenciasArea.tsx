@@ -3,8 +3,19 @@ import { useApi } from '../../hooks/useApi';
 import { chamar, type Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
-import { money, fmtData } from '../../domain/formato';
-import { NO_PAINEL_CLASSICO, type ModuloId } from '../../app/modulos';
+import { money, fmtData, hojeISO } from '../../domain/formato';
+import type { ModuloId } from '../../app/modulos';
+import type { AppState } from '../../types/api';
+import { ResolverPendencia } from './ResolverPendencia';
+import { FotosDaLoja } from './FotosDaLoja';
+
+export interface VariacaoPossivel {
+  nome: string;
+  atributo?: string | null;
+  varianteId?: string | null;
+  saldo: number;
+  estoqueLoja?: number | null;
+}
 
 export interface Pendencia {
   chave: string;
@@ -19,8 +30,31 @@ export interface Pendencia {
   valor?: number | null;
   qtd?: number | null;
   explicacao?: string | null;
+  informacaoFaltante?: string | null;
   proximoPasso?: string | null;
   motivo?: string | null;
+  acoes?: string[];
+  status?: 'aberta' | 'adiada';
+  adiadaAte?: string | null;
+  /* o que cada tipo precisa para ser resolvido ali mesmo */
+  falta?: string[];
+  cat?: string | null;
+  preco?: number | null;
+  variacoesPossiveis?: VariacaoPossivel[];
+  vendaId?: number;
+  itemId?: string | null;
+  maletaId?: number;
+  fora?: number;
+  identificado?: number;
+  fotoOrfaId?: number;
+  fotoUrl?: string | null;
+  revisaoId?: number;
+  candidatoId?: number | null;
+  candidato?: string | null;
+  candidatoTelefone?: string | null;
+  garantiaId?: number;
+  operacaoId?: number;
+  vendaChave?: string;
 }
 
 export interface RespostaPendencias {
@@ -31,55 +65,107 @@ export interface RespostaPendencias {
 
 interface Props {
   conexao: Connection;
+  estado?: AppState | null;
   aoIr: (modulo: ModuloId, sub?: string) => void;
   aoVoltar: () => void;
+  /** Resolver muda estoque e cadastro: o estado compartilhado precisa
+   *  reler, senão a ficha e a lista de peças mostram o antes. */
+  aoMudarEstado?: () => void;
 }
 
 /** Quantas pendências de cada grupo aparecem antes do "ver todas". */
 const POR_GRUPO = 8;
 
-/** Onde cada pendência se resolve. Só leva para a V2 o que a V2 resolve de
- *  verdade; o resto vai para o painel clássico, que tem a central com os
- *  botões de resolver — e a tela diz isso em vez de fingir. */
-function destino(p: Pendencia): { rotulo: string; modulo?: ModuloId; sub?: string; classico?: boolean } {
-  /* Falta preço, foto ou categoria: isso se corrige na FICHA da peça, não
-     na fila de publicação. */
-  if (p.chave.startsWith('publicacao:') && p.motivo === 'falta_informacao' && p.sku) {
-    return { rotulo: 'Abrir peça', modulo: 'estoque', sub: `peca:${p.sku}` };
-  }
-  if (p.chave.startsWith('publicacao:')) return { rotulo: 'Abrir publicação', modulo: 'nuvemshop', sub: 'publicacao' };
-  if (p.tipo === 'catalogo' && p.sku && !p.chave.startsWith('foto_orfa:') && !p.chave.startsWith('cadastro:')) {
-    return { rotulo: 'Abrir peça', modulo: 'estoque', sub: `peca:${p.sku}` };
-  }
-  if (p.tipo === 'garantia') return { rotulo: 'Abrir garantias', modulo: 'garantias' };
-  return { rotulo: 'Resolver no painel clássico', classico: true };
+const ADIADAS = 'Revisar depois';
+
+const dobrar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLocaleLowerCase('pt-BR');
+
+/** Daqui a uma semana — o "revisar depois" mais comum. */
+function daquiASete(): string {
+  const d = new Date(`${hojeISO()}T12:00:00`);
+  d.setDate(d.getDate() + 7);
+  return d.toISOString().slice(0, 10);
 }
 
-/** A CENTRAL DE PENDÊNCIAS — o que está parado esperando uma pessoa.
+/** A CENTRAL DE PENDÊNCIAS — o que está parado esperando uma pessoa, e o
+ *  botão de resolver em cada linha.
  *
  *  O número do sino e o da Home saem desta mesma lista (`GET /api/pendencias`).
- *  Antes, o sino levava a uma tela "Em desenvolvimento" e a Home levava à
- *  reconciliação da Nuvemshop, que é outra coisa: o mesmo número tinha três
- *  destinos diferentes e nenhum deles mostrava as pendências. */
-export function PendenciasArea({ conexao, aoIr, aoVoltar }: Props) {
+ *  Até 27/09/2026 ela só listava e mandava para o painel clássico; agora
+ *  cada tipo abre o formulário dele aqui mesmo (`ResolverPendencia`). A
+ *  lista é derivada do estado: resolver faz o caso sumir sozinho. */
+export function PendenciasArea({ conexao, estado, aoIr, aoVoltar, aoMudarEstado }: Props) {
   const pend = useApi(
-    (s) => chamar<RespostaPendencias>(conexao, 'GET', '/api/pendencias', undefined, { signal: s }),
+    (s) => chamar<RespostaPendencias>(conexao, 'GET', '/api/pendencias?adiadas=1', undefined, { signal: s }),
     [conexao],
   );
   const [grupoAtivo, setGrupoAtivo] = useState<string | null>(null);
   const [abertos, setAbertos] = useState<Record<string, boolean>>({});
+  const [resolvendo, setResolvendo] = useState<string | null>(null);
+  const [adiando, setAdiando] = useState<string | null>(null);
+  const [busca, setBusca] = useState('');
+  const [recado, setRecado] = useState('');
+
+  const categorias = useMemo(
+    () => [...new Set((estado?.produtos ?? []).map((p) => p.cat).filter(Boolean))].sort(),
+    [estado],
+  );
 
   const grupos = useMemo(() => {
+    const termo = dobrar(busca.trim());
     const mapa = new Map<string, Pendencia[]>();
     for (const p of pend.dados?.pendencias ?? []) {
-      const g = mapa.get(p.grupo) ?? [];
-      g.push(p);
-      mapa.set(p.grupo, g);
+      if (termo) {
+        const alvo = dobrar([p.sku, p.produto, p.cliente, p.revendedora].filter(Boolean).join(' '));
+        if (!alvo.includes(termo)) continue;
+      }
+      const g = p.status === 'adiada' ? ADIADAS : p.grupo;
+      const lista = mapa.get(g) ?? [];
+      lista.push(p);
+      mapa.set(g, lista);
     }
-    return [...mapa.entries()].sort((a, b) => b[1].length - a[1].length);
-  }, [pend.dados]);
+    return [...mapa.entries()].sort((a, b) => {
+      if (a[0] === ADIADAS) return 1;
+      if (b[0] === ADIADAS) return -1;
+      return b[1].length - a[1].length;
+    });
+  }, [pend.dados, busca]);
 
+  const total = pend.dados?.pendencias.length ?? 0;
+  const abertas = (pend.dados?.pendencias ?? []).filter((p) => p.status !== 'adiada').length;
   const visiveis = grupoAtivo ? grupos.filter(([g]) => g === grupoAtivo) : grupos;
+
+  function resolvido(texto: string) {
+    setResolvendo(null);
+    setAdiando(null);
+    if (texto) setRecado(texto);
+    pend.recarregar();
+    aoMudarEstado?.();
+  }
+
+  async function adiar(chave: string, ate: string) {
+    try {
+      await chamar(conexao, 'POST', '/api/pendencias/adiar', { chave, ate });
+      resolvido(`Volta para a lista em ${fmtData(ate)}`);
+    } catch (e) {
+      setRecado(e instanceof Error ? e.message : 'Não consegui adiar.');
+    }
+  }
+
+  async function retomar(chave: string) {
+    try {
+      await chamar(conexao, 'POST', '/api/pendencias/retomar', { chave });
+      resolvido('De volta para a lista');
+    } catch (e) {
+      setRecado(e instanceof Error ? e.message : 'Não consegui trazer de volta.');
+    }
+  }
+
+  function mostrar(texto: string) {
+    setBusca(texto);
+    setGrupoAtivo(null);
+    setResolvendo(null);
+  }
 
   return (
     <>
@@ -88,8 +174,8 @@ export function PendenciasArea({ conexao, aoIr, aoVoltar }: Props) {
           <p className="mq-eyebrow">Início</p>
           <h1 className="mq-display">Pendências</h1>
           <p className="mq-lede">
-            O que está parado esperando uma decisão. Nada aqui se resolve
-            sozinho.
+            O que está parado esperando uma decisão sua. Toque em Resolver:
+            tudo se resolve aqui mesmo.
           </p>
         </div>
         <div className="mq-pagehead__actions">
@@ -99,6 +185,14 @@ export function PendenciasArea({ conexao, aoIr, aoVoltar }: Props) {
         </div>
       </div>
 
+      {recado && (
+        <p className="mq-note mq-note--ok" role="status">
+          <Icone nome="check" />
+          <span>{recado}</span>
+          <button type="button" className="mq-btn mq-btn--link mq-btn--sm" onClick={() => setRecado('')}>ok</button>
+        </p>
+      )}
+
       {pend.erro ? (
         <section className="mq-card"><ErrorState erro={pend.erro} aoTentarDeNovo={pend.recarregar} /></section>
       ) : !pend.dados ? (
@@ -106,7 +200,7 @@ export function PendenciasArea({ conexao, aoIr, aoVoltar }: Props) {
           <p className="mq-skel mq-skel--title" />
           <p className="mq-skel mq-skel--line" style={{ marginTop: 14 }} />
         </section>
-      ) : pend.dados.pendencias.length === 0 ? (
+      ) : total === 0 ? (
         <section className="mq-card">
           <div className="mq-state">
             <span className="mq-state__icon"><Icone nome="check" /></span>
@@ -116,9 +210,20 @@ export function PendenciasArea({ conexao, aoIr, aoVoltar }: Props) {
         </section>
       ) : (
         <>
+          <label className="mq-field mq-pend__busca">
+            <span className="mq-sr">Buscar pendência</span>
+            <input
+              className="mq-input"
+              type="search"
+              placeholder="Buscar por peça, código, cliente ou revendedora"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </label>
+
           <div className="mq-chipset" role="group" aria-label="Tipo de pendência">
             <button type="button" aria-pressed={grupoAtivo === null} onClick={() => setGrupoAtivo(null)}>
-              Todas · {pend.dados.pendencias.length}
+              Todas · {abertas}
             </button>
             {grupos.map(([g, itens]) => (
               <button key={g} type="button" aria-pressed={grupoAtivo === g} onClick={() => setGrupoAtivo(g)}>
@@ -127,49 +232,46 @@ export function PendenciasArea({ conexao, aoIr, aoVoltar }: Props) {
             ))}
           </div>
 
+          {visiveis.length === 0 && (
+            <section className="mq-card mq-card--pad"><p className="mq-hint">Nada encontrado com “{busca}”.</p></section>
+          )}
+
           {visiveis.map(([g, itens]) => {
-            const todos = abertos[g] || grupoAtivo === g;
+            const todos = abertos[g] || grupoAtivo === g || !!busca.trim();
             return (
               <section className="mq-card mq-card--flush mq-pend__grupo" key={g}>
                 <div className="mq-card__head">
                   <div>
                     <h2 className="mq-title">{g}</h2>
-                    <p className="mq-lede">{itens.length} {itens.length === 1 ? 'pendência' : 'pendências'}</p>
+                    <p className="mq-lede">
+                      {itens.length} {itens.length === 1 ? 'pendência' : 'pendências'}
+                      {g === ADIADAS ? ' — voltam sozinhas na data marcada' : ''}
+                    </p>
                   </div>
                 </div>
+                {g === 'Catálogo' && <FotosDaLoja conexao={conexao} aoTerminar={resolvido} />}
                 <div className="mq-list">
-                  {(todos ? itens : itens.slice(0, POR_GRUPO)).map((p) => {
-                    const d = destino(p);
-                    const quem = [p.cliente, p.revendedora].filter(Boolean).join(' · ');
-                    return (
-                      <div className="mq-item" key={p.chave}>
-                        <span className="mq-item__main">
-                          <b>{p.produto || quem || p.origem || 'Pendência'}{p.sku ? ` · ${p.sku}` : ''}</b>
-                          <small>
-                            {p.explicacao}
-                            {p.proximoPasso ? ` ${p.proximoPasso}` : ''}
-                          </small>
-                          <small>
-                            {[p.origem, p.produto ? quem : null, p.data ? fmtData(p.data) : null,
-                              p.valor ? money(p.valor) : null].filter(Boolean).join(' · ')}
-                          </small>
-                        </span>
-                        <span className="mq-item__side mq-pend__acao">
-                          {d.classico ? (
-                            <a className="mq-btn mq-btn--link mq-btn--sm" href={NO_PAINEL_CLASSICO}>{d.rotulo}</a>
-                          ) : (
-                            <button
-                              type="button"
-                              className="mq-btn mq-btn--link mq-btn--sm"
-                              onClick={() => d.modulo && aoIr(d.modulo, d.sub)}
-                            >
-                              {d.rotulo}
-                            </button>
-                          )}
-                        </span>
-                      </div>
-                    );
-                  })}
+                  {(todos ? itens : itens.slice(0, POR_GRUPO)).map((p) => (
+                    <LinhaDePendencia
+                      key={p.chave}
+                      p={p}
+                      aberta={resolvendo === p.chave}
+                      adiando={adiando === p.chave}
+                      aoAlternar={() => { setAdiando(null); setResolvendo((c) => (c === p.chave ? null : p.chave)); }}
+                      aoAdiar={() => { setResolvendo(null); setAdiando((c) => (c === p.chave ? null : p.chave)); }}
+                      aoConfirmarAdiar={(ate) => adiar(p.chave, ate)}
+                      aoRetomar={() => retomar(p.chave)}
+                    >
+                      <ResolverPendencia
+                        conexao={conexao}
+                        p={p}
+                        categorias={categorias}
+                        aoResolver={resolvido}
+                        aoIr={aoIr}
+                        aoBuscar={mostrar}
+                      />
+                    </LinhaDePendencia>
+                  ))}
                 </div>
                 {!todos && itens.length > POR_GRUPO && (
                   <div className="mq-row mq-row--center" style={{ padding: 'var(--mq-4)' }}>
@@ -188,5 +290,72 @@ export function PendenciasArea({ conexao, aoIr, aoVoltar }: Props) {
         </>
       )}
     </>
+  );
+}
+
+function LinhaDePendencia({
+  p, aberta, adiando, aoAlternar, aoAdiar, aoConfirmarAdiar, aoRetomar, children,
+}: {
+  p: Pendencia;
+  aberta: boolean;
+  adiando: boolean;
+  aoAlternar: () => void;
+  aoAdiar: () => void;
+  aoConfirmarAdiar: (ate: string) => void;
+  aoRetomar: () => void;
+  children: React.ReactNode;
+}) {
+  const [ate, setAte] = useState(daquiASete);
+  const quem = [p.cliente, p.revendedora].filter(Boolean).join(' · ');
+  const adiada = p.status === 'adiada';
+
+  return (
+    <div className={`mq-pend__linha${aberta ? ' is-aberta' : ''}`}>
+      <div className="mq-item">
+        <span className="mq-item__main">
+          <b>{p.produto || quem || p.origem || 'Pendência'}{p.sku ? ` · ${p.sku}` : ''}</b>
+          <small>{p.explicacao}</small>
+          <small>
+            {[p.origem, p.produto ? quem : null, p.maletaId ? `maleta ${p.maletaId}` : null,
+              p.vendaId ? `venda #${p.vendaId}` : null, p.data ? fmtData(p.data) : null,
+              p.valor ? money(p.valor) : null,
+              adiada && p.adiadaAte ? `volta em ${fmtData(p.adiadaAte)}` : null].filter(Boolean).join(' · ')}
+          </small>
+        </span>
+        <span className="mq-item__side mq-pend__acao">
+          {adiada ? (
+            <button type="button" className="mq-btn mq-btn--secondary mq-btn--sm" onClick={aoRetomar}>
+              Voltar para a lista
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="mq-btn mq-btn--primary mq-btn--sm"
+                aria-expanded={aberta}
+                onClick={aoAlternar}
+              >
+                {aberta ? 'Fechar' : 'Resolver'}
+              </button>
+              <button type="button" className="mq-btn mq-btn--link mq-btn--sm" aria-expanded={adiando} onClick={aoAdiar}>
+                Revisar depois
+              </button>
+            </>
+          )}
+        </span>
+      </div>
+      {adiando && !adiada && (
+        <div className="mq-pend__form mq-pend__campos">
+          <label className="mq-field">
+            <span>Voltar para a lista em</span>
+            <input className="mq-input" type="date" min={hojeISO()} value={ate} onChange={(e) => setAte(e.target.value)} />
+          </label>
+          <button type="button" className="mq-btn mq-btn--primary mq-btn--sm" disabled={!ate} onClick={() => aoConfirmarAdiar(ate)}>
+            Revisar depois
+          </button>
+        </div>
+      )}
+      {aberta && !adiada && children}
+    </div>
   );
 }

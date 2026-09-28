@@ -104,8 +104,10 @@ function AppConectado({
       {modulo === 'home' && rota.sub === 'pendencias' && (
         <PendenciasArea
           conexao={conexao}
+          estado={estado.dados}
           aoIr={(m, sub) => ir({ modulo: m, sub: sub ?? null })}
           aoVoltar={() => ir({ modulo: 'home' })}
+          aoMudarEstado={estado.recarregar}
         />
       )}
 
@@ -155,6 +157,7 @@ function AppConectado({
       {modulo === 'financeiro' && (
         <FinanceiroArea
           conexao={conexao}
+          aoMudarEstado={estado.recarregar}
           sub={rota.sub}
           aoNavegar={(sub) => trocar({ modulo: 'financeiro', sub })}
           aoAbrirCliente={abrirCliente}

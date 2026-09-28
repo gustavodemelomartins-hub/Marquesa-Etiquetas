@@ -64,6 +64,12 @@ function publica(row) {
     data: row.data,
     sku: row.sku,
     produto: row.produto ?? null,
+    /* §46 — o valor do que saiu. `custoUnit` é o custo de REFERÊNCIA da
+       peça hoje (não congelado na saída: o congelamento vem com a planilha
+       de compras). `precoVenda` é o que a peça seria vendida. NULL nos
+       dois quer dizer "não informado", e a tela diz isso — nunca soma 0. */
+    custoUnit: row.custo_unit == null ? null : Number(row.custo_unit),
+    precoVenda: row.preco_venda == null ? null : Number(row.preco_venda),
     variacao: row.variacao ?? null,
     varianteId: row.variante_id ?? null,
     qtd: row.qtd,
@@ -359,7 +365,7 @@ export async function listarSaidas(db, {
 } = {}) {
   const t = tipo && TIPOS.has(tipo) ? tipo : null;
   const { results } = await db.prepare(
-    `SELECT s.*, p.desc AS produto
+    `SELECT s.*, p.desc AS produto, p.preco AS preco_venda, p.custo AS custo_unit
        FROM saidas_sem_faturamento s
        LEFT JOIN produtos p ON p.sku = s.sku
       WHERE (? IS NULL OR s.data >= ?)
@@ -379,12 +385,23 @@ export async function listarSaidas(db, {
      É o número que responde "quanto eu dei de brinde este mês" — e ele não
      existe em lugar nenhum das métricas de venda, de propósito. */
   const resumo = { brinde: 0, uso_proprio: 0, perda: 0, sorteio: 0, total: 0, estornadas: 0 };
+  /* §46 — o dinheiro, ao lado das peças. Linha sem custo NÃO entra como
+     zero: ela é contada à parte (`semCusto`), senão o total pareceria
+     completo com metade das peças sem valor. */
+  const valor = { custo: 0, venda: 0, semCusto: 0, semPreco: 0 };
   for (const l of linhas) {
     if (l.estornada) { resumo.estornadas++; continue; }
     const n = l.sentido === 'entrada' ? -l.qtd : l.qtd;
     resumo[l.tipo] += n;
     resumo.total += n;
+    if (l.custoUnit == null) valor.semCusto++;
+    else valor.custo += l.custoUnit * n;
+    if (l.precoVenda == null) valor.semPreco++;
+    else valor.venda += l.precoVenda * n;
   }
+  valor.custo = Math.round(valor.custo * 100) / 100;
+  valor.venda = Math.round(valor.venda * 100) / 100;
+  resumo.valor = valor;
   /* §30 — linha da planilha reclassificada como não-venda que NÃO virou
      saída (sem data, ou código fora do catálogo). Ela não some: aparece aqui,
      marcada como legado, com o que a planilha registrou. */

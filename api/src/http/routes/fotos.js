@@ -34,7 +34,9 @@ export const rotas = [
     metodo: 'POST', caminho: '/api/fotos/importar-da-loja', auth: 'bearer',
     async handler({ db, env, request }) {
       const b = await request.json().catch(() => ({}));
-      return json(await importarFotosDaLoja(db, env, { seco: !!b.seco, refazer: !!b.refazer }));
+      return json(await importarFotosDaLoja(db, env, {
+        seco: !!b.seco, refazer: !!b.refazer, limite: b.limite ?? null, ignorar: b.ignorar ?? [],
+      }));
     },
   },
   {

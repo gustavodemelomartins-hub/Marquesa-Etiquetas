@@ -11,7 +11,9 @@ import {
 } from '../../vendas-comandos.js';
 import { corrigirItemDeVenda } from '../../venda-correcao.js';
 import { atualizarEstoqueDaVenda } from '../../vendas-estoque-nuvemshop.js';
-import { listarModelos, salvarModelo, personalizacaoAtiva } from '../../personalizacao.js';
+import {
+  listarModelos, salvarModelo, personalizacaoAtiva, listarComponentes, cadastrarModeloNaVenda,
+} from '../../personalizacao.js';
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 
@@ -33,6 +35,20 @@ async function modelosDePersonalizacao({ db, env, url, request, metodo }) {
     }));
   }
   const r = await salvarModelo(db, await request.json().catch(() => ({})));
+  return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
+}
+
+/** §47 — o cardápio (corrente + pingentes) e o cadastro do modelo que a
+ *  combinação escolhida na venda ainda não tem. Mesma trava de ligar. */
+async function montagemNaVenda({ db, env, request, metodo }) {
+  if (!personalizacaoAtiva(env)) {
+    return json({
+      erro: 'Produtos Montáveis (Monte seu Colar) está temporariamente desativado.',
+      codigo: 'PERSONALIZACAO_DESATIVADA',
+    }, 503);
+  }
+  if (metodo === 'GET') return json(await listarComponentes(db));
+  const r = await cadastrarModeloNaVenda(db, await request.json().catch(() => ({})));
   return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
 }
 
@@ -66,6 +82,14 @@ export const rotas = [
   {
     metodo: 'POST', caminho: '/api/personalizacao/modelos', auth: 'bearer',
     handler: modelosDePersonalizacao,
+  },
+  {
+    metodo: 'GET', caminho: '/api/personalizacao/componentes', auth: 'bearer',
+    handler: montagemNaVenda,
+  },
+  {
+    metodo: 'POST', caminho: '/api/personalizacao/modelos/na-venda', auth: 'bearer',
+    handler: montagemNaVenda,
   },
   {
     /* §41 — o código da peça estava errado e a venda continua valendo.

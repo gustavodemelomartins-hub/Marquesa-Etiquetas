@@ -176,9 +176,38 @@ export async function editarProduto(db, sku, b) {
   if (b.qtd !== undefined) {
     return json({ erro: 'Saldo não se edita direto (§19). Use POST /api/produtos/:sku/movimento' }, 400);
   }
+
+  /* §46 — o custo de referência. Mudar custo não é só um UPDATE: o valor
+     anterior vai para `produtos_custo_historico`, porque "quanto essa peça
+     custava quando eu dei de brinde?" tem de continuar respondível depois
+     que alguém corrigir o número. Gravar o histórico só quando o valor
+     MUDA evita encher a tabela com cada "salvar" da ficha. */
+  const extras = [];
+  if (b.custo !== undefined) {
+    const novo = b.custo === null || b.custo === '' ? null : Number(b.custo);
+    if (novo !== null && (!Number.isFinite(novo) || novo < 0)) {
+      return json({ erro: 'Custo inválido: use um valor em reais, zero ou maior.' }, 400);
+    }
+    const valor = novo === null ? null : Math.round(novo * 100) / 100;
+    const atual = await db.prepare('SELECT custo FROM produtos WHERE sku = ?').bind(normSku(sku)).first();
+    if (!atual) return json({ erro: `Código ${sku} não está no catálogo` }, 404);
+    campos.push('custo = ?'); vals.push(valor);
+    const anterior = atual.custo == null ? null : Number(atual.custo);
+    if (anterior !== valor) {
+      const origem = ['ficha', 'saida', 'planilha'].includes(b.custoOrigem) ? b.custoOrigem : 'ficha';
+      extras.push(db.prepare(
+        `INSERT INTO produtos_custo_historico (sku, anterior, novo, origem, motivo) VALUES (?,?,?,?,?)`,
+      ).bind(normSku(sku), anterior, valor, origem,
+        b.custoMotivo ? String(b.custoMotivo).slice(0, 200) : null));
+    }
+  }
+
   if (!campos.length) return json({ erro: 'Nada para atualizar' }, 400);
   campos.push("atualizado_em = datetime('now')");
-  await db.prepare(`UPDATE produtos SET ${campos.join(', ')} WHERE sku = ?`).bind(...vals, normSku(sku)).run();
+  await db.batch([
+    db.prepare(`UPDATE produtos SET ${campos.join(', ')} WHERE sku = ?`).bind(...vals, normSku(sku)),
+    ...extras,
+  ]);
   return json({ ok: true });
 }
 

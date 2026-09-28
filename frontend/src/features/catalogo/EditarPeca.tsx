@@ -24,6 +24,7 @@ export function EditarPeca({ conexao, peca, categorias, aoCancelar, aoSalvar }: 
   const [desc, setDesc] = useState(peca.desc);
   const [cat, setCat] = useState(peca.cat);
   const [preco, setPreco] = useState(peca.preco === null ? '' : String(peca.preco));
+  const [custo, setCusto] = useState(peca.custo == null ? '' : String(peca.custo));
   const [status, setStatus] = useState(peca.status);
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
@@ -37,6 +38,8 @@ export function EditarPeca({ conexao, peca, categorias, aoCancelar, aoSalvar }: 
     if (status !== peca.status) corpo.status = status;
     const precoNovo = preco.trim() === '' ? null : Number(preco);
     if (precoNovo !== peca.preco) corpo.preco = precoNovo;
+    const custoNovo = custo.trim() === '' ? null : Number(custo);
+    if (custoNovo !== (peca.custo ?? null)) corpo.custo = custoNovo;
 
     if (Object.keys(corpo).length === 0) { aoCancelar(); return; }
 
@@ -83,6 +86,23 @@ export function EditarPeca({ conexao, peca, categorias, aoCancelar, aoSalvar }: 
           <small>deixe vazio se a peça ainda não tem preço — assim ela não é vendida</small>
         </label>
       </div>
+
+      <label className="mq-field">
+        <span>Preço de custo</span>
+        <span className="mq-money-input">
+          <input
+            className="mq-input"
+            type="number"
+            min={0}
+            step="0.01"
+            inputMode="decimal"
+            value={custo}
+            onChange={(e) => setCusto(e.target.value)}
+            aria-label="Preço de custo"
+          />
+        </span>
+        <small>quanto você pagou nesta peça — só você vê. É ele que mostra quanto se perdeu em brinde e perda</small>
+      </label>
 
       <label className="mq-field">
         <span>Situação</span>

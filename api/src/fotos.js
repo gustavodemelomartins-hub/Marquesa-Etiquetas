@@ -261,7 +261,15 @@ export async function vincularFotosDaLoja(db, env, { seco = false, refazer = fal
  *  Só preenche quem está sem foto. Foto que alguém já colocou aqui é a
  *  mais nova das duas, e sobrescrever seria desfazer trabalho de gente.
  */
-export async function importarFotosDaLoja(db, env, { seco = false, refazer = false } = {}) {
+/*  `limite` (27/09/2026): quantas peças baixar NESTA chamada. Cada peça é
+ *  um download da loja e uma gravação no R2, e o Worker tem teto de
+ *  subrequisições por chamada — 350 fotos de uma vez estourariam no meio.
+ *  Como só entra quem ainda está sem foto, chamar de novo continua de onde
+ *  parou; `restantes` diz quantas faltam. Sem `limite`, o comportamento é o
+ *  de sempre (todas). */
+export async function importarFotosDaLoja(db, env, {
+  seco = false, refazer = false, limite = null, ignorar = [],
+} = {}) {
   const semLoja = lojaDesconectada(env);
   if (semLoja) return { ok: false, erro: semLoja };
 
@@ -293,7 +301,14 @@ export async function importarFotosDaLoja(db, env, { seco = false, refazer = fal
 
   const stmts = [];
   const falhasDownload = [];
-  for (const c of casadas) {
+  /* `ignorar`: códigos cujo download já falhou nesta rodada. Sem isso, uma
+     foto quebrada na loja voltaria na frente de todo lote seguinte e
+     ocuparia a vaga das que baixariam. */
+  const pular = new Set((Array.isArray(ignorar) ? ignorar : []).map((s) => String(s)));
+  const fila = pular.size ? casadas.filter((c) => !pular.has(String(c.sku))) : casadas;
+  const n = Number(limite);
+  const lote = Number.isInteger(n) && n > 0 ? fila.slice(0, n) : fila;
+  for (const c of lote) {
     const baixada = await baixar(c.url);
     if (!baixada) { falhasDownload.push({ sku: c.sku, url: c.url }); continue; }
     const gravado = await salvarFoto(env, c.sku, 'original', baixada.bytes, baixada.tipo);
@@ -314,9 +329,12 @@ export async function importarFotosDaLoja(db, env, { seco = false, refazer = fal
   return {
     ok: true,
     resumo: {
-      casadas: casadas.length - falhasDownload.length,
+      casadas: lote.length - falhasDownload.length,
       orfas: orfas.length, jaTinham: jaTinham.length,
       falharam: falhasDownload.length,
+      /* As que ficaram para a próxima chamada. Falha de download NÃO conta
+         aqui: ela tentaria de novo para sempre. */
+      restantes: fila.length - lote.length,
     },
     casadas: casadas.slice(0, 200), orfas: orfas.slice(0, 200),
     falhas: falhasDownload.slice(0, 50),

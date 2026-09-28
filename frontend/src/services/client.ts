@@ -118,6 +118,37 @@ export async function chamar<T>(
   return json as T;
 }
 
+/** Envia um ARQUIVO como corpo cru — a rota de foto recebe os bytes, sem
+ *  envelope JSON (`PUT /api/produtos/:sku/foto/:versao`). O resto do
+ *  contrato é o de `chamar`: JSON de volta, `ApiError` na recusa. */
+export async function enviarArquivo<T>(
+  conexao: Connection,
+  caminho: string,
+  arquivo: Blob,
+): Promise<T> {
+  let resposta: Response;
+  try {
+    resposta = await fetch(conexao.url + caminho, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${conexao.key}`,
+        'Content-Type': arquivo.type || 'application/octet-stream',
+      },
+      body: arquivo,
+    });
+  } catch {
+    throw new ApiError('Não consegui falar com o servidor. Confira a conexão.', 0, null);
+  }
+  let json: unknown = null;
+  try { json = await resposta.json(); } catch { /* vazio */ }
+  if (!resposta.ok) {
+    const doServidor = json && typeof json === 'object' && 'erro' in json
+      ? String((json as { erro: unknown }).erro) : '';
+    throw new ApiError(doServidor || `O servidor respondeu ${resposta.status}.`, resposta.status, json);
+  }
+  return json as T;
+}
+
 /** Sonda pública: existe uma API neste endereço?
  *
  *  Não leva a chave de propósito — `/api/health` fica fora da checagem, e é

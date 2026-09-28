@@ -169,8 +169,14 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
     ).all().catch(() => ({ results: [] })),
 
     db.prepare(
-      `SELECT id, nome_arquivo, cliente_id, linhas FROM clientes_vinculo_revisao
-        WHERE status = 'pendente' ORDER BY linhas DESC LIMIT 100`,
+      /* Até 27/09/2026 esta consulta pedia `nome_arquivo` e `cliente_id`,
+         colunas que a tabela nunca teve: o `.catch` abaixo engolia o erro e
+         a pendência de vínculo NUNCA aparecia. */
+      `SELECT r.id, r.nome_original, r.candidato_id, r.motivo AS motivo_vinculo, r.linhas,
+              COALESCE(c.nome, r.candidato_nome) AS candidato_nome, c.tel AS candidato_telefone
+         FROM clientes_vinculo_revisao r
+         LEFT JOIN clientes c ON c.id = r.candidato_id
+        WHERE r.status = 'pendente' ORDER BY r.linhas DESC LIMIT 100`,
     ).all().catch(() => ({ results: [] })),
 
     /* §32 / 5.3e — troca negativa que NÃO virou crédito.
@@ -316,6 +322,9 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
       origem: 'Publicação na Nuvemshop',
       qtd: r.casa,
       valor: r.preco == null ? null : r.preco * r.casa,
+      /* As chaves cruas do que falta (`preco`, `foto`, `categoria`…), para
+         a V2 abrir o campo certo na própria linha. */
+      falta: r.falta ?? [],
       motivo: r.estado,
       explicacao: falhou
         ? (r.erroPublicacao || 'A última tentativa não concluiu a publicação.')
@@ -348,6 +357,9 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
       produto: r.desc || r.sku,
       origem: r.origem || 'Importação de produtos novos',
       qtd: Number(r.qtd ?? 0),
+      /* O que a V2 precisa para aprovar ali mesmo, sem a fila. */
+      cat: r.cat ?? null,
+      preco: r.preco == null ? null : Number(r.preco),
       motivo: 'cadastro_pendente',
       explicacao: r.motivo || 'O código foi encontrado na planilha, mas ainda não virou produto.',
       informacaoFaltante: 'Revisão e aprovação do cadastro da peça.',
@@ -452,8 +464,14 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
     juntar({
       chave: `cliente:${r.id}`,
       tipo: 'cliente',
-      cliente: r.nome_arquivo ?? null,
+      cliente: r.nome_original ?? null,
       qtd: Number(r.linhas ?? 0),
+      /* O que a V2 precisa para decidir ali mesmo (POST
+         /api/clientes/revisao/:id): a revisão e o cadastro candidato. */
+      revisaoId: Number(r.id),
+      candidatoId: r.candidato_id == null ? null : Number(r.candidato_id),
+      candidato: r.candidato_nome ?? null,
+      candidatoTelefone: r.candidato_telefone ?? null,
       motivo: 'vinculo_em_duvida',
       explicacao: 'O nome da planilha se parece com um cadastro, mas não é prova. '
         + 'Nome não é identidade: só uma pessoa pode dizer se são a mesma.',
@@ -466,6 +484,7 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
     juntar({
       chave: `troca:${r.garantia_id}`,
       tipo: 'garantia',
+      garantiaId: Number(r.garantia_id),
       sku: r.sku_novo,
       cliente: r.cliente_nome ?? null,
       data: r.data,
@@ -492,6 +511,8 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
     juntar({
       chave: `operacao:${r.id}`,
       tipo: 'venda',
+      operacaoId: Number(r.id),
+      vendaChave: r.venda_chave,
       cliente: r.cliente_nome ?? r.cliente_nome_norm ?? null,
       data: r.data,
       motivo: 'operacao_em_revisao',

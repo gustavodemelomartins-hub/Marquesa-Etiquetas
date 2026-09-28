@@ -359,3 +359,46 @@
   .mq-table.mq-table--pecas:not(.mq-table--scroll) .mq-tr > :nth-child(6),
   .mq-table.mq-table--pecas:not(.mq-table--scroll) .mq-tr > :nth-child(7) { display: none; }
 }
+
+/* Pendências resolvidas na própria linha (27/09/2026). O formulário abre
+   logo abaixo do caso, com um fio à esquerda dizendo de quem ele é. */
+.mq-pend__linha + .mq-pend__linha { border-top: 1px solid var(--mq-line); }
+.mq-pend__linha > .mq-item { border-top: 0; }
+.mq-pend__linha.is-aberta { background: var(--mq-surface-2, rgba(0,0,0,.02)); }
+.mq-pend__form {
+  display: grid; gap: var(--mq-3);
+  margin: 0 var(--mq-5) var(--mq-4); padding: var(--mq-3) 0 var(--mq-3) var(--mq-4);
+  border-left: 2px solid var(--mq-accent, currentColor);
+}
+.mq-pend__campos { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--mq-3); }
+.mq-pend__campos .mq-field { flex: 1 1 160px; margin: 0; }
+.mq-pend__opcoes { display: grid; gap: var(--mq-2); }
+.mq-pend__opcao {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--mq-2) var(--mq-3);
+  padding: var(--mq-2) var(--mq-3); border: 1px solid var(--mq-line); border-radius: 10px; cursor: pointer;
+}
+.mq-pend__opcao > small { color: var(--mq-ink-3, inherit); }
+.mq-pend__opcao--qtd { grid-template-columns: 1fr auto 84px; cursor: default; }
+.mq-pend__opcao--qtd .mq-input { text-align: center; }
+.mq-pend__foto { max-width: 160px; border-radius: 10px; }
+.mq-pend__busca { margin-bottom: var(--mq-3); }
+.mq-pend__fotos { padding: 0 var(--mq-5) var(--mq-4); }
+@media (max-width: 720px) {
+  .mq-pend__linha .mq-item { flex-wrap: wrap; }
+  .mq-pend__linha .mq-pend__acao { width: 100%; display: flex; gap: var(--mq-2); justify-content: flex-start; }
+  .mq-pend__form { margin: 0 var(--mq-4) var(--mq-4); }
+}
+
+/* Foto da peça: subir da galeria ou tirar na hora. */
+.mq-foto-envio { display: grid; gap: var(--mq-2); }
+
+/* Saiu sem faturar: o dinheiro ao lado das peças. */
+.mq-saidas__valores { padding: 0 var(--mq-5) var(--mq-4); }
+.mq-custo-linha { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mq-2); margin-top: var(--mq-2); }
+.mq-custo-linha .mq-money-input { max-width: 150px; }
+.mq-custo-linha > small { color: var(--mq-risk, #a4262c); }
+
+/* Monte seu Colar: nome, peça e disponível empilhados — em linha, o código
+   e o "5 disponíveis" colavam e viravam "2632365 disponíveis". */
+.mq-colar__opcao { display: grid; gap: 4px; align-content: start; }
+.mq-colar__opcao .mq-btns { margin-top: var(--mq-2); align-items: center; }

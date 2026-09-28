@@ -14,20 +14,20 @@ consegue fazer.
 
 | | capacidades |
 |---|---|
-| 🟢 pronta | 118 |
-| 🟡 parcial | 4 |
+| 🟢 pronta | 121 |
+| 🟡 parcial | 5 |
 | ⚪ pendente — o backend tem, a tela não | 3 |
-| ⛔ indisponível — o backend não sustenta | 15 |
-| **total** | **140** |
+| ⛔ indisponível — o backend não sustenta | 13 |
+| **total** | **142** |
 
-**118 de 125** capacidades que o backend sustenta já estão
+**121 de 129** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
 
 ## Vendas
 
-Referência visual: `/prototype/vendas/` · 🟢 29 · 🟡 0 · ⚪ 1 · ⛔ 5
+Referência visual: `/prototype/vendas/` · 🟢 30 · 🟡 1 · ⚪ 1 · ⛔ 3
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -59,8 +59,8 @@ Referência visual: `/prototype/vendas/` · 🟢 29 · 🟡 0 · ⚪ 1 · ⛔ 5
 | Monte seu Colar | 🟢 pronta | `#/vendas/colar` | — |
 | Composição por grupo, com corrente fixa | 🟢 pronta | `features/vendas/MonteSeuColar.tsx` | — |
 | Colar bloqueado quando a feature está desligada | 🟢 pronta | `features/vendas/colar.ts` | — |
-| REGISTRAR uma composição de verdade | ⛔ indisponível | `features/vendas/MonteSeuColar.tsx` | MON-001 — não é a chave, é o CADASTRO. Quatro componentes (`251551`, `251552`, `329494`, `444032`) não existem no catálogo e hoje só existem DENTRO do `326660`, que é 1 unidade consignada representando os mesmos três. Cadastrar os dois lados contaria a mesma peça física duas vezes e quebraria a razão. E `personalizacao_modelos` está vazia em PROD e no DEV da V2. Ligar `PERSONALIZACAO_ATIVA` trocaria um aviso honesto por uma tela vazia. O caminho é MONTAGEM-MONTE-SEU-COLAR §5.3: conferência peça a peça, depois cadastro, depois a chave. |
-| Preço final editável no colar | ⛔ indisponível | `features/vendas/MonteSeuColar.tsx` | O servidor recusa: `prepararPersonalizacoes` compara o preço pedido com o da configuração e devolve 409 com o valor certo na mensagem. Um campo que sempre volta recusado é pior que campo nenhum, então ele não existe — e a tela diz por quê. |
+| REGISTRAR uma composição de verdade — o modelo nasce na venda | 🟢 pronta | `features/vendas/MonteSeuColar.tsx` | — |
+| Preço final editável no colar | 🟡 parcial | `features/vendas/MonteSeuColar.tsx` | O preço é digitado quando o modelo é cadastrado, na primeira venda daquela combinação, e vale para as seguintes. Mudar o preço numa venda isolada continua recusado pelo servidor (`prepararPersonalizacoes`, 409). |
 | Saída sem faturamento, dentro de Lançamentos | 🟢 pronta | `#/vendas/saida` | — |
 | Histórico de vendas | 🟢 pronta | `#/vendas/historico` | — |
 | Abrir os itens de uma venda | 🟢 pronta | `features/vendas/HistoricoVendas.tsx` | — |
@@ -86,7 +86,7 @@ Referência visual: `/prototype/clientes/` · 🟢 10 · 🟡 0 · ⚪ 0 · ⛔ 
 
 ## Financeiro
 
-Referência visual: `/prototype/financeiro/` · 🟢 8 · 🟡 0 · ⚪ 0 · ⛔ 1
+Referência visual: `/prototype/financeiro/` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 1
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -97,6 +97,7 @@ Referência visual: `/prototype/financeiro/` · 🟢 8 · 🟡 0 · ⚪ 0 · ⛔
 | Definir vencimento | 🟢 pronta | `features/financeiro/api.ts` | — |
 | Desfazer pagamento, com motivo | 🟢 pronta | `features/financeiro/api.ts` | — |
 | Saiu sem faturar | 🟢 pronta | `features/financeiro/FinanceiroArea.tsx` | — |
+| Quanto se perdeu: a custo e a preço de venda, com custo digitado na linha | 🟢 pronta | `features/financeiro/FinanceiroArea.tsx` | — |
 | Conferência da razão do dinheiro (em Configurações › Avançado) | 🟢 pronta | `features/configuracoes/ConfiguracoesArea.tsx` | — |
 | Recebimento parcial de uma conta | ⛔ indisponível | `features/financeiro/api.ts` | O backend quita a conta INTEIRA (`marcarContaPaga`). Parcial é a decisão D2, ainda fechada. Está dito no próprio adaptador. |
 
@@ -206,7 +207,7 @@ Referência visual: `/prototype/nuvemshop/` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 
 
 ## Home
 
-Referência visual: `/prototype/` · 🟢 5 · 🟡 1 · ⚪ 0 · ⛔ 0
+Referência visual: `/prototype/` · 🟢 6 · 🟡 1 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -215,7 +216,8 @@ Referência visual: `/prototype/` · 🟢 5 · 🟡 1 · ⚪ 0 · ⛔ 0
 | Quem mais trouxe (no Financeiro › Resumo) | 🟢 pronta | `features/financeiro/FinanceiroArea.tsx` | — |
 | Peças em reparo | 🟢 pronta | `features/home/HomeArea.tsx` | — |
 | Ações rápidas do dia | 🟢 pronta | `features/home/HomeArea.tsx` | — |
-| Central de pendências (lista do sino) | 🟡 parcial | `#/home/pendencias` | A lista mostra todas as pendências de `GET /api/pendencias`, agrupadas, e leva à peça ou à publicação quando a V2 resolve. Resolver variação de venda/maleta, vínculo de cliente e venda travada ainda é no painel clássico. |
+| Central de pendências, resolvida na própria linha | 🟢 pronta | `#/home/pendencias` | — |
+| Subir a foto da peça pela pendência (galeria ou câmera) | 🟡 parcial | `features/catalogo/EnviarFoto.tsx` | A tela envia a foto para `PUT /api/produtos/:sku/foto/original`, mas o servidor de produção ainda não tem o armazenamento de fotos (R2) ligado: a conta Cloudflare responde erro 10042 até alguém habilitar o R2 no painel. Até lá o envio é recusado com a mensagem do servidor, e nenhuma foto some. |
 
 ## Etiquetas
 

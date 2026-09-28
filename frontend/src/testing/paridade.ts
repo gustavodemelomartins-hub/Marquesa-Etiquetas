@@ -182,7 +182,7 @@ export const PARIDADE: ModuloDeParidade[] = [
       },
       {
         id: 'vendas.colar', rotulo: 'Monte seu Colar', estado: 'pronta', rota: '#/vendas/colar',
-        prova: { arquivo: `${F}/features/vendas/MonteSeuColar.tsx`, contem: 'Escolha seus pingentes' },
+        prova: { arquivo: `${F}/features/vendas/MonteSeuColar.tsx`, contem: 'Escolha os pingentes' },
       },
       {
         id: 'vendas.colar-composicao', rotulo: 'Composição por grupo, com corrente fixa', estado: 'pronta',
@@ -193,29 +193,18 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/vendas/colar.ts`, contem: 'PERSONALIZACAO_DESATIVADA' },
       },
       {
+        /* 27/09/2026 (REGRAS §47): o modelo nasce na venda. Os componentes
+           já estão no catálogo e a chave foi ligada em produção. */
         id: 'vendas.colar-operar',
-        rotulo: 'REGISTRAR uma composição de verdade', estado: 'indisponivel',
-        porque: 'MON-001 — não é a chave, é o CADASTRO. Quatro componentes '
-          + '(`251551`, `251552`, `329494`, `444032`) não existem no catálogo e '
-          + 'hoje só existem DENTRO do `326660`, que é 1 unidade consignada '
-          + 'representando os mesmos três. Cadastrar os dois lados contaria a '
-          + 'mesma peça física duas vezes e quebraria a razão. E '
-          + '`personalizacao_modelos` está vazia em PROD e no DEV da V2. Ligar '
-          + '`PERSONALIZACAO_ATIVA` trocaria um aviso honesto por uma tela vazia. '
-          + 'O caminho é MONTAGEM-MONTE-SEU-COLAR §5.3: conferência peça a peça, '
-          + 'depois cadastro, depois a chave.',
-        prova: {
-          arquivo: `${F}/features/vendas/MonteSeuColar.tsx`,
-          contem: 'O Monte seu Colar ainda não está liberado',
-        },
+        rotulo: 'REGISTRAR uma composição de verdade — o modelo nasce na venda', estado: 'pronta',
+        prova: { arquivo: `${F}/features/vendas/MonteSeuColar.tsx`, contem: 'Cadastrar e adicionar à venda' },
       },
       {
-        id: 'vendas.colar-preco', rotulo: 'Preço final editável no colar', estado: 'indisponivel',
-        porque: 'O servidor recusa: `prepararPersonalizacoes` compara o preço '
-          + 'pedido com o da configuração e devolve 409 com o valor certo na '
-          + 'mensagem. Um campo que sempre volta recusado é pior que campo nenhum, '
-          + 'então ele não existe — e a tela diz por quê.',
-        prova: { arquivo: `${F}/features/vendas/MonteSeuColar.tsx`, contem: 'preço é da configuração' },
+        id: 'vendas.colar-preco', rotulo: 'Preço final editável no colar', estado: 'parcial',
+        porque: 'O preço é digitado quando o modelo é cadastrado, na primeira venda '
+          + 'daquela combinação, e vale para as seguintes. Mudar o preço numa venda '
+          + 'isolada continua recusado pelo servidor (`prepararPersonalizacoes`, 409).',
+        prova: { arquivo: `${F}/features/vendas/MonteSeuColar.tsx`, contem: 'o preço do colar montado' },
       },
       {
         id: 'vendas.saida', rotulo: 'Saída sem faturamento, dentro de Lançamentos', estado: 'pronta',
@@ -323,6 +312,10 @@ export const PARIDADE: ModuloDeParidade[] = [
       {
         id: 'financeiro.saidas', rotulo: 'Saiu sem faturar', estado: 'pronta',
         prova: { arquivo: `${F}/features/financeiro/FinanceiroArea.tsx`, contem: 'SaiuSemFaturar' },
+      },
+      {
+        id: 'financeiro.saidas-valor', rotulo: 'Quanto se perdeu: a custo e a preço de venda, com custo digitado na linha', estado: 'pronta',
+        prova: { arquivo: `${F}/features/financeiro/FinanceiroArea.tsx`, contem: 'Perdido (a preço de custo)' },
       },
       {
         id: 'financeiro.conferencia', rotulo: 'Conferência da razão do dinheiro (em Configurações › Avançado)', estado: 'pronta',
@@ -720,11 +713,16 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/home/HomeArea.tsx`, contem: 'Ações rápidas' },
       },
       {
-        id: 'home.pendencias', rotulo: 'Central de pendências (lista do sino)', estado: 'parcial', rota: '#/home/pendencias',
-        porque: 'A lista mostra todas as pendências de `GET /api/pendencias`, agrupadas, '
-          + 'e leva à peça ou à publicação quando a V2 resolve. Resolver variação '
-          + 'de venda/maleta, vínculo de cliente e venda travada ainda é no painel clássico.',
-        prova: { arquivo: `${F}/features/home/PendenciasArea.tsx`, contem: 'export function PendenciasArea' },
+        id: 'home.pendencias', rotulo: 'Central de pendências, resolvida na própria linha', estado: 'pronta', rota: '#/home/pendencias',
+        prova: { arquivo: `${F}/features/home/ResolverPendencia.tsx`, contem: 'export function ResolverPendencia' },
+      },
+      {
+        id: 'home.pendencias-foto', rotulo: 'Subir a foto da peça pela pendência (galeria ou câmera)', estado: 'parcial',
+        porque: 'A tela envia a foto para `PUT /api/produtos/:sku/foto/original`, mas o servidor '
+          + 'de produção ainda não tem o armazenamento de fotos (R2) ligado: a conta Cloudflare '
+          + 'responde erro 10042 até alguém habilitar o R2 no painel. Até lá o envio é recusado '
+          + 'com a mensagem do servidor, e nenhuma foto some.',
+        prova: { arquivo: `${F}/features/catalogo/EnviarFoto.tsx`, contem: 'Tirar foto' },
       },
     ],
   },

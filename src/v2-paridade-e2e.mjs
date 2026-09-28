@@ -153,7 +153,7 @@ t = await texto(p);
 prova(/monte seu colar/.test(t), 'Monte seu Colar abre pela rota');
 /* PERSONALIZACAO_ATIVA não está ligada no Worker local: a tela tem de
    continuar visível e dizer que a operação está bloqueada. */
-prova(/n[aã]o est[aá] liberado|desativad|bloquead/i.test(t), 'com a feature desligada, a tela diz que está bloqueada');
+prova(/desligado|n[aã]o est[aá] liberado|desativad|bloquead/i.test(t), 'com a feature desligada, a tela diz que está bloqueada');
 
 await irPara(p, 'vendas/saida');
 t = await texto(p);

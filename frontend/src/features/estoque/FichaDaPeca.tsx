@@ -6,6 +6,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { money, fmtData } from '../../domain/formato';
 import { fotoDaPeca } from '../../domain/foto';
 import { EditarPeca } from '../catalogo/EditarPeca';
+import { EnviarFoto } from '../catalogo/EnviarFoto';
 import { PainelDeVariacoes } from '../catalogo/PainelDeVariacoes';
 import type { ProdutoDoEstado } from '../vendas/tipos';
 
@@ -97,6 +98,9 @@ export function FichaDaPeca({ conexao, peca, categorias, aoFechar, aoMudar }: Pr
                   <b className="mq-money mq-ficha__preco">
                     {peca.preco === null ? 'Sem preço' : money(peca.preco)}
                   </b>
+                  <span>
+                    Custo {peca.custo == null ? 'não informado' : money(peca.custo)}
+                  </span>
                   <span>{peca.cat || 'Sem categoria'}</span>
                   <span className={peca.status === 'ativo' ? 'mq-status mq-status--ok' : 'mq-status'}>
                     {peca.status}
@@ -113,6 +117,8 @@ export function FichaDaPeca({ conexao, peca, categorias, aoFechar, aoMudar }: Pr
                 </div>
                 <div><dt>Total</dt><dd className="mq-qty">{peca.qtd}</dd></div>
               </dl>
+
+              <EnviarFoto conexao={conexao} sku={peca.sku} aoEnviar={aoMudar} compacto />
 
               {falta.length > 0 && (
                 <p className="mq-note mq-note--warn">

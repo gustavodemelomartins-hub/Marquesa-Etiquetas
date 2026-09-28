@@ -2231,3 +2231,61 @@ caracterizar um comportamento indefinido — e que nenhuma extração futura pod
 
 O histórico não depende desta resposta: `maletas.acerto_json` guarda a comissão
 real dos acertos já fechados (§24).
+
+### 46. Custo da peça é digitado — e corrigir não apaga o que ele era
+
+**O problema.** "Saiu sem faturar" contava peças — 5 brindes, 3 perdas — e
+nunca dinheiro. O sistema não guardava custo em lugar nenhum; o único valor da
+peça era o preço de VENDA, que não é custo e não pode fazer as vezes dele
+(§35).
+
+**A regra (27/09/2026).**
+
+- `produtos.custo` é o **custo de referência** da peça, digitado pela
+  Sthefany (ficha da peça, ou direto na linha de "Saiu sem faturar").
+  `NULL` = não informado, nunca `0` por omissão (§24).
+- Toda mudança grava `produtos_custo_historico` (anterior, novo, quando,
+  de onde — `ficha`, `saida` ou `planilha` — e motivo). Salvar o mesmo
+  valor não grava nada.
+- "Saiu sem faturar" mostra, ao lado das peças, **quanto se perdeu a preço de
+  custo** e **quanto se deixou de vender** a preço de venda. Linha sem custo
+  **não entra como zero**: é contada à parte e a tela diz que o total está
+  incompleto.
+- O custo usado é o da peça **hoje**, não congelado na saída. Congelar por
+  saída (e por compra) é o passo seguinte, junto com a planilha de compras,
+  a tela de fornecedores e a margem líquida real — roadmap de 27/09/2026. Esses
+  passos vão ALIMENTAR `produtos.custo`, não substituí-lo.
+- Custo é atributo de cadastro: não cria movimento, não muda
+  `produtos.qtd == SUM(movimentos.qtd)`.
+
+### 47. Monte seu Colar: o modelo nasce na venda
+
+**O que mudou (27/09/2026, decisão da Sthefany).** Até aqui (§42 e a decisão
+de 10/09/2026) só se vendiam configurações cadastradas antes — e nenhuma
+estava cadastrada, então o Monte seu Colar nunca funcionou. Agora o modelo
+**não precisa existir antes**: na venda, a pessoa escolhe os pingentes; se a
+combinação (quantos de cada grupo) já tem modelo, é ele; se não tem, a tela
+cadastra o modelo ali mesmo — código comercial, nome e preço — e a venda
+segue.
+
+**O que NÃO mudou**, e é o que protege o estoque:
+
+- os **pingentes são só os do cardápio** — os "Colar Menino/Menina" de
+  zircônia confirmados em 10/09/2026 (Menino: 251551, 251552, 329494; Menina:
+  263236, 273470). "Qualquer peça" foi cogitado e descartado por ela na mesma
+  conversa. O cardápio é dado (`config.montagem_componentes`), não deploy;
+- a **corrente** (444032) sai sozinha em toda montagem, e sem corrente em
+  estoque a venda é recusada;
+- o modelo **não tem estoque próprio**: a venda baixa a corrente e cada
+  pingente uma vez (§42), pelo mesmo `prepararPersonalizacoes`;
+- a mesma combinação não pode ter dois modelos (a venda não saberia qual
+  usar), e um código comercial não serve a dois modelos;
+- o código comercial é um produto que já existe (os "Colar Casal/Filhos/
+  Filhas" do catálogo, oferecidos como **sugestão** — nome parecido não é
+  prova, §2) ou um código novo gerado na hora, com estoque 0.
+
+**O que fica em aberto, e é anunciado.** Os códigos comerciais que já existiam
+com `qtd 1` (326660, 364945, 314161, 378852, 366066, 399872) continuam com esse
+saldo no cadastro. Quando viram modelo, a venda passa a ignorá-lo (§42), mas o
+patrimônio ainda o soma. Zerar é decisão de inventário, com movimento de
+ajuste assinado — MONTAGEM-MONTE-SEU-COLAR §5.4 — e não foi feito aqui.

@@ -119,9 +119,26 @@ CREATE TABLE IF NOT EXISTS produtos (
   -- (loja_variantes.produto_id), e peça sem variante espelhada não tinha como
   -- ser endereçada lá.
   produto_id_loja     TEXT,
-  atualizado_em  TEXT NOT NULL DEFAULT (datetime('now'))
+  atualizado_em  TEXT NOT NULL DEFAULT (datetime('now')),
+  -- Preço de custo de REFERÊNCIA, digitado pela Sthefany (migracao-custo.sql).
+  -- NULL = não informado; nunca 0 por omissão (§24). O preço de venda não é
+  -- custo e não o substitui (§35). Toda mudança fica em
+  -- `produtos_custo_historico`.
+  custo          REAL
 );
 CREATE INDEX IF NOT EXISTS idx_produtos_produto_loja ON produtos(produto_id_loja);
+
+-- Cada mudança do custo de uma peça: corrigir não apaga o que ele era.
+CREATE TABLE IF NOT EXISTS produtos_custo_historico (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  sku       TEXT NOT NULL REFERENCES produtos(sku),
+  anterior  REAL,                                  -- NULL = não havia custo
+  novo      REAL,                                  -- NULL = custo removido
+  em        TEXT NOT NULL DEFAULT (datetime('now')),
+  origem    TEXT NOT NULL DEFAULT 'ficha',         -- ficha | saida | planilha
+  motivo    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_custo_hist_sku ON produtos_custo_historico(sku, em);
 
 -- -------------------------------- preparação/publicação do catálogo (P4)
 CREATE TABLE IF NOT EXISTS catalogo_publicacoes (

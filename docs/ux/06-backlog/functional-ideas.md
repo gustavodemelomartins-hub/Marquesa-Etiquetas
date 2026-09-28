@@ -26,6 +26,8 @@ reaproveitados, mesmo depois de recusa.
 | IF-007 | Compositor guiado de Monte seu Colar dentro da venda | personalização / vendas / estoque | montar composição válida sem controlar componentes manualmente | banco e estoque: baixa de base/componentes | em detalhamento | 10/09/2026 |
 | IF-008 | Registro e histórico completo de saídas sem faturamento | estoque / saídas / auditoria | retirar peças sem contaminar vendas ou faturamento | banco e estoque: escrita crítica pela razão | em detalhamento | 10/09/2026 |
 | IF-009 | Recebimentos múltiplos e mistos por venda | vendas / financeiro / pagamentos | representar como o dinheiro realmente entra sem transformar o status em campo manual | banco: provável evolução de persistência; estoque: não movimenta | em detalhamento; parcelamento fora desta versão | 14/09/2026 |
+| IF-010 | Compras, fornecedores e margem líquida real | compras / fornecedores / financeiro | saber quanto cada peça custou de verdade, de quem veio, e quanto sobra depois de vender | banco: tabelas novas (fornecedores, compras); estoque: entrada por compra passa pela razão | registrada | 27/09/2026 |
+| IF-011 | Subir fotos de peças em massa | catálogo / fotos | fotografar dezenas de peças de uma vez sem abrir peça por peça | banco: referência da foto; estoque: não | registrada | 27/09/2026 |
 
 **Status:** `registrada` · `em detalhamento` · `pronta para avaliação` ·
 `encaixada na fase N` · `recusada`. Só o Gustavo move para `encaixada` ou
@@ -303,6 +305,37 @@ pagamento, comissão ou Nuvemshop.
 
 **Referências:** [Registrar saída](../03-screens/vendas/images/2026-09-10_vendas-saida-sem-faturamento_desktop_01.jpg)
 e [Histórico de saídas](../03-screens/vendas/images/2026-09-10_vendas-historico-saidas_desktop_01.jpg).
+
+### IF-010 — Compras, fornecedores e margem líquida real
+
+**Pedido do Gustavo, 27/09/2026.** Usar a planilha de registros de compra da
+Sthefany para:
+
+- uma tela de **Fornecedores**, com todos os fornecedores cadastrados, contato
+  e o que foi comprado de cada um;
+- o **custo real** de cada peça — quanto ela pagou em cada compra;
+- a **margem líquida real** depois da venda.
+
+**O que já existe e esta ideia deve aproveitar, não substituir:** desde
+27/09/2026 cada peça tem `produtos.custo` (custo de referência digitado à mão,
+com histórico em `produtos_custo_historico`, REGRAS §46), e "Saiu sem faturar"
+já mostra o perdido a custo. A importação das compras deve **alimentar** esse
+campo (origem `planilha` no histórico) e, provavelmente, congelar o custo por
+compra e por saída — que é exatamente o que o §46 deixou em aberto.
+
+**Decisões que vão aparecer:** custo médio × custo da última compra; o que
+fazer quando a planilha diverge do custo digitado; frete e embalagem entram no
+custo ou na margem; e se a entrada de estoque passa a nascer da compra (aí é
+movimento pela razão, com todo o cuidado do §19).
+
+### IF-011 — Subir fotos de peças em massa
+
+**Pedido do Gustavo, 27/09/2026.** Hoje a foto sobe peça por peça (ficha da
+peça ou pendência, galeria ou câmera). Falta subir um lote: escolher dezenas
+de arquivos e o sistema ligar cada foto à peça certa. A ligação precisa de uma
+regra que não chute dono (o código no nome do arquivo, por exemplo) — foto na
+peça errada é pior que foto nenhuma. Depende do armazenamento de fotos (R2)
+estar habilitado na conta Cloudflare.
 
 ### IF-009 — Recebimentos múltiplos e mistos por venda
 

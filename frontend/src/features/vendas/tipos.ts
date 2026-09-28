@@ -10,6 +10,8 @@ export interface ProdutoDoEstado {
   /** §24 — NULL quando não há preço. Nunca 0 por omissão. */
   preco: number | null;
   semPreco: boolean;
+  /** §46 — custo de referência, digitado. `null`/ausente = não informado. */
+  custo?: number | null;
   qtd: number;
   consignado: number;
   disponivel: number;

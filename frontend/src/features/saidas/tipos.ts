@@ -67,6 +67,10 @@ export interface SaidaSemFaturamento {
   data: string;
   sku: string;
   produto: string | null;
+  /** §46 — custo de referência da peça HOJE; `null` = não informado. */
+  custoUnit?: number | null;
+  /** Preço de venda da peça; `null` = sem preço. */
+  precoVenda?: number | null;
   variacao: string | null;
   varianteId: string | null;
   qtd: number;
@@ -97,6 +101,9 @@ export interface ResumoDeSaidas {
   sorteio: number;
   total: number;
   estornadas: number;
+  /** §46 — o dinheiro. Linha sem custo NÃO entra como zero: é contada em
+   *  `semCusto`, e a tela diz que o total está incompleto. */
+  valor?: { custo: number; venda: number; semCusto: number; semPreco: number };
 }
 
 /** Linha da planilha reclassificada como não-venda que NÃO pôde virar

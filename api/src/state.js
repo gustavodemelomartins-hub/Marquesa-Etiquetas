@@ -117,6 +117,9 @@ export async function montarState(db, env) {
       sku: p.sku, desc: p.desc, cat: p.cat,
       preco: p.preco,                       // §24: null = sem preço; o front mostra "Sem preço"
       semPreco: p.preco === null,
+      /* §46 — custo de referência. `undefined` num banco que ainda não
+         rodou migracao-custo.sql; a tela trata como "não informado". */
+      custo: p.custo === undefined ? undefined : p.custo,
       qtd: p.qtd,
       consignado: consignado[p.sku] || 0,
       disponivel,

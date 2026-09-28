@@ -1,5 +1,16 @@
 # Produtos Montáveis / Monte seu Colar
 
+> **Atualização de 27/09/2026 — o modelo nasce na venda (REGRAS §47).** A
+> Sthefany revisou a decisão de 10/09: as configurações não precisam ser
+> cadastradas antes. Na venda ela escolhe os pingentes (só os do cardápio —
+> 251551, 251552, 329494, 263236, 273470) e, se a combinação ainda não tem
+> modelo, a tela cadastra ali mesmo: código comercial (um "Colar Casal/Filhos/
+> Filhas" do catálogo ou um código novo), nome e preço. A corrente 444032 sai
+> sozinha. `PERSONALIZACAO_ATIVA` foi ligada em produção nesse dia. Os
+> componentes já estavam no catálogo. Continuam abertos, e anunciados: o
+> saldo das correntes (2 no sistema × 18 em casa declarados em 11/09) e o
+> `qtd 1` herdado dos códigos comerciais (§5.4), que é decisão de inventário.
+
 Decisão humana oficial de **10/09/2026**, com os SKUs confirmados pela
 Sthefany. Esta é a fonte de negócio mais recente para o domínio; onde a
 documentação antiga divergir, prevalece esta — e o §14 preserva o histórico das

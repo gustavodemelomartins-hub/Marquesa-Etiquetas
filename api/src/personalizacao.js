@@ -64,7 +64,8 @@
  */
 import { saldosDoSku, configuracaoDoSku, montagensPossiveis } from './estoque.js';
 import { consultarEmLotes } from './plataforma/d1.js';
-import { normSku } from './sku.js';
+import { normSku, gerarSku } from './sku.js';
+import { cadastrarNovos } from './catalogo.js';
 
 /** Trava operacional do lançamento de 2026-09-06 — Produtos Montáveis
  *  ("Monte seu Colar") ficou parado antes de fechar SKU comercial x base x
@@ -625,4 +626,170 @@ export async function personalizacoesDeVendas(db, vendaIds = []) {
     }
   }
   return porVenda;
+}
+
+/* ═══════════════════ §47 — o modelo nasce na venda (27/09/2026)
+ *
+ *  A decisão de 10/09/2026 dizia: só as cinco configurações cadastradas,
+ *  nada de "monte qualquer coisa". A Sthefany revisou em 27/09/2026: o
+ *  modelo NÃO precisa existir antes. Na venda ela escolhe os pingentes; se
+ *  a combinação já tem modelo, é ele; se não tem, a tela cadastra o modelo
+ *  ali mesmo — nome, preço e código comercial — e a venda segue.
+ *
+ *  O que NÃO mudou, e é o que protege o estoque:
+ *
+ *   - os pingentes continuam sendo só os do cardápio abaixo (os "Colar
+ *     Menino/Menina" de zircônia). "Qualquer peça" foi cogitado e
+ *     descartado por ela na mesma conversa;
+ *   - a corrente continua saindo sozinha em toda montagem;
+ *   - o modelo continua sem saldo próprio, e a venda passa pelo mesmo
+ *     `prepararPersonalizacoes`, que baixa a base e cada pingente uma vez.
+ *
+ *  O cardápio é DADO: `config.montagem_componentes` sobrepõe o padrão
+ *  abaixo sem deploy. O padrão é a lista confirmada em 10/09/2026. */
+const CHAVE_COMPONENTES = 'montagem_componentes';
+export const COMPONENTES_PADRAO = {
+  base: '444032',
+  grupos: [
+    {
+      grupo: 'Menino',
+      itens: [
+        { sku: '251551', rotulo: 'Menino Azul' },
+        { sku: '251552', rotulo: 'Menino Incolor' },
+        { sku: '329494', rotulo: 'Menino Verde' },
+      ],
+    },
+    {
+      grupo: 'Menina',
+      itens: [
+        { sku: '263236', rotulo: 'Menina Rosa Claro' },
+        { sku: '273470', rotulo: 'Menina Incolor' },
+      ],
+    },
+  ],
+};
+
+async function lerComponentes(db) {
+  try {
+    const r = await db.prepare('SELECT valor FROM config WHERE chave = ?').bind(CHAVE_COMPONENTES).first();
+    const v = r && r.valor ? JSON.parse(r.valor) : null;
+    if (v && v.base && Array.isArray(v.grupos) && v.grupos.length) return v;
+  } catch { /* valor ilegível cai no padrão, que é a decisão registrada */ }
+  return COMPONENTES_PADRAO;
+}
+
+/** A corrente, os pingentes de cada grupo com o disponível real, e os
+ *  produtos que podem servir de código comercial para um modelo novo. */
+export async function listarComponentes(db) {
+  const cfg = await lerComponentes(db);
+  const b = await saldosDoSku(db, normSku(cfg.base));
+  const grupos = [];
+  for (const g of cfg.grupos) {
+    const itens = [];
+    for (const it of g.itens ?? []) {
+      const sku = normSku(it.sku);
+      const s = await saldosDoSku(db, sku);
+      itens.push({
+        sku,
+        rotulo: it.rotulo || (s ? s.desc : sku),
+        desc: s ? s.desc : null,
+        preco: s ? s.preco : null,
+        disponivel: s ? Math.max(0, s.disponivel) : 0,
+        indisponivel: !s ? 'peça fora do catálogo' : (s.disponivel <= 0 ? 'sem peça em estoque' : null),
+      });
+    }
+    grupos.push({ grupo: g.grupo, itens });
+  }
+
+  /* Candidatos a código comercial: colares "Casal"/"Filhos"/"Filhas" do
+     catálogo. É SUGESTÃO para a pessoa escolher — o sistema não casa nome
+     com composição sozinho (nome não é identidade, §2). */
+  const { results: candidatos } = await db.prepare(
+    `SELECT p.sku, p.desc, p.preco, p.status, m.nome AS modelo
+       FROM produtos p
+       LEFT JOIN personalizacao_modelos m ON m.sku_comercial = p.sku
+      WHERE p.status <> 'arquivado'
+        AND (p.desc LIKE 'Colar Casal%' OR p.desc LIKE 'Colar Filh%')
+      ORDER BY p.desc`,
+  ).all().catch(() => ({ results: [] }));
+
+  return {
+    ok: true,
+    base: {
+      sku: normSku(cfg.base),
+      desc: b ? b.desc : null,
+      preco: b ? b.preco : null,
+      disponivel: b ? Math.max(0, b.disponivel) : 0,
+    },
+    grupos,
+    codigosComerciais: (candidatos ?? []).map((c) => ({
+      sku: c.sku, desc: c.desc, preco: c.preco == null ? null : Number(c.preco),
+      status: c.status, modelo: c.modelo ?? null,
+    })),
+    regra: 'A corrente sai sozinha em toda montagem. Os pingentes são só os do cardápio. '
+      + 'O modelo não tem estoque próprio: vender baixa a corrente e cada pingente uma vez.',
+  };
+}
+
+/** Cadastra o modelo que a combinação escolhida na venda ainda não tem.
+ *
+ *  `contagem` é `{ Menino: 2, Menina: 1 }`. O código comercial vem de um
+ *  produto que já existe (`skuComercial`) ou nasce aqui (`gerarCodigo`),
+ *  com estoque 0 — modelo não tem peça própria. O resto é `salvarModelo`,
+ *  com as mesmas travas de sempre. */
+export async function cadastrarModeloNaVenda(db, corpo = {}) {
+  const nome = String(corpo.nome ?? '').trim();
+  if (!nome) return ERRO(400, 'Diga o nome do colar.');
+  const preco = corpo.preco == null || corpo.preco === '' ? NaN : dinheiro(corpo.preco);
+  if (!Number.isFinite(preco) || preco <= 0) return ERRO(400, 'Diga o preço do colar.');
+
+  const cfg = await lerComponentes(db);
+  const contagem = corpo.contagem && typeof corpo.contagem === 'object' ? corpo.contagem : {};
+  const slots = [];
+  const opcoes = [];
+  for (const g of cfg.grupos) {
+    const qtd = Number(contagem[g.grupo] ?? 0);
+    if (!Number.isInteger(qtd) || qtd < 0) return ERRO(400, `Quantidade inválida no grupo ${g.grupo}.`);
+    if (!qtd) continue;
+    slots.push({ grupo: g.grupo, qtd });
+    for (const it of g.itens ?? []) {
+      opcoes.push({ componenteSku: normSku(it.sku), grupo: g.grupo, rotulo: it.rotulo || it.sku });
+    }
+  }
+  for (const k of Object.keys(contagem)) {
+    if (Number(contagem[k]) > 0 && !cfg.grupos.some((g) => g.grupo === k)) {
+      return ERRO(400, `O grupo "${k}" não existe no cardápio.`);
+    }
+  }
+  if (!slots.length) return ERRO(400, 'Escolha ao menos um pingente.');
+
+  /* Mesma combinação, dois modelos: a venda não saberia qual usar. */
+  const { modelos } = await listarModelos(db, { incluirInativos: true });
+  const assinatura = (ss) => ss.map((s) => `${s.grupo}:${s.qtd}`).sort().join('|');
+  const igual = modelos.find((m) => assinatura(m.slots) === assinatura(slots));
+  if (igual) {
+    return ERRO(409, `Essa combinação já é o modelo "${igual.nome}".`, { modelo: igual });
+  }
+
+  let skuComercial;
+  if (corpo.gerarCodigo) {
+    const g = await gerarSku(db, { origem: 'montagem' });
+    if (!g || !g.sku) return ERRO(500, (g && g.erro) || 'Não consegui gerar um código.');
+    const cad = await cadastrarNovos(db, {
+      origem: 'montagem',
+      produtos: [{ sku: g.sku, desc: nome, cat: 'Colar', preco, qtd: 0 }],
+    });
+    if (!cad.criados) return ERRO(409, 'Não consegui cadastrar o código novo.', { ignorados: cad.ignorados });
+    skuComercial = g.sku;
+  } else {
+    skuComercial = normSku(corpo.skuComercial);
+    if (!skuComercial) return ERRO(400, 'Escolha o código do colar ou peça um código novo.');
+    const usado = modelos.find((m) => m.skuComercial === skuComercial);
+    if (usado) return ERRO(409, `O código ${skuComercial} já é do modelo "${usado.nome}".`);
+  }
+
+  return salvarModelo(db, {
+    nome, skuComercial, baseSkuPadrao: normSku(cfg.base), slots, opcoes, precoSugerido: preco,
+    obs: 'Cadastrado na venda (§47).',
+  });
 }
