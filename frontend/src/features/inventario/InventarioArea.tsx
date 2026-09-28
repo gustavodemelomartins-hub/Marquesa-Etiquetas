@@ -244,7 +244,9 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = fal
         <span>
           <b>Só conta o que deveria estar em casa.</b> Peça que saiu na maleta
           de uma revendedora NÃO aparece como faltante — o número da coluna
-          "Sistema" já é o total menos o consignado. E <b>não contado não é
+          "Esperado em casa" já é o total menos o consignado. Se você tem
+          menos do que ele diz, é o total do sistema que está a mais: a
+          contagem existe para achar e corrigir isso. E <b>não contado não é
           zero</b>: peça que ninguém conferiu fica de fora da conta, e dá para
           pausar e continuar depois sem perder nada.
         </span>
@@ -741,7 +743,7 @@ function Contagem({
       <div className="mq-table inventory-count-list" role="table" aria-label="Itens contados">
         <div className="mq-tr mq-tr--head count-row" role="row">
           <span>Peça</span>
-          <span className="mq-cell--num">Sistema</span>
+          <span className="mq-cell--num">Esperado em casa</span>
           <span className="mq-cell--num">Contado</span>
           <span>Status</span>
           <span />
@@ -757,14 +759,18 @@ function Contagem({
                 <small className="mq-sku">
                   {p.cat || 'sem categoria'}
                   {/* A frase que impede a dúvida mais cara da contagem: o
-                      número da coluna "Sistema" NÃO é o estoque total. */}
+                      número da coluna NÃO é o estoque total. A conta vai
+                      escrita por inteiro porque, no primeiro inventário
+                      (28/09/2026), "3 · 5 no total, 2 com revendedoras" foi
+                      lido como erro: ela tinha 3 no total, e era o TOTAL do
+                      sistema que estava errado — é isso que a contagem acha. */}
                   {p.consignado > 0
-                    ? ` · ${p.total} no total, ${p.consignado} com revendedoras`
+                    ? ` · sistema: ${p.total} no total = ${p.esperado} em casa + ${p.consignado} com revendedoras`
                     : ''}
                 </small>
               </span>
 
-              <span className="mq-cell mq-cell--num" data-label="Sistema">
+              <span className="mq-cell mq-cell--num" data-label="Esperado em casa">
                 <b className="mq-qty">{p.esperado}</b>
               </span>
 
