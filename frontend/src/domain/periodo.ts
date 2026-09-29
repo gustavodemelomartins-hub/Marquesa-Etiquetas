@@ -63,3 +63,16 @@ export function recorteDaSub(sub: string | null): Recorte {
 export function subDoRecorte(r: Recorte): string {
   return intervaloValido(r.de, r.ate) ? `${r.de}~${r.ate}` : r.periodo;
 }
+
+/** O recorte como datas, na mesma conta do backend (`analytics.js`): os
+ *  atalhos contam N dias para trás a partir de hoje; "Tudo" não tem limite. */
+export function intervaloDoRecorte(
+  r: Recorte, hoje: string = new Date().toISOString().slice(0, 10),
+): { de: string | null; ate: string | null } {
+  if (intervaloValido(r.de, r.ate)) return { de: r.de, ate: r.ate };
+  const dias = ({ '7d': 7, '30d': 30, '90d': 90, '12m': 365 } as Record<string, number>)[r.periodo];
+  if (!dias) return { de: null, ate: null };
+  const d = new Date(`${hoje}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - dias);
+  return { de: d.toISOString().slice(0, 10), ate: hoje };
+}

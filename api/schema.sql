@@ -1552,6 +1552,17 @@ CREATE TABLE IF NOT EXISTS saidas_sem_faturamento (
   criado_em     TEXT NOT NULL DEFAULT (datetime('now')),
   atualizado_em TEXT,
 
+  -- ─── o valor da saída, gravado nela (29/09/2026, migracao-saida-valor.sql)
+  -- O preço de venda e o custo unitários DAQUELE momento: uma saída passada
+  -- não se explica pelo preço de hoje. NULL = não informado, nunca 0.
+  -- `*_fonte`: lancamento (gravado ao registrar) | planilha (a linha da
+  -- planilha de vendas registrou o preço) | manual (completado depois, com
+  -- motivo em `saidas_valor_historico`).
+  preco_unit    REAL,
+  preco_fonte   TEXT,
+  custo_unit    REAL,
+  custo_fonte   TEXT,
+
   CHECK (sentido = 'saida' OR tipo = 'perda'),
   CHECK (estornada = 0 OR estorno_em IS NOT NULL),
   -- A trava de banco por trás de "uma baixa, uma vez só": linha que não é
@@ -1576,6 +1587,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_ssf_historico
 CREATE UNIQUE INDEX IF NOT EXISTS idx_saida_inventario_unica
   ON saidas_sem_faturamento (inventario_id, sku, COALESCE(variacao, ''))
   WHERE inventario_id IS NOT NULL AND estornada = 0;
+
+-- Cada vez que o valor de uma saída é preenchido ou corrigido DEPOIS do
+-- lançamento: o anterior, o novo, de onde e por quê. Corrigir não apaga o
+-- que o valor era (mesma regra de `produtos_custo_historico`, §46).
+CREATE TABLE IF NOT EXISTS saidas_valor_historico (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  saida_id  INTEGER NOT NULL REFERENCES saidas_sem_faturamento(id),
+  campo     TEXT NOT NULL CHECK (campo IN ('preco_unit', 'custo_unit')),
+  anterior  REAL,
+  novo      REAL,
+  fonte     TEXT NOT NULL,                         -- planilha | manual
+  motivo    TEXT,
+  em        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_saidas_valor_hist ON saidas_valor_historico(saida_id, em);
 
 -- ─── as linhas históricas que foram reclassificadas
 -- Reclassificar NÃO apaga a linha da planilha (§7: o dado de origem se

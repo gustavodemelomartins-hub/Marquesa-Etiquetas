@@ -1,11 +1,12 @@
 import { chamar, type Connection } from '../../services/client';
-import type { NovaSaida, Saidas } from './tipos';
+import type { NovaSaida, SaidaSemFaturamento, Saidas } from './tipos';
 
 /** O ÚNICO adaptador de Saídas sem faturamento. As rotas que existem:
  *
  *    GET  /api/saidas?de=&ate=&tipo=&estornadas=&limite=&offset=
  *    POST /api/saidas                    registra (e movimenta o estoque)
  *    POST /api/saidas/:id/estornar       desfaz, com motivo
+ *    PATCH /api/saidas/:id/valor         completa preço/custo, com motivo
  */
 
 export interface FiltroDeSaidas {
@@ -44,4 +45,20 @@ export function estornarSaida(
   conexao: Connection, id: number, motivo: string,
 ): Promise<{ ok?: boolean; erro?: string }> {
   return chamar(conexao, 'POST', `/api/saidas/${id}/estornar`, { motivo });
+}
+
+export interface ValorCompletado {
+  precoUnit?: number | null;
+  custoUnit?: number | null;
+  motivo: string;
+  /** Grava o custo também como custo de referência da peça. */
+  tambemNaPeca?: boolean;
+}
+
+/** Completa o valor de uma saída já lançada. Motivo obrigatório; o servidor
+ *  guarda o anterior e o novo em `saidas_valor_historico`. */
+export function completarValorSaida(
+  conexao: Connection, id: number, corpo: ValorCompletado,
+): Promise<{ ok?: boolean; erro?: string; saida?: SaidaSemFaturamento }> {
+  return chamar(conexao, 'PATCH', `/api/saidas/${id}/valor`, corpo);
 }

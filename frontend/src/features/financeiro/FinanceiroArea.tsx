@@ -2,15 +2,20 @@ import { useMemo, useState } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
-import { money, fmtData, hojeISO } from '../../domain/formato';
+import { money, hojeISO, moneyNumero, plural, qtdTexto } from '../../domain/formato';
+import { intervaloDoRecorte } from '../../domain/periodo';
+import { listarSaidas } from '../saidas/api';
+import { TabelaDeSaidas } from '../saidas/TabelaDeSaidas';
+import { ValorDaSaida } from '../saidas/ValorDaSaida';
+import { TIPOS_DE_SAIDA, type SaidaSemFaturamento } from '../saidas/tipos';
 import { FiltroPeriodo } from '../../components/FiltroPeriodo';
 import { AReceber } from './AReceber';
 import {
-  buscarAReceber, buscarLancamentos, buscarPainel, buscarSaidas,
+  buscarAReceber, buscarLancamentos, buscarPainel,
   buscarVendasDoDia, conferirCredito, conferirFinanceiro,
 } from './api';
 import { descreverRecorte, recorteDaSub, subDoRecorte } from './periodo';
-import { chamar, type Connection } from '../../services/client';
+import type { Connection } from '../../services/client';
 import type { ContaAReceber, PainelFinanceiro, Recorte } from './tipos';
 
 type Aba = 'resumo' | 'a-receber' | 'recebimentos' | 'saidas';
@@ -106,7 +111,9 @@ export function FinanceiroArea({ conexao, sub, aoNavegar, aoAbrirCliente, aoMuda
         />
       )}
       {aba === 'recebimentos' && <Recebimentos conexao={conexao} />}
-      {aba === 'saidas' && <SaiuSemFaturar conexao={conexao} painel={painel.dados} aoMudarEstado={aoMudarEstado} />}
+      {aba === 'saidas' && (
+        <SaiuSemFaturar conexao={conexao} painel={painel.dados} recorte={recorte} aoMudarEstado={aoMudarEstado} />
+      )}
     </>
   );
 }
@@ -150,12 +157,12 @@ function Resumo({
       <div className="mq-kpis">
         <div className="mq-kpi mq-kpi--ok">
           <span className="mq-kpi__label">Entrou</span>
-          <span className="mq-kpi__value"><i>R$</i>{money(g.faturamento).replace('R$ ', '')}</span>
+          <span className="mq-kpi__value"><i>R$</i>{moneyNumero(g.faturamento)}</span>
           <span className="mq-kpi__foot">pela data do pagamento</span>
         </div>
         <div className={g.aReceber > 0 ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}>
           <span className="mq-kpi__label">Falta receber</span>
-          <span className="mq-kpi__value"><i>R$</i>{money(g.aReceber).replace('R$ ', '')}</span>
+          <span className="mq-kpi__value"><i>R$</i>{moneyNumero(g.aReceber)}</span>
           <span className="mq-kpi__foot">total em aberto, de todo o histórico</span>
         </div>
         <div className="mq-kpi">
@@ -168,7 +175,7 @@ function Resumo({
         <div className="mq-kpi">
           <span className="mq-kpi__label">Ticket médio</span>
           <span className="mq-kpi__value">
-            {g.ticketMedio.valor === null ? '—' : <><i>R$</i>{money(g.ticketMedio.valor).replace('R$ ', '')}</>}
+            {g.ticketMedio.valor === null ? '—' : <><i>R$</i>{moneyNumero(g.ticketMedio.valor)}</>}
           </span>
           <span className="mq-kpi__foot">{g.ticketMedio.vendasElegiveis} vendas elegíveis</span>
         </div>
@@ -292,19 +299,19 @@ function Recebimentos({ conexao }: { conexao: Connection }) {
           <div className="mq-kpis">
             <div className="mq-kpi mq-kpi--ok">
               <span className="mq-kpi__label">Entrou no dia</span>
-              <span className="mq-kpi__value"><i>R$</i>{money(lanc.dados.recebidoNoDia).replace('R$ ', '')}</span>
+              <span className="mq-kpi__value"><i>R$</i>{moneyNumero(lanc.dados.recebidoNoDia)}</span>
               <span className="mq-kpi__foot">pagamentos com esta data efetiva</span>
             </div>
             <div className="mq-kpi">
               <span className="mq-kpi__label">Vendido no dia</span>
-              <span className="mq-kpi__value"><i>R$</i>{money(lanc.dados.vendidoNoDia.valor).replace('R$ ', '')}</span>
+              <span className="mq-kpi__value"><i>R$</i>{moneyNumero(lanc.dados.vendidoNoDia.valor)}</span>
               <span className="mq-kpi__foot">
                 {lanc.dados.vendidoNoDia.vendas} {lanc.dados.vendidoNoDia.vendas === 1 ? 'venda' : 'vendas'}
               </span>
             </div>
             <div className="mq-kpi">
               <span className="mq-kpi__label">Ficou a receber</span>
-              <span className="mq-kpi__value"><i>R$</i>{money(lanc.dados.aReceberDoDia.valor).replace('R$ ', '')}</span>
+              <span className="mq-kpi__value"><i>R$</i>{moneyNumero(lanc.dados.aReceberDoDia.valor)}</span>
               <span className="mq-kpi__foot">vendas do dia que saíram não pagas</span>
             </div>
           </div>
@@ -356,17 +363,48 @@ function Recebimentos({ conexao }: { conexao: Connection }) {
 
 /* ───────────────────────────────────────────────── saiu sem faturar */
 
+/** As perguntas desta aba, na ordem em que a tela responde: quantas peças
+ *  saíram sem faturar no período, quanto isso seria de venda, quanto custou,
+ *  quanto ainda está sem valor, por qual motivo, e quais foram as peças.
+ *
+ *  Nada daqui entra no faturamento — é a outra metade da conta. Os valores
+ *  são os GRAVADOS em cada saída (§46, 29/09/2026); o que não tem valor é
+ *  contado à parte e dito, nunca somado como zero. */
 function SaiuSemFaturar({
-  conexao, painel, aoMudarEstado,
+  conexao, painel, recorte, aoMudarEstado,
 }: {
   conexao: Connection;
   painel: PainelFinanceiro | null;
+  recorte: Recorte;
   aoMudarEstado?: () => void;
 }) {
-  const saidas = useApi((s) => buscarSaidas(conexao, s), [conexao]);
-  const [editando, setEditando] = useState<number | null>(null);
+  const { de, ate } = intervaloDoRecorte(recorte);
+  const saidas = useApi(
+    (s) => listarSaidas(conexao, { limite: 1000, de, ate }, s),
+    [conexao, de, ate],
+  );
+  const [completando, setCompletando] = useState<SaidaSemFaturamento | null>(null);
   const valor = saidas.dados?.resumo.valor;
   const pecas = saidas.dados?.resumo.total ?? 0;
+  const lista = saidas.dados?.saidas ?? [];
+
+  const porMotivo = useMemo(() => {
+    const m = new Map<string, { rotulo: string; pecas: number; venda: number; custo: number; semValor: number; semCusto: number }>();
+    for (const t of TIPOS_DE_SAIDA) m.set(t.id, { rotulo: t.rotuloLongo, pecas: 0, venda: 0, custo: 0, semValor: 0, semCusto: 0 });
+    for (const s of lista) {
+      if (s.estornada) continue;
+      const g = m.get(s.tipo);
+      if (!g) continue;
+      const n = s.sentido === 'entrada' ? -s.qtd : s.qtd;
+      g.pecas += n;
+      if (s.precoUnit == null) g.semValor += n; else g.venda += s.precoUnit * n;
+      if (s.custoUnit == null) g.semCusto += n; else g.custo += s.custoUnit * n;
+    }
+    return [...m.values()].filter((g) => g.pecas !== 0);
+  }, [lista]);
+
+  const pecasSemValor = valor?.pecasSemPreco ?? 0;
+  const pecasSemCusto = valor?.pecasSemCusto ?? 0;
 
   return (
     <>
@@ -377,153 +415,104 @@ function SaiuSemFaturar({
         </p>
       )}
 
+      {saidas.erro ? <ErrorState erro={saidas.erro} aoTentarDeNovo={saidas.recarregar} /> : null}
+
+      <div className="mq-kpis">
+        <div className="mq-kpi">
+          <span className="mq-kpi__label">Peças que saíram</span>
+          <span className="mq-kpi__value">{qtdTexto(pecas)}</span>
+          <span className="mq-kpi__foot">sem virar venda, no período</span>
+        </div>
+        <div className="mq-kpi">
+          <span className="mq-kpi__label">Deixou de vender</span>
+          <span className="mq-kpi__value"><i>R$</i>{moneyNumero(valor?.venda ?? 0)}</span>
+          <span className="mq-kpi__foot">
+            {pecasSemValor
+              ? `${qtdTexto(pecasSemValor)} ${plural(pecasSemValor, 'peça', 'peças')} sem valor — total incompleto`
+              : 'pelo preço gravado em cada saída'}
+          </span>
+        </div>
+        <div className="mq-kpi mq-kpi--risk">
+          <span className="mq-kpi__label">Perdido (a preço de custo)</span>
+          {valor && pecas > 0 && pecasSemCusto === pecas ? (
+            <span className="mq-kpi__value mq-kpi__value--vazio">custo não informado</span>
+          ) : (
+            <span className="mq-kpi__value"><i>R$</i>{moneyNumero(valor?.custo ?? 0)}</span>
+          )}
+          <span className="mq-kpi__foot">
+            {pecasSemCusto
+              ? `${qtdTexto(pecasSemCusto)} de ${qtdTexto(pecas)} ${plural(pecas, 'peça', 'peças')} sem custo`
+              : 'o que foi pago nas peças'}
+          </span>
+        </div>
+        <div className={pecasSemCusto + pecasSemValor > 0 ? 'mq-kpi mq-kpi--accent' : 'mq-kpi mq-kpi--ok'}>
+          <span className="mq-kpi__label">Falta completar</span>
+          <span className="mq-kpi__value">
+            {qtdTexto(lista.filter((s) => !s.estornada && (s.precoUnit == null || s.custoUnit == null)).length)}
+          </span>
+          <span className="mq-kpi__foot">lançamentos sem valor ou sem custo</span>
+        </div>
+      </div>
+
+      {porMotivo.length > 0 && (
+        <section className="mq-card mq-card--flush" aria-labelledby="saidas-por-motivo">
+          <div className="mq-card__head">
+            <div>
+              <h2 className="mq-title" id="saidas-por-motivo">Por motivo</h2>
+            </div>
+          </div>
+          <ul className="saidas-motivos">
+            <li className="saidas-motivos__head" aria-hidden="true">
+              <span>Motivo</span><span>Peças</span><span>Deixou de vender</span><span>A custo</span>
+            </li>
+            {porMotivo.map((g) => (
+              <li key={g.rotulo}>
+                <span><b>{g.rotulo}</b></span>
+                <span>{qtdTexto(g.pecas)} {plural(g.pecas, 'peça', 'peças')}</span>
+                <span className="mq-money">
+                  {money(g.venda)}{g.semValor ? <small> · {qtdTexto(g.semValor)} sem valor</small> : null}
+                </span>
+                <span className="mq-money">
+                  {g.semCusto === g.pecas ? <small>custo não informado</small> : money(g.custo)}
+                  {g.semCusto && g.semCusto !== g.pecas ? <small> · {qtdTexto(g.semCusto)} sem custo</small> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="mq-card mq-card--flush">
         <div className="mq-card__head">
           <div>
             <h2 className="mq-title">Peças que saíram sem virar venda</h2>
             <p className="mq-lede">
-              É este número que explica a diferença entre o que saiu do estoque
-              e o que foi faturado — sem ele, a diferença vira suspeita de furo.
+              Explicam a diferença entre o que saiu do estoque e o que foi faturado.
+              Sem valor ou sem custo? Toque em “Informar valor” — o anterior fica guardado.
             </p>
           </div>
         </div>
 
-        {saidas.erro ? <ErrorState erro={saidas.erro} aoTentarDeNovo={saidas.recarregar} /> : null}
-
-        {valor && (
-          <div className="mq-kpis mq-saidas__valores">
-            <div className="mq-kpi mq-kpi--risk">
-              <span className="mq-kpi__label">Perdido (a preço de custo)</span>
-              <span className="mq-kpi__value mq-money">{money(valor.custo)}</span>
-              <span className="mq-kpi__foot">
-                {valor.semCusto
-                  ? `${valor.semCusto} sem custo informado — o total está incompleto`
-                  : 'o que você pagou nas peças'}
-              </span>
-            </div>
-            <div className="mq-kpi">
-              <span className="mq-kpi__label">Deixou de vender</span>
-              <span className="mq-kpi__value mq-money">{money(valor.venda)}</span>
-              <span className="mq-kpi__foot">
-                {valor.semPreco ? `${valor.semPreco} sem preço de venda` : 'pelo preço de venda de hoje'}
-              </span>
-            </div>
-            <div className="mq-kpi">
-              <span className="mq-kpi__label">Peças</span>
-              <span className="mq-kpi__value">{pecas}</span>
-              <span className="mq-kpi__foot">brinde, uso próprio, perda e sorteio</span>
-            </div>
-          </div>
-        )}
-
-        {saidas.dados && saidas.dados.saidas.length === 0 ? (
+        {saidas.dados && lista.length === 0 ? (
           <div className="mq-state">
             <span className="mq-state__icon"><Icone nome="box" /></span>
-            <h3>Nenhuma saída registrada</h3>
-            <p>Brinde, uso próprio, perda e sorteio aparecem aqui quando forem lançados.</p>
+            <h3>Nenhuma saída neste período</h3>
+            <p>Brinde, uso próprio, perda e sorteio aparecem aqui quando forem lançados em Vendas › Saída sem faturamento.</p>
           </div>
         ) : (
-          <div className="mq-list">
-            {(saidas.dados?.saidas ?? []).map((s) => (
-              <div className="mq-item" key={s.id}>
-                <span className="mq-item__icon mq-item__icon--warn"><Icone nome="box" /></span>
-                <span className="mq-item__main">
-                  <b>{s.produto ?? s.sku} · {s.sku}</b>
-                  <small>{s.tipoRotulo || s.tipo} · {fmtData(s.data)} · {s.motivo ?? 'sem motivo registrado'}</small>
-                  <small>
-                    {s.qtd} {s.qtd === 1 ? 'peça' : 'peças'}
-                    {' · custo '}{s.custoUnit == null ? 'não informado' : `${money(s.custoUnit)} cada`}
-                    {s.precoVenda == null ? '' : ` · venda ${money(s.precoVenda)}`}
-                  </small>
-                  {editando === s.id && (
-                    <CustoNaLinha
-                      conexao={conexao}
-                      sku={s.sku}
-                      atual={s.custoUnit ?? null}
-                      aoFechar={() => setEditando(null)}
-                      aoSalvar={() => { setEditando(null); saidas.recarregar(); aoMudarEstado?.(); }}
-                    />
-                  )}
-                </span>
-                <span className="mq-item__side">
-                  <b className="mq-money">
-                    {s.custoUnit == null ? '—' : money(s.custoUnit * s.qtd)}
-                  </b>
-                  {s.estornada ? <span className="mq-status">estornada</span> : null}
-                  {editando !== s.id && (
-                    <button
-                      type="button"
-                      className="mq-btn mq-btn--link mq-btn--sm"
-                      onClick={() => setEditando(s.id)}
-                    >
-                      {s.custoUnit == null ? 'Informar custo' : 'Mudar custo'}
-                    </button>
-                  )}
-                </span>
-              </div>
-            ))}
-          </div>
+          <TabelaDeSaidas saidas={lista} aoCompletar={setCompletando} />
         )}
       </section>
-    </>
-  );
-}
 
-/** O custo digitado ali mesmo, na linha da saída. Grava no CADASTRO da
- *  peça (é o custo dela, não da saída), com a origem registrada no
- *  histórico do custo — e vale daqui para a frente em toda tela. */
-function CustoNaLinha({
-  conexao, sku, atual, aoFechar, aoSalvar,
-}: {
-  conexao: Connection;
-  sku: string;
-  atual: number | null;
-  aoFechar: () => void;
-  aoSalvar: () => void;
-}) {
-  const [valor, setValor] = useState(atual == null ? '' : String(atual));
-  const [erro, setErro] = useState('');
-  const [salvando, setSalvando] = useState(false);
-
-  async function salvar() {
-    const n = valor.trim() === '' ? null : Number(valor.replace(',', '.'));
-    if (n !== null && (!Number.isFinite(n) || n < 0)) { setErro('Digite um valor em reais.'); return; }
-    setSalvando(true);
-    setErro('');
-    try {
-      await chamar(conexao, 'PATCH', `/api/produtos/${encodeURIComponent(sku)}`, {
-        custo: n, custoOrigem: 'saida',
-      });
-      aoSalvar();
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Não consegui salvar.');
-    } finally {
-      setSalvando(false);
-    }
-  }
-
-  return (
-    <span className="mq-custo-linha">
-      <span className="mq-money-input">
-        <input
-          className="mq-input"
-          type="number"
-          min={0}
-          step="0.01"
-          inputMode="decimal"
-          value={valor}
-          autoFocus
-          aria-label={`Preço de custo de ${sku}`}
-          onChange={(e) => setValor(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') void salvar(); }}
+      {completando && (
+        <ValorDaSaida
+          conexao={conexao}
+          saida={completando}
+          aoFechar={() => setCompletando(null)}
+          aoSalvar={() => { setCompletando(null); saidas.recarregar(); aoMudarEstado?.(); }}
         />
-      </span>
-      <button type="button" className="mq-btn mq-btn--primary mq-btn--sm" disabled={salvando} onClick={salvar}>
-        {salvando ? 'Salvando…' : 'Salvar custo'}
-      </button>
-      <button type="button" className="mq-btn mq-btn--ghost mq-btn--sm" onClick={aoFechar}>Cancelar</button>
-      {erro && <small role="alert">{erro}</small>}
-    </span>
+      )}
+    </>
   );
 }
 

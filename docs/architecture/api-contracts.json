@@ -22,7 +22,7 @@
    "decisao": "docs/domains/AUDITORIA-5-3-FIN-101-CONTAS-A-RECEBER.md §6 B9 e §15 subfase 5.3d"
   }
  ],
- "total": 181,
+ "total": 185,
  "contratos": [
   {
    "contrato": "ANY /api/health",
@@ -746,6 +746,22 @@
   },
   {
    "contrato": "PUT /api/produtos/:param/variacoes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/personalizacao/componentes",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/personalizacao/modelos/na-venda",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/saidas/:param/valor",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PATCH /api/saidas/:param/valor",
    "auth": "bearer"
   }
  ],

@@ -28,7 +28,9 @@ import { conferirFinanceiro } from '../../financeiro-conferir.js';
 import {
   buscarClientes, criarCliente, atualizarCliente, decidirVinculoCliente,
 } from '../../clientes.js';
-import { listarSaidas, registrarSaida, estornarSaida } from '../../saidas.js';
+import {
+  listarSaidas, registrarSaida, estornarSaida, completarValorSaida, historicoValorSaida,
+} from '../../saidas.js';
 import {
   listarGarantias, lerGarantia, garantiasPendentes, abrirGarantia,
   mudarStatusGarantia, registrarTroca, pagarDiferencaTroca, estornarTroca,
@@ -208,6 +210,22 @@ export const rotas = [
     async handler({ db, request, params }) {
       const r = await estornarSaida(db, +params.id, await request.json().catch(() => ({})));
       return json(r, r.ok ? 200 : (r.statusHttp ?? 409));
+    },
+  },
+  {
+    /* §46 (29/09/2026) — completar o preço e/ou o custo de uma saída já
+       lançada. Motivo obrigatório; cada mudança fica em
+       `saidas_valor_historico`. Não mexe em estoque. */
+    metodo: 'PATCH', caminho: '/api/saidas/:id/valor', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      const r = await completarValorSaida(db, +params.id, await request.json().catch(() => ({})));
+      return json(r, r.ok ? 200 : (r.statusHttp ?? 400));
+    },
+  },
+  {
+    metodo: 'GET', caminho: '/api/saidas/:id/valor', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params }) {
+      return json(await historicoValorSaida(db, +params.id));
     },
   },
   {

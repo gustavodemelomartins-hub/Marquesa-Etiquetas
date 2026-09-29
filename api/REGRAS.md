@@ -2251,10 +2251,23 @@ peça era o preço de VENDA, que não é custo e não pode fazer as vezes dele
   custo** e **quanto se deixou de vender** a preço de venda. Linha sem custo
   **não entra como zero**: é contada à parte e a tela diz que o total está
   incompleto.
-- O custo usado é o da peça **hoje**, não congelado na saída. Congelar por
-  saída (e por compra) é o passo seguinte, junto com a planilha de compras,
-  a tela de fornecedores e a margem líquida real — roadmap de 27/09/2026. Esses
-  passos vão ALIMENTAR `produtos.custo`, não substituí-lo.
+- **O valor fica gravado na saída (29/09/2026, decisão do Gustavo).** Ao
+  registrar, a saída guarda o preço de venda e o custo unitários DAQUELE
+  momento (`saidas_sem_faturamento.preco_unit`/`custo_unit`, com a fonte:
+  `lancamento`, `planilha` ou `manual`). Mudar o preço ou o custo da peça
+  depois não muda uma saída passada. Sem preço (ou preço 0) e sem custo, fica
+  NULL — "não informado" —, nunca 0.
+- **O histórico antigo só recebe valor com evidência.** As saídas que vieram
+  da planilha de vendas ganharam o preço unitário que a própria planilha
+  registrou (`migracao-saida-valor.sql`); linha cuja planilha diz 0 fica sem
+  valor. Custo antigo não tem fonte e não é inventado.
+- **Completar depois é auditado.** `PATCH /api/saidas/:id/valor` preenche ou
+  corrige preço e/ou custo de uma saída, com motivo obrigatório; cada mudança
+  grava o anterior e o novo em `saidas_valor_historico`. Opcionalmente
+  (`tambemNaPeca`) o custo vira também o custo de referência da peça, com
+  `produtos_custo_historico` origem `saida`. Não mexe em estoque.
+- A planilha de compras, a tela de fornecedores e a margem líquida real
+  (roadmap de 27/09/2026) vão ALIMENTAR `produtos.custo`, não substituí-lo.
 - Custo é atributo de cadastro: não cria movimento, não muda
   `produtos.qtd == SUM(movimentos.qtd)`.
 
@@ -2271,9 +2284,14 @@ segue.
 **O que NÃO mudou**, e é o que protege o estoque:
 
 - os **pingentes são só os do cardápio** — os "Colar Menino/Menina" de
-  zircônia confirmados em 10/09/2026 (Menino: 251551, 251552, 329494; Menina:
-  263236, 273470). "Qualquer peça" foi cogitado e descartado por ela na mesma
-  conversa. O cardápio é dado (`config.montagem_componentes`), não deploy;
+  zircônia confirmados em 10/09/2026 e reconfirmados pelo Gustavo em
+  29/09/2026 (Menino: 251551, 251552, 329494; Menina: 263236, 273470). No
+  catálogo os meninos se chamam "Colar Menino…" e as meninas "Pingente
+  Menina…" — é o mesmo tipo de peça, e a tela mostra todos como pingente. A
+  linha **Cravejado** (640509, 718221, 222908, 649597) é outra linha, vendida
+  avulsa, e **não** é componente; 311233 e 125745 não existem. "Qualquer
+  peça" foi cogitado e descartado. O cardápio é dado
+  (`config.montagem_componentes`), não deploy;
 - a **corrente** (444032) sai sozinha em toda montagem, e sem corrente em
   estoque a venda é recusada;
 - o modelo **não tem estoque próprio**: a venda baixa a corrente e cada
@@ -2283,6 +2301,26 @@ segue.
 - o código comercial é um produto que já existe (os "Colar Casal/Filhos/
   Filhas" do catálogo, oferecidos como **sugestão** — nome parecido não é
   prova, §2) ou um código novo gerado na hora, com estoque 0.
+
+**As configurações oficiais (29/09/2026, decisão do Gustavo).** Cinco
+combinações têm código e preço fixos, e o servidor os impõe — nome parecido
+não escolhe código (a adivinhação pelo nome casava "Dois Meninos" com o
+314161, de três pingentes):
+
+| Código | Nome | Preço | Composição (+ 1 × 444032) |
+|---|---|---|---|
+| 326660 | Colar Casal | R$ 129,00 | 1 Menino + 1 Menina |
+| 311066 | Colar Filhos Dois Meninos | R$ 129,00 | 2 Meninos |
+| 364945 | Colar Filhas Duas Meninas | R$ 129,00 | 2 Meninas |
+| 314161 | Colar Filhos Dois Meninos e Uma Menina | R$ 159,00 | 2 Meninos + 1 Menina |
+| 399872 | Colar Filhas Duas Meninas e Um Menino | R$ 159,00 | 2 Meninas + 1 Menino |
+
+O código oficial que ainda não está no catálogo (311066) é cadastrado na
+primeira venda com estoque 0. Um código oficial não serve a outra
+combinação, e a combinação oficial não aceita código novo nem outro preço.
+Combinações fora da tabela (três meninos, por exemplo) seguem o fluxo livre
+acima. A lista mora em `COMPONENTES_PADRAO.configuracoes`
+(`api/src/personalizacao.js`).
 
 **O que fica em aberto, e é anunciado.** Os códigos comerciais que já existiam
 com `qtd 1` (326660, 364945, 314161, 378852, 366066, 399872) continuam com esse

@@ -133,6 +133,15 @@ const MIGRACOES = [
      `garantia-troca-estorno`, `garantia-reabertura` e `recebivel-versao`
      acrescentaram. Fora de ordem, a cópia perde coluna. */
   'api/migracao-credito-cliente.sql',
+  /* Conciliação do inventário (motivos e declaração de contagem completa). */
+  'api/migracao-inventario-conciliacao.sql',
+  /* §46 — o custo de referência da peça e o histórico dele (27/09/2026).
+     Faltava nesta lista: o schema já tinha `produtos.custo` e a prova
+     passou a acusar a coluna a mais. */
+  'api/migracao-custo.sql',
+  /* §46 (29/09/2026) — o valor gravado na saída sem faturamento e a
+     auditoria dele. Depois de `vendas-historico`, cujo item ela lê. */
+  'api/migracao-saida-valor.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com

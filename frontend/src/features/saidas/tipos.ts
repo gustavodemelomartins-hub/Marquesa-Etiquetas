@@ -55,6 +55,14 @@ export function rotuloDoTipo(tipo: string): string {
   return TIPOS_DE_SAIDA.find((t) => t.id === tipo)?.rotulo ?? tipo;
 }
 
+export type FonteDoValor = 'lancamento' | 'planilha' | 'manual';
+
+export const ROTULO_FONTE: Record<FonteDoValor, string> = {
+  lancamento: 'gravado no lançamento',
+  planilha: 'da planilha de vendas',
+  manual: 'informado depois',
+};
+
 export interface SaidaSemFaturamento {
   id: number;
   tipo: string;
@@ -67,9 +75,22 @@ export interface SaidaSemFaturamento {
   data: string;
   sku: string;
   produto: string | null;
-  /** §46 — custo de referência da peça HOJE; `null` = não informado. */
+  /** §46 (29/09/2026) — o valor GRAVADO na saída: o preço de venda e o
+   *  custo unitários daquele momento. `null` = não informado — a tela diz
+   *  isso e nunca soma como 0. */
+  precoUnit?: number | null;
   custoUnit?: number | null;
-  /** Preço de venda da peça; `null` = sem preço. */
+  /** De onde veio cada número: gravado no lançamento, lido da planilha de
+   *  vendas antiga, ou completado à mão (com motivo auditado). */
+  precoFonte?: FonteDoValor | null;
+  custoFonte?: FonteDoValor | null;
+  /** `precoUnit × qtd` e `custoUnit × qtd`, do servidor. */
+  valorTotal?: number | null;
+  custoTotal?: number | null;
+  /** O preço e o custo da peça HOJE — só para sugerir ao completar. */
+  precoAtual?: number | null;
+  custoAtual?: number | null;
+  /** Nome antigo de `precoUnit`. */
   precoVenda?: number | null;
   variacao: string | null;
   varianteId: string | null;
@@ -103,7 +124,11 @@ export interface ResumoDeSaidas {
   estornadas: number;
   /** §46 — o dinheiro. Linha sem custo NÃO entra como zero: é contada em
    *  `semCusto`, e a tela diz que o total está incompleto. */
-  valor?: { custo: number; venda: number; semCusto: number; semPreco: number };
+  valor?: {
+    custo: number; venda: number; semCusto: number; semPreco: number;
+    /** O mesmo, em PEÇAS (o `sem*` acima conta lançamentos). */
+    pecasSemCusto?: number; pecasSemPreco?: number;
+  };
 }
 
 /** Linha da planilha reclassificada como não-venda que NÃO pôde virar

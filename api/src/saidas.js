@@ -53,6 +53,7 @@ function origemDoMovimento(tipo, inventarioId) {
 }
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
+const centavos = (v) => Math.round(v * 100) / 100;
 const dataValida = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 
 function publica(row) {
@@ -64,12 +65,21 @@ function publica(row) {
     data: row.data,
     sku: row.sku,
     produto: row.produto ?? null,
-    /* §46 — o valor do que saiu. `custoUnit` é o custo de REFERÊNCIA da
-       peça hoje (não congelado na saída: o congelamento vem com a planilha
-       de compras). `precoVenda` é o que a peça seria vendida. NULL nos
-       dois quer dizer "não informado", e a tela diz isso — nunca soma 0. */
+    /* §46 (29/09/2026) — o valor do que saiu, GRAVADO na saída: o preço de
+       venda e o custo daquele momento. NULL quer dizer "não informado", e a
+       tela diz isso — nunca soma 0. `*Fonte` diz de onde veio o número
+       (lancamento | planilha | manual). `precoAtual`/`custoAtual` são os da
+       peça HOJE, só para sugerir ao completar — nunca entram na conta. */
+    precoUnit: row.preco_unit == null ? null : Number(row.preco_unit),
+    precoFonte: row.preco_fonte ?? null,
     custoUnit: row.custo_unit == null ? null : Number(row.custo_unit),
-    precoVenda: row.preco_venda == null ? null : Number(row.preco_venda),
+    custoFonte: row.custo_fonte ?? null,
+    valorTotal: row.preco_unit == null ? null : centavos(Number(row.preco_unit) * row.qtd),
+    custoTotal: row.custo_unit == null ? null : centavos(Number(row.custo_unit) * row.qtd),
+    precoAtual: row.preco_atual == null ? null : Number(row.preco_atual),
+    custoAtual: row.custo_atual == null ? null : Number(row.custo_atual),
+    /* Nome antigo do preço, mantido para quem ainda lê `precoVenda`. */
+    precoVenda: row.preco_unit == null ? null : Number(row.preco_unit),
     variacao: row.variacao ?? null,
     varianteId: row.variante_id ?? null,
     qtd: row.qtd,
@@ -181,13 +191,34 @@ export async function registrarSaida(db, corpo = {}) {
     };
   }
 
+  /* O VALOR fica gravado na saída (29/09/2026). Lançamento de hoje: o
+     preço e o custo da peça agora. Linha da planilha: o preço que a
+     planilha registrou — o de hoje não diz nada sobre uma saída de abril —
+     e custo nenhum, porque não há fonte. Sem preço (ou 0) fica NULL. */
+  const ref = await db.prepare('SELECT preco, custo FROM produtos WHERE sku = ?').bind(sku).first();
+  let precoUnit = null, precoFonte = null, custoUnit = null, custoFonte = null;
+  if (daMigracao) {
+    const h = corpo.historicoItemId == null ? null : await db.prepare(
+      'SELECT preco_unit_original AS p FROM vendas_historico_itens WHERE id = ?',
+    ).bind(corpo.historicoItemId).first();
+    const p = h ? Number(h.p) : NaN;
+    if (Number.isFinite(p) && p > 0) { precoUnit = p; precoFonte = 'planilha'; }
+  } else {
+    const p = Number(ref?.preco);
+    if (ref?.preco != null && Number.isFinite(p) && p > 0) { precoUnit = p; precoFonte = 'lancamento'; }
+    if (ref?.custo != null && Number.isFinite(Number(ref.custo))) {
+      custoUnit = Number(ref.custo); custoFonte = 'lancamento';
+    }
+  }
+
   let linha;
   try {
     linha = await db.prepare(
       `INSERT INTO saidas_sem_faturamento
          (tipo, sentido, data, sku, variacao, variante_id, qtd, motivo, observacao,
-          origem_usuario, origem_registro, historico_item_id, estoque_refletido, inventario_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+          origem_usuario, origem_registro, historico_item_id, estoque_refletido, inventario_id,
+          preco_unit, preco_fonte, custo_unit, custo_fonte)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
     ).bind(
       tipo, sentido, data, sku, variacao, varianteId, qtd, motivo, observacao,
       String(corpo.usuario ?? '').trim() || null,
@@ -195,6 +226,7 @@ export async function registrarSaida(db, corpo = {}) {
       corpo.historicoItemId ?? null,
       estoqueRefletido ? 1 : 0,
       inventarioId,
+      precoUnit, precoFonte, custoUnit, custoFonte,
     ).first();
   } catch (e) {
     /* A idempotência é do BANCO, não da aplicação: `idx_saida_inventario_unica`
@@ -365,7 +397,7 @@ export async function listarSaidas(db, {
 } = {}) {
   const t = tipo && TIPOS.has(tipo) ? tipo : null;
   const { results } = await db.prepare(
-    `SELECT s.*, p.desc AS produto, p.preco AS preco_venda, p.custo AS custo_unit
+    `SELECT s.*, p.desc AS produto, p.preco AS preco_atual, p.custo AS custo_atual
        FROM saidas_sem_faturamento s
        LEFT JOIN produtos p ON p.sku = s.sku
       WHERE (? IS NULL OR s.data >= ?)
@@ -385,19 +417,20 @@ export async function listarSaidas(db, {
      É o número que responde "quanto eu dei de brinde este mês" — e ele não
      existe em lugar nenhum das métricas de venda, de propósito. */
   const resumo = { brinde: 0, uso_proprio: 0, perda: 0, sorteio: 0, total: 0, estornadas: 0 };
-  /* §46 — o dinheiro, ao lado das peças. Linha sem custo NÃO entra como
-     zero: ela é contada à parte (`semCusto`), senão o total pareceria
-     completo com metade das peças sem valor. */
-  const valor = { custo: 0, venda: 0, semCusto: 0, semPreco: 0 };
+  /* §46 — o dinheiro, ao lado das peças, com o valor GRAVADO em cada
+     saída. Linha sem valor NÃO entra como zero: ela é contada à parte
+     (`semCusto`/`semPreco` em lançamentos, `pecasSem*` em peças), senão o
+     total pareceria completo com metade das peças sem valor. */
+  const valor = {
+    custo: 0, venda: 0, semCusto: 0, semPreco: 0, pecasSemCusto: 0, pecasSemPreco: 0,
+  };
   for (const l of linhas) {
     if (l.estornada) { resumo.estornadas++; continue; }
     const n = l.sentido === 'entrada' ? -l.qtd : l.qtd;
     resumo[l.tipo] += n;
     resumo.total += n;
-    if (l.custoUnit == null) valor.semCusto++;
-    else valor.custo += l.custoUnit * n;
-    if (l.precoVenda == null) valor.semPreco++;
-    else valor.venda += l.precoVenda * n;
+    if (l.custoUnit == null) { valor.semCusto++; valor.pecasSemCusto += n; } else valor.custo += l.custoUnit * n;
+    if (l.precoUnit == null) { valor.semPreco++; valor.pecasSemPreco += n; } else valor.venda += l.precoUnit * n;
   }
   valor.custo = Math.round(valor.custo * 100) / 100;
   valor.venda = Math.round(valor.venda * 100) / 100;
@@ -437,6 +470,92 @@ export async function listarSaidas(db, {
     porque: !r.data ? 'sem data na planilha' : 'código fora do catálogo',
   }));
   return { ok: true, saidas: linhas, resumo, limite, offset, legado };
+}
+
+/* ─────────────────────────────────────────── completar o valor depois */
+
+const LIMITE_MOTIVO_VALOR = 200;
+
+/** Preenche ou corrige o preço de venda e/ou o custo unitário de uma saída
+ *  JÁ lançada — o caso da linha antiga sem valor e do custo que a peça não
+ *  tinha. Toda mudança vai para `saidas_valor_historico` com o anterior, o
+ *  novo e o motivo, que é obrigatório: edição financeira retroativa sem
+ *  motivo não se audita depois. Não mexe em estoque nem em movimento.
+ *
+ *  `tambemNaPeca` grava o custo também como custo de REFERÊNCIA da peça
+ *  (`produtos.custo`, com `produtos_custo_historico` origem `saida`), para as
+ *  próximas saídas já nascerem com ele. */
+export async function completarValorSaida(db, id, corpo = {}) {
+  const linha = await db.prepare('SELECT * FROM saidas_sem_faturamento WHERE id = ?').bind(id).first();
+  if (!linha) return { ok: false, statusHttp: 404, erro: 'Saída não encontrada.' };
+
+  const motivo = String(corpo.motivo ?? '').trim();
+  if (motivo.length < 3) {
+    return { ok: false, statusHttp: 400, erro: 'Diga de onde veio o valor (ex.: "nota da compra", "preço da etiqueta").' };
+  }
+  if (motivo.length > LIMITE_MOTIVO_VALOR) {
+    return { ok: false, statusHttp: 400, erro: `Motivo longo demais (máximo ${LIMITE_MOTIVO_VALOR} caracteres).` };
+  }
+
+  const lerValor = (v, nome) => {
+    if (v === undefined) return { ignora: true };
+    if (v === null || v === '') return { valor: null };
+    const n = Number(String(v).replace(',', '.'));
+    if (!Number.isFinite(n) || n < 0) return { erro: `${nome} inválido.` };
+    return { valor: centavos(n) };
+  };
+  const preco = lerValor(corpo.precoUnit, 'Preço');
+  const custo = lerValor(corpo.custoUnit, 'Custo');
+  if (preco.erro || custo.erro) return { ok: false, statusHttp: 400, erro: preco.erro || custo.erro };
+  if (preco.ignora && custo.ignora) return { ok: false, statusHttp: 400, erro: 'Informe o preço, o custo ou os dois.' };
+  if (!preco.ignora && preco.valor === 0) {
+    return { ok: false, statusHttp: 400, erro: 'Preço de venda 0 não é valor: deixe em branco se não se sabe.' };
+  }
+
+  const stmts = [];
+  const mudou = [];
+  const campo = (nome, fonteCol, atual, novo) => {
+    const anterior = atual == null ? null : Number(atual);
+    if (anterior === novo) return;
+    stmts.push(db.prepare(
+      `UPDATE saidas_sem_faturamento SET ${nome} = ?, ${fonteCol} = ?, atualizado_em = datetime('now') WHERE id = ?`,
+    ).bind(novo, novo == null ? null : 'manual', id));
+    stmts.push(db.prepare(
+      `INSERT INTO saidas_valor_historico (saida_id, campo, anterior, novo, fonte, motivo)
+       VALUES (?, ?, ?, ?, 'manual', ?)`,
+    ).bind(id, nome, anterior, novo, motivo));
+    mudou.push({ campo: nome, anterior, novo });
+  };
+  if (!preco.ignora) campo('preco_unit', 'preco_fonte', linha.preco_unit, preco.valor);
+  if (!custo.ignora) campo('custo_unit', 'custo_fonte', linha.custo_unit, custo.valor);
+
+  if (corpo.tambemNaPeca && !custo.ignora && custo.valor != null) {
+    const p = await db.prepare('SELECT custo FROM produtos WHERE sku = ?').bind(linha.sku).first();
+    const anterior = p?.custo == null ? null : Number(p.custo);
+    if (p && anterior !== custo.valor) {
+      stmts.push(db.prepare('UPDATE produtos SET custo = ? WHERE sku = ?').bind(custo.valor, linha.sku));
+      stmts.push(db.prepare(
+        `INSERT INTO produtos_custo_historico (sku, anterior, novo, origem, motivo) VALUES (?, ?, ?, 'saida', ?)`,
+      ).bind(linha.sku, anterior, custo.valor, `Saída #${id}: ${motivo}`.slice(0, 200)));
+      mudou.push({ campo: 'produtos.custo', anterior, novo: custo.valor });
+    }
+  }
+
+  if (stmts.length) await db.batch(stmts);
+  const nova = await db.prepare(
+    `SELECT s.*, p.desc AS produto, p.preco AS preco_atual, p.custo AS custo_atual
+       FROM saidas_sem_faturamento s LEFT JOIN produtos p ON p.sku = s.sku WHERE s.id = ?`,
+  ).bind(id).first();
+  return { ok: true, saida: publica(nova), mudou, estoqueAlterado: false };
+}
+
+/** O histórico de valor de uma saída, do mais novo ao mais antigo. */
+export async function historicoValorSaida(db, id) {
+  const { results } = await db.prepare(
+    `SELECT campo, anterior, novo, fonte, motivo, em FROM saidas_valor_historico
+      WHERE saida_id = ? ORDER BY em DESC, id DESC`,
+  ).bind(id).all();
+  return { ok: true, historico: results ?? [] };
 }
 
 export { ROTULO as ROTULO_SAIDA, TIPOS as TIPOS_SAIDA };
