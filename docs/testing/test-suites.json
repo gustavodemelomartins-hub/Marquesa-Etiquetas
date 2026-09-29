@@ -653,7 +653,9 @@
         "estorno-recebimento-test.mjs",
         "acerto-documental-test.mjs",
         "saidas-historico-test.mjs",
-        "revendedora-historico-test.mjs"
+        "revendedora-historico-test.mjs",
+        "montagem-na-venda-test.mjs",
+        "venda-validacao-test.mjs"
       ]
     },
     {
