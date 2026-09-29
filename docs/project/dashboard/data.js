@@ -1,11 +1,139 @@
 // Gerado por scripts/build-project-dashboard.mjs — não edite à mão.
 window.MARQUESA_V2 = {
-  "gerado": "2026-09-27",
+  "gerado": "2026-09-29",
   "fonte": "docs/project/*.md + api/wrangler.toml + git log — nenhum dado digitado aqui",
   "atualizadoEm": "2026-09-12",
   "git": {
-    "branch": "develop",
+    "branch": "claude/qa-sthefany-2026-09-28",
     "recentes": [
+      {
+        "commit": "49d5f1b",
+        "data": "2026-09-29",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "test: registra no manifesto as duas suítes que estavam fora",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "2d9ddf6",
+        "data": "2026-09-29",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "style(v2): tabela de saídas enxuta, algarismos alinhados e botão de gravar legível",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "e1b9bb7",
+        "data": "2026-09-29",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(formato): dinheiro sempre com centavos, num formatador só",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "8de77e7",
+        "data": "2026-09-29",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(r2): fotos das peças no bucket de produção marquesa-fotos",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "9c2faf8",
+        "data": "2026-09-29",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(saidas): o valor fica gravado na saída, o registro sai do fim da página, e completar é auditado",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "af51c1c",
+        "data": "2026-09-29",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(colar): as cinco configurações oficiais do Monte seu Colar, impostas pelo servidor",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "063c84b",
+        "data": "2026-09-28",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(inventario): a coluna diz \"Esperado em casa\" e a linha mostra a conta inteira",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "5f18f44",
+        "data": "2026-09-28",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "fix(v2): venda de peça com variação, quantidade inteira e datas reais",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "0f6ec9a",
+        "data": "2026-09-27",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(release): pendências na linha, custo da peça e Monte seu Colar, em produção",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "35a1977",
+        "data": "2026-09-27",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(v2): pendências resolvidas na linha, custo da peça e Monte seu Colar na venda",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "5339d29",
+        "data": "2026-09-27",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(release): navegação simplificada da V2, em produção",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "3729825",
+        "data": "2026-09-27",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(v2): simplifica a navegação — menu pelo que se faz, uma coisa em cada lugar",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "84c9bdc",
+        "data": "2026-09-27",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "docs(release): Revendedoras completa na V2, em produção",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "c070daf",
+        "data": "2026-09-27",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "test(v2): smoke de Revendedoras com os dados reais, 1280 e 390x844",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "86a9982",
+        "data": "2026-09-27",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(revendedoras): histórico de acertos, Top revendedoras e inativas na V2",
+        "agente": "",
+        "taskIds": []
+      },
+      {
+        "commit": "41fff79",
+        "data": "2026-09-27",
+        "autor": "gustavodemelomartins-hub",
+        "assunto": "feat(revendedoras): cada acerto diz a maleta, enviadas, devolvidas e a situação",
+        "agente": "",
+        "taskIds": []
+      },
       {
         "commit": "bdec693",
         "data": "2026-09-26",
@@ -75,134 +203,6 @@ window.MARQUESA_V2 = {
         "data": "2026-09-26",
         "autor": "gustavodemelomartins-hub",
         "assunto": "fix(historico): a troca da planilha leva as garantias e as correções de item",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "49d13db",
-        "data": "2026-09-26",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(saidas): histórico com busca, período, origem e registros antigos",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "01a6387",
-        "data": "2026-09-26",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(revendedoras): ficha mostra o histórico da relação inteira",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "0448fd2",
-        "data": "2026-09-26",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(revendedoras): histórico da relação inteira, derivado dos fatos",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "1d6ed75",
-        "data": "2026-09-26",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(saidas): a linha histórica reclassificada aparece em Saídas sem faturamento",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "66e8e36",
-        "data": "2026-09-26",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(estoque): o ajuste de estoque total diz de qual arquivo veio",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "177ede9",
-        "data": "2026-09-26",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(historico): a troca da planilha também leva as reclassificações",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "62cb81c",
-        "data": "2026-09-26",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(revendedoras): acerto do sistema repetido na planilha conta uma vez",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "605e65d",
-        "data": "2026-09-26",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(maletas): encerrar maleta pelo acerto documental, sem segunda venda",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "2b0fc6e",
-        "data": "2026-09-26",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(migracao): sorteio reconstrói saídas sem perder inventario_id",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "11c2774",
-        "data": "2026-09-26",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(financeiro): Corrigir lançamento estorna recebimento com trilha",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "bc78ffd",
-        "data": "2026-09-26",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "feat(historico): a troca da planilha transporta as decisões humanas",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "03ac805",
-        "data": "2026-09-26",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(historico): ler 27/062026 e não gravar #NAME?/#N/A como nome de peça",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "9ba12e2",
-        "data": "2026-09-25",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "fix(testes): a suíte do painel novo parava de passar por relógio, não por regra",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "b964037",
-        "data": "2026-09-25",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "test(inventario): provar a conciliação no bundle e no banco publicados",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "c89eb86",
-        "data": "2026-09-25",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "refactor(inventario): a revisão reusa `aplicaveis` em vez de refazer o filtro",
-        "agente": "",
-        "taskIds": []
-      },
-      {
-        "commit": "2b541f7",
-        "data": "2026-09-25",
-        "autor": "gustavodemelomartins-hub",
-        "assunto": "docs(harness): registrar a conciliação do inventário e o que ficou por publicar",
         "agente": "",
         "taskIds": []
       }
@@ -2682,9 +2682,9 @@ window.MARQUESA_V2 = {
       "papel": "Destino único da reconstrução V2",
       "worker": "https://marquesa-api-staging.marquesaasemijoias.workers.dev",
       "banco": "marquesa-db-dev",
-      "r2": "marquesa-fotos-dev",
+      "r2": "marquesa-fotos",
       "frontend": "https://marquesa-dev.pages.dev",
-      "escritaNuvemshop": "desligada",
+      "escritaNuvemshop": "LIGADA",
       "personalizacao": "true",
       "deploy": "push em `develop` publica o Pages; o Worker só por botão manual",
       "congelado": false
@@ -2696,7 +2696,7 @@ window.MARQUESA_V2 = {
       "banco": "marquesa-db-prod",
       "r2": "não habilitado",
       "frontend": "GitHub Pages (painel legado)",
-      "escritaNuvemshop": "LIGADA",
+      "escritaNuvemshop": "desligada",
       "deploy": "nenhum caminho automático; só comando humano explícito",
       "congelado": true
     }
