@@ -23,7 +23,7 @@
 .acertos-resumo > div { display: grid; gap: 3px; padding: var(--r4) var(--r5); min-width: 0; }
 .acertos-resumo > div + div { border-left: 1px solid var(--line-soft); }
 .acertos-resumo dt { color: var(--muted); font-size: 10.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
-.acertos-resumo dd { margin: 0; color: var(--ink); font: 600 23px/1.15 var(--serif); font-variant-numeric: tabular-nums; }
+.acertos-resumo dd { margin: 0; color: var(--ink); font: 600 23px/1.15 var(--serif); font-variant-numeric: lining-nums tabular-nums; }
 .acertos-resumo small { color: var(--muted); font-size: 11px; }
 .acertos-resumo__destaque { background: linear-gradient(180deg, var(--rose-tint), transparent 85%); }
 .acertos-resumo__destaque dd { color: var(--bordo); }

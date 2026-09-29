@@ -263,8 +263,10 @@ a { color: var(--bordo); }
 .btn-analise { background: var(--bordo); border-color: var(--bordo); color: #fff; }
 .btn-analise:hover:not(:disabled) { background: var(--bordo-soft); }
 
-.btn-escrita { background: var(--rose); border-color: var(--rose); color: #4A2230; }
-.btn-escrita:hover:not(:disabled) { background: var(--rose-soft); }
+/* Vinho sólido, igual a `.mq-btn--primary`: o rosa-claro de antes parecia
+   botão desabilitado ("+ Criar maleta", QA 29/09/2026). */
+.btn-escrita { background: var(--mq-wine-600); border-color: var(--mq-wine-600); color: #fff; }
+.btn-escrita:hover:not(:disabled) { background: var(--mq-wine-700); border-color: var(--mq-wine-700); }
 
 .btn-critico { background: var(--paper); border-color: var(--danger); color: var(--danger); }
 .btn-critico:hover:not(:disabled) { background: var(--danger-tint); }

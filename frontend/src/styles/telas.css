@@ -402,3 +402,68 @@
    e o "5 disponíveis" colavam e viravam "2632365 disponíveis". */
 .mq-colar__opcao { display: grid; gap: 4px; align-content: start; }
 .mq-colar__opcao .mq-btns { margin-top: var(--mq-2); align-items: center; }
+
+/* ------------------------------------------ saídas sem faturamento (29/09) */
+/* Data · Motivo · Peça · Qtd · Valor de venda · Custo · Situação. No
+   celular a `.mq-table` já vira cartão; aqui só a grade do desktop. */
+.saidas-lista .mq-tr {
+  grid-template-columns: 88px 104px minmax(0, 3fr) 40px minmax(128px, 1fr) minmax(112px, .9fr) minmax(176px, 1.1fr);
+  align-items: start;
+}
+/* A observação da planilha antiga é longa: duas linhas e o resto no
+   título, senão cada linha da tabela vira um parágrafo. */
+.saidas-lista .saida-obs {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.saidas-lista .mq-cell > .mq-chip { align-self: flex-start; }
+.saidas-lista__vazio { color: var(--mq-muted); font-style: italic; white-space: nowrap; }
+.saidas-lista__estornada > * { opacity: .62; }
+.saidas-lista__estornada > .saidas-lista__acoes { opacity: 1; }
+.saidas-lista__acoes { gap: var(--mq-1); }
+.mq-btns--tight { display: flex; flex-wrap: wrap; gap: var(--mq-2); margin-top: 2px; }
+/* Algarismos alinhados em todo número: a serifa da marca usa algarismos
+   "antigos" por padrão, e "R$ 11.984,00" ficava com dígitos pulando. */
+.mq-money, .mq-kpi__value, .mq-qty, .mq-date { font-variant-numeric: lining-nums tabular-nums; }
+.mq-tabs + .mq-pagehead { margin-top: var(--mq-5); }
+.mq-money { white-space: nowrap; }
+
+/* A barra de ação no topo de "Saída sem faturamento": o botão principal
+   fica à vista, sem rolar até o fim da lista. */
+.saida-topo {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--mq-4);
+  flex-wrap: wrap; margin-bottom: var(--mq-4);
+}
+.saida-topo h2 { margin: 0; }
+.saida-topo .mq-lede { margin: 2px 0 0; }
+@media (max-width: 640px) {
+  .saida-topo .mq-btn { width: 100%; justify-content: center; }
+}
+
+/* O resumo por motivo, em Financeiro › Saiu sem faturar. */
+.saidas-motivos { list-style: none; margin: 0; padding: 0; }
+.saidas-motivos li {
+  display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+  gap: var(--mq-3); align-items: baseline; padding: var(--mq-3) var(--mq-5);
+  border-bottom: 1px solid var(--mq-line-2);
+}
+.saidas-motivos li:last-child { border-bottom: 0; }
+.saidas-motivos li > span:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.saidas-motivos li.saidas-motivos__head > span {
+  font: 500 10.5px/1.3 var(--mq-sans); letter-spacing: .09em; text-transform: uppercase; color: var(--mq-muted);
+}
+@media (max-width: 640px) {
+  .saidas-motivos li { grid-template-columns: minmax(0, 1fr) auto; padding: var(--mq-3) var(--mq-4); }
+  .saidas-motivos li > span:nth-child(3), .saidas-motivos li > span:nth-child(4) { grid-column: 1 / -1; text-align: left; }
+  .saidas-motivos li.saidas-motivos__head { display: none; }
+}
+
+/* `.mq-search` cresce em linha (`flex: 1 1 240px`); dentro de um conjunto em
+   COLUNA o 240px virava altura e a lupa ia parar no meio do vazio. */
+.mq-fieldset > .mq-search, .mq-stack > .mq-search { flex: none; }
+.saidas-lista__acoes { align-items: flex-start; }
+@media (max-width: 860px) {
+  .saidas-lista .mq-cell--num { flex-wrap: wrap; }
+  .saidas-lista .mq-cell--num > small { flex-basis: 100%; text-align: right; }
+}
+.saidas-lista__acoes > .mq-status { align-self: flex-start; }
+.mq-tabs + .page-header, .mq-tabs ~ .page-header { margin-top: var(--mq-5); }
