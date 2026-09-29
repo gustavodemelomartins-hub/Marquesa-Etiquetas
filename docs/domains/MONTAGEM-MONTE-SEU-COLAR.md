@@ -1,5 +1,15 @@
 # Produtos Montáveis / Monte seu Colar
 
+> **Atualização de 29/09/2026 — decisão do Gustavo.** A linha é a
+> **ZIRCÔNIA** (Menino 251551 Azul, 251552 Incolor, 329494 Verde; Menina
+> 263236 Rosa Claro, 273470 Incolor; corrente 444032). A linha *Cravejado*
+> (640509, 718221, 222908, 649597) veio de material/protótipo antigo e
+> **não** é componente; 311233 e 125745 não existem em lugar nenhum. As
+> cinco configurações comerciais têm código e preço fixos, impostos pelo
+> servidor — tabela em `api/REGRAS.md` §47. O SKU comercial não tem estoque
+> físico: a venda baixa a corrente e os pingentes escolhidos. Estoque real é
+> o do banco, não os números antigos deste documento.
+
 > **Atualização de 27/09/2026 — o modelo nasce na venda (REGRAS §47).** A
 > Sthefany revisou a decisão de 10/09: as configurações não precisam ser
 > cadastradas antes. Na venda ela escolhe os pingentes (só os do cardápio —

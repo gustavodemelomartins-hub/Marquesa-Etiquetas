@@ -28,8 +28,20 @@ interface Cardapio {
   ok: true;
   base: { sku: string; desc: string | null; preco: number | null; disponivel: number };
   grupos: { grupo: string; itens: ItemDoCardapio[] }[];
+  /** As configurações OFICIAIS (29/09/2026): combinação → código e preço
+   *  fixos. Opcional para conviver com um servidor anterior. */
+  configuracoes?: ConfiguracaoOficial[];
   codigosComerciais: { sku: string; desc: string; preco: number | null; status: string; modelo: string | null }[];
   regra: string;
+}
+
+export interface ConfiguracaoOficial {
+  sku: string;
+  nome: string;
+  preco: number;
+  slots: { grupo: string; qtd: number }[];
+  noCatalogo: boolean;
+  modelo: string | null;
 }
 
 const NUMERO: Record<string, string[]> = {
@@ -59,7 +71,6 @@ export function nomeSugerido(contagem: Record<string, number>): string {
 const assinatura = (slots: { grupo: string; qtd: number }[]) =>
   slots.filter((s) => s.qtd > 0).map((s) => `${s.grupo}:${s.qtd}`).sort().join('|');
 
-const dobrar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLocaleLowerCase('pt-BR').trim();
 
 /** MONTE SEU COLAR — a cliente escolhe os pingentes; o sistema acha o
  *  modelo, ou cadastra o modelo ali mesmo (§47, 27/09/2026).
@@ -118,6 +129,12 @@ export function MonteSeuColar({ conexao, aoAdicionar, aoCancelar }: Props) {
   function adicionar(m: ModeloDeColar) {
     aoAdicionar(composicaoDe(m, escolhasPara(m), observacao));
   }
+
+  const oficial = useMemo(() => {
+    if (!pecas) return null;
+    const alvo = assinatura(Object.entries(contagem).map(([grupo, n]) => ({ grupo, qtd: n })));
+    return (cardapio.dados?.configuracoes ?? []).find((c) => assinatura(c.slots) === alvo) ?? null;
+  }, [cardapio.dados, contagem, pecas]);
 
   const escolhasDoModelo = modelo ? escolhasPara(modelo) : [];
   const problemas = modelo ? impedimentosDaComposicao(modelo, escolhasDoModelo) : [];
@@ -185,8 +202,12 @@ export function MonteSeuColar({ conexao, aoAdicionar, aoCancelar }: Props) {
               const bloqueada = !!it.indisponivel;
               return (
                 <div className={`mq-card mq-card--pad mq-colar__opcao${bloqueada ? ' mq-card--quiet' : ''}`} key={it.sku}>
-                  <b>{it.rotulo}</b>
-                  <small className="mq-sku">{it.desc ?? it.sku} · {it.sku}</small>
+                  {/* O rótulo do cardápio, e não o nome do catálogo: lá os
+                      meninos estão como "Colar Menino…" e as meninas como
+                      "Pingente Menina…", e isso fazia parecer duas linhas
+                      diferentes. Aqui todos são o que são: pingentes. */}
+                  <b>Pingente {it.rotulo}</b>
+                  <small className="mq-sku" title={it.desc ?? undefined}>SKU {it.sku}</small>
                   <small className={bloqueada ? 'mq-money--risk' : 'mq-muted'}>
                     {it.indisponivel ?? `${it.disponivel} ${plural(it.disponivel, 'disponível', 'disponíveis')}`}
                   </small>
@@ -249,6 +270,7 @@ export function MonteSeuColar({ conexao, aoAdicionar, aoCancelar }: Props) {
               conexao={conexao}
               contagem={contagem}
               codigos={cardapio.dados.codigosComerciais}
+              oficial={oficial}
               baseSemEstoque={!!base && base.disponivel <= 0}
               aoCadastrar={(m) => { modelos.recarregar(); cardapio.recarregar(); adicionar(m); }}
             />
@@ -266,21 +288,24 @@ export function MonteSeuColar({ conexao, aoAdicionar, aoCancelar }: Props) {
  *  um código novo, gerado agora. A escolha é da pessoa: parecer pelo nome
  *  não é prova de que é o mesmo colar. */
 function CadastrarModelo({
-  conexao, contagem, codigos, baseSemEstoque, aoCadastrar,
+  conexao, contagem, codigos, oficial = null, baseSemEstoque, aoCadastrar,
 }: {
   conexao: Connection;
   contagem: Record<string, number>;
   codigos: Cardapio['codigosComerciais'];
+  oficial?: ConfiguracaoOficial | null;
   baseSemEstoque: boolean;
   aoCadastrar: (m: ModeloDeColar) => void;
 }) {
   const sugestao = nomeSugerido(contagem);
   const livres = codigos.filter((c) => !c.modelo);
-  const raiz = dobrar(sugestao.replace(/ Banho de Ouro 18k$/, ''));
-  const parecido = livres.find((c) => dobrar(c.desc).startsWith(raiz));
-  const [nome, setNome] = useState(parecido?.desc ?? sugestao);
-  const [codigo, setCodigo] = useState<string>(parecido?.sku ?? 'novo');
-  const [preco, setPreco] = useState(parecido?.preco != null ? String(parecido.preco) : '');
+  /* Sem adivinhar pelo nome: "Colar Filhos Dois Meninos" começa igual a
+     "Colar Filhos Dois Meninos e Uma Menina", e a adivinhação já escolheu o
+     código errado. Combinação oficial tem código fixo (abaixo); a que não
+     tem começa em "código novo", e a pessoa escolhe outro se quiser. */
+  const [nome, setNome] = useState(oficial?.nome ?? sugestao);
+  const [codigo, setCodigo] = useState<string>(oficial?.sku ?? 'novo');
+  const [preco, setPreco] = useState(oficial ? String(oficial.preco) : '');
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
 
@@ -315,6 +340,27 @@ function CadastrarModelo({
     } finally {
       setSalvando(false);
     }
+  }
+
+  if (oficial) {
+    return (
+      <div className="mq-stack" aria-label="Configuração oficial">
+        <dl className="mq-dl">
+          <div><dt>Modelo</dt><dd>{oficial.nome} · {oficial.sku}</dd></div>
+          <div><dt>Preço</dt><dd>{money(oficial.preco)}</dd></div>
+        </dl>
+        <p className="mq-hint">
+          Configuração oficial: código e preço são fixos. O colar não tem estoque
+          próprio — saem a corrente e os pingentes escolhidos.
+        </p>
+        {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
+        <div className="mq-btns">
+          <button type="button" className="mq-btn mq-btn--primary" disabled={salvando || baseSemEstoque} onClick={cadastrar}>
+            {salvando ? 'Adicionando…' : `Adicionar à venda · ${money(oficial.preco)}`}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

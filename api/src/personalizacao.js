@@ -646,10 +646,26 @@ export async function personalizacoesDeVendas(db, vendaIds = []) {
  *     `prepararPersonalizacoes`, que baixa a base e cada pingente uma vez.
  *
  *  O cardápio é DADO: `config.montagem_componentes` sobrepõe o padrão
- *  abaixo sem deploy. O padrão é a lista confirmada em 10/09/2026. */
+ *  abaixo sem deploy. O padrão é a lista confirmada em 10/09/2026 e
+ *  reconfirmada pelo Gustavo em 29/09/2026: a linha ZIRCÔNIA. A linha
+ *  "Cravejado" (640509, 718221, 222908, 649597) é outra linha comercial,
+ *  vendida avulsa, e NÃO é componente do Monte seu Colar.
+ *
+ *  `configuracoes` são os cinco códigos comerciais oficiais, com a
+ *  composição e o preço decididos (29/09/2026). Antes, a tela adivinhava o
+ *  código pelo começo do nome — e "Colar Filhos Dois Meninos" casava com
+ *  "Colar Filhos Dois Meninos e Uma Menina" (314161, R$ 159). Agora a
+ *  combinação oficial tem código e preço fixos, impostos pelo servidor. */
 const CHAVE_COMPONENTES = 'montagem_componentes';
 export const COMPONENTES_PADRAO = {
   base: '444032',
+  configuracoes: [
+    { sku: '326660', nome: 'Colar Casal', preco: 129, slots: { Menino: 1, Menina: 1 } },
+    { sku: '311066', nome: 'Colar Filhos Dois Meninos', preco: 129, slots: { Menino: 2 } },
+    { sku: '364945', nome: 'Colar Filhas Duas Meninas', preco: 129, slots: { Menina: 2 } },
+    { sku: '314161', nome: 'Colar Filhos Dois Meninos e Uma Menina', preco: 159, slots: { Menino: 2, Menina: 1 } },
+    { sku: '399872', nome: 'Colar Filhas Duas Meninas e Um Menino', preco: 159, slots: { Menino: 1, Menina: 2 } },
+  ],
   grupos: [
     {
       grupo: 'Menino',
@@ -673,9 +689,23 @@ async function lerComponentes(db) {
   try {
     const r = await db.prepare('SELECT valor FROM config WHERE chave = ?').bind(CHAVE_COMPONENTES).first();
     const v = r && r.valor ? JSON.parse(r.valor) : null;
-    if (v && v.base && Array.isArray(v.grupos) && v.grupos.length) return v;
+    if (v && v.base && Array.isArray(v.grupos) && v.grupos.length) {
+      return { ...v, configuracoes: Array.isArray(v.configuracoes) ? v.configuracoes : COMPONENTES_PADRAO.configuracoes };
+    }
   } catch { /* valor ilegível cai no padrão, que é a decisão registrada */ }
   return COMPONENTES_PADRAO;
+}
+
+/** `{ Menino: 2, Menina: 1 }` e `[{grupo, qtd}]` viram a mesma chave. */
+const assinaturaSlots = (slots) => (Array.isArray(slots)
+  ? slots.map((s) => [s.grupo, Number(s.qtd)])
+  : Object.entries(slots ?? {}).map(([g, n]) => [g, Number(n)]))
+  .filter(([, n]) => n > 0).map(([g, n]) => `${g}:${n}`).sort().join('|');
+
+/** A configuração oficial desta combinação, se houver. */
+function configuracaoOficial(cfg, slots) {
+  const alvo = assinaturaSlots(slots);
+  return (cfg.configuracoes ?? []).find((c) => assinaturaSlots(c.slots) === alvo) ?? null;
 }
 
 /** A corrente, os pingentes de cada grupo com o disponível real, e os
@@ -701,17 +731,37 @@ export async function listarComponentes(db) {
     grupos.push({ grupo: g.grupo, itens });
   }
 
-  /* Candidatos a código comercial: colares "Casal"/"Filhos"/"Filhas" do
-     catálogo. É SUGESTÃO para a pessoa escolher — o sistema não casa nome
-     com composição sozinho (nome não é identidade, §2). */
-  const { results: candidatos } = await db.prepare(
+  /* Candidatos a código comercial para combinação SEM configuração oficial
+     (três meninos, por exemplo): colares "Casal"/"Filhos"/"Filhas" em
+     banho de ouro — a linha do cardápio. Os de prata são peças avulsas de
+     outra linha e não entram; os códigos oficiais também não, porque cada
+     um já tem a sua combinação. É SUGESTÃO para a pessoa escolher — o
+     sistema não casa nome com composição sozinho (nome não é identidade, §2). */
+  const oficiais = new Set((cfg.configuracoes ?? []).map((c) => normSku(c.sku)));
+  const { results: todos } = await db.prepare(
     `SELECT p.sku, p.desc, p.preco, p.status, m.nome AS modelo
        FROM produtos p
        LEFT JOIN personalizacao_modelos m ON m.sku_comercial = p.sku
       WHERE p.status <> 'arquivado'
         AND (p.desc LIKE 'Colar Casal%' OR p.desc LIKE 'Colar Filh%')
+        AND p.desc LIKE '%Banho de Ouro%'
       ORDER BY p.desc`,
   ).all().catch(() => ({ results: [] }));
+  const candidatos = (todos ?? []).filter((c) => !oficiais.has(c.sku));
+
+  const configuracoes = [];
+  for (const c of cfg.configuracoes ?? []) {
+    const sku = normSku(c.sku);
+    const p = await db.prepare(
+      `SELECT p.desc, p.status, m.nome AS modelo FROM produtos p
+         LEFT JOIN personalizacao_modelos m ON m.sku_comercial = p.sku
+        WHERE p.sku = ?`).bind(sku).first().catch(() => null);
+    configuracoes.push({
+      sku, nome: c.nome, preco: Number(c.preco),
+      slots: Object.entries(c.slots ?? {}).map(([grupo, qtd]) => ({ grupo, qtd: Number(qtd) })),
+      noCatalogo: !!p, modelo: p?.modelo ?? null,
+    });
+  }
 
   return {
     ok: true,
@@ -722,7 +772,8 @@ export async function listarComponentes(db) {
       disponivel: b ? Math.max(0, b.disponivel) : 0,
     },
     grupos,
-    codigosComerciais: (candidatos ?? []).map((c) => ({
+    configuracoes,
+    codigosComerciais: candidatos.map((c) => ({
       sku: c.sku, desc: c.desc, preco: c.preco == null ? null : Number(c.preco),
       status: c.status, modelo: c.modelo ?? null,
     })),
@@ -771,6 +822,36 @@ export async function cadastrarModeloNaVenda(db, corpo = {}) {
     return ERRO(409, `Essa combinação já é o modelo "${igual.nome}".`, { modelo: igual });
   }
 
+  /* Combinação com configuração OFICIAL (29/09/2026): código e preço são os
+     decididos, e o servidor os impõe. Nome parecido não escolhe código. O
+     código oficial que ainda não está no catálogo (311066) nasce aqui com
+     estoque 0 — configuração não tem peça própria. */
+  const oficial = configuracaoOficial(cfg, slots);
+  if (oficial) {
+    const skuOficial = normSku(oficial.sku);
+    const pedido = corpo.gerarCodigo ? 'novo' : normSku(corpo.skuComercial);
+    if (pedido && pedido !== skuOficial) {
+      return ERRO(409, `Essa combinação é o ${oficial.nome}, código ${skuOficial}.`, { oficial });
+    }
+    if (preco !== Number(oficial.preco)) {
+      return ERRO(409, `O ${oficial.nome} custa R$ ${Number(oficial.preco).toFixed(2).replace('.', ',')}.`, { oficial });
+    }
+    const usado = modelos.find((m) => m.skuComercial === skuOficial);
+    if (usado) return ERRO(409, `O código ${skuOficial} já é do modelo "${usado.nome}".`);
+    const existe = await db.prepare('SELECT sku FROM produtos WHERE sku = ?').bind(skuOficial).first();
+    if (!existe) {
+      const cad = await cadastrarNovos(db, {
+        origem: 'montagem',
+        produtos: [{ sku: skuOficial, desc: `${oficial.nome} Banho de Ouro 18k`, cat: 'Colar', preco: Number(oficial.preco), qtd: 0 }],
+      });
+      if (!cad.criados) return ERRO(409, `Não consegui cadastrar o código ${skuOficial}.`, { ignorados: cad.ignorados });
+    }
+    return salvarModelo(db, {
+      nome: oficial.nome, skuComercial: skuOficial, baseSkuPadrao: normSku(cfg.base), slots, opcoes,
+      precoSugerido: Number(oficial.preco), obs: 'Configuração oficial (29/09/2026), cadastrada na venda.',
+    });
+  }
+
   let skuComercial;
   if (corpo.gerarCodigo) {
     const g = await gerarSku(db, { origem: 'montagem' });
@@ -784,6 +865,10 @@ export async function cadastrarModeloNaVenda(db, corpo = {}) {
   } else {
     skuComercial = normSku(corpo.skuComercial);
     if (!skuComercial) return ERRO(400, 'Escolha o código do colar ou peça um código novo.');
+    const deOutra = (cfg.configuracoes ?? []).find((c) => normSku(c.sku) === skuComercial);
+    if (deOutra) {
+      return ERRO(409, `O código ${skuComercial} é do ${deOutra.nome}, que tem outra combinação de pingentes.`);
+    }
     const usado = modelos.find((m) => m.skuComercial === skuComercial);
     if (usado) return ERRO(409, `O código ${skuComercial} já é do modelo "${usado.nome}".`);
   }

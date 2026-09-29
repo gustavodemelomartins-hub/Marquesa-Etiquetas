@@ -19,9 +19,13 @@ const CARDAPIO = {
       { sku: '263236', rotulo: 'Menina Rosa Claro', desc: 'Pingente Menina Rosa', preco: 119, disponivel: 5, indisponivel: null },
     ] },
   ],
+  configuracoes: [
+    { sku: '326660', nome: 'Colar Casal', preco: 129, slots: [{ grupo: 'Menino', qtd: 1 }, { grupo: 'Menina', qtd: 1 }], noCatalogo: true, modelo: null },
+    { sku: '311066', nome: 'Colar Filhos Dois Meninos', preco: 129, slots: [{ grupo: 'Menino', qtd: 2 }], noCatalogo: false, modelo: null },
+    { sku: '314161', nome: 'Colar Filhos Dois Meninos e Uma Menina', preco: 159, slots: [{ grupo: 'Menino', qtd: 2 }, { grupo: 'Menina', qtd: 1 }], noCatalogo: true, modelo: null },
+  ],
   codigosComerciais: [
-    { sku: '326660', desc: 'Colar Casal Banho de Ouro 18k', preco: 129, status: 'ativo', modelo: null },
-    { sku: '364945', desc: 'Colar Filhas Duas Meninas Banho de Ouro 18k', preco: 129, status: 'ativo', modelo: null },
+    { sku: '366066', desc: 'Colar Filhos Três Meninos Banho de Ouro 18k', preco: 159, status: 'ativo', modelo: null },
   ],
   regra: '',
 };
@@ -73,7 +77,7 @@ describe('o nome sugerido segue o padrão do catálogo', () => {
 });
 
 describe('Monte seu Colar: o modelo nasce na venda', () => {
-  it('combinação sem modelo: sugere o código do catálogo, cadastra e vai para a venda', async () => {
+  it('combinação oficial sem modelo: código e preço fixos, cadastra e vai para a venda', async () => {
     modelos = [];
     const aoAdicionar = vi.fn();
     render(<MonteSeuColar conexao={conexao} aoAdicionar={aoAdicionar} aoCancelar={() => {}} />);
@@ -83,15 +87,15 @@ describe('Monte seu Colar: o modelo nasce na venda', () => {
     /* Pingente sem estoque não soma. */
     expect((screen.getByRole('button', { name: 'Mais Menino Verde' }) as HTMLButtonElement).disabled).toBe(true);
 
-    expect(await screen.findByText(/ainda não tem modelo/)).toBeTruthy();
-    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('326660');
-    expect((screen.getByLabelText('Preço do colar') as HTMLInputElement).value).toBe('129');
+    expect(await screen.findByText(/Configuração oficial: código e preço são fixos/)).toBeTruthy();
+    expect(screen.getByText('Colar Casal · 326660')).toBeTruthy();
+    expect(screen.queryByRole('combobox')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cadastrar e adicionar à venda' }));
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar à venda · R\$\s?129,00/ }));
     await waitFor(() => expect(aoAdicionar).toHaveBeenCalledTimes(1));
     expect(posts[0]).toEqual({
       caminho: '/api/personalizacao/modelos/na-venda',
-      corpo: { nome: 'Colar Casal Banho de Ouro 18k', preco: 129, contagem: { Menino: 1, Menina: 1 }, skuComercial: '326660' },
+      corpo: { nome: 'Colar Casal', preco: 129, contagem: { Menino: 1, Menina: 1 }, skuComercial: '326660' },
     });
     const composicao = aoAdicionar.mock.calls[0]?.[0];
     expect(composicao.skuComercial).toBe('326660');
@@ -110,18 +114,38 @@ describe('Monte seu Colar: o modelo nasce na venda', () => {
     expect(posts).toEqual([]);
   });
 
-  it('código novo: pede para gerar, com o nome sugerido', async () => {
+  it('dois meninos é o 311066 a R$ 129 — nunca o 314161 de três pingentes', async () => {
     modelos = [];
     render(<MonteSeuColar conexao={conexao} aoAdicionar={() => {}} aoCancelar={() => {}} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Mais Menino Azul' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mais Menino Azul' }));
-    fireEvent.change(await screen.findByRole('combobox'), { target: { value: 'novo' } });
-    expect((screen.getByDisplayValue('Colar Filhos Dois Meninos Banho de Ouro 18k'))).toBeTruthy();
-    fireEvent.change(screen.getByLabelText('Preço do colar'), { target: { value: '149' } });
+    expect(await screen.findByText('Colar Filhos Dois Meninos · 311066')).toBeTruthy();
+    expect(screen.queryByText(/314161/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar à venda · R\$\s?129,00/ }));
+    await waitFor(() => expect(posts.length).toBe(1));
+    expect(posts[0]?.corpo).toEqual({
+      nome: 'Colar Filhos Dois Meninos', preco: 129, contagem: { Menino: 2, Menina: 0 }, skuComercial: '311066',
+    });
+  });
+
+  it('combinação sem configuração oficial: começa em código novo, sem adivinhar pelo nome', async () => {
+    modelos = [];
+    render(<MonteSeuColar conexao={conexao} aoAdicionar={() => {}} aoCancelar={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Mais Menino Azul' }));
+    expect((await screen.findByRole('combobox') as HTMLSelectElement).value).toBe('novo');
+    expect(screen.getByDisplayValue('Colar Menino Banho de Ouro 18k')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Preço do colar'), { target: { value: '99' } });
     fireEvent.click(screen.getByRole('button', { name: 'Cadastrar e adicionar à venda' }));
     await waitFor(() => expect(posts.length).toBe(1));
     expect(posts[0]?.corpo).toEqual({
-      nome: 'Colar Filhos Dois Meninos Banho de Ouro 18k', preco: 149, contagem: { Menino: 2, Menina: 0 }, gerarCodigo: true,
+      nome: 'Colar Menino Banho de Ouro 18k', preco: 99, contagem: { Menino: 1, Menina: 0 }, gerarCodigo: true,
     });
+  });
+
+  it('o cardápio mostra pingente e SKU, não o nome confuso do catálogo', async () => {
+    render(<MonteSeuColar conexao={conexao} aoAdicionar={() => {}} aoCancelar={() => {}} />);
+    expect(await screen.findByText('Pingente Menino Azul')).toBeTruthy();
+    expect(screen.getByText('SKU 251551')).toBeTruthy();
+    expect(screen.queryByText(/Colar Menino Azul ·/)).toBeNull();
   });
 });
