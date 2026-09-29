@@ -12,17 +12,17 @@ binding = "DB"
 database_name = "marquesa-db-prod"
 database_id = "51dd629b-52dc-46d0-a1af-fa37f0a79533"
 
-# Fotos das peças: os bytes ficariam aqui, o D1 guarda só a chave do objeto
-# (migracao-catalogo.sql). Removido do go-live 2026-08-22: a conta
-# Cloudflare de produção responde erro 10042 (R2 não habilitado), e o bucket
-# `marquesa-fotos` nunca chegou a ser criado — um `wrangler deploy` (sem
-# --env) com este binding falha antes de publicar. `env.FOTOS` é opcional em
-# `fotos-storage.js`: leitura por URL externa (`foto_url`, os 629 códigos já
-# vinculados) continua funcionando sem R2; upload/edição que precise dos
-# bytes recusa com mensagem clara, nunca 500 nem sucesso falso. Não habilitar
-# R2 nem recriar este bloco sem decisão humana explícita — reabilitar é
-# reintroduzir `[[r2_buckets]] binding = "FOTOS" bucket_name = "marquesa-fotos"`
-# aqui, depois de `wrangler r2 bucket create marquesa-fotos`.
+# Fotos das peças: os bytes moram aqui; o D1 guarda só a chave do objeto
+# (migracao-catalogo.sql). Ficou de fora do go-live de 2026-08-22 porque a
+# conta respondia 10042 (R2 não habilitado). Em 29/09/2026 o Gustavo
+# habilitou o R2 e autorizou; o bucket de PRODUÇÃO `marquesa-fotos` foi
+# criado nesse dia. DEV continua com o seu (`marquesa-fotos-dev`, bloco
+# [env.staging]) — os dois nunca se cruzam. Não há credencial aqui: o
+# binding é a autorização. As fotos não são públicas; a tela lê por um link
+# assinado com prazo (`assinatura.js`).
+[[r2_buckets]]
+binding = "FOTOS"
+bucket_name = "marquesa-fotos"
 
 # Quais endereços podem chamar a API pelo navegador. Não é segredo — é o
 # endereço público do painel — então mora aqui, versionado, e não no painel
@@ -66,15 +66,8 @@ NUVEMSHOP_WRITES_ENABLED = "true"
 # mostrando exatamente o que subiria:
 #     NUVEMSHOP_PUBLICACAO_ENABLED = "true"
 
-# Fotos próprias das peças (binding R2 `FOTOS`) — ver o bloco comentado no
-# topo deste arquivo. A Fase 4.5 deixou o código pronto para receber o
-# binding sem mudar comportamento: sem ele, upload e preparo de imagem
-# recusam com `bloqueio: "sem_r2"`, que é diferente de erro, e nenhuma peça
-# fica presa por causa disso. Habilitar continua sendo decisão humana:
-#     wrangler r2 bucket create marquesa-fotos
-#     [[r2_buckets]]
-#     binding = "FOTOS"
-#     bucket_name = "marquesa-fotos"
+# Fotos próprias das peças (binding R2 `FOTOS`) — ver o bloco no topo deste
+# arquivo: ligado em 29/09/2026 no bucket `marquesa-fotos`.
 
 # Produtos Montáveis / "Monte seu Colar" (api/REGRAS.md §42) — parado antes de
 # fechar SKU comercial x base x componentes, base trocável, Ouro 18k/Prata
