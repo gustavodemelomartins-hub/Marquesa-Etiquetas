@@ -20,7 +20,7 @@ interface Chamada { metodo: string; caminho: string; corpo: Record<string, unkno
 /** O servidor do inventário, em miniatura — e com a MESMA regra que
  *  importa: `POST /itens` grava um valor ABSOLUTO. É contra ele que se
  *  prova que a bipada soma um em vez de gravar sempre 1. */
-function servidor(opcoes: { comVariacao?: string[]; recusar?: string } = {}) {
+function servidor(opcoes: { comVariacao?: string[]; recusar?: string; releituraLenta?: number } = {}) {
   const chamadas: Chamada[] = [];
   const contagem = new Map<string, number>();
 
@@ -57,7 +57,15 @@ function servidor(opcoes: { comVariacao?: string[]; recusar?: string } = {}) {
         pausadoEm: null, concluidoEm: null, divergentes: 0, pecas: 0, naoComparaveis: 0,
       }]);
     }
-    if (caminho === '/api/inventarios/42' && metodo === 'GET') return json(detalhe());
+    if (caminho === '/api/inventarios/42' && metodo === 'GET') {
+      /* Celular com rede ruim: a RELEITURA depois de gravar demora. */
+      if (opcoes.releituraLenta && contagem.size) {
+        const retrato = detalhe();
+        await new Promise((r) => setTimeout(r, opcoes.releituraLenta));
+        return json(retrato);
+      }
+      return json(detalhe());
+    }
 
     if (caminho === '/api/inventarios/42/itens' && metodo === 'POST') {
       const sku = String(corpo?.sku ?? '');
@@ -146,6 +154,26 @@ describe('conferir o estoque pela câmera', () => {
     const enviados = gravacoes(chamadas).map((c) => c.corpo?.contado);
     expect(enviados).toEqual([1, 2]);
   });
+
+  /* QA 29/09/2026 — a segunda unidade bipada ANTES de a tela reler o
+     servidor saía como "1" de novo, e uma peça sumia da contagem. */
+  it('bipadas seguidas com a rede lenta contam 1, 2 e 3 — nenhuma se perde', async () => {
+    const { chamadas, contagem } = servidor({ releituraLenta: 1500 });
+    abrir();
+    fireEvent.click(await screen.findByRole('button', { name: /Abrir câmera/ }, { timeout: 3000 }));
+    await screen.findByRole('region', { name: 'Leitor de etiquetas' });
+
+    proximoCodigo.valor = '230076';
+    await waitFor(() => expect(contagem.get('230076')).toBe(1), { timeout: 4000 });
+    proximoCodigo.valor = null;
+    /* A releitura ainda não voltou: a lista na tela ainda diz 0. */
+    fireEvent.change(screen.getByLabelText('Código da etiqueta'), { target: { value: '230076' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Contar' }));
+    fireEvent.change(screen.getByLabelText('Código da etiqueta'), { target: { value: '230076' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Contar' }));
+    await waitFor(() => expect(contagem.get('230076')).toBe(3), { timeout: 6000 });
+    expect(gravacoes(chamadas).map((c) => c.corpo?.contado)).toEqual([1, 2, 3]);
+  }, 12000);
 
   it('bipar outra peça conta a outra peça, e não mexe na primeira', async () => {
     const { contagem } = servidor();

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { chamar, type Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
@@ -371,6 +371,26 @@ function Contagem({
     [detalhe.dados],
   );
 
+  /* O ÚLTIMO VALOR GRAVADO por esta tela, código a código (QA 29/09/2026).
+   *
+   *  `POST /itens` grava um total ABSOLUTO, e a lista (`contados`) só se
+   *  atualiza depois que o servidor responde e a tela relê. Bipar a segunda
+   *  unidade da mesma peça antes disso lia o total velho e mandava "1" de
+   *  novo — uma peça sumia da contagem, sem erro nenhum. Agora as bipadas
+   *  entram em FILA, e cada uma parte do último total que esta tela gravou.
+   *  Quando a releitura do servidor alcança o mesmo número, o local sai. */
+  const gravados = useRef(new Map<string, number>());
+  const filaDeBipadas = useRef<Promise<unknown>>(Promise.resolve());
+  const contadosAgora = useRef(contados);
+  contadosAgora.current = contados;
+  useEffect(() => {
+    for (const [sku, n] of gravados.current) {
+      if (contados.get(sku)?.contado === n) gravados.current.delete(sku);
+    }
+  }, [contados]);
+  const totalAtual = (sku: string) =>
+    gravados.current.get(sku) ?? contadosAgora.current.get(sku)?.contado ?? 0;
+
   /* O índice que a câmera consulta a cada leitura. `Map` e não `Array`
      porque isto roda cinco vezes por segundo: varrer 790 linhas por quadro
      esquentaria o telefone para responder a mesma pergunta. */
@@ -533,6 +553,7 @@ function Contagem({
       return { ok: true, texto: `${linha?.desc ?? sku} tem variação — diga qual você contou` };
     }
     if (r && 'erro' in r && r.erro) return falhou(String(r.erro));
+    if (!escolha) gravados.current.set(sku, contado);
     detalhe.recarregar();
     const linha = esperadosPorSku.get(sku);
     return {
@@ -559,7 +580,13 @@ function Contagem({
    *  grava na hora, pela mesma rota que o `+` da lista usa. É por isso que
    *  fechar a câmera, pausar ou perder a conexão não perde contagem — e é
    *  também por isso que NÃO existe rota de escrita nova nesta entrega. */
-  async function aoBipar(codigoCru: string): Promise<ResultadoDaLeitura> {
+  function aoBipar(codigoCru: string): Promise<ResultadoDaLeitura> {
+    const vez = filaDeBipadas.current.then(() => biparAgora(codigoCru));
+    filaDeBipadas.current = vez.catch(() => undefined);
+    return vez;
+  }
+
+  async function biparAgora(codigoCru: string): Promise<ResultadoDaLeitura> {
     if (pausado) {
       return { ok: false, texto: 'O inventário está pausado. Toque em "Continuar" para contar.' };
     }
@@ -571,14 +598,13 @@ function Contagem({
     if (!sku) {
       const tentativa = String(codigoCru ?? '').trim().toUpperCase();
       if (!tentativa) return { ok: false, texto: 'Leitura vazia.' };
-      const atual = contados.get(tentativa)?.contado ?? 0;
-      return contar(tentativa, atual + 1, undefined, true);
+      return contar(tentativa, totalAtual(tentativa) + 1, undefined, true);
     }
-    const atual = contados.get(sku)?.contado ?? 0;
-    return contar(sku, atual + 1, undefined, true);
+    return contar(sku, totalAtual(sku) + 1, undefined, true);
   }
 
   async function descontar(sku: string) {
+    gravados.current.delete(sku);
     setOcupado(sku);
     setErro('');
     await chamar(conexao, 'DELETE', `/api/inventarios/${id}/itens/${encodeURIComponent(sku)}`)
