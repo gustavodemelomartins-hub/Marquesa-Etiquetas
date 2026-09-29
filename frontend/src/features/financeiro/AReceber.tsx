@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
-import { money, fmtData, dataDigitada } from '../../domain/formato';
+import { money, fmtData, dataDigitada, moneyNumero } from '../../domain/formato';
 import { hojeISO } from '../../domain/formato';
 import { descreverRecorte } from './periodo';
 import { buscarAReceber, definirPrazo, estornarRecebimento, receberConta } from './api';
@@ -180,7 +180,7 @@ export function AReceber({
       <div className="mq-kpis">
         <div className={resumo.total > 0 ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}>
           <span className="mq-kpi__label">Saldo em aberto</span>
-          <span className="mq-kpi__value"><i>R$</i>{money(resumo.total).replace('R$ ', '')}</span>
+          <span className="mq-kpi__value"><i>R$</i>{moneyNumero(resumo.total)}</span>
           <span className="mq-kpi__foot">
             {resumo.quantidade} {resumo.quantidade === 1 ? 'conta' : 'contas'}
             {resumo.semPrazo > 0 && ` · ${resumo.semPrazo} sem prazo`}
@@ -188,14 +188,14 @@ export function AReceber({
         </div>
         <div className="mq-kpi">
           <span className="mq-kpi__label">Vence hoje</span>
-          <span className="mq-kpi__value"><i>R$</i>{money(somas.venceHoje).replace('R$ ', '')}</span>
+          <span className="mq-kpi__value"><i>R$</i>{moneyNumero(somas.venceHoje)}</span>
           <span className="mq-kpi__foot">
             {somas.venceHojeN === 0 ? 'nada vence hoje' : 'saldo com vencimento hoje'}
           </span>
         </div>
         <div className={somas.atraso > 0 ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}>
           <span className="mq-kpi__label">Em atraso</span>
-          <span className="mq-kpi__value"><i>R$</i>{money(somas.atraso).replace('R$ ', '')}</span>
+          <span className="mq-kpi__value"><i>R$</i>{moneyNumero(somas.atraso)}</span>
           <span className="mq-kpi__foot">
             {resumo.vencidas} {resumo.vencidas === 1 ? 'conta vencida' : 'contas vencidas'}
           </span>
@@ -204,7 +204,7 @@ export function AReceber({
           <span className="mq-kpi__label">Recebido</span>
           <span className="mq-kpi__value">
             <i>R$</i>
-            {painel ? money(painel.geral.faturamento).replace('R$ ', '') : '—'}
+            {painel ? moneyNumero(painel.geral.faturamento) : '—'}
           </span>
           {/* O protótipo diz "no mês". O recorte desta tela é escolhido no
               Resumo e vale para o Financeiro inteiro — mentir o rótulo

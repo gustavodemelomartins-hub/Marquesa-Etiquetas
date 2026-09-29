@@ -5,6 +5,7 @@ import { RiskBadge } from '../../components/RiskBadge';
 import { StatusBadge } from '../../components/StatusBadge';
 import { FILTROS, ROTULO_FILTRO, contarFiltro, ehConflito, filtrarItens, type FiltroItem } from './itens';
 import type { DadosProdutoNovo, ItemSessao } from './tipos';
+import { money } from '../../domain/formato';
 
 interface Props {
   itens: ItemSessao[];
@@ -97,7 +98,7 @@ export function TabelaItensSessao({ itens, aoDecidir, decidindoId }: Props) {
                           {dadosNovo.cat} ·{' '}
                           {dadosNovo.preco === null
                             ? 'sem preço'
-                            : dadosNovo.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            : money(dadosNovo.preco)}
                         </div>
                       )}
                     </td>

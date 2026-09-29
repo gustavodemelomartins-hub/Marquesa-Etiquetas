@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { Icone, type NomeIcone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
-import { money, fmtData } from '../../domain/formato';
+import { money, fmtData, moneyNumero } from '../../domain/formato';
 import { buscarCredito, buscarPerfil } from './api';
 import { montarLinhaDoTempo, type EventoRelacao, type TipoEvento } from './eventos';
 import type { Connection } from '../../services/client';
@@ -128,7 +128,7 @@ export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda 
       <div className="mq-kpis">
         <div className="mq-kpi">
           <span className="mq-kpi__label">Comprou</span>
-          <span className="mq-kpi__value"><i>R$</i>{money(r.comprou).replace('R$ ', '')}</span>
+          <span className="mq-kpi__value"><i>R$</i>{moneyNumero(r.comprou)}</span>
           <span className="mq-kpi__foot">
             {r.vendas} {r.vendas === 1 ? 'compra' : 'compras'} · {r.pecas}{' '}
             {r.pecas === 1 ? 'peça' : 'peças'}
@@ -136,18 +136,18 @@ export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda 
         </div>
         <div className="mq-kpi mq-kpi--ok">
           <span className="mq-kpi__label">Pago</span>
-          <span className="mq-kpi__value"><i>R$</i>{money(r.pago).replace('R$ ', '')}</span>
+          <span className="mq-kpi__value"><i>R$</i>{moneyNumero(r.pago)}</span>
           <span className="mq-kpi__foot">o que já entrou</span>
         </div>
         <div className={r.emAberto > 0 ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}>
           <span className="mq-kpi__label">Em aberto</span>
-          <span className="mq-kpi__value"><i>R$</i>{money(r.emAberto).replace('R$ ', '')}</span>
+          <span className="mq-kpi__value"><i>R$</i>{moneyNumero(r.emAberto)}</span>
           <span className="mq-kpi__foot">{r.emAberto > 0 ? 'falta receber' : 'nada em aberto'}</span>
         </div>
         <div className="mq-kpi">
           <span className="mq-kpi__label">Ticket médio</span>
           <span className="mq-kpi__value">
-            {r.ticketMedio === null ? '—' : <><i>R$</i>{money(r.ticketMedio).replace('R$ ', '')}</>}
+            {r.ticketMedio === null ? '—' : <><i>R$</i>{moneyNumero(r.ticketMedio)}</>}
           </span>
           <span className="mq-kpi__foot">quanto ela costuma levar por vez</span>
         </div>

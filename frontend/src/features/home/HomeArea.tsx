@@ -2,7 +2,7 @@ import { useApi } from '../../hooks/useApi';
 import { chamar, type Connection } from '../../services/client';
 import { Icone, type NomeIcone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
-import { money, fmtData } from '../../domain/formato';
+import { money, fmtData, moneyNumero } from '../../domain/formato';
 import { buscarPainel } from '../financeiro/api';
 import type { ModuloId } from '../../app/modulos';
 import type { PainelFinanceiro } from '../financeiro/tipos';
@@ -143,12 +143,12 @@ export function HomeArea({ conexao, aoIr }: Props) {
           <div className="mq-kpis">
             <div className="mq-kpi mq-kpi--ok">
               <span className="mq-kpi__label">Entrou em 30 dias</span>
-              <span className="mq-kpi__value"><i>R$</i>{money(p.geral.faturamento).replace('R$ ', '')}</span>
+              <span className="mq-kpi__value"><i>R$</i>{moneyNumero(p.geral.faturamento)}</span>
               <span className="mq-kpi__foot">pela data do pagamento</span>
             </div>
             <div className={p.geral.aReceber > 0 ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}>
               <span className="mq-kpi__label">Falta receber</span>
-              <span className="mq-kpi__value"><i>R$</i>{money(p.geral.aReceber).replace('R$ ', '')}</span>
+              <span className="mq-kpi__value"><i>R$</i>{moneyNumero(p.geral.aReceber)}</span>
               <span className="mq-kpi__foot">{contas?.resumo.quantidade ?? 0} contas em aberto</span>
             </div>
             <div className="mq-kpi">

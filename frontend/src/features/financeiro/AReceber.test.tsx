@@ -126,9 +126,9 @@ describe('A receber — paridade com o protótipo', () => {
     }
     /* Os três valores de dinheiro aparecem na MESMA linha: sem "Total" e
        "Recebido" ninguém sabe se 240 é a venda toda ou o que sobrou. */
-    expect(within(tabela).getByText('R$ 340')).toBeTruthy();
-    expect(within(tabela).getByText('R$ 100')).toBeTruthy();
-    expect(within(tabela).getByText('R$ 240')).toBeTruthy();
+    expect(within(tabela).getByText('R$ 340,00')).toBeTruthy();
+    expect(within(tabela).getByText('R$ 100,00')).toBeTruthy();
+    expect(within(tabela).getByText('R$ 240,00')).toBeTruthy();
   });
 
   it('filtra por busca e pelos chips, sem trocar de tela', () => {
@@ -160,7 +160,7 @@ describe('A receber — paridade com o protótipo', () => {
     fireEvent.click(screen.getByRole('button', { name: /Abrir Ana Luiza/ }));
     const painelVenda = screen.getByText('Venda selecionada').closest('.sale-detail');
     expect(painelVenda).toBeTruthy();
-    expect(within(painelVenda as HTMLElement).getByText('R$ 340')).toBeTruthy();
+    expect(within(painelVenda as HTMLElement).getByText('R$ 340,00')).toBeTruthy();
     /* E a lista continua ali — o painel não é um diálogo que tapa o
        trabalho a cada clique. */
     expect(screen.getByRole('table', { name: 'Contas a receber' })).toBeTruthy();

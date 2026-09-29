@@ -1,6 +1,6 @@
 import type { AppState } from '../../types/api';
 import { Icone } from '../../components/Icone';
-import { money, plural } from '../../domain/formato';
+import { money, moneyNumero, plural } from '../../domain/formato';
 import {
   inconsistencias,
   maletasCirculando,
@@ -115,7 +115,7 @@ export function PainelEstoque({
           <span className="mq-kpi__label">Valor de referência</span>
           <strong className="mq-kpi__value">
             <i>R$</i>
-            {Math.round(t.valTotal).toLocaleString('pt-BR')}
+            {moneyNumero(t.valTotal)}
           </strong>
           <span className="mq-kpi__foot">Preço cadastrado · não é custo real</span>
         </div>

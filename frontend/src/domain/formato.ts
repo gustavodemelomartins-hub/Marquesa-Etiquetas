@@ -1,18 +1,41 @@
-/** Formatação de números, dinheiro e datas.
+/** Formatação de números, dinheiro e datas — UM formatador por tipo de
+ *  número, usado pelo sistema inteiro. Nenhuma tela formata dinheiro por
+ *  conta própria.
  *
- *  As regras vêm do painel legado (`src/dashboard.tpl.html`), não de uma
- *  convenção nova: os dois frontends mostram os mesmos números para a
- *  mesma pessoa, e um "R$ 135.407,00" de um lado com "R$ 135.407" do outro
- *  faz duvidar de qual está certo. */
+ *  Dinheiro sempre com centavos (decisão de 29/09/2026). Antes o centavo
+ *  zero era cortado para imitar o painel legado, e o efeito na mesma tela
+ *  era "R$ 8.378" ao lado de "R$ 3.140,55" — dois formatos para o mesmo
+ *  tipo de número, e a dúvida de qual estava certo. */
 
-/** Centavo que é sempre zero é ruído: "R$ 135.407,00" vira "R$ 135.407".
- *  Quando existe centavo de verdade ele aparece, então nada se perde. */
+const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const INTEIRO = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
+
+/** "R$ 8.378,00", "R$ 3.140,55", "-R$ 12,00". O espaço depois de "R$" é
+ *  comum (não o inseparável do Intl) para o texto ser o mesmo que se
+ *  digita e se procura; a quebra de linha é evitada no CSS (`.mq-money`). */
 export function money(v: number | null | undefined): string {
   const n = Number.isFinite(Number(v)) ? Number(v) : 0;
-  const partes = n.toFixed(2).split('.');
-  const inteiro = (partes[0] ?? '0').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const centavos = partes[1] ?? '00';
-  return 'R$ ' + inteiro + (centavos === '00' ? '' : ',' + centavos);
+  return BRL.format(Object.is(Math.round(n * 100), -0) ? 0 : n).replace(/\u00a0/g, ' ');
+}
+
+/** O número do dinheiro sem o "R$" — para os KPIs que desenham o símbolo
+ *  pequeno à parte. Mantém o sinal: "-12,00". */
+export function moneyNumero(v: number | null | undefined): string {
+  return money(v).replace('R$ ', '').replace('-R$ ', '-');
+}
+
+/** Quantidade de peças: inteiro, com separador de milhar, nunca ".00". */
+export function qtdTexto(v: number | null | undefined): string {
+  const n = Number.isFinite(Number(v)) ? Number(v) : 0;
+  return INTEIRO.format(n);
+}
+
+/** Percentual: uma casa decimal quando existe ("12,5%"), nenhuma quando é
+ *  redondo ("40%"). */
+export function pct(v: number | null | undefined): string {
+  const n = Number.isFinite(Number(v)) ? Number(v) : 0;
+  const r = Math.round(n * 10) / 10;
+  return `${r.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 }
 
 export function plural(n: number, singular: string, pluralForma: string): string {

@@ -148,7 +148,7 @@ describe('Visão geral', () => {
   it('mostra o resumo dos acertos concluídos e o Top, inativas incluídas', async () => {
     render(<Area />);
     const bloco = (await screen.findByRole('heading', { name: 'Histórico de acertos' })).closest('section')!;
-    await waitFor(() => expect(within(bloco).getByText('R$ 5.583')).toBeTruthy());
+    await waitFor(() => expect(within(bloco).getByText('R$ 5.583,00')).toBeTruthy());
     expect(within(bloco).getByText('R$ 1.518,50')).toBeTruthy();
     expect(within(bloco).getByText('R$ 4.064,50')).toBeTruthy();
     const top = screen.getByRole('list', { name: 'Top revendedoras' });
