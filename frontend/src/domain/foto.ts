@@ -35,15 +35,56 @@
  *  └─────────────────────────────────────────────────────────────────────┘
  */
 export interface ComFoto {
+  /** A principal da GALERIA — a que a pessoa escolheu. Vem antes de tudo. */
+  fotoGaleriaUrl?: string | null;
+  fotoMiniUrl?: string | null;
   fotoTratadaUrl?: string | null;
   fotoOriginalUrl?: string | null;
   fotoUrl?: string | null;
   fotoLojaUrl?: string | null;
 }
 
+/*  0. `fotoGaleriaUrl` (29/09/2026) — a PRINCIPAL da galeria própria, a
+ *     que alguém escolheu com "Definir como principal". Uma escolha
+ *     explícita vence qualquer regra de precedência, por isso ela vem antes
+ *     das quatro fontes acima. */
 export function fotoDaPeca(p: ComFoto | null | undefined): string | null {
   if (!p) return null;
-  return p.fotoTratadaUrl || p.fotoOriginalUrl || p.fotoUrl || p.fotoLojaUrl || null;
+  return p.fotoGaleriaUrl || p.fotoTratadaUrl || p.fotoOriginalUrl || p.fotoUrl || p.fotoLojaUrl || null;
+}
+
+/** A MINIATURA a pedir para a lista: a nossa (um objeto pequeno no R2)
+ *  quando a principal é da galeria; senão, a da CDN derivada da grande. */
+export function miniaturaDaPeca(p: ComFoto | null | undefined): string | null {
+  if (!p) return null;
+  if (p.fotoGaleriaUrl) return p.fotoMiniUrl || p.fotoGaleriaUrl;
+  return miniaturaDaFoto(fotoDaPeca(p));
+}
+
+export interface ComContagemDeFotos extends ComFoto {
+  fotosQtd?: number;
+  fotosDaLoja?: number;
+  fotosNaLoja?: number;
+  naLoja?: boolean | null;
+}
+
+/** As situações de foto que a lista de Peças filtra. Uma peça pode estar
+ *  em mais de uma (importada E várias fotos). */
+export type SituacaoDeFoto =
+  | 'sem_foto' | 'uma' | 'varias' | 'importadas' | 'so_na_loja' | 'fora_da_loja';
+
+export function situacoesDeFoto(p: ComContagemDeFotos): Set<SituacaoDeFoto> {
+  const s = new Set<SituacaoDeFoto>();
+  const n = p.fotosQtd ?? 0;
+  if (!fotoDaPeca(p)) s.add('sem_foto');
+  if (n === 1) s.add('uma');
+  if (n > 1) s.add('varias');
+  if ((p.fotosDaLoja ?? 0) > 0) s.add('importadas');
+  /* Aparece com foto na lista, mas os bytes não são nossos: a imagem é um
+     endereço da vitrine. É a fila de "falta copiar para o R2". */
+  if (n === 0 && fotoDaPeca(p)) s.add('so_na_loja');
+  if (p.naLoja === false) s.add('fora_da_loja');
+  return s;
 }
 
 /** A MINIATURA da CDN da Nuvemshop: o mesmo endereço com o tamanho antes

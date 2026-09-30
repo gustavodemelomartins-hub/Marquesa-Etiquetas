@@ -164,3 +164,50 @@ export async function verificarEndereco(url: string): Promise<boolean> {
     return false;
   }
 }
+
+/** Envia BYTES com método e cabeçalhos à escolha — a galeria recebe a foto
+ *  por `POST` e diz o nome do arquivo e as dimensões em cabeçalhos. Mesmo
+ *  contrato de `enviarArquivo`: JSON de volta, `ApiError` na recusa. */
+export async function enviarBytes<T>(
+  conexao: Connection,
+  metodo: 'POST' | 'PUT',
+  caminho: string,
+  arquivo: Blob,
+  cabecalhos: Record<string, string> = {},
+): Promise<T> {
+  let resposta: Response;
+  try {
+    resposta = await fetch(conexao.url + caminho, {
+      method: metodo,
+      headers: {
+        Authorization: `Bearer ${conexao.key}`,
+        'Content-Type': arquivo.type || 'application/octet-stream',
+        ...cabecalhos,
+      },
+      body: arquivo,
+    });
+  } catch {
+    throw new ApiError('Não consegui falar com o servidor. Confira a conexão.', 0, null);
+  }
+  let json: unknown = null;
+  try { json = await resposta.json(); } catch { /* vazio */ }
+  if (!resposta.ok) {
+    const doServidor = json && typeof json === 'object' && 'erro' in json
+      ? String((json as { erro: unknown }).erro) : '';
+    throw new ApiError(doServidor || `O servidor respondeu ${resposta.status}.`, resposta.status, json);
+  }
+  return json as T;
+}
+
+/** Um endereço de FOTO pronto para o `<img src>`.
+ *
+ *  Os links assinados das nossas fotos (`/api/galeria/...`,
+ *  `/api/produtos/.../foto/...`) vêm do servidor como CAMINHO, e a V2 é
+ *  publicada noutro domínio (Pages). Sem o endereço da API na frente, o
+ *  navegador pedia a foto ao Pages, levava 404 e a peça aparecia sem foto.
+ *  Endereço completo (a CDN da loja) volta intocado. */
+export function enderecoDaFoto(conexao: Connection | null | undefined, url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith('/') && !url.startsWith('//') && conexao?.url) return conexao.url + url;
+  return url;
+}

@@ -6,11 +6,22 @@
  *  permite os dois frontends conviverem sem o backend saber da diferença.
  */
 import type { AppState } from '../types/api';
-import { chamar, type Connection } from './client';
+import { chamar, enderecoDaFoto, type Connection } from './client';
 
-export function buscarEstado(
+/* Os campos de foto que o servidor manda como CAMINHO assinado. Viram
+   endereço completo aqui, uma vez, para nenhuma tela precisar lembrar. */
+const CAMPOS_DE_FOTO = ['fotoTratadaUrl', 'fotoOriginalUrl', 'fotoGaleriaUrl', 'fotoMiniUrl'] as const;
+
+export async function buscarEstado(
   conexao: Connection,
   signal?: AbortSignal,
 ): Promise<AppState> {
-  return chamar<AppState>(conexao, 'GET', '/api/state', undefined, signal ? { signal } : {});
+  const estado = await chamar<AppState>(conexao, 'GET', '/api/state', undefined, signal ? { signal } : {});
+  for (const p of (estado?.produtos ?? []) as unknown as Record<string, unknown>[]) {
+    for (const campo of CAMPOS_DE_FOTO) {
+      const v = p[campo];
+      if (typeof v === 'string') p[campo] = enderecoDaFoto(conexao, v);
+    }
+  }
+  return estado;
 }

@@ -47,3 +47,47 @@ export async function conferirAssinaturaFoto(env, sku, versao, exp, sig) {
   for (let i = 0; i < esperado.length; i++) diff |= esperado.charCodeAt(i) ^ sig.charCodeAt(i);
   return diff === 0;
 }
+
+/* ── Galeria (29/09/2026) ─────────────────────────────────────────────────
+ *
+ *  A galeria tem uma foto por LINHA, e o link é da linha, não do SKU:
+ *  `galeria|<fotoId>|<versao>|<exp>`. O prefixo impede que uma assinatura
+ *  de galeria seja aceita na rota antiga (e vice-versa).
+ *
+ *  O prazo NÃO é "agora + 6h", que mudaria o endereço a cada recarga do
+ *  estado e obrigaria o navegador a baixar de novo as mesmas 60 miniaturas.
+ *  É o fim da janela de 12h corrente MAIS 12h: dentro de uma janela o
+ *  endereço é idêntico (o cache do navegador serve), e todo link vale
+ *  entre 12h e 24h. O objeto nunca muda sob a mesma chave — trocar a foto
+ *  cria outra linha —, então servir do cache é sempre servir a foto certa. */
+const JANELA_GALERIA_SEG = 12 * 3600;
+
+export function prazoDaGaleria(agoraSeg = Math.floor(Date.now() / 1000)) {
+  return (Math.floor(agoraSeg / JANELA_GALERIA_SEG) + 2) * JANELA_GALERIA_SEG;
+}
+
+/** Um assinador por requisição: importar a chave HMAC uma vez só, e não
+ *  uma por foto — o `/api/state` assina centenas de links. */
+export function assinadorDaGaleria(env) {
+  let chave = null;
+  const exp = prazoDaGaleria();
+  return async function assinar(fotoId, versao) {
+    chave = chave || await chaveHmac(String(env?.API_KEY || ''));
+    const msg = `galeria|${fotoId}|${versao}|${exp}`;
+    const sig = paraHex(await crypto.subtle.sign('HMAC', chave, new TextEncoder().encode(msg)));
+    return `/api/galeria/${encodeURIComponent(fotoId)}/${versao}?exp=${exp}&sig=${sig}`;
+  };
+}
+
+export async function conferirAssinaturaGaleria(env, fotoId, versao, exp, sig) {
+  const expNum = parseInt(exp, 10);
+  if (!expNum || Date.now() / 1000 > expNum) return false;
+  if (!sig) return false;
+  const msg = `galeria|${fotoId}|${versao}|${expNum}`;
+  const chave = await chaveHmac(String(env?.API_KEY || ''));
+  const esperado = paraHex(await crypto.subtle.sign('HMAC', chave, new TextEncoder().encode(msg)));
+  if (esperado.length !== String(sig).length) return false;
+  let diff = 0;
+  for (let i = 0; i < esperado.length; i++) diff |= esperado.charCodeAt(i) ^ String(sig).charCodeAt(i);
+  return diff === 0;
+}

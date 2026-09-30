@@ -15,6 +15,7 @@ import { resumoInventario } from './inventario.js';
 import { resumoSync } from './sync.js';
 import { assinarFoto } from './assinatura.js';
 import { normSku } from './sku.js';
+import { resumoDasGalerias } from './catalogo/galeria.js';
 
 export async function montarState(db, env) {
   const [produtosR, revR, maletasR, itensR, configR, lojaR, catR, kitsR,
@@ -87,6 +88,32 @@ export async function montarState(db, env) {
   } catch (e) { /* migração pendente: segue sem a foto da vitrine */ }
   const chaveFoto = (sku) => normSku(sku);
 
+  /* A GALERIA (29/09/2026): quantas fotos cada peça tem aqui, quantas
+     vieram da loja, e o link da PRINCIPAL — a que a pessoa escolheu, não a
+     primeira que chegou. É ela que a lista, a busca, a venda e a ficha
+     mostram, antes de qualquer outra fonte. */
+  const galerias = await resumoDasGalerias(db, env);
+
+  /* O que a loja tem de cada código, pelo espelho: quantas fotos lá, e se o
+     código aparece em algum anúncio. `naLoja` fica `null` quando o espelho
+     está vazio — "não sei" não é "não está". */
+  const fotosNaLojaPorSku = new Map();
+  const skusNaLoja = new Set();
+  let espelhoLido = false;
+  try {
+    for (const f of (await db.prepare(
+      `SELECT sku_norm, COUNT(*) n FROM loja_fotos WHERE sku_norm IS NOT NULL GROUP BY sku_norm`).all()).results) {
+      fotosNaLojaPorSku.set(f.sku_norm, Number(f.n));
+      skusNaLoja.add(f.sku_norm);
+      espelhoLido = true;
+    }
+    for (const v of (await db.prepare(
+      `SELECT DISTINCT sku_norm FROM loja_variantes WHERE sku_norm IS NOT NULL`).all()).results) {
+      skusNaLoja.add(normSku(v.sku_norm));
+      espelhoLido = true;
+    }
+  } catch (e) { /* espelho ausente: `naLoja` fica desconhecido */ }
+
   const saldoVar = new Map(saldoVarR.results.map(r => [`${r.sku}|${r.variacao}`, r.saldo]));
   const variacoesPorSku = new Map();
   for (const v of variacoesR.results) {
@@ -146,6 +173,17 @@ export async function montarState(db, env) {
          ilustra parar de aparecer vazia no painel. */
       fotoLojaUrl: fotoLojaPorSku.get(chaveFoto(p.sku)) || undefined,
       fotoErro: p.foto_erro || undefined,
+      /* Galeria própria: a principal escolhida (grande e miniatura), e as
+         contagens que os filtros da lista usam. */
+      fotoGaleriaUrl: galerias.get(p.sku)?.grande || undefined,
+      fotoMiniUrl: galerias.get(p.sku)?.mini || undefined,
+      fotosQtd: galerias.get(p.sku)?.total || 0,
+      fotosDaLoja: galerias.get(p.sku)?.daLoja || 0,
+      fotosNaLoja: fotosNaLojaPorSku.get(chaveFoto(p.sku)) || 0,
+      naLoja: espelhoLido
+        ? (skusNaLoja.has(chaveFoto(p.sku)) || !!p.url_loja
+          || !!(variacoesPorSku.get(p.sku) || []).some((v) => v.varianteId))
+        : (p.url_loja ? true : null),
       componentes: componentes || undefined,   // presença = "isto é um kit"
       // presença = "este código é vendido em mais de uma opção, e a bipagem
       // precisa perguntar qual". Ausência = comporta-se como sempre.

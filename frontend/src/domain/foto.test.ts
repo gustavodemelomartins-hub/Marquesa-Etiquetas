@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fotoDaPeca, miniaturaDaFoto } from './foto';
+import { fotoDaPeca, miniaturaDaFoto, miniaturaDaPeca, situacoesDeFoto } from './foto';
 
 describe('qual foto mostrar', () => {
   /* A ordem é a mesma do painel legado (`resolveFotoPrincipal`). As duas
@@ -63,5 +63,32 @@ describe('miniatura da CDN', () => {
 
   it('null continua null', () => {
     expect(miniaturaDaFoto(null)).toBeNull();
+  });
+});
+
+describe('a galeria própria (29/09/2026)', () => {
+  it('a principal escolhida vence qualquer outra fonte', () => {
+    expect(fotoDaPeca({
+      fotoGaleriaUrl: 'https://api/api/galeria/f1/original?sig=x',
+      fotoTratadaUrl: '/t', fotoLojaUrl: 'https://cdn/y.jpg',
+    })).toBe('https://api/api/galeria/f1/original?sig=x');
+  });
+
+  it('a miniatura da galeria é o objeto pequeno nosso, não a CDN', () => {
+    expect(miniaturaDaPeca({ fotoGaleriaUrl: 'g', fotoMiniUrl: 'm' })).toBe('m');
+    expect(miniaturaDaPeca({ fotoGaleriaUrl: 'g' })).toBe('g');
+    expect(miniaturaDaPeca({ fotoLojaUrl: 'https://acdn.nuvemshop.com.br/a-1024-1024.jpg' }))
+      .toBe('https://acdn.nuvemshop.com.br/a-240-0.jpg');
+    expect(miniaturaDaPeca({})).toBeNull();
+  });
+
+  it('classifica as situações que a lista filtra', () => {
+    expect([...situacoesDeFoto({})]).toEqual(['sem_foto']);
+    expect([...situacoesDeFoto({ fotoGaleriaUrl: 'g', fotosQtd: 1 })]).toEqual(['uma']);
+    const varias = situacoesDeFoto({ fotoGaleriaUrl: 'g', fotosQtd: 4, fotosDaLoja: 4, naLoja: true });
+    expect(varias.has('varias') && varias.has('importadas')).toBe(true);
+    expect(situacoesDeFoto({ fotoUrl: 'https://cdn/x.jpg', fotosQtd: 0 }).has('so_na_loja')).toBe(true);
+    expect(situacoesDeFoto({ naLoja: false }).has('fora_da_loja')).toBe(true);
+    expect(situacoesDeFoto({ naLoja: null }).has('fora_da_loja')).toBe(false);
   });
 });

@@ -267,12 +267,15 @@ const f3 = await gal.adicionarFoto(db, envComR2, '100100', bytes(3), 'image/png'
   const a = await gal.galeriaDoProduto(db, '100100');
   const b = await gal.galeriaDoProduto(db, '100100');
   assert.deepEqual(a.fotos.map((x) => x.id), b.fotos.map((x) => x.id));
-  /* Principal primeiro, mesmo tendo sido posta por último na ordem pedida:
-     `principal DESC` vem antes de `ordem`, e a tela precisa disso. */
-  assert.equal(a.fotos[0].id, f3.fotoId);
+  /* Até 29/09/2026 a principal vinha sempre primeiro (`principal DESC`), e
+     reordenar era uma sugestão que a tela ignorava. Agora a ordem pedida é
+     a ordem gravada, e a principal continua sendo a que foi escolhida —
+     duas decisões independentes (ver galeria.js › ORDEM_SQL). */
+  assert.deepEqual(a.fotos.map((x) => x.id), [f2.fotoId, f1.fotoId, f3.fotoId]);
+  assert.equal(a.principal.id, f3.fotoId);
   const empatadas = raw.prepare(`SELECT COUNT(*) n FROM produto_fotos WHERE sku='100100'`).get().n;
   assert.equal(empatadas, 3);
-  prova('a ordem da galeria é determinística e a principal vem primeiro');
+  prova('a ordem da galeria é determinística, é a pedida, e não troca a principal');
 }
 
 {

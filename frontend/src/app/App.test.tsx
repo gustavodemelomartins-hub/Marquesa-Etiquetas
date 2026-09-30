@@ -193,10 +193,33 @@ describe('cada área abre na tela certa', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /C1/ }));
     expect(location.hash).toBe('#/estoque/peca%3AC1');
-    const ficha = screen.getByRole('dialog', { name: 'Ficha da peça C1' });
-    expect(within(ficha).getByText('Em casa')).toBeTruthy();
-    expect(within(ficha).getByRole('button', { name: 'Editar dados' })).toBeTruthy();
+    /* Desde 29/09/2026 a ficha é uma PÁGINA (não mais uma gaveta), com
+       cabeçalho e cinco abas. */
+    const ficha = screen.getByRole('article', { name: 'Ficha da peça C1' });
+    expect(within(ficha).getAllByText('Em casa').length).toBeGreaterThan(0);
+    expect(within(ficha).getAllByRole('button', { name: 'Editar dados' }).length).toBeGreaterThan(0);
     expect(within(ficha).getByRole('button', { name: 'Variações' })).toBeTruthy();
+    const secoes = within(ficha).getByRole('tablist', { name: 'Seções da peça' });
+    expect(within(secoes).getAllByRole('tab').map((t) => t.textContent?.replace(/\d+$/, ''))).toEqual(
+      ['Visão geral', 'Fotos', 'Estoque', 'Histórico', 'Loja online'],
+    );
+    fireEvent.click(within(secoes).getByRole('tab', { name: /Fotos/ }));
+    expect(location.hash).toBe('#/estoque/peca%3AC1%7Cfotos');
+    expect(await screen.findByRole('button', { name: /Buscar fotos na loja online/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Adicionar fotos/ })).toBeTruthy();
+
+    /* "Peças" volta para a lista. */
+    fireEvent.click(within(ficha).getByRole('button', { name: /Peças/ }));
+    expect(location.hash).toBe('#/estoque');
+    expect(screen.getByRole('heading', { level: 1, name: 'Peças' })).toBeTruthy();
+  });
+
+  it('a importação de fotos da Nuvemshop está na cara, no topo de Peças', async () => {
+    render(<App />);
+    irNoTrilho(/^Peças$/);
+    fireEvent.click(await screen.findByRole('button', { name: /Importar fotos da Nuvemshop/ }));
+    expect(location.hash).toBe('#/estoque/importar-fotos');
+    expect(await screen.findByRole('dialog', { name: 'Importar fotos da Nuvemshop' })).toBeTruthy();
   });
 
   it('o Resumo traz os números do estoque, sem a lista inteira embaixo', async () => {

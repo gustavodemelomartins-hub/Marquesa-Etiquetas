@@ -260,7 +260,18 @@ CREATE TABLE IF NOT EXISTS produto_fotos (
   estado        TEXT NOT NULL DEFAULT 'original'
     CHECK (estado IN ('original','preparada','aprovada','publicada')),
   erro          TEXT,
-  criado_em     TEXT NOT NULL DEFAULT (datetime('now'))
+  criado_em     TEXT NOT NULL DEFAULT (datetime('now')),
+  -- migracao-galeria-fotos.sql (29/09/2026): miniatura, procedência da loja
+  -- e remoção com memória. Ver docs/domains/GALERIA-FOTOS-PECAS.md.
+  miniatura_key    TEXT,
+  miniatura_tipo   TEXT,
+  miniatura_tam    INTEGER,
+  largura          INTEGER,
+  altura           INTEGER,
+  produto_id_loja  TEXT,
+  variante_id_loja TEXT,
+  posicao_loja     INTEGER,
+  removida_em      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_produto_fotos_sku ON produto_fotos(sku, ordem);
 -- UMA principal por peça, garantida pelo banco e não pela disciplina de
@@ -271,6 +282,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_produto_fotos_principal
 -- O mesmo arquivo não entra duas vezes no mesmo código.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_produto_fotos_conteudo
   ON produto_fotos(sku, conteudo_hash) WHERE conteudo_hash IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_produto_fotos_imagem_loja
+  ON produto_fotos(sku, imagem_id_loja) WHERE imagem_id_loja IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_produto_fotos_viva
+  ON produto_fotos(sku, removida_em, ordem);
 
 -- ═══════════════════════════════════════════════ FASE 4.5 · LOTE DE FOTOS
 --

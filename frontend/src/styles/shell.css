@@ -399,6 +399,17 @@
   z-index: 56;
 }
 .mq-drawer { z-index: 56; }
+/* No computador o trilho fica À VISTA (z 60, acima da cortina), então o
+   centro do diálogo é o centro da ÁREA DE CONTEÚDO, não o da janela. Um
+   diálogo largo centrado na janela passava por baixo do trilho e perdia o
+   começo do título e dos números (visto em 29/09/2026 no "Importar fotos"
+   e no "Novo produto", a 1280 px). */
+@media (min-width: 901px) {
+  .mq-modal {
+    left: calc(50% + var(--mq-rail) / 2);
+    max-width: calc(100vw - var(--mq-rail) - 32px);
+  }
+}
 @media (max-width: 600px) {
   /* No telefone a folha sobe de baixo, como o sistema operacional faz. */
   .mq-modal { top: auto; bottom: 0; transform: translateX(-50%); margin: 0; }

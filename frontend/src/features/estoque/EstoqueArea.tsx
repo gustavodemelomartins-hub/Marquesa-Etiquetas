@@ -3,6 +3,7 @@ import type { AppState } from '../../types/api';
 import { EstoqueTotalPage } from '../estoque-total/EstoqueTotalPage';
 import { PainelEstoque } from '../estoque-total/PainelEstoque';
 import { PecasArea } from './PecasArea';
+import { ABAS_DA_FICHA, type AbaDaFicha } from './FichaDaPeca';
 import { InventarioArea } from '../inventario/InventarioArea';
 import { AnaliseDeSaidas } from '../saidas/AnaliseDeSaidas';
 import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
@@ -10,8 +11,10 @@ import type { UsoPlanejamento } from '../../hooks/usePlanejamento';
 /** As telas do módulo Peças, e o endereço de cada uma:
  *
  *    #/estoque                 a lista de peças (a porta)
- *    #/estoque/peca:<sku>      a lista com a ficha de uma peça aberta
+ *    #/estoque/peca:<sku>      a ficha de uma peça (página própria)
+ *    #/estoque/peca:<sku>|fotos  a ficha já na aba de fotos (idem as outras abas)
  *    #/estoque/novo            a lista com o cadastro de peça nova aberto
+ *    #/estoque/importar-fotos  a lista com a importação de fotos da loja aberta
  *    #/estoque/incompletas     a lista filtrada no cadastro incompleto
  *    #/estoque/resumo          onde está o patrimônio
  *    #/estoque/entrada         peça nova, uma a uma ou por planilha
@@ -36,12 +39,25 @@ const ABAS: { id: SubRotaEstoque; rotulo: string; rota: string | null }[] = [
 export function lerSubEstoque(sub: string | null): {
   aba: SubRotaEstoque;
   peca: string | null;
+  abaDaFicha: AbaDaFicha;
   criando: boolean;
   incompletas: boolean;
+  importandoFotos: boolean;
 } {
   const s = sub ?? '';
-  const base = { peca: null, criando: false, incompletas: false };
-  if (s.startsWith('peca:')) return { ...base, aba: 'pecas', peca: s.slice(5) || null };
+  const base = { peca: null, abaDaFicha: 'geral' as AbaDaFicha, criando: false, incompletas: false, importandoFotos: false };
+  if (s.startsWith('peca:')) {
+    /* `peca:<sku>|<aba>`. O separador é a ÚLTIMA barra vertical, e só vale
+       se o que vem depois é uma aba conhecida — um SKU com "|" no meio
+       continua sendo o SKU inteiro. */
+    const resto = s.slice(5);
+    const corte = resto.lastIndexOf('|');
+    const talvez = corte >= 0 ? resto.slice(corte + 1) : '';
+    const abaDaFicha = ABAS_DA_FICHA.find((a) => a.id === talvez)?.id;
+    const peca = abaDaFicha ? resto.slice(0, corte) : resto;
+    return { ...base, aba: 'pecas', peca: peca || null, abaDaFicha: abaDaFicha ?? 'geral' };
+  }
+  if (s === 'importar-fotos') return { ...base, aba: 'pecas', importandoFotos: true };
   if (s === 'novo') return { ...base, aba: 'pecas', criando: true };
   if (s === 'incompletas') return { ...base, aba: 'pecas', incompletas: true };
   if (s === 'resumo' || s === 'estoque-total') return { ...base, aba: 'resumo' };
@@ -94,9 +110,12 @@ export function EstoqueArea({
           erro={null}
           recarregar={aoMudarEstoque}
           pecaAberta={rota.peca}
-          aoAbrirPeca={(sku) => aoNavegar(sku ? `peca:${sku}` : null)}
+          abaDaFicha={rota.abaDaFicha}
+          aoAbrirPeca={(sku, aba) => aoNavegar(sku ? (aba && aba !== 'geral' ? `peca:${sku}|${aba}` : `peca:${sku}`) : null)}
           criando={rota.criando}
           aoCriar={(abrir) => aoNavegar(abrir ? 'novo' : null)}
+          importandoFotos={rota.importandoFotos}
+          aoImportarFotos={(abrir) => aoNavegar(abrir ? 'importar-fotos' : null)}
           filtroInicial={rota.incompletas ? 'incompleto' : 'ativo'}
         />
       )}

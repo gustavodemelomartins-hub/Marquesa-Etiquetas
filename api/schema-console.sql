@@ -22,13 +22,17 @@ CREATE TABLE IF NOT EXISTS produtos_pendentes ( sku TEXT PRIMARY KEY, desc TEXT,
 
 CREATE TABLE IF NOT EXISTS fotos_orfas ( id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT NOT NULL, sku_loja TEXT, nome_loja TEXT, produto_id TEXT, visto_em TEXT NOT NULL DEFAULT (datetime('now')) );
 
-CREATE TABLE IF NOT EXISTS produto_fotos ( id TEXT PRIMARY KEY, sku TEXT NOT NULL REFERENCES produtos(sku), ordem INTEGER NOT NULL DEFAULT 0, principal INTEGER NOT NULL DEFAULT 0, origem TEXT NOT NULL DEFAULT 'upload', arquivo_nome TEXT, lote_id TEXT, conteudo_hash TEXT, original_key TEXT, original_tipo TEXT, original_tam INTEGER, original_em TEXT, preparada_key TEXT, preparada_tipo TEXT, preparada_tam INTEGER, preparada_em TEXT, aprovada_em TEXT, aprovada_por TEXT, publicada_em TEXT, imagem_id_loja TEXT, url_externa TEXT, estado TEXT NOT NULL DEFAULT 'original' CHECK (estado IN ('original','preparada','aprovada','publicada')), erro TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')) );
+CREATE TABLE IF NOT EXISTS produto_fotos ( id TEXT PRIMARY KEY, sku TEXT NOT NULL REFERENCES produtos(sku), ordem INTEGER NOT NULL DEFAULT 0, principal INTEGER NOT NULL DEFAULT 0, origem TEXT NOT NULL DEFAULT 'upload', arquivo_nome TEXT, lote_id TEXT, conteudo_hash TEXT, original_key TEXT, original_tipo TEXT, original_tam INTEGER, original_em TEXT, preparada_key TEXT, preparada_tipo TEXT, preparada_tam INTEGER, preparada_em TEXT, aprovada_em TEXT, aprovada_por TEXT, publicada_em TEXT, imagem_id_loja TEXT, url_externa TEXT, estado TEXT NOT NULL DEFAULT 'original' CHECK (estado IN ('original','preparada','aprovada','publicada')), erro TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')), miniatura_key TEXT, miniatura_tipo TEXT, miniatura_tam INTEGER, largura INTEGER, altura INTEGER, produto_id_loja TEXT, variante_id_loja TEXT, posicao_loja INTEGER, removida_em TEXT );
 
 CREATE INDEX IF NOT EXISTS idx_produto_fotos_sku ON produto_fotos(sku, ordem);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_produto_fotos_principal ON produto_fotos(sku) WHERE principal = 1;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_produto_fotos_conteudo ON produto_fotos(sku, conteudo_hash) WHERE conteudo_hash IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_produto_fotos_imagem_loja ON produto_fotos(sku, imagem_id_loja) WHERE imagem_id_loja IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_produto_fotos_viva ON produto_fotos(sku, removida_em, ordem);
 
 CREATE TABLE IF NOT EXISTS fotos_lotes ( id TEXT PRIMARY KEY, estado TEXT NOT NULL DEFAULT 'analisado' CHECK (estado IN ('analisado','confirmado','cancelado')), criado_em TEXT NOT NULL DEFAULT (datetime('now')), criado_por TEXT, confirmado_em TEXT, arquivos INTEGER NOT NULL DEFAULT 0, vinculados INTEGER NOT NULL DEFAULT 0, pendentes INTEGER NOT NULL DEFAULT 0, erros INTEGER NOT NULL DEFAULT 0, resumo_json TEXT );
 

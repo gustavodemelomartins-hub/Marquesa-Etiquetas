@@ -8,12 +8,15 @@
  *  toca no banco e não conta nada sobre o negócio.
  *
  *  Qualquer rota nova entra na tabela autenticada. Esta lista é fechada por
- *  decisão, e o inventário de contratos verifica que ela continua com três
- *  linhas — ver scripts/api-contracts.test.mjs. */
+ *  decisão, e o inventário de contratos verifica cada linha — ver
+ *  scripts/api-contracts.test.mjs. A quarta (a foto da galeria, 29/09/2026)
+ *  segue o MESMO modelo da foto por código: link assinado com prazo. */
 import { json, respostaNaoAutorizada } from '../../auth.js';
 import { trocarCodigoPorToken } from '../../nuvemshop-oauth.js';
-import { conferirAssinaturaFoto } from '../../assinatura.js';
+import { conferirAssinaturaFoto, conferirAssinaturaGaleria } from '../../assinatura.js';
 import { lerFotoParaServir } from '../../fotos.js';
+import { lerFoto } from '../../fotos-storage.js';
+import { chaveParaServir } from '../../catalogo/galeria.js';
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 
@@ -43,6 +46,27 @@ export const rotas = [
       if (!foto) return new Response('Foto não encontrada', { status: 404 });
       return new Response(foto.corpo, {
         headers: { 'Content-Type': foto.tipo, 'Cache-Control': 'private, max-age=21600' },
+      });
+    },
+  },
+  {
+    /* A foto da GALERIA (29/09/2026) — mesma ideia da rota acima, mas por
+       foto e não por código: `<img src>` não manda o Bearer, então o link
+       carrega uma assinatura HMAC com prazo (assinatura.js). O objeto sob
+       uma chave nunca muda (trocar a foto cria outra linha), por isso o
+       navegador pode guardar a resposta pelo prazo do próprio link. */
+    metodo: 'GET', caminho: '/api/galeria/:id/:versao', auth: 'sem-bearer',
+    padroes: { versao: 'original|preparada|miniatura' },
+    async handler({ env, url, params }) {
+      const id = decodeURIComponent(params.id);
+      const ok = await conferirAssinaturaGaleria(
+        env, id, params.versao, url.searchParams.get('exp'), url.searchParams.get('sig'));
+      if (!ok) return respostaNaoAutorizada();
+      const chave = await chaveParaServir(env.DB, id, params.versao);
+      const foto = chave ? await lerFoto(env, chave) : null;
+      if (!foto) return new Response('Foto não encontrada', { status: 404 });
+      return new Response(foto.corpo, {
+        headers: { 'Content-Type': foto.tipo, 'Cache-Control': 'private, max-age=86400' },
       });
     },
   },

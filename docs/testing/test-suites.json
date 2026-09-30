@@ -198,6 +198,28 @@
       "duration": "<3s"
     },
     {
+      "id": "galeria-fotos",
+      "level": "domain",
+      "mode": "local",
+      "description": "Galeria da peca e importacao das fotos da loja para o R2 (Worker real, R2/loja/CDN falsos)",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/galeria-fotos-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<5s"
+    },
+    {
       "id": "sku-normalizacao",
       "level": "fast",
       "mode": "local",
@@ -707,7 +729,8 @@
         "stephanie-ui-test.mjs",
         "v2-paridade-e2e.mjs",
         "v2-camera-e2e.mjs",
-        "v2-conciliacao-ui.mjs"
+        "v2-conciliacao-ui.mjs",
+        "v2-galeria-e2e.mjs"
       ]
     },
     {

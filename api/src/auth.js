@@ -42,7 +42,10 @@ export function corsHeaders(req, env) {
   return {
     'Access-Control-Allow-Origin': permitir,
     'Access-Control-Allow-Methods': 'GET,POST,PATCH,PUT,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    /* Os X-* são da galeria (29/09/2026): o upload diz o nome do arquivo e
+       as dimensões em cabeçalho, porque o corpo são os bytes da foto. Sem
+       eles aqui, o navegador barrava o upload na pré-verificação. */
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Arquivo, X-Largura, X-Altura, X-Principal',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };

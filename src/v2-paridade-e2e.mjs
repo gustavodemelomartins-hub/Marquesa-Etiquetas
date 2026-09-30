@@ -243,7 +243,8 @@ const primeira = p.locator('.mq-table--pecas button.mq-tr').first();
 if (await primeira.count()) {
   await primeira.click();
   await p.waitForTimeout(700);
-  const ficha = p.locator('[role="dialog"][aria-label^="Ficha da peça"]');
+  /* Desde 29/09/2026 a ficha é uma PÁGINA (`<article>`), não mais gaveta. */
+  const ficha = p.locator('article[aria-label^="Ficha da peça"]');
   prova(await ficha.count() === 1, 'tocar numa peça abre a ficha dela');
   await ficha.locator('button', { hasText: 'Variações' }).click();
   await p.waitForTimeout(700);

@@ -168,10 +168,16 @@ function AppConectado({
         <EstoqueArea
           conexao={conexao}
           sub={rota.sub}
-          /* Trocar de aba e abrir/fechar a ficha substituem o endereço: o
-             voltar do navegador sai do módulo, em vez de desfazer cada
-             ficha aberta uma a uma. */
-          aoNavegar={(sub) => trocar({ modulo: 'estoque', sub })}
+          /* Trocar de aba e fechar a ficha substituem o endereço. ABRIR a
+             ficha empilha: desde 29/09/2026 ela é uma página inteira, e no
+             celular o "voltar" tem de voltar para a lista — não sair de
+             Peças. Trocar de aba DENTRO da ficha substitui, para o voltar
+             não desfazer aba por aba. */
+          aoNavegar={(sub) => {
+            const abrindoFicha = !!sub && sub.startsWith('peca:')
+              && !(rota.sub ?? '').startsWith('peca:');
+            (abrindoFicha ? ir : trocar)({ modulo: 'estoque', sub });
+          }}
           estado={estado.dados}
           planejamento={planejamento}
           aoVerPlanejamento={() => ir({ modulo: 'revendedoras', sub: 'configuracoes' })}

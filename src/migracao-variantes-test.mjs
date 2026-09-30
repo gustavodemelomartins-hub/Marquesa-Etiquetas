@@ -142,6 +142,7 @@ const MIGRACOES = [
   /* §46 (29/09/2026) — o valor gravado na saída sem faturamento e a
      auditoria dele. Depois de `vendas-historico`, cujo item ela lê. */
   'api/migracao-saida-valor.sql',
+  'api/migracao-galeria-fotos.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com

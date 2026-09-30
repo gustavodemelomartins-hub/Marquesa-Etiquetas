@@ -14,20 +14,31 @@
 import { json } from '../../auth.js';
 import {
   galeriaDoProduto, adicionarFoto, registrarPreparada, aprovarFoto,
-  definirPrincipal, reordenarGaleria, removerFotoDaGaleria,
+  definirPrincipal, reordenarGaleria, removerFotoDaGaleria, registrarMiniatura,
 } from '../../catalogo/galeria.js';
+import {
+  analisarFotosDaLoja, planejarImportacao, importarLoteDaLoja, importarFotosDaPeca, ultimaAnalise,
+} from '../../catalogo/fotos-da-loja.js';
 import {
   analisarLote, lerLote, enviarArquivoDoLote, confirmarLote, cancelarLote,
 } from '../../catalogo/lote-de-fotos.js';
 
 const sku = (params) => decodeURIComponent(params.sku);
 const codigo = (r, padrao = 200) => (r.ok ? padrao : (r.statusHttp ?? 400));
+/* O nome vem codificado (cabeçalho HTTP não carrega "ç" nem "ã"); um nome
+   antigo, cru, com "%" solto não pode derrubar o upload. */
+const nomeDoArquivo = (v) => {
+  if (!v) return null;
+  try { return decodeURIComponent(v); } catch { return v; }
+};
 
 export const rotas = [
   {
     metodo: 'GET', caminho: '/api/produtos/:sku/galeria', auth: 'bearer',
-    async handler({ db, params }) {
-      return json(await galeriaDoProduto(db, sku(params)));
+    async handler({ db, env, params }) {
+      /* Com `env`: cada foto sai com os links assinados de miniatura e
+         grande, que é o que o `<img>` da tela usa. */
+      return json(await galeriaDoProduto(db, sku(params), env));
     },
   },
   {
@@ -38,9 +49,12 @@ export const rotas = [
     async handler({ db, env, request, params }) {
       const tipo = (request.headers.get('Content-Type') || '').split(';')[0].trim();
       const bytes = await request.arrayBuffer();
+      const dim = (nome) => parseInt(request.headers.get(nome) || '', 10) || null;
       const r = await adicionarFoto(db, env, sku(params), bytes, tipo, {
-        arquivoNome: request.headers.get('X-Arquivo') || null,
+        arquivoNome: nomeDoArquivo(request.headers.get('X-Arquivo')),
         principal: request.headers.get('X-Principal') === '1',
+        largura: dim('X-Largura'),
+        altura: dim('X-Altura'),
       });
       return json(r, codigo(r, 201));
     },
@@ -85,6 +99,64 @@ export const rotas = [
     async handler({ db, request, params }) {
       const b = await request.json().catch(() => ({}));
       const r = await reordenarGaleria(db, sku(params), b.ordem);
+      return json(r, codigo(r));
+    },
+  },
+
+  {
+    /* A miniatura é um objeto PRÓPRIO, ao lado do original. O navegador a
+       produz no upload; o Worker não redimensiona imagem. */
+    metodo: 'PUT', caminho: '/api/galeria/:id/miniatura', auth: 'bearer',
+    async handler({ db, env, request, params }) {
+      const tipo = (request.headers.get('Content-Type') || '').split(';')[0].trim();
+      const bytes = await request.arrayBuffer();
+      const r = await registrarMiniatura(db, env, decodeURIComponent(params.id), bytes, tipo);
+      return json(r, codigo(r));
+    },
+  },
+
+  /* ── fotos da loja online → galeria (29/09/2026) ──────────────────────
+     Leitura da Nuvemshop e escrita só aqui dentro. Nenhuma destas rotas
+     escreve na loja, lê pedido ou movimenta estoque. */
+  {
+    /* O plano a partir do espelho já gravado — sem falar com a loja. */
+    metodo: 'GET', caminho: '/api/fotos/loja/plano', auth: 'bearer',
+    async handler({ db }) {
+      const p = await planejarImportacao(db);
+      return json({
+        ok: true, resumo: p.resumo, ultimaAnalise: await ultimaAnalise(db),
+        revisar: p.revisar.slice(0, 300), semPeca: p.semPeca.slice(0, 300),
+        skusParaRevisar: p.skusParaRevisar,
+      });
+    },
+  },
+  {
+    /* O dry-run da migração em massa: lê a loja inteira, atualiza o
+       espelho e conta. Nenhuma foto é baixada. */
+    metodo: 'POST', caminho: '/api/fotos/loja/analisar', auth: 'bearer',
+    async handler({ db, env }) {
+      const r = await analisarFotosDaLoja(db, env);
+      return json(r, codigo(r));
+    },
+  },
+  {
+    /* O próximo lote. A tela repete enquanto `restantes` > 0. */
+    metodo: 'POST', caminho: '/api/fotos/loja/importar', auth: 'bearer',
+    async handler({ db, env, request }) {
+      const b = await request.json().catch(() => ({}));
+      const r = await importarLoteDaLoja(db, env, { limite: b.limite, ignorar: b.ignorar ?? [] });
+      return json(r, codigo(r));
+    },
+  },
+  {
+    /* De dentro da ficha: `seco` (padrão) mostra o que viria; `seco:false`
+       importa. */
+    metodo: 'POST', caminho: '/api/produtos/:sku/galeria/importar-da-loja', auth: 'bearer',
+    async handler({ db, env, request, params }) {
+      const b = await request.json().catch(() => ({}));
+      const r = await importarFotosDaPeca(db, env, sku(params), {
+        seco: b.seco !== false, limite: b.limite, ignorar: b.ignorar ?? [],
+      });
       return json(r, codigo(r));
     },
   },

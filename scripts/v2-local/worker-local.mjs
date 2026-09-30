@@ -50,8 +50,40 @@ const DB = {
 const { default: worker } = await import(pathToFileURL(path.join(raiz, 'api/src/index.js')).href);
 const env = { DB, API_KEY: 'chave-local-de-teste' };
 
+/* FOTOS (29/09/2026): `MQ_LOCAL_FOTOS=1` liga um R2 EM MEMÓRIA e uma loja
+   online FALSA, também local (127.0.0.1, porta da API + 11). Continua sem
+   caminho nenhum para a nuvem: o R2 é um Map deste processo e a "Nuvemshop"
+   é `loja-falsa-fotos.mjs`. A escrita na loja fica desligada. */
+if (process.env.MQ_LOCAL_FOTOS === '1') {
+  const { subirLojaFalsaDeFotos } = await import('./loja-falsa-fotos.mjs');
+  const loja = subirLojaFalsaDeFotos(porta + 11);
+  const objetos = new Map();
+  env.FOTOS = {
+    async put(k, b, o) {
+      const bytes = b instanceof ArrayBuffer ? b : await new Response(b).arrayBuffer();
+      objetos.set(k, { bytes, tipo: o?.httpMetadata?.contentType });
+    },
+    async get(k) {
+      const o = objetos.get(k);
+      return o ? { body: new Uint8Array(o.bytes), size: o.bytes.byteLength, httpMetadata: { contentType: o.tipo } } : null;
+    },
+    async delete(k) { objetos.delete(k); },
+  };
+  Object.assign(env, {
+    NUVEMSHOP_STORE_ID: '123', NUVEMSHOP_TOKEN: 'token-da-loja-falsa',
+    NUVEMSHOP_BASE: loja.base, NUVEMSHOP_WRITES_ENABLED: 'false',
+  });
+  globalThis.__r2Local = objetos;
+  console.log(`Fotos: R2 em memória + loja falsa em ${loja.base}`);
+}
+
 createServer(async (req, res) => {
   const url = `http://127.0.0.1:${porta}${req.url}`;
+  if (req.url === '/__r2' && globalThis.__r2Local) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify([...globalThis.__r2Local.keys()]));
+    return;
+  }
   const corpo = ['GET', 'HEAD'].includes(req.method) ? undefined : await new Promise((ok) => {
     const p = []; req.on('data', (c) => p.push(c)); req.on('end', () => ok(Buffer.concat(p)));
   });

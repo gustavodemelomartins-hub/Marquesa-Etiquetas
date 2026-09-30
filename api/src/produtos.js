@@ -206,9 +206,12 @@ export async function excluirProduto(db, sku, env = null) {
   if (env && env.FOTOS) {
     try {
       const { results } = await db.prepare(
-        `SELECT original_key, preparada_key FROM produto_fotos WHERE sku = ?`).bind(k).all();
+        `SELECT * FROM produto_fotos WHERE sku = ?`).bind(k).all();
       for (const f of results ?? []) {
-        for (const chave of [f.original_key, f.preparada_key]) {
+        /* `*` e não a lista de colunas: `miniatura_key` só existe depois de
+           migracao-galeria-fotos.sql, e nomeá-la derrubaria este passo num
+           banco que ainda não a recebeu. */
+        for (const chave of [f.original_key, f.preparada_key, f.miniatura_key]) {
           if (!chave) continue;
           await env.FOTOS.delete(chave);
           fotosNoArmazenamento++;
