@@ -8,7 +8,7 @@ import { miniaturaDaFoto } from '../../../domain/foto';
 import { Ampliada } from './Ampliada';
 import {
   lerGaleria, definirPrincipal, reordenar, removerFoto, enviarFoto, prepararImagem,
-  buscarNaLoja, mover, ORIGEM, type FotoDaGaleria, type ResultadoDaPeca,
+  buscarNaLoja, mover, ORIGEM, type FotoDaGaleria, type Galeria, type ResultadoDaPeca,
 } from './api';
 
 interface Props {
@@ -19,6 +19,10 @@ interface Props {
   aoMudar: () => void;
   /** Abrir já procurando na loja (o botão da aba "Loja online"). */
   buscarAoAbrir?: boolean;
+  /** A galeria acabou de ser lida do servidor: o topo da ficha usa ESTA
+   *  contagem e ESTA principal, e não as do estado geral, que pode estar
+   *  velho (ou não ter recarregado). */
+  aoLer?: (g: Galeria) => void;
 }
 
 type Loja =
@@ -42,8 +46,11 @@ const tamanhoLegivel = (n: number | null) => (n == null ? '—'
  *
  *  Toda ação grava na hora e relê do servidor: a ordem que aparece é a
  *  ordem que está no banco, e não uma que só existe nesta aba. */
-export function GaleriaDaPeca({ conexao, sku, desc, aoMudar, buscarAoAbrir = false }: Props) {
+export function GaleriaDaPeca({ conexao, sku, desc, aoMudar, buscarAoAbrir = false, aoLer }: Props) {
   const galeria = useApi((s) => lerGaleria(conexao, sku, s), [conexao, sku]);
+  const aoLerRef = useRef(aoLer);
+  aoLerRef.current = aoLer;
+  useEffect(() => { if (galeria.dados) aoLerRef.current?.(galeria.dados); }, [galeria.dados]);
   const [ordemLocal, setOrdemLocal] = useState<string[] | null>(null);
   const [selecionada, setSelecionada] = useState<string | null>(null);
   const [ampliada, setAmpliada] = useState<number | null>(null);

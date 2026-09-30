@@ -398,9 +398,25 @@ const peca = (sku) => estado.produtos.find((p) => p.sku === sku);
   assert.match(semChave.headers.get('cache-control') || '', /max-age/);
   const forjado = peca('VARIAS').fotoMiniUrl.replace(/sig=[0-9a-f]{4}/, 'sig=0000');
   assert.equal((await worker.fetch(new Request(`http://api.local${forjado}`), envComR2)).status, 401);
-  const outraFoto = peca('VARIAS').fotoMiniUrl.replace(principal, 'id-que-nao-e-este');
-  assert.equal((await worker.fetch(new Request(`http://api.local${outraFoto}`), envComR2)).status, 401,
-    'a assinatura de uma foto abriu outra');
+  /* Assinatura da JANELA (um HMAC por /api/state, não um por foto — o plano
+     gratuito dá 10 ms de CPU): links de peças diferentes carregam a mesma. */
+  const sigDe = (u) => new URL(u, 'http://x').searchParams.get('sig');
+  const outraPeca = (await api('GET', '/api/state')).corpo.produtos.find((p) => p.fotoMiniUrl && p.sku !== 'VARIAS');
+  if (outraPeca) assert.equal(sigDe(outraPeca.fotoMiniUrl), sigDe(peca('VARIAS').fotoMiniUrl), 'o state assinou foto a foto');
+  const inexistente = peca('VARIAS').fotoMiniUrl.replace(principal, 'id-que-nao-e-este');
+  assert.equal((await worker.fetch(new Request(`http://api.local${inexistente}`), envComR2)).status, 404);
+  const prazoMexido = peca('VARIAS').fotoMiniUrl.replace(/exp=(\d+)/, (_, e) => `exp=${Number(e) + 43200}`);
+  assert.equal((await worker.fetch(new Request(`http://api.local${prazoMexido}`), envComR2)).status, 401,
+    'estender o prazo à mão abriu a foto');
+  /* Link antigo, assinado foto a foto, ainda abre até o prazo dele. */
+  const expAtual = new URL(peca('VARIAS').fotoMiniUrl, 'http://x').searchParams.get('exp');
+  const chave = await crypto.subtle.importKey('raw', new TextEncoder().encode(envComR2.API_KEY),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sigAntiga = Buffer.from(await crypto.subtle.sign('HMAC', chave,
+    new TextEncoder().encode(`galeria|${principal}|miniatura|${expAtual}`))).toString('hex');
+  const antigo = `/api/galeria/${principal}/miniatura?exp=${expAtual}&sig=${sigAntiga}`;
+  assert.equal((await worker.fetch(new Request(`http://api.local${antigo}`), envComR2)).status, 200,
+    'o link assinado foto a foto parou de abrir');
   const de2 = (await api('GET', '/api/state')).corpo.produtos.find((p) => p.sku === 'VARIAS');
   assert.equal(de2.fotoMiniUrl, peca('VARIAS').fotoMiniUrl, 'o endereço mudou entre duas leituras — o cache do navegador não serve');
   prova('o state traz a principal (miniatura e grande) e as contagens; o link assinado abre, o forjado não');

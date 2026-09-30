@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Connection } from '../../../services/client';
+import { chamar, type Connection } from '../../../services/client';
+import { ApiError } from '../../../types/api';
 import { Icone } from '../../../components/Icone';
 import { miniaturaDaFoto } from '../../../domain/foto';
-import { analisarLoja, importarLote, type Analise, type GrupoParaRevisar } from './api';
+import { analisarLoja, importarLote, lerPlano, type Analise, type GrupoParaRevisar, type Lote } from './api';
 
 interface Props {
   conexao: Connection;
@@ -10,14 +11,22 @@ interface Props {
   /** A importação mudou fotos: quem mostra a lista relê o estado. */
   aoTerminar: () => void;
   aoAbrirPeca: (sku: string) => void;
+  /** Espera base entre tentativas depois de uma queda (ms). Só o teste muda. */
+  pausaEntreQuedas?: number;
 }
 
-/** Fotos por chamada. Cada foto são duas buscas na CDN (original e
- *  miniatura); 12 deixa folga para o teto de subrequisições do Worker. */
-const LOTE = 12;
+/** Fotos por chamada. Cada foto são duas buscas na CDN e um hash; o plano
+ *  gratuito do Worker dá 10 ms de CPU por chamada, e 12 chegou a estourar. */
+const LOTE = 6;
+/** Fotos que a importação pula sozinha numa rodada (cada uma derrubou o
+ *  servidor mesmo sozinha). Passou disso, o problema não é a foto. */
+const MAX_PULADAS = 10;
+
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const quedaDeRede = (e: unknown) => e instanceof ApiError && e.status === 0;
 
 type Fase =
-  | { f: 'lendo' }
+  | { f: 'lendo'; loja: boolean }
   | { f: 'erro'; msg: string }
   | { f: 'pronto'; a: Analise }
   | { f: 'importando'; a: Analise; feitas: number; falhas: Falha[]; parar: boolean }
@@ -34,20 +43,52 @@ const n = (v: number | undefined) => (v ?? 0).toLocaleString('pt-BR');
  *  são novas e quais precisam de uma pessoa. Só então, com um toque,
  *  importa, em lotes curtos, com a barra andando. Parar no meio não perde
  *  nada: o que entrou, entrou; rodar de novo continua de onde parou. */
-export function ImportarFotosDaLoja({ conexao, aoFechar, aoTerminar, aoAbrirPeca }: Props) {
-  const [fase, setFase] = useState<Fase>({ f: 'lendo' });
+export function ImportarFotosDaLoja({ conexao, aoFechar, aoTerminar, aoAbrirPeca, pausaEntreQuedas = 1500 }: Props) {
+  const [fase, setFase] = useState<Fase>({ f: 'lendo', loja: false });
+  /** Quando a loja foi lida pela última vez — as contas vêm dessa leitura. */
+  const [lidaEm, setLidaEm] = useState<string | null>(null);
   const parar = useRef(false);
   const importou = useRef(false);
 
-  async function ler() {
-    setFase({ f: 'lendo' });
+  /* Abrir NÃO relê a loja: o plano sai do espelho gravado na última
+     leitura, que é barato. Reler o catálogo inteiro (a chamada mais pesada
+     do servidor) só quando não há leitura nenhuma, ou quando a pessoa pede. */
+  async function ler(daLoja = false) {
+    setFase({ f: 'lendo', loja: daLoja });
     try {
+      if (!daLoja) {
+        const p = await lerPlano(conexao);
+        if (p.ok && p.ultimaAnalise) {
+          setLidaEm(p.ultimaAnalise.em);
+          setFase({
+            f: 'pronto',
+            a: {
+              ok: true,
+              resumo: {
+                ...p.resumo,
+                anunciosNaLoja: p.ultimaAnalise.anunciosNaLoja,
+                anunciosSemFoto: p.ultimaAnalise.anunciosSemFoto,
+              },
+              revisar: p.revisar ?? [], semPeca: p.semPeca ?? [], amostra: [],
+              skusParaRevisar: p.skusParaRevisar ?? [],
+            },
+          });
+          return;
+        }
+        setFase({ f: 'lendo', loja: true });
+      }
       const a = await analisarLoja(conexao);
       if (!a.ok) setFase({ f: 'erro', msg: a.erro || 'A loja online não respondeu.' });
-      else setFase({ f: 'pronto', a });
+      else { setLidaEm(new Date().toISOString()); setFase({ f: 'pronto', a }); }
     } catch (e) {
       setFase({ f: 'erro', msg: e instanceof Error ? e.message : 'A loja online não respondeu.' });
     }
+  }
+
+  /** O servidor está de pé? Separa "esta foto derruba o servidor" de "a
+   *  internet caiu" — só no primeiro caso a foto pode ser pulada. */
+  async function servidorNoAr() {
+    try { await chamar(conexao, 'GET', '/api/health'); return true; } catch { return false; }
   }
 
   useEffect(() => { void ler(); // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -71,10 +112,39 @@ export function ImportarFotosDaLoja({ conexao, aoFechar, aoTerminar, aoAbrirPeca
     let feitas = 0;
     setFase({ f: 'importando', a, feitas, falhas, parar: false });
     let interrompida = false;
+    /* Queda sem resposta (o Worker estourou o limite numa chamada): repete
+       com lote menor, 6 → 3 → 1. Se UMA foto sozinha derruba, ela é pulada
+       com o motivo — mas só com o servidor comprovadamente no ar, e no
+       máximo MAX_PULADAS vezes; senão para e diz. */
+    let limite = LOTE;
+    let quedas = 0;
+    let puladas = 0;
+    let proximos: { imagemId: string; sku: string }[] = [];
     try {
-      for (let volta = 0; volta < 1000; volta++) {
+      for (let volta = 0; volta < 3000; volta++) {
         if (parar.current) { interrompida = true; break; }
-        const r = await importarLote(conexao, LOTE, ignorar);
+        let r: Lote;
+        try {
+          r = await importarLote(conexao, limite, ignorar);
+        } catch (e) {
+          if (!quedaDeRede(e)) throw e;
+          quedas++;
+          await esperar(pausaEntreQuedas * quedas);
+          if (limite > 1) { limite = limite > 3 ? 3 : 1; continue; }
+          if (quedas < 4) continue;
+          const suspeita = proximos[0];
+          if (!suspeita || puladas >= MAX_PULADAS || !(await servidorNoAr())) throw e;
+          proximos = proximos.slice(1);
+          ignorar.push(suspeita.imagemId);
+          falhas.push({ ...suspeita, motivo: 'O servidor caiu ao importar esta foto, mesmo sozinha (arquivo pesado demais?). Ficou de fora — dá para enviar à mão na ficha.' });
+          puladas++;
+          quedas = 0;
+          setFase({ f: 'importando', a, feitas, falhas: [...falhas], parar: parar.current });
+          continue;
+        }
+        quedas = 0;
+        limite = Math.min(LOTE, limite * 2);
+        proximos = r.proximos ?? [];
         if (!r.ok) throw new Error(r.erro || 'A importação parou.');
         feitas += r.importadas;
         if (r.importadas) importou.current = true;
@@ -126,7 +196,9 @@ export function ImportarFotosDaLoja({ conexao, aoFechar, aoTerminar, aoAbrirPeca
           {fase.f === 'lendo' && (
             <div className="mq-importacao__lendo" role="status">
               <span className="mq-importacao__giro" aria-hidden="true" />
-              <p><b>Lendo o catálogo da loja online…</b><br />Isto só lê: nenhuma foto é baixada ainda.</p>
+              {fase.loja
+                ? <p><b>Lendo o catálogo da loja online…</b><br />Isto só lê: nenhuma foto é baixada ainda.</p>
+                : <p><b>Conferindo o que já entrou…</b></p>}
             </div>
           )}
 
@@ -139,6 +211,12 @@ export function ImportarFotosDaLoja({ conexao, aoFechar, aoTerminar, aoAbrirPeca
 
           {s && (
             <>
+              {lidaEm && fase.f === 'pronto' && (
+                <p className="mq-hint">
+                  Loja lida em {new Date(lidaEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}.
+                  {' '}Anúncio ou foto novos na loja depois disso só aparecem lendo de novo.
+                </p>
+              )}
               <div className="mq-importacao__numeros">
                 <Numero rotulo="Anúncios na loja" valor={s.anunciosNaLoja} nota={s.anunciosSemFoto ? `${n(s.anunciosSemFoto)} sem foto` : undefined} />
                 <Numero rotulo="Com correspondência" valor={s.anunciosComCorrespondencia} tom="ok" />
@@ -208,10 +286,11 @@ export function ImportarFotosDaLoja({ conexao, aoFechar, aoTerminar, aoAbrirPeca
         </div>
 
         <div className="mq-modal__foot">
-          {fase.f === 'erro' && <button type="button" className="mq-btn mq-btn--secondary" onClick={ler}>Tentar de novo</button>}
+          {fase.f === 'erro' && <button type="button" className="mq-btn mq-btn--secondary" onClick={() => ler()}>Tentar de novo</button>}
           {fase.f === 'pronto' && (
             <>
               <button type="button" className="mq-btn mq-btn--ghost" onClick={fechar}>Agora não</button>
+              <button type="button" className="mq-btn mq-btn--secondary" onClick={() => ler(true)}>Ler a loja de novo</button>
               {alvo > 0
                 ? <button type="button" className="mq-btn mq-btn--primary" onClick={() => importar(fase.a)}>
                     <Icone nome="cloud" /> Iniciar importação de {n(alvo)} {alvo === 1 ? 'foto' : 'fotos'}

@@ -66,28 +66,40 @@ export function prazoDaGaleria(agoraSeg = Math.floor(Date.now() / 1000)) {
   return (Math.floor(agoraSeg / JANELA_GALERIA_SEG) + 2) * JANELA_GALERIA_SEG;
 }
 
-/** Um assinador por requisição: importar a chave HMAC uma vez só, e não
- *  uma por foto — o `/api/state` assina centenas de links. */
+/** A assinatura é da JANELA, não da foto: `galeria|*|<exp>`, um HMAC por
+ *  requisição. Uma por foto custava ~140 ms de CPU no `/api/state` com
+ *  1.100 fotos, e o plano gratuito do Workers dá 10 ms — o estado passou a
+ *  morrer sem resposta depois da importação da loja (29/09/2026).
+ *
+ *  O que se abre mão: um link vazado lê, até expirar, qualquer foto cujo id
+ *  a pessoa conheça. O id é UUID aleatório e só sai no `/api/state` (que
+ *  exige a chave), e as fotos são as mesmas da vitrine pública da loja. */
 export function assinadorDaGaleria(env) {
-  let chave = null;
   const exp = prazoDaGaleria();
+  let sig = null;
   return async function assinar(fotoId, versao) {
-    chave = chave || await chaveHmac(String(env?.API_KEY || ''));
-    const msg = `galeria|${fotoId}|${versao}|${exp}`;
-    const sig = paraHex(await crypto.subtle.sign('HMAC', chave, new TextEncoder().encode(msg)));
+    if (!sig) {
+      const chave = await chaveHmac(String(env?.API_KEY || ''));
+      sig = paraHex(await crypto.subtle.sign('HMAC', chave, new TextEncoder().encode(`galeria|*|${exp}`)));
+    }
     return `/api/galeria/${encodeURIComponent(fotoId)}/${versao}?exp=${exp}&sig=${sig}`;
   };
+}
+
+function mesmoTexto(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 export async function conferirAssinaturaGaleria(env, fotoId, versao, exp, sig) {
   const expNum = parseInt(exp, 10);
   if (!expNum || Date.now() / 1000 > expNum) return false;
   if (!sig) return false;
-  const msg = `galeria|${fotoId}|${versao}|${expNum}`;
   const chave = await chaveHmac(String(env?.API_KEY || ''));
-  const esperado = paraHex(await crypto.subtle.sign('HMAC', chave, new TextEncoder().encode(msg)));
-  if (esperado.length !== String(sig).length) return false;
-  let diff = 0;
-  for (let i = 0; i < esperado.length; i++) diff |= esperado.charCodeAt(i) ^ String(sig).charCodeAt(i);
-  return diff === 0;
+  const assinar = async (msg) => paraHex(await crypto.subtle.sign('HMAC', chave, new TextEncoder().encode(msg)));
+  if (mesmoTexto(await assinar(`galeria|*|${expNum}`), String(sig))) return true;
+  /* Links assinados foto a foto (antes de 29/09 22h) valem até o prazo deles. */
+  return mesmoTexto(await assinar(`galeria|${fotoId}|${versao}|${expNum}`), String(sig));
 }

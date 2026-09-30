@@ -8,6 +8,7 @@ import { fotoDaPeca } from '../../domain/foto';
 import { EditarPeca } from '../catalogo/EditarPeca';
 import { PainelDeVariacoes } from '../catalogo/PainelDeVariacoes';
 import { GaleriaDaPeca } from './galeria/GaleriaDaPeca';
+import type { Galeria } from './galeria/api';
 import type { ProdutoDoEstado } from '../vendas/tipos';
 
 interface Movimento {
@@ -63,6 +64,15 @@ export function FichaDaPeca({ conexao, peca, categorias, aba, aoTrocarAba, aoFec
   const [editando, setEditando] = useState(false);
   const [variacoes, setVariacoes] = useState(false);
   const [buscarNaLoja, setBuscarNaLoja] = useState(false);
+  /* A galeria lida AGORA manda no topo: o estado geral só recarrega depois
+     (ou nem recarrega, se o servidor falhar), e o topo dizendo "0 fotos"
+     com duas fotos logo abaixo é o número errado que ninguém entende. */
+  const [lida, setLida] = useState<{ sku: string; total: number; mini: string | null } | null>(null);
+  const aoLerGaleria = (g: Galeria) => {
+    const p = g.fotos.find((f) => f.principal) ?? g.fotos[0] ?? null;
+    setLida({ sku: peca.sku, total: g.fotos.length, mini: p ? (p.urlMiniatura || p.urlGrande || null) : null });
+  };
+  const daGaleria = lida && lida.sku === peca.sku ? lida : null;
 
   useEffect(() => {
     const aoTeclar = (e: KeyboardEvent) => {
@@ -74,9 +84,9 @@ export function FichaDaPeca({ conexao, peca, categorias, aba, aoTrocarAba, aoFec
 
   useEffect(() => { try { window.scrollTo({ top: 0 }); } catch { /* ambiente sem rolagem */ } }, [peca.sku]);
 
-  const foto = fotoDaPeca(peca);
+  const foto = (daGaleria && daGaleria.mini) || fotoDaPeca(peca);
   const emCasa = peca.qtd - peca.consignado;
-  const qtdFotos = peca.fotosQtd ?? 0;
+  const qtdFotos = daGaleria ? daGaleria.total : (peca.fotosQtd ?? 0);
   const falta = [
     !foto && 'foto',
     !peca.cat && 'categoria',
@@ -97,7 +107,7 @@ export function FichaDaPeca({ conexao, peca, categorias, aba, aoTrocarAba, aoFec
         <button type="button" className="mq-peca__foto" onClick={() => aoTrocarAba('fotos')}
           aria-label={qtdFotos ? `Ver as ${qtdFotos} fotos` : 'Ir para as fotos da peça'}>
           {foto
-            ? <img src={peca.fotoMiniUrl || foto} alt={peca.desc} decoding="async" />
+            ? <img src={(daGaleria && daGaleria.mini) || peca.fotoMiniUrl || foto} alt={peca.desc} decoding="async" />
             : <span className="mq-peca__foto-vazia" aria-hidden="true">◇</span>}
           <small>
             <Icone nome="camera" />
@@ -175,6 +185,7 @@ export function FichaDaPeca({ conexao, peca, categorias, aba, aoTrocarAba, aoFec
               desc={peca.desc}
               aoMudar={aoMudar}
               buscarAoAbrir={buscarNaLoja}
+              aoLer={aoLerGaleria}
             />
           </section>
         )}

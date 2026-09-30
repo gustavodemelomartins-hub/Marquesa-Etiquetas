@@ -25,6 +25,12 @@ Desenho: `docs/domains/GALERIA-FOTOS-PECAS.md`.
   /products?page=4" — a loja tem 3 páginas cheias e responde 404 `Last page is 3` à
   seguinte. `listarTudo` passou a tratar 404 em página > 1 como fim da lista (valia também
   para a sync, a reconciliação e as variantes).
+- **Correção (23h30, depois de ~1.100 fotos importadas):** toda chamada pesada passou a
+  voltar "Não consegui falar com o servidor". `/api/state` assinava um link por foto (~140 ms
+  de CPU; o plano gratuito do Workers dá 10 ms) e morria sem resposta, e a ficha ficava com
+  o estado velho ("Fotos 0", foto antiga no topo). Agora: uma assinatura por janela; o topo
+  da ficha usa a galeria recém-lida; o modal abre pelo plano gravado, lote de 6, repete com
+  lote menor e pula (com motivo) a foto que derruba o servidor sozinha.
 
 ## Publicação
 

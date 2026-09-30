@@ -37,8 +37,15 @@ que a coloca à frente das fontes antigas. O painel clássico não lê a galeria
 ## Leitura das imagens
 
 Fotos não são públicas. `GET /api/galeria/:id/:versao?exp&sig` (sem Bearer, HMAC com
-a `API_KEY`, prefixo `galeria|`). O prazo é o fim da janela de 12 h + 12 h: o endereço
-não muda entre recargas e o navegador usa o cache. A V2 recebe o caminho e prefixa o
+a `API_KEY`). O prazo é o fim da janela de 12 h + 12 h: o endereço não muda entre
+recargas e o navegador usa o cache.
+
+A assinatura é **da janela** (`galeria|*|<exp>`), um HMAC por `/api/state`. Até 29/09
+22h era uma por foto: com 1.100 fotos isso dava ~140 ms de CPU, o plano gratuito do
+Workers dá 10 ms, e o estado passou a morrer sem resposta — a tela ficava com o estado
+velho ("0 fotos" com duas fotos na galeria). O que se abre mão: um link vazado lê, até
+expirar, outra foto cujo id (UUID aleatório, só no `/api/state`) a pessoa conheça. Link
+antigo, assinado foto a foto, continua valendo até o prazo dele. A V2 recebe o caminho e prefixa o
 endereço da API (`services/client.ts › enderecoDaFoto`).
 
 ## Casamento loja ↔ peça (`api/src/catalogo/fotos-da-loja.js`)
@@ -70,6 +77,13 @@ espelho `loja_fotos` e devolve o plano — é o dry-run. `POST /api/fotos/loja/i
 {limite, ignorar}` executa o próximo lote (≤20 fotos, 2 buscas na CDN cada); a tela repete até
 `restantes = 0`. Parar no meio não perde nada. `GET /api/fotos/loja/plano` relê o plano sem
 falar com a loja.
+
+A tela abre pelo **plano** (barato) e só relê a loja quando não há leitura gravada ou quando
+a pessoa toca em **Ler a loja de novo**. Lote de 6. Chamada que morre sem resposta (limite
+do Worker) é repetida com lote menor, 6 → 3 → 1; se UMA foto sozinha derruba o servidor
+quatro vezes, e `/api/health` responde, ela é pulada com o motivo (a resposta de cada lote
+traz `proximos`, a fila seguinte, para a tela saber qual é). No máximo 10 por rodada;
+servidor fora do ar para a importação sem pular nada.
 
 Nada disto escreve na Nuvemshop, lê pedidos ou movimenta estoque. A sincronização de
 pedidos e estoque continua desligada.

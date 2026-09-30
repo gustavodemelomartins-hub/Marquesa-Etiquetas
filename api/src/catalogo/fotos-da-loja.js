@@ -595,6 +595,11 @@ export async function importarLoteDaLoja(db, env, { limite = 12, ignorar = [], s
        tentaria de novo para sempre; quem decide tentar de novo é a pessoa. */
     restantes: fila.length - lote.length,
     total: fila.length + pular.size,
+    /* As próximas da fila, na ordem. Se a PRÓXIMA chamada morrer sem
+       resposta (limite do Worker numa foto enorme), a tela sabe qual foto
+       pular em vez de repetir a mesma queda para sempre. */
+    proximos: fila.slice(lote.length, lote.length + LOTE_MAXIMO)
+      .map((f) => ({ imagemId: f.imagemId, sku: f.sku })),
   };
 }
 

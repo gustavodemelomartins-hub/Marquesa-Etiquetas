@@ -90,6 +90,16 @@ describe('galeria da peça', () => {
     expect(aoMudar).toHaveBeenCalled();
   });
 
+  it('avisa o topo da ficha a cada leitura — a principal nova e a contagem, sem esperar o estado geral', async () => {
+    const aoLer = vi.fn();
+    render(<GaleriaDaPeca conexao={conexao} sku="COLAR1" desc="Colar" aoMudar={() => {}} aoLer={aoLer} />);
+    await waitFor(() => expect(aoLer).toHaveBeenCalled());
+    expect(aoLer.mock.lastCall![0].fotos).toHaveLength(3);
+    fireEvent.click(nth(1));
+    fireEvent.click(screen.getByRole('button', { name: /Definir como principal/ }));
+    await waitFor(() => expect(aoLer.mock.lastCall![0].fotos.find((f: { principal: boolean }) => f.principal).id).toBe('b'));
+  });
+
   it('os botões de ordem (o jeito do celular) movem e persistem', async () => {
     render(<GaleriaDaPeca conexao={conexao} sku="COLAR1" desc="Colar" aoMudar={() => {}} />);
     await waitFor(() => expect(miniaturas()).toHaveLength(3));

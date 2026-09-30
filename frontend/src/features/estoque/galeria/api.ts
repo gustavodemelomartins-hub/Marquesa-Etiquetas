@@ -148,6 +148,8 @@ export interface Lote {
   falhas: { imagemId: string; sku: string; url: string; motivo: string }[];
   restantes: number;
   total: number;
+  /** As próximas da fila depois deste lote (servidor de 29/09 22h em diante). */
+  proximos?: { imagemId: string; sku: string }[];
 }
 
 export function analisarLoja(conexao: Connection) {
