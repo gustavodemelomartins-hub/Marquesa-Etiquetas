@@ -28,6 +28,24 @@ export interface ProdutoDoEstado {
   fotoOriginalUrl?: string | null;
   fotoUrl?: string | null;
   fotoLojaUrl?: string | null;
+  /* A GALERIA própria (29/09/2026): a principal ESCOLHIDA, como endereço
+     completo (`services/state.ts` resolve), e as contagens dos filtros. */
+  fotoGaleriaUrl?: string | null;
+  fotoMiniUrl?: string | null;
+  /** Fotos na galeria daqui (R2). */
+  fotosQtd?: number;
+  /** Quantas delas vieram da loja online. */
+  fotosDaLoja?: number;
+  /** Quantas fotos a loja online tem deste código (pelo espelho). */
+  fotosNaLoja?: number;
+  /** O código aparece em algum anúncio da loja? `null` = não se sabe ainda. */
+  naLoja?: boolean | null;
+  /* O retrato da loja, quando houve leitura. */
+  urlLoja?: string;
+  visivel?: boolean | null;
+  nomeLoja?: string;
+  variacoes?: { nome: string; atributo?: string | null; varianteId?: string | null; estoqueLoja?: number | null; qtd: number }[];
+  semVariacao?: number;
 }
 
 /** Uma linha de `GET /api/vendas/lista` — o nível do ITEM, não da venda.
@@ -52,6 +70,7 @@ export interface ItemDaLista {
   origem: string | null;
   venda_valor: number | null;
   venda_recebido: number | null;
+  /** Em CENTAVOS INTEIROS — `agrupar` converte para reais. */
   financeiro: {
     valorVenda: number;
     valorRecebido: number | null;

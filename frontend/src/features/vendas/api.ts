@@ -45,6 +45,9 @@ export function cancelarVenda(conexao: Connection, id: number): Promise<Resposta
  *  reconstrói a venda — e isso é agregação factual: mesma referência é,
  *  por construção do backend, a mesma venda. Nada é somado entre vendas, e
  *  o que o backend declarou indeterminado continua indeterminado. */
+const deCentavos = (v: number | null | undefined): number | null =>
+  (v == null || Number.isNaN(Number(v)) ? null : Number(v) / 100);
+
 export function agrupar(itens: ItemDaLista[]): VendaAgrupada[] {
   const mapa = new Map<string, VendaAgrupada>();
   for (const i of itens) {
@@ -66,8 +69,12 @@ export function agrupar(itens: ItemDaLista[]): VendaAgrupada[] {
         /* O valor da VENDA vem do backend uma vez, na linha; somar os itens
            daria outro número quando houver desconto de cabeçalho. */
         valor: Number(i.venda_valor ?? 0),
-        recebido: i.financeiro?.valorRecebido ?? null,
-        aReceber: i.financeiro?.valorAReceber ?? null,
+        /* `financeiro` vem em CENTAVOS INTEIROS (contrato API-VEN-015, ver
+           `api/src/analytics.js › comFinanceiroDaVenda`); `venda_valor`, logo
+           acima, vem em REAIS. Até 29/09/2026 os dois eram lidos do mesmo
+           jeito, e uma venda de R$ 504,00 aparecia "a receber R$ 50.400,00". */
+        recebido: deCentavos(i.financeiro?.valorRecebido),
+        aReceber: deCentavos(i.financeiro?.valorAReceber),
         indeterminado: i.financeiro?.indeterminado ?? [],
         itens: [],
       };
