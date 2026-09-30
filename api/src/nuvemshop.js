@@ -181,12 +181,23 @@ export class Nuvemshop {
   }
 
   /** Percorre todas as páginas de uma listagem. `per_page` vai no máximo
-   *  permitido (200) para gastar o mínimo de requisições possível. */
+   *  permitido (200) para gastar o mínimo de requisições possível.
+   *
+   *  Quando a última página vem cheia (600 produtos = 3 × 200), a próxima
+   *  não volta vazia: a Nuvemshop responde 404 `"Last page is 3"`. Em página
+   *  > 1 isso é o fim da lista, não erro — a página 1 já provou que a rota
+   *  existe. Foi o que derrubou a importação de fotos em PROD (29/09/2026). */
   async listarTudo(caminho, params = {}, limitePaginas = 40, opcoes = {}) {
     const saida = [];
     for (let pagina = 1; pagina <= limitePaginas; pagina++) {
       const q = new URLSearchParams({ ...params, page: String(pagina), per_page: '200' });
-      const lote = await this.chamar(`${caminho}?${q}`, opcoes);
+      let lote;
+      try {
+        lote = await this.chamar(`${caminho}?${q}`, opcoes);
+      } catch (e) {
+        if (pagina > 1 && e.status === 404) break;
+        throw e;
+      }
       if (!Array.isArray(lote) || !lote.length) break;
       saida.push(...lote);
       if (lote.length < 200) break;

@@ -21,6 +21,11 @@
 
 Desenho: `docs/domains/GALERIA-FOTOS-PECAS.md`.
 
+- **Correção (22h, após o primeiro uso):** a análise parou com "A Nuvemshop não encontrou
+  /products?page=4" — a loja tem 3 páginas cheias e responde 404 `Last page is 3` à
+  seguinte. `listarTudo` passou a tratar 404 em página > 1 como fim da lista (valia também
+  para a sync, a reconciliação e as variantes).
+
 ## Publicação
 
 | | Novo | Rollback |

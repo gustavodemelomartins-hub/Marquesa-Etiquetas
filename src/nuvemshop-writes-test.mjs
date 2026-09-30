@@ -104,6 +104,28 @@ console.log('7. espaço em volta de "true" é tolerado (resto de copiar/colar nu
   t('a loja falsa registrou a escrita', loja.estado.escritas.length === antes + 1);
 }
 
+console.log('8. última página cheia: o 404 "Last page is N" da página seguinte é fim da lista');
+{
+  // PROD, 29/09/2026: 600 produtos = 3 páginas cheias; a página 4 voltou 404
+  // e a importação de fotos parou com "A Nuvemshop não encontrou /products".
+  const guardados = loja.estado.produtos;
+  const leitor = new Nuvemshop(envBase);
+
+  loja.estado.produtos = Array.from({ length: 600 }, (_, i) => ({ id: i + 1, variants: [] }));
+  const e = await esperaFalhar(leitor.chamar('/products?page=4&per_page=200'));
+  t('loja falsa imita a real: página além da última é 404', e && e.status === 404);
+  const todos = await leitor.produtos().catch(err => err);
+  t('600 produtos (3 páginas cheias) lidos sem erro', Array.isArray(todos) && todos.length === 600);
+
+  loja.estado.produtos = Array.from({ length: 610 }, (_, i) => ({ id: i + 1, variants: [] }));
+  const parcial = await leitor.produtos().catch(err => err);
+  t('610 produtos (última página parcial) continuam lidos', Array.isArray(parcial) && parcial.length === 610);
+
+  const e404 = await esperaFalhar(leitor.listarTudo('/rota-inexistente'));
+  t('404 na página 1 continua erro (rota errada não vira lista vazia)', e404 && e404.status === 404);
+  loja.estado.produtos = guardados;
+}
+
 await loja.fechar();
 
 console.log(`\n${ok} ok, ${falhas} falha(s)`);

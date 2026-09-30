@@ -91,7 +91,7 @@ métrica que o próprio D1 devolve. Ver [../D1_USAGE_AUDIT.md](../operations/D1_
     empurrado, cada aro na caixinha dele.
 
 ### `src/nuvemshop-writes-test.mjs` — staging pode ler, nunca escrever
-**24 asserções · ~1 s · precisa da loja falsa, não precisa do Worker**
+**28 asserções · ~1 s · precisa da loja falsa, não precisa do Worker**
 
 Chama `Nuvemshop` (`api/src/nuvemshop.js`) direto, sem subir
 `wrangler dev` — a classe não depende de D1/R2/bindings. Prova a trava de
@@ -107,7 +107,10 @@ Chama `Nuvemshop` (`api/src/nuvemshop.js`) direto, sem subir
    capturado seria de conexão recusada, não `NUVEMSHOP_WRITE_DISABLED` —
    e a loja falsa, à parte, confirma `escritas` vazio);
 6. `"true"` libera de verdade, e a loja falsa registra a escrita;
-7. espaço em volta de `"true"` é tolerado (resto de copiar/colar num secret).
+7. espaço em volta de `"true"` é tolerado (resto de copiar/colar num secret);
+8. paginação: com a última página cheia (600 produtos), o 404
+   `"Last page is 3"` da página seguinte é fim da lista, não erro; 404 na
+   página 1 continua erro. A loja falsa responde como a real.
 
 ### `src/garantias-ciclo-test.mjs` — o ciclo inteiro de Garantias (5.4a)
 **72 provas · ~2 s · contra o `api/schema.sql` real, sem Worker**

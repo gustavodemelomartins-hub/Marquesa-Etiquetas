@@ -98,8 +98,14 @@ export function subirLojaFalsa(porta = 8799) {
     const pagina = +(url.searchParams.get('page') || 1);
     const porPagina = +(url.searchParams.get('per_page') || 200);
     const fatia = lista => lista.slice((pagina - 1) * porPagina, pagina * porPagina);
+    // Como a loja real: pedir página além da última não volta [], volta 404
+    // "Last page is N". Só acontece quando a última página veio cheia.
+    const ultima = lista => Math.max(1, Math.ceil(lista.length / porPagina));
 
     if (recurso === 'products' && req.method === 'GET') {
+      if (pagina > ultima(estado.produtos)) {
+        return responder(404, { code: 404, message: 'Not Found', description: `Last page is ${ultima(estado.produtos)}` });
+      }
       return responder(200, fatia(estado.produtos));
     }
     if (recurso === 'orders' && req.method === 'GET') {
