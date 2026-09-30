@@ -33,6 +33,7 @@ Desenho: `docs/domains/GALERIA-FOTOS-PECAS.md`.
 | Commits (`develop`) | `4fe7702` fix(vendas) · `5d274fd` feat(pecas) | `726393e` |
 | Worker `marquesa-api` | `61af653a-2c91-4711-95df-8bf7fdaa220b` | `6a7b4f3b-5f7d-40db-9ce9-6e8f98213956` |
 | Pages `marquesa` | `a3367515` | `085b5130` |
+| Correção da paginação (`afea60d`) | Worker `fbbea4ab-cdb3-45c5-9039-5d1f89268119` | `61af653a-2c91-4711-95df-8bf7fdaa220b` |
 | D1 `marquesa-db-prod` | `migracao-galeria-fotos.sql` aplicada | bookmark `00000152-00000000-000050f6-1099926967d694d8f4d8c198e46ef937` |
 
 Migration aditiva (9 colunas em `produto_fotos`, 2 índices). Antes e depois: 987 produtos,
