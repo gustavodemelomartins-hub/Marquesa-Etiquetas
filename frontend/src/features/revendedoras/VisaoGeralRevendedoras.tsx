@@ -97,8 +97,7 @@ export function VisaoGeralRevendedoras({
           acento="casa"
           nota={
             <>
-              {plural(cap.maletas, 'maleta nova', 'maletas novas')} de {cap.tamanhoAlvo} peças ·
-              premissa configurável
+              {plural(cap.maletas, 'maleta nova', 'maletas novas')} de {cap.tamanhoAlvo} peças
             </>
           }
         />
@@ -139,7 +138,7 @@ export function VisaoGeralRevendedoras({
       <Painel titulo="Capacidade para novas maletas" dica="Planejamento">
         <div className="rev-capacidade-compacta">
           <div className="rev-capacidade-anel" style={{ '--cap-pct': `${cap.emCasa ? Math.round(cap.consignavel / cap.emCasa * 100) : 0}%` } as CSSProperties}><b>{cap.consignavel}</b><span>peças liberadas<br />em casa</span></div>
-          <p>Premissa atual: {cap.tamanhoAlvo} peças por maleta, com reserva de {cap.reservaPct}% por código.</p>
+          <p>{cap.tamanhoAlvo} peças por maleta, deixando {cap.reservaPct}% de cada código em casa.</p>
           <strong>{cap.maletas} {plural(cap.maletas, 'maleta nova', 'maletas novas')}</strong>
           <button type="button" className="btn btn-escrita" onClick={aoVerSugestoes}>Ver sugestões</button>
         </div>

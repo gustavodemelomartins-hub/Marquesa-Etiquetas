@@ -101,9 +101,10 @@ export function VisaoGeralClientes({ conexao, baseInteira, aoAbrir }: Props) {
 
         <Bloco
           titulo="Para chamar de volta"
-          sub={baseInteira.dados
-            ? `${estados['em risco']} sem comprar há mais tempo que o normal · ${estados.inativa} paradas`
-            : ''}
+          sub={[
+            estados['em risco'] ? `${estados['em risco']} ${plural(estados['em risco'], 'sumindo', 'sumindo')}` : '',
+            estados.inativa ? `${estados.inativa} ${plural(estados.inativa, 'parada', 'paradas')}` : '',
+          ].filter(Boolean).join(' · ') || 'sem comprar há mais tempo que o normal'}
           vazio="Ninguém sumiu. Todas estão comprando no ritmo de sempre."
           carregando={!baseInteira.dados}
           erro={baseInteira.erro}

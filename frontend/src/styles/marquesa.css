@@ -318,7 +318,11 @@ button.mq-cell:hover>b{color:var(--mq-wine-700)}
   .mq-table:not(.mq-table--scroll) .mq-tr .mq-cell--num::before{content:attr(data-label);font:500 11px var(--mq-sans);color:var(--mq-muted);text-transform:uppercase;letter-spacing:.07em}
   .mq-table:not(.mq-table--scroll) .mq-tr>.mq-cell:first-child{grid-column:1;grid-row:1}
   .mq-table:not(.mq-table--scroll) .mq-tr>.mq-tr__chev{display:none}
+  /* A célula que, no telefone, sobe para o canto da primeira linha (ao lado
+     da data) em vez de ocupar uma linha inteira sozinha — o selo de situação. */
+  .mq-table:not(.mq-table--scroll) .mq-tr>.mq-cell--canto{grid-column:2;grid-row:1;align-items:flex-end}
 }
+.mq-th--num{text-align:right}
 
 /* ------------------------------------------------------------ 13. LISTAS */
 .mq-list{display:flex;flex-direction:column}

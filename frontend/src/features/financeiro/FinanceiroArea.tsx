@@ -10,6 +10,7 @@ import { ValorDaSaida } from '../saidas/ValorDaSaida';
 import { TIPOS_DE_SAIDA, type SaidaSemFaturamento } from '../saidas/tipos';
 import { FiltroPeriodo } from '../../components/FiltroPeriodo';
 import { AReceber } from './AReceber';
+import { rotuloDaBarra } from '../vendas/graficoVendas';
 import {
   buscarAReceber, buscarLancamentos, buscarPainel,
   buscarVendasDoDia, conferirCredito, conferirFinanceiro,
@@ -162,7 +163,7 @@ function Resumo({
         <div className={g.aReceber > 0 ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}>
           <span className="mq-kpi__label">Falta receber</span>
           <span className="mq-kpi__value"><i>R$</i>{moneyNumero(g.aReceber)}</span>
-          <span className="mq-kpi__foot">de todas as vendas</span>
+          <span className="mq-kpi__foot">vendas do período ainda não pagas</span>
         </div>
         <div className="mq-kpi">
           <span className="mq-kpi__label">Vendas</span>
@@ -198,7 +199,7 @@ function Resumo({
               <div className="mq-bars">
                 {pontos.map((x) => (
                   <div className="mq-bars__row" key={x.chave}>
-                    <span className="mq-date">{x.chave}</span>
+                    <span className="mq-date">{rotuloDaBarra(x.chave)}</span>
                     <span className="mq-meter">
                       <i style={{ width: `${Math.round((x.faturamento / maior) * 100)}%` }} />
                     </span>
@@ -224,13 +225,13 @@ function Resumo({
             </dl>
           </section>
 
-          {p.topClientes.length > 0 && (
+          {p.topClientes.some((c) => c.faturamento > 0) && (
             <section className="mq-card mq-card--flush">
               <div className="mq-card__head">
                 <div><h2 className="mq-subtitle">Quem mais trouxe</h2></div>
               </div>
               <div className="mq-list">
-                {p.topClientes.slice(0, 5).map((c) => (
+                {p.topClientes.filter((c) => c.faturamento > 0).slice(0, 5).map((c) => (
                   <button
                     type="button"
                     className="mq-item"

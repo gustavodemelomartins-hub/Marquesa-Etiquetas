@@ -97,7 +97,7 @@ export function HistoricoVendas({
             <div className="mq-tr mq-tr--head" role="row" style={COLUNAS}>
               <span>Data</span>
               <span>Cliente</span>
-              <span>Valor</span>
+              <span className="mq-th--num">Valor</span>
               <span>Situação</span>
               <span />
             </div>
@@ -121,7 +121,7 @@ export function HistoricoVendas({
                 <span className="mq-cell mq-cell--num" data-label="Valor">
                   <b className="mq-money">{v.valor === null ? '—' : money(v.valor)}</b>
                 </span>
-                <span className="mq-cell">
+                <span className="mq-cell mq-cell--canto">
                   <Situacao venda={v} />
                 </span>
                 <Icone nome="chevron" className="mq-ico mq-tr__chev" />
@@ -250,9 +250,9 @@ function DetalheDaVenda({
           <div className="mq-table" role="table" aria-label="Peças da venda">
             <div className="mq-tr mq-tr--head" role="row" style={COLUNAS_ITENS}>
               <span>Peça</span>
-              <span>Qtd</span>
-              <span>Preço</span>
-              <span>Subtotal</span>
+              <span className="mq-th--num">Qtd</span>
+              <span className="mq-th--num">Preço</span>
+              <span className="mq-th--num">Subtotal</span>
             </div>
             {v.itens.map((i) => (
               <div key={String(i.id)} className="mq-tr" role="row" style={COLUNAS_ITENS}>
@@ -299,7 +299,7 @@ function DetalheDaVenda({
 
           <p className="mq-hint">
             {v.fonte === 'historico'
-              ? 'Venda da planilha antiga.'
+              ? `Venda da planilha antiga.${emAberto && !v.emAReceber ? ' Ainda não está em A receber.' : ''}`
               : `Venda nº ${v.id} registrada no sistema.`}
           </p>
         </div>
@@ -315,12 +315,12 @@ function DetalheDaVenda({
               {ocupada ? 'Registrando…' : `Recebi ${v.aReceber !== null ? money(v.aReceber) : ''}`.trim()}
             </button>
           )}
-          {!doSistema && emAberto && (
+          {!doSistema && emAberto && v.emAReceber && (
             <button type="button" className="mq-btn mq-btn--primary" onClick={aoAbrirAReceber}>
-              Receber em A receber
+              Ir para A receber
             </button>
           )}
-          {!emAberto && (
+          {(!emAberto || (!doSistema && !v.emAReceber)) && (
             <button type="button" className="mq-btn mq-btn--ghost" onClick={aoFechar}>Fechar</button>
           )}
         </div>

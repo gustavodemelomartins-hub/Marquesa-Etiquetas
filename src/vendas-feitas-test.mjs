@@ -113,6 +113,7 @@ eq('os itens somam o total', eli[0]?.itens.reduce((s, i) => s + i.valor, 0), 504
 eq('cada item tem o próprio preço, não o total da compra',
   eli[0]?.itens.map((i) => i.precoUnit), [105, 62, 89, 119, 129]);
 eq('a receber R$ 504,00', reais(eli[0]?.financeiro.valorAReceber), 504);
+eq('sem cobrança registrada, ainda não está em A receber', eli[0]?.emAReceber, false);
 eq('cada item lembra a linha da planilha', eli[0]?.itens.map((i) => i.linhaPlanilha), ['10', '11', '12', '13', '14']);
 
 /* A lista de AUDITORIA continua item a item — e agora diz de que venda cada
@@ -197,6 +198,8 @@ eq('cobrança da Elizama aberta', (await api('POST', '/api/vendas/historico/oper
 })).status, 200);
 const conta = (await api('GET', '/api/contas-receber')).corpo.contas.find((c) => /elizama/i.test(c.cliente ?? ''));
 eq('aparece em A receber por R$ 504', conta?.valorReceber, 504);
+eq('e Vendas feitas sabe que ela está em A receber',
+  daCliente(await todasAsVendas(), /elizama/i)[0]?.emAReceber, true);
 eq('recebida pelo Financeiro', (await api('POST', '/api/contas-receber/receber', {
   chave: conta?.chave, confirmar: true, versaoEsperada: conta?.versao, pagaEm: '2026-09-30',
 })).status, 200);
@@ -207,6 +210,7 @@ eq('com R$ 504 recebidos e nada a receber',
 
 const fer2Antes = daCliente(vendas, /Fernanda Sistema/).find((v) => v.id === s2.corpo.id);
 eq('venda do sistema não paga: a receber R$ 120', reais(fer2Antes?.financeiro.valorAReceber), 120);
+eq('e está em A receber', fer2Antes?.emAReceber, true);
 eq('recebida', (await api('POST', `/api/vendas/${s2.corpo.id}/pagamento`, { pago: true, dataPagamento: '2026-09-28' })).status, 200);
 const fer2Depois = daCliente(await todasAsVendas(), /Fernanda Sistema/).find((v) => v.id === s2.corpo.id);
 eq('e passa a paga', fer2Depois?.financeiro.statusPagamento, 'paga');

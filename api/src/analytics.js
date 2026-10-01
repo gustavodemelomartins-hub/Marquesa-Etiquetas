@@ -1408,7 +1408,10 @@ const SQL_ITENS_DE_VENDA = `
               -- e o que ela sempre foi; quem quer a venda usa esta coluna.
               'H' || h.venda_historica_id AS venda_chave,
               h.preco_unit AS preco_unit, h.desconto_valor AS desconto_valor,
-              h.desconto_rotulo AS desconto_rotulo, h.origem_linha AS linha_planilha
+              h.desconto_rotulo AS desconto_rotulo, h.origem_linha AS linha_planilha,
+              -- a venda tem conta aberta em A receber? Do lado da planilha so
+              -- quando ha cobranca registrada para ela.
+              CASE WHEN ho.cobranca_status = 'aberta' THEN 1 ELSE 0 END AS cobranca_aberta
          FROM vendas_historico_itens h
          JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
          JOIN vendas_historicas vh ON vh.id=h.venda_historica_id
@@ -1452,7 +1455,9 @@ const SQL_ITENS_DE_VENDA = `
               v.total AS venda_valor,
               v.valor_recebido AS venda_recebido,
               NULL AS venda_status,
-              'V' || v.id, i.preco, i.desconto_valor, i.desconto_rotulo, NULL
+              'V' || v.id, i.preco, i.desconto_valor, i.desconto_rotulo, NULL,
+              -- a mesma condicao de contas-receber.js > vendasEmAberto
+              CASE WHEN v.pago = 0 AND v.cancelada = 0 AND v.cobravel = 1 THEN 1 ELSE 0 END
          FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
          LEFT JOIN clientes c ON c.id = v.cliente_id
         WHERE v.origem <> 'acerto' AND v.revendedora_id IS NULL
@@ -1577,6 +1582,8 @@ export async function listarVendasFeitas(db, {
         clienteNorm: linha.cliente_norm,
         canal: linha.canal,
         cancelada: Number(linha.cancelada) === 1,
+        /* Está em A receber? É o que decide para onde a tela manda receber. */
+        emAReceber: Number(linha.cobranca_aberta) === 1,
         pecas: 0,
         financeiro,
         itens: [],

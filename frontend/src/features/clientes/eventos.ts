@@ -75,7 +75,7 @@ function daVenda(v: VendaDoPerfil): EventoRelacao[] {
     origemId: v.id,
     data: soData(v.data),
     titulo: ehTroca(v) ? `Peça entregue na troca · ${pecas}` : `Compra de ${pecas}`,
-    detalhe: `${v.fonte === 'historico' ? 'Histórico' : 'Venda'} #${v.id}${canal}`,
+    detalhe: `${v.fonte === 'historico' ? 'Planilha' : `Venda nº ${v.id}`}${canal}`,
     valor: ehTroca(v) ? null : v.valor,
     tom: 'neutro',
   }];
@@ -91,7 +91,7 @@ function daVenda(v: VendaDoPerfil): EventoRelacao[] {
       origemId: v.id,
       data: soData(v.pagaEm),
       titulo: 'Pagamento recebido',
-      detalhe: `Referente à venda #${v.id}`,
+      detalhe: v.fonte === 'historico' ? 'Compra da planilha' : `Venda nº ${v.id}`,
       valor: v.valorRecebido,
       tom: 'ok',
     });

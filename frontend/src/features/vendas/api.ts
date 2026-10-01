@@ -89,6 +89,7 @@ export function paraTela(v: VendaFeitaApi): VendaFeita {
     clienteNorm: v.clienteNorm,
     canal: v.canal,
     cancelada: v.cancelada,
+    emAReceber: v.emAReceber ?? false,
     pecas: v.pecas,
     valor: deCentavos(f.valorVenda),
     recebido: deCentavos(f.valorRecebido),

@@ -216,12 +216,12 @@ function CartoesDeTopo({ d, aoAbrirAReceber }: { d: PainelAnalytics; aoAbrirARec
         <span className="mq-kpi__value">{money(d.mesAtual.faturamento)}</span>
         <span className="mq-kpi__foot">
           {d.mesAtual.vendas} {plural(d.mesAtual.vendas, 'venda', 'vendas')} ·{' '}
-          {d.mesAtual.pecas} {plural(d.mesAtual.pecas, 'peça', 'peças')} em {d.mesAtual.mes}
+          {d.mesAtual.pecas} {plural(d.mesAtual.pecas, 'peça', 'peças')} em {rotuloDaBarra(d.mesAtual.mes)}
         </span>
       </div>
 
       <button type="button" className="mq-kpi mq-kpi--risk mq-kpi--acionavel" onClick={aoAbrirAReceber}>
-        <span className="mq-kpi__label">A receber em {d.mesAtual.mes}</span>
+        <span className="mq-kpi__label">A receber em {rotuloDaBarra(d.mesAtual.mes)}</span>
         <span className="mq-kpi__value">{money(d.mesAtual.aReceber)}</span>
         <span className="mq-kpi__foot">
           {d.mesAtual.contasAReceber}{' '}
@@ -593,7 +593,6 @@ function TopClientes({
       <div className="mq-card__head">
         <div>
           <h2 className="mq-title">Clientes do período</h2>
-          <p className="mq-lede">Ordenadas por faturamento, no mesmo recorte dos cartões.</p>
         </div>
       </div>
       <div className="mq-list">
@@ -626,7 +625,7 @@ function SaidasDoMes({ d }: { d: PainelAnalytics }) {
   if (!tipos.length) return null;
   return (
     <section className="mq-card mq-card--pad mq-card--quiet">
-      <h2 className="mq-title">Saiu sem faturar em {d.saidasSemFaturamento.mes}</h2>
+      <h2 className="mq-title">Saiu sem faturar em {rotuloDaBarra(d.saidasSemFaturamento.mes)}</h2>
       <dl className="mq-figures">
         {tipos.map(([tipo, v]) => (
           <div key={tipo}>

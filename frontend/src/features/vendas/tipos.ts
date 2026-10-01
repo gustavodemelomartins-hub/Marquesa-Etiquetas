@@ -126,6 +126,8 @@ export interface VendaFeitaApi {
   clienteNorm: string | null;
   canal: string | null;
   cancelada: boolean;
+  /** Tem conta aberta em Financeiro › A receber. */
+  emAReceber?: boolean;
   pecas: number;
   financeiro: FinanceiroDaVenda;
   itens: ItemDaVenda[];
@@ -148,6 +150,7 @@ export interface VendaFeita {
   clienteNorm: string | null;
   canal: string | null;
   cancelada: boolean;
+  emAReceber: boolean;
   pecas: number;
   valor: number | null;
   recebido: number | null;

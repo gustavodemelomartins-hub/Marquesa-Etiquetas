@@ -495,8 +495,11 @@ try {
     const texto = (await p.locator('.mq-shell__main').textContent()) || '';
     prova(texto.includes('Não informado'),
       'o custo aparece como "Não informado" — nunca inventado');
-    prova(texto.includes('Não existe custo no sistema'),
-      'e a tela explica por quê, em vez de deixar um zero mudo');
+    /* O custo existe desde §46 (29/09/2026). "Não existe custo no sistema"
+       virou mentira e saiu da tela em 01/10/2026; sem custo lançado, o
+       cartão diz "Não informado" e quantas peças estão sem custo. */
+    prova(!texto.includes('Não existe custo no sistema'),
+      'a tela não diz mais que o custo não existe');
     prova(await p.locator('.mq-bars__row').count() === 4,
       'os quatro motivos aparecem na distribuição');
     await foto(p, '06-analise-saidas');

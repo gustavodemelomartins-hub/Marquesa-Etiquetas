@@ -729,6 +729,7 @@
         "erro-detalhe-test.mjs",
         "stephanie-ui-test.mjs",
         "v2-paridade-e2e.mjs",
+        "v2-vendas-clientes-qa.mjs",
         "v2-camera-e2e.mjs",
         "v2-conciliacao-ui.mjs",
         "v2-galeria-e2e.mjs"

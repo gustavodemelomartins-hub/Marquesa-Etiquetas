@@ -49,7 +49,6 @@ export function HomeArea({ conexao, aoIr }: Props) {
         <div className="mq-pagehead__text">
           <p className="mq-eyebrow">Hoje</p>
           <h1 className="mq-display">Início</h1>
-          <p className="mq-lede">O que você quer fazer, e o que está esperando por você.</p>
         </div>
       </div>
 
@@ -77,7 +76,6 @@ export function HomeArea({ conexao, aoIr }: Props) {
         <div className="mq-card__head">
           <div>
             <h2 className="mq-title">Precisa da sua atenção</h2>
-            <p className="mq-lede">Nada aqui se resolve sozinho.</p>
           </div>
         </div>
         <div className="mq-list">
@@ -102,7 +100,7 @@ export function HomeArea({ conexao, aoIr }: Props) {
             tom="warn"
             icone="calendar"
             titulo={`${contas?.resumo.semPrazo} ${contas?.resumo.semPrazo === 1 ? 'conta sem prazo' : 'contas sem prazo'}`}
-            detalhe="ninguém sabe quando cobrar — sem data, elas não entram em mês nenhum"
+            detalhe="defina quando cobrar"
             aoIr={() => aoIr('financeiro', 'a-receber~tudo')}
           />
           <Atencao
@@ -144,17 +142,20 @@ export function HomeArea({ conexao, aoIr }: Props) {
             <div className="mq-kpi mq-kpi--ok">
               <span className="mq-kpi__label">Entrou em 30 dias</span>
               <span className="mq-kpi__value"><i>R$</i>{moneyNumero(p.geral.faturamento)}</span>
-              <span className="mq-kpi__foot">pela data do pagamento</span>
+              <span className="mq-kpi__foot">pagamentos recebidos</span>
             </div>
-            <div className={p.geral.aReceber > 0 ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}>
+            {/* O mesmo número de Financeiro › A receber: todas as contas em
+                aberto. Era `geral.aReceber`, que é só das vendas do período,
+                ao lado de uma contagem de TODAS as contas (01/10/2026). */}
+            <div className={(contas?.resumo.total ?? 0) > 0 ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}>
               <span className="mq-kpi__label">Falta receber</span>
-              <span className="mq-kpi__value"><i>R$</i>{moneyNumero(p.geral.aReceber)}</span>
+              <span className="mq-kpi__value"><i>R$</i>{contas ? moneyNumero(contas.resumo.total) : '—'}</span>
               <span className="mq-kpi__foot">{contas?.resumo.quantidade ?? 0} contas em aberto</span>
             </div>
             <div className="mq-kpi">
               <span className="mq-kpi__label">Vendas</span>
               <span className="mq-kpi__value">{p.geral.vendas}</span>
-              <span className="mq-kpi__foot">{p.geral.pecas} peças · pela data da venda</span>
+              <span className="mq-kpi__foot">{p.geral.pecas} peças</span>
             </div>
             <div className="mq-kpi">
               <span className="mq-kpi__label">Saiu sem faturar</span>
@@ -168,7 +169,6 @@ export function HomeArea({ conexao, aoIr }: Props) {
               <div className="mq-card__head">
                 <div>
                   <h2 className="mq-title">Peças em reparo</h2>
-                  <p className="mq-lede">Só o que ainda pede alguma coisa de alguém.</p>
                 </div>
                 <button type="button" className="mq-btn mq-btn--link" onClick={() => aoIr('garantias')}>
                   Ver todas

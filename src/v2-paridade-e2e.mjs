@@ -121,9 +121,10 @@ t = await texto(p);
 prova(t.includes('relatório de vendas'), 'o relatório de vendas abre pela rota');
 prova(/faturamento recebido no per/.test(t), 'o painel mostra o faturamento do recorte');
 prova(/ticket m[eé]dio/.test(t), 'o painel mostra o ticket médio');
-/* §19 — a tela diz que a comparação com o período anterior não existe, em
-   vez de desenhar uma seta que ninguém calculou. */
-prova(/compara[cç][aã]o com o per[ií]odo anterior/.test(t), 'o painel ANUNCIA que não há tendência');
+/* §19 — não há comparação com o período anterior, e a tela não desenha uma
+   seta que ninguém calculou. (Até 01/10/2026 ela também dizia isso em letra;
+   a frase saiu na limpeza de textos técnicos.) */
+prova(!/[▲▼]|vs\.? per[ií]odo anterior/.test(t), 'o painel não inventa tendência');
 
 await irPara(p, 'vendas/lancamentos');
 t = await texto(p);
@@ -144,9 +145,10 @@ prova(/local ou canal/.test(t), 'o canal aparece com a limitação dita');
 await p.locator('.mq-passo__cabeca', { hasText: 'Pagamento' }).click();
 await p.waitForTimeout(400);
 t = await texto(p);
-prova(/data efetiva do pagamento/.test(t), 'a data do PAGAMENTO é um campo separado');
-prova(/pagamento [eé] registrado de uma vez/.test(t),
-  'a tela ANUNCIA que não há recebimento em partes');
+prova(/data do pagamento/.test(t), 'a data do PAGAMENTO é um campo separado');
+/* Não há recebimento em partes: a situação só tem as duas saídas. */
+prova(/j[aá] foi paga/.test(t) && /fica a receber/.test(t),
+  'a situação é paga ou a receber — sem recebimento em partes');
 
 await irPara(p, 'vendas/colar');
 t = await texto(p);
@@ -161,13 +163,13 @@ prova(/sem faturar/.test(t), 'a saída sem faturamento abre dentro de Lançament
 
 await irPara(p, 'vendas/historico');
 t = await texto(p);
-prova(/hist[oó]rico de vendas/.test(t), 'o histórico abre pela rota');
+prova(await p.locator('[role="table"][aria-label="Vendas"]').count() === 1, 'Vendas feitas abre pela rota');
 
 /* ── 3. deep-link e recarregamento ──────────────────────────────────── */
 await p.reload({ waitUntil: 'domcontentloaded' });
 await p.waitForTimeout(600);
-prova((await texto(p)).includes('histórico de vendas'),
-  'recarregar em #/vendas/historico volta para o histórico');
+prova(await p.locator('[role="table"][aria-label="Vendas"]').count() === 1,
+  'recarregar em #/vendas/historico volta para Vendas feitas');
 await p.goBack();
 await p.waitForTimeout(500);
 prova(p.url().includes('#/vendas/'), 'o voltar do navegador anda dentro do módulo');
@@ -219,7 +221,7 @@ for (const [hash, esperado, nome] of [
 /* ── 7. a fila de publicação não oferece publicar ───────────────────── */
 await irPara(p, 'nuvemshop/publicacao');
 t = await texto(p);
-prova(/escrita autom[aá]tica na loja est[aá] desligada/.test(t),
+prova(/publica[cç][aã]o autom[aá]tica na loja est[aá] desligada/.test(t),
   'a fila ANUNCIA que a escrita na loja está desligada');
 const botaoPublicar = await p.locator('button', { hasText: /^Publicar na loja/i }).count();
 prova(botaoPublicar === 0, 'não existe botão que publique na loja real');
@@ -361,8 +363,9 @@ const razao = await daApi('/api/estoque/conferir');
 prova(razao.ok === true && (razao.divergentes ?? []).length === 0,
   'GET /api/estoque/conferir volta vazio depois da venda');
 
-/* 9 · a ficha da cliente conhece a compra */
-await irPara(p, 'clientes');
+/* 9 · a ficha da cliente conhece a compra. Desde 01/10/2026 Clientes abre
+   na Visão geral; a busca mora em "Todos os clientes". */
+await irPara(p, 'clientes/todos');
 /* Dentro do CONTEÚDO, e não `input[type=search]` solto: o primeiro da
    página é a busca global da barra, que no telefone está fechada. */
 await p.locator('.mq-shell__main input[type="search"]').first().fill(NOME);
