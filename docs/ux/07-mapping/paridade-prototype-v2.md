@@ -14,13 +14,13 @@ consegue fazer.
 
 | | capacidades |
 |---|---|
-| 🟢 pronta | 121 |
+| 🟢 pronta | 122 |
 | 🟡 parcial | 5 |
 | ⚪ pendente — o backend tem, a tela não | 3 |
 | ⛔ indisponível — o backend não sustenta | 13 |
-| **total** | **142** |
+| **total** | **143** |
 
-**121 de 129** capacidades que o backend sustenta já estão
+**122 de 130** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
@@ -52,7 +52,7 @@ Referência visual: `/prototype/vendas/` · 🟢 30 · 🟡 1 · ⚪ 1 · ⛔ 3
 | Cadastro rápido de cliente | 🟢 pronta | `features/vendas/NovaVenda.tsx` | — |
 | Data da venda, separada | 🟢 pronta | `features/vendas/NovaVenda.tsx` | — |
 | Data efetiva do pagamento, separada | 🟢 pronta | `features/vendas/NovaVenda.tsx` | — |
-| Venda ≠ pagamento ≠ registro, na revisão | 🟢 pronta | `features/vendas/NovaVenda.tsx` | — |
+| Data da venda e data do pagamento separadas, na revisão | 🟢 pronta | `features/vendas/NovaVenda.tsx` | — |
 | Local ou canal da venda | ⛔ indisponível | `features/vendas/NovaVenda.tsx` | `INSERT INTO vendas` em `vendas-comandos.js` grava `origem = 'balcao'` fixo, e `registrarVenda` não aceita canal nem origem. O canal que aparece no histórico vem da planilha importada. A tela diz isso no passo do cliente. |
 | Vários recebimentos numa venda | ⛔ indisponível | `features/vendas/NovaVenda.tsx` | §29 — a quitação é INTEGRAL: `POST /api/vendas/:id/pagamento` quita a venda inteira. Recebimento em partes é a decisão D2, que continua fechada. A tela mostra um recebimento e explica a limitação. |
 | Revisão antes de confirmar | 🟢 pronta | `features/vendas/NovaVenda.tsx` | — |
@@ -69,15 +69,16 @@ Referência visual: `/prototype/vendas/` · 🟢 30 · 🟡 1 · ⚪ 1 · ⛔ 3
 
 ## Clientes
 
-Referência visual: `/prototype/clientes/` · 🟢 10 · 🟡 0 · ⚪ 0 · ⛔ 0
+Referência visual: `/prototype/clientes/` · 🟢 11 · 🟡 0 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
-| Lista com busca no servidor | 🟢 pronta | `#/clientes` | — |
+| Todos os clientes: busca no servidor, última compra e total comprado | 🟢 pronta | `#/clientes/todos` | — |
+| Visão geral: Top clientes, para chamar de volta, recorrentes, novas | 🟢 pronta | `#/clientes` | — |
 | Cadastro e edição | 🟢 pronta | `features/clientes/FormCliente.tsx` | — |
 | Ficha da cliente | 🟢 pronta | `#/clientes/<id>` | — |
 | Comprou · Pago · Em aberto | 🟢 pronta | `features/clientes/PerfilCliente.tsx` | — |
-| Três datas, três significados | 🟢 pronta | `features/clientes/PerfilCliente.tsx` | — |
+| Data da venda e data do pagamento, cada uma na sua coluna | 🟢 pronta | `features/clientes/PerfilCliente.tsx` | — |
 | O que falta receber | 🟢 pronta | `features/clientes/PerfilCliente.tsx` | — |
 | Saldo e extrato de crédito | 🟢 pronta | `features/clientes/PerfilCliente.tsx` | — |
 | Garantias, trocas e reparos da cliente | 🟢 pronta | `features/clientes/PerfilCliente.tsx` | — |

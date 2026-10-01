@@ -93,7 +93,7 @@ export function FinanceiroArea({ conexao, sub, aoNavegar, aoAbrirCliente, aoMuda
       {aba !== 'recebimentos' && <FiltroPeriodo recorte={recorte} aoMudar={trocarRecorte} />}
 
       {aba === 'resumo' && (
-        <Resumo estado={painel} recorte={recorte} aoAbrirCliente={aoAbrirCliente} />
+        <Resumo estado={painel} aoAbrirCliente={aoAbrirCliente} />
       )}
       {aba === 'a-receber' && (
         <AReceber
@@ -112,7 +112,7 @@ export function FinanceiroArea({ conexao, sub, aoNavegar, aoAbrirCliente, aoMuda
       )}
       {aba === 'recebimentos' && <Recebimentos conexao={conexao} />}
       {aba === 'saidas' && (
-        <SaiuSemFaturar conexao={conexao} painel={painel.dados} recorte={recorte} aoMudarEstado={aoMudarEstado} />
+        <SaiuSemFaturar conexao={conexao} recorte={recorte} aoMudarEstado={aoMudarEstado} />
       )}
     </>
   );
@@ -129,10 +129,9 @@ const chaveDoRecorte = (r: Recorte) => `${r.periodo}|${r.de ?? ''}|${r.ate ?? ''
 /* ──────────────────────────────────────────────────────────────── resumo */
 
 function Resumo({
-  estado, recorte, aoAbrirCliente,
+  estado, aoAbrirCliente,
 }: {
   estado: { dados: PainelFinanceiro | null; erro: unknown; recarregar: () => void };
-  recorte: Recorte;
   aoAbrirCliente: (chave: { id: number } | { norm: string }) => void;
 }) {
   if (estado.erro) {
@@ -158,18 +157,18 @@ function Resumo({
         <div className="mq-kpi mq-kpi--ok">
           <span className="mq-kpi__label">Entrou</span>
           <span className="mq-kpi__value"><i>R$</i>{moneyNumero(g.faturamento)}</span>
-          <span className="mq-kpi__foot">pela data do pagamento</span>
+          <span className="mq-kpi__foot">recebido no período</span>
         </div>
         <div className={g.aReceber > 0 ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}>
           <span className="mq-kpi__label">Falta receber</span>
           <span className="mq-kpi__value"><i>R$</i>{moneyNumero(g.aReceber)}</span>
-          <span className="mq-kpi__foot">total em aberto, de todo o histórico</span>
+          <span className="mq-kpi__foot">de todas as vendas</span>
         </div>
         <div className="mq-kpi">
           <span className="mq-kpi__label">Vendas</span>
           <span className="mq-kpi__value">{g.vendas}</span>
           <span className="mq-kpi__foot">
-            {g.pecas} {g.pecas === 1 ? 'peça' : 'peças'} · pela data da venda
+            {g.pecas} {g.pecas === 1 ? 'peça' : 'peças'}
           </span>
         </div>
         <div className="mq-kpi">
@@ -177,28 +176,19 @@ function Resumo({
           <span className="mq-kpi__value">
             {g.ticketMedio.valor === null ? '—' : <><i>R$</i>{moneyNumero(g.ticketMedio.valor)}</>}
           </span>
-          <span className="mq-kpi__foot">{g.ticketMedio.vendasElegiveis} vendas elegíveis</span>
+          <span className="mq-kpi__foot">por venda paga</span>
         </div>
       </div>
 
-      <p className="mq-note mq-note--info">
-        <Icone nome="alert" />
-        <span>
-          <b>Três datas, três significados.</b> A data da <b>venda</b> é quando a
-          peça saiu, e é ela que conta vendas, peças e clientes. A do{' '}
-          <b>pagamento</b> é quando o dinheiro entrou, e é ela que manda no
-          faturamento. A do <b>registro</b> é quando alguém lançou no sistema —
-          ela não recorta nada, é auditoria. Por isso "entrou" e "vendas" podem
-          discordar no mesmo período, e isso não é erro.
-        </span>
-      </p>
-
+      {/* "Entrou" é cortado pela data do PAGAMENTO; vendas e peças, pela data
+          da VENDA. Os dois podem discordar no mesmo período e isso não é erro
+          (REGRAS §30). Até 01/10/2026 isso era um parágrafo na tela; a
+          usuária precisa do número, a explicação mora aqui e em REGRAS. */}
       <div className="mq-grid mq-grid--main">
         <section className="mq-card mq-card--flush">
           <div className="mq-card__head">
             <div>
               <h2 className="mq-title">Entrou por mês</h2>
-              <p className="mq-lede">Recortado pela data do pagamento, {descreverRecorte(recorte)}.</p>
             </div>
           </div>
           <div className="mq-card__body">
@@ -232,10 +222,6 @@ function Resumo({
                 <dd className="mq-money">{money(p.mesAtual.aReceber)}</dd>
               </div>
             </dl>
-            <p className="mq-hint" style={{ marginTop: 10 }}>
-              Conta sem prazo não é atribuída a mês nenhum — ela continua no
-              total geral e na lista de trabalho.
-            </p>
           </section>
 
           {p.topClientes.length > 0 && (
@@ -263,12 +249,6 @@ function Resumo({
               </div>
             </section>
           )}
-
-          <section className="mq-card mq-card--pad">
-            <h2 className="mq-subtitle">Como estes números são feitos</h2>
-            <p className="mq-hint">{g.composicao.regraFaturamento}</p>
-            <p className="mq-hint" style={{ marginTop: 8 }}>{g.ticketMedio.regra}</p>
-          </section>
         </aside>
       </div>
     </>
@@ -289,7 +269,6 @@ function Recebimentos({ conexao }: { conexao: Connection }) {
           <span>Dia</span>
           <input className="mq-input" type="date" value={data} onChange={(e) => setData(e.target.value)} />
         </label>
-        <span className="mq-filters__count">o fechamento de um dia, como ele foi</span>
       </div>
 
       {lanc.erro ? <section className="mq-card"><ErrorState erro={lanc.erro} aoTentarDeNovo={lanc.recarregar} /></section> : null}
@@ -300,7 +279,7 @@ function Recebimentos({ conexao }: { conexao: Connection }) {
             <div className="mq-kpi mq-kpi--ok">
               <span className="mq-kpi__label">Entrou no dia</span>
               <span className="mq-kpi__value"><i>R$</i>{moneyNumero(lanc.dados.recebidoNoDia)}</span>
-              <span className="mq-kpi__foot">pagamentos com esta data efetiva</span>
+              <span className="mq-kpi__foot">pagamentos recebidos neste dia</span>
             </div>
             <div className="mq-kpi">
               <span className="mq-kpi__label">Vendido no dia</span>
@@ -312,29 +291,23 @@ function Recebimentos({ conexao }: { conexao: Connection }) {
             <div className="mq-kpi">
               <span className="mq-kpi__label">Ficou a receber</span>
               <span className="mq-kpi__value"><i>R$</i>{moneyNumero(lanc.dados.aReceberDoDia.valor)}</span>
-              <span className="mq-kpi__foot">vendas do dia que saíram não pagas</span>
+              <span className="mq-kpi__foot">vendas do dia ainda não pagas</span>
             </div>
           </div>
-
-          <p className="mq-note mq-note--info">
-            <Icone nome="alert" />
-            <span>{lanc.dados.regra}</span>
-          </p>
         </>
       )}
 
       <section className="mq-card mq-card--flush">
         <div className="mq-card__head">
           <div>
-            <h2 className="mq-title">Linhas do dia</h2>
-            <p className="mq-lede">O que saiu, para quem, e se já foi pago.</p>
+            <h2 className="mq-title">Peças vendidas no dia</h2>
           </div>
         </div>
         {dia.dados && dia.dados.itens.length === 0 ? (
           <div className="mq-state">
             <span className="mq-state__icon"><Icone nome="calendar" /></span>
             <h3>Nenhuma venda neste dia</h3>
-            <p>Se entrou dinheiro hoje de uma venda antiga, ele aparece em "Entrou no dia" acima.</p>
+            <p>Pagamento de venda antiga recebido neste dia entra em "Entrou no dia".</p>
           </div>
         ) : (
           <div className="mq-list">
@@ -371,10 +344,9 @@ function Recebimentos({ conexao }: { conexao: Connection }) {
  *  são os GRAVADOS em cada saída (§46, 29/09/2026); o que não tem valor é
  *  contado à parte e dito, nunca somado como zero. */
 function SaiuSemFaturar({
-  conexao, painel, recorte, aoMudarEstado,
+  conexao, recorte, aoMudarEstado,
 }: {
   conexao: Connection;
-  painel: PainelFinanceiro | null;
   recorte: Recorte;
   aoMudarEstado?: () => void;
 }) {
@@ -408,20 +380,13 @@ function SaiuSemFaturar({
 
   return (
     <>
-      {painel && (
-        <p className="mq-note mq-note--info">
-          <Icone nome="alert" />
-          <span>{painel.saidasSemFaturamento.regra}</span>
-        </p>
-      )}
-
       {saidas.erro ? <ErrorState erro={saidas.erro} aoTentarDeNovo={saidas.recarregar} /> : null}
 
       <div className="mq-kpis">
         <div className="mq-kpi">
           <span className="mq-kpi__label">Peças que saíram</span>
           <span className="mq-kpi__value">{qtdTexto(pecas)}</span>
-          <span className="mq-kpi__foot">sem virar venda, no período</span>
+          <span className="mq-kpi__foot">brinde, uso próprio, perda e sorteio</span>
         </div>
         <div className="mq-kpi">
           <span className="mq-kpi__label">Deixou de vender</span>
@@ -429,7 +394,7 @@ function SaiuSemFaturar({
           <span className="mq-kpi__foot">
             {pecasSemValor
               ? `${qtdTexto(pecasSemValor)} ${plural(pecasSemValor, 'peça', 'peças')} sem valor — total incompleto`
-              : 'pelo preço gravado em cada saída'}
+              : 'pelo preço de venda'}
           </span>
         </div>
         <div className="mq-kpi mq-kpi--risk">
@@ -486,10 +451,7 @@ function SaiuSemFaturar({
         <div className="mq-card__head">
           <div>
             <h2 className="mq-title">Peças que saíram sem virar venda</h2>
-            <p className="mq-lede">
-              Explicam a diferença entre o que saiu do estoque e o que foi faturado.
-              Sem valor ou sem custo? Toque em “Informar valor” — o anterior fica guardado.
-            </p>
+            <p className="mq-lede">Sem valor ou sem custo? Toque em “Informar valor”.</p>
           </div>
         </div>
 
@@ -497,7 +459,7 @@ function SaiuSemFaturar({
           <div className="mq-state">
             <span className="mq-state__icon"><Icone nome="box" /></span>
             <h3>Nenhuma saída neste período</h3>
-            <p>Brinde, uso próprio, perda e sorteio aparecem aqui quando forem lançados em Vendas › Saída sem faturamento.</p>
+            <p>Lance em Vendas › Saída sem faturamento.</p>
           </div>
         ) : (
           <TabelaDeSaidas saidas={lista} aoCompletar={setCompletando} />
@@ -531,9 +493,8 @@ export function Conferencia({ conexao }: { conexao: Connection }) {
       <p className="mq-note mq-note--info">
         <Icone nome="alert" />
         <span>
-          Confere se as contas do sistema batem entre si. Ela só olha — não
-          corrige nada. Se algo aparecer divergente, não lance nada por cima:
-          peça para investigarem.
+          Só confere, não corrige nada. Se aparecer diferença, não lance nada
+          por cima: avise quem cuida do sistema.
         </span>
       </p>
 

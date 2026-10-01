@@ -254,11 +254,9 @@ function Caso({
                 <p className="mq-note mq-note--warn">
                   <Icone nome="alert" />
                   <span>
-                    <b>LEGACY_RECONCILIATION_REQUIRED.</b> Esta garantia não tem
-                    ponteiro para a linha da venda: o backfill encontrou{' '}
-                    {g.vendaItemVinculo === 'ambiguo' ? 'mais de uma candidata' : 'nenhuma candidata'}{' '}
-                    e se recusou a adivinhar qual peça voltou. Resolver isso é
-                    gente olhando, não automático.
+                    <b>Não sabemos de qual compra esta peça veio</b>{' '}
+                    ({g.vendaItemVinculo === 'ambiguo' ? 'há mais de uma possível' : 'nenhuma compra encontrada'}).
+                    Confira com a cliente antes de trocar.
                   </span>
                 </p>
               ) : null}
@@ -348,9 +346,8 @@ function Caso({
                 <p className="mq-note mq-note--info">
                   <Icone nome="alert" />
                   <span>
-                    Este caso terminou, e de estado terminal não se sai. Se a
-                    peça voltou, o caminho é um atendimento novo, ligado a
-                    este — trocar o status daqui apagaria a história.
+                    Este atendimento terminou. Se a peça voltou de novo, abra
+                    um atendimento novo.
                   </span>
                 </p>
               )}

@@ -269,8 +269,7 @@ export function CriarMaletaFluxo({
         <section className="fluxo-etapa">
           <h3>Revise as peças</h3>
           <p className="fluxo-nota">
-            Ajuste ou zere o que não deve ir. O limite de cada linha é o que a reserva liberou
-            daquele código — o servidor recusa qualquer número acima do disponível.
+            Ajuste ou zere o que não deve ir. Cada linha vai até o que está disponível.
           </p>
           {!itens.length ? (
             <EmptyState
@@ -343,9 +342,8 @@ export function CriarMaletaFluxo({
             <b>Isto grava.</b>
             <div className="corpo">
               Uma maleta será aberta para <b>{revNome}</b> com {totalPecas}{' '}
-              {plural(totalPecas, 'peça', 'peças')} ({money(totalValor)}). Cada peça vira um
-              movimento de consignação na razão — o estoque total não muda, mas as peças deixam de
-              estar disponíveis em casa.
+              {plural(totalPecas, 'peça', 'peças')} ({money(totalValor)}). O estoque total não muda, mas as peças
+              deixam de estar disponíveis em casa.
             </div>
           </div>
           <label className="campo">
@@ -382,11 +380,11 @@ export function CriarMaletaFluxo({
               <b>
                 {resultado.recusados.length}{' '}
                 {plural(resultado.recusados.length, 'código foi recusado', 'códigos foram recusados')}{' '}
-                pelo servidor.
+                pelo sistema.
               </b>
               <div className="corpo">
-                A maleta existe e está aberta — o que entrou está lá, e o que não entrou não gerou
-                movimento nenhum. Ajuste no painel clássico ou cancele a maleta.
+                A maleta foi aberta só com as outras peças. Ajuste no painel clássico ou
+                cancele a maleta.
                 <ul className="lista-recusa">
                   {resultado.recusados.map((r) => (
                     <li key={r.sku}>

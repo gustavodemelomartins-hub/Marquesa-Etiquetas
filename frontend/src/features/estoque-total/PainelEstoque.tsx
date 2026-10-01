@@ -244,9 +244,7 @@ export function PainelEstoque({
             <p className="mq-note mq-mt-4">
               <Icone nome="alert" />
               <span>
-                O valor de referência usa o <b>preço cadastrado</b>. Enquanto o
-                custo real não existir no sistema, ele não representa patrimônio
-                contábil.
+                Valor calculado pelo <b>preço de venda</b> cadastrado.
               </span>
             </p>
           </div>
@@ -304,9 +302,7 @@ export function PainelEstoque({
             casa.
           </p>
           <p className="mq-hint">
-            {cap.consignavel} de {cap.emCasa} peças liberadas · premissa
-            configurável, não regra do sistema. O planejamento mora em
-            Revendedoras.
+            {cap.consignavel} de {cap.emCasa} peças liberadas para maletas.
           </p>
           <dl className="mq-dl">
             <div>

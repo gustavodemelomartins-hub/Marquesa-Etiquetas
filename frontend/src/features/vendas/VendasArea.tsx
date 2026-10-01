@@ -147,8 +147,7 @@ export function VendasArea({
           {tipoAtivo === null && (
             <section className="mq-card mq-card--pad mq-card--quiet">
               <p className="mq-lede">
-                Escolha acima o que aconteceu. As três tiram peça do estoque;
-                só as duas primeiras viram dinheiro.
+                Escolha acima o que aconteceu.
               </p>
             </section>
           )}

@@ -19,8 +19,8 @@ export function ReconciliationSummary({ analise }: { analise: ReconciliationAnal
       )}
 
       <p style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 'var(--r3)' }}>
-        Rodada seca de {fmtDataHora(resumo.em)} — leu a loja, calculou o que
-        mudaria e <strong>não escreveu nada lá</strong>.
+        Simulação de {fmtDataHora(resumo.em)} — leu a loja e calculou o que
+        mudaria, <strong>sem alterar nada lá</strong>.
       </p>
 
       <div className="grade" style={{ marginBottom: 'var(--r4)' }}>

@@ -370,11 +370,10 @@ export function NovaVenda({
                     </select>
                     {l.variacoes.every((v) => v.saldo <= 0) && (
                       <small>
-                        O estoque deste código ainda não foi repartido entre as variações.{' '}
+                        Nenhuma variação deste código tem saldo.{' '}
                         <a href={`#/estoque/peca:${encodeURIComponent(l.sku)}`} target="_blank" rel="noreferrer">
-                          Repartir na ficha da peça
-                        </a>{' '}
-                        (abre em outra aba; esta venda continua aqui).
+                          Separar na ficha da peça
+                        </a>
                       </small>
                     )}
                   </label>
@@ -389,10 +388,7 @@ export function NovaVenda({
                       value={l.descontoRotulo}
                       onChange={(e) => mudar(l.chave, { descontoRotulo: e.target.value })}
                     />
-                    <small>
-                      Diga o motivo do desconto — sem ele, a venda não é
-                      registrada.
-                    </small>
+                    <small>obrigatório quando o preço muda</small>
                   </label>
                 )}
               </div>
@@ -535,10 +531,8 @@ export function NovaVenda({
         <dl className="mq-figures">
           <div><dt>Valor da venda</dt><dd>{money(total)}</dd>
             <small>{pecas} {plural(pecas, 'peça', 'peças')}</small></div>
-          <div className="is-ok"><dt>Valor recebido</dt><dd>{money(recebido)}</dd>
-            <small>dinheiro confirmado</small></div>
-          <div className={aReceber > 0 ? 'is-risk' : ''}><dt>Valor a receber</dt><dd>{money(aReceber)}</dd>
-            <small>saldo cobrável</small></div>
+          <div className="is-ok"><dt>Valor recebido</dt><dd>{money(recebido)}</dd></div>
+          <div className={aReceber > 0 ? 'is-risk' : ''}><dt>Valor a receber</dt><dd>{money(aReceber)}</dd></div>
         </dl>
 
         <div className="mq-grid mq-grid--2">
@@ -556,7 +550,7 @@ export function NovaVenda({
 
           {pago && (
             <label className="mq-field">
-              <span>Data efetiva do pagamento</span>
+              <span>Data do pagamento</span>
               <input
                 className="mq-input"
                 type="date"
@@ -564,20 +558,13 @@ export function NovaVenda({
                 max={hoje}
                 onChange={(e) => setDataPagamento(e.target.value)}
               />
-              <small>
-                quando o dinheiro entrou — é esta data que manda no
-                faturamento, e ela pode não ser a da venda
-              </small>
+              <small>quando o dinheiro entrou</small>
             </label>
           )}
         </div>
 
         {/* O servidor quita a venda por inteiro; recebimento em partes
             ainda não existe (decisão D2). */}
-        <p className="mq-hint">
-          O pagamento é registrado de uma vez, pelo valor total. Se a cliente
-          vai pagar depois, escolha "Fica a receber".
-        </p>
 
         <label className="mq-field">
           <span>Observação da venda <small>opcional</small></span>
@@ -729,7 +716,7 @@ function Revisao({
             <div>
               <dt>Cliente</dt>
               <dd>{clienteNome || 'Não informada'}</dd>
-              <small>{clienteId ? `cadastro #${clienteId}` : 'sem cadastro — o nome fica na venda'}</small>
+              <small>{clienteId ? 'cliente cadastrada' : 'sem cadastro'}</small>
             </div>
             <div>
               <dt>Data da venda</dt>
@@ -740,11 +727,6 @@ function Revisao({
               <dt>Data do pagamento</dt>
               <dd>{dataPagamento ? fmtData(dataPagamento) : '—'}</dd>
               <small>{dataPagamento ? 'quando o dinheiro entrou' : 'fica a receber'}</small>
-            </div>
-            <div>
-              <dt>Registro</dt>
-              <dd>{fmtData(hojeISO())}</dd>
-              <small>hoje</small>
             </div>
           </dl>
 

@@ -157,8 +157,8 @@ export function MonteSeuColar({ conexao, aoAdicionar, aoCancelar }: Props) {
         <div className="mq-note mq-note--warn" role="alert">
           <Icone nome="alert" />
           <span>
-            <b>O Monte seu Colar está desligado no servidor.</b>{' '}
-            Enquanto isso, registre a venda do colar como <b>Venda normal</b>.
+            <b>O Monte seu Colar está desligado.</b>{' '}
+            Registre o colar como <b>Venda normal</b>.
           </span>
         </div>
       )}
@@ -350,8 +350,7 @@ function CadastrarModelo({
           <div><dt>Preço</dt><dd>{money(oficial.preco)}</dd></div>
         </dl>
         <p className="mq-hint">
-          Configuração oficial: código e preço são fixos. O colar não tem estoque
-          próprio — saem a corrente e os pingentes escolhidos.
+          Código e preço fixos. Saem do estoque a corrente e os pingentes.
         </p>
         {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
         <div className="mq-btns">

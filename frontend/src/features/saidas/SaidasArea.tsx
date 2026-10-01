@@ -186,8 +186,7 @@ export function SaidasArea({
           <div>
             <h2 className="mq-title">Lançamentos</h2>
             <p className="mq-lede">
-              Nenhum entra em faturamento. O lançado aqui vira movimento na razão;
-              o que veio da planilha antiga só classifica uma peça que já tinha saído.
+              Nenhum entra no faturamento.
             </p>
           </div>
         </div>
@@ -217,9 +216,8 @@ export function SaidasArea({
             <div>
               <h2 className="mq-title" id="saidas-legado">Registros antigos sem saída</h2>
               <p className="mq-lede">
-                Linhas da planilha de vendas que não eram venda e já saíram do
-                faturamento, mas não viraram saída porque falta a data ou o código
-                não está no catálogo. Ficam aqui com o que a planilha registrou.
+                Linhas da planilha antiga que não eram venda, sem data ou com código
+                fora do catálogo.
               </p>
             </div>
           </div>

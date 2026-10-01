@@ -101,10 +101,8 @@ export function FilaArea({ conexao }: Props) {
         <p className="mq-note mq-note--warn">
           <Icone nome="alert" />
           <span>
-            <b>A escrita automática na loja está desligada no servidor.</b>{' '}
-            {d.decisaoPendente} Preparar, revisar e aprovar são registros
-            NOSSOS — nenhum deles toca a Nuvemshop. Publicar de verdade é uma
-            decisão à parte, e esta tela não a toma.
+            <b>A publicação automática na loja está desligada.</b>{' '}
+            Preparar, revisar e aprovar ficam só aqui — nada muda na loja.
           </span>
         </p>
       )}
@@ -280,7 +278,7 @@ function LinhaDaFila({
             <p className="mq-note mq-note--info">
               <Icone nome="alert" />
               <span>
-                <b>Bloqueio do ambiente:</b>{' '}
+                <b>Ainda não disponível:</b>{' '}
                 {item.bloqueios.map((b) => String(b.motivo ?? b)).join(' · ')}.
                 {' '}Isto não é da peça — é o que este servidor ainda não consegue
                 fazer.
@@ -432,9 +430,8 @@ function LinhaDaFila({
 
           {item.estado === ESTADOS.APROVADO && (
             <p className="mq-hint">
-              Aprovada e <b>parada aqui</b>: a publicação automática está
-              desligada no servidor. Ela não vai para a loja sozinha, e esta
-              tela não a manda.
+              Aprovada. A publicação automática está desligada: ela não vai
+              sozinha para a loja.
             </p>
           )}
         </div>

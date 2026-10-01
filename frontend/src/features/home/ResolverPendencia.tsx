@@ -409,7 +409,7 @@ function VariacoesDaMaleta({ conexao, p, ocupado, executar, erro }: Parte) {
       <p className="mq-hint">
         Quantas de cada variação estão com {p.revendedora ?? 'a revendedora'}?
         {p.fora != null ? ` Saíram ${p.fora}` : ''}{p.identificado ? `, já identificadas ${p.identificado}` : ''}.
-        Dizer qual é identidade — nada sai do estoque de novo.
+        Nada sai do estoque de novo.
       </p>
       <Quantidades p={p} valores={valores} mudar={(n, v) => setValores((a) => ({ ...a, [n]: v }))} />
       <button type="button" className="mq-btn mq-btn--primary mq-btn--sm" disabled={ocupado || soma === 0}

@@ -129,8 +129,8 @@ export function EstoqueTotalPage({
               <p className="mq-eyebrow">Muitas peças</p>
               <h2 className="mq-title">Por planilha</h2>
               <p className="mq-lede">
-                A planilha de referência da Stéfane, comparada com o que o
-                sistema tem hoje. Nada muda até você aprovar e aplicar.
+                Compare a planilha com o que o sistema tem hoje. Nada muda até
+                você aprovar.
               </p>
             </div>
           </div>
@@ -146,7 +146,7 @@ export function EstoqueTotalPage({
         <PageHeader
           kicker="Entrada de peças"
           titulo="Atualizar Estoque Total"
-          sub="A planilha de referência da Stéfane, comparada com o que o sistema tem hoje. Nada muda até você aprovar e aplicar."
+          sub="Compare a planilha com o que o sistema tem hoje. Nada muda até você aprovar."
         />
       )}
 

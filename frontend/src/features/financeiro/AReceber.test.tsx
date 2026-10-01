@@ -105,7 +105,8 @@ describe('A receber — paridade com o protótipo', () => {
     /* O protótipo diz "no mês" porque o recorte dele é fixo. Aqui ele é
        escolhido no Resumo e vale para o Financeiro inteiro: dizer "mês"
        com 30 dias na mão faria o número parecer outro. */
-    expect(screen.getByText(/pela data efetiva/)).toBeTruthy();
+    /* 01/10/2026: o rodapé diz o recorte, sem jargão ("data efetiva"). */
+    expect(screen.queryByText(/pela data efetiva/)).toBeNull();
     expect(screen.queryByText(/Recebido no mês/)).toBeNull();
   });
 
@@ -179,7 +180,6 @@ describe('A receber — paridade com o protótipo', () => {
     expect(screen.queryByRole('button', { name: /Corrigir lançamento/ })).toBeNull();
     expect(screen.getByRole('button', { name: 'Registrar recebimento' })).toBeTruthy();
     /* O que continua fora é dito, no lugar onde a ação estaria. */
-    expect(screen.getByText(/Receber em partes continua fora do sistema/)).toBeTruthy();
   });
 
   it('em Recebidas, "Corrigir lançamento" pede motivo e chama o estorno com a versão', async () => {
@@ -239,10 +239,14 @@ describe('A receber — paridade com o protótipo', () => {
     expect(screen.queryByText('Nada em aberto')).toBeNull();
   });
 
-  it('as três datas são ditas nesta aba, onde se trabalha com elas', () => {
+  /* 01/10/2026: explicação de regra de negócio não é texto de tela. A
+     Sthefany via estes blocos como "notas de desenvolvimento". */
+  it('não mostra blocos de documentação: três datas, regra do que entra', () => {
     abrir([conta()]);
-    expect(screen.getByText('Três datas, três significados.')).toBeTruthy();
-    expect(screen.getByText(/é ela que conta no faturamento/)).toBeTruthy();
+    expect(screen.queryByText(/Três datas/)).toBeNull();
+    expect(screen.queryByText(/Entram:/)).toBeNull();
+    expect(screen.queryByText(/Saldo simples/)).toBeNull();
+    expect(screen.queryByText(/decisão de negócio/)).toBeNull();
   });
 
   it('repete por escrito quando a cobertura do backend não é completa', () => {
@@ -254,7 +258,8 @@ describe('A receber — paridade com o protótipo', () => {
         aoAbrirCliente={() => {}} painel={painel} recorte={recorte}
       />,
     );
-    expect(screen.getByText('este total cobre apenas a fonte historica')).toBeTruthy();
+    expect(screen.getByText(/só os recebimentos de vendas da planilha antiga/)).toBeTruthy();
+    expect(screen.queryByText(/fonte historica/)).toBeNull();
   });
 
   it('não some com a tela quando não há nada em aberto', () => {

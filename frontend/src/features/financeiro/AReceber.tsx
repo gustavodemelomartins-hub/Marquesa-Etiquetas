@@ -159,23 +159,11 @@ export function AReceber({
       {!cobertura.completa && (
         <p className="mq-note mq-note--warn">
           <Icone nome="alert" />
-          <span>{cobertura.porque}</span>
+          {/* `cobertura.porque` é a explicação técnica do servidor; ela vai
+              para o console, e a tela diz o que a pessoa precisa saber. */}
+          <span>Aqui aparecem só os recebimentos de vendas da planilha antiga. Vendas do sistema já pagas estão em Vendas › Vendas feitas.</span>
         </p>
       )}
-
-      {/* TRÊS DATAS, ditas uma vez, onde se trabalha com elas. Elas estavam
-          só no Resumo, e quem passa o dia nesta aba nunca as lia. */}
-      <p className="mq-note mq-note--brand date-key">
-        <Icone nome="calendar" />
-        <span>
-          <b>Três datas, três significados.</b>
-          <em className="date-key__item"><i>Venda</i> quando a peça saiu</em>
-          <em className="date-key__item">
-            <i>Pagamento</i> data efetiva do dinheiro — é ela que conta no faturamento
-          </em>
-          <em className="date-key__item"><i>Registro</i> quando foi lançado no sistema</em>
-        </span>
-      </p>
 
       <div className="mq-kpis">
         <div className={resumo.total > 0 ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}>
@@ -210,7 +198,7 @@ export function AReceber({
               Resumo e vale para o Financeiro inteiro — mentir o rótulo
               faria o número parecer outro. */}
           <span className="mq-kpi__foot">
-            pela data efetiva · {descreverRecorte(recorte).toLowerCase()}
+            {descreverRecorte(recorte).toLowerCase()}
           </span>
         </div>
       </div>
@@ -221,11 +209,11 @@ export function AReceber({
             <div>
               <p className="mq-eyebrow">{modo === 'abertas' ? 'Contas abertas' : 'Contas recebidas'}</p>
               <h2 className="mq-title">{modo === 'abertas' ? 'Quem ainda deve' : 'O que já foi recebido'}</h2>
-              <p className="mq-lede">
-                {modo === 'abertas'
-                  ? dados.regra
-                  : 'Recebimentos lançados aqui. Um lançamento errado se corrige daqui, com motivo.'}
-              </p>
+              {/* `dados.regra` (o que entra e o que não entra nesta lista) é
+                  documentação do servidor — REGRAS §36 —, não texto de tela. */}
+              {modo === 'recebidas' && (
+                <p className="mq-lede">Lançou errado? Abra a conta e use Corrigir lançamento.</p>
+              )}
             </div>
             <div className="mq-chipset" role="group" aria-label="Abertas ou recebidas">
               <button type="button" aria-pressed={modo === 'abertas'} onClick={() => setModo('abertas')}>
@@ -279,7 +267,7 @@ export function AReceber({
             <div className="mq-state">
               <span className="mq-state__icon"><Icone nome="check" /></span>
               <h3>Nada em aberto</h3>
-              <p>Toda compra registrada já foi paga. É o melhor estado possível desta tela.</p>
+              <p>Todas as vendas estão pagas.</p>
             </div>
           ) : lista.length === 0 ? (
             <div className="mq-state">
@@ -352,7 +340,7 @@ export function AReceber({
           )}
 
           <div className="mq-card__foot">
-            <span>Saldo simples · sem parcelas geradas</span>
+            <span />
             <span>{money(resumo.total)} em aberto</span>
           </div>
         </section>
@@ -380,7 +368,6 @@ export function AReceber({
                   <div className="is-ok"><dt>Recebido</dt><dd>{money(conta.valorRecebido)}</dd></div>
                   <div className="is-brand">
                     <dt>A receber</dt><dd>{money(conta.valorReceber)}</dd>
-                    <small>Saldo simples</small>
                   </div>
                 </dl>
 
@@ -443,23 +430,13 @@ export function AReceber({
                   )}
                 </div>
 
-                <p className="mq-note">
-                  <Icone nome="box" />
-                  <span>
-                    Receber <b>não movimenta estoque</b> e quita a conta inteira.
-                    Recebimento lançado errado se corrige em <b>Recebidas</b>: a
-                    conta volta a ficar em aberto, com o motivo registrado, e o
-                    recebimento certo entra de novo. Receber em partes continua
-                    fora do sistema.
-                  </span>
-                </p>
               </div>
             </>
           ) : (
             <div className="mq-state">
               <span className="mq-state__icon"><Icone nome="money" /></span>
               <h3>Nenhuma conta selecionada</h3>
-              <p>Clique numa linha para ver o que já entrou e registrar a entrada.</p>
+              <p>Toque numa conta para registrar o recebimento.</p>
             </div>
           )}
         </aside>
@@ -572,19 +549,8 @@ function DialogoReceber({
               max={hojeISO()}
               onChange={(e) => setData(e.target.value)}
             />
-            <small>
-              É esta data que manda no faturamento — não a da venda ({fmtData(conta.data)})
-              nem a de hoje.
-            </small>
+            <small>A venda foi em {fmtData(conta.data)}.</small>
           </label>
-
-          <p className="mq-note mq-note--info">
-            <Icone nome="alert" />
-            <span>
-              O sistema quita a conta inteira. Receber em partes depende de uma
-              decisão de negócio que ainda não foi tomada, e não está ligado.
-            </span>
-          </p>
 
           {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
         </div>
@@ -660,15 +626,13 @@ function DialogoCorrigir({
               onChange={(e) => setMotivo(e.target.value)}
               placeholder="Ex.: lançado na cliente errada, pix não caiu"
             />
-            <small>O motivo fica registrado junto da conta. Nada é apagado.</small>
+            <small>Fica guardado na conta.</small>
           </label>
 
           <p className="mq-note mq-note--info">
             <Icone nome="alert" />
             <span>
-              A conta volta para <b>Em aberto</b> pelo valor inteiro. Se o dinheiro
-              entrou em outra data, registre o recebimento de novo com a data certa.
-              Estoque não é tocado.
+              A conta volta para <b>Em aberto</b>. Depois, registre o recebimento certo.
             </span>
           </p>
 

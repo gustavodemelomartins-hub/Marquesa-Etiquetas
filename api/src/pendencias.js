@@ -436,7 +436,7 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
       motivo: 'variacao_da_maleta',
       explicacao: `${falta} ${falta === 1 ? 'peça saiu' : 'peças saíram'} nesta maleta `
         + `e ${falta === 1 ? 'não tem' : 'não têm'} variação identificada. `
-        + 'Dizer qual é identidade, não movimentação: nada sai do estoque de novo.',
+        + 'Escolher a variação não tira a peça do estoque de novo.',
       variacoesPossiveis: vars(r.sku),
       acoes: ['resolver_maleta', 'revisar_depois'],
     });
@@ -473,8 +473,8 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
       candidato: r.candidato_nome ?? null,
       candidatoTelefone: r.candidato_telefone ?? null,
       motivo: 'vinculo_em_duvida',
-      explicacao: 'O nome da planilha se parece com um cadastro, mas não é prova. '
-        + 'Nome não é identidade: só uma pessoa pode dizer se são a mesma.',
+      explicacao: 'O nome da planilha parece com um cadastro. '
+        + 'Confirme se é a mesma pessoa.',
       acoes: ['revisar_depois'],
     });
   }

@@ -133,8 +133,7 @@ export function TopRevendedoras({
         ))}
       </ol>
       <p className="top-rev__nota">
-        Ticket = vendido ÷ peças. Giro = vendidas ÷ enviadas, só quando todo ciclo tem a maleta registrada
-        (acertos anteriores ao sistema não dizem quantas peças foram).
+        Giro = vendidas ÷ enviadas; aparece quando todas as maletas foram registradas no sistema.
         {semHistorico.length > 0 && <> Sem acerto fechado ainda: {semHistorico.join(', ')}.</>}
       </p>
     </div>

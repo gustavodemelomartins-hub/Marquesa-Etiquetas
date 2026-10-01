@@ -87,7 +87,7 @@ describe('Monte seu Colar: o modelo nasce na venda', () => {
     /* Pingente sem estoque não soma. */
     expect((screen.getByRole('button', { name: 'Mais Menino Verde' }) as HTMLButtonElement).disabled).toBe(true);
 
-    expect(await screen.findByText(/Configuração oficial: código e preço são fixos/)).toBeTruthy();
+    expect(await screen.findByText(/Código e preço fixos/)).toBeTruthy();
     expect(screen.getByText('Colar Casal · 326660')).toBeTruthy();
     expect(screen.queryByRole('combobox')).toBeNull();
 

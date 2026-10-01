@@ -115,15 +115,14 @@ export function PainelDaTroca({ conexao, garantia, produtos, aoMudar }: Props) {
         />
       ) : encerrado ? (
         <p className="mq-hint">
-          Caso em &quot;{garantia.statusRotulo}&quot;: de estado terminal não se
-          sai, e por isso ele não troca peça. Se a peça voltou de novo, o
-          caminho é um atendimento novo ligado a este.
+          Atendimento {garantia.statusRotulo.toLowerCase()}: não troca mais
+          peça. Se a peça voltou de novo, abra um atendimento novo.
         </p>
       ) : !abrindo ? (
         <>
           <p className="mq-hint">
-            Nenhuma troca registrada. A peça nova sai do estoque, e o servidor
-            calcula a diferença contra o que a cliente pagou
+            Nenhuma troca registrada. A peça nova sai do estoque, e a diferença
+            é calculada pelo que a cliente pagou
             {garantia.valorPagoOriginal != null
               ? ` (${money(garantia.valorPagoOriginal)})`
               : ' — que esta garantia não conhece, e por isso a diferença pode vir zerada'}.
@@ -317,8 +316,8 @@ function ResumoDaTroca({
 
       {troca.diferencaStatus === 'paga' && (
         <p className="mq-hint">
-          Estornar uma troca com a diferença já paga é recusado pelo servidor:
-          deixaria o dinheiro sem origem. Trate o reembolso antes.
+          Com a diferença já paga, a troca não pode ser desfeita. Resolva o
+          reembolso antes.
         </p>
       )}
     </>

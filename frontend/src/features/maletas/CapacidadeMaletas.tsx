@@ -97,8 +97,7 @@ export function CapacidadeMaletas({ estado, planejamento, aoVerSugestoes, aoCria
           </div>
           <p className="cap-explica">
             O modo é um único parâmetro: quanto de <b>cada código</b> fica em casa.{' '}
-            {ROTULO_MODO[config.modo]} guarda {cap.reservaPct}%. Não há nada além disso
-            decidindo — nenhuma heurística, nenhum modelo.
+            {ROTULO_MODO[config.modo]} guarda {cap.reservaPct}%.
           </p>
         </div>
 

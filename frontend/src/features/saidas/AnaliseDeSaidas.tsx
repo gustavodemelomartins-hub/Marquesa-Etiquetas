@@ -4,7 +4,7 @@ import type { Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
-import { fmtData, plural } from '../../domain/formato';
+import { fmtData, money, plural } from '../../domain/formato';
 import { listarSaidas } from './api';
 import { TIPOS_DE_SAIDA } from './tipos';
 import { intervaloDoAtalho, resumirSaidas } from './analise';
@@ -16,19 +16,12 @@ interface Props {
   conexao: Connection;
 }
 
-/** ANÁLISE DE SAÍDAS — a tela do protótipo, com os dados reais e uma
- *  recusa no lugar de um número inventado.
+/** ANÁLISE DE SAÍDAS — brinde, uso próprio, perda e sorteio no período.
  *
- *  O protótipo desenha quatro cartões de CUSTO. Não existe custo no
- *  sistema: nem `produtos` nem `saidas_sem_faturamento` têm a coluna, e
- *  nenhuma rota devolve uma. O que existe é `produtos.preco`, que é o
- *  preço de VENDA — somá-lo e chamar de custo faria uma peça dada de
- *  brinde "custar" o valor que ela teria rendido.
- *
- *  Então a composição é a do protótipo e os cartões de custo dizem "não
- *  informado", com o número de registros sem custo à vista. O que é real
- *  — peças retiradas, peças estornadas, lançamentos, distribuição por
- *  motivo — aparece com o número de verdade.
+ *  O custo é o GRAVADO em cada saída (§46, 29/09/2026). Até 01/10/2026 esta
+ *  tela ainda dizia "não existe custo no sistema" — verdade antes de §46, e
+ *  falso depois. Saída sem custo não entra como zero: é contada à parte e o
+ *  cartão diz quantas faltam.
  */
 export function AnaliseDeSaidas({ conexao }: Props) {
   const [atalho, setAtalho] = useState<Atalho>('tudo');
@@ -64,6 +57,16 @@ export function AnaliseDeSaidas({ conexao }: Props) {
   }, [lista.dados, situacao]);
 
   const r = useMemo(() => resumirSaidas(saidas), [saidas]);
+  const custo = useMemo(() => {
+    let total = 0; let comCusto = 0; let semCusto = 0;
+    for (const s of saidas) {
+      if (s.estornada) continue;
+      const n = s.sentido === 'entrada' ? -s.qtd : s.qtd;
+      if (s.custoUnit == null) semCusto += n;
+      else { total += s.custoUnit * n; comCusto += n; }
+    }
+    return { total, comCusto, semCusto };
+  }, [saidas]);
   const maiorBarra = Math.max(1, ...r.porMotivo.map((m) => m.pecas));
 
   return (
@@ -134,8 +137,6 @@ export function AnaliseDeSaidas({ conexao }: Props) {
       {lista.carregando && <LoadingState />}
 
       <div className="mq-kpis">
-        {/* O ÚNICO cartão com número real. Os três de custo existem na
-            composição do protótipo e dizem que não sabem. */}
         <div className="mq-kpi mq-kpi--accent">
           <span className="mq-kpi__label">Peças retiradas</span>
           <strong className="mq-kpi__value">{r.pecasRetiradas}</strong>
@@ -152,30 +153,24 @@ export function AnaliseDeSaidas({ conexao }: Props) {
 
         <div className="mq-kpi">
           <span className="mq-kpi__label">Custo das saídas</span>
-          <strong className="mq-kpi__value mq-kpi__value--vazio">Não informado</strong>
+          {custo.comCusto === 0
+            ? <strong className="mq-kpi__value mq-kpi__value--vazio">Não informado</strong>
+            : <strong className="mq-kpi__value">{money(custo.total)}</strong>}
           <span className="mq-kpi__foot">
-            {r.semCusto} de {r.semCusto} {plural(r.semCusto, 'registro', 'registros')} sem custo
+            {custo.semCusto > 0
+              ? `${custo.semCusto} ${plural(custo.semCusto, 'peça', 'peças')} sem custo`
+              : 'o que foi pago nas peças'}
           </span>
         </div>
 
         <div className="mq-kpi">
           <span className="mq-kpi__label">Custo por peça</span>
-          <strong className="mq-kpi__value mq-kpi__value--vazio">Não informado</strong>
-          <span className="mq-kpi__foot">depende do custo, que não existe</span>
+          {custo.comCusto === 0
+            ? <strong className="mq-kpi__value mq-kpi__value--vazio">Não informado</strong>
+            : <strong className="mq-kpi__value">{money(custo.total / custo.comCusto)}</strong>}
+          <span className="mq-kpi__foot">média das peças com custo</span>
         </div>
       </div>
-
-      <p className="mq-note mq-note--warn">
-        <Icone nome="alert" />
-        <span>
-          <b>Não existe custo no sistema.</b> Nem <code>produtos</code> nem{' '}
-          <code>saidas_sem_faturamento</code> têm coluna de custo, e nenhuma rota
-          devolve uma. O preço cadastrado é o de <b>venda</b>: somá-lo aqui faria
-          uma peça dada de brinde "custar" o valor que ela teria rendido. Os
-          totais de custo ficam vazios até o custo existir — nenhum deles é
-          parcial, porque não há nenhuma parte.
-        </span>
-      </p>
 
       <div className="mq-grid mq-grid--aside">
         <section className="mq-card">
@@ -235,10 +230,7 @@ export function AnaliseDeSaidas({ conexao }: Props) {
           <div>
             <p className="mq-eyebrow">Registro</p>
             <h2 className="mq-title">Saídas do período</h2>
-            <p className="mq-lede">
-              Nenhuma delas entra em faturamento, ticket médio ou ranking de
-              clientes — e isso é regra do servidor, não escolha desta tela.
-            </p>
+            <p className="mq-lede">Nenhuma delas entra no faturamento.</p>
           </div>
         </div>
 

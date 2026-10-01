@@ -158,7 +158,7 @@ export function RevendedorasArea({
             : <HistoricoDeAcertos estado={estado} dados={acertos.dados} aoAbrirAcerto={setAcertoEmFoco} />}
       </>}
 
-      {rota === 'configuracoes' && <><PageHeader kicker="Consignação" titulo="Configurações" sub="Premissas transparentes para capacidade e montagem de maletas." /><ConfiguracoesRevendedoras estado={estado} planejamento={planejamento} aoVerSugestoes={() => setSugestoesAbertas(true)} aoCriarMaleta={() => abrirCriacao(null)} /></>}
+      {rota === 'configuracoes' && <><PageHeader kicker="Consignação" titulo="Configurações" sub="Tamanho das maletas e quanto deixar em casa." /><ConfiguracoesRevendedoras estado={estado} planejamento={planejamento} aoVerSugestoes={() => setSugestoesAbertas(true)} aoCriarMaleta={() => abrirCriacao(null)} /></>}
 
       {typeof rota === 'number' && atual && (
         <>

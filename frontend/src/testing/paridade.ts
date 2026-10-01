@@ -155,11 +155,11 @@ export const PARIDADE: ModuloDeParidade[] = [
       },
       {
         id: 'vendas.data-pagamento', rotulo: 'Data efetiva do pagamento, separada', estado: 'pronta',
-        prova: { arquivo: `${F}/features/vendas/NovaVenda.tsx`, contem: 'Data efetiva do pagamento' },
+        prova: { arquivo: `${F}/features/vendas/NovaVenda.tsx`, contem: 'Data do pagamento' },
       },
       {
-        id: 'vendas.tres-datas', rotulo: 'Venda ≠ pagamento ≠ registro, na revisão', estado: 'pronta',
-        prova: { arquivo: `${F}/features/vendas/NovaVenda.tsx`, contem: '<dt>Registro</dt>' },
+        id: 'vendas.tres-datas', rotulo: 'Data da venda e data do pagamento separadas, na revisão', estado: 'pronta',
+        prova: { arquivo: `${F}/features/vendas/NovaVenda.tsx`, contem: '<dt>Data do pagamento</dt>' },
       },
       {
         id: 'vendas.canal', rotulo: 'Local ou canal da venda', estado: 'indisponivel',
@@ -237,8 +237,12 @@ export const PARIDADE: ModuloDeParidade[] = [
     prototipo: '/prototype/clientes/',
     capacidades: [
       {
-        id: 'clientes.lista', rotulo: 'Lista com busca no servidor', estado: 'pronta', rota: '#/clientes',
-        prova: { arquivo: `${F}/features/clientes/ListaClientes.tsx`, contem: 'export function ListaClientes' },
+        id: 'clientes.lista', rotulo: 'Todos os clientes: busca no servidor, última compra e total comprado', estado: 'pronta', rota: '#/clientes/todos',
+        prova: { arquivo: `${F}/features/clientes/ListaClientes.tsx`, contem: 'Total comprado' },
+      },
+      {
+        id: 'clientes.visao-geral', rotulo: 'Visão geral: Top clientes, para chamar de volta, recorrentes, novas', estado: 'pronta', rota: '#/clientes',
+        prova: { arquivo: `${F}/features/clientes/VisaoGeralClientes.tsx`, contem: 'Para chamar de volta' },
       },
       {
         id: 'clientes.cadastro', rotulo: 'Cadastro e edição', estado: 'pronta',
@@ -250,15 +254,15 @@ export const PARIDADE: ModuloDeParidade[] = [
       },
       {
         id: 'clientes.tres-numeros', rotulo: 'Comprou · Pago · Em aberto', estado: 'pronta',
-        prova: { arquivo: `${F}/features/clientes/PerfilCliente.tsx`, contem: 'Os três números' },
+        prova: { arquivo: `${F}/features/clientes/PerfilCliente.tsx`, contem: '<span className="mq-kpi__label">Comprou</span>' },
       },
       {
-        id: 'clientes.tres-datas', rotulo: 'Três datas, três significados', estado: 'pronta',
-        prova: { arquivo: `${F}/features/clientes/PerfilCliente.tsx`, contem: 'Três datas, três significados' },
+        id: 'clientes.tres-datas', rotulo: 'Data da venda e data do pagamento, cada uma na sua coluna', estado: 'pronta',
+        prova: { arquivo: `${F}/features/clientes/PerfilCliente.tsx`, contem: 'pago em {fmtData(v.pagaEm)}' },
       },
       {
         id: 'clientes.financeiro', rotulo: 'O que falta receber', estado: 'pronta',
-        prova: { arquivo: `${F}/features/clientes/PerfilCliente.tsx`, contem: 'O que falta receber' },
+        prova: { arquivo: `${F}/features/clientes/PerfilCliente.tsx`, contem: 'Falta receber' },
       },
       {
         id: 'clientes.credito', rotulo: 'Saldo e extrato de crédito', estado: 'pronta',
@@ -270,7 +274,7 @@ export const PARIDADE: ModuloDeParidade[] = [
       },
       {
         id: 'clientes.atividade', rotulo: 'Linha do tempo de tudo o que aconteceu', estado: 'pronta',
-        prova: { arquivo: `${F}/features/clientes/PerfilCliente.tsx`, contem: 'Tudo o que aconteceu' },
+        prova: { arquivo: `${F}/features/clientes/PerfilCliente.tsx`, contem: 'Ver tudo o que aconteceu' },
       },
       {
         id: 'clientes.nova-venda', rotulo: 'Nova venda para esta cliente', estado: 'pronta',
@@ -666,7 +670,7 @@ export const PARIDADE: ModuloDeParidade[] = [
       {
         id: 'nuvemshop.falta-vs-bloqueio', rotulo: 'O que falta na peça ≠ o que o servidor não faz',
         estado: 'pronta',
-        prova: { arquivo: `${F}/features/publicacao/FilaArea.tsx`, contem: 'Bloqueio do ambiente' },
+        prova: { arquivo: `${F}/features/publicacao/FilaArea.tsx`, contem: 'Ainda não disponível:' },
       },
       {
         id: 'nuvemshop.previa', rotulo: 'Revisar e salvar a prévia do site', estado: 'pronta',

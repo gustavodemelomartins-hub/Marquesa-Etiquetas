@@ -64,8 +64,7 @@ export function ConnectionForm({
       <div className="cartao" style={{ padding: 'var(--r5)' }}>
         <h2 style={{ marginBottom: 'var(--r2)' }}>Conectar ao servidor</h2>
         <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 'var(--r4)' }}>
-          O endereço do Worker e a chave de acesso. Ficam guardados só neste
-          aparelho — os mesmos que o painel atual usa.
+          O endereço e a chave de acesso ficam guardados só neste aparelho.
         </p>
 
         <form onSubmit={enviar} noValidate>

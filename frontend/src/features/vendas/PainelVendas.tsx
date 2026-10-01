@@ -22,7 +22,6 @@ import type { Connection } from '../../services/client';
  *  lugar dela diz por quê. Isto NÃO é um buraco a preencher no frontend:
  *  preencher exigiria somar o período anterior, que é conta do servidor.
  */
-const SEM_TENDENCIA = 'sem comparação com o período anterior';
 
 interface Props {
   conexao: Connection;
@@ -132,8 +131,7 @@ export function PainelVendas({
               <div>
                 <h2 className="mq-title">Informações do período</h2>
                 <p className="mq-lede">
-                  <span className="mq-chip mq-chip--soft">{descreverRecorte(recorte)}</span>{' '}
-                  {visao === 'mes' && mes ? `seleção ativa: ${mes}` : 'todos os blocos do mesmo recorte'}
+                  <span className="mq-chip mq-chip--soft">{visao === 'mes' && mes ? mes : descreverRecorte(recorte)}</span>
                 </p>
               </div>
               <div className="mq-tabs mq-tabs--pill" role="group" aria-label="Visão do período">
@@ -192,9 +190,6 @@ function Cabeca({
         <div className="mq-pagehead__text">
           <p className="mq-eyebrow">Vendas</p>
           <h1 className="mq-display">Relatório de vendas</h1>
-          <p className="mq-lede">
-            Como foi o período: quanto entrou, o que mais vendeu e quem comprou.
-          </p>
         </div>
       </div>
       <FiltroPeriodo recorte={recorte} aoMudar={aoMudar} />
@@ -212,7 +207,7 @@ function CartoesDeTopo({ d, aoAbrirAReceber }: { d: PainelAnalytics; aoAbrirARec
         <span className="mq-kpi__label">Faturamento recebido no período</span>
         <span className="mq-kpi__value">{money(g.faturamento)}</span>
         <span className="mq-kpi__foot">
-          pela data efetiva dos recebimentos · {SEM_TENDENCIA}
+          recebido no período
         </span>
       </div>
 
@@ -243,7 +238,7 @@ function CartoesDeTopo({ d, aoAbrirAReceber }: { d: PainelAnalytics; aoAbrirARec
         <span className="mq-kpi__foot">
           {g.ticketMedio.valor === null
             ? 'nenhuma venda no período'
-            : `${g.ticketMedio.vendasElegiveis} ${plural(g.ticketMedio.vendasElegiveis, 'venda elegível', 'vendas elegíveis')}`}
+            : 'por venda paga'}
         </span>
       </div>
     </div>
@@ -270,7 +265,7 @@ function GraficoDeEvolucao({
       <div className="mq-card__head">
         <div>
           <h2 className="mq-title">Desempenho de vendas</h2>
-          <p className="mq-lede">{descreverRecorte(recorte)} · faturamento pela data do pagamento</p>
+          <p className="mq-lede">{descreverRecorte(recorte)}</p>
         </div>
         <div className="mq-legend"><span><i />Faturamento</span></div>
       </div>
@@ -403,7 +398,6 @@ function AnaliseDetalhada({
               ))}
             </div>
           )}
-          <p className="mq-hint">Participação por PEÇAS — é o que a barra desenha.</p>
         </section>
 
         <section>
@@ -420,8 +414,7 @@ function AnaliseDetalhada({
           )}
           {d.origem.origens.some((o) => o.indeterminado) && (
             <p className="mq-hint">
-              Parte do faturamento ainda não tem origem classificada. O servidor
-              a conta e a nomeia em vez de deixar a fatia sumir.
+              Parte do faturamento está sem origem definida.
             </p>
           )}
         </section>
@@ -443,16 +436,15 @@ function AnaliseDetalhada({
               <dt>Clientes</dt>
               <dd>{d.geral.clientes}</dd>
               <small>
-                {d.geral.clientesNovos === null ? 'novas: indisponível' : `${d.geral.clientesNovos} novas`}
+                {d.geral.clientesNovos === null ? '' : `${d.geral.clientesNovos} novas`}
               </small>
             </div>
             <div className="is-risk">
               <dt>A receber</dt>
               <dd>{money(d.geral.aReceber)}</dd>
-              <small>vendido no recorte e ainda não recebido</small>
+              <small>vendido no período, ainda não recebido</small>
             </div>
           </dl>
-          <p className="mq-hint">{d.geral.composicao.regraFaturamento}</p>
       </section>
     </div>
   );
@@ -488,22 +480,19 @@ function EvolucaoPorMes({
         <div className="is-brand">
           <dt>Faturamento</dt>
           <dd>{money(resumo.cards.faturamento.valor)}</dd>
-          <small>{resumo.cards.faturamento.regra}</small>
+          <small>recebido no mês</small>
         </div>
         <div>
           <dt>Vendas</dt>
           <dd>{resumo.cards.vendas.total}</dd>
-          <small>{resumo.cards.vendas.regra}</small>
         </div>
         <div>
           <dt>Peças vendidas</dt>
           <dd>{resumo.cards.pecas.total}</dd>
-          <small>{resumo.cards.pecas.regra}</small>
         </div>
         <div>
           <dt>Clientes atendidas</dt>
           <dd>{resumo.cards.clientesAtendidos.total}</dd>
-          <small>{resumo.cards.clientesAtendidos.regra}</small>
         </div>
       </dl>
 
@@ -524,18 +513,17 @@ function EvolucaoPorMes({
         </section>
 
         <section>
-          <h3 className="mq-subtitle">O que este mês tem e a lista não mostra</h3>
+          <h3 className="mq-subtitle">Recebido de vendas de outros meses</h3>
           <dl className="mq-dl">
             <div>
-              <dt>Faturamento de outros meses</dt>
+              <dt>Valor</dt>
               <dd>{money(resumo.faturamentoDeOutrosMeses.valor)}</dd>
             </div>
             <div>
-              <dt>Compras que ele representa</dt>
+              <dt>Vendas</dt>
               <dd>{resumo.faturamentoDeOutrosMeses.vendas}</dd>
             </div>
           </dl>
-          <p className="mq-hint">{resumo.faturamentoDeOutrosMeses.regra}</p>
         </section>
       </div>
 
@@ -582,7 +570,6 @@ function EvolucaoPorMes({
             </div>
           </div>
         )}
-        <p className="mq-hint">{resumo.regra}</p>
       </section>
     </div>
   );
@@ -654,7 +641,6 @@ function SaidasDoMes({ d }: { d: PainelAnalytics }) {
           <small>peças</small>
         </div>
       </dl>
-      <p className="mq-hint">{d.saidasSemFaturamento.regra}</p>
     </section>
   );
 }

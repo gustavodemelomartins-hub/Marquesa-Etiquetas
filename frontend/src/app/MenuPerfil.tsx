@@ -90,8 +90,7 @@ export function MenuPerfil({ nome, aoAbrirConfiguracoes, aoDesconectar }: Props)
           </button>
 
           <p className="mq-perfil__limite">
-            Perfis e permissões por pessoa ainda não existem: a autenticação é
-            uma chave só, compartilhada.
+            Todas as pessoas entram com o mesmo acesso.
           </p>
 
           {aoDesconectar && (

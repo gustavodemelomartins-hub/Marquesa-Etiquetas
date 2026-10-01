@@ -212,7 +212,7 @@ export function AcertoMaletaFluxo({
     </div> : confirmando ? <div className="fluxo-etapa">
       <h3>Confira antes de gravar</h3><div className="acerto-resumo"><b>{enviadas} enviadas</b><span>{devolvidas} devolvidas</span><span>{vendidas} vendidas</span>{outrosDestinos > 0 && <span>{outrosDestinos} em outros destinos</span>}<span>{money(bruto)} vendido</span></div>
       {devolvidas === 0 && <p className="fluxo-nota acerto-atencao">Nenhuma peça foi marcada como devolvida. Ao confirmar, todas as peças serão tratadas pelos destinos escolhidos.</p>}
-      <p className="fluxo-nota">A comissão e o líquido oficiais serão calculados pelo servidor com os preços congelados no envio. Esta ação grava a venda, as movimentações e encerra a maleta.</p>
+      <p className="fluxo-nota">Comissão e líquido saem dos preços do dia do envio. Confirmar registra a venda e encerra a maleta.</p>
       <button type="button" className="btn btn-leitura btn-sm" onClick={() => setConfirmando(false)}>Voltar à conferência</button>{erro && <div className="aviso" data-tom="erro">{erro}</div>}
     </div> : <div className="fluxo-etapa">
       <div className="acerto-resumo"><b>{enviadas} enviadas</b><span>{devolvidas} devolvidas</span><span>{vendidas} vendidas provisórias</span>{outrosDestinos > 0 && <span>{outrosDestinos} em outros destinos</span>}</div>

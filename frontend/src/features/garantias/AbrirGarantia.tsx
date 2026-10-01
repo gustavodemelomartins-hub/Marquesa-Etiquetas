@@ -153,9 +153,7 @@ export function AbrirGarantia({ conexao, aoFechar, aoAbrir }: Props) {
                   />
                 </label>
                 <p className="mq-hint">
-                  A garantia nasce ligada à linha da compra. Sem ela, ninguém sabe
-                  quanto a cliente pagou — e uma troca sem isso não calcula
-                  diferença nenhuma.
+                  Escolha a compra de onde a peça saiu.
                 </p>
                 {vendas.carregando && <p className="mq-hint">buscando…</p>}
                 {(vendas.dados?.itens ?? []).length > 0 && (
@@ -193,9 +191,8 @@ export function AbrirGarantia({ conexao, aoFechar, aoAbrir }: Props) {
               <p className="mq-note mq-note--warn">
                 <Icone nome="alert" />
                 <span>
-                  Esta compra tem mais de uma linha deste código. Desde 5.4b duas
-                  peças iguais na mesma compra são duas <b>unidades físicas</b>{' '}
-                  diferentes, e o servidor recusa escolher por nós.
+                  Esta compra tem mais de uma peça deste código. Escolha qual
+                  delas voltou.
                 </span>
               </p>
               <div className="mq-list">
@@ -256,10 +253,7 @@ export function AbrirGarantia({ conexao, aoFechar, aoAbrir }: Props) {
                 value={prazo}
                 onChange={(e) => setPrazo(Number(e.target.value) || 0)}
               />
-              <small>
-                feriado cadastrado não conta, e o relógio para quando o caso
-                encerra — a conta é do servidor
-              </small>
+              <small>feriados não contam</small>
             </label>
           </div>
 

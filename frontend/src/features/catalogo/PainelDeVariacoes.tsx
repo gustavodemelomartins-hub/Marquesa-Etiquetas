@@ -109,10 +109,8 @@ export function PainelDeVariacoes({ conexao, sku, aoFechar, aoMudarEstoque }: Pr
                   <span className="mq-state__icon"><Icone nome="box" /></span>
                   <h3>Esta peça não tem variação</h3>
                   <p>
-                    O saldo do código é o saldo dela. Variações vêm da Nuvemshop
-                    (importando a estrutura) ou são definidas aqui — e defini-las
-                    reescreve saldo, então esse caminho continua no painel
-                    clássico.
+                    O saldo do código é o saldo dela. Para criar variações, use
+                    o painel clássico.
                   </p>
                 </div>
               ) : (
@@ -125,10 +123,7 @@ export function PainelDeVariacoes({ conexao, sku, aoFechar, aoMudarEstoque }: Pr
                           {e.saldoSemVariacao} {plural(e.saldoSemVariacao, 'peça está', 'peças estão')} no
                           código e em variação nenhuma.
                         </b>{' '}
-                        Ninguém sabe qual peça física está aí. O sistema não
-                        reparte por igual de propósito — repartir por igual é o
-                        chute que a regra 2 proíbe. Distribua abaixo, olhando as
-                        peças.
+                        Olhe as peças e distribua abaixo.
                       </span>
                     </p>
                   )}
@@ -147,7 +142,7 @@ export function PainelDeVariacoes({ conexao, sku, aoFechar, aoMudarEstoque }: Pr
                     <div className="mq-table" role="table" aria-label="Variações">
                       <div className="mq-tr mq-tr--head" role="row" style={COLUNAS}>
                         <span>Variação</span>
-                        <span>Nossa razão</span>
+                        <span>No sistema</span>
                         <span>A loja diz</span>
                         <span>Distribuir</span>
                       </div>
@@ -234,8 +229,7 @@ export function PainelDeVariacoes({ conexao, sku, aoFechar, aoMudarEstoque }: Pr
                             onChange={(ev) => setMotivo(ev.target.value)}
                           />
                           <small>
-                            Sem motivo, um ajuste é indistinguível de erro de
-                            digitação — e ele mexe em peça física.
+                            obrigatório: o ajuste mexe em peça física.
                           </small>
                         </label>
                       )}
@@ -265,10 +259,8 @@ export function PainelDeVariacoes({ conexao, sku, aoFechar, aoMudarEstoque }: Pr
                   </div>
 
                   <p className="mq-hint">
-                    Cada mudança vira um movimento na razão, com a variação
-                    dita. Redefinir a ESTRUTURA — criar ou apagar variações — é
-                    outra operação: ela reescreve saldo e pode desvincular a
-                    peça da Nuvemshop, e continua no painel clássico.
+                    Cada mudança fica registrada no histórico da peça. Criar ou
+                    apagar variações continua no painel clássico.
                   </p>
                 </>
               )}

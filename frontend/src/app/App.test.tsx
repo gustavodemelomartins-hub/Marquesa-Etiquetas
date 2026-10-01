@@ -144,7 +144,7 @@ describe('navegação principal', () => {
     render(<App />);
     fireEvent.click(screen.getByLabelText('Perfil — ninguém identificado'));
     expect(screen.getByRole('menuitem', { name: /Configurações/ })).toBeTruthy();
-    expect(screen.getByText(/a autenticação é uma chave só/i)).toBeTruthy();
+    expect(screen.getByText(/mesmo acesso/i)).toBeTruthy();
   });
 
   it('Peças tem quatro abas, todas do próprio módulo', async () => {
