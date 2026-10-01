@@ -673,6 +673,7 @@
         "historico-operacoes-test.mjs",
         "historico-operacoes-riscos-test.mjs",
         "estorno-recebimento-test.mjs",
+        "vendas-feitas-test.mjs",
         "acerto-documental-test.mjs",
         "saidas-historico-test.mjs",
         "revendedora-historico-test.mjs",

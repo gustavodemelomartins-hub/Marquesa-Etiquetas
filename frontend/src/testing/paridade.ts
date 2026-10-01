@@ -212,8 +212,8 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/vendas/VendasArea.tsx`, contem: "atual === 'saida'" },
       },
       {
-        id: 'vendas.historico', rotulo: 'Histórico de vendas', estado: 'pronta', rota: '#/vendas/historico',
-        prova: { arquivo: `${F}/features/vendas/HistoricoVendas.tsx`, contem: 'Histórico de vendas' },
+        id: 'vendas.historico', rotulo: 'Vendas feitas — uma linha por venda, peças no detalhe', estado: 'pronta', rota: '#/vendas/historico',
+        prova: { arquivo: `${F}/features/vendas/HistoricoVendas.tsx`, contem: 'listarVendasFeitas' },
       },
       {
         id: 'vendas.historico-itens', rotulo: 'Abrir os itens de uma venda', estado: 'pronta',
@@ -221,7 +221,7 @@ export const PARIDADE: ModuloDeParidade[] = [
       },
       {
         id: 'vendas.receber', rotulo: 'Marcar recebida com a data efetiva', estado: 'pronta',
-        prova: { arquivo: `${F}/features/vendas/HistoricoVendas.tsx`, contem: 'Em que dia o dinheiro entrou' },
+        prova: { arquivo: `${F}/features/vendas/HistoricoVendas.tsx`, contem: 'Data em que o dinheiro entrou' },
       },
       {
         id: 'vendas.cancelar', rotulo: 'Cancelar venda, devolvendo a peça', estado: 'pronta',

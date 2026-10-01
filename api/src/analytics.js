@@ -1346,27 +1346,12 @@ export async function perfilCliente(db, { clienteId = null, norm = null } = {}) 
 
 /* ══════════════════════════════════════════════════════ lista operacional */
 
-/** A listagem no nível do ITEM — a visão de auditoria do histórico bruto.
- *
- *  De propósito NÃO agrupa em vendas: é aqui que se confere linha a linha o
- *  que a planilha dizia, e a venda reconstruída aparece ao lado
- *  (`vendaHistoricaId`) para poder navegar de uma para a outra. Agrupar aqui
- *  tiraria justamente o acesso ao dado de origem, que §7 exige preservar. */
-export async function listarVendasUnificado(db, {
-  de = null, ate = null, busca = null, canal = null, origem = null,
-  incluirCanceladas = true, limite = 200, offset = 0,
-} = {}) {
-  const like = busca ? `%${String(busca).toLowerCase()}%` : null;
-  /* §28 — a venda cancelada continua NO HISTÓRICO, com o estado à vista; é
-     dos agregados que ela sai, e esta rota é histórico. Então o padrão
-     mostra e marca. `canceladas=nao` é a mesma porta que `/api/saidas` já dá
-     com `estornadas=nao`: quem quer o recorte elegível pede, em vez de somar
-     sem saber o que está somando. */
-  const semCanceladas = incluirCanceladas ? null : 1;
-  const origemPedida = origem ? String(origem).trim().toLowerCase() : null;
-
-  const { results } = await db.prepare(
-    `WITH juntos AS (
+/** As linhas de venda das duas populações, no nível do ITEM, com a chave da
+ *  venda em `venda_chave`. Uma consulta só para as duas leituras — a de
+ *  auditoria (`listarVendasUnificado`, item a item) e a operacional
+ *  (`listarVendasFeitas`, venda a venda) —, para que as duas não possam
+ *  discordar sobre o que é venda. */
+const SQL_ITENS_DE_VENDA = `
        SELECT 'historico' AS fonte, h.id AS id, NULL AS venda_id,
               h.venda_historica_id AS venda_historica_id, h.pedido_chave AS pedido_chave,
               h.origem_linha AS referencia, h.data AS data,
@@ -1393,9 +1378,29 @@ export async function listarVendasUnificado(db, {
               -- status que ja usa o vocabulario paga|nao_paga|parcial|
               -- indefinida. Nada aqui e inventado: a coluna que nao sabe
               -- responde NULL, e o JS a repassa como indeterminada.
-              vh.valor_total AS venda_valor,
-              vh.valor_pago  AS venda_recebido,
-              vh.status      AS venda_status
+              -- 01/10/2026 -- quando a venda tem cobranca ativa, e ela que
+              -- sabe o que entrou: o recebimento lancado depois da planilha
+              -- (A receber) mora em historico_operacoes, nao em
+              -- vendas_historicas. Ler so a planilha deixava a venda paga em
+              -- 29/09 "nao paga" aqui e paga no Financeiro.
+              CASE WHEN ho.cobranca_status IN ('aberta', 'paga')
+                   THEN ho.valor_efetivo_centavos / 100.0 ELSE vh.valor_total END AS venda_valor,
+              CASE WHEN ho.cobranca_status IN ('aberta', 'paga')
+                   THEN ho.valor_recebido_centavos / 100.0 ELSE vh.valor_pago END AS venda_recebido,
+              CASE ho.cobranca_status
+                   WHEN 'paga' THEN 'paga'
+                   WHEN 'aberta' THEN CASE WHEN COALESCE(ho.valor_recebido_centavos, 0) > 0
+                                           THEN 'parcial' ELSE 'nao_paga' END
+                   ELSE vh.status END AS venda_status,
+              -- 01/10/2026 -- a chave da VENDA, igual nos dois lados. A tela
+              -- de vendas agrupava por referencia, que deste lado e o No da
+              -- LINHA da planilha: cada peca de uma compra virava uma "venda"
+              -- com o total inteiro da compra (a de R$ 504,00 com 5 pecas
+              -- aparecia 5 vezes). referencia continua sendo a linha, porque
+              -- e o que ela sempre foi; quem quer a venda usa esta coluna.
+              'H' || h.venda_historica_id AS venda_chave,
+              h.preco_unit AS preco_unit, h.desconto_valor AS desconto_valor,
+              h.desconto_rotulo AS desconto_rotulo, h.origem_linha AS linha_planilha
          FROM vendas_historico_itens h
          JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
          JOIN vendas_historicas vh ON vh.id=h.venda_historica_id
@@ -1438,7 +1443,8 @@ export async function listarVendasUnificado(db, {
               -- (Sem crase aqui dentro: isto esta num template literal.)
               v.total AS venda_valor,
               v.valor_recebido AS venda_recebido,
-              NULL AS venda_status
+              NULL AS venda_status,
+              'V' || v.id, i.preco, i.desconto_valor, i.desconto_rotulo, NULL
          FROM vendas v JOIN venda_itens i ON i.venda_id = v.id
          LEFT JOIN clientes c ON c.id = v.cliente_id
         WHERE v.origem <> 'acerto' AND v.revendedora_id IS NULL
@@ -1446,7 +1452,29 @@ export async function listarVendasUnificado(db, {
             SELECT 1 FROM historico_operacao_vendas hov
              WHERE hov.venda_id=v.id AND hov.status_registro='ativa'
           )
-     )
+`;
+
+/** A listagem no nível do ITEM — a visão de auditoria do histórico bruto.
+ *
+ *  De propósito NÃO agrupa em vendas: é aqui que se confere linha a linha o
+ *  que a planilha dizia, e a venda reconstruída aparece ao lado
+ *  (`vendaHistoricaId`) para poder navegar de uma para a outra. Agrupar aqui
+ *  tiraria justamente o acesso ao dado de origem, que §7 exige preservar. */
+export async function listarVendasUnificado(db, {
+  de = null, ate = null, busca = null, canal = null, origem = null,
+  incluirCanceladas = true, limite = 200, offset = 0,
+} = {}) {
+  const like = busca ? `%${String(busca).toLowerCase()}%` : null;
+  /* §28 — a venda cancelada continua NO HISTÓRICO, com o estado à vista; é
+     dos agregados que ela sai, e esta rota é histórico. Então o padrão
+     mostra e marca. `canceladas=nao` é a mesma porta que `/api/saidas` já dá
+     com `estornadas=nao`: quem quer o recorte elegível pede, em vez de somar
+     sem saber o que está somando. */
+  const semCanceladas = incluirCanceladas ? null : 1;
+  const origemPedida = origem ? String(origem).trim().toLowerCase() : null;
+
+  const { results } = await db.prepare(
+    `WITH juntos AS (${SQL_ITENS_DE_VENDA})
      SELECT * FROM juntos
       WHERE (? IS NULL OR data >= ?)
         AND (? IS NULL OR data <= ?)
@@ -1462,6 +1490,112 @@ export async function listarVendasUnificado(db, {
   ).all();
 
   return { itens: (results ?? []).map(comFinanceiroDaVenda), limite, offset };
+}
+
+/* ═══════════════════════════════════════════════ vendas feitas, venda a venda
+
+   A leitura OPERACIONAL: uma linha = uma VENDA, com as peças dentro. É o que
+   a tela "Vendas feitas" mostra. Existe porque a lista de itens acima é de
+   auditoria, e agrupá-la na tela tinha dois defeitos que a tela não tinha
+   como resolver:
+
+   1. a chave. A tela agrupava por `referencia`, que do lado da planilha é
+      o Nº da LINHA. A compra de 5 peças por R$ 504,00 aparecia como 5
+      vendas de R$ 504,00 cada (01/10/2026). O banco sempre esteve certo:
+      uma venda em `vendas_historicas`, cinco itens apontando para ela.
+
+   2. a página. `LIMIT` sobre itens corta uma venda no meio: a última venda
+      da página chegava com parte das peças. Aqui a página é de VENDAS, e
+      cada venda vem com todos os itens.
+
+   A busca também é da venda: procurar um código traz a venda inteira em
+   que ele está, com o total e as outras peças, e não um pedaço dela. */
+export async function listarVendasFeitas(db, {
+  de = null, ate = null, busca = null, incluirCanceladas = true, limite = 50, offset = 0,
+} = {}) {
+  const like = busca ? `%${String(busca).toLowerCase()}%` : null;
+  const semCanceladas = incluirCanceladas ? null : 1;
+
+  const { results } = await db.prepare(
+    `WITH juntos AS (${SQL_ITENS_DE_VENDA}),
+     escolhidas AS (
+       SELECT venda_chave, MAX(data) AS data_venda,
+              MAX(fonte = 'operacional') AS do_sistema,
+              CAST(SUBSTR(venda_chave, 2) AS INTEGER) AS numero,
+              COUNT(*) OVER () AS total_vendas
+         FROM juntos
+        WHERE (? IS NULL OR data >= ?)
+          AND (? IS NULL OR data <= ?)
+          AND (? IS NULL OR cancelada = 0)
+        GROUP BY venda_chave
+       HAVING ? IS NULL
+           OR MAX(LOWER(COALESCE(cliente, '')) LIKE ? OR LOWER(COALESCE(produto, '')) LIKE ?
+                  OR LOWER(COALESCE(sku, '')) LIKE ?)
+        ORDER BY data_venda DESC, do_sistema DESC, numero DESC
+        LIMIT ? OFFSET ?
+     )
+     SELECT j.*, e.total_vendas
+       FROM juntos j JOIN escolhidas e ON e.venda_chave = j.venda_chave
+      ORDER BY e.data_venda DESC, e.do_sistema DESC, e.numero DESC,
+               CAST(j.linha_planilha AS INTEGER), j.id`,
+  ).bind(
+    de, de, ate, ate, semCanceladas, like, like, like, like, limite, offset,
+  ).all();
+
+  const vendas = [];
+  const porChave = new Map();
+  let total = 0;
+  for (const linha of results ?? []) {
+    total = Number(linha.total_vendas ?? 0);
+    let v = porChave.get(linha.venda_chave);
+    if (!v) {
+      /* A mesma régua do A receber (`contas-receber.js › vendasEmAberto`,
+         §36.4): venda do sistema NÃO paga e sem recebimento registrado
+         recebeu zero, e o saldo é o total. Sem isto a venda aparecia "a
+         receber: indeterminado" aqui e "R$ 120,00" no Financeiro. A venda
+         marcada PAGA sem valor continua indeterminada — isso sim seria
+         inventar (FIN-101 D2). */
+      const naoPagaSemRegistro = linha.fonte === 'operacional'
+        && Number(linha.pago) === 0 && linha.venda_recebido == null;
+      const { financeiro } = comFinanceiroDaVenda(
+        naoPagaSemRegistro ? { ...linha, venda_recebido: 0 } : linha,
+      );
+      v = {
+        chave: linha.venda_chave,
+        fonte: linha.fonte,
+        id: linha.fonte === 'operacional' ? linha.venda_id : linha.venda_historica_id,
+        data: linha.data,
+        cliente: linha.cliente,
+        clienteNorm: linha.cliente_norm,
+        canal: linha.canal,
+        cancelada: Number(linha.cancelada) === 1,
+        pecas: 0,
+        financeiro,
+        itens: [],
+      };
+      porChave.set(linha.venda_chave, v);
+      vendas.push(v);
+    } else if (linha.canal && v.canal !== linha.canal) {
+      /* Mesma regra da reconstrução: canais diferentes na mesma venda viram
+         'Misto', em vez de um deles ganhar por sorte. Canal em branco não
+         discorda de ninguém. */
+      v.canal = v.canal ? 'Misto' : linha.canal;
+    }
+    v.pecas += Number(linha.qtd ?? 0);
+    v.itens.push({
+      id: linha.id,
+      sku: linha.sku,
+      produto: linha.produto,
+      qtd: linha.qtd,
+      precoUnit: linha.preco_unit,
+      valor: linha.valor,
+      descontoValor: linha.desconto_valor,
+      descontoRotulo: linha.desconto_rotulo,
+      observacao: linha.observacao,
+      linhaPlanilha: linha.linha_planilha,
+    });
+  }
+  return { vendas, total, limite, offset };
 }
 
 /* ═════════════════════════════════════ 5.3d — o contrato de leitura do FIN-101

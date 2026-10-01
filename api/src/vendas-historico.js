@@ -295,6 +295,28 @@ export async function importarHistorico(db, { linhas, arquivo = 'Vendas Marquesa
     };
   }
 
+  /* 3ª trava (01/10/2026). As duas de cima só reconhecem o MESMO conteúdo.
+     A planilha atualizada — a mesma de sempre, com as vendas da semana no
+     fim — tem outro hash, e entrava como um SEGUNDO lote de pé: cada venda
+     antiga passava a existir duas vezes, uma em cada lote. Planilha nova por
+     cima da que está no ar é TROCA (`substituirHistorico`, que desativa o
+     lote antigo antes de chegar aqui), nunca importação. */
+  const dePe = await db.prepare(
+    `SELECT id, arquivo_nome, linhas_total, criado_em
+       FROM vendas_historico_lotes WHERE status = 'importado' ORDER BY id DESC LIMIT 1`,
+  ).first();
+  if (dePe) {
+    return {
+      ok: false,
+      outroLoteDePe: {
+        loteId: dePe.id, arquivo: dePe.arquivo_nome, linhas: dePe.linhas_total, em: dePe.criado_em,
+      },
+      erro: `Já existe uma planilha de vendas no ar (${dePe.arquivo_nome}, `
+        + `${dePe.linhas_total} linhas). Importar outra por cima contaria as mesmas `
+        + 'vendas duas vezes. Para atualizar, use "Trocar planilha".',
+    };
+  }
+
   const registros = analise._registros;
 
   const lote = await db.prepare(

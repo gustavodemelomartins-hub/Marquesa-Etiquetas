@@ -189,7 +189,7 @@ export function VendasArea({
           conexao={conexao}
           aoMudarEstoque={aoMudarEstoque}
           aoAbrirCliente={aoAbrirCliente}
-          aoNovaVenda={() => aoNavegar('nova')}
+          aoAbrirAReceber={() => aoAbrirModulo('financeiro')}
         />
       )}
     </>

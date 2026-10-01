@@ -2,102 +2,63 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
-import { money, fmtData, hojeISO, plural, dataDigitada } from '../../domain/formato';
-import { agrupar, cancelarVenda, listarVendas, pagarVenda } from './api';
+import { money, fmtData, hojeISO, plural } from '../../domain/formato';
+import { cancelarVenda, listarVendasFeitas, pagarVenda, paraTela } from './api';
 import type { Connection } from '../../services/client';
-import type { VendaAgrupada } from './tipos';
+import type { VendaFeita } from './tipos';
 
 interface Props {
   conexao: Connection;
   aoMudarEstoque: () => void;
   aoAbrirCliente: (chave: { id: number } | { norm: string }) => void;
-  aoNovaVenda: () => void;
+  aoAbrirAReceber: () => void;
 }
 
 const COLUNAS = {
-  gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) auto',
+  gridTemplateColumns: 'minmax(0,.8fr) minmax(0,1.6fr) minmax(0,.9fr) minmax(0,1fr) 20px',
 };
 
-/** HISTÓRICO DE VENDAS — a lista, com a venda reconstruída.
+const POR_PAGINA = 50;
+
+/** VENDAS FEITAS — uma linha é uma VENDA; as peças ficam atrás de um clique.
  *
- *  `/api/vendas/lista` é uma visão de ITEM: a tela agrupa as linhas pela
- *  referência, que é como o backend as amarra. Agrupar é factual; somar
- *  entre vendas não seria, e não é feito.
- *
- *  Separado do Painel de propósito: o Painel responde "como foi o período" e
- *  esta lista responde "o que aconteceu com ESTA venda". Misturar as duas
- *  fazia a tela de Vendas ser uma tabela e nada mais.
- */
+ *  A lista vem pronta do servidor (`GET /api/vendas/feitas`): ele é quem sabe
+ *  quais peças pertencem a qual venda. Até 01/10/2026 esta tela agrupava a
+ *  lista de itens pela `referencia`, que nas vendas da planilha é o Nº da
+ *  linha — e a compra de 5 peças por R$ 504,00 aparecia 5 vezes. */
 export function HistoricoVendas({
-  conexao, aoMudarEstoque, aoAbrirCliente, aoNovaVenda,
+  conexao, aoMudarEstoque, aoAbrirCliente, aoAbrirAReceber,
 }: Props) {
   const [busca, setBusca] = useState('');
   const [buscaAtiva, setBuscaAtiva] = useState('');
   const [incluirCanceladas, setIncluirCanceladas] = useState(true);
-  const [ocupada, setOcupada] = useState<string | null>(null);
-  const [recusa, setRecusa] = useState<{ chave: string; texto: string } | null>(null);
-  const [aberta, setAberta] = useState<string | null>(null);
+  const [limite, setLimite] = useState(POR_PAGINA);
+  const [aberta, setAberta] = useState<VendaFeita | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setBuscaAtiva(busca), 280);
+    const t = setTimeout(() => { setBuscaAtiva(busca); setLimite(POR_PAGINA); }, 280);
     return () => clearTimeout(t);
   }, [busca]);
 
   const lista = useApi(
-    (s) => listarVendas(conexao, { busca: buscaAtiva, incluirCanceladas }, s),
-    [conexao, buscaAtiva, incluirCanceladas],
+    (s) => listarVendasFeitas(conexao, { busca: buscaAtiva, incluirCanceladas, limite }, s),
+    [conexao, buscaAtiva, incluirCanceladas, limite],
   );
 
-  const vendas = useMemo(() => agrupar(lista.dados?.itens ?? []), [lista.dados]);
+  const vendas = useMemo(() => (lista.dados?.vendas ?? []).map(paraTela), [lista.dados]);
+  const total = lista.dados?.total ?? 0;
 
-  async function marcarPaga(v: VendaAgrupada) {
-    if (!v.id) return;
-    /* §30 — a data EFETIVA do pagamento, não a de hoje. Sem ela, quem vendeu
-       em 10/09 e recebeu em 12/09 vê o dinheiro entrar no dia do clique. */
-    const data = prompt('Em que dia o dinheiro entrou? (dia/mês/ano)', fmtData(hojeISO()));
-    if (!data) return;
-    setOcupada(v.chave);
-    setRecusa(null);
-    const r = await pagarVenda(conexao, v.id, dataDigitada(data))
-      .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui registrar.' }));
-    setOcupada(null);
-    if (r && 'erro' in r && r.erro) setRecusa({ chave: v.chave, texto: String(r.erro) });
-    else lista.recarregar();
-  }
-
-  async function cancelar(v: VendaAgrupada) {
-    if (!v.id) return;
-    if (!confirm(
-      `Cancelar a venda de ${fmtData(v.data)} para ${v.cliente ?? 'cliente sem nome'}?\n\n`
-      + 'A peça volta para o estoque e a venda continua no histórico, marcada como cancelada.',
-    )) return;
-    setOcupada(v.chave);
-    setRecusa(null);
-    const r = await cancelarVenda(conexao, v.id)
-      .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui cancelar.' }));
-    setOcupada(null);
-    if (r && 'erro' in r && r.erro) setRecusa({ chave: v.chave, texto: String(r.erro) });
-    else { lista.recarregar(); aoMudarEstoque(); }
-  }
+  /* Depois de receber ou cancelar, a venda aberta passa a ser a versão nova
+     que veio do servidor — nunca um remendo feito aqui. */
+  useEffect(() => {
+    if (!aberta) return;
+    const nova = vendas.find((v) => v.chave === aberta.chave);
+    if (nova && nova !== aberta) setAberta(nova);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendas]);
 
   return (
     <>
-      <div className="mq-pagehead">
-        <div className="mq-pagehead__text">
-          <p className="mq-eyebrow">Operação</p>
-          <h1 className="mq-display">Histórico de vendas</h1>
-          <p className="mq-lede">
-            O que foi vendido, para quem, e o que ainda falta receber.
-          </p>
-        </div>
-        <div className="mq-pagehead__actions">
-          <button type="button" className="mq-btn mq-btn--primary" onClick={aoNovaVenda}>
-            <Icone nome="plus" />
-            Nova venda
-          </button>
-        </div>
-      </div>
-
       <div className="mq-filters">
         <label className="mq-search">
           <Icone nome="search" />
@@ -111,15 +72,15 @@ export function HistoricoVendas({
           />
         </label>
         <div className="mq-chipset" role="group" aria-label="Canceladas">
-          <button type="button" aria-pressed={incluirCanceladas} onClick={() => setIncluirCanceladas(true)}>
+          <button type="button" aria-pressed={incluirCanceladas} onClick={() => { setIncluirCanceladas(true); setLimite(POR_PAGINA); }}>
             Todas
           </button>
-          <button type="button" aria-pressed={!incluirCanceladas} onClick={() => setIncluirCanceladas(false)}>
+          <button type="button" aria-pressed={!incluirCanceladas} onClick={() => { setIncluirCanceladas(false); setLimite(POR_PAGINA); }}>
             Sem canceladas
           </button>
         </div>
         <span className="mq-filters__count">
-          {lista.carregando ? 'buscando…' : `${vendas.length} ${plural(vendas.length, 'venda', 'vendas')}`}
+          {lista.carregando && !lista.dados ? 'buscando…' : `${total} ${plural(total, 'venda', 'vendas')}`}
         </span>
       </div>
 
@@ -130,114 +91,244 @@ export function HistoricoVendas({
           <div className="mq-state">
             <span className="mq-state__icon"><Icone nome="sale" /></span>
             <h3>{buscaAtiva ? 'Nenhuma venda com esse termo' : 'Nenhuma venda registrada'}</h3>
-            <p>Registre a primeira e ela aparece aqui, na ficha da cliente e no financeiro.</p>
           </div>
         ) : (
-          <div className="mq-scroll-x">
-            <div className="mq-table" role="table" aria-label="Vendas">
-              <div className="mq-tr mq-tr--head" role="row" style={COLUNAS}>
-                <span>Data da venda</span>
-                <span>Cliente e peças</span>
-                <span>Valor</span>
-                <span>Situação</span>
-                <span>Ações</span>
-              </div>
-              {vendas.map((v) => (
-                <div key={v.chave}>
-                  <div className="mq-tr" role="row" style={COLUNAS}>
-                    <span className="mq-cell">
-                      <b className="mq-date">{fmtData(v.data)}</b>
-                      <small>
-                        {v.fonte === 'historico' ? 'planilha' : `venda #${v.referencia}`}
-                        {v.canal ? ` · ${v.canal}` : ''}
-                      </small>
-                    </span>
-                    <span className="mq-cell">
-                      {v.clienteNorm || v.cliente ? (
-                        <button
-                          type="button"
-                          className="mq-btn mq-btn--link"
-                          onClick={() => aoAbrirCliente({ norm: v.clienteNorm ?? '' })}
-                        >
-                          {v.cliente ?? 'Cliente não identificada'}
-                        </button>
-                      ) : <b>Cliente não identificada</b>}
-                      <button
-                        type="button"
-                        className="mq-btn mq-btn--link mq-btn--sm"
-                        aria-expanded={aberta === v.chave}
-                        onClick={() => setAberta(aberta === v.chave ? null : v.chave)}
-                      >
-                        {v.pecas} {plural(v.pecas, 'peça', 'peças')} · ver itens
-                      </button>
-                    </span>
-                    <span className="mq-cell mq-cell--num">
-                      <b className="mq-money">{money(v.valor)}</b>
-                      {v.indeterminado.length > 0 && <small>recebido indeterminado</small>}
-                    </span>
-                    <span className="mq-cell">
-                      {v.cancelada ? (
-                        <span className="mq-status">cancelada</span>
-                      ) : v.pago ? (
-                        <span className="mq-status mq-status--ok">paga</span>
-                      ) : (
-                        <>
-                          <span className="mq-status mq-status--risk">a receber</span>
-                          {v.aReceber !== null && <small>{money(v.aReceber)}</small>}
-                        </>
-                      )}
-                    </span>
-                    <span className="mq-cell">
-                      {v.fonte === 'operacional' && !v.cancelada && (
-                        <span className="mq-btns">
-                          {!v.pago && (
-                            <button
-                              type="button"
-                              className="mq-btn mq-btn--primary mq-btn--sm"
-                              disabled={ocupada === v.chave}
-                              onClick={() => marcarPaga(v)}
-                            >
-                              Recebi
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className="mq-btn mq-btn--ghost mq-btn--sm"
-                            disabled={ocupada === v.chave}
-                            onClick={() => cancelar(v)}
-                          >
-                            Cancelar
-                          </button>
-                        </span>
-                      )}
-                      {recusa?.chave === v.chave && <small className="mq-money--risk">{recusa.texto}</small>}
-                    </span>
-                  </div>
-
-                  {aberta === v.chave && (
-                    <div className="mq-card__body mq-card__body--flush">
-                      <dl className="mq-dl">
-                        {v.itens.map((i) => (
-                          <div key={i.id}>
-                            <dt>{i.produto ?? i.sku} <small className="mq-sku">{i.sku}</small></dt>
-                            <dd>{i.qtd} × {money(i.valor)}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                      {v.indeterminado.length > 0 && (
-                        <p className="mq-hint">
-                          O servidor declarou indeterminado: {v.indeterminado.join(', ')}.
-                          A tela repete em vez de mostrar zero.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
+          <div className="mq-table" role="table" aria-label="Vendas">
+            <div className="mq-tr mq-tr--head" role="row" style={COLUNAS}>
+              <span>Data</span>
+              <span>Cliente</span>
+              <span>Valor</span>
+              <span>Situação</span>
+              <span />
             </div>
+            {vendas.map((v) => (
+              <button
+                key={v.chave}
+                type="button"
+                className="mq-tr"
+                role="row"
+                style={COLUNAS}
+                aria-label={`Venda de ${fmtData(v.data)} para ${v.cliente ?? 'cliente não identificada'}`}
+                onClick={() => setAberta(v)}
+              >
+                <span className="mq-cell">
+                  <b className="mq-date">{v.data ? fmtData(v.data) : 'sem data'}</b>
+                </span>
+                <span className="mq-cell">
+                  <b>{v.cliente ?? 'Cliente não identificada'}</b>
+                  <small>{v.pecas} {plural(v.pecas, 'peça', 'peças')} · ver itens</small>
+                </span>
+                <span className="mq-cell mq-cell--num" data-label="Valor">
+                  <b className="mq-money">{v.valor === null ? '—' : money(v.valor)}</b>
+                </span>
+                <span className="mq-cell">
+                  <Situacao venda={v} />
+                </span>
+                <Icone nome="chevron" className="mq-ico mq-tr__chev" />
+              </button>
+            ))}
+          </div>
+        )}
+        {vendas.length < total && !lista.erro && (
+          <div className="mq-card__foot">
+            <button
+              type="button"
+              className="mq-btn mq-btn--ghost"
+              disabled={lista.carregando}
+              onClick={() => setLimite((n) => n + POR_PAGINA)}
+            >
+              {lista.carregando ? 'Carregando…' : `Mostrar mais (${vendas.length} de ${total})`}
+            </button>
           </div>
         )}
       </section>
+
+      {aberta && (
+        <DetalheDaVenda
+          conexao={conexao}
+          venda={aberta}
+          aoFechar={() => setAberta(null)}
+          aoMudou={(estoque) => { lista.recarregar(); if (estoque) aoMudarEstoque(); }}
+          aoAbrirCliente={(c) => { setAberta(null); aoAbrirCliente(c); }}
+          aoAbrirAReceber={() => { setAberta(null); aoAbrirAReceber(); }}
+        />
+      )}
     </>
   );
 }
+
+function Situacao({ venda: v }: { venda: VendaFeita }) {
+  if (v.situacao === 'cancelada') return <span className="mq-status">cancelada</span>;
+  if (v.situacao === 'paga') return <span className="mq-status mq-status--ok">paga</span>;
+  if (v.situacao === 'sem_informacao') return <span className="mq-status">sem informação</span>;
+  return (
+    <>
+      <span className="mq-status mq-status--risk">a receber</span>
+      {v.situacao === 'parcial' && v.aReceber !== null && <small>falta {money(v.aReceber)}</small>}
+    </>
+  );
+}
+
+/** A venda aberta: as peças, o dinheiro e o que dá para fazer com ela. */
+function DetalheDaVenda({
+  conexao, venda: v, aoFechar, aoMudou, aoAbrirCliente, aoAbrirAReceber,
+}: {
+  conexao: Connection;
+  venda: VendaFeita;
+  aoFechar: () => void;
+  aoMudou: (mexeuNoEstoque: boolean) => void;
+  aoAbrirCliente: (chave: { id: number } | { norm: string }) => void;
+  aoAbrirAReceber: () => void;
+}) {
+  const [dataPagamento, setDataPagamento] = useState(hojeISO());
+  const [ocupada, setOcupada] = useState(false);
+  const [erro, setErro] = useState('');
+
+  useEffect(() => {
+    const aoTeclar = (e: KeyboardEvent) => { if (e.key === 'Escape') aoFechar(); };
+    document.addEventListener('keydown', aoTeclar);
+    return () => document.removeEventListener('keydown', aoTeclar);
+  }, [aoFechar]);
+
+  const doSistema = v.fonte === 'operacional' && v.id !== null;
+  const emAberto = v.situacao === 'a_receber' || v.situacao === 'parcial';
+
+  async function receber() {
+    if (!v.id) return;
+    setOcupada(true);
+    setErro('');
+    const r = await pagarVenda(conexao, v.id, dataPagamento)
+      .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui registrar.' }));
+    setOcupada(false);
+    if (r && 'erro' in r && r.erro) setErro(String(r.erro));
+    else aoMudou(false);
+  }
+
+  async function cancelar() {
+    if (!v.id) return;
+    if (!confirm(
+      `Cancelar a venda de ${fmtData(v.data)} para ${v.cliente ?? 'cliente sem nome'}?\n\n`
+      + 'As peças voltam para o estoque e a venda fica marcada como cancelada.',
+    )) return;
+    setOcupada(true);
+    setErro('');
+    const r = await cancelarVenda(conexao, v.id)
+      .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui cancelar.' }));
+    setOcupada(false);
+    if (r && 'erro' in r && r.erro) setErro(String(r.erro));
+    else aoMudou(true);
+  }
+
+  return (
+    <>
+      <button type="button" className="mq-scrim" aria-label="Fechar" onClick={aoFechar} />
+      <div className="mq-modal mq-modal--wide" role="dialog" aria-modal="true" aria-label="Detalhe da venda">
+        <div className="mq-modal__head">
+          <div>
+            <p className="mq-eyebrow">
+              Venda de {v.data ? fmtData(v.data) : 'data desconhecida'}
+              {v.canal ? ` · ${v.canal}` : ''}
+            </p>
+            <h2 className="mq-title">
+              {v.clienteNorm ? (
+                <button
+                  type="button"
+                  className="mq-btn mq-btn--link"
+                  onClick={() => aoAbrirCliente({ norm: v.clienteNorm ?? '' })}
+                >
+                  {v.cliente ?? 'Cliente não identificada'}
+                </button>
+              ) : (v.cliente ?? 'Cliente não identificada')}
+            </h2>
+          </div>
+          <button type="button" className="mq-modal__close" aria-label="Fechar" onClick={aoFechar}>
+            <Icone nome="close" />
+          </button>
+        </div>
+
+        <div className="mq-modal__body">
+          <div className="mq-table" role="table" aria-label="Peças da venda">
+            <div className="mq-tr mq-tr--head" role="row" style={COLUNAS_ITENS}>
+              <span>Peça</span>
+              <span>Qtd</span>
+              <span>Preço</span>
+              <span>Subtotal</span>
+            </div>
+            {v.itens.map((i) => (
+              <div key={String(i.id)} className="mq-tr" role="row" style={COLUNAS_ITENS}>
+                <span className="mq-cell">
+                  <b>{i.produto ?? i.sku}</b>
+                  <small>
+                    <span className="mq-sku">{i.sku}</span>
+                    {i.descontoValor ? ` · desconto ${money(i.descontoValor)}` : ''}
+                    {i.descontoRotulo ? ` (${i.descontoRotulo})` : ''}
+                  </small>
+                </span>
+                <span className="mq-cell mq-cell--num" data-label="Qtd">{i.qtd}</span>
+                <span className="mq-cell mq-cell--num" data-label="Preço">
+                  {i.precoUnit === null ? '—' : money(i.precoUnit)}
+                </span>
+                <span className="mq-cell mq-cell--num" data-label="Subtotal">
+                  <b>{i.valor === null ? '—' : money(i.valor)}</b>
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <dl className="mq-dl">
+            <div><dt>Total da venda</dt><dd>{v.valor === null ? 'não informado' : money(v.valor)}</dd></div>
+            <div><dt>Recebido</dt><dd>{v.recebido === null ? 'não informado' : money(v.recebido)}</dd></div>
+            <div><dt>A receber</dt><dd>{v.aReceber === null ? 'não informado' : money(v.aReceber)}</dd></div>
+            <div><dt>Situação</dt><dd><Situacao venda={v} /></dd></div>
+          </dl>
+
+          {doSistema && emAberto && (
+            <label className="mq-field">
+              <span>Data em que o dinheiro entrou</span>
+              <input
+                className="mq-input"
+                type="date"
+                value={dataPagamento}
+                max={hojeISO()}
+                onChange={(e) => setDataPagamento(e.target.value)}
+              />
+            </label>
+          )}
+
+          {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
+
+          <p className="mq-hint">
+            {v.fonte === 'historico'
+              ? 'Venda da planilha antiga.'
+              : `Venda nº ${v.id} registrada no sistema.`}
+          </p>
+        </div>
+
+        <div className="mq-modal__foot">
+          {doSistema && !v.cancelada && (
+            <button type="button" className="mq-btn mq-btn--ghost" disabled={ocupada} onClick={cancelar}>
+              Cancelar venda
+            </button>
+          )}
+          {doSistema && emAberto && (
+            <button type="button" className="mq-btn mq-btn--primary" disabled={ocupada} onClick={receber}>
+              {ocupada ? 'Registrando…' : `Recebi ${v.aReceber !== null ? money(v.aReceber) : ''}`.trim()}
+            </button>
+          )}
+          {!doSistema && emAberto && (
+            <button type="button" className="mq-btn mq-btn--primary" onClick={aoAbrirAReceber}>
+              Receber em A receber
+            </button>
+          )}
+          {!emAberto && (
+            <button type="button" className="mq-btn mq-btn--ghost" onClick={aoFechar}>Fechar</button>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+const COLUNAS_ITENS = {
+  gridTemplateColumns: 'minmax(0,2fr) minmax(0,.4fr) minmax(0,.9fr) minmax(0,.9fr)',
+};

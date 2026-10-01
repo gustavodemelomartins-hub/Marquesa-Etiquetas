@@ -5,7 +5,7 @@ import { money, fmtData } from '../domain/formato';
 import type { NomeIcone } from '../components/Icone';
 import type { AppState } from '../types/api';
 import type { ModuloId } from './modulos';
-import type { ItemDaLista } from '../features/vendas/tipos';
+import type { VendaFeitaApi } from '../features/vendas/tipos';
 
 interface ClienteEncontrada {
   id: number;
@@ -50,7 +50,7 @@ const LIMITE_POR_TIPO = 4;
  *  O que ela cobre, e por quê cada um cabe num contrato que JÁ existe:
  *
  *    cliente      `GET /api/clientes?busca=`      identidade forte, por id
- *    venda        `GET /api/vendas/lista?busca=`  o backend já busca por
+ *    venda        `GET /api/vendas/feitas?busca=`  o backend já busca por
  *                                                 cliente, peça e código
  *    peça         `GET /api/state` (em memória)   sku e descrição
  *    revendedora  `GET /api/state` (em memória)   nome e cidade
@@ -95,13 +95,13 @@ export function BuscaGlobal({ conexao, estado, aoNavegar, focar = false }: Props
             `/api/clientes?limite=${LIMITE_POR_TIPO}&busca=${encodeURIComponent(q)}`,
             undefined, { signal: controle.signal },
           ),
-          chamar<{ itens: ItemDaLista[] }>(
+          chamar<{ vendas: VendaFeitaApi[] }>(
             conexao, 'GET',
-            `/api/vendas/lista?limite=12&busca=${encodeURIComponent(q)}`,
+            `/api/vendas/feitas?limite=${LIMITE_POR_TIPO}&busca=${encodeURIComponent(q)}`,
             undefined, { signal: controle.signal },
-          ).catch(() => ({ itens: [] as ItemDaLista[] })),
+          ).catch(() => ({ vendas: [] as VendaFeitaApi[] })),
         ]);
-        setRemotos([...deClientes(clientes), ...deVendas(vendas.itens)]);
+        setRemotos([...deClientes(clientes), ...deVendas(vendas.vendas)]);
         setEstadoBusca('pronto');
         setAtiva(-1);
       } catch (erro) {
@@ -243,20 +243,17 @@ function deClientes(cs: ClienteEncontrada[]): Achado[] {
   }));
 }
 
-/** As linhas de `/api/vendas/lista` são ITENS. Agrupar pela referência é o
- *  que faz uma venda de três peças aparecer uma vez, e não três. */
-function deVendas(itens: ItemDaLista[]): Achado[] {
-  const vistas = new Map<string, ItemDaLista>();
-  for (const i of itens) {
-    const chave = `${i.fonte}:${i.referencia}`;
-    if (!vistas.has(chave)) vistas.set(chave, i);
-  }
-  return [...vistas.entries()].slice(0, LIMITE_POR_TIPO).map(([chave, i]) => ({
-    chave: `venda:${chave}`,
+/** Uma venda por resultado — o servidor já devolve venda, não item. Até
+ *  01/10/2026 este tradutor agrupava itens pela `referencia`, que nas vendas
+ *  da planilha é a LINHA: a mesma compra aparecia uma vez por peça. */
+function deVendas(vendas: VendaFeitaApi[]): Achado[] {
+  return vendas.slice(0, LIMITE_POR_TIPO).map((v) => ({
+    chave: `venda:${v.chave}`,
     tipo: 'venda' as const,
     rotulo: 'Venda',
-    titulo: `${i.cliente ?? 'Cliente não identificada'} · ${money(i.venda_valor ?? 0)}`,
-    detalhe: `${fmtData(i.data)} · ${i.fonte === 'historico' ? 'planilha' : `venda #${i.referencia}`}`,
+    titulo: `${v.cliente ?? 'Cliente não identificada'} · ${
+      v.financeiro.valorVenda === null ? '—' : money(v.financeiro.valorVenda / 100)}`,
+    detalhe: `${fmtData(v.data)} · ${v.pecas} ${v.pecas === 1 ? 'peça' : 'peças'}`,
     icone: 'sale' as NomeIcone,
     destino: { modulo: 'vendas' as ModuloId, sub: 'historico' },
   }));

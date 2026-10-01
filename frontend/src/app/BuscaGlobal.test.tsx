@@ -34,7 +34,7 @@ function respostaDe(corpo: unknown) {
 function fetchDe({ clientes = [], vendas = [] }: { clientes?: unknown[]; vendas?: unknown[] }) {
   return vi.fn(async (url: string) => {
     if (String(url).includes('/api/clientes')) return respostaDe(clientes);
-    if (String(url).includes('/api/vendas/lista')) return respostaDe({ itens: vendas });
+    if (String(url).includes('/api/vendas/feitas')) return respostaDe({ vendas, total: vendas.length });
     return respostaDe({});
   });
 }
@@ -51,10 +51,12 @@ describe('busca global', () => {
     vi.stubGlobal('fetch', fetchDe({
       clientes: [{ id: 42, nome: 'Vitória Nunes', tel: '14999990000', cidade: 'Bauru' }],
       vendas: [{
-        fonte: 'operacional', id: 'v:1058', venda_id: 1058, referencia: '1058',
-        data: '2026-09-05', cliente: 'Vitória Nunes', cliente_norm: 'vitoria nunes',
-        sku: '214299', produto: 'Pingente', qtd: 1, valor: 89, venda_valor: 89,
-        pago: 0, cancelada: 0,
+        chave: 'V1058', fonte: 'operacional', id: 1058,
+        data: '2026-09-05', cliente: 'Vitória Nunes', clienteNorm: 'vitoria nunes',
+        canal: 'balcao', cancelada: false, pecas: 1,
+        financeiro: { valorVenda: 8900, valorRecebido: 0, valorAReceber: 8900, statusPagamento: 'nao_paga', indeterminado: [] },
+        itens: [{ id: 'i1', sku: '214299', produto: 'Pingente', qtd: 1, precoUnit: 89, valor: 89,
+          descontoValor: null, descontoRotulo: null, observacao: null, linhaPlanilha: null }],
       }],
     }));
 

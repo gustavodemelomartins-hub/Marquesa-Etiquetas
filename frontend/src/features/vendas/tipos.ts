@@ -70,7 +70,10 @@ export interface ItemDaLista {
   origem: string | null;
   venda_valor: number | null;
   venda_recebido: number | null;
-  /** Em CENTAVOS INTEIROS — `agrupar` converte para reais. */
+  /** A chave da VENDA (`H<id>` planilha, `V<id>` sistema). `referencia`, do
+   *  lado da planilha, é o Nº da LINHA — agrupar por ela multiplicava a venda. */
+  venda_chave?: string;
+  /** Em CENTAVOS INTEIROS. */
   financeiro: {
     valorVenda: number;
     valorRecebido: number | null;
@@ -86,26 +89,71 @@ export interface ListaDeVendas {
   offset: number;
 }
 
-/** Uma venda, montada agrupando as linhas que compartilham a referência. */
-export interface VendaAgrupada {
+/** O resumo financeiro da venda, como o servidor o manda: CENTAVOS. */
+export interface FinanceiroDaVenda {
+  valorVenda: number | null;
+  valorRecebido: number | null;
+  valorAReceber: number | null;
+  statusPagamento: 'paga' | 'nao_paga' | 'parcial' | 'indefinida' | string;
+  indeterminado: string[];
+}
+
+/** Uma peça dentro da venda — `GET /api/vendas/feitas`, `vendas[].itens[]`.
+ *  Dinheiro em REAIS, como está gravado na linha. */
+export interface ItemDaVenda {
+  id: string | number;
+  sku: string;
+  produto: string | null;
+  qtd: number;
+  /** Preço cobrado por peça. `null` = a planilha não disse. */
+  precoUnit: number | null;
+  /** Total da linha (qtd × preço cobrado). */
+  valor: number | null;
+  descontoValor: number | null;
+  descontoRotulo: string | null;
+  observacao: string | null;
+  /** Nº da linha na planilha antiga; `null` para venda do sistema. */
+  linhaPlanilha: string | null;
+}
+
+/** Uma VENDA — uma linha da lista "Vendas feitas". */
+export interface VendaFeitaApi {
   chave: string;
   fonte: 'operacional' | 'historico';
   id: number | null;
-  referencia: string;
-  data: string;
+  data: string | null;
   cliente: string | null;
   clienteNorm: string | null;
   canal: string | null;
-  pago: boolean;
   cancelada: boolean;
   pecas: number;
-  valor: number;
+  financeiro: FinanceiroDaVenda;
+  itens: ItemDaVenda[];
+}
+
+export interface ListaDeVendasFeitas {
+  vendas: VendaFeitaApi[];
+  total: number;
+  limite: number;
+  offset: number;
+}
+
+/** A venda pronta para a tela: dinheiro em REAIS, situação decidida. */
+export interface VendaFeita {
+  chave: string;
+  fonte: 'operacional' | 'historico';
+  id: number | null;
+  data: string | null;
+  cliente: string | null;
+  clienteNorm: string | null;
+  canal: string | null;
+  cancelada: boolean;
+  pecas: number;
+  valor: number | null;
   recebido: number | null;
   aReceber: number | null;
-  /** Quando o backend não sabe um número, ele diz. A tela repete em vez de
-   *  mostrar zero. */
-  indeterminado: string[];
-  itens: ItemDaLista[];
+  situacao: 'paga' | 'a_receber' | 'parcial' | 'cancelada' | 'sem_informacao';
+  itens: ItemDaVenda[];
 }
 
 export interface RespostaDaVenda {

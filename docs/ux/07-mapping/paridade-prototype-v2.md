@@ -62,7 +62,7 @@ Referência visual: `/prototype/vendas/` · 🟢 30 · 🟡 1 · ⚪ 1 · ⛔ 3
 | REGISTRAR uma composição de verdade — o modelo nasce na venda | 🟢 pronta | `features/vendas/MonteSeuColar.tsx` | — |
 | Preço final editável no colar | 🟡 parcial | `features/vendas/MonteSeuColar.tsx` | O preço é digitado quando o modelo é cadastrado, na primeira venda daquela combinação, e vale para as seguintes. Mudar o preço numa venda isolada continua recusado pelo servidor (`prepararPersonalizacoes`, 409). |
 | Saída sem faturamento, dentro de Lançamentos | 🟢 pronta | `#/vendas/saida` | — |
-| Histórico de vendas | 🟢 pronta | `#/vendas/historico` | — |
+| Vendas feitas — uma linha por venda, peças no detalhe | 🟢 pronta | `#/vendas/historico` | — |
 | Abrir os itens de uma venda | 🟢 pronta | `features/vendas/HistoricoVendas.tsx` | — |
 | Marcar recebida com a data efetiva | 🟢 pronta | `features/vendas/HistoricoVendas.tsx` | — |
 | Cancelar venda, devolvendo a peça | 🟢 pronta | `features/vendas/HistoricoVendas.tsx` | — |

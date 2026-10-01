@@ -9,7 +9,7 @@
 import { json } from '../../auth.js';
 import {
   visaoGeral, evolucao, produtosMaisVendidos, categoriasMaisVendidas,
-  porOrigem, clientesRanking, listarVendasUnificado,
+  porOrigem, clientesRanking, listarVendasUnificado, listarVendasFeitas,
   painel, crm, acertosDeMaleta, resumoDoMes, validarIntervalo,
 } from '../../analytics.js';
 
@@ -123,6 +123,22 @@ export const rotas = [
         ...r,
         ordem: url.searchParams.get('ordem') || 'faturamento',
         limite: Math.min(+(url.searchParams.get('limite') || 50), 500),
+      }));
+    },
+  },
+  {
+    /* Uma linha = uma VENDA, com as peças dentro; a página é de vendas.
+       `/api/vendas/lista` continua sendo a leitura item a item (auditoria). */
+    metodo: 'GET', caminho: '/api/vendas/feitas', auth: 'bearer',
+    async handler({ db, url }) {
+      const v = validarIntervalo({ de: url.searchParams.get('de'), ate: url.searchParams.get('ate') });
+      if (!v.ok) return recusa(v);
+      return json(await listarVendasFeitas(db, {
+        de: v.de, ate: v.ate,
+        busca: url.searchParams.get('busca'),
+        incluirCanceladas: url.searchParams.get('canceladas') !== 'nao',
+        limite: Math.min(Math.max(+(url.searchParams.get('limite') || 50), 1), 1000),
+        offset: Math.max(+(url.searchParams.get('offset') || 0), 0),
       }));
     },
   },
