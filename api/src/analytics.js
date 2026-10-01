@@ -934,6 +934,13 @@ async function baseDeClientes(db, faixa) {
             COUNT(*)                       AS vendas,
             SUM(pecas)                     AS pecas,
             ROUND(SUM(faturamento), 2)     AS faturamento,
+            -- 01/10/2026 -- o que ela COMPROU, pago ou nao. faturamento e o
+            -- que ENTROU; o Top clientes da V2 pergunta quem mais comprou, e
+            -- a compra de R$ 504 ainda nao paga e compra do mesmo jeito.
+            -- Pela data da VENDA: o CTE tambem traz a venda antiga paga no
+            -- periodo, e ela nao e compra do periodo.
+            ROUND(SUM(CASE WHEN ${naFaixa('data', faixa)}
+                           THEN COALESCE(valor_total, 0) ELSE 0 END), 2) AS comprado,
             ROUND(MAX(faturamento), 2)     AS maior_compra,
             MIN(data)                      AS primeira,
             MAX(data)                      AS ultima,
@@ -941,7 +948,7 @@ async function baseDeClientes(db, faixa) {
        FROM vd
       WHERE papel='cliente'
       GROUP BY norm`,
-  ).bind(...V.binds).all();
+  ).bind(...V.binds, ...bindsFaixa(faixa)).all();
 
   const linhas = results ?? [];
 
@@ -971,6 +978,7 @@ async function baseDeClientes(db, faixa) {
       vendas: Number(r.vendas),
       pecas: Number(r.pecas ?? 0),
       faturamento: Number(r.faturamento ?? 0),
+      comprado: Number(r.comprado ?? 0),
       maiorCompra: Number(r.maior_compra ?? 0),
       ticketMedio: Number(r.vendas) > 0
         ? +(Number(r.faturamento ?? 0) / Number(r.vendas)).toFixed(2) : null,

@@ -3,11 +3,15 @@ import { useApi } from '../../hooks/useApi';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { listarClientes } from './api';
+import { money, fmtData } from '../../domain/formato';
 import type { Connection } from '../../services/client';
-import type { ClienteLista } from './tipos';
+import type { ClienteDaBase, ClienteLista } from './tipos';
 
 interface Props {
   conexao: Connection;
+  /** Compras de cada cadastro (última, total), pela base de vendas. Vazio
+   *  enquanto carrega — a lista não espera por ele. */
+  porCliente: Map<number, ClienteDaBase>;
   aoAbrir: (c: ClienteLista) => void;
   aoCadastrar: () => void;
 }
@@ -24,7 +28,7 @@ interface Props {
  *  "Camila" só se distinguem por algum campo além do nome, e escolher a
  *  errada no balcão manda a venda para o histórico de outra pessoa.
  */
-export function ListaClientes({ conexao, aoAbrir, aoCadastrar }: Props) {
+export function ListaClientes({ conexao, porCliente, aoAbrir, aoCadastrar }: Props) {
   const [busca, setBusca] = useState('');
   const [buscaAtiva, setBuscaAtiva] = useState('');
 
@@ -44,23 +48,6 @@ export function ListaClientes({ conexao, aoAbrir, aoCadastrar }: Props) {
 
   return (
     <>
-      <div className="mq-pagehead">
-        <div className="mq-pagehead__text">
-          <p className="mq-eyebrow">Relacionamento</p>
-          <h1 className="mq-display">Clientes</h1>
-          <p className="mq-lede">
-            Quem compra, quanto já comprou e o que ainda está em aberto. Abra
-            uma cliente para ver a relação inteira.
-          </p>
-        </div>
-        <div className="mq-pagehead__actions">
-          <button type="button" className="mq-btn mq-btn--primary" onClick={aoCadastrar}>
-            <Icone nome="plus" />
-            Nova cliente
-          </button>
-        </div>
-      </div>
-
       <section className="mq-card mq-card--flush">
         <div className="mq-filters">
           <label className="mq-search">
@@ -91,8 +78,8 @@ export function ListaClientes({ conexao, aoAbrir, aoCadastrar }: Props) {
             <h3>{buscaAtiva ? 'Nenhuma cliente com esse termo' : 'Nenhuma cliente cadastrada ainda'}</h3>
             <p>
               {buscaAtiva
-                ? 'A busca procura por nome, telefone e CPF. Tente só o primeiro nome, ou parte do telefone.'
-                : 'Quem compra pela planilha aparece aqui assim que tiver cadastro. Você também pode criar uma agora.'}
+                ? 'Tente só o primeiro nome, ou parte do telefone.'
+                : 'Cadastre a primeira cliente.'}
             </p>
             <button type="button" className="mq-btn mq-btn--secondary" onClick={aoCadastrar}>
               Cadastrar cliente
@@ -103,10 +90,13 @@ export function ListaClientes({ conexao, aoAbrir, aoCadastrar }: Props) {
             <div className="mq-tr mq-tr--head" role="row" style={COLUNAS}>
               <span role="columnheader">Cliente</span>
               <span role="columnheader">Telefone</span>
-              <span role="columnheader">Cidade</span>
+              <span role="columnheader">Última compra</span>
+              <span role="columnheader">Total comprado</span>
               <span aria-hidden="true" />
             </div>
-            {clientes.map((c) => (
+            {clientes.map((c) => {
+              const compras = porCliente.get(c.id);
+              return (
               <button
                 key={c.id}
                 type="button"
@@ -116,18 +106,23 @@ export function ListaClientes({ conexao, aoAbrir, aoCadastrar }: Props) {
               >
                 <span className="mq-cell">
                   <b>{c.nome}</b>
+                  {c.cidade && <small>{c.cidade}</small>}
                 </span>
                 {/* Vazio vira "—" na tabela, e some no telefone: dois
                     traços por cartão era ruído, não informação. */}
                 <span className={c.tel ? 'mq-cell' : 'mq-cell mq-cell--vazia'}>
                   <b className="mq-num">{c.tel || '—'}</b>
                 </span>
-                <span className={c.cidade ? 'mq-cell' : 'mq-cell mq-cell--vazia'}>
-                  <b>{c.cidade || '—'}</b>
+                <span className="mq-cell mq-cell--num" data-label="Última compra">
+                  <b className="mq-date">{compras?.ultimaCompra ? fmtData(compras.ultimaCompra) : '—'}</b>
+                </span>
+                <span className="mq-cell mq-cell--num" data-label="Total comprado">
+                  <b className="mq-money">{compras ? money(compras.comprado) : '—'}</b>
                 </span>
                 <Icone nome="chevron" className="mq-ico mq-tr__chev" />
               </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
@@ -137,7 +132,7 @@ export function ListaClientes({ conexao, aoAbrir, aoCadastrar }: Props) {
 
 /* A grade das colunas mora aqui, e não no CSS, porque ela é DESTA tabela:
    o Design System descreve a linha, cada tabela descreve suas colunas. */
-const COLUNAS = { gridTemplateColumns: 'minmax(0,2.2fr) minmax(0,1.2fr) minmax(0,1.2fr) 20px' };
+const COLUNAS = { gridTemplateColumns: 'minmax(0,2.2fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) 20px' };
 
 function Esqueleto() {
   return (
@@ -145,6 +140,7 @@ function Esqueleto() {
       {[0, 1, 2, 3, 4].map((i) => (
         <div key={i} className="mq-tr" style={COLUNAS}>
           <span className="mq-skel mq-skel--short" />
+          <span className="mq-skel" />
           <span className="mq-skel" />
           <span className="mq-skel" />
           <span />

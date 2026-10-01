@@ -10,15 +10,17 @@ import type { GarantiaDoPerfil, PerfilCliente as Perfil, VendaDoPerfil } from '.
 
 export type ChaveCliente = { id: number } | { norm: string };
 
-type Aba = 'resumo' | 'compras' | 'financeiro' | 'credito' | 'garantias' | 'atividade';
+/* Eram seis abas até 01/10/2026. "Financeiro" repetia os três números do
+   topo e explicava regra; "Atividade" era a linha do tempo do Resumo sem
+   corte. O que falta receber subiu para o Resumo — é a primeira coisa que
+   se quer saber — e a linha do tempo inteira abre ali mesmo. */
+type Aba = 'resumo' | 'compras' | 'garantias' | 'credito';
 
 const ABAS: { id: Aba; rotulo: string }[] = [
   { id: 'resumo', rotulo: 'Resumo' },
   { id: 'compras', rotulo: 'Compras' },
-  { id: 'financeiro', rotulo: 'Financeiro' },
-  { id: 'credito', rotulo: 'Crédito' },
   { id: 'garantias', rotulo: 'Garantias e trocas' },
-  { id: 'atividade', rotulo: 'Atividade' },
+  { id: 'credito', rotulo: 'Crédito' },
 ];
 
 interface Props {
@@ -137,7 +139,7 @@ export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda 
         <div className="mq-kpi mq-kpi--ok">
           <span className="mq-kpi__label">Pago</span>
           <span className="mq-kpi__value"><i>R$</i>{moneyNumero(r.pago)}</span>
-          <span className="mq-kpi__foot">o que já entrou</span>
+          <span className="mq-kpi__foot">já recebido</span>
         </div>
         <div className={r.emAberto > 0 ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}>
           <span className="mq-kpi__label">Em aberto</span>
@@ -149,7 +151,7 @@ export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda 
           <span className="mq-kpi__value">
             {r.ticketMedio === null ? '—' : <><i>R$</i>{moneyNumero(r.ticketMedio)}</>}
           </span>
-          <span className="mq-kpi__foot">quanto ela costuma levar por vez</span>
+          <span className="mq-kpi__foot">por compra</span>
         </div>
       </div>
 
@@ -169,14 +171,12 @@ export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda 
         ))}
       </nav>
 
-      {aba === 'resumo' && <Resumo perfil={p} eventos={linhaDoTempo.slice(0, 6)} />}
+      {aba === 'resumo' && <Resumo perfil={p} eventos={linhaDoTempo} />}
       {aba === 'compras' && <Compras vendas={p.vendas} />}
-      {aba === 'financeiro' && <Financeiro perfil={p} />}
       {aba === 'credito' && (
         <Credito clienteId={clienteId} dados={credito.dados} erro={credito.erro} />
       )}
       {aba === 'garantias' && <Garantias garantias={p.garantias} />}
-      {aba === 'atividade' && <Atividade eventos={linhaDoTempo} />}
     </>
   );
 }
@@ -185,7 +185,7 @@ function Voltar({ aoVoltar }: { aoVoltar: () => void }) {
   return (
     <p>
       <button type="button" className="mq-btn mq-btn--link" onClick={aoVoltar}>
-        ← Todas as clientes
+        ← Clientes
       </button>
     </p>
   );
@@ -210,21 +210,56 @@ function EstadoDaRelacao({ estado, dias }: { estado: string; dias: number | null
 
 function Resumo({ perfil, eventos }: { perfil: Perfil; eventos: EventoRelacao[] }) {
   const r = perfil.resumo;
+  const [tudo, setTudo] = useState(false);
+  const emAberto = perfil.vendas.filter((v) => v.valorReceber > 0);
+  const POUCOS = 6;
   return (
     <div className="mq-grid mq-grid--main">
-      <section className="mq-card mq-card--flush">
-        <div className="mq-card__head">
-          <div>
-            <h2 className="mq-title">Últimos acontecimentos</h2>
-            <p className="mq-lede">Compra, pagamento, garantia e crédito na mesma linha do tempo.</p>
+      <div className="mq-stack">
+        {emAberto.length > 0 && (
+          <section className="mq-card mq-card--flush">
+            <div className="mq-card__head">
+              <div><h2 className="mq-title">Falta receber</h2></div>
+              <span className="mq-money mq-money--lg mq-money--risk">{money(r.emAberto)}</span>
+            </div>
+            <div className="mq-list">
+              {emAberto.map((v) => (
+                <div className="mq-item" key={`${v.fonte}-${v.id}`}>
+                  <span className="mq-item__icon mq-item__icon--risk"><Icone nome="receipt" /></span>
+                  <span className="mq-item__main">
+                    <b>Compra de {fmtData(v.data)}</b>
+                    <small>
+                      {money(v.valor)} · recebido {money(v.valorRecebido)}
+                      {v.vencimentoEm ? ` · vence ${fmtData(v.vencimentoEm)}` : ''}
+                    </small>
+                  </span>
+                  <span className="mq-item__side">
+                    <b className="mq-money mq-money--risk">{money(v.valorReceber)}</b>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="mq-card mq-card--flush">
+          <div className="mq-card__head">
+            <div><h2 className="mq-title">Últimos acontecimentos</h2></div>
           </div>
-        </div>
-        <div className="mq-card__body">
-          {eventos.length === 0
-            ? <p className="mq-hint">Nada registrado ainda.</p>
-            : <LinhaDoTempo eventos={eventos} />}
-        </div>
-      </section>
+          <div className="mq-card__body">
+            {eventos.length === 0
+              ? <p className="mq-hint">Nada registrado ainda.</p>
+              : <LinhaDoTempo eventos={tudo ? eventos : eventos.slice(0, POUCOS)} />}
+          </div>
+          {eventos.length > POUCOS && (
+            <div className="mq-card__foot">
+              <button type="button" className="mq-btn mq-btn--link" onClick={() => setTudo((v) => !v)}>
+                {tudo ? 'Mostrar menos' : `Ver tudo o que aconteceu (${eventos.length})`}
+              </button>
+            </div>
+          )}
+        </section>
+      </div>
 
       <aside className="mq-stack">
         <section className="mq-card mq-card--pad">
@@ -237,10 +272,8 @@ function Resumo({ perfil, eventos }: { perfil: Perfil; eventos: EventoRelacao[] 
               <dd>{r.frequenciaDias ? `${r.frequenciaDias} dias` : '—'}</dd>
             </div>
             <div><dt>Canal preferido</dt><dd>{perfil.canalPreferido ?? '—'}</dd></div>
-            <div>
-              <dt>Gasto médio por peça</dt>
-              <dd className="mq-money">{r.gastoMedioPorPeca === null ? '—' : money(r.gastoMedioPorPeca)}</dd>
-            </div>
+            {perfil.cadastro?.tel && <div><dt>Telefone</dt><dd>{perfil.cadastro.tel}</dd></div>}
+            {perfil.cadastro?.instagram && <div><dt>Instagram</dt><dd>{perfil.cadastro.instagram}</dd></div>}
           </dl>
         </section>
 
@@ -339,75 +372,6 @@ function SituacaoDaVenda({ venda }: { venda: VendaDoPerfil }) {
   );
 }
 
-/* ─────────────────────────────────────────────────────────── financeiro */
-
-function Financeiro({ perfil }: { perfil: Perfil }) {
-  const r = perfil.resumo;
-  const emAberto = perfil.vendas.filter((v) => v.valorReceber > 0);
-  return (
-    <div className="mq-grid mq-grid--main">
-      <section className="mq-card mq-card--flush">
-        <div className="mq-card__head">
-          <div>
-            <h2 className="mq-title">O que falta receber</h2>
-            <p className="mq-lede">Por venda, com a data de vencimento quando existe.</p>
-          </div>
-          <span className="mq-money mq-money--lg mq-money--risk">{money(r.emAberto)}</span>
-        </div>
-        {emAberto.length === 0 ? (
-          <div className="mq-state">
-            <span className="mq-state__icon"><Icone nome="check" /></span>
-            <h3>Nada em aberto</h3>
-            <p>Todas as compras desta cliente já foram pagas.</p>
-          </div>
-        ) : (
-          <div className="mq-list">
-            {emAberto.map((v) => (
-              <div className="mq-item" key={`${v.fonte}-${v.id}`}>
-                <span className="mq-item__icon mq-item__icon--risk"><Icone nome="receipt" /></span>
-                <span className="mq-item__main">
-                  <b>Venda de {fmtData(v.data)}</b>
-                  <small>
-                    cobrado {money(v.valor)} · recebido {money(v.valorRecebido)}
-                    {v.vencimentoEm ? ` · vence ${fmtData(v.vencimentoEm)}` : ''}
-                  </small>
-                </span>
-                <span className="mq-item__side">
-                  <b className="mq-money mq-money--risk">{money(v.valorReceber)}</b>
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <aside className="mq-stack">
-        <section className="mq-card mq-card--pad">
-          <h2 className="mq-subtitle">Os três números</h2>
-          <dl className="mq-dl">
-            <div><dt>Comprou</dt><dd className="mq-money">{money(r.comprou)}</dd></div>
-            <div><dt>Pago</dt><dd className="mq-money mq-money--ok">{money(r.pago)}</dd></div>
-            <div><dt>Em aberto</dt><dd className="mq-money mq-money--risk">{money(r.emAberto)}</dd></div>
-          </dl>
-          {/* A regra vem do backend, em letra. Quem lê não precisa deduzir
-              por que os três não fecham — ele explica. */}
-          <p className="mq-hint" style={{ marginTop: 12 }}>{r.regraFinanceira}</p>
-        </section>
-
-        <section className="mq-card mq-card--pad">
-          <h2 className="mq-subtitle">Três datas, três significados</h2>
-          <p className="mq-hint">
-            A data da <b>venda</b> é quando a peça saiu. A do <b>pagamento</b> é
-            quando o dinheiro entrou. A do <b>cadastro</b> é quando o sistema
-            soube. Uma venda de 10/09 paga em 12/09 e lançada em 16/09 tem as
-            três diferentes, e cada coluna desta ficha diz qual está mostrando.
-          </p>
-        </section>
-      </aside>
-    </div>
-  );
-}
-
 /* ────────────────────────────────────────────────────────────── crédito */
 
 function Credito({
@@ -423,11 +387,7 @@ function Credito({
         <div className="mq-state">
           <span className="mq-state__icon"><Icone nome="credit" /></span>
           <h3>Crédito exige cadastro</h3>
-          <p>
-            A razão do crédito é por cliente cadastrada. Esta ficha foi aberta
-            pelo histórico, que só tem o nome — cadastre a cliente para que o
-            crédito dela passe a existir.
-          </p>
+          <p>Cadastre a cliente para usar crédito.</p>
         </div>
       </section>
     );
@@ -442,14 +402,13 @@ function Credito({
         <div className="mq-card__head">
           <div>
             <h2 className="mq-title">Extrato</h2>
-            <p className="mq-lede">Cada linha diz de onde o crédito veio, e quando.</p>
           </div>
         </div>
         {dados.extrato.length === 0 ? (
           <div className="mq-state">
             <span className="mq-state__icon"><Icone nome="credit" /></span>
             <h3>Sem movimento de crédito</h3>
-            <p>Crédito nasce de troca por peça mais barata, ou de um ajuste registrado por alguém.</p>
+            <p>Crédito aparece quando ela troca por uma peça mais barata.</p>
           </div>
         ) : (
           <div className="mq-list">
@@ -488,11 +447,9 @@ function Credito({
           </dl>
           {dados.saldoNegativo && (
             <p className="mq-note mq-note--risk" style={{ marginTop: 12 }}>
-              O crédito desta cliente ficou negativo, o que não deveria acontecer.
-              Não lance nada por cima: isto precisa ser conferido.
+              O crédito ficou negativo. Não lance nada por cima: avise quem cuida do sistema.
             </p>
           )}
-          <p className="mq-hint" style={{ marginTop: 12 }}>{dados.regra}</p>
         </section>
       </aside>
     </div>
@@ -508,7 +465,7 @@ function Garantias({ garantias }: { garantias: GarantiaDoPerfil[] }) {
         <div className="mq-state">
           <span className="mq-state__icon"><Icone nome="shield" /></span>
           <h3>Nenhuma garantia registrada</h3>
-          <p>Peça que volta por defeito, reparo ou troca aparece aqui, com o prazo correndo.</p>
+          <p>Nenhuma peça dela voltou por defeito, reparo ou troca.</p>
         </div>
       </section>
     );
@@ -574,26 +531,5 @@ function LinhaDoTempo({ eventos }: { eventos: EventoRelacao[] }) {
         </div>
       ))}
     </div>
-  );
-}
-
-function Atividade({ eventos }: { eventos: EventoRelacao[] }) {
-  return (
-    <section className="mq-card mq-card--flush">
-      <div className="mq-card__head">
-        <div>
-          <h2 className="mq-title">Tudo o que aconteceu</h2>
-          <p className="mq-lede">
-            Compras, pagamentos, garantias, trocas e crédito — cada linha com a
-            data que o próprio sistema gravou para aquele fato.
-          </p>
-        </div>
-      </div>
-      <div className="mq-card__body">
-        {eventos.length === 0
-          ? <p className="mq-hint">Nada registrado ainda.</p>
-          : <LinhaDoTempo eventos={eventos} />}
-      </div>
-    </section>
   );
 }

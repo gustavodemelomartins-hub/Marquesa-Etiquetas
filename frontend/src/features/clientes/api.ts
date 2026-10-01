@@ -1,6 +1,7 @@
 import { chamar, type Connection } from '../../services/client';
 import type {
   ClienteLista, CreditoCliente, DadosCadastro, PerfilCliente,
+  BaseDeClientes,
 } from './tipos';
 
 /** As cinco rotas de Clientes que já existem no Worker. Nenhuma inventada:
@@ -67,4 +68,14 @@ export function atualizarCliente(
   conexao: Connection, id: number, dados: Partial<DadosCadastro>,
 ): Promise<unknown> {
   return chamar(conexao, 'PATCH', `/api/clientes/${id}`, dados);
+}
+
+/** A base de clientes medida em VENDAS, com o estado de cada uma pela régua
+ *  do sistema (§25). `periodo`: `90d` | `12m` | `tudo`. */
+export function buscarBase(
+  conexao: Connection, periodo: string, sinal?: AbortSignal,
+): Promise<BaseDeClientes> {
+  return chamar<BaseDeClientes>(
+    conexao, 'GET', `/api/analytics/crm?periodo=${encodeURIComponent(periodo)}`, undefined, { signal: sinal },
+  );
 }

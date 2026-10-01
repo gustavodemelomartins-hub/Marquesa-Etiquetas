@@ -10,8 +10,8 @@ const conexao: Connection = { url: 'http://localhost:8787', key: 'chave-de-teste
 /** A área agora recebe o endereço de fora — quem guarda a rota é o App, e
  *  é isso que faz recarregar a página voltar para a mesma ficha. Nos testes
  *  este casulo faz o papel do App: guarda o `sub` e o devolve. */
-function Area() {
-  const [sub, setSub] = useState<string | null>(null);
+function Area({ inicio = 'todos' }: { inicio?: string | null }) {
+  const [sub, setSub] = useState<string | null>(inicio);
   return <ClientesArea conexao={conexao} sub={sub} aoNavegar={setSub} aoNovaVenda={() => {}} />;
 }
 
@@ -21,6 +21,27 @@ const LISTA = [
   { id: 7, nome: 'Vitória Prado', tel: '11988887777', cidade: 'São Paulo' },
   { id: 8, nome: 'Camila Reis', tel: '', cidade: 'Santos' },
 ];
+
+/** A base de clientes (`/api/analytics/crm`), com a régua §25 já aplicada
+ *  pelo servidor: o estado de cada uma vem pronto. */
+const cli = (extra: Record<string, unknown>) => ({
+  identificada: true, pecas: 1, faturamento: 0, ticketMedio: null, primeiraCompra: '2026-01-01',
+  recorrente: false, frequenciaDias: null, diasSemComprar: 10, ...extra,
+});
+const BASE = {
+  periodo: { de: null, ate: null, periodo: 'tudo' },
+  kpis: { ativos: 4, recorrentes: 2, recorrentesPct: 50, novos: 1, ticketMedioPorVenda: 250 },
+  saudeBase: { total: 4, grupos: [] },
+  reativacao: [
+    cli({ norm: 'sumida', nome: 'Sumida Antiga', clienteId: 9, vendas: 3, comprado: 900, estado: 'inativa', ultimaCompra: '2025-01-10', diasSemComprar: 600 }),
+  ],
+  todos: [
+    cli({ norm: 'vitoria prado', nome: 'Vitória Prado', clienteId: 7, vendas: 2, comprado: 1000, estado: 'recorrente', ultimaCompra: '2026-09-15', frequenciaDias: 50 }),
+    cli({ norm: 'elizama meira', nome: 'Elizama Meira', clienteId: 10, vendas: 1, comprado: 504, estado: 'ativa', ultimaCompra: '2026-09-19' }),
+    cli({ norm: 'sumida', nome: 'Sumida Antiga', clienteId: 9, vendas: 3, comprado: 900, estado: 'inativa', ultimaCompra: '2025-01-10', diasSemComprar: 600 }),
+    cli({ norm: 'sem-nome', nome: 'Cliente não identificado', identificada: false, clienteId: null, vendas: 9, comprado: 5000, estado: 'recorrente', ultimaCompra: '2026-09-01' }),
+  ],
+};
 
 const PERFIL = {
   ok: true,
@@ -91,6 +112,7 @@ function comBackend(extra: Record<string, unknown> = {}) {
     chamadas.push(url);
     const corpo =
       url.includes('/api/clientes/perfil') ? PERFIL
+      : url.includes('/api/analytics/crm') ? BASE
       : url.includes('/credito') ? CREDITO
       : url.includes('/api/clientes?') ? LISTA
       : (extra[url] ?? {});
@@ -152,14 +174,18 @@ describe('Clientes, ponta a ponta', () => {
     expect(parcial?.textContent).toContain('vence 15/10/2026');
   });
 
-  it('Financeiro lista o que falta receber, venda a venda', async () => {
+  /* 01/10/2026: a aba Financeiro saiu; o que falta receber é a primeira
+     coisa do Resumo. E a regra financeira do servidor não vira parágrafo. */
+  it('o Resumo abre com o que falta receber, compra a compra', async () => {
     comBackend();
     render(<Area />);
     fireEvent.click(await screen.findByText('Vitória Prado'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Financeiro' }));
 
-    expect(await screen.findByText('Venda de 15/09/2026')).toBeTruthy();
-    expect(screen.getByText(/COMPROU é o total comercial/)).toBeTruthy();
+    expect(await screen.findByText('Compra de 15/09/2026')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Falta receber' })).toBeTruthy();
+    expect(screen.queryByText(/COMPROU é o total comercial/)).toBeNull();
+    expect(screen.queryByText(/Três datas/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Financeiro' })).toBeNull();
   });
 
   it('Crédito mostra saldo e extrato, e não oferece consumir', async () => {
@@ -172,11 +198,14 @@ describe('Clientes, ponta a ponta', () => {
     expect(screen.queryByRole('button', { name: /usar crédito/i })).toBeNull();
   });
 
-  it('Atividade junta compra, pagamento e crédito numa linha do tempo só', async () => {
+  it('o Resumo junta compra, pagamento e crédito numa linha do tempo só', async () => {
     comBackend();
     render(<Area />);
     fireEvent.click(await screen.findByText('Vitória Prado'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Atividade' }));
+    await screen.findByText('Últimos acontecimentos');
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Crédito gerado');
+    });
 
     const linhas = [...document.querySelectorAll('.mq-timeline__row')].map((r) => r.textContent ?? '');
     expect(linhas.some((l) => l.includes('Crédito gerado'))).toBe(true);
@@ -215,5 +244,52 @@ describe('Clientes, ponta a ponta', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Crédito' }));
 
     expect(await screen.findByText('Crédito exige cadastro')).toBeTruthy();
+  });
+});
+
+describe('Clientes › Visão geral', () => {
+  it('abre na Visão geral, com o Top, quem chamar de volta e as recorrentes', async () => {
+    const chamadas = comBackend();
+    render(<Area inicio={null} />);
+
+    const top = await screen.findByRole('region', { name: 'Top clientes' });
+    const nomes = [...top.querySelectorAll('.mq-item b:not(.mq-money)')].map((b) => b.textContent);
+    /* Ordem por quanto COMPROU, pago ou não; sem nome não entra no ranking. */
+    expect(nomes).toEqual(['Vitória Prado', 'Sumida Antiga', 'Elizama Meira']);
+    expect(top.textContent).toContain('R$ 504,00');
+
+    const volta = screen.getByRole('region', { name: 'Para chamar de volta' });
+    expect(volta.textContent).toContain('Sumida Antiga');
+    expect(volta.textContent).toContain('parada');
+
+    const fieis = screen.getByRole('region', { name: 'Clientes recorrentes' });
+    expect(fieis.textContent).toContain('Vitória Prado');
+    expect(fieis.textContent).not.toContain('Cliente não identificado');
+
+    /* A régua vem do servidor: a tela pede a base inteira e a do período. */
+    expect(chamadas.some((u) => u.includes('/api/analytics/crm?periodo=tudo'))).toBe(true);
+    expect(chamadas.some((u) => u.includes('/api/analytics/crm?periodo=12m'))).toBe(true);
+  });
+
+  it('Todos os clientes mostra a última compra e o total de cada uma', async () => {
+    comBackend();
+    render(<Area />);
+    await screen.findByText('Vitória Prado');
+    await waitFor(() => {
+      const linha = [...document.querySelectorAll('.mq-table .mq-tr')]
+        .find((l) => l.textContent?.includes('Vitória Prado'));
+      expect(linha?.textContent).toContain('15/09/2026');
+      expect(linha?.textContent).toContain('R$ 1.000,00');
+    });
+  });
+
+  it('abrir alguém da Visão geral abre a ficha pelo cadastro', async () => {
+    const chamadas = comBackend();
+    render(<Area inicio={null} />);
+    const top = await screen.findByRole('region', { name: 'Top clientes' });
+    fireEvent.click([...top.querySelectorAll('button')].find((b) => b.textContent?.includes('Vitória Prado'))!);
+    await waitFor(() => {
+      expect(chamadas.some((u) => u.includes('/api/clientes/perfil?id=7'))).toBe(true);
+    });
   });
 });

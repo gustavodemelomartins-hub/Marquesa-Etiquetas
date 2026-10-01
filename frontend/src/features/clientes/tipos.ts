@@ -178,3 +178,47 @@ export interface DadosCadastro {
   nascimento: string;
   obs: string;
 }
+
+/* ═══════════════════════════════════════════ a base de clientes (CRM)
+
+   `GET /api/analytics/crm?periodo=` — a mesma rota do painel clássico, com
+   a mesma régua (§25): cada cliente é medida pela PRÓPRIA frequência. */
+
+export type EstadoCliente = 'recorrente' | 'ativa' | 'em risco' | 'inativa' | 'sem histórico';
+
+export interface ClienteDaBase {
+  norm: string;
+  nome: string;
+  identificada: boolean;
+  clienteId: number | null;
+  vendas: number;
+  pecas: number;
+  /** O que ENTROU (pago). */
+  faturamento: number;
+  /** O que ela COMPROU no período, pago ou não. */
+  comprado: number;
+  ticketMedio: number | null;
+  primeiraCompra: string | null;
+  ultimaCompra: string | null;
+  recorrente: boolean;
+  estado: EstadoCliente;
+  diasSemComprar: number | null;
+  frequenciaDias: number | null;
+  tel?: string | null;
+  cidade?: string | null;
+}
+
+export interface BaseDeClientes {
+  periodo: { de: string | null; ate: string | null; periodo: string };
+  kpis: {
+    ativos: number;
+    recorrentes: number;
+    recorrentesPct: number;
+    /** `null` em "tudo": toda cliente seria nova. */
+    novos: number | null;
+    ticketMedioPorVenda: number | null;
+  };
+  saudeBase: { total: number; grupos: { estado: EstadoCliente; rotulo: string; n: number }[] };
+  reativacao: ClienteDaBase[];
+  todos: ClienteDaBase[];
+}

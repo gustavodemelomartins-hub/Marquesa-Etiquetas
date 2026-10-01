@@ -126,6 +126,13 @@ const busca = await api('GET', '/api/vendas/feitas?limite=1&busca=446425');
 eq('buscar um código traz a venda inteira', busca.corpo.vendas[0]?.itens.length, 5);
 eq('e uma venda só', busca.corpo.total, 1);
 
+/* A base de clientes conta a mesma venda: uma compra, R$ 504 comprados,
+   nada pago ainda. */
+const base = (await api('GET', '/api/analytics/crm?periodo=tudo')).corpo;
+const eliBase = base.todos.find((c) => /elizama/i.test(c.nome));
+eq('Clientes: Elizama comprou R$ 504, não pagos', [eliBase?.comprado, eliBase?.faturamento], [504, 0]);
+eq('Clientes: em UMA compra', eliBase?.vendas, 1);
+
 console.log('\n=== C. mesma cliente, mesmo dia ===');
 const bia = daCliente(vendas, /Bia Duas/);
 eq('planilha: mesmo dia é uma venda (regra cliente + data), outro dia é outra', bia.length, 2);
