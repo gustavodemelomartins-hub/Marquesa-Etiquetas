@@ -87,3 +87,61 @@ volta inteiro) e marca de idempotência (`config`). Ensaiado: aplica igual ao
   Sthefany ativa com R$ 922,00 e protegida contra exclusão, 3 em Arquivadas,
   Visão geral sem pseudo-cliente, Saídas (tudo) 13 peças com a linha 129561,
   Elizama 1 venda R$ 504,00. Em 1280 e 390px.
+
+## Segunda rodada (02/10/2026, tarde) — Sthefany Marques e Vendas feitas
+
+**Confirmação humana do responsável:** todas as linhas da planilha atribuídas
+à Sthefany Marques (#64) são uso próprio ou presentes dados por ela — nenhuma
+é venda comercial. O cadastro continua ativo.
+
+As 8 linhas restantes (R$ 922,00, todas PAGO) pela rota oficial
+(`scripts/reconciliacao/reclassificar-sthefany-2026-10-02.mjs` →
+`docs/migracao-nao-venda/reclassificar-sthefany-2026-10-02.sql`):
+
+| Item | Nº | Data | SKU | Peça | Valor | Texto | Classe |
+|---|---|---|---|---|---:|---|---|
+| 2904 | 187 | 07/11/2024 | 944768 | Berloque Patas Zircônias | 99 | Maleta | uso próprio |
+| 2914 | 197 | 30/11/2024 | 524730 | Pulseira Lisa Lap Cruz | 129 | Maleta | uso próprio |
+| 2859 | 142 | 11/04/2025 | 922884 | Bracelete Prego Liso | 189 | Maleta | uso próprio |
+| 3514 | 797 | 24/12/2025 | 204997 | Colar Longo Corações | 169 | Presente vó Gustavo | brinde |
+| 3515 | 798 | 24/12/2025 | 377105 | Pulseira Coração Vazado | 79 | Presente Geisa | brinde |
+| 3516 | 799 | 28/12/2025 | 152177 | Brinco Esfera Lisa e Fosca | 79 | Maleta | uso próprio |
+| 3793 | 1076 | 10/05/2026 | 450475 | Brinco Baby de Morangos | 49 | Presente Cecilia | brinde |
+| 3870 | 1153 | 11/06/2026 | 322557 | Anel Pai Nosso e Cruz | 129 | Maleta | uso próprio |
+
+Sthefany, as 34 linhas: **brinde 11, sorteio 1, uso próprio 22**. Ficha: R$ 0,00,
+0 compras.
+
+**Vendas feitas** passa a aplicar o filtro da reclassificação oficial
+(`SQL_ITENS_DE_VENDA`), e a busca global e a lista item a item também, já que
+usam a mesma consulta. As "9 vendas sem informação, R$ 367" eram todas da
+Sthefany, já reclassificadas, e saíram com o resto. **Financeiro › Saiu sem
+faturar** passa a mostrar os registros antigos sem saída (23), com o valor da
+planilha.
+
+| | Antes | Depois |
+|---|---:|---:|
+| Vendas feitas (tela) | 729 | **696** (−26 já reclassificadas, −7 da Sthefany) |
+| Vendas "sem informação" | 12 | **0** |
+| Vendas no histórico (crm) | 701 | **694** |
+| Faturamento histórico (crm) | R$ 127.390,61 | **R$ 126.468,61** (−R$ 922,00) |
+| Clientes ativos / recorrentes | 348 / 113 | 347 / 112 |
+| Saídas sem faturamento (linhas) | 13 | 16 |
+| Registros antigos sem saída | 18 | 23 |
+| Reclassificações | 31 | 39 |
+| Estoque (peças / movimentos) | 2.244 / 2.721 | **2.244 / 2.721** |
+| Saídas com baixa de estoque | 0 | **0** |
+| Vendas do sistema · A receber | 19 / R$ 2.612 · 3 / R$ 583 | **iguais** |
+
+| | Novo | Rollback |
+|---|---|---|
+| Commits | `581d689` · `ae4a8b8` · `b3ffff5` | `916a905` |
+| Worker | `5d1791e4-44e7-4949-9beb-bcd62e5969e0` | `9186282d-6a8c-44a6-ac6d-5d5a0e839e74` |
+| Pages | `f4ba0dd4` | `c4722cb2` |
+| D1 (antes) | bookmark `00000185-00000000-000050f8-9bbf695c4ac4f36be8a73be307430a42` | backup `../Marquesa-Etiquetas-backups/d1/2026-10-02_sthefany/` |
+
+Entre a auditoria e a aplicação, dois cadastros foram renomeados na tela
+(#347, #123) — fora das tabelas tocadas; a precondição do SQL cobre saídas,
+reclassificações, estoque e vendas. Provas: `src/reclassificacao-vendas-feitas-test.mjs`
+(10, A–I), `RegistrosAntigos.test.tsx` (3), frontend 506/506, suítes clássicas e do assunto
+idênticas às do commit em PROD, QA de produção em 1280 e 390px sem escrita.
