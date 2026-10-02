@@ -214,7 +214,7 @@ try {
     await abrir(pagina, { concluido: false });
     await pagina.locator('[aria-label="Progresso da conferência"]').waitFor({ timeout: 15000 });
 
-    await pagina.getByRole('button', { name: /Finalizar inventário/ }).click();
+    await pagina.getByRole('button', { name: /^Concluir$/ }).click();
     const dialogo = pagina.getByRole('dialog');
     await dialogo.waitFor({ timeout: 5000 });
     const texto = await dialogo.innerText();

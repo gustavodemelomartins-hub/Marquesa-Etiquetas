@@ -477,6 +477,19 @@ mesmo estoque físico.
 8. inventário ignora os kits e conta só os componentes reais;
 9. a razão fecha no fim de tudo (§19).
 
+### `src/inventario-descartar-test.mjs` — descartar um inventário pausado
+**8 provas · ~1 s · sem Worker, sem rede**
+
+Mesmo arranjo do `inventario-4-4-test` (schema real + `node:sqlite` + módulo
+real). Prova `POST /api/inventarios/:id/cancelar`: pausar e continuar mantêm
+a contagem; um pausado bloqueia abrir outro; descartar vira `cancelado`, com
+data; **estoque, movimentos e saídas ficam idênticos** e a razão fecha; o
+cancelado segue no histórico com a contagem guardada; um novo abre depois;
+concluído e cancelado recusam descarte, e cancelado recusa contar, concluir e
+ajustar. A tela tem o par em `frontend/src/features/inventario/descartar.test.tsx`
+e o navegador em `src/v2-inventario-descartar-qa.mjs` (harness local, 1280 e
+390px: confirmação, Voltar sem escrever, descarte, histórico, novo inventário).
+
 ### `src/inventario-4-4-test.mjs` — o inventário inteiro, contra o schema real
 **22 provas · ~2 s · sem Worker, sem rede, sem banco em disco**
 

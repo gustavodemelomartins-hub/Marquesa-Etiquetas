@@ -10,6 +10,7 @@ import {
   type PedidoDeVariacao,
 } from './DialogoDeVariacao';
 import { DialogoDeEncerramento, type EscolhaDoEncerramento } from './DialogoDeEncerramento';
+import { DialogoDeDescarte } from './DialogoDeDescarte';
 import { ProgressoDaContagem } from './ProgressoDaContagem';
 import { RevisaoDoInventario } from './RevisaoDoInventario';
 import { TODAS, filtrarPorCategoria } from './progresso';
@@ -28,6 +29,14 @@ interface InventarioResumo {
   pecas: number;
   naoComparaveis: number;
 }
+
+const ROTULO_DO_STATUS: Record<string, string> = {
+  aberto: 'Em andamento',
+  pausado: 'Pausado',
+  concluido: 'Concluído',
+  cancelado: 'Cancelado',
+};
+export const rotuloDoStatus = (status: string) => ROTULO_DO_STATUS[status] ?? status;
 
 interface LinhaContada {
   sku: string;
@@ -242,13 +251,8 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = fal
       <p className="mq-note mq-note--info">
         <Icone nome="alert" />
         <span>
-          <b>Só conta o que deveria estar em casa.</b> Peça que saiu na maleta
-          de uma revendedora NÃO aparece como faltante — o número da coluna
-          "Esperado em casa" já é o total menos o consignado. Se você tem
-          menos do que ele diz, é o total do sistema que está a mais: a
-          contagem existe para achar e corrigir isso. E <b>não contado não é
-          zero</b>: peça que ninguém conferiu fica de fora da conta, e dá para
-          pausar e continuar depois sem perder nada.
+          <b>Conte só o que está em casa.</b> Peça com revendedora não entra
+          como faltante, e peça que você ainda não contou não vira zero.
         </span>
       </p>
 
@@ -294,13 +298,15 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = fal
                   <b>Inventário #{i.id}</b>
                   <small>
                     aberto em {fmtData(i.iniciadoEm)}
-                    {i.concluidoEm ? ` · concluído em ${fmtData(i.concluidoEm)}` : ''}
+                    {i.concluidoEm
+                      ? ` · ${i.status === 'cancelado' ? 'cancelado' : 'concluído'} em ${fmtData(i.concluidoEm)}`
+                      : ''}
                     {i.divergentes ? ` · ${i.divergentes} divergentes` : ''}
                   </small>
                 </span>
                 <span className="mq-item__side">
                   <span className={`mq-status ${i.status === 'concluido' ? 'mq-status--ok' : i.status === 'pausado' ? 'mq-status--warn' : ''}`}>
-                    {i.status}
+                    {rotuloDoStatus(i.status)}
                   </span>
                 </span>
               </button>
@@ -362,6 +368,7 @@ function Contagem({
   const [categoria, setCategoria] = useState<string>(TODAS);
   /* Finalizar deixou de ser um `confirm()`: ele não tem três saídas. */
   const [encerrando, setEncerrando] = useState(false);
+  const [descartando, setDescartando] = useState(false);
 
   /* A LISTA DA CONTAGEM vem do servidor, não do `GET /api/state`: é ela
      que carrega a regra do "em casa". Ver o comentário de `Esperado`. */
@@ -478,6 +485,15 @@ function Contagem({
       contagemCompleta: escolha.contagemCompleta,
     });
     if (ok) setEncerrando(false);
+  }
+
+  /** DESCARTAR: o inventário vira `cancelado` e fica no histórico. Nenhuma
+   *  contagem vira ajuste — o servidor só aceita ajuste de inventário
+   *  concluído. Depois disso a tela volta para "Abrir inventário". */
+  async function descartar() {
+    const ok = await acao(`/api/inventarios/${id}/cancelar`);
+    setDescartando(false);
+    if (ok) aoSair();
   }
 
   /** Grava uma contagem. `escolha` só existe quando o servidor já pediu a
@@ -619,6 +635,26 @@ function Contagem({
      grande e as barras nunca discordarem por serem duas contas. */
   const cobertura = detalhe.dados?.cobertura;
 
+  if (status === 'cancelado') {
+    return (
+      <section className="mq-card">
+        <div className="mq-card__head">
+          <div>
+            <h2 className="mq-title">Inventário #{id}</h2>
+            <p className="mq-lede">
+              <span className="mq-status">Cancelado</span>
+              {detalhe.dados?.iniciadoEm ? ` · iniciado em ${fmtData(detalhe.dados.iniciadoEm)}` : ''}
+              {' · '}as contagens não foram aplicadas ao estoque.
+            </p>
+          </div>
+          <button type="button" className="mq-btn mq-btn--ghost mq-btn--sm" onClick={aoSair}>
+            Fechar
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   if (encerrado) {
     return (
       <section className="mq-card">
@@ -645,10 +681,13 @@ function Contagem({
     <section className="mq-card mq-card--flush inventario-ativo">
       <header className="mq-card__head active-inventory-head">
         <div>
-          <p className="mq-eyebrow">
-            {pausado ? 'Inventário pausado' : 'Inventário em andamento'}
+          <h2 className="mq-title">Inventário #{id}</h2>
+          <p className="mq-lede">
+            <span className={pausado ? 'mq-status mq-status--warn' : 'mq-status mq-status--open'}>
+              {pausado ? 'Pausado' : 'Em andamento'}
+            </span>
+            {detalhe.dados?.iniciadoEm ? ` · iniciado em ${fmtData(detalhe.dados.iniciadoEm)}` : ''}
           </p>
-          <h2 className="mq-title">Conferência do estoque em casa</h2>
           <p className="mq-lede">
             {cobertura
               ? `${cobertura.conferidos} de ${cobertura.total} itens conferidos`
@@ -697,7 +736,15 @@ function Contagem({
             disabled={!!ocupado}
             onClick={() => setEncerrando(true)}
           >
-            Finalizar inventário
+            Concluir
+          </button>
+          <button
+            type="button"
+            className="mq-btn mq-btn--danger"
+            disabled={!!ocupado}
+            onClick={() => setDescartando(true)}
+          >
+            Descartar
           </button>
           <button type="button" className="mq-btn mq-btn--ghost" onClick={aoSair}>
             Fechar
@@ -720,9 +767,7 @@ function Contagem({
         <p className="mq-note mq-note--warn">
           <Icone nome="alert" />
           <span>
-            <b>Pausado.</b> Nada se perde — a contagem continua exatamente
-            onde parou, e ninguém pode abrir um segundo inventário por cima
-            dela.
+            <b>Pausado.</b> A contagem continua de onde parou.
           </span>
         </p>
       )}
@@ -847,6 +892,14 @@ function Contagem({
           ocupado={!!ocupado}
           aoConfirmar={finalizar}
           aoCancelar={() => setEncerrando(false)}
+        />
+      )}
+
+      {descartando && (
+        <DialogoDeDescarte
+          ocupado={!!ocupado}
+          aoConfirmar={descartar}
+          aoVoltar={() => setDescartando(false)}
         />
       )}
 

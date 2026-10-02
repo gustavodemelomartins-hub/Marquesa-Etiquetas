@@ -138,7 +138,7 @@ try {
       const js = await (await fetch(new URL(bundle, APP).href)).text();
       for (const [marca, onde] of [
         ['Onde está o patrimônio', 'Peças › Resumo'],
-        ['Conferência do estoque em casa', 'Inventário'],
+        ['Descartar este inventário?', 'Inventário'],
         ['Escolha seus pingentes', 'Monte seu Colar'],
         ['Análise de saídas', 'Saídas'],
         ['Perfil — ninguém identificado', 'Cabeçalho'],
@@ -340,7 +340,7 @@ try {
 
       prova(await p.locator('.inventory-contexts .inventory-context').count() === 3,
         'os três cartões de contexto do protótipo');
-      prova(await p.getByRole('heading', { name: 'Conferência do estoque em casa' }).count() === 1,
+      prova(await p.getByRole('heading', { name: /^Inventário #\d+$/ }).count() === 1,
         'o cabeçalho da contagem em andamento');
       /* O painel de progresso mudou de marcação em 4399bfe; o seletor antigo
          (.inventory-progress) deixou de existir e esta prova travava. */
@@ -407,7 +407,7 @@ try {
          seria congelar o errado. */
       /* Desde 4399bfe a confirmação é um diálogo da própria tela
          (DialogoDeEncerramento), e não mais o `confirm()` do navegador. */
-      await p.getByRole('button', { name: 'Finalizar inventário' }).click();
+      await p.getByRole('button', { name: 'Concluir', exact: true }).click();
       await p.waitForTimeout(600);
       const encerrar = p.locator('[role="dialog"][aria-labelledby="titulo-encerrar"]');
       const abriu = await encerrar.count() === 1;

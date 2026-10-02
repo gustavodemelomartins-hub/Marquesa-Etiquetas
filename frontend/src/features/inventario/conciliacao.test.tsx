@@ -153,7 +153,7 @@ const RESULTADO_PARCIAL = {
 
 const abrirContagem = async () => {
   render(<InventarioArea conexao={conexao} estado={null} aoMudarEstoque={() => {}} />);
-  await screen.findByText(/Conferência do estoque em casa/);
+  await screen.findByRole('heading', { name: /^Inventário #\d+$/ });
 };
 
 /** Um inventário CONCLUÍDO não abre sozinho: ele não está "em andamento",
@@ -230,7 +230,7 @@ describe('finalizar com códigos sem bipe', () => {
     const { chamadas } = servidor();
     await abrirContagem();
 
-    fireEvent.click(screen.getByRole('button', { name: /Finalizar inventário/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Concluir$/ }));
 
     const dialogo = await screen.findByRole('dialog', { name: /terminou de conferir/i });
     /* 7 códigos, 3 bipados: 4 sem bipe, e o número aparece em voz alta. */
@@ -245,7 +245,7 @@ describe('finalizar com códigos sem bipe', () => {
     const { chamadas } = servidor();
     await abrirContagem();
 
-    fireEvent.click(screen.getByRole('button', { name: /Finalizar inventário/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Concluir$/ }));
     const dialogo = await screen.findByRole('dialog', { name: /terminou de conferir/i });
     fireEvent.click(within(dialogo).getByRole('button', { name: /^Continuar conferindo$/ }));
 
@@ -253,7 +253,7 @@ describe('finalizar com códigos sem bipe', () => {
     /* Nenhuma escrita de espécie nenhuma. */
     expect(chamadas.filter((c) => c.metodo === 'POST')).toHaveLength(0);
     /* E a contagem continua lá, do jeito que estava. */
-    expect(screen.getByText(/Conferência do estoque em casa/)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /^Inventário #\d+$/ })).toBeTruthy();
   });
 
   /* O caso real de quem contou só a gaveta dos brincos hoje: encerrar sem
@@ -262,7 +262,7 @@ describe('finalizar com códigos sem bipe', () => {
     const { chamadas } = servidor();
     await abrirContagem();
 
-    fireEvent.click(screen.getByRole('button', { name: /Finalizar inventário/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Concluir$/ }));
     const dialogo = await screen.findByRole('dialog', { name: /terminou de conferir/i });
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Encerrar parcial' }));
 
@@ -277,7 +277,7 @@ describe('finalizar com códigos sem bipe', () => {
     const { chamadas } = servidor();
     await abrirContagem();
 
-    fireEvent.click(screen.getByRole('button', { name: /Finalizar inventário/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Concluir$/ }));
     const dialogo = await screen.findByRole('dialog', { name: /terminou de conferir/i });
     fireEvent.click(within(dialogo).getByRole('button', { name: /Sim, terminei a contagem/ }));
 
