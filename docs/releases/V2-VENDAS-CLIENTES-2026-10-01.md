@@ -1,8 +1,8 @@
 # V2 — Vendas feitas por venda, Clientes com Visão geral, telas sem notas técnicas (01/10/2026)
 
-> **Situação: pronto, NÃO publicado.** O `wrangler deploy` foi negado pelo
-> classificador de segurança da sessão. Commits em `develop`; os comandos de
-> publicação estão no fim deste documento.
+> **Situação: EM PRODUÇÃO desde 02/10/2026**, junto com "Descartar
+> inventário" (commit `6f81e3b`). Registro da publicação no fim deste
+> documento.
 
 ## O que muda para quem usa
 
@@ -87,7 +87,7 @@ teste fixa isso em vez de fingir que dá para separar.
   idêntico ao de `97f074a` — as falhas de fase2-telas/e2e são as mesmas nas duas.
 - SQL novo executado (só leitura) contra `marquesa-db-prod`.
 
-## Publicação — pendente
+## Publicação — planejada em 01/10
 
 | | Novo | Rollback |
 |---|---|---|
@@ -98,3 +98,47 @@ teste fixa isso em vez de fingir que dá para separar.
 
 Sem migration. Sem segredo novo. Ordem: Worker primeiro (a rota é aditiva),
 depois o Pages pelo `deploy-prod.yml` (botão, `develop`).
+
+## Descartar inventário (02/10/2026, commit `6f81e3b`)
+
+Um inventário pausado bloqueia abrir outro, e a V2 não tinha como descartá-lo.
+O cartão do inventário em andamento agora é "Inventário #N · Pausado ·
+iniciado em DD/MM" com **Continuar**, **Concluir** e **Descartar**. Descartar
+pede confirmação (Voltar / Descartar inventário) e usa a rota que já existia,
+`POST /api/inventarios/:id/cancelar`: o inventário vira `cancelado`, fica no
+histórico com a contagem guardada, e nada chega ao estoque. Sem mudança de
+API nem de banco.
+
+O inventário pausado da Sthefany (#6, aberto 28/09, pausado 30/09) **já estava
+cancelado** quando esta publicação saiu — `status = cancelado` desde
+2026-10-01 01:27:54 UTC, pelo botão de cancelar do painel clássico. Nada foi
+cancelado por esta release. Em PROD não há inventário em andamento.
+
+Provas: `src/inventario-descartar-test.mjs` (8), `descartar.test.tsx` (8),
+`src/v2-inventario-descartar-qa.mjs` (40, 1280 e 390px), frontend 496/496,
+paridade 66/66, Vendas/Clientes QA 104 ok, `vendas-feitas-test` 60 ok.
+
+## Publicação — feita em 02/10/2026
+
+| | Novo | Rollback |
+|---|---|---|
+| Commit (`develop`) | `6f81e3b` | `97f074a` |
+| Worker `marquesa-api` | `d52ba1b3-249a-4a0d-ba9a-575e9684bc02` | `390311e3-9d65-4dd8-85c9-3bc9857d0d74` |
+| Pages `marquesa` (main) | `8060f779` | `16c995a0` |
+| D1 bookmark (antes) | `00000178-00000000-000050f8-c86533e4e758923f34768124ad1aa496` | sem migration |
+
+Publicado de uma worktree limpa no commit exato, com os passos do
+`deploy-prod.yml` (testes, build com `VITE_API_URL` de produção,
+`migracao-variantes-test`, `build.py`, `pages deploy --branch main`).
+
+QA com os dados reais: o frontend publicado, com o código do Worker publicado,
+sobre um export de `marquesa-db-prod` de 02/10 08:36 — as chamadas à API foram
+respondidas em processo, sem chave e sem escrita em PROD. Elizama = 1 venda,
+5 peças, R$ 504,00, "ver itens" com 105 + 62 + 89 + 119 + 129; Clientes com
+Visão geral, Top, Para chamar de volta, Recorrentes e ficha de 4 abas; 9 telas
+sem texto técnico e sem rolagem lateral; #6 no histórico como Cancelado, sem
+Descartar; inventário pausado (na cópia) com Continuar/Concluir/Descartar e a
+confirmação fechada por Voltar sem escrever nada. Em 1280 e 390px.
+
+Voltar: `wrangler rollback 390311e3-9d65-4dd8-85c9-3bc9857d0d74` e, no Pages,
+"Rollback" no deployment `16c995a0`.
