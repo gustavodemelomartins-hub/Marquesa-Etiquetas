@@ -1422,6 +1422,15 @@ const SQL_ITENS_DE_VENDA = `
             SELECT 1 FROM json_each(COALESCE(ho.linhas_excluidas_json, '[]')) ex
              WHERE CAST(ex.value AS TEXT)=CAST(h.origem_linha AS TEXT)
           )
+          -- 02/10/2026 -- linha reclassificada (brinde, uso proprio, perda,
+          -- sorteio) nao e venda: mora em Saidas sem faturamento. Os rankings
+          -- ja a tiravam (FILTRO_ITEM_HISTORICO); esta lista nao, e "Vendas
+          -- feitas" e a busca global mostravam a saida como venda. A regra e
+          -- a reclassificacao oficial, nunca o nome da cliente.
+          AND NOT EXISTS (
+            SELECT 1 FROM historico_reclassificacao rc
+             WHERE rc.historico_item_id = h.id AND rc.status = 'aplicada'
+          )
        UNION ALL
        -- §27: a coluna observacao do lado histórico é a observação escrita na
        -- planilha, e é lá que o desconto dela sempre apareceu. Do lado

@@ -220,6 +220,28 @@
       "duration": "<3s"
     },
     {
+      "id": "reclassificacao-vendas-feitas",
+      "level": "domain",
+      "mode": "local",
+      "description": "Linha reclassificada sai de Vendas feitas, busca e métricas; vira saída sem baixa",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/reclassificacao-vendas-feitas-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<3s"
+    },
+    {
       "id": "catalogo-4-5",
       "level": "domain",
       "mode": "local",

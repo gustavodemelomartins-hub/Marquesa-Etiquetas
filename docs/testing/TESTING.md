@@ -477,6 +477,16 @@ mesmo estoque físico.
 8. inventário ignora os kits e conta só os componentes reais;
 9. a razão fecha no fim de tudo (§19).
 
+### `src/reclassificacao-vendas-feitas-test.mjs` — reclassificada não é venda
+**10 provas · ~2 s · Worker real em processo, SQLite em memória**
+
+Venda normal fica em Vendas feitas; a linha reclassificada (brinde e uso
+próprio, as duas com valor PAGO) sai de Vendas feitas, da busca por nome e
+por SKU e da lista item a item, aparece em Saídas, não mexe no estoque, sai do
+crm (vendas −2, faturamento −R$ 248, ativos −1), deixa a linha original
+intacta e a decisão auditável, e reclassificar de novo é recusado. O cadastro
+da "Sthefany Marques" continua ativo, com a ficha em R$ 0.
+
 ### `src/clientes-arquivo-test.mjs` — excluir, arquivar e reativar cliente
 **10 provas · ~2 s · Worker real em processo, SQLite em memória**
 

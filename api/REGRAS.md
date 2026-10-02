@@ -2355,6 +2355,16 @@ apontam para ele. Nunca por nome: "Brinde Souza" pode ser uma pessoa, e a
 Sthefany Marques é dona e também cliente — só a linha que não registra
 dinheiro sai, a compra paga continua dela.
 
+**Linha reclassificada não é venda em lugar nenhum** (02/10/2026). Com
+`historico_reclassificacao.status = 'aplicada'` ela fica preservada na
+planilha, aparece em Saídas sem faturamento e sai de: Vendas feitas, busca
+global, lista item a item (`SQL_ITENS_DE_VENDA`), faturamento, número de
+vendas, ticket médio, Top, recorrência e "Para chamar de volta"
+(`FILTRO_ITEM_HISTORICO`). O critério é a reclassificação oficial, nunca o
+nome da cliente. Todas as linhas da Sthefany Marques foram reclassificadas
+por confirmação do responsável em 02/10/2026 (presente → brinde; sem texto →
+uso próprio); o cadastro dela continua ativo.
+
 Rotas: `GET /api/clientes/:id/dependencias`, `DELETE /api/clientes/:id`,
 `POST /api/clientes/:id/arquivar`, `POST /api/clientes/:id/reativar`,
 `GET /api/clientes?arquivadas=sim`.
