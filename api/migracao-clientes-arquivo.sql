@@ -1,0 +1,36 @@
+-- Arquivar cliente — o destino de um cadastro que tem história.
+--
+-- ─────────────────────────────────────────────────────────────────────────
+-- POR QUE
+--
+-- A V2 não tinha como tirar um cadastro da lista de Clientes. Dois casos
+-- pediam isso ao mesmo tempo (02/10/2026):
+--
+--   · os cadastros operacionais que a planilha antiga criou como "cliente"
+--     — "Brinde dia das mães", "Brinde festa junina", "Inventário". As
+--     linhas deles já são saídas sem faturamento (`historico_reclassificacao`),
+--     mas o cadastro continuava na lista;
+--   · a cliente real que parou de ser cliente.
+--
+-- §28: não apagar histórico. Um cadastro que alguma linha referencia
+-- (venda, item da planilha, garantia, crédito, operação) não pode ser
+-- apagado sem quebrar essa linha — ele é ARQUIVADO: sai da lista e de "Para
+-- chamar de volta", e a ficha e todo o histórico continuam onde estão. Só o
+-- cadastro sem nenhuma dependência é excluído de verdade, e isso é decidido
+-- em `clientes.js › dependenciasCliente`, não aqui.
+--
+-- `arquivada_motivo` é texto livre e curto: "cadastro operacional (brinde)"
+-- ou "mudou de cidade" dizem coisas diferentes, e quem reativar precisa ler.
+--
+-- ─────────────────────────────────────────────────────────────────────────
+-- ESTOQUE E FINANCEIRO: nada
+--
+-- Nenhuma tabela aqui referencia `movimentos`, `produtos`, `vendas` ou
+-- recebíveis. Arquivar não muda número nenhum de venda.
+--
+-- Aditiva. Rodar duas vezes devolve "duplicate column name", que é como
+-- `ALTER TABLE ADD COLUMN` diz "já foi aplicada" — o mesmo de
+-- `migracao-cliente-cpf.sql`.
+
+ALTER TABLE clientes ADD COLUMN arquivada_em     TEXT;
+ALTER TABLE clientes ADD COLUMN arquivada_motivo TEXT;

@@ -176,6 +176,50 @@
       "duration": "<3s"
     },
     {
+      "id": "inventario-descartar",
+      "level": "domain",
+      "mode": "local",
+      "description": "Descartar inventário pausado: cancelado, no histórico, sem tocar estoque",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/inventario-descartar-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<3s"
+    },
+    {
+      "id": "clientes-arquivo",
+      "level": "domain",
+      "mode": "local",
+      "description": "Cliente: excluir só sem histórico, arquivar e reativar, pseudo-cliente fora dos rankings",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/clientes-arquivo-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<3s"
+    },
+    {
       "id": "catalogo-4-5",
       "level": "domain",
       "mode": "local",

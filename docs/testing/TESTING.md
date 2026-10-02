@@ -477,6 +477,19 @@ mesmo estoque físico.
 8. inventário ignora os kits e conta só os componentes reais;
 9. a razão fecha no fim de tudo (§19).
 
+### `src/clientes-arquivo-test.mjs` — excluir, arquivar e reativar cliente
+**10 provas · ~2 s · Worker real em processo, SQLite em memória**
+
+Schema real + catálogo do harness, toda escrita pelas rotas. Cliente sem
+histórico é excluída; com compra, excluir dá 409 e arquivar funciona;
+arquivada sai da lista e da busca, mantém a ficha, e reativa. O pseudo-cliente
+"Brinde" vira UMA saída sem faturamento (SKU, data, origem; sem movimento) e
+repetir não duplica; arquivado, sai de todos/Top/chamar de volta. "Sem nome"
+sem histórico é excluído; "Brinde Souza" (real) fica. Estoque idêntico e
+`/api/estoque/conferir` vazio no fim. Par de tela:
+`frontend/src/features/clientes/acoes.test.tsx`; navegador:
+`src/v2-clientes-acoes-qa.mjs` (1280 e 390px).
+
 ### `src/inventario-descartar-test.mjs` — descartar um inventário pausado
 **8 provas · ~1 s · sem Worker, sem rede**
 

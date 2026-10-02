@@ -90,6 +90,7 @@ export function ClientesArea({ conexao, sub, aoNavegar, aoNovaVenda }: Props) {
           conexao={conexao}
           chave={aberta}
           aoVoltar={() => aoNavegar(null)}
+          aoExcluir={() => aoNavegar('todos')}
           aoEditar={(p: Perfil) => p.cadastro && setForm({ cadastro: p.cadastro })}
           aoNovaVenda={(p: Perfil) => aoNovaVenda(p.clienteId, p.nomeExibicao)}
         />

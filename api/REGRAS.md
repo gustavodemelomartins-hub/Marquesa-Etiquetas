@@ -30,7 +30,7 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §19 | Conferência do saldo | `GET /api/estoque/conferir` prova `qtd == SUM(movimentos.qtd)` |
 | §22 | Importação sinaliza, não corrige em silêncio | `importarProdutos` devolve `avisos[]` |
 | §24 | Produto sem preço não vira R$ 0 | `produtos.preco` é `NULL`; venda é bloqueada |
-| §28 | Não apagar histórico | revendedora arquiva, maleta cancela, venda estorna |
+| §28 | Não apagar histórico | revendedora arquiva, maleta cancela, venda estorna, cliente com histórico arquiva (§48) |
 | §29 | Receber uma dívida não movimenta estoque | `historico_operacoes.cobranca_status` |
 | §19 | Inventário não corrige em silêncio | `concluir` só compara; aplicar a diferença é ato separado, item a item |
 | §19 | Não contado nunca é zero | ausência de linha em `inventario_contagem`; zero exige gesto explícito |
@@ -2327,3 +2327,34 @@ com `qtd 1` (326660, 364945, 314161, 378852, 366066, 399872) continuam com esse
 saldo no cadastro. Quando viram modelo, a venda passa a ignorá-lo (§42), mas o
 patrimônio ainda o soma. Zerar é decisão de inventário, com movimento de
 ajuste assinado — MONTAGEM-MONTE-SEU-COLAR §5.4 — e não foi feito aqui.
+
+### 48. Cliente se exclui ou se arquiva — quem decide é o banco — §28
+
+O mesmo desenho da peça (§18), aplicado ao cadastro de cliente. Na ficha, as
+ações de cadastro ficam atrás de "•••" (Editar dados · Arquivar · Excluir, ou
+Reativar quando arquivada), e "Excluir" primeiro **pergunta ao banco**
+(`GET /api/clientes/:id/dependencias`):
+
+- **sem nada** → exclui de verdade. Observação digitada não é histórico;
+- **com qualquer coisa** — venda, linha da planilha (por `cliente_id` OU pelo
+  nome, porque parte do histórico só casa pelo nome), venda da planilha,
+  cobrança registrada, garantia, crédito, revisão de vínculo → recusa com 409
+  e oferece **Arquivar**.
+
+Arquivar (`arquivada_em`, `arquivada_motivo`) tira o cadastro da lista padrão,
+da busca, do seletor da venda e de "Para chamar de volta". A ficha e todo o
+histórico continuam; as compras dela continuam contando no histórico, porque
+aconteceram. Reativar devolve tudo.
+
+**Cadastro operacional não é cliente.** A planilha antiga lançou ocasiões e
+ajustes como "cliente" ("Brinde dia das mães", "Brinde festa junina",
+"Inventário"). As linhas deles viram saída sem faturamento pela
+reclassificação (§30.5, `POST /api/historico/reclassificar`, sem movimento de
+estoque) e o cadastro é arquivado — não apagado, porque as linhas da planilha
+apontam para ele. Nunca por nome: "Brinde Souza" pode ser uma pessoa, e a
+Sthefany Marques é dona e também cliente — só a linha que não registra
+dinheiro sai, a compra paga continua dela.
+
+Rotas: `GET /api/clientes/:id/dependencias`, `DELETE /api/clientes/:id`,
+`POST /api/clientes/:id/arquivar`, `POST /api/clientes/:id/reativar`,
+`GET /api/clientes?arquivadas=sim`.

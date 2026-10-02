@@ -217,7 +217,8 @@ describe('Clientes, ponta a ponta', () => {
     const chamadas = comBackend();
     render(<Area />);
     fireEvent.click(await screen.findByText('Vitória Prado'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Editar dados' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Mais ações' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Editar dados' }));
 
     const nome = screen.getByRole('dialog').querySelector('input') as HTMLInputElement;
     fireEvent.change(nome, { target: { value: 'Vitória P. Prado' } });

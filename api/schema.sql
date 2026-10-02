@@ -578,7 +578,11 @@ CREATE TABLE IF NOT EXISTS clientes (
   -- Últimas de propósito: `migracao-cliente-cpf.sql` as acrescenta com
   -- ALTER TABLE, que sempre põe no fim. Os dois caminhos terminam iguais.
   cpf           TEXT,
-  cpf_norm      TEXT
+  cpf_norm      TEXT,
+  -- §28: cadastro com história não se apaga, arquiva. NULL = ativa.
+  -- `migracao-clientes-arquivo.sql` as acrescenta no fim, como o CPF.
+  arquivada_em     TEXT,
+  arquivada_motivo TEXT
 );
 
 -- ------------------------------------------------------------------ vendas

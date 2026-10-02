@@ -1,7 +1,7 @@
 import { chamar, type Connection } from '../../services/client';
 import type {
   ClienteLista, CreditoCliente, DadosCadastro, PerfilCliente,
-  BaseDeClientes,
+  BaseDeClientes, DependenciasCliente,
 } from './tipos';
 
 /** As cinco rotas de Clientes que já existem no Worker. Nenhuma inventada:
@@ -14,12 +14,13 @@ import type {
  */
 
 export function listarClientes(
-  conexao: Connection, busca: string, sinal?: AbortSignal,
+  conexao: Connection, busca: string, sinal?: AbortSignal, arquivadas = false,
 ): Promise<ClienteLista[]> {
   /* Sem busca, a lista INTEIRA: ela é a agenda da casa, e cortar em 100
      escondia todo mundo depois da letra B. Com busca, 100 bastam. */
   const q = new URLSearchParams({ limite: busca.trim() ? '100' : '2000' });
   if (busca.trim()) q.set('busca', busca.trim());
+  if (arquivadas) q.set('arquivadas', 'sim');
   return chamar<ClienteLista[]>(conexao, 'GET', `/api/clientes?${q}`, undefined, { signal: sinal });
 }
 
@@ -78,4 +79,24 @@ export function buscarBase(
   return chamar<BaseDeClientes>(
     conexao, 'GET', `/api/analytics/crm?periodo=${encodeURIComponent(periodo)}`, undefined, { signal: sinal },
   );
+}
+
+/** O que impede excluir o cadastro (§28). Vazio = pode excluir. */
+export function buscarDependencias(
+  conexao: Connection, id: number, sinal?: AbortSignal,
+): Promise<DependenciasCliente> {
+  return chamar<DependenciasCliente>(conexao, 'GET', `/api/clientes/${id}/dependencias`, undefined, { signal: sinal });
+}
+
+/** Só cadastro sem histórico; com histórico o backend devolve 409. */
+export function excluirCliente(conexao: Connection, id: number): Promise<unknown> {
+  return chamar(conexao, 'DELETE', `/api/clientes/${id}`);
+}
+
+export function arquivarCliente(conexao: Connection, id: number, motivo?: string): Promise<unknown> {
+  return chamar(conexao, 'POST', `/api/clientes/${id}/arquivar`, motivo ? { motivo } : {});
+}
+
+export function reativarCliente(conexao: Connection, id: number): Promise<unknown> {
+  return chamar(conexao, 'POST', `/api/clientes/${id}/reativar`, {});
 }

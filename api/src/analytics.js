@@ -2009,10 +2009,9 @@ export async function crm(db, { periodo = 'tudo', de = null, ate = null } = {}) 
 
   /* oportunidades: quem já comprou, está fora da própria régua, e tem valor
      que justifique o contato. Ordenado por gasto — quem mais rendeu primeiro. */
-  const reativacao = clientes
+  const reativacaoCandidatas = clientes
     .filter((c) => (c.estado === 'em risco' || c.estado === 'inativa') && c.vendas >= 1 && c.identificada)
-    .sort((a, b) => b.faturamento - a.faturamento)
-    .slice(0, 12);
+    .sort((a, b) => b.faturamento - a.faturamento);
 
   /* ─── o CADASTRO de cada cliente.
 
@@ -2027,7 +2026,7 @@ export async function crm(db, { periodo = 'tudo', de = null, ate = null } = {}) 
      `perfilCliente` usa — duas regras de casamento seria o começo de duas
      verdades. */
   const { results: cadastros } = await db.prepare(
-    `SELECT id, nome_norm, tel, cpf, cidade FROM clientes`,
+    `SELECT id, nome_norm, tel, cpf, cidade, arquivada_em FROM clientes`,
   ).all();
   const cadPorId = new Map((cadastros ?? []).map((c) => [c.id, c]));
   const cadPorNorm = new Map((cadastros ?? []).map((c) => [c.nome_norm, c]).filter(([k]) => k));
@@ -2039,8 +2038,14 @@ export async function crm(db, { periodo = 'tudo', de = null, ate = null } = {}) 
       tel: d?.tel || null,
       cpf: d?.cpf || null,
       cidade: d?.cidade || null,
+      arquivada: !!d?.arquivada_em,
     };
   };
+
+  /* Cadastro arquivado não se chama de volta: quem arquivou já decidiu que
+     ela não é mais cliente ativa (ou nunca foi — o cadastro operacional da
+     planilha antiga). As compras dela continuam contando no histórico. */
+  const reativacao = reativacaoCandidatas.filter((c) => !comCadastro(c).arquivada).slice(0, 12);
 
   const campeao = porFaturamento[0] ?? null;
   const maisFrequente = [...clientes].sort((a, b) => b.vendas - a.vendas)[0] ?? null;

@@ -19,6 +19,11 @@ export async function buscarClientes(db, url) {
      numa resposta; o teto continua existindo para uma chamada errada não
      pedir um milhão de linhas. */
   const limite = Math.min(+(url.searchParams.get('limite') || 25), 2000);
+  /* Arquivada sai da lista padrão (e do seletor de cliente da venda). Quem
+     quer vê-las pede `arquivadas=sim`; `todas` devolve as duas. */
+  const arquivadas = url.searchParams.get('arquivadas') || 'nao';
+  const filtro = arquivadas === 'sim' ? 'arquivada_em IS NOT NULL'
+    : arquivadas === 'todas' ? '1 = 1' : 'arquivada_em IS NULL';
   let r;
   if (busca) {
     const norm = `%${normalizarNomeCliente(busca) ?? ''}%`;
@@ -26,19 +31,21 @@ export async function buscarClientes(db, url) {
     const digitos = somenteDigitos(busca);
     r = await db.prepare(
       `SELECT * FROM clientes
-        WHERE nome_norm LIKE ?
+        WHERE (nome_norm LIKE ?
            OR LOWER(nome) LIKE ?
-           OR (? IS NOT NULL AND tel_norm LIKE ?)
+           OR (? IS NOT NULL AND tel_norm LIKE ?))
+          AND ${filtro}
         ORDER BY nome LIMIT ?`,
     ).bind(norm, cru, digitos, `%${digitos ?? ''}%`, limite).all();
   } else {
-    r = await db.prepare(`SELECT * FROM clientes ORDER BY nome LIMIT ?`).bind(limite).all();
+    r = await db.prepare(`SELECT * FROM clientes WHERE ${filtro} ORDER BY nome LIMIT ?`).bind(limite).all();
   }
   /* `cidade` viaja junto porque duas "Camila" só se distinguem por
      algum campo além do nome — e escolher a errada no balcão manda a
      venda para o histórico de outra pessoa. */
   return json(r.results.map(c => ({
     id: c.id, nome: c.nome, tel: c.tel || '', cidade: c.cidade || '',
+    arquivada: !!c.arquivada_em,
   })));
 
 }
@@ -241,4 +248,85 @@ export async function decidirVinculoCliente(db, revisaoId, { decisao, clienteId 
   ).bind(revisaoId).run();
 
   return json({ ok: true, decisao: 'vinculado', clienteId: alvo, itensAtualizados: r.meta?.changes ?? null });
+}
+
+/* ------------------------------------------- arquivar, reativar, excluir
+ *
+ * §28: cadastro que alguma linha referencia não se apaga — arquiva. Só o
+ * cadastro SEM dependência nenhuma é excluído de verdade, e a lista do que
+ * conta como dependência mora aqui, num lugar só.
+ *
+ * O casamento por NOME também conta. Parte do histórico (planilha e venda
+ * de balcão antiga) acha a cliente por `nome_norm`, sem `cliente_id`;
+ * apagar o cadastro deixaria essas linhas sem dono sem que nenhuma chave
+ * estrangeira reclamasse. Na dúvida, não exclui: arquivar resolve. */
+const DEPENDENCIAS = [
+  { chave: 'vendas', rotulo: 'vendas',
+    sql: `SELECT COUNT(*) AS n FROM vendas
+           WHERE cliente_id = ?1 OR (cliente_id IS NULL AND ?2 IS NOT NULL AND cliente_nome_norm = ?2)` },
+  { chave: 'historico', rotulo: 'compras da planilha',
+    sql: `SELECT COUNT(*) AS n FROM vendas_historico_itens
+           WHERE cliente_id = ?1 OR (cliente_id IS NULL AND ?2 IS NOT NULL AND cliente_nome_norm = ?2)` },
+  { chave: 'vendasHistoricas', rotulo: 'vendas da planilha',
+    sql: 'SELECT COUNT(*) AS n FROM vendas_historicas WHERE cliente_id = ?1' },
+  { chave: 'operacoes', rotulo: 'cobranças e correções',
+    sql: 'SELECT COUNT(*) AS n FROM historico_operacoes WHERE cliente_id = ?1' },
+  { chave: 'garantias', rotulo: 'garantias e trocas',
+    sql: 'SELECT COUNT(*) AS n FROM garantias WHERE cliente_id = ?1' },
+  { chave: 'credito', rotulo: 'movimentos de crédito',
+    sql: 'SELECT COUNT(*) AS n FROM credito_movimentos WHERE cliente_id = ?1' },
+  { chave: 'vinculos', rotulo: 'revisões de vínculo',
+    sql: 'SELECT COUNT(*) AS n FROM clientes_vinculo_revisao WHERE candidato_id = ?1' },
+];
+
+export async function dependenciasCliente(db, id) {
+  const c = await db.prepare('SELECT id, nome, nome_norm, arquivada_em FROM clientes WHERE id = ?').bind(id).first();
+  if (!c) return { ok: false, statusHttp: 404, erro: 'Cliente não encontrada.' };
+  const norm = c.nome_norm || normalizarNomeCliente(c.nome) || null;
+  const itens = [];
+  for (const d of DEPENDENCIAS) {
+    const st = d.sql.includes('?2') ? db.prepare(d.sql).bind(id, norm) : db.prepare(d.sql).bind(id);
+    const n = Number((await st.first())?.n ?? 0);
+    if (n > 0) itens.push({ chave: d.chave, rotulo: d.rotulo, n });
+  }
+  return {
+    ok: true, id: c.id, nome: c.nome, arquivada: !!c.arquivada_em,
+    dependencias: itens, podeExcluir: itens.length === 0,
+  };
+}
+
+export async function excluirCliente(db, id) {
+  const dep = await dependenciasCliente(db, id);
+  if (!dep.ok) return json({ erro: dep.erro }, dep.statusHttp);
+  if (!dep.podeExcluir) {
+    return json({
+      erro: 'Esta cliente tem histórico e não pode ser excluída. Arquive o cadastro.',
+      dependencias: dep.dependencias,
+    }, 409);
+  }
+  await db.prepare('DELETE FROM clientes WHERE id = ?').bind(id).run();
+  return json({ ok: true, excluida: { id: dep.id, nome: dep.nome } });
+}
+
+export async function arquivarCliente(db, id, corpo = {}) {
+  const c = await db.prepare('SELECT id, arquivada_em FROM clientes WHERE id = ?').bind(id).first();
+  if (!c) return json({ erro: 'Cliente não encontrada.' }, 404);
+  if (c.arquivada_em) return json({ erro: 'Esta cliente já está arquivada.' }, 409);
+  const motivo = String(corpo.motivo ?? '').trim().slice(0, 200) || null;
+  await db.prepare(
+    `UPDATE clientes SET arquivada_em = datetime('now'), arquivada_motivo = ?,
+            atualizada_em = datetime('now') WHERE id = ?`,
+  ).bind(motivo, id).run();
+  return json({ ok: true, id, arquivada: true });
+}
+
+export async function reativarCliente(db, id) {
+  const c = await db.prepare('SELECT id, arquivada_em FROM clientes WHERE id = ?').bind(id).first();
+  if (!c) return json({ erro: 'Cliente não encontrada.' }, 404);
+  if (!c.arquivada_em) return json({ erro: 'Esta cliente não está arquivada.' }, 409);
+  await db.prepare(
+    `UPDATE clientes SET arquivada_em = NULL, arquivada_motivo = NULL,
+            atualizada_em = datetime('now') WHERE id = ?`,
+  ).bind(id).run();
+  return json({ ok: true, id, arquivada: false });
 }

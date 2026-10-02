@@ -14,6 +14,17 @@ export interface ClienteLista {
   tel: string;
   /** Existe porque duas "Camila" só se distinguem por algo além do nome. */
   cidade: string;
+  /** Arquivada só vem quando a lista pede `arquivadas=sim`. */
+  arquivada?: boolean;
+}
+
+/** `GET /api/clientes/:id/dependencias` — `clientes.js › dependenciasCliente`. */
+export interface DependenciasCliente {
+  id: number;
+  nome: string;
+  arquivada: boolean;
+  podeExcluir: boolean;
+  dependencias: { chave: string; rotulo: string; n: number }[];
 }
 
 export interface CadastroCliente {
@@ -27,6 +38,9 @@ export interface CadastroCliente {
   nascimento: string | null;
   obs: string | null;
   nome_norm: string | null;
+  /** NULL = ativa. Vem de `SELECT *`, então falta em backend anterior. */
+  arquivada_em?: string | null;
+  arquivada_motivo?: string | null;
 }
 
 /** O que a cliente compra, em quantidade. */

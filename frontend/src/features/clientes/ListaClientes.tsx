@@ -31,6 +31,8 @@ interface Props {
 export function ListaClientes({ conexao, porCliente, aoAbrir, aoCadastrar }: Props) {
   const [busca, setBusca] = useState('');
   const [buscaAtiva, setBuscaAtiva] = useState('');
+  /* Arquivada sai da lista padrão; continua a um toque, para reativar. */
+  const [arquivadas, setArquivadas] = useState(false);
 
   /* Espera a digitação parar. Sem isso, "Camila" dispara seis buscas e a
      resposta da terceira pode chegar depois da sexta. */
@@ -40,8 +42,8 @@ export function ListaClientes({ conexao, porCliente, aoAbrir, aoCadastrar }: Pro
   }, [busca]);
 
   const lista = useApi(
-    (sinal) => listarClientes(conexao, buscaAtiva, sinal),
-    [conexao, buscaAtiva],
+    (sinal) => listarClientes(conexao, buscaAtiva, sinal, arquivadas),
+    [conexao, buscaAtiva, arquivadas],
   );
 
   const clientes = lista.dados ?? [];
@@ -64,8 +66,16 @@ export function ListaClientes({ conexao, porCliente, aoAbrir, aoCadastrar }: Pro
           <span className="mq-filters__count">
             {lista.carregando
               ? 'buscando…'
-              : `${clientes.length} ${clientes.length === 1 ? 'cliente' : 'clientes'}`}
+              : `${clientes.length} ${clientes.length === 1 ? 'cliente' : 'clientes'}${arquivadas ? ' arquivadas' : ''}`}
           </span>
+          <button
+            type="button"
+            className="mq-btn mq-btn--ghost mq-btn--sm"
+            aria-pressed={arquivadas}
+            onClick={() => setArquivadas((v) => !v)}
+          >
+            {arquivadas ? 'Ver ativas' : 'Arquivadas'}
+          </button>
         </div>
 
         {lista.erro ? (
@@ -75,15 +85,20 @@ export function ListaClientes({ conexao, porCliente, aoAbrir, aoCadastrar }: Pro
         ) : clientes.length === 0 ? (
           <div className="mq-state">
             <span className="mq-state__icon"><Icone nome="search" /></span>
-            <h3>{buscaAtiva ? 'Nenhuma cliente com esse termo' : 'Nenhuma cliente cadastrada ainda'}</h3>
-            <p>
-              {buscaAtiva
-                ? 'Tente só o primeiro nome, ou parte do telefone.'
-                : 'Cadastre a primeira cliente.'}
-            </p>
-            <button type="button" className="mq-btn mq-btn--secondary" onClick={aoCadastrar}>
-              Cadastrar cliente
-            </button>
+            <h3>{arquivadas ? 'Nenhuma cliente arquivada'
+              : buscaAtiva ? 'Nenhuma cliente com esse termo' : 'Nenhuma cliente cadastrada ainda'}</h3>
+            {!arquivadas && (
+              <>
+                <p>
+                  {buscaAtiva
+                    ? 'Tente só o primeiro nome, ou parte do telefone.'
+                    : 'Cadastre a primeira cliente.'}
+                </p>
+                <button type="button" className="mq-btn mq-btn--secondary" onClick={aoCadastrar}>
+                  Cadastrar cliente
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div className="mq-table" role="table" aria-label="Clientes">
@@ -106,7 +121,7 @@ export function ListaClientes({ conexao, porCliente, aoAbrir, aoCadastrar }: Pro
               >
                 <span className="mq-cell">
                   <b>{c.nome}</b>
-                  {c.cidade && <small>{c.cidade}</small>}
+                  {(c.cidade || c.arquivada) && <small>{[c.arquivada ? 'arquivada' : '', c.cidade].filter(Boolean).join(' · ')}</small>}
                 </span>
                 {/* Vazio vira "—" na tabela, e some no telefone: dois
                     traços por cartão era ruído, não informação. */}

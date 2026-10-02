@@ -467,3 +467,14 @@
 }
 .saidas-lista__acoes > .mq-status { align-self: flex-start; }
 .mq-tabs + .page-header, .mq-tabs ~ .page-header { margin-top: var(--mq-5); }
+
+/* Ficha da cliente — o "•••" das ações de cadastro. O menu abre colado à
+   direita do botão para não sair da tela no telefone. */
+.mq-acoes-cliente { position: relative; display: inline-flex; }
+.mq-acoes-cliente__menu { right: 0; top: calc(100% + 4px); }
+.mq-acoes-cliente__menu button:disabled { opacity: .5; cursor: default; }
+/* No telefone as ações da ficha descem para a esquerda da tela: o menu
+   alinhado pela direita sairia pela borda esquerda. */
+@media (max-width: 640px) {
+  .mq-acoes-cliente__menu { right: auto; left: 0; }
+}

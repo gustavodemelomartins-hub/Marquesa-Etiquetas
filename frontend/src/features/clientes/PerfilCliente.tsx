@@ -4,6 +4,7 @@ import { Icone, type NomeIcone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { money, fmtData, moneyNumero } from '../../domain/formato';
 import { buscarCredito, buscarPerfil } from './api';
+import { AcoesDaCliente } from './AcoesDaCliente';
 import { montarLinhaDoTempo, type EventoRelacao, type TipoEvento } from './eventos';
 import type { Connection } from '../../services/client';
 import type { GarantiaDoPerfil, PerfilCliente as Perfil, VendaDoPerfil } from './tipos';
@@ -29,6 +30,8 @@ interface Props {
   aoVoltar: () => void;
   aoEditar: (perfil: Perfil) => void;
   aoNovaVenda: (perfil: Perfil) => void;
+  /** O cadastro foi excluído: a ficha não existe mais. */
+  aoExcluir?: () => void;
 }
 
 /** A FICHA — a relação inteira com uma cliente, num lugar só.
@@ -43,7 +46,7 @@ interface Props {
  *  quem olhava. Eles não somam entre si por construção, e a ficha diz isso
  *  em letra em vez de deixar quem lê descobrir sozinha.
  */
-export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda }: Props) {
+export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda, aoExcluir }: Props) {
   const [aba, setAba] = useState<Aba>('resumo');
   const chaveId = 'id' in chave ? `id:${chave.id}` : `norm:${chave.norm}`;
 
@@ -103,6 +106,7 @@ export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda 
           <p className="mq-eyebrow">Ficha da cliente</p>
           <h1 className="mq-display">{p.nomeExibicao}</h1>
           <p className="mq-lede">
+            {p.cadastro?.arquivada_em && <><span className="mq-status">Arquivada</span>{' · '}</>}
             <EstadoDaRelacao estado={r.estado} dias={r.diasSemComprar} />
             {p.cadastro?.cidade ? ` · ${p.cadastro.cidade}` : ''}
             {p.cadastro?.tel ? ` · ${p.cadastro.tel}` : ''}
@@ -110,11 +114,13 @@ export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda 
         </div>
         <div className="mq-pagehead__actions">
           <span className="mq-avatar mq-avatar--lg mq-avatar--quiet" aria-hidden="true">{iniciais}</span>
-          {p.cadastro && (
-            <button type="button" className="mq-btn mq-btn--secondary" onClick={() => aoEditar(p)}>
-              Editar dados
-            </button>
-          )}
+          <AcoesDaCliente
+            conexao={conexao}
+            perfil={p}
+            aoEditar={() => aoEditar(p)}
+            aoMudar={perfil.recarregar}
+            aoExcluir={aoExcluir ?? aoVoltar}
+          />
           <button type="button" className="mq-btn mq-btn--primary" onClick={() => aoNovaVenda(p)}>
             <Icone nome="plus" />
             Nova venda

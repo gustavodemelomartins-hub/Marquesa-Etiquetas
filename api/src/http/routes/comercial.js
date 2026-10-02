@@ -27,6 +27,7 @@ import { saldoDeCredito, conferirCredito, registrarAjuste } from '../../credito.
 import { conferirFinanceiro } from '../../financeiro-conferir.js';
 import {
   buscarClientes, criarCliente, atualizarCliente, decidirVinculoCliente,
+  dependenciasCliente, excluirCliente, arquivarCliente, reativarCliente,
 } from '../../clientes.js';
 import {
   listarSaidas, registrarSaida, estornarSaida, completarValorSaida, historicoValorSaida,
@@ -392,6 +393,34 @@ export const rotas = [
     metodo: 'PATCH', caminho: '/api/clientes/:id', auth: 'bearer', padroes: { id: '[0-9]+' },
     async handler({ db, request, params }) {
       return await atualizarCliente(db, +params.id, await request.json());
+    },
+  },
+  {
+    /* §28 — o que impede excluir: tudo que referencia o cadastro, inclusive
+       pelo nome. A ficha pergunta antes de oferecer "Excluir". */
+    metodo: 'GET', caminho: '/api/clientes/:id/dependencias', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params }) {
+      const r = await dependenciasCliente(db, +params.id);
+      return json(r.ok ? r : { erro: r.erro }, r.ok ? 200 : r.statusHttp);
+    },
+  },
+  {
+    // Só cadastro sem nenhuma dependência; com histórico devolve 409 e manda arquivar.
+    metodo: 'DELETE', caminho: '/api/clientes/:id', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params }) {
+      return await excluirCliente(db, +params.id);
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/clientes/:id/arquivar', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      return await arquivarCliente(db, +params.id, await request.json().catch(() => ({})));
+    },
+  },
+  {
+    metodo: 'POST', caminho: '/api/clientes/:id/reativar', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params }) {
+      return await reativarCliente(db, +params.id);
     },
   },
   {

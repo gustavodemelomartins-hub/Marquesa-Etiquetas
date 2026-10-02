@@ -22,8 +22,28 @@
    "decisao": "docs/domains/AUDITORIA-5-3-FIN-101-CONTAS-A-RECEBER.md §6 B9 e §15 subfase 5.3d"
   }
  ],
- "total": 191,
+ "total": 196,
  "contratos": [
+  {
+   "contrato": "DELETE /api/clientes/:param",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/clientes/:param/dependencias",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/vendas/feitas",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/clientes/:param/arquivar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/clientes/:param/reativar",
+   "auth": "bearer"
+  },
   {
    "contrato": "ANY /api/health",
    "auth": "sem-bearer"
