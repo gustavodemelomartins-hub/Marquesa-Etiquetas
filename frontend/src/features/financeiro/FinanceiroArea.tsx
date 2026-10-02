@@ -6,6 +6,7 @@ import { money, hojeISO, moneyNumero, plural, qtdTexto } from '../../domain/form
 import { intervaloDoRecorte } from '../../domain/periodo';
 import { listarSaidas } from '../saidas/api';
 import { TabelaDeSaidas } from '../saidas/TabelaDeSaidas';
+import { RegistrosAntigos } from '../saidas/RegistrosAntigos';
 import { ValorDaSaida } from '../saidas/ValorDaSaida';
 import { TIPOS_DE_SAIDA, type SaidaSemFaturamento } from '../saidas/tipos';
 import { FiltroPeriodo } from '../../components/FiltroPeriodo';
@@ -466,6 +467,8 @@ function SaiuSemFaturar({
           <TabelaDeSaidas saidas={lista} aoCompletar={setCompletando} />
         )}
       </section>
+
+      <RegistrosAntigos legado={saidas.dados?.legado ?? []} de={de} ate={ate} />
 
       {completando && (
         <ValorDaSaida

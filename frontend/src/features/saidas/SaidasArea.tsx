@@ -3,10 +3,11 @@ import { useApi } from '../../hooks/useApi';
 import type { Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
-import { fmtData, hojeISO, money, plural } from '../../domain/formato';
+import { hojeISO, money, plural } from '../../domain/formato';
 import { buscarEstrutura } from '../catalogo/variacoes';
 import { opcoesDaEstrutura, type OpcaoDeVariacao } from '../vendas/carrinho';
 import { TabelaDeSaidas } from './TabelaDeSaidas';
+import { RegistrosAntigos } from './RegistrosAntigos';
 import { ValorDaSaida } from './ValorDaSaida';
 import { estornarSaida, listarSaidas, registrarSaida } from './api';
 import { TIPOS_DE_SAIDA as TIPOS, type SaidaSemFaturamento, type TipoDeSaida } from './tipos';
@@ -210,35 +211,7 @@ export function SaidasArea({
         )}
       </section>
 
-      {(lista.dados?.legado?.length ?? 0) > 0 && (
-        <section className="mq-card mq-card--flush" aria-labelledby="saidas-legado">
-          <div className="mq-card__head">
-            <div>
-              <h2 className="mq-title" id="saidas-legado">Registros antigos sem saída</h2>
-              <p className="mq-lede">
-                Linhas da planilha antiga que não eram venda, sem data ou com código
-                fora do catálogo.
-              </p>
-            </div>
-          </div>
-          <ul className="saida-legado" aria-label="Registros antigos sem saída">
-            {lista.dados!.legado!.map((l) => (
-              <li key={l.reclassificacaoId}>
-                <span className="mq-chip mq-chip--soft">{l.tipoRotulo}</span>
-                <span>
-                  <b>{l.produto ?? l.sku ?? 'peça sem código'}</b>
-                  <small>
-                    {l.data ? fmtData(l.data) : 'sem data'} · {l.sku ?? '—'} · {l.qtd ?? '?'} peça(s)
-                    {l.pessoa ? ` · ${l.pessoa}` : ''} · planilha Nº {l.linhaPlanilha ?? '—'}
-                  </small>
-                  {l.observacao && <small>{l.observacao}</small>}
-                </span>
-                <small className="saida-legado__porque">{l.porque}</small>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <RegistrosAntigos legado={lista.dados?.legado ?? []} />
 
       {completando && (
         <ValorDaSaida
