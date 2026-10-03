@@ -4,6 +4,9 @@
 > PRODUÇÃO. O SQL de dados (`docs/migracao-nao-venda/rodada-inventario-2026-10-02.sql`)
 > foi gerado, ensaiado e commitado, mas **não foi aplicado**: a trava de
 > segurança do ambiente do agente negou o `d1 execute` dele. Ver "Publicação".
+>
+> **Atualização (03/10/2026):** SQL regerado (todos os inventários, guardas
+> extras) e **aplicado em PROD** — ver `V2-INVENTARIO-LIMPEZA-FUSO-2026-10-03.md`.
 
 ## Por que
 
