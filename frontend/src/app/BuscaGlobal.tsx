@@ -194,7 +194,19 @@ export function BuscaGlobal({ conexao, estado, aoNavegar, focar = false }: Props
       </label>
 
       {mostrarLista && (
-        <div className="busca-global-resultados" id={listaId} role="listbox" aria-label="Resultados da busca">
+        /* O toque num resultado não pode tirar o foco do campo. No Safari do
+           iPhone um botão tocado NÃO recebe foco: o campo perde o foco sem
+           `relatedTarget`, o `onBlur` acima fecha a lista, e o resultado
+           some antes de o clique chegar — tocar na peça não fazia nada
+           (03/10/2026). Segurar o `mousedown` mantém o foco onde está; o
+           clique segue normal, e rolar a lista com o dedo também. */
+        <div
+          className="busca-global-resultados"
+          id={listaId}
+          role="listbox"
+          aria-label="Resultados da busca"
+          onMouseDown={(evento) => evento.preventDefault()}
+        >
           {termo.trim().length < 2 && <p>Digite pelo menos 2 caracteres.</p>}
           {estadoBusca === 'buscando' && <p>Buscando…</p>}
           {estadoBusca === 'erro' && <p>Não consegui buscar agora.</p>}

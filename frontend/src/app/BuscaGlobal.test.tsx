@@ -94,6 +94,26 @@ describe('busca global', () => {
     expect(aoNavegar).toHaveBeenCalledWith({ modulo: 'estoque', sub: 'peca:214299' });
   });
 
+  /* iPhone (03/10/2026): no Safari um botão tocado não recebe foco, o campo
+     perdia o foco sem destino e a lista fechava antes do clique. O toque
+     na lista não pode tirar o foco do campo — o `mousedown` é segurado. */
+  it('tocar num resultado no iPhone abre a peça: a lista não rouba o foco do campo', async () => {
+    vi.stubGlobal('fetch', fetchDe({}));
+    const aoNavegar = vi.fn();
+    render(<BuscaGlobal conexao={conexao} estado={estado} aoNavegar={aoNavegar} />);
+    const campo = screen.getByRole('combobox', { name: CAMPO });
+    campo.focus();
+    fireEvent.change(campo, { target: { value: '214299' } });
+
+    const peca = await screen.findByRole('option', { name: /Pingente Filho Verde/ });
+    /* `false` = o navegador foi impedido de mover o foco. */
+    expect(fireEvent.mouseDown(peca)).toBe(false);
+    expect(document.activeElement).toBe(campo);
+    expect(screen.getByRole('option', { name: /Pingente Filho Verde/ })).toBe(peca);
+    fireEvent.click(peca);
+    expect(aoNavegar).toHaveBeenCalledWith({ modulo: 'estoque', sub: 'peca:214299' });
+  });
+
   it('não consulta antes de dois caracteres e anda pelo teclado', async () => {
     vi.stubGlobal('fetch', fetchDe({
       clientes: [{ id: 7, nome: 'Ana Lima', tel: '', cidade: '' }],
