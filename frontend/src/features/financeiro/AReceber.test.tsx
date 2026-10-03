@@ -167,6 +167,37 @@ describe('A receber — paridade com o protótipo', () => {
     expect(screen.getByRole('table', { name: 'Contas a receber' })).toBeTruthy();
   });
 
+  /* Telefone (03/10/2026): o painel caía para o fim da página e era preciso
+     rolar a lista inteira depois de tocar. Agora a conta abre embaixo da
+     linha tocada, e tocar de novo fecha. */
+  it('no telefone, tocar na conta abre os dados logo abaixo dela; tocar de novo fecha', () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: q.includes('max-width'), media: q,
+      addEventListener: () => {}, removeEventListener: () => {},
+    }));
+    abrir([
+      conta({ chave: 'venda:1', cliente: 'Camila Ferreira', valorTotal: 159, valorReceber: 159 }),
+      conta({ chave: 'venda:2', cliente: 'Ana Luiza', valorTotal: 340, valorRecebido: 100, valorReceber: 240 }),
+    ]);
+
+    /* Nada abre sozinho, e não há painel no fim da página. */
+    expect(screen.queryByText('Venda selecionada')).toBeNull();
+    expect(screen.queryByRole('region', { name: /Venda de/ })).toBeNull();
+
+    const botao = screen.getByRole('button', { name: /Abrir Ana Luiza/ });
+    fireEvent.click(botao);
+    const aberta = screen.getByRole('region', { name: 'Venda de Ana Luiza' });
+    expect(within(aberta).getByText('R$ 340,00')).toBeTruthy();
+    expect(within(aberta).getByRole('button', { name: 'Registrar recebimento' })).toBeTruthy();
+    expect(botao.getAttribute('aria-expanded')).toBe('true');
+    /* Logo abaixo da linha tocada, e não em outro lugar da tela. */
+    expect(botao.closest('[role="row"]')?.nextElementSibling).toBe(aberta);
+
+    fireEvent.click(botao);
+    expect(screen.queryByRole('region', { name: /Venda de/ })).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
   it('mostra o que já entrou e o que falta como duas linhas', () => {
     abrir([conta({ valorTotal: 340, valorRecebido: 100, valorReceber: 240, pagaEm: '2026-09-10' })]);
     const recebimentos = screen.getByText('Recebimentos da venda').parentElement as HTMLElement;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { money, fmtData, dataDigitada, moneyNumero } from '../../domain/formato';
@@ -65,6 +65,12 @@ export function AReceber({
   const [falha, setFalha] = useState<{ chave: string; texto: string } | null>(null);
   const [recebendo, setRecebendo] = useState<ContaAReceber | null>(null);
   const [selecionada, setSelecionada] = useState<string | null>(null);
+  /* Até 1180px o painel da venda deixa de ficar ao lado da lista e cai para
+     o FIM da página: no telefone, tocar numa conta não mostrava nada até
+     rolar a lista inteira (03/10/2026). Nessa largura a conta abre ali
+     mesmo, logo abaixo da linha tocada, e tocar de novo fecha. */
+  const estreita = useTelaEstreita();
+  const linhaAberta = useRef<HTMLDivElement>(null);
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [modo, setModo] = useState<'abertas' | 'recebidas'>('abertas');
@@ -122,6 +128,18 @@ export function AReceber({
   }, [contas, busca, filtro, hoje]);
 
   const conta = contas.find((c) => c.chave === selecionada) ?? lista[0] ?? null;
+  /* No telefone nada abre sozinho: a primeira conta aberta por padrão
+     empurraria a lista para baixo sem ninguém ter pedido. */
+  const aberta = estreita ? contas.find((c) => c.chave === selecionada) ?? null : null;
+
+  function escolher(chave: string) {
+    setSelecionada((atual) => (estreita && atual === chave ? null : chave));
+  }
+
+  /* A conta que abriu sobe para o topo da tela, com os dados à vista. */
+  useEffect(() => {
+    if (aberta) linhaAberta.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+  }, [aberta]);
 
   if (erro) return <section className="mq-card"><ErrorState erro={erro} aoTentarDeNovo={recarregar} /></section>;
   if (!dados) {
@@ -287,17 +305,21 @@ export function AReceber({
                 <span>Situação</span>
               </div>
               {lista.map((c) => (
+                <Fragment key={c.chave}>
+                {/* A linha inteira é o alvo do toque; o botão da primeira
+                    célula é a porta do teclado, e o clique dele sobe até aqui. */}
                 <div
-                  className={c.chave === conta?.chave ? 'mq-tr mq-tr--ativa' : 'mq-tr'}
+                  className={c.chave === (estreita ? aberta?.chave : conta?.chave) ? 'mq-tr mq-tr--ativa mq-tr--toque' : 'mq-tr mq-tr--toque'}
                   role="row"
-                  key={c.chave}
                   style={COLUNAS}
+                  ref={c.chave === aberta?.chave ? linhaAberta : undefined}
+                  onClick={() => escolher(c.chave)}
                 >
                   <button
                     type="button"
                     className="mq-cell"
                     aria-label={`Abrir ${c.cliente ?? 'conta em aberto'}`}
-                    onClick={() => setSelecionada(c.chave)}
+                    aria-expanded={estreita ? c.chave === aberta?.chave : undefined}
                   >
                     <b>{c.cliente ?? 'Cliente não identificada'}</b>
                     <small>
@@ -336,6 +358,18 @@ export function AReceber({
                     )}
                   </span>
                 </div>
+                {estreita && c.chave === aberta?.chave && (
+                  <div className="conta-na-linha" role="region" aria-label={`Venda de ${c.cliente ?? 'cliente não identificada'}`}>
+                    <CorpoDaConta
+                      conta={c}
+                      ocupada={ocupada === c.chave}
+                      aoReceber={() => setRecebendo(c)}
+                      aoPrazo={() => prazo(c)}
+                      aoCorrigir={() => setCorrigindo(c)}
+                    />
+                  </div>
+                )}
+                </Fragment>
               ))}
             </div>
           )}
@@ -349,6 +383,7 @@ export function AReceber({
         {/* A VENDA SELECIONADA. Painel, não diálogo: quem cobra abre a
             conta, olha o que já entrou e registra — e a lista continua
             visível para a próxima. */}
+        {!estreita && (
         <aside className="mq-card sale-detail">
           {conta ? (
             <>
@@ -364,72 +399,13 @@ export function AReceber({
               </div>
 
               <div className="mq-card__body mq-stack mq-stack--tight">
-                <dl className="mq-figures sale-figures">
-                  <div><dt>Valor da venda</dt><dd>{money(conta.valorTotal)}</dd></div>
-                  <div className="is-ok"><dt>Recebido</dt><dd>{money(conta.valorRecebido)}</dd></div>
-                  <div className="is-brand">
-                    <dt>A receber</dt><dd>{money(conta.valorReceber)}</dd>
-                  </div>
-                </dl>
-
-                <div className="sale-receipts">
-                  <h3 className="mq-subtitle">Recebimentos da venda</h3>
-                  {conta.valorRecebido > 0 && (
-                    <article className="recebimento is-ok">
-                      <span>Recebido</span>
-                      <div>
-                        <b>{money(conta.valorRecebido)}</b>
-                        <small>{conta.pagaEm ? `data efetiva ${fmtData(conta.pagaEm)}` : 'sem data efetiva registrada'}</small>
-                      </div>
-                      <em className="mq-status mq-status--ok">Pago</em>
-                    </article>
-                  )}
-                  {conta.valorReceber > 0 && (
-                    <article className="recebimento">
-                      <span>A receber</span>
-                      <div>
-                        <b>{money(conta.valorReceber)}</b>
-                        <small>
-                          {conta.vencimentoEm
-                            ? `vencimento ${fmtData(conta.vencimentoEm)}`
-                            : 'sem prazo combinado'}
-                        </small>
-                      </div>
-                      <em className={conta.vencida ? 'mq-status mq-status--risk' : 'mq-status'}>
-                        {conta.vencida ? 'Em atraso' : 'Pendente'}
-                      </em>
-                    </article>
-                  )}
-                </div>
-
-                <div className="mq-btns sale-actions">
-                  <button
-                    type="button"
-                    className="mq-btn mq-btn--primary"
-                    disabled={ocupada === conta.chave || conta.valorReceber <= 0}
-                    onClick={() => setRecebendo(conta)}
-                  >
-                    Registrar recebimento
-                  </button>
-                  <button
-                    type="button"
-                    className="mq-btn mq-btn--secondary"
-                    disabled={ocupada === conta.chave || !conta.podeDefinirPrazo}
-                    onClick={() => prazo(conta)}
-                  >
-                    {conta.vencimentoEm ? 'Mudar o prazo' : 'Definir prazo'}
-                  </button>
-                  {conta.cobrancaStatus === 'paga' && (
-                    <button
-                      type="button"
-                      className="mq-btn mq-btn--secondary"
-                      disabled={ocupada === conta.chave}
-                      onClick={() => setCorrigindo(conta)}
-                    >
-                      Corrigir lançamento
-                    </button>
-                  )}
-                </div>
+                <CorpoDaConta
+                  conta={conta}
+                  ocupada={ocupada === conta.chave}
+                  aoReceber={() => setRecebendo(conta)}
+                  aoPrazo={() => prazo(conta)}
+                  aoCorrigir={() => setCorrigindo(conta)}
+                />
 
               </div>
             </>
@@ -441,6 +417,7 @@ export function AReceber({
             </div>
           )}
         </aside>
+        )}
       </div>
 
       {corrigindo && (
@@ -473,6 +450,106 @@ export function AReceber({
       )}
     </>
   );
+}
+
+/** O que se vê e o que se faz com UMA conta: os três números, o que entrou
+ *  e o que falta, e as ações. O mesmo corpo no painel ao lado da lista
+ *  (computador) e aberto embaixo da linha tocada (telefone). */
+function CorpoDaConta({ conta, ocupada, aoReceber, aoPrazo, aoCorrigir }: {
+  conta: ContaAReceber;
+  ocupada: boolean;
+  aoReceber: () => void;
+  aoPrazo: () => void;
+  aoCorrigir: () => void;
+}) {
+  return (
+    <>
+      <dl className="mq-figures sale-figures">
+        <div><dt>Valor da venda</dt><dd>{money(conta.valorTotal)}</dd></div>
+        <div className="is-ok"><dt>Recebido</dt><dd>{money(conta.valorRecebido)}</dd></div>
+        <div className="is-brand">
+          <dt>A receber</dt><dd>{money(conta.valorReceber)}</dd>
+        </div>
+      </dl>
+
+      <div className="sale-receipts">
+        <h3 className="mq-subtitle">Recebimentos da venda</h3>
+        {conta.valorRecebido > 0 && (
+          <article className="recebimento is-ok">
+            <span>Recebido</span>
+            <div>
+              <b>{money(conta.valorRecebido)}</b>
+              <small>{conta.pagaEm ? `data efetiva ${fmtData(conta.pagaEm)}` : 'sem data efetiva registrada'}</small>
+            </div>
+            <em className="mq-status mq-status--ok">Pago</em>
+          </article>
+        )}
+        {conta.valorReceber > 0 && (
+          <article className="recebimento">
+            <span>A receber</span>
+            <div>
+              <b>{money(conta.valorReceber)}</b>
+              <small>
+                {conta.vencimentoEm
+                  ? `vencimento ${fmtData(conta.vencimentoEm)}`
+                  : 'sem prazo combinado'}
+              </small>
+            </div>
+            <em className={conta.vencida ? 'mq-status mq-status--risk' : 'mq-status'}>
+              {conta.vencida ? 'Em atraso' : 'Pendente'}
+            </em>
+          </article>
+        )}
+      </div>
+
+      <div className="mq-btns sale-actions">
+        <button
+          type="button"
+          className="mq-btn mq-btn--primary"
+          disabled={ocupada || conta.valorReceber <= 0}
+          onClick={aoReceber}
+        >
+          Registrar recebimento
+        </button>
+        <button
+          type="button"
+          className="mq-btn mq-btn--secondary"
+          disabled={ocupada || !conta.podeDefinirPrazo}
+          onClick={aoPrazo}
+        >
+          {conta.vencimentoEm ? 'Mudar o prazo' : 'Definir prazo'}
+        </button>
+        {conta.cobrancaStatus === 'paga' && (
+          <button
+            type="button"
+            className="mq-btn mq-btn--secondary"
+            disabled={ocupada}
+            onClick={aoCorrigir}
+          >
+            Corrigir lançamento
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** Verdadeiro quando a lista e o painel da venda não cabem lado a lado — a
+ *  mesma largura em que `.mq-grid--main` empilha (marquesa.css, 1180px).
+ *  Sem `matchMedia` (testes), vale o computador. */
+function useTelaEstreita(consulta = '(max-width: 1180px)'): boolean {
+  const ler = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    && window.matchMedia(consulta).matches;
+  const [estreita, setEstreita] = useState(ler);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const m = window.matchMedia(consulta);
+    const mudar = () => setEstreita(m.matches);
+    mudar();
+    m.addEventListener('change', mudar);
+    return () => m.removeEventListener('change', mudar);
+  }, [consulta]);
+  return estreita;
 }
 
 /** A situação da conta, em UMA palavra. "Parcial" existe porque a fonte

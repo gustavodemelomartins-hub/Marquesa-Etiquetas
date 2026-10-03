@@ -250,6 +250,23 @@
 @media (max-width: 600px) { .sale-figures { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 1180px) { .sale-detail { position: static; } }
 
+/* A CONTA ABERTA NA LINHA (≤1180px). Sem o painel ao lado, a conta tocada
+   abre logo abaixo dela: os três números numa faixa só, o que entrou e o
+   que falta, e os botões — sem rolar até o fim da página para achá-los. */
+.mq-tr--toque { cursor: pointer; scroll-margin-top: calc(var(--mq-topbar) + env(safe-area-inset-top, 0px) + var(--mq-3)); }
+.conta-na-linha {
+  display: flex; flex-direction: column; gap: var(--mq-4);
+  margin: 0 0 var(--mq-3); padding: var(--mq-4);
+  background: var(--mq-paper-2); border: 1px solid var(--mq-wine-200); border-radius: var(--mq-r-md);
+}
+.conta-na-linha .sale-figures { grid-template-columns: repeat(3, minmax(0, 1fr)); border-radius: var(--mq-r-sm); }
+.conta-na-linha .sale-figures > div { padding: var(--mq-2) var(--mq-3); }
+.conta-na-linha .sale-figures dt { font-size: 9.5px; letter-spacing: .06em; }
+.conta-na-linha .sale-figures dd { font-size: 15px; }
+.conta-na-linha .sale-receipts .recebimento { margin-bottom: var(--mq-2); }
+.conta-na-linha .sale-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--mq-2); }
+.conta-na-linha .sale-actions .mq-btn { width: 100%; }
+
 .sale-receipts h3 { margin-bottom: var(--mq-2); }
 .sale-receipts .recebimento {
   display: grid; grid-template-columns: 76px minmax(0, 1fr) auto;
