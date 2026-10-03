@@ -2,10 +2,13 @@
 /** Rodada de 02/10/2026 (noite) — sobre uma CÓPIA do banco de produção, pelas
  *  rotas reais quando a rota existe.
  *
- *  1. INVENTÁRIOS DE TESTE. A Sthefany autorizou limpar o histórico: os
- *     inventários #1–#7 são todos `cancelado`, de teste/implementação (o #7
- *     é o da gravação do vídeo de hoje). A trava confere, antes de apagar,
- *     que NENHUM gerou resultado, ajuste, saída ou movimento. Não existe rota
+ *  1. INVENTÁRIOS DE TESTE. Regra do dono (03/10/2026): TODOS os inventários
+ *     existentes antes desta limpeza são teste/desenvolvimento; o próximo que
+ *     a Sthefany abrir é o primeiro real. A lista não é fixa: são todos os
+ *     que a cópia tem, auditados um a um. A trava confere, antes de apagar,
+ *     que NENHUM gerou resultado, ajuste, saída, evento ou movimento, e que
+ *     nenhum está em andamento (um aberto agora pode ser o primeiro real,
+ *     começado depois do export — aí para e pergunta). Não existe rota
  *     de exclusão de inventário — e não deve existir: §28 preserva histórico
  *     de verdade. Este é o caso autorizado de lixo de teste, e por isso vai
  *     por SQL revisável, nunca por botão.
@@ -22,7 +25,11 @@
  *  JS") não tem linha nenhuma no sistema — não foi venda nem saída. Lançá-lo
  *  agora seria uma baixa de estoque nova, e esta rodada não mexe em estoque.
  *
- *    node scripts/reconciliacao/rodada-inventario-2026-10-02.mjs --banco <copia.sqlite> --planilha <saidas.json> [--relatorio saida.json]
+ *  `--guardas <arq.json>` grava as condições extras que o SQL confere em
+ *  produção antes de escrever (dependência zero, ids exatos) — entra como 5º
+ *  argumento de `diferenca-sql.mjs`.
+ *
+ *    node scripts/reconciliacao/rodada-inventario-2026-10-02.mjs --banco <copia.sqlite> --planilha <saidas.json> [--relatorio saida.json] [--guardas guardas.json]
  */
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -38,7 +45,6 @@ if (!args.banco || !args.planilha) { console.error('uso: --banco <copia.sqlite> 
 
 const USUARIO = 'planilha-saiu-sem-faturar-2026-10-02';
 const FONTE = 'planilha "Saiu sem faturar.xlsx" da Sthefany, 02/10/2026';
-const INVENTARIOS_DE_TESTE = [1, 2, 3, 4, 5, 6, 7];
 const SEM_REGISTRO = new Set(['821920']);
 
 const raw = new DatabaseSync(args.banco);
@@ -98,10 +104,11 @@ const retrato = async () => {
 const antes = await retrato();
 
 /* ═══════════════════════════════════════ 1. inventários de teste */
-const invs = q(`SELECT * FROM inventarios WHERE id IN (${INVENTARIOS_DE_TESTE.join(',')})`);
-if (invs.length !== INVENTARIOS_DE_TESTE.length) parar('nem todos os inventários de teste existem', invs.map((i) => i.id));
-if (invs.some((i) => i.status !== 'cancelado')) parar('há inventário de teste que não está cancelado', invs.map((i) => [i.id, i.status]));
-if (q1('SELECT COUNT(*) n FROM inventarios').n !== INVENTARIOS_DE_TESTE.length) parar('existe inventário além dos de teste — o histórico não é só teste');
+const invs = q('SELECT * FROM inventarios ORDER BY id');
+const INVENTARIOS_DE_TESTE = invs.map((i) => i.id);
+if (!invs.length) parar('não há inventário nenhum — nada a limpar; reavalie a rodada');
+const emAndamento = invs.filter((i) => !['cancelado', 'concluido'].includes(i.status));
+if (emAndamento.length) parar('há inventário em andamento — pode ser o primeiro real; pergunte antes', emAndamento.map((i) => [i.id, i.status]));
 const dependencias = {
   resultado: q1(`SELECT COUNT(*) n FROM inventario_resultado WHERE inventario_id IN (${INVENTARIOS_DE_TESTE})`).n,
   itensAntigos: q1(`SELECT COUNT(*) n FROM inventario_itens WHERE inventario_id IN (${INVENTARIOS_DE_TESTE})`).n,
@@ -109,12 +116,30 @@ const dependencias = {
   saidas: q1(`SELECT COUNT(*) n FROM saidas_sem_faturamento WHERE inventario_id IN (${INVENTARIOS_DE_TESTE})`).n,
   eventos: q1(`SELECT COUNT(*) n FROM inventario_eventos WHERE inventario_id IN (${INVENTARIOS_DE_TESTE})`).n,
   movimentosDeInventario: q1("SELECT COUNT(*) n FROM movimentos WHERE origem = 'inventario'").n,
+  movimentosQueCitam: q1("SELECT COUNT(*) n FROM movimentos WHERE obs LIKE '%nventário #%' OR obs LIKE '%nventario #%'").n,
   contagens: q(`SELECT inventario_id, COUNT(*) n, SUM(contado) pecas FROM inventario_contagem
                  WHERE inventario_id IN (${INVENTARIOS_DE_TESTE}) GROUP BY inventario_id`),
 };
-for (const k of ['resultado', 'itensAntigos', 'naoIdentificado', 'saidas', 'eventos', 'movimentosDeInventario']) {
+for (const k of ['resultado', 'itensAntigos', 'naoIdentificado', 'saidas', 'eventos', 'movimentosDeInventario', 'movimentosQueCitam']) {
   if (dependencias[k]) parar(`inventário de teste tem dependência real: ${k} = ${dependencias[k]}`);
 }
+/* O que o SQL confere em PRODUÇÃO antes de escrever: os ids são exatamente
+   os auditados, e nenhuma dependência nasceu entre o export e a aplicação. */
+const lista = INVENTARIOS_DE_TESTE.join(',');
+const guardas = [
+  `(SELECT COUNT(*) FROM inventarios WHERE id IN (${lista})) = ${INVENTARIOS_DE_TESTE.length}`,
+  `(SELECT COALESCE(MAX(id),0) FROM inventarios) = ${Math.max(...INVENTARIOS_DE_TESTE)}`,
+  `(SELECT COUNT(*) FROM inventarios WHERE status NOT IN ('cancelado','concluido')) = 0`,
+  `(SELECT COUNT(*) FROM inventario_resultado) = 0`,
+  `(SELECT COUNT(*) FROM inventario_itens) = 0`,
+  `(SELECT COUNT(*) FROM inventario_nao_identificado) = 0`,
+  `(SELECT COUNT(*) FROM inventario_eventos) = 0`,
+  `(SELECT COUNT(*) FROM saidas_sem_faturamento WHERE inventario_id IS NOT NULL) = 0`,
+  `(SELECT COUNT(*) FROM movimentos WHERE origem = 'inventario') = 0`,
+  `(SELECT COUNT(*) FROM movimentos) = ${q1('SELECT COUNT(*) n FROM movimentos').n}`,
+];
+if (args.guardas) writeFileSync(args.guardas, JSON.stringify(guardas, null, 1));
+
 raw.exec('BEGIN');
 raw.prepare(`DELETE FROM inventario_contagem WHERE inventario_id IN (${INVENTARIOS_DE_TESTE})`).run();
 raw.prepare(`DELETE FROM inventarios WHERE id IN (${INVENTARIOS_DE_TESTE})`).run();
@@ -184,7 +209,7 @@ if (depois.saidas.comBaixa !== antes.saidas.comBaixa) parar('apareceu saída com
 if (depois.vendasFeitas !== antes.vendasFeitas || depois.faturamentoCrm !== antes.faturamentoCrm) parar('o comercial mudou');
 
 const relatorio = {
-  inventariosDeTeste: { apagados: invs.map((i) => ({ id: i.id, status: i.status, iniciado: i.iniciado_em, fim: i.concluido_em })), dependencias },
+  inventariosDeTeste: { apagados: invs.map((i) => ({ id: i.id, status: i.status, iniciado: i.iniciado_em, pausado: i.pausado_em, fim: i.concluido_em })), dependencias, guardas },
   saidas: {
     corrigidas: resultados.filter((r) => r.mudou),
     anotadas: resultados.filter((r) => !r.mudou).length,
@@ -194,7 +219,7 @@ const relatorio = {
 };
 if (args.relatorio) writeFileSync(args.relatorio, JSON.stringify(relatorio, null, 1));
 console.log(JSON.stringify({
-  apagados: invs.length, contagensApagadas: dependencias.contagens,
+  apagados: INVENTARIOS_DE_TESTE, contagensApagadas: dependencias.contagens,
   corrigidas: relatorio.saidas.corrigidas.map((r) => `${r.sku} ${r.classeAntes}→${r.classeDepois}`),
   anotadas: relatorio.saidas.anotadas, semRegistro: relatorio.saidas.semRegistro.map((s) => s.sku),
   antes: { porMotivo: antes.porMotivo, estoque: antes.estoque, inventarios: antes.inventarios },

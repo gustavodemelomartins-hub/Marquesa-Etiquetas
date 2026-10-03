@@ -18,12 +18,15 @@
  *  Linhas são casadas pela chave primária de cada tabela. Tabela sem chave
  *  primária declarada é recusada — não há como casar linha sem identidade.
  *
- *    node scripts/reconciliacao/diferenca-sql.mjs <antes.sqlite> <depois.sqlite> <saida.sql> <marca>
+ *  `[guardas.json]` (opcional): condições SQL a mais que entram na mesma
+ *  precondição — ex.: "nenhuma dependência nasceu desde o export".
+ *
+ *    node scripts/reconciliacao/diferenca-sql.mjs <antes.sqlite> <depois.sqlite> <saida.sql> <marca> [guardas.json]
  */
 import { DatabaseSync } from 'node:sqlite';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
-const [arqAntes, arqDepois, saida, marca] = process.argv.slice(2);
+const [arqAntes, arqDepois, saida, marca, arqGuardas] = process.argv.slice(2);
 if (!arqAntes || !arqDepois || !saida || !marca) {
   console.error('uso: diferenca-sql.mjs <antes.sqlite> <depois.sqlite> <saida.sql> <marca>');
   process.exit(2);
@@ -112,6 +115,7 @@ const condicoes = [
   `(SELECT COALESCE(SUM(qtd),0) FROM produtos) = ${saldo}`,
   `(SELECT COALESCE(MAX(id),0) FROM movimentos) = ${maxMov}`,
   `(SELECT COALESCE(MAX(id),0) FROM vendas) = ${maxVenda}`,
+  ...(arqGuardas ? JSON.parse(readFileSync(arqGuardas, 'utf8')) : []),
 ];
 
 const linhas = [

@@ -2431,3 +2431,25 @@ venda inteira da planilha naquela data, que soma linhas que o acerto exclui
 peças, R$ 1.473,10 recebidos = líquido — "Parcial" vinha da linha 1303,
 "Troca (anel de cruz)", R$ 10 NÃO PAGO, que o acerto exclui e que já é uma
 conta própria em A receber ("Diferença de troca/garantia").
+
+### 52. O dia é o de São Paulo — instante em UTC, data em America/Sao_Paulo
+
+O banco grava instantes em UTC (`datetime('now')`: "2026-10-03 00:00:00",
+sem fuso escrito; ou ISO com "Z"). Dia civil (`vendas.data`,
+`maletas.aberta_em`, vencimentos) é só a data e não tem fuso. **O dia de um
+instante é o de America/Sao_Paulo**, calculado pelo `Intl` — nunca cortando
+os dez primeiros caracteres (dia de Greenwich), nunca somando ou subtraindo
+horas à mão. Frontend: `fmtData` (`frontend/src/domain/formato.ts`);
+servidor: `diaOperacional` (`api/src/fuso.js`). O caso: inventário aberto em
+02/10/2026 às 21h aparecia como 03/10.
+
+### 53. Histórico de inventários: todos os anteriores a 03/10/2026 eram teste
+
+Por decisão do dono (03/10/2026), os inventários #1–#7 — todos `cancelado`,
+sem resultado, ajuste, saída, evento nem movimento — eram teste e foram
+apagados com as 4 linhas de contagem, por SQL revisado e com precondição
+(`docs/migracao-nao-venda/rodada-inventario-2026-10-02.sql`). O próximo que a
+Sthefany abrir é o **primeiro inventário real**. "Inventário #N" é o `id`
+técnico (AUTOINCREMENT): o contador NÃO foi reiniciado, para que nenhum id
+volte a ser usado — o próximo aparece como **#8**. Não existe rota de
+exclusão de inventário (§28): limpeza de teste só por SQL revisado.
