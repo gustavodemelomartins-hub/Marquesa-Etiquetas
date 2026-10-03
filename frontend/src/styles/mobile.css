@@ -1,0 +1,222 @@
+/* =============================================================================
+   O TELEFONE — o refino da mesma Marquesa numa tela de 390px
+   -----------------------------------------------------------------------------
+   Esta folha vem por ÚLTIMO e só fala dentro de media query de largura
+   estreita. É de propósito: o computador é a referência do produto, e uma
+   regra daqui não tem como alcançá-lo. Nada de cor, fonte ou componente novo
+   — só proporção, densidade e ergonomia de toque sobre o que já existe.
+
+   Por que uma folha e não um remendo por tela (03/10/2026): a auditoria em
+   390/393/430/412px achou os mesmos seis defeitos em todos os módulos —
+   cabeçalho de página consumindo meia tela antes do primeiro número, abas
+   cortadas sem sinal de que rolam, chips de período quebrando em duas ou três
+   linhas, KPIs do painel antigo em coluna única de 200px cada, linha de lista
+   que joga a seta ou o valor para uma linha só dele, e tabela virando cartão
+   dentro de cartão. Cada um é um padrão, e um padrão se conserta uma vez.
+
+   Duas larguras, as mesmas do casco:
+     ≤ 900px  o casco do telefone — barra superior, barra inferior, abas
+     ≤ 600px  a densidade do telefone — cabeçalho, KPI, lista, cartão
+   ========================================================================== */
+
+/* ------------------------------------------------- casco do telefone --- */
+@media (max-width: 900px) {
+  /* A barra de cima cede 8px: com a barra de baixo fixa, cada pixel vertical
+     que o casco ocupa é um pixel a menos de conteúdo. E ela respeita o
+     entalhe quando o app é aberto da tela de início (PWA). */
+  :root { --mq-topbar: 56px; }
+  .mq-topbar {
+    height: calc(var(--mq-topbar) + env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
+    background: rgba(255, 255, 255, .94);
+  }
+  /* A busca aberta cobre a barra, MENOS o botão que a fecha: antes ele
+     ficava por baixo dela e não havia como sair da busca pelo toque. */
+  .mq-topbar__search.is-aberta { padding-top: env(safe-area-inset-top, 0px); right: 52px; padding-right: 0; }
+  .mq-busca-botao[aria-expanded='true'] { position: relative; z-index: 3; color: var(--mq-ink); }
+  /* Com a busca aberta, sino e avatar saem e o X encosta na borda direita. */
+  .mq-busca-botao[aria-expanded='true'] ~ * { display: none; }
+  .mq-shell__main > .mq-tabs:first-child { top: calc(var(--mq-topbar) + env(safe-area-inset-top, 0px)); }
+
+  /* ONDE ESTOU vira o título do app: o nome do módulo em tinta, não em cinza. */
+  .mq-topbar__where { gap: 10px; }
+  .mq-topbar__where b { font: 500 16px/1.2 var(--mq-sans); color: var(--mq-ink); letter-spacing: -.005em; }
+  .mq-topbar__where svg { width: 17px; height: 17px; color: var(--mq-wine-600); }
+
+  /* Busca, sino e avatar com alvo de 40px — cabe na barra de 56. */
+  .mq-topbar__tools { gap: 2px; }
+  .mq-topbar .mq-iconbtn { width: 40px; height: 40px; border-radius: var(--mq-r-md); }
+  .mq-topbar .mq-iconbtn svg { width: 20px; height: 20px; }
+  .mq-topbar .mq-perfil > .mq-avatar { width: 34px; height: 34px; margin-left: 4px; font-size: 12.5px; }
+
+  /* A barra de baixo: o item ativo ganha a pílula atrás do ícone, que é o
+     sinal que se lê sem ler — cor sozinha não basta num sol de balcão. */
+  .mq-bottomnav {
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 255, 255, .95);
+    border-top: 0;
+    box-shadow: 0 -1px 0 var(--mq-line), 0 -10px 24px -20px rgba(46, 16, 28, .35);
+  }
+  .mq-bottomnav button {
+    min-height: 50px; gap: 3px;
+    font: 500 10.5px/1.1 var(--mq-sans); letter-spacing: .01em;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    transition: color .15s;
+  }
+  .mq-bottomnav button svg {
+    box-sizing: content-box; width: 21px; height: 21px; padding: 4px 16px;
+    border-radius: var(--mq-r-pill);
+    transition: background-color .18s, transform .12s;
+  }
+  .mq-bottomnav [aria-current='page'],
+  .mq-bottomnav [aria-expanded='true'] { color: var(--mq-wine-700); font-weight: 600; }
+  .mq-bottomnav [aria-current='page'] svg,
+  .mq-bottomnav [aria-expanded='true'] svg { background: var(--mq-wine-100); }
+  .mq-bottomnav button:active svg { transform: scale(.92); }
+  .mq-bottomnav button:focus-visible { outline: 2px solid var(--mq-wine-600); outline-offset: -2px; border-radius: var(--mq-r-md); }
+
+  /* O conteúdo nunca termina atrás da barra de baixo: 62px de barra + o
+     respiro do iPhone sem botão. */
+  .mq-shell { padding-bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
+
+  /* ABAS E CHIPS QUE ROLAM — a regra que faltava. A faixa já rolava de lado,
+     mas nada dizia isso: "Saiu sem faturar" aparecia cortado como se fosse
+     o fim. Agora a borda some num degradê do lado em que ainda há o que ver
+     (`data-rola`, posto por `app/abasRolaveis.ts`), e a aba ativa é trazida
+     para a vista sozinha. */
+  .mq-tabs, .mq-chipset { overscroll-behavior-x: contain; scroll-behavior: smooth; }
+  .mq-tabs[data-rola='dir'], .mq-chipset[data-rola='dir'] {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+            mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+  }
+  .mq-tabs[data-rola='esq'], .mq-chipset[data-rola='esq'] {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent);
+            mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent);
+  }
+  .mq-tabs[data-rola='esq dir'], .mq-chipset[data-rola='esq dir'] {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+            mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+  }
+}
+
+/* ---------------------------------------------- densidade do telefone --- */
+@media (max-width: 600px) {
+  /* Respiro do conteúdo: 16 em cima e entre blocos, em vez de 24. */
+  .mq-shell__main { padding-top: var(--mq-4); padding-bottom: var(--mq-8); gap: var(--mq-4); }
+  .mq-shell__main > .mq-tabs:first-child { margin-top: calc(var(--mq-4) * -1); }
+  .mq-shell__foot { padding-top: var(--mq-4); padding-bottom: var(--mq-4); font-size: 11.5px; }
+
+  /* CABEÇALHO DE PÁGINA — o mesmo título serifado, numa escala de telefone.
+     O que ele dizia continua lá; só não ocupa mais meia tela. O período ao
+     lado do título sai: o chip escolhido logo abaixo já diz a mesma coisa. */
+  .mq-pagehead { gap: var(--mq-3); padding-bottom: var(--mq-3); }
+  .mq-pagehead__text { gap: var(--mq-1); }
+  .mq-pagehead .mq-eyebrow { font-size: 10px; letter-spacing: .1em; }
+  .mq-display { font-size: 27px; line-height: 1.1; }
+  .mq-pagehead .mq-lede { font-size: 13px; line-height: 1.45; margin-top: 0; }
+  .mq-pagehead__meta { display: none; }
+  .mq-pagehead__actions { gap: var(--mq-2); }
+
+  /* O cabeçalho do painel antigo (`PageHeader`) segue a mesma escala, e as
+     ações deixam de flutuar à direita sozinhas numa linha: viram a largura.
+     O prefixo `.mq-shell` não é enfeite: as regras de `global.css` vêm
+     DEPOIS dos @import dele, e sem ele as de lá ganhariam empate. */
+  /* A frase de apoio vem antes dos botões, como no cabeçalho novo: a
+     `.linha` se dissolve e os três filhos se ordenam no próprio cabeçalho. */
+  .mq-shell .page-header { margin-bottom: 0; display: flex; flex-direction: column; gap: var(--mq-3); }
+  .mq-shell .page-header .linha { display: contents; }
+  .mq-shell .page-header .acoes { order: 2; }
+  .mq-shell .page-header h1 { font-size: 27px; line-height: 1.1; }
+  .mq-shell .page-header .kicker { font-size: 10px; letter-spacing: .12em; margin-bottom: 2px; }
+  .mq-shell .page-header .sub { font-size: 13px; line-height: 1.45; margin-top: calc(var(--mq-2) * -1); order: 1; }
+  .mq-shell .page-header .acoes { width: 100%; margin-left: 0; }
+  .mq-shell .page-header .acoes > * { flex: 1 1 0; justify-content: center; }
+
+  /* ABAS — as que encostam nas bordas da tela parecem do app, não um
+     controle solto. Só as do nível da página; aba dentro de cartão fica
+     dentro do cartão. */
+  .mq-shell__main > .mq-tabs:not(.mq-tabs--pill) {
+    margin-inline: calc(var(--mq-gutter) * -1);
+    padding-inline: calc(var(--mq-gutter) - var(--mq-2));
+    scroll-padding-inline: var(--mq-gutter);
+  }
+  .mq-tabs > :is(a, button) { padding: var(--mq-3) 10px; font-size: 13px; }
+
+  /* CHIPS — uma faixa só, que rola, em vez de um bloco de três linhas. O
+     filtro de período ocupa a largura toda como um controle segmentado. */
+  .mq-chipset {
+    flex-wrap: nowrap; overflow-x: auto; min-width: 0; gap: 2px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .mq-chipset::-webkit-scrollbar { display: none; }
+  .mq-chipset > :is(button, a) { flex: none; min-height: 34px; padding: 0 11px; white-space: nowrap; }
+  .mq-filters--plain { flex-wrap: nowrap; flex-direction: column; align-items: stretch; padding: 0; }
+  .mq-filters--plain > .mq-chipset { width: 100%; }
+  .mq-filters--plain > .mq-chipset > :is(button, a) { flex: 1 0 auto; justify-content: center; padding: 0 8px; }
+  .mq-filters { gap: var(--mq-2); }
+
+  /* KPI — mais número por tela, sem encolher o número. Duas colunas até
+     340px: em 360 (Android pequeno) meia largura ainda comporta R$ 99.999,99. */
+  .mq-kpis { gap: var(--mq-2); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mq-kpi { padding: var(--mq-3) 14px; gap: 2px; border-radius: var(--mq-r-md); }
+  .mq-kpi__label { font-size: 10.5px; letter-spacing: .06em; }
+  .mq-kpi__value { font-size: 20px; }
+  .mq-kpi__foot { font-size: 11.5px; line-height: 1.35; }
+
+  /* CARTÃO — o respiro de 24 vira 16 nos quatro lados. */
+  .mq-card__head { padding-top: 14px; padding-bottom: 14px; }
+  .mq-card__body, .mq-card--pad { padding-top: var(--mq-4); padding-bottom: var(--mq-4); }
+  .mq-title { font-size: 19px; }
+
+  /* LISTA — a seta, o valor ou o selo ficam NA linha quando cabem. Antes
+     eles sempre desciam para uma linha só deles, recuada, e cada item da
+     lista ganhava 40px de nada. Só desce o que não cabe ao lado do texto. */
+  .mq-item { padding: var(--mq-3) var(--mq-4); row-gap: var(--mq-2); }
+  .mq-item__main { flex: 1 1 150px; }
+  .mq-item__side { width: auto; max-width: 100%; min-width: 0; flex: 0 1 auto; margin-left: auto; padding-left: 0; justify-content: flex-end; flex-wrap: wrap; }
+  a.mq-item:active, button.mq-item:active { background: var(--mq-wine-050); }
+
+  /* TABELA QUE VIRA LISTA — no telefone a tabela já se desmontava em
+     cartões, mas cartões DENTRO de um cartão. Dentro de cartão, cada linha
+     vira uma linha de lista com divisória, como no resto do app. */
+  .mq-card .mq-table:not(.mq-table--scroll) { padding: 0 var(--mq-4); }
+  .mq-card .mq-table:not(.mq-table--scroll) .mq-tr {
+    margin: 0; border: 0; border-bottom: 1px solid var(--mq-line-2); border-radius: 0;
+    padding: var(--mq-3) 0; background: none; row-gap: 6px;
+  }
+  .mq-card .mq-table:not(.mq-table--scroll) .mq-tr:last-child { border-bottom: 0; }
+  .mq-card .mq-table:not(.mq-table--scroll) .mq-tr:is(.is-selected, .mq-tr--ativa) {
+    box-shadow: inset 3px 0 var(--mq-wine-600); padding-left: var(--mq-3); padding-right: var(--mq-2);
+  }
+  .mq-table:not(.mq-table--scroll) .mq-tr .mq-cell--num::before { font-size: 10.5px; }
+
+  /* O PASSO DA VENDA — número, título e seta numa linha; o resumo logo
+     abaixo do título. Antes a seta caía sozinha numa terceira linha. */
+  .mq-passo__cabeca {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: var(--mq-3); row-gap: 2px; align-items: center;
+  }
+  .mq-passo__cabeca > .mq-item__side { grid-column: 2; grid-row: 2; width: auto; margin: 0; text-align: left; justify-content: flex-start; }
+  .mq-passo__cabeca > svg:last-child { grid-column: 3; grid-row: 1 / span 2; }
+
+  /* FOLHA (modal no telefone) — a alça diz que ela é de baixo, e o rodapé
+     com o botão principal respeita o fim de tela do iPhone. */
+  .mq-modal { overscroll-behavior: contain; }
+  .mq-modal::before {
+    content: ''; display: block; width: 36px; height: 4px; margin: 8px auto -4px;
+    border-radius: 2px; background: var(--mq-line);
+  }
+  .mq-modal__head { padding-top: var(--mq-4); }
+  .mq-modal__foot { padding-bottom: calc(var(--mq-4) + env(safe-area-inset-bottom, 0px)); }
+  .mq-drawer { overscroll-behavior: contain; }
+  .mq-drawer__body { padding-bottom: calc(var(--mq-9) + env(safe-area-inset-bottom, 0px)); }
+  .drawer-rodape { padding-bottom: calc(var(--r4) + env(safe-area-inset-bottom, 0px)); }
+
+  /* Toque: o botão afunda um pouco ao ser apertado — a única animação. */
+  .mq-btn:active:not(:disabled) { transform: scale(.98); }
+  .mq-kpi--acionavel:active { border-color: var(--mq-wine-300); }
+}
+
+@media (max-width: 340px) {
+  .mq-kpis { grid-template-columns: minmax(0, 1fr); }
+}

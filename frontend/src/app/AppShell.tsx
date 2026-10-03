@@ -5,6 +5,7 @@ import { SinoNotificacoes } from './SinoNotificacoes';
 import { MenuPerfil } from './MenuPerfil';
 import { Icone } from '../components/Icone';
 import { LogoMarquesa } from '../components/LogoMarquesa';
+import { ligarAbasRolaveis } from './abasRolaveis';
 import { GRUPOS, NO_TELEFONE, acharModulo, grupoDe, type ModuloId } from './modulos';
 import type { Connection } from '../services/client';
 import type { AppState } from '../types/api';
@@ -54,6 +55,12 @@ export function AppShell({
      barra inteira, e o botão que a abre fica onde o polegar alcança. */
   const [buscaAberta, setBuscaAberta] = useState(false);
   const burger = useRef<HTMLButtonElement>(null);
+  const principal = useRef<HTMLElement>(null);
+
+  /* Abas e chips que não cabem no telefone: dizem que rolam e trazem a
+     escolhida para a vista. Uma vez, para todas as telas — ver
+     `abasRolaveis.ts`. */
+  useEffect(() => (principal.current ? ligarAbasRolaveis(principal.current) : undefined), []);
 
   /* Navegar fecha a gaveta: no telefone ela cobre a tela inteira, e deixá-la
      aberta em cima do destino esconde exatamente o que se foi buscar. */
@@ -200,7 +207,7 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="mq-shell__main">{children}</main>
+        <main className="mq-shell__main" ref={principal}>{children}</main>
 
         <footer className="mq-shell__foot">
           Procurando algo que ainda não está aqui?{' '}

@@ -510,7 +510,15 @@ input.qtd {
 }
 
 @media (max-width: 640px) {
-  .kpis { grid-template-columns: 1fr; }
+  /* Duas colunas também no telefone (03/10/2026): em coluna única cada KPI
+     ocupava 200px e os quatro de Revendedoras empurravam a maleta para a
+     segunda tela. O número desce de corpo para caber em meia largura. */
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--r2); margin-bottom: var(--r3); }
+  .kpi { padding: var(--r3) 14px; border-radius: var(--raio); }
+  .kpi .k-lbl { font-size: 9.5px; letter-spacing: .07em; }
+  .kpi .k-num { font-size: 23px; margin-top: 3px; }
+  .kpi .k-num.compacto { font-size: 18px; }
+  .kpi .k-sub { font-size: 11px; }
   .painel-cabeca, .painel-corpo { padding-left: var(--r4); padding-right: var(--r4); }
   .agenda li > button, .historico li { padding-left: var(--r4); padding-right: var(--r4); }
   .agenda li > button { flex-wrap: wrap; gap: var(--r3); }
@@ -558,10 +566,21 @@ input.qtd {
 .rev-lt-num { color: var(--ink); font-size: 12px; font-weight: 650; white-space: nowrap; }
 .rev-historico-limites { margin: var(--r3) var(--r5) var(--r4); padding-left: 16px; color: var(--muted); font-size: 11px; }
 @media (max-width: 720px) {
+  /* Cada acerto vira um bloco de três colunas em vez de uma linha de 820px
+     que rolava de lado escondendo o valor e o botão "Ver peças". */
+  .rev-acerto-linha { min-width: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--r2) var(--r3); padding: var(--r3); }
+  .rev-acerto-linha > :nth-child(-n+2) { grid-column: 1 / -1; }
+  .rev-acerto-linha > :nth-child(6) { justify-self: start; align-self: center; }
+  .rev-acerto-linha > :nth-child(7) { grid-column: 2 / -1; justify-self: end; }
   .rev-historico-resumo { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: var(--r3); }
   .rev-acerto-detalhe { grid-template-columns: 1fr; padding: var(--r3); }
   .rev-linha-tempo li { grid-template-columns: 70px minmax(0, 1fr); padding: 9px var(--r3); }
   .rev-lt-num, .rev-linha-tempo li .selo { grid-column: 2; justify-self: start; }
   .rev-historico-filtros { padding: 0 var(--r3) var(--r3); }
   .rev-historico-sub { margin-left: var(--r3); }
+}
+
+/* Abaixo de 340px meia largura não comporta um valor em reais. */
+@media (max-width: 340px) {
+  .kpis { grid-template-columns: 1fr; }
 }

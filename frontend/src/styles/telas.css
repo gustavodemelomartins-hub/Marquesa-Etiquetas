@@ -75,7 +75,9 @@
 .mq-passo__cabeca .mq-item__side { margin-left: auto; text-align: right; }
 .mq-passo__cabeca > svg:last-child { color: var(--mq-faint); flex: none; transition: transform .15s; }
 .mq-passo.is-open > .mq-passo__cabeca { border-bottom: 1px solid var(--mq-line-2); }
-.mq-passo.is-open > .mq-passo__cabeca > svg:last-child { transform: rotate(180deg); }
+/* A seta aponta para o lado fechado e para baixo aberta. Girar 180° fazia
+   o passo aberto apontar para trás, como um "voltar". */
+.mq-passo.is-open > .mq-passo__cabeca > svg:last-child { transform: rotate(90deg); }
 .mq-passo > .mq-card__body { padding: var(--mq-5); }
 @media (max-width: 600px) {
   .mq-passo__cabeca { padding: var(--mq-3) var(--mq-4); }

@@ -27,10 +27,13 @@ describe('as grades do painel se desmontam em tela estreita', () => {
   const tablet = blocoDaMedia('1000px');
   const celular = blocoDaMedia('640px');
 
-  it('os KPIs saem de quatro colunas para duas e depois para uma', () => {
+  /* 03/10/2026: no telefone continuam DUAS colunas (em uma, cada KPI
+     ocupava 200px); só abaixo de 340px viram uma. */
+  it('os KPIs saem de quatro colunas para duas, e só viram uma abaixo de 340px', () => {
     expect(css).toContain('grid-template-columns: repeat(4, 1fr)');
     expect(tablet).toContain('.kpis { grid-template-columns: repeat(2, 1fr); }');
-    expect(celular).toContain('.kpis { grid-template-columns: 1fr; }');
+    expect(celular).toContain('.kpis { grid-template-columns: repeat(2, minmax(0, 1fr));');
+    expect(blocoDaMedia('340px')).toContain('.kpis { grid-template-columns: 1fr; }');
   });
 
   it('as duas colunas de painel viram uma', () => {

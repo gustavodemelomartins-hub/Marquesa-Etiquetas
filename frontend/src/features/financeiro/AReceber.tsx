@@ -319,16 +319,17 @@ export function AReceber({
                       <small>sem prazo</small>
                     )}
                   </span>
-                  <span className="mq-cell mq-cell--num"><b className="mq-money">{money(c.valorTotal)}</b></span>
-                  <span className="mq-cell mq-cell--num">
+                  <span className="mq-cell mq-cell--num" data-label="Total"><b className="mq-money">{money(c.valorTotal)}</b></span>
+                  <span className="mq-cell mq-cell--num" data-label="Recebido">
                     <b className={c.valorRecebido > 0 ? 'mq-money mq-money--ok' : 'mq-money'}>
                       {money(c.valorRecebido)}
                     </b>
                   </span>
-                  <span className="mq-cell mq-cell--num">
+                  <span className="mq-cell mq-cell--num" data-label="A receber">
                     <b className="mq-money mq-money--risk">{money(c.valorReceber)}</b>
                   </span>
-                  <span className="mq-cell">
+                  {/* No telefone o selo sobe para o canto da primeira linha. */}
+                  <span className="mq-cell mq-cell--canto">
                     <span className={situacao(c).classe}>{situacao(c).texto}</span>
                     {falha?.chave === c.chave && (
                       <small className="mq-money--risk">{falha.texto}</small>
