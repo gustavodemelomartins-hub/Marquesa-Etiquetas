@@ -147,4 +147,4 @@ Publicado de worktree limpa em `bfda6bf` com os passos do `deploy-prod.yml`.
 
 Provas: frontend 541/541, build com typecheck, gates fast 11/11 e domain
 13/13, `src/inventario-saude-test.mjs` 4/4. QA no site publicado sobre cópia
-de PROD (export das 13h40 UTC), 1280 e 390 px, 0 escritas, 0 erros.
+de PROD (export das 20:57 UTC), 1280 e 390 px, 0 escritas, 0 erros.
