@@ -242,6 +242,28 @@
       "duration": "<3s"
     },
     {
+      "id": "fuso-operacional",
+      "level": "domain",
+      "mode": "local",
+      "description": "Dia de um instante UTC no fuso America/Sao_Paulo: inventário aberto às 21h é do mesmo dia, inclusive perto da meia-noite",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/fuso-operacional-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 18+ (Intl com fusos)"
+      ],
+      "duration": "<1s"
+    },
+    {
       "id": "clientes-arquivo",
       "level": "domain",
       "mode": "local",

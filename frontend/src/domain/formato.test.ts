@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { dataDigitada, money, moneyNumero, qtdTexto, pct } from './formato';
+import { dataDigitada, fmtData, money, moneyNumero, qtdTexto, pct } from './formato';
 
 /* QA 28/09/2026 — "Recebi" pedia a data em AAAA-MM-DD e recusava
    "28/09/2026", que é como a data é escrita no Brasil. */
@@ -46,5 +46,39 @@ describe('dinheiro, quantidade e percentual', () => {
   it('percentual com no máximo uma casa', () => {
     expect(pct(40)).toBe('40%');
     expect(pct(12.54)).toBe('12,5%');
+  });
+});
+
+/* 03/10/2026 — inventário aberto em 02/10 às 21h aparecia como 03/10. O
+   servidor grava o instante em UTC (`datetime('now')`: "2026-10-03
+   00:00:00"); cortar os 10 primeiros caracteres mostrava o dia de Greenwich.
+   A data que a operação vive é a de America/Sao_Paulo. */
+describe('fmtData: dia civil × instante', () => {
+  it('dia civil (AAAA-MM-DD) é mostrado como veio, sem fuso nenhum', () => {
+    expect(fmtData('2026-08-19')).toBe('19/08/2026');
+    expect(fmtData('2026-10-02')).toBe('02/10/2026');
+  });
+
+  it('02/10/2026 21:00 em São Paulo (00:00 UTC do dia 3) é 02/10', () => {
+    expect(fmtData('2026-10-03 00:00:00')).toBe('02/10/2026');
+    expect(fmtData('2026-10-03T00:00:00.000Z')).toBe('02/10/2026');
+    expect(fmtData('2026-10-02T21:00:00-03:00')).toBe('02/10/2026');
+  });
+
+  it('perto da meia-noite de São Paulo', () => {
+    expect(fmtData('2026-10-03 02:59:59')).toBe('02/10/2026'); // 23:59:59 SP
+    expect(fmtData('2026-10-03 03:00:00')).toBe('03/10/2026'); // 00:00:00 SP
+    expect(fmtData('2026-10-03 03:00:01')).toBe('03/10/2026');
+  });
+
+  it('de manhã cedo e à tarde o dia UTC e o de São Paulo coincidem', () => {
+    expect(fmtData('2026-10-02 15:14:20')).toBe('02/10/2026');
+    expect(fmtData('2026-08-22 07:57:15')).toBe('22/08/2026');
+  });
+
+  it('vazio é travessão; o que não é data volta como veio', () => {
+    expect(fmtData(null)).toBe('—');
+    expect(fmtData('')).toBe('—');
+    expect(fmtData('sem data')).toBe('sem data');
   });
 });

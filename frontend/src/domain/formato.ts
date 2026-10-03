@@ -42,11 +42,34 @@ export function plural(n: number, singular: string, pluralForma: string): string
   return n === 1 ? singular : pluralForma;
 }
 
-/** "2026-08-19" → "19/08/2026". Vazio vira travessão, nunca "Invalid Date". */
+/** O fuso em que a operação vive. Um dia é o dia de São Paulo, nunca o de
+ *  Greenwich nem o do aparelho de quem abre a tela. */
+export const FUSO_OPERACIONAL = 'America/Sao_Paulo';
+const DIA_OPERACIONAL = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: FUSO_OPERACIONAL, day: '2-digit', month: '2-digit', year: 'numeric',
+});
+
+/** Um valor com hora é um INSTANTE. O servidor grava instantes em UTC: o
+ *  `datetime('now')` do SQLite ("2026-10-03 00:00:00", sem fuso escrito) ou
+ *  ISO com "Z". Sem fuso escrito, é UTC — a convenção do banco inteiro. */
+function instante(texto: string): Date | null {
+  const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)(Z|[+-]\d{2}:?\d{2})?$/.exec(texto);
+  if (!m) return null;
+  const d = new Date(`${m[1]}T${m[2]}${m[3] ?? 'Z'}`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** "2026-08-19" → "19/08/2026". Dia civil (só a data) é mostrado como veio;
+ *  instante (data com hora) é mostrado no dia de São Paulo — o inventário
+ *  aberto em 02/10 às 21h é gravado "2026-10-03 00:00:00" e é do dia 02.
+ *  Vazio vira travessão, nunca "Invalid Date". */
 export function fmtData(iso: string | null | undefined): string {
   if (!iso) return '—';
-  const p = String(iso).slice(0, 10).split('-');
-  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : String(iso);
+  const texto = String(iso).trim();
+  const quando = instante(texto);
+  if (quando) return DIA_OPERACIONAL.format(quando);
+  const p = texto.slice(0, 10).split('-');
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : texto;
 }
 
 /** A data como a pessoa DIGITA → ISO curto. Aceita "28/09/2026", "28/9/26",

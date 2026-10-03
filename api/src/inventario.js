@@ -41,6 +41,7 @@ import { json } from './auth.js';
 import { registrarSaida } from './saidas.js';
 import { normSku } from './sku.js';
 import { definirVariacoes } from './produtos.js';
+import { diaOperacional, hojeOperacional } from './fuso.js';
 
 /** O que se espera encontrar em casa: total menos o que está com as
  *  revendedoras. É o mesmo "disponível" do §5.2 — peça consignada não
@@ -1106,7 +1107,7 @@ export async function concluirInventario(db, id, corpo = {}) {
   await db.batch(stmts);
 
   return json(relatorio(id, linhas, JSON.parse(inv.desconhecidos_json || '[]'), cob,
-    new Date().toISOString().slice(0, 10), { contagemCompleta }));
+    hojeOperacional(), { contagemCompleta }));
 }
 
 /** O retrato congelado, relido. É o que a tela abre depois de fechar a aba
@@ -1181,7 +1182,7 @@ export async function resultadoInventario(db, id) {
        porque um código conferido e sem diferença não gera linha de retrato e
        sumiria da conta. */
     await cobertura(db, id),
-    String(inv.concluido_em || '').slice(0, 10),
+    diaOperacional(inv.concluido_em) ?? '',
     { contagemCompleta: !!inv.contagem_completa });
 
   /* O relatório recém-montado não sabe o que já foi aplicado; o retrato
@@ -1336,7 +1337,7 @@ async function aplicarDiferenca(db, id, pedidos, { exigirMotivo = false } = {}) 
   }
 
   /* ── escrita, item a item. */
-  const data = String(inv.concluido_em || '').slice(0, 10).split('-').reverse().join('/');
+  const data = (diaOperacional(inv.concluido_em) ?? '').split('-').reverse().join('/');
   const aplicados = [];
   for (const { linha, motivo, observacao } of alvos) {
     const r = await registrarSaida(db, {
@@ -1587,7 +1588,7 @@ export async function resumoInventario(db, prazoDias) {
     abertoEm: aberto ? aberto.iniciado_em : null,
     pausadoEm: aberto ? (aberto.pausado_em ?? null) : null,
     ultimoId: ultimo ? ultimo.id : null,
-    ultimoEm: ultimo ? String(ultimo.concluido_em).slice(0, 10) : null,
+    ultimoEm: ultimo ? diaOperacional(ultimo.concluido_em) : null,
     diasDesde,
     prazoDias,
     // nunca contou ainda também é "vencido": é o estado que mais precisa

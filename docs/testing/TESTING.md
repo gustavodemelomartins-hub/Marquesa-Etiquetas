@@ -517,6 +517,16 @@ com um bipe, e a falta nele não vira movimento. Par de tela:
 `frontend/src/features/inventario/bipagem.test.tsx` (leitor USB: campo limpa,
 foco volta, "2 + Enter", retentativa, não salvo trava o encerramento).
 
+### `src/fuso-operacional-test.mjs` — o dia é o de São Paulo
+**13 provas · <1 s · puro, sem banco**
+
+`api/src/fuso.js › diaOperacional`: o banco grava instantes em UTC
+(`datetime('now')`); o dia de um instante é o de America/Sao_Paulo, pelo
+`Intl`, nunca somando horas à mão. 02/10/2026 21:00 em SP (gravado
+"2026-10-03 00:00:00") é 02/10; 23:59:59 de SP ainda é o mesmo dia; 00:00:00
+de SP já é o seguinte; dia civil (só a data) passa como veio. Par de tela:
+`frontend/src/domain/formato.test.ts` (`fmtData`).
+
 ### `src/saidas-planilha-correcao-test.mjs` — a planilha "Saiu sem faturar" vence
 **10 provas · ~2 s · Worker real em processo, sem rede**
 

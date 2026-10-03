@@ -84,7 +84,7 @@ export function DetalheDoAcerto({ acerto }: { acerto: AcertoHistorico }) {
             {acerto.correcoes.map((c) => (
               <li key={c.id}>
                 Versão {c.versao} ({c.situacao === 'substituida' ? 'substituída' : c.situacao}
-                {c.registradaEm ? `, registrada em ${fmtData(String(c.registradaEm).slice(0, 10))}` : ''}):
+                {c.registradaEm ? `, registrada em ${fmtData(String(c.registradaEm))}` : ''}):
                 {' '}{c.pecas} {plural(c.pecas, 'peça', 'peças')} · vendido {money(c.vendido)} · comissão {money(c.comissao)} · líquido {money(c.liquido)}
               </li>
             ))}
