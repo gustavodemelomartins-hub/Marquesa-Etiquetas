@@ -1827,6 +1827,37 @@ export async function painel(db, { periodo = 'tudo', de = null, ate = null } = {
    Documento histórico e acerto operacional são as duas fontes exatas.
    Nome parecido e faixas atuais nunca reconstruem comissão antiga. */
 
+/** A SITUAÇÃO de um acerto documental — Pago, Parcial ou A receber.
+ *
+ *  A regra (02/10/2026): o acerto está pago quando o que ela pagou cobre o
+ *  LÍQUIDO DO ACERTO (vendido − comissão). É a conta do próprio acerto,
+ *  gravada em `historico_operacoes` com as linhas que o acerto exclui já
+ *  fora dela.
+ *
+ *  Antes a situação vinha do status da VENDA da planilha (`vendas_historicas`),
+ *  que soma TODAS as linhas daquela data — inclusive as que o acerto
+ *  exclui. O caso que mostrou o defeito: o acerto de 05/08/2026 de uma
+ *  revendedora, 26 peças vendidas, todas PAGO, R$ 1.473,10 recebidos = o
+ *  líquido inteiro. A mesma data tinha uma 27ª linha, "Troca (anel de cruz)",
+ *  R$ 10, NÃO PAGO, que o acerto exclui (`linhas_excluidas_json`). A venda
+ *  ficava "parcial" por causa dela, e o acerto aparecia Parcial sem dever
+ *  nada do acerto.
+ *
+ *    recebido ≥ líquido  → paga
+ *    0 < recebido        → parcial
+ *    recebido = 0        → a_receber
+ *    sem os dois números → o status da venda da planilha, como antes */
+export function situacaoDoAcertoDocumental({ liquidoCentavos, recebidoCentavos, statusDaVenda }) {
+  if (liquidoCentavos != null && recebidoCentavos != null) {
+    const liquido = Number(liquidoCentavos);
+    const recebido = Number(recebidoCentavos);
+    if (recebido >= liquido) return 'paga';
+    if (recebido > 0) return 'parcial';
+    return 'a_receber';
+  }
+  return statusDaVenda === 'paga' ? 'paga' : statusDaVenda === 'parcial' ? 'parcial' : 'a_receber';
+}
+
 /** Acertos documentais do histórico + acertos efetivamente fechados no
  * sistema. Nenhum valor é estimado: se não há documento, não entra. */
 export async function acertosDeMaleta(db, { periodo = 'tudo', de = null, ate = null } = {}) {
@@ -1841,7 +1872,8 @@ export async function acertosDeMaleta(db, { periodo = 'tudo', de = null, ate = n
               ho.comissao_centavos / 100.0 AS comissao,
               ho.liquido_centavos / 100.0 AS liquido,
               'documento da maleta' AS fonte,
-              ho.venda_chave, ho.evidencia_json, vh.status AS pagamento
+              ho.venda_chave, ho.evidencia_json, vh.status AS pagamento,
+              ho.liquido_centavos, ho.valor_recebido_centavos
          FROM historico_operacoes ho
          JOIN vendas_historico_lotes l ON l.id=ho.lote_id AND l.status='importado'
          JOIN vendas_historicas vh ON vh.lote_id=ho.lote_id AND vh.chave=ho.venda_chave
@@ -1909,9 +1941,11 @@ export async function acertosDeMaleta(db, { periodo = 'tudo', de = null, ate = n
         v, maletaId: m ? Number(m.id) : null,
         enviadas: m ? Number(m.enviadas) : null, devolvidas: m ? Number(m.devolvidas) : null,
         vendaId: null, vendaChave: v.venda_chave ?? null,
-        /* o status que a planilha de vendas dá à venda do acerto */
-        situacaoFinanceira: v.pagamento === 'paga' ? 'paga'
-          : v.pagamento === 'parcial' ? 'parcial' : 'a_receber',
+        situacaoFinanceira: situacaoDoAcertoDocumental({
+          liquidoCentavos: v.liquido_centavos,
+          recebidoCentavos: v.valor_recebido_centavos,
+          statusDaVenda: v.pagamento,
+        }),
       };
     }),
     ...(operacionais.results ?? []).map((v) => ({

@@ -216,10 +216,13 @@ describe('o progresso da conferência, na tela', () => {
     expect(within(painel).getByText(/1 de 2 códigos/)).toBeTruthy();
 
     /* E a LISTA acompanha: escolher a gaveta e continuar rolando 790 linhas
-       seria oferecer meio filtro. */
-    await waitFor(() => expect(screen.getByText(/2 de 7 códigos$/)).toBeTruthy());
-    expect(screen.queryByText(/Colar Bate/)).toBeNull();
-    expect(screen.getByText(/Brinco Falta/)).toBeTruthy();
+       seria oferecer meio filtro. Desde 02/10/2026 a lista abre em
+       "Pendentes"; em "Todos" ela mostra os dois brincos e nada mais. */
+    fireEvent.click(screen.getByRole('button', { name: 'Todos' }));
+    await waitFor(() => expect(screen.getByText(/^2 códigos$/)).toBeTruthy());
+    const tabela = screen.getByRole('table', { name: 'Itens do inventário' });
+    expect(within(tabela).queryByText(/Colar Bate/)).toBeNull();
+    expect(within(tabela).getByText(/Brinco Falta/)).toBeTruthy();
   });
 });
 
@@ -234,7 +237,7 @@ describe('finalizar com códigos sem bipe', () => {
 
     const dialogo = await screen.findByRole('dialog', { name: /terminou de conferir/i });
     /* 7 códigos, 3 bipados: 4 sem bipe, e o número aparece em voz alta. */
-    expect(within(dialogo).getByText('4')).toBeTruthy();
+    expect(within(dialogo).getAllByText('4').length).toBeGreaterThan(0);
     expect(within(dialogo).getByText(/ainda não receberam nenhum bipe/)).toBeTruthy();
 
     /* Abrir o diálogo não fecha inventário nenhum. */

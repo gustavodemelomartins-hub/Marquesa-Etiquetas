@@ -442,7 +442,13 @@ export async function listarSaidas(db, {
     `SELECT rc.id, rc.classe_nova, rc.motivo, rc.decidido_em, rc.decidido_por,
             h.id AS item_id, h.origem_linha, h.data, h.sku, h.qtd, h.valor_total,
             h.cliente_nome_original, h.nome_produto_historico, h.observacao_original, h.desconto_original,
-            p.desc AS produto
+            p.desc AS produto,
+            /* a última correção da classe (planilha "Saiu sem faturar"), com a
+               observação e o custo que a fonte deu */
+            (SELECT c.observacao FROM historico_reclassificacao_correcoes c
+              WHERE c.reclassificacao_id = rc.id ORDER BY c.id DESC LIMIT 1) AS obs_correcao,
+            (SELECT c.custo_informado FROM historico_reclassificacao_correcoes c
+              WHERE c.reclassificacao_id = rc.id ORDER BY c.id DESC LIMIT 1) AS custo_correcao
        FROM historico_reclassificacao rc
        JOIN vendas_historico_itens h ON h.id = rc.historico_item_id
        JOIN vendas_historico_lotes l ON l.id = h.lote_id AND l.status = 'importado'
@@ -461,7 +467,9 @@ export async function listarSaidas(db, {
     qtd: r.qtd == null ? null : Number(r.qtd),
     valorPlanilha: r.valor_total == null ? null : Number(r.valor_total),
     pessoa: r.cliente_nome_original ?? null,
-    observacao: [r.desconto_original, r.observacao_original].filter(Boolean).join(' · ') || null,
+    observacao: r.obs_correcao
+      ?? ([r.desconto_original, r.observacao_original].filter((t) => t && t !== '-').join(' · ') || null),
+    custoInformado: r.custo_correcao == null ? null : Number(r.custo_correcao),
     motivo: r.motivo,
     linhaPlanilha: r.origem_linha,
     historicoItemId: r.item_id,

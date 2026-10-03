@@ -55,7 +55,15 @@ export function HistoricoRevendedora({ conexao, revendedoraId, versao }: {
     setDados(null);
     setErro(null);
     buscarHistorico(conexao, revendedoraId, ctl.signal)
-      .then(setDados)
+      /* Resposta incompleta (Worker antigo, corpo de erro) vira histórico
+         vazio, e não uma ficha que quebra a tela inteira. */
+      .then((r) => setDados({
+        ...r,
+        resumo: Object.assign({ acertos: 0, pecasVendidas: 0, vendido: 0, comissao: 0, liquido: 0, aReceber: 0,
+          maletas: 0, maletasAbertas: 0, pecasComEla: 0 }, r?.resumo),
+        acertos: r?.acertos ?? [], eventos: r?.eventos ?? [], limites: r?.limites ?? [],
+        ok: r?.ok ?? false,
+      }))
       .catch((e: unknown) => {
         if (!ctl.signal.aborted) setErro(e instanceof Error ? e.message : 'Não consegui ler o histórico.');
       });

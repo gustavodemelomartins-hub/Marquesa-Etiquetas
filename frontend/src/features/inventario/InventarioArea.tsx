@@ -4,20 +4,22 @@ import { chamar, type Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { fmtData, plural } from '../../domain/formato';
-import {
-  DialogoDeVariacao,
-  type EscolhaDaVariacao,
-  type PedidoDeVariacao,
-} from './DialogoDeVariacao';
 import { DialogoDeEncerramento, type EscolhaDoEncerramento } from './DialogoDeEncerramento';
 import { DialogoDeDescarte } from './DialogoDeDescarte';
 import { ProgressoDaContagem } from './ProgressoDaContagem';
 import { RevisaoDoInventario } from './RevisaoDoInventario';
 import { TODAS, filtrarPorCategoria } from './progresso';
+import {
+  chaveDe, comRetentativa, estadoDe, interpretarLeitura, pecasFaltandoEm, resumoDaConferencia,
+  type Conferida, type EstadoDaReferencia,
+} from './conferencia';
+import {
+  EstacaoDeLeitura, type EstacaoHandle, type LeituraRecente, type ReferenciaDaEstacao,
+} from './EstacaoDeLeitura';
 import type { AppState } from '../../types/api';
 import { LeitorDeEtiquetas, type ResultadoDaLeitura } from '../../components/scanner/LeitorDeEtiquetas';
 import { resolverSku } from '../../components/scanner/codigoDaEtiqueta';
-import { temCamera } from '../../components/scanner/leitorDeEtiqueta';
+import { criarBipe, temCamera } from '../../components/scanner/leitorDeEtiqueta';
 
 interface InventarioResumo {
   id: number;
@@ -44,6 +46,9 @@ interface LinhaContada {
   variacao: string | null;
   contado: number;
   contadoEm: string;
+  /** "Bipou e marcha": o esperado que o servidor usou e a falta dita. */
+  esperadoNaHora?: number | null;
+  faltando?: number | null;
 }
 
 /** O QUE SE ESPERA ENCONTRAR EM CASA, código a código, direto do servidor
@@ -54,14 +59,9 @@ interface LinhaContada {
  *  contra `produtos.qtd` — o TOTAL —, e o efeito era a regra mais cara do
  *  inventário sendo violada em silêncio: peça que está na maleta de uma
  *  revendedora aparecia como FALTANDO na contagem da casa. */
-interface Esperado {
-  sku: string;
-  desc: string;
+interface Esperado extends ReferenciaDaEstacao {
   cat: string | null;
   preco: number | null;
-  total: number;
-  consignado: number;
-  esperado: number;
 }
 
 interface DetalheInventario {
@@ -75,6 +75,8 @@ interface DetalheInventario {
   cobertura: { conferidos: number; total: number };
   /** Vem preenchido só enquanto o inventário está em andamento. */
   esperados?: Esperado[];
+  /** Variações criadas durante a contagem. */
+  eventos?: { tipo: string; sku: string; desc: string; variacao: string | null; em: string }[];
 }
 
 interface Props {
@@ -197,7 +199,9 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = fal
           sobre a mesma coisa, e quem chega precisa dos três de uma vez —
           "como está o estoque", "quando foi a última vez" e "há algo
           aberto agora". */}
-      <div className="inventory-contexts">
+      {/* Com uma contagem aberta, o leitor é a tela: os três fatos de contexto
+          e a nota saem do caminho (02/10/2026). */}
+      {idAtual === null && <div className="inventory-contexts">
         <article className="inventory-context">
           <span className="context-icon success"><Icone nome="check" /></span>
           <span>
@@ -246,15 +250,17 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = fal
             </em>
           </span>
         </article>
-      </div>
+      </div>}
 
-      <p className="mq-note mq-note--info">
-        <Icone nome="alert" />
-        <span>
-          <b>Conte só o que está em casa.</b> Peça com revendedora não entra
-          como faltante, e peça que você ainda não contou não vira zero.
-        </span>
-      </p>
+      {idAtual === null && (
+        <p className="mq-note mq-note--info">
+          <Icone nome="alert" />
+          <span>
+            <b>O sistema já sabe quanto deveria ter em casa.</b> Bipe uma peça de
+            cada referência; se faltar, digite só quanto falta.
+          </span>
+        </p>
+      )}
 
       {erroAcao && <p className="mq-note mq-note--risk" role="alert"><span>{erroAcao}</span></p>}
       {lista.erro ? <section className="mq-card"><ErrorState erro={lista.erro} aoTentarDeNovo={lista.recarregar} /></section> : null}
@@ -337,13 +343,20 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = fal
 
 /* ───────────────────────────────────────────────────────── a contagem */
 
-/** A CONTAGEM.
+/** A CONTAGEM — "bipou e marcha" (02/10/2026).
  *
- *  Não recebe mais o `AppState`: a lista do que se espera encontrar em casa
- *  vem de `GET /api/inventarios/:id › esperados`, já com a regra do
- *  servidor aplicada (total menos consignado, sem kit e sem configuração
- *  montável). Enquanto ela era derivada aqui de `produtos.qtd`, peça em
- *  maleta aparecia como FALTANDO. */
+ *  Antes a tela era uma tabela de 790 linhas com um campo "Contado" em cada
+ *  uma, e o campo de cima só FILTRAVA a tabela: o leitor de código de barras
+ *  digitava nele, nada era gravado, e o bipe seguinte grudava no anterior.
+ *  A Sthefany conta mais rápido no Excel porque lá ela não redigita o que o
+ *  sistema já sabe.
+ *
+ *  Agora o leitor é a tela. Um bipe confere a referência inteira contra o
+ *  esperado em casa que o SERVIDOR calcula na hora (`faltando: 0`); falta é
+ *  a exceção, e ela diz só quanto. Cada leitura entra numa fila de gravação
+ *  com retentativa e aparece na hora — a próxima leitura nunca espera a
+ *  rede. A lista completa continua existindo, recolhida, para quem precisa
+ *  procurar uma peça sem etiqueta. */
 function Contagem({
   conexao, id, aoMudar, aoSair,
 }: {
@@ -356,107 +369,295 @@ function Contagem({
     (s) => chamar<DetalheInventario>(conexao, 'GET', `/api/inventarios/${id}`, undefined, { signal: s }),
     [conexao, id],
   );
-  const [busca, setBusca] = useState('');
   const [erro, setErro] = useState('');
   const [ocupado, setOcupado] = useState<string | null>(null);
-  /* O 409 do servidor vira uma PERGUNTA, não uma mensagem de erro. */
-  const [perguntandoVariacao, setPerguntandoVariacao] = useState<PedidoDeVariacao | null>(null);
   const [camera, setCamera] = useState(false);
-  /* A categoria filtrada vive AQUI, e não dentro do progresso, porque a
-     lista da contagem segue o mesmo filtro: escolher "Brincos" no gráfico e
-     continuar rolando 790 linhas seria oferecer meio filtro. */
   const [categoria, setCategoria] = useState<string>(TODAS);
-  /* Finalizar deixou de ser um `confirm()`: ele não tem três saídas. */
+  const [busca, setBusca] = useState('');
+  const [filtroLista, setFiltroLista] = useState<'pendentes' | 'com_falta' | 'todos'>('pendentes');
   const [encerrando, setEncerrando] = useState(false);
   const [descartando, setDescartando] = useState(false);
 
-  /* A LISTA DA CONTAGEM vem do servidor, não do `GET /api/state`: é ela
-     que carrega a regra do "em casa". Ver o comentário de `Esperado`. */
   const esperados = detalhe.dados?.esperados ?? [];
-  const contados = useMemo(
-    () => new Map((detalhe.dados?.contagem ?? []).map((c) => [c.sku, c])),
-    [detalhe.dados],
-  );
+  const esperadosPorSku = useMemo(() => new Map(esperados.map((p) => [p.sku, p])), [esperados]);
+  const esperadosRef = useRef(esperadosPorSku);
+  esperadosRef.current = esperadosPorSku;
 
-  /* O ÚLTIMO VALOR GRAVADO por esta tela, código a código (QA 29/09/2026).
-   *
-   *  `POST /itens` grava um total ABSOLUTO, e a lista (`contados`) só se
-   *  atualiza depois que o servidor responde e a tela relê. Bipar a segunda
-   *  unidade da mesma peça antes disso lia o total velho e mandava "1" de
-   *  novo — uma peça sumia da contagem, sem erro nenhum. Agora as bipadas
-   *  entram em FILA, e cada uma parte do último total que esta tela gravou.
-   *  Quando a releitura do servidor alcança o mesmo número, o local sai. */
-  const gravados = useRef(new Map<string, number>());
-  const filaDeBipadas = useRef<Promise<unknown>>(Promise.resolve());
-  const contadosAgora = useRef(contados);
-  contadosAgora.current = contados;
-  useEffect(() => {
-    for (const [sku, n] of gravados.current) {
-      if (contados.get(sku)?.contado === n) gravados.current.delete(sku);
+  /* ── O QUE ESTA SESSÃO CONFERIU. O servidor é a fonte; por cima dele a
+     tela guarda só o que ela mudou e ele ainda não releu (salvando, não
+     salvo, ou desfeito). Uma releitura nunca apaga uma leitura que ainda não
+     chegou — e a soma das duas é síncrona, para a tela não piscar vazia. */
+  const doServidor = useMemo(() => {
+    const m = new Map<string, Conferida>();
+    for (const c of detalhe.dados?.contagem ?? []) {
+      const variacao = c.variacao ?? '';
+      m.set(chaveDe(c.sku, variacao), {
+        sku: c.sku, variacao,
+        faltando: c.faltando ?? null,
+        contado: c.contado,
+        esperado: c.esperadoNaHora ?? (variacao ? null : esperadosPorSku.get(c.sku)?.esperado ?? null),
+        gravacao: 'salvo',
+        contadoEm: c.contadoEm,
+      });
     }
-  }, [contados]);
-  const totalAtual = (sku: string) =>
-    gravados.current.get(sku) ?? contadosAgora.current.get(sku)?.contado ?? 0;
+    return m;
+  }, [detalhe.dados, esperadosPorSku]);
+  const [locais, setLocais] = useState<Map<string, Conferida | null>>(new Map());
+  useEffect(() => {
+    setLocais((atual) => {
+      let mudou = false;
+      const prox = new Map(atual);
+      for (const [k, v] of atual) {
+        const salvoNoServidor = v && v.gravacao === 'salvo' && doServidor.has(k);
+        const desfeitoNoServidor = v === null && !doServidor.has(k);
+        if (salvoNoServidor || desfeitoNoServidor) { prox.delete(k); mudou = true; }
+      }
+      return mudou ? prox : atual;
+    });
+  }, [doServidor]);
+  const conferidas = useMemo(() => {
+    const m = new Map(doServidor);
+    for (const [k, v] of locais) { if (v === null) m.delete(k); else m.set(k, v); }
+    return m;
+  }, [doServidor, locais]);
+  const conferidasRef = useRef(conferidas);
+  conferidasRef.current = conferidas;
 
-  /* O índice que a câmera consulta a cada leitura. `Map` e não `Array`
-     porque isto roda cinco vezes por segundo: varrer 790 linhas por quadro
-     esquentaria o telefone para responder a mesma pergunta. */
-  const esperadosPorSku = useMemo(
-    () => new Map(esperados.map((p) => [p.sku, p])),
-    [esperados],
-  );
+  const atualizar = (sku: string, variacao: string, mudar: (c: Conferida | undefined) => Conferida | undefined) => {
+    const k = chaveDe(sku, variacao);
+    const novo = mudar(conferidasRef.current.get(k));
+    const prox = new Map(conferidasRef.current);
+    if (novo) prox.set(k, novo); else prox.delete(k);
+    conferidasRef.current = prox;
+    setLocais((atual) => new Map(atual).set(k, novo ?? null));
+  };
 
-  /* A busca e o filtro de categoria se somam, nesta ordem: a categoria
-     recorta a prateleira, o texto acha a peça dentro dela. */
-  const lista = useMemo(() => {
-    const porCat = filtrarPorCategoria(esperados, categoria);
-    const t = busca.trim().toLowerCase();
-    if (!t) return porCat;
-    return porCat.filter(
-      (p) => p.sku.toLowerCase().includes(t) || p.desc.toLowerCase().includes(t),
-    );
-  }, [esperados, busca, categoria]);
+  /* ── A FILA. Uma gravação por vez, na ordem em que ela bipou; cada uma com
+     retentativa para rede ruim. Nada aqui segura a próxima leitura. */
+  const fila = useRef<Promise<unknown>>(Promise.resolve());
+  const enfileirar = (tarefa: () => Promise<unknown>) => {
+    const vez = fila.current.then(tarefa);
+    fila.current = vez.catch(() => undefined);
+    return vez;
+  };
+  const bipe = useRef<((ok: boolean) => void) | null>(null);
+  const tocar = (ok: boolean) => { bipe.current = bipe.current ?? criarBipe(); bipe.current(ok); };
+
+  interface RespostaDaContagem {
+    contado?: number; esperado?: number | null; faltando?: number | null;
+    erro?: string; precisaContado?: boolean;
+  }
+
+  function gravar(sku: string, variacao: string, quanto: { faltando: number } | { contado: number }) {
+    const ref = esperadosRef.current.get(sku);
+    const varianteId = variacao ? ref?.variacoes?.find((v) => v.nome === variacao)?.varianteId ?? null : null;
+    const esperadoLocal = variacao
+      ? ref?.variacoes?.find((v) => v.nome === variacao)?.esperado ?? null
+      : ref?.esperado ?? null;
+    atualizar(sku, variacao, () => ({
+      sku, variacao,
+      faltando: 'faltando' in quanto ? quanto.faltando : null,
+      contado: 'contado' in quanto ? quanto.contado
+        : (esperadoLocal != null ? esperadoLocal - quanto.faltando : null),
+      esperado: esperadoLocal,
+      gravacao: 'salvando',
+      contadoEm: new Date().toISOString(),
+    }));
+    const corpo: Record<string, unknown> = { sku, origem: 'bipagem', ...quanto };
+    if (variacao) { corpo.variacao = variacao; corpo.varianteId = varianteId; }
+    else if (ref?.variacoes?.length) corpo.codigoInteiro = true;
+
+    return enfileirar(async () => {
+      try {
+        const r = await comRetentativa(() => chamar<RespostaDaContagem>(
+          conexao, 'POST', `/api/inventarios/${id}/itens`, corpo));
+        atualizar(sku, variacao, (c) => c && ({
+          ...c,
+          contado: r.contado ?? c.contado,
+          esperado: r.esperado ?? c.esperado,
+          faltando: r.faltando ?? ('faltando' in quanto ? quanto.faltando : null),
+          gravacao: 'salvo', erro: undefined,
+        }));
+      } catch (e) {
+        const det = e as { corpo?: RespostaDaContagem; message?: string };
+        /* O servidor não sabe o esperado desta linha (aro sem identidade, ou
+           peça que ele não esperava em casa): a pergunta passa a ser
+           "quantas você achou" — a linha fica marcada até ela responder. */
+        if (det.corpo?.precisaContado) {
+          atualizar(sku, variacao, (c) => c && ({
+            ...c, faltando: null, contado: null, esperado: null,
+            gravacao: 'erro', erro: 'diga quantas encontrou',
+          }));
+        } else {
+          atualizar(sku, variacao, (c) => c && ({
+            ...c, gravacao: 'erro', erro: det.corpo?.erro ?? det.message ?? 'não consegui salvar',
+          }));
+        }
+        tocar(false);
+      }
+    });
+  }
+
+  function apagarLinha(sku: string, variacao: string) {
+    atualizar(sku, variacao, () => undefined);
+    return enfileirar(() => comRetentativa(() => chamar(conexao, 'DELETE',
+      `/api/inventarios/${id}/itens/${encodeURIComponent(sku)}?variacao=${encodeURIComponent(variacao)}`))
+      .catch(() => { setErro(`Não consegui desfazer ${sku}. Recarregue a tela antes de continuar.`); }));
+  }
+
+  /* ── A LEITURA. */
+  const [ultima, setUltima] = useState<{ sku: string; variacao: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ texto: string; tom: 'ok' | 'neutro' | 'erro' } | null>(null);
+  const [recentes, setRecentes] = useState<LeituraRecente[]>([]);
+  const contador = useRef(0);
+  const estacao = useRef<EstacaoHandle>(null);
+  const anotar = (sku: string | null, texto: string, tom: LeituraRecente['tom']) => {
+    contador.current += 1;
+    const n = contador.current;
+    setFeedback({ texto, tom });
+    setRecentes((r) => [{ id: n, sku, texto, tom }, ...r].slice(0, 8));
+  };
+
+  function linhasDe(sku: string) {
+    return [...conferidasRef.current.values()].filter((c) => c.sku === sku);
+  }
+
+  function lerCodigo(texto: string): ResultadoDaLeitura {
+    const leitura = interpretarLeitura(texto);
+    if (leitura.tipo === 'vazio') return { ok: false, texto: '' };
+    if (leitura.tipo === 'falta') {
+      if (!ultima) {
+        anotar(null, 'Bipe a peça antes de dizer quanto falta.', 'erro');
+        tocar(false);
+        return { ok: false, texto: 'Bipe a peça antes.' };
+      }
+      informarFalta(ultima.variacao, leitura.quantidade, ultima.sku);
+      return { ok: true, texto: `Falta ${leitura.quantidade}` };
+    }
+    const sku = resolverSku(leitura.codigo, esperadosRef.current);
+    if (!sku) {
+      const c = leitura.codigo.toUpperCase();
+      anotar(null, `${c} não está na lista deste inventário.`, 'erro');
+      tocar(false);
+      return { ok: false, texto: `${c} não está na lista.` };
+    }
+    const ref = esperadosRef.current.get(sku)!;
+    const ja = linhasDe(sku);
+    if (ja.length) {
+      setUltima({ sku, variacao: ja[0]!.variacao });
+      anotar(sku, `Já conferido · ${ref.desc}`, 'neutro');
+      return { ok: true, texto: `Já conferido · ${ref.desc}` };
+    }
+    setUltima({ sku, variacao: '' });
+    if (ref.esperado <= 0) {
+      void gravar(sku, '', { contado: 1 });
+      anotar(sku, `${ref.desc} · não era esperada em casa — 1 encontrada`, 'neutro');
+      tocar(true);
+      return { ok: true, texto: `${ref.desc} · não era esperada em casa` };
+    }
+    void gravar(sku, '', { faltando: 0 });
+    anotar(sku, `✓ ${ref.desc} · ${ref.esperado} em casa`, 'ok');
+    tocar(true);
+    return { ok: true, texto: `✓ ${ref.desc} · ${ref.esperado} em casa` };
+  }
+
+  function informarFalta(variacao: string, n: number, sku = ultima?.sku) {
+    if (!sku) return;
+    const ref = esperadosRef.current.get(sku);
+    const linha = conferidasRef.current.get(chaveDe(sku, variacao));
+    if (linha && linha.faltando == null) {
+      anotar(sku, 'Esta peça pede quantas você encontrou, não quantas faltam.', 'erro');
+      tocar(false);
+      return;
+    }
+    const esperado = variacao
+      ? ref?.variacoes?.find((v) => v.nome === variacao)?.esperado ?? null
+      : ref?.esperado ?? null;
+    if (esperado != null && n > esperado) {
+      anotar(sku, `Falta ${n} é mais que as ${esperado} esperadas em casa.`, 'erro');
+      tocar(false);
+      return;
+    }
+    void gravar(sku, variacao, { faltando: n });
+    anotar(sku, n ? `${ref?.desc ?? sku} · falta ${n}` : `✓ ${ref?.desc ?? sku} · sem falta`, n ? 'neutro' : 'ok');
+  }
+
+  function informarEncontradas(variacao: string, n: number) {
+    if (!ultima) return;
+    void gravar(ultima.sku, variacao, { contado: n });
+    anotar(ultima.sku, `${esperadosRef.current.get(ultima.sku)?.desc ?? ultima.sku} · ${n} encontrada(s)`, 'neutro');
+  }
+
+  /* VARIAÇÃO — secundária. O bipe comum confere o código inteiro; escolher
+     um aro troca a conferência agregada por uma conferência daquele aro. */
+  async function escolherVariacao(variacao: string) {
+    if (!ultima) return;
+    const { sku } = ultima;
+    const ref = esperadosRef.current.get(sku);
+    if (variacao === '') {
+      for (const l of linhasDe(sku)) if (l.variacao) void apagarLinha(sku, l.variacao);
+      setUltima({ sku, variacao: '' });
+      if (!conferidasRef.current.has(chaveDe(sku, ''))) void gravar(sku, '', { faltando: 0 });
+      estacao.current?.focar();
+      return;
+    }
+    if (conferidasRef.current.has(chaveDe(sku, ''))) void apagarLinha(sku, '');
+    setUltima({ sku, variacao });
+    if (!conferidasRef.current.has(chaveDe(sku, variacao))) {
+      const esperado = ref?.variacoes?.find((v) => v.nome === variacao)?.esperado ?? null;
+      if (esperado != null && esperado > 0) void gravar(sku, variacao, { faltando: 0 });
+      else void gravar(sku, variacao, { contado: 1 });
+    }
+    estacao.current?.focar();
+  }
+
+  async function criarVariacao(valor: string): Promise<boolean> {
+    if (!ultima) return false;
+    const { sku } = ultima;
+    const r: { criadas?: { nome: string }[]; erro?: string } = await chamar<{ criadas?: { nome: string }[]; erro?: string }>(
+      conexao, 'POST', `/api/inventarios/${id}/variacoes`, { sku, valor },
+    ).catch((e: unknown) => ({ erro: (e as { corpo?: { erro?: string }; message?: string })?.corpo?.erro
+      ?? (e instanceof Error ? e.message : 'Não consegui criar a variação.') }));
+    if (r.erro || !r.criadas?.length) {
+      anotar(sku, r.erro ?? 'A variação não foi criada.', 'erro');
+      tocar(false);
+      return false;
+    }
+    const nome = r.criadas[0]!.nome;
+    /* A peça está na mão dela: a variação nova nasce conferida com uma. */
+    if (conferidasRef.current.has(chaveDe(sku, ''))) void apagarLinha(sku, '');
+    setUltima({ sku, variacao: nome });
+    void gravar(sku, nome, { contado: 1 });
+    anotar(sku, `Variação ${nome} criada · 1 encontrada`, 'ok');
+    detalhe.recarregar();
+    return true;
+  }
+
+  function tentarDeNovo() {
+    for (const c of conferidasRef.current.values()) {
+      if (c.gravacao !== 'erro' || c.erro === 'diga quantas encontrou') continue;
+      if (c.faltando != null) void gravar(c.sku, c.variacao, { faltando: c.faltando });
+      else if (c.contado != null) void gravar(c.sku, c.variacao, { contado: c.contado });
+    }
+  }
+
+  /* Fechar a aba com leitura a caminho perde a leitura: o navegador avisa. */
+  const resumo = useMemo(() => resumoDaConferencia(esperados, conferidas.values()), [esperados, conferidas]);
+  useEffect(() => {
+    if (!resumo.naoSalvos) return undefined;
+    const aviso = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', aviso);
+    return () => window.removeEventListener('beforeunload', aviso);
+  }, [resumo.naoSalvos]);
 
   const status = detalhe.dados?.status ?? 'aberto';
   const pausado = status === 'pausado';
   const encerrado = status === 'concluido' || status === 'cancelado';
 
-  /** O resumo que o protótipo mostra no rodapé da contagem, e que a
-   *  finalização repete antes de encerrar. São CONTAGENS DE CÓDIGO, e
-   *  "não conferido" é a maior delas no começo — por construção.
-   *
-   *  `pecasContadas` é a única em PEÇAS, e vai junto porque o diálogo de
-   *  encerramento precisa dizer o tamanho do trabalho que está sendo
-   *  congelado: "184 peças" é o que a pessoa reconhece como a tarde dela. */
-  const resumo = useMemo(() => {
-    let conferido = 0, faltando = 0, sobrando = 0, pecasContadas = 0;
-    for (const p of esperados) {
-      const c = contados.get(p.sku);
-      if (!c) continue;
-      pecasContadas += c.contado;
-      if (c.contado === p.esperado) conferido += 1;
-      else if (c.contado < p.esperado) faltando += 1;
-      else sobrando += 1;
-    }
-    return {
-      conferido, faltando, sobrando, pecasContadas,
-      naoConferido: Math.max(0, esperados.length - contados.size),
-    };
-  }, [esperados, contados]);
-
-  /** A última gravação — o que diz a quem voltou depois do almoço que a
-   *  contagem da manhã está lá. */
-  const ultimaGravacao = useMemo(() => {
-    let maior: string | null = null;
-    for (const c of detalhe.dados?.contagem ?? []) {
-      if (!maior || c.contadoEm > maior) maior = c.contadoEm;
-    }
-    return maior;
-  }, [detalhe.dados]);
-
   async function acao(caminho: string, corpo?: unknown) {
     setOcupado(caminho);
     setErro('');
+    await fila.current;
     const r = await chamar<{ erro?: string }>(conexao, 'POST', caminho, corpo ?? {})
       .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui.' }));
     setOcupado(null);
@@ -466,174 +667,54 @@ function Contagem({
     return true;
   }
 
-  /** FINALIZAR não pode ser um clique a seco — e não pode ser só um aviso.
-   *
-   *  Concluir congela o retrato: depois dele a contagem não muda mais. O
-   *  que a versão anterior fazia era avisar, num `confirm()`, que os não
-   *  conferidos continuariam incógnitas, e encerrar o assunto. O aviso
-   *  estava certo e o fluxo estava incompleto: quem terminou de conferir a
-   *  loja INTEIRA não tinha como dizer isso, e centenas de códigos ficavam
-   *  sem resolução e sem caminho nenhum.
-   *
-   *  Agora a pergunta tem TRÊS saídas, desenhadas como escolhas com
-   *  consequências diferentes — ver `DialogoDeEncerramento`. O que NENHUMA
-   *  delas faz é mexer em estoque: mesmo declarar a contagem completa só
-   *  muda o significado das linhas no retrato, e a resolução continua sendo
-   *  um segundo ato, item a item, com motivo obrigatório. */
   async function finalizar(escolha: EscolhaDoEncerramento) {
-    const ok = await acao(`/api/inventarios/${id}/concluir`, {
-      contagemCompleta: escolha.contagemCompleta,
-    });
+    const ok = await acao(`/api/inventarios/${id}/concluir`, { contagemCompleta: escolha.contagemCompleta });
     if (ok) setEncerrando(false);
   }
 
-  /** DESCARTAR: o inventário vira `cancelado` e fica no histórico. Nenhuma
-   *  contagem vira ajuste — o servidor só aceita ajuste de inventário
-   *  concluído. Depois disso a tela volta para "Abrir inventário". */
   async function descartar() {
     const ok = await acao(`/api/inventarios/${id}/cancelar`);
     setDescartando(false);
     if (ok) aoSair();
   }
 
-  /** Grava uma contagem. `escolha` só existe quando o servidor já pediu a
-   *  variação e a pessoa respondeu.
-   *
-   *  O 409 "tem variação cadastrada" NÃO é erro: é o servidor se recusando
-   *  a chutar de qual aro a peça é (regra 2 do projeto), e mandando junto
-   *  a lista para alguém responder. Enquanto a tela o tratava como erro, os
-   *  27 códigos com variação eram impossíveis de contar — a mensagem
-   *  aparecia e a contagem nunca gravava. */
-  /** `contar` agora DEVOLVE o que aconteceu, além de mexer na tela.
-   *
-   *  Quem clica no `+` vê o resultado na própria linha e ignora o retorno.
-   *  Quem bipa não está olhando a lista — está com uma peça na mão e o
-   *  telefone na outra —, e precisa de uma frase. É a mesma gravação, pela
-   *  mesma rota: o que muda é só quem conta a história de volta. */
-  async function contar(
-    sku: string, contado: number, escolha?: EscolhaDaVariacao,
-    /* A bipada já mostra a recusa dentro do leitor, na linha que ela está
-       olhando. Repeti-la no alto da tela poria a mesma frase em dois
-       lugares, e a de cima ficaria lá depois de resolvida. */
-    silencioso = false,
-  ): Promise<ResultadoDaLeitura> {
-    setOcupado(sku);
-    setErro('');
-    const falhou = (texto: string) => {
-      if (!silencioso) setErro(texto);
-      return { ok: false, texto };
-    };
-
-    if (escolha?.tipo === 'nao-sei') {
-      /* §4.4/D5 — "não sei" é resposta, não desistência: registra a
-         pendência, bloqueia o código para ajuste, não movimenta nada. */
-      const r = await chamar<{ erro?: string }>(
-        conexao, 'POST', `/api/inventarios/${id}/nao-identificado`, { sku, qtd: contado },
-      ).catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui registrar.' }));
-      setOcupado(null);
-      if (r && 'erro' in r && r.erro) return falhou(String(r.erro));
-      detalhe.recarregar();
-      return { ok: true, texto: `${sku} — anotado como "não sei a variação"` };
-    }
-
-    const corpo: Record<string, unknown> = { sku, contado };
-    if (escolha?.tipo === 'variacao') {
-      corpo.variacao = escolha.variacao;
-      corpo.varianteId = escolha.varianteId;
-    }
-
-    const r = await chamar<{ erro?: string }>(
-      conexao, 'POST', `/api/inventarios/${id}/itens`, corpo,
-    ).catch((e: unknown) => {
-      /* `chamar` embrulha o corpo da resposta em `corpo` — é de lá que sai
-         a lista de variações que o servidor ofereceu. */
-      const det = e as { status?: number; corpo?: { erro?: string; variacoes?: unknown } };
-      const vs = det?.corpo?.variacoes;
-      if (det?.status === 409 && Array.isArray(vs) && vs.length) {
-        return { pedirVariacao: vs as PedidoDeVariacao['variacoes'] };
-      }
-      return { erro: e instanceof Error ? e.message : 'Não consegui gravar a contagem.' };
-    });
-    setOcupado(null);
-
-    if (r && 'pedirVariacao' in r && r.pedirVariacao) {
-      const linha = esperadosPorSku.get(sku);
-      setPerguntandoVariacao({
-        sku,
-        desc: linha?.desc ?? sku,
-        contado,
-        variacoes: r.pedirVariacao,
+  /* A lista recolhida e o progresso por categoria leem a mesma conferência. */
+  const contadosPorSku = useMemo(() => {
+    const m = new Map<string, { sku: string; contado: number; contadoEm: string }>();
+    for (const c of conferidas.values()) {
+      const a = m.get(c.sku);
+      const em = c.contadoEm ?? '';
+      m.set(c.sku, {
+        sku: c.sku, contado: (a?.contado ?? 0) + (c.contado ?? 0),
+        contadoEm: a && a.contadoEm > em ? a.contadoEm : em,
       });
-      /* Não é erro, e o leitor não deve tocar o som de recusa: a peça foi
-         reconhecida, e o que falta é uma resposta humana. */
-      return { ok: true, texto: `${linha?.desc ?? sku} tem variação — diga qual você contou` };
     }
-    if (r && 'erro' in r && r.erro) return falhou(String(r.erro));
-    if (!escolha) gravados.current.set(sku, contado);
-    detalhe.recarregar();
-    const linha = esperadosPorSku.get(sku);
-    return {
-      ok: true,
-      texto: linha
-        ? `${linha.desc} ✓ ${contado} de ${linha.esperado}`
-        : `${sku} ✓ contado ${contado}`,
-    };
-  }
-
-  /** UMA LEITURA DA CÂMERA.
-   *
-   *  Aqui mora a única regra desta integração, e ela é curta: a bipada
-   *  SOMA UM ao que já estava contado naquela linha.
-   *
-   *  Isso não é detalhe de implementação — é o que faz a segunda unidade da
-   *  mesma peça ser contada como segunda unidade. `POST /itens` grava um
-   *  valor ABSOLUTO (`contado`), então quem bipa precisa ler o valor atual
-   *  e mandar o próximo. Mandar sempre `1` transformaria dez peças iguais
-   *  em uma.
-   *
-   *  O painel clássico acumulava em memória (`scan.itens[sku]++`) e mandava
-   *  o retrato inteiro no fim, por `PUT /contagem`. Aqui não: cada leitura
-   *  grava na hora, pela mesma rota que o `+` da lista usa. É por isso que
-   *  fechar a câmera, pausar ou perder a conexão não perde contagem — e é
-   *  também por isso que NÃO existe rota de escrita nova nesta entrega. */
-  function aoBipar(codigoCru: string): Promise<ResultadoDaLeitura> {
-    const vez = filaDeBipadas.current.then(() => biparAgora(codigoCru));
-    filaDeBipadas.current = vez.catch(() => undefined);
-    return vez;
-  }
-
-  async function biparAgora(codigoCru: string): Promise<ResultadoDaLeitura> {
-    if (pausado) {
-      return { ok: false, texto: 'O inventário está pausado. Toque em "Continuar" para contar.' };
+    return m;
+  }, [conferidas]);
+  const estadoDoSku = (sku: string): EstadoDaReferencia => {
+    let pior: EstadoDaReferencia = 'nao_conferido';
+    const peso = { nao_conferido: 0, conferido: 1, sobra: 2, com_falta: 3 };
+    for (const c of conferidas.values()) {
+      if (c.sku !== sku) continue;
+      const e = estadoDe(c);
+      if (peso[e] > peso[pior]) pior = e;
     }
-    /* Resolve contra o que se espera em casa. Não achou ali, manda o código
-       normalizado assim mesmo: quem decide se ele existe é o SERVIDOR, e a
-       recusa dele diz o motivo exato — fora do catálogo, kit sem saldo
-       próprio, peça só de maleta. A tela chutando o motivo erraria. */
-    const sku = resolverSku(codigoCru, esperadosPorSku);
-    if (!sku) {
-      const tentativa = String(codigoCru ?? '').trim().toUpperCase();
-      if (!tentativa) return { ok: false, texto: 'Leitura vazia.' };
-      return contar(tentativa, totalAtual(tentativa) + 1, undefined, true);
-    }
-    return contar(sku, totalAtual(sku) + 1, undefined, true);
-  }
+    return pior;
+  };
+  const lista = useMemo(() => {
+    const t = busca.trim().toLowerCase();
+    return filtrarPorCategoria(esperados, categoria).filter((p) => {
+      if (t && !(p.sku.toLowerCase().includes(t) || p.desc.toLowerCase().includes(t))) return false;
+      if (t) return true;
+      const e = estadoDoSku(p.sku);
+      if (filtroLista === 'pendentes') return e === 'nao_conferido';
+      if (filtroLista === 'com_falta') return e === 'com_falta' || e === 'sobra';
+      return true;
+    });
+  }, [esperados, categoria, busca, filtroLista, conferidas]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function descontar(sku: string) {
-    gravados.current.delete(sku);
-    setOcupado(sku);
-    setErro('');
-    await chamar(conexao, 'DELETE', `/api/inventarios/${id}/itens/${encodeURIComponent(sku)}`)
-      .catch(() => null);
-    setOcupado(null);
-    detalhe.recarregar();
-  }
-
-  /* A COBERTURA continua vindo do servidor e continua sendo o texto do
-     cabeçalho. A porcentagem saiu daqui: ela agora é calculada dentro de
-     `ProgressoDaContagem`, junto com a fatia por categoria, para o número
-     grande e as barras nunca discordarem por serem duas contas. */
   const cobertura = detalhe.dados?.cobertura;
+  const eventos = detalhe.dados?.eventos ?? [];
 
   if (status === 'cancelado') {
     return (
@@ -663,8 +744,8 @@ function Contagem({
             <p className="mq-eyebrow">Contagem encerrada</p>
             <h2 className="mq-title">Revisão do inventário #{id}</h2>
             <p className="mq-lede">
-              O retrato está congelado. Selecione as divergências comparáveis
-              — o sistema calcula o ajuste, e nenhum é aplicado sem você.
+              Selecione as divergências — o sistema calcula o ajuste, e nenhum
+              é aplicado sem você.
             </p>
           </div>
           <button type="button" className="mq-btn mq-btn--ghost mq-btn--sm" onClick={aoSair}>
@@ -677,6 +758,8 @@ function Contagem({
     );
   }
 
+  const ultimaRef = ultima ? esperadosPorSku.get(ultima.sku) : undefined;
+
   return (
     <section className="mq-card mq-card--flush inventario-ativo">
       <header className="mq-card__head active-inventory-head">
@@ -687,19 +770,10 @@ function Contagem({
               {pausado ? 'Pausado' : 'Em andamento'}
             </span>
             {detalhe.dados?.iniciadoEm ? ` · iniciado em ${fmtData(detalhe.dados.iniciadoEm)}` : ''}
-          </p>
-          <p className="mq-lede">
-            {cobertura
-              ? `${cobertura.conferidos} de ${cobertura.total} itens conferidos`
-              : 'carregando…'}
-            {ultimaGravacao ? ` · última gravação ${fmtHora(ultimaGravacao)}` : ''}
+            {cobertura ? ` · ${cobertura.total} códigos` : ''}
           </p>
         </div>
         <div className="active-actions">
-          {/* A CÂMERA é a primeira ação da contagem, e não um extra no
-              rodapé: contar de pé, com o telefone, é o jeito normal de
-              fazer isto — o teclado é a exceção. Some quando o inventário
-              está pausado, porque pausado nada conta. */}
           {temCamera() && !pausado && (
             <button
               type="button"
@@ -712,38 +786,22 @@ function Contagem({
             </button>
           )}
           {!pausado ? (
-            <button
-              type="button"
-              className="mq-btn mq-btn--secondary"
-              disabled={!!ocupado}
-              onClick={() => acao(`/api/inventarios/${id}/pausar`)}
-            >
+            <button type="button" className="mq-btn mq-btn--secondary" disabled={!!ocupado}
+              onClick={() => acao(`/api/inventarios/${id}/pausar`)}>
               Pausar
             </button>
           ) : (
-            <button
-              type="button"
-              className="mq-btn mq-btn--secondary"
-              disabled={!!ocupado}
-              onClick={() => acao(`/api/inventarios/${id}/retomar`)}
-            >
+            <button type="button" className="mq-btn mq-btn--secondary" disabled={!!ocupado}
+              onClick={() => acao(`/api/inventarios/${id}/retomar`)}>
               Continuar
             </button>
           )}
-          <button
-            type="button"
-            className="mq-btn mq-btn--primary"
-            disabled={!!ocupado}
-            onClick={() => setEncerrando(true)}
-          >
+          <button type="button" className="mq-btn mq-btn--primary" disabled={!!ocupado}
+            onClick={() => setEncerrando(true)}>
             Concluir
           </button>
-          <button
-            type="button"
-            className="mq-btn mq-btn--danger"
-            disabled={!!ocupado}
-            onClick={() => setDescartando(true)}
-          >
+          <button type="button" className="mq-btn mq-btn--danger" disabled={!!ocupado}
+            onClick={() => setDescartando(true)}>
             Descartar
           </button>
           <button type="button" className="mq-btn mq-btn--ghost" onClick={aoSair}>
@@ -752,146 +810,142 @@ function Contagem({
         </div>
       </header>
 
-      {/* O PROGRESSO DA CONFERÊNCIA. Era uma barra de 6px com um número ao
-          lado, que respondia "quanto falta" e mais nada: ela não sabia dizer
-          QUAL parte do estoque ainda não tinha sido percorrida, e é essa a
-          pergunta de quem está de pé na frente das gavetas. */}
-      <ProgressoDaContagem
-        esperados={esperados}
-        contados={contados}
-        categoria={categoria}
-        aoFiltrar={setCategoria}
-      />
-
       {pausado && (
         <p className="mq-note mq-note--warn">
           <Icone nome="alert" />
-          <span>
-            <b>Pausado.</b> A contagem continua de onde parou.
-          </span>
+          <span><b>Pausado.</b> A contagem continua de onde parou.</span>
         </p>
       )}
-
       {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
+      {detalhe.erro && !detalhe.dados ? (
+        <ErrorState erro={detalhe.erro} aoTentarDeNovo={detalhe.recarregar} />
+      ) : null}
 
-      {/* O leitor fica ACIMA da lista porque é de lá que a contagem entra
-          quando ela está de pé. A lista continua inteira embaixo, e o
-          número de cada linha muda sozinho a cada bipada. */}
       {camera && !pausado && (
         <div className="mq-card__body">
           <LeitorDeEtiquetas
-            aoLer={aoBipar}
-            aoFechar={() => setCamera(false)}
-            /* Enquanto o servidor pergunta qual variação foi contada, a
-               câmera para de ler. Sem isto ela continuaria bipando por trás
-               do diálogo e enfileiraria respostas para uma pergunta que
-               ainda não foi respondida. */
-            pausado={!!perguntandoVariacao}
-            titulo="Bipe cada peça que estiver aí"
-            dica={'Cada leitura soma UMA unidade à peça. Pode bipar a mesma peça '
-              + 'de novo para contar a segunda unidade — espere o bipe.'}
+            aoLer={async (codigo) => lerCodigo(codigo)}
+            aoFechar={() => { setCamera(false); estacao.current?.focar(); }}
+            titulo="Bipe uma peça de cada referência"
+            dica="Um bipe confere a referência inteira. Se faltar, digite só quanto falta."
           />
         </div>
       )}
 
-      <div className="mq-filters inventory-capture">
-        <label className="mq-search">
-          <Icone nome="search" />
-          <input
-            className="mq-input"
-            type="search"
-            placeholder="SKU ou nome da peça — bipe a etiqueta ou digite"
-            aria-label="SKU ou nome da peça"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-          />
-        </label>
-        <span className="mq-filters__count">
-          {lista.length} de {esperados.length} {plural(esperados.length, 'código', 'códigos')}
-        </span>
+      <div className="mq-card__body">
+        <EstacaoDeLeitura
+          ref={estacao}
+          pausado={pausado}
+          pronto={!!detalhe.dados}
+          feedback={feedback}
+          ultima={ultima && ultimaRef ? { ref: ultimaRef, variacao: ultima.variacao, linhas: linhasDe(ultima.sku) } : null}
+          recentes={recentes}
+          resumo={resumo}
+          aoLer={(t) => { lerCodigo(t); }}
+          aoInformarFalta={(v, n) => informarFalta(v, n)}
+          aoInformarEncontradas={informarEncontradas}
+          aoEscolherVariacao={escolherVariacao}
+          aoCriarVariacao={criarVariacao}
+          aoTentarDeNovo={tentarDeNovo}
+        />
       </div>
 
-      <div className="mq-table inventory-count-list" role="table" aria-label="Itens contados">
-        <div className="mq-tr mq-tr--head count-row" role="row">
-          <span>Peça</span>
-          <span className="mq-cell--num">Esperado em casa</span>
-          <span className="mq-cell--num">Contado</span>
-          <span>Status</span>
-          <span />
+      <details className="inventario-lista">
+        <summary>Lista e progresso por categoria</summary>
+        <ProgressoDaContagem
+          esperados={esperados}
+          contados={contadosPorSku}
+          categoria={categoria}
+          aoFiltrar={setCategoria}
+        />
+        <div className="mq-filters inventory-capture">
+          <label className="mq-search">
+            <Icone nome="search" />
+            <input
+              className="mq-input"
+              type="search"
+              placeholder="Procurar peça sem etiqueta"
+              aria-label="Procurar peça na lista"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </label>
+          <div className="mq-chipset" role="group" aria-label="Mostrar">
+            {([['pendentes', 'Pendentes'], ['com_falta', 'Com falta'], ['todos', 'Todos']] as const).map(([v, r]) => (
+              <button key={v} type="button" className={filtroLista === v ? 'mq-chip is-on' : 'mq-chip'}
+                aria-pressed={filtroLista === v} onClick={() => setFiltroLista(v)}>
+                {r}
+              </button>
+            ))}
+          </div>
+          <span className="mq-filters__count">{lista.length} {plural(lista.length, 'código', 'códigos')}</span>
         </div>
-
-        {lista.map((p) => {
-          const c = contados.get(p.sku);
-          const situacao = situacaoDaLinha(p, c?.contado);
-          return (
-            <div className="mq-tr count-row" role="row" key={p.sku}>
-              <span className="mq-cell">
-                <b>{p.sku} · {p.desc}</b>
-                <small className="mq-sku">
-                  {p.cat || 'sem categoria'}
-                  {/* A frase que impede a dúvida mais cara da contagem: o
-                      número da coluna NÃO é o estoque total. A conta vai
-                      escrita por inteiro porque, no primeiro inventário
-                      (28/09/2026), "3 · 5 no total, 2 com revendedoras" foi
-                      lido como erro: ela tinha 3 no total, e era o TOTAL do
-                      sistema que estava errado — é isso que a contagem acha. */}
-                  {p.consignado > 0
-                    ? ` · sistema: ${p.total} no total = ${p.esperado} em casa + ${p.consignado} com revendedoras`
-                    : ''}
-                </small>
-              </span>
-
-              <span className="mq-cell mq-cell--num" data-label="Esperado em casa">
-                <b className="mq-qty">{p.esperado}</b>
-              </span>
-
-              <span className="mq-cell mq-cell--num" data-label="Contado">
-                <input
-                  className="mq-input mq-inv-contagem"
-                  type="number"
-                  min={0}
-                  inputMode="numeric"
-                  aria-label={`Contagem de ${p.desc}`}
-                  defaultValue={c ? c.contado : ''}
-                  placeholder="—"
-                  disabled={pausado || ocupado === p.sku}
-                  onBlur={(e) => {
-                    const v = e.target.value.trim();
-                    if (v === '') return;
-                    const n = Number(v);
-                    if (Number.isInteger(n) && n >= 0 && (!c || c.contado !== n)) contar(p.sku, n);
-                  }}
-                />
-              </span>
-
-              <span className="mq-cell" data-label="Status">
-                <span className={situacao.classe}>{situacao.rotulo}</span>
-              </span>
-
-              <span className="mq-cell mq-cell--center">
-                {c && (
-                  <button
-                    type="button"
-                    className="mq-btn mq-btn--ghost mq-btn--sm"
-                    disabled={pausado || ocupado === p.sku}
-                    title="Voltar para não contado — que não é zero"
-                    onClick={() => descontar(p.sku)}
-                  >
-                    Desfazer
-                  </button>
-                )}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+        <div className="mq-table inventory-count-list" role="table" aria-label="Itens do inventário">
+          <div className="mq-tr mq-tr--head count-row" role="row">
+            <span>Peça</span>
+            <span className="mq-cell--num">Esperado em casa</span>
+            <span className="mq-cell--num">Faltando</span>
+            <span>Status</span>
+            <span />
+          </div>
+          {lista.slice(0, 300).map((p) => {
+            const e = estadoDoSku(p.sku);
+            const falta = linhasDe(p.sku).reduce((s, c) => s + pecasFaltandoEm(c), 0);
+            const sit = situacaoDoEstado(e);
+            return (
+              <div className="mq-tr count-row" role="row" key={p.sku}>
+                <span className="mq-cell">
+                  <b>{p.sku} · {p.desc}</b>
+                  <small className="mq-sku">
+                    {p.cat || 'sem categoria'}
+                    {p.consignado > 0 ? ` · ${p.consignado} com revendedoras` : ''}
+                  </small>
+                </span>
+                <span className="mq-cell mq-cell--num" data-label="Esperado em casa"><b className="mq-qty">{p.esperado}</b></span>
+                <span className="mq-cell mq-cell--num" data-label="Faltando">{e === 'nao_conferido' ? '—' : falta}</span>
+                <span className="mq-cell" data-label="Status"><span className={sit.classe}>{sit.rotulo}</span></span>
+                <span className="mq-cell mq-cell--center">
+                  {e === 'nao_conferido' ? (
+                    <button type="button" className="mq-btn mq-btn--ghost mq-btn--sm" disabled={pausado}
+                      onClick={() => { lerCodigo(p.sku); estacao.current?.focar(); }}>
+                      Conferir
+                    </button>
+                  ) : (
+                    <button type="button" className="mq-btn mq-btn--ghost mq-btn--sm" disabled={pausado}
+                      title="Voltar para não conferido — que não é falta"
+                      onClick={() => {
+                        for (const l of linhasDe(p.sku)) void apagarLinha(p.sku, l.variacao);
+                        if (ultima?.sku === p.sku) setUltima(null);
+                      }}>
+                      Desfazer
+                    </button>
+                  )}
+                </span>
+              </div>
+            );
+          })}
+          {lista.length > 300 && (
+            <p className="mq-lede">Mostrando 300 de {lista.length}. Procure pelo nome ou código.</p>
+          )}
+        </div>
+      </details>
 
       {encerrando && (
         <DialogoDeEncerramento
-          resumo={resumo}
+          resumo={{
+            conferido: resumo.conferidos,
+            faltando: resumo.comFalta,
+            sobrando: resumo.sobrando,
+            naoConferido: resumo.pendentes,
+            pecasContadas: resumo.pecasContadas,
+            pecasFaltando: resumo.pecasFaltando,
+            naoSalvos: resumo.naoSalvos,
+            variacoesCriadas: eventos.filter((e) => e.tipo === 'variacao_criada')
+              .map((e) => `${e.desc} · ${e.variacao ?? ''}`),
+          }}
           ocupado={!!ocupado}
           aoConfirmar={finalizar}
-          aoCancelar={() => setEncerrando(false)}
+          aoCancelar={() => { setEncerrando(false); estacao.current?.focar(); }}
         />
       )}
 
@@ -899,38 +953,18 @@ function Contagem({
         <DialogoDeDescarte
           ocupado={!!ocupado}
           aoConfirmar={descartar}
-          aoVoltar={() => setDescartando(false)}
+          aoVoltar={() => { setDescartando(false); estacao.current?.focar(); }}
         />
       )}
-
-      {perguntandoVariacao && (
-        <DialogoDeVariacao
-          pedido={perguntandoVariacao}
-          aoCancelar={() => setPerguntandoVariacao(null)}
-          aoConfirmar={(escolha) => {
-            const pedido = perguntandoVariacao;
-            setPerguntandoVariacao(null);
-            contar(pedido.sku, pedido.contado, escolha);
-          }}
-        />
-      )}
-
-      <div className="mq-card__foot count-summary">
-        <span><small>Faltando</small><strong>{resumo.faltando}</strong></span>
-        <span><small>Sobrando</small><strong>{resumo.sobrando}</strong></span>
-        <span><small>Conferidos</small><strong>{resumo.conferido}</strong></span>
-        <span><small>Não conferidos</small><strong>{resumo.naoConferido}</strong></span>
-      </div>
     </section>
   );
 }
 
-/** A hora da gravação, curta. A data não entra: quem lê isto está contando
- *  AGORA, e quer saber se o que gravou há dez minutos continua lá. */
-function fmtHora(iso: string): string {
-  const d = new Date(iso.includes('T') ? iso : `${iso.replace(' ', 'T')}Z`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+function situacaoDoEstado(e: EstadoDaReferencia): { rotulo: string; classe: string } {
+  if (e === 'nao_conferido') return { rotulo: 'Não conferido', classe: 'mq-status mq-status--open' };
+  if (e === 'conferido') return { rotulo: 'Conferido', classe: 'mq-status mq-status--ok' };
+  if (e === 'com_falta') return { rotulo: 'Com falta', classe: 'mq-status mq-status--risk' };
+  return { rotulo: 'Sobrando', classe: 'mq-status mq-status--warn' };
 }
 
 /** Os quatro estados que o protótipo desenha, e o que cada um significa.

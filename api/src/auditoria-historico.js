@@ -444,6 +444,130 @@ async function saidaDaLinha(db, linha, classe, motivo, usuario, rcId) {
   return { id: r.saida.id };
 }
 
+/* ═══════════════════════════════════════════════════ corrigir a classe */
+
+const LIMITE_MOTIVO_SAIDA = 120;
+
+/** CORRIGE a classe de uma linha que JÁ foi reclassificada (02/10/2026).
+ *
+ *  Caso que a criou: a Sthefany mandou a planilha "Saiu sem faturar" com a
+ *  classe que ela considera certa para cada peça. Doze linhas que a regra
+ *  automática de 26/09 chamou de "uso próprio" são presentes (brinde), e um
+ *  "sorteio" ela registra como brinde. Para os códigos da planilha, a
+ *  planilha vence.
+ *
+ *  O que esta função NÃO faz é o que a torna segura:
+ *
+ *   · não toca estoque. A saída da linha é classificatória
+ *     (`estoque_refletido = 0`): a baixa física foi da importação da
+ *     planilha de vendas, e trocar a classe não baixa nem devolve nada.
+ *     Saída COM baixa é recusada — lá a classe está gravada também no tipo
+ *     do movimento da razão, e corrigi-la é estorno e novo lançamento;
+ *   · não apaga a decisão anterior. A classe e o motivo de antes vão para
+ *     `historico_reclassificacao_correcoes`, com a fonte e a hora;
+ *   · não repete. A mesma correção (mesma linha, mesma fonte, mesma classe)
+ *     aplicada de novo devolve `jaAplicada` e não escreve nada.
+ *
+ *  A mesma função ANOTA uma linha cuja classe já estava certa: a
+ *  observação ("Presente Vó — Dia das Mães") e o custo que a planilha dá
+ *  ficam registrados do mesmo jeito, com `classe_anterior = classe_nova`. */
+export async function corrigirReclassificacao(db, historicoItemId, corpo = {}) {
+  const CLASSES = new Set(['brinde', 'uso_proprio', 'perda', 'sorteio']);
+  const classe = String(corpo.classe ?? '').trim();
+  if (!CLASSES.has(classe)) return { ok: false, statusHttp: 400, erro: 'Classe inválida.' };
+  const fonte = String(corpo.fonte ?? '').trim();
+  if (fonte.length < 3) return { ok: false, statusHttp: 400, erro: 'Diga de onde vem a correção (fonte).' };
+  const motivo = String(corpo.motivo ?? '').trim();
+  if (motivo.length < 3) return { ok: false, statusHttp: 400, erro: 'Diga o motivo da correção.' };
+  const observacao = String(corpo.observacao ?? '').trim() || null;
+  let custo = null;
+  if (corpo.custo !== undefined && corpo.custo !== null && corpo.custo !== '') {
+    custo = Number(corpo.custo);
+    if (!Number.isFinite(custo) || custo < 0) return { ok: false, statusHttp: 400, erro: 'Custo inválido.' };
+    custo = Math.round(custo * 100) / 100;
+  }
+  const usuario = corpo.usuario == null ? null : String(corpo.usuario);
+
+  const rc = await db.prepare(
+    `SELECT * FROM historico_reclassificacao WHERE historico_item_id = ? AND status = 'aplicada'`,
+  ).bind(Number(historicoItemId)).first();
+  if (!rc) return { ok: false, statusHttp: 404, erro: 'Esta linha não tem reclassificação aplicada.' };
+
+  const ja = await db.prepare(
+    `SELECT id FROM historico_reclassificacao_correcoes
+      WHERE reclassificacao_id = ? AND fonte = ? AND classe_nova = ?`,
+  ).bind(rc.id, fonte, classe).first();
+  if (ja) return { ok: true, jaAplicada: true, correcaoId: ja.id, estoqueAlterado: false };
+
+  const saida = rc.saida_id
+    ? await db.prepare('SELECT * FROM saidas_sem_faturamento WHERE id = ?').bind(rc.saida_id).first()
+    : null;
+  if (saida && saida.estoque_refletido && !saida.estornada) {
+    return {
+      ok: false, statusHttp: 409,
+      erro: `A saída ${saida.id} baixou estoque: a classe também está no movimento da razão. `
+        + 'Estorne e lance de novo com a classe certa.',
+    };
+  }
+
+  const classeAnterior = rc.classe_nova;
+  const motivoNovo = [motivo, observacao ? `Observação da fonte: "${observacao}"` : null]
+    .filter(Boolean).join(' — ').slice(0, 1000);
+  const stmts = [
+    db.prepare(
+      `INSERT INTO historico_reclassificacao_correcoes
+         (reclassificacao_id, classe_anterior, classe_nova, motivo_anterior, motivo, observacao,
+          custo_informado, fonte, saida_id, decidido_por)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(rc.id, classeAnterior, classe, rc.motivo, motivoNovo, observacao, custo, fonte,
+      saida && !saida.estornada ? saida.id : null, usuario),
+    db.prepare(
+      `UPDATE historico_reclassificacao SET classe_nova = ?, motivo = ? WHERE id = ?`,
+    ).bind(classe, motivoNovo, rc.id),
+  ];
+
+  let saidaAtualizada = null;
+  if (saida && !saida.estornada) {
+    /* O rótulo curto e agrupável da saída passa a ser a observação da fonte
+       ("Presente Vitória"), que é o que ela escreveria; sem observação, o
+       rótulo da classe. O texto anterior não some: vai para o fim da
+       observação longa, com a data da correção. */
+    const rotulo = (observacao || ROTULO_SAIDA[classe] || classe).slice(0, LIMITE_MOTIVO_SAIDA);
+    const nota = classeAnterior === classe
+      ? `Anotado (${fonte}).`
+      : `Classe corrigida de ${ROTULO_SAIDA[classeAnterior] ?? classeAnterior} para ${ROTULO_SAIDA[classe] ?? classe} (${fonte}).`;
+    const obsLonga = [saida.observacao, `${nota} Rótulo anterior: "${saida.motivo ?? ''}".`]
+      .filter(Boolean).join(' ').slice(0, 1000);
+    stmts.push(db.prepare(
+      `UPDATE saidas_sem_faturamento
+          SET tipo = ?, motivo = ?, observacao = ?, atualizado_em = datetime('now')
+        WHERE id = ?`,
+    ).bind(classe, rotulo, obsLonga, saida.id));
+    if (custo != null && saida.custo_unit == null) {
+      stmts.push(db.prepare(
+        `UPDATE saidas_sem_faturamento SET custo_unit = ?, custo_fonte = 'planilha' WHERE id = ?`,
+      ).bind(custo, saida.id));
+      stmts.push(db.prepare(
+        `INSERT INTO saidas_valor_historico (saida_id, campo, anterior, novo, fonte, motivo)
+         VALUES (?, 'custo_unit', NULL, ?, 'planilha', ?)`,
+      ).bind(saida.id, custo, `custo informado em ${fonte}`.slice(0, 200)));
+    }
+    saidaAtualizada = saida.id;
+  }
+
+  await db.batch(stmts);
+  return {
+    ok: true,
+    historicoItemId: Number(historicoItemId),
+    reclassificacaoId: rc.id,
+    classeAnterior, classeNova: classe,
+    mudouClasse: classeAnterior !== classe,
+    saidaId: saidaAtualizada,
+    custoInformado: custo,
+    estoqueAlterado: false,
+  };
+}
+
 export async function listarReclassificacoes(db, { status = null } = {}) {
   const { results } = await db.prepare(
     `SELECT rc.*, h.cliente_nome_original, h.data, h.sku, h.qtd, h.valor_total,

@@ -358,13 +358,23 @@ function SaiuSemFaturar({
     [conexao, de, ate],
   );
   const [completando, setCompletando] = useState<SaidaSemFaturamento | null>(null);
-  const valor = saidas.dados?.resumo.valor;
-  const pecas = saidas.dados?.resumo.total ?? 0;
-  const lista = saidas.dados?.saidas ?? [];
+  /* NAVEGAR PELO MOTIVO (02/10/2026). A Sthefany não quer a lista inteira
+     embaixo dos motivos: ela quer clicar em "Brinde" e ver só os brindes.
+     O motivo aberto é estado da tela — fechar volta para o resumo. */
+  const [motivoAberto, setMotivoAberto] = useState<string | null>(null);
+  const lista = useMemo(() => saidas.dados?.saidas ?? [], [saidas.dados]);
+  /* Os registros antigos sem saída própria (código fora do catálogo ou sem
+     data) são peças que saíram tanto quanto as outras: entram na mesma conta
+     por motivo, com o período aplicado do mesmo jeito que a lista deles. */
+  const legado = useMemo(() => (saidas.dados?.legado ?? []).filter((l) => {
+    if (!de && !ate) return true;
+    if (!l.data) return false;
+    return (!de || l.data >= de) && (!ate || l.data <= ate);
+  }), [saidas.dados, de, ate]);
 
   const porMotivo = useMemo(() => {
-    const m = new Map<string, { rotulo: string; pecas: number; venda: number; custo: number; semValor: number; semCusto: number }>();
-    for (const t of TIPOS_DE_SAIDA) m.set(t.id, { rotulo: t.rotuloLongo, pecas: 0, venda: 0, custo: 0, semValor: 0, semCusto: 0 });
+    const m = new Map<string, { id: string; rotulo: string; pecas: number; venda: number; custo: number; semValor: number; semCusto: number }>();
+    for (const t of TIPOS_DE_SAIDA) m.set(t.id, { id: t.id, rotulo: t.rotuloLongo, pecas: 0, venda: 0, custo: 0, semValor: 0, semCusto: 0 });
     for (const s of lista) {
       if (s.estornada) continue;
       const g = m.get(s.tipo);
@@ -374,11 +384,22 @@ function SaiuSemFaturar({
       if (s.precoUnit == null) g.semValor += n; else g.venda += s.precoUnit * n;
       if (s.custoUnit == null) g.semCusto += n; else g.custo += s.custoUnit * n;
     }
+    for (const l of legado) {
+      const g = m.get(l.tipo);
+      if (!g) continue;
+      const n = l.qtd ?? 1;
+      g.pecas += n;
+      if (l.valorPlanilha == null || l.valorPlanilha === 0) g.semValor += n; else g.venda += l.valorPlanilha;
+      if (l.custoInformado == null) g.semCusto += n; else g.custo += l.custoInformado * n;
+    }
     return [...m.values()].filter((g) => g.pecas !== 0);
-  }, [lista]);
+  }, [lista, legado]);
 
-  const pecasSemValor = valor?.pecasSemPreco ?? 0;
-  const pecasSemCusto = valor?.pecasSemCusto ?? 0;
+  const total = porMotivo.reduce((t, g) => ({
+    pecas: t.pecas + g.pecas, venda: t.venda + g.venda, custo: t.custo + g.custo,
+    semValor: t.semValor + g.semValor, semCusto: t.semCusto + g.semCusto,
+  }), { pecas: 0, venda: 0, custo: 0, semValor: 0, semCusto: 0 });
+  const aberto = motivoAberto ? porMotivo.find((g) => g.id === motivoAberto) ?? null : null;
 
   return (
     <>
@@ -387,45 +408,56 @@ function SaiuSemFaturar({
       <div className="mq-kpis">
         <div className="mq-kpi">
           <span className="mq-kpi__label">Peças que saíram</span>
-          <span className="mq-kpi__value">{qtdTexto(pecas)}</span>
+          <span className="mq-kpi__value">{qtdTexto(total.pecas)}</span>
           <span className="mq-kpi__foot">brinde, uso próprio, perda e sorteio</span>
         </div>
         <div className="mq-kpi">
           <span className="mq-kpi__label">Deixou de vender</span>
-          <span className="mq-kpi__value"><i>R$</i>{moneyNumero(valor?.venda ?? 0)}</span>
+          <span className="mq-kpi__value"><i>R$</i>{moneyNumero(total.venda)}</span>
           <span className="mq-kpi__foot">
-            {pecasSemValor
-              ? `${qtdTexto(pecasSemValor)} ${plural(pecasSemValor, 'peça', 'peças')} sem valor — total incompleto`
+            {total.semValor
+              ? `${qtdTexto(total.semValor)} ${plural(total.semValor, 'peça', 'peças')} sem valor — total incompleto`
               : 'pelo preço de venda'}
           </span>
         </div>
         <div className="mq-kpi mq-kpi--risk">
           <span className="mq-kpi__label">Perdido (a preço de custo)</span>
-          {valor && pecas > 0 && pecasSemCusto === pecas ? (
+          {total.pecas > 0 && total.semCusto === total.pecas ? (
             <span className="mq-kpi__value mq-kpi__value--vazio">custo não informado</span>
           ) : (
-            <span className="mq-kpi__value"><i>R$</i>{moneyNumero(valor?.custo ?? 0)}</span>
+            <span className="mq-kpi__value"><i>R$</i>{moneyNumero(total.custo)}</span>
           )}
           <span className="mq-kpi__foot">
-            {pecasSemCusto
-              ? `${qtdTexto(pecasSemCusto)} de ${qtdTexto(pecas)} ${plural(pecas, 'peça', 'peças')} sem custo`
+            {total.semCusto
+              ? `${qtdTexto(total.semCusto)} de ${qtdTexto(total.pecas)} ${plural(total.pecas, 'peça', 'peças')} sem custo`
               : 'o que foi pago nas peças'}
           </span>
         </div>
-        <div className={pecasSemCusto + pecasSemValor > 0 ? 'mq-kpi mq-kpi--accent' : 'mq-kpi mq-kpi--ok'}>
+        <div className={total.semCusto + total.semValor > 0 ? 'mq-kpi mq-kpi--accent' : 'mq-kpi mq-kpi--ok'}>
           <span className="mq-kpi__label">Falta completar</span>
           <span className="mq-kpi__value">
-            {qtdTexto(lista.filter((s) => !s.estornada && (s.precoUnit == null || s.custoUnit == null)).length)}
+            {qtdTexto(lista.filter((x) => !x.estornada && (x.precoUnit == null || x.custoUnit == null)).length)}
           </span>
           <span className="mq-kpi__foot">lançamentos sem valor ou sem custo</span>
         </div>
       </div>
 
-      {porMotivo.length > 0 && (
+      {saidas.dados && porMotivo.length === 0 && (
+        <section className="mq-card">
+          <div className="mq-state">
+            <span className="mq-state__icon"><Icone nome="box" /></span>
+            <h3>Nenhuma saída neste período</h3>
+            <p>Lance em Vendas › Saída sem faturamento.</p>
+          </div>
+        </section>
+      )}
+
+      {porMotivo.length > 0 && !aberto && (
         <section className="mq-card mq-card--flush" aria-labelledby="saidas-por-motivo">
           <div className="mq-card__head">
             <div>
               <h2 className="mq-title" id="saidas-por-motivo">Por motivo</h2>
+              <p className="mq-lede">Toque num motivo para ver as peças.</p>
             </div>
           </div>
           <ul className="saidas-motivos">
@@ -433,42 +465,48 @@ function SaiuSemFaturar({
               <span>Motivo</span><span>Peças</span><span>Deixou de vender</span><span>A custo</span>
             </li>
             {porMotivo.map((g) => (
-              <li key={g.rotulo}>
-                <span><b>{g.rotulo}</b></span>
-                <span>{qtdTexto(g.pecas)} {plural(g.pecas, 'peça', 'peças')}</span>
-                <span className="mq-money">
-                  {money(g.venda)}{g.semValor ? <small> · {qtdTexto(g.semValor)} sem valor</small> : null}
-                </span>
-                <span className="mq-money">
-                  {g.semCusto === g.pecas ? <small>custo não informado</small> : money(g.custo)}
-                  {g.semCusto && g.semCusto !== g.pecas ? <small> · {qtdTexto(g.semCusto)} sem custo</small> : null}
-                </span>
+              <li key={g.id}>
+                <button type="button" className="saidas-motivos__linha" onClick={() => setMotivoAberto(g.id)}>
+                  <span><b>{g.rotulo}</b></span>
+                  <span>{qtdTexto(g.pecas)} {plural(g.pecas, 'peça', 'peças')}</span>
+                  <span className="mq-money">
+                    {money(g.venda)}{g.semValor ? <small> · {qtdTexto(g.semValor)} sem valor</small> : null}
+                  </span>
+                  <span className="mq-money">
+                    {g.semCusto === g.pecas ? <small>custo não informado</small> : money(g.custo)}
+                    {g.semCusto && g.semCusto !== g.pecas ? <small> · {qtdTexto(g.semCusto)} sem custo</small> : null}
+                  </span>
+                </button>
               </li>
             ))}
           </ul>
         </section>
       )}
 
-      <section className="mq-card mq-card--flush">
-        <div className="mq-card__head">
-          <div>
-            <h2 className="mq-title">Peças que saíram sem virar venda</h2>
-            <p className="mq-lede">Sem valor ou sem custo? Toque em “Informar valor”.</p>
+      {aberto && (
+        <section className="mq-card mq-card--flush" aria-labelledby="saidas-do-motivo">
+          <div className="mq-card__head">
+            <div>
+              <h2 className="mq-title" id="saidas-do-motivo">{aberto.rotulo}</h2>
+              <p className="mq-lede">
+                {qtdTexto(aberto.pecas)} {plural(aberto.pecas, 'peça', 'peças')} · {money(aberto.venda)} pelo preço de venda
+              </p>
+            </div>
+            <button type="button" className="mq-btn mq-btn--ghost mq-btn--sm" onClick={() => setMotivoAberto(null)}>
+              ← Todos os motivos
+            </button>
           </div>
-        </div>
-
-        {saidas.dados && lista.length === 0 ? (
-          <div className="mq-state">
-            <span className="mq-state__icon"><Icone nome="box" /></span>
-            <h3>Nenhuma saída neste período</h3>
-            <p>Lance em Vendas › Saída sem faturamento.</p>
-          </div>
-        ) : (
-          <TabelaDeSaidas saidas={lista} aoCompletar={setCompletando} />
-        )}
-      </section>
-
-      <RegistrosAntigos legado={saidas.dados?.legado ?? []} de={de} ate={ate} />
+          {lista.some((x) => x.tipo === aberto.id && !x.estornada) && (
+            <TabelaDeSaidas
+              saidas={lista.filter((x) => x.tipo === aberto.id)}
+              aoCompletar={setCompletando}
+            />
+          )}
+        </section>
+      )}
+      {aberto && (
+        <RegistrosAntigos legado={legado.filter((l) => l.tipo === aberto.id)} />
+      )}
 
       {completando && (
         <ValorDaSaida

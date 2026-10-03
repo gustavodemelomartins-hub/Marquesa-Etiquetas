@@ -2368,3 +2368,66 @@ uso próprio); o cadastro dela continua ativo.
 Rotas: `GET /api/clientes/:id/dependencias`, `DELETE /api/clientes/:id`,
 `POST /api/clientes/:id/arquivar`, `POST /api/clientes/:id/reativar`,
 `GET /api/clientes?arquivadas=sim`.
+
+### 49. Inventário "bipou e marcha" — o sistema já sabe quanto deveria ter — §19
+
+O jeito da Sthefany (vídeos de 02/10/2026), que é o jeito do Excel dela:
+
+- **um bipe = a referência conferida**, nunca "+1 unidade". O servidor lê o
+  esperado em casa NA HORA do bipe (total − maletas abertas) e grava
+  `contado = esperado − faltando`, com `esperado_na_hora` e `faltando` na
+  linha (`POST /api/inventarios/:id/itens {sku, faltando}`);
+- **só a falta é digitada**, e só quanto falta (campo Faltando, ou "2 + Enter"
+  no próprio leitor: número de 1 a 3 dígitos não é etiqueta). Sem falta, ela
+  não toca em nada e bipa a próxima;
+- **bipar de novo a mesma referência não soma** — "Já conferido";
+- **não conferido não é falta.** Só o que ela disse vira diferença; o resto
+  continua pendente, e só a declaração explícita no encerramento muda isso;
+- peça com esperado **zero** em casa (tudo nas maletas) entra como 1
+  encontrada — é sobra, e a tela diz;
+- o esperado em casa diz **com quem está o resto**, por revendedora
+  ("Evelyn 1 · Luciana 1"). A conta é a de sempre; ela só ganha nome.
+
+**Variação.** A etiqueta do anel é a mesma para todos os aros, então o bipe
+comum confere o **código inteiro** (`codigoInteiro: true`). Bate → conferido,
+sem nada a atribuir a aro nenhum. Não bate → registrado e **não comparável**:
+a falta não diz de qual aro é, e não vira movimento (regra 2). Escolher um aro
+troca a conferência do código pela do aro; o esperado por aro só existe quando
+a razão do código tem identidade inteira — sem ela o servidor pede quantas ela
+achou (`precisaContado`). Em 02/10/2026 nenhum dos 27 códigos com variação tem
+a razão identificada por aro. "+ Adicionar variação" na própria leitura usa a
+mesma `definirVariacoes` de Peças (estrutura, nunca estoque) e fica registrada
+em `inventario_eventos` (`POST /api/inventarios/:id/variacoes`).
+
+Pausar e descartar não mexem em estoque; concluir congela o retrato; só a
+diferença confirmada, com motivo, vira ajuste pela razão. Leitura que não
+chegou ao servidor fica "não salva" na tela e **trava o encerramento**.
+
+### 50. A classe de uma saída se corrige, com trilha — a fonte humana vence a regra — §30
+
+Uma linha já reclassificada pode ter a CLASSE corrigida
+(`POST /api/historico/reclassificar/:itemId/corrigir {classe, fonte, motivo,
+observacao, custo}`). A decisão anterior vai para
+`historico_reclassificacao_correcoes` (classe e motivo de antes, a nova, a
+fonte, quando); a saída classificatória troca de tipo e o rótulo vira a
+observação da fonte; o custo informado entra com histórico de valor. **Nunca
+estoque**: saída com baixa é recusada (a classe está no movimento da razão —
+lá é estorno e novo lançamento). Repetir a mesma correção não escreve nada.
+
+Em 02/10/2026 a planilha "Saiu sem faturar.xlsx" da Sthefany (9 uso próprio,
+26 brinde, 3 inventário) venceu a classificação automática para os códigos
+que contém: 13 uso próprio → brinde e 1 sorteio → brinde. Custo 0 ou de
+fórmula quebrada é "não informado". Saídas fora da planilha não mudam.
+
+**Saiu sem faturar navega pelo motivo.** A tela principal mostra só os motivos
+(somando saídas e registros antigos); clicar abre as peças daquele motivo.
+
+### 51. A situação de um acerto de maleta vem do próprio acerto
+
+Pago quando o recebido cobre o **líquido do acerto** (vendido − comissão);
+parcial quando cobre só uma parte; a receber quando nada. Não do status da
+venda inteira da planilha naquela data, que soma linhas que o acerto exclui
+(`linhas_excluidas_json`). O caso: o acerto de 05/08/2026 da Evelyn Veiga, 26
+peças, R$ 1.473,10 recebidos = líquido — "Parcial" vinha da linha 1303,
+"Troca (anel de cruz)", R$ 10 NÃO PAGO, que o acerto exclui e que já é uma
+conta própria em A receber ("Diferença de troca/garantia").

@@ -143,6 +143,10 @@ const MIGRACOES = [
      auditoria dele. Depois de `vendas-historico`, cujo item ela lê. */
   'api/migracao-saida-valor.sql',
   'api/migracao-galeria-fotos.sql',
+  /* 02/10/2026 — inventário "bipou e marcha" (`esperado_na_hora`, `faltando`,
+     `inventario_eventos`) e a correção auditável da classe de uma saída
+     (`historico_reclassificacao_correcoes`). Só acrescenta. */
+  'api/migracao-inventario-conferencia.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com

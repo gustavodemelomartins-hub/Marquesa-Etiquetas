@@ -16,6 +16,7 @@ import {
   concluirInventario, ajustarInventario, cancelarInventario,
   contarItem, descontarItem, registrarNaoIdentificado,
   pausarInventario, retomarInventario, resultadoInventario, aplicarInventario,
+  criarVariacaoNaContagem,
 } from '../../inventario.js';
 
 export const rotas = [
@@ -119,6 +120,14 @@ export const rotas = [
     metodo: 'POST', caminho: '/api/inventarios/:id/nao-identificado', auth: 'bearer', padroes: { id: '[0-9]+' },
     async handler({ db, request, params }) {
       return await registrarNaoIdentificado(db, +params.id, await request.json().catch(() => ({})));
+    },
+  },
+  {
+    /* Cadastrar uma variação SEM SAIR da contagem (02/10/2026). Usa a mesma
+       `definirVariacoes` da tela de Peças — estrutura, nunca estoque. */
+    metodo: 'POST', caminho: '/api/inventarios/:id/variacoes', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      return await criarVariacaoNaContagem(db, +params.id, await request.json().catch(() => ({})));
     },
   },
   {

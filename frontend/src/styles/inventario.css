@@ -479,3 +479,93 @@
   font: 400 12.5px/1.45 var(--mq-sans); color: var(--mq-ink-2); cursor: pointer;
 }
 .encerrar-ciente input { margin-top: 2px; flex: none; }
+
+/* ------------------------------------------ a estação de leitura (02/10)
+ *
+ * "Bipou e marcha": o leitor é a tela. Ele é o maior elemento, fica no topo
+ * e nunca perde o foco; a última peça aparece logo embaixo com o esperado em
+ * casa e o campo Faltando; o resto é um resumo de uma linha e as últimas
+ * leituras. A lista inteira existe, recolhida, abaixo de tudo. */
+.estacao { display: grid; gap: var(--mq-4); }
+.estacao__leitor { display: grid; gap: var(--mq-2); }
+.estacao__campo {
+  display: flex; align-items: center; gap: var(--mq-3);
+  padding: 0 var(--mq-4);
+  border: 2px solid var(--mq-wine-600); border-radius: var(--mq-r-md);
+  background: var(--mq-paper);
+}
+.estacao__campo svg { width: 20px; height: 20px; color: var(--mq-wine-600); flex: none; }
+.estacao__campo .mq-input {
+  border: 0; box-shadow: none; background: transparent;
+  min-height: 56px; width: 100%;
+  font: 500 22px/1 var(--mq-sans); letter-spacing: .04em;
+  font-variant-numeric: tabular-nums;
+}
+.estacao__campo .mq-input:focus { outline: none; }
+.estacao__campo:focus-within { box-shadow: 0 0 0 3px var(--mq-wine-100); }
+.estacao__feedback { margin: 0; min-height: 1.4em; font: 500 14px/1.4 var(--mq-sans); color: var(--mq-muted); }
+.estacao__feedback--ok { color: var(--mq-ok); }
+.estacao__feedback--erro { color: var(--mq-risk); }
+
+.estacao__ultima {
+  display: grid; gap: var(--mq-3);
+  padding: var(--mq-4);
+  border: 1px solid var(--mq-line); border-radius: var(--mq-r-md);
+  background: var(--mq-paper);
+  box-shadow: inset 4px 0 var(--mq-ok);
+}
+.estacao__ultima.is-com_falta { box-shadow: inset 4px 0 var(--mq-risk); }
+.estacao__ultima.is-sobra { box-shadow: inset 4px 0 var(--mq-warn); }
+.estacao__ultima.is-nao_conferido { box-shadow: inset 4px 0 var(--mq-line-2); }
+.estacao__peca { display: flex; gap: var(--mq-3); align-items: center; }
+.estacao__peca b { display: block; font: 500 16px/1.3 var(--mq-sans); color: var(--mq-ink); }
+.estacao__marca {
+  width: 32px; height: 32px; flex: none; display: grid; place-items: center;
+  border-radius: 50%; background: var(--mq-ok-bg); color: var(--mq-ok); font-weight: 700;
+}
+.is-com_falta .estacao__marca { background: var(--mq-risk-bg); color: var(--mq-risk); }
+.is-sobra .estacao__marca { background: var(--mq-warn-bg); color: var(--mq-warn); }
+.estacao__numeros {
+  display: flex; flex-wrap: wrap; gap: var(--mq-3) var(--mq-6); margin: 0; align-items: end;
+}
+.estacao__numeros dt {
+  font: 500 10.5px var(--mq-sans); letter-spacing: .07em; text-transform: uppercase; color: var(--mq-muted);
+}
+.estacao__numeros dd { margin: 2px 0 0; font: 500 22px/1.1 var(--mq-sans); color: var(--mq-ink); font-variant-numeric: tabular-nums; }
+.estacao__numeros dd.estacao__fora { font-size: 15px; }
+.estacao__falta .mq-input { width: 88px; min-height: 40px; font-size: 18px; text-align: right; }
+.estacao__aviso { margin: 0; font-size: 12.5px; color: var(--mq-muted); }
+.estacao__variacoes { display: flex; flex-wrap: wrap; gap: var(--mq-2); align-items: center; }
+.estacao__variacoes label { display: flex; gap: var(--mq-2); align-items: center; font-size: 13px; color: var(--mq-muted); }
+.estacao__variacoes select { min-height: 34px; max-width: 260px; }
+.estacao__nova { display: flex; gap: var(--mq-2); flex-wrap: wrap; }
+.estacao__nova .mq-input { width: 160px; min-height: 34px; }
+
+.estacao__resumo { display: flex; flex-wrap: wrap; gap: var(--mq-2) var(--mq-5); margin: 0; }
+.estacao__resumo > div { display: flex; gap: var(--mq-2); align-items: baseline; }
+.estacao__resumo dt { font-size: 12.5px; color: var(--mq-muted); }
+.estacao__resumo dd { margin: 0; font: 600 15px var(--mq-sans); color: var(--mq-ink); font-variant-numeric: tabular-nums; }
+.estacao__resumo .is-ok dd { color: var(--mq-ok); }
+.estacao__resumo .is-risk dd { color: var(--mq-risk); }
+.estacao__resumo small { font-weight: 400; color: var(--mq-muted); }
+
+.estacao__recentes {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: 2px; font-size: 12.5px; color: var(--mq-muted);
+}
+.estacao__recentes li.is-ok { color: var(--mq-ink); }
+.estacao__recentes li.is-erro { color: var(--mq-risk); }
+.estacao__recentes li:first-child { font-weight: 600; }
+
+.inventario-lista { border-top: 1px solid var(--mq-line); }
+.inventario-lista > summary {
+  cursor: pointer; padding: var(--mq-4) var(--mq-6);
+  font: 500 13px var(--mq-sans); color: var(--mq-muted);
+}
+.inventario-lista[open] > summary { color: var(--mq-ink); }
+
+@media (max-width: 600px) {
+  .estacao__campo .mq-input { font-size: 19px; min-height: 52px; }
+  .estacao__numeros { gap: var(--mq-3); }
+  .estacao__variacoes select { max-width: 100%; }
+}

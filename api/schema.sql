@@ -942,6 +942,11 @@ CREATE TABLE IF NOT EXISTS inventario_contagem (
   -- divergência nenhuma, e o sistema tem de saber disso.
   contado_em    TEXT    NOT NULL DEFAULT (datetime('now')),
   origem        TEXT,                               -- bipagem | digitado
+  -- "Bipou e marcha" (02/10/2026): o esperado em casa que o servidor usou no
+  -- bipe, e o que ela disse que faltava. `contado` = esperado − faltando.
+  -- NULL nos dois quando a linha foi contada com `contado` absoluto.
+  esperado_na_hora INTEGER,
+  faltando      INTEGER CHECK (faltando IS NULL OR faltando >= 0),
   PRIMARY KEY (inventario_id, sku, variacao)
 );
 
@@ -979,6 +984,19 @@ CREATE TABLE IF NOT EXISTS inventario_resultado (
 
 CREATE INDEX IF NOT EXISTS idx_inv_contagem  ON inventario_contagem(inventario_id);
 CREATE INDEX IF NOT EXISTS idx_inv_resultado ON inventario_resultado(inventario_id);
+
+-- O que aconteceu DURANTE a contagem e não é contagem: a variação cadastrada
+-- sem sair do inventário. O fechamento lista o que foi criado na sessão.
+CREATE TABLE IF NOT EXISTS inventario_eventos (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  inventario_id INTEGER NOT NULL REFERENCES inventarios(id),
+  tipo          TEXT    NOT NULL CHECK (tipo IN ('variacao_criada')),
+  sku           TEXT    NOT NULL REFERENCES produtos(sku),
+  variacao      TEXT,
+  detalhe       TEXT,
+  em            TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_inv_eventos ON inventario_eventos(inventario_id);
 
 -- ------------------------------------------------------- reconciliação
 -- Prévia, revisão humana e aplicação do aprovado — ver
@@ -1643,6 +1661,25 @@ CREATE TABLE IF NOT EXISTS historico_reclassificacao (
   decidido_por  TEXT,
   criado_em     TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Correção da CLASSE de uma linha já reclassificada (ex.: a planilha "Saiu
+-- sem faturar" diz brinde onde a regra automática disse uso próprio). A
+-- decisão original não se apaga: cada correção guarda o antes e o depois.
+CREATE TABLE IF NOT EXISTS historico_reclassificacao_correcoes (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  reclassificacao_id  INTEGER NOT NULL REFERENCES historico_reclassificacao(id),
+  classe_anterior     TEXT    NOT NULL,
+  classe_nova         TEXT    NOT NULL CHECK (classe_nova IN ('brinde', 'uso_proprio', 'perda', 'sorteio')),
+  motivo_anterior     TEXT,
+  motivo              TEXT    NOT NULL,
+  observacao          TEXT,
+  custo_informado     REAL,                  -- o custo que a fonte deu; NULL = não informado
+  fonte               TEXT    NOT NULL,      -- de onde veio a correção
+  saida_id            INTEGER REFERENCES saidas_sem_faturamento(id),
+  decidido_por        TEXT,
+  em                  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_reclass_correcoes ON historico_reclassificacao_correcoes(reclassificacao_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_hrec_item
   ON historico_reclassificacao(historico_item_id);

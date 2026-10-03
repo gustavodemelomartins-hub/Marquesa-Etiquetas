@@ -8,6 +8,11 @@ export interface ResumoDoEncerramento {
   sobrando: number;
   naoConferido: number;
   pecasContadas: number;
+  /** "Bipou e marcha": peças que ela disse que faltam, leituras ainda a
+   *  caminho do servidor e variações criadas durante a contagem. */
+  pecasFaltando?: number;
+  naoSalvos?: number;
+  variacoesCriadas?: string[];
 }
 
 /** O que a pessoa escolheu. `contagemCompleta` é a única coisa que viaja
@@ -60,6 +65,9 @@ export function DialogoDeEncerramento({ resumo, ocupado, aoConfirmar, aoCancelar
   const [cienteDoRisco, setCiente] = useState(false);
 
   const pendentes = resumo.naoConferido;
+  /* Leitura que não chegou ao servidor não está no retrato que o
+     encerramento congela — encerrar agora a perderia em silêncio. */
+  const naoSalvos = resumo.naoSalvos ?? 0;
   const tudoConferido = pendentes === 0;
   /* Acima deste tamanho a declaração deixa de ser "faltaram três" e passa a
      ser "declarei meio catálogo": aí ela pede o segundo gesto. Trinta é o
@@ -104,22 +112,41 @@ export function DialogoDeEncerramento({ resumo, ocupado, aoConfirmar, aoCancelar
         <div className="mq-drawer__body">
           <dl className="mq-figures">
             <div className="is-ok">
-              <dt>Bateram</dt>
+              <dt>Conferidos</dt>
               <dd>{resumo.conferido}</dd>
             </div>
             <div className={resumo.faltando ? 'is-risk' : ''}>
-              <dt>Faltando</dt>
-              <dd>{resumo.faltando}</dd>
+              <dt>Com falta</dt>
+              <dd>
+                {resumo.faltando}
+                {resumo.pecasFaltando ? <small> · {resumo.pecasFaltando} {plural(resumo.pecasFaltando, 'peça', 'peças')}</small> : null}
+              </dd>
             </div>
             <div className={resumo.sobrando ? 'is-brand' : ''}>
               <dt>Sobrando</dt>
               <dd>{resumo.sobrando}</dd>
             </div>
             <div>
-              <dt>Peças contadas</dt>
-              <dd>{resumo.pecasContadas.toLocaleString('pt-BR')}</dd>
+              <dt>Não conferidos</dt>
+              <dd>{resumo.naoConferido.toLocaleString('pt-BR')}</dd>
             </div>
           </dl>
+
+          {resumo.variacoesCriadas && resumo.variacoesCriadas.length > 0 && (
+            <p className="mq-lede">
+              Variações criadas nesta contagem: {resumo.variacoesCriadas.join(', ')}.
+            </p>
+          )}
+
+          {naoSalvos > 0 && (
+            <p className="mq-note mq-note--risk" role="alert">
+              <Icone nome="alert" />
+              <span>
+                <b>{naoSalvos}</b> {plural(naoSalvos, 'leitura ainda não foi salva', 'leituras ainda não foram salvas')}.
+                Volte e toque em "Tentar de novo" antes de encerrar.
+              </span>
+            </p>
+          )}
 
           {tudoConferido ? (
             <p className="mq-note mq-note--ok">
@@ -156,7 +183,7 @@ export function DialogoDeEncerramento({ resumo, ocupado, aoConfirmar, aoCancelar
             <button
               type="button"
               className="mq-btn mq-btn--primary"
-              disabled={ocupado}
+              disabled={ocupado || naoSalvos > 0}
               onClick={() => aoConfirmar({ contagemCompleta: true })}
             >
               {ocupado ? 'Encerrando…' : 'Encerrar e revisar'}
@@ -180,7 +207,7 @@ export function DialogoDeEncerramento({ resumo, ocupado, aoConfirmar, aoCancelar
               <button
                 type="button"
                 className="mq-btn mq-btn--secondary"
-                disabled={ocupado}
+                disabled={ocupado || naoSalvos > 0}
                 onClick={() => aoConfirmar({ contagemCompleta: false })}
               >
                 Encerrar parcial
@@ -215,7 +242,7 @@ export function DialogoDeEncerramento({ resumo, ocupado, aoConfirmar, aoCancelar
               <button
                 type="button"
                 className="mq-btn mq-btn--danger"
-                disabled={ocupado || (exigeSegundoGesto && !cienteDoRisco)}
+                disabled={ocupado || naoSalvos > 0 || (exigeSegundoGesto && !cienteDoRisco)}
                 onClick={() => aoConfirmar({ contagemCompleta: true })}
               >
                 {ocupado ? 'Encerrando…' : 'Sim, terminei a contagem'}

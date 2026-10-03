@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS inventarios ( id INTEGER PRIMARY KEY AUTOINCREMENT, s
 
 CREATE TABLE IF NOT EXISTS inventario_itens ( inventario_id INTEGER NOT NULL REFERENCES inventarios(id), sku TEXT NOT NULL REFERENCES produtos(sku), contado INTEGER NOT NULL DEFAULT 0, esperado INTEGER, ajustado INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (inventario_id, sku) );
 
-CREATE TABLE IF NOT EXISTS inventario_contagem ( inventario_id INTEGER NOT NULL REFERENCES inventarios(id), sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT NOT NULL DEFAULT '', variante_id TEXT, contado INTEGER NOT NULL CHECK (contado >= 0), contado_em TEXT NOT NULL DEFAULT (datetime('now')), origem TEXT, PRIMARY KEY (inventario_id, sku, variacao) );
+CREATE TABLE IF NOT EXISTS inventario_contagem ( inventario_id INTEGER NOT NULL REFERENCES inventarios(id), sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT NOT NULL DEFAULT '', variante_id TEXT, contado INTEGER NOT NULL CHECK (contado >= 0), contado_em TEXT NOT NULL DEFAULT (datetime('now')), origem TEXT, esperado_na_hora INTEGER, faltando INTEGER CHECK (faltando IS NULL OR faltando >= 0), PRIMARY KEY (inventario_id, sku, variacao) );
 
 CREATE TABLE IF NOT EXISTS inventario_nao_identificado ( inventario_id INTEGER NOT NULL REFERENCES inventarios(id), sku TEXT NOT NULL REFERENCES produtos(sku), qtd INTEGER NOT NULL CHECK (qtd > 0), contado_em TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (inventario_id, sku) );
 
@@ -119,6 +119,10 @@ CREATE TABLE IF NOT EXISTS inventario_resultado ( inventario_id INTEGER NOT NULL
 CREATE INDEX IF NOT EXISTS idx_inv_contagem ON inventario_contagem(inventario_id);
 
 CREATE INDEX IF NOT EXISTS idx_inv_resultado ON inventario_resultado(inventario_id);
+
+CREATE TABLE IF NOT EXISTS inventario_eventos ( id INTEGER PRIMARY KEY AUTOINCREMENT, inventario_id INTEGER NOT NULL REFERENCES inventarios(id), tipo TEXT NOT NULL CHECK (tipo IN ('variacao_criada')), sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT, detalhe TEXT, em TEXT NOT NULL DEFAULT (datetime('now')) );
+
+CREATE INDEX IF NOT EXISTS idx_inv_eventos ON inventario_eventos(inventario_id);
 
 CREATE TABLE IF NOT EXISTS reconciliacao_sessoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, origem TEXT NOT NULL CHECK (origem IN ('nuvemshop', 'planilha_estoque_total', 'planilha_produtos_novos')), status TEXT NOT NULL DEFAULT 'revisao' CHECK (status IN ( 'revisao', 'aplicando', 'aplicada', 'aplicada_parcial', 'cancelada', 'superada', 'erro' )), criada_em TEXT NOT NULL DEFAULT (datetime('now')), decidida_em TEXT, aplicada_em TEXT, resumo_json TEXT, relato_json TEXT, erro TEXT );
 
@@ -303,6 +307,10 @@ CREATE TABLE IF NOT EXISTS saidas_valor_historico ( id INTEGER PRIMARY KEY AUTOI
 CREATE INDEX IF NOT EXISTS idx_saidas_valor_hist ON saidas_valor_historico(saida_id, em);
 
 CREATE TABLE IF NOT EXISTS historico_reclassificacao ( id INTEGER PRIMARY KEY AUTOINCREMENT, historico_item_id INTEGER NOT NULL REFERENCES vendas_historico_itens(id), classe_nova TEXT NOT NULL CHECK (classe_nova IN ('brinde', 'uso_proprio', 'perda', 'sorteio')), confianca TEXT NOT NULL CHECK (confianca IN ('alta', 'media', 'baixa')), motivo TEXT NOT NULL, saida_id INTEGER REFERENCES saidas_sem_faturamento(id), status TEXT NOT NULL DEFAULT 'proposta' CHECK (status IN ('proposta', 'aplicada', 'recusada')), decidido_em TEXT, decidido_por TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')) );
+
+CREATE TABLE IF NOT EXISTS historico_reclassificacao_correcoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, reclassificacao_id INTEGER NOT NULL REFERENCES historico_reclassificacao(id), classe_anterior TEXT NOT NULL, classe_nova TEXT NOT NULL CHECK (classe_nova IN ('brinde', 'uso_proprio', 'perda', 'sorteio')), motivo_anterior TEXT, motivo TEXT NOT NULL, observacao TEXT, custo_informado REAL, fonte TEXT NOT NULL, saida_id INTEGER REFERENCES saidas_sem_faturamento(id), decidido_por TEXT, em TEXT NOT NULL DEFAULT (datetime('now')) );
+
+CREATE INDEX IF NOT EXISTS idx_reclass_correcoes ON historico_reclassificacao_correcoes(reclassificacao_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_hrec_item ON historico_reclassificacao(historico_item_id);
 

@@ -45,6 +45,7 @@ export function RegistrosAntigos({ legado, de = null, ate = null }: Props) {
                 {l.data ? fmtData(l.data) : 'sem data'} · {l.sku ?? '—'} · {l.qtd ?? '?'} peça(s)
                 {l.pessoa ? ` · ${l.pessoa}` : ''} · planilha Nº {l.linhaPlanilha ?? '—'}
                 {l.valorPlanilha != null ? ` · ${money(l.valorPlanilha)} na planilha` : ''}
+                {l.custoInformado != null ? ` · custo ${money(l.custoInformado)}` : ''}
               </small>
               {l.observacao && <small>{l.observacao}</small>}
             </span>

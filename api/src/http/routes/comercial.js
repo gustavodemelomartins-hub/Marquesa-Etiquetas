@@ -39,7 +39,7 @@ import {
 } from '../../garantias.js';
 import {
   analisarHistoricoNaoVenda, listarReclassificacoes,
-  aplicarReclassificacao, desfazerReclassificacao,
+  aplicarReclassificacao, desfazerReclassificacao, corrigirReclassificacao,
 } from '../../auditoria-historico.js';
 
 const hoje = () => new Date().toISOString().slice(0, 10);
@@ -505,6 +505,15 @@ export const rotas = [
     async handler({ db, request }) {
       const b = await request.json().catch(() => ({}));
       const r = await aplicarReclassificacao(db, b);
+      return json(r, r.statusHttp ?? (r.ok ? 200 : 400));
+    },
+  },
+  {
+    /* Corrige a CLASSE de uma linha já reclassificada, com trilha: a decisão
+       anterior vai para `historico_reclassificacao_correcoes`. Nunca estoque. */
+    metodo: 'POST', caminho: '/api/historico/reclassificar/:id/corrigir', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      const r = await corrigirReclassificacao(db, +params.id, await request.json().catch(() => ({})));
       return json(r, r.statusHttp ?? (r.ok ? 200 : 400));
     },
   },

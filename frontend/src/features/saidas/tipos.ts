@@ -150,6 +150,8 @@ export interface SaidaLegada {
   decididoEm: string | null;
   decididoPor: string | null;
   porque: string;
+  /** O custo que a fonte da correção informou (planilha "Saiu sem faturar"). */
+  custoInformado?: number | null;
 }
 
 export interface Saidas {

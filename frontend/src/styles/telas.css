@@ -447,6 +447,18 @@
   border-bottom: 1px solid var(--mq-line-2);
 }
 .saidas-motivos li:last-child { border-bottom: 0; }
+/* Cada motivo é um botão (02/10/2026): o clique abre só as peças dele. O
+   botão herda a grade da linha para as colunas continuarem alinhadas. */
+.saidas-motivos li:not(.saidas-motivos__head) { display: block; padding: 0; }
+.saidas-motivos__linha {
+  display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+  gap: var(--mq-3); align-items: baseline; width: 100%;
+  padding: var(--mq-3) var(--mq-5); border: 0; background: transparent;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.saidas-motivos__linha:hover, .saidas-motivos__linha:focus-visible { background: var(--mq-wine-050); }
+.saidas-motivos__linha > span:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.saidas-motivos__linha > span:first-child b::after { content: ' ›'; color: var(--mq-muted); font-weight: 400; }
 .saidas-motivos li > span:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
 .saidas-motivos li.saidas-motivos__head > span {
   font: 500 10.5px/1.3 var(--mq-sans); letter-spacing: .09em; text-transform: uppercase; color: var(--mq-muted);
@@ -455,6 +467,8 @@
   .saidas-motivos li { grid-template-columns: minmax(0, 1fr) auto; padding: var(--mq-3) var(--mq-4); }
   .saidas-motivos li > span:nth-child(3), .saidas-motivos li > span:nth-child(4) { grid-column: 1 / -1; text-align: left; }
   .saidas-motivos li.saidas-motivos__head { display: none; }
+  .saidas-motivos__linha { grid-template-columns: minmax(0, 1fr) auto; padding: var(--mq-3) var(--mq-4); }
+  .saidas-motivos__linha > span:nth-child(3), .saidas-motivos__linha > span:nth-child(4) { grid-column: 1 / -1; text-align: left; }
 }
 
 /* `.mq-search` cresce em linha (`flex: 1 1 240px`); dentro de um conjunto em

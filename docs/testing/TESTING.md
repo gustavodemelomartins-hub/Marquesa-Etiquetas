@@ -500,6 +500,36 @@ sem histórico é excluído; "Brinde Souza" (real) fica. Estoque idêntico e
 `frontend/src/features/clientes/acoes.test.tsx`; navegador:
 `src/v2-clientes-acoes-qa.mjs` (1280 e 390px).
 
+### `src/inventario-bipou-marcha-test.mjs` — o inventário da Sthefany ("bipou e marcha")
+**14 provas · ~2 s · Worker real em processo, sem rede**
+
+Um bipe confere a referência contra o esperado em casa que o SERVIDOR calcula
+(`faltando: 0` → contado = esperado, nunca 1); só a falta é digitada. A–L do
+pedido de 02/10/2026: esperado 6 sem falta → 6; falta 2 → 4 e diferença −2;
+o mesmo código duas vezes é uma linha; não bipado é "não conferido", nunca
+perda; códigos seguidos sem nada entre eles; pausar/retomar preserva faltas;
+descartar não ajusta; concluir só aplica a diferença confirmada; esperado em
+casa exclui o que está com cada revendedora, com o nome; variação com razão
+identificada tem o esperado dela; variação criada durante a contagem (rota
+`POST /api/inventarios/:id/variacoes`) salva, fica registrada no inventário e
+não mexe no estoque. Anel com aros SEM identidade: o código inteiro se confere
+com um bipe, e a falta nele não vira movimento. Par de tela:
+`frontend/src/features/inventario/bipagem.test.tsx` (leitor USB: campo limpa,
+foco volta, "2 + Enter", retentativa, não salvo trava o encerramento).
+
+### `src/saidas-planilha-correcao-test.mjs` — a planilha "Saiu sem faturar" vence
+**10 provas · ~2 s · Worker real em processo, sem rede**
+
+`POST /api/historico/reclassificar/:item/corrigir`: uso próprio → brinde e
+sorteio → brinde trocam o tipo da saída classificatória, o rótulo vira a
+observação da planilha e o custo informado vai com histórico; linha sem saída
+(sem data / fora do catálogo) aparece no legado com a classe nova; a decisão
+anterior fica em `historico_reclassificacao_correcoes`; repetir não escreve;
+estoque, Vendas feitas e faturamento idênticos; filtro por motivo devolve só
+aquele motivo; saída com baixa é recusada. J: a situação de um acerto de
+maleta vem do próprio acerto (recebido ≥ líquido = Pago), não do status da
+venda inteira da planilha. Par de tela: `frontend/src/features/financeiro/SaiuPorMotivo.test.tsx`.
+
 ### `src/inventario-descartar-test.mjs` — descartar um inventário pausado
 **8 provas · ~1 s · sem Worker, sem rede**
 

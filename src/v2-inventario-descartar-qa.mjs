@@ -86,9 +86,11 @@ for (const [largura, altura, movel] of [[1280, 900, false], [390, 844, true]]) {
   await titulo.waitFor({ timeout: 10000 });
   const id = Number((await titulo.innerText()).replace(/\D/g, ''));
   prova(id > 0, `${tam}: inventário #${id} aberto`);
-  const campo = p.locator('input.mq-inv-contagem').first();
-  await campo.fill('1');
-  await campo.blur();
+  /* Desde 02/10/2026 a contagem entra pelo leitor ("bipou e marcha"). */
+  const leitor = p.getByLabel('Bipar peça');
+  await p.waitForFunction(() => !document.querySelector('input[aria-label="Bipar peça"]')?.disabled, null, { timeout: 10000 });
+  await leitor.fill('100101');
+  await leitor.press('Enter');
   await p.waitForTimeout(800);
   const contados = (await api('GET', `/api/inventarios/${id}`)).corpo?.contagem?.length ?? 0;
   prova(contados === 1, `${tam}: uma contagem gravada (${contados})`);

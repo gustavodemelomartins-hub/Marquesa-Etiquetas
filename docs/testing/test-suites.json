@@ -198,6 +198,50 @@
       "duration": "<3s"
     },
     {
+      "id": "inventario-bipou-marcha",
+      "level": "domain",
+      "mode": "local",
+      "description": "Inventário bipou e marcha: um bipe confere a referência, só a falta é digitada (A-L)",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/inventario-bipou-marcha-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<3s"
+    },
+    {
+      "id": "saidas-planilha-correcao",
+      "level": "domain",
+      "mode": "local",
+      "description": "Planilha Saiu sem faturar corrige a classe com trilha, sem estoque; situação do acerto pelo próprio acerto",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/saidas-planilha-correcao-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<3s"
+    },
+    {
       "id": "clientes-arquivo",
       "level": "domain",
       "mode": "local",
