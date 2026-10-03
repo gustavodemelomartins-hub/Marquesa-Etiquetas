@@ -124,3 +124,27 @@ vencida".
 
 Publicado de worktree limpa em `bfda6bf` com os passos do `deploy-prod.yml`.
 `/api/health` → `{"ok":true,"hoje":"2026-10-03"}`.
+
+## Complemento de UX (03/10/2026, tarde)
+
+- **Saiu sem faturar abre em Tudo.** Sem período na URL a aba abre em Tudo
+  e os motivos aparecem de imediato (Brinde 27, Uso próprio 9, Diferença de
+  inventário / Perda 3). Os outros filtros continuam; período não escolhido
+  não viaja entre abas, o escolhido viaja. O período da tela agora segue a
+  URL, e o intervalo `de~ate` é lido inteiro.
+- **Saúde do estoque** (REGRAS §53): antes, ícone verde sempre e o título
+  "Conferência vencida" ou "Situação geral". Agora: verde só conferido no
+  prazo; atenção perto de vencer ou sem nenhum inventário real concluído
+  ("Primeira conferência pendente"); vencida em risco, nunca verde.
+  Em PROD hoje: **Primeira conferência pendente · Nenhum inventário
+  concluído ainda**, em atenção.
+
+| | Novo | Rollback |
+|---|---|---|
+| Commit | `7cf3601` | `ccddeff` |
+| Worker | `0e15b5ac` (sem mudança — nenhum `api/src` mudou) | — |
+| Pages `marquesa` | `34cced85` | `8be256ea` |
+
+Provas: frontend 541/541, build com typecheck, gates fast 11/11 e domain
+13/13, `src/inventario-saude-test.mjs` 4/4. QA no site publicado sobre cópia
+de PROD (export das 13h40 UTC), 1280 e 390 px, 0 escritas, 0 erros.
