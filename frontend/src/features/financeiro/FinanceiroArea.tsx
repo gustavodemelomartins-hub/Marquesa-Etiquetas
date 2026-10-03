@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
@@ -16,7 +16,7 @@ import {
   buscarAReceber, buscarLancamentos, buscarPainel,
   buscarVendasDoDia, conferirCredito, conferirFinanceiro,
 } from './api';
-import { descreverRecorte, recorteDaSub, subDoRecorte } from './periodo';
+import { RECORTE_PADRAO, descreverRecorte, recorteDaSub, subDoRecorte } from './periodo';
 import type { Connection } from '../../services/client';
 import type { ContaAReceber, PainelFinanceiro, Recorte } from './tipos';
 
@@ -59,11 +59,18 @@ interface Props {
 export function FinanceiroArea({ conexao, sub, aoNavegar, aoAbrirCliente, aoMudarEstado }: Props) {
   const [aba, recorteDaUrl] = lerSub(sub);
   const [recorte, setRecorte] = useState<Recorte>(recorteDaUrl);
+  /* A URL manda: trocar de aba (ou colar um link) com outro período tem de
+     mudar o período da tela, e não só o endereço. */
+  const chaveDaUrl = chaveDoRecorte(recorteDaUrl);
+  useEffect(() => { setRecorte(recorteDaUrl); }, [chaveDaUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const painel = useApi((s) => buscarPainel(conexao, recorte, s), [conexao, chaveDoRecorte(recorte)]);
   const aReceber = useApi((s) => buscarAReceber(conexao, 'aberta', s), [conexao]);
 
-  const irPara = (destino: Aba) => aoNavegar(`${destino}~${subDoRecorte(recorte)}`);
+  /* Período que ninguém escolheu não viaja entre abas: cada aba abre no
+     seu. O que a usuária escolheu, sim. */
+  const escolhido = chaveDoRecorte(recorte) !== chaveDoRecorte(recorteInicial(aba));
+  const irPara = (destino: Aba) => aoNavegar(escolhido ? `${destino}~${subDoRecorte(recorte)}` : destino);
   const trocarRecorte = (r: Recorte) => {
     setRecorte(r);
     aoNavegar(`${aba}~${subDoRecorte(r)}`);
@@ -120,10 +127,19 @@ export function FinanceiroArea({ conexao, sub, aoNavegar, aoAbrirCliente, aoMuda
   );
 }
 
+/** O período de cada aba quando ninguém escolheu outro. Saiu sem faturar
+ *  abre em TUDO (03/10/2026): saída é rara, e nos 30 dias padrão a Sthefany
+ *  via "Nenhuma saída neste período" com o histórico inteiro classificado. */
+function recorteInicial(aba: Aba): Recorte {
+  return aba === 'saidas' ? { periodo: 'tudo', de: null, ate: null } : RECORTE_PADRAO;
+}
+
 function lerSub(sub: string | null): [Aba, Recorte] {
-  const [abaCrua, recorteCru] = String(sub ?? '').split('~');
+  const [abaCrua, ...resto] = String(sub ?? '').split('~');
   const aba = ABAS.find((a) => a.id === abaCrua)?.id ?? 'a-receber';
-  return [aba, recorteDaSub(recorteCru ?? null)];
+  /* O intervalo livre também usa "~" (`de~ate`): tudo depois da aba é o recorte. */
+  const recorteCru = resto.join('~');
+  return [aba, recorteCru ? recorteDaSub(recorteCru) : recorteInicial(aba)];
 }
 
 const chaveDoRecorte = (r: Recorte) => `${r.periodo}|${r.de ?? ''}|${r.ate ?? ''}`;

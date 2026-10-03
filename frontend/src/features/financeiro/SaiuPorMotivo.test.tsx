@@ -21,6 +21,9 @@ const legado = (id: number, tipo: string, produto: string) => ({
 function servidor() {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     const caminho = String(url).replace('http://api.local', '').split('?')[0];
+    /* O período é do servidor: `de` corta as saídas como a rota de verdade. */
+    const de = new URL(String(url)).searchParams.get('de');
+    const noPeriodo = (x: { data: string }) => !de || x.data >= de;
     const json = (c: unknown) => new Response(JSON.stringify(c), { status: 200, headers: { 'Content-Type': 'application/json' } });
     if (caminho === '/api/saidas') {
       return json({
@@ -30,7 +33,7 @@ function servidor() {
           saida(2, 'brinde', 'Brinco Três Zircônias'),
           saida(3, 'uso_proprio', 'Anel Pai Nosso'),
           saida(4, 'perda', 'Brinco Gota Dupla', { precoUnit: null }),
-        ],
+        ].filter(noPeriodo),
         resumo: { brinde: 2, uso_proprio: 1, perda: 1, sorteio: 0, total: 4, estornadas: 0,
           valor: { custo: 0, venda: 237, semCusto: 4, semPreco: 1, pecasSemCusto: 4, pecasSemPreco: 1 } },
         limite: 1000, offset: 0,
@@ -85,5 +88,63 @@ describe('Saiu sem faturar — navegar pelo motivo', () => {
     await waitFor(() => expect(screen.getAllByText('Brinco Gota Dupla').length).toBeGreaterThan(0));
     expect(screen.queryByText('Pulseira Fita')).toBeNull();
     expect(screen.queryByRole('list', { name: 'Registros antigos sem saída' })).toBeNull();
+  });
+});
+
+/* 03/10/2026 — Saiu sem faturar abria nos 30 dias padrão e, sem saída
+   recente, a Sthefany via "Nenhuma saída neste período" com o histórico
+   inteiro classificado. Agora a aba abre em Tudo. */
+describe('Saiu sem faturar abre em Tudo', () => {
+  const props = { conexao: { url: 'http://api.local', key: 'k' }, aoAbrirCliente: () => {} };
+  const periodo = (nome: string) => within(screen.getByRole('group', { name: 'Período' }))
+    .getByRole('button', { name: new RegExp(`^${nome}$`) });
+
+  it('sem período na URL: Tudo marcado e os motivos aparecem de imediato', async () => {
+    servidor();
+    render(<FinanceiroArea {...props} sub="saidas" aoNavegar={() => {}} />);
+    const motivos = await screen.findByRole('heading', { name: 'Por motivo' }, { timeout: 3000 });
+    expect(within(motivos.closest('section')!).getByRole('button', { name: /Brinde/ }).textContent).toMatch(/3 peças/);
+    expect(periodo('Tudo').getAttribute('aria-pressed')).toBe('true');
+    expect(periodo('30 dias').getAttribute('aria-pressed')).toBe('false');
+    expect(screen.queryByText('Nenhuma saída neste período')).toBeNull();
+  });
+
+  it('trocar para 30 dias continua funcionando (e vai para a URL)', async () => {
+    servidor();
+    const aoNavegar = vi.fn();
+    const { rerender } = render(<FinanceiroArea {...props} sub="saidas" aoNavegar={aoNavegar} />);
+    await screen.findByRole('heading', { name: 'Por motivo' }, { timeout: 3000 });
+    fireEvent.click(periodo('30 dias'));
+    expect(aoNavegar).toHaveBeenLastCalledWith('saidas~30d');
+    rerender(<FinanceiroArea {...props} sub="saidas~30d" aoNavegar={aoNavegar} />);
+    await screen.findByText('Nenhuma saída neste período');
+    expect(periodo('30 dias').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('as outras abas continuam no padrão de 30 dias; período não escolhido não viaja', async () => {
+    servidor();
+    const aoNavegar = vi.fn();
+    const { rerender } = render(<FinanceiroArea {...props} sub="a-receber" aoNavegar={aoNavegar} />);
+    expect(periodo('30 dias').getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: /Saiu sem faturar/ }));
+    expect(aoNavegar).toHaveBeenLastCalledWith('saidas');
+    rerender(<FinanceiroArea {...props} sub="saidas" aoNavegar={aoNavegar} />);
+    await screen.findByRole('heading', { name: 'Por motivo' }, { timeout: 3000 });
+    expect(periodo('Tudo').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('período escolhido viaja entre abas', async () => {
+    servidor();
+    const aoNavegar = vi.fn();
+    render(<FinanceiroArea {...props} sub="a-receber~90d" aoNavegar={aoNavegar} />);
+    fireEvent.click(screen.getByRole('button', { name: /Saiu sem faturar/ }));
+    expect(aoNavegar).toHaveBeenLastCalledWith('saidas~90d');
+  });
+
+  it('intervalo livre na URL é lido inteiro', async () => {
+    servidor();
+    render(<FinanceiroArea {...props} sub="saidas~2026-06-01~2026-06-30" aoNavegar={() => {}} />);
+    await screen.findByRole('heading', { name: 'Por motivo' }, { timeout: 3000 });
+    expect(screen.getByRole('group', { name: 'Período' }).querySelector('[aria-pressed="true"]')?.textContent).not.toBe('Tudo');
   });
 });

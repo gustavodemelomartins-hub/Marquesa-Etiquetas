@@ -4,6 +4,7 @@ import { chamar, type Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { fmtData, plural } from '../../domain/formato';
+import { saudeDoEstoque, type NivelDeSaude, type ResumoDoInventario } from './saude';
 import { DialogoDeEncerramento, type EscolhaDoEncerramento } from './DialogoDeEncerramento';
 import { DialogoDeDescarte } from './DialogoDeDescarte';
 import { ProgressoDaContagem } from './ProgressoDaContagem';
@@ -112,6 +113,15 @@ interface Props {
  *  atendimento e outro, e um inventário que não pode ser interrompido é um
  *  inventário que ninguém termina.
  */
+/** A aparência de cada nível, só com os tokens do Design System
+ *  (`--mq-ok`, `--mq-warn`, `--mq-risk`). */
+const ICONE_DA_SAUDE: Record<NivelDeSaude, { icone: 'check' | 'alert' | 'inventory'; classe: string }> = {
+  ok: { icone: 'check', classe: 'success' },
+  atencao: { icone: 'alert', classe: 'warn' },
+  vencida: { icone: 'alert', classe: 'risk' },
+  carregando: { icone: 'inventory', classe: '' },
+};
+
 export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = false }: Props) {
   const lista = useApi(
     (s) => chamar<InventarioResumo[]>(conexao, 'GET', '/api/inventarios', undefined, { signal: s }),
@@ -139,8 +149,11 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = fal
      o prazo de `config.inventarioDias` aplicado. A tela não recalcula
      "está vencido": quem sabe disso é quem guarda o prazo. */
   const resumoDoEstado = estado?.inventario as
-    | { abertoId?: number | null; diasDesde?: number | null; vencido?: boolean; ultimoEm?: string | null }
+    | (ResumoDoInventario & { abertoId?: number | null })
     | undefined;
+  /* Verde só para estoque conferido no prazo; nunca ter contado é "primeira
+     conferência pendente", não saúde (`saude.ts`). */
+  const saude = saudeDoEstoque(resumoDoEstado);
 
   async function abrir() {
     setErroAcao('');
@@ -202,18 +215,14 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = fal
       {/* Com uma contagem aberta, o leitor é a tela: os três fatos de contexto
           e a nota saem do caminho (02/10/2026). */}
       {idAtual === null && <div className="inventory-contexts">
-        <article className="inventory-context">
-          <span className="context-icon success"><Icone nome="check" /></span>
+        <article className={`inventory-context inventory-context--${saude.nivel}`} data-saude={saude.nivel}>
+          <span className={`context-icon ${ICONE_DA_SAUDE[saude.nivel].classe}`}>
+            <Icone nome={ICONE_DA_SAUDE[saude.nivel].icone} />
+          </span>
           <span>
             <small>Saúde do estoque</small>
-            <strong>
-              {resumoDoEstado?.vencido ? 'Conferência vencida' : 'Situação geral'}
-            </strong>
-            <em>
-              {resumoDoEstado?.diasDesde == null
-                ? 'Nunca conferido'
-                : `${resumoDoEstado.diasDesde} ${plural(resumoDoEstado.diasDesde, 'dia', 'dias')} desde a última`}
-            </em>
+            <strong>{saude.titulo}</strong>
+            <em>{saude.detalhe}</em>
           </span>
         </article>
 

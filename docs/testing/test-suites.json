@@ -264,6 +264,28 @@
       "duration": "<1s"
     },
     {
+      "id": "inventario-saude",
+      "level": "domain",
+      "mode": "local",
+      "description": "Saúde do estoque no servidor: histórico zerado não tem último inventário, cancelado não conta, concluído usa a data real dele",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/inventario-saude-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<1s"
+    },
+    {
       "id": "clientes-arquivo",
       "level": "domain",
       "mode": "local",

@@ -517,6 +517,15 @@ com um bipe, e a falta nele não vira movimento. Par de tela:
 `frontend/src/features/inventario/bipagem.test.tsx` (leitor USB: campo limpa,
 foco volta, "2 + Enter", retentativa, não salvo trava o encerramento).
 
+### `src/inventario-saude-test.mjs` — saúde do estoque sem inventário real
+**4 provas · <1 s · `api/schema.sql` em memória**
+
+`resumoInventario`: histórico zerado não tem "último" (`diasDesde` null —
+a tela diz "Primeira conferência pendente", nunca saudável); cancelado não
+conta como conferência; concluído usa a data real dele, no dia de São Paulo;
+no dia do prazo já venceu. Par de tela: `frontend/src/features/inventario/saude.test.ts`
+e `saude-card.test.tsx` (verde só no prazo; vencida em risco).
+
 ### `src/fuso-operacional-test.mjs` — o dia é o de São Paulo
 **13 provas · <1 s · puro, sem banco**
 

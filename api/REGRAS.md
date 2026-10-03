@@ -2453,3 +2453,10 @@ Sthefany abrir é o **primeiro inventário real**. "Inventário #N" é o `id`
 técnico (AUTOINCREMENT): o contador NÃO foi reiniciado, para que nenhum id
 volte a ser usado — o próximo aparece como **#8**. Não existe rota de
 exclusão de inventário (§28): limpeza de teste só por SQL revisado.
+
+**Saúde do estoque** (card do Inventário): verde só com inventário
+concluído dentro do prazo (`config.inventarioDias`, padrão 45); nos últimos
+7 dias do prazo (ou ¼ dele, se for curto), atenção; no prazo ou depois,
+"Conferência vencida" em risco — nunca verde. Sem nenhum inventário real
+concluído é **"Primeira conferência pendente"** (atenção): ausência de
+divergência registrada não é estoque saudável. Cancelado não conta.

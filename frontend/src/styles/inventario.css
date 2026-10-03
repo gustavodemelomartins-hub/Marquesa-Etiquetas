@@ -34,6 +34,12 @@
 }
 .context-icon svg { width: 17px; height: 17px; }
 .context-icon.success { background: var(--mq-ok-bg); color: var(--mq-ok); }
+.context-icon.warn { background: var(--mq-warn-bg); color: var(--mq-warn); }
+.context-icon.risk { background: var(--mq-risk-bg); color: var(--mq-risk); }
+/* Vencida pede ação: a borda também avisa, e o título vai na cor do risco. */
+.inventory-context--vencida { border-color: var(--mq-risk-line); }
+.inventory-context--vencida strong { color: var(--mq-risk); }
+.inventory-context--atencao { border-color: var(--mq-warn-line); }
 .inventory-context > span:last-child {
   display: flex; flex-direction: column; gap: 1px; min-width: 0;
 }
