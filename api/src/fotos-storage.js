@@ -45,10 +45,16 @@ const SEM_R2 = 'Upload e edição de foto exigem R2, que não está habilitado '
  *  Sem o binding `FOTOS` (conta sem R2 habilitado), recusa de forma
  *  explícita em vez de lançar `TypeError` ou fingir que gravou. */
 export async function salvarFoto(env, sku, versao, bytes, tipo) {
+  return salvarObjeto(env, chaveFoto(sku, versao), bytes, tipo);
+}
+
+/** O mesmo caminho para qualquer chave — o avatar da cliente
+ *  (`clientes/<id>/avatar`) usa o mesmo bucket, a mesma validação e a mesma
+ *  recusa clara sem R2, em vez de uma segunda integração. */
+export async function salvarObjeto(env, key, bytes, tipo) {
   const erro = validarBytes(bytes, tipo);
   if (erro) return { erro };
   if (!env.FOTOS) return { erro: SEM_R2 };
-  const key = chaveFoto(sku, versao);
   await env.FOTOS.put(key, bytes, { httpMetadata: { contentType: tipo } });
   return { key, tipo, tamanho: bytes.byteLength };
 }

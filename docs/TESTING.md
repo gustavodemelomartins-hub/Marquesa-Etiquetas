@@ -1130,3 +1130,24 @@ testes unitários do frontend. Dois testes não rodaram por limitação de
 ambiente, com o motivo e o comando para rodá-los à mão. As medições
 anteriores (2026-08-22 e 2026-08-18) continuam no arquivo, para comparação:
 [BASELINE.md](BASELINE.md).
+
+### `src/cliente-avatar-test.mjs` — foto da cliente (regras, banco, R2)
+**83 asserções · ~1 s · sem Worker, sem rede** (SQLite em memória + R2 e `fetch` falsos)
+
+Pontuação (homônimo, ordem, acento, abreviação, primeiro nome nunca basta),
+migration (aditiva, idempotente, reversível, lista segue sem as tabelas), fila
+e checkpoint, sugestão/próxima/recusar/confirmar, erro de download, R2
+ausente, SSRF, rate limit e sessão expirada registrados, substituir/remover.
+
+### `src/cliente-avatar-ui-test.mjs` — foto da cliente no painel
+**47 asserções · ~40 s · Worker local `--env staging` (R2 local), painel em :8000, Chromium**
+
+Iniciais × foto × sugestão nos cartões, Top clientes, ficha, modal
+"É ela / Não é ela / Próxima", falha ao baixar não confirma, remover foto,
+celular 390 px sem rolagem horizontal, console limpo. Instruções no cabeçalho.
+
+### `scripts/instagram-avatares/test_sync_avatares.py` — script auxiliar
+**11 testes · `python3 -m unittest scripts/instagram-avatares/test_sync_avatares.py`**
+
+Lotes, limite, backoff de rate limit, sessão expirada, falhas seguidas,
+@ cadastrado, modo seco, ausência de credenciais.

@@ -42,6 +42,11 @@ import {
    regra escrita de novo — e cópia de regra é divergência esperando data
    marcada. §21 do plano mestre já cobrou essa dívida uma vez. */
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
+/* Foto da cliente (avatar do Instagram público) — ver cliente-avatar.js. */
+import {
+  filaDeBusca, registrarCandidatos, sugestaoDaCliente, decidirCandidato,
+  removerAvatar, servirAvatar, anexarAvatares, resumoAvatares,
+} from './cliente-avatar.js';
 import {
   visaoGeral, evolucao, produtosMaisVendidos, categoriasMaisVendidas,
   porOrigem, clientesRanking, perfilCliente, listarVendasUnificado,
@@ -155,6 +160,17 @@ async function rotear(request, env, contador = null) {
       if (!foto) return new Response('Foto não encontrada', { status: 404 });
       return new Response(foto.corpo, {
         headers: { 'Content-Type': foto.tipo, 'Cache-Control': 'private, max-age=21600' },
+      });
+    }
+
+    // Avatar da cliente: mesmo raciocínio da foto da peça (um <img> não manda
+    // Bearer), então o link carrega prazo + assinatura HMAC.
+    if ((m = path.match(/^\/api\/clientes\/(\d+)\/avatar$/)) && met === 'GET') {
+      const r = await servirAvatar(env.DB, env, +m[1], url.searchParams.get('exp'), url.searchParams.get('sig'));
+      if (r.negado) return respostaNaoAutorizada();
+      if (!r.foto) return new Response('Sem foto', { status: 404 });
+      return new Response(r.foto.corpo, {
+        headers: { 'Content-Type': r.foto.tipo, 'Cache-Control': 'private, max-age=21600' },
       });
     }
 
@@ -591,9 +607,11 @@ async function rotear(request, env, contador = null) {
         /* `cidade` viaja junto porque duas "Camila" só se distinguem por
            algum campo além do nome — e escolher a errada no balcão manda a
            venda para o histórico de outra pessoa. */
-        return json(r.results.map(c => ({
-          id: c.id, nome: c.nome, tel: c.tel || '', cidade: c.cidade || '',
-        })));
+        const lista = r.results.map(c => ({
+          id: c.id, clienteId: c.id, nome: c.nome, tel: c.tel || '', cidade: c.cidade || '',
+        }));
+        await anexarAvatares(db, env, lista);
+        return json(lista);
       }
       if (path === '/api/clientes' && met === 'POST') {
         const b = await request.json();
@@ -864,7 +882,9 @@ async function rotear(request, env, contador = null) {
         return json(await painel(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
       }
       if (path === '/api/analytics/crm' && met === 'GET') {
-        return json(await crm(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
+        const r = await crm(db, { periodo: url.searchParams.get('periodo') || 'tudo' });
+        await anexarAvatares(db, env, [...(r.todos || []), ...(r.topClientes || [])]);
+        return json(r);
       }
       if (path === '/api/analytics/revendedoras' && met === 'GET') {
         return json(await acertosDeMaleta(db, { periodo: url.searchParams.get('periodo') || 'tudo' }));
@@ -922,7 +942,31 @@ async function rotear(request, env, contador = null) {
         const r = await perfilCliente(db, {
           clienteId: id ? +id : null, norm: url.searchParams.get('norm'),
         });
+        if (r.ok) await anexarAvatares(db, env, [r]);
         return json(r, r.ok ? 200 : 400);
+      }
+      /* ---- foto da cliente: fila/candidatos (script auxiliar) e decisão (tela) */
+      if (path === '/api/clientes/avatar/fila' && met === 'GET') {
+        return json(await filaDeBusca(db, {
+          limite: url.searchParams.get('limite'), refazer: url.searchParams.get('refazer') === '1',
+        }));
+      }
+      if (path === '/api/clientes/avatar/resumo' && met === 'GET') return json(await resumoAvatares(db));
+      if (path === '/api/clientes/avatar/candidatos' && met === 'POST') {
+        const b = await request.json().catch(() => ({}));
+        const r = await registrarCandidatos(db, b);
+        return json(r.corpo, r.status);
+      }
+      if ((m = path.match(/^\/api\/clientes\/(\d+)\/avatar\/sugestao$/)) && met === 'GET') {
+        return json(await sugestaoDaCliente(db, +m[1], { depoisDe: url.searchParams.get('depoisDe') }));
+      }
+      if ((m = path.match(/^\/api\/clientes\/(\d+)\/avatar\/decidir$/)) && met === 'POST') {
+        const r = await decidirCandidato(db, env, +m[1], await request.json().catch(() => ({})));
+        return json(r.corpo, r.status);
+      }
+      if ((m = path.match(/^\/api\/clientes\/(\d+)\/avatar$/)) && met === 'DELETE') {
+        const r = await removerAvatar(db, env, +m[1]);
+        return json(r.corpo, r.status);
       }
       if ((m = path.match(/^\/api\/clientes\/(\d+)$/)) && met === 'PATCH') {
         return await atualizarCliente(db, +m[1], await request.json());

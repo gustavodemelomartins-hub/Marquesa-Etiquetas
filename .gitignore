@@ -79,3 +79,12 @@ api/.tmp/
 
 # Artefatos descartáveis de testes e auditorias locais.
 .tmp/
+
+# ------------------------------------------- Instagram (foto da cliente)
+# Sessão do Instaloader = credencial viva da conta. Fica fora do repositório
+# (o padrão dele já é ~/.config/instaloader), e isto é o cinto de segurança.
+session-*
+*.session
+instaloader-session*
+__pycache__/
+*.pyc
