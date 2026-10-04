@@ -1,0 +1,1125 @@
+{
+  "installed_at": "2026-10-03",
+  "source": "https://github.com/AgriciDaniel/claude-seo",
+  "source_commit": "ff87fcee0734845d3f59128c8c905799ee2298da",
+  "installer": "Codex official skill-installer; --method download --dest PROJECT/.agents/skills --ref pinned commit",
+  "scope": "project-only",
+  "runtime_configured": false,
+  "adaptation": "Marquesa/Codex guard inserted immediately after original YAML frontmatter in each SKILL.md; all other upstream files unchanged",
+  "git_ignored": true,
+  "skills": [
+    {
+      "name": "seo",
+      "source_path": "skills/seo",
+      "destination": ".agents/skills/seo",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "references/backlink-quality.md",
+          "source_sha256": "86a39d009b19f4f17a3dc4461afe209111dc2e8df56b6bd3eecedf5b4a03f742",
+          "installed_sha256": "86a39d009b19f4f17a3dc4461afe209111dc2e8df56b6bd3eecedf5b4a03f742"
+        },
+        {
+          "path": "references/cwv-thresholds.md",
+          "source_sha256": "bd1d28773d7ee94bbdd1c1230f0f6be3cf4d1689c22dd6dfd52cc0e043732d16",
+          "installed_sha256": "bd1d28773d7ee94bbdd1c1230f0f6be3cf4d1689c22dd6dfd52cc0e043732d16"
+        },
+        {
+          "path": "references/eeat-framework.md",
+          "source_sha256": "7d1f45cc9f42e9208c936af9e0d57dbdf29e52e733b5a8bed6eb65fa19475972",
+          "installed_sha256": "7d1f45cc9f42e9208c936af9e0d57dbdf29e52e733b5a8bed6eb65fa19475972"
+        },
+        {
+          "path": "references/eeat-scoring-guide.md",
+          "source_sha256": "da90342f0c97af529345d7824147c0a19c1a20de57d1470150c8838f5c445228",
+          "installed_sha256": "da90342f0c97af529345d7824147c0a19c1a20de57d1470150c8838f5c445228"
+        },
+        {
+          "path": "references/free-backlink-sources.md",
+          "source_sha256": "eaa18f4608c3bd889267c9723d632340ca72d3856f972651364dcbce42f3ed8e",
+          "installed_sha256": "eaa18f4608c3bd889267c9723d632340ca72d3856f972651364dcbce42f3ed8e"
+        },
+        {
+          "path": "references/local-schema-multilocation.md",
+          "source_sha256": "15fcdea286dde09d6e2633973d67f5040b6dadabf92b8e2f3855f2e301da5524",
+          "installed_sha256": "15fcdea286dde09d6e2633973d67f5040b6dadabf92b8e2f3855f2e301da5524"
+        },
+        {
+          "path": "references/local-schema-types.md",
+          "source_sha256": "65f4e35e065afb7af24ac130f39f23e536e9ca3268ab81447f34fde143407d4e",
+          "installed_sha256": "65f4e35e065afb7af24ac130f39f23e536e9ca3268ab81447f34fde143407d4e"
+        },
+        {
+          "path": "references/local-search-behavior.md",
+          "source_sha256": "f7870f17345a7d57e9d42b77ec85834f9aedc5ac5b54da57409e3f77f7fd47ba",
+          "installed_sha256": "f7870f17345a7d57e9d42b77ec85834f9aedc5ac5b54da57409e3f77f7fd47ba"
+        },
+        {
+          "path": "references/local-seo-signals.md",
+          "source_sha256": "6f8e4d1e8a71a7af3051ee7cf54bb43d77b1040aaa3ebff2e5df1aea42de050f",
+          "installed_sha256": "6f8e4d1e8a71a7af3051ee7cf54bb43d77b1040aaa3ebff2e5df1aea42de050f"
+        },
+        {
+          "path": "references/maps-api-endpoints.md",
+          "source_sha256": "7b5b15d2e50feb15d6d4c523a89e9a6f5291b82a0cd8c384053243119e35d9ab",
+          "installed_sha256": "7b5b15d2e50feb15d6d4c523a89e9a6f5291b82a0cd8c384053243119e35d9ab"
+        },
+        {
+          "path": "references/maps-free-apis.md",
+          "source_sha256": "18323486ddd52eaa8e86f7f22930fc065f7c9b529352eadda8c27dca44299b91",
+          "installed_sha256": "18323486ddd52eaa8e86f7f22930fc065f7c9b529352eadda8c27dca44299b91"
+        },
+        {
+          "path": "references/maps-gbp-checklist.md",
+          "source_sha256": "779c3e5de1c8c5182db4791be859f6f0b7001d25daa7a742b8cdf9d80738dcdc",
+          "installed_sha256": "779c3e5de1c8c5182db4791be859f6f0b7001d25daa7a742b8cdf9d80738dcdc"
+        },
+        {
+          "path": "references/maps-geo-grid.md",
+          "source_sha256": "76e08cd3fefb4d0367e0647895c482e1914a932dc86de4a82dc2d03b987855e4",
+          "installed_sha256": "76e08cd3fefb4d0367e0647895c482e1914a932dc86de4a82dc2d03b987855e4"
+        },
+        {
+          "path": "references/quality-gates.md",
+          "source_sha256": "5652ec5f0328f3f2129d0873d69091e66ea69d99cf6f566d1391e3a3d0db6ef1",
+          "installed_sha256": "5652ec5f0328f3f2129d0873d69091e66ea69d99cf6f566d1391e3a3d0db6ef1"
+        },
+        {
+          "path": "references/schema-types.md",
+          "source_sha256": "0646a5dfaef8c68fa6edcb3887efc2081004f8f7eeb15969a932c24835e83e4f",
+          "installed_sha256": "0646a5dfaef8c68fa6edcb3887efc2081004f8f7eeb15969a932c24835e83e4f"
+        },
+        {
+          "path": "references/thinking-framework-validate-act.md",
+          "source_sha256": "8109404dfee9e732a10a8be10e48a311b3b6c000a1a542972bbd11c7b57f0c75",
+          "installed_sha256": "8109404dfee9e732a10a8be10e48a311b3b6c000a1a542972bbd11c7b57f0c75"
+        },
+        {
+          "path": "references/thinking-framework.md",
+          "source_sha256": "e15560608df0b8216b06967f72658f35b320ebe314cd8e15a1b99d66ec2aa96f",
+          "installed_sha256": "e15560608df0b8216b06967f72658f35b320ebe314cd8e15a1b99d66ec2aa96f"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "332c8468d8ad197cc581eb4493deb2940cd41bf9bb25c53cca11b0f11feddfa8",
+          "installed_sha256": "0f00206979afddfedcf6b5620f3bb8c07e14ac143056a316952637cdab65c35c"
+        }
+      ]
+    },
+    {
+      "name": "seo-agentic",
+      "source_path": "skills/seo-agentic",
+      "destination": ".agents/skills/seo-agentic",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "references/access-policy.md",
+          "source_sha256": "62b90e452a58f2e244885b6c060841d1dd9753c4e209e5b9539345545d6abcd8",
+          "installed_sha256": "62b90e452a58f2e244885b6c060841d1dd9753c4e209e5b9539345545d6abcd8"
+        },
+        {
+          "path": "references/agent-friendly-pages.md",
+          "source_sha256": "42ada14d5ccb40864ade4a6c526887d16efb8b5ba6a6643a7b9e24d92ad4a4f1",
+          "installed_sha256": "42ada14d5ccb40864ade4a6c526887d16efb8b5ba6a6643a7b9e24d92ad4a4f1"
+        },
+        {
+          "path": "references/discovery-and-markdown.md",
+          "source_sha256": "ed35c16310fd01cfa593ca4ad54d2cc8662c4addff6bcbff0b5f4c68d5390179",
+          "installed_sha256": "ed35c16310fd01cfa593ca4ad54d2cc8662c4addff6bcbff0b5f4c68d5390179"
+        },
+        {
+          "path": "references/lighthouse-agentic-category.md",
+          "source_sha256": "3e99f0396f21bff5e7901a7b9c7dd0594d3c866006d0a551775cf189adfc2b1f",
+          "installed_sha256": "3e99f0396f21bff5e7901a7b9c7dd0594d3c866006d0a551775cf189adfc2b1f"
+        },
+        {
+          "path": "references/vendor-matrix.md",
+          "source_sha256": "09297792722249a3a73c16c412b2899b3af30e4c8f98ecfe1033443773b27c4e",
+          "installed_sha256": "09297792722249a3a73c16c412b2899b3af30e4c8f98ecfe1033443773b27c4e"
+        },
+        {
+          "path": "references/webmcp.md",
+          "source_sha256": "5e71293f7baae8c04ef443aab43224637d06759170e0fc73422a2ea91fcb12a1",
+          "installed_sha256": "5e71293f7baae8c04ef443aab43224637d06759170e0fc73422a2ea91fcb12a1"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "6b5adacf130f6a50803f5d4c91a6574853df700eef18f3d6e308afb1d54671cd",
+          "installed_sha256": "7f010b22f71b49cfb930f59ea2270c3cf4d4f39071caeba93ddffc2d41566882"
+        }
+      ]
+    },
+    {
+      "name": "seo-ahrefs",
+      "source_path": "extensions/ahrefs/skills/seo-ahrefs",
+      "destination": ".agents/skills/seo-ahrefs",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "source_sha256": "47d58b771ef5aa6db6e6f884761468140cde2f5df18f283dfbd781ae79e30a43",
+          "installed_sha256": "34f14cccfc2b78e90fec7b4066539039560ee492d8d46cacb566b2136d84a1dc"
+        }
+      ]
+    },
+    {
+      "name": "seo-audit",
+      "source_path": "skills/seo-audit",
+      "destination": ".agents/skills/seo-audit",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "95535c2a86b47531424a7b23d9f59d1ded6738d3320b12063a582ae2f0a9f6e7",
+          "installed_sha256": "ea2f748fd7e46d9ea2dab1dd59b25cbf3157257b636fed4b2a998fbf837136bf"
+        }
+      ]
+    },
+    {
+      "name": "seo-backlinks",
+      "source_path": "skills/seo-backlinks",
+      "destination": ".agents/skills/seo-backlinks",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "292855a5fde244d6ed67a3e080720365de68f897cf3a9d706b6210bea19bb5a7",
+          "installed_sha256": "7017a99ab28c024eb3c9f94abb8931ef980a41d2cc764e84d2ac4f611b47a4d5"
+        }
+      ]
+    },
+    {
+      "name": "seo-bing",
+      "source_path": "extensions/bing-webmaster/skills/seo-bing",
+      "destination": ".agents/skills/seo-bing",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "source_sha256": "9ba3c2def6af6ce1392054dd516a3e77e0722b0290724ea2e7e618f90667f2b5",
+          "installed_sha256": "1325e4b949b89cb8ce82785e8af4ab775a85cacc0e2665c227e2bbe1cdbd56fe"
+        }
+      ]
+    },
+    {
+      "name": "seo-cluster",
+      "source_path": "skills/seo-cluster",
+      "destination": ".agents/skills/seo-cluster",
+      "files": [
+        {
+          "path": "references/execution-workflow.md",
+          "source_sha256": "7e5e067689a2ebe82d0a949a4b9b9c6568fc283e31a6b6e928fbb7677438f0db",
+          "installed_sha256": "7e5e067689a2ebe82d0a949a4b9b9c6568fc283e31a6b6e928fbb7677438f0db"
+        },
+        {
+          "path": "references/hub-spoke-architecture.md",
+          "source_sha256": "5553d9fd80145362073fde96c0c615df4ed9a000bf6f928a71641ec52e85c39b",
+          "installed_sha256": "5553d9fd80145362073fde96c0c615df4ed9a000bf6f928a71641ec52e85c39b"
+        },
+        {
+          "path": "references/serp-overlap-methodology.md",
+          "source_sha256": "a0c02dcd394a0cfe4636c02ce03da4ff58dc68b6f55ee0b3b9e36e10f20f7662",
+          "installed_sha256": "a0c02dcd394a0cfe4636c02ce03da4ff58dc68b6f55ee0b3b9e36e10f20f7662"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "cd79bc1a9281a8abbca57811e5967c14a895631a15e3f502cec1df45ccbd05e7",
+          "installed_sha256": "b96f7c1a305d5b6a0fea14ad66e5533b9d89dd3f3d209cff2c5d305a87ef3d21"
+        },
+        {
+          "path": "templates/cluster-map.html",
+          "source_sha256": "73d50e0bcab7855b4c50b182b46ad2f38965aa2fc854bc41de5acdd611a6d8c9",
+          "installed_sha256": "73d50e0bcab7855b4c50b182b46ad2f38965aa2fc854bc41de5acdd611a6d8c9"
+        }
+      ]
+    },
+    {
+      "name": "seo-competitor-pages",
+      "source_path": "skills/seo-competitor-pages",
+      "destination": ".agents/skills/seo-competitor-pages",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "322e8a014e61432b8da10958be0fd064ef6413289649d09e241db8ee90a5f90e",
+          "installed_sha256": "2f64d9a3dfbf3e74029fd347554e4d19ee143ecf834276e68083c25091025b04"
+        }
+      ]
+    },
+    {
+      "name": "seo-content",
+      "source_path": "skills/seo-content",
+      "destination": ".agents/skills/seo-content",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "6dce1d494bd3564dffad9289325574af344408219c482e784c2d502e48f58a20",
+          "installed_sha256": "95e0e9a755ce693eec6f5d0afc5b0e1751e497644d4be23290c97375c6da1019"
+        }
+      ]
+    },
+    {
+      "name": "seo-content-brief",
+      "source_path": "skills/seo-content-brief",
+      "destination": ".agents/skills/seo-content-brief",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "25bc881ab74d06a365261e004f44c445a78a5241ee322cdeeb4ba7d7669be9b1",
+          "installed_sha256": "25bc881ab74d06a365261e004f44c445a78a5241ee322cdeeb4ba7d7669be9b1"
+        },
+        {
+          "path": "references/excluded-domains.md",
+          "source_sha256": "17b3fb0c9f0cd979c949d54a3e88eb7b39b5d3514baaaa0560022b16c3ed32b8",
+          "installed_sha256": "17b3fb0c9f0cd979c949d54a3e88eb7b39b5d3514baaaa0560022b16c3ed32b8"
+        },
+        {
+          "path": "references/keyword-density.md",
+          "source_sha256": "5f66b7516fda29ca43b4db64874ad445390a3eacfe3c6e99bee2f45b3c7ab348",
+          "installed_sha256": "5f66b7516fda29ca43b4db64874ad445390a3eacfe3c6e99bee2f45b3c7ab348"
+        },
+        {
+          "path": "references/page-type-templates.md",
+          "source_sha256": "ac638c16ee6ef871d07d8d8172e23a491e11e5e9734f5a5f9ac070631156fd6d",
+          "installed_sha256": "ac638c16ee6ef871d07d8d8172e23a491e11e5e9734f5a5f9ac070631156fd6d"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "bdca005f46877fcab89bcedb3fa3cab40240e51a1617ad5a13ede7edd200ed16",
+          "installed_sha256": "d960c31ab7fb270c6350160b8a3d50c91c55dac79eeb20a2dbb11bf80dd37ede"
+        }
+      ]
+    },
+    {
+      "name": "seo-dataforseo",
+      "source_path": "skills/seo-dataforseo",
+      "destination": ".agents/skills/seo-dataforseo",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "references/cost-tiers.md",
+          "source_sha256": "d16809496a4b56bef4e3c4c5eabf285b90f0845e7750c43b7c54d7d30c90aea7",
+          "installed_sha256": "d16809496a4b56bef4e3c4c5eabf285b90f0845e7750c43b7c54d7d30c90aea7"
+        },
+        {
+          "path": "references/tool-catalog.md",
+          "source_sha256": "1fc02f7ea2d09fe5f40a9392dc17106f23385b02659ab06ee6bce3d718bf33da",
+          "installed_sha256": "1fc02f7ea2d09fe5f40a9392dc17106f23385b02659ab06ee6bce3d718bf33da"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "bbeb022527c45a4db50254c5b3b60a2808d9219935673dfd934e7b9006a4d938",
+          "installed_sha256": "3ad1551f917fb7161cf6f9e5e2b53e58265427228fc55f4696adb13a2f96f5cc"
+        }
+      ]
+    },
+    {
+      "name": "seo-drift",
+      "source_path": "skills/seo-drift",
+      "destination": ".agents/skills/seo-drift",
+      "files": [
+        {
+          "path": "references/comparison-rules.md",
+          "source_sha256": "45b806d8cfbc3d3fa03f2095562c84b26bcbad1359d7c45bba7304849f04fc20",
+          "installed_sha256": "45b806d8cfbc3d3fa03f2095562c84b26bcbad1359d7c45bba7304849f04fc20"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "d1e526745f894ebfb15b0027590ada80df0c6a10035aac34b76342386123642b",
+          "installed_sha256": "1c933b2ca85b1e41c92735b7eab68d26dc5bfd05aab38d3d9ae40245b24c9923"
+        }
+      ]
+    },
+    {
+      "name": "seo-ecommerce",
+      "source_path": "skills/seo-ecommerce",
+      "destination": ".agents/skills/seo-ecommerce",
+      "files": [
+        {
+          "path": "references/marketplace-endpoints.md",
+          "source_sha256": "2126051c977c899ed4cc5fb12e6f0f5dc0caafe8a0236e59aeaab8d984b9021e",
+          "installed_sha256": "2126051c977c899ed4cc5fb12e6f0f5dc0caafe8a0236e59aeaab8d984b9021e"
+        },
+        {
+          "path": "references/ucp-universal-commerce-protocol.md",
+          "source_sha256": "ce30046ab217cc3f2de429713d54431607ecafb6f5ffa8e8ab28ac726c57d5cd",
+          "installed_sha256": "ce30046ab217cc3f2de429713d54431607ecafb6f5ffa8e8ab28ac726c57d5cd"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "241962604510d0685e1b676d21cf85cc22ead77c6f39c7724de36e17bda10a1e",
+          "installed_sha256": "677166c6082d0d624244a9fb8f9177ebf2cf54dfd4e06e5ca368325fcdf222f7"
+        }
+      ]
+    },
+    {
+      "name": "seo-firecrawl",
+      "source_path": "extensions/firecrawl/skills/seo-firecrawl",
+      "destination": ".agents/skills/seo-firecrawl",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "1ab8fe94fefa5110f82746b84baaa74017069c8209bc606e75a4525c94d67610",
+          "installed_sha256": "3ae678559c1b47ad78ee8ea9f4877ee8573a7fd3cd7fb478d109e9f4f3460821"
+        }
+      ]
+    },
+    {
+      "name": "seo-flow",
+      "source_path": "skills/seo-flow",
+      "destination": ".agents/skills/seo-flow",
+      "files": [
+        {
+          "path": "references/bibliography.md",
+          "source_sha256": "1f7e5d60194c252a6b38ba1eb78970cdf5bea2f096563c508bfad36f7e445f75",
+          "installed_sha256": "1f7e5d60194c252a6b38ba1eb78970cdf5bea2f096563c508bfad36f7e445f75"
+        },
+        {
+          "path": "references/flow-framework.md",
+          "source_sha256": "029c009e0fd5fc77763a530af24a83bf8cf21eb703158317bde8518446af0887",
+          "installed_sha256": "029c009e0fd5fc77763a530af24a83bf8cf21eb703158317bde8518446af0887"
+        },
+        {
+          "path": "references/flow-prompts.lock",
+          "source_sha256": "d71316f8f2542e65990ce3df82f63ac9acd5da74b42325825d8fdb2de8e33030",
+          "installed_sha256": "d71316f8f2542e65990ce3df82f63ac9acd5da74b42325825d8fdb2de8e33030"
+        },
+        {
+          "path": "references/prompts/find/content-planning-for-topical-relevance-prompt.md",
+          "source_sha256": "0bab3257ca8c588ffe6e96adc97d2201fc1fb4cfd5a8674cfeb97a640ab78ce1",
+          "installed_sha256": "0bab3257ca8c588ffe6e96adc97d2201fc1fb4cfd5a8674cfeb97a640ab78ce1"
+        },
+        {
+          "path": "references/prompts/find/content-prioritization-prompt.md",
+          "source_sha256": "e8d12ec0b02de03de7b0066a1b29b4e5523f49413bb276c3d936ca068f1645b0",
+          "installed_sha256": "e8d12ec0b02de03de7b0066a1b29b4e5523f49413bb276c3d936ca068f1645b0"
+        },
+        {
+          "path": "references/prompts/find/keyword-research-prompt.md",
+          "source_sha256": "3bd3c230f682c65c328324d37dada59a76ca85326bfe97fbf3acf6849e36525d",
+          "installed_sha256": "3bd3c230f682c65c328324d37dada59a76ca85326bfe97fbf3acf6849e36525d"
+        },
+        {
+          "path": "references/prompts/find/keyword-variations-for-topical-relevance-prompt.md",
+          "source_sha256": "18b92580c0de1d0df6a8353efc0fd98864ed9e7090318cd4564cae84f79e2bd1",
+          "installed_sha256": "18b92580c0de1d0df6a8353efc0fd98864ed9e7090318cd4564cae84f79e2bd1"
+        },
+        {
+          "path": "references/prompts/find/prompt-audience-avatar.md",
+          "source_sha256": "450d58afe2499f7644f947725fcaaf9463931e09d8fdcb93765d25c6e0750d22",
+          "installed_sha256": "450d58afe2499f7644f947725fcaaf9463931e09d8fdcb93765d25c6e0750d22"
+        },
+        {
+          "path": "references/prompts/leverage/backlink-competition-prompt.md",
+          "source_sha256": "88b5a6aca87c0f5ad12ed0a9cec601c23e944db2ff1014502fe7218064249be4",
+          "installed_sha256": "88b5a6aca87c0f5ad12ed0a9cec601c23e944db2ff1014502fe7218064249be4"
+        },
+        {
+          "path": "references/prompts/local/ai-homepage-rewrite-prompt.md",
+          "source_sha256": "d33e8918c05d99136baf476165a57a94b7cc0c93bf3585d49bb7212d93bb0455",
+          "installed_sha256": "d33e8918c05d99136baf476165a57a94b7cc0c93bf3585d49bb7212d93bb0455"
+        },
+        {
+          "path": "references/prompts/local/claude-deep-research-prompt.md",
+          "source_sha256": "65a9876a959b4aba089e4aac9bb078eb2c487726285f0828535b9178f7410dcb",
+          "installed_sha256": "65a9876a959b4aba089e4aac9bb078eb2c487726285f0828535b9178f7410dcb"
+        },
+        {
+          "path": "references/prompts/local/gbp-categories-prompt.md",
+          "source_sha256": "f365d29c9bc3be0aa692a4b0f38515a0d75061ace60603285dbd2aed4a180ec8",
+          "installed_sha256": "f365d29c9bc3be0aa692a4b0f38515a0d75061ace60603285dbd2aed4a180ec8"
+        },
+        {
+          "path": "references/prompts/local/gbp-description-claude-prompt-1.md",
+          "source_sha256": "80c73c39f7240ba87bdefd19babdde7f15e6dfe0cdebfa490d62dad2c3dc8702",
+          "installed_sha256": "80c73c39f7240ba87bdefd19babdde7f15e6dfe0cdebfa490d62dad2c3dc8702"
+        },
+        {
+          "path": "references/prompts/local/gbp-description-claude-prompt-2.md",
+          "source_sha256": "d3ee5d748597d85cbd15b31a0e72a9d67a6f91d65f0f8a750ff7bd5ad0398f00",
+          "installed_sha256": "d3ee5d748597d85cbd15b31a0e72a9d67a6f91d65f0f8a750ff7bd5ad0398f00"
+        },
+        {
+          "path": "references/prompts/local/gbp-description-claude-prompt-3.md",
+          "source_sha256": "3c1eaca3250b854b025729aee39df6593518595eb6d2ec1f9cc24bc927ae3845",
+          "installed_sha256": "3c1eaca3250b854b025729aee39df6593518595eb6d2ec1f9cc24bc927ae3845"
+        },
+        {
+          "path": "references/prompts/local/gbp-services-prompt.md",
+          "source_sha256": "a82eebb02b5b5b9d2e02fd21f364dae9641aae69e9a8c2ddfd1ddd975d5ea0aa",
+          "installed_sha256": "a82eebb02b5b5b9d2e02fd21f364dae9641aae69e9a8c2ddfd1ddd975d5ea0aa"
+        },
+        {
+          "path": "references/prompts/local/prompt-generating-a-meta-description.md",
+          "source_sha256": "82f9d16c7158978c50c7f2ee783d636e6e54c27bde4ae56aa4df0a729710fe6e",
+          "installed_sha256": "82f9d16c7158978c50c7f2ee783d636e6e54c27bde4ae56aa4df0a729710fe6e"
+        },
+        {
+          "path": "references/prompts/local/prompt-generating-a-title-tag.md",
+          "source_sha256": "5db99be445c3d72fdaabf75ca92133981b586d6e48221e8df1bec06233ff62f7",
+          "installed_sha256": "5db99be445c3d72fdaabf75ca92133981b586d6e48221e8df1bec06233ff62f7"
+        },
+        {
+          "path": "references/prompts/local/prompt-rewriting-existing-homepage.md",
+          "source_sha256": "b0000ade4e79a06e65d568e17a06ec98ababae5b33d16f61f1e101dd3f0b5720",
+          "installed_sha256": "b0000ade4e79a06e65d568e17a06ec98ababae5b33d16f61f1e101dd3f0b5720"
+        },
+        {
+          "path": "references/prompts/local/prompt-rewriting-existing-service-page.md",
+          "source_sha256": "6e24da4f82b486b614e9ca2b4ae4cd8554865aedd6043218334d9dfe245afed3",
+          "installed_sha256": "6e24da4f82b486b614e9ca2b4ae4cd8554865aedd6043218334d9dfe245afed3"
+        },
+        {
+          "path": "references/prompts/optimize/ai-detector-test-follow-up-prompt.md",
+          "source_sha256": "23b75608644f51981e8421e307a1f9c51497587fe01a846828b9142525830fd0",
+          "installed_sha256": "23b75608644f51981e8421e307a1f9c51497587fe01a846828b9142525830fd0"
+        },
+        {
+          "path": "references/prompts/optimize/ai-supporting-pages-rewrite-prompt.md",
+          "source_sha256": "92e0f8e7fded7438ed86ac58fa9f0c66122308e36903eb064125b0a2e8a10f87",
+          "installed_sha256": "92e0f8e7fded7438ed86ac58fa9f0c66122308e36903eb064125b0a2e8a10f87"
+        },
+        {
+          "path": "references/prompts/optimize/basic-prompt.md",
+          "source_sha256": "5f8ddce6655b91e3bd23ff0174d0890d46db4c86b2074230793a834c51f87d34",
+          "installed_sha256": "5f8ddce6655b91e3bd23ff0174d0890d46db4c86b2074230793a834c51f87d34"
+        },
+        {
+          "path": "references/prompts/optimize/blog-post-outline-prompt.md",
+          "source_sha256": "4427a6ffbe45fbfa397cc3e7bb8ff2cc2d1e4652f2b2ddfff2e3ccd299ae79cc",
+          "installed_sha256": "4427a6ffbe45fbfa397cc3e7bb8ff2cc2d1e4652f2b2ddfff2e3ccd299ae79cc"
+        },
+        {
+          "path": "references/prompts/optimize/blog-post-writing-prompt.md",
+          "source_sha256": "e88b8781e6a1f69cc7043fbdd0b79365d87691daa1d0b910957fe61aa8a9964c",
+          "installed_sha256": "e88b8781e6a1f69cc7043fbdd0b79365d87691daa1d0b910957fe61aa8a9964c"
+        },
+        {
+          "path": "references/prompts/optimize/claude-prompt-1.md",
+          "source_sha256": "ae0f7460bf85ac666af355d4b3960f31a07beb2a009154c2c3c336de45b8afe9",
+          "installed_sha256": "ae0f7460bf85ac666af355d4b3960f31a07beb2a009154c2c3c336de45b8afe9"
+        },
+        {
+          "path": "references/prompts/optimize/claude-prompt-2.md",
+          "source_sha256": "881278d4c5872b2d2f03eef8df21fb1dbee499acab565d039531f96d455528c3",
+          "installed_sha256": "881278d4c5872b2d2f03eef8df21fb1dbee499acab565d039531f96d455528c3"
+        },
+        {
+          "path": "references/prompts/optimize/ctr-audit-prompt.md",
+          "source_sha256": "cfe26d1f07bd98f5a98a3e6a825d0127cf7b003519fdfb595c4761393ac143ea",
+          "installed_sha256": "cfe26d1f07bd98f5a98a3e6a825d0127cf7b003519fdfb595c4761393ac143ea"
+        },
+        {
+          "path": "references/prompts/optimize/follow-up-prompt-1.md",
+          "source_sha256": "d35a7f848aab67df85391acf5f6208bdcea6f51bf454a4e87129446bc928f3f0",
+          "installed_sha256": "d35a7f848aab67df85391acf5f6208bdcea6f51bf454a4e87129446bc928f3f0"
+        },
+        {
+          "path": "references/prompts/optimize/follow-up-prompt-2.md",
+          "source_sha256": "e8e55404737510c63080c93401a00097058eee7ef40f56f77659cccda29cc984",
+          "installed_sha256": "e8e55404737510c63080c93401a00097058eee7ef40f56f77659cccda29cc984"
+        },
+        {
+          "path": "references/prompts/optimize/follow-up-prompt.md",
+          "source_sha256": "454d9b9f684f2dfa54530819e2505361b165d54e3d1fa92a1be61367ac5da072",
+          "installed_sha256": "454d9b9f684f2dfa54530819e2505361b165d54e3d1fa92a1be61367ac5da072"
+        },
+        {
+          "path": "references/prompts/optimize/paa-question-rewording-prompt.md",
+          "source_sha256": "770b5ba49150b2a48753a7c51d60d3b93c3091fb5aedc24a7c8f41c463517e55",
+          "installed_sha256": "770b5ba49150b2a48753a7c51d60d3b93c3091fb5aedc24a7c8f41c463517e55"
+        },
+        {
+          "path": "references/prompts/optimize/prompt-core-30-content-audit.md",
+          "source_sha256": "b58c751c5552592b5e7f0e176c21fb0c509924a7a98bc635e32e1b93e8dff3fd",
+          "installed_sha256": "b58c751c5552592b5e7f0e176c21fb0c509924a7a98bc635e32e1b93e8dff3fd"
+        },
+        {
+          "path": "references/prompts/optimize/property-content-with-authority-audit-prompt.md",
+          "source_sha256": "4e7a894b86b03a20c4b9b06239fe97f224f680c6ab8d68d942a4e546182b7077",
+          "installed_sha256": "4e7a894b86b03a20c4b9b06239fe97f224f680c6ab8d68d942a4e546182b7077"
+        },
+        {
+          "path": "references/prompts/optimize/reddit-claude-prompt.md",
+          "source_sha256": "be767e88a2b3b6c9a4bbbc4f2f2611e1606babdf9b18163cab8b5050966048ab",
+          "installed_sha256": "be767e88a2b3b6c9a4bbbc4f2f2611e1606babdf9b18163cab8b5050966048ab"
+        },
+        {
+          "path": "references/prompts/optimize/schema-prompt-1.md",
+          "source_sha256": "a7b3f4fe17f7e0b5257b2cb940a00b005c44e21bfdb13de0d889b4a5cbd6fa09",
+          "installed_sha256": "a7b3f4fe17f7e0b5257b2cb940a00b005c44e21bfdb13de0d889b4a5cbd6fa09"
+        },
+        {
+          "path": "references/prompts/optimize/step-1-the-chatgpt-discovery-prompt.md",
+          "source_sha256": "45112ea78038130ff3d29d6e965401d234a4a2a540883e6c625a877defa46e24",
+          "installed_sha256": "45112ea78038130ff3d29d6e965401d234a4a2a540883e6c625a877defa46e24"
+        },
+        {
+          "path": "references/prompts/optimize/step-2-the-follow-up-qualifying-prompt.md",
+          "source_sha256": "f08df22ed90c0ba1b7b7f529331309161a886fd2e12bf4ff3ec955bb10fd22ee",
+          "installed_sha256": "f08df22ed90c0ba1b7b7f529331309161a886fd2e12bf4ff3ec955bb10fd22ee"
+        },
+        {
+          "path": "references/prompts/optimize/technical-audit-prompt.md",
+          "source_sha256": "51274ab6e21a62892171c53397f935242f55c3726f3d2a11850985839b047ff4",
+          "installed_sha256": "51274ab6e21a62892171c53397f935242f55c3726f3d2a11850985839b047ff4"
+        },
+        {
+          "path": "references/prompts/optimize/visibility-follow-up-prompt.md",
+          "source_sha256": "0a76f9075c783957d45ab58cec04f4701f01e235a65e9d97ab7b52f7c10f3201",
+          "installed_sha256": "0a76f9075c783957d45ab58cec04f4701f01e235a65e9d97ab7b52f7c10f3201"
+        },
+        {
+          "path": "references/prompts/optimize/visiblity-prompt.md",
+          "source_sha256": "769684b2895051491a7eed1eb1ff0e0065d2472cc395fee04fc99eed85df83de",
+          "installed_sha256": "769684b2895051491a7eed1eb1ff0e0065d2472cc395fee04fc99eed85df83de"
+        },
+        {
+          "path": "references/prompts/README.md",
+          "source_sha256": "26e434454595c47c63e3ef5c4c5d975a8a8208ca01887e51ab09a45eb679085a",
+          "installed_sha256": "26e434454595c47c63e3ef5c4c5d975a8a8208ca01887e51ab09a45eb679085a"
+        },
+        {
+          "path": "references/prompts/win/bofu-page-brief-generator.md",
+          "source_sha256": "dbbe1d51ef93bdc1918bfab1b0948a0d87500410ea8d6727f088e5e4f937dadf",
+          "installed_sha256": "dbbe1d51ef93bdc1918bfab1b0948a0d87500410ea8d6727f088e5e4f937dadf"
+        },
+        {
+          "path": "references/prompts/win/conversion-audit-prompt.md",
+          "source_sha256": "1fb96a2a2c0dcb096389992d14fc12738523c94e2559ebd71a46b8264f2049d7",
+          "installed_sha256": "1fb96a2a2c0dcb096389992d14fc12738523c94e2559ebd71a46b8264f2049d7"
+        },
+        {
+          "path": "references/prompts/win/dual-surface-content-scorecard.md",
+          "source_sha256": "9521283c3578d613a9a25f985d609995d92d284f982d0377160a646563fa7c18",
+          "installed_sha256": "9521283c3578d613a9a25f985d609995d92d284f982d0377160a646563fa7c18"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "6ed2b7d07630e171b2b63bc538385c78c0e064591ad462958eb11b644af4e193",
+          "installed_sha256": "13ead7b2cf6190c78b6a5a77568cdb090108522e1cff9e6cd031311d7de61115"
+        }
+      ]
+    },
+    {
+      "name": "seo-geo",
+      "source_path": "skills/seo-geo",
+      "destination": ".agents/skills/seo-geo",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "references/google-ai-optimization-guide.md",
+          "source_sha256": "587dfbe3a298b625341883cffe389441f6acff61fb4e12be7586c7e1cf455348",
+          "installed_sha256": "587dfbe3a298b625341883cffe389441f6acff61fb4e12be7586c7e1cf455348"
+        },
+        {
+          "path": "references/llmstxt-evidence.md",
+          "source_sha256": "6cc60538738ddabdb6da0657d43cd187d63f377140a3d4deed52dac634c344a1",
+          "installed_sha256": "6cc60538738ddabdb6da0657d43cd187d63f377140a3d4deed52dac634c344a1"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "2d8e53ba8b2c9cd0846e9a52ae9bb2f425e4d8d0d0b1abe7fe34a68056283760",
+          "installed_sha256": "312b1459585005dbdb8106982de4804c0dadf91f9990853044e431c16cecca46"
+        }
+      ]
+    },
+    {
+      "name": "seo-google",
+      "source_path": "skills/seo-google",
+      "destination": ".agents/skills/seo-google",
+      "files": [
+        {
+          "path": "assets/templates/cwv-audit-report.md",
+          "source_sha256": "94e81dd051757c8fe588756206eb83cc2d1c3907a76610862f01a1bcd1c2ac5d",
+          "installed_sha256": "94e81dd051757c8fe588756206eb83cc2d1c3907a76610862f01a1bcd1c2ac5d"
+        },
+        {
+          "path": "assets/templates/gsc-performance-report.md",
+          "source_sha256": "6b1d42af50c7cf052ea071466c0c2dbf7bb8e76c0c7a4891c7d5f559607aba9a",
+          "installed_sha256": "6b1d42af50c7cf052ea071466c0c2dbf7bb8e76c0c7a4891c7d5f559607aba9a"
+        },
+        {
+          "path": "assets/templates/indexation-status-report.md",
+          "source_sha256": "afc337905d82f83659a229382432876edba9bd9af6e589b3e4de4786974f13b3",
+          "installed_sha256": "afc337905d82f83659a229382432876edba9bd9af6e589b3e4de4786974f13b3"
+        },
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "references/auth-setup.md",
+          "source_sha256": "8668c1ea20092c30ca8b06f91a9bca40d5e5653fcb4405f4d1f6c234d39ffde8",
+          "installed_sha256": "8668c1ea20092c30ca8b06f91a9bca40d5e5653fcb4405f4d1f6c234d39ffde8"
+        },
+        {
+          "path": "references/crux-history-api.md",
+          "source_sha256": "73da146d03fa60e8a7d300698c0949c7f1c7ad48acb809d9dc183f0ac8922966",
+          "installed_sha256": "73da146d03fa60e8a7d300698c0949c7f1c7ad48acb809d9dc183f0ac8922966"
+        },
+        {
+          "path": "references/dma-consent-mode-v2.md",
+          "source_sha256": "18ff25a0a9a9679cc5301cc1d76bea25046f6e3991ff2771d7eb2f6419b9aef8",
+          "installed_sha256": "18ff25a0a9a9679cc5301cc1d76bea25046f6e3991ff2771d7eb2f6419b9aef8"
+        },
+        {
+          "path": "references/ga4-data-api.md",
+          "source_sha256": "b6c29f9d830df1a406339c5776a7aebd648c5d2fd33eb7a2689106c5b3c7bbb9",
+          "installed_sha256": "b6c29f9d830df1a406339c5776a7aebd648c5d2fd33eb7a2689106c5b3c7bbb9"
+        },
+        {
+          "path": "references/indexing-api.md",
+          "source_sha256": "5d2a4d4dc588ec94f37d42a49887e2769d177b6d179429cd1e54759ab9b12577",
+          "installed_sha256": "5d2a4d4dc588ec94f37d42a49887e2769d177b6d179429cd1e54759ab9b12577"
+        },
+        {
+          "path": "references/keyword-planner-api.md",
+          "source_sha256": "5581b74899f9515481e861e5c42fef642b782ad65cc4990c6d4db9f66a3625cd",
+          "installed_sha256": "5581b74899f9515481e861e5c42fef642b782ad65cc4990c6d4db9f66a3625cd"
+        },
+        {
+          "path": "references/nlp-api.md",
+          "source_sha256": "c21c9a1233d36659f5a3fa5f629917b434ce015f98d794ad8dddfbad8a752e18",
+          "installed_sha256": "c21c9a1233d36659f5a3fa5f629917b434ce015f98d794ad8dddfbad8a752e18"
+        },
+        {
+          "path": "references/pagespeed-crux-api.md",
+          "source_sha256": "70bd5ad30369caa89f559698acf29b689c317d9c2e8d39ce1260510c2793bdd8",
+          "installed_sha256": "70bd5ad30369caa89f559698acf29b689c317d9c2e8d39ce1260510c2793bdd8"
+        },
+        {
+          "path": "references/rate-limits-quotas.md",
+          "source_sha256": "ad1f7d096e229526c8fe9026a98124a05221f53636eb6023f362dfd5fd3c2f96",
+          "installed_sha256": "ad1f7d096e229526c8fe9026a98124a05221f53636eb6023f362dfd5fd3c2f96"
+        },
+        {
+          "path": "references/search-console-api.md",
+          "source_sha256": "85d81675748e7cb22e4d86c5639b8078dff341dcfabe22dc7b7acd8290e380bc",
+          "installed_sha256": "85d81675748e7cb22e4d86c5639b8078dff341dcfabe22dc7b7acd8290e380bc"
+        },
+        {
+          "path": "references/supplementary-apis.md",
+          "source_sha256": "b8937fb31fa09b2c2a09ad2573191183cad219cebafc09136a88eac133cddbc1",
+          "installed_sha256": "b8937fb31fa09b2c2a09ad2573191183cad219cebafc09136a88eac133cddbc1"
+        },
+        {
+          "path": "references/youtube-api.md",
+          "source_sha256": "9db7a517b3f9b3e5191465ebe6168ac3f7b2ce0edd8f605817e2abd65f295d13",
+          "installed_sha256": "9db7a517b3f9b3e5191465ebe6168ac3f7b2ce0edd8f605817e2abd65f295d13"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "c50fa8b901549d91465bb8446eb7cb435fb93d61655cd17c0e99373901e27077",
+          "installed_sha256": "36c14cd38e6b5471bb8ed7c7737cc24a3ae163b0480ce8bcf537eaf790268d6b"
+        }
+      ]
+    },
+    {
+      "name": "seo-hreflang",
+      "source_path": "skills/seo-hreflang",
+      "destination": ".agents/skills/seo-hreflang",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "references/content-parity.md",
+          "source_sha256": "b6691601644bfa06393bfdd5144a44e75b8845cef32ce60f9a84ab1b9250c67e",
+          "installed_sha256": "b6691601644bfa06393bfdd5144a44e75b8845cef32ce60f9a84ab1b9250c67e"
+        },
+        {
+          "path": "references/cultural-profiles.md",
+          "source_sha256": "b9719c15c897af247aa1601dc59b7ef856efd0f5226112f741145091e67166eb",
+          "installed_sha256": "b9719c15c897af247aa1601dc59b7ef856efd0f5226112f741145091e67166eb"
+        },
+        {
+          "path": "references/locale-formats.md",
+          "source_sha256": "f9278680533041a72e3fe7fc29244453a7bf9542e9f25f16da9a5c1590f7b310",
+          "installed_sha256": "f9278680533041a72e3fe7fc29244453a7bf9542e9f25f16da9a5c1590f7b310"
+        },
+        {
+          "path": "references/machine-translation-qa.md",
+          "source_sha256": "8cccc6d268f93af80a6d321ce42c28f6ab60cf5117ebb0d93018063f6f881836",
+          "installed_sha256": "8cccc6d268f93af80a6d321ce42c28f6ab60cf5117ebb0d93018063f6f881836"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "33ff5e1bd097e513d7c1fda753bf0ec90b4f202fc68ebe12ca725cf56be51400",
+          "installed_sha256": "ebe7b3481db21312e232570f7fb8286310ddb73d60abb32ebdbf2cc97c69ca17"
+        }
+      ]
+    },
+    {
+      "name": "seo-image-gen",
+      "source_path": "skills/seo-image-gen",
+      "destination": ".agents/skills/seo-image-gen",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "references/cost-tracking.md",
+          "source_sha256": "68db26647d0dee334a00afbb15d15430633823651349844e9066992ab2631ff6",
+          "installed_sha256": "68db26647d0dee334a00afbb15d15430633823651349844e9066992ab2631ff6"
+        },
+        {
+          "path": "references/gemini-models.md",
+          "source_sha256": "1b94a2d256e5e15f12ab33c17065ad4f49bdd92025a1e0540cd27d4d42e40d4f",
+          "installed_sha256": "1b94a2d256e5e15f12ab33c17065ad4f49bdd92025a1e0540cd27d4d42e40d4f"
+        },
+        {
+          "path": "references/mcp-tools.md",
+          "source_sha256": "3affbc47e0475d0301584b3ef1516126b180451e94676e9f0eb19d70ca6f761d",
+          "installed_sha256": "3affbc47e0475d0301584b3ef1516126b180451e94676e9f0eb19d70ca6f761d"
+        },
+        {
+          "path": "references/post-processing.md",
+          "source_sha256": "73f0ad0fff971ad1ec3abf2710d18eaa1c273ca298342b99af09afbecafa9609",
+          "installed_sha256": "73f0ad0fff971ad1ec3abf2710d18eaa1c273ca298342b99af09afbecafa9609"
+        },
+        {
+          "path": "references/presets.md",
+          "source_sha256": "074b2a54deae13cf9f1a79915cdad6ecd655658222b53dc10d2d312c637c9693",
+          "installed_sha256": "074b2a54deae13cf9f1a79915cdad6ecd655658222b53dc10d2d312c637c9693"
+        },
+        {
+          "path": "references/prompt-adaptation-safety.md",
+          "source_sha256": "8313e96d7eb76b33558662e2560a029e32bf5b3f96297bb23348884750af2f01",
+          "installed_sha256": "8313e96d7eb76b33558662e2560a029e32bf5b3f96297bb23348884750af2f01"
+        },
+        {
+          "path": "references/prompt-engineering.md",
+          "source_sha256": "fb12b8e3fd9df5919ae6a2e6dff9df5fbc4f874b7730f9ef28e3106db743f709",
+          "installed_sha256": "fb12b8e3fd9df5919ae6a2e6dff9df5fbc4f874b7730f9ef28e3106db743f709"
+        },
+        {
+          "path": "references/prompt-templates.md",
+          "source_sha256": "a3a24634bebdecb886669e5c86e279bcb73fe8af725a4d73840f7b5d41ce76da",
+          "installed_sha256": "a3a24634bebdecb886669e5c86e279bcb73fe8af725a4d73840f7b5d41ce76da"
+        },
+        {
+          "path": "references/seo-image-presets.md",
+          "source_sha256": "7c806dd2bfdbc683b6b48bbcc5f7e109ab31a26209f308bccfd4b2ae668088a5",
+          "installed_sha256": "7c806dd2bfdbc683b6b48bbcc5f7e109ab31a26209f308bccfd4b2ae668088a5"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "20ad79406be368477c14e98fa4ba025233684965ba37eaddcdf6133908f36f18",
+          "installed_sha256": "95a51230a298de8c1ccf8a4b052b4d736f5318b375c5b15eaa9d898346f71251"
+        }
+      ]
+    },
+    {
+      "name": "seo-images",
+      "source_path": "skills/seo-images",
+      "destination": ".agents/skills/seo-images",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "c13406c20671c38fa6a28907824d766398c67818b116346800f82e5b5c9836a3",
+          "installed_sha256": "61ae58227cdf2376b5ef4a104b4fd925573c5a810c972e68b770df40afe8d7bc"
+        }
+      ]
+    },
+    {
+      "name": "seo-local",
+      "source_path": "skills/seo-local",
+      "destination": ".agents/skills/seo-local",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "c5ce16e2b4d9b927168dff948b0953cd83c7301b6305b6db550f89c93335efa4",
+          "installed_sha256": "a7cc4160eda6bc27fe89db0858bd16cccb484534ac991db81276e3f9421014c0"
+        }
+      ]
+    },
+    {
+      "name": "seo-maps",
+      "source_path": "skills/seo-maps",
+      "destination": ".agents/skills/seo-maps",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "9ef9f27f78e65cbb3ef9b72d68bfdc264dd50ab458f47d987607467850a2e779",
+          "installed_sha256": "6a243f705d0fa9350fbdba02cf342a43d8b10b4eb7af9c045d966a0176502550"
+        }
+      ]
+    },
+    {
+      "name": "seo-matomo",
+      "source_path": "extensions/matomo/skills/seo-matomo",
+      "destination": ".agents/skills/seo-matomo",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "source_sha256": "816b73034f8953bfdc3f53382a600ad936ff043a779a7449be0bfbad4ef1dafc",
+          "installed_sha256": "21a0725a0c1eda0c1cc7e50626afc2873e28728bb7e26d7d530c43fc892d653b"
+        }
+      ]
+    },
+    {
+      "name": "seo-page",
+      "source_path": "skills/seo-page",
+      "destination": ".agents/skills/seo-page",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "fddef07a56d333e5c9a74574b83b58458a7c650791e2aa8de5c0c3a417e9d7f7",
+          "installed_sha256": "1f95c0ff57cf54bafad423f143e323e5ee4b548efc786701baf21f38a6b9966f"
+        }
+      ]
+    },
+    {
+      "name": "seo-plan",
+      "source_path": "skills/seo-plan",
+      "destination": ".agents/skills/seo-plan",
+      "files": [
+        {
+          "path": "assets/agency.md",
+          "source_sha256": "63f159b62a81c91b0570a67eba779c7c9961f0222b15accb8dc4115455d60016",
+          "installed_sha256": "63f159b62a81c91b0570a67eba779c7c9961f0222b15accb8dc4115455d60016"
+        },
+        {
+          "path": "assets/ecommerce.md",
+          "source_sha256": "f25619c871f85542cd1d656598607023b63805ed0f7f030b50d1b09f98563f16",
+          "installed_sha256": "f25619c871f85542cd1d656598607023b63805ed0f7f030b50d1b09f98563f16"
+        },
+        {
+          "path": "assets/generic.md",
+          "source_sha256": "f6ae9d03d98361ce032d6bf1af60f6d5e124aa46babeb34e24028fb32c7a45f9",
+          "installed_sha256": "f6ae9d03d98361ce032d6bf1af60f6d5e124aa46babeb34e24028fb32c7a45f9"
+        },
+        {
+          "path": "assets/local-service.md",
+          "source_sha256": "310530e66741e7d155e131850009bcc4a3148b9510905227ac09fd0f3fd00ab6",
+          "installed_sha256": "310530e66741e7d155e131850009bcc4a3148b9510905227ac09fd0f3fd00ab6"
+        },
+        {
+          "path": "assets/publisher.md",
+          "source_sha256": "30e3f4b9158053ea01a58e2aff6476f7162ba037b9f3998a68596ea8f6e22694",
+          "installed_sha256": "30e3f4b9158053ea01a58e2aff6476f7162ba037b9f3998a68596ea8f6e22694"
+        },
+        {
+          "path": "assets/saas.md",
+          "source_sha256": "cec7c2e52f65c6e13460793758ae9ae169d861c7507f735f3dd5cb0975a51b1b",
+          "installed_sha256": "cec7c2e52f65c6e13460793758ae9ae169d861c7507f735f3dd5cb0975a51b1b"
+        },
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "7caee4de5b106169938312928511d8944bbb2a661547f8546bedfab3299ba4ec",
+          "installed_sha256": "0786201cdbefe89f49130cb8cf95b6e3bdab79000d2101f163bcf2a1eb19e549"
+        }
+      ]
+    },
+    {
+      "name": "seo-profound",
+      "source_path": "extensions/profound/skills/seo-profound",
+      "destination": ".agents/skills/seo-profound",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "source_sha256": "b1c11a2226b7c6e1a1a3f00d6d3d1c1b59d3d9b905700d5d56c89791e766bbd1",
+          "installed_sha256": "16b723f89fa817beb74ebf3283a1fc942c81f27c22ec560059a005c6a3bd4100"
+        }
+      ]
+    },
+    {
+      "name": "seo-programmatic",
+      "source_path": "skills/seo-programmatic",
+      "destination": ".agents/skills/seo-programmatic",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "f4e7702cbf937b73c322f27baf79592fc9eac20e3dfa9889d2609d9dd8d787bf",
+          "installed_sha256": "c49beff9eacab69c93afe26d3b09450ab143a04d9999429fcd32b8c098130fee"
+        }
+      ]
+    },
+    {
+      "name": "seo-schema",
+      "source_path": "skills/seo-schema",
+      "destination": ".agents/skills/seo-schema",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "references/deprecated-types-2024-2026.md",
+          "source_sha256": "a8e0deb70032e8807182d64d407822acbc24946154d29b3551312340f7e1a6f9",
+          "installed_sha256": "a8e0deb70032e8807182d64d407822acbc24946154d29b3551312340f7e1a6f9"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "eba6aacd2932fccde335daaf27d21b454b4842f73c087e358bcb5aea080b826d",
+          "installed_sha256": "a7d80038afef89ea0762e597121b3c705f7691d4e69e38872190fcc5cd299b93"
+        }
+      ]
+    },
+    {
+      "name": "seo-seranking",
+      "source_path": "extensions/seranking/skills/seo-seranking",
+      "destination": ".agents/skills/seo-seranking",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "source_sha256": "f7b319ef864c9a9928877426ffb3d08832f3c9aedbc4de0f58f19dddbcabba56",
+          "installed_sha256": "9511c6f4eb84f9bc006d819ef54b9a08ae614b5e9db2a8d308ebe182dacb4712"
+        }
+      ]
+    },
+    {
+      "name": "seo-sitemap",
+      "source_path": "skills/seo-sitemap",
+      "destination": ".agents/skills/seo-sitemap",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "223582511b0df3ee9b1918067ea4c0a6790db9c0ea0cc4afe9e3211db085012e",
+          "installed_sha256": "3853019fe366fbe41f3b8c568d19c673a1a515275a5000ef4d8e2442abd091eb"
+        }
+      ]
+    },
+    {
+      "name": "seo-sxo",
+      "source_path": "skills/seo-sxo",
+      "destination": ".agents/skills/seo-sxo",
+      "files": [
+        {
+          "path": "references/page-type-taxonomy.md",
+          "source_sha256": "489c6bdf108e519b482b1ea7ee295f438c0d31d292d7bf904a7371ca48643dae",
+          "installed_sha256": "489c6bdf108e519b482b1ea7ee295f438c0d31d292d7bf904a7371ca48643dae"
+        },
+        {
+          "path": "references/persona-scoring.md",
+          "source_sha256": "487955f23af4a089b65b3f89a2df68782e7b8af0c8f14a6b21a6cc3360ee8b34",
+          "installed_sha256": "487955f23af4a089b65b3f89a2df68782e7b8af0c8f14a6b21a6cc3360ee8b34"
+        },
+        {
+          "path": "references/user-story-framework.md",
+          "source_sha256": "329ecef0cf1194c3f012f314419bef784c8ef2d08a9f0d2fe0616b5f46c68ae8",
+          "installed_sha256": "329ecef0cf1194c3f012f314419bef784c8ef2d08a9f0d2fe0616b5f46c68ae8"
+        },
+        {
+          "path": "references/wireframe-templates.md",
+          "source_sha256": "10d9cbe4b0d92346280f5d70dfbf21892a75fefb91ec48db205eb13143690d92",
+          "installed_sha256": "10d9cbe4b0d92346280f5d70dfbf21892a75fefb91ec48db205eb13143690d92"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "dd1cfb8b3f8952e53c3702226507e6104d9008ec0eaec0d44b3b9bbfdd02279a",
+          "installed_sha256": "cd2c75eb705d4532b72dfca200fda6a19f7a1c46091fec619a1739e12335e8c4"
+        }
+      ]
+    },
+    {
+      "name": "seo-technical",
+      "source_path": "skills/seo-technical",
+      "destination": ".agents/skills/seo-technical",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "source_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e",
+          "installed_sha256": "5c617ae0aa59b995e19b3e774fcc2f2ba91b864e0b4c3e18475b139526a2da1e"
+        },
+        {
+          "path": "SKILL.md",
+          "source_sha256": "cf6b797a27846dcad19f33f618fc5f37f0a0d040035903313a2caed184cac82b",
+          "installed_sha256": "287a060f157dcf75380f9c6c831c7165d4c0a788e26df356700790d2212ff0e6"
+        }
+      ]
+    },
+    {
+      "name": "seo-unlighthouse",
+      "source_path": "extensions/unlighthouse/skills/seo-unlighthouse",
+      "destination": ".agents/skills/seo-unlighthouse",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "source_sha256": "220fa27021544efdffefffd331fba9a355c1b515b65a6d92ba4df53e65a84917",
+          "installed_sha256": "d46fe52bae8d8ee93e0a4616a4b92aa9819fac8eaa1a78635d9d8da4bea0eb3e"
+        }
+      ]
+    }
+  ],
+  "skill_count": 33,
+  "file_count": 176
+}
