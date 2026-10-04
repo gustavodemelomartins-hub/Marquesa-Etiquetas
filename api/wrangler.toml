@@ -187,16 +187,17 @@ binding = "DB"
 database_name = "marquesa-db-staging-v2"
 database_id = "db76e50a-af76-4228-bcad-6be161a61344"
 
-# SEM binding R2, e não por esquecimento: a conta responde 10042 ("enable R2
-# through the Cloudflare Dashboard"), e um `wrangler deploy --env staging-v2`
-# com `[[r2_buckets]]` falha ANTES de publicar — verificado em 20/09/2026,
-# exatamente o mesmo erro que tirou o bucket do bloco raiz no go-live.
-# Consequência, que é a documentada e não uma surpresa: `env.FOTOS` é
-# opcional em `fotos-storage.js`. Foto por URL externa (`foto_url`) continua
-# aparecendo normalmente; o que precisa dos BYTES — upload, recorte, lote —
-# recusa com `bloqueio: "sem_r2"`, que é uma recusa explícita e não um 500
-# nem um sucesso falso. Para habilitar: ligar R2 na conta, criar o bucket e
-# repor este bloco.
+# Fotos da V2 DEV: o bucket de DEV, nunca o de produção (marquesa-fotos).
+# Até 20/09/2026 este bloco não existia porque a conta respondia 10042 (R2
+# não habilitado); o R2 foi ligado em 29/09/2026 e o binding entrou em
+# 04/10/2026 para a foto da cliente (avatar, chave `clientes/<id>/avatar`).
+# O bucket é o MESMO do `[env.staging]` — os dois são DEV e os ids de cliente
+# dos dois bancos podem coincidir, então o que um grava o outro pode ler.
+# Sem o binding, `env.FOTOS` continua opcional em `fotos-storage.js`: o que
+# precisa dos BYTES recusa com `bloqueio: "sem_r2"`, nunca um 500.
+[[env.staging-v2.r2_buckets]]
+binding = "FOTOS"
+bucket_name = "marquesa-fotos-dev"
 
 [env.staging-v2.vars]
 # O /v2/ é servido pelo mesmo Pages do DEV.
