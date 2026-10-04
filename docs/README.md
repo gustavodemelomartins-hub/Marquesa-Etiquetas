@@ -43,6 +43,8 @@ regra corrente e não autoriza operação nenhuma hoje.
 | Custo histórico auditável — desenho proposto (`P12`) | [architecture/CUSTO-HISTORICO-AUDITAVEL.md](architecture/CUSTO-HISTORICO-AUDITAVEL.md) |
 | Contratos HTTP congelados | [architecture/API-ROUTES-BASELINE.md](architecture/API-ROUTES-BASELINE.md) |
 | Schema, migrations e cron por ambiente | [architecture/SCHEMA-MIGRATIONS-OPERATIONS-BASELINE.md](architecture/SCHEMA-MIGRATIONS-OPERATIONS-BASELINE.md) |
+| Marquesa Intelligence — proposta Codex-first e backlog (03/10/2026, ainda não implementado) | [architecture/MARQUESA_INTELLIGENCE_PLAN_2026-10-03.md](architecture/MARQUESA_INTELLIGENCE_PLAN_2026-10-03.md) |
+| Claude SEO local — instalação, responsabilidades e limites | [operations/CLAUDE_SEO_TOOLKIT.md](operations/CLAUDE_SEO_TOOLKIT.md) |
 | Grafo do repositório | [architecture/GRAPHIFY-BASELINE-FASE-0.md](architecture/GRAPHIFY-BASELINE-FASE-0.md) |
 
 ## Domínios
@@ -77,6 +79,9 @@ documentos explicam mecanismo, não revogam regra.
 | WSL2 e sandbox | [operations/WSL2_MIGRATION.md](operations/WSL2_MIGRATION.md) |
 | Estratégia de contexto do agente | [operations/CLAUDE_CONTEXT_STRATEGY.md](operations/CLAUDE_CONTEXT_STRATEGY.md) |
 | Skills do projeto | [operations/CLAUDE_SKILLS.md](operations/CLAUDE_SKILLS.md) |
+| Marquesa Intelligence — runtime local, coletores readonly, configuração Google e cobertura comercial | [operations/MARQUESA_INTELLIGENCE_CONNECTIVITY.md](operations/MARQUESA_INTELLIGENCE_CONNECTIVITY.md) |
+| Evidência de conectividade Marquesa Intelligence (03/10/2026) | [releases/MARQUESA_INTELLIGENCE_CONNECTIVITY_2026-10-03.md](releases/MARQUESA_INTELLIGENCE_CONNECTIVITY_2026-10-03.md) |
+| Google conectado: GSC/GA4 reais e próximo passo PSI/CrUX (04/10/2026) | [releases/MARQUESA_GOOGLE_CONNECTIVITY_2026-10-04.md](releases/MARQUESA_GOOGLE_CONNECTIVITY_2026-10-04.md) |
 
 Publicar a API: [api/DEPLOY.md](../api/DEPLOY.md). Montar o dashboard legado:
 [src/README.md](../src/README.md). Permissões, hooks e modelos:

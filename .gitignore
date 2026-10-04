@@ -83,6 +83,18 @@ api/.tmp/
 # Artefatos descartáveis de testes e auditorias locais.
 .tmp/
 
+# Marquesa Intelligence: isolated runtime and private local evidence.
+.venv-seo/
+.local/intelligence/
+intelligence/**/__pycache__/
+intelligence/*.egg-info/
+intelligence/build/
+# Credential filenames only; legitimate JSON schemas/manifests stay visible.
+credentials*.json
+service_account*.json
+google-api.local.json
+google-api.credentials.json
+
 # Evidências de smoke: screenshots de um ambiente com dado real de cliente.
 # O roteiro que as produz é versionado; as imagens não.
 evidencias-smoke/
