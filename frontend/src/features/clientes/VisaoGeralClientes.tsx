@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useApi, type EstadoRequisicao } from '../../hooks/useApi';
+import { AvatarCliente } from '../../components/AvatarCliente';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { money, fmtData, plural } from '../../domain/formato';
@@ -93,7 +94,7 @@ export function VisaoGeralClientes({ conexao, baseInteira, aoAbrir }: Props) {
           vazio="Ninguém comprou neste período."
           carregando={!doPeriodo.dados}
           clientes={top}
-          aoAbrir={aoAbrir}
+          conexao={conexao} aoAbrir={aoAbrir}
           numerado
           detalhe={(c) => `${c.vendas} ${plural(c.vendas, 'compra', 'compras')} · última ${fmtData(c.ultimaCompra)}`}
           valor={(c) => money(c.comprado)}
@@ -109,7 +110,7 @@ export function VisaoGeralClientes({ conexao, baseInteira, aoAbrir }: Props) {
           carregando={!baseInteira.dados}
           erro={baseInteira.erro}
           clientes={sumiram}
-          aoAbrir={aoAbrir}
+          conexao={conexao} aoAbrir={aoAbrir}
           detalhe={(c) => `última compra ${haQuanto(c.diasSemComprar)} · ${c.vendas} ${plural(c.vendas, 'compra', 'compras')}`}
           valor={(c) => money(c.comprado)}
           selo={(c) => (c.estado === 'inativa'
@@ -125,7 +126,7 @@ export function VisaoGeralClientes({ conexao, baseInteira, aoAbrir }: Props) {
         carregando={!baseInteira.dados}
         erro={baseInteira.erro}
         clientes={fieis}
-        aoAbrir={aoAbrir}
+        conexao={conexao} aoAbrir={aoAbrir}
         detalhe={(c) => `${c.vendas} compras · última ${fmtData(c.ultimaCompra)}${c.frequenciaDias ? ` · a cada ${c.frequenciaDias} dias` : ''}`}
         valor={(c) => money(c.comprado)}
       />
@@ -134,8 +135,9 @@ export function VisaoGeralClientes({ conexao, baseInteira, aoAbrir }: Props) {
 }
 
 function Bloco({
-  titulo, sub, vazio, carregando, erro, clientes, aoAbrir, detalhe, valor, selo, numerado = false,
+  titulo, sub, vazio, carregando, erro, clientes, aoAbrir, detalhe, valor, selo, numerado = false, conexao,
 }: {
+  conexao: Connection;
   titulo: string;
   sub: string;
   vazio: string;
@@ -172,9 +174,12 @@ function Bloco({
           {visiveis.map((c, i) => (
             <button type="button" className="mq-item" key={c.norm} onClick={() => aoAbrir(c)}>
               {numerado && <span className="mq-item__icon">{i + 1}</span>}
-              <span className="mq-item__main">
-                <b>{c.nome}</b>
-                <small>{detalhe(c)}</small>
+              <span className="mq-item__main mq-quem">
+                <AvatarCliente nome={c.nome} avatarUrl={c.avatarUrl} sugestao={c.avatarSugestao} conexao={conexao} tamanho="sm" />
+                <span className="mq-quem__txt">
+                  <b>{c.nome}</b>
+                  <small>{detalhe(c)}</small>
+                </span>
               </span>
               <span className="mq-item__side">
                 {selo?.(c)}

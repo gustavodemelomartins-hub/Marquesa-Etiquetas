@@ -361,6 +361,25 @@ a.mq-item:hover,button.mq-item:hover{background:var(--mq-wine-050)}
   background:var(--mq-wine-600);color:#fff;font:500 13px/1 var(--mq-sans);letter-spacing:.03em}
 .mq-avatar--lg{width:58px;height:58px;font-size:19px;font-family:var(--mq-serif);font-weight:500}
 .mq-avatar--quiet{background:var(--mq-wine-050);color:var(--mq-wine-700);border:1px solid var(--mq-wine-200)}
+/* Foto da cliente: a imagem cobre as iniciais (que ficam por baixo, para o
+   caso de ela falhar). `cover` recorta sem distorcer o rosto. */
+.mq-avatar{position:relative;overflow:hidden}
+.mq-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+button.mq-avatar{padding:0;cursor:pointer;font-family:inherit}
+button.mq-avatar:focus-visible{outline:2px solid var(--mq-wine-600);outline-offset:2px}
+.mq-avatar--sm{width:34px;height:34px;font-size:12px}
+.mq-avatar--xl{width:112px;height:112px;font-size:34px;font-family:var(--mq-serif)}
+.mq-avatar--sug::after{content:"";position:absolute;right:1px;bottom:1px;width:26%;height:26%;border-radius:50%;
+  background:var(--mq-gold-500,#c9a24b);box-shadow:0 0 0 2px #fff}
+.mq-quem,.mq-cell.mq-quem,.mq-item__main.mq-quem{display:flex;flex-direction:row;align-items:center;gap:var(--mq-3);min-width:0}
+.mq-quem__txt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.mq-quem__txt>b{font:500 13.5px/1.35 var(--mq-sans);color:var(--mq-ink);overflow-wrap:anywhere}
+.mq-quem__txt>small{font-size:11.5px;color:var(--mq-muted);line-height:1.4}
+button.mq-tr:hover .mq-quem__txt>b{color:var(--mq-wine-700)}
+.mq-foto-sug{align-items:center;text-align:center;gap:var(--mq-3)}
+.mq-foto-sug__quem{display:flex;flex-direction:column;gap:2px;margin:0}
+.mq-foto-sug__quem b{font-size:16px;color:var(--mq-wine-700)}
+.mq-foto-sug__quem small,.mq-foto-sug__ajuda{color:var(--mq-muted);font-size:13px;margin:0}
 
 /* ------------------------------------------------- 14. LINHA DO TEMPO / ETAPAS */
 .mq-timeline{display:flex;flex-direction:column;padding-left:var(--mq-1)}

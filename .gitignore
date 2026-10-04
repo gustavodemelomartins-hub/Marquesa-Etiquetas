@@ -99,3 +99,12 @@ evidencias-smoke/
 # para que não voltem por um `git add -A` distraído.
 evidencias-paridade/11-no-estoque.png
 evidencias-paridade/12-a-receber-real.png
+
+# ------------------------------------------- Instagram (foto da cliente)
+# Sessão do Instaloader = credencial viva da conta. Fica fora do repositório
+# (o padrão dele já é ~/.config/instaloader); isto é o cinto de segurança.
+session-*
+*.session
+instaloader-session*
+__pycache__/
+*.pyc

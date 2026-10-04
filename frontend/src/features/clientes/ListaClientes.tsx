@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { Icone } from '../../components/Icone';
+import { AvatarCliente } from '../../components/AvatarCliente';
 import { ErrorState } from '../../components/ErrorState';
 import { listarClientes } from './api';
 import { money, fmtData } from '../../domain/formato';
@@ -119,9 +120,12 @@ export function ListaClientes({ conexao, porCliente, aoAbrir, aoCadastrar }: Pro
                 style={COLUNAS}
                 onClick={() => aoAbrir(c)}
               >
-                <span className="mq-cell">
-                  <b>{c.nome}</b>
-                  {(c.cidade || c.arquivada) && <small>{[c.arquivada ? 'arquivada' : '', c.cidade].filter(Boolean).join(' · ')}</small>}
+                <span className="mq-cell mq-quem">
+                  <AvatarCliente nome={c.nome} avatarUrl={c.avatarUrl} sugestao={c.avatarSugestao} conexao={conexao} tamanho="sm" />
+                  <span className="mq-quem__txt">
+                    <b>{c.nome}</b>
+                    {(c.cidade || c.arquivada) && <small>{[c.arquivada ? 'arquivada' : '', c.cidade].filter(Boolean).join(' · ')}</small>}
+                  </span>
                 </span>
                 {/* Vazio vira "—" na tabela, e some no telefone: dois
                     traços por cartão era ruído, não informação. */}

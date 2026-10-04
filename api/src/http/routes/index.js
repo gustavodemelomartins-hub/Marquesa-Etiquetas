@@ -19,6 +19,7 @@ import { rotas as preparacao } from './preparacao.js';
 import { rotas as publicador } from './publicador.js';
 import { rotas as catalogoImportacao } from './catalogo-importacao.js';
 import { rotas as maletas } from './maletas.js';
+import { rotas as clienteAvatar } from './cliente-avatar.js';
 import { rotas as comercial } from './comercial.js';
 import { rotas as operacao } from './operacao.js';
 import { rotas as sincronizacao } from './sincronizacao.js';
@@ -36,6 +37,7 @@ export const rotas = [
   ...publicador,
   ...catalogoImportacao,
   ...maletas,
+  ...clienteAvatar,
   ...comercial,
   ...operacao,
   ...sincronizacao,

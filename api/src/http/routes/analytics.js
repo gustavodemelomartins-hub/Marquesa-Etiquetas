@@ -7,6 +7,7 @@
  *  Nenhuma rota daqui escreve. Analytics lê de todo domínio e não manda em
  *  nenhum: quem corrige número é o dono do dado, não o painel. */
 import { json } from '../../auth.js';
+import { anexarAvatares } from '../../cliente-avatar.js';
 import {
   visaoGeral, evolucao, produtosMaisVendidos, categoriasMaisVendidas,
   porOrigem, clientesRanking, listarVendasUnificado, listarVendasFeitas,
@@ -42,10 +43,12 @@ export const rotas = [
   },
   {
     metodo: 'GET', caminho: '/api/analytics/crm', auth: 'bearer',
-    async handler({ db, url }) {
+    async handler({ db, env, url }) {
       const r = recorteDaUrl(url);
       if (!r.ok) return recusa(r);
-      return json(await crm(db, r));
+      const dados = await crm(db, r);
+      await anexarAvatares(db, env, [...(dados.todos || []), ...(dados.topClientes || [])]);
+      return json(dados);
     },
   },
   {

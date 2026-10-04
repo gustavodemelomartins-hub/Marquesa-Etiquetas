@@ -1,7 +1,7 @@
 import { chamar, type Connection } from '../../services/client';
 import type {
   ClienteLista, CreditoCliente, DadosCadastro, PerfilCliente,
-  BaseDeClientes, DependenciasCliente,
+  BaseDeClientes, DependenciasCliente, SugestaoDeFoto,
 } from './tipos';
 
 /** As cinco rotas de Clientes que já existem no Worker. Nenhuma inventada:
@@ -99,4 +99,21 @@ export function arquivarCliente(conexao: Connection, id: number, motivo?: string
 
 export function reativarCliente(conexao: Connection, id: number): Promise<unknown> {
   return chamar(conexao, 'POST', `/api/clientes/${id}/reativar`, {});
+}
+
+/** Foto da cliente (avatar do Instagram público) — `api/src/cliente-avatar.js`.
+ *  Nada confirma sozinho: estas três são as únicas portas. */
+export function sugestaoDeFoto(conexao: Connection, id: number, depoisDe?: number): Promise<SugestaoDeFoto> {
+  return chamar<SugestaoDeFoto>(conexao, 'GET',
+    `/api/clientes/${id}/avatar/sugestao${depoisDe ? `?depoisDe=${depoisDe}` : ''}`);
+}
+
+export function decidirFoto(
+  conexao: Connection, id: number, candidatoId: number, acao: 'confirmar' | 'recusar',
+): Promise<unknown> {
+  return chamar(conexao, 'POST', `/api/clientes/${id}/avatar/decidir`, { candidatoId, acao });
+}
+
+export function removerFoto(conexao: Connection, id: number): Promise<unknown> {
+  return chamar(conexao, 'DELETE', `/api/clientes/${id}/avatar`);
 }

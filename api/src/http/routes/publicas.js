@@ -17,6 +17,7 @@ import { conferirAssinaturaFoto, conferirAssinaturaGaleria } from '../../assinat
 import { lerFotoParaServir } from '../../fotos.js';
 import { lerFoto } from '../../fotos-storage.js';
 import { chaveParaServir } from '../../catalogo/galeria.js';
+import { servirAvatar } from '../../cliente-avatar.js';
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 
@@ -46,6 +47,19 @@ export const rotas = [
       if (!foto) return new Response('Foto não encontrada', { status: 404 });
       return new Response(foto.corpo, {
         headers: { 'Content-Type': foto.tipo, 'Cache-Control': 'private, max-age=21600' },
+      });
+    },
+  },
+  {
+    /* Avatar da cliente: mesmo modelo da foto por código — o <img src> não
+       manda Bearer, então o link carrega prazo + assinatura HMAC. */
+    metodo: 'GET', caminho: '/api/clientes/:id/avatar', auth: 'sem-bearer', padroes: { id: '[0-9]+' },
+    async handler({ env, url, params }) {
+      const r = await servirAvatar(env.DB, env, +params.id, url.searchParams.get('exp'), url.searchParams.get('sig'));
+      if (r.negado) return respostaNaoAutorizada();
+      if (!r.foto) return new Response('Sem foto', { status: 404 });
+      return new Response(r.foto.corpo, {
+        headers: { 'Content-Type': r.foto.tipo, 'Cache-Control': 'private, max-age=21600' },
       });
     },
   },
