@@ -56,7 +56,10 @@ const parar = (msg) => {
   if (process.env.GITHUB_ACTIONS) console.log(`::error title=d1-migracoes::${String(msg).replace(/\s+/g, ' ').slice(0, 900)}`);
   process.exit(1);
 };
-process.on('uncaughtException', (e) => parar(`${e.message}${e.stderr ? ' | ' + String(e.stderr) : ''}${e.stdout ? ' | ' + String(e.stdout).slice(0, 400) : ''}`));
+process.on('uncaughtException', (e) => parar(`${/7403|not authorized to access this service/.test(String(e.stdout ?? '') + String(e.stderr ?? ''))
+  ? 'O CLOUDFLARE_API_TOKEN deste ambiente não tem permissão de D1 (código 7403). O token do GitHub precisa de '
+    + '"D1: Edit" e "Workers Scripts: Edit" na conta, além do "Cloudflare Pages: Edit" que já tem. — '
+  : ''}${e.message}${e.stderr ? ' | ' + String(e.stderr) : ''}${e.stdout ? ' | ' + String(e.stdout).slice(0, 400) : ''}`));
 if (!ALVOS[ENV]) parar(`--env tem de ser um de: ${Object.keys(ALVOS).join(', ')}`);
 if (APLICAR && !ALVOS[ENV].escrita) parar('produção é só leitura aqui: migration de PROD é passo revisado da release');
 

@@ -3,6 +3,8 @@
  *   api/migracao-inventario-ajuste.sql aplicada> MQ_FOTOS=<pasta>
  *   MQ_APP=<site V2> MQ_API=<URL da API que o site chama> node src/v2-estoque-ajuste-qa.mjs
  * Nunca grave a cópia nem as capturas no repositório: têm dado pessoal. */
+/* MQ_AVATAR=1 semeia um candidato de foto (a cópia precisa de migracao-cliente-avatar.sql).
+ * MQ_ESPERADO_256359=<n>: total do 256359 na cópia (8 antes da correção de 05/10, 7 depois). */
 /* QA da V2 publicada no DEV com os dados reais de PROD (cópia), sem chave.
  * A API do staging-v2 é interceptada no Playwright e respondida pelo Worker
  * REAL (api/src/index.js da árvore de integração) sobre uma cópia SQLite do
@@ -88,6 +90,32 @@ const ir = async (p, hash) => { await p.goto(APP + hash); await p.waitForLoadSta
   await ctx.close();
 }
 
+/* ═══ 1b. Avatar: só quando a cópia tem as tabelas dele (MQ_AVATAR=1) */
+if (process.env.MQ_AVATAR === '1') {
+  const cli = q1(`SELECT id, nome FROM clientes WHERE arquivada_em IS NULL AND nome LIKE '% %' ORDER BY id LIMIT 1`);
+  const usuario = cli.nome.toLowerCase().normalize('NFD').replace(/[^a-z]/g, '').slice(0, 20) + '.qa';
+  const reg = await api('POST', '/api/clientes/avatar/candidatos', {
+    clienteId: cli.id, resultado: 'ok',
+    candidatos: [{ username: usuario, full_name: cli.nome, user_id: '1', profile_pic_url: 'https://scontent.cdninstagram.com/v/qa.jpg' }],
+  });
+  prova(reg.status === 200, `avatar: candidato registrado pela rota real (${reg.status} ${JSON.stringify(reg.corpo).slice(0, 80)})`);
+  const resumo = await api('GET', '/api/clientes/avatar/resumo');
+  prova(resumo.corpo?.comSugestao === 1, `avatar: resumo conta 1 cliente com sugestão (${JSON.stringify(resumo.corpo)})`);
+  for (const [largura, altura, movel] of [[1280, 900, false], [390, 844, true]]) {
+    const { ctx, p, erros } = await contexto(largura, altura, movel);
+    await ir(p, `#/clientes/${cli.id}`);
+    const botao = p.getByRole('button', { name: `Sugestão de foto para ${cli.nome}` }).first();
+    await botao.waitFor({ timeout: 10000 });
+    prova(true, `${largura}px: perfil mostra o selo de sugestão de foto`);
+    await botao.click();
+    await p.getByText(`@${usuario}`).first().waitFor({ timeout: 8000 });
+    prova(true, `${largura}px: a sugestão abre com o @ do candidato, esperando confirmação humana`);
+    await p.screenshot({ path: `${FOTOS}/${largura}-avatar-sugestao.png` });
+    prova(!erros.length, `${largura}px: avatar sem erro de página ${erros.join(' | ')}`);
+    await ctx.close();
+  }
+}
+
 /* ═══ 2. 256359: Ajustar estoque 8 → 7 pela ficha */
 for (const [largura, altura, movel] of [[1280, 900, false], [390, 844, true]]) {
   const tam = `${largura}px`;
@@ -95,7 +123,8 @@ for (const [largura, altura, movel] of [[1280, 900, false], [390, 844, true]]) {
   const { ctx, p, erros } = await contexto(largura, altura, movel);
   await ir(p, '#/estoque/peca%3A256359');
   await p.getByRole('heading', { name: /Anel Inspiração Cartier/ }).waitFor({ timeout: 15000 });
-  if (largura === 1280) prova(antes === 8, `${tam}: 256359 começa com total 8 (como a Sthefany viu)`);
+  const ESPERADO = Number(process.env.MQ_ESPERADO_256359 || 8);
+  if (largura === 1280) prova(antes === ESPERADO, `${tam}: 256359 começa com total ${ESPERADO} (cópia: ${antes})`);
   await p.getByRole('button', { name: 'Ajustar estoque' }).first().click();
   const dlg = p.getByRole('dialog', { name: 'Ajustar estoque' });
   await dlg.waitFor();
