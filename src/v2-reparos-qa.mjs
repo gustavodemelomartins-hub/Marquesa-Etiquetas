@@ -22,6 +22,11 @@ const APP = process.env.MQ_APP || 'http://127.0.0.1:5183';
 const API = process.env.MQ_API || 'http://127.0.0.1:8797';
 const KEY = process.env.MQ_KEY || 'chave-local-de-teste';
 const FOTOS = process.env.MQ_FOTOS || null;
+/* MQ_ROTEAR_DE=<endereço da API publicada>: para provar o bundle PUBLICADO
+   (que só fala com o endereço dele) sem chave real — o app recebe esse
+   endereço, e o navegador desvia cada requisição para o Worker local. */
+const ROTEAR = process.env.MQ_ROTEAR_DE || null;
+const API_DO_APP = ROTEAR || API;
 if (FOTOS) mkdirSync(FOTOS, { recursive: true });
 
 let falhas = 0;
@@ -70,7 +75,14 @@ for (const [largura, altura, movel] of [[390, 844, true], [1280, 900, false]]) {
   });
   await ctx.addInitScript(([url, key]) => {
     localStorage.setItem('marquesa_conexao_v1', JSON.stringify({ url, key }));
-  }, [API, KEY]);
+  }, [API_DO_APP, KEY]);
+  if (ROTEAR) {
+    await ctx.route(`${ROTEAR}/**`, async (r) => {
+      const resp = await r.fetch({ url: r.request().url().replace(ROTEAR, API) });
+      const headers = { ...resp.headers(), 'access-control-allow-origin': '*' };
+      await r.fulfill({ response: resp, headers });
+    });
+  }
   const p = await ctx.newPage();
   const erros = [];
   const externas = [];
@@ -79,7 +91,7 @@ for (const [largura, altura, movel] of [[390, 844, true], [1280, 900, false]]) {
     const u = r.url();
     /* A sugestão de foto da cliente É a miniatura do Instagram (por
        desenho, ver SugestaoDeFoto). Fora dela, nada de imagem de fora. */
-    if (!u.startsWith(API) && !u.startsWith(APP) && !u.startsWith('data:')
+    if (!u.startsWith(API) && !u.startsWith(API_DO_APP) && !u.startsWith(APP) && !u.startsWith('data:')
       && !/fonts\.(googleapis|gstatic)/.test(u) && !/cdninstagram\.com/.test(u)) externas.push(u);
   });
   const ir = async (hash) => {
