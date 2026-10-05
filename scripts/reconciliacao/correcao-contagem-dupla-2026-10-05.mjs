@@ -235,7 +235,10 @@ if (args.guardas) {
   /* O que o SQL confere em PRODUÇÃO antes de escrever: o saldo de CADA
      código corrigido é o que foi auditado, e nenhuma maleta mudou. */
   const guardas = [
-    ...alvos.map((r) => `(SELECT qtd FROM produtos WHERE sku = '${r.sku}') = ${r.saldo_atual}`),
+    /* UMA expressão para os 87 saldos: o D1 recusa precondição com mais de
+       100 níveis ("Expression tree is too large"), e 87 igualdades com AND
+       passavam disso. A assinatura `sku:qtd` em ordem prova o mesmo. */
+    `(SELECT group_concat(sku || ':' || qtd, ',') FROM (SELECT sku, qtd FROM produtos WHERE sku IN (${alvos.map((r) => `'${r.sku}'`).join(',')}) ORDER BY sku)) = '${[...alvos].sort((x, y) => x.sku.localeCompare(y.sku)).map((r) => `${r.sku}:${r.saldo_atual}`).join(',')}'`,
     `(SELECT COUNT(*) FROM maleta_itens) = ${q1('SELECT COUNT(*) n FROM maleta_itens').n}`,
     `(SELECT COALESCE(SUM(devolvida),0) FROM maleta_itens) = ${q1('SELECT COALESCE(SUM(devolvida),0) n FROM maleta_itens').n}`,
     `(SELECT COUNT(*) FROM inventarios WHERE status = 'aberto') = 0`,
