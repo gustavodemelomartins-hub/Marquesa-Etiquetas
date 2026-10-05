@@ -19,9 +19,16 @@ name: Deploy DEV (Cloudflare Pages)
 #   /prototype/        → o protótipo estático navegável, preservado como
 #                        REFERÊNCIA VISUAL; não é o sistema
 #
-# Um DEV só. Nada aqui toca main, marquesa-api ou marquesa-db — o Worker
-# staging (marquesa-api-staging) é publicado por outro caminho, à parte
-# deste arquivo.
+# Um DEV só. Nada aqui toca main, marquesa-api, marquesa-db nem
+# marquesa-db-prod.
+#
+# A V2 do DEV é TRÊS coisas, e desde 05/10/2026 as três saem daqui, do mesmo
+# commit de `develop`: o Pages (este site), o Worker `marquesa-api-staging-v2`
+# e o schema do `marquesa-db-staging-v2` (job `api`, que roda ANTES do
+# Pages). Até então só o Pages subia sozinho: o Worker e as migrations eram
+# comando de terminal, e o DEV chegou a abrir Clientes com "Falha interna"
+# (quatro migrations atrás) e a perder o avatar a cada push. O Worker
+# `marquesa-api-staging` (o DEV antigo) continua no deploy-staging-api.yml.
 
 on:
   push:
@@ -57,18 +64,75 @@ on:
       - 'api/schema.sql'
       - 'api/migracao-*.sql'
       - 'src/migracao-*-test.mjs'
+      # A API e o banco do DEV V2 sobem daqui (job `api`).
+      - 'api/**'
+      - 'scripts/d1-migracoes.mjs'
   # Permite reexecutar sem precisar de um commit que toque os caminhos acima.
   workflow_dispatch: {}
 
-# Evita dois deploys concorrentes pisando um no outro se dois pushes
-# chegarem em sequência rápida.
+# Dois pushes seguidos entram em FILA: cancelar no meio de uma migration
+# deixaria o banco do DEV aplicado pela metade.
 concurrency:
   group: deploy-dev-frontend
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
+  api:
+    name: API do DEV V2 (migrations + Worker marquesa-api-staging-v2)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # o verificador ordena migration fora da lista pela data do commit
+          fetch-depth: 0
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - name: Instalar wrangler
+        working-directory: api
+        run: npm ci
+
+      # Prova o alvo pelo wrangler.toml (marquesa-db-staging-v2, db76e50a…)
+      # antes de qualquer escrita, aplica só migration ADITIVA pendente, e
+      # para se achar uma aplicada pela metade. Produção é recusada no código.
+      - name: Migrations pendentes do marquesa-db-staging-v2
+        run: node scripts/d1-migracoes.mjs --env staging-v2 --aplicar
+
+      - name: Publicar o Worker marquesa-api-staging-v2
+        working-directory: api
+        run: npx wrangler deploy --env staging-v2
+
+      - name: Smoke test da API do DEV
+        run: |
+          set -e
+          W=https://marquesa-api-staging-v2.marquesaasemijoias.workers.dev
+          curl -fsS -m 15 "$W/api/health"; echo
+          for r in /api/state /api/clientes /api/inventarios /api/clientes/avatar/resumo; do
+            C=$(curl -s -o /dev/null -w '%{http_code}' -m 15 "$W$r")
+            echo "  $C  GET $r"
+            [ "$C" = "401" ] || { echo "::error::$r respondeu $C, esperado 401"; exit 1; }
+          done
+          C=$(curl -s -o /dev/null -w '%{http_code}' -m 15 -X POST "$W/api/produtos/000000/ajustar-estoque")
+          echo "  $C  POST /api/produtos/:sku/ajustar-estoque"
+          [ "$C" = "401" ] || { echo "::error::ajustar-estoque respondeu $C, esperado 401"; exit 1; }
+          curl -s -D- -o /dev/null -m 15 -H "Origin: https://marquesa-dev.pages.dev" "$W/api/health" \
+            | grep -i 'access-control-allow-origin' || { echo "::error::sem CORS para marquesa-dev.pages.dev"; exit 1; }
+          node scripts/d1-migracoes.mjs --env staging-v2
+
   deploy:
     name: Testar, montar e publicar em marquesa-dev.pages.dev
+    needs: api
     runs-on: ubuntu-latest
     permissions:
       contents: read

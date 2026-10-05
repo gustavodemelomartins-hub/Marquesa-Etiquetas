@@ -23,6 +23,9 @@ const REFERENCIAS_HISTORICAS = new Set([
   'src/import-casa-test.mjs',
   // Amostra local opcional: docs/testing/TESTING.md descreve o caso em que não existe.
   'src/__dados__/vendas-historico.json',
+  // Artefato de build (ignorado pelo Git): só existe depois de `npm run build`.
+  // Num checkout limpo ele não existe, e o gate não pode depender da ordem.
+  'frontend/dist/index.html',
 ]);
 
 const arquivos = execFileSync('git', ['ls-files', '*.md'], { cwd: raiz, encoding: 'utf8' })

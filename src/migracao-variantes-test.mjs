@@ -147,6 +147,8 @@ const MIGRACOES = [
      `inventario_eventos`) e a correção auditável da classe de uma saída
      (`historico_reclassificacao_correcoes`). Só acrescenta. */
   'api/migracao-inventario-conferencia.sql',
+  /* 04/10/2026 — foto da cliente (avatar): três tabelas novas, nada mais. */
+  'api/migracao-cliente-avatar.sql',
   /* 05/10/2026 — diferença de inventário como AJUSTE (`inventario_ajustes`)
      e o registro do inventário excluído (`inventarios_excluidos`). Só
      acrescenta, e roda duas vezes. */

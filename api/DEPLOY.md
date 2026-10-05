@@ -627,6 +627,23 @@ npx wrangler d1 execute DB --env staging-v2 --remote --file=migracao-inventario-
 npx wrangler d1 execute DB --remote --file=migracao-inventario-ajuste.sql
 ```
 
+## O que um banco ainda não recebeu — `scripts/d1-migracoes.mjs`
+
+Sonda o schema remoto e diz, migration por migration, se está aplicada,
+pendente ou aplicada pela metade (05/10/2026). Só leitura, exceto com
+`--aplicar` nos ambientes de DEV — e mesmo lá só aplica migration aditiva.
+
+```bash
+node scripts/d1-migracoes.mjs --env prod                  # o que PROD não tem (só leitura)
+node scripts/d1-migracoes.mjs --env staging-v2            # o DEV V2
+node scripts/d1-migracoes.mjs --env staging-v2 --aplicar  # o que o deploy-dev.yml roda
+```
+
+Antes de publicar `develop` em produção, rode a primeira linha: tudo o que
+ela listar como pendente tem de ser aplicado (com backup/bookmark) ANTES do
+`wrangler deploy`. Em 05/10/2026 ela lista só `migracao-cliente-avatar.sql`
+— o avatar está em `develop` e no DEV, e ainda não foi lançado em PROD.
+
 ## Testar com dados de verdade
 
 Com a URL e a chave em mãos:

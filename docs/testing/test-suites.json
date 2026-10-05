@@ -330,6 +330,28 @@
       "duration": "<3s"
     },
     {
+      "id": "cliente-avatar",
+      "level": "domain",
+      "mode": "local",
+      "description": "Foto da cliente: candidato do Instagram só vira foto com confirmação humana; sem tabela ou sem R2 a lista sai sem foto",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/cliente-avatar-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<2s"
+    },
+    {
       "id": "reclassificacao-vendas-feitas",
       "level": "domain",
       "mode": "local",
@@ -908,7 +930,9 @@
         "v2-vendas-clientes-qa.mjs",
         "v2-camera-e2e.mjs",
         "v2-conciliacao-ui.mjs",
-        "v2-galeria-e2e.mjs"
+        "v2-galeria-e2e.mjs",
+        "cliente-avatar-ui-test.mjs",
+        "v2-estoque-ajuste-qa.mjs"
       ]
     },
     {

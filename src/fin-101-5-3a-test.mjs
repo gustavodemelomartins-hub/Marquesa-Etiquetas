@@ -81,7 +81,7 @@ const adaptador = (raw) => {
 
 const { contasAReceber } = await mod('api/src/contas-receber.js');
 const { registrarPagamentoVenda } = await mod('api/src/vendas-comandos.js');
-const { visaoGeral, evolucao } = await mod('api/src/analytics.js');
+const { visaoGeral, evolucao, faixaDePeriodo } = await mod('api/src/analytics.js');
 
 const soma = (serie) => +serie.pontos.reduce((s, p) => s + p.faturamento, 0).toFixed(2);
 const ponto = (serie, chave) => serie.pontos.find((p) => p.chave === chave) ?? null;
@@ -240,7 +240,13 @@ const PERIODOS = ['tudo', '12m', '90d', '30d'];
 
   /* ─── e os recortes continuam recortando: 30d não alcança julho, tudo sim. */
   const tudo = await evolucao(comTroca, { periodo: 'tudo', granularidade: 'mes' });
-  const trintaDias = await evolucao(comTroca, { periodo: '30d', granularidade: 'mes' });
+  /* O "30d" é relativo ao relógio: rodado a partir de outubro de 2026 ele
+     já não cobre setembro inteiro, e o teste quebrava sem nada ter mudado.
+     A conta do preset é provada com um "hoje" fixo, e o recorte, com o
+     intervalo que ela produz. */
+  const faixa30 = faixaDePeriodo('30d', new Date('2026-09-30T12:00:00Z'));
+  assert.deepEqual([faixa30.de, faixa30.ate], ['2026-08-31', '2026-09-30']);
+  const trintaDias = await evolucao(comTroca, { de: faixa30.de, ate: faixa30.ate, granularidade: 'mes' });
   assert.equal(ponto(tudo, '2026-07').faturamento, 100);
   assert.equal(ponto(trintaDias, '2026-07'), null, '30d não pode alcançar julho');
   assert.equal(ponto(trintaDias, '2026-09').faturamento, 235);
