@@ -2513,3 +2513,18 @@ movimento não lançado. Agora cada motivo tem uma **classe**:
 
 O `/ajustar` do painel clássico (sem motivo) também vira ajuste. A V2 manda
 `motivoId`; texto sem id é classificado pelo rótulo, e texto livre é ajuste.
+
+### 56. Contagem dupla do go-live: a planilha "Estoque atual" era o TOTAL
+
+A `Estoque (1).xlsx` do go-live (26/09/2026) foi lida como "o que está em
+casa", e o total virou `planilha + Anexos I + maleta da Luciana`. Mas a
+coluna "Estoque atual" já era o total, com as peças das maletas dentro. A
+correção de 28/09 tirou o excesso só onde ele era exatamente a maleta nova
+(#16–18). Em 05/10/2026, a pedido da Sthefany (anel 256359: ela comprou 7,
+o sistema dizia 8), a auditoria de todos os códigos do go-live corrigiu em
+PROD os 87 em que a prova é completa — planilha == total anterior, ajuste
+== peças em maleta, excesso > 0 — com um movimento "Ajuste de estoque ·
+Correção de cadastro" cada (143 peças; total 2231 → 2088). Os 3 prováveis
+e os 65 inconclusivos ficam para o inventário: não se deduz saldo.
+Auditoria: `docs/migracao-nao-venda/auditoria-golive-2026-10-05.csv`.
+
