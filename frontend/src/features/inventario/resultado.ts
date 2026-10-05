@@ -50,6 +50,8 @@ export interface LinhaDeDiferenca {
    *  enquanto ela não foi resolvida — e de novo `null` depois de um estorno,
    *  porque a resolução deixou de valer. */
   motivoAplicado: string | null;
+  /** Como ela foi resolvida: ajuste de inventário ou perda (§55). */
+  classeAplicada?: 'ajuste' | 'perda' | null;
   /** O zero desta linha veio de uma DECLARAÇÃO, não de um bipe: ninguém a
    *  contou, e a pessoa afirmou no fechamento ter terminado a conferência.
    *  Os dois casos têm `contado: 0` e significam gestos diferentes. */
@@ -100,6 +102,10 @@ export interface MotivoDeDiferenca {
   explica: string;
   /** `true` no "Outro": o texto que ela escrever VIRA o rótulo. */
   livre?: boolean;
+  /** §55 — o que a diferença VIRA. `ajuste` (o padrão): ajuste de
+   *  inventário na razão. `perda`: saída sem faturamento — só quando ela
+   *  escolhe dizer que a peça se perdeu. Ausente (API antiga) = perda. */
+  classe?: 'ajuste' | 'perda';
 }
 
 /** Quanto da conciliação já foi feito. Derivado no servidor a partir do que
@@ -180,6 +186,8 @@ export interface PedidoDeAjuste {
    *  que §27 e §30 já aplicam ao desconto e à saída. O servidor recusa sem
    *  ele, e devolve a lista de motivos dentro da recusa. */
   motivo: string;
+  /** O id do motivo escolhido — é ele que decide ajuste × perda (§55). */
+  motivoId?: string;
   observacao?: string;
 }
 
@@ -199,9 +207,10 @@ export function aplicarAjustes(
   return chamar(conexao, 'POST', `/api/inventarios/${id}/aplicar`, { itens });
 }
 
-export const pedidoDaLinha = (l: LinhaDeDiferenca, motivo: string): PedidoDeAjuste => ({
+export const pedidoDaLinha = (l: LinhaDeDiferenca, motivo: string, motivoId?: string): PedidoDeAjuste => ({
   sku: l.sku,
   motivo,
+  ...(motivoId ? { motivoId } : {}),
   ...(l.variacao ? { variacao: l.variacao } : {}),
 });
 

@@ -15,6 +15,13 @@ interface EscolhaDeMotivo { id: string; texto: string }
 
 const chaveDa = (l: LinhaDeDiferenca) => `${l.sku}|${l.variacao ?? ''}`;
 
+/** §55 — o que a escolha vira. Sem `classe` na resposta (API antiga), toda
+ *  diferença era perda, e a tela diz isso em vez de prometer ajuste. */
+function classeDa(motivos: MotivoDeDiferenca[], e: EscolhaDeMotivo | undefined): 'ajuste' | 'perda' | null {
+  if (!e || !e.id) return null;
+  return motivos.find((m) => m.id === e.id)?.classe ?? 'perda';
+}
+
 /** O rótulo que efetivamente vai para o banco. String vazia = ainda não
  *  resolvida, e o botão de aplicar sabe contar isso. */
 function rotuloFinal(motivos: MotivoDeDiferenca[], e: EscolhaDeMotivo | undefined): string {
@@ -131,10 +138,13 @@ export function RevisaoDoInventario({
   async function aplicar() {
     if (!pronto || !alvos.length || semMotivo.length) return;
     const total = alvos.length;
+    const perdas = alvos.filter((l) => classeDa(dados.motivos, motivos.get(chaveDa(l))) === 'perda').length;
     if (!confirm(
       `Resolver ${total} ${plural(total, 'diferença', 'diferenças')} e ajustar o estoque?\n\n`
-      + 'Cada uma vira uma saída sem faturamento amarrada a este inventário, '
-      + 'com movimento na razão, o motivo que você escolheu e estorno possível. '
+      + 'Cada uma vira um ajuste de inventário no histórico da peça, com o motivo que você escolheu. '
+      + (perdas
+        ? `${perdas} ${plural(perdas, 'marcada', 'marcadas')} como perda também ${perdas === 1 ? 'entra' : 'entram'} em "Saiu sem faturar". `
+        : 'Nenhuma é registrada como perda. ')
       + 'Nada é apagado.',
     )) return;
 
@@ -142,7 +152,9 @@ export function RevisaoDoInventario({
     setErro('');
     const resposta = await aplicarAjustes(
       conexao, id,
-      alvos.map((l) => pedidoDaLinha(l, rotuloFinal(dados.motivos, motivos.get(chaveDa(l))))),
+      alvos.map((l) => pedidoDaLinha(
+        l, rotuloFinal(dados.motivos, motivos.get(chaveDa(l))), motivos.get(chaveDa(l))?.id,
+      )),
     ).catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui aplicar.' }));
     setAplicando(false);
 
@@ -352,6 +364,11 @@ export function RevisaoDoInventario({
                     </small>
                   </span>
                   <span className="mq-item__side">
+                    {l.classeAplicada && (
+                      <span className={`mq-status ${l.classeAplicada === 'perda' ? 'mq-status--warn' : ''}`}>
+                        {l.classeAplicada === 'perda' ? 'Perda' : 'Ajuste de inventário'}
+                      </span>
+                    )}
                     <b className="mq-qty">{l.dif > 0 ? '+' : ''}{l.dif}</b>
                   </span>
                 </div>
@@ -556,6 +573,13 @@ function ListaParaResolver({
                     <option key={m.id} value={m.id}>{m.rotulo}</option>
                   ))}
                 </select>
+                {escolha?.id && (
+                  <small className="mq-hint" data-classe={classeDa(motivosDisponiveis, escolha) ?? ''}>
+                    {classeDa(motivosDisponiveis, escolha) === 'perda'
+                      ? 'Vira perda (entra em Saiu sem faturar).'
+                      : 'Vira ajuste de inventário — não é perda.'}
+                  </small>
+                )}
                 {escolha?.id === 'outro' && (
                   <input
                     className="mq-input"

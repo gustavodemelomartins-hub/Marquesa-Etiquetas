@@ -7,6 +7,7 @@ import { fmtData, plural } from '../../domain/formato';
 import { saudeDoEstoque, type NivelDeSaude, type ResumoDoInventario } from './saude';
 import { DialogoDeEncerramento, type EscolhaDoEncerramento } from './DialogoDeEncerramento';
 import { DialogoDeDescarte } from './DialogoDeDescarte';
+import { DialogoDeExclusao } from './DialogoDeExclusao';
 import { ProgressoDaContagem } from './ProgressoDaContagem';
 import { RevisaoDoInventario } from './RevisaoDoInventario';
 import { TODAS, filtrarPorCategoria } from './progresso';
@@ -31,6 +32,10 @@ interface InventarioResumo {
   divergentes: number;
   pecas: number;
   naoComparaveis: number;
+  /** §53 — o servidor diz se aceitaria excluir: não está em andamento e
+   *  nada dele chegou ao estoque. Ausente (API antiga) = não oferece. */
+  excluivel?: boolean;
+  alterouEstoque?: boolean;
 }
 
 const ROTULO_DO_STATUS: Record<string, string> = {
@@ -129,6 +134,31 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = fal
   );
   const [abertoId, setAbertoId] = useState<number | null>(null);
   const [erroAcao, setErroAcao] = useState('');
+  const [excluindo, setExcluindo] = useState<number | null>(null);
+  const [ocupadoExclusao, setOcupadoExclusao] = useState(false);
+  const [erroExclusao, setErroExclusao] = useState('');
+  const [avisoExclusao, setAvisoExclusao] = useState('');
+
+  async function excluir() {
+    if (excluindo === null) return;
+    setOcupadoExclusao(true);
+    setErroExclusao('');
+    const r = await chamar<{ ok?: boolean; erro?: string; variacoesMantidas?: { sku: string; variacao: string }[] }>(
+      conexao, 'DELETE', `/api/inventarios/${excluindo}`, {},
+    ).catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui excluir.' }));
+    setOcupadoExclusao(false);
+    if (r && 'erro' in r && r.erro) { setErroExclusao(String(r.erro)); return; }
+    const mantidas = (r && 'variacoesMantidas' in r && r.variacoesMantidas) || [];
+    setAvisoExclusao(`Inventário #${excluindo} excluído. Nenhum estoque foi alterado.`
+      + (mantidas.length
+        ? ` ${plural(mantidas.length, 'A variação criada', 'As variações criadas')} na contagem `
+          + `(${mantidas.map((m) => `${m.sku} ${m.variacao}`).join(', ')}) `
+          + `${mantidas.length === 1 ? 'continua' : 'continuam'} no cadastro.`
+        : ''));
+    if (abertoId === excluindo) setAbertoId(null);
+    setExcluindo(null);
+    lista.recarregar();
+  }
 
   /* `GET /api/inventarios` devolve uma lista. Se um dia devolver outra
      coisa — erro serializado como objeto, resposta truncada, rota ainda
@@ -272,6 +302,16 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = fal
       )}
 
       {erroAcao && <p className="mq-note mq-note--risk" role="alert"><span>{erroAcao}</span></p>}
+      {avisoExclusao && <p className="mq-note mq-note--ok" role="status"><span>{avisoExclusao}</span></p>}
+      {excluindo !== null && (
+        <DialogoDeExclusao
+          id={excluindo}
+          ocupado={ocupadoExclusao}
+          erro={erroExclusao}
+          aoConfirmar={excluir}
+          aoVoltar={() => setExcluindo(null)}
+        />
+      )}
       {lista.erro ? <section className="mq-card"><ErrorState erro={lista.erro} aoTentarDeNovo={lista.recarregar} /></section> : null}
 
       {idAtual !== null ? (
@@ -305,26 +345,39 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = fal
         ) : (
           <div className="mq-list">
             {inventarios.map((i) => (
-              <button type="button" className="mq-item" key={i.id} onClick={() => setAbertoId(i.id)}>
-                <span className={`mq-item__icon ${i.divergentes ? 'mq-item__icon--warn' : 'mq-item__icon--ok'}`}>
-                  <Icone nome="inventory" />
-                </span>
-                <span className="mq-item__main">
-                  <b>Inventário #{i.id}</b>
-                  <small>
-                    aberto em {fmtData(i.iniciadoEm)}
-                    {i.concluidoEm
-                      ? ` · ${i.status === 'cancelado' ? 'cancelado' : 'concluído'} em ${fmtData(i.concluidoEm)}`
-                      : ''}
-                    {i.divergentes ? ` · ${i.divergentes} divergentes` : ''}
-                  </small>
-                </span>
+              <div className="mq-item inventario-hist" key={i.id}>
+                <button type="button" className="inventario-hist__abrir" onClick={() => setAbertoId(i.id)}>
+                  <span className={`mq-item__icon ${i.divergentes ? 'mq-item__icon--warn' : 'mq-item__icon--ok'}`}>
+                    <Icone nome="inventory" />
+                  </span>
+                  <span className="mq-item__main">
+                    <b>Inventário #{i.id}</b>
+                    <small>
+                      aberto em {fmtData(i.iniciadoEm)}
+                      {i.concluidoEm
+                        ? ` · ${i.status === 'cancelado' ? 'cancelado' : 'concluído'} em ${fmtData(i.concluidoEm)}`
+                        : ''}
+                      {i.divergentes ? ` · ${i.divergentes} divergentes` : ''}
+                      {i.alterouEstoque ? ' · ajustes aplicados no estoque' : ''}
+                    </small>
+                  </span>
+                </button>
                 <span className="mq-item__side">
                   <span className={`mq-status ${i.status === 'concluido' ? 'mq-status--ok' : i.status === 'pausado' ? 'mq-status--warn' : ''}`}>
                     {rotuloDoStatus(i.status)}
                   </span>
+                  {i.excluivel && (
+                    <button
+                      type="button"
+                      className="mq-btn mq-btn--ghost mq-btn--sm"
+                      aria-label={`Excluir o inventário #${i.id}`}
+                      onClick={() => { setErroExclusao(''); setAvisoExclusao(''); setExcluindo(i.id); }}
+                    >
+                      Excluir
+                    </button>
+                  )}
                 </span>
-              </button>
+              </div>
             ))}
           </div>
         )}

@@ -998,6 +998,34 @@ CREATE TABLE IF NOT EXISTS inventario_eventos (
 );
 CREATE INDEX IF NOT EXISTS idx_inv_eventos ON inventario_eventos(inventario_id);
 
+-- Diferença de inventário aplicada como AJUSTE (não perda) — 05/10/2026.
+-- A chave primária impede aplicar a mesma linha duas vezes; o INSERT anda
+-- no mesmo batch do movimento. Ver api/migracao-inventario-ajuste.sql.
+CREATE TABLE IF NOT EXISTS inventario_ajustes (
+  inventario_id INTEGER NOT NULL REFERENCES inventarios(id),
+  sku           TEXT    NOT NULL REFERENCES produtos(sku),
+  variacao      TEXT    NOT NULL DEFAULT '',
+  qtd           INTEGER NOT NULL CHECK (qtd <> 0),   -- assinado: − falta, + sobra
+  motivo        TEXT    NOT NULL,
+  observacao    TEXT,
+  criado_em     TEXT    NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (inventario_id, sku, variacao)
+);
+
+-- Inventário excluído (só o que não mexeu em estoque): o fato de ter
+-- existido fica registrado aqui depois que as linhas de contagem saem.
+CREATE TABLE IF NOT EXISTS inventarios_excluidos (
+  inventario_id INTEGER PRIMARY KEY,
+  status        TEXT    NOT NULL,
+  iniciado_em   TEXT,
+  concluido_em  TEXT,
+  leituras      INTEGER NOT NULL DEFAULT 0,
+  pecas         INTEGER NOT NULL DEFAULT 0,
+  eventos_json  TEXT    NOT NULL DEFAULT '[]',
+  motivo        TEXT,
+  excluido_em   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 -- ------------------------------------------------------- reconciliação
 -- Prévia, revisão humana e aplicação do aprovado — ver
 -- docs/RECONCILIATION_ENGINE.md para o fluxo completo e

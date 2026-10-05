@@ -614,6 +614,19 @@ Depois disso, em **Meu estoque**, cada produto tem um selo "+ kit" — clique
 para escolher de quais outras peças ele é montado. Um produto só pode virar
 kit com o saldo próprio zerado (o sistema explica e recusa se não estiver).
 
+Migração `api/migracao-inventario-ajuste.sql` (05/10/2026) — duas tabelas
+novas (`inventario_ajustes`, `inventarios_excluidos`), `CREATE TABLE IF NOT
+EXISTS`, sem `ALTER`: roda duas vezes. Aplique ANTES do Worker que a usa;
+sem ela, aplicar diferença de inventário como ajuste e excluir inventário
+respondem 503 dizendo esta migração (o resto do painel funciona).
+Rollback: `migracao-inventario-ajuste-rollback.sql` (só se as tabelas
+estiverem vazias).
+
+```bash
+npx wrangler d1 execute DB --env staging-v2 --remote --file=migracao-inventario-ajuste.sql
+npx wrangler d1 execute DB --remote --file=migracao-inventario-ajuste.sql
+```
+
 ## Testar com dados de verdade
 
 Com a URL e a chave em mãos:

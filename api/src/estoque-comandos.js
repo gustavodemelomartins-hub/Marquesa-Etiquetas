@@ -46,6 +46,137 @@ export async function lancarMovimento(db, sku, { tipo, quantidade, obs, variacao
   return json({ ok: true, saldos: await saldosDoSku(db, sku) });
 }
 
+/** §54 — os motivos de "Ajustar estoque". Lista curta pelo mesmo motivo do
+ *  desconto (§27) e da diferença de inventário: texto livre puro faz cada
+ *  grafia virar um motivo diferente e nada agrupa. "Outro" exige a
+ *  observação, que vira o rótulo. A V2 tem a mesma lista em
+ *  `frontend/src/features/estoque/ajuste.ts` — os ids são o contrato. */
+export const MOTIVOS_DE_AJUSTE = [
+  { id: 'correcao_cadastro', rotulo: 'Correção de cadastro' },
+  { id: 'contagem_fisica', rotulo: 'Contagem física' },
+  { id: 'erro_entrada', rotulo: 'Erro de entrada' },
+  { id: 'ajuste_administrativo', rotulo: 'Ajuste administrativo' },
+  { id: 'outro', rotulo: 'Outro', livre: true },
+];
+
+const LIMITE_OBSERVACAO = 300;
+
+/** §54 — AJUSTAR ESTOQUE: dizer qual é a quantidade CERTA, nunca digitar o
+ *  saldo. O servidor calcula a diferença e grava UM movimento `ajuste` com
+ *  o motivo e os dois números na observação; o histórico da peça mostra
+ *  quem estava errado e por quê (§19).
+ *
+ *  Quatro recusas, todas antes de escrever:
+ *   · `quantidadeAtual` diferente do saldo de agora — a tela estava velha
+ *     (uma venda entrou no meio) e a diferença calculada seria outra;
+ *   · total abaixo do que está com revendedoras — a peça na maleta existe;
+ *     o caminho é o acerto da maleta, não o ajuste;
+ *   · kit e configuração montável — não têm saldo próprio;
+ *   · código com variação cuja razão SABE por aro e ninguém disse qual aro:
+ *     regra 2, não se chuta a variante. Quando a razão não separa por aro
+ *     (o caso comum), o ajuste vale para o código inteiro e é recusado se
+ *     vier com aro — escrever num aro sem saldo o deixaria negativo.
+ *
+ *  `seco: true` devolve a prévia (de, para, diferença, em casa depois) sem
+ *  gravar nada. */
+export async function ajustarEstoque(db, sku, corpo = {}) {
+  const saldos = await saldosDoSku(db, sku);
+  if (!saldos) return json({ erro: `Código ${sku} não está no catálogo` }, 404);
+  if (saldos.componentes || saldos.montagem) {
+    return json({ erro: `${sku} não tem estoque próprio (é kit ou montagem): ajuste as peças que o compõem.` }, 409);
+  }
+
+  const inteiro = (v) => (v === '' || v == null ? NaN : Number(v));
+  const para = inteiro(corpo.quantidadeCorreta);
+  const de = inteiro(corpo.quantidadeAtual);
+  if (!Number.isInteger(para) || para < 0) {
+    return json({ erro: 'Informe a quantidade correta: um número inteiro, zero ou mais.' }, 400);
+  }
+  if (!Number.isInteger(de)) {
+    return json({ erro: 'Informe a quantidade atual que você viu na tela.' }, 400);
+  }
+  if (de !== saldos.qtd) {
+    return json({
+      erro: `O estoque de ${sku} mudou enquanto você ajustava: era ${de}, agora é ${saldos.qtd}. Confira e tente de novo.`,
+      quantidadeAtual: saldos.qtd,
+    }, 409);
+  }
+  const diferenca = para - saldos.qtd;
+  if (diferenca === 0) return json({ erro: 'A quantidade correta é igual à atual — nada a ajustar.' }, 400);
+  if (para < saldos.consignado) {
+    return json({
+      erro: `${saldos.consignado} ${saldos.consignado === 1 ? 'peça está' : 'peças estão'} com revendedoras: `
+        + 'o total não pode ficar abaixo disso. Se a peça não está na maleta, corrija a maleta primeiro.',
+      consignado: saldos.consignado,
+    }, 409);
+  }
+
+  const motivo = MOTIVOS_DE_AJUSTE.find((m) => m.id === String(corpo.motivo ?? '').trim());
+  if (!motivo) {
+    return json({ erro: 'Diga o motivo do ajuste.', motivos: MOTIVOS_DE_AJUSTE }, 400);
+  }
+  const observacao = String(corpo.observacao ?? '').trim();
+  if (observacao.length > LIMITE_OBSERVACAO) {
+    return json({ erro: `A observação é longa demais (máximo ${LIMITE_OBSERVACAO} caracteres).` }, 400);
+  }
+  if (motivo.livre && !observacao) {
+    return json({ erro: 'Em "Outro", escreva o que aconteceu na observação.' }, 400);
+  }
+
+  /* Variação: a razão SABE por aro quando algum movimento do código tem
+     identidade com saldo. Mesmo critério de `inventario.js › variacoesComSaldo`. */
+  const variacao = String(corpo.variacao ?? '').trim() || null;
+  const variacoes = (await db.prepare(
+    `SELECT pv.nome, pv.variante_id,
+            COALESCE((SELECT SUM(mo.qtd) FROM movimentos mo
+                       WHERE mo.sku = pv.sku
+                         AND (mo.variante_id = pv.variante_id
+                              OR (mo.variante_id IS NULL AND mo.variacao = pv.nome))), 0) AS saldo
+       FROM produto_variacoes pv WHERE pv.sku = ?`).bind(sku).all()).results ?? [];
+  const identificada = variacoes.some((v) => Number(v.saldo) !== 0);
+  let alvoVariacao = null;
+  if (variacao) {
+    alvoVariacao = variacoes.find((v) => v.nome === variacao);
+    if (!alvoVariacao) return json({ erro: `${sku} não tem a variação "${variacao}"` }, 400);
+    if (!identificada) {
+      return json({
+        erro: `O histórico de ${sku} não separa as peças por variação: o ajuste vale para o código inteiro. `
+          + 'Tire a variação e ajuste o total.',
+      }, 409);
+    }
+    if (Number(alvoVariacao.saldo) + diferenca < 0) {
+      return json({ erro: `"${variacao}" tem ${alvoVariacao.saldo}; não dá para tirar ${-diferenca} dela.` }, 409);
+    }
+  } else if (identificada) {
+    return json({
+      erro: `${sku} tem estoque separado por variação. Diga em qual variação está a diferença.`,
+      variacoes: variacoes.map((v) => ({ nome: v.nome, saldo: Number(v.saldo) })),
+    }, 409);
+  }
+
+  const previa = {
+    sku, de: saldos.qtd, para, diferenca,
+    consignado: saldos.consignado,
+    emCasaAntes: saldos.qtd - saldos.consignado,
+    emCasaDepois: para - saldos.consignado,
+    motivo: motivo.rotulo,
+    variacao: alvoVariacao ? alvoVariacao.nome : null,
+  };
+  if (corpo.seco) return json({ ok: true, seco: true, ...previa });
+
+  const rotulo = motivo.livre ? observacao : motivo.rotulo;
+  const obs = `Ajuste de estoque · ${rotulo} · de ${saldos.qtd} para ${para}`
+    + (alvoVariacao ? ` · ${alvoVariacao.nome}` : '')
+    + (observacao && !motivo.livre ? ` · ${observacao}` : '');
+  await db.batch(movimentar(db, {
+    sku, tipo: 'ajuste', quantidade: diferenca, origem: 'ajuste',
+    obs,
+    variacao: alvoVariacao ? alvoVariacao.nome : null,
+    varianteId: alvoVariacao ? alvoVariacao.variante_id : null,
+  }));
+  return json({ ok: true, ...previa, obs, saldos: await saldosDoSku(db, sku) });
+}
+
 /** Desfaz uma repartição automática que não devia ter acontecido.
  *
  *  A primeira versão de `semearVariacoes` servia as variações na ordem até o

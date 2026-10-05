@@ -21,6 +21,31 @@ const semColuna = (msg) => /no such column/i.test(msg);
  *  rodado. */
 export const tradutores = [
   {
+    /* Clientes arquivadas (§48). Em 05/10/2026 a V2 DEV abriu Clientes com
+       "Falha interna": o banco do staging-v2 não tinha recebido esta
+       migração, e a lista de clientes filtra por `arquivada_em`. A coluna
+       de mesmo nome em `categorias` vem do catálogo 4.5 — a mensagem cita
+       as duas para ninguém rodar a errada. */
+    id: 'clientes-arquivo',
+    reconhece: (msg) => semColuna(msg) && /\barquivada_(em|motivo)\b/i.test(msg),
+    resposta: () => json({
+      erro: 'Clientes precisa de uma migração que este banco ainda não recebeu.',
+      detalhe: 'Rode api/migracao-clientes-arquivo.sql no D1 (se a tela for de categorias, '
+             + 'api/migracao-catalogo-4-5.sql) — o passo está no api/DEPLOY.md.',
+      migracao: 'clientes-arquivo',
+    }, 503),
+  },
+  {
+    /* Ajuste de inventário e exclusão de inventário (§53, §55). */
+    id: 'inventario-ajuste',
+    reconhece: (msg) => /no such table/i.test(msg) && /\binventario(s_excluidos|_ajustes)\b/i.test(msg),
+    resposta: () => json({
+      erro: 'Esta parte do inventário precisa de uma migração que este banco ainda não recebeu.',
+      detalhe: 'Rode api/migracao-inventario-ajuste.sql no D1 — o passo está no api/DEPLOY.md.',
+      migracao: 'inventario-ajuste',
+    }, 503),
+  },
+  {
     /* A ficha de cliente com CPF. "no such column: cpf" não diz a ninguém
        o que fazer. */
     id: 'cliente-cpf',

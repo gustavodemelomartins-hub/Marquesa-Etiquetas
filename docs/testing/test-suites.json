@@ -220,6 +220,28 @@
       "duration": "<3s"
     },
     {
+      "id": "estoque-ajuste-inventario",
+      "level": "domain",
+      "mode": "local",
+      "description": "Ajustar estoque com motivo; diferença de inventário é ajuste (perda só se escolhida); excluir só inventário sem efeito no estoque",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/estoque-ajuste-inventario-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<2s"
+    },
+    {
       "id": "saidas-planilha-correcao",
       "level": "domain",
       "mode": "local",

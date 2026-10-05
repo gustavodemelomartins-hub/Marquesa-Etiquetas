@@ -147,6 +147,10 @@ const MIGRACOES = [
      `inventario_eventos`) e a correção auditável da classe de uma saída
      (`historico_reclassificacao_correcoes`). Só acrescenta. */
   'api/migracao-inventario-conferencia.sql',
+  /* 05/10/2026 — diferença de inventário como AJUSTE (`inventario_ajustes`)
+     e o registro do inventário excluído (`inventarios_excluidos`). Só
+     acrescenta, e roda duas vezes. */
+  'api/migracao-inventario-ajuste.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com

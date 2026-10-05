@@ -8,6 +8,7 @@ import { fotoDaPeca } from '../../domain/foto';
 import { EditarPeca } from '../catalogo/EditarPeca';
 import { PainelDeVariacoes } from '../catalogo/PainelDeVariacoes';
 import { GaleriaDaPeca } from './galeria/GaleriaDaPeca';
+import { AjustarEstoque } from './AjustarEstoque';
 import type { Galeria } from './galeria/api';
 import type { ProdutoDoEstado } from '../vendas/tipos';
 
@@ -64,6 +65,9 @@ export function FichaDaPeca({ conexao, peca, categorias, aba, aoTrocarAba, aoFec
   const [editando, setEditando] = useState(false);
   const [variacoes, setVariacoes] = useState(false);
   const [buscarNaLoja, setBuscarNaLoja] = useState(false);
+  /* §54 — "Ajustar estoque": a quantidade certa + o motivo, nunca o saldo digitado. */
+  const [ajustando, setAjustando] = useState(false);
+  const [avisoAjuste, setAvisoAjuste] = useState('');
   /* A galeria lida AGORA manda no topo: o estado geral só recarrega depois
      (ou nem recarrega, se o servidor falhar), e o topo dizendo "0 fotos"
      com duas fotos logo abaixo é o número errado que ninguém entende. */
@@ -76,11 +80,11 @@ export function FichaDaPeca({ conexao, peca, categorias, aba, aoTrocarAba, aoFec
 
   useEffect(() => {
     const aoTeclar = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !variacoes && !editando && !document.querySelector('.mq-ampliada')) aoFechar();
+      if (e.key === 'Escape' && !variacoes && !editando && !ajustando && !document.querySelector('.mq-ampliada')) aoFechar();
     };
     document.addEventListener('keydown', aoTeclar);
     return () => document.removeEventListener('keydown', aoTeclar);
-  }, [aoFechar, variacoes, editando]);
+  }, [aoFechar, variacoes, editando, ajustando]);
 
   useEffect(() => { try { window.scrollTo({ top: 0 }); } catch { /* ambiente sem rolagem */ } }, [peca.sku]);
 
@@ -132,9 +136,14 @@ export function FichaDaPeca({ conexao, peca, categorias, aba, aoTrocarAba, aoFec
         <div className="mq-peca__preco">
           <span className="mq-label">Preço</span>
           <b className="mq-money mq-money--lg">{peca.preco === null ? 'Sem preço' : money(peca.preco)}</b>
-          <button type="button" className="mq-btn mq-btn--secondary mq-btn--sm" onClick={() => { aoTrocarAba('geral'); setEditando(true); }}>
-            Editar dados
-          </button>
+          <span className="mq-btns">
+            <button type="button" className="mq-btn mq-btn--secondary mq-btn--sm" onClick={() => { aoTrocarAba('geral'); setEditando(true); }}>
+              Editar dados
+            </button>
+            <button type="button" className="mq-btn mq-btn--secondary mq-btn--sm" onClick={() => { setAvisoAjuste(''); setAjustando(true); }}>
+              Ajustar estoque
+            </button>
+          </span>
         </div>
 
         <dl className="mq-peca__numeros">
@@ -144,6 +153,10 @@ export function FichaDaPeca({ conexao, peca, categorias, aba, aoTrocarAba, aoFec
           <div><dt>Na loja online</dt><dd>{peca.estoqueLoja == null ? '—' : peca.estoqueLoja}</dd></div>
         </dl>
       </header>
+
+      {avisoAjuste && (
+        <p className="mq-note mq-note--ok" role="status"><span>{avisoAjuste}</span></p>
+      )}
 
       <nav className="mq-tabs mq-peca__abas" role="tablist" aria-label="Seções da peça">
         {ABAS_DA_FICHA.map((a) => (
@@ -164,6 +177,7 @@ export function FichaDaPeca({ conexao, peca, categorias, aba, aoTrocarAba, aoFec
                 categorias={categorias}
                 aoCancelar={() => setEditando(false)}
                 aoSalvar={() => { setEditando(false); aoMudar(); }}
+                aoAjustarEstoque={() => { setAvisoAjuste(''); setAjustando(true); }}
               />
             </section>
           ) : (
@@ -191,7 +205,7 @@ export function FichaDaPeca({ conexao, peca, categorias, aba, aoTrocarAba, aoFec
         )}
 
         {aba === 'estoque' && (
-          <Estoque peca={peca} aoVariacoes={() => setVariacoes(true)} />
+          <Estoque peca={peca} aoVariacoes={() => setVariacoes(true)} aoAjustar={() => { setAvisoAjuste(''); setAjustando(true); }} />
         )}
 
         {aba === 'historico' && (
@@ -207,6 +221,15 @@ export function FichaDaPeca({ conexao, peca, categorias, aba, aoTrocarAba, aoFec
           />
         )}
       </div>
+
+      {ajustando && (
+        <AjustarEstoque
+          conexao={conexao}
+          peca={peca}
+          aoFechar={() => setAjustando(false)}
+          aoAjustar={(resumo) => { setAjustando(false); setAvisoAjuste(resumo); aoMudar(); }}
+        />
+      )}
 
       {variacoes && (
         <PainelDeVariacoes
@@ -289,7 +312,7 @@ function VisaoGeral({ peca, falta, aoFotos, aoEditar, aoVariacoes }: {
   );
 }
 
-function Estoque({ peca, aoVariacoes }: { peca: ProdutoDoEstado; aoVariacoes: () => void }) {
+function Estoque({ peca, aoVariacoes, aoAjustar }: { peca: ProdutoDoEstado; aoVariacoes: () => void; aoAjustar: () => void }) {
   const emCasa = peca.qtd - peca.consignado;
   return (
     <section className="mq-card mq-card--pad">
@@ -318,8 +341,11 @@ function Estoque({ peca, aoVariacoes }: { peca: ProdutoDoEstado; aoVariacoes: ()
       )}
       <p className="mq-hint">
         O saldo é a soma das entradas e saídas registradas — veja cada uma na aba Histórico.
+        Se o número está errado, use <b>Ajustar estoque</b>: você diz a quantidade certa e o
+        motivo, e a correção fica no histórico.
       </p>
       <div className="mq-btns">
+        <button type="button" className="mq-btn mq-btn--primary" onClick={aoAjustar}>Ajustar estoque</button>
         <button type="button" className="mq-btn mq-btn--secondary" onClick={aoVariacoes}>Variações</button>
       </div>
     </section>

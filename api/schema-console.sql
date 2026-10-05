@@ -124,6 +124,10 @@ CREATE TABLE IF NOT EXISTS inventario_eventos ( id INTEGER PRIMARY KEY AUTOINCRE
 
 CREATE INDEX IF NOT EXISTS idx_inv_eventos ON inventario_eventos(inventario_id);
 
+CREATE TABLE IF NOT EXISTS inventario_ajustes ( inventario_id INTEGER NOT NULL REFERENCES inventarios(id), sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT NOT NULL DEFAULT '', qtd INTEGER NOT NULL CHECK (qtd <> 0), motivo TEXT NOT NULL, observacao TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (inventario_id, sku, variacao) );
+
+CREATE TABLE IF NOT EXISTS inventarios_excluidos ( inventario_id INTEGER PRIMARY KEY, status TEXT NOT NULL, iniciado_em TEXT, concluido_em TEXT, leituras INTEGER NOT NULL DEFAULT 0, pecas INTEGER NOT NULL DEFAULT 0, eventos_json TEXT NOT NULL DEFAULT '[]', motivo TEXT, excluido_em TEXT NOT NULL DEFAULT (datetime('now')) );
+
 CREATE TABLE IF NOT EXISTS reconciliacao_sessoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, origem TEXT NOT NULL CHECK (origem IN ('nuvemshop', 'planilha_estoque_total', 'planilha_produtos_novos')), status TEXT NOT NULL DEFAULT 'revisao' CHECK (status IN ( 'revisao', 'aplicando', 'aplicada', 'aplicada_parcial', 'cancelada', 'superada', 'erro' )), criada_em TEXT NOT NULL DEFAULT (datetime('now')), decidida_em TEXT, aplicada_em TEXT, resumo_json TEXT, relato_json TEXT, erro TEXT );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_rec_sessoes_revisao_unica ON reconciliacao_sessoes(origem) WHERE status = 'revisao';

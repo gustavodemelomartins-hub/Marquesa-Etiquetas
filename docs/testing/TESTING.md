@@ -517,6 +517,25 @@ com um bipe, e a falta nele não vira movimento. Par de tela:
 `frontend/src/features/inventario/bipagem.test.tsx` (leitor USB: campo limpa,
 foco volta, "2 + Enter", retentativa, não salvo trava o encerramento).
 
+### `src/estoque-ajuste-inventario-test.mjs` — Ajustar estoque, ajuste de inventário e exclusão (§53–§55)
+**13 provas · <1 s · `api/schema.sql` em memória, FK ligada, batch atômico**
+
+A migration `migracao-inventario-ajuste.sql` é aditiva e roda duas vezes.
+Ajustar estoque: o anel 256359 de 8 para 7 vira UM movimento `ajuste` −1 com
+motivo e os dois números, e o +1 do go-live continua no histórico; recusa
+tela velha, abaixo do consignado, sem motivo, "Outro" vazio, diferença zero
+e número inválido sem escrever; `seco` só mostra a prévia; razão sem aro
+ajusta o código inteiro e recusa aro, razão com aro exige o aro. Inventário:
+falta e sobra sem perda declarada viram ajuste de inventário (nenhuma saída),
+a chave de `inventario_ajustes` impede a segunda aplicação e o batch não
+deixa movimento órfão; "Perda confirmada" segue para perda; sobra não pode
+ser perda; o `/ajustar` clássico sem motivo é ajuste. Excluir: cancelado e
+concluído sem efeito saem com registro em `inventarios_excluidos` (variação
+criada fica no cadastro); com ajuste ou perda é recusado com a lista;
+em andamento é recusado; a lista marca `excluivel`. Par de tela:
+`frontend/src/features/estoque/ajuste.test.tsx` e
+`frontend/src/features/inventario/excluir.test.tsx`.
+
 ### `src/inventario-saude-test.mjs` — saúde do estoque sem inventário real
 **4 provas · <1 s · `api/schema.sql` em memória**
 

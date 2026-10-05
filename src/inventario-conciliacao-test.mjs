@@ -341,8 +341,11 @@ assert.equal(rel.conciliacao.conciliado, false,
 const TOTAL_DIVERGENCIAS = rel.conciliacao.divergencias;
 
 /* Resolver UMA. O motivo vai para a coluna agrupável e chega à razão. */
+/* §55: perda só quando ELA diz que é perda — é o caminho que tem estorno,
+   e é o estorno que G3 prova. O padrão (ajuste) tem prova própria em
+   src/estoque-ajuste-inventario-test.mjs. */
 const aplicada = await corpo(await inv.aplicarInventario(db, ID, {
-  itens: [{ sku: '500003', motivo: 'Não encontrada na casa' }],
+  itens: [{ sku: '500003', motivoId: 'perda', motivo: 'Perda confirmada' }],
 }));
 assert.ok(aplicada.ok, `a aplicação falhou: ${aplicada.erro}`);
 assert.equal(aplicada.aplicados[0].qtd, -3, 'aplicou uma quantidade diferente da congelada');
@@ -354,10 +357,10 @@ const saida = raw.prepare('SELECT * FROM saidas_sem_faturamento WHERE id = ?')
 assert.equal(saida.tipo, 'perda');
 assert.equal(saida.sentido, 'saida');
 assert.equal(saida.inventario_id, ID, 'a diferença declarada não ficou amarrada ao inventário');
-assert.equal(saida.motivo, 'Não encontrada na casa', 'o motivo escolhido não sobreviveu');
+assert.equal(saida.motivo, 'Perda confirmada', 'o motivo escolhido não sobreviveu');
 const mov = raw.prepare('SELECT * FROM movimentos WHERE id = ?').get(saida.movimento_id);
 assert.equal(mov.origem, 'inventario', 'a origem do movimento não é `inventario` (D9)');
-assert.match(mov.obs, /Não encontrada na casa/, 'o motivo não chegou à razão');
+assert.match(mov.obs, /Perda confirmada/, 'o motivo não chegou à razão');
 assert.match(mov.obs, new RegExp(`inventário #${ID}`), 'a razão não diz de qual inventário veio');
 prova('G — o motivo escolhido chega à razão, junto com o número do inventário');
 
@@ -368,7 +371,7 @@ prova('G — o motivo escolhido chega à razão, junto com o número do inventá
   assert.equal(relido.conciliacao.resolvidas, 1, 'a conciliação não contou a diferença aplicada');
   assert.equal(relido.conciliacao.pendentes, TOTAL_DIVERGENCIAS - 1);
   assert.equal(relido.conciliacao.conciliado, false);
-  assert.equal(acha(relido.faltando, '500003').motivoAplicado, 'Não encontrada na casa',
+  assert.equal(acha(relido.faltando, '500003').motivoAplicado, 'Perda confirmada',
     'o motivo sumiu do relatório relido — um motivo que não sobrevive ao recarregar é enfeite');
   prova('G2 — a conciliação anda sozinha: 1 resolvida, o resto pendente');
 }

@@ -13,7 +13,7 @@ import { historicoSync } from '../../sync.js';
 import { detalheSessao } from '../../reconciliacao.js';
 import {
   listarInventarios, detalheInventario, abrirInventario, salvarContagem,
-  concluirInventario, ajustarInventario, cancelarInventario,
+  concluirInventario, ajustarInventario, cancelarInventario, excluirInventario,
   contarItem, descontarItem, registrarNaoIdentificado,
   pausarInventario, retomarInventario, resultadoInventario, aplicarInventario,
   criarVariacaoNaContagem,
@@ -93,6 +93,15 @@ export const rotas = [
     metodo: 'POST', caminho: '/api/inventarios/:id/cancelar', auth: 'bearer', padroes: { id: '[0-9]+' },
     async handler({ db, params }) {
       return await cancelarInventario(db, +params.id);
+    },
+  },
+  {
+    /* §53 — excluir só o inventário que NÃO mexeu em estoque; o que mexeu
+       é recusado com a lista do que ele alterou. Deixa registro em
+       `inventarios_excluidos`. */
+    metodo: 'DELETE', caminho: '/api/inventarios/:id', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      return await excluirInventario(db, +params.id, await request.json().catch(() => ({})));
     },
   },
   {

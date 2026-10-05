@@ -190,7 +190,9 @@ describe('Inventário pausado: continuar, concluir ou descartar', () => {
     const abrir = await screen.findByRole('button', { name: /Abrir inventário/ });
     expect(screen.queryByRole('heading', { name: 'Inventário #7' })).toBeNull();
     const historico = screen.getByRole('heading', { name: 'Histórico de inventários' }).closest('section')!;
-    const linha = within(historico).getByText('Inventário #7').closest('button')!;
+    /* A linha do histórico (não mais um botão só: ela também pode levar
+       "Excluir", §53). */
+    const linha = within(historico).getByText('Inventário #7').closest<HTMLElement>('.mq-item')!;
     expect(within(linha).getByText('Cancelado')).toBeTruthy();
     expect(within(linha).getByText(/cancelado em/)).toBeTruthy();
 
