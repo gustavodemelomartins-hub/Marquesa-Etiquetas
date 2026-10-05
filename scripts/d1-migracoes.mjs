@@ -49,7 +49,14 @@ const ALVOS = {
   staging: { banco: 'marquesa-db-dev', id: 'dcc36f65-daaa-42a4-9fbd-15e6f27e4d4b', escrita: true },
   prod: { banco: 'marquesa-db-prod', id: '51dd629b-52dc-46d0-a1af-fa37f0a79533', escrita: false },
 };
-const parar = (msg) => { console.error(`PAROU: ${msg}`); process.exit(1); };
+/* No GitHub Actions a parada vira anotação `::error::` — ela aparece no
+   resumo do run, e o log inteiro não precisa ser baixado para saber a causa. */
+const parar = (msg) => {
+  console.error(`PAROU: ${msg}`);
+  if (process.env.GITHUB_ACTIONS) console.log(`::error title=d1-migracoes::${String(msg).replace(/\s+/g, ' ').slice(0, 900)}`);
+  process.exit(1);
+};
+process.on('uncaughtException', (e) => parar(`${e.message}${e.stderr ? ' | ' + String(e.stderr) : ''}${e.stdout ? ' | ' + String(e.stdout).slice(0, 400) : ''}`));
 if (!ALVOS[ENV]) parar(`--env tem de ser um de: ${Object.keys(ALVOS).join(', ')}`);
 if (APLICAR && !ALVOS[ENV].escrita) parar('produção é só leitura aqui: migration de PROD é passo revisado da release');
 
@@ -70,7 +77,12 @@ const wrangler = (...a) => execFileSync(process.execPath,
   { cwd: API, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 });
 const consultar = (sql) => {
   const saida = wrangler('--json', '--command', sql);
-  return JSON.parse(saida.slice(saida.indexOf('[')))[0].results;
+  /* O JSON começa numa linha que é só "[" — aviso do wrangler antes dele
+     (ex.: "▲ [WARNING] …") também tem colchete, e cortar no primeiro "["
+     quebrava o parse no CI. */
+  const inicio = saida.search(/^\[\s*$/m);
+  if (inicio < 0) parar(`o wrangler não devolveu JSON: ${saida.slice(0, 300)}`);
+  return JSON.parse(saida.slice(inicio))[0].results;
 };
 
 /* ── 2. o que cada migration cria */
