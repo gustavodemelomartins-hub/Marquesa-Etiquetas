@@ -1537,8 +1537,10 @@ async function aplicarDiferenca(db, id, pedidos, { exigirMotivo = false } = {}) 
  *  `inventario`, e a marca de aplicado no retrato. Conflito na chave desfaz
  *  os três. */
 async function aplicarComoAjuste(db, id, data, linha, motivo, observacao) {
+  /* Sem motivo (o `/ajustar` do painel clássico) a razão diz só o fato; o
+     registro em `inventario_ajustes` guarda o rótulo genérico de sempre. */
   const rotulo = motivo ?? `Diferença de inventário #${id}`;
-  const obs = `Ajuste de inventário #${id} · ${rotulo} · contado ${linha.contado}, `
+  const obs = `Ajuste de inventário #${id}${motivo ? ` · ${motivo}` : ''} · contado ${linha.contado}, `
     + `sistema dizia ${linha.esperado}${data ? ` (${data})` : ''}`
     + (observacao ? ` · ${observacao}` : '');
   try {
