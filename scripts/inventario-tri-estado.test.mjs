@@ -74,17 +74,27 @@ const migration = ler('api/migracao-inventario-4-4.sql');
 }
 
 /* ── 3. O inventário não movimenta estoque por conta própria.
-   Toda diferença passa por `saidas.js › registrar`, que é quem grava
-   variação, amarra `movimento_id` e sabe estornar. Voltar a chamar
-   `movimentar` daqui reabriria os quatro defeitos de uma vez. */
+   §55 (05/10/2026): a diferença tem DOIS caminhos, e só esses dois.
+   Perda escolhida por ela passa por `saidas.js › registrarSaida`, que grava
+   variação, amarra `movimento_id` e sabe estornar. Todo o resto é ajuste de
+   inventário: `movimentar` é chamado UMA vez, dentro de `aplicarComoAjuste`,
+   com origem `inventario` e no MESMO batch do INSERT em `inventario_ajustes`
+   (a chave que impede aplicar duas vezes). Um `movimentar` solto em outro
+   lugar do inventário reabriria os defeitos que a 4.4 fechou. */
 {
-  assert.ok(!/from '\.\/estoque\.js'/.test(inventario),
-    'inventario.js voltou a importar estoque.js — a diferença tem de passar por saidas.js');
-  assert.ok(!/\bmovimentar\(/.test(inventario),
-    'inventario.js voltou a chamar movimentar() direto');
   assert.match(inventario, /import \{ registrarSaida \} from '\.\/saidas\.js'/,
-    'inventario.js deixou de aplicar a diferença por saidas.js');
-  prova('a diferença de inventário só vira estoque por saidas.js');
+    'inventario.js deixou de aplicar a perda por saidas.js');
+  const chamadas = inventario.match(/\bmovimentar\(/g) ?? [];
+  assert.equal(chamadas.length, 1, 'inventario.js chama movimentar() fora de aplicarComoAjuste');
+  const i = inventario.indexOf('async function aplicarComoAjuste(');
+  assert.ok(i > 0, 'aplicarComoAjuste sumiu de inventario.js');
+  const corpo = inventario.slice(i, inventario.indexOf('\n}', i));
+  assert.ok(corpo.includes('movimentar('), 'o único movimentar() saiu de aplicarComoAjuste');
+  assert.match(corpo, /origem: 'inventario'/, 'o ajuste de inventário perdeu a origem inventario (D9)');
+  assert.match(corpo, /INSERT INTO inventario_ajustes/, 'o ajuste deixou de registrar a linha que trava a repetição');
+  assert.match(corpo, /db\.batch\(\[/, 'o registro e o movimento deixaram de andar no mesmo batch');
+  assert.match(corpo, /quantidade: linha\.dif/, 'o ajuste deixou de usar a diferença congelada');
+  prova('a diferença de inventário só vira estoque por saidas.js (perda) ou pelo ajuste de inventário travado');
 }
 
 /* ── 4. A quantidade aplicada vem do retrato congelado, nunca do cliente.

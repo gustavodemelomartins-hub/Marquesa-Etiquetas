@@ -23,8 +23,10 @@
  *       não há movimento — era por aqui que o inventário FABRICAVA
  *       movimento incompleto novo, o defeito que a 4.4 existe para fechar;
  *   D5  "não sei" é resposta válida: bloqueia o SKU e não vira nada;
- *   D6/D7 a diferença dos dois lados vai por `saidas_sem_faturamento`,
- *       `tipo='perda'` — `saida` baixa, `entrada` devolve;
+ *   D6/D7 a diferença dos dois lados é um AJUSTE de inventário
+ *       (`inventario_ajustes` + movimento `ajuste`); só o motivo que ELA
+ *       escolhe como perda (§55) vai por `saidas_sem_faturamento`,
+ *       `tipo='perda'`. Até 05/10/2026 toda diferença virava perda;
  *   D9  a ORIGEM do movimento continua `inventario`: o motivo diz que é
  *       diferença, a origem diz que o fato nasceu de uma contagem física;
  *   D10 comparação RETROAGIDA por `contado_em` — contar na segunda, vender
@@ -39,6 +41,7 @@
  */
 import { json } from './auth.js';
 import { registrarSaida } from './saidas.js';
+import { movimentar } from './estoque.js';
 import { normSku } from './sku.js';
 import { definirVariacoes } from './produtos.js';
 import { diaOperacional, hojeOperacional } from './fuso.js';
@@ -149,21 +152,42 @@ const DECLARADA_SEM_IDENTIDADE = 'A razão deste código tem peça sem identidad
  *  `sentido` diz em qual das duas listas o motivo aparece. Um motivo de
  *  sobra oferecido numa falta seria um caminho que não explica nada. */
 export const MOTIVOS_DE_DIFERENCA = [
-  { id: 'nao_encontrada', rotulo: 'Não encontrada na casa', sentido: 'saida',
-    explica: 'procurei e não achei — o destino dela é desconhecido' },
-  { id: 'quebrada', rotulo: 'Quebrada ou danificada', sentido: 'saida',
-    explica: 'existe, mas não vende mais' },
-  { id: 'saiu_sem_lancar', rotulo: 'Saiu sem lançamento', sentido: 'saida',
-    explica: 'foi para maleta, brinde ou venda e ninguém lançou' },
-  { id: 'entrou_sem_lancar', rotulo: 'Entrou sem lançamento', sentido: 'entrada',
-    explica: 'chegou do fornecedor e ninguém deu entrada' },
-  { id: 'devolucao_nao_lancada', rotulo: 'Devolução não lançada', sentido: 'entrada',
-    explica: 'voltou de maleta, troca ou garantia sem baixa' },
-  { id: 'erro_de_contagem', rotulo: 'Erro de contagem anterior', sentido: 'ambos',
+  /* §55 — `classe` decide o que a diferença VIRA. `ajuste` (o padrão) é um
+     movimento de ajuste de inventário: o sistema estava errado, e a
+     contagem corrige. `perda` é a única classe que vira saída sem
+     faturamento (`tipo='perda'`), e só existe porque ela ESCOLHEU dizer que
+     a peça se perdeu. Inventário reconcilia o sistema com o físico — a
+     diferença não é, por si, uma perda. */
+  { id: 'erro_de_contagem', rotulo: 'Erro do sistema / contagem anterior', sentido: 'ambos', classe: 'ajuste',
     explica: 'o número do sistema é que estava errado' },
-  { id: 'outro', rotulo: 'Outro', sentido: 'ambos', livre: true,
-    explica: 'escreva o que aconteceu — vai para o histórico da peça assim mesmo' },
+  { id: 'entrada_duplicada', rotulo: 'Entrada duplicada ou cadastro errado', sentido: 'ambos', classe: 'ajuste',
+    explica: 'a peça foi contada ou cadastrada duas vezes, ou com a quantidade errada' },
+  { id: 'nao_encontrada', rotulo: 'Não encontrada na casa', sentido: 'saida', classe: 'ajuste',
+    explica: 'procurei e não achei — ajusta o estoque sem afirmar que se perdeu' },
+  { id: 'saiu_sem_lancar', rotulo: 'Saiu sem lançamento', sentido: 'saida', classe: 'ajuste',
+    explica: 'foi para maleta, brinde ou venda e ninguém lançou' },
+  { id: 'entrou_sem_lancar', rotulo: 'Entrou sem lançamento', sentido: 'entrada', classe: 'ajuste',
+    explica: 'chegou do fornecedor e ninguém deu entrada' },
+  { id: 'devolucao_nao_lancada', rotulo: 'Devolução não lançada', sentido: 'entrada', classe: 'ajuste',
+    explica: 'voltou de maleta, troca ou garantia sem baixa' },
+  { id: 'perda', rotulo: 'Perda confirmada', sentido: 'saida', classe: 'perda',
+    explica: 'a peça se perdeu de verdade — entra em "Saiu sem faturar" como perda' },
+  { id: 'quebrada', rotulo: 'Quebrada ou danificada', sentido: 'saida', classe: 'perda',
+    explica: 'existe, mas não vende mais — entra em "Saiu sem faturar" como perda' },
+  { id: 'outro', rotulo: 'Outro', sentido: 'ambos', livre: true, classe: 'ajuste',
+    explica: 'escreva o que aconteceu — vira ajuste de inventário com esse texto' },
 ];
+
+/** A classe de um motivo, pelo id (a V2 manda) ou pelo rótulo (texto que
+ *  chegou sem id). Texto que não é rótulo de lista nenhuma é o "Outro"
+ *  escrito por ela — ajuste. Sem motivo nenhum (o `/ajustar` do painel
+ *  clássico) também é ajuste: perda NUNCA é conclusão automática. */
+export function classeDoMotivo(motivoId, rotulo) {
+  const porId = motivoId ? MOTIVOS_DE_DIFERENCA.find((m) => m.id === motivoId) : null;
+  if (porId) return porId.classe;
+  const porRotulo = rotulo ? MOTIVOS_DE_DIFERENCA.find((m) => m.rotulo === rotulo) : null;
+  return porRotulo ? porRotulo.classe : 'ajuste';
+}
 
 const LIMITE_MOTIVO = 60;
 
@@ -212,6 +236,100 @@ export async function cancelarInventario(db, id) {
   await db.prepare(
     `UPDATE inventarios SET status = 'cancelado', concluido_em = datetime('now') WHERE id = ?`).bind(id).run();
   return json({ ok: true });
+}
+
+/** §53 — o que impede EXCLUIR um inventário: qualquer efeito em estoque.
+ *  Linha do retrato aplicada, saída de perda amarrada (mesmo estornada — ela
+ *  mexeu no estoque e o estorno também), ajuste de inventário, movimento que
+ *  cite o inventário. Devolve a lista dos motivos; vazia = excluível. */
+async function efeitosNoEstoque(db, id) {
+  const conta = async (sql) => {
+    try { return Number((await db.prepare(sql).bind(id).first())?.n ?? 0); } catch { return 0; }
+  };
+  const efeitos = [];
+  const aplicadas = await conta(
+    `SELECT COUNT(*) n FROM inventario_resultado WHERE inventario_id = ? AND aplicado_em IS NOT NULL`);
+  if (aplicadas) efeitos.push(`${aplicadas} diferença(s) aplicada(s) no estoque`);
+  const saidas = await conta(`SELECT COUNT(*) n FROM saidas_sem_faturamento WHERE inventario_id = ?`);
+  if (saidas) efeitos.push(`${saidas} saída(s) de perda lançada(s)`);
+  const ajustes = await conta(`SELECT COUNT(*) n FROM inventario_ajustes WHERE inventario_id = ?`);
+  if (ajustes) efeitos.push(`${ajustes} ajuste(s) de inventário`);
+  const antigos = await conta(`SELECT COUNT(*) n FROM inventario_itens WHERE inventario_id = ? AND ajustado = 1`);
+  if (antigos) efeitos.push(`${antigos} ajuste(s) do inventário antigo`);
+  const movs = await conta(
+    `SELECT COUNT(*) n FROM movimentos WHERE origem = 'inventario'
+        AND (obs LIKE '%nventário #' || ?1 || ' %' OR obs LIKE '%nventário #' || ?1)`);
+  if (movs) efeitos.push(`${movs} movimento(s) de estoque citando este inventário`);
+  return efeitos;
+}
+
+/** §53 — EXCLUIR um inventário, só quando ele não mexeu em estoque.
+ *
+ *  O pedido da Sthefany (05/10/2026): apagar inventário de teste ou aberto
+ *  por engano. A regra contábil não muda — o que alterou estoque não se
+ *  apaga, porque a razão precisa continuar explicando o saldo (§28). O que
+ *  NÃO alterou é só uma contagem largada; apagá-la não tira explicação de
+ *  número nenhum.
+ *
+ *  Em andamento: descarte primeiro (o descarte é o registro de que a
+ *  contagem foi largada). A exclusão deixa uma linha em
+ *  `inventarios_excluidos` — quando, em que situação, quantas leituras e as
+ *  variações criadas durante a contagem, que CONTINUAM no cadastro da peça
+ *  (estrutura, não estoque). O id não volta a ser usado (AUTOINCREMENT). */
+export async function excluirInventario(db, id, corpo = {}) {
+  const inv = await db.prepare(`SELECT * FROM inventarios WHERE id = ?`).bind(id).first();
+  if (!inv) return json({ erro: 'Inventário não encontrado' }, 404);
+  if (inv.status === 'aberto') {
+    return json({
+      erro: 'Este inventário ainda está em andamento. Descarte a contagem antes de excluir.',
+    }, 409);
+  }
+  const efeitos = await efeitosNoEstoque(db, id);
+  if (efeitos.length) {
+    return json({
+      erro: 'Este inventário já alterou o estoque e não pode ser excluído: o histórico das peças depende dele.',
+      efeitos,
+    }, 409);
+  }
+
+  const leituras = await db.prepare(
+    `SELECT COUNT(*) n, COALESCE(SUM(contado), 0) pecas FROM inventario_contagem WHERE inventario_id = ?`)
+    .bind(id).first();
+  let eventos = [];
+  try {
+    eventos = ((await db.prepare(
+      `SELECT tipo, sku, variacao, detalhe, em FROM inventario_eventos WHERE inventario_id = ? ORDER BY id`)
+      .bind(id).all()).results) ?? [];
+  } catch { /* banco sem a tabela de eventos */ }
+  const motivo = String(corpo.motivo ?? '').trim().slice(0, 200) || null;
+
+  /* Um batch: o registro da exclusão e a remoção das linhas, filhas antes
+     da mãe (as chaves estrangeiras valem no D1). Tabela que este banco não
+     tem fica de fora — não há linha dela a apagar. */
+  const existe = async (tabela) => !!(await db.prepare(
+    `SELECT 1 x FROM sqlite_master WHERE type = 'table' AND name = ?`).bind(tabela).first());
+  const filhas = ['inventario_contagem', 'inventario_eventos', 'inventario_itens',
+    'inventario_nao_identificado', 'inventario_resultado'];
+  const stmts = [
+    db.prepare(
+      `INSERT INTO inventarios_excluidos
+         (inventario_id, status, iniciado_em, concluido_em, leituras, pecas, eventos_json, motivo)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).bind(
+      id, statusVisivel(inv), inv.iniciado_em ?? null, inv.concluido_em ?? null,
+      Number(leituras?.n ?? 0), Number(leituras?.pecas ?? 0), JSON.stringify(eventos), motivo),
+  ];
+  for (const t of filhas) {
+    if (await existe(t)) stmts.push(db.prepare(`DELETE FROM ${t} WHERE inventario_id = ?`).bind(id));
+  }
+  stmts.push(db.prepare(`DELETE FROM inventarios WHERE id = ?`).bind(id));
+  await db.batch(stmts);
+
+  return json({
+    ok: true, id, excluido: true,
+    leituras: Number(leituras?.n ?? 0),
+    variacoesMantidas: eventos.filter((e) => e.tipo === 'variacao_criada')
+      .map((e) => ({ sku: e.sku, variacao: e.variacao })),
+  });
 }
 
 /* ══════════════════════════════════════════════════════════ variações do SKU */
@@ -1138,6 +1256,7 @@ export async function resultadoInventario(db, id) {
     `SELECT sku, variacao FROM inventario_contagem WHERE inventario_id = ?`)
     .bind(id).all()).results) ?? []).map((c) => CHAVE(c.sku, c.variacao)));
 
+  const ajustes = await ajustesDoInventario(db, id);
   const linhas = (results ?? []).map((r) => ({
     sku: r.sku, desc: r.desc, cat: r.cat, preco: r.preco,
     variacao: r.variacao,
@@ -1151,8 +1270,12 @@ export async function resultadoInventario(db, id) {
         + `${Math.abs(r.delta_pos) === 1 ? (r.delta_pos < 0 ? 'saída' : 'entrada') : (r.delta_pos < 0 ? 'saídas' : 'entradas')}`
       : null,
     aplicadoEm: r.aplicado_em, saidaId: r.saida_id,
-    /* O rótulo curto com que ELA explicou a diferença, relido da saída. */
-    motivoAplicado: r.saida_estornada ? null : (r.saida_motivo ?? null),
+    /* O rótulo curto com que ELA explicou a diferença, relido da saída
+       (perda) ou do ajuste de inventário (§55). */
+    motivoAplicado: r.saida_id
+      ? (r.saida_estornada ? null : (r.saida_motivo ?? null))
+      : (ajustes.get(CHAVE(r.sku, r.variacao))?.motivo ?? null),
+    classeAplicada: r.saida_id ? 'perda' : (ajustes.has(CHAVE(r.sku, r.variacao)) ? 'ajuste' : null),
     /* Estornada volta a ser aplicável: o índice único libera o relançamento
        depois do estorno (D12), e a tela precisa dizer isso. */
     aplicado: !!r.aplicado_em && !r.saida_estornada,
@@ -1198,6 +1321,7 @@ export async function resultadoInventario(db, id) {
          diferenças eu já resolvi, e por quê" depois de fechar a aba — e um
          motivo que só existe até o recarregar não é auditoria, é enfeite. */
       linha.motivoAplicado = fonte ? (fonte.motivoAplicado ?? null) : null;
+      linha.classeAplicada = fonte && fonte.aplicado ? (fonte.classeAplicada ?? null) : null;
     }
   }
   /* Recontado DEPOIS da marcação: antes dela `aplicado` é sempre falso, e a
@@ -1329,9 +1453,21 @@ async function aplicarDiferenca(db, id, pedidos, { exigirMotivo = false } = {}) 
         sku,
       }, 400);
     }
+    const motivoId = String(pedido.motivoId ?? '').trim() || null;
+    if (motivoId && !MOTIVOS_DE_DIFERENCA.some((m) => m.id === motivoId)) {
+      return json({ erro: `Motivo desconhecido: ${motivoId}`, sku, motivos: MOTIVOS_DE_DIFERENCA }, 400);
+    }
+    const classe = classeDoMotivo(motivoId, motivo);
+    if (classe === 'perda' && linha.dif > 0) {
+      return json({
+        erro: `${sku}${rotuloVariacao(linha.variacao)} está sobrando — sobra não é perda. Escolha outro motivo.`,
+        sku,
+      }, 409);
+    }
     alvos.push({
       linha,
       motivo: motivo || null,
+      classe,
       observacao: String(pedido.observacao ?? '').trim() || null,
     });
   }
@@ -1339,7 +1475,22 @@ async function aplicarDiferenca(db, id, pedidos, { exigirMotivo = false } = {}) 
   /* ── escrita, item a item. */
   const data = (diaOperacional(inv.concluido_em) ?? '').split('-').reverse().join('/');
   const aplicados = [];
-  for (const { linha, motivo, observacao } of alvos) {
+  for (const { linha, motivo, classe, observacao } of alvos) {
+    if (classe === 'ajuste') {
+      const r = await aplicarComoAjuste(db, id, data, linha, motivo, observacao);
+      if (!r.ok) {
+        return json({
+          erro: r.erro, sku: linha.sku, variacao: linha.variacao || null,
+          aplicados, naoAplicados: alvos.length - aplicados.length,
+        }, 409);
+      }
+      aplicados.push({
+        sku: linha.sku, variacao: linha.variacao || null,
+        qtd: linha.dif, saidaId: null, movimentoId: r.movimentoId,
+        sentido: linha.dif < 0 ? 'saida' : 'entrada', motivo: r.motivo, classe: 'ajuste',
+      });
+      continue;
+    }
     const r = await registrarSaida(db, {
       tipo: 'perda',
       sentido: linha.dif < 0 ? 'saida' : 'entrada',
@@ -1374,10 +1525,59 @@ async function aplicarDiferenca(db, id, pedidos, { exigirMotivo = false } = {}) 
     aplicados.push({
       sku: linha.sku, variacao: linha.variacao || null,
       qtd: linha.dif, saidaId: r.saida.id, movimentoId: r.saida.movimentoId,
-      sentido: r.saida.sentido, motivo: r.saida.motivo,
+      sentido: r.saida.sentido, motivo: r.saida.motivo, classe: 'perda',
     });
   }
   return json({ ok: true, aplicados });
+}
+
+/** §55 — a diferença como AJUSTE DE INVENTÁRIO. Um batch só: o registro em
+ *  `inventario_ajustes` (cuja chave primária recusa a mesma linha duas
+ *  vezes — duas abas, crash e retry), o movimento `ajuste` com origem
+ *  `inventario`, e a marca de aplicado no retrato. Conflito na chave desfaz
+ *  os três. */
+async function aplicarComoAjuste(db, id, data, linha, motivo, observacao) {
+  const rotulo = motivo ?? `Diferença de inventário #${id}`;
+  const obs = `Ajuste de inventário #${id} · ${rotulo} · contado ${linha.contado}, `
+    + `sistema dizia ${linha.esperado}${data ? ` (${data})` : ''}`
+    + (observacao ? ` · ${observacao}` : '');
+  try {
+    await db.batch([
+      db.prepare(
+        `INSERT INTO inventario_ajustes (inventario_id, sku, variacao, qtd, motivo, observacao)
+         VALUES (?, ?, ?, ?, ?, ?)`).bind(id, linha.sku, linha.variacao || '', linha.dif, rotulo, observacao),
+      ...movimentar(db, {
+        sku: linha.sku, tipo: 'ajuste', quantidade: linha.dif, origem: 'inventario', obs,
+        variacao: linha.variacao || null, varianteId: linha.variante_id,
+      }),
+      db.prepare(
+        /* `saida_id = NULL`: se a linha já foi resolvida como perda e a
+           saída foi estornada, o vínculo antigo sairia lendo "estornada"
+           por cima deste ajuste. */
+        `UPDATE inventario_resultado SET aplicado_em = datetime('now'), saida_id = NULL
+          WHERE inventario_id = ? AND sku = ? AND variacao = ?`).bind(id, linha.sku, linha.variacao),
+    ]);
+  } catch (e) {
+    const msg = String(e?.message ?? e);
+    if (/UNIQUE constraint|PRIMARY KEY/i.test(msg)) {
+      return { ok: false, erro: `${linha.sku}${rotuloVariacao(linha.variacao)} já foi corrigido neste inventário` };
+    }
+    throw e;
+  }
+  const mov = await db.prepare(
+    `SELECT id FROM movimentos WHERE sku = ? AND obs = ? ORDER BY id DESC LIMIT 1`).bind(linha.sku, obs).first();
+  return { ok: true, movimentoId: mov ? mov.id : null, motivo: rotulo };
+}
+
+/** Os ajustes de inventário (§55) de UM inventário, por linha. Banco sem a
+ *  migration devolve vazio — a revisão continua abrindo, só sem o motivo
+ *  de ajuste (que nesse banco nem pode existir). */
+async function ajustesDoInventario(db, id) {
+  try {
+    const { results } = await db.prepare(
+      `SELECT sku, variacao, qtd, motivo FROM inventario_ajustes WHERE inventario_id = ?`).bind(id).all();
+    return new Map((results ?? []).map((a) => [CHAVE(a.sku, a.variacao), a]));
+  } catch { return new Map(); }
 }
 
 /** Rota nova. A quantidade não vem no corpo — o servidor usa a `dif`
@@ -1556,7 +1756,10 @@ export async function listarInventarios(db, limite = 20) {
             (SELECT COALESCE(SUM(contado), 0) FROM inventario_contagem x WHERE x.inventario_id = i.id) AS pecas_novo,
             (SELECT COALESCE(SUM(contado), 0) FROM inventario_itens x WHERE x.inventario_id = i.id) AS pecas_antigo,
             (SELECT COUNT(*) FROM inventario_resultado x
-              WHERE x.inventario_id = i.id AND x.situacao = 'nao_comparavel') AS nao_comparaveis
+              WHERE x.inventario_id = i.id AND x.situacao = 'nao_comparavel') AS nao_comparaveis,
+            (EXISTS (SELECT 1 FROM inventario_resultado x WHERE x.inventario_id = i.id AND x.aplicado_em IS NOT NULL)
+              OR EXISTS (SELECT 1 FROM saidas_sem_faturamento x WHERE x.inventario_id = i.id)
+              OR EXISTS (SELECT 1 FROM inventario_itens x WHERE x.inventario_id = i.id AND x.ajustado = 1)) AS alterou_estoque
        FROM inventarios i ORDER BY i.id DESC LIMIT ?`).bind(limite).all();
   return json(r.results.map((i) => ({
     id: i.id,
@@ -1567,6 +1770,9 @@ export async function listarInventarios(db, limite = 20) {
     divergentes: i.pecas_novo || i.divergentes_novo ? i.divergentes_novo : i.divergentes_antigo,
     pecas: i.pecas_novo || i.pecas_antigo,
     naoComparaveis: i.nao_comparaveis,
+    /* §53 — a tela só oferece "Excluir" quando o servidor também aceitaria. */
+    alterouEstoque: !!i.alterou_estoque,
+    excluivel: i.status !== 'aberto' && !i.alterou_estoque,
   })));
 }
 

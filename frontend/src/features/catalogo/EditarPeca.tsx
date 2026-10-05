@@ -10,6 +10,9 @@ interface Props {
   categorias: string[];
   aoCancelar: () => void;
   aoSalvar: () => void;
+  /** §54 — o caminho da quantidade. Ela procurou a quantidade em "Editar
+   *  dados" (05/10/2026); o botão leva para onde ela se corrige. */
+  aoAjustarEstoque?: () => void;
 }
 
 /** Os dados de cadastro da peça: nome, categoria, preço e situação.
@@ -20,7 +23,7 @@ interface Props {
  *
  *  Morava dentro do Catálogo, numa gaveta só dele. Agora é uma parte da
  *  ficha da peça, que junta cadastro e estoque num lugar só. */
-export function EditarPeca({ conexao, peca, categorias, aoCancelar, aoSalvar }: Props) {
+export function EditarPeca({ conexao, peca, categorias, aoCancelar, aoSalvar, aoAjustarEstoque }: Props) {
   const [desc, setDesc] = useState(peca.desc);
   const [cat, setCat] = useState(peca.cat);
   const [preco, setPreco] = useState(peca.preco === null ? '' : String(peca.preco));
@@ -112,9 +115,17 @@ export function EditarPeca({ conexao, peca, categorias, aoCancelar, aoSalvar }: 
       </label>
 
       <p className="mq-hint">
-        A quantidade não se digita: ela muda sozinha com vendas, maletas e
-        inventário. Para corrigir uma contagem, use a aba Inventário.
+        A quantidade não se edita aqui: ela muda com vendas, maletas e
+        inventário. Se o número está errado, use <b>Ajustar estoque</b> — você
+        diz a quantidade certa e o motivo, e a correção fica no histórico.
       </p>
+      {aoAjustarEstoque && (
+        <div className="mq-btns">
+          <button type="button" className="mq-btn mq-btn--secondary" onClick={aoAjustarEstoque}>
+            Ajustar estoque
+          </button>
+        </div>
+      )}
 
       {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
 

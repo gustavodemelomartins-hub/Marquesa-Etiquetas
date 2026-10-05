@@ -327,3 +327,7 @@ p.mq-galeria__loja svg { width: 16px; height: 16px; }
    empilhado — é o que cabe o dedo. */
 .mq-pecas__filtros > .mq-select { width: auto; flex: 0 1 230px; }
 @media (max-width: 600px) { .mq-pecas__filtros > .mq-select { flex: 1 1 100%; } }
+
+/* "Editar dados" e "Ajustar estoque" lado a lado no cabeçalho da ficha
+   (05/10/2026); no telefone o bloco já vira linha e os botões quebram. */
+.mq-peca__preco .mq-btns { justify-content: flex-end; flex-wrap: wrap; }

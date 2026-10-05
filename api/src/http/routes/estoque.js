@@ -7,7 +7,7 @@
  *  continua valendo depois de cada uma. */
 import { json } from '../../auth.js';
 import { conferirEstoque, saldosDoSku } from '../../estoque.js';
-import { lancarMovimento, repartirVariacoes, desfazerSemeadura } from '../../estoque-comandos.js';
+import { lancarMovimento, repartirVariacoes, desfazerSemeadura, ajustarEstoque } from '../../estoque-comandos.js';
 import { distribuirVariantes } from '../../variantes.js';
 
 export const rotas = [
@@ -35,6 +35,14 @@ export const rotas = [
     metodo: 'POST', caminho: '/api/produtos/:sku/movimento', auth: 'bearer',
     async handler({ db, request, params }) {
       return await lancarMovimento(db, decodeURIComponent(params.sku), await request.json());
+    },
+  },
+  {
+    /* §54 — AJUSTAR ESTOQUE: a quantidade certa e o motivo; o servidor
+       calcula a diferença e grava um movimento auditável. `seco` = prévia. */
+    metodo: 'POST', caminho: '/api/produtos/:sku/ajustar-estoque', auth: 'bearer',
+    async handler({ db, request, params }) {
+      return await ajustarEstoque(db, decodeURIComponent(params.sku), await request.json());
     },
   },
   {

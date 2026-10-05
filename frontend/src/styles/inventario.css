@@ -575,3 +575,15 @@
   .estacao__numeros { gap: var(--mq-3); }
   .estacao__variacoes select { max-width: 100%; }
 }
+
+/* Histórico de inventários (05/10/2026): a linha deixou de ser um botão
+   único porque agora carrega uma segunda ação — "Excluir", só para o
+   inventário que não mexeu em estoque. O botão de abrir ocupa o espaço da
+   linha inteira, como antes; o de excluir mora no canto. */
+.inventario-hist { transition: background .12s; }
+.inventario-hist:hover { background: var(--mq-wine-050); }
+.inventario-hist__abrir {
+  display: flex; align-items: center; gap: var(--mq-3); flex: 1; min-width: 0;
+  background: none; border: 0; padding: 0; font: inherit; color: inherit;
+  text-align: left; cursor: pointer;
+}

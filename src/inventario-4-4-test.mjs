@@ -304,7 +304,12 @@ assert.ok(historicoCego, '200001 tem razão incompleta e ficou comparável');
 assert.match(historicoCego.motivo, /2 peças na razão sem identidade de variação/);
 prova('7b — razão incompleta no histórico bloqueia a comparação, com o número na frente');
 
-/* ═════════════════════════ 8 — a diferença vira saída sem faturamento */
+/* ═══════════ 8 — a diferença que ELA chama de perda vira saída sem faturamento
+
+   §55 (05/10/2026): perda deixou de ser o destino automático de toda
+   diferença. Aqui ela escolhe "Perda confirmada" — o único caminho que
+   ainda passa por `saidas_sem_faturamento`, e o que tem estorno. O padrão
+   (ajuste de inventário) é provado no relançamento abaixo e na sobra. */
 
 const antesAplicar = saldos();
 const faltante = acha(rel.faltando, '100002');
@@ -331,7 +336,7 @@ assert.ok(Array.isArray(recusaSemMotivo.motivos) && recusaSemMotivo.motivos.leng
 assert.equal(saldos()['100002'], antesAplicar['100002'], 'a recusa mexeu no saldo');
 
 const aplicado = await corpo(await inv.aplicarInventario(db, ID, {
-  itens: [{ sku: '100002', motivo: 'Não encontrada na casa', observacao: 'caiu atrás da gaveta' }],
+  itens: [{ sku: '100002', motivoId: 'perda', motivo: 'Perda confirmada', observacao: 'caiu atrás da gaveta' }],
 }));
 assert.ok(aplicado.ok, `a aplicação falhou: ${aplicado.erro}`);
 assert.equal(aplicado.aplicados[0].qtd, -2);
@@ -345,19 +350,19 @@ assert.equal(saida.inventario_id, ID, 'a saída não ficou vinculada ao inventá
 assert.equal(saida.observacao, 'caiu atrás da gaveta');
 /* O motivo que ELA escolheu é o que fica na coluna agrupável — não mais um
    rótulo genérico igual para toda diferença. */
-assert.equal(saida.motivo, 'Não encontrada na casa');
+assert.equal(saida.motivo, 'Perda confirmada');
 
 const mov = raw.prepare('SELECT * FROM movimentos WHERE id = ?').get(saida.movimento_id);
 assert.equal(mov.origem, 'inventario', 'a origem do movimento não é `inventario` (D9)');
 /* E ele CHEGA à razão: o histórico da peça mostra o motivo e de qual
    inventário a diferença nasceu, sem precisar abrir outra tabela. */
-assert.match(mov.obs, /Não encontrada na casa/, 'o motivo não chegou à razão');
+assert.match(mov.obs, /Perda confirmada/, 'o motivo não chegou à razão');
 assert.match(mov.obs, new RegExp(`inventário #${ID}`), 'a razão não diz de qual inventário veio');
 assert.equal(mov.tipo, 'perda');
 assert.equal(mov.qtd, -2);
 assert.equal(saldos()['100002'], antesAplicar['100002'] - 2);
 assert.equal(razaoAberta(), 0, 'a razão abriu ao aplicar a diferença');
-prova('8 — a diferença negativa vira perda/saída, com inventario_id e origem inventario');
+prova('8 — a falta que ela classifica como perda vira perda/saída, com inventario_id e origem inventario');
 
 /* ══════════════════════════ 9 — a segunda aplicação é recusada pelo índice */
 
@@ -387,7 +392,26 @@ const relancado = await corpo(await inv.aplicarInventario(db, ID, {
 assert.ok(relancado.ok, `o relançamento depois do estorno falhou: ${relancado.erro}`);
 assert.equal(saldos()['100002'], antesAplicar['100002'] - 2);
 assert.equal(razaoAberta(), 0);
-prova('10 — estorno devolve a peça e o relançamento volta a ser permitido');
+/* O relançamento veio com "Não encontrada na casa": §55, isso é AJUSTE de
+   inventário, não perda — nenhuma saída nova, e o retrato relido diz o
+   motivo do ajuste (e não o "estornada" da perda antiga). */
+assert.equal(relancado.aplicados[0].classe, 'ajuste');
+assert.equal(relancado.aplicados[0].saidaId, null, 'a falta sem perda declarada virou saída');
+{
+  const ajusteRel = raw.prepare('SELECT * FROM inventario_ajustes WHERE inventario_id = ? AND sku = ?').get(ID, '100002');
+  assert.equal(ajusteRel.qtd, -2);
+  assert.equal(ajusteRel.motivo, 'Não encontrada na casa');
+  const movRel = raw.prepare('SELECT * FROM movimentos WHERE id = ?').get(relancado.aplicados[0].movimentoId);
+  assert.equal(movRel.tipo, 'ajuste');
+  assert.equal(movRel.origem, 'inventario');
+  assert.match(movRel.obs, new RegExp(`Ajuste de inventário #${ID} · Não encontrada na casa`));
+  const relidoAjuste = await corpo(await inv.resultadoInventario(db, ID));
+  const l = acha(relidoAjuste.faltando, '100002');
+  assert.equal(l.aplicado, true, 'o ajuste depois do estorno não aparece como aplicado');
+  assert.equal(l.motivoAplicado, 'Não encontrada na casa');
+  assert.equal(l.classeAplicada, 'ajuste');
+}
+prova('10 — estorno devolve a peça; o relançamento sem perda declarada vira AJUSTE de inventário');
 
 /* ═════════════════ 8b — a diferença POSITIVA usa o mesmo mecanismo */
 
@@ -403,18 +427,19 @@ const aplicadaSobra = await corpo(await inv.aplicarInventario(db, inv2, {
   itens: [{ sku: '100001', motivo: 'Entrou sem lançamento' }],
 }));
 assert.ok(aplicadaSobra.ok, `a sobra não foi aplicada: ${aplicadaSobra.erro}`);
-const linhaSobra = raw.prepare('SELECT * FROM saidas_sem_faturamento WHERE id = ?')
-  .get(aplicadaSobra.aplicados[0].saidaId);
-assert.equal(linhaSobra.tipo, 'perda', 'a sobra virou uma segunda tabela?');
-assert.equal(linhaSobra.sentido, 'entrada');
-assert.equal(linhaSobra.inventario_id, inv2);
-const movSobra = raw.prepare('SELECT * FROM movimentos WHERE id = ?').get(linhaSobra.movimento_id);
+/* §55: sobra nunca é perda. Nenhuma saída sem faturamento nasce dela. */
+assert.equal(aplicadaSobra.aplicados[0].saidaId, null, 'a sobra virou "perda" de entrada');
+assert.equal(
+  raw.prepare('SELECT COUNT(*) n FROM saidas_sem_faturamento WHERE inventario_id = ?').get(inv2).n, 0);
+assert.equal(raw.prepare('SELECT qtd FROM inventario_ajustes WHERE inventario_id = ? AND sku = ?')
+  .get(inv2, '100001').qtd, 1);
+const movSobra = raw.prepare('SELECT * FROM movimentos WHERE id = ?').get(aplicadaSobra.aplicados[0].movimentoId);
 assert.equal(movSobra.tipo, 'ajuste', 'a entrada da sobra não é um ajuste assinado');
 assert.equal(movSobra.qtd, 1);
 assert.equal(movSobra.origem, 'inventario');
 assert.equal(saldos()['100001'], antesSobra['100001'] + 1);
 assert.equal(razaoAberta(), 0);
-prova('8b — a sobra usa o mesmo mecanismo: perda/entrada, ajuste assinado, origem inventario');
+prova('8b — a sobra vira ajuste de inventário assinado, origem inventario — nunca perda');
 
 /* ═════════════════ 9b — e a trava de verdade é do BANCO, não da aplicação */
 
@@ -429,7 +454,7 @@ const concorrente = await inv.aplicarInventario(db, inv2, {
   itens: [{ sku: '100001', motivo: 'Entrou sem lançamento' }],
 });
 assert.equal(status(concorrente), 409, 'a trava era só o flag da aplicação, não o índice');
-assert.match((await corpo(concorrente)).erro, /já foi lançada/);
+assert.match((await corpo(concorrente)).erro, /já foi (lançada|corrigido)/);
 assert.equal(saldos()['100001'], antesSobra['100001'] + 1, 'a segunda aba somou a peça de novo');
 assert.equal(razaoAberta(), 0);
 prova('9b — duas abas: a segunda aplicação é recusada pelo índice único do banco');
@@ -492,8 +517,8 @@ prova('11, 12 — a razão fecha no fim, e nenhum movimento histórico foi reesc
    diferenças aplicadas movimentaram. */
 const porInventario = raw.prepare(
   `SELECT COUNT(*) n, COALESCE(SUM(qtd),0) s FROM movimentos WHERE origem = 'inventario'`).get();
-/* Três: a diferença negativa aplicada, ela de novo depois do estorno, e a
-   sobra. O movimento do ESTORNO não está entre eles — a origem dele é
+/* Três: a perda aplicada, a falta de novo depois do estorno (agora como
+   ajuste), e a sobra. O movimento do ESTORNO não está entre eles — a origem dele é
    `estorno`, porque o fato que o gerou foi desfazer, não contar. */
 assert.equal(porInventario.n, 3, 'o número de movimentos nascidos de contagem não bate');
 assert.equal(porInventario.s, -2 - 2 + 1, 'a soma dos movimentos de inventário não bate com as diferenças');

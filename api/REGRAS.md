@@ -2451,8 +2451,18 @@ apagados com as 4 linhas de contagem, por SQL revisado e com precondição
 (`docs/migracao-nao-venda/rodada-inventario-2026-10-02.sql`). O próximo que a
 Sthefany abrir é o **primeiro inventário real**. "Inventário #N" é o `id`
 técnico (AUTOINCREMENT): o contador NÃO foi reiniciado, para que nenhum id
-volte a ser usado — o próximo aparece como **#8**. Não existe rota de
-exclusão de inventário (§28): limpeza de teste só por SQL revisado.
+volte a ser usado — o próximo aparece como **#8**.
+
+**Excluir inventário (05/10/2026, pedido da Sthefany).** Existe
+`DELETE /api/inventarios/:id`, e a V2 mostra "Excluir" só onde ele vale: o
+inventário **não está em andamento** (descarte antes) e **não mexeu em
+estoque** — nenhuma linha aplicada, nenhuma saída de perda (nem estornada),
+nenhum ajuste de inventário, nenhum movimento que o cite. O que já alterou o
+estoque é recusado com a lista do que ele alterou (§28: a razão continua
+explicando o saldo). A exclusão apaga as leituras e deixa uma linha em
+`inventarios_excluidos` (situação, datas, leituras, peças e as variações
+criadas durante a contagem — que continuam no cadastro, porque são
+estrutura, não estoque). O id não volta a ser usado.
 
 **Saúde do estoque** (card do Inventário): verde só com inventário
 concluído dentro do prazo (`config.inventarioDias`, padrão 45); nos últimos
@@ -2460,3 +2470,46 @@ concluído dentro do prazo (`config.inventarioDias`, padrão 45); nos últimos
 "Conferência vencida" em risco — nunca verde. Sem nenhum inventário real
 concluído é **"Primeira conferência pendente"** (atenção): ausência de
 divergência registrada não é estoque saudável. Cancelado não conta.
+
+### 54. Ajustar estoque: a quantidade certa e o motivo, nunca o saldo digitado — §19
+
+Pedido da Sthefany (05/10/2026): "preciso conseguir mexer na quantidade das
+peças". A V2 tem **Ajustar estoque** na ficha da peça (cabeçalho, aba Estoque
+e dentro de "Editar dados", que é onde ela procurou). Não é um campo que
+sobrescreve o saldo: ela vê a quantidade atual (total, em casa, com
+revendedoras), digita a **quantidade correta (total)**, escolhe o motivo —
+Correção de cadastro · Contagem física · Erro de entrada · Ajuste
+administrativo · Outro (com observação obrigatória) — e vê a diferença e o
+"em casa antes → depois" antes de confirmar.
+
+`POST /api/produtos/:sku/ajustar-estoque {quantidadeAtual, quantidadeCorreta,
+motivo, observacao?, variacao?, seco?}` grava UM movimento `ajuste`, origem
+`ajuste`, obs `Ajuste de estoque · <motivo> · de X para Y · <observação>`.
+Recusa, sem escrever: `quantidadeAtual` diferente do saldo de agora (tela
+velha); total abaixo do que está com revendedoras (a peça da maleta existe —
+o caminho é o acerto); kit/montagem; diferença zero; motivo fora da lista.
+**Variação (regra 2):** se a razão do código separa por aro (algum aro com
+saldo), o ajuste exige o aro; se não separa — o caso dos 27 anéis de
+02/10 —, o ajuste vale para o código inteiro e um aro informado é recusado.
+
+### 55. Diferença de inventário é AJUSTE; perda é escolha explícita — §19 §30
+
+Até 05/10/2026 toda diferença aplicada pela revisão virava saída `perda`
+(até a sobra). Errado: inventário reconcilia o sistema com o físico, e a
+diferença pode ser erro histórico, entrada duplicada, cadastro errado ou
+movimento não lançado. Agora cada motivo tem uma **classe**:
+
+- `ajuste` (padrão): Erro do sistema / contagem anterior · Entrada
+  duplicada ou cadastro errado · Não encontrada na casa · Saiu sem
+  lançamento · Entrou sem lançamento · Devolução não lançada · Outro. Vira
+  movimento `ajuste`, origem `inventario`, obs `Ajuste de inventário #N ·
+  <motivo> · contado C, sistema dizia E`, e uma linha em
+  `inventario_ajustes` (a chave primária impede aplicar a mesma linha duas
+  vezes; o INSERT anda no mesmo batch do movimento). **Não** entra em
+  "Saiu sem faturar".
+- `perda`: só **Perda confirmada** e **Quebrada ou danificada** — escolhidas
+  por ela. Vão por `saidas_sem_faturamento` `tipo='perda'`, como antes, com
+  estorno. Sobra nunca é perda (recusado).
+
+O `/ajustar` do painel clássico (sem motivo) também vira ajuste. A V2 manda
+`motivoId`; texto sem id é classificado pelo rótulo, e texto livre é ajuste.

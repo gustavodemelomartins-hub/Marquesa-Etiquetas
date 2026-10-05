@@ -84,10 +84,11 @@ function servidor(opcoes: { concluido?: boolean; resultado?: unknown } = {}) {
 }
 
 const MOTIVOS = [
-  { id: 'nao_encontrada', rotulo: 'Não encontrada na casa', sentido: 'saida' as const, explica: '' },
-  { id: 'entrou_sem_lancar', rotulo: 'Entrou sem lançamento', sentido: 'entrada' as const, explica: '' },
-  { id: 'erro_de_contagem', rotulo: 'Erro de contagem anterior', sentido: 'ambos' as const, explica: '' },
-  { id: 'outro', rotulo: 'Outro', sentido: 'ambos' as const, explica: '', livre: true },
+  { id: 'nao_encontrada', rotulo: 'Não encontrada na casa', sentido: 'saida' as const, explica: '', classe: 'ajuste' as const },
+  { id: 'entrou_sem_lancar', rotulo: 'Entrou sem lançamento', sentido: 'entrada' as const, explica: '', classe: 'ajuste' as const },
+  { id: 'erro_de_contagem', rotulo: 'Erro de contagem anterior', sentido: 'ambos' as const, explica: '', classe: 'ajuste' as const },
+  { id: 'perda', rotulo: 'Perda confirmada', sentido: 'saida' as const, explica: '', classe: 'perda' as const },
+  { id: 'outro', rotulo: 'Outro', sentido: 'ambos' as const, explica: '', livre: true, classe: 'ajuste' as const },
 ];
 
 /** O retrato de um inventário fechado COM a declaração: os dois códigos
@@ -350,17 +351,21 @@ describe('a revisão do inventário', () => {
       expect((screen.getByRole('button', { name: /^Resolver / }) as HTMLButtonElement).disabled).toBe(false);
     });
 
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    /* §55 — a linha diz o que a escolha vira: ajuste, não perda. */
+    expect(screen.getByText('Vira ajuste de inventário — não é perda.')).toBeTruthy();
+
+    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
     fireEvent.click(screen.getByRole('button', { name: /^Resolver / }));
+    expect(String(confirmar.mock.calls[0]?.[0])).toMatch(/Nenhuma é registrada como perda/);
 
     await waitFor(() => {
       const c = chamadas.find((x) => x.caminho.endsWith('/aplicar'));
       expect(c).toBeTruthy();
-      /* O RÓTULO viaja, não o id: é ele que vira o "rótulo curto e
-         agrupável" da saída, e de lá entra na razão. E nenhuma quantidade
-         vai junto — ela já foi decidida no fechamento. */
+      /* O RÓTULO viaja — é ele que entra na razão — e o id junto, porque é
+         o id que decide ajuste × perda (§55). Nenhuma quantidade vai junto:
+         ela já foi decidida no fechamento. */
       expect(c!.corpo).toEqual({
-        itens: [{ sku: '500003', motivo: 'Não encontrada na casa' }],
+        itens: [{ sku: '500003', motivo: 'Não encontrada na casa', motivoId: 'nao_encontrada' }],
       });
     });
   });
