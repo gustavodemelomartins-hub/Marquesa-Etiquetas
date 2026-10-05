@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { Icone, type NomeIcone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
+import { AvatarCliente } from '../../components/AvatarCliente';
 import { money, fmtData, moneyNumero } from '../../domain/formato';
 import { buscarCredito, buscarPerfil } from './api';
 import { AcoesDaCliente } from './AcoesDaCliente';
+import { SugestaoDeFoto } from './SugestaoDeFoto';
 import { montarLinhaDoTempo, type EventoRelacao, type TipoEvento } from './eventos';
 import type { Connection } from '../../services/client';
 import type { GarantiaDoPerfil, PerfilCliente as Perfil, VendaDoPerfil } from './tipos';
@@ -48,6 +50,7 @@ interface Props {
  */
 export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda, aoExcluir }: Props) {
   const [aba, setAba] = useState<Aba>('resumo');
+  const [foto, setFoto] = useState(false);
   const chaveId = 'id' in chave ? `id:${chave.id}` : `norm:${chave.norm}`;
 
   const perfil = useApi((sinal) => buscarPerfil(conexao, chave, sinal), [conexao, chaveId]);
@@ -95,7 +98,6 @@ export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda,
 
   const p = perfil.dados;
   const r = p.resumo;
-  const iniciais = p.nomeExibicao.trim().slice(0, 1).toUpperCase() || '?';
 
   return (
     <>
@@ -113,7 +115,14 @@ export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda,
           </p>
         </div>
         <div className="mq-pagehead__actions">
-          <span className="mq-avatar mq-avatar--lg mq-avatar--quiet" aria-hidden="true">{iniciais}</span>
+          <AvatarCliente
+            nome={p.nomeExibicao}
+            avatarUrl={p.avatarUrl}
+            sugestao={p.avatarSugestao}
+            conexao={conexao}
+            tamanho="lg"
+            aoClicar={p.clienteId != null && (p.avatarUrl || p.avatarSugestao) ? () => setFoto(true) : undefined}
+          />
           <AcoesDaCliente
             conexao={conexao}
             perfil={p}
@@ -127,6 +136,17 @@ export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda,
           </button>
         </div>
       </div>
+
+      {foto && p.clienteId != null && (
+        <SugestaoDeFoto
+          conexao={conexao}
+          clienteId={p.clienteId}
+          nome={p.nomeExibicao}
+          avatarUrl={p.avatarUrl}
+          aoFechar={() => setFoto(false)}
+          aoMudar={perfil.recarregar}
+        />
+      )}
 
       {/* §2 — nome não é identidade, e a ficha diz quando isso a encolheu. */}
       {p.aviso && (

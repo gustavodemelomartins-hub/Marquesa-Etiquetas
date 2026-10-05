@@ -196,6 +196,19 @@ jobs:
           npx wrangler d1 execute DB --env "$ENV_ALVO" --remote --command \
             "SELECT name FROM pragma_table_info('clientes') ORDER BY name"
 
+      # Foto da cliente: três tabelas NOVAS, só CREATE ... IF NOT EXISTS —
+      # idempotente, não toca em nenhuma tabela existente. Reversão:
+      # api/migracao-cliente-avatar-rollback.sql.
+      - name: Migration · foto da cliente (aditiva, idempotente)
+        if: ${{ inputs.aplicar_migration }}
+        working-directory: api
+        run: |
+          set -e
+          npx wrangler d1 execute DB --env "$ENV_ALVO" --remote \
+            --file=migracao-cliente-avatar.sql
+          npx wrangler d1 execute DB --env "$ENV_ALVO" --remote --command \
+            "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'cliente_avatar%' ORDER BY name"
+
       # ── WORKER ──────────────────────────────────────────────────────────
       - name: Publicar o Worker do DEV
         if: ${{ inputs.publicar_worker }}

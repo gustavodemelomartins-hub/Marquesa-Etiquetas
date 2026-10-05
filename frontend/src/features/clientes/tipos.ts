@@ -16,6 +16,25 @@ export interface ClienteLista {
   cidade: string;
   /** Arquivada só vem quando a lista pede `arquivadas=sim`. */
   arquivada?: boolean;
+  /** Foto confirmada (link assinado da API). Ausente = iniciais. */
+  avatarUrl?: string;
+  /** Há sugestão de foto aguardando confirmação. */
+  avatarSugestao?: boolean;
+}
+
+/** `GET /api/clientes/:id/avatar/sugestao` — `cliente-avatar.js › sugestaoDaCliente`. */
+export interface SugestaoDeFoto {
+  sugestao: {
+    candidatoId: number;
+    username: string;
+    nome: string | null;
+    foto: string;
+    score: number;
+    motivo: string;
+  } | null;
+  restantes: number;
+  /** Homônimo / mais de um perfil forte: confira antes de confirmar. */
+  aviso?: string | null;
 }
 
 /** `GET /api/clientes/:id/dependencias` — `clientes.js › dependenciasCliente`. */
@@ -142,6 +161,8 @@ export interface PerfilCliente {
   nomeAmbiguo: boolean;
   aviso: string | null;
   nomeExibicao: string;
+  avatarUrl?: string;
+  avatarSugestao?: boolean;
   resumo: ResumoPerfil;
   canalPreferido: string | null;
   categoriasPreferidas: Contagem[];
@@ -201,6 +222,8 @@ export interface DadosCadastro {
 export type EstadoCliente = 'recorrente' | 'ativa' | 'em risco' | 'inativa' | 'sem histórico';
 
 export interface ClienteDaBase {
+  avatarUrl?: string;
+  avatarSugestao?: boolean;
   norm: string;
   nome: string;
   identificada: boolean;

@@ -10,9 +10,10 @@
  *  é `decidirVinculoCliente`, com gente olhando. */
 import { json } from './auth.js';
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
+import { anexarAvatares } from './cliente-avatar.js';
 
 // ------------------------------------------------------------ clientes
-export async function buscarClientes(db, url) {
+export async function buscarClientes(db, url, env = null) {
   const busca = (url.searchParams.get('busca') || '').trim();
   /* O teto era 100, e a lista da V2 parava na letra B dizendo "100
      clientes" quando havia 353. A lista inteira (sem busca) cabe com folga
@@ -43,10 +44,14 @@ export async function buscarClientes(db, url) {
   /* `cidade` viaja junto porque duas "Camila" só se distinguem por
      algum campo além do nome — e escolher a errada no balcão manda a
      venda para o histórico de outra pessoa. */
-  return json(r.results.map(c => ({
-    id: c.id, nome: c.nome, tel: c.tel || '', cidade: c.cidade || '',
+  const lista = r.results.map(c => ({
+    id: c.id, clienteId: c.id, nome: c.nome, tel: c.tel || '', cidade: c.cidade || '',
     arquivada: !!c.arquivada_em,
-  })));
+  }));
+  /* Foto da cliente: acréscimo opcional — sem a migration ou sem R2 a lista
+     sai igual, só sem foto (ver anexarAvatares). */
+  if (env) await anexarAvatares(db, env, lista);
+  return json(lista);
 
 }
 

@@ -23,6 +23,7 @@ import {
   aplicarOperacoesHistoricas,
 } from '../../historico-operacoes.js';
 import { perfilCliente } from '../../analytics.js';
+import { anexarAvatares } from '../../cliente-avatar.js';
 import { saldoDeCredito, conferirCredito, registrarAjuste } from '../../credito.js';
 import { conferirFinanceiro } from '../../financeiro-conferir.js';
 import {
@@ -112,11 +113,12 @@ export const rotas = [
   },
   {
     metodo: 'GET', caminho: '/api/clientes/perfil', auth: 'bearer',
-    async handler({ db, url }) {
+    async handler({ db, env, url }) {
       const id = url.searchParams.get('id');
       const r = await perfilCliente(db, {
         clienteId: id ? +id : null, norm: url.searchParams.get('norm'),
       });
+      if (r.ok) await anexarAvatares(db, env, [r]);
       return json(r, r.ok ? 200 : 400);
     },
   },
@@ -379,8 +381,8 @@ export const rotas = [
     /* Busca por nome, telefone ou CPF. Nome não é identidade: homônimo não é
        fundido sozinho — quem decide isso é a revisão de vínculo. */
     metodo: 'GET', caminho: '/api/clientes', auth: 'bearer',
-    async handler({ db, url }) {
-      return await buscarClientes(db, url);
+    async handler({ db, env, url }) {
+      return await buscarClientes(db, url, env);
     },
   },
   {

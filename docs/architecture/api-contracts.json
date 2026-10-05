@@ -22,7 +22,7 @@
    "decisao": "docs/domains/AUDITORIA-5-3-FIN-101-CONTAS-A-RECEBER.md §6 B9 e §15 subfase 5.3d"
   }
  ],
- "total": 200,
+ "total": 207,
  "contratos": [
   {
    "contrato": "DELETE /api/clientes/:param",
@@ -822,6 +822,34 @@
   },
   {
    "contrato": "POST /api/produtos/:param/ajustar-estoque",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "DELETE /api/clientes/:param/avatar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/clientes/:param/avatar",
+   "auth": "sem-bearer"
+  },
+  {
+   "contrato": "GET /api/clientes/:param/avatar/sugestao",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/clientes/avatar/fila",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/clientes/avatar/resumo",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/clientes/:param/avatar/decidir",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/clientes/avatar/candidatos",
    "auth": "bearer"
   }
  ],
