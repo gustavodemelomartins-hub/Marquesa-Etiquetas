@@ -511,3 +511,61 @@
 @media (max-width: 640px) {
   .mq-acoes-cliente__menu { right: auto; left: 0; }
 }
+
+/* ─────────────────────────────────────────────── o CASO de reparo
+ *
+ * `CasoDeReparo` — a única tela de detalhe de um reparo, aberta do Início,
+ * da ficha da cliente e de Garantias. Casca da gaveta de sempre
+ * (`.mq-drawer`, que no telefone já é folha de baixo com área segura); aqui
+ * só a composição: peça e cliente no topo, os três números do prazo no
+ * mesmo bloco de "A receber", as informações, e as ações por importância.
+ */
+.caso .mq-drawer__head { align-items: center; padding-top: var(--mq-3); padding-bottom: var(--mq-3); }
+.caso__numero { margin: 0; }
+.caso__body { gap: var(--mq-6); }
+
+.caso__peca { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--mq-4); align-items: start; }
+.caso__peca .mq-thumb,
+.caso__icone { width: 64px; height: 64px; border-radius: var(--mq-r-md); }
+.caso__icone svg { width: 24px; height: 24px; }
+.caso__quem { display: flex; flex-direction: column; align-items: flex-start; gap: var(--mq-2); min-width: 0; }
+.caso__nome {
+  margin: 0; font: 500 18px/1.3 var(--mq-serif); color: var(--mq-ink);
+  overflow-wrap: anywhere;
+}
+.caso__variacao { color: var(--mq-muted); font-family: var(--mq-sans); font-size: 14px; }
+.caso__cliente { font-size: 14px; text-align: left; white-space: normal; min-height: 0; }
+.caso__cliente--sem { color: var(--mq-muted); }
+
+.caso__prazo { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.caso__prazo dd { font-size: 15px; white-space: normal; }
+
+.caso__secao { display: flex; flex-direction: column; gap: var(--mq-2); }
+.caso__obs { white-space: pre-wrap; text-align: right; overflow-wrap: anywhere; }
+
+/* Ações: UMA principal larga, as outras numa lista de linhas (sem cinco
+   botões competindo), e a destrutiva separada, por último. */
+.caso__acoes { gap: var(--mq-3); }
+.caso__principal { width: 100%; white-space: normal; text-align: center; line-height: 1.25; }
+.caso__outras { border: 1px solid var(--mq-line-2); border-radius: var(--mq-r-md); overflow: hidden; }
+.caso__outras .mq-item { padding: var(--mq-3) var(--mq-4); min-height: 52px; }
+.caso__outras .mq-item__side svg { width: 16px; height: 16px; color: var(--mq-faint); }
+.caso__cancelar { align-self: flex-start; margin-top: var(--mq-2); }
+
+.caso__confirma {
+  display: flex; flex-direction: column; gap: var(--mq-3);
+  padding: var(--mq-4); border: 1px solid var(--mq-wine-300); border-radius: var(--mq-r-md);
+  background: var(--mq-wine-050);
+}
+.caso__confirma--perigo { border-color: var(--mq-risk-line); background: var(--mq-risk-bg); }
+.caso__textarea { min-height: 64px; resize: vertical; font: inherit; }
+.caso__botoes { display: flex; gap: var(--mq-2); flex-wrap: wrap; }
+.caso__botoes .mq-btn { flex: 1 1 140px; }
+
+@media (max-width: 600px) {
+  .caso__prazo { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .caso__prazo > div { padding: var(--mq-2) var(--mq-3); }
+  .caso__prazo dt { font-size: 9.5px; letter-spacing: .06em; }
+  .caso__prazo dd { font-size: 14px; }
+  .caso__cancelar { align-self: stretch; }
+}

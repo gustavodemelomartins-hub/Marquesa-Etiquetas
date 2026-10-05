@@ -114,6 +114,12 @@ export function decidirFoto(
   return chamar(conexao, 'POST', `/api/clientes/${id}/avatar/decidir`, { candidatoId, acao });
 }
 
+/** "Buscar foto": põe a cliente no começo da fila do script do Instagram.
+ *  O Worker não busca nada — a sugestão aparece depois da próxima rodada. */
+export function pedirBuscaDeFoto(conexao: Connection, id: number): Promise<{ ok: true; status: 'pedida'; pedidaEm: string }> {
+  return chamar(conexao, 'POST', `/api/clientes/${id}/avatar/buscar`, {});
+}
+
 export function removerFoto(conexao: Connection, id: number): Promise<unknown> {
   return chamar(conexao, 'DELETE', `/api/clientes/${id}/avatar`);
 }

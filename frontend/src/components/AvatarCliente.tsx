@@ -49,7 +49,7 @@ export function AvatarCliente({ nome, avatarUrl, sugestao = false, conexao, tama
       <button
         type="button"
         className={classe}
-        aria-label={comFoto ? `Foto de ${nome}` : `Sugestão de foto para ${nome}`}
+        aria-label={comFoto ? `Foto de ${nome}` : sugestao ? `Sugestão de foto para ${nome}` : `Buscar foto de ${nome}`}
         onClick={aoClicar}
       >
         {miolo}

@@ -10,10 +10,12 @@ import sync_avatares as s  # noqa: E402
 class ApiFalsa:
     def __init__(self, clientes):
         self.fila_ = list(clientes); self.enviados = []; self.chamadas_fila = 0
-    def fila(self, limite, refazer):
+    def fila(self, limite, refazer, cliente=None, seco=False):
         self.chamadas_fila += 1
         lote, self.fila_ = self.fila_[:limite], self.fila_[limite:]
         return lote
+    def simular(self, cid, candidatos):
+        return {'sugestoes': [], 'descartados': []}
     def enviar(self, cid, resultado, candidatos=None, erro=None):
         self.enviados.append((cid, resultado, candidatos, erro))
         return {'ok': True, 'candidatos': len(candidatos or [])}
@@ -92,6 +94,45 @@ class Testes(unittest.TestCase):
         api = ApiFalsa([{'id': 1, 'nome': 'A B'}])
         roda(api, BuscadorFalso(lambda n: [P('a')]), seco=True)
         self.assertEqual(api.enviados, [])
+
+    def test_modo_seco_mostra_a_previa_pontuada_e_nao_grava(self):
+        class ApiComPrevia(ApiFalsa):
+            def __init__(self, c):
+                super().__init__(c); self.simulados = []; self.filas = []
+            def fila(self, limite, refazer, cliente=None, seco=False):
+                self.filas.append((cliente, seco)); return super().fila(limite, refazer)
+            def simular(self, cid, candidatos):
+                self.simulados.append(cid)
+                return {'sugestoes': [{'username': 'a', 'nome': 'A B', 'score': 0.95, 'motivo': 'nome_completo'}],
+                        'descartados': []}
+        api, linhas = ApiComPrevia([{'id': 1, 'nome': 'A B'}]), []
+        r = s.processar(api, BuscadorFalso(lambda n: [P('a')]), seco=True, dormir=lambda _: None, log=linhas.append)
+        self.assertEqual((api.enviados, api.simulados, api.filas), ([], [1], [(None, True)]))
+        self.assertEqual(r['com_candidatos'], 1)
+        self.assertTrue(any('SUGESTÃO  @a' in l for l in linhas))
+
+    def test_cliente_unica(self):
+        class ApiUma(ApiFalsa):
+            def fila(self, limite, refazer, cliente=None, seco=False):
+                self.pedida = (limite, cliente); return super().fila(limite, refazer)
+        api = ApiUma([{'id': 7, 'nome': 'A B'}, {'id': 8, 'nome': 'C D'}])
+        r = roda(api, BuscadorFalso(lambda n: []), cliente=7, limite=10)
+        self.assertEqual((r['processadas'], api.pedida), (1, (1, 7)))
+
+    def test_testar_sessao(self):
+        os.environ['INSTAGRAM_USERNAME'] = 'marquesa'; os.environ['INSTAGRAM_SESSION_FILE'] = 'x'
+        class Vale:
+            def __init__(self, *_): pass
+            def testar(self): return 'Marquesa'
+        class Expirou(Vale):
+            def testar(self): return None
+        class Outra(Vale):
+            def testar(self): return 'outra.conta'
+        class SemArquivo:
+            def __init__(self, *_): raise s.SessaoExpirada('arquivo de sessão do Instagram não encontrado')
+        self.assertEqual([s.testar_sessao(c) for c in (Vale, Expirou, Outra, SemArquivo)], [0, 3, 3, 3])
+        os.environ.pop('INSTAGRAM_SESSION_FILE')
+        self.assertEqual(s.testar_sessao(Vale), 2)
 
     def test_sem_credenciais_nao_roda_e_nao_vaza(self):
         for v in ('MARQUESA_API_URL', 'MARQUESA_API_KEY', 'INSTAGRAM_USERNAME', 'INSTAGRAM_SESSION_FILE'):

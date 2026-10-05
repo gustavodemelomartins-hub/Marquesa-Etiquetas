@@ -597,11 +597,15 @@ export const PARIDADE: ModuloDeParidade[] = [
       },
       {
         id: 'garantias.status', rotulo: 'Mudar status, com observação', estado: 'pronta',
-        prova: { arquivo: `${F}/features/garantias/GarantiasArea.tsx`, contem: '/status' },
+        prova: { arquivo: `${F}/features/garantias/CasoDeReparo.tsx`, contem: '/status' },
       },
       {
         id: 'garantias.prazo', rotulo: 'Prazo em dias úteis', estado: 'pronta',
-        prova: { arquivo: `${F}/features/garantias/GarantiasArea.tsx`, contem: 'prazo' },
+        prova: { arquivo: `${F}/features/garantias/CasoDeReparo.tsx`, contem: 'diasUteisRestantes' },
+      },
+      {
+        id: 'garantias.detalhe-unico', rotulo: 'O mesmo detalhe do caso no Início, na ficha da cliente e na lista', estado: 'pronta',
+        prova: { arquivo: `${F}/app/App.tsx`, contem: 'CasosDeReparoProvider' },
       },
       {
         id: 'garantias.troca', rotulo: 'Registrar a troca', estado: 'pronta',

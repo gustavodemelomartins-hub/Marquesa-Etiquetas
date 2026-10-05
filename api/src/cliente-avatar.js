@@ -125,24 +125,36 @@ export async function baixarImagem(url, buscar = fetch) {
 /** Quem ainda precisa de busca. É a FILA e é também o checkpoint: cliente sem
  *  linha em `cliente_avatar_busca` está pendente — inclusive a recém-criada,
  *  sem que o cadastro precise saber que isto existe. */
-export async function filaDeBusca(db, { limite = 10, refazer = false } = {}) {
+export async function filaDeBusca(db, { limite = 10, refazer = false, clienteId = null, seco = false } = {}) {
   limite = Math.max(1, Math.min(+limite || 10, 25));
+  /* `clienteId`: o operador pediu UMA cliente (`--cliente`). O checkpoint não
+     a segura — ele escolheu —, mas foto confirmada e sugestão pendente sim:
+     buscar de novo ali só criaria uma segunda decisão para a mesma pessoa. */
+  const uma = clienteId != null && /^[0-9]+$/.test(String(clienteId)) ? +clienteId : null;
+  /* `pedida` (o "Buscar foto" da ficha) entra na frente: alguém está
+     olhando para aquela cliente agora. */
   const { results } = await db.prepare(
     `SELECT c.id, c.nome, c.instagram FROM clientes c
       WHERE c.arquivada_em IS NULL
         AND NOT EXISTS (SELECT 1 FROM cliente_avatar a WHERE a.cliente_id = c.id)
         AND NOT EXISTS (SELECT 1 FROM cliente_avatar_candidato k WHERE k.cliente_id = c.id AND k.status = 'pendente')
-        AND (NOT EXISTS (SELECT 1 FROM cliente_avatar_busca b WHERE b.cliente_id = c.id)
+        AND ((? IS NOT NULL AND c.id = ?)
+          OR (? IS NULL AND (NOT EXISTS (SELECT 1 FROM cliente_avatar_busca b WHERE b.cliente_id = c.id)
              OR EXISTS (SELECT 1 FROM cliente_avatar_busca b WHERE b.cliente_id = c.id AND (
-                  (b.status = 'erro' AND b.tentativas < ? AND b.consultado_em < datetime('now', '-1 hour'))
-               OR (? = 1 AND b.status IN ('feita', 'sem_resultado') AND b.consultado_em < datetime('now', '-90 days')))))
-      ORDER BY c.id LIMIT ?`,
-  ).bind(MAX_TENTATIVAS, refazer ? 1 : 0, limite * 2).all();
+                  b.status = 'pedida'
+               OR (b.status = 'erro' AND b.tentativas < ? AND b.consultado_em < datetime('now', '-1 hour'))
+               OR (? = 1 AND b.status IN ('feita', 'sem_resultado') AND b.consultado_em < datetime('now', '-90 days')))))))
+      ORDER BY CASE WHEN EXISTS (SELECT 1 FROM cliente_avatar_busca b WHERE b.cliente_id = c.id AND b.status = 'pedida')
+                    THEN 0 ELSE 1 END, c.id
+      LIMIT ?`,
+  ).bind(uma, uma, uma, MAX_TENTATIVAS, refazer ? 1 : 0, limite * 2).all();
   const fila = [];
   for (const c of results) {
     const handle = limparHandle(c.instagram);
     if (tokens(c.nome).length < 2 && !handle) {
-      // nome único e sem @ cadastrado: não há evidência possível — anuncia, não busca
+      // nome único e sem @ cadastrado: não há evidência possível — anuncia, não busca.
+      // No `--seco` nada é gravado, nem esta marca: só fica de fora do lote.
+      if (seco) continue;
       await db.prepare(
         `INSERT INTO cliente_avatar_busca (cliente_id, status, candidatos, erro, consultado_em)
          VALUES (?, 'ignorada', 0, 'nome_curto', ?)
@@ -156,6 +168,42 @@ export async function filaDeBusca(db, { limite = 10, refazer = false } = {}) {
   return fila;
 }
 
+/** "Buscar foto" na ficha da cliente. O Worker NÃO vai ao Instagram (ver o
+ *  topo do arquivo): isto só põe a cliente no começo da fila, e a próxima
+ *  rodada do script auxiliar a procura primeiro. As recusas dizem o que
+ *  fazer, em vez de aceitar um pedido que nunca daria resultado. */
+export async function pedirBusca(db, clienteId) {
+  const c = await db.prepare('SELECT id, nome, instagram, arquivada_em FROM clientes WHERE id = ?').bind(clienteId).first();
+  if (!c) return { status: 404, corpo: { erro: 'Cliente não encontrada' } };
+  if (c.arquivada_em) return { status: 409, corpo: { erro: 'Esta cliente está arquivada.' } };
+  if (await db.prepare('SELECT 1 FROM cliente_avatar WHERE cliente_id = ?').bind(clienteId).first()) {
+    return { status: 409, corpo: { erro: 'Ela já tem foto confirmada. Remova a foto antes de buscar outra.' } };
+  }
+  if (await db.prepare(`SELECT 1 FROM cliente_avatar_candidato WHERE cliente_id = ? AND status = 'pendente'`).bind(clienteId).first()) {
+    return { status: 409, corpo: { erro: 'Já há uma sugestão esperando: toque na foto para decidir.' } };
+  }
+  if (tokens(c.nome).length < 2 && !limparHandle(c.instagram)) {
+    return { status: 422, corpo: { erro: 'Só o primeiro nome não basta para achar a pessoa certa. Cadastre o sobrenome ou o @ do Instagram dela.' } };
+  }
+  const t = agora();
+  await db.prepare(
+    `INSERT INTO cliente_avatar_busca (cliente_id, status, candidatos, tentativas, erro, consultado_em)
+     VALUES (?, 'pedida', 0, 0, NULL, ?)
+     ON CONFLICT(cliente_id) DO UPDATE SET status = 'pedida', candidatos = 0, tentativas = 0,
+       erro = NULL, consultado_em = excluded.consultado_em`,
+  ).bind(clienteId, t).run();
+  return { status: 200, corpo: { ok: true, status: 'pedida', pedidaEm: t } };
+}
+
+/** Em que pé está a busca desta cliente — para a ficha explicar a falta de
+ *  sugestão em vez de abrir um diálogo vazio. `null`: nunca foi buscada. */
+export async function estadoDaBusca(db, clienteId) {
+  const b = await db.prepare(
+    'SELECT status, candidatos, erro, consultado_em FROM cliente_avatar_busca WHERE cliente_id = ?',
+  ).bind(clienteId).first().catch(() => null);
+  return b ? { status: b.status, candidatos: b.candidatos, erro: b.erro, em: b.consultado_em } : null;
+}
+
 export function limparHandle(v) {
   const s = String(v || '').trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').split(/[/?#]/)[0];
   return /^[A-Za-z0-9._]{1,30}$/.test(s) ? s.toLowerCase() : null;
@@ -163,12 +211,12 @@ export function limparHandle(v) {
 
 /** Recebe o que o script achou. Pontua, descarta o fraco, guarda os melhores
  *  e atualiza o checkpoint. `resultado`: 'ok' | 'erro'. */
-export async function registrarCandidatos(db, { clienteId, resultado, erro, candidatos }) {
+export async function registrarCandidatos(db, { clienteId, resultado, erro, candidatos, simular = false }) {
   const cli = await db.prepare('SELECT id, nome, instagram FROM clientes WHERE id = ?').bind(clienteId).first();
   if (!cli) return { status: 404, corpo: { erro: 'Cliente não encontrada' } };
   const t = agora();
 
-  if (resultado === 'erro') {
+  if (resultado === 'erro' && !simular) {
     await db.prepare(
       `INSERT INTO cliente_avatar_busca (cliente_id, status, erro, consultado_em) VALUES (?, 'erro', ?, ?)
        ON CONFLICT(cliente_id) DO UPDATE SET status='erro', erro=excluded.erro,
@@ -193,6 +241,22 @@ export async function registrarCandidatos(db, { clienteId, resultado, erro, cand
   }
   avaliados.sort((a, b) => b.score - a.score);
   const guardar = avaliados.slice(0, MAX_CANDIDATOS);
+  /* `simular` (o `--seco` do script): a MESMA pontuação, nenhuma escrita. É
+     como se vê, antes de gravar, quem viraria sugestão — e quem não. */
+  if (simular) {
+    const lista = Array.isArray(candidatos) ? candidatos : [];
+    const escolhidos = new Set(guardar.map((g) => g.username));
+    return {
+      status: 200,
+      corpo: {
+        ok: true, simulado: true,
+        sugestoes: guardar.map(({ username, fullName, score, motivo }) => ({ username, nome: fullName, score, motivo })),
+        descartados: lista
+          .filter((p) => !escolhidos.has(String(p?.username || '').toLowerCase()))
+          .map((p) => ({ username: String(p?.username || ''), nome: p?.full_name || null, score: pontuar(cli.nome, p || {}).score })),
+      },
+    };
+  }
   for (const a of guardar) {
     // refazer a busca atualiza a foto/nome, mas NUNCA reabre quem já foi recusado
     await db.prepare(
@@ -224,7 +288,7 @@ export async function sugestaoDaCliente(db, clienteId, { depoisDe = null } = {})
        FROM cliente_avatar_candidato WHERE cliente_id = ? AND status = 'pendente'
       ORDER BY score DESC, id`,
   ).bind(clienteId).all();
-  if (!results.length) return { sugestao: null, restantes: 0 };
+  if (!results.length) return { sugestao: null, restantes: 0, busca: await estadoDaBusca(db, clienteId) };
   // "Próxima sugestão" gira pela lista sem recusar ninguém
   let i = 0;
   if (depoisDe != null) i = (results.findIndex((r) => r.id === +depoisDe) + 1) % results.length;
@@ -337,6 +401,7 @@ export async function resumoAvatares(db) {
     semResultado: await q(`SELECT COUNT(*) n FROM cliente_avatar_busca WHERE status='sem_resultado'`),
     ignoradas: await q(`SELECT COUNT(*) n FROM cliente_avatar_busca WHERE status='ignorada'`),
     comErro: await q(`SELECT COUNT(*) n FROM cliente_avatar_busca WHERE status='erro'`),
+    pedidas: await q(`SELECT COUNT(*) n FROM cliente_avatar_busca WHERE status='pedida'`),
     naFila: (await db.prepare(
       `SELECT COUNT(*) n FROM clientes c WHERE c.arquivada_em IS NULL AND NOT EXISTS (SELECT 1 FROM cliente_avatar_busca b WHERE b.cliente_id = c.id)
          AND NOT EXISTS (SELECT 1 FROM cliente_avatar a WHERE a.cliente_id = c.id)`).first()).n,

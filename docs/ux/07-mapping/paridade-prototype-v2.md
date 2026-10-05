@@ -14,13 +14,13 @@ consegue fazer.
 
 | | capacidades |
 |---|---|
-| 🟢 pronta | 122 |
+| 🟢 pronta | 123 |
 | 🟡 parcial | 5 |
 | ⚪ pendente — o backend tem, a tela não | 3 |
 | ⛔ indisponível — o backend não sustenta | 13 |
-| **total** | **143** |
+| **total** | **144** |
 
-**122 de 130** capacidades que o backend sustenta já estão
+**123 de 131** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
@@ -173,15 +173,16 @@ Referência visual: `/prototype/revendedoras/` · 🟢 10 · 🟡 1 · ⚪ 0 · 
 
 ## Garantias, reparos e trocas
 
-Referência visual: `/prototype/garantias/` · 🟢 10 · 🟡 1 · ⚪ 0 · ⛔ 0
+Referência visual: `/prototype/garantias/` · 🟢 11 · 🟡 1 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
 | Casos, com filtro por status | 🟢 pronta | `#/garantias` | — |
 | Abrir garantia, a partir da compra | 🟢 pronta | `features/garantias/AbrirGarantia.tsx` | — |
 | Duas peças iguais na compra: a tela pergunta | 🟢 pronta | `features/garantias/AbrirGarantia.tsx` | — |
-| Mudar status, com observação | 🟢 pronta | `features/garantias/GarantiasArea.tsx` | — |
-| Prazo em dias úteis | 🟢 pronta | `features/garantias/GarantiasArea.tsx` | — |
+| Mudar status, com observação | 🟢 pronta | `features/garantias/CasoDeReparo.tsx` | — |
+| Prazo em dias úteis | 🟢 pronta | `features/garantias/CasoDeReparo.tsx` | — |
+| O mesmo detalhe do caso no Início, na ficha da cliente e na lista | 🟢 pronta | `app/App.tsx` | — |
 | Registrar a troca | 🟢 pronta | `features/garantias/PainelDaTroca.tsx` | — |
 | Receber a diferença, com a data efetiva | 🟢 pronta | `features/garantias/PainelDaTroca.tsx` | — |
 | Peça mais barata vira crédito, não cobrança | 🟢 pronta | `features/garantias/PainelDaTroca.tsx` | — |

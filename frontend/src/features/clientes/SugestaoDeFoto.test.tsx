@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { AvatarCliente } from '../../components/AvatarCliente';
-import { SugestaoDeFoto } from './SugestaoDeFoto';
+import { SugestaoDeFoto, explicarBusca } from './SugestaoDeFoto';
 import type { Connection } from '../../services/client';
 
 const conexao: Connection = { url: 'http://api.local', key: 'k' };
@@ -100,17 +100,43 @@ describe('SugestaoDeFoto — É ela / Não é ela / Próxima', () => {
     expect(JSON.parse((post[1] as RequestInit).body as string)).toEqual({ candidatoId: 1, acao: 'recusar' });
   });
 
-  it('recusar a última fecha o diálogo e relê a ficha', async () => {
+  it('recusar a última relê a ficha e explica, sem fechar sozinho', async () => {
     let lidas = 0;
     const f = vi.fn(async (_u: string, init?: RequestInit) => {
       if (init?.method === 'POST') return resp({ ok: true });
       lidas += 1;
-      return resp(lidas === 1 ? SUG(1, 'kamila.pereira') : { sugestao: null, restantes: 0 });
+      return resp(lidas === 1 ? SUG(1, 'kamila.pereira')
+        : { sugestao: null, restantes: 0, busca: { status: 'feita', em: '2026-10-05 12:00:00' } });
     });
     const { aoFechar, aoMudar } = montar(f);
     fireEvent.click(await screen.findByRole('button', { name: 'Não é ela' }));
-    await waitFor(() => expect(aoFechar).toHaveBeenCalled());
+    expect(await screen.findByText(/já foram recusadas/)).toBeTruthy();
     expect(aoMudar).toHaveBeenCalled();
+    expect(aoFechar).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Buscar de novo' })).toBeTruthy();
+  });
+
+  it('sem sugestão nenhuma: diz que nunca buscou e "Buscar foto" pede a busca', async () => {
+    const f = vi.fn(async (_u: string, init?: RequestInit) => (init?.method === 'POST'
+      ? resp({ ok: true, status: 'pedida', pedidaEm: '2026-10-05 12:00:00' })
+      : resp({ sugestao: null, restantes: 0, busca: null })));
+    montar(f);
+    expect(await screen.findByText(/Ainda não procuramos/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Buscar foto' }));
+    expect(await screen.findByText(/Busca pedida/)).toBeTruthy();
+    const post = f.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === 'POST')!;
+    expect(String(post[0])).toContain('/api/clientes/7/avatar/buscar');
+    // pedida: não oferece pedir de novo
+    expect(screen.queryByRole('button', { name: /Buscar/ })).toBeNull();
+  });
+
+  it('o status cru da busca nunca aparece', () => {
+    for (const st of ['pedida', 'feita', 'sem_resultado', 'erro', 'ignorada', 'qualquer_outro']) {
+      const t = explicarBusca({ status: st, em: '2026-10-05 12:00:00' });
+      expect(t).not.toMatch(/_/);
+      expect(t).not.toContain(st === 'qualquer_outro' ? st : '§');
+    }
+    expect(explicarBusca(null)).toMatch(/Ainda não procuramos/);
   });
 
   it('"É ela" confirma, relê a ficha e fecha', async () => {

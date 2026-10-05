@@ -20,6 +20,12 @@ Segredos — somente variáveis de ambiente, nunca argumento, arquivo versionado
 ou log:
     MARQUESA_API_URL, MARQUESA_API_KEY
     INSTAGRAM_USERNAME, INSTAGRAM_SESSION_FILE   (sessão do Instaloader)
+
+Ordem de uso (docs/CLIENTE_AVATAR.md):
+    --testar-sessao          a sessão vale? (só Instagram, não fala com a API)
+    --seco --limite 5        busca e mostra o que VIRARIA sugestão; não grava
+    --limite 5..10           amostra real; confira na ficha antes de aumentar
+    --cliente ID             só aquela cliente (o "Buscar foto" da ficha)
 """
 from __future__ import annotations
 
@@ -85,6 +91,14 @@ class InstaloaderBuscador:
                 'full_name': n.get('full_name') or '',
                 'profile_pic_url': n.get('profile_pic_url') or n.get('profile_pic_url_hd')}
 
+    def testar(self) -> Optional[str]:
+        """Quem a sessão diz ser, ou None se o Instagram não a aceita mais.
+        Uma requisição só, e nenhuma busca."""
+        try:
+            return self._L.test_login()
+        except Exception as e:  # noqa: BLE001
+            raise self._traduz(e) from None
+
     def buscar(self, nome: str) -> list[dict]:
         try:
             achados = self._il.TopSearchResults(self._L.context, nome).get_profiles()
@@ -119,8 +133,14 @@ class ApiMarquesa:
         except urllib.error.URLError as e:
             raise RuntimeError(f'API inacessível em {caminho}: {e.reason}') from None
 
-    def fila(self, limite: int, refazer: bool):
-        return self._req('GET', f'/api/clientes/avatar/fila?limite={limite}' + ('&refazer=1' if refazer else ''))
+    def fila(self, limite: int, refazer: bool, cliente: Optional[int] = None, seco: bool = False):
+        return self._req('GET', f'/api/clientes/avatar/fila?limite={limite}' + ('&refazer=1' if refazer else '')
+                         + (f'&cliente={int(cliente)}' if cliente else '') + ('&seco=1' if seco else ''))
+
+    def simular(self, cliente_id: int, candidatos):
+        """A MESMA pontuação do servidor, sem gravar nada (o `--seco`)."""
+        return self._req('POST', '/api/clientes/avatar/candidatos', {
+            'clienteId': cliente_id, 'resultado': 'ok', 'candidatos': candidatos or [], 'simular': True})
 
     def enviar(self, cliente_id: int, resultado: str, candidatos=None, erro=None):
         return self._req('POST', '/api/clientes/avatar/candidatos', {
@@ -142,13 +162,28 @@ def com_backoff(fn: Callable, dormir: Callable[[float], None], tentativas=3, bas
             dormir(base * (2 ** i))
 
 
+def _mostrar_previa(log, c, achados, previa):
+    """O `--seco` imprime o que uma pessoa decidiria na ficha: @, nome, nota."""
+    log(f"  [seco] #{c['id']} {c['nome']}: {len(achados)} perfil(is) encontrado(s)")
+    sug = (previa or {}).get('sugestoes') or []
+    if not sug:
+        log('         nenhum vira sugestão (nada passa de 0,6)')
+    for x in sug:
+        log(f"         SUGESTÃO  @{x['username']}  {x.get('nome') or '—'}  nota {x['score']:.2f} ({x['motivo']})")
+    for x in ((previa or {}).get('descartados') or [])[:3]:
+        log(f"         descarta  @{x['username']}  {x.get('nome') or '—'}  nota {x['score']:.2f}")
+
+
 def processar(api, buscador, *, limite=10, lote=5, atraso=8.0, refazer=False, seco=False,
-              dormir=time.sleep, log=print, base_backoff=60.0, falhas_seguidas_max=3) -> dict:
+              dormir=time.sleep, log=print, base_backoff=60.0, falhas_seguidas_max=3,
+              cliente: Optional[int] = None) -> dict:
     """Devolve o resumo. `parou` diz por que terminou antes do limite, se terminou."""
     r = {'processadas': 0, 'com_candidatos': 0, 'sem_resultado': 0, 'erros': 0, 'parou': None}
     falhas = 0
+    if cliente:
+        limite = 1
     while r['processadas'] < limite:
-        fila = api.fila(min(lote, limite - r['processadas']), refazer)
+        fila = api.fila(min(lote, limite - r['processadas']), refazer, cliente=cliente, seco=seco)
         if not fila:
             break
         for c in fila:
@@ -185,7 +220,12 @@ def processar(api, buscador, *, limite=10, lote=5, atraso=8.0, refazer=False, se
                 continue
             r['processadas'] += 1
             if seco:
-                log(f"  [seco] {c['nome']}: {len(achados)} perfil(is) encontrado(s)")
+                previa = api.simular(c['id'], achados)
+                _mostrar_previa(log, c, achados, previa)
+                if (previa or {}).get('sugestoes'):
+                    r['com_candidatos'] += 1
+                else:
+                    r['sem_resultado'] += 1
             else:
                 resp = api.enviar(c['id'], 'ok', candidatos=achados)
                 if resp.get('candidatos'):
@@ -204,8 +244,12 @@ def principal(argv=None) -> int:
     ap.add_argument('--lote', type=int, default=5, help='clientes por pedido de fila (padrão 5)')
     ap.add_argument('--atraso', type=float, default=8.0, help='segundos entre clientes (padrão 8, mais jitter)')
     ap.add_argument('--refazer', action='store_true', help='reabre buscas com mais de 90 dias')
-    ap.add_argument('--seco', action='store_true', help='busca mas NÃO envia nada à API')
+    ap.add_argument('--seco', action='store_true', help='busca e mostra a prévia pontuada, mas NÃO grava nada')
+    ap.add_argument('--cliente', type=int, help='só esta cliente (id) — o "Buscar foto" da ficha')
+    ap.add_argument('--testar-sessao', action='store_true', help='só confere se a sessão do Instagram vale')
     a = ap.parse_args(argv)
+    if a.testar_sessao:
+        return testar_sessao()
     falta = [v for v in ('MARQUESA_API_URL', 'MARQUESA_API_KEY', 'INSTAGRAM_USERNAME', 'INSTAGRAM_SESSION_FILE')
              if not os.environ.get(v)]
     if falta:
@@ -215,7 +259,7 @@ def principal(argv=None) -> int:
         buscador = InstaloaderBuscador(os.environ['INSTAGRAM_USERNAME'], os.environ['INSTAGRAM_SESSION_FILE'])
         r = processar(ApiMarquesa(os.environ['MARQUESA_API_URL'], os.environ['MARQUESA_API_KEY']), buscador,
                       limite=min(a.limite, 100), lote=max(1, min(a.lote, 10)), atraso=max(a.atraso, 3.0),
-                      refazer=a.refazer, seco=a.seco)
+                      refazer=a.refazer, seco=a.seco, cliente=a.cliente)
     except SessaoExpirada as e:
         print(f'Parei: {e}. Refaça o login do Instaloader e rode de novo.', file=sys.stderr)
         return 3
@@ -224,6 +268,29 @@ def principal(argv=None) -> int:
         return 4
     print(json.dumps(r, ensure_ascii=False))
     return 0 if r['parou'] is None else 3
+
+
+def testar_sessao(buscador_cls=None) -> int:
+    """0: a sessão vale. 3: não vale (refaça o login). 2: faltam variáveis.
+    Nunca imprime o conteúdo da sessão — só o usuário que ela diz ser."""
+    falta = [v for v in ('INSTAGRAM_USERNAME', 'INSTAGRAM_SESSION_FILE') if not os.environ.get(v)]
+    if falta:
+        print('Faltam variáveis de ambiente: ' + ', '.join(falta), file=sys.stderr)
+        return 2
+    try:
+        b = (buscador_cls or InstaloaderBuscador)(os.environ['INSTAGRAM_USERNAME'], os.environ['INSTAGRAM_SESSION_FILE'])
+        quem = b.testar()
+    except (SessaoExpirada, LimiteDeRequisicoes, FalhaTemporaria) as e:
+        print(f'Sessão NÃO vale: {e}. Refaça o login (docs/CLIENTE_AVATAR.md).', file=sys.stderr)
+        return 3
+    if not quem:
+        print('Sessão NÃO vale: o Instagram não reconheceu o login. Refaça o login.', file=sys.stderr)
+        return 3
+    if quem.lower() != os.environ['INSTAGRAM_USERNAME'].lower():
+        print(f'Sessão é de @{quem}, não de @{os.environ["INSTAGRAM_USERNAME"]}. Confira a conta.', file=sys.stderr)
+        return 3
+    print(f'Sessão válida: @{quem}')
+    return 0
 
 
 if __name__ == '__main__':

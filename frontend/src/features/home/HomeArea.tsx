@@ -7,6 +7,7 @@ import { buscarPainel } from '../financeiro/api';
 import type { ModuloId } from '../../app/modulos';
 import type { PainelFinanceiro } from '../financeiro/tipos';
 import type { RespostaPendencias as Pendencias } from './PendenciasArea';
+import { MiniaturaDoReparo, useCasosDeReparo } from '../garantias/CasosDeReparo';
 
 interface Props {
   conexao: Connection;
@@ -25,9 +26,11 @@ interface Props {
  *  está parado esperando por ela.
  */
 export function HomeArea({ conexao, aoIr }: Props) {
+  const casos = useCasosDeReparo();
+  /* `casos.versao`: mudou um caso aberto daqui, a lista de reparos relê. */
   const painel = useApi(
     (s) => buscarPainel(conexao, { periodo: '30d', de: null, ate: null }, s),
-    [conexao],
+    [conexao, casos?.versao],
   );
   const pend = useApi(
     (s) => chamar<Pendencias>(conexao, 'GET', '/api/pendencias', undefined, { signal: s }),
@@ -176,22 +179,39 @@ export function HomeArea({ conexao, aoIr }: Props) {
               </div>
               <div className="mq-list">
                 {(reparos.itens as { id: number; produtoNome: string | null; sku: string; clienteNome: string | null; dataEntrada: string; atrasado: boolean; statusRotulo: string }[])
-                  .slice(0, 5).map((g) => (
-                    <div className="mq-item" key={g.id}>
-                      <span className={`mq-item__icon ${g.atrasado ? 'mq-item__icon--risk' : 'mq-item__icon--warn'}`}>
-                        <Icone nome="repair" />
-                      </span>
-                      <span className="mq-item__main">
-                        <b>{g.produtoNome ?? g.sku}</b>
-                        <small>{g.clienteNome ?? 'cliente não identificada'} · entrou {fmtData(g.dataEntrada)}</small>
-                      </span>
-                      <span className="mq-item__side">
-                        <span className={g.atrasado ? 'mq-status mq-status--risk' : 'mq-status mq-status--warn'}>
-                          {g.statusRotulo}
+                  .slice(0, 5).map((g) => {
+                    /* A linha INTEIRA abre o caso — o mesmo detalhe da ficha
+                       da cliente e da lista de Garantias. */
+                    const miolo = (
+                      <>
+                        <MiniaturaDoReparo
+                          sku={g.sku}
+                          nome={g.produtoNome ?? g.sku}
+                          tom={g.atrasado ? 'risk' : 'warn'}
+                        />
+                        <span className="mq-item__main">
+                          <b>{g.produtoNome ?? g.sku}</b>
+                          <small>{g.clienteNome ?? 'cliente não identificada'} · entrou {fmtData(g.dataEntrada)}</small>
                         </span>
-                      </span>
-                    </div>
-                  ))}
+                        <span className="mq-item__side">
+                          <span className={g.atrasado ? 'mq-status mq-status--risk' : 'mq-status mq-status--warn'}>
+                            {g.statusRotulo}
+                          </span>
+                        </span>
+                      </>
+                    );
+                    return casos ? (
+                      <button
+                        type="button"
+                        className="mq-item"
+                        key={g.id}
+                        aria-label={`Abrir o caso de ${g.produtoNome ?? g.sku}`}
+                        onClick={() => casos.abrir(g.id)}
+                      >
+                        {miolo}
+                      </button>
+                    ) : <div className="mq-item" key={g.id}>{miolo}</div>;
+                  })}
               </div>
             </section>
           )}

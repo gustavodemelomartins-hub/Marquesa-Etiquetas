@@ -500,6 +500,19 @@ sem histórico é excluído; "Brinde Souza" (real) fica. Estoque idêntico e
 `frontend/src/features/clientes/acoes.test.tsx`; navegador:
 `src/v2-clientes-acoes-qa.mjs` (1280 e 390px).
 
+### `src/v2-reparos-qa.mjs` — o caso de reparo e a foto da cliente, no navegador
+**72 provas · ~40 s · harness local (Worker real + SQLite em memória + R2 em memória), 390 e 1280px**
+
+Cenário pelas rotas reais: uma venda, duas garantias (peça com foto na
+galeria e peça sem), três clientes para os estados do avatar. Prova que o
+caso abre do Início, da ficha (Garantias e trocas) e da lista de Garantias no
+MESMO componente (`.caso`), com miniatura real ou ícone, sem enum/snake_case,
+sem texto cortado, toque ≥ 44px e último botão visível no telefone; uma ação
+principal, cancelar destrutivo, mudança de status confirmada e refletida na
+lista; avatar sem sugestão ("Buscar foto" → "Busca pedida") e com sugestão
+("É ela / Não é ela"). Estoque idêntico e `/api/estoque/conferir` vazio no
+fim. Par de tela: `frontend/src/features/garantias/CasoDeReparo.test.tsx`.
+
 ### `src/inventario-bipou-marcha-test.mjs` — o inventário da Sthefany ("bipou e marcha")
 **14 provas · ~2 s · Worker real em processo, sem rede**
 

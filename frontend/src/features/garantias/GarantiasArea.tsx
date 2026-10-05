@@ -3,12 +3,10 @@ import { useApi } from '../../hooks/useApi';
 import { chamar, type Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
-import { money, fmtData, hojeISO } from '../../domain/formato';
+import { money, fmtData } from '../../domain/formato';
 import { AbrirGarantia } from './AbrirGarantia';
-import { PainelDaTroca } from './PainelDaTroca';
-import { ENCERRADOS, PENDENTES, STATUS, type Garantia } from './tipos';
-import type { AppState } from '../../types/api';
-import type { ProdutoDoEstado } from '../vendas/tipos';
+import { MiniaturaDoReparo, useCasosDeReparo } from './CasosDeReparo';
+import { PENDENTES, STATUS, type Garantia } from './tipos';
 
 /* A forma da garantia, os rótulos de status e as duas listas de estado moram
    em `./tipos.ts`: a ficha da cliente lê a MESMA resposta, e um contrato
@@ -19,11 +17,6 @@ interface Props {
   conexao: Connection;
   sub: string | null;
   aoNavegar: (sub: string | null) => void;
-  aoAbrirCliente: (chave: { id: number } | { norm: string }) => void;
-  /** `GET /api/state`, que o App já leu. A troca escolhe a peça nova nele —
-   *  e só peça ativa com saldo, porque trocar por algo que não existe
-   *  deixaria o estoque negativo. */
-  estado: AppState | null;
 }
 
 /** GARANTIAS, REPAROS E TROCAS — o que está em andamento e o que espera
@@ -37,12 +30,13 @@ interface Props {
  *  atendimento novo ligado ao anterior, e não trocar o status do caso
  *  antigo, que apagaria a história.
  */
-export function GarantiasArea({ conexao, sub, aoNavegar, aoAbrirCliente, estado }: Props) {
+export function GarantiasArea({ conexao, sub, aoNavegar }: Props) {
   const filtro = sub && STATUS.some((s) => s.id === sub) ? sub : (sub === 'todas' ? null : 'pendentes');
-  const [aberta, setAberta] = useState<number | null>(null);
+  /* O detalhe do caso é o MESMO do Início e da ficha da cliente
+     (`CasoDeReparo`, aberto pelo provedor do App). */
+  const casos = useCasosDeReparo();
   /* `#/garantias/nova` é o atalho "A peça voltou" do Início. */
   const [abrindo, setAbrindo] = useState(sub === 'nova');
-  const produtos = (estado?.produtos ?? []) as unknown as ProdutoDoEstado[];
 
   const lista = useApi(
     (s) => chamar<{ garantias: Garantia[] }>(
@@ -50,7 +44,7 @@ export function GarantiasArea({ conexao, sub, aoNavegar, aoAbrirCliente, estado 
       `/api/garantias?limite=200${filtro && filtro !== 'pendentes' ? `&status=${filtro}` : ''}`,
       undefined, { signal: s },
     ),
-    [conexao, filtro],
+    [conexao, filtro, casos?.versao],
   );
 
   const garantias = useMemo(() => {
@@ -130,10 +124,13 @@ export function GarantiasArea({ conexao, sub, aoNavegar, aoAbrirCliente, estado 
         ) : (
           <div className="mq-list">
             {garantias.map((g) => (
-              <button type="button" className="mq-item" key={g.id} onClick={() => setAberta(g.id)}>
-                <span className={`mq-item__icon ${g.atrasado ? 'mq-item__icon--risk' : g.pendente ? 'mq-item__icon--warn' : 'mq-item__icon--ok'}`}>
-                  <Icone nome={g.troca ? 'swap' : 'shield'} />
-                </span>
+              <button type="button" className="mq-item" key={g.id} onClick={() => casos?.abrir(g.id)}>
+                <MiniaturaDoReparo
+                  sku={g.sku}
+                  nome={g.produtoNome ?? g.sku}
+                  tom={g.atrasado ? 'risk' : g.pendente ? 'warn' : 'ok'}
+                  icone={g.troca ? 'swap' : 'shield'}
+                />
                 <span className="mq-item__main">
                   <b>{g.produtoNome ?? g.sku}{g.variacao ? ` · ${g.variacao}` : ''}</b>
                   <small>
@@ -166,220 +163,10 @@ export function GarantiasArea({ conexao, sub, aoNavegar, aoAbrirCliente, estado 
           aoAbrir={(id) => {
             setAbrindo(false);
             lista.recarregar();
-            setAberta(id);
+            casos?.abrir(id);
           }}
         />
       )}
-
-      {aberta !== null && (
-        <Caso
-          conexao={conexao}
-          id={aberta}
-          produtos={produtos}
-          aoFechar={() => setAberta(null)}
-          aoMudar={lista.recarregar}
-          aoAbrirCliente={aoAbrirCliente}
-        />
-      )}
-    </>
-  );
-}
-
-/* ───────────────────────────────────────────────────────────── o caso */
-
-function Caso({
-  conexao, id, produtos, aoFechar, aoMudar, aoAbrirCliente,
-}: {
-  conexao: Connection;
-  id: number;
-  produtos: ProdutoDoEstado[];
-  aoFechar: () => void;
-  aoMudar: () => void;
-  aoAbrirCliente: (chave: { id: number } | { norm: string }) => void;
-}) {
-  const caso = useApi(
-    (s) => chamar<Garantia>(conexao, 'GET', `/api/garantias/${id}`, undefined, { signal: s }),
-    [conexao, id],
-  );
-  const [erro, setErro] = useState('');
-  const [ocupado, setOcupado] = useState(false);
-
-  const g = caso.dados;
-  const encerrado = g ? ENCERRADOS.includes(g.status) : false;
-
-  async function mudarStatus(status: string) {
-    const observacao = prompt(`Observação para "${STATUS.find((s) => s.id === status)?.rotulo}" (opcional):`, '');
-    if (observacao === null) return;
-    setOcupado(true);
-    setErro('');
-    const r = await chamar<{ erro?: string }>(conexao, 'POST', `/api/garantias/${id}/status`, {
-      status, observacao: observacao.trim() || undefined, data: hojeISO(),
-    }).catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui mudar o status.' }));
-    setOcupado(false);
-    if (r && 'erro' in r && r.erro) setErro(String(r.erro));
-    else { caso.recarregar(); aoMudar(); }
-  }
-
-  return (
-    <>
-      <button type="button" className="mq-scrim" aria-label="Fechar" onClick={aoFechar} />
-      <div className="mq-drawer mq-drawer--larga" role="dialog" aria-modal="true" aria-label={`Garantia ${id}`}>
-        <div className="mq-drawer__head">
-          <div>
-            <p className="mq-eyebrow">Caso #{id}</p>
-            <h2 className="mq-title">{g?.produtoNome ?? g?.sku ?? 'Garantia'}</h2>
-          </div>
-          <button type="button" className="mq-modal__close" aria-label="Fechar" onClick={aoFechar}>
-            <Icone nome="close" />
-          </button>
-        </div>
-
-        <div className="mq-drawer__body">
-          {caso.erro ? <ErrorState erro={caso.erro} aoTentarDeNovo={caso.recarregar} /> : null}
-          {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
-
-          {g && (
-            <>
-              <p className="mq-chips">
-                <span className={`mq-status ${g.atrasado ? 'mq-status--risk' : g.pendente ? 'mq-status--warn' : 'mq-status--ok'}`}>
-                  {g.statusRotulo}
-                </span>
-                {g.relogioParado && <span className="mq-chip mq-chip--soft">relógio parado</span>}
-                {g.vendaItemVinculo && g.vendaItemVinculo !== 'direto' && (
-                  <span className="mq-chip">vínculo {g.vendaItemVinculo}</span>
-                )}
-              </p>
-
-              {g.vendaItemVinculo === 'ambiguo' || g.vendaItemVinculo === 'sem_match' ? (
-                <p className="mq-note mq-note--warn">
-                  <Icone nome="alert" />
-                  <span>
-                    <b>Não sabemos de qual compra esta peça veio</b>{' '}
-                    ({g.vendaItemVinculo === 'ambiguo' ? 'há mais de uma possível' : 'nenhuma compra encontrada'}).
-                    Confira com a cliente antes de trocar.
-                  </span>
-                </p>
-              ) : null}
-
-              <dl className="mq-dl">
-                <div>
-                  <dt>Cliente</dt>
-                  <dd>
-                    {g.clienteId || g.clienteNomeNorm ? (
-                      <button
-                        type="button"
-                        className="mq-btn mq-btn--link"
-                        onClick={() => aoAbrirCliente(
-                          g.clienteId ? { id: g.clienteId } : { norm: g.clienteNomeNorm ?? '' },
-                        )}
-                      >
-                        {g.clienteNome}
-                      </button>
-                    ) : (g.clienteNome ?? '—')}
-                  </dd>
-                </div>
-                <div><dt>Peça</dt><dd>{g.sku}{g.variacao ? ` · ${g.variacao}` : ''}</dd></div>
-                <div><dt>Motivo</dt><dd>{g.motivo}</dd></div>
-                <div><dt>Data da venda</dt><dd className="mq-date">{fmtData(g.dataVenda)}</dd></div>
-                <div><dt>Entrou em</dt><dd className="mq-date">{fmtData(g.dataEntrada)}</dd></div>
-                <div>
-                  <dt>Valor pago na época</dt>
-                  <dd className="mq-money">{g.valorPagoOriginal === null ? '—' : money(g.valorPagoOriginal)}</dd>
-                </div>
-                <div>
-                  <dt>Prazo</dt>
-                  <dd>
-                    {g.prazoDiasUteis ?? '—'} dias úteis
-                    {g.previsaoRetorno ? ` · até ${fmtData(g.previsaoRetorno)}` : ''}
-                  </dd>
-                </div>
-                {g.pendente && (
-                  <div>
-                    <dt>{g.atrasado ? 'Atraso' : 'Faltam'}</dt>
-                    <dd className={g.atrasado ? 'mq-money--risk' : ''}>
-                      {g.atrasado ? g.atrasoDiasUteis : g.diasUteisRestantes} dias úteis
-                    </dd>
-                  </div>
-                )}
-              </dl>
-
-              {g.troca && (
-                <section className="mq-card mq-card--pad mq-card--tint">
-                  <h3 className="mq-subtitle">A troca</h3>
-                  <dl className="mq-dl">
-                    <div><dt>Peça nova</dt><dd>{g.troca.produtoNovoNome ?? g.troca.skuNovo}</dd></div>
-                    <div><dt>Valor original</dt><dd className="mq-money">{money(g.troca.valorOriginal)}</dd></div>
-                    <div><dt>Valor novo</dt><dd className="mq-money">{money(g.troca.valorNovo)}</dd></div>
-                    <div>
-                      <dt>Diferença</dt>
-                      <dd className={g.troca.diferenca < 0 ? 'mq-money mq-money--ok' : 'mq-money'}>
-                        {money(g.troca.diferenca)}
-                      </dd>
-                    </div>
-                    {g.troca.creditoAoCliente > 0 && (
-                      <div>
-                        <dt>Virou crédito da cliente</dt>
-                        <dd className="mq-money mq-money--ok">{money(g.troca.creditoAoCliente)}</dd>
-                      </div>
-                    )}
-                  </dl>
-                </section>
-              )}
-
-              {!encerrado && (
-                <div className="mq-btns">
-                  {STATUS.filter((s) => s.id !== g.status).map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      className={ENCERRADOS.includes(s.id) ? 'mq-btn mq-btn--secondary mq-btn--sm' : 'mq-btn mq-btn--ghost mq-btn--sm'}
-                      disabled={ocupado}
-                      onClick={() => mudarStatus(s.id)}
-                    >
-                      {s.rotulo}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {encerrado && (
-                <p className="mq-note mq-note--info">
-                  <Icone nome="alert" />
-                  <span>
-                    Este atendimento terminou. Se a peça voltou de novo, abra
-                    um atendimento novo.
-                  </span>
-                </p>
-              )}
-
-              <PainelDaTroca
-                conexao={conexao}
-                garantia={g}
-                produtos={produtos}
-                aoMudar={() => { caso.recarregar(); aoMudar(); }}
-              />
-
-              <section>
-                <h3 className="mq-subtitle">O que aconteceu</h3>
-                <div className="mq-timeline">
-                  {(g.eventos ?? []).slice().reverse().map((e) => (
-                    <div className="mq-timeline__row" key={e.id}>
-                      <span className="mq-timeline__dot"><Icone nome="clock" /></span>
-                      <span className="mq-timeline__body">
-                        <b>{e.statusRotulo ?? e.tipo}</b>
-                        <small>
-                          {fmtData(e.data)}
-                          {e.observacao ? ` · ${e.observacao}` : ''}
-                        </small>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </>
-          )}
-        </div>
-      </div>
     </>
   );
 }

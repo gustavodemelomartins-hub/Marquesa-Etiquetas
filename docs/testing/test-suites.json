@@ -932,7 +932,8 @@
         "v2-conciliacao-ui.mjs",
         "v2-galeria-e2e.mjs",
         "cliente-avatar-ui-test.mjs",
-        "v2-estoque-ajuste-qa.mjs"
+        "v2-estoque-ajuste-qa.mjs",
+        "v2-reparos-qa.mjs"
       ]
     },
     {

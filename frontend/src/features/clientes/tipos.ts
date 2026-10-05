@@ -35,6 +35,14 @@ export interface SugestaoDeFoto {
   restantes: number;
   /** Homônimo / mais de um perfil forte: confira antes de confirmar. */
   aviso?: string | null;
+  /** Sem sugestão: em que pé está a busca. `null` = nunca foi buscada. */
+  busca?: EstadoDaBuscaDeFoto | null;
+}
+
+export interface EstadoDaBuscaDeFoto {
+  status: 'pedida' | 'feita' | 'sem_resultado' | 'erro' | 'ignorada' | string;
+  /** Quando — `AAAA-MM-DD HH:MM:SS`, UTC. */
+  em: string | null;
 }
 
 /** `GET /api/clientes/:id/dependencias` — `clientes.js › dependenciasCliente`. */

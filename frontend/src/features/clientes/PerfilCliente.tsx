@@ -7,6 +7,7 @@ import { money, fmtData, moneyNumero } from '../../domain/formato';
 import { buscarCredito, buscarPerfil } from './api';
 import { AcoesDaCliente } from './AcoesDaCliente';
 import { SugestaoDeFoto } from './SugestaoDeFoto';
+import { MiniaturaDoReparo, useCasosDeReparo } from '../garantias/CasosDeReparo';
 import { montarLinhaDoTempo, type EventoRelacao, type TipoEvento } from './eventos';
 import type { Connection } from '../../services/client';
 import type { GarantiaDoPerfil, PerfilCliente as Perfil, VendaDoPerfil } from './tipos';
@@ -53,7 +54,10 @@ export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda,
   const [foto, setFoto] = useState(false);
   const chaveId = 'id' in chave ? `id:${chave.id}` : `norm:${chave.norm}`;
 
-  const perfil = useApi((sinal) => buscarPerfil(conexao, chave, sinal), [conexao, chaveId]);
+  /* `casos.versao`: um caso de reparo aberto da aba Garantias mudou — a
+     ficha relê, e a aba mostra a situação nova. */
+  const casos = useCasosDeReparo();
+  const perfil = useApi((sinal) => buscarPerfil(conexao, chave, sinal), [conexao, chaveId, casos?.versao]);
   const clienteId = perfil.dados?.clienteId ?? null;
 
   /* O crédito é uma segunda chamada, e de propósito: ele só existe para
@@ -121,7 +125,9 @@ export function PerfilCliente({ conexao, chave, aoVoltar, aoEditar, aoNovaVenda,
             sugestao={p.avatarSugestao}
             conexao={conexao}
             tamanho="lg"
-            aoClicar={p.clienteId != null && (p.avatarUrl || p.avatarSugestao) ? () => setFoto(true) : undefined}
+            /* Sempre tocável: com foto mostra a foto, com sugestão abre o
+               "É ela", sem nada explica a busca e oferece "Buscar foto". */
+            aoClicar={p.clienteId != null ? () => setFoto(true) : undefined}
           />
           <AcoesDaCliente
             conexao={conexao}
@@ -485,6 +491,7 @@ function Credito({
 /* ───────────────────────────────────────────────── garantias e trocas */
 
 function Garantias({ garantias }: { garantias: GarantiaDoPerfil[] }) {
+  const casos = useCasosDeReparo();
   if (garantias.length === 0) {
     return (
       <section className="mq-card">
@@ -499,11 +506,17 @@ function Garantias({ garantias }: { garantias: GarantiaDoPerfil[] }) {
   return (
     <section className="mq-card mq-card--flush">
       <div className="mq-list">
-        {garantias.map((g) => (
-          <div className="mq-item" key={g.id}>
-            <span className={`mq-item__icon ${g.pendente ? (g.atrasado ? 'mq-item__icon--risk' : 'mq-item__icon--warn') : 'mq-item__icon--ok'}`}>
-              <Icone nome={g.troca ? 'swap' : 'shield'} />
-            </span>
+        {garantias.map((g) => {
+          /* A linha INTEIRA abre o caso — o mesmo detalhe do Início e da
+             lista de Garantias, não uma segunda versão dele. */
+          const miolo = (
+          <>
+            <MiniaturaDoReparo
+              sku={g.sku}
+              nome={g.produtoNome ?? g.sku}
+              tom={g.pendente ? (g.atrasado ? 'risk' : 'warn') : 'ok'}
+              icone={g.troca ? 'swap' : 'shield'}
+            />
             <span className="mq-item__main">
               <b>{g.produtoNome ?? g.sku}{g.variacao ? ` · ${g.variacao}` : ''}</b>
               <small>
@@ -522,8 +535,20 @@ function Garantias({ garantias }: { garantias: GarantiaDoPerfil[] }) {
                 {g.statusRotulo}
               </span>
             </span>
-          </div>
-        ))}
+          </>
+          );
+          return casos ? (
+            <button
+              type="button"
+              className="mq-item"
+              key={g.id}
+              aria-label={`Abrir o caso de ${g.produtoNome ?? g.sku}`}
+              onClick={() => casos.abrir(g.id)}
+            >
+              {miolo}
+            </button>
+          ) : <div className="mq-item" key={g.id}>{miolo}</div>;
+        })}
       </div>
     </section>
   );

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useConnection } from '../hooks/useConnection';
 import { AppShell } from './AppShell';
 import { useRota } from './rota';
@@ -22,6 +22,8 @@ import { LogoMarquesa } from '../components/LogoMarquesa';
 import type { Connection } from '../services/client';
 import { useEstado } from '../hooks/useEstado';
 import { usePlanejamento } from '../hooks/usePlanejamento';
+import { CasosDeReparoProvider } from '../features/garantias/CasosDeReparo';
+import type { ProdutoDoEstado } from '../features/vendas/tipos';
 
 export function App() {
   const { conexao, conectar, desconectar } = useConnection();
@@ -59,6 +61,12 @@ function AppConectado({
      peças, e duas leituras independentes podem discordar. */
   const estado = useEstado(conexao);
   const planejamento = usePlanejamento(estado.dados);
+  /* O catálogo que o caso de reparo usa para a miniatura da peça e para a
+     troca — o MESMO `GET /api/state`, sem segunda leitura. */
+  const produtos = useMemo(
+    () => (estado.dados?.produtos ?? []) as unknown as ProdutoDoEstado[],
+    [estado.dados],
+  );
 
   const modulo = rota.modulo;
 
@@ -93,6 +101,9 @@ function AppConectado({
   };
 
   return (
+    /* O detalhe do reparo abre por cima de QUALQUER módulo, sempre o mesmo
+       componente — ver `CasosDeReparoProvider`. */
+    <CasosDeReparoProvider conexao={conexao} produtos={produtos} aoAbrirCliente={abrirCliente}>
     <AppShell
       conexao={conexao}
       modulo={modulo}
@@ -149,8 +160,6 @@ function AppConectado({
           conexao={conexao}
           sub={rota.sub}
           aoNavegar={(sub) => trocar({ modulo: 'garantias', sub })}
-          aoAbrirCliente={abrirCliente}
-          estado={estado.dados}
         />
       )}
 
@@ -213,5 +222,6 @@ function AppConectado({
 
       {modulo === 'etiquetas' && <AreaPendente modulo={modulo} />}
     </AppShell>
+    </CasosDeReparoProvider>
   );
 }

@@ -248,7 +248,7 @@ function ResumoDaTroca({
           <small>
             {troca.skuNovo}
             {troca.variacaoNova ? ` · ${troca.variacaoNova}` : ''} · {fmtData(troca.data)}
-            {troca.vendaId ? ` · registro comercial #${troca.vendaId}` : ' · sem registro comercial (troca anterior a §36)'}
+            {troca.vendaId ? ` · registro comercial #${troca.vendaId}` : ' · sem registro comercial'}
           </small>
         </span>
         <span className="mq-item__side">

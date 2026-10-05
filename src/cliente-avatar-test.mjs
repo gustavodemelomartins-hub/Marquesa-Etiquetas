@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import {
   pontuar, tokens, tipoPorBytes, baixarImagem, urlImagemValida, filaDeBusca, registrarCandidatos,
   sugestaoDaCliente, decidirCandidato, removerAvatar, anexarAvatares, servirAvatar, resumoAvatares,
-  limparHandle, chaveAvatar, AVATAR_MAX_BYTES,
+  limparHandle, chaveAvatar, AVATAR_MAX_BYTES, pedirBusca, estadoDaBusca,
 } from '../api/src/cliente-avatar.js';
 import { normalizarNomeCliente } from '../api/src/vendas-historico-normalizar.js';
 
@@ -259,6 +259,55 @@ sec('9. Substituir e remover avatar (limpeza do R2)');
   eq('remover: apaga R2 e linha', [(await removerAvatar(db, e, a)).status, e.FOTOS.o.size, raw.prepare('SELECT COUNT(*) n FROM cliente_avatar').get().n], [200, 0, 0]);
   eq('remover sem foto: 404', (await removerAvatar(db, e, a)).status, 404);
   eq('cliente e histórico seguem intactos', raw.prepare('SELECT nome FROM clientes WHERE id=?').get(a).nome, 'Kamila Pereira');
+}
+
+sec('10. "Buscar foto" na ficha — pedido entra na frente da fila, recusas explicam');
+{
+  const { raw, db } = novoBanco(); const e = env();
+  const a = cli(raw, 'Ana Souza'); const b = cli(raw, 'Bruna Lima'); const c = cli(raw, 'Carla Dias');
+  const curto = cli(raw, 'Joana');
+  eq('nunca buscada: estado da busca é null', await estadoDaBusca(db, c), null);
+  await registrarCandidatos(db, { clienteId: c, resultado: 'ok', candidatos: [] });   // já buscada, sem resultado
+  eq('sem pedido: a já buscada fica fora da fila', (await filaDeBusca(db)).map((x) => x.id), [a, b]);
+  const r = await pedirBusca(db, c);
+  eq('pedir busca: 200 e status pedida', [r.status, r.corpo.status], [200, 'pedida']);
+  eq('a pedida vai para o COMEÇO da fila', (await filaDeBusca(db)).map((x) => x.id), [c, a, b]);
+  eq('sugestão vazia conta em que pé está a busca', (await sugestaoDaCliente(db, c)).busca.status, 'pedida');
+  await registrarCandidatos(db, { clienteId: c, resultado: 'ok', candidatos: [perfil('carla.dias', 'Carla Dias', 3)] });
+  eq('depois da busca, a pedida sai da fila (vira sugestão)', (await filaDeBusca(db)).map((x) => x.id), [a, b]);
+  eq('com sugestão pendente: pedir de novo é 409 e explica', [(await pedirBusca(db, c)).status, /toque na foto/.test((await pedirBusca(db, c)).corpo.erro)], [409, true]);
+  await decidirCandidato(db, e, c, { candidatoId: 1, acao: 'confirmar' }, resp(JPEG));
+  eq('com foto confirmada: 409', (await pedirBusca(db, c)).status, 409);
+  eq('nome único sem @: 422 com o que fazer', [(await pedirBusca(db, curto)).status, /sobrenome ou o @/.test((await pedirBusca(db, curto)).corpo.erro)], [422, true]);
+  eq('cliente inexistente: 404', (await pedirBusca(db, 9999)).status, 404);
+  raw.prepare(`UPDATE clientes SET arquivada_em = '2026-10-01' WHERE id = ?`).run(b);
+  eq('cliente arquivada: 409', (await pedirBusca(db, b)).status, 409);
+  eq('pedido não mexe em clientes', raw.prepare('SELECT COUNT(*) n FROM clientes').get().n, 4);
+  eq('resumo conta as pedidas', (await resumoAvatares(db)).pedidas, 0);
+  await pedirBusca(db, a);
+  eq('…e soma quando há', (await resumoAvatares(db)).pedidas, 1);
+}
+
+sec('11. --cliente e --seco: uma cliente só, e prévia pontuada SEM escrita');
+{
+  const { raw, db } = novoBanco();
+  const a = cli(raw, 'Ana Souza'); const b = cli(raw, 'Kamila Pereira');
+  await registrarCandidatos(db, { clienteId: b, resultado: 'ok', candidatos: [] });
+  eq('--cliente traz só ela, mesmo já buscada', (await filaDeBusca(db, { clienteId: b })).map((x) => x.id), [b]);
+  eq('--cliente com id inválido cai na fila normal', (await filaDeBusca(db, { clienteId: 'x' })).map((x) => x.id), [a]);
+  const curto = cli(raw, 'Joana');
+  eq('fila em modo seco pula o nome único SEM gravar a marca', [(await filaDeBusca(db, { seco: true })).map((x) => x.id), raw.prepare('SELECT COUNT(*) n FROM cliente_avatar_busca WHERE cliente_id=?').get(curto).n], [[a], 0]);
+  const antes = raw.prepare('SELECT (SELECT COUNT(*) FROM cliente_avatar_candidato) c, (SELECT COUNT(*) FROM cliente_avatar_busca) b').get();
+  const sim = await registrarCandidatos(db, {
+    clienteId: a, resultado: 'ok', simular: true,
+    candidatos: [perfil('ana.souza', 'Ana Souza', 1), perfil('ana.outra', 'Ana Maria', 2)],
+  });
+  eq('simular: devolve quem VIRARIA sugestão', sim.corpo.sugestoes.map((x) => x.username), ['ana.souza']);
+  eq('simular: e quem seria descartado, com a nota', [sim.corpo.descartados.map((x) => x.username), sim.corpo.descartados[0].score < 0.6], [['ana.outra'], true]);
+  const depois = raw.prepare('SELECT (SELECT COUNT(*) FROM cliente_avatar_candidato) c, (SELECT COUNT(*) FROM cliente_avatar_busca) b').get();
+  eq('simular NÃO grava nada (nem candidato, nem checkpoint)', depois, antes);
+  const simErro = await registrarCandidatos(db, { clienteId: a, resultado: 'erro', erro: 'x', simular: true });
+  eq('simular um erro também não grava', [simErro.status, raw.prepare('SELECT COUNT(*) n FROM cliente_avatar_busca WHERE cliente_id=?').get(a).n], [200, 0]);
 }
 
 console.log(`\n${total - falhas}/${total} asserções ok`);

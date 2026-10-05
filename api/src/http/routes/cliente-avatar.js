@@ -7,7 +7,7 @@
 import { json } from '../../auth.js';
 import {
   filaDeBusca, registrarCandidatos, sugestaoDaCliente, decidirCandidato,
-  removerAvatar, resumoAvatares,
+  removerAvatar, resumoAvatares, pedirBusca,
 } from '../../cliente-avatar.js';
 
 const ID = { id: '[0-9]+' };
@@ -18,6 +18,7 @@ export const rotas = [
     async handler({ db, url }) {
       return json(await filaDeBusca(db, {
         limite: url.searchParams.get('limite'), refazer: url.searchParams.get('refazer') === '1',
+        clienteId: url.searchParams.get('cliente'), seco: url.searchParams.get('seco') === '1',
       }));
     },
   },
@@ -38,6 +39,15 @@ export const rotas = [
     metodo: 'GET', caminho: '/api/clientes/:id/avatar/sugestao', auth: 'bearer', padroes: ID,
     async handler({ db, url, params }) {
       return json(await sugestaoDaCliente(db, +params.id, { depoisDe: url.searchParams.get('depoisDe') }));
+    },
+  },
+  {
+    /* "Buscar foto" da ficha: põe a cliente no começo da fila do script.
+       O Worker continua sem falar com o Instagram. */
+    metodo: 'POST', caminho: '/api/clientes/:id/avatar/buscar', auth: 'bearer', padroes: ID,
+    async handler({ db, params }) {
+      const r = await pedirBusca(db, +params.id);
+      return json(r.corpo, r.status);
     },
   },
   {
