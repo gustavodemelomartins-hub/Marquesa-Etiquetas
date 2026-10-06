@@ -61,7 +61,7 @@ function servidor(opcoes: { concluido?: boolean; resultado?: unknown } = {}) {
 
     if (caminho === '/api/inventarios' && metodo === 'GET') {
       return json([{
-        id: 42, status, iniciadoEm: '2026-09-24T09:00:00Z',
+        id: 42, numero: 1, status, iniciadoEm: '2026-09-24T09:00:00Z',
         pausadoEm: null, concluidoEm: null, divergentes: 0, pecas: 7, naoComparaveis: 0,
       }]);
     }
@@ -152,147 +152,18 @@ const RESULTADO_PARCIAL = {
   },
 };
 
-const abrirContagem = async () => {
-  render(<InventarioArea conexao={conexao} estado={null} aoMudarEstoque={() => {}} />);
-  await screen.findByRole('heading', { name: /^Inventário #\d+$/ });
-};
-
 /** Um inventário CONCLUÍDO não abre sozinho: ele não está "em andamento",
  *  e a tela não pode escolher por ninguém qual dos inventários antigos
  *  mostrar. Quem o abre é o clique no histórico — e é esse o caminho que
  *  a pessoa faz. */
 const abrirRevisao = async () => {
   render(<InventarioArea conexao={conexao} estado={null} aoMudarEstoque={() => {}} />);
-  fireEvent.click(await screen.findByRole('button', { name: /Inventário #42/ }));
-  await screen.findByText(/Revisão do inventário #42/);
+  fireEvent.click(await screen.findByRole('button', { name: /Inventário #1/ }));
+  await screen.findByText('Finalizado');
 };
 
 beforeEach(() => vi.clearAllMocks());
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
-
-/* ═══════════════════════════════════════════════ o progresso, na tela */
-
-describe('o progresso da conferência, na tela', () => {
-  it('mostra a cobertura em CÓDIGOS e não chama o resto de falta', async () => {
-    servidor();
-    await abrirContagem();
-
-    const painel = await screen.findByLabelText('Progresso da conferência');
-    /* 3 de 7 códigos bipados. O número grande é isso, e o miúdo diz de quê. */
-    expect(within(painel).getByText('43%')).toBeTruthy();
-    expect(within(painel).getByText(/3 de 7 códigos/)).toBeTruthy();
-    /* 4 códigos sem bipe — e a tela diz explicitamente que isso NÃO é falta. */
-    expect(within(painel).getByText('Ainda não visitados')).toBeTruthy();
-    expect(within(painel).getByText(/não é falta/)).toBeTruthy();
-    /* A palavra proibida durante a contagem não aparece no painel. */
-    expect(within(painel).queryByText(/Faltando/)).toBeNull();
-    expect(within(painel).queryByText(/perda|divergência/i)).toBeNull();
-  });
-
-  it('agrupa por categoria usando as categorias que vieram do catálogo', async () => {
-    servidor();
-    await abrirContagem();
-
-    const painel = await screen.findByLabelText('Progresso da conferência');
-    /* Nenhuma dessas categorias está escrita no código da tela: elas vêm de
-       `produtos.cat`, dentro de `esperados`. */
-    for (const cat of ['Colar', 'Brinco', 'Anel', 'Pulseira']) {
-      expect(within(painel).getAllByText(cat).length).toBeGreaterThan(0);
-    }
-  });
-
-  it('filtrar por categoria muda os números E a lista da contagem', async () => {
-    servidor();
-    await abrirContagem();
-
-    const painel = await screen.findByLabelText('Progresso da conferência');
-    const filtro = within(painel).getByRole('group', { name: 'Categoria' });
-
-    fireEvent.click(within(filtro).getByRole('button', { name: /^Brinco/ }));
-
-    /* Brinco: 2 códigos, 1 bipado. O número grande e a barra da categoria
-       dizem a MESMA coisa — são duas leituras do mesmo cálculo, e discordarem
-       seria o defeito. */
-    await waitFor(() => expect(within(painel).getAllByText('50%').length).toBeGreaterThan(0));
-    expect(within(painel).getByText(/1 de 2 códigos/)).toBeTruthy();
-
-    /* E a LISTA acompanha: escolher a gaveta e continuar rolando 790 linhas
-       seria oferecer meio filtro. Desde 02/10/2026 a lista abre em
-       "Pendentes"; em "Todos" ela mostra os dois brincos e nada mais. */
-    fireEvent.click(screen.getByRole('button', { name: 'Todos' }));
-    await waitFor(() => expect(screen.getByText(/^2 códigos$/)).toBeTruthy());
-    const tabela = screen.getByRole('table', { name: 'Itens do inventário' });
-    expect(within(tabela).queryByText(/Colar Bate/)).toBeNull();
-    expect(within(tabela).getByText(/Brinco Falta/)).toBeTruthy();
-  });
-});
-
-/* ══════════════════════════════════════ o encerramento incompleto */
-
-describe('finalizar com códigos sem bipe', () => {
-  it('avisa explicitamente quantos ficaram de fora, e não conclui sozinho', async () => {
-    const { chamadas } = servidor();
-    await abrirContagem();
-
-    fireEvent.click(screen.getByRole('button', { name: /^Concluir$/ }));
-
-    const dialogo = await screen.findByRole('dialog', { name: /terminou de conferir/i });
-    /* 7 códigos, 3 bipados: 4 sem bipe, e o número aparece em voz alta. */
-    expect(within(dialogo).getAllByText('4').length).toBeGreaterThan(0);
-    expect(within(dialogo).getByText(/ainda não receberam nenhum bipe/)).toBeTruthy();
-
-    /* Abrir o diálogo não fecha inventário nenhum. */
-    expect(chamadas.some((c) => c.caminho.endsWith('/concluir'))).toBe(false);
-  });
-
-  it('"Continuar conferindo" volta para a contagem sem criar zero nem divergência', async () => {
-    const { chamadas } = servidor();
-    await abrirContagem();
-
-    fireEvent.click(screen.getByRole('button', { name: /^Concluir$/ }));
-    const dialogo = await screen.findByRole('dialog', { name: /terminou de conferir/i });
-    fireEvent.click(within(dialogo).getByRole('button', { name: /^Continuar conferindo$/ }));
-
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    /* Nenhuma escrita de espécie nenhuma. */
-    expect(chamadas.filter((c) => c.metodo === 'POST')).toHaveLength(0);
-    /* E a contagem continua lá, do jeito que estava. */
-    expect(screen.getByRole('heading', { name: /^Inventário #\d+$/ })).toBeTruthy();
-  });
-
-  /* O caso real de quem contou só a gaveta dos brincos hoje: encerrar sem
-     afirmar nada sobre o resto. */
-  it('"Encerrar parcial" fecha SEM declarar a contagem completa', async () => {
-    const { chamadas } = servidor();
-    await abrirContagem();
-
-    fireEvent.click(screen.getByRole('button', { name: /^Concluir$/ }));
-    const dialogo = await screen.findByRole('dialog', { name: /terminou de conferir/i });
-    fireEvent.click(within(dialogo).getByRole('button', { name: 'Encerrar parcial' }));
-
-    await waitFor(() => {
-      const c = chamadas.find((x) => x.caminho.endsWith('/concluir'));
-      expect(c).toBeTruthy();
-      expect(c!.corpo).toEqual({ contagemCompleta: false });
-    });
-  });
-
-  it('"Sim, terminei a contagem" DECLARA, e só então', async () => {
-    const { chamadas } = servidor();
-    await abrirContagem();
-
-    fireEvent.click(screen.getByRole('button', { name: /^Concluir$/ }));
-    const dialogo = await screen.findByRole('dialog', { name: /terminou de conferir/i });
-    fireEvent.click(within(dialogo).getByRole('button', { name: /Sim, terminei a contagem/ }));
-
-    await waitFor(() => {
-      const c = chamadas.find((x) => x.caminho.endsWith('/concluir'));
-      expect(c!.corpo).toEqual({ contagemCompleta: true });
-    });
-  });
-});
-
-/* ════════════════════════════════════════════ a revisão / conciliação */
 
 describe('a revisão do inventário', () => {
   it('abre pela conciliação: quanto falta decidir', async () => {
@@ -309,7 +180,7 @@ describe('a revisão do inventário', () => {
     servidor({ concluido: true });
     await abrirRevisao();
 
-    const resumo = await screen.findByText(/códigos? conferidos? sem diferença/);
+    const resumo = await screen.findByText(/peças? conferidas? sem diferença/);
     expect(resumo.closest('details')!.open).toBe(false);
 
     /* As listas que pedem decisão não estão atrás de um clique. */
@@ -420,10 +291,40 @@ describe('a revisão do inventário', () => {
     servidor({ concluido: true, resultado: RESULTADO_PARCIAL });
     await abrirRevisao();
 
-    expect(await screen.findByText(/3 códigos sem bipe/)).toBeTruthy();
+    expect(await screen.findByText(/3 peças sem conferência/)).toBeTruthy();
     expect(screen.queryByText(/A conferência foi declarada completa/)).toBeNull();
     /* Duas divergências — não cinco. Os três sem bipe não entraram. */
     expect(screen.getByText(/0 de 2 divergências resolvidas/)).toBeTruthy();
     expect(screen.queryByLabelText('Resolver Anel Parado')).toBeNull();
+  });
+
+  /* §57 — peça com variação, contada com peça sem variação, num código cuja
+     razão separa por aro: ajustar pede que ELA diga de qual variação é. */
+  it('a diferença que pede a variação só é resolvida quando ela diz qual é', async () => {
+    const comAro = {
+      ...RESULTADO_PARCIAL,
+      faltando: [{
+        ...RESULTADO_DECLARADO.faltando[0], sku: '600001', desc: 'Anel Solitário', declarado: false,
+        precisaVariacao: true, variacoes: [{ nome: 'n°16', contado: 2, esperado: 2 }, { nome: 'n°18', contado: 0, esperado: 2 }],
+        naoInformada: { contado: 1 },
+      }],
+      conciliacao: { divergencias: 1, resolvidas: 0, pendentes: 1, bloqueadas: 0, naoConferidos: 3, conciliado: false },
+    };
+    const { chamadas } = servidor({ concluido: true, resultado: comAro });
+    await abrirRevisao();
+    await screen.findByText(/Anel Solitário/);
+    expect(screen.getByText(/n°16 2 · sem variação 1/)).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('Resolver Anel Solitário'));
+    fireEvent.change(screen.getByLabelText('Motivo da diferença de Anel Solitário'), { target: { value: 'nao_encontrada' } });
+    await waitFor(() => expect(screen.getByText(/1 sem a variação/)).toBeTruthy());
+    expect((screen.getByRole('button', { name: /^Resolver / }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Variação da diferença de Anel Solitário'), { target: { value: 'n°18' } });
+    await waitFor(() => expect((screen.getByRole('button', { name: /^Resolver / }) as HTMLButtonElement).disabled).toBe(false));
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: /^Resolver / }));
+    await waitFor(() => {
+      const c = chamadas.find((x) => x.caminho.endsWith('/aplicar'));
+      expect(c!.corpo).toEqual({ itens: [{ sku: '600001', motivo: 'Não encontrada na casa', motivoId: 'nao_encontrada', destino: 'n°18' }] });
+    });
   });
 });

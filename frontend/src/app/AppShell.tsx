@@ -116,7 +116,7 @@ export function AppShell({
                     <span>{m.rotulo}</span>
                     {conta ? <b className="mq-rail__conta">{conta}</b> : null}
                     {!conta && m.pendente ? (
-                      <i className="mq-rail__dot" aria-label="ainda no painel clássico" />
+                      <i className="mq-rail__dot" aria-label="em construção" />
                     ) : null}
                   </button>
                 );
@@ -125,9 +125,6 @@ export function AppShell({
           ))}
         </div>
 
-        <div className="mq-rail__foot">
-          <a href="/dashboard.html">Abrir o painel clássico</a>
-        </div>
       </nav>
 
       {gavetaAberta && (
@@ -209,10 +206,6 @@ export function AppShell({
 
         <main className="mq-shell__main" ref={principal}>{children}</main>
 
-        <footer className="mq-shell__foot">
-          Procurando algo que ainda não está aqui?{' '}
-          <a href="/dashboard.html">Abrir o painel clássico</a>.
-        </footer>
       </div>
 
       <nav className="mq-bottomnav" aria-label="Atalhos">

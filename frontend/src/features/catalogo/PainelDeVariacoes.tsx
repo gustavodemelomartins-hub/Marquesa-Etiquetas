@@ -3,9 +3,9 @@ import { useApi } from '../../hooks/useApi';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
-import { plural } from '../../domain/formato';
+import { acharVariacao } from '../../domain/variacao';
 import {
-  buscarEstrutura, distribuir, impedimentosDaDistribuicao, somaDistribuida,
+  adicionarVariacao, buscarEstrutura, distribuir, impedimentosDaDistribuicao, somaDistribuida,
 } from './variacoes';
 import type { Connection } from '../../services/client';
 
@@ -16,33 +16,30 @@ interface Props {
   aoMudarEstoque: () => void;
 }
 
-/** VARIAÇÕES DA PEÇA — onde a regra 2 do CLAUDE.md vira tela.
+/** VARIAÇÕES DA PEÇA — refeita em 06/10/2026.
  *
- *  *Nunca chute a distribuição de uma variante.* Esta tela existe para tornar
- *  a dúvida VISÍVEL, e não para resolvê-la sozinha: quando há saldo no código
- *  e nenhuma variação, ela mostra o número parado e diz o que ele significa,
- *  em vez de repartir por igual — repartir por igual é o chute.
+ *  A tela antiga mostrava "soma das variações" contra "total do código" e
+ *  só deixava salvar quando as duas batiam. Mas a Sthefany não sabe o aro de
+ *  todas as peças — uma está com a revendedora e ninguém anotou — e para
+ *  fechar a conta ela teria de inventar um número. Agora:
  *
- *  Os dois números NUNCA compartilham uma coluna:
+ *    Total 7 · Com revendedoras 1 · Em casa 6
+ *    nº21 → 2 · nº23 → 2 · nº18 → 1
+ *    Variação ainda não informada → 2
  *
- *    saldo        o que a NOSSA razão diz. Manda no físico.
- *    estoqueLoja  o que a Nuvemshop mostra. É destino, não fonte da verdade
- *                 (regra 4) — e quando os dois discordam, a tela mostra os
- *                 dois em vez de escolher um.
- */
+ *  O que não foi dito fica "não informado" — nunca é distribuído pela tela
+ *  (regra 2). Salvar não muda o total (para isso existe Ajustar estoque).
+ *  E criar variação é aqui mesmo, sem outra tela. */
 export function PainelDeVariacoes({ conexao, sku, aoFechar, aoMudarEstoque }: Props) {
   const estrutura = useApi((s) => buscarEstrutura(conexao, sku, s), [conexao, sku]);
   const [rascunho, setRascunho] = useState<Record<string, number> | null>(null);
-  const [ajustarTotal, setAjustarTotal] = useState(false);
-  const [motivo, setMotivo] = useState('');
-  const [obs, setObs] = useState('');
   const [erro, setErro] = useState('');
+  const [aviso, setAviso] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [nova, setNova] = useState('');
+  const [criando, setCriando] = useState(false);
 
   const e = estrutura.dados;
-
-  /* O rascunho nasce do que JÁ está distribuído — não de zeros. Começar do
-     zero convidaria a redigitar tudo, e redigitar é onde se erra. */
   const distribuicao = useMemo(() => {
     if (rascunho) return rascunho;
     const base: Record<string, number> = {};
@@ -50,30 +47,55 @@ export function PainelDeVariacoes({ conexao, sku, aoFechar, aoMudarEstoque }: Pr
     return base;
   }, [rascunho, e]);
 
-  const problemas = e ? impedimentosDaDistribuicao(e, distribuicao, ajustarTotal, motivo) : [];
+  const problemas = e ? impedimentosDaDistribuicao(e, distribuicao) : [];
   const soma = somaDistribuida(distribuicao);
+  const naoInformada = e ? e.qtd - soma : 0;
+  const mudou = !!rascunho;
+  const existente = e && nova.trim() ? acharVariacao(e.variacoes, nova) : null;
 
   function mudar(vid: string, qtd: number) {
+    setAviso('');
     setRascunho({ ...distribuicao, [vid]: Math.max(0, Math.trunc(qtd) || 0) });
   }
 
-  async function aplicar() {
+  async function salvar() {
     if (!e) return;
     setEnviando(true);
     setErro('');
     const r = await distribuir(conexao, sku, {
       distribuicao: Object.entries(distribuicao).map(([varianteId, qtd]) => ({ varianteId, qtd })),
-      ...(obs.trim() ? { obs: obs.trim() } : {}),
-      ...(ajustarTotal ? { ajustarTotal: true, motivo: motivo.trim() } : {}),
-    }).catch((x: unknown) => ({ erro: x instanceof Error ? x.message : 'Não consegui distribuir.' }));
+      obs: 'Variações conferidas na ficha da peça',
+      parcial: true,
+    }).catch((x: unknown) => ({ erro: x instanceof Error ? x.message : 'Não consegui salvar.' }));
     setEnviando(false);
     if (r && 'erro' in r && r.erro) { setErro(String(r.erro)); return; }
     setRascunho(null);
-    setAjustarTotal(false);
-    setMotivo('');
+    setAviso('Variações salvas. O total da peça não mudou.');
     estrutura.recarregar();
     aoMudarEstoque();
   }
+
+  async function criar(ev: React.FormEvent) {
+    ev.preventDefault();
+    const v = nova.trim();
+    if (!v || existente) return;
+    setCriando(true);
+    setErro('');
+    const r = await adicionarVariacao(conexao, sku, v)
+      .catch((x: unknown) => {
+        const corpo = (x as { corpo?: { existente?: string } }).corpo;
+        return { erro: corpo?.existente ? `Essa variação já existe: ${corpo.existente}.` : (x instanceof Error ? x.message : 'Não consegui criar.') };
+      });
+    setCriando(false);
+    if (r && 'erro' in r && r.erro) { setErro(String(r.erro)); return; }
+    setNova('');
+    setAviso(`Variação ${('valor' in r && r.valor) || v} criada. Ela já aparece em vendas, maletas e no inventário.`);
+    setRascunho(null);
+    estrutura.recarregar();
+    aoMudarEstoque();
+  }
+
+  const emCasa = e ? e.qtd - (e.consignado ?? 0) : 0;
 
   return (
     <>
@@ -81,7 +103,7 @@ export function PainelDeVariacoes({ conexao, sku, aoFechar, aoMudarEstoque }: Pr
       <div className="mq-drawer mq-drawer--larga" role="dialog" aria-modal="true" aria-label="Variações da peça">
         <div className="mq-drawer__head">
           <div>
-            <p className="mq-eyebrow">Catálogo</p>
+            <p className="mq-eyebrow">Estoque</p>
             <h2 className="mq-title">Variações da peça</h2>
           </div>
           <button type="button" className="mq-modal__close" aria-label="Fechar" onClick={aoFechar}>
@@ -98,172 +120,103 @@ export function PainelDeVariacoes({ conexao, sku, aoFechar, aoMudarEstoque }: Pr
             <>
               <div>
                 <b>{e.desc}</b>
-                <p className="mq-lede">
-                  <span className="mq-sku">{e.sku}</span>
-                  {e.cat ? ` · ${e.cat}` : ''} · {e.qtd} {plural(e.qtd, 'peça', 'peças')} no código
-                </p>
+                <p className="mq-lede">Código {e.sku}{e.cat ? ` · ${e.cat}` : ''}</p>
               </div>
 
+              <dl className="var-numeros" aria-label="Quantidades da peça">
+                <div><dt>Total da peça</dt><dd>{e.qtd}</dd></div>
+                <div><dt>Com revendedoras</dt><dd>{e.consignado || '—'}</dd></div>
+                <div className="is-casa"><dt>Em casa</dt><dd>{emCasa}</dd></div>
+              </dl>
+
               {!e.temVariacao ? (
-                <div className="mq-state">
-                  <span className="mq-state__icon"><Icone nome="box" /></span>
-                  <h3>Esta peça não tem variação</h3>
-                  <p>
-                    O saldo do código é o saldo dela. Para criar variações, use
-                    o painel clássico.
-                  </p>
-                </div>
+                <p className="mq-hint">Esta peça ainda não tem variação. Se ela tem aro, cor ou tamanho, adicione abaixo.</p>
               ) : (
-                <>
-                  {e.saldoSemVariacao > 0 && (
-                    <p className="mq-note mq-note--warn">
-                      <Icone nome="alert" />
-                      <span>
-                        <b>
-                          {e.saldoSemVariacao} {plural(e.saldoSemVariacao, 'peça está', 'peças estão')} no
-                          código e em variação nenhuma.
-                        </b>{' '}
-                        Olhe as peças e distribua abaixo.
-                      </span>
-                    </p>
-                  )}
-
-                  {e.atributos.length > 0 && (
-                    <p className="mq-chips">
-                      {e.atributos.map((a) => (
-                        <span className="mq-chip mq-chip--soft" key={a.nome}>
-                          {a.nome}: {a.valores.join(', ')}
-                        </span>
-                      ))}
-                    </p>
-                  )}
-
-                  <div className="mq-scroll-x">
-                    <div className="mq-table" role="table" aria-label="Variações">
-                      <div className="mq-tr mq-tr--head" role="row" style={COLUNAS}>
-                        <span>Variação</span>
-                        <span>No sistema</span>
-                        <span>A loja diz</span>
-                        <span>Distribuir</span>
-                      </div>
-                      {e.variacoes.map((v) => {
-                        const vid = v.varianteId;
-                        const divergente = v.estoqueLoja != null && v.estoqueLoja !== v.saldo;
-                        return (
-                          <div className="mq-tr" role="row" key={vid ?? v.nome} style={COLUNAS}>
-                            <span className="mq-cell">
-                              <b>{v.nome}</b>
-                              <small>
-                                {v.daLoja
-                                  ? (v.mapeada ? 'na loja e no cadastro' : 'só na loja — variação órfã')
-                                  : 'só no cadastro daqui'}
-                                {vid ? ` · ${vid}` : ''}
-                              </small>
-                            </span>
-                            <span className="mq-cell mq-cell--num"><b className="mq-qty">{v.saldo}</b></span>
-                            <span className="mq-cell mq-cell--num">
-                              <b className={divergente ? 'mq-qty mq-money--risk' : 'mq-qty'}>
-                                {v.estoqueLoja == null ? '—' : v.estoqueLoja}
-                              </b>
-                              {divergente && <small>diverge</small>}
-                            </span>
-                            <span className="mq-cell mq-cell--num">
-                              {vid ? (
-                                <input
-                                  className="mq-input mq-inv-contagem"
-                                  type="number"
-                                  min={0}
-                                  inputMode="numeric"
-                                  aria-label={`Quantidade de ${v.nome}`}
-                                  value={distribuicao[vid] ?? 0}
-                                  onChange={(ev) => mudar(vid, Number(ev.target.value))}
-                                />
-                              ) : <small>sem id</small>}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <dl className="mq-dl">
-                    <div>
-                      <dt>Soma das variações</dt>
-                      <dd className={soma === e.qtd ? '' : 'mq-money--risk'}>{soma}</dd>
-                    </div>
-                    <div>
-                      <dt>Total do código</dt>
-                      <dd>{e.qtd}</dd>
-                    </div>
-                  </dl>
-
-                  <label className="mq-field">
-                    <span>Observação do movimento <small>opcional</small></span>
-                    <input
-                      className="mq-input"
-                      placeholder="ex.: conferido na gaveta"
-                      value={obs}
-                      onChange={(ev) => setObs(ev.target.value)}
-                    />
-                  </label>
-
-                  {soma !== e.qtd && (
-                    <>
-                      <label className="mq-field">
-                        <span>
-                          <input
-                            type="checkbox"
-                            checked={ajustarTotal}
-                            onChange={(ev) => setAjustarTotal(ev.target.checked)}
-                          />
-                          {' '}Isto é um ajuste: mudar o total do código para {soma}
-                        </span>
-                      </label>
-                      {ajustarTotal && (
-                        <label className="mq-field">
-                          <span>Por quê</span>
-                          <input
-                            className="mq-input"
-                            placeholder='ex.: "achei duas na caixa da vitrine"'
-                            value={motivo}
-                            onChange={(ev) => setMotivo(ev.target.value)}
-                          />
-                          <small>
-                            obrigatório: o ajuste mexe em peça física.
-                          </small>
-                        </label>
-                      )}
-                    </>
-                  )}
-
-                  {problemas.length > 0 && (
-                    <div className="mq-note mq-note--warn">
-                      <Icone nome="alert" />
-                      <span>{problemas.map((x) => <span key={x} style={{ display: 'block' }}>{x}</span>)}</span>
-                    </div>
-                  )}
-                  {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
-
-                  <div className="mq-btns">
-                    <button
-                      type="button"
-                      className="mq-btn mq-btn--primary"
-                      disabled={enviando || problemas.length > 0}
-                      onClick={aplicar}
-                    >
-                      {enviando ? 'Distribuindo…' : 'Distribuir'}
-                    </button>
-                    <button type="button" className="mq-btn mq-btn--ghost" onClick={aoFechar}>
-                      Fechar
-                    </button>
-                  </div>
-
+                <section className="var-dist" aria-label="Distribuição conhecida">
+                  <h3 className="mq-subtitle">Quantas de cada variação</h3>
                   <p className="mq-hint">
-                    Cada mudança fica registrada no histórico da peça. Criar ou
-                    apagar variações continua no painel clássico.
+                    Conte o total de cada variação — em casa e com revendedoras. O que você
+                    não souber fica em "variação ainda não informada".
                   </p>
-                </>
+                  <ul className="var-dist__lista">
+                    {e.variacoes.map((v) => {
+                      const vid = v.varianteId;
+                      return (
+                        <li key={vid ?? v.nome}>
+                          <span className="var-dist__nome">
+                            <b>{v.nome}</b>
+                            <small>
+                              {(v.comRevendedoras ?? 0) > 0 ? `${v.comRevendedoras} com revendedora` : ''}
+                              {(v.comRevendedoras ?? 0) > 0 && v.estoqueLoja != null ? ' · ' : ''}
+                              {v.estoqueLoja != null ? `loja online: ${v.estoqueLoja}` : ''}
+                            </small>
+                          </span>
+                          {vid ? (
+                            <input
+                              className="mq-input var-dist__qtd"
+                              type="number"
+                              min={0}
+                              inputMode="numeric"
+                              aria-label={`Quantidade de ${v.nome}`}
+                              value={distribuicao[vid] ?? 0}
+                              onFocus={(ev) => ev.currentTarget.select()}
+                              onChange={(ev) => mudar(vid, Number(ev.target.value))}
+                            />
+                          ) : <small className="mq-hint">cadastro incompleto</small>}
+                        </li>
+                      );
+                    })}
+                    <li className={`var-dist__resto${naoInformada < 0 ? ' is-risco' : ''}`}>
+                      <span className="var-dist__nome">
+                        <b>Variação ainda não informada</b>
+                        <small>
+                          {(e.consignadoSemVariacao ?? 0) > 0
+                            ? `inclui ${e.consignadoSemVariacao} com revendedora sem variação conhecida`
+                            : 'peças cuja variação ninguém disse ainda'}
+                        </small>
+                      </span>
+                      <b className="var-dist__qtd-fixa" aria-label="Variação ainda não informada">{naoInformada}</b>
+                    </li>
+                  </ul>
+                </section>
               )}
+
+              <form className="var-nova" onSubmit={criar} aria-label="Adicionar variação">
+                <label className="mq-field">
+                  <span>Adicionar variação</span>
+                  <input className="mq-input" value={nova} placeholder="ex.: 19, nº 19, Verde"
+                    onChange={(ev) => { setNova(ev.target.value); setErro(''); }} />
+                </label>
+                <button type="submit" className="mq-btn mq-btn--secondary" disabled={criando || !nova.trim() || !!existente}>
+                  <Icone nome="plus" /> {criando ? 'Criando…' : 'Adicionar'}
+                </button>
+              </form>
+              {existente && (
+                <p className="mq-note mq-note--warn" role="status"><Icone nome="alert" /><span>Essa variação já existe: {existente.nome}.</span></p>
+              )}
+
+              {problemas.length > 0 && (
+                <div className="mq-note mq-note--warn">
+                  <Icone nome="alert" />
+                  <span>{problemas.map((x) => <span key={x} style={{ display: 'block' }}>{x}</span>)}</span>
+                </div>
+              )}
+              {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}
+              {aviso && <p className="mq-note mq-note--ok" role="status"><Icone nome="check" /><span>{aviso}</span></p>}
+
+              {e.temVariacao && (
+                <div className="mq-btns">
+                  <button type="button" className="mq-btn mq-btn--primary"
+                    disabled={enviando || !mudou || problemas.length > 0} onClick={salvar}>
+                    {enviando ? 'Salvando…' : 'Salvar variações'}
+                  </button>
+                  <button type="button" className="mq-btn mq-btn--ghost" onClick={aoFechar}>Fechar</button>
+                </div>
+              )}
+              <p className="mq-hint">
+                Salvar não muda o total da peça ({e.qtd}). Para mudar a quantidade, use
+                Ajustar estoque. Cada mudança fica no histórico da peça.
+              </p>
             </>
           )}
         </div>
@@ -271,7 +224,3 @@ export function PainelDeVariacoes({ conexao, sku, aoFechar, aoMudarEstoque }: Pr
     </>
   );
 }
-
-const COLUNAS = {
-  gridTemplateColumns: 'minmax(0,2fr) 100px 100px 110px',
-};

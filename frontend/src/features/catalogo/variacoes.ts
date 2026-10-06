@@ -38,6 +38,8 @@ export interface LinhaDeVariacao {
   /** A variação da loja tem par no nosso cadastro. Uma `daLoja` sem par é
    *  uma variação órfã: a loja vende algo que aqui não tem nome. */
   mapeada: boolean;
+  /** Quantas desta variação estão com revendedoras (maleta identificada). */
+  comRevendedoras?: number;
 }
 
 export interface EstruturaDoProduto {
@@ -59,6 +61,10 @@ export interface EstruturaDoProduto {
    *  distribuição existe para resolver — e enquanto ele for maior que zero
    *  numa peça com variação, ninguém sabe qual peça física está lá. */
   saldoSemVariacao: number;
+  /** Com revendedoras, no total do código. */
+  consignado?: number;
+  /** Com revendedoras SEM variação identificada — fica "não informada". */
+  consignadoSemVariacao?: number;
   somaLoja: number;
   erro?: string;
 }
@@ -102,6 +108,9 @@ export function distribuir(
     obs?: string;
     ajustarTotal?: boolean;
     motivo?: string;
+    /** A distribuição CONHECIDA: a soma pode ficar abaixo do total, e o
+     *  resto fica "variação ainda não informada" (06/10/2026). */
+    parcial?: boolean;
   },
 ): Promise<RespostaDaDistribuicao> {
   return chamar(
@@ -114,50 +123,44 @@ export function distribuir(
 export const somaDistribuida = (d: Record<string, number>) =>
   Object.values(d).reduce((s, n) => s + (Number.isFinite(n) ? n : 0), 0);
 
-/** O que impede ESTA distribuição de ser aceita.
+/** O que impede ESTA distribuição de ser aceita (modo parcial, 06/10/2026).
  *
- *  A régua é a mesma do servidor, aplicada antes do envio — e a frase que
- *  importa é a última: a soma tem de bater com o total do código, porque
- *  `produtos.qtd == SUM(movimentos.qtd)` é a razão contábil do estoque, e
- *  distribuir sem fechar a deixaria em desacordo consigo mesma. */
+ *  A soma pode ficar ABAIXO do total — o resto é "variação ainda não
+ *  informada", que é a verdade quando ninguém sabe o aro de uma peça. Acima
+ *  do total, não: isso é mudar a quantidade da peça, e o caminho é Ajustar
+ *  estoque. E a peça que está com revendedora sem variação conhecida tem de
+ *  continuar em "não informada" — distribuí-la seria escolher o aro dela. */
 export function impedimentosDaDistribuicao(
   estrutura: EstruturaDoProduto,
   distribuicao: Record<string, number>,
-  ajustarTotal: boolean,
-  motivo: string,
 ): string[] {
   const erros: string[] = [];
-  const linhas = estrutura.variacoes.filter((v) => v.varianteId);
-
-  if (linhas.length < 2) {
-    erros.push(
-      `${estrutura.sku} não tem variações para distribuir. Se ele existe na `
-      + 'Nuvemshop, importe a estrutura antes; se é peça só daqui, defina as '
-      + 'variações primeiro.',
-    );
-  }
-
   for (const [vid, qtd] of Object.entries(distribuicao)) {
+    const v = estrutura.variacoes.find((x) => x.varianteId === vid);
     if (!Number.isInteger(qtd) || qtd < 0) {
-      const nome = linhas.find((v) => v.varianteId === vid)?.nome ?? vid;
-      erros.push(`${nome}: a quantidade tem que ser um inteiro maior ou igual a zero.`);
+      erros.push(`${v?.nome ?? 'Uma variação'}: a quantidade tem que ser um número inteiro.`);
+    } else if (v && (v.comRevendedoras ?? 0) > qtd) {
+      erros.push(`${v.nome} tem ${v.comRevendedoras} com revendedora — não dá para deixar ${qtd}.`);
     }
   }
-
   const soma = somaDistribuida(distribuicao);
-  if (soma !== estrutura.qtd) {
-    if (!ajustarTotal) {
-      erros.push(
-        `A soma das variações é ${soma} e o código tem ${estrutura.qtd}. `
-        + 'Ou a conta fecha, ou isto é um ajuste de estoque — e aí diga que é.',
-      );
-    } else if (!motivo.trim()) {
-      erros.push(
-        'Ajustar o total muda a quantidade da peça. Diga o motivo: sem ele, '
-        + 'o ajuste é indistinguível de erro de digitação.',
-      );
-    }
+  if (soma > estrutura.qtd) {
+    erros.push(`As variações somam ${soma}, e a peça tem ${estrutura.qtd} no total. `
+      + 'Para mudar o total, use Ajustar estoque.');
   }
-
+  const naoInformada = estrutura.qtd - soma;
+  const semVariacaoFora = estrutura.consignadoSemVariacao ?? 0;
+  if (soma <= estrutura.qtd && naoInformada < semVariacaoFora) {
+    erros.push(`${semVariacaoFora} ${semVariacaoFora === 1 ? 'peça está' : 'peças estão'} com revendedora sem `
+      + `variação informada. Deixe pelo menos ${semVariacaoFora} em "variação ainda não informada".`);
+  }
   return [...new Set(erros)];
+}
+
+/** "+ Adicionar variação" em Peças. "23", "nº23" e "N23" são a mesma: se
+ *  já existe, a resposta diz qual (`jaExiste`, `existente`). */
+export function adicionarVariacao(
+  conexao: Connection, sku: string, valor: string,
+): Promise<{ ok?: boolean; valor?: string; criadas?: { nome: string }[]; erro?: string; jaExiste?: boolean; existente?: string }> {
+  return chamar(conexao, 'POST', `/api/produtos/${encodeURIComponent(sku)}/variacoes/adicionar`, { valor });
 }

@@ -425,20 +425,20 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/inventario/InventarioArea.tsx`, contem: "'POST', '/api/inventarios'" },
       },
       {
-        id: 'inventario.contar', rotulo: 'Contar peça a peça', estado: 'pronta',
-        prova: { arquivo: `${F}/features/inventario/InventarioArea.tsx`, contem: '/itens' },
+        id: 'inventario.contar', rotulo: 'Contar peça a peça (1 bipe = 1 unidade)', estado: 'pronta',
+        prova: { arquivo: `${F}/features/inventario/useContagem.ts`, contem: '/leituras' },
       },
       {
-        id: 'inventario.desfazer', rotulo: 'Desfazer contagem — voltar a não contado', estado: 'pronta',
-        prova: { arquivo: `${F}/features/inventario/InventarioArea.tsx`, contem: 'não contado' },
+        id: 'inventario.desfazer', rotulo: 'Desfazer contagem — voltar a não conferida', estado: 'pronta',
+        prova: { arquivo: `${F}/features/inventario/ConferenciaDaPeca.tsx`, contem: "aoContar('limpar')" },
       },
       {
         id: 'inventario.pausar', rotulo: 'Pausar e continuar', estado: 'pronta',
         prova: { arquivo: `${F}/features/inventario/InventarioArea.tsx`, contem: 'pausar' },
       },
       {
-        id: 'inventario.concluir', rotulo: 'Concluir e congelar o retrato', estado: 'pronta',
-        prova: { arquivo: `${F}/features/inventario/InventarioArea.tsx`, contem: 'concluir' },
+        id: 'inventario.concluir', rotulo: 'Balanço final e finalizar', estado: 'pronta',
+        prova: { arquivo: `${F}/features/inventario/BalancoDoInventario.tsx`, contem: '/concluir' },
       },
       {
         id: 'inventario.resultado', rotulo: 'Resultado: faltando, sobrando, não conferido, não comparável',

@@ -211,7 +211,7 @@ export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props)
               &quot;Analisar sincronização&quot; lê a loja inteira e mostra o que
               está diferente do estoque daqui —{' '}
               <strong>sem mudar nada na Nuvemshop</strong>. Corrigir as
-              diferenças ainda é feito pelo painel clássico.
+              diferenças na loja ainda não está disponível aqui.
             </div>
           </div>
         )}

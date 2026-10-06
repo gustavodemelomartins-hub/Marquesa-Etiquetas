@@ -4,6 +4,7 @@ import { chamar, type Connection } from '../../services/client';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { money, fmtData } from '../../domain/formato';
+import { detalheDoMovimento, rotuloDoMovimento } from '../../domain/movimento';
 import { fotoDaPeca } from '../../domain/foto';
 import { EditarPeca } from '../catalogo/EditarPeca';
 import { PainelDeVariacoes } from '../catalogo/PainelDeVariacoes';
@@ -334,7 +335,7 @@ function Estoque({ peca, aoVariacoes, aoAjustar }: { peca: ProdutoDoEstado; aoVa
               </div>
             ))}
             {(peca.semVariacao ?? 0) > 0 && (
-              <div><dt>Sem variação definida</dt><dd className="mq-qty">{peca.semVariacao}</dd></div>
+              <div><dt>Variação ainda não informada</dt><dd className="mq-qty">{peca.semVariacao}</dd></div>
             )}
           </dl>
         </>
@@ -418,14 +419,14 @@ function Historico({ conexao, sku }: { conexao: Connection; sku: string }) {
               </span>
               <span className="mq-timeline__body">
                 <b>
-                  {m.tipo} {m.qtd > 0 ? '+' : ''}{m.qtd}
+                  {rotuloDoMovimento(m.tipo, m.origem)} {m.qtd > 0 ? '+' : ''}{m.qtd}
                   {m.variacao ? ` · ${m.variacao}` : ''}
                 </b>
                 <small>
                   {fmtData(m.criado_em)}
                   {m.venda_id ? ` · venda #${m.venda_id}` : ''}
                   {m.maleta_id ? ` · maleta #${m.maleta_id}` : ''}
-                  {m.obs ? ` · ${m.obs}` : ''}
+                  {detalheDoMovimento(m.obs) ? ` · ${detalheDoMovimento(m.obs)}` : ''}
                 </small>
               </span>
             </div>

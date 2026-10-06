@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 
 interface Props {
-  id: number;
+  /** "Inventário #1" — o número da tela, nunca o id técnico. */
+  nome: string;
   ocupado: boolean;
   erro: string;
   aoConfirmar: () => void;
@@ -15,7 +16,7 @@ interface Props {
  *  o estoque não tem esse botão — o histórico das peças depende dele.
  *
  *  O foco entra em "Voltar", como no descarte: Enter sem querer não apaga. */
-export function DialogoDeExclusao({ id, ocupado, erro, aoConfirmar, aoVoltar }: Props) {
+export function DialogoDeExclusao({ nome, ocupado, erro, aoConfirmar, aoVoltar }: Props) {
   const voltar = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -37,7 +38,7 @@ export function DialogoDeExclusao({ id, ocupado, erro, aoConfirmar, aoVoltar }: 
       >
         <div className="mq-drawer__head">
           <div>
-            <h2 className="mq-title" id="titulo-excluir">Excluir definitivamente o inventário #{id}?</h2>
+            <h2 className="mq-title" id="titulo-excluir">Excluir definitivamente o {nome.toLowerCase()}?</h2>
           </div>
         </div>
         <div className="mq-drawer__body">
@@ -45,7 +46,7 @@ export function DialogoDeExclusao({ id, ocupado, erro, aoConfirmar, aoVoltar }: 
             <p>Nenhuma movimentação de estoque foi aplicada por este inventário.</p>
             <p>
               As leituras dele serão apagadas e ele sai do histórico. Variações criadas
-              durante a contagem continuam no cadastro das peças.
+              durante a conferência continuam no cadastro das peças.
             </p>
           </div>
           {erro && <p className="mq-note mq-note--risk" role="alert"><span>{erro}</span></p>}

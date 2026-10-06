@@ -5,9 +5,16 @@ import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { plural } from '../../domain/formato';
 import {
-  aplicaveis, aplicarAjustes, buscarResultado, motivosDaLinha, pedidoDaLinha, temResultado,
+  aplicaveis, aplicarAjustes, buscarResultado, guardarVariacoes, motivosDaLinha, pedidoDaLinha, temResultado,
   type LinhaDeDiferenca, type MotivoDeDiferenca, type ResultadoDoInventario,
 } from './resultado';
+
+/** "nº21 2 · nº23 2 · sem variação 1" — o que ela contou por variação. */
+const variacoesEmTexto = (l: Pick<LinhaDeDiferenca, 'variacoes' | 'naoInformada'>) => [
+  ...(l.variacoes ?? []).filter((v) => (v.contado ?? 0) > 0).map((v) => `${v.nome} ${v.contado}`),
+  ...((l.naoInformada?.contado ?? 0) > 0 ? [`sem variação ${l.naoInformada!.contado}`] : []),
+].join(' · ');
+const NAO_INFORMADA = '__nao_informada__';
 
 /** O motivo escolhido para UMA linha. `texto` só existe no "Outro", e é ele
  *  que vira o rótulo — do mesmo jeito que o motivo do desconto na venda. */
@@ -72,6 +79,11 @@ export function RevisaoDoInventario({
      estado em que a linha mostra um motivo e o servidor recebe outro. */
   const [motivoDoLote, setMotivoDoLote] = useState('');
   const [textoDoLote, setTextoDoLote] = useState('');
+  /* A variação que ELA diz para a diferença de uma peça com variação cuja
+     contagem teve peça sem variação. Sem isso a linha não é ajustada. */
+  const [destinos, setDestinos] = useState<Map<string, string>>(new Map());
+  const [guardando, setGuardando] = useState<string | null>(null);
+  const [guardadas, setGuardadas] = useState<Set<string>>(new Set());
 
   const dados = r.dados;
   const pronto = temResultado(dados);
@@ -90,7 +102,23 @@ export function RevisaoDoInventario({
   const semMotivo = pronto
     ? alvos.filter((l) => !rotuloFinal(dados.motivos, motivos.get(chaveDa(l))))
     : [];
+  const semDestino = alvos.filter((l) => l.precisaVariacao && !destinos.get(chaveDa(l)));
   const prontasParaAplicar = alvos.length - semMotivo.length;
+  const paraGuardar = pronto
+    ? [...dados.faltando.filter((l) => l.aplicado), ...dados.sobrando.filter((l) => l.aplicado), ...dados.conferidosItens]
+      .filter((l) => (l.distribuicaoContada?.length ?? 0) > 0 && !guardadas.has(l.sku))
+    : [];
+
+  async function guardar(sku: string) {
+    setGuardando(sku);
+    setErro('');
+    const r = await guardarVariacoes(conexao, id, sku)
+      .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui guardar.' }));
+    setGuardando(null);
+    if (r && 'erro' in r && r.erro) { setErro(String(r.erro)); return; }
+    setGuardadas((g) => new Set(g).add(sku));
+    aoAplicar();
+  }
 
   function alternar(l: LinhaDeDiferenca) {
     const k = chaveDa(l);
@@ -136,7 +164,7 @@ export function RevisaoDoInventario({
   }
 
   async function aplicar() {
-    if (!pronto || !alvos.length || semMotivo.length) return;
+    if (!pronto || !alvos.length || semMotivo.length || semDestino.length) return;
     const total = alvos.length;
     const perdas = alvos.filter((l) => classeDa(dados.motivos, motivos.get(chaveDa(l))) === 'perda').length;
     if (!confirm(
@@ -154,6 +182,9 @@ export function RevisaoDoInventario({
       conexao, id,
       alvos.map((l) => pedidoDaLinha(
         l, rotuloFinal(dados.motivos, motivos.get(chaveDa(l))), motivos.get(chaveDa(l))?.id,
+        l.precisaVariacao
+          ? (destinos.get(chaveDa(l)) === NAO_INFORMADA ? '' : destinos.get(chaveDa(l)) ?? null)
+          : null,
       )),
     ).catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui aplicar.' }));
     setAplicando(false);
@@ -208,8 +239,8 @@ export function RevisaoDoInventario({
               ? 'Tudo que pedia decisão já foi resolvido com um motivo no histórico.'
               : `Faltam ${c.pendentes} ${plural(c.pendentes, 'decisão', 'decisões')} sua.`}
             {c.bloqueadas > 0 && (
-              <> {c.bloqueadas} {plural(c.bloqueadas, 'código espera', 'códigos esperam')}{' '}
-                alguém dizer de qual variação é — isso não é decisão de estoque.</>
+              <> {c.bloqueadas} {plural(c.bloqueadas, 'peça espera', 'peças esperam')}{' '}
+                alguém dizer de qual variação é.</>
             )}
           </p>
         </div>
@@ -250,6 +281,8 @@ export function RevisaoDoInventario({
               aoAlternar={alternar}
               aoMarcarTodas={marcarTodas}
               aoDefinirMotivo={definirMotivo}
+              destinos={destinos}
+              aoDefinirDestino={(l, v) => setDestinos((m) => new Map(m).set(chaveDa(l), v))}
             />
             <ListaParaResolver
               titulo="Sobrando"
@@ -262,6 +295,8 @@ export function RevisaoDoInventario({
               aoAlternar={alternar}
               aoMarcarTodas={marcarTodas}
               aoDefinirMotivo={definirMotivo}
+              destinos={destinos}
+              aoDefinirDestino={(l, v) => setDestinos((m) => new Map(m).set(chaveDa(l), v))}
             />
           </div>
 
@@ -277,6 +312,9 @@ export function RevisaoDoInventario({
                   : `${plural(alvos.length, 'selecionada', 'selecionadas')}`}
                 {semMotivo.length > 0 && (
                   <> · <b>{semMotivo.length} sem motivo</b></>
+                )}
+                {semDestino.length > 0 && (
+                  <> · <b>{semDestino.length} sem a variação</b></>
                 )}
               </small>
             </p>
@@ -322,7 +360,7 @@ export function RevisaoDoInventario({
             <button
               type="button"
               className="mq-btn mq-btn--primary"
-              disabled={aplicando || alvos.length === 0 || semMotivo.length > 0}
+              disabled={aplicando || alvos.length === 0 || semMotivo.length > 0 || semDestino.length > 0}
               onClick={aplicar}
             >
               {aplicando
@@ -345,6 +383,32 @@ export function RevisaoDoInventario({
       {/* ── 3. O QUE NÃO PEDE DECISÃO ──────────────────────────────────
           Recolhido: existe, é conferível, e não disputa atenção com o que
           precisa de uma pessoa. */}
+      {paraGuardar.length > 0 && (
+        <section className="revisao-guardar" aria-label="Variações contadas">
+          <h3 className="mq-subtitle">Variações contadas</h3>
+          <p className="mq-hint">
+            Guardar no cadastro o que você contou em cada variação. O que ninguém
+            disse fica como "variação não informada"; o total não muda.
+          </p>
+          <div className="mq-list">
+            {paraGuardar.map((l) => (
+              <div className="mq-item" key={l.sku}>
+                <span className="mq-item__main">
+                  <b>{l.desc}</b>
+                  <small>Código {l.sku} · {variacoesEmTexto(l)}</small>
+                </span>
+                <span className="mq-item__side">
+                  <button type="button" className="mq-btn mq-btn--secondary mq-btn--sm"
+                    disabled={guardando === l.sku} onClick={() => guardar(l.sku)}>
+                    {guardando === l.sku ? 'Guardando…' : 'Guardar no cadastro'}
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="revisao-resumos">
         {resolvidas.length > 0 && (
           <details className="revisao-resumo">
@@ -380,11 +444,11 @@ export function RevisaoDoInventario({
         <details className="revisao-resumo">
           <summary>
             <span className="mq-status mq-status--ok">Bateram</span>
-            {dados.conferido} {plural(dados.conferido, 'código conferido', 'códigos conferidos')}{' '}
+            {dados.conferido} {plural(dados.conferido, 'peça conferida', 'peças conferidas')}{' '}
             sem diferença nenhuma
           </summary>
           {dados.conferidosItens.length === 0 ? (
-            <p className="mq-hint">Nenhum código bateu exatamente neste inventário.</p>
+            <p className="mq-hint">Nenhuma peça bateu exatamente neste inventário.</p>
           ) : (
             <div className="mq-list">
               {dados.conferidosItens.map((l) => (
@@ -409,22 +473,18 @@ export function RevisaoDoInventario({
             <summary>
               <span className="mq-status mq-status--open">Não conferido</span>
               {dados.naoConferido.length}{' '}
-              {plural(dados.naoConferido.length, 'código', 'códigos')} sem bipe
+              {plural(dados.naoConferido.length, 'peça', 'peças')} sem conferência
             </summary>
             <p className="mq-hint">
               {dados.contagemCompleta ? (
                 <>
-                  Você declarou a conferência completa, e mesmo assim estes
-                  ficaram de fora — cada um diz por quê. <b>Nenhum vira
-                  diferença</b>: o sistema não inventa de qual variação é uma
-                  falta que ele não consegue atribuir.
+                  Estas peças ficaram de fora mesmo com a conferência declarada
+                  completa — cada uma diz por quê. <b>Nenhuma vira diferença</b>.
                 </>
               ) : (
                 <>
-                  Estes códigos não foram contados, e a contagem não foi
-                  declarada completa. <b>Não contado não é zero</b>: nenhum
-                  deles vira diferença, e é essa trava que impede um
-                  inventário parado pela metade de zerar meio catálogo.
+                  Estas peças não foram conferidas. <b>Não conferida não é
+                  falta</b>: o estoque delas não mudou.
                 </>
               )}
             </p>
@@ -454,12 +514,11 @@ export function RevisaoDoInventario({
             <summary>
               <span className="mq-status mq-status--warn">Não comparável</span>
               {dados.naoComparavel.length}{' '}
-              {plural(dados.naoComparavel.length, 'código travado', 'códigos travados')}
+              {plural(dados.naoComparavel.length, 'peça sem variação dita', 'peças sem variação dita')}
             </summary>
             <p className="mq-hint">
-              Contadas sem identidade suficiente. O código inteiro fica
-              bloqueado até alguém dizer qual variação era — não se escreve
-              estoque sobre uma dúvida.
+              Contadas sem dizer a variação, num inventário antigo. O estoque
+              delas não muda até alguém dizer qual variação era.
             </p>
             <div className="mq-list">
               {dados.naoComparavel.map((l) => (
@@ -484,8 +543,10 @@ export function RevisaoDoInventario({
 
 function ListaParaResolver({
   titulo, tom, explica, linhas, motivosDisponiveis, marcadas, motivos,
-  aoAlternar, aoMarcarTodas, aoDefinirMotivo,
+  aoAlternar, aoMarcarTodas, aoDefinirMotivo, destinos, aoDefinirDestino,
 }: {
+  destinos: Map<string, string>;
+  aoDefinirDestino: (l: LinhaDeDiferenca, v: string) => void;
   titulo: string;
   tom: 'risk' | 'brand';
   explica: string;
@@ -509,7 +570,7 @@ function ListaParaResolver({
             {titulo} · {pecas} {plural(pecas, 'peça', 'peças')}
           </h3>
           <p className="mq-hint">
-            em {linhas.length} {plural(linhas.length, 'código', 'códigos')}. {explica}
+            em {linhas.length} {plural(linhas.length, 'peça', 'peças')}. {explica}
           </p>
         </div>
         <label className="revisao-todas">
@@ -539,8 +600,9 @@ function ListaParaResolver({
                 <span>
                   <b>{l.desc}</b>
                   <small>
-                    {l.sku}{l.variacao ? ` · ${l.variacao}` : ''} · sistema {l.esperado} ·
-                    {' '}contado {l.contado}
+                    Código {l.sku}{l.variacao ? ` · ${l.variacao}` : ''} · em casa {l.esperado} ·
+                    {' '}conferido {l.contado}
+                    {variacoesEmTexto(l) ? ` · ${variacoesEmTexto(l)}` : ''}
                     {l.aviso ? ` · ${l.aviso}` : ''}
                   </small>
                   {/* A diferença de uma peça que NINGUÉM bipou tem uma
@@ -589,6 +651,18 @@ function ListaParaResolver({
                     value={escolha.texto}
                     onChange={(e) => aoDefinirMotivo(l, { id: 'outro', texto: e.target.value })}
                   />
+                )}
+                {l.precisaVariacao && (
+                  <select
+                    className="mq-select"
+                    aria-label={`Variação da diferença de ${l.desc}`}
+                    value={destinos.get(k) ?? ''}
+                    onChange={(e) => aoDefinirDestino(l, e.target.value)}
+                  >
+                    <option value="">De qual variação é a {l.dif < 0 ? 'falta' : 'sobra'}?</option>
+                    {(l.variacoes ?? []).map((v) => <option key={v.nome} value={v.nome}>{v.nome}</option>)}
+                    <option value={NAO_INFORMADA}>Variação não informada</option>
+                  </select>
                 )}
               </span>
             </div>

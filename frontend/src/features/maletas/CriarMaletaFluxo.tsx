@@ -383,8 +383,8 @@ export function CriarMaletaFluxo({
                 pelo sistema.
               </b>
               <div className="corpo">
-                A maleta foi aberta só com as outras peças. Ajuste no painel clássico ou
-                cancele a maleta.
+                A maleta foi aberta só com as outras peças. Confira esses códigos em Peças
+                e, se precisar, cancele a maleta e abra de novo.
                 <ul className="lista-recusa">
                   {resultado.recusados.map((r) => (
                     <li key={r.sku}>

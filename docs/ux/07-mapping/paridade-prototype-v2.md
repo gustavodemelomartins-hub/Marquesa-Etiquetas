@@ -129,10 +129,10 @@ Referência visual: `/prototype/estoque/#inventario` · 🟢 9 · 🟡 0 · ⚪ 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
 | Abrir contagem | 🟢 pronta | `#/estoque/inventario` | — |
-| Contar peça a peça | 🟢 pronta | `features/inventario/InventarioArea.tsx` | — |
-| Desfazer contagem — voltar a não contado | 🟢 pronta | `features/inventario/InventarioArea.tsx` | — |
+| Contar peça a peça (1 bipe = 1 unidade) | 🟢 pronta | `features/inventario/useContagem.ts` | — |
+| Desfazer contagem — voltar a não conferida | 🟢 pronta | `features/inventario/ConferenciaDaPeca.tsx` | — |
 | Pausar e continuar | 🟢 pronta | `features/inventario/InventarioArea.tsx` | — |
-| Concluir e congelar o retrato | 🟢 pronta | `features/inventario/InventarioArea.tsx` | — |
+| Balanço final e finalizar | 🟢 pronta | `features/inventario/BalancoDoInventario.tsx` | — |
 | Resultado: faltando, sobrando, não conferido, não comparável | 🟢 pronta | `features/inventario/resultado.ts` | — |
 | Aplicar os ajustes escolhidos | 🟢 pronta | `features/inventario/resultado.ts` | — |
 | Zero explícito ≠ não contado | 🟢 pronta | `features/inventario/resultado.ts` | — |

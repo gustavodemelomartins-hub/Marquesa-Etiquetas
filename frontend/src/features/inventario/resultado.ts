@@ -59,6 +59,14 @@ export interface LinhaDeDiferenca {
   /** Por extenso, quando a linha precisa se explicar — hoje só nas
    *  declaradas. */
   motivo: string | null;
+  /** Peça COM variação (06/10/2026): a diferença é do código; quando a razão
+   *  separa por variação e alguma peça foi contada sem variação, aplicar
+   *  pede que ela diga de qual variação é (`destino`). */
+  precisaVariacao?: boolean;
+  variacoes?: { nome: string; contado: number | null; esperado: number | null }[];
+  naoInformada?: { contado: number | null } | null;
+  /** As variações que ela contou, prontas para virar o cadastro da peça. */
+  distribuicaoContada?: { nome: string; varianteId: string | null; qtd: number }[] | null;
 }
 
 export interface LinhaNaoConferida {
@@ -84,6 +92,9 @@ export interface LinhaConferida {
   contado: number;
   esperado: number;
   aviso: string | null;
+  variacoes?: { nome: string; contado: number | null; esperado: number | null }[];
+  naoInformada?: { contado: number | null } | null;
+  distribuicaoContada?: { nome: string; varianteId: string | null; qtd: number }[] | null;
 }
 
 /** UM MOTIVO de diferença, como o servidor o define
@@ -133,6 +144,8 @@ export interface LinhaNaoComparavel {
 export interface ResultadoDoInventario {
   ok: true;
   id: number;
+  /** O número da tela ("Inventário #1"). */
+  numero?: number | null;
   concluidoEm: string;
   cobertura: { conferidos: number; total: number };
   /** Quantas linhas bateram exatamente. */
@@ -189,6 +202,8 @@ export interface PedidoDeAjuste {
   /** O id do motivo escolhido — é ele que decide ajuste × perda (§55). */
   motivoId?: string;
   observacao?: string;
+  /** A variação que ELA disse para a diferença ('' = não informada). */
+  destino?: string;
 }
 
 export interface RespostaDoAjuste {
@@ -207,12 +222,21 @@ export function aplicarAjustes(
   return chamar(conexao, 'POST', `/api/inventarios/${id}/aplicar`, { itens });
 }
 
-export const pedidoDaLinha = (l: LinhaDeDiferenca, motivo: string, motivoId?: string): PedidoDeAjuste => ({
+export const pedidoDaLinha = (
+  l: LinhaDeDiferenca, motivo: string, motivoId?: string, destino?: string | null,
+): PedidoDeAjuste => ({
   sku: l.sku,
   motivo,
   ...(motivoId ? { motivoId } : {}),
   ...(l.variacao ? { variacao: l.variacao } : {}),
+  ...(destino != null ? { destino } : {}),
 });
+
+/** Guardar no cadastro as variações que ela contou (o resto fica "não
+ *  informada"; o total não muda). */
+export function guardarVariacoes(conexao: Connection, id: number, sku: string): Promise<{ ok?: boolean; erro?: string }> {
+  return chamar(conexao, 'POST', `/api/inventarios/${id}/variacoes/guardar`, { sku });
+}
 
 /** Os motivos que fazem sentido para ESTA linha. Oferecer um motivo de
  *  sobra numa falta seria um caminho que não explica nada. */

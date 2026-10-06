@@ -2371,6 +2371,9 @@ Rotas: `GET /api/clientes/:id/dependencias`, `DELETE /api/clientes/:id`,
 
 ### 49. Inventário "bipou e marcha" — o sistema já sabe quanto deveria ter — §19
 
+> **Na V2, substituído pelo §57 (06/10/2026)**: um bipe passou a ser uma
+> unidade. O texto abaixo vale para a rota antiga `/itens` (painel clássico).
+
 O jeito da Sthefany (vídeos de 02/10/2026), que é o jeito do Excel dela:
 
 - **um bipe = a referência conferida**, nunca "+1 unidade". O servidor lê o
@@ -2444,6 +2447,9 @@ servidor: `diaOperacional` (`api/src/fuso.js`). O caso: inventário aberto em
 02/10/2026 às 21h aparecia como 03/10.
 
 ### 53. Histórico de inventários: todos os anteriores a 03/10/2026 eram teste
+
+> **06/10/2026 (§57)**: a tela mostra o NÚMERO (`inventarios.numero`), não o
+> id. O inventário real de PROD (id 12) é o Inventário #1.
 
 Por decisão do dono (03/10/2026), os inventários #1–#7 — todos `cancelado`,
 sem resultado, ajuste, saída, evento nem movimento — eram teste e foram
@@ -2528,3 +2534,70 @@ Correção de cadastro" cada (143 peças; total 2231 → 2088). Os 3 prováveis
 e os 65 inconclusivos ficam para o inventário: não se deduz saldo.
 Auditoria: `docs/migracao-nao-venda/auditoria-golive-2026-10-05.csv`.
 
+### 57. Inventário V2: um bipe é UMA unidade; a diferença é do código; variação não se inventa — §19 §49
+
+Pedido da Sthefany (06/10/2026), depois de largar no meio o primeiro
+inventário real (o id 12): a tela tem de ser a planilha dela — **código,
+descrição, estoque total, com revendedoras, em casa (físico), conferido,
+faltando**. Substitui o "bipou e marcha" (§49) na V2; a rota antiga
+`/itens` continua para o painel clássico.
+
+- **Um bipe = uma unidade conferida** (`POST /api/inventarios/:id/leituras`,
+  gestos `bipe | mais | menos | definir | todas | nenhuma | mover | limpar`).
+  O antigo "um bipe confere a referência inteira" aparecia como "✓ 6 em
+  casa" depois de um bipe só, e ela entendeu que tinham sido contadas
+  várias. "Estão todas aqui" continua existindo como UM toque explícito.
+- **Leitura repetida**: cada leitura leva o id gerado pela tela
+  (`inventario_leituras`, chave única); reenviar (rede ruim, aba
+  recarregada) não soma. A fila do que não chegou fica guardada no
+  aparelho e é reenviada ao abrir de novo.
+- **Bipe acidental**: o mesmo código lido de novo em menos de 4 s, sem
+  outro código no meio, NÃO soma — a tela pergunta ("Essa peça acabou de
+  ser lida" · Contar outra unidade · Foi engano). A câmera ainda descarta a
+  mesma etiqueta por 1,8 s em silêncio.
+- **Variação não é unidade única**: conta-se por variação (nº23 → 2). Bipe
+  num código com variação entra em "variação não informada" até ela tocar
+  na variação certa (`mover`). Nada é atribuído a um aro sem ela dizer.
+- **Criar variação no inventário** (`POST /api/inventarios/:id/variacoes
+  {valor, quantidade}`) cria a variação OFICIAL (a mesma `adicionarVariacao`
+  de Peças: cadastro, vendas, maletas, próximos inventários). As peças já
+  bipadas sem variação passam para ela antes de somar — o bipe e a criação
+  não contam o mesmo anel duas vezes.
+- **Nome de variação**: "23", "nº23", "nº 23", "N23", "n°23" e "Aro 23"
+  são a mesma (`variacao-nome.js › chaveDaVariacao`). A que já existe é
+  devolvida (`jaExiste`, `existente`), nunca duplicada. A grafia nova segue
+  a das irmãs do atributo; sem irmã numérica, número puro vira "nº19".
+- **A diferença é do CÓDIGO** (conferido − em casa), e o retrato congela
+  em qual variação cada peça dela entra (`inventario_resultado.partes_json`):
+  - `codigo` — a razão não separa por variação (todo o saldo "sem
+    variação", os anéis do go-live): ajuste no código inteiro, sem
+    variação (mesmo critério do §54);
+  - `porVariacao` — a razão separa e TODA peça de casa foi contada numa
+    variação: cada variação recebe a diferença que ela contou;
+  - `escolher` — a razão separa mas houve peça contada sem variação: a
+    diferença aparece, e só vira movimento quando ela diz de qual variação
+    é (`destino`); sem isso fica pendente, e o resto do inventário segue.
+  O antigo "não comparável" deixa de nascer em inventário novo.
+- **Peça com revendedora de variação desconhecida** fica "variação não
+  informada" — no inventário, na ficha e na distribuição. "Identificar
+  variação" (na ficha da peça em conferência) grava a variação da maleta
+  quando a informação aparecer (`/api/pendencias/variacao/maleta`).
+- **Distribuição parcial** (`/variacoes/distribuir {parcial: true}` e
+  `POST /api/inventarios/:id/variacoes/guardar`): a soma das variações
+  pode ficar ABAIXO do total — o resto é "variação ainda não informada".
+  Acima do total é recusado (é Ajustar estoque). Nenhuma variação fica
+  abaixo do que a maleta tem dela, e a peça da maleta sem variação conhecida
+  continua em "não informada". Repartição: o total nunca muda.
+- **Balanço antes de finalizar** (`GET /api/inventarios/:id/balanco`,
+  nada escrito): unidades esperadas em casa, conferidas, peças não
+  conferidas, com falta, com sobra, e o impacto ("3 peças terão o estoque
+  reduzido"). Não conferida continua como está — nunca vira falta sozinha.
+  Motivo padrão "Contagem física" (ajuste de inventário); perda só se ela
+  escolher (§55); sobra nunca é perda.
+- **Número visível** (`inventarios.numero`): começa em 1, segue a ordem de
+  abertura e é o que a tela e o histórico da peça mostram ("Ajuste de
+  inventário #1 · Contagem física · contado 4, sistema dizia 5"). O id é
+  técnico e não volta; o número de um inventário excluído (que por regra
+  não mexeu em estoque) pode ser reaproveitado. Em PROD o id 12 virou o #1.
+- **Nada técnico na tela**: nem id de variação, nem id do inventário, nem
+  enum, nem nome de rota, nem "painel clássico".

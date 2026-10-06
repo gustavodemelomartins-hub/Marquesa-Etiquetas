@@ -24,7 +24,7 @@ export function AreaPendente({ modulo }: Props) {
           <h1 className="mq-display">{m.pergunta ?? m.rotulo}</h1>
           <p className="mq-lede">
             {existeNoClassico
-              ? 'A impressão de etiquetas ainda funciona no painel clássico. Estamos trazendo esse fluxo para a V2.'
+              ? 'A impressão de etiquetas abre na tela de impressão, enquanto ela é trazida para cá.'
               : 'Este módulo está em construção. Os dados operacionais existentes continuam nas telas da V2.'}
           </p>
         </div>
@@ -36,7 +36,7 @@ export function AreaPendente({ modulo }: Props) {
           <h3>Em desenvolvimento</h3>
           <p>
             {existeNoClassico
-              ? 'Prepare e imprima as etiquetas no painel clássico enquanto a versão conectada ao catálogo é construída.'
+              ? 'Prepare e imprima as etiquetas na tela de impressão.'
               : modulo === 'agenda'
                 ? 'Prazos e vencimentos já aparecem nas áreas de Maletas, Financeiro e Garantias. A visão de agenda ainda será construída.'
                 : 'Os alertas operacionais já aparecem nas áreas correspondentes. A central de notificações ainda será construída.'}
@@ -44,7 +44,7 @@ export function AreaPendente({ modulo }: Props) {
           {existeNoClassico && (
             <p>
               <a className="mq-btn mq-btn--primary" href={NO_PAINEL_CLASSICO}>
-                Abrir no painel clássico
+                Abrir a impressão de etiquetas
                 <Icone nome="arrow" />
               </a>
             </p>
