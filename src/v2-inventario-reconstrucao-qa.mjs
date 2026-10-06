@@ -20,7 +20,8 @@
  *    node scripts/v2-local/serve-app.mjs frontend/dist 5199 &
  *    cd src && MQ_API=http://127.0.0.1:8799 MQ_APP=http://127.0.0.1:5199 node v2-inventario-reconstrucao-qa.mjs
  *
- *  MQ_FOTOS=<pasta> guarda uma captura de cada passo.
+ *  MQ_FOTOS=<pasta> guarda uma captura de cada passo. Para provar o bundle
+ *  PUBLICADO: MQ_APP=<site>/v2 MQ_ROTEAR=<endereço da API que ele usa>.
  */
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -91,9 +92,26 @@ for (const [largura, altura, movel, base] of [[1280, 900, false, 911000], [390, 
     viewport: { width: largura, height: altura }, deviceScaleFactor: 1,
     ...(movel ? { isMobile: true, hasTouch: true } : {}),
   });
+  /* MQ_ROTEAR=<endereço publicado da API>: o bundle PUBLICADO fala com o
+     endereço dele, e o Playwright entrega cada chamada ao Worker real local
+     (sem chave de produção, sem nuvem). */
+  const ROTEAR = process.env.MQ_ROTEAR || null;
+  if (ROTEAR) {
+    await ctx.route(`${ROTEAR}/**`, async (rota) => {
+      const req = rota.request();
+      const destino = req.url().replace(ROTEAR, API);
+      const h = { ...req.headers() };
+      delete h.host; delete h.origin; delete h.referer;
+      const r = await fetch(destino, { method: req.method(), headers: h, body: ['GET', 'HEAD'].includes(req.method()) ? undefined : req.postDataBuffer() ?? undefined });
+      const corpo = Buffer.from(await r.arrayBuffer());
+      const cab = Object.fromEntries(r.headers);
+      cab['access-control-allow-origin'] = '*';
+      await rota.fulfill({ status: r.status, headers: cab, body: corpo });
+    });
+  }
   await ctx.addInitScript(([url, key]) => {
     localStorage.setItem('marquesa_conexao_v1', JSON.stringify({ url, key }));
-  }, [API, KEY]);
+  }, [ROTEAR || API, KEY]);
   const p = await ctx.newPage();
   const erros = [];
   p.on('pageerror', (e) => erros.push(e.message));
