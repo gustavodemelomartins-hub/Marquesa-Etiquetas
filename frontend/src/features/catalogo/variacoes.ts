@@ -40,6 +40,13 @@ export interface LinhaDeVariacao {
   mapeada: boolean;
   /** Quantas desta variação estão com revendedoras (maleta identificada). */
   comRevendedoras?: number;
+  /** Só na visão de estoque. A LOJA ONLINE, à parte do físico:
+   *  `publicada` — a variação é uma variante da Nuvemshop;
+   *  `equivalente` — a loja vende o mesmo aro, mas não há vínculo gravado
+   *  (o `estoqueLoja` é o número de lá, só para informar);
+   *  `nao_publicada` — a peça está na loja, esta variação ainda não;
+   *  `null` — a peça não está na loja. Nada disso impede salvar. */
+  lojaOnline?: 'publicada' | 'equivalente' | 'nao_publicada' | null;
 }
 
 export interface EstruturaDoProduto {
@@ -73,9 +80,26 @@ export function buscarEstrutura(
   conexao: Connection, sku: string, sinal?: AbortSignal,
 ): Promise<EstruturaDoProduto> {
   return chamar(
-    conexao, 'GET', `/api/produtos/${encodeURIComponent(sku)}/variacoes`,
+    conexao, 'GET', `/api/produtos/${encodeURIComponent(sku)}/variacoes?visao=estoque`,
     undefined, { signal: sinal },
   );
+}
+
+/** A frase que a Sthefany lê quando algo dá errado. Mensagem de servidor
+ *  com id da Nuvemshop, id interno ou UUID é para desenvolvedor — no lugar
+ *  dela vai o `padrao`, que diz o que fazer. */
+export function mensagemParaPessoa(texto: string, padrao: string): string {
+  const t = String(texto ?? '').trim();
+  if (!t) return padrao;
+  const tecnico = /\b\d{8,}\b|local:|[0-9a-f]{8}-[0-9a-f]{4}-|\bvariant[_ ]?id\b|\bvariante \S*\d{5,}|SQLITE|HTTP \d{3}|\/api\//i;
+  return tecnico.test(t) ? padrao : t;
+}
+
+/** A linha "loja online" de uma variação: informação da vitrine, nunca
+ *  controle do estoque físico. */
+export function legendaDaLoja(v: Pick<LinhaDeVariacao, 'lojaOnline' | 'estoqueLoja'>): string {
+  if (v.lojaOnline === 'nao_publicada') return 'ainda não está na loja online';
+  return v.estoqueLoja != null ? `loja online: ${v.estoqueLoja}` : '';
 }
 
 export interface PedidoDeDistribuicao {

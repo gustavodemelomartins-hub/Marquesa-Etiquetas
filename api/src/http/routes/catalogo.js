@@ -79,8 +79,10 @@ export const rotas = [
   },
   {
     metodo: 'GET', caminho: '/api/produtos/:sku/variacoes', auth: 'bearer',
-    async handler({ db, params }) {
-      const r = await estruturaDoProduto(db, sku(params));
+    async handler({ db, params, url }) {
+      /* `?visao=estoque` é a tela de variações da V2: separa estoque físico
+         de vitrine. Sem ele, a resposta do painel clássico não muda. */
+      const r = await estruturaDoProduto(db, sku(params), { visao: url.searchParams.get('visao') || undefined });
       return json(r, r.erro ? (r.status || 400) : 200);
     },
   },

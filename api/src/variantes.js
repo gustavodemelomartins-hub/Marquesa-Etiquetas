@@ -29,6 +29,7 @@ import { movimentar } from './estoque.js';
 
 export { normSku } from './sku.js';
 import { normSku } from './sku.js';
+import { equivalenciasLojaLocal } from './variacao-nome.js';
 
 function parseJson(s, padrao) {
   try { const v = JSON.parse(s); return v == null ? padrao : v; } catch (e) { return padrao; }
@@ -473,6 +474,36 @@ export async function variantesDoSku(db, sku) {
 /* 5. DISTRIBUIR O ESTOQUE ENTRE AS VARIANTES — por variant_id          */
 /* ==================================================================== */
 
+/** Variantes da loja que a distribuição parcial trata como a MESMA variação
+ *  de uma daqui (`equivalenciasLojaLocal`), com a trava que a função pura não
+ *  pode cobrar: a variante da loja não tem saldo nem peça em maleta aberta.
+ *  Com saldo, as duas continuam distintas — escolher qual das duas é a peça
+ *  seria chutar (regra 2). */
+async function dobrasDaLoja(db, k, naLoja, daqui, soDaqui) {
+  const mapeadas = new Set(daqui.map((v) => String(v.variante_id)));
+  const candidatas = naLoja.filter((v) => !mapeadas.has(String(v.variante_id)));
+  if (!candidatas.length) return new Map();
+  const baldes = (await db.prepare(
+    `SELECT variacao, variante_id, SUM(qtd) AS saldo FROM movimentos
+      WHERE sku = ? AND (variacao IS NOT NULL OR variante_id IS NOT NULL)
+      GROUP BY variacao, variante_id`).bind(k).all()).results;
+  let naMaleta = [];
+  try {
+    naMaleta = (await db.prepare(
+      `SELECT mv.variacao, mv.variante_id FROM maleta_item_variacoes mv
+         JOIN maletas m ON m.id = mv.maleta_id
+        WHERE mv.sku = ? AND m.status IN ('aberta', 'em_acerto')`).bind(k).all()).results ?? [];
+  } catch { /* banco sem a tabela: nenhuma consignação identificada */ }
+  const livres = candidatas.filter((v) => {
+    const vid = String(v.variante_id);
+    const saldo = baldes
+      .filter((b) => (b.variante_id ? String(b.variante_id) === vid : b.variacao === v.nome))
+      .reduce((s, b) => s + Number(b.saldo || 0), 0);
+    return !saldo && !naMaleta.some((c) => String(c.variante_id) === vid || c.variacao === v.nome);
+  });
+  return equivalenciasLojaLocal(livres, soDaqui);
+}
+
 /** A operação que tira um produto de `sem_reparticao`.
  *
  *  Recebe quanto vai em cada `variant_id` e grava. Três coisas a separam do
@@ -559,7 +590,31 @@ export async function distribuirVariantes(db, sku, {
   /* Uma variação só já é distribuível no modo parcial: o anel de aro único
      cadastrado tem "nº18 → 1" e o resto "não informada". */
   const minimo = parcial ? 1 : 2;
-  if (naLoja.length < 2) {
+  /* Variantes da loja que são o mesmo aro de uma variação daqui — ver
+     `equivalenciasLojaLocal`. A tela não as mostra como linha própria; um
+     zero vindo delas (tela aberta antes desta versão) é ignorado. */
+  let dobradas = new Map();
+  if (parcial) {
+    /* O ESTOQUE FÍSICO NÃO DEPENDE DA LOJA (06/10/2026, código 391471).
+       Antes, a conferência era contra UMA fonte: a loja, ou — se ela
+       tivesse menos de duas variantes — o cadastro daqui. A tela mostra as
+       duas juntas, então o anel com uma variante na Nuvemshop e aros
+       criados aqui no inventário mandava o id da loja junto com os daqui,
+       e salvar era recusado com "a variante … não existe na loja". Agora
+       vale a UNIÃO: variante da loja e variação daqui são ambas destino
+       legítimo de peça física. Nada é publicado e nenhum vínculo é criado. */
+    const daqui = (await db.prepare(
+      `SELECT variante_id, nome, NULL AS estoque, valores_json
+         FROM produto_variacoes WHERE sku = ? AND variante_id IS NOT NULL
+         ORDER BY ordem, nome`).bind(k).all()).results;
+    const idsDaLoja = new Set(naLoja.map((v) => String(v.variante_id)));
+    const soDaqui = daqui.filter((v) => !idsDaLoja.has(String(v.variante_id)));
+    if (soDaqui.length) {
+      dobradas = await dobrasDaLoja(db, k, naLoja, daqui, soDaqui);
+      naLoja = [...naLoja.filter((v) => !dobradas.has(String(v.variante_id))), ...soDaqui];
+      fonte = idsDaLoja.size > dobradas.size ? 'mista' : 'local';
+    }
+  } else if (naLoja.length < 2) {
     const locais = (await db.prepare(
       `SELECT variante_id, nome, NULL AS estoque, valores_json
          FROM produto_variacoes WHERE sku = ? AND variante_id IS NOT NULL
@@ -569,9 +624,11 @@ export async function distribuirVariantes(db, sku, {
 
   if (naLoja.length < minimo) {
     return {
-      erro: `${sku} não tem variações para distribuir. ` +
-            `Se ele existe na Nuvemshop, importe a estrutura antes; se é peça só daqui, ` +
-            `defina as variações primeiro.`,
+      erro: parcial
+        ? 'Esta peça ainda não tem variação. Adicione a variação antes de dizer quantas tem.'
+        : `${sku} não tem variações para distribuir. ` +
+          `Se ele existe na Nuvemshop, importe a estrutura antes; se é peça só daqui, ` +
+          `defina as variações primeiro.`,
       status: 400,
     };
   }
@@ -580,11 +637,30 @@ export async function distribuirVariantes(db, sku, {
   const alvo = new Map();
   for (const item of distribuicao) {
     const vid = String(item.varianteId ?? item.variante_id ?? '');
+    if (vid && dobradas.has(vid)) {
+      if (Math.trunc(Number(item.qtd)) === 0) continue;
+      return {
+        erro: 'A tela estava desatualizada. Feche e abra as variações de novo — nada foi salvo.',
+        status: 409,
+      };
+    }
     if (!vid || !porId.has(vid)) {
-      return { erro: `A variante ${vid || '(vazia)'} não existe na loja para ${sku}.`, status: 400 };
+      /* No modo parcial quem lê é a Sthefany: o id vai num campo à parte,
+         nunca na frase. */
+      return {
+        erro: parcial
+          ? 'Uma das variações mudou enquanto a tela estava aberta. Feche e abra as variações de novo — nada foi salvo.'
+          : `A variante ${vid || '(vazia)'} não existe na loja para ${sku}.`,
+        status: 400, varianteDesconhecida: vid || null,
+      };
     }
     if (alvo.has(vid)) {
-      return { erro: `A variante ${vid} veio duas vezes na distribuição.`, status: 400 };
+      return {
+        erro: parcial
+          ? `"${porId.get(vid).nome}" apareceu duas vezes. Feche e abra as variações de novo — nada foi salvo.`
+          : `A variante ${vid} veio duas vezes na distribuição.`,
+        status: 400,
+      };
     }
     const n = Math.trunc(Number(item.qtd));
     if (!Number.isFinite(n) || n < 0) {
@@ -732,6 +808,11 @@ export async function distribuirVariantes(db, sku, {
 
      Quando a fonte é local, as linhas já são as de `produto_variacoes` —
      reescrevê-las aqui só arriscaria trocar a origem por engano. */
+  /* Mista (loja + daqui, só no modo parcial): as linhas da loja NÃO são
+     copiadas para `produto_variacoes`. Copiar uma variante de dois
+     atributos ("Banho · n°18") ao lado de "nº24" faria a próxima variação
+     criada aqui recombinar a estrutura inteira. O saldo continua achável:
+     o movimento leva o `variante_id` da loja. */
   if (fonte === 'loja') {
     /* O NOME gravado é o que JÁ existe aqui para aquele `variante_id`, não
        o que a loja mostra hoje.

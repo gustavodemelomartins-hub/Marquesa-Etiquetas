@@ -25,7 +25,7 @@ import { movimentar } from './estoque.js';
 
 export { normSku } from './sku.js';
 import { normSku } from './sku.js';
-import { chaveDaVariacao, formatarValorNovo } from './variacao-nome.js';
+import { chaveDaVariacao, equivalenciasLojaLocal, formatarValorNovo } from './variacao-nome.js';
 
 /* ==================================================================== */
 /* 1. DEPENDÊNCIAS — a pergunta que decide                              */
@@ -551,8 +551,16 @@ export async function adicionarVariacao(db, sku, { valor, atributo } = {}) {
  *  par na loja aparece marcada como sem par, e não vira vínculo por
  *  semelhança de nome. Adivinhar aqui seria o mesmo erro que a FASE 1
  *  arrancou do motor de sincronização.
+ *
+ *  `visao: 'estoque'` — a tela de variações da V2 (06/10/2026). Separa o
+ *  estoque físico da vitrine: a variante da loja que é o MESMO aro de uma
+ *  variação criada aqui (`equivalenciasLojaLocal`) e não tem saldo nem
+ *  maleta deixa de ser uma segunda linha e vira só a informação "loja
+ *  online: N" na linha daqui. Não grava vínculo — a variação daqui continua
+ *  sem `variant_id` da loja, e nada é publicado. Sem a opção (painel
+ *  clássico), a resposta é a de sempre.
  */
-export async function estruturaDoProduto(db, sku) {
+export async function estruturaDoProduto(db, sku, { visao } = {}) {
   const k = normSku(sku);
   const p = await db.prepare(
     `SELECT sku, desc, cat, qtd, preco, status FROM produtos WHERE sku = ?`).bind(k).first();
@@ -609,6 +617,35 @@ export async function estruturaDoProduto(db, sku) {
     });
   }
 
+  let naMaleta = [];
+  try {
+    naMaleta = (await db.prepare(
+      `SELECT mv.variacao, mv.variante_id, SUM(mv.qtd) AS qtd FROM maleta_item_variacoes mv
+         JOIN maletas m ON m.id = mv.maleta_id
+        WHERE mv.sku = ? AND m.status IN ('aberta', 'em_acerto')
+        GROUP BY mv.variacao, mv.variante_id`).bind(k).all()).results ?? [];
+  } catch { /* banco sem a tabela: nenhuma consignação identificada */ }
+
+  if (visao === 'estoque') {
+    const publicado = naLoja.length > 0;
+    const soLaSemSaldo = linhas.filter((l) => l.daLoja && !l.mapeada && !l.saldo
+      && !naMaleta.some((c) => String(c.variante_id) === l.varianteId || c.variacao === l.nome));
+    const daqui = linhas.filter((l) => !l.daLoja && l.varianteId);
+    const par = equivalenciasLojaLocal(
+      naLoja.filter((v) => soLaSemSaldo.some((l) => l.varianteId === String(v.variante_id))),
+      daqui.map((l) => ({ variante_id: l.varianteId, nome: l.nome })));
+    for (const [daLojaId, daquiId] of par) {
+      const loja = linhas.find((l) => l.varianteId === daLojaId);
+      const local = linhas.find((l) => l.varianteId === daquiId);
+      local.estoqueLoja = loja.estoqueLoja;
+      local.lojaOnline = 'equivalente';
+      linhas.splice(linhas.indexOf(loja), 1);
+    }
+    for (const l of linhas) {
+      if (!l.lojaOnline) l.lojaOnline = l.daLoja ? 'publicada' : (publicado ? 'nao_publicada' : null);
+    }
+  }
+
   /* Os atributos saem dos valores lidos, na ordem em que aparecem. Lista fixa
      não serve: quem vende por "Banho" e "Pedra" precisa ver "Banho" e
      "Pedra", não "Cor" e "Tamanho". */
@@ -630,14 +667,6 @@ export async function estruturaDoProduto(db, sku) {
     `SELECT COALESCE(SUM(mi.qtd - mi.devolvida), 0) AS n FROM maleta_itens mi
        JOIN maletas m ON m.id = mi.maleta_id
       WHERE mi.sku = ? AND m.status IN ('aberta', 'em_acerto')`).bind(k).first())?.n ?? 0);
-  let naMaleta = [];
-  try {
-    naMaleta = (await db.prepare(
-      `SELECT mv.variacao, mv.variante_id, SUM(mv.qtd) AS qtd FROM maleta_item_variacoes mv
-         JOIN maletas m ON m.id = mv.maleta_id
-        WHERE mv.sku = ? AND m.status IN ('aberta', 'em_acerto')
-        GROUP BY mv.variacao, mv.variante_id`).bind(k).all()).results ?? [];
-  } catch { /* banco sem a tabela: nenhuma consignação identificada */ }
   let consignadoIdentificado = 0;
   for (const l of linhas) {
     l.comRevendedoras = naMaleta

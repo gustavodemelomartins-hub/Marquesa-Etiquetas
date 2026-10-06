@@ -2601,3 +2601,43 @@ faltando**. Substitui o "bipou e marcha" (§49) na V2; a rota antiga
   não mexeu em estoque) pode ser reaproveitado. Em PROD o id 12 virou o #1.
 - **Nada técnico na tela**: nem id de variação, nem id do inventário, nem
   enum, nem nome de rota, nem "painel clássico".
+
+### 58. Variação do estoque físico não depende da loja online — regra 4, §57
+
+Origem: 06/10/2026, código 391471. A Nuvemshop vende o anel com UMA
+variante ("Banho de Ouro 18K · n°18", loja online: 2); a importação da loja
+não grava estrutura de produto com variante única, e no inventário a
+Sthefany criou "nº24" e "nº18" aqui. Salvar nº24 = 1 e nº18 = 1 na ficha
+era recusado com "A variante 1509838878 não existe na loja para 391471": a
+distribuição conferia contra UMA fonte (a loja, ou o cadastro daqui se a
+loja tivesse menos de duas variantes), e a tela mandava as duas.
+
+- **Distribuição parcial** (V2 e inventário) aceita a UNIÃO: variante da
+  loja e variação criada aqui são ambas destino legítimo de peça física.
+  Salvar não fala com a Nuvemshop, não publica, não cria vínculo, e
+  funciona com a loja fora do ar ou a sincronização desligada.
+- **Mesmo aro, dois lados**: a variante da loja cujas outras partes são
+  constantes no produto ("Banho de Ouro 18K" em todas as variantes) é o
+  mesmo aro da variação daqui de mesma chave (§ "nº18 = n°18 = Aro 18").
+  Na visão de estoque (`GET /api/produtos/:sku/variacoes?visao=estoque`)
+  ela deixa de ser uma segunda linha e vira só "loja online: N" na linha
+  daqui. Só vale par único dos dois lados, e só se a variante da loja não
+  tem saldo nem peça em maleta — com saldo, as duas continuam visíveis e
+  ninguém escolhe por ela (regra 2). Anel em Dourado e Prata não tem par.
+- **Nenhum vínculo inventado**: a variação daqui continua com o id dela;
+  ligar à variante da loja (e com isso passar a mandar estoque para lá) é
+  outro ato, explícito. Na mistura loja + daqui, as linhas da loja não são
+  copiadas para `produto_variacoes` (recombinaria a estrutura).
+- **Separação na tela**: "loja online: N" e "ainda não está na loja
+  online" são informação; o número que manda é o do sistema.
+- **Mensagem humana**: id da Nuvemshop, id interno, UUID e texto de servidor
+  não aparecem; no lugar, o que fazer ("Feche e abra as variações de novo —
+  nada foi salvo"). O painel clássico mantém as mensagens e a resposta de
+  sempre.
+- Auditoria de PROD em 06/10/2026: 24 códigos tinham variação criada aqui
+  ao lado de variante da loja, e salvar era recusado em todos — 17 com a
+  loja de variante única (todos com par único, inclusive a ordem "n°17 ·
+  Banho"), 7 com a loja de 2+ variantes já vinculadas e um aro novo criado
+  aqui. Nenhum id da loja obsoleto, nenhum saldo preso em variante
+  inexistente, nenhum nome duplicado dentro do cadastro daqui. Nada
+  precisou ser reescrito no banco.

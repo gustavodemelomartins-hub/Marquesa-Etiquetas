@@ -5,7 +5,8 @@ import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { acharVariacao } from '../../domain/variacao';
 import {
-  adicionarVariacao, buscarEstrutura, distribuir, impedimentosDaDistribuicao, somaDistribuida,
+  adicionarVariacao, buscarEstrutura, distribuir, impedimentosDaDistribuicao, legendaDaLoja,
+  mensagemParaPessoa, somaDistribuida,
 } from './variacoes';
 import type { Connection } from '../../services/client';
 
@@ -68,7 +69,11 @@ export function PainelDeVariacoes({ conexao, sku, aoFechar, aoMudarEstoque }: Pr
       parcial: true,
     }).catch((x: unknown) => ({ erro: x instanceof Error ? x.message : 'Não consegui salvar.' }));
     setEnviando(false);
-    if (r && 'erro' in r && r.erro) { setErro(String(r.erro)); return; }
+    if (r && 'erro' in r && r.erro) {
+      setErro(mensagemParaPessoa(String(r.erro),
+        'Não consegui salvar as variações. Feche e abra de novo — nada foi alterado.'));
+      return;
+    }
     setRascunho(null);
     setAviso('Variações salvas. O total da peça não mudou.');
     estrutura.recarregar();
@@ -87,7 +92,10 @@ export function PainelDeVariacoes({ conexao, sku, aoFechar, aoMudarEstoque }: Pr
         return { erro: corpo?.existente ? `Essa variação já existe: ${corpo.existente}.` : (x instanceof Error ? x.message : 'Não consegui criar.') };
       });
     setCriando(false);
-    if (r && 'erro' in r && r.erro) { setErro(String(r.erro)); return; }
+    if (r && 'erro' in r && r.erro) {
+      setErro(mensagemParaPessoa(String(r.erro), 'Não consegui criar a variação. Tente de novo.'));
+      return;
+    }
     setNova('');
     setAviso(`Variação ${('valor' in r && r.valor) || v} criada. Ela já aparece em vendas, maletas e no inventário.`);
     setRascunho(null);
@@ -141,15 +149,12 @@ export function PainelDeVariacoes({ conexao, sku, aoFechar, aoMudarEstoque }: Pr
                   <ul className="var-dist__lista">
                     {e.variacoes.map((v) => {
                       const vid = v.varianteId;
+                      const fora = (v.comRevendedoras ?? 0) > 0 ? `${v.comRevendedoras} com revendedora` : '';
                       return (
                         <li key={vid ?? v.nome}>
                           <span className="var-dist__nome">
                             <b>{v.nome}</b>
-                            <small>
-                              {(v.comRevendedoras ?? 0) > 0 ? `${v.comRevendedoras} com revendedora` : ''}
-                              {(v.comRevendedoras ?? 0) > 0 && v.estoqueLoja != null ? ' · ' : ''}
-                              {v.estoqueLoja != null ? `loja online: ${v.estoqueLoja}` : ''}
-                            </small>
+                            <small>{[fora, legendaDaLoja(v)].filter(Boolean).join(' · ')}</small>
                           </span>
                           {vid ? (
                             <input

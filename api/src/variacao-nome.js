@@ -62,3 +62,62 @@ export function formatarValorNovo(entrada, irmas = []) {
      ela escreveu. */
   return /^\d+$/.test(digitado) ? `nº${chave}` : digitado;
 }
+
+/** A variante da LOJA e a variação criada AQUI que são o mesmo aro.
+ *
+ *  O caso real (06/10/2026, código 391471): a Nuvemshop vende o anel com
+ *  uma variante só, "Banho de Ouro 18K · n°18". A importação da loja não
+ *  grava estrutura de produto com variante única, então no inventário a
+ *  Sthefany criou "nº18" e "nº24" aqui. A tela passou a mostrar "Banho de
+ *  Ouro 18K · n°18" e "nº18" como duas variações — e a mesma peça física
+ *  podia ser contada nas duas.
+ *
+ *  "Banho de Ouro 18K" é atributo da PEÇA, não dimensão da variação: o valor
+ *  é o mesmo em todas as variantes que a loja tem do código. Por isso uma
+ *  parte da variante da loja só serve de chave quando todas as OUTRAS partes
+ *  são constantes no produto. Num anel vendido em Dourado e Prata, "n°18"
+ *  sozinho não identifica nada, e não há equivalência.
+ *
+ *  Só vale o par único dos dois lados: uma variante da loja que bate com
+ *  duas daqui (ou o contrário) é dúvida, e dúvida não se resolve por
+ *  semelhança de nome. Esta função só COMPARA — não grava vínculo, não
+ *  publica nada. Quem chama ainda exige que a variante da loja não tenha
+ *  saldo aqui; com saldo, as duas continuam visíveis.
+ *
+ *  `loja`: [{ variante_id, nome, valores_json | valores }] — o produto todo.
+ *  `locais`: [{ variante_id, nome }] — as daqui sem variante da loja.
+ *  Devolve Map(id da variante da loja → id da variação daqui). */
+export function equivalenciasLojaLocal(loja = [], locais = []) {
+  const partesDe = (v) => {
+    let valores = v.valores;
+    if (!Array.isArray(valores)) {
+      try { valores = JSON.parse(v.valores_json || '[]'); } catch { valores = []; }
+    }
+    if (Array.isArray(valores) && valores.length) {
+      return valores.map((x) => ({ atributo: String(x.atributo ?? ''), chave: chaveDaParte(x.valor) }));
+    }
+    return String(v.nome ?? '').split('·').map((p, i) => ({ atributo: `#${i}`, chave: chaveDaParte(p) }));
+  };
+  const todas = loja.map(partesDe);
+  const constante = (atributo, chave) =>
+    todas.every((ps) => ps.some((p) => p.atributo === atributo && p.chave === chave));
+
+  const chavesDe = loja.map((v, i) => {
+    const ps = todas[i].filter((p) => p.chave);
+    const ks = new Set([chaveDaVariacao(v.nome)]);
+    for (const p of ps) {
+      if (ps.every((o) => o === p || constante(o.atributo, o.chave))) ks.add(p.chave);
+    }
+    ks.delete('');
+    return ks;
+  });
+
+  const pares = [];
+  loja.forEach((v, i) => {
+    for (const l of locais) {
+      if (chavesDe[i].has(chaveDaVariacao(l.nome))) pares.push([String(v.variante_id), String(l.variante_id)]);
+    }
+  });
+  const conta = (lado, id) => pares.filter((p) => p[lado] === id).length;
+  return new Map(pares.filter(([a, b]) => conta(0, a) === 1 && conta(1, b) === 1));
+}
