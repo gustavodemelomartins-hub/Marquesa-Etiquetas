@@ -106,7 +106,9 @@ CREATE TABLE IF NOT EXISTS venda_personalizacao_itens ( id INTEGER PRIMARY KEY A
 
 INSERT OR IGNORE INTO produtos (sku, desc, cat, preco, qtd, status) VALUES ('MONTE-COLAR', 'Monte seu Colar — composição livre', 'Colar', NULL, 0, 'inativo');
 
-CREATE TABLE IF NOT EXISTS inventarios ( id INTEGER PRIMARY KEY AUTOINCREMENT, status TEXT NOT NULL DEFAULT 'aberto', iniciado_em TEXT NOT NULL DEFAULT (datetime('now')), concluido_em TEXT, desconhecidos_json TEXT, obs TEXT, pausado_em TEXT, contagem_completa INTEGER NOT NULL DEFAULT 0 CHECK (contagem_completa IN (0, 1)) );
+CREATE TABLE IF NOT EXISTS inventarios ( id INTEGER PRIMARY KEY AUTOINCREMENT, status TEXT NOT NULL DEFAULT 'aberto', iniciado_em TEXT NOT NULL DEFAULT (datetime('now')), concluido_em TEXT, desconhecidos_json TEXT, obs TEXT, pausado_em TEXT, contagem_completa INTEGER NOT NULL DEFAULT 0 CHECK (contagem_completa IN (0, 1)), numero INTEGER );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_inventarios_numero ON inventarios(numero);
 
 CREATE TABLE IF NOT EXISTS inventario_itens ( inventario_id INTEGER NOT NULL REFERENCES inventarios(id), sku TEXT NOT NULL REFERENCES produtos(sku), contado INTEGER NOT NULL DEFAULT 0, esperado INTEGER, ajustado INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (inventario_id, sku) );
 
@@ -114,7 +116,7 @@ CREATE TABLE IF NOT EXISTS inventario_contagem ( inventario_id INTEGER NOT NULL 
 
 CREATE TABLE IF NOT EXISTS inventario_nao_identificado ( inventario_id INTEGER NOT NULL REFERENCES inventarios(id), sku TEXT NOT NULL REFERENCES produtos(sku), qtd INTEGER NOT NULL CHECK (qtd > 0), contado_em TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (inventario_id, sku) );
 
-CREATE TABLE IF NOT EXISTS inventario_resultado ( inventario_id INTEGER NOT NULL REFERENCES inventarios(id), sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT NOT NULL DEFAULT '', variante_id TEXT, contado INTEGER, esperado INTEGER NOT NULL, delta_pos INTEGER NOT NULL DEFAULT 0, dif INTEGER, situacao TEXT NOT NULL, motivo TEXT, aplicado_em TEXT, saida_id INTEGER REFERENCES saidas_sem_faturamento(id), PRIMARY KEY (inventario_id, sku, variacao) );
+CREATE TABLE IF NOT EXISTS inventario_resultado ( inventario_id INTEGER NOT NULL REFERENCES inventarios(id), sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT NOT NULL DEFAULT '', variante_id TEXT, contado INTEGER, esperado INTEGER NOT NULL, delta_pos INTEGER NOT NULL DEFAULT 0, dif INTEGER, situacao TEXT NOT NULL, motivo TEXT, aplicado_em TEXT, saida_id INTEGER REFERENCES saidas_sem_faturamento(id), partes_json TEXT, PRIMARY KEY (inventario_id, sku, variacao) );
 
 CREATE INDEX IF NOT EXISTS idx_inv_contagem ON inventario_contagem(inventario_id);
 
@@ -126,7 +128,11 @@ CREATE INDEX IF NOT EXISTS idx_inv_eventos ON inventario_eventos(inventario_id);
 
 CREATE TABLE IF NOT EXISTS inventario_ajustes ( inventario_id INTEGER NOT NULL REFERENCES inventarios(id), sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT NOT NULL DEFAULT '', qtd INTEGER NOT NULL CHECK (qtd <> 0), motivo TEXT NOT NULL, observacao TEXT, criado_em TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (inventario_id, sku, variacao) );
 
-CREATE TABLE IF NOT EXISTS inventarios_excluidos ( inventario_id INTEGER PRIMARY KEY, status TEXT NOT NULL, iniciado_em TEXT, concluido_em TEXT, leituras INTEGER NOT NULL DEFAULT 0, pecas INTEGER NOT NULL DEFAULT 0, eventos_json TEXT NOT NULL DEFAULT '[]', motivo TEXT, excluido_em TEXT NOT NULL DEFAULT (datetime('now')) );
+CREATE TABLE IF NOT EXISTS inventarios_excluidos ( inventario_id INTEGER PRIMARY KEY, status TEXT NOT NULL, iniciado_em TEXT, concluido_em TEXT, leituras INTEGER NOT NULL DEFAULT 0, pecas INTEGER NOT NULL DEFAULT 0, eventos_json TEXT NOT NULL DEFAULT '[]', motivo TEXT, excluido_em TEXT NOT NULL DEFAULT (datetime('now')), numero INTEGER );
+
+CREATE TABLE IF NOT EXISTS inventario_leituras ( id INTEGER PRIMARY KEY AUTOINCREMENT, inventario_id INTEGER NOT NULL REFERENCES inventarios(id), leitura_id TEXT NOT NULL, sku TEXT NOT NULL REFERENCES produtos(sku), variacao TEXT NOT NULL DEFAULT '', delta INTEGER NOT NULL, gesto TEXT, em TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE (inventario_id, leitura_id, sku, variacao) );
+
+CREATE INDEX IF NOT EXISTS idx_inv_leituras ON inventario_leituras(inventario_id, sku);
 
 CREATE TABLE IF NOT EXISTS reconciliacao_sessoes ( id INTEGER PRIMARY KEY AUTOINCREMENT, origem TEXT NOT NULL CHECK (origem IN ('nuvemshop', 'planilha_estoque_total', 'planilha_produtos_novos')), status TEXT NOT NULL DEFAULT 'revisao' CHECK (status IN ( 'revisao', 'aplicando', 'aplicada', 'aplicada_parcial', 'cancelada', 'superada', 'erro' )), criada_em TEXT NOT NULL DEFAULT (datetime('now')), decidida_em TEXT, aplicada_em TEXT, resumo_json TEXT, relato_json TEXT, erro TEXT );
 
