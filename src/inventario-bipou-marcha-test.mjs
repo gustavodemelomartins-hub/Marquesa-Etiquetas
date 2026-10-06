@@ -237,8 +237,11 @@ assert.ok(achaEm(rel.naoConferido, '100003'), 'o código não bipado sumiu');
 assert.ok(!achaEm(rel.faltando, '100003'), 'não conferido virou falta');
 prova('D — código não bipado fica "não conferido" e não vira perda');
 
+/* §57 (06/10/2026): a falta do anel é do CÓDIGO (contou 2 de 3 em casa); a
+   parte dela é o Aro 18, porque foi ali que ela contou zero. */
 assert.deepEqual(rel.faltando.map((l) => [l.sku, l.variacao, l.dif]).sort(),
-  [['100002', null, -2], ['200001', 'Aro 18', -1]]);
+  [['100002', null, -2], ['200001', null, -1]]);
+assert.deepEqual(achaEm(rel.faltando, '200001').partes, [{ variacao: 'Aro 18', varianteId: 'v18', qtd: -1 }]);
 assert.ok(achaEm(rel.conferidosItens, '100001'));
 assert.ok(achaEm(rel.conferidosItens, '300001'), 'o anel conferido pelo código inteiro não foi dado por conferido');
 assert.equal(retratoDoEstoque(), ESTOQUE, 'concluir mexeu no estoque');
@@ -249,13 +252,22 @@ assert.equal(q1("SELECT qtd FROM produtos WHERE sku = '100001'").qtd, 7);
 assert.equal(razaoAberta(), 0);
 prova('I — concluir não mexe no estoque; só a diferença confirmada (−2) vira ajuste, pela razão');
 
-/* Anel sem identidade, com falta no código inteiro: registrada, nunca movimento. */
+/* Anel cuja razão NÃO separa por aro (os do go-live), com falta no código
+   inteiro. §57: a diferença é do código e entra no código inteiro — sem
+   variação nenhuma, o mesmo critério do Ajustar estoque (§54). Nenhum aro é
+   inventado. */
 const inv2 = (await api('POST', '/api/inventarios', {})).corpo.id;
 assert.equal((await api('POST', `/api/inventarios/${inv2}/itens`, { sku: '300001', codigoInteiro: true, faltando: 1 })).status, 200);
 const rel2 = (await api('POST', `/api/inventarios/${inv2}/concluir`, {})).corpo;
-assert.ok(achaEm(rel2.naoComparavel, '300001'), 'a falta sem aro virou diferença aplicável');
-assert.equal((await api('POST', `/api/inventarios/${inv2}/aplicar`, { itens: [{ sku: '300001', motivo: 'Não encontrada na casa' }] })).status, 409);
-prova('falta no código inteiro de um anel sem identidade de aro: registrada, não comparável, sem movimento');
+const anelSem = achaEm(rel2.faltando, '300001');
+assert.ok(anelSem, 'a falta do código sumiu');
+assert.equal(anelSem.modo, 'codigo');
+const aplAnel = await api('POST', `/api/inventarios/${inv2}/aplicar`, { itens: [{ sku: '300001', motivo: 'Contagem física' }] });
+assert.equal(aplAnel.status, 200, JSON.stringify(aplAnel.corpo));
+const movAnel = q1("SELECT variacao, variante_id, qtd FROM movimentos WHERE sku = '300001' AND origem = 'inventario'");
+assert.deepEqual([movAnel.variacao, movAnel.variante_id, movAnel.qtd], [null, null, -1], 'o ajuste ganhou um aro inventado');
+assert.equal(razaoAberta(), 0);
+prova('falta no código de um anel cuja razão não separa por aro: ajuste no código inteiro, sem aro inventado');
 
 /* H — descartar. */
 const antesH = retratoDoEstoque();

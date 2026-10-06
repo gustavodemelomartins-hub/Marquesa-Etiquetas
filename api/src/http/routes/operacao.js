@@ -16,7 +16,7 @@ import {
   concluirInventario, ajustarInventario, cancelarInventario, excluirInventario,
   contarItem, descontarItem, registrarNaoIdentificado,
   pausarInventario, retomarInventario, resultadoInventario, aplicarInventario,
-  criarVariacaoNaContagem,
+  criarVariacaoNaContagem, registrarLeitura, balancoInventario, guardarVariacoesContadas,
 } from '../../inventario.js';
 
 export const rotas = [
@@ -137,6 +137,31 @@ export const rotas = [
     metodo: 'POST', caminho: '/api/inventarios/:id/variacoes', auth: 'bearer', padroes: { id: '[0-9]+' },
     async handler({ db, request, params }) {
       return await criarVariacaoNaContagem(db, +params.id, await request.json().catch(() => ({})));
+    },
+  },
+  {
+    /* 06/10/2026 — UMA leitura: bipe (+1), mais, menos, definir, "todas
+       aqui", "nenhuma", mover a peça para a variação dita, limpar. Com o id
+       que a tela gerou: a mesma leitura reenviada não soma duas vezes. */
+    metodo: 'POST', caminho: '/api/inventarios/:id/leituras', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      return await registrarLeitura(db, +params.id, await request.json().catch(() => ({})));
+    },
+  },
+  {
+    /* O balanço AO VIVO, antes de finalizar: a mesma comparação do
+       fechamento, sem congelar e sem escrever. */
+    metodo: 'GET', caminho: '/api/inventarios/:id/balanco', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, params }) {
+      return await balancoInventario(db, +params.id);
+    },
+  },
+  {
+    /* Guardar no cadastro as variações que ela contou (repartição: o total
+       não muda; o que não foi dito fica "não informada"). */
+    metodo: 'POST', caminho: '/api/inventarios/:id/variacoes/guardar', auth: 'bearer', padroes: { id: '[0-9]+' },
+    async handler({ db, request, params }) {
+      return await guardarVariacoesContadas(db, +params.id, await request.json().catch(() => ({})));
     },
   },
   {

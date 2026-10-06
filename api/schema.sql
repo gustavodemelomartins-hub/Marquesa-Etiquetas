@@ -900,8 +900,13 @@ CREATE TABLE IF NOT EXISTS inventarios (
   -- A coluna existe para o retrato saber DIZER de onde veio um `contado = 0`:
   -- bipado ("conferi, não tem nenhuma") e declarado ("não achei") são dois
   -- gestos diferentes com o mesmo número.
-  contagem_completa  INTEGER NOT NULL DEFAULT 0 CHECK (contagem_completa IN (0, 1))
+  contagem_completa  INTEGER NOT NULL DEFAULT 0 CHECK (contagem_completa IN (0, 1)),
+  -- O NÚMERO que a tela mostra ("Inventário #1"). O id é técnico e nunca
+  -- volta; o número começa em 1 e segue a ordem de abertura (06/10/2026).
+  -- Ver api/migracao-inventario-v2.sql.
+  numero             INTEGER
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_inventarios_numero ON inventarios(numero);
 
 -- `esperado` é congelado no fechamento, do mesmo jeito que maleta_itens
 -- congela o preço do envio (§6.1). Sem isso, abrir um inventário de três
@@ -979,6 +984,11 @@ CREATE TABLE IF NOT EXISTS inventario_resultado (
   motivo        TEXT,                          -- por extenso quando nao_comparavel
   aplicado_em   TEXT,
   saida_id      INTEGER REFERENCES saidas_sem_faturamento(id),
+  -- Código com variação (06/10/2026): em qual variação cada peça da
+  -- diferença entra na razão, congelado no fechamento quando ela contou por
+  -- variação. JSON [{variacao, varianteId, qtd}]; NULL = a diferença vale
+  -- para o código inteiro ou espera ela dizer de qual variação é.
+  partes_json   TEXT,
   PRIMARY KEY (inventario_id, sku, variacao)
 );
 
@@ -1023,8 +1033,26 @@ CREATE TABLE IF NOT EXISTS inventarios_excluidos (
   pecas         INTEGER NOT NULL DEFAULT 0,
   eventos_json  TEXT    NOT NULL DEFAULT '[]',
   motivo        TEXT,
-  excluido_em   TEXT    NOT NULL DEFAULT (datetime('now'))
+  excluido_em   TEXT    NOT NULL DEFAULT (datetime('now')),
+  numero        INTEGER                              -- o número que ele tinha na tela
 );
+
+-- Cada leitura da contagem (bipe, +1, −1, "todas aqui", trocar a variação),
+-- com o id que a tela gerou: a chave única impede contar duas vezes a mesma
+-- leitura quando a rede falha e a tela tenta de novo. Ver
+-- api/migracao-inventario-v2.sql.
+CREATE TABLE IF NOT EXISTS inventario_leituras (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  inventario_id INTEGER NOT NULL REFERENCES inventarios(id),
+  leitura_id    TEXT    NOT NULL,
+  sku           TEXT    NOT NULL REFERENCES produtos(sku),
+  variacao      TEXT    NOT NULL DEFAULT '',
+  delta         INTEGER NOT NULL,
+  gesto         TEXT,
+  em            TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (inventario_id, leitura_id, sku, variacao)
+);
+CREATE INDEX IF NOT EXISTS idx_inv_leituras ON inventario_leituras(inventario_id, sku);
 
 -- ------------------------------------------------------- reconciliação
 -- Prévia, revisão humana e aplicação do aprovado — ver

@@ -298,18 +298,19 @@ prova('H — peça na maleta de uma revendedora não vira falsa falta da casa, n
 
 /* ═══════════ I — a declaração não inventa de qual variação é a falta */
 
-/* `500007` tem duas variações cadastradas e 2 peças na razão sem identidade.
-   Ninguém o bipou. Declarar que a contagem terminou NÃO diz de qual aro a
-   falta é — e movimento sem variação num código que tem variação cadastrada
-   é exatamente o defeito D4. A linha continua não conferida, COM o motivo. */
+/* `500007` tem Aro 16: 3 e 2 peças na razão sem variação. Ninguém o bipou
+   e ela DECLAROU que olhou tudo. §57 (06/10/2026): a falta não precisa
+   adivinhar aro nenhum — "não há nenhuma em casa" diz quanto sai de CADA
+   balde: as 3 do Aro 16 e as 2 sem variação. Nada é deduzido. */
 {
-  const cego = acha(rel.naoConferido, '500007');
+  const cego = acha(rel.faltando, '500007');
   assert.ok(cego, '500007 sumiu do relatório');
-  assert.equal(acha(rel.faltando, '500007'), undefined,
-    'a declaração fabricou uma falta sem saber de qual variação ela é');
-  assert.match(String(cego.motivo), /identidade de variação/i,
-    'a recusa não foi anunciada — o código sumiu da lista sem explicação');
-  prova('I — código com peça sem identidade de variação continua não conferido, e diz por quê');
+  assert.equal(cego.dif, -5);
+  assert.equal(cego.modo, 'porVariacao');
+  assert.deepEqual(cego.partes,
+    [{ variacao: 'Aro 16', varianteId: '6001', qtd: -3 }, { variacao: null, varianteId: null, qtd: -2 }],
+    'a falta declarada foi repartida por chute');
+  prova('I — falta declarada num código com variação sai de cada balde o que se esperava dele, sem chute');
 }
 
 /* ═══════════════ F — divergência sem motivo não se concilia em silêncio */
@@ -320,15 +321,13 @@ assert.ok((await corpo(semMotivo)).motivos.length, 'a recusa não ofereceu os mo
 assert.deepEqual(saldos(), antesDeclarar, 'a recusa mexeu no saldo');
 prova('F — diferença sem motivo é recusada, com a lista de motivos dentro da recusa');
 
-/* E não conferido CONTINUA sendo recusado, mesmo com motivo: a declaração
-   não transformou `500007` em nada, e a trava de D3 segue valendo para ele. */
+/* E não conferido CONTINUA sendo recusado, mesmo com motivo (D3). */
 {
   const bloqueado = await inv.aplicarInventario(db, ID, {
-    itens: [{ sku: '500007', motivo: 'Não encontrada na casa' }],
+    itens: [{ sku: '999999', motivo: 'Não encontrada na casa' }],
   });
-  assert.equal(status(bloqueado), 409);
-  assert.match((await corpo(bloqueado)).erro, /não foi conferido|não é comparável/i);
-  prova('F2 — o que a declaração não alcançou continua recusado na aplicação');
+  assert.equal(status(bloqueado), 400);
+  prova('F2 — o que não faz parte do retrato continua recusado na aplicação');
 }
 
 /* ═══════════════════════ G — a conciliação é derivada, e conta certo */

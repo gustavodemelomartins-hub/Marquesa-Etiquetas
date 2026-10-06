@@ -512,8 +512,26 @@ export async function variantesDoSku(db, sku) {
  *  nenhum saldo foi digitado, todo número tem um movimento que o explica.
  *
  *  Sem a flag, o comportamento é o de antes — 409 com os dois números.
+ *
+ *  ------------------------------------------------------------------
+ *  `parcial: true` — a distribuição CONHECIDA (06/10/2026, V2)
+ *
+ *  A Sthefany não sabe o aro de todas as peças: uma está com a revendedora
+ *  e ninguém anotou qual. Exigir soma == total a obrigava a inventar o aro
+ *  dela para conseguir salvar. Com `parcial`, a soma pode ficar ABAIXO do
+ *  total: o que não foi distribuído continua em "variação não informada"
+ *  (o balde sem variação), que é a verdade. Acima do total continua
+ *  recusado — isso é ajuste de estoque, não distribuição.
+ *
+ *  E duas travas que a distribuição parcial cobra, porque é a tela dela:
+ *   · uma variação não pode ficar com menos do que a maleta já tem dela
+ *     (a peça identificada na maleta existe);
+ *   · o que está com revendedoras SEM variação identificada fica em "não
+ *     informada" — distribuir tudo seria atribuir um aro a essa peça.
  */
-export async function distribuirVariantes(db, sku, { distribuicao, obs, ajustarTotal = false, motivo } = {}) {
+export async function distribuirVariantes(db, sku, {
+  distribuicao, obs, ajustarTotal = false, motivo, parcial = false,
+} = {}) {
   const k = normSku(sku);
   const p = await db.prepare(
     `SELECT sku, desc, qtd FROM produtos WHERE sku = ?`).bind(k).first();
@@ -538,15 +556,18 @@ export async function distribuirVariantes(db, sku, { distribuicao, obs, ajustarT
        FROM loja_variantes WHERE sku_norm = ? ORDER BY posicao`).bind(k).all()).results;
   let fonte = 'loja';
 
+  /* Uma variação só já é distribuível no modo parcial: o anel de aro único
+     cadastrado tem "nº18 → 1" e o resto "não informada". */
+  const minimo = parcial ? 1 : 2;
   if (naLoja.length < 2) {
     const locais = (await db.prepare(
       `SELECT variante_id, nome, NULL AS estoque, valores_json
          FROM produto_variacoes WHERE sku = ? AND variante_id IS NOT NULL
          ORDER BY ordem, nome`).bind(k).all()).results;
-    if (locais.length >= 2) { naLoja = locais; fonte = 'local'; }
+    if (locais.length >= minimo) { naLoja = locais; fonte = 'local'; }
   }
 
-  if (naLoja.length < 2) {
+  if (naLoja.length < minimo) {
     return {
       erro: `${sku} não tem variações para distribuir. ` +
             `Se ele existe na Nuvemshop, importe a estrutura antes; se é peça só daqui, ` +
@@ -579,7 +600,37 @@ export async function distribuirVariantes(db, sku, { distribuicao, obs, ajustarT
   for (const v of naLoja) if (!alvo.has(String(v.variante_id))) alvo.set(String(v.variante_id), 0);
 
   const soma = [...alvo.values()].reduce((s, n) => s + n, 0);
-  const deltaTotal = soma - p.qtd;
+  if (parcial) {
+    if (soma > p.qtd) {
+      return {
+        status: 409,
+        erro: `As variações somam ${soma}, e o código tem ${p.qtd} no total. `
+          + 'Para mudar o total, use Ajustar estoque.',
+        soma, total: p.qtd,
+      };
+    }
+    const travas = await travasDaConsignacao(db, k, naLoja, alvo);
+    const naoInformadaDepois = p.qtd - soma;
+    const t = travas.porVariacao[0];
+    if (t) {
+      return {
+        status: 409,
+        erro: `${t.nome} tem ${t.naMaleta} com revendedora${t.naMaleta === 1 ? '' : 's'} — `
+          + `não dá para deixar ${t.alvo}.`,
+        soma, total: p.qtd,
+      };
+    }
+    if (naoInformadaDepois < travas.semVariacao) {
+      return {
+        status: 409,
+        erro: `${travas.semVariacao} ${travas.semVariacao === 1 ? 'peça está' : 'peças estão'} com revendedora `
+          + 'sem variação informada. Deixe pelo menos '
+          + `${travas.semVariacao} em "variação não informada" até ela ser identificada.`,
+        soma, total: p.qtd, consignadoSemVariacao: travas.semVariacao,
+      };
+    }
+  }
+  const deltaTotal = parcial ? 0 : soma - p.qtd;
   if (deltaTotal !== 0 && !ajustarTotal) {
     return {
       status: 409,
@@ -719,6 +770,35 @@ export async function distribuirVariantes(db, sku, { distribuicao, obs, ajustarT
     orfaosDevolvidos: orfaos.map(b => ({ nome: b.variacao, saldo: b.saldo })),
     jaEstava: feito.length === 0 && orfaos.length === 0 && !totalAjustado,
   };
+}
+
+/** O que as maletas abertas já dizem sobre as variações de um código, contra
+ *  uma distribuição pedida: as variações que ficariam abaixo do que a maleta
+ *  tem delas, e quantas peças da maleta não têm variação identificada. */
+async function travasDaConsignacao(db, sku, variantes, alvo) {
+  const consignado = Number((await db.prepare(
+    `SELECT COALESCE(SUM(mi.qtd - mi.devolvida), 0) AS n FROM maleta_itens mi
+       JOIN maletas m ON m.id = mi.maleta_id
+      WHERE mi.sku = ? AND m.status IN ('aberta', 'em_acerto')`).bind(sku).first())?.n ?? 0);
+  let naMaleta = [];
+  try {
+    naMaleta = (await db.prepare(
+      `SELECT mv.variacao, mv.variante_id, SUM(mv.qtd) AS qtd FROM maleta_item_variacoes mv
+         JOIN maletas m ON m.id = mv.maleta_id
+        WHERE mv.sku = ? AND m.status IN ('aberta', 'em_acerto')
+        GROUP BY mv.variacao, mv.variante_id`).bind(sku).all()).results ?? [];
+  } catch { /* banco sem a tabela: nada identificado */ }
+  const porVariacao = [];
+  let identificado = 0;
+  for (const v of variantes) {
+    const vid = String(v.variante_id);
+    const n = naMaleta
+      .filter((c) => (c.variante_id != null ? String(c.variante_id) === vid : c.variacao === v.nome))
+      .reduce((s, c) => s + Number(c.qtd || 0), 0);
+    identificado += n;
+    if (n > (alvo.get(vid) || 0)) porVariacao.push({ nome: v.nome, naMaleta: n, alvo: alvo.get(vid) || 0 });
+  }
+  return { porVariacao, semVariacao: Math.max(0, consignado - identificado) };
 }
 
 /* ==================================================================== */

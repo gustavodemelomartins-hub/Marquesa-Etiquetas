@@ -43,7 +43,9 @@ import { json } from './auth.js';
 import { registrarSaida } from './saidas.js';
 import { movimentar } from './estoque.js';
 import { normSku } from './sku.js';
-import { definirVariacoes } from './produtos.js';
+import { adicionarVariacao } from './produtos.js';
+import { distribuirVariantes } from './variantes.js';
+import { chaveDaVariacao } from './variacao-nome.js';
 import { diaOperacional, hojeOperacional } from './fuso.js';
 
 /** O que se espera encontrar em casa: total menos o que está com as
@@ -158,6 +160,10 @@ export const MOTIVOS_DE_DIFERENCA = [
      faturamento (`tipo='perda'`), e só existe porque ela ESCOLHEU dizer que
      a peça se perdeu. Inventário reconcilia o sistema com o físico — a
      diferença não é, por si, uma perda. */
+  /* 06/10/2026 — o motivo de quem simplesmente contou: o número certo é o
+     que está na mão dela. É o padrão do balanço final. */
+  { id: 'contagem_fisica', rotulo: 'Contagem física', sentido: 'ambos', classe: 'ajuste',
+    explica: 'contei e o número certo é este' },
   { id: 'erro_de_contagem', rotulo: 'Erro do sistema / contagem anterior', sentido: 'ambos', classe: 'ajuste',
     explica: 'o número do sistema é que estava errado' },
   { id: 'entrada_duplicada', rotulo: 'Entrada duplicada ou cadastro errado', sentido: 'ambos', classe: 'ajuste',
@@ -199,10 +205,20 @@ export async function abrirInventario(db) {
   if (aberto) {
     return json({ erro: 'Já existe um inventário em andamento.', id: aberto.id }, 409);
   }
+  /* O NÚMERO da tela (06/10/2026) — o próximo depois do maior que existe.
+     O id continua técnico e nunca volta; o número de um inventário excluído
+     (que por regra não mexeu em estoque) pode ser reaproveitado, e é isso
+     que faz o primeiro inventário real ser o #1. */
   const r = await db.prepare(
-    `INSERT INTO inventarios (status) VALUES ('aberto') RETURNING id, iniciado_em`).first();
-  return json({ id: r.id, iniciadoEm: r.iniciado_em, status: 'aberto' }, 201);
+    `INSERT INTO inventarios (status, numero)
+     VALUES ('aberto', (SELECT COALESCE(MAX(numero), 0) + 1 FROM inventarios))
+     RETURNING id, numero, iniciado_em`).first();
+  return json({ id: r.id, numero: r.numero, iniciadoEm: r.iniciado_em, status: 'aberto' }, 201);
 }
+
+/** O número que a Sthefany vê. Inventário anterior à numeração (banco sem a
+ *  coluna preenchida) cai no id — nunca aparece vazio. */
+export const numeroDe = (inv) => (inv?.numero ?? inv?.id ?? null);
 
 /** D1 — pausar e retomar não tocam a contagem, porque não precisam: cada
  *  bipe já está gravado. Pausar é só o registro de que ela parou, para a
@@ -256,9 +272,18 @@ async function efeitosNoEstoque(db, id) {
   if (ajustes) efeitos.push(`${ajustes} ajuste(s) de inventário`);
   const antigos = await conta(`SELECT COUNT(*) n FROM inventario_itens WHERE inventario_id = ? AND ajustado = 1`);
   if (antigos) efeitos.push(`${antigos} ajuste(s) do inventário antigo`);
-  const movs = await conta(
-    `SELECT COUNT(*) n FROM movimentos WHERE origem = 'inventario'
-        AND (obs LIKE '%nventário #' || ?1 || ' %' OR obs LIKE '%nventário #' || ?1)`);
+  /* O movimento cita o inventário pelo NÚMERO da tela desde 06/10/2026, e
+     pelo id antes disso — os dois são procurados. */
+  const inv = await db.prepare(`SELECT numero FROM inventarios WHERE id = ?`).bind(id).first();
+  const citacoes = [...new Set([id, inv?.numero].filter((n) => n != null))];
+  let movs = 0;
+  for (const n of citacoes) {
+    try {
+      movs += Number((await db.prepare(
+        `SELECT COUNT(*) n FROM movimentos WHERE origem = 'inventario'
+            AND (obs LIKE '%nventário #' || ?1 || ' %' OR obs LIKE '%nventário #' || ?1)`).bind(n).first())?.n ?? 0);
+    } catch { /* sem a tabela */ }
+  }
   if (movs) efeitos.push(`${movs} movimento(s) de estoque citando este inventário`);
   return efeitos;
 }
@@ -309,14 +334,15 @@ export async function excluirInventario(db, id, corpo = {}) {
   const existe = async (tabela) => !!(await db.prepare(
     `SELECT 1 x FROM sqlite_master WHERE type = 'table' AND name = ?`).bind(tabela).first());
   const filhas = ['inventario_contagem', 'inventario_eventos', 'inventario_itens',
-    'inventario_nao_identificado', 'inventario_resultado'];
+    'inventario_nao_identificado', 'inventario_resultado', 'inventario_leituras'];
   const stmts = [
     db.prepare(
       `INSERT INTO inventarios_excluidos
-         (inventario_id, status, iniciado_em, concluido_em, leituras, pecas, eventos_json, motivo)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).bind(
+         (inventario_id, status, iniciado_em, concluido_em, leituras, pecas, eventos_json, motivo, numero)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
       id, statusVisivel(inv), inv.iniciado_em ?? null, inv.concluido_em ?? null,
-      Number(leituras?.n ?? 0), Number(leituras?.pecas ?? 0), JSON.stringify(eventos), motivo),
+      Number(leituras?.n ?? 0), Number(leituras?.pecas ?? 0), JSON.stringify(eventos), motivo,
+      inv.numero ?? null),
   ];
   for (const t of filhas) {
     if (await existe(t)) stmts.push(db.prepare(`DELETE FROM ${t} WHERE inventario_id = ?`).bind(id));
@@ -325,7 +351,7 @@ export async function excluirInventario(db, id, corpo = {}) {
   await db.batch(stmts);
 
   return json({
-    ok: true, id, excluido: true,
+    ok: true, id, numero: numeroDe(inv), excluido: true,
     leituras: Number(leituras?.n ?? 0),
     variacoesMantidas: eventos.filter((e) => e.tipo === 'variacao_criada')
       .map((e) => ({ sku: e.sku, variacao: e.variacao })),
@@ -608,84 +634,296 @@ export async function contarItem(db, id, corpo = {}) {
   });
 }
 
+/* ═══════════════════════════════ a LEITURA — uma peça de cada vez (06/10/2026) */
+
+/** O gesto que cada leitura representa. Todos viram linha em
+ *  `inventario_leituras`, com o id que a tela gerou para ele. */
+const GESTOS = new Set(['bipe', 'mais', 'menos', 'definir', 'todas', 'nenhuma', 'mover', 'limpar']);
+
+/** A peça é contável neste inventário? Kit e configuração montável não têm
+ *  saldo próprio — quem se conta são as peças que os compõem. */
+async function pecaContavel(db, sku) {
+  const p = await db.prepare(`SELECT sku, desc FROM produtos WHERE sku = ?`).bind(sku).first();
+  if (!p) return { erro: json({ erro: `Código ${sku} não está no catálogo.`, sku, desconhecido: true }, 409) };
+  const fora = await db.prepare(
+    `SELECT 1 FROM produtos p
+      WHERE p.sku = ?
+        AND (p.sku IN (SELECT kit_sku FROM kit_componentes)
+             OR p.sku IN (SELECT sku_comercial FROM personalizacao_modelos
+                           WHERE sku_comercial IS NOT NULL))`).bind(sku).first();
+  if (fora) {
+    return { erro: json({ erro: `${p.desc} não tem estoque próprio — conte as peças que o compõem.`, sku }, 409) };
+  }
+  return { p };
+}
+
+/** As linhas contadas de UM código neste inventário: '' é a variação não
+ *  informada, o resto é o nome cadastrado da variação. */
+async function linhasDoCodigo(db, id, sku) {
+  const { results } = await db.prepare(
+    `SELECT variacao, contado, contado_em FROM inventario_contagem
+      WHERE inventario_id = ? AND sku = ? ORDER BY variacao`).bind(id, sku).all();
+  return (results ?? []).map((r) => ({ variacao: r.variacao || '', contado: Number(r.contado), contadoEm: r.contado_em }));
+}
+
+/** CONTA UMA PEÇA — o gesto mais repetido do sistema.
+ *
+ *  O modelo mudou em 06/10/2026, pelo uso real: um bipe é UMA UNIDADE
+ *  conferida, e a tela mostra "esperado em casa 6 · conferido 3". O jeito
+ *  antigo ("um bipe confere a referência inteira") fazia um único bipe
+ *  aparecer como "6 em casa", e a Sthefany entendeu que a máquina tinha
+ *  contado várias; e o "+ variação" gravava sempre 1, então duas peças do
+ *  mesmo aro não cabiam. Agora:
+ *
+ *    bipe / mais   +1 na linha (variação, ou "não informada")
+ *    menos         −1
+ *    definir       o número digitado vira a contagem da linha
+ *    todas         "estão todas aqui": a contagem do código vira o esperado
+ *    nenhuma       "procurei e não tem": conferido ZERO (que não é "não
+ *                  conferido" — §19, D2)
+ *    mover         a peça bipada sem variação passa a ter a variação dita
+ *    limpar        volta o código para "não conferido"
+ *
+ *  `leituraId` é obrigatório e é a trava contra contar duas vezes: a tela
+ *  gera um por gesto e o reenvia igual quando a rede falha. A leitura que já
+ *  chegou responde `repetida: true` e não soma nada. A trava contra o bipe
+ *  ACIDENTAL repetido (o leitor que dispara duas vezes) é da tela — o
+ *  servidor não tem como distinguir dois anéis iguais de um rebote.
+ *
+ *  Nada aqui mexe em estoque: é contagem. Variação desconhecida no bipe fica
+ *  em "não informada" — nunca é atribuída a um aro sem ela dizer (regra 2). */
+export async function registrarLeitura(db, id, corpo = {}) {
+  const { inv, erro } = await inventarioEmAndamento(db, id);
+  if (erro) return erro;
+  if (inv.pausado_em) {
+    return json({ erro: 'O inventário está pausado. Toque em Continuar para voltar a conferir.' }, 409);
+  }
+  const sku = normSku(corpo.sku);
+  if (!sku) return json({ erro: 'Informe o código da peça.' }, 400);
+  const leituraId = String(corpo.leituraId ?? '').trim();
+  if (!leituraId || leituraId.length > 80) return json({ erro: 'Leitura sem identificação.' }, 400);
+  const gesto = String(corpo.gesto ?? 'bipe');
+  if (!GESTOS.has(gesto)) return json({ erro: 'Gesto de contagem desconhecido.' }, 400);
+
+  const { p, erro: foraDoInventario } = await pecaContavel(db, sku);
+  if (foraDoInventario) return foraDoInventario;
+
+  const repetida = await db.prepare(
+    `SELECT 1 AS x FROM inventario_leituras WHERE inventario_id = ? AND leitura_id = ? LIMIT 1`)
+    .bind(id, leituraId).first();
+  if (repetida) {
+    return json({ ok: true, repetida: true, sku, desc: p.desc, linhas: await linhasDoCodigo(db, id, sku),
+      cobertura: await cobertura(db, id) });
+  }
+
+  const cadastradas = await variacoesDoSku(db, sku);
+  /* O nome que ela mandou, resolvido para o cadastrado: "nº23" e "n°23"
+     são a mesma variação. `null` = não existe neste código. */
+  const resolver = (nome) => {
+    const t = String(nome ?? '').trim();
+    if (!t) return { nome: '', varianteId: null };
+    const exato = cadastradas.find((v) => v.nome === t);
+    const achada = exato ?? cadastradas.find((v) => chaveDaVariacao(v.nome) === chaveDaVariacao(t));
+    return achada ? { nome: achada.nome, varianteId: achada.varianteId } : null;
+  };
+
+  const linhas = await linhasDoCodigo(db, id, sku);
+  const atual = new Map(linhas.map((l) => [l.variacao, l.contado]));
+  const somaAtual = linhas.reduce((s, l) => s + l.contado, 0);
+
+  /* As partes da leitura: em qual linha, quanto. */
+  let partes = [];
+  const naVariacao = (campo = 'variacao') => {
+    const r = resolver(corpo[campo]);
+    if (!r) {
+      return { erro: json({
+        erro: `"${String(corpo[campo]).trim()}" não é uma variação de ${p.desc}.`, sku,
+        variacoes: cadastradas.map((v) => v.nome),
+      }, 409) };
+    }
+    return { r };
+  };
+
+  if (gesto === 'bipe' || gesto === 'mais' || gesto === 'menos' || gesto === 'definir') {
+    const { r, erro: e } = naVariacao();
+    if (e) return e;
+    let delta = gesto === 'menos' ? -1 : 1;
+    if (gesto === 'definir') {
+      const n = Number(corpo.quantidade);
+      if (!Number.isInteger(n) || n < 0 || n > 9999) {
+        return json({ erro: 'A quantidade tem que ser um número inteiro de 0 a 9999.' }, 400);
+      }
+      delta = n - (atual.get(r.nome) ?? 0);
+    }
+    partes = [{ ...r, delta }];
+  } else if (gesto === 'mover') {
+    const de = naVariacao('de');
+    if (de.erro) return de.erro;
+    const para = naVariacao('para');
+    if (para.erro) return para.erro;
+    if (de.r.nome === para.r.nome) return json({ erro: 'A peça já está nessa variação.' }, 409);
+    const qtd = corpo.quantidade == null ? 1 : Number(corpo.quantidade);
+    if (!Number.isInteger(qtd) || qtd < 1) return json({ erro: 'Quantidade inválida.' }, 400);
+    partes = [{ ...de.r, delta: -qtd }, { ...para.r, delta: qtd }];
+  } else if (gesto === 'todas') {
+    const esperado = await esperadoAgora(db, sku);
+    if (esperado == null || esperado <= 0) {
+      return json({ erro: `O sistema não esperava ${p.desc} em casa. Conte as peças uma a uma.`, sku }, 409);
+    }
+    /* Num código com variação, as variações já contadas ficam como estão e
+       o que falta para chegar ao esperado entra como "não informada". */
+    const contadasComVariacao = somaAtual - (atual.get('') ?? 0);
+    const alvo = Math.max(0, esperado - contadasComVariacao);
+    partes = [{ nome: '', varianteId: null, delta: alvo - (atual.get('') ?? 0) }];
+  } else if (gesto === 'nenhuma') {
+    partes = linhas.filter((l) => l.contado > 0)
+      .map((l) => ({ ...(resolver(l.variacao) ?? { nome: l.variacao, varianteId: null }), delta: -l.contado }));
+    if (!atual.has('')) partes.push({ nome: '', varianteId: null, delta: 0 });
+  } else if (gesto === 'limpar') {
+    if (!linhas.length) {
+      return json({ ok: true, sku, desc: p.desc, linhas: [], cobertura: await cobertura(db, id) });
+    }
+    await db.batch([
+      ...linhas.map((l) => db.prepare(
+        `INSERT INTO inventario_leituras (inventario_id, leitura_id, sku, variacao, delta, gesto)
+         VALUES (?, ?, ?, ?, ?, 'limpar')`).bind(id, leituraId, sku, l.variacao, -l.contado)),
+      db.prepare(`DELETE FROM inventario_contagem WHERE inventario_id = ? AND sku = ?`).bind(id, sku),
+    ]);
+    return json({ ok: true, sku, desc: p.desc, linhas: [], cobertura: await cobertura(db, id) });
+  }
+
+  if (!cadastradas.length && partes.some((pt) => pt.nome)) {
+    return json({ erro: `${p.desc} não tem variação cadastrada.`, sku }, 409);
+  }
+  for (const pt of partes) {
+    if ((atual.get(pt.nome) ?? 0) + pt.delta < 0) {
+      return json({
+        erro: `Não há peça contada em ${pt.nome || 'variação não informada'} para tirar.`, sku,
+      }, 409);
+    }
+  }
+
+  /* Um batch: as leituras PRIMEIRO (a chave única recusa a repetida e
+     desfaz o resto), depois a soma na contagem. `MAX(?, 0)` no VALUES
+     porque o CHECK de `contado` vale antes do ON CONFLICT. */
+  const stmts = [];
+  for (const pt of partes) {
+    stmts.push(db.prepare(
+      `INSERT INTO inventario_leituras (inventario_id, leitura_id, sku, variacao, delta, gesto)
+       VALUES (?, ?, ?, ?, ?, ?)`).bind(id, leituraId, sku, pt.nome, pt.delta, gesto));
+  }
+  for (const pt of partes) {
+    stmts.push(db.prepare(
+      `INSERT INTO inventario_contagem (inventario_id, sku, variacao, variante_id, contado, origem)
+       VALUES (?, ?, ?, ?, MAX(?, 0), 'bipagem')
+       ON CONFLICT (inventario_id, sku, variacao) DO UPDATE
+          SET contado = inventario_contagem.contado + ?,
+              variante_id = excluded.variante_id,
+              origem = 'bipagem',
+              esperado_na_hora = NULL,
+              faltando = NULL,
+              contado_em = datetime('now')`,
+    ).bind(id, sku, pt.nome, pt.varianteId ?? null, pt.delta, pt.delta));
+  }
+  try {
+    await db.batch(stmts);
+  } catch (e) {
+    if (/UNIQUE constraint/i.test(String(e?.message ?? e))) {
+      return json({ ok: true, repetida: true, sku, desc: p.desc, linhas: await linhasDoCodigo(db, id, sku),
+        cobertura: await cobertura(db, id) });
+    }
+    if (/CHECK constraint/i.test(String(e?.message ?? e))) {
+      return json({ erro: 'A contagem não pode ficar negativa.', sku }, 409);
+    }
+    throw e;
+  }
+
+  return json({
+    ok: true, sku, desc: p.desc, gesto,
+    linhas: await linhasDoCodigo(db, id, sku),
+    cobertura: await cobertura(db, id),
+  });
+}
+
 /* ════════════════════════════════════ variação criada sem sair da contagem */
 
-/** "+ Adicionar variação" na própria leitura (02/10/2026).
+/** "+ Criar variação" na própria contagem (02/10/2026; refeito em 06/10).
  *
- *  A Sthefany bipa o anel, vê que o aro dele não existe no cadastro e não
- *  pode sair do inventário para ir até Peças e voltar procurando onde
- *  estava. Esta rota NÃO é um segundo modelo de variação: ela monta a
- *  estrutura atual do código, acrescenta UM valor a UM atributo e chama
- *  `produtos.js › definirVariacoes` — a mesma função da tela de Peças, com
- *  as mesmas travas (vínculo com a Nuvemshop preservado, nenhum estoque
- *  mexido). O evento fica no inventário para o fechamento poder listar o
- *  que foi criado na sessão. */
+ *  A Sthefany pega o anel, vê que o aro 19 não existe no cadastro e não pode
+ *  sair do inventário para ir até Peças. A variação nasce OFICIAL — a mesma
+ *  `produtos.js › adicionarVariacao` de Peças: fica no cadastro, aparece em
+ *  vendas, maletas e nos próximos inventários. Nada de variação temporária.
+ *
+ *  `quantidade` é quantas ela tem na mão desse aro. As peças que ela já
+ *  bipou sem variação ("não informada") passam para a variação nova antes
+ *  de qualquer peça ser somada — senão o bipe e a criação contariam o mesmo
+ *  anel duas vezes.
+ *
+ *  Se a variação já existe ("23" quando há "nº23"), nada é criado: a
+ *  resposta diz qual é (`jaExiste`, `existente`), e a tela oferece contar
+ *  nela. */
 export async function criarVariacaoNaContagem(db, id, corpo = {}) {
-  const { erro } = await inventarioEmAndamento(db, id);
+  const { inv, erro } = await inventarioEmAndamento(db, id);
   if (erro) return erro;
   const sku = normSku(corpo.sku);
   if (!sku) return json({ erro: 'Informe o código da peça.' }, 400);
-  const valor = String(corpo.valor ?? '').trim();
-  if (!valor) return json({ erro: 'Diga o nome da variação (ex.: Aro 18).' }, 400);
-  if (valor.length > 40) return json({ erro: 'Nome de variação longo demais (máximo 40).' }, 400);
-
-  const p = await db.prepare('SELECT sku, desc FROM produtos WHERE sku = ?').bind(sku).first();
-  if (!p) return json({ erro: `Código ${sku} não está no catálogo.`, sku }, 404);
-
-  const { results } = await db.prepare(
-    `SELECT nome, atributo, valores_json FROM produto_variacoes WHERE sku = ? ORDER BY ordem, nome`)
-    .bind(sku).all();
-  const atuais = results ?? [];
-
-  /* A estrutura atual, reconstruída dos valores gravados de cada combinação.
-     Variação antiga sem `valores_json` vira um atributo só, com o nome dela
-     como valor — é exatamente o que ela é. */
-  const atributos = [];
-  for (const v of atuais) {
-    let valores = [];
-    try { valores = JSON.parse(v.valores_json || '[]') || []; } catch { valores = []; }
-    if (!valores.length) valores = [{ atributo: v.atributo || 'Variação', valor: v.nome }];
-    for (const x of valores) {
-      let a = atributos.find((y) => y.nome === x.atributo);
-      if (!a) { a = { nome: x.atributo, valores: [] }; atributos.push(a); }
-      if (!a.valores.includes(x.valor)) a.valores.push(x.valor);
-    }
+  const quantidade = corpo.quantidade == null || corpo.quantidade === '' ? 0 : Number(corpo.quantidade);
+  if (!Number.isInteger(quantidade) || quantidade < 0 || quantidade > 9999) {
+    return json({ erro: 'A quantidade encontrada tem que ser um número inteiro.' }, 400);
   }
-  const nomeAtributo = String(corpo.atributo ?? '').trim()
-    || (atributos.length ? atributos[atributos.length - 1].nome : 'Tamanho');
-  let alvo = atributos.find((a) => a.nome === nomeAtributo);
-  if (!alvo) {
-    if (atributos.length) {
-      return json({
-        erro: `${p.desc} já tem variações por ${atributos.map((a) => a.nome).join(' e ')}. `
-          + 'Escolha um desses atributos.', sku, atributos,
-      }, 409);
-    }
-    alvo = { nome: nomeAtributo, valores: [] };
-    atributos.push(alvo);
-  }
-  if (alvo.valores.some((v) => v.toLocaleLowerCase('pt-BR') === valor.toLocaleLowerCase('pt-BR'))) {
-    return json({ erro: `${valor} já existe em ${p.desc}.`, sku, jaExiste: true }, 409);
-  }
-  alvo.valores.push(valor);
 
-  const r = await definirVariacoes(db, sku, { atributos });
-  if (r.erro) return json(r, r.status || 409);
-
-  const antes = new Set(atuais.map((v) => v.nome));
-  const criadas = (r.combinacoes || []).filter((c) => !antes.has(c.nome));
-  if (criadas.length) {
-    await db.batch(criadas.map((c) => db.prepare(
+  const r = await adicionarVariacao(db, sku, { valor: corpo.valor, atributo: corpo.atributo });
+  if (r.erro) {
+    const { status, ...resto } = r;
+    return json(resto, status || 409);
+  }
+  if (r.criadas.length) {
+    await db.batch(r.criadas.map((c) => db.prepare(
       `INSERT INTO inventario_eventos (inventario_id, tipo, sku, variacao, detalhe)
        VALUES (?, 'variacao_criada', ?, ?, ?)`).bind(id, sku, c.nome,
-      JSON.stringify({ atributo: alvo.nome, valor, varianteId: c.varianteId }))));
+      JSON.stringify({ atributo: r.atributo, valor: r.valor, varianteId: c.varianteId }))));
   }
+
+  /* A contagem da variação nova. Só quando há UMA combinação nova (o caso do
+     anel): com duas cores e um aro novo nasceriam duas, e de qual cor é a
+     peça na mão quem diz é ela, na linha da variação. */
+  let contagem = null;
+  if (quantidade > 0 && r.criadas.length === 1 && !inv.pausado_em) {
+    const nova = r.criadas[0].nome;
+    const linhas = await linhasDoCodigo(db, id, sku);
+    const semVariacao = linhas.find((l) => l.variacao === '')?.contado ?? 0;
+    const mover = Math.min(semVariacao, quantidade);
+    const base = String(corpo.leituraId ?? '').trim() || `criar-${id}-${sku}-${Date.now()}`;
+    if (mover > 0) {
+      contagem = await registrarLeitura(db, id, {
+        sku, leituraId: `${base}:mover`, gesto: 'mover', de: '', para: nova, quantidade: mover,
+      });
+    }
+    if (quantidade - mover > 0) {
+      const atualNova = (await linhasDoCodigo(db, id, sku)).find((l) => l.variacao === nova)?.contado ?? 0;
+      contagem = await registrarLeitura(db, id, {
+        sku, leituraId: `${base}:definir`, gesto: 'definir', variacao: nova, quantidade: atualNova + quantidade - mover,
+      });
+    }
+  }
+
   return json({
-    ok: true, sku, desc: p.desc,
-    criadas: criadas.map((c) => ({ nome: c.nome, varianteId: c.varianteId })),
-    variacoes: (r.combinacoes || []).map((c) => ({ nome: c.nome, varianteId: c.varianteId })),
+    ok: true, sku, desc: r.desc,
+    criadas: r.criadas, variacoes: r.variacoes,
+    linhas: await linhasDoCodigo(db, id, sku),
+    contagemRegistrada: !!contagem,
     estoqueAlterado: false,
   }, 201);
+}
+
+/** "+ Adicionar variação" em PEÇAS — o mesmo núcleo, sem inventário. */
+export async function adicionarVariacaoDaPeca(db, sku, corpo = {}) {
+  const r = await adicionarVariacao(db, sku, { valor: corpo.valor, atributo: corpo.atributo });
+  if (r.erro) {
+    const { status, ...resto } = r;
+    return json(resto, status || 409);
+  }
+  return json(r, 201);
 }
 
 /** Volta uma linha para "não contado" — que NÃO é zero (D2). Existe porque
@@ -858,17 +1096,6 @@ async function comparar(db, id, { completa = false } = {}) {
       .bind(sku, desde, v.varianteId, v.nome).first();
     return Number(r?.d || 0);
   };
-  /* D11 — movimento do intervalo SEM identidade de variação num SKU que
-     tem variação cadastrada. Não dá para saber de qual aro ele saiu, então
-     a retroação daquele código não pode ser provada. */
-  const cegosDepois = async (sku, desde) => {
-    const r = await db.prepare(
-      `SELECT COUNT(*) AS n FROM movimentos
-        WHERE sku = ? AND criado_em > ? AND variacao IS NULL AND variante_id IS NULL`)
-      .bind(sku, desde).first();
-    return Number(r?.n || 0);
-  };
-
   const avisoDelta = (d) => {
     if (!d) return null;
     const n = Math.abs(d);
@@ -908,133 +1135,123 @@ async function comparar(db, id, { completa = false } = {}) {
       continue;
     }
 
-    /* ── SKU COM variação cadastrada. Aqui a 4.4 muda de regra: ou a
-       identidade fecha inteira, ou o código não é comparável. */
+    /* ── SKU COM variação cadastrada (refeito em 06/10/2026).
+     *
+     *  A DIFERENÇA É DO CÓDIGO, como na planilha da Sthefany: código,
+     *  estoque, revendedora, físico, falta. "Esperado em casa 7, conferido
+     *  6" é uma falta de 1 mesmo que ninguém saiba de qual aro — e antes
+     *  disso o código inteiro virava "não comparável" e ela não tinha o que
+     *  fazer com ele.
+     *
+     *  O que a regra 2 continua proibindo é ESCREVER a falta num aro que
+     *  ninguém disse. Por isso a linha leva o `modo`, que decide em qual
+     *  variação cada peça da diferença entra na razão:
+     *
+     *    codigo       a razão do código não separa por variação (todo o
+     *                 saldo está "sem variação" — os anéis do go-live). A
+     *                 diferença entra no código inteiro, sem variação. É o
+     *                 mesmo critério do Ajustar estoque (§54);
+     *    porVariacao  a razão separa, e ela contou cada peça de casa numa
+     *                 variação. A diferença de cada variação é a dela — nada
+     *                 é deduzido. As partes ficam congeladas no fechamento;
+     *    escolher     a razão separa, mas há peça contada sem variação. A
+     *                 diferença existe e aparece; aplicá-la pede que ela
+     *                 diga de qual variação é. Sem isso, fica pendente.
+     *
+     *  As peças com revendedora sem variação identificada continuam em "não
+     *  informada" — nunca são atribuídas a um aro. */
+    const razaoPorVariacao = cadastradas.some((v) => v.saldo !== 0);
     const saldoIdentificado = cadastradas.reduce((s, v) => s + v.saldo, 0);
-    const razaoCega = p.qtd - saldoIdentificado;
     const consignadas = consignadoVar.get(p.sku) || new Map();
-    const consignadoIdentificado = cadastradas.reduce(
-      (s, v) => s + consignadaDe(consignadas, v), 0);
-    const consignadoCego = p.consignado - consignadoIdentificado;
-    const agregada = contadas.find((x) => (x.variacao || '') === '');
-    const desdeMin = contadas.length
-      ? contadas.map((x) => x.contado_em).sort()[0] : null;
-    const cegos = desdeMin ? await cegosDepois(p.sku, desdeMin) : 0;
+    const naMaleta = (v) => consignadaDe(consignadas, v);
+    const consignadoIdentificado = cadastradas.reduce((s, v) => s + naMaleta(v), 0);
+    const saldoSem = p.qtd - saldoIdentificado;
+    const consignadoSem = p.consignado - consignadoIdentificado;
+    const contadoDe = new Map(contadas.map((c) => [c.variacao || '', Number(c.contado)]));
+    const naoInformadas = (contadoDe.get('') ?? 0) + naoIdent;
+    const detalhe = {
+      razaoPorVariacao,
+      variacoes: cadastradas.map((v) => ({
+        nome: v.nome, varianteId: v.varianteId,
+        cadastro: v.saldo, comRevendedoras: naMaleta(v),
+        esperado: razaoPorVariacao ? v.saldo - naMaleta(v) : null,
+        contado: contadoDe.has(v.nome) ? contadoDe.get(v.nome) : null,
+      })),
+      naoInformada: {
+        cadastro: saldoSem, comRevendedoras: consignadoSem,
+        esperado: razaoPorVariacao ? saldoSem - consignadoSem : p.esperado,
+        contado: contadoDe.has('') || naoIdent ? naoInformadas : null,
+      },
+    };
 
-    /* CONFERIDO PELO CÓDIGO INTEIRO (02/10/2026) — a etiqueta do anel é a
-       mesma para todos os aros, e o bipe comum confere o código. Quando é
-       SÓ isso que existe (nenhum aro contado à parte, nenhum "não sei") e o
-       total bate, não há diferença nenhuma a atribuir a aro algum: o código
-       está conferido. Quando NÃO bate, segue a regra de sempre — a linha é
-       registrada e bloqueada, porque a falta não diz de qual aro é. */
-    if (agregada && contadas.length === 1 && !naoIdent) {
-      const deltaPos = await deltaSku(p.sku, agregada.contado_em);
-      const esperado = p.esperado - deltaPos;
-      if (agregada.contado === esperado) {
-        linhas.push({ ...base, variacao: '', varianteId: null, contado: agregada.contado,
-          esperado, deltaPos, dif: 0, situacao: 'conferido', motivo: null, aviso: avisoDelta(deltaPos) });
-        continue;
-      }
-    }
-
-    const bloqueios = [];
-    if (naoIdent) {
-      bloqueios.push(`${naoIdent} ${naoIdent === 1 ? 'peça contada' : 'peças contadas'} sem dizer qual variação`);
-    }
-    if (agregada) {
-      bloqueios.push(`${agregada.contado} ${agregada.contado === 1 ? 'peça contada' : 'peças contadas'} `
-        + 'pelo código, sem separar a variação');
-    }
-    if (razaoCega !== 0) {
-      const n = Math.abs(razaoCega);
-      bloqueios.push(`${n} ${n === 1 ? 'peça' : 'peças'} na razão sem identidade de variação`);
-    }
-    if (consignadoCego !== 0) {
-      const n = Math.abs(consignadoCego);
-      bloqueios.push(`${n} ${n === 1 ? 'peça consignada' : 'peças consignadas'} sem variação identificada`);
-    }
-    if (cegos) {
-      bloqueios.push(`${cegos} ${cegos === 1 ? 'movimento posterior' : 'movimentos posteriores'} `
-        + 'à contagem sem identidade de variação');
-    }
-
-    /* Um código que NINGUÉM contou não é "não comparável": é não conferido,
-       e não conferido não vira movimento nenhum de qualquer jeito. Marcar os
-       setecentos códigos não bipados como não comparáveis afogaria a lista
-       que existe justamente para ser lida uma a uma.
-       Quando a razão do código tem peça sem identidade, a linha sai no nível
-       do CÓDIGO: é o único número que dá para provar ali. */
     if (!contadas.length && !naoIdent) {
-      if (razaoCega !== 0 || consignadoCego !== 0) {
-        if (p.esperado) {
-          /* `conferivel: false` — a linha sai no nível do CÓDIGO porque é o
-             único número que dá para provar ali, e por isso nem a declaração
-             de contagem completa a transforma em diferença: ela viraria um
-             movimento sem variação num código que tem variação cadastrada,
-             que é o defeito D4 voltando pela porta dos fundos. */
-          linhas.push({ ...base, variacao: '', varianteId: null, contado: null,
-            esperado: p.esperado, deltaPos: 0, dif: null, situacao: 'nao_conferido',
-            motivo: null, conferivel: false });
-        }
-        continue;
-      }
-      for (const v of cadastradas) {
-        const esperadoHoje = v.saldo - consignadaDe(consignadas, v);
-        if (!esperadoHoje) continue;
-        linhas.push({ ...base, variacao: v.nome, varianteId: v.varianteId, contado: null,
-          esperado: esperadoHoje, deltaPos: 0, dif: null, situacao: 'nao_conferido',
-          motivo: null, conferivel: true });
+      if (p.esperado) {
+        linhas.push({ ...base, variacao: '', varianteId: null, contado: null,
+          esperado: p.esperado, deltaPos: 0, dif: null, situacao: 'nao_conferido',
+          motivo: null, conferivel: true, ...detalhe });
       }
       continue;
     }
 
-    if (bloqueios.length) {
-      const motivo = bloqueios.join('; ') + '. Não dá para provar de qual variação, e o inventário não chuta.';
-      /* Uma linha por variação cadastrada, mais a agregada quando existir:
-         quem lê precisa ver O QUE foi contado, mesmo sem poder corrigir. */
+    /* A retroação é contada a partir do ÚLTIMO toque no código: é aí que a
+       contagem dela ficou completa. Entrada ou saída ENTRE o primeiro e o
+       último toque é ambígua (a peça vendida já tinha sido contada?), e a
+       linha diz isso em vez de decidir. */
+    const momentos = contadas.map((x) => x.contado_em).filter(Boolean).sort();
+    const desde = momentos[momentos.length - 1] ?? null;
+    const primeiro = momentos[0] ?? null;
+    const deltaPos = desde ? await deltaSku(p.sku, desde) : 0;
+    const durante = primeiro && desde && primeiro < desde
+      ? Number((await db.prepare(
+        `SELECT COUNT(*) AS n FROM movimentos WHERE sku = ? AND criado_em > ? AND criado_em <= ?`)
+        .bind(p.sku, primeiro, desde).first())?.n ?? 0)
+      : 0;
+    const total = contadas.reduce((s, x) => s + Number(x.contado), 0) + naoIdent;
+    const esperado = p.esperado - deltaPos;
+    const dif = total - esperado;
+    const situacao = dif === 0 ? 'conferido' : (dif < 0 ? 'faltando' : 'sobrando');
+
+    let modo;
+    let partes = null;
+    let variacoesDivergem = false;
+    if (!razaoPorVariacao) {
+      modo = 'codigo';
+      if (dif) partes = [{ variacao: null, varianteId: null, qtd: dif }];
+    } else if (!naoInformadas && !durante) {
+      modo = 'porVariacao';
+      const baldes = [];
+      let somaDeltas = 0;
       for (const v of cadastradas) {
-        const c = contadas.find((x) => (x.variacao || '') === v.nome);
-        linhas.push({ ...base, variacao: v.nome, varianteId: v.varianteId,
-          contado: c ? c.contado : null, esperado: v.saldo - consignadaDe(consignadas, v),
-          deltaPos: 0, dif: null, situacao: 'nao_comparavel', motivo });
+        const dv = desde ? await deltaVariacao(p.sku, v, desde) : 0;
+        somaDeltas += dv;
+        const d = (contadoDe.get(v.nome) ?? 0) - (v.saldo - naMaleta(v) - dv);
+        if (d) baldes.push({ variacao: v.nome, varianteId: v.varianteId, qtd: d });
       }
-      if (agregada) {
-        linhas.push({ ...base, variacao: '', varianteId: null, contado: agregada.contado,
-          esperado: p.esperado, deltaPos: 0, dif: null, situacao: 'nao_comparavel', motivo });
-      }
-      /* A quantidade sem identidade NÃO entra no retrato congelado: ela já
-         vive em `inventario_nao_identificado`, e inventar uma chave para ela
-         em `inventario_resultado` criaria uma variação que não existe. O
-         relatório a remonta de lá, nas duas leituras. */
-      if (naoIdent) {
-        linhas.push({ ...base, variacao: '', varianteId: null,
-          contado: naoIdent, esperado: 0, deltaPos: 0, dif: null,
-          situacao: 'nao_comparavel', motivo, naoIdentificado: true, efemera: true });
-      }
-      continue;
+      const d0 = -(saldoSem - consignadoSem - (deltaPos - somaDeltas));
+      if (d0) baldes.push({ variacao: null, varianteId: null, qtd: d0 });
+      variacoesDivergem = baldes.length > 0;
+      if (dif) partes = baldes;
+    } else {
+      modo = 'escolher';
     }
 
-    for (const v of cadastradas) {
-      const c = contadas.find((x) => (x.variacao || '') === v.nome);
-      const consignadaDela = consignadaDe(consignadas, v);
-      const esperadoHoje = v.saldo - consignadaDela;
-      if (!c && !esperadoHoje) continue;
-      if (!c) {
-        /* Ela contou o Aro 16 e não contou o Aro 17. A variação está dita:
-           se a conferência terminou, a falta do Aro 17 tem endereço. */
-        linhas.push({ ...base, variacao: v.nome, varianteId: v.varianteId, contado: null,
-          esperado: esperadoHoje, deltaPos: 0, dif: null, situacao: 'nao_conferido',
-          motivo: null, conferivel: true });
-        continue;
-      }
-      const deltaPos = await deltaVariacao(p.sku, v, c.contado_em);
-      const esperado = esperadoHoje - deltaPos;
-      const dif = c.contado - esperado;
-      linhas.push({ ...base, variacao: v.nome, varianteId: v.varianteId, contado: c.contado,
-        esperado, deltaPos, dif,
-        situacao: dif === 0 ? 'conferido' : (dif < 0 ? 'faltando' : 'sobrando'),
-        motivo: null, aviso: avisoDelta(deltaPos) });
-    }
+    /* As variações que ela CONTOU, prontas para virar o cadastro do código
+       (`guardarVariacoesContadas`): o que está em casa de cada variação mais
+       o que a maleta já tem identificado dela. O resto fica "não informada".
+       Só quando isso não apaga informação: razão sem variação, ou toda peça
+       de casa contada numa variação. */
+    const contouVariacao = cadastradas.some((v) => (contadoDe.get(v.nome) ?? 0) > 0);
+    const distribuicaoContada = contouVariacao && (modo === 'codigo' || modo === 'porVariacao')
+      ? cadastradas.map((v) => ({ nome: v.nome, varianteId: v.varianteId,
+        qtd: (contadoDe.get(v.nome) ?? 0) + naMaleta(v) }))
+      : null;
+
+    linhas.push({ ...base, variacao: '', varianteId: null, contado: total,
+      esperado, deltaPos, dif, situacao, motivo: null,
+      aviso: durante
+        ? 'Esta peça teve entrada ou saída enquanto era conferida — confira antes de ajustar.'
+        : avisoDelta(deltaPos),
+      modo, partes, variacoesDivergem, distribuicaoContada, conferivel: true, ...detalhe });
   }
   return completa ? declararContagemCompleta(linhas) : linhas;
 }
@@ -1042,23 +1259,34 @@ async function comparar(db, id, { completa = false } = {}) {
 /** A DECLARAÇÃO aplicada ao retrato, e só a ele.
  *
  *  Nada aqui escreve estoque. O que muda é o significado de uma linha: um
- *  código conferível que ninguém bipou deixa de ser incógnita e passa a ser
- *  uma falta de `esperado` peças — a mesma falta que a tela vai pedir para
- *  resolver, uma a uma, com motivo.
+ *  código que ninguém bipou deixa de ser incógnita e passa a ser uma falta
+ *  de `esperado` peças — a mesma falta que a tela vai pedir para resolver,
+ *  uma a uma, com motivo.
  *
- *  Duas recusas, ditas em voz alta em vez de engolidas:
- *
- *   · `conferivel: false` continua não conferido. É o código com peça na
- *     razão sem identidade de variação: declarar que a contagem terminou não
- *     responde de qual variação é a falta, e chutar é a única coisa que este
- *     módulo nunca faz;
- *   · `esperado <= 0` não vira nada. Não há falta de uma peça que o sistema
- *     também não tem — seria fabricar divergência de zero. */
+ *  Num código com variação a falta declarada também tem endereço: se a
+ *  razão separa por variação, cada variação perde o que se esperava dela em
+ *  casa (ela disse que não há NENHUMA); se não separa, a falta é do código.
+ *  `esperado <= 0` não vira nada — seria fabricar divergência de zero. */
 function declararContagemCompleta(linhas) {
   return linhas.map((l) => {
     if (l.situacao !== 'nao_conferido') return l;
     if (!l.conferivel) return { ...l, motivo: DECLARADA_SEM_IDENTIDADE };
     if (!(l.esperado > 0)) return l;
+    let modo = l.modo;
+    let partes = null;
+    if (l.variacoes) {
+      if (!l.razaoPorVariacao) {
+        modo = 'codigo';
+        partes = [{ variacao: null, varianteId: null, qtd: -l.esperado }];
+      } else {
+        modo = 'porVariacao';
+        partes = [
+          ...l.variacoes.filter((v) => v.esperado).map((v) => ({
+            variacao: v.nome, varianteId: v.varianteId, qtd: -v.esperado })),
+          ...(l.naoInformada?.esperado ? [{ variacao: null, varianteId: null, qtd: -l.naoInformada.esperado }] : []),
+        ];
+      }
+    }
     return {
       ...l,
       contado: 0,
@@ -1066,6 +1294,7 @@ function declararContagemCompleta(linhas) {
       situacao: 'faltando',
       declarado: true,
       motivo: DECLARADA_FALTA,
+      ...(l.variacoes ? { modo, partes } : {}),
     };
   });
 }
@@ -1089,12 +1318,12 @@ function relatorio(id, linhas, desconhecidos, cob, concluidoEm, extra = {}) {
          afirmação que ninguém pode checar. */
       conferidos.push({ sku: l.sku, desc: l.desc, cat: l.cat,
         variacao: l.variacao || null, contado: l.contado, esperado: l.esperado,
-        aviso: l.aviso ?? null });
+        aviso: l.aviso ?? null, ...extrasDeVariacao(l) });
       continue;
     }
     if (l.situacao === 'nao_conferido') {
       naoConferido.push({ sku: l.sku, desc: l.desc, cat: l.cat,
-        variacao: l.variacao || null, esperado: l.esperado,
+        variacao: l.variacao || null, esperado: l.esperado, ...extrasDeVariacao(l),
         /* Preenchido só quando a contagem foi declarada completa e ESTE
            código ficou de fora mesmo assim. Sem o motivo, a linha pareceria
            esquecimento do sistema em vez de recusa dele. */
@@ -1121,6 +1350,7 @@ function relatorio(id, linhas, desconhecidos, cob, concluidoEm, extra = {}) {
          dizer qual foi. */
       declarado: !!l.declarado,
       motivo: l.motivo ?? null,
+      ...extrasDeVariacao(l),
     };
     (l.dif < 0 ? faltando : sobrando).push(linha);
   }
@@ -1154,6 +1384,23 @@ function relatorio(id, linhas, desconhecidos, cob, concluidoEm, extra = {}) {
   };
   rel.conciliacao = contarConciliacao(rel);
   return rel;
+}
+
+/** O que uma linha de código COM variação leva para a tela: o modo da
+ *  diferença, as partes já sabidas, o detalhe por variação e a distribuição
+ *  contada. Linha de código sem variação não leva nada disso. */
+function extrasDeVariacao(l) {
+  if (!l.variacoes && !l.modo) return {};
+  return {
+    modo: l.modo ?? null,
+    partes: l.partes ?? null,
+    precisaVariacao: l.modo === 'escolher' && !!l.dif,
+    razaoPorVariacao: !!l.razaoPorVariacao,
+    variacoes: l.variacoes ?? [],
+    naoInformada: l.naoInformada ?? null,
+    variacoesDivergem: !!l.variacoesDivergem,
+    distribuicaoContada: l.distribuicaoContada ?? null,
+  };
 }
 
 /** ONDE ESTÁ A CONCILIAÇÃO — derivada, nunca guardada.
@@ -1211,12 +1458,15 @@ export async function concluirInventario(db, id, corpo = {}) {
        para servir de chave, e a fonte dela (`inventario_nao_identificado`)
        já é permanente. Congelá-la aqui inventaria uma variação. */
     if (l.efemera) continue;
+    /* O modo e as partes congelam junto: é deles que a aplicação lê em qual
+       variação cada peça da diferença entra (código com variação). */
+    const partesJson = l.modo ? JSON.stringify({ modo: l.modo, partes: l.partes ?? null }) : null;
     stmts.push(db.prepare(
       `INSERT INTO inventario_resultado
-         (inventario_id, sku, variacao, variante_id, contado, esperado, delta_pos, dif, situacao, motivo)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (inventario_id, sku, variacao, variante_id, contado, esperado, delta_pos, dif, situacao, motivo, partes_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(id, l.sku, l.variacao || '', l.varianteId ?? null,
-      l.contado, l.esperado, l.deltaPos, l.dif, l.situacao, l.motivo ?? null));
+      l.contado, l.esperado, l.deltaPos, l.dif, l.situacao, l.motivo ?? null, partesJson));
   }
   stmts.push(db.prepare(
     `UPDATE inventarios SET status = 'concluido', pausado_em = NULL, concluido_em = datetime('now'),
@@ -1224,8 +1474,9 @@ export async function concluirInventario(db, id, corpo = {}) {
       WHERE id = ?`).bind(contagemCompleta ? 1 : 0, id));
   await db.batch(stmts);
 
-  return json(relatorio(id, linhas, JSON.parse(inv.desconhecidos_json || '[]'), cob,
-    hojeOperacional(), { contagemCompleta }));
+  const rel = relatorio(id, linhas, JSON.parse(inv.desconhecidos_json || '[]'), cob,
+    hojeOperacional(), { contagemCompleta });
+  return json({ ...rel, numero: numeroDe(inv) });
 }
 
 /** O retrato congelado, relido. É o que a tela abre depois de fechar a aba
@@ -1252,12 +1503,44 @@ export async function resultadoInventario(db, id) {
      `contado = 0` SEM linha de contagem é a declaração de que a conferência
      terminou. Mesmo número, gestos diferentes, e o retrato tem de saber
      dizer qual foi mesmo três meses depois. */
-  const bipadas = new Set((((await db.prepare(
-    `SELECT sku, variacao FROM inventario_contagem WHERE inventario_id = ?`)
-    .bind(id).all()).results) ?? []).map((c) => CHAVE(c.sku, c.variacao)));
+  const contagens = ((await db.prepare(
+    `SELECT sku, variacao, contado FROM inventario_contagem WHERE inventario_id = ?`)
+    .bind(id).all()).results) ?? [];
+  const bipadas = new Set(contagens.map((c) => CHAVE(c.sku, c.variacao)));
+
+  /* Código com variação (06/10/2026): o modo e as partes congelados, e o
+     que ela contou em cada variação — para a revisão dizer "nº21 2 · nº23 2
+     · não informada 1" e oferecer guardar isso no cadastro. */
+  const detalheDeVariacao = async (r) => {
+    if (!r.partes_json) return {};
+    let pj = {};
+    try { pj = JSON.parse(r.partes_json) || {}; } catch { pj = {}; }
+    const doSku = contagens.filter((c) => c.sku === r.sku);
+    const cadastradas = await variacoesDoSku(db, r.sku);
+    const contadoDe = new Map(doSku.map((c) => [c.variacao || '', Number(c.contado)]));
+    const contouVariacao = cadastradas.some((v) => (contadoDe.get(v.nome) ?? 0) > 0);
+    return {
+      modo: pj.modo ?? null,
+      partes: pj.partes ?? null,
+      variacoes: cadastradas.map((v) => ({
+        nome: v.nome, varianteId: v.varianteId, esperado: null,
+        contado: contadoDe.has(v.nome) ? contadoDe.get(v.nome) : null,
+      })),
+      naoInformada: { esperado: null, contado: contadoDe.has('') ? contadoDe.get('') : null },
+      razaoPorVariacao: pj.modo !== 'codigo',
+      distribuicaoContada: contouVariacao && (pj.modo === 'codigo' || pj.modo === 'porVariacao')
+        ? cadastradas.map((v) => ({ nome: v.nome, varianteId: v.varianteId, qtd: contadoDe.get(v.nome) ?? 0 }))
+        : null,
+    };
+  };
 
   const ajustes = await ajustesDoInventario(db, id);
+  const extras = new Map();
+  for (const r of results ?? []) {
+    if (r.partes_json) extras.set(CHAVE(r.sku, r.variacao), await detalheDeVariacao(r));
+  }
   const linhas = (results ?? []).map((r) => ({
+    ...(extras.get(CHAVE(r.sku, r.variacao)) ?? {}),
     sku: r.sku, desc: r.desc, cat: r.cat, preco: r.preco,
     variacao: r.variacao,
     naoIdentificado: false,
@@ -1281,23 +1564,9 @@ export async function resultadoInventario(db, id) {
     aplicado: !!r.aplicado_em && !r.saida_estornada,
   }));
 
-  /* As peças contadas sem identidade continuam bloqueando o código depois
-     do fechamento, e a tela precisa continuar dizendo por quê. A fonte é a
-     tabela delas, não o retrato — ver `concluirInventario`. */
-  const naoIdent = ((await db.prepare(
-    `SELECT n.sku, n.qtd, p.desc, p.cat, p.preco FROM inventario_nao_identificado n
-       JOIN produtos p ON p.sku = n.sku WHERE n.inventario_id = ?`).bind(id).all()).results) ?? [];
-  for (const n of naoIdent) {
-    const bloqueada = linhas.find((l) => l.sku === n.sku && l.situacao === 'nao_comparavel');
-    linhas.push({
-      sku: n.sku, desc: n.desc, cat: n.cat, preco: n.preco, variacao: '', varianteId: null,
-      contado: n.qtd, esperado: 0, deltaPos: 0, dif: null, situacao: 'nao_comparavel',
-      motivo: bloqueada ? bloqueada.motivo
-        : `${n.qtd} ${n.qtd === 1 ? 'peça contada' : 'peças contadas'} sem dizer qual variação.`,
-      naoIdentificado: true, aplicado: false, saidaId: null,
-    });
-  }
-
+  /* As peças do antigo "não sei qual variação" (`inventario_nao_identificado`)
+     já estão somadas na linha do código desde 06/10/2026 — a diferença é do
+     código, e aplicá-la pede que ela diga a variação (modo `escolher`). */
   const rel = relatorio(id, linhas.map((l) => ({ ...l, deltaPos: l.deltaPos })),
     JSON.parse(inv.desconhecidos_json || '[]'),
     /* A contagem não é apagada no fechamento: ela é o rastro de quem contou o
@@ -1327,6 +1596,7 @@ export async function resultadoInventario(db, id) {
   /* Recontado DEPOIS da marcação: antes dela `aplicado` é sempre falso, e a
      conciliação diria que nada foi resolvido em todo inventário já corrigido. */
   rel.conciliacao = contarConciliacao(rel);
+  rel.numero = numeroDe(inv);
   return json(rel);
 }
 
@@ -1373,13 +1643,17 @@ async function aplicarDiferenca(db, id, pedidos, { exigirMotivo = false } = {}) 
   /* ── validação, inteira, antes de qualquer escrita. */
   const alvos = [];
   const vistos = new Set();
-  for (const pedido of pedidos) {
+  for (let pedido of pedidos) {
     const sku = normSku(pedido.sku);
     if (!sku) return json({ erro: 'Informe o código da peça.' }, 400);
     const temVariacao = pedido.variacao != null && String(pedido.variacao).trim() !== '';
     let linha;
     if (temVariacao) {
-      linha = porChave.get(CHAVE(sku, String(pedido.variacao).trim()));
+      /* Desde 06/10/2026 o retrato de um código com variação é UMA linha,
+         a do código: a variação pedida cai nela (e, se a diferença pedir,
+         vira o destino que ela escolheu). */
+      linha = porChave.get(CHAVE(sku, String(pedido.variacao).trim())) ?? porChave.get(CHAVE(sku, ''));
+      if (linha && !linha.variacao && pedido.destino == null) pedido = { ...pedido, destino: String(pedido.variacao).trim() };
     } else {
       const doSku = (porSku.get(sku) || []).filter((r) => r.dif != null && r.dif !== 0);
       /* Regra 2 do CLAUDE.md: duas variações do mesmo código com diferença
@@ -1464,8 +1738,44 @@ async function aplicarDiferenca(db, id, pedidos, { exigirMotivo = false } = {}) 
         sku,
       }, 409);
     }
+
+    /* EM QUAL VARIAÇÃO a diferença entra na razão (06/10/2026). O retrato
+       congelou o modo: `codigo` e `porVariacao` já trazem as partes; em
+       `escolher`, quem diz é ela — `destino` é o nome da variação, ou ''
+       para "não informada". Sem destino, a linha não é aplicada: a regra 2
+       não deixa escrever a falta num aro que ninguém disse. */
+    let congelado = null;
+    try { congelado = linha.partes_json ? JSON.parse(linha.partes_json) : null; } catch { congelado = null; }
+    let partes;
+    if (congelado?.modo === 'escolher') {
+      if (pedido.destino == null) {
+        return json({
+          erro: `${sku}: diga de qual variação é a diferença antes de ajustar.`,
+          sku, precisaVariacao: true,
+        }, 409);
+      }
+      const r = await destinoDaDiferenca(db, sku, String(pedido.destino).trim(), linha.dif);
+      if (r.erro) return json({ erro: `${sku}: ${r.erro}`, sku, precisaVariacao: true }, 409);
+      partes = [r.parte];
+    } else if (Array.isArray(congelado?.partes) && congelado.partes.length) {
+      partes = congelado.partes.map((pt) => ({
+        variacao: pt.variacao || null, varianteId: pt.varianteId ?? null, qtd: Number(pt.qtd),
+      }));
+    } else {
+      partes = [{ variacao: linha.variacao || null, varianteId: linha.variante_id ?? null, qtd: linha.dif }];
+    }
+    const somaDasPartes = partes.reduce((s, pt) => s + pt.qtd, 0);
+    if (somaDasPartes !== linha.dif) {
+      return json({ erro: `${sku}: a diferença não fecha entre as variações. Nada foi ajustado.`, sku }, 409);
+    }
+    if (classe === 'perda' && partes.length > 1) {
+      return json({
+        erro: `${sku}: a diferença está em mais de uma variação — registre como ajuste, não como perda.`, sku,
+      }, 409);
+    }
     alvos.push({
       linha,
+      partes,
       motivo: motivo || null,
       classe,
       observacao: String(pedido.observacao ?? '').trim() || null,
@@ -1474,10 +1784,11 @@ async function aplicarDiferenca(db, id, pedidos, { exigirMotivo = false } = {}) 
 
   /* ── escrita, item a item. */
   const data = (diaOperacional(inv.concluido_em) ?? '').split('-').reverse().join('/');
+  const numero = numeroDe(inv);
   const aplicados = [];
-  for (const { linha, motivo, classe, observacao } of alvos) {
+  for (const { linha, partes, motivo, classe, observacao } of alvos) {
     if (classe === 'ajuste') {
-      const r = await aplicarComoAjuste(db, id, data, linha, motivo, observacao);
+      const r = await aplicarComoAjuste(db, id, numero, data, linha, motivo, observacao, partes);
       if (!r.ok) {
         return json({
           erro: r.erro, sku: linha.sku, variacao: linha.variacao || null,
@@ -1495,17 +1806,17 @@ async function aplicarDiferenca(db, id, pedidos, { exigirMotivo = false } = {}) 
       tipo: 'perda',
       sentido: linha.dif < 0 ? 'saida' : 'entrada',
       sku: linha.sku,
-      variacao: linha.variacao || null,
-      varianteId: linha.variante_id,
+      variacao: partes[0].variacao || null,
+      varianteId: partes[0].varianteId ?? null,
       qtd: Math.abs(linha.dif),
       /* O motivo QUE ELA ESCOLHEU vai para a coluna que o schema chama de
          "rótulo curto e agrupável", e de lá entra na razão dentro de
          `movimentos.obs` (`saidas.js › obsMov`). Sem motivo dito — o caminho
          do dashboard clássico — fica o rótulo genérico de sempre, que é o
          que aquela tela sempre gravou. */
-      motivo: motivo ?? `Diferença de inventário #${id}`,
+      motivo: motivo ?? `Diferença de inventário #${numero}`,
       observacao: observacao
-        ?? `Inventário #${id}, de ${data}: contado ${linha.contado}, `
+        ?? `Inventário #${numero}, de ${data}: contado ${linha.contado}, `
           + `sistema dizia ${linha.esperado}`,
       inventarioId: id,
     });
@@ -1535,12 +1846,17 @@ async function aplicarDiferenca(db, id, pedidos, { exigirMotivo = false } = {}) 
  *  `inventario_ajustes` (cuja chave primária recusa a mesma linha duas
  *  vezes — duas abas, crash e retry), o movimento `ajuste` com origem
  *  `inventario`, e a marca de aplicado no retrato. Conflito na chave desfaz
- *  os três. */
-async function aplicarComoAjuste(db, id, data, linha, motivo, observacao) {
+ *  tudo.
+ *
+ *  `partes` (06/10/2026) é em qual variação cada peça da diferença entra:
+ *  uma parte só no caso comum (código sem variação, ou código inteiro), uma
+ *  por variação quando ela contou por variação. A soma das partes é a
+ *  diferença congelada — `aplicarDiferenca` recusa antes se não for. */
+async function aplicarComoAjuste(db, id, numero, data, linha, motivo, observacao, partes) {
   /* Sem motivo (o `/ajustar` do painel clássico) a razão diz só o fato; o
      registro em `inventario_ajustes` guarda o rótulo genérico de sempre. */
-  const rotulo = motivo ?? `Diferença de inventário #${id}`;
-  const obs = `Ajuste de inventário #${id}${motivo ? ` · ${motivo}` : ''} · contado ${linha.contado}, `
+  const rotulo = motivo ?? `Diferença de inventário #${numero}`;
+  const obs = `Ajuste de inventário #${numero}${motivo ? ` · ${motivo}` : ''} · contado ${linha.contado}, `
     + `sistema dizia ${linha.esperado}${data ? ` (${data})` : ''}`
     + (observacao ? ` · ${observacao}` : '');
   try {
@@ -1548,10 +1864,10 @@ async function aplicarComoAjuste(db, id, data, linha, motivo, observacao) {
       db.prepare(
         `INSERT INTO inventario_ajustes (inventario_id, sku, variacao, qtd, motivo, observacao)
          VALUES (?, ?, ?, ?, ?, ?)`).bind(id, linha.sku, linha.variacao || '', linha.dif, rotulo, observacao),
-      ...movimentar(db, {
-        sku: linha.sku, tipo: 'ajuste', quantidade: linha.dif, origem: 'inventario', obs,
-        variacao: linha.variacao || null, varianteId: linha.variante_id,
-      }),
+      ...partes.flatMap((parte) => movimentar(db, {
+        sku: linha.sku, tipo: 'ajuste', quantidade: parte.qtd, origem: 'inventario', obs,
+        variacao: parte.variacao || null, varianteId: parte.varianteId ?? null,
+      })),
       db.prepare(
         /* `saida_id = NULL`: se a linha já foi resolvida como perda e a
            saída foi estornada, o vínculo antigo sairia lendo "estornada"
@@ -1569,6 +1885,170 @@ async function aplicarComoAjuste(db, id, data, linha, motivo, observacao) {
   const mov = await db.prepare(
     `SELECT id FROM movimentos WHERE sku = ? AND obs = ? ORDER BY id DESC LIMIT 1`).bind(linha.sku, obs).first();
   return { ok: true, movimentoId: mov ? mov.id : null, motivo: rotulo };
+}
+
+/** Os baldes de UM código na razão: cada variação cadastrada e o "sem
+ *  variação", com o saldo e o que as maletas abertas têm identificado de
+ *  cada um. É a mesma leitura de `variacoesComSaldo`, recortada. */
+async function baldesDoCodigo(db, sku) {
+  const p = await db.prepare(
+    `SELECT p.qtd,
+            COALESCE((SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
+                        JOIN maletas m ON m.id = mi.maleta_id
+                       WHERE mi.sku = p.sku AND m.status IN ('aberta', 'em_acerto')), 0) AS consignado
+       FROM produtos p WHERE p.sku = ?`).bind(sku).first();
+  if (!p) return null;
+  const { results } = await db.prepare(
+    `SELECT pv.nome, pv.variante_id,
+            COALESCE((SELECT SUM(mo.qtd) FROM movimentos mo
+                       WHERE mo.sku = pv.sku
+                         AND (mo.variante_id = pv.variante_id
+                              OR (mo.variante_id IS NULL AND mo.variacao = pv.nome))), 0) AS saldo
+       FROM produto_variacoes pv WHERE pv.sku = ? ORDER BY pv.ordem, pv.nome`).bind(sku).all();
+  const consignadas = (await consignadoPorVariacao(db)).get(sku) || new Map();
+  const variacoes = (results ?? []).map((r) => {
+    const v = { nome: r.nome, varianteId: r.variante_id == null ? null : String(r.variante_id), saldo: Number(r.saldo || 0) };
+    return { ...v, naMaleta: consignadaDe(consignadas, v) };
+  });
+  const saldoIdent = variacoes.reduce((s, v) => s + v.saldo, 0);
+  const malIdent = variacoes.reduce((s, v) => s + v.naMaleta, 0);
+  return {
+    qtd: Number(p.qtd || 0),
+    consignado: Number(p.consignado || 0),
+    variacoes,
+    semVariacao: { saldo: Number(p.qtd || 0) - saldoIdent, naMaleta: Number(p.consignado || 0) - malIdent },
+  };
+}
+
+/** A variação que ELA disse para uma diferença do modo `escolher`. Recusa o
+ *  que deixaria o balde abaixo do que as maletas têm dele — a peça que está
+ *  com a revendedora existe, e não pode sair do estoque por um ajuste de
+ *  casa. */
+async function destinoDaDiferenca(db, sku, destino, dif) {
+  const b = await baldesDoCodigo(db, sku);
+  if (!b) return { erro: 'peça não encontrada.' };
+  let balde;
+  let parte;
+  if (!destino) {
+    balde = b.semVariacao;
+    parte = { variacao: null, varianteId: null, qtd: dif };
+  } else {
+    const v = b.variacoes.find((x) => x.nome === destino)
+      ?? b.variacoes.find((x) => chaveDaVariacao(x.nome) === chaveDaVariacao(destino));
+    if (!v) return { erro: `"${destino}" não é uma variação desta peça.` };
+    balde = v;
+    parte = { variacao: v.nome, varianteId: v.varianteId, qtd: dif };
+  }
+  if (balde.saldo + dif < Math.max(0, balde.naMaleta)) {
+    const nome = destino || 'variação não informada';
+    return { erro: `${nome} tem ${balde.saldo - Math.max(0, balde.naMaleta)} em casa — não dá para tirar ${Math.abs(dif)} dela.` };
+  }
+  return { parte };
+}
+
+/** GUARDAR AS VARIAÇÕES CONTADAS no cadastro do código (06/10/2026).
+ *
+ *  É como o inventário ensina ao sistema quais aros existem de verdade: o
+ *  que ela contou em casa de cada variação, mais o que a maleta tem
+ *  identificado dela, vira a distribuição da razão. O resto — inclusive a
+ *  peça com revendedora sem variação conhecida — fica em "não informada".
+ *  Não muda o total: é repartição (`variantes.js › distribuirVariantes`,
+ *  modo parcial), dois movimentos que se anulam por variação.
+ *
+ *  Recusa, sem escrever, quando guardar apagaria informação ou partiria de
+ *  número velho: peça contada sem variação num código que já separa por
+ *  variação; entrada ou saída depois da contagem; soma acima do total
+ *  (a sobra precisa ser ajustada antes). */
+export async function guardarVariacoesContadas(db, id, corpo = {}) {
+  const inv = await db.prepare(`SELECT * FROM inventarios WHERE id = ?`).bind(id).first();
+  if (!inv) return json({ erro: 'Inventário não encontrado' }, 404);
+  if (inv.status === 'cancelado') return json({ erro: 'Este inventário foi descartado.' }, 409);
+  const sku = normSku(corpo.sku);
+  if (!sku) return json({ erro: 'Informe o código da peça.' }, 400);
+
+  const linhas = await linhasDoCodigo(db, id, sku);
+  const b = await baldesDoCodigo(db, sku);
+  if (!b || !b.variacoes.length) return json({ erro: 'Esta peça não tem variação cadastrada.', sku }, 409);
+  const contadoDe = new Map(linhas.map((l) => [l.variacao, l.contado]));
+  const naoInformadas = contadoDe.get('') ?? 0;
+  const razaoPorVariacao = b.variacoes.some((v) => v.saldo !== 0);
+  if (!b.variacoes.some((v) => (contadoDe.get(v.nome) ?? 0) > 0)) {
+    return json({ erro: 'Nenhuma variação desta peça foi contada.', sku }, 409);
+  }
+  if (razaoPorVariacao && naoInformadas > 0) {
+    return json({
+      erro: `${naoInformadas} ${naoInformadas === 1 ? 'peça foi contada' : 'peças foram contadas'} sem variação. `
+        + 'Diga a variação delas antes de guardar — senão o cadastro perderia o que já sabia.', sku,
+    }, 409);
+  }
+  const desde = linhas.map((l) => l.contadoEm).filter(Boolean).sort().pop();
+  if (desde) {
+    const depois = Number((await db.prepare(
+      `SELECT COUNT(*) AS n FROM movimentos
+        WHERE sku = ? AND criado_em > ? AND COALESCE(origem, '') NOT IN ('inventario', 'variacao')`)
+      .bind(sku, desde).first())?.n ?? 0);
+    if (depois) {
+      return json({
+        erro: 'Esta peça teve entrada ou saída depois da contagem. Confira as variações na ficha da peça.', sku,
+      }, 409);
+    }
+  }
+  if (b.variacoes.some((v) => !v.varianteId)) {
+    return json({ erro: 'Uma das variações desta peça está incompleta no cadastro. Abra a ficha da peça.', sku }, 409);
+  }
+  const distribuicao = b.variacoes.map((v) => ({
+    varianteId: v.varianteId, qtd: (contadoDe.get(v.nome) ?? 0) + Math.max(0, v.naMaleta),
+  }));
+  const soma = distribuicao.reduce((s, d) => s + d.qtd, 0);
+  if (soma > b.qtd) {
+    return json({
+      erro: `Foram contadas ${soma} com variação e o código tem ${b.qtd}. Ajuste a sobra deste código antes.`, sku,
+    }, 409);
+  }
+  const r = await distribuirVariantes(db, sku, {
+    distribuicao, parcial: true, obs: `Inventário #${numeroDe(inv)}: variações contadas`,
+  });
+  if (r.erro) {
+    const { status, ...resto } = r;
+    return json(resto, status || 409);
+  }
+  return json({ ...r, sku, guardadas: distribuicao.length });
+}
+
+/** O BALANÇO — o resultado AO VIVO, antes de finalizar (06/10/2026).
+ *
+ *  É a mesma comparação do fechamento, sem congelar nada e sem escrever
+ *  nada: a Sthefany vê o que vai acontecer ("3 peças terão o estoque
+ *  reduzido, 2 aumentado, 17 não conferidas") antes de qualquer ajuste.
+ *  Não conferido continua não conferido — não vira falta sozinho. */
+export async function balancoInventario(db, id) {
+  const inv = await db.prepare(`SELECT * FROM inventarios WHERE id = ?`).bind(id).first();
+  if (!inv) return json({ erro: 'Inventário não encontrado' }, 404);
+  if (inv.status !== 'aberto') return json({ erro: 'Este inventário já foi fechado' }, 409);
+  const linhas = await comparar(db, id);
+  const rel = relatorio(id, linhas, JSON.parse(inv.desconhecidos_json || '[]'), await cobertura(db, id),
+    hojeOperacional());
+  const esperados = (await db.prepare(SQL_ESPERADO).all()).results ?? [];
+  const casa = esperados.filter((p) => Number(p.esperado) > 0);
+  const soma = (xs, f) => xs.reduce((s, x) => s + f(x), 0);
+  rel.numero = numeroDe(inv);
+  rel.totais = {
+    codigosEsperados: casa.length,
+    pecasEsperadas: soma(casa, (p) => Number(p.esperado)),
+    codigosConferidos: rel.conferido + rel.faltando.length + rel.sobrando.length,
+    pecasConferidas: rel.pecasContadas,
+    naoConferidos: rel.naoConferido.length,
+    pecasNaoConferidas: soma(rel.naoConferido, (l) => Math.max(0, Number(l.esperado) || 0)),
+  };
+  rel.impacto = {
+    reduzem: rel.faltando.length,
+    pecasAMenos: soma(rel.faltando, (l) => Math.abs(l.dif)),
+    aumentam: rel.sobrando.length,
+    pecasAMais: soma(rel.sobrando, (l) => Math.abs(l.dif)),
+    precisamVariacao: [...rel.faltando, ...rel.sobrando].filter((l) => l.precisaVariacao).length,
+    naoConferidos: rel.naoConferido.length,
+  };
+  return json(rel);
 }
 
 /** Os ajustes de inventário (§55) de UM inventário, por linha. Banco sem a
@@ -1683,9 +2163,28 @@ export async function detalheInventario(db, id) {
         GROUP BY mi.sku, m.id
        HAVING SUM(mi.qtd - mi.devolvida) > 0
         ORDER BY r.nome`).all();
+    /* A variação da peça na maleta, quando alguém a disse (Pendências, ou
+       "Identificar variação" no inventário). O que ninguém disse fica como
+       "variação não informada" — 06/10/2026. */
+    const varDaMaleta = new Map();
+    try {
+      const { results: mv } = await db.prepare(
+        `SELECT mv.maleta_id, mv.sku, mv.variacao, SUM(mv.qtd) AS qtd FROM maleta_item_variacoes mv
+           JOIN maletas m ON m.id = mv.maleta_id
+          WHERE m.status IN ('aberta', 'em_acerto')
+          GROUP BY mv.maleta_id, mv.sku, mv.variacao`).all();
+      for (const x of mv ?? []) {
+        const k = `${x.maleta_id}|${x.sku}`;
+        if (!varDaMaleta.has(k)) varDaMaleta.set(k, []);
+        varDaMaleta.get(k).push({ nome: x.variacao, qtd: Number(x.qtd) });
+      }
+    } catch { /* sem a tabela: nada identificado */ }
     for (const r of porRev ?? []) {
       if (!comRevendedoras.has(r.sku)) comRevendedoras.set(r.sku, []);
-      comRevendedoras.get(r.sku).push({ nome: r.nome, maletaId: r.maleta_id, qtd: Number(r.qtd) });
+      comRevendedoras.get(r.sku).push({
+        nome: r.nome, maletaId: r.maleta_id, qtd: Number(r.qtd),
+        variacoes: varDaMaleta.get(`${r.maleta_id}|${r.sku}`) ?? [],
+      });
     }
     /* As variações de cada código com o esperado EM CASA de cada uma —
        quando a razão do código tem identidade inteira. Sem ela o esperado
@@ -1702,11 +2201,24 @@ export async function detalheInventario(db, id) {
       const consignadoTotal = (comRevendedoras.get(sku) || []).reduce((s, r) => s + r.qtd, 0);
       const consignadoIdent = vs.reduce((s, v) => s + consignadaDe(consignadas, v), 0);
       const identidade = identificado === (totais.get(sku) ?? 0) && consignadoIdent === consignadoTotal;
+      /* 06/10/2026 — a razão "separa por variação" quando alguma variação
+         tem saldo. Aí o esperado em casa de cada uma é o saldo dela menos o
+         que a maleta tem identificado dela, e o resto é "não informada".
+         Quando não separa (os anéis do go-live), o esperado é só do código. */
+      const separa = vs.some((v) => v.saldo !== 0);
+      const semSaldo = (totais.get(sku) ?? 0) - identificado;
+      const semMaleta = consignadoTotal - consignadoIdent;
       variacoesDoCodigo.set(sku, {
         identidade,
+        separa,
+        naoInformada: {
+          cadastro: semSaldo, comRevendedoras: semMaleta,
+          esperado: separa ? semSaldo - semMaleta : null,
+        },
         lista: vs.map((v) => ({
           nome: v.nome, varianteId: v.varianteId,
-          esperado: identidade ? v.saldo - consignadaDe(consignadas, v) : null,
+          cadastro: v.saldo, comRevendedoras: consignadaDe(consignadas, v),
+          esperado: separa ? v.saldo - consignadaDe(consignadas, v) : null,
         })),
       });
     }
@@ -1722,6 +2234,8 @@ export async function detalheInventario(db, id) {
           ...(variacoesDoCodigo.has(p.sku) ? {
             variacoes: variacoesDoCodigo.get(p.sku).lista,
             variacaoComIdentidade: variacoesDoCodigo.get(p.sku).identidade,
+            razaoPorVariacao: variacoesDoCodigo.get(p.sku).separa,
+            naoInformada: variacoesDoCodigo.get(p.sku).naoInformada,
           } : {}),
         }))
     : [];
@@ -1731,6 +2245,7 @@ export async function detalheInventario(db, id) {
 
   return json({
     id: inv.id,
+    numero: numeroDe(inv),
     status: statusVisivel(inv),
     iniciadoEm: inv.iniciado_em, pausadoEm: inv.pausado_em ?? null, concluidoEm: inv.concluido_em,
     desconhecidos: JSON.parse(inv.desconhecidos_json || '[]'),
@@ -1765,6 +2280,7 @@ export async function listarInventarios(db, limite = 20) {
        FROM inventarios i ORDER BY i.id DESC LIMIT ?`).bind(limite).all();
   return json(r.results.map((i) => ({
     id: i.id,
+    numero: numeroDe(i),
     status: statusVisivel(i),
     iniciadoEm: i.iniciado_em, pausadoEm: i.pausado_em ?? null, concluidoEm: i.concluido_em,
     /* Inventário fechado antes da 4.4 só existe em `inventario_itens`; o de
@@ -1782,8 +2298,8 @@ export async function listarInventarios(db, limite = 20) {
  *  aberta agora? está pausada? quando foi a última? já venceu o prazo? */
 export async function resumoInventario(db, prazoDias) {
   const [aberto, ultimo] = await Promise.all([
-    db.prepare(`SELECT id, iniciado_em, pausado_em FROM inventarios WHERE ${EM_ANDAMENTO} ORDER BY id DESC LIMIT 1`).first(),
-    db.prepare(`SELECT id, concluido_em FROM inventarios WHERE status = 'concluido' ORDER BY id DESC LIMIT 1`).first(),
+    db.prepare(`SELECT * FROM inventarios WHERE ${EM_ANDAMENTO} ORDER BY id DESC LIMIT 1`).first(),
+    db.prepare(`SELECT * FROM inventarios WHERE status = 'concluido' ORDER BY id DESC LIMIT 1`).first(),
   ]);
 
   let diasDesde = null;
@@ -1793,9 +2309,11 @@ export async function resumoInventario(db, prazoDias) {
   }
   return {
     abertoId: aberto ? aberto.id : null,
+    abertoNumero: aberto ? numeroDe(aberto) : null,
     abertoEm: aberto ? aberto.iniciado_em : null,
     pausadoEm: aberto ? (aberto.pausado_em ?? null) : null,
     ultimoId: ultimo ? ultimo.id : null,
+    ultimoNumero: ultimo ? numeroDe(ultimo) : null,
     ultimoEm: ultimo ? diaOperacional(ultimo.concluido_em) : null,
     diasDesde,
     prazoDias,

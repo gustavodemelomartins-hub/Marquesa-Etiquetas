@@ -289,20 +289,28 @@ const aro16 = acha(rel.faltando, '748801', 'Aro 16') || acha(rel.sobrando, '7488
 assert.equal(aro16, undefined, `Aro 16 virou divergência: ${JSON.stringify(aro16)}`);
 prova('6 — contar 4, vender 2 e fechar depois não é divergência nenhuma');
 
-/* 7 — o código com movimento cego depois da contagem não é comparável. */
-const cego = acha(rel.naoComparavel, '300001');
-assert.ok(cego, '300001 tinha movimento sem identidade depois da contagem e ficou comparável');
-assert.match(cego.motivo, /sem identidade de variação/);
-assert.ok(!acha(rel.faltando, '300001') && !acha(rel.sobrando, '300001'));
-prova('7 — movimento posterior sem identidade manda a linha para nao_comparavel');
+/* 7 — §57 (06/10/2026): a diferença de um código com variação é do CÓDIGO.
+   `300001` contou 4 no Aro 18 e DEPOIS vendeu 1 sem dizer o aro. A conta do
+   código continua demonstrável (contou 4 antes da venda de 1, o sistema tem
+   3 agora): conferido, sem divergência — e nenhuma variação foi inventada. */
+assert.ok(!acha(rel.naoComparavel, '300001'), '300001 voltou a ser "não comparável"');
+assert.ok(!acha(rel.faltando, '300001') && !acha(rel.sobrando, '300001'),
+  '300001 virou divergência por causa de uma venda depois da contagem');
+assert.ok(rel.conferidosItens.some((l) => l.sku === '300001'), '300001 sumiu dos conferidos');
+prova('7 — venda sem variação depois da contagem não vira divergência nem "não comparável"');
 
-/* A razão cega do histórico: `200001` tem 2 peças que nenhum aro reivindica.
-   Ela foi contada, então o código inteiro é não comparável — e o motivo diz
-   exatamente quantas peças estão sem identidade. */
-const historicoCego = acha(rel.naoComparavel, '200001');
-assert.ok(historicoCego, '200001 tem razão incompleta e ficou comparável');
-assert.match(historicoCego.motivo, /2 peças na razão sem identidade de variação/);
-prova('7b — razão incompleta no histórico bloqueia a comparação, com o número na frente');
+/* A razão cega do histórico: `200001` tem 4 no Aro 16 e 2 sem variação. Ela
+   contou CADA peça de casa numa variação (Aro 16: 4, Aro 17: 1) — 5 de 6.
+   A falta é de 1 no código, e as partes dizem o que ela disse: uma das duas
+   sem variação era Aro 17, e a outra não está em casa. Nada deduzido. */
+const historicoCego = acha(rel.faltando, '200001');
+assert.ok(historicoCego, '200001 não virou a falta de 1 do código');
+assert.equal(historicoCego.dif, -1);
+assert.equal(historicoCego.modo, 'porVariacao');
+assert.deepEqual(historicoCego.partes,
+  [{ variacao: 'Aro 17', varianteId: '8002', qtd: 1 }, { variacao: null, varianteId: null, qtd: -2 }],
+  'as partes da diferença não são as que ela contou');
+prova('7b — razão com peça sem variação: a falta é do código, e as partes são o que ela contou');
 
 /* ═══════════ 8 — a diferença que ELA chama de perda vira saída sem faturamento
 
@@ -465,10 +473,10 @@ const naoConferido = await inv.aplicarInventario(db, ID, { itens: [{ sku: '10000
 assert.equal(status(naoConferido), 409, 'corrigiu um item que ninguém conferiu');
 assert.match((await corpo(naoConferido)).erro, /não foi conferido/);
 
-const naoComparavel = await inv.aplicarInventario(db, ID, { itens: [{ sku: '300001', variacao: 'Aro 18' }] });
-assert.equal(status(naoComparavel), 409, 'corrigiu um item não comparável');
-assert.match((await corpo(naoComparavel)).erro, /não é comparável/);
-prova('2b — não conferido e não comparável são recusados na aplicação, com o motivo');
+const semDiferenca = await inv.aplicarInventario(db, ID, { itens: [{ sku: '300001', variacao: 'Aro 18', motivo: 'Contagem física' }] });
+assert.equal(status(semDiferenca), 409, 'corrigiu um código conferido sem diferença');
+assert.match((await corpo(semDiferenca)).erro, /não tem diferença/);
+prova('2b — não conferido e código sem diferença são recusados na aplicação, com o motivo');
 
 /* ═══════════════════════════ 5 — "não sei" bloqueia o SKU inteiro */
 
@@ -477,26 +485,29 @@ await inv.contarItem(db, inv3, { sku: '748801', variacao: 'Aro 16', contado: 1 }
 const naoSei = await corpo(await inv.registrarNaoIdentificado(db, inv3, { sku: '748801', qtd: 2 }));
 assert.equal(naoSei.bloqueia, true);
 const rel3 = await corpo(await inv.concluirInventario(db, inv3));
-assert.ok(!acha(rel3.faltando, '748801') && !acha(rel3.sobrando, '748801'),
-  '"não sei" deixou o código entrar em correção');
-const bloqueado = acha(rel3.naoComparavel, '748801');
+/* §57: as 2 do "não sei" contam no código (1 + 2 = 3 de 5). A falta de 2
+   existe e aparece — mas a razão separa por aro e ninguém disse de qual aro
+   ela é: `escolher`, e a aplicação pede o destino. */
+const bloqueado = acha(rel3.faltando, '748801');
 assert.ok(bloqueado, 'o código com "não sei" sumiu do relatório');
-assert.match(bloqueado.motivo, /sem dizer qual variação/);
+assert.equal(bloqueado.dif, -2);
+assert.equal(bloqueado.modo, 'escolher');
+assert.equal(bloqueado.precisaVariacao, true);
 
 const movimentosAntesDoNaoSei = raw.prepare('SELECT COUNT(*) n FROM movimentos').get().n;
-const tentativa = await inv.aplicarInventario(db, inv3, { itens: [{ sku: '748801', variacao: 'Aro 16' }] });
-assert.equal(status(tentativa), 409, '"não sei" não bloqueou a aplicação');
+const tentativa = await inv.aplicarInventario(db, inv3, { itens: [{ sku: '748801', motivo: 'Contagem física' }] });
+assert.equal(status(tentativa), 409, 'aplicou sem ela dizer de qual variação é a falta');
+assert.equal((await corpo(tentativa)).precisaVariacao, true);
 assert.equal(raw.prepare('SELECT COUNT(*) n FROM movimentos').get().n, movimentosAntesDoNaoSei,
   '"não sei" gerou movimento');
-prova('5 — "não sei" bloqueia o SKU inteiro e não movimenta nada');
+prova('5 — peça contada sem variação: a falta aparece, mas só vira movimento quando ela diz o aro');
 
 /* O retrato relido continua dizendo a mesma coisa: ele é a fonte da
-   aplicação, e um retrato que esquecesse o bloqueio o reabriria. */
+   aplicação, e um retrato que esquecesse o modo o reabriria. */
 const relido = await corpo(await inv.resultadoInventario(db, inv3));
-assert.ok(acha(relido.naoComparavel, '748801'), 'o retrato relido perdeu o bloqueio do "não sei"');
-assert.ok(relido.naoComparavel.some((l) => l.naoIdentificado && l.contado === 2),
-  'o retrato relido perdeu a quantidade contada sem identidade');
-prova('5b — o retrato congelado, relido, continua bloqueando o mesmo código');
+const relidoLinha = acha(relido.faltando, '748801');
+assert.ok(relidoLinha && relidoLinha.precisaVariacao, 'o retrato relido perdeu a exigência da variação');
+prova('5b — o retrato congelado, relido, continua pedindo a variação do mesmo código');
 
 /* ══════════════════════════════ 11, 12, 13 — a razão e o passado */
 
@@ -578,9 +589,12 @@ prova('a rota antiga continua servindo o dashboard legado, e ignora a quantidade
 const inv5 = (await corpo(await inv.abrirInventario(db))).id;
 await inv.salvarContagem(db, inv5, { contados: { 748801: 9 }, desconhecidos: [] });
 const rel5 = await corpo(await inv.concluirInventario(db, inv5));
-const agregadaLegado = acha(rel5.naoComparavel, '748801');
-assert.ok(agregadaLegado, 'a contagem agregada legada virou diferença aplicável');
-assert.match(agregadaLegado.motivo, /sem separar a variação/);
+/* §57: a diferença do código aparece (9 contadas), mas a razão separa por
+   aro e nenhuma peça foi dita numa variação — `escolher`: sem o destino que
+   só ela sabe, não há movimento. */
+const agregadaLegado = acha(rel5.sobrando, '748801') ?? acha(rel5.faltando, '748801');
+assert.ok(agregadaLegado, 'a contagem agregada legada sumiu do relatório');
+assert.equal(agregadaLegado.modo, 'escolher', 'a contagem agregada legada ganhou um aro sozinha');
 const antesAgregada = saldos();
 assert.equal(status(await inv.ajustarInventario(db, inv5, { itens: [{ sku: '748801', qtd: 2 }] })), 409,
   'o ajuste legado fabricou movimento sem variação');

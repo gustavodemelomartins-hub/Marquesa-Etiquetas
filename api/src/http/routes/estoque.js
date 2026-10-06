@@ -9,6 +9,7 @@ import { json } from '../../auth.js';
 import { conferirEstoque, saldosDoSku } from '../../estoque.js';
 import { lancarMovimento, repartirVariacoes, desfazerSemeadura, ajustarEstoque } from '../../estoque-comandos.js';
 import { distribuirVariantes } from '../../variantes.js';
+import { adicionarVariacaoDaPeca } from '../../inventario.js';
 
 export const rotas = [
   {
@@ -68,6 +69,16 @@ export const rotas = [
     async handler({ db, request, params }) {
       const r = await distribuirVariantes(db, decodeURIComponent(params.sku), await request.json());
       return json(r, r.status || (r.erro ? 400 : 200));
+    },
+  },
+  {
+    /* "+ Adicionar variação" em Peças (06/10/2026): UMA variação nova no
+       cadastro, sem mexer em estoque. "23", "nº23" e "N23" são a mesma — a
+       que já existe é devolvida em vez de duplicada. */
+    metodo: 'POST', caminho: '/api/produtos/:sku/variacoes/adicionar', auth: 'bearer',
+    async handler({ db, request, params }) {
+      return await adicionarVariacaoDaPeca(db, decodeURIComponent(params.sku),
+        await request.json().catch(() => ({})));
     },
   },
 ];

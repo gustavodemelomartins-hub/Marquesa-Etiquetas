@@ -153,6 +153,10 @@ const MIGRACOES = [
      e o registro do inventário excluído (`inventarios_excluidos`). Só
      acrescenta, e roda duas vezes. */
   'api/migracao-inventario-ajuste.sql',
+  /* 06/10/2026 — inventário reconstruído na V2: número visível
+     (`inventarios.numero`), leituras com id da tela (`inventario_leituras`),
+     partes congeladas da diferença por variação. Só acrescenta. */
+  'api/migracao-inventario-v2.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com

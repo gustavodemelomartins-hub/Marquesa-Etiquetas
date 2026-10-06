@@ -201,7 +201,7 @@
       "id": "inventario-bipou-marcha",
       "level": "domain",
       "mode": "local",
-      "description": "Inventário bipou e marcha: um bipe confere a referência, só a falta é digitada (A-L)",
+      "description": "Inventário (rota antiga /itens, ainda usada pelo painel clássico): bipe por referência e falta digitada (A-L)",
       "gates": [
         "domain",
         "release"
@@ -218,6 +218,24 @@
         "Node 22.5+ (node:sqlite)"
       ],
       "duration": "<3s"
+    },
+    {
+      "id": "inventario-v2-reconstrucao",
+      "level": "domain",
+      "mode": "local",
+      "description": "Inventário V2 reconstruído: 1 bipe = 1 unidade, leitura idempotente, variação criada sem duplicar, revendedora sem aro, balanço, número visível #1",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/inventario-v2-reconstrucao-test.mjs"
+          ]
+        }
+      ]
     },
     {
       "id": "estoque-ajuste-inventario",

@@ -25,6 +25,7 @@ import { movimentar } from './estoque.js';
 
 export { normSku } from './sku.js';
 import { normSku } from './sku.js';
+import { chaveDaVariacao, formatarValorNovo } from './variacao-nome.js';
 
 /* ==================================================================== */
 /* 1. DEPENDÊNCIAS — a pergunta que decide                              */
@@ -436,6 +437,99 @@ export async function definirVariacoes(db, sku, { atributos, desvincular = false
   };
 }
 
+/** ACRESCENTA UMA variação a um código — o gesto de "+ Adicionar variação",
+ *  em Peças e no Inventário (06/10/2026).
+ *
+ *  Não é um segundo modelo de variação: monta a estrutura atual a partir dos
+ *  valores gravados de cada combinação, acrescenta UM valor a UM atributo e
+ *  chama `definirVariacoes` — as mesmas travas (vínculo com a Nuvemshop
+ *  preservado, nenhum estoque mexido).
+ *
+ *  Duas coisas que só existem aqui:
+ *   · a grafia do valor novo segue a das irmãs do atributo
+ *     (`formatarValorNovo`): "19" vira "n°19" num anel cujos aros são "n°";
+ *   · "23", "nº23", "nº 23" e "N23" são a MESMA variação
+ *     (`chaveDaVariacao`). Se ela já existe, a resposta diz qual é —
+ *     `jaExiste` + `existentes` — em vez de criar um segundo "aro 23". */
+export async function adicionarVariacao(db, sku, { valor, atributo } = {}) {
+  const k = normSku(sku);
+  if (!k) return { erro: 'Informe o código da peça.', status: 400 };
+  const digitado = String(valor ?? '').trim();
+  if (!digitado) return { erro: 'Diga qual é a variação (ex.: 19).', status: 400 };
+  if (digitado.length > 40) return { erro: 'Nome de variação longo demais (máximo 40 letras).', status: 400 };
+
+  const p = await db.prepare('SELECT sku, desc FROM produtos WHERE sku = ?').bind(k).first();
+  if (!p) return { erro: `Código ${sku} não está no catálogo.`, status: 404 };
+
+  const atuais = (await db.prepare(
+    `SELECT nome, atributo, valores_json FROM produto_variacoes WHERE sku = ? ORDER BY ordem, nome`)
+    .bind(k).all()).results ?? [];
+
+  /* A estrutura atual, reconstruída dos valores gravados de cada combinação.
+     Variação antiga sem `valores_json` vira um atributo só, com o nome dela
+     como valor — é exatamente o que ela é. */
+  const atributos = [];
+  for (const v of atuais) {
+    let valores = parseJson(v.valores_json, []);
+    if (!Array.isArray(valores) || !valores.length) {
+      valores = [{ atributo: v.atributo || 'Tamanho', valor: v.nome }];
+    }
+    for (const x of valores) {
+      let a = atributos.find((y) => y.nome === x.atributo);
+      if (!a) { a = { nome: x.atributo, valores: [] }; atributos.push(a); }
+      if (!a.valores.includes(x.valor)) a.valores.push(x.valor);
+    }
+  }
+  const nomeAtributo = String(atributo ?? '').trim()
+    || (atributos.length ? atributos[atributos.length - 1].nome : 'Tamanho');
+  let alvo = atributos.find((a) => a.nome === nomeAtributo);
+  if (!alvo) {
+    if (atributos.length) {
+      return {
+        erro: `${p.desc} já tem variações por ${atributos.map((a) => a.nome).join(' e ')}. `
+          + 'Escolha um desses.', status: 409, atributos,
+      };
+    }
+    alvo = { nome: nomeAtributo, valores: [] };
+    atributos.push(alvo);
+  }
+
+  const chave = chaveDaVariacao(digitado);
+  const igual = alvo.valores.find((v) => chaveDaVariacao(v) === chave);
+  if (igual) {
+    /* As combinações que já têm esse valor. Num anel de um atributo só é
+       uma: "nº23". É ela que a tela oferece para contar mais uma. */
+    const existentes = atuais
+      .filter((v) => {
+        const vs = parseJson(v.valores_json, []);
+        return Array.isArray(vs) && vs.length
+          ? vs.some((x) => x.atributo === alvo.nome && chaveDaVariacao(x.valor) === chave)
+          : chaveDaVariacao(v.nome) === chave;
+      })
+      .map((v) => v.nome);
+    return {
+      erro: `Essa variação já existe: ${existentes[0] ?? igual}.`,
+      status: 409, jaExiste: true, existente: existentes[0] ?? igual, existentes, sku: k,
+    };
+  }
+
+  const novo = formatarValorNovo(digitado, alvo.valores);
+  alvo.valores.push(novo);
+
+  const r = await definirVariacoes(db, k, { atributos });
+  if (r.erro) return r;
+
+  const antes = new Set(atuais.map((v) => v.nome));
+  const criadas = (r.combinacoes || []).filter((c) => !antes.has(c.nome));
+  return {
+    ok: true, sku: k, desc: p.desc,
+    atributo: alvo.nome, valor: novo,
+    criadas: criadas.map((c) => ({ nome: c.nome, varianteId: c.varianteId })),
+    variacoes: (r.combinacoes || []).map((c) => ({ nome: c.nome, varianteId: c.varianteId })),
+    estoqueAlterado: false,
+  };
+}
+
 /* ==================================================================== */
 /* 5. A ESTRUTURA COMO A TELA DE EDIÇÃO PRECISA VER                     */
 /* ==================================================================== */
@@ -527,14 +621,45 @@ export async function estruturaDoProduto(db, sku) {
     }
   }
 
+  /* COM QUEM ESTÁ O QUE NÃO ESTÁ EM CASA (06/10/2026). A tela de variações
+     precisa separar "total do código", "com revendedoras" e "em casa", e
+     dizer de quantas peças da maleta a variação é conhecida. A que ninguém
+     identificou fica em `consignadoSemVariacao` — nunca é atribuída a um
+     aro por conta própria (regra 2). */
+  const consignado = Number((await db.prepare(
+    `SELECT COALESCE(SUM(mi.qtd - mi.devolvida), 0) AS n FROM maleta_itens mi
+       JOIN maletas m ON m.id = mi.maleta_id
+      WHERE mi.sku = ? AND m.status IN ('aberta', 'em_acerto')`).bind(k).first())?.n ?? 0);
+  let naMaleta = [];
+  try {
+    naMaleta = (await db.prepare(
+      `SELECT mv.variacao, mv.variante_id, SUM(mv.qtd) AS qtd FROM maleta_item_variacoes mv
+         JOIN maletas m ON m.id = mv.maleta_id
+        WHERE mv.sku = ? AND m.status IN ('aberta', 'em_acerto')
+        GROUP BY mv.variacao, mv.variante_id`).bind(k).all()).results ?? [];
+  } catch { /* banco sem a tabela: nenhuma consignação identificada */ }
+  let consignadoIdentificado = 0;
+  for (const l of linhas) {
+    l.comRevendedoras = naMaleta
+      .filter((c) => (c.variante_id != null && l.varianteId != null
+        ? String(c.variante_id) === String(l.varianteId)
+        : c.variacao === l.nome))
+      .reduce((s2, c) => s2 + Number(c.qtd || 0), 0);
+    consignadoIdentificado += l.comRevendedoras;
+  }
+
   /* `status` = o do produto, não HTTP — ver a nota em dependenciasDoProduto. */
   return {
     sku: p.sku, desc: p.desc, cat: p.cat, qtd: p.qtd,
     preco: p.preco == null ? null : p.preco, status: p.status,
     fonte: naLoja.length ? 'loja' : (nossas.length ? 'local' : 'nenhuma'),
-    temVariacao: linhas.length > 1,
+    /* Uma variação só JÁ é variação: o anel de um aro único cadastrado
+       ("nº18") aparecia como "esta peça não tem variação" (06/10/2026). */
+    temVariacao: linhas.length >= 1,
     atributos, variacoes: linhas,
     saldoSemVariacao,
+    consignado,
+    consignadoSemVariacao: Math.max(0, consignado - consignadoIdentificado),
     somaLoja: naLoja.reduce((s, v) => s + (v.estoque || 0), 0),
   };
 }

@@ -93,7 +93,15 @@ const migration = ler('api/migracao-inventario-4-4.sql');
   assert.match(corpo, /origem: 'inventario'/, 'o ajuste de inventário perdeu a origem inventario (D9)');
   assert.match(corpo, /INSERT INTO inventario_ajustes/, 'o ajuste deixou de registrar a linha que trava a repetição');
   assert.match(corpo, /db\.batch\(\[/, 'o registro e o movimento deixaram de andar no mesmo batch');
-  assert.match(corpo, /quantidade: linha\.dif/, 'o ajuste deixou de usar a diferença congelada');
+  /* 06/10/2026 — num código com variação a diferença congelada pode entrar
+     em mais de uma variação (as partes que ela contou). O movimento usa a
+     quantidade de cada PARTE, e `aplicarDiferenca` recusa antes de escrever
+     se a soma das partes não for a diferença congelada. */
+  assert.match(corpo, /quantidade: parte\.qtd/, 'o ajuste deixou de usar as partes da diferença congelada');
+  const ia = inventario.indexOf('async function aplicarDiferenca(');
+  const aplica = inventario.slice(ia, inventario.indexOf('\n}', ia));
+  assert.match(aplica, /somaDasPartes !== linha\.dif/,
+    'a aplicação deixou de conferir que as partes somam a diferença congelada');
   prova('a diferença de inventário só vira estoque por saidas.js (perda) ou pelo ajuste de inventário travado');
 }
 
@@ -104,8 +112,12 @@ const migration = ler('api/migracao-inventario-4-4.sql');
   const i = inventario.indexOf('async function aplicarDiferenca(');
   assert.ok(i > 0, 'aplicarDiferenca sumiu de inventario.js');
   const corpo = inventario.slice(i, inventario.indexOf('\n}', i));
-  assert.ok(!/pedido\.qtd|\.qtd\b\s*[,)]/.test(corpo.replace(/qtd: Math\.abs\(linha\.dif\)/g, '')),
-    'a aplicação passou a ler a quantidade do corpo do cliente');
+  /* `pt.qtd` é a parte CONGELADA no fechamento (`linha.partes_json`), não
+     o corpo do cliente — e a soma delas é conferida contra `linha.dif`. */
+  assert.ok(!/pedido\.qtd|\.qtd\b\s*[,)]/.test(corpo
+    .replace(/qtd: Math\.abs\(linha\.dif\)/g, '')
+    .replace(/\bpt\.qtd\b/g, '')),
+  'a aplicação passou a ler a quantidade do corpo do cliente');
   assert.match(corpo, /qtd: Math\.abs\(linha\.dif\)/,
     'a aplicação deixou de usar a diferença congelada');
   assert.match(corpo, /inventarioId: id/,
