@@ -156,10 +156,10 @@ describe('a conferência — um bipe é uma unidade', () => {
     await pronto();
     bipar('347801');
     bipar('347801');
-    await screen.findByText(/Essa peça acabou de ser lida\./);
+    await screen.findByRole('alertdialog', { name: 'Essa peça já foi conferida.' });
     await waitFor(() => expect(leituras(chamadas)).toHaveLength(1));
     fireEvent.click(screen.getByRole('button', { name: 'Foi engano' }));
-    expect(screen.queryByText(/Essa peça acabou de ser lida\./)).toBeNull();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(leituras(chamadas)).toHaveLength(1);
     expect(numero('Conferido')).toBe('1');
   });
@@ -173,19 +173,6 @@ describe('a conferência — um bipe é uma unidade', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Contar outra unidade' }));
     await waitFor(() => expect(leituras(chamadas)).toHaveLength(2));
     expect(numero('Conferido')).toBe('2');
-  });
-
-  it('o mesmo código depois da janela de repetição conta direto (duas peças iguais)', async () => {
-    const { chamadas } = servidor();
-    abrir();
-    await pronto();
-    let agora = 1_000_000;
-    vi.spyOn(Date, 'now').mockImplementation(() => agora);
-    bipar('347801');
-    agora += 5_000;
-    bipar('347801');
-    await waitFor(() => expect(leituras(chamadas)).toHaveLength(2));
-    expect(screen.queryByText(/Essa peça acabou de ser lida\./)).toBeNull();
   });
 
   it('variação: o bipe fica "sem variação", tocar no nº23 move a peça; + soma outra do mesmo aro', async () => {
@@ -316,5 +303,238 @@ describe('a conferência — um bipe é uma unidade', () => {
     for (const proibido of [/local:/, /variante/i, /nao_/, /_id\b/, /painel clássico/i, /\/api\//, /undefined/, /\bnull\b/, /#42/]) {
       expect(texto).not.toMatch(proibido);
     }
+  });
+});
+
+/* ─────────────────── a mesma peça nunca é contada duas vezes em silêncio */
+
+const aviso = (nome: string | RegExp) => screen.findByRole('alertdialog', { name: nome });
+const semAviso = () => expect(screen.queryByRole('alertdialog')).toBeNull();
+const digitar = (rotulo: string, valor: string) => {
+  const el = within(peca()).getByLabelText(rotulo) as HTMLInputElement;
+  fireEvent.focus(el);
+  fireEvent.change(el, { target: { value: valor } });
+  fireEvent.blur(el);
+};
+const linhasDe = (contagem: Map<string, LinhaContada[]>, sku: string) =>
+  Object.fromEntries((contagem.get(sku) ?? []).map((l) => [l.variacao, l.contado]));
+const totalDe = (contagem: Map<string, LinhaContada[]>, sku: string) =>
+  (contagem.get(sku) ?? []).reduce((s, l) => s + l.contado, 0);
+
+describe('contagem dupla — a mesma peça não conta duas vezes sem ela confirmar', () => {
+  it('scanner: o mesmo código 20 s depois, sem outro no meio, NÃO soma — pergunta', async () => {
+    const { chamadas } = servidor();
+    abrir();
+    await pronto();
+    let agora = 1_000_000;
+    vi.spyOn(Date, 'now').mockImplementation(() => agora);
+    bipar('347801');
+    await waitFor(() => expect(leituras(chamadas)).toHaveLength(1));
+    agora += 20_000;
+    bipar('347801');
+    const d = await aviso('Essa peça já foi conferida.');
+    expect(d.textContent).toMatch(/Colar Coração/);
+    expect(d.textContent).toMatch(/Quantidade já conferida:\s*1/);
+    expect(screen.getByRole('status').textContent).not.toMatch(/✓/);
+    expect(leituras(chamadas)).toHaveLength(1);
+    fireEvent.click(within(d).getByRole('button', { name: 'Foi engano' }));
+    semAviso();
+    expect(numero('Conferido')).toBe('1');
+    /* a terceira leitura igual pergunta de novo — não há "agora vale" */
+    agora += 60_000;
+    bipar('347801');
+    fireEvent.click(within(await aviso('Essa peça já foi conferida.')).getByRole('button', { name: 'Contar outra unidade' }));
+    await waitFor(() => expect(leituras(chamadas)).toHaveLength(2));
+    expect(numero('Conferido')).toBe('2');
+  });
+
+  it('scanner: A → B → A conta normal, sem pergunta', async () => {
+    const { chamadas } = servidor();
+    abrir();
+    await pronto();
+    bipar('347801');
+    bipar('127513');
+    bipar('347801');
+    await waitFor(() => expect(leituras(chamadas)).toHaveLength(3));
+    semAviso();
+    expect(numero('Conferido')).toBe('2');
+  });
+
+  it('scanner: com a pergunta aberta, outro código fecha a pergunta SEM contar e conta o outro', async () => {
+    const { chamadas, contagem } = servidor();
+    abrir();
+    await pronto();
+    bipar('347801');
+    bipar('347801');
+    await aviso('Essa peça já foi conferida.');
+    bipar('127513');
+    await waitFor(() => expect(leituras(chamadas)).toHaveLength(2));
+    semAviso();
+    await waitFor(() => expect(totalDe(contagem, '127513')).toBe(1));
+    expect(totalDe(contagem, '347801')).toBe(1);
+  });
+
+  it('scanner: peça desfeita ("Desfazer conferência") volta a contar no primeiro bipe', async () => {
+    const { chamadas } = servidor();
+    abrir();
+    await pronto();
+    bipar('347801');
+    fireEvent.click(within(peca()).getByRole('button', { name: 'Desfazer conferência' }));
+    await waitFor(() => expect(leituras(chamadas).at(-1)).toMatchObject({ gesto: 'limpar' }));
+    bipar('347801');
+    await waitFor(() => expect(leituras(chamadas)).toHaveLength(3));
+    semAviso();
+  });
+
+  it('recarregar a página não esquece a última leitura: o mesmo código pergunta', async () => {
+    const { chamadas } = servidor();
+    abrir();
+    await pronto();
+    bipar('347801');
+    await waitFor(() => expect(leituras(chamadas)).toHaveLength(1));
+    cleanup();
+    abrir();
+    await pronto();
+    bipar('347801');
+    await aviso('Essa peça já foi conferida.');
+    expect(leituras(chamadas)).toHaveLength(1);
+  });
+
+  it('o caso da Sthefany: 2 bipes, depois digita 5 da planilha → pergunta, substitui por 5, NUNCA 7', async () => {
+    const { chamadas, contagem } = servidor();
+    abrir();
+    await pronto();
+    bipar('347801');
+    bipar('347801');
+    fireEvent.click(within(await aviso('Essa peça já foi conferida.')).getByRole('button', { name: 'Contar outra unidade' }));
+    await waitFor(() => expect(totalDe(contagem, '347801')).toBe(2));
+    digitar('Conferido', '5');
+    const d = await aviso('Substituir a quantidade conferida?');
+    expect(d.textContent).toMatch(/Já foram conferidas 2 unidades desta peça/);
+    expect(d.textContent).toMatch(/2\s*→\s*5/);
+    expect(leituras(chamadas)).toHaveLength(2);
+    fireEvent.click(within(d).getByRole('button', { name: 'Substituir por 5' }));
+    await waitFor(() => expect(totalDe(contagem, '347801')).toBe(5));
+    expect(leituras(chamadas).at(-1)).toMatchObject({ gesto: 'definir', quantidade: 5 });
+    expect(numero('Conferido')).toBe('5');
+  });
+
+  it('digitar sobre contagem existente e Cancelar: continua o que estava', async () => {
+    const { chamadas, contagem } = servidor();
+    abrir();
+    await pronto();
+    bipar('347801');
+    await waitFor(() => expect(totalDe(contagem, '347801')).toBe(1));
+    digitar('Conferido', '4');
+    fireEvent.click(within(await aviso('Substituir a quantidade conferida?')).getByRole('button', { name: 'Cancelar' }));
+    semAviso();
+    expect(leituras(chamadas)).toHaveLength(1);
+    expect((within(peca()).getByLabelText('Conferido') as HTMLInputElement).value).toBe('1');
+  });
+
+  it('digitar o MESMO valor já conferido não grava nada', async () => {
+    const { chamadas, contagem } = servidor();
+    abrir();
+    await pronto();
+    bipar('347801');
+    fireEvent.click(within(peca()).getByRole('button', { name: /Estão todas aqui \(4\)/ }));
+    await waitFor(() => expect(totalDe(contagem, '347801')).toBe(4));
+    const antes = leituras(chamadas).length;
+    digitar('Conferido', '4');
+    semAviso();
+    expect(leituras(chamadas)).toHaveLength(antes);
+  });
+
+  it('digitar MENOS (5 → 3) é correção legítima: pergunta e fica 3', async () => {
+    const { contagem } = servidor();
+    abrir();
+    await pronto();
+    bipar('347801');
+    digitar('Conferido', '5');
+    fireEvent.click(within(await aviso('Substituir a quantidade conferida?')).getByRole('button', { name: 'Substituir por 5' }));
+    await waitFor(() => expect(totalDe(contagem, '347801')).toBe(5));
+    digitar('Conferido', '3');
+    fireEvent.click(within(await aviso('Substituir a quantidade conferida?')).getByRole('button', { name: 'Substituir por 3' }));
+    await waitFor(() => expect(totalDe(contagem, '347801')).toBe(3));
+  });
+
+  it('peça ainda não conferida: o número digitado define a contagem, sem pergunta', async () => {
+    const { chamadas, contagem } = servidor();
+    abrir();
+    await pronto();
+    bipar('colar coração');
+    digitar('Conferido', '3');
+    semAviso();
+    await waitFor(() => expect(totalDe(contagem, '347801')).toBe(3));
+    expect(leituras(chamadas)).toEqual([expect.objectContaining({ gesto: 'definir', quantidade: 3 })]);
+  });
+
+  it('variação: nº23 com 2, digita 3 → pergunta → nº23 = 3 (não 5)', async () => {
+    const { contagem } = servidor();
+    abrir();
+    await pronto();
+    bipar('256359');
+    fireEvent.click(within(peca()).getByRole('button', { name: 'nº23' }));
+    fireEvent.click(within(peca()).getByRole('button', { name: 'Contar mais uma — Conferido em nº23' }));
+    await waitFor(() => expect(linhasDe(contagem, '256359')['nº23']).toBe(2));
+    digitar('Conferido em nº23', '3');
+    const d = await aviso('Substituir a quantidade conferida?');
+    expect(d.textContent).toMatch(/2\s*→\s*3/);
+    fireEvent.click(within(d).getByRole('button', { name: 'Substituir por 3' }));
+    await waitFor(() => expect(linhasDe(contagem, '256359')['nº23']).toBe(3));
+    expect(totalDe(contagem, '256359')).toBe(3);
+  });
+
+  it('variação: 2 bipes sem variação + digita 5 no nº23 → pergunta se são do nº23; "Sim" dá 5, não 7', async () => {
+    const { chamadas, contagem } = servidor();
+    abrir();
+    await pronto();
+    bipar('256359');
+    bipar('256359');
+    fireEvent.click(within(await aviso('Essa peça já foi conferida.')).getByRole('button', { name: 'Contar outra unidade' }));
+    await waitFor(() => expect(linhasDe(contagem, '256359')['']).toBe(2));
+    digitar('Conferido em nº23', '5');
+    const d = await aviso('As peças bipadas sem variação são do nº23?');
+    expect(d.textContent).toMatch(/2 peças bipadas sem variação/);
+    fireEvent.click(within(d).getByRole('button', { name: /Sim, são do nº23/ }));
+    await waitFor(() => expect(linhasDe(contagem, '256359')['nº23']).toBe(5));
+    expect(totalDe(contagem, '256359')).toBe(5);
+    expect(leituras(chamadas).at(-1)).toMatchObject({ gesto: 'definir', variacao: 'nº23', quantidade: 5, naoInformadas: true });
+  });
+
+  it('variação: "Não, é de outra variação" mantém a sem variação à parte, dito por ela', async () => {
+    const { contagem } = servidor();
+    abrir();
+    await pronto();
+    bipar('256359');
+    await waitFor(() => expect(linhasDe(contagem, '256359')['']).toBe(1));
+    digitar('Conferido em nº23', '5');
+    fireEvent.click(within(await aviso('A peça bipada sem variação é do nº23?')).getByRole('button', { name: /Não, é de outra variação/ }));
+    await waitFor(() => expect(linhasDe(contagem, '256359')['nº23']).toBe(5));
+    expect(linhasDe(contagem, '256359')['']).toBe(1);
+  });
+
+  it('variação: digitar em outra variação, sem nada sem variação, não pergunta (peças diferentes)', async () => {
+    const { contagem } = servidor();
+    abrir();
+    await pronto();
+    bipar('256359');
+    fireEvent.click(within(peca()).getByRole('button', { name: 'nº18' }));
+    await waitFor(() => expect(linhasDe(contagem, '256359')['nº18']).toBe(1));
+    digitar('Conferido em nº23', '2');
+    semAviso();
+    await waitFor(() => expect(linhasDe(contagem, '256359')['nº23']).toBe(2));
+    expect(totalDe(contagem, '256359')).toBe(3);
+  });
+
+  it('a pergunta fica por cima da navegação, com botões de toque', async () => {
+    servidor();
+    abrir();
+    await pronto();
+    bipar('347801');
+    bipar('347801');
+    const d = await aviso('Essa peça já foi conferida.');
+    expect(d.className).toMatch(/conf-aviso/);
+    for (const b of within(d).getAllByRole('button')) expect(b.className).toMatch(/conf-aviso__botao/);
   });
 });

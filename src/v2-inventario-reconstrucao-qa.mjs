@@ -174,13 +174,14 @@ for (const [largura, altura, movel, base] of [[1280, 900, false, 911000], [390, 
 
   /* ── bipe repetido sem querer: não soma, pergunta */
   await bipar(S.brinco);
-  await p.getByText('Essa peça acabou de ser lida.').waitFor({ timeout: 3000 });
+  const avisoRepetido = p.getByRole('alertdialog', { name: 'Essa peça já foi conferida.' });
+  await avisoRepetido.waitFor({ timeout: 3000 });
   await p.waitForTimeout(300);
   prova(leituras.filter((l) => l.sku === S.brinco).length === 1, `${tam}: bipe repetido logo em seguida NÃO somou`);
   prova(await numero('Conferido') === '1', `${tam}: continua 1 conferida`);
   await semRolagemLateral('pergunta do bipe repetido');
   await foto('bipe-repetido');
-  await p.getByRole('button', { name: 'Contar outra unidade' }).click();
+  await avisoRepetido.getByRole('button', { name: 'Contar outra unidade' }).click();
   prova(await esperaNumero('Conferido', '2') === '2', `${tam}: "Contar outra unidade" somou a segunda peça igual`);
 
   /* ── estão todas aqui */
@@ -226,6 +227,9 @@ for (const [largura, altura, movel, base] of [[1280, 900, false, 911000], [390, 
   await bipar(S.colar);
   await peca.getByLabel('Conferido', { exact: true }).fill('4');
   await peca.getByLabel('Conferido', { exact: true }).press('Enter');
+  /* §59: já havia 1 bipada — o 4 substitui, e ela confirma. */
+  await p.getByRole('alertdialog', { name: 'Substituir a quantidade conferida?' })
+    .getByRole('button', { name: 'Substituir por 4' }).click();
   prova(await esperaNumero('Sobrando', '1') === '1', `${tam}: conferido 4 de 3 — sobrando 1`);
 
   /* ── busca manual por nome, sem contar */

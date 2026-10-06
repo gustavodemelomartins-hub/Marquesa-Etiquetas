@@ -14,8 +14,11 @@
  *
  *   · NÃO CONFERIDO não é FALTANDO. Peça que ninguém olhou não tem falta;
  *     ela é "não conferida", e só vira falta pelo gesto dela;
- *   · o bipe repetido na hora não soma sozinho (`ehRepeticaoAcidental`) —
- *     mas duas peças iguais existem, então somar a segunda é UM toque;
+ *   · o mesmo código bipado de novo, sem outro no meio, não soma sozinho
+ *     (`pedeConfirmacaoDoBipe`, sem prazo) — mas duas peças iguais
+ *     existem, então somar a segunda é UM toque;
+ *   · o número DIGITADO é o total conferido da linha, nunca "mais X", e
+ *     substituir uma contagem pede confirmação (`planoDaDigitacao`);
  *   · variação que ninguém disse fica "não informada" — nunca é escolhida
  *     pela tela.
  *
@@ -159,21 +162,86 @@ export function resumoDoInventario(
 
 /* ─────────────────────────────────────────────── o bipe repetido sem querer */
 
-/** Quanto tempo uma segunda leitura do MESMO código, sem nada entre as
- *  duas, é tratada como possível rebote do leitor. A câmera já descarta a
- *  mesma etiqueta por 1,8 s em silêncio (`LeitorDeEtiquetas`); esta janela
- *  é maior e NÃO descarta: pergunta. */
+/** Até quanto tempo uma segunda leitura do MESMO código é PROVAVELMENTE o
+ *  leitor que disparou duas vezes. Só muda a frase da pergunta — não é a
+ *  trava. A câmera ainda descarta a mesma etiqueta por 1,8 s em silêncio
+ *  (`LeitorDeEtiquetas`). */
 export const JANELA_DE_REPETICAO_MS = 4000;
 
 export interface UltimaLeitura { sku: string; em: number }
 
-/** A leitura de agora é o MESMO código da anterior, logo em seguida, sem
- *  outro código no meio? Então pode ser o leitor que disparou duas vezes —
- *  ou duas peças iguais. A tela não soma sozinha: pergunta. */
-export function ehRepeticaoAcidental(
-  anterior: UltimaLeitura | null, sku: string, agora: number, janela = JANELA_DE_REPETICAO_MS,
+/** O MESMO código lido de novo, sem outro código no meio, numa peça que já
+ *  tem conferência? Então a tela NÃO soma: pergunta (06/10/2026, §59).
+ *
+ *  Não há prazo. Até esta data a pergunta só vinha em 4 s, e a Sthefany,
+ *  que bipa, olha a ficha e bipa de novo a mesma peça 10 s depois, contava
+ *  a mesma peça duas vezes sem saber. Duas peças iguais existem — somar a
+ *  segunda continua sendo UM toque ("Contar outra unidade").
+ *
+ *  Peça que voltou a "não conferida" (desfeita) ou ficou em zero conta no
+ *  primeiro bipe: não há o que repetir. */
+export function pedeConfirmacaoDoBipe(
+  anterior: UltimaLeitura | null, sku: string, conferidoAgora: number | null,
 ): boolean {
-  return !!anterior && anterior.sku === sku && agora - anterior.em >= 0 && agora - anterior.em < janela;
+  return !!anterior && anterior.sku === sku && (conferidoAgora ?? 0) > 0;
+}
+
+/** A repetição foi tão rápida que deve ser o leitor disparando duas vezes —
+ *  muda só a frase do aviso. */
+export function pareceRebote(anterior: UltimaLeitura | null, agora: number, janela = JANELA_DE_REPETICAO_MS): boolean {
+  return !!anterior && agora - anterior.em >= 0 && agora - anterior.em < janela;
+}
+
+/* ─────────────────────────────────────── o número digitado (planilha) */
+
+/** O que acontece quando ela DIGITA um número numa linha da peça.
+ *
+ *  O número digitado é a QUANTIDADE TOTAL CONFERIDA daquela linha — nunca
+ *  "mais X". 2 bipados + 5 digitados = 5, nunca 7 (06/10/2026, §59). E
+ *  como 2 → 5 também apaga uma contagem, ela confirma antes:
+ *
+ *   · `igual`       — o número já é o conferido: nada a gravar;
+ *   · `direto`      — nada conferido que possa ser a mesma peça: grava;
+ *   · `substituir`  — havia contagem: "Substituir 2 por 5?";
+ *   · `semVariacao` — peça com variação e peças bipadas SEM variação: elas
+ *                     podem ser deste aro (estão entre as 5) ou de outro.
+ *                     Quem diz é ela — a tela nunca escolhe (regra 2).
+ *
+ *  Outra variação já contada (nº18: 2, digita nº23: 3) não pergunta: são
+ *  peças diferentes. */
+export type PlanoDaDigitacao =
+  | { tipo: 'igual' }
+  | { tipo: 'direto' }
+  | { tipo: 'substituir'; antes: number; depois: number; totalAntes: number; totalDepois: number }
+  | {
+    tipo: 'semVariacao'; antes: number; depois: number; totalAntes: number;
+    /** Peças bipadas sem variação. */
+    naoInformadas: number;
+    /** Quantas delas entram no número digitado, se forem deste aro. */
+    entram: number;
+    /** O total da peça se forem deste aro / se forem de outro. */
+    totalSeForem: number; totalSeNaoForem: number;
+  };
+
+export function planoDaDigitacao(linhas: LinhaContada[] | undefined, variacao: string, n: number): PlanoDaDigitacao {
+  const m = new Map((linhas ?? []).map((l) => [l.variacao, l.contado]));
+  const antes = m.get(variacao) ?? 0;
+  if (n === antes) return { tipo: 'igual' };
+  const totalAntes = [...m.values()].reduce((s, q) => s + q, 0);
+  const totalDepois = totalAntes - antes + n;
+  const naoInformadas = variacao === '' ? 0 : (m.get('') ?? 0);
+  const entram = Math.min(naoInformadas, Math.max(0, n - antes));
+  if (entram > 0) {
+    return {
+      tipo: 'semVariacao', antes, depois: n, totalAntes, naoInformadas, entram,
+      totalSeForem: totalDepois - entram, totalSeNaoForem: totalDepois,
+    };
+  }
+  /* "Variação não informada" digitada numa peça que já tem aros contados:
+     pode ser a mesma peça, contada pelo aro. */
+  const outrasNaPeca = variacao === '' ? totalAntes - antes : 0;
+  if (antes > 0 || outrasNaPeca > 0) return { tipo: 'substituir', antes, depois: n, totalAntes, totalDepois };
+  return { tipo: 'direto' };
 }
 
 /* ───────────────────────────────────────────────────── as leituras */
@@ -189,6 +257,9 @@ export interface Leitura {
   quantidade?: number;
   de?: string;
   para?: string;
+  /** Só em `definir` numa variação: as peças bipadas sem variação estão
+   *  entre as digitadas — passam para esta variação em vez de somar. */
+  naoInformadas?: boolean;
 }
 
 export function novaLeituraId(): string {
@@ -210,7 +281,15 @@ export function efeitoDaLeitura(
   switch (leitura.gesto) {
     case 'bipe': case 'mais': soma(v, 1); break;
     case 'menos': soma(v, -1); break;
-    case 'definir': m.set(v, Math.max(0, leitura.quantidade ?? 0)); break;
+    case 'definir': {
+      const n = Math.max(0, leitura.quantidade ?? 0);
+      if (leitura.naoInformadas && v !== '') {
+        const entram = Math.min(m.get('') ?? 0, Math.max(0, n - (m.get(v) ?? 0)));
+        if (entram > 0) soma('', -entram);
+      }
+      m.set(v, n);
+      break;
+    }
     case 'mover': {
       const q = leitura.quantidade ?? 1;
       soma(leitura.de ?? '', -q); soma(leitura.para ?? '', q); break;

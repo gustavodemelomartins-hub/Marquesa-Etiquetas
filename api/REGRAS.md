@@ -2551,7 +2551,7 @@ faltando**. Substitui o "bipou e marcha" (§49) na V2; a rota antiga
   (`inventario_leituras`, chave única); reenviar (rede ruim, aba
   recarregada) não soma. A fila do que não chegou fica guardada no
   aparelho e é reenviada ao abrir de novo.
-- **Bipe acidental**: o mesmo código lido de novo em menos de 4 s, sem
+- **Bipe acidental** (desde 06/10/2026 sem prazo — ver §59): o mesmo código lido de novo em menos de 4 s, sem
   outro código no meio, NÃO soma — a tela pergunta ("Essa peça acabou de
   ser lida" · Contar outra unidade · Foi engano). A câmera ainda descarta a
   mesma etiqueta por 1,8 s em silêncio.
@@ -2641,3 +2641,48 @@ loja tivesse menos de duas variantes), e a tela mandava as duas.
   aqui. Nenhum id da loja obsoleto, nenhum saldo preso em variante
   inexistente, nenhum nome duplicado dentro do cadastro daqui. Nada
   precisou ser reescrito no banco.
+
+
+### 59. Inventário V2: a mesma peça nunca é contada duas vezes em silêncio — §57, regra 9
+
+Origem: 06/10/2026, primeiro uso do inventário novo em PROD. A Sthefany
+bipava a peça, olhava a ficha e bipava de novo a MESMA peça passados mais
+de 4 s — e a segunda leitura somava. Depois copiava as quantidades da
+planilha antiga dela por cima do que já tinha bipado; numa peça com
+variação, os bipes ficavam em "não informada" e o número digitado no aro
+somava a eles (2 bipados + 5 no nº23 = 7).
+
+- **Scanner — o mesmo código de novo, sem outro no meio, numa peça já
+  conferida, NÃO soma**: a tela pergunta "Essa peça já foi conferida." com
+  a peça e a "Quantidade já conferida", e só soma no toque em **Contar
+  outra unidade**; **Foi engano** não muda nada. Não há prazo — 2 s ou
+  20 s depois é a mesma pergunta; os 4 s só mudam a frase ("o leitor pode
+  ter lido a mesma etiqueta duas vezes"). Cada repetição pergunta de novo.
+  A → B → A conta normal. Peça desfeita ou em zero conta no primeiro bipe.
+- **Enquanto pergunta, nada soa como sucesso** (tom de atenção, sem "✓") e
+  a câmera fica pausada. Com o aviso aberto, outro código bipado fecha o
+  aviso SEM contar o repetido e conta o novo. O foco nunca fica num botão
+  que grava (o Enter do leitor USB não confirma nada).
+- **A última leitura fica guardada no aparelho** (por inventário):
+  recarregar a página não transforma o próximo bipe da mesma peça em
+  "primeiro bipe".
+- **Número digitado = QUANTIDADE TOTAL CONFERIDA da linha**, nunca "mais
+  X" (`definir`, já absoluto no servidor). Sobre uma contagem existente a
+  tela pergunta "Substituir a quantidade conferida?" com `2 → 5` —
+  **Substituir por 5** / **Cancelar** (Cancelar volta o campo ao que
+  estava). O mesmo número não grava nada (nem evento: o servidor responde
+  `inalterada`). Número menor é correção legítima: pergunta, não bloqueia.
+  Linha ainda não conferida: define direto.
+- **Variação com bipes "não informada"**: digitar no aro pergunta se as
+  peças bipadas sem variação são daquele aro — **Sim** (elas passam para o
+  aro: 2 bipadas + "5 no nº23" = nº23 5, total 5), **Não, são de outra
+  variação** (ficam à parte: total 7, dito por ela) ou **Cancelar**. A
+  tela mostra o total de cada saída. Nunca escolhe sozinha (regra 2). No
+  servidor é `definir` com `naoInformadas: true`: no mesmo lote, até o que
+  cabe no número dito sai de "não informada" e entra no aro.
+- **Idempotência intacta**: a mesma leitura (mesmo `leituraId`, retry,
+  rede ruim, aba recarregada) nunca soma; "Contar outra unidade" é uma
+  leitura nova. O servidor não distingue duas peças iguais de uma lida
+  duas vezes — essa trava é da tela, antes de enviar.
+- Nada disso mexe em estoque nem no painel clássico (congelado; a rota
+  `/itens` dele não mudou).

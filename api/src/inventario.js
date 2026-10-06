@@ -677,7 +677,11 @@ async function linhasDoCodigo(db, id, sku) {
  *
  *    bipe / mais   +1 na linha (variação, ou "não informada")
  *    menos         −1
- *    definir       o número digitado vira a contagem da linha
+ *    definir       o número digitado vira a contagem da linha — é o TOTAL
+ *                  da linha, nunca "mais X" (2 bipadas + 5 digitadas = 5).
+ *                  Com `naoInformadas: true` numa variação, ela disse que
+ *                  as peças bipadas sem variação estão entre as digitadas:
+ *                  elas passam para a variação em vez de somar (§59)
  *    todas         "estão todas aqui": a contagem do código vira o esperado
  *    nenhuma       "procurei e não tem": conferido ZERO (que não é "não
  *                  conferido" — §19, D2)
@@ -687,8 +691,9 @@ async function linhasDoCodigo(db, id, sku) {
  *  `leituraId` é obrigatório e é a trava contra contar duas vezes: a tela
  *  gera um por gesto e o reenvia igual quando a rede falha. A leitura que já
  *  chegou responde `repetida: true` e não soma nada. A trava contra o bipe
- *  ACIDENTAL repetido (o leitor que dispara duas vezes) é da tela — o
- *  servidor não tem como distinguir dois anéis iguais de um rebote.
+ *  REPETIDO (o mesmo código de novo, sem outro no meio, a qualquer tempo)
+ *  é da tela, que pergunta antes de mandar — o servidor não tem como
+ *  distinguir dois anéis iguais da mesma peça lida duas vezes (§59).
  *
  *  Nada aqui mexe em estoque: é contagem. Variação desconhecida no bipe fica
  *  em "não informada" — nunca é atribuída a um aro sem ela dizer (regra 2). */
@@ -753,9 +758,21 @@ export async function registrarLeitura(db, id, corpo = {}) {
       if (!Number.isInteger(n) || n < 0 || n > 9999) {
         return json({ erro: 'A quantidade tem que ser um número inteiro de 0 a 9999.' }, 400);
       }
-      delta = n - (atual.get(r.nome) ?? 0);
+      const antes = atual.get(r.nome) ?? 0;
+      delta = n - antes;
+      /* "Estão entre as digitadas": as bipadas sem variação passam para a
+         variação, no mesmo lote — o total da peça vira o número dito. */
+      const entram = corpo.naoInformadas === true && r.nome
+        ? Math.min(atual.get('') ?? 0, Math.max(0, delta)) : 0;
+      if (entram > 0) {
+        partes.push({ nome: '', varianteId: null, delta: -entram });
+      } else if (delta === 0 && atual.has(r.nome)) {
+        /* O mesmo número que já estava: nada a gravar, nem rastro. */
+        return json({ ok: true, sku, desc: p.desc, gesto, inalterada: true,
+          linhas, cobertura: await cobertura(db, id) });
+      }
     }
-    partes = [{ ...r, delta }];
+    partes.push({ ...r, delta });
   } else if (gesto === 'mover') {
     const de = naVariacao('de');
     if (de.erro) return de.erro;

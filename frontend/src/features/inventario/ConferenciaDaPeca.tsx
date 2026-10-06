@@ -3,23 +3,25 @@ import { Icone } from '../../components/Icone';
 import { plural } from '../../domain/formato';
 import { acharVariacao } from '../../domain/variacao';
 import {
-  estadoDoCodigo, ROTULO_DA_SITUACAO, type EsperadoDoInventario, type Gesto, type LinhaContada,
+  estadoDoCodigo, planoDaDigitacao, ROTULO_DA_SITUACAO,
+  type EsperadoDoInventario, type Gesto, type LinhaContada, type PlanoDaDigitacao,
 } from './contagem';
+import { AvisoDaContagem } from './AvisoDaContagem';
 
 export type RespostaDaCriacao =
   | { ok: true; nome: string }
   | { jaExiste: true; existente: string }
   | { erro: string };
 
+export interface ExtraDaLeitura {
+  variacao?: string; quantidade?: number; de?: string; para?: string; naoInformadas?: boolean;
+}
+
 interface Props {
   peca: EsperadoDoInventario;
   linhas: LinhaContada[] | undefined;
   pausado: boolean;
-  /** A leitura de agora repetiu a anterior logo em seguida: perguntar. */
-  repeticao: boolean;
-  aoContar: (gesto: Gesto, extra?: { variacao?: string; quantidade?: number; de?: string; para?: string }) => void;
-  aoConfirmarRepeticao: () => void;
-  aoDescartarRepeticao: () => void;
+  aoContar: (gesto: Gesto, extra?: ExtraDaLeitura) => void;
   aoCriarVariacao: (valor: string, quantidade: number) => Promise<RespostaDaCriacao>;
   aoIdentificarNaMaleta: (maletaId: number, distribuicao: { variacao: string; qtd: number }[]) => Promise<string | null>;
   aoFechar: () => void;
@@ -36,8 +38,7 @@ interface Props {
  *  Nada técnico aparece aqui: nem id de variação, nem nome de rota, nem
  *  estado em código. */
 export function ConferenciaDaPeca({
-  peca, linhas, pausado, repeticao, aoContar, aoConfirmarRepeticao, aoDescartarRepeticao,
-  aoCriarVariacao, aoIdentificarNaMaleta, aoFechar,
+  peca, linhas, pausado, aoContar, aoCriarVariacao, aoIdentificarNaMaleta, aoFechar,
 }: Props) {
   const e = estadoDoCodigo(peca, linhas);
   const variacoes = peca.variacoes ?? [];
@@ -45,6 +46,31 @@ export function ConferenciaDaPeca({
   const naoInformadas = e.porVariacao.get('') ?? 0;
   const fora = (peca.revendedoras ?? []).filter((r) => r.qtd > 0);
   const [criando, setCriando] = useState(false);
+  /* O número digitado sobre uma contagem que já existe espera ela dizer. */
+  const [pergunta, setPergunta] = useState<{ variacao?: string; n: number; plano: PlanoDaDigitacao } | null>(null);
+  /* Muda quando ela desiste: o campo volta a mostrar o que estava. */
+  const [versao, setVersao] = useState(0);
+
+  /** O número digitado é o TOTAL da linha (§59): nunca soma ao que já
+   *  estava, e substituir uma contagem pede confirmação. */
+  function definir(variacao: string | undefined, n: number) {
+    const plano = planoDaDigitacao(linhas, variacao ?? '', n);
+    if (plano.tipo === 'igual') return;
+    if (plano.tipo === 'direto') {
+      aoContar('definir', { ...(variacao !== undefined ? { variacao } : {}), quantidade: n });
+      return;
+    }
+    setPergunta({ variacao, n, plano });
+  }
+  function responder(extra: ExtraDaLeitura | null) {
+    if (pergunta && extra) {
+      aoContar('definir', {
+        ...(pergunta.variacao !== undefined ? { variacao: pergunta.variacao } : {}), quantidade: pergunta.n, ...extra,
+      });
+    }
+    if (!extra) setVersao((v) => v + 1);
+    setPergunta(null);
+  }
   /* A peça que acabou de abrir fica à vista — no telefone ela nasce abaixo
      do leitor e da busca. */
   const raiz = useRef<HTMLElement>(null);
@@ -65,23 +91,6 @@ export function ConferenciaDaPeca({
         </button>
       </header>
 
-      {repeticao && (
-        <div className="conf-repeticao" role="alert">
-          <p>
-            <b>Essa peça acabou de ser lida.</b> Se você tem outra peça igual na
-            mão, conte mais uma. Se o leitor repetiu, não precisa fazer nada.
-          </p>
-          <div className="mq-btns">
-            <button type="button" className="mq-btn mq-btn--primary" onClick={aoConfirmarRepeticao}>
-              Contar outra unidade
-            </button>
-            <button type="button" className="mq-btn mq-btn--ghost" onClick={aoDescartarRepeticao}>
-              Foi engano
-            </button>
-          </div>
-        </div>
-      )}
-
       <dl className="conf-numeros" aria-label="Quantidades">
         <div><dt>Estoque total</dt><dd>{peca.total}</dd></div>
         <div><dt>Com revendedoras</dt><dd>{peca.consignado || '—'}</dd></div>
@@ -97,10 +106,11 @@ export function ConferenciaDaPeca({
         <Contador
           rotulo="Conferido"
           valor={e.porVariacao.get('') ?? 0}
+          versao={versao}
           desligado={pausado}
           aoMenos={() => aoContar('menos')}
           aoMais={() => aoContar('mais')}
-          aoDefinir={(n) => aoContar('definir', { quantidade: n })}
+          aoDefinir={(n) => definir(undefined, n)}
         />
       )}
 
@@ -158,11 +168,12 @@ export function ConferenciaDaPeca({
                 <Contador
                   rotulo={`Conferido em ${v.nome}`}
                   valor={e.porVariacao.get(v.nome) ?? 0}
+                  versao={versao}
                   desligado={pausado}
                   compacto
                   aoMenos={() => aoContar('menos', { variacao: v.nome })}
                   aoMais={() => aoContar('mais', { variacao: v.nome })}
-                  aoDefinir={(n) => aoContar('definir', { variacao: v.nome, quantidade: n })}
+                  aoDefinir={(n) => definir(v.nome, n)}
                 />
               </li>
             ))}
@@ -177,11 +188,12 @@ export function ConferenciaDaPeca({
               <Contador
                 rotulo="Conferido sem variação"
                 valor={naoInformadas}
+                versao={versao}
                 desligado={pausado}
                 compacto
                 aoMenos={() => aoContar('menos', { variacao: '' })}
                 aoMais={() => aoContar('mais', { variacao: '' })}
-                aoDefinir={(n) => aoContar('definir', { variacao: '', quantidade: n })}
+                aoDefinir={(n) => definir('', n)}
               />
             </li>
           </ul>
@@ -201,6 +213,14 @@ export function ConferenciaDaPeca({
           setCriando(false);
         }}
       />
+
+      {pergunta && pergunta.plano.tipo !== 'igual' && pergunta.plano.tipo !== 'direto' && (
+        <PerguntaDaDigitacao
+          plano={pergunta.plano}
+          variacao={pergunta.variacao ?? ''}
+          aoResponder={responder}
+        />
+      )}
 
       {fora.length > 0 && (
         <section className="conf-fora" aria-label="Com revendedoras">
@@ -223,13 +243,15 @@ export function ConferenciaDaPeca({
 
 /** − número + — o número também se digita (teclado numérico). */
 function Contador({
-  rotulo, valor, desligado, compacto = false, aoMenos, aoMais, aoDefinir,
+  rotulo, valor, versao = 0, desligado, compacto = false, aoMenos, aoMais, aoDefinir,
 }: {
-  rotulo: string; valor: number; desligado: boolean; compacto?: boolean;
+  rotulo: string; valor: number; versao?: number; desligado: boolean; compacto?: boolean;
   aoMenos: () => void; aoMais: () => void; aoDefinir: (n: number) => void;
 }) {
   const [texto, setTexto] = useState(String(valor));
-  useEffect(() => { setTexto(String(valor)); }, [valor]);
+  /* `versao` muda quando ela cancela a substituição: o campo volta ao que
+     estava conferido. */
+  useEffect(() => { setTexto(String(valor)); }, [valor, versao]);
   const confirmar = () => {
     const n = Number(texto);
     if (texto.trim() === '' || !Number.isInteger(n) || n < 0 || n > 9999) { setTexto(String(valor)); return; }
@@ -254,6 +276,75 @@ function Contador({
       <button type="button" className="conf-contador__botao is-mais" aria-label={`Contar mais uma — ${rotulo}`}
         disabled={desligado} onClick={aoMais}>+</button>
     </div>
+  );
+}
+
+/** "Substituir a quantidade conferida?" — o número digitado sobre o que já
+ *  estava. Mostra o antes e o depois; nada é gravado sem o toque dela. */
+function PerguntaDaDigitacao({
+  plano, variacao, aoResponder,
+}: {
+  plano: Exclude<PlanoDaDigitacao, { tipo: 'igual' } | { tipo: 'direto' }>;
+  variacao: string;
+  aoResponder: (extra: ExtraDaLeitura | null) => void;
+}) {
+  const cancelar = { rotulo: 'Cancelar', tom: 'neutro' as const, aoEscolher: () => aoResponder(null) };
+
+  if (plano.tipo === 'semVariacao') {
+    const varias = plano.naoInformadas > 1;
+    return (
+      <AvisoDaContagem
+        titulo={varias ? `As peças bipadas sem variação são do ${variacao}?` : `A peça bipada sem variação é do ${variacao}?`}
+        aoDesistir={() => aoResponder(null)}
+        opcoes={[
+          { rotulo: varias ? `Sim, são do ${variacao}` : `Sim, é do ${variacao}`, tom: 'primario',
+            aoEscolher: () => aoResponder({ naoInformadas: true }) },
+          { rotulo: varias ? 'Não, são de outra variação' : 'Não, é de outra variação', tom: 'secundario',
+            aoEscolher: () => aoResponder({}) },
+          cancelar,
+        ]}
+      >
+        <p>
+          Esta peça tem {plano.naoInformadas}{' '}
+          {plural(plano.naoInformadas, 'peça bipada sem variação', 'peças bipadas sem variação')}, e você
+          digitou {plano.depois} em {variacao}.
+        </p>
+        <ul className="conf-aviso__saidas">
+          <li>
+            Se {varias ? 'forem' : 'for'} do {variacao}: {variacao} fica com {plano.depois} e a peça
+            com <b>{plano.totalSeForem}</b> no total.
+          </li>
+          <li>Se {varias ? 'forem' : 'for'} de outra variação: a peça fica com <b>{plano.totalSeNaoForem}</b>.</li>
+        </ul>
+      </AvisoDaContagem>
+    );
+  }
+
+  const onde = variacao ? ` em ${variacao}` : '';
+  return (
+    <AvisoDaContagem
+      titulo="Substituir a quantidade conferida?"
+      aoDesistir={() => aoResponder(null)}
+      opcoes={[
+        { rotulo: `Substituir por ${plano.depois}`, tom: 'primario', aoEscolher: () => aoResponder({}) },
+        cancelar,
+      ]}
+    >
+      <p>
+        {plano.antes > 0
+          ? <>{plano.antes > 1 ? 'Já foram conferidas' : 'Já foi conferida'} {plano.antes}{' '}
+            {plural(plano.antes, 'unidade', 'unidades')} desta peça{onde}.</>
+          : <>Esta peça já tem {plano.totalAntes}{' '}
+            {plural(plano.totalAntes, 'unidade conferida', 'unidades conferidas')} nas variações.</>}
+        {' '}O número digitado substitui o que estava — não soma.
+      </p>
+      <p className="conf-aviso__troca">
+        <span>{plano.antes}</span> → <b>{plano.depois}</b>
+      </p>
+      {plano.totalDepois !== plano.depois && (
+        <p className="conf-aviso__nota">Total conferido da peça: {plano.totalAntes} → {plano.totalDepois}</p>
+      )}
+    </AvisoDaContagem>
   );
 }
 

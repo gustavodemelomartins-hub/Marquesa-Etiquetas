@@ -364,11 +364,43 @@
 .conf-peca__selo.is-faltando { background: var(--mq-risk-bg); color: var(--mq-risk); }
 .conf-peca__selo.is-sobrando { background: var(--mq-warn-bg); color: var(--mq-warn); }
 
-.conf-repeticao {
-  border: 1px solid var(--mq-warn-line); background: var(--mq-warn-bg); border-radius: var(--mq-r-md);
-  padding: var(--mq-3); display: grid; gap: var(--mq-3);
+/* O AVISO ANTES DE CONTAR DE NOVO (§59) — por cima de tudo: do leitor, da
+   lista e da barra de navegação do telefone (z-index 45). No computador é
+   um cartão no meio; no telefone, uma folha presa embaixo, ao alcance do
+   polegar, que respeita a área segura do iPhone. */
+.conf-aviso__fundo { z-index: 57; }
+.conf-aviso {
+  position: fixed; z-index: 58; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(440px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto;
+  background: var(--mq-paper); border: 1px solid var(--mq-warn-line); border-top: 4px solid var(--mq-warn);
+  border-radius: var(--mq-r-xl); padding: var(--mq-5); display: grid; gap: var(--mq-3);
+  box-shadow: 0 18px 48px rgba(30, 16, 22, .28);
 }
-.conf-repeticao p { margin: 0; font-size: 14px; line-height: 1.45; color: var(--mq-ink); }
+.conf-aviso:focus { outline: none; }
+.conf-aviso__titulo { margin: 0; font: 600 19px/1.3 var(--mq-sans); color: var(--mq-ink); }
+.conf-aviso__corpo { display: grid; gap: var(--mq-2); }
+.conf-aviso__corpo p, .conf-aviso__corpo li { margin: 0; font-size: 15px; line-height: 1.45; color: var(--mq-ink); }
+.conf-aviso__corpo ul { margin: 0; padding-left: 1.2em; display: grid; gap: var(--mq-1); }
+.conf-aviso__peca { display: grid; gap: 2px; }
+.conf-aviso__peca small { font-size: 12.5px; color: var(--mq-muted); font-variant-numeric: tabular-nums; }
+.conf-aviso__qtd b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.conf-aviso__troca {
+  font: 600 26px/1.2 var(--mq-sans); font-variant-numeric: tabular-nums; color: var(--mq-muted);
+}
+.conf-aviso__troca b { color: var(--mq-ink); }
+.conf-aviso__nota { font-size: 13px !important; color: var(--mq-muted) !important; }
+.conf-aviso__botoes { display: grid; gap: var(--mq-2); margin-top: var(--mq-1); }
+.conf-aviso__botao { min-height: 48px; width: 100%; justify-content: center; font-size: 16px; }
+
+@media (max-width: 600px) {
+  .conf-aviso {
+    left: 0; right: 0; top: auto; bottom: 0; transform: none; width: 100%;
+    max-height: 85dvh; border-radius: var(--mq-r-xl) var(--mq-r-xl) 0 0;
+    border-left: 0; border-right: 0; border-bottom: 0;
+    padding: var(--mq-5) var(--mq-4) calc(var(--mq-4) + env(safe-area-inset-bottom, 0px));
+  }
+  .conf-aviso__botao { min-height: 52px; }
+}
 
 .conf-numeros {
   margin: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--mq-2);

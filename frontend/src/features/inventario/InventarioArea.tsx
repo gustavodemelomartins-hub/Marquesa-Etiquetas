@@ -9,11 +9,12 @@ import { DialogoDeDescarte } from './DialogoDeDescarte';
 import { DialogoDeExclusao } from './DialogoDeExclusao';
 import { RevisaoDoInventario } from './RevisaoDoInventario';
 import { BalancoDoInventario } from './BalancoDoInventario';
-import { ConferenciaDaPeca, type RespostaDaCriacao } from './ConferenciaDaPeca';
+import { ConferenciaDaPeca, type ExtraDaLeitura, type RespostaDaCriacao } from './ConferenciaDaPeca';
+import { AvisoDaContagem } from './AvisoDaContagem';
 import { ListaDoInventario } from './ListaDoInventario';
 import { useContagem } from './useContagem';
 import {
-  buscarNoInventario, ehRepeticaoAcidental, novaLeituraId, pecasDoInventario, resumoDoInventario,
+  buscarNoInventario, novaLeituraId, pareceRebote, pecasDoInventario, pedeConfirmacaoDoBipe, resumoDoInventario,
   type Gesto, type UltimaLeitura,
 } from './contagem';
 import type { AppState } from '../../types/api';
@@ -291,6 +292,26 @@ export function InventarioArea({ conexao, estado, aoMudarEstoque, embutida = fal
 
 /* ───────────────────────────────────────────────────────── a conferência */
 
+/* A última peça bipada fica guardada no aparelho: recarregar a página no
+   meio da conferência não pode transformar o próximo bipe da mesma peça em
+   "primeiro bipe" (§59). */
+const CHAVE_DA_ULTIMA = (id: number) => `marquesa:inventario:${id}:ultima-leitura`;
+function lerUltima(id: number): UltimaLeitura | null {
+  try {
+    const u = JSON.parse(localStorage.getItem(CHAVE_DA_ULTIMA(id)) ?? 'null');
+    return u && typeof u.sku === 'string' && typeof u.em === 'number' ? u : null;
+  } catch { return null; }
+}
+function gravarUltima(id: number, u: UltimaLeitura) {
+  try { localStorage.setItem(CHAVE_DA_ULTIMA(id), JSON.stringify(u)); } catch { /* fica só na memória */ }
+}
+
+/** O leitor USB é um teclado: com um aviso aberto por cima, a tecla NÃO vai
+ *  para o campo de leitura — senão o Enter do próximo bipe confirmaria o
+ *  aviso. O aviso de bipe repetido é a exceção (`data-leitor-livre`): o
+ *  próximo bipe é justamente a resposta. */
+const AVISO_QUE_PRENDE = '[role="dialog"], [role="alertdialog"]:not([data-leitor-livre])';
+
 function Contagem({
   conexao, id, numero, aoMudar, aoSair,
 }: {
@@ -303,8 +324,11 @@ function Contagem({
   const [aviso, setAviso] = useState<{ texto: string; tom: 'ok' | 'neutro' | 'erro' | 'atencao' } | null>(null);
   const c = useContagem(conexao, id, (texto) => { setAviso({ texto, tom: 'erro' }); tocar(false); });
   const [aberta, setAberta] = useState<string | null>(null);
-  const [repeticao, setRepeticao] = useState<string | null>(null);
-  const ultima = useRef<UltimaLeitura | null>(null);
+  /* O mesmo código bipado de novo, sem outro no meio, esperando ela dizer
+     se é outra unidade ou engano. Nada foi contado ainda. */
+  const [repeticao, setRepeticao] = useState<{ sku: string; rebote: boolean } | null>(null);
+  const ultima = useRef<UltimaLeitura | null>(lerUltima(id));
+  const lembrar = (u: UltimaLeitura) => { ultima.current = u; gravarUltima(id, u); };
   const [tela, setTela] = useState<'contagem' | 'balanco'>('contagem');
   const [categoria, setCategoria] = useState<string | null>(null);
   const [resultados, setResultados] = useState<{ termo: string; skus: string[] } | null>(null);
@@ -338,7 +362,7 @@ function Contagem({
       if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return;
       const alvo = document.activeElement;
       if (alvo instanceof HTMLInputElement || alvo instanceof HTMLTextAreaElement || alvo instanceof HTMLSelectElement) return;
-      if (document.querySelector('[role="dialog"]')) return;
+      if (document.querySelector(AVISO_QUE_PRENDE)) return;
       const el = campo.current;
       if (!el) return;
       e.preventDefault();
@@ -349,7 +373,7 @@ function Contagem({
     return () => document.removeEventListener('keydown', aoTeclar);
   }, [pausado, tela]);
 
-  function contar(sku: string, gesto: Gesto, extra: { variacao?: string; quantidade?: number; de?: string; para?: string } = {}) {
+  function contar(sku: string, gesto: Gesto, extra: ExtraDaLeitura = {}) {
     if (pausado) return;
     c.registrar({ leituraId: novaLeituraId(), sku, gesto, ...extra });
   }
@@ -384,20 +408,53 @@ function Contagem({
     const ref = c.porSkuRef.current.get(sku)!;
     setAberta(sku);
     setResultados(null);
-    if (ehRepeticaoAcidental(ultima.current, sku, agora)) {
-      ultima.current = { sku, em: agora };
-      setRepeticao(sku);
-      setAviso({ texto: `Essa peça acabou de ser lida · ${ref.desc}`, tom: 'atencao' });
+    const antes = conferidoDe(sku);
+    /* A MESMA peça de novo, sem outra no meio, já conferida: não soma —
+       pergunta. Sem prazo: 2 s ou 20 s depois, é a mesma pergunta (§59). */
+    if (pedeConfirmacaoDoBipe(ultima.current, sku, antes)) {
+      setRepeticao({ sku, rebote: pareceRebote(ultima.current, agora) });
+      lembrar({ sku, em: agora });
+      setAviso({ texto: `Essa peça já foi conferida · ${ref.desc} · nada foi somado`, tom: 'atencao' });
       tocar(false);
-      return { ok: true, texto: 'Essa peça acabou de ser lida' };
+      return { ok: true, texto: 'Essa peça já foi conferida' };
     }
-    ultima.current = { sku, em: agora };
+    /* Outra peça com a pergunta aberta: a repetida NÃO conta. */
+    const largou = repeticao !== null;
     setRepeticao(null);
+    lembrar({ sku, em: agora });
     contar(sku, 'bipe');
     tocar(true);
-    const antes = (c.contagemRef.current.get(sku) ?? []).reduce((s, l) => s + l.contado, 0);
-    setAviso({ texto: `✓ 1 unidade conferida · ${ref.desc} · ${antes + 1} de ${Math.max(0, ref.esperado)} em casa`, tom: 'ok' });
+    setAviso({
+      texto: `${largou ? 'A leitura repetida não foi contada · ' : ''}✓ 1 unidade conferida · ${ref.desc} · ${antes + 1} de ${Math.max(0, ref.esperado)} em casa`,
+      tom: 'ok',
+    });
     return { ok: true, texto: `1 unidade · ${ref.desc}` };
+  }
+
+  function conferidoDe(sku: string) {
+    return (c.contagemRef.current.get(sku) ?? []).reduce((s, l) => s + l.contado, 0);
+  }
+
+  function contarOutraUnidade() {
+    if (!repeticao) return;
+    const { sku } = repeticao;
+    const ref = c.porSkuRef.current.get(sku);
+    const antes = conferidoDe(sku);
+    contar(sku, 'bipe');
+    lembrar({ sku, em: Date.now() });
+    setRepeticao(null);
+    tocar(true);
+    setAviso({
+      texto: `✓ Mais 1 unidade conferida · ${ref?.desc ?? ''} · ${antes + 1} de ${Math.max(0, ref?.esperado ?? 0)} em casa`,
+      tom: 'ok',
+    });
+    focar();
+  }
+
+  function foiEngano() {
+    setRepeticao(null);
+    setAviso({ texto: 'Leitura repetida não contada.', tom: 'neutro' });
+    focar();
   }
 
   async function acao(caminho: string) {
@@ -601,9 +658,10 @@ function Contagem({
           {camera && !pausado && (
             <LeitorDeEtiquetas
               aoLer={async (codigo) => lerCodigo(codigo)}
+              pausado={repeticao !== null}
               aoFechar={() => { setCamera(false); focar(); }}
               titulo="Aponte para a etiqueta"
-              dica="Cada leitura conta uma unidade. A mesma etiqueta lida de novo logo em seguida pede confirmação."
+              dica="Cada leitura conta uma unidade. A mesma peça lida de novo pede confirmação antes de contar."
             />
           )}
 
@@ -632,20 +690,35 @@ function Contagem({
               peca={pecaAberta}
               linhas={c.contagem.get(pecaAberta.sku)}
               pausado={pausado}
-              repeticao={repeticao === pecaAberta.sku}
-              aoContar={(gesto, extra) => { contar(pecaAberta.sku, gesto, extra); if (gesto !== 'bipe') ultima.current = null; }}
-              aoConfirmarRepeticao={() => {
-                contar(pecaAberta.sku, 'bipe');
-                ultima.current = { sku: pecaAberta.sku, em: Date.now() };
-                setRepeticao(null);
-                setAviso({ texto: `✓ Mais 1 unidade conferida · ${pecaAberta.desc}`, tom: 'ok' });
-                focar();
-              }}
-              aoDescartarRepeticao={() => { setRepeticao(null); setAviso({ texto: 'Leitura repetida ignorada.', tom: 'neutro' }); focar(); }}
+              aoContar={(gesto, extra) => contar(pecaAberta.sku, gesto, extra)}
               aoCriarVariacao={(valor, qtd) => criarVariacao(pecaAberta.sku, valor, qtd)}
               aoIdentificarNaMaleta={(maletaId, dist) => identificarNaMaleta(pecaAberta.sku, maletaId, dist)}
               aoFechar={() => { setAberta(null); setRepeticao(null); focar(); }}
             />
+          )}
+
+          {repeticao && c.porSku.get(repeticao.sku) && (
+            <AvisoDaContagem
+              titulo="Essa peça já foi conferida."
+              leitorLivre
+              aoDesistir={foiEngano}
+              opcoes={[
+                { rotulo: 'Contar outra unidade', tom: 'primario', aoEscolher: contarOutraUnidade },
+                { rotulo: 'Foi engano', tom: 'neutro', aoEscolher: foiEngano },
+              ]}
+            >
+              <p className="conf-aviso__peca">
+                <b>{c.porSku.get(repeticao.sku)!.desc}</b>
+                <small>Código {repeticao.sku}</small>
+              </p>
+              <p className="conf-aviso__qtd">
+                Quantidade já conferida: <b>{conferidoDe(repeticao.sku)}</b>
+              </p>
+              <p>
+                {repeticao.rebote ? 'O leitor pode ter lido a mesma etiqueta duas vezes. ' : ''}
+                Você quer contar outra unidade desta mesma peça?
+              </p>
+            </AvisoDaContagem>
           )}
 
           {/* ── por categoria ───────────────────────────────────────── */}
