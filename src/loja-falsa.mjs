@@ -127,6 +127,11 @@ export function subirLojaFalsa(porta = 8799) {
       const filtrados = min
         ? estado.pedidos.filter(p => String(p.created_at) >= min)
         : estado.pedidos;
+      /* Como a loja real (visto em produção em 08/10/2026): listagem vazia
+         não volta [], volta 404 "Last page is 0". */
+      if (!filtrados.length || pagina > ultima(filtrados)) {
+        return responder(404, { code: 404, message: 'Not Found', description: `Last page is ${filtrados.length ? ultima(filtrados) : 0}` });
+      }
       return responder(200, fatia(filtrados));
     }
     if (recurso === 'orders' && req.method === 'POST') {

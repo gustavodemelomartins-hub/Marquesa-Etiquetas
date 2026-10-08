@@ -153,6 +153,17 @@ export class Nuvemshop {
     });
     let resp = await fazerFetch();
 
+    /* §61 — a Nuvemshop responde 404 `"Last page is N"` quando a página
+       pedida passa do fim — e, numa listagem VAZIA, já na página 1 ("Last
+       page is 0"). Isso é "não há itens", não "rota inexistente": tratar
+       como erro parava a leitura de pedidos sempre que não havia pedido
+       novo (visto em produção em 08/10/2026), e trocar de geração da API
+       por causa dele levaria a uma rota que de fato não existe. */
+    if (resp.status === 404 && metodo === 'GET') {
+      const corpo404 = await resp.clone().text().catch(() => '');
+      if (/Last page is \d+/i.test(corpo404)) return [];
+    }
+
     if (resp.status === 404 && apiPedidos && metodo === 'GET') {
       for (const candidata of this.basesPedidos) {
         if (candidata === base) continue;

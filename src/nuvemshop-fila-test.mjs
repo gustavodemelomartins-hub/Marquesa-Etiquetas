@@ -481,6 +481,17 @@ await cron();
 assert.equal(estoqueLoja(61), casa('B200'));
 prova('"reconciliar" pelo cron: mandou o saldo do Marquesa', `B200 = ${casa('B200')}`);
 
+/* ═════ loja sem pedido novo: 404 "Last page is 0" é lista vazia, não erro */
+console.log('\n=== loja sem pedido novo na janela ===');
+const pedidosGuardados = loja.estado.pedidos;
+loja.estado.pedidos = [];
+setEstoqueLoja(61, 30);
+raw.prepare(`UPDATE nuvemshop_fila SET status='pendente', versao=versao+1 WHERE sku='B200'`).run();
+await cron();
+assert.equal(estoqueLoja(61), casa('B200'), 'lista de pedidos vazia parou a rodada');
+prova('a loja respondeu 404 "Last page is 0" em /orders e a rodada seguiu: B200 enviado');
+loja.estado.pedidos = pedidosGuardados;
+
 /* ═══════════════════════════════════════ custo do cron ocioso */
 console.log('\n=== custo ===');
 const nCron = await cron();
