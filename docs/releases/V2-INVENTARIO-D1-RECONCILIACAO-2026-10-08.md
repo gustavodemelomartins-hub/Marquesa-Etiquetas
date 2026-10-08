@@ -164,7 +164,39 @@ fechada; nenhum estoque ou "em casa" negativo. Segunda execução: recusada
 
 ## 4. Publicação
 
-(preenchido na publicação)
+| | antes (rollback) | depois |
+|---|---|---|
+| Worker PROD `marquesa-api` | `2803f2d0` | `f01a3a51` |
+| Pages PROD `marquesa` | `e86ce998` | `bf30f21f` |
+| Worker DEV `marquesa-api-staging-v2` | — | `91c95efe` |
+| Pages DEV `marquesa-dev` | — | `cdd1d807` |
+| D1 `marquesa-db-prod` (Time Travel) | `00000233-00000000-000050fe-7769db6378b84fa3cb4fbf6edbdca4de` | `00000236-00000000-000050fe-baa8cee04b4afec7ba465e638478d515` |
+
+Commits `285cd6d` (código e testes) e `1fc8709` (regra, registro, script)
+em `origin/develop`. Sem migration. O CI do DEV segue falhando no 7403
+(token do GitHub sem D1) — o DEV foi publicado à mão do mesmo commit.
+
+- **Gates**: 55 suítes do servidor (as 53 que existem no commit anterior
+  verdes nos dois; nenhuma regressão), 4 clássicas (sync, variações, kits
+  verdes; `import-total` falha igual no commit anterior), estruturais,
+  frontend 611 testes + build. QA de navegador do inventário (reconstrução
+  103 + contagem dupla 62 verificações) no bundle PUBLICADO do DEV e de
+  PROD, com a API desviada para o Worker real local.
+- **Dados**: SQL gerado pelas rotas reais sobre o export de 16h30 UTC
+  (`diferenca-sql.mjs`, marca `reconciliacao:correcao-pos-inventario-2026-10-08`,
+  10 precondições), aplicado com `d1 execute --remote --file`: 954
+  mudanças. Reaplicar o mesmo arquivo: recusado pela marca, nada escrito.
+- **Depois, em PROD** (export pós-correção + rotas reais): 21/21 códigos no
+  alvo; `/api/estoque/conferir` vazio; inventário #1 concluído e
+  conciliado (22 diferenças, 22 resolvidas, 0 pendentes, 0 não
+  conferidos); total 2.061 → 2.036, com revendedoras 389 → 389, em casa
+  1.672 → 1.647; movimentos 2.846 → 2.868 (22 ajustes de inventário);
+  vendas, itens, faturamento, saídas, clientes, histórico e maletas iguais.
+
+Rollback: `wrangler rollback 2803f2d0`, Pages `e86ce998` pelo painel ou
+`pages deploy` do commit `68e5412`; dados: `wrangler d1 time-travel restore
+marquesa-db-prod --bookmark=00000233-00000000-000050fe-7769db6378b84fa3cb4fbf6edbdca4de`
+(desfaz tudo o que for escrito depois do bookmark — só com decisão humana).
 
 ## 5. Workers Paid
 
