@@ -2818,7 +2818,7 @@ produtos") e o envio inteiro parava. Nenhuma venda chegava à loja.
   publicada, com erro). Para o que já está na loja, descrição/SEO/imagens vêm
   da última conferência — nada é sobrescrito, só apontado.
 
-Provado em `src/nuvemshop-fila-test.mjs` (46 provas: venda, idempotência,
+Provado em `src/nuvemshop-fila-test.mjs` (49 provas: venda, idempotência,
 loja fora, brinde, consignação, retorno, variante, ajuste, produto
 incompleto, corrida, corte, cautela, kill switch, freio, conferência) e
 `src/vendas-nuvemshop-test.mjs`. Release:

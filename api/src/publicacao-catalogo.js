@@ -70,8 +70,11 @@ function pendenciasDoItem(x, fluxo, conf, fila) {
       if (Number(conf.seo_titulo) === 0 || Number(conf.seo_descricao) === 0) p.push('seo');
       if (Number(conf.imagens) === 0 && !p.includes('foto')) p.push('foto');
     }
-  } else if (!x.falta.length) {
-    /* Peça completa do lado de cá que ainda não tem o texto do site. */
+  } else {
+    /* Sem anúncio: o texto do site (descrição e SEO) mora no rascunho da
+       preparação, e falta até alguém prepará-lo — junto com foto ou preço,
+       se for o caso. Esconder isso até o básico ficar pronto fazia a tela
+       contar 3 peças "sem descrição" num catálogo de 335 sem texto. */
     if (!texto(fluxo?.descricao_site)) p.push('descricao');
     if (!texto(fluxo?.seo_titulo) || !texto(fluxo?.seo_descricao)) p.push('seo');
   }
