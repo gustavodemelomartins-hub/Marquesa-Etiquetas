@@ -570,7 +570,9 @@ export async function processarFila(db, env, opcoes = {}) {
     for (let i = 0; i < stmts.length; i += 400) await db.batch(stmts.slice(i, i + 400));
   }
   /* Depois do batch, porque ela lê o desfecho que ele acabou de gravar. */
-  if (relato.sincronizados > 0) {
+  /* Também quando a rodada só concluiu códigos sem anúncio: a venda que
+     esperava por eles fica livre do mesmo jeito. */
+  if (relato.sincronizados > 0 || relato.semAnuncio > 0) {
     const reg = await regularizarVendasStmt(db).run();
     relato.vendasRegularizadas = Number(reg && reg.meta && reg.meta.changes || 0);
   }
