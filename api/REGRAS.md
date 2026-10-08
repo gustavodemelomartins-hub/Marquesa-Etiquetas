@@ -2686,3 +2686,60 @@ somava a eles (2 bipados + 5 no nº23 = 7).
   duas vezes — essa trava é da tela, antes de enviar.
 - Nada disso mexe em estoque nem no painel clássico (congelado; a rota
   `/itens` dele não mudou).
+
+### 60. Inventário V2 cabe no plano gratuito do D1, e o fechamento nunca baixa a mesma peça duas vezes — §43, §57, §59, regra 9
+
+Origem: 08/10/2026, inventário #1 de produção (id 13). A cota diária de
+leitura do D1 (5 milhões de linhas, da CONTA, renova 00:00 UTC = 21h de
+Brasília) acabou em 06/10/2026 por volta das 16h de Brasília, no dia em que
+a Sthefany fez a maior parte da contagem: 5,09 milhões de linhas lidas, quase
+tudo do inventário. Cada bipe lia ~3.900 linhas — o catálogo inteiro, para
+devolver uma "cobertura" que a tela nem usava. E o Balanço e o Finalizar
+faziam UMA consulta por código conferido (886 com 821 códigos): o plano Free
+do Workers recusa a requisição que passa de 50 consultas ao D1, então o
+inventário não conseguia ser finalizado em produção.
+
+- **Bipe**: responde só as linhas do código (sem `cobertura`), ~40 linhas e
+  9 consultas, que não crescem com o catálogo. A leitura já gravada nunca
+  vira erro na resposta: se reler o código falhar, a resposta é calculada do
+  lote que entrou.
+- **Balanço e fechamento**: os movimentos posteriores às contagens são lidos
+  UMA vez; 10 consultas com qualquer número de códigos. **Aplicar** usa uma
+  chamada ao D1 por diferença (o id do movimento vem do próprio lote), e a
+  tela manda as diferenças em lotes de 20. Cada diferença continua aplicada
+  uma vez só (`inventario_ajustes`).
+- **O que é "depois da contagem"** (retroação, D10): só o fato físico
+  posterior. Dois casos NÃO retroagem, porque somá-los baixava a mesma peça
+  duas vezes no fechamento (no #1: 15 códigos, 27 peças):
+  - **Ajustar estoque (§54) feito depois de contar** é a palavra mais nova
+    sobre o total: a linha fica conferida, diferença zero, com o aviso
+    "Estoque ajustado depois da contagem (…). Vale o ajuste; o inventário
+    não mexe de novo.";
+  - **venda ou saída sem faturamento lançada depois, com a data do fato
+    ANTERIOR ao dia da contagem** (brinde de 27/09 lançado em 07/10): a peça
+    já estava fora quando ela contou. O aviso diz isso. No MESMO dia da
+    contagem não dá para saber a ordem: segue sendo posterior, como antes.
+- **Cota esgotada**: a tela não repete sozinha a leitura que voltou com
+  `limite: 'd1-leitura-diaria'` (repetir só gasta a cota do dia seguinte);
+  diz que o banco volta às 21h, que o que foi salvo continua salvo e que a
+  leitura pendente está guardada no aparelho até ela tocar em "Tentar de
+  novo". Reenviar nunca soma (§57).
+- **Teto de 50 consultas**: "Too many API requests by single worker
+  invocation" vira 503 com `limite: 'd1-consultas-por-requisicao'` e uma
+  frase humana, em vez de "Falha interna".
+- **Vigia**: toda requisição conta as consultas e as linhas que o D1 já
+  devolve; a pesada (≥ 35 consultas, ≥ 20.000 linhas conhecidas ou ≥ 5 s)
+  vira UMA linha `{"evento":"d1-requisicao-pesada",…}` no log — rota sem
+  query string, sem corpo, sem dado pessoal. O Workers Logs guarda só o que
+  o código escreve (`invocation_logs = false`).
+- **Correção pós-inventário (08/10/2026)**: os 21 códigos que a Sthefany
+  conferiu à mão e o 124111 (procurou e não achou) entraram pelo próprio
+  inventário #1 — contagem dela, concluir, ajuste de inventário com motivo e
+  a observação "Correção pós-inventário Sthefany — 08/10/2026 · …". Nenhuma
+  venda, brinde, cliente ou faturamento foi criado: os eventos já existiam
+  (histórico de vendas e Saídas sem faturamento não movimentam estoque —
+  §21, §36.3). Script: `scripts/reconciliacao/correcao-pos-inventario-2026-10-08.mjs`.
+
+Provado em `src/inventario-d1-leitura-test.mjs` (servidor) e
+`frontend/src/features/inventario/cota.test.ts` + `conferencia.test.tsx`
+(tela). Medição e números: `docs/releases/V2-INVENTARIO-D1-RECONCILIACAO-2026-10-08.md`.
