@@ -38,6 +38,8 @@ Preparação para Nuvemshop diz o que falta em cada peça.
 | 19:40 | linha de base: 714 códigos confirmados pela fila (336 iguais, 27 revisão, 351 sem anúncio), nenhuma escrita |
 | 19:50 | **conferência final: 590/590 iguais, 0 divergentes** |
 | 19:5x | Worker `dfcf4b19` (Preparação mostra texto do site faltando) |
+| 20:05 | Worker `15f0cb8d` (venda que esperava código sem anúncio também é regularizada) |
+| 20:10 | vendas antigas presas em "erro" (23, 24, 26, 28) regularizadas; restam 3 em "revisão" (4, 5, 20) |
 
 Rollback: Worker `f01a3a51` (anterior a tudo) · Pages `bf30f21f` · D1
 bookmark `0000023c-…` (antes da migration) ou `api/migracao-nuvemshop-fila-rollback.sql`
@@ -57,7 +59,8 @@ O estoque da LOJA antes da reconciliação está na tabela do § 5 (coluna
 - Razão: `produtos.qtd == SUM(movimentos.qtd)` para todo código (0
   divergências); total 2.036; 27 vendas e 2.868 movimentos, os mesmos de
   antes — a reconciliação só escreveu na loja.
-- Fila: 590 sincronizado · 27 revisão · 351 ignorado (sem anúncio).
+- Fila: 590 sincronizado · 27 revisão · 355 ignorado (sem anúncio).
+- Vendas: 22 sincronizadas, 2 canceladas, 3 em revisão, 0 em erro (antes: 6 erro).
 
 ## 5. Exceções (não reconciliadas automaticamente, por regra)
 
