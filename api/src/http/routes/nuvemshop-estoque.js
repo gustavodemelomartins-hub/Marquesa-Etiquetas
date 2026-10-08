@@ -24,7 +24,7 @@ export const rotas = [
        da comparação. Nenhuma escrita na loja. */
     metodo: 'POST', caminho: '/api/nuvemshop/estoque/conferir', auth: 'bearer',
     async handler({ db, env }) {
-      const c = await conferirLoja(db, env, { gravar: true });
+      const c = await conferirLoja(db, env, { gravar: true, gravarEspelho: true });
       if (!c.ok) return json(c, 409);
       return json({ ok: true, resumo: c.resumo });
     },

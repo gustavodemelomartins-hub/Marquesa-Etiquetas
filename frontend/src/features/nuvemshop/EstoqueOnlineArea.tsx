@@ -60,7 +60,8 @@ export function EstoqueOnlineArea({ conexao, resumo, aoMudar }: Props) {
             Última sincronização: <strong>{fmtDataHora(resumo.ultimaSincronizacaoEm ?? null)}</strong>
           </span>
           <span style={{ fontSize: 13.5, color: 'var(--muted)' }}>
-            {c.sincronizado ?? 0} sincronizados · {c.pendente ?? 0} aguardando · {c.erro ?? 0} com erro
+            {c.sincronizado ?? 0} {(c.sincronizado ?? 0) === 1 ? 'sincronizado' : 'sincronizados'}
+            {' · '}{c.pendente ?? 0} aguardando · {c.erro ?? 0} com erro
           </span>
         </div>
         {saude.motivo && (

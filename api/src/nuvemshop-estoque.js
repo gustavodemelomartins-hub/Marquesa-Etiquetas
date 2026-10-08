@@ -918,24 +918,37 @@ export async function conferirLoja(db, env, { gravar = true, gravarEspelho = fal
     }
     stmts.push(gravarConfigStmt(db, 'nuvemshopConferencia', resumo));
     if (gravarEspelho) {
-      /* O mapeamento que o caminho incremental usa. Só as linhas que
-         mudaram: reescrever 600 produtos por conferência seria escrita à toa. */
+      /* O mapeamento que o caminho incremental usa (qual produto da loja
+         ler para cada código). SÓ AS LINHAS QUE MUDARAM: a conferência é
+         clicável, e reescrever 600 produtos e 700 variantes a cada clique
+         seria escrita à toa no D1. */
       const atuais = new Map(((await db.prepare(
-        'SELECT sku, produto_id_loja, url_loja, visivel, nome_loja FROM produtos').all()).results || [])
+        'SELECT sku, produto_id_loja, url_loja, visivel, nome_loja, estoque_loja FROM produtos').all()).results || [])
         .map((p) => [normSku(p.sku), p]));
+      const igual = (a, b) => String(a ?? '') === String(b ?? '');
       for (const [n, e] of mapa) {
         const p = atuais.get(n);
         if (!p) continue;
         const pid = e.produtoId == null ? null : String(e.produtoId);
         const url = e.url || pid;
         const vis = e.visivel === null ? null : (e.visivel ? 1 : 0);
-        if (String(p.produto_id_loja ?? '') === String(pid ?? '') && String(p.url_loja ?? '') === String(url ?? '')
-          && String(p.visivel ?? '') === String(vis ?? '') && String(p.nome_loja ?? '') === String(e.nome || '')) continue;
+        if (igual(p.produto_id_loja, pid) && igual(p.url_loja, url) && igual(p.visivel, vis)
+          && igual(p.nome_loja, e.nome || null) && igual(p.estoque_loja, e.estoque)) continue;
         stmts.push(db.prepare(
-          'UPDATE produtos SET produto_id_loja = ?, url_loja = ?, visivel = ?, nome_loja = ? WHERE sku = ?',
-        ).bind(pid, url, vis, e.nome || null, p.sku));
+          'UPDATE produtos SET produto_id_loja = ?, url_loja = ?, visivel = ?, nome_loja = ?, estoque_loja = ? WHERE sku = ?',
+        ).bind(pid, url, vis, e.nome || null, e.estoque, p.sku));
       }
+      const espelho = new Map(((await db.prepare(
+        'SELECT variante_id, produto_id, sku, nome, estoque, produto_visivel, produto_url FROM loja_variantes').all()).results || [])
+        .map((v) => [String(v.variante_id), v]));
+      const vistas = new Set();
       for (const v of variantes) {
+        const id = String(v.varianteId);
+        vistas.add(id);
+        const ant = espelho.get(id);
+        const vis = v.produtoVisivel == null ? null : (v.produtoVisivel ? 1 : 0);
+        if (ant && igual(ant.produto_id, v.produtoId) && igual(ant.sku, v.sku || null) && igual(ant.nome, v.nome || null)
+          && igual(ant.estoque, v.estoque) && igual(ant.produto_visivel, vis) && igual(ant.produto_url, v.produtoUrl)) continue;
         stmts.push(db.prepare(
           `INSERT INTO loja_variantes (variante_id, produto_id, sku, sku_norm, valores_json, nome, estoque,
              preco, promocional, imagem_url, locais_json, produto_nome, produto_url, produto_visivel, posicao, lido_em)
@@ -946,17 +959,18 @@ export async function conferirLoja(db, env, { gravar = true, gravarEspelho = fal
              imagem_url=excluded.imagem_url, locais_json=excluded.locais_json,
              produto_nome=excluded.produto_nome, produto_url=excluded.produto_url,
              produto_visivel=excluded.produto_visivel, posicao=excluded.posicao, lido_em=excluded.lido_em`,
-        ).bind(String(v.varianteId), String(v.produtoId), v.sku || null, normSku(v.sku) || null,
+        ).bind(id, String(v.produtoId), v.sku || null, normSku(v.sku) || null,
           JSON.stringify(v.valores || []), v.nome || null, v.estoque == null ? null : v.estoque,
           v.preco, v.promocional, v.imagemUrl, JSON.stringify(v.locais || []), v.produtoNome,
-          v.produtoUrl, v.produtoVisivel == null ? null : (v.produtoVisivel ? 1 : 0), v.posicao, em));
+          v.produtoUrl, vis, v.posicao, em));
       }
-      /* Para o estoque_loja da tela: o que a loja tem agora, por código. */
-      for (const [n, e] of mapa) {
-        const p = atuais.get(n);
-        if (p) stmts.push(db.prepare('UPDATE produtos SET estoque_loja = ? WHERE sku = ?').bind(e.estoque, p.sku));
+      /* Variante que sumiu da loja sai do espelho — só se a leitura trouxe
+         alguma coisa (loja fora do ar devolvendo lista vazia não apaga). */
+      if (variantes.length) {
+        for (const id of espelho.keys()) {
+          if (!vistas.has(id)) stmts.push(db.prepare('DELETE FROM loja_variantes WHERE variante_id = ?').bind(id));
+        }
       }
-      if (variantes.length) stmts.push(db.prepare('DELETE FROM loja_variantes WHERE lido_em < ?').bind(em));
     }
     for (let i = 0; i < stmts.length; i += 400) await db.batch(stmts.slice(i, i + 400));
   }
