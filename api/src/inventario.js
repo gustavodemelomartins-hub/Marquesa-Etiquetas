@@ -64,22 +64,31 @@ import { diaOperacional, hojeOperacional } from './fuso.js';
  *  `qtd` e `consignado` voltam SEPARADOS além do `esperado` já somado: a
  *  comparação por variação precisa dos dois lados em separado para saber
  *  quanto da razão e quanto da consignação ficou sem identidade. */
-const SQL_ESPERADO = `
-  SELECT p.sku, p.desc, p.cat, p.preco, p.qtd,
-         COALESCE((
-           SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
-             JOIN maletas m ON m.id = mi.maleta_id
-            WHERE mi.sku = p.sku AND m.status IN ('aberta', 'em_acerto')
-         ), 0) AS consignado,
-         p.qtd - COALESCE((
-           SELECT SUM(mi.qtd - mi.devolvida) FROM maleta_itens mi
-             JOIN maletas m ON m.id = mi.maleta_id
-            WHERE mi.sku = p.sku AND m.status IN ('aberta', 'em_acerto')
-         ), 0) AS esperado
-    FROM produtos p
-   WHERE p.sku NOT IN (SELECT kit_sku FROM kit_componentes)
+const SQL_CONTAVEL = `
+         p.sku NOT IN (SELECT kit_sku FROM kit_componentes)
      AND p.sku NOT IN (SELECT sku_comercial FROM personalizacao_modelos
                         WHERE sku_comercial IS NOT NULL)`;
+
+/*  A consignação é somada UMA vez, pelas maletas abertas (08/10/2026). A
+ *  versão anterior repetia a mesma subconsulta correlacionada duas vezes
+ *  por produto (`consignado` e `esperado`) e lia ~6.900 linhas do D1 a cada
+ *  abertura, balanço e fechamento; esta lê ~6.100 (medido sobre a cópia de
+ *  PROD: o grosso é a varredura de `produtos` com as sondas de kit e
+ *  montagem, não a maleta). Mesmo resultado, linha a linha — provado em
+ *  `src/inventario-d1-leitura-test.mjs` e no balanço real do inventário #1. */
+const SQL_ESPERADO = `
+  SELECT p.sku, p.desc, p.cat, p.preco, p.qtd,
+         COALESCE(f.consignado, 0) AS consignado,
+         p.qtd - COALESCE(f.consignado, 0) AS esperado
+    FROM produtos p
+    LEFT JOIN (
+      SELECT mi.sku AS sku, SUM(mi.qtd - mi.devolvida) AS consignado
+        FROM maletas m
+        JOIN maleta_itens mi ON mi.maleta_id = m.id
+       WHERE m.status IN ('aberta', 'em_acerto')
+       GROUP BY mi.sku
+    ) f ON f.sku = p.sku
+   WHERE ${SQL_CONTAVEL}`;
 
 /** Um inventário "em andamento" é `aberto`, pausado ou não.
  *
@@ -717,8 +726,7 @@ export async function registrarLeitura(db, id, corpo = {}) {
     `SELECT 1 AS x FROM inventario_leituras WHERE inventario_id = ? AND leitura_id = ? LIMIT 1`)
     .bind(id, leituraId).first();
   if (repetida) {
-    return json({ ok: true, repetida: true, sku, desc: p.desc, linhas: await linhasDoCodigo(db, id, sku),
-      cobertura: await cobertura(db, id) });
+    return json({ ok: true, repetida: true, sku, desc: p.desc, linhas: await linhasDoCodigo(db, id, sku) });
   }
 
   const cadastradas = await variacoesDoSku(db, sku);
@@ -768,8 +776,7 @@ export async function registrarLeitura(db, id, corpo = {}) {
         partes.push({ nome: '', varianteId: null, delta: -entram });
       } else if (delta === 0 && atual.has(r.nome)) {
         /* O mesmo número que já estava: nada a gravar, nem rastro. */
-        return json({ ok: true, sku, desc: p.desc, gesto, inalterada: true,
-          linhas, cobertura: await cobertura(db, id) });
+        return json({ ok: true, sku, desc: p.desc, gesto, inalterada: true, linhas });
       }
     }
     partes.push({ ...r, delta });
@@ -798,7 +805,7 @@ export async function registrarLeitura(db, id, corpo = {}) {
     if (!atual.has('')) partes.push({ nome: '', varianteId: null, delta: 0 });
   } else if (gesto === 'limpar') {
     if (!linhas.length) {
-      return json({ ok: true, sku, desc: p.desc, linhas: [], cobertura: await cobertura(db, id) });
+      return json({ ok: true, sku, desc: p.desc, linhas: [] });
     }
     await db.batch([
       ...linhas.map((l) => db.prepare(
@@ -806,7 +813,7 @@ export async function registrarLeitura(db, id, corpo = {}) {
          VALUES (?, ?, ?, ?, ?, 'limpar')`).bind(id, leituraId, sku, l.variacao, -l.contado)),
       db.prepare(`DELETE FROM inventario_contagem WHERE inventario_id = ? AND sku = ?`).bind(id, sku),
     ]);
-    return json({ ok: true, sku, desc: p.desc, linhas: [], cobertura: await cobertura(db, id) });
+    return json({ ok: true, sku, desc: p.desc, linhas: [] });
   }
 
   if (!cadastradas.length && partes.some((pt) => pt.nome)) {
@@ -846,8 +853,7 @@ export async function registrarLeitura(db, id, corpo = {}) {
     await db.batch(stmts);
   } catch (e) {
     if (/UNIQUE constraint/i.test(String(e?.message ?? e))) {
-      return json({ ok: true, repetida: true, sku, desc: p.desc, linhas: await linhasDoCodigo(db, id, sku),
-        cobertura: await cobertura(db, id) });
+      return json({ ok: true, repetida: true, sku, desc: p.desc, linhas: await linhasDoCodigo(db, id, sku) });
     }
     if (/CHECK constraint/i.test(String(e?.message ?? e))) {
       return json({ erro: 'A contagem não pode ficar negativa.', sku }, 409);
@@ -855,12 +861,29 @@ export async function registrarLeitura(db, id, corpo = {}) {
     throw e;
   }
 
-  return json({
-    ok: true, sku, desc: p.desc, gesto,
-    linhas: await linhasDoCodigo(db, id, sku),
-    cobertura: await cobertura(db, id),
-  });
+  /* A leitura JÁ está gravada. Reler as linhas é só para a resposta: se o
+     banco falhar AGORA (cota do D1 no limite, rede), a resposta não pode
+     virar erro — a tela poria na fila de reenvio uma leitura que entrou, e
+     ela ficaria sem saber se o bipe valeu. Sem a releitura, a conta é a do
+     lote que acabou de entrar. */
+  let depois;
+  try {
+    depois = await linhasDoCodigo(db, id, sku);
+  } catch {
+    depois = linhasAposLote(linhas, partes);
+  }
+  return json({ ok: true, sku, desc: p.desc, gesto, linhas: depois });
 }
+
+/** As linhas do código depois de um lote, calculadas sem voltar ao banco:
+ *  o que havia + o delta de cada parte. Mesma regra do upsert. */
+function linhasAposLote(linhas, partes) {
+  const m = new Map(linhas.map((l) => [l.variacao, l.contado]));
+  for (const pt of partes) m.set(pt.nome, Math.max(0, (m.get(pt.nome) ?? 0) + pt.delta));
+  return [...m].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([variacao, contado]) => ({ variacao, contado, contadoEm: null }));
+}
+
 
 /* ════════════════════════════════════ variação criada sem sair da contagem */
 
@@ -1018,7 +1041,7 @@ async function cobertura(db, id) {
   const [conferidos, total] = await Promise.all([
     db.prepare(`SELECT COUNT(DISTINCT sku) AS n FROM inventario_contagem WHERE inventario_id = ?`)
       .bind(id).first(),
-    db.prepare(`SELECT COUNT(*) AS n FROM (${SQL_ESPERADO})`).first(),
+    db.prepare(`SELECT COUNT(*) AS n FROM produtos p WHERE ${SQL_CONTAVEL}`).first(),
   ]);
   return { conferidos: Number(conferidos?.n || 0), total: Number(total?.n || 0) };
 }
@@ -1098,21 +1121,83 @@ async function comparar(db, id, { completa = false } = {}) {
   /* Movimentos posteriores a uma contagem, por SKU. Ler isto NÃO é
      adivinhar: eles estão registrados, com `criado_em`. É o que impede o
      desenho ingênuo de registrar sobra de 2 e devolver ao estoque duas
-     peças que estão com a cliente (D10). */
-  const deltaSku = async (sku, desde) => {
-    const r = await db.prepare(
-      `SELECT COALESCE(SUM(qtd), 0) AS d FROM movimentos
-        WHERE sku = ? AND criado_em > ?`).bind(sku, desde).first();
-    return Number(r?.d || 0);
+     peças que estão com a cliente (D10).
+
+     Lidos UMA vez, desde a contagem mais antiga (08/10/2026). Antes era
+     uma consulta por código conferido: com 821 códigos o balanço fazia 886
+     consultas numa requisição só, e o plano Free do Workers recusa a
+     invocação que passa de 50 — o Balanço e o Finalizar do inventário #1
+     não conseguiam terminar em produção. O filtro é o mesmo do SQL, feito
+     em memória (`criado_em` é texto ISO; a comparação de texto é a mesma). */
+  const desdeMin = contagens.map((c) => c.contado_em).filter(Boolean).sort()[0] ?? null;
+  const posteriores = new Map();
+  if (desdeMin) {
+    const { results: movs } = await db.prepare(
+      `SELECT m.sku, m.variacao, m.variante_id, m.qtd, m.criado_em, m.tipo, m.origem, m.obs,
+              v.data AS venda_data,
+              (SELECT s.data FROM saidas_sem_faturamento s
+                WHERE s.movimento_id = m.id LIMIT 1) AS saida_data
+         FROM movimentos m
+         LEFT JOIN vendas v ON v.id = m.venda_id
+        WHERE m.criado_em > ?`).bind(desdeMin).all();
+    for (const m of movs ?? []) {
+      if (!posteriores.has(m.sku)) posteriores.set(m.sku, []);
+      posteriores.get(m.sku).push(m);
+    }
+  }
+  /* §60 — O QUE CONTA COMO "DEPOIS DA CONTAGEM" (08/10/2026).
+   *
+   *  A retroação existe para o fato FÍSICO posterior: contou na segunda,
+   *  vendeu na quarta. Dois tipos de movimento registrado depois da
+   *  contagem não são isso, e somá-los fazia o fechamento baixar a mesma
+   *  peça DUAS vezes (inventário #1: 15 códigos, 27 peças):
+   *
+   *   · Ajustar estoque (§54) feito depois de contar. É a pessoa dizendo o
+   *     total certo — mais nova que a contagem, então vale ela; a linha não
+   *     gera diferença nenhuma (`ajustadoDepois`). Ex.: contou 4, o sistema
+   *     dizia 10, ela ajustou 10 → 4; o fechamento aplicava −6 de novo.
+   *   · Venda ou saída sem faturamento LANÇADA depois, mas com a data do
+   *     fato anterior ao dia da contagem (brinde de 27/09 lançado em 07/10).
+   *     A peça já estava fora quando ela contou. No mesmo dia da contagem
+   *     não dá para saber a ordem: segue a regra de sempre (é posterior). */
+  const ajusteManual = (m) => m.tipo === 'ajuste' && m.origem === 'ajuste';
+  const fatoAntesDaContagem = (m, desde) => {
+    const fato = m.venda_data || m.saida_data;
+    const dia = diaOperacional(desde);
+    return Boolean(fato && dia && String(fato).slice(0, 10) < dia);
   };
-  const deltaVariacao = async (sku, v, desde) => {
-    const r = await db.prepare(
-      `SELECT COALESCE(SUM(qtd), 0) AS d FROM movimentos
-        WHERE sku = ? AND criado_em > ?
-          AND (variante_id = ? OR (variante_id IS NULL AND variacao = ?))`)
-      .bind(sku, desde, v.varianteId, v.nome).first();
-    return Number(r?.d || 0);
+  const lancadosDepois = (sku, depoisDe) => (posteriores.get(sku) ?? [])
+    .filter((m) => depoisDe != null && m.criado_em > depoisDe);
+  const movimentosDe = (sku, depoisDe, ateInclusive = null) => lancadosDepois(sku, depoisDe)
+    .filter((m) => (ateInclusive == null || m.criado_em <= ateInclusive)
+      && !ajusteManual(m) && !fatoAntesDaContagem(m, depoisDe));
+  const ajustesDepois = (sku, desde) => lancadosDepois(sku, desde).filter(ajusteManual);
+  const avisoRetroativo = (sku, desde) => {
+    const n = lancadosDepois(sku, desde).filter((m) => !ajusteManual(m) && fatoAntesDaContagem(m, desde)).length;
+    if (!n) return null;
+    return n === 1
+      ? 'uma saída lançada depois tem data anterior à contagem — já estava fora quando você contou'
+      : `${n} saídas lançadas depois têm data anterior à contagem — já estavam fora quando você contou`;
   };
+  const juntarAvisos = (...xs) => (xs.filter(Boolean).join(' · ') || null);
+  /* A linha cujo estoque foi ajustado à mão depois da contagem: o ajuste
+     é a palavra mais nova, então a diferença é zero e o motivo é dito. */
+  const linhaAjustadaDepois = (base, contado, ajustes) => {
+    const ultimo = ajustes[ajustes.length - 1];
+    const oQue = String(ultimo.obs || 'Ajuste de estoque').replace(/^Ajuste de estoque · /, '');
+    return {
+      ...base, variacao: '', varianteId: null, contado, esperado: contado, deltaPos: 0, dif: 0,
+      situacao: 'conferido', motivo: null, ajustadoDepois: true,
+      aviso: `Estoque ajustado depois da contagem (${oQue}). Vale o ajuste; o inventário não mexe de novo.`,
+    };
+  };
+  const deltaSku = (sku, desde) => movimentosDe(sku, desde)
+    .reduce((s, m) => s + Number(m.qtd || 0), 0);
+  const deltaVariacao = (sku, v, desde) => movimentosDe(sku, desde)
+    .filter((m) => (m.variante_id != null && v.varianteId != null
+        && String(m.variante_id) === String(v.varianteId))
+      || (m.variante_id == null && m.variacao === v.nome))
+    .reduce((s, m) => s + Number(m.qtd || 0), 0);
   const avisoDelta = (d) => {
     if (!d) return null;
     const n = Math.abs(d);
@@ -1142,13 +1227,18 @@ async function comparar(db, id, { completa = false } = {}) {
           motivo: null, conferivel: true });
         continue;
       }
+      const ajustes = ajustesDepois(p.sku, c.contado_em);
+      if (ajustes.length) {
+        linhas.push(linhaAjustadaDepois(base, c.contado, ajustes));
+        continue;
+      }
       const deltaPos = await deltaSku(p.sku, c.contado_em);
       const esperado = p.esperado - deltaPos;
       const dif = c.contado - esperado;
       linhas.push({ ...base, variacao: '', varianteId: null, contado: c.contado,
         esperado, deltaPos, dif,
         situacao: dif === 0 ? 'conferido' : (dif < 0 ? 'faltando' : 'sobrando'),
-        motivo: null, aviso: avisoDelta(deltaPos) });
+        motivo: null, aviso: juntarAvisos(avisoDelta(deltaPos), avisoRetroativo(p.sku, c.contado_em)) });
       continue;
     }
 
@@ -1219,11 +1309,16 @@ async function comparar(db, id, { completa = false } = {}) {
     const primeiro = momentos[0] ?? null;
     const deltaPos = desde ? await deltaSku(p.sku, desde) : 0;
     const durante = primeiro && desde && primeiro < desde
-      ? Number((await db.prepare(
-        `SELECT COUNT(*) AS n FROM movimentos WHERE sku = ? AND criado_em > ? AND criado_em <= ?`)
-        .bind(p.sku, primeiro, desde).first())?.n ?? 0)
+      ? movimentosDe(p.sku, primeiro, desde).length
       : 0;
     const total = contadas.reduce((s, x) => s + Number(x.contado), 0) + naoIdent;
+    const ajustes = desde ? ajustesDepois(p.sku, desde) : [];
+    if (ajustes.length) {
+      linhas.push({ ...linhaAjustadaDepois(base, total, ajustes),
+        modo: 'codigo', partes: null, variacoesDivergem: false, distribuicaoContada: null,
+        conferivel: true, ...detalhe });
+      continue;
+    }
     const esperado = p.esperado - deltaPos;
     const dif = total - esperado;
     const situacao = dif === 0 ? 'conferido' : (dif < 0 ? 'faltando' : 'sobrando');
@@ -1267,7 +1362,7 @@ async function comparar(db, id, { completa = false } = {}) {
       esperado, deltaPos, dif, situacao, motivo: null,
       aviso: durante
         ? 'Esta peça teve entrada ou saída enquanto era conferida — confira antes de ajustar.'
-        : avisoDelta(deltaPos),
+        : juntarAvisos(avisoDelta(deltaPos), avisoRetroativo(p.sku, desde)),
       modo, partes, variacoesDivergem, distribuicaoContada, conferivel: true, ...detalhe });
   }
   return completa ? declararContagemCompleta(linhas) : linhas;
@@ -1876,22 +1971,34 @@ async function aplicarComoAjuste(db, id, numero, data, linha, motivo, observacao
   const obs = `Ajuste de inventário #${numero}${motivo ? ` · ${motivo}` : ''} · contado ${linha.contado}, `
     + `sistema dizia ${linha.esperado}${data ? ` (${data})` : ''}`
     + (observacao ? ` · ${observacao}` : '');
+  /* O id do movimento vem do próprio lote (`last_row_id` do último INSERT
+     em `movimentos`), não de uma consulta depois dele (08/10/2026, §60):
+     a tela aplica TODAS as diferenças numa requisição, e duas chamadas ao
+     D1 por item passavam do teto de 50 do plano Free a partir de 25
+     diferenças — o Finalizar parava no meio. */
+  const lote = [
+    db.prepare(
+      `INSERT INTO inventario_ajustes (inventario_id, sku, variacao, qtd, motivo, observacao)
+       VALUES (?, ?, ?, ?, ?, ?)`).bind(id, linha.sku, linha.variacao || '', linha.dif, rotulo, observacao),
+  ];
+  let posMovimento = -1;
+  for (const parte of partes) {
+    const stmts = movimentar(db, {
+      sku: linha.sku, tipo: 'ajuste', quantidade: parte.qtd, origem: 'inventario', obs,
+      variacao: parte.variacao || null, varianteId: parte.varianteId ?? null,
+    });
+    posMovimento = lote.length; // o INSERT em `movimentos` é o primeiro de `movimentar`
+    lote.push(...stmts);
+  }
+  lote.push(db.prepare(
+    /* `saida_id = NULL`: se a linha já foi resolvida como perda e a
+       saída foi estornada, o vínculo antigo sairia lendo "estornada"
+       por cima deste ajuste. */
+    `UPDATE inventario_resultado SET aplicado_em = datetime('now'), saida_id = NULL
+      WHERE inventario_id = ? AND sku = ? AND variacao = ?`).bind(id, linha.sku, linha.variacao));
+  let resultados;
   try {
-    await db.batch([
-      db.prepare(
-        `INSERT INTO inventario_ajustes (inventario_id, sku, variacao, qtd, motivo, observacao)
-         VALUES (?, ?, ?, ?, ?, ?)`).bind(id, linha.sku, linha.variacao || '', linha.dif, rotulo, observacao),
-      ...partes.flatMap((parte) => movimentar(db, {
-        sku: linha.sku, tipo: 'ajuste', quantidade: parte.qtd, origem: 'inventario', obs,
-        variacao: parte.variacao || null, varianteId: parte.varianteId ?? null,
-      })),
-      db.prepare(
-        /* `saida_id = NULL`: se a linha já foi resolvida como perda e a
-           saída foi estornada, o vínculo antigo sairia lendo "estornada"
-           por cima deste ajuste. */
-        `UPDATE inventario_resultado SET aplicado_em = datetime('now'), saida_id = NULL
-          WHERE inventario_id = ? AND sku = ? AND variacao = ?`).bind(id, linha.sku, linha.variacao),
-    ]);
+    resultados = await db.batch(lote);
   } catch (e) {
     const msg = String(e?.message ?? e);
     if (/UNIQUE constraint|PRIMARY KEY/i.test(msg)) {
@@ -1899,6 +2006,8 @@ async function aplicarComoAjuste(db, id, numero, data, linha, motivo, observacao
     }
     throw e;
   }
+  const doLote = posMovimento >= 0 ? Number(resultados?.[posMovimento]?.meta?.last_row_id) : NaN;
+  if (Number.isInteger(doLote) && doLote > 0) return { ok: true, movimentoId: doLote, motivo: rotulo };
   const mov = await db.prepare(
     `SELECT id FROM movimentos WHERE sku = ? AND obs = ? ORDER BY id DESC LIMIT 1`).bind(linha.sku, obs).first();
   return { ok: true, movimentoId: mov ? mov.id : null, motivo: rotulo };

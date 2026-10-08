@@ -7,6 +7,18 @@ compatibility_date = "2026-08-01"
 # ver docs/archive/PLANO-MESTRE-MARQUESA.md § go-live). `marquesa-db` antigo
 # (089153a9-cee5-4887-b789-a23b1cf419f5) fica intacto como rollback; não é
 # mais o alvo do binding raiz.
+# Workers Logs (08/10/2026, REGRAS §60): guarda o que o Worker escreve no
+# console — a falha de rota (`[api] ...`) e a requisição pesada no D1
+# (`{"evento":"d1-requisicao-pesada",...}`) — para que cota esgotada e
+# consulta demais deixem de ser invisíveis até a tela cair. Só os logs do
+# código: o log automático de invocação fica DESLIGADO, porque ele grava a
+# URL inteira (busca por nome de cliente vai na query string).
+[observability]
+enabled = true
+
+[observability.logs]
+invocation_logs = false
+
 [[d1_databases]]
 binding = "DB"
 database_name = "marquesa-db-prod"

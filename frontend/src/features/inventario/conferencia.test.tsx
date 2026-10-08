@@ -18,7 +18,7 @@ interface Chamada { metodo: string; caminho: string; corpo: Record<string, unkno
 
 /** O inventário #1 (id técnico 42) em miniatura: a contagem por leitura,
  *  com a mesma conta da tela. */
-function servidor(opcoes: { pausado?: boolean; falhar503?: number } = {}) {
+function servidor(opcoes: { pausado?: boolean; falhar503?: number; faltasExtras?: number } = {}) {
   const chamadas: Chamada[] = [];
   const contagem = new Map<string, LinhaContada[]>();
   let status = opcoes.pausado ? 'pausado' : 'aberto';
@@ -79,7 +79,10 @@ function servidor(opcoes: { pausado?: boolean; falhar503?: number } = {}) {
         impacto: { reduzem: 1, pecasAMenos: 1, aumentam: 0, pecasAMais: 0, precisamVariacao: 0, naoConferidos: 1 },
         faltando: [{ sku: '256359', desc: 'Anel Inspiração Cartier', cat: 'Anel', contado: 5, esperado: 6, dif: -1,
           aviso: null, modo: 'codigo', variacoes: [{ nome: 'nº21', contado: 2, esperado: null }, { nome: 'nº23', contado: 2, esperado: null }],
-          naoInformada: { contado: 1 }, distribuicaoContada: [{ nome: 'nº21', varianteId: 'local:a21', qtd: 2 }] }],
+          naoInformada: { contado: 1 }, distribuicaoContada: [{ nome: 'nº21', varianteId: 'local:a21', qtd: 2 }] },
+        ...Array.from({ length: opcoes.faltasExtras ?? 0 }, (_, i) => ({
+          sku: String(500000 + i), desc: `Brinco ${i}`, cat: 'Brinco', contado: 0, esperado: 1, dif: -1,
+          aviso: null, modo: 'codigo' }))],
         sobrando: [],
         naoConferido: [{ sku: '127513', desc: 'Brinco Palito', cat: 'Brinco', esperado: 1 }],
         conferidosItens: [{ sku: '347801', desc: 'Colar Coração', cat: 'Colar', contado: 4, esperado: 4, aviso: null }],
@@ -291,6 +294,21 @@ describe('a conferência — um bipe é uma unidade', () => {
     expect(ordem).toEqual(['/api/inventarios/42/concluir', '/api/inventarios/42/aplicar', '/api/inventarios/42/variacoes/guardar']);
     const aplicar = chamadas.find((c) => c.caminho === '/api/inventarios/42/aplicar')!.corpo!;
     expect(aplicar.itens).toEqual([{ sku: '256359', motivo: 'Contagem física', motivoId: 'contagem_fisica' }]);
+  });
+
+  it('finalizar com 45 diferenças: aplica em lotes de 20 (teto de 50 consultas do plano Free)', async () => {
+    const { chamadas } = servidor({ faltasExtras: 44 });
+    abrir();
+    await pronto();
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar e finalizar' }));
+    await screen.findByRole('heading', { name: 'Balanço do inventário #1' });
+    fireEvent.click(screen.getByRole('button', { name: 'Finalizar inventário' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Finalizar e ajustar o estoque' }));
+    await waitFor(() => expect(chamadas.some((c) => c.caminho === '/api/inventarios/42/variacoes/guardar')).toBe(true));
+    const lotes = chamadas.filter((c) => c.caminho === '/api/inventarios/42/aplicar')
+      .map((c) => (c.corpo!.itens as { sku: string }[]).map((i) => i.sku));
+    expect(lotes.map((l) => l.length)).toEqual([20, 20, 5]);
+    expect(new Set(lotes.flat()).size).toBe(45);
   });
 
   it('nenhuma informação técnica na tela', async () => {

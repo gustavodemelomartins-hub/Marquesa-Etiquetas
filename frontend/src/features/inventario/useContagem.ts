@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { chamar, type Connection } from '../../services/client';
 import {
-  comRetentativa, efeitoDaLeitura, type EsperadoDoInventario, type Leitura, type LinhaContada,
+  comRetentativa, efeitoDaLeitura, ehCotaDoBanco, type EsperadoDoInventario, type Leitura, type LinhaContada,
 } from './contagem';
 
 /** O inventário aberto, como `GET /api/inventarios/:id` responde. */
@@ -102,6 +102,11 @@ export function useContagem(conexao: Connection, id: number, aoErro: (texto: str
 
   /* Uma gravação por vez, na ordem das leituras. */
   const corrente = useRef<Promise<unknown>>(Promise.resolve());
+  /* A cota de leitura do D1 acabou: a tela diz isso em vez de "sem
+     internet?", e nada é reenviado sozinho até ela pedir. */
+  const [cotaEsgotada, setCotaEsgotada] = useState(false);
+  const cotaRef = useRef(false);
+  cotaRef.current = cotaEsgotada;
   const aoErroRef = useRef(aoErro);
   aoErroRef.current = aoErro;
 
@@ -114,6 +119,7 @@ export function useContagem(conexao: Connection, id: number, aoErro: (texto: str
           conexao, 'POST', `/api/inventarios/${id}/leituras`, corpo));
         setRespostas((m) => new Map(m).set(r.sku, (r.linhas ?? []).map((l) => ({ variacao: l.variacao ?? '', contado: l.contado }))));
         setFila((f) => f.filter((x) => x.leituraId !== leitura.leituraId));
+        setCotaEsgotada(false);
       } catch (e) {
         const err = e as { status?: number; message?: string };
         if (err.status && err.status >= 400 && err.status < 500) {
@@ -122,6 +128,7 @@ export function useContagem(conexao: Connection, id: number, aoErro: (texto: str
           aoErroRef.current(err.message ?? 'A leitura não foi aceita.');
           detalhe.recarregar();
         } else {
+          if (ehCotaDoBanco(e)) setCotaEsgotada(true);
           setFila((f) => f.map((x) => (x.leituraId === leitura.leituraId ? { ...x, estado: 'erro' } : x)));
         }
       }
@@ -143,7 +150,7 @@ export function useContagem(conexao: Connection, id: number, aoErro: (texto: str
      internet volta, também. */
   useEffect(() => {
     if (filaRef.current.length) tentarDeNovo();
-    const aoVoltar = () => tentarDeNovo();
+    const aoVoltar = () => { if (!cotaRef.current) tentarDeNovo(); };
     window.addEventListener('online', aoVoltar);
     return () => window.removeEventListener('online', aoVoltar);
   }, [tentarDeNovo]);
@@ -162,7 +169,7 @@ export function useContagem(conexao: Connection, id: number, aoErro: (texto: str
 
   return {
     detalhe, esperados, porSku, porSkuRef, contagem, contagemRef,
-    fila, naoSalvas, comErro: fila.filter((l) => l.estado === 'erro').length,
+    fila, naoSalvas, comErro: fila.filter((l) => l.estado === 'erro').length, cotaEsgotada,
     registrar, tentarDeNovo, esperarFila,
   };
 }

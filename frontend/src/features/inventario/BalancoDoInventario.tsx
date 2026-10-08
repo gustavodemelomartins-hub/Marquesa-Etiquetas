@@ -53,6 +53,8 @@ interface Props {
 }
 
 const PADRAO = 'contagem_fisica';
+/** Diferenças por requisição ao aplicar (teto de 50 chamadas ao D1 no plano Free). */
+export const LOTE_DE_AJUSTES = 20;
 const chave = (l: { sku: string }) => l.sku;
 const variacoesEmTexto = (l: LinhaDoBalanco) => [
   ...(l.variacoes ?? []).filter((v) => (v.contado ?? 0) > 0).map((v) => `${v.nome} ${v.contado}`),
@@ -111,23 +113,30 @@ export function BalancoDoInventario({
          a recebeu fica pendente — na revisão, depois. Uma recusa do servidor
          para UMA peça não pode impedir as outras: ela sai do lote e o resto
          vai de novo. */
-      let itens = diferencas
+      const todos = diferencas
         .filter((l) => !(l.precisaVariacao && !destinos.get(chave(l))))
         .map((l) => ({
           sku: l.sku, motivo: rotuloDe(l), motivoId: motivoDe(l).id,
           ...(l.precisaVariacao ? { destino: destinos.get(chave(l)) === '__nao_informada__' ? '' : destinos.get(chave(l)) } : {}),
         }));
       const recusadas: string[] = [];
-      for (let tentativa = 0; itens.length && tentativa < 10; tentativa += 1) {
-        try {
-          await chamar(conexao, 'POST', `/api/inventarios/${id}/aplicar`, { itens });
-          break;
-        } catch (e) {
-          const corpo = (e as { corpo?: { sku?: string } }).corpo;
-          const sku = corpo?.sku;
-          if (!sku || !itens.some((x) => x.sku === sku)) throw e;
-          recusadas.push(`${sku}: ${(e as Error).message}`);
-          itens = itens.filter((x) => x.sku !== sku);
+      /* Em lotes (08/10/2026, §60): cada diferença é uma chamada ao banco,
+         e o plano gratuito da Cloudflare recusa a requisição que passa de
+         50. Cada peça é aplicada uma vez só no servidor (repetir é
+         recusado), então dividir não muda o resultado. */
+      for (let i = 0; i < todos.length; i += LOTE_DE_AJUSTES) {
+        let itens = todos.slice(i, i + LOTE_DE_AJUSTES);
+        for (let tentativa = 0; itens.length && tentativa < 10; tentativa += 1) {
+          try {
+            await chamar(conexao, 'POST', `/api/inventarios/${id}/aplicar`, { itens });
+            break;
+          } catch (e) {
+            const corpo = (e as { corpo?: { sku?: string } }).corpo;
+            const sku = corpo?.sku;
+            if (!sku || !itens.some((x) => x.sku === sku)) throw e;
+            recusadas.push(`${sku}: ${(e as Error).message}`);
+            itens = itens.filter((x) => x.sku !== sku);
+          }
         }
       }
 

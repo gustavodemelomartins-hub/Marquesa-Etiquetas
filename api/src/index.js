@@ -6,7 +6,7 @@ import { rotas } from './http/routes/index.js';
 import { sincronizar } from './sync.js';
 /* §34 — medição de leitura do D1. Desligada por padrão; ver d1-metrica.js. */
 import {
-  criarContador, medirD1, carimbarMetrica, metricasLigadas,
+  criarContador, medirD1, carimbarMetrica, metricasLigadas, vigiarRequisicao,
 } from './d1-metrica.js';
 
 /* Dois roteadores porque há dois regimes de autorização, e a ordem entre
@@ -27,11 +27,19 @@ export default {
        que falta a chave. Não altera resposta nenhuma. */
     conferirConfig(env);
     if (request.method === 'OPTIONS') return comCors(new Response(null, { status: 204 }), request, env);
-    /* §34 — medir antes de otimizar. Desligado, `contador` é null e o
-       binding do D1 segue direto, sem envelope nenhum: a medição não pode
-       custar nada quando não está sendo usada. */
-    const contador = metricasLigadas(request, env) ? criarContador() : null;
+    /* §34 — medir antes de otimizar: com a medição ligada, os cabeçalhos
+       X-D1-* trazem tudo. Desligada, §60 — a vigia leve: só conta
+       consultas e soma o que o D1 já devolve, e registra a requisição
+       pesada antes que ela derrube a cota ou o teto de 50 consultas. */
+    const contador = metricasLigadas(request, env) ? criarContador() : criarContador({ leve: true });
+    const inicio = Date.now();
     const resposta = await rotear(request, env, contador);
+    try {
+      vigiarRequisicao(contador, {
+        metodo: request.method, path: new URL(request.url).pathname,
+        ms: Date.now() - inicio, status: resposta.status,
+      });
+    } catch { /* a vigia nunca derruba a resposta */ }
     return comCors(carimbarMetrica(resposta, contador), request, env);
   },
 

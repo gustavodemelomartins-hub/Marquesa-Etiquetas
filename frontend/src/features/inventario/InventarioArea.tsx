@@ -647,7 +647,10 @@ function Contagem({
             <p className={`mq-note ${c.comErro ? 'mq-note--risk' : 'mq-note--info'} inv-faixa`}>
               <Icone nome={c.comErro ? 'alert' : 'cloud'} />
               <span>
-                {c.comErro
+                {c.comErro && c.cotaEsgotada
+                  ? <>{c.comErro} {plural(c.comErro, 'leitura ainda não foi salva', 'leituras ainda não foram salvas')}: o banco atingiu o limite diário de leitura e volta às 21h. O que já foi salvo continua salvo, e {plural(c.comErro, 'esta está guardada', 'estas estão guardadas')} neste aparelho — nada se perde nem conta duas vezes.{' '}
+                    <button type="button" className="mq-btn mq-btn--link" onClick={c.tentarDeNovo}>Tentar de novo</button></>
+                  : c.comErro
                   ? <>{c.comErro} {plural(c.comErro, 'leitura ainda não foi salva', 'leituras ainda não foram salvas')} (sem internet?). Elas estão guardadas neste aparelho.{' '}
                     <button type="button" className="mq-btn mq-btn--link" onClick={c.tentarDeNovo}>Tentar de novo</button></>
                   : <>Salvando {c.naoSalvas} {plural(c.naoSalvas, 'leitura', 'leituras')}…</>}

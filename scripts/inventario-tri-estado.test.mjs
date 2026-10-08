@@ -92,7 +92,16 @@ const migration = ler('api/migracao-inventario-4-4.sql');
   assert.ok(corpo.includes('movimentar('), 'o único movimentar() saiu de aplicarComoAjuste');
   assert.match(corpo, /origem: 'inventario'/, 'o ajuste de inventário perdeu a origem inventario (D9)');
   assert.match(corpo, /INSERT INTO inventario_ajustes/, 'o ajuste deixou de registrar a linha que trava a repetição');
-  assert.match(corpo, /db\.batch\(\[/, 'o registro e o movimento deixaram de andar no mesmo batch');
+  /* 08/10/2026 (§60): o lote é montado numa lista (`lote`) para o id do
+     movimento sair do próprio batch; continua sendo UM `db.batch` com o
+     registro, o movimento e a marca de aplicado. */
+  assert.match(corpo, /db\.batch\(\[|db\.batch\(lote\)/, 'o registro e o movimento deixaram de andar no mesmo batch');
+  assert.equal((corpo.match(/db\.batch\(/g) ?? []).length, 1, 'o ajuste passou a usar mais de um batch');
+  if (corpo.includes('db.batch(lote)')) {
+    const ate = corpo.indexOf('db.batch(lote)');
+    assert.ok(corpo.indexOf('INSERT INTO inventario_ajustes') < ate && corpo.indexOf('movimentar(') < ate
+      && corpo.indexOf('UPDATE inventario_resultado') < ate, 'algo do ajuste ficou fora do lote');
+  }
   /* 06/10/2026 — num código com variação a diferença congelada pode entrar
      em mais de uma variação (as partes que ela contou). O movimento usa a
      quantidade de cada PARTE, e `aplicarDiferenca` recusa antes de escrever

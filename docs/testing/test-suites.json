@@ -238,6 +238,72 @@
       ]
     },
     {
+      "id": "inventario-v2-duplicado",
+      "level": "domain",
+      "mode": "local",
+      "description": "Inventário V2: a mesma peça nunca é contada duas vezes em silêncio; número digitado substitui (§59)",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/inventario-v2-duplicado-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<3s"
+    },
+    {
+      "id": "v2-variacoes-locais",
+      "level": "domain",
+      "mode": "local",
+      "description": "Variações criadas aqui ao lado das variantes da loja: distribuição parcial pela união (§58)",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/v2-variacoes-locais-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<3s"
+    },
+    {
+      "id": "inventario-d1-leitura",
+      "level": "domain",
+      "mode": "local",
+      "description": "Inventário V2 no plano gratuito do D1: bipe de custo constante, balanço/fechamento abaixo de 50 consultas, sem baixa dupla no fechamento (§60)",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/inventario-d1-leitura-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<3s"
+    },
+    {
       "id": "estoque-ajuste-inventario",
       "level": "domain",
       "mode": "local",

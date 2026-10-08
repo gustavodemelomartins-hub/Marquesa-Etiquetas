@@ -338,10 +338,20 @@ export function buscarNoInventario(
     .map((x) => x.p);
 }
 
+/** O banco atingiu o limite diário de leitura do D1 (a conta inteira, até
+ *  00:00 UTC = 21h de Brasília). O servidor diz isso em `limite`. Tentar de
+ *  novo em segundos só gasta a cota de amanhã e não salva nada. */
+export function ehCotaDoBanco(e: unknown): boolean {
+  const err = e as { status?: number; corpo?: { limite?: unknown } } | null;
+  return Boolean(err && err.status === 503 && err.corpo && err.corpo.limite === 'd1-leitura-diaria');
+}
+
 /** Uma gravação que NÃO PODE se perder em silêncio. Falha de rede (status
  *  0 ou ausente) e erro do servidor (5xx) tentam de novo, esperando mais a
  *  cada vez; recusa (4xx) é resposta e volta para a tela. A leitura leva o
- *  próprio id, então repetir é seguro: o servidor não soma duas vezes. */
+ *  próprio id, então repetir é seguro: o servidor não soma duas vezes.
+ *  Cota do banco esgotada (08/10/2026) não é passageira: não repete — a
+ *  leitura fica guardada no aparelho até ela pedir. */
 export async function comRetentativa<T>(
   fazer: () => Promise<T>,
   { tentativas = 4, esperaMs = 600, dormir = (ms: number) => new Promise((r) => setTimeout(r, ms)) }:
@@ -354,7 +364,7 @@ export async function comRetentativa<T>(
     } catch (e) {
       ultimo = e;
       const status = (e as { status?: number })?.status;
-      const passageiro = status === undefined || status === 0 || status >= 500;
+      const passageiro = (status === undefined || status === 0 || status >= 500) && !ehCotaDoBanco(e);
       if (!passageiro || i === tentativas - 1) throw e;
       await dormir(esperaMs * 2 ** i);
     }

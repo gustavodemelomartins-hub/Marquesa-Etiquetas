@@ -120,6 +120,22 @@ export const tradutores = [
       limite: 'd1-leitura-diaria',
     }, 503),
   },
+  {
+    /* §60 — o TETO DE CONSULTAS POR REQUISIÇÃO (08/10/2026). O plano Free
+       do Workers aceita 50 consultas ao D1 numa invocação; o Balanço do
+       inventário #1 fazia 886 e caía com uma mensagem da Cloudflare que
+       ninguém entende ("Too many API requests by single worker
+       invocation"). É defeito do sistema — uma consulta por item —, não do
+       dado nem da cota. */
+    id: 'd1-consultas-por-requisicao',
+    reconhece: (msg) => /too many (api requests|subrequests)/i.test(msg),
+    resposta: (msg) => json({
+      erro: 'Esta ação pediu ao banco mais consultas do que a Cloudflare aceita de uma vez.',
+      detalhe: 'É defeito do sistema, não do seu cadastro, e não gasta a cota do dia. '
+             + 'Avise o suporte com o nome da tela. Mensagem do banco: ' + msg,
+      limite: 'd1-consultas-por-requisicao',
+    }, 503),
+  },
 ];
 
 /** A mensagem de uma exceção, sem deixar `undefined` virar texto. */
