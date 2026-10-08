@@ -157,9 +157,17 @@ async function lerLocais(db, skus) {
     if (p.eh_kit || montagens.has(String(p.sku))) {
       /* O disponível de kit e de montagem só existe calculado a partir das
          peças. `qtd = casa` faz a conta de consignado dar zero, como na
-         rodada completa. Raro (zero kits em produção em 08/10/2026). */
-      const s = await saldosDoSku(db, p.sku);
-      qtd = casa = s ? Number(s.disponivel || 0) : 0;
+         rodada completa. O cálculo custa várias consultas por código (a
+         montagem lê cada componente), então só é feito para quem TEM
+         anúncio na loja: sem anúncio não há para onde mandar o número, e no
+         ensaio sobre a cópia de produção um único Monte seu Colar sem
+         anúncio levou a rodada a 49 das 50 chamadas do plano Free. */
+      if (p.produto_id_loja != null) {
+        const s = await saldosDoSku(db, p.sku);
+        qtd = casa = s ? Number(s.disponivel || 0) : 0;
+      } else {
+        qtd = casa = 0;
+      }
     }
     locais.set(String(p.sku), {
       sku: String(p.sku), desc: p.desc, qtd, casa,
