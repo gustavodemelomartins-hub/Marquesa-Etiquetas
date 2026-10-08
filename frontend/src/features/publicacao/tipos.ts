@@ -129,6 +129,85 @@ export interface ItemDaFila {
   publicadoEm: string | null;
   urlLoja: string | null;
   dadosAssinaturaAtual: string | null;
+  /** §61 — onde a peça está na Preparação para Nuvemshop. */
+  situacao?: Situacao;
+  /** §61 — tudo o que falta, numa lista só: cadastro, texto do site, o que
+   *  a loja tem (pela última conferência) e problemas de integração. */
+  pendencias?: string[];
+  /** §61 — para peça publicada: o estoque dela na loja está em dia? */
+  sincronizacao?: 'sincronizado' | 'pendente' | 'divergente' | 'erro' | 'revisao' | null;
+  erroSincronizacao?: string | null;
+}
+
+/* ════════════════════════════════ §61 — Preparação para Nuvemshop */
+
+export type Situacao = 'preparacao' | 'revisao' | 'pronto' | 'publicado' | 'erro';
+
+/** As abas da Preparação. Cinco perguntas, cada uma com um dono: preparar é
+ *  cadastro; revisar e aprovar é olho humano; publicado é a loja; erro é
+ *  integração. */
+export const SITUACOES: { id: Situacao; rotulo: string }[] = [
+  { id: 'preparacao', rotulo: 'Aguardando preparação' },
+  { id: 'revisao', rotulo: 'Aguardando revisão' },
+  { id: 'pronto', rotulo: 'Prontos para publicar' },
+  { id: 'publicado', rotulo: 'Publicados' },
+  { id: 'erro', rotulo: 'Com erro' },
+];
+
+/** Os filtros por pendência. `sku` junta SKU ausente e SKU duplicado. */
+export const FILTROS_DE_PENDENCIA: { id: string; rotulo: string; chaves: string[] }[] = [
+  { id: 'todos', rotulo: 'Todos', chaves: [] },
+  { id: 'foto', rotulo: 'Falta foto', chaves: ['foto'] },
+  { id: 'descricao', rotulo: 'Falta descrição', chaves: ['descricao', 'nome'] },
+  { id: 'seo', rotulo: 'Falta SEO', chaves: ['seo'] },
+  { id: 'categoria', rotulo: 'Falta categoria', chaves: ['categoria'] },
+  { id: 'preco', rotulo: 'Falta preço', chaves: ['preco'] },
+  { id: 'sku', rotulo: 'SKU', chaves: ['sku', 'sku_duplicado'] },
+  { id: 'variante', rotulo: 'Variante', chaves: ['variante'] },
+  { id: 'erro', rotulo: 'Erro', chaves: ['erro'] },
+];
+
+export const ROTULO_DA_PENDENCIA: Record<string, string> = {
+  foto: 'Falta foto',
+  nome: 'Falta nome',
+  descricao: 'Falta descrição',
+  seo: 'Falta SEO',
+  categoria: 'Falta categoria',
+  preco: 'Falta preço',
+  sku: 'Variante sem SKU',
+  sku_duplicado: 'SKU duplicado',
+  variante: 'Variante incompleta',
+  erro: 'Erro de integração',
+};
+
+const ROTULO_DA_SINCRONIZACAO: Record<string, string> = {
+  sincronizado: 'Estoque sincronizado',
+  pendente: 'Estoque aguardando envio',
+  divergente: 'Estoque divergente',
+  erro: 'Erro ao enviar estoque',
+  revisao: 'Estoque em revisão',
+};
+
+/** A frase da linha: o que falta, ou o estado bom. "Falta foto · Falta
+ *  descrição", "Pronto para publicar", "Publicado · Estoque sincronizado". */
+export function fraseDaPeca(i: ItemDaFila): string {
+  const p = (i.pendencias ?? []).map((k) => ROTULO_DA_PENDENCIA[k] ?? k);
+  if (i.situacao === 'publicado') {
+    const sinc = i.sincronizacao ? ROTULO_DA_SINCRONIZACAO[i.sincronizacao] : null;
+    return ['Publicado', sinc, ...p].filter(Boolean).join(' · ');
+  }
+  if (p.length) return p.join(' · ');
+  if (i.situacao === 'pronto') return 'Pronto para publicar';
+  if (i.situacao === 'revisao') return 'Aguardando revisão';
+  return i.estadoRotulo;
+}
+
+export function porSituacao(itens: ItemDaFila[]): Record<Situacao, ItemDaFila[]> {
+  const mapa: Record<Situacao, ItemDaFila[]> = {
+    preparacao: [], revisao: [], pronto: [], publicado: [], erro: [],
+  };
+  for (const i of itens) mapa[i.situacao ?? 'preparacao'].push(i);
+  return mapa;
 }
 
 export interface FilaDePublicacao {

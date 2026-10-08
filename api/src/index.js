@@ -3,7 +3,7 @@ import { criarRoteador } from './http/router.js';
 import { respostaDeErro } from './http/erros.js';
 import { lerConfig, registrarBloqueios } from './plataforma/config.js';
 import { rotas } from './http/routes/index.js';
-import { sincronizar } from './sync.js';
+import { executarCron, processarAposRequisicao } from './nuvemshop-estoque.js';
 /* §34 — medição de leitura do D1. Desligada por padrão; ver d1-metrica.js. */
 import {
   criarContador, medirD1, carimbarMetrica, metricasLigadas, vigiarRequisicao,
@@ -20,7 +20,7 @@ const despacharRota = criarRoteador(rotas.filter((r) => r.auth === 'bearer'));
 export default {
   /** O CORS é aplicado uma única vez, na saída — assim nenhuma rota nova
    *  pode esquecer de devolvê-lo. */
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     /* Uma vez por isolate, no primeiro pedido. Um segredo ausente é
        invisível: o Worker sobe, responde, e recusa tudo com 401. Sem esta
        linha, o `wrangler tail` mostra uma API saudável e ninguém descobre
@@ -33,7 +33,16 @@ export default {
        pesada antes que ela derrube a cota ou o teto de 50 consultas. */
     const contador = metricasLigadas(request, env) ? criarContador() : criarContador({ leve: true });
     const inicio = Date.now();
+    const inicioIso = new Date(inicio).toISOString();
     const resposta = await rotear(request, env, contador);
+    /* §61 — a operação que mexeu em estoque deixou código na fila (o gatilho
+       do banco faz isso na mesma transação). O envio sai em segundo plano,
+       depois da resposta: a Sthefany não espera a Nuvemshop, e uma loja fora
+       do ar não derruba a operação. Duas consultas quando não há nada. */
+    if (ctx && typeof ctx.waitUntil === 'function' && request.method !== 'GET'
+      && resposta.status < 400 && env.DB) {
+      ctx.waitUntil(processarAposRequisicao(env.DB, env, inicioIso, contador));
+    }
     try {
       vigiarRequisicao(contador, {
         metodo: request.method, path: new URL(request.url).pathname,
@@ -43,17 +52,20 @@ export default {
     return comCors(carimbarMetrica(resposta, contador), request, env);
   },
 
-  /** Cron da Cloudflare. Roda mesmo sem ninguém com o app aberto — é o que
-   *  faz a loja ficar em dia sozinha.
+  /** Cron da Cloudflare. Roda mesmo sem ninguém com o app aberto.
    *
-   *  Nunca força: se a rodada bater no freio de segurança, ela para e fica
-   *  registrada como pausada, esperando alguém olhar. Um robô que roda de
-   *  madrugada é o pior lugar possível para atropelar uma dúvida. */
+   *  §61 — a cada 10 minutos: puxa os pedidos do site (§5.1, antes de
+   *  empurrar) e envia os códigos da fila que estiverem devidos. Uma vez por
+   *  dia (`0 9 * * *`, 06:00 de Brasília) também confere a loja inteira.
+   *  Fila vazia custa poucas consultas; nada aqui relê o catálogo a cada
+   *  rodada. Nunca força o freio do caminho em lote: massa de mudança
+   *  espera gente. */
   async scheduled(evento, env, ctx) {
-    ctx.waitUntil(sincronizar(env.DB, env).then(r => {
-      if (!r.ok) console.error('sync falhou:', r.erro);
-      else if (r.pausado) console.warn('sync pausada:', r.pausado.motivo);
-    }));
+    ctx.waitUntil(executarCron(env.DB, env, { cron: evento && evento.cron }).then((r) => {
+      const f = r && r.fila;
+      if (f && (f.erros || f.motivo)) console.warn('[nuvemshop-fila] cron:', JSON.stringify({ cron: r.cron, erros: f.erros, motivo: f.motivo }));
+      else if (f && f.processados) console.log('[nuvemshop-fila] cron:', JSON.stringify({ cron: r.cron, processados: f.processados, sincronizados: f.sincronizados }));
+    }).catch((e) => console.error('[nuvemshop-fila] cron falhou:', String(e && e.message || e))));
   },
 };
 

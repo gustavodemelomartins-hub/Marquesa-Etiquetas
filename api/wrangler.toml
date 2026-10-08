@@ -94,35 +94,32 @@ NUVEMSHOP_WRITES_ENABLED = "true"
 # para "false" desliga a tela e a rota sem mexer em dado nenhum.
 PERSONALIZACAO_ATIVA = "true"
 
-# Sincronização automática com a Nuvemshop.
+# Sincronização automática com a Nuvemshop — §61 (api/REGRAS.md).
 #
-# DESLIGADA EM 2026-08-22, na Fase 0 do go-live. Autorizado explicitamente.
-# Ver docs/archive/PLANO-MESTRE-MARQUESA.md § 7.3 Fase 0 e § Risco R1.
+# RELIGADA EM 2026-10-08, depois do Inventário #1 conciliado (842 códigos,
+# 0 pendências): a base de produção passou a ser a fonte da verdade do
+# estoque. Histórico: desligada em 2026-08-22 (Fase 0 do go-live) porque a
+# operação real estava no DEV e este Worker empurraria número velho para a
+# loja. Ver docs/archive/PLANO-MESTRE-MARQUESA.md § 7.3 Fase 0 e § Risco R1.
 #
-# O motivo: enquanto a operação real acontece no ambiente DEV, este Worker
-# ficou com um catálogo que não sabe de nenhuma venda feita lá. O cron faz
-# duas coisas em sequência — puxa pedidos do site e EMPURRA o estoque daqui
-# para a loja. Rodando sobre dado velho, ele reescreve o estoque da loja da
-# Nuvemshop duas vezes por dia com números que já não valem. O freio de
-# segurança (syncLimiteMudancas/syncLimiteZerar) provavelmente vinha barrando
-# isso — mas "provavelmente" não é padrão aceitável quando o efeito é tirar
-# peça do ar.
+# O que o cron faz AGORA não é mais a rodada inteira de antes (que relia o
+# catálogo dos dois lados e empurrava tudo):
 #
-# `crons = []` é a forma EXPLÍCITA de desarmar: apagar o bloco inteiro faria
-# o deploy deixar como está o que já existe na Cloudflare, e o cron voltaria
-# sozinho. Lista vazia remove. É a mesma forma usada em [env.staging.triggers].
+#   */10 * * * *  puxa os pedidos do site desde o corte (`config.syncCorteEm`)
+#                 e envia os códigos da fila `nuvemshop_fila` que estiverem
+#                 devidos. Fila vazia = poucas consultas, nenhum catálogo lido.
+#   0 9 * * *     além disso, uma conferência diária da loja inteira (06:00 de
+#                 Brasília). Divergência pequena volta para a fila; em massa,
+#                 fica anunciada e espera gente (o cron nunca força o freio).
 #
-# ⚠️ Desligar pelo painel da Cloudflare NÃO basta sozinho: o `wrangler deploy`
-# trata este arquivo como fonte da verdade, e um deploy futuro com a linha
-# antiga rearmaria o cron em silêncio — inclusive o deploy do próprio corte.
-# Por isso a decisão mora aqui, versionada, e não só no painel.
+# DESLIGAR EM EMERGÊNCIA não exige deploy: `config.nuvemshopSyncAtivo = false`
+# (tela Nuvemshop › Estoque online, ou PUT /api/nuvemshop/estoque/automatico).
+# Desligado, nada sai para a loja e a fila continua guardando o que mudou.
 #
-# QUANDO RELIGAR: só depois do corte, com a produção nova validada e uma
-# rodada seca (POST /api/sync {"seco": true}) mostrando um relatório limpo.
-# É o passo 10 do plano. A linha de antes, para repor sem reescrever:
-#     crons = ["0 9,21 * * *"]     # 06:00 e 18:00 de Brasília (UTC−3)
+# ⚠️ Esta lista é a fonte da verdade: o `wrangler deploy` reescreve os crons
+# da Cloudflare a partir dela. `crons = []` desarma tudo.
 [triggers]
-crons = []
+crons = ["*/10 * * * *", "0 9 * * *"]
 
 # ------------------------------------------------------------- ambiente DEV
 # Worker separado, D1 separado, R2 separado, sem cron, sem credencial da

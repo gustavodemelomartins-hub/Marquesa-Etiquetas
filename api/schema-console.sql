@@ -397,3 +397,35 @@ CREATE TABLE IF NOT EXISTS cliente_avatar_candidato ( id INTEGER PRIMARY KEY AUT
 CREATE INDEX IF NOT EXISTS idx_cac_cliente ON cliente_avatar_candidato(cliente_id, status);
 
 CREATE TABLE IF NOT EXISTS cliente_avatar_busca ( cliente_id INTEGER PRIMARY KEY REFERENCES clientes(id), status TEXT NOT NULL, candidatos INTEGER NOT NULL DEFAULT 0, tentativas INTEGER NOT NULL DEFAULT 1, erro TEXT, consultado_em TEXT NOT NULL );
+
+CREATE TABLE IF NOT EXISTS nuvemshop_fila ( sku TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'pendente' CHECK (status IN ('pendente','sincronizado','erro','revisao','ignorado')), motivo TEXT, versao INTEGER NOT NULL DEFAULT 1, pedido_em TEXT NOT NULL, tentativas INTEGER NOT NULL DEFAULT 0, proxima_em TEXT, travado_ate TEXT, ultima_tentativa_em TEXT, sincronizado_em TEXT, ultimo_erro TEXT, enviado_json TEXT, resultado_json TEXT );
+
+CREATE INDEX IF NOT EXISTS idx_nuvemshop_fila_status ON nuvemshop_fila(status, proxima_em);
+
+CREATE TABLE IF NOT EXISTS nuvemshop_conferencia ( id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT, produto TEXT, variante TEXT, ns_produto_id TEXT, ns_variante_id TEXT, ns_sku TEXT, em_casa INTEGER, consignado INTEGER, online INTEGER, ns_estoque INTEGER, diferenca INTEGER, status TEXT NOT NULL, motivo TEXT, publicado INTEGER, ns_tem_descricao INTEGER, ns_tem_seo_titulo INTEGER, ns_tem_seo_descricao INTEGER, ns_imagens INTEGER, conferido_em TEXT NOT NULL );
+
+CREATE INDEX IF NOT EXISTS idx_nuvemshop_conf_sku ON nuvemshop_conferencia(sku);
+
+CREATE INDEX IF NOT EXISTS idx_nuvemshop_conf_status ON nuvemshop_conferencia(status);
+
+CREATE TRIGGER IF NOT EXISTS trg_nuvemshop_fila_movimento AFTER INSERT ON movimentos BEGIN INSERT INTO nuvemshop_fila (sku, status, motivo, versao, pedido_em, tentativas) VALUES (NEW.sku, 'pendente', NEW.tipo, 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0) ON CONFLICT(sku) DO UPDATE SET status = 'pendente', motivo = excluded.motivo, versao = nuvemshop_fila.versao + 1, pedido_em = excluded.pedido_em, tentativas = 0, proxima_em = NULL;
+
+INSERT INTO nuvemshop_fila (sku, status, motivo, versao, pedido_em, tentativas) SELECT kc.kit_sku, 'pendente', 'kit', 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0 FROM kit_componentes kc WHERE kc.componente_sku = NEW.sku ON CONFLICT(sku) DO UPDATE SET status = 'pendente', motivo = excluded.motivo, versao = nuvemshop_fila.versao + 1, pedido_em = excluded.pedido_em, tentativas = 0, proxima_em = NULL;
+
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_nuvemshop_fila_movimento_variacao AFTER UPDATE OF variacao, variante_id ON movimentos BEGIN INSERT INTO nuvemshop_fila (sku, status, motivo, versao, pedido_em, tentativas) VALUES (NEW.sku, 'pendente', 'variacao', 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0) ON CONFLICT(sku) DO UPDATE SET status = 'pendente', motivo = excluded.motivo, versao = nuvemshop_fila.versao + 1, pedido_em = excluded.pedido_em, tentativas = 0, proxima_em = NULL;
+
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_nuvemshop_fila_maleta_variacao_ins AFTER INSERT ON maleta_item_variacoes BEGIN INSERT INTO nuvemshop_fila (sku, status, motivo, versao, pedido_em, tentativas) VALUES (NEW.sku, 'pendente', 'maleta_variacao', 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0) ON CONFLICT(sku) DO UPDATE SET status = 'pendente', motivo = excluded.motivo, versao = nuvemshop_fila.versao + 1, pedido_em = excluded.pedido_em, tentativas = 0, proxima_em = NULL;
+
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_nuvemshop_fila_maleta_variacao_del AFTER DELETE ON maleta_item_variacoes BEGIN INSERT INTO nuvemshop_fila (sku, status, motivo, versao, pedido_em, tentativas) VALUES (OLD.sku, 'pendente', 'maleta_variacao', 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0) ON CONFLICT(sku) DO UPDATE SET status = 'pendente', motivo = excluded.motivo, versao = nuvemshop_fila.versao + 1, pedido_em = excluded.pedido_em, tentativas = 0, proxima_em = NULL;
+
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_nuvemshop_fila_anuncio AFTER UPDATE OF produto_id_loja ON produtos WHEN NEW.produto_id_loja IS NOT NULL AND (OLD.produto_id_loja IS NULL OR OLD.produto_id_loja <> NEW.produto_id_loja) BEGIN INSERT INTO nuvemshop_fila (sku, status, motivo, versao, pedido_em, tentativas) VALUES (NEW.sku, 'pendente', 'anuncio', 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0) ON CONFLICT(sku) DO UPDATE SET status = 'pendente', motivo = excluded.motivo, versao = nuvemshop_fila.versao + 1, pedido_em = excluded.pedido_em, tentativas = 0, proxima_em = NULL;
+
+END;

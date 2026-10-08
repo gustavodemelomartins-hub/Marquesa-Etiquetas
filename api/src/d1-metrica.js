@@ -36,7 +36,16 @@ function resumirSql(sql) {
 }
 
 export function criarContador({ leve = false } = {}) {
-  return { consultas: [], lidas: 0, escritas: 0, leve };
+  return { consultas: [], lidas: 0, escritas: 0, leve, lotes: 0, statementsEmLote: 0 };
+}
+
+/** §61 — quantas CHAMADAS ao D1 a requisição fez. `consultas` registra uma
+ *  entrada por statement de cada `batch` (é o que dá linhas lidas por
+ *  statement), mas o teto do plano Free conta o batch como UMA chamada.
+ *  Este é o número comparável com as 50 por invocação. */
+export function chamadasD1(contador) {
+  if (!contador) return 0;
+  return contador.consultas.length - (contador.statementsEmLote || 0) + (contador.lotes || 0);
 }
 
 function registrar(contador, sql, meta) {
@@ -105,7 +114,11 @@ export function medirD1(db, contador) {
          Desembrulha antes de mandar, e soma o meta de cada resultado. */
       const reais = (stmts ?? []).map((s) => (s && s[REAL]) || s);
       const rs = await db.batch(reais);
-      for (const r of rs ?? []) registrar(contador, 'batch', r?.meta);
+      contador.lotes = (contador.lotes || 0) + 1;
+      for (const r of rs ?? []) {
+        registrar(contador, 'batch', r?.meta);
+        contador.statementsEmLote = (contador.statementsEmLote || 0) + 1;
+      }
       return rs;
     },
     async exec(sql) {
@@ -160,7 +173,7 @@ export function vigiarRequisicao(contador, { metodo, path, ms, status }, saida =
   if (!pesada) return null;
   const registro = {
     evento: 'd1-requisicao-pesada', metodo, caminho: path, status,
-    consultas, linhasLidasConhecidas: contador.lidas, ms,
+    consultas, chamadas: chamadasD1(contador), linhasLidasConhecidas: contador.lidas, ms,
   };
   saida.warn(JSON.stringify(registro));
   return registro;

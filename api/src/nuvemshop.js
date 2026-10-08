@@ -136,7 +136,13 @@ export class Nuvemshop {
 
     const { apiPedidos, ...opcoesFetch } = opcoes;
     let base = apiPedidos ? this.basePedidos : this.base;
+    /* §61 — uma loja que não responde não pode segurar a requisição da
+       venda nem a rodada do cron indefinidamente: 20 s e a chamada vira
+       erro, que a fila trata com nova tentativa. */
+    const prazo = typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+      ? { signal: AbortSignal.timeout(20000) } : {};
     const fazerFetch = () => fetch(base + caminho, {
+      ...prazo,
       ...opcoesFetch,
       headers: {
         'Authorization': `Bearer ${this.token}`,

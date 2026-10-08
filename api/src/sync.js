@@ -530,23 +530,40 @@ export async function atualizarPagamentoDaVenda(db, vendaId, pg) {
   };
 }
 
-async function puxarPedidos(db, loja, relato, seco) {
-  const desde = await config(db, 'syncUltimoPedido', null);
+export async function puxarPedidos(db, loja, relato, seco, { limiteNovos = Infinity } = {}) {
   const corte = await corteDePedidos(db);
   if (corte) relato.corteEm = corte.iso;
+  const desde = await config(db, 'syncUltimoPedido', null);
   // 6 horas de folga para trás: pedido que demora a aparecer na listagem
   // não pode cair no vão entre uma rodada e outra. A trava de duplicata
   // é que garante que reler não custa nada.
   const janela = desde ? new Date(Date.parse(desde) - 6 * 3600e3).toISOString() : null;
 
-  const pedidos = await loja.pedidos(janela);
+  /* Do mais antigo para o mais novo: com `limiteNovos`, o que fica para a
+     próxima rodada é sempre a cauda, e a data anotada no fim nunca passa à
+     frente de um pedido que ainda não foi visto. */
+  const pedidos = (await loja.pedidos(janela)).slice()
+    .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
   relato.pedidosLidos = pedidos.length;
 
-  const jaTemos = new Set((await db.prepare(
-    `SELECT externo_id FROM vendas WHERE externo_id IS NOT NULL`).all())
-    .results.map(r => r.externo_id));
+  /* §61 — uma leitura só para todos os pedidos já importados, com o que a
+     comparação de pagamento precisa. Antes eram duas consultas POR PEDIDO da
+     janela (a venda e, dentro de `atualizarPagamentoDaVenda`, ela de novo):
+     com o cron a cada poucos minutos e a janela de 6 horas, isso multiplicava
+     leituras do D1 por nada. Agora só um pedido cujo pagamento MUDOU consulta
+     o banco outra vez. */
+  const conhecidas = new Map(((await db.prepare(
+    `SELECT id, externo_id, total, pago, data_pagamento, pagamento_origem,
+            valor_recebido, cobravel, cancelada
+       FROM vendas WHERE externo_id IS NOT NULL`).all()).results || [])
+    .map(r => [r.externo_id, r]));
+  const jaTemos = new Set(conhecidas.keys());
+  let ultimoVisto = null;
+  let novos = 0;
 
   for (const pedido of pedidos) {
+    if (novos >= limiteNovos) { relato.pedidosRestantes = true; break; }
+    ultimoVisto = String(pedido.created_at || '') || ultimoVisto;
     const chave = `nuvemshop:${pedido.id}`;
     // Pedido criado por uma venda presencial daqui não é uma nova venda do
     // site. Vincula a identidade externa e para aqui — sem segunda baixa.
@@ -559,11 +576,16 @@ async function puxarPedidos(db, loja, relato, seco) {
        o PIX caía e o dinheiro nunca entrava no faturamento. Atualizar o
        pagamento não cria venda, não cria item e NÃO MEXE EM ESTOQUE. */
     if (jaTemos.has(chave)) {
-      const ja = await db.prepare(
-        'SELECT id, total FROM vendas WHERE externo_id = ? LIMIT 1',
-      ).bind(chave).first();
+      const ja = conhecidas.get(chave);
       if (ja) {
         const pgAtual = pagamentoDoPedido(pedido, String(pedido.created_at || '').slice(0, 10), ja.total);
+        const semMudanca = !ja.cancelada
+          && Number(ja.pago) === pgAtual.pago
+          && (ja.data_pagamento ?? null) === (pgAtual.dataPagamento ?? null)
+          && (ja.valor_recebido ?? null) === (pgAtual.valorRecebido ?? null)
+          && Number(ja.cobravel) === pgAtual.cobravel
+          && ja.pagamento_origem === pgAtual.origem;
+        if (semMudanca && !seco) continue;
         if (seco) {
           anunciarPagamento(relato, pgAtual, {
             pedido: pedido.number || pedido.id, externoId: chave, vendaId: ja.id,
@@ -615,7 +637,14 @@ async function puxarPedidos(db, loja, relato, seco) {
         incompleto = true;
         continue;
       }
-      linhas.push({ sku: nosso.sku, desc: nosso.desc, qtd: +p.quantity || 1, preco: +p.price || 0 });
+      /* §61 — a variante que o site vendeu viaja com a baixa. Sem ela, um
+         código de várias opções ficava com uma peça "sem variação" depois de
+         cada venda online, e a próxima rodada recusava empurrar o código
+         inteiro (`sem_reparticao`). */
+      linhas.push({
+        sku: nosso.sku, desc: nosso.desc, qtd: +p.quantity || 1, preco: +p.price || 0,
+        varianteId: p.variant_id == null || p.variant_id === '' ? null : String(p.variant_id),
+      });
     }
     // Pedido pela metade é pior que pedido pendente: marcá-lo como visto
     // impediria recuperar o item desconhecido depois. Sem externo_id ele
@@ -665,16 +694,21 @@ async function puxarPedidos(db, loja, relato, seco) {
       stmts.push(...movimentar(db, {
         sku: l.sku, tipo: 'venda', quantidade: l.qtd, origem: 'site',
         vendaId: venda.id, obs: `Pedido ${pedido.number || pedido.id} da loja`,
+        varianteId: l.varianteId,
       }));
     }
     await db.batch(stmts);
     relato.vendasCriadas++;
+    novos++;
   }
 
   if (!seco && pedidos.length) {
-    const maisNovo = pedidos.reduce((a, p) =>
+    /* A data anotada é a do último pedido EXAMINADO. Sem limite, é o mais
+       novo da lista, como sempre foi. Com limite, a cauda que ficou para a
+       próxima rodada continua dentro da janela. */
+    const maisNovo = relato.pedidosRestantes ? ultimoVisto : pedidos.reduce((a, p) =>
       (!a || String(p.created_at) > a) ? String(p.created_at) : a, null);
-    if (maisNovo) await gravarConfig(db, 'syncUltimoPedido', maisNovo);
+    if (maisNovo && maisNovo !== desde) await gravarConfig(db, 'syncUltimoPedido', maisNovo);
   } else if (!seco && !desde) {
     await gravarConfig(db, 'syncUltimoPedido', agoraISO());
   }
@@ -771,6 +805,84 @@ async function semearVariacoes(db, mapa, relato, seco) {
   await db.batch(stmts);
 }
 
+/** §61 — a decisão de UM código, que a rodada completa e a fila incremental
+ *  compartilham. Antes ela morava dentro do laço de `empurrarEstoque`, e a
+ *  fila precisaria de uma segunda cópia — duas regras para a mesma pergunta
+ *  é como uma delas passa a escrever na variante errada.
+ *
+ *  `p` é `{ sku, desc, qtd, casa }`; `naLoja` é a entrada de `mapearSkus`;
+ *  `saldos` vem de `saldosDeVariacao`. Devolve as mudanças (absolutas: `para`
+ *  é o saldo, nunca um delta) ou o motivo de não empurrar. Função pura. */
+export function decidirEstoqueDoSku(p, naLoja, saldos) {
+  if (naLoja.variantesSemSku > 0) {
+    return { mudancas: [], semEmpurrar: {
+      sku: p.sku, desc: p.desc, casa: Math.max(0, p.casa),
+      naLoja: naLoja.estoque, motivo: 'sku_ausente',
+      explicacao: 'Este produto tem opção sem SKU na Nuvemshop. Sem o código, não dá para endereçar o estoque com segurança; nada foi escrito.',
+      detalhe: { variantesSemSku: naLoja.variantesSemSku },
+      atributos: naLoja.atributos || [],
+      variacoes: naLoja.variantes.map(v => ({
+        nome: v.nome, estoque: v.estoque, varianteId: String(v.varianteId),
+      })),
+    } };
+  }
+
+  /* Código vendido em mais de uma opção: quem decide se dá para empurrar
+     é `resolverVariantes`, e a resposta dele é sim ou não — nunca "mais
+     ou menos". O casamento é por `variante_id`, e o que não casar por id
+     NÃO é chutado por nome, por posição nem pela primeira variante: o
+     código inteiro sai da rodada e entra na revisão.
+
+     Isso não é excesso de zelo. Casar por nome já falhou em produção do
+     pior jeito que existe: a conta do total continuava fechando, então
+     nenhum freio disparava, cada variante recebia zero, e a peça saía do
+     ar sem ninguém ver. Ver docs/domains/SYNC_ENGINE.md § variações. */
+  if (naLoja.variantes.length > 1) {
+    const r = resolverVariantes(p, naLoja, {
+      saldoPorNome: saldos.porNome(p.sku),
+      saldoPorVariante: saldos.porVariante(p.sku),
+      persistido: saldos.persistido(p.sku),
+      /* §42 — quando a maleta já disse qual variação levou, o freio da
+         maleta deixa de segurar este código. Vazio, o comportamento é o
+         de sempre: peça fora de casa sem identidade não empurra nada. */
+      consignadoPorVariacao: saldos.consignado(p.sku),
+    });
+
+    if (!r.ok) {
+      return { mudancas: [], semEmpurrar: {
+        sku: p.sku, desc: p.desc, casa: Math.max(0, p.casa),
+        naLoja: naLoja.estoque, motivo: r.motivo,
+        explicacao: r.explicacao, detalhe: r.detalhe,
+        // o que varia neste produto, no vocabulário da própria loja
+        atributos: naLoja.atributos || [],
+        variacoes: naLoja.variantes.map(v => ({
+          nome: v.nome, estoque: v.estoque, varianteId: String(v.varianteId),
+        })),
+      } };
+    }
+
+    const mudancas = [];
+    for (const a of r.alvos) {
+      if (a.para === a.de) continue;
+      mudancas.push({
+        sku: p.sku, desc: `${p.desc} · ${a.nome}`, de: a.de, para: a.para,
+        zera: a.para === 0 && a.de > 0, variacao: a.nome,
+        varianteId: a.varianteId, produtoId: a.produtoId, locais: a.locais,
+      });
+    }
+    return { mudancas, semEmpurrar: null };
+  }
+
+  const certo = Math.max(0, p.casa);
+  if (certo === naLoja.estoque) return { mudancas: [], semEmpurrar: null };
+  return { mudancas: [{
+    sku: p.sku, desc: p.desc, de: naLoja.estoque, para: certo,
+    zera: certo === 0 && naLoja.estoque > 0,
+    varianteId: naLoja.varianteId, produtoId: naLoja.produtoId,
+    locais: naLoja.locais,
+  }], semEmpurrar: null };
+}
+
 /** Manda para a loja o que temos em casa (total menos consignado).
  *
  *  Só toca em código que existe nos DOIS lados. Produto que a loja tem e
@@ -813,75 +925,9 @@ async function empurrarEstoque(db, loja, mapa, relato, { forcar, seco }) {
   for (const p of nossos) {
     const naLoja = mapa.get(normSku(p.sku));   // R4: chave canonica dos dois lados
     if (!naLoja) continue;
-
-    if (naLoja.variantesSemSku > 0) {
-      relato.semEmpurrar.push({
-        sku: p.sku, desc: p.desc, casa: Math.max(0, p.casa),
-        naLoja: naLoja.estoque, motivo: 'sku_ausente',
-        explicacao: 'Este produto tem opção sem SKU na Nuvemshop. Sem o código, não dá para endereçar o estoque com segurança; nada foi escrito.',
-        detalhe: { variantesSemSku: naLoja.variantesSemSku },
-        atributos: naLoja.atributos || [],
-        variacoes: naLoja.variantes.map(v => ({
-          nome: v.nome, estoque: v.estoque, varianteId: String(v.varianteId),
-        })),
-      });
-      continue;
-    }
-
-    /* Código vendido em mais de uma opção: quem decide se dá para empurrar
-       é `resolverVariantes`, e a resposta dele é sim ou não — nunca "mais
-       ou menos". O casamento é por `variante_id`, e o que não casar por id
-       NÃO é chutado por nome, por posição nem pela primeira variante: o
-       código inteiro sai da rodada e entra na revisão.
-
-       Isso não é excesso de zelo. Casar por nome já falhou em produção do
-       pior jeito que existe: a conta do total continuava fechando, então
-       nenhum freio disparava, cada variante recebia zero, e a peça saía do
-       ar sem ninguém ver. Ver docs/domains/SYNC_ENGINE.md § variações. */
-    if (naLoja.variantes.length > 1) {
-      const r = resolverVariantes(p, naLoja, {
-        saldoPorNome: saldos.porNome(p.sku),
-        saldoPorVariante: saldos.porVariante(p.sku),
-        persistido: saldos.persistido(p.sku),
-        /* §42 — quando a maleta já disse qual variação levou, o freio da
-           maleta deixa de segurar este código. Vazio, o comportamento é o
-           de sempre: peça fora de casa sem identidade não empurra nada. */
-        consignadoPorVariacao: saldos.consignado(p.sku),
-      });
-
-      if (!r.ok) {
-        relato.semEmpurrar.push({
-          sku: p.sku, desc: p.desc, casa: Math.max(0, p.casa),
-          naLoja: naLoja.estoque, motivo: r.motivo,
-          explicacao: r.explicacao, detalhe: r.detalhe,
-          // o que varia neste produto, no vocabulário da própria loja
-          atributos: naLoja.atributos || [],
-          variacoes: naLoja.variantes.map(v => ({
-            nome: v.nome, estoque: v.estoque, varianteId: String(v.varianteId),
-          })),
-        });
-        continue;
-      }
-
-      for (const a of r.alvos) {
-        if (a.para === a.de) continue;
-        relato.mudancas.push({
-          sku: p.sku, desc: `${p.desc} · ${a.nome}`, de: a.de, para: a.para,
-          zera: a.para === 0 && a.de > 0, variacao: a.nome,
-          varianteId: a.varianteId, produtoId: a.produtoId, locais: a.locais,
-        });
-      }
-      continue;
-    }
-
-    const certo = Math.max(0, p.casa);
-    if (certo === naLoja.estoque) continue;
-    relato.mudancas.push({
-      sku: p.sku, desc: p.desc, de: naLoja.estoque, para: certo,
-      zera: certo === 0 && naLoja.estoque > 0,
-      varianteId: naLoja.varianteId, produtoId: naLoja.produtoId,
-      locais: naLoja.locais,
-    });
+    const d = decidirEstoqueDoSku(p, naLoja, saldos);
+    if (d.semEmpurrar) relato.semEmpurrar.push(d.semEmpurrar);
+    relato.mudancas.push(...d.mudancas);
   }
 
   if (!relato.mudancas.length) return;
@@ -1208,8 +1254,13 @@ async function explicarMudancasComVendas(db, mudancas) {
     const delta = mudanca.para - mudanca.de;
     if (delta >= 0) continue;
 
+    /* Só código de VÁRIAS variantes precisa casar a variante: num código de
+       variante única toda baixa é daquela caixinha, e a venda de balcão não
+       grava `variante_id` — filtrar por ele aqui fazia nenhuma venda
+       explicar nada (§61). */
     const candidatas = (porSku.get(mudanca.sku) || []).filter(v =>
-      mudanca.varianteId == null || String(v.variante_id || '') === String(mudanca.varianteId));
+      mudanca.variacao == null || mudanca.varianteId == null
+      || String(v.variante_id || '') === String(mudanca.varianteId));
     let soma = 0;
     const usadas = [];
     for (const venda of candidatas) {

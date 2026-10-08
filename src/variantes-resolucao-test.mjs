@@ -66,13 +66,32 @@ const peca = (qtd, casa = qtd) => ({ sku: 'BR1234', qtd, casa });
   assert.equal(r.detalhe.identificado, 1);
   assert.equal(r.detalhe.faltaIdentificar, 3, 'a recusa deixou de dizer quanto falta identificar');
 
-  /* Tudo identificado: a maleta para de bloquear. */
+  /* Tudo identificado: a maleta para de bloquear. O nome "16" chega à
+     caixinha pelo id persistido — nome sozinho nunca é endereço. */
   const ok = resolverVariantes(peca(10, 6), loja([{ id: 10, nome: '16' }]), {
     saldoPorVariante: new Map([['10', 10]]),
+    persistido: new Map([['16', '10']]),
     consignadoPorVariacao: new Map([['16', 4]]),
   });
   assert.equal(ok.ok, true, 'maleta inteiramente identificada continuou bloqueando');
-  console.log('  ok   maleta sem identidade recusa e diz quanto falta; identificada libera');
+  /* §61 — a loja vende o que está EM CASA: as 4 da maleta saem da caixinha. */
+  assert.equal(ok.alvos[0].para, 6, 'a peça identificada na maleta continuou à venda na loja');
+
+  /* O mesmo, pelo id direto (o que `maleta_item_variacoes` grava hoje). */
+  const porId = resolverVariantes(peca(10, 6), loja([{ id: 10, nome: '16' }]), {
+    saldoPorVariante: new Map([['10', 10]]),
+    consignadoPorVariacao: new Map([['10', 4]]),
+  });
+  assert.equal(porId.alvos[0].para, 6);
+
+  /* Identificada por um nome que não leva a caixinha nenhuma: não se chuta. */
+  const semCaixinha = resolverVariantes(peca(10, 6), loja([{ id: 10, nome: '16' }]), {
+    saldoPorVariante: new Map([['10', 10]]),
+    consignadoPorVariacao: new Map([['16', 4]]),
+  });
+  assert.equal(semCaixinha.ok, false);
+  assert.equal(semCaixinha.motivo, 'maleta');
+  console.log('  ok   maleta sem identidade recusa e diz quanto falta; identificada libera e sai da caixinha');
 }
 
 /* 3 — NULL é "não sei"; 0 é um id. */

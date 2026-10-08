@@ -19,6 +19,9 @@ const api = (m, p, b) => apiResp(m, p, b).then(r => r.corpo);
 const loja = await subirLojaFalsa();
 const hoje = new Date().toISOString().slice(0, 10);
 
+/* §61 — o envio automático tem kill switch, e ele nasce DESLIGADO. */
+await api('PUT', '/api/nuvemshop/estoque/automatico', { ativo: true });
+
 console.log('\n=== 1. venda local baixa estoque sem criar pedido ===');
 await api('POST', '/api/produtos/importar', { produtos: [
   { sku: 'VD-SIMPLES', desc: 'Venda simples', cat: 'Colar', preco: 100, qtd: 5 },
@@ -127,7 +130,13 @@ const vendasFinais = await api('GET', `/api/vendas?data=${hoje}`);
 eq('segunda pendente também foi encerrada', vendasFinais.find(v => v.id === segundaPendente).nuvemshopStatus, 'sincronizada');
 eq('retry não criou pedido', loja.estado.pedidosCriados.length, 0);
 
-console.log('\n=== 7. confirmação explícita vence o freio sem desligá-lo ===');
+/* §61 — MUDANÇA DE CONTRATO, deliberada. Até 08/10/2026 a venda de UM código
+   empurrava o catálogo inteiro e passava pelo freio da rodada em massa; com
+   as diferenças antigas acumuladas, o freio segurava TODA venda e nenhuma
+   chegava à loja. Agora a venda envia só os códigos dela (incremental), e o
+   freio vale para o caminho em lote do cron (provado em
+   nuvemshop-fila-test.mjs). */
+console.log('\n=== 7. a venda de um código não passa pelo freio da rodada em massa ===');
 await api('PUT', '/api/config', { syncLimiteMudancas: 0 });
 await api('POST', '/api/produtos/importar', { produtos: [
   { sku: 'VD-FORCE', desc: 'Confirmação do freio', cat: 'Brinco', preco: 45, qtd: 1 },
@@ -135,10 +144,9 @@ await api('POST', '/api/produtos/importar', { produtos: [
 loja.estado.produtos.push(produtoFalso(506, [{ id: 5061, sku: 'VD-FORCE', estoque: 1 }]));
 await api('POST', '/api/loja/variantes/importar', {});
 r = await apiResp('POST', '/api/vendas', { clienteNome: 'Freio', itens: [{ sku: 'VD-FORCE', qtd: 1 }] });
-eq('sem confirmação o freio segurou', !!r.corpo.nuvemshop.pausado, true);
-const forcada = await api('POST', `/api/vendas/${r.corpo.id}/nuvemshop`, { forcar: true });
-eq('com confirmação publicou', forcada.status, 'sincronizada');
-eq('confirmação não criou pedido', loja.estado.pedidosCriados.length, 0);
+eq('freio em zero não segurou a venda de um código', r.corpo.nuvemshop.status, 'sincronizada');
+eq('a loja recebeu o saldo 0', loja.estado.produtos.at(-1).variants[0].inventory_levels[0].stock, 0);
+eq('não criou pedido', loja.estado.pedidosCriados.length, 0);
 await api('PUT', '/api/config', { syncLimiteMudancas: 40 });
 
 console.log('\n=== 8. um SKU bloqueado não prende as vendas seguras ===');
@@ -172,7 +180,12 @@ const maletaAmbigua = await api('POST', '/api/maletas', { revId: rev.id, abertaE
 await api('POST', `/api/maletas/${maletaAmbigua.id}/itens`, { itens: { 'VD-BLOQ': 1 } });
 const retryBloqueado = await api('POST', `/api/vendas/${vendaBloqueada.id}/nuvemshop`, {});
 eq('SKU ambíguo na maleta ficou em revisão', retryBloqueado.status, 'revisao');
-eq('a mesma rodada encerrou a segura', retryBloqueado.vendasRegularizadas >= 1, true);
+/* §61 — cada código tem o seu desfecho: o bloqueado não prende o seguro, e o
+   seguro sai pela fila ("Sincronizar pendências", ou o cron depois da espera),
+   não de carona na rodada do outro. */
+await api('PUT', '/api/config', { syncCorteEm: new Date(Date.now() - 3600e3).toISOString() });
+const pendencias = await api('POST', '/api/nuvemshop/estoque/sincronizar', {});
+eq('Sincronizar pendências regularizou a venda segura', pendencias.vendasRegularizadas >= 1, true);
 const vendasDepoisDoBloqueio = await api('GET', `/api/vendas?data=${hoje}`);
 eq('venda segura não ficou presa', vendasDepoisDoBloqueio.find(v => v.id === vendaSegura.id).nuvemshopStatus, 'sincronizada');
 

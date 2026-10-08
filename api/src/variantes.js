@@ -30,6 +30,7 @@ import { movimentar } from './estoque.js';
 export { normSku } from './sku.js';
 import { normSku } from './sku.js';
 import { equivalenciasLojaLocal } from './variacao-nome.js';
+import { consultarEmLotes } from './plataforma/d1.js';
 
 function parseJson(s, padrao) {
   try { const v = JSON.parse(s); return v == null ? padrao : v; } catch (e) { return padrao; }
@@ -275,10 +276,39 @@ export function resolverVariantes(p, naLoja, {
 
      Comparação e chave de mapa continuam usando String() — ali o tipo
      atrapalharia pelo motivo oposto. */
+  /* §61 — o saldo de cada caixinha é o TOTAL daquela variação (consignação
+     vale 0 na razão), e a loja vende o que está EM CASA. Quando a maleta já
+     disse qual variação levou, essa peça sai da caixinha dela. Antes este
+     desconto não existia: com a maleta inteiramente identificada, a loja
+     recebia o total da variação, inclusive a peça que estava na revendedora.
+
+     A chave da maleta é `COALESCE(variante_id, variacao)`. Um id que a loja
+     conhece vale direto; um nome passa pelo id persistido. O que não casar
+     com caixinha nenhuma NÃO é chutado: o código inteiro volta para revisão,
+     como qualquer outra peça sem endereço. */
+  const foraPorVariante = new Map();
+  for (const [chave, qtd] of consignadoPorVariacao) {
+    const q = Number(qtd || 0);
+    if (!q) continue;
+    let vid = porId.has(String(chave)) ? String(chave) : null;
+    if (vid == null) {
+      const persistida = persistido.get(String(chave));
+      if (persistida != null && porId.has(String(persistida))) vid = String(persistida);
+    }
+    if (vid == null) {
+      return recusa('maleta', {
+        consignado, identificado, faltaIdentificar: 0,
+        semCaixinha: [{ chave: String(chave), qtd: q }],
+      });
+    }
+    foraPorVariante.set(vid, (foraPorVariante.get(vid) || 0) + q);
+  }
+
   const alvos = naLoja.variantes.map(v => ({
     varianteId: v.varianteId, produtoId: v.produtoId,
     locais: v.locais || [], nome: v.nome, de: v.estoque,
-    para: Math.max(0, destino.get(String(v.varianteId)) || 0),
+    para: Math.max(0, (destino.get(String(v.varianteId)) || 0)
+      - (foraPorVariante.get(String(v.varianteId)) || 0)),
   }));
   return { ok: true, alvos };
 }
@@ -294,14 +324,31 @@ export function resolverVariantes(p, naLoja, {
  *  Repare que os saldos saem de `movimentos`, não de tabela paralela: a
  *  invariante §19 continua sendo a única contabilidade que existe, e o
  *  saldo de uma variação é a mesma soma com um filtro a mais. */
-export async function saldosDeVariacao(db) {
+export async function saldosDeVariacao(db, skus = null) {
   const porNome = new Map(), porVariante = new Map();
 
-  for (const r of (await db.prepare(
+  /* §61 — `skus` restringe a leitura aos códigos pedidos. A sincronização
+     incremental (uma venda, um código) não pode reler a razão inteira: foi
+     esse tipo de leitura que estourou a cota do D1 no inventário (§60).
+     Sem `skus`, a leitura é a de sempre, para a rodada completa. Os índices
+     `idx_mov_sku` e `idx_variacoes_sku` atendem o filtro. */
+  const filtro = Array.isArray(skus);
+  const lista = filtro ? [...new Set(skus.map(String))] : [];
+  const ler = async (sqlTodos, sqlFiltrado) => {
+    if (!filtro) return (await db.prepare(sqlTodos).all()).results || [];
+    if (!lista.length) return [];
+    return consultarEmLotes(db, lista, sqlFiltrado);
+  };
+
+  for (const r of await ler(
     `SELECT sku, variacao, variante_id, SUM(qtd) AS saldo
        FROM movimentos
       WHERE variacao IS NOT NULL OR variante_id IS NOT NULL
-      GROUP BY sku, variacao, variante_id`).all()).results) {
+      GROUP BY sku, variacao, variante_id`,
+    (qs) => `SELECT sku, variacao, variante_id, SUM(qtd) AS saldo
+       FROM movimentos
+      WHERE sku IN (${qs}) AND (variacao IS NOT NULL OR variante_id IS NOT NULL)
+      GROUP BY sku, variacao, variante_id`)) {
     const alvo = r.variante_id ? porVariante : porNome;
     const chave = r.variante_id ? String(r.variante_id) : r.variacao;
     if (!alvo.has(r.sku)) alvo.set(r.sku, new Map());
@@ -310,8 +357,10 @@ export async function saldosDeVariacao(db) {
   }
 
   const persistido = new Map();
-  for (const r of (await db.prepare(
-    `SELECT sku, nome, variante_id FROM produto_variacoes WHERE variante_id IS NOT NULL`).all()).results) {
+  for (const r of await ler(
+    `SELECT sku, nome, variante_id FROM produto_variacoes WHERE variante_id IS NOT NULL`,
+    (qs) => `SELECT sku, nome, variante_id FROM produto_variacoes
+              WHERE sku IN (${qs}) AND variante_id IS NOT NULL`)) {
     if (!persistido.has(r.sku)) persistido.set(r.sku, new Map());
     persistido.get(r.sku).set(r.nome, String(r.variante_id));
   }
@@ -322,12 +371,17 @@ export async function saldosDeVariacao(db) {
      nenhuma peça consignada identificada, e o freio da maleta segura. */
   const consignado = new Map();
   try {
-    for (const r of (await db.prepare(
+    for (const r of await ler(
       `SELECT mv.sku, COALESCE(mv.variante_id, mv.variacao) AS chave, SUM(mv.qtd) AS qtd
          FROM maleta_item_variacoes mv
          JOIN maletas m ON m.id = mv.maleta_id
         WHERE m.status IN ('aberta','em_acerto')
-        GROUP BY mv.sku, chave`).all()).results) {
+        GROUP BY mv.sku, chave`,
+      (qs) => `SELECT mv.sku, COALESCE(mv.variante_id, mv.variacao) AS chave, SUM(mv.qtd) AS qtd
+         FROM maleta_item_variacoes mv
+         JOIN maletas m ON m.id = mv.maleta_id
+        WHERE mv.sku IN (${qs}) AND m.status IN ('aberta','em_acerto')
+        GROUP BY mv.sku, chave`)) {
       if (!consignado.has(r.sku)) consignado.set(r.sku, new Map());
       const m = consignado.get(r.sku);
       m.set(String(r.chave), (m.get(String(r.chave)) || 0) + Number(r.qtd || 0));

@@ -13,7 +13,7 @@
 import { json } from './auth.js';
 import { movimentar, saldosDoSku, semSaldoProprio } from './estoque.js';
 import { calcComissao } from './comissao.js';
-import { sincronizarSomenteEstoque } from './sync.js';
+import { sincronizarCodigos } from './nuvemshop-estoque.js';
 import { atualizarEstoqueDaVenda } from './vendas-estoque-nuvemshop.js';
 import { FAIXAS_PADRAO } from './state.js';
 import { novoVendaItemId } from './venda-item-id.js';
@@ -33,16 +33,16 @@ export async function configAtual(db) {
   return { prazoDias: c.prazoDias ?? 45, prataPct: c.prataPct ?? 10, faixas: c.faixas ?? FAIXAS_PADRAO };
 }
 
-export async function publicarEstoqueDaOperacao(db, env) {
-  const r = await sincronizarSomenteEstoque(db, env);
-  if (!r.ok) return { status: 'erro', erro: r.erro };
-  if (r.pausado) return { status: 'erro', erro: r.pausado.motivo, pausado: r.pausado };
-  if ((r.semEmpurrar || []).length) {
-    return { status: 'revisao', bloqueios: r.semEmpurrar, produtosAtualizados: r.produtosEnviados || 0 };
-  }
+/** §61 — o saldo dos códigos que a operação tocou vai para a loja, e só
+ *  deles. Antes esta função relia o catálogo inteiro dos dois lados e
+ *  empurrava tudo; agora usa a mesma fila incremental da venda. Nunca
+ *  desfaz a operação: o que a loja não aceitar fica na fila. */
+export async function publicarEstoqueDaOperacao(db, env, skus) {
+  const r = await sincronizarCodigos(db, env, skus, { origem: 'maleta' });
   return {
-    status: 'sincronizada', modo: 'somente_estoque',
-    produtosAtualizados: r.produtosEnviados || 0, alteracoes: (r.mudancas || []).length,
+    status: r.status, modo: 'incremental',
+    erro: r.erro || null, motivo: r.motivo || null,
+    enviados: r.relato ? r.relato.enviados : 0,
   };
 }
 
@@ -92,7 +92,9 @@ export async function adicionarItens(db, env, maletaId, { itens }) {
   }
 
   if (stmts.length) await db.batch(stmts);
-  const nuvemshop = adicionados ? await publicarEstoqueDaOperacao(db, env) : { status: 'nao_aplicavel' };
+  const nuvemshop = adicionados
+    ? await publicarEstoqueDaOperacao(db, env, entradas.map(([sku]) => sku))
+    : { status: 'nao_aplicavel' };
   return json({ ok: true, adicionados, recusados, nuvemshop });
 }
 
@@ -314,7 +316,7 @@ export async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas }) 
   // portanto, precisa aumentar o estoque online imediatamente.
   const nuvemshop = vendaId
     ? await atualizarEstoqueDaVenda(db, env, vendaId)
-    : await publicarEstoqueDaOperacao(db, env);
+    : await publicarEstoqueDaOperacao(db, env, [...porSku.keys()]);
   return json({ ok: true, acerto, novaMaletaId, vendaId, nuvemshop });
 }
 
@@ -334,7 +336,9 @@ export async function cancelarMaleta(db, env, maletaId, { motivo }) {
   stmts.push(db.prepare(`UPDATE maletas SET status='cancelada', encerrada_em=?, obs=? WHERE id=?`)
     .bind(hoje(), motivo || 'Cancelada', maletaId));
   await db.batch(stmts);
-  const nuvemshop = itens.length ? await publicarEstoqueDaOperacao(db, env) : { status: 'nao_aplicavel' };
+  const nuvemshop = itens.length
+    ? await publicarEstoqueDaOperacao(db, env, itens.map((i) => i.sku))
+    : { status: 'nao_aplicavel' };
   return json({ ok: true, nuvemshop });
 }
 

@@ -1,4 +1,4 @@
-import { sincronizarSomenteEstoque } from './sync.js';
+import { sincronizarCodigos } from './nuvemshop-estoque.js';
 
 const agoraISO = () => new Date().toISOString();
 
@@ -11,71 +11,23 @@ async function marcar(db, id, status, erro = null) {
   return { status, erro };
 }
 
-async function regularizarPendentesSeguros(db, bloqueios) {
-  const linhas = (await db.prepare(`
-    SELECT v.id, vi.sku
-      FROM vendas v
-      LEFT JOIN venda_itens vi ON vi.venda_id = v.id
-     WHERE v.origem <> 'site'
-       AND v.cancelada = 0
-       AND v.nuvemshop_status IN ('nao_enviada','pendente','sincronizando','erro','revisao')
-    UNION
-    SELECT v.id, m.sku
-      FROM vendas v
-      JOIN movimentos m ON m.venda_id = v.id
-     WHERE v.origem <> 'site'
-       AND v.cancelada = 0
-       AND v.nuvemshop_status IN ('nao_enviada','pendente','sincronizando','erro','revisao')
-     ORDER BY id
-  `).all()).results || [];
-  const porVenda = new Map();
-  for (const linha of linhas) {
-    if (!porVenda.has(linha.id)) porVenda.set(linha.id, new Set());
-    if (linha.sku != null) porVenda.get(linha.id).add(String(linha.sku));
-  }
-
-  const porSku = new Map((bloqueios || []).map(i => [String(i.sku), i]));
-  let sincronizadas = 0;
-  for (const [id, skus] of porVenda) {
-    const impedimentos = [...skus].map(sku => porSku.get(sku)).filter(Boolean);
-    if (!impedimentos.length) {
-      await marcar(db, id, 'sincronizada', null);
-      sincronizadas++;
-      continue;
-    }
-    const erro = impedimentos
-      .map(i => `${i.sku}: ${i.explicacao || i.motivo}`)
-      .join(' · ')
-      .slice(0, 500);
-    await marcar(db, id, 'revisao', erro);
-  }
-  return sincronizadas;
-}
-
-/** Publica o saldo físico atual depois de uma venda/acerto/cancelamento.
+/** Publica o saldo físico atual dos códigos de uma venda/acerto/cancelamento.
  *
- * A escrita é absoluta (`em casa` por variant_id), nunca "menos N". Isso
- * torna retry seguro: duas tentativas levam ao mesmo estoque. Nenhum pedido
- * é criado na Nuvemshop por este caminho.
+ * §61 — incremental. Até 08/10/2026 este caminho relia o catálogo inteiro
+ * da loja e o daqui e empurrava TODOS os códigos; a soma das diferenças
+ * antigas batia no freio e nenhuma venda chegava à loja. Agora ele manda só
+ * os códigos que a venda tocou, pelo mesmo motor da fila
+ * (`nuvemshop-estoque.js`), e a escrita continua absoluta (`em casa` por
+ * variant_id), nunca "menos N": duas tentativas levam ao mesmo estoque.
+ *
+ * A venda já está gravada quando isto roda. Se a loja não responder, o
+ * código fica na fila com a próxima tentativa marcada e a venda segue
+ * válida — `status: 'pendente'` ou `'erro'` aqui nunca desfaz nada.
  */
-export async function atualizarEstoqueDaVenda(db, env, vendaId, { forcar = false } = {}) {
-  const venda = await db.prepare(`SELECT * FROM vendas WHERE id=?`).bind(vendaId).first();
+export async function atualizarEstoqueDaVenda(db, env, vendaId) {
+  const venda = await db.prepare(`SELECT id, origem, cancelada FROM vendas WHERE id=?`).bind(vendaId).first();
   if (!venda) return { status: 'erro', erro: 'Venda não encontrada.' };
   if (venda.origem === 'site') return { status: 'nao_aplicavel' };
-
-  await marcar(db, vendaId, 'sincronizando', null);
-  const resultado = await sincronizarSomenteEstoque(db, env, { forcar });
-
-  if (!resultado.ok) {
-    const erro = String(resultado.erro || 'Não foi possível atualizar o estoque na Nuvemshop.').slice(0, 500);
-    await marcar(db, vendaId, 'erro', erro);
-    return { status: 'erro', erro };
-  }
-  if (resultado.pausado) {
-    const erro = String(resultado.pausado.motivo || 'A atualização parou no freio de segurança.').slice(0, 500);
-    await marcar(db, vendaId, 'erro', erro);
-    return { status: 'erro', erro, pausado: resultado.pausado };
-  }
 
   /* Em produto montado, `venda_itens` guarda o SKU comercial, enquanto os
      SKUs que realmente mudaram estão nos movimentos. A união preserva a
@@ -84,29 +36,22 @@ export async function atualizarEstoqueDaVenda(db, env, vendaId, { forcar = false
     SELECT sku FROM venda_itens WHERE venda_id=?
     UNION
     SELECT sku FROM movimentos WHERE venda_id=?
-  `).bind(vendaId, vendaId).all()).results;
-  const skus = new Set(itens.map(i => String(i.sku)));
-  const bloqueios = (resultado.semEmpurrar || []).filter(i => skus.has(String(i.sku)));
-  // A publicação é global e absoluta. Mesmo que a venda escolhida contenha
-  // um SKU bloqueado, todas as outras vendas cujos SKUs foram publicados
-  // com segurança já podem ser encerradas nesta mesma rodada.
-  let vendasRegularizadas = 0;
-  if (!venda.cancelada) {
-    vendasRegularizadas = await regularizarPendentesSeguros(db, resultado.semEmpurrar);
-  }
-  if (bloqueios.length) {
-    const erro = bloqueios.map(i => `${i.sku}: ${i.explicacao || i.motivo}`).join(' · ').slice(0, 500);
-    await marcar(db, vendaId, 'revisao', erro);
-    return { status: 'revisao', erro, bloqueios, vendasRegularizadas };
-  }
+  `).bind(vendaId, vendaId).all()).results || [];
+  const skus = itens.map((i) => String(i.sku));
 
-  const status = venda.cancelada ? 'cancelada_local' : 'sincronizada';
-  if (venda.cancelada) await marcar(db, vendaId, status, null);
+  const r = await sincronizarCodigos(db, env, skus, {
+    origem: venda.cancelada ? 'cancelamento' : 'venda', reenfileirar: true,
+  });
+  const status = r.status === 'sincronizada' && venda.cancelada ? 'cancelada_local' : r.status;
+  const gravavel = ['sincronizada', 'cancelada_local', 'pendente', 'erro', 'revisao'].includes(status)
+    ? status : 'pendente';
+  await marcar(db, vendaId, gravavel, r.erro || r.motivo || null);
   return {
-    status,
-    modo: 'somente_estoque',
-    produtosAtualizados: Number(resultado.produtosEnviados || 0),
-    alteracoes: (resultado.mudancas || []).length,
-    vendasRegularizadas,
+    status: gravavel,
+    modo: 'incremental',
+    erro: r.erro || null,
+    motivo: r.motivo || null,
+    enviados: r.relato ? r.relato.enviados : 0,
+    vendasRegularizadas: r.vendasRegularizadas || 0,
   };
 }

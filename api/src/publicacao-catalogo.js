@@ -17,6 +17,89 @@ import {
 import { skusComFotoPropria } from './catalogo/galeria.js';
 
 const ERRO = (statusHttp, erro, extra = {}) => ({ ok: false, statusHttp, erro, ...extra });
+
+/* ===================================================== §61 — Preparação
+   "Preparação para Nuvemshop" responde, para cada peça, O QUE FALTA — e
+   junta numa lista só o que antes morava em três lugares: o juiz de
+   completude (foto, nome, categoria, preço), o rascunho do site (descrição,
+   SEO) e, para o que já está na loja, a última conferência (o que a loja
+   tem de descrição, SEO e imagens) e a fila de estoque (sincronizado, erro).
+
+   Ler a loja aqui seria caro e lento; a conferência já leu e guardou. Nada
+   desta leitura escreve, e nada aqui publica. */
+export const SITUACAO = {
+  PREPARACAO: 'preparacao',     // falta algo, ou ainda não começou
+  REVISAO: 'revisao',           // conteúdo pronto esperando aprovação
+  PRONTO: 'pronto',             // aprovado: pronto para publicar
+  PUBLICADO: 'publicado',
+  ERRO: 'erro',
+};
+
+async function lerConferenciaPorSku(db) {
+  try {
+    const { results } = await db.prepare(
+      `SELECT sku,
+              MIN(COALESCE(ns_tem_descricao, 1)) AS descricao,
+              MIN(COALESCE(ns_tem_seo_titulo, 1)) AS seo_titulo,
+              MIN(COALESCE(ns_tem_seo_descricao, 1)) AS seo_descricao,
+              MIN(COALESCE(ns_imagens, 1)) AS imagens,
+              GROUP_CONCAT(DISTINCT status) AS status
+         FROM nuvemshop_conferencia WHERE sku IS NOT NULL GROUP BY sku`).all();
+    return new Map((results ?? []).map((r) => [r.sku, r]));
+  } catch { return new Map(); }
+}
+
+async function lerFilaPorSku(db) {
+  try {
+    const { results } = await db.prepare('SELECT sku, status, ultimo_erro FROM nuvemshop_fila').all();
+    return new Map((results ?? []).map((r) => [r.sku, r]));
+  } catch { return new Map(); }
+}
+
+/** As pendências da peça, como chaves estáveis. A tela traduz. */
+function pendenciasDoItem(x, fluxo, conf, fila) {
+  const p = [];
+  for (const f of x.falta) {
+    if (f === 'quantidade') continue;           // sem peça em casa não é pendência de cadastro
+    p.push(f);                                  // foto · nome · categoria · preco
+  }
+  const statusConf = String(conf?.status || '').split(',');
+  if (x.presencaNaLoja) {
+    if (conf) {
+      if (Number(conf.descricao) === 0) p.push('descricao');
+      if (Number(conf.seo_titulo) === 0 || Number(conf.seo_descricao) === 0) p.push('seo');
+      if (Number(conf.imagens) === 0 && !p.includes('foto')) p.push('foto');
+    }
+  } else if (!x.falta.length) {
+    /* Peça completa do lado de cá que ainda não tem o texto do site. */
+    if (!texto(fluxo?.descricao_site)) p.push('descricao');
+    if (!texto(fluxo?.seo_titulo) || !texto(fluxo?.seo_descricao)) p.push('seo');
+  }
+  if (statusConf.includes('sku_duplicado')) p.push('sku_duplicado');
+  if (statusConf.includes('sem_sku')) p.push('sku');
+  if (statusConf.includes('variante_sem_mapeamento') || fila?.status === 'revisao') p.push('variante');
+  if (fila?.status === 'erro' || statusConf.includes('erro_integracao') || x.erroPublicacao) p.push('erro');
+  return [...new Set(p)];
+}
+
+function situacaoDoItem(x, pendencias) {
+  if (pendencias.includes('erro') || x.estado === ESTADO_PUBLICACAO.FALHOU) return SITUACAO.ERRO;
+  if (x.presencaNaLoja || x.estado === ESTADO_PUBLICACAO.PUBLICADO) return SITUACAO.PUBLICADO;
+  if (x.estado === ESTADO_PUBLICACAO.APROVADO) return SITUACAO.PRONTO;
+  if (x.estado === ESTADO_PUBLICACAO.AGUARDANDO) return SITUACAO.REVISAO;
+  return SITUACAO.PREPARACAO;
+}
+
+function sincronizacaoDoItem(x, conf, fila) {
+  if (!x.presencaNaLoja) return null;
+  if (fila?.status === 'erro') return 'erro';
+  if (fila?.status === 'revisao') return 'revisao';
+  if (fila?.status === 'pendente') return 'pendente';
+  const statusConf = String(conf?.status || '').split(',');
+  if (statusConf.includes('divergente') && fila?.status !== 'sincronizado') return 'divergente';
+  if (fila?.status === 'sincronizado' || statusConf.includes('ok')) return 'sincronizado';
+  return null;
+}
 const texto = (v, limite = 5000) => String(v == null ? '' : v).trim().slice(0, limite);
 
 /** Os estados do pipeline. Dois sao CALCULADOS e nunca persistidos
@@ -217,8 +300,9 @@ function itemPublico(p, fluxo, capacidades = {}) {
  * estados completa do Pacote 4. Bancos ainda sem a migration continuam em
  * leitura; apenas preparar/aprovar fica indisponível. */
 export async function listarPublicacoes(db, env) {
-  const [produtos, fluxos, sentinelas, galeria] = await Promise.all([
+  const [produtos, fluxos, sentinelas, galeria, conferencia, filaEstoque] = await Promise.all([
     lerProdutos(db), lerFluxos(db), sentinelasDeCategoria(db), skusComFotoPropria(db),
+    lerConferenciaPorSku(db), lerFilaPorSku(db),
   ]);
   /* A galeria própria é a camada em que a Marquesa é dona da imagem. Ela
      entra na conta de completude como as outras — se não entrasse, uma peça
@@ -240,7 +324,23 @@ export async function listarPublicacoes(db, env) {
 
   const itens = produtos
     .filter((p) => p.url_loja || Number(p.casa ?? 0) > 0 || fluxos.mapa.has(p.sku))
-    .map((p) => itemPublico(p, fluxos.mapa.get(p.sku), capacidades));
+    .map((p) => {
+      const fluxo = fluxos.mapa.get(p.sku);
+      const x = itemPublico(p, fluxo, capacidades);
+      const conf = conferencia.get(p.sku);
+      const fila = filaEstoque.get(p.sku);
+      x.pendencias = pendenciasDoItem(x, fluxo, conf, fila);
+      x.situacao = situacaoDoItem(x, x.pendencias);
+      x.sincronizacao = sincronizacaoDoItem(x, conf, fila);
+      x.erroSincronizacao = fila?.status === 'erro' ? (fila.ultimo_erro || null) : null;
+      return x;
+    });
+  const situacoes = {};
+  const pendencias = {};
+  for (const x of itens) {
+    situacoes[x.situacao] = (situacoes[x.situacao] || 0) + 1;
+    for (const k of x.pendencias) pendencias[k] = (pendencias[k] || 0) + 1;
+  }
 
   const candidatos = itens.filter((x) => !x.urlLoja && x.casa > 0);
   /* As seis listas que a tela legada renderiza. Elas NAO recalculam a regra:
@@ -290,6 +390,11 @@ export async function listarPublicacoes(db, env) {
       semPreco: antigas.semPreco.length,
       valorParado: valor(bloqueadosUnicos),
       estados,
+      /* §61 — as quatro perguntas da Preparação, e quantas peças em cada
+         falta. Contam ITENS; uma peça sem foto e sem SEO entra nas duas. */
+      situacoes,
+      pendencias,
+      conferidoEm: conferencia.size ? true : false,
     },
     itens,
     prontos: ordena(antigas.prontos).slice(0, 500),

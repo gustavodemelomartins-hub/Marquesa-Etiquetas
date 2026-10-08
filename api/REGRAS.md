@@ -62,6 +62,8 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | — | Link de foto assinado (HMAC), não o Bearer da API | `assinatura.js`, rota GET fora do `checarChave` |
 | §24 | Peça sem preço nunca entra em "criar na loja" | `sync.js › analisarSincronizacao` → `bloqueadosSemPreco` |
 | §24 | Peça sem preço nunca aparece como "pronta para publicar" | `fotos.js › pendenciasDePublicacao` |
+| §61 | Loja recebe o saldo EM CASA, absoluto, pela fila | `nuvemshop-estoque.js › processarFila`; gatilhos em `migracao-nuvemshop-fila.sql` |
+| §61 | Kill switch do envio de estoque | `config.nuvemshopSyncAtivo` (ausente = desligado) |
 
 ## Duas divergências conscientes
 
@@ -2743,3 +2745,81 @@ inventário não conseguia ser finalizado em produção.
 Provado em `src/inventario-d1-leitura-test.mjs` (servidor) e
 `frontend/src/features/inventario/cota.test.ts` + `conferencia.test.tsx`
 (tela). Medição e números: `docs/releases/V2-INVENTARIO-D1-RECONCILIACAO-2026-10-08.md`.
+
+### 61. Estoque online: a loja recebe o saldo em casa, código por código, pela fila — §5.1, §5.2, §60, regras 1, 5 e 9
+
+Origem: 08/10/2026, depois do inventário #1 conciliado (§60). Até aqui a
+loja não acompanhava o Marquesa: o cron estava desligado desde o go-live
+(22/08), e cada venda relia o catálogo inteiro dos dois lados para empurrar
+TODOS os códigos — a soma das diferenças antigas batia no freio ("zeraria 60
+produtos") e o envio inteiro parava. Nenhuma venda chegava à loja.
+
+- **O número**: a loja recebe o estoque **EM CASA** (`produtos.qtd` menos o
+  que está em maleta aberta/em acerto), nunca o total. Peça com revendedora
+  não está à venda online. Código com variação: o saldo de cada variante é o
+  da variação **menos** o que a maleta já disse ter levado daquela variação
+  (antes a peça identificada continuava à venda na loja). Kit e Monte seu
+  Colar: o disponível calculado das peças.
+- **Saldo absoluto, nunca delta**: o PATCH leva `stock = N`. Mandar duas
+  vezes dá o mesmo número; nenhuma tentativa repetida baixa de novo.
+- **A fila (outbox)**: `nuvemshop_fila`, uma linha por código. Quem enche é o
+  BANCO — gatilho em `movimentos` (inserção e troca de variação),
+  `maleta_item_variacoes` e `produtos.produto_id_loja` — na mesma transação
+  do movimento. Não existe caminho de estoque que esqueça de pedir o envio,
+  nem processo que caia entre a baixa e o pedido.
+- **Quando sai**: logo depois da operação (venda, cancelamento e maleta na
+  própria requisição; todo o resto — brinde, ajuste, inventário, garantia —
+  em segundo plano pela mesma requisição, `ctx.waitUntil`) e, de reserva, no
+  cron a cada 10 minutos. A operação local nunca depende da loja: se ela
+  cair, a venda vale, o código fica `erro` com a próxima tentativa marcada
+  (1, 5, 15, 30, 60, 180, 360, 720 min) e, depois da 8ª, para e espera
+  "Tentar novamente".
+- **Incremental**: o envio de uma venda lê UM produto da loja (`GET
+  /products/{id}`) e só as linhas daquele código aqui. O catálogo inteiro só
+  é lido quando a fila acumula mais de 12 códigos (caminho em lote) e na
+  conferência. Venda de um código com envio: ~22 chamadas ao D1 no total.
+- **Duas rodadas, um código**: `travado_ate` (arrendamento por UPDATE
+  atômico) — quem não pegou, não mexe. `versao` cresce a cada novo pedido:
+  rodada que mandou o número velho enquanto o código mudou NÃO marca
+  sincronizado, e a seguinte manda o novo.
+- **Pedidos do site antes de empurrar (§5.1)**: o cron puxa os pedidos desde
+  `config.syncCorteEm` (obrigatório: sem corte, nada sai) antes de processar
+  a fila. A requisição não puxa; por isso tem **cautela**: se a loja tem
+  menos do que o último saldo enviado e o nosso número é maior que o dela,
+  pode haver venda do site ainda não importada — o código fica para o cron.
+  A baixa do pedido do site guarda a variante vendida (`variant_id`).
+- **Freio**: vale para o caminho em lote sem gente (mais de
+  `syncLimiteMudancas` códigos ou `syncLimiteZerar` variantes zeradas): o
+  cron para, anuncia em `config.nuvemshopFreio` e não escreve. "Sincronizar
+  pendências" (gesto humano) passa. A venda de um código não passa pelo
+  freio — era isso que travava tudo.
+- **Kill switch**: `config.nuvemshopSyncAtivo` (ausente = DESLIGADO). Desligado,
+  nada sai e a fila continua guardando; religar entrega o que ficou parado.
+  Tela Nuvemshop › Conferir e reconciliar, ou `PUT /api/nuvemshop/estoque/automatico`.
+- **Revisão, não chute**: código que o sistema não sabe endereçar (variante
+  sem id, SKU em dois produtos, peça na maleta sem dizer o aro, repartição
+  pela metade) vira `revisao` com a explicação e os dois números. Peça sem
+  anúncio fica `ignorado` e mora na Preparação.
+- **Conferir e reconciliar** (reserva do automático): conferir lê a loja
+  inteira, NÃO escreve nela e grava `nuvemshop_conferencia` (uma linha por
+  variante: ok, divergente, só no sistema, só na Nuvemshop, sem SKU, SKU
+  duplicado, sem mapeamento, variante sem mapeamento, aguardando preparação,
+  erro de integração). Reconciliar põe os divergentes na fila e manda o
+  saldo calculado NA HORA do envio. Uma conferência diária (06:00) refaz o
+  retrato; divergência pequena volta para a fila sozinha, em massa espera
+  gente.
+- **O que esta regra NÃO faz**: não cria produto, não publica, não muda
+  preço, nome, URL, descrição, SEO, imagem ou categoria na loja. Produto com
+  estoque zero continua publicado com `stock = 0` (a loja mostra
+  "esgotado"); a URL não muda.
+- **Preparação para Nuvemshop**: cada peça diz o que falta (foto, nome,
+  descrição, SEO, categoria, preço, SKU, variante, erro) e em que situação
+  está (aguardando preparação, aguardando revisão, pronta para publicar,
+  publicada, com erro). Para o que já está na loja, descrição/SEO/imagens vêm
+  da última conferência — nada é sobrescrito, só apontado.
+
+Provado em `src/nuvemshop-fila-test.mjs` (46 provas: venda, idempotência,
+loja fora, brinde, consignação, retorno, variante, ajuste, produto
+incompleto, corrida, corte, cautela, kill switch, freio, conferência) e
+`src/vendas-nuvemshop-test.mjs`. Release:
+`docs/releases/V2-NUVEMSHOP-SYNC-2026-10-08.md`.

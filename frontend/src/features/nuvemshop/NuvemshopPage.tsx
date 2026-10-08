@@ -7,10 +7,11 @@ import { PageHeader } from '../../components/PageHeader';
 import { MetricCard } from '../../components/MetricCard';
 import { LoadingState } from '../../components/LoadingState';
 import { ErrorState } from '../../components/ErrorState';
-import { SyncStatus } from './SyncStatus';
+import { EstoqueOnlineArea } from './EstoqueOnlineArea';
+import { buscarEstoqueOnline } from '../../services/nuvemshopEstoque';
+import { saudeDoEstoqueOnline, comoDiagnostico } from './estoqueOnline';
 import { PendenciasList } from './PendenciasList';
 import { montarPanorama } from './panorama';
-import { diagnosticarSync } from './saude';
 import { analisarRelato } from '../reconciliacao/classificar';
 import { ReconciliationSummary } from '../reconciliacao/ReconciliationSummary';
 import { ReconciliationTable } from '../reconciliacao/ReconciliationTable';
@@ -40,6 +41,9 @@ interface Props {
 export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props) {
   const naFila = sub === 'publicacao';
   const estado = useApi((signal) => buscarEstado(conexao, signal), [conexao]);
+  /* §61 — a saúde do envio de estoque vem da FILA, não mais das rodadas
+     das 06:00/18:00 (que deixaram de existir). */
+  const online = useApi((signal) => buscarEstoqueOnline(conexao, signal), [conexao]);
 
   const analise = useAcao(async () => {
     const relato = await analisar(conexao);
@@ -57,11 +61,11 @@ export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props)
      continua sendo função pura e testável sem congelar relógio. Recalcula
      quando o estado chega — que é quando a resposta pode mudar. */
   const diagnostico = useMemo(
-    () => (estado.dados ? diagnosticarSync(estado.dados.sync, new Date()) : null),
-    [estado.dados],
+    () => (online.dados ? comoDiagnostico(saudeDoEstoqueOnline(online.dados, new Date())) : null),
+    [online.dados],
   );
 
-  if (estado.carregando && !estado.dados) {
+  if ((estado.carregando && !estado.dados) || (online.carregando && !online.dados)) {
     return (
       <>
         <PageHeader kicker="Nuvemshop" titulo="Loja online" />
@@ -70,11 +74,14 @@ export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props)
     );
   }
 
-  if (estado.erro) {
+  if (estado.erro || online.erro) {
     return (
       <>
         <PageHeader kicker="Nuvemshop" titulo="Loja online" />
-        <ErrorState erro={estado.erro} aoTentarDeNovo={estado.recarregar} />
+        <ErrorState
+          erro={estado.erro || online.erro}
+          aoTentarDeNovo={() => { estado.recarregar(); online.recarregar(); }}
+        />
       </>
     );
   }
@@ -92,7 +99,7 @@ export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props)
         Situação da loja
       </button>
       <button type="button" aria-selected={naFila} onClick={() => aoNavegarSub('publicacao')}>
-        Publicar peças
+        Preparação para Nuvemshop
       </button>
     </nav>
   ) : null;
@@ -130,8 +137,14 @@ export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props)
         }
       />
 
-      {/* --------------------------------------------------- ESTADO */}
-      <SyncStatus sync={sync} lidoEm={panorama.lidoEm} diagnostico={diagnostico} />
+      {/* ------------------------------------------- ESTADO (estoque online) */}
+      {online.dados && (
+        <EstoqueOnlineArea
+          conexao={conexao}
+          resumo={online.dados}
+          aoMudar={() => { online.recarregar(); estado.recarregar(); }}
+        />
+      )}
 
       {/* --------------------------------------------- VISÃO GERAL */}
       <section className="secao">
@@ -163,7 +176,7 @@ export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props)
               !panorama.desatualizados.length
                 ? 'A loja está em dia'
                 : diagnostico.autoCorrige
-                  ? 'A próxima rodada acerta sozinha'
+                  ? 'A sincronização automática acerta sozinha'
                   : 'Ninguém vai acertar: veja as pendências'
             }
           />
@@ -210,8 +223,8 @@ export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props)
             <div className="corpo">
               &quot;Analisar sincronização&quot; lê a loja inteira e mostra o que
               está diferente do estoque daqui —{' '}
-              <strong>sem mudar nada na Nuvemshop</strong>. Corrigir as
-              diferenças na loja ainda não está disponível aqui.
+              <strong>sem mudar nada na Nuvemshop</strong>. Para corrigir as
+              diferenças, use &quot;Conferir e reconciliar com a Nuvemshop&quot;, no alto.
             </div>
           </div>
         )}

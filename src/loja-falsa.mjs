@@ -47,6 +47,9 @@ export function subirLojaFalsa(porta = 8799) {
     if (estado.falhar) {
       return responder(500, { message: 'loja de mentira: falha proposital' });
     }
+    /* §61 — uma loja lenta, para o teste provar o que acontece quando o
+       código muda DURANTE uma rodada. */
+    if (estado.atraso) await new Promise((ok) => setTimeout(ok, estado.atraso));
 
     // A troca do código de autorização por token (POST /apps/authorize/token)
     // fica ANTES das checagens abaixo: na API real esse endereço não pede
@@ -102,7 +105,18 @@ export function subirLojaFalsa(porta = 8799) {
     // "Last page is N". Só acontece quando a última página veio cheia.
     const ultima = lista => Math.max(1, Math.ceil(lista.length / porPagina));
 
+    /* §61 — o caminho incremental lê UM produto por id, em vez do catálogo
+       inteiro. Os dois contadores deixam o teste provar que uma venda não
+       relê a loja toda. */
+    const produtoUnico = /^products\/(\d+)$/.exec(recurso);
+    if (produtoUnico && req.method === 'GET') {
+      estado.leiturasDeProduto = (estado.leiturasDeProduto || 0) + 1;
+      const p = estado.produtos.find(x => String(x.id) === produtoUnico[1]);
+      return p ? responder(200, p) : responder(404, { code: 404, message: 'Not Found' });
+    }
+
     if (recurso === 'products' && req.method === 'GET') {
+      estado.leiturasDoCatalogo = (estado.leiturasDoCatalogo || 0) + 1;
       if (pagina > ultima(estado.produtos)) {
         return responder(404, { code: 404, message: 'Not Found', description: `Last page is ${ultima(estado.produtos)}` });
       }

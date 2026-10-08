@@ -157,6 +157,9 @@ const MIGRACOES = [
      (`inventarios.numero`), leituras com id da tela (`inventario_leituras`),
      partes congeladas da diferença por variação. Só acrescenta. */
   'api/migracao-inventario-v2.sql',
+  /* 08/10/2026 — §61, estoque online incremental: a fila (outbox), o retrato
+     da conferência e os cinco gatilhos que enchem a fila. Só acrescenta. */
+  'api/migracao-nuvemshop-fila.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com

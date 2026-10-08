@@ -22,7 +22,7 @@
    "decisao": "docs/domains/AUDITORIA-5-3-FIN-101-CONTAS-A-RECEBER.md §6 B9 e §15 subfase 5.3d"
   }
  ],
- "total": 212,
+ "total": 218,
  "contratos": [
   {
    "contrato": "DELETE /api/clientes/:param",
@@ -870,6 +870,30 @@
   },
   {
    "contrato": "POST /api/inventarios/:param/variacoes/guardar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/nuvemshop/estoque",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/nuvemshop/estoque/conferir",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/nuvemshop/estoque/reconciliar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/nuvemshop/estoque/sincronizar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "POST /api/nuvemshop/estoque/:param/tentar",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "PUT /api/nuvemshop/estoque/automatico",
    "auth": "bearer"
   }
  ],

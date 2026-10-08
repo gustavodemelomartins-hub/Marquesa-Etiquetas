@@ -9,8 +9,8 @@ import {
   repetirPublicacao, salvarPrevia, type RespostaDaFila,
 } from './api';
 import {
-  DEGRAUS, ESTADOS, ROTULO_DA_FALTA, degrauDoEstado, porDegrau,
-  type Degrau, type ItemDaFila,
+  ESTADOS, ROTULO_DA_FALTA, degrauDoEstado, SITUACOES, FILTROS_DE_PENDENCIA,
+  porSituacao, fraseDaPeca, type Situacao, type ItemDaFila,
 } from './tipos';
 import type { Connection } from '../../services/client';
 
@@ -44,22 +44,25 @@ interface Props {
  */
 export function FilaArea({ conexao }: Props) {
   const fila = useApi((s) => buscarFila(conexao, s), [conexao]);
-  const [degrau, setDegrau] = useState<Degrau>('revisar');
+  const [situacao, setSituacao] = useState<Situacao>('preparacao');
+  const [filtro, setFiltro] = useState('todos');
   const [busca, setBusca] = useState('');
   const [abertoSku, setAbertoSku] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [recusa, setRecusa] = useState<{ sku: string; texto: string } | null>(null);
 
   const d = fila.dados;
-  const listas = useMemo(() => porDegrau(d?.itens ?? []), [d]);
+  const listas = useMemo(() => porSituacao(d?.itens ?? []), [d]);
 
   const visiveis = useMemo(() => {
     const t = busca.trim().toLowerCase();
-    const base = listas[degrau];
-    if (!t) return base;
-    return base.filter((i) => i.sku.toLowerCase().includes(t)
-      || (i.desc ?? '').toLowerCase().includes(t));
-  }, [listas, degrau, busca]);
+    const chaves = FILTROS_DE_PENDENCIA.find((f) => f.id === filtro)?.chaves ?? [];
+    return listas[situacao].filter((i) => {
+      if (chaves.length && !(i.pendencias ?? []).some((k) => chaves.includes(k))) return false;
+      if (!t) return true;
+      return i.sku.toLowerCase().includes(t) || (i.desc ?? '').toLowerCase().includes(t);
+    });
+  }, [listas, situacao, filtro, busca]);
 
   async function agir(
     sku: string, acao: (c: Connection, s: string) => Promise<RespostaDaFila>,
@@ -88,11 +91,11 @@ export function FilaArea({ conexao }: Props) {
     <>
       <div className="mq-pagehead">
         <div className="mq-pagehead__text">
-          <p className="mq-eyebrow">Nuvemshop</p>
-          <h1 className="mq-display">Fila de publicação</h1>
+          <p className="mq-eyebrow">Nuvemshop · Fila de publicação</p>
+          <h1 className="mq-display">Preparação para Nuvemshop</h1>
           <p className="mq-lede">
-            O que está pronto para publicar, o que trava, e de quem é a próxima
-            ação.
+            Cada peça diz o que falta para ir à loja — e as que já estão lá dizem
+            se o estoque está em dia.
           </p>
         </div>
       </div>
@@ -137,21 +140,35 @@ export function FilaArea({ conexao }: Props) {
             </div>
           </div>
 
-          {/* ── o funil, que É o filtro ───────────────────────────────── */}
-          <nav className="mq-tabs" aria-label="Etapa da publicação">
-            {DEGRAUS.map((g, i) => (
+          {/* ── a situação, que É a aba ───────────────────────────────── */}
+          <nav className="mq-tabs" aria-label="Situação na Nuvemshop">
+            {SITUACOES.map((g) => (
               <button
                 key={g.id}
                 type="button"
-                aria-selected={degrau === g.id}
-                onClick={() => setDegrau(g.id)}
+                aria-selected={situacao === g.id}
+                onClick={() => setSituacao(g.id)}
               >
-                <span className="mq-badge mq-badge--quiet">{i + 1}</span>
                 {g.rotulo}
                 <span className="mq-badge">{listas[g.id].length}</span>
               </button>
             ))}
           </nav>
+
+          {/* ── o que falta, como filtro ─────────────────────────────── */}
+          <div className="mq-chipset" role="group" aria-label="Filtrar pelo que falta">
+            {FILTROS_DE_PENDENCIA.map((f) => {
+              const n = f.chaves.length
+                ? listas[situacao].filter((i) => (i.pendencias ?? []).some((k) => f.chaves.includes(k))).length
+                : listas[situacao].length;
+              if (f.chaves.length && !n) return null;
+              return (
+                <button key={f.id} type="button" aria-pressed={filtro === f.id} onClick={() => setFiltro(f.id)}>
+                  {f.rotulo} · {n}
+                </button>
+              );
+            })}
+          </div>
 
           <div className="mq-filters">
             <label className="mq-search">
@@ -174,13 +191,13 @@ export function FilaArea({ conexao }: Props) {
             {visiveis.length === 0 ? (
               <div className="mq-state">
                 <span className="mq-state__icon"><Icone nome="cloud" /></span>
-                <h3>Nada em &quot;{DEGRAUS.find((g) => g.id === degrau)?.rotulo}&quot;</h3>
+                <h3>Nada em &quot;{SITUACOES.find((g) => g.id === situacao)?.rotulo}&quot;</h3>
                 <p>
-                  {degrau === 'preparar'
-                    ? 'Nenhuma peça esperando preparação.'
-                    : degrau === 'publicado'
-                      ? 'Nenhuma peça publicada ainda — e publicar continua desligado.'
-                      : 'Nenhuma peça neste degrau agora.'}
+                  {situacao === 'erro'
+                    ? 'Nenhum erro de integração.'
+                    : filtro !== 'todos'
+                      ? 'Nenhuma peça com essa pendência nesta aba.'
+                      : 'Nenhuma peça nesta situação agora.'}
                 </p>
               </div>
             ) : (
@@ -249,6 +266,9 @@ function LinhaDaFila({
             {' · '}{item.casa} em casa
             {item.preco != null ? ` · ${money(item.preco)}` : ' · sem preço'}
           </small>
+          <small className={(item.pendencias ?? []).length ? 'mq-money--risk' : undefined}>
+            {fraseDaPeca(item)}
+          </small>
         </span>
         <span className="mq-item__side">
           <span className={`mq-status ${tom}`}>{item.estadoRotulo}</span>
@@ -292,6 +312,13 @@ function LinhaDaFila({
               <span>
                 <b>{item.bloqueioExterno.motivo}</b> — {item.bloqueioExterno.proximoPasso}
               </span>
+            </p>
+          )}
+
+          {item.erroSincronizacao && (
+            <p className="mq-note mq-note--risk" role="alert">
+              <Icone nome="alert" />
+              <span>Estoque não chegou à loja: {item.erroSincronizacao}</span>
             </p>
           )}
 
