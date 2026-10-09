@@ -38,7 +38,7 @@ import { chaveDaVariacao, equivalenciasLojaLocal, formatarValorNovo } from '../v
 export const CHAVE_CATALOGO_ATIVO = 'nuvemshopCatalogoAtivo';
 export const CHAVE_MAPA_CATEGORIAS = 'nuvemshopCategoriasMapa';
 export const LOTE_PADRAO = 20;
-export const LOTE_MAXIMO = 40;
+export const LOTE_MAXIMO = 24;
 export const MAX_TENTATIVAS = 5;
 const ARRENDAMENTO_MS = 10 * 60 * 1000;
 
@@ -583,71 +583,56 @@ export function mapearCategorias(categoriasLoja) {
   return mapa;
 }
 
-/** A rodada de criação. `seco` (padrão) lê tudo e devolve o corpo EXATO de
- *  cada POST, sem escrever. Sem `seco`, cria no máximo `limite` produtos.
+/** Busca na loja o produto que tem uma variante com este SKU — `null` se
+ *  não houver. É a deduplicação feita AGORA, um código por vez, logo antes
+ *  do POST: o espelho pode estar velho (cadastro à mão no painel da loja,
+ *  Worker que morreu entre o POST e a gravação). */
+export async function buscarPorSku(loja, sku) {
+  let p;
+  try {
+    p = await loja.chamar(`/products/sku/${encodeURIComponent(sku)}`);
+  } catch (e) {
+    if (e && e.status === 404) return null;
+    throw e;
+  }
+  if (!p || Array.isArray(p) || p.id == null) return null;
+  return (p.variants || []).some((v) => normSku(v.sku) === normSku(sku)) ? p : null;
+}
+
+/** A rodada de criação. `seco` (padrão) classifica e devolve o corpo EXATO
+ *  de cada POST, sem escrever. Sem `seco`, cria no máximo `limite` produtos.
  *
- *  Antes de qualquer POST a loja inteira é lida (4 páginas): código que já
- *  está lá é ADOTADO (vínculo gravado), nunca criado de novo. Isso cobre o
- *  Worker que morreu entre o POST e a gravação — a próxima rodada encontra
- *  o produto e só registra. */
+ *  Antes de cada POST a loja é consultada PELO SKU: código que já está lá é
+ *  ADOTADO (vínculo gravado), nunca criado de novo. Isso cobre o Worker que
+ *  morreu entre o POST e a gravação — a próxima rodada encontra o produto e
+ *  só registra.
+ *
+ *  A loja inteira NÃO é lida aqui. Com ~900 produtos, as 5 páginas de JSON
+ *  estouravam os 10 ms de CPU do plano Free (`exceededCpu` em 09/10 08:20):
+ *  a invocação morria depois de reservar o lote. Uma consulta por SKU custa
+ *  uma subrequisição a mais por peça e quase nada de CPU. */
 export async function criarOcultos(db, env, { limite = LOTE_PADRAO, seco = true, skus = null, loja: lojaDada = null } = {}) {
   const trava = await travasDoCatalogo(db, env);
   const relato = {
     ok: true, seco: seco || !!trava, trava: trava ? trava.trava : null, motivo: trava ? trava.motivo : null,
-    lidos: 0, adotados: 0, criados: 0, erros: 0, ignorados: 0, chamadasLoja: 0, itens: [],
+    adotados: 0, criados: 0, erros: 0, ignorados: 0, chamadasLoja: 0, itens: [],
   };
   const loja = lojaDada || new Nuvemshop(env);
   if (!loja.configurada()) return { ...relato, ok: false, erro: 'A loja não está conectada.' };
 
-  const produtosLoja = await loja.produtos();
-  relato.chamadasLoja += Math.max(1, Math.ceil(produtosLoja.length / 200));
-  let categoriasLoja = [];
-  try { categoriasLoja = await loja.categorias(); relato.chamadasLoja++; } catch { categoriasLoja = []; }
-  const mapaCategorias = mapearCategorias(categoriasLoja);
-
-  const { mapa, duplicados } = mapearSkus(produtosLoja);
   const base = await lerBase(db);
+  /* Categorias: o mapa gravado na última rodada; a loja só é lida sem ele. */
+  let mapaCategorias = base.mapaCategorias;
+  let mapaNovo = false;
+  if (!mapaCategorias || !Object.keys(mapaCategorias).length) {
+    try { mapaCategorias = mapearCategorias(await loja.categorias()); relato.chamadasLoja++; mapaNovo = true; } catch { mapaCategorias = {}; }
+  }
   base.mapaCategorias = mapaCategorias;
-  /* O espelho pode estar velho: o que a leitura FRESCA da loja diz manda
-     na deduplicação. */
-  for (const p of produtosLoja) {
-    for (const v of p.variants || []) {
-      const k = normSku(v.sku);
-      if (k && !base.lojaPorSku.has(k)) base.lojaPorSku.set(k, [{ produto_id: String(p.id), sku_norm: k, nome: '', valores_json: '[]' }]);
-    }
-    const pid = String(p.id);
-    if (!base.nomesDaLoja.has(pid)) {
-      base.nomesDaLoja.set(pid, { nome: texto(p.name), skus: new Set((p.variants || []).map((v) => normSku(v.sku)).filter(Boolean)) });
-    }
-  }
-  if (!base.localDeEstoque) {
-    for (const p of produtosLoja) {
-      const l = (p.variants || []).flatMap((v) => (v.inventory_levels || []).map((n) => n.location_id))[0];
-      if (l) { base.localDeEstoque = l; break; }
-    }
-  }
   const { itens } = classificarCatalogo(base);
-  relato.lidos = produtosLoja.length;
-
-  /* 1. Adotar: código ativo cujo SKU a loja tem, mas que aqui não está
-        ligado (ou ficou em "criando"). */
-  const adotar = [];
-  for (const p of base.produtos) {
-    const k = normSku(p.sku);
-    const e = mapa.get(k);
-    if (!e || duplicados.includes(k)) continue;
-    const linha = base.catalogo.get(String(p.sku));
-    const precisa = !p.produto_id_loja || String(p.produto_id_loja) !== String(e.produtoId)
-      || (linha && linha.estado === 'criando');
-    if (!precisa) continue;
-    const produto = produtosLoja.find((x) => String(x.id) === String(e.produtoId));
-    if (produto) adotar.push({ sku: String(p.sku), produto, criando: linha?.estado === 'criando' });
-  }
 
   const filtro = Array.isArray(skus) && skus.length ? new Set(skus.map((s) => normSku(s))) : null;
   const agora = agoraISO();
   const candidatos = itens.filter((x) => x.situacao !== 'publicado' && !x.naLoja && x.criavel
-    && !mapa.has(normSku(x.sku))
     && (!filtro || filtro.has(normSku(x.sku)))
     && (() => {
       const l = base.catalogo.get(x.sku);
@@ -665,27 +650,27 @@ export async function criarOcultos(db, env, { limite = LOTE_PADRAO, seco = true,
   }));
 
   if (seco || trava) {
-    relato.adotariam = adotar.map((a) => ({ sku: a.sku, produtoId: String(a.produto.id), visibilidade: visibilidadeDe(a.produto) }));
     relato.criaveis = candidatos.length;
     relato.itens = corpos.map(({ item, corpo }) => ({ sku: item.sku, nome: item.nome, enviaria: corpo, pendencias: item.pendencias.map((p) => p.chave) }));
     relato.mapaCategorias = mapaCategorias;
     return relato;
   }
-
-  /* Adoções gravadas primeiro: elas tiram da lista de criação quem já
-     existe, e não chamam a loja. */
-  const stmtsAdocao = [gravarConfigStmt(db, CHAVE_MAPA_CATEGORIAS, mapaCategorias)];
-  for (const a of adotar) {
-    const vis = visibilidadeDe(a.produto);
-    stmtsAdocao.push(...vincularStmts(db, a.sku, a.produto, {
-      estado: vis === 'visible' ? 'visivel' : 'oculto', origem: a.criando ? 'criado' : 'adotado',
-    }));
-    relato.adotados++;
-    relato.itens.push({ sku: a.sku, acao: 'adotado', produtoId: String(a.produto.id), visibilidade: vis });
-  }
-  for (let i = 0; i < stmtsAdocao.length; i += 200) await db.batch(stmtsAdocao.slice(i, i + 200));
-
+  if (mapaNovo) await db.batch([gravarConfigStmt(db, CHAVE_MAPA_CATEGORIAS, mapaCategorias)]);
   if (!corpos.length) return relato;
+
+  /* A consulta por SKU precisa provar que funciona antes de valer como
+     deduplicação: um código que o espelho diz estar na loja TEM de ser
+     achado. Se não for, a rodada não cria nada — sem dedup confiável, criar
+     é arriscar o segundo anúncio do mesmo código. */
+  const conhecido = base.produtos.find((p) => p.produto_id_loja && base.lojaPorSku.has(normSku(p.sku)));
+  if (conhecido) {
+    const prova = await buscarPorSku(loja, conhecido.sku);
+    relato.chamadasLoja++;
+    if (!prova) {
+      relato.interrompido = `A consulta por SKU não achou ${conhecido.sku}, que está na loja. Sem deduplicação confiável, nada foi criado.`;
+      return relato;
+    }
+  }
 
   /* 2. Reservar o lote. Quem não ficar com a reserva é de outra rodada. */
   const token = `${new Date(Date.now() + ARRENDAMENTO_MS).toISOString()}#${Math.random().toString(36).slice(2, 8)}`;
@@ -708,6 +693,22 @@ export async function criarOcultos(db, env, { limite = LOTE_PADRAO, seco = true,
     if (!reservados.has(item.sku)) continue;
     if (parar) { stmts.push(soltarStmt(db, item.sku)); continue; }
     try {
+      const existente = await buscarPorSku(loja, item.sku);
+      relato.chamadasLoja++;
+      if (existente) {
+        const vis = visibilidadeDe(existente);
+        const eraNosso = base.catalogo.get(item.sku)?.estado === 'criando';
+        stmts.push(...vincularStmts(db, item.sku, existente, {
+          estado: vis === 'visible' ? 'visivel' : 'oculto', origem: eraNosso ? 'criado' : 'adotado',
+        }));
+        /* A reserva acima já gravou origem 'criado'; quem estava lá antes de
+           nós é 'adotado'. */
+        stmts.push(db.prepare('UPDATE nuvemshop_catalogo SET origem = ? WHERE sku = ?')
+          .bind(eraNosso ? 'criado' : 'adotado', item.sku));
+        relato.adotados++;
+        relato.itens.push({ sku: item.sku, acao: 'adotado', produtoId: String(existente.id), visibilidade: vis });
+        continue;
+      }
       const criado = await loja.criarProduto(corpo);
       relato.chamadasLoja++;
       const problemas = confereCriado(criado, corpo, item.sku);

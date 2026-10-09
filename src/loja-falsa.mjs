@@ -226,6 +226,14 @@ export function subirLojaFalsa(porta = 8799) {
       if (estado.semCampoVisibility) delete p.visibility;
       return null;
     };
+    const porSku = /^products\/sku\/(.+)$/.exec(recurso);
+    if (porSku && req.method === 'GET') {
+      estado.buscasPorSku = (estado.buscasPorSku || 0) + 1;
+      const alvo = decodeURIComponent(porSku[1]);
+      const p = estado.produtos.find((x) => (x.variants || []).some((v) => String(v.sku) === alvo));
+      if (estado.semBuscaPorSku) return responder(404, { code: 404, message: 'Not Found' });
+      return p ? responder(200, p) : responder(404, { code: 404, message: 'Not Found' });
+    }
     if (recurso === 'categories' && req.method === 'GET') {
       return responder(200, estado.categorias || []);
     }

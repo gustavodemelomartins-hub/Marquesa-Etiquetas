@@ -352,6 +352,25 @@ assert.equal(linhaCat('N7').estado, 'oculto');
 assert.equal(loja.estado.produtos.filter((p) => p.variants.some((x) => x.sku === 'N7')).length, 1);
 prova('12 loja falhou (500): erro registrado; a rodada seguinte criou UMA vez');
 
+console.log('\n=== 12b. barato em CPU e dedup que se prova ===');
+const leiturasAntes = loja.estado.leiturasDoCatalogo || 0;
+peca('N10', 1, 'Pulseira Barata Banho de Ouro 18k', 'Pulseira', 59);
+await api('POST', '/api/nuvemshop/catalogo/criar', { seco: false });
+assert.equal(linhaCat('N10').estado, 'oculto');
+assert.equal(loja.estado.leiturasDoCatalogo || 0, leiturasAntes);
+prova('criar não lê o catálogo inteiro (exceededCpu de 09/10): só a consulta por SKU antes do POST');
+peca('N11', 1, 'Colar Sem Dedup Banho de Ouro 18k', 'Colar', 99);
+loja.estado.semBuscaPorSku = true;
+const criacoesAntes = loja.estado.criacoes;
+r = await api('POST', '/api/nuvemshop/catalogo/criar', { seco: false });
+loja.estado.semBuscaPorSku = false;
+assert.equal(loja.estado.criacoes, criacoesAntes);
+assert.match(r.corpo.interrompido || '', /consulta por SKU/);
+prova('consulta por SKU que não acha um código conhecido: a rodada NÃO cria nada', r.corpo.interrompido);
+await api('POST', '/api/nuvemshop/catalogo/criar', { seco: false });
+assert.equal(linhaCat('N11').estado, 'oculto');
+prova('com a consulta de volta, a rodada seguinte cria N11 uma vez');
+
 console.log('\n=== 13-14. o que já existia fica intacto ===');
 const depoisEx1 = loja.estado.produtos[0];
 for (const k of ['name', 'description', 'seo_title', 'seo_description', 'images', 'categories', 'visibility', 'handle']) {
