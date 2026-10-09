@@ -1,207 +1,225 @@
-import { useMemo, useState } from 'react';
-import { useApi } from '../../hooks/useApi';
+import { useMemo, useRef, useState } from 'react';
+import type { EstadoRequisicao } from '../../hooks/useApi';
 import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
-import { money, fmtData, plural } from '../../domain/formato';
-import { ApiError } from '../../types/api';
-import { buscarFila, publicarNaNuvemshop, salvarPrevia } from './api';
-import {
-  SITUACOES, FILTROS_DE_PENDENCIA, ROTULO_DA_PENDENCIA, ROTULO_DA_VISIBILIDADE,
-  porSituacao, fraseDaPeca, checklistDaPeca, situacaoDaTela,
-  type SituacaoDaTela, type ItemDaFila,
-} from './tipos';
+import { FotoDaPeca } from '../../components/FotoDaPeca';
+import { money, plural } from '../../domain/formato';
+import type { Product } from '../../types/api';
 import type { Connection } from '../../services/client';
+import { publicarNaNuvemshop, salvarPrevia } from './api';
+import { publicarEmLote, type ResultadoDoLote } from './lote';
+import {
+  SITUACOES, FILTROS, porSituacao, checklistDaPeca, situacaoDaTela, resumoDoLote,
+  type SituacaoDaTela, type ItemDaFila, type FilaDePublicacao,
+} from './tipos';
+import { DetalheDaPeca } from './DetalheDaPeca';
+import { fotoDaPreparacao } from './miniatura';
 
 interface Props {
   conexao: Connection;
+  fila: EstadoRequisicao<FilaDePublicacao>;
+  /** O cadastro de cada peça (de `/api/state`), para a miniatura. */
+  produtos: Map<string, Product>;
+  abaInicial?: SituacaoDaTela | null;
+  aoMudar: () => void;
 }
 
-/** PREPARAÇÃO PARA NUVEMSHOP — §61 e §62.
+type Lote = {
+  skus: string[];
+  titulo: string;
+  fase: 'confirmar' | 'rodando' | 'fim';
+  feitos: number;
+  atual: string;
+  resultado: ResultadoDoLote | null;
+};
+
+/** PREPARAÇÃO PARA NUVEMSHOP — §61, §62 e §63.
  *
- *  A Sthefany não precisa abrir o painel da Nuvemshop para descobrir o que
- *  falta. Cada peça responde, nesta ordem:
+ *  Cada peça responde, de relance: existe na Nuvemshop? o que falta? pode
+ *  ficar visível? A linha mostra a miniatura, o cadastro (código,
+ *  categoria, preço, estoque em casa, variações) e o checklist de oito
+ *  itens; o detalhe mostra o que vai para a loja.
  *
- *    existe na Nuvemshop?   não cadastrada · oculta · visível
- *    o que falta?           foto, descrição, SEO, preço, variação, estoque
- *    pode ficar visível?    "Pronto para publicar" — e só o clique publica
- *
- *  Cadastrar e tornar visível são dois atos (§62). O sistema CADASTRA a peça
- *  OCULTA na loja quando a estrutura é segura (hidden: não aparece, não é
- *  comprável, mas já tem estoque, texto e SEO). Ficar visível é sempre o
- *  clique em "Publicar na Nuvemshop", e o servidor confere tudo NA LOJA antes.
- *
- *  `bloqueios` do servidor (R2 ausente, preparador) continuam separados do
- *  que falta na peça: "Ainda não disponível:" é infraestrutura, não cadastro.
+ *  Cadastrar e tornar visível são dois atos (§62). O sistema CADASTRA a
+ *  peça OCULTA; ficar visível é sempre um clique — de uma, das
+ *  selecionadas ou de todas as prontas —, e cada peça é conferida de novo
+ *  NA LOJA na hora dela (§63, `lote.ts`).
  */
-export function FilaArea({ conexao }: Props) {
-  const fila = useApi((s) => buscarFila(conexao, s), [conexao]);
-  const [situacao, setSituacao] = useState<SituacaoDaTela>('oculto');
+export function FilaArea({ conexao, fila, produtos, abaInicial, aoMudar }: Props) {
+  const [situacao, setSituacao] = useState<SituacaoDaTela>(abaInicial ?? 'pronto');
   const [filtro, setFiltro] = useState('todos');
+  const [categoria, setCategoria] = useState('');
   const [busca, setBusca] = useState('');
-  const [abertoSku, setAbertoSku] = useState<string | null>(null);
-  const [ocupado, setOcupado] = useState<string | null>(null);
-  const [recusa, setRecusa] = useState<{ sku: string; texto: string } | null>(null);
-  const [aviso, setAviso] = useState<{ sku: string; texto: string } | null>(null);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [detalheSku, setDetalheSku] = useState<string | null>(null);
+  const [lote, setLote] = useState<Lote | null>(null);
+  const [recado, setRecado] = useState<{ tom: 'ok' | 'risk'; texto: string } | null>(null);
+  const parar = useRef(false);
 
   const d = fila.dados;
   const listas = useMemo(() => porSituacao(d?.itens ?? []), [d]);
+  const daAba = listas[situacao];
+
+  const categorias = useMemo(
+    () => [...new Set(daAba.map((i) => i.cat || '').filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt')),
+    [daAba],
+  );
 
   const visiveis = useMemo(() => {
     const t = busca.trim().toLowerCase();
-    const chaves = FILTROS_DE_PENDENCIA.find((f) => f.id === filtro)?.chaves ?? [];
-    return listas[situacao].filter((i) => {
-      if (chaves.length && !(i.pendencias ?? []).some((k) => chaves.includes(k))) return false;
+    const passa = FILTROS.find((f) => f.id === filtro)?.passa ?? (() => true);
+    return daAba.filter((i) => {
+      if (categoria && (i.cat || '') !== categoria) return false;
+      if (!passa(i)) return false;
       if (!t) return true;
       return i.sku.toLowerCase().includes(t) || (i.desc ?? '').toLowerCase().includes(t);
     });
-  }, [listas, situacao, filtro, busca]);
+  }, [daAba, filtro, categoria, busca]);
 
-  const naoCadastrados = listas.nao_cadastrado;
-  const seraoCriados = naoCadastrados.filter((i) => i.nuvemshop?.criavel).length;
+  const prontos = listas.pronto;
+  const naAbaPronto = situacao === 'pronto';
+  const selecionaveis = naAbaPronto ? visiveis : [];
+  const todosMarcados = selecionaveis.length > 0 && selecionaveis.every((i) => selecionados.has(i.sku));
+  const escolhidos = prontos.filter((i) => selecionados.has(i.sku));
+  const ligado = d?.catalogoAtivo !== false;
+  const detalhe = detalheSku ? (d?.itens ?? []).find((i) => i.sku === detalheSku) ?? null : null;
 
-  async function publicar(sku: string) {
-    setOcupado(sku);
-    setRecusa(null);
-    setAviso(null);
-    try {
-      const r = await publicarNaNuvemshop(conexao, sku, 'Preparação para Nuvemshop');
-      setAviso({ sku, texto: r.confirmadoPelaLoja ? 'Publicado: a Nuvemshop confirmou que está visível.' : 'Publicado.' });
-      fila.recarregar();
-    } catch (e) {
-      const corpo = e instanceof ApiError ? (e.corpo as { faltam?: string[] } | null) : null;
-      const faltam = corpo?.faltam?.length
-        ? ` Falta: ${corpo.faltam.map((f) => ROTULO_DA_PENDENCIA[f] ?? f).join(', ')}.`
-        : '';
-      setRecusa({ sku, texto: `${e instanceof Error ? e.message : 'Não consegui publicar.'}${faltam}` });
-    } finally {
-      setOcupado(null);
-    }
+  function trocarAba(s: SituacaoDaTela) {
+    setSituacao(s);
+    setFiltro('todos');
+    setCategoria('');
+    setSelecionados(new Set());
+  }
+
+  function alternar(sku: string) {
+    setSelecionados((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(sku)) novo.delete(sku); else novo.add(sku);
+      return novo;
+    });
+  }
+
+  function marcarTodos() {
+    setSelecionados(todosMarcados ? new Set() : new Set(selecionaveis.map((i) => i.sku)));
+  }
+
+  function pedirPublicacao(itens: ItemDaFila[], titulo: string) {
+    /* Só o que está pronto AGORA entra no lote. O servidor confere de novo,
+       mas mandar o que a própria tela já sabe que não está pronto seria
+       pedir uma recusa. */
+    const skus = itens.filter((i) => situacaoDaTela(i) === 'pronto').map((i) => i.sku);
+    if (!skus.length) return;
+    parar.current = false;
+    setRecado(null);
+    setLote({ skus, titulo, fase: 'confirmar', feitos: 0, atual: '', resultado: null });
+  }
+
+  async function executar() {
+    if (!lote) return;
+    setLote({ ...lote, fase: 'rodando' });
+    const r = await publicarEmLote(
+      lote.skus,
+      (sku) => publicarNaNuvemshop(conexao, sku, 'Preparação para Nuvemshop'),
+      {
+        aoProgresso: (feitos, _total, atual) => setLote((l) => (l ? { ...l, feitos, atual } : l)),
+        deveParar: () => parar.current,
+      },
+    );
+    setLote((l) => (l ? { ...l, fase: 'fim', resultado: r } : l));
+    setSelecionados(new Set());
+    aoMudar();
   }
 
   async function salvarTexto(sku: string, r: { nomeSite: string; descricaoSite: string }) {
-    setOcupado(sku);
-    setRecusa(null);
     try {
       await salvarPrevia(conexao, sku, r);
+      setRecado({ tom: 'ok', texto: 'Texto salvo.' });
       fila.recarregar();
     } catch (e) {
-      setRecusa({ sku, texto: e instanceof Error ? e.message : 'Não consegui salvar.' });
-    } finally {
-      setOcupado(null);
+      setRecado({ tom: 'risk', texto: e instanceof Error ? e.message : 'Não consegui salvar.' });
     }
   }
 
-  if (fila.erro) return <ErrorState erro={fila.erro} aoTentarDeNovo={fila.recarregar} />;
+  if (fila.erro) return <section className="mq-card"><ErrorState erro={fila.erro} aoTentarDeNovo={fila.recarregar} /></section>;
 
   return (
     <>
-      <div className="mq-pagehead">
-        <div className="mq-pagehead__text">
-          <p className="mq-eyebrow">Nuvemshop · Fila de publicação</p>
-          <h1 className="mq-display">Preparação para Nuvemshop</h1>
-          <p className="mq-lede">
-            Cada peça diz se já existe na Nuvemshop, se está oculta ou visível e o
-            que falta. Ficar visível na loja é sempre um clique seu.
-          </p>
-        </div>
-      </div>
-
-      {d && d.catalogoAtivo === false && (
+      {d && !ligado && (
         <p className="mq-note mq-note--warn">
           <Icone nome="alert" />
           <span>
-            <b>O cadastro na Nuvemshop está desligado.</b>{' '}
-            Nada é criado nem publicado na loja. O estoque das peças que já estão lá
-            continua sincronizando.
+            <b>O cadastro na Nuvemshop está desligado.</b> Nada é criado nem publicado na loja.
+            O estoque das peças que já estão lá continua sincronizando.
           </span>
         </p>
       )}
-      {d && d.catalogoAtivo !== false && (
-        <p className="mq-note mq-note--info">
-          <Icone nome="cloud" />
-          <span>
-            Peças com cadastro seguro são criadas <b>ocultas</b> na Nuvemshop: já têm
-            estoque, texto e SEO, mas não aparecem na loja nem podem ser compradas.
-            Elas só ficam visíveis quando você clica em <b>Publicar na Nuvemshop</b>.
-          </span>
+      {d && ligado && (
+        <p className="mq-hint">
+          Peça <b>oculta</b> já está cadastrada na Nuvemshop, mas não aparece na loja nem pode ser
+          comprada. Ela só fica visível com o seu clique em <b>Publicar</b>.
+        </p>
+      )}
+
+      {recado && (
+        <p className={`mq-note ${recado.tom === 'risk' ? 'mq-note--risk' : 'mq-note--ok'}`} role="status">
+          <span>{recado.texto}</span>
         </p>
       )}
 
       {!d ? <LoadingState /> : (
         <>
-          <div className="mq-kpis">
-            <div className="mq-kpi">
-              <span className="mq-kpi__label">Não cadastrados</span>
-              <span className="mq-kpi__value">{listas.nao_cadastrado.length}</span>
-              <span className="mq-kpi__foot">
-                {seraoCriados} {plural(seraoCriados, 'será criada oculta', 'serão criadas ocultas')}
-                {' · '}{naoCadastrados.length - seraoCriados} precisam de decisão
-              </span>
-            </div>
-            <div className="mq-kpi">
-              <span className="mq-kpi__label">Ocultos em preparação</span>
-              <span className="mq-kpi__value">{listas.oculto.length}</span>
-              <span className="mq-kpi__foot">na Nuvemshop, sem aparecer na loja</span>
-            </div>
-            <div className="mq-kpi mq-kpi--accent">
-              <span className="mq-kpi__label">Prontos para publicar</span>
-              <span className="mq-kpi__value">{listas.pronto.length}</span>
-              <span className="mq-kpi__foot">esperando o seu clique</span>
-            </div>
-            <div className={listas.erro.length ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}>
-              <span className="mq-kpi__label">Publicados</span>
-              <span className="mq-kpi__value">{listas.publicado.length}</span>
-              <span className="mq-kpi__foot">
-                {listas.erro.length ? `${listas.erro.length} com erro` : 'visíveis na loja'}
-              </span>
-            </div>
-          </div>
-
           <nav className="mq-tabs" aria-label="Situação na Nuvemshop">
             {SITUACOES.map((g) => (
-              <button
-                key={g.id}
-                type="button"
-                aria-selected={situacao === g.id}
-                onClick={() => { setSituacao(g.id); setFiltro('todos'); }}
-              >
+              <button key={g.id} type="button" aria-selected={situacao === g.id} onClick={() => trocarAba(g.id)}>
                 {g.rotulo}
                 <span className="mq-badge">{listas[g.id].length}</span>
               </button>
             ))}
           </nav>
 
-          <div className="mq-chipset" role="group" aria-label="Filtrar pelo que falta">
-            {FILTROS_DE_PENDENCIA.map((f) => {
-              const n = f.chaves.length
-                ? listas[situacao].filter((i) => (i.pendencias ?? []).some((k) => f.chaves.includes(k))).length
-                : listas[situacao].length;
-              if (f.chaves.length && !n) return null;
-              return (
-                <button key={f.id} type="button" aria-pressed={filtro === f.id} onClick={() => setFiltro(f.id)}>
-                  {f.rotulo} · {n}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mq-filters">
+          <div className="mq-filters mq-prep-filtros">
             <label className="mq-search">
               <Icone nome="search" />
               <input
-                className="mq-input"
-                type="search"
-                placeholder="Buscar por código ou nome"
-                aria-label="Buscar na fila"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
+                className="mq-input" type="search" placeholder="Buscar por nome ou código"
+                aria-label="Buscar na Preparação" value={busca} onChange={(e) => setBusca(e.target.value)}
               />
             </label>
-            <span className="mq-filters__count">
-              {visiveis.length} {plural(visiveis.length, 'peça', 'peças')}
-            </span>
+            <select className="mq-input mq-select" aria-label="Tipo" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+              <option value="">Todos os tipos</option>
+              {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select className="mq-input mq-select" aria-label="Mostrar" value={filtro} onChange={(e) => setFiltro(e.target.value)}>
+              {FILTROS.map((f) => <option key={f.id} value={f.id}>{f.rotulo}</option>)}
+            </select>
+            <span className="mq-filters__count">{visiveis.length} {plural(visiveis.length, 'peça', 'peças')}</span>
           </div>
+
+          {naAbaPronto && prontos.length > 0 && (
+            <div className="mq-card mq-card--pad mq-prep-lote" aria-label="Publicar em lote">
+              <label className="mq-prep-lote__todos">
+                <input type="checkbox" checked={todosMarcados} onChange={marcarTodos} disabled={!selecionaveis.length} />
+                <span>Selecionar {categoria || filtro !== 'todos' || busca ? 'os filtrados' : 'todos'} ({selecionaveis.length})</span>
+              </label>
+              <div className="mq-btns">
+                <button
+                  type="button" className="mq-btn mq-btn--secondary mq-btn--sm"
+                  disabled={!escolhidos.length || !ligado || !!lote}
+                  onClick={() => pedirPublicacao(escolhidos, `${escolhidos.length} ${plural(escolhidos.length, 'produto selecionado', 'produtos selecionados')}.`)}
+                >
+                  Publicar selecionados{escolhidos.length ? ` (${escolhidos.length})` : ''}
+                </button>
+                <button
+                  type="button" className="mq-btn mq-btn--primary mq-btn--sm"
+                  disabled={!ligado || !!lote}
+                  onClick={() => pedirPublicacao(prontos, `${prontos.length} ${plural(prontos.length, 'produto está pronto', 'produtos estão prontos')} para publicação.`)}
+                >
+                  Publicar todos os prontos ({prontos.length})
+                </button>
+              </div>
+            </div>
+          )}
 
           <section className="mq-card mq-card--flush">
             {visiveis.length === 0 ? (
@@ -209,27 +227,24 @@ export function FilaArea({ conexao }: Props) {
                 <span className="mq-state__icon"><Icone nome="cloud" /></span>
                 <h3>Nada em &quot;{SITUACOES.find((g) => g.id === situacao)?.rotulo}&quot;</h3>
                 <p>
-                  {situacao === 'erro'
-                    ? 'Nenhum erro de integração.'
-                    : filtro !== 'todos'
-                      ? 'Nenhuma peça com essa pendência nesta aba.'
+                  {situacao === 'erro' ? 'Nenhum erro de integração.'
+                    : filtro !== 'todos' || categoria || busca ? 'Nenhuma peça com esse filtro nesta aba.'
                       : 'Nenhuma peça nesta situação agora.'}
                 </p>
               </div>
             ) : (
               <div className="mq-list">
                 {visiveis.map((i) => (
-                  <LinhaDaFila
+                  <LinhaDaPreparacao
                     key={i.sku}
                     item={i}
-                    aberta={abertoSku === i.sku}
-                    ocupado={ocupado === i.sku}
-                    recusa={recusa?.sku === i.sku ? recusa.texto : null}
-                    aviso={aviso?.sku === i.sku ? aviso.texto : null}
-                    publicacaoLigada={d.catalogoAtivo !== false}
-                    aoAlternar={() => setAbertoSku(abertoSku === i.sku ? null : i.sku)}
-                    aoPublicar={() => publicar(i.sku)}
-                    aoSalvarPrevia={(r) => salvarTexto(i.sku, r)}
+                    produto={produtos.get(i.sku)}
+                    selecionavel={naAbaPronto}
+                    selecionado={selecionados.has(i.sku)}
+                    publicacaoLigada={ligado && !lote}
+                    aoSelecionar={() => alternar(i.sku)}
+                    aoAbrir={() => setDetalheSku(i.sku)}
+                    aoPublicar={() => pedirPublicacao([i], `Publicar ${i.desc || i.sku}.`)}
                   />
                 ))}
               </div>
@@ -237,247 +252,239 @@ export function FilaArea({ conexao }: Props) {
           </section>
         </>
       )}
+
+      {detalhe && (
+        <DetalheDaPeca
+          conexao={conexao}
+          item={detalhe}
+          produto={produtos.get(detalhe.sku)}
+          publicacaoLigada={ligado && !lote}
+          aoFechar={() => setDetalheSku(null)}
+          aoPublicar={() => pedirPublicacao([detalhe], `Publicar ${detalhe.desc || detalhe.sku}.`)}
+          aoSalvarTexto={(r) => salvarTexto(detalhe.sku, r)}
+        />
+      )}
+
+      {lote && (
+        <ModalDePublicacao
+          lote={lote}
+          itens={(d?.itens ?? []).filter((i) => lote.skus.includes(i.sku))}
+          aoConfirmar={() => void executar()}
+          aoParar={() => { parar.current = true; }}
+          aoFechar={() => { setLote(null); if (lote.fase === 'fim') setDetalheSku(null); }}
+        />
+      )}
     </>
   );
 }
 
-/* ══════════════════════════════════════════════════════ a linha da fila */
+/* ══════════════════════════════════════════════════════ a linha */
 
-const MARCA = { ok: '✓', falta: '✕', aviso: '⚠' } as const;
-const TOM_DA_MARCA = { ok: 'mq-money--ok', falta: 'mq-money--risk', aviso: 'mq-money--warn' } as const;
+const MARCA = { ok: '✓', falta: '✕', aviso: '!' } as const;
 
 function rotuloNaLoja(i: ItemDaFila): { texto: string; tom: string } {
   const s = situacaoDaTela(i);
-  const vis = i.nuvemshop?.visibilidade;
-  if (s === 'erro') return { texto: 'Nuvemshop: ERRO', tom: 'mq-status--risk' };
-  if (s === 'nao_cadastrado') return { texto: 'Nuvemshop: NÃO CADASTRADO', tom: 'mq-status--warn' };
-  if (s === 'publicado') return { texto: 'Nuvemshop: VISÍVEL', tom: 'mq-status--ok' };
-  if (s === 'pronto') return { texto: 'Pronto para ficar visível', tom: 'mq-status--ok' };
-  return { texto: `Nuvemshop: ${vis ? ROTULO_DA_VISIBILIDADE[vis] ?? 'OCULTO' : 'OCULTO'}`, tom: 'mq-status--warn' };
+  if (s === 'erro') return { texto: 'Com erro', tom: 'mq-status--risk' };
+  if (s === 'nao_cadastrado') {
+    return i.nuvemshop && !i.nuvemshop.criavel
+      ? { texto: 'Precisa de decisão', tom: 'mq-status--warn' }
+      : { texto: 'Não cadastrado', tom: 'mq-status--open' };
+  }
+  if (s === 'publicado') return { texto: 'Visível na loja', tom: 'mq-status--ok' };
+  if (s === 'pronto') return { texto: 'Pronto', tom: 'mq-status--brand' };
+  if (i.nuvemshop?.foraDoArInesperado) return { texto: 'Saiu do ar', tom: 'mq-status--risk' };
+  return { texto: 'Oculto', tom: 'mq-status--open' };
 }
 
-function LinhaDaFila({
-  item, aberta, ocupado, recusa, aviso, publicacaoLigada,
-  aoAlternar, aoPublicar, aoSalvarPrevia,
+export function MiniChecklist({ item }: { item: ItemDaFila }) {
+  const lista = checklistDaPeca(item);
+  const faltam = lista.filter((c) => c.marca !== 'ok').length;
+  return (
+    <ul className="mq-minicheck" aria-label="O que a peça já tem">
+      {lista.map((c) => (
+        <li key={c.rotulo} className={`is-${c.marca}`} title={c.detalhe}>
+          <span aria-hidden="true">{MARCA[c.marca]}</span> {c.rotulo}
+          <span className="mq-sr">{c.marca === 'ok' ? ': ok' : `: ${c.detalhe ?? 'falta'}`}</span>
+        </li>
+      ))}
+      <li className={`mq-minicheck__resumo ${faltam ? 'is-falta' : 'is-ok'}`} aria-hidden="true">
+        {faltam ? `${faltam} de 8 pendentes` : '✓ Tudo completo'}
+      </li>
+    </ul>
+  );
+}
+
+function LinhaDaPreparacao({
+  item, produto, selecionavel, selecionado, publicacaoLigada, aoSelecionar, aoAbrir, aoPublicar,
 }: {
   item: ItemDaFila;
-  aberta: boolean;
-  ocupado: boolean;
-  recusa: string | null;
-  aviso: string | null;
+  produto: Product | undefined;
+  selecionavel: boolean;
+  selecionado: boolean;
   publicacaoLigada: boolean;
-  aoAlternar: () => void;
+  aoSelecionar: () => void;
+  aoAbrir: () => void;
   aoPublicar: () => void;
-  aoSalvarPrevia: (r: { nomeSite: string; descricaoSite: string }) => void;
 }) {
-  const [nome, setNome] = useState(item.rascunho?.nomeSite ?? item.desc ?? '');
-  const [descricao, setDescricao] = useState(item.rascunho?.descricaoSite ?? '');
-  const [confirmando, setConfirmando] = useState(false);
-
-  const ns = item.nuvemshop;
   const s = situacaoDaTela(item);
   const rotulo = rotuloNaLoja(item);
-  const lista = checklistDaPeca(item);
-  const bloqueiosDaPeca = s === 'nao_cadastrado' && ns && !ns.criavel ? ns.bloqueios : [];
-  const texto = ns?.texto;
-
+  const variacoes = item.nuvemshop?.variacoes ?? [];
   return (
-    <div>
-      <button type="button" className="mq-item" aria-expanded={aberta} onClick={aoAlternar}>
-        <span className={`mq-thumb ${item.temFotoPropria ? '' : 'mq-thumb--empty'}`}>
-          <Icone nome={item.temFotoPropria ? 'image' : 'box'} />
-        </span>
+    <div className={`mq-prep-linha${selecionado ? ' is-selected' : ''}`}>
+      {selecionavel && (
+        <label className="mq-prep-linha__check">
+          <input type="checkbox" checked={selecionado} onChange={aoSelecionar} aria-label={`Selecionar ${item.desc || item.sku}`} />
+        </label>
+      )}
+      <button type="button" className="mq-prep-linha__abrir" onClick={aoAbrir}>
+        <FotoDaPeca peca={fotoDaPreparacao(produto)} alt={item.desc || item.sku} />
         <span className="mq-item__main">
           <b>{item.desc || item.sku}</b>
           <small>
             <span className="mq-sku">{item.sku}</span>
-            {item.cat ? ` · ${item.cat}` : ' · sem categoria'}
+            {' · '}{item.cat || 'sem categoria'}
+            {' · '}{item.preco != null ? money(item.preco) : 'sem preço'}
             {' · '}{item.casa} em casa
-            {item.preco != null ? ` · ${money(item.preco)}` : ' · sem preço'}
+            {variacoes.length > 1 ? ` · ${variacoes.length} variações` : ''}
           </small>
-          <small className={(item.pendencias ?? []).length ? 'mq-money--risk' : undefined}>
-            {fraseDaPeca(item)}
-          </small>
-        </span>
-        <span className="mq-item__side">
-          <span className={`mq-status ${rotulo.tom}`}>{rotulo.texto}</span>
+          <MiniChecklist item={item} />
         </span>
       </button>
-
-      {aberta && (
-        <div className="mq-card__body mq-stack">
-          <ul className="mq-checklist" aria-label="O que a peça já tem">
-            {lista.map((c) => (
-              <li key={c.rotulo}>
-                <span className={TOM_DA_MARCA[c.marca]} aria-hidden="true">{MARCA[c.marca]}</span>{' '}
-                <b>{c.rotulo}</b>
-                {c.marca !== 'ok' && c.detalhe ? <small> — {c.detalhe}</small> : null}
-              </li>
-            ))}
-          </ul>
-
-          {bloqueiosDaPeca.length > 0 && (
-            <p className="mq-note mq-note--warn">
-              <Icone nome="alert" />
-              <span>
-                <b>Precisa de decisão antes de ir para a Nuvemshop:</b>{' '}
-                {bloqueiosDaPeca.join(' ')}
-              </span>
-            </p>
-          )}
-          {s === 'nao_cadastrado' && ns?.criavel && (
-            <p className="mq-note mq-note--info">
-              <Icone nome="cloud" />
-              <span>
-                {publicacaoLigada
-                  ? 'Será cadastrada OCULTA na Nuvemshop automaticamente — sem aparecer na loja.'
-                  : 'Pronta para ser cadastrada oculta quando o cadastro na Nuvemshop for ligado.'}
-              </span>
-            </p>
-          )}
-          {s === 'pronto' && (
-            <p className="mq-note mq-note--info">
-              <Icone nome="cloud" />
-              <span>Tudo conferido. Está oculta na Nuvemshop e só fica visível com o seu clique.</span>
-            </p>
-          )}
-
-          {/* O que falta NO SERVIDOR. Trabalho de infraestrutura — e cobrar
-              isso de quem cadastra peça seria culpar a pessoa errada. */}
-          {item.bloqueios.length > 0 && (
-            <p className="mq-note mq-note--info">
-              <Icone nome="alert" />
-              <span>
-                <b>Ainda não disponível:</b>{' '}
-                {item.bloqueios.map((b) => String(b.motivo ?? b)).join(' · ')}.
-                {' '}Isto não é da peça — é o que este servidor ainda não consegue fazer.
-              </span>
-            </p>
-          )}
-
-          {(ns?.ultimoErro || item.erroSincronizacao) && (
-            <p className="mq-note mq-note--risk" role="alert">
-              <Icone nome="alert" />
-              <span>{ns?.ultimoErro || `Estoque não chegou à loja: ${item.erroSincronizacao}`}</span>
-            </p>
-          )}
-
-          {ns && ns.variacoes.length > 0 && (
-            <section className="mq-stack mq-stack--tight">
-              <h3 className="mq-subtitle">Variações que vão para a loja</h3>
-              <ul className="mq-checklist">
-                {ns.variacoes.map((v) => (
-                  <li key={v.nome}><b>{v.nome}</b> <small>· {v.estoque} em estoque</small></li>
-                ))}
-              </ul>
-            </section>
-          )}
-          {ns && ns.variacoesSoAqui.length > 0 && (
-            <p className="mq-hint">
-              Variações só no Marquesa (a loja ainda não tem): {ns.variacoesSoAqui.join(', ')}.
-            </p>
-          )}
-
-          {/* O texto do site: o que vai (ou foi) para a Nuvemshop. Antes do
-              cadastro, dá para escrever à mão — o escrito por gente vence o
-              gerado. */}
-          {(s === 'nao_cadastrado' || texto) && (
-            <section className="mq-stack mq-stack--tight">
-              <h3 className="mq-subtitle">O texto do site</h3>
-              {texto?.seoTitulo && (
-                <p className="mq-hint">
-                  SEO: <b>{texto.seoTitulo}</b>{texto.seoDescricao ? ` · ${texto.seoDescricao}` : ''}
-                </p>
-              )}
-              {texto?.precisaInformacao && (
-                <p className="mq-note mq-note--warn">
-                  <Icone nome="alert" />
-                  <span><b>Precisa de informação:</b> {texto.precisaInformacao}</span>
-                </p>
-              )}
-              {s === 'nao_cadastrado' && (
-                <>
-                  <label className="mq-field">
-                    <span>Nome na loja</span>
-                    <input className="mq-input" value={nome} maxLength={120} onChange={(e) => setNome(e.target.value)} />
-                  </label>
-                  <label className="mq-field">
-                    <span>Descrição (opcional — vence a gerada)</span>
-                    <textarea className="mq-textarea" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
-                  </label>
-                </>
-              )}
-            </section>
-          )}
-
-          {recusa && <p className="mq-note mq-note--risk" role="alert"><span>{recusa}</span></p>}
-          {aviso && <p className="mq-note mq-note--info" role="status"><span>{aviso}</span></p>}
-
-          <div className="mq-btns">
-            {s === 'pronto' && !confirmando && (
-              <button
-                type="button"
-                className="mq-btn mq-btn--primary mq-btn--sm"
-                disabled={ocupado || !publicacaoLigada}
-                onClick={() => setConfirmando(true)}
-              >
-                Publicar na Nuvemshop
-              </button>
-            )}
-            {s === 'pronto' && confirmando && (
-              <>
-                <button
-                  type="button"
-                  className="mq-btn mq-btn--primary mq-btn--sm"
-                  disabled={ocupado}
-                  onClick={() => { setConfirmando(false); aoPublicar(); }}
-                >
-                  Confirmar: deixar visível na loja
-                </button>
-                <button type="button" className="mq-btn mq-btn--ghost mq-btn--sm" onClick={() => setConfirmando(false)}>
-                  Cancelar
-                </button>
-              </>
-            )}
-            {s === 'nao_cadastrado' && (
-              <button
-                type="button"
-                className="mq-btn mq-btn--ghost mq-btn--sm"
-                disabled={ocupado}
-                onClick={() => aoSalvarPrevia({ nomeSite: nome, descricaoSite: descricao })}
-              >
-                Salvar texto
-              </button>
-            )}
-            {s === 'publicado' && item.urlLoja && (
-              <a
-                className="mq-btn mq-btn--link mq-btn--sm"
-                href={`https://marquesasemijoias.com.br/produtos/${item.urlLoja}/`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Ver na loja
-              </a>
-            )}
-          </div>
-
-          <details className="mq-details">
-            <summary>Detalhe técnico</summary>
-            <dl className="mq-figures">
-              <div><dt>Produto na Nuvemshop</dt><dd>{ns?.produtoId ?? item.produtoIdLoja ?? '—'}</dd></div>
-              <div><dt>Visibilidade</dt><dd>{ns?.visibilidade ?? '—'}</dd></div>
-              <div>
-                <dt>Cadastro</dt>
-                <dd>{ns?.origemCatalogo === 'criado' ? 'criado pelo Marquesa' : ns?.origemCatalogo === 'adotado' ? 'já existia na loja' : '—'}</dd>
-              </div>
-              <div>
-                <dt>Estoque na fila</dt><dd>{ns?.estoque ?? '—'}</dd>
-                <small>{ns?.sincronizadoEm ? `em ${fmtData(ns.sincronizadoEm)}` : ''}</small>
-              </div>
-            </dl>
-          </details>
-        </div>
-      )}
+      <span className="mq-prep-linha__lado">
+        <span className={`mq-status ${rotulo.tom}`}>{rotulo.texto}</span>
+        {s === 'pronto' && (
+          <button
+            type="button" className="mq-btn mq-btn--primary mq-btn--sm"
+            disabled={!publicacaoLigada} onClick={aoPublicar}
+          >
+            Publicar
+          </button>
+        )}
+      </span>
     </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════ a confirmação */
+
+function ModalDePublicacao({
+  lote, itens, aoConfirmar, aoParar, aoFechar,
+}: {
+  lote: Lote;
+  itens: ItemDaFila[];
+  aoConfirmar: () => void;
+  aoParar: () => void;
+  aoFechar: () => void;
+}) {
+  const r = resumoDoLote(itens);
+  const n = lote.skus.length;
+  const res = lote.resultado;
+  const nome = (sku: string) => itens.find((i) => i.sku === sku)?.desc || sku;
+  return (
+    <>
+      <button
+        type="button" className="mq-scrim" aria-label="Fechar"
+        onClick={lote.fase === 'rodando' ? undefined : aoFechar}
+      />
+      <div className="mq-modal" role="dialog" aria-modal="true" aria-label="Publicar na Nuvemshop">
+        <div className="mq-modal__head">
+          <div>
+            <p className="mq-eyebrow">Nuvemshop</p>
+            <h2 className="mq-title">
+              {lote.fase === 'fim' ? 'Publicação concluída' : n === 1 ? 'Publicar na loja' : `Publicar ${n} produtos`}
+            </h2>
+            {lote.fase === 'confirmar' && <p className="mq-lede">{lote.titulo}</p>}
+          </div>
+          {lote.fase !== 'rodando' && (
+            <button type="button" className="mq-modal__close" aria-label="Fechar" onClick={aoFechar}>
+              <Icone nome="close" />
+            </button>
+          )}
+        </div>
+
+        <div className="mq-modal__body">
+          {lote.fase === 'confirmar' && (
+            <>
+              <dl className="mq-confirm mq-prep-resumo">
+                <div><dt>Produtos</dt><dd>{r.produtos}</dd></div>
+                <div><dt>Peças em casa</dt><dd>{r.pecas}</dd></div>
+                <div><dt>Com preço</dt><dd>{r.comPreco}</dd></div>
+                <div><dt>Com imagem</dt><dd>{r.comFoto}</dd></div>
+                <div><dt>Pendências críticas</dt><dd>{r.criticas}</dd></div>
+              </dl>
+              <p className="mq-hint">
+                Eles passam de <b>ocultos</b> para <b>visíveis</b> e podem ser comprados na loja.
+                Cada produto é conferido de novo na Nuvemshop antes de ficar visível: se algum mudou
+                desde esta lista, ele não é publicado e os outros continuam.
+              </p>
+            </>
+          )}
+
+          {lote.fase === 'rodando' && (
+            <div className="mq-stack" role="status" aria-live="polite">
+              <p><b>Publicando {Math.min(lote.feitos + 1, n)} de {n}…</b> {lote.atual && <span className="mq-sku">{lote.atual}</span>}</p>
+              <span className="mq-meter"><i style={{ width: `${Math.round((lote.feitos / Math.max(1, n)) * 100)}%` }} /></span>
+              <p className="mq-hint">Um de cada vez, conferido na loja. Não feche esta janela.</p>
+            </div>
+          )}
+
+          {lote.fase === 'fim' && res && (
+            <div className="mq-stack" role="status">
+              <p className="mq-note mq-note--ok">
+                <Icone nome="check" />
+                <span><b>{res.publicados.length} {plural(res.publicados.length, 'publicado', 'publicados')}</b> — a Nuvemshop confirmou que {plural(res.publicados.length, 'está visível', 'estão visíveis')}.</span>
+              </p>
+              {res.pulados.length > 0 && (
+                <section className="mq-stack mq-stack--tight">
+                  <p className="mq-note mq-note--warn">
+                    <Icone nome="alert" />
+                    <span>
+                      <b>{res.pulados.length} não {plural(res.pulados.length, 'publicado', 'publicados')}</b> porque{' '}
+                      {plural(res.pulados.length, 'mudou', 'mudaram')} desde a conferência.
+                    </span>
+                  </p>
+                  <ul className="mq-atencao__codigos">
+                    {res.pulados.map((p) => <li key={p.sku}><span className="mq-sku">{p.sku}</span> {nome(p.sku)} — {p.motivo}</li>)}
+                  </ul>
+                </section>
+              )}
+              {res.falhas.length > 0 && (
+                <section className="mq-stack mq-stack--tight">
+                  <p className="mq-note mq-note--risk">
+                    <Icone nome="alert" />
+                    <span><b>{res.falhas.length} {plural(res.falhas.length, 'falhou', 'falharam')}</b> na comunicação com a loja. Pode tentar de novo.</span>
+                  </p>
+                  <ul className="mq-atencao__codigos">
+                    {res.falhas.map((p) => <li key={p.sku}><span className="mq-sku">{p.sku}</span> {nome(p.sku)} — {p.motivo}</li>)}
+                  </ul>
+                </section>
+              )}
+              {res.interrompido && (
+                <p className="mq-hint">
+                  Interrompido: {n - res.publicados.length - res.pulados.length - res.falhas.length} ficaram ocultos, sem tentativa.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="mq-modal__foot">
+          {lote.fase === 'confirmar' && (
+            <>
+              <button type="button" className="mq-btn mq-btn--ghost" onClick={aoFechar}>Cancelar</button>
+              <button type="button" className="mq-btn mq-btn--primary" onClick={aoConfirmar} disabled={!n}>
+                {n === 1 ? 'Publicar 1 produto' : `Publicar ${n} produtos`}
+              </button>
+            </>
+          )}
+          {lote.fase === 'rodando' && (
+            <button type="button" className="mq-btn mq-btn--ghost" onClick={aoParar}>Parar depois deste</button>
+          )}
+          {lote.fase === 'fim' && (
+            <button type="button" className="mq-btn mq-btn--primary" onClick={aoFechar}>Fechar</button>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

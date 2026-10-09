@@ -66,6 +66,8 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §61 | Kill switch do envio de estoque | `config.nuvemshopSyncAtivo` (ausente = desligado) |
 | §62 | Peça nasce OCULTA na loja; só o clique publica | `catalogo/nuvemshop-catalogo.js › criarOcultos`, `publicarNaLoja` |
 | §62 | Kill switch do catálogo oculto | `config.nuvemshopCatalogoAtivo` (ausente = desligado) |
+| §63 | Venda concluída sem variação é histórico, não pendência | `pendencias.js › listarPendencias` → `historico` |
+| §63 | Publicar em lote = um por vez, cada um revalidado na loja | `frontend/src/features/publicacao/lote.ts` → `publicarNaLoja` |
 
 ## Duas divergências conscientes
 
@@ -2911,3 +2913,57 @@ Provado em `src/nuvemshop-catalogo-test.mjs` (27 provas, os 14 casos do pedido
 e mais: API que ignora `visibility`, kill switch, cron, 391471). Ensaio sobre
 cópia de PROD: 590 mapeados continuam mapeados (589 iguais + o 391471, que
 passa de 2 para 1). Release: `docs/releases/V2-NUVEMSHOP-CATALOGO-OCULTO-2026-10-09.md`.
+
+### 63. Histórico não é pendência; oculto em preparação não é problema; publicar vários é publicar um de cada vez — §42, §61, §62, regras 2, 3 e 9
+
+Origem: pedido de Gustavo, **09/10/2026**. A "Loja online" mostrava dez
+números de universos diferentes e centenas de "problemas" que não pediam
+ação; a Central de Pendências pedia "Resolver" para vendas que já tinham
+acontecido.
+
+- **Venda concluída sem a variação registrada é HISTÓRICO.** A peça saiu, o
+  estoque foi baixado, o fato está na venda (`venda_itens.variacao` nulo é o
+  registro honesto de "não se sabe"). Não vira pendência, não pede para
+  escolher aro depois, não cria movimento e não reescreve a venda.
+  `GET /api/pendencias` a devolve só em `historico` (fora de `total`, do sino
+  e da lista). `resolverVariacaoDaVenda` continua existindo para quem quiser
+  registrar o aro por iniciativa própria — só deixou de ser cobrado.
+- **O estoque de HOJE sem divisão por variação continua pendência**
+  ("Conferir estoque por variação"), porque decide o que vai para a loja. O
+  texto fala da contagem a fazer, nunca da venda que deixou o saldo incerto.
+  Regra 2 intacta: nada é repartido sozinho.
+- **Venda com `nuvemshop_status = 'revisao'` sai da Central.** Desde §61 a
+  loja recebe o saldo do código pela fila; a venda em revisão só espelha "o
+  código está em revisão" e `regularizarVendasStmt` a fecha sozinha. A
+  pendência é a do código. Venda com `erro`, `estoque_divergente` ou
+  `cancelamento_pendente` continua.
+- **Peça em maleta sem variação aparece uma vez**, pela maleta (que tem a
+  resposta: maleta, revendedora, quantidade). A do código só aparece quando
+  não houver a da maleta.
+- **Oculto que nunca foi publicado é preparação (§62), não alerta.** "Saiu do
+  ar" só vale para o que foi publicado POR AQUI (`nuvemshop_catalogo.publicado_em`)
+  e deixou de estar visível.
+- **Conferir só lê; corrigir escreve, e diz antes.** "Conferir agora" compara
+  e não muda nada na Nuvemshop. "Corrigir automaticamente o que é seguro"
+  manda o saldo daqui às variantes divergentes, com confirmação; código sem
+  divisão segura fica de fora, como sempre.
+- **Publicar vários é publicar um de cada vez.** "Publicar selecionados" e
+  "Publicar todos os prontos" mostram o resumo (produtos, peças, preço,
+  imagem, pendências críticas) e então chamam `publicarNaLoja` peça por peça;
+  cada uma é relida NA LOJA na hora dela. A que mudou desde a lista é pulada
+  com o motivo (409); falha de rede não derruba as outras; nada é
+  tudo-ou-nada. `publicarNaLoja` lê do D1 só aquele código
+  (`lerBase(db, { skus })`) — o lote não multiplica a leitura do catálogo.
+- **Os números têm um universo cada.** Publicados na loja = códigos com
+  anúncio visível; ocultos em preparação = cadastrados ocultos com algo a
+  completar; prontos = ocultos completos; precisam de atenção = códigos com
+  algo que só uma pessoa resolve; códigos sincronizados = estoque em dia na
+  fila (visíveis e ocultos).
+- **Miniatura da Preparação**: a imagem que a Nuvemshop já tem do código,
+  depois a foto daqui do MESMO código, depois o losango. SKU exato, nunca
+  "parecido".
+
+Prova: `src/loja-online-test.mjs` (backend, loja falsa),
+`frontend/src/features/nuvemshop/visaoGeral.test.ts`, `LojaOnline.test.tsx`,
+`frontend/src/features/publicacao/lote.test.ts`, `src/v2-loja-online-qa.mjs`
+(1366 e 390 px).

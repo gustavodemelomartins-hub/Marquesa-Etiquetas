@@ -160,6 +160,9 @@ const MIGRACOES = [
   /* 08/10/2026 — §61, estoque online incremental: a fila (outbox), o retrato
      da conferência e os cinco gatilhos que enchem a fila. Só acrescenta. */
   'api/migracao-nuvemshop-fila.sql',
+  /* 09/10/2026 — §62, catálogo oculto: `nuvemshop_catalogo`,
+     `produtos.visibilidade_loja` e `nuvemshop_conferencia.ns_categorias`. */
+  'api/migracao-nuvemshop-catalogo.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com

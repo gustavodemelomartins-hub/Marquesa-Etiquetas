@@ -227,6 +227,11 @@ export interface InfoNuvemshop {
   textoNaLoja: { descricao: boolean; seo: boolean } | null;
   estadoCatalogo: string | null;
   origemCatalogo: string | null;
+  /** §63 — publicado por aqui em … */
+  publicadoEm?: string | null;
+  /** §63 — foi publicado por aqui e deixou de estar visível. Oculto que
+   *  nunca foi publicado é preparação, não alerta. */
+  foraDoArInesperado?: boolean;
 }
 
 /** A situação da peça como a TELA a agrupa. */
@@ -263,26 +268,92 @@ export function porSituacao(itens: ItemDaFila[]): Record<SituacaoDaTela, ItemDaF
   return mapa;
 }
 
-/** O checklist do card: ✓ feito, ✕ falta, ⚠ precisa conferir. */
+/** O checklist do card: ✓ feito, ✕ falta, ⚠ precisa conferir.
+ *
+ *  §63 — oito itens, sempre nesta ordem, e cada um lê as MESMAS chaves de
+ *  pendência que o servidor usa para classificar a peça e para recusar a
+ *  publicação (`classificarCatalogo`, `publicarNaLoja`): um ✓ aqui é um
+ *  "não falta" lá. SKU faltando ou repetido entra em Cadastro. */
 export type MarcaDoItem = 'ok' | 'falta' | 'aviso';
-export function checklistDaPeca(i: ItemDaFila): { rotulo: string; marca: MarcaDoItem; detalhe?: string }[] {
+export interface LinhaDoChecklist { rotulo: string; marca: MarcaDoItem; detalhe?: string }
+export const CHECKLIST: { rotulo: string; chaves: string[]; aviso?: boolean }[] = [
+  { rotulo: 'Cadastro', chaves: ['sku', 'sku_duplicado', 'nome'] },
+  { rotulo: 'Descrição', chaves: ['descricao'] },
+  { rotulo: 'SEO', chaves: ['seo'] },
+  { rotulo: 'Categoria', chaves: ['categoria'] },
+  { rotulo: 'Preço', chaves: ['preco'] },
+  { rotulo: 'Estoque', chaves: ['estoque_variacao', 'estoque', 'sem_estoque'], aviso: true },
+  { rotulo: 'Variações', chaves: ['variacao', 'variante'], aviso: true },
+  { rotulo: 'Foto', chaves: ['foto'] },
+];
+export function checklistDaPeca(i: ItemDaFila): LinhaDoChecklist[] {
   const pend = new Map((i.nuvemshop?.pendencias ?? []).map((x) => [x.chave, x.motivo]));
   for (const k of i.pendencias ?? []) if (!pend.has(k)) pend.set(k, ROTULO_DA_PENDENCIA[k] ?? k);
   const naLoja = i.nuvemshop?.naLoja ?? i.presencaNaLoja;
-  const marca = (chaves: string[], aviso = false): MarcaDoItem =>
-    (chaves.some((k) => pend.has(k)) ? (aviso ? 'aviso' : 'falta') : 'ok');
-  const det = (chaves: string[]) => chaves.map((k) => pend.get(k)).filter(Boolean).join(' ') || undefined;
-  return [
-    { rotulo: 'Cadastro', marca: naLoja ? 'ok' : 'falta', detalhe: naLoja ? undefined : 'Ainda não existe na Nuvemshop.' },
-    { rotulo: 'SKU', marca: marca(['sku', 'sku_duplicado']), detalhe: det(['sku', 'sku_duplicado']) },
-    { rotulo: 'Descrição', marca: marca(['descricao', 'nome']), detalhe: det(['descricao', 'nome']) },
-    { rotulo: 'SEO', marca: marca(['seo']), detalhe: det(['seo']) },
-    { rotulo: 'Preço', marca: marca(['preco']), detalhe: det(['preco']) },
-    { rotulo: 'Estoque', marca: marca(['estoque_variacao', 'estoque', 'sem_estoque'], true), detalhe: det(['estoque_variacao', 'estoque', 'sem_estoque']) },
-    { rotulo: 'Foto', marca: marca(['foto']), detalhe: det(['foto']) },
-    { rotulo: 'Categoria', marca: marca(['categoria']), detalhe: det(['categoria']) },
-    { rotulo: 'Variação', marca: marca(['variacao', 'variante'], true), detalhe: det(['variacao', 'variante']) },
-  ];
+  return CHECKLIST.map((c) => {
+    const faltam = c.chaves.filter((k) => pend.has(k));
+    const detalhe = faltam.map((k) => pend.get(k)).filter(Boolean).join(' ') || undefined;
+    if (c.rotulo === 'Cadastro' && !naLoja) {
+      return { rotulo: c.rotulo, marca: 'falta', detalhe: ['Ainda não existe na Nuvemshop.', detalhe].filter(Boolean).join(' ') };
+    }
+    if (!faltam.length) return { rotulo: c.rotulo, marca: 'ok' };
+    return { rotulo: c.rotulo, marca: c.aviso ? 'aviso' : 'falta', detalhe };
+  });
+}
+
+/** A peça tem foto — pela regra da classificação: na loja (lida na
+ *  conferência) para quem já está lá; foto nossa para quem não está. */
+export function temFoto(i: ItemDaFila): boolean {
+  return !checklistDaPeca(i).some((c) => c.rotulo === 'Foto' && c.marca !== 'ok');
+}
+export const temPreco = (i: ItemDaFila) => i.preco != null && i.preco > 0;
+export const temVariacao = (i: ItemDaFila) => (i.nuvemshop?.variacoes?.length ?? 0) > 1;
+export const precisaDeAcao = (i: ItemDaFila) => (i.pendencias ?? []).length > 0
+  || (i.nuvemshop ? !i.nuvemshop.criavel && !i.nuvemshop.naLoja : false);
+
+/** Os filtros da Preparação. Poucos, e cada um responde uma pergunta de
+ *  quem prepara a loja. */
+export const FILTROS: { id: string; rotulo: string; passa: (i: ItemDaFila) => boolean }[] = [
+  { id: 'todos', rotulo: 'Todos', passa: () => true },
+  { id: 'precisa_acao', rotulo: 'Precisa de ação', passa: precisaDeAcao },
+  { id: 'com_foto', rotulo: 'Com foto', passa: temFoto },
+  { id: 'sem_foto', rotulo: 'Sem foto', passa: (i) => !temFoto(i) },
+  { id: 'com_preco', rotulo: 'Com preço', passa: temPreco },
+  { id: 'sem_preco', rotulo: 'Sem preço', passa: (i) => !temPreco(i) },
+  { id: 'com_variacao', rotulo: 'Com variação', passa: temVariacao },
+];
+
+/** O resumo da confirmação de "Publicar": quantos, quantas peças, quantos
+ *  com preço e foto, quantos com pendência que segura a publicação. */
+export function resumoDoLote(itens: ItemDaFila[]) {
+  return {
+    produtos: itens.length,
+    pecas: itens.reduce((s, i) => s + Math.max(0, i.casa || 0), 0),
+    comPreco: itens.filter(temPreco).length,
+    comFoto: itens.filter(temFoto).length,
+    criticas: itens.filter((i) => situacaoDaTela(i) !== 'pronto').length,
+  };
+}
+
+/** §63 — a prévia do anúncio, lida da loja na hora
+ *  (`GET /api/nuvemshop/catalogo/:sku/anuncio`). */
+export interface AnuncioDaLoja {
+  ok: true;
+  sku: string;
+  produtoId: string;
+  lidoEm: string;
+  visibilidade: string | null;
+  nome: string;
+  descricao: string;
+  seoTitulo: string;
+  seoDescricao: string;
+  tags: string[];
+  atributos: string[];
+  categorias: string[];
+  imagens: string[];
+  url: string | null;
+  variantes: { id: string; sku: string | null; valores: string[]; preco: number | null; estoque: number | null }[];
+  faltam: string[];
 }
 
 export const ROTULO_DA_VISIBILIDADE: Record<string, string> = {

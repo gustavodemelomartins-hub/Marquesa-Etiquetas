@@ -14,13 +14,13 @@ consegue fazer.
 
 | | capacidades |
 |---|---|
-| 🟢 pronta | 124 |
+| 🟢 pronta | 125 |
 | 🟡 parcial | 5 |
 | ⚪ pendente — o backend tem, a tela não | 3 |
 | ⛔ indisponível — o backend não sustenta | 12 |
-| **total** | **144** |
+| **total** | **145** |
 
-**124 de 132** capacidades que o backend sustenta já estão
+**125 de 133** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
@@ -192,20 +192,21 @@ Referência visual: `/prototype/garantias/` · 🟢 11 · 🟡 1 · ⚪ 0 · ⛔
 
 ## Nuvemshop
 
-Referência visual: `/prototype/nuvemshop/` · 🟢 10 · 🟡 0 · ⚪ 0 · ⛔ 0
+Referência visual: `/prototype/nuvemshop/` · 🟢 11 · 🟡 0 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
 | Visão geral da loja | 🟢 pronta | `#/nuvemshop` | — |
-| Pendências | 🟢 pronta | `features/nuvemshop/PendenciasList.tsx` | — |
-| Análise da sincronização e divergências | 🟢 pronta | `features/nuvemshop/NuvemshopPage.tsx` | — |
+| Precisam da sua atenção (só o que uma pessoa resolve) | 🟢 pronta | `features/nuvemshop/VisaoGeralArea.tsx` | — |
+| Conferir (só lê) e corrigir o que é seguro (escreve) | 🟢 pronta | `features/nuvemshop/VisaoGeralArea.tsx` | — |
 | Saúde da conexão e das falhas | 🟢 pronta | `features/nuvemshop/saude.ts` | — |
-| Fila de publicação: preparar → revisar → aprovar → publicado | 🟢 pronta | `#/nuvemshop/publicacao` | — |
+| Preparação para Nuvemshop: não cadastrado → oculto → pronto → publicado | 🟢 pronta | `#/nuvemshop/publicacao` | — |
 | O funil é o filtro: cada degrau é uma fila de trabalho | 🟢 pronta | `features/publicacao/tipos.ts` | — |
-| O que falta na peça ≠ o que o servidor não faz | 🟢 pronta | `features/publicacao/FilaArea.tsx` | — |
-| Revisar e salvar a prévia do site | 🟢 pronta | `features/publicacao/FilaArea.tsx` | — |
+| O que falta na peça ≠ o que o servidor não faz | 🟢 pronta | `features/publicacao/DetalheDaPeca.tsx` | — |
+| Revisar e salvar a prévia do site | 🟢 pronta | `features/publicacao/DetalheDaPeca.tsx` | — |
 | Aprovar, reabrir e repetir | 🟢 pronta | `features/publicacao/api.ts` | — |
 | Publicar na loja real (oculto → visível, §62) | 🟢 pronta | `features/publicacao/api.ts` | — |
+| Publicar selecionados ou todos os prontos, cada um revalidado (§63) | 🟢 pronta | `features/publicacao/lote.ts` | — |
 
 ## Home
 

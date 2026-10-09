@@ -54,6 +54,20 @@ const GRUPOS = {
   garantia: 'Garantias',
 };
 
+/** §63 — o estoque de HOJE sem divisão por variação, dito como contagem a
+ *  fazer. Nunca menciona a venda antiga que o deixou incerto. */
+export function fraseDeReparticao(total, atribuido) {
+  const pecas = (n) => (n === 1 ? '1 peça' : `${n} peças`);
+  const fim = ' Conte e informe quantas são de cada; até lá o estoque deste código não vai para a loja.';
+  if (atribuido > 0 && atribuido < total) {
+    return `Há ${pecas(total)} deste código: ${atribuido} com variação definida e ${total - atribuido} sem.${fim}`;
+  }
+  if (atribuido > total) {
+    return `As variações somam ${pecas(atribuido)}, mas o código tem ${pecas(total)}.${fim}`;
+  }
+  return `Há ${pecas(total)} deste código e o sistema não sabe quantas são de cada variação.${fim}`;
+}
+
 /* ═══════════════════════════════════════════════ "revisar depois" */
 
 async function lerAdiadas(db) {
@@ -112,10 +126,15 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
     fotosOrfas] = await Promise.all([
     variacoesParaRevisao(db).catch(() => ({ itens: [] })),
 
-    /* Vendas que a sincronização decidiu não escrever. `revisao` é o selo
-       que aparece na tela de Lançamentos; os outros são falha de rede ou
-       espera, e pertencem à mesma lista porque a pergunta é a mesma: o que
-       está parado esperando alguém? */
+    /* Vendas que a sincronização decidiu não escrever: falha de rede,
+       divergência ou cancelamento a desfazer na loja.
+
+       §63 — `revisao` saiu desta lista. Desde §61 a loja recebe o saldo do
+       CÓDIGO pela fila, não a baixa da venda; a venda em `revisao` só
+       espelha "este código está em revisão", e `regularizarVendasStmt` a
+       marca sincronizada sozinha quando o código sai de lá. Listá-la era
+       pedir "Reenviar" de algo que não tem o que reenviar — a pendência de
+       verdade é a do código (abaixo), que diz o que fazer com o estoque. */
     db.prepare(
       `SELECT v.id, v.data, v.nuvemshop_status, v.nuvemshop_erro, v.total,
               COALESCE(c.nome, v.cliente_nome) AS cliente, r.nome AS revendedora
@@ -124,12 +143,22 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
          LEFT JOIN revendedoras r ON r.id = v.revendedora_id
         WHERE v.cancelada = 0
           AND v.origem <> 'site'
-          AND v.nuvemshop_status IN ('erro','revisao','estoque_divergente','cancelamento_pendente')
+          AND v.nuvemshop_status IN ('erro','estoque_divergente','cancelamento_pendente')
         ORDER BY v.data DESC, v.id DESC LIMIT 200`,
     ).all().catch(() => ({ results: [] })),
 
     /* Item vendido de um código que TEM mais de uma variação e saiu sem
-       dizer qual. É a pendência no nível da VENDA — resolvível por §8.1. */
+       dizer qual.
+
+       §63 — isto é HISTÓRICO, não pendência. A venda aconteceu, a peça
+       saiu, o estoque já foi baixado; escolher o aro depois não muda nada
+       que exista hoje. A linha fica no banco como foi gravada (`variacao`
+       nulo é o registro honesto de "não se sabe") e aqui só é CONTADA,
+       para o resumo técnico. Se o saldo atual por variação ficou incerto,
+       quem cobra é a pendência do CÓDIGO ("Conferir estoque por
+       variação"), que fala do estoque de hoje. `resolverVariacaoDaVenda`
+       continua existindo para quem quiser registrar o aro por iniciativa
+       própria — só deixou de ser cobrado. */
     db.prepare(
       /* 5.2 — `itemId` é a identidade oficial da linha. `linha` (o rowid)
          continua sendo devolvida enquanto o painel legado a usar: ela
@@ -279,8 +308,21 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
     status: adiadas[p.chave] && adiadas[p.chave].ate > hoje ? 'adiada' : 'aberta',
   });
 
+  /* §63 — a mesma peça em maleta aparecia DUAS vezes: aqui, por código
+     ("há peça em maleta sem variação") e abaixo, por maleta ("diga qual
+     variação a revendedora levou"). A segunda é a que tem resposta — a
+     maleta e a quantidade exatas —, então a primeira sai quando a segunda
+     existe. Sem a segunda (a maleta já disse, mas a variação não casa com
+     nenhuma caixinha da loja), a do código continua: é o único aviso. */
+  const skusComMaletaAberta = new Set();
+  for (const r of maletasAbertas.results ?? []) {
+    if (Number(r.fora ?? 0) - Number(r.identificado ?? 0) > 0) skusComMaletaAberta.add(r.sku);
+  }
+
   /* ─── 1. variações não mapeadas (o motor da sincronização) */
   for (const r of revisao.itens ?? []) {
+    if (r.motivo === 'maleta' && skusComMaletaAberta.has(r.sku)) continue;
+    const total = Number(r.total ?? 0);
     juntar({
       chave: `variacao:${r.sku}`,
       tipo: 'variacao',
@@ -289,7 +331,11 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
       origem: 'Sincronização com a Nuvemshop',
       qtd: r.total,
       motivo: r.motivo,
-      explicacao: r.explicacao,
+      /* §63 — "falta repartir" fala do estoque de HOJE, nunca da venda
+         antiga que o deixou incerto: a ação é contar as peças. */
+      explicacao: r.motivo === 'sem_reparticao' ? fraseDeReparticao(total, Number(r.detalhe?.atribuido ?? 0))
+        : r.explicacao,
+      titulo: r.motivo === 'sem_reparticao' ? 'Conferir estoque por variação' : null,
       detalhe: r.detalhe ?? null,
       naLoja: r.variantes ?? [],
       variacoesPossiveis: vars(r.sku),
@@ -387,35 +433,18 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
     });
   }
 
-  /* ─── 2. item de venda sem variação (§8.1) */
-  for (const r of itensSemVariacao.results ?? []) {
-    juntar({
-      /* 5.2 — a chave da pendência é PERSISTIDA em `config`
-         (`pendencias_adiadas`), então ela era o pior lugar de todos para um
-         `rowid`: um VACUUM reatribuiria o número e a pendência adiada
-         voltaria, ou pior, esconderia outra. Agora é o id da linha. As
-         chaves antigas deixam de casar e aquelas pendências reaparecem —
-         reaparecer é o lado seguro de errar. */
-      chave: `venda_variacao:${r.venda_id}:${r.item_id}`,
-      tipo: 'venda',
-      sku: r.sku,
-      produto: r.desc,
-      origem: r.revendedora ? 'Acerto de maleta' : 'Venda',
-      cliente: r.cliente ?? null,
-      revendedora: r.revendedora ?? null,
-      vendaId: Number(r.venda_id),
-      itemId: r.item_id ?? null,
-      /* Só enquanto o painel legado mandar de volta. Sem consumidor novo. */
-      linha: Number(r.linha),
-      data: r.data,
-      qtd: Number(r.qtd ?? 0),
-      motivo: 'variacao_da_venda',
-      explicacao: `Este código tem ${r.n_variacoes} variações cadastradas e a venda `
-        + 'não diz qual saiu. Escolher aqui não baixa estoque de novo — a peça já saiu.',
-      variacoesPossiveis: vars(r.sku),
-      acoes: ['resolver_venda', 'revisar_depois'],
-    });
-  }
+  /* ─── 2. item de venda sem variação (§8.1) — §63: histórico, não tarefa.
+     Vai para `historico`, que a tela não lista como pendência: nenhum
+     "Resolver", nenhum aro escolhido depois do fato, nenhum movimento. */
+  const vendasSemVariacao = (itensSemVariacao.results ?? []).map((r) => ({
+    vendaId: Number(r.venda_id),
+    itemId: r.item_id ?? null,
+    data: r.data,
+    sku: r.sku,
+    produto: r.desc,
+    qtd: Number(r.qtd ?? 0),
+    variacoesCadastradas: Number(r.n_variacoes ?? 0),
+  }));
 
   /* ─── 3. peça em maleta sem variação (§8.2) */
   for (const r of maletasAbertas.results ?? []) {
@@ -541,6 +570,14 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
       porTipo,
     },
     pendencias: visiveis,
+    /* §63 — fatos passados guardados como foram. NÃO entram no total, no
+       sino nem na lista: só existem para auditoria. */
+    historico: {
+      vendasSemVariacao: vendasSemVariacao.length,
+      itens: vendasSemVariacao,
+      regra: 'Venda já concluída sem a variação registrada: a peça saiu e o estoque já foi baixado. '
+        + 'Não é tarefa; o saldo de hoje, quando incerto, aparece como "Conferir estoque por variação".',
+    },
     regra: 'A lista é derivada do estado, não guardada: resolver o caso a faz '
       + 'sumir daqui sozinha. Resolver uma variação é dizer QUAL peça saiu — '
       + 'identidade, não movimentação. Nada é baixado do estoque de novo.',

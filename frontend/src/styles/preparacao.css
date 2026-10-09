@@ -5,3 +5,76 @@
 .mq-money--warn{color:var(--mq-warn)}
 .mq-details>summary{cursor:pointer;color:var(--mq-muted);font-size:13px}
 @media(max-width:600px){.mq-checklist{grid-template-columns:1fr}}
+
+/* ═══════════════════════════════════════════ §63 — Loja online */
+
+/* A linha de estado: um selo e uma frase. */
+.mq-loja-status{display:flex;flex-wrap:wrap;align-items:center;gap:var(--mq-2) var(--mq-4)}
+.mq-loja-status__linha{font-size:13.5px;color:var(--mq-ink-2)}
+.mq-loja-status__linha b{font-weight:500;color:var(--mq-ink);font-variant-numeric:tabular-nums}
+.mq-loja-status .mq-hint{flex-basis:100%}
+
+/* Precisam da sua atenção: ícone + o que aconteceu / por quê / o que fazer. */
+.mq-atencao{display:flex;gap:var(--mq-3);padding:var(--mq-4) var(--mq-5);border-bottom:1px solid var(--mq-line-2)}
+.mq-atencao:last-child{border-bottom:0}
+.mq-atencao__corpo{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--mq-1);font-size:13px;color:var(--mq-ink-2)}
+.mq-atencao__corpo p{margin:0;line-height:1.5}
+.mq-atencao__corpo .mq-btns{margin-top:var(--mq-2)}
+.mq-atencao__corpo .mq-details{margin-top:var(--mq-1)}
+.mq-atencao__topo{display:flex;align-items:center;gap:var(--mq-2)}
+.mq-atencao__topo b{font:500 14px/1.35 var(--mq-sans);color:var(--mq-ink)}
+.mq-atencao__porque{color:var(--mq-muted)}
+.mq-atencao__codigos{list-style:none;margin:var(--mq-2) 0 0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+.mq-atencao__codigos li{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--mq-2)}
+
+/* O diagnóstico técnico: tabela densa, só dentro de "Ver detalhes". */
+.mq-tecnica{width:100%;border-collapse:collapse;font-size:12px}
+.mq-tecnica th{text-align:left;font:500 10.5px/1.3 var(--mq-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--mq-muted);
+  padding:var(--mq-2) var(--mq-3);border-bottom:1px solid var(--mq-line);white-space:nowrap}
+.mq-tecnica td{padding:var(--mq-2) var(--mq-3);border-bottom:1px solid var(--mq-line-2);vertical-align:top}
+.mq-figures .mq-sku{font-size:14px}
+
+/* Preparação: filtros, lote, linha com miniatura e checklist compacto. */
+.mq-prep-filtros .mq-select{width:auto;min-width:150px}
+.mq-prep-lote{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--mq-3)}
+.mq-prep-lote__todos{display:inline-flex;align-items:center;gap:var(--mq-2);font-size:13.5px;cursor:pointer}
+.mq-prep-lote__todos input,.mq-prep-linha__check input{width:18px;height:18px;accent-color:var(--mq-wine-600);cursor:pointer}
+.mq-prep-linha{display:flex;align-items:center;gap:var(--mq-3);padding:var(--mq-3) var(--mq-5);border-bottom:1px solid var(--mq-line-2)}
+.mq-prep-linha:last-child{border-bottom:0}
+.mq-prep-linha.is-selected{background:var(--mq-wine-050)}
+.mq-prep-linha__check{display:grid;place-items:center;flex:none;padding:var(--mq-2);margin:calc(var(--mq-2) * -1)}
+.mq-prep-linha__abrir{flex:1;min-width:0;display:flex;align-items:center;gap:var(--mq-3);padding:0;border:0;background:none;
+  font:inherit;color:inherit;text-align:left;cursor:pointer}
+.mq-prep-linha__abrir:hover b{color:var(--mq-wine-700)}
+.mq-prep-linha__lado{display:flex;align-items:center;gap:var(--mq-2);flex:none}
+.mq-minicheck{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:4px}
+.mq-minicheck li{font-size:11px;line-height:1.5;padding:0 7px;border-radius:var(--mq-r-pill);border:1px solid var(--mq-line);white-space:nowrap}
+.mq-minicheck li.is-ok{color:var(--mq-ok);border-color:var(--mq-ok-line);background:var(--mq-ok-bg)}
+.mq-minicheck li.is-falta{color:var(--mq-risk);border-color:var(--mq-risk-line);background:var(--mq-risk-bg)}
+.mq-minicheck li.is-aviso{color:var(--mq-warn);border-color:var(--mq-warn-line);background:var(--mq-warn-bg)}
+.mq-minicheck .mq-minicheck__resumo{display:none}
+.mq-prep-resumo{grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:var(--mq-3)}
+.mq-prep-resumo>div{display:flex;flex-direction:column;gap:2px}
+
+/* O detalhe da peça. */
+.mq-prep-detalhe__topo{display:grid;grid-template-columns:160px minmax(0,1fr);gap:var(--mq-4);align-items:start}
+.mq-prep-detalhe__topo .mq-thumb{width:160px;height:160px}
+.mq-prep-detalhe__fotos{display:flex;flex-wrap:wrap;gap:var(--mq-2)}
+.mq-prep-detalhe__anuncio{grid-template-columns:1fr}
+.mq-prep-detalhe__anuncio dd{white-space:normal;font:400 13.5px/1.5 var(--mq-sans)}
+.mq-prep-detalhe__variante{display:block}
+.mq-prep-detalhe__descricao dd{white-space:pre-line}
+
+@media(max-width:600px){
+  .mq-atencao{padding:var(--mq-4)}
+  .mq-prep-linha{flex-wrap:wrap;padding:var(--mq-3) var(--mq-4)}
+  .mq-prep-linha__lado{width:100%;justify-content:flex-end}
+  .mq-prep-filtros .mq-select{flex:1 1 140px;min-width:0}
+  .mq-prep-lote .mq-btns{width:100%}
+  .mq-prep-lote .mq-btns .mq-btn{flex:1 1 auto}
+  /* No telefone, só o que falta: oito selos não cabem numa linha. */
+  .mq-minicheck li.is-ok{display:none}
+  .mq-minicheck .mq-minicheck__resumo.is-ok{display:inline-block}
+  .mq-prep-detalhe__topo{grid-template-columns:1fr}
+  .mq-prep-detalhe__topo .mq-thumb{width:100%;height:auto;aspect-ratio:1}
+}

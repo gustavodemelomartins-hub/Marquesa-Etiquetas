@@ -503,22 +503,23 @@ console.log('\n=== P–S. Central de Pendências e resolução de variação ===
     itens: [{ sku: varsSku, qtd: 1, varianteId: null }],
   });
   /* venda de código com variação exige dizer qual quando a LOJA tem mais de
-     uma variante; sem espelho da loja ela passa sem variação, e é
-     exatamente esse o caso que vira pendência */
+     uma variante; sem espelho da loja ela passa sem variação.
+     §63 (09/10/2026): venda concluída sem variação é HISTÓRICO, não
+     pendência — fica no `historico` da resposta, fora da lista e do total. */
   eq('venda registrada', venda.status, 201);
   const vendaId = venda.corpo.id;
 
   const p1 = await api('GET', '/api/pendencias');
   eq('a central responde', p1.status, 200);
   const pv = (p1.corpo.pendencias ?? []).find(
-    (x) => x.tipo === 'venda' && x.vendaId === vendaId && x.motivo === 'variacao_da_venda');
-  verdade('a venda sem variação virou pendência', !!pv,
-    pv ? pv.chave : JSON.stringify((p1.corpo.pendencias ?? []).map((x) => x.chave)));
-  verdade('com as variações JÁ CADASTRADAS para escolher',
-    pv && (pv.variacoesPossiveis ?? []).length === 2,
-    pv ? (pv.variacoesPossiveis ?? []).map((v) => v.nome).join(',') : '');
-  verdade('e a ação de resolver pela venda',
-    pv && (pv.acoes ?? []).includes('resolver_venda'));
+    (x) => x.vendaId === vendaId && x.motivo === 'variacao_da_venda');
+  verdade('§63: a venda sem variação NÃO virou pendência', !pv,
+    JSON.stringify((p1.corpo.pendencias ?? []).map((x) => x.chave)));
+  const hist = (p1.corpo.historico?.itens ?? []).find((x) => x.vendaId === vendaId);
+  verdade('§63: e está guardada no histórico técnico', !!hist && hist.sku === varsSku,
+    JSON.stringify(p1.corpo.historico ?? null));
+
+  /* Registrar o aro por iniciativa própria continua possível. */
 
   const saldoAntes = await saldo(varsSku);
   const rv = await api('POST', '/api/pendencias/variacao/venda', {
@@ -531,8 +532,8 @@ console.log('\n=== P–S. Central de Pendências e resolução de variação ===
   verdade('a razão continua fechando', await razaoFecha());
 
   const p2 = await api('GET', '/api/pendencias');
-  const aindaLa = (p2.corpo.pendencias ?? []).some((x) => x.chave === pv.chave);
-  verdade('a pendência fechou sozinha', !aindaLa);
+  const aindaLa = (p2.corpo.historico?.itens ?? []).some((x) => x.vendaId === vendaId);
+  verdade('com o aro registrado, sai também do histórico', !aindaLa);
 
   /* a variação chegou nos DOIS lugares: a linha da venda e o movimento */
   const dia = await api('GET', '/api/vendas?data=2026-09-04');

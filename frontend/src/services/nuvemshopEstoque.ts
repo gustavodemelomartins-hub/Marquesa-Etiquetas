@@ -23,6 +23,10 @@ export interface ProblemaDaFila {
   proximaEm: string | null;
   ultimaTentativaEm: string | null;
   pedidoEm: string;
+  /** §63 — por que está em revisão: `maleta`, `sem_reparticao`,
+   *  `variacao_nao_mapeada`, `duplicado`, `sem_variante_id`. */
+  motivoRevisao?: string | null;
+  casa?: number | null;
 }
 
 export interface RodadaDaFila {

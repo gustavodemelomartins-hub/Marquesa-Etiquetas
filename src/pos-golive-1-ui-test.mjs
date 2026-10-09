@@ -305,11 +305,13 @@ console.log('\n=== 6. Central de Pendências resolve a variação (§42) ===');
   const central = page.locator('#view-pendencias .panel', { hasText: 'Central de pendências' });
   verdade('a Central existe na aba Pendências', await central.count() > 0);
 
+  /* §63 (09/10/2026): venda concluída sem variação é histórico, não tarefa.
+     A Central não a lista nem pede "Resolver"; o fato fica na venda. */
   const chave = await page.evaluate(() => {
     const p = (centralPend?.pendencias ?? []).find((x) => x.motivo === 'variacao_da_venda');
     return p ? p.chave : null;
   });
-  verdade('a venda sem variação está na Central', !!chave, String(chave));
+  verdade('§63: a venda sem variação NÃO está na Central', !chave, String(chave));
 
   /* filtros por tipo */
   await page.evaluate(() => setFiltroCentral('venda'));
@@ -318,35 +320,15 @@ console.log('\n=== 6. Central de Pendências resolve a variação (§42) ===');
     (centralPend?.pendencias ?? []).every((x) => x.tipo === 'venda'));
   verdade('o filtro por tipo funciona', soVendas);
 
-  /* resolver dentro da própria linha */
-  await page.evaluate((k) => alternarPendencia(k), chave);
-  await page.waitForTimeout(600);
-  const opcoes = await page.locator('.pend-linha.escolha').count();
-  eq('oferece as variações já cadastradas', opcoes, 2);
-  const texto = await page.locator('.pend-form').first().innerText();
-  verdade('e diz que escolher não baixa estoque de novo',
-    /não baixa estoque de novo/.test(texto));
-
-  const antes = await api('GET', '/api/state');
-  const saldoDe = (st, sku) => Number((st.corpo?.produtos ?? []).find((x) => x.sku === sku)?.qtd ?? -1);
-
-  await page.locator('.pend-linha.escolha input[type="radio"]').nth(1).check();
-  await page.locator('.pend-form .btn-gold').first().click();
-  await page.waitForTimeout(2500);
-
-  const depois = await api('GET', '/api/state');
-  eq('o estoque NÃO mudou ao resolver',
-    saldoDe(depois, P('ARO')), saldoDe(antes, P('ARO')));
-  const aindaLa = await page.evaluate((k) =>
-    (centralPend?.pendencias ?? []).some((x) => x.chave === k), chave);
-  verdade('e a pendência saiu da lista sozinha', !aindaLa);
-
+  const pend = await api('GET', '/api/pendencias');
+  verdade('§63: a venda continua registrada no histórico técnico',
+    (pend.corpo?.historico?.itens ?? []).some((x) => x.vendaId === v.corpo.id));
   const dia = await api('GET', '/api/vendas?data=2026-09-04');
   const venda = (dia.corpo ?? []).find((x) => x.id === v.corpo.id);
-  eq('a linha da venda passou a dizer o aro', venda && venda.itens[0].variacao, '18');
+  eq('a venda não foi reescrita', venda && venda.itens[0].variacao, null);
 
   const conf = await api('GET', '/api/estoque/conferir');
-  eq('a razão fecha depois de resolver',
+  eq('a razão fecha',
     JSON.stringify(conf.corpo?.divergentes ?? []), '[]');
 }
 

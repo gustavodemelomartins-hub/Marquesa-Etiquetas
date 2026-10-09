@@ -116,33 +116,48 @@ const SQL_CASA = `p.qtd - COALESCE((
    ), 0)`;
 
 const tentar = async (fn, padrao) => { try { return await fn(); } catch { return padrao; } };
-const todas = async (db, sql) => (await db.prepare(sql).all()).results || [];
+const todas = async (db, sql, args = []) => (await db.prepare(sql).bind(...args).all()).results || [];
 
 /** Tudo que a classificação precisa, em poucas consultas (o plano Free do
- *  D1 recusa a 51ª consulta da mesma invocação — §60). */
-export async function lerBase(db) {
+ *  D1 recusa a 51ª consulta da mesma invocação — §60).
+ *
+ *  §63 — `skus` restringe a leitura aos códigos pedidos. Publicar UM
+ *  produto não precisa do catálogo inteiro: com "Publicar todos os
+ *  prontos" a mesma rota roda dezenas de vezes seguidas, e reler ~10 mil
+ *  linhas a cada uma gastaria a cota diária do D1 (que é da conta, DEV e
+ *  PROD juntos). O que só serve a peça SEM anúncio (nomes de modelo,
+ *  nomes repetidos) fica parcial nesse modo — e é por isso que ele só é
+ *  usado para peça que já está na loja. */
+export async function lerBase(db, { skus = null } = {}) {
+  const lista = Array.isArray(skus) && skus.length ? [...new Set(skus.map(String))] : null;
+  const marcas = lista ? lista.map(() => '?').join(',') : '';
+  const e = (col) => (lista ? ` AND ${col} IN (${marcas})` : '');
+  const A = lista || [];
+  const AN = lista ? lista.map((x) => normSku(x)) : [];
   const [produtos, montagens, variacoes, nomeados, maletaVar, loja, catalogo, fotos, fila, conf, rascunhos, mapaCat] = await Promise.all([
     todas(db, `SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.status, p.produto_id_loja, p.url_loja,
                       p.visivel, p.visibilidade_loja, p.foto_url, p.foto_original_key, p.foto_tratada_key,
                       ${SQL_CASA} AS casa,
                       EXISTS (SELECT 1 FROM kit_componentes kc WHERE kc.kit_sku = p.sku) AS eh_kit
-                 FROM produtos p WHERE p.status = 'ativo'`),
+                 FROM produtos p WHERE p.status = 'ativo'${e('p.sku')}`, A),
     tentar(() => todas(db, 'SELECT sku_comercial FROM personalizacao_modelos WHERE sku_comercial IS NOT NULL'), []),
-    todas(db, 'SELECT sku, nome, atributo, variante_id, produto_id, valores_json, origem, ordem FROM produto_variacoes ORDER BY sku, ordem'),
+    todas(db, `SELECT sku, nome, atributo, variante_id, produto_id, valores_json, origem, ordem FROM produto_variacoes
+                WHERE 1 = 1${e('sku')} ORDER BY sku, ordem`, A),
     todas(db, `SELECT sku, variacao, variante_id, SUM(qtd) AS saldo FROM movimentos
-                WHERE variacao IS NOT NULL OR variante_id IS NOT NULL GROUP BY sku, variacao, variante_id`),
+                WHERE (variacao IS NOT NULL OR variante_id IS NOT NULL)${e('sku')} GROUP BY sku, variacao, variante_id`, A),
     tentar(() => todas(db, `SELECT mv.sku, mv.variacao, mv.variante_id, SUM(mv.qtd) AS qtd
                 FROM maleta_item_variacoes mv JOIN maletas m ON m.id = mv.maleta_id
-               WHERE m.status IN ('aberta','em_acerto') GROUP BY mv.sku, mv.variacao, mv.variante_id`), []),
+               WHERE m.status IN ('aberta','em_acerto')${e('mv.sku')} GROUP BY mv.sku, mv.variacao, mv.variante_id`, A), []),
     tentar(() => todas(db, `SELECT variante_id, produto_id, sku, sku_norm, nome, valores_json, estoque,
                                    preco, locais_json, produto_nome, produto_url, produto_visivel
-                              FROM loja_variantes ORDER BY produto_id, posicao`), []),
-    tentar(() => todas(db, 'SELECT * FROM nuvemshop_catalogo'), []),
+                              FROM loja_variantes WHERE 1 = 1${e('sku_norm')} ORDER BY produto_id, posicao`, AN), []),
+    tentar(() => todas(db, `SELECT * FROM nuvemshop_catalogo WHERE 1 = 1${e('sku')}`, A), []),
     tentar(() => todas(db, `SELECT id, sku, principal, ordem, original_key, original_tipo, preparada_key,
                                    preparada_tipo, arquivo_nome, imagem_id_loja, url_externa
-                              FROM produto_fotos WHERE removida_em IS NULL
-                             ORDER BY sku, principal DESC, ordem`), []),
-    tentar(() => todas(db, 'SELECT sku, status, motivo, ultimo_erro, resultado_json, sincronizado_em FROM nuvemshop_fila'), []),
+                              FROM produto_fotos WHERE removida_em IS NULL${e('sku')}
+                             ORDER BY sku, principal DESC, ordem`, A), []),
+    tentar(() => todas(db, `SELECT sku, status, motivo, ultimo_erro, resultado_json, sincronizado_em FROM nuvemshop_fila
+                              WHERE 1 = 1${e('sku')}`, A), []),
     tentar(() => todas(db, `SELECT sku,
               MIN(ns_tem_descricao) AS descricao,
               MIN(ns_tem_seo_titulo) AS seo_titulo,
@@ -152,8 +167,9 @@ export async function lerBase(db) {
               GROUP_CONCAT(DISTINCT status) AS status,
               GROUP_CONCAT(DISTINCT motivo) AS motivos,
               MAX(conferido_em) AS conferido_em
-         FROM nuvemshop_conferencia WHERE sku IS NOT NULL GROUP BY sku`), []),
-    tentar(() => todas(db, 'SELECT sku, nome_site, descricao_site, seo_titulo, seo_descricao FROM catalogo_publicacoes'), []),
+         FROM nuvemshop_conferencia WHERE sku IS NOT NULL${e('sku')} GROUP BY sku`, A), []),
+    tentar(() => todas(db, `SELECT sku, nome_site, descricao_site, seo_titulo, seo_descricao FROM catalogo_publicacoes
+                              WHERE 1 = 1${e('sku')}`, A), []),
     config(db, CHAVE_MAPA_CATEGORIAS, null),
   ]);
 
@@ -435,6 +451,11 @@ export function classificarCatalogo(base) {
     /* Oculto sem peça em casa não é "pronto": publicar mostraria a peça
        esgotada. Fica oculto, dizendo o porquê. */
     if (visibilidade !== 'visible' && casa <= 0) add('sem_estoque', 'Sem peça em casa: publicada, apareceria esgotada.');
+    /* §63 — "fora do ar" só é alerta quando ALGUÉM o publicou por aqui e
+       ele deixou de estar visível. Oculto que nunca foi publicado é peça em
+       preparação, de propósito: não é problema, é o §62 funcionando. */
+    item.publicadoEm = linha?.publicado_em || null;
+    item.foraDoArInesperado = !!linha?.publicado_em && visibilidade !== 'visible';
     if (erro) item.situacao = 'erro';
     else if (visibilidade === 'visible') item.situacao = 'publicado';
     else if (pend.filter((x) => x.chave !== 'link_direto').length === 0 && sincronia === 'sincronizado') item.situacao = 'pronto';
@@ -978,8 +999,9 @@ export async function publicarNaLoja(db, env, sku, { por = 'operador', loja: loj
   if (!p.produto_id_loja) return ERRO(409, 'Esta peça ainda não está cadastrada na Nuvemshop.', { faltam: ['cadastro'] });
 
   /* As pendências daqui (estoque da variação, variação só no Marquesa,
-     erro de envio) também seguram a publicação. */
-  const base = await lerBase(db);
+     erro de envio) também seguram a publicação. Lidas AGORA e só deste
+     código (§63): no lote, cada item é revalidado na hora dele. */
+  const base = await lerBase(db, { skus: [p.sku] });
   const item = classificarCatalogo(base).itens.find((x) => x.sku === String(p.sku));
   const pendLocais = (item?.pendencias || []).map((x) => x.chave)
     .filter((c) => ['estoque_variacao', 'variacao', 'estoque', 'preco'].includes(c));
@@ -1020,6 +1042,48 @@ export async function publicarNaLoja(db, env, sku, { por = 'operador', loja: loj
       .bind(`Falhou ao publicar: ${frase(e)}`.slice(0, 500), agoraISO(), p.sku).run();
     return ERRO(502, `Não consegui confirmar a publicação: ${frase(e)}`, { sku: p.sku });
   }
+}
+
+/** §63 — A PRÉVIA do anúncio: o que a loja tem hoje para este código,
+ *  lido na hora (uma chamada, só leitura). Para a conferência antes de
+ *  publicar — nome, preço, estoque, categoria, variação, descrição, SEO,
+ *  tags, atributos, fotos. Não escreve nada, nem aqui nem lá; não passa
+ *  pelas travas de escrita, só pela credencial. */
+export async function lerAnuncio(db, env, sku, { loja: lojaDada = null } = {}) {
+  const k = normSku(sku);
+  const p = await db.prepare(`SELECT sku, desc, produto_id_loja FROM produtos WHERE sku = ? AND status = 'ativo'`).bind(k).first();
+  if (!p) return ERRO(404, `Código ${sku} não está ativo no catálogo.`);
+  if (!p.produto_id_loja) return ERRO(409, 'Esta peça ainda não está cadastrada na Nuvemshop.', { naLoja: false });
+  const loja = lojaDada || new Nuvemshop(env);
+  if (!lojaDada && !loja.configurada()) return ERRO(409, 'A loja não está conectada. Falta o token da Nuvemshop.');
+  let produto;
+  try { produto = await loja.produto(p.produto_id_loja); } catch (e) { return ERRO(502, frase(e)); }
+  const tags = Array.isArray(produto.tags) ? produto.tags.map(texto) : String(texto(produto.tags) || '')
+    .split(',').map((x) => x.trim()).filter(Boolean);
+  return {
+    ok: true,
+    sku: p.sku,
+    produtoId: String(p.produto_id_loja),
+    lidoEm: agoraISO(),
+    visibilidade: visibilidadeDe(produto),
+    nome: texto(produto.name),
+    descricao: texto(produto.description),
+    seoTitulo: texto(produto.seo_title),
+    seoDescricao: texto(produto.seo_description),
+    tags,
+    atributos: (produto.attributes || []).map(texto),
+    categorias: (produto.categories || []).map((c) => texto(c.name) || String(c.id)),
+    imagens: (produto.images || []).map((i) => i.src).filter(Boolean),
+    url: texto(produto.canonical_url) || null,
+    variantes: (produto.variants || []).map((v) => ({
+      id: String(v.id),
+      sku: v.sku || null,
+      valores: (v.values || []).map(texto),
+      preco: Number(v.promotional_price || v.price) > 0 ? Number(v.promotional_price || v.price) : null,
+      estoque: Number.isFinite(estoqueDaVariante(v)) ? estoqueDaVariante(v) : null,
+    })),
+    faltam: faltasNoAnuncio(produto),
+  };
 }
 
 /* ======================================================================== */

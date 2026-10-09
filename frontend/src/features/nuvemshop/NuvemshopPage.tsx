@@ -1,241 +1,107 @@
 import { useMemo } from 'react';
 import type { Connection } from '../../services/client';
-import { buscarEstado } from '../../services/state';
-import { analisar } from '../../services/sync';
-import { useApi, useAcao } from '../../hooks/useApi';
-import { PageHeader } from '../../components/PageHeader';
-import { MetricCard } from '../../components/MetricCard';
-import { LoadingState } from '../../components/LoadingState';
-import { ErrorState } from '../../components/ErrorState';
-import { EstoqueOnlineArea } from './EstoqueOnlineArea';
+import { useApi } from '../../hooks/useApi';
 import { buscarEstoqueOnline } from '../../services/nuvemshopEstoque';
-import { saudeDoEstoqueOnline, comoDiagnostico } from './estoqueOnline';
-import { PendenciasList } from './PendenciasList';
-import { montarPanorama } from './panorama';
-import { analisarRelato } from '../reconciliacao/classificar';
-import { ReconciliationSummary } from '../reconciliacao/ReconciliationSummary';
-import { ReconciliationTable } from '../reconciliacao/ReconciliationTable';
+import type { AppState, Product } from '../../types/api';
+import type { ModuloId } from '../../app/modulos';
+import { buscarFila } from '../publicacao/api';
 import { FilaArea } from '../publicacao/FilaArea';
+import { SITUACOES, situacaoDaTela, type SituacaoDaTela } from '../publicacao/tipos';
+import { VisaoGeralArea } from './VisaoGeralArea';
 
 interface Props {
   conexao: Connection;
-  /** Deixa a análise disponível para a aba de reconciliação, sem
-   *  rebuscá-la: ler a loja inteira custa caro. */
-  aoAnalisar: (a: ReturnType<typeof analisarRelato>) => void;
-  /** `publicacao` abre a fila. Ela mora no endereço para o link de
-   *  "3 peças esperando aprovação" poder ser mandado para alguém. */
+  /** O estado compartilhado do App: dá a miniatura de cada peça sem
+   *  uma segunda leitura de `/api/state`. */
+  estado?: AppState | null;
+  /** `publicacao` (ou `publicacao:<aba>`) abre a Preparação. Mora no
+   *  endereço para o link poder ser mandado para alguém. */
   sub?: string | null;
   aoNavegarSub?: (sub: string | null) => void;
+  aoIr?: (modulo: ModuloId, sub?: string) => void;
+  /** Publicar muda a visibilidade das peças: o estado do App relê. */
+  aoMudarEstado?: () => void;
 }
 
-/** A tela da Nuvemshop.
+/** LOJA ONLINE — §63 (09/10/2026).
  *
- *  A hierarquia é ESTADO → VISÃO GERAL → PENDÊNCIAS → AÇÃO, e ela existe
- *  para resolver um problema concreto do painel legado: lá tudo chega como
- *  aviso, na mesma severidade, misturando o que o robô conserta sozinho com
- *  o que só uma pessoa resolve.
+ *  Duas abas, duas perguntas, nenhuma repetida:
  *
- *  Nada nesta tela escreve. O único botão que fala com a Nuvemshop é
- *  "Analisar sincronização", e ele usa a rodada SECA que o backend já tem:
- *  lê a loja inteira, calcula o que mudaria, e não toca no estoque de lá. */
-export function NuvemshopPage({ conexao, aoAnalisar, sub, aoNavegarSub }: Props) {
-  const naFila = sub === 'publicacao';
-  const estado = useApi((signal) => buscarEstado(conexao, signal), [conexao]);
-  /* §61 — a saúde do envio de estoque vem da FILA, não mais das rodadas
-     das 06:00/18:00 (que deixaram de existir). */
-  const online = useApi((signal) => buscarEstoqueOnline(conexao, signal), [conexao]);
+ *    Visão geral   a loja está sincronizada? o que exige a minha atenção?
+ *    Preparação    o que falta em cada peça, e o clique de publicar.
+ *
+ *  Antes, a "Situação da loja" juntava dez números de universos diferentes,
+ *  um painel técnico aberto e trezentos "problemas" que eram só peças
+ *  ocultas de propósito (§62). O técnico continua existindo — atrás de
+ *  "Ver detalhes da sincronização" — e a tela operacional ficou com o que
+ *  se decide. */
+export function NuvemshopPage({ conexao, estado, sub, aoNavegarSub, aoIr, aoMudarEstado }: Props) {
+  const naPreparacao = !!sub && sub.startsWith('publicacao');
+  const abaPedida = sub && sub.includes(':') ? sub.split(':')[1] : null;
+  const abaInicial = (SITUACOES.some((s) => s.id === abaPedida) ? abaPedida : null) as SituacaoDaTela | null;
 
-  const analise = useAcao(async () => {
-    const relato = await analisar(conexao);
-    const a = analisarRelato(relato, new Date().toISOString());
-    aoAnalisar(a);
-    return a;
-  });
+  const online = useApi((s) => buscarEstoqueOnline(conexao, s), [conexao]);
+  const fila = useApi((s) => buscarFila(conexao, s), [conexao]);
 
-  const panorama = useMemo(
-    () => (estado.dados ? montarPanorama(estado.dados) : null),
-    [estado.dados],
-  );
+  const produtos = useMemo(() => {
+    const m = new Map<string, Product>();
+    for (const p of estado?.produtos ?? []) m.set(p.sku, p);
+    return m;
+  }, [estado]);
 
-  /* O "agora" entra como valor, não é lido lá dentro: assim o diagnóstico
-     continua sendo função pura e testável sem congelar relógio. Recalcula
-     quando o estado chega — que é quando a resposta pode mudar. */
-  const diagnostico = useMemo(
-    () => (online.dados ? comoDiagnostico(saudeDoEstoqueOnline(online.dados, new Date())) : null),
-    [online.dados],
-  );
+  const prontos = (fila.dados?.itens ?? []).filter((i) => situacaoDaTela(i) === 'pronto').length;
 
-  if ((estado.carregando && !estado.dados) || (online.carregando && !online.dados)) {
-    return (
-      <>
-        <PageHeader kicker="Nuvemshop" titulo="Loja online" />
-        <LoadingState>Lendo o estado do sistema…</LoadingState>
-      </>
-    );
+  function irPara(aba: SituacaoDaTela | null) {
+    aoNavegarSub?.(aba ? `publicacao:${aba}` : 'publicacao');
   }
 
-  if (estado.erro || online.erro) {
-    return (
-      <>
-        <PageHeader kicker="Nuvemshop" titulo="Loja online" />
-        <ErrorState
-          erro={estado.erro || online.erro}
-          aoTentarDeNovo={() => { estado.recarregar(); online.recarregar(); }}
-        />
-      </>
-    );
-  }
-
-  if (!estado.dados || !panorama || !diagnostico) return null;
-
-  const { sync } = estado.dados;
-
-  /* As duas perguntas da Nuvemshop são diferentes, e por isso são duas abas:
-     "o que está acontecendo entre nós e a loja" (panorama, divergências,
-     pendências) e "o que está esperando para entrar na loja" (a fila). */
-  const abas = aoNavegarSub ? (
-    <nav className="mq-tabs" aria-label="Loja online">
-      <button type="button" aria-selected={!naFila} onClick={() => aoNavegarSub(null)}>
-        Situação da loja
-      </button>
-      <button type="button" aria-selected={naFila} onClick={() => aoNavegarSub('publicacao')}>
-        Preparação para Nuvemshop
-      </button>
-    </nav>
-  ) : null;
-
-  if (naFila) {
-    return (
-      <>
-        {abas}
-        <FilaArea conexao={conexao} />
-      </>
-    );
+  function mudou() {
+    online.recarregar();
+    fila.recarregar();
+    aoMudarEstado?.();
   }
 
   return (
     <>
-      {abas}
-      <PageHeader
-        kicker="Nuvemshop"
-        titulo="Loja online"
-        sub="O que a loja mostra hoje e o que está diferente do estoque daqui."
-        acoes={
-          <button
-            type="button"
-            className="btn btn-analise"
-            onClick={() => void analise.disparar()}
-            disabled={analise.rodando || !sync.conectada}
-            title={
-              sync.conectada
-                ? 'Lê a loja inteira e calcula o que mudaria. Não escreve nada.'
-                : 'Conecte a loja antes'
-            }
-          >
-            {analise.rodando ? 'Analisando…' : 'Analisar sincronização'}
-          </button>
-        }
-      />
+      <div className="mq-pagehead">
+        <div className="mq-pagehead__text">
+          <p className="mq-eyebrow">Nuvemshop</p>
+          <h1 className="mq-display">Loja online</h1>
+          <p className="mq-lede">Produtos, publicação e sincronização com a Nuvemshop.</p>
+        </div>
+      </div>
 
-      {/* ------------------------------------------- ESTADO (estoque online) */}
-      {online.dados && (
-        <EstoqueOnlineArea
-          conexao={conexao}
-          resumo={online.dados}
-          aoMudar={() => { online.recarregar(); estado.recarregar(); }}
-        />
+      {aoNavegarSub && (
+        <nav className="mq-tabs" aria-label="Loja online">
+          <button type="button" aria-selected={!naPreparacao} onClick={() => aoNavegarSub(null)}>
+            Visão geral
+          </button>
+          <button type="button" aria-selected={naPreparacao} onClick={() => irPara(null)}>
+            Preparação
+            {prontos > 0 && <span className="mq-badge mq-badge--brand" title="Prontos para publicar">{prontos}</span>}
+          </button>
+        </nav>
       )}
 
-      {/* --------------------------------------------- VISÃO GERAL */}
-      <section className="secao">
-        <h2 className="secao-titulo">Visão geral</h2>
-        <div className="grade">
-          <MetricCard
-            rotulo="Produtos publicados"
-            valor={panorama.produtos}
-            nota={
-              panorama.soNaLoja
-                ? `${panorama.naLoja.length} códigos meus · ${panorama.soNaLoja} que não conheço`
-                : `${panorama.naLoja.length} códigos meus`
-            }
-          />
-          <MetricCard
-            rotulo="Estoque divergente"
-            valor={panorama.desatualizados.length}
-            /* O mesmo número muda de gravidade conforme exista ou não uma
-               próxima rodada para acertá-lo. Anunciar "a próxima rodada
-               acerta" com a sincronização parada seria a tela mentindo. */
-            tom={
-              !panorama.desatualizados.length
-                ? 'positivo'
-                : !diagnostico.autoCorrige
-                  ? 'critico'
-                  : 'atencao'
-            }
-            nota={
-              !panorama.desatualizados.length
-                ? 'A loja está em dia'
-                : diagnostico.autoCorrige
-                  ? 'A sincronização automática acerta sozinha'
-                  : 'Ninguém vai acertar: veja as pendências'
-            }
-          />
-          <MetricCard
-            rotulo="Aguardando cadastro"
-            valor={panorama.faltaSubir.length}
-            tom={panorama.faltaSubir.length ? 'atencao' : 'neutro'}
-            nota="Tem peça em casa, não existe na loja"
-          />
-          <MetricCard
-            rotulo="Peças à venda"
-            valor={panorama.pecasPublicadas}
-            nota={`em ${panorama.naLoja.length} códigos`}
-          />
-        </div>
-      </section>
-
-      {/* ----------------------------------------------- PENDÊNCIAS */}
-      <section className="secao">
-        <h2 className="secao-titulo">Diferenças com o estoque</h2>
-        <PendenciasList panorama={panorama} diagnostico={diagnostico} />
-      </section>
-
-      {/* ------------------------------------------- ANÁLISE (leitura) */}
-      <section className="secao">
-        <h2 className="secao-titulo">Conferir a loja agora</h2>
-
-        {/* `erro` é `unknown`: sem o `!!`, o TypeScript não aceita o
-            resultado como algo que o React saiba desenhar. */}
-        {!!analise.erro && (
-          <ErrorState erro={analise.erro} aoTentarDeNovo={() => void analise.disparar()} />
-        )}
-
-        {analise.rodando && (
-          <LoadingState>
-            Lendo a loja inteira. Demora — são 2 requisições por segundo, e nada
-            está sendo escrito lá.
-          </LoadingState>
-        )}
-
-        {!analise.rodando && !analise.erro && !analise.dados && (
-          <div className="aviso" data-tom="neutro">
-            <b>Nenhuma conferência feita agora.</b>
-            <div className="corpo">
-              &quot;Analisar sincronização&quot; lê a loja inteira e mostra o que
-              está diferente do estoque daqui —{' '}
-              <strong>sem mudar nada na Nuvemshop</strong>. Para corrigir as
-              diferenças, use &quot;Conferir e reconciliar com a Nuvemshop&quot;, no alto.
-            </div>
-          </div>
-        )}
-
-        {analise.dados && (
-          <>
-            <ReconciliationSummary analise={analise.dados} />
-            <ReconciliationTable itens={analise.dados.itens} />
-          </>
-        )}
-      </section>
+      {naPreparacao ? (
+        <FilaArea
+          key={abaInicial ?? 'preparacao'}
+          conexao={conexao}
+          fila={fila}
+          produtos={produtos}
+          abaInicial={abaInicial}
+          aoMudar={mudou}
+        />
+      ) : (
+        <VisaoGeralArea
+          conexao={conexao}
+          online={online}
+          fila={fila}
+          aoIrPreparacao={irPara}
+          aoIrPendencias={() => aoIr?.('home', 'pendencias')}
+          aoMudar={mudou}
+        />
+      )}
     </>
   );
 }

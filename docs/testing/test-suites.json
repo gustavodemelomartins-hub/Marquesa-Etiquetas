@@ -326,6 +326,28 @@
       "duration": "<15s"
     },
     {
+      "id": "loja-online",
+      "level": "domain",
+      "mode": "local",
+      "description": "Loja online (§63): venda antiga sem variação é histórico, estoque sem divisão continua pendência, oculto intencional não é alerta, publicar um/lote revalidado, prévia só lê, conferir × reconciliar",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/loja-online-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<15s"
+    },
+    {
       "id": "inventario-d1-leitura",
       "level": "domain",
       "mode": "local",

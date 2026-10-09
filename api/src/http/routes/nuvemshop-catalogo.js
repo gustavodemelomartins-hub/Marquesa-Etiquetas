@@ -9,7 +9,7 @@
 import { json } from '../../auth.js';
 import {
   lerBase, classificarCatalogo, criarOcultos, criarVariantesFaltantes,
-  enviarFotosPendentes, publicarNaLoja, ligarCatalogo, catalogoAtivo,
+  enviarFotosPendentes, publicarNaLoja, ligarCatalogo, catalogoAtivo, lerAnuncio,
 } from '../../catalogo/nuvemshop-catalogo.js';
 
 const secoDoCorpo = (b) => b?.seco !== false;
@@ -48,6 +48,15 @@ export const rotas = [
     async handler({ db, env, request }) {
       const b = await request.json().catch(() => ({}));
       const r = await enviarFotosPendentes(db, env, { seco: secoDoCorpo(b), limite: b.limite });
+      return json(r, codigo(r));
+    },
+  },
+  {
+    /* §63 — a prévia do anúncio para conferir antes de publicar: o que a
+       loja tem AGORA para este código. Uma leitura, nenhuma escrita. */
+    metodo: 'GET', caminho: '/api/nuvemshop/catalogo/:sku/anuncio', auth: 'bearer',
+    async handler({ db, env, params }) {
+      const r = await lerAnuncio(db, env, decodeURIComponent(params.sku));
       return json(r, codigo(r));
     },
   },

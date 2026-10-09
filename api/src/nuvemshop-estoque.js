@@ -1082,16 +1082,25 @@ export async function resumoEstoqueOnline(db, env) {
   const ultima = await db.prepare('SELECT MAX(sincronizado_em) AS em FROM nuvemshop_fila').first();
   const problemas = ((await db.prepare(
     `SELECT f.sku, f.status, f.motivo, f.ultimo_erro, f.tentativas, f.proxima_em, f.ultima_tentativa_em,
-            f.pedido_em, p.desc
+            f.pedido_em, f.resultado_json, p.desc
        FROM nuvemshop_fila f LEFT JOIN produtos p ON p.sku = f.sku
       WHERE f.status IN ('erro','revisao','pendente')
       ORDER BY CASE f.status WHEN 'erro' THEN 0 WHEN 'revisao' THEN 1 ELSE 2 END, f.pedido_em
-      LIMIT 200`).all()).results || []).map((r) => ({
-    sku: r.sku, desc: r.desc || null, status: r.status, acao: r.motivo || null,
-    erro: r.ultimo_erro || null, tentativas: Number(r.tentativas || 0),
-    proximaEm: r.proxima_em || null, ultimaTentativaEm: r.ultima_tentativa_em || null,
-    pedidoEm: r.pedido_em,
-  }));
+      LIMIT 200`).all()).results || []).map((r) => {
+    /* §63 — POR QUE está em revisão (`maleta`, `sem_reparticao`,
+       `variacao_nao_mapeada`…): a Loja online transforma isso em UMA ação
+       por motivo, em vez de uma frase técnica por código. */
+    let res = null;
+    try { res = r.resultado_json ? JSON.parse(r.resultado_json) : null; } catch { res = null; }
+    return {
+      sku: r.sku, desc: r.desc || null, status: r.status, acao: r.motivo || null,
+      erro: r.ultimo_erro || null, tentativas: Number(r.tentativas || 0),
+      proximaEm: r.proxima_em || null, ultimaTentativaEm: r.ultima_tentativa_em || null,
+      pedidoEm: r.pedido_em,
+      motivoRevisao: r.status === 'revisao' ? (res?.motivo || null) : null,
+      casa: res && res.casa != null ? Number(res.casa) : null,
+    };
+  });
   const conferencia = await config(db, 'nuvemshopConferencia', null);
   let divergentes = [];
   let excecoes = [];

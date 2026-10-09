@@ -507,7 +507,7 @@ export const PARIDADE: ModuloDeParidade[] = [
       {
         id: 'catalogo.publicacao', rotulo: 'Preparar → revisar → aprovar', estado: 'pronta',
         rota: '#/nuvemshop/publicacao',
-        prova: { arquivo: `${F}/features/publicacao/FilaArea.tsx`, contem: 'Fila de publicação' },
+        prova: { arquivo: `${F}/features/publicacao/FilaArea.tsx`, contem: 'PREPARAÇÃO PARA NUVEMSHOP' },
       },
       {
         id: 'catalogo.lote', rotulo: 'Operações em lote', estado: 'pendente',
@@ -650,21 +650,21 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/nuvemshop/NuvemshopPage.tsx`, contem: 'Visão geral' },
       },
       {
-        id: 'nuvemshop.pendencias', rotulo: 'Pendências', estado: 'pronta',
-        prova: { arquivo: `${F}/features/nuvemshop/PendenciasList.tsx`, contem: 'export function PendenciasList' },
+        id: 'nuvemshop.pendencias', rotulo: 'Precisam da sua atenção (só o que uma pessoa resolve)', estado: 'pronta',
+        prova: { arquivo: `${F}/features/nuvemshop/VisaoGeralArea.tsx`, contem: 'Precisam da sua atenção' },
       },
       {
-        id: 'nuvemshop.sincronizacao', rotulo: 'Análise da sincronização e divergências', estado: 'pronta',
-        prova: { arquivo: `${F}/features/nuvemshop/NuvemshopPage.tsx`, contem: 'Analisar sincronização' },
+        id: 'nuvemshop.sincronizacao', rotulo: 'Conferir (só lê) e corrigir o que é seguro (escreve)', estado: 'pronta',
+        prova: { arquivo: `${F}/features/nuvemshop/VisaoGeralArea.tsx`, contem: 'Corrigir automaticamente o que é seguro' },
       },
       {
         id: 'nuvemshop.saude', rotulo: 'Saúde da conexão e das falhas', estado: 'pronta',
         prova: { arquivo: `${F}/features/nuvemshop/saude.ts`, contem: 'export' },
       },
       {
-        id: 'nuvemshop.fila', rotulo: 'Fila de publicação: preparar → revisar → aprovar → publicado',
+        id: 'nuvemshop.fila', rotulo: 'Preparação para Nuvemshop: não cadastrado → oculto → pronto → publicado',
         estado: 'pronta', rota: '#/nuvemshop/publicacao',
-        prova: { arquivo: `${F}/features/publicacao/FilaArea.tsx`, contem: 'Fila de publicação' },
+        prova: { arquivo: `${F}/features/publicacao/FilaArea.tsx`, contem: 'PREPARAÇÃO PARA NUVEMSHOP' },
       },
       {
         id: 'nuvemshop.funil', rotulo: 'O funil é o filtro: cada degrau é uma fila de trabalho',
@@ -674,11 +674,11 @@ export const PARIDADE: ModuloDeParidade[] = [
       {
         id: 'nuvemshop.falta-vs-bloqueio', rotulo: 'O que falta na peça ≠ o que o servidor não faz',
         estado: 'pronta',
-        prova: { arquivo: `${F}/features/publicacao/FilaArea.tsx`, contem: 'Ainda não disponível:' },
+        prova: { arquivo: `${F}/features/publicacao/DetalheDaPeca.tsx`, contem: 'Ainda não disponível:' },
       },
       {
         id: 'nuvemshop.previa', rotulo: 'Revisar e salvar a prévia do site', estado: 'pronta',
-        prova: { arquivo: `${F}/features/publicacao/FilaArea.tsx`, contem: 'O texto do site' },
+        prova: { arquivo: `${F}/features/publicacao/DetalheDaPeca.tsx`, contem: 'O texto do site' },
       },
       {
         id: 'nuvemshop.aprovar', rotulo: 'Aprovar, reabrir e repetir', estado: 'pronta',
@@ -687,6 +687,10 @@ export const PARIDADE: ModuloDeParidade[] = [
       {
         id: 'nuvemshop.publicar', rotulo: 'Publicar na loja real (oculto → visível, §62)', estado: 'pronta',
         prova: { arquivo: `${F}/features/publicacao/api.ts`, contem: 'publicarNaNuvemshop' },
+      },
+      {
+        id: 'nuvemshop.publicar-lote', rotulo: 'Publicar selecionados ou todos os prontos, cada um revalidado (§63)', estado: 'pronta',
+        prova: { arquivo: `${F}/features/publicacao/lote.ts`, contem: 'export async function publicarEmLote' },
       },
     ],
   },
