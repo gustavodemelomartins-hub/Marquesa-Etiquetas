@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { publicarEmLote } from './lote';
 import { ApiError } from '../../types/api';
-import { checklistDaPeca, resumoDoLote, CHECKLIST, type ItemDaFila } from './tipos';
+import { checklistDaPeca, disponibilidadeDaPeca, resumoDoLote, CHECKLIST, type ItemDaFila } from './tipos';
 
 /** Uma loja de mentira: quem está oculto e pronto vira visível; quem
  *  "mudou" recebe o 409 que `publicarNaLoja` devolve; quem quebra, 502. */
@@ -88,16 +88,23 @@ const peca = (over: Partial<ItemDaFila> & { chaves?: string[]; naLoja?: boolean 
 };
 
 describe('§63 — o checklist é o do servidor', () => {
-  it('oito itens, na ordem pedida', () => {
+  it('§64 — sete itens de CADASTRO, na ordem pedida; estoque fica à parte', () => {
     expect(CHECKLIST.map((c) => c.rotulo)).toEqual(
-      ['Cadastro', 'Descrição', 'SEO', 'Categoria', 'Preço', 'Estoque', 'Variações', 'Foto']);
+      ['Cadastro', 'Descrição', 'SEO', 'Categoria', 'Preço', 'Variações', 'Foto']);
+  });
+
+  it('§64 — disponibilidade: estoque zero é estado (neutro), divisão por variação é aviso', () => {
+    expect(disponibilidadeDaPeca(peca({ casa: 0 }))).toMatchObject({ marca: 'neutro', frase: expect.stringMatching(/fora da fila até entrar estoque/) });
+    expect(disponibilidadeDaPeca(peca({ chaves: ['estoque_variacao'] })).marca).toBe('aviso');
+    expect(disponibilidadeDaPeca(peca({ chaves: ['estoque'] })).marca).toBe('neutro');
+    expect(disponibilidadeDaPeca(peca({ casa: 2 })).marca).toBe('ok');
+    expect(checklistDaPeca(peca({ casa: 0 })).every((c) => c.marca === 'ok')).toBe(true);
   });
 
   it('cada chave de pendência do servidor marca a linha certa', () => {
     const casos: [string, string][] = [
       ['foto', 'Foto'], ['descricao', 'Descrição'], ['seo', 'SEO'], ['categoria', 'Categoria'],
-      ['preco', 'Preço'], ['estoque_variacao', 'Estoque'], ['sem_estoque', 'Estoque'], ['estoque', 'Estoque'],
-      ['variacao', 'Variações'], ['sku_duplicado', 'Cadastro'],
+      ['preco', 'Preço'], ['variacao', 'Variações'], ['sku_duplicado', 'Cadastro'],
     ];
     for (const [chave, rotulo] of casos) {
       const lista = checklistDaPeca(peca({ chaves: [chave] }));

@@ -672,9 +672,9 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/publicacao/tipos.ts`, contem: 'degrauDoEstado' },
       },
       {
-        id: 'nuvemshop.falta-vs-bloqueio', rotulo: 'O que falta na peça ≠ o que o servidor não faz',
+        id: 'nuvemshop.falta-vs-bloqueio', rotulo: 'O que falta na peça ≠ o que o servidor não faz (§64: o bloqueio de infraestrutura sai da tela operacional)',
         estado: 'pronta',
-        prova: { arquivo: `${F}/features/publicacao/DetalheDaPeca.tsx`, contem: 'Ainda não disponível:' },
+        prova: { arquivo: `${F}/features/publicacao/tipos.ts`, contem: '`bloqueios` NÃO é `falta`' },
       },
       {
         id: 'nuvemshop.previa', rotulo: 'Revisar e salvar a prévia do site', estado: 'pronta',

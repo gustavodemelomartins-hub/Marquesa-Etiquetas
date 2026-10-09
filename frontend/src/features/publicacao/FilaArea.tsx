@@ -10,7 +10,7 @@ import type { Connection } from '../../services/client';
 import { publicarNaNuvemshop, salvarPrevia } from './api';
 import { publicarEmLote, type ResultadoDoLote } from './lote';
 import {
-  SITUACOES, FILTROS, porSituacao, checklistDaPeca, situacaoDaTela, resumoDoLote,
+  SITUACOES, FILTROS, porSituacao, checklistDaPeca, disponibilidadeDaPeca, situacaoDaTela, resumoDoLote,
   type SituacaoDaTela, type ItemDaFila, type FilaDePublicacao,
 } from './tipos';
 import { DetalheDaPeca } from './DetalheDaPeca';
@@ -228,6 +228,8 @@ export function FilaArea({ conexao, fila, produtos, abaInicial, aoMudar }: Props
                 <h3>Nada em &quot;{SITUACOES.find((g) => g.id === situacao)?.rotulo}&quot;</h3>
                 <p>
                   {situacao === 'erro' ? 'Nenhum erro de integração.'
+                    : situacao === 'sem_estoque' && filtro === 'todos' && !categoria && !busca
+                      ? 'Toda peça oculta tem estoque em casa.'
                     : filtro !== 'todos' || categoria || busca ? 'Nenhuma peça com esse filtro nesta aba.'
                       : 'Nenhuma peça nesta situação agora.'}
                 </p>
@@ -280,35 +282,44 @@ export function FilaArea({ conexao, fila, produtos, abaInicial, aoMudar }: Props
 
 /* ══════════════════════════════════════════════════════ a linha */
 
-const MARCA = { ok: '✓', falta: '✕', aviso: '!' } as const;
+const MARCA = { ok: '✓', falta: '✕', aviso: '!', auto: '↻' } as const;
 
 function rotuloNaLoja(i: ItemDaFila): { texto: string; tom: string } {
   const s = situacaoDaTela(i);
   if (s === 'erro') return { texto: 'Com erro', tom: 'mq-status--risk' };
   if (s === 'nao_cadastrado') {
+    if (i.nuvemshop?.naoSeAplica) return { texto: 'Kit — não vira anúncio', tom: 'mq-status--open' };
     return i.nuvemshop && !i.nuvemshop.criavel
       ? { texto: 'Precisa de decisão', tom: 'mq-status--warn' }
-      : { texto: 'Não cadastrado', tom: 'mq-status--open' };
+      : { texto: 'Será cadastrado oculto', tom: 'mq-status--open' };
   }
+  if (s === 'sem_estoque') return { texto: 'Sem peça em casa', tom: 'mq-status--open' };
   if (s === 'publicado') return { texto: 'Visível na loja', tom: 'mq-status--ok' };
   if (s === 'pronto') return { texto: 'Pronto', tom: 'mq-status--brand' };
   if (i.nuvemshop?.foraDoArInesperado) return { texto: 'Saiu do ar', tom: 'mq-status--risk' };
   return { texto: 'Oculto', tom: 'mq-status--open' };
 }
 
+/** §64 — cadastro (7 itens) e, à parte, a disponibilidade. "↻" é o que o
+ *  sistema resolve sozinho e não conta como pendente. */
 export function MiniChecklist({ item }: { item: ItemDaFila }) {
   const lista = checklistDaPeca(item);
-  const faltam = lista.filter((c) => c.marca !== 'ok').length;
+  const faltam = lista.filter((c) => c.marca === 'falta' || c.marca === 'aviso').length;
+  const disp = disponibilidadeDaPeca(item);
   return (
     <ul className="mq-minicheck" aria-label="O que a peça já tem">
       {lista.map((c) => (
         <li key={c.rotulo} className={`is-${c.marca}`} title={c.detalhe}>
           <span aria-hidden="true">{MARCA[c.marca]}</span> {c.rotulo}
-          <span className="mq-sr">{c.marca === 'ok' ? ': ok' : `: ${c.detalhe ?? 'falta'}`}</span>
+          <span className="mq-sr">{c.marca === 'ok' ? ': ok' : c.marca === 'auto' ? `: o sistema resolve — ${c.detalhe ?? ''}` : `: ${c.detalhe ?? 'falta'}`}</span>
         </li>
       ))}
       <li className={`mq-minicheck__resumo ${faltam ? 'is-falta' : 'is-ok'}`} aria-hidden="true">
-        {faltam ? `${faltam} de 8 pendentes` : '✓ Tudo completo'}
+        {faltam ? `${faltam} de ${lista.length} pendentes` : '✓ Cadastro completo'}
+      </li>
+      <li className={`mq-minicheck__disp is-${disp.marca}`} title={disp.frase}>
+        {disp.casa} em casa
+        <span className="mq-sr">: {disp.frase}</span>
       </li>
     </ul>
   );

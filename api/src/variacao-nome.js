@@ -118,6 +118,23 @@ export function equivalenciasLojaLocal(loja = [], locais = []) {
       if (chavesDe[i].has(chaveDaVariacao(l.nome))) pares.push([String(v.variante_id), String(l.variante_id)]);
     }
   });
+  /* §64 — o par por UNICIDADE. O anúncio tem uma variante só ("Verde
+     Esmeralda") e o cadastro daqui uma variação só ("Verde"): as duas são a
+     mesma peça — não existe outra para ela ser. Vale só quando um valor está
+     contido no outro palavra por palavra e os NÚMEROS são os mesmos: "nº19"
+     nunca é "n°21", e "Verde" não é "Azul". */
+  if (!pares.length && loja.length === 1 && locais.length === 1) {
+    const palavras = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+      .split(/[^a-z0-9]+/).filter(Boolean);
+    const numeros = (ws) => ws.filter((w) => /\d/.test(w)).map((w) => w.replace(/\D/g, '').replace(/^0+(?=\d)/, '')).sort().join(',');
+    const daqui = palavras(locais[0].nome);
+    const contido = (a, b) => a.length > 0 && a.every((w) => b.includes(w));
+    const casa = String(loja[0].nome ?? '').split('·').some((parte) => {
+      const la = palavras(parte);
+      return numeros(la) === numeros(daqui) && (contido(daqui, la) || contido(la, daqui));
+    });
+    if (casa) return new Map([[String(loja[0].variante_id), String(locais[0].variante_id)]]);
+  }
   const conta = (lado, id) => pares.filter((p) => p[lado] === id).length;
   return new Map(pares.filter(([a, b]) => conta(0, a) === 1 && conta(1, b) === 1));
 }

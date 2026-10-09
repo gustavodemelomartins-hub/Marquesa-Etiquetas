@@ -202,7 +202,7 @@ Referência visual: `/prototype/nuvemshop/` · 🟢 11 · 🟡 0 · ⚪ 0 · ⛔
 | Saúde da conexão e das falhas | 🟢 pronta | `features/nuvemshop/saude.ts` | — |
 | Preparação para Nuvemshop: não cadastrado → oculto → pronto → publicado | 🟢 pronta | `#/nuvemshop/publicacao` | — |
 | O funil é o filtro: cada degrau é uma fila de trabalho | 🟢 pronta | `features/publicacao/tipos.ts` | — |
-| O que falta na peça ≠ o que o servidor não faz | 🟢 pronta | `features/publicacao/DetalheDaPeca.tsx` | — |
+| O que falta na peça ≠ o que o servidor não faz (§64: o bloqueio de infraestrutura sai da tela operacional) | 🟢 pronta | `features/publicacao/tipos.ts` | — |
 | Revisar e salvar a prévia do site | 🟢 pronta | `features/publicacao/DetalheDaPeca.tsx` | — |
 | Aprovar, reabrir e repetir | 🟢 pronta | `features/publicacao/api.ts` | — |
 | Publicar na loja real (oculto → visível, §62) | 🟢 pronta | `features/publicacao/api.ts` | — |

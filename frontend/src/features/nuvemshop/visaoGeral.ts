@@ -28,7 +28,7 @@ import { saudeDoEstoqueOnline } from './estoqueOnline';
 /** O que cada número conta. É o texto do "?" ao lado dele. */
 export const UNIVERSOS = {
   publicados: 'Códigos do Marquesa com anúncio VISÍVEL na Nuvemshop.',
-  ocultos: 'Códigos cadastrados na Nuvemshop como ocultos (não aparecem nem vendem) e que ainda têm algo a completar.',
+  ocultos: 'Códigos cadastrados na Nuvemshop como ocultos (não aparecem nem vendem), com peça em casa, que ainda têm algo a completar. Oculto sem peça em casa fica fora da fila até entrar estoque.',
   prontos: 'Ocultos com tudo completo — foto, texto, preço, categoria e estoque em dia. Só falta o clique em Publicar.',
   atencao: 'Códigos com algo que só uma pessoa resolve. O que a sincronização acerta sozinha não entra.',
   sincronizados: 'Códigos cujo estoque na loja confere com o estoque em casa — visíveis e ocultos.',
@@ -180,7 +180,7 @@ export function montarVisaoGeral(
       tom: 'atencao',
       oQueAconteceu: `${codigos(maleta.length)} ${plural(maleta.length, 'tem', 'têm')} peças com revendedoras, e a maleta não diz qual variação foi.`,
       porQue: 'Sem isso, o sistema não sabe qual variação ficou em casa; o estoque online desses códigos fica parado para não pôr à venda a variação errada.',
-      oQueFazer: 'Diga qual variação cada revendedora levou.',
+      oQueFazer: 'Diga qual variação cada revendedora levou. Se o inventário já contou as peças em casa e nada mudou desde então, o sistema usa essa contagem e reparte o resto sozinho.',
       acao: { rotulo: 'Resolver em Pendências', destino: { tipo: 'pendencias' } },
       codigos: unicos(maleta.map(doProblema)),
     });
@@ -243,7 +243,7 @@ export function montarVisaoGeral(
     const naSituacao = (s: SituacaoDaTela) => itens.filter((i) => situacaoDaTela(i) === s);
 
     /* ── 4. peça com estoque que não foi cadastrada: precisa de decisão */
-    const decidir = naSituacao('nao_cadastrado').filter((i) => i.nuvemshop && !i.nuvemshop.criavel);
+    const decidir = naSituacao('nao_cadastrado').filter((i) => i.nuvemshop && !i.nuvemshop.criavel && !i.nuvemshop.naoSeAplica);
     if (decidir.length) {
       atencao.push({
         chave: 'decidir_cadastro',

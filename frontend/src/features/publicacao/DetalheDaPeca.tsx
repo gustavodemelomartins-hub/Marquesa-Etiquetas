@@ -7,7 +7,7 @@ import { money } from '../../domain/formato';
 import type { Product } from '../../types/api';
 import type { Connection } from '../../services/client';
 import { lerAnuncio } from './api';
-import { checklistDaPeca, situacaoDaTela, ROTULO_DA_PENDENCIA, type ItemDaFila } from './tipos';
+import { checklistDaPeca, disponibilidadeDaPeca, situacaoDaTela, ROTULO_DA_PENDENCIA, type ItemDaFila } from './tipos';
 import { fotoDaPreparacao } from './miniatura';
 
 interface Props {
@@ -20,8 +20,8 @@ interface Props {
   aoSalvarTexto: (r: { nomeSite: string; descricaoSite: string }) => void;
 }
 
-const MARCA = { ok: '✓', falta: '✕', aviso: '!' } as const;
-const TOM_DA_MARCA = { ok: 'mq-money--ok', falta: 'mq-money--risk', aviso: 'mq-money--warn' } as const;
+const MARCA = { ok: '✓', falta: '✕', aviso: '!', auto: '↻' } as const;
+const TOM_DA_MARCA = { ok: 'mq-money--ok', falta: 'mq-money--risk', aviso: 'mq-money--warn', auto: 'mq-money--info' } as const;
 
 /** Texto do anúncio sem HTML. A prévia MOSTRA o que a loja tem; não
  *  injeta o HTML de lá nesta página. */
@@ -55,7 +55,8 @@ export function DetalheDaPeca({ conexao, item, produto, publicacaoLigada, aoFech
   const a = anuncio.dados;
   const lista = checklistDaPeca(item);
   const texto = ns?.texto;
-  const bloqueios = s === 'nao_cadastrado' && ns && !ns.criavel ? ns.bloqueios : [];
+  const disp = disponibilidadeDaPeca(item);
+  const bloqueios = s === 'nao_cadastrado' && ns && !ns.criavel && !ns.naoSeAplica ? ns.bloqueios : [];
 
   return (
     <>
@@ -83,7 +84,7 @@ export function DetalheDaPeca({ conexao, item, produto, publicacaoLigada, aoFech
           </div>
 
           <section className="mq-stack mq-stack--tight">
-            <h3 className="mq-subtitle">Checklist</h3>
+            <h3 className="mq-subtitle">Cadastro</h3>
             <ul className="mq-checklist" aria-label="O que a peça já tem">
               {lista.map((c) => (
                 <li key={c.rotulo}>
@@ -93,6 +94,8 @@ export function DetalheDaPeca({ conexao, item, produto, publicacaoLigada, aoFech
                 </li>
               ))}
             </ul>
+            <h3 className="mq-subtitle">Disponibilidade</h3>
+            <p className={disp.marca === 'aviso' ? 'mq-money--warn' : undefined}>{disp.frase}</p>
           </section>
 
           {bloqueios.length > 0 && (
@@ -113,13 +116,10 @@ export function DetalheDaPeca({ conexao, item, produto, publicacaoLigada, aoFech
               <span>{ns?.ultimoErro || `Estoque não chegou à loja: ${item.erroSincronizacao}`}</span>
             </p>
           )}
-          {item.bloqueios.length > 0 && (
+          {ns?.naoSeAplica && (
             <p className="mq-note mq-note--info">
               <Icone nome="alert" />
-              <span>
-                <b>Ainda não disponível:</b> {item.bloqueios.map((b) => String(b.motivo ?? b)).join(' · ')}.
-                {' '}Isto não é da peça — é o que este servidor ainda não consegue fazer.
-              </span>
+              <span>Kit e Monte seu Colar não viram anúncio próprio: o disponível deles é calculado das peças. Nada a fazer aqui.</span>
             </p>
           )}
 
@@ -130,7 +130,10 @@ export function DetalheDaPeca({ conexao, item, produto, publicacaoLigada, aoFech
                 {ns.variacoes.map((v) => <li key={v.nome}><b>{v.nome}</b> <small>· {v.estoque} em estoque</small></li>)}
               </ul>
               {ns.variacoesSoAqui.length > 0 && (
-                <p className="mq-hint">Só no Marquesa (a loja ainda não tem): {ns.variacoesSoAqui.join(', ')}.</p>
+                <p className="mq-hint">
+                  Só no Marquesa (a loja ainda não tem): {ns.variacoesSoAqui.join(', ')}.
+                  {ns.variacoesAutomaticas ? ' O sistema cria na loja automaticamente.' : ''}
+                </p>
               )}
             </section>
           )}

@@ -348,6 +348,28 @@
       "duration": "<15s"
     },
     {
+      "id": "loja-online-automacao",
+      "level": "domain",
+      "mode": "local",
+      "description": "Loja online (§64): atributo que contradiz o valor, variação que falta na loja criada com 0, equivalências (nº19 ≠ n°21), categoria canônica, estoque zero fora da fila, repartição só com prova do inventário, kit e 'mesmo modelo' por família",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/loja-online-automacao-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<15s"
+    },
+    {
       "id": "inventario-d1-leitura",
       "level": "domain",
       "mode": "local",

@@ -68,6 +68,9 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §62 | Kill switch do catálogo oculto | `config.nuvemshopCatalogoAtivo` (ausente = desligado) |
 | §63 | Venda concluída sem variação é histórico, não pendência | `pendencias.js › listarPendencias` → `historico` |
 | §63 | Publicar em lote = um por vez, cada um revalidado na loja | `frontend/src/features/publicacao/lote.ts` → `publicarNaLoja` |
+| §64 | Categoria e atributo canônicos numa fonte só | `catalogo/taxonomia.js` |
+| §64 | Variação daqui que falta na loja é criada com estoque 0 | `catalogo/nuvemshop-catalogo.js › criarVariantesFaltantes` |
+| §64 | Repartição só com a prova do inventário | `catalogo/reparticao-inventario.js` → `distribuirVariantes` |
 
 ## Duas divergências conscientes
 
@@ -2931,7 +2934,8 @@ acontecido.
 - **O estoque de HOJE sem divisão por variação continua pendência**
   ("Conferir estoque por variação"), porque decide o que vai para a loja. O
   texto fala da contagem a fazer, nunca da venda que deixou o saldo incerto.
-  Regra 2 intacta: nada é repartido sozinho.
+  Regra 2 intacta: nada é repartido por palpite (§64: a divisão que a
+  contagem do inventário PROVOU é gravada pelo sistema).
 - **Venda com `nuvemshop_status = 'revisao'` sai da Central.** Desde §61 a
   loja recebe o saldo do código pela fila; a venda em revisão só espelha "o
   código está em revisão" e `regularizarVendasStmt` a fecha sozinha. A
@@ -2967,3 +2971,95 @@ Prova: `src/loja-online-test.mjs` (backend, loja falsa),
 `frontend/src/features/nuvemshop/visaoGeral.test.ts`, `LojaOnline.test.tsx`,
 `frontend/src/features/publicacao/lote.test.ts`, `src/v2-loja-online-qa.mjs`
 (1366 e 390 px).
+
+### 64. O que os dados provam, o sistema resolve; pendência é só decisão de gente — §58, §61, §62, §63, regras 2, 3 e 9
+
+Origem: pedido de Gustavo, **09/10/2026** (tarde). "Uma pendência só deve
+aparecer quando existir uma decisão humana real, necessária e impossível de
+determinar com segurança pelos dados existentes."
+
+- **Estoque zero é ESTADO.** Oculto sem peça em casa ganha a situação
+  `sem_estoque`: fica cadastrado, fora de "ocultos em preparação", de
+  "prontos", de "precisam de atenção" e da fila de trabalho, numa aba própria
+  ("Sem peça em casa"). Entrou peça, volta sozinho. A chave de pendência
+  `sem_estoque` deixou de existir. Publicado com estoque zero é "esgotado",
+  como sempre — a fila manda 0.
+- **Categoria óbvia é aplicada** (`taxonomia.js › categoriaCanonica`).
+  A categoria daqui manda; "Outros"/"Sem categoria" caem na primeira palavra
+  do nome. A árvore da loja (09/10) não tem "Argola" nem "Pingente": Argola →
+  Brinco; Pingente Menino/Menina → Raizes (onde estão todos os publicados);
+  Conjunto de prata 925 → Prata 925 › Conjuntos. Pingente avulso, conjunto
+  banhado a ouro e "Outros" sem pista no nome continuam pergunta. A loja só
+  recebe categoria em anúncio que está SEM nenhuma (`preencherCategorias`,
+  releitura antes e depois); nada que já tenha categoria é trocado.
+- **Taxonomia de atributos da loja** (auditada em 09/10): "Cor" carrega o
+  banho em ~640 variantes (convenção da loja, base dos filtros), "Tamanho"
+  carrega aro e comprimento, "Cores" a pedra quando "Cor" já é o banho. Não
+  se cria um terceiro atributo "Acabamento". ERRO é o valor contradizer o
+  atributo: "Tamanho = Azul" vira "Cor", "Cor = nº19" vira "Tamanho" — só
+  quando TODOS os valores do atributo contradizem e o nome certo está livre;
+  valor desconhecido não é tocado. Corrige-se na entrada (`definirVariacoes`,
+  `adicionarVariacao` não usa mais "Tamanho" como padrão para cor) e no
+  cadastro existente (`normalizarAtributosLocais`, só origem local). O NOME da
+  variação — o que movimentos e maletas guardam — nunca muda.
+  Renomear atributo de anúncio que JÁ existe na loja não é feito: a API não
+  documenta, e 3 anúncios com "Cores = Banho de Ouro 18k" ficam registrados
+  como decisão, não como pendência.
+- **Variação que existe aqui e falta na Nuvemshop é criada**
+  (`criarVariantesFaltantes`), também em anúncio de variante única.
+  Identidade e quantidade são separadas: a variante nasce com estoque **0**
+  (nunca `null`, que lá é infinito) e o saldo vai pela fila quando é
+  conhecido; sem divisão, o código fica em revisão e a única pergunta é
+  "quantas de cada?". A variante é montada na estrutura do anúncio: o valor
+  daqui do mesmo tipo (aro com aro, cor com cor), com a grafia das irmãs
+  ("nº24" → "n°24"); o valor que todas as irmãs têm igual (o banho) é
+  copiado; o que não dá para montar para com o motivo. Preço: o comum das
+  irmãs, senão o daqui; sem nenhum, não cria. Equivalências antes de criar:
+  nº19, n°19, Nº 19, 19 e Aro 19 são o mesmo; **nº19 nunca é n°21**. As
+  variações daqui equivalentes às da loja são LIGADAS no mesmo ato (sem isso o
+  anúncio de variante única viraria multivariante e o saldo da equivalente
+  perderia o endereço). Releitura antes (pode ter sido criada à mão) e depois
+  (cada valor UMA vez, todas com o SKU do código; senão, erro anunciado).
+- **Par por unicidade** (`equivalenciasLojaLocal`): uma variante só na loja e
+  uma variação só aqui são a mesma peça quando um valor está contido no outro
+  palavra por palavra e os números são iguais ("Verde" ≡ "Verde Esmeralda";
+  "nº19" ≠ "n°21"; "Verde" ≠ "Azul").
+- **A divisão por variação que o INVENTÁRIO provou é gravada**
+  (`reparticao-inventario.js`). A bipagem do inventário registra a variação de
+  cada peça; quando o código fechou conferido, nenhuma peça foi bipada sem
+  variação, nada se moveu depois do fim do inventário (venda, entrada, maleta)
+  e contado + maleta identificada = total, a repartição é gravada pelo mesmo
+  caminho da tela (`distribuirVariantes`, parcial), com a origem escrita no
+  movimento. Peça em maleta sem variação identificada impede — essa pergunta
+  é real e continua da pessoa; respondida, a rodada seguinte reparte o resto
+  sozinha. Anúncio de variante única que não corresponde a nenhuma variação
+  contada também impede (repartir não pode tirar o código da sincronização).
+  Regra 2 intacta: nada é repartido por palpite; o que se usa é a contagem.
+- **"Mesmo modelo já anunciado" exige a mesma família** (`chaveDoModelo`):
+  "Colar Ponto de Luz Rosa" não é "Brinco Ponto de Luz Rosa". Nome sem
+  família usa a categoria daqui; do lado da loja, sem família casa com
+  qualquer uma (na dúvida, pergunta).
+- **Kit não é pendência** (`naoSeAplica: 'kit'`): não vira anúncio por este
+  caminho e não há o que alguém faça. Some da Central e de "decidir".
+- **A Central só recebe a peça sem anúncio que espera DECISÃO** (mesmo modelo
+  de outro código). A que o sistema cria sozinha vai para a Preparação, onde
+  foto e preço se completam.
+- **Nada de código interno na tela operacional.** `sem_preparador`, `sem_r2`,
+  `linha_de_base`, `variante_criada` ficam no diagnóstico técnico. O checklist
+  da Preparação tem duas partes: CADASTRO (Cadastro, Descrição, SEO,
+  Categoria, Preço, Variações, Foto — ✓, ✕, ! ou ↻ "o sistema está
+  resolvendo") e DISPONIBILIDADE ("Estoque em casa: 0 — fora da fila até
+  entrar estoque", sem ✕).
+- **Tudo isso é regra permanente, não limpeza.** O cron (`*/10`, com a fila
+  ociosa e `config.nuvemshopCatalogoAtivo` ligado) faz uma tarefa por rodada,
+  em rodízio pela hora: :00 atributos + repartição pelo inventário; :10 e :50
+  ocultos novos; :20 variações que faltam; :30 fotos; :40 categorias. Cada uma
+  também pode ser pedida por `config.nuvemshopPedidoAdmin`
+  (`normalizar_atributos`, `reparticao_inventario`, `catalogo_variantes`,
+  `catalogo_categorias`, `catalogo`), seca por padrão. Nenhuma publica nada:
+  visível continua sendo só o clique.
+
+Prova: `src/loja-online-automacao-test.mjs` (18 provas, Worker real + loja
+falsa), `src/nuvemshop-catalogo-test.mjs`, `src/loja-online-test.mjs`,
+`frontend/src/features/nuvemshop/LojaOnline.test.tsx`,
+`frontend/src/features/publicacao/lote.test.ts`.

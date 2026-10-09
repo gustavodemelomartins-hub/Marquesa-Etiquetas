@@ -47,7 +47,9 @@ import { Nuvemshop, mapearSkus, catalogoDeVariantes } from './nuvemshop.js';
 import { decidirEstoqueDoSku, puxarPedidos, corteDePedidos } from './sync.js';
 import {
   atualizarCatalogoDaLeitura, criarOcultos, criarVariantesFaltantes, enviarFotosPendentes, catalogoAtivo,
+  preencherCategorias, normalizarAtributosLocais,
 } from './catalogo/nuvemshop-catalogo.js';
+import { repartirPeloInventario } from './catalogo/reparticao-inventario.js';
 import { saldosDeVariacao } from './variantes.js';
 import { saldosDoSku } from './estoque.js';
 import { consultarEmLotes, parametros } from './plataforma/d1.js';
@@ -733,6 +735,13 @@ export async function executarCron(db, env, { cron = '' } = {}) {
       await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO()), gravarConfigStmt(db, 'nuvemshopCatalogoUltimaRodada', { em: agoraISO(), origem: 'cron-admin-fotos', ...saida.fotos })]);
       return saida;
     }
+    /* §64 — as automações da Loja Online, uma por pedido, também secas. */
+    const automacao = AUTOMACOES[pedido.acao];
+    if (automacao) {
+      saida.automacao = resumoCatalogo(await automacao(db, env, { seco: pedido.seco !== false, limite: pedido.limite }));
+      await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO()), gravarConfigStmt(db, 'nuvemshopCatalogoUltimaRodada', { em: agoraISO(), origem: `cron-admin-${pedido.acao}`, ...saida.automacao })]);
+      return saida;
+    }
     if (pedido.acao === 'reconciliar') {
       saida.reconciliacao = await reconciliarDivergencias(db, env, { forcar: true, origem: 'cron-admin' });
       await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO())]);
@@ -741,16 +750,19 @@ export async function executarCron(db, env, { cron = '' } = {}) {
   }
   const diario = /^0 9 \* \* \*$/.test(String(cron).trim());
   saida.fila = resumoDaRodada(await processarFila(db, env, { puxar: true, origem: 'cron' }));
-  /* §62 — com o catálogo ligado e a fila ociosa, o cron cria os ocultos
-     novos aos poucos (e sobe foto que entrou depois). Fila ocupada ou
-     rodada diária: fica para a próxima — o teto de 50 consultas por
-     invocação é dividido com o estoque, que tem prioridade. */
+  /* §62/§64 — com o catálogo ligado e a fila ociosa, o cron trabalha a Loja
+     Online aos poucos, uma tarefa por rodada, em rodízio pela hora (o cron
+     roda a cada 10 min, então cada tarefa passa uma vez por hora):
+       :00  corrige atributo que contradiz o valor e reparte pelo inventário
+       :10  cria os ocultos novos          :20  cria as variações que faltam
+       :30  sobe foto que entrou depois    :40  aplica a categoria óbvia
+       :50  cria os ocultos novos
+     Fila ocupada ou rodada diária: fica para a próxima — o teto de 50
+     consultas por invocação é dividido com o estoque, que tem prioridade. */
   if (!diario && saida.fila && !saida.fila.processados && await catalogoAtivo(db)) {
     try {
-      const minuto = new Date().getUTCMinutes();
-      saida.catalogo = minuto % 20 < 10
-        ? resumoCatalogo(await criarOcultos(db, env, { seco: false, limite: 5 }))
-        : await enviarFotosPendentes(db, env, { seco: false, limite: 2 });
+      const vez = Math.floor(new Date().getUTCMinutes() / 10) % 6;
+      saida.catalogo = await RODIZIO[vez](db, env);
     } catch (e) {
       saida.catalogo = { ok: false, erro: erroLegivel(e) };
     }
@@ -1023,6 +1035,27 @@ export async function conferirLoja(db, env, { gravar = true, gravarEspelho = fal
   }
   return { ok: true, resumo, linhas };
 }
+
+/** §64 — o que o cron faz sozinho, uma tarefa por rodada (ver `executarCron`). */
+const RODIZIO = [
+  async (db) => {
+    const atributos = await normalizarAtributosLocais(db, { seco: false });
+    const reparticao = await repartirPeloInventario(db, { seco: false, limite: 2 });
+    return { atributos: { corrigidos: atributos.corrigidos }, reparticao: resumoCatalogo(reparticao) };
+  },
+  async (db, env) => resumoCatalogo(await criarOcultos(db, env, { seco: false, limite: 5 })),
+  async (db, env) => resumoCatalogo(await criarVariantesFaltantes(db, env, { seco: false, limite: 4 })),
+  async (db, env) => enviarFotosPendentes(db, env, { seco: false, limite: 2 }),
+  async (db, env) => resumoCatalogo(await preencherCategorias(db, env, { seco: false, limite: 5 })),
+  async (db, env) => resumoCatalogo(await criarOcultos(db, env, { seco: false, limite: 5 })),
+];
+
+/** As mesmas tarefas, pedidas uma a uma (`config.nuvemshopPedidoAdmin`). */
+const AUTOMACOES = {
+  catalogo_categorias: (db, env, o) => preencherCategorias(db, env, { seco: o.seco, limite: Math.min(Number(o.limite) || 5, 10) }),
+  reparticao_inventario: (db, env, o) => repartirPeloInventario(db, { seco: o.seco, limite: Math.min(Number(o.limite) || 3, 3) }),
+  normalizar_atributos: (db, env, o) => normalizarAtributosLocais(db, { seco: o.seco }),
+};
 
 /** O relato do catálogo sem os corpos inteiros (eles vão para a tela de
  *  prévia, não para o `config`). */

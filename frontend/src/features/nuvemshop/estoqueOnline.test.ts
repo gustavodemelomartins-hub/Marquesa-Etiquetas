@@ -109,7 +109,7 @@ describe('Preparação para Nuvemshop: a frase de cada peça', () => {
     const marca = Object.fromEntries(c.map((x) => [x.rotulo, x.marca]));
     expect(marca.Cadastro).toBe('ok');
     expect(marca.Foto).toBe('falta');
-    expect(marca.Estoque).toBe('aviso');
+    expect(marca.Estoque).toBeUndefined();
     expect(marca.SEO).toBe('ok');
   });
 });

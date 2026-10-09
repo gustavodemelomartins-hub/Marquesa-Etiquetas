@@ -146,10 +146,12 @@ export interface ItemDaFila {
 /** As cinco perguntas operacionais (§62). `preparacao` e `revisao` só
  *  aparecem quando o servidor ainda não tem a classificação do catálogo
  *  oculto (banco sem a migration) — e caem em "não cadastrados"/"ocultos". */
-export type Situacao = 'nao_cadastrado' | 'oculto' | 'pronto' | 'publicado' | 'erro'
+export type Situacao = 'nao_cadastrado' | 'oculto' | 'pronto' | 'publicado' | 'erro' | 'sem_estoque'
   | 'preparacao' | 'revisao';
 
-export type SituacaoDaTela = 'nao_cadastrado' | 'oculto' | 'pronto' | 'publicado' | 'erro';
+/** §64 — `sem_estoque`: oculto sem peça em casa. É ESTADO, não falha: fica
+ *  cadastrado, fora da fila de trabalho, e volta sozinho quando entra peça. */
+export type SituacaoDaTela = 'nao_cadastrado' | 'oculto' | 'pronto' | 'publicado' | 'erro' | 'sem_estoque';
 
 /** As abas da Preparação. Cada uma é uma pergunta com um dono:
  *  não cadastrado e oculto são preparação (cadastro, foto, texto); pronto é
@@ -160,6 +162,7 @@ export const SITUACOES: { id: SituacaoDaTela; rotulo: string }[] = [
   { id: 'pronto', rotulo: 'Prontos para publicar' },
   { id: 'publicado', rotulo: 'Publicados' },
   { id: 'erro', rotulo: 'Com erro' },
+  { id: 'sem_estoque', rotulo: 'Sem peça em casa' },
 ];
 
 /** Os filtros por pendência. */
@@ -171,7 +174,6 @@ export const FILTROS_DE_PENDENCIA: { id: string; rotulo: string; chaves: string[
   { id: 'preco', rotulo: 'Falta preço', chaves: ['preco'] },
   { id: 'variacao', rotulo: 'Revisar variação', chaves: ['variacao', 'variante', 'sku', 'sku_duplicado'] },
   { id: 'estoque_variacao', rotulo: 'Conferir estoque da variação', chaves: ['estoque_variacao', 'estoque'] },
-  { id: 'sem_estoque', rotulo: 'Sem peça em casa', chaves: ['sem_estoque'] },
   { id: 'categoria', rotulo: 'Falta categoria', chaves: ['categoria'] },
   { id: 'erro', rotulo: 'Erro', chaves: ['erro'] },
 ];
@@ -192,6 +194,7 @@ export const ROTULO_DA_PENDENCIA: Record<string, string> = {
   sku_duplicado: 'SKU duplicado',
   variante: 'Variante incompleta',
   erro: 'Erro de integração',
+  cadastro: 'Ainda não cadastrado na Nuvemshop',
 };
 
 const ROTULO_DA_SINCRONIZACAO: Record<string, string> = {
@@ -232,6 +235,13 @@ export interface InfoNuvemshop {
   /** §63 — foi publicado por aqui e deixou de estar visível. Oculto que
    *  nunca foi publicado é preparação, não alerta. */
   foraDoArInesperado?: boolean;
+  /** §64 — kit/Monte seu Colar: não vira anúncio por este caminho, e isso
+   *  não é tarefa de ninguém. */
+  naoSeAplica?: string | null;
+  /** §64 — a categoria que o sistema aplica sozinho na loja. */
+  categoriaLoja?: { id: string; chave: string; regra: string } | null;
+  /** §64 — as variações só daqui serão criadas na loja pelo sistema. */
+  variacoesAutomaticas?: boolean;
 }
 
 /** A situação da peça como a TELA a agrupa. */
@@ -252,6 +262,7 @@ export function fraseDaPeca(i: ItemDaFila): string {
   }
   if (s === 'pronto') return 'Pronto para ficar visível';
   if (s === 'oculto') return ['Oculto na Nuvemshop', ...p].join(' · ');
+  if (s === 'sem_estoque') return 'Sem peça em casa · fora da fila até entrar estoque';
   if (s === 'erro') return ['Com erro', ...p].join(' · ');
   if (i.nuvemshop && !i.nuvemshop.criavel && i.nuvemshop.bloqueios.length) {
     return ['Não cadastrado · precisa de decisão', ...p].join(' · ');
@@ -262,19 +273,25 @@ export function fraseDaPeca(i: ItemDaFila): string {
 
 export function porSituacao(itens: ItemDaFila[]): Record<SituacaoDaTela, ItemDaFila[]> {
   const mapa: Record<SituacaoDaTela, ItemDaFila[]> = {
-    nao_cadastrado: [], oculto: [], pronto: [], publicado: [], erro: [],
+    nao_cadastrado: [], oculto: [], pronto: [], publicado: [], erro: [], sem_estoque: [],
   };
   for (const i of itens) mapa[situacaoDaTela(i)].push(i);
   return mapa;
 }
 
-/** O checklist do card: ✓ feito, ✕ falta, ⚠ precisa conferir.
+/** O checklist do card, em DUAS partes (§64):
  *
- *  §63 — oito itens, sempre nesta ordem, e cada um lê as MESMAS chaves de
- *  pendência que o servidor usa para classificar a peça e para recusar a
- *  publicação (`classificarCatalogo`, `publicarNaLoja`): um ✓ aqui é um
- *  "não falta" lá. SKU faltando ou repetido entra em Cadastro. */
-export type MarcaDoItem = 'ok' | 'falta' | 'aviso';
+ *    CADASTRO        o que a peça precisa ter para ir à loja — ✓ feito,
+ *                    ✕ falta, ! conferir, ↻ o sistema está resolvendo
+ *                    sozinho (categoria óbvia, variação que falta lá);
+ *    DISPONIBILIDADE quantas peças há em casa. Estoque zero é ESTADO, não
+ *                    falha: não ganha ✕ nem !, só diz que a peça fica fora
+ *                    da fila até entrar estoque.
+ *
+ *  Cada item lê as MESMAS chaves de pendência que o servidor usa para
+ *  classificar a peça e para recusar a publicação (`classificarCatalogo`,
+ *  `publicarNaLoja`): um ✓ aqui é um "não falta" lá. */
+export type MarcaDoItem = 'ok' | 'falta' | 'aviso' | 'auto';
 export interface LinhaDoChecklist { rotulo: string; marca: MarcaDoItem; detalhe?: string }
 export const CHECKLIST: { rotulo: string; chaves: string[]; aviso?: boolean }[] = [
   { rotulo: 'Cadastro', chaves: ['sku', 'sku_duplicado', 'nome'] },
@@ -282,14 +299,18 @@ export const CHECKLIST: { rotulo: string; chaves: string[]; aviso?: boolean }[] 
   { rotulo: 'SEO', chaves: ['seo'] },
   { rotulo: 'Categoria', chaves: ['categoria'] },
   { rotulo: 'Preço', chaves: ['preco'] },
-  { rotulo: 'Estoque', chaves: ['estoque_variacao', 'estoque', 'sem_estoque'], aviso: true },
   { rotulo: 'Variações', chaves: ['variacao', 'variante'], aviso: true },
   { rotulo: 'Foto', chaves: ['foto'] },
 ];
-export function checklistDaPeca(i: ItemDaFila): LinhaDoChecklist[] {
+function pendenciasDaPeca(i: ItemDaFila): Map<string, string> {
   const pend = new Map((i.nuvemshop?.pendencias ?? []).map((x) => [x.chave, x.motivo]));
   for (const k of i.pendencias ?? []) if (!pend.has(k)) pend.set(k, ROTULO_DA_PENDENCIA[k] ?? k);
-  const naLoja = i.nuvemshop?.naLoja ?? i.presencaNaLoja;
+  return pend;
+}
+export function checklistDaPeca(i: ItemDaFila): LinhaDoChecklist[] {
+  const pend = pendenciasDaPeca(i);
+  const ns = i.nuvemshop;
+  const naLoja = ns?.naLoja ?? i.presencaNaLoja;
   return CHECKLIST.map((c) => {
     const faltam = c.chaves.filter((k) => pend.has(k));
     const detalhe = faltam.map((k) => pend.get(k)).filter(Boolean).join(' ') || undefined;
@@ -297,8 +318,31 @@ export function checklistDaPeca(i: ItemDaFila): LinhaDoChecklist[] {
       return { rotulo: c.rotulo, marca: 'falta', detalhe: ['Ainda não existe na Nuvemshop.', detalhe].filter(Boolean).join(' ') };
     }
     if (!faltam.length) return { rotulo: c.rotulo, marca: 'ok' };
+    if (c.rotulo === 'Categoria' && ns?.categoriaLoja) return { rotulo: c.rotulo, marca: 'auto', detalhe };
+    if (c.rotulo === 'Variações' && ns?.variacoesAutomaticas && faltam.every((k) => k === 'variacao')) {
+      return { rotulo: c.rotulo, marca: 'auto', detalhe };
+    }
     return { rotulo: c.rotulo, marca: c.aviso ? 'aviso' : 'falta', detalhe };
   });
+}
+
+/** A disponibilidade, fora do checklist: quantas em casa e o que isso
+ *  significa. `aviso` só quando há uma pergunta real (a divisão por
+ *  variação); peça sem estoque é `neutro`. */
+export interface Disponibilidade { casa: number; marca: 'ok' | 'neutro' | 'aviso'; frase: string }
+export function disponibilidadeDaPeca(i: ItemDaFila): Disponibilidade {
+  const pend = pendenciasDaPeca(i);
+  const casa = Math.max(0, Number(i.casa) || 0);
+  if (situacaoDaTela(i) === 'sem_estoque' || (casa <= 0 && situacaoDaTela(i) !== 'publicado')) {
+    return { casa, marca: 'neutro', frase: 'Estoque em casa: 0 — fora da fila até entrar estoque.' };
+  }
+  if (pend.has('estoque_variacao')) {
+    return { casa, marca: 'aviso', frase: pend.get('estoque_variacao') || 'Conferir quantidade física por variação.' };
+  }
+  if (pend.has('estoque')) {
+    return { casa, marca: 'neutro', frase: `${casa} em casa · o estoque vai para a loja automaticamente.` };
+  }
+  return { casa, marca: 'ok', frase: `${casa} em casa` };
 }
 
 /** A peça tem foto — pela regra da classificação: na loja (lida na
@@ -308,8 +352,14 @@ export function temFoto(i: ItemDaFila): boolean {
 }
 export const temPreco = (i: ItemDaFila) => i.preco != null && i.preco > 0;
 export const temVariacao = (i: ItemDaFila) => (i.nuvemshop?.variacoes?.length ?? 0) > 1;
-export const precisaDeAcao = (i: ItemDaFila) => (i.pendencias ?? []).length > 0
-  || (i.nuvemshop ? !i.nuvemshop.criavel && !i.nuvemshop.naLoja : false);
+/** §64 — "precisa de ação" é de GENTE: o que o sistema resolve sozinho (↻),
+ *  a peça sem estoque e o kit não entram. */
+export const precisaDeAcao = (i: ItemDaFila) => {
+  if (situacaoDaTela(i) === 'sem_estoque' || i.nuvemshop?.naoSeAplica) return false;
+  if (checklistDaPeca(i).some((c) => c.marca === 'falta' && !(c.rotulo === 'Cadastro' && i.nuvemshop?.criavel))) return true;
+  if (checklistDaPeca(i).some((c) => c.marca === 'aviso') || disponibilidadeDaPeca(i).marca === 'aviso') return true;
+  return i.nuvemshop ? !i.nuvemshop.criavel && !i.nuvemshop.naLoja : (i.pendencias ?? []).length > 0;
+};
 
 /** Os filtros da Preparação. Poucos, e cada um responde uma pergunta de
  *  quem prepara a loja. */

@@ -357,6 +357,13 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
   for (const r of publicacao.itens ?? []) {
     if (![ESTADO_PUBLICACAO.FALTA, ESTADO_PUBLICACAO.PREPARANDO, ESTADO_PUBLICACAO.FALHOU]
       .includes(r.estado)) continue;
+    /* §64 — com a classificação do catálogo (§62), só chega aqui a peça sem
+       anúncio que espera uma DECISÃO (mesmo modelo de outro código, variação
+       que não dá para montar). A que o sistema cria sozinha vai para a
+       Preparação — foto e preço se completam lá —, e kit não é tarefa. */
+    const ns = r.nuvemshop;
+    if (ns && (ns.naLoja || ns.criavel || ns.naoSeAplica)) continue;
+    const decisao = ns && ns.bloqueios?.length ? ns.bloqueios.join(' ') : null;
     const faltam = (r.falta ?? []).map((x) => NOMES_FALTA[x] || x);
     const falhou = r.estado === ESTADO_PUBLICACAO.FALHOU;
     const preparando = r.estado === ESTADO_PUBLICACAO.PREPARANDO;
@@ -372,12 +379,14 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
          a V2 abrir o campo certo na própria linha. */
       falta: r.falta ?? [],
       motivo: r.estado,
-      explicacao: falhou
+      explicacao: decisao && !falhou ? decisao
+        : falhou
         ? (r.erroPublicacao || 'A última tentativa não concluiu a publicação.')
         : preparando
           ? (r.bloqueioExterno?.motivo || 'A foto e a prévia comercial ainda estão sendo preparadas.')
           : `Falta ${faltam.join(', ')}.`,
-      informacaoFaltante: falhou
+      informacaoFaltante: decisao && !falhou ? 'Decidir se esta peça ganha um anúncio próprio na Nuvemshop.'
+        : falhou
         ? 'É preciso confirmar que os dados aprovados continuam iguais antes de repetir.'
         : preparando
           ? (faltam.length ? faltam.join(', ') : 'prévia comercial preparada pelo agente')

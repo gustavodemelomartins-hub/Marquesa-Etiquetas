@@ -89,7 +89,13 @@ const api = async (metodo, caminho, corpo) => {
   await esperarFundo();
   return { status: r.status, corpo: await r.json().catch(() => null), consultas: n };
 };
-const cron = async () => { await worker.scheduled({ cron: '*/10 * * * *' }, env, ctx); await esperarFundo(); };
+/* §64 — o cron trabalha a Loja Online em rodízio pela hora; :35 (fotos,
+   sem R2 nada acontece) deixa este teste independente do relógio. */
+const cron = async () => {
+  const original = Date.prototype.getUTCMinutes;
+  Date.prototype.getUTCMinutes = () => 35;
+  try { await worker.scheduled({ cron: '*/10 * * * *' }, env, ctx); await esperarFundo(); } finally { Date.prototype.getUTCMinutes = original; }
+};
 
 const q1 = (sql, ...a) => raw.prepare(sql).get(...a);
 const qa = (sql, ...a) => raw.prepare(sql).all(...a);

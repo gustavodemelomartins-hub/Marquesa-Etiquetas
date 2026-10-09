@@ -101,10 +101,19 @@ const api = async (metodo, caminho, corpo) => {
   await esperarFundo();
   return { status: r.status, corpo: await r.json().catch(() => null), consultas: n };
 };
+/* §64 — o cron trabalha a Loja Online em rodízio pela hora. Fora do
+   trecho que escolhe o minuto de propósito, :35 (fotos, sem R2 nada
+   acontece) deixa o teste independente do relógio. */
+const DataReal = Date;
 const cron = async (expr = '*/10 * * * *') => {
   consultas = 0;
-  await worker.scheduled({ cron: expr }, env, ctx);
-  await esperarFundo();
+  const fixar = globalThis.Date === DataReal;
+  const original = DataReal.prototype.getUTCMinutes;
+  if (fixar) DataReal.prototype.getUTCMinutes = () => 35;
+  try {
+    await worker.scheduled({ cron: expr }, env, ctx);
+    await esperarFundo();
+  } finally { if (fixar) DataReal.prototype.getUTCMinutes = original; }
   return consultas;
 };
 const vitrine = async (handle) => (await fetch(`${loja.url}/vitrine/produtos/${handle}`)).status;
@@ -214,17 +223,18 @@ const n1Previa = r.corpo.itens.find((x) => x.sku === 'N1').enviaria;
 assert.equal(n1Previa.visibility, 'hidden');
 assert.equal('published' in n1Previa, false, 'mandar published junto com visibility dá 422 na API real');
 prova('sem {"seco": false} é ensaio: devolve o corpo exato, visibility=hidden, sem published', `${r.corpo.itens.length} corpos`);
-const bloqN5 = (await api('GET', '/api/nuvemshop/catalogo')).corpo.itens.find((x) => x.sku === 'N5');
-assert.equal(bloqN5.criavel, false);
-assert.match(bloqN5.bloqueios.join(' '), /Tamanho/);
-prova('variação com cor no atributo "Tamanho" não é criada: revisar', bloqN5.bloqueios[0]);
+const n5 = (await api('GET', '/api/nuvemshop/catalogo')).corpo.itens.find((x) => x.sku === 'N5');
+assert.equal(n5.criavel, true, JSON.stringify(n5.bloqueios));
+assert.deepEqual(n5.atributos, ['Cor']);
+assert.deepEqual(r.corpo.itens.find((x) => x.sku === 'N5').enviaria.attributes, [{ pt: 'Cor' }]);
+prova('§64 — cor gravada em "Tamanho" não trava mais: sobe como "Cor"', JSON.stringify(n5.variacoes));
 
 console.log('\n=== 1-5. criar oculto, sem duplicar ===');
 r = await api('POST', '/api/nuvemshop/catalogo/criar', { seco: false });
 assert.equal(r.status, 200, JSON.stringify(r.corpo));
 const criados = r.corpo.itens.filter((x) => x.acao === 'criado').map((x) => x.sku).sort();
-assert.deepEqual(criados, ['N1', 'N2', 'N3', 'N4']);
-assert.equal(loja.estado.criacoes, 4);
+assert.deepEqual(criados, ['N1', 'N2', 'N3', 'N4', 'N5']);
+assert.equal(loja.estado.criacoes, 5);
 const pN1 = produtoDaLoja('N1');
 assert.equal(pN1.visibility, 'hidden');
 assert.equal(pN1.published, false);
@@ -267,9 +277,13 @@ prova('sem preço: criado oculto e SEM preço (nada inventado)');
 console.log('\n=== 5b. variante que falta num anúncio que já existe ===');
 r = await api('POST', '/api/nuvemshop/catalogo/variantes', {});
 assert.equal(r.corpo.seco, true);
-assert.deepEqual(r.corpo.planos.map((p) => [p.sku, p.nomeNovo, p.bloqueio]), [['M1', 'Banho de Ouro 18K · n°17', null]]);
+/* §64 — S1 (o 391471 real) tem variante ÚNICA na loja: antes ficava para
+   sempre com "variação só no Marquesa"; agora ganha o n°24, no padrão das
+   irmãs, com o banho copiado. */
+assert.deepEqual(r.corpo.planos.map((p) => [p.sku, p.nomeNovo, p.bloqueio]),
+  [['M1', 'Banho de Ouro 18K · n°17', null], ['S1', 'Banho de Ouro 18K · n°24', null]]);
 r = await api('POST', '/api/nuvemshop/catalogo/variantes', { seco: false });
-assert.equal(r.corpo.criadas, 1);
+assert.equal(r.corpo.criadas, 2);
 const pM1 = produtoDaLoja('M1');
 const nova = pM1.variants.find((v) => v.values.map((x) => x.pt).join(' · ') === 'Banho de Ouro 18K · n°17');
 assert.ok(nova);
@@ -388,7 +402,9 @@ prova('14 conferência: os já mapeados continuam iguais, e os novos ocultos ent
 
 console.log('\n=== variante única na loja, estoque repartido aqui (391471) ===');
 assert.equal(estoqueVariante(produtoDaLoja('S1').variants[0]), 1);
-prova('S1: a loja tem só o aro 18 e recebeu 1 (o aro 18), não o total 2');
+assert.equal(produtoDaLoja('S1').variants.length, 2);
+assert.equal(estoqueVariante(produtoDaLoja('S1').variants[1]), 1);
+prova('S1: o aro 18 recebeu 1 (não o total 2) e o n°24, criado pelo §64, recebeu o outro');
 
 console.log('\n=== a API que ignora `visibility` ===');
 peca('N8', 1, 'Colar Publicado Por Engano Banho de Ouro 18k', 'Colar', 99);
@@ -410,7 +426,7 @@ raw.prepare(`UPDATE nuvemshop_fila SET status='sincronizado' WHERE status='pende
 const realDate = Date;
 let criadoPeloCron = false;
 for (let i = 0; i < 2 && !criadoPeloCron; i++) {
-  const minuto = i === 0 ? 5 : 25;
+  const minuto = i === 0 ? 15 : 55;   // §64: no rodízio, :10 e :50 são a vez de criar ocultos
   globalThis.Date = class extends realDate {
     getUTCMinutes() { return minuto; }
   };

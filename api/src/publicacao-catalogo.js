@@ -358,6 +358,9 @@ export async function listarPublicacoes(db, env) {
           ultimoErro: c.ultimoErro, fotoNaLoja: c.fotoNaLoja, textoNaLoja: c.textoNaLoja,
           estadoCatalogo: c.estadoCatalogo, origemCatalogo: c.origemCatalogo,
           publicadoEm: c.publicadoEm || null, foraDoArInesperado: !!c.foraDoArInesperado,
+          /* §64 — o que o sistema resolve sozinho e o que não se aplica. */
+          naoSeAplica: c.naoSeAplica || null, categoriaLoja: c.categoriaLoja || null,
+          variacoesAutomaticas: !!c.variacoesAutomaticas,
         };
       }
       return x;

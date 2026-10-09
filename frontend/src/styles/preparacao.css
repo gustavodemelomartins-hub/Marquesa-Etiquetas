@@ -52,6 +52,10 @@
 .mq-minicheck li.is-ok{color:var(--mq-ok);border-color:var(--mq-ok-line);background:var(--mq-ok-bg)}
 .mq-minicheck li.is-falta{color:var(--mq-risk);border-color:var(--mq-risk-line);background:var(--mq-risk-bg)}
 .mq-minicheck li.is-aviso{color:var(--mq-warn);border-color:var(--mq-warn-line);background:var(--mq-warn-bg)}
+.mq-minicheck li.is-auto{color:var(--mq-info);border-color:var(--mq-info-line);background:var(--mq-info-bg)}
+.mq-minicheck li.mq-minicheck__disp{color:var(--mq-muted);border-style:dashed}
+.mq-minicheck li.mq-minicheck__disp.is-aviso{color:var(--mq-warn);border-color:var(--mq-warn-line);border-style:solid}
+.mq-money--info{color:var(--mq-info)}
 .mq-minicheck .mq-minicheck__resumo{display:none}
 .mq-prep-resumo{grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:var(--mq-3)}
 .mq-prep-resumo>div{display:flex;flex-direction:column;gap:2px}

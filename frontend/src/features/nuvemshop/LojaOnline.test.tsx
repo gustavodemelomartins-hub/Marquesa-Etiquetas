@@ -10,6 +10,8 @@ const conexao: Connection = { url: 'http://api.local', key: 'chave' };
 interface Chamada { metodo: string; caminho: string }
 let chamadas: Chamada[] = [];
 let mudou = new Set<string>();
+/** §64 — peças a mais na fila, por teste. */
+let extras: unknown[] = [];
 
 const responder = (dados: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(dados), { status, headers: { 'Content-Type': 'application/json' } }));
@@ -63,12 +65,13 @@ const ESTADO = {
 beforeEach(() => {
   chamadas = [];
   mudou = new Set();
+  extras = [];
   vi.stubGlobal('fetch', vi.fn((url: string, init: RequestInit = {}) => {
     const caminho = url.replace(conexao.url, '');
     const metodo = init.method ?? 'GET';
     chamadas.push({ metodo, caminho });
     if (caminho === '/api/nuvemshop/estoque') return responder(ONLINE);
-    if (caminho === '/api/catalogo/publicacao') return responder(FILA);
+    if (caminho === '/api/catalogo/publicacao') return responder({ ...FILA, itens: [...FILA.itens, ...extras] });
     if (caminho === '/api/nuvemshop/estoque/conferir') return responder({ ok: true, resumo: { ...ONLINE.conferencia } });
     if (caminho === '/api/nuvemshop/estoque/reconciliar') return responder({ ok: true, codigos: 1 });
     const pub = caminho.match(/^\/api\/nuvemshop\/catalogo\/([^/]+)\/publicar$/);
@@ -129,11 +132,12 @@ describe('§63 — Loja online › Preparação', () => {
     expect(document.querySelectorAll('.mq-prep-linha .mq-thumb--empty').length).toBe(1); // B1: losango
   });
 
-  it('checklist compacto de oito itens na linha', async () => {
+  it('checklist compacto: sete itens de cadastro e a disponibilidade à parte', async () => {
     abrir('publicacao:oculto');
     await screen.findByText('Peça O1');
-    const itens = [...document.querySelectorAll('.mq-minicheck li:not(.mq-minicheck__resumo)')].map((l) => l.textContent?.replace(/:.*/, '').trim());
-    expect(itens).toEqual(['✓ Cadastro', '✓ Descrição', '✓ SEO', '✓ Categoria', '✓ Preço', '✓ Estoque', '✓ Variações', '✕ Foto']);
+    const itens = [...document.querySelectorAll('.mq-minicheck li:not(.mq-minicheck__resumo):not(.mq-minicheck__disp)')].map((l) => l.textContent?.replace(/:.*/, '').trim());
+    expect(itens).toEqual(['✓ Cadastro', '✓ Descrição', '✓ SEO', '✓ Categoria', '✓ Preço', '✓ Variações', '✕ Foto']);
+    expect(document.querySelector('.mq-minicheck__disp')?.textContent).toMatch(/em casa/);
   });
 
   it('publicar UM pede confirmação e só então escreve', async () => {
@@ -184,5 +188,59 @@ describe('§63 — Loja online › Preparação', () => {
     fireEvent.click(within(screen.getByRole('dialog', { name: 'Publicar na Nuvemshop' })).getByRole('button', { name: 'Publicar 1 produto' }));
     await screen.findByText(/1 publicado/);
     expect(publicacoes()).toEqual(['B1']);
+  });
+});
+
+describe('§64 — o que o sistema resolve sozinho não vira tarefa', () => {
+  it('código interno (sem_preparador) nunca aparece na tela operacional', async () => {
+    extras = [item('D1', 'oculto', {
+      bloqueios: [{ motivo: 'sem_preparador', proximoPasso: 'configurar' }], pendencias: ['foto'],
+      nuvemshop: info('oculto', { pendencias: [{ chave: 'foto', motivo: 'Falta foto.' }] }),
+    })];
+    abrir('publicacao:oculto');
+    fireEvent.click((await screen.findByText('Peça D1')).closest('button') as HTMLElement);
+    await screen.findByRole('dialog', { name: 'Detalhes da peça' });
+    expect(document.body.textContent).not.toMatch(/sem_preparador|sem_r2|linha_de_base|variante_criada|Ainda não disponível/);
+  });
+
+  it('oculto sem peça em casa fica fora da fila: não conta, não alerta, tem aba própria', async () => {
+    extras = [item('Z1', 'sem_estoque', { casa: 0, qtd: 0, nuvemshop: info('sem_estoque') })];
+    abrir();
+    await screen.findByText('Publicados na loja');
+    const kpi = (rotulo: string) => screen.getByText(rotulo).closest('.mq-kpi')?.querySelector('.mq-kpi__value')?.textContent;
+    expect(kpi('Ocultos em preparação')).toBe('1');
+    expect(kpi('Prontos para publicar')).toBe('3');
+    cleanup();
+    abrir('publicacao:sem_estoque');
+    const linha = (await screen.findByText('Peça Z1')).closest('.mq-prep-linha') as HTMLElement;
+    expect(within(linha).getByText('Sem peça em casa')).toBeTruthy();
+    expect(linha.querySelector('.mq-minicheck__disp')?.textContent).toMatch(/0 em casa.*fora da fila até entrar estoque/);
+    expect(linha.querySelector('.mq-minicheck li.is-falta')).toBeNull();
+    cleanup();
+    abrir('publicacao:oculto');
+    await screen.findByText('Peça O1');
+    expect(screen.queryByText('Peça Z1')).toBeNull();
+  });
+
+  it('categoria óbvia é ↻ (o sistema aplica), não ✕; kit não pede decisão', async () => {
+    extras = [
+      item('C1', 'oculto', {
+        pendencias: ['categoria'],
+        nuvemshop: info('oculto', {
+          pendencias: [{ chave: 'categoria', motivo: 'Sem categoria na loja: o sistema aplica "brinco" automaticamente.' }],
+          categoriaLoja: { id: '13', chave: 'brinco', regra: 'Argola é brinco na loja' },
+        }),
+      }),
+      item('K1', 'nao_cadastrado', { nuvemshop: info('nao_cadastrado', { naoSeAplica: 'kit', bloqueios: ['Kit e Monte seu Colar não viram anúncio.'] }) }),
+    ];
+    abrir();
+    await screen.findByText('Publicados na loja');
+    expect(screen.queryByText('Peças esperando uma decisão para ir à loja')).toBeNull();
+    cleanup();
+    abrir('publicacao:oculto');
+    const linha = (await screen.findByText('Peça C1')).closest('.mq-prep-linha') as HTMLElement;
+    const cat = [...linha.querySelectorAll('.mq-minicheck li')].find((l) => /Categoria/.test(l.textContent ?? ''));
+    expect(cat?.className).toBe('is-auto');
+    expect(cat?.textContent).toMatch(/↻/);
   });
 });

@@ -26,6 +26,7 @@ import { movimentar } from './estoque.js';
 export { normSku } from './sku.js';
 import { normSku } from './sku.js';
 import { chaveDaVariacao, equivalenciasLojaLocal, formatarValorNovo } from './variacao-nome.js';
+import { atributoPadrao, normalizarAtributos } from './catalogo/taxonomia.js';
 
 /* ==================================================================== */
 /* 1. DEPENDÊNCIAS — a pergunta que decide                              */
@@ -348,7 +349,7 @@ export async function definirVariacoes(db, sku, { atributos, desvincular = false
   const p = await db.prepare(`SELECT sku, qtd FROM produtos WHERE sku = ?`).bind(k).first();
   if (!p) return { erro: `Código ${sku} não está no catálogo`, status: 404 };
 
-  const { atributos: limpos, combinacoes } = combinar(atributos);
+  let { atributos: limpos, combinacoes } = combinar(atributos);
 
   const atuais = (await db.prepare(
     `SELECT nome, variante_id, origem FROM produto_variacoes WHERE sku = ? ORDER BY ordem, nome`)
@@ -356,6 +357,13 @@ export async function definirVariacoes(db, sku, { atributos, desvincular = false
 
   const nomesNovos = new Set(combinacoes.map(c => c.nome));
   const daLoja = atuais.filter(v => v.origem !== 'local' && v.variante_id);
+  /* §64 — atributo que contradiz o valor ("Tamanho = Azul") é corrigido na
+     entrada. Só em estrutura inteiramente daqui: a que tem variante da loja
+     espelha os nomes de lá. O NOME de cada combinação não muda. */
+  if (!daLoja.length) {
+    const n = normalizarAtributos(limpos);
+    if (n.trocas.length) ({ atributos: limpos, combinacoes } = combinar(n.atributos));
+  }
   const perdidas = daLoja.filter(v => !nomesNovos.has(v.nome));
 
   if (perdidas.length && !desvincular) {
@@ -481,7 +489,7 @@ export async function adicionarVariacao(db, sku, { valor, atributo } = {}) {
     }
   }
   const nomeAtributo = String(atributo ?? '').trim()
-    || (atributos.length ? atributos[atributos.length - 1].nome : 'Tamanho');
+    || (atributos.length ? atributos[atributos.length - 1].nome : atributoPadrao(digitado));
   let alvo = atributos.find((a) => a.nome === nomeAtributo);
   if (!alvo) {
     if (atributos.length) {
