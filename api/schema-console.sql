@@ -6,7 +6,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_categorias_nome_viva ON categorias(nome_no
 
 INSERT OR IGNORE INTO categorias (nome, ordem, cor, id, slug, nome_norm, sentinela, criada_em) VALUES ('Colar', 1, '#C2426B', 'colar', 'colar', 'colar', 0, datetime('now')), ('Brinco', 2, '#C4802A', 'brinco', 'brinco', 'brinco', 0, datetime('now')), ('Pulseira', 3, '#0D9382', 'pulseira', 'pulseira', 'pulseira', 0, datetime('now')), ('Berloque', 4, '#6A54B5', 'berloque', 'berloque', 'berloque', 0, datetime('now')), ('Anel', 5, '#D8646B', 'anel', 'anel', 'anel', 0, datetime('now')), ('Argola', 6, '#3D77C4', 'argola', 'argola', 'argola', 0, datetime('now')), ('Pingente', 7, '#5C8A34', 'pingente', 'pingente', 'pingente', 0, datetime('now')), ('Conjunto', 8, '#A15BA0', 'conjunto', 'conjunto', 'conjunto', 0, datetime('now')), ('Outros', 9, '#9E8A90', 'outros', 'outros', 'outros', 0, datetime('now')), ('Sem categoria', 99, NULL, 'sem-categoria', 'sem-categoria', 'sem categoria', 1, datetime('now'));
 
-CREATE TABLE IF NOT EXISTS produtos ( sku TEXT PRIMARY KEY, desc TEXT NOT NULL, cat TEXT NOT NULL REFERENCES categorias(nome), preco REAL, qtd INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'ativo', url_loja TEXT, estoque_loja INTEGER, visivel INTEGER, nome_loja TEXT, foto_original_key TEXT, foto_original_tipo TEXT, foto_original_tam INTEGER, foto_tratada_key TEXT, foto_tratada_tipo TEXT, foto_tratada_tam INTEGER, foto_status TEXT, foto_erro TEXT, foto_origem TEXT, foto_em TEXT, arquivado_em TEXT, arquivado_motivo TEXT, foto_url TEXT, foto_url_em TEXT, origem_cadastro TEXT, autoridade TEXT, produto_id_loja TEXT, atualizado_em TEXT NOT NULL DEFAULT (datetime('now')), custo REAL );
+CREATE TABLE IF NOT EXISTS produtos ( sku TEXT PRIMARY KEY, desc TEXT NOT NULL, cat TEXT NOT NULL REFERENCES categorias(nome), preco REAL, qtd INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'ativo', url_loja TEXT, estoque_loja INTEGER, visivel INTEGER, nome_loja TEXT, foto_original_key TEXT, foto_original_tipo TEXT, foto_original_tam INTEGER, foto_tratada_key TEXT, foto_tratada_tipo TEXT, foto_tratada_tam INTEGER, foto_status TEXT, foto_erro TEXT, foto_origem TEXT, foto_em TEXT, arquivado_em TEXT, arquivado_motivo TEXT, foto_url TEXT, foto_url_em TEXT, origem_cadastro TEXT, autoridade TEXT, produto_id_loja TEXT, atualizado_em TEXT NOT NULL DEFAULT (datetime('now')), custo REAL, visibilidade_loja TEXT );
 
 CREATE INDEX IF NOT EXISTS idx_produtos_produto_loja ON produtos(produto_id_loja);
 
@@ -402,7 +402,7 @@ CREATE TABLE IF NOT EXISTS nuvemshop_fila ( sku TEXT PRIMARY KEY, status TEXT NO
 
 CREATE INDEX IF NOT EXISTS idx_nuvemshop_fila_status ON nuvemshop_fila(status, proxima_em);
 
-CREATE TABLE IF NOT EXISTS nuvemshop_conferencia ( id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT, produto TEXT, variante TEXT, ns_produto_id TEXT, ns_variante_id TEXT, ns_sku TEXT, em_casa INTEGER, consignado INTEGER, online INTEGER, ns_estoque INTEGER, diferenca INTEGER, status TEXT NOT NULL, motivo TEXT, publicado INTEGER, ns_tem_descricao INTEGER, ns_tem_seo_titulo INTEGER, ns_tem_seo_descricao INTEGER, ns_imagens INTEGER, conferido_em TEXT NOT NULL );
+CREATE TABLE IF NOT EXISTS nuvemshop_conferencia ( id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT, produto TEXT, variante TEXT, ns_produto_id TEXT, ns_variante_id TEXT, ns_sku TEXT, em_casa INTEGER, consignado INTEGER, online INTEGER, ns_estoque INTEGER, diferenca INTEGER, status TEXT NOT NULL, motivo TEXT, publicado INTEGER, ns_tem_descricao INTEGER, ns_tem_seo_titulo INTEGER, ns_tem_seo_descricao INTEGER, ns_imagens INTEGER, ns_categorias INTEGER, conferido_em TEXT NOT NULL );
 
 CREATE INDEX IF NOT EXISTS idx_nuvemshop_conf_sku ON nuvemshop_conferencia(sku);
 
@@ -429,3 +429,7 @@ END;
 CREATE TRIGGER IF NOT EXISTS trg_nuvemshop_fila_anuncio AFTER UPDATE OF produto_id_loja ON produtos WHEN NEW.produto_id_loja IS NOT NULL AND (OLD.produto_id_loja IS NULL OR OLD.produto_id_loja <> NEW.produto_id_loja) BEGIN INSERT INTO nuvemshop_fila (sku, status, motivo, versao, pedido_em, tentativas) VALUES (NEW.sku, 'pendente', 'anuncio', 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0) ON CONFLICT(sku) DO UPDATE SET status = 'pendente', motivo = excluded.motivo, versao = nuvemshop_fila.versao + 1, pedido_em = excluded.pedido_em, tentativas = 0, proxima_em = NULL;
 
 END;
+
+CREATE TABLE IF NOT EXISTS nuvemshop_catalogo ( sku TEXT PRIMARY KEY, estado TEXT NOT NULL CHECK (estado IN ('criando','oculto','publicando','visivel','erro')), origem TEXT, produto_id TEXT, visibilidade TEXT, variantes_json TEXT, conteudo_json TEXT, conteudo_enviado_em TEXT, foto_enviada_em TEXT, foto_id_loja TEXT, tentativas INTEGER NOT NULL DEFAULT 0, ultimo_erro TEXT, travado_ate TEXT, pedido_em TEXT, criado_em TEXT, publicado_em TEXT, publicado_por TEXT, atualizado_em TEXT NOT NULL );
+
+CREATE INDEX IF NOT EXISTS idx_nuvemshop_catalogo_estado ON nuvemshop_catalogo(estado);
