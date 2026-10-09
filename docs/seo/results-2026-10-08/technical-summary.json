@@ -1,0 +1,230 @@
+{
+  "closed_at": "2026-10-09T04:28:47.042189+00:00",
+  "final_api_captured_at": "2026-10-09T04:23:36.376Z",
+  "audits": {
+    "before": {
+      "targets": 578,
+      "fetched": 579,
+      "http_statuses": {
+        "200": 571,
+        "404": 8
+      },
+      "errors": 8,
+      "sitemap_urls": 533,
+      "sitemap_http_non_200": 0,
+      "sitemap_noindex": 0,
+      "sitemap_canonical_mismatch": 0,
+      "published_pdp_targets": 499,
+      "product_pages_parsed": 499,
+      "main_product_schema_missing": 0,
+      "microdata_main_product_count": 0,
+      "jsonld_main_product_count": 499,
+      "organization_without_logo_pages": 563,
+      "parameter_targets": 36,
+      "drafts": {
+        "api_products": 598,
+        "published_products": 499,
+        "eligible": 468,
+        "draft_products": 372,
+        "skipped_products": {
+          "HIDDEN_OR_UNPUBLISHED_PRESERVE": 99,
+          "EXISTING_CONTENT_SUFFICIENT": 47,
+          "NO_SELLABLE_VARIANT_PRESERVE": 31,
+          "PREVIOUS_45_REAUDITED_CONTENT_PRESERVED": 45,
+          "DATA_GAP_NAME_COLOR_CONFLICT": 1,
+          "DATA_GAP_DUPLICATE_NO_FACTUAL_DISTINCTION": 3
+        },
+        "eligible_skipped": {
+          "EXISTING_CONTENT_SUFFICIENT": 47,
+          "PREVIOUS_45_REAUDITED_CONTENT_PRESERVED": 45,
+          "DATA_GAP_NAME_COLOR_CONFLICT": 1,
+          "DATA_GAP_DUPLICATE_NO_FACTUAL_DISTINCTION": 3
+        },
+        "category_total": 26,
+        "category_drafts": 26,
+        "partial": false
+      },
+      "main_schema_required_field_issue_count": 0,
+      "schema_price_parity_disagreements": 0
+    },
+    "after": {
+      "targets": 578,
+      "fetched": 579,
+      "http_statuses": {
+        "200": 571,
+        "404": 8
+      },
+      "errors": 8,
+      "sitemap_urls": 533,
+      "sitemap_http_non_200": 0,
+      "sitemap_noindex": 0,
+      "sitemap_canonical_mismatch": 0,
+      "published_pdp_targets": 499,
+      "product_pages_parsed": 499,
+      "main_product_schema_missing": 0,
+      "microdata_main_product_count": 0,
+      "jsonld_main_product_count": 499,
+      "organization_without_logo_pages": 563,
+      "parameter_targets": 36,
+      "drafts": {
+        "api_products": 598,
+        "published_products": 499,
+        "eligible": 421,
+        "draft_products": 0,
+        "skipped_products": {
+          "HIDDEN_OR_UNPUBLISHED_PRESERVE": 99,
+          "EXISTING_CONTENT_SUFFICIENT": 372,
+          "NO_SELLABLE_VARIANT_PRESERVE": 78,
+          "PREVIOUS_45_REAUDITED_CONTENT_PRESERVED": 44,
+          "DATA_GAP_NAME_COLOR_CONFLICT": 1,
+          "DATA_GAP_DUPLICATE_NO_FACTUAL_DISTINCTION": 3,
+          "DATA_GAP_FINISH_CONFLICT": 1
+        },
+        "eligible_skipped": {
+          "EXISTING_CONTENT_SUFFICIENT": 372,
+          "PREVIOUS_45_REAUDITED_CONTENT_PRESERVED": 44,
+          "DATA_GAP_NAME_COLOR_CONFLICT": 1,
+          "DATA_GAP_DUPLICATE_NO_FACTUAL_DISTINCTION": 3,
+          "DATA_GAP_FINISH_CONFLICT": 1
+        },
+        "category_total": 26,
+        "category_drafts": 0,
+        "partial": false
+      }
+    }
+  },
+  "public_parity": {
+    "generated_at": "2026-10-09T04:27:30.555441+00:00",
+    "snapshot_captured_at": "2026-10-09T04:23:36.376Z",
+    "published_targets": 499,
+    "passed": 499,
+    "failed": 0,
+    "all_published_accounted_for": true,
+    "missing_public_gallery_alt": 0,
+    "remote_writes": 0,
+    "limitations": [
+      "HTML proves effective price; regular/promotional prices are separately checked by API invariants.",
+      "Stock mismatches must be reconciled against a fresh API read before attributing them to SEO.",
+      "Current theme emits primary Product; ProductGroup remains a separately documented source dependency."
+    ]
+  },
+  "commerce": {
+    "non_stock_commerce_preserved": true,
+    "unauthorized_non_stock_differences": 0,
+    "external_stock_variants_changed_since_D0": 254,
+    "stock_variants_changed_since_resume": 0,
+    "SEO_stock_writes": 0
+  },
+  "surfaces": {
+    "passed": 32,
+    "failed": 0,
+    "categories": 26,
+    "home_meta_updated": true,
+    "institutional_title_meta_pairs": 5,
+    "institutional_content_preserved": true
+  },
+  "google_category_changes": [
+    {
+      "category_id": "28957520",
+      "value": "Vestuário e acessórios > Joias > Conjuntos de joias",
+      "status": "VALIDATED",
+      "commercial_readback": true
+    },
+    {
+      "category_id": "31033064",
+      "value": "Vestuário e acessórios > Joias",
+      "status": "VALIDATED",
+      "commercial_readback": true
+    },
+    {
+      "category_id": "33388484",
+      "value": "Vestuário e acessórios > Joias",
+      "status": "VALIDATED",
+      "commercial_readback": true
+    },
+    {
+      "category_id": "35719335",
+      "value": "Vestuário e acessórios > Joias",
+      "status": "VALIDATED",
+      "commercial_readback": true
+    },
+    {
+      "category_id": "37324295",
+      "value": "Vestuário e acessórios > Joias",
+      "status": "VALIDATED",
+      "commercial_readback": true
+    },
+    {
+      "category_id": "38335496",
+      "value": "Vestuário e acessórios > Joias",
+      "status": "VALIDATED",
+      "commercial_readback": true
+    }
+  ],
+  "sitemap_submit": {
+    "siteUrl": "sc-domain:marquesasemijoias.com.br",
+    "attempted": 1,
+    "submitted": 1,
+    "failed": 0,
+    "results": [
+      {
+        "sitemapUrl": "https://marquesasemijoias.com.br/sitemap.xml",
+        "accepted": true,
+        "confirmed": true,
+        "lastSubmitted": "2026-10-09T00:39:19.408Z",
+        "isPending": true,
+        "isSitemapsIndex": false,
+        "type": "sitemap",
+        "warnings": "0",
+        "errors": "0"
+      }
+    ],
+    "message": "Submitted 1 of 1 sitemap(s) to Search Console for sc-domain:marquesasemijoias.com.br. Submitting queues a download; it does not index the URLs.",
+    "actions": [
+      "Re-check list_sitemaps in a few hours: warnings, errors and indexed counts appear only after Google has downloaded the sitemap."
+    ]
+  },
+  "tests": {
+    "node_passed": 43,
+    "node_failed": 0,
+    "python_audit_passed": 5,
+    "python_audit_failed": 0
+  },
+  "experiments": {
+    "new_publications": 327,
+    "previous_45_D0_preserved": true,
+    "scheduler_registered": true,
+    "checkpoint_dates_BRT": {
+      "D7": "2026-10-15",
+      "D28": "2026-11-05",
+      "D56": "2026-12-03",
+      "D84": "2026-12-31"
+    },
+    "time_BRT": "22:30"
+  },
+  "final_original_canonical_cache": {
+    "product_id": "313682963",
+    "valid": true,
+    "latest_read": "2026-10-09T04:23:38.950494+00:00"
+  },
+  "merchant": {
+    "export_at_BRT": "2026-10-08T20:08:37-03:00",
+    "offers": 752,
+    "api_offers": 573,
+    "crawler_offers": 179,
+    "approved": 749,
+    "rejected": 1,
+    "review": 2,
+    "matched_published_products": 498,
+    "unmatched_published_products": 1,
+    "last_feed_update_BRT": "2026-10-08T18:56:52-03:00",
+    "new_GPC_propagation_proven": false,
+    "price_174404_saved": false
+  },
+  "dependencies": [
+    "FTP source profile required for independent home title, Organization logo, ProductGroup and CWV source changes",
+    "Merchant save-anyway approval pending for existing 174404 price 49 BRL with three unknown attributes",
+    "Google processing, remaining missing offer and image readiness warnings documented"
+  ],
+  "private_values_exported": false
+}
