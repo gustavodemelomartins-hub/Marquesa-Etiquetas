@@ -738,7 +738,7 @@ export async function executarCron(db, env, { cron = '' } = {}) {
     /* §64 — as automações da Loja Online, uma por pedido, também secas. */
     const automacao = AUTOMACOES[pedido.acao];
     if (automacao) {
-      saida.automacao = resumoCatalogo(await automacao(db, env, { seco: pedido.seco !== false, limite: pedido.limite }));
+      saida.automacao = resumoCatalogo(await automacao(db, env, { seco: pedido.seco !== false, limite: pedido.limite, skus: pedido.skus }));
       await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO()), gravarConfigStmt(db, 'nuvemshopCatalogoUltimaRodada', { em: agoraISO(), origem: `cron-admin-${pedido.acao}`, ...saida.automacao })]);
       return saida;
     }
@@ -1053,7 +1053,7 @@ const RODIZIO = [
 /** As mesmas tarefas, pedidas uma a uma (`config.nuvemshopPedidoAdmin`). */
 const AUTOMACOES = {
   catalogo_categorias: (db, env, o) => preencherCategorias(db, env, { seco: o.seco, limite: Math.min(Number(o.limite) || 5, 10) }),
-  reparticao_inventario: (db, env, o) => repartirPeloInventario(db, { seco: o.seco, limite: Math.min(Number(o.limite) || 3, 3) }),
+  reparticao_inventario: (db, env, o) => repartirPeloInventario(db, { seco: o.seco, limite: Math.min(Number(o.limite) || 3, 3), skus: o.skus }),
   normalizar_atributos: (db, env, o) => normalizarAtributosLocais(db, { seco: o.seco }),
 };
 
