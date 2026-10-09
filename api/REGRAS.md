@@ -2865,9 +2865,13 @@ publicador antigo continua morto).
   diga. Nome repetido, nome sem família, nome longo demais ou com promessa
   (garantia, hipoalergênico...) → "Precisa de informação", sem texto. O
   rascunho escrito por gente (`catalogo_publicacoes`) vence o gerado.
-- **Nunca dois anúncios do mesmo código.** Antes de qualquer POST a rodada
-  lê a loja inteira; SKU que já está lá é ADOTADO (vínculo gravado), não
-  criado. A reserva (`nuvemshop_catalogo.estado = 'criando'`, arrendamento de
+- **Nunca dois anúncios do mesmo código.** Imediatamente antes de cada POST
+  a loja é consultada pelo SKU (`GET /products/sku/{sku}`); SKU que já está
+  lá é ADOTADO (vínculo gravado), não criado. A consulta prova que funciona
+  antes da rodada (um código sabidamente na loja tem de ser achado), senão
+  nada é criado. A loja inteira NÃO é lida: com ~850 produtos isso estourou
+  a CPU da invocação (09/10 08:20) — e os produtos que aquela rodada criou
+  antes de morrer foram adotados na seguinte, sem duplicar. A reserva (`nuvemshop_catalogo.estado = 'criando'`, arrendamento de
   10 min) é gravada ANTES do POST; Worker que morre entre o POST e a gravação
   é resolvido pela leitura da rodada seguinte. Falha de API vira `erro` com
   tentativa contada (máx. 5); 401/403/5xx param a rodada.

@@ -432,6 +432,9 @@ export function classificarCatalogo(base) {
 
     const erro = linha?.estado === 'erro' || sincronia === 'erro' || statusConf.includes('erro_integracao');
     if (visibilidade === 'unlisted') add('link_direto', 'Está "não listado": some da vitrine mas é comprável pelo link direto.');
+    /* Oculto sem peça em casa não é "pronto": publicar mostraria a peça
+       esgotada. Fica oculto, dizendo o porquê. */
+    if (visibilidade !== 'visible' && casa <= 0) add('sem_estoque', 'Sem peça em casa: publicada, apareceria esgotada.');
     if (erro) item.situacao = 'erro';
     else if (visibilidade === 'visible') item.situacao = 'publicado';
     else if (pend.filter((x) => x.chave !== 'link_direto').length === 0 && sincronia === 'sincronizado') item.situacao = 'pronto';
