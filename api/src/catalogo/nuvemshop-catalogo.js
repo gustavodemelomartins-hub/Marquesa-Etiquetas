@@ -25,14 +25,17 @@
  *
  *  Não inventa preço (sem preço válido a variante vai sem preço, e a peça
  *  não publica). Não reparte estoque: variação sem saldo conhecido nasce
- *  com 0 e a peça não publica. Não muda nome, URL, preço, imagem, texto ou
- *  categoria de produto que já existia na loja. Não publica sozinho.
+ *  com 0 e a peça não publica. Não muda nome, URL, preço ou imagem de
+ *  produto que já existia na loja. O enriquecimento editorial dos ocultos
+ *  criados aqui usa journal próprio. Não publica sozinho.
  */
 import { Nuvemshop, mapearSkus, visibilidadeDe, catalogoDeVariantes } from '../nuvemshop.js';
 import { lerConfig } from '../plataforma/config.js';
 import { normSku } from '../sku.js';
 import { lerFoto } from '../fotos-storage.js';
 import { gerarTextoDoSite, normalizar, REGRA_TEXTO } from './texto-site.js';
+import { enriquecerProduto, MARCA_CANONICA, CUIDADOS_HTML, REGRA_ENRIQUECIMENTO, categoriaComprovada, fatosDoProduto, tagsEquivalentes } from './enriquecimento.js';
+import { categoriasEquivalentes, lerSeoOcupado } from './enriquecimento-fluxo.js';
 import { chaveDaVariacao, equivalenciasLojaLocal, formatarValorNovo } from '../variacao-nome.js';
 
 export const CHAVE_CATALOGO_ATIVO = 'nuvemshopCatalogoAtivo';
@@ -201,18 +204,17 @@ export async function lerBase(db) {
 /* 2. A CLASSIFICAÇÃO                                                        */
 /* ======================================================================== */
 
-/** Cor escrita num atributo que se chama "Tamanho" — o que a tela de
- *  variações gravava por padrão em brinco infantil. Mandar "Tamanho: Azul"
- *  para a loja seria publicar um cadastro errado; a pessoa confirma antes. */
-const COR = /^(azul|cristal|vermelh[oa]|verde|pink|rosa|roxo|lil[aá]s|marsala|preto|branco|amarelo|incolor|colorid[oa]|dourado|prateado|turquesa|laranja)\b/i;
+/** Valores exatos comprovam Cor no payload novo. Valores compostos ou
+ *  misturados com medidas continuam exigindo confirmação de significado. */
+const COR = /^(azul|cristal|vermelh[oa]|verde|pink|rosa|roxo|lil[aá]s|marsala|preto|branco|amarelo|incolor|colorid[oa]|dourado|prateado|turquesa|laranja)$/i;
 
 /** Nome do produto sem o aro e sem a família, para achar o MESMO modelo já
  *  anunciado sob outro código (334078 "… nº27 …" é o aro 27 do 334079, que
  *  a loja já tem como variante). */
 export function chaveDoModelo(nome) {
   return normalizar(nome)
+    .replace(/^aparador\s+(?:de\s+)?alianca\b/, 'anel aparador de alianca')
     .replace(/\bn\s*[º°o.]?\s*\d{1,2}\b/g, ' ')
-    .replace(/^(anel|aneis|brinco|brincos|colar|pulseira)\s+/, '')
     .replace(/\s+/g, ' ').trim();
 }
 
@@ -233,8 +235,16 @@ function planoDeVariacoes(p, base) {
   if (estruturas.some((e) => e.map((x) => x.atributo).join('|') !== atributos.join('|'))) {
     return { bloqueio: 'As variações deste código não têm os mesmos atributos. Revise em Peças › Variações.' };
   }
-  if (atributos.some((a) => /tamanho/i.test(a)) && estruturas.some((e) => e.some((x) => /tamanho/i.test(x.atributo) && COR.test(x.valor.trim())))) {
-    return { bloqueio: 'Variação com cor gravada no atributo "Tamanho". Confirme o atributo certo (ex.: Cor) antes de criar na loja.' };
+  for (let i = 0; i < atributos.length; i++) {
+    if (!/^tamanho$/i.test(atributos[i])) continue;
+    const cores = estruturas.map((e) => COR.test(e[i].valor.trim()));
+    if (cores.every(Boolean) && !atributos.some((a, j) => j !== i && /^cor$/i.test(a))) {
+      // Só o payload novo; nomes, movimentos e saldos preservados.
+      atributos[i] = 'Cor';
+      for (const e of estruturas) e[i].atributo = 'Cor';
+    } else if (cores.some(Boolean)) {
+      return { bloqueio: 'Variação com cor e outro significado no atributo "Tamanho". Confirme o atributo certo antes de criar na loja.' };
+    }
   }
   const chaves = locais.map((l) => chaveDaVariacao(l.nome));
   if (new Set(chaves).size !== chaves.length) return { bloqueio: 'Duas variações daqui são o mesmo valor escrito de jeitos diferentes.' };
@@ -400,7 +410,8 @@ export function classificarCatalogo(base) {
     const temFoto = sabe('imagens') ? Number(conf.imagens) > 0 : !!linha?.foto_id_loja;
     const temCategoria = conf && conf.categorias != null
       ? Number(conf.categorias) > 0
-      : (base.mapaCategorias ? !!base.mapaCategorias[normalizar(p.cat)] : null);
+      : (conteudo?.categorias != null ? Number(conteudo.categorias) > 0
+        : (base.mapaCategorias ? !!base.mapaCategorias[normalizar(p.cat)] : null));
     item.fotoNaLoja = temFoto;
     item.textoNaLoja = { descricao: temDescricao, seo: temSeo };
     if (!temFoto) add('foto', temFotoPropria(p, base) ? 'A foto daqui ainda não subiu para a loja.' : 'Falta foto.');
@@ -461,7 +472,7 @@ export function classificarCatalogo(base) {
 /** O corpo do POST /products. Tudo que vai aqui é dado nosso; nada é
  *  inventado: sem preço válido a variante vai SEM preço (a loja trata como
  *  "consultar" e o produto oculto não é comprável de qualquer forma). */
-export function corpoDoProdutoOculto(item, { localDeEstoque = null, categoriaId = null } = {}) {
+export function corpoDoProdutoOculto(item, { localDeEstoque = null, categoriaId = null, categorias = [], seoTitulosOcupados = [], seoDescricoesOcupadas = [] } = {}) {
   const estoqueDe = (n) => (localDeEstoque
     ? { inventory_levels: [{ location_id: localDeEstoque, stock: Math.max(0, Number(n) || 0) }] }
     : { stock: Math.max(0, Number(n) || 0) });
@@ -473,6 +484,12 @@ export function corpoDoProdutoOculto(item, { localDeEstoque = null, categoriaId 
   if (item.texto?.descricao) corpo.description = { pt: item.texto.descricao };
   if (item.texto?.seoTitulo) corpo.seo_title = { pt: item.texto.seoTitulo };
   if (item.texto?.seoDescricao) corpo.seo_description = { pt: item.texto.seoDescricao };
+  if (item.texto?.origem === REGRA_TEXTO) {
+    // Texto ainda não publicado: uma colisão com anúncio real autoriza a
+    // alternativa editorial, mantendo SEO humano intacto.
+    if (new Set([...seoTitulosOcupados].map(normalizar)).has(normalizar(texto(corpo.seo_title)))) delete corpo.seo_title;
+    if (new Set([...seoDescricoesOcupadas].map(normalizar)).has(normalizar(texto(corpo.seo_description)))) delete corpo.seo_description;
+  }
   if (categoriaId) corpo.categories = [Number(categoriaId) || categoriaId];
   if (item.variacoes && item.variacoes.length) {
     corpo.attributes = item.atributos.map((a) => ({ pt: a }));
@@ -484,6 +501,10 @@ export function corpoDoProdutoOculto(item, { localDeEstoque = null, categoriaId 
   } else {
     corpo.variants = [{ sku: item.sku, ...preco, ...estoqueDe(item.casa) }];
   }
+  const proposta = enriquecerProduto(corpo, { cadastro: { sku: item.sku, desc: item.nome, cat: item.categoria },
+    marcaCanonica: MARCA_CANONICA, cuidadosHtml: CUIDADOS_HTML, categorias, novo: true,
+    substituirTextoGerado: item.texto?.origem === REGRA_TEXTO, seoTitulosOcupados, seoDescricoesOcupadas });
+  Object.assign(corpo, proposta.patch);
   return corpo;
 }
 
@@ -493,6 +514,17 @@ function confereCriado(produto, corpo, sku) {
   const vs = (produto && produto.variants) || [];
   if (vs.length !== corpo.variants.length) problemas.push(`a loja devolveu ${vs.length} variante(s), eram ${corpo.variants.length}`);
   if (vs.some((v) => normSku(v.sku) !== normSku(sku))) problemas.push('SKU da variante diferente do código');
+  for (const campo of ['name', 'description', 'seo_title', 'seo_description', 'brand']) {
+    if (corpo[campo] != null && texto(produto?.[campo]) !== texto(corpo[campo])) problemas.push(`${campo} não confirmado na releitura`);
+  }
+  if (corpo.tags != null && !tagsEquivalentes(corpo.tags, produto?.tags)) problemas.push('tags não confirmadas na releitura');
+  if (!categoriasEquivalentes(corpo.categories || [], produto?.categories || [])) problemas.push('categorias não confirmadas na releitura');
+  for (let i = 0; i < Math.min(vs.length, corpo.variants.length); i++) {
+    const esperado = corpo.variants[i], lido = vs[i];
+    if ((lido.values || []).map(texto).join('|') !== (esperado.values || []).map(texto).join('|')) problemas.push(`valores da variante ${i + 1} não confirmados`);
+    if (esperado.price != null && Number(lido.price) !== Number(esperado.price)) problemas.push(`preço da variante ${i + 1} não confirmado`);
+    if (estoqueDaVariante(lido) !== estoqueDaVariante(esperado)) problemas.push(`estoque da variante ${i + 1} não confirmado`);
+  }
   return problemas;
 }
 
@@ -506,13 +538,15 @@ function estoqueDaVariante(v) {
 /** Garante hidden. Devolve a visibilidade final confirmada pela leitura. */
 async function garantirOculto(loja, produtoId, visto) {
   if (visibilidadeDe(visto) === 'hidden') return 'hidden';
-  await loja.atualizarProduto(produtoId, { visibility: 'hidden' });
+  const preservar = (p) => Object.fromEntries(['name', 'handle', 'description', 'seo_title', 'seo_description']
+    .filter((k) => Object.hasOwn(p || {}, k)).map((k) => [k, p[k]]));
+  await loja.atualizarProduto(produtoId, { ...preservar(visto), visibility: 'hidden' });
   let relido = await loja.produto(produtoId);
   if (visibilidadeDe(relido) === 'hidden') return 'hidden';
   /* Loja que não conhece `visibility`: `published: false` ao menos tira
      da vitrine (pode ficar unlisted — por isso a rodada para de qualquer
      jeito). */
-  await loja.atualizarProduto(produtoId, { published: false });
+  await loja.atualizarProduto(produtoId, { ...preservar(relido), published: false });
   relido = await loja.produto(produtoId);
   return visibilidadeDe(relido) || (relido && relido.published === false ? 'nao_publicado' : null);
 }
@@ -572,9 +606,8 @@ function vincularStmts(db, sku, produto, { estado, origem, conteudo = null, vari
   return stmts;
 }
 
-/** Mapa categoria daqui → id da categoria da loja, SÓ por nome igual
- *  (sem acento e sem caixa), e só categoria raiz. Não há mapa por
- *  semelhança: "Argola" não vira "Brincos" por palpite. */
+/** Taxonomia existente, com aliases objetivos de tipo e categoria comercial
+ *  única do helper factual. Mantém IDs e hierarquia atuais da loja. */
 export function mapearCategorias(categoriasLoja) {
   const mapa = {};
   for (const c of categoriasLoja || []) {
@@ -582,6 +615,10 @@ export function mapearCategorias(categoriasLoja) {
     if (!raiz) continue;
     const k = normalizar(texto(c.name));
     if (k && mapa[k] == null) mapa[k] = String(c.id);
+  }
+  for (const tipo of ['Argola', 'Brinco', 'Brincos', 'Colar', 'Pulseira', 'Anel', 'Pingente', 'Conjunto']) {
+    const c = categoriaComprovada(fatosDoProduto({ name: { pt: tipo } }), categoriasLoja || []);
+    if (c) mapa[normalizar(tipo)] = String(c.id);
   }
   return mapa;
 }
@@ -624,12 +661,17 @@ export async function criarOcultos(db, env, { limite = LOTE_PADRAO, seco = true,
   if (!loja.configurada()) return { ...relato, ok: false, erro: 'A loja não está conectada.' };
 
   const base = await lerBase(db);
-  /* Categorias: o mapa gravado na última rodada; a loja só é lida sem ele. */
+  /* A hierarquia atual é relida: nova categoria comercial não deve ficar
+     inacessível por causa de um mapa antigo gravado antes dela existir. */
   let mapaCategorias = base.mapaCategorias;
   let mapaNovo = false;
-  if (!mapaCategorias || !Object.keys(mapaCategorias).length) {
-    try { mapaCategorias = mapearCategorias(await loja.categorias()); relato.chamadasLoja++; mapaNovo = true; } catch { mapaCategorias = {}; }
-  }
+  let categorias = [];
+  try {
+    categorias = await loja.categorias(); relato.chamadasLoja++;
+    const atual = mapearCategorias(categorias);
+    mapaNovo = JSON.stringify(atual) !== JSON.stringify(mapaCategorias);
+    mapaCategorias = atual;
+  } catch { mapaCategorias = mapaCategorias || {}; }
   base.mapaCategorias = mapaCategorias;
   const { itens } = classificarCatalogo(base);
 
@@ -647,10 +689,23 @@ export async function criarOcultos(db, env, { limite = LOTE_PADRAO, seco = true,
   relato.ignorados = itens.filter((x) => x.situacao === 'nao_cadastrado' && !x.criavel).length;
   const lote = candidatos.slice(0, Math.max(0, Math.min(Number(limite) || LOTE_PADRAO, LOTE_MAXIMO)));
 
-  const corpos = lote.map((x) => ({
-    item: x,
-    corpo: corpoDoProdutoOculto(x, { localDeEstoque: base.localDeEstoque, categoriaId: mapaCategorias[normalizar(x.categoria)] || null }),
-  }));
+  const corpos = [];
+  const titulosDoLote = new Set(), metasDoLote = new Set();
+  for (const item of lote) {
+    let ocupados;
+    try { ocupados = await lerSeoOcupado(loja, item.nome); relato.chamadasLoja++; }
+    catch (e) {
+      relato.erros++; relato.ok = false;
+      relato.itens.push({ sku: item.sku, erro: frase(e) });
+      continue; // Não cria cadastro mínimo quando a consulta editorial falha.
+    }
+    const corpo = corpoDoProdutoOculto(item, { localDeEstoque: base.localDeEstoque,
+      categoriaId: mapaCategorias[normalizar(item.categoria)] || null, categorias,
+      seoTitulosOcupados: [...ocupados.seoTitulosOcupados, ...titulosDoLote],
+      seoDescricoesOcupadas: [...ocupados.seoDescricoesOcupadas, ...metasDoLote] });
+    titulosDoLote.add(texto(corpo.seo_title)); metasDoLote.add(texto(corpo.seo_description));
+    corpos.push({ item, corpo });
+  }
 
   if (seco || trava) {
     relato.criaveis = candidatos.length;
@@ -689,6 +744,12 @@ export async function criarOcultos(db, env, { limite = LOTE_PADRAO, seco = true,
   const reservados = new Set(((await db.prepare(
     `SELECT sku FROM nuvemshop_catalogo WHERE estado = 'criando' AND travado_ate = ?`).bind(token).all()).results || [])
     .map((r) => String(r.sku)));
+  // Guarda o corpo proposto antes de qualquer POST, inclusive quando a
+  // invocação morrer entre a criação remota e a gravação do vínculo.
+  await db.batch(corpos.filter(({ item }) => reservados.has(item.sku)).map(({ item, corpo }) => db.prepare(
+    `UPDATE nuvemshop_catalogo SET conteudo_json=? WHERE sku=? AND estado='criando' AND travado_ate=?`)
+    .bind(JSON.stringify({ descricao: texto(corpo.description), seoTitulo: texto(corpo.seo_title),
+      seoDescricao: texto(corpo.seo_description), regra: REGRA_ENRIQUECIMENTO, corpo }), item.sku, token)));
 
   const stmts = [];
   let parar = null;
@@ -714,9 +775,10 @@ export async function criarOcultos(db, env, { limite = LOTE_PADRAO, seco = true,
       }
       const criado = await loja.criarProduto(corpo);
       relato.chamadasLoja++;
-      const problemas = confereCriado(criado, corpo, item.sku);
-      let produto = criado;
-      let vis = visibilidadeDe(criado);
+      let produto = criado?.id != null ? await loja.produto(criado.id) : criado;
+      if (criado?.id != null) relato.chamadasLoja++;
+      const problemas = confereCriado(produto, corpo, item.sku);
+      let vis = visibilidadeDe(produto);
       if (criado && criado.id != null && vis !== 'hidden') {
         /* A loja não confirmou hidden. Esconder JÁ, reler, e parar tudo. */
         const respondeu = vis;
@@ -752,8 +814,8 @@ export async function criarOcultos(db, env, { limite = LOTE_PADRAO, seco = true,
       const estoques = (produto.variants || []).map(estoqueDaVariante);
       stmts.push(...vincularStmts(db, item.sku, produto, {
         estado: 'oculto', origem: 'criado',
-        conteudo: item.texto?.descricao || item.texto?.seoTitulo
-          ? { descricao: item.texto.descricao, seoTitulo: item.texto.seoTitulo, seoDescricao: item.texto.seoDescricao, regra: item.texto.origem }
+        conteudo: corpo.description || corpo.seo_title
+          ? { descricao: texto(corpo.description), seoTitulo: texto(corpo.seo_title), seoDescricao: texto(corpo.seo_description), categorias: (produto.categories || []).length, regra: REGRA_ENRIQUECIMENTO }
           : null,
         variacoesLigadas: ligadas,
       }));
@@ -1005,10 +1067,17 @@ export async function publicarNaLoja(db, env, sku, { por = 'operador', loja: loj
      ON CONFLICT(sku) DO UPDATE SET estado = 'publicando', ultimo_erro = NULL, atualizado_em = excluded.atualizado_em`,
   ).bind(p.sku, String(p.produto_id_loja), visAntes, em).run();
   try {
-    await loja.atualizarProduto(p.produto_id_loja, { visibility: 'visible' });
+    // O gesto permanece exclusivamente humano. Pass-through só protege o
+    // conteúdo aprovado de APIs que limpam idiomas omitidos no PUT.
+    const preservar = Object.fromEntries(['name', 'handle', 'description', 'seo_title', 'seo_description']
+      .filter((k) => Object.hasOwn(produto, k)).map((k) => [k, produto[k]]));
+    await loja.atualizarProduto(p.produto_id_loja, { ...preservar, visibility: 'visible' });
     const relido = await loja.produto(p.produto_id_loja);
     const vis = visibilidadeDe(relido);
     if (vis !== 'visible') throw new Error(`a loja respondeu ${vis || 'sem visibilidade'} depois da troca`);
+    for (const [campo, valor] of Object.entries(preservar)) {
+      if (JSON.stringify(relido[campo]) !== JSON.stringify(valor)) throw new Error(`a publicação não preservou ${campo}`);
+    }
     await db.batch([
       db.prepare(`UPDATE nuvemshop_catalogo SET estado = 'visivel', visibilidade = 'visible', publicado_em = ?,
                     publicado_por = ?, atualizado_em = ? WHERE sku = ?`).bind(em, String(por).slice(0, 120), em, p.sku),

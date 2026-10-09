@@ -433,3 +433,9 @@ END;
 CREATE TABLE IF NOT EXISTS nuvemshop_catalogo ( sku TEXT PRIMARY KEY, estado TEXT NOT NULL CHECK (estado IN ('criando','oculto','publicando','visivel','erro')), origem TEXT, produto_id TEXT, visibilidade TEXT, variantes_json TEXT, conteudo_json TEXT, conteudo_enviado_em TEXT, foto_enviada_em TEXT, foto_id_loja TEXT, tentativas INTEGER NOT NULL DEFAULT 0, ultimo_erro TEXT, travado_ate TEXT, pedido_em TEXT, criado_em TEXT, publicado_em TEXT, publicado_por TEXT, atualizado_em TEXT NOT NULL );
 
 CREATE INDEX IF NOT EXISTS idx_nuvemshop_catalogo_estado ON nuvemshop_catalogo(estado);
+
+CREATE TABLE IF NOT EXISTS nuvemshop_enriquecimento ( id TEXT PRIMARY KEY, sku TEXT, product_id TEXT NOT NULL, regra TEXT NOT NULL, estado TEXT NOT NULL CHECK (estado IN ('preparado','validado','erro')), before_json TEXT NOT NULL, patch_json TEXT NOT NULL, after_json TEXT, before_hash TEXT NOT NULL, after_hash TEXT, fonte_hash TEXT, erro TEXT, em TEXT NOT NULL );
+
+CREATE INDEX IF NOT EXISTS idx_nuvemshop_enriquecimento_produto ON nuvemshop_enriquecimento(product_id, regra, em);
+
+CREATE INDEX IF NOT EXISTS idx_nuvemshop_enriquecimento_estado ON nuvemshop_enriquecimento(estado, em);

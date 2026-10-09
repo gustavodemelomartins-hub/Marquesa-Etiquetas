@@ -44,6 +44,7 @@
  *    continua ACUMULANDO — religar entrega o que ficou parado.
  */
 import { Nuvemshop, mapearSkus, catalogoDeVariantes } from './nuvemshop.js';
+import { enriquecerOcultos } from './catalogo/enriquecimento-fluxo.js';
 import { decidirEstoqueDoSku, puxarPedidos, corteDePedidos } from './sync.js';
 import {
   atualizarCatalogoDaLeitura, criarOcultos, criarVariantesFaltantes, enviarFotosPendentes, catalogoAtivo,
@@ -733,6 +734,11 @@ export async function executarCron(db, env, { cron = '' } = {}) {
       await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO()), gravarConfigStmt(db, 'nuvemshopCatalogoUltimaRodada', { em: agoraISO(), origem: 'cron-admin-fotos', ...saida.fotos })]);
       return saida;
     }
+    if (pedido.acao === 'catalogo_enriquecer') {
+      saida.enriquecimento = await enriquecerOcultos(db, env, { seco: pedido.seco !== false, limite: pedido.limite, skus: pedido.skus });
+      await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO()), gravarConfigStmt(db, 'nuvemshopEnriquecimentoUltimaRodada', { em: agoraISO(), origem: 'cron-admin', ...saida.enriquecimento })]);
+      return saida;
+    }
     if (pedido.acao === 'reconciliar') {
       saida.reconciliacao = await reconciliarDivergencias(db, env, { forcar: true, origem: 'cron-admin' });
       await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO())]);
@@ -748,9 +754,10 @@ export async function executarCron(db, env, { cron = '' } = {}) {
   if (!diario && saida.fila && !saida.fila.processados && await catalogoAtivo(db)) {
     try {
       const minuto = new Date().getUTCMinutes();
-      saida.catalogo = minuto % 20 < 10
+      saida.catalogo = minuto % 30 < 10
         ? resumoCatalogo(await criarOcultos(db, env, { seco: false, limite: 5 }))
-        : await enviarFotosPendentes(db, env, { seco: false, limite: 2 });
+        : minuto % 30 < 20 ? await enviarFotosPendentes(db, env, { seco: false, limite: 2 })
+          : await enriquecerOcultos(db, env, { seco: false, limite: 2 });
     } catch (e) {
       saida.catalogo = { ok: false, erro: erroLegivel(e) };
     }

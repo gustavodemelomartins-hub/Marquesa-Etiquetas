@@ -249,6 +249,7 @@ export function subirLojaFalsa(porta = 8799) {
       const p = {
         id, name: b.name, handle: { pt: String(nome).toLowerCase().normalize('NFD').replace(/[^\w]+/g, '-') + '-' + id },
         description: b.description || { pt: '' }, seo_title: b.seo_title || null, seo_description: b.seo_description || null,
+        brand: b.brand || '', tags: b.tags || '',
         attributes: b.attributes || [], categories: (b.categories || []).map((c) => ({ id: c })), images: [],
         visibility: 'visible', published: true,
         variants: (b.variants || []).map((v, i) => ({

@@ -112,8 +112,12 @@ console.log('8. última página cheia: o 404 "Last page is N" da página seguint
   const leitor = new Nuvemshop(envBase);
 
   loja.estado.produtos = Array.from({ length: 600 }, (_, i) => ({ id: i + 1, variants: [] }));
-  const e = await esperaFalhar(leitor.chamar('/products?page=4&per_page=200'));
-  t('loja falsa imita a real: página além da última é 404', e && e.status === 404);
+  const respostaHttp = await fetch(`${leitor.base}/products?page=4&per_page=200`, {
+    headers: { Authorization: 'Bearer token-de-mentira', 'User-Agent': 'Marquesa teste de paginação' },
+  });
+  t('loja falsa imita a real: página além da última é 404', respostaHttp.status === 404);
+  const fim = await leitor.chamar('/products?page=4&per_page=200');
+  t('cliente normaliza o fim comprovado da paginação para lista vazia', Array.isArray(fim) && fim.length === 0);
   const todos = await leitor.produtos().catch(err => err);
   t('600 produtos (3 páginas cheias) lidos sem erro', Array.isArray(todos) && todos.length === 600);
 
