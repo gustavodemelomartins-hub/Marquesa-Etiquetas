@@ -68,7 +68,7 @@ recebe estoque pela fila de §61, e só fica `visible` pelo clique em
 | 09:01 | conferência diária: 911 iguais, 0 divergentes |
 | 09:20 | 8 variantes criadas em 7 anéis (estoque 0, grafia das irmãs), 0 erros |
 | 09:51 | **conferência final: 926 produtos / 1.011 variantes; 918 iguais, 0 divergentes** |
-| 10:2x | Worker  · Pages  (oculto sem peça em casa não é "pronto"); QA do bundle publicado sobre a cópia pós-execução: ok |
+| 10:2x | Worker `4d185e84` · Pages `b4772b74` (oculto sem peça em casa não é "pronto"); QA do bundle publicado sobre a cópia pós-execução: ok |
 
 Rollback: Worker `15f0cb8d` (anterior a tudo), `353a22aa` (antes da dedup por
 SKU) ou `abfcba49` (antes do ajuste do "pronto") · Pages `e2b26ca3` (anterior a tudo) ou `c7ac41a9` · D1 bookmark `00000286-…` ou
