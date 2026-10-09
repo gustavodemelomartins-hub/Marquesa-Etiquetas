@@ -25,6 +25,7 @@ import { rotas as operacao } from './operacao.js';
 import { rotas as sincronizacao } from './sincronizacao.js';
 import { rotas as vendas } from './vendas.js';
 import { rotas as nuvemshopEstoque } from './nuvemshop-estoque.js';
+import { rotas as nuvemshopCatalogo } from './nuvemshop-catalogo.js';
 
 export const rotas = [
   ...publicas,
@@ -43,6 +44,7 @@ export const rotas = [
   ...operacao,
   ...sincronizacao,
   ...nuvemshopEstoque,
+  ...nuvemshopCatalogo,
   ...vendas,
   ...analytics,
 ];

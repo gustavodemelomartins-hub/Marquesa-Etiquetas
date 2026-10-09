@@ -45,6 +45,9 @@
  */
 import { Nuvemshop, mapearSkus, catalogoDeVariantes } from './nuvemshop.js';
 import { decidirEstoqueDoSku, puxarPedidos, corteDePedidos } from './sync.js';
+import {
+  atualizarCatalogoDaLeitura, criarOcultos, criarVariantesFaltantes, enviarFotosPendentes, catalogoAtivo,
+} from './catalogo/nuvemshop-catalogo.js';
 import { saldosDeVariacao } from './variantes.js';
 import { saldosDoSku } from './estoque.js';
 import { consultarEmLotes, parametros } from './plataforma/d1.js';
@@ -421,7 +424,10 @@ export async function processarFila(db, env, opcoes = {}) {
             const m = d.mudancas.find((x) => String(x.varianteId) === String(v.varianteId));
             return { varianteId: String(v.varianteId), de: v.estoque, para: m ? m.para : v.estoque };
           })
-        : [{ varianteId: String(naLoja.varianteId), de: naLoja.estoque, para: Math.max(0, l.casa) }];
+        /* §62 — variante única: o número DECIDIDO (com estoque repartido aqui
+           ele é o da variação equivalente, não o total). */
+        : [{ varianteId: String(naLoja.varianteId), de: naLoja.estoque,
+            para: d.mudancas.length ? d.mudancas[0].para : naLoja.estoque }];
 
       if (cautela) {
         const anterior = lerEnviado(filaPorSku.get(sku).enviado_json);
@@ -710,6 +716,23 @@ export async function executarCron(db, env, { cron = '' } = {}) {
       await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO())]);
       return saida;
     }
+    /* §62 — catálogo oculto. Cada ação lê a loja e escreve num lote só;
+       `seco` (padrão true no pedido) devolve o que faria. */
+    if (pedido.acao === 'catalogo') {
+      saida.catalogo = resumoCatalogo(await criarOcultos(db, env, { seco: pedido.seco !== false, limite: pedido.limite, skus: pedido.skus }));
+      await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO()), gravarConfigStmt(db, 'nuvemshopCatalogoUltimaRodada', { em: agoraISO(), origem: 'cron-admin', ...saida.catalogo })]);
+      return saida;
+    }
+    if (pedido.acao === 'catalogo_variantes') {
+      saida.variantes = resumoCatalogo(await criarVariantesFaltantes(db, env, { seco: pedido.seco !== false, limite: pedido.limite }));
+      await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO()), gravarConfigStmt(db, 'nuvemshopCatalogoUltimaRodada', { em: agoraISO(), origem: 'cron-admin-variantes', ...saida.variantes })]);
+      return saida;
+    }
+    if (pedido.acao === 'catalogo_fotos') {
+      saida.fotos = await enviarFotosPendentes(db, env, { seco: pedido.seco !== false, limite: pedido.limite || 3 });
+      await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO()), gravarConfigStmt(db, 'nuvemshopCatalogoUltimaRodada', { em: agoraISO(), origem: 'cron-admin-fotos', ...saida.fotos })]);
+      return saida;
+    }
     if (pedido.acao === 'reconciliar') {
       saida.reconciliacao = await reconciliarDivergencias(db, env, { forcar: true, origem: 'cron-admin' });
       await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO())]);
@@ -718,6 +741,20 @@ export async function executarCron(db, env, { cron = '' } = {}) {
   }
   const diario = /^0 9 \* \* \*$/.test(String(cron).trim());
   saida.fila = resumoDaRodada(await processarFila(db, env, { puxar: true, origem: 'cron' }));
+  /* §62 — com o catálogo ligado e a fila ociosa, o cron cria os ocultos
+     novos aos poucos (e sobe foto que entrou depois). Fila ocupada ou
+     rodada diária: fica para a próxima — o teto de 50 consultas por
+     invocação é dividido com o estoque, que tem prioridade. */
+  if (!diario && saida.fila && !saida.fila.processados && await catalogoAtivo(db)) {
+    try {
+      const minuto = new Date().getUTCMinutes();
+      saida.catalogo = minuto % 20 < 10
+        ? resumoCatalogo(await criarOcultos(db, env, { seco: false, limite: 5 }))
+        : await enviarFotosPendentes(db, env, { seco: false, limite: 2 });
+    } catch (e) {
+      saida.catalogo = { ok: false, erro: erroLegivel(e) };
+    }
+  }
   if (diario) {
     const c = await conferirLoja(db, env, { gravarEspelho: true });
     saida.conferencia = resumoConferencia(c);
@@ -794,6 +831,7 @@ export async function conferirLoja(db, env, { gravar = true, gravarEspelho = fal
     seoTitulo: texto(p.seo_title).trim().length > 0,
     seoDescricao: texto(p.seo_description).trim().length > 0,
     imagens: Array.isArray(p.images) ? p.images.length : 0,
+    categorias: Array.isArray(p.categories) ? p.categories.length : 0,
     publicado: p.published == null ? null : !!p.published,
   }]));
 
@@ -882,7 +920,9 @@ export async function conferirLoja(db, env, { gravar = true, gravarEspelho = fal
       : [{ ...naLoja.variantes[0], varianteId: naLoja.varianteId, produtoId: naLoja.produtoId, estoque: naLoja.estoque }];
     for (const v of vars) {
       const m = porVid.get(String(v.varianteId));
-      const online = m ? m.para : (naLoja.variantes.length > 1 ? v.estoque : Math.max(0, l.casa));
+      /* Sem mudança decidida, o número da loja já é o certo — também na
+         variante única (§62: com repartição ele não é o total em casa). */
+      const online = m ? m.para : v.estoque;
       const diferenca = online - v.estoque;
       let status = diferenca === 0 ? 'ok' : 'divergente';
       let motivo = null;
@@ -908,14 +948,14 @@ export async function conferirLoja(db, env, { gravar = true, gravarEspelho = fal
         `INSERT INTO nuvemshop_conferencia
            (sku, produto, variante, ns_produto_id, ns_variante_id, ns_sku, em_casa, consignado,
             online, ns_estoque, diferenca, status, motivo, publicado,
-            ns_tem_descricao, ns_tem_seo_titulo, ns_tem_seo_descricao, ns_imagens, conferido_em)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            ns_tem_descricao, ns_tem_seo_titulo, ns_tem_seo_descricao, ns_imagens, ns_categorias, conferido_em)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       ).bind(
         x.sku, x.produto, x.variante, x.nsProdutoId, x.nsVarianteId, x.nsSku,
         x.emCasa, x.consignado, x.online, x.nsEstoque, x.diferenca, x.status, x.motivo,
         x.publicado == null ? null : (x.publicado ? 1 : 0),
         c ? (c.descricao ? 1 : 0) : null, c ? (c.seoTitulo ? 1 : 0) : null,
-        c ? (c.seoDescricao ? 1 : 0) : null, c ? c.imagens : null, em,
+        c ? (c.seoDescricao ? 1 : 0) : null, c ? c.imagens : null, c ? c.categorias : null, em,
       ));
     }
     stmts.push(gravarConfigStmt(db, 'nuvemshopConferencia', resumo));
@@ -925,7 +965,7 @@ export async function conferirLoja(db, env, { gravar = true, gravarEspelho = fal
          clicável, e reescrever 600 produtos e 700 variantes a cada clique
          seria escrita à toa no D1. */
       const atuais = new Map(((await db.prepare(
-        'SELECT sku, produto_id_loja, url_loja, visivel, nome_loja, estoque_loja FROM produtos').all()).results || [])
+        'SELECT sku, produto_id_loja, url_loja, visivel, nome_loja, estoque_loja, visibilidade_loja FROM produtos').all()).results || [])
         .map((p) => [normSku(p.sku), p]));
       const igual = (a, b) => String(a ?? '') === String(b ?? '');
       for (const [n, e] of mapa) {
@@ -934,11 +974,13 @@ export async function conferirLoja(db, env, { gravar = true, gravarEspelho = fal
         const pid = e.produtoId == null ? null : String(e.produtoId);
         const url = e.url || pid;
         const vis = e.visivel === null ? null : (e.visivel ? 1 : 0);
+        const visib = e.visibilidade || null;
         if (igual(p.produto_id_loja, pid) && igual(p.url_loja, url) && igual(p.visivel, vis)
-          && igual(p.nome_loja, e.nome || null) && igual(p.estoque_loja, e.estoque)) continue;
+          && igual(p.nome_loja, e.nome || null) && igual(p.estoque_loja, e.estoque)
+          && igual(p.visibilidade_loja, visib)) continue;
         stmts.push(db.prepare(
-          'UPDATE produtos SET produto_id_loja = ?, url_loja = ?, visivel = ?, nome_loja = ?, estoque_loja = ? WHERE sku = ?',
-        ).bind(pid, url, vis, e.nome || null, e.estoque, p.sku));
+          'UPDATE produtos SET produto_id_loja = ?, url_loja = ?, visivel = ?, nome_loja = ?, estoque_loja = ?, visibilidade_loja = ? WHERE sku = ?',
+        ).bind(pid, url, vis, e.nome || null, e.estoque, visib, p.sku));
       }
       const espelho = new Map(((await db.prepare(
         'SELECT variante_id, produto_id, sku, nome, estoque, produto_visivel, produto_url FROM loja_variantes').all()).results || [])
@@ -975,8 +1017,23 @@ export async function conferirLoja(db, env, { gravar = true, gravarEspelho = fal
       }
     }
     for (let i = 0; i < stmts.length; i += 400) await db.batch(stmts.slice(i, i + 400));
+    /* §62 — o estado do catálogo oculto segue o que a loja disse agora:
+       publicado à mão lá vira `visivel` aqui; apagado lá vira `erro`. */
+    if (gravarEspelho) resumo.catalogoAtualizado = await atualizarCatalogoDaLeitura(db, produtosLoja);
   }
   return { ok: true, resumo, linhas };
+}
+
+/** O relato do catálogo sem os corpos inteiros (eles vão para a tela de
+ *  prévia, não para o `config`). */
+export function resumoCatalogo(r) {
+  if (!r) return r;
+  const { itens, planos, ...resto } = r;
+  return {
+    ...resto,
+    itens: (itens || []).slice(0, 60).map((x) => ({ sku: x.sku, acao: x.acao, produtoId: x.produtoId, erro: x.erro, nome: x.nome })),
+    planos: planos ? planos.map((p) => ({ sku: p.sku, nome: p.nomeNovo, bloqueio: p.bloqueio })) : undefined,
+  };
 }
 
 export function resumoConferencia(c) {

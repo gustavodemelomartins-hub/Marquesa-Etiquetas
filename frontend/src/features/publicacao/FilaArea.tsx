@@ -4,13 +4,12 @@ import { Icone } from '../../components/Icone';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { money, fmtData, plural } from '../../domain/formato';
+import { ApiError } from '../../types/api';
+import { buscarFila, publicarNaNuvemshop, salvarPrevia } from './api';
 import {
-  aprovarPublicacao, buscarFila, prepararPublicacao, reabrirPublicacao,
-  repetirPublicacao, salvarPrevia, type RespostaDaFila,
-} from './api';
-import {
-  ESTADOS, ROTULO_DA_FALTA, degrauDoEstado, SITUACOES, FILTROS_DE_PENDENCIA,
-  porSituacao, fraseDaPeca, type Situacao, type ItemDaFila,
+  SITUACOES, FILTROS_DE_PENDENCIA, ROTULO_DA_PENDENCIA, ROTULO_DA_VISIBILIDADE,
+  porSituacao, fraseDaPeca, checklistDaPeca, situacaoDaTela,
+  type SituacaoDaTela, type ItemDaFila,
 } from './tipos';
 import type { Connection } from '../../services/client';
 
@@ -18,38 +17,32 @@ interface Props {
   conexao: Connection;
 }
 
-/** A CENTRAL OPERACIONAL DA PUBLICAÇÃO.
+/** PREPARAÇÃO PARA NUVEMSHOP — §61 e §62.
  *
- *  O protótipo desenha a lista como protagonista, e o funil como cabeçalho:
+ *  A Sthefany não precisa abrir o painel da Nuvemshop para descobrir o que
+ *  falta. Cada peça responde, nesta ordem:
  *
- *      Preparar → Revisar → Aprovar → Publicando → Publicado
+ *    existe na Nuvemshop?   não cadastrada · oculta · visível
+ *    o que falta?           foto, descrição, SEO, preço, variação, estoque
+ *    pode ficar visível?    "Pronto para publicar" — e só o clique publica
  *
- *  Cada degrau é uma FILA DE TRABALHO, e o que muda entre eles é quem tem
- *  a próxima ação. Foi por isso que o funil virou o filtro em vez de um
- *  enfeite: clicar em "Revisar" é dizer "me mostre o que espera meu olho".
+ *  Cadastrar e tornar visível são dois atos (§62). O sistema CADASTRA a peça
+ *  OCULTA na loja quando a estrutura é segura (hidden: não aparece, não é
+ *  comprável, mas já tem estoque, texto e SEO). Ficar visível é sempre o
+ *  clique em "Publicar na Nuvemshop", e o servidor confere tudo NA LOJA antes.
  *
- *  DUAS COISAS QUE A TELA NUNCA MISTURA, porque elas culpam pessoas
- *  diferentes:
- *
- *    `falta`      o que a PEÇA não tem — preço, foto, nome, categoria.
- *                 Trabalho de gente, e a lista diz exatamente o quê.
- *    `bloqueios`  o que este SERVIDOR não consegue fazer — R2 ausente,
- *                 preparador não configurado. Trabalho de infraestrutura,
- *                 e cobrar isso de quem cadastra peça é ruído.
- *
- *  ESCRITA NA LOJA REAL CONTINUA PROIBIDA. `/publicar`, `/despublicar` e
- *  `/rodada` existem no Worker e não são importadas por esta tela — e o
- *  próprio servidor devolve `escritaNaLojaHabilitada: false`, que é o que
- *  a faixa no alto repete.
+ *  `bloqueios` do servidor (R2 ausente, preparador) continuam separados do
+ *  que falta na peça: "Ainda não disponível:" é infraestrutura, não cadastro.
  */
 export function FilaArea({ conexao }: Props) {
   const fila = useApi((s) => buscarFila(conexao, s), [conexao]);
-  const [situacao, setSituacao] = useState<Situacao>('preparacao');
+  const [situacao, setSituacao] = useState<SituacaoDaTela>('oculto');
   const [filtro, setFiltro] = useState('todos');
   const [busca, setBusca] = useState('');
   const [abertoSku, setAbertoSku] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [recusa, setRecusa] = useState<{ sku: string; texto: string } | null>(null);
+  const [aviso, setAviso] = useState<{ sku: string; texto: string } | null>(null);
 
   const d = fila.dados;
   const listas = useMemo(() => porSituacao(d?.itens ?? []), [d]);
@@ -64,25 +57,39 @@ export function FilaArea({ conexao }: Props) {
     });
   }, [listas, situacao, filtro, busca]);
 
-  async function agir(
-    sku: string, acao: (c: Connection, s: string) => Promise<RespostaDaFila>,
-  ) {
+  const naoCadastrados = listas.nao_cadastrado;
+  const seraoCriados = naoCadastrados.filter((i) => i.nuvemshop?.criavel).length;
+
+  async function publicar(sku: string) {
     setOcupado(sku);
     setRecusa(null);
-    const r = await acao(conexao, sku)
-      .catch((e: unknown) => ({ erro: e instanceof Error ? e.message : 'Não consegui.' }));
-    setOcupado(null);
-    if (r && 'erro' in r && r.erro) {
-      const faltam = (r as RespostaDaFila).faltam;
-      setRecusa({
-        sku,
-        texto: String(r.erro) + (faltam?.length
-          ? ` Faltam: ${faltam.map((f) => ROTULO_DA_FALTA[f] ?? f).join(', ')}.`
-          : ''),
-      });
-      return;
+    setAviso(null);
+    try {
+      const r = await publicarNaNuvemshop(conexao, sku, 'Preparação para Nuvemshop');
+      setAviso({ sku, texto: r.confirmadoPelaLoja ? 'Publicado: a Nuvemshop confirmou que está visível.' : 'Publicado.' });
+      fila.recarregar();
+    } catch (e) {
+      const corpo = e instanceof ApiError ? (e.corpo as { faltam?: string[] } | null) : null;
+      const faltam = corpo?.faltam?.length
+        ? ` Falta: ${corpo.faltam.map((f) => ROTULO_DA_PENDENCIA[f] ?? f).join(', ')}.`
+        : '';
+      setRecusa({ sku, texto: `${e instanceof Error ? e.message : 'Não consegui publicar.'}${faltam}` });
+    } finally {
+      setOcupado(null);
     }
-    fila.recarregar();
+  }
+
+  async function salvarTexto(sku: string, r: { nomeSite: string; descricaoSite: string }) {
+    setOcupado(sku);
+    setRecusa(null);
+    try {
+      await salvarPrevia(conexao, sku, r);
+      fila.recarregar();
+    } catch (e) {
+      setRecusa({ sku, texto: e instanceof Error ? e.message : 'Não consegui salvar.' });
+    } finally {
+      setOcupado(null);
+    }
   }
 
   if (fila.erro) return <ErrorState erro={fila.erro} aoTentarDeNovo={fila.recarregar} />;
@@ -94,18 +101,29 @@ export function FilaArea({ conexao }: Props) {
           <p className="mq-eyebrow">Nuvemshop · Fila de publicação</p>
           <h1 className="mq-display">Preparação para Nuvemshop</h1>
           <p className="mq-lede">
-            Cada peça diz o que falta para ir à loja — e as que já estão lá dizem
-            se o estoque está em dia.
+            Cada peça diz se já existe na Nuvemshop, se está oculta ou visível e o
+            que falta. Ficar visível na loja é sempre um clique seu.
           </p>
         </div>
       </div>
 
-      {d && !d.escritaNaLojaHabilitada && (
+      {d && d.catalogoAtivo === false && (
         <p className="mq-note mq-note--warn">
           <Icone nome="alert" />
           <span>
-            <b>A publicação automática na loja está desligada.</b>{' '}
-            Preparar, revisar e aprovar ficam só aqui — nada muda na loja.
+            <b>O cadastro na Nuvemshop está desligado.</b>{' '}
+            Nada é criado nem publicado na loja. O estoque das peças que já estão lá
+            continua sincronizando.
+          </span>
+        </p>
+      )}
+      {d && d.catalogoAtivo !== false && (
+        <p className="mq-note mq-note--info">
+          <Icone nome="cloud" />
+          <span>
+            Peças com cadastro seguro são criadas <b>ocultas</b> na Nuvemshop: já têm
+            estoque, texto e SEO, mas não aparecem na loja nem podem ser compradas.
+            Elas só ficam visíveis quando você clica em <b>Publicar na Nuvemshop</b>.
           </span>
         </p>
       )}
@@ -113,41 +131,40 @@ export function FilaArea({ conexao }: Props) {
       {!d ? <LoadingState /> : (
         <>
           <div className="mq-kpis">
+            <div className="mq-kpi">
+              <span className="mq-kpi__label">Não cadastrados</span>
+              <span className="mq-kpi__value">{listas.nao_cadastrado.length}</span>
+              <span className="mq-kpi__foot">
+                {seraoCriados} {plural(seraoCriados, 'será criada oculta', 'serão criadas ocultas')}
+                {' · '}{naoCadastrados.length - seraoCriados} precisam de decisão
+              </span>
+            </div>
+            <div className="mq-kpi">
+              <span className="mq-kpi__label">Ocultos em preparação</span>
+              <span className="mq-kpi__value">{listas.oculto.length}</span>
+              <span className="mq-kpi__foot">na Nuvemshop, sem aparecer na loja</span>
+            </div>
             <div className="mq-kpi mq-kpi--accent">
-              <span className="mq-kpi__label">Prontas para publicar</span>
-              <span className="mq-kpi__value">{d.resumo.prontos}</span>
+              <span className="mq-kpi__label">Prontos para publicar</span>
+              <span className="mq-kpi__value">{listas.pronto.length}</span>
+              <span className="mq-kpi__foot">esperando o seu clique</span>
+            </div>
+            <div className={listas.erro.length ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}>
+              <span className="mq-kpi__label">Publicados</span>
+              <span className="mq-kpi__value">{listas.publicado.length}</span>
               <span className="mq-kpi__foot">
-                {d.resumo.pecasProntas} {plural(d.resumo.pecasProntas, 'peça', 'peças')} ·{' '}
-                {money(d.resumo.valorPronto)} em vitrine
+                {listas.erro.length ? `${listas.erro.length} com erro` : 'visíveis na loja'}
               </span>
-            </div>
-            <div className={d.resumo.valorParado > 0 ? 'mq-kpi mq-kpi--risk' : 'mq-kpi'}>
-              <span className="mq-kpi__label">Parado por falta</span>
-              <span className="mq-kpi__value">{money(d.resumo.valorParado)}</span>
-              <span className="mq-kpi__foot">
-                valor que não chega à loja porque falta informação
-              </span>
-            </div>
-            <div className="mq-kpi">
-              <span className="mq-kpi__label">Sem foto</span>
-              <span className="mq-kpi__value">{d.resumo.semFoto}</span>
-              <span className="mq-kpi__foot">peça sem imagem nossa</span>
-            </div>
-            <div className="mq-kpi">
-              <span className="mq-kpi__label">Sem preço</span>
-              <span className="mq-kpi__value">{d.resumo.semPreco}</span>
-              <span className="mq-kpi__foot">sem preço não publica e não vende</span>
             </div>
           </div>
 
-          {/* ── a situação, que É a aba ───────────────────────────────── */}
           <nav className="mq-tabs" aria-label="Situação na Nuvemshop">
             {SITUACOES.map((g) => (
               <button
                 key={g.id}
                 type="button"
                 aria-selected={situacao === g.id}
-                onClick={() => setSituacao(g.id)}
+                onClick={() => { setSituacao(g.id); setFiltro('todos'); }}
               >
                 {g.rotulo}
                 <span className="mq-badge">{listas[g.id].length}</span>
@@ -155,7 +172,6 @@ export function FilaArea({ conexao }: Props) {
             ))}
           </nav>
 
-          {/* ── o que falta, como filtro ─────────────────────────────── */}
           <div className="mq-chipset" role="group" aria-label="Filtrar pelo que falta">
             {FILTROS_DE_PENDENCIA.map((f) => {
               const n = f.chaves.length
@@ -209,12 +225,11 @@ export function FilaArea({ conexao }: Props) {
                     aberta={abertoSku === i.sku}
                     ocupado={ocupado === i.sku}
                     recusa={recusa?.sku === i.sku ? recusa.texto : null}
+                    aviso={aviso?.sku === i.sku ? aviso.texto : null}
+                    publicacaoLigada={d.catalogoAtivo !== false}
                     aoAlternar={() => setAbertoSku(abertoSku === i.sku ? null : i.sku)}
-                    aoPreparar={() => agir(i.sku, prepararPublicacao)}
-                    aoAprovar={() => agir(i.sku, (c, s) => aprovarPublicacao(c, s))}
-                    aoReabrir={() => agir(i.sku, reabrirPublicacao)}
-                    aoRepetir={() => agir(i.sku, repetirPublicacao)}
-                    aoSalvarPrevia={(r) => agir(i.sku, (c, s) => salvarPrevia(c, s, r))}
+                    aoPublicar={() => publicar(i.sku)}
+                    aoSalvarPrevia={(r) => salvarTexto(i.sku, r)}
                   />
                 ))}
               </div>
@@ -228,29 +243,43 @@ export function FilaArea({ conexao }: Props) {
 
 /* ══════════════════════════════════════════════════════ a linha da fila */
 
+const MARCA = { ok: '✓', falta: '✕', aviso: '⚠' } as const;
+const TOM_DA_MARCA = { ok: 'mq-money--ok', falta: 'mq-money--risk', aviso: 'mq-money--warn' } as const;
+
+function rotuloNaLoja(i: ItemDaFila): { texto: string; tom: string } {
+  const s = situacaoDaTela(i);
+  const vis = i.nuvemshop?.visibilidade;
+  if (s === 'erro') return { texto: 'Nuvemshop: ERRO', tom: 'mq-status--risk' };
+  if (s === 'nao_cadastrado') return { texto: 'Nuvemshop: NÃO CADASTRADO', tom: 'mq-status--warn' };
+  if (s === 'publicado') return { texto: 'Nuvemshop: VISÍVEL', tom: 'mq-status--ok' };
+  if (s === 'pronto') return { texto: 'Pronto para ficar visível', tom: 'mq-status--ok' };
+  return { texto: `Nuvemshop: ${vis ? ROTULO_DA_VISIBILIDADE[vis] ?? 'OCULTO' : 'OCULTO'}`, tom: 'mq-status--warn' };
+}
+
 function LinhaDaFila({
-  item, aberta, ocupado, recusa,
-  aoAlternar, aoPreparar, aoAprovar, aoReabrir, aoRepetir, aoSalvarPrevia,
+  item, aberta, ocupado, recusa, aviso, publicacaoLigada,
+  aoAlternar, aoPublicar, aoSalvarPrevia,
 }: {
   item: ItemDaFila;
   aberta: boolean;
   ocupado: boolean;
   recusa: string | null;
+  aviso: string | null;
+  publicacaoLigada: boolean;
   aoAlternar: () => void;
-  aoPreparar: () => void;
-  aoAprovar: () => void;
-  aoReabrir: () => void;
-  aoRepetir: () => void;
+  aoPublicar: () => void;
   aoSalvarPrevia: (r: { nomeSite: string; descricaoSite: string }) => void;
 }) {
   const [nome, setNome] = useState(item.rascunho?.nomeSite ?? item.desc ?? '');
   const [descricao, setDescricao] = useState(item.rascunho?.descricaoSite ?? '');
+  const [confirmando, setConfirmando] = useState(false);
 
-  const degrau = degrauDoEstado(item.estado);
-  const tom = item.estado === ESTADOS.FALTA ? 'mq-status--risk'
-    : item.estado === ESTADOS.PUBLICADO ? 'mq-status--ok'
-      : item.estado === ESTADOS.FALHOU ? 'mq-status--risk'
-        : 'mq-status--warn';
+  const ns = item.nuvemshop;
+  const s = situacaoDaTela(item);
+  const rotulo = rotuloNaLoja(item);
+  const lista = checklistDaPeca(item);
+  const bloqueiosDaPeca = s === 'nao_cadastrado' && ns && !ns.criavel ? ns.bloqueios : [];
+  const texto = ns?.texto;
 
   return (
     <div>
@@ -271,24 +300,45 @@ function LinhaDaFila({
           </small>
         </span>
         <span className="mq-item__side">
-          <span className={`mq-status ${tom}`}>{item.estadoRotulo}</span>
-          {item.aprovacaoInvalidada && (
-            <small className="mq-money--risk">aprovação caiu: o dado mudou</small>
-          )}
+          <span className={`mq-status ${rotulo.tom}`}>{rotulo.texto}</span>
         </span>
       </button>
 
       {aberta && (
         <div className="mq-card__body mq-stack">
-          {/* O que falta NA PEÇA. Trabalho de gente. */}
-          {item.falta.length > 0 && (
+          <ul className="mq-checklist" aria-label="O que a peça já tem">
+            {lista.map((c) => (
+              <li key={c.rotulo}>
+                <span className={TOM_DA_MARCA[c.marca]} aria-hidden="true">{MARCA[c.marca]}</span>{' '}
+                <b>{c.rotulo}</b>
+                {c.marca !== 'ok' && c.detalhe ? <small> — {c.detalhe}</small> : null}
+              </li>
+            ))}
+          </ul>
+
+          {bloqueiosDaPeca.length > 0 && (
             <p className="mq-note mq-note--warn">
               <Icone nome="alert" />
               <span>
-                <b>Falta na peça:</b>{' '}
-                {item.falta.map((f) => ROTULO_DA_FALTA[f] ?? f).join(', ')}.
-                {' '}Resolver isso é cadastro, e é o que destrava o degrau.
+                <b>Precisa de decisão antes de ir para a Nuvemshop:</b>{' '}
+                {bloqueiosDaPeca.join(' ')}
               </span>
+            </p>
+          )}
+          {s === 'nao_cadastrado' && ns?.criavel && (
+            <p className="mq-note mq-note--info">
+              <Icone nome="cloud" />
+              <span>
+                {publicacaoLigada
+                  ? 'Será cadastrada OCULTA na Nuvemshop automaticamente — sem aparecer na loja.'
+                  : 'Pronta para ser cadastrada oculta quando o cadastro na Nuvemshop for ligado.'}
+              </span>
+            </p>
+          )}
+          {s === 'pronto' && (
+            <p className="mq-note mq-note--info">
+              <Icone nome="cloud" />
+              <span>Tudo conferido. Está oculta na Nuvemshop e só fica visível com o seu clique.</span>
             </p>
           )}
 
@@ -300,153 +350,109 @@ function LinhaDaFila({
               <span>
                 <b>Ainda não disponível:</b>{' '}
                 {item.bloqueios.map((b) => String(b.motivo ?? b)).join(' · ')}.
-                {' '}Isto não é da peça — é o que este servidor ainda não consegue
-                fazer.
+                {' '}Isto não é da peça — é o que este servidor ainda não consegue fazer.
               </span>
             </p>
           )}
 
-          {item.bloqueioExterno && (
-            <p className="mq-note mq-note--info">
-              <Icone nome="alert" />
-              <span>
-                <b>{item.bloqueioExterno.motivo}</b> — {item.bloqueioExterno.proximoPasso}
-              </span>
-            </p>
-          )}
-
-          {item.erroSincronizacao && (
+          {(ns?.ultimoErro || item.erroSincronizacao) && (
             <p className="mq-note mq-note--risk" role="alert">
               <Icone nome="alert" />
-              <span>Estoque não chegou à loja: {item.erroSincronizacao}</span>
+              <span>{ns?.ultimoErro || `Estoque não chegou à loja: ${item.erroSincronizacao}`}</span>
             </p>
           )}
 
-          {item.erroPublicacao && (
-            <p className="mq-note mq-note--risk" role="alert">
-              <Icone nome="alert" />
-              <span>
-                Falhou ao publicar: {item.erroPublicacao}
-                {item.tentativas > 0 ? ` · ${item.tentativas} ${plural(item.tentativas, 'tentativa', 'tentativas')}` : ''}
-              </span>
+          {ns && ns.variacoes.length > 0 && (
+            <section className="mq-stack mq-stack--tight">
+              <h3 className="mq-subtitle">Variações que vão para a loja</h3>
+              <ul className="mq-checklist">
+                {ns.variacoes.map((v) => (
+                  <li key={v.nome}><b>{v.nome}</b> <small>· {v.estoque} em estoque</small></li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {ns && ns.variacoesSoAqui.length > 0 && (
+            <p className="mq-hint">
+              Variações só no Marquesa (a loja ainda não tem): {ns.variacoesSoAqui.join(', ')}.
             </p>
           )}
 
-          <dl className="mq-figures">
-            <div>
-              <dt>Foto</dt>
-              <dd>{item.temFotoPropria ? 'nossa' : item.temEnderecoDaLoja ? 'só da loja' : 'nenhuma'}</dd>
-              <small>{item.temTratada ? 'com fundo branco' : 'sem tratamento'}</small>
-            </div>
-            <div>
-              <dt>Na loja</dt>
-              <dd>{item.presencaNaLoja ? 'sim' : 'não'}</dd>
-              <small>{item.urlLoja ? 'a vitrine mostra' : 'a vitrine não mostra'}</small>
-            </div>
-            <div>
-              <dt>Aprovada</dt>
-              <dd>{item.aprovadoEm ? fmtData(item.aprovadoEm) : '—'}</dd>
-              <small>{item.aprovadoPor ?? 'ninguém ainda'}</small>
-            </div>
-            <div>
-              <dt>Publicada</dt>
-              <dd>{item.publicadoEm ? fmtData(item.publicadoEm) : '—'}</dd>
-            </div>
-          </dl>
-
-          {/* A prévia — o texto que a loja mostraria. */}
-          {(degrau === 'revisar' || item.rascunho) && (
+          {/* O texto do site: o que vai (ou foi) para a Nuvemshop. Antes do
+              cadastro, dá para escrever à mão — o escrito por gente vence o
+              gerado. */}
+          {(s === 'nao_cadastrado' || texto) && (
             <section className="mq-stack mq-stack--tight">
               <h3 className="mq-subtitle">O texto do site</h3>
-              <label className="mq-field">
-                <span>Nome na loja</span>
-                <input
-                  className="mq-input"
-                  value={nome}
-                  maxLength={120}
-                  onChange={(e) => setNome(e.target.value)}
-                />
-              </label>
-              <label className="mq-field">
-                <span>Descrição</span>
-                <textarea
-                  className="mq-textarea"
-                  value={descricao}
-                  onChange={(e) => setDescricao(e.target.value)}
-                />
-              </label>
-              {item.rascunho && (
+              {texto?.seoTitulo && (
                 <p className="mq-hint">
-                  SEO atual: <b>{item.rascunho.seoTitulo || '—'}</b>
-                  {item.rascunho.seoDescricao ? ` · ${item.rascunho.seoDescricao}` : ''}
+                  SEO: <b>{texto.seoTitulo}</b>{texto.seoDescricao ? ` · ${texto.seoDescricao}` : ''}
                 </p>
+              )}
+              {texto?.precisaInformacao && (
+                <p className="mq-note mq-note--warn">
+                  <Icone nome="alert" />
+                  <span><b>Precisa de informação:</b> {texto.precisaInformacao}</span>
+                </p>
+              )}
+              {s === 'nao_cadastrado' && (
+                <>
+                  <label className="mq-field">
+                    <span>Nome na loja</span>
+                    <input className="mq-input" value={nome} maxLength={120} onChange={(e) => setNome(e.target.value)} />
+                  </label>
+                  <label className="mq-field">
+                    <span>Descrição (opcional — vence a gerada)</span>
+                    <textarea className="mq-textarea" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+                  </label>
+                </>
               )}
             </section>
           )}
 
           {recusa && <p className="mq-note mq-note--risk" role="alert"><span>{recusa}</span></p>}
+          {aviso && <p className="mq-note mq-note--info" role="status"><span>{aviso}</span></p>}
 
           <div className="mq-btns">
-            {(item.estado === ESTADOS.PRONTO || item.estado === ESTADOS.FALTA
-              || item.estado === ESTADOS.DESPUBLICADO) && (
+            {s === 'pronto' && !confirmando && (
               <button
                 type="button"
-                className="mq-btn mq-btn--secondary mq-btn--sm"
-                disabled={ocupado || item.estado === ESTADOS.FALTA}
-                onClick={aoPreparar}
+                className="mq-btn mq-btn--primary mq-btn--sm"
+                disabled={ocupado || !publicacaoLigada}
+                onClick={() => setConfirmando(true)}
               >
-                Preparar
+                Publicar na Nuvemshop
               </button>
             )}
-
-            {(degrau === 'revisar' || item.rascunho) && (
+            {s === 'pronto' && confirmando && (
+              <>
+                <button
+                  type="button"
+                  className="mq-btn mq-btn--primary mq-btn--sm"
+                  disabled={ocupado}
+                  onClick={() => { setConfirmando(false); aoPublicar(); }}
+                >
+                  Confirmar: deixar visível na loja
+                </button>
+                <button type="button" className="mq-btn mq-btn--ghost mq-btn--sm" onClick={() => setConfirmando(false)}>
+                  Cancelar
+                </button>
+              </>
+            )}
+            {s === 'nao_cadastrado' && (
               <button
                 type="button"
                 className="mq-btn mq-btn--ghost mq-btn--sm"
                 disabled={ocupado}
                 onClick={() => aoSalvarPrevia({ nomeSite: nome, descricaoSite: descricao })}
               >
-                Salvar prévia
+                Salvar texto
               </button>
             )}
-
-            {item.estado === ESTADOS.AGUARDANDO && (
-              <button
-                type="button"
-                className="mq-btn mq-btn--primary mq-btn--sm"
-                disabled={ocupado}
-                onClick={aoAprovar}
-              >
-                Aprovar
-              </button>
-            )}
-
-            {item.estado === ESTADOS.APROVADO && (
-              <button
-                type="button"
-                className="mq-btn mq-btn--ghost mq-btn--sm"
-                disabled={ocupado}
-                onClick={aoReabrir}
-              >
-                Reabrir para revisão
-              </button>
-            )}
-
-            {item.estado === ESTADOS.FALHOU && (
-              <button
-                type="button"
-                className="mq-btn mq-btn--secondary mq-btn--sm"
-                disabled={ocupado}
-                onClick={aoRepetir}
-              >
-                Tentar de novo
-              </button>
-            )}
-
-            {item.urlLoja && (
+            {s === 'publicado' && item.urlLoja && (
               <a
                 className="mq-btn mq-btn--link mq-btn--sm"
-                href={item.urlLoja}
+                href={`https://marquesasemijoias.com.br/produtos/${item.urlLoja}/`}
                 target="_blank"
                 rel="noreferrer"
               >
@@ -455,12 +461,21 @@ function LinhaDaFila({
             )}
           </div>
 
-          {item.estado === ESTADOS.APROVADO && (
-            <p className="mq-hint">
-              Aprovada. A publicação automática está desligada: ela não vai
-              sozinha para a loja.
-            </p>
-          )}
+          <details className="mq-details">
+            <summary>Detalhe técnico</summary>
+            <dl className="mq-figures">
+              <div><dt>Produto na Nuvemshop</dt><dd>{ns?.produtoId ?? item.produtoIdLoja ?? '—'}</dd></div>
+              <div><dt>Visibilidade</dt><dd>{ns?.visibilidade ?? '—'}</dd></div>
+              <div>
+                <dt>Cadastro</dt>
+                <dd>{ns?.origemCatalogo === 'criado' ? 'criado pelo Marquesa' : ns?.origemCatalogo === 'adotado' ? 'já existia na loja' : '—'}</dd>
+              </div>
+              <div>
+                <dt>Estoque na fila</dt><dd>{ns?.estoque ?? '—'}</dd>
+                <small>{ns?.sincronizadoEm ? `em ${fmtData(ns.sincronizadoEm)}` : ''}</small>
+              </div>
+            </dl>
+          </details>
         </div>
       )}
     </div>

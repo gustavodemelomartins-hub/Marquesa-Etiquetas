@@ -349,8 +349,14 @@ export async function saldosDeVariacao(db, skus = null) {
        FROM movimentos
       WHERE sku IN (${qs}) AND (variacao IS NOT NULL OR variante_id IS NOT NULL)
       GROUP BY sku, variacao, variante_id`)) {
-    const alvo = r.variante_id ? porVariante : porNome;
-    const chave = r.variante_id ? String(r.variante_id) : r.variacao;
+    /* §62 — `local:…` é a identidade de uma variação criada AQUI; a loja
+       não a conhece. O saldo dela é endereçado pelo NOME, que o vínculo
+       (`produto_variacoes.variante_id`, gravado quando a variação é criada
+       na loja) traduz para o id de lá. Sem vínculo, o nome não casa e o
+       código fica em revisão — exatamente como ficava pelo id local. */
+    const idLocal = r.variante_id && String(r.variante_id).startsWith('local:') && r.variacao != null;
+    const alvo = r.variante_id && !idLocal ? porVariante : porNome;
+    const chave = r.variante_id && !idLocal ? String(r.variante_id) : r.variacao;
     if (!alvo.has(r.sku)) alvo.set(r.sku, new Map());
     const m = alvo.get(r.sku);
     m.set(chave, (m.get(chave) || 0) + r.saldo);

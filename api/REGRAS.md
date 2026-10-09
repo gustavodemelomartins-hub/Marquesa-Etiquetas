@@ -64,6 +64,8 @@ Serve para conferir se uma mudança futura quebra alguma regra combinada.
 | §24 | Peça sem preço nunca aparece como "pronta para publicar" | `fotos.js › pendenciasDePublicacao` |
 | §61 | Loja recebe o saldo EM CASA, absoluto, pela fila | `nuvemshop-estoque.js › processarFila`; gatilhos em `migracao-nuvemshop-fila.sql` |
 | §61 | Kill switch do envio de estoque | `config.nuvemshopSyncAtivo` (ausente = desligado) |
+| §62 | Peça nasce OCULTA na loja; só o clique publica | `catalogo/nuvemshop-catalogo.js › criarOcultos`, `publicarNaLoja` |
+| §62 | Kill switch do catálogo oculto | `config.nuvemshopCatalogoAtivo` (ausente = desligado) |
 
 ## Duas divergências conscientes
 
@@ -2166,7 +2168,9 @@ Nuvemshop sem alguém ter olhado. A trava é a assinatura dos dados
 (`dados_assinatura`): mudou nome, categoria, preço, quantidade em casa ou a
 foto aprovada, a aprovação anterior é invalidada sozinha.
 
-**Publicar é ato próprio, e nasce desligado.** `catalogo/publicador.js` dá
+**Publicar é ato próprio, e nasce desligado.** (Desde 09/10/2026 o caminho
+vivo é §62: cadastrar OCULTO é do sistema, tornar visível é o clique. O que
+segue descreve o publicador da Fase 4.5, que continua desligado.) `catalogo/publicador.js` dá
 writer real aos estados que o CHECK declarava e ninguém escrevia. Três travas
 em série, todas fail-closed: `NUVEMSHOP_WRITES_ENABLED` (já existia, e
 produção precisa dela ligada para o estoque), `NUVEMSHOP_PUBLICACAO_ENABLED`
@@ -2809,7 +2813,8 @@ produtos") e o envio inteiro parava. Nenhuma venda chegava à loja.
   retrato; divergência pequena volta para a fila sozinha, em massa espera
   gente.
 - **O que esta regra NÃO faz**: não cria produto, não publica, não muda
-  preço, nome, URL, descrição, SEO, imagem ou categoria na loja. Produto com
+  preço, nome, URL, descrição, SEO, imagem ou categoria na loja (criar oculto
+  e publicar com clique são §62). Produto com
   estoque zero continua publicado com `stock = 0` (a loja mostra
   "esgotado"); a URL não muda.
 - **Preparação para Nuvemshop**: cada peça diz o que falta (foto, nome,
@@ -2823,3 +2828,82 @@ loja fora, brinde, consignação, retorno, variante, ajuste, produto
 incompleto, corrida, corte, cautela, kill switch, freio, conferência) e
 `src/vendas-nuvemshop-test.mjs`. Release:
 `docs/releases/V2-NUVEMSHOP-SYNC-2026-10-08.md`.
+
+### 62. Cadastrar na Nuvemshop ≠ tornar visível: a peça nasce OCULTA, e só o clique publica — §44, §58, §61, regras 2, 4 e 9
+
+Origem: pedido de Gustavo, **09/10/2026**. Até aqui o produto só ia para a
+loja quando foto, texto, SEO e preço estavam prontos juntos — e ninguém o
+criava: 334 códigos com peça em casa esperavam em "falta subir". Esta regra
+separa os dois atos e substitui, para este caminho, a trava de publicação da
+Fase 4.5 (DR-004: `NUVEMSHOP_PUBLICACAO_ENABLED` continua ausente e o
+publicador antigo continua morto).
+
+- **Cadastrar é do sistema.** Peça ativa, com nome comercial, peças (qtd > 0)
+  e sem anúncio nasce na Nuvemshop com `visibility = hidden`: tem id,
+  variantes, SKU, estoque, descrição, SEO e categoria (só a de MESMO nome na
+  loja, categoria raiz; nunca por semelhança). Hidden não aparece, não é
+  comprável e a URL responde 404. **Nunca `unlisted`**: ele some da vitrine
+  mas é comprável pelo link direto.
+- **Tornar visível é da pessoa.** Só `POST /api/nuvemshop/catalogo/:sku/publicar`
+  (o botão "Publicar na Nuvemshop") troca hidden → visible, e só depois de
+  reler o produto NA LOJA e conferir foto, nome, SKU em toda variante, preço
+  > 0 em toda variante, estoque controlado, descrição, título e meta de SEO,
+  categoria, estoque sincronizado pela fila (§61) e nenhuma pendência de
+  variação aqui. Ok só quando a releitura diz `visible`. Foto chegando,
+  texto pronto, nada disso publica sozinho.
+- **Travas**: `NUVEMSHOP_WRITES_ENABLED` e o kill switch
+  `config.nuvemshopCatalogoAtivo` (ausente = desligado: nada é criado, nenhuma
+  foto ou texto sobe, ninguém publica; o estoque de §61 segue igual). A
+  resposta da criação é CONFERIDA: se a loja não disser `hidden`, o produto é
+  escondido na hora (`visibility`, e `published:false` de reserva), a rodada
+  para e o kill switch desliga — alguém precisa olhar antes de religar.
+- **Nada é inventado.** Sem preço válido a variante vai SEM preço (oculto,
+  "falta preço"; não publica). O texto do site é a regra editorial de
+  08/10/2026 (`catalogo/texto-site.js`, a mesma de `seo-catalog-audit.py`)
+  aplicada ao NOME cadastrado: família, desenho escrito no nome e uso — nenhum
+  tamanho, medida, pedra, material, banho, peso ou garantia que o nome não
+  diga. Nome repetido, nome sem família, nome longo demais ou com promessa
+  (garantia, hipoalergênico...) → "Precisa de informação", sem texto. O
+  rascunho escrito por gente (`catalogo_publicacoes`) vence o gerado.
+- **Nunca dois anúncios do mesmo código.** Antes de qualquer POST a rodada
+  lê a loja inteira; SKU que já está lá é ADOTADO (vínculo gravado), não
+  criado. A reserva (`nuvemshop_catalogo.estado = 'criando'`, arrendamento de
+  10 min) é gravada ANTES do POST; Worker que morre entre o POST e a gravação
+  é resolvido pela leitura da rodada seguinte. Falha de API vira `erro` com
+  tentativa contada (máx. 5); 401/403/5xx param a rodada.
+- **Mesmo modelo, outro código, não cria.** Nome igual (sem o aro "nºNN" e sem
+  a família) a um produto que a loja já tem → bloqueado, "pode ser o mesmo
+  modelo já anunciado sob X": decisão humana (o 334078 é o aro 27 do 334079).
+  Kit e Monte seu Colar também não entram por aqui.
+- **Variação (regra 2).** Variações criadas aqui sobem com o atributo e os
+  valores exatamente como gravados. Estoque por variação só quando conhecido
+  (uma variação só = todas as peças; ou o código inteiro repartido e toda peça
+  de maleta identificada). Senão cada variante nasce com 0 e a peça fica
+  "Variação aguardando conferência de estoque" — não publica. Cor gravada no
+  atributo "Tamanho" não sobe: "Revisar variação". Variação daqui que falta
+  num anúncio que JÁ existe só é criada lá quando o anúncio tem 2+ variantes,
+  o código já está em revisão na fila (não sincroniza hoje — nada regride),
+  os atributos são os mesmos e as irmãs têm um preço comum; nasce com 0, na
+  grafia das irmãs ("nº17" → "n°17"), e a variação daqui ganha o id de lá.
+  Anúncio de variante única fica para intervenção.
+- **Estoque repartido aqui × variante única lá** (o 391471): a variante da loja
+  recebe só o saldo da variação equivalente (par único, §58), nunca o total.
+  Repartição pela metade ou maleta sem variação → revisão. Movimento com id
+  `local:…` é endereçado pelo NOME da variação (o id local não existe lá).
+- **Oculto participa do estoque.** Gravar `produtos.produto_id_loja` dispara o
+  gatilho de §61; o oculto recebe o saldo em casa pela fila como qualquer
+  anúncio, e chega à publicação com o número certo.
+- **Preparação para Nuvemshop** responde por peça: não cadastrado · oculto em
+  preparação · pronto para publicar · publicado · com erro, com o que falta
+  (foto, descrição, SEO, preço, categoria, revisar variação, conferir estoque
+  da variação) e o detalhe técnico (id, visibilidade, origem). A visibilidade
+  vem da conferência (`produtos.visibilidade_loja`) e, para o que este
+  caminho criou, de `nuvemshop_catalogo`.
+- **O que esta regra NÃO faz**: não muda nome, URL, preço, imagem, texto, SEO
+  ou categoria de anúncio que já existia; não despublica; não reparte estoque;
+  não publica sem clique.
+
+Provado em `src/nuvemshop-catalogo-test.mjs` (27 provas, os 14 casos do pedido
+e mais: API que ignora `visibility`, kill switch, cron, 391471). Ensaio sobre
+cópia de PROD: 590 mapeados continuam mapeados (589 iguais + o 391471, que
+passa de 2 para 1). Release: `docs/releases/V2-NUVEMSHOP-CATALOGO-OCULTO-2026-10-09.md`.

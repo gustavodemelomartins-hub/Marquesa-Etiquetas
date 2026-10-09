@@ -346,6 +346,9 @@ export function mapearSkus(produtos) {
           url: texto(p.handle),
           nome: texto(p.name),
           visivel: p.published == null ? null : !!p.published,
+          // §62 — hidden | unlisted | visible. `published` é falso nos dois
+          // primeiros, e unlisted é comprável pelo link direto.
+          visibilidade: visibilidadeDe(p),
           // Como a loja CHAMA a dimensão que varia: "Tamanho", "Cor",
           // "Comprimento", "Aro". Não presumimos quais existem — cada
           // produto declara os seus, e é esse nome que a tela mostra.
@@ -377,6 +380,18 @@ export function mapearSkus(produtos) {
     else if (e.variantes.length > 1) multiVariacao.push(sku);
   }
   return { mapa, duplicados, multiVariacao };
+}
+
+/** §62 — a visibilidade do produto na loja. A API 2025-03 devolve
+ *  `visibility` (visible | unlisted | hidden) e deriva `published` dela
+ *  (true só em visible). Loja que não mande o campo cai no `published`:
+ *  true é visible; false NÃO diz se é hidden ou unlisted, e fica `null`
+ *  em vez de adivinhar. */
+export function visibilidadeDe(p) {
+  const v = String(p?.visibility ?? '').trim().toLowerCase();
+  if (v === 'visible' || v === 'hidden' || v === 'unlisted') return v;
+  if (p?.published === true) return 'visible';
+  return null;
 }
 
 /** Campo traduzível da Nuvemshop: vem como {pt: "...", es: "..."} nas lojas
@@ -458,6 +473,7 @@ export function catalogoDeVariantes(produtos) {
     const url = texto(p.handle);
     const nome = texto(p.name);
     const visivel = p.published == null ? null : !!p.published;
+    const visibilidade = visibilidadeDe(p);
     (p.variants || []).forEach((v, i) => {
       const d = descreverVariante(p, v);
       linhas.push({
@@ -466,6 +482,7 @@ export function catalogoDeVariantes(produtos) {
         produtoNome: nome || null,
         produtoUrl: url || null,
         produtoVisivel: visivel,
+        produtoVisibilidade: visibilidade,
       });
     });
   }

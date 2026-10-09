@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { saudeDoEstoqueOnline, comoDiagnostico } from './estoqueOnline';
 import type { EstoqueOnline } from '../../services/nuvemshopEstoque';
-import { fraseDaPeca, porSituacao, type ItemDaFila } from '../publicacao/tipos';
+import { fraseDaPeca, porSituacao, checklistDaPeca, type ItemDaFila } from '../publicacao/tipos';
 
 const AGORA = new Date('2026-10-08T18:00:00Z');
 const haMin = (m: number) => new Date(AGORA.getTime() - m * 60_000).toISOString();
@@ -76,11 +76,15 @@ const item = (over: Partial<ItemDaFila>): ItemDaFila => ({
 
 describe('Preparação para Nuvemshop: a frase de cada peça', () => {
   it('diz o que falta', () => {
-    expect(fraseDaPeca(item({ situacao: 'preparacao', pendencias: ['foto', 'descricao'] })))
+    expect(fraseDaPeca(item({ situacao: 'nao_cadastrado', pendencias: ['foto', 'descricao'] })))
       .toBe('Falta foto · Falta descrição');
   });
+  it('oculto na Nuvemshop diz o que falta', () => {
+    expect(fraseDaPeca(item({ situacao: 'oculto', pendencias: ['foto', 'preco'] })))
+      .toBe('Oculto na Nuvemshop · Falta foto · Falta preço');
+  });
   it('pronto para publicar', () => {
-    expect(fraseDaPeca(item({ situacao: 'pronto', pendencias: [] }))).toBe('Pronto para publicar');
+    expect(fraseDaPeca(item({ situacao: 'pronto', pendencias: [] }))).toBe('Pronto para ficar visível');
   });
   it('publicado e sincronizado', () => {
     expect(fraseDaPeca(item({ situacao: 'publicado', sincronizacao: 'sincronizado', pendencias: [] })))
@@ -90,10 +94,22 @@ describe('Preparação para Nuvemshop: a frase de cada peça', () => {
     expect(fraseDaPeca(item({ situacao: 'publicado', sincronizacao: 'sincronizado', pendencias: ['seo'] })))
       .toBe('Publicado · Estoque sincronizado · Falta SEO');
   });
-  it('separa por situação, e item sem situação cai em preparação', () => {
-    const m = porSituacao([item({ situacao: 'erro' }), item({}), item({ situacao: 'publicado' })]);
+  it('separa por situação; sem situação (ou a antiga "preparacao") cai em não cadastrados', () => {
+    const m = porSituacao([item({ situacao: 'erro' }), item({}), item({ situacao: 'publicado' }),
+      item({ situacao: 'preparacao' }), item({ situacao: 'revisao' })]);
     expect(m.erro).toHaveLength(1);
-    expect(m.preparacao).toHaveLength(1);
+    expect(m.nao_cadastrado).toHaveLength(2);
+    expect(m.oculto).toHaveLength(1);
     expect(m.publicado).toHaveLength(1);
+  });
+  it('o checklist marca ✓ ✕ ⚠ pela pendência', () => {
+    const c = checklistDaPeca(item({
+      situacao: 'oculto', pendencias: ['foto', 'estoque_variacao'], presencaNaLoja: true,
+    }));
+    const marca = Object.fromEntries(c.map((x) => [x.rotulo, x.marca]));
+    expect(marca.Cadastro).toBe('ok');
+    expect(marca.Foto).toBe('falta');
+    expect(marca.Estoque).toBe('aviso');
+    expect(marca.SEO).toBe('ok');
   });
 });

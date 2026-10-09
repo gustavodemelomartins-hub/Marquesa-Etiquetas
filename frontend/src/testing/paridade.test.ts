@@ -82,10 +82,13 @@ describe('a matriz prototype → V2', () => {
   });
 
   /* A promessa que não pode ser quebrada sem decisão humana explícita. */
-  it('publicar na loja real continua proibido, e a matriz o registra', () => {
+  /* §62 (09/10/2026): publicar passou a existir — e só como ato humano. O
+     sistema cadastra a peça OCULTA; ficar visível é o clique em "Publicar na
+     Nuvemshop", que chama a rota de §62 (nunca a da Fase 4.5). */
+  it('publicar na loja real existe só pelo clique de §62, e a matriz o registra', () => {
     const publicar = todas.find((c) => c.id === 'nuvemshop.publicar');
-    expect(publicar?.estado).toBe('indisponivel');
-    expect(publicar?.porque).toContain('PROIBIDA');
+    expect(publicar?.estado).toBe('pronta');
+    expect(publicar?.prova?.contem).toBe('publicarNaNuvemshop');
   });
 
   /* Vendas é a prioridade declarada: as cinco superfícies do protótipo têm

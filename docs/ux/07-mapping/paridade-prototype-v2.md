@@ -14,13 +14,13 @@ consegue fazer.
 
 | | capacidades |
 |---|---|
-| 🟢 pronta | 123 |
+| 🟢 pronta | 124 |
 | 🟡 parcial | 5 |
 | ⚪ pendente — o backend tem, a tela não | 3 |
-| ⛔ indisponível — o backend não sustenta | 13 |
+| ⛔ indisponível — o backend não sustenta | 12 |
 | **total** | **144** |
 
-**123 de 131** capacidades que o backend sustenta já estão
+**124 de 132** capacidades que o backend sustenta já estão
 na V2. As `⛔ indisponível` não contam contra o frontend: entregá-las
 exigiria simular algo que o servidor não faz, e a tela diz isso em vez de
 fingir.
@@ -192,7 +192,7 @@ Referência visual: `/prototype/garantias/` · 🟢 11 · 🟡 1 · ⚪ 0 · ⛔
 
 ## Nuvemshop
 
-Referência visual: `/prototype/nuvemshop/` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 1
+Referência visual: `/prototype/nuvemshop/` · 🟢 10 · 🟡 0 · ⚪ 0 · ⛔ 0
 
 | Capacidade | Estado | Onde | Observação |
 |---|---|---|---|
@@ -205,7 +205,7 @@ Referência visual: `/prototype/nuvemshop/` · 🟢 9 · 🟡 0 · ⚪ 0 · ⛔ 
 | O que falta na peça ≠ o que o servidor não faz | 🟢 pronta | `features/publicacao/FilaArea.tsx` | — |
 | Revisar e salvar a prévia do site | 🟢 pronta | `features/publicacao/FilaArea.tsx` | — |
 | Aprovar, reabrir e repetir | 🟢 pronta | `features/publicacao/api.ts` | — |
-| Publicar na loja real | ⛔ indisponível | — | ESCRITA NA LOJA REAL CONTINUA PROIBIDA nesta trilha. `POST /api/catalogo/publicacao/:sku/publicar` existe e NÃO é chamado pela V2. A análise usa `POST /api/sync {"seco": true}`, que lê tudo e não escreve. |
+| Publicar na loja real (oculto → visível, §62) | 🟢 pronta | `features/publicacao/api.ts` | — |
 
 ## Home
 

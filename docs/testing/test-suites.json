@@ -282,6 +282,50 @@
       "duration": "<3s"
     },
     {
+      "id": "nuvemshop-fila",
+      "level": "domain",
+      "mode": "local",
+      "description": "Estoque online pela fila (§61): venda, idempotência, loja fora, kill switch, corte, conferência e reconciliação, contra a loja falsa",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/nuvemshop-fila-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<10s"
+    },
+    {
+      "id": "nuvemshop-catalogo",
+      "level": "domain",
+      "mode": "local",
+      "description": "Catálogo oculto na Nuvemshop (§62): criar hidden, não duplicar, variantes, estoque do oculto, foto, publicar com clique, falha da API",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/nuvemshop-catalogo-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<15s"
+    },
+    {
       "id": "inventario-d1-leitura",
       "level": "domain",
       "mode": "local",

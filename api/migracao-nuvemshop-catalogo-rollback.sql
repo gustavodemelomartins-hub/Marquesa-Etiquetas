@@ -1,0 +1,11 @@
+-- Rollback de api/migracao-nuvemshop-catalogo.sql (§62).
+--
+-- A tabela só guarda o estado do catálogo da loja (o que foi criado lá, com
+-- que id) — nenhum saldo, venda ou movimento mora nela. Apagá-la NÃO apaga
+-- os produtos criados na Nuvemshop: antes de rodar, exporte a tabela, porque
+-- ela é o mapa de quais anúncios ocultos o sistema criou.
+--
+-- `produtos.visibilidade_loja` fica: o D1 só remove coluna reconstruindo a
+-- tabela `produtos`, e uma coluna a mais, sem leitor, é inofensiva.
+-- Publique o Worker anterior antes de rodar.
+DROP TABLE IF EXISTS nuvemshop_catalogo;

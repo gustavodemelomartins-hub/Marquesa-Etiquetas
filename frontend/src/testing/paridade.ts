@@ -685,11 +685,8 @@ export const PARIDADE: ModuloDeParidade[] = [
         prova: { arquivo: `${F}/features/publicacao/api.ts`, contem: 'aprovarPublicacao' },
       },
       {
-        id: 'nuvemshop.publicar', rotulo: 'Publicar na loja real', estado: 'indisponivel',
-        porque: 'ESCRITA NA LOJA REAL CONTINUA PROIBIDA nesta trilha. '
-          + '`POST /api/catalogo/publicacao/:sku/publicar` existe e NÃO é chamado '
-          + 'pela V2. A análise usa `POST /api/sync {"seco": true}`, que lê tudo e '
-          + 'não escreve.',
+        id: 'nuvemshop.publicar', rotulo: 'Publicar na loja real (oculto → visível, §62)', estado: 'pronta',
+        prova: { arquivo: `${F}/features/publicacao/api.ts`, contem: 'publicarNaNuvemshop' },
       },
     ],
   },

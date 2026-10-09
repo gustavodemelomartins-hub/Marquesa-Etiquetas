@@ -137,33 +137,41 @@ export interface ItemDaFila {
   /** §61 — para peça publicada: o estoque dela na loja está em dia? */
   sincronizacao?: 'sincronizado' | 'pendente' | 'divergente' | 'erro' | 'revisao' | null;
   erroSincronizacao?: string | null;
+  /** §62 — a peça no catálogo da Nuvemshop (oculta, visível, o que falta). */
+  nuvemshop?: InfoNuvemshop;
 }
 
-/* ════════════════════════════════ §61 — Preparação para Nuvemshop */
+/* ════════════════════════ §61/§62 — Preparação para Nuvemshop */
 
-export type Situacao = 'preparacao' | 'revisao' | 'pronto' | 'publicado' | 'erro';
+/** As cinco perguntas operacionais (§62). `preparacao` e `revisao` só
+ *  aparecem quando o servidor ainda não tem a classificação do catálogo
+ *  oculto (banco sem a migration) — e caem em "não cadastrados"/"ocultos". */
+export type Situacao = 'nao_cadastrado' | 'oculto' | 'pronto' | 'publicado' | 'erro'
+  | 'preparacao' | 'revisao';
 
-/** As abas da Preparação. Cinco perguntas, cada uma com um dono: preparar é
- *  cadastro; revisar e aprovar é olho humano; publicado é a loja; erro é
- *  integração. */
-export const SITUACOES: { id: Situacao; rotulo: string }[] = [
-  { id: 'preparacao', rotulo: 'Aguardando preparação' },
-  { id: 'revisao', rotulo: 'Aguardando revisão' },
+export type SituacaoDaTela = 'nao_cadastrado' | 'oculto' | 'pronto' | 'publicado' | 'erro';
+
+/** As abas da Preparação. Cada uma é uma pergunta com um dono:
+ *  não cadastrado e oculto são preparação (cadastro, foto, texto); pronto é
+ *  o clique de quem aprova; publicado é a loja; erro é integração. */
+export const SITUACOES: { id: SituacaoDaTela; rotulo: string }[] = [
+  { id: 'nao_cadastrado', rotulo: 'Não cadastrados' },
+  { id: 'oculto', rotulo: 'Ocultos — em preparação' },
   { id: 'pronto', rotulo: 'Prontos para publicar' },
   { id: 'publicado', rotulo: 'Publicados' },
   { id: 'erro', rotulo: 'Com erro' },
 ];
 
-/** Os filtros por pendência. `sku` junta SKU ausente e SKU duplicado. */
+/** Os filtros por pendência. */
 export const FILTROS_DE_PENDENCIA: { id: string; rotulo: string; chaves: string[] }[] = [
   { id: 'todos', rotulo: 'Todos', chaves: [] },
   { id: 'foto', rotulo: 'Falta foto', chaves: ['foto'] },
   { id: 'descricao', rotulo: 'Falta descrição', chaves: ['descricao', 'nome'] },
   { id: 'seo', rotulo: 'Falta SEO', chaves: ['seo'] },
-  { id: 'categoria', rotulo: 'Falta categoria', chaves: ['categoria'] },
   { id: 'preco', rotulo: 'Falta preço', chaves: ['preco'] },
-  { id: 'sku', rotulo: 'SKU', chaves: ['sku', 'sku_duplicado'] },
-  { id: 'variante', rotulo: 'Variante', chaves: ['variante'] },
+  { id: 'variacao', rotulo: 'Revisar variação', chaves: ['variacao', 'variante', 'sku', 'sku_duplicado'] },
+  { id: 'estoque_variacao', rotulo: 'Conferir estoque da variação', chaves: ['estoque_variacao', 'estoque'] },
+  { id: 'categoria', rotulo: 'Falta categoria', chaves: ['categoria'] },
   { id: 'erro', rotulo: 'Erro', chaves: ['erro'] },
 ];
 
@@ -174,6 +182,10 @@ export const ROTULO_DA_PENDENCIA: Record<string, string> = {
   seo: 'Falta SEO',
   categoria: 'Falta categoria',
   preco: 'Falta preço',
+  variacao: 'Revisar variação',
+  estoque_variacao: 'Conferir estoque da variação',
+  estoque: 'Estoque ainda não confirmado na loja',
+  link_direto: 'Comprável pelo link direto (não listado)',
   sku: 'Variante sem SKU',
   sku_duplicado: 'SKU duplicado',
   variante: 'Variante incompleta',
@@ -188,27 +200,94 @@ const ROTULO_DA_SINCRONIZACAO: Record<string, string> = {
   revisao: 'Estoque em revisão',
 };
 
-/** A frase da linha: o que falta, ou o estado bom. "Falta foto · Falta
- *  descrição", "Pronto para publicar", "Publicado · Estoque sincronizado". */
+/** O que a classificação do catálogo oculto diz da peça (§62). */
+export interface InfoNuvemshop {
+  situacao: SituacaoDaTela;
+  naLoja: boolean;
+  visibilidade: 'hidden' | 'unlisted' | 'visible' | null;
+  produtoId: string | null;
+  /** Peça sem anúncio: o sistema pode criá-la oculta sozinho? */
+  criavel: boolean;
+  /** Por que NÃO será criada sozinha (mesmo modelo já anunciado, variação a
+   *  revisar, kit...). Decisão de gente. */
+  bloqueios: string[];
+  pendencias: { chave: string; motivo: string }[];
+  variacoes: { nome: string; estoque: number }[];
+  variacoesSoAqui: string[];
+  texto: {
+    descricao: string | null; seoTitulo: string | null; seoDescricao: string | null;
+    origem: string | null; precisaInformacao: string | null;
+  } | null;
+  estoque: string | null;
+  sincronizadoEm: string | null;
+  ultimoErro: string | null;
+  fotoNaLoja: boolean | null;
+  textoNaLoja: { descricao: boolean; seo: boolean } | null;
+  estadoCatalogo: string | null;
+  origemCatalogo: string | null;
+}
+
+/** A situação da peça como a TELA a agrupa. */
+export function situacaoDaTela(i: ItemDaFila): SituacaoDaTela {
+  const s = i.nuvemshop?.situacao ?? i.situacao;
+  if (s === 'preparacao') return 'nao_cadastrado';
+  if (s === 'revisao') return 'oculto';
+  return (s ?? 'nao_cadastrado') as SituacaoDaTela;
+}
+
+/** A frase da linha: onde a peça está e o que falta. */
 export function fraseDaPeca(i: ItemDaFila): string {
   const p = (i.pendencias ?? []).map((k) => ROTULO_DA_PENDENCIA[k] ?? k);
-  if (i.situacao === 'publicado') {
+  const s = situacaoDaTela(i);
+  if (s === 'publicado') {
     const sinc = i.sincronizacao ? ROTULO_DA_SINCRONIZACAO[i.sincronizacao] : null;
     return ['Publicado', sinc, ...p].filter(Boolean).join(' · ');
   }
+  if (s === 'pronto') return 'Pronto para ficar visível';
+  if (s === 'oculto') return ['Oculto na Nuvemshop', ...p].join(' · ');
+  if (s === 'erro') return ['Com erro', ...p].join(' · ');
+  if (i.nuvemshop && !i.nuvemshop.criavel && i.nuvemshop.bloqueios.length) {
+    return ['Não cadastrado · precisa de decisão', ...p].join(' · ');
+  }
   if (p.length) return p.join(' · ');
-  if (i.situacao === 'pronto') return 'Pronto para publicar';
-  if (i.situacao === 'revisao') return 'Aguardando revisão';
   return i.estadoRotulo;
 }
 
-export function porSituacao(itens: ItemDaFila[]): Record<Situacao, ItemDaFila[]> {
-  const mapa: Record<Situacao, ItemDaFila[]> = {
-    preparacao: [], revisao: [], pronto: [], publicado: [], erro: [],
+export function porSituacao(itens: ItemDaFila[]): Record<SituacaoDaTela, ItemDaFila[]> {
+  const mapa: Record<SituacaoDaTela, ItemDaFila[]> = {
+    nao_cadastrado: [], oculto: [], pronto: [], publicado: [], erro: [],
   };
-  for (const i of itens) mapa[i.situacao ?? 'preparacao'].push(i);
+  for (const i of itens) mapa[situacaoDaTela(i)].push(i);
   return mapa;
 }
+
+/** O checklist do card: ✓ feito, ✕ falta, ⚠ precisa conferir. */
+export type MarcaDoItem = 'ok' | 'falta' | 'aviso';
+export function checklistDaPeca(i: ItemDaFila): { rotulo: string; marca: MarcaDoItem; detalhe?: string }[] {
+  const pend = new Map((i.nuvemshop?.pendencias ?? []).map((x) => [x.chave, x.motivo]));
+  for (const k of i.pendencias ?? []) if (!pend.has(k)) pend.set(k, ROTULO_DA_PENDENCIA[k] ?? k);
+  const naLoja = i.nuvemshop?.naLoja ?? i.presencaNaLoja;
+  const marca = (chaves: string[], aviso = false): MarcaDoItem =>
+    (chaves.some((k) => pend.has(k)) ? (aviso ? 'aviso' : 'falta') : 'ok');
+  const det = (chaves: string[]) => chaves.map((k) => pend.get(k)).filter(Boolean).join(' ') || undefined;
+  return [
+    { rotulo: 'Cadastro', marca: naLoja ? 'ok' : 'falta', detalhe: naLoja ? undefined : 'Ainda não existe na Nuvemshop.' },
+    { rotulo: 'SKU', marca: marca(['sku', 'sku_duplicado']), detalhe: det(['sku', 'sku_duplicado']) },
+    { rotulo: 'Descrição', marca: marca(['descricao', 'nome']), detalhe: det(['descricao', 'nome']) },
+    { rotulo: 'SEO', marca: marca(['seo']), detalhe: det(['seo']) },
+    { rotulo: 'Preço', marca: marca(['preco']), detalhe: det(['preco']) },
+    { rotulo: 'Estoque', marca: marca(['estoque_variacao', 'estoque'], true), detalhe: det(['estoque_variacao', 'estoque']) },
+    { rotulo: 'Foto', marca: marca(['foto']), detalhe: det(['foto']) },
+    { rotulo: 'Categoria', marca: marca(['categoria']), detalhe: det(['categoria']) },
+    { rotulo: 'Variação', marca: marca(['variacao', 'variante'], true), detalhe: det(['variacao', 'variante']) },
+  ];
+}
+
+export const ROTULO_DA_VISIBILIDADE: Record<string, string> = {
+  hidden: 'OCULTO',
+  unlisted: 'NÃO LISTADO',
+  visible: 'VISÍVEL',
+};
 
 export interface FilaDePublicacao {
   ok: true;
@@ -217,6 +296,8 @@ export interface FilaDePublicacao {
    *  repete a palavra dele em vez de afirmar por conta própria. */
   escritaNaLojaHabilitada: boolean;
   decisaoPendente: string;
+  /** §62 — o kill switch do catálogo oculto. */
+  catalogoAtivo?: boolean;
   resumo: {
     prontos: number;
     pecasProntas: number;

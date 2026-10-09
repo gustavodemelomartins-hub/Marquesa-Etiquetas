@@ -81,6 +81,18 @@ export function subirLojaFalsa(porta = 8799) {
       return res.end(pixel);
     }
 
+    /* §62 — a VITRINE pública, sem token: produto hidden responde 404 como na
+       loja real; unlisted e visible respondem a página. */
+    if (partes[0] === 'vitrine' && partes[1] === 'produtos' && req.method === 'GET') {
+      const p = estado.produtos.find((x) => {
+        const h = x.handle && (x.handle.pt || x.handle);
+        return String(h) === partes[2];
+      });
+      const vis = p && (p.visibility || (p.published ? 'visible' : 'hidden'));
+      if (!p || vis === 'hidden') return responder(404, { message: 'Not Found' });
+      return responder(200, { id: p.id, visibility: vis });
+    }
+
     if (!req.headers['user-agent']) {
       estado.semUserAgent++;
       return responder(400, { message: 'User-Agent é obrigatório' });
@@ -200,6 +212,77 @@ export function subirLojaFalsa(porta = 8799) {
       pedido.status = 'cancelled';
       pedido.cancelled_at = new Date().toISOString();
       return responder(200, pedido);
+    }
+    /* §62 — catálogo: criar, atualizar, variante, imagem, categorias. A
+       loja falsa obedece `visibility` como a real (published derivado: true
+       só em visible); `ignorarVisibilidade` simula uma API que não conhece
+       o campo e publica direto — o pior caso que o Worker precisa pegar. */
+    const lerCorpo = async () => { let c = ''; for await (const p of req) c += p; return JSON.parse(c || '{}'); };
+    const aplicarVisibilidade = (p, b) => {
+      if (b.visibility && b.published !== undefined) return 'ambos';
+      if (b.visibility && !estado.ignorarVisibilidade) p.visibility = b.visibility;
+      else if (b.published !== undefined) p.visibility = b.published ? 'visible' : 'hidden';
+      p.published = p.visibility === 'visible';
+      if (estado.semCampoVisibility) delete p.visibility;
+      return null;
+    };
+    if (recurso === 'categories' && req.method === 'GET') {
+      return responder(200, estado.categorias || []);
+    }
+    if (recurso === 'products' && req.method === 'POST') {
+      const b = await lerCorpo();
+      estado.criacoes = (estado.criacoes || 0) + 1;
+      if (estado.falharCriacao) {
+        estado.falharCriacao = estado.falharCriacao === true ? true : estado.falharCriacao - 1;
+        return responder(500, { message: 'loja de mentira: criação falhou de propósito' });
+      }
+      const id = estado.proximoProdutoId = (estado.proximoProdutoId || 900000) + 1;
+      const nome = (b.name && (b.name.pt || Object.values(b.name)[0])) || 'Produto';
+      const p = {
+        id, name: b.name, handle: { pt: String(nome).toLowerCase().normalize('NFD').replace(/[^\w]+/g, '-') + '-' + id },
+        description: b.description || { pt: '' }, seo_title: b.seo_title || null, seo_description: b.seo_description || null,
+        attributes: b.attributes || [], categories: (b.categories || []).map((c) => ({ id: c })), images: [],
+        visibility: 'visible', published: true,
+        variants: (b.variants || []).map((v, i) => ({
+          id: id * 10 + i, sku: v.sku, price: v.price ?? null, values: v.values || [],
+          ...(v.inventory_levels ? { inventory_levels: v.inventory_levels.map((n) => ({ ...n })) } : { stock: v.stock ?? null }),
+        })),
+      };
+      if (aplicarVisibilidade(p, b)) return responder(422, { message: "Cannot send both 'published' and 'visibility'. Use 'visibility' only." });
+      estado.produtos.push(p);
+      return responder(201, p);
+    }
+    const produtoPut = /^products\/(\d+)$/.exec(recurso);
+    if (produtoPut && req.method === 'PUT') {
+      const b = await lerCorpo();
+      estado.atualizacoes = (estado.atualizacoes || []).concat([{ id: +produtoPut[1], corpo: b }]);
+      const p = estado.produtos.find((x) => String(x.id) === produtoPut[1]);
+      if (!p) return responder(404, { message: 'Not Found' });
+      const { visibility, published, ...resto } = b;
+      if (aplicarVisibilidade(p, { visibility, published })) return responder(422, { message: 'both' });
+      Object.assign(p, resto);
+      return responder(200, p);
+    }
+    const varPost = /^products\/(\d+)\/variants$/.exec(recurso);
+    if (varPost && req.method === 'POST') {
+      const b = await lerCorpo();
+      const p = estado.produtos.find((x) => String(x.id) === varPost[1]);
+      if (!p) return responder(404, { message: 'Not Found' });
+      const v = { id: p.id * 10 + p.variants.length + 50, sku: b.sku, price: b.price ?? null, values: b.values || [],
+        ...(b.inventory_levels ? { inventory_levels: b.inventory_levels.map((n) => ({ ...n })) } : { stock: b.stock ?? null }) };
+      p.variants.push(v);
+      estado.variantesCriadas = (estado.variantesCriadas || []).concat([{ produto: p.id, corpo: b }]);
+      return responder(201, v);
+    }
+    const imgPost = /^products\/(\d+)\/images$/.exec(recurso);
+    if (imgPost && req.method === 'POST') {
+      const b = await lerCorpo();
+      const p = estado.produtos.find((x) => String(x.id) === imgPost[1]);
+      if (!p) return responder(404, { message: 'Not Found' });
+      const img = { id: p.id * 100 + p.images.length + 1, src: `http://cdn/${b.filename}`, position: b.position || 1 };
+      p.images.push(img);
+      estado.imagensRecebidas = (estado.imagensRecebidas || []).concat([{ produto: p.id, filename: b.filename, tamanho: String(b.attachment || '').length }]);
+      return responder(201, img);
     }
     if (recurso === 'products/stock-price' && req.method === 'PATCH') {
       let corpo = '';

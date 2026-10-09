@@ -112,9 +112,13 @@ E confira a razão: `GET /api/estoque/conferir` tem de voltar vazio.
 
 - `listarTudo` para em **40 páginas** (8.000 registros), em silêncio.
 - 2 requisições por segundo. Escrita vai em lotes de 25 produtos.
-- O sistema **não cria produto** na Nuvemshop. Código sem anúncio lá fica em
-  "falta subir" para sempre — cadastrar é manual.
-- Nenhuma escrita além de estoque. Não muda preço, não altera pedido.
+- Desde 09/10/2026 (REGRAS §62) o sistema **cria produto OCULTO** na
+  Nuvemshop (`catalogo/nuvemshop-catalogo.js`, kill switch
+  `config.nuvemshopCatalogoAtivo`): `visibility: hidden`, nunca `unlisted`,
+  sem inventar preço nem repartir estoque. Visível só pelo clique em
+  "Publicar na Nuvemshop" (`POST /api/nuvemshop/catalogo/:sku/publicar`).
+- A sincronização de estoque (§61) continua sem mudar preço, nome, texto ou
+  imagem, e não altera pedido.
 
 ## Escrever na loja de verdade é Classe C
 

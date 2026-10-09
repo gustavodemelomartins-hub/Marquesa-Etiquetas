@@ -1,0 +1,7 @@
+/* §62 — Preparação para Nuvemshop: o checklist do card (✓ ✕ ⚠). */
+.mq-checklist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--mq-2) var(--mq-4)}
+.mq-checklist>li{line-height:1.4}
+.mq-checklist small{color:var(--mq-muted)}
+.mq-money--warn{color:var(--mq-warn)}
+.mq-details>summary{cursor:pointer;color:var(--mq-muted);font-size:13px}
+@media(max-width:600px){.mq-checklist{grid-template-columns:1fr}}

@@ -26,6 +26,7 @@ import { consultarEmLotes, somenteLeitura } from './plataforma/d1.js';
 import { novoVendaItemId } from './venda-item-id.js';
 import { comExecucao } from './plataforma/execucao.js';
 import { normSku } from './sku.js';
+import { equivalenciasLojaLocal } from './variacao-nome.js';
 
 const agoraISO = () => new Date().toISOString();
 
@@ -813,6 +814,57 @@ async function semearVariacoes(db, mapa, relato, seco) {
  *  `p` é `{ sku, desc, qtd, casa }`; `naLoja` é a entrada de `mapearSkus`;
  *  `saldos` vem de `saldosDeVariacao`. Devolve as mudanças (absolutas: `para`
  *  é o saldo, nunca um delta) ou o motivo de não empurrar. Função pura. */
+/** §62 — o saldo daqui já está dividido em variações CRIADAS AQUI? Conta
+ *  só saldo em variação local (id `local:…`, ou nome sem id). Movimento com
+ *  o id da PRÓPRIA variante da loja — a baixa de um pedido do site guarda
+ *  o `variant_id` vendido — não é repartição: num anúncio de variante única
+ *  toda peça já é ela. Devolve as partes, ou `null` (caminho de sempre). */
+function repartidoAqui(p, naLoja, saldos) {
+  if (!saldos || typeof saldos.porNome !== 'function') return null;
+  const vidLoja = String(naLoja.varianteId ?? (naLoja.variantes[0] || {}).varianteId ?? '');
+  const nomePorVid = new Map([...saldos.persistido(p.sku)].map(([nome, vid]) => [String(vid), nome]));
+  const partes = [];
+  for (const [vid, s] of saldos.porVariante(p.sku)) {
+    if (String(vid) === vidLoja) continue;
+    partes.push({ id: String(vid), nome: nomePorVid.get(String(vid)) || String(vid), saldo: Number(s || 0) });
+  }
+  for (const [nome, s] of saldos.porNome(p.sku)) partes.push({ id: `nome:${nome}`, nome, saldo: Number(s || 0) });
+  const locais = partes.filter((x) => x.id.startsWith('local:') || x.id.startsWith('nome:'));
+  if (!locais.some((x) => x.saldo !== 0)) return null;
+  return { partes, vidLoja, saldoLoja: Number(saldos.porVariante(p.sku).get(vidLoja) || 0) };
+}
+
+const IMPEDIMENTO_PARCIAL = 'O estoque daqui está repartido só em parte entre as variações. Falta dizer de qual variação é o resto.';
+
+/** A variante única da loja é QUAL das variações repartidas aqui? Só o par
+ *  único da equivalência serve; e só com o código inteiro repartido e toda
+ *  peça de maleta identificada — senão o número seria chute. */
+function saldoDaVarianteUnica(p, naLoja, saldos, { partes, vidLoja, saldoLoja }) {
+  const unica = naLoja.variantes[0] || {};
+  const nomeado = partes.reduce((s, x) => s + x.saldo, 0) + saldoLoja;
+  if (Number(p.qtd ?? 0) - nomeado !== 0) {
+    return { ok: false, motivo: 'sem_reparticao', explicacao: IMPEDIMENTO_PARCIAL };
+  }
+  const eq = equivalenciasLojaLocal([{ ...unica, variante_id: vidLoja }],
+    partes.map((x) => ({ nome: x.nome, variante_id: x.id })));
+  const par = partes.find((x) => x.id === eq.get(vidLoja)) || null;
+  if (!par && !saldoLoja) {
+    return {
+      ok: false, motivo: 'variacao_nao_mapeada',
+      explicacao: 'O estoque daqui está repartido em variações, e nenhuma delas é a variante que a loja tem. Não dá para saber quanto é dela.',
+    };
+  }
+  const consignado = Math.max(0, Number(p.qtd ?? 0) - Number(p.casa ?? 0));
+  const identificadas = saldos.consignado(p.sku);
+  const totalIdent = [...identificadas.values()].reduce((s, x) => s + Number(x || 0), 0);
+  if (consignado > totalIdent) {
+    return { ok: false, motivo: 'maleta', explicacao: 'Há peças deste código em maleta aberta, e a maleta ainda não sabe qual variação saiu.' };
+  }
+  const fora = Number(identificadas.get(vidLoja) || 0)
+    + (par ? Number(identificadas.get(par.id) || 0) + Number(identificadas.get(par.nome) || 0) : 0);
+  return { ok: true, nome: par ? par.nome : (unica.nome || ''), para: Math.max(0, (par ? par.saldo : 0) + saldoLoja - fora) };
+}
+
 export function decidirEstoqueDoSku(p, naLoja, saldos) {
   if (naLoja.variantesSemSku > 0) {
     return { mudancas: [], semEmpurrar: {
@@ -871,6 +923,35 @@ export function decidirEstoqueDoSku(p, naLoja, saldos) {
       });
     }
     return { mudancas, semEmpurrar: null };
+  }
+
+  /* §62 — a loja tem UMA variante, mas aqui o estoque já foi repartido em
+     variações criadas no Marquesa (o 391471: nº18 = 1 e nº24 = 1, e a loja
+     só tem o aro 18). Mandar o total punha 2 no aro 18 com 1 peça física:
+     a loja vendia o aro 24 como se fosse 18. Com repartição, a variante
+     única recebe SÓ o saldo da variação que é ela — a mesma equivalência da
+     visão de estoque (§58: par único) — e o resto espera ser criado lá. */
+  const repartido = repartidoAqui(p, naLoja, saldos);
+  if (repartido) {
+    const r = saldoDaVarianteUnica(p, naLoja, saldos, repartido);
+    if (!r.ok) {
+      return { mudancas: [], semEmpurrar: {
+        sku: p.sku, desc: p.desc, casa: Math.max(0, p.casa),
+        naLoja: naLoja.estoque, motivo: r.motivo,
+        explicacao: r.explicacao,
+        atributos: naLoja.atributos || [],
+        variacoes: naLoja.variantes.map(v => ({
+          nome: v.nome, estoque: v.estoque, varianteId: String(v.varianteId),
+        })),
+      } };
+    }
+    if (r.para === naLoja.estoque) return { mudancas: [], semEmpurrar: null };
+    return { mudancas: [{
+      sku: p.sku, desc: `${p.desc} · ${r.nome}`, de: naLoja.estoque, para: r.para,
+      zera: r.para === 0 && naLoja.estoque > 0, variacao: r.nome,
+      varianteId: naLoja.varianteId, produtoId: naLoja.produtoId,
+      locais: naLoja.locais,
+    }], semEmpurrar: null };
   }
 
   const certo = Math.max(0, p.casa);

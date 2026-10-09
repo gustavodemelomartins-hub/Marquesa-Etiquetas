@@ -10,18 +10,18 @@ import type { FilaDePublicacao, ItemDaFila, RascunhoDoSite } from './tipos';
  *    POST /api/catalogo/publicacao/:sku/reabrir     volta para revisão
  *    POST /api/catalogo/publicacao/:sku/repetir     retry de uma falha
  *
+ *    POST /api/nuvemshop/catalogo/:sku/publicar     §62: oculto → visível
+ *
  *  ── NÃO CHAMADA, DE PROPÓSITO ──────────────────────────────────────────
  *    POST /api/catalogo/publicacao/:sku/publicar
  *    POST /api/catalogo/publicacao/:sku/despublicar
  *    POST /api/catalogo/publicacao/rodada
  *
- *  Escrita na loja real continua PROIBIDA nesta trilha. As três existem no
- *  Worker e nenhuma é importada aqui — e é por isso que este comentário está
- *  neste arquivo e não numa página de documentação: quem for ligar a escrita
- *  passa por aqui.
- *
- *  O próprio servidor concorda: a fila devolve `escritaNaLojaHabilitada:
- *  false` e uma `decisaoPendente` em texto. A tela repete a palavra dele.
+ *  As três são o caminho antigo da Fase 4.5 (cria e publica num passo, trava
+ *  NUVEMSHOP_PUBLICACAO_ENABLED) e continuam fora da tela. O caminho de §62
+ *  separa os atos: o sistema CADASTRA a peça oculta na loja (cron, com kill
+ *  switch), e só o clique em "Publicar na Nuvemshop" a torna visível — depois
+ *  de o servidor conferir tudo na própria loja.
  */
 
 export function buscarFila(
@@ -82,4 +82,21 @@ export function repetirPublicacao(
   conexao: Connection, sku: string,
 ): Promise<RespostaDaFila> {
   return chamar(conexao, 'POST', `/api/catalogo/publicacao/${emSku(sku)}/repetir`, {});
+}
+
+export interface RespostaDaPublicacao {
+  ok?: boolean;
+  erro?: string;
+  faltam?: string[];
+  visibilidade?: string;
+  confirmadoPelaLoja?: boolean;
+}
+
+/** §62 — "Publicar na Nuvemshop": oculto → visível. O servidor confere foto,
+ *  nome, SKU, variantes, preço, estoque, descrição, SEO e categoria NA LOJA
+ *  antes de trocar, e só responde ok quando a releitura confirma visível. */
+export function publicarNaNuvemshop(
+  conexao: Connection, sku: string, por = 'operador',
+): Promise<RespostaDaPublicacao> {
+  return chamar(conexao, 'POST', `/api/nuvemshop/catalogo/${emSku(sku)}/publicar`, { por });
 }

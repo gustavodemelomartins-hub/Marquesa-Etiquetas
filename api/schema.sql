@@ -124,7 +124,12 @@ CREATE TABLE IF NOT EXISTS produtos (
   -- NULL = não informado; nunca 0 por omissão (§24). O preço de venda não é
   -- custo e não o substitui (§35). Toda mudança fica em
   -- `produtos_custo_historico`.
-  custo          REAL
+  custo          REAL,
+  -- Visibilidade do anúncio NA LOJA, como a última leitura respondeu:
+  -- hidden | unlisted | visible (§62, migracao-nuvemshop-catalogo.sql).
+  -- `visivel` (published) não separa hidden de unlisted — e unlisted é
+  -- comprável pelo link direto.
+  visibilidade_loja TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_produtos_produto_loja ON produtos(produto_id_loja);
 
@@ -2221,6 +2226,7 @@ CREATE TABLE IF NOT EXISTS nuvemshop_conferencia (
   ns_tem_seo_titulo    INTEGER,
   ns_tem_seo_descricao INTEGER,
   ns_imagens           INTEGER,
+  ns_categorias        INTEGER,           -- §62: quantas categorias o anúncio tem
   conferido_em         TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_nuvemshop_conf_sku ON nuvemshop_conferencia(sku);
@@ -2288,3 +2294,29 @@ BEGIN
     status = 'pendente', motivo = excluded.motivo, versao = nuvemshop_fila.versao + 1,
     pedido_em = excluded.pedido_em, tentativas = 0, proxima_em = NULL;
 END;
+
+-- §62 — catálogo oculto na Nuvemshop: o estado de cada código no CATÁLOGO
+-- da loja (criando, oculto, publicando, visivel, erro). Ver
+-- migracao-nuvemshop-catalogo.sql.
+CREATE TABLE IF NOT EXISTS nuvemshop_catalogo (
+  sku                  TEXT PRIMARY KEY,
+  estado               TEXT NOT NULL
+                       CHECK (estado IN ('criando','oculto','publicando','visivel','erro')),
+  origem               TEXT,              -- criado (nós criamos) | adotado (já existia lá com o SKU)
+  produto_id           TEXT,              -- id do produto na Nuvemshop
+  visibilidade         TEXT,              -- como a loja respondeu na última leitura
+  variantes_json       TEXT,              -- [{nome, varianteId, valores}] criadas ou vinculadas
+  conteudo_json        TEXT,              -- {descricao, seoTitulo, seoDescricao, regra} enviado
+  conteudo_enviado_em  TEXT,
+  foto_enviada_em      TEXT,
+  foto_id_loja         TEXT,
+  tentativas           INTEGER NOT NULL DEFAULT 0,
+  ultimo_erro          TEXT,              -- frase para gente; nunca token nem corpo de requisição
+  travado_ate          TEXT,              -- arrendamento da rodada que está com o código
+  pedido_em            TEXT,              -- quando a criação foi pedida (criando)
+  criado_em            TEXT,
+  publicado_em         TEXT,
+  publicado_por        TEXT,
+  atualizado_em        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_nuvemshop_catalogo_estado ON nuvemshop_catalogo(estado);

@@ -314,7 +314,9 @@ assert.equal(novo.estado, 'falta_informacao');
 assert.ok(novo.falta.includes('foto'));
 assert.ok(novo.falta.includes('nome'));
 prova('NOVO1 aparece com o que falta', novo.falta.join(', '));
-assert.equal(novo.situacao, 'preparacao');
+/* §62 — a situação passou a ser a pergunta operacional: a loja ainda não
+   tem o código. */
+assert.equal(novo.situacao, 'nao_cadastrado');
 for (const k of ['foto', 'nome', 'descricao', 'seo']) assert.ok(novo.pendencias.includes(k), `pendência ${k} sumiu`);
 prova('a Preparação junta tudo o que falta', novo.pendencias.join(' · '));
 const publicado = pub.corpo.itens.find((i) => i.sku === 'A100');

@@ -15,6 +15,7 @@ import {
   faltasDaPeca, capacidadesDoAmbiente, sentinelasDeCategoria,
 } from './catalogo/completude.js';
 import { skusComFotoPropria } from './catalogo/galeria.js';
+import { lerBase, classificarCatalogo, catalogoAtivo } from './catalogo/nuvemshop-catalogo.js';
 
 const ERRO = (statusHttp, erro, extra = {}) => ({ ok: false, statusHttp, erro, ...extra });
 
@@ -28,10 +29,13 @@ const ERRO = (statusHttp, erro, extra = {}) => ({ ok: false, statusHttp, erro, .
    Ler a loja aqui seria caro e lento; a conferência já leu e guardou. Nada
    desta leitura escreve, e nada aqui publica. */
 export const SITUACAO = {
-  PREPARACAO: 'preparacao',     // falta algo, ou ainda não começou
-  REVISAO: 'revisao',           // conteúdo pronto esperando aprovação
-  PRONTO: 'pronto',             // aprovado: pronto para publicar
-  PUBLICADO: 'publicado',
+  PREPARACAO: 'preparacao',     // (sem a classificação de §62) falta algo
+  REVISAO: 'revisao',           // (sem a classificação de §62) esperando aprovação
+  /* §62 — as cinco perguntas operacionais. */
+  NAO_CADASTRADO: 'nao_cadastrado', // a loja ainda não tem o código
+  OCULTO: 'oculto',             // existe na loja como hidden e falta algo
+  PRONTO: 'pronto',             // existe oculto e cumpre tudo: falta só o clique
+  PUBLICADO: 'publicado',       // visible na loja
   ERRO: 'erro',
 };
 
@@ -303,10 +307,16 @@ function itemPublico(p, fluxo, capacidades = {}) {
  * estados completa do Pacote 4. Bancos ainda sem a migration continuam em
  * leitura; apenas preparar/aprovar fica indisponível. */
 export async function listarPublicacoes(db, env) {
-  const [produtos, fluxos, sentinelas, galeria, conferencia, filaEstoque] = await Promise.all([
+  const [produtos, fluxos, sentinelas, galeria, conferencia, filaEstoque, catalogo, ativo] = await Promise.all([
     lerProdutos(db), lerFluxos(db), sentinelasDeCategoria(db), skusComFotoPropria(db),
     lerConferenciaPorSku(db), lerFilaPorSku(db),
+    /* §62 — onde cada peça está na Nuvemshop (não cadastrada, oculta,
+       pronta, publicada, com erro) e o que falta, pela classificação do
+       catálogo oculto. Banco sem a migration segue na regra antiga. */
+    lerBase(db).then(classificarCatalogo).catch(() => null),
+    catalogoAtivo(db).catch(() => false),
   ]);
+  const classificado = new Map((catalogo?.itens || []).map((c) => [c.sku, c]));
   /* A galeria própria é a camada em que a Marquesa é dona da imagem. Ela
      entra na conta de completude como as outras — se não entrasse, uma peça
      com três fotos nossas continuaria aparecendo como "sem foto", que é
@@ -326,7 +336,7 @@ export async function listarPublicacoes(db, env) {
     : { sentinelas };
 
   const itens = produtos
-    .filter((p) => p.url_loja || Number(p.casa ?? 0) > 0 || fluxos.mapa.has(p.sku))
+    .filter((p) => p.url_loja || Number(p.casa ?? 0) > 0 || fluxos.mapa.has(p.sku) || classificado.has(p.sku))
     .map((p) => {
       const fluxo = fluxos.mapa.get(p.sku);
       const x = itemPublico(p, fluxo, capacidades);
@@ -336,6 +346,19 @@ export async function listarPublicacoes(db, env) {
       x.situacao = situacaoDoItem(x, x.pendencias);
       x.sincronizacao = sincronizacaoDoItem(x, conf, fila);
       x.erroSincronizacao = fila?.status === 'erro' ? (fila.ultimo_erro || null) : null;
+      const c = classificado.get(p.sku);
+      if (c) {
+        x.situacao = c.situacao;
+        x.pendencias = c.pendencias.map((k) => k.chave);
+        x.nuvemshop = {
+          situacao: c.situacao, naLoja: c.naLoja, visibilidade: c.visibilidade,
+          produtoId: c.produtoId, criavel: c.criavel, bloqueios: c.bloqueios,
+          pendencias: c.pendencias, variacoes: c.variacoes, variacoesSoAqui: c.variacoesSoAqui || [],
+          texto: c.texto, estoque: c.estoque, sincronizadoEm: c.sincronizadoEm,
+          ultimoErro: c.ultimoErro, fotoNaLoja: c.fotoNaLoja, textoNaLoja: c.textoNaLoja,
+          estadoCatalogo: c.estadoCatalogo, origemCatalogo: c.origemCatalogo,
+        };
+      }
       return x;
     });
   const situacoes = {};
@@ -380,8 +403,14 @@ export async function listarPublicacoes(db, env) {
   return {
     ok: true,
     migrado: fluxos.migrado,
-    escritaNaLojaHabilitada: false,
-    decisaoPendente: 'Confirme os estados e botões finais antes de permitir escrita automática na Nuvemshop.',
+    /* §62 — cadastrar oculto e publicar (com clique) passam pelo kill
+       switch do catálogo e pela trava central de escrita. */
+    escritaNaLojaHabilitada: !!ativo && !!(env && lerConfig(env).nuvemshop.escritaHabilitada),
+    catalogoAtivo: !!ativo,
+    catalogo: catalogo ? catalogo.resumo : null,
+    decisaoPendente: ativo
+      ? 'Peças com estrutura segura são criadas OCULTAS na loja; ficar visível exige o clique em Publicar.'
+      : 'O cadastro automático na Nuvemshop está desligado: nada é criado nem publicado.',
     resumo: {
       prontos: antigas.prontos.length,
       pecasProntas: antigas.prontos.reduce((s, p) => s + p.casa, 0),
