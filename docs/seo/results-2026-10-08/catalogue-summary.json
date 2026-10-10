@@ -1,0 +1,51 @@
+{
+  "generated_at": "2026-10-09T04:27:30.907264+00:00",
+  "products": 598,
+  "published": 499,
+  "unpublished": 99,
+  "variants": 675,
+  "categories": 26,
+  "eligible_latest": 421,
+  "states": {
+    "SKIPPED": 271,
+    "VALIDATED": 327
+  },
+  "eligible_states": {
+    "SKIPPED": 94,
+    "VALIDATED": 327
+  },
+  "changes": {
+    "description_changed": 87,
+    "seo_title_changed": 285,
+    "seo_description_changed": 180,
+    "url_changed": 0
+  },
+  "skipped_reasons": {
+    "EXISTING_CONTENT_SUFFICIENT": 47,
+    "PREVIOUS_45_REAUDITED_CONTENT_PRESERVED": 45,
+    "DATA_GAP_DUPLICATE_NO_FACTUAL_DISTINCTION": 3,
+    "DATA_GAP_NAME_COLOR_CONFLICT": 1,
+    "NO_LONGER_SELLABLE_AT_RESUME_PRESERVE": 53,
+    "DATA_GAP_FINISH_CONFLICT_28K_18K": 1,
+    "HIDDEN_OR_UNPUBLISHED_PRESERVE": 99,
+    "NO_SELLABLE_VARIANT_PRESERVE": 22
+  },
+  "backup_sha256": "50ff1afa9f092c1289ec6b1ee0f8820a7c96dd15f041bc5f1316f25ef28cbc6f",
+  "public_parity_summary": {
+    "generated_at": "2026-10-09T04:27:30.555441+00:00",
+    "snapshot_captured_at": "2026-10-09T04:23:36.376Z",
+    "published_targets": 499,
+    "passed": 499,
+    "failed": 0,
+    "all_published_accounted_for": true,
+    "missing_public_gallery_alt": 0,
+    "remote_writes": 0,
+    "limitations": [
+      "HTML proves effective price; regular/promotional prices are separately checked by API invariants.",
+      "Stock mismatches must be reconciled against a fresh API read before attributing them to SEO.",
+      "Current theme emits primary Product; ProductGroup remains a separately documented source dependency."
+    ]
+  },
+  "private_values_exported": false,
+  "all_product_records_accounted_for": true
+}

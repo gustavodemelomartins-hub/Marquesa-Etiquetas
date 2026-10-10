@@ -3063,3 +3063,80 @@ Prova: `src/loja-online-automacao-test.mjs` (18 provas, Worker real + loja
 falsa), `src/nuvemshop-catalogo-test.mjs`, `src/loja-online-test.mjs`,
 `frontend/src/features/nuvemshop/LojaOnline.test.tsx`,
 `frontend/src/features/publicacao/lote.test.ts`.
+
+### 65. Cadastro oculto recebe enriquecimento factual completo; conteúdo não publica nem inventa dado — §62, §61, §58 e regras 2, 4, 9
+
+Origem: missão de Gustavo, **09/10/2026**, com divisão explícita de
+responsabilidade: conteúdo/enriquecimento nesta frente; interface, pendências
+visuais e correções operacionais históricas na outra frente. Amplia conteúdo
+e classificação de §62 com aliases comerciais comprovados. Mantém publicação
+humana, estoque e ledger de §61. Convive com a Loja online de §63 e a
+automação operacional de §64 incorporadas da produção Cloud, ampliando
+somente o conteúdo editorial.
+
+- **Nasce oculto e enriquecido.** `catalogo/enriquecimento.js` produz descrição,
+  SEO, marca, tags e categoria a partir de nome, categoria explícita, ficha
+  específica e atributos reais. §62 aplica o helper antes do POST. Argola pode
+  usar Brincos; Colar com Pingente continua Colar; Prata 925 exige evidência
+  literal. Taxonomia sem correspondência segura permanece inconclusiva.
+- **Sem dado inventado.** Helper não escreve preço, estoque, variante, foto,
+  visibilidade, gênero, idade, peso ou dimensão. Foto exige identidade exata.
+  Histórico de preço não vira automaticamente preço atual. Frequência de
+  embalagem antiga não prova regra logística. Divisão comprovável de estoque
+  é encaminhada à frente operacional, sem reescrever movimentos nesta missão.
+- **SKU confirmado sai da copy.** Remove rótulo `Cód:`, `Código:` ou `SKU:`
+  somente se o valor coincide exatamente com SKU remoto real, inclusive zeros
+  iniciais. SKU/variante e códigos com outro significado são preservados.
+  Código nunca fabrica título SEO distinto.
+- **Preserva editorial aprovado.** Título/meta não vazios vencem a geração;
+  texto humano não é substituído. Descrição v1 só é melhorada quando ainda
+  coincide com o texto comprovadamente enviado. Título respeita 70 bytes
+  UTF-8; resumo factual e redações comerciais diferentes não inventam diferença
+  física. Consulta inconclusiva de colisões SEO falha fechada.
+- **Marca/cuidados com fonte.** Marquesa comprovada em 595 anúncios: corrige
+  ausência, grafia equivalente e o erro histórico `Mrquesa`, preservando outra
+  marca legítima. `CUIDADOS_HTML` reproduz três itens do bloco aprovado em
+  472 anúncios, referência 238432990. Instruções específicas, embalagens e
+  observações permanecem ao padronizar Como preservar suas semijoias.
+- **Tags idempotentes.** Novos recebem tipo/fatos; antigos só correções
+  lexicais seguras e deduplicação. Ordem/caixa/acentos normalizados pela API
+  não causam PUT repetido; multiset mantém multiplicidade e detecta perda/tag
+  duplicada. Ouro sem evidência de banho não vira acabamento.
+- **Google na categoria real.** `google_shopping_category` da categoria:
+  Pingentes → 192; Conjuntos → 6463, categorias novas ocultas. Não inventa
+  campo Google no produto, gênero/faixa etária ou material para sanar aviso
+  Merchant. PUT preserva hierarquia/tradução/SEO e confirma readback.
+- **Writer e concorrência.** `enriquecimento-fluxo.js › aplicarEnriquecimento`
+  permite somente marca, tags, descrição, título/meta e categorias. Lê,
+  guarda estado/hash, persiste journal, relê antes do PUT e valida depois.
+  Nome, URL, visibilidade, idiomas, imagens, variantes, preço e saldo ficam
+  íntegros. API pode limpar tradução omitida: campos traduzíveis preservados
+  passam completos. Categoria extra só quando ancestral comprovado da escolhida.
+  Divergência impede sucesso.
+- **Automático limitado.** `enriquecerOcultos` considera só origem criado,
+  cadastro ativo, estado/visibilidade hidden. Cron ocioso integra até duas
+  peças de enriquecimento ao rodízio operacional de §64. Cursor e
+  `fonte_hash` de `produtos.desc`, categoria, nomes/atributos/opções reais das
+  variantes locais e versão da regra evitam reescrita validada; ignoram IDs,
+  ordem das linhas, preço e saldo. Fonte local diferente permite reavaliar.
+  Alteração exclusivamente remota precisa de reavaliação explícita/gatilho
+  comprovado. Saneamento dos
+  antigos desta rodada não amplia o escopo do cron.
+- **Travas/journal.** Exige `NUVEMSHOP_WRITES_ENABLED` e
+  `config.nuvemshopCatalogoAtivo`. Tabela aditiva `nuvemshop_enriquecimento`:
+  preparado/validado/erro, antes/patch/depois, hashes, fonte, regra, SKU/produto
+  e erro sem segredos. Falha de journal impede PUT; escrita não validada
+  desliga catálogo. Estoque §61 permanece independente. Rollback de Worker
+  mantém tabela e não desfaz conteúdo remoto nem apaga auditoria.
+- **Publicação humana.** Texto, SEO, categoria ou foto não tornam visível.
+  Só clique e validação integral de §62 autorizam hidden → visible. Esta
+  regra editorial não altera frontend.
+
+- **Homônimo não impede conteúdo factual.** `textoDaPeca` gera descrição por nome/categoria comprovados mesmo quando a identidade ainda exige decisão. SEO automático aguarda comparação real de ocupação; rascunho completo prevalece. A geração de conteúdo não retira o bloqueio independente de identidade, não cria outro anúncio e não aprova publicação. Os rascunhos desta rodada foram comparados contra todo o catálogo real e ficaram em `em_preparacao`.
+
+Implementação: `catalogo/enriquecimento.js`, `catalogo/enriquecimento-fluxo.js`,
+criação §62, cron existente e `api/migracao-catalogo-enriquecimento.sql`.
+Provas: `scripts/test-catalog-enrichment.mjs`,
+`src/catalogo-enriquecimento-fluxo-test.mjs`, catálogo/fila/bloqueios de escrita
+e writer SEO anterior. Apuração e versão publicada constam da release validada.
+Release: `docs/releases/RC-CATALOGO-ENRIQUECIMENTO-2026-10-09.md`.

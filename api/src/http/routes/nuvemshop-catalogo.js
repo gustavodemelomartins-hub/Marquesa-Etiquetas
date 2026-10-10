@@ -7,6 +7,7 @@
  *  `{"seco": false}` escrito por alguém cria de verdade. Publicar não tem
  *  `seco`: é sempre um clique humano, e confere tudo na loja antes. */
 import { json } from '../../auth.js';
+import { enriquecerOcultos } from '../../catalogo/enriquecimento-fluxo.js';
 import {
   lerBase, classificarCatalogo, criarOcultos, criarVariantesFaltantes,
   enviarFotosPendentes, publicarNaLoja, ligarCatalogo, catalogoAtivo, lerAnuncio,
@@ -16,6 +17,14 @@ const secoDoCorpo = (b) => b?.seco !== false;
 const codigo = (r) => (r.ok === false ? (r.statusHttp ?? 400) : 200);
 
 export const rotas = [
+  {
+    metodo: 'POST', caminho: '/api/nuvemshop/catalogo/enriquecer', auth: 'bearer',
+    async handler({ db, env, request }) {
+      const b = await request.json().catch(() => ({}));
+      const r = await enriquecerOcultos(db, env, { seco: secoDoCorpo(b), limite: b.limite, skus: b.skus });
+      return json(r, codigo(r));
+    },
+  },
   {
     /* Só leitura do banco — nenhuma chamada à loja. */
     metodo: 'GET', caminho: '/api/nuvemshop/catalogo', auth: 'bearer',

@@ -83,6 +83,9 @@ api/.tmp/
 # Artefatos descartáveis de testes e auditorias locais.
 .tmp/
 
+# Capturas privadas do catálogo, backups e journals operacionais.
+.local/
+
 # Evidências de smoke: screenshots de um ambiente com dado real de cliente.
 # O roteiro que as produz é versionado; as imagens não.
 evidencias-smoke/

@@ -163,6 +163,8 @@ const MIGRACOES = [
   /* 09/10/2026 — §62, catálogo oculto: `nuvemshop_catalogo`,
      `produtos.visibilidade_loja` e `nuvemshop_conferencia.ns_categorias`. */
   'api/migracao-nuvemshop-catalogo.sql',
+  /* §65 — journal aditivo do enriquecimento editorial. */
+  'api/migracao-catalogo-enriquecimento.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com

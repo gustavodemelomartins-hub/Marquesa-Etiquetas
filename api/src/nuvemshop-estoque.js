@@ -44,6 +44,7 @@
  *    continua ACUMULANDO — religar entrega o que ficou parado.
  */
 import { Nuvemshop, mapearSkus, catalogoDeVariantes } from './nuvemshop.js';
+import { enriquecerOcultos } from './catalogo/enriquecimento-fluxo.js';
 import { decidirEstoqueDoSku, puxarPedidos, corteDePedidos } from './sync.js';
 import {
   atualizarCatalogoDaLeitura, criarOcultos, criarVariantesFaltantes, enviarFotosPendentes, catalogoAtivo,
@@ -735,6 +736,11 @@ export async function executarCron(db, env, { cron = '' } = {}) {
       await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO()), gravarConfigStmt(db, 'nuvemshopCatalogoUltimaRodada', { em: agoraISO(), origem: 'cron-admin-fotos', ...saida.fotos })]);
       return saida;
     }
+    if (pedido.acao === 'catalogo_enriquecer') {
+      saida.enriquecimento = await enriquecerOcultos(db, env, { seco: pedido.seco !== false, limite: pedido.limite, skus: pedido.skus });
+      await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO()), gravarConfigStmt(db, 'nuvemshopEnriquecimentoUltimaRodada', { em: agoraISO(), origem: 'cron-admin', ...saida.enriquecimento })]);
+      return saida;
+    }
     /* §64 — as automações da Loja Online, uma por pedido, também secas. */
     const automacao = AUTOMACOES[pedido.acao];
     if (automacao) {
@@ -756,7 +762,7 @@ export async function executarCron(db, env, { cron = '' } = {}) {
        :00  corrige atributo que contradiz o valor e reparte pelo inventário
        :10  cria os ocultos novos          :20  cria as variações que faltam
        :30  sobe foto que entrou depois    :40  aplica a categoria óbvia
-       :50  cria os ocultos novos
+       :50  enriquece dois ocultos criados pelo sistema
      Fila ocupada ou rodada diária: fica para a próxima — o teto de 50
      consultas por invocação é dividido com o estoque, que tem prioridade. */
   if (!diario && saida.fila && !saida.fila.processados && await catalogoAtivo(db)) {
@@ -1047,7 +1053,7 @@ const RODIZIO = [
   async (db, env) => resumoCatalogo(await criarVariantesFaltantes(db, env, { seco: false, limite: 4 })),
   async (db, env) => enviarFotosPendentes(db, env, { seco: false, limite: 2 }),
   async (db, env) => resumoCatalogo(await preencherCategorias(db, env, { seco: false, limite: 5 })),
-  async (db, env) => resumoCatalogo(await criarOcultos(db, env, { seco: false, limite: 5 })),
+  async (db, env) => enriquecerOcultos(db, env, { seco: false, limite: 2 }),
 ];
 
 /** As mesmas tarefas, pedidas uma a uma (`config.nuvemshopPedidoAdmin`). */
