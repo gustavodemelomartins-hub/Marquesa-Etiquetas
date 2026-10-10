@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { publicarEmLote } from './lote';
 import { ApiError } from '../../types/api';
-import { checklistDaPeca, disponibilidadeDaPeca, resumoDoLote, CHECKLIST, type ItemDaFila } from './tipos';
+import { checklistDaPeca, disponibilidadeDaPeca, resumoDoLote, CHECKLIST, FILTROS, type ItemDaFila } from './tipos';
 
 /** Uma loja de mentira: quem está oculto e pronto vira visível; quem
  *  "mudou" recebe o 409 que `publicarNaLoja` devolve; quem quebra, 502. */
@@ -118,6 +118,10 @@ describe('§63 — o checklist é o do servidor', () => {
   it('§66 — possível duplicidade é ✕ no Cadastro (decisão de gente, não aviso)', () => {
     const lista = checklistDaPeca(peca({ chaves: ['duplicidade'] }));
     expect(lista.find((c) => c.rotulo === 'Cadastro')?.marca).toBe('falta');
+    const filtro = FILTROS.find((f) => f.id === 'duplicidade')!;
+    expect(filtro.rotulo).toBe('Possível duplicidade');
+    expect(filtro.passa(peca({ chaves: ['duplicidade'] }))).toBe(true);
+    expect(filtro.passa(peca({ chaves: ['foto'] }))).toBe(false);
   });
 
   it('pronto = tudo ✓; sem anúncio = Cadastro ✕', () => {

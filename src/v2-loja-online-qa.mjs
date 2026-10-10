@@ -83,6 +83,7 @@ for (const [largura, altura, movel] of [[1366, 900, false], [390, 844, true]]) {
   prova(!/fora do ar com peça/i.test(textoAtencao), `${tam} oculto em preparação NÃO aparece como problema`);
   prova(!/linha_de_base|variante_criada|sem_reparticao|resultado_json/.test(textoAtencao), `${tam} nenhuma chave técnica na tela principal`);
   prova(/O que fazer:/.test(textoAtencao) || /Nada esperando por você/.test(textoAtencao), `${tam} cada item diz o que fazer`);
+  const gemeosNaAtencao = /Possível duplicidade/.test(textoAtencao);
   prova(await p.getByRole('button', { name: 'Analisar sincronização' }).count() === 0, `${tam} "Analisar sincronização" saiu`);
   prova(await p.getByRole('button', { name: 'Conferir agora' }).count() === 1
     && /não muda nada na Nuvemshop/.test(await p.locator('[aria-label="Conferir com a Nuvemshop"]').innerText()),
@@ -184,6 +185,23 @@ for (const [largura, altura, movel] of [[1366, 900, false], [390, 844, true]]) {
   await p.locator('select[aria-label="Mostrar"]').selectOption({ label: 'Sem foto' });
   prova(true, `${tam} filtro "Sem foto" nos ocultos: ${await linhas.count()} peças`);
   await foto('ocultos-sem-foto');
+
+  /* §66 — oculto que pode ser o gêmeo de outro código: filtro próprio, a
+     atenção da visão geral e o detalhe dizem com quem e o que fazer. */
+  await p.locator('select[aria-label="Mostrar"]').selectOption({ label: 'Possível duplicidade' });
+  await p.waitForTimeout(300);
+  const gemeos = await linhas.count();
+  prova(gemeos > 0 && gemeosNaAtencao, `${tam} "Possível duplicidade": ${gemeos} ocultos no filtro e o bloco na visão geral`);
+  if (gemeos) {
+    await linhas.first().locator('.mq-prep-linha__abrir').click();
+    await drawer.waitFor();
+    await p.waitForTimeout(800);
+    const d2 = await drawer.innerText();
+    prova(/Possível duplicidade — decida antes de publicar/.test(d2) && /mesmo modelo de \d+/.test(d2) && /✕\s*Cadastro/.test(d2),
+      `${tam} detalhe do gêmeo: com qual código, o indício, e Cadastro ✕`);
+    await foto('gemeo');
+    await drawer.getByRole('button', { name: 'Fechar' }).click();
+  }
 
   prova(erros.length === 0, `${tam} sem erro de JavaScript${erros.length ? ': ' + erros[0] : ''}`);
   await ctx.close();

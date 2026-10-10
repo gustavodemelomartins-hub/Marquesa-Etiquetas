@@ -392,6 +392,8 @@ export const FILTROS: { id: string; rotulo: string; passa: (i: ItemDaFila) => bo
   { id: 'com_preco', rotulo: 'Com preço', passa: temPreco },
   { id: 'sem_preco', rotulo: 'Sem preço', passa: (i) => !temPreco(i) },
   { id: 'com_variacao', rotulo: 'Com variação', passa: temVariacao },
+  /* §66 — o gêmeo de outro código: decisão antes de publicar. */
+  { id: 'duplicidade', rotulo: 'Possível duplicidade', passa: (i) => pendenciasDaPeca(i).has('duplicidade') },
 ];
 
 /** O resumo da confirmação de "Publicar": quantos, quantas peças, quantos
