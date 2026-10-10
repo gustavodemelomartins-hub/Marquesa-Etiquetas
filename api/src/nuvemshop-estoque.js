@@ -50,7 +50,7 @@ import {
   atualizarCatalogoDaLeitura, criarOcultos, criarVariantesFaltantes, enviarFotosPendentes, catalogoAtivo,
   preencherCategorias, normalizarAtributosLocais,
 } from './catalogo/nuvemshop-catalogo.js';
-import { repartirPeloInventario } from './catalogo/reparticao-inventario.js';
+import { repartirPeloInventario, casaPeloInventario } from './catalogo/reparticao-inventario.js';
 import { saldosDeVariacao } from './variantes.js';
 import { saldosDoSku } from './estoque.js';
 import { consultarEmLotes, parametros } from './plataforma/d1.js';
@@ -59,6 +59,30 @@ import { chamadasD1 } from './d1-metrica.js';
 
 const agoraISO = () => new Date().toISOString();
 const emMs = (iso) => { const t = Date.parse(String(iso || '')); return Number.isNaN(t) ? null : t; };
+
+/** §66 — os impedimentos que a contagem do inventário pode resolver para o
+ *  estoque de CASA (a razão continua pedindo a resposta da maleta). */
+const MOTIVOS_DA_CONTAGEM = new Set(['maleta', 'sem_reparticao', 'variacao_nao_mapeada']);
+
+/** Decide todos os códigos e, só para os que travaram num impedimento que a
+ *  contagem resolve, lê a prova do inventário (3 consultas, uma vez) e
+ *  decide de novo. Devolve Map(sku → decisão). */
+async function decidirComInventario(db, itens, saldos) {
+  const decisoes = new Map();
+  const precisam = [];
+  for (const { l, naLoja } of itens) {
+    const d = decidirEstoqueDoSku(l, naLoja, saldos);
+    decisoes.set(l.sku, d);
+    if (d.semEmpurrar && MOTIVOS_DA_CONTAGEM.has(d.semEmpurrar.motivo)) precisam.push(l.sku);
+  }
+  if (!precisam.length) return decisoes;
+  const provas = await casaPeloInventario(db, precisam).catch(() => new Map());
+  for (const { l, naLoja } of itens) {
+    const prova = provas.get(l.sku);
+    if (prova) decisoes.set(l.sku, decidirEstoqueDoSku(l, naLoja, saldos, { casaPorVariacao: prova }));
+  }
+  return decisoes;
+}
 
 /** A chave do kill switch. Ausente vale DESLIGADO (fail-closed): um banco
  *  recém-migrado não começa a escrever na loja sozinho. */
@@ -399,6 +423,10 @@ export async function processarFila(db, env, opcoes = {}) {
     const mudancas = [];          // { sku, m }
     const paraEnviar = new Map(); // sku -> [{ varianteId, para }]
     const estadoLoja = new Map(); // sku -> { total, porVariante }
+    const decisoes = await decidirComInventario(db, ativos
+      .filter((sku) => mapa.get(normSku(sku)))
+      .map((sku) => ({ l: locais.get(sku), naLoja: mapa.get(normSku(sku)) })), saldos);
+    const regraDe = new Map();
     for (const sku of ativos) {
       const l = locais.get(sku);
       const naLoja = mapa.get(normSku(sku));
@@ -410,7 +438,8 @@ export async function processarFila(db, env, opcoes = {}) {
         relato.semAnuncio++;
         continue;
       }
-      const d = decidirEstoqueDoSku(l, naLoja, saldos);
+      const d = decisoes.get(sku);
+      if (d.regra) regraDe.set(sku, { regra: d.regra, ...(d.pendenteNaRazao ? { pendenteNaRazao: d.pendenteNaRazao } : {}) });
       if (d.semEmpurrar) {
         concluir(sku, {
           status: 'revisao', erro: d.semEmpurrar.explicacao || d.semEmpurrar.motivo,
@@ -451,7 +480,7 @@ export async function processarFila(db, env, opcoes = {}) {
       estadoLoja.set(sku, alvos);
       if (!d.mudancas.length) {
         concluir(sku, {
-          status: 'sincronizado', enviado: alvos, resultado: { igual: true },
+          status: 'sincronizado', enviado: alvos, resultado: { igual: true, ...(regraDe.get(sku) || {}) },
           publico: { status: 'sincronizado', igual: true },
         });
         relato.iguais++;
@@ -534,7 +563,7 @@ export async function processarFila(db, env, opcoes = {}) {
       }
       concluir(sku, {
         status: 'sincronizado', enviado: alvos,
-        resultado: { de: alvos.reduce((s, a) => s + a.de, 0), para: alvos.reduce((s, a) => s + a.para, 0) },
+        resultado: { de: alvos.reduce((s, a) => s + a.de, 0), para: alvos.reduce((s, a) => s + a.para, 0), ...(regraDe.get(sku) || {}) },
         publico: { status: 'sincronizado', de: alvos.reduce((s, a) => s + a.de, 0), para: alvos.reduce((s, a) => s + a.para, 0) },
       });
       relato.sincronizados++;
@@ -867,6 +896,9 @@ export async function conferirLoja(db, env, { gravar = true, gravarEspelho = fal
   const linhas = [];
   const normLocais = new Map([...locais.values()].map((l) => [normSku(l.sku), l]));
   const dup = new Set(duplicados);
+  const decisoes = await decidirComInventario(db, [...locais.values()]
+    .filter((l) => l.ativo && mapa.get(normSku(l.sku)) && !dup.has(normSku(l.sku)))
+    .map((l) => ({ l, naLoja: mapa.get(normSku(l.sku)) })), saldos);
   const linha = (o) => linhas.push({
     sku: null, produto: null, variante: null, nsProdutoId: null, nsVarianteId: null, nsSku: null,
     emCasa: null, consignado: null, online: null, nsEstoque: null, diferenca: null,
@@ -922,7 +954,7 @@ export async function conferirLoja(db, env, { gravar = true, gravarEspelho = fal
       }
       continue;
     }
-    const d = decidirEstoqueDoSku(l, naLoja, saldos);
+    const d = decisoes.get(l.sku) || decidirEstoqueDoSku(l, naLoja, saldos);
     const naFila = fila.get(l.sku);
     if (d.semEmpurrar) {
       const status = d.semEmpurrar.motivo === 'sku_ausente' ? 'sem_sku' : 'variante_sem_mapeamento';
@@ -1056,8 +1088,24 @@ const RODIZIO = [
   async (db, env) => enriquecerOcultos(db, env, { seco: false, limite: 2 }),
 ];
 
+/** §66 — reenvia o estoque de códigos parados em revisão (no máximo 12, o
+ *  caminho incremental de sempre, com a cautela de "Tentar novamente"). É
+ *  como a regra nova chega aos códigos que já estavam parados: nenhum
+ *  movimento os tiraria da revisão. Seco: só diz quais iriam. */
+async function reenviarEstoque(db, env, { seco = true, skus = null } = {}) {
+  let lista = Array.isArray(skus) && skus.length ? skus.map(String)
+    : ((await db.prepare(`SELECT sku FROM nuvemshop_fila WHERE status = 'revisao' ORDER BY sku LIMIT ?`)
+      .bind(LIMITE_INCREMENTAL).all()).results || []).map((r) => String(r.sku));
+  lista = [...new Set(lista)].slice(0, LIMITE_INCREMENTAL);
+  if (seco || !lista.length) return { ok: true, seco, skus: lista };
+  await db.batch(lista.map((s) => enfileirarStmt(db, s, 'reenvio_admin')));
+  const r = await processarFila(db, env, { skus: lista, cautela: true, origem: 'admin-reenvio' });
+  return { ok: true, seco: false, skus: lista, ...statusDosCodigos(r, lista), relato: resumoDaRodada(r) };
+}
+
 /** As mesmas tarefas, pedidas uma a uma (`config.nuvemshopPedidoAdmin`). */
 const AUTOMACOES = {
+  reenviar_estoque: (db, env, o) => reenviarEstoque(db, env, { seco: o.seco, skus: o.skus }),
   catalogo_categorias: (db, env, o) => preencherCategorias(db, env, { seco: o.seco, limite: Math.min(Number(o.limite) || 5, 10) }),
   reparticao_inventario: (db, env, o) => repartirPeloInventario(db, { seco: o.seco, limite: Math.min(Number(o.limite) || 3, 3), skus: o.skus }),
   normalizar_atributos: (db, env, o) => normalizarAtributosLocais(db, { seco: o.seco }),

@@ -87,6 +87,22 @@ export function formatarValorNovo(entrada, irmas = []) {
  *  `loja`: [{ variante_id, nome, valores_json | valores }] — o produto todo.
  *  `locais`: [{ variante_id, nome }] — as daqui sem variante da loja.
  *  Devolve Map(id da variante da loja → id da variação daqui). */
+/** "Verde" e "Verde Esmeralda", "nº19" e "Banho de Ouro 18K · n°19": um valor
+ *  contido no outro palavra por palavra, com os MESMOS números. "nº19" nunca
+ *  é "n°21", e "Verde" não é "Azul". Só serve para levantar a hipótese de
+ *  serem a mesma variação — quem decide é o par único (ou gente). */
+export function valoresParecidos(daqui, daLoja) {
+  const palavras = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .split(/[^a-z0-9]+/).filter(Boolean);
+  const numeros = (ws) => ws.filter((w) => /\d/.test(w)).map((w) => w.replace(/\D/g, '').replace(/^0+(?=\d)/, '')).sort().join(',');
+  const a = palavras(daqui);
+  const contido = (x, y) => x.length > 0 && x.every((w) => y.includes(w));
+  return String(daLoja ?? '').split('·').some((parte) => {
+    const b = palavras(parte);
+    return numeros(b) === numeros(a) && (contido(a, b) || contido(b, a));
+  });
+}
+
 export function equivalenciasLojaLocal(loja = [], locais = []) {
   const partesDe = (v) => {
     let valores = v.valores;
@@ -123,17 +139,18 @@ export function equivalenciasLojaLocal(loja = [], locais = []) {
      mesma peça — não existe outra para ela ser. Vale só quando um valor está
      contido no outro palavra por palavra e os NÚMEROS são os mesmos: "nº19"
      nunca é "n°21", e "Verde" não é "Azul". */
-  if (!pares.length && loja.length === 1 && locais.length === 1) {
-    const palavras = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-      .split(/[^a-z0-9]+/).filter(Boolean);
-    const numeros = (ws) => ws.filter((w) => /\d/.test(w)).map((w) => w.replace(/\D/g, '').replace(/^0+(?=\d)/, '')).sort().join(',');
-    const daqui = palavras(locais[0].nome);
-    const contido = (a, b) => a.length > 0 && a.every((w) => b.includes(w));
-    const casa = String(loja[0].nome ?? '').split('·').some((parte) => {
-      const la = palavras(parte);
-      return numeros(la) === numeros(daqui) && (contido(daqui, la) || contido(la, daqui));
-    });
-    if (casa) return new Map([[String(loja[0].variante_id), String(locais[0].variante_id)]]);
+  /* §66 — o par por unicidade é EQUIVALÊNCIA OPERACIONAL, não fato: ele
+     deixa o estoque andar (o saldo de "Verde" vai para "Verde Esmeralda"),
+     mas não grava vínculo, não renomeia nenhum dos dois e vale só enquanto
+     houver uma de cada lado. Aparecendo outra variante, ele se desfaz
+     sozinho — e `parecidas` impede o sistema de criar "Verde" na loja ao
+     lado de "Verde Esmeralda": a dúvida volta para gente. O mapa sai
+     marcado (`porUnicidade`) para quem precisa dizer isso na tela. */
+  if (!pares.length && loja.length === 1 && locais.length === 1
+    && valoresParecidos(locais[0].nome, loja[0].nome)) {
+    const m = new Map([[String(loja[0].variante_id), String(locais[0].variante_id)]]);
+    m.porUnicidade = true;
+    return m;
   }
   const conta = (lado, id) => pares.filter((p) => p[lado] === id).length;
   return new Map(pares.filter(([a, b]) => conta(0, a) === 1 && conta(1, b) === 1));

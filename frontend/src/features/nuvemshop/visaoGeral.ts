@@ -258,6 +258,22 @@ export function montarVisaoGeral(
       });
     }
 
+    /* ── 4b. §66 — anúncio oculto que pode ser o gêmeo de outro código */
+    const gemeos = itens.filter((i) => i.nuvemshop?.naLoja && (i.nuvemshop.pendencias ?? []).some((p) => p.chave === 'duplicidade'));
+    if (gemeos.length) {
+      atencao.push({
+        chave: 'possivel_duplicidade',
+        titulo: 'Possível duplicidade: o mesmo produto em dois códigos?',
+        quantidade: gemeos.length,
+        tom: 'atencao',
+        oQueAconteceu: `${gemeos.length} ${plural(gemeos.length, 'anúncio oculto tem', 'anúncios ocultos têm')} o mesmo nome de outro código, e os dados não provam se é o mesmo produto.`,
+        porQue: 'Publicar um gêmeo põe o mesmo produto duas vezes na loja, com estoque dividido.',
+        oQueFazer: 'Abra cada um na Preparação, compare e decida. Até lá ele não fica pronto nem entra em "Publicar todos".',
+        acao: { rotulo: 'Ver na Preparação', destino: { tipo: 'preparacao', aba: 'oculto' } },
+        codigos: gemeos.map(doItem),
+      });
+    }
+
     /* ── 5. publicado por aqui e fora do ar — só isso é alerta */
     const fora = itens.filter((i) => i.nuvemshop?.foraDoArInesperado);
     if (fora.length) {

@@ -56,7 +56,9 @@ export function DetalheDaPeca({ conexao, item, produto, publicacaoLigada, aoFech
   const lista = checklistDaPeca(item);
   const texto = ns?.texto;
   const disp = disponibilidadeDaPeca(item);
-  const bloqueios = s === 'nao_cadastrado' && ns && !ns.criavel && !ns.naoSeAplica ? ns.bloqueios : [];
+  const dup = ns?.duplicidade ?? null;
+  const bloqueios = (s === 'nao_cadastrado' && ns && !ns.criavel && !ns.naoSeAplica ? ns.bloqueios : [])
+    .filter((b) => b !== dup?.motivo);
 
   return (
     <>
@@ -104,6 +106,25 @@ export function DetalheDaPeca({ conexao, item, produto, publicacaoLigada, aoFech
               <span><b>Precisa de decisão antes de ir para a Nuvemshop:</b> {bloqueios.join(' ')}</span>
             </p>
           )}
+          {dup && (
+            <p className={`mq-note ${dup.decidir ? 'mq-note--warn' : 'mq-note--info'}`}>
+              <Icone nome="alert" />
+              <span>
+                <b>{dup.decidir ? 'Possível duplicidade — decida antes de publicar:'
+                  : dup.tipo === 'diferente' ? 'Mesmo nome, produtos diferentes:' : 'Outro anúncio com o mesmo nome (informação):'}</b>{' '}
+                {dup.motivo}{dup.decidir && dup.proposta ? ` ${dup.proposta}` : ''}
+              </span>
+            </p>
+          )}
+          {(ns?.equivalenciasOperacionais ?? []).map((e) => (
+            <p key={`${e.daqui}-${e.loja}`} className="mq-note mq-note--info">
+              <Icone nome="alert" />
+              <span>
+                A variação “{e.daqui}” daqui é vendida como “{e.loja}” na loja: é a única variação dos dois lados.
+                Os dois nomes ficam como estão; se o anúncio ganhar outra variação, a correspondência volta a ser conferida.
+              </span>
+            </p>
+          ))}
           {ns?.foraDoArInesperado && (
             <p className="mq-note mq-note--risk">
               <Icone nome="alert" />

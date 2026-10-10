@@ -355,6 +355,29 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
     quantidade: 'quantidade em casa', foto: 'foto original', fundo_branco: 'foto com fundo branco',
   };
   for (const r of publicacao.itens ?? []) {
+    /* §66 — anúncio oculto que pode ser o gêmeo de outro código. Os dados
+       não provaram nem que é o mesmo nem que é outro: é decisão de gente, e
+       até ela a peça não fica pronta nem entra em "Publicar todos". */
+    const nsd = r.nuvemshop;
+    if (nsd?.naLoja && nsd.duplicidade?.decidir && (nsd.pendencias || []).some((x) => x.chave === 'duplicidade')) {
+      juntar({
+        chave: `duplicidade:${r.sku}`,
+        tipo: 'catalogo',
+        sku: r.sku,
+        produto: r.desc,
+        origem: 'Loja online',
+        qtd: r.casa,
+        valor: r.preco == null ? null : r.preco * r.casa,
+        motivo: 'possivel_duplicidade',
+        explicacao: nsd.duplicidade.motivo,
+        informacaoFaltante: `É o mesmo produto de ${nsd.duplicidade.com.filter((x) => x.tipo !== 'diferente').map((x) => x.sku).join(', ')}, ou outro?`,
+        efeito: 'O anúncio continua oculto: não fica pronto para publicar e não entra em "Publicar todos".',
+        proximoPasso: nsd.duplicidade.proposta || 'Compare as peças e decida.',
+        duplicidade: nsd.duplicidade,
+        acoes: ['editar_produto', 'revisar_depois'],
+      });
+      continue;
+    }
     if (![ESTADO_PUBLICACAO.FALTA, ESTADO_PUBLICACAO.PREPARANDO, ESTADO_PUBLICACAO.FALHOU]
       .includes(r.estado)) continue;
     /* §64 — com a classificação do catálogo (§62), só chega aqui a peça sem

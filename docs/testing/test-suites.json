@@ -370,6 +370,28 @@
       "duration": "<15s"
     },
     {
+      "id": "loja-online-duplicidade",
+      "level": "domain",
+      "mode": "local",
+      "description": "Loja online (§66): possível duplicidade em todo código (mesmo/diferente/tamanho/inconclusivo; preço não decide), oculto gêmeo não fica pronto nem publica, conferência antiga não vence a fila atual, equivalência por unicidade operacional, zero em casa é zero na loja e casa por variação pelo inventário",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/loja-online-duplicidade-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<15s"
+    },
+    {
       "id": "inventario-d1-leitura",
       "level": "domain",
       "mode": "local",

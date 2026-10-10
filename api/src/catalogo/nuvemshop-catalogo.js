@@ -36,8 +36,11 @@ import { lerFoto } from '../fotos-storage.js';
 import { gerarTextoDoSite, normalizar, REGRA_TEXTO } from './texto-site.js';
 import { enriquecerProduto, MARCA_CANONICA, CUIDADOS_HTML, REGRA_ENRIQUECIMENTO, categoriaComprovada, fatosDoProduto, tagsEquivalentes } from './enriquecimento.js';
 import { categoriasEquivalentes, lerSeoOcupado } from './enriquecimento-fluxo.js';
-import { chaveDaVariacao, equivalenciasLojaLocal, formatarValorNovo } from '../variacao-nome.js';
+import { chaveDaVariacao, equivalenciasLojaLocal, formatarValorNovo, valoresParecidos } from '../variacao-nome.js';
 import { categoriaCanonica, normalizarAtributos, tipoDoValor } from './taxonomia.js';
+import { chaveDoModelo, identidadeDaBase, skusRelacionados, suspeitasDeDuplicidade } from './duplicidade.js';
+
+export { chaveDoModelo };
 
 export const CHAVE_CATALOGO_ATIVO = 'nuvemshopCatalogoAtivo';
 export const CHAVE_MAPA_CATEGORIAS = 'nuvemshopCategoriasMapa';
@@ -157,7 +160,7 @@ export async function lerBase(db, { skus = null } = {}) {
                               FROM loja_variantes WHERE 1 = 1${e('sku_norm')} ORDER BY produto_id, posicao`, AN), []),
     tentar(() => todas(db, `SELECT * FROM nuvemshop_catalogo WHERE 1 = 1${e('sku')}`, A), []),
     tentar(() => todas(db, `SELECT id, sku, principal, ordem, original_key, original_tipo, preparada_key,
-                                   preparada_tipo, arquivo_nome, imagem_id_loja, url_externa
+                                   preparada_tipo, arquivo_nome, imagem_id_loja, url_externa, conteudo_hash
                               FROM produto_fotos WHERE removida_em IS NULL${e('sku')}
                              ORDER BY sku, principal DESC, ordem`, A), []),
     tentar(() => todas(db, `SELECT sku, status, motivo, ultimo_erro, resultado_json, sincronizado_em FROM nuvemshop_fila
@@ -176,6 +179,37 @@ export async function lerBase(db, { skus = null } = {}) {
                               WHERE 1 = 1${e('sku')}`, A), []),
     config(db, CHAVE_MAPA_CATEGORIAS, null),
   ]);
+
+  /* §66 — a duplicidade compara cada código com TODOS os outros (publicado,
+     oculto, sem anúncio). Na leitura parcial (publicar um código) a base só
+     tem aquele código; então lê o mínimo do catálogo inteiro — nome,
+     categoria, preço, anúncio — e a origem do cadastro e as fotos só dos
+     códigos que podem ser o gêmeo dele. */
+  let identidade = null;
+  let entradas = [];
+  if (lista) {
+    const [leves, lojaLeve] = await Promise.all([
+      todas(db, `SELECT sku, desc, cat, preco, qtd, produto_id_loja, visibilidade_loja, visivel
+                   FROM produtos WHERE status = 'ativo'`),
+      tentar(() => todas(db, `SELECT sku_norm, produto_id, produto_nome, nome, valores_json, produto_visivel
+                                FROM loja_variantes`), []),
+    ]);
+    identidade = { produtos: leves, loja: lojaLeve, entradas: new Map(), fotos: new Map() };
+    const rel = skusRelacionados(identidade, lista);
+    const mr = rel.map(() => '?').join(',');
+    const [ents, hashes] = await Promise.all([
+      tentar(() => todas(db, sqlEntradas(` AND sku IN (${mr})`), rel), []),
+      tentar(() => todas(db, `SELECT sku, conteudo_hash FROM produto_fotos
+                                WHERE removida_em IS NULL AND conteudo_hash IS NOT NULL AND sku IN (${mr})`, rel), []),
+    ]);
+    for (const r of ents) identidade.entradas.set(String(r.sku), r);
+    for (const r of hashes) {
+      if (!identidade.fotos.has(String(r.sku))) identidade.fotos.set(String(r.sku), new Set());
+      identidade.fotos.get(String(r.sku)).add(r.conteudo_hash);
+    }
+  } else {
+    entradas = await tentar(() => todas(db, sqlEntradas('')), []);
+  }
 
   const porSku = (linhas, chave = 'sku') => {
     const m = new Map();
@@ -214,8 +248,14 @@ export async function lerBase(db, { skus = null } = {}) {
     conf: new Map(conf.map((r) => [String(r.sku), r])),
     rascunhos: new Map(rascunhos.map((r) => [String(r.sku), r])),
     mapaCategorias: mapaCat && typeof mapaCat === 'object' ? mapaCat : null,
+    entradas: new Map(entradas.map((r) => [String(r.sku), r])),
+    identidade,
   };
 }
+
+/** A primeira entrada de cada código: a origem do cadastro (o lote). */
+const sqlEntradas = (filtro) => `SELECT m.sku, m.obs, m.criado_em AS em FROM movimentos m
+   JOIN (SELECT sku, MIN(id) AS id FROM movimentos WHERE tipo = 'entrada'${filtro} GROUP BY sku) x ON x.id = m.id`;
 
 /* ======================================================================== */
 /* 2. A CLASSIFICAÇÃO                                                        */
@@ -224,31 +264,6 @@ export async function lerBase(db, { skus = null } = {}) {
 /** Valores exatos comprovam Cor no payload novo. Valores compostos ou
  *  misturados com medidas continuam exigindo confirmação de significado. */
 const COR = /^(azul|cristal|vermelh[oa]|verde|pink|rosa|roxo|lil[aá]s|marsala|preto|branco|amarelo|incolor|colorid[oa]|dourado|prateado|turquesa|laranja)\b/i;
-
-const FAMILIAS = {
-  anel: 'anel', aneis: 'anel', brinco: 'brinco', brincos: 'brinco', colar: 'colar', colares: 'colar',
-  pulseira: 'pulseira', pulseiras: 'pulseira', argola: 'argola', argolas: 'argola', berloque: 'berloque',
-  berloques: 'berloque', pingente: 'pingente', pingentes: 'pingente', conjunto: 'conjunto', piercing: 'piercing',
-};
-
-/** O MODELO de uma peça, para achar o mesmo modelo já anunciado sob outro
- *  código (334078 "… nº27 …" é o aro 27 do 334079, que a loja já tem como
- *  variante): a família e o resto do nome, sem o aro.
- *
- *  §64 — a família FICA na comparação. Até 09/10/2026 ela era descartada, e
- *  "Colar Ponto de Luz Rosa" virava o "mesmo modelo" de "Brinco Ponto de Luz
- *  Rosa": 9 das 24 peças paradas em "decidir" eram colar × brinco, anel ×
- *  brinco. Nome sem família (o "Aparador de Aliança" do cadastro) usa a
- *  categoria daqui; do lado da loja, nome sem família casa com qualquer
- *  uma — na dúvida, pergunta. */
-export function chaveDoModelo(nome, cat = null) {
-  let s = normalizar(nome).replace(/^aparador\s+(?:de\s+)?alianca\b/, 'anel aparador de alianca').replace(/\bn\s*[º°o.]?\s*\d{1,2}\b/g, ' ').replace(/\s+/g, ' ').trim();
-  const primeira = s.split(' ')[0];
-  let familia = FAMILIAS[primeira] || '';
-  if (familia) s = s.slice(primeira.length).trim();
-  else familia = FAMILIAS[normalizar(cat)] || '';
-  return { familia, resto: s };
-}
 
 function valoresDe(linha) {
   const v = json(linha.valores_json, null);
@@ -352,17 +367,9 @@ function temFotoPropria(p, base) {
  *    erro            criação, publicação ou envio de estoque falhou
  */
 export function classificarCatalogo(base) {
-  const nomesModelo = new Map();
-  for (const [pid, info] of base.nomesDaLoja) {
-    const m = chaveDoModelo(info.nome);
-    if (!m.resto) continue;
-    if (!nomesModelo.has(m.resto)) nomesModelo.set(m.resto, []);
-    nomesModelo.get(m.resto).push({ produtoId: pid, skus: [...info.skus], familia: m.familia });
-  }
-  const mesmoModelo = (p) => {
-    const m = chaveDoModelo(p.desc, p.cat);
-    return (nomesModelo.get(m.resto) || []).filter((x) => !x.familia || !m.familia || x.familia === m.familia);
-  };
+  /* §66 — "mesmo modelo?" vale para TODO código: sem anúncio, oculto novo,
+     oculto antigo, publicado. Os dados decidem; nome igual só pergunta. */
+  const duplicidades = suspeitasDeDuplicidade(identidadeDaBase(base));
   /* §64 — o plano das variações que faltam no anúncio, por código: a tela
      diz "o sistema cria" ou o motivo exato de não criar. */
   const planosVariante = new Map();
@@ -433,9 +440,11 @@ export function classificarCatalogo(base) {
         bloqueios.push('Falta o nome comercial (o nome é só o código).');
         add('nome', 'Falta o nome comercial (o nome é só o código).');
       }
-      const modelo = mesmoModelo(p);
-      if (modelo && modelo.length) {
-        bloqueios.push(`Pode ser o mesmo modelo já anunciado sob ${modelo.flatMap((m) => m.skus).join(', ') || 'outro código'}. Confirme antes de criar outro anúncio.`);
+      const dup = duplicidades.get(sku) || null;
+      item.duplicidade = dup;
+      if (dup?.decidir) {
+        bloqueios.push(dup.motivo);
+        add('duplicidade', dup.motivo);
       }
       const plano = planoDeVariacoes(p, base);
       if (plano.bloqueio) bloqueios.push(plano.bloqueio);
@@ -493,7 +502,17 @@ export function classificarCatalogo(base) {
     }
 
     const sincronia = fila?.status || null;
-    if (sincronia === 'revisao' || statusConf.includes('variante_sem_mapeamento')) {
+    /* §66 — o estado atual comprovado vence o retrato antigo. A conferência
+       geral roda uma vez por dia; a fila registra cada envio. Se a fila diz
+       `sincronizado` DEPOIS da conferência, o envio mapeou cada variante (a
+       fila só chega a `sincronizado` quando a decisão não teve impedimento)
+       e nenhum movimento veio depois (movimento reabre a fila na mesma
+       transação, gatilho de §61). A conferência seguinte continua podendo
+       achar divergência nova. */
+    const confVencida = sincronia === 'sincronizado' && !!fila?.sincronizado_em && !!conf?.conferido_em
+      && String(fila.sincronizado_em) > String(conf.conferido_em);
+    item.conferenciaVencida = confVencida && statusConf.includes('variante_sem_mapeamento');
+    if (sincronia === 'revisao' || (statusConf.includes('variante_sem_mapeamento') && !confVencida)) {
       const motivo = String(fila?.ultimo_erro || motivosConf || '');
       add('estoque_variacao', /maleta/i.test(motivo)
         ? 'Maleta sem variação definida: falta dizer qual variação a revendedora levou.'
@@ -519,7 +538,23 @@ export function classificarCatalogo(base) {
       }
       item.variacoesSoAqui = faltam.map((l) => l.nome);
       item.variacoesAutomaticas = faltam.length > 0 && travadas.length === 0;
+      /* §66 — par por UNICIDADE é equivalência operacional: deixa o
+         estoque andar, não reescreve nenhum dos dois valores e se desfaz
+         sozinho quando aparecer outra variante (ver equivalenciasLojaLocal). */
+      if (eq.porUnicidade) {
+        item.equivalenciasOperacionais = [...eq.entries()].map(([vLoja, vAqui]) => ({
+          loja: naLoja.find((v) => String(v.variante_id) === vLoja)?.nome || null,
+          daqui: locais.find((l) => String(l.variante_id) === vAqui)?.nome || null,
+          regra: 'unicidade', bloqueia: false,
+        }));
+      }
     }
+    /* §66 — o gêmeo de outro código: oculto com suspeita real não fica
+       pronto nem entra no lote. Sem peça em casa ele já está fora da fila;
+       a suspeita fica como informação até voltar estoque. */
+    const dup = duplicidades.get(sku) || null;
+    item.duplicidade = dup;
+    if (dup?.decidir && visibilidade !== 'visible' && casa > 0) add('duplicidade', dup.motivo);
     if (statusConf.includes('sku_duplicado')) add('variacao', 'O mesmo SKU está em mais de um produto da loja.');
     if (statusConf.includes('sem_sku')) add('variacao', 'Variante sem SKU na loja.');
 
@@ -1045,7 +1080,8 @@ export function planoDeVariantesFaltantes(base) {
     const produto = base.produtos.find((p) => String(p.sku) === String(sku));
     const precoDaqui = produto && Number(produto.preco) > 0 ? Number(produto.preco).toFixed(2) : null;
     const preco = precos.size === 1 && !precos.has('null') ? [...precos][0] : precoDaqui;
-    const ligar = locais.filter((l) => pareadas.has(String(l.variante_id)))
+    /* O par por unicidade não é ligado (gravado): é operacional (§66). */
+    const ligar = eq.porUnicidade ? [] : locais.filter((l) => pareadas.has(String(l.variante_id)))
       .map((l) => ({ nome: l.nome, varianteId: pareadas.get(String(l.variante_id)) }));
 
     for (const l of locais) {
@@ -1058,6 +1094,12 @@ export function planoDeVariantesFaltantes(base) {
       const motivo = [];
       if (montado.bloqueio) motivo.push(montado.bloqueio);
       if (!preco) motivo.push('não há preço nem nas outras variantes nem no cadastro');
+      /* §66 — "Verde" ao lado de "Verde Esmeralda" pode ser a mesma cor
+         escrita de outro jeito. Criar seria inventar uma variação; a dúvida
+         é de gente (é o que reabre a equivalência por unicidade quando o
+         anúncio ganha uma segunda variante). */
+      const parecida = naLoja.find((v) => valoresParecidos(l.nome, v.nome));
+      if (parecida) motivo.push(`"${l.nome}" pode ser a variação "${parecida.nome}" que a loja já tem — confirme se é a mesma`);
       const nomeNovo = montado.valores ? montado.valores.map((x) => x.valor).join(' · ') : null;
       if (nomeNovo && naLoja.some((v) => chaveDaVariacao(v.nome) === chaveDaVariacao(nomeNovo))) continue;
       const usados = (base.nomeados.get(sku) || []).some((r) => r.variacao === l.nome)
@@ -1371,7 +1413,7 @@ export async function publicarNaLoja(db, env, sku, { por = 'operador', loja: loj
   const base = await lerBase(db, { skus: [p.sku] });
   const item = classificarCatalogo(base).itens.find((x) => x.sku === String(p.sku));
   const pendLocais = (item?.pendencias || []).map((x) => x.chave)
-    .filter((c) => ['estoque_variacao', 'variacao', 'estoque', 'preco'].includes(c));
+    .filter((c) => ['estoque_variacao', 'variacao', 'estoque', 'preco', 'duplicidade'].includes(c));
   const fila = base.fila.get(String(p.sku));
   if (!fila || fila.status !== 'sincronizado') pendLocais.push('estoque');
   if (!(Number(p.preco) > 0)) pendLocais.push('preco');

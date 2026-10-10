@@ -105,6 +105,7 @@ describe('§63 — o checklist é o do servidor', () => {
     const casos: [string, string][] = [
       ['foto', 'Foto'], ['descricao', 'Descrição'], ['seo', 'SEO'], ['categoria', 'Categoria'],
       ['preco', 'Preço'], ['variacao', 'Variações'], ['sku_duplicado', 'Cadastro'],
+      ['duplicidade', 'Cadastro'],
     ];
     for (const [chave, rotulo] of casos) {
       const lista = checklistDaPeca(peca({ chaves: [chave] }));
@@ -112,6 +113,11 @@ describe('§63 — o checklist é o do servidor', () => {
       expect(marcadas, chave).toEqual([rotulo]);
       expect(lista.find((c) => c.rotulo === rotulo)?.detalhe, chave).toBe(`motivo ${chave}`);
     }
+  });
+
+  it('§66 — possível duplicidade é ✕ no Cadastro (decisão de gente, não aviso)', () => {
+    const lista = checklistDaPeca(peca({ chaves: ['duplicidade'] }));
+    expect(lista.find((c) => c.rotulo === 'Cadastro')?.marca).toBe('falta');
   });
 
   it('pronto = tudo ✓; sem anúncio = Cadastro ✕', () => {

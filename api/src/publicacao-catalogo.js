@@ -361,6 +361,12 @@ export async function listarPublicacoes(db, env) {
           /* §64 — o que o sistema resolve sozinho e o que não se aplica. */
           naoSeAplica: c.naoSeAplica || null, categoriaLoja: c.categoriaLoja || null,
           variacoesAutomaticas: !!c.variacoesAutomaticas,
+          /* §66 — possível duplicidade (com as provas) e equivalência
+             operacional de variação; a conferência antiga vencida pelo
+             estado atual da fila. */
+          duplicidade: c.duplicidade || null,
+          equivalenciasOperacionais: c.equivalenciasOperacionais || [],
+          conferenciaVencida: !!c.conferenciaVencida,
         };
       }
       return x;

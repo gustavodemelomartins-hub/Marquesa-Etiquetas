@@ -3140,3 +3140,72 @@ Provas: `scripts/test-catalog-enrichment.mjs`,
 `src/catalogo-enriquecimento-fluxo-test.mjs`, catálogo/fila/bloqueios de escrita
 e writer SEO anterior. Apuração e versão publicada constam da release validada.
 Release: `docs/releases/RC-CATALOGO-ENRIQUECIMENTO-2026-10-09.md`.
+
+### 66. Duplicidade se pergunta para todo código; o estado atual vence a conferência antiga; equivalência por unicidade é operacional; zero em casa é zero na loja — §61, §62, §64, regras 2, 3, 4 e 9
+
+Origem: pedido de Gustavo, **10/10/2026**, depois da reconciliação Claude +
+Codex: 481514 × 454953 e 186027 × 170308 (oculto × publicado com o mesmo
+nome) não eram vistos por ninguém, e o 561638 estava em "Pronto para
+publicar" com um gêmeo sem anúncio (561637).
+
+- **"Mesmo modelo?" vale para todo código** — sem anúncio, oculto novo,
+  oculto antigo, publicado (`catalogo/duplicidade.js`). Nome igual (mesma
+  família, sem o aro) só levanta a suspeita. Os dados decidem:
+  - **mesmo** — a mesma foto (hash do arquivo) nos dois códigos. Não publica
+    um segundo anúncio; a proposta de vínculo vai para gente. Nada é unido
+    sozinho: SKU, histórico e estoque de cada código ficam como estão.
+  - **diferente** — categoria diferente, ou acabamento/cor diferente nas
+    variantes da loja (221300 "Banho de Prata" × 244831 "Banho de Ouro
+    18K"). A suspeita sai sozinha.
+  - **tamanho** — o mesmo modelo em outro aro (334078 nº27 × 334079). Não é
+    duplicata, é pergunta de estrutura (variação do anúncio que existe, ou
+    anúncio próprio?).
+  - **inconclusivo** — o resto. Decisão de gente, com o que foi comparado.
+- **Preço NÃO decide**, nem com o lote junto: 150163 (R$ 49) e 159930
+  (R$ 59) são o mesmo brinco em dois anúncios antigos, da mesma planilha do
+  go-live; 481514 (R$ 194) e 454953 (R$ 159) entraram juntos na sessão 8.
+  Preço e lote entram na pergunta como indício. Uma palavra a mais no
+  cadastro daqui também não: o anúncio do 838474 ("… Regulável" aqui) tem
+  na loja exatamente o nome do 450320.
+- Suspeita real (mesmo, inconclusivo, tamanho) em peça **sem anúncio**: não
+  é criada. Em **oculto com peça em casa**: pendência `duplicidade`, não fica
+  "pronto", e `publicarNaLoja` recusa — o "Publicar todos" publica um de cada
+  vez pela mesma função. **Publicado × publicado** e **oculto sem peça em
+  casa**: só informação, sem pendência; nada é alterado.
+- **O estado atual comprovado vence o retrato antigo.** A conferência geral
+  roda uma vez por dia. Se a fila diz `sincronizado` com `sincronizado_em`
+  POSTERIOR ao `conferido_em`, o "variante sem mapeamento" daquela
+  conferência não cria pendência: a fila só chega a `sincronizado` quando a
+  decisão não teve impedimento, e qualquer movimento reabre a fila na mesma
+  transação (§61). Fila em revisão, ou conferência mais nova, continuam
+  pendência.
+- **Equivalência por unicidade é operacional** (318524 "Verde" daqui ×
+  "Verde Esmeralda" na loja, uma variação de cada lado). Deixa o estoque
+  andar, não bloqueia, não renomeia nenhum dos dois, não grava vínculo. O
+  anúncio ganhou outra variante: ela se desfaz sozinha, e o sistema não cria
+  "Verde" ao lado de "Verde Esmeralda" (`valoresParecidos`) — a dúvida volta
+  para gente.
+- **Zero em casa é zero na loja.** Código sem peça em casa manda 0 para toda
+  variante de todo anúncio dele, qualquer que seja a repartição ou a maleta.
+  Publicado continua publicado (a loja mostra esgotado); oculto continua
+  oculto e fora da fila; entrou peça, volta sozinho.
+- **A casa de cada variação pode estar provada pelo inventário** mesmo com a
+  maleta sem variação (`casaPeloInventario`): último inventário concluído,
+  código conferido, nenhuma peça bipada sem variação, nenhum movimento depois
+  (fora a repartição pelo inventário), contado = casa de agora, e cada
+  variação contada corresponde a UMA variante da loja. Aí cada variante
+  recebe o que foi bipado dela; a não bipada recebe 0. Nada é redistribuído e
+  a razão não muda — a pergunta "qual variação a revendedora levou?"
+  continua na Central. Caso real: 17 publicados vendiam 70 peças a mais
+  (218178: n°20 = 3 na loja, nenhuma em casa).
+- As duas valem na fila e na conferência diária. O freio do lote (§61) e a
+  cautela continuam: o cron nunca força. Código já parado em revisão volta
+  pela ação administrativa `reenviar_estoque` (até 12 por pedido, seca por
+  padrão).
+
+Implementação: `catalogo/duplicidade.js`, `catalogo/nuvemshop-catalogo.js`
+(classificação, criação, publicação), `variacao-nome.js`
+(`valoresParecidos`, `porUnicidade`), `sync.js` (`decidirEstoqueDoSku`),
+`catalogo/reparticao-inventario.js` (`casaPeloInventario`),
+`nuvemshop-estoque.js`, `pendencias.js`, `publicacao-catalogo.js` e a Loja
+online da V2. Provas: `src/loja-online-duplicidade-test.mjs`.

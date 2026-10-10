@@ -176,6 +176,78 @@ export async function provasDoInventario(db, { skus = null } = {}) {
   return { inventario: inv, provas };
 }
 
+/** §66 — QUANTAS PEÇAS DE CADA VARIAÇÃO ESTÃO EM CASA, pelo inventário.
+ *
+ *  Não é a repartição do código (essa exige saber também o que está nas
+ *  maletas). É só o que está EM CASA — que é o que a loja vende. O
+ *  inventário bipou cada peça de casa com a variação dela; se nada se moveu
+ *  depois, a casa de cada variação é exatamente o que foi contado, e a
+ *  variação que não apareceu na contagem tem ZERO em casa. Peça de maleta
+ *  sem variação identificada não muda isso: ela não está em casa.
+ *
+ *  O caso real (10/10/2026): 17 códigos publicados com a maleta sem dizer a
+ *  variação ficavam em revisão — e a loja seguia com o número antigo. O
+ *  218178 tinha 1 peça em casa (nº18, bipada) e a loja vendia n°20 = 3 e
+ *  n°17 = 1.
+ *
+ *  Prova, por código: último inventário concluído; fechou conferido
+ *  (contado = esperado); nenhuma peça bipada sem variação; nenhum movimento
+ *  depois do fim — fora a própria repartição pelo inventário, que soma zero
+ *  em casa. A soma contada = casa de AGORA é conferida por quem usa.
+ *  Devolve Map(sku → { inventario, total, contado: [{ variacao, variante_id, contado }] }). */
+export async function casaPeloInventario(db, skus = null) {
+  const pedidos = Array.isArray(skus) ? [...new Set(skus.map(String))] : null;
+  if (pedidos && !pedidos.length) return new Map();
+  /* Lista longa demais para um IN (o D1 limita os parâmetros): lê tudo e
+     filtra no fim. */
+  const lista = pedidos && pedidos.length <= 80 ? pedidos : null;
+  let inv;
+  try {
+    inv = await db.prepare(
+      `SELECT id, numero, concluido_em FROM inventarios WHERE status = 'concluido' AND concluido_em IS NOT NULL
+        ORDER BY concluido_em DESC LIMIT 1`).first();
+  } catch { return new Map(); }
+  if (!inv) return new Map();
+  const marcas = lista ? lista.map(() => '?').join(',') : '';
+  const f = (col) => (lista ? ` AND ${col} IN (${marcas})` : '');
+  const A = lista || [];
+  let contagem, resultados, depois;
+  try {
+    [contagem, resultados, depois] = await Promise.all([
+      todas(db, `SELECT sku, variacao, variante_id, SUM(contado) AS contado FROM inventario_contagem
+                  WHERE inventario_id = ?${f('sku')} GROUP BY sku, variacao, variante_id`, [inv.id, ...A]),
+      todas(db, `SELECT sku, contado, esperado, situacao FROM inventario_resultado
+                  WHERE inventario_id = ? AND variacao = ''${f('sku')}`, [inv.id, ...A]),
+      todas(db, `SELECT sku, COUNT(*) AS n FROM movimentos
+                  WHERE criado_em > ?${f('sku')}
+                    AND NOT (tipo = 'ajuste' AND COALESCE(obs, '') LIKE 'Inventário #% a bipagem por variação provou%')
+                  GROUP BY sku`, [inv.concluido_em, ...A]),
+    ]);
+  } catch { return new Map(); }
+  const R = new Map(resultados.map((r) => [String(r.sku), r]));
+  const D = new Set(depois.filter((r) => Number(r.n) > 0).map((r) => String(r.sku)));
+  const porSku = new Map();
+  for (const r of contagem) {
+    const k = String(r.sku);
+    if (!porSku.has(k)) porSku.set(k, []);
+    porSku.get(k).push(r);
+  }
+  const saida = new Map();
+  for (const [sku, linhas] of porSku) {
+    const res = R.get(sku);
+    if (!res || res.situacao !== 'conferido' || Number(res.contado) !== Number(res.esperado)) continue;
+    if (D.has(sku)) continue;
+    if (linhas.some((r) => !r.variacao && !r.variante_id && Number(r.contado) > 0)) continue;
+    const contado = linhas.filter((r) => (r.variacao || r.variante_id) && Number(r.contado) > 0)
+      .map((r) => ({ variacao: r.variacao, variante_id: r.variante_id == null ? null : String(r.variante_id), contado: Number(r.contado) }));
+    const total = contado.reduce((s, r) => s + r.contado, 0);
+    if (total !== Number(res.contado)) continue;
+    if (pedidos && !pedidos.includes(sku)) continue;
+    saida.set(sku, { inventario: { id: inv.id, numero: inv.numero, concluidoEm: inv.concluido_em }, total, contado });
+  }
+  return saida;
+}
+
 /** Grava a repartição provada (no máximo `limite` códigos por chamada). */
 export async function repartirPeloInventario(db, { seco = true, limite = 4, skus = null } = {}) {
   const { inventario, provas } = await provasDoInventario(db, { skus });

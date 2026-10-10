@@ -131,4 +131,19 @@ describe('§63 — Loja online › Visão geral', () => {
     expect(dec?.codigos.map((c) => c.sku)).toEqual(['N1']);
     expect(dec?.acao?.destino).toEqual({ tipo: 'preparacao', aba: 'nao_cadastrado' });
   });
+
+  it('§66 — oculto com possível duplicidade é atenção; publicado × publicado e resolvido não são', () => {
+    const dup = (tipo: 'inconclusivo' | 'diferente', informativo = false) => ({
+      tipo, decidir: tipo !== 'diferente' && !informativo, informativo, com: [], motivo: 'Pode ser o mesmo modelo de X.', proposta: null,
+    });
+    const v = montarVisaoGeral(online(), fila([
+      item('G1', { situacao: 'oculto', duplicidade: dup('inconclusivo') }, ['duplicidade']),
+      item('G2', { situacao: 'oculto', duplicidade: dup('diferente') }),
+      item('G3', { situacao: 'publicado', visibilidade: 'visible', duplicidade: dup('inconclusivo', true) }),
+    ]), AGORA);
+    const a = v.atencao.find((x) => x.chave === 'possivel_duplicidade');
+    expect(a?.codigos.map((c) => c.sku)).toEqual(['G1']);
+    expect(a?.acao?.destino).toEqual({ tipo: 'preparacao', aba: 'oculto' });
+    expect(v.kpis?.atencao).toBe(1);
+  });
 });

@@ -26,7 +26,7 @@ import { consultarEmLotes, somenteLeitura } from './plataforma/d1.js';
 import { novoVendaItemId } from './venda-item-id.js';
 import { comExecucao } from './plataforma/execucao.js';
 import { normSku } from './sku.js';
-import { equivalenciasLojaLocal } from './variacao-nome.js';
+import { chaveDaVariacao, equivalenciasLojaLocal } from './variacao-nome.js';
 
 const agoraISO = () => new Date().toISOString();
 
@@ -865,7 +865,71 @@ function saldoDaVarianteUnica(p, naLoja, saldos, { partes, vidLoja, saldoLoja })
   return { ok: true, nome: par ? par.nome : (unica.nome || ''), para: Math.max(0, (par ? par.saldo : 0) + saldoLoja - fora) };
 }
 
-export function decidirEstoqueDoSku(p, naLoja, saldos) {
+/** §66 — ZERO EM CASA É ZERO NA LOJA. Sem peça nenhuma em casa, não existe
+ *  divisão a descobrir: toda variante de todo anúncio do código recebe 0.
+ *  Não importa se a repartição está pela metade ou se a maleta não disse a
+ *  variação — nenhuma dessas perguntas muda o fato de não haver peça para
+ *  vender. Anúncio publicado continua publicado (a loja mostra esgotado);
+ *  oculto continua oculto. */
+function zerarTudo(p, naLoja) {
+  const mudancas = [];
+  for (const v of naLoja.variantes) {
+    if (Number(v.estoque) === 0) continue;
+    mudancas.push({
+      sku: p.sku, desc: naLoja.variantes.length > 1 ? `${p.desc} · ${v.nome}` : p.desc,
+      de: v.estoque, para: 0, zera: Number(v.estoque) > 0, variacao: v.nome,
+      varianteId: v.varianteId, produtoId: v.produtoId ?? naLoja.produtoId, locais: v.locais || naLoja.locais,
+      motivo: 'sem_peca_em_casa',
+    });
+  }
+  return { mudancas, semEmpurrar: null, regra: 'zero_em_casa' };
+}
+
+/** §66 — a casa de CADA variação, provada pelo inventário
+ *  (`casaPeloInventario`), quando a divisão do código inteiro não fecha só
+ *  por causa de peça fora de casa (maleta sem variação) ou da repartição
+ *  pendente. Cada variação contada tem de corresponder a exatamente uma
+ *  variante da loja; a que não foi contada tem 0 em casa. Nada é
+ *  redistribuído: cada variante recebe o que foi bipado dela. */
+function decidirPeloInventario(p, naLoja, prova) {
+  if (!prova || prova.total !== Math.max(0, Number(p.casa ?? 0))) return null;
+  const loja = naLoja.variantes.map((v) => ({ variante_id: String(v.varianteId), nome: v.nome }));
+  const restantes = [];
+  const destino = new Map();
+  for (const [i, c] of prova.contado.entries()) {
+    let vid = c.variante_id && loja.some((v) => v.variante_id === c.variante_id) ? c.variante_id : null;
+    if (!vid) {
+      const mesmos = loja.filter((v) => chaveDaVariacao(v.nome) === chaveDaVariacao(c.variacao));
+      if (mesmos.length > 1) return null;
+      if (mesmos.length === 1) vid = mesmos[0].variante_id;
+    }
+    if (vid) destino.set(vid, (destino.get(vid) || 0) + c.contado);
+    else restantes.push({ nome: c.variacao, variante_id: `contado:${i}`, contado: c.contado });
+  }
+  if (restantes.length) {
+    const eq = equivalenciasLojaLocal(loja, restantes);
+    const porContado = new Map([...eq.entries()].map(([vLoja, vAqui]) => [vAqui, vLoja]));
+    for (const r of restantes) {
+      const vid = porContado.get(r.variante_id);
+      if (!vid) return null;      // variação contada sem variante da loja: não é prova
+      destino.set(vid, (destino.get(vid) || 0) + r.contado);
+    }
+  }
+  const mudancas = [];
+  for (const v of naLoja.variantes) {
+    const para = destino.get(String(v.varianteId)) || 0;
+    if (para === Number(v.estoque)) continue;
+    mudancas.push({
+      sku: p.sku, desc: `${p.desc} · ${v.nome}`, de: v.estoque, para,
+      zera: para === 0 && Number(v.estoque) > 0, variacao: v.nome,
+      varianteId: v.varianteId, produtoId: v.produtoId, locais: v.locais,
+      motivo: 'casa_pelo_inventario',
+    });
+  }
+  return { mudancas, semEmpurrar: null, regra: 'casa_pelo_inventario', inventario: prova.inventario };
+}
+
+export function decidirEstoqueDoSku(p, naLoja, saldos, { casaPorVariacao = null } = {}) {
   if (naLoja.variantesSemSku > 0) {
     return { mudancas: [], semEmpurrar: {
       sku: p.sku, desc: p.desc, casa: Math.max(0, p.casa),
@@ -889,6 +953,8 @@ export function decidirEstoqueDoSku(p, naLoja, saldos) {
      pior jeito que existe: a conta do total continuava fechando, então
      nenhum freio disparava, cada variante recebia zero, e a peça saía do
      ar sem ninguém ver. Ver docs/domains/SYNC_ENGINE.md § variações. */
+  if (Math.max(0, Number(p.casa ?? 0)) === 0) return zerarTudo(p, naLoja);
+
   if (naLoja.variantes.length > 1) {
     const r = resolverVariantes(p, naLoja, {
       saldoPorNome: saldos.porNome(p.sku),
@@ -901,6 +967,12 @@ export function decidirEstoqueDoSku(p, naLoja, saldos) {
     });
 
     if (!r.ok) {
+      /* §66 — a divisão do código não fecha, mas a de CASA pode estar
+         provada pelo inventário — e é a de casa que a loja vende. */
+      if (['maleta', 'sem_reparticao', 'variacao_nao_mapeada'].includes(r.motivo) && naLoja.produtos.size <= 1) {
+        const pelaContagem = decidirPeloInventario(p, naLoja, casaPorVariacao);
+        if (pelaContagem) return { ...pelaContagem, pendenteNaRazao: r.motivo };
+      }
       return { mudancas: [], semEmpurrar: {
         sku: p.sku, desc: p.desc, casa: Math.max(0, p.casa),
         naLoja: naLoja.estoque, motivo: r.motivo,

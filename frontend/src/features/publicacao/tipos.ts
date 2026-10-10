@@ -175,6 +175,7 @@ export const FILTROS_DE_PENDENCIA: { id: string; rotulo: string; chaves: string[
   { id: 'variacao', rotulo: 'Revisar variação', chaves: ['variacao', 'variante', 'sku', 'sku_duplicado'] },
   { id: 'estoque_variacao', rotulo: 'Conferir estoque da variação', chaves: ['estoque_variacao', 'estoque'] },
   { id: 'categoria', rotulo: 'Falta categoria', chaves: ['categoria'] },
+  { id: 'duplicidade', rotulo: 'Possível duplicidade', chaves: ['duplicidade'] },
   { id: 'erro', rotulo: 'Erro', chaves: ['erro'] },
 ];
 
@@ -193,6 +194,7 @@ export const ROTULO_DA_PENDENCIA: Record<string, string> = {
   sku: 'Variante sem SKU',
   sku_duplicado: 'SKU duplicado',
   variante: 'Variante incompleta',
+  duplicidade: 'Possível duplicidade',
   erro: 'Erro de integração',
   cadastro: 'Ainda não cadastrado na Nuvemshop',
 };
@@ -242,6 +244,25 @@ export interface InfoNuvemshop {
   categoriaLoja?: { id: string; chave: string; regra: string } | null;
   /** §64 — as variações só daqui serão criadas na loja pelo sistema. */
   variacoesAutomaticas?: boolean;
+  /** §66 — o mesmo nome de outro código, e o que os dados dizem disso. */
+  duplicidade?: Duplicidade | null;
+  /** §66 — "Verde" daqui vendida como "Verde Esmeralda" lá: única variação
+   *  dos dois lados. Não bloqueia e não renomeia nada. */
+  equivalenciasOperacionais?: { loja: string | null; daqui: string | null; regra: string; bloqueia: boolean }[];
+  /** §66 — a conferência antiga dizia "sem mapeamento"; a fila provou depois. */
+  conferenciaVencida?: boolean;
+}
+
+/** §66 — possível duplicidade: o veredito e as provas. */
+export interface Duplicidade {
+  tipo: 'mesmo' | 'inconclusivo' | 'tamanho' | 'diferente';
+  /** true = decisão de gente; a peça não fica pronta nem entra no lote. */
+  decidir: boolean;
+  /** publicado × publicado: só informação. */
+  informativo: boolean;
+  com: { sku: string; produtoId: string | null; visivel: boolean; nome: string; preco: number | null; tipo: string; prova: string }[];
+  motivo: string;
+  proposta: string | null;
 }
 
 /** A situação da peça como a TELA a agrupa. */
@@ -294,7 +315,7 @@ export function porSituacao(itens: ItemDaFila[]): Record<SituacaoDaTela, ItemDaF
 export type MarcaDoItem = 'ok' | 'falta' | 'aviso' | 'auto';
 export interface LinhaDoChecklist { rotulo: string; marca: MarcaDoItem; detalhe?: string }
 export const CHECKLIST: { rotulo: string; chaves: string[]; aviso?: boolean }[] = [
-  { rotulo: 'Cadastro', chaves: ['sku', 'sku_duplicado', 'nome'] },
+  { rotulo: 'Cadastro', chaves: ['sku', 'sku_duplicado', 'nome', 'duplicidade'] },
   { rotulo: 'Descrição', chaves: ['descricao'] },
   { rotulo: 'SEO', chaves: ['seo'] },
   { rotulo: 'Categoria', chaves: ['categoria'] },
