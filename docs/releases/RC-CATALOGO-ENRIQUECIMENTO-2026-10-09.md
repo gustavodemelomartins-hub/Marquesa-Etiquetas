@@ -1,208 +1,110 @@
 # RC — conteúdo e enriquecimento do catálogo Nuvemshop (09/10/2026)
 
-**Estado: execução e apuração final em andamento.** Este documento registra
-o comportamento implementado e a evidência disponível. Não confirma
-encerramento da rodada, commit/push ou publicação do novo Worker. Versão
-publicada, contagens finais e QA serão consolidados após validação.
+**Estado: conteúdo entregue em produção e auditado.** Commit de código `61abd5e`, enviado a `origin/develop` e `codex/catalog-enrichment-2026-10-09`. A integração preservou a frente Cloud `07becfe`, incluindo §§63–64. A regra editorial permanente ocupa §65.
 
-Produção: Worker `marquesa-api`, D1 `marquesa-db-prod`, Nuvemshop da Marquesa.
-Base inicial: catálogo oculto `c2011e7`, mantendo o SEO aprovado anterior.
-Durante a execução, a produção Cloud avançou para `origin/develop` `07becfe`;
-essa produção está sendo incorporada antes do deploy editorial. O commit
-editorial anterior à integração é `99d8af8`. A base antiga não será publicada
-por cima da produção operacional Cloud.
+Worker `marquesa-api`: versão **`1c3bc2d0-58e8-4cf9-a3b5-4c94324f2342`**, deployment `5f2ca8a9-4964-48b4-b560-1dfc46a3d2b4`, 100% do tráfego, publicado em **09/10/2026 21:23:11 Brasília** (10/10 00:23:11 UTC). Tag remoto `61abd5e` conferido. D1 `marquesa-db-prod`, UUID `51dd629b-52dc-46d0-a1af-fa37f0a79533`; R2 `marquesa-fotos`; crons existentes preservados.
 
-Worker Cloud atual: `afdc2eb6-a05b-4122-8a5c-c88f355ad49f`; deployment
-`0b3379fa-b8df-420c-a859-d78e6f1869ab`, publicado em 09/10/2026 às
-17:49:33 UTC. Essa é a referência atual antes da publicação integrada.
-`4d185e84-db1c-42e2-8b89-cd35b2a73cc7` fica somente como histórico inicial.
+Pages da outra frente: deployment de produção `08544102-19db-42ac-b759-fa0d783e62e5`, fonte `1aa84ac`, preservado. Esta frente não alterou frontend, tela Loja Online, fluxo visual, vendas históricas ou reconciliação visual.
 
-## Escopo e situação inicial
+## Apuração comprovada
 
-Conteúdo factual, saneamento editorial e regra permanente de enriquecimento
-do cadastro oculto de §62. Sem redesenho de telas, mudança visual de Loja
-Online, regras de vendas, reconciliação histórica ou distribuição operacional
-de estoque. Pages não precisa de alteração por esta frente.
+Snapshot Nuvemshop final: 10/10/2026 00:13:04 UTC. QA do Marquesa executado novamente após o deploy final. Produtos novos são os registros `nuvemshop_catalogo.origem='criado'`; números de requisitos podem se sobrepor.
 
-| Medida | Estado comprovado / fase |
+| Medida | Resultado |
+|---|---:|
+| Catálogo remoto inicial / final | 926 / 937 produtos |
+| Variantes remotas iniciais / finais | 1.011 / 1.028 |
+| Categorias comerciais iniciais / finais | 26 / 28 |
+| Novos ocultos | **339: 328 originais + 11 criados pela Cloud** |
+| Novos com descrição, SEO, marca, tags e categoria completos | **339** |
+| Novos totalmente preparados para o clique humano | **1** — SKU 187604 |
+| Novos que precisam somente de foto | **167** |
+| Novos sem preço atual confiável | **170** — também precisam de foto |
+| Novo com foto + cor de unidade em maleta pendentes | **1** — SKU 162190 |
+| Novos sem foto canônica disponível | **338** |
+| Coorte original de 328 | 1 pronto, 163 somente foto, 164 sem preço |
+| Produtos com escrita editorial e readback integral | **914: 339 novos + 575 antigos** |
+| Descrições antigas com código confirmado removido | **574** códigos em 574 produtos |
+| Marcas preenchidas/corrigidas | **342: 339 novos + 3 antigos**; todos os 937 agora Marquesa |
+| Tags adicionadas/normalizadas | **340 produtos: 339 novos + 1 antigo** |
+| Categorias de produto resolvidas/ajustadas | **52: 50 novos + 2 antigos** |
+| Textos originais “Precisa de informação” resolvidos | **15/15** |
+| Rascunhos factuais adicionais de produtos sem anúncio | **10**, com descrição e SEO únicos; identidade continua bloqueada |
+| Pendências de descrição / SEO no Marquesa | **0 / 0** |
+| Títulos / metas realmente alterados | **16 / 16**: 15 novos e 1 antigo previamente vazio |
+| SEO aprovado não vazio dos antigos alterado | **0** |
+| Opções inicialmente faltantes demonstradas no remoto | **8/11**, efetivadas pela frente Cloud |
+| Divisões de estoque comprovadas | **8/27**; aplicação operacional pertence à Cloud |
+| Estoques ou movimentos alterados por esta frente | **0** |
+| Peso/dimensões preenchidos sem regra oficial | **0**; regra logística não comprovada |
+| SKU repetido entre produtos remotos | **0** |
+| Novos tornados visíveis automaticamente | **0** |
+| Preços / estoques inventados | **0 / 0** |
+| Divergências de sincronização causadas pela missão | **0** |
+
+Os quatro primeiros estados de preparação dos novos são disjuntos: 1 + 167 + 170 + 1 = 339. Os 338 sem foto incluem os 170 sem preço. Dos 24 originalmente sem anúncio, 11 foram criados ocultos pela Cloud, 12 mantêm dúvida real de identidade e 1 é kit/composição com caminho próprio.
+
+As 8 opções resolvidas são: Vermelho/194149, Pink/198242, aro19/408061, aro24/391471, Roxo/318522 e Azul/Cristal/Vermelho/162190. Comparação usa mesmo SKU e valores semânticos exatos; atributos constantes do anúncio podem ser separados do valor de aro/cor. Não considera Verde igual a Verde Esmeralda por mera unicidade.
+
+## Conteúdo e regra permanente
+
+`catalogo/enriquecimento.js` cruza nome, categoria explícita, ficha existente e atributos reais. Preenche copy, SEO, marca, tags, cuidados e categoria sem determinar preço, saldo, identidade, idade, gênero ou medidas. Nenhuma característica física foi inventada para diferenciar homônimos. SEO único pode variar a redação factual sem prometer peça diferente.
+
+O bloco “Como preservar suas semijoias” reproduz o padrão dominante de 472 anúncios, referência 238432990: evitar água; retirar para dormir/tratamentos/transpiração intensa; guardar individualmente. Informações específicas verdadeiras, inclusive cuidados de prata, são preservadas. Antigos tiveram saneamento objetivo; não houve reescrita cosmética de 499 fichas.
+
+`Cód:`, `Código:` e `SKU:` saem da descrição somente quando coincidem exatamente com um SKU remoto. Outros códigos permanecem. Tags usam tipo/fatos e equivalências lexicais; a API ordena/remove acentos, por isso ordem e acento não provocam escrita repetida. Marca canônica comprovada em 595 anúncios antigos: Marquesa.
+
+Novo cadastro elegível nasce hidden com conteúdo completo. Writer aceita somente marca, tags, descrição, título/meta e categorias, preservando campos traduzíveis completos, nome, URL, imagem, variante, preço, saldo e visibilidade. Duas leituras antes do PUT e hash detectam concorrência; journal durável precede a escrita; readback integral valida o resultado. A API não oferece CAS remoto: mudança posterior também interrompe e exige revisão.
+
+Cron ocioso preserva o rodízio Cloud §64: :00 normalização/repartição, :10 criação, :20 variações, :30 fotos, :40 categorias; :50 enriquece até duas peças. Enriquecimento automático considera apenas origem criado, ativo e hidden. Cursor e hash dos fatos editoriais evitam reescrita validada. Alteração humana de SEO é preservada; texto automático só é substituído quando ainda coincide com a origem comprovada.
+
+Homônimo não impede descrição factual no preview. Rascunho completo vence geração. SEO automático exige ocupação real; os dez rascunhos atuais foram comparados com os 937 anúncios e entre si, permanecendo em `em_preparacao`, sem aprovação, publicação ou ID remoto. O bloqueio de identidade permanece separado e integral. Só o clique humano e as validações de §62 autorizam hidden → visible.
+
+## Google e categorias
+
+Campo real: `categories[].google_shopping_category`. Dois grupos comerciais recorrentes receberam categorias ocultas, preservando a hierarquia existente:
+
+| Categoria | Resultado |
 |---|---|
-| Produtos / variantes remotos no início | 926 / 1.011 |
-| Produtos novos criados pela integração no início | 328 |
-| Produtos / variantes após a rodada Cloud incorporada | 937 / 1.028 |
-| Novos após Cloud | 339: 328 iniciais + 11 novos ocultos |
-| Categorias comerciais | 26 inicialmente; 28 com as duas categorias adicionais |
-| SKU presente em mais de um produto remoto no início | 0 |
-| SKU com múltiplas variantes legítimas do mesmo produto | 27 |
-| Lote editorial planejado | 903: 328 novos e 575 antigos |
-| Execução desse lote | 413 validados antes da pausa por concorrência; 490 remanescentes |
-| Criações adicionais comprováveis | 11 efetivadas pela Cloud, todas ocultas; conteúdo ainda aguarda auditoria |
-| Novo planejamento editorial | 501: 490 remanescentes + auditoria dos 11 novos da Cloud |
-| Divisões de estoque recuperáveis | 8 dos 27 casos; encaminhadas à frente operacional, sem aplicação nesta frente |
+| Brinco 35650540 | GPC vazio → 194 — Brincos |
+| Infantil 28019915 | Acessórios para roupas de bebês/crianças → 188 — Joias |
+| Bracelete 32545254 | Pulseiras para relógio → 191 — Pulseiras; pai Pulseira 28019937 preservado |
+| Pingentes 41453694 | Nova, oculta; GPC192 — Amuletos e pingentes |
+| Conjuntos 41453695 | Nova, oculta; GPC6463 — Conjuntos de joias |
 
-SKU repetido entre variantes de um anúncio não é duplicação de produto.
-O enriquecimento não junta códigos, nem transfere foto/preço por semelhança.
+Readback final compara descrição/SEO/traduções/handle/pai de todas as categorias: zero diferença nesses campos preservados. Nenhum campo Google fictício foi criado no produto; gênero e faixa etária sem regra oficial permanecem desconhecidos. Material, cor e acabamento comercial provêm exclusivamente de fatos cadastrados.
 
-## Regra permanente
+## Integridade, testes e QA
 
-1. O cadastro ativo elegível nasce **oculto** pelo caminho de §62.
-2. `catalogo/enriquecimento.js` cruza nome, categoria explícita, ficha
-   específica e atributos reais fornecidos pelo cadastro.
-3. O sistema preenche o que tem prova: descrição, título SEO, meta,
-   marca, tags e categoria. Não produz preço, saldo, variante, idade,
-   gênero, peso ou dimensão.
-4. O writer lê, persiste o journal, relê antes do PUT e confere o resultado.
-   Alteração concorrente interrompe a escrita.
-5. Preparação recebe fatos editoriais confirmados. Foto inexistente, preço
-   sem fonte confiável e identidade realmente ambígua continuam requisitos.
-6. A peça permanece `hidden`; só o clique humano em **Publicar na Nuvemshop**,
-   com as validações de §62, pode torná-la visível.
+Migration aditiva `api/migracao-catalogo-enriquecimento.sql`: tabela `nuvemshop_enriquecimento` + dois índices, sem FK nova ou alteração de ledger. SHA256 `5d5ea985fe924a642d308792eb95a9b1fafda0547fc671597c4a8049caf79c27`.
 
-Com `NUVEMSHOP_WRITES_ENABLED` e `config.nuvemshopCatalogoAtivo` ligados, o
-cron ocioso integra enriquecimento ao rodízio operacional de §64, até duas
-peças por rodada editorial, com cursor por SKU e sem ler o catálogo remoto
-inteiro. Preserva a Loja online de §63 e a automação Cloud de §64; o conteúdo
-ocupa §65. O rodízio integrado final ainda será validado. Estoque §61 segue
-independente. O automático considera somente
-`origem='criado'`, cadastro ativo, estado/visibilidade ocultos. Saneamento de
-antigos é lote controlado, não autorização para reescrevê-los continuamente.
+914 journals validados no D1. Importações guardadas preservam metadados concorrentes e alteram apenas conteúdo editorial/4 flags de conferência. Os 10 rascunhos usam INSERT condicionado à ausência de linha e nome/categoria ainda iguais; não sobrescrevem trabalho humano. Backup fresco, simulação SQLite com FK, digests de tabelas/colunas/esquema/índices/triggers e revisão independente: integridade preservada, razão=0 divergências, FK=0. Replays e concorrência simulados com segurança.
 
-## Conteúdo, marca e cuidados
+Testes relevantes passaram: helper25, fluxo19, catálogo37, automações Cloud18, fila49, bloqueios de escrita29, writer SEO23, coerência schema/migrations. Compilação Worker final passou (1.203,68 KiB; gzip301,42 KiB). A expectativa antiga de HTTP404 foi alinhada ao comportamento já publicado que normaliza a página final da API; transporte comercial permaneceu intacto.
 
-- **SEO aprovado permanece.** Título/meta não vazios vencem a geração. Texto
-  humano não é trocado. Descrição v1 só é melhorada quando ainda coincide
-  exatamente com a descrição comprovadamente enviada por aquela regra.
-- **Código no SKU.** Remove `Cód:`, `Código:` ou `SKU:` da descrição somente
-  com coincidência exata no SKU remoto de produto/variante, incluindo zeros
-  iniciais e entidades HTML. Outros códigos comerciais são preservados.
-- **Marca Marquesa:** comprovada em 595 anúncios antigos; uma ocorrência
-  incorreta `Mrquesa`. Corrige ausência/grafia comprovada, preservando marca
-  semanticamente diferente.
-- **Cuidados:** `CUIDADOS_HTML` reproduz integralmente o bloco dominante em
-  472 anúncios, referência remota `238432990`. Mesmos três itens: evitar água;
-  retirar para dormir, tratamentos e transpiração intensa; guardar
-  individualmente para evitar danos. Nenhum quarto item inventado.
-  Instruções específicas, embalagens e observações são preservadas. Troca de
-  bloco existente exige trecho anterior integral conhecido e escopo restrito.
-- **Tags:** taxonomia factual nos novos; equivalências lexicais comprovadas
-  e deduplicação nos antigos. `Banho de Ouro 18k` exige evidência de banho.
-  A API ordena tags/remove acentos: ordem, caixa ou acento não provocam PUT
-  repetido. Multiset normalizado preserva contagens e detecta duplicata/perda.
-- **Copy comercial:** tipo, desenho e detalhes reais, sem SKU, linguagem de
-  implementação, promessas de durabilidade ou saúde. Material/cor vêm da
-  peça. Cuidados genéricos não provam material; Ródio Branco é acabamento,
-  não declara sozinho a cor da peça inteira.
+QA real após o deploy: catálogo HTTP200, ativo, zero pendência descrição/SEO; `/api/estoque/conferir` com divergentes=[]; sincronização Nuvemshop com divergentes=[]; anúncio 187604 lido hidden, uma foto e faltam=[]. O registro do 100633 foi relido com SKU/SEO/marca corretos e falta somente foto. Páginas publicadas 244521779 e 246074619: HTTP200, SEO preservado e cuidados presentes, sem código interno; URL do novo 373141783: HTTP404.
 
-SEO title respeita **70 bytes UTF-8**. Pode resumir nome extenso mantendo
-os fatos completos no corpo. Nomes iguais admitem redação comercial distinta
-sem inventar diferença física. Consulta de colisões inconclusiva falha fechada.
+Snapshots/SQL/journals completos, recibos de escrita, hashes, backups e readbacks ficam privados em `.local/catalog-enrichment-2026-10-09/`. Somente este resumo e código são versionados; nenhum segredo, dump ou dado de cliente entra em Git ou vault.
 
-## Categorias e Google Shopping
+## Concorrência e incidentes encerrados
 
-Argola corresponde a Brincos. Colar com Pingente continua Colar; Pulseira com
-Berloque continua Pulseira. Categoria explícita pode esclarecer nome sem tipo.
-Prata 925 exige prova: não transforma Prata 926/927 em Prata 925.
+Canários da API limparam campos traduzíveis omitidos e resetaram pai omitido de categoria. Escritas interrompidas; estado, SEO e hierarquia restaurados imediatamente. Comparação final prova zero regressão persistente. Guard permanente envia campos preservados e valida readback.
 
-| Categoria | Google Product Category / alteração |
-|---|---|
-| Pingentes — nova, oculta | 192 — Vestuário e acessórios > Joias > Amuletos e pingentes |
-| Conjuntos — nova, oculta | 6463 — Vestuário e acessórios > Joias > Conjuntos de joias |
-| Brinco — 35650540 | Vazio → 194 — Brincos |
-| Infantil — 28019915 | Acessórios de roupas para bebês e crianças → 188 — Joias |
-| Bracelete — 32545254 | Pulseiras para relógio → 191 — Pulseiras |
+SKU570328 mudou comercialmente durante o lote: interrupção antes de PUT, 413 itens já validados preservados, replanejamento fresco de 501 restantes incluindo os11 novos Cloud. Onze produtos antigos tiveram alterações comerciais concorrentes, incluindo quatro opções adicionais e visibilidade do antigo417528. Comparações por operação provaram zero alteração comercial por este writer; estado antigo nunca foi restaurado por cima da outra frente.
 
-O campo real é `categories[].google_shopping_category`; não se inventou um
-campo Google no produto nem gênero/faixa etária para eliminar aviso Merchant.
-Bracelete mantém o pai Pulseira `28019937`. IDs das duas categorias novas e
-readbacks integrais ficam no journal privado, com consolidação final pendente.
+O primeiro import registrou20 itens antes de um parser de recibo falhar. Revisão automática rejeitou repetir todo o lote sem prova de idempotência. Readback exato dos20, simulação independente e plano somente dos308 faltantes permitiram retomada segura. Fechamento posterior importou somente586 IDs ausentes, sem replay dos328 anteriores. Nenhum bloqueio de aprovação permanece.
 
-A API acrescenta ancestrais à categoria escolhida. Readback aceita somente
-extras demonstrados pela cadeia `parent`, rejeitando categoria sem essa prova.
+## REALMENTE PRECISA DE DECISÃO HUMANA
 
-## Writer, journal e reavaliação
+- **Foto real:** 338 dos339 novos não têm fonte canônica de imagem ligada ao mesmo SKU. Somente187604 tinha foto comprovada, já reaproveitada. Fotos parecidas de outros SKUs não comprovam identidade.
+- **Preço atual:** 170 novos +7 ainda sem anúncio =177 sem fonte atual confiável. Todas as fontes internas disponíveis foram cruzadas. Histórico187550 prova valores69/89, mas não um preço atual autorizado; não foi copiado.
+- **Identidade:** 12 ainda sem anúncio:102311,196333,272073,334078,519177,132961,187550,387128,410321,450320,493074,561637. Mais três pares de novos sem fato diferenciador:481514/454953,484220/483454,120591/120592. Copy completa não decide duplicidade física.
+- **Opção de cor:**318524 tem local Verde e remoto Verde Esmeralda; equivalência não foi comprovada por esta frente. Duas outras opções ainda faltantes pertencem aos334078/519177 já contados na dúvida de identidade. O comportamento operacional concorrente dessa correspondência pertence à Cloud; esta rodada não usa a suposição como evidência editorial.
+- **Variante em maleta:**22 SKUs têm unidade sem identificação factual de cor/aro. São19 dos27 originais, mais162190,198242,408061. As8 divisões comprovadas não entram nessa lista humana:191620,334079,351489,393950,635650,647729,711591,717389; execução operacional pertence à outra frente.
+- **Regra logística:**0,076kg e16×11×3cm aparecem frequentemente, mas nenhuma regra oficial confirma se são embalagem comum ou medida específica. Preenchimento por regra comprovada=0; nenhum valor foi inventado.
 
-`catalogo/enriquecimento-fluxo.js` limita patches a `brand`, `tags`,
-`description`, `seo_title`, `seo_description`, `categories`. Nome, URL,
-visibilidade, preço, estoque, variantes e imagens ficam preservados.
-Campos traduzíveis completos passam pelo PUT para impedir limpeza de idiomas
-omitidos pela API. A comparação posterior também verifica conteúdo preservado.
-
-Migration `api/migracao-catalogo-enriquecimento.sql`: tabela aditiva
-`nuvemshop_enriquecimento`, dois índices, sem alteração de ledger. Journal:
-
-- `id`, `sku`, `product_id`, `regra`, `estado` (`preparado/validado/erro`);
-- `before_json`, `patch_json`, `after_json`;
-- `before_hash`, `after_hash`, `fonte_hash`, `erro`, `em`.
-
-`preparado` persiste antes do PUT. Falha de journal impede escrita. Resultado
-não validado grava erro/desliga cadastro automático e nunca declara sucesso;
-estoque §61 permanece independente. Sem tokens/dados de clientes no journal.
-
-`fonte_hash` considera `produtos.desc`, categoria local, nomes/atributos/opções
-reais das variantes locais e versão da regra. Ignora IDs operacionais, ordem
-das linhas, preço e saldo. Fonte igual já validada evita reescrita; mudança
-nesses fatos locais permite reavaliar sem apagar SEO aprovado. Alteração
-exclusivamente remota não invalida esse marcador e requer reavaliação
-explícita/gatilho comprovado.
-
-Snapshots, patches, hashes e readbacks do saneamento ficam privados em
-`.local/catalog-enrichment-2026-10-09/`; dump de produção não é versionado.
-
-## Incidentes de canário e correção
-
-A API limpou campos traduzíveis omitidos num PUT parcial de categoria e
-resetou `parent` omitido em outro canário. Estado de referência, SEO,
-descrição e hierarquia foram **restaurados imediatamente**; não ficou impacto
-persistente desses canários. Bracelete voltou ao pai `28019937` antes da
-continuação. A comparação integral final da rodada ainda será registrada.
-
-Guard permanente: enviar os campos preservados necessários, backup antes da
-escrita e readback. Testes detectam SEO apagado pela API, mudança comercial,
-idioma perdido, tag perdida e ancestral sem prova. Nenhuma tolerância para
-divergência posterior foi introduzida.
-
-Na escrita em lote, o SKU `570328` apresentou estoque diferente do snapshot
-de planejamento. O guard interrompeu antes de qualquer PUT desse item. Os
-413 readbacks anteriores estavam validados; os 490 remanescentes serão
-replanejados sobre estado fresco, junto da auditoria dos 11 novos ocultos
-criados pela Cloud. As alterações concorrentes em variantes/saldos de oito
-SKUs pertencem à frente operacional: esta missão não restaura saldos antigos.
-
-A resolução documental preserva integralmente as seções Cloud §63 e §64,
-renumerando o apêndice editorial para §65. Incorporação não confirma deploy
-editorial, e as contagens operacionais frescas ainda aguardam auditoria final.
-
-## Verificação e entrega pendentes
-
-Primeira rodada local: Node 24.19.0/SQLite disponível. Passaram helper 20,
-fluxo 17, catálogo 30, fila 49 e writer SEO anterior 23. Bloqueios de escrita:
-27 aprovações/uma expectativa antiga de 404 onde o transporte já publicado
-normaliza `Last page is N` para `[]`; ajuste/reexecução final devem constar da
-apuração, sem alterar transporte para satisfazer expectativa desatualizada.
-
-**Apuração final pendente:** produtos novos reais; totalmente preparados;
-somente foto; preço sem fonte confiável; categorias/variações resolvidas;
-textos sanados; códigos retirados/confirmados; tags; logística comprovada;
-ambiguidades; unicidade de SKU entre produtos; visibilidade; preços/estoques
-não inventados; SEO aprovado preservado; sincronização sem divergência causada.
-
-**Entrega pendente:** commit/push, migration/deploy necessários, versão
-efetivamente publicada e QA real. Não aplicar 0,076 kg / 16 × 11 × 3 cm
-somente pela frequência: regra empresarial ainda não comprovada neste registro.
+União de identidades/opções/variantes de maleta realmente ambíguas: **41 SKUs** (18 identidades +22 maletas +318524), sem dupla contagem. Foto/preço podem se sobrepor a esses grupos. Kit314161 tem composição/caminho próprios e não foi classificado como duplicidade humana.
 
 ## Rollback
 
-1. Desligar `config.nuvemshopCatalogoAtivo` pelo caminho de §62 se uma escrita
-   não puder ser validada; estoque §61 segue independente.
-2. Restaurar a referência Cloud atual
-   `afdc2eb6-a05b-4122-8a5c-c88f355ad49f`, deployment
-   `0b3379fa-b8df-420c-a859-d78e6f1869ab`, confirmando a versão que recebeu
-   o tráfego. `4d185e84` é anterior às automações Cloud e não deve
-   sobrescrevê-las nesta integração.
-3. **Manter a tabela aditiva e journals.** Não apagar auditoria nem reverter
-   banco inteiro. Pages não requer rollback por esta frente.
-4. Conteúdo remoto só pode ser revertido a partir do backup e após releitura
-   sem alteração concorrente. Não apagar anúncios/categorias, publicar ocultos
-   ou modificar movimentos históricos.
-
-Rollback de código não desfaz conteúdo remoto validado: reversão editorial é
-operação separada, com journal e readback.
+Restaurar Worker Cloud anterior `afdc2eb6-a05b-4122-8a5c-c88f355ad49f` somente se necessário e confirmar tráfego. Não restaurar a referência histórica4d185 por cima da Cloud. Preservar a tabela/journals; não usar DROP ou restauração integral de D1. Desligar `nuvemshopCatalogoAtivo` se uma escrita não puder ser validada; estoque §61 permanece independente. Reversão de conteúdo remoto exige leitura atual sem concorrência, backup e readback; rollback de Worker não desfaz conteúdo remoto.

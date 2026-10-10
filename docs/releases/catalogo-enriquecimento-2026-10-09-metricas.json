@@ -1,0 +1,52 @@
+{
+  "captured_at": "2026-10-10T00:13:04.008Z",
+  "qa_at": "2026-10-10T00:25:29.043Z",
+  "code_commit": "61abd5e",
+  "worker_version": "1c3bc2d0-58e8-4cf9-a3b5-4c94324f2342",
+  "catalog_products": 937,
+  "catalog_variants": 1028,
+  "categories": 28,
+  "new_hidden": 339,
+  "new_ready": 1,
+  "new_photo_only": 167,
+  "new_price_missing": 170,
+  "new_photo_missing": 338,
+  "original_cohort": {
+    "count": 328,
+    "ready": 1,
+    "photoOnly": 163,
+    "priceMissing": 164,
+    "photoMissing": 327,
+    "variantStockPending": [],
+    "visible": 0
+  },
+  "validated_products": 914,
+  "validated_new": 339,
+  "validated_old": 575,
+  "actual_editorial_changes": {
+    "description": 914,
+    "brand": 342,
+    "tags": 340,
+    "categories": 52,
+    "seo_title": 16,
+    "seo_description": 16
+  },
+  "codes_removed_confirmed": 574,
+  "tags_products": 340,
+  "categories_products": 52,
+  "incomplete_texts_resolved": 15,
+  "drafts_prepared": 10,
+  "editorial_pending": {
+    "description": 0,
+    "seo": 0
+  },
+  "variations_missing_before": 11,
+  "variations_proven_resolved_cloud": 8,
+  "stock_divisions_proven": 8,
+  "logistics_rules_applied": 0,
+  "human_identity_or_variant_ambiguities_unique": 41,
+  "duplicate_sku_between_products": 0,
+  "new_automatically_published": 0,
+  "old_approved_seo_changes": 0,
+  "commercial_changes_in_own_readbacks": 0
+}
