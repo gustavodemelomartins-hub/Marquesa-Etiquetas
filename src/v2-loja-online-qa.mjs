@@ -105,10 +105,11 @@ for (const [largura, altura, movel] of [[1366, 900, false], [390, 844, true]]) {
   prova(imgs.length > 0 && imgs.some((i) => i.ok), `${tam} miniaturas reais carregadas (${imgs.filter((i) => i.ok).length}/${imgs.length} das primeiras)`);
   prova(await p.locator('.mq-prep-linha .mq-minicheck').count() === await linhas.count(), `${tam} checklist compacto em toda linha`);
   if (!movel) {
-    const selos = await linhas.first().locator('.mq-minicheck li:not(.mq-minicheck__resumo)').allInnerTexts();
-    prova(selos.length === 8 && selos.every((s) => s.startsWith('✓')), `${tam} pronto = 8 ✓ (${selos.map((s) => s.split(':')[0]).join(' ')})`);
+    const selos = await linhas.first().locator('.mq-minicheck li:not(.mq-minicheck__resumo):not(.mq-minicheck__disp)').allInnerTexts();
+    prova(selos.length === 7 && selos.every((s) => s.startsWith('✓')), `${tam} pronto = 7 ✓ de cadastro (${selos.map((s) => s.split(':')[0]).join(' ')})`);
+    prova(/em casa/.test(await linhas.first().locator('.mq-minicheck__disp').innerText()), `${tam} disponibilidade à parte do cadastro (§64)`);
   } else {
-    prova(await linhas.first().getByText('✓ Tudo completo').isVisible(), `${tam} no telefone: "✓ Tudo completo"`);
+    prova(await linhas.first().getByText('✓ Cadastro completo').isVisible(), `${tam} no telefone: "✓ Cadastro completo"`);
   }
   await foto('prontos');
   await lateral('preparação');
@@ -157,17 +158,28 @@ for (const [largura, altura, movel] of [[1366, 900, false], [390, 844, true]]) {
   await drawer.waitFor();
   await p.waitForTimeout(1200);
   const det = await drawer.innerText();
-  prova(/SKU/i.test(det) && /Preço/i.test(det) && /Estoque em casa/i.test(det) && /Categoria/i.test(det) && /Checklist/i.test(det),
-    `${tam} detalhe: SKU, preço, estoque, categoria e checklist`);
+  prova(/SKU/i.test(det) && /Preço/i.test(det) && /Estoque em casa/i.test(det) && /Categoria/i.test(det) && /Cadastro/i.test(det) && /Disponibilidade/i.test(det),
+    `${tam} detalhe: SKU, preço, estoque, categoria, cadastro e disponibilidade`);
+  prova(!/sem_preparador|sem_r2|linha_de_base|variante_criada|Ainda não disponível/.test(det), `${tam} detalhe sem código interno (§64)`);
   prova(/Na Nuvemshop agora/i.test(det), `${tam} detalhe lê o anúncio da loja (aqui sem credencial: avisa e segue)`);
   prova(await drawer.getByRole('button', { name: 'Publicar na Nuvemshop' }).count() === 1, `${tam} detalhe tem "Publicar na Nuvemshop"`);
   await foto('detalhe');
   await lateral('detalhe');
   await drawer.getByRole('button', { name: 'Fechar' }).click();
 
-  for (const aba of ['Não cadastrados', 'Ocultos — em preparação', 'Publicados', 'Com erro']) {
+  for (const aba of ['Não cadastrados', 'Ocultos — em preparação', 'Publicados', 'Com erro', 'Sem peça em casa']) {
     prova(await p.locator('nav[aria-label="Situação na Nuvemshop"] button', { hasText: aba }).count() === 1, `${tam} aba "${aba}"`);
   }
+  /* §64 — oculto sem peça em casa: aba própria, nenhum ✕, frase de estado */
+  await p.locator('nav[aria-label="Situação na Nuvemshop"] button', { hasText: 'Sem peça em casa' }).click();
+  await p.waitForTimeout(300);
+  const semPeca = await linhas.count();
+  const textoSemPeca = semPeca ? await p.locator('.mq-list').innerText() : '';
+  prova(!semPeca || (/Sem peça em casa/.test(textoSemPeca) && !/sem_estoque/.test(textoSemPeca)),
+    `${tam} aba "Sem peça em casa": ${semPeca} peças, fora da fila, sem chave técnica`);
+  await foto('sem-estoque');
+  const corpoInteiro = await p.locator('main').innerText().catch(() => '');
+  prova(!/sem_preparador|sem_r2|linha_de_base|variante_criada|resultado_json/.test(corpoInteiro), `${tam} Preparação sem código interno (§64)`);
   await p.locator('nav[aria-label="Situação na Nuvemshop"] button', { hasText: 'Ocultos' }).click();
   await p.locator('select[aria-label="Mostrar"]').selectOption({ label: 'Sem foto' });
   prova(true, `${tam} filtro "Sem foto" nos ocultos: ${await linhas.count()} peças`);
