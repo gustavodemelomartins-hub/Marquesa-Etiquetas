@@ -3132,9 +3132,11 @@ somente o conteúdo editorial.
   Só clique e validação integral de §62 autorizam hidden → visible. Esta
   regra editorial não altera frontend.
 
+- **Homônimo não impede conteúdo factual.** `textoDaPeca` gera descrição por nome/categoria comprovados mesmo quando a identidade ainda exige decisão. SEO automático aguarda comparação real de ocupação; rascunho completo prevalece. A geração de conteúdo não retira o bloqueio independente de identidade, não cria outro anúncio e não aprova publicação. Os rascunhos desta rodada foram comparados contra todo o catálogo real e ficaram em `em_preparacao`.
+
 Implementação: `catalogo/enriquecimento.js`, `catalogo/enriquecimento-fluxo.js`,
 criação §62, cron existente e `api/migracao-catalogo-enriquecimento.sql`.
 Provas: `scripts/test-catalog-enrichment.mjs`,
 `src/catalogo-enriquecimento-fluxo-test.mjs`, catálogo/fila/bloqueios de escrita
-e writer SEO anterior. Apuração e versão final publicada ainda pendentes.
+e writer SEO anterior. Apuração e versão publicada constam da release validada.
 Release: `docs/releases/RC-CATALOGO-ENRIQUECIMENTO-2026-10-09.md`.

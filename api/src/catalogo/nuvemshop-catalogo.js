@@ -309,15 +309,32 @@ function planoDeVariacoes(p, base) {
 /** O texto que subiria: o rascunho escrito por gente vence o gerado. */
 function textoDaPeca(p, base, nomesIguais) {
   const r = base.rascunhos.get(p.sku);
-  const gerado = gerarTextoDoSite({ nome: p.desc, sku: p.sku, nomesIguais });
+  let gerado = gerarTextoDoSite({ nome: p.desc, sku: p.sku, nomesIguais });
+  let factual = false;
+  if (!gerado.ok && nomesIguais > 0 && /mesmo nome/.test(gerado.motivo || '')) {
+    // Homônimo impede decidir identidade; não impede descrever fatos conhecidos.
+    // A criação compara SEO com a loja. O preview não possui essa ocupação real.
+    const enriquecido = enriquecerProduto({ name: { pt: p.desc }, sku: p.sku, variants: [{ sku: p.sku }] }, {
+      cadastro: p, novo: true, marcaCanonica: MARCA_CANONICA, cuidadosHtml: CUIDADOS_HTML,
+    });
+    const descricao = texto(enriquecido.patch.description);
+    if (descricao) {
+      gerado = { ok: true, descricao, seoTitulo: null, seoDescricao: null };
+      factual = true;
+    }
+  }
   const escolhe = (humano, campo) => (String(humano || '').trim() ? String(humano).trim() : (gerado.ok ? gerado[campo] : null));
   const descricao = escolhe(r?.descricao_site, 'descricao');
+  const seoTitulo = escolhe(r?.seo_titulo, 'seoTitulo');
+  const seoDescricao = escolhe(r?.seo_descricao, 'seoDescricao');
   return {
     descricao: descricao && !/^</.test(descricao) ? `<p>${descricao.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>` : descricao,
-    seoTitulo: escolhe(r?.seo_titulo, 'seoTitulo'),
-    seoDescricao: escolhe(r?.seo_descricao, 'seoDescricao'),
-    origem: r && (r.descricao_site || r.seo_titulo) ? 'rascunho' : (gerado.ok ? REGRA_TEXTO : null),
-    precisaInformacao: gerado.ok ? null : gerado.motivo,
+    seoTitulo,
+    seoDescricao,
+    origem: r && (r.descricao_site || r.seo_titulo) ? 'rascunho' : (gerado.ok ? (factual ? REGRA_ENRIQUECIMENTO : REGRA_TEXTO) : null),
+    precisaInformacao: gerado.ok
+      ? (factual && !(seoTitulo && seoDescricao) ? 'Aguarda comparação com o SEO existente na loja para garantir textos únicos.' : null)
+      : gerado.motivo,
   };
 }
 

@@ -442,6 +442,64 @@ const pend = (await api('GET', '/api/nuvemshop/catalogo')).corpo.itens.find((x) 
 assert.ok(pend.includes('categoria'), 'Pingente não existe como categoria na loja');
 prova('N9 cadastrado OCULTO pelo cron; "Pingente" sem categoria igual na loja vira pendência', pend.join(', '));
 
+console.log('\n=== fallback editorial factual para homônimos ===');
+const catalogo = await import(pathToFileURL(join(raiz, 'api/src/catalogo/nuvemshop-catalogo.js')).href);
+peca('H101', 1, 'Brinco Flor Banho de Ouro 18k');
+peca('H102', 1, 'Brinco Flor Banho de Ouro 18k');
+peca('H103', 1, 'Brinco Flor Banho de Ouro 18k');
+peca('H104', 1, 'Brinco Flor Banho de Ouro 18k');
+peca('HU1', 1, 'Peça Sem Identidade', 'Outros');
+peca('HU2', 1, 'Peça Sem Identidade', 'Outros');
+peca('HV1', 1, '', 'Outros');
+peca('HV2', 1, '', 'Outros');
+peca('HC1', 1, 'Coração Curvo', 'Brinco');
+peca('HC2', 1, 'Coração Curvo', 'Brinco');
+const descricaoHumana = '<p>Descrição específica escrita pela equipe.</p>';
+raw.prepare('INSERT INTO catalogo_publicacoes (sku, descricao_site, seo_titulo, seo_descricao) VALUES (?, ?, ?, ?)')
+  .run('H103', descricaoHumana, 'Título humano aprovado', 'Meta humana aprovada');
+raw.prepare('INSERT INTO catalogo_publicacoes (sku, descricao_site) VALUES (?, ?)').run('H104', descricaoHumana);
+const baseHom = await catalogo.lerBase(DB);
+baseHom.nomesDaLoja.set('99999', { nome: 'Brinco Flor Banho de Ouro 18k', skus: new Set(['JA-EXISTE']) });
+const antesHom = JSON.stringify(qa('SELECT * FROM produtos')) + JSON.stringify(qa('SELECT * FROM movimentos')) + JSON.stringify(loja.estado.produtos);
+const homonimos = new Map(catalogo.classificarCatalogo(baseHom).itens.map(i => [i.sku, i]));
+const h = homonimos.get('H101');
+assert.match(h.texto.descricao, /Brinco Flor/);
+assert.match(h.texto.descricao, /Banho de Ouro 18k/);
+assert.match(h.texto.descricao, /Como preservar suas semijoias/);
+assert.doesNotMatch(h.texto.descricao, /H101|H102|Cód:|Código:|SKU:/);
+assert.ok(!h.pendencias.some(p => p.chave === 'descricao'));
+assert.equal(h.texto.origem, 'catalogo-factual-2026-10-09/v1');
+prova('homônimo com fatos recebe descrição e cuidados aprovados, sem código ou diferença física inventada');
+assert.equal(h.criavel, false);
+assert.match(h.bloqueios.join(' '), /mesmo modelo.*JA-EXISTE/);
+assert.equal(h.texto.descricao, homonimos.get('H102').texto.descricao);
+prova('copy factual mantém o bloqueio de identidade e não inventa diferença entre homônimos');
+assert.equal(h.texto.seoTitulo, null);
+assert.equal(h.texto.seoDescricao, null);
+assert.match(h.pendencias.find(p => p.chave === 'seo').motivo, /SEO existente na loja/);
+prova('sem ocupação SEO real no preview, título e meta aguardam comparação segura com a loja');
+const humano = homonimos.get('H103');
+assert.equal(humano.texto.descricao, descricaoHumana);
+assert.equal(humano.texto.seoTitulo, 'Título humano aprovado');
+assert.equal(humano.texto.seoDescricao, 'Meta humana aprovada');
+assert.equal(humano.texto.origem, 'rascunho');
+assert.equal(humano.criavel, false);
+assert.equal(humano.texto.precisaInformacao, null);
+assert.equal(homonimos.get('H104').texto.descricao, descricaoHumana);
+prova('rascunho humano completo ou parcial permanece integral, com bloqueio de identidade preservado');
+for (const sku of ['HU1', 'HU2', 'HV1', 'HV2']) {
+  const item = homonimos.get(sku);
+  assert.equal(item.texto.descricao, null);
+  assert.ok(item.pendencias.some(p => p.chave === 'descricao'));
+  assert.equal(item.texto.seoTitulo, null);
+}
+prova('nome vazio ou tipo desconhecido continua pendente, sem copy inventada');
+assert.match(homonimos.get('HC1').texto.descricao, /Brinco.*Coração Curvo/);
+assert.ok(!homonimos.get('HC1').pendencias.some(p => p.chave === 'descricao'));
+prova('categoria comercial comprovada identifica a peça quando o nome homônimo não declara o tipo');
+assert.equal(JSON.stringify(qa('SELECT * FROM produtos')) + JSON.stringify(qa('SELECT * FROM movimentos')) + JSON.stringify(loja.estado.produtos), antesHom);
+prova('o preview factual não altera produtos, ledger nem anúncios remotos');
+
 assert.ok(razaoFecha(), 'razão quebrou');
 prova('razão: produtos.qtd == SUM(movimentos.qtd) para todo código');
 
