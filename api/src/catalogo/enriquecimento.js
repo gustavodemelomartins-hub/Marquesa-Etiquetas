@@ -105,6 +105,36 @@ function tipoDoNome(nome) {
   return encontrados[0]?.t;
 }
 
+function acabamentoLiteral(valor) {
+  const limpo = espacos(valor).replace(/[.]$/, '');
+  const canonico = normalizarTags([limpo]);
+  return /^banho (?:de )?(?:ouro\s*18\s*k|rodio(?: branco)?|prata)$/i.test(normalizar(canonico)) ? canonico : null;
+}
+
+/** Corrige apenas rótulos de cor em TEXTO GERADO com origem já comprovada.
+ * Quem chama deve validar o journal/regra e a igualdade do estado atual.
+ * Não autoriza reescrever descrição humana nem inferir uma cor de um banho. */
+export function normalizarCoresDoTextoGerado(descricao) {
+  let corrigidos = 0;
+  const original = texto(descricao);
+  const resultado = original.replace(/\bCores?\s*:\s*([^<.]+)([.]?)/gi, (trecho, lista, ponto) => {
+    const valores = lista.split(',').map(espacos).filter(Boolean);
+    const acabamentos = distintos(valores.map(acabamentoLiteral).filter(Boolean));
+    if (!acabamentos.length) return trecho;
+    const cores = valores.filter(v => !acabamentoLiteral(v));
+    corrigidos++;
+    if (cores.length) {
+      const foraDoCampo = normalizar(htmlTexto(original.replace(trecho, ''))).replace(/\bbanho de\b/g, 'banho');
+      const ausentes = acabamentos.filter(a => !foraDoCampo.includes(normalizar(a).replace(/\bbanho de\b/g, 'banho')));
+      const prefixo = ausentes.length ? 'Acabamento: ' + ausentes.join(' ou ') + '. ' : '';
+      return prefixo + 'Cores: ' + cores.join(', ') + ponto;
+    }
+    // A informação de banho continua na copy, mas nunca sob o rótulo Cor.
+    return 'Acabamento: ' + acabamentos.join(' ou ') + ponto;
+  });
+  return { descricao: resultado, corrigidos };
+}
+
 export function fatosDoProduto(produto, cadastro = {}, categorias = []) {
   const nome = espacos(produto.name) || espacos(cadastro.desc ?? cadastro.nome);
   const ficha = fichaEspecifica(produto.description);
@@ -144,11 +174,22 @@ export function fatosDoProduto(produto, cadastro = {}, categorias = []) {
   if (corExplicita) cores.push(corExplicita);
   const atributos = produto.attributes ?? [];
   for (let i = 0; i < atributos.length; i++) {
-    if (normalizar(texto(atributos[i])) !== 'cor') continue;
-    for (const variante of produto.variants ?? []) cores.push(espacos(variante.values?.[i]));
+    if (!['cor', 'cores'].includes(normalizar(texto(atributos[i])))) continue;
+    for (const variante of produto.variants ?? []) {
+      const valor = espacos(variante.values?.[i]);
+      // Convenção comprovada da loja (§64): "Cor" também armazena banho.
+      // Um acabamento literal não se transforma em cor na copy comercial.
+      const acabamento = acabamentoLiteral(valor);
+      if (acabamento) acabamentos.push(acabamento);
+      else if (!/^banho\b/i.test(normalizar(valor))) cores.push(valor);
+    }
   }
   const corFicha = campoDaFicha(produto.description, 'Cores?');
-  if (corFicha) cores.push(corFicha);
+  if (corFicha) for (const valor of corFicha.split(',').map(espacos)) {
+    const acabamento = acabamentoLiteral(valor);
+    if (acabamento) acabamentos.push(acabamento);
+    else if (valor && !/^banho\b/i.test(normalizar(valor))) cores.push(valor.replace(/[.]$/, ''));
+  }
   return {
     nome, tipo: tipo?.[0] ?? null, categoriasPossiveis: tipo?.[2] ?? [],
     googleProductCategory: tipo?.[3] ?? null,
@@ -199,6 +240,11 @@ export function enriquecerProduto(produto, {
   const skus = [produto.sku, ...(produto.variants ?? []).map(v => v.sku)].filter(Boolean);
   const limpo = removerCodigoConfirmado(produto.description, skus);
   let descricao = limpo.descricao;
+  if (novo && substituirTextoGerado) {
+    const coresCorrigidas = normalizarCoresDoTextoGerado(descricao);
+    if (coresCorrigidas.corrigidos) registrar('description', 'Origem gerada comprovada e valor literal de acabamento sob rótulo Cor', coresCorrigidas.corrigidos);
+    descricao = coresCorrigidas.descricao;
+  }
   if (limpo.removidos.length) registrar('description', 'SKU exato do produto/variante remoto', limpo.removidos);
 
   const nomeSemCodigo = removerCodigoConfirmado(fatos.nome, skus).descricao;

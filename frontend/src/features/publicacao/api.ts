@@ -1,5 +1,5 @@
 import { chamar, type Connection } from '../../services/client';
-import type { FilaDePublicacao, ItemDaFila, RascunhoDoSite } from './tipos';
+import type { AnuncioDaLoja, FilaDePublicacao, ItemDaFila, RascunhoDoSite } from './tipos';
 
 /** As rotas da fila de publicação, e a que esta tela NÃO chama.
  *
@@ -11,6 +11,7 @@ import type { FilaDePublicacao, ItemDaFila, RascunhoDoSite } from './tipos';
  *    POST /api/catalogo/publicacao/:sku/repetir     retry de uma falha
  *
  *    POST /api/nuvemshop/catalogo/:sku/publicar     §62: oculto → visível
+ *    GET  /api/nuvemshop/catalogo/:sku/anuncio      §63: prévia, lida da loja
  *
  *  ── NÃO CHAMADA, DE PROPÓSITO ──────────────────────────────────────────
  *    POST /api/catalogo/publicacao/:sku/publicar
@@ -99,4 +100,11 @@ export function publicarNaNuvemshop(
   conexao: Connection, sku: string, por = 'operador',
 ): Promise<RespostaDaPublicacao> {
   return chamar(conexao, 'POST', `/api/nuvemshop/catalogo/${emSku(sku)}/publicar`, { por });
+}
+
+/** §63 — o anúncio como a loja o tem AGORA: uma leitura, nenhuma escrita. */
+export function lerAnuncio(
+  conexao: Connection, sku: string, sinal?: AbortSignal,
+): Promise<AnuncioDaLoja> {
+  return chamar(conexao, 'GET', `/api/nuvemshop/catalogo/${emSku(sku)}/anuncio`, undefined, { signal: sinal });
 }

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { enriquecerProduto, fatosDoProduto, removerCodigoConfirmado, normalizarTags, tagsEquivalentes, MARCA_CANONICA, CUIDADOS_HTML } from '../api/src/catalogo/enriquecimento.js';
+import { enriquecerProduto, fatosDoProduto, removerCodigoConfirmado, normalizarTags, tagsEquivalentes, normalizarCoresDoTextoGerado, MARCA_CANONICA, CUIDADOS_HTML } from '../api/src/catalogo/enriquecimento.js';
 
 let checks = 0;
 const check = (name, run) => { run(); checks++; console.log(`ok ${checks} - ${name}`); };
@@ -117,5 +117,42 @@ check('colisão de nome longo de pulseira usa resumo comercial factual', () => {
 check('aplicação pura é idempotente e não propaga HTML inseguro', () => {
   const p = base(), a = enriquecerProduto(p, opcoes); assert.deepEqual(enriquecerProduto({ ...p, ...a.patch }, opcoes).patch, {});
   assert.equal(enriquecerProduto(base({ description: { pt: '<script>bad()</script><p>SKU: 001234</p>' } }), opcoes).patch.description, undefined);
+});
+check('antigo sem descrição recebe copy factual preservando SEO aprovado e idiomas', () => {
+  const p = base({ name: { pt: 'Brinco Gota Azul Banho de Ouro 18k' }, description: { pt: '', es: 'Ficha española original' }, seo_title: { pt: 'Título já aprovado' }, seo_description: { pt: 'Meta já aprovada' }, attributes: [{ pt: 'Cor' }], variants: [{ sku: '001234', values: [{ pt: 'Banho de Ouro 18K' }] }], categories: [{ id: 11 }] });
+  const antes = structuredClone(p);
+  const r = enriquecerProduto(p, { ...opcoes, novo: false });
+  assert.ok(r.patch.description.pt.includes('Brinco Gota Azul'));
+  assert.ok(r.patch.description.pt.includes('Cores: Azul.'));
+  assert.ok(r.patch.description.pt.includes('Acabamento: Banho de Ouro 18k.'));
+  assert.ok(!r.patch.description.pt.includes('Cores: Banho'));
+  assert.equal(r.patch.description.es, 'Ficha española original');
+  assert.equal(r.patch.seo_title, undefined); assert.equal(r.patch.seo_description, undefined);
+  assert.deepEqual(p, antes);
+});
+check('atributo Cor da loja distingue acabamento literal de cor real', () => {
+  const p = base({ name: { pt: 'Brinco Gota' }, attributes: [{ pt: 'Cor' }, { pt: 'Cores' }], variants: [{ sku: '001234', values: [{ pt: 'Banho de Ródio Branco' }, { pt: 'Cristal' }] }] });
+  const f = fatosDoProduto(p);
+  assert.deepEqual(f.acabamentos, ['Banho de Ródio Branco']);
+  assert.deepEqual(f.cores, ['Cristal']); assert.deepEqual(f.materiais, []);
+});
+check('ficha específica com cor literal de banho não inventa cor; cores reais permanecem', () => {
+  const f = fatosDoProduto(base({ name: { pt: 'Brinco Gota' }, description: { pt: '<p>Cores: Banho de Ouro 18k, Azul, Cristal.</p>' } }));
+  assert.deepEqual(f.cores, ['Azul', 'Cristal']);
+  assert.deepEqual(f.acabamentos, ['Banho de Ouro 18k']);
+});
+check('normalização estrita do texto gerado remove banho do rótulo Cor sem perder cores reais', () => {
+  const original = '<p>Material: Metal.</p><p>Cores: Banho de Ouro 18K, Azul, Cristal.</p><p>Medida: 2 cm.</p>';
+  const r = normalizarCoresDoTextoGerado(original);
+  assert.equal(r.corrigidos, 1);
+  assert.equal(r.descricao, '<p>Material: Metal.</p><p>Acabamento: Banho de Ouro 18k. Cores: Azul, Cristal.</p><p>Medida: 2 cm.</p>');
+  const unico = normalizarCoresDoTextoGerado('<p>Cores: Banho de Ródio Branco.</p>');
+  assert.equal(unico.descricao, '<p>Acabamento: Banho de Ródio Branco.</p>');
+  assert.equal(normalizarCoresDoTextoGerado(r.descricao).corrigidos, 0);
+});
+check('descrição humana não é normalizada por aparência de texto gerado', () => {
+  const original = '<p>Ficha preservada.</p><p>Cores: Banho de Ouro 18k.</p>';
+  const r = enriquecerProduto(base({ description: { pt: original } }), { ...opcoes, novo: false });
+  assert.equal(r.patch.description.pt, original + '\n' + CUIDADOS_HTML);
 });
 console.log(`${checks} cenários passaram.`);

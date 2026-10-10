@@ -48,7 +48,9 @@ import { enriquecerOcultos } from './catalogo/enriquecimento-fluxo.js';
 import { decidirEstoqueDoSku, puxarPedidos, corteDePedidos } from './sync.js';
 import {
   atualizarCatalogoDaLeitura, criarOcultos, criarVariantesFaltantes, enviarFotosPendentes, catalogoAtivo,
+  preencherCategorias, normalizarAtributosLocais,
 } from './catalogo/nuvemshop-catalogo.js';
+import { repartirPeloInventario } from './catalogo/reparticao-inventario.js';
 import { saldosDeVariacao } from './variantes.js';
 import { saldosDoSku } from './estoque.js';
 import { consultarEmLotes, parametros } from './plataforma/d1.js';
@@ -739,6 +741,13 @@ export async function executarCron(db, env, { cron = '' } = {}) {
       await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO()), gravarConfigStmt(db, 'nuvemshopEnriquecimentoUltimaRodada', { em: agoraISO(), origem: 'cron-admin', ...saida.enriquecimento })]);
       return saida;
     }
+    /* §64 — as automações da Loja Online, uma por pedido, também secas. */
+    const automacao = AUTOMACOES[pedido.acao];
+    if (automacao) {
+      saida.automacao = resumoCatalogo(await automacao(db, env, { seco: pedido.seco !== false, limite: pedido.limite, skus: pedido.skus }));
+      await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO()), gravarConfigStmt(db, 'nuvemshopCatalogoUltimaRodada', { em: agoraISO(), origem: `cron-admin-${pedido.acao}`, ...saida.automacao })]);
+      return saida;
+    }
     if (pedido.acao === 'reconciliar') {
       saida.reconciliacao = await reconciliarDivergencias(db, env, { forcar: true, origem: 'cron-admin' });
       await db.batch([gravarConfigStmt(db, 'nuvemshopCronEm', agoraISO())]);
@@ -747,17 +756,19 @@ export async function executarCron(db, env, { cron = '' } = {}) {
   }
   const diario = /^0 9 \* \* \*$/.test(String(cron).trim());
   saida.fila = resumoDaRodada(await processarFila(db, env, { puxar: true, origem: 'cron' }));
-  /* §62 — com o catálogo ligado e a fila ociosa, o cron cria os ocultos
-     novos aos poucos (e sobe foto que entrou depois). Fila ocupada ou
-     rodada diária: fica para a próxima — o teto de 50 consultas por
-     invocação é dividido com o estoque, que tem prioridade. */
+  /* §62/§64 — com o catálogo ligado e a fila ociosa, o cron trabalha a Loja
+     Online aos poucos, uma tarefa por rodada, em rodízio pela hora (o cron
+     roda a cada 10 min, então cada tarefa passa uma vez por hora):
+       :00  corrige atributo que contradiz o valor e reparte pelo inventário
+       :10  cria os ocultos novos          :20  cria as variações que faltam
+       :30  sobe foto que entrou depois    :40  aplica a categoria óbvia
+       :50  enriquece dois ocultos criados pelo sistema
+     Fila ocupada ou rodada diária: fica para a próxima — o teto de 50
+     consultas por invocação é dividido com o estoque, que tem prioridade. */
   if (!diario && saida.fila && !saida.fila.processados && await catalogoAtivo(db)) {
     try {
-      const minuto = new Date().getUTCMinutes();
-      saida.catalogo = minuto % 30 < 10
-        ? resumoCatalogo(await criarOcultos(db, env, { seco: false, limite: 5 }))
-        : minuto % 30 < 20 ? await enviarFotosPendentes(db, env, { seco: false, limite: 2 })
-          : await enriquecerOcultos(db, env, { seco: false, limite: 2 });
+      const vez = Math.floor(new Date().getUTCMinutes() / 10) % 6;
+      saida.catalogo = await RODIZIO[vez](db, env);
     } catch (e) {
       saida.catalogo = { ok: false, erro: erroLegivel(e) };
     }
@@ -1031,6 +1042,27 @@ export async function conferirLoja(db, env, { gravar = true, gravarEspelho = fal
   return { ok: true, resumo, linhas };
 }
 
+/** §64 — o que o cron faz sozinho, uma tarefa por rodada (ver `executarCron`). */
+const RODIZIO = [
+  async (db) => {
+    const atributos = await normalizarAtributosLocais(db, { seco: false });
+    const reparticao = await repartirPeloInventario(db, { seco: false, limite: 2 });
+    return { atributos: { corrigidos: atributos.corrigidos }, reparticao: resumoCatalogo(reparticao) };
+  },
+  async (db, env) => resumoCatalogo(await criarOcultos(db, env, { seco: false, limite: 5 })),
+  async (db, env) => resumoCatalogo(await criarVariantesFaltantes(db, env, { seco: false, limite: 4 })),
+  async (db, env) => enviarFotosPendentes(db, env, { seco: false, limite: 2 }),
+  async (db, env) => resumoCatalogo(await preencherCategorias(db, env, { seco: false, limite: 5 })),
+  async (db, env) => enriquecerOcultos(db, env, { seco: false, limite: 2 }),
+];
+
+/** As mesmas tarefas, pedidas uma a uma (`config.nuvemshopPedidoAdmin`). */
+const AUTOMACOES = {
+  catalogo_categorias: (db, env, o) => preencherCategorias(db, env, { seco: o.seco, limite: Math.min(Number(o.limite) || 5, 10) }),
+  reparticao_inventario: (db, env, o) => repartirPeloInventario(db, { seco: o.seco, limite: Math.min(Number(o.limite) || 3, 3), skus: o.skus }),
+  normalizar_atributos: (db, env, o) => normalizarAtributosLocais(db, { seco: o.seco }),
+};
+
 /** O relato do catálogo sem os corpos inteiros (eles vão para a tela de
  *  prévia, não para o `config`). */
 export function resumoCatalogo(r) {
@@ -1089,16 +1121,25 @@ export async function resumoEstoqueOnline(db, env) {
   const ultima = await db.prepare('SELECT MAX(sincronizado_em) AS em FROM nuvemshop_fila').first();
   const problemas = ((await db.prepare(
     `SELECT f.sku, f.status, f.motivo, f.ultimo_erro, f.tentativas, f.proxima_em, f.ultima_tentativa_em,
-            f.pedido_em, p.desc
+            f.pedido_em, f.resultado_json, p.desc
        FROM nuvemshop_fila f LEFT JOIN produtos p ON p.sku = f.sku
       WHERE f.status IN ('erro','revisao','pendente')
       ORDER BY CASE f.status WHEN 'erro' THEN 0 WHEN 'revisao' THEN 1 ELSE 2 END, f.pedido_em
-      LIMIT 200`).all()).results || []).map((r) => ({
-    sku: r.sku, desc: r.desc || null, status: r.status, acao: r.motivo || null,
-    erro: r.ultimo_erro || null, tentativas: Number(r.tentativas || 0),
-    proximaEm: r.proxima_em || null, ultimaTentativaEm: r.ultima_tentativa_em || null,
-    pedidoEm: r.pedido_em,
-  }));
+      LIMIT 200`).all()).results || []).map((r) => {
+    /* §63 — POR QUE está em revisão (`maleta`, `sem_reparticao`,
+       `variacao_nao_mapeada`…): a Loja online transforma isso em UMA ação
+       por motivo, em vez de uma frase técnica por código. */
+    let res = null;
+    try { res = r.resultado_json ? JSON.parse(r.resultado_json) : null; } catch { res = null; }
+    return {
+      sku: r.sku, desc: r.desc || null, status: r.status, acao: r.motivo || null,
+      erro: r.ultimo_erro || null, tentativas: Number(r.tentativas || 0),
+      proximaEm: r.proxima_em || null, ultimaTentativaEm: r.ultima_tentativa_em || null,
+      pedidoEm: r.pedido_em,
+      motivoRevisao: r.status === 'revisao' ? (res?.motivo || null) : null,
+      casa: res && res.casa != null ? Number(res.casa) : null,
+    };
+  });
   const conferencia = await config(db, 'nuvemshopConferencia', null);
   let divergentes = [];
   let excecoes = [];

@@ -197,9 +197,11 @@ function AppConectado({
       {modulo === 'nuvemshop' && (
         <NuvemshopPage
           conexao={conexao}
-          aoAnalisar={() => undefined}
+          estado={estado.dados}
           sub={rota.sub}
           aoNavegarSub={(s) => trocar({ modulo: 'nuvemshop', sub: s })}
+          aoIr={(m, sub) => ir({ modulo: m, sub: sub ?? null })}
+          aoMudarEstado={estado.recarregar}
         />
       )}
 

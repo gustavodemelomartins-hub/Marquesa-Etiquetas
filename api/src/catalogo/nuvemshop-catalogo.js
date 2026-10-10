@@ -37,6 +37,7 @@ import { gerarTextoDoSite, normalizar, REGRA_TEXTO } from './texto-site.js';
 import { enriquecerProduto, MARCA_CANONICA, CUIDADOS_HTML, REGRA_ENRIQUECIMENTO, categoriaComprovada, fatosDoProduto, tagsEquivalentes } from './enriquecimento.js';
 import { categoriasEquivalentes, lerSeoOcupado } from './enriquecimento-fluxo.js';
 import { chaveDaVariacao, equivalenciasLojaLocal, formatarValorNovo } from '../variacao-nome.js';
+import { categoriaCanonica, normalizarAtributos, tipoDoValor } from './taxonomia.js';
 
 export const CHAVE_CATALOGO_ATIVO = 'nuvemshopCatalogoAtivo';
 export const CHAVE_MAPA_CATEGORIAS = 'nuvemshopCategoriasMapa';
@@ -119,33 +120,48 @@ const SQL_CASA = `p.qtd - COALESCE((
    ), 0)`;
 
 const tentar = async (fn, padrao) => { try { return await fn(); } catch { return padrao; } };
-const todas = async (db, sql) => (await db.prepare(sql).all()).results || [];
+const todas = async (db, sql, args = []) => (await db.prepare(sql).bind(...args).all()).results || [];
 
 /** Tudo que a classificação precisa, em poucas consultas (o plano Free do
- *  D1 recusa a 51ª consulta da mesma invocação — §60). */
-export async function lerBase(db) {
+ *  D1 recusa a 51ª consulta da mesma invocação — §60).
+ *
+ *  §63 — `skus` restringe a leitura aos códigos pedidos. Publicar UM
+ *  produto não precisa do catálogo inteiro: com "Publicar todos os
+ *  prontos" a mesma rota roda dezenas de vezes seguidas, e reler ~10 mil
+ *  linhas a cada uma gastaria a cota diária do D1 (que é da conta, DEV e
+ *  PROD juntos). O que só serve a peça SEM anúncio (nomes de modelo,
+ *  nomes repetidos) fica parcial nesse modo — e é por isso que ele só é
+ *  usado para peça que já está na loja. */
+export async function lerBase(db, { skus = null } = {}) {
+  const lista = Array.isArray(skus) && skus.length ? [...new Set(skus.map(String))] : null;
+  const marcas = lista ? lista.map(() => '?').join(',') : '';
+  const e = (col) => (lista ? ` AND ${col} IN (${marcas})` : '');
+  const A = lista || [];
+  const AN = lista ? lista.map((x) => normSku(x)) : [];
   const [produtos, montagens, variacoes, nomeados, maletaVar, loja, catalogo, fotos, fila, conf, rascunhos, mapaCat] = await Promise.all([
     todas(db, `SELECT p.sku, p.desc, p.cat, p.preco, p.qtd, p.status, p.produto_id_loja, p.url_loja,
                       p.visivel, p.visibilidade_loja, p.foto_url, p.foto_original_key, p.foto_tratada_key,
                       ${SQL_CASA} AS casa,
                       EXISTS (SELECT 1 FROM kit_componentes kc WHERE kc.kit_sku = p.sku) AS eh_kit
-                 FROM produtos p WHERE p.status = 'ativo'`),
+                 FROM produtos p WHERE p.status = 'ativo'${e('p.sku')}`, A),
     tentar(() => todas(db, 'SELECT sku_comercial FROM personalizacao_modelos WHERE sku_comercial IS NOT NULL'), []),
-    todas(db, 'SELECT sku, nome, atributo, variante_id, produto_id, valores_json, origem, ordem FROM produto_variacoes ORDER BY sku, ordem'),
+    todas(db, `SELECT sku, nome, atributo, variante_id, produto_id, valores_json, origem, ordem FROM produto_variacoes
+                WHERE 1 = 1${e('sku')} ORDER BY sku, ordem`, A),
     todas(db, `SELECT sku, variacao, variante_id, SUM(qtd) AS saldo FROM movimentos
-                WHERE variacao IS NOT NULL OR variante_id IS NOT NULL GROUP BY sku, variacao, variante_id`),
+                WHERE (variacao IS NOT NULL OR variante_id IS NOT NULL)${e('sku')} GROUP BY sku, variacao, variante_id`, A),
     tentar(() => todas(db, `SELECT mv.sku, mv.variacao, mv.variante_id, SUM(mv.qtd) AS qtd
                 FROM maleta_item_variacoes mv JOIN maletas m ON m.id = mv.maleta_id
-               WHERE m.status IN ('aberta','em_acerto') GROUP BY mv.sku, mv.variacao, mv.variante_id`), []),
+               WHERE m.status IN ('aberta','em_acerto')${e('mv.sku')} GROUP BY mv.sku, mv.variacao, mv.variante_id`, A), []),
     tentar(() => todas(db, `SELECT variante_id, produto_id, sku, sku_norm, nome, valores_json, estoque,
                                    preco, locais_json, produto_nome, produto_url, produto_visivel
-                              FROM loja_variantes ORDER BY produto_id, posicao`), []),
-    tentar(() => todas(db, 'SELECT * FROM nuvemshop_catalogo'), []),
+                              FROM loja_variantes WHERE 1 = 1${e('sku_norm')} ORDER BY produto_id, posicao`, AN), []),
+    tentar(() => todas(db, `SELECT * FROM nuvemshop_catalogo WHERE 1 = 1${e('sku')}`, A), []),
     tentar(() => todas(db, `SELECT id, sku, principal, ordem, original_key, original_tipo, preparada_key,
                                    preparada_tipo, arquivo_nome, imagem_id_loja, url_externa
-                              FROM produto_fotos WHERE removida_em IS NULL
-                             ORDER BY sku, principal DESC, ordem`), []),
-    tentar(() => todas(db, 'SELECT sku, status, motivo, ultimo_erro, resultado_json, sincronizado_em FROM nuvemshop_fila'), []),
+                              FROM produto_fotos WHERE removida_em IS NULL${e('sku')}
+                             ORDER BY sku, principal DESC, ordem`, A), []),
+    tentar(() => todas(db, `SELECT sku, status, motivo, ultimo_erro, resultado_json, sincronizado_em FROM nuvemshop_fila
+                              WHERE 1 = 1${e('sku')}`, A), []),
     tentar(() => todas(db, `SELECT sku,
               MIN(ns_tem_descricao) AS descricao,
               MIN(ns_tem_seo_titulo) AS seo_titulo,
@@ -155,8 +171,9 @@ export async function lerBase(db) {
               GROUP_CONCAT(DISTINCT status) AS status,
               GROUP_CONCAT(DISTINCT motivo) AS motivos,
               MAX(conferido_em) AS conferido_em
-         FROM nuvemshop_conferencia WHERE sku IS NOT NULL GROUP BY sku`), []),
-    tentar(() => todas(db, 'SELECT sku, nome_site, descricao_site, seo_titulo, seo_descricao FROM catalogo_publicacoes'), []),
+         FROM nuvemshop_conferencia WHERE sku IS NOT NULL${e('sku')} GROUP BY sku`, A), []),
+    tentar(() => todas(db, `SELECT sku, nome_site, descricao_site, seo_titulo, seo_descricao FROM catalogo_publicacoes
+                              WHERE 1 = 1${e('sku')}`, A), []),
     config(db, CHAVE_MAPA_CATEGORIAS, null),
   ]);
 
@@ -206,16 +223,31 @@ export async function lerBase(db) {
 
 /** Valores exatos comprovam Cor no payload novo. Valores compostos ou
  *  misturados com medidas continuam exigindo confirmação de significado. */
-const COR = /^(azul|cristal|vermelh[oa]|verde|pink|rosa|roxo|lil[aá]s|marsala|preto|branco|amarelo|incolor|colorid[oa]|dourado|prateado|turquesa|laranja)$/i;
+const COR = /^(azul|cristal|vermelh[oa]|verde|pink|rosa|roxo|lil[aá]s|marsala|preto|branco|amarelo|incolor|colorid[oa]|dourado|prateado|turquesa|laranja)\b/i;
 
-/** Nome do produto sem o aro e sem a família, para achar o MESMO modelo já
- *  anunciado sob outro código (334078 "… nº27 …" é o aro 27 do 334079, que
- *  a loja já tem como variante). */
-export function chaveDoModelo(nome) {
-  return normalizar(nome)
-    .replace(/^aparador\s+(?:de\s+)?alianca\b/, 'anel aparador de alianca')
-    .replace(/\bn\s*[º°o.]?\s*\d{1,2}\b/g, ' ')
-    .replace(/\s+/g, ' ').trim();
+const FAMILIAS = {
+  anel: 'anel', aneis: 'anel', brinco: 'brinco', brincos: 'brinco', colar: 'colar', colares: 'colar',
+  pulseira: 'pulseira', pulseiras: 'pulseira', argola: 'argola', argolas: 'argola', berloque: 'berloque',
+  berloques: 'berloque', pingente: 'pingente', pingentes: 'pingente', conjunto: 'conjunto', piercing: 'piercing',
+};
+
+/** O MODELO de uma peça, para achar o mesmo modelo já anunciado sob outro
+ *  código (334078 "… nº27 …" é o aro 27 do 334079, que a loja já tem como
+ *  variante): a família e o resto do nome, sem o aro.
+ *
+ *  §64 — a família FICA na comparação. Até 09/10/2026 ela era descartada, e
+ *  "Colar Ponto de Luz Rosa" virava o "mesmo modelo" de "Brinco Ponto de Luz
+ *  Rosa": 9 das 24 peças paradas em "decidir" eram colar × brinco, anel ×
+ *  brinco. Nome sem família (o "Aparador de Aliança" do cadastro) usa a
+ *  categoria daqui; do lado da loja, nome sem família casa com qualquer
+ *  uma — na dúvida, pergunta. */
+export function chaveDoModelo(nome, cat = null) {
+  let s = normalizar(nome).replace(/^aparador\s+(?:de\s+)?alianca\b/, 'anel aparador de alianca').replace(/\bn\s*[º°o.]?\s*\d{1,2}\b/g, ' ').replace(/\s+/g, ' ').trim();
+  const primeira = s.split(' ')[0];
+  let familia = FAMILIAS[primeira] || '';
+  if (familia) s = s.slice(primeira.length).trim();
+  else familia = FAMILIAS[normalizar(cat)] || '';
+  return { familia, resto: s };
 }
 
 function valoresDe(linha) {
@@ -230,21 +262,19 @@ function planoDeVariacoes(p, base) {
   const locais = (base.variacoes.get(p.sku) || []).filter((v) => v.origem === 'local' || !v.origem);
   if (!locais.length) return { variacoes: [], bloqueio: null, estoqueIncerto: false };
 
-  const estruturas = locais.map((l) => valoresDe(l));
-  const atributos = estruturas[0].map((x) => x.atributo);
-  if (estruturas.some((e) => e.map((x) => x.atributo).join('|') !== atributos.join('|'))) {
+  let estruturas = locais.map((l) => valoresDe(l));
+  const brutos = estruturas[0].map((x) => x.atributo);
+  if (estruturas.some((e) => e.map((x) => x.atributo).join('|') !== brutos.join('|'))) {
     return { bloqueio: 'As variações deste código não têm os mesmos atributos. Revise em Peças › Variações.' };
   }
-  for (let i = 0; i < atributos.length; i++) {
-    if (!/^tamanho$/i.test(atributos[i])) continue;
-    const cores = estruturas.map((e) => COR.test(e[i].valor.trim()));
-    if (cores.every(Boolean) && !atributos.some((a, j) => j !== i && /^cor$/i.test(a))) {
-      // Só o payload novo; nomes, movimentos e saldos preservados.
-      atributos[i] = 'Cor';
-      for (const e of estruturas) e[i].atributo = 'Cor';
-    } else if (cores.some(Boolean)) {
-      return { bloqueio: 'Variação com cor e outro significado no atributo "Tamanho". Confirme o atributo certo antes de criar na loja.' };
-    }
+  /* §64 — "Tamanho = Azul" não bloqueia mais: o atributo que o valor
+     contradiz é corrigido aqui (e no cadastro, pela rodada automática). O
+     bloqueio abaixo só sobra quando a correção esbarra num nome já usado. */
+  const atributos = normalizarAtributos(brutos.map((a, i) => ({ nome: a, valores: estruturas.map((e) => e[i].valor) })))
+    .atributos.map((a) => a.nome);
+  estruturas = estruturas.map((e) => e.map((x, i) => ({ atributo: atributos[i], valor: x.valor })));
+  if (atributos.some((a) => /tamanho/i.test(a)) && estruturas.some((e) => e.some((x) => /tamanho/i.test(x.atributo) && COR.test(x.valor.trim())))) {
+    return { bloqueio: 'Variação com cor gravada no atributo "Tamanho". Confirme o atributo certo (ex.: Cor) antes de criar na loja.' };
   }
   const chaves = locais.map((l) => chaveDaVariacao(l.nome));
   if (new Set(chaves).size !== chaves.length) return { bloqueio: 'Duas variações daqui são o mesmo valor escrito de jeitos diferentes.' };
@@ -307,10 +337,21 @@ function temFotoPropria(p, base) {
 export function classificarCatalogo(base) {
   const nomesModelo = new Map();
   for (const [pid, info] of base.nomesDaLoja) {
-    const k = chaveDoModelo(info.nome);
-    if (!k) continue;
-    if (!nomesModelo.has(k)) nomesModelo.set(k, []);
-    nomesModelo.get(k).push({ produtoId: pid, skus: [...info.skus] });
+    const m = chaveDoModelo(info.nome);
+    if (!m.resto) continue;
+    if (!nomesModelo.has(m.resto)) nomesModelo.set(m.resto, []);
+    nomesModelo.get(m.resto).push({ produtoId: pid, skus: [...info.skus], familia: m.familia });
+  }
+  const mesmoModelo = (p) => {
+    const m = chaveDoModelo(p.desc, p.cat);
+    return (nomesModelo.get(m.resto) || []).filter((x) => !x.familia || !m.familia || x.familia === m.familia);
+  };
+  /* §64 — o plano das variações que faltam no anúncio, por código: a tela
+     diz "o sistema cria" ou o motivo exato de não criar. */
+  const planosVariante = new Map();
+  for (const pl of planoDeVariantesFaltantes(base)) {
+    if (!planosVariante.has(pl.sku)) planosVariante.set(pl.sku, []);
+    planosVariante.get(pl.sku).push(pl);
   }
   const contaNomes = new Map();
   for (const p of base.produtos) {
@@ -365,12 +406,17 @@ export function classificarCatalogo(base) {
 
     if (!existe) {
       /* ── peça que a loja ainda não tem ─────────────────────────────── */
-      if (eKit) bloqueios.push('Kit e Monte seu Colar não viram anúncio por este caminho: o disponível deles é calculado das peças.');
+      /* Kit não é pendência: não há o que uma pessoa faça aqui. É estado —
+         anunciado na peça, fora da lista de decisões (§64). */
+      if (eKit) {
+        bloqueios.push('Kit e Monte seu Colar não viram anúncio por este caminho: o disponível deles é calculado das peças.');
+        item.naoSeAplica = 'kit';
+      }
       if (normalizar(p.desc) === normalizar(sku) || !String(p.desc || '').trim()) {
         bloqueios.push('Falta o nome comercial (o nome é só o código).');
         add('nome', 'Falta o nome comercial (o nome é só o código).');
       }
-      const modelo = nomesModelo.get(chaveDoModelo(p.desc));
+      const modelo = mesmoModelo(p);
       if (modelo && modelo.length) {
         bloqueios.push(`Pode ser o mesmo modelo já anunciado sob ${modelo.flatMap((m) => m.skus).join(', ') || 'outro código'}. Confirme antes de criar outro anúncio.`);
       }
@@ -387,8 +433,9 @@ export function classificarCatalogo(base) {
       if (!t.seoTitulo || !t.seoDescricao) add('seo', t.precisaInformacao || 'Falta SEO.');
       if (!precoOk) add('preco', 'Sem preço comercial válido: cria oculto sem preço; não publica.');
       if (!temFotoPropria(p, base)) add('foto', 'Falta foto.');
-      const catId = base.mapaCategorias ? base.mapaCategorias[normalizar(p.cat)] : undefined;
-      if (base.mapaCategorias && !catId) add('categoria', `A categoria "${p.cat}" não existe com o mesmo nome na loja.`);
+      const cc = categoriaCanonica(p, base.mapaCategorias);
+      item.categoriaLoja = cc.id ? { id: cc.id, chave: cc.chave, regra: cc.regra } : null;
+      if (base.mapaCategorias && !cc.id) add('categoria', cc.motivo);
       item.criavel = bloqueios.length === 0;
       item.situacao = 'nao_cadastrado';
       if (linha?.estado === 'erro') item.situacao = 'erro';
@@ -408,17 +455,25 @@ export function classificarCatalogo(base) {
       ? (Number(conf.seo_titulo) === 1 && Number(conf.seo_descricao) === 1)
       : !!(conteudo?.seoTitulo && conteudo?.seoDescricao);
     const temFoto = sabe('imagens') ? Number(conf.imagens) > 0 : !!linha?.foto_id_loja;
+    const cc = categoriaCanonica(p, base.mapaCategorias);
     const temCategoria = conf && conf.categorias != null
       ? Number(conf.categorias) > 0
       : (conteudo?.categorias != null ? Number(conteudo.categorias) > 0
-        : (base.mapaCategorias ? !!base.mapaCategorias[normalizar(p.cat)] : null));
+        : (base.mapaCategorias ? !!cc.id : null));
     item.fotoNaLoja = temFoto;
     item.textoNaLoja = { descricao: temDescricao, seo: temSeo };
     if (!temFoto) add('foto', temFotoPropria(p, base) ? 'A foto daqui ainda não subiu para a loja.' : 'Falta foto.');
     if (!temDescricao) add('descricao', 'O anúncio está sem descrição.');
     if (!temSeo) add('seo', 'O anúncio está sem título ou meta description de SEO.');
     if (!precoOk) add('preco', 'Sem preço comercial válido.');
-    if (temCategoria === false) add('categoria', 'O anúncio está sem categoria na loja.');
+    /* §64 — categoria óbvia não é pergunta: o sistema aplica na loja
+       (`preencherCategorias`). Só a ambígua fica para gente. */
+    if (temCategoria === false) {
+      item.categoriaLoja = cc.id ? { id: cc.id, chave: cc.chave, regra: cc.regra } : null;
+      add('categoria', cc.id
+        ? `Sem categoria na loja: o sistema aplica "${cc.chave}" automaticamente (${cc.regra}).`
+        : cc.motivo);
+    }
 
     const sincronia = fila?.status || null;
     if (sincronia === 'revisao' || statusConf.includes('variante_sem_mapeamento')) {
@@ -435,19 +490,37 @@ export function classificarCatalogo(base) {
       const pareadas = new Set([...eq.values()].map(String));
       const faltam = locais.filter((l) => !pareadas.has(String(l.variante_id))
         && !naLoja.some((v) => chaveDaVariacao(v.nome) === chaveDaVariacao(l.nome)));
-      if (faltam.length) add('variacao', `Variação só no Marquesa: ${faltam.map((l) => l.nome).join(', ')}.`);
+      /* §64 — variação que existe aqui e falta no anúncio é criada pelo
+         sistema; só o que o plano não consegue montar vira pergunta. */
+      const planos = planosVariante.get(sku) || [];
+      const travadas = faltam.map((l) => ({ l, pl: planos.find((x) => x.nomeDaqui === l.nome) }))
+        .filter((x) => !x.pl || x.pl.bloqueio);
+      if (faltam.length) {
+        add('variacao', travadas.length
+          ? `Variação só no Marquesa: ${travadas.map((x) => `${x.l.nome} (${x.pl?.bloqueio || 'não dá para montá-la no anúncio'})`).join('; ')}.`
+          : `Variação só no Marquesa: ${faltam.map((l) => l.nome).join(', ')} — o sistema cria na loja automaticamente.`);
+      }
       item.variacoesSoAqui = faltam.map((l) => l.nome);
+      item.variacoesAutomaticas = faltam.length > 0 && travadas.length === 0;
     }
     if (statusConf.includes('sku_duplicado')) add('variacao', 'O mesmo SKU está em mais de um produto da loja.');
     if (statusConf.includes('sem_sku')) add('variacao', 'Variante sem SKU na loja.');
 
     const erro = linha?.estado === 'erro' || sincronia === 'erro' || statusConf.includes('erro_integracao');
     if (visibilidade === 'unlisted') add('link_direto', 'Está "não listado": some da vitrine mas é comprável pelo link direto.');
-    /* Oculto sem peça em casa não é "pronto": publicar mostraria a peça
-       esgotada. Fica oculto, dizendo o porquê. */
-    if (visibilidade !== 'visible' && casa <= 0) add('sem_estoque', 'Sem peça em casa: publicada, apareceria esgotada.');
+    /* §64 — oculto sem peça em casa é ESTADO, não falha: fica cadastrado,
+       fora da fila (situação `sem_estoque`), e volta sozinho quando entra
+       peça. Não é "pronto" (publicar mostraria a peça esgotada) e não é
+       nada que alguém precise consertar. */
+    const semPeca = visibilidade !== 'visible' && casa <= 0;
+    /* §63 — "fora do ar" só é alerta quando ALGUÉM o publicou por aqui e
+       ele deixou de estar visível. Oculto que nunca foi publicado é peça em
+       preparação, de propósito: não é problema, é o §62 funcionando. */
+    item.publicadoEm = linha?.publicado_em || null;
+    item.foraDoArInesperado = !!linha?.publicado_em && visibilidade !== 'visible';
     if (erro) item.situacao = 'erro';
     else if (visibilidade === 'visible') item.situacao = 'publicado';
+    else if (semPeca) item.situacao = 'sem_estoque';
     else if (pend.filter((x) => x.chave !== 'link_direto').length === 0 && sincronia === 'sincronizado') item.situacao = 'pronto';
     else item.situacao = 'oculto';
     if (item.situacao === 'oculto' && sincronia !== 'sincronizado' && !pend.some((x) => x.chave.startsWith('estoque'))) {
@@ -606,19 +679,30 @@ function vincularStmts(db, sku, produto, { estado, origem, conteudo = null, vari
   return stmts;
 }
 
-/** Taxonomia existente, com aliases objetivos de tipo e categoria comercial
- *  única do helper factual. Mantém IDs e hierarquia atuais da loja. */
+/** Mapa nome normalizado → id da categoria da loja (raízes pelo nome,
+ *  subcategorias como "pai/filho"). QUAL categoria uma peça recebe não é
+ *  decidido aqui: é `taxonomia.js › categoriaCanonica`, com a regra escrita
+ *  ("Argola é brinco na loja") — nunca por semelhança de nome. */
 export function mapearCategorias(categoriasLoja) {
   const mapa = {};
-  for (const c of categoriasLoja || []) {
+  const lista = categoriasLoja || [];
+  const nomePorId = new Map(lista.map((c) => [String(c.id), normalizar(texto(c.name))]));
+  for (const c of lista) {
     const raiz = c.parent == null || Number(c.parent) === 0;
-    if (!raiz) continue;
     const k = normalizar(texto(c.name));
-    if (k && mapa[k] == null) mapa[k] = String(c.id);
+    if (!k) continue;
+    if (raiz) {
+      if (mapa[k] == null) mapa[k] = String(c.id);
+      continue;
+    }
+    /* §64 — subcategoria entra como "pai/filho" ("prata 925/conjuntos"),
+       nunca pelo nome solto: "Anel" de Prata 925 não é a raiz "Anel". */
+    const pai = nomePorId.get(String(c.parent));
+    if (pai && mapa[`${pai}/${k}`] == null) mapa[`${pai}/${k}`] = String(c.id);
   }
   for (const tipo of ['Argola', 'Brinco', 'Brincos', 'Colar', 'Pulseira', 'Anel', 'Pingente', 'Conjunto']) {
     const c = categoriaComprovada(fatosDoProduto({ name: { pt: tipo } }), categoriasLoja || []);
-    if (c) mapa[normalizar(tipo)] = String(c.id);
+    if (c && mapa[normalizar(tipo)] == null) mapa[normalizar(tipo)] = String(c.id);
   }
   return mapa;
 }
@@ -700,7 +784,7 @@ export async function criarOcultos(db, env, { limite = LOTE_PADRAO, seco = true,
       continue; // Não cria cadastro mínimo quando a consulta editorial falha.
     }
     const corpo = corpoDoProdutoOculto(item, { localDeEstoque: base.localDeEstoque,
-      categoriaId: mapaCategorias[normalizar(item.categoria)] || null, categorias,
+      categoriaId: item.categoriaLoja?.id || null, categorias,
       seoTitulosOcupados: [...ocupados.seoTitulosOcupados, ...titulosDoLote],
       seoDescricoesOcupadas: [...ocupados.seoDescricoesOcupadas, ...metasDoLote] });
     titulosDoLote.add(texto(corpo.seo_title)); metasDoLote.add(texto(corpo.seo_description));
@@ -852,59 +936,126 @@ function soltarStmt(db, sku) {
 }
 
 /* ======================================================================== */
-/* 4. VARIANTE QUE FALTA NUM ANÚNCIO QUE JÁ EXISTE                           */
+/* 4. VARIANTE QUE FALTA NUM ANÚNCIO QUE JÁ EXISTE — §64                     */
 /* ======================================================================== */
 
-/** As variações criadas aqui que o anúncio ainda não tem — e se dá para
- *  criá-las lá SEM mexer no que já sincroniza.
+/** As partes de uma variante da loja: [{ atributo, valor }], na ordem dos
+ *  atributos do produto. */
+const partesDaLoja = (v) => valoresDe(v);
+
+/** A variante NOVA, montada na estrutura do anúncio. Para cada atributo da
+ *  loja, nesta ordem:
  *
- *  Só quando TUDO vale:
- *   - o anúncio já tem 2+ variantes (anúncio de variante única ganharia uma
- *     segunda e o código inteiro sairia do envio de estoque — §61 — até
- *     alguém repartir; é intervenção, não automação);
- *   - o código já está em revisão na fila (não sincroniza hoje), então
- *     criar a opção não tira de circulação um número que estava certo;
- *   - os atributos da variação daqui são exatamente os do anúncio.
+ *    1. o valor daqui que é do mesmo TIPO (aro com aro, cor com cor) — com a
+ *       grafia das irmãs ("nº24" vira "n°24" quando elas são "n°18");
+ *    2. senão, o valor que TODAS as irmãs têm igual ("Banho de Ouro 18k" no
+ *       anel vendido só em ouro) — é atributo da peça, não da variação;
+ *    3. senão, não há como saber: o plano para, com o motivo.
  *
- *  A variante nasce com estoque 0 e o PREÇO comum das irmãs (se elas não
- *  têm um preço comum, não cria). O valor segue a grafia das irmãs
- *  ("nº17" → "n°17" quando elas são "n°22"), e a variação daqui passa a ter
- *  o mesmo nome e o id da loja — desde que nenhum movimento ou maleta use o
- *  nome antigo. */
+ *  Todo valor daqui tem de ser usado exatamente uma vez. */
+function montarValores(locaisValores, naLoja) {
+  const atributosLoja = partesDaLoja(naLoja[0]).map((x) => x.atributo);
+  if (!atributosLoja.length || atributosLoja.every((a) => !a)) {
+    return { bloqueio: 'o anúncio não tem atributo de variação (é de opção única)' };
+  }
+  const usados = new Set();
+  const saida = [];
+  for (const [i, atributo] of atributosLoja.entries()) {
+    const irmas = naLoja.map((v) => (partesDaLoja(v)[i] || {}).valor).filter(Boolean);
+    const tiposIrmas = new Set(irmas.map(tipoDoValor));
+    const tipoIrmas = tiposIrmas.size === 1 ? [...tiposIrmas][0] : null;
+    const j = locaisValores.findIndex((x, k) => !usados.has(k) && tipoIrmas && tipoDoValor(x.valor) === tipoIrmas);
+    if (j >= 0) {
+      usados.add(j);
+      saida.push({ atributo, valor: formatarValorNovo(locaisValores[j].valor, irmas) });
+      continue;
+    }
+    const unicos = [...new Set(irmas.map((x) => chaveDaVariacao(x)))];
+    if (irmas.length === naLoja.length && unicos.length === 1) {
+      saida.push({ atributo, valor: irmas[0] });
+      continue;
+    }
+    return { bloqueio: `não dá para saber o valor de "${atributo}" da variação nova` };
+  }
+  if (usados.size !== locaisValores.length) {
+    return { bloqueio: `o anúncio não tem atributo para ${locaisValores.filter((_, k) => !usados.has(k)).map((x) => `"${x.valor}"`).join(', ')}` };
+  }
+  return { valores: saida };
+}
+
+/** As variações criadas aqui que o anúncio ainda não tem — e, para cada
+ *  uma, a variante exata que a loja receberia, ou o motivo de não criar.
+ *
+ *  §64 mudou a regra. Antes só se criava em anúncio de 2+ variantes já em
+ *  revisão; o anel de variante única ficava com "Variação só no Marquesa"
+ *  como pendência para sempre. Agora:
+ *
+ *   - IDENTIDADE e QUANTIDADE são separadas. A variante nasce com estoque 0
+ *     (nunca `null`, que na Nuvemshop é estoque infinito); o saldo dela vai
+ *     pela fila (§61) só quando a divisão é conhecida. Sem divisão, o código
+ *     fica em revisão e a única pergunta é "quantas de cada?".
+ *   - equivalências primeiro: nº19, n°19, Nº 19, 19 e Aro 19 são o mesmo
+ *     valor (`chaveDaVariacao`); "nº19" NUNCA é "n°21".
+ *   - as variações daqui que já correspondem a uma variante da loja (par
+ *     único, `equivalenciasLojaLocal`) são LIGADAS a ela no mesmo ato. Sem
+ *     isso, o anúncio de variante única virava multivariante e o saldo da
+ *     variação equivalente perdia o endereço.
+ *   - preço: o comum das irmãs; sem ele, o preço daqui; sem nenhum, não cria.
+ */
 export function planoDeVariantesFaltantes(base) {
   const planos = [];
   for (const [sku, linhas] of base.variacoes) {
     const locais = linhas.filter((l) => l.origem === 'local');
     if (!locais.length) continue;
-    const n = normSku(sku);
-    const naLoja = base.lojaPorSku.get(n) || [];
-    if (naLoja.length < 2) continue;
+    const naLoja = base.lojaPorSku.get(normSku(sku)) || [];
+    if (!naLoja.length) continue;
     const pids = new Set(naLoja.map((v) => String(v.produto_id)));
     if (pids.size !== 1) continue;
-    const fila = base.fila.get(sku);
-    if (!fila || fila.status !== 'revisao') continue;
     const eq = equivalenciasLojaLocal(naLoja, locais);
-    const pareadas = new Set([...eq.values()].map(String));
-    const atributosLoja = valoresDe(naLoja[0]).map((x) => x.atributo);
+    const pareadas = new Map([...eq.entries()].map(([vLoja, vAqui]) => [String(vAqui), String(vLoja)]));
+    const chavesLoja = new Set();
+    for (const v of naLoja) {
+      chavesLoja.add(chaveDaVariacao(v.nome));
+      const ps = partesDaLoja(v);
+      /* parte que identifica a variante sozinha: as outras são constantes */
+      for (const [i, p] of ps.entries()) {
+        const outrasConstantes = ps.every((o, k) => k === i
+          || naLoja.every((w) => chaveDaVariacao((partesDaLoja(w)[k] || {}).valor) === chaveDaVariacao(o.valor)));
+        if (outrasConstantes) chavesLoja.add(chaveDaVariacao(p.valor));
+      }
+    }
     const precos = new Set(naLoja.map((v) => (v.preco == null ? 'null' : Number(v.preco).toFixed(2))));
+    const produto = base.produtos.find((p) => String(p.sku) === String(sku));
+    const precoDaqui = produto && Number(produto.preco) > 0 ? Number(produto.preco).toFixed(2) : null;
+    const preco = precos.size === 1 && !precos.has('null') ? [...precos][0] : precoDaqui;
+    const ligar = locais.filter((l) => pareadas.has(String(l.variante_id)))
+      .map((l) => ({ nome: l.nome, varianteId: pareadas.get(String(l.variante_id)) }));
+
     for (const l of locais) {
       if (pareadas.has(String(l.variante_id))) continue;
-      if (naLoja.some((v) => chaveDaVariacao(v.nome) === chaveDaVariacao(l.nome))) continue;
-      const valores = valoresDe(l);
+      if (chavesLoja.has(chaveDaVariacao(l.nome))) continue;    // já existe lá, escrita de outro jeito
+      const brutos = valoresDe(l);
+      const normal = normalizarAtributos(brutos.map((x) => ({ nome: x.atributo, valores: [x.valor] }))).atributos;
+      const valoresDaqui = brutos.map((x, i) => ({ atributo: normal[i].nome, valor: x.valor }));
+      const montado = montarValores(valoresDaqui, naLoja);
       const motivo = [];
-      if (valores.map((x) => x.atributo).join('|') !== atributosLoja.join('|')) motivo.push(`atributos diferentes do anúncio (${atributosLoja.join(' · ')})`);
-      if (precos.size !== 1 || precos.has('null')) motivo.push('as variantes do anúncio não têm um preço comum');
+      if (montado.bloqueio) motivo.push(montado.bloqueio);
+      if (!preco) motivo.push('não há preço nem nas outras variantes nem no cadastro');
+      const nomeNovo = montado.valores ? montado.valores.map((x) => x.valor).join(' · ') : null;
+      if (nomeNovo && naLoja.some((v) => chaveDaVariacao(v.nome) === chaveDaVariacao(nomeNovo))) continue;
       const usados = (base.nomeados.get(sku) || []).some((r) => r.variacao === l.nome)
         || (base.maletaVar.get(sku) || []).some((r) => r.variacao === l.nome);
-      const formatados = valores.map((x, i) => {
-        const irmas = naLoja.map((v) => (valoresDe(v)[i] || {}).valor).filter(Boolean);
-        return { atributo: x.atributo, valor: usados ? x.valor : formatarValorNovo(x.valor, irmas) };
-      });
       planos.push({
         sku, produtoId: [...pids][0], nomeDaqui: l.nome,
-        nomeNovo: formatados.map((x) => x.valor).join(' · '),
-        valores: formatados, preco: precos.size === 1 ? [...precos][0] : null,
-        renomeia: !usados, local: base.localDeEstoque,
+        nomeNovo, valores: montado.valores || null, preco,
+        atributos: partesDaLoja(naLoja[0]).map((x) => x.atributo),
+        /* o nome daqui só segue a grafia da loja quando nenhum movimento ou
+           maleta o usa (renomear desligaria o saldo do balde dele) e quando
+           a estrutura daqui é a mesma do anúncio — "nº24" de um atributo só
+           não vira "Banho · n°24" de dois ao lado de irmãs de um. */
+        renomeia: !usados && valoresDaqui.map((x) => x.atributo).join('|')
+          === partesDaLoja(naLoja[0]).map((x) => x.atributo).join('|'),
+        ligar, local: base.localDeEstoque,
         bloqueio: motivo.length ? motivo.join('; ') : null,
       });
     }
@@ -912,51 +1063,209 @@ export function planoDeVariantesFaltantes(base) {
   return planos;
 }
 
+/** Cria na loja as variantes do plano (no máximo `limite`), uma por vez,
+ *  cada uma com releitura antes e depois:
+ *
+ *    antes   a variante pode ter sido criada à mão desde o espelho — se
+ *            existe, só liga;
+ *    depois  tem de existir EXATAMENTE uma variante com aquele valor, todas
+ *            com o SKU do código; duplicata é anunciada como erro (nada é
+ *            apagado na loja).
+ *
+ *  A variante nasce com estoque 0; o código vai para a fila, que manda o
+ *  saldo de cada variação quando ele é conhecido. */
 export async function criarVariantesFaltantes(db, env, { seco = true, limite = 20, loja: lojaDada = null } = {}) {
   const trava = await travasDoCatalogo(db, env);
   const base = await lerBase(db);
   const planos = planoDeVariantesFaltantes(base);
-  const relato = { ok: true, seco: seco || !!trava, trava: trava ? trava.trava : null, planos, criadas: 0, erros: 0, chamadasLoja: 0, itens: [] };
+  const relato = {
+    ok: true, seco: seco || !!trava, trava: trava ? trava.trava : null, planos,
+    criadas: 0, ligadas: 0, erros: 0, chamadasLoja: 0, itens: [],
+  };
   if (seco || trava) return relato;
   const loja = lojaDada || new Nuvemshop(env);
   const stmts = [];
+  const porProduto = new Map();
   for (const pl of planos.filter((x) => !x.bloqueio).slice(0, limite)) {
+    if (!porProduto.has(pl.produtoId)) porProduto.set(pl.produtoId, []);
+    porProduto.get(pl.produtoId).push(pl);
+  }
+  for (const [produtoId, lista] of porProduto) {
     try {
-      /* Releitura do anúncio antes de escrever: a variante pode ter sido
-         criada à mão desde o espelho. */
-      const atual = await loja.produto(pl.produtoId);
+      let atual = await loja.produto(produtoId);
       relato.chamadasLoja++;
-      const ja = (atual.variants || []).find((v) => chaveDaVariacao((v.values || []).map(texto).join(' · ')) === chaveDaVariacao(pl.nomeNovo));
-      const criada = ja || await loja.criarVariante(pl.produtoId, {
-        values: pl.valores.map((x) => ({ pt: x.valor })), sku: pl.sku, price: pl.preco,
-        ...(pl.local ? { inventory_levels: [{ location_id: pl.local, stock: 0 }] } : { stock: 0 }),
-      });
-      if (!ja) relato.chamadasLoja++;
-      const vid = String(criada.id);
-      if (pl.renomeia && pl.nomeNovo !== pl.nomeDaqui) {
-        stmts.push(db.prepare(
-          `UPDATE produto_variacoes SET nome = ?, valores_json = ?, variante_id = ?, produto_id = ?, origem = 'loja', variante_sku = ?
-            WHERE sku = ? AND nome = ?`).bind(pl.nomeNovo, JSON.stringify(pl.valores), vid, pl.produtoId, pl.sku, pl.sku, pl.nomeDaqui));
-      } else {
+      const nomesAtributos = (atual.attributes || []).map(texto);
+      if (nomesAtributos.join('|') !== lista[0].atributos.join('|')) {
+        throw new Error(`os atributos do anúncio mudaram (${nomesAtributos.join(' · ') || 'nenhum'}); nada foi criado`);
+      }
+      const nomeDe = (v) => (v.values || []).map(texto).join(' · ');
+      const novos = [];
+      for (const pl of lista) {
+        if ((atual.variants || []).some((v) => normSku(v.sku) !== normSku(pl.sku))) {
+          throw new Error('o anúncio tem variante com outro SKU; nada foi criado');
+        }
+        let v = (atual.variants || []).find((x) => chaveDaVariacao(nomeDe(x)) === chaveDaVariacao(pl.nomeNovo));
+        if (!v) {
+          v = await loja.criarVariante(produtoId, {
+            values: pl.valores.map((x) => ({ pt: x.valor })), sku: pl.sku, price: pl.preco,
+            ...(pl.local ? { inventory_levels: [{ location_id: pl.local, stock: 0 }] } : { stock: 0 }),
+          });
+          relato.chamadasLoja++;
+          novos.push(pl);
+        }
+        pl.varianteId = String(v.id);
+      }
+      /* A prova: relida, a loja tem cada valor UMA vez e o SKU de todas é o
+         código. */
+      atual = await loja.produto(produtoId);
+      relato.chamadasLoja++;
+      const contagem = new Map();
+      for (const v of atual.variants || []) {
+        const k = chaveDaVariacao(nomeDe(v));
+        contagem.set(k, (contagem.get(k) || 0) + 1);
+      }
+      const duplicadas = [...contagem.entries()].filter(([, n]) => n > 1).map(([k]) => k);
+      const outroSku = (atual.variants || []).filter((v) => normSku(v.sku) !== normSku(lista[0].sku));
+      const sumiu = lista.filter((pl) => !(atual.variants || []).some((v) => String(v.id) === pl.varianteId));
+      if (duplicadas.length || outroSku.length || sumiu.length) {
+        throw new Error(`a releitura não confirmou: ${[duplicadas.length ? `valor repetido (${duplicadas.join(', ')})` : '',
+          outroSku.length ? 'variante com outro SKU' : '', sumiu.length ? 'variante criada não apareceu' : ''].filter(Boolean).join('; ')}`);
+      }
+      const sku = lista[0].sku;
+      const ligados = new Set();
+      const ligar = (nome, vid) => {
+        if (ligados.has(nome)) return;
+        ligados.add(nome);
         stmts.push(db.prepare(
           `UPDATE produto_variacoes SET variante_id = ?, produto_id = ?, origem = 'loja', variante_sku = ?
-            WHERE sku = ? AND nome = ?`).bind(vid, pl.produtoId, pl.sku, pl.sku, pl.nomeDaqui));
+            WHERE sku = ? AND nome = ?`).bind(vid, produtoId, sku, sku, nome));
         stmts.push(db.prepare(`UPDATE maleta_item_variacoes SET variante_id = ? WHERE sku = ? AND variacao = ?`)
-          .bind(vid, pl.sku, pl.nomeDaqui));
+          .bind(vid, sku, nome));
+      };
+      for (const pl of lista) {
+        if (pl.renomeia && pl.nomeNovo !== pl.nomeDaqui) {
+          stmts.push(db.prepare(
+            `UPDATE produto_variacoes SET nome = ?, valores_json = ?, variante_id = ?, produto_id = ?, origem = 'loja', variante_sku = ?
+              WHERE sku = ? AND nome = ?`).bind(pl.nomeNovo, JSON.stringify(pl.valores), pl.varianteId, produtoId, sku, sku, pl.nomeDaqui));
+          ligados.add(pl.nomeDaqui);
+        } else {
+          ligar(pl.nomeDaqui, pl.varianteId);
+        }
+        relato.itens.push({ sku, acao: novos.includes(pl) ? 'criada' : 'ja_existia', varianteId: pl.varianteId, nome: pl.nomeNovo });
+        if (novos.includes(pl)) relato.criadas++;
       }
-      stmts.push(enfileirarStmt(db, pl.sku, 'variante_criada'));
-      const relido = await loja.produto(pl.produtoId);
-      relato.chamadasLoja++;
-      stmts.push(...espelhoStmts(db, relido));
-      relato.criadas += ja ? 0 : 1;
-      relato.itens.push({ sku: pl.sku, acao: ja ? 'ja_existia' : 'criada', varianteId: vid, nome: pl.nomeNovo });
+      for (const l of lista[0].ligar) {
+        ligar(l.nome, l.varianteId);
+        relato.ligadas++;
+      }
+      stmts.push(enfileirarStmt(db, sku, 'variante_criada'));
+      stmts.push(...espelhoStmts(db, atual));
     } catch (e) {
       relato.erros++;
-      relato.itens.push({ sku: pl.sku, acao: 'erro', nome: pl.nomeNovo, erro: frase(e) });
+      for (const pl of lista) relato.itens.push({ sku: pl.sku, acao: 'erro', nome: pl.nomeNovo, erro: frase(e) });
     }
   }
   for (let i = 0; i < stmts.length; i += 200) await db.batch(stmts.slice(i, i + 200));
   return relato;
+}
+
+/* ======================================================================== */
+/* 4b. CATEGORIA ÓBVIA — §64                                                 */
+/* ======================================================================== */
+
+/** O mapa de categorias com as subcategorias ("prata 925/conjuntos"). O
+ *  gravado antes de §64 só tinha raízes; sem uma chave com "/", relê. */
+async function mapaCompleto(db, loja, base, relato) {
+  const atual = base.mapaCategorias;
+  if (atual && Object.keys(atual).some((k) => k.includes('/'))) return atual;
+  const mapa = mapearCategorias(await loja.categorias());
+  relato.chamadasLoja++;
+  await db.batch([gravarConfigStmt(db, CHAVE_MAPA_CATEGORIAS, mapa)]);
+  return mapa;
+}
+
+/** Aplica na loja a categoria canônica (`taxonomia.js`) dos anúncios que
+ *  estão SEM categoria nenhuma. Só preenche o vazio: produto com qualquer
+ *  categoria — mesmo uma que pareça errada — não é tocado. Releitura antes
+ *  (a loja pode ter ganhado categoria à mão) e depois (a prova). */
+export async function preencherCategorias(db, env, { seco = true, limite = 5, loja: lojaDada = null } = {}) {
+  const trava = await travasDoCatalogo(db, env);
+  const relato = { ok: true, seco: seco || !!trava, trava: trava ? trava.trava : null, aplicadas: 0, jaTinham: 0, erros: 0, chamadasLoja: 0, itens: [] };
+  const loja = lojaDada || new Nuvemshop(env);
+  const base = await lerBase(db);
+  if (!relato.seco) {
+    if (!loja.configurada()) return { ...relato, ok: false, erro: 'A loja não está conectada.' };
+    base.mapaCategorias = await mapaCompleto(db, loja, base, relato);
+  }
+  const { itens } = classificarCatalogo(base);
+  const alvos = itens.filter((x) => x.naLoja && x.produtoId && x.categoriaLoja?.id
+    && x.pendencias.some((p) => p.chave === 'categoria'));
+  relato.pendentes = alvos.length;
+  if (relato.seco) {
+    relato.itens = alvos.map((x) => ({ sku: x.sku, categoria: x.categoriaLoja.chave, regra: x.categoriaLoja.regra }));
+    return relato;
+  }
+  const stmts = [];
+  for (const x of alvos.slice(0, limite)) {
+    try {
+      const antes = await loja.produto(x.produtoId);
+      relato.chamadasLoja++;
+      const ids = (p) => (p.categories || []).map((c) => String(c && typeof c === 'object' ? c.id : c));
+      if (ids(antes).length) {
+        relato.jaTinham++;
+        relato.itens.push({ sku: x.sku, acao: 'ja_tinha', categorias: ids(antes) });
+      } else {
+        await loja.atualizarProduto(x.produtoId, { categories: [Number(x.categoriaLoja.id) || x.categoriaLoja.id] });
+        relato.chamadasLoja++;
+        const depois = await loja.produto(x.produtoId);
+        relato.chamadasLoja++;
+        if (!ids(depois).includes(String(x.categoriaLoja.id))) throw new Error('a releitura não mostrou a categoria');
+        relato.aplicadas++;
+        relato.itens.push({ sku: x.sku, acao: 'aplicada', categoria: x.categoriaLoja.chave });
+      }
+      stmts.push(db.prepare('UPDATE nuvemshop_conferencia SET ns_categorias = 1 WHERE sku = ?').bind(x.sku));
+    } catch (e) {
+      relato.erros++;
+      relato.itens.push({ sku: x.sku, acao: 'erro', erro: frase(e) });
+    }
+  }
+  if (stmts.length) await db.batch(stmts);
+  return relato;
+}
+
+/* ======================================================================== */
+/* 4c. ATRIBUTO QUE CONTRADIZ O VALOR (no cadastro daqui) — §64              */
+/* ======================================================================== */
+
+/** "Tamanho = Azul" gravado aqui vira "Cor = Azul". Só variação de origem
+ *  local (a da loja espelha o que a loja tem). O NOME da variação — que é
+ *  o que os movimentos e as maletas guardam — não muda: só o atributo. */
+export async function normalizarAtributosLocais(db, { seco = true } = {}) {
+  const linhas = (await db.prepare(
+    `SELECT sku, nome, atributo, valores_json FROM produto_variacoes WHERE origem = 'local' ORDER BY sku, ordem`).all()).results || [];
+  const porSku = new Map();
+  for (const l of linhas) {
+    if (!porSku.has(l.sku)) porSku.set(l.sku, []);
+    porSku.get(l.sku).push(l);
+  }
+  const trocas = [];
+  const stmts = [];
+  for (const [sku, ls] of porSku) {
+    const estruturas = ls.map(valoresDe);
+    const nomes = estruturas[0].map((x) => x.atributo);
+    if (estruturas.some((e) => e.map((x) => x.atributo).join('|') !== nomes.join('|'))) continue;
+    const r = normalizarAtributos(nomes.map((a, i) => ({ nome: a, valores: estruturas.map((e) => e[i].valor) })));
+    if (!r.trocas.length) continue;
+    const novos = r.atributos.map((a) => a.nome);
+    trocas.push({ sku, trocas: r.trocas.map((t) => ({ de: t.de, para: t.para, valores: t.valores })) });
+    for (const [i, l] of ls.entries()) {
+      const valores = estruturas[i].map((x, k) => ({ atributo: novos[k], valor: x.valor }));
+      stmts.push(db.prepare(`UPDATE produto_variacoes SET atributo = ?, valores_json = ? WHERE sku = ? AND nome = ? AND origem = 'local'`)
+        .bind(novos.join(' · '), JSON.stringify(valores), sku, l.nome));
+    }
+  }
+  if (!seco && stmts.length) for (let i = 0; i < stmts.length; i += 200) await db.batch(stmts.slice(i, i + 200));
+  return { ok: true, seco, corrigidos: trocas.length, trocas };
 }
 
 /* ======================================================================== */
@@ -1040,8 +1349,9 @@ export async function publicarNaLoja(db, env, sku, { por = 'operador', loja: loj
   if (!p.produto_id_loja) return ERRO(409, 'Esta peça ainda não está cadastrada na Nuvemshop.', { faltam: ['cadastro'] });
 
   /* As pendências daqui (estoque da variação, variação só no Marquesa,
-     erro de envio) também seguram a publicação. */
-  const base = await lerBase(db);
+     erro de envio) também seguram a publicação. Lidas AGORA e só deste
+     código (§63): no lote, cada item é revalidado na hora dele. */
+  const base = await lerBase(db, { skus: [p.sku] });
   const item = classificarCatalogo(base).itens.find((x) => x.sku === String(p.sku));
   const pendLocais = (item?.pendencias || []).map((x) => x.chave)
     .filter((c) => ['estoque_variacao', 'variacao', 'estoque', 'preco'].includes(c));
@@ -1089,6 +1399,48 @@ export async function publicarNaLoja(db, env, sku, { por = 'operador', loja: loj
       .bind(`Falhou ao publicar: ${frase(e)}`.slice(0, 500), agoraISO(), p.sku).run();
     return ERRO(502, `Não consegui confirmar a publicação: ${frase(e)}`, { sku: p.sku });
   }
+}
+
+/** §63 — A PRÉVIA do anúncio: o que a loja tem hoje para este código,
+ *  lido na hora (uma chamada, só leitura). Para a conferência antes de
+ *  publicar — nome, preço, estoque, categoria, variação, descrição, SEO,
+ *  tags, atributos, fotos. Não escreve nada, nem aqui nem lá; não passa
+ *  pelas travas de escrita, só pela credencial. */
+export async function lerAnuncio(db, env, sku, { loja: lojaDada = null } = {}) {
+  const k = normSku(sku);
+  const p = await db.prepare(`SELECT sku, desc, produto_id_loja FROM produtos WHERE sku = ? AND status = 'ativo'`).bind(k).first();
+  if (!p) return ERRO(404, `Código ${sku} não está ativo no catálogo.`);
+  if (!p.produto_id_loja) return ERRO(409, 'Esta peça ainda não está cadastrada na Nuvemshop.', { naLoja: false });
+  const loja = lojaDada || new Nuvemshop(env);
+  if (!lojaDada && !loja.configurada()) return ERRO(409, 'A loja não está conectada. Falta o token da Nuvemshop.');
+  let produto;
+  try { produto = await loja.produto(p.produto_id_loja); } catch (e) { return ERRO(502, frase(e)); }
+  const tags = Array.isArray(produto.tags) ? produto.tags.map(texto) : String(texto(produto.tags) || '')
+    .split(',').map((x) => x.trim()).filter(Boolean);
+  return {
+    ok: true,
+    sku: p.sku,
+    produtoId: String(p.produto_id_loja),
+    lidoEm: agoraISO(),
+    visibilidade: visibilidadeDe(produto),
+    nome: texto(produto.name),
+    descricao: texto(produto.description),
+    seoTitulo: texto(produto.seo_title),
+    seoDescricao: texto(produto.seo_description),
+    tags,
+    atributos: (produto.attributes || []).map(texto),
+    categorias: (produto.categories || []).map((c) => texto(c.name) || String(c.id)),
+    imagens: (produto.images || []).map((i) => i.src).filter(Boolean),
+    url: texto(produto.canonical_url) || null,
+    variantes: (produto.variants || []).map((v) => ({
+      id: String(v.id),
+      sku: v.sku || null,
+      valores: (v.values || []).map(texto),
+      preco: Number(v.promotional_price || v.price) > 0 ? Number(v.promotional_price || v.price) : null,
+      estoque: Number.isFinite(estoqueDaVariante(v)) ? estoqueDaVariante(v) : null,
+    })),
+    faltam: faltasNoAnuncio(produto),
+  };
 }
 
 /* ======================================================================== */

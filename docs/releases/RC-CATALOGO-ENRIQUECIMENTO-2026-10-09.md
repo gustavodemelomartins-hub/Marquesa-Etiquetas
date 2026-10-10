@@ -6,9 +6,16 @@ encerramento da rodada, commit/push ou publicação do novo Worker. Versão
 publicada, contagens finais e QA serão consolidados após validação.
 
 Produção: Worker `marquesa-api`, D1 `marquesa-db-prod`, Nuvemshop da Marquesa.
-Base: release do catálogo oculto `c2011e7`, mantendo o SEO aprovado da rodada
-anterior. Worker de referência para rollback:
-`4d185e84-db1c-42e2-8b89-cd35b2a73cc7`.
+Base inicial: catálogo oculto `c2011e7`, mantendo o SEO aprovado anterior.
+Durante a execução, a produção Cloud avançou para `origin/develop` `07becfe`;
+essa produção está sendo incorporada antes do deploy editorial. O commit
+editorial anterior à integração é `99d8af8`. A base antiga não será publicada
+por cima da produção operacional Cloud.
+
+Worker Cloud atual: `afdc2eb6-a05b-4122-8a5c-c88f355ad49f`; deployment
+`0b3379fa-b8df-420c-a859-d78e6f1869ab`, publicado em 09/10/2026 às
+17:49:33 UTC. Essa é a referência atual antes da publicação integrada.
+`4d185e84-db1c-42e2-8b89-cd35b2a73cc7` fica somente como histórico inicial.
 
 ## Escopo e situação inicial
 
@@ -21,12 +28,15 @@ de estoque. Pages não precisa de alteração por esta frente.
 |---|---|
 | Produtos / variantes remotos no início | 926 / 1.011 |
 | Produtos novos criados pela integração no início | 328 |
+| Produtos / variantes após a rodada Cloud incorporada | 937 / 1.028 |
+| Novos após Cloud | 339: 328 iniciais + 11 novos ocultos |
 | Categorias comerciais | 26 inicialmente; 28 com as duas categorias adicionais |
 | SKU presente em mais de um produto remoto no início | 0 |
 | SKU com múltiplas variantes legítimas do mesmo produto | 27 |
 | Lote editorial planejado | 903: 328 novos e 575 antigos |
-| Execução desse lote | Em andamento; último checkpoint informado: 283 validado |
-| Criações adicionais comprováveis planejadas | 11; ainda não efetivadas neste registro |
+| Execução desse lote | 413 validados antes da pausa por concorrência; 490 remanescentes |
+| Criações adicionais comprováveis | 11 efetivadas pela Cloud, todas ocultas; conteúdo ainda aguarda auditoria |
+| Novo planejamento editorial | 501: 490 remanescentes + auditoria dos 11 novos da Cloud |
 | Divisões de estoque recuperáveis | 8 dos 27 casos; encaminhadas à frente operacional, sem aplicação nesta frente |
 
 SKU repetido entre variantes de um anúncio não é duplicação de produto.
@@ -48,9 +58,11 @@ O enriquecimento não junta códigos, nem transfere foto/preço por semelhança.
    com as validações de §62, pode torná-la visível.
 
 Com `NUVEMSHOP_WRITES_ENABLED` e `config.nuvemshopCatalogoAtivo` ligados, o
-cron ocioso alterna criação, fotos e enriquecimento, até duas peças por rodada
-de enriquecimento. Usa cursor por SKU; não percorre o catálogo remoto inteiro.
-O estoque de §61 continua independente. O automático considera somente
+cron ocioso integra enriquecimento ao rodízio operacional de §64, até duas
+peças por rodada editorial, com cursor por SKU e sem ler o catálogo remoto
+inteiro. Preserva a Loja online de §63 e a automação Cloud de §64; o conteúdo
+ocupa §65. O rodízio integrado final ainda será validado. Estoque §61 segue
+independente. O automático considera somente
 `origem='criado'`, cadastro ativo, estado/visibilidade ocultos. Saneamento de
 antigos é lote controlado, não autorização para reescrevê-los continuamente.
 
@@ -125,10 +137,12 @@ Migration `api/migracao-catalogo-enriquecimento.sql`: tabela aditiva
 não validado grava erro/desliga cadastro automático e nunca declara sucesso;
 estoque §61 permanece independente. Sem tokens/dados de clientes no journal.
 
-`fonte_hash` considera `produtos.desc`, categoria local e versão da regra.
-Fonte igual já validada evita reescrita; mudança no nome/categoria permite
-reavaliar sem apagar SEO aprovado. Alteração exclusivamente em atributo remoto
-não invalida esse marcador e requer reavaliação explícita/gatilho comprovado.
+`fonte_hash` considera `produtos.desc`, categoria local, nomes/atributos/opções
+reais das variantes locais e versão da regra. Ignora IDs operacionais, ordem
+das linhas, preço e saldo. Fonte igual já validada evita reescrita; mudança
+nesses fatos locais permite reavaliar sem apagar SEO aprovado. Alteração
+exclusivamente remota não invalida esse marcador e requer reavaliação
+explícita/gatilho comprovado.
 
 Snapshots, patches, hashes e readbacks do saneamento ficam privados em
 `.local/catalog-enrichment-2026-10-09/`; dump de produção não é versionado.
@@ -145,6 +159,17 @@ Guard permanente: enviar os campos preservados necessários, backup antes da
 escrita e readback. Testes detectam SEO apagado pela API, mudança comercial,
 idioma perdido, tag perdida e ancestral sem prova. Nenhuma tolerância para
 divergência posterior foi introduzida.
+
+Na escrita em lote, o SKU `570328` apresentou estoque diferente do snapshot
+de planejamento. O guard interrompeu antes de qualquer PUT desse item. Os
+413 readbacks anteriores estavam validados; os 490 remanescentes serão
+replanejados sobre estado fresco, junto da auditoria dos 11 novos ocultos
+criados pela Cloud. As alterações concorrentes em variantes/saldos de oito
+SKUs pertencem à frente operacional: esta missão não restaura saldos antigos.
+
+A resolução documental preserva integralmente as seções Cloud §63 e §64,
+renumerando o apêndice editorial para §65. Incorporação não confirma deploy
+editorial, e as contagens operacionais frescas ainda aguardam auditoria final.
 
 ## Verificação e entrega pendentes
 
@@ -168,8 +193,11 @@ somente pela frequência: regra empresarial ainda não comprovada neste registro
 
 1. Desligar `config.nuvemshopCatalogoAtivo` pelo caminho de §62 se uma escrita
    não puder ser validada; estoque §61 segue independente.
-2. Restaurar Worker `4d185e84-db1c-42e2-8b89-cd35b2a73cc7` e conferir a versão
-   que recebeu efetivamente o tráfego.
+2. Restaurar a referência Cloud atual
+   `afdc2eb6-a05b-4122-8a5c-c88f355ad49f`, deployment
+   `0b3379fa-b8df-420c-a859-d78e6f1869ab`, confirmando a versão que recebeu
+   o tráfego. `4d185e84` é anterior às automações Cloud e não deve
+   sobrescrevê-las nesta integração.
 3. **Manter a tabela aditiva e journals.** Não apagar auditoria nem reverter
    banco inteiro. Pages não requer rollback por esta frente.
 4. Conteúdo remoto só pode ser revertido a partir do backup e após releitura

@@ -22,7 +22,7 @@
    "decisao": "docs/domains/AUDITORIA-5-3-FIN-101-CONTAS-A-RECEBER.md §6 B9 e §15 subfase 5.3d"
   }
  ],
- "total": 224,
+ "total": 225,
  "contratos": [
   {
    "contrato": "DELETE /api/clientes/:param",
@@ -910,6 +910,10 @@
   },
   {
    "contrato": "POST /api/nuvemshop/catalogo/fotos",
+   "auth": "bearer"
+  },
+  {
+   "contrato": "GET /api/nuvemshop/catalogo/:param/anuncio",
    "auth": "bearer"
   },
   {

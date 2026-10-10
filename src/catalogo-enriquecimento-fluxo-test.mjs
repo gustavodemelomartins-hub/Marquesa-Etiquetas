@@ -126,9 +126,9 @@ prova('allowlist rejeita publicação, identidade, variante, preço, estoque e f
   assert.equal(corpo.variants[0].stock, 3); assert.ok(corpo.seo_title.pt); assert.ok(corpo.seo_description.pt);
   prova('novo nasce com marca, cuidados, tags, categoria e SEO; oculto, sem preço inventado');
 }
-assert.notEqual(chaveDoModelo('Colar Coração Cravejado'), chaveDoModelo('Anel Coração Cravejado'));
-assert.equal(chaveDoModelo('Anel Flor nº27 Banho de Ouro'), chaveDoModelo('Anel Flor n°18 Banho de Ouro'));
-assert.equal(chaveDoModelo('Aparador de Aliança'), chaveDoModelo('Anel Aparador de Aliança'));
+assert.notDeepEqual(chaveDoModelo('Colar Coração Cravejado'), chaveDoModelo('Anel Coração Cravejado'));
+assert.deepEqual(chaveDoModelo('Anel Flor nº27 Banho de Ouro'), chaveDoModelo('Anel Flor n°18 Banho de Ouro'));
+assert.deepEqual(chaveDoModelo('Aparador de Aliança'), chaveDoModelo('Anel Aparador de Aliança'));
 assert.equal(mapearCategorias([{ id: 14, name: { pt: 'Brincos' } }]).argola, '14');
 prova('deduplicação preserva família e equivale aros; Argola corresponde a Brincos');
 {
@@ -152,7 +152,7 @@ prova('deduplicação preserva família e equivale aros; Argola corresponde a Br
   assert.equal(JSON.parse(base.variacoes.get('387128')[0].valores_json)[0].atributo, 'Tamanho');
   base.variacoes.set('387128', [v('Azul', 0), v('nº18', 1)]);
   const misto = classificarCatalogo(base).itens[0];
-  assert.equal(misto.criavel, false); assert.match(misto.bloqueios.join(' '), /cor e outro significado/);
+  assert.equal(misto.criavel, false); assert.match(misto.bloqueios.join(' '), /cor gravada/);
   prova('Colar não bloqueado por Anel; mesma família mantém trava; cores exatas normalizadas, significado misto bloqueado, dados locais intactos');
 }
 {

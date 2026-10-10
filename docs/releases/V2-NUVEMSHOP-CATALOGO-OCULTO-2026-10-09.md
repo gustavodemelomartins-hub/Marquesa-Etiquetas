@@ -196,7 +196,7 @@ o 187604.
   `kits` 21, `import-total` 14, `v2-variacoes-locais`, `catalogo-4-5`: verdes;
   `e2e` 93/7 e `fase2-telas` iguais ao commit de PROD (pré-existentes).
 - Frontend 626, build ok; contratos 224; docs-links, phase0, razão, SKU ok.
-- `src/v2-preparacao-nuvemshop-qa.mjs` no bundle publicado, 1366 e 390 px:
+- `src/v2-loja-online-qa.mjs` (na época `v2-preparacao-nuvemshop-qa.mjs`; reescrito no §63) no bundle publicado, 1366 e 390 px:
   abas, checklist, texto do site, "Publicar" com confirmação, sem rolagem
   lateral, sem erro de JS.
 - Ensaio sobre cópia de PROD antes da escrita real.
