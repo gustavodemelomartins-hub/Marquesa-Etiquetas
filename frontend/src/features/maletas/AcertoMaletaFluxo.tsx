@@ -5,7 +5,7 @@ import type { Connection } from '../../services/client';
 import { Drawer } from '../../components/Drawer';
 import { Icone } from '../../components/Icone';
 import { money, plural } from '../../domain/formato';
-import { precoEnvio } from '../../domain/maletas';
+import { precoEnvio, semVariacaoNaMaleta } from '../../domain/maletas';
 import { encerrarAcerto, type DestinoAcerto, type DocumentoAcerto, type RespostaAcerto } from './api';
 import {
   registrarConferenciaFisica,
@@ -104,6 +104,8 @@ export function AcertoMaletaFluxo({
   const [codigoManual, setCodigoManual] = useState('');
   const [lendoManual, setLendoManual] = useState(false);
   const [retornoManual, setRetornoManual] = useState<ResultadoLeituraScanner | null>(null);
+  /* §67 — a variação das peças que voltaram, por código: { sku: { nome: qtd } } */
+  const [porVariacao, setPorVariacao] = useState<Record<string, Record<string, number>>>({});
   const codigoManualRef = useRef<HTMLInputElement | null>(null);
   const produtos = useMemo(() => new Map(estado.produtos.map((p) => [p.sku, p])), [estado.produtos]);
   const skusConhecidos = useMemo(() => new Set(estado.produtos.map((p) => p.sku)), [estado.produtos]);
@@ -166,14 +168,25 @@ export function AcertoMaletaFluxo({
     linhas.push({ qtd: 1, destino: 'vendida' });
     return { ...atual, [sku]: { ...item, linhas } };
   });
+  /* §67 — código com peça sem variação informada: as que VOLTARAM estão na
+     mão, então a variação delas é perguntada agora. As que não voltaram
+     continuam sem variação — nada é deduzido. */
+  const pedeVariacao = (sku: string) => semVariacaoNaMaleta(maleta, sku, produtos.get(sku)) > 0
+    && (dados[sku]?.devolvidas ?? 0) > 0;
+  const somaVariacoes = (sku: string) => Object.values(porVariacao[sku] ?? {}).reduce((s, q) => s + (q || 0), 0);
+  const variacoesDoDocumento = Object.fromEntries(Object.keys(maleta.itens).filter(pedeVariacao).map((sku) => [sku,
+    (produtos.get(sku)?.variacoes ?? []).map((v) => ({ variacao: v.nome, varianteId: v.varianteId || null, qtd: porVariacao[sku]?.[v.nome] ?? 0 }))
+      .filter((v) => v.qtd > 0)]));
   const documento: DocumentoAcerto = {
     devolvidas: Object.fromEntries(Object.entries(dados).map(([sku, d]) => [sku, d.devolvidas])),
     faltas: Object.entries(dados).filter(([, d]) => d.linhas.length > 0).map(([sku, d]) => ({ sku, linhas: d.linhas })),
+    ...(Object.keys(variacoesDoDocumento).length ? { variacoes: variacoesDoDocumento } : {}),
   };
   const divergencias = Object.entries(maleta.itens).filter(([sku, qtd]) => {
     const d = dados[sku];
     return !d || d.devolvidas + d.linhas.reduce((s, l) => s + l.qtd, 0) !== qtd
-      || d.linhas.some((l) => !Number.isInteger(l.qtd) || l.qtd <= 0);
+      || d.linhas.some((l) => !Number.isInteger(l.qtd) || l.qtd <= 0)
+      || (pedeVariacao(sku) && somaVariacoes(sku) !== d.devolvidas);
   });
   const enviadas = Object.values(maleta.itens).reduce((s, q) => s + q, 0);
   const devolvidas = Object.values(dados).reduce((s, d) => s + d.devolvidas, 0);
@@ -247,6 +260,13 @@ export function AcertoMaletaFluxo({
         return <section className="acerto-item" key={sku}><div className="acerto-item__topo"><div><b>{produtos.get(sku)?.desc ?? sku}</b><small>{sku} · {qtd} {plural(qtd, 'enviada', 'enviadas')}</small></div><span className={d.devolvidas === qtd ? 'acerto-status completo' : 'acerto-status'}>{d.devolvidas} de {qtd} devolvidas</span></div>
           <label className="campo"><span>Quantidade devolvida</span><input aria-label={`Devolvidas de ${sku}`} type="number" min={0} max={qtd} value={d.devolvidas} onChange={(e) => atualizarDevolvidas(sku, Number(e.target.value))} /></label>
           {d.linhas.map((l, i) => <div className="acerto-destino" key={`${sku}-${i}`}><label><span>Quantidade não devolvida</span><input aria-label={`Quantidade destinada de ${sku} ${i + 1}`} type="number" min={1} value={l.qtd} onChange={(e) => atualizarLinha(sku, i, { qtd: Math.max(1, Math.floor(Number(e.target.value) || 1)) })} /></label><label><span>Destino das não devolvidas</span><select aria-label={`Destino de ${sku} ${i + 1}`} value={l.destino} onChange={(e) => atualizarLinha(sku, i, { destino: e.target.value as DestinoAcerto })}>{DESTINOS.map((o) => <option key={o.valor} value={o.valor}>{o.rotulo}</option>)}</select></label>{d.linhas.length > 1 && <button type="button" className="btn btn-leitura btn-sm" onClick={() => mudarDados((a) => ({ ...a, [sku]: { ...a[sku]!, linhas: a[sku]!.linhas.filter((_, j) => j !== i) } }))}>Remover</button>}</div>)}
+          {pedeVariacao(sku) && <fieldset className="acerto-variacoes">
+            <legend>{semVariacaoNaMaleta(maleta, sku, produtos.get(sku))} {plural(semVariacaoNaMaleta(maleta, sku, produtos.get(sku)), 'unidade', 'unidades')} do código {sku} nesta maleta sem variação informada. Quais voltaram?</legend>
+            {(produtos.get(sku)?.variacoes ?? []).map((v) => <label className="campo" key={v.nome}><span>{v.nome}</span><input aria-label={`Devolvidas de ${sku} na variação ${v.nome}`} type="number" min={0} max={d.devolvidas} value={porVariacao[sku]?.[v.nome] ?? 0}
+              onChange={(e) => setPorVariacao((a) => ({ ...a, [sku]: { ...(a[sku] ?? {}), [v.nome]: Math.max(0, Math.floor(Number(e.target.value) || 0)) } }))} /></label>)}
+            {somaVariacoes(sku) !== d.devolvidas && <small className="acerto-diverge">Confira com a peça na mão: as variações devem somar {d.devolvidas} {plural(d.devolvidas, 'devolvida', 'devolvidas')}.</small>}
+            <small>As que não voltaram continuam como “variação não informada”.</small>
+          </fieldset>}
           {destinado > 1 && <button type="button" className="btn btn-leitura btn-sm" onClick={() => dividir(sku)}>Dividir em outro destino</button>}{!fecha && <small className="acerto-diverge">A soma deve fechar exatamente {qtd}.</small>}
         </section>;
       })}{itensVisiveis.length === 0 && <p className="acerto-vazio">Nenhuma peça corresponde a este filtro.</p>}</div>{erro && <div className="aviso" data-tom="erro">{erro}</div>}

@@ -478,28 +478,32 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
     variacoesCadastradas: Number(r.n_variacoes ?? 0),
   }));
 
-  /* ─── 3. peça em maleta sem variação (§8.2) */
+  /* ─── 3. peça em maleta sem variação (§8.2) — §67: ESTADO, não tarefa.
+     A Sthefany confirmou (10/10/2026): o que o inventário bipou com
+     variação era o que estava EM CASA. A peça que já estava com a
+     revendedora não tem variação conhecida, e ninguém consegue dizê-la até
+     a maleta voltar. Vai para `aguardandoRetorno`: fora do total, do sino e
+     da lista, sem "Resolver". A pergunta é feita no acerto, com a peça na
+     mão (`encerrarAcerto` › variações conferidas no retorno). A variação
+     NUNCA é deduzida — nem por exclusão do inventário de casa, nem por haver
+     uma só variação em casa. */
+  const aguardandoRetorno = [];
   for (const r of maletasAbertas.results ?? []) {
     const falta = Number(r.fora ?? 0) - Number(r.identificado ?? 0);
     if (falta <= 0) continue;
-    juntar({
+    aguardandoRetorno.push({
       chave: `maleta_variacao:${r.maleta_id}:${r.sku}`,
-      tipo: 'maleta',
       sku: r.sku,
       produto: r.desc ?? r.sku,
-      origem: 'Maleta aberta',
       revendedora: r.revendedora ?? null,
       maletaId: Number(r.maleta_id),
       data: r.aberta_em ?? null,
       qtd: falta,
       identificado: Number(r.identificado ?? 0),
       fora: Number(r.fora ?? 0),
-      motivo: 'variacao_da_maleta',
-      explicacao: `${falta} ${falta === 1 ? 'peça saiu' : 'peças saíram'} nesta maleta `
-        + `e ${falta === 1 ? 'não tem' : 'não têm'} variação identificada. `
-        + 'Escolher a variação não tira a peça do estoque de novo.',
+      variacao: 'Não informada',
+      situacao: 'Aguardando conferência no retorno',
       variacoesPossiveis: vars(r.sku),
-      acoes: ['resolver_maleta', 'revisar_depois'],
     });
   }
 
@@ -604,6 +608,15 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
     pendencias: visiveis,
     /* §63 — fatos passados guardados como foram. NÃO entram no total, no
        sino nem na lista: só existem para auditoria. */
+    /* §67 — peça com revendedora cuja variação não foi informada. Continua
+       no total do código e na maleta; não é tarefa até a maleta voltar. */
+    aguardandoRetorno: {
+      itens: aguardandoRetorno,
+      codigos: new Set(aguardandoRetorno.map((x) => x.sku)).size,
+      pecas: aguardandoRetorno.reduce((s, x) => s + x.qtd, 0),
+      regra: 'Variação não informada — aguardando retorno/acerto da maleta. A peça continua no total '
+        + 'do código e com a revendedora; a variação é conferida quando a maleta voltar.',
+    },
     historico: {
       vendasSemVariacao: vendasSemVariacao.length,
       itens: vendasSemVariacao,

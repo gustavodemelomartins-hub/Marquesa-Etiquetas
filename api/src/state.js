@@ -19,7 +19,7 @@ import { resumoDasGalerias } from './catalogo/galeria.js';
 
 export async function montarState(db, env) {
   const [produtosR, revR, maletasR, itensR, configR, lojaR, catR, kitsR,
-         variacoesR, saldoVarR] = await Promise.all([
+         variacoesR, saldoVarR, maletaVarR] = await Promise.all([
     db.prepare('SELECT * FROM produtos ORDER BY desc').all(),
     db.prepare('SELECT * FROM revendedoras ORDER BY id').all(),
     db.prepare('SELECT * FROM maletas ORDER BY id').all(),
@@ -35,6 +35,10 @@ export async function montarState(db, env) {
        recorte do mesmo, então não tem como os dois se desencontrarem. */
     db.prepare(`SELECT sku, variacao, SUM(qtd) AS saldo FROM movimentos
                  WHERE variacao IS NOT NULL GROUP BY sku, variacao`).all(),
+    /* §67 — o que já se sabe da variação das peças de cada maleta. O resto
+       é "Não informada" até o retorno. Banco sem a tabela: nada sabido. */
+    db.prepare(`SELECT maleta_id, sku, variacao, SUM(qtd) AS qtd FROM maleta_item_variacoes
+                 GROUP BY maleta_id, sku, variacao`).all().catch(() => ({ results: [] })),
   ]);
 
   // consignado por SKU: só maletas que ainda não encerraram
@@ -203,6 +207,12 @@ export async function montarState(db, env) {
   }));
 
   const precos = new Map(itensR.results.map(i => [`${i.maleta_id}|${i.sku}`, i.preco_envio]));
+  const variacoesDaMaleta = new Map();
+  for (const r of maletaVarR.results || []) {
+    if (!variacoesDaMaleta.has(r.maleta_id)) variacoesDaMaleta.set(r.maleta_id, {});
+    const porSku = variacoesDaMaleta.get(r.maleta_id);
+    (porSku[r.sku] ||= []).push({ variacao: r.variacao, qtd: Number(r.qtd) });
+  }
   const maletas = maletasR.results.map(m => ({
     id: m.id, revId: m.rev_id, status: m.status,
     abertaEm: m.aberta_em || null, acertoEm: m.acerto_em || null,
@@ -212,6 +222,7 @@ export async function montarState(db, env) {
     precos: Object.fromEntries(Object.keys(itensPorMaleta.get(m.id) || {})
       .map(sku => [sku, precos.get(`${m.id}|${sku}`)])),
     acerto: m.acerto_json ? JSON.parse(m.acerto_json) : undefined,
+    variacoes: variacoesDaMaleta.get(m.id) || {},
   }));
 
   const c = Object.fromEntries(configR.results.map(x => [x.chave, JSON.parse(x.valor)]));

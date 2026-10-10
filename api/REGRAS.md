@@ -3209,3 +3209,50 @@ Implementação: `catalogo/duplicidade.js`, `catalogo/nuvemshop-catalogo.js`
 `catalogo/reparticao-inventario.js` (`casaPeloInventario`),
 `nuvemshop-estoque.js`, `pendencias.js`, `publicacao-catalogo.js` e a Loja
 online da V2. Provas: `src/loja-online-duplicidade-test.mjs`.
+
+### 67. Inventário em casa ≠ variação das peças em maleta; variação não informada aguarda o retorno — §8.2, §42, §61, §63, §66, regras 2, 3 e 9
+
+Origem: confirmação da Sthefany, **10/10/2026**. As variações que ela criou e
+bipou no Inventário #1 (aros, cores) eram das peças que estavam com ela, em
+casa, naquele momento. Elas não dizem nada das peças que já estavam nas
+maletas das revendedoras.
+
+- **Inventário prova a casa, só a casa, e só naquele momento.** "Aro 18 = 1,
+  Aro 24 = 1" é o que estava em casa. Não serve para dizer qual aro uma
+  revendedora levou antes — nem por exclusão, nem porque só existe uma
+  variação em casa. Nenhum caminho do sistema grava variação de maleta
+  sozinho; a única escrita é a resposta de gente (`resolverVariacaoDaMaleta`)
+  ou a conferência no retorno (abaixo).
+- **Peça em maleta sem variação registrada** mantém código, revendedora,
+  quantidade e valor. A variação fica **"Não informada — aguardando
+  retorno/acerto da maleta"**.
+- **Não é pendência acionável.** Sai da lista da Central, do total, do sino e
+  de "Precisam de atenção"; não tem "Resolver". Fica visível em
+  `aguardandoRetorno` (seção própria da Central) e na ficha da revendedora
+  ("1 peça · Variação: Não informada · Aguardando conferência no retorno").
+  Volta a ser tarefa quando houver retorno, acerto, conferência física ou
+  outra evidência nova.
+- **No acerto, a peça que VOLTOU é conferida.** Com a peça na mão, a V2
+  pergunta a variação das devolvidas ("2 unidades do código 408061 nesta
+  maleta sem aro informado — quais voltaram?") e não deixa revisar o acerto
+  sem fechar a soma. O servidor (`encerrarAcerto` › `variacoes`) recusa
+  variação não cadastrada ou soma diferente das devolvidas; grava a
+  devolução com a variação; passa as peças do saldo "sem variação" do código
+  para o da variação delas (dois ajustes que se anulam no total — só o que
+  existe sem variação, depois das baixas do próprio acerto); registra em
+  `acerto_json.variacoesConferidas`; e a fila manda o número novo à loja. O
+  que não voltou (vendida, perdida, ficou) continua sem variação: venda sem
+  variação é histórico (§63). O painel clássico, que não manda `variacoes`,
+  continua encerrando como antes.
+- **Estoque online.** Peça com revendedora não é estoque vendável. Variação
+  desconhecida na maleta não é distribuída entre as variantes da loja e não
+  impede que a casa provada por variação (§66) sincronize. Sem prova da casa,
+  o código fica parado — e isso é anunciado como informação na Loja online,
+  sem contar em "Precisam de atenção".
+- **O total não perde peça.** Em casa 2 + com revendedoras 3 = 5, com ou sem
+  variação conhecida.
+
+Implementação: `pendencias.js` (`aguardandoRetorno`), `state.js`
+(`maletas[].variacoes`), `maletas-comandos.js` (`conferirVariacoesDoRetorno`,
+`encerrarAcerto`), V2: acerto, ficha da revendedora, Central e Loja online.
+Provas: `src/maleta-aguardando-retorno-test.mjs`.

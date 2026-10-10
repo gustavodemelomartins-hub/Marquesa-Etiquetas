@@ -9,7 +9,7 @@ import { fmtData, money } from '../../domain/formato';
 import { corDaCategoria } from '../../domain/categorias';
 import {
   maletaAbertaDe, maletaEncerrada, precoEnvio, prazoDe,
-  qtdMaleta, situacaoMaleta, valMaleta,
+  qtdMaleta, semVariacaoNaMaleta, situacaoMaleta, valMaleta,
 } from '../../domain/maletas';
 
 interface Props {
@@ -43,6 +43,9 @@ export function RevendedoraPage({
         return {
           sku, qtd, desc: p?.desc || '(fora do catálogo)', cat: p?.cat || 'Outros',
           preco: precoEnvio(aberta, sku, produtos),
+          /* §67 — variação: o que se sabe e o que aguarda o retorno */
+          sabidas: aberta.variacoes?.[sku] ?? [],
+          naoInformadas: semVariacaoNaMaleta(aberta, sku, p),
         };
       }).sort((a, b) => a.cat.localeCompare(b.cat) || a.sku.localeCompare(b.sku))
     : [];
@@ -103,6 +106,10 @@ export function RevendedoraPage({
                 <span className="rev-maleta-produto">
                   <b>{linha.sku} · {linha.desc}</b>
                   <small>Preço no envio: {linha.preco === null ? 'sem preço' : money(linha.preco)} · {linha.cat}</small>
+                  {linha.sabidas.length > 0 && <small>Variação: {linha.sabidas.map((v) => `${v.variacao} × ${v.qtd}`).join(', ')}</small>}
+                  {linha.naoInformadas > 0 && <small className="rev-maleta-variacao">
+                    {linha.naoInformadas} {linha.naoInformadas === 1 ? 'peça' : 'peças'} · Variação: Não informada · Aguardando conferência no retorno
+                  </small>}
                 </span>
                 <strong>× {linha.qtd}</strong>
                 <span className="rev-maleta-valor">{linha.preco === null ? '—' : money(linha.qtd * linha.preco)}</span>

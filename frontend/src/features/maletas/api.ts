@@ -57,6 +57,8 @@ export type DestinoAcerto = 'vendida' | 'perdida' | 'quebra' | 'dano' | 'brinde'
 export interface DocumentoAcerto {
   devolvidas: Record<string, number>;
   faltas: Array<{ sku: string; linhas: Array<{ qtd: number; destino: DestinoAcerto }> }>;
+  /** §67 — a variação das peças que VOLTARAM, conferida no retorno. */
+  variacoes?: Record<string, Array<{ variacao: string; varianteId?: string | null; qtd: number }>>;
 }
 
 export interface RespostaAcerto {

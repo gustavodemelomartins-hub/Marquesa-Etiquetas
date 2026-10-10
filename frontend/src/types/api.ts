@@ -121,6 +121,9 @@ export interface Suitcase {
   /** §6.1: o preço congelado no momento do envio. `null` = peça sem preço. */
   precos: Record<string, number | null>;
   acerto?: unknown;
+  /** §67 — o que já se sabe da variação das peças, por código. O que falta
+   *  para fechar a quantidade é "Não informada" até o retorno. */
+  variacoes?: Record<string, Array<{ variacao: string; qtd: number }>>;
 }
 
 /* ------------------------------------------------------------ inventário */

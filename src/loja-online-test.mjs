@@ -206,9 +206,12 @@ assert.ok(!chaves.includes(`nuvemshop:${vendaRevisao}`));
 assert.ok(chaves.includes(`nuvemshop:${vendaErro}`));
 prova('3  venda em revisão (espelho do código) saiu; venda com erro de envio continua');
 
-assert.ok(chaves.includes('maleta_variacao:1:V3'));
+/* §67 — a peça que estava com a revendedora não tem variação conhecida até
+   a maleta voltar: estado informativo, fora da lista e do total. */
+assert.ok(!chaves.includes('maleta_variacao:1:V3'));
 assert.ok(!chaves.includes('variacao:V3'), 'a mesma peça em maleta não pode aparecer duas vezes');
-prova('4  maleta sem variação aparece uma vez, pela maleta (que tem a resposta)');
+assert.ok(p.corpo.aguardandoRetorno.itens.some((x) => x.chave === 'maleta_variacao:1:V3' && x.variacao === 'Não informada'));
+prova('4  maleta sem variação: "Aguardando retorno de maleta", fora da lista (§67)');
 
 assert.equal(p.corpo.resumo.total, p.corpo.pendencias.filter((x) => x.status === 'aberta').length);
 assert.equal(q1('SELECT COUNT(*) n FROM vendas').n, vendasAntes);

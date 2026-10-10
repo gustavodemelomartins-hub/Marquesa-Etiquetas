@@ -55,6 +55,8 @@ export interface ItemDeAtencao {
   oQueFazer: string;
   acao: { rotulo: string; destino: Destino } | null;
   codigos: { sku: string; nome: string | null }[];
+  /** §67 — informa, não pede ação agora: fora de "Precisam de atenção". */
+  informativo?: boolean;
 }
 
 export interface StatusDaLoja {
@@ -175,13 +177,14 @@ export function montarVisaoGeral(
   if (maleta.length) {
     atencao.push({
       chave: 'maleta_variacao',
-      titulo: 'Peças em maleta sem a variação',
+      titulo: 'Estoque online aguardando: peça em maleta sem variação',
       quantidade: maleta.length,
       tom: 'atencao',
-      oQueAconteceu: `${codigos(maleta.length)} ${plural(maleta.length, 'tem', 'têm')} peças com revendedoras, e a maleta não diz qual variação foi.`,
-      porQue: 'Sem isso, o sistema não sabe qual variação ficou em casa; o estoque online desses códigos fica parado para não pôr à venda a variação errada.',
-      oQueFazer: 'Diga qual variação cada revendedora levou. Se o inventário já contou as peças em casa e nada mudou desde então, o sistema usa essa contagem e reparte o resto sozinho.',
-      acao: { rotulo: 'Resolver em Pendências', destino: { tipo: 'pendencias' } },
+      informativo: true,
+      oQueAconteceu: `${codigos(maleta.length)} ${plural(maleta.length, 'tem', 'têm')} peças com revendedoras sem a variação informada, e a casa não foi contada por variação depois.`,
+      porQue: 'A loja só recebe o que está provado em casa por variação; a peça da maleta não entra no estoque online.',
+      oQueFazer: 'Nada agora: a variação é conferida quando a maleta voltar. Para liberar antes, conte as peças em casa por variação.',
+      acao: null,
       codigos: unicos(maleta.map(doProblema)),
     });
   }
@@ -307,8 +310,9 @@ export function montarVisaoGeral(
       });
     }
 
-    const distintos = new Set(atencao.flatMap((a) => a.codigos.map((c) => c.sku)));
-    const semCodigo = atencao.filter((a) => !a.codigos.length).length;
+    const contam = atencao.filter((a) => !a.informativo);
+    const distintos = new Set(contam.flatMap((a) => a.codigos.map((c) => c.sku)));
+    const semCodigo = contam.filter((a) => !a.codigos.length).length;
     kpis = {
       publicados: naSituacao('publicado').length,
       ocultos: naSituacao('oculto').length,

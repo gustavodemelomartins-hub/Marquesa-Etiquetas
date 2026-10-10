@@ -132,6 +132,15 @@ describe('§63 — Loja online › Visão geral', () => {
     expect(dec?.acao?.destino).toEqual({ tipo: 'preparacao', aba: 'nao_cadastrado' });
   });
 
+  it('§67 — maleta sem variação é informação: aparece, mas não conta em "Precisam de atenção"', () => {
+    const v = montarVisaoGeral(online({ problemas: [problema('M1', 'maleta'), problema('M2', 'maleta')] }), fila([]), AGORA);
+    const a = v.atencao.find((x) => x.chave === 'maleta_variacao');
+    expect(a?.informativo).toBe(true);
+    expect(a?.acao).toBeNull();
+    expect(a?.oQueFazer).toMatch(/quando a maleta voltar/);
+    expect(v.kpis?.atencao).toBe(0);
+  });
+
   it('§66 — oculto com possível duplicidade é atenção; publicado × publicado e resolvido não são', () => {
     const dup = (tipo: 'inconclusivo' | 'diferente', informativo = false) => ({
       tipo, decidir: tipo !== 'diferente' && !informativo, informativo, com: [], motivo: 'Pode ser o mesmo modelo de X.', proposta: null,

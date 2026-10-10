@@ -145,8 +145,48 @@ export function validarDistribuicaoAcerto(itens, devolvidas, faltas) {
   return null;
 }
 
+/** §67 — a variação das peças que VOLTARAM, conferida com a peça na mão.
+ *
+ *  `variacoes` = { [sku]: [{ variacao | varianteId, qtd }] }. Opcional para
+ *  o servidor (o painel clássico não manda); a V2 pede sempre que a maleta
+ *  tem peça daquele código sem variação informada. Quando vem, tem de
+ *  cobrir exatamente as devolvidas do código, só com variações cadastradas.
+ *  Devolve Map(sku → [{ nome, varianteId, qtd }]) ou { erro }. */
+export async function conferirVariacoesDoRetorno(db, itens, devolvidas, variacoes) {
+  const saida = new Map();
+  if (variacoes == null) return { porSku: saida };
+  if (typeof variacoes !== 'object' || Array.isArray(variacoes)) return { erro: 'Variações do retorno inválidas.' };
+  const naMaleta = new Set(itens.map((i) => i.sku));
+  for (const [sku, linhas] of Object.entries(variacoes)) {
+    if (!naMaleta.has(sku)) return { erro: `Código ${sku} não está nesta maleta.` };
+    if (!Array.isArray(linhas)) return { erro: `Variações de ${sku} inválidas.` };
+    const cadastradas = (await db.prepare(
+      'SELECT nome, variante_id FROM produto_variacoes WHERE sku = ?').bind(sku).all()).results || [];
+    const lista = [];
+    let total = 0;
+    for (const l of linhas) {
+      const qtd = Number(l?.qtd);
+      if (!Number.isInteger(qtd) || qtd < 0) return { erro: `Quantidade inválida em ${sku}.` };
+      if (!qtd) continue;
+      const vid = l.varianteId == null || l.varianteId === '' ? null : String(l.varianteId);
+      const nome = String(l.variacao ?? '').trim();
+      const v = cadastradas.find((c) => (vid && String(c.variante_id) === vid) || (nome && c.nome === nome));
+      if (!v) return { erro: `"${nome || vid}" não é uma variação cadastrada de ${sku}.` };
+      const ja = lista.find((x) => x.nome === v.nome);
+      if (ja) ja.qtd += qtd;
+      else lista.push({ nome: v.nome, varianteId: v.variante_id == null ? null : String(v.variante_id), qtd });
+      total += qtd;
+    }
+    if (total !== Number(devolvidas?.[sku] || 0)) {
+      return { erro: `Confira ${sku}: as variações informadas somam ${total}, e voltaram ${Number(devolvidas?.[sku] || 0)}.` };
+    }
+    if (lista.length) saida.set(sku, lista);
+  }
+  return { porSku: saida };
+}
+
 /** §7, §8, §9, §13 — conferência, motivo, venda gerada e resumo financeiro. */
-export async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas }) {
+export async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas, variacoes = null }) {
   const maleta = await db.prepare(`SELECT * FROM maletas WHERE id = ?`).bind(maletaId).first();
   if (!maleta) return json({ erro: 'Maleta não encontrada' }, 404);
   if (!['aberta', 'em_acerto'].includes(maleta.status)) {
@@ -161,6 +201,8 @@ export async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas }) 
   const enviadas = itens.reduce((s, i) => s + i.qtd, 0);
   const distribuicaoInvalida = validarDistribuicaoAcerto(itens, devolvidas, faltas);
   if (distribuicaoInvalida) return json({ erro: distribuicaoInvalida }, 400);
+  const retorno = await conferirVariacoesDoRetorno(db, itens, devolvidas, variacoes);
+  if (retorno.erro) return json({ erro: retorno.erro }, 400);
 
   // §24: sem preço não dá para vender nem calcular comissão — para antes de gravar
   const semPreco = [];
@@ -189,10 +231,17 @@ export async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas }) 
     if (!(q > 0)) continue;
     stmts.push(db.prepare(`UPDATE maleta_itens SET devolvida = ? WHERE maleta_id = ? AND sku = ?`)
       .bind(q, maletaId, sku));
-    stmts.push(...movimentar(db, {
-      sku, tipo: 'devolucao', quantidade: q, origem: 'acerto',
-      maletaId, revendedoraId: maleta.rev_id, obs: `${q} un. devolvidas no acerto`,
-    }));
+    /* §67 — conferida a variação, a devolução diz qual peça voltou (vale 0
+       no total: a peça nunca saiu da razão). */
+    const conferidas = retorno.porSku.get(sku);
+    for (const parte of conferidas || [{ nome: null, varianteId: null, qtd: q }]) {
+      stmts.push(...movimentar(db, {
+        sku, tipo: 'devolucao', quantidade: parte.qtd, origem: 'acerto',
+        variacao: parte.nome, varianteId: parte.varianteId,
+        maletaId, revendedoraId: maleta.rev_id,
+        obs: parte.nome ? `${parte.qtd} un. devolvidas no acerto, conferidas como "${parte.nome}"` : `${q} un. devolvidas no acerto`,
+      }));
+    }
   }
 
   const itensVenda = [];
@@ -208,6 +257,32 @@ export async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas }) 
       if (l.destino === 'vendida') {
         vendidos.push({ qtd: l.qtd, preco: item.preco_envio, desc: item.desc });
       }
+    }
+  }
+
+  /* §67 — a peça que voltou e foi conferida passa a ter variação EM CASA:
+     sai do saldo "sem variação" do código para o da variação dela (dois
+     ajustes que se anulam no total). Só o que existe sem variação, depois
+     das baixas deste mesmo acerto (que saem sem variação), pode ser
+     atribuído — nada é tirado de uma variação já conhecida. */
+  const variacoesConferidas = [];
+  for (const [sku, partes] of retorno.porSku) {
+    const semVariacao = Number((await db.prepare(
+      `SELECT COALESCE(SUM(qtd), 0) AS s FROM movimentos
+        WHERE sku = ? AND variacao IS NULL AND variante_id IS NULL`).bind(sku).first())?.s || 0);
+    const baixasDoCodigo = itensVenda.filter((it) => it.sku === sku).reduce((s, it) => s + it.qtd, 0);
+    let livre = Math.max(0, semVariacao - baixasDoCodigo);
+    for (const parte of partes) {
+      const mover = Math.min(parte.qtd, livre);
+      livre -= mover;
+      variacoesConferidas.push({ sku, variacao: parte.nome, qtd: parte.qtd, atribuidas: mover });
+      if (!mover) continue;
+      const obs = `Acerto da maleta ${maletaId}: ${mover} un. devolvida(s) conferida(s) como "${parte.nome}"`;
+      stmts.push(...movimentar(db, { sku, tipo: 'ajuste', quantidade: -mover, origem: 'acerto', maletaId, obs }));
+      stmts.push(...movimentar(db, {
+        sku, tipo: 'ajuste', quantidade: mover, origem: 'acerto', maletaId, obs,
+        variacao: parte.nome, varianteId: parte.varianteId,
+      }));
     }
   }
 
@@ -270,6 +345,7 @@ export async function encerrarAcerto(db, env, maletaId, { devolvidas, faltas }) 
     basePrata: c.basePrata, pctPrata: c.pctPrata, comissaoPrata: c.comissaoPrata,
     comissao: c.comissao, liquido: c.liquido,
     dias: maleta.aberta_em ? Math.round((Date.now() - new Date(maleta.aberta_em + 'T12:00:00')) / 86400000) : null,
+    ...(variacoesConferidas.length ? { variacoesConferidas } : {}),
   };
 
   stmts.push(db.prepare(`UPDATE maletas SET status='encerrada', encerrada_em=?, acerto_json=? WHERE id=?`)

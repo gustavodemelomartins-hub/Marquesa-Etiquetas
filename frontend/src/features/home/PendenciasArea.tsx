@@ -57,10 +57,17 @@ export interface Pendencia {
   vendaChave?: string;
 }
 
+export interface AguardandoRetorno {
+  chave: string; sku: string; produto: string; revendedora: string | null; maletaId: number;
+  data: string | null; qtd: number; variacao: string; situacao: string;
+}
+
 export interface RespostaPendencias {
   ok: true;
   resumo: { total: number; adiadas: number; porTipo: Record<string, { grupo: string; total: number }> };
   pendencias: Pendencia[];
+  /** §67 — peça com revendedora sem variação informada: estado, não tarefa. */
+  aguardandoRetorno?: { itens: AguardandoRetorno[]; codigos: number; pecas: number; regra: string };
 }
 
 interface Props {
@@ -289,7 +296,40 @@ export function PendenciasArea({ conexao, estado, aoIr, aoVoltar, aoMudarEstado 
           })}
         </>
       )}
+      {(pend.dados?.aguardandoRetorno?.itens.length ?? 0) > 0 && (
+        <AguardandoRetornoDeMaleta dados={pend.dados!.aguardandoRetorno!} />
+      )}
     </>
+  );
+}
+
+/** §67 — não é pendência: não conta no sino nem no total, não tem
+ *  "Resolver". A variação é conferida quando a maleta voltar. */
+function AguardandoRetornoDeMaleta({ dados }: { dados: NonNullable<RespostaPendencias['aguardandoRetorno']> }) {
+  const porMaleta = new Map<number, AguardandoRetorno[]>();
+  for (const i of dados.itens) porMaleta.set(i.maletaId, [...(porMaleta.get(i.maletaId) ?? []), i]);
+  return (
+    <details className="mq-card mq-card--flush mq-pend__grupo" aria-label="Aguardando retorno de maleta">
+      <summary className="mq-card__head">
+        <div>
+          <h2 className="mq-title">Aguardando retorno de maleta</h2>
+          <p className="mq-lede">
+            {dados.pecas} {dados.pecas === 1 ? 'peça' : 'peças'} em {dados.codigos} {dados.codigos === 1 ? 'código' : 'códigos'} com
+            revendedoras, sem a variação informada. Não é pendência: a variação é conferida quando a maleta voltar.
+          </p>
+        </div>
+      </summary>
+      <div className="mq-list">
+        {[...porMaleta.entries()].map(([id, itens]) => itens.map((i) => (
+          <div className="mq-list__row" key={i.chave}>
+            <div>
+              <b>Código {i.sku}</b> · {i.produto}
+              <small className="mq-hint"> · {i.qtd} {i.qtd === 1 ? 'peça' : 'peças'} · Variação: {i.variacao} · {i.situacao} · maleta {id}{i.revendedora ? ` (${i.revendedora})` : ''}</small>
+            </div>
+          </div>
+        )))}
+      </div>
+    </details>
   );
 }
 

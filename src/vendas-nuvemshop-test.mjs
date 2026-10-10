@@ -152,7 +152,10 @@ await api('PUT', '/api/config', { syncLimiteMudancas: 40 });
 console.log('\n=== 8. um SKU bloqueado não prende as vendas seguras ===');
 await api('POST', '/api/produtos/importar', { produtos: [
   { sku: 'VD-SEGURO', desc: 'Venda segura', cat: 'Brinco', preco: 50, qtd: 1 },
-  { sku: 'VD-BLOQ', desc: 'Variação ambígua na maleta', cat: 'Anel', preco: 50, qtd: 2 },
+  /* §66 — 3, não 2: com 1 vendida e 1 na maleta, 2 deixaria a casa em ZERO,
+     e zero em casa é zero na loja (não há divisão a descobrir). Com 1 em
+     casa e a maleta sem variação, o código segue de fato bloqueado. */
+  { sku: 'VD-BLOQ', desc: 'Variação ambígua na maleta', cat: 'Anel', preco: 50, qtd: 3 },
 ] });
 loja.estado.produtos.push(produtoFalso(507, [{ id: 5071, sku: 'VD-SEGURO', estoque: 1 }]));
 loja.estado.produtos.push({
@@ -160,7 +163,7 @@ loja.estado.produtos.push({
   handle: { pt: 'variacao-ambigua-na-maleta' }, published: true,
   attributes: [{ pt: 'Aro' }], images: [],
   variants: [
-    { id: 5081, sku: 'VD-BLOQ', values: [{ pt: '16' }], inventory_levels: [{ location_id: 'LOC1', stock: 1 }] },
+    { id: 5081, sku: 'VD-BLOQ', values: [{ pt: '16' }], inventory_levels: [{ location_id: 'LOC1', stock: 2 }] },
     { id: 5082, sku: 'VD-BLOQ', values: [{ pt: '18' }], inventory_levels: [{ location_id: 'LOC1', stock: 1 }] },
   ],
 });

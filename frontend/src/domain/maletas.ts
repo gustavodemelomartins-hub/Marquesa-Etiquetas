@@ -173,3 +173,13 @@ export function resumoDasRevendedoras(
       };
     });
 }
+
+/** §67 — peças de um código numa maleta cuja variação ninguém informou.
+ *  Só existe para código vendido em mais de uma variação. Não se deduz:
+ *  o inventário de casa não diz o que a revendedora levou. */
+export function semVariacaoNaMaleta(maleta: Suitcase, sku: string, produto?: Product | null): number {
+  if ((produto?.variacoes?.length ?? 0) < 2) return 0;
+  const enviadas = maleta.itens[sku] ?? 0;
+  const sabidas = (maleta.variacoes?.[sku] ?? []).reduce((s, v) => s + Number(v.qtd || 0), 0);
+  return Math.max(0, enviadas - sabidas);
+}

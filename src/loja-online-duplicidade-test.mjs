@@ -395,8 +395,9 @@ prova('reenvio real: a cautela adia, o cron puxa pedidos e corrige; o sem prova 
 assert.equal(q1('SELECT COUNT(*) n FROM movimentos').n, movAntes);
 assert.equal(q1(`SELECT COUNT(*) n FROM movimentos WHERE sku = 'M1' AND variacao IS NOT NULL`).n, 0);
 const c2 = (await api('GET', '/api/pendencias')).corpo;
-assert.ok(c2.pendencias.some((p) => p.tipo === 'maleta' && p.sku === 'M1'), 'a pergunta da maleta continua');
-prova('a razão não muda: a pergunta "qual variação a revendedora levou?" continua na Central');
+assert.ok(c2.aguardandoRetorno.itens.some((p) => p.sku === 'M1'), 'a peça da maleta continua sem variação informada');
+assert.ok(!c2.pendencias.some((p) => p.tipo === 'maleta'), '§67: não é tarefa até a maleta voltar');
+prova('a razão não muda: a peça da maleta segue "aguardando retorno" (§67), fora das pendências');
 
 console.log('\n=== 11. o que nunca muda ===');
 assert.ok(razaoFecha());

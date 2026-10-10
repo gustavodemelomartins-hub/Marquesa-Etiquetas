@@ -392,6 +392,28 @@
       "duration": "<15s"
     },
     {
+      "id": "maleta-aguardando-retorno",
+      "level": "domain",
+      "mode": "local",
+      "description": "Maleta (§67): peça com revendedora sem variação informada vira 'aguardando retorno' (fora do total e do sino), o total não perde peça, a loja só recebe a casa provada, o acerto confere a variação das devolvidas e nada é deduzido",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/maleta-aguardando-retorno-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node 22.5+ (node:sqlite)"
+      ],
+      "duration": "<15s"
+    },
+    {
       "id": "inventario-d1-leitura",
       "level": "domain",
       "mode": "local",
