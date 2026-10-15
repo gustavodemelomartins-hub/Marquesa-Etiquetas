@@ -103,6 +103,29 @@ for (const cmd of ['cat api/.dev.vars', 'type .env', 'head backups/prod.sql']) {
 t('arquivo example é público', decisao('cat api/.dev.vars.example'), 'allow');
 t('documentar comando não executa comando', decisao("cat > docs/x.md <<'EOF'\nnpx wrangler deploy\nEOF"), 'allow');
 
+console.log('\n6b. O prefixo do RTK não esconde o comando de verdade');
+/* O RTK (proxy de saída) reescreve `git status` para `rtk git status`, e o
+   próprio agente é instruído a usar `rtk proxy <cmd>`. O nome do comando
+   passa a ser `rtk`: a trava precisa olhar o que vem depois. */
+for (const cmd of [
+  'rtk proxy cat api/.dev.vars',
+  'rtk read backups/prod.sql',
+  'rtk err head .env',
+  'rtk run "cat api/.dev.vars"',
+]) t(cmd, decisao(cmd), 'deny');
+for (const cmd of [
+  'rtk git push --force origin main',
+  'rtk proxy git reset --hard HEAD~3',
+  'rtk proxy npx wrangler d1 delete marquesa-db-prod',
+  'rtk npx wrangler d1 execute marquesa-db-prod --remote --command "SELECT 1"',
+  'rtk summary npx wrangler deploy',
+  'rtk test git push origin main',
+  "rtk run 'git push --force origin main'",
+  'timeout 60 rtk proxy npx wrangler deploy',
+]) t(cmd, decisao(cmd), 'ask');
+t('rtk sobre leitura inofensiva continua livre', decisao('rtk git status --short'), 'allow');
+t('rtk read de arquivo comum continua livre', decisao('rtk read api/src/index.js'), 'allow');
+
 console.log('\n7. O freeze é um estado, não uma regra costurada no código');
 {
   /* Um repositório de mentira com a mesma declaração de ambientes e a

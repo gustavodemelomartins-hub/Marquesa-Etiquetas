@@ -47,7 +47,9 @@ function semEnvelope(cmd) {
     const anterior = atual;
     atual = atual
       .replace(/\b(?:ba|z|da|k)?sh\s+-[a-z]*c\s+(['"])([\s\S]*?)\1/g, ' ; $2 ; ')
-      .replace(/\beval\s+(['"])([\s\S]*?)\1/g, ' ; $2 ; ');
+      .replace(/\beval\s+(['"])([\s\S]*?)\1/g, ' ; $2 ; ')
+      /* `rtk run "<cmd>"` executa via sh -c: é um envelope como os acima. */
+      .replace(/\brtk\s+run\s+(['"])([\s\S]*?)\1/g, ' ; $2 ; ');
     if (atual === anterior) break;
   }
   return atual;
@@ -60,11 +62,16 @@ function segmentos(cmd) {
     .filter(Boolean)
     .map((seg) => {
       const partes = seg.split(/\s+/).filter((t) => !/^\w+=/.test(t));
+      /* O RTK (proxy de saída) prefixa o comando real: `rtk git push`,
+         `rtk proxy cat`, `rtk npx wrangler`. `rtk read` é um `cat`. */
+      const depoisDoRtk = (j) => j > 0 && partes[j - 1].replace(/^.*[\\/]/, '') === 'rtk';
       let i = 0;
       while (i < partes.length
-        && (/^(sudo|env|npx|pnpm|yarn|bunx|time|timeout|nohup|stdbuf|command|xargs|nice)$/.test(partes[i])
+        && (/^(sudo|env|npx|pnpm|yarn|bunx|time|timeout|nohup|stdbuf|command|xargs|nice|rtk)$/.test(partes[i].replace(/^.*[\\/]/, ''))
+          || (depoisDoRtk(i) && /^(proxy|run|err|test|summary)$/.test(partes[i]))
           || (i > 0 && /^(-|\d+[smhd]?)$/.test(partes[i])))) i += 1;
-      return [(partes[i] ?? '').replace(/^.*[\\/]/, ''), seg];
+      const nome = (partes[i] ?? '').replace(/^.*[\\/]/, '');
+      return [depoisDoRtk(i) && nome === 'read' ? 'cat' : nome, seg];
     });
 }
 
