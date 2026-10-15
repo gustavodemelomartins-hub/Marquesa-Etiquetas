@@ -4,7 +4,7 @@ compatibility_date = "2026-08-01"
 
 # go-live 2026-08-22: banco novo, carregado a partir do DEV congelado
 # (772 produtos, 1.171 movimentos, 10 vendas, 4 maletas abertas/382 peças —
-# ver docs/PLANO-MESTRE-MARQUESA.md § go-live). `marquesa-db` antigo
+# ver docs/archive/PLANO-MESTRE-MARQUESA.md § go-live). `marquesa-db` antigo
 # (089153a9-cee5-4887-b789-a23b1cf419f5) fica intacto como rollback; não é
 # mais o alvo do binding raiz.
 [[d1_databases]]
@@ -42,10 +42,38 @@ ORIGENS_PERMITIDAS = "https://gustavodemelomartins-hub.github.io"
 # Não é segredo — não autoriza nada sozinha, só destrava o método HTTP.
 NUVEMSHOP_WRITES_ENABLED = "true"
 
+# Publicação de catálogo na Nuvemshop (api/src/catalogo/publicador.js) —
+# criar produto, atualizar ficha, publicar e despublicar.
+#
+# DELIBERADAMENTE NÃO DECLARADA. Ausente vale como desligada, então a
+# publicação está travada em todo ambiente, inclusive aqui.
+#
+# Por que uma SEGUNDA trava, se já existe a linha acima: porque a de cima
+# está em "true" e precisa continuar — o empurrão de estoque depende dela.
+# Empurrar estoque para um produto que já existe e CRIAR um produto na loja
+# são atos de tamanhos diferentes, e uma trava só não os separa. Com esta
+# linha ausente, preparar e aprovar continuam funcionando normalmente; o
+# único passo travado é a escrita externa.
+#
+# Ligar é decisão humana explícita e release próprio, depois de uma rodada
+# seca (POST /api/catalogo/publicacao/rodada, que já é seca por padrão)
+# mostrando exatamente o que subiria:
+#     NUVEMSHOP_PUBLICACAO_ENABLED = "true"
+
+# Fotos próprias das peças (binding R2 `FOTOS`) — ver o bloco comentado no
+# topo deste arquivo. A Fase 4.5 deixou o código pronto para receber o
+# binding sem mudar comportamento: sem ele, upload e preparo de imagem
+# recusam com `bloqueio: "sem_r2"`, que é diferente de erro, e nenhuma peça
+# fica presa por causa disso. Habilitar continua sendo decisão humana:
+#     wrangler r2 bucket create marquesa-fotos
+#     [[r2_buckets]]
+#     binding = "FOTOS"
+#     bucket_name = "marquesa-fotos"
+
 # Produtos Montáveis / "Monte seu Colar" (api/REGRAS.md §42) — parado antes de
 # fechar SKU comercial x base x componentes, base trocável, Ouro 18k/Prata
 # 925 e o estorno de troca. Retomada prevista 2026-09-07 — ver
-# SESSION_CLOSE_2026-09-06.md § Retomar amanhã.
+# docs/releases/SESSION_CLOSE_2026-09-06.md § Retomar amanhã.
 # Fail-closed como a linha acima: só "true" exato liga. `api/src/index.js` e
 # `api/src/personalizacao.js` recusam com 503 enquanto isto não for "true";
 # nenhuma rota normal de venda depende desta linha.
@@ -54,7 +82,7 @@ PERSONALIZACAO_ATIVA = "false"
 # Sincronização automática com a Nuvemshop.
 #
 # DESLIGADA EM 2026-08-22, na Fase 0 do go-live. Autorizado explicitamente.
-# Ver docs/PLANO-MESTRE-MARQUESA.md § 7.3 Fase 0 e § Risco R1.
+# Ver docs/archive/PLANO-MESTRE-MARQUESA.md § 7.3 Fase 0 e § Risco R1.
 #
 # O motivo: enquanto a operação real acontece no ambiente DEV, este Worker
 # ficou com um catálogo que não sabe de nenhuma venda feita lá. O cron faz
@@ -96,7 +124,7 @@ database_name = "marquesa-db-dev"
 database_id = "dcc36f65-daaa-42a4-9fbd-15e6f27e4d4b"
 
 # Fotos do ambiente DEV: bucket próprio, nunca o de produção
-# (marquesa-fotos). Criado à parte — ver docs/DEVELOPMENT.md § Ambiente DEV.
+# (marquesa-fotos). Criado à parte — ver docs/operations/DEVELOPMENT.md § Ambiente DEV.
 [[env.staging.r2_buckets]]
 binding = "FOTOS"
 bucket_name = "marquesa-fotos-dev"
@@ -116,7 +144,7 @@ NUVEMSHOP_WRITES_ENABLED = "false"
 
 # DEV é descartável e é onde o trabalho de Produtos Montáveis continua amanhã
 # — ligado aqui, ao contrário da produção, para o checklist manual
-# (MONTE_SEU_COLAR_CHECKLIST.md) continuar testável sem passo extra.
+# (docs/testing/MONTE_SEU_COLAR_CHECKLIST.md) continuar testável sem passo extra.
 PERSONALIZACAO_ATIVA = "true"
 #
 # Sem cron nenhum no DEV. Uma sincronização automática de madrugada, num

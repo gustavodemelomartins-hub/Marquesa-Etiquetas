@@ -50,9 +50,11 @@
  *  `visaoGeral` soma `garantia_trocas.diferenca_valor_pago` e passa a somar
  *  só as trocas SEM `venda_id` — as antigas, de antes desta regra.
  */
-import { movimentar, saldosDoSku, componentesDoKit } from './estoque.js';
+import { movimentar, saldosDoSku, componentesDoKit, semSaldoProprio } from './estoque.js';
 import { carregarFeriados, prazoDaGarantia, somarDiasUteis } from './dias-uteis.js';
 import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
+import { parametros } from './plataforma/d1.js';
+import { normSku } from './sku.js';
 
 const STATUS = new Set(['em_reparo', 'reparada', 'devolvida', 'sem_conserto', 'concluida', 'cancelada']);
 /** Os que ainda pedem alguma coisa de alguém. São estes que o Painel mostra;
@@ -174,7 +176,7 @@ export async function abrirGarantia(db, corpo = {}) {
   } else if (corpo.vendaId != null && corpo.sku) {
     base = await itemOperacional(db, {
       vendaId: Number(corpo.vendaId),
-      sku: String(corpo.sku).trim().toUpperCase(),
+      sku: normSku(corpo.sku),
       varianteId: corpo.varianteId == null || corpo.varianteId === '' ? null : String(corpo.varianteId),
     });
   } else {
@@ -314,7 +316,7 @@ export async function registrarTroca(db, id, corpo = {}) {
     return { ok: false, statusHttp: 409, erro: `Garantia em "${ROTULO_STATUS[g.status]}" não troca peça.` };
   }
 
-  const skuNovo = String(corpo.skuNovo ?? '').trim().toUpperCase();
+  const skuNovo = normSku(corpo.skuNovo);
   if (!skuNovo) return { ok: false, statusHttp: 400, erro: 'Escolha a peça nova.' };
 
   const data = corpo.data ? String(corpo.data).trim() : hojeISO();
@@ -323,8 +325,15 @@ export async function registrarTroca(db, id, corpo = {}) {
 
   const s = await saldosDoSku(db, skuNovo);
   if (!s) return { ok: false, statusHttp: 400, erro: `Código ${skuNovo} não está no catálogo.`, sku: skuNovo };
-  if ((await componentesDoKit(db, skuNovo)).length) {
-    return { ok: false, statusHttp: 409, erro: `${s.desc} é um kit — troque por uma peça avulsa.`, sku: skuNovo };
+  /* Nem kit nem configuração montável: a troca movimenta o SKU trocado, e
+     nenhum dos dois tem saldo próprio para movimentar. */
+  if (semSaldoProprio(s) || (await componentesDoKit(db, skuNovo)).length) {
+    return {
+      ok: false, statusHttp: 409, sku: skuNovo,
+      erro: s.montagem
+        ? `${s.desc} é uma configuração montável — troque por uma peça avulsa.`
+        : `${s.desc} é um kit — troque por uma peça avulsa.`,
+    };
   }
   if (s.disponivel < 1) {
     return { ok: false, statusHttp: 409, erro: `${s.desc}: não há peça disponível para a troca.`, sku: skuNovo };
@@ -737,7 +746,7 @@ export async function garantiasDaCliente(db, { clienteId = null, norm = null } =
 export async function garantiasPendentes(db, { limite = 50 } = {}) {
   const { results } = await db.prepare(
     `SELECT id FROM garantias
-      WHERE status IN (${PENDENTES.map(() => '?').join(', ')})
+      WHERE status IN (${parametros(PENDENTES.length)})
       ORDER BY data_entrada ASC, id ASC LIMIT ?`,
   ).bind(...PENDENTES, limite).all();
   const feriados = await carregarFeriados(db);

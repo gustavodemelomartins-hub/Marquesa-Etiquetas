@@ -74,10 +74,10 @@ O código é em português. Traduções que evitam busca errada:
 
 | Pergunta | Documento |
 |---|---|
-| Que tabelas existem e por quê | [docs/DATA_MODEL.md](../../../docs/DATA_MODEL.md) |
-| Como as peças se encaixam | [docs/ARCHITECTURE.md](../../../docs/ARCHITECTURE.md) |
+| Que tabelas existem e por quê | [docs/architecture/DATA_MODEL.md](../../../docs/architecture/DATA_MODEL.md) |
+| Como as peças se encaixam | [docs/architecture/ARCHITECTURE.md](../../../docs/architecture/ARCHITECTURE.md) |
 | Nuvemshop | skill `marquesa-sync` |
-| O que cada teste prova | [docs/TESTING.md](../../../docs/TESTING.md) |
+| O que cada teste prova | [docs/testing/TESTING.md](../../../docs/testing/TESTING.md) |
 
 ## Como trabalhar com estas regras
 

@@ -40,6 +40,18 @@ import { normalizarNomeCliente } from './vendas-historico-normalizar.js';
  * "porque o nome começa com Brinde" é auditável; "confiança 0,87" não é. */
 const PADROES = [
   {
+    classe: 'sorteio', confianca: 'alta',
+    campo: 'nome',
+    teste: (t) => /^sorteio\b/.test(t),
+    porque: 'o nome registra explicitamente que a peça foi destinada a sorteio',
+  },
+  {
+    classe: 'sorteio', confianca: 'alta',
+    campo: 'observacao',
+    teste: (t) => /\bsorteio\b/.test(t),
+    porque: 'a observação registra explicitamente que a peça foi destinada a sorteio',
+  },
+  {
     classe: 'brinde', confianca: 'alta',
     campo: 'nome',
     teste: (t) => /^brinde\b/.test(t) || /\bbrinde\s+(de|do|da|dia|festa)\b/.test(t),
@@ -215,7 +227,7 @@ export async function analisarHistoricoNaoVenda(db, { nomesUsoProprio = [], limi
     });
   }
 
-  const porClasse = { brinde: 0, uso_proprio: 0, perda: 0 };
+  const porClasse = { brinde: 0, uso_proprio: 0, perda: 0, sorteio: 0 };
   const porConfianca = { alta: 0, media: 0, baixa: 0 };
   let valorEnvolvido = 0;
   let valorJaFora = 0;
@@ -272,7 +284,7 @@ export async function aplicarReclassificacao(db, { decisoes = [], usuario = null
   if (!Array.isArray(decisoes) || !decisoes.length) {
     return { ok: false, statusHttp: 400, erro: 'Nenhuma decisão para aplicar.' };
   }
-  const CLASSES = new Set(['brinde', 'uso_proprio', 'perda']);
+  const CLASSES = new Set(['brinde', 'uso_proprio', 'perda', 'sorteio']);
 
   const aplicadas = [];
   const recusadas = [];

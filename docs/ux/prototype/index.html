@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Entrada central do protótipo navegável do Sistema Marquesa V2" />
+    <title>Sistema Marquesa V2 · Protótipo</title>
+    <link rel="stylesheet" href="prototype.css?v=20260915" />
+  </head>
+  <body>
+    <header class="hub-header">
+      <a href="index.html" class="hub-brand" aria-label="Sistema Marquesa V2">
+        <img src="../01-brand/logo_sistema-marquesa_preta-transparente.png" alt="Marquesa Semijoias" />
+      </a>
+      <div class="hub-profile"><span>GM</span><div><strong>Gustavo</strong><small>Revisão do protótipo</small></div></div>
+    </header>
+
+    <main>
+      <section class="hub-hero">
+        <div>
+          <p class="eyebrow">Prototype hub · cobertura do produto</p>
+          <h1>Sistema Marquesa V2</h1>
+          <p>Navegue pelo desenho real de cada área. O protótipo usa dados demonstrativos e não altera o sistema em produção.</p>
+        </div>
+        <aside aria-label="Resumo da cobertura">
+          <strong>12</strong><span>áreas navegáveis</span>
+          <small>Todas as famílias disponíveis para revisão</small>
+        </aside>
+      </section>
+
+      <section class="hub-progress" aria-labelledby="coverage-title">
+        <div class="section-title"><div><p class="eyebrow">Camada 1</p><h2 id="coverage-title">Cobertura visual</h2></div><div class="hub-links"><a href="design-system.html">Ver design system</a><a href="../07-mapping/product-screen-inventory-v2.md">Abrir inventário</a></div></div>
+        <div class="progress-track" aria-label="Doze das doze famílias já navegáveis"><span style="width:100%"></span></div>
+        <div class="progress-legend"><span><i class="ready"></i>Pronta para revisão</span><span><i class="working"></i>Em andamento</span><span><i></i>Não iniciada</span></div>
+      </section>
+
+      <section class="architecture-strip" aria-labelledby="architecture-title">
+        <div><p class="eyebrow">Navegação proposta</p><h2 id="architecture-title">Uma entrada simples para a operação</h2><p>O hub continua mostrando toda a cobertura do protótipo. No produto, as áreas se organizam em seis entradas principais.</p></div>
+        <nav aria-label="Arquitetura principal"><a href="../03-screens/dashboard/master.html">Home</a><a href="../03-screens/vendas/master.html">Vendas</a><a href="../03-screens/vendas/master.html#clientes">Clientes</a><a href="../03-screens/estoque/master.html">Estoque</a><a href="../03-screens/revendedoras/master.html">Revendedoras</a><span>Mais <small>Financeiro · Garantias · Etiquetas · Nuvemshop</small></span></nav>
+      </section>
+
+      <section class="area-grid" aria-label="Áreas do Sistema Marquesa">
+        <a class="area-card ready" href="../03-screens/vendas/master.html">
+          <span class="area-icon">↗</span><span class="status">Pronta para revisão</span>
+          <h2>Vendas</h2><p>Painel, lançamentos, Venda normal, Monte seu Colar e Saída sem faturamento.</p><strong>Abrir Vendas <span>→</span></strong>
+        </a>
+        <a class="area-card ready" href="../03-screens/estoque/master.html">
+          <span class="area-icon">◇</span><span class="status">Pronta para revisão</span>
+          <h2>Estoque</h2><p>Visão geral, distribuição, inventário, divergências e produtos.</p><strong>Abrir Estoque <span>→</span></strong>
+        </a>
+        <a class="area-card ready" id="clientes" href="../03-screens/vendas/master.html#clientes"><span class="area-icon">○</span><span class="status">Pronta para revisão</span><h2>Clientes</h2><p>Lista, perfil, cadastro, histórico e relacionamento financeiro.</p><strong>Abrir Clientes <span>→</span></strong></a>
+        <a class="area-card ready" id="financeiro" href="../03-screens/financeiro/master.html"><span class="area-icon">R$</span><span class="status">Pronta para revisão</span><h2>Financeiro</h2><p>A receber, registro de recebimentos, correções e histórico.</p><strong>Abrir Financeiro <span>→</span></strong></a>
+        <a class="area-card ready" id="garantias" href="../03-screens/reparos/master.html"><span class="area-icon">✧</span><span class="status">Pronta para revisão</span><h2>Garantias e reparos</h2><p>Casos, prazos, eventos, consertos, trocas e devoluções.</p><strong>Abrir Garantias <span>→</span></strong></a>
+        <a class="area-card ready" id="revendedoras" href="../03-screens/revendedoras/master.html"><span class="area-icon">♙</span><span class="status">Pronta para revisão</span><h2>Revendedoras</h2><p>Visão geral, perfis, maletas, consignação e acertos.</p><strong>Abrir Revendedoras <span>→</span></strong></a>
+        <a class="area-card ready" id="catalogo" href="../03-screens/catalogo/master.html"><span class="area-icon">□</span><span class="status">Pronta para revisão</span><h2>Catálogo</h2><p>Produtos, galeria, conteúdo, aprovação e publicação.</p><strong>Abrir Catálogo <span>→</span></strong></a>
+        <a class="area-card ready" id="etiquetas" href="../03-screens/etiquetas/master.html"><span class="area-icon">◇</span><span class="status">Pronta para revisão</span><h2>Etiquetas</h2><p>Preparação, revisão da folha, impressão e histórico.</p><strong>Abrir Etiquetas <span>→</span></strong></a>
+        <a class="area-card ready" id="nuvemshop" href="../03-screens/nuvemshop/master.html"><span class="area-icon">N</span><span class="status">Pronta para revisão</span><h2>Nuvemshop</h2><p>Produtos na loja, fila de publicação, aprovação, sincronização e divergências.</p><strong>Abrir Nuvemshop <span>→</span></strong></a>
+        <a class="area-card ready" id="dashboard" href="../03-screens/dashboard/master.html"><span class="area-icon">⌂</span><span class="status">Pronta para revisão</span><h2>Home</h2><p>Resumo da operação, prioridades, atalhos e movimento do dia.</p><strong>Abrir Home <span>→</span></strong></a>
+        <a class="area-card ready" id="notificacoes" href="../03-screens/notificacoes/master.html"><span class="area-icon">!</span><span class="status">Pronta para revisão</span><h2>Notificações</h2><p>Central de alertas, prioridades, leitura e destinos.</p><strong>Abrir Notificações <span>→</span></strong></a>
+        <a class="area-card ready" id="configuracoes" href="../03-screens/configuracoes/master.html"><span class="area-icon">⚙</span><span class="status">Pronta para revisão</span><h2>Perfil e configurações</h2><p>Conta, permissões, preferências e conexão do sistema.</p><strong>Abrir Configurações <span>→</span></strong></a>
+      </section>
+
+      <p class="hub-footnote"><a href="../03-screens/nuvemshop/publicar.html">Revisar Publicar na Nuvemshop →</a></p><p class="hub-footnote">Estado do protótipo em 16/09/2026 · aprovação visual pertence ao Gustavo · nenhuma tela desta entrada grava dados reais.</p>
+    </main>
+  </body>
+</html>

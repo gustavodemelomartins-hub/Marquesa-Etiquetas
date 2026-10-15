@@ -14,6 +14,7 @@ const FAIXAS_PADRAO = [
 import { resumoInventario } from './inventario.js';
 import { resumoSync } from './sync.js';
 import { assinarFoto } from './assinatura.js';
+import { normSku } from './sku.js';
 
 export async function montarState(db, env) {
   const [produtosR, revR, maletasR, itensR, configR, lojaR, catR, kitsR,
@@ -84,7 +85,7 @@ export async function montarState(db, env) {
       if (!fotoLojaPorSku.has(f.sku_norm)) fotoLojaPorSku.set(f.sku_norm, f.url);
     }
   } catch (e) { /* migração pendente: segue sem a foto da vitrine */ }
-  const chaveFoto = (sku) => String(sku == null ? '' : sku).trim().toUpperCase();
+  const chaveFoto = (sku) => normSku(sku);
 
   const saldoVar = new Map(saldoVarR.results.map(r => [`${r.sku}|${r.variacao}`, r.saldo]));
   const variacoesPorSku = new Map();

@@ -17,7 +17,7 @@
  *    node src/d1-uso-audit.mjs --semear    só semeia e sai
  *    node src/d1-uso-audit.mjs --medir     só mede (banco já semeado)
  *
- *  O tamanho semeado sai de docs/PLANO-MESTRE-MARQUESA.md § go-live e dos
+ *  O tamanho semeado sai de docs/archive/PLANO-MESTRE-MARQUESA.md § go-live e dos
  *  números que o próprio painel mostra hoje:
  *    772 produtos · 1.171 movimentos · 343 clientes · 4 maletas abertas com
  *    382 peças · 25 meses de histórico · ~1.375 vendas históricas.

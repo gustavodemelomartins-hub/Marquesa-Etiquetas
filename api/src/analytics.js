@@ -52,6 +52,7 @@ import { personalizacoesDeVendas } from './personalizacao.js';
    ontem não estava em lugar nenhum do Painel. */
 import { contasAReceber } from './contas-receber.js';
 import { garantiasDaCliente, garantiasPendentes } from './garantias.js';
+import { consultarEmLotes } from './plataforma/d1.js';
 
 const PERIODOS = new Set(['7d', '30d', '90d', '12m', 'tudo']);
 
@@ -112,7 +113,7 @@ const DATA_FATURAMENTO_HISTORICO = `CASE
   WHEN ho.cobranca_status = 'paga' AND ho.paga_em IS NOT NULL THEN date(ho.paga_em)
   ELSE vh.data END`;
 
-/* §30 — a linha histórica reclassificada como brinde, uso próprio ou perda
+/* §30 — a linha histórica reclassificada como brinde, uso próprio, perda ou sorteio
    deixa de ser venda. A venda inteira sai do CTE quando NENHUM item dela
    continua sendo venda; sobrando um item comercial, ela fica (e os itens
    reclassificados saem por `FILTRO_ITEM_HISTORICO`).
@@ -250,7 +251,7 @@ export const FILTRO_ITEM_HISTORICO = `
     SELECT 1 FROM json_each(COALESCE(ho.linhas_excluidas_json, '[]')) ex
      WHERE CAST(ex.value AS TEXT)=CAST(h.origem_linha AS TEXT)
   )
-  /* §30: o item reclassificado como brinde, uso próprio ou perda deixa de
+  /* §30: o item reclassificado como brinde, uso próprio, perda ou sorteio deixa de
      ser venda. Sai daqui pelo mesmo mecanismo que a linha excluída por uma
      operação histórica já saía — a linha da planilha continua no banco,
      intacta; o que muda é só a soma que a alcança. */
@@ -415,7 +416,7 @@ export async function visaoGeral(db, { periodo = 'tudo' } = {}) {
       regraAgrupamento: REGRA_DESCRITA,
       regraFaturamento: 'faturamento é recortado pela DATA DO PAGAMENTO; '
         + 'contagem de vendas, peças e clientes, pela data da venda. '
-        + 'Brinde, uso próprio e perda não entram em nenhum dos dois.',
+        + 'Brinde, uso próprio, perda e sorteio não entram em nenhum dos dois.',
     },
   };
 }
@@ -603,10 +604,13 @@ async function fichasDoCatalogo(db, chaves) {
   const unicas = [...new Set((chaves ?? []).filter((c) => c != null))];
   const fichas = new Map();
   if (!unicas.length) return fichas;
-  const qs = unicas.map(() => '?').join(',');
-  const { results } = await db.prepare(
+  /* Em lotes porque o D1 limita quantos parâmetros uma consulta aceita, e
+     `GET /api/analytics/produtos?limite=200` chega aqui com 200 códigos.
+     Sem a quebra essa chamada respondia 500. Não há `ORDER BY`: o consumo
+     é por chave, e cada código está em um lote só. */
+  const results = await consultarEmLotes(db, unicas, (qs) =>
     `SELECT sku, desc, cat, foto_original_key, foto_tratada_key, foto_url
-       FROM produtos WHERE UPPER(sku) IN (${qs})`).bind(...unicas).all();
+       FROM produtos WHERE UPPER(sku) IN (${qs})`);
   for (const p of results ?? []) {
     const k = String(p.sku ?? '').toUpperCase();
     if (!fichas.has(k)) fichas.set(k, p);
@@ -1384,7 +1388,7 @@ export async function painel(db, { periodo = 'tudo' } = {}) {
       porTipo: Object.fromEntries((saidasMes.results ?? [])
         .map((r) => [r.tipo, { pecas: Number(r.pecas ?? 0), lancamentos: Number(r.lancamentos ?? 0) }])),
       pecas: (saidasMes.results ?? []).reduce((s2, r) => s2 + Number(r.pecas ?? 0), 0),
-      regra: 'brinde, uso próprio e diferença de inventário saem do estoque e '
+      regra: 'brinde, uso próprio, diferença de inventário e sorteio saem do estoque e '
         + 'não entram em faturamento, ticket médio, peças vendidas nem no ranking de clientes.',
     },
     contasReceber,

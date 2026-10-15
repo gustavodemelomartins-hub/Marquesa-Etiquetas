@@ -1,20 +1,21 @@
 /** Chave única compartilhada — não é um sistema de contas, é uma senha de
  *  acesso ao painel. Proporcional a uma ferramenta interna de uma pessoa só;
- *  não confundir com autenticação de verdade se este projeto crescer. */
-/** Remove um BOM (U+FEFF) do início, se houver. `wrangler secret put`
- *  rodado no Windows às vezes grava o segredo com esse caractere na
- *  frente — artefato de como o Wrangler lê o stdin nesse ambiente, não do
- *  valor que a pessoa digitou. Sem isto, um secret gravado assim nunca
- *  bate com a chave que a pessoa cola no painel, e o erro parece "chave
- *  errada" quando na verdade é "byte invisível a mais". */
-function semBom(s) {
-  return s && s.charCodeAt(0) === 0xfeff ? s.slice(1) : s;
-}
+ *  não confundir com autenticação de verdade se este projeto crescer.
+ *
+ *  A normalização do valor (inclusive o BOM que o `wrangler secret put`
+ *  grava no Windows) mora em plataforma/config.js — um lugar só, para que
+ *  nenhum módulo leia o mesmo segredo de um jeito diferente. */
+import { lerConfig } from './plataforma/config.js';
 
 export function checarChave(req, env) {
   const auth = req.headers.get('Authorization') || '';
   const chave = auth.replace(/^Bearer\s+/i, '').trim();
-  const apiKey = semBom(String(env.API_KEY || ''));
+  /* Fail-closed: sem chave no servidor, NADA passa. O 401 daqui é o mesmo
+     para "não mandou chave", "mandou a errada" e "o servidor não tem chave
+     configurada" — de propósito: quem ainda não provou quem é não recebe
+     diagnóstico da configuração do servidor. Esse caso aparece no log, via
+     registrarBloqueios. */
+  const apiKey = lerConfig(env).api.chave;
   return chave && apiKey && chave === apiKey;
 }
 
@@ -33,8 +34,7 @@ export function json(data, status = 200) {
  *  ORIGENS_PERMITIDAS é uma lista separada por vírgula; sem ela, libera
  *  geral — aceitável apenas em desenvolvimento local. */
 export function corsHeaders(req, env) {
-  const permitidas = String((env && env.ORIGENS_PERMITIDAS) || '')
-    .split(',').map(s => s.trim()).filter(Boolean);
+  const permitidas = lerConfig(env || {}).cors.origensPermitidas;
   const origem = (req && req.headers.get('Origin')) || '';
   const permitir = permitidas.length
     ? (permitidas.includes(origem) ? origem : permitidas[0])

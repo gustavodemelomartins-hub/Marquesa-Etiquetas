@@ -216,6 +216,27 @@ console.log('\n=== E. uso próprio tem o mesmo efeito financeiro do brinde ===')
   eq('uso próprio não pode SOMAR peça', entrada.status, 400);
 }
 
+console.log('\n=== E.2 sorteio reduz estoque e não vira venda ===');
+{
+  const antes = await api('GET', '/api/analytics/vendas?periodo=tudo');
+  const s0 = await saldo(P('GIFT'));
+  const r = await api('POST', '/api/saidas', {
+    tipo: 'sorteio', sku: P('GIFT'), qtd: 1, motivo: 'Sorteio de aniversário',
+  });
+  eq('sorteio registrado', r.status, 201);
+  eq('sorteio reduz estoque em uma peça', await saldo(P('GIFT')), s0 - 1);
+  eq('sorteio declara faturamento zero', r.corpo.faturamento, 0);
+  eq('sorteio não cria venda', r.corpo.criouVenda, false);
+
+  const depois = await api('GET', '/api/analytics/vendas?periodo=tudo');
+  eq('faturamento permanece igual', depois.corpo.faturamento, antes.corpo.faturamento);
+  eq('vendas permanecem iguais', depois.corpo.vendas, antes.corpo.vendas);
+
+  const lista = await api('GET', '/api/saidas?tipo=sorteio');
+  eq('filtro retorna a categoria sorteio', lista.corpo.saidas.length, 1);
+  eq('resumo contabiliza a peça sorteada', lista.corpo.resumo.sorteio, 1);
+}
+
 /* ══════════════════════════════════════════════════════════════ CENÁRIO F
    Perda de inventário: ajusta estoque, faturamento zero. */
 console.log('\n=== F. diferença de inventário ajusta estoque e não fatura ===');

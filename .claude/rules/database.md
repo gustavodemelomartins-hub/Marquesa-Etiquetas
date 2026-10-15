@@ -44,4 +44,4 @@ wrangler d1 delete · apagar histórico ou recurso
 3. divergência encontrada é **mostrada**, nunca corrigida por palpite —
    ver `.claude/rules/business-rules.md` § Nunca chute.
 
-Modelo: [docs/DATA_MODEL.md](../../docs/DATA_MODEL.md).
+Modelo: [docs/architecture/DATA_MODEL.md](../../docs/architecture/DATA_MODEL.md).

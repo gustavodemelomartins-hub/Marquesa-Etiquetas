@@ -32,7 +32,7 @@ de editar.
   coluna na importação, chave `marquesa_etiquetas_v1` no localStorage — veio
   linha a linha do original. Mexer numa e não na outra faz as duas
   divergirem em silêncio.
-- **Nunca abra `src/dashboard.tpl.html` inteiro** (3.802 linhas). `grep -n`
+- **Nunca abra `src/dashboard.tpl.html` inteiro** (13.948 linhas). `grep -n`
   para achar, `sed -n 'a,bp'` para ler a faixa.
 - Mexeu no legado sem rodar `python src/build.py` = mudança que não chega
   ao usuário.
@@ -51,4 +51,4 @@ estoque. Não reordene para trás.
 | Tela que tem teste de navegador | a skill `ui-verification` (Playwright), não inspeção humana |
 | Pendências, cadastro, lixeira da peça, etiquetas | `node src/fase2-telas-test.mjs` (as 18 provas da FASE 2) |
 
-Detalhe de arquitetura: [docs/FRONTEND_ARCHITECTURE.md](../../docs/FRONTEND_ARCHITECTURE.md).
+Detalhe de arquitetura: [docs/architecture/FRONTEND_ARCHITECTURE.md](../../docs/architecture/FRONTEND_ARCHITECTURE.md).

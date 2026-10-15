@@ -34,7 +34,7 @@ estoque físico faz uma venda no site ser desfeita na rodada seguinte.
   "tamanho ou cor";
 - campos traduzíveis vêm como `{pt: "…"}` em loja multi-idioma.
 
-Detalhe completo: [docs/NUVEMSHOP_INTEGRATION.md](../../../docs/NUVEMSHOP_INTEGRATION.md)
+Detalhe completo: [docs/domains/NUVEMSHOP_INTEGRATION.md](../../../docs/domains/NUVEMSHOP_INTEGRATION.md)
 
 ## 3. O fluxo de pedidos
 
@@ -104,7 +104,7 @@ node src/variacoes-test.mjs   # 48 asserções
 ```
 
 Os dois rodam contra `src/loja-falsa.mjs`, uma Nuvemshop de mentira local.
-Nenhuma chamada sai. Ver [docs/TESTING.md](../../../docs/TESTING.md).
+Nenhuma chamada sai. Ver [docs/testing/TESTING.md](../../../docs/testing/TESTING.md).
 
 E confira a razão: `GET /api/estoque/conferir` tem de voltar vazio.
 

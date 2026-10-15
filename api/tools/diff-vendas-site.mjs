@@ -1,6 +1,6 @@
 /** Compara as vendas de origem 'site' dos dois bancos, por `externo_id`.
  *
- *  É o Risco R3 do docs/PLANO-MESTRE-MARQUESA.md, em forma de ferramenta.
+ *  É o Risco R3 do docs/archive/PLANO-MESTRE-MARQUESA.md, em forma de ferramenta.
  *
  *  As duas bases divergiram sem que ninguém decidisse isso: a Sthefany
  *  operou no DEV, enquanto o cron de produção continuou puxando pedidos da

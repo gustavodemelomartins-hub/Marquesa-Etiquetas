@@ -86,7 +86,7 @@ As três lacunas são o motivo de a sequência acima existir.
 2. Leia `index.js › importarProdutos` inteira (é curta).
 3. Rode `src/import-total-test.mjs` se estiver num ambiente que suporta
    Playwright — hoje o Windows não suporta, ver
-   [docs/TESTING.md](../../../docs/TESTING.md).
+   [docs/testing/TESTING.md](../../../docs/testing/TESTING.md).
 4. Se for construir a prévia: o formato de diff da sincronização
    (`relato.mudancas` com `{sku, desc, de, para, zera}`) já existe e já é
    exibido pela tela. Reaproveite em vez de inventar um segundo.
@@ -94,7 +94,7 @@ As três lacunas são o motivo de a sequência acima existir.
 ## Importação real em produção é Classe C
 
 Escreve em massa. Exige backup do D1 antes — ver
-[docs/BACKUP_RECOVERY.md](../../../docs/BACKUP_RECOVERY.md) — além de preview,
+[docs/operations/BACKUP_RECOVERY.md](../../../docs/operations/BACKUP_RECOVERY.md) — além de preview,
 limites, rollback e validação posterior. Quando a tarefa autoriza a importação
 e o diff não contém ambiguidade, o agente pode concluir a Classe C. Resolver
 conflito de peça física por palpite continua Classe D:
@@ -102,6 +102,6 @@ conflito de peça física por palpite continua Classe D:
 
 ## Para onde isto vai
 
-[docs/ROADMAP_RECONCILIATION.md](../../../docs/ROADMAP_RECONCILIATION.md),
+[docs/domains/ROADMAP_RECONCILIATION.md](../../../docs/domains/ROADMAP_RECONCILIATION.md),
 item 2. A prévia da importação e a prévia da sincronização são o mesmo
 problema e merecem o mesmo motor.

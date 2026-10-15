@@ -70,6 +70,44 @@ const MIGRACOES = [
   /* Também aditiva e independente: `venda_itens` existe desde o schema
      original, e as três colunas só descrevem o preço que já era gravado. */
   'api/migracao-venda-desconto.sql',
+  /* Daqui para baixo: as 22 migrations que o repositório tinha e que esta
+     lista nunca exercitou. Até 11/09/2026 o teste rodava só as oito acima, e
+     o `schema.sql` daquela época correspondia a elas. Quando a refatoração
+     consolidou o schema inteiro (4.4, 4.5, montagem, garantias, histórico de
+     operações, saídas, pagamento), a comparação passou a comparar coisas
+     diferentes. Corrigir a lista foi mais honesto do que encolher o schema.
+
+     A ordem NÃO é alfabética: foi obtida aplicando cada arquivo sobre um
+     banco reconstruído do zero e mantendo só o que subia limpo, até todas
+     entrarem. Duas dependências que ela codifica, e que quebram em silêncio
+     se alguém reordenar por estética:
+       · `migracao-montagem-slots.sql` precisa de `personalizacao_modelos`,
+         que quem cria é `migracao-pos-golive-1.sql`;
+       · `migracao-inventario-4-4.sql` precisa vir DEPOIS de
+         `migracao-sorteio-saida-sem-faturamento.sql` — invertido, o
+         `idx_saida_inventario_unica` se perde no caminho. */
+  'api/migracao-catalogo-4-5.sql',
+  'api/migracao-catalogo.sql',
+  'api/migracao-foto-url.sql',
+  'api/migracao-garantias.sql',
+  'api/migracao-historico-operacoes.sql',
+  'api/migracao-idempotencia-reconciliacao.sql',
+  'api/migracao-inventario.sql',
+  'api/migracao-kits.sql',
+  'api/migracao-publicacao-catalogo.sql',
+  'api/migracao-catalogo-4-5-publicacao.sql',
+  'api/migracao-reconciliacao.sql',
+  'api/migracao-saidas-sem-faturamento.sql',
+  'api/migracao-sorteio-saida-sem-faturamento.sql',
+  'api/migracao-inventario-4-4.sql',
+  'api/migracao-sync-seco.sql',
+  'api/migracao-sync.sql',
+  'api/migracao-variacoes.sql',
+  'api/migracao-vendas-cliente-ambiguo.sql',
+  'api/migracao-vendas-pagamento.sql',
+  'api/migracao-pos-golive-1.sql',
+  'api/migracao-montagem-slots.sql',
+  'api/migracao-pacote-2.sql',
 ];
 
 /** O SQLite do Node aceita várias instruções de uma vez, mas engasga com
@@ -123,11 +161,26 @@ const antesMovimentos = velho.prepare(`SELECT COUNT(*) n FROM movimentos`).get()
 const antesVariacoes = velho.prepare(`SELECT COUNT(*) n FROM produto_variacoes`).get().n;
 
 for (const arq of MIGRACOES) {
-  aplicar(velho, readFileSync(join(raiz, arq), 'utf8'));
+  /* Várias destas são aditivas e idempotentes: reclamam de coluna duplicada
+     quando a coluna já veio do schema anterior. Isso é sucesso, não falha —
+     a mesma ressalva que o cenário 8 documenta. */
+  aplicar(velho, readFileSync(join(raiz, arq), 'utf8'), { tolerarColunaDuplicada: true });
   ok('roda contra o banco antigo sem erro', arq.replace('api/', ''));
 }
 
-eq('nenhum produto se perdeu', velho.prepare(`SELECT COUNT(*) n FROM produtos`).get().n, antesProdutos);
+/* A invariante é "nada se perdeu", não "a contagem não mudou": desde
+   `migracao-pacote-2.sql` uma migration SEMEIA legitimamente o SKU de recibo
+   `MONTE-COLAR` (qtd 0, inativo — não é peça física). Contar igualdade
+   confundiria semeadura com perda. O que se cobra é: o produto que já estava
+   lá continua lá, a contagem nunca diminuiu, e o único acréscimo é o que
+   está nomeado aqui. */
+const SEMEADOS_POR_MIGRATION = ['MONTE-COLAR'];
+const produtosDepois = velho.prepare(`SELECT sku FROM produtos ORDER BY sku`).all().map(r => r.sku);
+eq('o produto que já existia continua lá', produtosDepois.includes('ANTIGO'), 'true');
+eq('nenhum produto se perdeu', produtosDepois.length >= antesProdutos, 'true');
+eq('e o que entrou foi só a semeadura nomeada',
+  produtosDepois.filter((sku) => sku !== 'ANTIGO').join(','),
+  SEMEADOS_POR_MIGRATION.join(','));
 eq('nenhum movimento se perdeu', velho.prepare(`SELECT COUNT(*) n FROM movimentos`).get().n, antesMovimentos);
 eq('nenhuma variação se perdeu', velho.prepare(`SELECT COUNT(*) n FROM produto_variacoes`).get().n, antesVariacoes);
 eq('o variante_id que já existia continua lá',
@@ -147,17 +200,52 @@ eq('produtos.qtd == SUM(movimentos.qtd) em todo SKU', divergentes, 0);
 console.log('\n=== 4. os dois caminhos chegam ao MESMO banco ===');
 /* O que este teste existe para pegar: schema e migration divergindo em
    silêncio. Quem cria do zero e quem migra têm de terminar iguais. */
-const tabelasNovo = objetos(novo, 'table').join(',');
-const tabelasVelho = objetos(velho, 'table').join(',');
-eq('as mesmas tabelas', tabelasVelho, tabelasNovo);
+/* DIVERGÊNCIA CONHECIDA, e deliberadamente não escondida.
+ *
+ * `migracao-pos-golive-1.sql` cria objetos que nunca foram escritos de volta
+ * em `api/schema.sql`. Consequência prática: um banco criado do zero pelo
+ * schema NÃO tem estas coisas, e um banco migrado (que é o caso de produção
+ * e do DEV) tem. A divergência é anterior a 11/09/2026 — ela só ficou
+ * invisível enquanto `migracao-pos-golive-1.sql` estava fora da lista acima.
+ *
+ * Fechar isso mexe em `schema.sql`, o que é mudança de banco e tem gate
+ * próprio (`safe-d1-change`). Está registrado como tarefa; até lá, o teste
+ * subtrai EXATAMENTE estes nomes e mais nenhum. Se a lista crescer, encolher
+ * ou mudar, o teste falha — que é o ponto. */
+const SO_NO_MIGRADO = {
+  tabelas: ['maleta_item_variacoes', 'venda_item_correcoes'],
+  indices: ['idx_maleta_itens_sku', 'idx_mitem_var_maleta', 'idx_mitem_var_sku',
+            'idx_produtos_desc', 'idx_vic_data', 'idx_vic_hist', 'idx_vic_venda'],
+};
+const SO_NO_SCHEMA = { tabelas: [], indices: [] };
+
+const semExcecoes = (lista, fora) => lista.filter((n) => !fora.includes(n));
+
+const tabelasNovo = semExcecoes(objetos(novo, 'table'), SO_NO_SCHEMA.tabelas).join(',');
+const tabelasVelho = semExcecoes(objetos(velho, 'table'), SO_NO_MIGRADO.tabelas).join(',');
+eq('as mesmas tabelas, tirando as divergências conhecidas', tabelasVelho, tabelasNovo);
+
+/* E as exceções são conferidas, não só ignoradas: cada nome tem de estar
+   mesmo onde a lista diz que está. Exceção que deixou de existir é exceção
+   que precisa sair da lista. */
+for (const t of SO_NO_MIGRADO.tabelas) {
+  eq(`divergência conhecida: ${t} só existe no banco migrado`,
+    objetos(velho, 'table').includes(t) && !objetos(novo, 'table').includes(t), 'true');
+}
+for (const i of SO_NO_SCHEMA.indices) {
+  eq(`divergência conhecida: ${i} só existe no schema`,
+    objetos(novo, 'index').includes(i) && !objetos(velho, 'index').includes(i), 'true');
+}
 
 for (const t of ['produtos', 'movimentos', 'produto_variacoes', 'loja_variantes', 'sku_reservas']) {
   eq(`as mesmas colunas em ${t}`, colunas(velho, t).join(','), colunas(novo, t).join(','));
 }
 
-const idxNovo = objetos(novo, 'index').filter(n => n.startsWith('idx_')).join(',');
-const idxVelho = objetos(velho, 'index').filter(n => n.startsWith('idx_')).join(',');
-eq('os mesmos índices', idxVelho, idxNovo);
+const idxNovo = semExcecoes(
+  objetos(novo, 'index').filter((n) => n.startsWith('idx_')), SO_NO_SCHEMA.indices).join(',');
+const idxVelho = semExcecoes(
+  objetos(velho, 'index').filter((n) => n.startsWith('idx_')), SO_NO_MIGRADO.indices).join(',');
+eq('os mesmos índices, tirando as divergências conhecidas', idxVelho, idxNovo);
 
 console.log('\n=== 5. os índices que seguram as invariantes continuam de pé ===');
 for (const db of [['novo', novo], ['migrado', velho]]) {
@@ -201,7 +289,9 @@ console.log('\n=== 8. rodar a migration duas vezes é inofensivo (com uma ressal
 const erro = aplicar(velho, readFileSync(join(raiz, MIGRACOES[0]), 'utf8'),
   { tolerarColunaDuplicada: true });
 eq('a segunda rodada só reclama de coluna duplicada', /duplicate column name/i.test(erro || ''), 'true');
-eq('e o banco continua íntegro', velho.prepare(`SELECT COUNT(*) n FROM produtos`).get().n, antesProdutos);
+eq('e o banco continua íntegro',
+  velho.prepare(`SELECT COUNT(*) n FROM produtos`).get().n,
+  antesProdutos + SEMEADOS_POR_MIGRATION.length);
 
 novo.close(); velho.close();
 rmSync(dir, { recursive: true, force: true });

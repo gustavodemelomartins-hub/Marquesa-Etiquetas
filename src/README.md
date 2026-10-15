@@ -98,7 +98,7 @@ e não é. O `.dev.vars.example` já traz a linha pronta.
 
 > **O script só roda em Linux e macOS** — ele usa `setsid` e um `pkill` que
 > não alcançam o Wrangler no Windows. Lá o ciclo é feito à mão, e está
-> escrito passo a passo em [docs/TESTING.md](../docs/TESTING.md).
+> escrito passo a passo em [docs/testing/TESTING.md](../docs/testing/TESTING.md).
 
 ### Catálogo: importar em lote sem travar
 

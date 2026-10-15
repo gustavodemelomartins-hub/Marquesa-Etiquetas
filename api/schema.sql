@@ -17,19 +17,47 @@
 CREATE TABLE IF NOT EXISTS categorias (
   nome   TEXT PRIMARY KEY,
   ordem  INTEGER NOT NULL DEFAULT 0,
-  cor    TEXT
+  cor    TEXT,
+  -- A identidade ESTÁVEL, que sobrevive ao nome (Fase 4.5). A PK continua
+  -- sendo `nome` porque `produtos.cat` é FK dela e trocar isso exigiria
+  -- reconstruir as duas tabelas; `id` é o que permite renomear sem perder a
+  -- categoria de vista.
+  id     TEXT,
+  slug   TEXT,
+  -- A forma canônica: "Colar", "colar" e "Colar " são a mesma categoria.
+  -- Plural não é normalizado — "Colares" continua sendo outra coisa.
+  nome_norm TEXT,
+  -- 1 = não é categoria, é o estado "sem categoria". Existe porque
+  -- `produtos.cat` é NOT NULL. Antes disto, 'Outros' acumulava os dois
+  -- sentidos e uma peça legitimamente "Outros" ficava incompleta para sempre.
+  sentinela    INTEGER NOT NULL DEFAULT 0,
+  arquivada_em TEXT,
+  -- Para onde as peças foram quando duas categorias viraram uma. Nenhum
+  -- código escreve isto ainda: mesclar é decisão comercial.
+  sucessora_id TEXT,
+  criada_em    TEXT
 );
+-- O banco garantindo o que o código promete: um id vivo por categoria, um
+-- nome vivo por forma canônica. Parciais para a linha arquivada sair do
+-- caminho durante o rename e para um nome aposentado poder ser reusado.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_categorias_id_viva
+  ON categorias(id) WHERE arquivada_em IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_categorias_nome_viva
+  ON categorias(nome_norm) WHERE arquivada_em IS NULL;
 
-INSERT OR IGNORE INTO categorias (nome, ordem, cor) VALUES
-  ('Colar',     1, '#C2426B'),
-  ('Brinco',    2, '#C4802A'),
-  ('Pulseira',  3, '#0D9382'),
-  ('Berloque',  4, '#6A54B5'),
-  ('Anel',      5, '#D8646B'),
-  ('Argola',    6, '#3D77C4'),
-  ('Pingente',  7, '#5C8A34'),
-  ('Conjunto',  8, '#A15BA0'),
-  ('Outros',    9, '#9E8A90');
+INSERT OR IGNORE INTO categorias (nome, ordem, cor, id, slug, nome_norm, sentinela, criada_em) VALUES
+  ('Colar',     1, '#C2426B', 'colar',     'colar',     'colar',     0, datetime('now')),
+  ('Brinco',    2, '#C4802A', 'brinco',    'brinco',    'brinco',    0, datetime('now')),
+  ('Pulseira',  3, '#0D9382', 'pulseira',  'pulseira',  'pulseira',  0, datetime('now')),
+  ('Berloque',  4, '#6A54B5', 'berloque',  'berloque',  'berloque',  0, datetime('now')),
+  ('Anel',      5, '#D8646B', 'anel',      'anel',      'anel',      0, datetime('now')),
+  ('Argola',    6, '#3D77C4', 'argola',    'argola',    'argola',    0, datetime('now')),
+  ('Pingente',  7, '#5C8A34', 'pingente',  'pingente',  'pingente',  0, datetime('now')),
+  ('Conjunto',  8, '#A15BA0', 'conjunto',  'conjunto',  'conjunto',  0, datetime('now')),
+  -- Categoria REAL, e só isso. Deixou de ser código para ausência na Fase 4.5.
+  ('Outros',    9, '#9E8A90', 'outros',    'outros',    'outros',    0, datetime('now')),
+  -- A ausência, com nome próprio.
+  ('Sem categoria', 99, NULL, 'sem-categoria', 'sem-categoria', 'sem categoria', 1, datetime('now'));
 
 -- ----------------------------------------------------------------- produtos
 -- qtd é saldo MATERIALIZADO do estoque total. A verdade é a tabela
@@ -79,14 +107,35 @@ CREATE TABLE IF NOT EXISTS produtos (
   -- existir, ela é que vale — ver migracao-foto-url.sql.
   foto_url            TEXT,
   foto_url_em         TEXT,
+  -- Duas perguntas que o modelo antigo não separava (Fase 4.5):
+  --   origem_cadastro  de onde este cadastro VEIO? — fato histórico, imutável
+  --   autoridade       quem manda nele HOJE?       — decisão, pode migrar
+  -- Sem a separação, "veio da loja" era lido como "a loja manda nele", que é
+  -- exatamente o que deixou de ser verdade. NULL nos dois é "não sabemos", e
+  -- é o estado certo para as peças que já existiam.
+  origem_cadastro     TEXT,                      -- loja | planilha | marquesa
+  autoridade          TEXT,                      -- marquesa | loja
+  -- O id do produto NA NUVEMSHOP. Antes existia só por caminho indireto
+  -- (loja_variantes.produto_id), e peça sem variante espelhada não tinha como
+  -- ser endereçada lá.
+  produto_id_loja     TEXT,
   atualizado_em  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE INDEX IF NOT EXISTS idx_produtos_produto_loja ON produtos(produto_id_loja);
 
 -- -------------------------------- preparação/publicação do catálogo (P4)
 CREATE TABLE IF NOT EXISTS catalogo_publicacoes (
   sku TEXT PRIMARY KEY REFERENCES produtos(sku),
-  estado TEXT NOT NULL DEFAULT 'em_preparacao_agente'
-    CHECK (estado IN ('em_preparacao_agente','aguardando_aprovacao','aprovado_para_publicar','publicado','falhou_ao_publicar')),
+  -- Fase 4.5: o CHECK deixou de mentir. `publicado` e `falhou_ao_publicar`
+  -- estavam aqui sem nenhum caminho de código que os escrevesse; agora há
+  -- writer real (catalogo/publicador.js), e entraram os estados que faltavam
+  -- para o pipeline ser representável de ponta a ponta.
+  -- `falta_informacao` NÃO está aqui de propósito: ele é calculado pelo juiz
+  -- de completude e nunca persistido.
+  estado TEXT NOT NULL DEFAULT 'em_preparacao'
+    CHECK (estado IN ('em_preparacao','preparado','aguardando_aprovacao',
+                      'aprovado_para_publicar','publicando','publicado',
+                      'falhou_ao_publicar','despublicado')),
   nome_site TEXT,
   descricao_site TEXT,
   seo_titulo TEXT,
@@ -99,6 +148,12 @@ CREATE TABLE IF NOT EXISTS catalogo_publicacoes (
   aprovado_em TEXT,
   aprovado_por TEXT,
   publicado_em TEXT,
+  -- O que o writer de publicação precisa para ser idempotente, e para
+  -- "despublicado" ser um ato registrado em vez da ausência de url_loja.
+  publicando_em    TEXT,
+  despublicado_em  TEXT,
+  despublicado_por TEXT,
+  produto_id_loja  TEXT,
   atualizado_em TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_catalogo_publicacoes_estado ON catalogo_publicacoes(estado);
@@ -131,6 +186,150 @@ CREATE TABLE IF NOT EXISTS fotos_orfas (
   produto_id  TEXT,
   visto_em    TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ═══════════════════════════════════ FASE 4.5 · A GALERIA PRÓPRIA DA PEÇA
+--
+-- Antes: DUAS imagens por peça, em colunas de `produtos` — uma original e
+-- uma tratada, ambas com chave determinística no R2. Trocar a foto
+-- SOBRESCREVIA o objeto. Três coisas eram impossíveis: ter mais de uma
+-- foto, dizer qual é a principal, e manter o original depois de preparar.
+--
+-- Agora a foto é LINHA, e cada linha carrega as suas versões. O original
+-- nunca é sobrescrito: a chave passa a incluir o id da foto, então "trocar"
+-- é criar outra linha, e a anterior continua existindo até alguém mandar
+-- apagá-la.
+--
+-- As colunas `produtos.foto_*` NÃO são removidas e continuam válidas — elas
+-- são o que o painel legado lê hoje, e derrubá-las exigiria reconstruir
+-- `produtos`.
+CREATE TABLE IF NOT EXISTS produto_fotos (
+  id            TEXT PRIMARY KEY,                       -- uuid; entra na chave do R2
+  sku           TEXT NOT NULL REFERENCES produtos(sku),
+  -- A ordem da galeria é DADO, não a ordem em que as linhas foram inseridas.
+  -- Quem exibe não deveria precisar saber como a lista foi lida.
+  ordem         INTEGER NOT NULL DEFAULT 0,
+  principal     INTEGER NOT NULL DEFAULT 0,
+  -- upload | lote | nuvemshop | adocao — de onde esta imagem entrou aqui.
+  origem        TEXT NOT NULL DEFAULT 'upload',
+  -- O nome do arquivo como veio, preservado para a auditoria do lote poder
+  -- responder "de qual arquivo saiu esta foto?" sem adivinhação.
+  arquivo_nome  TEXT,
+  lote_id       TEXT,
+  -- Impressão digital dos bytes, para o mesmo arquivo não entrar duas vezes.
+  conteudo_hash TEXT,
+  -- ORIGINAL — o que a Sthefany fotografou. Nunca sobrescrito.
+  original_key  TEXT,
+  original_tipo TEXT,
+  original_tam  INTEGER,
+  original_em   TEXT,
+  -- PREPARADA — fundo branco, corte, o que o preparo produzir. Escrever esta
+  -- versão não encosta na de cima: é o ponto do desenho que garante que
+  -- preparar nunca perde o original.
+  preparada_key  TEXT,
+  preparada_tipo TEXT,
+  preparada_tam  INTEGER,
+  preparada_em   TEXT,
+  -- APROVADA — a humana olhou e disse que serve.
+  aprovada_em   TEXT,
+  aprovada_por  TEXT,
+  -- PUBLICADA — chegou à vitrine, e sabemos com que id lá.
+  publicada_em    TEXT,
+  imagem_id_loja  TEXT,
+  -- Quando a imagem é da loja e os bytes ainda não são nossos. É referência,
+  -- não posse — o mesmo papel de `produtos.foto_url`, agora por foto.
+  url_externa   TEXT,
+  -- original | preparada | aprovada | publicada. É o estado DA IMAGEM, e não
+  -- se confunde com o estado da publicação da peça.
+  estado        TEXT NOT NULL DEFAULT 'original'
+    CHECK (estado IN ('original','preparada','aprovada','publicada')),
+  erro          TEXT,
+  criado_em     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_produto_fotos_sku ON produto_fotos(sku, ordem);
+-- UMA principal por peça, garantida pelo banco e não pela disciplina de
+-- quem escreve. Índice parcial: as linhas com principal = 0 convivem à
+-- vontade, e duas principais no mesmo SKU passam a ser impossíveis.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_produto_fotos_principal
+  ON produto_fotos(sku) WHERE principal = 1;
+-- O mesmo arquivo não entra duas vezes no mesmo código.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_produto_fotos_conteudo
+  ON produto_fotos(sku, conteudo_hash) WHERE conteudo_hash IS NOT NULL;
+
+-- ═══════════════════════════════════════════════ FASE 4.5 · LOTE DE FOTOS
+--
+-- Muitas fotos de uma vez, casadas pelo NOME DO ARQUIVO. O lote existe como
+-- tabela — e não como resposta de uma chamada — por uma razão só: ele
+-- ANALISA antes de confirmar. A pessoa vê o casamento, e só então autoriza.
+--
+-- E um arquivo ruim nunca derruba o lote inteiro: ele vira linha com o
+-- motivo, e os outros seguem.
+CREATE TABLE IF NOT EXISTS fotos_lotes (
+  id          TEXT PRIMARY KEY,
+  estado      TEXT NOT NULL DEFAULT 'analisado'
+    CHECK (estado IN ('analisado','confirmado','cancelado')),
+  criado_em   TEXT NOT NULL DEFAULT (datetime('now')),
+  criado_por  TEXT,
+  confirmado_em TEXT,
+  arquivos    INTEGER NOT NULL DEFAULT 0,
+  vinculados  INTEGER NOT NULL DEFAULT 0,
+  pendentes   INTEGER NOT NULL DEFAULT 0,
+  erros       INTEGER NOT NULL DEFAULT 0,
+  resumo_json TEXT
+);
+
+CREATE TABLE IF NOT EXISTS fotos_lote_itens (
+  lote_id      TEXT NOT NULL REFERENCES fotos_lotes(id),
+  arquivo      TEXT NOT NULL,
+  -- O que o nome do arquivo sugeriu, e o que o catálogo confirmou. Os dois
+  -- ficam: quando não casa, saber o que foi tentado é metade do diagnóstico.
+  sku_extraido TEXT,
+  sku_casado   TEXT,
+  -- vinculado | multiplas | sku_nao_encontrado | nome_ambiguo |
+  -- nome_invalido | duplicado | erro_upload
+  situacao     TEXT NOT NULL,
+  detalhe      TEXT,
+  foto_id      TEXT,
+  ordem_no_sku INTEGER,
+  PRIMARY KEY (lote_id, arquivo)
+);
+CREATE INDEX IF NOT EXISTS idx_fotos_lote_itens_sit ON fotos_lote_itens(lote_id, situacao);
+
+-- ═══════════════════ FASE 4.5 · TAREFA DE PREPARAÇÃO DE CONTEÚDO
+--
+-- A fronteira que o ERP não atravessa. Ele abre a tarefa e recebe o
+-- resultado; QUEM prepara é problema de fora.
+--
+-- `executor` é rótulo livre de propósito ('humano', 'assistido',
+-- 'servico:<nome>'). Nenhuma coluna, nenhum CHECK e nenhuma consulta deste
+-- banco menciona fornecedor nenhum — hoje o executor é humano-assistido e
+-- amanhã pode ser uma API, sem que o domínio do catálogo precise mudar.
+CREATE TABLE IF NOT EXISTS preparacao_tarefas (
+  id            TEXT PRIMARY KEY,
+  sku           TEXT NOT NULL REFERENCES produtos(sku),
+  estado        TEXT NOT NULL DEFAULT 'pendente'
+    CHECK (estado IN ('pendente','entregue','concluida','falhou','cancelada')),
+  -- Quais campos foram pedidos: nome_site, descricao_site, seo_titulo,
+  -- seo_descricao. Lista, não colunas, porque o que se pede vai mudar.
+  campos_json   TEXT NOT NULL DEFAULT '[]',
+  -- O retrato da peça no momento em que a tarefa foi aberta. Serve para o
+  -- executor trabalhar sem precisar de outra leitura e para a revisão
+  -- humana ver o que ele viu.
+  contexto_json TEXT,
+  resultado_json TEXT,
+  executor      TEXT,
+  entregue_em   TEXT,
+  concluida_em  TEXT,
+  erro          TEXT,
+  tentativas    INTEGER NOT NULL DEFAULT 0,
+  criado_em     TEXT NOT NULL DEFAULT (datetime('now')),
+  atualizado_em TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_preparacao_estado ON preparacao_tarefas(estado, criado_em);
+-- Uma tarefa ABERTA por peça. Fechadas convivem — o histórico é o que
+-- explica por que o texto é o que é.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_preparacao_aberta
+  ON preparacao_tarefas(sku) WHERE estado IN ('pendente','entregue');
+
 
 -- ------------------------------------------------------------- movimentos
 -- §18/§19: responde "por que o estoque deste SKU mudou?".
@@ -450,8 +649,17 @@ CREATE TABLE IF NOT EXISTS personalizacao_modelos (
   id        INTEGER PRIMARY KEY AUTOINCREMENT,
   slug      TEXT NOT NULL UNIQUE,
   nome      TEXT NOT NULL,
+  -- o SKU comercial da configuração (326660 = Colar Casal). É a identidade
+  -- que aparece na venda; ele NÃO tem saldo físico próprio, e a
+  -- disponibilidade dele é derivada dos componentes.
+  sku_comercial TEXT REFERENCES produtos(sku),
+  -- quantas posições ao todo. Sempre iguais e sempre = SUM(slots.qtd): a
+  -- faixa existia para a composição livre, que foi encerrada em 10/09/2026.
   slots_min INTEGER NOT NULL DEFAULT 1 CHECK (slots_min > 0),
   slots_max INTEGER NOT NULL DEFAULT 1 CHECK (slots_max > 0),
+  -- a base física obrigatória (a Veneziana), uma por montagem. NÃO é
+  -- sugestão: a decisão de 10/09/2026 revogou a troca de base, e a venda
+  -- recusa um `baseSku` diferente deste.
   base_sku_padrao TEXT REFERENCES produtos(sku),
   preco_sugerido REAL,
   ativo     INTEGER NOT NULL DEFAULT 1,
@@ -460,6 +668,22 @@ CREATE TABLE IF NOT EXISTS personalizacao_modelos (
   criado_em TEXT NOT NULL DEFAULT (datetime('now')),
   CHECK (slots_max >= slots_min)
 );
+
+-- Quantos slots de cada grupo a configuração tem. É o que `slots_min`/
+-- `slots_max` não conseguem dizer: Casal (1 Menino + 1 Menina) e Duas
+-- Meninas (2 Menina) são ambos "2 posições".
+--
+-- Uma linha por (configuração, grupo), e não por posição: as posições do
+-- mesmo grupo são intercambiáveis — repetir a mesma cor é permitido
+-- (decisão de 10/09/2026) —, então "2 Menino" é a informação inteira.
+CREATE TABLE IF NOT EXISTS personalizacao_slots (
+  modelo_id INTEGER NOT NULL REFERENCES personalizacao_modelos(id),
+  grupo     TEXT    NOT NULL,             -- 'Menino' | 'Menina'
+  qtd       INTEGER NOT NULL CHECK (qtd > 0),
+  ordem     INTEGER NOT NULL DEFAULT 0,   -- em que ordem a tela pergunta
+  PRIMARY KEY (modelo_id, grupo)
+);
+CREATE INDEX IF NOT EXISTS idx_pers_slots_modelo ON personalizacao_slots(modelo_id);
 
 CREATE TABLE IF NOT EXISTS personalizacao_opcoes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -525,13 +749,23 @@ CREATE TABLE IF NOT EXISTS inventarios (
   iniciado_em        TEXT NOT NULL DEFAULT (datetime('now')),
   concluido_em       TEXT,
   desconhecidos_json TEXT,
-  obs                TEXT
+  obs                TEXT,
+  -- Fase 4.4 (D1) — a contagem é pausável e pode durar dias. Pausar não muda
+  -- mais nada: a contagem já está no banco desde o primeiro bipe. `status`
+  -- continua 'aberto' enquanto pausado, de propósito — é o que mantém o
+  -- dashboard legado retomando a contagem sem alteração nenhuma, e o que
+  -- impede abrir um segundo inventário por cima do que está parado.
+  pausado_em         TEXT
 );
 
 -- `esperado` é congelado no fechamento, do mesmo jeito que maleta_itens
 -- congela o preço do envio (§6.1). Sem isso, abrir um inventário de três
 -- meses atrás mostraria a diferença contra o estoque de HOJE — e um
 -- inventário que muda de resultado depois de fechado não serve para nada.
+-- HISTÓRICA a partir da Fase 4.4. Nenhuma escrita nova entra aqui: a chave
+-- primária (inventario_id, sku) não comporta variação, e mudá-la em SQLite
+-- exigiria reconstruir a tabela. Os inventários já fechados continuam sendo
+-- lidos daqui, e continuam certos.
 CREATE TABLE IF NOT EXISTS inventario_itens (
   inventario_id INTEGER NOT NULL REFERENCES inventarios(id),
   sku           TEXT NOT NULL REFERENCES produtos(sku),
@@ -540,6 +774,66 @@ CREATE TABLE IF NOT EXISTS inventario_itens (
   ajustado      INTEGER NOT NULL DEFAULT 0,         -- 1 = já virou movimento
   PRIMARY KEY (inventario_id, sku)
 );
+
+-- ─────────────────── Fase 4.4 — a contagem VIVA, por variação (D1, D2, D4)
+--
+-- Existe linha = foi contado. Não existe linha = NÃO foi contado. É esta
+-- ausência que implementa "não contado nunca é zero": o silêncio nunca é
+-- lido como zero, nem no fechamento, nem no relatório, nem na aplicação.
+-- Zero exige gesto explícito, e vira uma linha com `contado = 0`.
+--
+-- Notas por coluna e motivação completa em
+-- `api/migracao-inventario-4-4.sql`; os dois precisam continuar idênticos.
+CREATE TABLE IF NOT EXISTS inventario_contagem (
+  inventario_id INTEGER NOT NULL REFERENCES inventarios(id),
+  sku           TEXT    NOT NULL REFERENCES produtos(sku),
+  -- '' é o SKU sem variação. NOT NULL com default '' porque a coluna entra na
+  -- chave primária, e NULL em chave primária não compara com NULL.
+  variacao      TEXT    NOT NULL DEFAULT '',
+  variante_id   TEXT,
+  contado       INTEGER NOT NULL CHECK (contado >= 0),
+  -- É contra esta hora que os movimentos posteriores são lidos, na comparação
+  -- retroagida: contar na segunda, vender na quarta e fechar na sexta não é
+  -- divergência nenhuma, e o sistema tem de saber disso.
+  contado_em    TEXT    NOT NULL DEFAULT (datetime('now')),
+  origem        TEXT,                               -- bipagem | digitado
+  PRIMARY KEY (inventario_id, sku, variacao)
+);
+
+-- "Não sei qual variação é" é resposta válida, e nunca vira movimento. Ela
+-- bloqueia o SKU inteiro na aplicação e diz por quê. Regra 2 do CLAUDE.md com
+-- um lugar para morar: não sabe qual aro saiu, não escreve.
+CREATE TABLE IF NOT EXISTS inventario_nao_identificado (
+  inventario_id INTEGER NOT NULL REFERENCES inventarios(id),
+  sku           TEXT    NOT NULL REFERENCES produtos(sku),
+  qtd           INTEGER NOT NULL CHECK (qtd > 0),
+  contado_em    TEXT    NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (inventario_id, sku)
+);
+
+-- O retrato CONGELADO do fechamento, por variação — mesmo motivo do §6.1, que
+-- já congelava o esperado: inventário que muda de resultado depois de fechado
+-- não prova nada. A aplicação da diferença relê DAQUI e ignora qualquer
+-- quantidade enviada pelo cliente.
+CREATE TABLE IF NOT EXISTS inventario_resultado (
+  inventario_id INTEGER NOT NULL REFERENCES inventarios(id),
+  sku           TEXT    NOT NULL REFERENCES produtos(sku),
+  variacao      TEXT    NOT NULL DEFAULT '',
+  variante_id   TEXT,
+  contado       INTEGER,                       -- NULL = não conferido
+  esperado      INTEGER NOT NULL,              -- o saldo comparável, já retroagido
+  delta_pos     INTEGER NOT NULL DEFAULT 0,    -- movimentos entre contar e fechar
+  dif           INTEGER,                       -- NULL quando não comparável
+  -- conferido | faltando | sobrando | nao_conferido | nao_comparavel
+  situacao      TEXT    NOT NULL,
+  motivo        TEXT,                          -- por extenso quando nao_comparavel
+  aplicado_em   TEXT,
+  saida_id      INTEGER REFERENCES saidas_sem_faturamento(id),
+  PRIMARY KEY (inventario_id, sku, variacao)
+);
+
+CREATE INDEX IF NOT EXISTS idx_inv_contagem  ON inventario_contagem(inventario_id);
+CREATE INDEX IF NOT EXISTS idx_inv_resultado ON inventario_resultado(inventario_id);
 
 -- ------------------------------------------------------- reconciliação
 -- Prévia, revisão humana e aplicação do aprovado — ver
@@ -1073,11 +1367,12 @@ CREATE TABLE IF NOT EXISTS saidas_sem_faturamento (
   -- brinde       Dia das Mães, festa junina, ação promocional
   -- uso_proprio  retirada pessoal (a própria Sthefany)
   -- perda        diferença de inventário, peça perdida, quebra sem venda
-  tipo      TEXT NOT NULL CHECK (tipo IN ('brinde', 'uso_proprio', 'perda')),
+  -- sorteio      peça destinada a uma ação de sorteio
+  tipo      TEXT NOT NULL CHECK (tipo IN ('brinde', 'uso_proprio', 'perda', 'sorteio')),
 
   -- Diferença de inventário pode ser para os DOIS lados. `saida` baixa,
-  -- `entrada` devolve — e a segunda só existe para `perda`, porque brinde
-  -- e uso próprio nunca somam peça. A trava está no CHECK lá embaixo.
+  -- `entrada` devolve — e a segunda só existe para `perda`, porque brinde,
+  -- uso próprio e sorteio nunca somam peça. A trava está no CHECK lá embaixo.
   sentido   TEXT NOT NULL DEFAULT 'saida' CHECK (sentido IN ('saida', 'entrada')),
 
   data      TEXT NOT NULL,                       -- YYYY-MM-DD, o dia do fato
@@ -1120,6 +1415,13 @@ CREATE TABLE IF NOT EXISTS saidas_sem_faturamento (
                   CHECK (origem_registro IN ('manual', 'migracao_historico')),
   historico_item_id INTEGER REFERENCES vendas_historico_itens(id),
 
+  -- ─── Fase 4.4 (D8) — a diferença de inventário tem dono estrutural
+  -- Antes, o vínculo entre a saída e o inventário que a explicou era a frase
+  -- do `obs`. Texto livre não sustenta índice, relatório nem estorno. Aqui a
+  -- diferença aponta para a contagem física que a gerou, e o índice único
+  -- lá embaixo é o que impede aplicá-la duas vezes.
+  inventario_id INTEGER REFERENCES inventarios(id),
+
   criado_em     TEXT NOT NULL DEFAULT (datetime('now')),
   atualizado_em TEXT,
 
@@ -1140,6 +1442,13 @@ CREATE INDEX IF NOT EXISTS idx_ssf_sku   ON saidas_sem_faturamento(sku);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ssf_historico
   ON saidas_sem_faturamento(historico_item_id)
   WHERE historico_item_id IS NOT NULL;
+-- Fase 4.4 — a mesma diferença de inventário entra uma vez só, e a trava é do
+-- BANCO, não da aplicação: vale sob crash-e-retry e sob duas abas abertas, o
+-- que o antigo flag `inventario_itens.ajustado` não garantia.
+-- `estornada = 0` é deliberado: diferença estornada PODE ser relançada (D12).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_saida_inventario_unica
+  ON saidas_sem_faturamento (inventario_id, sku, COALESCE(variacao, ''))
+  WHERE inventario_id IS NOT NULL AND estornada = 0;
 
 -- ─── as linhas históricas que foram reclassificadas
 -- Reclassificar NÃO apaga a linha da planilha (§7: o dado de origem se
@@ -1149,7 +1458,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_ssf_historico
 CREATE TABLE IF NOT EXISTS historico_reclassificacao (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   historico_item_id INTEGER NOT NULL REFERENCES vendas_historico_itens(id),
-  classe_nova   TEXT NOT NULL CHECK (classe_nova IN ('brinde', 'uso_proprio', 'perda')),
+  classe_nova   TEXT NOT NULL CHECK (classe_nova IN ('brinde', 'uso_proprio', 'perda', 'sorteio')),
   confianca     TEXT NOT NULL CHECK (confianca IN ('alta', 'media', 'baixa')),
   motivo        TEXT NOT NULL,             -- por extenso, o que decidiu
   saida_id      INTEGER REFERENCES saidas_sem_faturamento(id),

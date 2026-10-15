@@ -35,8 +35,10 @@
  *  é tocada, e por isso `produtos.qtd == SUM(movimentos.qtd)` continua
  *  valendo antes e depois, sem exceção.
  */
-import { variacoesParaRevisao, normSku } from './variantes.js';
+import { variacoesParaRevisao } from './variantes.js';
 import { listarPublicacoes, ESTADO_PUBLICACAO } from './publicacao-catalogo.js';
+import { consultarEmLotes } from './plataforma/d1.js';
+import { normSku } from './sku.js';
 
 const CHAVE_ADIADAS = 'pendencias_adiadas';
 const hojeISO = () => new Date().toISOString().slice(0, 10);
@@ -205,17 +207,26 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
   ].filter(Boolean));
   const variacoesPorSku = new Map();
   if (skus.size) {
-    const qs = [...skus].map(() => '?').join(',');
-    const { results } = await db.prepare(
-      `SELECT pv.sku, pv.nome, pv.atributo, pv.variante_id, pv.valores_json, pv.estoque_loja,
-              COALESCE((SELECT SUM(mo.qtd) FROM movimentos mo
-                         WHERE mo.sku = pv.sku
-                           AND (mo.variante_id = pv.variante_id
-                                OR (mo.variante_id IS NULL AND mo.variacao = pv.nome))), 0) AS saldo
-         FROM produto_variacoes pv
-        WHERE pv.sku IN (${qs})
-        ORDER BY pv.sku, pv.ordem, pv.nome`,
-    ).bind(...[...skus]).all().catch(() => ({ results: [] }));
+    /* Em lotes porque o D1 limita quantos parâmetros uma consulta aceita, e
+       esta lista cresce com o número de peças em maleta aberta. Sem a
+       quebra, a consulta falhava INTEIRA e o `catch` abaixo transformava a
+       falha em "nenhuma variação": a tela oferecia a escolha vazia sem
+       dizer por quê. O `ORDER BY` vale dentro do lote, e cada código está
+       em um lote só — a sequência de variações de um código é a mesma. */
+    let results = [];
+    try {
+      results = await consultarEmLotes(db, [...skus], (qs) => `
+        SELECT pv.sku, pv.nome, pv.atributo, pv.variante_id, pv.valores_json, pv.estoque_loja,
+               COALESCE((SELECT SUM(mo.qtd) FROM movimentos mo
+                          WHERE mo.sku = pv.sku
+                            AND (mo.variante_id = pv.variante_id
+                                 OR (mo.variante_id IS NULL AND mo.variacao = pv.nome))), 0) AS saldo
+          FROM produto_variacoes pv
+         WHERE pv.sku IN (${qs})
+         ORDER BY pv.sku, pv.ordem, pv.nome`);
+    } catch {
+      results = [];
+    }
     for (const v of results ?? []) {
       if (!variacoesPorSku.has(v.sku)) variacoesPorSku.set(v.sku, []);
       let valores = [];
@@ -501,7 +512,7 @@ export async function listarPendencias(db, { tipo = null, incluirAdiadas = false
 export async function resolverVariacaoDaVenda(db, corpo = {}) {
   const vendaId = Number(corpo.vendaId);
   if (!Number.isFinite(vendaId)) return ERRO(400, 'Diga de qual venda é a linha.');
-  const sku = String(corpo.sku ?? '').trim().toUpperCase();
+  const sku = normSku(corpo.sku);
   if (!sku) return ERRO(400, 'Diga qual código está sem variação.');
 
   const escolha = await escolherVariacao(db, sku, corpo);
@@ -572,7 +583,7 @@ export async function resolverVariacaoDaVenda(db, corpo = {}) {
  *  estão numa maleta que levou duas inventaria uma peça. */
 export async function resolverVariacaoDaMaleta(db, corpo = {}) {
   const maletaId = Number(corpo.maletaId);
-  const sku = String(corpo.sku ?? '').trim().toUpperCase();
+  const sku = normSku(corpo.sku);
   if (!Number.isFinite(maletaId) || !sku) return ERRO(400, 'Diga a maleta e o código.');
 
   const maleta = await db.prepare(
