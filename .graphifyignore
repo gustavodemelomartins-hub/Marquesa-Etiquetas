@@ -1,0 +1,46 @@
+# Exclusões do Graphify (base: vibe-coding-toolkit f13bb35). Nunca indexar segredo, dado real nem gerado.
+.git/
+node_modules/
+out/
+dist/
+build/
+coverage/
+graphify-out/
+.agents/
+.claude/
+.codex/
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+auth.json
+credentials.json
+*.log
+*.tsbuildinfo
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+bun.lock
+bun.lockb
+
+# Marquesa: segredos e estado local do Worker
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.wrangler/
+
+# Marquesa: dumps e exports de banco (podem ter dados reais); o schema versionado fica
+*.sql
+*.sql.gz
+!api/schema.sql
+!api/migracao-*.sql
+backups/
+
+# Marquesa: gerados e evidências locais
+dashboard.html
+.tmp/
+evidencias-smoke/
+src/evidencias-smoke/
+.superpowers/

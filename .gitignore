@@ -111,3 +111,6 @@ session-*
 instaloader-session*
 __pycache__/
 *.pyc
+
+# Grafo do Graphify: gerado localmente, nunca versionado
+graphify-out/
