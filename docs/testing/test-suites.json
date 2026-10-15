@@ -780,6 +780,30 @@
       "duration": "~5s"
     },
     {
+      "id": "frontend-lint",
+      "level": "fast",
+      "mode": "local",
+      "description": "ESLint do React (só erro reprova; warnings são a linha de base medida)",
+      "gates": [
+        "fast",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "npm",
+          "args": [
+            "run",
+            "lint"
+          ],
+          "cwd": "frontend"
+        }
+      ],
+      "prerequisites": [
+        "npm ci em frontend"
+      ],
+      "duration": "~10s"
+    },
+    {
       "id": "frontend-build",
       "level": "release",
       "mode": "local",
