@@ -1201,6 +1201,28 @@
         "v2-smoke-operacional.mjs",
         "v2-conciliacao-e2e.mjs"
       ]
+    },
+    {
+      "id": "catalogo-enriquecimento-fluxo",
+      "level": "domain",
+      "mode": "local",
+      "description": "Journal, concorrencia e preservacao comercial com loja simulada e SQLite em memoria",
+      "gates": [
+        "domain",
+        "release"
+      ],
+      "commands": [
+        {
+          "bin": "node",
+          "args": [
+            "src/catalogo-enriquecimento-fluxo-test.mjs"
+          ]
+        }
+      ],
+      "prerequisites": [
+        "Node com node:sqlite"
+      ],
+      "duration": "<5s"
     }
   ]
 }

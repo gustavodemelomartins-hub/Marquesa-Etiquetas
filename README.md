@@ -3,10 +3,18 @@
 Sistema de **estoque, revendedoras e integração com a Nuvemshop**. Controla
 estoque físico e vendas reais.
 
-- **PWA** em HTML/CSS/JS vanilla, servido pelo GitHub Pages
+**Transferência canônica para Stephanie (29/10/2026):** branch
+`handoff/stephanie-2026-10-29`. Comece pelo
+[roteiro de instalação segura](docs/handoff/ROTEIRO-STEPHANIE.md) ou pelo
+[prompt pronto para o Codex](docs/handoff/PROMPT-CODEX-STEPHANIE.txt).
+[Auditoria dos 12 commits e escolha da base](docs/handoff/AUDITORIA-12-COMMITS.md).
+Esses documentos substituem as instruções rápidas abaixo para o onboarding.
+
+- **Painéis** PWA clássico e React/TypeScript/Vite, publicados no Cloudflare Pages
 - **API** num Cloudflare Worker, sem dependências de runtime
 - **Banco** Cloudflare D1 (SQLite), sem ORM
-- **Loja** sincronizada duas vezes por dia, com freios de segurança
+- **Loja** com importação de pedidos/fila a cada 10 minutos e conferência diária,
+  conforme configuração operacional; nomes DEV/PROD não definem uso real
 
 ## Começar
 

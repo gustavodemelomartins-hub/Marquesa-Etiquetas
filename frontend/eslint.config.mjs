@@ -10,7 +10,8 @@
 // Severidades medidas em 15/10/2026 (ver docs/setup.md, "Linha de base de
 // lint"): regra com violação existente entra como "warn" com a contagem
 // anotada; regra sem violação entra como "error". Só "error" reprova
-// `npm run lint`, que roda na suíte (frontend-lint) e no deploy.
+// `npm run lint`, que roda na suíte (frontend-lint); os workflows de deploy
+// existentes não executam essa suíte automaticamente.
 import js from "@eslint/js";
 import { defineConfig, globalIgnores } from "eslint/config";
 import reactPlugin from "eslint-plugin-react";

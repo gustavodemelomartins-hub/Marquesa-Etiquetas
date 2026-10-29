@@ -8,6 +8,42 @@ Não há framework: cada arquivo é um script que imprime `ok` / `FALHA` e sai
 com código 1 se falhou alguma coisa. Manter esse estilo é mais barato que
 introduzir um runner.
 
+## Ciclo de trabalho
+
+```
+1. leia a regra    → api/REGRAS.md + o documento de docs/ do assunto
+2. edite           → api/src/*.js · src/dashboard.tpl.html · frontend/src/
+3. build           → python src/build.py        (se mexeu no painel legado)
+                     cd frontend && npm run build (se mexeu no novo)
+4. teste           → banco limpo + Worker local + a suíte
+5. confira a razão → GET /api/estoque/conferir  tem que voltar vazio
+6. diff            → git diff   (--ignore-cr-at-eol para o dashboard.html)
+```
+
+Comandos, variáveis do `.dev.vars` e as particularidades de Windows estão em
+[docs/operations/DEVELOPMENT.md](../operations/DEVELOPMENT.md).
+
+## Definição de pronto
+
+"Editei o arquivo" **não** é pronto. Pronto é verificação executada,
+proporcional à mudança — direcionada, nunca a suíte inteira por reflexo:
+
+| Mudou | Prova |
+|---|---|
+| `api/src/**` | o teste do assunto (`docs/testing/TESTING.md`) + `GET /api/estoque/conferir` vazio |
+| `src/dashboard.tpl.html` | `python src/build.py` e depois `node src/e2e.mjs` |
+| foto, variação, SKU | `src/editar-peca-test.mjs` · `src/editar-peca-ui-test.mjs` · `src/fotos-catalogo-test.mjs` · `src/sku-auditoria-test.mjs` · `src/sku-gerador-test.mjs` |
+| Pendências / Nuvemshop | `src/pendencias-nuvemshop-test.mjs` |
+| Vendas, Clientes, histórico | `src/vendas-reconstrucao-test.mjs` · `src/categoria-nome-test.mjs` · `src/revendedora-nao-e-cliente-test.mjs` (puros) · `src/vendas-historico-test.mjs` · `src/trocar-planilha-test.mjs` · `src/vendas-clientes-ui-test.mjs` |
+| Preço, desconto na venda | `src/venda-desconto-test.mjs` · `src/e2e.mjs` |
+| Revendedoras / Anexo I | `src/revendedoras-test.mjs` |
+| `frontend/src/**` | `cd frontend && npm test && npm run build` |
+| schema ou migration | contagens antes/depois, cada delta explicado, razão fechando |
+| publicado no DEV | smoke test do endereço publicado |
+
+Não deu para rodar? Diga **isso**, em vez de chamar a mudança de pronta. E
+diga sempre o que ficou de fora.
+
 ## Pré-requisitos comuns
 
 1. Worker local no ar (`npx wrangler dev --local --port 8787`);

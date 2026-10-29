@@ -7,11 +7,10 @@ Nuvemshop**. Controla estoque físico e vendas reais.
 > Nunca adivinhe quando um conflito de dados puder representar peça física.
 
 Stack: Cloudflare Worker · D1/SQLite · API da Nuvemshop. **Dois painéis**
-sobre o mesmo backend: o legado em HTML/CSS/JS vanilla (`src/dashboard.tpl.html`,
-em produção) e o novo em React + TypeScript + Vite (`frontend/`, em
-construção). O backend não tem dependência de runtime.
-
----
+sobre o mesmo backend: o legado em HTML/CSS/JS vanilla (`src/dashboard.tpl.html`)
+e o painel React + TypeScript + Vite (`frontend/`, publicado em `/v2/`).
+O backend não tem dependência de runtime. Produto, público e
+fluxos críticos: [PRODUCT.md](PRODUCT.md).
 
 ## Regras fundamentais
 
@@ -29,10 +28,10 @@ construção). O backend não tem dependência de runtime.
    Rodar o cron duas vezes tem que ser inofensivo.
 6. **Prefira preview/dry-run antes de escrever.** `POST /api/sync
    {"seco": true}` lê tudo e não escreve na loja.
-7. **Produção é a fonte de verdade operacional.** Classe C (deploy, push,
-   migration, infraestrutura e rollback) pode ser executada autonomamente
-   após gates proporcionais. Só Classe D destrutiva/empresarial exige decisão
-   humana explícita. Ver [docs/SECURITY.md](docs/SECURITY.md).
+7. **Produção é quem recebe a operação real, independentemente do nome.**
+   Classe C exige gates proporcionais e, durante freeze, instrução humana
+   explícita para PROD; Classe D também exige decisão explícita.
+   Ver [docs/SECURITY.md](docs/SECURITY.md) e o estado de governança.
 8. **[api/REGRAS.md](api/REGRAS.md) é a fonte fundamental das regras de
    negócio.** Leia antes de mudar comportamento; não o duplique em lugar
    nenhum.
@@ -43,19 +42,48 @@ construção). O backend não tem dependência de runtime.
 Use uma regra por assunto, nesta ordem:
 
 1. pedido humano explícito mais recente;
-2. este roteador (`AGENTS.md` no Codex, `CLAUDE.md` no Claude);
+2. este roteador (`AGENTS.md`; o Claude o importa via `CLAUDE.md`);
 3. `docs/SECURITY.md` para risco/ambientes e `api/REGRAS.md` para negócio;
 4. regra por caminho ou skill especializada, somente quando acionada;
 5. runbooks e documentação histórica como evidência, nunca como precedência.
 
-Configuração local (`AGENTS.override.md`, `CLAUDE.local.md`, `.codex/` ou
+Configuração local (`CLAUDE.local.md`, `AGENTS.override.md`, `.codex/` ou
 `.agents/`) conecta a máquina às ferramentas, mas não pode reintroduzir uma
 política revogada nem contradizer as duas fontes canônicas do item 3.
+
+## Comandos canônicos
+
+| Para | Comando |
+|---|---|
+| Instalar | `npm ci` em `frontend/`, `api/` e `src/` |
+| Painel novo | `cd frontend && npm run dev` · `npm run lint` · `npm run typecheck` |
+| Testes rápidos / domínio / release | `npm run test:fast` · `npm run test:domain` · `npm test` |
+| Build | `cd frontend && npm run build` · `python src/build.py` (legado) |
+| Razão fechando | `GET /api/estoque/conferir` volta vazio |
+
+Prova por mudança: [docs/testing/TESTING.md](docs/testing/TESTING.md). Não deu para rodar? Diga isso.
+
+## Acordos de trabalho
+
+- Leia regra e código antes; separe observação, hipótese e evidência.
+- Aceite e comando de prova antes de implementar; correção começa reproduzindo.
+- Mudou comportamento, comando, schema ou config? Atualize o doc no mesmo commit.
+- Bloqueio parcial trava só o que depende dele. [Princípios](docs/operations/HARNESS-PRINCIPIOS.md).
+
+## Ferramentas
+
+Plugins, MCPs, RTK e Graphify são opcionais; não presuma instalação global,
+vault ou login do Gustavo. Setup portátil: [docs/setup.md](docs/setup.md).
+Skills do projeto em `.claude/skills`; `.agents/skills` pode ser alias local.
+Codex: leia skills versionadas sob demanda, uma por vez; papéis em
+`.codex/agents/`, travas em `.codex/hooks/` (segredo, Classe D e PROD
+congelada, espelho de `.claude/hooks/`) — adaptadores, nunca política própria.
 
 ## Onde procurar informação
 
 ```
 Índice da documentação → docs/README.md   (taxonomia e precedência)
+Setup do toolkit   → docs/setup.md   (ferramentas, validado, pendente)
 Plano mestre       → docs/architecture/MASTER-PLAN-SISTEMA-MARQUESA-2026-09.md
 Plano do go-live   → docs/archive/PLANO-MESTRE-MARQUESA.md   (histórico)
 Regras de negócio  → api/REGRAS.md
@@ -73,7 +101,7 @@ Dívida técnica     → docs/architecture/TECH_DEBT.md
 Próxima fase       → docs/domains/ROADMAP_RECONCILIATION.md
 Publicar a API     → api/DEPLOY.md
 Montar o dashboard → src/README.md
-Camada agentic     → .claude/README.md   (arquitetura comum e adaptador Claude)
+Camada agentic     → .claude/README.md   (permissões, hooks, modelos)
 WSL2 / sandbox     → docs/operations/WSL2_MIGRATION.md
 ```
 
@@ -95,55 +123,13 @@ o resto é token gasto sem retorno.
 
 Estratégia completa: [docs/operations/CLAUDE_CONTEXT_STRATEGY.md](docs/operations/CLAUDE_CONTEXT_STRATEGY.md)
 
-## Skills deste projeto
-
-Carregue **sob demanda**, uma de cada vez. Skill carregada "por precaução" é
-token gasto sem retorno.
-
-| Skill | Quando |
-|---|---|
-| `marquesa-context` | precisa entender uma regra de negócio |
-| `inventory` | estoque, cadastro, peças novas, quantidade, foto, planilha |
-| `marquesa-safe-import` | o mecanismo do importador — CSV, XLSX, catálogo |
-| `marquesa-sync` | Nuvemshop, pedidos, SKU, variantes, `sync.js` |
-| `marquesa-reconciliation` | divergência, duplicado, conflito, revisão humana |
-| `safe-d1-change` | desenhar schema, migration, índice |
-| `database-dev` | operação segura no D1; PROD real primeiro, DEV auxiliar |
-| `deploy-dev` | publicar/verificar DEV quando ele for útil, nunca como gate |
-| `ui-verification` | provar que a tela funciona (Playwright), sem inspeção humana |
-| `pre-deploy-check` | antes de qualquer deploy |
-
-## Regras por caminho e travas automáticas
-
-`.claude/rules/` guarda regras por caminho do Claude. O Codex descobre skills
-em `.agents/skills` e configuração de projeto em `.codex/`; essas cópias são
-adaptadores e não fontes concorrentes de política.
-
-Duas travas rodam antes de você: `PreToolUse` deixa Classe C seguir e pede
-decisão explícita somente para Classe D, além de impedir leitura de segredo;
-`Stop` cobra a verificação uma vez por sessão. Configurações de Codex devem
-espelhar esse comportamento, nunca criar uma segunda política. Ver
-[docs/SECURITY.md](docs/SECURITY.md).
-
-## Subagentes
-
-| Agente | Quando | Modelo |
-|---|---|---|
-| `repo-explorer` | "onde acontece X?" — exploração barata, somente leitura | haiku |
-| `verifier` | provar que a mudança funciona; caçar regressão | sonnet |
-| `database-guardian` | schema, integridade, contagens, antes/depois no D1 | sonnet |
-| `architect` | mudança que atravessa frontend + API + banco | opus |
-
-Use subagente quando a investigação geraria muita saída. Tarefa trivial não
-merece Opus nem subagente.
-
 ## Operação production-first
 
-PROD é a referência real. Antes de publicar, confira diretamente commit,
-Worker, bindings, D1/schema, migrations e configurações implantadas. DEV
-(`develop` / `marquesa-api-staging` / `marquesa-db-dev`) é auxiliar: pode ser
-usado quando acrescenta evidência, mas nunca é gate, fonte de verdade ou
-pré-requisito para produção.
+PROD é a referência real. Antes de publicar, confira commit, Worker,
+bindings, D1/schema, migrations e configuração implantada. Nomes como DEV,
+staging ou develop não provam isolamento: se recebe vendas reais ou atende
+a operação, trate como produção. Ambientes comprovadamente auxiliares não
+são fonte de verdade nem pré-requisito universal para produção.
 
 Quando uma tarefa pede implementação, correção ou conclusão de release, o
 agente pode executar merge, push, migration, deploy, secret técnico,
@@ -157,42 +143,15 @@ Este é o clone real de `gustavodemelomartins-hub/Marquesa-Etiquetas`, com o
 histórico completo e `origin` configurado. Nunca publique uma branch antiga
 por cima de uma produção mais nova; reconcilie primeiro.
 
-## Ciclo de trabalho
+## Delegação e revisão
 
-```
-1. leia a regra    → api/REGRAS.md + o documento de docs/ do assunto
-2. edite           → api/src/*.js · src/dashboard.tpl.html · frontend/src/
-3. build           → python src/build.py        (se mexeu no painel legado)
-                     cd frontend && npm run build (se mexeu no novo)
-4. teste           → banco limpo + Worker local + a suíte
-5. confira a razão → GET /api/estoque/conferir  tem que voltar vazio
-6. diff            → git diff   (--ignore-cr-at-eol para o dashboard.html)
-```
-
-Comandos, variáveis do `.dev.vars` e as particularidades de Windows estão em
-[docs/operations/DEVELOPMENT.md](docs/operations/DEVELOPMENT.md).
-
-## Definição de pronto
-
-"Editei o arquivo" **não** é pronto. Pronto é verificação executada,
-proporcional à mudança — direcionada, nunca a suíte inteira por reflexo:
-
-| Mudou | Prova |
-|---|---|
-| `api/src/**` | o teste do assunto (`docs/testing/TESTING.md`) + `GET /api/estoque/conferir` vazio |
-| `src/dashboard.tpl.html` | `python src/build.py` e depois `node src/e2e.mjs` |
-| foto, variação, SKU | `src/editar-peca-test.mjs` · `src/editar-peca-ui-test.mjs` · `src/fotos-catalogo-test.mjs` · `src/sku-auditoria-test.mjs` · `src/sku-gerador-test.mjs` |
-| Pendências / Nuvemshop | `src/pendencias-nuvemshop-test.mjs` |
-| Revendedoras / Anexo I | `src/revendedoras-test.mjs` |
-| `frontend/src/**` | `cd frontend && npm test && npm run build` |
-| schema ou migration | contagens antes/depois, cada delta explicado, razão fechando |
-| publicado no DEV | smoke test do endereço publicado |
-
-Não deu para rodar? Diga **isso**, em vez de chamar a mudança de pronta. E
-diga sempre o que ficou de fora.
+Delegue só quando o isolamento compensa; um escritor por arquivo; ondas
+paralelas seguem [docs/operations/PARALLEL-SUBAGENTS.md](docs/operations/PARALLEL-SUBAGENTS.md).
+Revise de forma proporcional ao risco, com um escritor por recurso e
+revisor somente leitura; não imponha ciclos sem evidência de necessidade.
 
 ## Ponto de retorno
 
-Tag local `checkpoint/pre-bootstrap-Codex` (commit `f3f08cb`, o último antes
-do bootstrap) + tarball em `../Marquesa-Etiquetas-backups/`. Como voltar:
+Referências históricas, tags e backups podem existir somente na máquina de
+origem. Não presuma que um clone os recebeu. Como preparar recuperação:
 [docs/operations/BACKUP_RECOVERY.md](docs/operations/BACKUP_RECOVERY.md).

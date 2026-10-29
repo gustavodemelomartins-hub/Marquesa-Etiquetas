@@ -1,0 +1,90 @@
+Prepare meu computador para desenvolver o Sistema Marquesa com segurança. Execute o onboarding até funcionar localmente; não pare em um plano. Fale em pt-BR e faça perguntas apenas quando uma informação ausente realmente impedir o próximo passo. Continue tarefas independentes enquanto aguarda.
+
+CONTEXTO E ESCOPO
+O repositório público é https://github.com/gustavodemelomartins-hub/Marquesa-Etiquetas.git. O sistema tem painel clássico HTML/JS, painel React/TypeScript/Vite em frontend/, API Cloudflare Worker em api/, D1 e R2. A loja Nuvemshop real já está integrada no Worker PROD. Não preciso recriar a loja ou mover os dados para este computador.
+
+Este pedido autoriza preparar arquivos locais, instalar dependências, iniciar servidores locais e validar o projeto. Prepare também um roteiro de publicação futura. Não publique, não faça push, não dispare Actions, não altere secrets ou dados da nuvem, não reautorize Nuvemshop e não descongele produção nesta tarefa. Não habilite billing, proxy ou APIs pagas. Use meu login oficial e preserve sessões existentes; a aplicação não exige OpenAI API key.
+
+1. LOCALIZAR E CLONAR
+Detecte o sistema operacional. No Windows encontre a Área de Trabalho real pelo mecanismo do sistema, inclusive se redirecionada para OneDrive. Crie nela a pasta Marquesa-Etiquetas. Se já existir, confira Git/status/origin e preserve todo trabalho; não sobrescreva, resete ou limpe. Se não puder reutilizar com segurança, escolha uma pasta irmã livre e me informe.
+
+Clone com histórico completo e faça checkout da branch canônica handoff/stephanie-2026-10-29. Use git clone, depois git checkout handoff/stephanie-2026-10-29; não use main/develop como ponto inicial. Em 29/10/2026, main remoto era 69ac8ac975c5ce8b7043fa346db64b1f9b5271fc, develop era 1fb618d401e50c4d790e3bf23d0e5a3a5d400eea, e os deployments PROD apontavam para cd0cec15b325469d4a9d355ed347601702ecf5ce. Reconfirme os refs atuais: esses números são evidência datada, não instrução para voltar o projeto no tempo. Crie branch própria stephanie/onboarding, ou nome livre equivalente, a partir da branch de handoff atual. Registre remoto, SHA e status sem mostrar credenciais.
+
+Leia as instruções aplicáveis e os arquivos AGENTS.md, docs/SECURITY.md, .claude/governanca.json, docs/operations/DEVELOPMENT.md e docs/testing/TESTING.md conforme necessidade. Antes de mudar regras, leia api/REGRAS.md. Não abra dashboard.html gerado nem o template enorme inteiro. Não copie configurações privadas da máquina do Gustavo. Caso instruções mencionem vault/paths inexistentes dele, registre a indisponibilidade e use documentação versionada e este contexto, sem inventar memória.
+
+A branch de handoff incorpora 3 commits integrais de proteção/lint e conteúdo portátil de outros 3 commits, auditados em docs/handoff/AUDITORIA-12-COMMITS.md. Outros 6 eram planos/provas da máquina do Gustavo e foram preservados na origem, fora da entrega. intelligence/ não faz parte do sistema operacional. Não é necessário receber ZIP, vault ou configuração privada.
+
+A correção 1671bc5 para os hooks reconhecerem wrappers RTK está incorporada nesta branch; execute comandos diretamente, sem precisar instalar RTK. Não contorne travas existentes. Plugins/MCPs/skills globais são opcionais; não copie arquivos globais de configuração/login do Gustavo nem os trate como requisito do produto.
+
+2. PRÉ-REQUISITOS E DEPENDÊNCIAS
+Confira Git, Node/npm e Python 3. Use Node 24 LTS, conforme .node-version; a validação usa 24.22.1. Não usar Node 26 neste onboarding: seus testes JSDOM apresentam incompatibilidade com o localStorage nativo. Use instalações oficiais se faltar ferramenta. Quando precisar de MFA/login interativo, deixe esse passo comigo e prossiga no restante possível.
+
+Instale com npm ci em api/, src/ e frontend/, respeitando os três package-lock.json. Não há necessidade de npm install na raiz. Não faça upgrade de dependências/lockfiles nem npm audit fix --force para completar onboarding. No snapshot auditado: Wrangler 4.123.0, React 19.2.8, Vite 7.3.6, TypeScript 5.9.3, Playwright 1.62.1 e xlsx 0.18.5; confirme os lockfiles atuais.
+
+Em src/, instale o Chromium do Playwright com npx playwright install chromium. No Windows use python src/build.py na raiz, pois o npm build legado chama python3.
+
+3. CONFIGURAR SOMENTE AMBIENTE LOCAL
+Não leia arquivos reais de credenciais existentes. Em clone novo, crie api/.dev.vars ignorado pelo Git com API_KEY aleatória exclusiva local, sem imprimi-la. Use:
+ORIGENS_PERMITIDAS=http://localhost:8000,http://localhost:5173
+NUVEMSHOP_WRITES_ENABLED=false
+NUVEMSHOP_PUBLICACAO_ENABLED=false
+NUVEMSHOP_STORE_ID=999999
+NUVEMSHOP_TOKEN=token-de-mentira
+NUVEMSHOP_CLIENT_ID=1234
+NUVEMSHOP_CLIENT_SECRET=segredo-de-mentira
+NUVEMSHOP_BASE=http://localhost:8799
+NUVEMSHOP_AUTH_BASE=http://localhost:8799
+
+Preserve qualquer arquivo existente sem o abrir/imprimir. Ao reutilizar clone com api/.dev.vars preexistente, crie api/.dev.vars.staging com dados fictícios, somente se esse arquivo ainda não existir: --env staging prefere esse arquivo e evita herdar o .dev.vars real. Confirme o arquivo selecionado e as bases locais antes de iniciar o Worker. Se também existir .dev.vars.staging, não o abra nem sobrescreva; use um novo clone em pasta irmã livre para este onboarding. Nunca substitua uma credencial existente silenciosamente.
+
+Para o frontend, forneça VITE_API_URL=http://localhost:8787 e VITE_APP_ENV=dev por processo ou frontend/.env.local ignorado. Confirme ambos os arquivos locais com git check-ignore. VITE_* é público no navegador e não pode conter API_KEY/token.
+
+Não é necessário receber token real da Nuvemshop para desenvolver. Se algum recurso futuro precisar de segredo fornecido por mim, indique como eu o insiro localmente ou no serviço por canal seguro, sem solicitar que eu o cole na conversa ou o exponha no terminal. Não recupere credenciais do Gustavo.
+
+4. INICIAR D1, R2 E SERVIDORES LOCAIS
+Inspecione api/wrangler.toml e prove que os comandos locais não usarão bindings remotos. A raiz do TOML é PROD! Nunca use deploy sem ambiente. Para esta preparação use staging apenas como seleção de configuração, sempre com --local; não confunda com publicação no staging remoto.
+
+Em clone novo e sem estado anterior, a partir de api/ inicialize:
+npx wrangler d1 execute DB --env staging --local --file=schema.sql
+Depois inicie:
+npx wrangler dev --env staging --local --port 8787
+Use o mesmo ambiente e persistência na inicialização e servidor. Não acrescente --remote nem remote=true. Não apague estado existente para fazer teste passar. Se precisar de outro banco descartável, crie persistência local nova e mantenha inicialização/servidor consistentes. Use schema.sql para banco vazio; não aplique todos os migracao-*.sql, nem rollbacks, por curinga ou ordem alfabética.
+
+Gere o painel clássico com python src/build.py. Sirva a raiz por python -m http.server 8000 --bind 127.0.0.1. Inicie o Vite em frontend/ com npm run dev, limitado a localhost. Ao iniciar processos em segundo plano no Windows, evite abrir janelas desnecessárias e registre como encerrar os processos criados.
+
+Abra http://localhost:8000/dashboard.html e http://localhost:5173. Conecte cada origem ao Worker local em http://localhost:8787 com a chave local, sem capturá-la em screenshot ou relatório. As duas portas têm localStorage diferente. Não abra o frontend local conectado à API PROD. D1 e R2 locais não precisam nem devem receber dados reais automaticamente.
+
+5. VALIDAR E CORRIGIR O ONBOARDING
+Execute verificações reais e guarde exit codes e resultados:
+- node src/migracao-variantes-test.mjs
+- npm run test:fast, na raiz
+- npm test, em frontend/
+- npm run build, em frontend/ (inclui typecheck)
+- /api/health local; 401 sem chave em rota protegida; acesso autenticado local.
+- GET /api/estoque/conferir local autenticado: divergentes deve ser [].
+- Carregamento e conexão dos dois painéis; fluxo fictício proporcional e mídia R2 local se aplicável.
+
+Não interprete api/npm test como teste real: é placeholder. Grupos test:integration/test:browser podem apenas listar testes; um exit 0 de catálogo não prova execução. Não execute todos os scripts com test, production, apply ou smoke no nome. Leia o manifesto e o alvo antes de rodar integrações.
+
+Para testes de sync, use a loja falsa de src/loja-falsa.mjs e os testes específicos conforme documentação. Apenas se o teste exigir escrita, permita NUVEMSHOP_WRITES_ENABLED=true temporariamente depois de comprovar que NUVEMSHOP_BASE e NUVEMSHOP_AUTH_BASE são localhost:8799 e que todas as credenciais são fictícias. Ao terminar, reponha false e reinicie o Worker se necessário. Nunca habilite escrita contra loja real para satisfazer um teste. Preserve isolamento/reset seguro entre casos; não crie dados em PROD.
+
+Se falhar, investigue e corrija problemas locais reversíveis dentro do escopo. Não mascare falhas, edite testes para passarem artificialmente ou altere estoque/regra de negócio. Separe defeito preexistente de configuração incompleta e diga exatamente o que impede a validação.
+
+6. PREPARAR O TRABALHO FUTURO SEM PUBLICAR
+Crie um guia local curto com os comandos Windows corretos, caminhos, URLs locais, como iniciar/parar, resultados das verificações, pendências e roteiro de release. Não inclua chave ou dados pessoais. Revise git diff/status e não adicione segredos ou alterações de build sem intenção. Não faça commit/push nesta preparação.
+
+Recursos existentes na conta Cloudflare proprietária (ID add18da8ed17f8536c2d30d7119e99eb):
+PROD: Worker marquesa-api, D1 marquesa-db-prod/51dd629b-52dc-46d0-a1af-fa37f0a79533, R2 marquesa-fotos, Pages marquesa em https://marquesa-9da.pages.dev/v2/.
+DEV staging: marquesa-api-staging, marquesa-db-dev/dcc36f65-daaa-42a4-9fbd-15e6f27e4d4b.
+DEV staging-v2: marquesa-api-staging-v2, marquesa-db-staging-v2/db76e50a-af76-4228-bcad-6be161a61344. Ambos DEV usam marquesa-fotos-dev. Pages DEV: marquesa-dev.pages.dev.
+marquesa-db/089153a9-cee5-4887-b789-a23b1cf419f5 é rollback histórico, não PROD nem DEV descartável.
+
+Para administração futura, listar convites pessoais GitHub/Cloudflare e acesso Nuvemshop necessário; não compartilhar conta/billing. Secrets PROD existentes: API_KEY, NUVEMSHOP_TOKEN, NUVEMSHOP_STORE_ID, NUVEMSHOP_CLIENT_ID, NUVEMSHOP_CLIENT_SECRET. Não precisam ser copiados para o computador. API_KEY é compartilhada na aplicação e sua rotação afeta todos. GitHub Actions usa CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID; conferir nomes/permissões sem ler valores. Opcionais de código: FOTO_FUNDO_URL/TOKEN e PREPARADOR_CATALOGO_URL/TOKEN; não inventar serviços ou assinaturas para eles.
+
+Em 29/10/2026, prodCongelada=true: respeite a exceção de freeze em docs/SECURITY.md; a presente tarefa não autoriza produção. Push em develop pode aplicar migrations e publicar API DEV antes de testar/buildar o frontend. O workflow PROD de Pages é manual e faz checkout fixo de develop, mesmo se disparado a partir da branch de handoff; ele não publica automaticamente o código do handoff nem atualiza Worker PROD/D1. Uma release futura deve reconciliar explicitamente a fonte de publicação. Portanto uma release futura deve confirmar código implantado, bindings/flags/schema reais, testes focados, backup/bookmark quando houver risco de dados, rollback e validação pós-deploy, com autorização aplicável. DEV é auxiliar; não assuma que ele espelha PROD nem que contém só dados fictícios.
+
+Preserve invariantes: movimentação de estoque só via movimentar(), produtos.qtd=SUM(movimentos.qtd), vendas.externo_id único/idempotente e Nuvemshop destino do estoque físico. Não adivinhar variante/aro e não alterar saldo direto. Não importar dump real no onboarding. R2 precisa de backup próprio; export D1 não inclui fotos.
+
+Um primeiro problema a investigar depois, sem o corrigir nesta tarefa: pedidos aparecem com Cliente do site e sem edição. Há pista no sync.js: usa somente pedido.customer.name e o INSERT de venda importada não inclui cliente_id. Reproduzir com pedido anonimizado e loja falsa, conferir nome/identidade e testar vínculo/edição. Não unir clientes genéricos em massa nem reimportar pedidos alterando estoque.
+
+Ao concluir, apresente a pasta e branch criadas, URLs locais funcionando, testes realmente executados, limitações e acessos ainda necessários. Se algo depender de mim, deixe uma instrução concreta e conclua todo o restante possível. Só diga pronto localmente após validar; não diga publicado ou transferência integral se faltarem acessos ou validações pendentes.

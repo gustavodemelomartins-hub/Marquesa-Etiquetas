@@ -92,8 +92,17 @@ const agents = ler('AGENTS.md');
 const claude = ler('CLAUDE.md');
 t('SECURITY declara production-first', /production-first/i.test(security));
 t('SECURITY identifica marquesa-db-prod', security.includes('marquesa-db-prod'));
-t('roteadores declaram a mesma hierarquia', agents.includes('## Hierarquia de instruções')
-  && claude.includes('## Hierarquia de instruções'));
+// AGENTS.md é a fonte única; CLAUDE.md só importa e guarda o exclusivo do Claude.
+t('AGENTS.md declara a hierarquia', agents.includes('## Hierarquia de instruções'));
+t('CLAUDE.md importa AGENTS.md', /^@AGENTS\.md\s*$/m.test(claude));
+t('CLAUDE.md não duplica a hierarquia', !claude.includes('## Hierarquia de instruções'));
+for (const secao of ['## Regras fundamentais', '## Comandos canônicos', '## Ferramentas', '## Delegação e revisão']) {
+  t(`AGENTS.md tem ${secao}`, agents.includes(secao));
+}
+t('AGENTS.md é curto (≤ 160 linhas)', agents.split(/\r?\n/).length <= 160);
+// O Codex só lê o AGENTS.md: travas, papéis e skills dele precisam estar ali.
+t('AGENTS.md aponta travas, papéis e skills do Codex', ['.codex/hooks', '.codex/agents', '.agents/skills']
+  .every((p) => agents.includes(p)));
 
 console.log(falhas ? `${falhas} FALHA(S) em ${ok + falhas} casos` : `ok — ${ok} casos`);
 process.exit(falhas ? 1 : 0);
