@@ -50,5 +50,31 @@ As dependências foram preservadas; esta entrega não é uma correção de todas
 vulnerabilidades ou dívidas antigas. Não certifica câmera física, impressão ou
 Nuvemshop real ponta a ponta. Produção não foi alterada.
 
-A verificação independente de clone remoto será acrescentada após a primeira
-publicação da branch, mantendo esses resultados anteriores como evidência datada.
+## Clone independente obtido do GitHub
+
+Após publicar a branch, foi executado **outro `git clone` diretamente do GitHub**,
+seguido de `git checkout handoff/stephanie-2026-10-29`. A revisão obtida foi
+`471a7307a903b27a254d0a8812492dbb8a81c9c2`. Antes de instalar, esse clone estava
+limpo e não continha `.dev.vars`, `.wrangler` ou `node_modules` da máquina de origem.
+
+Nele, sem copiar dependências ou configuração da primeira cópia:
+
+- `npm ci` concluído nos três diretórios, usando somente seus lockfiles;
+- Node 24.22.1, **643/643 testes React** e build TypeScript/Vite aprovados;
+- **12/12 gates rápidos** aprovados, incluindo schema, governança, hook e lint;
+- configuração fictícia local criada do zero e ignorada pelo Git;
+- D1 inicializado somente com `--local`, mesmo ambiente/persistência do Worker;
+- health 200, state 401 sem chave e 200 com chave local, razão sem divergências;
+- painéis clássico e React compilado abertos no Chromium, cada um recebendo
+  `/api/state` com 200, sem exceção JavaScript e sem solicitações externas;
+- processos de teste encerrados. Nenhuma credencial real ou serviço remoto foi
+  necessário para esses resultados.
+
+Este registro posterior altera apenas documentação. O código funcional, fontes
+dos painéis, schema, configurações de infraestrutura e workflows seguem idênticos
+à base operacional identificada na auditoria. O arquivo de configuração local e
+os artefatos de instalação/build não foram publicados no GitHub.
+
+Assim, **GitHub + checkout da branch + instalação + configuração local segura**
+é suficiente para desenvolver localmente; ZIP e arquivos privados não são necessários.
+Isso não concede acesso automático à operação real nem certifica uma futura release.
